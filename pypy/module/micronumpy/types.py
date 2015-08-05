@@ -175,8 +175,13 @@ class Primitive(object):
         return self.box(array[0])
 
     def unbox(self, box):
-        assert isinstance(box, self.BoxType)
-        return box.value
+        if isinstance(box, self.BoxType):
+            return box.value
+        elif isinstance(box,  boxes.W_ObjectBox):
+            return self._coerce(self.space, box).value
+        else:
+            raise oefmt(self.space.w_NotImplementedError,
+                "%s dtype cannot unbox %s", str(self), str(box))
 
     def coerce(self, space, dtype, w_item):
         if isinstance(w_item, self.BoxType):
@@ -1232,8 +1237,14 @@ class ComplexFloating(object):
         return self.box_complex(real, imag)
 
     def unbox(self, box):
-        assert isinstance(box, self.BoxType)
-        return box.real, box.imag
+        if isinstance(box, self.BoxType):
+            return box.real, box.imag
+        elif isinstance(box,  boxes.W_ObjectBox):
+            retval = self._coerce(self.space, box)
+            return retval.real, retval.imag
+        else:
+            raise oefmt(self.space.w_NotImplementedError,
+                "%s dtype cannot unbox %s", str(self), str(box))
 
     def _read(self, storage, i, offset, native):
         real = raw_storage_getitem_unaligned(self.T, storage, i + offset)
@@ -2396,7 +2407,7 @@ class VoidType(FlexibleType):
         dt = item.arr.dtype
         ret_unwrapped = []
         for name in dt.names:
-            ofs, dtype = dt.fields[name]
+            ofs, dtype = dt.fields[name[0]]
             # XXX: code duplication with W_VoidBox.descr_getitem()
             if isinstance(dtype.itemtype, VoidType):
                 read_val = dtype.itemtype.readarray(item.arr, ofs, 0, dtype)
@@ -2431,14 +2442,14 @@ class RecordType(FlexibleType):
                 return w_item
             else:
                 # match up the field names
-                items_w = [None] * len(dtype.fields)
-                for i in range(len(dtype.fields)):
+                items_w = [None] * len(dtype.names)
+                for i in range(len(dtype.names)):
                     name = dtype.names[i]
                     if name in w_item.dtype.names:
-                        items_w[i] = w_item.descr_getitem(space, space.wrap(name))
+                        items_w[i] = w_item.descr_getitem(space, space.wrap(name[0]))
         elif w_item is not None:
             if space.isinstance_w(w_item, space.w_tuple):
-                if len(dtype.fields) != space.len_w(w_item):
+                if len(dtype.names) != space.len_w(w_item):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "size of tuple must match number of fields."))
                 items_w = space.fixedview(w_item)
@@ -2449,12 +2460,12 @@ class RecordType(FlexibleType):
                             "expected a readable buffer object")
             else:
                 # XXX support initializing from readable buffers
-                items_w = [w_item] * len(dtype.fields)
+                items_w = [w_item] * len(dtype.names)
         else:
             items_w = [None] * len(dtype.fields)
         arr = VoidBoxStorage(dtype.elsize, dtype)
-        for i in range(len(dtype.fields)):
-            ofs, subdtype = dtype.fields[dtype.names[i]]
+        for i in range(len(dtype.names)):
+            ofs, subdtype = dtype.fields[dtype.names[i][0]]
             try:
                 w_box = subdtype.coerce(space, items_w[i])
             except IndexError:
@@ -2492,7 +2503,7 @@ class RecordType(FlexibleType):
         items = []
         dtype = box.dtype
         for name in dtype.names:
-            ofs, subdtype = dtype.fields[name]
+            ofs, subdtype = dtype.fields[name[0]]
             subbox = subdtype.read(box.arr, box.ofs, ofs)
             items.append(subdtype.itemtype.to_builtin_type(space, subbox))
         return space.newtuple(items)
@@ -2503,7 +2514,7 @@ class RecordType(FlexibleType):
         pieces = ["("]
         first = True
         for name in box.dtype.names:
-            ofs, subdtype = box.dtype.fields[name]
+            ofs, subdtype = box.dtype.fields[name[0]]
             if first:
                 first = False
             else:

@@ -1361,3 +1361,26 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert np.add(np.zeros(5, dtype=np.int8), 257).dtype == np.int16
         assert np.subtract(np.zeros(5, dtype=np.int8), 257).dtype == np.int16
         assert np.divide(np.zeros(5, dtype=np.int8), 257).dtype == np.int16
+
+    def test_add_doc(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('')
+        try:
+            from numpy import set_docstring
+        except ImportError:
+            from _numpypy.multiarray import set_docstring
+        import numpy as np
+        assert np.add.__doc__ is None
+        add_doc = np.add.__doc__
+        ufunc_doc = np.ufunc.__doc__
+        try:
+            np.add.__doc__ = 'np.add'
+            assert np.add.__doc__ == 'np.add'
+            # Test for interferences between ufunc objects and their class
+            set_docstring(np.ufunc, 'np.ufunc')
+            assert np.ufunc.__doc__ == 'np.ufunc'
+            assert np.add.__doc__ == 'np.add'
+        finally:
+            set_docstring(np.ufunc, ufunc_doc)
+            np.add.__doc__ = add_doc

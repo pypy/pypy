@@ -212,3 +212,17 @@ class AppTestAbstractInst:
 
         assert issubclass(int, Integer)
         assert issubclass(int, (Integer,))
+
+    def test_dont_call_instancecheck_fast_path(self):
+        called = []
+        
+        class M(type):
+            def __instancecheck__(self, obj):
+                called.append("called")
+
+        class C:
+            __metaclass__ = M
+
+        c = C()
+        assert isinstance(c, C)
+        assert not called

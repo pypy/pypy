@@ -916,9 +916,9 @@ class InstanceRepr(Repr):
                             name, None)
                         if attrvalue is None:
                             # Ellipsis from get_reusable_prebuilt_instance()
-                            if value is not Ellipsis:
-                                warning("prebuilt instance %r has no "
-                                        "attribute %r" % (value, name))
+                            #if value is not Ellipsis:
+                                #warning("prebuilt instance %r has no "
+                                #        "attribute %r" % (value, name))
                             llattrvalue = r.lowleveltype._defl()
                         else:
                             llattrvalue = r.convert_desc_or_const(attrvalue)

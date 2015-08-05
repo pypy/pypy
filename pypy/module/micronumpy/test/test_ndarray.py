@@ -4,7 +4,7 @@ import sys
 
 from pypy.conftest import option
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
-from pypy.module.micronumpy.strides import Chunk, Chunks
+from pypy.module.micronumpy.strides import Chunk, new_view, EllipsisChunk
 from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
@@ -22,7 +22,9 @@ class MockDtype(object):
 
 
 def create_slice(space, a, chunks):
-    return Chunks(chunks).apply(space, W_NDimArray(a)).implementation
+    if not any(isinstance(c, EllipsisChunk) for c in chunks):
+        chunks.append(EllipsisChunk())
+    return new_view(space, W_NDimArray(a), chunks).implementation
 
 
 def create_array(*args, **kwargs):
@@ -264,6 +266,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (y == x.T).all()
         y = array(x.T, copy=False)
         assert (y == x.T).all()
+
+        exc = raises(ValueError, ndarray, [1,2,256]*10000)
+        assert exc.value[0] == 'sequence too large; must be smaller than 32'
+        exc = raises(ValueError, ndarray, [1,2,256]*10)
+        assert exc.value[0] == 'array is too big'
 
     def test_ndmin(self):
         from numpy import array
@@ -764,8 +771,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (a[1:] == b).all()
         assert (a[1:,newaxis] == d).all()
         assert (a[newaxis,1:] == c).all()
-        assert a.strides == (8,)
-        assert a[:, newaxis].strides == (8, 0)
+        n = a.dtype.itemsize
+        assert a.strides == (n,)
+        assert a[:, newaxis].strides == (n, 0)
 
     def test_newaxis_assign(self):
         from numpy import array, newaxis
@@ -2467,6 +2475,7 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert a[...].base is a
         a[...] = 4
         assert (a == [4, 4, 4]).all()
+        assert a[..., 0] == 4
 
         b = np.arange(24).reshape(2,3,4)
         b[...] = 100
@@ -2477,6 +2486,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b[0,0,:] == [10, 20, 30, 40]).all()
         assert b.shape == b[...].shape
         assert (b == b[...]).all()
+
+        a = np.arange(6).reshape(2, 3)
+        if '__pypy__' in sys.builtin_module_names:
+            raises(ValueError, "a[..., ...]")
+        b = a [..., 0]
+        assert (b == [0, 3]).all()
+        assert b.base is a
 
     def test_empty_indexing(self):
         import numpy as np
@@ -2883,6 +2899,15 @@ class AppTestMultiDim(BaseNumpyAppTest):
         exc = raises(IndexError, "b[0, 1] = 42")
         assert str(exc.value) == "unsupported iterator index"
         assert b.index == 1
+        a = array([(False, False, False), 
+                   (False, False, False), 
+                   (False, False, False),
+                  ], 
+                   dtype=[('a', '|b1'), ('b', '|b1'), ('c', '|b1')])
+        a.flat = [(True, True, True), 
+                  (True, True, True), 
+                  (True, True, True)] 
+        assert (a.view(bool) == True).all()
 
     def test_flatiter_ops(self):
         from numpy import arange, array

@@ -37,3 +37,21 @@ have no visible effect!  After ``lst = [42, 42.5]``, the value of
 .. branch: unicode-dtype
 
 Partial implementation of unicode dtype and unicode scalars.
+
+.. branch: dtypes-compatability
+
+Improve compatibility with numpy dtypes; handle offsets to create unions,
+fix str() and repr(), allow specifying itemsize, metadata and titles, add flags,
+allow subclassing dtype
+
+.. branch: indexing
+
+Refactor array indexing to support ellipses.
+
+.. branch: numpy-docstrings
+
+Allow the docstrings of built-in numpy objects to be set at run-time.
+
+.. branch: nditer-revisited
+
+Implement nditer 'buffered' flag and fix some edge cases

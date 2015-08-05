@@ -541,6 +541,14 @@ class TestRbuiltin(BaseRtypingTest):
             return lltype.cast_primitive(lltype.Signed, v)
         res = self.interpret(llf, [rffi.r_short(123)], policy=LowLevelAnnotatorPolicy())
         assert res == 123
+        def llf(v):
+            return lltype.cast_primitive(lltype.Bool, v)
+        res = self.interpret(llf, [2**24], policy=LowLevelAnnotatorPolicy())
+        assert res == True
+        def llf(v):
+            return lltype.cast_primitive(lltype.Bool, v)
+        res = self.interpret(llf, [rffi.r_longlong(2**48)], policy=LowLevelAnnotatorPolicy())
+        assert res == True
 
     def test_force_cast(self):
         def llfn(v):
