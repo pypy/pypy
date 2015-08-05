@@ -445,7 +445,9 @@ class VectorizingOptimizer(Optimizer):
         for node in scheduler.schedulable_nodes:
             op = node.getoperation()
             if op.is_label():
-                sched_data.seen = dict.fromkeys(op.getarglist())
+                seen = sched_data.seen
+                for arg in op.getarglist():
+                    sched_data.seen[arg] = None
                 break
         #
         while scheduler.has_more():

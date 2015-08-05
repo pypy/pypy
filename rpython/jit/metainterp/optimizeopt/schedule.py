@@ -736,7 +736,9 @@ class VecScheduleData(SchedulerData):
         self.invariant_vector_vars = []
         self.expanded_map = {}
         self.costmodel = costmodel
-        self.inputargs = dict.fromkeys(inputargs)
+        self.inputargs = {}
+        for arg in inputargs:
+            self.inputargs[arg] = None
         self.seen = {}
 
     def _prevent_signext(self, outsize, insize):
