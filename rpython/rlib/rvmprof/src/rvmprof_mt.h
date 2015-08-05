@@ -82,7 +82,7 @@ static int _write_single_ready_buffer(int fd, long i)
 {
     if (profbuf_state[i] != PROFBUF_READY) {
         /* this used to be a race condition: the buffer was written by a
-           different thread already */
+           different thread already, nothing to do now */
         return 0;
     }
     int err;
@@ -193,10 +193,8 @@ static int shutdown_concurrent_bufs(int fd)
     /* last attempt to flush buffers */
     int i;
     for (i = 0; i < MAX_NUM_BUFFERS; i++) {
-        if (profbuf_state[i] == PROFBUF_READY) {
-            if (_write_single_ready_buffer(fd, i) < 0)
-                return -1;
-        }
+        if (_write_single_ready_buffer(fd, i) < 0)
+            return -1;
     }
     unprepare_concurrent_bufs();
     return 0;
