@@ -1,6 +1,6 @@
 
 from rpython.jit.metainterp.history import (VECTOR,FLOAT,INT,ConstInt,BoxVector,
-        BoxFloat,BoxInt,ConstFloat,TargetToken)
+        BoxFloat,BoxInt,ConstFloat,TargetToken,Box)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
@@ -27,6 +27,12 @@ class Scheduler(object):
             candidate = self.schedulable_nodes[i]
             del self.schedulable_nodes[i]
             return self.schedule(candidate, renamer, position)
+
+        # it happens that packs can emit many nodes that have been
+        # added to the scheuldable_nodes list, in this case it could
+        # be that no next exists even though the list contains elements
+        if not self.has_more():
+            return []
 
         raise AssertionError("schedule failed cannot continue. possible reason: cycle")
 
@@ -83,9 +89,16 @@ class Scheduler(object):
                 i = len(nodes)-1
                 while i >= 0:
                     itnode = nodes[i]
-                    if itnode.priority < to.priority:
+                    c = (itnode.priority - to.priority)
+                    if c < 0: # meaning itnode.priority < to.priority:
                         nodes.insert(i+1, to)
                         break
+                    elif c == 0:
+                        # if they have the same priority, sort them
+                        # using the original position in the trace
+                        if itnode.getindex() < to.getindex():
+                            nodes.insert(i+1, to)
+                            break
                     i -= 1
                 else:
                     nodes.insert(0, to)
@@ -485,7 +498,7 @@ class OpToVectorOp(object):
 
         ops = self.sched_data.invariant_oplist
         variables = self.sched_data.invariant_vector_vars
-        if arg not in self.sched_data.inputargs:
+        if isinstance(arg,Box) and arg not in self.sched_data.inputargs:
             ops = self.vecops
             variables = None
         if isinstance(arg, BoxVector):
@@ -854,8 +867,9 @@ class Pack(object):
 
     def clear(self):
         for node in self.operations:
-            node.pack = None
-            node.pack_position = -1
+            if node.pack is not self:
+                node.pack = None
+                node.pack_position = -1
 
     def update_pack_of_nodes(self):
         for i,node in enumerate(self.operations):

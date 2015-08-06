@@ -36,11 +36,6 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
     optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, False)
     version = loop.snapshot()
-    if len(loop.operations) >= 75:
-        # if more than 75 operations are present in this loop,
-        # it won't be possible to vectorize. There are too many
-        # guards that prevent parallel execution of instructions
-        return
     try:
         debug_start("vec-opt-loop")
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "pre vectorize")
@@ -56,7 +51,6 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         gso.propagate_all_forward(opt.loop, user_code)
         # connect all compile loop version fail descriptors to this version
         version.register_all_guards(loop.operations, opt.appended_arg_count)
-        #
         #
         end = time.clock()
         #
@@ -370,30 +364,44 @@ class VectorizingOptimizer(Optimizer):
         i = 0
         j = 0
         end_ij = len(self.packset.packs)
-        remove_left = {}
+        orphan = {}
         while True:
             len_before = len(self.packset.packs)
             i = 0
             while i < end_ij:
                 while j < end_ij and i < end_ij:
                     if i == j:
+                        # do not pack with itself! won't work...
                         j += 1
                         continue
                     pack1 = self.packset.packs[i]
                     pack2 = self.packset.packs[j]
                     # remove intermediate
                     left = pack1.operations[0]
-                    if left in remove_left:
-                        remove_left[left] = pack1
-                        pack1.clear()
-                        del self.packset.packs[i]
-                        end_ij -= 1
-                        continue
+                    if left in orphan:
+                        # a pack was filled, thus the rhs was put
+                        # into the orphan map.
+                        if orphan[left] is False:
+                            # this pack might be redundant if pack1.right
+                            # is the at the left position in another pack
+                            assert pack1.opcount() == 2
+                            right = pack1.operations[1]
+                            orphan[right] = True
+                            pack1.clear()
+                            del self.packset.packs[i]
+                            end_ij -= 1
+                            continue
+                        else:
+                            # left is not an orphan, this pack proves that
+                            # there might be more packs
+                            del orphan[left]
                     # check if the pack is already full
                     if pack1.is_full(self.cpu.vector_register_size):
-                        #pack1.update_pack_of_nodes()
                         right = pack1.operations[-1]
-                        remove_left[right] = None
+                        # False indicates that the next pair might not
+                        # be needed, because left is already computed
+                        # in another set
+                        orphan[right] = False
                         break
                     if pack1.rightmost_match_leftmost(pack2):
                         end_ij = self.packset.combine(i,j)
@@ -408,6 +416,7 @@ class VectorizingOptimizer(Optimizer):
                 i += 1
             if len_before == len(self.packset.packs):
                 break
+
 
         if not we_are_translated():
             # some test cases check the accumulation variables
