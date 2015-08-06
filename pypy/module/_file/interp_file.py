@@ -209,7 +209,7 @@ class W_File(W_AbstractStream):
                     # EAGAIN after already some data was received, return it.
                     # Note that we can get EAGAIN while there is buffered data
                     # waiting; read that too.
-                    if is_wouldblock_error(e):
+                    if is_wouldblock_error(e.errno):
                         m = stream.count_buffered_bytes()
                         if m > 0:
                             result.append(stream.read(min(n, m)))
@@ -321,6 +321,10 @@ class W_File(W_AbstractStream):
         self.getstream()    # check if the file is still open
         return os.isatty(self.fd)
 
+    def direct_readinto(self, w_rwbuffer):
+        from pypy.module._file.readinto import direct_readinto
+        return direct_readinto(self, w_rwbuffer)
+
     # ____________________________________________________________
     #
     # The 'file_' methods are the one exposed to app-level.
@@ -412,6 +416,9 @@ This is needed for lower-level file interfaces, such os.read().''')
 If the size argument is negative or omitted, read until EOF is reached.
 Notice that when in non-blocking mode, less data than what was requested
 may be returned, even if no size parameter was given.""")
+
+    _decl(locals(), "readinto",
+        """readinto(buf) -> length.  Read into the given read-write buffer.""")
 
     _decl(locals(), "readline",
         """readline([size]) -> next line from the file, as a string.
@@ -508,16 +515,6 @@ producing strings. This is equivalent to calling write() for each string."""
         for w_line in lines:
             self.file_write(w_line)
 
-    def file_readinto(self, w_rwbuffer):
-        """readinto() -> Undocumented.  Don't use this; it may go away."""
-        # XXX not the most efficient solution as it doesn't avoid the copying
-        space = self.space
-        rwbuffer = space.writebuf_w(w_rwbuffer)
-        w_data = self.file_read(rwbuffer.getlength())
-        data = space.str_w(w_data)
-        rwbuffer.setslice(0, data)
-        return space.wrap(len(data))
-
 
 # ____________________________________________________________
 
@@ -603,7 +600,6 @@ Note:  open() is an alias for file().
                               cls=W_File,
                               doc="Support for 'print'."),
     __repr__ = interp2app(W_File.file__repr__),
-    readinto = interp2app(W_File.file_readinto),
     writelines = interp2app(W_File.file_writelines),
     __exit__ = interp2app(W_File.file__exit__),
     __weakref__ = make_weakref_descr(W_File),
@@ -632,10 +628,10 @@ def signal_checker(space):
 MAYBE_EAGAIN      = getattr(errno, 'EAGAIN',      None)
 MAYBE_EWOULDBLOCK = getattr(errno, 'EWOULDBLOCK', None)
 
-def is_wouldblock_error(e):
-    if MAYBE_EAGAIN is not None and e.errno == MAYBE_EAGAIN:
+def is_wouldblock_error(errno):
+    if MAYBE_EAGAIN is not None and errno == MAYBE_EAGAIN:
         return True
-    if MAYBE_EWOULDBLOCK is not None and e.errno == MAYBE_EWOULDBLOCK:
+    if MAYBE_EWOULDBLOCK is not None and errno == MAYBE_EWOULDBLOCK:
         return True
     return False
 
