@@ -37,9 +37,10 @@ class LoopCompileData(CompileData):
     This is the case of label() ops label()
     """
     def __init__(self, start_label, end_label, operations,
-                 call_pure_results=None):
+                 call_pure_results=None, enable_opts=None):
         self.start_label = start_label
         self.end_label = end_label
+        self.enable_opts = enable_opts
         assert start_label.getopnum() == rop.LABEL
         assert end_label.getopnum() == rop.LABEL
         self.operations = operations
@@ -78,10 +79,11 @@ class UnrolledLoopData(CompileData):
     run of LoopCompileData. Jump goes to the same label
     """
     def __init__(self, start_label, end_jump, operations, state,
-                 call_pure_results=None):
+                 call_pure_results=None, enable_opts=None):
         self.start_label = start_label
         self.end_jump = end_jump
         self.operations = operations
+        self.enable_opts = enable_opts
         self.state = state
         self.call_pure_results = call_pure_results
 
@@ -113,7 +115,6 @@ def show_procedures(metainterp_sd, procedure=None, error=None):
 def create_empty_loop(metainterp, name_prefix=''):
     name = metainterp.staticdata.stats.name_for_new_loop()
     loop = TreeLoop(name_prefix + name)
-    loop.call_pure_results = metainterp.call_pure_results
     return loop
 
 
@@ -192,72 +193,106 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         del enable_opts['unroll']
 
     jitcell_token = make_jitcell_token(jitdriver_sd)
-    part = create_empty_loop(metainterp)
-    part.inputargs = inputargs[:]
     h_ops = history.operations
     label = ResOperation(rop.LABEL, inputargs,
                          descr=TargetToken(jitcell_token))
     end_label = ResOperation(rop.LABEL, jumpargs, descr=jitcell_token)
-    part.operations = [label] + h_ops[start:] + [end_label]
-
+    ops = h_ops[start:]
+    call_pure_results = metainterp.call_pure_results
+    preamble_data = LoopCompileData(label, end_label, ops,
+                                    call_pure_results=call_pure_results,
+                                    enable_opts=enable_opts)
     try:
-        start_state = optimize_trace(metainterp_sd, jitdriver_sd, part,
-                                     enable_opts, export_state=True)
+        try:
+            start_state, preamble_ops = optimize_trace(metainterp_sd,
+                                                       jitdriver_sd,
+                                                       preamble_data)
+        except InvalidLoop:
+            return None
+    finally:
+        forget_optimization_info(ops)
+        forget_optimization_info(inputargs)
+
+    #loop = create_empty_loop(metainterp)
+    #loop.inputargs = part.inputargs
+    #loop.operations = part.operations
+    #loop.quasi_immutable_deps = {}
+    #if part.quasi_immutable_deps:
+    #    loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
+    #lastopnum = preamble_ops[-1].getopnum()
+    #if lastopnum != rop.FINISH:
+    #if start_state is not None:
+    assert start_state is not None
+    end_label = ResOperation(rop.LABEL, start_state.end_args,
+                             descr=jitcell_token)
+    jump_op = ResOperation(rop.JUMP, jumpargs, descr=jitcell_token)
+    loop_data = UnrolledLoopData(end_label, jump_op, ops, start_state,
+                                 call_pure_results=call_pure_results,
+                                 enable_opts=enable_opts)
+    try:
+        loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
+                                             loop_data)
     except InvalidLoop:
-        forget_optimization_info(part.operations)
-        forget_optimization_info(part.inputargs)
-        return None
-    target_token = part.operations[0].getdescr()
-    assert isinstance(target_token, TargetToken)
-    all_target_tokens = [target_token]
+        xxx
 
     loop = create_empty_loop(metainterp)
-    loop.inputargs = part.inputargs
-    loop.operations = part.operations
-    loop.quasi_immutable_deps = {}
-    if part.quasi_immutable_deps:
-        loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
-    if part.operations[-1].getopnum() == rop.LABEL:
-        raise Exception("unrolling unsupported")
-        if start_state is not None:
-            inliner = Inliner(inputargs, jumpargs)
-            part.quasi_immutable_deps = None
-            part.operations = [part.operations[-1]] + \
-                              [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
-                              [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
-                                            None, descr=jitcell_token)]
-            target_token = part.operations[0].getdescr()
-            assert isinstance(target_token, TargetToken)
-            all_target_tokens.append(target_token)
-            inputargs = jumpargs
-            jumpargs = part.operations[-1].getarglist()
-
-            try:
-                optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
-                               start_state=start_state, export_state=False)
-            except InvalidLoop:
-                return None
-
-            loop.operations = loop.operations[:-1] + part.operations
-            if part.quasi_immutable_deps:
-                loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
-    assert part.operations[-1].getopnum() != rop.LABEL
-
-    if not loop.quasi_immutable_deps:
-        loop.quasi_immutable_deps = None
-    for box in loop.inputargs:
-        assert not isinstance(box, Const)
-
     loop.original_jitcell_token = jitcell_token
-    for label in all_target_tokens:
-        assert isinstance(label, TargetToken)
-        if label.virtual_state and label.short_preamble:
-            metainterp_sd.logger_ops.log_short_preamble([], label.short_preamble)
-    jitcell_token.target_tokens = all_target_tokens
-    propagate_original_jitcell_token(loop)
+    loop.inputargs = start_state.renamed_inputargs
+    start_descr = TargetToken(jitcell_token,
+                              original_jitcell_token=jitcell_token)
+    start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs,
+                               descr=start_descr)
+    mid_descr_token = TargetToken(jitcell_token,
+                                  original_jitcell_token=jitcell_token)
+    mid_label = ResOperation(rop.LABEL, start_state.end_args +
+                             loop_info.extra_label_args,
+                             descr=mid_descr_token)
+    # XXX assign short preamble and virtual state
+    loop_ops[-1].setdescr(mid_descr_token)
+    loop.operations = [start_label] + preamble_ops + [mid_label] + loop_ops
+    loop.check_consistency()
+    jitcell_token.all_target_tokens = [start_descr, mid_descr_token]
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
-    return all_target_tokens[0]
+    return start_descr
+            
+            #part.quasi_immutable_deps = None
+    #         part.operations = [part.operations[-1]] + \
+    #                           [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
+    #                           [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
+    #                                         None, descr=jitcell_token)]
+    #         target_token = part.operations[0].getdescr()
+    #         assert isinstance(target_token, TargetToken)
+    #         all_target_tokens.append(target_token)
+    #         inputargs = jumpargs
+    #         jumpargs = part.operations[-1].getarglist()
+
+    #         try:
+    #             optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
+    #                            start_state=start_state, export_state=False)
+    #         except InvalidLoop:
+    #             return None
+
+    #         loop.operations = loop.operations[:-1] + part.operations
+    #         if part.quasi_immutable_deps:
+    #             loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
+    # assert part.operations[-1].getopnum() != rop.LABEL
+
+    # if not loop.quasi_immutable_deps:
+    #     loop.quasi_immutable_deps = None
+    # for box in loop.inputargs:
+    #     assert not isinstance(box, Const)
+
+    # loop.original_jitcell_token = jitcell_token
+    # for label in all_target_tokens:
+    #     assert isinstance(label, TargetToken)
+    #     if label.virtual_state and label.short_preamble:
+    #         metainterp_sd.logger_ops.log_short_preamble([], label.short_preamble)
+    # jitcell_token.target_tokens = all_target_tokens
+    # propagate_original_jitcell_token(loop)
+    # send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
+    # record_loop_or_bridge(metainterp_sd, loop)
+    # return all_target_tokens[0]
 
 def compile_retrace(metainterp, greenkey, start,
                     inputargs, jumpargs,
@@ -404,13 +439,13 @@ def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd):
         emit_op(extra_ops, op)
     loop.operations = extra_ops
 
-def propagate_original_jitcell_token(trace):
-    for op in trace.operations:
-        if op.getopnum() == rop.LABEL:
-            token = op.getdescr()
-            assert isinstance(token, TargetToken)
-            assert token.original_jitcell_token is None
-            token.original_jitcell_token = trace.original_jitcell_token
+#def propagate_original_jitcell_token(trace):
+#    for op in trace.operations:
+#        if op.getopnum() == rop.LABEL:
+#            token = op.getdescr()
+#            assert isinstance(token, TargetToken)
+#            assert token.original_jitcell_token is None
+#            token.original_jitcell_token = trace.original_jitcell_token
 
 
 def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,

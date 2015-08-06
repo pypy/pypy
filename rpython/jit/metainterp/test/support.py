@@ -176,7 +176,6 @@ class JitMixin:
     # or another one.
 
     def check_resops(self, expected=None, **check):
-        return
         """Check the instructions in all loops and bridges, ignoring
         the ones that end in FINISH.  Either pass a dictionary (then
         the check must match exactly), or some keyword arguments (then
@@ -184,7 +183,6 @@ class JitMixin:
         get_stats().check_resops(expected=expected, **check)
 
     def check_simple_loop(self, expected=None, **check):
-        return
         """Useful in the simplest case when we have only one loop
         ending with a jump back to itself and possibly a few bridges.
         Only the operations within the loop formed by that single jump
@@ -193,7 +191,6 @@ class JitMixin:
         get_stats().check_simple_loop(expected=expected, **check)
 
     def check_trace_count(self, count): # was check_loop_count
-        return
         """Check the number of loops and bridges compiled."""
         assert get_stats().compiled_count == count
 
@@ -208,13 +205,11 @@ class JitMixin:
 
     def check_target_token_count(self, count):
         """(xxx unknown)"""
-        return
         tokens = get_stats().get_all_jitcell_tokens()
         n = sum([len(t.target_tokens) for t in tokens])
         assert n == count
 
     def check_enter_count(self, count):
-        return
         """Check the number of times pyjitpl ran.  (Every time, it
         should have produced either one loop or one bridge, or aborted;
         but it is not 100% clear that this is still correct in the

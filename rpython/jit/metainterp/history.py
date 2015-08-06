@@ -438,7 +438,8 @@ class JitCellToken(AbstractDescr):
         self.compiled_loop_token.cpu.dump_loop_token(self)
 
 class TargetToken(AbstractDescr):
-    def __init__(self, targeting_jitcell_token=None):
+    def __init__(self, targeting_jitcell_token=None,
+                 original_jitcell_token=None):
         # Warning, two different jitcell_tokens here!
         #
         # * 'targeting_jitcell_token' is only useful for the front-end,
@@ -456,7 +457,7 @@ class TargetToken(AbstractDescr):
         #     out of which we made this bridge
         #
         self.targeting_jitcell_token = targeting_jitcell_token
-        self.original_jitcell_token = None
+        self.original_jitcell_token = original_jitcell_token
 
         self.virtual_state = None
         self.short_preamble = None
