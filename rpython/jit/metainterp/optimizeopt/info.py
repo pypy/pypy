@@ -268,7 +268,7 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
         self.parent = parent
 
     def is_virtual(self):
-        return self.parent.is_virtual()
+        return self.parent is not None
 
     def getitem_raw(self, offset, itemsize, descr):
         return self.parent.getitem_raw(self.offset+offset, itemsize, descr)
@@ -279,6 +279,7 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
     def _force_elements(self, op, optforce, descr):
         if self.parent.is_virtual():
             self.parent._force_elements(op, optforce, descr)
+        self.parent = None
 
     def _visitor_walk_recursive(self, op, visitor, optimizer):
         source_op = optimizer.get_box_replacement(op.getarg(0))

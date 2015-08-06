@@ -511,12 +511,13 @@ class TreeLoop(object):
         from rpython.jit.metainterp.graphpage import display_procedures
         display_procedures([self], errmsg)
 
-    def check_consistency(self):     # for testing
+    def check_consistency(self, check_descr=True):     # for testing
         "NOT_RPYTHON"
-        self.check_consistency_of(self.inputargs, self.operations)
+        self.check_consistency_of(self.inputargs, self.operations,
+                                  check_descr=check_descr)
         for op in self.operations:
             descr = op.getdescr()
-            if op.getopnum() == rop.LABEL and isinstance(descr, TargetToken):
+            if check_descr and op.getopnum() == rop.LABEL and isinstance(descr, TargetToken):
                 assert descr.original_jitcell_token is self.original_jitcell_token
 
     @staticmethod
@@ -558,7 +559,7 @@ class TreeLoop(object):
                 assert len(seen) == len(inputargs), (
                     "duplicate Box in the LABEL arguments")
 
-        assert operations[-1].is_final()
+        #assert operations[-1].is_final()
         if operations[-1].getopnum() == rop.JUMP:
             target = operations[-1].getdescr()
             if target is not None:
