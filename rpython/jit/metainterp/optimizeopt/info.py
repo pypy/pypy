@@ -131,6 +131,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         self._fields[descr.get_index()] = op
         if cf is not None:
             assert not self.is_virtual()
+            assert struct is not None
             cf.register_dirty_field(struct, self)
 
     def getfield(self, descr, optheap=None):

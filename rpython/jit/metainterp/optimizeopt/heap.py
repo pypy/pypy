@@ -156,7 +156,7 @@ class CachedField(object):
         res = opinfo.getfield(descr, optheap)
         if isinstance(res, PreambleOp):
             res = optheap.optimizer.force_op_from_preamble(res)
-            opinfo._fields[descr.get_index()] == res
+            opinfo.setfield(descr, None, res, optheap)
         return res
 
     def force_lazy_setfield(self, optheap, descr, can_cache=True):
