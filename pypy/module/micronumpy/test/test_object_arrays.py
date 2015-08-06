@@ -176,3 +176,14 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         b = a.astype('O')
         assert b[0] == u'123'
         assert type(b[0]) is unicode
+
+        class MyFloat(object):
+            def __float__(self):
+                return 1.0
+        a = np.array([MyFloat()])
+        assert a.shape == (1,)
+        assert a.dtype == np.object_
+        b = a.astype(float)
+        assert b.shape == (1,)
+        assert b.dtype == np.float_
+        assert (b == 1.0).all()

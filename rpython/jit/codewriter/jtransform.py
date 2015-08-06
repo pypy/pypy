@@ -1178,7 +1178,12 @@ class Transformer(object):
             else:
                 v1 = v_arg
             sizesign = rffi.size_and_sign(v_result.concretetype)
-            if sizesign <= rffi.size_and_sign(lltype.Signed):
+            if v_result.concretetype is lltype.Bool:
+                op = self.rewrite_operation(
+                        SpaceOperation('float_is_true', [v1], v_result)
+                )
+                ops.append(op)
+            elif sizesign <= rffi.size_and_sign(lltype.Signed):
                 # cast to a type that fits in an int: either the size is
                 # smaller, or it is equal and it is not unsigned
                 v2 = varoftype(lltype.Signed)
@@ -1220,6 +1225,15 @@ class Transformer(object):
         if longlong_arg and longlong_res:
             return
         elif longlong_arg:
+            if v_result.concretetype is lltype.Bool:
+                longlong_zero = rffi.cast(v_arg.concretetype, 0)
+                c_longlong_zero = Constant(longlong_zero, v_arg.concretetype)
+                if unsigned1:
+                    name = 'ullong_ne'
+                else:
+                    name = 'llong_ne'
+                op1 = SpaceOperation(name, [v_arg, c_longlong_zero], v_result)
+                return self.rewrite_operation(op1)
             v = varoftype(lltype.Signed)
             op1 = self.rewrite_operation(
                 SpaceOperation('truncate_longlong_to_int', [v_arg], v)
@@ -1273,7 +1287,9 @@ class Transformer(object):
             return
 
         result = []
-        if min2:
+        if v_result.concretetype is lltype.Bool:
+            result.append(SpaceOperation('int_is_true', [v_arg], v_result))
+        elif min2:
             c_bytes = Constant(size2, lltype.Signed)
             result.append(SpaceOperation('int_signext', [v_arg, c_bytes],
                                          v_result))

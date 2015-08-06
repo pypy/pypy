@@ -1103,6 +1103,9 @@ class AppTestImportHooks(object):
     def teardown_class(cls):
         _teardown(cls.space, cls.w_saved_modules)
 
+    def w_exec_(self, cmd, ns):
+        exec(cmd, ns)
+
     def test_meta_path(self):
         tried_imports = []
         class Importer(object):
@@ -1299,7 +1302,7 @@ class AppTestImportHooks(object):
         import sys, types
         sys.meta_path.append(ImportHook())
         try:
-            exec("from meta_path_2_pseudo_module import *", {})
+            self.exec_("from meta_path_2_pseudo_module import *", {})
         finally:
             sys.meta_path.pop()
 

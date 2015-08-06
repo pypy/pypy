@@ -5,7 +5,6 @@
 #include "Python.h"
 */
 #include <ctype.h>
-#include <locale.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -17,11 +16,12 @@
 #define PyMem_Free free
 /* C99 but recent Windows has it */
 #define HAVE_MBRTOWC 1
-/* Hopefully? */
-#define HAVE_LANGINFO_H
 
 #ifdef MS_WINDOWS
 #  include <windows.h>
+#else
+#include <locale.h>
+#define HAVE_LANGINFO_H
 #endif
 
 #ifdef HAVE_LANGINFO_H

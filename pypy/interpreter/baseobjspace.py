@@ -229,7 +229,7 @@ class W_Root(object):
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_memoryview):
                 return w_result
-        raise TypeError
+        raise BufferInterfaceNotFound
 
     def bytes_w(self, space):
         self._typed_unwrap_error(space, "bytes")
@@ -359,6 +359,9 @@ class SpaceCache(Cache):
         pass
 
 class DescrMismatch(Exception):
+    pass
+
+class BufferInterfaceNotFound(Exception):
     pass
 
 def wrappable_class_name(Class):
@@ -1415,7 +1418,7 @@ class ObjSpace(object):
         # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
         try:
             return w_obj.buffer_w(self, flags)
-        except TypeError:
+        except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
                         "'%T' does not support the buffer interface", w_obj)
 
@@ -1432,7 +1435,7 @@ class ObjSpace(object):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
             return w_obj.buffer_w(self, self.BUF_SIMPLE)
-        except TypeError:
+        except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
                         "expected an object with a buffer interface")
 
@@ -1440,7 +1443,7 @@ class ObjSpace(object):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
             return w_obj.buffer_w(self, self.BUF_WRITABLE)
-        except TypeError:
+        except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
                         "expected an object with a writable buffer interface")
 
@@ -1448,7 +1451,7 @@ class ObjSpace(object):
         # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
         try:
             buf = w_obj.buffer_w(self, self.BUF_SIMPLE)
-        except TypeError:
+        except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
                         "expected an object with a buffer interface")
         else:
@@ -1474,7 +1477,7 @@ class ObjSpace(object):
                 return StringBuffer(w_obj.identifier_w(self))
             try:
                 return w_obj.buffer_w(self, self.BUF_SIMPLE)
-            except TypeError:
+            except BufferInterfaceNotFound:
                 self._getarg_error("bytes or buffer", w_obj)
         elif code == 's#':
             if self.isinstance_w(w_obj, self.w_str):
@@ -1483,21 +1486,20 @@ class ObjSpace(object):
                 return w_obj.identifier_w(self)
             try:
                 return w_obj.buffer_w(self, self.BUF_SIMPLE).as_str()
-            except TypeError:
+            except BufferInterfaceNotFound:
                 self._getarg_error("bytes or read-only buffer", w_obj)
         elif code == 'w*':
             try:
-                try:
-                    return w_obj.buffer_w(self, self.BUF_WRITABLE)
-                except OperationError:
-                    pass
-            except TypeError:
+                return w_obj.buffer_w(self, self.BUF_WRITABLE)
+            except OperationError:
+                pass
+            except BufferInterfaceNotFound:
                 pass
             self._getarg_error("read-write buffer", w_obj)
         elif code == 'y*':
             try:
                 return w_obj.buffer_w(self, self.BUF_SIMPLE)
-            except TypeError:
+            except BufferInterfaceNotFound:
                 self._getarg_error("bytes or buffer", w_obj)
         else:
             assert False
@@ -1519,7 +1521,7 @@ class ObjSpace(object):
                 raise
         try:
             buf = w_obj.buffer_w(self, 0)
-        except TypeError:
+        except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
                         "'%T' does not support the buffer interface", w_obj)
         else:

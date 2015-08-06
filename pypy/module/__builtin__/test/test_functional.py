@@ -44,6 +44,11 @@ class AppTestMap:
         b = [6, 7, 8, 9, 10]
         assert list(map(lambda x, y: x, a, b)) == a
 
+    def test_map_second_item(self):
+        a = []
+        b = [1, 2, 3, 4, 5]
+        assert list(map(lambda x, y: y, a, b)) == a
+
     def test_map_iterables(self):
         class A(object):
             def __init__(self, n):

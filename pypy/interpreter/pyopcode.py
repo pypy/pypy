@@ -624,11 +624,17 @@ class __extend__(pyframe.PyFrame):
         w_item = self.popvalue()
         if self.space.is_w(w_stream, self.space.w_None):
             w_stream = sys_stdout(self.space)   # grumble grumble special cases
-        print_item_to(self.space, w_item, w_stream)
+        print_item_to(self.space, self._printable_object(w_item), w_stream)
 
     def PRINT_ITEM(self, oparg, next_instr):
         w_item = self.popvalue()
-        print_item(self.space, w_item)
+        print_item(self.space, self._printable_object(w_item))
+
+    def _printable_object(self, w_obj):
+        space = self.space
+        if not space.isinstance_w(w_obj, space.w_unicode):
+            w_obj = space.str(w_obj)
+        return w_obj
 
     def PRINT_NEWLINE_TO(self, oparg, next_instr):
         w_stream = self.popvalue()
@@ -1669,9 +1675,9 @@ app = gateway.applevel(r'''
 
     def print_item_to(x, stream):
         # give to write() an argument which is either a string or a unicode
-        # (and let it deals itself with unicode handling)
-        if not isinstance(x, str):
-            x = str(x)
+        # (and let it deals itself with unicode handling).  The check "is
+        # unicode" should not use isinstance() at app-level, because that
+        # could be fooled by strange objects, so it is done at interp-level.
         try:
             stream.write(x)
         except UnicodeEncodeError:

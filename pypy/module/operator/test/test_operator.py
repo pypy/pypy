@@ -10,11 +10,15 @@ class AppTestOperator:
         class A(object):
             getx = operator.attrgetter('x')
             get3 = operator.itemgetter(3)
+            callx = operator.methodcaller("append", "x")
         a = A()
         a.x = 5
         assert a.getx(a) == 5
         assert a.get3("foobar") == "b"
         assert a.getx(*(a,)) == 5
+        l = []
+        a.callx(l)
+        assert l == ["x"]
 
     def test_getter_multiple_gest(self):
         import operator

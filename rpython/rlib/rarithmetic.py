@@ -155,6 +155,8 @@ _should_widen_type._annspecialcase_ = 'specialize:memo'
 
 # the replacement for sys.maxint
 maxint = int(LONG_TEST - 1)
+# for now, it should be equal to sys.maxint on all supported platforms
+assert maxint == sys.maxint
 
 def is_valid_int(r):
     if objectmodel.we_are_translated():
