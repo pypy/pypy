@@ -57,10 +57,8 @@ class CachedField(object):
         assert self._lazy_setfield is None
         for i, info in enumerate(self.cached_infos):
             structbox = optimizer.get_box_replacement(self.cached_structs[i])
-            op = optimizer.get_box_replacement(info._fields[descr.get_index()])
-            opnum = OpHelpers.getfield_for_descr(descr)
-            getfield_op = ResOperation(opnum, [structbox], descr=descr)
-            shortboxes.add_heap_op(op, getfield_op)
+            info.produce_short_preamble_ops(structbox, descr, optimizer,
+                                            shortboxes)
         return
         for structvalue in self._cached_fields_getfield_op.keys():
             op = self._cached_fields_getfield_op[structvalue]

@@ -1,7 +1,7 @@
 
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
-     rop
+     rop, OpHelpers
 from rpython.jit.metainterp.history import ConstInt, Const
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
@@ -165,6 +165,14 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 if fieldinfo and fieldinfo.is_virtual():
                     fieldinfo.visitor_walk_recursive(op, visitor, optimizer)
 
+    def produce_short_preamble_ops(self, structbox, descr, optimizer,
+                                   shortboxes):
+        op = optimizer.get_box_replacement(self._fields[descr.get_index()])
+        opnum = OpHelpers.getfield_for_descr(descr)
+        getfield_op = ResOperation(opnum, [structbox], descr=descr)
+        shortboxes.add_heap_op(op, getfield_op)
+
+
 class InstancePtrInfo(AbstractStructPtrInfo):
     _attrs_ = ('_known_class',)
     _fields = None
@@ -181,7 +189,6 @@ class InstancePtrInfo(AbstractStructPtrInfo):
         fielddescrs = self.vdescr.get_all_fielddescrs()
         assert self.is_virtual()
         return visitor.visit_virtual(self.vdescr, fielddescrs)
-
 
 class StructPtrInfo(AbstractStructPtrInfo):
     def __init__(self, vdescr=None):
@@ -355,6 +362,15 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
         return visitor.visit_varray(self.vdescr, self._clear)
+
+    def produce_short_preamble_ops(self, structbox, descr, optimizer,
+                                   shortboxes):
+        for i in range(self.getlength()):
+            xxx
+            op = optimizer.get_box_replacement(self._fields[descr.get_index()])
+            opnum = OpHelpers.getarrayitem_for_descr(descr)
+            getfield_op = ResOperation(opnum, [structbox], descr=descr)
+            shortboxes.add_heap_op(op, getfield_op)
 
 class ArrayStructInfo(ArrayPtrInfo):
     def __init__(self, size, vdescr=None):
