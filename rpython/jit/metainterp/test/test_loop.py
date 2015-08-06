@@ -60,7 +60,7 @@ class LoopTest(object):
         assert res == f(6, 13)
         self.check_trace_count(1)
         if self.enable_opts:
-            self.check_resops(setfield_gc=2, getfield_gc=0)
+            self.check_resops(setfield_gc=2, getfield_gc_i=0)
 
 
     def test_loop_with_two_paths(self):
