@@ -23,6 +23,9 @@ class PreambleOp(AbstractResOp):
     def getarg(self, i):
         return self.op.getarg(i)
 
+    def getdescr(self):
+        return self.op.getdescr()
+
     def __repr__(self):
         return "Preamble(%r)" % (self.op,)
 

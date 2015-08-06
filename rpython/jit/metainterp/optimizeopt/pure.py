@@ -199,9 +199,10 @@ class OptPure(Optimization):
         recentops = self.getrecentops(opnum)
         recentops.add(op)
 
-    def pure_from_args(self, opnum, args, op):
+    def pure_from_args(self, opnum, args, op, descr=None):
         newop = ResOperation(opnum,
-                             [self.get_box_replacement(arg) for arg in args])
+                             [self.get_box_replacement(arg) for arg in args],
+                             descr=descr)
         newop.set_forwarded(op)
         self.pure(opnum, newop)
 

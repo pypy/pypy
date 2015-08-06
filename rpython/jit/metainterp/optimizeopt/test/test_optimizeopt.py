@@ -2320,8 +2320,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i5 = int_add(i3, i4)
         #
         setfield_gc(p1, i2, descr=valuedescr)
-        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         setfield_gc(p1, i4, descr=nextdescr)
+        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         escape_n()
         jump(p1, i1, i2, p3, i3)
         """
@@ -2332,8 +2332,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i5 = int_add(i3, i4)
         #
         setfield_gc(p1, i2, descr=valuedescr)
-        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         setfield_gc(p1, i4, descr=nextdescr)
+        setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         escape_n()
         jump(p1, i1, i2, p3, i3)
         """

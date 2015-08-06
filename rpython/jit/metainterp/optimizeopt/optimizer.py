@@ -172,9 +172,9 @@ class Optimization(object):
         if self.optimizer.optpure:
             self.optimizer.optpure.pure(opnum, result)
 
-    def pure_from_args(self, opnum, args, result):
+    def pure_from_args(self, opnum, args, result, descr=None):
         if self.optimizer.optpure:
-            self.optimizer.optpure.pure_from_args(opnum, args, result)
+            self.optimizer.optpure.pure_from_args(opnum, args, result, descr)
 
     def has_pure_result(self, opnum, args, descr):
         if self.optimizer.optpure:
