@@ -298,8 +298,7 @@ static int install_sigprof_handler(void)
 
 static int remove_sigprof_handler(void)
 {
-    sighandler_t res = signal(SIGPROF, SIG_DFL);
-    if (res == SIG_ERR)
+    if (signal(SIGPROF, SIG_DFL) == SIG_ERR)
         return -1;
     return 0;
 }
@@ -394,7 +393,6 @@ static int _write_all(const void *buf, size_t bufsize)
 
 static int close_profile(void)
 {
-    int srcfd;
     char buf[4096];
     ssize_t size;
     unsigned char marker = MARKER_TRAILER;
@@ -403,9 +401,8 @@ static int close_profile(void)
         return -1;
 
 #ifdef __linux__
-    // copy /proc/PID/maps to the end of the profile file
-    sprintf(buf, "/proc/%d/maps", getpid());
-    srcfd = open(buf, O_RDONLY);
+    // copy /proc/self/maps to the end of the profile file
+    int srcfd = open("/proc/self/maps", O_RDONLY);
     if (srcfd < 0)
         return -1;
 
@@ -418,17 +415,18 @@ static int close_profile(void)
     close(srcfd);
 #else
     // freebsd and mac
-#   error "REVIEW AND FIX ME"
     sprintf(buf, "procstat -v %d", getpid());
-    src = popen(buf, "r");
-    if (!src) {
-        vmprof_error = "error calling procstat";
+    FILE *srcf = popen(buf, "r");
+    if (!srcf)
         return -1;
-    }
+
     while ((size = fread(buf, 1, sizeof buf, src))) {
-        write(profile_file, buf, size);
+        if (_write_all(buf, size) < 0) {
+            pclose(srcf);
+            return -1;
+        }
     }
-    pclose(src);
+    pclose(srcf);
 #endif
 
     /* don't close() the file descriptor from here */
