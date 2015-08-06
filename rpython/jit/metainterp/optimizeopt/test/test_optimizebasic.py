@@ -5736,5 +5736,23 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_getarrayitem_gc_pure_not_invalidated(self):
+        ops = """
+        [p0]
+        i1 = getarrayitem_gc_pure_i(p0, 1, descr=arraydescr)
+        escape_n(p0)
+        i2 = getarrayitem_gc_pure_i(p0, 1, descr=arraydescr)
+        escape_n(i2)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i1 = getarrayitem_gc_pure_i(p0, 1, descr=arraydescr)
+        escape_n(p0)
+        escape_n(i1)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
