@@ -1481,8 +1481,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p0, p35)
         """
         expected = """
-        [p0]
-        jump(p0)
+        [p0, p1]
+        jump(p0, p1)
         """
         self.optimize_loop(ops, expected)
 

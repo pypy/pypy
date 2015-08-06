@@ -201,21 +201,21 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             self.fieldstate[i].generate_guards(other.fieldstate[i],
                                                v, state)
 
-    def enum_forced_boxes(self, boxes, value, optimizer):
-        xxx
-        if not isinstance(value, virtualize.VArrayValue):
-            raise BadVirtualState
-        if not value.is_virtual():
-            raise BadVirtualState
-        if len(self.fieldstate) > value.getlength():
+    def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
+        box = optimizer.get_box_replacement(box)
+        info = optimizer.getptrinfo(box)
+        if info is None or not info.is_virtual():
+            raise BadVirtualState()
+        if len(self.fieldstate) > info.getlength():
             raise BadVirtualState
         for i in range(len(self.fieldstate)):
-            v = value.get_item_value(i)
-            if v is None:
+            fieldbox = info.getitem(i)
+            if fieldbox is None:
+                xxx
                 v = value.get_missing_null_value()
             s = self.fieldstate[i]
             if s.position > self.position:
-                s.enum_forced_boxes(boxes, v, optimizer)
+                s.enum_forced_boxes(boxes, fieldbox, optimizer, force_boxes)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
