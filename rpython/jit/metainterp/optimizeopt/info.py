@@ -240,9 +240,9 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
             offset = self.buffer.offsets[i]
             descr = self.buffer.descrs[i]
             itembox = self.buffer.values[i]
-            op = ResOperation(rop.RAW_STORE,
+            setfield_op = ResOperation(rop.RAW_STORE,
                               [op, ConstInt(offset), itembox], descr=descr)
-            optforce.emit_operation(op)
+            optforce.emit_operation(setfield_op)
 
     def _visitor_walk_recursive(self, op, visitor, optimizer):
         itemboxes = self.buffer.values

@@ -119,6 +119,9 @@ class OptIntBounds(Optimization):
     def optimize_INT_ADD(self, op):
         arg1 = self.get_box_replacement(op.getarg(0))
         arg2 = self.get_box_replacement(op.getarg(1))
+        if self.is_raw_ptr(arg1) or self.is_raw_ptr(arg2):
+            self.emit_operation(op)
+            return
         v1 = self.getintbound(arg1)
         v2 = self.getintbound(arg2)
 
@@ -153,8 +156,6 @@ class OptIntBounds(Optimization):
                         op = self.replace_op_with(op, rop.INT_ADD, args=[arg1, arg2])
 
         self.emit_operation(op)
-        if self.is_raw_ptr(op.getarg(0)) or self.is_raw_ptr(op.getarg(1)):
-            return
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
