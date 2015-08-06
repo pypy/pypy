@@ -108,7 +108,7 @@ class ShortBoxes(object):
         #self.extra_same_as = []
         pass
 
-    def create_short_boxes(self, optimizer, inputargs):
+    def create_short_boxes(self, optimizer, inputargs, label_args):
         # all the potential operations that can be produced, subclasses
         # of AbstractShortOp
         self.potential_ops = {}
@@ -116,11 +116,13 @@ class ShortBoxes(object):
         # a way to produce const boxes, e.g. setfield_gc(p0, Const).
         # We need to remember those, but they don't produce any new boxes
         self.const_short_boxes = []
-        self.short_inputargs = []
+        label_d = {}
+        for arg in label_args:
+            label_d[arg] = None
         for box in inputargs:
-            renamed = OpHelpers.inputarg_from_tp(box.type)
-            self.produced_short_boxes[box] = ShortInputArg(renamed)
-            self.short_inputargs.append(renamed)
+            if box in label_d:
+                renamed = OpHelpers.inputarg_from_tp(box.type)
+                self.produced_short_boxes[box] = ShortInputArg(renamed)
 
         optimizer.produce_potential_short_preamble_ops(self)
 
@@ -192,10 +194,11 @@ class ShortBoxes(object):
         short_inpargs = []
         for i in range(len(label_args)):
             inparg = self.produced_short_boxes.get(label_args[i], None)
-            if not isinstance(inparg, ShortInputArg):
+            if inparg is None:
                 renamed = OpHelpers.inputarg_from_tp(label_args[i].type)
                 short_inpargs.append(renamed)
             else:
+                #assert isinstance(inparg, ShortInputArg)
                 short_inpargs.append(inparg.preamble_op)
         return short_inpargs
 
@@ -271,5 +274,5 @@ class ShortPreambleBuilder(object):
         label_op = ResOperation(rop.LABEL, self.short_inputargs[:])
         jump_op = ResOperation(rop.JUMP, self.short_preamble_jump)
         TreeLoop.check_consistency_of(self.short_inputargs,
-                                      self.short + [jump_op])
+                                      self.short + [jump_op], check_descr=False)
         return [label_op] + self.short + [jump_op]

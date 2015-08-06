@@ -337,6 +337,7 @@ class Optimizer(Optimization):
         self._newoperations = []
 
     def make_equal_to(self, op, newop):
+        op = self.get_box_replacement(op)
         if op is newop:
             return
         opinfo = op.get_forwarded()

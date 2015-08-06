@@ -520,23 +520,24 @@ class TreeLoop(object):
                 assert descr.original_jitcell_token is self.original_jitcell_token
 
     @staticmethod
-    def check_consistency_of(inputargs, operations):
+    def check_consistency_of(inputargs, operations, check_descr=True):
         for box in inputargs:
             assert not isinstance(box, Const), "Loop.inputargs contains %r" % (box,)
         seen = dict.fromkeys(inputargs)
         assert len(seen) == len(inputargs), (
                "duplicate Box in the Loop.inputargs")
-        TreeLoop.check_consistency_of_branch(operations, seen)
+        TreeLoop.check_consistency_of_branch(operations, seen,
+                                             check_descr=check_descr)
 
     @staticmethod
-    def check_consistency_of_branch(operations, seen):
+    def check_consistency_of_branch(operations, seen, check_descr=True):
         "NOT_RPYTHON"
         for num, op in enumerate(operations):
             for i in range(op.numargs()):
                 box = op.getarg(i)
                 if not isinstance(box, Const):
                     assert box in seen
-            if op.is_guard():
+            if op.is_guard() and check_descr:
                 assert op.getdescr() is not None
                 if hasattr(op.getdescr(), '_debug_suboperations'):
                     ops = op.getdescr()._debug_suboperations
@@ -545,7 +546,7 @@ class TreeLoop(object):
                     if box is not None:
                         assert not isinstance(box, Const)
                         assert box in seen
-            else:
+            elif check_descr:
                 assert op.getfailargs() is None
             if op.type != 'v':
                 seen[op] = True

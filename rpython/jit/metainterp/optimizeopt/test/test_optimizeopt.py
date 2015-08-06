@@ -1216,8 +1216,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = int_add(i0, 1)
         p1 = new_with_vtable(descr=nodesize2)
         p2 = new_with_vtable(descr=nodesize2)
-        setfield_gc(p2, p1, descr=nextdescr)
         setfield_gc(p2, i1, descr=valuedescr)
+        setfield_gc(p2, p1, descr=nextdescr)
         setfield_gc(p1, p2, descr=nextdescr)
         setfield_gc(p0, p1, descr=nextdescr)
         jump(p1)
@@ -1229,8 +1229,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = int_add(i0, 1)
         p1 = new_with_vtable(descr=nodesize2)
         p2 = new_with_vtable(descr=nodesize2)
-        setfield_gc(p2, p1, descr=nextdescr)
         setfield_gc(p2, i1, descr=valuedescr)
+        setfield_gc(p2, p1, descr=nextdescr)
         setfield_gc(p1, p2, descr=nextdescr)
         setfield_gc(p0, p1, descr=nextdescr)
         jump(p1)
@@ -1289,7 +1289,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p30 = new_with_vtable(descr=nodesize)
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
-        p46 = same_as(p30) # This same_as should be killed by backend
+        #p46 = same_as(p30) # This same_as should be killed by backend
         jump(i29, p30, p3)
         """
         expected = """

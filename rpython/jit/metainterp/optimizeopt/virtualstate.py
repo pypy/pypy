@@ -301,6 +301,9 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             elif info.is_nonnull():
                 self.level = LEVEL_NONNULL
         return
+
+    def is_const(self):
+        return self.constbox is not None
         yyy
         self.level = LEVEL_UNKNOWN
         if ptrinfo is not None:
@@ -513,14 +516,8 @@ class VirtualState(object):
                                           state)
         return state
 
-    def make_inputargs(self, inputargs, optimizer, keyboxes=False,
-                       force_boxes=False):
+    def make_inputargs(self, inputargs, optimizer, force_boxes=False):
         assert len(inputargs) == len(self.state)
-        #inpargs = []
-        #for i, state in enumerate(self.state):
-        #    if not isinstance(state, NotVirtualStateInfo) or state.level != LEVEL_CONSTANT:
-        #        inpargs.append(inputargs[i])
-        #return inpargs
         boxes = [None] * self.numnotvirtuals
 
         # We try twice. The first time around we allow boxes to be forced
@@ -532,18 +529,6 @@ class VirtualState(object):
                                                 True)
         for i in range(len(inputargs)):
             self.state[i].enum_forced_boxes(boxes, inputargs[i], optimizer)
-        #for i in range(len(values)):
-        #    self.state[i].enum_forced_boxes(inputargs, values[i], None)
-
-        # not sure what are these guys doing
-        #if keyboxes:
-        #    for i in range(len(values)):
-        #        if not isinstance(self.state[i], NotVirtualStateInfo):
-        #            box = values[i].get_key_box()
-        #            assert not isinstance(box, Const)
-        #            inputargs.append(box)
-
-        assert None not in boxes
 
         return boxes
 

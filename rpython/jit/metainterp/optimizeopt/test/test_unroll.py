@@ -275,3 +275,20 @@ class TestUnroll(BaseTestUnroll):
         """
         es, loop, preamble = self.optimize(loop)
         assert len(es.short_boxes) == 1
+
+    def test_circular_force(self):
+        ops = """
+        [p0]
+        p41 = getfield_gc_r(p0, descr=nextdescr)
+        i0 = getfield_gc_i(p41, descr=valuedescr)
+        p1 = new_with_vtable(descr=nodesize2)
+        p2 = new_with_vtable(descr=nodesize2)
+        setfield_gc(p2, p1, descr=nextdescr)
+        setfield_gc(p1, p2, descr=nextdescr)
+        i1 = int_add(i0, 1)
+        setfield_gc(p2, i1, descr=valuedescr)
+        setfield_gc(p0, p1, descr=nextdescr)
+        jump(p1)
+        """
+        es, loop, preamble = self.optimize(ops)
+        xxx

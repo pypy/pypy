@@ -56,7 +56,6 @@ class UnrollOptimizer(Optimization):
     become the preamble or entry bridge (don't think there is a
     distinction anymore)"""
 
-    inline_short_preamble = True
     ops_to_import = None
 
     def __init__(self, metainterp_sd, jitdriver_sd, optimizations):
@@ -91,9 +90,9 @@ class UnrollOptimizer(Optimization):
         self.potential_extra_ops = {}
         self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops,
                                              rename_inputargs=False)
-        jump_args = [self.get_box_replacement(op)
+        orig_jump_args = [self.get_box_replacement(op)
                      for op in end_jump.getarglist()]
-        jump_args = state.virtual_state.make_inputargs(jump_args,
+        jump_args = state.virtual_state.make_inputargs(orig_jump_args,
                                     self.optimizer, force_boxes=True)
         extra_jump_args = self.inline_short_preamble(jump_args)
         # remove duplicates, removes stuff from used boxes too
@@ -230,20 +229,21 @@ class UnrollOptimizer(Optimization):
         original_label_args = end_label.getarglist()
         end_args = [self.get_box_replacement(a) for a in original_label_args]
         virtual_state = self.get_virtual_state(end_args)
-        sb = ShortBoxes()
-        short_boxes = sb.create_short_boxes(self.optimizer, renamed_inputargs)
         inparg_mapping = [(start_label.getarg(i), end_args[i])
                           for i in range(len(end_args)) if
                           start_label.getarg(i) is not end_args[i]]
         infos = {}
         for arg in end_args:
             infos[arg] = self.optimizer.getinfo(arg)
+        label_args = virtual_state.make_inputargs(end_args, self.optimizer)
+        sb = ShortBoxes()
+        short_boxes = sb.create_short_boxes(self.optimizer, renamed_inputargs,
+                                            label_args)
+        short_inputargs = sb.create_short_inputargs(label_args)
         for produced_op in short_boxes:
             op = produced_op.short_op.res
             if not isinstance(op, Const):
                 infos[op] = self.optimizer.getinfo(op)
-        label_args = virtual_state.make_inputargs(end_args, self.optimizer)
-        short_inputargs = sb.create_short_inputargs(label_args)
         self.optimizer._clean_optimization_info(end_args)
         self.optimizer._clean_optimization_info(start_label.getarglist())
         return ExportedState(label_args, inparg_mapping, virtual_state, infos,
@@ -313,39 +313,6 @@ class UnrollOptimizer(Optimization):
             exported_state.exported_infos, self.optimizer)
         for produced_op in exported_state.short_boxes:
             produced_op.produce_op(self)
-            #if structop is None:
-            #    optpure = self.optimizer.optpure
-            #    if optpure is None:
-            #        continue
-            #    self.pure(op.getopnum(), PreambleOp(op, preamble_op))
-            #else:
-            #    optheap = self.optimizer.optheap
-            #    if optheap is None:
-            #        continue
-            #    g = preamble_op.copy_and_change(preamble_op.getopnum(),
-            #                                    args=[structop])
-            #    opinfo = self.optimizer.ensure_ptr_info_arg0(g)
-            #    pop = PreambleOp(op, preamble_op)
-            #    assert not opinfo.is_virtual()
-            #    opinfo._fields[preamble_op.getdescr().get_index()] = pop
-            #if not isinstance(op, Const):
-            #    self.ops_to_import[op] = None
-            # XXX think later about the short preamble
-            #if not isinstance(op, Const):
-            #    self.ops_to_import[op] = preamble_op
-            #if preamble_op.is_always_pure():
-            #    self.pure(op.getopnum(), PreambleOp(op, preamble_op,
-            #                    exported_state.exported_infos.get(op, None)))
-            #else:
-            #    assert preamble_op.is_getfield()
-            #    optheap = self.optimizer.optheap
-            #    if optheap is None:
-            #        continue
-            #    opinfo = self.optimizer.ensure_ptr_info_arg0(preamble_op)
-            #    pre_info = exported_state.exported_infos.get(op, None)
-            #    pop = PreambleOp(op, preamble_op, pre_info)
-            #    assert not opinfo.is_virtual()
-            #    opinfo._fields[preamble_op.getdescr().get_index()] = pop
 
         return
         self.inputargs = targetop.getarglist()
