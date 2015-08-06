@@ -53,11 +53,11 @@ class CachedField(object):
         self.cached_structs = []
 
     def produce_potential_short_preamble_ops(self, optimizer, shortboxes,
-                                             descr):
+                                             descr, index=-1):
         assert self._lazy_setfield is None
         for i, info in enumerate(self.cached_infos):
             structbox = optimizer.get_box_replacement(self.cached_structs[i])
-            info.produce_short_preamble_ops(structbox, descr, optimizer,
+            info.produce_short_preamble_ops(structbox, descr, index, optimizer,
                                             shortboxes)
         return
         for structvalue in self._cached_fields_getfield_op.keys():
@@ -196,7 +196,12 @@ class ArrayCachedField(CachedField):
         return op.getarg(2)
 
     def _getfield(self, opinfo, descr, optheap):
-        return opinfo.getitem(self.index, optheap)
+        res = opinfo.getitem(self.index, optheap)
+        if isinstance(res, PreambleOp):
+            res = optheap.optimizer.force_op_from_preamble(res)
+            opinfo.setitem(res.getarg(1).getint(), None, res,
+                           optheap=optheap)
+        return res
 
     def _setfield(self, op, opinfo, optheap):
         arg = optheap.get_box_replacement(op.getarg(2))
@@ -222,7 +227,7 @@ class OptHeap(Optimization):
 
         # XXXX the rest is old
         # cached array items:  {array descr: {index: CachedField}}
-        self.cached_arrayitems = {}
+        #self.cached_arrayitems = {}
         # cached dict items: {dict descr: {(optval, index): box-or-const}}
         self.cached_dict_reads = {}
         # cache of corresponding {array descrs: dict 'entries' field descr}
@@ -270,7 +275,8 @@ class OptHeap(Optimization):
 
         for descr, submap in self.cached_arrayitems.items():
             for index, d in submap.items():
-                d.produce_potential_short_preamble_ops(self.optimizer, sb, descr)
+                d.produce_potential_short_preamble_ops(self.optimizer, sb,
+                                                       descr, index)
 
     def register_dirty_field(self, descr, op, info):
         self.field_cache(descr).register_dirty_field(op, info)

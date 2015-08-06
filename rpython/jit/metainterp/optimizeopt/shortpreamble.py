@@ -41,11 +41,17 @@ class HeapOp(AbstractShortOp):
         if optheap is None:
             return
         g = preamble_op.copy_and_change(preamble_op.getopnum(),
-                                        args=[self.getfield_op.getarg(0)])
+                                        args=self.getfield_op.getarglist())
         opinfo = opt.optimizer.ensure_ptr_info_arg0(g)
         pop = PreambleOp(self.res, preamble_op)
         assert not opinfo.is_virtual()
-        opinfo.setfield(preamble_op.getdescr(), self.res, pop, optheap=optheap)
+        if g.is_getfield():
+            opinfo.setfield(preamble_op.getdescr(), self.res, pop,
+                            optheap=optheap)
+        else:
+            index = g.getarg(1).getint()
+            assert index >= 0
+            opinfo.setitem(index, self.res, pop, optheap=optheap)
 
     def __repr__(self):
         return "HeapOp(%r)" % (self.res,)
@@ -169,8 +175,13 @@ class ShortBoxes(object):
                 preamble_arg = self.produce_arg(sop.getarg(0))
                 if preamble_arg is None:
                     return None
-                preamble_op = ResOperation(sop.getopnum(), [preamble_arg],
-                                           descr=sop.getdescr())
+                if sop.is_getfield():
+                    preamble_op = ResOperation(sop.getopnum(), [preamble_arg],
+                                               descr=sop.getdescr())
+                else:
+                    preamble_op = ResOperation(sop.getopnum(), [preamble_arg,
+                                                                sop.getarg(1)],
+                                               descr=sop.getdescr())
             else:
                 arglist = []
                 for arg in op.getarglist():

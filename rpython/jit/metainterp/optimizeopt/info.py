@@ -165,7 +165,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 if fieldinfo and fieldinfo.is_virtual():
                     fieldinfo.visitor_walk_recursive(op, visitor, optimizer)
 
-    def produce_short_preamble_ops(self, structbox, descr, optimizer,
+    def produce_short_preamble_ops(self, structbox, descr, index, optimizer,
                                    shortboxes):
         op = optimizer.get_box_replacement(self._fields[descr.get_index()])
         opnum = OpHelpers.getfield_for_descr(descr)
@@ -271,13 +271,14 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
         return self.parent.is_virtual()
 
     def getitem_raw(self, offset, itemsize, descr):
-        return self.parent.getitem_raw(self.offset+offset, itemsize, descr)        
+        return self.parent.getitem_raw(self.offset+offset, itemsize, descr)
 
     def setitem_raw(self, offset, itemsize, descr, itemop):
         self.parent.setitem_raw(self.offset+offset, itemsize, descr, itemop)
     
     def _force_elements(self, op, optforce, descr):
-        raise Exception("implement me")
+        if self.parent.is_virtual():
+            self.parent._force_elements(op, optforce, descr)
 
     def _visitor_walk_recursive(self, op, visitor, optimizer):
         source_op = optimizer.get_box_replacement(op.getarg(0))
@@ -363,14 +364,15 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def visitor_dispatch_virtual_type(self, visitor):
         return visitor.visit_varray(self.vdescr, self._clear)
 
-    def produce_short_preamble_ops(self, structbox, descr, optimizer,
+    def produce_short_preamble_ops(self, structbox, descr, index, optimizer,
                                    shortboxes):
-        for i in range(self.getlength()):
-            xxx
-            op = optimizer.get_box_replacement(self._fields[descr.get_index()])
+        item = self._items[index]
+        if item is not None:
+            op = optimizer.get_box_replacement(item)
             opnum = OpHelpers.getarrayitem_for_descr(descr)
-            getfield_op = ResOperation(opnum, [structbox], descr=descr)
-            shortboxes.add_heap_op(op, getfield_op)
+            getarrayitem_op = ResOperation(opnum, [structbox, ConstInt(index)],
+                                           descr=descr)
+            shortboxes.add_heap_op(op, getarrayitem_op)
 
 class ArrayStructInfo(ArrayPtrInfo):
     def __init__(self, size, vdescr=None):

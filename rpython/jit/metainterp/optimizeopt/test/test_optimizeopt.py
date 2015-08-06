@@ -2240,7 +2240,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p1, i1, i2]
-        setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2)
         """
         # in this case, all setfields are removed, because we can prove
@@ -7608,7 +7607,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0]
         p1 = getfield_gc_r(p0, descr=nextdescr)
-        p2 = getarrayitem_gc_r(p1, 7, descr=<GcPtrArrayDescr>)
+        p2 = getarrayitem_gc_r(p1, 7, descr=arraydescr)
         call_n(p2, descr=nonwritedescr)
         jump(p0)
         """
@@ -7619,14 +7618,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = arraylen_gc(p1)
         i2 = int_ge(i1, 8)
         guard_true(i2) []
-        p2 = getarrayitem_gc_r(p1, 7, descr=<GcPtrArrayDescr>)
-        jump(p0, p2, p1)
+        p2 = getarrayitem_gc_r(p1, 7, descr=arraydescr)
+        jump(p0, p1, p2)
         """
         expected = """
-        [p0, p2, p1]
+        [p0, p1, p2]
         call_n(p2, descr=nonwritedescr)
-        i3 = arraylen_gc(p1) # Should be killed by backend
-        jump(p0, p2, p1)
+        # i3 = arraylen_gc(p1) # Should be killed by backend
+        jump(p0, p1, p2)
         """
         self.optimize_loop(ops, expected, expected_short=short)
 
@@ -7693,7 +7692,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_arraylen_bound(self):
         ops = """
         [p1, i]
-        p2 = getarrayitem_gc_r(p1, 7, descr=<GcPtrArrayDescr>)
+        p2 = getarrayitem_gc_r(p1, 7, descr=arraydescr)
         i1 = arraylen_gc(p1)
         i2 = int_ge(i1, 8)
         guard_true(i2) []
@@ -7701,7 +7700,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p1]
-        p2 = getarrayitem_gc_r(p1, 7, descr=<GcPtrArrayDescr>)
+        p2 = getarrayitem_gc_r(p1, 7, descr=arraydescr)
         i1 = arraylen_gc(p1)
         jump(p2)
         """

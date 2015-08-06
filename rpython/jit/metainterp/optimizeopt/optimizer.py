@@ -291,6 +291,8 @@ class Optimizer(Optimization):
         if op.type == 'r':
             return self.getptrinfo(op)
         elif op.type == 'i':
+            if self.is_raw_ptr(op):
+                return self.getptrinfo(op)
             return self.getintbound(op)
         elif op.type == 'f':
             if self.get_box_replacement(op).is_constant():
