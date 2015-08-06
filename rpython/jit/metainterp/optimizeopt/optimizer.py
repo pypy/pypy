@@ -265,6 +265,9 @@ class Optimizer(Optimization):
 
         self.optimizations  = optimizations
 
+    def force_op_from_preamble(self, op):
+        return op
+
     def replace_guard(self, op, value):
         assert isinstance(value, info.NonNullPtrInfo)
         if value.last_guard_pos == -1:
@@ -323,7 +326,7 @@ class Optimizer(Optimization):
         return op in self.inparg_dict
 
     def get_constant_box(self, box):
-        box = self.get_box_replacement(box)
+        box = self.force_box(box)
         if isinstance(box, Const):
             return box
         if (box.type == 'i' and box.get_forwarded() and

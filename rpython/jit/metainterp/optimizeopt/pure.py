@@ -147,13 +147,9 @@ class OptPure(Optimization):
                 return
 
         # replace CALL_PURE with just CALL
-        args = op.getarglist()
         opnum = OpHelpers.call_for_descr(op.getdescr())
         newop = self.optimizer.replace_op_with(op, opnum)
         self.emit_operation(newop)
-        #if self.optimizer.emitting_dissabled:
-        #    self.extra_call_pure.append(op) # XXX
-        #else:
             # don't move call_pure_with_exception in the short preamble...
             # issue #2015
 
