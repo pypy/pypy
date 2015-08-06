@@ -699,6 +699,13 @@ class LLGraphCPU(model.AbstractCPU):
         assert len(vx) == len(vy)
         return [_vx == _vy for _vx,_vy in zip(vx,vy)]
 
+    def bh_vec_float_ne(self, vx, vy):
+        assert len(vx) == len(vy)
+        return [_vx != _vy for _vx,_vy in zip(vx,vy)]
+
+    bh_vec_int_eq = bh_vec_float_eq
+    bh_vec_int_ne = bh_vec_float_ne
+
     def bh_vec_int_xor(self, vx, vy):
         return [int(x) ^ int(y) for x,y in zip(vx,vy)]
 

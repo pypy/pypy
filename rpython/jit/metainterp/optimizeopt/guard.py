@@ -48,7 +48,7 @@ class Guard(object):
     def getrightkey(self):
         return self.rhs.getvariable()
 
-    def implies(self, guard, opt):
+    def implies(self, guard, opt=None):
         if self.op.getopnum() != guard.op.getopnum():
             return False
 
@@ -64,14 +64,10 @@ class Guard(object):
             # x < y  = -1,-2,...
             # x == y = 0
             # x > y  = 1,2,...
-            if opnum == rop.INT_LT:
-                return (lc > 0 and rc >= 0) or (lc == 0 and rc >= 0)
-            if opnum == rop.INT_LE:
-                return (lc >= 0 and rc >= 0) or (lc == 0 and rc >= 0)
-            if opnum == rop.INT_GT:
-                return (lc < 0 and rc >= 0) or (lc == 0 and rc > 0)
-            if opnum == rop.INT_GE:
-                return (lc <= 0 and rc >= 0) or (lc == 0 and rc >= 0)
+            if opnum in (rop.INT_LE, rop.INT_LT):
+                return (lc >= 0 and rc <= 0)
+            if opnum in (rop.INT_GE, rop.INT_GT):
+                return (lc <= 0 and rc >= 0)
         return False
 
     def transitive_imply(self, other, opt):

@@ -923,12 +923,26 @@ class IndexVar(AbstractValue):
         """ returns if the two are compareable as a first result
             and a number (-1,0,1) of the ordering
         """
-        v1 = (self.coefficient_mul // self.coefficient_div) + self.constant
-        v2 = (other.coefficient_mul // other.coefficient_div) + other.constant
-        c = (v1 - v2)
+        coeff = self.coefficient_mul == other.coefficient_mul
+        coeff = coeff and (self.coefficient_div == other.coefficient_div)
+        if not coeff:
+            # if not equal, try to check if they divide without rest
+            selfmod = self.coefficient_mul % self.coefficient_div
+            othermod = other.coefficient_mul % other.coefficient_div
+            if selfmod == 0 and othermod == 0:
+                # yet another chance for them to be equal
+                selfdiv = self.coefficient_mul // self.coefficient_div
+                otherdiv = other.coefficient_mul // other.coefficient_div
+                coeff = selfdiv == otherdiv
+        #
+        if not coeff:
+            return False, 0
+        #
+        c = (self.constant - other.constant)
+        if isinstance(self.var, Const) and isinstance(other.var, Const):
+            return True, (self.var.value - other.var.value)
         if self.var.same_box(other.var):
-            #print "cmp(",self,",",other,") =>", (v1 - v2)
-            return True, (v1 - v2)
+            return True, c
         return False, 0
 
     def __repr__(self):
@@ -938,18 +952,6 @@ class IndexVar(AbstractValue):
         return 'IndexVar((%s*(%s/%s)+%s) + %s)' % (self.var, self.coefficient_mul,
                                             self.coefficient_div, self.constant,
                                             repr(self.next_nonconst))
-
-    def adapt_operation(self, op):
-        # TODO
-        if self.coefficient_mul == 1 and \
-           self.coefficient_div == 1 and \
-           op.getopnum() == rop.INT_ADD:
-           if isinstance(op.getarg(0), Box) and isinstance(op.getarg(1), Const):
-               op.setarg(0, self.var)
-               op.setarg(1, ConstInt(self.constant))
-           elif isinstance(op.getarg(1), Box) and isinstance(op.getarg(0), Const):
-               op.setarg(1, self.var)
-               op.setarg(0, ConstInt(self.constant))
 
 class MemoryRef(object):
     """ a memory reference to an array object. IntegralForwardModification is able
