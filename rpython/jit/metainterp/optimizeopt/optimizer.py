@@ -326,7 +326,7 @@ class Optimizer(Optimization):
         return op in self.inparg_dict
 
     def get_constant_box(self, box):
-        box = self.force_box(box)
+        box = self.get_box_replacement(box)
         if isinstance(box, Const):
             return box
         if (box.type == 'i' and box.get_forwarded() and

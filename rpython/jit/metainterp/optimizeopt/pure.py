@@ -129,6 +129,10 @@ class OptPure(Optimization):
 
     def optimize_CALL_PURE_I(self, op):
         # Step 1: check if all arguments are constant
+        for arg in op.getarglist():
+            self.optimizer.force_box(arg)
+            # XXX hack to ensure that virtuals that are
+            #     constant are presented that way
         result = self._can_optimize_call_pure(op)
         if result is not None:
             # this removes a CALL_PURE with all constant arguments.
