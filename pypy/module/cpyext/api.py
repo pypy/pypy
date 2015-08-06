@@ -1053,7 +1053,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "capsule.c",
                                source_dir / "pysignals.c",
                                source_dir / "pythread.c",
-                               source_dir / "ndarrayobject.c",
+                               #source_dir / "ndarrayobject.c",
                                source_dir / "missing.c",
                                ],
         separate_module_sources=separate_module_sources,
