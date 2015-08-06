@@ -22,10 +22,3 @@ def entry_point(args):
 
 def target(driver, args):
     return entry_point, None
-
-def portal(driver):
-    """Return the 'portal' function, and the hint-annotator policy.
-    The portal is the function that gets patched with a call to the JIT
-    compiler.
-    """
-    return tiny2.interpret, AnnotatorPolicy()
