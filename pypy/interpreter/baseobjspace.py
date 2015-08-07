@@ -1427,7 +1427,7 @@ class ObjSpace(object):
         # Returns extra information: (buffer, typecode, itemsize)
         try:
             return w_obj.buffer_w_ex(self, flags)
-        except TypeError:
+        except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
                         "'%T' does not support the buffer interface", w_obj)
 
