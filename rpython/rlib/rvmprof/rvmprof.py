@@ -27,38 +27,38 @@ class VMProf(object):
         self._code_classes = set()
         self._gather_all_code_objs = lambda: None
         self._cleanup_()
-
-    def _cleanup_(self):
-        self.is_enabled = False
-        self.fileno = -1
-        self._current_codes = None
         if sys.maxint == 2147483647:
             self._code_unique_id = 0 # XXX this is wrong, it won't work on 32bit
         else:
             self._code_unique_id = 0x7000000000000000
 
+    def _cleanup_(self):
+        self.is_enabled = False
+        self.fileno = -1
+        self._current_codes = None
+
     @specialize.argtype(1)
     def register_code(self, code, full_name_func):
         """Register the code object.  Call when a new code object is made.
         """
-        if self.is_enabled and code._vmprof_unique_id == 0:
+        if code._vmprof_unique_id == 0:
             uid = self._code_unique_id + 1
             code._vmprof_unique_id = uid
             self._code_unique_id = uid
-            self._write_code_registration(uid, full_name_func(code))
+            if self.is_enabled:
+                self._write_code_registration(uid, full_name_func(code))
 
     @specialize.argtype(1)
     def get_unique_id(self, code):
         """Return the internal unique ID of a code object.  Can only be
         called after register_code().  Call this in the jitdriver's
-        method 'get_unique_id(*greenkey)'.  Always returns 0 if we
-        didn't call register_code_object_class() on the class.
+        method 'get_unique_id(*greenkey)'.  The wrapper from __init__.py
+        always returns 0 if we didn't call register_code_object_class()
+        on the class.
         """
         uid = code._vmprof_unique_id
-        if uid == 0:
-            uid = self._code_unique_id + 1
-            code._vmprof_unique_id = uid
-            self._code_unique_id = uid
+        # 'uid == 0' can occur here if the code object was prebuilt,
+        # or if register_code() was not called for another reason.
         return uid
 
     def register_code_object_class(self, CodeClass, full_name_func):
@@ -91,8 +91,9 @@ class VMProf(object):
         def gather_all_code_objs():
             all_code_objs = rgc.do_get_objects(try_cast_to_code)
             for code in all_code_objs:
-                uid = self.get_unique_id(code)
-                self._write_code_registration(uid, full_name_func(code))
+                uid = code._vmprof_unique_id
+                if uid != 0:
+                    self._write_code_registration(uid, full_name_func(code))
             prev()
         # make a chained list of the gather() functions for all
         # the types of code objects
