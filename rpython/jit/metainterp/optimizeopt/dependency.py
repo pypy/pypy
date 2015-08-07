@@ -939,9 +939,11 @@ class IndexVar(AbstractValue):
             return False, 0
         #
         c = (self.constant - other.constant)
-        if isinstance(self.var, Const) and isinstance(other.var, Const):
-            return True, (self.var.value - other.var.value)
-        if self.var.same_box(other.var):
+        svar = self.var
+        ovar = other.var
+        if isinstance(svar, ConstInt) and isinstance(ovar, ConstInt):
+            return True, (svar.getint() - ovar.getint())
+        if svar.same_box(ovar):
             return True, c
         return False, 0
 

@@ -83,9 +83,9 @@ class Scheduler(object):
         for dep in node.provides()[:]: # COPY
             to = dep.to
             node.remove_edge_to(to)
+            nodes = self.schedulable_nodes
             if not to.emitted and to.depends_count() == 0:
                 # sorts them by priority
-                nodes = self.schedulable_nodes
                 i = len(nodes)-1
                 while i >= 0:
                     itnode = nodes[i]
@@ -97,7 +97,7 @@ class Scheduler(object):
                         # if they have the same priority, sort them
                         # using the original position in the trace
                         if itnode.getindex() < to.getindex():
-                            nodes.insert(i+1, to)
+                            nodes.insert(i, to)
                             break
                     i -= 1
                 else:
@@ -821,13 +821,11 @@ class Pack(object):
     """
     def __init__(self, ops, input_type, output_type):
         self.operations = ops
-        for i,node in enumerate(self.operations):
-            node.pack = self
-            node.pack_position = i
         self.accum = None
         self.input_type = input_type
         self.output_type = output_type
         assert self.input_type is not None or self.output_type is not None
+        self.update_pack_of_nodes()
 
     def opcount(self):
         return len(self.operations)

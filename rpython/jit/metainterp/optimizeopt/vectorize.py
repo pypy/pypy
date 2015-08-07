@@ -409,13 +409,12 @@ class VectorizingOptimizer(Optimizer):
                         # do not inc in rightmost_match_leftmost
                         # this could miss some pack
                         j += 1
-                # set for each node to which pack it belongs
-                pack = self.packset.packs[i]
-                pack.update_pack_of_nodes()
-                j = 0
                 i += 1
+                j = 0
             if len_before == len(self.packset.packs):
                 break
+        for pack in self.packset.packs:
+            pack.update_pack_of_nodes()
 
 
         if not we_are_translated():
