@@ -23,7 +23,7 @@ class VMProfError(Exception):
 class VMProf(object):
 
     def __init__(self):
-        "NOT_RPYTHON: use get_vmprof()"
+        "NOT_RPYTHON: use _get_vmprof()"
         self._code_classes = set()
         self._gather_all_code_objs = lambda: None
         self._cleanup_()
