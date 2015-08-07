@@ -80,17 +80,24 @@ static int prepare_concurrent_bufs(void)
 
 static int _write_single_ready_buffer(int fd, long i)
 {
+    /* Try to write to disk the buffer number 'i'.  This function must
+       only be called while we hold the write lock. */
+    assert(profbuf_write_lock != 0);
+
+    if (profbuf_pending_write >= 0) {
+        /* A partially written buffer is waiting.  We'll write the
+           rest of this buffer now, instead of 'i'. */
+        i = profbuf_pending_write;
+        assert(profbuf_state[i] == PROFBUF_READY);
+    }
+
     if (profbuf_state[i] != PROFBUF_READY) {
         /* this used to be a race condition: the buffer was written by a
            different thread already, nothing to do now */
         return 0;
     }
+
     int err;
-    if (profbuf_pending_write >= 0 && profbuf_pending_write != i) {
-        err = _write_single_ready_buffer(fd, profbuf_pending_write);
-        if (err < 0 || profbuf_pending_write >= 0)
-            return err;
-    }
     struct profbuf_s *p = &profbuf_all_buffers[i];
     ssize_t count = write(fd, p->data + p->data_offset, p->data_size);
     if (count == p->data_size) {
@@ -193,8 +200,10 @@ static int shutdown_concurrent_bufs(int fd)
     /* last attempt to flush buffers */
     int i;
     for (i = 0; i < MAX_NUM_BUFFERS; i++) {
-        if (_write_single_ready_buffer(fd, i) < 0)
-            return -1;
+        while (profbuf_state[i] == PROFBUF_READY) {
+            if (_write_single_ready_buffer(fd, i) < 0)
+                return -1;
+        }
     }
     unprepare_concurrent_bufs();
     return 0;
