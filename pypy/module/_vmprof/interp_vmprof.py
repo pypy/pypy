@@ -43,11 +43,11 @@ PyCode._init_ready = _init_ready
 
 class Cache:
     def __init__(self, space):
-        self.w_error = space.new_exception_class("_vmprof.error")
+        self.w_VMProfError = space.new_exception_class("_vmprof.VMProfError")
 
-def vmprof_error(space, e):
-    w_error = space.fromcache(Cache).w_error
-    return OperationError(w_error, space.wrap(e.msg))
+def VMProfError(space, e):
+    w_VMProfError = space.fromcache(Cache).w_VMProfError
+    return OperationError(w_VMProfError, space.wrap(e.msg))
 
 
 @unwrap_spec(fileno=int, period=float)
@@ -62,7 +62,7 @@ def enable(space, fileno, period):
     try:
         rvmprof.enable(fileno, period)
     except rvmprof.VMProfError, e:
-        raise vmprof_error(space, e)
+        raise VMProfError(space, e)
 
 def disable(space):
     """Disable vmprof.  Remember to close the file descriptor afterwards

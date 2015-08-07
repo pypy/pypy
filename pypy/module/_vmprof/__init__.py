@@ -10,7 +10,7 @@ class Module(MixedModule):
     interpleveldefs = {
         'enable': 'interp_vmprof.enable',
         'disable': 'interp_vmprof.disable',
-        'error': 'space.fromcache(interp_vmprof.Cache).w_error',
+        'VMProfError': 'space.fromcache(interp_vmprof.Cache).w_VMProfError',
     }
 
 
