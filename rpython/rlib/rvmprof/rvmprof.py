@@ -48,19 +48,6 @@ class VMProf(object):
             if self.is_enabled:
                 self._write_code_registration(uid, full_name_func(code))
 
-    @specialize.argtype(1)
-    def get_unique_id(self, code):
-        """Return the internal unique ID of a code object.  Can only be
-        called after register_code().  Call this in the jitdriver's
-        method 'get_unique_id(*greenkey)'.  The wrapper from __init__.py
-        always returns 0 if we didn't call register_code_object_class()
-        on the class.
-        """
-        uid = code._vmprof_unique_id
-        # 'uid == 0' can occur here if the code object was prebuilt,
-        # or if register_code() was not called for another reason.
-        return uid
-
     def register_code_object_class(self, CodeClass, full_name_func):
         """NOT_RPYTHON
         Register statically the class 'CodeClass' as containing user
