@@ -5,6 +5,10 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 
+from rpython.jit.backend import detect_cpu
+if detect_cpu.autodetect() != detect_cpu.MODEL_X86_64:
+    py.test.skip("rvmprof only supports x86-64 CPUs for now")
+
 
 ROOT = py.path.local(__file__).join('..')
 SRC = ROOT.join('src')
