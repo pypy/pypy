@@ -2949,7 +2949,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         exc = self.raises(InvalidLoop, self.optimize_loop, ops, "crash!")
         if exc:
-            assert "node" in exc.msg
+            assert "promote of a virtual" in exc.msg
 
     def test_merge_guard_class_guard_value(self):
         ops = """
@@ -3171,8 +3171,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, p2]
         i1 = ptr_eq(p1, p2)
         i3 = int_add(i1, 1)
-        i3b = int_is_true(i3)
-        guard_true(i3b) []
         escape_n(i3)
         escape_n(i3)
         guard_true(i1) []
@@ -7438,17 +7436,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
         ops = """
         [p0]
-        p1 = new_with_vtable(descr=nodesize)
-        setfield_gc(p1, p0, descr=valuedescr)
+        p1 = new_with_vtable(descr=nodesize3)
+        setfield_gc(p1, p0, descr=valuedescr3)
         escape_n(p1)
-        p2 = getfield_gc_pure_r(p1, descr=valuedescr)
+        p2 = getfield_gc_pure_r(p1, descr=valuedescr3)
         escape_n(p2)
         jump(p0)
         """
         expected = """
         [p0]
-        p1 = new_with_vtable(descr=nodesize)
-        setfield_gc(p1, p0, descr=valuedescr)
+        p1 = new_with_vtable(descr=nodesize3)
+        setfield_gc(p1, p0, descr=valuedescr3)
         escape_n(p1)
         escape_n(p0)
         jump(p0)

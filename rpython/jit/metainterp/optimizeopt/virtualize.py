@@ -170,17 +170,6 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_GETFIELD_GC_I(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
-        # XXX dealt with by heapcache
-        # If this is an immutable field (as indicated by op.is_always_pure())
-        # then it's safe to reuse the virtual's field, even if it has been
-        # forced, because it should never be written to again.
-        #if op.is_always_pure():
-        #    
-        #    if value.is_forced_virtual() and op.is_always_pure():
-        #        fieldvalue = value.getfield(op.getdescr(), None)
-        #        if fieldvalue is not None:
-        #            self.make_equal_to(op, fieldvalue)
-        #            return
         if opinfo and opinfo.is_virtual():
             fieldop = opinfo.getfield(op.getdescr())
             if fieldop is None:

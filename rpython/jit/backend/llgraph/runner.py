@@ -116,6 +116,10 @@ class FieldDescr(AbstractDescr):
         self.fieldname = fieldname
         self.FIELD = getattr(S, fieldname)
         self.index = heaptracker.get_fielddescr_index_in(S, fieldname)
+        self._is_pure = S._immutable_field(fieldname)
+
+    def is_always_pure(self):
+        return self._is_pure
 
     def get_parent_descr(self):
         return self.parent_descr

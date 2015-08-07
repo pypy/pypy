@@ -593,7 +593,7 @@ class OptRewrite(Optimization):
         self.emit_operation(op)
 
     def optimize_GUARD_FUTURE_CONDITION(self, op):
-        pass # just remove it
+        self.optimizer.notice_guard_future_condition(op)
 
     def optimize_INT_FLOORDIV(self, op):
         arg0 = op.getarg(0)

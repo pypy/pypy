@@ -70,7 +70,7 @@ class OptSimplify(Optimization):
     #     self.emit_operation(op)
 
     def optimize_GUARD_FUTURE_CONDITION(self, op):
-        pass
+        self.optimizer.notice_guard_future_condition(op)
 
 dispatch_opt = make_dispatcher_method(OptSimplify, 'optimize_',
         default=OptSimplify.emit_operation)

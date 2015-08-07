@@ -125,7 +125,12 @@ class UnrollOptimizer(Optimization):
         for i in range(len(jump_args)):
             sb.short_inputargs[i].set_forwarded(None)
             self.make_equal_to(sb.short_inputargs[i], jump_args[i])
+        patchguardop = self.optimizer.patchguardop
         for op in sb.short:
+            if op.is_guard():
+                op = self.replace_op_with(op, op.getopnum())
+                op.rd_snapshot = patchguardop.rd_snapshot
+                op.rd_frame_info_list = patchguardop.rd_frame_info_list
             self.optimizer.send_extra_operation(op)
         res = [self.optimizer.get_box_replacement(op) for op in
                 sb.short_preamble_jump]

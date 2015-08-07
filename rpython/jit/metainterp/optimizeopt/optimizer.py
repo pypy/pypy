@@ -268,6 +268,9 @@ class Optimizer(Optimization):
     def force_op_from_preamble(self, op):
         return op
 
+    def notice_guard_future_condition(self, op):
+        self.patchguardop = op
+
     def replace_guard(self, op, value):
         assert isinstance(value, info.NonNullPtrInfo)
         if value.last_guard_pos == -1:

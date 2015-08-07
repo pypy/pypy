@@ -88,6 +88,9 @@ class LLtypeMixin(object):
     node_vtable2 = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable2.name = rclass.alloc_array_name('node2')
     node_vtable_adr2 = llmemory.cast_ptr_to_adr(node_vtable2)
+    node_vtable3 = lltype.malloc(OBJECT_VTABLE, immortal=True)
+    node_vtable3.name = rclass.alloc_array_name('node3')
+    node_vtable_adr3 = llmemory.cast_ptr_to_adr(node_vtable3)
     cpu = runner.LLGraphCPU(None)
 
     NODE = lltype.GcForwardReference()
@@ -98,6 +101,13 @@ class LLtypeMixin(object):
                                         ('next', lltype.Ptr(NODE))))
     NODE2 = lltype.GcStruct('NODE2', ('parent', NODE),
                                      ('other', lltype.Ptr(NODE)))
+
+    NODE3 = lltype.GcForwardReference()
+    NODE3.become(lltype.GcStruct('NODE3', ('parent', OBJECT),
+                            ('value', lltype.Signed),
+                            ('next', lltype.Ptr(NODE3)),
+                            hints={'immutable': True}))
+    
     node = lltype.malloc(NODE)
     node.value = 5
     node.parent.typeptr = node_vtable
@@ -111,11 +121,16 @@ class LLtypeMixin(object):
     #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
     nodesize = cpu.sizeof(NODE, True)
     nodesize2 = cpu.sizeof(NODE2, True)
+    nodesize3 = cpu.sizeof(NODE3, True)
     valuedescr = cpu.fielddescrof(NODE, 'value')
     floatdescr = cpu.fielddescrof(NODE, 'floatval')
     chardescr = cpu.fielddescrof(NODE, 'charval')
     nextdescr = cpu.fielddescrof(NODE, 'next')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
+    valuedescr3 = cpu.fielddescrof(NODE3, 'value')
+    nextdescr3 = cpu.fielddescrof(NODE3, 'next')
+    assert valuedescr3.is_always_pure()
+    assert nextdescr3.is_always_pure()
 
     accessor = FieldListAccessor()
     accessor.initialize(None, {'inst_field': IR_QUASIIMMUTABLE})
@@ -312,6 +327,7 @@ class LLtypeMixin(object):
 
     register_known_gctype(cpu, node_vtable,  NODE)
     register_known_gctype(cpu, node_vtable2, NODE2)
+    register_known_gctype(cpu, node_vtable3, NODE3)
     register_known_gctype(cpu, u_vtable,     U)
     register_known_gctype(cpu, jit_virtual_ref_vtable,vrefinfo.JIT_VIRTUAL_REF)
     register_known_gctype(cpu, intobj_noimmut_vtable, INTOBJ_NOIMMUT)
@@ -433,6 +449,7 @@ class BaseTest(object):
         return call_pure_results
 
     def unroll_and_optimize(self, loop, call_pure_results=None):
+        self.add_guard_future_condition(loop)
         jump_op = loop.operations[-1]
         assert jump_op.getopnum() == rop.JUMP
         ops = loop.operations[:-1]
