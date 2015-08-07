@@ -75,7 +75,7 @@ class W_MyType(W_MyObject):
 
 
     def getname(self, space):
-        return self.name
+        return self.name.decode('utf-8')
 
 def w_some_obj():
     if NonConstant(False):
