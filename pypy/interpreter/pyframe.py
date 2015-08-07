@@ -176,14 +176,8 @@ class PyFrame(W_Root):
         vprof = self.pycode.vprof
         if isinstance(value, W_IntObject):
             times = vprof.see_int(varindex, value.intval)
-            if times > 50 and not self.pycode.printed[varindex]:
-                self.pycode.printed[varindex] = True
-                print "COMMON VALUE:", self.pycode.co_name, varindex, self.pycode.co_varnames[varindex], value.intval
         else:
             times = self.pycode.vprof.see_object(varindex, value)
-            if times > 50 and not self.pycode.printed[varindex]:
-                self.pycode.printed[varindex] = True
-                print "COMMON VALUE:", self.pycode.co_name, varindex, self.pycode.co_varnames[varindex], self.space.str_w(self.space.repr(value))
 
 
     def mark_as_escaped(self):
