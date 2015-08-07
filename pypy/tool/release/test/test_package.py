@@ -15,8 +15,8 @@ class TestPackaging:
             cls.exe_name_in_archive = 'pypy-c.exe'
         else:
             basename = 'pypy-c'
-            rename_pypy_c = package.POSIX_EXE
-            exe_name_in_archive = os.path.join('bin', package.POSIX_EXE)
+            cls.rename_pypy_c = package.POSIX_EXE
+            cls.exe_name_in_archive = os.path.join('bin', package.POSIX_EXE)
         cls.pypy_c = py.path.local(pypydir).join('goal', basename)
 
     def test_dir_structure(self, test='test'):
