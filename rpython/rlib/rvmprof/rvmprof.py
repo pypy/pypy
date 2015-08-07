@@ -42,7 +42,13 @@ class VMProf(object):
         """Register the code object.  Call when a new code object is made.
         """
         if code._vmprof_unique_id == 0:
-            uid = self._code_unique_id + 1
+            # Add 4 to the next unique_id, so that all returned numbers are
+            # multiples of 4.  This is also a workaround for a bug (in some
+            # revision) of vmprof-python, where it will look up the name
+            # corresponding the 'uid + 1' instead of 'uid': if the next one
+            # is at 'uid + 4', then the lookup will give the right answer
+            # anyway.
+            uid = self._code_unique_id + 4
             code._vmprof_unique_id = uid
             self._code_unique_id = uid
             if self.is_enabled:
