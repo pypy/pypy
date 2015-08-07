@@ -101,6 +101,9 @@ class W_Dtype(W_Root):
 
     @specialize.argtype(1)
     def box(self, value):
+        if self.is_record():
+            raise oefmt(self.itemtype.space.w_NotImplementedError,
+                "cannot box a value into a 'record' dtype, this is a bug please report it")
         return self.itemtype.box(value)
 
     @specialize.argtype(1, 2)
@@ -1028,6 +1031,10 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
     elif space.isinstance_w(w_dtype, space.w_tuple):
         w_dtype0 = space.getitem(w_dtype, space.wrap(0))
         w_dtype1 = space.getitem(w_dtype, space.wrap(1))
+        if space.isinstance_w(w_dtype0, space.w_type):
+            #obscure api - (subclass, spec). Ignore the subclass
+            return make_new_dtype(space, w_subtype, w_dtype1, alignment, 
+                        copy=copy, w_shape=w_shape, w_metadata=w_metadata)
         subdtype = make_new_dtype(space, w_subtype, w_dtype0, alignment, copy)
         assert isinstance(subdtype, W_Dtype)
         if subdtype.elsize == 0:
