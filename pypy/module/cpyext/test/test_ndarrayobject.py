@@ -5,6 +5,8 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.descriptor import get_dtype_cache
 
+py.test.skip("Micronumpy not yet supported on py3k.")
+
 def scalar(space):
     dtype = get_dtype_cache(space).w_float64dtype
     return W_NDimArray.new_scalar(space, dtype, space.wrap(10.))
