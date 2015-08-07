@@ -24,6 +24,7 @@ eci_kwds = dict(
     includes = ['rvmprof.h'],
     libraries = libs,
     separate_module_files = [SRC.join('rvmprof.c')],
+    post_include_bits=['#define RPYTHON_VMPROF\n'],
     )
 eci = ExternalCompilationInfo(**eci_kwds)
 
