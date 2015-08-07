@@ -174,6 +174,8 @@ class PyFrame(W_Root):
         if we_are_jitted():
             return
         vprof = self.pycode.vprof
+        if vprof.frozen:
+            return
         if isinstance(value, W_IntObject):
             times = vprof.see_int(varindex, value.intval)
         else:

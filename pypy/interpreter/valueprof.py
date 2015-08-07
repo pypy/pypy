@@ -18,14 +18,17 @@ class ValueProf(object):
     def see_int(self, index, value):
         if self.frozen:
             return 0
-        if self.counters[index] < 0 and self.values_int[index] == value:
-            self.counters[index] -= 1
-            return -self.counters[index]
+        count = self.counters[index]
+        if count < 0:
+            if self.values_int[index] == value:
+                new_count = count - 1
+                self.counters[index] = new_count
+                return -new_count
         else:
-            self.values_int[index] = value
-            self.counters[index] = -1
             self.values_wref[index] = dead_ref
-            return 1
+        self.values_int[index] = value
+        self.counters[index] = -1
+        return 1
 
     def see_object(self, index, value):
         if self.frozen:
@@ -34,15 +37,17 @@ class ValueProf(object):
             self.values_wref[index] = dead_ref
             self.counters[index] = 0
             return 0
-        if self.values_wref[index]() is value:
-            assert self.counters[index] > 0
-            self.counters[index] += 1
-            return self.counters[index]
+        count = self.counters[index]
+        if count > 0:
+            if self.values_wref[index]() is value:
+                new_count = count + 1
+                self.counters[index] = new_count
+                return new_count
         else:
-            self.values_wref[index] = ref(value)
-            self.counters[index] = 1
             self.values_int[index] = -1
-            return 1
+        self.values_wref[index] = ref(value)
+        self.counters[index] = 1
+        return 1
 
     @jit.elidable
     def is_variable_constant(self, index):
