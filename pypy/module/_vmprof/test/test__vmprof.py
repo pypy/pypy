@@ -43,7 +43,7 @@ class AppTestVMProf(object):
             return count
         
         import _vmprof
-        _vmprof.enable(self.tmpfileno)
+        _vmprof.enable(self.tmpfileno, 0.01)
         _vmprof.disable()
         s = open(self.tmpfilename, 'rb').read()
         no_of_codes = count(s)
@@ -54,7 +54,7 @@ class AppTestVMProf(object):
             pass
         """ in d
 
-        _vmprof.enable(self.tmpfileno2)
+        _vmprof.enable(self.tmpfileno2, 0.01)
 
         exec """def foo2():
             pass

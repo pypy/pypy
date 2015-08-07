@@ -51,13 +51,13 @@ def vmprof_error(space, e):
 
 
 @unwrap_spec(fileno=int, period=float)
-def enable(space, fileno, period=0.01):   # default 100 Hz
+def enable(space, fileno, period):
     """Enable vmprof.  Writes go to the given 'fileno', a file descriptor
     opened for writing.  *The file descriptor must remain open at least
     until disable() is called.*
 
-    The sampling interval is optionally given by 'interval' as a number of
-    seconds, as a float which must be smaller than 1.0.
+    'interval' is a float representing the sampling interval, in seconds.
+    Must be smaller than 1.0
     """
     try:
         rvmprof.enable(fileno, period)
