@@ -172,8 +172,12 @@ class ArrayDescr(AbstractDescr):
     
     def __init__(self, A, runner):
         self.A = self.OUTERA = A
+        self._is_pure = A._immutable_field(None)
         if isinstance(A, lltype.Struct):
             self.A = A._flds[A._arrayfld]
+
+    def is_always_pure(self):
+        return self._is_pure
 
     def get_all_fielddescrs(self):
         return self.all_interiorfielddescrs

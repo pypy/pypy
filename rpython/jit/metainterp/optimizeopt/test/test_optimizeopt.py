@@ -7369,7 +7369,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0, p1, p3, ii, ii2]
         i1 = getfield_gc_i(p0, descr=valuedescr)
-        i2 = getfield_gc_i(p1, descr=otherdescr)
+        i2 = getfield_gc_i(p1, descr=chardescr)
         setfield_gc(p3, i1, descr=adescr)
         setfield_gc(p3, i2, descr=bdescr)
         i4 = int_eq(i1, i2)
