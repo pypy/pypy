@@ -7413,8 +7413,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p0)
         """
         expected = """
-        [p0]
-        jump(p0)
+        [p0, p1]
+        jump(p0, p1)
         """
         short = """
         [p0]

@@ -198,9 +198,9 @@ class ArrayCachedField(CachedField):
     def _getfield(self, opinfo, descr, optheap):
         res = opinfo.getitem(self.index, optheap)
         if isinstance(res, PreambleOp):
+            index = res.preamble_op.getarg(1).getint()
             res = optheap.optimizer.force_op_from_preamble(res)
-            opinfo.setitem(res.getarg(1).getint(), None, res,
-                           optheap=optheap)
+            opinfo.setitem(index, None, res, optheap=optheap)
         return res
 
     def _setfield(self, op, opinfo, optheap):
