@@ -147,10 +147,11 @@ class ShortBoxes(object):
 
         for short_op in self.const_short_boxes:
             getfield_op = short_op.getfield_op
-            preamble_arg = self.produce_arg(getfield_op.getarg(0))
+            args = getfield_op.getarglist()
+            preamble_arg = self.produce_arg(args[0])
             if preamble_arg is not None:
                 preamble_op = getfield_op.copy_and_change(
-                    getfield_op.getopnum(), [preamble_arg])
+                      getfield_op.getopnum(), [preamble_arg] + args[1:])
                 produced_op = ProducedShortOp(short_op, preamble_op)
                 short_boxes.append(produced_op)
         return short_boxes

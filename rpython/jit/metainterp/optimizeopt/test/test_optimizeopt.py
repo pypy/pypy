@@ -3997,7 +3997,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, i1]
         p3 = force_token()
         #
-        p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        p2 = new_with_vtable(descr=vref_descr)
         setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         setfield_gc(p0, p2, descr=nextdescr)
@@ -4085,7 +4085,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i1]
         p3 = force_token()
-        p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        p2 = new_with_vtable(descr=vref_descr)
         setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         escape_n(p2)
@@ -7223,36 +7223,38 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_constant_getfield1(self):
         ops = """
         [p1, p187, i184]
-        p188 = getarrayitem_gc_r(p187, 42, descr=<GcPtrArrayDescr>)
+        p188 = getarrayitem_gc_r(p187, 42, descr=arraydescr)
         guard_value(p188, ConstPtr(myptr)) []
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
+        call_n(123, p25, descr=nonwritedescr)
         jump(p25, p187, i184)
         """
         preamble = """
         [p1, p187, i184]
-        p188 = getarrayitem_gc_r(p187, 42, descr=<GcPtrArrayDescr>)
+        p188 = getarrayitem_gc_r(p187, 42, descr=arraydescr)
         guard_value(p188, ConstPtr(myptr)) []
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
-        p26 = same_as_r(p25)
-        jump(p25, p187, i184, p26)
+        p123 = same_as_r(p25)
+        jump(p25, p187, i184, p123)
         """
         short = """
         [p1, p187, i184]
-        p188 = getarrayitem_gc_r(p187, 42, descr=<GcPtrArrayDescr>)
+        p188 = getarrayitem_gc_r(p187, 42, descr=arraydescr)
         guard_value(p188, ConstPtr(myptr)) []
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
-        jump(p1, p187, i184, p25)
+        jump(p25)
         """
         expected = """
         [p25, p187, i184, p189]
-        jump(p189, p187, i184, p189)
+        call_n(123, p189, descr=nonwritedescr)
+        jump(p25, p187, i184, p189)
         """
         self.optimize_loop(ops, expected, preamble, expected_short=short)
 
     def test_constant_getfield1bis(self):
         ops = """
         [p1, p187, i184]
-        p188 = getarrayitem_gc_r(p187, 42, descr=<GcPtrArrayDescr>)
+        p188 = getarrayitem_gc_r(p187, 42, descr=arraydescr)
         guard_value(p188, ConstPtr(myptr)) []
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
         p26 = call_r(p25, descr=nonwritedescr)
