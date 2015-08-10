@@ -21,6 +21,7 @@ from rpython.annotator.signature import annotationoftype
 from rpython.annotator.argument import simple_args
 from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
+from rpython.tool.flattenrec import FlattenRecursion
 from rpython.rtyper import extregistry
 
 
@@ -425,6 +426,8 @@ class Bookkeeper(object):
             self.methoddescs[key] = result
             return result
 
+    _see_mutable_flattenrec = FlattenRecursion()
+
     def see_mutable(self, x):
         key = (x.__class__, x)
         if key in self.seen_mutable:
@@ -433,8 +436,11 @@ class Bookkeeper(object):
         self.seen_mutable[key] = True
         self.event('mutable', x)
         source = InstanceSource(self, x)
-        for attr in source.all_instance_attributes():
-            clsdef.add_source_for_attribute(attr, source) # can trigger reflowing
+        def delayed():
+            for attr in source.all_instance_attributes():
+                clsdef.add_source_for_attribute(attr, source)
+                # ^^^ can trigger reflowing
+        self._see_mutable_flattenrec(delayed)
 
     def valueoftype(self, t):
         return annotationoftype(t, self)

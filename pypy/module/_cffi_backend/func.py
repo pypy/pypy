@@ -1,13 +1,13 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.module._cffi_backend import ctypeobj, cdataobj
+from pypy.module._cffi_backend import ctypeobj, cdataobj, allocator
 
 
 # ____________________________________________________________
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_init=WrappedDefault(None))
 def newp(space, w_ctype, w_init):
-    return w_ctype.newp(w_init)
+    return w_ctype.newp(w_init, allocator.default_allocator)
 
 # ____________________________________________________________
 
@@ -18,9 +18,9 @@ def cast(space, w_ctype, w_ob):
 # ____________________________________________________________
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
-def callback(space, w_ctype, w_callable, w_error=None):
+def callback(space, w_ctype, w_callable, w_error=None, w_onerror=None):
     from pypy.module._cffi_backend.ccallback import W_CDataCallback
-    return W_CDataCallback(space, w_ctype, w_callable, w_error)
+    return W_CDataCallback(space, w_ctype, w_callable, w_error, w_onerror)
 
 # ____________________________________________________________
 
@@ -105,3 +105,9 @@ def from_buffer(space, w_ctype, w_x):
                     "raw address on PyPy", w_x)
     #
     return cdataobj.W_CDataFromBuffer(space, _cdata, w_ctype, buf, w_x)
+
+# ____________________________________________________________
+
+@unwrap_spec(w_cdata=cdataobj.W_CData)
+def gcp(space, w_cdata, w_destructor):
+    return w_cdata.with_gc(w_destructor)

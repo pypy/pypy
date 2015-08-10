@@ -142,6 +142,8 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
     else:
         # not an array
         shape, elems_w = strides.find_shape_and_elems(space, w_object, dtype)
+    if dtype is None and space.isinstance_w(w_object, space.w_buffer):
+        dtype = descriptor.get_dtype_cache(space).w_uint8dtype
     if dtype is None or (dtype.is_str_or_unicode() and dtype.elsize < 1):
         dtype = find_dtype_for_seq(space, elems_w, dtype)
         if dtype is None:

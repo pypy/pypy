@@ -15,11 +15,14 @@ from pypy.module.micronumpy.arrayops import repeat, choose, put
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array, \
     ArrayArgumentException, wrap_impl
 from pypy.module.micronumpy.concrete import BaseConcreteArray
-from pypy.module.micronumpy.converters import multi_axis_converter, \
-    order_converter, shape_converter, searchside_converter
+from pypy.module.micronumpy.converters import (
+    multi_axis_converter, order_converter, shape_converter,
+    searchside_converter, out_converter)
 from pypy.module.micronumpy.flagsobj import W_FlagsObject
-from pypy.module.micronumpy.strides import get_shape_from_iterable, \
-    shape_agreement, shape_agreement_multiple, is_c_contiguous, is_f_contiguous
+from pypy.module.micronumpy.strides import (
+    get_shape_from_iterable, shape_agreement, shape_agreement_multiple,
+    is_c_contiguous, is_f_contiguous, calc_strides, new_view)
+from pypy.module.micronumpy.casting import can_cast_array
 
 
 def _match_dot_shapes(space, left, right):
@@ -42,7 +45,6 @@ def _match_dot_shapes(space, left, right):
     if my_critical_dim_size != right_critical_dim_size:
         raise oefmt(space.w_ValueError, "objects are not aligned")
     return out_shape, right_critical_dim
-
 
 class __extend__(W_NDimArray):
     @jit.unroll_safe
@@ -178,7 +180,7 @@ class __extend__(W_NDimArray):
         if iter_shape is None:
             # w_index is a list of slices, return a view
             chunks = self.implementation._prepare_slice_args(space, w_index)
-            return chunks.apply(space, self)
+            return new_view(space, self, chunks)
         shape = res_shape + self.get_shape()[len(indexes):]
         w_res = W_NDimArray.from_shape(space, shape, self.get_dtype(),
                                        self.get_order(), w_instance=self)
@@ -194,7 +196,7 @@ class __extend__(W_NDimArray):
         if iter_shape is None:
             # w_index is a list of slices
             chunks = self.implementation._prepare_slice_args(space, w_index)
-            view = chunks.apply(space, self)
+            view = new_view(space, self, chunks)
             view.implementation.setslice(space, val_arr)
             return
         if support.product(iter_shape) == 0:
@@ -203,6 +205,10 @@ class __extend__(W_NDimArray):
                                prefix)
 
     def descr_getitem(self, space, w_idx):
+        if self.get_dtype().is_record():
+            if space.isinstance_w(w_idx, space.w_str):
+                idx = space.str_w(w_idx)
+                return self.getfield(space, idx)
         if space.is_w(w_idx, space.w_Ellipsis):
             return self
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool():
@@ -229,6 +235,13 @@ class __extend__(W_NDimArray):
         self.implementation.setitem_index(space, index_list, w_value)
 
     def descr_setitem(self, space, w_idx, w_value):
+        if self.get_dtype().is_record():
+            if space.isinstance_w(w_idx, space.w_str):
+                idx = space.str_w(w_idx)
+                view = self.getfield(space, idx)
+                w_value = convert_to_array(space, w_value)
+                view.implementation.setslice(space, w_value)
+                return
         if space.is_w(w_idx, space.w_Ellipsis):
             self.implementation.setslice(space, convert_to_array(space, w_value))
             return
@@ -240,6 +253,28 @@ class __extend__(W_NDimArray):
             self.implementation.descr_setitem(space, self, w_idx, w_value)
         except ArrayArgumentException:
             self.setitem_array_int(space, w_idx, w_value)
+
+    def getfield(self, space, field):
+        dtype = self.get_dtype()
+        if field not in dtype.fields:
+            raise oefmt(space.w_ValueError, "field named %s not found", field)
+        arr = self.implementation
+        ofs, subdtype = arr.dtype.fields[field][:2]
+        # ofs only changes start
+        # create a view of the original array by extending
+        # the shape, strides, backstrides of the array
+        strides, backstrides = calc_strides(subdtype.shape,
+                                            subdtype.subdtype, arr.order)
+        final_shape = arr.shape + subdtype.shape
+        final_strides = arr.get_strides() + strides
+        final_backstrides = arr.get_backstrides() + backstrides
+        final_dtype = subdtype
+        if subdtype.subdtype:
+            final_dtype = subdtype.subdtype
+        return W_NDimArray.new_slice(space, arr.start + ofs, final_strides,
+                                     final_backstrides,
+                                     final_shape, arr, self, final_dtype)
+
 
     def descr_delitem(self, space, w_idx):
         raise OperationError(space.w_ValueError, space.wrap(
@@ -279,7 +314,7 @@ class __extend__(W_NDimArray):
                 s.append(separator)
                 s.append(' ')
             if self.is_scalar() and dtype.is_str():
-                s.append(dtype.itemtype.to_str(i.getitem(state)))
+                s.append(i.getitem(state).raw_str())
             else:
                 s.append(dtype.itemtype.str_format(i.getitem(state), add_quotes=True))
             state = i.next(state)
@@ -393,15 +428,33 @@ class __extend__(W_NDimArray):
             w_shape = space.newtuple(args_w)
         return self.reshape(space, w_shape)
 
-    def descr_get_transpose(self, space):
-        return W_NDimArray(self.implementation.transpose(self))
+    def descr_get_transpose(self, space, axes=None):
+        return W_NDimArray(self.implementation.transpose(self, axes))
 
     def descr_transpose(self, space, args_w):
-        if not (len(args_w) == 0 or
+        if len(args_w) == 1 and space.isinstance_w(args_w[0], space.w_tuple):
+            args_w = space.fixedview(args_w[0])
+        if (len(args_w) == 0 or
                 len(args_w) == 1 and space.is_none(args_w[0])):
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "axes unsupported for transpose"))
-        return self.descr_get_transpose(space)
+            return self.descr_get_transpose(space)
+        else:
+            if len(args_w) != self.ndims():
+                raise oefmt(space.w_ValueError, "axes don't match array")
+            axes = []
+            axes_seen = [False] * self.ndims()
+            for w_arg in args_w:
+                try:
+                    axis = support.index_w(space, w_arg)
+                except OperationError:
+                    raise oefmt(space.w_TypeError, "an integer is required")
+                if axis < 0 or axis >= self.ndims():
+                    raise oefmt(space.w_ValueError, "invalid axis for this array")
+                if axes_seen[axis] is True:
+                    raise oefmt(space.w_ValueError, "repeated axis in transpose")
+                axes.append(axis)
+                axes_seen[axis] = True
+            return self.descr_get_transpose(space, axes)
+
 
     @unwrap_spec(axis1=int, axis2=int)
     def descr_swapaxes(self, space, axis1, axis2):
@@ -491,8 +544,10 @@ class __extend__(W_NDimArray):
     def descr_set_flatiter(self, space, w_obj):
         iter, state = self.create_iter()
         dtype = self.get_dtype()
-        arr = convert_to_array(space, w_obj)
-        loop.flatiter_setitem(space, dtype, arr, iter, state, 1, iter.size)
+        w_arr = convert_to_array(space, w_obj)
+        if dtype.is_record():
+            return self.implementation.setslice(space, w_arr)
+        loop.flatiter_setitem(space, dtype, w_arr, iter, state, 1, iter.size)
 
     def descr_get_flatiter(self, space):
         from .flatiter import W_FlatIterator
@@ -592,10 +647,11 @@ class __extend__(W_NDimArray):
         if self.is_scalar():
             return space.wrap(0)
         dtype = self.get_dtype().descr_newbyteorder(space, NPY.NATIVE)
-        contig = self.implementation.astype(space, dtype)
+        contig = self.implementation.astype(space, dtype, self.get_order())
         return contig.argsort(space, w_axis)
 
-    def descr_astype(self, space, w_dtype):
+    @unwrap_spec(order=str, casting=str, subok=bool, copy=bool)
+    def descr_astype(self, space, w_dtype, order='K', casting='unsafe', subok=True, copy=True):
         cur_dtype = self.get_dtype()
         new_dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
             space.gettypefor(descriptor.W_Dtype), w_dtype))
@@ -603,13 +659,32 @@ class __extend__(W_NDimArray):
             raise oefmt(space.w_NotImplementedError,
                         "astype(%s) not implemented yet",
                         new_dtype.get_name())
-        if new_dtype.num == NPY.STRING and new_dtype.elsize == 0:
-            if cur_dtype.num == NPY.STRING:
-                new_dtype = descriptor.variable_dtype(
-                    space, 'S' + str(cur_dtype.elsize))
+        if new_dtype.is_str() and new_dtype.elsize == 0:
+            elsize = 0
+            itype = cur_dtype.itemtype
+            for i in range(self.get_size()):
+                elsize = max(elsize, len(itype.str_format(self.implementation.getitem(i), add_quotes=False)))
+            new_dtype = descriptor.variable_dtype(
+                    space, 'S' + str(elsize))
+
+        if not can_cast_array(space, self, new_dtype, casting):
+            raise oefmt(space.w_TypeError, "Cannot cast array from %s to %s"
+                        "according to the rule %s",
+                        space.str_w(self.get_dtype().descr_repr(space)),
+                        space.str_w(new_dtype.descr_repr(space)), casting)
+        order  = support.get_order_as_CF(self.get_order(), order)
+        if (not copy and new_dtype == self.get_dtype() and order == self.get_order()
+                and (subok or type(self) is W_NDimArray)):
+            return self
         impl = self.implementation
-        new_impl = impl.astype(space, new_dtype)
-        return wrap_impl(space, space.type(self), self, new_impl)
+        new_impl = impl.astype(space, new_dtype, order)
+        if new_impl is None:
+            return self
+        if subok:
+            w_type = space.type(self)
+        else:
+            w_type = None
+        return wrap_impl(space, w_type, self, new_impl)
 
     def descr_get_base(self, space):
         impl = self.implementation
@@ -1018,12 +1093,7 @@ class __extend__(W_NDimArray):
 
     def descr_dot(self, space, w_other, w_out=None):
         from .casting import find_result_type
-        if space.is_none(w_out):
-            out = None
-        elif not isinstance(w_out, W_NDimArray):
-            raise oefmt(space.w_TypeError, 'output must be an array')
-        else:
-            out = w_out
+        out = out_converter(space, w_out)
         other = convert_to_array(space, w_other)
         if other.is_scalar():
             #Note: w_out is not modified, this is numpy compliant.
@@ -1077,30 +1147,41 @@ class __extend__(W_NDimArray):
 
     # ----------------------- reduce -------------------------------
 
-    def _reduce_ufunc_impl(ufunc_name, cumulative=False, bool_result=False):
+    def _reduce_ufunc_impl(ufunc_name, name, bool_result=False):
         @unwrap_spec(keepdims=bool)
         def impl(self, space, w_axis=None, w_dtype=None, w_out=None, keepdims=False):
-            if space.is_none(w_out):
-                out = None
-            elif not isinstance(w_out, W_NDimArray):
-                raise oefmt(space.w_TypeError, 'output must be an array')
-            else:
-                out = w_out
+            out = out_converter(space, w_out)
             if bool_result:
                 w_dtype = descriptor.get_dtype_cache(space).w_booldtype
             return getattr(ufuncs.get(space), ufunc_name).reduce(
-                space, self, w_axis, keepdims, out, w_dtype, cumulative=cumulative)
-        return func_with_new_name(impl, "reduce_%s_impl_%d" % (ufunc_name, cumulative))
+                space, self, w_axis, keepdims, out, w_dtype)
+        impl.__name__ = name
+        return impl
 
-    descr_sum = _reduce_ufunc_impl("add")
-    descr_prod = _reduce_ufunc_impl("multiply")
-    descr_max = _reduce_ufunc_impl("maximum")
-    descr_min = _reduce_ufunc_impl("minimum")
-    descr_all = _reduce_ufunc_impl('logical_and', bool_result=True)
-    descr_any = _reduce_ufunc_impl('logical_or', bool_result=True)
+    descr_sum = _reduce_ufunc_impl("add", "descr_sum")
+    descr_prod = _reduce_ufunc_impl("multiply", "descr_prod")
+    descr_max = _reduce_ufunc_impl("maximum", "descr_max")
+    descr_min = _reduce_ufunc_impl("minimum", "descr_min")
+    descr_all = _reduce_ufunc_impl('logical_and', "descr_all", bool_result=True)
+    descr_any = _reduce_ufunc_impl('logical_or', "descr_any", bool_result=True)
 
-    descr_cumsum = _reduce_ufunc_impl('add', cumulative=True)
-    descr_cumprod = _reduce_ufunc_impl('multiply', cumulative=True)
+
+    def _accumulate_method(ufunc_name, name):
+        def method(self, space, w_axis=None, w_dtype=None, w_out=None):
+            out = out_converter(space, w_out)
+            if space.is_none(w_axis):
+                w_axis = space.wrap(0)
+                arr = self.reshape(space, space.wrap(-1))
+            else:
+                arr = self
+            ufunc = getattr(ufuncs.get(space), ufunc_name)
+            return ufunc.reduce(space, arr, w_axis, False, out, w_dtype,
+                                variant=ufuncs.ACCUMULATE)
+        method.__name__ = name
+        return method
+
+    descr_cumsum = _accumulate_method('add', 'descr_cumsum')
+    descr_cumprod = _accumulate_method('multiply', 'descr_cumprod')
 
     def _reduce_argmax_argmin_impl(raw_name):
         op_name = "arg%s" % raw_name
@@ -1260,11 +1341,12 @@ class __extend__(W_NDimArray):
 def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                     offset=0, w_strides=None, w_order=None):
     from pypy.module.micronumpy.concrete import ConcreteArray
-    from pypy.module.micronumpy.strides import calc_strides
     dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
         space.gettypefor(descriptor.W_Dtype), w_dtype))
     shape = shape_converter(space, w_shape, dtype)
-
+    if len(shape) > NPY.MAXDIMS:
+        raise oefmt(space.w_ValueError,
+            "sequence too large; must be smaller than %d", NPY.MAXDIMS)
     if not space.is_none(w_buffer):
         if (not space.is_none(w_strides)):
             strides = [space.int_w(w_i) for w_i in
@@ -1301,6 +1383,10 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
         return W_NDimArray.from_shape(space, shape, dtype, order)
     strides, backstrides = calc_strides(shape, dtype.base, order)
+    try:
+        totalsize = support.product(shape) * dtype.base.elsize
+    except OverflowError as e:
+        raise oefmt(space.w_ValueError, "array is too big")
     impl = ConcreteArray(shape, dtype.base, order, strides, backstrides)
     w_ret = space.allocate_instance(W_NDimArray, w_subtype)
     W_NDimArray.__init__(w_ret, impl)

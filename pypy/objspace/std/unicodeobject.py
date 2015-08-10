@@ -6,7 +6,7 @@ from rpython.rlib.buffer import StringBuffer
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder
 from rpython.rlib.runicode import (
     make_unicode_escape_function, str_decode_ascii, str_decode_utf_8,
-    unicode_encode_ascii, unicode_encode_utf_8)
+    unicode_encode_ascii, unicode_encode_utf_8, fast_str_decode_ascii)
 
 from pypy.interpreter import unicodehelper
 from pypy.interpreter.baseobjspace import W_Root
@@ -392,6 +392,9 @@ class W_UnicodeObject(W_Root):
                 cased = True
         return space.newbool(cased)
 
+    def _starts_ends_overflow(self, prefix):
+        return len(prefix) == 0
+
 
 def wrapunicode(space, uni):
     return W_UnicodeObject(uni)
@@ -478,9 +481,13 @@ def decode_object(space, w_obj, encoding, errors):
         if encoding == 'ascii':
             # XXX error handling
             s = space.charbuf_w(w_obj)
-            eh = unicodehelper.decode_error_handler(space)
-            return space.wrap(str_decode_ascii(
-                    s, len(s), None, final=True, errorhandler=eh)[0])
+            try:
+                u = fast_str_decode_ascii(s)
+            except ValueError:
+                eh = unicodehelper.decode_error_handler(space)
+                u = str_decode_ascii(     # try again, to get the error right
+                    s, len(s), None, final=True, errorhandler=eh)[0]
+            return space.wrap(u)
         if encoding == 'utf-8':
             s = space.charbuf_w(w_obj)
             eh = unicodehelper.decode_error_handler(space)

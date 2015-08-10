@@ -1,6 +1,3 @@
-#ifndef VMPROF_VMPROF_H_
-#define VMPROF_VMPROF_H_
-
 #include <stddef.h>
 #include <stdint.h>
 #include <ucontext.h>
@@ -90,32 +87,4 @@ typedef struct unw_proc_info
   }
 unw_proc_info_t;
 
-// functions copied from libunwind using dlopen
-
-extern int (*unw_get_reg)(unw_cursor_t*, int, unw_word_t*);
-extern int (*unw_step)(unw_cursor_t*);
-extern int (*unw_init_local)(unw_cursor_t *, unw_context_t *);
-extern int (*unw_get_proc_info)(unw_cursor_t *, unw_proc_info_t *);
-
 // end of copy
-
-extern char* vmprof_error;
-
-typedef void* (*vmprof_get_virtual_ip_t)(void*);
-char* vmprof_get_error();
-
-extern void* vmprof_mainloop_func;
-int vmprof_set_mainloop(void* func, ptrdiff_t sp_offset, 
-                         vmprof_get_virtual_ip_t get_virtual_ip);
-
-void vmprof_register_virtual_function(const char* name, void* start, void* end);
-
-
-int vmprof_enable(int fd, long period_usec, int write_header, char* vips,
-				  int vips_len);
-int vmprof_disable(void);
-
-// XXX: this should be part of _vmprof (the CPython extension), not vmprof (the library)
-void vmprof_set_tramp_range(void* start, void* end);
-
-#endif

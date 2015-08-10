@@ -166,19 +166,26 @@ class KwargsDictStrategy(DictStrategy):
         return iter(self.unerase(w_dict.dstorage)[1])
 
     def getiteritems(self, w_dict):
-        keys = self.unerase(w_dict.dstorage)[0]
-        return iter(range(len(keys)))
+        return Zip(*self.unerase(w_dict.dstorage))
 
     wrapkey = _wrapkey
 
 
-def next_item(self):
-    strategy = self.strategy
-    assert isinstance(strategy, KwargsDictStrategy)
-    for i in self.iterator:
-        keys, values_w = strategy.unerase(self.dictimplementation.dstorage)
-        return _wrapkey(self.space, keys[i]), values_w[i]
-    else:
-        return None, None
+class Zip(object):
+    def __init__(self, list1, list2):
+        assert len(list1) == len(list2)
+        self.list1 = list1
+        self.list2 = list2
+        self.i = 0
 
-create_iterator_classes(KwargsDictStrategy, override_next_item=next_item)
+    def __iter__(self):
+        return self
+
+    def next(self):
+        i = self.i
+        if i >= len(self.list1):
+            raise StopIteration
+        self.i = i + 1
+        return (self.list1[i], self.list2[i])
+
+create_iterator_classes(KwargsDictStrategy)

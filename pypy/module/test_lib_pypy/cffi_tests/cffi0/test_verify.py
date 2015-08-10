@@ -2228,3 +2228,23 @@ def test_static_const_int_wrong_value():
     ffi.cdef("static const int FOO = 123;")
     e = py.test.raises(VerificationError, ffi.verify, "#define FOO 124")
     assert str(e.value).endswith("FOO has the real value 124, not 123")
+
+def test_const_struct_global():
+    ffi = FFI()
+    ffi.cdef("typedef struct { int x; ...; } T; const T myglob;")
+    lib = ffi.verify("typedef struct { double y; int x; } T;"
+                     "const T myglob = { 0.1, 42 };")
+    assert ffi.typeof(lib.myglob) == ffi.typeof("T")
+    assert lib.myglob.x == 42
+
+def test_dont_support_int_dotdotdot():
+    ffi = FFI()
+    ffi.cdef("typedef int... t1;")
+    e = py.test.raises(VerificationError, ffi.verify, "")
+    assert str(e.value) == ("feature not supported with ffi.verify(), but only "
+                            "with ffi.set_source(): 'typedef int... t1'")
+    ffi = FFI()
+    ffi.cdef("typedef unsigned long... t1;")
+    e = py.test.raises(VerificationError, ffi.verify, "")
+    assert str(e.value) == ("feature not supported with ffi.verify(), but only "
+                         "with ffi.set_source(): 'typedef unsigned long... t1'")

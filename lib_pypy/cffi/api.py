@@ -236,6 +236,30 @@ class FFI(object):
             cdecl = self._typeof(cdecl)
         return self._backend.newp(cdecl, init)
 
+    def new_allocator(self, alloc=None, free=None,
+                      should_clear_after_alloc=True):
+        """Return a new allocator, i.e. a function that behaves like ffi.new()
+        but uses the provided low-level 'alloc' and 'free' functions.
+
+        'alloc' is called with the size as argument.  If it returns NULL, a
+        MemoryError is raised.  'free' is called with the result of 'alloc'
+        as argument.  Both can be either Python function or directly C
+        functions.  If 'free' is None, then no free function is called.
+        If both 'alloc' and 'free' are None, the default is used.
+
+        If 'should_clear_after_alloc' is set to False, then the memory
+        returned by 'alloc' is assumed to be already cleared (or you are
+        fine with garbage); otherwise CFFI will clear it.
+        """
+        compiled_ffi = self._backend.FFI()
+        allocator = compiled_ffi.new_allocator(alloc, free,
+                                               should_clear_after_alloc)
+        def allocate(cdecl, init=None):
+            if isinstance(cdecl, basestring):
+                cdecl = self._typeof(cdecl)
+            return allocator(cdecl, init)
+        return allocate
+
     def cast(self, cdecl, source):
         """Similar to a C cast: returns an instance of the named C
         type initialized with the given 'source'.  The source is
@@ -286,7 +310,7 @@ class FFI(object):
         """
         return self._backend.from_buffer(self.BCharA, python_buffer)
 
-    def callback(self, cdecl, python_callable=None, error=None):
+    def callback(self, cdecl, python_callable=None, error=None, onerror=None):
         """Return a callback object or a decorator making such a
         callback object.  'cdecl' must name a C function pointer type.
         The callback invokes the specified 'python_callable' (which may
@@ -298,7 +322,8 @@ class FFI(object):
             if not callable(python_callable):
                 raise TypeError("the 'python_callable' argument "
                                 "is not callable")
-            return self._backend.callback(cdecl, python_callable, error)
+            return self._backend.callback(cdecl, python_callable,
+                                          error, onerror)
         if isinstance(cdecl, basestring):
             cdecl = self._typeof(cdecl, consider_function_as_funcptr=True)
         if python_callable is None:
@@ -327,6 +352,13 @@ class FFI(object):
         data.  Later, when this new cdata object is garbage-collected,
         'destructor(old_cdata_object)' will be called.
         """
+        try:
+            gcp = self._backend.gcp
+        except AttributeError:
+            pass
+        else:
+            return gcp(cdata, destructor)
+        #
         with self._lock:
             try:
                 gc_weakrefs = self.gc_weakrefs
@@ -428,6 +460,8 @@ class FFI(object):
             raise TypeError("ffi.include() expects an argument that is also of"
                             " type cffi.FFI, not %r" % (
                                 type(ffi_to_include).__name__,))
+        if ffi_to_include is self:
+            raise ValueError("self.include(self)")
         with ffi_to_include._lock:
             with self._lock:
                 self._parser.include(ffi_to_include._parser)

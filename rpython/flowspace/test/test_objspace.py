@@ -816,6 +816,12 @@ class TestFlowObjSpace(Base):
             from rpython import this_does_not_exist
         py.test.raises(ImportError, 'self.codetest(f)')
 
+    def test_importerror_3(self):
+        def f():
+            import rpython.flowspace.test.cant_import
+        e = py.test.raises(ImportError, 'self.codetest(f)')
+        assert "some explanation here" in str(e.value)
+
     def test_relative_import(self):
         def f():
             from ..objspace import build_flow

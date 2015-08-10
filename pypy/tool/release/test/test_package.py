@@ -3,28 +3,31 @@ import py
 from pypy.conftest import pypydir
 from pypy.tool.release import package
 from pypy.module.sys.version import  CPYTHON_VERSION
+from rpython.tool.udir import udir
 import tarfile, zipfile, sys
 
-def test_dir_structure(test='test'):
-    # make sure we have sort of pypy-c
-    if sys.platform == 'win32':
-        basename = 'pypy-c.exe'
-        rename_pypy_c = 'pypy-c'
-        exe_name_in_archive = 'pypy-c.exe'
-    else:
-        basename = 'pypy-c'
-        rename_pypy_c = 'pypy'
-        exe_name_in_archive = 'bin/pypy'
-    pypy_c = py.path.local(pypydir).join('goal', basename)
-    try:
+class TestPackaging:
+    def setup_class(cls):
+        # make sure we have sort of pypy-c
+        if sys.platform == 'win32':
+            basename = 'pypy-c.exe'
+            cls.rename_pypy_c = 'pypy-c'
+            cls.exe_name_in_archive = 'pypy-c.exe'
+        else:
+            basename = 'pypy-c'
+            cls.rename_pypy_c = 'pypy'
+            cls.exe_name_in_archive = 'bin/pypy'
+        cls.pypy_c = py.path.local(pypydir).join('goal', basename)
+
+    def test_dir_structure(self, test='test'):
         retval, builddir = package.package(
             '--without-cffi', str(py.path.local(pypydir).dirpath()),
-            test, rename_pypy_c, _fake=True)
+            test, self.rename_pypy_c, _fake=True)
         assert retval == 0
         prefix = builddir.join(test)
         cpyver = '%d.%d' % CPYTHON_VERSION[:2]
         assert prefix.join('lib-python', cpyver, 'test').check()
-        assert prefix.join(exe_name_in_archive).check()
+        assert prefix.join(self.exe_name_in_archive).check()
         assert prefix.join('lib_pypy', 'syslog.py').check()
         assert not prefix.join('lib_pypy', 'py').check()
         assert not prefix.join('lib_pypy', 'ctypes_configure').check()
@@ -36,7 +39,7 @@ def test_dir_structure(test='test'):
         else:
             th = tarfile.open(str(builddir.join('%s.tar.bz2' % test)))
             syslog = th.getmember('%s/lib_pypy/syslog.py' % test)
-            exe = th.getmember('%s/%s' % (test, exe_name_in_archive))
+            exe = th.getmember('%s/%s' % (test, self.exe_name_in_archive))
             assert syslog.mode == 0644
             assert exe.mode == 0755
             assert exe.uname == ''
@@ -63,16 +66,22 @@ def test_dir_structure(test='test'):
         check_include('modsupport.h')
         check_include('pypy_decl.h')
         check_include('numpy/arrayobject.h')
-    finally:
-        pass    # to keep the indentation
 
-def test_with_zipfile_module():
-    prev = package.USE_ZIPFILE_MODULE
-    try:
-        package.USE_ZIPFILE_MODULE = True
-        test_dir_structure(test='testzipfile')
-    finally:
-        package.USE_ZIPFILE_MODULE = prev
+    def test_options(self, test='testoptions'):
+        builddir = udir.ensure("build", dir=True)
+        retval, builddir = package.package(
+            '--without-cffi', '--builddir', str(builddir),
+            str(py.path.local(pypydir).dirpath()),
+            test, self.rename_pypy_c, _fake=True)
+
+    def test_with_zipfile_module(self):
+        prev = package.USE_ZIPFILE_MODULE
+        try:
+            package.USE_ZIPFILE_MODULE = True
+            self.test_dir_structure(test='testzipfile')
+        finally:
+            package.USE_ZIPFILE_MODULE = prev
+
 
 def test_fix_permissions(tmpdir):
     if sys.platform == 'win32':

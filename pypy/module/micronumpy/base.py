@@ -2,6 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.tool.pairtype import extendabletype
 from pypy.module.micronumpy import support
+from pypy.module.micronumpy import constants as NPY
 
 def wrap_impl(space, w_cls, w_instance, impl):
     if w_cls is None or space.is_w(w_cls, space.gettypefor(W_NDimArray)):
@@ -39,6 +40,13 @@ class W_NDimArray(W_NumpyObject):
     def from_shape(space, shape, dtype, order='C', w_instance=None, zero=True):
         from pypy.module.micronumpy import concrete, descriptor, boxes
         from pypy.module.micronumpy.strides import calc_strides
+        if len(shape) > NPY.MAXDIMS:
+            raise oefmt(space.w_ValueError,
+                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+        try:
+            support.product(shape) * dtype.elsize
+        except OverflowError as e:
+            raise oefmt(space.w_ValueError, "array is too big")
         strides, backstrides = calc_strides(shape, dtype.base, order)
         impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides, zero=zero)
@@ -56,13 +64,19 @@ class W_NDimArray(W_NumpyObject):
         from pypy.module.micronumpy.strides import (calc_strides,
                                                     calc_backstrides)
         isize = dtype.elsize
-        if storage_bytes > 0 :
+        if len(shape) > NPY.MAXDIMS:
+            raise oefmt(space.w_ValueError,
+                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+        try:
             totalsize = support.product(shape) * isize
+        except OverflowError as e:
+            raise oefmt(space.w_ValueError, "array is too big")
+        if storage_bytes > 0 :
             if totalsize > storage_bytes:
                 raise OperationError(space.w_TypeError, space.wrap(
                     "buffer is too small for requested array"))
         else:
-            storage_bytes = support.product(shape) * isize
+            storage_bytes = totalsize
         if strides is None:
             strides, backstrides = calc_strides(shape, dtype, order)
         else:

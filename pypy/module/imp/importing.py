@@ -30,7 +30,15 @@ PY_FROZEN = 7
 IMP_HOOK = 9
 
 SO = '.pyd' if _WIN32 else '.so'
-DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
+
+# this used to change for every minor version, but no longer does: there
+# is little point any more, as the so's tend to be cross-version-
+# compatible, more so than between various versions of CPython.  Be
+# careful if we need to update it again: it is now used for both cpyext
+# and cffi so's.  If we do have to update it, we'd likely need a way to
+# split the two usages again.
+#DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
+DEFAULT_SOABI = 'pypy-26'
 
 @specialize.memo()
 def get_so_extension(space):
@@ -341,6 +349,11 @@ def absolute_import_try(space, modulename, baselevel, fromlist_w):
                 w_all = try_getattr(space, w_mod, space.wrap('__all__'))
                 if w_all is not None:
                     fromlist_w = space.fixedview(w_all)
+                else:
+                    fromlist_w = []
+                    # "from x import *" with x already imported and no x.__all__
+                    # always succeeds without doing more imports.  It will
+                    # just copy everything from x.__dict__ as it is now.
             for w_name in fromlist_w:
                 if try_getattr(space, w_mod, w_name) is None:
                     return None
@@ -381,6 +394,8 @@ def _absolute_import(space, modulename, baselevel, fromlist_w, tentative):
                 w_all = try_getattr(space, w_mod, w('__all__'))
                 if w_all is not None:
                     fromlist_w = space.fixedview(w_all)
+                else:
+                    fromlist_w = []
             for w_name in fromlist_w:
                 if try_getattr(space, w_mod, w_name) is None:
                     load_part(space, w_path, prefix, space.str0_w(w_name),

@@ -256,6 +256,9 @@ class WarmEnterState(object):
     def set_param_inlining(self, value):
         self.inlining = value
 
+    def set_param_disable_unrolling(self, value):
+        self.disable_unrolling_threshold = value
+
     def set_param_enable_opts(self, value):
         from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES
 

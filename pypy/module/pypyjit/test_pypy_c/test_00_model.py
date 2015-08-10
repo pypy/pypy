@@ -28,6 +28,7 @@ class BaseTestPyPyC(object):
     def run(self, func_or_src, args=[], import_site=False,
             discard_stdout_before_last_line=False, **jitopts):
         jitopts.setdefault('threshold', 200)
+        jitopts.setdefault('disable_unrolling', 9999)
         src = py.code.Source(func_or_src)
         if isinstance(func_or_src, types.FunctionType):
             funcname = func_or_src.func_name
