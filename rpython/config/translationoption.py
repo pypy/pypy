@@ -112,6 +112,8 @@ translation_optiondescription = OptionDescription(
                          ("translation.gcrootfinder", "shadowstack")]),
     BoolOption("rweakref", "The backend supports RPython-level weakrefs",
                default=True),
+    BoolOption("vmprof_gc", "The GC should send events to vmprof",
+               default=False),
 
     # JIT generation: use -Ojit to enable it
     BoolOption("jit", "generate a JIT",

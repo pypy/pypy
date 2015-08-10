@@ -751,6 +751,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.nursery_top = self.nursery_barriers.popleft()
             else:
                 minor_collection_count += 1
+                if self.config.vmprof_gc:
+                    from rpython.rlib.rvmprof.cintf import vmprof_walk_stack
+                    vmprof_walk_stack('g', totalsize)
                 self.minor_collection()
                 if minor_collection_count == 1:
                     #

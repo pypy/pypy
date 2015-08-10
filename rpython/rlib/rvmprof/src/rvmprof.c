@@ -49,6 +49,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <ucontext.h>
 #include "rvmprof_getpc.h"
 #include "rvmprof_unwind.h"
 #include "rvmprof_mt.h"
@@ -243,40 +244,57 @@ static int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)
  * *************************************************************
  */
 
+static void _walk_stack_helper(ucontext_t *ucontext, char marker, long count)
+{
+    int fd = profile_file;
+    assert(fd >= 0);
+
+    struct profbuf_s *p = reserve_buffer(fd);
+    if (p == NULL) {
+        /* ignore this signal: there are no free buffers right now */
+    }
+    else {
+        int depth;
+        struct prof_stacktrace_s *st = (struct prof_stacktrace_s *)p->data;
+        st->marker = marker;
+        st->count = count;
+        st->stack[0] = GetPC(ucontext);
+        depth = get_stack_trace(st->stack+1, MAX_STACK_DEPTH-1, ucontext);
+        depth++;  // To account for pc value in stack[0];
+        st->depth = depth;
+        p->data_offset = offsetof(struct prof_stacktrace_s, marker);
+        p->data_size = (depth * sizeof(void *) +
+                        sizeof(struct prof_stacktrace_s) -
+                        offsetof(struct prof_stacktrace_s, marker));
+        commit_buffer(fd, p);
+    }
+}
+
+
+
 static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
 {
     long val = __sync_fetch_and_add(&signal_handler_value, 2L);
 
     if ((val & 1) == 0) {
         int saved_errno = errno;
-        int fd = profile_file;
-        assert(fd >= 0);
-
-        struct profbuf_s *p = reserve_buffer(fd);
-        if (p == NULL) {
-            /* ignore this signal: there are no free buffers right now */
-        }
-        else {
-            int depth;
-            struct prof_stacktrace_s *st = (struct prof_stacktrace_s *)p->data;
-            st->marker = MARKER_STACKTRACE;
-            st->count = 1;
-            st->stack[0] = GetPC((ucontext_t*)ucontext);
-            depth = get_stack_trace(st->stack+1, MAX_STACK_DEPTH-1, ucontext);
-            depth++;  // To account for pc value in stack[0];
-            st->depth = depth;
-            p->data_offset = offsetof(struct prof_stacktrace_s, marker);
-            p->data_size = (depth * sizeof(void *) +
-                            sizeof(struct prof_stacktrace_s) -
-                            offsetof(struct prof_stacktrace_s, marker));
-            commit_buffer(fd, p);
-        }
-
+        _walk_stack_helper((ucontext_t *)ucontext, MARKER_STACKTRACE, 1);
         errno = saved_errno;
     }
 
     __sync_sub_and_fetch(&signal_handler_value, 2L);
 }
+
+
+RPY_EXTERN void rpython_vmprof_walk_stack(char marker, long count)
+{
+    ucontext_t ucontext;
+    if (profile_file < 0)
+        return;
+    getcontext(&ucontext);
+    _walk_stack_helper(&ucontext, marker, count);
+}
+
 
 
 /* *************************************************************

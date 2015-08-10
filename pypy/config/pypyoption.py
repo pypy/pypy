@@ -87,6 +87,7 @@ module_suggests = {
     # because 'P' is missing from the app-level one
     "_rawffi": [("objspace.usemodules.struct", True)],
     "cpyext": [("translation.secondaryentrypoints", "cpyext,main")],
+    "_vmprof": [("translation.vmprof_gc", True)],
 }
 if sys.platform == "win32":
     module_suggests["cpyext"].append(("translation.shared", True))
