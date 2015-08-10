@@ -71,4 +71,4 @@ def disable(space):
     try:
         rvmprof.disable()
     except rvmprof.VMProfError, e:
-        raise vmprof_error(space, e)
+        raise VMProfError(space, e)
