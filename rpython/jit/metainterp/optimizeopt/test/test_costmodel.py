@@ -35,6 +35,8 @@ class CostModelBaseTest(SchedulerBaseTest):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, [])
+        label_index = loop.find_first_index(rop.LABEL)
+        opt.orig_label_args = loop.operations[label_index].getarglist()[:]
         graph = opt.dependency_graph = DependencyGraph(loop)
         for k,m in graph.memory_refs.items():
             graph.memory_refs[k] = FakeMemoryRef(m.array, m.index_var)

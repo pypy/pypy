@@ -889,8 +889,11 @@ class TreeLoop(object):
 
     def copy_operations(self):
         from rpython.jit.metainterp.compile import ResumeGuardDescr
+        ignore = (rop.DEBUG_MERGE_POINT,)
         operations = []
         for op in self.operations:
+            if op.getopnum() in ignore:
+                continue
             cloned = op.clone()
             operations.append(cloned)
             descr = cloned.getdescr()

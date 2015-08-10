@@ -784,6 +784,7 @@ class VecScheduleData(SchedulerData):
 
     def setvector_of_box(self, box, off, vector):
         assert off < vector.getcount()
+        assert not isinstance(box, BoxVector)
         self.box_to_vbox[box] = (off, vector)
 
     def prepend_invariant_operations(self, oplist, orig_label_args):

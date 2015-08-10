@@ -5,7 +5,7 @@ from rpython.jit.metainterp.optimizeopt.util import equaloplists, Renamer
 from rpython.jit.metainterp.optimizeopt.vectorize import (VecScheduleData,
         Pack, Pair, NotAProfitableLoop, VectorizingOptimizer, X86_CostModel,
         PackSet)
-from rpython.jit.metainterp.optimizeopt.dependency import Node
+from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
 from rpython.jit.metainterp.optimizeopt.schedule import PackType
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import DependencyBaseTest
@@ -22,6 +22,19 @@ I64 = PackType('i',8,True,2)
 I32 = PackType('i',4,True,4)
 I32_2 =  PackType('i',4,True,2)
 I16 = PackType('i',2,True,8)
+
+class FakePackSet(PackSet):
+    def __init__(self):
+        self.packs = None
+
+class FakeDependencyGraph(DependencyGraph):
+    """ A dependency graph that is able to emit every instruction
+    one by one. """
+    def __init__(self, loop):
+        self.nodes = [Node(op,i) for i,op in \
+                        enumerate(loop.operations)]
+        self.schedulable_nodes = list(reversed(self.nodes))
+        self.guards = []
 
 class SchedulerBaseTest(DependencyBaseTest):
 
@@ -42,7 +55,9 @@ class SchedulerBaseTest(DependencyBaseTest):
               additional_args=None,
               replace_args=None):
         args = []
-        for prefix, rang in [('p',range(pargs)), ('i',range(iargs)), ('f',range(fargs))]:
+        for prefix, rang in [('p',range(pargs)),
+                             ('i',range(iargs)),
+                             ('f',range(fargs))]:
             for i in rang:
                 args.append(prefix + str(i))
 
@@ -61,63 +76,60 @@ class SchedulerBaseTest(DependencyBaseTest):
         loop = opparse(src, cpu=self.cpu, namespace=self.namespace())
         if inc_label_jump:
             token = JitCellToken()
-            loop.operations = \
-                [ResOperation(rop.LABEL, loop.inputargs, None, descr=TargetToken(token))] + \
-                loop.operations
+            label = ResOperation(rop.LABEL, loop.inputargs,
+                                 None, descr=TargetToken(token))
+            loop.operations = [label] + loop.operations
+            loop.graph = FakeDependencyGraph(loop)
             return loop
-
+        else:
+            loop.graph = FakeDependencyGraph(loop)
         del loop.operations[-1]
         return loop
 
     def pack(self, loop, l, r, input_type, output_type):
-        return Pack([Node(op,1+l+i) for i,op in enumerate(loop.operations[1+l:1+r])], input_type, output_type)
+        return Pack(loop.graph.nodes[1+l:1+r], input_type, output_type)
 
-    def schedule(self, loop_orig, packs, vec_reg_size=16, prepend_invariant=False, overwrite_funcs=None):
-        loop = get_model(False).ExtendedTreeLoop("loop")
-        loop.original_jitcell_token = loop_orig.original_jitcell_token
-        loop.inputargs = loop_orig.inputargs
-
+    def schedule(self, loop, packs, vec_reg_size=16,
+                 prepend_invariant=False, overwrite_funcs=None):
         ops = []
         cm = X86_CostModel(0, vec_reg_size)
-        vsd = VecScheduleData(vec_reg_size, cm)
+        def profitable():
+            return True
+        cm.profitable = profitable
+        vsd = VecScheduleData(vec_reg_size, cm, loop.inputargs[:])
         for name, overwrite in (overwrite_funcs or {}).items():
             setattr(vsd, name, overwrite)
         renamer = Renamer()
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, 0)
+        opt.costmodel = cm
+        opt.dependency_graph = loop.graph
+        del loop.graph
         pairs = []
         for pack in packs:
             for i in range(len(pack.operations)-1):
+                pack.clear()
                 o1 = pack.operations[i]
                 o2 = pack.operations[i+1]
-                pairs.append(Pair(o1,o2,pack.input_type,pack.output_type))
-
-        class FakePackSet(PackSet):
-            def __init__(self):
-                self.packs = None
+                pair = Pair(o1,o2,pack.input_type,pack.output_type)
+                pairs.append(pair)
 
         opt.packset = FakePackSet()
         opt.packset.packs = pairs
 
+        if not prepend_invariant:
+            def pio(oplist, labels):
+                return oplist
+            vsd.prepend_invariant_operations = pio
+
         opt.combine_packset()
+        opt.schedule(True, sched_data=vsd)
 
-        for pack in opt.packset.packs:
-            if pack.opcount() == 1:
-                ops.append(pack.operations[0].getoperation())
-            else:
-                for op in vsd.as_vector_operation(pack, renamer):
-                    ops.append(op)
-        loop.operations = ops
-        opt.clear_newoperations()
-        for op in ops:
-            opt.unpack_from_vector(op, vsd, renamer)
-            opt.emit_operation(op)
-        ops = opt._newoperations
-        loop.operations = ops
+        loop.operations = \
+                [op for op in loop.operations \
+                 if not (op.is_final() or op.is_label())]
 
-        if prepend_invariant:
-            loop.operations = vsd.invariant_oplist + ops
         return loop
 
     def assert_operations_match(self, loop_a, loop_b):
@@ -413,23 +425,30 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         self.assert_equal(loop2, loop3)
 
     def test_no_vec_impl(self):
-        py.test.skip()
         loop1 = self.parse("""
         i10 = int_and(255, i1)
         i11 = int_and(255, i2)
-        i12 = op(i10)
-        i13 = op(i11)
+        i12 = uint_floordiv(i10,1)
+        i13 = uint_floordiv(i11,1)
         i14 = int_and(i1, i12)
         i15 = int_and(i2, i13)
         """)
         pack1 = self.pack(loop1, 0, 2, I64, I64)
-        pack2 = self.pack(loop1, 2, 3, I64, I64)
-        pack3 = self.pack(loop1, 3, 4, I64, I64)
         pack4 = self.pack(loop1, 4, 6, I64, I64)
-        loop2 = self.schedule(loop1, [pack1,pack2,pack3,pack4], prepend_invariant=True)
+        loop2 = self.schedule(loop1, [pack1,pack4], prepend_invariant=True)
         loop3 = self.parse("""
         v1[i64|2] = vec_int_expand(255)
-        v2[i64|2] = vec_int_expand(i1)
-        v3[i64|2] = vec_int_and(v1[i64|2], v2[i64|2])
+        v2[i64|2] = vec_box(2)
+        v3[i64|2] = vec_int_pack(v2[i64|2], i1, 0, 1)
+        v4[i64|2] = vec_int_pack(v3[i64|2], i2, 1, 1)
+        v5[i64|2] = vec_int_and(v1[i64|2], v4[i64|2])
+        i10 = vec_int_unpack(v5[i64|2], 0, 1)
+        i12 = uint_floordiv(i10,1)
+        i11 = vec_int_unpack(v5[i64|2], 1, 1)
+        i13 = uint_floordiv(i11,1)
+        v6[i64|2] = vec_box(2)
+        v7[i64|2] = vec_int_pack(v6[i64|2], i12, 0, 1)
+        v8[i64|2] = vec_int_pack(v7[i64|2], i13, 1, 1)
+        v9[i64|2] = vec_int_and(v4[i64|2], v8[i64|2])
         """, False)
         self.assert_equal(loop2, loop3)

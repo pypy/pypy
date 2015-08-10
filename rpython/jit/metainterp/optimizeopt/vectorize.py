@@ -52,6 +52,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         # connect all compile loop version fail descriptors to this version
         version.register_all_guards(loop.operations, opt.appended_arg_count)
         #
+        #
         end = time.clock()
         #
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
@@ -440,10 +441,11 @@ class VectorizingOptimizer(Optimizer):
             if fail:
                 assert False
 
-    def schedule(self, vector=False):
+    def schedule(self, vector=False, sched_data=None):
         self.clear_newoperations()
-        sched_data = VecScheduleData(self.cpu.vector_register_size,
-                                     self.costmodel, self.orig_label_args)
+        if sched_data is None:
+            sched_data = VecScheduleData(self.cpu.vector_register_size,
+                                         self.costmodel, self.orig_label_args)
         scheduler = Scheduler(self.dependency_graph, sched_data)
         renamer = Renamer()
         #
@@ -510,7 +512,7 @@ class VectorizingOptimizer(Optimizer):
                         fail_args[i] = argument
 
     def _unpack_from_vector(self, i, arg, sched_data, renamer):
-        if arg in sched_data.seen:
+        if arg in sched_data.seen or arg.type == 'V':
             return arg
         (j, vbox) = sched_data.getvector_of_box(arg)
         if vbox:
