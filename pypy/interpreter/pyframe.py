@@ -168,6 +168,10 @@ class PyFrame(W_Root):
         vprof = self.getcode().vprofs[varindex]
         vprof.see_write(value)
 
+    def _all_locals_changed(self):
+        for i, vprof in enumerate(self.getcode().vprofs):
+            vprof.see_write(self.locals_cells_stack_w[i])
+
     def mark_as_escaped(self):
         """
         Must be called on frames that are exposed to applevel, e.g. by
@@ -525,6 +529,7 @@ class PyFrame(W_Root):
         new_frame.set_blocklist([unpickle_block(space, w_blk)
                                  for w_blk in space.unpackiterable(w_blockstack)])
         self.locals_cells_stack_w = values_w[:]
+        self._all_locals_changed()
         valuestackdepth = space.int_w(w_stackdepth)
         if not self._check_stack_index(valuestackdepth):
             raise OperationError(space.w_ValueError, space.wrap("invalid stackdepth"))

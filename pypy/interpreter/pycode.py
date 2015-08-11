@@ -216,9 +216,7 @@ class PyCode(eval.Code):
                                       fresh_virtualizable=True)
         args.parse_into_scope(None, fresh_frame.locals_cells_stack_w,
                               func.name, sig, func.defs_w)
-        for arg in range(self.co_nlocals):
-            fresh_frame._value_profile_local(
-                    arg, fresh_frame.locals_cells_stack_w[arg])
+        fresh_frame._all_locals_changed()
         fresh_frame.init_cells()
         return frame.run()
 
@@ -232,9 +230,7 @@ class PyCode(eval.Code):
                                       fresh_virtualizable=True)
         args.parse_into_scope(w_obj, fresh_frame.locals_cells_stack_w, func.name,
                               sig, func.defs_w)
-        for arg in range(self.co_nlocals):
-            fresh_frame._value_profile_local(
-                    arg, fresh_frame.locals_cells_stack_w[arg])
+        fresh_frame._all_locals_changed()
         fresh_frame.init_cells()
         return frame.run()
 
