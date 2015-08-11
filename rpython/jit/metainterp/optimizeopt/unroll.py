@@ -38,6 +38,10 @@ class UnrollableOptimizer(Optimizer):
             known_class = preamble_info.get_known_class(self.cpu)
             if known_class:
                 self.make_constant_class(op, known_class, False)
+            if isinstance(preamble_info, info.ArrayPtrInfo):
+                arr_info = info.ArrayPtrInfo(None)
+                arr_info.lenbound = preamble_info.getlenbound()
+                op.set_forwarded(arr_info)
             if preamble_info.is_nonnull():
                 self.make_nonnull(op)
         elif isinstance(preamble_info, intutils.IntBound):

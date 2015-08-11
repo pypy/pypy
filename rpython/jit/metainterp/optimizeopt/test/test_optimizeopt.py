@@ -7763,13 +7763,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_ge(i1, 8)
         guard_true(i2) []
         p2 = getarrayitem_gc_pure_r(p1, 7, descr=<GcPtrArrayDescr>)
-        jump(p0, p2, p1)
+        jump(p2, p1)
         """
         expected = """
-        [p0, p2]
+        [p0, p2, p1]
         call_n(p2, descr=nonwritedescr)
-        #i3 = arraylen_gc(p1) # Should be killed by backend
-        jump(p0, p2)
+        i3 = arraylen_gc(p1) # Should be killed by backend
+        jump(p0, p2, p1)
         """
         self.optimize_loop(ops, expected, expected_short=short)
 
