@@ -718,9 +718,20 @@ def register_custom_light_finalizer(TP, lambda_func):
 def do_get_objects(callback):
     """ Get all the objects that satisfy callback(gcref) -> obj
     """
-    roots = [gcref for gcref in get_rpy_roots() if gcref]
-    pending = roots[:]
+    roots = get_rpy_roots()
+    if not roots:      # is always None on translations using Boehm or None GCs
+        return []
+    roots = [gcref for gcref in roots if gcref]
     result_w = []
+    #
+    if not we_are_translated():   # fast path before translation
+        for gcref in roots:       # 'roots' is all objects in this case
+            w_obj = callback(gcref)
+            if w_obj is not None:
+                result_w.append(w_obj)
+        return result_w
+    #
+    pending = roots[:]
     while pending:
         gcref = pending.pop()
         if not get_gcflag_extra(gcref):

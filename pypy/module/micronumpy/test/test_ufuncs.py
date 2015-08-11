@@ -1044,6 +1044,13 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert np.equal.reduce([1, 2], dtype=dtype) == True
             assert np.equal.reduce([1, 2, 0], dtype=dtype) == False
 
+    def test_reduce_axes(self):
+        import numpy as np
+        a = np.arange(24).reshape(2, 3, 4)
+        b = np.add.reduce(a, axis=(0, 1))
+        assert b.shape == (4,)
+        assert (b == [60, 66, 72, 78]).all()
+
     def test_reduce_fmax(self):
         import numpy as np
         assert np.fmax.reduce(np.arange(11).astype('b')) == 10
@@ -1330,6 +1337,26 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert add.accumulate([True]*200).dtype == dtype('int')
         assert subtract.accumulate([True]*200).dtype == dtype('bool')
         assert divide.accumulate([True]*200).dtype == dtype('int8')
+
+    def test_accumulate_shapes(self):
+        import numpy as np
+        a = np.arange(6).reshape(2, 1, 3)
+        assert np.add.accumulate(a).shape == (2, 1, 3)
+        raises(ValueError, "np.add.accumulate(a, out=np.zeros((3, 1, 3)))")
+        raises(ValueError, "np.add.accumulate(a, out=np.zeros((2, 3)))")
+        raises(ValueError, "np.add.accumulate(a, out=np.zeros((2, 3, 1)))")
+        b = np.zeros((2, 1, 3))
+        np.add.accumulate(a, out=b, axis=2)
+        assert b[0, 0, 2] == 3
+
+    def test_accumulate_shapes_2(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy-specific behavior in np.ufunc.accumulate')
+        import numpy as np
+        a = np.arange(6).reshape(2, 1, 3)
+        raises(ValueError, "np.add.accumulate(a, out=np.zeros((2, 1, 3, 2)))")
+
 
     def test_noncommutative_reduce_accumulate(self):
         import numpy as np

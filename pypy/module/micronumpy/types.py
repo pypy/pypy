@@ -175,8 +175,13 @@ class Primitive(object):
         return self.box(array[0])
 
     def unbox(self, box):
-        assert isinstance(box, self.BoxType)
-        return box.value
+        if isinstance(box, self.BoxType):
+            return box.value
+        elif isinstance(box,  boxes.W_ObjectBox):
+            return self._coerce(self.space, box).value
+        else:
+            raise oefmt(self.space.w_NotImplementedError,
+                "%s dtype cannot unbox %s", str(self), str(box))
 
     def coerce(self, space, dtype, w_item):
         if isinstance(w_item, self.BoxType):
@@ -1232,8 +1237,14 @@ class ComplexFloating(object):
         return self.box_complex(real, imag)
 
     def unbox(self, box):
-        assert isinstance(box, self.BoxType)
-        return box.real, box.imag
+        if isinstance(box, self.BoxType):
+            return box.real, box.imag
+        elif isinstance(box,  boxes.W_ObjectBox):
+            retval = self._coerce(self.space, box)
+            return retval.real, retval.imag
+        else:
+            raise oefmt(self.space.w_NotImplementedError,
+                "%s dtype cannot unbox %s", str(self), str(box))
 
     def _read(self, storage, i, offset, native):
         real = raw_storage_getitem_unaligned(self.T, storage, i + offset)

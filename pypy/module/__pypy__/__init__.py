@@ -62,6 +62,7 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
+        'attach_gdb'                : 'interp_magic.attach_gdb',
         'internal_repr'             : 'interp_magic.internal_repr',
         'bytebuffer'                : 'bytebuffer.bytebuffer',
         'identity_dict'             : 'interp_identitydict.W_IdentityDict',
@@ -100,8 +101,6 @@ class Module(MixedModule):
 
     def setup_after_space_initialization(self):
         """NOT_RPYTHON"""
-        if not self.space.config.translating:
-            self.extra_interpdef('interp_pdb', 'interp_magic.interp_pdb')
         if self.space.config.objspace.std.withmethodcachecounter:
             self.extra_interpdef('method_cache_counter',
                                  'interp_magic.method_cache_counter')

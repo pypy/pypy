@@ -590,11 +590,3 @@ class UserDelAction(AsyncAction):
         # there is no list of length n: if n is large, then the GC
         # will run several times while walking the list, but it will
         # see lower and lower memory usage, with no lower bound of n.
-
-class CodeUniqueIds(object):
-    def __init__(self):
-        if sys.maxint == 2147483647:
-            self.code_unique_id = 0 # XXX this is wrong, it won't work on 32bit
-        else:
-            self.code_unique_id = 0x7000000000000000
-        self.code_callback = None
