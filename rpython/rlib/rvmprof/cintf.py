@@ -6,7 +6,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 
 from rpython.jit.backend import detect_cpu
-if detect_cpu.autodetect() != detect_cpu.MODEL_X86_64:
+if not detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64):
     py.test.skip("rvmprof only supports x86-64 CPUs for now")
 
 
@@ -71,7 +71,7 @@ def make_trampoline_function(name, func, token, restok):
     func.c_name = cont_name
     func._dont_inline_ = True
 
-    assert detect_cpu.autodetect() == detect_cpu.MODEL_X86_64, (
+    assert detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64), (
         "rvmprof only supports x86-64 CPUs for now")
 
     # mapping of argument count (not counting the final uid argument) to
