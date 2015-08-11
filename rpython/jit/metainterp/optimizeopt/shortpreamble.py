@@ -20,6 +20,12 @@ class PreambleOp(AbstractResOp):
         self.op = op
         self.preamble_op = preamble_op
 
+    def numargs(self):
+        return self.op.numargs()
+
+    def getarglist(self):
+        return self.op.getarglist()
+
     def getarg(self, i):
         return self.op.getarg(i)
 
@@ -68,7 +74,10 @@ class PureOp(AbstractShortOp):
         if optpure is None:
             return
         op = self.res
-        opt.pure(op.getopnum(), PreambleOp(op, preamble_op))
+        if op.is_call():
+            optpure.extra_call_pure.append(PreambleOp(op, preamble_op))
+        else:
+            opt.pure(op.getopnum(), PreambleOp(op, preamble_op))
 
     def __repr__(self):
         return "PureOp(%r)" % (self.res,)

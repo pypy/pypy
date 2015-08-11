@@ -146,8 +146,11 @@ class OptPure(Optimization):
             old_op = self.optimizer._newoperations[pos]
             if self.optimize_call_pure(op, old_op):
                 return
-        for old_op in self.extra_call_pure:
+        for i, old_op in enumerate(self.extra_call_pure):
             if self.optimize_call_pure(op, old_op):
+                if isinstance(old_op, PreambleOp):
+                    old_op = self.optimizer.force_op_from_preamble(old_op)
+                    self.extra_call_pure[i] = old_op
                 return
 
         # replace CALL_PURE with just CALL
@@ -181,6 +184,9 @@ class OptPure(Optimization):
             # all identical
             # this removes a CALL_PURE that has the same (non-constant)
             # arguments as a previous CALL_PURE.
+            if isinstance(old_op, PreambleOp):
+                # xxx obscure, it's dealt with in the caller
+                old_op = old_op.op
             self.make_equal_to(op, old_op)
             self.last_emitted_operation = REMOVED
             return True
@@ -226,11 +232,9 @@ class OptPure(Optimization):
             if op.is_ovf() and ops[i + 1].getopnum() == rop.GUARD_NO_OVERFLOW:
                 sb.add_pure_op(op)
         for i in self.call_pure_positions:
-            yyy
             op = ops[i]
-            assert op.getopnum() == rop.CALL
-            op = op.copy_and_change(rop.CALL_PURE)
-            sb.add_potential(op)
+            assert op.is_call()
+            sb.add_pure_op(op)
 
 dispatch_opt = make_dispatcher_method(OptPure, 'optimize_',
                                       default=OptPure.optimize_default)

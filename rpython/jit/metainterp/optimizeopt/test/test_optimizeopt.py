@@ -3653,7 +3653,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call_assembler_i(i1, descr=asmdescr)
         setfield_gc(p1, i3, descr=valuedescr)
-        i143 = same_as(i3) # Should be killed by backend
         jump(p1, i4, i3)
         '''
         self.optimize_loop(ops, ops, preamble)
@@ -3678,18 +3677,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, i4, i3)
         '''
         expected = '''
-        [p1, i4, i3, i5]
-        setfield_gc(p1, i5, descr=valuedescr)
-        jump(p1, i3, i5, i5)
+        [p1, i4, i3]
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i3, i3)
         '''
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call_i(p1, descr=elidablecalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
-        i148 = same_as(i3)
-        i147 = same_as(i3)
-        jump(p1, i4, i3, i148)
+        jump(p1, i4, i3)
         '''
         self.optimize_loop(ops, expected, preamble)
 
@@ -3706,9 +3703,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, i4, i3)
         '''
         expected = '''
-        [p1, i4, i3, i5]
-        setfield_gc(p1, i5, descr=valuedescr)
-        jump(p1, i3, i5, i5)
+        [p1, i4, i3]
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i3, i3)
         '''
         preamble = '''
         [p1, i1, i4]
@@ -3716,9 +3713,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = call_i(p1, descr=elidable2calldescr)
         guard_no_exception() []
         setfield_gc(p1, i3, descr=valuedescr)
-        i148 = same_as(i3)
-        i147 = same_as(i3)
-        jump(p1, i4, i3, i148)
+        #i148 = same_as(i3)
+        #i147 = same_as(i3)
+        jump(p1, i4, i3) #, i148)
         '''
         self.optimize_loop(ops, expected, preamble)
 
@@ -3957,7 +3954,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, i1]
         p3 = force_token()
         #
-        p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        p2 = new_with_vtable(descr=vref_descr)
         setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         setfield_gc(p0, p2, descr=nextdescr)

@@ -21,6 +21,7 @@ class UnrollableOptimizer(Optimizer):
     def force_op_from_preamble(self, preamble_op):
         if isinstance(preamble_op, PreambleOp):
             op = preamble_op.op
+            self.optimizer.inparg_dict[op] = None # XXX ARGH
             self.optunroll.short_preamble_producer.use_box(op, self)
             self.optunroll.potential_extra_ops[op] = preamble_op
             return op
@@ -33,12 +34,6 @@ class UnrollableOptimizer(Optimizer):
             i = infos.get(item, None)
             if i is not None:
                 self.setinfo_from_preamble(item, i, infos)
-
-    def is_inputarg(self, op):
-        if self.optunroll.short_preamble_producer is None:
-            return op in self.inparg_dict
-        return (op in self.inparg_dict or
-                op in self.optunroll.short_preamble_producer.used_boxes)
 
     def setinfo_from_preamble(self, op, preamble_info, exported_infos):
         op = self.get_box_replacement(op)
@@ -76,7 +71,6 @@ class UnrollOptimizer(Optimization):
     become the preamble or entry bridge (don't think there is a
     distinction anymore)"""
 
-    ops_to_import = None
     short_preamble_producer = None
 
     def __init__(self, metainterp_sd, jitdriver_sd, optimizations):
