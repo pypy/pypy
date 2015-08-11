@@ -15,7 +15,7 @@ from pypy.module.micronumpy.ctors import array
 from pypy.module.micronumpy.descriptor import get_dtype_cache
 from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
-    UserDelAction, CodeUniqueIds)
+    UserDelAction)
 from pypy.interpreter.pyframe import PyFrame
 
 
@@ -93,7 +93,6 @@ class FakeSpace(ObjSpace):
         self.config = config
 
         self.interned_strings = make_weak_value_dictionary(self, str, W_Root)
-        self.code_unique_ids = CodeUniqueIds()
         self.builtin = DictObject({})
         self.FrameClass = PyFrame
         self.threadlocals = ThreadLocals()
@@ -164,6 +163,10 @@ class FakeSpace(ObjSpace):
             else:
                 lgt = (stop - start - 1) / step + 1
             return (start, stop, step, lgt)
+
+    def unicode_from_object(self, w_item):
+        # XXX
+        return StringObject("")
 
     @specialize.argtype(1)
     def wrap(self, obj):
@@ -279,6 +282,12 @@ class FakeSpace(ObjSpace):
     def str_w(self, w_obj):
         if isinstance(w_obj, StringObject):
             return w_obj.v
+        raise NotImplementedError
+
+    def unicode_w(self, w_obj):
+        # XXX
+        if isinstance(w_obj, StringObject):
+            return unicode(w_obj.v)
         raise NotImplementedError
 
     def int(self, w_obj):

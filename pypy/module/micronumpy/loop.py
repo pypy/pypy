@@ -9,7 +9,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import support, constants as NPY
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
 from pypy.module.micronumpy.iterators import PureShapeIter, AxisIter, \
-    AllButAxisIter
+    AllButAxisIter, ArrayIter
 from pypy.interpreter.argument import Arguments
 
 
@@ -202,28 +202,27 @@ def _setslice(space, shape, target, source):
 
 reduce_flat_driver = jit.JitDriver(
     name='numpy_reduce_flat',
-    greens = ['shapelen', 'func', 'done_func', 'calc_dtype'], reds = 'auto')
+    greens = ['shapelen', 'func', 'done_func', 'calc_dtype'], reds = 'auto',
+    vectorize = True)
 
-def compute_reduce(space, obj, calc_dtype, func, done_func, identity):
-    obj_iter, obj_state = obj.create_iter()
+def reduce_flat(space, func, w_arr, calc_dtype, done_func, identity):
+    obj_iter, obj_state = w_arr.create_iter()
     if identity is None:
         cur_value = obj_iter.getitem(obj_state).convert_to(space, calc_dtype)
         obj_state = obj_iter.next(obj_state)
     else:
         cur_value = identity.convert_to(space, calc_dtype)
-    shapelen = len(obj.get_shape())
+    shapelen = len(w_arr.get_shape())
     while not obj_iter.done(obj_state):
-        reduce_driver.jit_merge_point(shapelen=shapelen, func=func,
-                                      done_func=done_func,
-                                      calc_dtype=calc_dtype)
+        reduce_flat_driver.jit_merge_point(
+            shapelen=shapelen, func=func,
+            done_func=done_func, calc_dtype=calc_dtype)
         rval = obj_iter.getitem(obj_state).convert_to(space, calc_dtype)
         if done_func is not None and done_func(calc_dtype, rval):
             return rval
         cur_value = func(calc_dtype, cur_value, rval)
         obj_state = obj_iter.next(obj_state)
-        rval = None
     return cur_value
-
 
 reduce_driver = jit.JitDriver(
     name='numpy_reduce',
@@ -316,7 +315,8 @@ def accumulate_flat(space, func, w_arr, calc_dtype, w_out, identity):
 
 accumulate_driver = jit.JitDriver(
     name='numpy_accumulate',
-    greens=['shapelen', 'func', 'calc_dtype'], reds='auto',
+    greens=['shapelen', 'func', 'calc_dtype'],
+    reds='auto',
     vectorize=True)
 
 
@@ -367,7 +367,8 @@ def assign(space, arr, seq):
 
 where_driver = jit.JitDriver(name='numpy_where',
                              greens = ['shapelen', 'dtype', 'arr_dtype'],
-                             reds = 'auto', vectorize=True)
+                             reds = 'auto',
+                             vectorize=True)
 
 def where(space, out, shape, arr, x, y, dtype):
     out_iter, out_state = out.create_iter(shape)

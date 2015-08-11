@@ -276,7 +276,7 @@ class W_Ufunc(W_Root):
                 loop.accumulate_flat(
                     space, self.func, obj, dtype, out, self.identity)
             if call__array_wrap__:
-                out = space.call_method(obj, '__array_wrap__', out)
+                out = space.call_method(obj, '__array_wrap__', out, None)
             return out
 
         axis_flags = [False] * shapelen
@@ -313,7 +313,7 @@ class W_Ufunc(W_Root):
                 out.implementation.setitem(0, res)
                 res = out
             if call__array_wrap__:
-                res = space.call_method(obj, '__array_wrap__', res)
+                res = space.call_method(obj, '__array_wrap__', res, None)
             return res
 
         else:
@@ -360,7 +360,7 @@ class W_Ufunc(W_Root):
             loop.reduce(
                 space, self.func, obj, axis_flags, dtype, out, self.identity)
             if call__array_wrap__:
-                out = space.call_method(obj, '__array_wrap__', out)
+                out = space.call_method(obj, '__array_wrap__', out, None)
             return out
 
     def descr_outer(self, space, __args__):

@@ -7,6 +7,7 @@ from pypy.module.micronumpy.base import W_NDimArray
 # structures to describe slicing
 
 class BaseChunk(object):
+    _attrs_ = ['step']
     pass
 
 
