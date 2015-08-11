@@ -19,67 +19,67 @@ class ValueProf(ValueProf):
 
 def test_int():
     v = ValueProf()
-    assert v.status == SEEN_NOTHING
+    assert v._vprof_status == SEEN_NOTHING
     v.see_write(ValueInt(1))
     v.see_write(ValueInt(1))
     v.see_write(ValueInt(1))
     v.see_write(ValueInt(1))
     assert v.read_constant_int() == 1
-    assert v.status == SEEN_INT
+    assert v._vprof_status == SEEN_INT
     v.see_int(2)
-    assert v.status == SEEN_TOO_MUCH
+    assert v._vprof_status == SEEN_TOO_MUCH
     v.see_int(1)
-    assert v.status == SEEN_TOO_MUCH
+    assert v._vprof_status == SEEN_TOO_MUCH
     v.see_int(2)
-    assert v.status == SEEN_TOO_MUCH
+    assert v._vprof_status == SEEN_TOO_MUCH
     v.see_int(3)
-    assert v.status == SEEN_TOO_MUCH
+    assert v._vprof_status == SEEN_TOO_MUCH
 
     v = ValueProf()
-    assert v.status == SEEN_NOTHING
+    assert v._vprof_status == SEEN_NOTHING
     v.see_write(ValueInt(1))
     v.see_write(Value())
-    assert v.status == SEEN_TOO_MUCH
+    assert v._vprof_status == SEEN_TOO_MUCH
     v.see_write(Value())
-    assert v.status == SEEN_TOO_MUCH
+    assert v._vprof_status == SEEN_TOO_MUCH
 
 
 def test_obj():
     v = ValueProf()
     value = Value()
-    assert v.status == SEEN_NOTHING
+    assert v._vprof_status == SEEN_NOTHING
     v.see_write(value)
     v.see_write(value)
     v.see_write(value)
     v.see_write(value)
     assert v.try_read_constant_obj() is value
-    assert v.status == SEEN_OBJ
+    assert v._vprof_status == SEEN_OBJ
     v.see_int(2)
-    assert v.status == SEEN_TOO_MUCH
+    assert v._vprof_status == SEEN_TOO_MUCH
 
     v = ValueProf()
-    assert v.status == SEEN_NOTHING
+    assert v._vprof_status == SEEN_NOTHING
     v.see_write(Value())
     v.see_write(Value())
-    assert v.status == SEEN_TOO_MUCH
+    assert v._vprof_status == SEEN_TOO_MUCH
 
 
 def test_none():
     v = ValueProf()
-    assert v.status == SEEN_NOTHING
+    assert v._vprof_status == SEEN_NOTHING
     v.see_write(None)
-    assert v.status == SEEN_TOO_MUCH
+    assert v._vprof_status == SEEN_TOO_MUCH
     v.see_write(None)
-    assert v.status == SEEN_TOO_MUCH
+    assert v._vprof_status == SEEN_TOO_MUCH
 
     v = ValueProf()
     v.see_write(ValueInt(1))
-    assert v.status == SEEN_INT
+    assert v._vprof_status == SEEN_INT
     v.see_write(None)
-    assert v.status == SEEN_TOO_MUCH
+    assert v._vprof_status == SEEN_TOO_MUCH
 
     v = ValueProf()
     v.see_write(Value())
-    assert v.status == SEEN_OBJ
+    assert v._vprof_status == SEEN_OBJ
     v.see_write(None)
-    assert v.status == SEEN_TOO_MUCH
+    assert v._vprof_status == SEEN_TOO_MUCH
