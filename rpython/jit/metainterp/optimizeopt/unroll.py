@@ -34,6 +34,12 @@ class UnrollableOptimizer(Optimizer):
             if i is not None:
                 self.setinfo_from_preamble(item, i, infos)
 
+    def is_inputarg(self, op):
+        if self.optunroll.short_preamble_producer is None:
+            return op in self.inparg_dict
+        return (op in self.inparg_dict or
+                op in self.optunroll.short_preamble_producer.used_boxes)
+
     def setinfo_from_preamble(self, op, preamble_info, exported_infos):
         op = self.get_box_replacement(op)
         if isinstance(preamble_info, info.PtrInfo):
@@ -71,6 +77,7 @@ class UnrollOptimizer(Optimization):
     distinction anymore)"""
 
     ops_to_import = None
+    short_preamble_producer = None
 
     def __init__(self, metainterp_sd, jitdriver_sd, optimizations):
         self.optimizer = UnrollableOptimizer(metainterp_sd, jitdriver_sd,

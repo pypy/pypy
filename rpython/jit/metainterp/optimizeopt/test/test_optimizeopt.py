@@ -3297,40 +3297,40 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_ovf_guard_in_short_preamble2(self):
         ops = """
         [p8, p11, p12]
-        p16 = getfield_gc_r(p8, descr=valuedescr)
-        i17 = getfield_gc_i(p8, descr=nextdescr)
+        p16 = getfield_gc_r(p8, descr=nextdescr)
+        i17 = getfield_gc_i(p8, descr=valuedescr)
         i19 = getfield_gc_i(p16, descr=valuedescr)
         i20 = int_ge(i17, i19)
         guard_false(i20) []
-        i21 = getfield_gc_i(p16, descr=otherdescr)
-        i22 = getfield_gc_i(p16, descr=nextdescr)
+        i21 = getfield_gc_i(p16, descr=chardescr)
+        i22 = getfield_gc_i(p16, descr=valuedescr)
         i23 = int_mul(i17, i22)
         i24 = int_add(i21, i23)
-        p26 = new_with_vtable(descr=nodesize)
+        p26 = new(descr=ssize)
         setfield_gc(p26, i24, descr=adescr)
         i28 = int_add(i17, 1)
-        setfield_gc(p8, i28, descr=nextdescr)
-        i34 = getfield_gc_pure_i(p11, descr=valuedescr)
+        setfield_gc(p8, i28, descr=valuedescr)
+        i34 = getfield_gc_pure_i(p11, descr=valuedescr3)
         i35 = getfield_gc_pure_i(p26, descr=adescr)
         guard_nonnull(p12) []
         i36 = int_add_ovf(i34, i35)
         guard_no_overflow() []
-        p38 = new_with_vtable(descr=nodesize)
+        p38 = new(descr=ssize)
         setfield_gc(p38, i36, descr=adescr)
         jump(p8, p11, p26)
         """
         expected = """
-        [p8, p11, i24, i39, i19, p16, i21, i34]
-        i40 = int_ge(i39, i19)
-        guard_false(i40) []
-        i41 = getfield_gc_i(p16, descr=nextdescr)
-        i42 = int_mul(i39, i41)
-        i43 = int_add(i21, i42)
-        i44 = int_add(i39, 1)
-        setfield_gc(p8, i44, descr=nextdescr)
-        i45 = int_add_ovf(i34, i43)
+        [p0, p1, i9, p3, i10, i7, i11]
+        i13 = getfield_gc_i(p3, descr=valuedescr)
+        i14 = int_ge(i10, i13)
+        guard_false(i14) []
+        i15 = int_mul(i10, i13)
+        i16 = int_add(i7, i15)
+        i17 = int_add(i10, 1)
+        setfield_gc(p0, i17, descr=valuedescr)
+        i18 = int_add_ovf(i11, i16)
         guard_no_overflow() []
-        jump(p8, p11, i43, i44, i19, p16, i21, i34)
+        jump(p0, p1, i16, p3, i17, i7, i11)
         """
         self.optimize_loop(ops, expected)
 
