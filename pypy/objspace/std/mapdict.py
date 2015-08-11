@@ -306,23 +306,29 @@ class PlainAttribute(AbstractAttribute):
         from pypy.objspace.std.intobject import W_IntObject
         from pypy.objspace.std.floatobject import W_FloatObject
         assert not isinstance(w_cell, ObjectMutableCell)
-        if isinstance(w_cell, IntMutableCell) and type(w_value) is W_IntObject:
-            w_cell.intvalue = w_value.intval
-            return None
-        if isinstance(w_cell, FloatMutableCell) and type(w_value) is W_FloatObject:
-            w_cell.floatvalue = w_value.floatval
-            return None
         if type(w_value) is W_IntObject:
-            if not self.can_contain_mutable_cell:
-                self.can_contain_mutable_cell = True
+            if isinstance(w_cell, IntMutableCell):
+                w_cell.intvalue = w_value.intval
+                return None
+            check = self._ensure_can_contain_mutable_cell()
+            assert check
             if self.ever_mutated:
                 return IntMutableCell(w_value.intval)
         if type(w_value) is W_FloatObject:
-            if not self.can_contain_mutable_cell:
-                self.can_contain_mutable_cell = True
+            if isinstance(w_cell, FloatMutableCell):
+                w_cell.floatvalue = w_value.floatval
+                return None
+            check = self._ensure_can_contain_mutable_cell()
+            assert check
             if self.ever_mutated:
                 return FloatMutableCell(w_value.floatval)
         return w_value
+
+    @jit.elidable
+    def _ensure_can_contain_mutable_cell(self):
+        if not self.can_contain_mutable_cell:
+            self.can_contain_mutable_cell = True
+        return True
 
     def _copy_attr(self, obj, new_obj):
         w_value = self.read(obj, self.selector)
