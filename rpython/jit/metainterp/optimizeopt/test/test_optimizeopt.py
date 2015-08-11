@@ -7352,7 +7352,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_add(i1, i2)
         setfield_gc(p0, ii, descr=valuedescr)
         setfield_gc(p1, ii, descr=otherdescr)
-        jump(p0, p1, ii2, ii, ii, ii)
+        i7 = same_as(ii)
+        i8 = same_as(ii)
+        jump(p0, p1, ii2, ii, i8, i7)
         """
         expected = """
         [p0, p1, ii, ii2, i1, i2]
@@ -7361,7 +7363,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, ii, descr=otherdescr)
         jump(p0, p1, ii2, ii, ii, ii)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected, preamble)
 
     def test_dont_specialize_on_boxes_equal(self):
         ops = """
