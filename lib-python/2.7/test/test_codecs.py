@@ -1348,6 +1348,28 @@ class CodecsModuleTest(unittest.TestCase):
         c = codecs.lookup('ASCII')
         self.assertEqual(c.name, 'ascii')
 
+    def test_all(self):
+        api = (
+            "encode", "decode",
+            "register", "CodecInfo", "Codec", "IncrementalEncoder",
+            "IncrementalDecoder", "StreamReader", "StreamWriter", "lookup",
+            "getencoder", "getdecoder", "getincrementalencoder",
+            "getincrementaldecoder", "getreader", "getwriter",
+            "register_error", "lookup_error",
+            "strict_errors", "replace_errors", "ignore_errors",
+            "xmlcharrefreplace_errors", "backslashreplace_errors",
+            "open", "EncodedFile",
+            "iterencode", "iterdecode",
+            "BOM", "BOM_BE", "BOM_LE",
+            "BOM_UTF8", "BOM_UTF16", "BOM_UTF16_BE", "BOM_UTF16_LE",
+            "BOM_UTF32", "BOM_UTF32_BE", "BOM_UTF32_LE",
+            "BOM32_BE", "BOM32_LE", "BOM64_BE", "BOM64_LE",  # Undocumented
+            "StreamReaderWriter", "StreamRecoder",
+        )
+        self.assertEqual(sorted(api), sorted(codecs.__all__))
+        for api in codecs.__all__:
+            getattr(codecs, api)
+
 class StreamReaderTest(unittest.TestCase):
 
     def setUp(self):
@@ -2108,6 +2130,10 @@ def test_main():
         RawUnicodeEscapeTest,
         BomTest,
     )
+
+    def test_uu_invalid(self):
+        # Missing "begin" line
+        self.assertRaises(ValueError, codecs.decode, "", "uu-codec")
 
 
 if __name__ == "__main__":

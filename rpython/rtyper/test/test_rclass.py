@@ -1279,3 +1279,16 @@ class TestRclass(BaseRtypingTest):
             return cls[k](a, b).b
 
         assert self.interpret(f, [1, 4, 7]) == 7
+
+    def test_flatten_convert_const(self):
+        # check that we can convert_const() a chain of more than 1000
+        # instances
+        class A(object):
+            def __init__(self, next):
+                self.next = next
+        a = None
+        for i in range(1500):
+            a = A(a)
+        def f():
+            return a.next.next.next.next is not None
+        assert self.interpret(f, []) == True

@@ -105,7 +105,7 @@ class Function(W_Root):
                                                    self)
                 for i in funccallunrolling:
                     if i < nargs:
-                        new_frame.locals_stack_w[i] = args_w[i]
+                        new_frame.locals_cells_stack_w[i] = args_w[i]
                 return new_frame.run()
         elif nargs >= 1 and fast_natural_arity == Code.PASSTHROUGHARGS1:
             assert isinstance(code, gateway.BuiltinCodePassThroughArguments1)
@@ -171,7 +171,7 @@ class Function(W_Root):
                                                    self)
         for i in xrange(nargs):
             w_arg = frame.peekvalue(nargs-1-i)
-            new_frame.locals_stack_w[i] = w_arg
+            new_frame.locals_cells_stack_w[i] = w_arg
 
         return new_frame.run()
 
@@ -182,13 +182,13 @@ class Function(W_Root):
                                                    self)
         for i in xrange(nargs):
             w_arg = frame.peekvalue(nargs-1-i)
-            new_frame.locals_stack_w[i] = w_arg
+            new_frame.locals_cells_stack_w[i] = w_arg
 
         ndefs = len(self.defs_w)
         start = ndefs - defs_to_load
         i = nargs
         for j in xrange(start, ndefs):
-            new_frame.locals_stack_w[i] = self.defs_w[j]
+            new_frame.locals_cells_stack_w[i] = self.defs_w[j]
             i += 1
         return new_frame.run()
 
@@ -374,14 +374,11 @@ class Function(W_Root):
         return space.wrap(self.name)
 
     def fset_func_name(self, space, w_name):
-        try:
+        if space.isinstance_w(w_name, space.w_str):
             self.name = space.str_w(w_name)
-        except OperationError, e:
-            if e.match(space, space.w_TypeError):
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("func_name must be set "
-                                                "to a string object"))
-            raise
+        else:
+            raise OperationError(space.w_TypeError,
+                space.wrap("__name__ must be set to a string object"))
 
     def fdel_func_doc(self, space):
         self.w_doc = space.w_None

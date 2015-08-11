@@ -199,8 +199,7 @@ class W_ZipImporter(W_Root):
         magic = importing._get_long(buf[:4])
         timestamp = importing._get_long(buf[4:8])
         if not self.can_use_pyc(space, filename, magic, timestamp):
-            return self.import_py_file(space, modname, filename[:-1], buf,
-                                       pkgpath)
+            return None
         buf = buf[8:] # XXX ugly copy, should use sequential read instead
         w_mod = w(Module(space, w(modname)))
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
@@ -249,7 +248,6 @@ class W_ZipImporter(W_Root):
     def load_module(self, space, fullname):
         w = space.wrap
         filename = self.make_filename(fullname)
-        last_exc = None
         for compiled, is_package, ext in ENUMERATE_EXTS:
             fname = filename + ext
             try:
@@ -268,19 +266,18 @@ class W_ZipImporter(W_Root):
                     pkgpath = None
                 try:
                     if compiled:
-                        return self.import_pyc_file(space, fullname, fname,
-                                                    buf, pkgpath)
+                        w_result = self.import_pyc_file(space, fullname, fname,
+                                                        buf, pkgpath)
+                        if w_result is not None:
+                            return w_result
                     else:
                         return self.import_py_file(space, fullname, fname,
                                                    buf, pkgpath)
-                except OperationError, e:
-                    last_exc = e
+                except:
                     w_mods = space.sys.get('modules')
-                space.call_method(w_mods, 'pop', w(fullname), space.w_None)
-        if last_exc:
-            raise OperationError(get_error(space), last_exc.get_w_value(space))
-        # should never happen I think
-        return space.w_None
+                    space.call_method(w_mods, 'pop', w(fullname), space.w_None)
+                    raise
+        raise oefmt(get_error(space), "can't find module '%s'", fullname)
 
     @unwrap_spec(filename=str)
     def get_data(self, space, filename):

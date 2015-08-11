@@ -299,6 +299,30 @@ class AppTestInterpreter:
         finally:
             sys.stdout = save
 
+    def test_print_strange_object(self):
+        import sys
+
+        class A(object):
+            def __getattribute__(self, name):
+                print "seeing", name
+            def __str__(self):
+                return 'A!!'
+        save = sys.stdout
+        class Out(object):
+            def __init__(self):
+                self.data = []
+            def write(self, x):
+                self.data.append((type(x), x))
+        sys.stdout = out = Out()
+        try:
+            a = A()
+            assert out.data == []
+            print a
+            assert out.data == [(str, 'A!!'),
+                                (str, '\n')]
+        finally:
+            sys.stdout = save
+
     def test_identity(self):
         def f(x): return x
         assert f(666) == 666

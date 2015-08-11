@@ -2,6 +2,7 @@ import gc
 import inspect
 import os
 import sys
+import subprocess
 
 import py
 
@@ -50,8 +51,8 @@ class UsingFrameworkTest(object):
             t.viewcg()
         exename = t.compile()
 
-        def run(s, i):
-            data = py.process.cmdexec("%s %s %d" % (exename, s, i))
+        def run(s, i, runner=subprocess.check_output):
+            data = runner([str(exename), str(s), str(i)])
             data = data.strip()
             if data == 'MEMORY-ERROR':
                 raise MemoryError
@@ -115,11 +116,11 @@ class UsingFrameworkTest(object):
             cls.c_allfuncs.close_isolate()
             cls.c_allfuncs = None
 
-    def run(self, name, *args):
+    def run(self, name, *args, **kwds):
         if not args:
             args = (-1, )
         print 'Running %r)' % name
-        res = self.c_allfuncs(name, *args)
+        res = self.c_allfuncs(name, *args, **kwds)
         num = self.name_to_func[name]
         if self.funcsstr[num]:
             return res
@@ -1245,6 +1246,28 @@ class UsingFrameworkTest(object):
     def test_check_zero_works(self):
         self.run("check_zero_works")
 
+    def define_long_chain_of_instances(self):
+        class A(object):
+            def __init__(self, next):
+                self.next = next
+        a = None
+        for i in range(1500):
+            a = A(a)
+
+        def fn():
+            i = 0
+            x = a
+            while x is not None:
+                i += 1
+                x = x.next
+            return i
+        return fn
+
+    def test_long_chain_of_instances(self):
+        res = self.run("long_chain_of_instances")
+        assert res == 1500
+        
+
 class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
     gcpolicy = "semispace"
     should_be_moving = True
@@ -1524,6 +1547,38 @@ class TestMiniMarkGC(TestSemiSpaceGC):
         res = self.run("nongc_opaque_attached_to_gc")
         assert res == 0
 
+    def define_limited_memory(self):
+        class A(object):
+            def __init__(self, next):
+                self.next = next
+        def g(i):
+            a = None
+            while i != 0:
+                a = A(a)
+                i -= 1
+            return 0
+        def f(i):
+            try:
+                return g(i)
+            except MemoryError:
+                g(20)       # allocate some more stuff, but exit
+                return 42
+        return f
+
+    def test_limited_memory(self):
+        import random
+        #
+        def myrunner(args):
+            env = os.environ.copy()
+            env['PYPY_GC_MAX'] = '%dKB' % gcmax
+            return subprocess.check_output(args, env=env)
+        #
+        for i in range(10):
+            gcmax = random.randrange(50000, 100000)
+            print gcmax
+            res = self.run("limited_memory", -1, runner=myrunner)
+            assert res == 42
+
 
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcpolicy = "incminimark"
@@ -1576,6 +1631,29 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     def test_random_pin(self):
         res = self.run("random_pin")
         assert res == 28495
+
+    define_limited_memory_linux = TestMiniMarkGC.define_limited_memory.im_func
+
+    def test_limited_memory_linux(self):
+        if not sys.platform.startswith('linux'):
+            py.test.skip("linux only")
+        #
+        import random
+        #
+        def myrunner(args):
+            args1 = ['/bin/bash', '-c', 'ulimit -v %d && %s' %
+                     (ulimitv, ' '.join(args),)]
+            popen = subprocess.Popen(args1, stderr=subprocess.PIPE)
+            _, child_stderr = popen.communicate()
+            assert popen.wait() == 134     # aborted
+            assert 'out of memory:' in child_stderr
+            return '42'
+        #
+        for i in range(10):
+            ulimitv = random.randrange(50000, 100000)
+            print ulimitv
+            res = self.run("limited_memory_linux", -1, runner=myrunner)
+            assert res == 42
 
 
 # ____________________________________________________________________

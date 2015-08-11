@@ -47,31 +47,14 @@ class __extend__(annmodel.SomeBuiltinMethod):
         # to it.
         return (self.__class__, self.methodname, id(self.s_self))
 
-def call_args_expand(hop, takes_kwds = True):
+def call_args_expand(hop):
     hop = hop.copy()
     from rpython.annotator.argument import ArgumentsForTranslation
     arguments = ArgumentsForTranslation.fromshape(
             hop.args_s[1].const, # shape
             range(hop.nb_args-2))
-    if arguments.w_stararg is not None:
-        # expand the *arg in-place -- it must be a tuple
-        from rpython.rtyper.rtuple import TupleRepr
-        if arguments.w_stararg != hop.nb_args - 3:
-            raise TyperError("call pattern too complex")
-        v_tuple = hop.args_v.pop()
-        s_tuple = hop.args_s.pop()
-        r_tuple = hop.args_r.pop()
-        if not isinstance(r_tuple, TupleRepr):
-            raise TyperError("*arg must be a tuple")
-        for i in range(len(r_tuple.items_r)):
-            v_item = r_tuple.getitem_internal(hop.llops, v_tuple, i)
-            hop.args_v.append(v_item)
-            hop.args_s.append(s_tuple.items[i])
-            hop.args_r.append(r_tuple.items_r[i])
-
+    assert arguments.w_stararg is None
     keywords = arguments.keywords
-    if not takes_kwds and keywords:
-        raise TyperError("kwds args not supported")
     # prefix keyword arguments with 'i_'
     kwds_i = {}
     for key in keywords:
@@ -497,7 +480,6 @@ _cast_to_Signed = {
     }
 _cast_from_Signed = {
     lltype.Signed:         None,
-    lltype.Bool:           'int_is_true',
     lltype.Char:           'cast_int_to_char',
     lltype.UniChar:        'cast_int_to_unichar',
     lltype.Float:          'cast_int_to_float',
@@ -519,6 +501,8 @@ def gen_cast(llops, TGT, v_value):
             if op:
                 v_value = llops.genop(op, [v_value], resulttype=TGT)
             return v_value
+        elif ORIG is lltype.Signed and TGT is lltype.Bool:
+            return llops.genop('int_is_true', [v_value], resulttype=lltype.Bool)
         else:
             # use the generic operation if there is no alternative
             return llops.genop('cast_primitive', [v_value], resulttype=TGT)

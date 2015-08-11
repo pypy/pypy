@@ -36,7 +36,10 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
         return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(self, graph,
                                                                   seen)
     def analyze_external_call(self, op, seen=None):
-        funcobj = op.args[0].value._obj
+        try:
+            funcobj = op.args[0].value._obj
+        except lltype.DelayedPointer:
+            return True
         if getattr(funcobj, 'random_effects_on_gcobjs', False):
             return True
         return graphanalyze.BoolGraphAnalyzer.analyze_external_call(self, op,
@@ -49,21 +52,22 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
             return (op.opname in LL_OPERATIONS and
                     LL_OPERATIONS[op.opname].canmallocgc)
 
-def find_initializing_stores(collect_analyzer, graph):
-    from rpython.flowspace.model import mkentrymap
-    entrymap = mkentrymap(graph)
-    # a bit of a hackish analysis: if a block contains a malloc and check that
-    # the result is not zero, then the block following the True link will
-    # usually initialize the newly allocated object
-    result = set()
-    def find_in_block(block, mallocvars):
+def propagate_no_write_barrier_needed(result, block, mallocvars,
+                                      collect_analyzer, entrymap,
+                                      startindex=0):
+    # We definitely know that no write barrier is needed in the 'block'
+    # for any of the variables in 'mallocvars'.  Propagate this information
+    # forward.  Note that "definitely know" implies that we just did either
+    # a fixed-size malloc (variable-size might require card marking), or
+    # that we just did a full write barrier (not just for card marking).
+    if 1:       # keep indentation
         for i, op in enumerate(block.operations):
+            if i < startindex:
+                continue
             if op.opname in ("cast_pointer", "same_as"):
                 if op.args[0] in mallocvars:
                     mallocvars[op.result] = True
             elif op.opname in ("setfield", "setarrayitem", "setinteriorfield"):
-                # note that 'mallocvars' only tracks fixed-size mallocs,
-                # so no risk that they use card marking
                 TYPE = op.args[-1].concretetype
                 if (op.args[0] in mallocvars and
                     isinstance(TYPE, lltype.Ptr) and
@@ -80,7 +84,15 @@ def find_initializing_stores(collect_analyzer, graph):
                 if var in mallocvars:
                     newmallocvars[exit.target.inputargs[i]] = True
             if newmallocvars:
-                find_in_block(exit.target, newmallocvars)
+                propagate_no_write_barrier_needed(result, exit.target,
+                                                  newmallocvars,
+                                                  collect_analyzer, entrymap)
+
+def find_initializing_stores(collect_analyzer, graph, entrymap):
+    # a bit of a hackish analysis: if a block contains a malloc and check that
+    # the result is not zero, then the block following the True link will
+    # usually initialize the newly allocated object
+    result = set()
     mallocnum = 0
     blockset = set(graph.iterblocks())
     while blockset:
@@ -110,7 +122,8 @@ def find_initializing_stores(collect_analyzer, graph):
         target = exit.target
         mallocvars = {target.inputargs[index]: True}
         mallocnum += 1
-        find_in_block(target, mallocvars)
+        propagate_no_write_barrier_needed(result, target, mallocvars,
+                                          collect_analyzer, entrymap)
     #if result:
     #    print "found %s initializing stores in %s" % (len(result), graph.name)
     return result
@@ -247,6 +260,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         annhelper.finish()   # at this point, annotate all mix-level helpers
         annhelper.backend_optimize()
+
+        self.check_custom_trace_funcs(gcdata.gc, translator.rtyper)
 
         self.collect_analyzer = CollectAnalyzer(self.translator)
         self.collect_analyzer.analyze_all()
@@ -537,6 +552,24 @@ class BaseFrameworkGCTransformer(GCTransformer):
             self.gcdata._has_got_custom_trace(self.get_type_id(TP))
             specialize.arg(2)(func)
 
+    def check_custom_trace_funcs(self, gc, rtyper):
+        # detect if one of the custom trace functions uses the GC
+        # (it must not!)
+        for TP, func in rtyper.custom_trace_funcs:
+            def no_op_callback(obj, arg):
+                pass
+            def ll_check_no_collect(obj):
+                func(gc, obj, no_op_callback, None)
+            annhelper = annlowlevel.MixLevelHelperAnnotator(rtyper)
+            graph1 = annhelper.getgraph(ll_check_no_collect, [SomeAddress()],
+                                        annmodel.s_None)
+            annhelper.finish()
+            collect_analyzer = CollectAnalyzer(self.translator)
+            if collect_analyzer.analyze_direct_call(graph1):
+                raise Exception(
+                    "the custom trace hook %r for %r can cause "
+                    "the GC to be called!" % (func, TP))
+
     def consider_constant(self, TYPE, value):
         self.layoutbuilder.consider_constant(TYPE, value, self.gcdata.gc)
 
@@ -675,8 +708,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                 " %s" % func)
 
         if self.write_barrier_ptr:
+            from rpython.flowspace.model import mkentrymap
+            self._entrymap = mkentrymap(graph)
             self.clean_sets = (
-                find_initializing_stores(self.collect_analyzer, graph))
+                find_initializing_stores(self.collect_analyzer, graph,
+                                         self._entrymap))
             if self.gcdata.gc.can_optimize_clean_setarrayitems():
                 self.clean_sets = self.clean_sets.union(
                     find_clean_setarrayitems(self.collect_analyzer, graph))
@@ -1246,6 +1282,17 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 hop.genop("direct_call", [self.write_barrier_ptr,
                                           self.c_const_gc,
                                           v_structaddr])
+                # we just did a full write barrier here, so we can use
+                # this helper to propagate this knowledge forward and
+                # avoid to repeat the write barrier.
+                if self.curr_block is not None:   # for tests
+                    assert self.curr_block.operations[hop.index] is hop.spaceop
+                    propagate_no_write_barrier_needed(self.clean_sets,
+                                                      self.curr_block,
+                                                      {v_struct: True},
+                                                      self.collect_analyzer,
+                                                      self._entrymap,
+                                                      hop.index + 1)
         hop.rename('bare_' + opname)
 
     def transform_getfield_typeptr(self, hop):
@@ -1462,7 +1509,8 @@ class BaseRootWalker(object):
 
     def walk_roots(self, collect_stack_root,
                    collect_static_in_prebuilt_nongc,
-                   collect_static_in_prebuilt_gc):
+                   collect_static_in_prebuilt_gc,
+                   is_minor=False):
         gcdata = self.gcdata
         gc = self.gc
         if collect_static_in_prebuilt_nongc:
@@ -1482,7 +1530,7 @@ class BaseRootWalker(object):
                     collect_static_in_prebuilt_gc(gc, result)
                 addr += sizeofaddr
         if collect_stack_root:
-            self.walk_stack_roots(collect_stack_root)     # abstract
+            self.walk_stack_roots(collect_stack_root, is_minor)     # abstract
 
     def finished_minor_collection(self):
         func = self.finished_minor_collection_func

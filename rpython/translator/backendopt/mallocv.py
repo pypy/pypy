@@ -1,7 +1,6 @@
 from rpython.flowspace.model import Variable, Constant, Block, Link
 from rpython.flowspace.model import SpaceOperation, copygraph
 from rpython.flowspace.model import checkgraph
-from rpython.flowspace.model import c_last_exception
 from rpython.translator.backendopt.support import log
 from rpython.translator.simplify import join_blocks
 from rpython.translator.unsimplify import varoftype
@@ -534,7 +533,7 @@ class GraphBuilder(object):
             return None
 
     def has_exception_catching(self, catchingframe):
-        if catchingframe.sourceblock.exitswitch != c_last_exception:
+        if not catchingframe.sourceblock.canraise:
             return False
         else:
             operations = catchingframe.sourceblock.operations
@@ -711,7 +710,7 @@ class BlockSpecializer(object):
         self.specblock.exitswitch = self.rename_nonvirtual(block.exitswitch,
                                                            'exitswitch')
         links = block.exits
-        catch_exc = self.specblock.exitswitch == c_last_exception
+        catch_exc = self.specblock.canraise
 
         if not catch_exc and isinstance(self.specblock.exitswitch, Constant):
             # constant-fold the switch

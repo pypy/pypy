@@ -20,8 +20,14 @@ __all__ = ["register", "lookup", "open", "EncodedFile", "BOM", "BOM_BE",
            "BOM_LE", "BOM32_BE", "BOM32_LE", "BOM64_BE", "BOM64_LE",
            "BOM_UTF8", "BOM_UTF16", "BOM_UTF16_LE", "BOM_UTF16_BE",
            "BOM_UTF32", "BOM_UTF32_LE", "BOM_UTF32_BE",
+           "CodecInfo", "Codec", "IncrementalEncoder", "IncrementalDecoder",
+           "StreamReader", "StreamWriter",
+           "StreamReaderWriter", "StreamRecoder",
+           "getencoder", "getdecoder", "getincrementalencoder",
+           "getincrementaldecoder", "getreader", "getwriter",
+           "encode", "decode", "iterencode", "iterdecode",
            "strict_errors", "ignore_errors", "replace_errors",
-           "xmlcharrefreplace_errors",
+           "xmlcharrefreplace_errors", "backslashreplace_errors",
            "register_error", "lookup_error"]
 
 ### Constants
@@ -1051,7 +1057,7 @@ def make_encoding_map(decoding_map):
         during translation.
 
         One example where this happens is cp875.py which decodes
-        multiple character to \u001a.
+        multiple character to \\u001a.
 
     """
     m = {}

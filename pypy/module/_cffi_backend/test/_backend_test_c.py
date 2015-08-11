@@ -1060,9 +1060,13 @@ def test_cannot_call_with_a_autocompleted_struct():
     complete_struct_or_union(BStruct, [('c', BDouble, -1, 8),
                                        ('a', BSChar, -1, 2),
                                        ('b', BSChar, -1, 0)])
-    e = py.test.raises(TypeError, new_function_type, (BStruct,), BDouble)
-    msg ='cannot pass as an argument a struct that was completed with verify()'
-    assert msg in str(e.value)
+    BFunc = new_function_type((BStruct,), BDouble)   # internally not callable
+    dummy_func = cast(BFunc, 42)
+    e = py.test.raises(NotImplementedError, dummy_func, "?")
+    msg = ("ctype \'struct foo\' not supported as argument (it is a struct "
+           'declared with "...;", but the C calling convention may depend on '
+           'the missing fields)')
+    assert str(e.value) == msg
 
 def test_new_charp():
     BChar = new_primitive_type("char")
@@ -1166,6 +1170,14 @@ def test_callback_exception():
     BShort = new_primitive_type("short")
     BFunc = new_function_type((BShort,), BShort, False)
     f = callback(BFunc, Zcb1, -42)
+    #
+    seen = []
+    oops_result = None
+    def oops(*args):
+        seen.append(args)
+        return oops_result
+    ff = callback(BFunc, Zcb1, -42, oops)
+    #
     orig_stderr = sys.stderr
     orig_getline = linecache.getline
     try:
@@ -1190,6 +1202,59 @@ ValueError: 42
 From cffi callback <function$Zcb1 at 0x$>:
 Trying to convert the result back to C:
 OverflowError: integer 60000 does not fit 'short'
+""")
+        sys.stderr = cStringIO.StringIO()
+        bigvalue = 20000
+        assert len(seen) == 0
+        assert ff(bigvalue) == -42
+        assert sys.stderr.getvalue() == ""
+        assert len(seen) == 1
+        exc, val, tb = seen[0]
+        assert exc is OverflowError
+        assert str(val) == "integer 60000 does not fit 'short'"
+        #
+        sys.stderr = cStringIO.StringIO()
+        bigvalue = 20000
+        del seen[:]
+        oops_result = 81
+        assert ff(bigvalue) == 81
+        oops_result = None
+        assert sys.stderr.getvalue() == ""
+        assert len(seen) == 1
+        exc, val, tb = seen[0]
+        assert exc is OverflowError
+        assert str(val) == "integer 60000 does not fit 'short'"
+        #
+        sys.stderr = cStringIO.StringIO()
+        bigvalue = 20000
+        del seen[:]
+        oops_result = "xy"     # not None and not an int!
+        assert ff(bigvalue) == -42
+        oops_result = None
+        assert matches(sys.stderr.getvalue(), """\
+From cffi callback <function$Zcb1 at 0x$>:
+Trying to convert the result back to C:
+OverflowError: integer 60000 does not fit 'short'
+
+During the call to 'onerror', another exception occurred:
+
+TypeError: $integer$
+""")
+        #
+        sys.stderr = cStringIO.StringIO()
+        seen = "not a list"    # this makes the oops() function crash
+        assert ff(bigvalue) == -42
+        assert matches(sys.stderr.getvalue(), """\
+From cffi callback <function$Zcb1 at 0x$>:
+Trying to convert the result back to C:
+OverflowError: integer 60000 does not fit 'short'
+
+During the call to 'onerror', another exception occurred:
+
+Traceback (most recent call last):
+  File "$", line $, in oops
+    $
+AttributeError: 'str' object has no attribute 'append'
 """)
     finally:
         sys.stderr = orig_stderr
@@ -2095,8 +2160,7 @@ def test_cannot_dereference_void():
     p = cast(BVoidP, 123456)
     py.test.raises(TypeError, "p[0]")
     p = cast(BVoidP, 0)
-    if 'PY_DOT_PY' in globals(): py.test.skip("NULL crashes early on py.py")
-    py.test.raises(TypeError, "p[0]")
+    py.test.raises((TypeError, RuntimeError), "p[0]")
 
 def test_iter():
     BInt = new_primitive_type("int")
@@ -2716,6 +2780,14 @@ def test_FILE_object():
     assert data == b"Xhello\n"
     posix.close(fdr)
 
+def test_errno_saved():
+    set_errno(42)
+    # a random function that will reset errno to 0 (at least on non-windows)
+    import os; os.stat('.')
+    #
+    res = get_errno()
+    assert res == 42
+
 def test_GetLastError():
     if sys.platform != "win32":
         py.test.skip("GetLastError(): only for Windows")
@@ -3239,6 +3311,120 @@ def test_from_buffer():
     cast(p, c)[1] += 500
     assert list(a) == [10000, 20500, 30000]
 
+def test_from_buffer_not_str_unicode_bytearray():
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    py.test.raises(TypeError, from_buffer, BCharA, b"foo")
+    py.test.raises(TypeError, from_buffer, BCharA, u+"foo")
+    py.test.raises(TypeError, from_buffer, BCharA, bytearray(b"foo"))
+    try:
+        from __builtin__ import buffer
+    except ImportError:
+        pass
+    else:
+        py.test.raises(TypeError, from_buffer, BCharA, buffer(b"foo"))
+        py.test.raises(TypeError, from_buffer, BCharA, buffer(u+"foo"))
+        py.test.raises(TypeError, from_buffer, BCharA,
+                       buffer(bytearray(b"foo")))
+    try:
+        from __builtin__ import memoryview
+    except ImportError:
+        pass
+    else:
+        py.test.raises(TypeError, from_buffer, BCharA, memoryview(b"foo"))
+        py.test.raises(TypeError, from_buffer, BCharA,
+                       memoryview(bytearray(b"foo")))
+
+def test_from_buffer_more_cases():
+    try:
+        from _cffi_backend import _testbuff
+    except ImportError:
+        py.test.skip("not for pypy")
+    BChar = new_primitive_type("char")
+    BCharP = new_pointer_type(BChar)
+    BCharA = new_array_type(BCharP, None)
+    #
+    def check1(bufobj, expected):
+        c = from_buffer(BCharA, bufobj)
+        assert typeof(c) is BCharA
+        if sys.version_info >= (3,):
+            expected = [bytes(c, "ascii") for c in expected]
+        assert list(c) == list(expected)
+    #
+    def check(methods, expected, expected_for_memoryview=None):
+        if sys.version_info >= (3,):
+            if methods <= 7:
+                return
+            if expected_for_memoryview is not None:
+                expected = expected_for_memoryview
+        class X(object):
+            pass
+        _testbuff(X, methods)
+        bufobj = X()
+        check1(bufobj, expected)
+        try:
+            from __builtin__ import buffer
+            bufobjb = buffer(bufobj)
+        except (TypeError, ImportError):
+            pass
+        else:
+            check1(bufobjb, expected)
+        try:
+            bufobjm = memoryview(bufobj)
+        except (TypeError, NameError):
+            pass
+        else:
+            check1(bufobjm, expected_for_memoryview or expected)
+    #
+    check(1, "RDB")
+    check(2, "WRB")
+    check(4, "CHB")
+    check(8, "GTB")
+    check(16, "ROB")
+    #
+    check(1 | 2,  "RDB")
+    check(1 | 4,  "RDB")
+    check(2 | 4,  "CHB")
+    check(1 | 8,  "RDB", "GTB")
+    check(1 | 16, "RDB", "ROB")
+    check(2 | 8,  "WRB", "GTB")
+    check(2 | 16, "WRB", "ROB")
+    check(4 | 8,  "CHB", "GTB")
+    check(4 | 16, "CHB", "ROB")
+
+def test_dereference_null_ptr():
+    BInt = new_primitive_type("int")
+    BIntPtr = new_pointer_type(BInt)
+    p = cast(BIntPtr, 0)
+    py.test.raises(RuntimeError, "p[0]")
+    py.test.raises(RuntimeError, "p[0] = 42")
+    py.test.raises(RuntimeError, "p[42]")
+    py.test.raises(RuntimeError, "p[42] = -1")
+
+def test_mixup():
+    BStruct1 = new_struct_type("foo")
+    BStruct2 = new_struct_type("foo")   # <= same name as BStruct1
+    BStruct3 = new_struct_type("bar")
+    BStruct1Ptr = new_pointer_type(BStruct1)
+    BStruct2Ptr = new_pointer_type(BStruct2)
+    BStruct3Ptr = new_pointer_type(BStruct3)
+    BStruct1PtrPtr = new_pointer_type(BStruct1Ptr)
+    BStruct2PtrPtr = new_pointer_type(BStruct2Ptr)
+    BStruct3PtrPtr = new_pointer_type(BStruct3Ptr)
+    pp1 = newp(BStruct1PtrPtr)
+    pp2 = newp(BStruct2PtrPtr)
+    pp3 = newp(BStruct3PtrPtr)
+    pp1[0] = pp1[0]
+    e = py.test.raises(TypeError, "pp3[0] = pp1[0]")
+    assert str(e.value).startswith("initializer for ctype 'bar *' must be a ")
+    assert str(e.value).endswith(", not cdata 'foo *'")
+    e = py.test.raises(TypeError, "pp2[0] = pp1[0]")
+    assert str(e.value) == ("initializer for ctype 'foo *' appears indeed to "
+                            "be 'foo *', but the types are different (check "
+                            "that you are not e.g. mixing up different ffi "
+                            "instances)")
+
 def test_version():
     # this test is here mostly for PyPy
-    assert __version__ == "0.8.6"
+    assert __version__ == "1.2.0"

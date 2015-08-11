@@ -118,6 +118,17 @@ class UnicodeTests(object):
         if addstuff:
             assert result.endswith(u"some rest in ascii")
 
+    def test_charmap_encodeerror(self):
+        def errorhandler(errors, enc, msg, t, startingpos,
+                         endingpos):
+            assert t[startingpos:endingpos] == u'\t\n  \r'
+            return None, ' ', endingpos
+        s = u'aa\t\n  \raa'
+        mapping = {u'a': 'a'}
+        r = runicode.unicode_encode_charmap(s, len(s), None, errorhandler,
+                                            mapping=mapping)
+        assert r == 'aa aa'
+
 
 class TestDecoding(UnicodeTests):
     # XXX test bom recognition in utf-16
@@ -127,6 +138,12 @@ class TestDecoding(UnicodeTests):
         for i in range(128):
             for encoding in "utf-8 latin-1 ascii".split():
                 self.checkdecode(chr(i), encoding)
+
+    def test_fast_str_decode_ascii(self):
+        u = runicode.fast_str_decode_ascii("abc\x00\x7F")
+        assert type(u) is unicode
+        assert u == u"abc\x00\x7F"
+        py.test.raises(ValueError, runicode.fast_str_decode_ascii, "ab\x80")
 
     def test_all_first_256(self):
         for i in range(256):

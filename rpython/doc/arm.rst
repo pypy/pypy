@@ -38,7 +38,7 @@ The tools required to cross translate from a Linux based host to an ARM based Li
 - The dependencies above are in addition to the ones needed for a regular
   translation, `listed here`_.
 
-.. _`listed here`: getting-started-python.html#translating-the-pypy-python-interpreter
+.. _`listed here`: http://pypy.readthedocs.org/en/latest/build.html#install-build-time-dependencies
 
 
 Creating a Qemu based ARM chroot
@@ -160,5 +160,5 @@ To translate the full python pypy interpreter with a jit, you can cd into pypy/g
 
 The gcrootfinder option is needed to work around `issue 1377`_ and the jit-backend works around `issue 1376`_
 
-.. _issue 1377: https://bugs.pypy.org/issue1377
-.. _issue 1376: https://bugs.pypy.org/issue1376
+.. _issue 1377: https://bitbucket.org/pypy/pypy/issue/1377
+.. _issue 1376: https://bitbucket.org/pypy/pypy/issue/1376

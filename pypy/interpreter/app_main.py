@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# App-level version of py.py.
+# This is pure Python code that handles the main entry point into "pypy".
 # See test/test_app_main.
 
 # Missing vs CPython: -d, -t, -v, -x, -3
@@ -12,7 +12,7 @@ Options and arguments (and corresponding environment variables):
 -i     : inspect interactively after running script; forces a prompt even
          if stdin does not appear to be a terminal; also PYTHONINSPECT=x
 -m mod : run library module as a script (terminates option list)
--O     : skip assert statements
+-O     : skip assert statements; also PYTHONOPTIMIZE=x
 -OO    : remove docstrings when importing modules in addition to -O
 -R     : ignored (see http://bugs.python.org/issue14621)
 -Q arg : division options: -Qold (default), -Qwarn, -Qwarnall, -Qnew
@@ -40,6 +40,11 @@ PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
 PYPYLOG: If set to a non-empty value, enable logging.
 """
 
+try:
+    from __pypy__ import get_hidden_tb, hidden_applevel
+except ImportError:
+    get_hidden_tb = lambda: sys.exc_info()[2]
+    hidden_applevel = lambda f: f
 import sys
 
 DEBUG = False       # dump exceptions before calling the except hook
@@ -63,6 +68,7 @@ def handle_sys_exit(e):
             exitcode = 1
     raise SystemExit(exitcode)
 
+@hidden_applevel
 def run_toplevel(f, *fargs, **fkwds):
     """Calls f() and handles all OperationErrors.
     Intended use is to run the main program or one interactive statement.
@@ -87,13 +93,13 @@ def run_toplevel(f, *fargs, **fkwds):
 
     except SystemExit as e:
         handle_sys_exit(e)
-    except:
-        display_exception()
+    except BaseException as e:
+        display_exception(e)
         return False
     return True   # success
 
-def display_exception():
-    etype, evalue, etraceback = sys.exc_info()
+def display_exception(e):
+    etype, evalue, etraceback = type(e), e, get_hidden_tb()
     try:
         # extra debugging info in case the code below goes very wrong
         if DEBUG and hasattr(sys, 'stderr'):
@@ -119,11 +125,11 @@ def display_exception():
         hook(etype, evalue, etraceback)
         return # done
 
-    except:
+    except BaseException as e:
         try:
             stderr = sys.stderr
             print >> stderr, 'Error calling sys.excepthook:'
-            originalexcepthook(*sys.exc_info())
+            originalexcepthook(type(e), e, e.__traceback__)
             print >> stderr
             print >> stderr, 'Original exception was:'
         except:
@@ -157,10 +163,13 @@ def print_info(*args):
             current = group
     raise SystemExit
 
+def get_sys_executable():
+    return getattr(sys, 'executable', 'pypy')
+
 def print_help(*args):
     import os
     print 'usage: %s [option] ... [-c cmd | -m mod | file | -] [arg] ...' % (
-        sys.executable,)
+        get_sys_executable(),)
     print USAGE1,
     if 'pypyjit' in sys.builtin_module_names:
         print "--jit options: advanced JIT options: try 'off' or 'help'"
@@ -171,7 +180,7 @@ def _print_jit_help():
     try:
         import pypyjit
     except ImportError:
-        print >> sys.stderr, "No jit support in %s" % (sys.executable,)
+        print >> sys.stderr, "No jit support in %s" % (get_sys_executable(),)
         return
     items = sorted(pypyjit.defaults.items())
     print 'Advanced JIT options: a comma-separated list of OPTION=VALUE:'
@@ -209,7 +218,7 @@ def set_jit_option(options, jitparam, *args):
         raise SystemExit
     if 'pypyjit' not in sys.builtin_module_names:
         print >> sys.stderr, ("Warning: No jit support in %s" %
-                              (sys.executable,))
+                              (get_sys_executable(),))
     else:
         import pypyjit
         pypyjit.set_param(jitparam)
@@ -219,8 +228,8 @@ class CommandLineError(Exception):
 
 def print_error(msg):
     print >> sys.stderr, msg
-    print >> sys.stderr, 'usage: %s [options]' % (sys.executable,)
-    print >> sys.stderr, 'Try `%s -h` for more information.' % (sys.executable,)
+    print >> sys.stderr, 'usage: %s [options]' % (get_sys_executable(),)
+    print >> sys.stderr, 'Try `%s -h` for more information.' % (get_sys_executable(),)
 
 def fdopen(fd, mode, bufsize=-1):
     try:
@@ -410,6 +419,21 @@ def handle_argument(c, options, iterargv, iterarg=iter(())):
 
     return function(options, funcarg, iterargv)
 
+def parse_env(name, key, options):
+    ''' Modify options inplace if name exists in os.environ
+    '''
+    import os
+    v = os.getenv(name)
+    if v:
+        options[key] = max(1, options[key])
+        try:
+            newval = int(v)
+        except ValueError:
+            pass
+        else:
+            newval = max(1, newval)
+            options[key] = max(options[key], newval)
+
 def parse_command_line(argv):
     import os
     options = default_options.copy()
@@ -451,17 +475,15 @@ def parse_command_line(argv):
     sys.argv[:] = argv
 
     if not options["ignore_environment"]:
-        if os.getenv('PYTHONDEBUG'):
-            options["debug"] = 1
+        parse_env('PYTHONDEBUG', "debug", options)
         if os.getenv('PYTHONDONTWRITEBYTECODE'):
             options["dont_write_bytecode"] = 1
         if os.getenv('PYTHONNOUSERSITE'):
             options["no_user_site"] = 1
         if os.getenv('PYTHONUNBUFFERED'):
             options["unbuffered"] = 1
-        if os.getenv('PYTHONVERBOSE'):
-            options["verbose"] = 1
-
+        parse_env('PYTHONVERBOSE', "verbose", options)
+        parse_env('PYTHONOPTIMIZE', "optimize", options)
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
@@ -493,6 +515,7 @@ def parse_command_line(argv):
 
     return options
 
+@hidden_applevel
 def run_command_line(interactive,
                      inspect,
                      run_command,
@@ -513,6 +536,10 @@ def run_command_line(interactive,
         set_unbuffered_io()
     elif not sys.stdout.isatty():
         set_fully_buffered_io()
+
+    if we_are_translated():
+        import __pypy__
+        __pypy__.save_module_content_for_future_reload(sys)
 
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
@@ -577,6 +604,7 @@ def run_command_line(interactive,
             # Put '' on sys.path
             sys.path.insert(0, '')
 
+            @hidden_applevel
             def run_it():
                 exec run_command in mainmodule.__dict__
             success = run_toplevel(run_it)
@@ -614,6 +642,7 @@ def run_command_line(interactive,
                         print >> sys.stderr, "Could not open PYTHONSTARTUP"
                         print >> sys.stderr, "IOError:", e
                     else:
+                        @hidden_applevel
                         def run_it():
                             co_python_startup = compile(startup,
                                                         python_startup,
@@ -630,6 +659,7 @@ def run_command_line(interactive,
                 inspect = True
             else:
                 # If not interactive, just read and execute stdin normally.
+                @hidden_applevel
                 def run_it():
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec',
                                        PyCF_ACCEPT_NULL_BYTES)
@@ -669,7 +699,7 @@ def run_command_line(interactive,
     except SystemExit as e:
         status = e.code
         if inspect_requested():
-            display_exception()
+            display_exception(e)
     else:
         status = not success
 
@@ -723,6 +753,7 @@ def setup_bootstrap_path(executable):
     # This is important for py3k
     sys.executable = executable
 
+@hidden_applevel
 def entry_point(executable, argv):
     # note that before calling setup_bootstrap_path, we are limited because we
     # cannot import stdlib modules. In particular, we cannot use unicode

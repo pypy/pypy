@@ -7,6 +7,7 @@ from rpython.annotator import description, model as annmodel
 from rpython.rlib.objectmodel import UnboxedValue
 from rpython.tool.pairtype import pairtype, pair
 from rpython.tool.identity_dict import identity_dict
+from rpython.tool.flattenrec import FlattenRecursion
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype
@@ -767,11 +768,14 @@ class InstanceRepr(Repr):
             self.initialize_prebuilt_data(Ellipsis, self.classdef, result)
             return result
 
+    _initialize_data_flattenrec = FlattenRecursion()
+
     def initialize_prebuilt_instance(self, value, classdef, result):
         # must fill in the hash cache before the other ones
         # (see test_circular_hash_initialization)
         self.initialize_prebuilt_hash(value, result)
-        self.initialize_prebuilt_data(value, classdef, result)
+        self._initialize_data_flattenrec(self.initialize_prebuilt_data,
+                                         value, classdef, result)
 
     def get_ll_hash_function(self):
         return ll_inst_hash
@@ -819,40 +823,6 @@ class InstanceRepr(Repr):
     def rtype_bool(self, hop):
         vinst, = hop.inputargs(self)
         return hop.genop('ptr_nonzero', [vinst], resulttype=Bool)
-
-    def _emulate_call(self, hop, meth_name):
-        vinst = hop.args_v[0]
-        clsdef = hop.args_s[0].classdef
-        s_unbound_attr = clsdef.find_attribute(meth_name).getvalue()
-        s_attr = clsdef.lookup_filter(s_unbound_attr, meth_name,
-                                      hop.args_s[0].flags)
-        # does that even happen?
-        assert not s_attr.is_constant()
-        if '__iter__' in self.allinstancefields:
-            raise Exception("__iter__ on instance disallowed")
-        r_method = self.rtyper.getrepr(s_attr)
-        r_method.get_method_from_instance(self, vinst, hop.llops)
-        hop2 = hop.copy()
-        hop2.spaceop = op.simple_call(*hop.spaceop.args)
-        hop2.spaceop.result = hop.spaceop.result
-        hop2.args_r[0] = r_method
-        hop2.args_s[0] = s_attr
-        return hop2.dispatch()
-
-    def rtype_iter(self, hop):
-        return self._emulate_call(hop, '__iter__')
-
-    def rtype_next(self, hop):
-        return self._emulate_call(hop, 'next')
-
-    def rtype_getslice(self, hop):
-        return self._emulate_call(hop, "__getslice__")
-
-    def rtype_setslice(self, hop):
-        return self._emulate_call(hop, "__setslice__")
-
-    def rtype_len(self, hop):
-        return self._emulate_call(hop, "__len__")
 
     def ll_str(self, i):  # doesn't work for non-gc classes!
         from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
@@ -946,9 +916,9 @@ class InstanceRepr(Repr):
                             name, None)
                         if attrvalue is None:
                             # Ellipsis from get_reusable_prebuilt_instance()
-                            if value is not Ellipsis:
-                                warning("prebuilt instance %r has no "
-                                        "attribute %r" % (value, name))
+                            #if value is not Ellipsis:
+                                #warning("prebuilt instance %r has no "
+                                #        "attribute %r" % (value, name))
                             llattrvalue = r.lowleveltype._defl()
                         else:
                             llattrvalue = r.convert_desc_or_const(attrvalue)
@@ -1021,14 +991,6 @@ class InstanceRepr(Repr):
                 return hop.gendirectcall(llf_nonnull, v_obj)
         else:
             return hop.gendirectcall(ll_isinstance, v_obj, v_cls)
-
-
-class __extend__(pairtype(InstanceRepr, Repr)):
-    def rtype_getitem((r_ins, r_obj), hop):
-        return r_ins._emulate_call(hop, "__getitem__")
-
-    def rtype_setitem((r_ins, r_obj), hop):
-        return r_ins._emulate_call(hop, "__setitem__")
 
 
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):

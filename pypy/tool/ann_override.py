@@ -13,13 +13,12 @@ def isidentifier(s):
 
 
 class PyPyAnnotatorPolicy(AnnotatorPolicy):
-    def __init__(pol, single_space=None):
-        pol.lookups = {}
-        pol.lookups_where = {}
-        pol.pypytypes = {}
-        pol.single_space = single_space
+    def __init__(self):
+        self.lookups = {}
+        self.lookups_where = {}
+        self.pypytypes = {}
 
-    def specialize__wrap(pol,  funcdesc, args_s):
+    def specialize__wrap(self,  funcdesc, args_s):
         from pypy.interpreter.baseobjspace import W_Root
         from rpython.annotator.classdef import ClassDef
         W_Root_def = funcdesc.bookkeeper.getuniqueclassdef(W_Root)
@@ -51,102 +50,102 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
                 typ = (None, str)
         return funcdesc.cachedgraph(typ)
 
-    def _remember_immutable(pol, t, cached):
+    def _remember_immutable(self, t, cached):
         # for jit benefit
         if cached not in t._immutable_fields_: # accessed this way just
                                                # for convenience
             t._immutable_fields_.append(cached)
 
-    def attach_lookup(pol, t, attr):
+    def attach_lookup(self, t, attr):
         cached = "cached_%s" % attr
         if not t.is_heaptype() and not t.is_cpytype():
-            pol._remember_immutable(t, cached)
+            self._remember_immutable(t, cached)
             setattr(t, cached, t._lookup(attr))
             return True
         return False
 
-    def attach_lookup_in_type_where(pol, t, attr):
+    def attach_lookup_in_type_where(self, t, attr):
         cached = "cached_where_%s" % attr
         if not t.is_heaptype() and not t.is_cpytype():
-            pol._remember_immutable(t, cached)
+            self._remember_immutable(t, cached)
             setattr(t, cached, t._lookup_where(attr))
             return True
         return False
 
-    def consider_lookup(pol, bookkeeper, attr):
+    def consider_lookup(self, bookkeeper, attr):
         from rpython.annotator.classdef import InstanceSource
-        assert attr not in pol.lookups
+        assert attr not in self.lookups
         from pypy.objspace.std import typeobject
         cached = "cached_%s" % attr
         clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
         classdesc = clsdef.classdesc
         classdesc.classdict[cached] = Constant(None)
         clsdef.add_source_for_attribute(cached, classdesc)
-        for t in pol.pypytypes:
-            if pol.attach_lookup(t, attr):
+        for t in self.pypytypes:
+            if self.attach_lookup(t, attr):
                 source = InstanceSource(bookkeeper, t)
                 clsdef.add_source_for_attribute(cached, source)
-        pol.lookups[attr] = True
+        self.lookups[attr] = True
 
-    def consider_lookup_in_type_where(pol, bookkeeper, attr):
+    def consider_lookup_in_type_where(self, bookkeeper, attr):
         from rpython.annotator.classdef import InstanceSource
-        assert attr not in pol.lookups_where
+        assert attr not in self.lookups_where
         from pypy.objspace.std import typeobject
         cached = "cached_where_%s" % attr
         clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
         classdesc = clsdef.classdesc
         classdesc.classdict[cached] = Constant((None, None))
         clsdef.add_source_for_attribute(cached, classdesc)
-        for t in pol.pypytypes:
-            if pol.attach_lookup_in_type_where(t, attr):
+        for t in self.pypytypes:
+            if self.attach_lookup_in_type_where(t, attr):
                 source = InstanceSource(bookkeeper, t)
                 clsdef.add_source_for_attribute(cached, source)
-        pol.lookups_where[attr] = True
+        self.lookups_where[attr] = True
 
-    def specialize__lookup(pol, funcdesc, args_s):
+    def specialize__lookup(self, funcdesc, args_s):
         s_space, s_obj, s_name = args_s
         if s_name.is_constant():
             attr = s_name.const
             def builder(translator, func):
                 #print "LOOKUP", attr
-                pol.consider_lookup(funcdesc.bookkeeper, attr)
+                self.consider_lookup(funcdesc.bookkeeper, attr)
                 d = {'__name__': '<ann_override_lookup>'}
                 exec CACHED_LOOKUP % {'attr': attr} in d
                 return translator.buildflowgraph(d['lookup_'+attr])
             return funcdesc.cachedgraph(attr, builder=builder)
         else:
-            pol.lookups[None] = True
+            self.lookups[None] = True
             return funcdesc.cachedgraph(None) # don't specialize
 
-    def specialize__lookup_in_type_where(pol, funcdesc, args_s):
+    def specialize__lookup_in_type_where(self, funcdesc, args_s):
         s_space, s_obj, s_name = args_s
         if s_name.is_constant():
             attr = s_name.const
             def builder(translator, func):
                 #print "LOOKUP_IN_TYPE_WHERE", attr
-                pol.consider_lookup_in_type_where(funcdesc.bookkeeper, attr)
+                self.consider_lookup_in_type_where(funcdesc.bookkeeper, attr)
                 d = {'__name__': '<ann_override_lookup>'}
                 exec CACHED_LOOKUP_IN_TYPE_WHERE % {'attr': attr} in d
                 return translator.buildflowgraph(d['lookup_in_type_where_'+attr])
             return funcdesc.cachedgraph(attr, builder=builder)
         else:
-            pol.lookups_where[None] = True
+            self.lookups_where[None] = True
             return funcdesc.cachedgraph(None)
 
-    def event(pol, bookkeeper, what, x):
+    def event(self, bookkeeper, what, x):
         from pypy.objspace.std import typeobject
         if isinstance(x, typeobject.W_TypeObject):
             from rpython.annotator.classdef import InstanceSource
             clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
-            pol.pypytypes[x] = True
+            self.pypytypes[x] = True
             #print "TYPE", x
-            for attr in pol.lookups:
-                if attr and pol.attach_lookup(x, attr):
+            for attr in self.lookups:
+                if attr and self.attach_lookup(x, attr):
                     cached = "cached_%s" % attr
                     source = InstanceSource(bookkeeper, x)
                     clsdef.add_source_for_attribute(cached, source)
-            for attr in pol.lookups_where:
-                if attr and pol.attach_lookup_in_type_where(x, attr):
+            for attr in self.lookups_where:
+                if attr and self.attach_lookup_in_type_where(x, attr):
                     cached = "cached_where_%s" % attr
                     source = InstanceSource(bookkeeper, x)
                     clsdef.add_source_for_attribute(cached, source)

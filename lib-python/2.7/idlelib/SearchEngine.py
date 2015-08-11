@@ -85,7 +85,7 @@ class SearchEngine:
         except re.error as what:
             args = what.args
             msg = args[0]
-            col = arg[1] if len(args) >= 2 else -1
+            col = args[1] if len(args) >= 2 else -1
             self.report_error(pat, msg, col)
             return None
         return prog
@@ -191,7 +191,7 @@ def search_reverse(prog, chars, col):
 
     This is done by searching forwards until there is no match.
     Prog: compiled re object with a search method returning a match.
-    Chars: line of text, without \n.
+    Chars: line of text, without \\n.
     Col: stop index for the search; the limit for match.end().
     '''
     m = prog.search(chars)

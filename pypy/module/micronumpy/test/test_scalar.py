@@ -1,7 +1,47 @@
+# -*- encoding:utf-8 -*-
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestScalar(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "binascii", "struct"])
+
+    def test_integer_types(self):
+        import numpy as np
+        _32BIT = np.dtype('int').itemsize == 4
+        if _32BIT:
+            assert np.int32 is np.dtype('l').type
+            assert np.uint32 is np.dtype('L').type
+            assert np.intp is np.dtype('i').type
+            assert np.uintp is np.dtype('I').type
+            assert np.int64 is np.dtype('q').type
+            assert np.uint64 is np.dtype('Q').type
+        else:
+            assert np.int32 is np.dtype('i').type
+            assert np.uint32 is np.dtype('I').type
+            assert np.intp is np.dtype('l').type
+            assert np.uintp is np.dtype('L').type
+            assert np.int64 is np.dtype('l').type
+            assert np.uint64 is np.dtype('L').type
+        assert np.int16 is np.short is np.dtype('h').type
+        assert np.int_ is np.dtype('l').type
+        assert np.uint is np.dtype('L').type
+        assert np.dtype('intp') == np.dtype('int')
+        assert np.dtype('uintp') == np.dtype('uint')
+        assert np.dtype('i') is not np.dtype('l') is not np.dtype('q')
+        assert np.dtype('I') is not np.dtype('L') is not np.dtype('Q')
+
+    def test_hierarchy(self):
+        import numpy
+        assert issubclass(numpy.float64, numpy.floating)
+        assert issubclass(numpy.longfloat, numpy.floating)
+        assert not issubclass(numpy.float64, numpy.longfloat)
+        assert not issubclass(numpy.longfloat, numpy.float64)
+
+    def test_mro(self):
+        import numpy
+        assert numpy.int16.__mro__ == (numpy.int16, numpy.signedinteger,
+                                       numpy.integer, numpy.number,
+                                       numpy.generic, object)
+        assert numpy.bool_.__mro__ == (numpy.bool_, numpy.generic, object)
 
     def test_init(self):
         import numpy as np
@@ -102,9 +142,9 @@ class AppTestScalar(BaseNumpyAppTest):
         assert f.round() == 13.
         assert f.round(decimals=-1) == 10.
         assert f.round(decimals=1) == 13.4
+        assert b.round(decimals=5) is b
         assert f.round(decimals=1, out=None) == 13.4
         assert b.round() == 1.0
-        assert b.round(decimals=5) is b
 
     def test_astype(self):
         import numpy as np
@@ -183,10 +223,14 @@ class AppTestScalar(BaseNumpyAppTest):
     def test_indexing(self):
         import numpy as np
         v = np.int32(2)
-        for b in [v[()], v[...]]:
-            assert isinstance(b, np.ndarray)
-            assert b.shape == ()
-            assert b == v
+        b = v[()]
+        assert isinstance(b, np.int32)
+        assert b.shape == ()
+        assert b == v
+        b = v[...]
+        assert isinstance(b, np.ndarray)
+        assert b.shape == ()
+        assert b == v
         raises(IndexError, "v['blah']")
 
     def test_realimag(self):
@@ -414,3 +458,25 @@ class AppTestScalar(BaseNumpyAppTest):
 
         for t in complex64, complex128:
             _do_test(t, 17j, -17j)
+
+    def test_string_boxes(self):
+        from numpy import str_
+        assert isinstance(str_(3), str_)
+        assert str_(3) == '3'
+        assert str(str_(3)) == '3'
+        assert repr(str_(3)) == "'3'"
+
+    def test_unicode_boxes(self):
+        from numpy import unicode_
+        u = unicode_(3)
+        assert isinstance(u, unicode)
+        assert u == u'3'
+
+    def test_unicode_repr(self):
+        from numpy import unicode_
+        u = unicode_(3)
+        assert str(u) == '3'
+        assert repr(u) == "u'3'"
+        u = unicode_(u'Aÿ')
+        # raises(UnicodeEncodeError, "str(u)")  # XXX
+        assert repr(u) == repr(u'Aÿ')

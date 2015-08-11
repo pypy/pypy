@@ -55,7 +55,8 @@ class Get_signatureTest(unittest.TestCase):
         def gtest(obj, out):
             self.assertEqual(signature(obj), out)
 
-        gtest(List, '()\n' + List.__doc__)
+        if List.__doc__ is not None:
+            gtest(List, '()\n' + List.__doc__)
         gtest(list.__new__,
                'T.__new__(S, ...) -> a new object with type S, a subtype of T')
         gtest(list.__init__,
@@ -70,7 +71,8 @@ class Get_signatureTest(unittest.TestCase):
 
     def test_signature_wrap(self):
         # This is also a test of an old-style class
-        self.assertEqual(signature(textwrap.TextWrapper), '''\
+        if textwrap.TextWrapper.__doc__ is not None:
+            self.assertEqual(signature(textwrap.TextWrapper), '''\
 (width=70, initial_indent='', subsequent_indent='', expand_tabs=True,
     replace_whitespace=True, fix_sentence_endings=False, break_long_words=True,
     drop_whitespace=True, break_on_hyphens=True)''')
@@ -106,20 +108,23 @@ class Get_signatureTest(unittest.TestCase):
         def t5(a, b=None, *args, **kwds): 'doc'
         t5.tip = "(a, b=None, *args, **kwargs)"
 
+        doc = '\ndoc' if t1.__doc__ is not None else ''
         for func in (t1, t2, t3, t4, t5, TC):
-            self.assertEqual(signature(func), func.tip + '\ndoc')
+            self.assertEqual(signature(func), func.tip + doc)
 
     def test_methods(self):
+        doc = '\ndoc' if TC.__doc__ is not None else ''
         for meth in (TC.t1, TC.t2, TC.t3, TC.t4, TC.t5, TC.t6, TC.__call__):
-            self.assertEqual(signature(meth), meth.tip + "\ndoc")
-        self.assertEqual(signature(TC.cm), "(a)\ndoc")
-        self.assertEqual(signature(TC.sm), "(b)\ndoc")
+            self.assertEqual(signature(meth), meth.tip + doc)
+        self.assertEqual(signature(TC.cm), "(a)" + doc)
+        self.assertEqual(signature(TC.sm), "(b)" + doc)
 
     def test_bound_methods(self):
         # test that first parameter is correctly removed from argspec
+        doc = '\ndoc' if TC.__doc__ is not None else ''
         for meth, mtip  in ((tc.t1, "()"), (tc.t4, "(*args)"), (tc.t6, "(self)"),
                             (tc.__call__, '(ci)'), (tc, '(ci)'), (TC.cm, "(a)"),):
-            self.assertEqual(signature(meth), mtip + "\ndoc")
+            self.assertEqual(signature(meth), mtip + doc)
 
     def test_starred_parameter(self):
         # test that starred first parameter is *not* removed from argspec
@@ -163,7 +168,7 @@ class Get_entityTest(unittest.TestCase):
     # In 3.x, get_entity changed from 'instance method' to module function
     # since 'self' not used. Use dummy instance until change 2.7 also.
     def test_bad_entity(self):
-        self.assertIsNone(CTi.get_entity('1/0'))
+        self.assertIsNone(CTi.get_entity('1//0'))
     def test_good_entity(self):
         self.assertIs(CTi.get_entity('int'), int)
 

@@ -134,7 +134,8 @@ class TraceWithIds(Function):
 
     def _ops_for_chunk(self, chunk, include_guard_not_invalidated):
         for op in chunk.operations:
-            if op.name != 'debug_merge_point' and \
+            if op.name not in ('debug_merge_point', 'enter_portal_frame',
+                               'leave_portal_frame') and \
                 (op.name != 'guard_not_invalidated' or include_guard_not_invalidated):
                 yield op
 
@@ -271,6 +272,7 @@ class OpMatcher(object):
     @classmethod
     def parse_ops(cls, src):
         ops = [cls.parse_op(line) for line in src.splitlines()]
+        ops.append(('--end--', None, [], '...', True))
         return [op for op in ops if op is not None]
 
     @classmethod
@@ -403,6 +405,10 @@ class OpMatcher(object):
             raise InvalidMatch(message, frame=sys._getframe(1))
 
     def match_op(self, op, (exp_opname, exp_res, exp_args, exp_descr, _)):
+        if exp_opname == '--end--':
+            self._assert(op == '--end--', 'got more ops than expected')
+            return
+        self._assert(op != '--end--', 'got less ops than expected')
         self._assert(op.name == exp_opname, "operation mismatch")
         self.match_var(op.res, exp_res)
         if exp_args[-1:] == ['...']:      # exp_args ends with '...'
@@ -415,18 +421,15 @@ class OpMatcher(object):
         self.match_descr(op.descr, exp_descr)
 
 
-    def _next_op(self, iter_ops, assert_raises=False, ignore_ops=set()):
+    def _next_op(self, iter_ops, ignore_ops=set()):
         try:
             while True:
                 op = iter_ops.next()
                 if op.name not in ignore_ops:
                     break
         except StopIteration:
-            self._assert(assert_raises, "not enough operations")
-            return
-        else:
-            self._assert(not assert_raises, "operation list too long")
-            return op
+            return '--end--'
+        return op
 
     def try_match(self, op, exp_op):
         try:
@@ -447,6 +450,9 @@ class OpMatcher(object):
             if self.try_match(op, until_op):
                 # it matched! The '...' operator ends here
                 return op
+            self._assert(op != '--end--',
+                         'nothing in the end of the loop matches %r' %
+                          (until_op,))
 
     def match_any_order(self, iter_exp_ops, iter_ops, ignore_ops):
         exp_ops = []
@@ -493,16 +499,17 @@ class OpMatcher(object):
                     continue
                 else:
                     op = self._next_op(iter_ops, ignore_ops=ignore_ops)
-                self.match_op(op, exp_op)
-            except InvalidMatch, e:
-                if type(exp_op) is not str and exp_op[4] is False:    # optional operation
+                try:
+                    self.match_op(op, exp_op)
+                except InvalidMatch:
+                    if type(exp_op) is str or exp_op[4] is not False:
+                        raise
+                    #else: optional operation
                     iter_ops.revert_one()
                     continue       # try to match with the next exp_op
+            except InvalidMatch, e:
                 e.opindex = iter_ops.index - 1
                 raise
-        #
-        # make sure we exhausted iter_ops
-        self._next_op(iter_ops, assert_raises=True, ignore_ops=ignore_ops)
 
     def match(self, expected_src, ignore_ops=[]):
         def format(src, opindex=None):
@@ -545,9 +552,9 @@ class RevertableIterator(object):
         return self
     def next(self):
         index = self.index
-        if index == len(self.sequence):
-            raise StopIteration
         self.index = index + 1
+        if index >= len(self.sequence):
+            raise StopIteration
         return self.sequence[index]
     def revert_one(self):
         self.index -= 1

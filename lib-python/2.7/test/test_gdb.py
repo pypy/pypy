@@ -13,7 +13,7 @@ import sysconfig
 from test.test_support import run_unittest, findfile
 
 try:
-    gdb_version, _ = subprocess.Popen(["gdb", "--version"],
+    gdb_version, _ = subprocess.Popen(["gdb", "-nx", "--version"],
                                       stdout=subprocess.PIPE).communicate()
 except OSError:
     # This is what "no gdb" looks like.  There may, however, be other
@@ -25,13 +25,16 @@ gdb_minor_version = int(gdb_version_number.group(2))
 if gdb_major_version < 7:
     raise unittest.SkipTest("gdb versions before 7.0 didn't support python embedding"
                             " Saw:\n" + gdb_version)
+if sys.platform.startswith("sunos"):
+    raise unittest.SkipTest("test doesn't work very well on Solaris")
+
 
 # Location of custom hooks file in a repository checkout.
 checkout_hook_path = os.path.join(os.path.dirname(sys.executable),
                                   'python-gdb.py')
 
 def run_gdb(*args, **env_vars):
-    """Runs gdb in --batch mode with the additional arguments given by *args.
+    """Runs gdb in batch mode with the additional arguments given by *args.
 
     Returns its (stdout, stderr)
     """
@@ -40,7 +43,9 @@ def run_gdb(*args, **env_vars):
         env.update(env_vars)
     else:
         env = None
-    base_cmd = ('gdb', '--batch')
+    # -nx: Do not execute commands from any .gdbinit initialization files
+    #      (issue #22188)
+    base_cmd = ('gdb', '--batch', '-nx')
     if (gdb_major_version, gdb_minor_version) >= (7, 4):
         base_cmd += ('-iex', 'add-auto-load-safe-path ' + checkout_hook_path)
     out, err = subprocess.Popen(base_cmd + args,
@@ -67,7 +72,7 @@ def python_is_optimized():
     for opt in cflags.split():
         if opt.startswith('-O'):
             final_opt = opt
-    return (final_opt and final_opt != '-O0')
+    return final_opt not in ('', '-O0', '-Og')
 
 def gdb_has_frame_select():
     # Does this build of gdb have gdb.Frame.select ?
@@ -113,7 +118,28 @@ class DebuggerTests(unittest.TestCase):
         # Generate a list of commands in gdb's language:
         commands = ['set breakpoint pending yes',
                     'break %s' % breakpoint,
+
+                    # The tests assume that the first frame of printed
+                    #  backtrace will not contain program counter,
+                    #  that is however not guaranteed by gdb
+                    #  therefore we need to use 'set print address off' to
+                    #  make sure the counter is not there. For example:
+                    # #0 in PyObject_Print ...
+                    #  is assumed, but sometimes this can be e.g.
+                    # #0 0x00003fffb7dd1798 in PyObject_Print ...
+                    'set print address off',
+
                     'run']
+
+        # GDB as of 7.4 onwards can distinguish between the
+        # value of a variable at entry vs current value:
+        #   http://sourceware.org/gdb/onlinedocs/gdb/Variables.html
+        # which leads to the selftests failing with errors like this:
+        #   AssertionError: 'v@entry=()' != '()'
+        # Disable this:
+        if (gdb_major_version, gdb_minor_version) >= (7, 4):
+            commands += ['set print entry-values no']
+
         if cmds_after_breakpoint:
             commands += cmds_after_breakpoint
         else:
@@ -122,7 +148,7 @@ class DebuggerTests(unittest.TestCase):
         # print commands
 
         # Use "commands" to generate the arguments with which to invoke "gdb":
-        args = ["gdb", "--batch"]
+        args = ["gdb", "--batch", "-nx"]
         args += ['--eval-command=%s' % cmd for cmd in commands]
         args += ["--args",
                  sys.executable]
@@ -159,8 +185,14 @@ class DebuggerTests(unittest.TestCase):
             'linux-vdso.so',
             'warning: Could not load shared library symbols for '
             'linux-gate.so',
+            'warning: Could not load shared library symbols for '
+            'linux-vdso64.so',
             'Do you need "set solib-search-path" or '
             '"set sysroot"?',
+            'warning: Source file is more recent than executable.',
+            # Issue #19753: missing symbols on System Z
+            'Missing separate debuginfo for ',
+            'Try: zypper install -C ',
             )
         for line in errlines:
             if not line.startswith(ignore_patterns):

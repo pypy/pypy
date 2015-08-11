@@ -6,7 +6,7 @@ from rpython.annotator.argument import simple_args
 from rpython.rtyper import rclass, callparse
 from rpython.rtyper.rclass import CLASSTYPE, OBJECT_VTABLE, OBJECTPTR
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
     warning, impossible_repr)
 from rpython.tool.pairtype import pair, pairtype
@@ -205,11 +205,15 @@ class AbstractFunctionsPBCRepr(CanBeNull, Repr):
                     # this row
                     llfn = self.rtyper.type_system.null_callable(row.fntype)
                 llfns[row.attrname] = llfn
-            if not found_anything:
-                raise TyperError("%r not in %r" % (funcdesc,
-                                                   self.s_pbc.descriptions))
             if len(self.uniquerows) == 1:
-                result = llfn   # from the loop above
+                if found_anything:
+                    result = llfn   # from the loop above
+                else:
+                    # extremely rare case, shown only sometimes by
+                    # test_bug_callfamily: don't emit NULL, because that
+                    # would be interpreted as equal to None...  It should
+                    # never be called anyway.
+                    result = rffi.cast(self.lowleveltype, ~len(self.funccache))
             else:
                 # build a Struct with all the values collected in 'llfns'
                 result = self.create_specfunc()
@@ -378,6 +382,9 @@ class SingleFrozenPBCRepr(Repr):
     def convert_desc(self, frozendesc):
         assert frozendesc is self.frozendesc
         return object()  # lowleveltype is Void
+
+    def convert_const(self, value):
+        return None
 
     def getstr(self):
         return str(self.frozendesc)

@@ -280,6 +280,7 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         # well as of _io.FileIO at least in CPython 3.3.  This is
         # *not* the behavior of _io.FileIO in CPython 3.4 or 3.5;
         # see CPython's issue #21090.
+        import sys
         try:
             from posix import openpty, fdopen, write, close
         except ImportError:
@@ -288,9 +289,18 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
         write(write_fd, 'Abc\n')
         close(write_fd)
         f = fdopen(read_fd)
-        s = f.read()
-        assert s == 'Abc\r\n'
-        raises(IOError, f.read)
+        # behavior on Linux: f.read() returns 'Abc\r\n', then the next time
+        # it raises IOError.  Behavior on OS/X (Python 2.7.5): the close()
+        # above threw away the buffer, and f.read() always returns ''.
+        if sys.platform.startswith('linux'):
+            s = f.read()
+            assert s == 'Abc\r\n'
+            raises(IOError, f.read)
+        else:
+            s = f.read()
+            assert s == ''
+            s = f.read()
+            assert s == ''
         f.close()
 
 
@@ -302,15 +312,14 @@ class AppTestNonblocking(object):
 
         if cls.runappdirect:
             py.test.skip("works with internals of _file impl on py.py")
-        state = [0]
         def read(fd, n=None):
             if fd != 424242:
                 return cls.old_read(fd, n)
-            if state[0] == 0:
-                state[0] += 1
+            if cls.state == 0:
+                cls.state += 1
                 return "xyz"
-            if state[0] < 3:
-                state[0] += 1
+            if cls.state < 3:
+                cls.state += 1
                 raise OSError(errno.EAGAIN, "xyz")
             return ''
         os.read = read
@@ -319,11 +328,18 @@ class AppTestNonblocking(object):
         stdin.name = '<stdin>'
         cls.w_stream = stdin
 
+    def setup_method(self, meth):
+        self.__class__.state = 0
+
     def teardown_class(cls):
         os.read = cls.old_read
 
-    def test_nonblocking_file(self):
+    def test_nonblocking_file_all(self):
         res = self.stream.read()
+        assert res == 'xyz'
+
+    def test_nonblocking_file_max(self):
+        res = self.stream.read(100)
         assert res == 'xyz'
 
 class AppTestConcurrency(object):

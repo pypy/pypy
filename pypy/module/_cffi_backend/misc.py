@@ -3,7 +3,7 @@ from __future__ import with_statement
 from pypy.interpreter.error import OperationError
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import keepalive_until_here, specialize
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -216,10 +216,9 @@ def as_unsigned_long(space, w_ob, strict):
 neg_msg = "can't convert negative number to unsigned"
 ovf_msg = "long too big to convert"
 
-@specialize.arg(1)
 def signext(value, size):
     # 'value' is sign-extended from 'size' bytes to a full integer.
-    # 'size' should be a constant smaller than a full integer size.
+    # 'size' should be smaller than a full integer size.
     if size == rffi.sizeof(rffi.SIGNEDCHAR):
         return rffi.cast(lltype.Signed, rffi.cast(rffi.SIGNEDCHAR, value))
     elif size == rffi.sizeof(rffi.SHORT):
@@ -272,11 +271,11 @@ def object_as_bool(space, w_ob):
     from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveLongDouble
     is_cdata = isinstance(w_ob, W_CData)
     if is_cdata and isinstance(w_ob.ctype, W_CTypePrimitiveFloat):
-        if isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble):
-            result = is_nonnull_longdouble(w_ob._cdata)
-        else:
-            result = is_nonnull_float(w_ob._cdata, w_ob.ctype.size)
-        keepalive_until_here(w_ob)
+        with w_ob as ptr:
+            if isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble):
+                result = is_nonnull_longdouble(ptr)
+            else:
+                result = is_nonnull_float(ptr, w_ob.ctype.size)
         return result
     #
     if not is_cdata and space.lookup(w_ob, '__float__') is not None:

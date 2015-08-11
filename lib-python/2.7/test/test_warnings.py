@@ -62,6 +62,25 @@ class BaseTest(unittest.TestCase):
         sys.modules['warnings'] = original_warnings
         super(BaseTest, self).tearDown()
 
+class PublicAPITests(BaseTest):
+
+    """Ensures that the correct values are exposed in the
+    public API.
+    """
+
+    def test_module_all_attribute(self):
+        self.assertTrue(hasattr(self.module, '__all__'))
+        target_api = ["warn", "warn_explicit", "showwarning",
+                      "formatwarning", "filterwarnings", "simplefilter",
+                      "resetwarnings", "catch_warnings"]
+        self.assertSetEqual(set(self.module.__all__),
+                            set(target_api))
+
+class CPublicAPITests(PublicAPITests, unittest.TestCase):
+    module = c_warnings
+
+class PyPublicAPITests(PublicAPITests, unittest.TestCase):
+    module = py_warnings
 
 class FilterTests(object):
 
@@ -542,6 +561,15 @@ class _WarningsTests(BaseTest):
                 self.module.warn('test', UserWarning)
         finally:
             globals_dict['__file__'] = oldfile
+
+    def test_stderr_none(self):
+        rc, stdout, stderr = assert_python_ok("-c",
+            "import sys; sys.stderr = None; "
+            "import warnings; warnings.simplefilter('always'); "
+            "warnings.warn('Warning!')")
+        self.assertEqual(stdout, b'')
+        self.assertNotIn(b'Warning!', stderr)
+        self.assertNotIn(b'Error', stderr)
 
 
 class WarningsDisplayTests(unittest.TestCase):

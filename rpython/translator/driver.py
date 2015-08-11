@@ -10,7 +10,8 @@ from rpython.annotator.listdef import s_list_of_strings
 from rpython.annotator import policy as annpolicy
 from rpython.tool.udir import udir
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
-from rpython.rlib.entrypoint import secondary_entrypoints
+from rpython.rlib.entrypoint import secondary_entrypoints,\
+     annotated_jit_entrypoints
 
 import py
 from rpython.tool.ansi_print import ansi_log
@@ -66,14 +67,16 @@ class TranslationDriver(SimpleTaskEngine):
                  disable=[],
                  exe_name=None, extmod_name=None,
                  config=None, overrides=None):
+        from rpython.config import translationoption
         self.timer = Timer()
         SimpleTaskEngine.__init__(self)
 
         self.log = log
 
         if config is None:
-            from rpython.config.translationoption import get_combined_translation_config
-            config = get_combined_translation_config(translating=True)
+            config = translationoption.get_combined_translation_config(translating=True)
+        # XXX patch global variable with translation config
+        translationoption._GLOBAL_TRANSLATIONCONFIG = config
         self.config = config
         if overrides is not None:
             self.config.override(overrides)
@@ -416,10 +419,11 @@ class TranslationDriver(SimpleTaskEngine):
             from rpython.translator.c.genc import CStandaloneBuilder
             cbuilder = CStandaloneBuilder(self.translator, self.entry_point,
                                           config=self.config,
-                      secondary_entrypoints=self.secondary_entrypoints)
+                      secondary_entrypoints=
+                      self.secondary_entrypoints + annotated_jit_entrypoints)
         else:
             from rpython.translator.c.dlltool import CLibraryBuilder
-            functions = [(self.entry_point, None)] + self.secondary_entrypoints
+            functions = [(self.entry_point, None)] + self.secondary_entrypoints + annotated_jit_entrypoints
             cbuilder = CLibraryBuilder(self.translator, self.entry_point,
                                        functions=functions,
                                        name='libtesting',
@@ -456,11 +460,14 @@ class TranslationDriver(SimpleTaskEngine):
             shutil_copy(str(fname), str(dstname))
             self.log.info('Static data info written to %s' % dstname)
 
-    def compute_exe_name(self):
+    def compute_exe_name(self, suffix=''):
         newexename = self.exe_name % self.get_info()
         if '/' not in newexename and '\\' not in newexename:
             newexename = './' + newexename
-        return py.path.local(newexename)
+        newname = py.path.local(newexename)
+        if suffix:
+            newname = newname.new(purebasename = newname.purebasename + suffix)
+        return newname
 
     def create_exe(self):
         """ Copy the compiled executable into current directory, which is
@@ -476,6 +483,11 @@ class TranslationDriver(SimpleTaskEngine):
                 shutil_copy(str(soname), str(newsoname))
                 self.log.info("copied: %s" % (newsoname,))
                 if sys.platform == 'win32':
+                    # Copy pypyw.exe
+                    newexename = mkexename(self.compute_exe_name(suffix='w'))
+                    exe = py.path.local(exename)
+                    exename = exe.new(purebasename=exe.purebasename + 'w')
+                    shutil_copy(str(exename), str(newexename))
                     # the import library is named python27.lib, according
                     # to the pragma in pyconfig.h
                     libname = str(newsoname.dirpath().join('python27.lib'))

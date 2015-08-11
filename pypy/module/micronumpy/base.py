@@ -2,6 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.tool.pairtype import extendabletype
 from pypy.module.micronumpy import support
+from pypy.module.micronumpy import constants as NPY
 
 def wrap_impl(space, w_cls, w_instance, impl):
     if w_cls is None or space.is_w(w_cls, space.gettypefor(W_NDimArray)):
@@ -22,6 +23,9 @@ class W_NumpyObject(W_Root):
     """Base class for ndarrays and scalars (aka boxes)."""
     _attrs_ = []
 
+    def get_flags(self):
+        return 0
+
 
 class W_NDimArray(W_NumpyObject):
     __metaclass__ = extendabletype
@@ -34,11 +38,20 @@ class W_NDimArray(W_NumpyObject):
 
     @staticmethod
     def from_shape(space, shape, dtype, order='C', w_instance=None, zero=True):
-        from pypy.module.micronumpy import concrete
+        from pypy.module.micronumpy import concrete, descriptor, boxes
         from pypy.module.micronumpy.strides import calc_strides
+        if len(shape) > NPY.MAXDIMS:
+            raise oefmt(space.w_ValueError,
+                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+        try:
+            support.product(shape) * dtype.elsize
+        except OverflowError as e:
+            raise oefmt(space.w_ValueError, "array is too big")
         strides, backstrides = calc_strides(shape, dtype.base, order)
         impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides, zero=zero)
+        if dtype == descriptor.get_dtype_cache(space).w_objectdtype:
+            impl.fill(space, boxes.W_ObjectBox(space.w_None))
         if w_instance:
             return wrap_impl(space, space.type(w_instance), w_instance, impl)
         return W_NDimArray(impl)
@@ -46,18 +59,24 @@ class W_NDimArray(W_NumpyObject):
     @staticmethod
     def from_shape_and_storage(space, shape, storage, dtype, storage_bytes=-1,
                                order='C', owning=False, w_subtype=None,
-                               w_base=None, writable=True, strides=None):
+                               w_base=None, writable=True, strides=None, start=0):
         from pypy.module.micronumpy import concrete
         from pypy.module.micronumpy.strides import (calc_strides,
                                                     calc_backstrides)
         isize = dtype.elsize
-        if storage_bytes > 0 :
+        if len(shape) > NPY.MAXDIMS:
+            raise oefmt(space.w_ValueError,
+                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+        try:
             totalsize = support.product(shape) * isize
+        except OverflowError as e:
+            raise oefmt(space.w_ValueError, "array is too big")
+        if storage_bytes > 0 :
             if totalsize > storage_bytes:
                 raise OperationError(space.w_TypeError, space.wrap(
                     "buffer is too small for requested array"))
         else:
-            storage_bytes = support.product(shape) * isize
+            storage_bytes = totalsize
         if strides is None:
             strides, backstrides = calc_strides(shape, dtype, order)
         else:
@@ -75,8 +94,9 @@ class W_NDimArray(W_NumpyObject):
                 raise OperationError(space.w_ValueError,
                         space.wrap("Cannot have owning=True when specifying a buffer"))
             if writable:
-                impl = concrete.ConcreteArrayWithBase(shape, dtype, order, strides,
-                                                      backstrides, storage, w_base)
+                impl = concrete.ConcreteArrayWithBase(shape, dtype, order,
+                                    strides, backstrides, storage, w_base,
+                                    start=start)
             else:
                 impl = concrete.ConcreteNonWritableArrayWithBase(shape, dtype, order,
                                                                  strides, backstrides,
@@ -122,11 +142,17 @@ class W_NDimArray(W_NumpyObject):
     def get_shape(self):
         return self.implementation.get_shape()
 
-    def get_dtype(self):
+    def get_dtype(self, space=None):
         return self.implementation.dtype
 
     def get_order(self):
         return self.implementation.order
+
+    def get_start(self):
+        return self.implementation.start
+
+    def get_flags(self):
+        return self.implementation.flags
 
     def ndims(self):
         return len(self.get_shape())

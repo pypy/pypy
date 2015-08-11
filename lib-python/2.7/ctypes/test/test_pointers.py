@@ -188,5 +188,13 @@ class PointersTestCase(unittest.TestCase):
             mth = WINFUNCTYPE(None)(42, "name", (), None)
             self.assertEqual(bool(mth), True)
 
+    def test_pointer_type_name(self):
+        LargeNamedType = type('T' * 2 ** 25, (Structure,), {})
+        self.assertTrue(POINTER(LargeNamedType))
+
+    def test_pointer_type_str_name(self):
+        large_string = 'T' * 2 ** 25
+        self.assertTrue(POINTER(large_string))
+
 if __name__ == '__main__':
     unittest.main()

@@ -588,9 +588,10 @@ class SocketHandler(logging.Handler):
         """
         self.acquire()
         try:
-            if self.sock:
-                self.sock.close()
+            sock = self.sock
+            if sock:
                 self.sock = None
+                sock.close()
         finally:
             self.release()
         logging.Handler.close(self)
@@ -840,18 +841,18 @@ class SysLogHandler(logging.Handler):
         The record is formatted, and then sent to the syslog server. If
         exception information is present, it is NOT sent to the server.
         """
-        msg = self.format(record) + '\000'
-        """
-        We need to convert record level to lowercase, maybe this will
-        change in the future.
-        """
-        prio = '<%d>' % self.encodePriority(self.facility,
-                                            self.mapPriority(record.levelname))
-        # Message is a string. Convert to bytes as required by RFC 5424
-        if type(msg) is unicode:
-            msg = msg.encode('utf-8')
-        msg = prio + msg
         try:
+            msg = self.format(record) + '\000'
+            """
+            We need to convert record level to lowercase, maybe this will
+            change in the future.
+            """
+            prio = '<%d>' % self.encodePriority(self.facility,
+                                                self.mapPriority(record.levelname))
+            # Message is a string. Convert to bytes as required by RFC 5424
+            if type(msg) is unicode:
+                msg = msg.encode('utf-8')
+            msg = prio + msg
             if self.unixsocket:
                 try:
                     self.socket.send(msg)
@@ -889,11 +890,11 @@ class SMTPHandler(logging.Handler):
         certificate file. (This tuple is passed to the `starttls` method).
         """
         logging.Handler.__init__(self)
-        if isinstance(mailhost, tuple):
+        if isinstance(mailhost, (list, tuple)):
             self.mailhost, self.mailport = mailhost
         else:
             self.mailhost, self.mailport = mailhost, None
-        if isinstance(credentials, tuple):
+        if isinstance(credentials, (list, tuple)):
             self.username, self.password = credentials
         else:
             self.username = None
@@ -1160,8 +1161,10 @@ class BufferingHandler(logging.Handler):
 
         This version just flushes and chains to the parent class' close().
         """
-        self.flush()
-        logging.Handler.close(self)
+        try:
+            self.flush()
+        finally:
+            logging.Handler.close(self)
 
 class MemoryHandler(BufferingHandler):
     """
@@ -1213,10 +1216,12 @@ class MemoryHandler(BufferingHandler):
         """
         Flush, set the target to None and lose the buffer.
         """
-        self.flush()
-        self.acquire()
         try:
-            self.target = None
-            BufferingHandler.close(self)
+            self.flush()
         finally:
-            self.release()
+            self.acquire()
+            try:
+                self.target = None
+                BufferingHandler.close(self)
+            finally:
+                self.release()

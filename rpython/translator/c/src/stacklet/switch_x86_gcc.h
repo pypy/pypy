@@ -8,7 +8,10 @@ static void *slp_switch(void *(*save_state)(void*, void*),
      "pushl %%ebp\n"
      "pushl %%ebx\n"       /* push some registers that may contain */
      "pushl %%esi\n"       /* some value that is meant to be saved */
+     "movl %%esp, %%ebp\n"
+     "andl $-16, %%esp\n"  /* <= align the stack here, for the calls */
      "pushl %%edi\n"
+     "pushl %%ebp\n"
 
      "movl %%eax, %%esi\n" /* save 'restore_state' for later */
      "movl %%edx, %%edi\n" /* save 'extra' for later         */
@@ -35,7 +38,9 @@ static void *slp_switch(void *(*save_state)(void*, void*),
 
      "0:\n"
      "addl $8, %%esp\n"
+     "popl %%ebp\n"
      "popl %%edi\n"
+     "movl %%ebp, %%esp\n"
      "popl %%esi\n"
      "popl %%ebx\n"
      "popl %%ebp\n"

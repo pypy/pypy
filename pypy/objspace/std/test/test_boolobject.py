@@ -4,6 +4,10 @@ class TestW_BoolObject:
         self.false = self.space.w_False
         self.wrap = self.space.wrap
 
+    def test_init(self):
+        assert (self.false.intval, type(self.false.intval)) == (0, int)
+        assert (self.true.intval, type(self.true.intval)) == (1, int)
+
     def test_repr(self):
         assert self.space.eq_w(self.space.repr(self.true), self.wrap("True"))
         assert self.space.eq_w(self.space.repr(self.false), self.wrap("False"))

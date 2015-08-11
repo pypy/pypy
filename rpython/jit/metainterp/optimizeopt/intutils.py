@@ -252,42 +252,21 @@ class IntBound(object):
             guards.append(op)
 
 
-class IntUpperBound(IntBound):
-    def __init__(self, upper):
-        self.has_upper = True
-        self.has_lower = False
-        self.upper = upper
-        self.lower = 0
+def IntUpperBound(upper):
+    b = IntBound(lower=0, upper=upper)
+    b.has_lower = False
+    return b
 
-class IntLowerBound(IntBound):
-    def __init__(self, lower):
-        self.has_upper = False
-        self.has_lower = True
-        self.upper = 0
-        self.lower = lower
+def IntLowerBound(lower):
+    b = IntBound(upper=0, lower=lower)
+    b.has_upper = False
+    return b
 
-class IntUnbounded(IntBound):
-    def __init__(self):
-        self.has_upper = False
-        self.has_lower = False
-        self.upper = 0
-        self.lower = 0
-
-class ImmutableIntUnbounded(IntUnbounded):
-    def _raise(self):
-        raise TypeError('ImmutableIntUnbounded is immutable')
-    def make_le(self, other):
-        self._raise()
-    def make_lt(self, other):
-        self._raise()
-    def make_ge(self, other):
-        self._raise()
-    def make_gt(self, other):
-        self._raise()
-    def make_constant(self, value):
-        self._raise()
-    def intersect(self, other):
-        self._raise()
+def IntUnbounded():
+    b = IntBound(upper=0, lower=0)
+    b.has_lower = False
+    b.has_upper = False
+    return b
 
 def min4(t):
     return min(min(t[0], t[1]), min(t[2], t[3]))

@@ -35,7 +35,7 @@ class TestThread(BaseTestPyPyC):
         guard_nonnull_class(p66, ..., descr=...)
         p67 = force_token()
         setfield_gc(p0, p67, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token \d+>)
-        p68 = call_may_force(ConstClass(WeakrefLifelineWithCallbacks.make_weakref_with_callback), p66, ConstPtr(ptr50), p14, ConstPtr(ptr51), descr=<Callr \d rrrr EF=6>)
+        p68 = call_may_force(ConstClass(WeakrefLifelineWithCallbacks.make_weakref_with_callback), p66, ConstPtr(ptr50), p14, ConstPtr(ptr51), descr=<Callr \d rrrr EF=7>)
         guard_not_forced(descr=...)
         guard_no_exception(descr=...)
         guard_nonnull_class(p68, ..., descr=...)

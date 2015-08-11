@@ -8,23 +8,23 @@ appropriate measure but it's something)::
   Armin Rigo
   Maciej Fijalkowski
   Carl Friedrich Bolz
-  Antonio Cuni
   Amaury Forgeot d'Arc
+  Antonio Cuni
   Samuele Pedroni
   Alex Gaynor
+  Brian Kearns
+  Matti Picus
+  Philip Jenvey
   Michael Hudson
   David Schneider
-  Matti Picus
-  Brian Kearns
-  Philip Jenvey
   Holger Krekel
   Christian Tismer
   Hakan Ardo
-  Benjamin Peterson
   Manuel Jacob
+  Ronan Lamy
+  Benjamin Peterson
   Anders Chrigstrom
   Eric van Riet Paap
-  Ronan Lamy
   Wim Lavrijsen
   Richard Emslie
   Alexander Schremmer
@@ -33,23 +33,23 @@ appropriate measure but it's something)::
   Sven Hager
   Anders Lehmann
   Aurelien Campeas
-  Niklaus Haldimann
   Remi Meier
+  Niklaus Haldimann
   Camillo Bruni
   Laura Creighton
   Toon Verwaest
+  Romain Guillebert
   Leonardo Santagada
   Seo Sanghyeon
-  Romain Guillebert
   Justin Peel
   Ronny Pfannschmidt
   David Edelsohn
   Anders Hammarquist
   Jakub Gustak
+  Gregor Wegberg
   Guido Wesdorp
   Lawrence Oluyede
   Bartosz Skowron
-  Gregor Wegberg
   Daniel Roberts
   Niko Matsakis
   Adrien Di Mascio
@@ -57,19 +57,21 @@ appropriate measure but it's something)::
   Ludovic Aubry
   Jacob Hallen
   Jason Creighton
+  Richard Plangger
   Alex Martelli
   Michal Bendowski
-  Jan de Mooij
   stian
+  Jan de Mooij
+  Tyler Wade
   Michael Foord
   Stephan Diehl
-  Tyler Wade
   Stefan Schwarzer
   Valentino Volonghi
   Tomek Meka
   Patrick Maupin
   Bob Ippolito
   Bruno Gola
+  David Malcolm
   Jean-Paul Calderone
   Timo Paulssen
   Squeaky
@@ -78,18 +80,19 @@ appropriate measure but it's something)::
   Marius Gedminas
   Martin Matusiak
   Konstantin Lopuhin
-  John Witulski
   Wenzhu Man
+  John Witulski
+  Laurence Tratt
+  Ivan Sichmann Freitas
   Greg Price
   Dario Bertini
   Mark Pearse
   Simon Cross
-  Ivan Sichmann Freitas
   Andreas Stührk
+  Stefano Rivera
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
-  Stefano Rivera
   Paweł Piotr Przeradowski
   Paul deGrandis
   Ilya Osadchiy
@@ -99,25 +102,23 @@ appropriate measure but it's something)::
   tav
   Taavi Burns
   Georg Brandl
-  Laurence Tratt
   Bert Freudenberg
   Stian Andreassen
+  Edd Barrett
   Wanja Saatkamp
   Gerald Klix
   Mike Blume
+  Tobias Pape
   Oscar Nierstrasz
   Stefan H. Muller
-  Edd Barrett
   Jeremy Thurgood
   Rami Chowdhury
-  Tobias Pape
-  David Malcolm
   Eugene Oden
   Henry Mason
   Vasily Kuznetsov
   Preston Timmons
-  Jeff Terrace
   David Ripton
+  Jeff Terrace
   Dusty Phillips
   Lukas Renggli
   Guenter Jantzen
@@ -136,13 +137,18 @@ appropriate measure but it's something)::
   Gintautas Miliauskas
   Michael Twomey
   Lucian Branescu Mihaila
+  Yichao Yu
+  Anton Gulenko
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
   Karl Bartel
+  Wouter van Heyst
+  Sebastian Pawluś
   Brian Dorsey
   Victor Stinner
   Andrews Medina
+  anatoly techtonik
   Stuart Williams
   Jasper Schulz
   Christian Hudon
@@ -152,12 +158,12 @@ appropriate measure but it's something)::
   Michael Cheng
   Justas Sadzevicius
   Gasper Zejn
-  anatoly techtonik
   Neil Shepperd
+  Stanislaw Halik
   Mikael Schönenberg
+  Berkin Ilbeyi
   Elmo M?ntynen
   Jonathan David Riehl
-  Stanislaw Halik
   Anders Qvist
   Corbin Simpson
   Chirag Jadwani
@@ -166,25 +172,26 @@ appropriate measure but it's something)::
   Vincent Legoll
   Alan McIntyre
   Alexander Sedov
+  Attila Gobi
   Christopher Pope
   Christian Tismer 
   Marc Abramowitz
   Dan Stromberg
+  Arjun Naik
+  Valentina Mukhamedzhanova
   Stefano Parmesan
   Alexis Daboville
   Jens-Uwe Mager
   Carl Meyer
   Karl Ramm
   Pieter Zieschang
-  Sebastian Pawluś
   Gabriel
   Lukas Vacek
   Andrew Dalke
   Sylvain Thenault
+  Jakub Stasiak
   Nathan Taylor
   Vladimir Kryachko
-  Arjun Naik
-  Attila Gobi
   Jacek Generowicz
   Alejandro J. Cura
   Jacob Oscarson
@@ -192,22 +199,24 @@ appropriate measure but it's something)::
   Ryan Gonzalez
   Ian Foote
   Kristjan Valur Jonsson
+  David Lievens
   Neil Blakey-Milner
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
-  Valentina Mukhamedzhanova
   Henrik Vendelbo
   Dan Buch
   Miguel de Val Borro
   Artur Lisiecki
   Sergey Kishchenko
-  Yichao Yu
   Ignas Mikalajunas
   Christoph Gerum
   Martin Blais
   Lene Wagner
   Tomo Cocoa
+  Toni Mattis
+  Lucas Stadler
+  Julian Berman
   roberto@goyle
   Yury V. Zaytsev
   Anna Katrina Dominguez
@@ -219,6 +228,8 @@ appropriate measure but it's something)::
   Ben Darnell
   Roberto De Ioris
   Juan Francisco Cantero Hurtado
+  Ruochen Huang
+  Jeong YunWon
   Godefroid Chappelle
   Joshua Gilbert
   Dan Colish
@@ -235,23 +246,31 @@ appropriate measure but it's something)::
   Stephan Busemann
   Rafał Gałczyński
   Christian Muirhead
+  Berker Peksag
   James Lan
+  Volodymyr Vladymyrov
   shoma hosaka
-  Daniel Neuh?user
-  Matthew Miller
+  Daniel Neuhäuser
+  Ben Mather
+  halgari
+  Boglarka Vezer
+  Chris Pressey
   Buck Golemon
   Konrad Delong
   Dinu Gherman
   Chris Lambacher
   coolbutuseless@gmail.com
-  Rodrigo Araújo
   Jim Baker
+  Rodrigo Araújo
+  Nikolaos-Digenis Karagiannis
   James Robert
   Armin Ronacher
   Brett Cannon
+  Donald Stufft
   yrttyr
   aliceinwire
   OlivierBlanvillain
+  Dan Sanders
   Zooko Wilcox-O Hearn
   Tomer Chachamu
   Christopher Groskopf
@@ -265,6 +284,7 @@ appropriate measure but it's something)::
   Markus Unterwaditzer
   Even Wiik Thomassen
   jbs
+  squeaky
   soareschen
   Kurt Griffiths
   Mike Bayer
@@ -274,7 +294,9 @@ appropriate measure but it's something)::
   yasirs
   Michael Chermside
   Anna Ravencroft
+  Andrey Churin
   Dan Crosta
   Julien Phalip
+  Roman Podoliaka
   Dan Loewenherz
 

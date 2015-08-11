@@ -17,6 +17,10 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
     def __init__(self, *args, **kw):
         test_random.OperationBuilder.__init__(self, *args, **kw)
         self.vtable_counter = 0
+        # note: rstrs and runicodes contain either new local strings, or
+        # constants.  In other words, all BoxPtrs here were created earlier
+        # by the trace before, and so it should be kind of fine to mutate
+        # them with strsetitem/unicodesetitem.
         self.rstrs = []
         self.runicodes = []
         self.structure_types = []
@@ -484,6 +488,8 @@ class AbstractGetItemOperation(AbstractStringOperation):
 class AbstractSetItemOperation(AbstractStringOperation):
     def produce_into(self, builder, r):
         v_string = self.get_string(builder, r)
+        if not isinstance(v_string, BoxPtr):
+            raise test_random.CannotProduceOperation  # setitem(Const, ...)
         v_index = builder.get_index(len(v_string.getref(self.ptr).chars), r)
         v_target = ConstInt(r.random_integer() % self.max)
         builder.do(self.opnum, [v_string, v_index, v_target])

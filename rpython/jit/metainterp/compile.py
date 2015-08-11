@@ -103,6 +103,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 # ____________________________________________________________
 
+
 def compile_loop(metainterp, greenkey, start,
                  inputargs, jumpargs,
                  full_preamble_needed=True,
@@ -148,27 +149,28 @@ def compile_loop(metainterp, greenkey, start,
     if part.quasi_immutable_deps:
         loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
     if part.operations[-1].getopnum() == rop.LABEL:
-        inliner = Inliner(inputargs, jumpargs)
-        part.quasi_immutable_deps = None
-        part.operations = [part.operations[-1]] + \
-                          [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
-                          [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
-                                        None, descr=jitcell_token)]
-        target_token = part.operations[0].getdescr()
-        assert isinstance(target_token, TargetToken)
-        all_target_tokens.append(target_token)
-        inputargs = jumpargs
-        jumpargs = part.operations[-1].getarglist()
+        if start_state is not None:
+            inliner = Inliner(inputargs, jumpargs)
+            part.quasi_immutable_deps = None
+            part.operations = [part.operations[-1]] + \
+                              [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
+                              [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
+                                            None, descr=jitcell_token)]
+            target_token = part.operations[0].getdescr()
+            assert isinstance(target_token, TargetToken)
+            all_target_tokens.append(target_token)
+            inputargs = jumpargs
+            jumpargs = part.operations[-1].getarglist()
 
-        try:
-            optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
-                           start_state=start_state, export_state=False)
-        except InvalidLoop:
-            return None
+            try:
+                optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
+                               start_state=start_state, export_state=False)
+            except InvalidLoop:
+                return None
 
-        loop.operations = loop.operations[:-1] + part.operations
-        if part.quasi_immutable_deps:
-            loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
+            loop.operations = loop.operations[:-1] + part.operations
+            if part.quasi_immutable_deps:
+                loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
     assert part.operations[-1].getopnum() != rop.LABEL
 
     if not loop.quasi_immutable_deps:
@@ -303,11 +305,13 @@ def propagate_original_jitcell_token(trace):
             token.original_jitcell_token = trace.original_jitcell_token
 
 
-def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
-                    log=True, name=''):
+def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
+                    looptoken, log=True, name=''):
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', name=name)
-    return metainterp_sd.cpu.compile_loop(inputargs, operations, looptoken,
+    return metainterp_sd.cpu.compile_loop(inputargs,
+                                          operations, looptoken,
+                                          jd_id=jd_id, unique_id=unique_id,
                                           log=log, name=name,
                                           logger=metainterp_sd.logger_ops)
 
@@ -325,7 +329,6 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd)
 
     original_jitcell_token = loop.original_jitcell_token
-    loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
     globaldata = metainterp_sd.globaldata
     original_jitcell_token.number = n = globaldata.loopnumbering
     globaldata.loopnumbering += 1
@@ -347,7 +350,10 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     metainterp_sd.profiler.start_backend()
     debug_start("jit-backend")
     try:
-        asminfo = do_compile_loop(metainterp_sd, loop.inputargs,
+        loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
+        unique_id = jitdriver_sd.warmstate.get_unique_id(greenkey)
+        asminfo = do_compile_loop(jitdriver_sd.index, unique_id, metainterp_sd,
+                                  loop.inputargs,
                                   operations, original_jitcell_token,
                                   name=loopname)
     finally:
@@ -749,18 +755,14 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
             rstack._stack_criticalcode_stop()
 
     def handle_async_forcing(self, deadframe):
-        from rpython.jit.metainterp.resume import (force_from_resumedata,
-                                                   AlreadyForced)
+        from rpython.jit.metainterp.resume import force_from_resumedata
         metainterp_sd = self.metainterp_sd
         vinfo = self.jitdriver_sd.virtualizable_info
         ginfo = self.jitdriver_sd.greenfield_info
         # there is some chance that this is already forced. In this case
         # the virtualizable would have a token = NULL
-        try:
-            all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
-                                                 vinfo, ginfo)
-        except AlreadyForced:
-            return
+        all_virtuals = force_from_resumedata(metainterp_sd, self, deadframe,
+                                             vinfo, ginfo)
         # The virtualizable data was stored on the real virtualizable above.
         # Handle all_virtuals: keep them for later blackholing from the
         # future failure of the GUARD_NOT_FORCED

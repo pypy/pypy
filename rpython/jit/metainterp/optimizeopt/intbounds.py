@@ -8,6 +8,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.llsupport import symbolic
+from rpython.rlib.rarithmetic import intmask
 
 
 def get_integer_min(is_unsigned, byte_size):
@@ -123,8 +124,44 @@ class OptIntBounds(Optimization):
             r.getintbound().intersect(b)
 
     def optimize_INT_ADD(self, op):
-        v1 = self.getvalue(op.getarg(0))
-        v2 = self.getvalue(op.getarg(1))
+        arg1 = op.getarg(0)
+        arg2 = op.getarg(1)
+        v1 = self.getvalue(arg1)
+        v2 = self.getvalue(arg2)
+
+        # Optimize for addition chains in code "b = a + 1; c = b + 1" by
+        # detecting the int_add chain, and swapping with "b = a + 1;
+        # c = a + 2". If b is not used elsewhere, the backend eliminates
+        # it.
+
+        # either v1 or v2 can be a constant, swap the arguments around if
+        # v1 is the constant
+        if v1.is_constant():
+            arg1, arg2 = arg2, arg1
+            v1, v2 = v2, v1
+        if v2.is_constant():
+            try:
+                prod_op = self.optimizer.producer[arg1]
+            except KeyError:
+                pass
+            else:
+                if prod_op.getopnum() == rop.INT_ADD:
+                    prod_arg1 = prod_op.getarg(0)
+                    prod_arg2 = prod_op.getarg(1)
+                    prod_v1 = self.getvalue(prod_arg1)
+                    prod_v2 = self.getvalue(prod_arg2)
+
+                    # same thing here: prod_v1 or prod_v2 can be a
+                    # constant
+                    if prod_v1.is_constant():
+                        prod_arg1, prod_arg2 = prod_arg2, prod_arg1
+                        prod_v1, prod_v2 = prod_v2, prod_v1
+                    if prod_v2.is_constant():
+                        sum = intmask(v2.box.getint() + prod_v2.box.getint())
+                        arg1 = prod_arg1
+                        arg2 = ConstInt(sum)
+                        op = op.copy_and_change(rop.INT_ADD, args=[arg1, arg2])
+
         self.emit_operation(op)
         r = self.getvalue(op.result)
         b = v1.getintbound().add_bound(v2.getintbound())
@@ -495,19 +532,15 @@ class OptIntBounds(Optimization):
                 if v2.getintbound().intersect(v1.getintbound()):
                     self.propagate_bounds_backward(op.getarg(1))
 
-    def propagate_bounds_INT_IS_TRUE(self, op):
+    def _propagate_int_is_true_or_zero(self, op, constnonzero, constzero):
         r = self.getvalue(op.result)
         if r.is_constant():
-            if r.box.same_constant(CONST_1):
+            if r.box.same_constant(constnonzero):
                 v1 = self.getvalue(op.getarg(0))
                 if v1.getintbound().known_ge(IntBound(0, 0)):
                     v1.getintbound().make_gt(IntBound(0, 0))
                     self.propagate_bounds_backward(op.getarg(0))
-
-    def propagate_bounds_INT_IS_ZERO(self, op):
-        r = self.getvalue(op.result)
-        if r.is_constant():
-            if r.box.same_constant(CONST_1):
+            elif r.box.same_constant(constzero):
                 v1 = self.getvalue(op.getarg(0))
                 # Clever hack, we can't use self.make_constant_int yet because
                 # the args aren't in the values dictionary yet so it runs into
@@ -515,6 +548,12 @@ class OptIntBounds(Optimization):
                 v1.getintbound().make_ge(IntBound(0, 0))
                 v1.getintbound().make_lt(IntBound(1, 1))
                 self.propagate_bounds_backward(op.getarg(0))
+
+    def propagate_bounds_INT_IS_TRUE(self, op):
+        self._propagate_int_is_true_or_zero(op, CONST_1, CONST_0)
+
+    def propagate_bounds_INT_IS_ZERO(self, op):
+        self._propagate_int_is_true_or_zero(op, CONST_0, CONST_1)
 
     def propagate_bounds_INT_ADD(self, op):
         v1 = self.getvalue(op.getarg(0))

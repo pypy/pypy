@@ -28,7 +28,8 @@ except ImportError:
 __all__ = ["Error", "TestFailed", "ResourceDenied", "import_module",
            "verbose", "use_resources", "max_memuse", "record_original_stdout",
            "get_original_stdout", "unload", "unlink", "rmtree", "forget",
-           "is_resource_enabled", "requires", "find_unused_port", "bind_port",
+           "is_resource_enabled", "requires", "requires_mac_ver",
+           "find_unused_port", "bind_port",
            "fcmp", "have_unicode", "is_jython", "TESTFN", "HOST", "FUZZ",
            "SAVEDCWD", "temp_cwd", "findfile", "sortdict", "check_syntax_error",
            "open_urlresource", "check_warnings", "check_py3k_warnings",
@@ -36,10 +37,10 @@ __all__ = ["Error", "TestFailed", "ResourceDenied", "import_module",
            "captured_stdout", "TransientResource", "transient_internet",
            "run_with_locale", "set_memlimit", "bigmemtest", "bigaddrspacetest",
            "BasicTestRunner", "run_unittest", "run_doctest", "threading_setup",
-           "threading_cleanup", "reap_children", "cpython_only",
+           "threading_cleanup", "reap_threads", "start_threads", "cpython_only",
            "check_impl_detail", "get_attribute", "py3k_bytes",
            "import_fresh_module", "threading_cleanup", "reap_children",
-           "strip_python_stderr"]
+           "strip_python_stderr", "IPV6_ENABLED"]
 
 class Error(Exception):
     """Base class for regression test exceptions."""
@@ -326,12 +327,11 @@ def _is_gui_available():
                 reason = "cannot run without OS X gui process"
 
     # check on every platform whether tkinter can actually do anything
-    # but skip the test on OS X because it can cause segfaults in Cocoa Tk
-    # when running regrtest with the -j option (multiple threads/subprocesses)
-    if (not reason) and (sys.platform != 'darwin'):
+    if not reason:
         try:
             from Tkinter import Tk
             root = Tk()
+            root.update()
             root.destroy()
         except Exception as e:
             err_string = str(e)
@@ -361,6 +361,33 @@ def requires(resource, msg=None):
         if msg is None:
             msg = "Use of the `%s' resource not enabled" % resource
         raise ResourceDenied(msg)
+
+def requires_mac_ver(*min_version):
+    """Decorator raising SkipTest if the OS is Mac OS X and the OS X
+    version if less than min_version.
+
+    For example, @requires_mac_ver(10, 5) raises SkipTest if the OS X version
+    is lesser than 10.5.
+    """
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kw):
+            if sys.platform == 'darwin':
+                version_txt = platform.mac_ver()[0]
+                try:
+                    version = tuple(map(int, version_txt.split('.')))
+                except ValueError:
+                    pass
+                else:
+                    if version < min_version:
+                        min_version_txt = '.'.join(map(str, min_version))
+                        raise unittest.SkipTest(
+                            "Mac OS X %s or higher required, not %s"
+                            % (min_version_txt, version_txt))
+            return func(*args, **kw)
+        wrapper.min_version = min_version
+        return wrapper
+    return decorator
 
 
 # Don't use "localhost", since resolving it uses the DNS under recent
@@ -465,6 +492,36 @@ def bind_port(sock, host=HOST):
     port = sock.getsockname()[1]
     return port
 
+def _is_ipv6_enabled():
+    """Check whether IPv6 is enabled on this host."""
+    if socket.has_ipv6:
+        sock = None
+        try:
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+            sock.bind((HOSTv6, 0))
+            return True
+        except socket.error:
+            pass
+        finally:
+            if sock:
+                sock.close()
+    return False
+
+IPV6_ENABLED = _is_ipv6_enabled()
+
+def system_must_validate_cert(f):
+    """Skip the test on TLS certificate validation failures."""
+    @functools.wraps(f)
+    def dec(*args, **kwargs):
+        try:
+            f(*args, **kwargs)
+        except IOError as e:
+            if "CERTIFICATE_VERIFY_FAILED" in str(e):
+                raise unittest.SkipTest("system does not contain "
+                                        "necessary certificates")
+            raise
+    return dec
+
 FUZZ = 1e-6
 
 def fcmp(x, y): # fuzzy comparison function
@@ -498,13 +555,18 @@ PIPE_MAX_SIZE = 4 * 1024 * 1024 + 1
 # for a discussion of this number).
 SOCK_MAX_SIZE = 16 * 1024 * 1024 + 1
 
+is_jython = sys.platform.startswith('java')
+
 try:
     unicode
     have_unicode = True
 except NameError:
     have_unicode = False
 
-is_jython = sys.platform.startswith('java')
+requires_unicode = unittest.skipUnless(have_unicode, 'no unicode support')
+
+def u(s):
+    return unicode(s, 'unicode-escape')
 
 # FS_NONASCII: non-ASCII Unicode character encodable by
 # sys.getfilesystemencoding(), or None if there is no such character.
@@ -1495,6 +1557,39 @@ def reap_children():
                     break
             except:
                 break
+
+@contextlib.contextmanager
+def start_threads(threads, unlock=None):
+    threads = list(threads)
+    started = []
+    try:
+        try:
+            for t in threads:
+                t.start()
+                started.append(t)
+        except:
+            if verbose:
+                print("Can't start %d threads, only %d threads started" %
+                      (len(threads), len(started)))
+            raise
+        yield
+    finally:
+        if unlock:
+            unlock()
+        endtime = starttime = time.time()
+        for timeout in range(1, 16):
+            endtime += 60
+            for t in started:
+                t.join(max(endtime - time.time(), 0.01))
+            started = [t for t in started if t.isAlive()]
+            if not started:
+                break
+            if verbose:
+                print('Unable to join %d threads during a period of '
+                      '%d minutes' % (len(started), timeout))
+    started = [t for t in started if t.isAlive()]
+    if started:
+        raise AssertionError('Unable to join %d threads' % len(started))
 
 @contextlib.contextmanager
 def swap_attr(obj, attr, new_val):

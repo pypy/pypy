@@ -60,7 +60,6 @@ def record_application_traceback(space, operror, frame, last_instruction):
 
 
 def check_traceback(space, w_tb, msg):
-    from pypy.interpreter.typedef import PyTraceback
     if w_tb is None or not space.isinstance_w(w_tb, space.gettypeobject(PyTraceback.typedef)):
         raise OperationError(space.w_TypeError, space.wrap(msg))
     return w_tb

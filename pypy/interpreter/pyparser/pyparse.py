@@ -34,14 +34,14 @@ def _normalize_encoding(encoding):
 def _check_for_encoding(s):
     eol = s.find('\n')
     if eol < 0:
-        return _check_line_for_encoding(s)
-    enc = _check_line_for_encoding(s[:eol])
-    if enc:
+        return _check_line_for_encoding(s)[0]
+    enc, again = _check_line_for_encoding(s[:eol])
+    if enc or not again:
         return enc
     eol2 = s.find('\n', eol + 1)
     if eol2 < 0:
-        return _check_line_for_encoding(s[eol + 1:])
-    return _check_line_for_encoding(s[eol + 1:eol2])
+        return _check_line_for_encoding(s[eol + 1:])[0]
+    return _check_line_for_encoding(s[eol + 1:eol2])[0]
 
 
 def _check_line_for_encoding(line):
@@ -51,8 +51,8 @@ def _check_line_for_encoding(line):
         if line[i] == '#':
             break
         if line[i] not in ' \t\014':
-            return None
-    return pytokenizer.match_encoding_declaration(line[i:])
+            return None, False  # Not a comment, don't read the second line.
+    return pytokenizer.match_encoding_declaration(line[i:]), True
 
 
 class CompileInfo(object):

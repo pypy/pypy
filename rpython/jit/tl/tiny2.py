@@ -27,7 +27,7 @@ The '}' pops an integer value off the stack and loops if it is not zero:
     { #1 #1 1 SUB ->#1 #1 }    => when called with 5, gives '5 4 3 2 1'
 
 """
-from rpython.rlib.jit import hint, promote
+from rpython.rlib.jit import hint, promote, dont_look_inside
 
 #
 # See pypy/doc/jit.txt for a higher-level overview of the JIT techniques
@@ -175,6 +175,7 @@ def repr(stack):
 # Pure workaround code!  It will eventually be unnecessary.
 # For now, myint(s, n) is a JIT-friendly way to spell int(s[n:]).
 # We don't support negative numbers, though.
+@dont_look_inside
 def myint_internal(s, start=0):
     if start >= len(s):
         return -1

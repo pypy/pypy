@@ -10,13 +10,10 @@ import sys
 class TclError(Exception):
     pass
 
-import cffi
-try:
-    from .tklib import tklib, tkffi
-except cffi.VerificationError:
-    raise ImportError("Tk headers and development libraries are required")
+from .tklib_cffi import ffi as tkffi, lib as tklib
 
 from .app import TkApp
+from .tclobj import TclObject as Tcl_Obj
 
 TK_VERSION = tkffi.string(tklib.get_tk_version())
 TCL_VERSION = tkffi.string(tklib.get_tcl_version())

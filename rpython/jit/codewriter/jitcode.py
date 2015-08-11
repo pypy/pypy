@@ -12,7 +12,7 @@ class JitCode(AbstractDescr):
         self.name = name
         self.fnaddr = fnaddr
         self.calldescr = calldescr
-        self.is_portal = False
+        self.jitdriver_sd = None # None for non-portals
         self._called_from = called_from   # debugging
         self._ssarepr     = None          # debugging
 

@@ -65,7 +65,7 @@ def PyList_Insert(space, w_list, index, w_item):
     """Insert the item item into list list in front of index index.  Return
     0 if successful; return -1 and set an exception if unsuccessful.
     Analogous to list.insert(index, item)."""
-    space.call_method(w_list, "insert", space.wrap(index), w_item)
+    space.call_method(space.w_list, "insert", w_list, space.wrap(index), w_item)
     return 0
 
 @cpython_api([PyObject], Py_ssize_t, error=CANNOT_FAIL)
@@ -98,7 +98,7 @@ def PyList_Sort(space, w_list):
     failure.  This is equivalent to list.sort()."""
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
-    space.call_method(w_list, "sort")
+    space.call_method(space.w_list, "sort", w_list)
     return 0
 
 @cpython_api([PyObject], rffi.INT_real, error=-1)
@@ -107,7 +107,7 @@ def PyList_Reverse(space, w_list):
     failure.  This is the equivalent of list.reverse()."""
     if not isinstance(w_list, W_ListObject):
         PyErr_BadInternalCall(space)
-    space.call_method(w_list, "reverse")
+    space.call_method(space.w_list, "reverse", w_list)
     return 0
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)

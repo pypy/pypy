@@ -1,139 +1,65 @@
 =======================
-What's new in PyPy 2.5+
+What's new in PyPy 2.6+
 =======================
 
-.. this is a revision shortly after release-2.4.x
-.. startrev: 7026746cbb1b
+.. this is a revision shortly after release-2.6.0
+.. startrev: 91904d5c5188
 
-.. branch: win32-fixes5
+.. branch: use_min_scalar
+Correctly resolve the output dtype of ufunc(array, scalar) calls.
 
-Fix c code generation for msvc so empty "{ }" are avoided in unions,
-Avoid re-opening files created with NamedTemporaryFile,
-Allocate by 4-byte chunks in rffi_platform,
-Skip testing objdump if it does not exist,
-and other small adjustments in own tests
+.. branch: stdlib-2.7.10
 
-.. branch: rtyper-stuff
+Update stdlib to version 2.7.10
 
-Small internal refactorings in the rtyper.
+.. branch: issue2062
 
-.. branch: var-in-Some
+.. branch: disable-unroll-for-short-loops
+The JIT no longer performs loop unrolling if the loop compiles to too much code.
 
-Store annotations on the Variable objects, rather than in a big dict.
-Introduce a new framework for double-dispatched annotation implementations.
+.. branch: run-create_cffi_imports
 
-.. branch: ClassRepr
+Build cffi import libraries as part of translation by monkey-patching an 
+additional task into translation
 
-Refactor ClassRepr and make normalizecalls independent of the rtyper.
+.. branch: int-float-list-strategy
 
-.. branch: remove-remaining-smm
+Use a compact strategy for Python lists that mix integers and floats,
+at least if the integers fit inside 32 bits.  These lists are now
+stored as an array of floats, like lists that contain only floats; the
+difference is that integers are stored as tagged NaNs.  (This should
+have no visible effect!  After ``lst = [42, 42.5]``, the value of
+``lst[0]`` is still *not* the float ``42.0`` but the integer ``42``.)
 
-Remove all remaining multimethods.
+.. branch: cffi-callback-onerror
+.. branch: cffi-new-allocator
 
-.. branch: improve-docs
+.. branch: unicode-dtype
 
-Split RPython documentation from PyPy documentation and clean up.  There now is
-a clearer separation between documentation for users, developers and people
-interested in background information.
+Partial implementation of unicode dtype and unicode scalars.
 
-.. branch: kill-multimethod
+.. branch: dtypes-compatability
 
-Kill multimethod machinery, all multimethods were removed earlier.
+Improve compatibility with numpy dtypes; handle offsets to create unions,
+fix str() and repr(), allow specifying itemsize, metadata and titles, add flags,
+allow subclassing dtype
 
-.. branch nditer-external_loop
+.. branch: indexing
 
-Implement `external_loop` arguement to numpy's nditer
+Refactor array indexing to support ellipses.
 
-.. branch kill-rctime
+.. branch: numpy-docstrings
 
-Rename pypy/module/rctime to pypy/module/time, since it contains the implementation of the 'time' module.
+Allow the docstrings of built-in numpy objects to be set at run-time.
 
-.. branch: ssa-flow
+.. branch: nditer-revisited
 
-Use SSA form for flow graphs inside build_flow() and part of simplify_graph()
+Implement nditer 'buffered' flag and fix some edge cases
 
-.. branch: ufuncapi
+.. branch: ufunc-reduce
 
-Implement most of the GenericUfunc api to support numpy linalg. The strategy is
-to encourage use of pure python or cffi ufuncs by extending frompyfunc().
-See the docstring of frompyfunc for more details. This dovetails with a branch
-of pypy/numpy - cffi-linalg which is a rewrite of the _umath_linalg module in
-python, calling lapack from cffi. The branch also support traditional use of
-cpyext GenericUfunc definitions in c.
+Allow multiple axes in ufunc.reduce()
 
-.. branch: all_ordered_dicts
+.. branch: fix-tinylang-goals
 
-This makes ordered dicts the default dictionary implementation in
-RPython and in PyPy. It polishes the basic idea of rordereddict.py
-and then fixes various things, up to simplifying
-collections.OrderedDict.
-
-Note: Python programs can rely on the guaranteed dict order in PyPy
-now, but for compatibility with other Python implementations they
-should still use collections.OrderedDict where that really matters.
-Also, support for reversed() was *not* added to the 'dict' class;
-use OrderedDict.
-
-Benchmark results: in the noise. A few benchmarks see good speed
-improvements but the average is very close to parity.
-
-.. branch: berkerpeksag/fix-broken-link-in-readmerst-1415127402066
-.. branch: bigint-with-int-ops
-.. branch: dstufft/update-pip-bootstrap-location-to-the-new-1420760611527
-.. branch: float-opt
-.. branch: gc-incminimark-pinning
-
-This branch adds an interface rgc.pin which would (very temporarily)
-make object non-movable. That's used by rffi.alloc_buffer and
-rffi.get_nonmovable_buffer and improves performance considerably for
-IO operations.
-
-.. branch: gc_no_cleanup_nursery
-
-A branch started by Wenzhu Man (SoC'14) and then done by fijal. It
-removes the clearing of the nursery. The drawback is that new objects
-are not automatically filled with zeros any longer, which needs some
-care, mostly for GC references (which the GC tries to follow, so they
-must not contain garbage). The benefit is a quite large speed-up.
-
-.. branch: improve-gc-tracing-hooks
-.. branch: improve-ptr-conv-error
-.. branch: intern-not-immortal
-
-Fix intern() to return mortal strings, like in CPython.
-
-.. branch: issue1922-take2
-.. branch: kill-exported-symbols-list
-.. branch: kill-rctime
-.. branch: kill_ll_termios
-.. branch: look-into-all-modules
-.. branch: nditer-external_loop
-.. branch: numpy-generic-item
-.. branch: osx-shared
-
-``--shared`` support on OS/X (thanks wouter)
-
-.. branch: portable-threadlocal
-.. branch: pypy-dont-copy-ops
-.. branch: recursion_and_inlining
-.. branch: slim-down-resumedescr
-.. branch: squeaky/use-cflags-for-compiling-asm
-.. branch: unicode-fix
-.. branch: zlib_zdict
-
-.. branch: errno-again
-
-Changes how errno, GetLastError, and WSAGetLastError are handled.
-The idea is to tie reading the error status as close as possible to
-the external function call. This fixes some bugs, both of the very
-rare kind (e.g. errno on Linux might in theory be overwritten by
-mmap(), called rarely during major GCs, if such a major GC occurs at
-exactly the wrong time), and some of the less rare kind
-(particularly on Windows tests).
-
-.. branch: osx-package.py
-.. branch: package.py-helpful-error-message
-
-.. branch: typed-cells
-
-Improve performance of integer globals and class attributes.
+Update tinylang goals to match current rpython
