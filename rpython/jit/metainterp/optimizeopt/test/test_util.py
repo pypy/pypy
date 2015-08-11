@@ -168,6 +168,7 @@ class LLtypeMixin(object):
     immut_ptrval = cpu.fielddescrof(PTROBJ_IMMUT, 'ptrval')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
+    gcarraydescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF))
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
 
     # a GcStruct not inheriting from OBJECT

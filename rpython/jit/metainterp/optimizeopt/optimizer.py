@@ -59,6 +59,14 @@ class Optimization(object):
         op.set_forwarded(intbound)
         return intbound
 
+    def setintbound(self, op, bound):
+        assert op.type == 'i'
+        op = self.get_box_replacement(op)
+        if op.is_constant():
+            return
+        assert op.get_forwarded() is None
+        op.set_forwarded(bound)
+
     def getnullness(self, op):
         if op.type == 'i':
             return self.getintbound(op).getnullness()
@@ -425,7 +433,8 @@ class Optimizer(Optimization):
                 opinfo = info.StructPtrInfo()
             opinfo.init_fields(op.getdescr().get_parent_descr(),
                                op.getdescr().get_index())
-        elif op.is_getarrayitem() or op.getopnum() == rop.SETARRAYITEM_GC:
+        elif (op.is_getarrayitem() or op.getopnum() == rop.SETARRAYITEM_GC or
+              op.getopnum() == rop.ARRAYLEN_GC):
             opinfo = info.ArrayPtrInfo(op.getdescr())
         elif op.getopnum() in (rop.GUARD_CLASS, rop.GUARD_NONNULL_CLASS):
             opinfo = info.InstancePtrInfo()

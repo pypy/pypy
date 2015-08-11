@@ -409,12 +409,9 @@ class OptIntBounds(Optimization):
             bres.intersect(bounds)
 
     def optimize_ARRAYLEN_GC(self, op):
-        array = self.getptrinfo(op.getarg(0))
-        result = self.getintbound(op)
-        result.make_ge(IntLowerBound(0))
+        array = self.ensure_ptr_info_arg0(op)
         self.emit_operation(op)
-        #array.make_len_gt(MODE_ARRAY, op.getdescr(), -1)
-        #array.getlenbound().bound.intersect(result.getintbound())
+        self.optimizer.setintbound(op, array.getlenbound())
 
     def optimize_STRLEN(self, op):
         self.emit_operation(op)

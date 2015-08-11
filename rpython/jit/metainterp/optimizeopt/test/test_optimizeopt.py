@@ -4659,19 +4659,41 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_bound_arraylen(self):
         ops = """
         [i0, p0]
-        p1 = new_array(i0, descr=arraydescr)
+        p1 = new_array(i0, descr=gcarraydescr)
         i1 = arraylen_gc(p1)
         i2 = int_gt(i1, -1)
         guard_true(i2) []
-        setarrayitem_gc(p0, 0, p1)
+        setarrayitem_gc(p0, 0, p1, descr=gcarraydescr)
         jump(i0, p0)
         """
         # The dead arraylen_gc will be eliminated by the backend.
         expected = """
         [i0, p0]
-        p1 = new_array(i0, descr=arraydescr)
+        p1 = new_array(i0, descr=gcarraydescr)
         i1 = arraylen_gc(p1)
-        setarrayitem_gc(p0, 0, p1)
+        setarrayitem_gc(p0, 0, p1, descr=gcarraydescr)
+        jump(i0, p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_bound_arraylen_2(self):
+        ops = """
+        [i0, p0]
+        p1 = new_array(i0, descr=gcarraydescr)
+        setarrayitem_gc(p1, 3, p1, descr=gcarraydescr)
+        i1 = arraylen_gc(p1)
+        i2 = int_gt(i1, 2)
+        guard_true(i2) []
+        setarrayitem_gc(p1, 0, p0, descr=gcarraydescr)
+        jump(i0, p0)
+        """
+        # The dead arraylen_gc will be eliminated by the backend.
+        expected = """
+        [i0, p0]
+        p1 = new_array(i0, descr=gcarraydescr)
+        i1 = arraylen_gc(p1)
+        setarrayitem_gc(p1, 0, p0, descr=gcarraydescr)
+        setarrayitem_gc(p1, 3, p1, descr=gcarraydescr)
         jump(i0, p0)
         """
         self.optimize_loop(ops, expected)
@@ -7612,7 +7634,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0]
         p1 = getfield_gc_r(p0, descr=nextdescr)
-        p2 = getarrayitem_gc_r(p1, 7, descr=arraydescr)
+        p2 = getarrayitem_gc_r(p1, 7, descr=gcarraydescr)
         call_n(p2, descr=nonwritedescr)
         jump(p0)
         """
@@ -7623,13 +7645,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = arraylen_gc(p1)
         i2 = int_ge(i1, 8)
         guard_true(i2) []
-        p2 = getarrayitem_gc_r(p1, 7, descr=arraydescr)
-        jump(p0, p1, p2)
+        p2 = getarrayitem_gc_r(p1, 7, descr=gcarraydescr)
+        jump(p1, p2)
         """
         expected = """
         [p0, p1, p2]
         call_n(p2, descr=nonwritedescr)
-        # i3 = arraylen_gc(p1) # Should be killed by backend
+        i3 = arraylen_gc(p1) # Should be killed by backend
         jump(p0, p1, p2)
         """
         self.optimize_loop(ops, expected, expected_short=short)

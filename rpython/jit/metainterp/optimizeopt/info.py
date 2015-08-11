@@ -301,16 +301,20 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     length = -1
 
     def __init__(self, const=None, size=0, clear=False, vdescr=None):
+        from rpython.jit.metainterp.optimizeopt import intutils
         self.vdescr = vdescr
         if vdescr is not None:
             self._init_items(const, size, clear)
+            self.lenbound = intutils.ConstIntBound(size)
         self._clear = clear
 
-    #def getlenbound(self):
-    #    if self.lenbound is None:
-    #        raise Exception("implement me - lenbound")
-    #        xxx
-    #    return self.lenbound
+    def getlenbound(self):
+        from rpython.jit.metainterp.optimizeopt import intutils
+        
+        if self.lenbound is None:
+            assert self.length == -1
+            self.lenbound = intutils.IntLowerBound(0)
+        return self.lenbound
 
     def _init_items(self, const, size, clear):
         self.length = size
@@ -377,6 +381,13 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             getarrayitem_op = ResOperation(opnum, [structbox, ConstInt(index)],
                                            descr=descr)
             shortboxes.add_heap_op(op, getarrayitem_op)
+
+    def make_guards(self, op, short):
+        AbstractVirtualPtrInfo.make_guards(self, op, short)
+        if self.lenbound is not None:
+            lenop = ResOperation(rop.ARRAYLEN_GC, [op])
+            short.append(lenop)
+            self.lenbound.make_guards(lenop, short)
 
 class ArrayStructInfo(ArrayPtrInfo):
     def __init__(self, size, vdescr=None):

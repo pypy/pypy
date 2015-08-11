@@ -43,6 +43,18 @@ class IntBound(AbstractInfo):
                 return True
         return False
 
+    def make_ge_const(self, other):
+        return self.make_ge(ConstIntBound(other))
+
+    def make_gt_const(self, other):
+        return self.make_gt(ConstIntBound(other))
+
+    def make_eq_const(self, intval):
+        self.has_upper = True
+        self.has_lower = True
+        self.upper = intval
+        self.lower = intval
+
     def make_gt(self, other):
         return self.make_ge(other.add(1))
 

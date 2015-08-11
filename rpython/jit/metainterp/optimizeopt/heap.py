@@ -562,10 +562,9 @@ class OptHeap(Optimization):
         indexb = self.getintbound(op.getarg(1))
         cf = None
         if indexb.is_constant():
-            # XXXX lgt bound
-            #arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
-            # use the cache on (arraydescr, index), which is a constant
             index = indexb.getint()
+            arrayinfo.getlenbound().make_gt_const(index)
+            # use the cache on (arraydescr, index), which is a constant
             cf = self.arrayitem_cache(op.getdescr(), index)
             field = cf.getfield_from_cache(self, arrayinfo, op.getdescr())
             if field is not None:
@@ -592,11 +591,11 @@ class OptHeap(Optimization):
         indexb = self.getintbound(op.getarg(1))
         cf = None
         if indexb.is_constant():
-            #arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
+            index = indexb.getint()
+            arrayinfo.getlenbound().make_gt_const(index)
             # use the cache on (arraydescr, index), which is a constant
-            #cf = self.arrayitem_cache(op.getdescr(), indexvalue.box.getint())
-            #fieldvalue = cf.getfield_from_cache(self, arrayvalue)
-            fieldvalue = None
+            cf = self.arrayitem_cache(op.getdescr(), index)
+            fieldvalue = cf.getfield_from_cache(self, arrayinfo, op.getdescr())
             if fieldvalue is not None:
                 self.make_equal_to(op, fieldvalue)
                 return
@@ -620,10 +619,9 @@ class OptHeap(Optimization):
         #
         indexb = self.getintbound(op.getarg(1))
         if indexb.is_constant():
-            #arrayinfo = self.ensure_ptr_info_arg0(op)
+            arrayinfo = self.ensure_ptr_info_arg0(op)
             # arraybound
-            #arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
-            # use the cache on (arraydescr, index), which is a constant
+            arrayinfo.getlenbound().make_gt_const(indexb.getint())
             cf = self.arrayitem_cache(op.getdescr(), indexb.getint())
             cf.do_setfield(self, op)
         else:
