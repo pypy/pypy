@@ -191,6 +191,47 @@ def _setslice(space, shape, target, source):
     return target
 
 
+def split_iter(arr, axis_flags):
+    """Prepare 2 iterators for nested iteration over `arr`.
+
+    Arguments:
+        arr: instance of BaseConcreteArray
+        axis_flags: list of bools, one for each dimension of `arr`.The inner
+        iterator operates over the dimensions for which the flag is True
+    """
+    shape = arr.get_shape()
+    strides = arr.get_strides()
+    backstrides = arr.get_backstrides()
+    shapelen = len(shape)
+    assert len(axis_flags) == shapelen
+    inner_shape = [-1] * shapelen
+    inner_strides = [-1] * shapelen
+    inner_backstrides = [-1] * shapelen
+    outer_shape = [-1] * shapelen
+    outer_strides = [-1] * shapelen
+    outer_backstrides = [-1] * shapelen
+    for i in range(len(shape)):
+        if axis_flags[i]:
+            inner_shape[i] = shape[i]
+            inner_strides[i] = strides[i]
+            inner_backstrides[i] = backstrides[i]
+            outer_shape[i] = 1
+            outer_strides[i] = 0
+            outer_backstrides[i] = 0
+        else:
+            outer_shape[i] = shape[i]
+            outer_strides[i] = strides[i]
+            outer_backstrides[i] = backstrides[i]
+            inner_shape[i] = 1
+            inner_strides[i] = 0
+            inner_backstrides[i] = 0
+    inner_iter = ArrayIter(arr, support.product(inner_shape),
+                           inner_shape, inner_strides, inner_backstrides)
+    outer_iter = ArrayIter(arr, support.product(outer_shape),
+                           outer_shape, outer_strides, outer_backstrides)
+    return inner_iter, outer_iter
+
+
 reduce_flat_driver = jit.JitDriver(
     name='numpy_reduce_flat',
     greens = ['shapelen', 'func', 'done_func', 'calc_dtype'], reds = 'auto')
@@ -223,34 +264,8 @@ def reduce(space, func, w_arr, axis_flags, dtype, out, identity):
     out_iter, out_state = out.create_iter()
     out_iter.track_index = False
     shape = w_arr.get_shape()
-    strides = w_arr.implementation.get_strides()
-    backstrides = w_arr.implementation.get_backstrides()
     shapelen = len(shape)
-    inner_shape = [-1] * shapelen
-    inner_strides = [-1] * shapelen
-    inner_backstrides = [-1] * shapelen
-    outer_shape = [-1] * shapelen
-    outer_strides = [-1] * shapelen
-    outer_backstrides = [-1] * shapelen
-    for i in range(len(shape)):
-        if axis_flags[i]:
-            inner_shape[i] = shape[i]
-            inner_strides[i] = strides[i]
-            inner_backstrides[i] = backstrides[i]
-            outer_shape[i] = 1
-            outer_strides[i] = 0
-            outer_backstrides[i] = 0
-        else:
-            outer_shape[i] = shape[i]
-            outer_strides[i] = strides[i]
-            outer_backstrides[i] = backstrides[i]
-            inner_shape[i] = 1
-            inner_strides[i] = 0
-            inner_backstrides[i] = 0
-    inner_iter = ArrayIter(w_arr.implementation, support.product(inner_shape),
-                           inner_shape, inner_strides, inner_backstrides)
-    outer_iter = ArrayIter(w_arr.implementation, support.product(outer_shape),
-                           outer_shape, outer_strides, outer_backstrides)
+    inner_iter, outer_iter = split_iter(w_arr.implementation, axis_flags)
     assert outer_iter.size == out_iter.size
 
     if identity is not None:
