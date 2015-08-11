@@ -95,7 +95,7 @@ class PyCode(eval.Code):
         self._signature = cpython_code_signature(self)
         self._initialize()
         self._init_ready()
-        self.vprofs = [ValueProf() for i in range(self.co_nlocals)]
+        self.vprofs = [ValueProf('%s %s' % (self.co_name, self.co_varnames[i])) for i in range(self.co_nlocals)]
 
     def _initialize(self):
         if self.co_cellvars:

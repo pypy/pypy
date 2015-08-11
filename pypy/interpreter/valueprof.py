@@ -10,14 +10,16 @@ class ValueProf(object):
     _mixin_ = True
     _immutable_fields_ = ['_vprof_status?']
 
-    def __init__(self):
+    def __init__(self, msg=''):
         # only if you subclass normally
-        self.init_valueprof()
+        self.init_valueprof(msg)
 
-    def init_valueprof(self):
+    def init_valueprof(self, msg=''):
         self._vprof_status = SEEN_NOTHING
         self._vprof_value_int = 0
         self._vprof_value_wref = dead_ref
+        self._vprof_counter = 0
+        self._vprof_msg = msg
 
     def is_int(self, w_obj):
         raise NotImplementedError("abstract base")
@@ -38,6 +40,10 @@ class ValueProf(object):
         elif status == SEEN_INT:
             if self.read_constant_int() != value:
                 self._vprof_status = SEEN_TOO_MUCH
+            else:
+                self._vprof_counter += 1
+                if self._vprof_counter == 200:
+                    print self._vprof_msg, 'int', value
         elif status == SEEN_OBJ:
             self._vprof_status = SEEN_TOO_MUCH
 
@@ -58,6 +64,10 @@ class ValueProf(object):
         elif status == SEEN_OBJ:
             if self.try_read_constant_obj() is not value:
                 self._vprof_status = SEEN_TOO_MUCH
+            else:
+                self._vprof_counter += 1
+                if self._vprof_counter == 200:
+                    print self._vprof_msg, 'obj', value
 
     def can_fold_read_int(self):
         return self._vprof_status == SEEN_INT
