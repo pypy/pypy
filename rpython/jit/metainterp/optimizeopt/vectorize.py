@@ -460,13 +460,7 @@ class VectorizingOptimizer(Optimizer):
                     sched_data.seen[arg] = None
                 break
         #
-        while scheduler.has_more():
-            position = len(self._newoperations)
-            ops = scheduler.next(renamer, position)
-            for op in ops:
-                if vector:
-                    self.unpack_from_vector(op, sched_data, renamer)
-                self.emit_operation(op)
+        scheduler.emit_into(self._newoperations, renamer, unpack=vector)
         #
         if not we_are_translated():
             for node in self.dependency_graph.nodes:
@@ -489,47 +483,6 @@ class VectorizingOptimizer(Optimizer):
             sched_data.prepend_invariant_operations(self._newoperations,
                                                     self.orig_label_args)
         self.clear_newoperations()
-
-    def unpack_from_vector(self, op, sched_data, renamer):
-        renamer.rename(op)
-        args = op.getarglist()
-
-        # unpack for an immediate use
-        for i, arg in enumerate(op.getarglist()):
-            if isinstance(arg, Box):
-                argument = self._unpack_from_vector(i, arg, sched_data, renamer)
-                if arg is not argument:
-                    op.setarg(i, argument)
-        if op.result:
-            sched_data.seen[op.result] = None
-        # unpack for a guard exit
-        if op.is_guard():
-            fail_args = op.getfailargs()
-            for i, arg in enumerate(fail_args):
-                if arg and isinstance(arg, Box):
-                    argument = self._unpack_from_vector(i, arg, sched_data, renamer)
-                    if arg is not argument:
-                        fail_args[i] = argument
-
-    def _unpack_from_vector(self, i, arg, sched_data, renamer):
-        if arg in sched_data.seen or arg.type == 'V':
-            return arg
-        (j, vbox) = sched_data.getvector_of_box(arg)
-        if vbox:
-            if vbox in sched_data.invariant_vector_vars:
-                return arg
-            arg_cloned = arg.clonebox()
-            sched_data.seen[arg_cloned] = None
-            renamer.start_renaming(arg, arg_cloned)
-            sched_data.setvector_of_box(arg_cloned, j, vbox)
-            cj = ConstInt(j)
-            ci = ConstInt(1)
-            opnum = getunpackopnum(vbox.gettype())
-            unpack_op = ResOperation(opnum, [vbox, cj, ci], arg_cloned)
-            self.costmodel.record_vector_unpack(vbox, j, 1)
-            self.emit_operation(unpack_op)
-            return arg_cloned
-        return arg
 
     def analyse_index_calculations(self):
         ee_pos = self.loop.find_first_index(rop.GUARD_EARLY_EXIT)

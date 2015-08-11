@@ -17,26 +17,13 @@ class Scheduler(object):
         self.graph = graph
         self.schedulable_nodes = self.graph.schedulable_nodes
         self.sched_data = sched_data
+        self.oplist = None
+        self.renamer = None
 
     def has_more(self):
         return len(self.schedulable_nodes) > 0
 
-    def next(self, renamer, position):
-        i = self._next(self.schedulable_nodes)
-        if i >= 0:
-            candidate = self.schedulable_nodes[i]
-            del self.schedulable_nodes[i]
-            return self.schedule(candidate, renamer, position)
-
-        # it happens that packs can emit many nodes that have been
-        # added to the scheuldable_nodes list, in this case it could
-        # be that no next exists even though the list contains elements
-        if not self.has_more():
-            return []
-
-        raise AssertionError("schedule failed cannot continue. possible reason: cycle")
-
-    def _next(self, candidate_list):
+    def next_index(self, candidate_list):
         i = len(candidate_list)-1
         while i >= 0:
             candidate = candidate_list[i]
@@ -64,22 +51,8 @@ class Scheduler(object):
                         return False
         return candidate.depends_count() == 0
 
-    def schedule(self, candidate, renamer, position):
-        if candidate.pack:
-            pack = candidate.pack
-            for node in pack.operations:
-                renamer.rename(node.getoperation())
-            vops = self.sched_data.as_vector_operation(pack, renamer)
-            for node in pack.operations:
-                self.scheduled(node, position)
-            return vops
-        else:
-            self.scheduled(candidate, position)
-            renamer.rename(candidate.getoperation())
-            return [candidate.getoperation()]
-
-    def scheduled(self, node, position):
-        node.position = position
+    def scheduled(self, node):
+        node.position = len(self.oplist)
         for dep in node.provides()[:]: # COPY
             to = dep.to
             node.remove_edge_to(to)
@@ -104,6 +77,26 @@ class Scheduler(object):
                     nodes.insert(0, to)
         node.clear_dependencies()
         node.emitted = True
+
+    def emit_into(self, oplist, renamer, unpack=False):
+        self.renamer = renamer
+        self.oplist = oplist
+        self.unpack = unpack
+        while self.has_more():
+            i = self.next_index(self.schedulable_nodes)
+            if i >= 0:
+                candidate = self.schedulable_nodes[i]
+                del self.schedulable_nodes[i]
+                self.sched_data.schedule_candidate(self, candidate)
+                continue
+
+            # it happens that packs can emit many nodes that have been
+            # added to the scheuldable_nodes list, in this case it could
+            # be that no next exists even though the list contains elements
+            if not self.has_more():
+                break
+
+            raise AssertionError("schedule failed cannot continue. possible reason: cycle")
 
 def vectorbox_outof_box(box, count=-1, size=-1, type='-'):
     if box.type not in (FLOAT, INT):
@@ -251,22 +244,6 @@ class OpToVectorOp(object):
         self.output_type = None
         self.costmodel = None
 
-    def check_if_pack_supported(self, pack):
-        op0 = pack.operations[0].getoperation()
-        if self.input_type is None:
-            # must be a load/guard op
-            return
-        insize = self.input_type.getsize()
-        if op0.casts_box():
-            # prohibit the packing of signext calls that
-            # cast to int16/int8.
-            _, outsize = op0.cast_to()
-            self.sched_data._prevent_signext(outsize, insize)
-        if op0.getopnum() == rop.INT_MUL:
-            if insize == 8 or insize == 1:
-                # see assembler for comment why
-                raise NotAProfitableLoop
-
     def as_vector_operation(self, pack, sched_data, oplist):
         self.sched_data = sched_data
         self.vecops = oplist
@@ -297,6 +274,23 @@ class OpToVectorOp(object):
 
     def before_argument_transform(self, args):
         pass
+
+    def check_if_pack_supported(self, pack):
+        op0 = pack.operations[0].getoperation()
+        if self.input_type is None:
+            # must be a load/guard op
+            return
+        insize = self.input_type.getsize()
+        if op0.casts_box():
+            # prohibit the packing of signext calls that
+            # cast to int16/int8.
+            _, outsize = op0.cast_to()
+            self.sched_data._prevent_signext(outsize, insize)
+        if op0.getopnum() == rop.INT_MUL:
+            if insize == 8 or insize == 1:
+                # see assembler for comment why
+                raise NotAProfitableLoop
+
 
     def transform_pack(self):
         op = self.pack.leftmost()
@@ -754,30 +748,89 @@ class VecScheduleData(SchedulerData):
             self.inputargs[arg] = None
         self.seen = {}
 
-    def _prevent_signext(self, outsize, insize):
-        if insize != outsize:
-            if outsize < 4 or insize < 4:
-                raise NotAProfitableLoop
+    def schedule_candidate(self, scheduler, candidate):
+        """ if you implement a scheduler this operations is called
+        to emit the actual operation into the oplist of the scheduler
+        """
+        renamer = scheduler.renamer
+        if candidate.pack:
+            for node in candidate.pack.operations:
+                self.unpack_from_vector(candidate.getoperation(), renamer)
+                scheduler.scheduled(node)
+                #renamer.rename(node.getoperation())
+            self.as_vector_operation(scheduler, candidate.pack)
+        else:
+            self.unpack_from_vector(candidate.getoperation(), renamer)
+            scheduler.scheduled(candidate)
+            #renamer.rename(candidate.getoperation())
+            op = candidate.getoperation()
+            scheduler.oplist.append(op)
 
-    def as_vector_operation(self, pack, preproc_renamer):
+    def as_vector_operation(self, scheduler, pack):
         assert pack.opcount() > 1
         # properties that hold for the pack are:
         # + isomorphism (see func above)
         # + tightly packed (no room between vector elems)
 
-        oplist = []
+        oplist = scheduler.oplist
+        position = len(oplist)
         op = pack.operations[0].getoperation()
         determine_trans(op).as_vector_operation(pack, self, oplist)
         #
+        # XXX
         if pack.is_accumulating():
-            box = oplist[0].result
+            box = oplist[position].result
             assert box is not None
             for node in pack.operations:
                 op = node.getoperation()
                 assert op.result is not None
                 preproc_renamer.start_renaming(op.result, box)
-        #
-        return oplist
+
+    def unpack_from_vector(self, op, renamer):
+        renamer.rename(op)
+        args = op.getarglist()
+
+        # unpack for an immediate use
+        for i, arg in enumerate(op.getarglist()):
+            if isinstance(arg, Box):
+                argument = self._unpack_from_vector(i, arg, renamer)
+                if arg is not argument:
+                    op.setarg(i, argument)
+        if op.result:
+            self.seen[op.result] = None
+        # unpack for a guard exit
+        if op.is_guard():
+            fail_args = op.getfailargs()
+            for i, arg in enumerate(fail_args):
+                if arg and isinstance(arg, Box):
+                    argument = self._unpack_from_vector(i, arg, renamer)
+                    if arg is not argument:
+                        fail_args[i] = argument
+
+    def _unpack_from_vector(self, i, arg, renamer):
+        if arg in self.seen or arg.type == 'V':
+            return arg
+        (j, vbox) = self.getvector_of_box(arg)
+        if vbox:
+            if vbox in self.invariant_vector_vars:
+                return arg
+            arg_cloned = arg.clonebox()
+            self.seen[arg_cloned] = None
+            renamer.start_renaming(arg, arg_cloned)
+            self.setvector_of_box(arg_cloned, j, vbox)
+            cj = ConstInt(j)
+            ci = ConstInt(1)
+            opnum = getunpackopnum(vbox.gettype())
+            unpack_op = ResOperation(opnum, [vbox, cj, ci], arg_cloned)
+            self.costmodel.record_vector_unpack(vbox, j, 1)
+            self.emit_operation(unpack_op)
+            return arg_cloned
+        return arg
+
+    def _prevent_signext(self, outsize, insize):
+        if insize != outsize:
+            if outsize < 4 or insize < 4:
+                raise NotAProfitableLoop
 
     def getvector_of_box(self, arg):
         return self.box_to_vbox.get(arg, (-1, None))
