@@ -333,6 +333,9 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         else:
             self._items = [None] * size
 
+    def all_items(self):
+        return self._items
+
     def _force_elements(self, op, optforce, descr):
         arraydescr = op.getdescr()
         for i in range(self.length):

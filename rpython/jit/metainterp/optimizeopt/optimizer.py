@@ -64,8 +64,11 @@ class Optimization(object):
         op = self.get_box_replacement(op)
         if op.is_constant():
             return
-        assert op.get_forwarded() is None
-        op.set_forwarded(bound)
+        cur = op.get_forwarded()
+        if cur is not None:
+            cur.intersect(bound)
+        else:
+            op.set_forwarded(bound)
 
     def getnullness(self, op):
         if op.type == 'i':

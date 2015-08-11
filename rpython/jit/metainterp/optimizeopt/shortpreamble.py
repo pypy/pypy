@@ -273,12 +273,14 @@ class ShortPreambleBuilder(object):
                 arg.set_forwarded(None)
                 #self.force_info_from(arg) <- XXX?
         self.short.append(preamble_op)
+        if preamble_op.is_ovf():
+            self.short.append(ResOperation(rop.GUARD_NO_OVERFLOW, [], None))
         info = preamble_op.get_forwarded()
         preamble_op.set_forwarded(None)
         if info is not empty_info:
             info.make_guards(preamble_op, self.short)
         if optimizer is not None:
-            optimizer.setinfo_from_preamble(box, info)
+            optimizer.setinfo_from_preamble(box, info, None)
         return preamble_op
 
     def add_preamble_op(self, preamble_op):
