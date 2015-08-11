@@ -291,4 +291,4 @@ class TestUnroll(BaseTestUnroll):
         jump(p1)
         """
         es, loop, preamble = self.optimize(ops)
-        xxx
+        # assert did not crash
