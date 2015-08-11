@@ -1,4 +1,4 @@
-from rpython.rlib import jit
+from rpython.rlib import jit, objectmodel
 from rpython.rlib.rweakref import ref, dead_ref
 
 SEEN_NOTHING = '\x00'
@@ -26,7 +26,10 @@ class ValueProf(object):
     def get_int_val(self, w_obj):
         raise NotImplementedError("abstract base")
 
+    @objectmodel.always_inline
     def see_write(self, w_value):
+        if self._vprof_status == SEEN_TOO_MUCH:
+            return
         if self.is_int(w_value):
             return self.see_int(self.get_int_val(w_value))
         return self.see_object(w_value)
