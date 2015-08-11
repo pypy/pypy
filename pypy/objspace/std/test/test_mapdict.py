@@ -14,6 +14,7 @@ space = FakeSpace()
 space.config = Config
 
 class Class(object):
+    name = 'testing'
     def __init__(self, hasdict=True):
         self.hasdict = True
         if hasdict:
@@ -33,7 +34,7 @@ class Object(Object):
         hasdict = False
 
 def test_plain_attribute():
-    w_cls = "class"
+    w_cls = None
     aa = PlainAttribute(("b", DICT),
                         PlainAttribute(("a", DICT),
                                        Terminator(space, w_cls)))
@@ -61,7 +62,7 @@ def test_plain_attribute():
     assert aa.get_terminator() is aa.back.back
 
 def test_huge_chain():
-    current = Terminator(space, "cls")
+    current = Terminator(space, None)
     for i in range(20000):
         current = PlainAttribute((str(i), DICT), current)
     assert current.find_map_attr(("0", DICT)).storageindex == 0
