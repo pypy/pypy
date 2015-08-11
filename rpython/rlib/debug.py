@@ -442,19 +442,26 @@ if not sys.platform.startswith('win'):
             eci = ExternalCompilationInfo(includes=['string.h', 'assert.h',
                                                     'sys/prctl.h'],
                                           post_include_bits=["""
+/* If we have an old Linux kernel (or compile with old system headers),
+   the following two macros are not defined.  But we would still like
+   a pypy translated on such a system to run on a more modern system. */
+#ifndef PR_SET_PTRACER
+#  define PR_SET_PTRACER 0x59616d61
+#endif
+#ifndef PR_SET_PTRACER_ANY
+#  define PR_SET_PTRACER_ANY ((unsigned long)-1)
+#endif
 static void pypy__allow_attach(void) {
     prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY);
-    return;
 }
 """])
+            allow_attach = rffi.llexternal(
+                "pypy__allow_attach", [], lltype.Void,
+                compilation_info=eci, _nowrapper=True)
         else:
             # Do nothing, there's no prctl
-            eci = ExternalCompilationInfo(post_include_bits=[
-                "static void pypy__allow_attach(void) { return; }"])
-
-        allow_attach = rffi.llexternal(
-            "pypy__allow_attach", [], lltype.Void,
-            compilation_info=eci, _nowrapper=True)
+            def allow_attach():
+                pass
 
         def impl_attach_gdb():
             import os
