@@ -63,3 +63,8 @@ Allow multiple axes in ufunc.reduce()
 .. branch: fix-tinylang-goals
 
 Update tinylang goals to match current rpython
+
+.. branch: vecopt
+.. branch: vecopt-merge
+
+A new optimization pass to use SIMD instructions for trace loop that allow this
