@@ -128,6 +128,9 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         assert not self.is_virtual()
         self._fields = [None] * len(self._fields)
 
+    def all_items(self):
+        return self._fields
+
     def setfield(self, descr, struct, op, optheap=None, cf=None):
         self.init_fields(descr.get_parent_descr(), descr.get_index())
         assert isinstance(op, AbstractValue)
@@ -175,7 +178,6 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         getfield_op = ResOperation(opnum, [structbox], descr=descr)
         shortboxes.add_heap_op(op, getfield_op)
 
-
 class InstancePtrInfo(AbstractStructPtrInfo):
     _attrs_ = ('_known_class',)
     _fields = None
@@ -192,6 +194,14 @@ class InstancePtrInfo(AbstractStructPtrInfo):
         fielddescrs = self.vdescr.get_all_fielddescrs()
         assert self.is_virtual()
         return visitor.visit_virtual(self.vdescr, fielddescrs)
+
+    def make_guards(self, op, short):
+        if self._known_class is not None:
+            op = ResOperation(rop.GUARD_NONNULL_CLASS, [op, self._known_class],
+                              None)
+            short.append(op)
+        else:
+            AbstractStructPtrInfo.make_guards(self, op, short)
 
 class StructPtrInfo(AbstractStructPtrInfo):
     def __init__(self, vdescr=None):

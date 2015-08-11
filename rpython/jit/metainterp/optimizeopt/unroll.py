@@ -26,12 +26,22 @@ class UnrollableOptimizer(Optimizer):
             return op
         return preamble_op
 
-    def setinfo_from_preamble(self, op, preamble_info):
+    def setinfo_from_preamble_list(self, lst, infos):
+        for item in lst:
+            if item is None:
+                continue
+            i = infos.get(item, None)
+            if i is not None:
+                self.setinfo_from_preamble(item, i, infos)
+
+    def setinfo_from_preamble(self, op, preamble_info, exported_infos):
         op = self.get_box_replacement(op)
         if isinstance(preamble_info, info.PtrInfo):
             if preamble_info.is_virtual():
                 # XXX do we want to sanitize this?
                 op.set_forwarded(preamble_info)
+                self.setinfo_from_preamble_list(preamble_info.all_items(),
+                                          exported_infos)
                 return
             if op.is_constant():
                 return # nothing we can learn
@@ -245,6 +255,8 @@ class UnrollOptimizer(Optimization):
         for arg in end_args:
             infos[arg] = self.optimizer.getinfo(arg)
         label_args = virtual_state.make_inputargs(end_args, self.optimizer)
+        for arg in label_args:
+            infos[arg] = self.optimizer.getinfo(arg)            
         sb = ShortBoxes()
         short_boxes = sb.create_short_boxes(self.optimizer, renamed_inputargs,
                                             label_args)
@@ -314,7 +326,8 @@ class UnrollOptimizer(Optimization):
                 source.set_forwarded(target)
             info = exported_state.exported_infos.get(target, None)
             if info is not None:
-                self.optimizer.setinfo_from_preamble(source, info)
+                self.optimizer.setinfo_from_preamble(source, info,
+                                        exported_state.exported_infos)
         # import the optimizer state, starting from boxes that can be produced
         # by short preamble
         self.short_preamble_producer = ShortPreambleBuilder(

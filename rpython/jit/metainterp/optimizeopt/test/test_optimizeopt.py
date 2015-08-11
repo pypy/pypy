@@ -2776,7 +2776,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = getfield_gc_r(p1, descr=otherdescr)
         guard_nonnull(ConstPtr(nodeaddr)) []
         guard_class(p3, ConstClass(node_vtable)) []
-        setfield_gc(p3, p2, descr=otherdescr)
+        setfield_gc(p3, p2, descr=nextdescr)
         p1a = new_with_vtable(descr=nodesize2)
         p2a = new_with_vtable(descr=nodesize)
         p3a = new_with_vtable(descr=nodesize)
@@ -2793,7 +2793,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = getfield_gc_r(p1, descr=otherdescr)
         guard_class(p3, ConstClass(node_vtable)) []
         p3a = new_with_vtable(descr=nodesize)
-        setfield_gc(p3, p2, descr=otherdescr)
+        setfield_gc(p3, p2, descr=nextdescr)
         escape_n(p3a)
         jump(p3a)
         """
@@ -2807,7 +2807,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # p2a = new_with_vtable(descr=nodesize)
         p3anew = new_with_vtable(descr=nodesize)
         p2 = new_with_vtable(descr=nodesize)
-        setfield_gc(p3a, p2, descr=otherdescr) # p3a.other = p2a
+        setfield_gc(p3a, p2, descr=nextdescr) # p3a.other = p2a
         escape_n(p3anew)
         jump(p3anew)
         """
@@ -2819,10 +2819,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_nonnull(p1) []
         guard_class(p1, ConstClass(node_vtable2)) []
         p2 = getfield_gc_r(p1, descr=nextdescr)
-        guard_nonnull(12) []
+        guard_nonnull(ConstPtr(nodeaddr)) []
         guard_class(p2, ConstClass(node_vtable)) []
         p3 = getfield_gc_r(p1, descr=otherdescr)
-        guard_nonnull(12) []
+        guard_nonnull(ConstPtr(nodeaddr)) []
         guard_class(p3, ConstClass(node_vtable)) []
         p1a = new_with_vtable(descr=nodesize2)
         p2a = new_with_vtable(descr=nodesize)
