@@ -38,6 +38,8 @@ class ValueProf(object):
             self._vprof_status = SEEN_INT
         elif status == SEEN_INT:
             if self.read_constant_int() != value:
+                if self._vprof_counter >= 200:
+                    print "NO LONGER CONSTANT", self._vprof_msg, 'int', value
                 self._vprof_status = SEEN_TOO_MUCH
             else:
                 self._vprof_counter += 1
@@ -45,6 +47,8 @@ class ValueProf(object):
                     print self._vprof_msg, 'int', value
         elif status == SEEN_OBJ:
             self._vprof_status = SEEN_TOO_MUCH
+            if self._vprof_counter >= 200:
+                print "NO LONGER CONSTANT", self._vprof_msg, 'int', value
 
     def see_object(self, value):
         status = self._vprof_status
@@ -59,9 +63,13 @@ class ValueProf(object):
                 # for tests, which really use unwrapped ints in a few places
                 self._vprof_status = SEEN_TOO_MUCH
         elif status == SEEN_INT:
+            if self._vprof_counter >= 200:
+                print "NO LONGER CONSTANT", self._vprof_msg, 'obj', value
             self._vprof_status = SEEN_TOO_MUCH
         elif status == SEEN_OBJ:
             if self.try_read_constant_obj() is not value:
+                if self._vprof_counter >= 200:
+                    print "NO LONGER CONSTANT", self._vprof_msg, 'obj', value
                 self._vprof_status = SEEN_TOO_MUCH
             else:
                 self._vprof_counter += 1
