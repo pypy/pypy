@@ -45,9 +45,10 @@ class ValueProf(object):
                     print "NO LONGER CONSTANT", self._vprof_msg, 'int', value
                 self._vprof_status = SEEN_TOO_MUCH
             else:
-                self._vprof_counter += 1
-                if self._vprof_counter == 200:
-                    print self._vprof_msg, 'int', value
+                if not jit.we_are_jitted():
+                    self._vprof_counter += 1
+                    if self._vprof_counter == 200:
+                        print self._vprof_msg, 'int', value
         elif status == SEEN_OBJ:
             self._vprof_status = SEEN_TOO_MUCH
             if self._vprof_counter >= 200:
@@ -75,9 +76,10 @@ class ValueProf(object):
                     print "NO LONGER CONSTANT", self._vprof_msg, 'obj', value
                 self._vprof_status = SEEN_TOO_MUCH
             else:
-                self._vprof_counter += 1
-                if self._vprof_counter == 200:
-                    print self._vprof_msg, 'obj', value
+                if not jit.we_are_jitted():
+                    self._vprof_counter += 1
+                    if self._vprof_counter == 200:
+                        print self._vprof_msg, 'obj', value
 
     def can_fold_read_int(self):
         return self._vprof_status == SEEN_INT
