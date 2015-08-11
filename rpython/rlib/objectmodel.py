@@ -806,10 +806,14 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
     flatten = {}
     caller = sys._getframe(1)
     caller_name = caller.f_globals.get('__name__')
+    immutable_fields = []
     for base in inspect.getmro(M):
         if base is object:
             continue
         for key, value in base.__dict__.items():
+            if key == '_immutable_fields_':
+                immutable_fields.extend(value)
+                continue
             if key.startswith('__') and key.endswith('__'):
                 if key not in special_methods:
                     continue
@@ -836,3 +840,5 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
             raise Exception("import_from_mixin: would overwrite the value "
                             "already defined locally for %r" % (key,))
         target[key] = value
+    if immutable_fields:
+        target['_immutable_fields_'] = target.get('_immutable_fields_', []) + immutable_fields
