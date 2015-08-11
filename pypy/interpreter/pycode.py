@@ -50,14 +50,23 @@ def cpython_code_signature(code):
     kwargname = varnames[argcount] if code.co_flags & CO_VARKEYWORDS else None
     return Signature(argnames, varargname, kwargname)
 
+class ValueProf(valueprof.ValueProf):
+    def is_int(self, w_obj):
+        from pypy.objspace.std.intobject import W_IntObject
+        return type(w_obj) is W_IntObject
+
+    def get_int_val(self, w_obj):
+        from pypy.objspace.std.intobject import W_IntObject
+        assert isinstance(w_obj, W_IntObject)
+        return w_obj.intval
 
 class PyCode(eval.Code):
     "CPython-style code objects."
     _immutable_ = True
     _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
                           "co_freevars[*]", "co_cellvars[*]",
-                          "_args_as_cellvars[*]", "vprof"]
-    
+                          "_args_as_cellvars[*]", "vprofs[*]"]
+
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
@@ -86,8 +95,7 @@ class PyCode(eval.Code):
         self._signature = cpython_code_signature(self)
         self._initialize()
         space.register_code_object(self)
-        self.vprof = valueprof.ValueProf(self.co_nlocals)
-        self.printed = [False] * self.co_nlocals
+        self.vprofs = [ValueProf() for i in range(self.co_nlocals)]
 
     def _initialize(self):
         if self.co_cellvars:

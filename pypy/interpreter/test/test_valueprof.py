@@ -1,45 +1,85 @@
-from pypy.interpreter.valueprof import ValueProf
+from pypy.interpreter.valueprof import *
 
 class Value():
     pass
 
-def test_simple():
-    v = ValueProf(2)
-    v.see_int(0, 1)
-    v.see_int(0, 1)
-    v.see_int(0, 1)
-    v.see_int(0, 1)
-    assert v.values_int[0] == 1
-    assert v.counters[0] == -4
 
-    v.see_int(0, 5)
-    v.see_int(0, 5)
-    v.see_int(0, 5)
-    v.see_int(0, 5)
-    v.see_int(0, 5)
-    assert v.values_int[0] == 5
-    assert v.counters[0] == -5
+class ValueInt(Value):
+    def __init__(self, val):
+        self.intval = val
 
-    val1 = Value()
-    v.see_object(0, val1)
-    v.see_object(0, val1)
-    v.see_object(0, val1)
-    v.see_object(0, val1)
-    assert v.values_wref[0]() is val1
-    assert v.counters[0] == 4
 
-    v.see_object(0, None)
-    assert v.counters[0] == 0
+class ValueProf(ValueProf):
+    def is_int(self, val):
+        return isinstance(val, ValueInt)
 
-def test_freeze():
-    v = ValueProf(2)
-    v.see_int(0, 1)
-    v.see_int(0, 1)
-    v.see_int(0, 1)
-    v.see_int(0, 1)
-    v.see_int(0, 1)
-    v.see_int(0, 1)
-    v.see_int(0, 1)
-    v.freeze()
-    v.see_int(0, 2)
-    assert v.values_int[0] == 1
+    def get_int_val(self, val):
+        return val.intval
+
+
+def test_int():
+    v = ValueProf()
+    assert v.status == SEEN_NOTHING
+    v.see_write(ValueInt(1))
+    v.see_write(ValueInt(1))
+    v.see_write(ValueInt(1))
+    v.see_write(ValueInt(1))
+    assert v.read_constant_int() == 1
+    assert v.status == SEEN_INT
+    v.see_int(2)
+    assert v.status == SEEN_TOO_MUCH
+    v.see_int(1)
+    assert v.status == SEEN_TOO_MUCH
+    v.see_int(2)
+    assert v.status == SEEN_TOO_MUCH
+    v.see_int(3)
+    assert v.status == SEEN_TOO_MUCH
+
+    v = ValueProf()
+    assert v.status == SEEN_NOTHING
+    v.see_write(ValueInt(1))
+    v.see_write(Value())
+    assert v.status == SEEN_TOO_MUCH
+    v.see_write(Value())
+    assert v.status == SEEN_TOO_MUCH
+
+
+def test_obj():
+    v = ValueProf()
+    value = Value()
+    assert v.status == SEEN_NOTHING
+    v.see_write(value)
+    v.see_write(value)
+    v.see_write(value)
+    v.see_write(value)
+    assert v.try_read_constant_obj() is value
+    assert v.status == SEEN_OBJ
+    v.see_int(2)
+    assert v.status == SEEN_TOO_MUCH
+
+    v = ValueProf()
+    assert v.status == SEEN_NOTHING
+    v.see_write(Value())
+    v.see_write(Value())
+    assert v.status == SEEN_TOO_MUCH
+
+
+def test_none():
+    v = ValueProf()
+    assert v.status == SEEN_NOTHING
+    v.see_write(None)
+    assert v.status == SEEN_TOO_MUCH
+    v.see_write(None)
+    assert v.status == SEEN_TOO_MUCH
+
+    v = ValueProf()
+    v.see_write(ValueInt(1))
+    assert v.status == SEEN_INT
+    v.see_write(None)
+    assert v.status == SEEN_TOO_MUCH
+
+    v = ValueProf()
+    v.see_write(Value())
+    assert v.status == SEEN_OBJ
+    v.see_write(None)
+    assert v.status == SEEN_TOO_MUCH

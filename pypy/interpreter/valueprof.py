@@ -1,75 +1,74 @@
 from rpython.rlib import jit
 from rpython.rlib.rweakref import ref, dead_ref
 
+SEEN_NOTHING = '\x00'
+SEEN_INT = '\x01'
+SEEN_OBJ = '\x02'
+SEEN_TOO_MUCH = '\x03'
+
 class ValueProf(object):
-    def __init__(self, size, threshold=200):
-        self.values_wref = [dead_ref] * size
-        self.values_int = [-1] * size
-        self.counters = [0] * size
-        self.threshold = 200
-        self.frozen = False
+    _mixin_ = True
+    _immutable_fields_ = ['status?']
 
-    @jit.elidable
-    def freeze(self):
-        # this works because we only ever change it in one direction
-        self.frozen = True
-        return True
+    def __init__(self):
+        # only if you subclass normally
+        self.init_valueprof()
 
-    def see_int(self, index, value):
-        if self.frozen:
-            return 0
-        count = self.counters[index]
-        if count < 0:
-            if self.values_int[index] == value:
-                new_count = count - 1
-                self.counters[index] = new_count
-                return -new_count
-        else:
-            self.values_wref[index] = dead_ref
-        self.values_int[index] = value
-        self.counters[index] = -1
-        return 1
+    def init_valueprof(self):
+        self.status = SEEN_NOTHING
+        self.value_int = 0
+        self.value_wref = dead_ref
 
-    def see_object(self, index, value):
-        if self.frozen:
-            return 0
+    def is_int(self, w_obj):
+        raise NotImplementedError("abstract base")
+
+    def get_int_val(self, w_obj):
+        raise NotImplementedError("abstract base")
+
+    def see_write(self, w_value):
+        if self.is_int(w_value):
+            return self.see_int(self.get_int_val(w_value))
+        return self.see_object(w_value)
+
+    def see_int(self, value):
+        status = self.status
+        if status == SEEN_NOTHING:
+            self.value_int = value
+            self.status = SEEN_INT
+        elif status == SEEN_INT:
+            if self.read_constant_int() != value:
+                self.status = SEEN_TOO_MUCH
+        elif status == SEEN_OBJ:
+            self.status = SEEN_TOO_MUCH
+
+    def see_object(self, value):
+        status = self.status
         if value is None:
-            self.values_wref[index] = dead_ref
-            self.counters[index] = 0
-            return 0
-        count = self.counters[index]
-        if count > 0:
-            if self.values_wref[index]() is value:
-                new_count = count + 1
-                self.counters[index] = new_count
-                return new_count
-        else:
-            self.values_int[index] = -1
-        self.values_wref[index] = ref(value)
-        self.counters[index] = 1
-        return 1
+            if status != SEEN_TOO_MUCH:
+                self.status = SEEN_TOO_MUCH
+        elif status == SEEN_NOTHING:
+            self.value_wref = ref(value)
+            self.status = SEEN_OBJ
+        elif status == SEEN_INT:
+            self.status = SEEN_TOO_MUCH
+        elif status == SEEN_OBJ:
+            if self.try_read_constant_obj() is not value:
+                self.status = SEEN_TOO_MUCH
+
+    def can_fold_read_int(self):
+        return self.status == SEEN_INT
+
+    def can_fold_read_obj(self):
+        return self.status == SEEN_OBJ
 
     @jit.elidable
-    def is_variable_constant(self, index):
-        assert self.frozen
-        counter = self.counters[index]
-        if counter > 0:
-            return counter > self.threshold
-        else:
-            return -counter > self.threshold
+    def read_constant_int(self):
+        assert self.can_fold_read_int()
+        return self.value_int
 
     @jit.elidable
-    def is_variable_int(self, index):
-        assert self.frozen
-        assert self.is_variable_constant(index)
-        return self.counters[index] < 0
+    def try_read_constant_obj(self):
+        assert self.can_fold_read_obj()
+        return self.value_wref()
 
-    @jit.elidable
-    def variable_value_int(self, index):
-        assert self.is_variable_int(index)
-        return self.values_int[index]
 
-    @jit.elidable
-    def variable_value_object(self, index):
-        assert self.is_variable_constant(index) and not self.is_variable_int(index)
-        return self.values_wref[index]()

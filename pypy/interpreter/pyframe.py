@@ -147,22 +147,16 @@ class PyFrame(W_Root):
 
     def _getlocal(self, varindex):
         from pypy.objspace.std.intobject import W_IntObject
-        w_res = self.locals_cells_stack_w[varindex]
         if we_are_jitted():
-            vprof = self.getcode().vprof
+            vprof = self.getcode().vprofs[varindex]
             # some careful logic there
-            frozen = vprof.freeze()
-            assert frozen
-            if vprof.is_variable_constant(varindex):
-                if vprof.is_variable_int(varindex):
-                    res_prof = vprof.variable_value_int(varindex)
-                    if isinstance(w_res, W_IntObject):
-                        if w_res.intval == res_prof:
-                            return W_IntObject(res_prof)
-                else:
-                    w_res_prof = vprof.variable_value_object(varindex)
-                    if w_res is w_res_prof:
-                        return w_res_prof
+            if vprof.can_fold_read_int():
+                return W_IntObject(vprof.read_constant_int())
+            elif vprof.can_fold_read_obj():
+                w_res = vprof.try_read_constant_obj()
+                if w_res is not None:
+                    return w_res
+        w_res = self.locals_cells_stack_w[varindex]
         return w_res
 
     def _setlocal(self, varindex, value):
@@ -171,16 +165,8 @@ class PyFrame(W_Root):
 
     def _value_profile_local(self, varindex, value):
         from pypy.objspace.std.intobject import W_IntObject
-        if we_are_jitted():
-            return
-        vprof = self.pycode.vprof
-        if vprof.frozen:
-            return
-        if isinstance(value, W_IntObject):
-            times = vprof.see_int(varindex, value.intval)
-        else:
-            times = self.pycode.vprof.see_object(varindex, value)
-
+        vprof = self.getcode().vprofs[varindex]
+        vprof.see_write(value)
 
     def mark_as_escaped(self):
         """
