@@ -826,8 +826,7 @@ class TestFlatten:
                             "int_return %i0",
                         ]
                     else:
-                    expected.insert(0,
-                        "residual_call_irf_i $<* fn llong_to_int>, I[], R[], F[%f0], <Descr> -> %i0")
+                        expected.insert(0, "residual_call_irf_i $<* fn llong_to_int>, I[], R[], F[%f0], <Descr> -> %i0")
                     expectedstr = '\n'.join(expected)
                     self.encoding_test(f, [rffi.cast(FROM, 42)], expectedstr,
                                        transform=True)
