@@ -7,7 +7,6 @@ SEEN_OBJ = '\x02'
 SEEN_TOO_MUCH = '\x03'
 
 class ValueProf(object):
-    _mixin_ = True
     _immutable_fields_ = ['_vprof_status?']
 
     def __init__(self, msg=''):
