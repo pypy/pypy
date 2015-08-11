@@ -309,17 +309,17 @@ class W_IntObject(W_AbstractIntObject):
 
     def __init__(self, intval):
         assert is_valid_int(intval)
-        self.intval = intval
+        self.intval = int(intval)
 
     def __repr__(self):
         """representation for debugging purposes"""
         return "%s(%d)" % (self.__class__.__name__, self.intval)
 
     def int_w(self, space, allow_conversion=True):
-        return int(self.intval)
+        return self.intval
 
     def _int_w(self, space):
-        return int(self.intval)
+        return self.intval
 
     unwrap = _int_w
 

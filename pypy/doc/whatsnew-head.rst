@@ -55,3 +55,11 @@ Allow the docstrings of built-in numpy objects to be set at run-time.
 .. branch: nditer-revisited
 
 Implement nditer 'buffered' flag and fix some edge cases
+
+.. branch: ufunc-reduce
+
+Allow multiple axes in ufunc.reduce()
+
+.. branch: fix-tinylang-goals
+
+Update tinylang goals to match current rpython
