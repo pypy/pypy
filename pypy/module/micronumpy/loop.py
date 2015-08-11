@@ -416,6 +416,9 @@ def _new_argmin_argmax(op_name):
     arg_driver = jit.JitDriver(name='numpy_' + op_name,
                                greens = ['shapelen', 'dtype'],
                                reds = 'auto')
+    arg_flat_driver = jit.JitDriver(name='numpy_flat_' + op_name,
+                                    greens = ['shapelen', 'dtype'],
+                                    reds = 'auto')
 
     def argmin_argmax(space, w_arr, w_out, axis):
         from pypy.module.micronumpy.descriptor import get_dtype_cache
@@ -457,7 +460,7 @@ def _new_argmin_argmax(op_name):
         state = iter.next(state)
         shapelen = len(w_arr.get_shape())
         while not iter.done(state):
-            arg_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
+            arg_flat_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
             w_val = iter.getitem(state)
             new_best = getattr(dtype.itemtype, op_name)(cur_best, w_val)
             if dtype.itemtype.ne(new_best, cur_best):
