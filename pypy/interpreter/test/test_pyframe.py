@@ -544,7 +544,6 @@ class TestValueProf(object):
             def f(x):
                 y = x + 1
             return f""")
-        import pdb; pdb.set_trace()
         space.call_function(w_f, space.wrap(1))
         assert len(w_f.code.vprofs) == 2
         assert w_f.code.vprofs[0].can_fold_read_int()
