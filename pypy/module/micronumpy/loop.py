@@ -417,14 +417,45 @@ def _new_argmin_argmax(op_name):
                                greens = ['shapelen', 'dtype'],
                                reds = 'auto')
 
-    def argmin_argmax_flat(arr):
+    def argmin_argmax(space, w_arr, w_out, axis):
+        from pypy.module.micronumpy.descriptor import get_dtype_cache
+        dtype = w_arr.get_dtype()
+        shapelen = len(w_arr.get_shape())
+        axis_flags = [False] * shapelen
+        axis_flags[axis] = True
+        inner_iter, outer_iter = split_iter(w_arr.implementation, axis_flags)
+        outer_state = outer_iter.reset()
+        out_iter, out_state = w_out.create_iter()
+        while not outer_iter.done(outer_state):
+            inner_state = inner_iter.reset()
+            inner_state.offset = outer_state.offset
+            cur_best = inner_iter.getitem(inner_state)
+            inner_state = inner_iter.next(inner_state)
+            result = 0
+            idx = 1
+            while not inner_iter.done(inner_state):
+                arg_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
+                w_val = inner_iter.getitem(inner_state)
+                new_best = getattr(dtype.itemtype, op_name)(cur_best, w_val)
+                if dtype.itemtype.ne(new_best, cur_best):
+                    result = idx
+                    cur_best = new_best
+                inner_state = inner_iter.next(inner_state)
+                idx += 1
+            result = get_dtype_cache(space).w_longdtype.box(result)
+            out_iter.setitem(out_state, result)
+            out_state = out_iter.next(out_state)
+            outer_state = outer_iter.next(outer_state)
+        return w_out
+
+    def argmin_argmax_flat(w_arr):
         result = 0
         idx = 1
-        dtype = arr.get_dtype()
-        iter, state = arr.create_iter()
+        dtype = w_arr.get_dtype()
+        iter, state = w_arr.create_iter()
         cur_best = iter.getitem(state)
         state = iter.next(state)
-        shapelen = len(arr.get_shape())
+        shapelen = len(w_arr.get_shape())
         while not iter.done(state):
             arg_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
             w_val = iter.getitem(state)
@@ -435,9 +466,10 @@ def _new_argmin_argmax(op_name):
             state = iter.next(state)
             idx += 1
         return result
-    return argmin_argmax_flat
-argmin_flat = _new_argmin_argmax('min')
-argmax_flat = _new_argmin_argmax('max')
+
+    return argmin_argmax, argmin_argmax_flat
+argmin, argmin_flat = _new_argmin_argmax('min')
+argmax, argmax_flat = _new_argmin_argmax('max')
 
 dot_driver = jit.JitDriver(name = 'numpy_dot',
                            greens = ['dtype'],

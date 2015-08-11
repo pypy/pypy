@@ -23,6 +23,8 @@ from pypy.module.micronumpy.strides import (
     get_shape_from_iterable, shape_agreement, shape_agreement_multiple,
     is_c_contiguous, is_f_contiguous, calc_strides, new_view)
 from pypy.module.micronumpy.casting import can_cast_array
+from pypy.module.micronumpy.descriptor import get_dtype_cache
+
 
 
 def _match_dot_shapes(space, left, right):
@@ -484,7 +486,7 @@ class __extend__(W_NDimArray):
         return self.implementation.swapaxes(space, self, axis1, axis2)
 
     def descr_nonzero(self, space):
-        index_type = descriptor.get_dtype_cache(space).w_int64dtype
+        index_type = get_dtype_cache(space).w_int64dtype
         return self.implementation.nonzero(space, index_type)
 
     def descr_tolist(self, space):
@@ -812,7 +814,7 @@ class __extend__(W_NDimArray):
             if self.get_dtype().is_bool():
                 # numpy promotes bool.round() to float16. Go figure.
                 w_out = W_NDimArray.from_shape(space, self.get_shape(),
-                    descriptor.get_dtype_cache(space).w_float16dtype)
+                    get_dtype_cache(space).w_float16dtype)
             else:
                 w_out = None
         elif not isinstance(w_out, W_NDimArray):
@@ -820,7 +822,7 @@ class __extend__(W_NDimArray):
                 "return arrays must be of ArrayType"))
         out = descriptor.dtype_agreement(space, [self], self.get_shape(), w_out)
         if out.get_dtype().is_bool() and self.get_dtype().is_bool():
-            calc_dtype = descriptor.get_dtype_cache(space).w_longdtype
+            calc_dtype = get_dtype_cache(space).w_longdtype
         else:
             calc_dtype = out.get_dtype()
 
@@ -839,7 +841,7 @@ class __extend__(W_NDimArray):
             raise oefmt(space.w_ValueError, "a must be a 1-d array")
         v = convert_to_array(space, w_v)
         ret = W_NDimArray.from_shape(
-            space, v.get_shape(), descriptor.get_dtype_cache(space).w_longdtype)
+            space, v.get_shape(), get_dtype_cache(space).w_longdtype)
         if side == NPY.SEARCHLEFT:
             binsearch = loop.binsearch_left
         else:
@@ -1152,7 +1154,7 @@ class __extend__(W_NDimArray):
         def impl(self, space, w_axis=None, w_dtype=None, w_out=None, keepdims=False):
             out = out_converter(space, w_out)
             if bool_result:
-                w_dtype = descriptor.get_dtype_cache(space).w_booldtype
+                w_dtype = get_dtype_cache(space).w_booldtype
             return getattr(ufuncs.get(space), ufunc_name).reduce(
                 space, self, w_axis, keepdims, out, w_dtype)
         impl.__name__ = name
@@ -1196,11 +1198,17 @@ class __extend__(W_NDimArray):
                 raise oefmt(space.w_NotImplementedError,
                             '%s not implemented for %s',
                             op_name, self.get_dtype().get_name())
-            if space.is_none(w_axis):
+            shape = self.get_shape()
+            if space.is_none(w_axis) or len(shape) <= 1:
                 return space.wrap(getattr(loop, op_name_flat)(self))
             else:
-                raise oefmt(space.w_NotImplementedError,
-                            "axis unsupported for %s", op_name)
+                axis = space.int_w(w_axis)
+                assert axis >= 0
+                out_shape = shape[:axis] + shape[axis+1:]
+                dtype = get_dtype_cache(space).w_longdtype
+                w_out = W_NDimArray.from_shape(space, out_shape, dtype)
+                return getattr(loop, op_name)(space, self, w_out, axis)
+
         return func_with_new_name(impl, "reduce_%s_impl" % op_name)
 
     descr_argmax = _reduce_argmax_argmin_impl("max")

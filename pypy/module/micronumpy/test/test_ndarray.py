@@ -1605,20 +1605,21 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.argmax() == 5
         assert a.argmax(axis=None, out=None) == 5
         assert a[:2, ].argmax() == 3
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, a.argmax, axis=0)
+        assert (a.argmax(axis=0) == array([2, 2])).all()
 
     def test_argmin(self):
-        from numpy import array
-        a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
+        import numpy as np
+        a = np.array([-1.2, 3.4, 5.7, -3.0, 2.7])
         assert a.argmin() == 3
+        assert a.argmin(axis=0) == 3
         assert a.argmin(axis=None, out=None) == 3
-        b = array([])
+        b = np.array([])
         raises(ValueError, "b.argmin()")
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, a.argmin, axis=0)
+        c = np.arange(6).reshape(2, 3)
+        assert c.argmin() == 0
+        assert (c.argmin(axis=0) == np.array([0, 0, 0])).all()
+        assert (c.argmin(axis=1) == [0, 0]).all()
+
 
     def test_all(self):
         from numpy import array
@@ -2908,14 +2909,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         exc = raises(IndexError, "b[0, 1] = 42")
         assert str(exc.value) == "unsupported iterator index"
         assert b.index == 1
-        a = array([(False, False, False), 
-                   (False, False, False), 
+        a = array([(False, False, False),
                    (False, False, False),
-                  ], 
+                   (False, False, False),
+                  ],
                    dtype=[('a', '|b1'), ('b', '|b1'), ('c', '|b1')])
-        a.flat = [(True, True, True), 
-                  (True, True, True), 
-                  (True, True, True)] 
+        a.flat = [(True, True, True),
+                  (True, True, True),
+                  (True, True, True)]
         assert (a.view(bool) == True).all()
 
     def test_flatiter_ops(self):
