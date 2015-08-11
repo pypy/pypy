@@ -4,6 +4,7 @@ from rpython.rlib import jit, objectmodel, debug, rerased
 from rpython.rlib.rarithmetic import intmask, r_uint
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter import valueprof
 from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
     BaseValueIterator, BaseItemIterator, _never_equal_to_string
@@ -30,9 +31,17 @@ class AbstractAttribute(object):
         self.terminator = terminator
 
     def read(self, obj, selector):
+        from pypy.objspace.std.intobject import W_IntObject
         attr = self.find_map_attr(selector)
         if attr is None:
             return self.terminator._read_terminator(obj, selector)
+        # XXX move to PlainAttribute?
+        if attr.can_fold_read_int():
+            return W_IntObject(attr.read_constant_int())
+        elif attr.can_fold_read_obj():
+            w_res = attr.try_read_constant_obj()
+            if w_res is not None:
+                return w_res
         if (
             jit.isconstant(attr.storageindex) and
             jit.isconstant(obj) and
@@ -50,6 +59,7 @@ class AbstractAttribute(object):
         attr = self.find_map_attr(selector)
         if attr is None:
             return self.terminator._write_terminator(obj, selector, w_value)
+        attr.see_write(w_value)
         if not attr.ever_mutated:
             attr.ever_mutated = True
         obj._mapdict_write_storage(attr.storageindex, w_value)
@@ -170,6 +180,7 @@ class AbstractAttribute(object):
         # for the benefit of the special subclasses
         obj._set_mapdict_map(attr)
         obj._mapdict_write_storage(attr.storageindex, w_value)
+        attr.see_write(w_value)
 
     def materialize_r_dict(self, space, obj, dict_w):
         raise NotImplementedError("abstract base class")
@@ -274,8 +285,10 @@ class DevolvedDictTerminator(Terminator):
             terminator = terminator.devolved_dict_terminator
         return Terminator.set_terminator(self, obj, terminator)
 
+
 class PlainAttribute(AbstractAttribute):
     _immutable_fields_ = ['selector', 'storageindex', 'back', 'ever_mutated?']
+    objectmodel.import_from_mixin(valueprof.ValueProf)
 
     def __init__(self, selector, back):
         AbstractAttribute.__init__(self, back.space, back.terminator)
@@ -284,6 +297,19 @@ class PlainAttribute(AbstractAttribute):
         self.back = back
         self._size_estimate = self.length() * NUM_DIGITS_POW2
         self.ever_mutated = False
+        self.init_valueprof()
+
+    # ____________________________________________________________
+    # methods for ValueProf mixin
+    def is_int(self, w_obj):
+        from pypy.objspace.std.intobject import W_IntObject
+        return type(w_obj) is W_IntObject
+
+    def get_int_val(self, w_obj):
+        from pypy.objspace.std.intobject import W_IntObject
+        assert isinstance(w_obj, W_IntObject)
+        return w_obj.intval
+    # ____________________________________________________________
 
     def _copy_attr(self, obj, new_obj):
         w_value = self.read(obj, self.selector)

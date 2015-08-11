@@ -47,8 +47,12 @@ class ValueProf(object):
             if status != SEEN_TOO_MUCH:
                 self._vprof_status = SEEN_TOO_MUCH
         elif status == SEEN_NOTHING:
-            self._vprof_value_wref = ref(value)
-            self._vprof_status = SEEN_OBJ
+            try:
+                self._vprof_value_wref = ref(value)
+                self._vprof_status = SEEN_OBJ
+            except TypeError:
+                # for tests, which really use unwrapped ints in a few places
+                self._vprof_status = SEEN_TOO_MUCH
         elif status == SEEN_INT:
             self._vprof_status = SEEN_TOO_MUCH
         elif status == SEEN_OBJ:

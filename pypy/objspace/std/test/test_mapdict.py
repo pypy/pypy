@@ -348,6 +348,31 @@ def test_size_prediction():
                 obj.setdictvalue(space, a, 50)
         assert c.terminator.size_estimate() in [(i + 10) // 2, (i + 11) // 2]
 
+def test_value_profiling(monkeypatch):
+    class Value:
+        pass
+    a = Value()
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", a)
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", a)
+    obj.setdictvalue(space, "a", a)
+
+    def _mapdict_read_storage(storageindex):
+        assert 0 # not reached
+
+    obj._mapdict_read_storage = _mapdict_read_storage
+
+    assert obj.getdictvalue(space, "a") == a
+    assert obj.getdictvalue(space, "a") == a
+
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", a)
+    obj.setdictvalue(space, "a", Value())
+    assert not obj.map.can_fold_read_obj()
+
+
 # ___________________________________________________________
 # dict tests
 
