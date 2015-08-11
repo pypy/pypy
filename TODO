@@ -1,5 +1,12 @@
 ------------------------------------------------------------
 
+the loop in
+  rstm.update_marker_num(intmask(next_instr) * 2 + 1)
+can take up to 10% of dispatch_bytecode for non-JIT.
+(in pyopcode.py)
+
+------------------------------------------------------------
+
 fuse the two 32bit setfield_gc for stmflags & tid in the jit
 (note: unclear if it makes a major difference: a single
 64bit setfield of an immediate that doesn't fit 32bit
