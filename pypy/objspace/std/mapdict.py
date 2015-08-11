@@ -297,7 +297,7 @@ class PlainAttribute(AbstractAttribute):
         self.back = back
         self._size_estimate = self.length() * NUM_DIGITS_POW2
         self.ever_mutated = False
-        self.init_valueprof('%s.%s' % (back.terminator.w_cls.name, selector[0]))
+        self.init_valueprof('%s.%s' % (back.terminator.w_cls.name if back.terminator.w_cls else '???', selector[0]))
 
     # ____________________________________________________________
     # methods for ValueProf mixin
