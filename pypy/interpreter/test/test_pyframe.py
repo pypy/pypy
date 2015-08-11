@@ -536,3 +536,17 @@ class AppTestPyFrame:
         res = f(10).g()
         sys.settrace(None)
         assert res == 10
+
+class TestValueProf(object):
+    def test_argument_is_constant(self):
+        space = self.space
+        w_f = space.appexec([], """():
+            def f(x):
+                y = x + 1
+            return f""")
+        import pdb; pdb.set_trace()
+        space.call_function(w_f, space.wrap(1))
+        assert len(w_f.code.vprofs) == 2
+        assert w_f.code.vprofs[0].can_fold_read_int()
+        assert w_f.code.vprofs[1].can_fold_read_int()
+

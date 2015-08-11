@@ -105,7 +105,9 @@ class Function(W_Root):
                                                    self)
                 for i in funccallunrolling:
                     if i < nargs:
-                        new_frame.locals_cells_stack_w[i] = args_w[i]
+                        w_arg = args_w[i]
+                        new_frame.locals_cells_stack_w[i] = w_arg
+                        new_frame._value_profile_local(i, w_arg)
                 return new_frame.run()
         elif nargs >= 1 and fast_natural_arity == Code.PASSTHROUGHARGS1:
             assert isinstance(code, gateway.BuiltinCodePassThroughArguments1)
