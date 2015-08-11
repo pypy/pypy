@@ -1278,9 +1278,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, p1, p3]
         i28 = int_add(i0, 1)
         p30 = new_with_vtable(descr=nodesize)
-        setfield_gc(p30, i28, descr=nextdescr)
-        setfield_gc(p3, p30, descr=valuedescr)
-        p45 = getfield_gc_r(p3, descr=valuedescr)
+        setfield_gc(p30, i28, descr=valuedescr)
+        setfield_gc(p3, p30, descr=nextdescr)
+        p45 = getfield_gc_r(p3, descr=nextdescr)
         i29 = int_add(i28, 1)
         jump(i29, p45, p3)
         """
@@ -1289,8 +1289,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i28 = int_add(i0, 1)
         i29 = int_add(i0, 2)
         p30 = new_with_vtable(descr=nodesize)
-        setfield_gc(p30, i28, descr=nextdescr)
-        setfield_gc(p3, p30, descr=valuedescr)
+        setfield_gc(p30, i28, descr=valuedescr)
+        setfield_gc(p3, p30, descr=nextdescr)
         #p46 = same_as(p30) # This same_as should be killed by backend
         jump(i29, p30, p3)
         """
@@ -1299,8 +1299,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i28 = int_add(i0, 1)
         i29 = int_add(i0, 2)
         p30 = new_with_vtable(descr=nodesize)
-        setfield_gc(p30, i28, descr=nextdescr)
-        setfield_gc(p3, p30, descr=valuedescr)
+        setfield_gc(p30, i28, descr=valuedescr)
+        setfield_gc(p3, p30, descr=nextdescr)
         jump(i29, p30, p3)
         """
         self.optimize_loop(ops, expected, preamble)
@@ -3924,12 +3924,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p1]
         p0 = force_token()
-        p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
-        setfield_gc(p2, NULL, descr=virtualforceddescr)
+        p2 = new_with_vtable(descr=vref_descr)
         setfield_gc(p2, p0, descr=virtualtokendescr)
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         escape_n(p2)
-        setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, NULL, descr=virtualtokendescr)
+        setfield_gc(p2, p1, descr=virtualforceddescr)
         jump(p1)
         """
         # XXX we should optimize a bit more the case of a nonvirtual.
@@ -4273,13 +4273,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_lt(i0, 5)
         jump(i2)
         """
-        expected = """
+        preamble = """
         [i0]
         i1 = int_lt(i0, 4)
         i2 = int_lt(i0, 5)
         jump(i2)
         """
-        self.optimize_loop(ops, expected, expected)
+        expected = """
+        [i0]
+        jump(1)
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_lt_noopt(self):
         ops = """

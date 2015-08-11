@@ -52,8 +52,7 @@ class PtrInfo(AbstractInfo):
         return None
 
     def make_guards(self, op, short):
-        pass # XXX
-
+        pass
     
 class NonNullPtrInfo(PtrInfo):
     _attrs_ = ('last_guard_pos',)
@@ -84,6 +83,10 @@ class NonNullPtrInfo(PtrInfo):
         if visitor.already_seen_virtual(instbox):
             return
         return self._visitor_walk_recursive(instbox, visitor, optimizer)
+
+    def make_guards(self, op, short):
+        op = ResOperation(rop.GUARD_NONNULL, [op], None)
+        short.append(op)
 
 class AbstractVirtualPtrInfo(NonNullPtrInfo):
     _attrs_ = ('_cached_vinfo', 'vdescr')
