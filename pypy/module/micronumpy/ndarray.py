@@ -1185,13 +1185,8 @@ class __extend__(W_NDimArray):
 
     def _reduce_argmax_argmin_impl(raw_name):
         op_name = "arg%s" % raw_name
+        op_name_flat = "arg%s_flat" % raw_name
         def impl(self, space, w_axis=None, w_out=None):
-            if not space.is_none(w_axis):
-                raise oefmt(space.w_NotImplementedError,
-                            "axis unsupported for %s", op_name)
-            if not space.is_none(w_out):
-                raise oefmt(space.w_NotImplementedError,
-                            "out unsupported for %s", op_name)
             if self.get_size() == 0:
                 raise oefmt(space.w_ValueError,
                             "Can't call %s on zero-size arrays", op_name)
@@ -1201,7 +1196,11 @@ class __extend__(W_NDimArray):
                 raise oefmt(space.w_NotImplementedError,
                             '%s not implemented for %s',
                             op_name, self.get_dtype().get_name())
-            return space.wrap(getattr(loop, op_name)(self))
+            if space.is_none(w_axis):
+                return space.wrap(getattr(loop, op_name_flat)(self))
+            else:
+                raise oefmt(space.w_NotImplementedError,
+                            "axis unsupported for %s", op_name)
         return func_with_new_name(impl, "reduce_%s_impl" % op_name)
 
     descr_argmax = _reduce_argmax_argmin_impl("max")

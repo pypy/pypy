@@ -402,7 +402,7 @@ def _new_argmin_argmax(op_name):
                                greens = ['shapelen', 'dtype'],
                                reds = 'auto')
 
-    def argmin_argmax(arr):
+    def argmin_argmax_flat(arr):
         result = 0
         idx = 1
         dtype = arr.get_dtype()
@@ -420,9 +420,9 @@ def _new_argmin_argmax(op_name):
             state = iter.next(state)
             idx += 1
         return result
-    return argmin_argmax
-argmin = _new_argmin_argmax('min')
-argmax = _new_argmin_argmax('max')
+    return argmin_argmax_flat
+argmin_flat = _new_argmin_argmax('min')
+argmax_flat = _new_argmin_argmax('max')
 
 dot_driver = jit.JitDriver(name = 'numpy_dot',
                            greens = ['dtype'],
