@@ -4888,7 +4888,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p4, p7, i30]
         p16 = getfield_gc_r(p4, descr=valuedescr)
-        p17 = getarrayitem_gc_r(p4, 1, descr=gcarraydescr)
         guard_value(p16, ConstPtr(myptr), descr=<Guard3>) []
         i1 = getfield_raw_i(p7, descr=nextdescr)
         i2 = int_add(i1, i30)
