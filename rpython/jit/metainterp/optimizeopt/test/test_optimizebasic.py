@@ -2881,8 +2881,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, i1, p2, i2]
         setfield_gc(p2, i2, descr=adescr)
         i3 = call_i(i1, descr=readadescr)
-        setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
+        setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i1, p2, i2)
         """
         self.optimize_loop(ops, expected)
@@ -2893,16 +2893,16 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p2, i2, descr=adescr)
         i3 = call_i(i1, descr=writeadescr)
-        setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
+        setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i1, p2, i2)
         """
         expected = """
         [p1, i1, p2, i2]
         setfield_gc(p2, i2, descr=adescr)
         i3 = call_i(i1, descr=writeadescr)
-        setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
+        setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i1, p2, i2)
         """
         self.optimize_loop(ops, expected)
@@ -2913,11 +2913,20 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p2, i2, descr=adescr)
         i3 = call_i(i1, descr=plaincalldescr)
-        setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
+        setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i1, p2, i2)
         """
-        self.optimize_loop(ops, ops)
+        expected = """
+        [p1, i1, p2, i2]
+        setfield_gc(p2, i2, descr=adescr)
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call_i(i1, descr=plaincalldescr)
+        setfield_gc(p2, i3, descr=adescr)
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i1, p2, i2)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_call_assembler_invalidates_caches(self):
         ops = '''

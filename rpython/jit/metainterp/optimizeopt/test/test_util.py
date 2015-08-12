@@ -432,7 +432,7 @@ class BaseTest(object):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap, text_right)
 
-    def _do_optimize_loop(self, compile_data, call_pure_results=None):
+    def _do_optimize_loop(self, compile_data):
         from rpython.jit.metainterp.optimizeopt import optimize_trace
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         if hasattr(self, 'vrefinfo'):
@@ -441,12 +441,6 @@ class BaseTest(object):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
         compile_data.enable_opts = self.enable_opts
-        new_call_pure_results = args_dict()
-        if call_pure_results is not None:
-            for k, v in call_pure_results.items():
-                new_call_pure_results[list(k)] = v
-
-        compile_data.call_pure_results = new_call_pure_results
         state = optimize_trace(metainterp_sd, None, compile_data)
         return state
 
@@ -467,14 +461,16 @@ class BaseTest(object):
         ops = loop.operations[:-1]
         start_label = ResOperation(rop.LABEL, loop.inputargs)
         end_label = jump_op.copy_and_change(opnum=rop.LABEL)
-        preamble_data = compile.LoopCompileData(start_label, end_label, ops)
-        start_state, preamble_ops = self._do_optimize_loop(preamble_data,
-                                                  call_pure_results)
+        call_pure_results = self._convert_call_pure_results(call_pure_results)
+        preamble_data = compile.LoopCompileData(start_label, end_label, ops,
+                                                call_pure_results)
+        start_state, preamble_ops = self._do_optimize_loop(preamble_data)
         preamble_data.forget_optimization_info()
         end_label = ResOperation(rop.LABEL, start_state.end_args)
         loop_data = compile.UnrolledLoopData(end_label, jump_op,
-                                             ops, start_state)
-        loop_info, ops = self._do_optimize_loop(loop_data, call_pure_results)
+                                             ops, start_state,
+                                             call_pure_results)
+        loop_info, ops = self._do_optimize_loop(loop_data)
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs
         start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs)
