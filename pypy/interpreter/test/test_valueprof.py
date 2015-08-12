@@ -28,14 +28,18 @@ def test_int():
     v.see_write(ValueInt(1))
     assert v.read_constant_int() == 1
     assert v._vprof_status == SEEN_CONSTANT_INT
-    v.see_int(2)
-    assert v._vprof_status == SEEN_TOO_MUCH
-    v.see_int(1)
-    assert v._vprof_status == SEEN_TOO_MUCH
-    v.see_int(2)
-    assert v._vprof_status == SEEN_TOO_MUCH
-    v.see_int(3)
-    assert v._vprof_status == SEEN_TOO_MUCH
+    v.see_write(ValueInt(2))
+    assert v._vprof_status == SEEN_CONSTANT_CLASS
+    assert v._vprof_const_cls is ValueInt
+    v.see_write(ValueInt(1))
+    assert v._vprof_status == SEEN_CONSTANT_CLASS
+    assert v._vprof_const_cls is ValueInt
+    v.see_write(ValueInt(2))
+    assert v._vprof_status == SEEN_CONSTANT_CLASS
+    assert v._vprof_const_cls is ValueInt
+    v.see_write(ValueInt(3))
+    assert v._vprof_status == SEEN_CONSTANT_CLASS
+    assert v._vprof_const_cls is ValueInt
 
     v = ValueProf()
     assert v._vprof_status == SEEN_NOTHING
@@ -56,7 +60,7 @@ def test_obj():
     v.see_write(value)
     assert v.try_read_constant_obj() is value
     assert v._vprof_status == SEEN_CONSTANT_OBJ
-    v.see_int(2)
+    v.see_write(ValueInt(2))
     assert v._vprof_status == SEEN_TOO_MUCH
 
     v = ValueProf()
@@ -103,5 +107,5 @@ def test_known_class():
     assert v._vprof_status == SEEN_CONSTANT_OBJ
     v.see_write(Value())
     assert v._vprof_status == SEEN_CONSTANT_CLASS
-    v.see_int(5)
+    v.see_write(ValueInt(5))
     assert v._vprof_status == SEEN_TOO_MUCH
