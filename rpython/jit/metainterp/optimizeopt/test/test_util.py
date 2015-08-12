@@ -161,6 +161,8 @@ class LLtypeMixin(object):
     intobj_immut_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     noimmut_intval = cpu.fielddescrof(INTOBJ_NOIMMUT, 'intval')
     immut_intval = cpu.fielddescrof(INTOBJ_IMMUT, 'intval')
+    noimmut_descr = cpu.sizeof(INTOBJ_NOIMMUT, True)
+    immut_descr = cpu.sizeof(INTOBJ_IMMUT, True)
 
     PTROBJ_IMMUT = lltype.GcStruct('PTROBJ_IMMUT', ('parent', OBJECT),
                                             ('ptrval', lltype.Ptr(OBJECT)),

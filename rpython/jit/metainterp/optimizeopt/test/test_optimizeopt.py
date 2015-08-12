@@ -4907,23 +4907,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
     def test_setgetarrayitem_raw(self):
         ops = """
-        [p4, p7, i30]
+        [p4, i7, i30]
         p16 = getfield_gc_r(p4, descr=valuedescr)
         guard_value(p16, ConstPtr(myptr), descr=<Guard3>) []
-        p17 = getarrayitem_gc_r(p4, 1, descr=arraydescr)
-        i1 = getarrayitem_raw_i(p7, 1, descr=arraydescr)
+        i1 = getarrayitem_raw_i(i7, 1, descr=arraydescr)
         i2 = int_add(i1, i30)
-        setarrayitem_raw(p7, 1, 7, descr=arraydescr)
-        setarrayitem_raw(p7, 1, i2, descr=arraydescr)
-        jump(p4, p7, i30)
+        setarrayitem_raw(i7, 1, 7, descr=arraydescr)
+        setarrayitem_raw(i7, 1, i2, descr=arraydescr)
+        jump(p4, i7, i30)
         """
         expected = """
-        [p4, p7, i30]
-        i1 = getarrayitem_raw_i(p7, 1, descr=arraydescr)
+        [p4, i7, i30]
+        i1 = getarrayitem_raw_i(i7, 1, descr=arraydescr)
         i2 = int_add(i1, i30)
-        setarrayitem_raw(p7, 1, 7, descr=arraydescr)
-        setarrayitem_raw(p7, 1, i2, descr=arraydescr)
-        jump(p4, p7, i30)
+        setarrayitem_raw(i7, 1, 7, descr=arraydescr)
+        setarrayitem_raw(i7, 1, i2, descr=arraydescr)
+        jump(p4, i7, i30)
         """
         self.optimize_loop(ops, expected, ops)
 
@@ -5987,9 +5986,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i91 = int_add(i80, 1)
         setfield_gc(p75, i91, descr=inst_index)
 
-        p110 = same_as(ConstPtr(myptr))
-        i112 = same_as(3)
-        i114 = same_as(39)
+        p110 = same_as_r(ConstPtr(myptr))
+        i112 = same_as_i(3)
+        i114 = same_as_i(39)
         jump(p0, p1, p110, p3, i112, p5, i114, p7, p8, p75, p14)
         """
         expected = """
@@ -6041,20 +6040,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
-    def test_inputargs_added_by_forcing_jumpargs(self):
-        # FXIME: Can this occur?
-        ops = """
-        [p0, p1, pinv]
-        i1 = getfield_gc_i(pinv, descr=valuedescr)
-        p2 = new_with_vtable(descr=nodesize)
-        setfield_gc(p2, i1, descr=nextdescr)
-        """
-        py.test.skip("no test here")
-
     def test_immutable_not(self):
         ops = """
         []
-        p0 = new_with_vtable(ConstClass(intobj_noimmut_vtable))
+        p0 = new_with_vtable(descr=noimmut_descr)
         setfield_gc(p0, 42, descr=noimmut_intval)
         escape_n(p0)
         jump()
@@ -6064,7 +6053,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_immutable_variable(self):
         ops = """
         [i0]
-        p0 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        p0 = new_with_vtable(descr=immut_descr)
         setfield_gc(p0, i0, descr=immut_intval)
         escape_n(p0)
         jump(i0)
@@ -6074,7 +6063,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_immutable_incomplete(self):
         ops = """
         []
-        p0 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        p0 = new_with_vtable(descr=immut_descr)
         escape_n(p0)
         jump()
         """
@@ -6083,7 +6072,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_immutable_constantfold(self):
         ops = """
         []
-        p0 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        p0 = new_with_vtable(descr=immut_descr)
         setfield_gc(p0, 1242, descr=immut_intval)
         escape_n(p0)
         jump()
@@ -6141,7 +6130,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0]
         i2 = getfield_gc_pure_i(p0, descr=immut_intval)
-        p1 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        p1 = new_with_vtable(descr=immut_descr)
         setfield_gc(p1, 1242, descr=immut_intval)
         jump(p1)
         """
