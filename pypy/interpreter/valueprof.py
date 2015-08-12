@@ -1,10 +1,11 @@
 from rpython.rlib import jit, objectmodel
 from rpython.rlib.rweakref import ref, dead_ref
 
-SEEN_NOTHING = '\x00'
-SEEN_INT = '\x01'
-SEEN_OBJ = '\x02'
-SEEN_TOO_MUCH = '\x03'
+SEEN_NOTHING = '0'
+SEEN_CONSTANT_INT = 'i'
+SEEN_CONSTANT_OBJ = 'o'
+SEEN_CONSTANT_CLASS = 'c'
+SEEN_TOO_MUCH = '?'
 
 class ValueProf(object):
     _immutable_fields_ = ['_vprof_status?']
@@ -17,6 +18,7 @@ class ValueProf(object):
         self._vprof_status = SEEN_NOTHING
         self._vprof_value_int = 0
         self._vprof_value_wref = dead_ref
+        self._vprof_const_cls = None
         self._vprof_counter = 0
         self._vprof_msg = msg
 
@@ -38,8 +40,8 @@ class ValueProf(object):
         status = self._vprof_status
         if status == SEEN_NOTHING:
             self._vprof_value_int = value
-            self._vprof_status = SEEN_INT
-        elif status == SEEN_INT:
+            self._vprof_status = SEEN_CONSTANT_INT
+        elif status == SEEN_CONSTANT_INT:
             if self.read_constant_int() != value:
                 if self._vprof_counter >= 200:
                     print "NO LONGER CONSTANT", self._vprof_msg, 'int', value
@@ -49,10 +51,12 @@ class ValueProf(object):
                     self._vprof_counter += 1
                     if self._vprof_counter == 200:
                         print self._vprof_msg, 'int', value
-        elif status == SEEN_OBJ:
+        elif status == SEEN_CONSTANT_OBJ:
             self._vprof_status = SEEN_TOO_MUCH
             if self._vprof_counter >= 200:
                 print "NO LONGER CONSTANT", self._vprof_msg, 'int', value
+        elif status == SEEN_CONSTANT_CLASS:
+            self._vprof_status = SEEN_TOO_MUCH
 
     def see_object(self, value):
         status = self._vprof_status
@@ -62,30 +66,41 @@ class ValueProf(object):
         elif status == SEEN_NOTHING:
             try:
                 self._vprof_value_wref = ref(value)
-                self._vprof_status = SEEN_OBJ
+                self._vprof_status = SEEN_CONSTANT_OBJ
             except TypeError:
                 # for tests, which really use unwrapped ints in a few places
                 self._vprof_status = SEEN_TOO_MUCH
-        elif status == SEEN_INT:
+        elif status == SEEN_CONSTANT_INT:
             if self._vprof_counter >= 200:
                 print "NO LONGER CONSTANT", self._vprof_msg, 'obj', value
             self._vprof_status = SEEN_TOO_MUCH
-        elif status == SEEN_OBJ:
-            if self.try_read_constant_obj() is not value:
+        elif status == SEEN_CONSTANT_OBJ:
+            prev_obj = self.try_read_constant_obj()
+            if prev_obj is not value:
                 if self._vprof_counter >= 200:
                     print "NO LONGER CONSTANT", self._vprof_msg, 'obj', value
-                self._vprof_status = SEEN_TOO_MUCH
+                prev_cls = type(prev_obj)
+                if prev_cls is type(value):
+                    self._vprof_const_cls = prev_cls
+                    self._vprof_status = SEEN_CONSTANT_CLASS
+                else:
+                    self._vprof_status = SEEN_TOO_MUCH
             else:
                 if not jit.we_are_jitted():
                     self._vprof_counter += 1
                     if self._vprof_counter == 200:
                         print self._vprof_msg, 'obj', value
+        elif status == SEEN_CONSTANT_CLASS:
+            cls = self.read_constant_cls()
+            if cls is not type(value):
+                self._vprof_status = SEEN_TOO_MUCH
+
 
     def can_fold_read_int(self):
-        return self._vprof_status == SEEN_INT
+        return self._vprof_status == SEEN_CONSTANT_INT
 
     def can_fold_read_obj(self):
-        return self._vprof_status == SEEN_OBJ
+        return self._vprof_status == SEEN_CONSTANT_OBJ
 
     @jit.elidable
     def read_constant_int(self):
@@ -97,4 +112,7 @@ class ValueProf(object):
         assert self.can_fold_read_obj()
         return self._vprof_value_wref()
 
+    @jit.elidable
+    def read_constant_cls(self):
+        return self._vprof_const_cls
 
