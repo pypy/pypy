@@ -286,7 +286,10 @@ class OptHeap(Optimization):
 
     def clean_caches(self):
         del self._lazy_setfields_and_arrayitems[:]
-        for descr, cf in self.cached_fields.items():
+        items = self.cached_fields.items()
+        if not we_are_translated():
+            items.sort(key=str, reverse=True)
+        for descr, cf in items:
             if not descr.is_always_pure():
                 cf.invalidate(descr)
         for descr, submap in self.cached_arrayitems.iteritems():
@@ -474,8 +477,10 @@ class OptHeap(Optimization):
                 cf.force_lazy_setfield(self, None, can_cache)
 
     def force_all_lazy_setfields_and_arrayitems(self):
-        # XXX fix the complexity here
-        for descr, cf in self.cached_fields.items():
+        items = self.cached_fields.items()
+        if not we_are_translated():
+            items.sort(key=str, reverse=True)
+        for descr, cf in items:
             cf.force_lazy_setfield(self, descr)
         for submap in self.cached_arrayitems.itervalues():
             for index, cf in submap.iteritems():

@@ -52,7 +52,8 @@ class LoopCompileData(CompileData):
         if unroll:
             opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
             return opt.optimize_preamble(self.start_label, self.end_label,
-                                         self.operations)
+                                         self.operations,
+                                         self.call_pure_results)
         else:
             xxx
 
@@ -93,7 +94,7 @@ class UnrolledLoopData(CompileData):
         assert unroll # we should not be here if it's disabled
         opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.optimize_peeled_loop(self.start_label, self.end_jump,
-                                        self.operations, self.state)
+            self.operations, self.state, self.call_pure_results)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging

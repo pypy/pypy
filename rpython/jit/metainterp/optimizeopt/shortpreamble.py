@@ -54,9 +54,11 @@ class HeapOp(AbstractShortOp):
         opinfo = opt.optimizer.ensure_ptr_info_arg0(g)
         pop = PreambleOp(self.res, preamble_op)
         assert not opinfo.is_virtual()
+        descr = self.getfield_op.getdescr()
         if g.is_getfield():
+            cf = optheap.field_cache(descr)
             opinfo.setfield(preamble_op.getdescr(), self.res, pop,
-                            optheap=optheap)
+                            optheap, cf)
         else:
             index = g.getarg(1).getint()
             assert index >= 0
@@ -88,7 +90,7 @@ class PureOp(AbstractShortOp):
         if optpure is None:
             return
         op = self.res
-        if op.is_call():
+        if preamble_op.is_call():
             optpure.extra_call_pure.append(PreambleOp(op, preamble_op))
         else:
             opt.pure(op.getopnum(), PreambleOp(op, preamble_op))
@@ -101,8 +103,11 @@ class PureOp(AbstractShortOp):
             if newarg is None:
                 return None
             arglist.append(newarg)
-        return ProducedShortOp(self, op.copy_and_change(op.getopnum(),
-                                                        args=arglist))
+        if op.is_call():
+            opnum = OpHelpers.call_pure_for_descr(op.getdescr())
+        else:
+            opnum = op.getopnum()
+        return ProducedShortOp(self, op.copy_and_change(opnum, args=arglist))
 
     def __repr__(self):
         return "PureOp(%r)" % (self.res,)
@@ -189,7 +194,6 @@ class ShortBoxes(object):
         # of AbstractShortOp
         self.potential_ops = {}
         self.produced_short_boxes = {}
-        self.extra_short_boxes = {}
         # a way to produce const boxes, e.g. setfield_gc(p0, Const).
         # We need to remember those, but they don't produce any new boxes
         self.const_short_boxes = []
@@ -212,7 +216,6 @@ class ShortBoxes(object):
         for op, produced_op in self.produced_short_boxes.iteritems():
             if not isinstance(produced_op, ShortInputArg):
                 short_boxes.append(produced_op)
-        short_boxes += self.extra_short_boxes
 
         for short_op in self.const_short_boxes:
             getfield_op = short_op.getfield_op
@@ -233,7 +236,10 @@ class ShortBoxes(object):
         elif isinstance(op, Const):
             return op
         elif op in self.potential_ops:
-            return self.add_op_to_short(self.potential_ops[op]).preamble_op
+            r = self.add_op_to_short(self.potential_ops[op])
+            if r is None:
+                return None
+            return r.preamble_op
         else:
             return None
 
@@ -244,11 +250,20 @@ class ShortBoxes(object):
         try:
             if isinstance(shortop, CompoundOp):
                 lst = shortop.flatten(self, [])
-                if len(lst) == 1:
-                    pop = lst[0]
+                if len(lst) == 0:
+                    return None
                 else:
-                    pop = lst[0]
-                    for i in range(1, len(lst)):
+                    index = -1
+                    for i, item in enumerate(lst):
+                        if not isinstance(item.short_op, HeapOp):
+                            assert index == -1
+                            index = i
+                    if index == -1:
+                        index = 0
+                    pop = lst[index]
+                    for i in range(len(lst)):
+                        if i == index:
+                            continue
                         opnum = OpHelpers.same_as_for_type(shortop.res.type)
                         new_name = ResOperation(opnum, [shortop.res])
                         assert lst[i].short_op is not pop.short_op

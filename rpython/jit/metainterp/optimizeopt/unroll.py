@@ -37,6 +37,8 @@ class UnrollableOptimizer(Optimizer):
 
     def setinfo_from_preamble(self, op, preamble_info, exported_infos):
         op = self.get_box_replacement(op)
+        if op.get_forwarded() is not None:
+            return # XXX?
         if isinstance(preamble_info, info.PtrInfo):
             if preamble_info.is_virtual():
                 # XXX do we want to sanitize this?
@@ -88,10 +90,10 @@ class UnrollOptimizer(Optimization):
                 assert op.get_forwarded() is None
         assert not self.optimizer._newoperations
     
-    def optimize_preamble(self, start_label, end_label, ops):
+    def optimize_preamble(self, start_label, end_label, ops, call_pure_results):
         self._check_no_forwarding([[start_label, end_label], ops])
         info, newops = self.optimizer.propagate_all_forward(
-            start_label.getarglist()[:], ops)
+            start_label.getarglist()[:], ops, call_pure_results)
         exported_state = self.export_state(start_label, end_label,
                                            info.inputargs)
         # we need to absolutely make sure that we've cleaned up all
@@ -99,12 +101,13 @@ class UnrollOptimizer(Optimization):
         self.optimizer._clean_optimization_info(self.optimizer._newoperations)
         return exported_state, self.optimizer._newoperations
 
-    def optimize_peeled_loop(self, start_label, end_jump, ops, state):
+    def optimize_peeled_loop(self, start_label, end_jump, ops, state,
+                             call_pure_results):
         self._check_no_forwarding([[start_label, end_jump], ops])
         self.import_state(start_label, state)
         self.potential_extra_ops = {}
         self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops,
-                                             rename_inputargs=False)
+                                             call_pure_results, False)
         orig_jump_args = [self.get_box_replacement(op)
                      for op in end_jump.getarglist()]
         jump_args = state.virtual_state.make_inputargs(orig_jump_args,

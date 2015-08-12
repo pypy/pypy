@@ -3602,8 +3602,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i1, p2, i2]
         setfield_gc(p2, i2, descr=adescr)
         i3 = call_i(i1, descr=readadescr)
-        setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
+        setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i1, p2, i2)
         """
         self.optimize_loop(ops, expected)
@@ -3622,8 +3622,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i1, p2, i2]
         setfield_gc(p2, i2, descr=adescr)
         i3 = call_i(i1, descr=writeadescr)
-        setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
+        setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i1, p2, i2)
         """
         self.optimize_loop(ops, expected)
@@ -3634,8 +3634,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p2, i2, descr=adescr)
         i3 = call_i(i1, descr=plaincalldescr)
-        setfield_gc(p1, i3, descr=valuedescr)
         setfield_gc(p2, i3, descr=adescr)
+        setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i1, p2, i2)
         """
         self.optimize_loop(ops, ops)
@@ -3678,6 +3678,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         '''
         expected = '''
         [p1, i4, i3]
+        setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i3, i3)
         '''
         preamble = '''
@@ -3703,6 +3704,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         '''
         expected = '''
         [p1, i4, i3]
+        setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i3, i3)
         '''
         preamble = '''
@@ -3760,16 +3762,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, i4, i3)
         '''
         expected = '''
-        [p1, i4, i3, i5]
+        [p1, i4, i3]
         setfield_gc(p1, i4, descr=valuedescr)
-        jump(p1, i3, i5, i5)
+        jump(p1, i3, i3)
         '''
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call_i(p1, descr=elidablecalldescr)
-        i151 = same_as_i(i3)
-        jump(p1, i4, i3, i151)
+        # i151 = same_as_i(i3)
+        jump(p1, i4, i3)
         '''
         self.optimize_loop(ops, expected, preamble)
 
@@ -3789,36 +3791,36 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_n(i1)
         escape_n(i2)
         i4 = call_i(123456, 4, i0, 6, descr=elidablecalldescr)
-        i153 = same_as_i(i4)
-        jump(i0, i4, i153)
+        # i153 = same_as_i(i4)
+        jump(i0, i4)
         '''
         expected = '''
-        [i0, i4, i5]
+        [i0, i4]
         escape_n(42)
         escape_n(i4)
-        jump(i0, i5, i5)
+        jump(i0, i4)
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
 
     def test_call_pure_constant_folding_memoryerr(self):
         ops = '''
         [p0, i0]
-        escape(i0)
-        i3 = call_pure(123456, p0, descr=elidable2calldescr)
+        escape_n(i0)
+        i3 = call_pure_i(123456, p0, descr=elidable2calldescr)
         guard_no_exception() []
         jump(p0, i3)
         '''
         preamble = '''
         [p0, i0]
-        escape(i0)
-        i3 = call(123456, p0, descr=elidable2calldescr)
+        escape_n(i0)
+        i3 = call_i(123456, p0, descr=elidable2calldescr)
         guard_no_exception() []
-        i4 = same_as(i3)
+        # i4 = same_as(i3)
         jump(p0, i3, i4)
         '''
         expected = '''
         [p0, i3, i4]
-        escape(i3)
+        escape_n(i3)
         jump(p0, i4, i4)
         '''
         self.optimize_loop(ops, expected, preamble)
@@ -8333,18 +8335,18 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_cache_setarrayitem_across_loop_boundaries(self):
         ops = """
         [p1]
-        p2 = getarrayitem_gc_r(p1, 3, descr=arraydescr)
+        p2 = getarrayitem_gc_r(p1, 3, descr=gcarraydescr)
         guard_nonnull_class(p2, ConstClass(node_vtable)) []
         call_n(p2, descr=nonwritedescr)
         p3 = new_with_vtable(descr=nodesize)
-        setarrayitem_gc(p1, 3, p3, descr=arraydescr)
+        setarrayitem_gc(p1, 3, p3, descr=gcarraydescr)
         jump(p1)
         """
         expected = """
         [p1, p2]
         call_n(p2, descr=nonwritedescr)
         p3 = new_with_vtable(descr=nodesize)
-        setarrayitem_gc(p1, 3, p3, descr=arraydescr)
+        setarrayitem_gc(p1, 3, p3, descr=gcarraydescr)
         jump(p1, p3)
         """
         self.optimize_loop(ops, expected)
@@ -8392,8 +8394,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, i1]
         p0 = escape_r()
         p1 = escape_r()
-        setfield_gc(p0, p1, descr=adescr)
         setfield_gc(p1, p0, descr=bdescr)
+        setfield_gc(p0, p1, descr=adescr)
         jump(i0, i1)
         """
         self.optimize_loop(ops, expected)

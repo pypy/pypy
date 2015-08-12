@@ -20,6 +20,7 @@ from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
 from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgRef
+from rpython.jit.metainterp.optimizeopt.util import args_dict
 
 
 def test_sort_descrs():
@@ -438,6 +439,12 @@ class BaseTest(object):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
         compile_data.enable_opts = self.enable_opts
+        new_call_pure_results = args_dict()
+        if call_pure_results is not None:
+            for k, v in call_pure_results.items():
+                new_call_pure_results[list(k)] = v
+
+        compile_data.call_pure_results = new_call_pure_results
         state = optimize_trace(metainterp_sd, None, compile_data)
         return state
 
