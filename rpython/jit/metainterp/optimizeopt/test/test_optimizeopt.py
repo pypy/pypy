@@ -7912,12 +7912,18 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p5, 1, descr=valuedescr)
         jump(p5)
         """
+        short = """
+        [p0]
+        i0 = getfield_gc_i(p0, descr=valuedescr)
+        guard_value(i0, 1) []
+        jump()
+        """
         expected = """
         [p5]
         call_n(1, descr=nonwritedescr)
         jump(p5)
         """
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble, expected_short=short)
 
     def test_dont_mixup_equal_boxes(self):
         ops = """

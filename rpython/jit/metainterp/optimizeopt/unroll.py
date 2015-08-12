@@ -22,8 +22,11 @@ class UnrollableOptimizer(Optimizer):
         if isinstance(preamble_op, PreambleOp):
             op = preamble_op.op
             self.optimizer.inparg_dict[op] = None # XXX ARGH
-            self.optunroll.short_preamble_producer.use_box(op, self)
-            self.optunroll.potential_extra_ops[op] = preamble_op
+            # special hack for int_add(x, accumulator-const) optimization
+            self.optunroll.short_preamble_producer.use_box(op,
+                                            preamble_op.preamble_op, self)
+            if not preamble_op.op.is_constant():
+                self.optunroll.potential_extra_ops[op] = preamble_op
             return op
         return preamble_op
 

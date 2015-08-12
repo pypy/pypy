@@ -323,14 +323,12 @@ empty_info = EmptyInfo()
 class ShortPreambleBuilder(object):
     def __init__(self, short_boxes, short_inputargs, exported_infos,
                  optimizer=None):
-        self.producable_ops = {}
         for produced_op in short_boxes:
             op = produced_op.short_op.res
             preamble_op = produced_op.preamble_op
             if isinstance(op, Const):
                 info = optimizer.getinfo(op)
             else:
-                self.producable_ops[op] = produced_op.preamble_op
                 info = exported_infos[op]
                 if info is None:
                     info = empty_info
@@ -340,11 +338,7 @@ class ShortPreambleBuilder(object):
         self.short_preamble_jump = []
         self.short_inputargs = short_inputargs
 
-    def use_box(self, box, optimizer=None):
-        preamble_op = self.producable_ops.get(box, None)
-        if preamble_op is None:
-            return
-        del self.producable_ops[box]
+    def use_box(self, box, preamble_op, optimizer=None):
         for arg in preamble_op.getarglist():
             if isinstance(arg, Const):
                 pass
