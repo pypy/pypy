@@ -420,6 +420,7 @@ class OptRewrite(Optimization):
         resvalue = self.loop_invariant_results.get(key, None)
         if resvalue is not None:
             resvalue = self.optimizer.force_op_from_preamble(resvalue)
+            self.loop_invariant_results[key] = resvalue
             self.make_equal_to(op, resvalue)
             self.last_emitted_operation = REMOVED
             return

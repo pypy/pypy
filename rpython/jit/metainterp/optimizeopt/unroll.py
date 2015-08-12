@@ -24,7 +24,7 @@ class UnrollableOptimizer(Optimizer):
             self.optimizer.inparg_dict[op] = None # XXX ARGH
             # special hack for int_add(x, accumulator-const) optimization
             self.optunroll.short_preamble_producer.use_box(op,
-                                            preamble_op.preamble_op, self)
+                                                preamble_op.preamble_op, self)
             if not preamble_op.op.is_constant():
                 self.optunroll.potential_extra_ops[op] = preamble_op
             return op

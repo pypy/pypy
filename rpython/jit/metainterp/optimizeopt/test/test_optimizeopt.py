@@ -3953,20 +3953,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = force_token()
         #
         p2 = new_with_vtable(descr=vref_descr)
-        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force_n(i1, descr=mayforcevirtdescr)
         guard_not_forced() [i1]
         #
         setfield_gc(p0, NULL, descr=nextdescr)
+        setfield_gc(p2, NULL, descr=virtualtokendescr)
         p1 = new_with_vtable(descr=nodesize)
         p1b = new_with_vtable(descr=nodesize)
         setfield_gc(p1b, 252, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, NULL, descr=virtualtokendescr)
         jump(p0, i1)
         """
         self.optimize_loop(ops, expected, expected)
@@ -3993,20 +3993,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = force_token()
         #
         p2 = new_with_vtable(descr=vref_descr)
-        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force_n(i1, descr=mayforcevirtdescr)
         guard_not_forced() [p2, i1]
         #
         setfield_gc(p0, NULL, descr=nextdescr)
+        setfield_gc(p2, NULL, descr=virtualtokendescr)
         p1 = new_with_vtable(descr=nodesize)
         p1b = new_with_vtable(descr=nodesize)
         setfield_gc(p1b, i1, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
         setfield_gc(p2, p1, descr=virtualforceddescr)
-        setfield_gc(p2, NULL, descr=virtualtokendescr)
         jump(p0, i1)
         """
         # the point of this test is that 'i1' should show up in the fail_args
@@ -4081,8 +4081,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1]
         p3 = force_token()
         p2 = new_with_vtable(descr=vref_descr)
-        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         escape_n(p2)
         p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -4106,9 +4106,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i1, p1]
         p3 = force_token()
-        p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
-        setfield_gc(p2, NULL, descr=virtualforceddescr)
+        p2 = new_with_vtable(descr=vref_descr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         escape_n(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p2, NULL, descr=virtualtokendescr)
@@ -4888,9 +4888,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p4, p7, i30]
         p16 = getfield_gc_r(p4, descr=valuedescr)
-        p17 = getarrayitem_gc_r(p4, 1, descr=arraydescr)
+        p17 = getarrayitem_gc_r(p4, 1, descr=gcarraydescr)
         guard_value(p16, ConstPtr(myptr), descr=<Guard3>) []
-        i1 = getfield_raw(p7, descr=nextdescr)
+        i1 = getfield_raw_i(p7, descr=nextdescr)
         i2 = int_add(i1, i30)
         setfield_raw(p7, 7, descr=nextdescr)
         setfield_raw(p7, i2, descr=nextdescr)
@@ -4898,7 +4898,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p4, p7, i30]
-        i1 = getfield_raw(p7, descr=nextdescr)
+        i1 = getfield_raw_i(p7, descr=nextdescr)
         i2 = int_add(i1, i30)
         setfield_raw(p7, 7, descr=nextdescr)
         setfield_raw(p7, i2, descr=nextdescr)
