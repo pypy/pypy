@@ -391,7 +391,7 @@ def test_value_profiling_known_cls(monkeypatch):
     def f(obj, cls):
         seen.append((obj, cls))
     monkeypatch.setattr(jit, "we_are_jitted", lambda : True)
-    monkeypatch.setattr(jit, "record_known_class", f)
+    monkeypatch.setattr(jit, "record_exact_class", f)
 
     assert obj.getdictvalue(space, "a") == a
     assert obj.getdictvalue(space, "a") == a

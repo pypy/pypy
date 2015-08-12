@@ -52,7 +52,7 @@ class AbstractAttribute(object):
         else:
             w_res = obj._mapdict_read_storage(attr.storageindex)
             if jit.we_are_jitted() and attr.class_is_known():
-                jit.record_known_class(w_res, attr.read_constant_cls())
+                jit.record_exact_class(w_res, attr.read_constant_cls())
             return w_res
 
     @jit.elidable

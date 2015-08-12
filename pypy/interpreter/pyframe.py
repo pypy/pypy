@@ -148,7 +148,6 @@ class PyFrame(W_Root):
     def _getlocal(self, varindex):
         from pypy.objspace.std.intobject import W_IntObject
         # some careful logic there
-        vprof = None
         if we_are_jitted():
             vprof = self.getcode().vprofs[varindex]
             if vprof.can_fold_read_int():
@@ -158,8 +157,10 @@ class PyFrame(W_Root):
                 if w_res is not None:
                     return w_res
         w_res = self.locals_cells_stack_w[varindex]
-        if we_are_jitted() and vprof.class_is_known():
-            jit.record_known_class(w_res, vprof.read_constant_cls())
+        if we_are_jitted():
+            vprof = self.getcode().vprofs[varindex]
+            if vprof.class_is_known():
+                jit.record_exact_class(w_res, vprof.read_constant_cls())
         return w_res
 
     def _setlocal(self, varindex, value):
