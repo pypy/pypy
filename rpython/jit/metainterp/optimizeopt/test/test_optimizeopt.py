@@ -3631,8 +3631,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_residual_call_invalidates_some_read_caches_3(self):
         ops = """
         [p1, i1, p2, i2]
-        setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p2, i2, descr=adescr)
+        setfield_gc(p1, i1, descr=valuedescr)
         i3 = call_i(i1, descr=plaincalldescr)
         setfield_gc(p2, i3, descr=adescr)
         setfield_gc(p1, i3, descr=valuedescr)
@@ -3747,7 +3747,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = call_i(p1, descr=elidable3calldescr)
         guard_no_exception() []
         setfield_gc(p1, i3, descr=valuedescr)
-        i167 = same_as_i(i3)
         jump(p1, i4, i3)
         '''
         self.optimize_loop(ops, expected, preamble)
