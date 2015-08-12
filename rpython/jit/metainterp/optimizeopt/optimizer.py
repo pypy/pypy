@@ -387,6 +387,9 @@ class Optimizer(Optimization):
                 assert box.get_forwarded().contains(constbox.getint())
         if box.is_constant():
             return
+        if box.type == 'r' and box.get_forwarded() is not None:
+            opinfo = box.get_forwarded()
+            opinfo.copy_fields_to_const(self.getptrinfo(constbox), self.optheap)
         box.set_forwarded(constbox)
 
     def make_constant_int(self, box, intvalue):

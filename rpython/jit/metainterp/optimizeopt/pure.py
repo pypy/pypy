@@ -157,13 +157,8 @@ class OptPure(Optimization):
         opnum = OpHelpers.call_for_descr(op.getdescr())
         newop = self.optimizer.replace_op_with(op, opnum)
         self.emit_operation(newop)
-        # don't move call_pure_with_exception in the short preamble...
-        # issue #2015
-
-        effectinfo = op.getdescr().get_extra_info()
-        if not effectinfo.check_can_raise(ignore_memoryerror=True):
-            self.call_pure_positions.append(
-                len(self.optimizer._newoperations) - 1)
+        self.call_pure_positions.append(
+            len(self.optimizer._newoperations) - 1)
 
     optimize_CALL_PURE_R = optimize_CALL_PURE_I
     optimize_CALL_PURE_F = optimize_CALL_PURE_I
@@ -229,8 +224,13 @@ class OptPure(Optimization):
                 sb.add_pure_op(op)
         for i in self.call_pure_positions:
             op = ops[i]
-            assert op.is_call()
-            sb.add_pure_op(op)
+            # don't move call_pure_with_exception in the short preamble...
+            # issue #2015
+
+            effectinfo = op.getdescr().get_extra_info()
+            if not effectinfo.check_can_raise(ignore_memoryerror=True):
+                assert op.is_call()
+                sb.add_pure_op(op)
 
 dispatch_opt = make_dispatcher_method(OptPure, 'optimize_',
                                       default=OptPure.optimize_default)

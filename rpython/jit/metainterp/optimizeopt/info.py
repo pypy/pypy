@@ -51,6 +51,9 @@ class PtrInfo(AbstractInfo):
     def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         return None
 
+    def copy_fields_to_const(self, constinfo, optheap):
+        pass
+
     def make_guards(self, op, short):
         pass
     
@@ -127,6 +130,11 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     def clear_cache(self):
         assert not self.is_virtual()
         self._fields = [None] * len(self._fields)
+
+    def copy_fields_to_const(self, constinfo, optheap):
+        if self._fields is not None:
+            info = constinfo._get_info(optheap)
+            info._fields = self._fields[:]
 
     def all_items(self):
         return self._fields
@@ -472,12 +480,11 @@ class ConstPtrInfo(PtrInfo):
     def getconst(self):
         return self._const
 
-    def _get_info(self, descr, optheap):
+    def _get_info(self, optheap):
         ref = self._const.getref_base()
         info = optheap.const_infos.get(ref, None)
         if info is None:
             info = StructPtrInfo()
-            info.init_fields(descr.get_parent_descr(), descr.get_index())
             optheap.const_infos[ref] = info
         return info
 
@@ -490,7 +497,7 @@ class ConstPtrInfo(PtrInfo):
         return info        
 
     def getfield(self, descr, optheap=None):
-        info = self._get_info(descr, optheap)
+        info = self._get_info(optheap)
         return info.getfield(descr)
 
     def getitem(self, index, optheap=None):
@@ -502,7 +509,7 @@ class ConstPtrInfo(PtrInfo):
         info.setitem(index, op, cf)
 
     def setfield(self, descr, struct, op, optheap=None, cf=None):
-        info = self._get_info(descr, optheap)
+        info = self._get_info(optheap)
         info.setfield(descr, struct, op, optheap, cf)
 
     def is_null(self):

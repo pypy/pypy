@@ -3814,13 +3814,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_n(i0)
         i3 = call_i(123456, p0, descr=elidable2calldescr)
         guard_no_exception() []
-        # i4 = same_as(i3)
-        jump(p0, i3, i4)
+        jump(p0, i3)
         '''
         expected = '''
-        [p0, i3, i4]
+        [p0, i3]
         escape_n(i3)
-        jump(p0, i4, i4)
+        jump(p0, i3)
         '''
         self.optimize_loop(ops, expected, preamble)
 
@@ -3850,7 +3849,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_n(i1)
         escape_n(i2)
         escape_n(i9)
-        i4 = call(123456, 4, i0, 6, descr=elidable3calldescr)
+        i4 = call_i(123456, 4, i0, 6, descr=elidable3calldescr)
         guard_no_exception() []
         jump(i0, i4)
         '''
@@ -3858,8 +3857,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, i2]
         escape_n(42)
         escape_n(i2)
-        escape(i2)
-        i4 = call(123456, 4, i0, 6, descr=elidable3calldescr)
+        escape_n(i2)
+        i4 = call_i(123456, 4, i0, 6, descr=elidable3calldescr)
         guard_no_exception() []
         jump(i0, i4)
         '''
