@@ -365,7 +365,8 @@ class OptRewrite(Optimization):
             if realclassbox is not None:
                 assert realclassbox.same_constant(expectedclassbox)
                 return
-        self.make_constant_class(op.getarg(0), expectedclassbox)
+        self.make_constant_class(op.getarg(0), expectedclassbox,
+                                 update_last_guard=False)
 
     def optimize_GUARD_CLASS(self, op):
         expectedclassbox = op.getarg(1)

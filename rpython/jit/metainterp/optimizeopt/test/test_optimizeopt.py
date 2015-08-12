@@ -7230,7 +7230,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_constant_getfield1(self):
         ops = """
         [p1, p187, i184]
-        p188 = getarrayitem_gc_r(p187, 42, descr=arraydescr)
+        p188 = getarrayitem_gc_r(p187, 42, descr=gcarraydescr)
         guard_value(p188, ConstPtr(myptr)) []
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
         call_n(123, p25, descr=nonwritedescr)
@@ -7238,23 +7238,23 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         preamble = """
         [p1, p187, i184]
-        p188 = getarrayitem_gc_r(p187, 42, descr=arraydescr)
+        p188 = getarrayitem_gc_r(p187, 42, descr=gcarraydescr)
         guard_value(p188, ConstPtr(myptr)) []
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
-        p123 = same_as_r(p25)
-        jump(p25, p187, i184, p123)
+        call_n(123, p25, descr=nonwritedescr)
+        jump(p25, p187, i184)
         """
         short = """
         [p1, p187, i184]
-        p188 = getarrayitem_gc_r(p187, 42, descr=arraydescr)
-        guard_value(p188, ConstPtr(myptr)) []
+        p188 = getarrayitem_gc_r(p187, 42, descr=gcarraydescr)
+        #guard_value(p188, ConstPtr(myptr)) []
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
         jump(p25)
         """
         expected = """
-        [p25, p187, i184, p189]
-        call_n(123, p189, descr=nonwritedescr)
-        jump(p25, p187, i184, p189)
+        [p25, p187, i184]
+        call_n(123, p25, descr=nonwritedescr)
+        jump(p25, p187, i184)
         """
         self.optimize_loop(ops, expected, preamble, expected_short=short)
 
@@ -8507,14 +8507,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2 = getfield_gc_r(p1, descr=nextdescr)
         mark_opaque_ptr(p2)
         guard_class(p2,  ConstClass(node_vtable)) []
-        i3 = getfield_gc_r(p2, descr=otherdescr)
+        i3 = getfield_gc_i(p2, descr=valuedescr)
         i4 = call_i(i3, descr=nonwritedescr)
         jump(p1)
         """
         expected = """
-        [p1, i3]
+        [p1, p2, i3]
         i4 = call_i(i3, descr=nonwritedescr)
-        jump(p1, i3)
+        jump(p1, p2, i3)
         """
         self.optimize_loop(ops, expected)
 
@@ -8539,13 +8539,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1]
         p2 = getfield_gc_r(p1, descr=nextdescr)
         mark_opaque_ptr(p2)
-        i3 = getfield_gc_i(p2, descr=otherdescr)
+        i3 = getfield_gc_i(p2, descr=valuedescr)
         i4 = call_i(i3, descr=nonwritedescr)
         jump(p1)
         """
         expected = """
         [p1, p2]
-        i3 = getfield_gc_i(p2, descr=otherdescr)
+        i3 = getfield_gc_i(p2, descr=valuedescr)
         i4 = call_i(i3, descr=nonwritedescr)
         jump(p1, p2)
         """
