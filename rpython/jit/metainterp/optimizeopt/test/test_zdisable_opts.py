@@ -30,7 +30,7 @@ for optnum in range(len(allopts)):
                                              rop.VIRTUAL_REF,
                                              rop.QUASIIMMUT_FIELD,
                                              rop.MARK_OPAQUE_PTR,
-                                             rop.RECORD_KNOWN_CLASS)
+                                             rop.RECORD_EXACT_CLASS)
 
         def raises(self, e, fn, *args):
             try:

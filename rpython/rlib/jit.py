@@ -1080,19 +1080,18 @@ class JitHookInterface(object):
         instance, overwrite for custom behavior
         """
 
-def record_known_class(value, cls):
+def record_exact_class(value, cls):
     """
-    Assure the JIT that value is an instance of cls. This is not a precise
-    class check, unlike a guard_class.
+    Assure the JIT that value is an instance of cls. This is a precise
+    class check, like a guard_class.
     """
-    assert isinstance(value, cls)
+    assert type(value) is cls
 
 class Entry(ExtRegistryEntry):
-    _about_ = record_known_class
+    _about_ = record_exact_class
 
     def compute_result_annotation(self, s_inst, s_cls):
         from rpython.annotator import model as annmodel
-        assert s_cls.is_constant()
         assert not s_inst.can_be_none()
         assert isinstance(s_inst, annmodel.SomeInstance)
 
@@ -1105,7 +1104,7 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         v_inst = hop.inputarg(hop.args_r[0], arg=0)
         v_cls = hop.inputarg(classrepr, arg=1)
-        return hop.genop('jit_record_known_class', [v_inst, v_cls],
+        return hop.genop('jit_record_exact_class', [v_inst, v_cls],
                          resulttype=lltype.Void)
 
 def _jit_conditional_call(condition, function, *args):

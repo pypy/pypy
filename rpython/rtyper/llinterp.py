@@ -545,7 +545,7 @@ class LLFrame(object):
     def op_jit_marker(self, *args):
         pass
 
-    def op_jit_record_known_class(self, *args):
+    def op_jit_record_exact_class(self, *args):
         pass
 
     def op_jit_conditional_call(self, *args):
