@@ -52,8 +52,9 @@ class ValueProf(object):
         elif status == SEEN_CONSTANT_INT:
             if self.is_int(w_value):
                 if self.read_constant_int() != self.get_int_val(w_value):
-                    if self._vprof_counter >= 200:
-                        print "NO LONGER CONSTANT", self._vprof_msg, 'int', w_value
+                    if not jit.we_are_jitted():
+                        if self._vprof_counter >= 200:
+                            print "NO LONGER CONSTANT", self._vprof_msg, 'int', w_value
                     self._vprof_status = SEEN_CONSTANT_CLASS
                     self._vprof_const_cls = type(w_value)
                 else:
@@ -85,12 +86,22 @@ class ValueProf(object):
             cls = self.read_constant_cls()
             if cls is not type(w_value):
                 self._vprof_status = SEEN_TOO_MUCH
+                if self._vprof_counter >= 200:
+                    print "NO LONGER CONSTANT CLASS", self._vprof_msg, 'cls', cls
+            else:
+                if not jit.we_are_jitted():
+                    self._vprof_counter += 1
+                    if self._vprof_counter == 200:
+                        print self._vprof_msg, 'cls', cls
 
     def can_fold_read_int(self):
         return self._vprof_status == SEEN_CONSTANT_INT
 
     def can_fold_read_obj(self):
         return self._vprof_status == SEEN_CONSTANT_OBJ
+
+    def class_is_known(self):
+        return self._vprof_status == SEEN_CONSTANT_CLASS
 
     @jit.elidable
     def read_constant_int(self):
