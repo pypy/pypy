@@ -350,6 +350,7 @@ def test_size_prediction():
         assert c.terminator.size_estimate() in [(i + 10) // 2, (i + 11) // 2]
 
 def test_value_profiling(monkeypatch):
+    monkeypatch.setattr(jit, "we_are_jitted", lambda : True)
     class Value:
         pass
     a = Value()
@@ -373,6 +374,28 @@ def test_value_profiling(monkeypatch):
     obj.setdictvalue(space, "a", Value())
     assert not obj.map.can_fold_read_obj()
 
+
+def test_value_profiling_known_cls(monkeypatch):
+    class Value(object):
+        pass
+    a = Value()
+    cls = Class()
+    obj = cls.instantiate()
+    a1 = Value()
+    obj.setdictvalue(space, "a", a1)
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", a1)
+    obj.setdictvalue(space, "a", a)
+
+    seen = []
+    def f(obj, cls):
+        seen.append((obj, cls))
+    monkeypatch.setattr(jit, "we_are_jitted", lambda : True)
+    monkeypatch.setattr(jit, "record_known_class", f)
+
+    assert obj.getdictvalue(space, "a") == a
+    assert obj.getdictvalue(space, "a") == a
+    assert seen == [(a, Value), (a, Value)]
 
 # ___________________________________________________________
 # dict tests

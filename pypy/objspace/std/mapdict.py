@@ -36,12 +36,13 @@ class AbstractAttribute(object):
         if attr is None:
             return self.terminator._read_terminator(obj, selector)
         # XXX move to PlainAttribute?
-        if attr.can_fold_read_int():
-            return W_IntObject(attr.read_constant_int())
-        elif attr.can_fold_read_obj():
-            w_res = attr.try_read_constant_obj()
-            if w_res is not None:
-                return w_res
+        if jit.we_are_jitted():
+            if attr.can_fold_read_int():
+                return W_IntObject(attr.read_constant_int())
+            elif attr.can_fold_read_obj():
+                w_res = attr.try_read_constant_obj()
+                if w_res is not None:
+                    return w_res
         if (
             jit.isconstant(attr.storageindex) and
             jit.isconstant(obj) and
@@ -49,7 +50,10 @@ class AbstractAttribute(object):
         ):
             return self._pure_mapdict_read_storage(obj, attr.storageindex)
         else:
-            return obj._mapdict_read_storage(attr.storageindex)
+            w_res = obj._mapdict_read_storage(attr.storageindex)
+            if jit.we_are_jitted() and attr.class_is_known():
+                jit.record_known_class(w_res, attr.read_constant_cls())
+            return w_res
 
     @jit.elidable
     def _pure_mapdict_read_storage(self, obj, storageindex):
