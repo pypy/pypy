@@ -6004,22 +6004,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_let_getfield_kill_setfields(self):
         ops = """
         [p0]
-        p1 = getfield_gc_r(p0, descr=valuedescr)
-        setfield_gc(p0, p1, descr=valuedescr)
-        setfield_gc(p0, p1, descr=valuedescr)
-        setfield_gc(p0, p0, descr=valuedescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        setfield_gc(p0, p1, descr=nextdescr)
+        setfield_gc(p0, p1, descr=nextdescr)
+        setfield_gc(p0, p0, descr=nextdescr)
         jump(p0)
         """
         preamble = """
         [p0]
-        p1 = getfield_gc_r(p0, descr=valuedescr)
-        setfield_gc(p0, p0, descr=valuedescr)
-        p4450 = same_as(p0) # Should be killed by backend
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        setfield_gc(p0, p0, descr=nextdescr)
         jump(p0)
         """
         expected = """
         [p0]
-        setfield_gc(p0, p0, descr=valuedescr)
         jump(p0)
         """
         self.optimize_loop(ops, expected, preamble)
