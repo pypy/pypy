@@ -7084,11 +7084,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
 
-    def test_record_known_class(self):
+    def test_record_exact_class(self):
         ops = """
         [p0]
         p1 = getfield_gc(p0, descr=nextdescr)
-        record_known_class(p1, ConstClass(node_vtable))
+        record_exact_class(p1, ConstClass(node_vtable))
         guard_class(p1, ConstClass(node_vtable)) []
         jump(p1)
         """
