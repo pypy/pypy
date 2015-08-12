@@ -56,7 +56,7 @@ class ValueProf(object):
                         if self._vprof_counter >= 200:
                             print "NO LONGER CONSTANT", self._vprof_msg, 'int', w_value
                     self._vprof_status = SEEN_CONSTANT_CLASS
-                    self._vprof_const_cls = type(w_value)
+                    self._vprof_const_cls = w_value.__class__
                 else:
                     if not jit.we_are_jitted():
                         self._vprof_counter += 1
@@ -71,8 +71,8 @@ class ValueProf(object):
             if prev_obj is not w_value:
                 if self._vprof_counter >= 200:
                     print "NO LONGER CONSTANT", self._vprof_msg, 'obj', w_value
-                prev_cls = type(prev_obj)
-                if prev_cls is type(w_value):
+                prev_cls = prev_obj.__class__
+                if prev_cls is w_value.__class__:
                     self._vprof_const_cls = prev_cls
                     self._vprof_status = SEEN_CONSTANT_CLASS
                 else:
@@ -84,7 +84,7 @@ class ValueProf(object):
                         print self._vprof_msg, 'obj', w_value
         elif status == SEEN_CONSTANT_CLASS:
             cls = self.read_constant_cls()
-            if cls is not type(w_value):
+            if cls is not w_value.__class__:
                 self._vprof_status = SEEN_TOO_MUCH
                 if self._vprof_counter >= 200:
                     print "NO LONGER CONSTANT CLASS", self._vprof_msg, 'cls', cls
