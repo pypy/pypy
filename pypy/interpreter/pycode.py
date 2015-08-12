@@ -206,7 +206,6 @@ class PyCode(eval.Code):
 
         self.fast_natural_arity = eval.Code.FLATPYCALL | self.co_argcount
 
-    @jit.unroll_safe
     def funcrun(self, func, args):
         frame = self.space.createframe(self, func.w_func_globals,
                                   func)
@@ -220,7 +219,6 @@ class PyCode(eval.Code):
         fresh_frame.init_cells()
         return frame.run()
 
-    @jit.unroll_safe
     def funcrun_obj(self, func, w_obj, args):
         frame = self.space.createframe(self, func.w_func_globals,
                                   func)

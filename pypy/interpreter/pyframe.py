@@ -168,6 +168,7 @@ class PyFrame(W_Root):
         vprof = self.getcode().vprofs[varindex]
         vprof.see_write(value)
 
+    @jit.unroll_safe
     def _all_locals_changed(self):
         for i, vprof in enumerate(self.getcode().vprofs):
             vprof.see_write(self.locals_cells_stack_w[i])
