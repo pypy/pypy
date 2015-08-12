@@ -148,6 +148,7 @@ class PyFrame(W_Root):
     def _getlocal(self, varindex):
         from pypy.objspace.std.intobject import W_IntObject
         # some careful logic there
+        vprof = None
         if we_are_jitted():
             vprof = self.getcode().vprofs[varindex]
             if vprof.can_fold_read_int():
