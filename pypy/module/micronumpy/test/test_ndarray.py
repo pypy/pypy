@@ -3808,7 +3808,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert (a == [1, 2]).all()
 
     def test_pickle(self):
-        from numpy import dtype, array
+        from numpy import dtype, array, int32
         from cPickle import loads, dumps
 
         d = dtype([('x', str), ('y', 'int32')])
@@ -3825,6 +3825,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
         assert a[0]['y'] == 2
         assert a[1]['y'] == 1
+        
+        a = array([(1, [])], dtype=[('a', int32), ('b', int32, 0)])
+        assert a['b'].shape == (1, 0)
+        b = loads(dumps(a))
+        assert b['b'].shape == (1, 0)
 
     def test_subarrays(self):
         from numpy import dtype, array, zeros
