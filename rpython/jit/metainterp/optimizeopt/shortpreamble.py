@@ -62,6 +62,20 @@ class HeapOp(AbstractShortOp):
             assert index >= 0
             opinfo.setitem(index, self.res, pop, optheap=optheap)
 
+    def add_op_to_short(self, sb):
+        sop = self.getfield_op
+        preamble_arg = sb.produce_arg(sop.getarg(0))
+        if preamble_arg is None:
+            return None
+        if sop.is_getfield():
+            preamble_op = ResOperation(sop.getopnum(), [preamble_arg],
+                                       descr=sop.getdescr())
+        else:
+            preamble_op = ResOperation(sop.getopnum(), [preamble_arg,
+                                                        sop.getarg(1)],
+                                       descr=sop.getdescr())
+        return ProducedShortOp(self, preamble_op)
+
     def __repr__(self):
         return "HeapOp(%r)" % (self.res,)
 
@@ -79,6 +93,17 @@ class PureOp(AbstractShortOp):
         else:
             opt.pure(op.getopnum(), PreambleOp(op, preamble_op))
 
+    def add_op_to_short(self, sb):
+        op = self.res
+        arglist = []
+        for arg in op.getarglist():
+            newarg = sb.produce_arg(arg)
+            if newarg is None:
+                return None
+            arglist.append(newarg)
+        return ProducedShortOp(self, op.copy_and_change(op.getopnum(),
+                                                        args=arglist))
+
     def __repr__(self):
         return "PureOp(%r)" % (self.res,)
 
@@ -94,8 +119,38 @@ class LoopInvariantOp(AbstractShortOp):
         key = make_hashable_int(op.getarg(0).getint())
         optrewrite.loop_invariant_results[key] = PreambleOp(op, preamble_op)
 
+    def add_op_to_short(self, sb):
+        op = self.res
+        arglist = []
+        for arg in op.getarglist():
+            newarg = sb.produce_arg(arg)
+            if newarg is None:
+                return None
+            arglist.append(newarg)
+        opnum = OpHelpers.call_loopinvariant_for_descr(op.getdescr())
+        return ProducedShortOp(self, op.copy_and_change(opnum, args=arglist))
+
     def __repr__(self):
         return "LoopInvariantOp(%r)" % (self.res,)
+
+class CompoundOp(AbstractShortOp):
+    def __init__(self, res, one, two):
+        self.res = res
+        self.one = one
+        self.two = two
+
+    def flatten(self, sb, l):
+        pop = self.one.add_op_to_short(sb)
+        if pop is not None:
+            l.append(pop)
+        two = self.two
+        if isinstance(two, CompoundOp):
+            two.flatten(sb, l)
+        else:
+            pop = two.add_op_to_short(sb)
+            if pop is not None:
+                l.append(pop)
+        return l
 
 class AbstractProducedShortOp(object):
     pass
@@ -110,6 +165,9 @@ class ProducedShortOp(AbstractProducedShortOp):
 
     def __repr__(self):
         return "%r -> %r" % (self.short_op, self.preamble_op)
+
+dummy_short_op = ProducedShortOp(None, None)
+
 
 class ShortInputArg(AbstractProducedShortOp):
     def __init__(self, preamble_op):
@@ -131,6 +189,7 @@ class ShortBoxes(object):
         # of AbstractShortOp
         self.potential_ops = {}
         self.produced_short_boxes = {}
+        self.extra_short_boxes = {}
         # a way to produce const boxes, e.g. setfield_gc(p0, Const).
         # We need to remember those, but they don't produce any new boxes
         self.const_short_boxes = []
@@ -151,8 +210,9 @@ class ShortBoxes(object):
             self.add_op_to_short(shortop)
         #
         for op, produced_op in self.produced_short_boxes.iteritems():
-            if isinstance(produced_op, ProducedShortOp):
+            if not isinstance(produced_op, ShortInputArg):
                 short_boxes.append(produced_op)
+        short_boxes += self.extra_short_boxes
 
         for short_op in self.const_short_boxes:
             getfield_op = short_op.getfield_op
@@ -173,7 +233,7 @@ class ShortBoxes(object):
         elif isinstance(op, Const):
             return op
         elif op in self.potential_ops:
-            return self.add_op_to_short(self.potential_ops[op])
+            return self.add_op_to_short(self.potential_ops[op]).preamble_op
         else:
             return None
 
@@ -182,37 +242,26 @@ class ShortBoxes(object):
             return # already added due to dependencies
         self.boxes_in_production[shortop.res] = None
         try:
-            op = shortop.res
-            if isinstance(shortop, HeapOp):
-                sop = shortop.getfield_op
-                preamble_arg = self.produce_arg(sop.getarg(0))
-                if preamble_arg is None:
-                    return None
-                if sop.is_getfield():
-                    preamble_op = ResOperation(sop.getopnum(), [preamble_arg],
-                                               descr=sop.getdescr())
+            if isinstance(shortop, CompoundOp):
+                lst = shortop.flatten(self, [])
+                if len(lst) == 1:
+                    pop = lst[0]
                 else:
-                    preamble_op = ResOperation(sop.getopnum(), [preamble_arg,
-                                                                sop.getarg(1)],
-                                               descr=sop.getdescr())
+                    pop = lst[0]
+                    for i in range(1, len(lst)):
+                        opnum = OpHelpers.same_as_for_type(shortop.res.type)
+                        new_name = ResOperation(opnum, [shortop.res])
+                        assert lst[i].short_op is not pop.short_op
+                        lst[i].short_op.res = new_name
+                        self.produced_short_boxes[new_name] = lst[i]
             else:
-                arglist = []
-                for arg in op.getarglist():
-                    newarg = self.produce_arg(arg)
-                    if newarg is None:
-                        return None
-                    arglist.append(newarg)
-                if isinstance(shortop, PureOp):
-                    opnum = op.getopnum()
-                else:
-                    opnum = OpHelpers.call_loopinvariant_for_descr(
-                        op.getdescr())
-                preamble_op = op.copy_and_change(opnum, args=arglist)
-            self.produced_short_boxes[op] = ProducedShortOp(shortop,
-                                                            preamble_op)
+                pop = shortop.add_op_to_short(self)
+            if pop is None:
+                return
+            self.produced_short_boxes[shortop.res] = pop
         finally:
             del self.boxes_in_production[shortop.res]
-        return preamble_op
+        return pop
 
     def create_short_inputargs(self, label_args):
         short_inpargs = []
@@ -226,18 +275,26 @@ class ShortBoxes(object):
                 short_inpargs.append(inparg.preamble_op)
         return short_inpargs
 
+    def add_potential_op(self, op, pop):
+        prev_op = self.potential_ops.get(op, None)
+        if prev_op is None:
+            self.potential_ops[op] = pop
+            return
+        self.potential_ops[op] = CompoundOp(op, pop, prev_op)
+
     def add_pure_op(self, op):
-        self.potential_ops[op] = PureOp(op)
+        assert op not in self.potential_ops
+        self.add_potential_op(op, PureOp(op))
 
     def add_loopinvariant_op(self, op):
-        self.potential_ops[op] = LoopInvariantOp(op)
+        self.add_potential_op(op, LoopInvariantOp(op))
 
     def add_heap_op(self, op, getfield_op):
         # or an inputarg
         if isinstance(op, Const) or op in self.produced_short_boxes:
             self.const_short_boxes.append(HeapOp(op, getfield_op))
             return # we should not be called from anywhere
-        self.potential_ops[op] = HeapOp(op, getfield_op)
+        self.add_potential_op(op, HeapOp(op, getfield_op))
 
 class EmptyInfo(info.AbstractInfo):
     pass

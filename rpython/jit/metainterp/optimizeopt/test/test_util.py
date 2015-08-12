@@ -172,9 +172,11 @@ class LLtypeMixin(object):
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
 
     # a GcStruct not inheriting from OBJECT
-    S = lltype.GcStruct('TUPLE', ('a', lltype.Signed), ('b', lltype.Ptr(NODE)))
+    S = lltype.GcStruct('TUPLE', ('a', lltype.Signed), ('abis', lltype.Signed),
+                        ('b', lltype.Ptr(NODE)))
     ssize = cpu.sizeof(S, False)
     adescr = cpu.fielddescrof(S, 'a')
+    abisdescr = cpu.fielddescrof(S, 'abis')
     bdescr = cpu.fielddescrof(S, 'b')
     #sbox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(S)))
     arraydescr2 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(S)))

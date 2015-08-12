@@ -3678,7 +3678,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         '''
         expected = '''
         [p1, i4, i3]
-        setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i3, i3)
         '''
         preamble = '''
@@ -3704,7 +3703,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         '''
         expected = '''
         [p1, i4, i3]
-        setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i3, i3)
         '''
         preamble = '''
@@ -3747,7 +3745,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = call_i(p1, descr=elidable3calldescr)
         guard_no_exception() []
         setfield_gc(p1, i3, descr=valuedescr)
-        i167 = same_as(i3)
+        i167 = same_as_i(i3)
         jump(p1, i4, i3)
         '''
         self.optimize_loop(ops, expected, preamble)
@@ -3770,7 +3768,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call_i(p1, descr=elidablecalldescr)
-        i151 = same_as(i3)
+        i151 = same_as_i(i3)
         jump(p1, i4, i3, i151)
         '''
         self.optimize_loop(ops, expected, preamble)
@@ -7388,7 +7386,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, ii, descr=otherdescr)
         jump(p0, p1, ii2, ii, ii, ii)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected, preamble)
 
     def test_dont_specialize_on_boxes_equal(self):
         ops = """
@@ -7396,7 +7394,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = getfield_gc_i(p0, descr=valuedescr)
         i2 = getfield_gc_i(p1, descr=chardescr)
         setfield_gc(p3, i1, descr=adescr)
-        setfield_gc(p3, i2, descr=bdescr)
+        setfield_gc(p3, i2, descr=abisdescr)
         i4 = int_eq(i1, i2)
         guard_true(i4) []
         i5 = int_gt(ii, 42)
@@ -7406,7 +7404,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p0, p1, p3, ii, ii2, i1, i2]
         setfield_gc(p3, i1, descr=adescr)
-        setfield_gc(p3, i2, descr=bdescr)
+        setfield_gc(p3, i2, descr=abisdescr)
         i5 = int_gt(ii, 42)
         guard_true(i5) []
         jump(p0, p1, p3, ii2, ii, i1, i2)
