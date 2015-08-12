@@ -45,12 +45,16 @@ class HeapOp(AbstractShortOp):
         self.res = res
         self.getfield_op = getfield_op
 
-    def produce_op(self, opt, preamble_op):
+    def produce_op(self, opt, preamble_op, exported_infos):
         optheap = opt.optimizer.optheap
         if optheap is None:
             return
         g = preamble_op.copy_and_change(preamble_op.getopnum(),
                                         args=self.getfield_op.getarglist())
+        if g.getarg(0) in exported_infos:
+            opt.optimizer.setinfo_from_preamble(g.getarg(0),
+                                                exported_infos[g.getarg(0)],
+                                                exported_infos)
         opinfo = opt.optimizer.ensure_ptr_info_arg0(g)
         pop = PreambleOp(self.res, preamble_op)
         assert not opinfo.is_virtual()
@@ -85,7 +89,7 @@ class PureOp(AbstractShortOp):
     def __init__(self, res):
         self.res = res
 
-    def produce_op(self, opt, preamble_op):
+    def produce_op(self, opt, preamble_op, exported_infos):
         optpure = opt.optimizer.optpure
         if optpure is None:
             return
@@ -116,7 +120,7 @@ class LoopInvariantOp(AbstractShortOp):
     def __init__(self, res):
         self.res = res
 
-    def produce_op(self, opt, preamble_op):
+    def produce_op(self, opt, preamble_op, exported_infos):
         optrewrite = opt.optimizer.optrewrite
         if optrewrite is None:
             return
@@ -165,8 +169,8 @@ class ProducedShortOp(AbstractProducedShortOp):
         self.short_op = short_op
         self.preamble_op = preamble_op
 
-    def produce_op(self, opt):
-        self.short_op.produce_op(opt, self.preamble_op)
+    def produce_op(self, opt, exported_infos):
+        self.short_op.produce_op(opt, self.preamble_op, exported_infos)
 
     def __repr__(self):
         return "%r -> %r" % (self.short_op, self.preamble_op)
@@ -178,7 +182,7 @@ class ShortInputArg(AbstractProducedShortOp):
     def __init__(self, preamble_op):
         self.preamble_op = preamble_op
 
-    def produce_op(self, opt):
+    def produce_op(self, opt, exported_infos):
         pass
 
     def __repr__(self):

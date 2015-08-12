@@ -38,7 +38,7 @@ class UnrollableOptimizer(Optimizer):
     def setinfo_from_preamble(self, op, preamble_info, exported_infos):
         op = self.get_box_replacement(op)
         if op.get_forwarded() is not None:
-            return # XXX?
+            return
         if isinstance(preamble_info, info.PtrInfo):
             if preamble_info.is_virtual():
                 # XXX do we want to sanitize this?
@@ -338,7 +338,7 @@ class UnrollOptimizer(Optimization):
             exported_state.short_boxes, exported_state.short_inputargs,
             exported_state.exported_infos, self.optimizer)
         for produced_op in exported_state.short_boxes:
-            produced_op.produce_op(self)
+            produced_op.produce_op(self, exported_state.exported_infos)
 
         return
         self.inputargs = targetop.getarglist()
