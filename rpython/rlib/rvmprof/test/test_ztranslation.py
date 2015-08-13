@@ -1,4 +1,4 @@
-import time, os
+import time, os, sys
 from rpython.tool.udir import udir
 from rpython.rlib import rvmprof
 from rpython.translator.c.test.test_genc import compile
@@ -52,7 +52,9 @@ def target(driver, args):
     return main
 
 def test_interpreted():
-    main()
+    # takes forever if the Python process is already big...
+    import subprocess
+    subprocess.check_call([sys.executable, __file__])
 
 def test_compiled():
     fn = compile(main, [], gcpolicy="minimark")
@@ -60,3 +62,8 @@ def test_compiled():
         os.unlink(PROF_FILE)
     fn()
     assert os.path.exists(PROF_FILE)
+
+if __name__ == '__main__':
+    setup_module(None)
+    res = main()
+    assert res == 0
