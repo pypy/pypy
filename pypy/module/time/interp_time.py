@@ -4,8 +4,10 @@ from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rtime import c_clock_gettime, TIMESPEC
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+import math
 import os
 import sys
 import time as pytime
@@ -113,6 +115,13 @@ class CConfig:
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
     has_gettimeofday = platform.Has('gettimeofday')
 
+CLOCK_CONSTANTS = ['CLOCK_HIGHRES', 'CLOCK_MONOTONIC', 'CLOCK_MONOTONIC_RAW',
+                   'CLOCK_PROCESS_CPUTIME_ID', 'CLOCK_REALTIME',
+                   'CLOCK_THREAD_CPUTIME_ID']
+
+for constant in CLOCK_CONSTANTS:
+    setattr(CConfig, constant, platform.DefinedConstantInteger(constant))
+
 if _POSIX:
     calling_conv = 'c'
     CConfig.timeval = platform.Struct("struct timeval",
@@ -178,6 +187,12 @@ c_mktime = external('mktime', [TM_P], rffi.TIME_T)
 c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
                        save_err=rffi.RFFI_SAVE_ERRNO)
 if _POSIX:
+    c_clock_settime = external('clock_settime',
+                               [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
+                               save_err=rffi.RFFI_SAVE_ERRNO)
+    c_clock_getres = external('clock_getres',
+                              [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
+                              save_err=rffi.RFFI_SAVE_ERRNO)
     c_tzset = external('tzset', [], lltype.Void)
 if _WIN:
     win_eci = ExternalCompilationInfo(
@@ -595,6 +610,39 @@ def mktime(space, w_tup):
     return space.wrap(float(tt))
 
 if _POSIX:
+    @unwrap_spec(clk_id='c_int')
+    def clock_gettime(space, clk_id):
+        with lltype.scoped_alloc(TIMESPEC) as timespec:
+            ret = c_clock_gettime(clk_id, timespec)
+            if ret != 0:
+                raise OperationError(space.w_OSError,
+                                     space.wrap(_get_error_msg()))
+            result = (float(rffi.getintfield(timespec, 'c_tv_sec')) +
+                      float(rffi.getintfield(timespec, 'c_tv_nsec')) * 1e-9)
+        return space.wrap(result)
+
+    @unwrap_spec(clk_id='c_int', secs=float)
+    def clock_settime(space, clk_id, secs):
+        with lltype.scoped_alloc(TIMESPEC) as timespec:
+            frac = math.fmod(secs, 1.0)
+            rffi.setintfield(timespec, 'c_tv_sec', int(secs))
+            rffi.setintfield(timespec, 'c_tv_nsec', int(frac * 1e9))
+            ret = c_clock_settime(clk_id, timespec)
+            if ret != 0:
+                raise OperationError(space.w_OSError,
+                                     space.wrap(_get_error_msg()))
+
+    @unwrap_spec(clk_id='c_int')
+    def clock_getres(space, clk_id):
+        with lltype.scoped_alloc(TIMESPEC) as timespec:
+            ret = c_clock_getres(clk_id, timespec)
+            if ret != 0:
+                raise OperationError(space.w_OSError,
+                                     space.wrap(_get_error_msg()))
+            result = (float(rffi.getintfield(timespec, 'c_tv_sec')) +
+                      float(rffi.getintfield(timespec, 'c_tv_nsec')) * 1e-9)
+        return space.wrap(result)
+
     def tzset(space):
         """tzset()
 

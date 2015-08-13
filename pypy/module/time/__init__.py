@@ -1,5 +1,6 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
+from .interp_time import CLOCK_CONSTANTS, cConfig
 import os
 
 _WIN = os.name == "nt"
@@ -21,7 +22,15 @@ class Module(MixedModule):
     }
 
     if os.name == "posix":
+        interpleveldefs['clock_gettime'] = 'interp_time.clock_gettime'
+        interpleveldefs['clock_settime'] = 'interp_time.clock_settime'
+        interpleveldefs['clock_getres'] = 'interp_time.clock_getres'
         interpleveldefs['tzset'] = 'interp_time.tzset'
+
+    for constant in CLOCK_CONSTANTS:
+        value = getattr(cConfig, constant)
+        if value is not None:
+            interpleveldefs[constant] = 'space.wrap(interp_time.cConfig.%s)' % constant
 
     appleveldefs = {
         'struct_time': 'app_time.struct_time',
