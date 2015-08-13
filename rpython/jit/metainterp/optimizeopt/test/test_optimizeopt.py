@@ -6016,6 +6016,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p0]
+        p1 = getfield_gc_r(p0, descr=nextdescr) # to be killed by the backend
+        setfield_gc(p0, p0, descr=nextdescr)
         jump(p0)
         """
         self.optimize_loop(ops, expected, preamble)
