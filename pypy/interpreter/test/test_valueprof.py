@@ -66,7 +66,7 @@ def test_obj():
     v = ValueProf()
     assert v._vprof_status == SEEN_NOTHING
     v.see_write(Value())
-    v.see_write(Value())
+    v.see_write(OtherValue())
     assert v._vprof_status == SEEN_TOO_MUCH
 
 
@@ -91,6 +91,8 @@ def test_none():
     assert v._vprof_status == SEEN_TOO_MUCH
 
 def test_known_class():
+    import gc
+
     v = ValueProf()
     value = Value()
     assert v._vprof_status == SEEN_NOTHING
@@ -109,3 +111,16 @@ def test_known_class():
     assert v._vprof_status == SEEN_CONSTANT_CLASS
     v.see_write(ValueInt(5))
     assert v._vprof_status == SEEN_TOO_MUCH
+
+    v = ValueProf()
+    assert v._vprof_status == SEEN_NOTHING
+    v.see_write(Value())
+    assert v._vprof_status == SEEN_CONSTANT_OBJ
+    gc.collect()
+    gc.collect()
+    gc.collect()
+    v.see_write(Value())
+    assert v._vprof_status == SEEN_CONSTANT_CLASS
+    v.see_write(OtherValue())
+    assert v._vprof_status == SEEN_TOO_MUCH
+

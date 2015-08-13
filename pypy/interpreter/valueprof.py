@@ -44,10 +44,12 @@ class ValueProf(object):
             else:
                 try:
                     self._vprof_value_wref = ref(w_value)
-                    self._vprof_status = SEEN_CONSTANT_OBJ
                 except TypeError:
                     # for tests, which really use unwrapped ints in a few places
                     self._vprof_status = SEEN_TOO_MUCH
+                else:
+                    self._vprof_const_cls = w_value.__class__
+                    self._vprof_status = SEEN_CONSTANT_OBJ
         elif status == SEEN_CONSTANT_INT:
             if self.is_int(w_value):
                 if self.read_constant_int() != self.get_int_val(w_value):
@@ -70,7 +72,7 @@ class ValueProf(object):
             if prev_obj is not w_value:
                 if self._vprof_counter >= 200:
                     print "NO LONGER CONSTANT", self._vprof_msg, 'obj', w_value
-                prev_cls = prev_obj.__class__
+                prev_cls = self.read_constant_cls()
                 if prev_cls is w_value.__class__:
                     self._vprof_const_cls = prev_cls
                     self._vprof_status = SEEN_CONSTANT_CLASS
