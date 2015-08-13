@@ -1159,8 +1159,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = getfield_gc_i(p0, descr=valuedescr)
         i2 = int_sub(i1, 1)
         i3 = int_add(i0, i1)
-        #i4 = same_as_i(i2) # This same_as should be killed by backend
-        jump(i3, i1, i2)
+        jump(i3, i2, i1)
         """
         expected = """
         [i0, i1bis, i1]
@@ -8651,6 +8650,35 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_le(i2, 13)
         guard_true(i3) [p1]
         jump(p0, i2, p1)        
+        """
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_unroll_two_boxes_used_differently(self):
+        ops = """
+        [p0, i0, i2]
+        i1 = int_add(i0, 1)
+        i3 = int_add(i1, i2)
+        i4 = getfield_gc_i(p0, descr=valuedescr)
+        escape_n(i4)
+        setfield_gc(p0, i1, descr=valuedescr)
+        jump(p0, i0, i3)
+        """
+        preamble = """
+        [p0, i0, i2]
+        i1 = int_add(i0, 1)
+        i3 = int_add(i1, i2)
+        i4 = getfield_gc_i(p0, descr=valuedescr)
+        escape_n(i4)
+        setfield_gc(p0, i1, descr=valuedescr)
+        ii = same_as_i(i1)
+        jump(p0, i0, i3, i1, ii)        
+        """
+        expected = """
+        [p0, i0, i2, i4, i5]
+        i3 = int_add(i4, i2)
+        escape_n(i5)
+        setfield_gc(p0, i4, descr=valuedescr)
+        jump(p0, i0, i3, i4, i4)
         """
         self.optimize_loop(ops, expected, preamble)
 

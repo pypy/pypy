@@ -16,9 +16,10 @@ class PreambleOp(AbstractResOp):
     See force_op_from_preamble for details how the extra things are put.
     """
     
-    def __init__(self, op, preamble_op):
+    def __init__(self, op, preamble_op, invented_name):
         self.op = op
         self.preamble_op = preamble_op
+        self.invented_name = invented_name
 
     def numargs(self):
         return self.op.numargs()
@@ -45,7 +46,7 @@ class HeapOp(AbstractShortOp):
         self.res = res
         self.getfield_op = getfield_op
 
-    def produce_op(self, opt, preamble_op, exported_infos):
+    def produce_op(self, opt, preamble_op, exported_infos, invented_name):
         optheap = opt.optimizer.optheap
         if optheap is None:
             return
@@ -56,7 +57,7 @@ class HeapOp(AbstractShortOp):
                                                 exported_infos[g.getarg(0)],
                                                 exported_infos)
         opinfo = opt.optimizer.ensure_ptr_info_arg0(g)
-        pop = PreambleOp(self.res, preamble_op)
+        pop = PreambleOp(self.res, preamble_op, invented_name)
         assert not opinfo.is_virtual()
         descr = self.getfield_op.getdescr()
         if g.is_getfield():
@@ -89,15 +90,17 @@ class PureOp(AbstractShortOp):
     def __init__(self, res):
         self.res = res
 
-    def produce_op(self, opt, preamble_op, exported_infos):
+    def produce_op(self, opt, preamble_op, exported_infos, invented_name):
         optpure = opt.optimizer.optpure
         if optpure is None:
             return
         op = self.res
         if preamble_op.is_call():
-            optpure.extra_call_pure.append(PreambleOp(op, preamble_op))
+            optpure.extra_call_pure.append(PreambleOp(op, preamble_op,
+                                                      invented_name))
         else:
-            opt.pure(op.getopnum(), PreambleOp(op, preamble_op))
+            opt.pure(op.getopnum(), PreambleOp(op, preamble_op,
+                                               invented_name))
 
     def add_op_to_short(self, sb):
         op = self.res
@@ -120,13 +123,14 @@ class LoopInvariantOp(AbstractShortOp):
     def __init__(self, res):
         self.res = res
 
-    def produce_op(self, opt, preamble_op, exported_infos):
+    def produce_op(self, opt, preamble_op, exported_infos, invented_name):
         optrewrite = opt.optimizer.optrewrite
         if optrewrite is None:
             return
         op = self.res
         key = make_hashable_int(op.getarg(0).getint())
-        optrewrite.loop_invariant_results[key] = PreambleOp(op, preamble_op)
+        optrewrite.loop_invariant_results[key] = PreambleOp(op, preamble_op,
+                                                            invented_name)
 
     def add_op_to_short(self, sb):
         op = self.res
@@ -165,12 +169,15 @@ class AbstractProducedShortOp(object):
     pass
 
 class ProducedShortOp(AbstractProducedShortOp):
+    invented_name = False
+    
     def __init__(self, short_op, preamble_op):
         self.short_op = short_op
         self.preamble_op = preamble_op
 
     def produce_op(self, opt, exported_infos):
-        self.short_op.produce_op(opt, self.preamble_op, exported_infos)
+        self.short_op.produce_op(opt, self.preamble_op, exported_infos,
+                                 invented_name=self.invented_name)
 
     def __repr__(self):
         return "%r -> %r" % (self.short_op, self.preamble_op)
@@ -189,10 +196,9 @@ class ShortInputArg(AbstractProducedShortOp):
         return "INP(%r)" % (self.preamble_op,)
 
 class ShortBoxes(object):
-    def __init__(self):
-        #self.extra_same_as = []
-        pass
-
+    """ This is a container used for creating all the exported short
+    boxes from the preamble
+    """
     def create_short_boxes(self, optimizer, inputargs, label_args):
         # all the potential operations that can be produced, subclasses
         # of AbstractShortOp
@@ -272,6 +278,7 @@ class ShortBoxes(object):
                         new_name = ResOperation(opnum, [shortop.res])
                         assert lst[i].short_op is not pop.short_op
                         lst[i].short_op.res = new_name
+                        lst[i].invented_name = True
                         self.produced_short_boxes[new_name] = lst[i]
             else:
                 pop = shortop.add_op_to_short(self)
@@ -321,6 +328,10 @@ class EmptyInfo(info.AbstractInfo):
 empty_info = EmptyInfo()
 
 class ShortPreambleBuilder(object):
+    """ ShortPreambleBuilder is used during optimizing of the peeled loop,
+    starting from short_boxes exported from the preamble. It will build
+    the short preamble and necessary extra label arguments
+    """
     def __init__(self, short_boxes, short_inputargs, exported_infos,
                  optimizer=None):
         for produced_op in short_boxes:
@@ -336,6 +347,7 @@ class ShortPreambleBuilder(object):
         self.short = []
         self.used_boxes = []
         self.short_preamble_jump = []
+        self.extra_same_as = []
         self.short_inputargs = short_inputargs
 
     def use_box(self, box, preamble_op, optimizer=None):
@@ -363,6 +375,8 @@ class ShortPreambleBuilder(object):
         return preamble_op
 
     def add_preamble_op(self, preamble_op):
+        if preamble_op.invented_name:
+            self.extra_same_as.append(preamble_op.op)
         self.used_boxes.append(preamble_op.op)
         self.short_preamble_jump.append(preamble_op.preamble_op)
 

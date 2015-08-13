@@ -124,7 +124,8 @@ class UnrollOptimizer(Optimization):
         jump_op = ResOperation(rop.JUMP, jump_args)
         self.optimizer._newoperations.append(jump_op)
         return (UnrollInfo(self.short_preamble_producer.build_short_preamble(),
-                           used_boxes),
+                           used_boxes,
+                           self.short_preamble_producer.extra_same_as),
                 self.optimizer._newoperations)
 
     def filter_extra_jump_args(self, sp, jump_args, extra_jump_args):
@@ -222,10 +223,12 @@ class UnrollInfo(LoopInfo):
 
     * short_preamble - list of operations that go into short preamble
     * extra_label_args - additional things to put in the label
+    * extra_same_as - list of extra same as to add at the end of the preamble
     """
-    def __init__(self, short_preamble, extra_label_args):
+    def __init__(self, short_preamble, extra_label_args, extra_same_as):
         self.short_preamble = short_preamble
         self.extra_label_args = extra_label_args
+        self.extra_same_as = extra_same_as
             
 class ExportedState(LoopInfo):
     """ Exported state consists of a few pieces of information:

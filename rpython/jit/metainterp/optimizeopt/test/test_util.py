@@ -474,9 +474,10 @@ class BaseTest(object):
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs
         start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs)
-        preamble.operations = [start_label] + preamble_ops
         inputargs = start_state.end_args + loop_info.extra_label_args
         emit_end_label = ResOperation(rop.LABEL, inputargs)
+        preamble.operations = ([start_label] + preamble_ops +
+                               loop_info.extra_same_as + [emit_end_label])
         loop.inputargs = inputargs
         loop.operations = [emit_end_label] + ops
         return Info(preamble, loop_info.short_preamble)
@@ -495,7 +496,8 @@ def convert_old_style_to_targets(loop, jump):
                       loop.operations
     if not jump:
         assert newloop.operations[-1].getopnum() == rop.JUMP
-        newloop.operations = newloop.operations[:-1]
+        newloop.operations[-1] = newloop.operations[-1].copy_and_change(
+            rop.LABEL)
     return newloop
 
 # ____________________________________________________________

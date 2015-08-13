@@ -250,7 +250,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                              descr=mid_descr_token)
     # XXX assign short preamble and virtual state
     loop_ops[-1].setdescr(mid_descr_token)
-    loop.operations = [start_label] + preamble_ops + [mid_label] + loop_ops
+    loop.operations = ([start_label] + preamble_ops + loop_info.extra_same_as +
+                       [mid_label] + loop_ops)
     loop.check_consistency()
     jitcell_token.all_target_tokens = [start_descr, mid_descr_token]
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
