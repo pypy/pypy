@@ -1166,6 +1166,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (logical_xor([True, False, True, False], [1, 2, 0, 0])
                 == [False, True, True, False]).all()
         assert (logical_not([True, False]) == [False, True]).all()
+        assert logical_and.reduce([1.,1.]) == True
 
     def test_logn(self):
         import math
