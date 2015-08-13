@@ -6,54 +6,69 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 
 from rpython.jit.backend import detect_cpu
-if not detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64):
-    py.test.skip("rvmprof only supports x86-64 CPUs for now")
+
+class VMProfPlatformUnsupported(Exception):
+    pass
+
+def setup():
+    if not detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64):
+        raise VMProfPlatformUnsupported("rvmprof only supports"
+                                        " x86-64 CPUs for now")
 
 
-ROOT = py.path.local(__file__).join('..')
-SRC = ROOT.join('src')
+    ROOT = py.path.local(__file__).join('..')
+    SRC = ROOT.join('src')
 
 
-if sys.platform.startswith('linux'):
-    libs = ['dl']
-else:
-    libs = []
+    if sys.platform.startswith('linux'):
+        libs = ['dl']
+    else:
+        libs = []
 
-eci_kwds = dict(
-    include_dirs = [SRC],
-    includes = ['rvmprof.h'],
-    libraries = libs,
-    separate_module_files = [SRC.join('rvmprof.c')],
-    post_include_bits=['#define RPYTHON_VMPROF\n'],
-    )
-eci = ExternalCompilationInfo(**eci_kwds)
+    eci_kwds = dict(
+        include_dirs = [SRC],
+        includes = ['rvmprof.h'],
+        libraries = libs,
+        separate_module_files = [SRC.join('rvmprof.c')],
+        post_include_bits=['#define RPYTHON_VMPROF\n'],
+        )
+    eci = ExternalCompilationInfo(**eci_kwds)
 
-platform.verify_eci(ExternalCompilationInfo(
-    compile_extra=['-DRPYTHON_LL2CTYPES'],
-    **eci_kwds))
+    platform.verify_eci(ExternalCompilationInfo(
+        compile_extra=['-DRPYTHON_LL2CTYPES'],
+        **eci_kwds))
 
 
-vmprof_init = rffi.llexternal("rpython_vmprof_init", [rffi.INT], rffi.CCHARP,
-                              compilation_info=eci)
-vmprof_enable = rffi.llexternal("rpython_vmprof_enable", [rffi.LONG], rffi.INT,
-                                compilation_info=eci,
-                                save_err=rffi.RFFI_SAVE_ERRNO)
-vmprof_disable = rffi.llexternal("rpython_vmprof_disable", [], rffi.INT,
-                                 compilation_info=eci,
-                                 save_err=rffi.RFFI_SAVE_ERRNO)
-vmprof_write_buf = rffi.llexternal("rpython_vmprof_write_buf",
-                                   [rffi.CCHARP, rffi.LONG],
-                                   lltype.Void, compilation_info=eci)
+    vmprof_init = rffi.llexternal("rpython_vmprof_init", [rffi.INT], rffi.CCHARP,
+                                  compilation_info=eci)
+    vmprof_enable = rffi.llexternal("rpython_vmprof_enable", [rffi.LONG], rffi.INT,
+                                    compilation_info=eci,
+                                    save_err=rffi.RFFI_SAVE_ERRNO)
+    vmprof_disable = rffi.llexternal("rpython_vmprof_disable", [], rffi.INT,
+                                     compilation_info=eci,
+                                     save_err=rffi.RFFI_SAVE_ERRNO)
+    vmprof_write_buf = rffi.llexternal("rpython_vmprof_write_buf",
+                                       [rffi.CCHARP, rffi.LONG],
+                                       lltype.Void, compilation_info=eci)
 
-## vmprof_register_virtual_function = rffi.llexternal(
-##     "vmprof_register_virtual_function",
-##     [rffi.CCHARP, rffi.VOIDP, rffi.VOIDP], lltype.Void,
-##     compilation_info=eci, _nowrapper=True)
+    ## vmprof_register_virtual_function = rffi.llexternal(
+    ##     "vmprof_register_virtual_function",
+    ##     [rffi.CCHARP, rffi.VOIDP, rffi.VOIDP], lltype.Void,
+    ##     compilation_info=eci, _nowrapper=True)
 
-vmprof_ignore_signals = rffi.llexternal("rpython_vmprof_ignore_signals",
-                                        [rffi.INT], lltype.Void,
-                                        compilation_info=eci)
+    vmprof_ignore_signals = rffi.llexternal("rpython_vmprof_ignore_signals",
+                                            [rffi.INT], lltype.Void,
+                                            compilation_info=eci)
+    return CInterface(locals())
 
+
+class CInterface(object):
+    def __init__(self, namespace):
+        for k, v in namespace.iteritems():
+            setattr(self, k, v)
+
+    def _freeze_(self):
+        return True
 
 def token2lltype(tok):
     if tok == 'i':

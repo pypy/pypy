@@ -19,7 +19,6 @@ class VMProfError(Exception):
     def __str__(self):
         return self.msg
 
-
 class VMProf(object):
 
     def __init__(self):
@@ -31,6 +30,7 @@ class VMProf(object):
             self._code_unique_id = 0 # XXX this is wrong, it won't work on 32bit
         else:
             self._code_unique_id = 0x7000000000000000
+        self.cintf = cintf.setup()
 
     def _cleanup_(self):
         self.is_enabled = False
@@ -106,14 +106,14 @@ class VMProf(object):
             raise VMProfError("bad value for 'interval'")
         interval_usec = int(interval * 1000000.0)
 
-        p_error = cintf.vmprof_init(fileno)
+        p_error = self.cintf.vmprof_init(fileno)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
 
         self.fileno = fileno
         self._write_header(interval_usec)
         self._gather_all_code_objs()
-        res = cintf.vmprof_enable(interval_usec)
+        res = self.cintf.vmprof_enable(interval_usec)
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True
@@ -128,7 +128,7 @@ class VMProf(object):
         if self._current_codes is not None:
             self._flush_codes()
         self.fileno = -1
-        res = cintf.vmprof_disable()
+        res = self.cintf.vmprof_disable()
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
 
@@ -149,7 +149,7 @@ class VMProf(object):
     def _flush_codes(self):
         buf = self._current_codes.build()
         self._current_codes = None
-        cintf.vmprof_write_buf(buf, len(buf))
+        self.cintf.vmprof_write_buf(buf, len(buf))
         # NOTE: keep in mind that vmprof_write_buf() can only write
         # a maximum of 8184 bytes.  This should be guaranteed here because:
         assert MAX_CODES + 17 + MAX_FUNC_NAME <= 8184
@@ -165,7 +165,7 @@ class VMProf(object):
         b.append(chr(len('pypy')))
         b.append('pypy')
         buf = b.build()
-        cintf.vmprof_write_buf(buf, len(buf))
+        self.cintf.vmprof_write_buf(buf, len(buf))
 
 
 def _write_long_to_string_builder(l, b):
