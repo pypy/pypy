@@ -28,7 +28,6 @@ class ValueProf(object):
     def get_int_val(self, w_obj):
         raise NotImplementedError("abstract base")
 
-    @objectmodel.always_inline
     def see_write(self, w_value):
         status = self._vprof_status
         if status == SEEN_TOO_MUCH:
