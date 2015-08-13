@@ -8291,13 +8291,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call_n(i2, descr=nonwritedescr)
         setfield_gc(p22, i1, descr=valuedescr)
         guard_nonnull_class(p18, ConstClass(node_vtable)) []
-        i10 = same_as(i1)
+        i10 = same_as_i(i1)
         jump(p22, p18, i1, i10)
         """
         short = """
         [p22, p18, i1]
         i2 = getfield_gc_i(p22, descr=valuedescr)
-        jump(p22, p18, i1, i2)
+        jump(i2)
         """
         expected = """
         [p22, p18, i1, i2]
@@ -8310,18 +8310,18 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_cache_setfield_across_loop_boundaries(self):
         ops = """
         [p1]
-        p2 = getfield_gc_r(p1, descr=valuedescr)
+        p2 = getfield_gc_r(p1, descr=nextdescr)
         guard_nonnull_class(p2, ConstClass(node_vtable)) []
         call_n(p2, descr=nonwritedescr)
         p3 = new_with_vtable(descr=nodesize)
-        setfield_gc(p1, p3, descr=valuedescr)
+        setfield_gc(p1, p3, descr=nextdescr)
         jump(p1)
         """
         expected = """
         [p1, p2]
         call_n(p2, descr=nonwritedescr)
         p3 = new_with_vtable(descr=nodesize)
-        setfield_gc(p1, p3, descr=valuedescr)
+        setfield_gc(p1, p3, descr=nextdescr)
         jump(p1, p3)
         """
         self.optimize_loop(ops, expected)
