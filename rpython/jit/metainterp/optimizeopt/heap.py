@@ -490,7 +490,10 @@ class OptHeap(Optimization):
 
     def force_lazy_setfields_and_arrayitems_for_guard(self):
         pendingfields = []
-        for descr, cf in self.cached_fields.iteritems():
+        items = self.cached_fields.items()
+        if not we_are_translated():
+            items.sort(key=str, reverse=True)
+        for descr, cf in items:
             op = cf._lazy_setfield
             if op is None:
                 continue

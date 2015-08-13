@@ -1,4 +1,5 @@
 
+from collections import OrderedDict
 from rpython.jit.metainterp.resoperation import ResOperation, OpHelpers,\
      rop, AbstractResOp, AbstractInputArg
 from rpython.jit.metainterp.history import Const, make_hashable_int,\
@@ -206,7 +207,7 @@ class ShortBoxes(object):
     def create_short_boxes(self, optimizer, inputargs, label_args):
         # all the potential operations that can be produced, subclasses
         # of AbstractShortOp
-        self.potential_ops = {}
+        self.potential_ops = OrderedDict()
         self.produced_short_boxes = {}
         # a way to produce const boxes, e.g. setfield_gc(p0, Const).
         # We need to remember those, but they don't produce any new boxes

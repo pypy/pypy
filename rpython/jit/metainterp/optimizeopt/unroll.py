@@ -1,21 +1,13 @@
-import sys
 
-from rpython.jit.metainterp.history import TargetToken, JitCellToken, Const
+from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
      ShortPreambleBuilder, PreambleOp
-from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import info, intutils
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
      Optimization, LoopInfo, MININT, MAXINT
-from rpython.jit.metainterp.optimizeopt.virtualstate import (VirtualStateConstructor,
-        BadVirtualState, VirtualStatesCantMatch)
-from rpython.jit.metainterp.resoperation import rop, ResOperation,\
-     OpHelpers, AbstractInputArg, GuardResOp, AbstractResOp
-from rpython.jit.metainterp import compile
-from rpython.rlib.debug import debug_print, debug_start, debug_stop
-
-
-
+from rpython.jit.metainterp.optimizeopt.virtualstate import (
+    VirtualStateConstructor)
+from rpython.jit.metainterp.resoperation import rop, ResOperation
 
 class UnrollableOptimizer(Optimizer):
     def force_op_from_preamble(self, preamble_op):

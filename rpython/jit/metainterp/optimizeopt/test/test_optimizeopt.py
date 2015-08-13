@@ -7393,8 +7393,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p0, p1, p3, ii, ii2, i1, i2]
-        setfield_gc(p3, i1, descr=adescr)
-        setfield_gc(p3, i2, descr=abisdescr)
+        setfield_gc(p3, i1, descr=abisdescr)
+        setfield_gc(p3, i2, descr=adescr)
         i5 = int_gt(ii, 42)
         guard_true(i5) []
         jump(p0, p1, p3, ii2, ii, i1, i2)
@@ -7435,7 +7435,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_nonnull_class(p1, ConstClass(node_vtable)) []
         p2 = getfield_gc_r(p1, descr=nextdescr)
         guard_nonnull_class(p2, ConstClass(node_vtable)) []
-        jump(p0)
+        jump(p1)
         """
         self.optimize_loop(ops, expected, expected_short=short)
 
