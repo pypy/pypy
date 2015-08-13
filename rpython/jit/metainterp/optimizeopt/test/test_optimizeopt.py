@@ -853,17 +853,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2sub = new_with_vtable(descr=nodesize2)
         setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
-        # i4 = same_as_i(i1) <- investigate
-        jump(i1, p2, p2sub)
+        i4 = same_as_i(i1)
+        jump(i1, p2, p2sub, i4)
         """
         expected = """
-        [i1, p2, p10]
-        escape_n(i1)
+        [i1, p2, p10, i10]
+        escape_n(i10)
         p1 = new_with_vtable(descr=nodesize)
         p3sub = new_with_vtable(descr=nodesize2)
         setfield_gc(p3sub, i1, descr=valuedescr)
         setfield_gc(p1, p3sub, descr=nextdescr)
-        jump(i1, p1, p3sub)
+        jump(i1, p1, p3sub, i1)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -2241,6 +2241,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p1, i1, i2]
+        setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2)
         """
         # in this case, all setfields are removed, because we can prove
@@ -7347,29 +7348,31 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0, p1, ii, ii2]
         i1 = getfield_gc_i(p0, descr=valuedescr)
-        i2 = getfield_gc_i(p1, descr=otherdescr)
+        i2 = getfield_gc_i(p1, descr=chardescr)
         i3 = int_add(i1, i2)
         setfield_gc(p0, ii, descr=valuedescr)
-        setfield_gc(p1, ii, descr=otherdescr)
+        setfield_gc(p1, ii, descr=chardescr)
         i4 = getfield_gc_i(p0, descr=valuedescr)
-        i5 = getfield_gc_i(p1, descr=otherdescr)
+        i5 = getfield_gc_i(p1, descr=chardescr)
         jump(p0, p1, ii2, ii)
         """
         preamble = """
         [p0, p1, ii, ii2]
         i1 = getfield_gc_i(p0, descr=valuedescr)
-        i2 = getfield_gc_i(p1, descr=otherdescr)
+        i2 = getfield_gc_i(p1, descr=chardescr)
         i3 = int_add(i1, i2)
         setfield_gc(p0, ii, descr=valuedescr)
-        setfield_gc(p1, ii, descr=otherdescr)
-        jump(p0, p1, ii2, ii, ii, ii)
+        setfield_gc(p1, ii, descr=chardescr)
+        i10 = same_as_i(ii)
+        i11 = same_as_i(ii)
+        jump(p0, p1, ii2, ii, i10, i11)
         """
         expected = """
-        [p0, p1, ii, ii2, i1, i2]
-        i3 = int_add(i1, i2)
-        setfield_gc(p0, ii, descr=valuedescr)
-        setfield_gc(p1, ii, descr=otherdescr)
-        jump(p0, p1, ii2, ii, ii, ii)
+        [p0, p1, i1, i2, i7, i8]
+        i3 = int_add(i7, i8)
+        setfield_gc(p0, i1, descr=valuedescr)
+        setfield_gc(p1, i1, descr=chardescr)
+        jump(p0, p1, i2, i1, i1, i1)
         """
         self.optimize_loop(ops, expected, preamble)
 

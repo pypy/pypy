@@ -117,29 +117,29 @@ class UnrollOptimizer(Optimization):
                                     self.optimizer, force_boxes=True)
         extra_jump_args = self.inline_short_preamble(jump_args)
         # remove duplicates, removes stuff from used boxes too
-        extra_jump_args, used_boxes = self.filter_extra_jump_args(
-            self.short_preamble_producer, jump_args,
-            extra_jump_args)
-        jump_args += extra_jump_args
+        label_args, jump_args = self.filter_extra_jump_args(
+            start_label.getarglist() + self.short_preamble_producer.used_boxes,
+            jump_args + extra_jump_args)
         jump_op = ResOperation(rop.JUMP, jump_args)
         self.optimizer._newoperations.append(jump_op)
         return (UnrollInfo(self.short_preamble_producer.build_short_preamble(),
-                           used_boxes,
+                           label_args,
                            self.short_preamble_producer.extra_same_as),
                 self.optimizer._newoperations)
 
-    def filter_extra_jump_args(self, sp, jump_args, extra_jump_args):
-        d = {}
-        for arg in jump_args:
-            d[arg] = None
+    def filter_extra_jump_args(self, label_args, jump_args):
+        new_label_args = []
         new_jump_args = []
-        new_used_boxes = []
-        for i in range(len(extra_jump_args)):
-            if extra_jump_args[i] in d:
+        assert len(label_args) == len(jump_args)
+        d = {}
+        for i in range(len(label_args)):
+            arg = label_args[i]
+            if arg in d:
                 continue
-            new_jump_args.append(extra_jump_args[i])
-            new_used_boxes.append(sp.used_boxes[i])
-        return new_jump_args, new_used_boxes
+            new_label_args.append(arg)
+            new_jump_args.append(jump_args[i])
+            d[arg] = None
+        return new_label_args, new_jump_args
 
     def inline_short_preamble(self, jump_args):
         sb = self.short_preamble_producer
@@ -222,12 +222,12 @@ class UnrollInfo(LoopInfo):
     """ A state after optimizing the peeled loop, contains the following:
 
     * short_preamble - list of operations that go into short preamble
-    * extra_label_args - additional things to put in the label
+    * label_args - additional things to put in the label
     * extra_same_as - list of extra same as to add at the end of the preamble
     """
-    def __init__(self, short_preamble, extra_label_args, extra_same_as):
+    def __init__(self, short_preamble, label_args, extra_same_as):
         self.short_preamble = short_preamble
-        self.extra_label_args = extra_label_args
+        self.label_args = label_args
         self.extra_same_as = extra_same_as
             
 class ExportedState(LoopInfo):

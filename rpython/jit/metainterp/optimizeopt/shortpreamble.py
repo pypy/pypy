@@ -1,6 +1,6 @@
 
 from rpython.jit.metainterp.resoperation import ResOperation, OpHelpers,\
-     rop, AbstractResOp
+     rop, AbstractResOp, AbstractInputArg
 from rpython.jit.metainterp.history import Const, make_hashable_int,\
      TreeLoop
 from rpython.jit.metainterp.optimizeopt import info
@@ -185,12 +185,16 @@ class ProducedShortOp(AbstractProducedShortOp):
 dummy_short_op = ProducedShortOp(None, None)
 
 
-class ShortInputArg(AbstractProducedShortOp):
-    def __init__(self, preamble_op):
+class ShortInputArg(AbstractShortOp):
+    def __init__(self, res, preamble_op):
+        self.res = res
         self.preamble_op = preamble_op
 
-    def produce_op(self, opt, exported_infos):
-        pass
+    def add_op_to_short(self, sb):
+        return ProducedShortOp(self, self.preamble_op)
+
+    def produce_op(self, opt, preamble_op, exported_infos, invented_name):
+        assert not invented_name
 
     def __repr__(self):
         return "INP(%r)" % (self.preamble_op,)
@@ -213,7 +217,7 @@ class ShortBoxes(object):
         for box in inputargs:
             if box in label_d:
                 renamed = OpHelpers.inputarg_from_tp(box.type)
-                self.produced_short_boxes[box] = ShortInputArg(renamed)
+                self.potential_ops[box] = ShortInputArg(box, renamed)
 
         optimizer.produce_potential_short_preamble_ops(self)
 
@@ -317,7 +321,7 @@ class ShortBoxes(object):
 
     def add_heap_op(self, op, getfield_op):
         # or an inputarg
-        if isinstance(op, Const) or op in self.produced_short_boxes:
+        if isinstance(op, Const):
             self.const_short_boxes.append(HeapOp(op, getfield_op))
             return # we should not be called from anywhere
         self.add_potential_op(op, HeapOp(op, getfield_op))
@@ -352,7 +356,7 @@ class ShortPreambleBuilder(object):
 
     def use_box(self, box, preamble_op, optimizer=None):
         for arg in preamble_op.getarglist():
-            if isinstance(arg, Const):
+            if isinstance(arg, Const) or isinstance(arg, AbstractInputArg):
                 pass
             elif arg.get_forwarded() is None:
                 pass
@@ -362,7 +366,6 @@ class ShortPreambleBuilder(object):
                 if info is not empty_info:
                     info.make_guards(arg, self.short)
                 arg.set_forwarded(None)
-                #self.force_info_from(arg) <- XXX?
         self.short.append(preamble_op)
         if preamble_op.is_ovf():
             self.short.append(ResOperation(rop.GUARD_NO_OVERFLOW, [], None))

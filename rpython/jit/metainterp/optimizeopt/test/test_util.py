@@ -474,7 +474,7 @@ class BaseTest(object):
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs
         start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs)
-        inputargs = start_state.end_args + loop_info.extra_label_args
+        inputargs = loop_info.label_args[:]
         emit_end_label = ResOperation(rop.LABEL, inputargs)
         preamble.operations = ([start_label] + preamble_ops +
                                loop_info.extra_same_as + [emit_end_label])

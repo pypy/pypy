@@ -60,6 +60,8 @@ class CachedField(object):
             info.produce_short_preamble_ops(structbox, descr, index, optimizer,
                                             shortboxes)
         return
+
+        XXXXX
         for structvalue in self._cached_fields_getfield_op.keys():
             op = self._cached_fields_getfield_op[structvalue]
             if not op:
