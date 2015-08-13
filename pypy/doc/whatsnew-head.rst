@@ -66,3 +66,4 @@ Update tinylang goals to match current rpython
 
 .. branch: vmprof-review
 
+Clean up of vmprof, notably to handle correctly multiple threads
