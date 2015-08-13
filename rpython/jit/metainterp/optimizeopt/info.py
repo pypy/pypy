@@ -162,10 +162,10 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
                                           descr=flddescr)
                 self._fields[i] = None
-                optforce.optheap.propagate_forward(setfieldop)
-                #optforce._emit_operation(setfieldop)
-                #if optforce.optheap is not None:
-                #    optforce.optheap.register_dirty_field(flddescr, op, self)
+                if optforce.optheap is not None:
+                    optforce.optheap.propagate_forward(setfieldop)
+                else:
+                    optforce.emit_operation(setfieldop)
 
     def _visitor_walk_recursive(self, instbox, visitor, optimizer):
         lst = self.vdescr.get_all_fielddescrs()
@@ -360,10 +360,11 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                 setop = ResOperation(rop.SETARRAYITEM_GC,
                                      [op, ConstInt(i), subbox],
                                       descr=arraydescr)
-                optforce._emit_operation(setop)
+                self._items[i] = None
                 if optforce.optheap is not None:
-                    optforce.optheap.register_dirty_array_field(op,
-                        arraydescr, i, self)
+                    optforce.optheap.propagate_forward(setop)
+                else:
+                    optforce.emit_operation(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
     def setitem(self, index, struct_op, op, cf=None, optheap=None):
