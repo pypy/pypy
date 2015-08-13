@@ -823,8 +823,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = getfield_gc_i(p2, descr=valuedescr)
         escape_n(i3)
         p4 = new_with_vtable(descr=nodesize)
-        setfield_gc(p4, i1, descr=valuedescr)
         p1sub = new_with_vtable(descr=nodesize2)
+        setfield_gc(p4, i1, descr=valuedescr)
         setfield_gc(p1sub, i1, descr=valuedescr)
         setfield_gc(p4, p1sub, descr=nextdescr)
         jump(i1, p4)
@@ -851,8 +851,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = getfield_gc_i(p3sub, descr=valuedescr)
         escape_n(i3)
         p2sub = new_with_vtable(descr=nodesize2)
-        setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
+        setfield_gc(p2sub, i1, descr=valuedescr)
         i4 = same_as_i(i1)
         jump(i1, p2, p2sub, i4)
         """
@@ -1217,10 +1217,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = int_add(i0, 1)
         p1 = new_with_vtable(descr=nodesize2)
         p2 = new_with_vtable(descr=nodesize2)
-        setfield_gc(p2, i1, descr=valuedescr)
         setfield_gc(p2, p1, descr=nextdescr)
-        setfield_gc(p1, p2, descr=nextdescr)
         setfield_gc(p0, p1, descr=nextdescr)
+        setfield_gc(p2, i1, descr=valuedescr)
+        setfield_gc(p1, p2, descr=nextdescr)
         jump(p1)
         """
         loop = """
@@ -1230,10 +1230,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = int_add(i0, 1)
         p1 = new_with_vtable(descr=nodesize2)
         p2 = new_with_vtable(descr=nodesize2)
-        setfield_gc(p2, i1, descr=valuedescr)
         setfield_gc(p2, p1, descr=nextdescr)
-        setfield_gc(p1, p2, descr=nextdescr)
         setfield_gc(p0, p1, descr=nextdescr)
+        setfield_gc(p2, i1, descr=valuedescr)
+        setfield_gc(p1, p2, descr=nextdescr)
         jump(p1)
         """
         self.optimize_loop(ops, loop, preamble)
@@ -1288,8 +1288,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i28 = int_add(i0, 1)
         i29 = int_add(i0, 2)
         p30 = new_with_vtable(descr=nodesize)
-        setfield_gc(p30, i28, descr=valuedescr)
         setfield_gc(p3, p30, descr=nextdescr)
+        setfield_gc(p30, i28, descr=valuedescr)
         #p46 = same_as(p30) # This same_as should be killed by backend
         jump(i29, p30, p3)
         """
@@ -1298,8 +1298,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i28 = int_add(i0, 1)
         i29 = int_add(i0, 2)
         p30 = new_with_vtable(descr=nodesize)
-        setfield_gc(p30, i28, descr=valuedescr)
         setfield_gc(p3, p30, descr=nextdescr)
+        setfield_gc(p30, i28, descr=valuedescr)
         jump(i29, p30, p3)
         """
         self.optimize_loop(ops, expected, preamble)
@@ -2706,8 +2706,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i3) [p1, p4]
         i4 = int_neg(i2)
         p2 = new_with_vtable(descr=nodesize)
-        setfield_gc(p2, p4, descr=nextdescr)
         setfield_gc(p1, p2, descr=nextdescr)
+        setfield_gc(p2, p4, descr=nextdescr)
         #i101 = same_as(i4)
         jump(p1, i2, i4, p4) #, i101)
         """
@@ -2715,8 +2715,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i2, i4, p4] #, i5]
         guard_true(i4) [p1, p4]
         p2 = new_with_vtable(descr=nodesize)
-        setfield_gc(p2, p4, descr=nextdescr)
         setfield_gc(p1, p2, descr=nextdescr)
+        setfield_gc(p2, p4, descr=nextdescr)
         jump(p1, i2, 1, p4) #, i5)
         """
         self.optimize_loop(ops, expected, preamble)
@@ -3953,9 +3953,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = force_token()
         #
         p2 = new_with_vtable(descr=vref_descr)
-        setfield_gc(p2, p3, descr=virtualtokendescr)
-        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p0, p2, descr=nextdescr)
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
+        setfield_gc(p2, p3, descr=virtualtokendescr)
         #
         call_may_force_n(i1, descr=mayforcevirtdescr)
         guard_not_forced() [i1]
@@ -3964,9 +3964,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p2, NULL, descr=virtualtokendescr)
         p1 = new_with_vtable(descr=nodesize)
         p1b = new_with_vtable(descr=nodesize)
+        setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p1b, 252, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
-        setfield_gc(p2, p1, descr=virtualforceddescr)
         jump(p0, i1)
         """
         self.optimize_loop(ops, expected, expected)
@@ -3993,9 +3993,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = force_token()
         #
         p2 = new_with_vtable(descr=vref_descr)
-        setfield_gc(p2, p3, descr=virtualtokendescr)
-        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p0, p2, descr=nextdescr)
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
+        setfield_gc(p2, p3, descr=virtualtokendescr)
         #
         call_may_force_n(i1, descr=mayforcevirtdescr)
         guard_not_forced() [p2, i1]
@@ -4004,9 +4004,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p2, NULL, descr=virtualtokendescr)
         p1 = new_with_vtable(descr=nodesize)
         p1b = new_with_vtable(descr=nodesize)
+        setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p1b, i1, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
-        setfield_gc(p2, p1, descr=virtualforceddescr)
         jump(p0, i1)
         """
         # the point of this test is that 'i1' should show up in the fail_args

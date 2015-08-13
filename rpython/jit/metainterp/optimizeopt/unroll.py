@@ -121,7 +121,7 @@ class UnrollOptimizer(Optimization):
             start_label.getarglist() + self.short_preamble_producer.used_boxes,
             jump_args + extra_jump_args)
         jump_op = ResOperation(rop.JUMP, jump_args)
-        self.optimizer._newoperations.append(jump_op)
+        self.optimizer.send_extra_operation(jump_op)
         return (UnrollInfo(self.short_preamble_producer.build_short_preamble(),
                            label_args,
                            self.short_preamble_producer.extra_same_as),
