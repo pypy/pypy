@@ -725,10 +725,16 @@ def do_get_objects(callback):
     result_w = []
     #
     if not we_are_translated():   # fast path before translation
-        for gcref in roots:       # 'roots' is all objects in this case
-            w_obj = callback(gcref)
-            if w_obj is not None:
-                result_w.append(w_obj)
+        seen = set()
+        while roots:
+            gcref = roots.pop()
+            key = (type(gcref), gcref)
+            if key not in seen:
+                seen.add(key)
+                w_obj = callback(gcref)
+                if w_obj is not None:
+                    result_w.append(w_obj)
+                roots.extend(get_rpy_referents(gcref))
         return result_w
     #
     pending = roots[:]
