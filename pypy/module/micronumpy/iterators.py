@@ -88,7 +88,6 @@ class IterState(object):
             return self.iterator.same_shape(other.iterator)
         return False
 
-
 class ArrayIter(object):
     _immutable_fields_ = ['contiguous', 'array', 'size', 'ndim_m1', 'shape_m1[*]',
                           'strides[*]', 'backstrides[*]', 'factors[*]',

@@ -911,8 +911,10 @@ class TestNumpyJit(Jit386Mixin):
     def test_multidim_slice(self):
         result = self.run('multidim_slice')
         assert result == 12
-        self.check_trace_count(2)
-        self.check_vectorized(1,0) # TODO?
+        self.check_trace_count(3)
+        # ::2 creates a view object -> needs an inner loop
+        # that iterates continous chunks of the matrix
+        self.check_vectorized(1,1) 
 
     # NOT WORKING
 

@@ -2,6 +2,7 @@
 operations. This is the place to look for all the computations that iterate
 over all the array elements.
 """
+import py
 from pypy.interpreter.error import OperationError
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
@@ -12,11 +13,6 @@ from pypy.module.micronumpy.iterators import PureShapeIter, AxisIter, \
     AllButAxisIter, ArrayIter
 from pypy.interpreter.argument import Arguments
 
-
-call2_driver = jit.JitDriver(
-    name='numpy_call2',
-    greens=['shapelen','state_count', 'left_index', 'right_index', 'left', 'right', 'func', 'calc_dtype', 'res_dtype'],
-    reds='auto', vectorize=True)
 
 def call2(space, shape, func, calc_dtype, w_lhs, w_rhs, out):
     if w_lhs.get_size() == 1:
@@ -40,68 +36,102 @@ def call2(space, shape, func, calc_dtype, w_lhs, w_rhs, out):
     res_dtype = out.get_dtype()
 
     states = [out_state,left_state,right_state]
-    out_index = 0
     left_index = 1
     right_index = 2
     # left == right == out
     # left == right
     # left == out
     # right == out
+    params = (space, shapelen, func, calc_dtype, res_dtype, out,
+              w_left, w_right, left_iter, right_iter, out_iter,
+              left_state, right_state, out_state)
     if not right_iter:
+        # rhs is a scalar
         del states[2]
     else:
+        # rhs is NOT a scalar
         if out_state.same(right_state):
             # (1) out and right are the same -> remove right
             right_index = 0
             del states[2]
+    #
     if not left_iter:
+        # lhs is a scalar
         del states[1]
         if right_index == 2:
             right_index = 1
+            return call2_advance_out_right(*params)
     else:
+        # lhs is NOT a scalar
         if out_state.same(left_state):
             # (2) out and left are the same -> remove left
             left_index = 0
             del states[1]
             if right_index == 2:
                 right_index = 1
+            return call2_advance_out_right(*params)
         else:
             if len(states) == 3: # did not enter (1)
                 if right_iter and right_state.same(left_state):
                     right_index = 1
                     del states[2]
-    state_count = len(states)
-    #
-    while not out_iter.done(states[0]):
-        call2_driver.jit_merge_point(shapelen=shapelen,
-                                     func=func,
-                                     left=left_iter is None,
-                                     right=right_iter is None,
-                                     state_count=state_count,
-                                     left_index=left_index,
-                                     right_index=right_index,
-                                     calc_dtype=calc_dtype,
-                                     res_dtype=res_dtype)
-        if left_iter:
-            left_state = states[left_index]
-            w_left = left_iter.getitem(left_state).convert_to(space, calc_dtype)
-        if right_iter:
-            right_state = states[right_index]
-            w_right = right_iter.getitem(right_state).convert_to(space, calc_dtype)
-        w_out = func(calc_dtype, w_left, w_right)
-        out_iter.setitem(states[0], w_out.convert_to(space, res_dtype))
-        #
-        for i,state in enumerate(states):
-            states[i] = state.iterator.next(state)
+                    return call2_advance_out_left_eq_right(*params)
+                else:
+                    # worst case
+                    return call2_advance_out_left_right(*params)
+            else:
+                return call2_advance_out_left(*params)
 
-        # if not set to None, the values will be loop carried
-        # (for the var,var case), forcing the vectorization to unpack
-        # the vector registers at the end of the loop
-        if left_iter:
-            w_left = None
-        if right_iter:
-            w_right = None
-    return out
+    state_count = len(states)
+    if state_count == 1:
+        return call2_advance_out(*params)
+
+    assert 0, "logical problem with the selection of the call 2 case"
+
+def generate_call2_cases(name, left_state, right_state):
+    call2_driver = jit.JitDriver(name='numpy_call2_' + name,
+        greens=['shapelen', 'func', 'calc_dtype', 'res_dtype'],
+        reds='auto', vectorize=True)
+    #
+    advance_left_state = left_state == "left_state"
+    advance_right_state = right_state == "right_state"
+    code = """
+    def method(space, shapelen, func, calc_dtype, res_dtype, out,
+               w_left, w_right, left_iter, right_iter, out_iter,
+               left_state, right_state, out_state):
+        while not out_iter.done(out_state):
+            call2_driver.jit_merge_point(shapelen=shapelen, func=func,
+                    calc_dtype=calc_dtype, res_dtype=res_dtype)
+            if left_iter:
+                w_left = left_iter.getitem({left_state}).convert_to(space, calc_dtype)
+            if right_iter:
+                w_right = right_iter.getitem({right_state}).convert_to(space, calc_dtype)
+            w_out = func(calc_dtype, w_left, w_right)
+            out_iter.setitem(out_state, w_out.convert_to(space, res_dtype))
+            out_state = out_iter.next(out_state)
+            if advance_left_state and left_iter:
+                left_state = left_iter.next(left_state)
+            if advance_right_state and right_iter:
+                right_state = right_iter.next(right_state)
+            #
+            # if not set to None, the values will be loop carried
+            # (for the var,var case), forcing the vectorization to unpack
+            # the vector registers at the end of the loop
+            if left_iter:
+                w_left = None
+            if right_iter:
+                w_right = None
+        return out
+    """
+    exec(py.code.Source(code.format(left_state=left_state,right_state=right_state)).compile(), locals())
+    method.__name__ = "call2_" + name
+    return method
+
+call2_advance_out = generate_call2_cases("inc_out", "out_state", "out_state")
+call2_advance_out_left = generate_call2_cases("inc_out_left", "left_state", "out_state")
+call2_advance_out_right = generate_call2_cases("inc_out_right", "out_state", "right_state")
+call2_advance_out_left_eq_right = generate_call2_cases("inc_out_left_eq_right", "left_state", "left_state")
+call2_advance_out_left_right = generate_call2_cases("inc_out_left_right", "left_state", "right_state")
 
 call1_driver = jit.JitDriver(
     name='numpy_call1',
