@@ -69,6 +69,19 @@ class TestHeapCache(object):
         assert not h.is_class_known(1)
         assert not h.is_class_known(2)
 
+    def test_known_nullity(self):
+        h = HeapCache()
+        assert not h.is_nullity_known(1)
+        assert not h.is_nullity_known(2)
+        h.nullity_now_known(1)
+        assert h.is_nullity_known(1)
+        assert not h.is_nullity_known(2)
+
+        h.reset()
+        assert not h.is_nullity_known(1)
+        assert not h.is_nullity_known(2)
+
+
     def test_nonstandard_virtualizable(self):
         h = HeapCache()
         assert not h.is_nonstandard_virtualizable(1)
