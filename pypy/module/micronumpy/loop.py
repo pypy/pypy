@@ -15,7 +15,7 @@ from pypy.interpreter.argument import Arguments
 
 call2_driver = jit.JitDriver(
     name='numpy_call2',
-    greens=['shapelen', 'func', 'left', 'right', 'calc_dtype', 'res_dtype'],
+    greens=['shapelen','state_count', 'left_index', 'right_index', 'left', 'right', 'func', 'calc_dtype', 'res_dtype'],
     reds='auto', vectorize=True)
 
 def call2(space, shape, func, calc_dtype, w_lhs, w_rhs, out):
@@ -38,20 +38,62 @@ def call2(space, shape, func, calc_dtype, w_lhs, w_rhs, out):
     out_iter, out_state = out.create_iter(shape)
     shapelen = len(shape)
     res_dtype = out.get_dtype()
-    while not out_iter.done(out_state):
-        call2_driver.jit_merge_point(shapelen=shapelen, func=func,
+
+    states = [out_state,left_state,right_state]
+    out_index = 0
+    left_index = 1
+    right_index = 2
+    # left == right == out
+    # left == right
+    # left == out
+    # right == out
+    if not right_iter:
+        del states[2]
+    else:
+        if out_state.same(right_state):
+            # (1) out and right are the same -> remove right
+            right_index = 0
+            del states[2]
+    if not left_iter:
+        del states[1]
+        if right_index == 2:
+            right_index = 1
+    else:
+        if out_state.same(left_state):
+            # (2) out and left are the same -> remove left
+            left_index = 0
+            del states[1]
+            if right_index == 2:
+                right_index = 1
+        else:
+            if len(states) == 3: # did not enter (1)
+                if right_iter and right_state.same(left_state):
+                    right_index = 1
+                    del states[2]
+    state_count = len(states)
+    #
+    while not out_iter.done(states[0]):
+        call2_driver.jit_merge_point(shapelen=shapelen,
+                                     func=func,
                                      left=left_iter is None,
                                      right=right_iter is None,
-                                     calc_dtype=calc_dtype, res_dtype=res_dtype)
+                                     state_count=state_count,
+                                     left_index=left_index,
+                                     right_index=right_index,
+                                     calc_dtype=calc_dtype,
+                                     res_dtype=res_dtype)
         if left_iter:
+            left_state = states[left_index]
             w_left = left_iter.getitem(left_state).convert_to(space, calc_dtype)
-            left_state = left_iter.next(left_state)
         if right_iter:
+            right_state = states[right_index]
             w_right = right_iter.getitem(right_state).convert_to(space, calc_dtype)
-            right_state = right_iter.next(right_state)
         w_out = func(calc_dtype, w_left, w_right)
-        out_iter.setitem(out_state, w_out.convert_to(space, res_dtype))
-        out_state = out_iter.next(out_state)
+        out_iter.setitem(states[0], w_out.convert_to(space, res_dtype))
+        #
+        for i,state in enumerate(states):
+            states[i] = state.iterator.next(state)
+
         # if not set to None, the values will be loop carried
         # (for the var,var case), forcing the vectorization to unpack
         # the vector registers at the end of the loop
