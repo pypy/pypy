@@ -7098,6 +7098,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1)
         """
         self.optimize_loop(ops, expected)
+        ops = """
+        [p0, i0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        record_exact_class(p1, i0)
+        guard_class(p1, ConstClass(node_vtable)) []
+        jump(p1, i0)
+        """
+        expected = """
+        [p0, i0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_class(p1, ConstClass(node_vtable)) []
+        jump(p1, i0)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_quasi_immut(self):
         ops = """

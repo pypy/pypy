@@ -334,7 +334,9 @@ class OptRewrite(Optimization):
     def optimize_RECORD_EXACT_CLASS(self, op):
         value = self.getvalue(op.getarg(0))
         expectedclassbox = op.getarg(1)
-        assert isinstance(expectedclassbox, Const)
+        if not isinstance(expectedclassbox, Const):
+            # can't optimize
+            return
         realclassbox = value.get_constant_class(self.optimizer.cpu)
         if realclassbox is not None:
             assert realclassbox.same_constant(expectedclassbox)
