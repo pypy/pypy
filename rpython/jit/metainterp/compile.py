@@ -61,19 +61,20 @@ class SimpleCompileData(CompileData):
     """ This represents label() ops jump with no extra info associated with
     the label
     """
-    def __init__(self, start_label, operations, call_pure_results=None):
+    def __init__(self, start_label, operations, call_pure_results=None,
+                 enable_opts=None):
         self.start_label = start_label
         self.operations = operations
         self.call_pure_results = call_pure_results
+        self.enable_opts = enable_opts
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 
-        assert not unroll
+        #assert not unroll
         opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.propagate_all_forward(self.start_label.getarglist(),
-                                         self.operations,
-                                         self.call_pure_results)
+            self.operations, self.call_pure_results, self.enable_opts)
 
 class UnrolledLoopData(CompileData):
     """ This represents label() ops jump with extra info that's from the
@@ -973,7 +974,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         metainterp_sd = metainterp.staticdata
         jitdriver_sd = metainterp.jitdriver_sd
         new_loop.original_jitcell_token = jitcell_token = make_jitcell_token(jitdriver_sd)
-        propagate_original_jitcell_token(new_loop)
+        #propagate_original_jitcell_token(new_loop)
         send_loop_to_backend(self.original_greenkey, metainterp.jitdriver_sd,
                              metainterp_sd, new_loop, "entry bridge")
         # send the new_loop to warmspot.py, to be called directly the next time
@@ -994,30 +995,48 @@ def compile_trace(metainterp, resumekey):
     #
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
-    new_trace = create_empty_loop(metainterp)
-    new_trace.inputargs = metainterp.history.inputargs[:]
+    #new_trace = create_empty_loop(metainterp)
+    #new_trace.inputargs = metainterp.history.inputargs[:]
 
-    new_trace.operations = metainterp.history.operations[:]
+    #new_trace.operations = metainterp.history.operations[:]
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     state = jitdriver_sd.warmstate
-    if isinstance(resumekey, ResumeAtPositionDescr):
-        inline_short_preamble = False
-    else:
-        inline_short_preamble = True
+    #if isinstance(resumekey, ResumeAtPositionDescr):
+    #    inline_short_preamble = False
+    #else:
+    #    xxx
+    #    inline_short_preamble = True
+    inputargs = metainterp.history.inputargs[:]
+    operations = metainterp.history.operations
+    label = ResOperation(rop.LABEL, inputargs)
+    jitdriver_sd = metainterp.jitdriver_sd
+    enable_opts = jitdriver_sd.warmstate.enable_opts
+
+    call_pure_results = metainterp.call_pure_results
+
+    data = SimpleCompileData(label, operations,
+                             call_pure_results=call_pure_results,
+                             enable_opts=enable_opts)
     try:
-        state = optimize_trace(metainterp_sd, jitdriver_sd, new_trace,
-                               state.enable_opts,
-                               inline_short_preamble, export_state=True)
+        info, newops = optimize_trace(metainterp_sd, jitdriver_sd, data)
     except InvalidLoop:
-        forget_optimization_info(new_trace.operations)
-        forget_optimization_info(new_trace.inputargs)
+        forget_optimization_info(inputargs)
+        forget_optimization_info(operations)
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop
         debug_print('InvalidLoop in compile_new_bridge')
         return None
 
+    new_trace = create_empty_loop(metainterp)
+    new_trace.inputargs = info.inputargs
+    new_trace.operations = newops
+    resumekey.compile_and_attach(metainterp, new_trace)
+    record_loop_or_bridge(metainterp_sd, new_trace)
+    target_token = new_trace.operations[-1].getdescr()
+    return target_token
+    xxxx
     if new_trace.operations[-1].getopnum() != rop.LABEL:
         # We managed to create a bridge.  Dispatch to resumekey to
         # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)

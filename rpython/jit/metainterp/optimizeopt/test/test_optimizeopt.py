@@ -7994,19 +7994,19 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p5, p6]
         i10 = getfield_gc_i(p5, descr=valuedescr)
-        i11 = getfield_gc_i(p6, descr=nextdescr)
+        i11 = getfield_gc_i(p6, descr=chardescr)
         i12 = int_add(i10, 7)
         i13 = int_add(i11, 7)
         call_n(i12, i13, descr=nonwritedescr)
-        setfield_gc(p6, i10, descr=nextdescr)
+        setfield_gc(p6, i10, descr=chardescr)
         jump(p5, p6)
         """
         expected = """
-        [p5, p6, i14, i12, i10]
+        [p5, p6, i14, i12]
         i13 = int_add(i14, 7)
         call_n(i12, i13, descr=nonwritedescr)
-        setfield_gc(p6, i10, descr=nextdescr)
-        jump(p5, p6, i10, i12, i10)
+        setfield_gc(p6, i14, descr=chardescr)
+        jump(p5, p6, i14, i12)
         """
         self.optimize_loop(ops, expected)
 
