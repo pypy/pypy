@@ -247,6 +247,20 @@ class __extend__(W_NDimArray):
         if space.is_w(w_idx, space.w_Ellipsis):
             self.implementation.setslice(space, convert_to_array(space, w_value))
             return
+        # TODO: multiarray/mapping.c calls a subclass's __getitem__ here, which
+        # is a big performance hit but necessary for the matrix class. The original
+        # C code is like:
+        #/*
+        #* WARNING: There is a huge special case here. If this is not a
+        #*          base class array, we have to get the view through its
+        #*          very own index machinery.
+        #*          Many subclasses should probably call __setitem__
+        #*          with a base class ndarray view to avoid this.
+        #*/
+        #else if (!(index_type & (HAS_FANCY | HAS_SCALAR_ARRAY))
+        #        && !PyArray_CheckExact(self)) {
+        #view = (PyArrayObject *)PyObject_GetItem((PyObject *)self, ind);
+
         elif isinstance(w_idx, W_NDimArray) and w_idx.get_dtype().is_bool() \
                 and w_idx.ndims() > 0:
             self.setitem_filter(space, w_idx, convert_to_array(space, w_value))
