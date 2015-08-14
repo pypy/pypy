@@ -28,9 +28,9 @@ class TestMicroNumPy(BaseTestPyPyC):
             f16 = raw_load(i9, i5, descr=<ArrayF \d+>)
             guard_true(i15, descr=...)
             guard_not_invalidated(descr=...)
-            i17 = cast_float_to_int(f16)
-            i19 = int_is_true(i17)
-            guard_true(i19, descr=...)
+            i18 = float_ne(f16, 0.000000)
+            guard_true(i18, descr=...)
+            guard_nonnull_class(p2, ConstClass(W_BoolBox), descr=...)
             i20 = getfield_gc_pure(p2, descr=<FieldU pypy.module.micronumpy.boxes.W_BoolBox.inst_value \d+>)
             i21 = int_is_true(i20)
             guard_false(i21, descr=...)
@@ -70,10 +70,10 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert loop.match("""
             f31 = raw_load(i9, i29, descr=<ArrayF 8>)
             guard_not_invalidated(descr=...)
-            i34 = getarrayitem_raw(#, #, descr=<ArrayU 1>)  # XXX what are these?
-            guard_value(i34, #, descr=...)                  # XXX don't appear in
             i32 = float_ne(f31, 0.000000)
             guard_true(i32, descr=...)
+            i34 = getarrayitem_raw(#, #, descr=<ArrayU 1>)  # XXX what are these?
+            guard_value(i34, #, descr=...)                  # XXX don't appear in
             i35 = getarrayitem_raw(#, #, descr=<ArrayU 1>)  # XXX equiv test_zjit
             i36 = int_add(i24, 1)
             i37 = int_add(i29, i28)
