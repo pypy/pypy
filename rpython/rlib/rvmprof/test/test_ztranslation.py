@@ -1,4 +1,4 @@
-import time, os
+import time, os, sys, py
 from rpython.tool.udir import udir
 from rpython.rlib import rvmprof
 from rpython.translator.c.test.test_genc import compile
@@ -14,7 +14,10 @@ class MyCode:
 
 
 def setup_module(mod):
-    rvmprof.register_code_object_class(MyCode, MyCode.get_name)
+    try:
+        rvmprof.register_code_object_class(MyCode, MyCode.get_name)
+    except rvmprof.VMProfPlatformUnsupported, e:
+        py.test.skip(str(e))
 
 
 @rvmprof.vmprof_execute_code("interp", lambda code: code)
@@ -52,7 +55,9 @@ def target(driver, args):
     return main
 
 def test_interpreted():
-    main()
+    # takes forever if the Python process is already big...
+    import subprocess
+    subprocess.check_call([sys.executable, __file__])
 
 def test_compiled():
     fn = compile(main, [], gcpolicy="minimark")
@@ -60,3 +65,8 @@ def test_compiled():
         os.unlink(PROF_FILE)
     fn()
     assert os.path.exists(PROF_FILE)
+
+if __name__ == '__main__':
+    setup_module(None)
+    res = main()
+    assert res == 0

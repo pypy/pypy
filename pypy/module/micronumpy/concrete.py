@@ -52,11 +52,16 @@ class BaseConcreteArray(object):
 
     @jit.unroll_safe
     def setslice(self, space, arr):
-        if len(arr.get_shape()) > 0 and len(self.get_shape()) == 0:
-            raise oefmt(space.w_ValueError,
-                "could not broadcast input array from shape "
-                "(%s) into shape ()",
-                ','.join([str(x) for x in arr.get_shape()]))
+        if len(arr.get_shape()) >  len(self.get_shape()):
+            # record arrays get one extra dimension
+            if not self.dtype.is_record() or \
+                    len(arr.get_shape()) > len(self.get_shape()) + 1:
+                raise oefmt(space.w_ValueError,
+                    "could not broadcast input array from shape "
+                    "(%s) into shape (%s)",
+                    ','.join([str(x) for x in arr.get_shape()]),
+                    ','.join([str(x) for x in self.get_shape()]),
+                    )
         shape = shape_agreement(space, self.get_shape(), arr)
         impl = arr.implementation
         if impl.storage == self.storage:

@@ -1,4 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
+from rpython.rlib.rvmprof import VMProfPlatformUnsupported
 
 class Module(MixedModule):
     """
@@ -19,4 +20,7 @@ class Module(MixedModule):
 # already found by the annotator to be the original empty
 # method, and the annotator doesn't notice that interp_vmprof.py
 # (loaded later) replaces this method.
-import pypy.module._vmprof.interp_vmprof
+try:
+    import pypy.module._vmprof.interp_vmprof
+except VMProfPlatformUnsupported, e:
+    pass

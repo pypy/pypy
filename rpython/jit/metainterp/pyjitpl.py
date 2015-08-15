@@ -369,7 +369,10 @@ class MIFrame(object):
         ).compile()
 
     def _establish_nullity(self, box, orgpc):
+        heapcache = self.metainterp.heapcache
         value = box.nonnull()
+        if heapcache.is_nullity_known(box):
+            return value
         if value:
             if not self.metainterp.heapcache.is_class_known(box):
                 self.metainterp.generate_guard(rop.GUARD_NONNULL, box,
@@ -380,6 +383,7 @@ class MIFrame(object):
                                                resumepc=orgpc)
                 promoted_box = box.constbox()
                 self.metainterp.replace_box(box, promoted_box)
+        heapcache.nullity_now_known(box)
         return value
 
     @arguments("box", "label", "orgpc")

@@ -8,7 +8,10 @@ def test_vmprof_execute_code_1():
 
     class MyCode:
         pass
-    rvmprof.register_code_object_class(MyCode, lambda code: 'some code')
+    try:
+        rvmprof.register_code_object_class(MyCode, lambda code: 'some code')
+    except rvmprof.VMProfPlatformUnsupported:
+        pass
 
     @rvmprof.vmprof_execute_code("xcode1", lambda code, num: code)
     def main(code, num):
@@ -29,7 +32,10 @@ def test_vmprof_execute_code_2():
 
     class MyCode:
         pass
-    rvmprof.register_code_object_class(MyCode, lambda code: 'some code')
+    try:
+        rvmprof.register_code_object_class(MyCode, lambda code: 'some code')
+    except rvmprof.VMProfPlatformUnsupported:
+        pass
 
     class A:
         pass
@@ -54,7 +60,10 @@ def test_register_code():
 
     class MyCode:
         pass
-    rvmprof.register_code_object_class(MyCode, lambda code: 'some code')
+    try:
+        rvmprof.register_code_object_class(MyCode, lambda code: 'some code')
+    except rvmprof.VMProfPlatformUnsupported, e:
+        py.test.skip(str(e))
 
     @rvmprof.vmprof_execute_code("xcode1", lambda code, num: code)
     def main(code, num):
@@ -79,7 +88,10 @@ def test_enable():
         pass
     def get_name(code):
         return 'py:code:52:x'
-    rvmprof.register_code_object_class(MyCode, get_name)
+    try:
+        rvmprof.register_code_object_class(MyCode, get_name)
+    except rvmprof.VMProfPlatformUnsupported, e:
+        py.test.skip(str(e))
 
     @rvmprof.vmprof_execute_code("xcode1", lambda code, num: code)
     def main(code, num):

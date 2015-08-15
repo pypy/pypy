@@ -511,15 +511,15 @@ class W_Ufunc2(W_Ufunc):
         W_Ufunc.__init__(self, name, promote_to_largest, promote_to_float, promote_bools,
                          identity, int_only, allow_bool, allow_complex, complex_to_float)
         self.func = func
-        self.bool_result = bool_result
         if name == 'logical_and':
             self.done_func = done_if_false
         elif name == 'logical_or':
             self.done_func = done_if_true
         else:
             self.done_func = None
+        self.bool_result = bool_result or (self.done_func is not None)
         self.simple_binary = (
-            allow_complex and allow_bool and not bool_result and not int_only
+            allow_complex and allow_bool and not self.bool_result and not int_only
             and not complex_to_float and not promote_to_float
             and not promote_bools)
 
@@ -630,7 +630,7 @@ class W_Ufunc2(W_Ufunc):
                                             r_dtype.is_complex())):
             raise oefmt(space.w_TypeError,
                 "ufunc '%s' not supported for the input types", self.name)
-        if self.bool_result:
+        if self.bool_result and not self.done_func:
             # XXX: should actually pass the arrays
             dtype = find_result_type(space, [], [l_dtype, r_dtype])
             bool_dtype = get_dtype_cache(space).w_booldtype

@@ -196,6 +196,11 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
     (including 'self' if applicable).
     """
     def decorate(func):
+        try:
+            _get_vmprof()
+        except cintf.VMProfPlatformUnsupported:
+            return func
+
         if hasattr(func, 'im_self'):
             assert func.im_self is None
             func = func.im_func

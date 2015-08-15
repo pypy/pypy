@@ -79,9 +79,6 @@ def autodetect_jit_markers_redvars(graph):
             assert methname == 'jit_merge_point', (
                 "reds='auto' is supported only for jit drivers which "
                 "calls only jit_merge_point. Found a call to %s" % methname)
-            if jitdriver.numreds is not None:
-                raise AssertionError("there are multiple jit_merge_points "
-                                     "with the same jitdriver")
             #
             # compute the set of live variables across the jit_marker
             alive_v = set()
@@ -99,7 +96,11 @@ def autodetect_jit_markers_redvars(graph):
                                            v.concretetype is not lltype.Void]
             reds_v = sort_vars(reds_v)
             op.args.extend(reds_v)
-            jitdriver.numreds = len(reds_v)
+            if jitdriver.numreds is None:
+                jitdriver.numreds = len(reds_v)
+            elif jitdriver.numreds != len(reds_v):
+                raise AssertionError("there are multiple jit_merge_points "
+                                     "with the same jitdriver")
 
 def split_before_jit_merge_point(graph, portalblock, portalopindex):
     """Split the block just before the 'jit_merge_point',

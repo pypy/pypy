@@ -2668,6 +2668,15 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[0, :: -1] = numpy.array([11, 12])
         assert (a == [[12, 11], [5, 10]]).all()
 
+        a = numpy.zeros((3, 2), int)
+        b = numpy.ones((3, 1), int)
+        exc = raises(ValueError, 'a[:, 1] = b')
+        assert str(exc.value) == "could not broadcast " +\
+                "input array from shape (3,1) into shape (3)"
+        a[:, 1] = b[:,0] > 0.5
+        assert (a == [[0, 1], [0, 1], [0, 1]]).all()
+        
+
     def test_ufunc(self):
         from numpy import array
         a = array([[1, 2], [3, 4], [5, 6]])

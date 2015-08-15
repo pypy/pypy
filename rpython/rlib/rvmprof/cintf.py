@@ -1,6 +1,7 @@
 import py
 import sys
 from rpython.tool.udir import udir
+from rpython.tool.version import rpythonroot
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
@@ -16,7 +17,7 @@ def setup():
                                         " x86-64 CPUs for now")
 
 
-    ROOT = py.path.local(__file__).join('..')
+    ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
     SRC = ROOT.join('src')
 
 
