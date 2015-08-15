@@ -8,6 +8,8 @@ from pypy.objspace.std.listobject import (
 from pypy.objspace.std import listobject
 from pypy.objspace.std.test.test_listobject import TestW_ListObject
 
+from rpython.rlib import jit
+
 
 class TestW_ListStrategies(TestW_ListObject):
     def test_check_strategy(self):
@@ -1033,6 +1035,93 @@ class TestW_ListStrategies(TestW_ListObject):
         w_l.sort(True)
         assert [(type(x), x) for x in space.unwrap(w_l)] == [
             (int, 5), (float, 1.2), (int, 1), (float, 1.0)]
+
+
+class TestKnownClasListStrategy:
+    def test_create_from_list(self):
+        space = self.space
+        w_tup = space.wrap((1, 2))
+        w_l = W_ListObject(space, [w_tup, w_tup])
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        assert w_l.strategy._known_cls is type(w_tup)
+
+        w_l1 = W_ListObject(space, [w_tup, w_tup])
+        assert w_l1.strategy is w_l.strategy
+
+    def test_create_empty(self):
+        space = self.space
+        w_l = W_ListObject(space, [])
+        w_tup = space.wrap((1, 2))
+        w_l.append(w_tup)
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        assert w_l.strategy._known_cls is type(w_tup)
+        w_l.append(w_tup)
+        assert w_l.strategy._known_cls is type(w_tup)
+
+    def test_append(self):
+        space = self.space
+        w_tup = space.wrap((1, 2))
+        w_l = W_ListObject(space, [w_tup, w_tup])
+        strategy = w_l.strategy
+        w_l.append(w_tup)
+        assert strategy is w_l.strategy
+        w_l.append(w_l)
+        assert w_l.strategy.get_known_cls() is None
+
+    def test_setitem(self):
+        space = self.space
+        w_tup = space.wrap((1, 2))
+        w_l = W_ListObject(space, [w_tup, w_tup])
+        w_l.setitem(0, w_tup)
+        assert w_l.strategy.get_known_cls() is type(w_tup)
+        w_l.setitem(0, w_l)
+        assert w_l.strategy.get_known_cls() is None
+
+    def test_extend(self):
+        space = self.space
+        w_tup = space.wrap((1, 2))
+        w_l = W_ListObject(space, [w_tup, w_tup])
+        w_l1 = W_ListObject(space, [w_tup, w_tup])
+        w_l.extend(w_l1)
+        assert w_l.strategy.get_known_cls() is type(w_tup)
+
+        w_l2 = W_ListObject(space, [w_l, w_l])
+        w_l.extend(w_l2)
+        assert w_l.strategy.get_known_cls() is None
+
+    def test_getslice(self):
+        space = self.space
+        w_tup = space.wrap((1, 2))
+        w_l = W_ListObject(space, [w_tup, w_tup, w_tup])
+        w_l1 = w_l.getslice(0, 1, 1, 1)
+        assert w_l.strategy is w_l1.strategy
+
+    def test_setslice(self):
+        space = self.space
+        w_tup = space.wrap((1, 2))
+        w_l = W_ListObject(space, [w_tup, w_tup, w_tup])
+        w_l.setslice(0, 1, 2, W_ListObject(space, [w_tup, w_tup, w_tup]))
+        assert w_l.strategy.get_known_cls() is type(w_tup)
+        w_l.setslice(0, 1, 2, W_ListObject(space, [w_l, w_tup, w_tup]))
+        assert w_l.strategy.get_known_cls() is None
+
+    def test_propagate_cls_knowledge(self, monkeypatch):
+        l = []
+        def record_exact_class(obj, cls):
+            assert type(obj) is cls
+            l.append((obj, cls))
+        monkeypatch.setattr(jit, 'record_exact_class', record_exact_class)
+
+        space = self.space
+        w_tup = space.wrap((1, 2))
+        w_l = W_ListObject(space, [w_tup, w_tup, w_tup])
+        w_tup1 = w_l.getitem(0)
+        assert w_tup1 is w_tup
+        assert l == [(w_tup, type(w_tup))] * 1
+
+        w_tup1 = w_l.pop_end()
+        assert w_tup1 is w_tup
+        assert l == [(w_tup, type(w_tup))] * 2
 
 
 class TestW_ListStrategiesDisabled:

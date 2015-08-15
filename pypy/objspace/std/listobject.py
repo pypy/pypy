@@ -40,6 +40,19 @@ __all__ = ['W_ListObject', 'make_range_list', 'make_empty_list_with_size']
 
 UNROLL_CUTOFF = 5
 
+class FixedClsStrategyCache(object):
+    def __init__(self, space):
+        self.space = space
+        self.generic_strategy = space.fromcache(ObjectListStrategy)
+        self.cache = {}
+
+    @jit.elidable
+    def get_or_build(self, cls):
+        strategy = self.cache.get(cls, None)
+        if strategy is None:
+            strategy = ObjectListStrategy(self.space, cls)
+            self.cache[cls] = strategy
+        return strategy
 
 def make_range_list(space, start, step, length):
     if length <= 0:
@@ -125,7 +138,15 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
         else:
             return space.fromcache(IntOrFloatListStrategy)
 
-    return space.fromcache(ObjectListStrategy)
+    cache = space.fromcache(FixedClsStrategyCache)
+
+    # check for all the same class
+    for i in range(1, len(list_w)):
+        if type(list_w[i]) is not type(w_firstobj):
+            break
+    else:
+        return cache.get_or_build(type(w_firstobj))
+    return cache.generic_strategy
 
 
 def _get_printable_location(w_type):
@@ -685,7 +706,7 @@ class W_ListObject(W_Root):
             if has_key:
                 sorterclass = CustomKeySort
             else:
-                if self.strategy is space.fromcache(ObjectListStrategy):
+                if isinstance(self.strategy, ObjectListStrategy):
                     sorterclass = SimpleSort
                 else:
                     self.sort(reverse)
@@ -936,7 +957,8 @@ class EmptyListStrategy(ListStrategy):
         elif type(w_item) is W_FloatObject:
             strategy = self.space.fromcache(FloatListStrategy)
         else:
-            strategy = self.space.fromcache(ObjectListStrategy)
+            cache = self.space.fromcache(FixedClsStrategyCache)
+            strategy = cache.get_or_build(type(w_item))
 
         storage = strategy.get_empty_storage(self.get_sizehint())
         w_list.strategy = strategy
@@ -1418,9 +1440,8 @@ class AbstractUnwrappedStrategy(object):
         w_list.append(w_item)
 
     def insert(self, w_list, index, w_item):
-        l = self.unerase(w_list.lstorage)
-
         if self.is_correct_type(w_item):
+            l = self.unerase(w_list.lstorage)
             l.insert(index, self.unwrap(w_item))
             return
 
@@ -1428,8 +1449,8 @@ class AbstractUnwrappedStrategy(object):
         w_list.insert(index, w_item)
 
     def _extend_from_list(self, w_list, w_other):
-        l = self.unerase(w_list.lstorage)
         if self.list_is_correct_type(w_other):
+            l = self.unerase(w_list.lstorage)
             l += self.unerase(w_other.lstorage)
             return
         elif w_other.strategy.is_empty_strategy():
@@ -1581,14 +1602,30 @@ class AbstractUnwrappedStrategy(object):
 
 
 class ObjectListStrategy(ListStrategy):
+    _immutable_fields_ = ['_known_cls']
+
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = None
+
+    def __init__(self, space, known_cls=None):
+        self.space = space
+        self._known_cls = known_cls
+
+    def __repr__(self):
+        return "ObjectListStrategy(space, %s)" % (self._known_cls, )
+
+    @jit.elidable_promote('0')
+    def get_known_cls(self):
+        return self._known_cls
 
     def unwrap(self, w_obj):
         return w_obj
 
     def wrap(self, item):
+        cls = self.get_known_cls()
+        if cls is not None:
+            jit.record_exact_class(item, cls)
         return item
 
     erase, unerase = rerased.new_erasing_pair("object")
@@ -1596,10 +1633,13 @@ class ObjectListStrategy(ListStrategy):
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
+        cls = self.get_known_cls()
+        if cls is not None:
+            return type(w_obj) is cls
         return True
 
     def list_is_correct_type(self, w_list):
-        return w_list.strategy is self.space.fromcache(ObjectListStrategy)
+        return w_list.strategy is self
 
     def init_from_list_w(self, w_list, list_w):
         w_list.lstorage = self.erase(list_w)
