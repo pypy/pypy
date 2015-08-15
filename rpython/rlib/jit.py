@@ -1085,14 +1085,13 @@ def record_exact_class(value, cls):
     Assure the JIT that value is an instance of cls. This is a precise
     class check, like a guard_class.
     """
-    assert type(value) is cls
+    assert value is not None and type(value) is cls
 
 class Entry(ExtRegistryEntry):
     _about_ = record_exact_class
 
     def compute_result_annotation(self, s_inst, s_cls):
         from rpython.annotator import model as annmodel
-        assert not s_inst.can_be_none()
         assert isinstance(s_inst, annmodel.SomeInstance)
 
     def specialize_call(self, hop):

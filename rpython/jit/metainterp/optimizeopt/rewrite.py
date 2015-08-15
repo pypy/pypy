@@ -335,6 +335,7 @@ class OptRewrite(Optimization):
         value = self.getvalue(op.getarg(0))
         expectedclassbox = op.getarg(1)
         if not isinstance(expectedclassbox, Const):
+            value.make_nonnull(None)
             # can't optimize
             return
         realclassbox = value.get_constant_class(self.optimizer.cpu)

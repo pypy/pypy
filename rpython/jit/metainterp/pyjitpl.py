@@ -282,6 +282,7 @@ class MIFrame(object):
         adr = clsbox.getaddr()
         self.execute(rop.RECORD_EXACT_CLASS, box, clsbox)
         self.metainterp.heapcache.class_now_known(box)
+        self.metainterp.heapcache.nullity_now_known(box)
 
     @arguments("box")
     def _opimpl_any_return(self, box):
