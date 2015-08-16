@@ -145,6 +145,12 @@ elif _WIN:
         ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
         ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT)])
 
+if sys.platform == 'darwin':
+    CConfig.TIMEBASE_INFO = platform.Struct("struct mach_timebase_info", [
+        ("numer", rffi.UINT),
+        ("denom", rffi.UINT),
+    ])
+
 # XXX: optionally support the 2 additional tz fields
 _STRUCT_TM_ITEMS = 9
 
@@ -710,3 +716,38 @@ def strftime(space, format, w_tup=None):
         finally:
             lltype.free(outbuf, flavor='raw')
         i += i
+
+
+if _WIN:
+    # untested so far
+    _GetTickCount64 = rwin32.winexternal('GetTickCount64', [], rffi.ULONGLONG)
+
+    def monotonic(space):
+        return space.wrap(_GetTickCount64() * 1e-3)
+
+elif sys.platform == 'darwin':
+    # untested so far
+    c_mach_timebase_info = external('mach_timebase_info',
+                                    [lltype.Ptr(TIMEBASE_INFO)], lltype.Void)
+    c_mach_absolute_time = external('mach_absolute_time', [], lltype.ULONGLONG)
+
+    timebase_info = lltype.malloc(TIMEBASE_INFO, flavor='raw', zero=True,
+                                  immortal=True)
+
+    def monotonic():
+        if timebase_info.denom == 0:
+            mach_timebase_info(timebase_info)
+        time = mach_absolute_time()
+        nanosecs = time * timebase_info.numer / timebase_info.denom
+        secs = nanosecs / 10**9
+        rest = nanosecs % 10**9
+        return space.wrap(float(secs) + float(rest) * 1e-9)
+
+else:
+    assert _POSIX
+    if cConfig.CLOCK_HIGHRES is not None:
+        def monotonic(space):
+            return clock_gettime(space, cConfig.CLOCK_HIGHRES)
+    else:
+        def monotonic(space):
+            return clock_gettime(space, cConfig.CLOCK_MONOTONIC)

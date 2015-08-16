@@ -358,3 +358,11 @@ class AppTestTime:
         new = pickle.loads(pickle.dumps(now))
         assert new == now
         assert type(new) is type(now)
+
+    def test_monotonic(self):
+        import time
+        t1 = time.monotonic()
+        assert isinstance(t1, float)
+        time.sleep(0.02)
+        t2 = time.monotonic()
+        assert t1 < t2

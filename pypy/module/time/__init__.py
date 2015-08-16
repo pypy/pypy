@@ -19,6 +19,7 @@ class Module(MixedModule):
         'strftime': 'interp_time.strftime',
         'sleep' : 'interp_time.sleep',
         '_STRUCT_TM_ITEMS': 'space.wrap(interp_time._STRUCT_TM_ITEMS)',
+        'monotonic': 'interp_time.monotonic',
     }
 
     if os.name == "posix":
