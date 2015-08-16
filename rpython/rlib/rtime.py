@@ -175,19 +175,22 @@ else:
                            lltype.Void,
                            releasegil=False)
 
+def win_perf_counter():
+    a = lltype.malloc(A, flavor='raw')
+    if state.divisor == 0.0:
+        QueryPerformanceCounter(a)
+        state.counter_start = a[0]
+        QueryPerformanceFrequency(a)
+        state.divisor = float(a[0])
+    QueryPerformanceCounter(a)
+    diff = a[0] - state.counter_start
+    lltype.free(a, flavor='raw')
+    return float(diff) / state.divisor
+
 @replace_time_function('clock')
 def clock():
     if _WIN32:
-        a = lltype.malloc(A, flavor='raw')
-        if state.divisor == 0.0:
-            QueryPerformanceCounter(a)
-            state.counter_start = a[0]
-            QueryPerformanceFrequency(a)
-            state.divisor = float(a[0])
-        QueryPerformanceCounter(a)
-        diff = a[0] - state.counter_start
-        lltype.free(a, flavor='raw')
-        return float(diff) / state.divisor
+        return win_perf_counter()
     elif CLOCK_PROCESS_CPUTIME_ID is not None:
         with lltype.scoped_alloc(TIMESPEC) as a:
             c_clock_gettime(CLOCK_PROCESS_CPUTIME_ID, a)

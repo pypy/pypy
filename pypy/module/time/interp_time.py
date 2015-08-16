@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.rtime import c_clock_gettime, TIMESPEC
+from rpython.rlib.rtime import c_clock_gettime, TIMESPEC, win_perf_counter
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import math
@@ -751,3 +751,12 @@ else:
     else:
         def monotonic(space):
             return clock_gettime(space, cConfig.CLOCK_MONOTONIC)
+
+
+if _WIN:
+    def perf_counter(space):
+        return space.wrap(win_perf_counter())
+
+else:
+    def perf_counter(space):
+        return monotonic(space)

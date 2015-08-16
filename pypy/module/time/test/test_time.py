@@ -366,3 +366,7 @@ class AppTestTime:
         time.sleep(0.02)
         t2 = time.monotonic()
         assert t1 < t2
+
+    def test_perf_counter(self):
+        import time
+        assert isinstance(time.perf_counter(), float)

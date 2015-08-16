@@ -20,6 +20,7 @@ class Module(MixedModule):
         'sleep' : 'interp_time.sleep',
         '_STRUCT_TM_ITEMS': 'space.wrap(interp_time._STRUCT_TM_ITEMS)',
         'monotonic': 'interp_time.monotonic',
+        'perf_counter': 'interp_time.perf_counter',
     }
 
     if os.name == "posix":
