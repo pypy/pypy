@@ -14,9 +14,10 @@ from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_longlong
 from rpython.rlib.objectmodel import compute_hash
 from rpython.rlib import jit
+from rpython.rlib.debug import debug_start, debug_stop, debug_print
 
 
 class BytecodeCorruption(Exception):
@@ -54,8 +55,9 @@ class PyCode(eval.Code):
     "CPython-style code objects."
     _immutable_ = True
     _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
-                          "co_freevars[*]", "co_cellvars[*]", "_args_as_cellvars[*]"]
-
+                          "co_freevars[*]", "co_cellvars[*]",
+                          "_args_as_cellvars[*]"]
+    
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
@@ -83,6 +85,7 @@ class PyCode(eval.Code):
         self.magic = magic
         self._signature = cpython_code_signature(self)
         self._initialize()
+        self._init_ready()
 
     def _initialize(self):
         if self.co_cellvars:
@@ -123,6 +126,9 @@ class PyCode(eval.Code):
         if self.space.config.objspace.std.withmapdict:
             from pypy.objspace.std.mapdict import init_mapdict_cache
             init_mapdict_cache(self)
+
+    def _init_ready(self):
+        "This is a hook for the vmprof module, which overrides this method."
 
     def _cleanup_(self):
         if (self.magic == cpython_magic and
@@ -197,7 +203,7 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args.parse_into_scope(None, fresh_frame.locals_stack_w, func.name,
+        args.parse_into_scope(None, fresh_frame.locals_cells_stack_w, func.name,
                               sig, func.defs_w)
         fresh_frame.init_cells()
         return frame.run()
@@ -209,7 +215,7 @@ class PyCode(eval.Code):
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args.parse_into_scope(w_obj, fresh_frame.locals_stack_w, func.name,
+        args.parse_into_scope(w_obj, fresh_frame.locals_cells_stack_w, func.name,
                               sig, func.defs_w)
         fresh_frame.init_cells()
         return frame.run()

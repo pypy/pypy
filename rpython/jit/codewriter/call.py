@@ -286,9 +286,13 @@ class CallControl(object):
                                    EffectInfo.EF_ELIDABLE_OR_MEMORYERROR,
                                    EffectInfo.EF_ELIDABLE_CAN_RAISE):
                 raise Exception(
-                "in operation %r: this calls an _elidable_function_,"
+                "in operation %r: this calls an elidable function,"
                 " but this contradicts other sources (e.g. it can have random"
                 " effects): EF=%s" % (op, extraeffect))
+            elif RESULT is lltype.Void:
+                raise Exception(
+                    "in operation %r: this calls an elidable function "
+                    "but the function has no result" % (op, ))
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op, self.seen), self.cpu,

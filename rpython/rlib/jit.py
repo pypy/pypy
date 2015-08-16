@@ -34,6 +34,26 @@ def elidable(func):
     side effect, but those side effects are idempotent (ie caching).
     If a particular call to this function ends up raising an exception, then it
     is handled like a normal function call (this decorator is ignored).
+
+    Note also that this optimisation will only take effect if the arguments
+    to the function are proven constant. By this we mean each argument
+    is either:
+
+      1) a constant from the RPython source code (e.g. "x = 2")
+      2) easily shown to be constant by the tracer
+      3) a promoted variable (see @jit.promote)
+
+    Examples of condition 2:
+
+      * i1 = int_eq(i0, 0), guard_true(i1)
+      * i1 = getfield_pc_pure(<constant>, "immutable_field")
+
+    In both cases, the tracer will deduce that i1 is constant.
+
+    Failing the above conditions, the function is not traced into (as if the
+    function were decorated with @jit.dont_look_inside). Generally speaking,
+    it is a bad idea to liberally sprinkle @jit.elidable without a concrete
+    need.
     """
     if DEBUG_ELIDABLE_FUNCTIONS:
         cache = {}
@@ -78,6 +98,29 @@ def hint(x, **kwds):
 
 @specialize.argtype(0)
 def promote(x):
+    """
+    Promotes a variable in a trace to a constant.
+
+    When a variable is promoted, a guard is inserted that assumes the value
+    of the variable is constant. In other words, the value of the variable
+    is checked to be the same as it was at trace collection time.  Once the
+    variable is assumed constant, more aggressive constant folding may be
+    possible.
+
+    If however, the guard fails frequently, a bridge will be generated
+    this time assuming the constancy of the variable under its new value.
+    This optimisation should be used carefully, as in extreme cases, where
+    the promoted variable is not very constant at all, code explosion can
+    occur. In turn this leads to poor performance.
+
+    Overpromotion is characterised by a cascade of bridges branching from
+    very similar guard_value opcodes, each guarding the same variable under
+    a different value.
+
+    Note that promoting a string with @jit.promote will promote by pointer.
+    To promote a string by value, see @jit.promote_string.
+
+    """
     return hint(x, promote=True)
 
 def promote_string(x):
@@ -292,6 +335,39 @@ def we_are_jitted():
 _we_are_jitted = CDefinedIntSymbolic('0 /* we are not jitted here */',
                                      default=0)
 
+def _get_virtualizable_token(frame):
+    """ An obscure API to get vable token.
+    Used by _vmprof
+    """
+    from rpython.rtyper.lltypesystem import lltype, llmemory
+    
+    return lltype.nullptr(llmemory.GCREF.TO)
+
+class GetVirtualizableTokenEntry(ExtRegistryEntry):
+    _about_ = _get_virtualizable_token
+
+    def compute_result_annotation(self, s_arg):
+        from rpython.rtyper.llannotation import SomePtr
+        from rpython.rtyper.lltypesystem import llmemory
+        return SomePtr(llmemory.GCREF)
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype, llmemory
+
+        hop.exception_cannot_occur()
+        T = hop.args_r[0].lowleveltype.TO
+        v = hop.inputarg(hop.args_r[0], arg=0)
+        while not hasattr(T, 'vable_token'):
+            if not hasattr(T, 'super'):
+                # we're not really in a jitted build
+                return hop.inputconst(llmemory.GCREF,
+                                      lltype.nullptr(llmemory.GCREF.TO))
+            T = T.super
+        v = hop.genop('cast_pointer', [v], resulttype=lltype.Ptr(T))
+        c_vable_token = hop.inputconst(lltype.Void, 'vable_token')
+        return hop.genop('getfield', [v, c_vable_token],
+                         resulttype=llmemory.GCREF)
+
 class Entry(ExtRegistryEntry):
     _about_ = we_are_jitted
 
@@ -473,6 +549,7 @@ PARAMETER_DOCS = {
     'retrace_limit': 'how many times we can try retracing before giving up',
     'max_retrace_guards': 'number of extra guards a retrace can cause',
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
+    'disable_unrolling': 'after how many operations we should not unroll',
     'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     'max_unroll_recursion': 'how many levels deep to unroll a recursive function'
@@ -488,6 +565,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'retrace_limit': 5,
               'max_retrace_guards': 15,
               'max_unroll_loops': 0,
+              'disable_unrolling': 200,
               'enable_opts': 'all',
               'max_unroll_recursion': 7,
               }
@@ -512,7 +590,8 @@ class JitDriver(object):
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
-                 name='jitdriver', check_untranslated=True):
+                 name='jitdriver', check_untranslated=True,
+                 get_unique_id=None):
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -544,6 +623,9 @@ class JitDriver(object):
         assert get_jitcell_at is None, "get_jitcell_at no longer used"
         assert set_jitcell_at is None, "set_jitcell_at no longer used"
         self.get_printable_location = get_printable_location
+        if get_unique_id is None:
+            get_unique_id = lambda *args: 0
+        self.get_unique_id = get_unique_id
         self.confirm_enter_jit = confirm_enter_jit
         self.can_never_inline = can_never_inline
         self.should_unroll_one_iteration = should_unroll_one_iteration
@@ -998,19 +1080,18 @@ class JitHookInterface(object):
         instance, overwrite for custom behavior
         """
 
-def record_known_class(value, cls):
+def record_exact_class(value, cls):
     """
-    Assure the JIT that value is an instance of cls. This is not a precise
-    class check, unlike a guard_class.
+    Assure the JIT that value is an instance of cls. This is a precise
+    class check, like a guard_class.
     """
-    assert isinstance(value, cls)
+    assert type(value) is cls
 
 class Entry(ExtRegistryEntry):
-    _about_ = record_known_class
+    _about_ = record_exact_class
 
     def compute_result_annotation(self, s_inst, s_cls):
         from rpython.annotator import model as annmodel
-        assert s_cls.is_constant()
         assert not s_inst.can_be_none()
         assert isinstance(s_inst, annmodel.SomeInstance)
 
@@ -1023,7 +1104,7 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         v_inst = hop.inputarg(hop.args_r[0], arg=0)
         v_cls = hop.inputarg(classrepr, arg=1)
-        return hop.genop('jit_record_known_class', [v_inst, v_cls],
+        return hop.genop('jit_record_exact_class', [v_inst, v_cls],
                          resulttype=lltype.Void)
 
 def _jit_conditional_call(condition, function, *args):

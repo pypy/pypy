@@ -36,6 +36,9 @@ def _get_jitcodes(testself, CPUClass, func, values,
             from rpython.rtyper.annlowlevel import llhelper
             return llhelper(FUNCPTR, func)
 
+        def get_unique_id(self, *args):
+            return 0
+
         def get_location_str(self, args):
             return 'location'
 

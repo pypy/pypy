@@ -187,7 +187,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        short = """
+        [i2]
+        p3 = cast_int_to_ptr(i2)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
 
     def test_reverse_of_cast_2(self):
         ops = """
@@ -1278,7 +1283,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
@@ -1288,7 +1293,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
@@ -1688,8 +1693,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         []
         p1 = new_array(3, descr=arraydescr)
         escape(p1)
-        i2 = arraylen_gc(p1)
-        escape(i2)
+        escape(3)
         jump()
         """
         self.optimize_loop(ops, expected)
@@ -3079,6 +3083,69 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p0)
         """
         self.optimize_loop(ops, expected, preamble)
+
+    def test_remove_multiple_add_1(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i1, 2)
+        i3 = int_add(i2, 1)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i0, 3)
+        i3 = int_add(i0, 4)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_multiple_add_2(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(2, i1)
+        i3 = int_add(i2, 1)
+        i4 = int_mul(i3, 5)
+        i5 = int_add(5, i4)
+        i6 = int_add(1, i5)
+        i7 = int_add(i2, i6)
+        i8 = int_add(i7, 1)
+        jump(i8)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i0, 3)
+        i3 = int_add(i0, 4)
+        i4 = int_mul(i3, 5)
+        i5 = int_add(5, i4)
+        i6 = int_add(i4, 6)
+        i7 = int_add(i2, i6)
+        i8 = int_add(i7, 1)
+        jump(i8)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_multiple_add_3(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, %s)
+        i2 = int_add(i1, %s)
+        i3 = int_add(i0, %s)
+        i4 = int_add(i3, %s)
+        jump(i4)
+        """ % (sys.maxint - 1, sys.maxint - 2, -sys.maxint, -sys.maxint + 1)
+        expected = """
+        [i0]
+        i1 = int_add(i0, %s)
+        i2 = int_add(i0, %s)
+        i3 = int_add(i0, %s)
+        i4 = int_add(i0, %s)
+        jump(i4)
+        """ % (sys.maxint - 1, -5, -sys.maxint, 3)
+        self.optimize_loop(ops, expected)
 
     def test_remove_duplicate_pure_op(self):
         ops = """
@@ -4857,7 +4924,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_complains_getfieldpure_setfield(self):
-        from rpython.jit.metainterp.optimizeopt.heap import BogusPureField
+        from rpython.jit.metainterp.optimizeopt.heap import BogusImmutableField
         ops = """
         [p3]
         p1 = escape()
@@ -4865,7 +4932,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, p3, descr=nextdescr)
         jump(p3)
         """
-        self.raises(BogusPureField, self.optimize_loop, ops, "crash!")
+        self.raises(BogusImmutableField, self.optimize_loop, ops, "crash!")
 
     def test_dont_complains_different_field(self):
         ops = """
@@ -7017,11 +7084,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
 
-    def test_record_known_class(self):
+    def test_record_exact_class(self):
         ops = """
         [p0]
         p1 = getfield_gc(p0, descr=nextdescr)
-        record_known_class(p1, ConstClass(node_vtable))
+        record_exact_class(p1, ConstClass(node_vtable))
         guard_class(p1, ConstClass(node_vtable)) []
         jump(p1)
         """
@@ -7285,7 +7352,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_add(i1, i2)
         setfield_gc(p0, ii, descr=valuedescr)
         setfield_gc(p1, ii, descr=otherdescr)
-        jump(p0, p1, ii2, ii, ii, ii)
+        i7 = same_as(ii)
+        i8 = same_as(ii)
+        jump(p0, p1, ii2, ii, i8, i7)
         """
         expected = """
         [p0, p1, ii, ii2, i1, i2]
@@ -7294,7 +7363,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, ii, descr=otherdescr)
         jump(p0, p1, ii2, ii, ii, ii)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected, preamble)
 
     def test_dont_specialize_on_boxes_equal(self):
         ops = """
@@ -8569,6 +8638,28 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p0, i2, p1)        
         """
         self.optimize_loop(ops, expected, preamble)
+
+    def test_getfield_proven_constant(self):
+        py.test.skip("not working")
+        ops = """
+        [p0]
+        i1 = getfield_gc(p0, descr=valuedescr)
+        guard_value(i1, 13) []
+        escape(i1)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        escape(13)
+        jump(p0)
+        """
+        expected_short = """
+        [p0]
+        i1 = getfield_gc(p0, descr=valuedescr)
+        guard_value(i1, 13) []
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, expected_short=expected_short)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

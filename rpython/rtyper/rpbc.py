@@ -14,7 +14,7 @@ from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rtyper.lltypesystem.lltype import (typeOf, Void, ForwardReference,
-    Struct, Bool, Char, Ptr, malloc, nullptr, Array, Signed)
+    Struct, Bool, Char, Ptr, malloc, nullptr, Array, Signed, cast_pointer)
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
     warning, impossible_repr)
 from rpython.rtyper.typesystem import getfunctionptr
@@ -1036,6 +1036,10 @@ class ClassesPBCRepr(Repr):
 
     def get_ll_eq_function(self):
         return None
+
+    def ll_str(self, ptr):
+        cls = cast_pointer(CLASSTYPE, ptr)
+        return cls.name
 
 
 def ll_cls_hash(cls):

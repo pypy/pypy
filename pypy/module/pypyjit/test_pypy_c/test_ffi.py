@@ -207,6 +207,94 @@ class Test__ffi(BaseTestPyPyC):
             guard_no_exception(descr=...)
         """, ignore_ops=['guard_not_invalidated'])
 
+    def test__cffi_call_c_int(self):
+        if sys.platform == 'win32':
+            py.test.skip("not tested on Windows (this test must pass on "
+                         "other platforms, and it should work the same way)")
+        def main():
+            import os
+            try:
+                import _cffi_backend
+            except ImportError:
+                sys.stderr.write('SKIP: cannot import _cffi_backend\n')
+                return 0
+
+            libc = _cffi_backend.load_library(None)
+            BInt = _cffi_backend.new_primitive_type("int")
+            BClose = _cffi_backend.new_function_type([BInt], BInt)
+            _dup = libc.load_function(BClose, 'dup')
+            i = 0
+            fd0, fd1 = os.pipe()
+            while i < 300:
+                tmp = _dup(fd0)   # ID: cfficall
+                os.close(tmp)
+                i += 1
+            os.close(fd0)
+            os.close(fd1)
+            BLong = _cffi_backend.new_primitive_type("long")
+            return 42
+        #
+        log = self.run(main, [])
+        assert log.result == 42
+        loop, = log.loops_by_filename(self.filepath)
+        if sys.maxint > 2**32:
+            extra = "i98 = int_signext(i97, 4)"
+        else:
+            extra = ""
+        assert loop.match_by_id('cfficall', """
+            p96 = force_token()
+            setfield_gc(p0, p96, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
+            i97 = call_release_gil(91, i59, i50, descr=<Calli 4 i EF=7 OS=62>)
+            guard_not_forced(descr=...)
+            guard_no_exception(descr=...)
+            %s
+        """ % extra, ignore_ops=['guard_not_invalidated'])
+
+    def test__cffi_call_size_t(self):
+        if sys.platform == 'win32':
+            py.test.skip("not tested on Windows (this test must pass on "
+                         "other platforms, and it should work the same way)")
+        def main():
+            import os
+            try:
+                import _cffi_backend
+            except ImportError:
+                sys.stderr.write('SKIP: cannot import _cffi_backend\n')
+                return 0
+
+            libc = _cffi_backend.load_library(None)
+            BInt = _cffi_backend.new_primitive_type("int")
+            BSizeT = _cffi_backend.new_primitive_type("size_t")
+            BChar = _cffi_backend.new_primitive_type("char")
+            BCharP = _cffi_backend.new_pointer_type(BChar)
+            BWrite = _cffi_backend.new_function_type([BInt, BCharP, BSizeT],
+                                                     BSizeT)  # not signed here!
+            _write = libc.load_function(BWrite, 'write')
+            i = 0
+            fd0, fd1 = os.pipe()
+            buffer = _cffi_backend.newp(BCharP, 'A')
+            while i < 300:
+                tmp = _write(fd1, buffer, 1)   # ID: cfficall
+                assert tmp == 1
+                assert os.read(fd0, 2) == 'A'
+                i += 1
+            os.close(fd0)
+            os.close(fd1)
+            return 42
+        #
+        log = self.run(main, [])
+        assert log.result == 42
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id('cfficall', """
+            p96 = force_token()
+            setfield_gc(p0, p96, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
+            i97 = call_release_gil(91, i59, i10, i12, 1, descr=<Calli . iii EF=7 OS=62>)
+            guard_not_forced(descr=...)
+            guard_no_exception(descr=...)
+            p98 = call(ConstClass(fromrarith_int__r_uint), i97, descr=<Callr . i EF=4>)
+            guard_no_exception(descr=...)
+        """, ignore_ops=['guard_not_invalidated'])
+
     def test_cffi_call_guard_not_forced_fails(self):
         # this is the test_pypy_c equivalent of
         # rpython/jit/metainterp/test/test_fficall::test_guard_not_forced_fails
@@ -334,6 +422,7 @@ class Test__ffi(BaseTestPyPyC):
         guard_no_exception(descr=...)
         i112 = int_signext(i160, 2)
         setfield_gc(p167, ConstPtr(ptr85), descr=<FieldP pypy.module._cffi_backend.cdataobj.W_CData.inst_ctype .+>)
+        setfield_gc(p167, -1, descr=<FieldS pypy.module._cffi_backend.cdataobj.W_CDataNewOwning.inst_length .+>)
         i114 = int_ne(i160, i112)
         guard_false(i114, descr=...)
         --TICK--

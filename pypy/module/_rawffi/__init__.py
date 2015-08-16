@@ -29,6 +29,7 @@ class Module(MixedModule):
         'get_last_error'     : 'interp_rawffi.get_last_error',
         'set_last_error'     : 'interp_rawffi.set_last_error',
         'SegfaultException'  : 'space.new_exception_class("_rawffi.SegfaultException")',
+        'exit'               : 'interp_exit.exit',
     }
 
     appleveldefs = {

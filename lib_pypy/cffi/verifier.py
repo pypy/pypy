@@ -28,6 +28,10 @@ class Verifier(object):
     def __init__(self, ffi, preamble, tmpdir=None, modulename=None,
                  ext_package=None, tag='', force_generic_engine=False,
                  source_extension='.c', flags=None, relative_to=None, **kwds):
+        if ffi._parser._uses_new_feature:
+            raise ffiplatform.VerificationError(
+                "feature not supported with ffi.verify(), but only "
+                "with ffi.set_source(): %s" % (ffi._parser._uses_new_feature,))
         self.ffi = ffi
         self.preamble = preamble
         if not modulename:

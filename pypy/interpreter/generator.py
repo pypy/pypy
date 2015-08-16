@@ -15,7 +15,10 @@ class GeneratorIterator(W_Root):
         self.running = False
 
     def descr__repr__(self, space):
-        code_name = self.pycode.co_name
+        if self.pycode is None:
+            code_name = '<finished>'
+        else:
+            code_name = self.pycode.co_name
         addrstring = self.getaddrstring(space)
         return space.wrap("<generator object %s at 0x%s>" %
                           (code_name, addrstring))
@@ -45,6 +48,8 @@ class GeneratorIterator(W_Root):
         w_framestate, w_running = args_w
         if space.is_w(w_framestate, space.w_None):
             self.frame = None
+            self.space = space
+            self.pycode = None
         else:
             frame = instantiate(space.FrameClass)   # XXX fish
             frame.descr__setstate__(space, w_framestate)
@@ -62,9 +67,10 @@ return next yielded value or raise StopIteration."""
 
     def send_ex(self, w_arg, operr=None):
         pycode = self.pycode
-        if jit.we_are_jitted() and should_not_inline(pycode):
-            generatorentry_driver.jit_merge_point(gen=self, w_arg=w_arg,
-                                                  operr=operr, pycode=pycode)
+        if pycode is not None:
+            if jit.we_are_jitted() and should_not_inline(pycode):
+                generatorentry_driver.jit_merge_point(gen=self, w_arg=w_arg,
+                                                    operr=operr, pycode=pycode)
         return self._send_ex(w_arg, operr)
 
     def _send_ex(self, w_arg, operr):
@@ -158,7 +164,10 @@ return next yielded value or raise StopIteration."""
         return self.pycode
 
     def descr__name__(self, space):
-        code_name = self.pycode.co_name
+        if self.pycode is None:
+            code_name = '<finished>'
+        else:
+            code_name = self.pycode.co_name
         return space.wrap(code_name)
 
     # Results can be either an RPython list of W_Root, or it can be an

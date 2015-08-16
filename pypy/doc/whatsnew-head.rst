@@ -1,25 +1,69 @@
 =======================
-What's new in PyPy 2.5+
+What's new in PyPy 2.6+
 =======================
 
-.. this is a revision shortly after release-2.5.1
-.. startrev: cb01edcb59414d9d93056e54ed060673d24e67c1
+.. this is a revision shortly after release-2.6.0
+.. startrev: 91904d5c5188
 
-Issue #2017: on non-Linux-x86 platforms, reduced the memory impact of
-creating a lot of greenlets/tasklets.  Particularly useful on Win32 and
-on ARM, where you used to get a MemoryError after only 2500-5000
-greenlets (the 32-bit address space is exhausted).
+.. branch: use_min_scalar
+Correctly resolve the output dtype of ufunc(array, scalar) calls.
 
-.. branch: gc-incminimark-pinning-improve
-Object Pinning is now used in `bz2` and `rzlib` (therefore also affects
-Python's `zlib`). In case the data to compress/decompress is inside the nursery
-(incminimark) it no longer needs to create a non-moving copy of it. This saves
-one `malloc` and copying the data.  Additionally a new GC environment variable
-is introduced (`PYPY_GC_MAX_PINNED`) primarily for debugging purposes.
+.. branch: stdlib-2.7.10
 
-.. branch: refactor-pycall
-Make `*`-unpacking in RPython function calls completely equivalent to passing
-the tuple's elements as arguments. In other words, `f(*(a, b))` now behaves 
-exactly like `f(a, b)`.
+Update stdlib to version 2.7.10
 
-.. branch: issue2018
+.. branch: issue2062
+
+.. branch: disable-unroll-for-short-loops
+The JIT no longer performs loop unrolling if the loop compiles to too much code.
+
+.. branch: run-create_cffi_imports
+
+Build cffi import libraries as part of translation by monkey-patching an 
+additional task into translation
+
+.. branch: int-float-list-strategy
+
+Use a compact strategy for Python lists that mix integers and floats,
+at least if the integers fit inside 32 bits.  These lists are now
+stored as an array of floats, like lists that contain only floats; the
+difference is that integers are stored as tagged NaNs.  (This should
+have no visible effect!  After ``lst = [42, 42.5]``, the value of
+``lst[0]`` is still *not* the float ``42.0`` but the integer ``42``.)
+
+.. branch: cffi-callback-onerror
+.. branch: cffi-new-allocator
+
+.. branch: unicode-dtype
+
+Partial implementation of unicode dtype and unicode scalars.
+
+.. branch: dtypes-compatability
+
+Improve compatibility with numpy dtypes; handle offsets to create unions,
+fix str() and repr(), allow specifying itemsize, metadata and titles, add flags,
+allow subclassing dtype
+
+.. branch: indexing
+
+Refactor array indexing to support ellipses.
+
+.. branch: numpy-docstrings
+
+Allow the docstrings of built-in numpy objects to be set at run-time.
+
+.. branch: nditer-revisited
+
+Implement nditer 'buffered' flag and fix some edge cases
+
+.. branch: ufunc-reduce
+
+Allow multiple axes in ufunc.reduce()
+
+.. branch: fix-tinylang-goals
+
+Update tinylang goals to match current rpython
+
+.. branch: vmprof-review
+
+Clean up of vmprof, notably to handle correctly multiple threads

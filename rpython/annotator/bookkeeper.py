@@ -22,6 +22,7 @@ from rpython.annotator.signature import annotationoftype
 from rpython.annotator.argument import simple_args
 from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
+from rpython.tool.flattenrec import FlattenRecursion
 from rpython.rtyper import extregistry
 
 
@@ -421,6 +422,8 @@ class Bookkeeper(object):
             self.methoddescs[key] = result
             return result
 
+    _see_mutable_flattenrec = FlattenRecursion()
+
     def see_mutable(self, x):
         key = (x.__class__, x)
         if key in self.seen_mutable:
@@ -429,8 +432,11 @@ class Bookkeeper(object):
         self.seen_mutable[key] = True
         self.event('mutable', x)
         source = InstanceSource(self, x)
-        for attr in source.all_instance_attributes():
-            clsdef.add_source_for_attribute(attr, source) # can trigger reflowing
+        def delayed():
+            for attr in source.all_instance_attributes():
+                clsdef.add_source_for_attribute(attr, source)
+                # ^^^ can trigger reflowing
+        self._see_mutable_flattenrec(delayed)
 
     def valueoftype(self, t):
         return annotationoftype(t, self)
@@ -514,6 +520,26 @@ class Bookkeeper(object):
         return s_result
 
     def emulate_pbc_call(self, unique_key, pbc, args_s, replace=[], callback=None):
+        """For annotating some operation that causes indirectly a Python
+        function to be called.  The annotation of the function is "pbc",
+        and the list of annotations of arguments is "args_s".
+
+        Can be called in various contexts, but from compute_annotation()
+        or compute_result_annotation() of an ExtRegistryEntry, call it
+        with both "unique_key" and "callback" set to
+        "self.bookkeeper.position_key".  If there are several calls from
+        the same operation, they need their own "unique_key", like
+        (position_key, "first") and (position_key, "second").
+
+        In general, "unique_key" should somehow uniquely identify where
+        the call is in the source code, and "callback" can be either a
+        position_key to reflow from when we see more general results,
+        or a real callback function that will be called with arguments
+        # "(annotator, called_graph)" whenever the result is generalized.
+
+        "replace" can be set to a list of old unique_key values to
+        forget now, because the given "unique_key" replaces them.
+        """
         with self.at_position(None):
             emulated_pbc_calls = self.emulated_pbc_calls
             prev = [unique_key]

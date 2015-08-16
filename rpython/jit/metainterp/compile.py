@@ -103,6 +103,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 # ____________________________________________________________
 
+
 def compile_loop(metainterp, greenkey, start,
                  inputargs, jumpargs,
                  full_preamble_needed=True,
@@ -148,27 +149,28 @@ def compile_loop(metainterp, greenkey, start,
     if part.quasi_immutable_deps:
         loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
     if part.operations[-1].getopnum() == rop.LABEL:
-        inliner = Inliner(inputargs, jumpargs)
-        part.quasi_immutable_deps = None
-        part.operations = [part.operations[-1]] + \
-                          [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
-                          [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
-                                        None, descr=jitcell_token)]
-        target_token = part.operations[0].getdescr()
-        assert isinstance(target_token, TargetToken)
-        all_target_tokens.append(target_token)
-        inputargs = jumpargs
-        jumpargs = part.operations[-1].getarglist()
+        if start_state is not None:
+            inliner = Inliner(inputargs, jumpargs)
+            part.quasi_immutable_deps = None
+            part.operations = [part.operations[-1]] + \
+                              [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
+                              [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
+                                            None, descr=jitcell_token)]
+            target_token = part.operations[0].getdescr()
+            assert isinstance(target_token, TargetToken)
+            all_target_tokens.append(target_token)
+            inputargs = jumpargs
+            jumpargs = part.operations[-1].getarglist()
 
-        try:
-            optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
-                           start_state=start_state, export_state=False)
-        except InvalidLoop:
-            return None
+            try:
+                optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
+                               start_state=start_state, export_state=False)
+            except InvalidLoop:
+                return None
 
-        loop.operations = loop.operations[:-1] + part.operations
-        if part.quasi_immutable_deps:
-            loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
+            loop.operations = loop.operations[:-1] + part.operations
+            if part.quasi_immutable_deps:
+                loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
     assert part.operations[-1].getopnum() != rop.LABEL
 
     if not loop.quasi_immutable_deps:
@@ -303,11 +305,13 @@ def propagate_original_jitcell_token(trace):
             token.original_jitcell_token = trace.original_jitcell_token
 
 
-def do_compile_loop(metainterp_sd, inputargs, operations, looptoken,
-                    log=True, name=''):
+def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
+                    looptoken, log=True, name=''):
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
                                       'compiling', name=name)
-    return metainterp_sd.cpu.compile_loop(inputargs, operations, looptoken,
+    return metainterp_sd.cpu.compile_loop(inputargs,
+                                          operations, looptoken,
+                                          jd_id=jd_id, unique_id=unique_id,
                                           log=log, name=name,
                                           logger=metainterp_sd.logger_ops)
 
@@ -347,7 +351,9 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     debug_start("jit-backend")
     try:
         loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
-        asminfo = do_compile_loop(metainterp_sd, loop.inputargs,
+        unique_id = jitdriver_sd.warmstate.get_unique_id(greenkey)
+        asminfo = do_compile_loop(jitdriver_sd.index, unique_id, metainterp_sd,
+                                  loop.inputargs,
                                   operations, original_jitcell_token,
                                   name=loopname)
     finally:

@@ -63,7 +63,7 @@ class W_CTypePrimitive(W_CType):
             value = self._cast_result(value)
         else:
             value = self._cast_generic(w_ob)
-        w_cdata = cdataobj.W_CDataMem(space, self.size, self)
+        w_cdata = cdataobj.W_CDataMem(space, self)
         self.write_raw_integer_data(w_cdata, value)
         return w_cdata
 
@@ -134,8 +134,7 @@ class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
 
     def convert_to_object(self, cdata):
         unichardata = rffi.cast(rffi.CWCHARP, cdata)
-        s = rffi.wcharpsize2unicode(unichardata, 1)
-        return self.space.wrap(s)
+        return self.space.wrap(unichardata[0])
 
     def string(self, cdataobj, maxlen):
         with cdataobj as ptr:
@@ -188,16 +187,7 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         if self.value_fits_long:
             value = misc.as_long(self.space, w_ob)
             if self.value_smaller_than_long:
-                size = self.size
-                if size == 1:
-                    signextended = misc.signext(value, 1)
-                elif size == 2:
-                    signextended = misc.signext(value, 2)
-                elif size == 4:
-                    signextended = misc.signext(value, 4)
-                else:
-                    raise AssertionError("unsupported size")
-                if value != signextended:
+                if value != misc.signext(value, self.size):
                     self._overflow(w_ob)
             misc.write_raw_signed_data(cdata, value, self.size)
         else:
@@ -363,7 +353,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
             value = self.cast_unicode(w_ob)
         else:
             value = space.float_w(w_ob)
-        w_cdata = cdataobj.W_CDataMem(space, self.size, self)
+        w_cdata = cdataobj.W_CDataMem(space, self)
         if not isinstance(self, W_CTypePrimitiveLongDouble):
             w_cdata.write_raw_float_data(value)
         else:
@@ -456,7 +446,7 @@ class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
         return self.space.wrap(value)
 
     def convert_to_object(self, cdata):
-        w_cdata = cdataobj.W_CDataMem(self.space, self.size, self)
+        w_cdata = cdataobj.W_CDataMem(self.space, self)
         with w_cdata as ptr:
             self._copy_longdouble(cdata, ptr)
         return w_cdata

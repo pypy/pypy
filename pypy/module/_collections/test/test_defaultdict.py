@@ -68,3 +68,11 @@ class AppTestBasic:
         assert d['5'] == 0
         d['6'] += 3
         assert d['6'] == 3
+
+    def test_default_factory(self):
+        import _collections
+        f = lambda: 42
+        d = _collections.defaultdict(f)
+        assert d.default_factory is f
+        d.default_factory = lambda: 43
+        assert d['5'] == 43

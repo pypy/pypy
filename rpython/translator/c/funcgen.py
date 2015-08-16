@@ -796,6 +796,13 @@ class FunctionCodeGenerator(object):
     def OP_DEBUG_STOP(self, op):
         return self._op_debug('PYPY_DEBUG_STOP', op.args[0])
 
+    def OP_HAVE_DEBUG_PRINTS_FOR(self, op):
+        arg = op.args[0]
+        assert isinstance(arg, Constant) and isinstance(arg.value, str)
+        string_literal = c_string_constant(arg.value)
+        return '%s = pypy_have_debug_prints_for(%s);' % (
+            self.expr(op.result), string_literal)
+
     def OP_DEBUG_ASSERT(self, op):
         return 'RPyAssert(%s, %s);' % (self.expr(op.args[0]),
                                        c_string_constant(op.args[1].value))

@@ -197,14 +197,6 @@ class TestFramework(object):
         assert is_valid_int(wbdescr.jit_wb_if_flag_byteofs)
         assert is_valid_int(wbdescr.jit_wb_if_flag_singlebyte)
 
-    def test_get_rid_of_debug_merge_point(self):
-        operations = [
-            ResOperation(rop.DEBUG_MERGE_POINT, ['dummy', 2], None),
-            ]
-        gc_ll_descr = self.gc_ll_descr
-        operations = gc_ll_descr.rewrite_assembler(None, operations, [])
-        assert len(operations) == 0
-
     def test_record_constptrs(self):
         class MyFakeCPU(object):
             def cast_adr_to_int(self, adr):

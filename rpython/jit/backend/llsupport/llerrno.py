@@ -40,6 +40,13 @@ def set_debug_saved_lasterror(cpu, nerrno):
     assert nerrno >= 0
     cpu._debug_errno_container[5] = nerrno
 
+def get_debug_saved_altlasterror(cpu):
+    return cpu._debug_errno_container[6]
+
+def set_debug_saved_altlasterror(cpu, nerrno):
+    assert nerrno >= 0
+    cpu._debug_errno_container[6] = nerrno
+
 def get_rpy_lasterror_offset(cpu):
     if cpu.translate_support_code:
         from rpython.rlib import rthread

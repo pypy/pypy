@@ -46,7 +46,7 @@ class W_AbstractIntObject(W_Root):
         if self.user_overridden_class:
             return None
         b = space.bigint_w(self)
-        b = b.lshift(3).or_(rbigint.fromint(IDTAG_INT))
+        b = b.lshift(3).int_or_(IDTAG_INT)
         return space.newlong_from_rbigint(b)
 
     def int(self, space):
@@ -309,17 +309,17 @@ class W_IntObject(W_AbstractIntObject):
 
     def __init__(self, intval):
         assert is_valid_int(intval)
-        self.intval = intval
+        self.intval = int(intval)
 
     def __repr__(self):
         """representation for debugging purposes"""
         return "%s(%d)" % (self.__class__.__name__, self.intval)
 
     def int_w(self, space, allow_conversion=True):
-        return int(self.intval)
+        return self.intval
 
     def _int_w(self, space):
-        return int(self.intval)
+        return self.intval
 
     unwrap = _int_w
 

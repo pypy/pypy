@@ -134,7 +134,8 @@ class TraceWithIds(Function):
 
     def _ops_for_chunk(self, chunk, include_guard_not_invalidated):
         for op in chunk.operations:
-            if op.name != 'debug_merge_point' and \
+            if op.name not in ('debug_merge_point', 'enter_portal_frame',
+                               'leave_portal_frame') and \
                 (op.name != 'guard_not_invalidated' or include_guard_not_invalidated):
                 yield op
 
@@ -449,6 +450,9 @@ class OpMatcher(object):
             if self.try_match(op, until_op):
                 # it matched! The '...' operator ends here
                 return op
+            self._assert(op != '--end--',
+                         'nothing in the end of the loop matches %r' %
+                          (until_op,))
 
     def match_any_order(self, iter_exp_ops, iter_ops, ignore_ops):
         exp_ops = []

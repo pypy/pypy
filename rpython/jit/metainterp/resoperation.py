@@ -522,12 +522,14 @@ _oplist = [
     'COND_CALL_GC_WB/1d',       # [objptr] (for the write barrier)
     'COND_CALL_GC_WB_ARRAY/2d', # [objptr, arrayindex] (write barr. for array)
     'DEBUG_MERGE_POINT/*',      # debugging only
+    'ENTER_PORTAL_FRAME/2',     # debugging only
+    'LEAVE_PORTAL_FRAME/1',     # debugging only
     'JIT_DEBUG/*',              # debugging only
     'VIRTUAL_REF_FINISH/2',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5',
     'QUASIIMMUT_FIELD/1d',    # [objptr], descr=SlowMutateDescr
-    'RECORD_KNOWN_CLASS/2',   # [objptr, clsptr]
+    'RECORD_EXACT_CLASS/2',   # [objptr, clsptr]
     'KEEPALIVE/1',
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----

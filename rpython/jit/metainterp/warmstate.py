@@ -4,7 +4,7 @@ import weakref
 from rpython.jit.codewriter import support, heaptracker, longlong
 from rpython.jit.metainterp import history
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.rlib.debug import have_debug_prints
+from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
@@ -255,6 +255,9 @@ class WarmEnterState(object):
 
     def set_param_inlining(self, value):
         self.inlining = value
+
+    def set_param_disable_unrolling(self, value):
+        self.disable_unrolling_threshold = value
 
     def set_param_enable_opts(self, value):
         from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES
@@ -572,6 +575,7 @@ class WarmEnterState(object):
         JitCell = self.make_jitcell_subclass()
         jd = self.jitdriver_sd
         cpu = self.cpu
+        rtyper = self.warmrunnerdesc.rtyper
 
         def can_inline_callable(greenkey):
             greenargs = unwrap_greenkey(greenkey)
@@ -597,7 +601,6 @@ class WarmEnterState(object):
             def should_unroll_one_iteration(greenkey):
                 return False
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             inline_ptr = jd._should_unroll_one_iteration_ptr
             def should_unroll_one_iteration(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
@@ -631,7 +634,6 @@ class WarmEnterState(object):
             def get_location_str(greenkey):
                 return missing
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             unwrap_greenkey = self.make_unwrap_greenkey()
             # the following missing text should not be seen, as it is
             # returned only if debug_prints are currently not enabled,
@@ -640,7 +642,7 @@ class WarmEnterState(object):
                        'disabled, no debug_print)' % drivername)
             #
             def get_location_str(greenkey):
-                if not have_debug_prints():
+                if not have_debug_prints_for("jit-"):
                     return missing
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
@@ -655,7 +657,6 @@ class WarmEnterState(object):
             def confirm_enter_jit(*args):
                 return True
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             #
             def confirm_enter_jit(*args):
                 fn = support.maybe_on_top_of_llinterp(rtyper,
@@ -668,10 +669,15 @@ class WarmEnterState(object):
             def can_never_inline(*greenargs):
                 return False
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             #
             def can_never_inline(*greenargs):
                 fn = support.maybe_on_top_of_llinterp(rtyper,
                                                       can_never_inline_ptr)
                 return fn(*greenargs)
         self.can_never_inline = can_never_inline
+        get_unique_id_ptr = self.jitdriver_sd._get_unique_id_ptr
+        def get_unique_id(greenkey):
+            greenargs = unwrap_greenkey(greenkey)
+            fn = support.maybe_on_top_of_llinterp(rtyper, get_unique_id_ptr)
+            return fn(*greenargs)
+        self.get_unique_id = get_unique_id

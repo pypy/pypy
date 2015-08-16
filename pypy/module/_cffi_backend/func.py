@@ -1,13 +1,13 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
-from pypy.module._cffi_backend import ctypeobj, cdataobj
+from pypy.module._cffi_backend import ctypeobj, cdataobj, allocator
 
 
 # ____________________________________________________________
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_init=WrappedDefault(None))
 def newp(space, w_ctype, w_init):
-    return w_ctype.newp(w_init)
+    return w_ctype.newp(w_init, allocator.default_allocator)
 
 # ____________________________________________________________
 
@@ -18,9 +18,9 @@ def cast(space, w_ctype, w_ob):
 # ____________________________________________________________
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
-def callback(space, w_ctype, w_callable, w_error=None):
+def callback(space, w_ctype, w_callable, w_error=None, w_onerror=None):
     from pypy.module._cffi_backend.ccallback import W_CDataCallback
-    return W_CDataCallback(space, w_ctype, w_callable, w_error)
+    return W_CDataCallback(space, w_ctype, w_callable, w_error, w_onerror)
 
 # ____________________________________________________________
 
@@ -50,22 +50,7 @@ def alignof(space, w_ctype):
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, following=int)
 def typeoffsetof(space, w_ctype, w_field_or_index, following=0):
-    try:
-        fieldname = space.str_w(w_field_or_index)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        try:
-            index = space.int_w(w_field_or_index)
-        except OperationError, e:
-            if not e.match(space, space.w_TypeError):
-                raise
-            raise OperationError(space.w_TypeError,
-                    space.wrap("field name or array index expected"))
-        ctype, offset = w_ctype.typeoffsetof_index(index)
-    else:
-        ctype, offset = w_ctype.typeoffsetof_field(fieldname, following)
-    #
+    ctype, offset = w_ctype.direct_typeoffsetof(w_field_or_index, following)
     return space.newtuple([space.wrap(ctype), space.wrap(offset)])
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_cdata=cdataobj.W_CData, offset=int)
@@ -120,3 +105,9 @@ def from_buffer(space, w_ctype, w_x):
                     "raw address on PyPy", w_x)
     #
     return cdataobj.W_CDataFromBuffer(space, _cdata, w_ctype, buf, w_x)
+
+# ____________________________________________________________
+
+@unwrap_spec(w_cdata=cdataobj.W_CData)
+def gcp(space, w_cdata, w_destructor):
+    return w_cdata.with_gc(w_destructor)

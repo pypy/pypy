@@ -711,7 +711,7 @@ class BaseItemIterator(BaseIteratorImplementation):
     next_item = _new_next('item')
 
 
-def create_iterator_classes(dictimpl, override_next_item=None):
+def create_iterator_classes(dictimpl):
     if not hasattr(dictimpl, 'wrapkey'):
         wrapkey = lambda space, key: key
     else:
@@ -754,15 +754,12 @@ def create_iterator_classes(dictimpl, override_next_item=None):
             self.iterator = strategy.getiteritems(impl)
             BaseIteratorImplementation.__init__(self, space, strategy, impl)
 
-        if override_next_item is not None:
-            next_item_entry = override_next_item
-        else:
-            def next_item_entry(self):
-                for key, value in self.iterator:
-                    return (wrapkey(self.space, key),
-                            wrapvalue(self.space, value))
-                else:
-                    return None, None
+        def next_item_entry(self):
+            for key, value in self.iterator:
+                return (wrapkey(self.space, key),
+                        wrapvalue(self.space, value))
+            else:
+                return None, None
 
     class IterClassReversed(BaseKeyIterator):
         def __init__(self, space, strategy, impl):
@@ -795,22 +792,7 @@ def create_iterator_classes(dictimpl, override_next_item=None):
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
         # the logic is to call prepare_dict_update() after the first setitem():
         # it gives the w_updatedict a chance to switch its strategy.
-        if override_next_item is not None:
-            # this is very similar to the general version, but the difference
-            # is that it is specialized to call a specific next_item()
-            iteritems = IterClassItems(self.space, self, w_dict)
-            w_key, w_value = iteritems.next_item()
-            if w_key is None:
-                return
-            w_updatedict.setitem(w_key, w_value)
-            w_updatedict.strategy.prepare_update(w_updatedict,
-                                                 w_dict.length() - 1)
-            while True:
-                w_key, w_value = iteritems.next_item()
-                if w_key is None:
-                    return
-                w_updatedict.setitem(w_key, w_value)
-        else:
+        if 1:     # (preserve indentation)
             iteritems = self.getiteritems(w_dict)
             if not same_strategy(self, w_updatedict):
                 # Different strategy.  Try to copy one item of w_dict

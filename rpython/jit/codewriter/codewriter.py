@@ -19,7 +19,6 @@ class CodeWriter(object):
         self.cpu = cpu
         self.assembler = Assembler()
         self.callcontrol = CallControl(cpu, jitdrivers_sd)
-        self._seen_files = set()
 
     def transform_func_to_jitcode(self, func, values):
         """For testing."""
@@ -107,8 +106,7 @@ class CodeWriter(object):
         # escape <lambda> names for windows
         name = name.replace('<lambda>', '_(lambda)_')
         extra = ''
-        while name+extra in self._seen_files:
+        while dir.join(name+extra).check():
             i += 1
             extra = '.%d' % i
-        self._seen_files.add(name+extra)
         dir.join(name+extra).write(format_assembler(ssarepr))

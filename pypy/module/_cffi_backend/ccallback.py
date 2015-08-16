@@ -1,18 +1,20 @@
 """
 Callbacks.
 """
-import os
+import sys, os
 
-from rpython.rlib import clibffi, rweakref, jit
+from rpython.rlib import clibffi, rweakref, jit, jit_libffi
 from rpython.rlib.objectmodel import compute_unique_id, keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._cffi_backend import cerrno, misc
 from pypy.module._cffi_backend.cdataobj import W_CData
-from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN, W_CTypeFunc
+from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, W_CTypeFunc
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
+
+BIG_ENDIAN = sys.byteorder == 'big'
 
 # ____________________________________________________________
 
@@ -20,8 +22,9 @@ from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
 class W_CDataCallback(W_CData):
     #_immutable_fields_ = ...
     ll_error = lltype.nullptr(rffi.CCHARP.TO)
+    w_onerror = None
 
-    def __init__(self, space, ctype, w_callable, w_error):
+    def __init__(self, space, ctype, w_callable, w_error, w_onerror):
         raw_closure = rffi.cast(rffi.CCHARP, clibffi.closureHeap.alloc())
         W_CData.__init__(self, space, raw_closure, ctype)
         #
@@ -29,6 +32,12 @@ class W_CDataCallback(W_CData):
             raise oefmt(space.w_TypeError,
                         "expected a callable object, not %T", w_callable)
         self.w_callable = w_callable
+        if not space.is_none(w_onerror):
+            if not space.is_true(space.callable(w_onerror)):
+                raise oefmt(space.w_TypeError,
+                            "expected a callable object for 'onerror', not %T",
+                            w_onerror)
+            self.w_onerror = w_onerror
         #
         fresult = self.getfunctype().ctitem
         size = fresult.size
@@ -159,6 +168,29 @@ def convert_from_object_fficallback(fresult, ll_res, w_res):
 STDERR = 2
 
 
+@jit.dont_look_inside
+def _handle_applevel_exception(space, callback, e, ll_res, extra_line):
+    callback.write_error_return_value(ll_res)
+    if callback.w_onerror is None:
+        callback.print_error(e, extra_line)
+    else:
+        try:
+            e.normalize_exception(space)
+            w_t = e.w_type
+            w_v = e.get_w_value(space)
+            w_tb = space.wrap(e.get_traceback())
+            w_res = space.call_function(callback.w_onerror,
+                                        w_t, w_v, w_tb)
+            if not space.is_none(w_res):
+                callback.convert_result(ll_res, w_res)
+        except OperationError, e2:
+            # double exception! print a double-traceback...
+            callback.print_error(e, extra_line)    # original traceback
+            e2.write_unraisable(space, '', with_traceback=True,
+                                extra_line="\nDuring the call to 'onerror', "
+                                           "another exception occurred:\n\n")
+
+
 @jit.jit_callback("CFFI")
 def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
@@ -176,7 +208,7 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         try:
             os.write(STDERR, "SystemError: invoking a callback "
                              "that was already freed\n")
-        except OSError:
+        except:
             pass
         # In this case, we don't even know how big ll_res is.  Let's assume
         # it is just a 'ffi_arg', and store 0 there.
@@ -193,9 +225,7 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
             extra_line = "Trying to convert the result back to C:\n"
             callback.convert_result(ll_res, w_res)
         except OperationError, e:
-            # got an app-level exception
-            callback.print_error(e, extra_line)
-            callback.write_error_return_value(ll_res)
+            _handle_applevel_exception(space, callback, e, ll_res, extra_line)
         #
     except Exception, e:
         # oups! last-level attempt to recover.
@@ -203,7 +233,7 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
             os.write(STDERR, "SystemError: callback raised ")
             os.write(STDERR, str(e))
             os.write(STDERR, "\n")
-        except OSError:
+        except:
             pass
         callback.write_error_return_value(ll_res)
     if must_leave:

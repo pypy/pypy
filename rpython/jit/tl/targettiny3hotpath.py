@@ -1,6 +1,6 @@
 from rpython.jit.tl import tiny3_hotpath as tiny3
-from rpython.jit.codegen.hlinfo import highleveljitinfo
-
+from rpython.jit.backend.hlinfo import highleveljitinfo
+from rpython.rlib.jit import set_user_param
 
 def help(err="Invalid command line arguments."):
     print err
@@ -22,7 +22,7 @@ def entry_point(args):
         if len(args) < 3:
             return help()
         try:
-            tiny3.tinyjitdriver.set_user_param(args[1])
+            set_user_param(tiny3.tinyjitdriver, args[1])
         except ValueError:
             return help("Bad argument to -j.")
         args = args[2:]
@@ -39,27 +39,6 @@ def entry_point(args):
 
 def target(driver, args):
     return entry_point, None
-
-# ____________________________________________________________
-
-from rpython.jit.hintannotator.policy import HintAnnotatorPolicy
-
-class MyHintAnnotatorPolicy(HintAnnotatorPolicy):
-    novirtualcontainer = True
-    oopspec = True
-    hotpath = True
-
-    def look_inside_graph(self, graph):
-        # temporary workaround
-        return getattr(graph, 'func', None) not in (tiny3.myint_internal,
-                                                    tiny3.myfloat)
-
-def portal(driver):
-    """Return the 'portal' function, and the hint-annotator policy.
-    The portal is the function that gets patched with a call to the JIT
-    compiler.
-    """
-    return None, MyHintAnnotatorPolicy()
 
 if __name__ == '__main__':
     import sys

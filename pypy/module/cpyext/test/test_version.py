@@ -16,7 +16,7 @@ class AppTestVersion(AppTestCpythonExtensionBase):
         }
         """
         module = self.import_module(name='foo', init=init)
-        assert module.py_version == sys.version[:5]
+        assert module.py_version == '%d.%d.%d' % sys.version_info[:3]
         assert module.py_major_version == sys.version_info.major
         assert module.py_minor_version == sys.version_info.minor
         assert module.py_micro_version == sys.version_info.micro

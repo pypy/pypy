@@ -152,9 +152,9 @@ else:  # _WIN32
     def dlclose(handle):
         res = rwin32.FreeLibrary(handle)
         if res:
-            return -1
+            return 0    # success
         else:
-            return 0
+            return -1   # error
 
     def dlsym(handle, name):
         res = rwin32.GetProcAddress(handle, name)

@@ -1240,12 +1240,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         escape(i2)
         jump()
         """
+        # also check that the length of the forced array is known
         expected = """
         []
         p1 = new_array(3, descr=arraydescr)
         escape(p1)
-        i2 = arraylen_gc(p1)
-        escape(i2)
+        escape(3)
         jump()
         """
         self.optimize_loop(ops, expected)
@@ -3756,7 +3756,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i4 = int_sub(i0, %s)
         jump(i0, i2, i3, i4)
         """ % ((-sys.maxint - 1, ) * 3)
-        self.optimize_loop(ops, ops) # does not crash
+        expected = """
+        [i0, i10, i11, i12]
+        i2 = int_add(%s, i0)
+        i4 = int_sub(i0, %s)
+        jump(i0, i2, i0, i4)
+        """ % ((-sys.maxint - 1, ) * 2)
+        self.optimize_loop(ops, expected)
 
     def test_framestackdepth_overhead(self):
         ops = """
@@ -4603,6 +4609,58 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [p1]
         i0 = ptr_eq(p1, NULL)
+        escape(i0)
+        jump(p1)
+        """
+        self.optimize_strunicode_loop_extradescrs(ops, expected)
+
+    def test_str_equal_none3(self):
+        ops = """
+        []
+        p5 = newstr(0)
+        i0 = call(0, NULL, p5, descr=strequaldescr)
+        escape(i0)
+        jump()
+        """
+        expected = """
+        []
+        escape(0)
+        jump()
+        """
+        self.optimize_strunicode_loop_extradescrs(ops, expected)
+
+    def test_str_equal_none4(self):
+        ops = """
+        [p1]
+        p5 = newstr(0)
+        i0 = call(0, p5, p1, descr=strequaldescr)
+        escape(i0)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        # can't optimize more: p1 may be NULL!
+        i0 = call(0, s"", p1, descr=strequaldescr)
+        escape(i0)
+        jump(p1)
+        """
+        self.optimize_strunicode_loop_extradescrs(ops, expected)
+
+    def test_str_equal_none5(self):
+        ops = """
+        [p1]
+        guard_nonnull(p1) []
+        p5 = newstr(0)
+        i0 = call(0, p5, p1, descr=strequaldescr)
+        escape(i0)
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        guard_nonnull(p1) []
+        # p1 is not NULL, so the string comparison (p1=="") becomes:
+        i6 = strlen(p1)
+        i0 = int_eq(i6, 0)
         escape(i0)
         jump(p1)
         """
