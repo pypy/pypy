@@ -118,7 +118,11 @@ void vmprof_ignore_signals(int ignored)
 #define MARKER_STACKTRACE '\x01'
 #define MARKER_VIRTUAL_IP '\x02'
 #define MARKER_TRAILER '\x03'
-#define MARKER_INTERP_NAME '\x04'
+#define MARKER_INTERP_NAME '\x04'   /* deprecated */
+#define MARKER_HEADER '\x05'
+
+#define VERSION_BASE '\x00'
+#define VERSION_THREAD_ID '\x01'
 
 struct prof_stacktrace_s {
     char padding[sizeof(long) - 1];
@@ -228,6 +232,23 @@ static int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)
     return n;
 }
 
+static void *get_current_thread_id(void)
+{
+    /* xxx This function is a hack on two fronts:
+
+       - It assumes that pthread_self() is async-signal-safe.  This
+         should be true on Linux.  I hope it is also true elsewhere.
+
+       - It abuses pthread_self() by assuming it just returns an
+         integer.  According to comments in CPython's source code, the
+         platforms where it is not the case are rare nowadays.
+
+       An alternative would be to try to look if the information is
+       available in the ucontext_t in the caller.
+    */
+    return (void *)pthread_self();
+}
+
 
 /* *************************************************************
  * the signal handler
@@ -253,8 +274,9 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
             st->marker = MARKER_STACKTRACE;
             st->count = 1;
             st->stack[0] = GetPC((ucontext_t*)ucontext);
-            depth = get_stack_trace(st->stack+1, MAX_STACK_DEPTH-1, ucontext);
+            depth = get_stack_trace(st->stack+1, MAX_STACK_DEPTH-2, ucontext);
             depth++;  // To account for pc value in stack[0];
+            st->stack[depth++] = get_current_thread_id();
             st->depth = depth;
             p->data_offset = offsetof(struct prof_stacktrace_s, marker);
             p->data_size = (depth * sizeof(void *) +
@@ -386,7 +408,7 @@ static int opened_profile(const char *interp_name)
 {
     struct {
         long hdr[5];
-        char interp_name[257];
+        char interp_name[259];
     } header;
 
     size_t namelen = strlen(interp_name);
@@ -397,10 +419,12 @@ static int opened_profile(const char *interp_name)
     header.hdr[2] = 0;
     header.hdr[3] = prepare_interval_usec;
     header.hdr[4] = 0;
-    header.interp_name[0] = MARKER_INTERP_NAME;
-    header.interp_name[1] = namelen;
-    memcpy(&header.interp_name[2], interp_name, namelen);
-    return _write_all(&header, 5 * sizeof(long) + 2 + namelen);
+    header.interp_name[0] = MARKER_HEADER;
+    header.interp_name[1] = '\x00';
+    header.interp_name[2] = VERSION_THREAD_ID;
+    header.interp_name[3] = namelen;
+    memcpy(&header.interp_name[4], interp_name, namelen);
+    return _write_all(&header, 5 * sizeof(long) + 4 + namelen);
 }
 
 static int close_profile(void)
