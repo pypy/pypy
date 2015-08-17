@@ -1,6 +1,6 @@
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.lltypesystem import rffi
-from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror
+from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror, exception_from_saved_errno
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
@@ -621,8 +621,7 @@ if _POSIX:
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_gettime(clk_id, timespec)
             if ret != 0:
-                raise OperationError(space.w_OSError,
-                                     space.wrap(_get_error_msg()))
+                raise exception_from_saved_errno(space, space.w_OSError)
             result = (float(rffi.getintfield(timespec, 'c_tv_sec')) +
                       float(rffi.getintfield(timespec, 'c_tv_nsec')) * 1e-9)
         return space.wrap(result)
@@ -635,16 +634,14 @@ if _POSIX:
             rffi.setintfield(timespec, 'c_tv_nsec', int(frac * 1e9))
             ret = c_clock_settime(clk_id, timespec)
             if ret != 0:
-                raise OperationError(space.w_OSError,
-                                     space.wrap(_get_error_msg()))
+                raise exception_from_saved_errno(space, space.w_OSError)
 
     @unwrap_spec(clk_id='c_int')
     def clock_getres(space, clk_id):
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_getres(clk_id, timespec)
             if ret != 0:
-                raise OperationError(space.w_OSError,
-                                     space.wrap(_get_error_msg()))
+                raise exception_from_saved_errno(space, space.w_OSError)
             result = (float(rffi.getintfield(timespec, 'c_tv_sec')) +
                       float(rffi.getintfield(timespec, 'c_tv_nsec')) * 1e-9)
         return space.wrap(result)
