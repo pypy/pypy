@@ -18,7 +18,7 @@ class AppTestTime:
         import time
         raises(TypeError, time.sleep, "foo")
         time.sleep(0.12345)
-        raises(IOError, time.sleep, -1.0)
+        raises(ValueError, time.sleep, -1.0)
 
     def test_clock(self):
         import time
