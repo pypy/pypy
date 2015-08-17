@@ -1330,7 +1330,6 @@ test_Z_code(PyObject *self)
         return NULL;
 
     obj = PyUnicode_FromString("test");
-    Py_INCREF(obj);
     PyTuple_SET_ITEM(tuple, 0, obj);
     Py_INCREF(Py_None);
     PyTuple_SET_ITEM(tuple, 1, Py_None);
