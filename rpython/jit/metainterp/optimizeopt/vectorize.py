@@ -144,14 +144,6 @@ class VectorizingOptimizer(Optimizer):
         if not self.costmodel.profitable():
             raise NotAProfitableLoop()
 
-    def emit_operation(self, op):
-        if op.getopnum() == rop.DEBUG_MERGE_POINT:
-            return
-        if op.getopnum() == rop.GUARD_EARLY_EXIT:
-            return
-        self._last_emitted_op = op
-        self._newoperations.append(op)
-
     def emit_unrolled_operation(self, op):
         self._last_emitted_op = op
         self._newoperations.append(op)

@@ -244,7 +244,7 @@ class OpToVectorOp(object):
         self.output_type = None
         self.costmodel = None
 
-    def as_vector_operation(self, pack, sched_data, oplist):
+    def as_vector_operation(self, pack, sched_data, scheduler, oplist):
         self.sched_data = sched_data
         self.vecops = oplist
         self.costmodel = sched_data.costmodel
@@ -257,7 +257,9 @@ class OpToVectorOp(object):
         #
         if self.must_be_full_but_is_not(pack):
             for op in pack.operations:
-                self.vecops.append(op.getoperation())
+                operation = op.getoperation()
+                self.sched_data.unpack_from_vector(operation, scheduler)
+                self.vecops.append(operation)
         else:
             self.pack = pack
             self.transform_pack()
@@ -757,15 +759,20 @@ class VecScheduleData(SchedulerData):
         renamer = scheduler.renamer
         if candidate.pack:
             for node in candidate.pack.operations:
-                self.unpack_from_vector(candidate.getoperation(), renamer)
+                renamer.rename(node.getoperation())
                 scheduler.scheduled(node)
-                #renamer.rename(node.getoperation())
             self.as_vector_operation(scheduler, candidate.pack)
         else:
-            self.unpack_from_vector(candidate.getoperation(), renamer)
-            scheduler.scheduled(candidate)
-            #renamer.rename(candidate.getoperation())
             op = candidate.getoperation()
+            renamer.rename(op)
+            self.unpack_from_vector(op, scheduler)
+            scheduler.scheduled(candidate)
+            op = candidate.getoperation()
+            #
+            # prevent some instructions in the resulting trace!
+            if op.getopnum() in (rop.DEBUG_MERGE_POINT,
+                                 rop.GUARD_EARLY_EXIT):
+                return
             scheduler.oplist.append(op)
 
     def as_vector_operation(self, scheduler, pack):
@@ -777,7 +784,7 @@ class VecScheduleData(SchedulerData):
         oplist = scheduler.oplist
         position = len(oplist)
         op = pack.operations[0].getoperation()
-        determine_trans(op).as_vector_operation(pack, self, oplist)
+        determine_trans(op).as_vector_operation(pack, self, scheduler, oplist)
         #
         # XXX
         if pack.is_accumulating():
@@ -786,16 +793,15 @@ class VecScheduleData(SchedulerData):
             for node in pack.operations:
                 op = node.getoperation()
                 assert op.result is not None
-                preproc_renamer.start_renaming(op.result, box)
+                scheduler.renamer.start_renaming(op.result, box)
 
-    def unpack_from_vector(self, op, renamer):
-        renamer.rename(op)
+    def unpack_from_vector(self, op, scheduler):
         args = op.getarglist()
 
         # unpack for an immediate use
         for i, arg in enumerate(op.getarglist()):
             if isinstance(arg, Box):
-                argument = self._unpack_from_vector(i, arg, renamer)
+                argument = self._unpack_from_vector(i, arg, scheduler)
                 if arg is not argument:
                     op.setarg(i, argument)
         if op.result:
@@ -805,11 +811,11 @@ class VecScheduleData(SchedulerData):
             fail_args = op.getfailargs()
             for i, arg in enumerate(fail_args):
                 if arg and isinstance(arg, Box):
-                    argument = self._unpack_from_vector(i, arg, renamer)
+                    argument = self._unpack_from_vector(i, arg, scheduler)
                     if arg is not argument:
                         fail_args[i] = argument
 
-    def _unpack_from_vector(self, i, arg, renamer):
+    def _unpack_from_vector(self, i, arg, scheduler):
         if arg in self.seen or arg.type == 'V':
             return arg
         (j, vbox) = self.getvector_of_box(arg)
@@ -818,14 +824,14 @@ class VecScheduleData(SchedulerData):
                 return arg
             arg_cloned = arg.clonebox()
             self.seen[arg_cloned] = None
-            renamer.start_renaming(arg, arg_cloned)
+            scheduler.renamer.start_renaming(arg, arg_cloned)
             self.setvector_of_box(arg_cloned, j, vbox)
             cj = ConstInt(j)
             ci = ConstInt(1)
             opnum = getunpackopnum(vbox.gettype())
             unpack_op = ResOperation(opnum, [vbox, cj, ci], arg_cloned)
             self.costmodel.record_vector_unpack(vbox, j, 1)
-            self.emit_operation(unpack_op)
+            scheduler.oplist.append(unpack_op)
             return arg_cloned
         return arg
 
