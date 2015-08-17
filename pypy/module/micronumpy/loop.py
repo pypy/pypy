@@ -130,7 +130,7 @@ call2_advance_out_left_right = generate_call2_cases("inc_out_left_right", "left_
 
 call1_driver = jit.JitDriver(
     name='numpy_call1',
-    greens=['shapelen', 'func', 'calc_dtype', 'res_dtype'],
+    greens=['shapelen', 'share_iterator', 'func', 'calc_dtype', 'res_dtype'],
     reds='auto', vectorize=True)
 
 def call1(space, shape, func, calc_dtype, w_obj, w_ret):
@@ -139,13 +139,24 @@ def call1(space, shape, func, calc_dtype, w_obj, w_ret):
     out_iter, out_state = w_ret.create_iter(shape)
     shapelen = len(shape)
     res_dtype = w_ret.get_dtype()
+    share_iterator = out_state.same(obj_state)
     while not out_iter.done(out_state):
         call1_driver.jit_merge_point(shapelen=shapelen, func=func,
+                                     share_iterator=share_iterator,
                                      calc_dtype=calc_dtype, res_dtype=res_dtype)
-        elem = obj_iter.getitem(obj_state).convert_to(space, calc_dtype)
+        if share_iterator:
+            # use out state as param to getitem
+            elem = obj_iter.getitem(out_state).convert_to(space, calc_dtype)
+        else:
+            elem = obj_iter.getitem(obj_state).convert_to(space, calc_dtype)
         out_iter.setitem(out_state, func(calc_dtype, elem).convert_to(space, res_dtype))
-        out_state = out_iter.next(out_state)
-        obj_state = obj_iter.next(obj_state)
+        if share_iterator:
+            # only advance out, they share the same iteration space
+            out_state = out_iter.next(out_state)
+        else:
+            out_state = out_iter.next(out_state)
+            obj_state = obj_iter.next(obj_state)
+        elem = None
     return w_ret
 
 call_many_to_one_driver = jit.JitDriver(
