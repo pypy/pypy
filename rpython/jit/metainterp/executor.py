@@ -344,6 +344,8 @@ def _make_execute_list():
                          rop.VEC_RAW_STORE,
                          rop.VEC_GETARRAYITEM_RAW,
                          rop.VEC_SETARRAYITEM_RAW,
+                         rop.VEC_GETARRAYITEM_GC,
+                         rop.VEC_SETARRAYITEM_GC,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             if rop._VEC_PURE_FIRST <= value <= rop._VEC_PURE_LAST:

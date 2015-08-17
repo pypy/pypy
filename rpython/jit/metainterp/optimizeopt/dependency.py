@@ -805,8 +805,9 @@ class IntegralForwardModification(object):
     def operation_{name}(self, op, node):
         descr = op.getdescr()
         idx_ref = self.get_or_create(op.getarg(1))
-        node.memory_ref = MemoryRef(op, idx_ref, {raw_access})
-        self.memory_refs[node] = node.memory_ref
+        if descr.is_array_of_primitives():
+            node.memory_ref = MemoryRef(op, idx_ref, {raw_access})
+            self.memory_refs[node] = node.memory_ref
     """
     exec py.code.Source(array_access_source
            .format(name='RAW_LOAD',raw_access=True)).compile()
@@ -816,6 +817,10 @@ class IntegralForwardModification(object):
            .format(name='GETARRAYITEM_RAW',raw_access=False)).compile()
     exec py.code.Source(array_access_source
            .format(name='SETARRAYITEM_RAW',raw_access=False)).compile()
+    exec py.code.Source(array_access_source
+           .format(name='GETARRAYITEM_GC',raw_access=False)).compile()
+    exec py.code.Source(array_access_source
+           .format(name='SETARRAYITEM_GC',raw_access=False)).compile()
     del array_access_source
 integral_dispatch_opt = make_dispatcher_method(IntegralForwardModification, 'operation_')
 IntegralForwardModification.inspect_operation = integral_dispatch_opt

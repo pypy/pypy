@@ -155,6 +155,13 @@ class ArrayDescr(AbstractDescr):
     def __repr__(self):
         return 'ArrayDescr(%r)' % (self.OUTERA,)
 
+    def is_array_of_primitives(self):
+        kind = getkind(self.A.OF)
+        return kind == 'float' or \
+               kind == 'int' or \
+               kind == ''
+
+
     def is_array_of_pointers(self):
         return getkind(self.A.OF) == 'ref'
 

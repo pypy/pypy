@@ -203,6 +203,11 @@ class ArrayDescr(ArrayOrFieldDescr):
     def getconcrete_type(self):
         return self.concrete_type
 
+    def is_array_of_primitives(self):
+        return self.flag == FLAG_FLOAT or \
+               self.flag == FLAG_SIGNED or \
+               self.flag == FLAG_UNSIGNED
+
     def is_array_of_pointers(self):
         return self.flag == FLAG_POINTER
 

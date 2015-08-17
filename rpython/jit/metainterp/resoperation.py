@@ -174,10 +174,19 @@ class AbstractResOp(object):
     def is_raw_array_access(self):
         return self.is_raw_load() or self.is_raw_store()
 
-    def is_raw_load(self):
+    def is_primitive_array_access(self):
+        """ Indicates that this operations loads/stores a
+        primitive type (int,float) """
+        if self.is_primitive_load() or self.is_primitive_store():
+            descr = self.getdescr()
+            if descr.is_array_of_primitives():
+                return True
+        return False
+
+    def is_primitive_load(self):
         return rop._RAW_LOAD_FIRST < self.getopnum() < rop._RAW_LOAD_LAST
 
-    def is_raw_store(self):
+    def is_primitive_store(self):
         return rop._RAW_STORE_FIRST < self.getopnum() < rop._RAW_STORE_LAST
 
     def is_comparison(self):
@@ -568,13 +577,13 @@ _oplist = [
     #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
-    'GETARRAYITEM_GC/2d',
-
     '_RAW_LOAD_FIRST',
+    'GETARRAYITEM_GC/2d',
     'GETARRAYITEM_RAW/2d',
     'VEC_GETARRAYITEM_RAW/3d',
     'RAW_LOAD/2d',
     'VEC_RAW_LOAD/3d',
+    'VEC_GETARRAYITEM_GC/3d',
     '_RAW_LOAD_LAST',
 
     'GETINTERIORFIELD_GC/2d',
@@ -596,13 +605,14 @@ _oplist = [
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     'INCREMENT_DEBUG_COUNTER/1',
-    'SETARRAYITEM_GC/3d',
 
     '_RAW_STORE_FIRST',
+    'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
     'VEC_SETARRAYITEM_RAW/3d',
     'RAW_STORE/3d',
     'VEC_RAW_STORE/3d',
+    'VEC_SETARRAYITEM_GC/3d',
     '_RAW_STORE_LAST',
 
     'SETINTERIORFIELD_GC/3d',
@@ -796,8 +806,10 @@ _opboolreflex = {
 _opvector = {
     rop.RAW_LOAD:         rop.VEC_RAW_LOAD,
     rop.GETARRAYITEM_RAW: rop.VEC_GETARRAYITEM_RAW,
+    rop.GETARRAYITEM_GC: rop.VEC_GETARRAYITEM_GC,
     rop.RAW_STORE:        rop.VEC_RAW_STORE,
     rop.SETARRAYITEM_RAW: rop.VEC_SETARRAYITEM_RAW,
+    rop.SETARRAYITEM_GC: rop.VEC_SETARRAYITEM_GC,
 
     rop.INT_ADD:   rop.VEC_INT_ADD,
     rop.INT_SUB:   rop.VEC_INT_SUB,

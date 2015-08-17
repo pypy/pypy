@@ -38,6 +38,10 @@ def call2(space, shape, func, calc_dtype, w_lhs, w_rhs, out):
     states = [out_state,left_state,right_state]
     left_index = 1
     right_index = 2
+    # 1) get rid of scalar cases
+    # 2) switch through cases
+    # 3) you dont need states
+    # 4) no left_right_index
     # left == right == out
     # left == right
     # left == out

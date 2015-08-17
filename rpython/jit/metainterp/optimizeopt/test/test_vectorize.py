@@ -212,21 +212,6 @@ class BaseTestVectorize(VecTestHelper):
         """
         self.assert_vectorize(self.parse_loop(ops), self.parse_loop(ops))
 
-    def test_vectorize_skip_impossible_2(self):
-        ops = """
-        [p0,i0]
-        i1 = int_add(i0,1)
-        i2 = int_le(i1, 10)
-        guard_true(i2) []
-        i3 = getarrayitem_gc(p0,i0,descr=intarraydescr)
-        jump(p0,i1)
-        """
-        try:
-            self.vectorize(self.parse_loop(ops))
-            py.test.fail("should not happend")
-        except NotAVectorizeableLoop:
-            pass
-
     def test_unroll_empty_stays_empty(self):
         """ has no operations in this trace, thus it stays empty
         after unrolling it 2 times """
@@ -263,6 +248,26 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0,i0)
         """
         self.assert_vectorize(self.parse_loop(ops), self.parse_loop(ops))
+
+    def test_load_primitive_python_list(self):
+        """ it currently rejects pointer arrays """
+        ops = """
+        [p0,i0]
+        i2 = getarrayitem_gc(p0,i0,descr=floatarraydescr)
+        i1 = int_add(i0,1)
+        i3 = getarrayitem_gc(p0,i1,descr=floatarraydescr)
+        i4 = int_add(i1,1)
+        jump(p0,i4)
+        """
+        opt = """
+        [p0,i0]
+        i1 = int_add(i0,1)
+        i2 = int_add(i0,2)
+        i3 = vec_getarrayitem_gc(p0,i0,2,descr=floatarraydescr)
+        jump(p0,i2)
+        """
+        vopt = self.vectorize(self.parse_loop(ops),0)
+        self.assert_equal(vopt.loop, self.parse_loop(opt))
 
     def test_vect_unroll_char(self):
         """ a 16 byte vector register can hold 16 bytes thus 
@@ -316,7 +321,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_estimate_unroll_factor_smallest_byte_zero(self):
         ops = """
         [p0,i0]
-        raw_load(p0,i0,descr=arraydescr2)
+        raw_load(p0,i0,descr=arraydescr)
         jump(p0,i0)
         """
         vopt = self.vectoroptimizer(self.parse_loop(ops))
@@ -326,7 +331,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_array_operation_indices_not_unrolled(self):
         ops = """
         [p0,i0]
-        raw_load(p0,i0,descr=arraydescr2)
+        raw_load(p0,i0,descr=arraydescr)
         jump(p0,i0)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
