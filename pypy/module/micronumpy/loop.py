@@ -34,61 +34,49 @@ def call2(space, shape, func, calc_dtype, w_lhs, w_rhs, out):
     out_iter, out_state = out.create_iter(shape)
     shapelen = len(shape)
     res_dtype = out.get_dtype()
+    call2_func = try_to_share_iterators_call2(left_iter, right_iter,
+            left_state, right_state, out_state)
+    params = (space, shapelen, func, calc_dtype, res_dtype, out,
+              w_left, w_right, left_iter, right_iter, out_iter,
+              left_state, right_state, out_state)
+    return call2_func(*params)
 
-    states = [out_state,left_state,right_state]
-    left_index = 1
-    right_index = 2
-    # 1) get rid of scalar cases
-    # 2) switch through cases
-    # 3) you dont need states
-    # 4) no left_right_index
+def try_to_share_iterators_call2(left_iter, right_iter, left_state, right_state, out_state):
+    # these are all possible iterator sharing combinations
     # left == right == out
     # left == right
     # left == out
     # right == out
-    params = (space, shapelen, func, calc_dtype, res_dtype, out,
-              w_left, w_right, left_iter, right_iter, out_iter,
-              left_state, right_state, out_state)
-    if not right_iter:
-        # rhs is a scalar
-        del states[2]
-    else:
-        # rhs is NOT a scalar
+    right_out_equal = False
+    if right_iter:
+        # rhs is not a scalar
         if out_state.same(right_state):
-            # (1) out and right are the same -> remove right
-            right_index = 0
-            del states[2]
+            right_out_equal = True
     #
     if not left_iter:
         # lhs is a scalar
-        del states[1]
-        if right_index == 2:
-            right_index = 1
-            return call2_advance_out_right(*params)
+        if right_out_equal:
+            return call2_advance_out_left
+        else:
+            # left is a scalar, and right and out do not match
+            return call2_advance_out_left_right
     else:
         # lhs is NOT a scalar
         if out_state.same(left_state):
             # (2) out and left are the same -> remove left
-            left_index = 0
-            del states[1]
-            if right_index == 2:
-                right_index = 1
-            return call2_advance_out_right(*params)
-        else:
-            if len(states) == 3: # did not enter (1)
-                if right_iter and right_state.same(left_state):
-                    right_index = 1
-                    del states[2]
-                    return call2_advance_out_left_eq_right(*params)
-                else:
-                    # worst case
-                    return call2_advance_out_left_right(*params)
+            if right_out_equal:
+                # the best case
+                return call2_advance_out
             else:
-                return call2_advance_out_left(*params)
-
-    state_count = len(states)
-    if state_count == 1:
-        return call2_advance_out(*params)
+                return call2_advance_out_right
+        else:
+            if right_out_equal:
+                return call2_advance_out_left
+            else:
+                if right_iter and right_state.same(left_state):
+                    return call2_advance_out_left_eq_right
+                else:
+                    return call2_advance_out_left_right
 
     assert 0, "logical problem with the selection of the call 2 case"
 
