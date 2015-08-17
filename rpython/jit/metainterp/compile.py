@@ -246,8 +246,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                descr=start_descr)
     mid_descr_token = TargetToken(jitcell_token,
                                   original_jitcell_token=jitcell_token)
-    mid_label = ResOperation(rop.LABEL, start_state.end_args +
-                             loop_info.extra_label_args,
+    mid_label = ResOperation(rop.LABEL, loop_info.label_args,
                              descr=mid_descr_token)
     # XXX assign short preamble and virtual state
     loop_ops[-1].setdescr(mid_descr_token)

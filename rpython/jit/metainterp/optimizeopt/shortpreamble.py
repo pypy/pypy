@@ -198,7 +198,7 @@ class ShortInputArg(AbstractShortOp):
         assert not invented_name
 
     def __repr__(self):
-        return "INP(%r)" % (self.preamble_op,)
+        return "INP(%r -> %r)" % (self.res, self.preamble_op)
 
 class ShortBoxes(object):
     """ This is a container used for creating all the exported short
@@ -209,16 +209,15 @@ class ShortBoxes(object):
         # of AbstractShortOp
         self.potential_ops = OrderedDict()
         self.produced_short_boxes = {}
+        self.short_inputargs = []
         # a way to produce const boxes, e.g. setfield_gc(p0, Const).
         # We need to remember those, but they don't produce any new boxes
         self.const_short_boxes = []
-        label_d = {}
-        for arg in label_args:
-            label_d[arg] = None
-        for box in inputargs:
-            if box in label_d:
-                renamed = OpHelpers.inputarg_from_tp(box.type)
-                self.potential_ops[box] = ShortInputArg(box, renamed)
+        for i in range(len(inputargs)):
+            box = inputargs[i]
+            renamed = OpHelpers.inputarg_from_tp(box.type)
+            self.potential_ops[box] = ShortInputArg(label_args[i], renamed)
+            self.short_inputargs.append(renamed)
 
         optimizer.produce_potential_short_preamble_ops(self)
 
@@ -295,6 +294,7 @@ class ShortBoxes(object):
         return pop
 
     def create_short_inputargs(self, label_args):
+        return self.short_inputargs
         short_inpargs = []
         for i in range(len(label_args)):
             inparg = self.produced_short_boxes.get(label_args[i], None)

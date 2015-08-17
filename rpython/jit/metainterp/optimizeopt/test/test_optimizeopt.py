@@ -8687,5 +8687,36 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_loop_variant_mul1(self):
+        ops = """
+        [i3, i4, i5]
+        i6 = int_mul(i5, i5)
+        i7 = int_add(i4, i6)
+        i9 = int_add(i5, 1)
+        i10 = int_mul(i9, i9)
+        i11 = int_add(i7, i10)
+        i13 = int_sub(i3, 1)
+        i15 = int_gt(i13, 0)
+        guard_true(i15) []
+        jump(i13, i11, i9)
+        """
+        expected = """
+        [i8, i7, i5, i6]
+        i10 = int_add(i7, i6)
+        i11 = int_add(i5, 1)
+        i12 = int_mul(i11, i11)
+        i13 = int_add(i10, i12)
+        i14 = int_sub(i8, 1)
+        i15 = int_gt(i14, 0)
+        guard_true(i15) []
+        jump(i14, i13, i11, i12)
+        """
+        expected_short = """
+        [i16, i17, i18]
+        i19 = int_mul(i18, i18)
+        jump(i19)
+        """
+        self.optimize_loop(ops, expected, expected_short=expected_short)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

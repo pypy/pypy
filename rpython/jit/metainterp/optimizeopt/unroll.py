@@ -194,6 +194,7 @@ class UnrollOptimizer(Optimization):
         self.short_preamble_producer = ShortPreambleBuilder(
             exported_state.short_boxes, exported_state.short_inputargs,
             exported_state.exported_infos, self.optimizer)
+
         for produced_op in exported_state.short_boxes:
             produced_op.produce_op(self, exported_state.exported_infos)
 
