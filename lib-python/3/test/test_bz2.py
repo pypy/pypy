@@ -54,6 +54,7 @@ class BaseTest(unittest.TestCase):
         self.filename = TESTFN
 
     def tearDown(self):
+        support.gc_collect()
         if os.path.isfile(self.filename):
             os.unlink(self.filename)
 
@@ -452,6 +453,8 @@ class BZ2FileTest(BaseTest):
         for i in range(10000):
             o = BZ2File(self.filename)
             del o
+            if i % 100 == 0:
+                support.gc_collect()
 
     def testOpenNonexistent(self):
         self.assertRaises(IOError, BZ2File, "/non/existent")
