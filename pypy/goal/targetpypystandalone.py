@@ -181,7 +181,7 @@ def create_entry_point(space, w_dict):
                 if not hasattr(sys, '_pypy_execute_source'):
                     sys._pypy_execute_source = []
                 sys._pypy_execute_source.append(glob)
-                exec stmt in glob
+                exec(stmt, glob)
             """)
         except OperationError, e:
             debug("OperationError:")
