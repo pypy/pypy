@@ -58,7 +58,7 @@ def try_to_share_iterators_call2(left_iter, right_iter, left_state, right_state,
         if right_out_equal:
             return call2_advance_out_left
         else:
-            # left is a scalar, and right and out do not match
+            # worst case, nothing can be shared and lhs is a scalar
             return call2_advance_out_left_right
     else:
         # lhs is NOT a scalar
@@ -71,14 +71,17 @@ def try_to_share_iterators_call2(left_iter, right_iter, left_state, right_state,
                 return call2_advance_out_right
         else:
             if right_out_equal:
+                # right and out are equal, only advance left and out
                 return call2_advance_out_left
             else:
                 if right_iter and right_state.same(left_state):
+                    # left and right are equal, but still need to advance out
                     return call2_advance_out_left_eq_right
                 else:
+                    # worst case, nothing can be shared
                     return call2_advance_out_left_right
 
-    assert 0, "logical problem with the selection of the call 2 case"
+    assert 0, "logical problem with the selection of the call2 case"
 
 def generate_call2_cases(name, left_state, right_state):
     call2_driver = jit.JitDriver(name='numpy_call2_' + name,
