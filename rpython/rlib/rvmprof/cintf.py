@@ -40,9 +40,10 @@ def setup():
         **eci_kwds))
 
 
-    vmprof_init = rffi.llexternal("vmprof_init", [rffi.INT], rffi.CCHARP,
-                                  compilation_info=eci)
-    vmprof_enable = rffi.llexternal("vmprof_enable", [rffi.LONG], rffi.INT,
+    vmprof_init = rffi.llexternal("vmprof_init",
+                                  [rffi.INT, rffi.DOUBLE, rffi.CCHARP],
+                                  rffi.CCHARP, compilation_info=eci)
+    vmprof_enable = rffi.llexternal("vmprof_enable", [], rffi.INT,
                                     compilation_info=eci,
                                     save_err=rffi.RFFI_SAVE_ERRNO)
     vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,

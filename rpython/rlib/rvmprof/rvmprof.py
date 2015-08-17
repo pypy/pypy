@@ -102,18 +102,14 @@ class VMProf(object):
         assert fileno >= 0
         if self.is_enabled:
             raise VMProfError("vmprof is already enabled")
-        if not (1e-6 <= interval < 1.0):
-            raise VMProfError("bad value for 'interval'")
-        interval_usec = int(interval * 1000000.0)
 
-        p_error = self.cintf.vmprof_init(fileno)
+        p_error = self.cintf.vmprof_init(fileno, interval, "pypy")
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
 
         self.fileno = fileno
-        self._write_header(interval_usec)
         self._gather_all_code_objs()
-        res = self.cintf.vmprof_enable(interval_usec)
+        res = self.cintf.vmprof_enable()
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True
@@ -153,19 +149,6 @@ class VMProf(object):
         # NOTE: keep in mind that vmprof_write_buf() can only write
         # a maximum of 8184 bytes.  This should be guaranteed here because:
         assert MAX_CODES + 17 + MAX_FUNC_NAME <= 8184
-
-    def _write_header(self, interval_usec):
-        b = StringBuilder()
-        _write_long_to_string_builder(0, b)
-        _write_long_to_string_builder(3, b)
-        _write_long_to_string_builder(0, b)
-        _write_long_to_string_builder(interval_usec, b)
-        _write_long_to_string_builder(0, b)
-        b.append('\x04') # interp name
-        b.append(chr(len('pypy')))
-        b.append('pypy')
-        buf = b.build()
-        self.cintf.vmprof_write_buf(buf, len(buf))
 
 
 def _write_long_to_string_builder(l, b):

@@ -44,11 +44,17 @@ static int (*unw_init_local)(unw_cursor_t *, unw_context_t *) = NULL;
 static int (*unw_get_proc_info)(unw_cursor_t *, unw_proc_info_t *) = NULL;
 
 static int profile_file = -1;
+static long prepare_interval_usec;
 
+static int opened_profile(const char *interp_name);
 
 RPY_EXTERN
-char *vmprof_init(int fd)
+char *vmprof_init(int fd, double interval, const char *interp_name)
 {
+    if (interval < 1e-6 || interval >= 1.0)
+        return "bad value for 'interval'";
+    prepare_interval_usec = (int)(interval * 1000000.0);
+
     if (!unw_get_reg) {
         void *libhandle;
 
@@ -68,6 +74,10 @@ char *vmprof_init(int fd)
 
     assert(fd >= 0);
     profile_file = fd;
+    if (opened_profile(interp_name) < 0) {
+        profile_file = -1;
+        return strerror(errno);
+    }
     return NULL;
 
  error:
@@ -108,6 +118,7 @@ void vmprof_ignore_signals(int ignored)
 #define MARKER_STACKTRACE '\x01'
 #define MARKER_VIRTUAL_IP '\x02'
 #define MARKER_TRAILER '\x03'
+#define MARKER_INTERP_NAME '\x04'
 
 struct prof_stacktrace_s {
     char padding[sizeof(long) - 1];
@@ -338,11 +349,11 @@ static int install_pthread_atfork_hooks(void) {
 }
 
 RPY_EXTERN
-int vmprof_enable(long interval_usec)
+int vmprof_enable(void)
 {
     assert(profile_file >= 0);
-    assert(interval_usec > 0);
-    profile_interval_usec = interval_usec;
+    assert(prepare_interval_usec > 0);
+    profile_interval_usec = prepare_interval_usec;
 
     if (install_pthread_atfork_hooks() == -1)
         goto error;
@@ -369,6 +380,27 @@ static int _write_all(const void *buf, size_t bufsize)
         bufsize -= count;
     }
     return 0;
+}
+
+static int opened_profile(const char *interp_name)
+{
+    struct {
+        long hdr[5];
+        char interp_name[257];
+    } header;
+
+    size_t namelen = strlen(interp_name);
+    assert(namelen <= 255);
+
+    header.hdr[0] = 0;
+    header.hdr[1] = 3;
+    header.hdr[2] = 0;
+    header.hdr[3] = prepare_interval_usec;
+    header.hdr[4] = 0;
+    header.interp_name[0] = MARKER_INTERP_NAME;
+    header.interp_name[1] = namelen;
+    memcpy(&header.interp_name[2], interp_name, namelen);
+    return _write_all(&header, 5 * sizeof(long) + 2 + namelen);
 }
 
 static int close_profile(void)
