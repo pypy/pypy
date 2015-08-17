@@ -350,6 +350,10 @@ class AppTestDtypes(BaseAppTestDtypes):
         class xyz(np.void):
             pass
         assert np.dtype(xyz).name == 'xyz'
+        # another obscure API, used in numpy record.py
+        # it seems numpy throws away the subclass type and parses the spec
+        a = np.dtype((xyz, [('x', 'int32'), ('y', 'float32')]))
+        assert repr(a) == "dtype([('x', '<i4'), ('y', '<f4')])"
 
     def test_index(self):
         import numpy as np

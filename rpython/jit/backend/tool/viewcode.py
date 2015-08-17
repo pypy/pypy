@@ -17,18 +17,6 @@ import sys
 import subprocess
 from bisect import bisect_left
 
-# don't use rpython.tool.udir here to avoid removing old usessions which
-# might still contain interesting executables
-udir = py.path.local.make_numbered_dir(prefix='viewcode-', keep=2)
-tmpfile = str(udir.join('dump.tmp'))
-
-# hack hack
-import rpython.tool
-mod = new.module('rpython.tool.udir')
-mod.udir = udir
-sys.modules['rpython.tool.udir'] = mod
-rpython.tool.udir = mod
-
 # ____________________________________________________________
 # Some support code from Psyco.  There is more over there,
 # I am porting it in a lazy fashion...  See py-utils/xam.py
@@ -438,6 +426,18 @@ class _PageContent:
 # ____________________________________________________________
 
 if __name__ == '__main__':
+    # don't use rpython.tool.udir here to avoid removing old usessions which
+    # might still contain interesting executables
+    udir = py.path.local.make_numbered_dir(prefix='viewcode-', keep=2)
+    tmpfile = str(udir.join('dump.tmp'))
+
+    # hack hack
+    import rpython.tool
+    mod = new.module('rpython.tool.udir')
+    mod.udir = udir
+    sys.modules['rpython.tool.udir'] = mod
+    rpython.tool.udir = mod
+
     if '--text' in sys.argv:
         sys.argv.remove('--text')
         showgraph = False
@@ -463,3 +463,7 @@ if __name__ == '__main__':
         world.show(showtext=True)
     else:
         world.showtextonly()
+else:
+    from rpython.tool.udir import udir
+    tmpfile = str(udir.join('dump.tmp'))
+    

@@ -1,28 +1,11 @@
 
 #ifdef PYPY_JIT_CODEMAP
-
-extern volatile int pypy_codemap_currently_invalid;
-
 void *pypy_find_codemap_at_addr(long addr, long *start_addr);
 long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
                                 long *current_pos_addr);
 long pypy_jit_stack_depth_at_loc(long loc);
-
 #endif
 
-
-void vmprof_set_tramp_range(void* start, void* end)
-{
-}
-
-int custom_sanity_check()
-{
-#ifdef PYPY_JIT_CODEMAP
-    return !pypy_codemap_currently_invalid;
-#else
-    return 1;
-#endif
-}
 
 static ptrdiff_t vmprof_unw_get_custom_offset(void* ip, void *cp) {
 #ifdef PYPY_JIT_CODEMAP

@@ -536,7 +536,7 @@ class BlackholeInterpreter(object):
     def bhimpl_mark_opaque_ptr(a):
         pass
     @arguments("r", "i")
-    def bhimpl_record_known_class(a, b):
+    def bhimpl_record_exact_class(a, b):
         pass
 
     @arguments("i", returns="i")

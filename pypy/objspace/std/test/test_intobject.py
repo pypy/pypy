@@ -548,6 +548,12 @@ class AppTestInt:
         assert ns['a'] == 9007199254740991.0
         assert ns['b'] == 9007199254740991.0
 
+    def test_int_of_bool(self):
+        x = int(False)
+        assert x == 0
+        assert type(x) is int
+        assert str(x) == "0"
+
     def test_ceil(self):
         assert 8 .__ceil__() == 8
 

@@ -294,7 +294,7 @@ class ExternalCompilationInfo(object):
         return files, ExternalCompilationInfo(**d)
 
     def compile_shared_lib(self, outputfilename=None, ignore_a_files=False,
-                           debug_mode=True):
+                           debug_mode=True, defines=[]):
         self = self.convert_sources_to_files()
         if ignore_a_files:
             if not [fn for fn in self.link_files if fn.endswith('.a')]:
@@ -323,6 +323,8 @@ class ExternalCompilationInfo(object):
             d['compile_extra'] = d['compile_extra'] + ('-g', '-O0')
         d['compile_extra'] = d['compile_extra'] + (
             '-DRPY_EXTERN=RPY_EXPORTED',)
+        for define in defines:
+            d['compile_extra'] += ('-D%s' % define,)
         self = ExternalCompilationInfo(**d)
 
         lib = str(host.compile([], self, outputfilename=outputfilename,
