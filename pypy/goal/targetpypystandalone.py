@@ -172,7 +172,7 @@ def create_entry_point(space, w_dict):
         try:
             w_globals = space.newdict(module=True)
             space.setitem(w_globals, space.wrap('__builtins__'),
-                          space.builtin_modules['__builtin__'])
+                          space.builtin_modules['builtins'])
             space.setitem(w_globals, space.wrap('c_argument'),
                           space.wrap(c_argument))
             space.appexec([space.wrap(source), w_globals], """(src, glob):
