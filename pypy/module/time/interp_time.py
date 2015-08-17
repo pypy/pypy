@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror,
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.rtime import c_clock_gettime, TIMESPEC, win_perf_counter
+from rpython.rlib.rtime import win_perf_counter
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import math
@@ -114,6 +114,7 @@ class CConfig:
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
     has_gettimeofday = platform.Has('gettimeofday')
+    has_clock_gettime = platform.Has('clock_gettime')
 
 CLOCK_CONSTANTS = ['CLOCK_HIGHRES', 'CLOCK_MONOTONIC', 'CLOCK_MONOTONIC_RAW',
                    'CLOCK_PROCESS_CPUTIME_ID', 'CLOCK_REALTIME',
@@ -192,13 +193,15 @@ c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
 c_mktime = external('mktime', [TM_P], rffi.TIME_T)
 c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
                        save_err=rffi.RFFI_SAVE_ERRNO)
-if _POSIX:
+if cConfig.has_clock_gettime:
+    from rpython.rlib.rtime import TIMESPEC, c_clock_gettime
     c_clock_settime = external('clock_settime',
                                [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
                                save_err=rffi.RFFI_SAVE_ERRNO)
     c_clock_getres = external('clock_getres',
                               [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
                               save_err=rffi.RFFI_SAVE_ERRNO)
+if _POSIX:
     c_tzset = external('tzset', [], lltype.Void)
 if _WIN:
     win_eci = ExternalCompilationInfo(
@@ -615,7 +618,7 @@ def mktime(space, w_tup):
 
     return space.wrap(float(tt))
 
-if _POSIX:
+if cConfig.has_clock_gettime:
     def _timespec_to_seconds(timespec):
         return int(timespec.c_tv_sec) + int(timespec.c_tv_nsec) * 1e-9
 
@@ -647,6 +650,7 @@ if _POSIX:
             secs = _timespec_to_seconds(timespec)
         return space.wrap(secs)
 
+if _POSIX:
     def tzset(space):
         """tzset()
 
