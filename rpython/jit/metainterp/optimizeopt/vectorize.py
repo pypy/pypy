@@ -253,13 +253,12 @@ class VectorizingOptimizer(Optimizer):
     def linear_find_smallest_type(self, loop):
         # O(#operations)
         for i,op in enumerate(loop.operations):
-            if op.is_raw_array_access():
+            if op.is_primitive_array_access():
                 descr = op.getdescr()
-                if not descr.is_array_of_pointers():
-                    byte_count = descr.get_item_size_in_bytes()
-                    if self.smallest_type_bytes == 0 \
-                       or byte_count < self.smallest_type_bytes:
-                        self.smallest_type_bytes = byte_count
+                byte_count = descr.get_item_size_in_bytes()
+                if self.smallest_type_bytes == 0 \
+                   or byte_count < self.smallest_type_bytes:
+                    self.smallest_type_bytes = byte_count
 
     def get_unroll_count(self, simd_vec_reg_bytes):
         """ This is an estimated number of further unrolls """
@@ -667,7 +666,7 @@ class PackSet(object):
                 if origin_pack is None:
                     descr = lnode.getoperation().getdescr()
                     ptype = PackType.by_descr(descr, self.vec_reg_size)
-                    if lnode.getoperation().is_raw_load():
+                    if lnode.getoperation().is_primitive_load():
                         # load outputs value, no input
                         return Pair(lnode, rnode, None, ptype)
                     else:
@@ -710,7 +709,7 @@ class PackSet(object):
         """ Blocks the packing of some operations """
         if inquestion.vector == -1:
             return True
-        if packed.is_raw_array_access():
+        if packed.is_primitive_array_access():
             if packed.getarg(1) == inquestion.result:
                 return True
         if not forward and inquestion.getopnum() == rop.INT_SIGNEXT:
