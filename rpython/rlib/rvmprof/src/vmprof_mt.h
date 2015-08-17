@@ -193,7 +193,7 @@ static void commit_buffer(int fd, struct profbuf_s *buf)
 static int shutdown_concurrent_bufs(int fd)
 {
     /* no signal handler can be running concurrently here, because we
-       already did rpython_vmprof_ignore_signals(1) */
+       already did vmprof_ignore_signals(1) */
     assert(profbuf_write_lock == 0);
     profbuf_write_lock = 2;
 

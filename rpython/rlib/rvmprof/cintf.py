@@ -40,24 +40,18 @@ def setup():
         **eci_kwds))
 
 
-    vmprof_init = rffi.llexternal("rpython_vmprof_init", [rffi.INT], rffi.CCHARP,
+    vmprof_init = rffi.llexternal("vmprof_init", [rffi.INT], rffi.CCHARP,
                                   compilation_info=eci)
-    vmprof_enable = rffi.llexternal("rpython_vmprof_enable", [rffi.LONG], rffi.INT,
+    vmprof_enable = rffi.llexternal("vmprof_enable", [rffi.LONG], rffi.INT,
                                     compilation_info=eci,
                                     save_err=rffi.RFFI_SAVE_ERRNO)
-    vmprof_disable = rffi.llexternal("rpython_vmprof_disable", [], rffi.INT,
+    vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,
                                      compilation_info=eci,
                                      save_err=rffi.RFFI_SAVE_ERRNO)
-    vmprof_write_buf = rffi.llexternal("rpython_vmprof_write_buf",
+    vmprof_write_buf = rffi.llexternal("vmprof_write_buf",
                                        [rffi.CCHARP, rffi.LONG],
                                        lltype.Void, compilation_info=eci)
-
-    ## vmprof_register_virtual_function = rffi.llexternal(
-    ##     "vmprof_register_virtual_function",
-    ##     [rffi.CCHARP, rffi.VOIDP, rffi.VOIDP], lltype.Void,
-    ##     compilation_info=eci, _nowrapper=True)
-
-    vmprof_ignore_signals = rffi.llexternal("rpython_vmprof_ignore_signals",
+    vmprof_ignore_signals = rffi.llexternal("vmprof_ignore_signals",
                                             [rffi.INT], lltype.Void,
                                             compilation_info=eci)
     return CInterface(locals())
