@@ -145,7 +145,7 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
         if type(list_w[i]) is not type(w_firstobj):
             break
     else:
-        return cache.get_or_build(type(w_firstobj))
+        return cache.get_or_build(w_firstobj.__class__)
     return cache.generic_strategy
 
 
@@ -958,7 +958,7 @@ class EmptyListStrategy(ListStrategy):
             strategy = self.space.fromcache(FloatListStrategy)
         else:
             cache = self.space.fromcache(FixedClsStrategyCache)
-            strategy = cache.get_or_build(type(w_item))
+            strategy = cache.get_or_build(w_item.__class__)
 
         storage = strategy.get_empty_storage(self.get_sizehint())
         w_list.strategy = strategy
@@ -1635,7 +1635,7 @@ class ObjectListStrategy(ListStrategy):
     def is_correct_type(self, w_obj):
         cls = self.get_known_cls()
         if cls is not None:
-            return type(w_obj) is cls
+            return w_obj.__class__ is cls
         return True
 
     def list_is_correct_type(self, w_list):
