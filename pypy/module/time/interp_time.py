@@ -616,15 +616,17 @@ def mktime(space, w_tup):
     return space.wrap(float(tt))
 
 if _POSIX:
+    def _timespec_to_seconds(timespec):
+        return int(timespec.c_tv_sec) + int(timespec.c_tv_nsec) * 1e-9
+
     @unwrap_spec(clk_id='c_int')
     def clock_gettime(space, clk_id):
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_gettime(clk_id, timespec)
             if ret != 0:
                 raise exception_from_saved_errno(space, space.w_OSError)
-            result = (float(rffi.getintfield(timespec, 'c_tv_sec')) +
-                      float(rffi.getintfield(timespec, 'c_tv_nsec')) * 1e-9)
-        return space.wrap(result)
+            secs = _timespec_to_seconds(timespec)
+        return space.wrap(secs)
 
     @unwrap_spec(clk_id='c_int', secs=float)
     def clock_settime(space, clk_id, secs):
@@ -642,9 +644,8 @@ if _POSIX:
             ret = c_clock_getres(clk_id, timespec)
             if ret != 0:
                 raise exception_from_saved_errno(space, space.w_OSError)
-            result = (float(rffi.getintfield(timespec, 'c_tv_sec')) +
-                      float(rffi.getintfield(timespec, 'c_tv_nsec')) * 1e-9)
-        return space.wrap(result)
+            secs = _timespec_to_seconds(timespec)
+        return space.wrap(secs)
 
     def tzset(space):
         """tzset()
