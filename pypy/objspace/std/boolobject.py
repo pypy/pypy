@@ -13,7 +13,7 @@ from pypy.objspace.std.intobject import W_AbstractIntObject, W_IntObject
 class W_BoolObject(W_IntObject):
 
     def __init__(self, boolval):
-        self.intval = not not boolval
+        self.intval = int(not not boolval)
 
     def __nonzero__(self):
         raise Exception("you cannot do that, you must use space.is_true()")

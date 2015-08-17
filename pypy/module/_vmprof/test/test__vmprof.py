@@ -1,14 +1,14 @@
 
-import tempfile
+from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 
 class AppTestVMProf(object):
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['_vmprof', 'struct'])
-        cls.tmpfile = tempfile.NamedTemporaryFile()
+        cls.tmpfile = udir.join('test__vmprof.1').open('wb')
         cls.w_tmpfileno = cls.space.wrap(cls.tmpfile.fileno())
         cls.w_tmpfilename = cls.space.wrap(cls.tmpfile.name)
-        cls.tmpfile2 = tempfile.NamedTemporaryFile()
+        cls.tmpfile2 = udir.join('test__vmprof.2').open('wb')
         cls.w_tmpfileno2 = cls.space.wrap(cls.tmpfile2.fileno())
         cls.w_tmpfilename2 = cls.space.wrap(cls.tmpfile2.name)
 
@@ -29,17 +29,21 @@ class AppTestVMProf(object):
             while i < len(s):
                 if s[i] == 3:
                     break
-                if s[i] == 1:
-                    xxx
-                assert s[i] == 2
-                i += 1
-                _, size = struct.unpack("ll", s[i:i + 2 * WORD])
-                count += 1
-                i += 2 * WORD + size
+                elif s[i] == 1:
+                    i += 1
+                    _, size = struct.unpack("ll", s[i:i + 2 * WORD])
+                    i += 2 * WORD + size * struct.calcsize("P")
+                elif s[i] == 2:
+                    i += 1
+                    _, size = struct.unpack("ll", s[i:i + 2 * WORD])
+                    count += 1
+                    i += 2 * WORD + size
+                else:
+                    raise AssertionError(ord(s[i]))
             return count
         
         import _vmprof
-        _vmprof.enable(self.tmpfileno)
+        _vmprof.enable(self.tmpfileno, 0.01)
         _vmprof.disable()
         s = open(self.tmpfilename, 'rb').read()
         no_of_codes = count(s)
@@ -53,7 +57,7 @@ class AppTestVMProf(object):
             pass
         """, d)
 
-        _vmprof.enable(self.tmpfileno2)
+        _vmprof.enable(self.tmpfileno2, 0.01)
 
         exec_("""def foo2():
             pass
@@ -68,8 +72,9 @@ class AppTestVMProf(object):
 
     def test_enable_ovf(self):
         import _vmprof
-        raises(ValueError, _vmprof.enable, 999, 0)
-        raises(ValueError, _vmprof.enable, 999, -2.5)
-        raises(ValueError, _vmprof.enable, 999, 1e300)
-        raises(ValueError, _vmprof.enable, 999, 1e300 * 1e300)
-        raises(ValueError, _vmprof.enable, 999, (1e300*1e300) / (1e300*1e300))
+        raises(_vmprof.VMProfError, _vmprof.enable, 999, 0)
+        raises(_vmprof.VMProfError, _vmprof.enable, 999, -2.5)
+        raises(_vmprof.VMProfError, _vmprof.enable, 999, 1e300)
+        raises(_vmprof.VMProfError, _vmprof.enable, 999, 1e300 * 1e300)
+        NaN = (1e300*1e300) / (1e300*1e300)
+        raises(_vmprof.VMProfError, _vmprof.enable, 999, NaN)

@@ -73,7 +73,13 @@ class PackFormatIterator(FormatIterator):
                     pass
             if w_index is None:
                 raise StructError("required argument is not an integer")
-        return getattr(space, meth)(w_index)
+        method = getattr(space, meth)
+        try:
+            return method(w_index)
+        except OperationError as e:
+            if e.match(self.space, self.space.w_OverflowError):
+                raise StructError("argument out of range")
+            raise
 
     def accept_bool_arg(self):
         w_obj = self.accept_obj_arg()

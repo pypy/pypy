@@ -46,7 +46,11 @@ The API is:
    source. It'll acquire the GIL.
 
    Note: this is meant to be called *only once* or a few times at most.  See
-   the `more complete example`_ below.
+   the `more complete example`_ below.  In PyPy <= 2.6.0, the globals
+   dictionary is *reused* across multiple calls, giving potentially
+   strange results (e.g. objects dying too early).  In PyPy >= 2.6.1,
+   you get a new globals dictionary for every call (but then, all globals
+   dictionaries are all kept alive forever, in ``sys._pypy_execute_source``).
 
 .. function:: int pypy_execute_source_ptr(char* source, void* ptr);
 

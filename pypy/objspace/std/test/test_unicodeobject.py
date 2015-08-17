@@ -480,6 +480,10 @@ class AppTestUnicodeString:
             skip("Wrong platform")
         raises((OverflowError, MemoryError), 't\tt\t'.expandtabs, sys.maxsize)
 
+    def test_expandtabs_0(self):
+        assert u'x\ty'.expandtabs(0) == u'xy'
+        assert u'x\ty'.expandtabs(-42) == u'xy'
+
     def test_translate(self):
         assert 'bbbc' == 'abababc'.translate({ord('a'):None})
         assert 'iiic' == 'abababc'.translate({ord('a'):None, ord('b'):ord('i')})
