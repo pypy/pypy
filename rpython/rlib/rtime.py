@@ -167,7 +167,7 @@ elif CLOCK_PROCESS_CPUTIME_ID is not None:
     c_clock_gettime = external('clock_gettime',
                                [lltype.Signed, lltype.Ptr(TIMESPEC)],
                                rffi.INT, releasegil=False)
-else:
+if need_rusage:
     RUSAGE = RUSAGE
     RUSAGE_SELF = RUSAGE_SELF or 0
     c_getrusage = external('getrusage', 

@@ -786,6 +786,8 @@ if _WIN:
         return space.wrap((float(kernel_time2) + float(user_time2)) * 1e-7)
 
 else:
+    have_times = hasattr(rposix, 'c_times')
+
     def process_time(space):
         if cConfig.has_clock_gettime and (
                 cConfig.CLOCK_PROF is not None or
@@ -806,7 +808,7 @@ else:
                 if ret == 0:
                     return space.wrap(decode_timeval(rusage.c_ru_utime) +
                                       decode_timeval(rusage.c_ru_stime))
-        if hasattr(rposix, 'c_times'):
+        if have_times:
             with lltype.scoped_alloc(rposix.TMS) as tms:
                 ret = rposix.c_times(tms)
                 if ret != -1:
