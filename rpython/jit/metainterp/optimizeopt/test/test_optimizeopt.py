@@ -2395,11 +2395,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2, 1) # , i5)
         """
-        expected_short = """
-        []
-        """
-        self.optimize_loop(ops, expected, preamble,
-                           expected_short=expected_short)
+        self.optimize_loop(ops, expected, preamble)
 
     def test_duplicate_setfield_residual_guard_2(self):
         # the difference with the previous test is that the field value is
@@ -8719,17 +8715,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i19)
         """
         self.optimize_loop(ops, expected, expected_short=expected_short)
-
-    def test_simple_swap_arguments(self):
-        ops = """
-        [i0, i1]
-        i2 = int_add(i1, 1)
-        jump(i2, i0)
-        """
-        expected = """
-        []
-        """
-        self.optimize_loop(ops, expected)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

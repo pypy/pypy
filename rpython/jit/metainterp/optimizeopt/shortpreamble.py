@@ -196,7 +196,8 @@ class ShortInputArg(AbstractShortOp):
         return ProducedShortOp(self, self.preamble_op)
 
     def produce_op(self, opt, preamble_op, exported_infos, invented_name):
-        assert not invented_name
+        pass
+        #assert not invented_name
 
     def __repr__(self):
         return "INP(%r -> %r)" % (self.res, self.preamble_op)
@@ -258,6 +259,19 @@ class ShortBoxes(object):
         else:
             return None
 
+    def _pick_op_index(self, lst, pick_inparg=True):
+        index = -1
+        for i, item in enumerate(lst):
+            if (not isinstance(item.short_op, HeapOp) and
+                (pick_inparg or not isinstance(item.short_op, ShortInputArg))):
+                if index != -1:
+                    assert pick_inparg
+                    return self._pick_op_index(lst, False)
+                index = i
+        if index == -1:
+            index = 0
+        return index
+
     def add_op_to_short(self, shortop):
         if shortop.res in self.produced_short_boxes:
             return # already added due to dependencies
@@ -268,13 +282,7 @@ class ShortBoxes(object):
                 if len(lst) == 0:
                     return None
                 else:
-                    index = -1
-                    for i, item in enumerate(lst):
-                        if not isinstance(item.short_op, HeapOp):
-                            assert index == -1
-                            index = i
-                    if index == -1:
-                        index = 0
+                    index = self._pick_op_index(lst)
                     pop = lst[index]
                     for i in range(len(lst)):
                         if i == index:
@@ -315,8 +323,6 @@ class ShortBoxes(object):
         self.potential_ops[op] = CompoundOp(op, pop, prev_op)
 
     def add_pure_op(self, op):
-        if op in self.potential_ops:
-            return
         self.add_potential_op(op, PureOp(op))
 
     def add_loopinvariant_op(self, op):
@@ -383,7 +389,7 @@ class ShortPreambleBuilder(object):
     def add_preamble_op(self, preamble_op):
         if preamble_op.invented_name:
             self.extra_same_as.append(preamble_op.op)
-        self.used_boxes.append(preamble_op.op)
+        self.used_boxes.append(preamble_op.op)            
         self.short_preamble_jump.append(preamble_op.preamble_op)
 
     def build_short_preamble(self):
