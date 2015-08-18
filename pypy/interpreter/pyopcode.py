@@ -505,7 +505,7 @@ class __extend__(pyframe.PyFrame):
     def STORE_FAST(self, varindex, next_instr):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
-        self._setlocal(varindex, w_newvalue)
+        self._setlocal(varindex, w_newvalue, can_be_None=False)
 
     def getfreevarname(self, index):
         freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars

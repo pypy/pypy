@@ -537,15 +537,29 @@ class AppTestPyFrame:
         sys.settrace(None)
         assert res == 10
 
-class TestValueProf(object):
-    def test_argument_is_constant(self):
+class TestLocalTypeProfiling(object):
+    def test_argument_is_constant_type(self):
+        from pypy.objspace.std.intobject import W_IntObject
+        from pypy.interpreter.baseobjspace import W_Root
         space = self.space
         w_f = space.appexec([], """():
             def f(x):
                 y = x + 1
             return f""")
+        v1 = w_f.code._known_types_version
+        assert w_f.code._known_types == [None] * 2
         space.call_function(w_f, space.wrap(1))
-        assert len(w_f.code.vprofs) == 2
-        assert w_f.code.vprofs[0].can_fold_read_int()
-        assert w_f.code.vprofs[1].can_fold_read_int()
+        v2 = w_f.code._known_types_version
+        assert v2 is not v1
+        assert w_f.code._known_types == [W_IntObject] * 2
+
+        space.call_function(w_f, space.wrap(2))
+        v3 = w_f.code._known_types_version
+        assert v3 is v2
+        assert w_f.code._known_types == [W_IntObject] * 2
+
+        space.call_function(w_f, space.wrap(1.1))
+        v4 = w_f.code._known_types_version
+        assert v4 is not v3
+        assert w_f.code._known_types == [W_Root] * 2
 

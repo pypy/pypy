@@ -4,7 +4,7 @@
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
 from rpython.rlib.jit import hint, we_are_jitted
-from rpython.rlib.objectmodel import we_are_translated, instantiate
+from rpython.rlib.objectmodel import we_are_translated, instantiate, specialize
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.tool.pairtype import extendabletype
 
@@ -146,36 +146,38 @@ class PyFrame(W_Root):
         return cell
 
     def _getlocal(self, varindex):
-        from pypy.objspace.std.intobject import W_IntObject
-        # some careful logic there
-        if we_are_jitted():
-            vprof = self.getcode().vprofs[varindex]
-            if vprof.can_fold_read_int():
-                return W_IntObject(vprof.read_constant_int())
-            elif vprof.can_fold_read_obj():
-                w_res = vprof.try_read_constant_obj()
-                if w_res is not None:
-                    return w_res
         w_res = self.locals_cells_stack_w[varindex]
         if we_are_jitted():
-            vprof = self.getcode().vprofs[varindex]
-            if vprof.class_is_known():
-                jit.record_exact_class(w_res, vprof.read_constant_cls())
+            cls = self.getcode()._get_known_type(varindex)
+            if cls is not None and cls is not W_Root:
+                jit.record_exact_class(w_res, cls)
         return w_res
 
-    def _setlocal(self, varindex, value):
-        self._value_profile_local(varindex, value)
+    @specialize.arg(3)
+    def _setlocal(self, varindex, value, can_be_None=True):
+        self._see_write(varindex, value, can_be_None)
         self.locals_cells_stack_w[varindex] = value
 
-    def _value_profile_local(self, varindex, value):
-        from pypy.objspace.std.intobject import W_IntObject
-        vprof = self.getcode().vprofs[varindex]
-        vprof.see_write(value)
+    @specialize.arg(3)
+    def _see_write(self, varindex, value, can_be_None=True):
+        cls = self.getcode()._get_known_type(varindex)
+        if cls is W_Root:
+            return
+        if can_be_None and value is None:
+            new_cls = W_Root
+        else:
+            new_cls = value.__class__
+            if cls is not None:
+                if new_cls is not cls:
+                    new_cls = W_Root
+                else:
+                    return
+        self.getcode()._update_known_type(varindex, new_cls)
 
     @jit.unroll_safe
     def _all_locals_changed(self):
-        for i, vprof in enumerate(self.getcode().vprofs):
-            vprof.see_write(self.locals_cells_stack_w[i])
+        for i in range(self.getcode().co_nlocals):
+            self._see_write(i, self.locals_cells_stack_w[i])
 
     def mark_as_escaped(self):
         """

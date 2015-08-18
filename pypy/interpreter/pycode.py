@@ -50,22 +50,15 @@ def cpython_code_signature(code):
     kwargname = varnames[argcount] if code.co_flags & CO_VARKEYWORDS else None
     return Signature(argnames, varargname, kwargname)
 
-class ValueProf(valueprof.ValueProf):
-    def is_int(self, w_obj):
-        from pypy.objspace.std.intobject import W_IntObject
-        return type(w_obj) is W_IntObject
-
-    def get_int_val(self, w_obj):
-        from pypy.objspace.std.intobject import W_IntObject
-        assert isinstance(w_obj, W_IntObject)
-        return w_obj.intval
+class KnownTypesVersion(object):
+    pass
 
 class PyCode(eval.Code):
     "CPython-style code objects."
     _immutable_ = True
     _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
                           "co_freevars[*]", "co_cellvars[*]",
-                          "_args_as_cellvars[*]", "vprofs[*]"]
+                          "_args_as_cellvars[*]", "_known_types_version?"]
 
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
@@ -95,7 +88,13 @@ class PyCode(eval.Code):
         self._signature = cpython_code_signature(self)
         self._initialize()
         self._init_ready()
-        self.vprofs = [ValueProf('%s %s' % (self.co_name, self.co_varnames[i])) for i in range(self.co_nlocals)]
+        # a list of either None, W_Root, or a subclass thereof
+        # None means "have not seen a value in that local variable yet
+        # W_Root can be anything
+        # otherwise it's the precise class of *all* values ever stored in that
+        # local
+        self._known_types = [None] * self.co_nlocals
+        self._known_types_version = KnownTypesVersion()
 
     def _initialize(self):
         if self.co_cellvars:
@@ -139,6 +138,21 @@ class PyCode(eval.Code):
 
     def _init_ready(self):
         "This is a hook for the vmprof module, which overrides this method."
+
+    def _get_known_type(self, varindex):
+        # somewhat subtle:
+        if not jit.we_are_jitted():
+            return self._known_types[varindex]
+        return self._get_known_type_elidable(varindex, self._known_types_version)
+
+    @jit.elidable
+    def _get_known_type_elidable(self, varindex, version):
+        assert version is self._known_types_version
+        return self._known_types[varindex]
+
+    def _update_known_type(self, varindex, cls):
+        self._known_types[varindex] = cls
+        self._known_types_version = KnownTypesVersion()
 
     def _cleanup_(self):
         if (self.magic == cpython_magic and
