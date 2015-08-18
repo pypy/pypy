@@ -187,6 +187,19 @@ class LLtypeMixin(object):
     T = lltype.GcStruct('TUPLE',
                         ('c', lltype.Signed),
                         ('d', lltype.Ptr(lltype.GcArray(lltype.Ptr(NODE)))))
+
+    W_ROOT = lltype.GcStruct('W_ROOT', ('parent', OBJECT),
+        ('inst_w_seq', llmemory.GCREF), ('inst_index', lltype.Signed),
+        ('inst_w_list', llmemory.GCREF), ('inst_length', lltype.Signed),
+        ('inst_start', lltype.Signed), ('inst_step', lltype.Signed))
+    inst_w_seq = cpu.fielddescrof(W_ROOT, 'inst_w_seq')
+    inst_index = cpu.fielddescrof(W_ROOT, 'inst_index')
+    inst_length = cpu.fielddescrof(W_ROOT, 'inst_length')
+    inst_start = cpu.fielddescrof(W_ROOT, 'inst_start')
+    inst_step = cpu.fielddescrof(W_ROOT, 'inst_step')
+    inst_w_list = cpu.fielddescrof(W_ROOT, 'inst_w_list')
+    w_root_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
+    
     tsize = cpu.sizeof(T, False)
     cdescr = cpu.fielddescrof(T, 'c')
     ddescr = cpu.fielddescrof(T, 'd')
@@ -339,6 +352,7 @@ class LLtypeMixin(object):
     register_known_gctype(cpu, intobj_noimmut_vtable, INTOBJ_NOIMMUT)
     register_known_gctype(cpu, intobj_immut_vtable,   INTOBJ_IMMUT)
     register_known_gctype(cpu, ptrobj_immut_vtable,   PTROBJ_IMMUT)
+    register_known_gctype(cpu, w_root_vtable, W_ROOT)
 
     namespace = locals()
 

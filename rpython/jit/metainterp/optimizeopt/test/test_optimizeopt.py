@@ -5934,17 +5934,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_value_proven_to_be_constant_after_two_iterations(self):
-        class FakeDescr(AbstractDescr):
-            def __init__(self, name):
-                self.name = name
-            def sort_key(self):
-                return id(self)
-            def is_integer_bounded(self):
-                return False
-
-        for n in ('inst_w_seq', 'inst_index', 'inst_w_list', 'inst_length',
-                  'inst_start', 'inst_step'):
-            self.namespace[n] = FakeDescr(n)
         ops = """
         [p0, p1, p2, p3, i4, p5, i6, p7, p8, p9, p14]
         guard_value(i4, 3) []
@@ -6082,6 +6071,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
             _TYPE = llmemory.GCREF.TO
             def __eq__(self, other):
                 return other.container.intval == 1242
+            def _normalizedcontainer(self):
+                return self
         self.namespace['intobj1242'] = lltype._ptr(llmemory.GCREF,
                                                    IntObj1242())
         expected = """
@@ -7233,7 +7224,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p188 = getarrayitem_gc_r(p187, 42, descr=gcarraydescr)
         guard_value(p188, ConstPtr(myptr)) []
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
-        call_n(123, p25, descr=nonwritedescr)
         jump(p25, p187, i184)
         """
         preamble = """
@@ -7241,7 +7231,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p188 = getarrayitem_gc_r(p187, 42, descr=gcarraydescr)
         guard_value(p188, ConstPtr(myptr)) []
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
-        call_n(123, p25, descr=nonwritedescr)
         jump(p25, p187, i184)
         """
         short = """
@@ -7252,9 +7241,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p25)
         """
         expected = """
-        [p25, p187, i184]
-        call_n(123, p25, descr=nonwritedescr)
-        jump(p25, p187, i184)
+        [p25, p187, i184, p189]
+        jump(p25, p187, i184, p189)
         """
         self.optimize_loop(ops, expected, preamble, expected_short=short)
 
@@ -8134,7 +8122,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i4 = int_add(i3, i3)
         i5 = int_add(i4, i4)
         i6 = int_add(i5, i5)
-        #jump(i1, i2, i6, i3)
+        jump(i6, i3)
         """
         self.optimize_loop(ops, expected, expected_short=short)
 
