@@ -579,9 +579,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'vec': 0,
               'vec_params': '0:0:50:0.60',
               }
-STR_PARAMETERS = ('enable_opts','vec_params')
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
-string_parameters = unrolling_iterable(STR_PARAMETERS)
 
 # ____________________________________________________________
 
@@ -805,7 +803,7 @@ def set_user_param(driver, text):
             set_param(driver, 'vec_params', value)
         else:
             for name1, _ in unroll_parameters:
-                if name1 == name and name1 not in STR_PARAMETERS:
+                if name1 == name and name1 != 'vec_params' and name != 'enable_opts':
                     try:
                         set_param(driver, name1, int(value))
                     except ValueError:
@@ -984,7 +982,9 @@ class ExtSetParam(ExtRegistryEntry):
         hop.exception_cannot_occur()
         driver = hop.inputarg(lltype.Void, arg=0)
         name = hop.args_s[1].const
-        if name in STR_PARAMETERS:
+        if name == 'enable_opts':
+            repr = string_repr
+        elif name == 'vec_params':
             repr = string_repr
         else:
             repr = lltype.Signed

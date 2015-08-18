@@ -142,7 +142,7 @@ def set_param(space, __args__):
         else:
             intval = space.int_w(w_value)
             for name, _ in unroll_parameters:
-                if name == key and name != 'enable_opts':
+                if name == key and name != 'enable_opts' and name != 'vec_params':
                     jit.set_param(None, name, intval)
                     break
             else:
