@@ -44,7 +44,12 @@ class Path(object):
     def last_but_one(self):
         if len(self.path) < 2:
             return None
-        return self.path[len(self.path)-2]
+        return self.path[-2]
+
+    def last(self):
+        if len(self.path) < 1:
+            return None
+        return self.path[-1]
 
     def is_always_pure(self, exclude_first=False, exclude_last=False):
         last = len(self.path)-1
@@ -261,10 +266,16 @@ class Node(object):
                 worklist.append(dep.to)
         return True
 
-    def iterate_paths(self, to, backwards=False, path_max_len=-1):
-        """ yield all nodes from self leading to 'to' """
+    def iterate_paths(self, to, backwards=False, path_max_len=-1, blacklist=False):
+        """ yield all nodes from self leading to 'to'. backwards determines
+        the iteration direction and blacklist marks nodes that have already been visited.
+        blacklist comes in handy if a property must hold for every path. not *every* possible
+        instance must be iterated, but trees that have already been visited can be ignored
+        after the have been visited
+        """
         if self is to:
             return
+        blacklist_visit = {}
         path = Path([self])
         worklist = [(0, self, 1)]
         while len(worklist) > 0:
@@ -274,19 +285,28 @@ class Node(object):
             else:
                 iterdir = node.provides()
             if index >= len(iterdir):
+                if blacklist:
+                    blacklist_visit[node] = None
                 continue
             else:
                 next_dep = iterdir[index]
                 next_node = next_dep.to
                 index += 1
+                if blacklist and next_node in blacklist_visit:
+                    yield Path(path.path[:])
+                    continue
                 if index < len(iterdir):
                     worklist.append((index, node, pathlen))
+                else:
+                    blacklist_visit[node] = None
                 path.cut_off_at(pathlen)
                 path.walk(next_node)
                 pathlen += 1
 
                 if next_node is to or (path_max_len > 0 and pathlen >= path_max_len):
                     yield Path(path.path[:])
+                    if blacklist:
+                        blacklist_visit[next_node] = None
                 else:
                     worklist.append((0, next_node, pathlen))
 

@@ -521,7 +521,7 @@ class VectorizingOptimizer(Optimizer):
             modify_later = []
             last_prev_node = None
             i = 0
-            for path in guard_node.iterate_paths(ee_guard_node, True):
+            for path in guard_node.iterate_paths(ee_guard_node, backwards=True, blacklist=True):
                 if not we_are_translated():
                     path.check_acyclic()
                 print "loop", i
@@ -545,7 +545,8 @@ class VectorizingOptimizer(Optimizer):
                 else:
                     if path.is_always_pure(exclude_first=True, exclude_last=True):
                         path.set_schedule_priority(10)
-                        modify_later.append((path.last_but_one(), None))
+                        if path.last() is ee_guard_node:
+                            modify_later.append((path.last_but_one(), None))
                     else:
                         # transformation is invalid.
                         # exit and do not enter else branch!

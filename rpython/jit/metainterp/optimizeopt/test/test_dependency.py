@@ -434,5 +434,35 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         for i in r:
             assert paths[i].as_str() == "n0 -> %s -> n%d" % (nodes[i], len(r)+1)
 
+    def test_iterate_paths_blacklist_diamond(self):
+        blacklist = {}
+        n1,n2,n3,n4 = [FakeNode(i+1) for i in range(4)]
+        # n1 -> n2 -> n4
+        #  +---> n3 --^
+        n1.edge_to(n2); n2.edge_to(n4);
+        n1.edge_to(n3); n3.edge_to(n4);
+
+        paths = list(n1.iterate_paths(n4, blacklist=True))
+        assert len(paths) == 2
+        assert paths[0].as_str() == "n1 -> n2 -> n4"
+        assert paths[1].as_str() == "n1 -> n3"
+
+    def test_iterate_paths_blacklist_double_diamond(self):
+        blacklist = {}
+        n1,n2,n3,n4,n5,n6,n7,n8 = [FakeNode(i+1) for i in range(8)]
+        # n1 -> n2 -> n4 -> n5 -> n6 --> n8
+        #  +---> n3 --^      +---> n7 --^
+        n1.edge_to(n2); n2.edge_to(n4);
+        n1.edge_to(n3); n3.edge_to(n4);
+        n4.edge_to(n5)
+        n5.edge_to(n6); n6.edge_to(n8);
+        n5.edge_to(n7); n7.edge_to(n8);
+
+        paths = list(n1.iterate_paths(n8, blacklist=True))
+        assert len(paths) == 3
+        assert paths[0].as_str() == "n1 -> n2 -> n4 -> n5 -> n6 -> n8"
+        assert paths[1].as_str() == "n1 -> n2 -> n4 -> n5 -> n7"
+        assert paths[2].as_str() == "n1 -> n3"
+
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass
