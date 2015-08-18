@@ -244,11 +244,6 @@ class OptHeap(Optimization):
         # mapping const value -> info corresponding to it's heap cache
         self.const_infos = self.optimizer.cpu.ts.new_ref_dict()
 
-    def force_at_end_of_preamble(self):
-        self.cached_dict_reads.clear()
-        self.corresponding_array_descrs.clear()
-        self.force_all_lazy_setfields_and_arrayitems()
-
     def flush(self):
         self.cached_dict_reads.clear()
         self.corresponding_array_descrs.clear()
@@ -477,6 +472,11 @@ class OptHeap(Optimization):
         for idx, cf in submap.iteritems():
             if indexb is None or indexb.contains(idx):
                 cf.force_lazy_setfield(self, None, can_cache)
+
+    def force_at_end_of_preamble(self):
+        self.cached_dict_reads.clear()
+        self.corresponding_array_descrs.clear()
+        self.force_all_lazy_setfields_and_arrayitems()
 
     def force_all_lazy_setfields_and_arrayitems(self):
         items = self.cached_fields.items()

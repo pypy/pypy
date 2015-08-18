@@ -41,6 +41,7 @@ class PreambleOp(AbstractResOp):
 class AbstractShortOp(object):
     """ An operation that is potentially produced by the short preamble
     """
+    pass
 
 class HeapOp(AbstractShortOp):
     def __init__(self, res, getfield_op):
@@ -209,15 +210,15 @@ class ShortBoxes(object):
         # of AbstractShortOp
         self.potential_ops = OrderedDict()
         self.produced_short_boxes = {}
-        self.short_inputargs = []
         # a way to produce const boxes, e.g. setfield_gc(p0, Const).
         # We need to remember those, but they don't produce any new boxes
         self.const_short_boxes = []
-        for i in range(len(inputargs)):
-            box = inputargs[i]
+        self.short_inputargs = []
+        for i in range(len(label_args)):
+            box = label_args[i]
             renamed = OpHelpers.inputarg_from_tp(box.type)
-            self.potential_ops[box] = ShortInputArg(label_args[i], renamed)
             self.short_inputargs.append(renamed)
+            self.potential_ops[box] = ShortInputArg(box, renamed)
 
         optimizer.produce_potential_short_preamble_ops(self)
 
@@ -302,7 +303,7 @@ class ShortBoxes(object):
                 renamed = OpHelpers.inputarg_from_tp(label_args[i].type)
                 short_inpargs.append(renamed)
             else:
-                #assert isinstance(inparg, ShortInputArg)
+                assert isinstance(inparg.short_op, ShortInputArg)
                 short_inpargs.append(inparg.preamble_op)
         return short_inpargs
 
@@ -314,7 +315,8 @@ class ShortBoxes(object):
         self.potential_ops[op] = CompoundOp(op, pop, prev_op)
 
     def add_pure_op(self, op):
-        assert op not in self.potential_ops
+        if op in self.potential_ops:
+            return
         self.add_potential_op(op, PureOp(op))
 
     def add_loopinvariant_op(self, op):

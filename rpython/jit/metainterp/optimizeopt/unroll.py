@@ -107,7 +107,10 @@ class UnrollOptimizer(Optimization):
                      for op in end_jump.getarglist()]
         jump_args = state.virtual_state.make_inputargs(orig_jump_args,
                                     self.optimizer, force_boxes=True)
-        extra_jump_args = self.inline_short_preamble(jump_args)
+        pass_to_short = state.virtual_state.make_inputargs(orig_jump_args,
+                                    self.optimizer, force_boxes=True,
+                                    append_virtuals=True)
+        extra_jump_args = self.inline_short_preamble(pass_to_short)
         # remove duplicates, removes stuff from used boxes too
         label_args, jump_args = self.filter_extra_jump_args(
             start_label.getarglist() + self.short_preamble_producer.used_boxes,
@@ -166,9 +169,11 @@ class UnrollOptimizer(Optimization):
         for arg in label_args:
             infos[arg] = self.optimizer.getinfo(arg)            
         sb = ShortBoxes()
+        label_args_plus_virtuals = virtual_state.make_inputargs(end_args,
+                                        self.optimizer, append_virtuals=True)
         short_boxes = sb.create_short_boxes(self.optimizer, renamed_inputargs,
-                                            label_args)
-        short_inputargs = sb.create_short_inputargs(label_args)
+                                            label_args_plus_virtuals)
+        short_inputargs = sb.create_short_inputargs(label_args_plus_virtuals)
         for produced_op in short_boxes:
             op = produced_op.short_op.res
             if not isinstance(op, Const):

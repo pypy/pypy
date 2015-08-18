@@ -12,7 +12,7 @@ from rpython.jit.metainterp.history import (TreeLoop, ConstInt,
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
      InputArgRef
 from rpython.jit.metainterp.optimizeopt.shortpreamble import \
-     ShortPreambleBuilder, PreambleOp
+     ShortPreambleBuilder, PreambleOp, ShortInputArg
 from rpython.jit.metainterp.compile import LoopCompileData
 from rpython.jit.metainterp.optimizeopt.virtualstate import \
      NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN, LEVEL_KNOWNCLASS,\
@@ -64,6 +64,9 @@ class BaseTestUnroll(BaseTest, LLtypeMixin):
             remap[v] = k
         equaloplists(short, exp, remap=remap)
 
+def producable_short_boxes(l):
+    return [x for x in l if not isinstance(x.short_op, ShortInputArg)]
+        
 class TestUnroll(BaseTestUnroll):
     def test_simple(self):
         loop = """
@@ -230,7 +233,8 @@ class TestUnroll(BaseTestUnroll):
         jump(i1, p1, p2)
         """
         es, loop, preamble = self.optimize(loop)
-        assert len(es.short_boxes) == 2
+        assert len(producable_short_boxes(es.short_boxes)) == 2
+        xxx
 
     def test_setfield_forced_virtual(self):
         loop = """

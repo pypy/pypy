@@ -516,7 +516,8 @@ class VirtualState(object):
                                           state)
         return state
 
-    def make_inputargs(self, inputargs, optimizer, force_boxes=False):
+    def make_inputargs(self, inputargs, optimizer, force_boxes=False,
+                       append_virtuals=False):
         assert len(inputargs) == len(self.state)
         boxes = [None] * self.numnotvirtuals
 
@@ -530,6 +531,14 @@ class VirtualState(object):
         for i in range(len(inputargs)):
             self.state[i].enum_forced_boxes(boxes, inputargs[i], optimizer)
 
+        if append_virtuals:
+            # we append the virtuals here in case some stuff is proven
+            # to be not a virtual and there are getfields in the short preamble
+            # that will read items out of there
+            for i in range(len(inputargs)):
+                if not isinstance(self.state[i], NotVirtualStateInfo):
+                    boxes.append(inputargs[i])
+            
         return boxes
 
     def debug_print(self, hdr='', bad=None, metainterp_sd=None):

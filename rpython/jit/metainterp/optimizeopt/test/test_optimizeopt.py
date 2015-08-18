@@ -879,7 +879,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p2, p3)
         """
         short = """
-        [p1]
+        [p1, p2]
         i1 = getfield_gc_i(p1, descr=valuedescr)
         jump(i1)
         """
@@ -1221,12 +1221,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p0, p1, descr=nextdescr)
         setfield_gc(p2, i1, descr=valuedescr)
         setfield_gc(p1, p2, descr=nextdescr)
-        jump(p1)
+        jump(p1, p2, i1)
         """
         loop = """
-        [p0]
-        p41 = getfield_gc_r(p0, descr=nextdescr)
-        i0 = getfield_gc_i(p41, descr=valuedescr)
+        [p0, p41, i0]
         i1 = int_add(i0, 1)
         p1 = new_with_vtable(descr=nodesize2)
         p2 = new_with_vtable(descr=nodesize2)
@@ -1234,7 +1232,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p0, p1, descr=nextdescr)
         setfield_gc(p2, i1, descr=valuedescr)
         setfield_gc(p1, p2, descr=nextdescr)
-        jump(p1)
+        jump(p1, p2, i1)
         """
         self.optimize_loop(ops, loop, preamble)
 
@@ -2397,7 +2395,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2, 1) # , i5)
         """
-        self.optimize_loop(ops, expected, preamble)
+        expected_short = """
+        []
+        """
+        self.optimize_loop(ops, expected, preamble,
+                           expected_short=expected_short)
 
     def test_duplicate_setfield_residual_guard_2(self):
         # the difference with the previous test is that the field value is
@@ -8717,6 +8719,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i19)
         """
         self.optimize_loop(ops, expected, expected_short=expected_short)
+
+    def test_simple_swap_arguments(self):
+        ops = """
+        [i0, i1]
+        i2 = int_add(i1, 1)
+        jump(i2, i0)
+        """
+        expected = """
+        []
+        """
+        self.optimize_loop(ops, expected)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
