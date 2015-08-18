@@ -553,9 +553,14 @@ PARAMETER_DOCS = {
     'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     'max_unroll_recursion': 'how many levels deep to unroll a recursive function',
-    'vectorize': 'turn on the vectorization optimization (vecopt). requires sse4.1',
-    'vectorize_user': 'turn on the vecopt for the python user program. requires sse4.1',
-    'vec_cost': 'threshold which traces to vectorize.',
+    'vec': 'turn on the vectorization optimization (vecopt). requires sse4.1',
+    'vec_params': 'parameters to the optimization separated by colons. <all>[:<cost>[:<length>[:<ratio>]]]. '
+                  'all = 1: try to vectorize trace loops that occur outside of the numpy library. '
+                  'cost = 0: threshold for which traces to bail. 0 means the costs '
+                  'balance the unpacking, if below the vectorizer bails out. '
+                  'length = 50:  the amount of instructions allowed in "all" traces. '
+                  'ratio = 0.60: the number statements that have vector equivalents divided '
+                  'by the total number of trace instructions.',
 }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -571,9 +576,8 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'disable_unrolling': 200,
               'enable_opts': 'all',
               'max_unroll_recursion': 7,
-              'vectorize': 0,
-              'vectorize_user': 0,
-              'vec_cost': 0,
+              'vec': 0,
+              'vec_params': '0:0:50:0.60',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
@@ -636,7 +640,7 @@ class JitDriver(object):
         self.can_never_inline = can_never_inline
         self.should_unroll_one_iteration = should_unroll_one_iteration
         self.check_untranslated = check_untranslated
-        self.vectorize = vectorize
+        self.vec = vectorize
 
     def _freeze_(self):
         return True

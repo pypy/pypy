@@ -97,7 +97,7 @@ class TestNumpyJit(Jit386Mixin):
                                              backendopt=True,
                                              graph_and_interp_only=True,
                                              ProfilerClass=Profiler,
-                                             vectorize=True)
+                                             vec=True)
             self.__class__.interp = interp
             self.__class__.graph = graph
 

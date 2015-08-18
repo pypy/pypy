@@ -17,7 +17,7 @@ def compile(f, gc, **kwds):
     t.buildrtyper().specialize()
 
     if kwds['jit']:
-        apply_jit(t, vectorize=True)
+        apply_jit(t, vec=True)
 
 class TestVecOptX86(object):
     def test_translate(self):

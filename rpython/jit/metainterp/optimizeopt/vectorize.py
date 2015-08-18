@@ -35,6 +35,9 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, warmstate):
     optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, False)
+    user_code = not jitdriver_sd.vec and warmstate.vec_all
+    if user_code and user_loop_bail_fast_path(loop, warmstate):
+        return
     version = loop.snapshot()
     try:
         debug_start("vec-opt-loop")
@@ -47,7 +50,6 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, 0)
         opt.propagate_all_forward()
         gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
-        user_code = not jitdriver_sd.vectorize and warmstate.vectorize_user
         gso.propagate_all_forward(opt.loop, user_code)
         # connect all compile loop version fail descriptors to this version
         version.register_all_guards(loop.operations, opt.appended_arg_count)
@@ -84,6 +86,36 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
             llop.debug_print_traceback(lltype.Void)
         else:
             raise
+
+def user_loop_bail_fast_path(loop, warmstate):
+    """ in a fast path over the trace loop: try to prevent vecopt
+    of spending time on a loop that will most probably fail """
+
+    resop_count = 0 # the count of operations minus debug_merge_points
+    vector_instr = 0
+    at_least_one_array_access = True
+    for i,op in enumerate(loop.operations):
+        if op.getopnum() == rop.DEBUG_MERGE_POINT:
+            continue
+
+        if op.vector >= 0 and not op.is_guard():
+            vector_instr += 1
+
+        resop_count += 1
+
+        if op.is_primitive_array_access():
+            at_least_one_array_access = True
+
+    if not at_least_one_array_access:
+        return True
+
+    if resop_count > warmstate.vec_length:
+        return True
+
+    if float(vector_instr)/float(resop_count) <= warmstate.vec_ratio:
+        return True
+
+    return False
 
 def cmp_pack_lt(a,b):
     return a.left.getindex() < b.left.getindex()

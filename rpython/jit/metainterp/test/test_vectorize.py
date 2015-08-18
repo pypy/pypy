@@ -24,7 +24,7 @@ class VectorizeTests:
                               policy=policy,
                               CPUClass=self.CPUClass,
                               type_system=self.type_system,
-                              vectorize=1)
+                              vec=True)
 
     @py.test.mark.parametrize('i',[3,4,5,6,7,8,9,50])
     def test_vectorize_simple_load_arith_store_int_add_index(self,i):

@@ -51,7 +51,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
 
         trace_limit = sys.maxint
         enable_opts = ALL_OPTS_DICT
-        vectorize = True
+        vec = True
 
     if kwds.pop('disable_optimizations', False):
         FakeWarmRunnerState.enable_opts = {}
@@ -70,7 +70,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
         greenfield_info = None
         result_type = result_kind
         portal_runner_ptr = "???"
-        vectorize = False
+        vec = False
 
     stats = history.Stats()
     cpu = CPUClass(rtyper, stats, None, False)

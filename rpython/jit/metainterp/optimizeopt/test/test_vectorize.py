@@ -22,7 +22,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.rlib.rarithmetic import LONG_BIT
 
 class FakeJitDriverStaticData(object):
-    vectorize=True
+    vec=True
 
 class FakeCostModel(CostModel):
     def __init__(self):

@@ -300,14 +300,21 @@ class WarmEnterState(object):
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.max_unroll_recursion = value
 
-    def set_param_vectorize(self, value):
-        self.vectorize = bool(value)
+    def set_param_vec(self, value):
+        self.vec = bool(value)
 
-    def set_param_vectorize_user(self, value):
-        self.vectorize_user = bool(value)
-
-    def set_param_vec_cost(self, value):
-        self.vec_cost = bool(value)
+    def set_param_vec_params(self, value):
+        values = value.split(":")
+        self.vec_all = bool(values[0])
+        self.vec_cost = 0
+        if len(values) > 1:
+            self.vec_cost = int(values[1])
+        self.vec_length = 50
+        if len(values) > 2:
+            self.vec_length = int(values[2])
+        self.vec_ratio = 0.60
+        if len(values) > 3:
+            self.vec_ratio = float(values[3])
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)

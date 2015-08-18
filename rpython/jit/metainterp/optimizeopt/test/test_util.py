@@ -333,14 +333,14 @@ class Fake(object):
     storedebug = None
 
 class FakeWarmState(object):
-    vectorize = True # default is on
-    vectorize_user = False
+    vec = True # default is on
+    vec_all = False
     vec_cost = 0
     def __init__(self, enable_opts):
         self.enable_opts = enable_opts
 
 class FakeJitDriverStaticData(object):
-    vectorize = False
+    vec = False
 
 class FakeMetaInterpStaticData(object):
 
