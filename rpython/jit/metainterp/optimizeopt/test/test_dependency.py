@@ -5,9 +5,17 @@ from rpython.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, Dependency,
-        IndexVar, MemoryRef)
+        IndexVar, MemoryRef, Node)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.conftest import option
+
+class FakeNode(Node):
+    def __init__(self, i):
+        Node.__init__(self, None, i)
+        pass
+
+    def __repr__(self):
+        return "n%d" % self.opidx
 
 class DependencyBaseTest(BaseTest):
 
@@ -356,19 +364,75 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         self.assert_dependencies(ops, full_check=False)
         self.assert_dependent(2,12)
 
+    def test_getfield(self):
+        pass 
+        trace = """
+        [p0, p1] # 0: 1,2,5
+        p2 = getfield_gc(p0) # 1: 3,5
+        p3 = getfield_gc(p0) # 2: 4
+        guard_nonnull(p2) [p2] # 3: 4,5
+        guard_nonnull(p3) [p3] # 4: 5
+        jump(p0,p2) # 5:
+        """
+        self.assert_dependencies(trace, full_check=True)
+
     def test_cyclic(self):
         pass 
         trace = """
         [p0, p1, p5, p6, p7, p9, p11, p12] # 0: 1,6
-        guard_early_exit() [] # 1: 2,6,7
-        p13 = getfield_gc(p9) # 2: 3,4,5,6
-        guard_nonnull(p13) [] # 3: 4,5,6
-        i14 = getfield_gc(p9) # 4: 5,6,7
+        guard_early_exit() [] # 1: 2,4,6,7
+        p13 = getfield_gc(p9) # 2: 3,5,6
+        guard_nonnull(p13) [] # 3: 5,6
+        i14 = getfield_gc(p9) # 4: 6
         p15 = getfield_gc(p13) # 5: 6
         guard_class(p15, 140737326900656) [p1, p0, p9, i14, p15, p13, p5, p6, p7] # 6: 7
         jump(p0,p1,p5,p6,p7,p9,p11,p12) # 7:
         """
         self.assert_dependencies(trace, full_check=True)
+
+
+    def test_iterate_paths(self):
+        n1,n2,n3,n4,n5 = [FakeNode(i+1) for i in range(5)]
+        # n1 -> n2 -> n4 -> n5
+        #  +---> n3 --^
+        n1.edge_to(n2); n2.edge_to(n4); n4.edge_to(n5)
+        n1.edge_to(n3); n3.edge_to(n4);
+
+        paths = list(n5.iterate_paths(n1, backwards=True))
+        assert all([path.check_acyclic() for path in paths])
+        assert len(paths) == 2
+        assert paths[0].as_str() == "n5 -> n4 -> n2 -> n1"
+        assert paths[1].as_str() == "n5 -> n4 -> n3 -> n1"
+        paths = list(n1.iterate_paths(n5))
+        assert all([path.check_acyclic() for path in paths])
+        assert len(paths) == 2
+        assert paths[0].as_str() == "n1 -> n2 -> n4 -> n5"
+        assert paths[1].as_str() == "n1 -> n3 -> n4 -> n5"
+
+
+    def test_iterate_one_many_one(self):
+        r = range(19)
+        n0 = FakeNode(0)
+        nodes = [FakeNode(i+1) for i in r]
+        nend = FakeNode(len(r)+1)
+
+        assert len(list(n0.iterate_paths(nodes[0], backwards=True))) == 0
+
+        for i in r:
+            n0.edge_to(nodes[i])
+            nodes[i].edge_to(nend)
+
+        paths = list(nend.iterate_paths(n0, backwards=True))
+        assert all([path.check_acyclic() for path in paths])
+        assert len(paths) == len(r)
+        for i in r:
+            assert paths[i].as_str() == "n%d -> %s -> n0" % (len(r)+1, nodes[i])
+        # forward
+        paths = list(n0.iterate_paths(nend))
+        assert all([path.check_acyclic() for path in paths])
+        assert len(paths) == len(r)
+        for i in r:
+            assert paths[i].as_str() == "n0 -> %s -> n%d" % (nodes[i], len(r)+1)
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass

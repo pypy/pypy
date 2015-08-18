@@ -26,8 +26,10 @@ MODIFY_COMPLEX_OBJ = [ (rop.SETARRAYITEM_GC, 0, 1)
 
 LOAD_COMPLEX_OBJ = [ (rop.GETARRAYITEM_GC, 0, 1)
                    , (rop.GETARRAYITEM_RAW, 0, 1)
-                   , (rop.GETINTERIORFIELD_GC, 0, 1)
                    , (rop.RAW_LOAD, 0, 1)
+                   , (rop.GETINTERIORFIELD_GC, 0, 1)
+                   , (rop.GETFIELD_GC, 0, -1)
+                   , (rop.GETFIELD_RAW, 0, -1)
                    ]
 
 class Path(object):
@@ -44,7 +46,7 @@ class Path(object):
             return None
         return self.path[len(self.path)-2]
 
-    def has_no_side_effects(self, exclude_first=False, exclude_last=False):
+    def is_always_pure(self, exclude_first=False, exclude_last=False):
         last = len(self.path)-1
         count = len(self.path)
         i = 0
@@ -81,9 +83,14 @@ class Path(object):
                 assert 0, "segment %s was already seen. this makes the path cyclic!" % segment
             else:
                 seen.add(segment)
+        return True
 
     def clone(self):
         return Path(self.path[:])
+
+    def as_str(self):
+        """ NOT_RPYTHON """
+        return ' -> '.join([str(p) for p in self.path])
 
 class Node(object):
     def __init__(self, op, opidx):
@@ -120,8 +127,6 @@ class Node(object):
     def edge_to(self, to, arg=None, failarg=False, label=None):
         if self is to:
             return
-        if self.getindex() > to.getindex():
-            import pdb; pdb.set_trace()
         dep = self.depends_on(to)
         if not dep:
             #if force or self.independent(idx_from, idx_to):
@@ -161,7 +166,7 @@ class Node(object):
         return self.op.getopnum() == rop.GUARD_EARLY_EXIT
 
     def loads_from_complex_object(self):
-        return rop._ALWAYS_PURE_LAST <= self.op.getopnum() <= rop.GETINTERIORFIELD_GC
+        return rop._ALWAYS_PURE_LAST <= self.op.getopnum() < rop._MALLOC_FIRST
 
     def modifies_complex_object(self):
         return rop.SETARRAYITEM_GC <= self.op.getopnum() <= rop.UNICODESETITEM
@@ -183,18 +188,17 @@ class Node(object):
                         args.append((op.getarg(i), op.getarg(j), True))
                         for x in range(j+1,len(op_args)):
                             args.append((op.getarg(x), None, False))
-                    break
-        else:
-            # assume this destroys every argument... can be enhanced by looking
-            # at the effect info of a call for instance
-            for arg in op.getarglist():
-                # if it is a constant argument it cannot be destroyed.
-                # neither can a box float be destroyed. BoxInt can
-                # contain a reference thus it is assumed to be destroyed
-                if isinstance(arg, Const) or isinstance(arg, BoxFloat):
-                    args.append((arg, None, False))
-                else:
-                    args.append((arg, None,True))
+                    return args
+        # assume this destroys every argument... can be enhanced by looking
+        # at the effect info of a call for instance
+        for arg in op.getarglist():
+            # if it is a constant argument it cannot be destroyed.
+            # neither can a box float be destroyed. BoxInt can
+            # contain a reference thus it is assumed to be destroyed
+            if isinstance(arg, Const) or isinstance(arg, BoxFloat):
+                args.append((arg, None, False))
+            else:
+                args.append((arg, None, True))
         return args
 
     def provides_count(self):
@@ -259,7 +263,7 @@ class Node(object):
 
     def iterate_paths(self, to, backwards=False, path_max_len=-1):
         """ yield all nodes from self leading to 'to' """
-        if self == to:
+        if self is to:
             return
         path = Path([self])
         worklist = [(0, self, 1)]
@@ -282,7 +286,7 @@ class Node(object):
                 pathlen += 1
 
                 if next_node is to or (path_max_len > 0 and pathlen >= path_max_len):
-                    yield path
+                    yield Path(path.path[:])
                 else:
                     worklist.append((0, next_node, pathlen))
 
@@ -586,7 +590,6 @@ class DependencyGraph(object):
                 # i = int_and(j, 255)
                 # guard_true(i) [...]
                 pass
-
         elif guard_op.is_foldable_guard():
             # these guards carry their protected variables directly as a parameter
             for arg in guard_node.getoperation().getarglist():
@@ -669,9 +672,12 @@ class DependencyGraph(object):
             for opnum, i, j in unrolling_iterable(LOAD_COMPLEX_OBJ):
                 if opnum == op.getopnum():
                     cobj = op.getarg(i)
-                    index_var = op.getarg(j)
-                    tracker.depends_on_arg(cobj, node, index_var)
-                    tracker.depends_on_arg(index_var, node)
+                    if j != -1:
+                        index_var = op.getarg(j)
+                        tracker.depends_on_arg(cobj, node, index_var)
+                        tracker.depends_on_arg(index_var, node)
+                    else:
+                        tracker.depends_on_arg(cobj, node)
         else:
             for arg, argcell, destroyed in node.side_effect_arguments():
                 if argcell is not None:
@@ -722,6 +728,8 @@ class DependencyGraph(object):
             dot = "digraph dep_graph {\n"
             for node in self.nodes:
                 op = node.getoperation()
+                if op.getopnum() == rop.DEBUG_MERGE_POINT:
+                    continue
                 op_str = str(op)
                 if op.is_guard():
                     op_str += " " + ','.join([str(arg) for arg in op.getfailargs()])
