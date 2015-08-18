@@ -21,6 +21,7 @@ class Module(MixedModule):
         '_STRUCT_TM_ITEMS': 'space.wrap(interp_time._STRUCT_TM_ITEMS)',
         'monotonic': 'interp_time.monotonic',
         'perf_counter': 'interp_time.perf_counter',
+        'process_time': 'interp_time.process_time',
     }
 
     if os.name == "posix":

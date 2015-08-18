@@ -172,7 +172,7 @@ else:
     RUSAGE_SELF = RUSAGE_SELF or 0
     c_getrusage = external('getrusage', 
                            [rffi.INT, lltype.Ptr(RUSAGE)],
-                           lltype.Void,
+                           rffi.INT,
                            releasegil=False)
 
 def win_perf_counter():

@@ -370,3 +370,12 @@ class AppTestTime:
     def test_perf_counter(self):
         import time
         assert isinstance(time.perf_counter(), float)
+
+    def test_process_time(self):
+        import time
+        t1 = time.process_time()
+        assert isinstance(t1, float)
+        time.sleep(0.1)
+        t2 = time.process_time()
+        # process_time() should not include time spent during sleep
+        assert (t2 - t1) < 0.05

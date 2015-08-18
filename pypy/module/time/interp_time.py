@@ -115,6 +115,7 @@ class CConfig:
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
     has_gettimeofday = platform.Has('gettimeofday')
     has_clock_gettime = platform.Has('clock_gettime')
+    CLOCK_PROF = platform.DefinedConstantInteger('CLOCK_PROF')
 
 CLOCK_CONSTANTS = ['CLOCK_HIGHRES', 'CLOCK_MONOTONIC', 'CLOCK_MONOTONIC_RAW',
                    'CLOCK_PROCESS_CPUTIME_ID', 'CLOCK_REALTIME',
@@ -762,3 +763,53 @@ if _WIN:
 else:
     def perf_counter(space):
         return monotonic(space)
+
+
+if _WIN:
+    # untested so far
+    def process_time(space):
+        process_times = _time.GetProcessTimes(handle)
+        return (process_times['UserTime'] + process_times['KernelTime']) * 1e-7
+
+        from rpython.rlib.rposix import GetCurrentProcess, GetProcessTimes
+        current_process = GetCurrentProcess()
+        with lltype.scoped_alloc(rwin32.FILETIME) as creation_time, \
+             lltype.scoped_alloc(rwin32.FILETIME) as exit_time, \
+             lltype.scoped_alloc(rwin32.FILETIME) as kernel_time, \
+             lltype.scoped_alloc(rwin32.FILETIME) as user_time:
+            GetProcessTimes(current_process, creation_time, exit_time,
+                            kernel_time, user_time)
+            kernel_time2 = (kernel_time.dwLowDateTime |
+                            kernel_time.dwHighDateTime << 32)
+            user_time2 = (user_time.dwLowDateTime |
+                          user_time.dwHighDateTime << 32)
+        return space.wrap((float(kernel_time2) + float(user_time2)) * 1e-7)
+
+else:
+    def process_time(space):
+        if cConfig.has_clock_gettime and (
+                cConfig.CLOCK_PROF is not None or
+                cConfig.CLOCK_PROCESS_CPUTIME_ID is not None):
+            if cConfig.CLOCK_PROF is not None:
+                clk_id = cConfig.CLOCK_PROF
+            else:
+                clk_id = cConfig.CLOCK_PROCESS_CPUTIME_ID
+            with lltype.scoped_alloc(TIMESPEC) as timespec:
+                ret = c_clock_gettime(clk_id, timespec)
+                if ret == 0:
+                    return space.wrap(_timespec_to_seconds(timespec))
+        if True: # XXX available except if it isn't?
+            from rpython.rlib.rtime import (c_getrusage, RUSAGE, RUSAGE_SELF,
+                                            decode_timeval)
+            with lltype.scoped_alloc(RUSAGE) as rusage:
+                ret = c_getrusage(RUSAGE_SELF, rusage)
+                if ret == 0:
+                    return space.wrap(decode_timeval(rusage.c_ru_utime) +
+                                      decode_timeval(rusage.c_ru_stime))
+        if hasattr(rposix, 'c_times'):
+            with lltype.scoped_alloc(rposix.TMS) as tms:
+                ret = rposix.c_times(tms)
+                if ret != -1:
+                    cpu_time = tms.c_tms_utime + tms.c_tms_stime
+                    return space.wrap(cpu_time / rposix.CLOCK_TICKS_PER_SECOND)
+        return clock(space)
