@@ -967,7 +967,9 @@ class ExtSetParam(ExtRegistryEntry):
     def compute_result_annotation(self, s_driver, s_name, s_value):
         from rpython.annotator import model as annmodel
         assert s_name.is_constant()
-        if s_name.const in STR_PARAMETERS:
+        if s_name.const == 'enable_opts':
+            assert annmodel.SomeString(can_be_None=True).contains(s_value)
+        elif s_name.const == 'vec_params':
             assert annmodel.SomeString(can_be_None=True).contains(s_value)
         else:
             assert (s_value == annmodel.s_None or
