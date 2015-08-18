@@ -190,6 +190,13 @@ static void commit_buffer(int fd, struct profbuf_s *buf)
     }
 }
 
+static void cancel_buffer(struct profbuf_s *buf)
+{
+    long i = buf - profbuf_all_buffers;
+    assert(profbuf_state[i] == PROFBUF_FILLING);
+    profbuf_state[i] = PROFBUF_UNUSED;
+}
+
 static int shutdown_concurrent_bufs(int fd)
 {
     /* no signal handler can be running concurrently here, because we

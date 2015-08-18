@@ -45,11 +45,13 @@ static int (*unw_get_proc_info)(unw_cursor_t *, unw_proc_info_t *) = NULL;
 
 static int profile_file = -1;
 static long prepare_interval_usec;
+static struct profbuf_s *volatile current_codes;
 
-static int opened_profile(const char *interp_name);
+static int opened_profile(char *interp_name);
+static void flush_codes(void);
 
 RPY_EXTERN
-char *vmprof_init(int fd, double interval, const char *interp_name)
+char *vmprof_init(int fd, double interval, char *interp_name)
 {
     if (interval < 1e-6 || interval >= 1.0)
         return "bad value for 'interval'";
@@ -404,15 +406,15 @@ static int _write_all(const void *buf, size_t bufsize)
     return 0;
 }
 
-static int opened_profile(const char *interp_name)
+static int opened_profile(char *interp_name)
 {
     struct {
         long hdr[5];
         char interp_name[259];
     } header;
 
-    size_t namelen = strlen(interp_name);
-    assert(namelen <= 255);
+    size_t namelen = strnlen(interp_name, 255);
+    current_codes = NULL;
 
     header.hdr[0] = 0;
     header.hdr[1] = 3;
@@ -480,26 +482,76 @@ int vmprof_disable(void)
         return -1;
     if (remove_sigprof_handler() == -1)
         return -1;
+    flush_codes();
     if (shutdown_concurrent_bufs(profile_file) < 0)
         return -1;
     return close_profile();
 }
 
 RPY_EXTERN
-void vmprof_write_buf(char *buf, long size)
+int vmprof_register_virtual_function(char *code_name, long code_uid,
+                                     int auto_retry)
 {
+    long namelen = strnlen(code_name, 1023);
+    long blocklen = 1 + 2 * sizeof(long) + namelen;
     struct profbuf_s *p;
+    char *t;
 
-    while ((p = reserve_buffer(profile_file)) == NULL) {
-        /* spin loop waiting for a buffer to be ready; should almost never
-           be the case */
-        usleep(1);
+ retry:
+    p = current_codes;
+    if (p != NULL) {
+        if (__sync_bool_compare_and_swap(&current_codes, p, NULL)) {
+            /* grabbed 'current_codes': we will append the current block
+               to it if it contains enough room */
+            size_t freesize = SINGLE_BUF_SIZE - p->data_size;
+            if (freesize < blocklen) {
+                /* full: flush it */
+                commit_buffer(profile_file, p);
+                p = NULL;
+            }
+        }
+        else {
+            /* compare-and-swap failed, don't try again */
+            p = NULL;
+        }
     }
 
-    if (size > SINGLE_BUF_SIZE)
-        size = SINGLE_BUF_SIZE;
-    memcpy(p->data, buf, size);
-    p->data_size = size;
+    if (p == NULL) {
+        p = reserve_buffer(profile_file);
+        if (p == NULL) {
+            /* can't get a free block; should almost never be the
+               case.  Spin loop if allowed, or return a failure code
+               if not (e.g. we're in a signal handler) */
+            if (auto_retry > 0) {
+                auto_retry--;
+                usleep(1);
+                goto retry;
+            }
+            return -1;
+        }
+    }
 
-    commit_buffer(profile_file, p);
+    t = p->data + p->data_size;
+    p->data_size += blocklen;
+    assert(p->data_size <= SINGLE_BUF_SIZE);
+    *t++ = MARKER_VIRTUAL_IP;
+    memcpy(t, &code_uid, sizeof(long)); t += sizeof(long);
+    memcpy(t, &namelen, sizeof(long)); t += sizeof(long);
+    memcpy(t, code_name, namelen);
+
+    /* try to reattach 'p' to 'current_codes' */
+    if (!__sync_bool_compare_and_swap(&current_codes, NULL, p)) {
+        /* failed, flush it */
+        commit_buffer(profile_file, p);
+    }
+    return 0;
+}
+
+static void flush_codes(void)
+{
+    struct profbuf_s *p = current_codes;
+    if (p != NULL) {
+        current_codes = NULL;
+        commit_buffer(profile_file, p);
+    }
 }

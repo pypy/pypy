@@ -49,9 +49,10 @@ def setup():
     vmprof_disable = rffi.llexternal("vmprof_disable", [], rffi.INT,
                                      compilation_info=eci,
                                      save_err=rffi.RFFI_SAVE_ERRNO)
-    vmprof_write_buf = rffi.llexternal("vmprof_write_buf",
-                                       [rffi.CCHARP, rffi.LONG],
-                                       lltype.Void, compilation_info=eci)
+    vmprof_register_virtual_function = rffi.llexternal(
+                                           "vmprof_register_virtual_function",
+                                           [rffi.CCHARP, rffi.LONG, rffi.INT],
+                                           rffi.INT, compilation_info=eci)
     vmprof_ignore_signals = rffi.llexternal("vmprof_ignore_signals",
                                             [rffi.INT], lltype.Void,
                                             compilation_info=eci)
