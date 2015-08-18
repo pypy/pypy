@@ -53,47 +53,23 @@ class ValueProf(object):
         elif status == SEEN_CONSTANT_INT:
             if self.is_int(w_value):
                 if self.read_constant_int() != self.get_int_val(w_value):
-                    if not jit.we_are_jitted():
-                        if self._vprof_counter >= 200:
-                            print "NO LONGER CONSTANT", self._vprof_msg, 'int', w_value
                     self._vprof_status = SEEN_CONSTANT_CLASS
                     self._vprof_const_cls = w_value.__class__
-                else:
-                    if not jit.we_are_jitted():
-                        self._vprof_counter += 1
-                        if self._vprof_counter == 200:
-                            print self._vprof_msg, 'int', w_value
             else:
-                if self._vprof_counter >= 200:
-                    print "NO LONGER CONSTANT", self._vprof_msg, 'obj', w_value
                 self._vprof_status = SEEN_TOO_MUCH
         elif status == SEEN_CONSTANT_OBJ:
             prev_obj = self.try_read_constant_obj()
             if prev_obj is not w_value:
-                if self._vprof_counter >= 200:
-                    print "NO LONGER CONSTANT", self._vprof_msg, 'obj', w_value
                 prev_cls = self.read_constant_cls()
                 if prev_cls is w_value.__class__:
                     self._vprof_const_cls = prev_cls
                     self._vprof_status = SEEN_CONSTANT_CLASS
                 else:
                     self._vprof_status = SEEN_TOO_MUCH
-            else:
-                if not jit.we_are_jitted():
-                    self._vprof_counter += 1
-                    if self._vprof_counter == 200:
-                        print self._vprof_msg, 'obj', w_value
         elif status == SEEN_CONSTANT_CLASS:
             cls = self.read_constant_cls()
             if cls is not w_value.__class__:
                 self._vprof_status = SEEN_TOO_MUCH
-                if self._vprof_counter >= 200:
-                    print "NO LONGER CONSTANT CLASS", self._vprof_msg, 'cls', cls
-            else:
-                if not jit.we_are_jitted():
-                    self._vprof_counter += 1
-                    if self._vprof_counter == 200:
-                        print self._vprof_msg, 'cls', cls
 
     def can_fold_read_int(self):
         return self._vprof_status == SEEN_CONSTANT_INT
