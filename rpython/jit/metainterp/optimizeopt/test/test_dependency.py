@@ -356,5 +356,19 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         self.assert_dependencies(ops, full_check=False)
         self.assert_dependent(2,12)
 
+    def test_cyclic(self):
+        pass 
+        trace = """
+        [p0, p1, p5, p6, p7, p9, p11, p12] # 0: 1,6
+        guard_early_exit() [] # 1: 2,6,7
+        p13 = getfield_gc(p9) # 2: 3,4,5,6
+        guard_nonnull(p13) [] # 3: 4,5,6
+        i14 = getfield_gc(p9) # 4: 5,6,7
+        p15 = getfield_gc(p13) # 5: 6
+        guard_class(p15, 140737326900656) [p1, p0, p9, i14, p15, p13, p5, p6, p7] # 6: 7
+        jump(p0,p1,p5,p6,p7,p9,p11,p12) # 7:
+        """
+        self.assert_dependencies(trace, full_check=True)
+
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass

@@ -90,6 +90,7 @@ class VecTestHelper(DependencyBaseTest):
             guard.setfailargs([])
             guard.setdescr(compile.ResumeAtLoopHeaderDescr())
             loop.operations.insert(idx+1, guard)
+        self.show_dot_graph(DependencyGraph(opt.loop), "original_" + self.test_name)
         opt.analyse_index_calculations()
         if opt.dependency_graph is not None:
             self.show_dot_graph(opt.dependency_graph, "early_exit_" + self.test_name)
@@ -1380,6 +1381,117 @@ class BaseTestVectorize(VecTestHelper):
         guard_false(i111, descr=<Guard0x7fa392d5c380>) [p1, p0, p6, p7, p11, f108, f106, f101, f98, i109, f95, f92, None, None, None, None, None, None, None, None]
         jump(p0, p1, p6, p7, p11, i109, f92, f95, f98, f101, f106, f108, i48, i56, p46)
         """
+        opt = self.schedule(self.parse_loop(trace))
+        self.debug_print_operations(opt.loop)
+
+    def test_1(self):
+        trace = """
+        [p0, p1, p5, p6, p7, p9, p11, p12]
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/fijal.py'. line 2> #34 FOR_ITER')
+        guard_early_exit(descr=<ResumeAtLoopHeaderDescr object at 0x7ffff7e3cc80>) [p1, p0, p5, p6, p7, p9]
+        p13 = getfield_gc(p9, descr=<FieldP pypy.objspace.std.iterobject.W_AbstractSeqIterObject.inst_w_seq 16>)
+        guard_nonnull(p13, descr=<ResumeGuardNonnullDescr object at 0x7ffff7e3cce0>) [p1, p0, p9, p13, p5, p6, p7]
+        i14 = getfield_gc(p9, descr=<FieldS pypy.objspace.std.iterobject.W_AbstractSeqIterObject.inst_index 8>)
+        p15 = getfield_gc(p13, descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_strategy 16>)
+        guard_class(p15, 140737326900656, descr=<ResumeGuardClassDescr object at 0x7ffff7e3cd40>) [p1, p0, p9, i14, p15, p13, p5, p6, p7]
+        p17 = getfield_gc(p13, descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_lstorage 8>)
+        i18 = getfield_gc_pure(p17, descr=<FieldS tuple1.item0 8>)
+        i20 = int_lt(i14, 0)
+        guard_false(i20, descr=<ResumeGuardFalseDescr object at 0x7ffff7e3cda0>) [p1, p0, p9, i14, i18, p5, p6, p7]
+        i21 = int_ge(i14, i18)
+        guard_false(i21, descr=<ResumeGuardFalseDescr object at 0x7ffff7e3ce00>) [p1, p0, p9, i14, p5, p6, p7]
+        i23 = int_add(i14, 1)
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/fijal.py'. line 2> #37 STORE_NAME')
+        p24 = getfield_gc(p5, descr=<FieldP pypy.interpreter.pyframe.FrameDebugData.inst_w_locals 48>)
+        setfield_gc(p9, i23, descr=<FieldS pypy.objspace.std.iterobject.W_AbstractSeqIterObject.inst_index 8>)
+        guard_value(p24, 25, descr=<ResumeGuardValueDescr object at 0x7ffff7e3ce60>) [p1, p0, p24, p5, p6, p7, p9, i14]
+        p26 = getfield_gc(p24, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy 16>)
+        guard_value(p26, 27, descr=<ResumeGuardValueDescr object at 0x7ffff7e3cec0>) [p1, p0, p26, p24, p5, p6, p7, p9, i14]
+        guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7ffff7e3cf20>) [p1, p0, p24, p5, p6, p7, p9, i14]
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/fijal.py'. line 2> #40 LOAD_NAME')
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/fijal.py'. line 2> #43 CALL_FUNCTION')
+        p28 = force_token()
+        enter_portal_frame(15, 8070450532247933488)
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #0 LOAD_CONST')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #3 STORE_FAST')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #6 SETUP_LOOP')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #9 LOAD_FAST')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #12 LOAD_CONST')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #15 COMPARE_OP')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #18 POP_JUMP_IF_FALSE')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #21 LOAD_GLOBAL')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #24 LOAD_FAST')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #27 BINARY_SUBSCR')
+        p32 = getfield_gc(31, descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_strategy 16>)
+        setfield_gc(33, i14, descr=<FieldS pypy.objspace.std.typeobject.IntMutableCell.inst_intvalue 8>)
+        guard_class(p32, 140737326657856, descr=<ResumeGuardClassDescr object at 0x7ffff7e3cf80>) [p1, p0, p11, p32, p5, p6, p7, p9, p28, p12, None]
+        p36 = getfield_gc(31, descr=<FieldP pypy.objspace.std.listobject.W_ListObject.inst_lstorage 8>)
+        i37 = getfield_gc(p36, descr=<FieldS list.length 8>)
+        i39 = uint_ge(0, i37)
+        guard_false(i39, descr=<ResumeGuardFalseDescr object at 0x7ffff7e3cfe0>) [p1, p0, p11, i37, p36, p5, p6, p7, p9, p28, p12, None]
+        p40 = getfield_gc(p36, descr=<FieldP list.items 16>)
+        i41 = getarrayitem_gc(p40, 0, descr=intarraydescr)
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #28 LOAD_CONST')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #31 BINARY_ADD')
+        i43 = int_add_ovf(i41, 1)
+        guard_no_overflow(descr=<ResumeGuardNoOverflowDescr object at 0x7ffff7e3d040>) [p1, p0, p11, i43, p5, p6, p7, p9, i41, p28, p12, None]
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #32 LOAD_GLOBAL')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #35 LOAD_FAST')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #38 STORE_SUBSCR')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #39 LOAD_FAST')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #42 LOAD_CONST')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #45 INPLACE_ADD')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #46 STORE_FAST')
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #49 JUMP_ABSOLUTE')
+        i45 = getfield_raw(140737351875840, descr=<FieldS pypysig_long_struct.c_value 0>)
+        setarrayitem_gc(p40, 0, i43, descr=intarraydescr)
+        i48 = int_lt(i45, 0)
+        guard_false(i48, descr=<ResumeGuardFalseDescr object at 0x7ffff7e3d0a0>) [p1, p0, p11, p5, p6, p7, p9, None, p28, p12, None]
+        debug_merge_point(1, 1, '<code object f. file '/home/rich/fijal.py'. line 4> #9 LOAD_FAST')
+        p49 = force_token()
+        p51 = new_with_vtable(140737326477112)
+        p53 = new_array_clear(4, descr=<ArrayP 8>)
+        p55 = new_with_vtable(100000)
+        p57 = new_with_vtable(140737326516800)
+        setfield_gc(p57, p28, descr=<FieldP JitVirtualRef.virtual_token 8>)
+        setfield_gc(p57, 0, descr=<FieldP JitVirtualRef.forced 16>)
+        setfield_gc(p11, p57, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref 72>)
+        setfield_gc(p0, p49, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token 8>)
+        setfield_gc(p51, 0, descr=<FieldU pypy.interpreter.pyframe.PyFrame.inst_escaped 88>)
+        setfield_gc(p51, 0, descr=<FieldU pypy.interpreter.pyframe.PyFrame.inst_frame_finished_execution 89>)
+        setfield_gc(p51, 9, descr=<FieldS pypy.interpreter.pyframe.PyFrame.inst_last_instr 40>)
+        setfield_gc(p51, 1, descr=<FieldS pypy.interpreter.pyframe.PyFrame.inst_valuestackdepth 72>)
+        setfield_gc(p51, 25, descr=<FieldP pypy.interpreter.pyframe.PyFrame.inst_w_globals 80>)
+        setfield_gc(p51, 63, descr=<FieldP pypy.interpreter.pyframe.PyFrame.inst_pycode 64>)
+        setfield_gc(p55, 1, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval 8>)
+        setarrayitem_gc(p53, 0, p55, descr=<ArrayP 8>)
+        setfield_gc(p51, p53, descr=<FieldP pypy.interpreter.pyframe.PyFrame.inst_locals_cells_stack_w 56>)
+        setfield_gc(p51, p12, descr=<FieldP pypy.interpreter.pyframe.PyFrame.inst_f_backref 24>)
+        setfield_gc(p51, 66, descr=<FieldP pypy.interpreter.pyframe.PyFrame.inst_lastblock 48>)
+        p67 = call_assembler(p51, p11, descr=<Loop2>)
+        guard_not_forced(descr=<ResumeGuardForcedDescr object at 0x7ffff7e4b4d8>) [p1, p0, p11, p51, p67, p57, p5, p6, p7, p9]
+        keepalive(p51)
+        guard_no_exception(descr=<ResumeGuardNoExceptionDescr object at 0x7ffff7e3d100>) [p1, p0, p11, p51, p67, p57, p5, p6, p7, p9]
+        leave_portal_frame(15)
+        p69 = getfield_gc(p11, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref 72>)
+        p70 = getfield_gc(p51, descr=<FieldP pypy.interpreter.pyframe.PyFrame.inst_f_backref 24>)
+        i71 = getfield_gc(p51, descr=<FieldU pypy.interpreter.pyframe.PyFrame.inst_escaped 88>)
+        setfield_gc(p11, p70, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref 72>)
+        guard_false(i71, descr=<ResumeGuardFalseDescr object at 0x7ffff7e3d160>) [p1, p0, p67, p69, p51, p57, p5, p6, p7, p9]
+        i72 = getfield_gc(p5, descr=<FieldU pypy.interpreter.pyframe.FrameDebugData.inst_is_being_profiled 56>)
+        setfield_gc(p57, 0, descr=<FieldP JitVirtualRef.virtual_token 8>)
+        guard_value(i72, 0, descr=<ResumeGuardValueDescr object at 0x7ffff7e3d1c0>) [i72, p1, p0, p5, p6, p7, p9, p67]
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/fijal.py'. line 2> #46 POP_TOP')
+        p75 = getfield_gc(p5, descr=<FieldP pypy.interpreter.pyframe.FrameDebugData.inst_w_f_trace 40>)
+        guard_isnull(p75, descr=<ResumeGuardIsnullDescr object at 0x7ffff7e3d220>) [p1, p0, p75, p5, p6, p7, p9, p67]
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/fijal.py'. line 2> #47 JUMP_ABSOLUTE')
+        guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7ffff7e3d280>) [p1, p0, p5, p6, p7, p9]
+        i77 = getfield_raw(140737351875840, descr=<FieldS pypysig_long_struct.c_value 0>)
+        i79 = int_lt(i77, 0)
+        guard_false(i79, descr=<ResumeGuardFalseDescr object at 0x7ffff7e3d2e0>) [p1, p0, p5, p6, p7, p9]
+        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/fijal.py'. line 2> #34 FOR_ITER')
+        jump(p0, p1, p5, p6, p7, p9, p11, p70)
+        """        
         opt = self.schedule(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)
 

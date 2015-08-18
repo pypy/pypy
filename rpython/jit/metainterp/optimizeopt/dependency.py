@@ -69,6 +69,19 @@ class Path(object):
     def cut_off_at(self, index):
         self.path = self.path[:index]
 
+    def check_acyclic(self):
+        """NOT_RPYTHON"""
+        seen = set()
+        for segment in self.path:
+            if segment in seen:
+                print "path:"
+                for segment in self.path:
+                    print " ->", segment
+                print ""
+                assert 0, "segment %s was already seen. this makes the path cyclic!" % segment
+            else:
+                seen.add(segment)
+
     def clone(self):
         return Path(self.path[:])
 
@@ -107,6 +120,8 @@ class Node(object):
     def edge_to(self, to, arg=None, failarg=False, label=None):
         if self is to:
             return
+        if self.getindex() > to.getindex():
+            import pdb; pdb.set_trace()
         dep = self.depends_on(to)
         if not dep:
             #if force or self.independent(idx_from, idx_to):
@@ -805,7 +820,7 @@ class IntegralForwardModification(object):
     def operation_{name}(self, op, node):
         descr = op.getdescr()
         idx_ref = self.get_or_create(op.getarg(1))
-        if descr.is_array_of_primitives():
+        if descr and descr.is_array_of_primitives():
             node.memory_ref = MemoryRef(op, idx_ref, {raw_access})
             self.memory_refs[node] = node.memory_ref
     """

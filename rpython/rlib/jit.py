@@ -803,7 +803,7 @@ def set_user_param(driver, text):
             set_param(driver, 'vec_params', value)
         else:
             for name1, _ in unroll_parameters:
-                if name1 == name and name1 != 'vec_params' and name != 'enable_opts':
+                if name1 == name and name1 != 'vec_params' and name1 != 'enable_opts':
                     try:
                         set_param(driver, name1, int(value))
                     except ValueError:

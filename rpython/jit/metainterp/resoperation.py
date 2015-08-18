@@ -179,7 +179,7 @@ class AbstractResOp(object):
         primitive type (int,float) """
         if self.is_primitive_load() or self.is_primitive_store():
             descr = self.getdescr()
-            if descr.is_array_of_primitives():
+            if descr and descr.is_array_of_primitives():
                 return True
         return False
 

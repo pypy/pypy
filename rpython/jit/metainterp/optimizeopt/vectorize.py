@@ -521,6 +521,8 @@ class VectorizingOptimizer(Optimizer):
             modify_later = []
             last_prev_node = None
             for path in guard_node.iterate_paths(ee_guard_node, True):
+                if not we_are_translated():
+                    path.check_acyclic()
                 prev_node = path.second()
                 dep = prev_node.depends_on(guard_node)
                 if dep.is_failarg():
