@@ -46,6 +46,7 @@ static int (*unw_get_proc_info)(unw_cursor_t *, unw_proc_info_t *) = NULL;
 static int profile_file = -1;
 static long prepare_interval_usec;
 static struct profbuf_s *volatile current_codes;
+static void *(*mainloop_get_virtual_ip)(char *) = 0;
 
 static int opened_profile(char *interp_name);
 static void flush_codes(void);
@@ -217,12 +218,10 @@ static int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)
             // found main loop stack frame
             void* sp;
             unw_get_reg(&cursor, UNW_REG_SP, (unw_word_t *) &sp);
-            void *arg_addr = (char*)sp /* + mainloop_sp_offset */;
-            void **arg_ptr = (void**)arg_addr;
-            /* if (mainloop_get_virtual_ip) {
-               ip = mainloop_get_virtual_ip(*arg_ptr);
-               } else { */
-            ip = *arg_ptr;
+            if (mainloop_get_virtual_ip)
+                ip = mainloop_get_virtual_ip((char *)sp);
+            else
+                ip = *(void **)sp;
         }
 
         int first_run = (n == 0);
@@ -278,8 +277,8 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
             st->stack[0] = GetPC((ucontext_t*)ucontext);
             depth = get_stack_trace(st->stack+1, MAX_STACK_DEPTH-2, ucontext);
             depth++;  // To account for pc value in stack[0];
-            st->stack[depth++] = get_current_thread_id();
             st->depth = depth;
+            st->stack[depth++] = get_current_thread_id();
             p->data_offset = offsetof(struct prof_stacktrace_s, marker);
             p->data_size = (depth * sizeof(void *) +
                             sizeof(struct prof_stacktrace_s) -
