@@ -799,7 +799,7 @@ def set_user_param(driver, text):
         value = parts[1]
         if name == 'enable_opts':
             set_param(driver, 'enable_opts', value)
-        elif name == 'vec_param':
+        elif name == 'vec_params':
             set_param(driver, 'vec_params', value)
         else:
             for name1, _ in unroll_parameters:
