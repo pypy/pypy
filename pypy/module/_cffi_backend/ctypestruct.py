@@ -81,10 +81,9 @@ class W_CTypeStructOrUnion(W_CType):
     def copy_and_convert_to_object(self, source):
         space = self.space
         self.check_complete()
-        ob = cdataobj.W_CDataNewOwning(space, self.size, self)
-        with ob as target:
-            misc._raw_memcopy(source, target, self.size)
-        return ob
+        ptr = lltype.malloc(rffi.CCHARP.TO, self.size, flavor='raw', zero=False)
+        misc._raw_memcopy(source, ptr, self.size)
+        return cdataobj.W_CDataNewStd(space, ptr, self)
 
     def typeoffsetof_field(self, fieldname, following):
         self.force_lazy_struct()

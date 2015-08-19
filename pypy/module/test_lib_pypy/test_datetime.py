@@ -6,9 +6,40 @@ import py
 
 class BaseTestDatetime:
     def test_repr(self):
-        print datetime
-        expected = "datetime.datetime(1, 2, 3, 0, 0)"
-        assert repr(datetime.datetime(1,2,3)) == expected
+        checks = (
+            (datetime.date(2015, 6, 8), "datetime.date(2015, 6, 8)"),
+            (datetime.datetime(2015, 6, 8, 12, 34, 56), "datetime.datetime(2015, 6, 8, 12, 34, 56)"),
+            (datetime.time(12, 34, 56), "datetime.time(12, 34, 56)"),
+            (datetime.timedelta(1), "datetime.timedelta(1)"),
+            (datetime.timedelta(1, 2), "datetime.timedelta(1, 2)"),
+            (datetime.timedelta(1, 2, 3), "datetime.timedelta(1, 2, 3)"),
+        )
+        for obj, expected in checks:
+            assert repr(obj) == expected
+
+    def test_repr_overridden(self):
+        class date_safe(datetime.date):
+            pass
+
+        class datetime_safe(datetime.datetime):
+            pass
+
+        class time_safe(datetime.time):
+            pass
+
+        class timedelta_safe(datetime.timedelta):
+            pass
+
+        checks = (
+            (date_safe(2015, 6, 8), "date_safe(2015, 6, 8)"),
+            (datetime_safe(2015, 6, 8, 12, 34, 56), "datetime_safe(2015, 6, 8, 12, 34, 56)"),
+            (time_safe(12, 34, 56), "time_safe(12, 34, 56)"),
+            (timedelta_safe(1), "timedelta_safe(1)"),
+            (timedelta_safe(1, 2), "timedelta_safe(1, 2)"),
+            (timedelta_safe(1, 2, 3), "timedelta_safe(1, 2, 3)"),
+        )
+        for obj, expected in checks:
+            assert repr(obj) == expected
 
     def test_attributes(self):
         for x in [datetime.date.today(),

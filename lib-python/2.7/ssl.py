@@ -103,10 +103,13 @@ from _ssl import (
     SSLSyscallError, SSLEOFError,
     )
 from _ssl import CERT_NONE, CERT_OPTIONAL, CERT_REQUIRED
-from _ssl import (VERIFY_DEFAULT, VERIFY_CRL_CHECK_LEAF, VERIFY_CRL_CHECK_CHAIN,
-    VERIFY_X509_STRICT)
 from _ssl import txt2obj as _txt2obj, nid2obj as _nid2obj
-from _ssl import RAND_status, RAND_egd, RAND_add
+from _ssl import RAND_status, RAND_add
+try:
+    from _ssl import RAND_egd
+except ImportError:
+    # LibreSSL does not provide RAND_egd
+    pass
 
 def _import_symbols(prefix):
     for n in dir(_ssl):
@@ -117,8 +120,9 @@ _import_symbols('OP_')
 _import_symbols('ALERT_DESCRIPTION_')
 _import_symbols('SSL_ERROR_')
 _import_symbols('PROTOCOL_')
+_import_symbols('VERIFY_')
 
-from _ssl import HAS_SNI, HAS_ECDH, HAS_NPN
+from _ssl import HAS_SNI, HAS_ECDH, HAS_NPN, HAS_ALPN
 
 from _ssl import _OPENSSL_API_VERSION
 
@@ -152,14 +156,12 @@ else:
 #   * Prefer any AES-GCM over any AES-CBC for better performance and security
 #   * Then Use HIGH cipher suites as a fallback
 #   * Then Use 3DES as fallback which is secure but slow
-#   * Finally use RC4 as a fallback which is problematic but needed for
-#     compatibility some times.
 #   * Disable NULL authentication, NULL encryption, and MD5 MACs for security
 #     reasons
 _DEFAULT_CIPHERS = (
     'ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+HIGH:'
-    'DH+HIGH:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+HIGH:RSA+3DES:ECDH+RC4:'
-    'DH+RC4:RSA+RC4:!aNULL:!eNULL:!MD5'
+    'DH+HIGH:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+HIGH:RSA+3DES:!aNULL:'
+    '!eNULL:!MD5'
 )
 
 # Restricted and more secure ciphers for the server side
@@ -359,6 +361,17 @@ class SSLContext(_SSLContext):
             protos.extend(b)
 
         self._set_npn_protocols(protos)
+
+    def set_alpn_protocols(self, alpn_protocols):
+        protos = bytearray()
+        for protocol in alpn_protocols:
+            b = protocol.encode('ascii')
+            if len(b) == 0 or len(b) > 255:
+                raise SSLError('ALPN protocols must be 1 to 255 in length')
+            protos.append(len(b))
+            protos.extend(b)
+
+        self._set_alpn_protocols(protos)
 
     def _load_windows_store_certs(self, storename, purpose):
         certs = bytearray()
@@ -639,6 +652,13 @@ class SSLSocket(socket):
             return None
         else:
             return self._sslobj.selected_npn_protocol()
+
+    def selected_alpn_protocol(self):
+        self._checkClosed()
+        if not self._sslobj or not _ssl.HAS_ALPN:
+            return None
+        else:
+            return self._sslobj.selected_alpn_protocol()
 
     def cipher(self):
         self._checkClosed()

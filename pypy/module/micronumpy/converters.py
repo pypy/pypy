@@ -113,3 +113,12 @@ def shape_converter(space, w_size, dtype):
         shape.append(space.int_w(w_item))
     shape += dtype.shape
     return shape[:]
+
+def out_converter(space, w_out):
+    from .ndarray import W_NDimArray
+    if space.is_none(w_out):
+        return None
+    elif not isinstance(w_out, W_NDimArray):
+        raise oefmt(space.w_TypeError, 'output must be an array')
+    else:
+        return w_out

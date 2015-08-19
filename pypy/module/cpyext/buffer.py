@@ -38,4 +38,4 @@ def PyBuffer_IsContiguous(space, view, fortran):
     'C') or Fortran-style (fortran is 'F') contiguous or either one
     (fortran is 'A').  Return 0 otherwise."""
     # PyPy only supports contiguous Py_buffers for now.
-    return space.wrap(1)
+    return 1

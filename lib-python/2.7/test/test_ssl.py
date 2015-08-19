@@ -66,7 +66,7 @@ BADKEY = data_file("badkey.pem")
 NOKIACERT = data_file("nokia.pem")
 NULLBYTECERT = data_file("nullbytecert.pem")
 
-DHFILE = data_file("dh512.pem")
+DHFILE = data_file("dh1024.pem")
 BYTES_DHFILE = DHFILE.encode(sys.getfilesystemencoding())
 
 
@@ -169,8 +169,9 @@ class BasicSocketTests(unittest.TestCase):
             sys.stdout.write("\n RAND_status is %d (%s)\n"
                              % (v, (v and "sufficient randomness") or
                                 "insufficient randomness"))
-        self.assertRaises(TypeError, ssl.RAND_egd, 1)
-        self.assertRaises(TypeError, ssl.RAND_egd, 'foo', 1)
+        if hasattr(ssl, 'RAND_egd'):
+            self.assertRaises(TypeError, ssl.RAND_egd, 1)
+            self.assertRaises(TypeError, ssl.RAND_egd, 'foo', 1)
         ssl.RAND_add("this is a random string", 75.0)
 
     def test_parse_cert(self):
@@ -274,7 +275,7 @@ class BasicSocketTests(unittest.TestCase):
         self.assertGreaterEqual(fix, 0)
         self.assertLess(fix, 256)
         self.assertGreaterEqual(patch, 0)
-        self.assertLessEqual(patch, 26)
+        self.assertLessEqual(patch, 63)
         self.assertGreaterEqual(status, 0)
         self.assertLessEqual(status, 15)
         # Version string as returned by {Open,Libre}SSL, the format might change
@@ -748,8 +749,9 @@ class ContextTests(unittest.TestCase):
                          "verify_flags need OpenSSL > 0.9.8")
     def test_verify_flags(self):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-        # default value by OpenSSL
-        self.assertEqual(ctx.verify_flags, ssl.VERIFY_DEFAULT)
+        # default value
+        tf = getattr(ssl, "VERIFY_X509_TRUSTED_FIRST", 0)
+        self.assertEqual(ctx.verify_flags, ssl.VERIFY_DEFAULT | tf)
         ctx.verify_flags = ssl.VERIFY_CRL_CHECK_LEAF
         self.assertEqual(ctx.verify_flags, ssl.VERIFY_CRL_CHECK_LEAF)
         ctx.verify_flags = ssl.VERIFY_CRL_CHECK_CHAIN
@@ -1568,7 +1570,8 @@ else:
                 try:
                     self.sslconn = self.server.context.wrap_socket(
                         self.sock, server_side=True)
-                    self.server.selected_protocols.append(self.sslconn.selected_npn_protocol())
+                    self.server.selected_npn_protocols.append(self.sslconn.selected_npn_protocol())
+                    self.server.selected_alpn_protocols.append(self.sslconn.selected_alpn_protocol())
                 except socket.error as e:
                     # We treat ConnectionResetError as though it were an
                     # SSLError - OpenSSL on Ubuntu abruptly closes the
@@ -1677,7 +1680,8 @@ else:
         def __init__(self, certificate=None, ssl_version=None,
                      certreqs=None, cacerts=None,
                      chatty=True, connectionchatty=False, starttls_server=False,
-                     npn_protocols=None, ciphers=None, context=None):
+                     npn_protocols=None, alpn_protocols=None,
+                     ciphers=None, context=None):
             if context:
                 self.context = context
             else:
@@ -1692,6 +1696,8 @@ else:
                     self.context.load_cert_chain(certificate)
                 if npn_protocols:
                     self.context.set_npn_protocols(npn_protocols)
+                if alpn_protocols:
+                    self.context.set_alpn_protocols(alpn_protocols)
                 if ciphers:
                     self.context.set_ciphers(ciphers)
             self.chatty = chatty
@@ -1701,7 +1707,8 @@ else:
             self.port = support.bind_port(self.sock)
             self.flag = None
             self.active = False
-            self.selected_protocols = []
+            self.selected_npn_protocols = []
+            self.selected_alpn_protocols = []
             self.conn_errors = []
             threading.Thread.__init__(self)
             self.daemon = True
@@ -1926,11 +1933,13 @@ else:
                     'compression': s.compression(),
                     'cipher': s.cipher(),
                     'peercert': s.getpeercert(),
+                    'client_alpn_protocol': s.selected_alpn_protocol(),
                     'client_npn_protocol': s.selected_npn_protocol(),
                     'version': s.version(),
                 })
                 s.close()
-            stats['server_npn_protocols'] = server.selected_protocols
+            stats['server_alpn_protocols'] = server.selected_alpn_protocols
+            stats['server_npn_protocols'] = server.selected_npn_protocols
         return stats
 
     def try_protocol_combo(server_protocol, client_protocol, expect_success,
@@ -2056,7 +2065,8 @@ else:
             context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
             context.verify_mode = ssl.CERT_REQUIRED
             context.load_verify_locations(SIGNING_CA)
-            self.assertEqual(context.verify_flags, ssl.VERIFY_DEFAULT)
+            tf = getattr(ssl, "VERIFY_X509_TRUSTED_FIRST", 0)
+            self.assertEqual(context.verify_flags, ssl.VERIFY_DEFAULT | tf)
 
             # VERIFY_DEFAULT should pass
             server = ThreadedEchoServer(context=server_context, chatty=True)
@@ -2786,6 +2796,55 @@ else:
             if "ADH" not in parts and "EDH" not in parts and "DHE" not in parts:
                 self.fail("Non-DH cipher: " + cipher[0])
 
+        def test_selected_alpn_protocol(self):
+            # selected_alpn_protocol() is None unless ALPN is used.
+            context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+            context.load_cert_chain(CERTFILE)
+            stats = server_params_test(context, context,
+                                       chatty=True, connectionchatty=True)
+            self.assertIs(stats['client_alpn_protocol'], None)
+
+        @unittest.skipUnless(ssl.HAS_ALPN, "ALPN support required")
+        def test_selected_alpn_protocol_if_server_uses_alpn(self):
+            # selected_alpn_protocol() is None unless ALPN is used by the client.
+            client_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+            client_context.load_verify_locations(CERTFILE)
+            server_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+            server_context.load_cert_chain(CERTFILE)
+            server_context.set_alpn_protocols(['foo', 'bar'])
+            stats = server_params_test(client_context, server_context,
+                                       chatty=True, connectionchatty=True)
+            self.assertIs(stats['client_alpn_protocol'], None)
+
+        @unittest.skipUnless(ssl.HAS_ALPN, "ALPN support needed for this test")
+        def test_alpn_protocols(self):
+            server_protocols = ['foo', 'bar', 'milkshake']
+            protocol_tests = [
+                (['foo', 'bar'], 'foo'),
+                (['bar', 'foo'], 'foo'),
+                (['milkshake'], 'milkshake'),
+                (['http/3.0', 'http/4.0'], None)
+            ]
+            for client_protocols, expected in protocol_tests:
+                server_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+                server_context.load_cert_chain(CERTFILE)
+                server_context.set_alpn_protocols(server_protocols)
+                client_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+                client_context.load_cert_chain(CERTFILE)
+                client_context.set_alpn_protocols(client_protocols)
+                stats = server_params_test(client_context, server_context,
+                                           chatty=True, connectionchatty=True)
+
+                msg = "failed trying %s (s) and %s (c).\n" \
+                      "was expecting %s, but got %%s from the %%s" \
+                          % (str(server_protocols), str(client_protocols),
+                             str(expected))
+                client_result = stats['client_alpn_protocol']
+                self.assertEqual(client_result, expected, msg % (client_result, "client"))
+                server_result = stats['server_alpn_protocols'][-1] \
+                    if len(stats['server_alpn_protocols']) else 'nothing'
+                self.assertEqual(server_result, expected, msg % (server_result, "server"))
+
         def test_selected_npn_protocol(self):
             # selected_npn_protocol() is None unless NPN is used
             context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
@@ -2897,7 +2956,7 @@ else:
             server_context, other_context, client_context = self.sni_contexts()
 
             def cb_raising(ssl_sock, server_name, initial_context):
-                1/0
+                1.0/0.0
             server_context.set_servername_callback(cb_raising)
 
             with self.assertRaises(ssl.SSLError) as cm, \

@@ -309,9 +309,15 @@ def test_timeout():
 
 
 class AppTestSocket:
+    spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct'])
+
     def setup_class(cls):
         cls.space = space
         cls.w_udir = space.wrap(str(udir))
+
+    def teardown_class(cls):
+        if not cls.runappdirect:
+            cls.space.sys.getmodule('_socket').shutdown(cls.space)
 
     def test_module(self):
         import _socket
@@ -613,6 +619,12 @@ class AppTestSocket:
             s.close()
         finally:
             os.chdir(oldcwd)
+
+    def test_automatic_shutdown(self):
+        # doesn't really test anything, but at least should not explode
+        # in close_all_sockets()
+        import _socket
+        self.foo = _socket.socket()
 
 
 class AppTestPacket:

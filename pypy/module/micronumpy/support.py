@@ -1,8 +1,12 @@
-from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import rffi, lltype
 
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import unwrap_spec, appdef
+from pypy.interpreter.typedef import GetSetProperty
+from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.objspace import StdObjSpace
 
 def issequence_w(space, w_obj):
     from pypy.module.micronumpy.base import W_NDimArray
@@ -161,3 +165,38 @@ def is_rhs_priority_higher(space, w_lhs, w_rhs):
     w_priority_r = space.findattr(w_rhs, space.wrap('__array_priority__')) or w_zero
     # XXX what is better, unwrapping values or space.gt?
     return space.is_true(space.gt(w_priority_r, w_priority_l))
+
+def get_order_as_CF(proto_order, req_order):
+    if req_order == 'C':
+        return 'C'
+    elif req_order == 'F':
+        return 'F'
+    elif req_order == 'K':
+        return proto_order
+    elif req_order == 'A':
+        return proto_order
+
+
+def descr_set_docstring(space, w_obj, w_docstring):
+    if not isinstance(space, StdObjSpace):
+        raise oefmt(space.w_NotImplementedError,
+                    "This only works with the real object space")
+    if isinstance(w_obj, W_TypeObject):
+        w_obj.w_doc = w_docstring
+        return
+    elif isinstance(w_obj, GetSetProperty):
+        if space.is_none(w_docstring):
+            doc = None
+        else:
+            doc = space.str_w(w_docstring)
+        w_obj.doc = doc
+        return
+    app_set_docstring(space, w_obj, w_docstring)
+
+app_set_docstring = appdef("""app_set_docstring_(obj, docstring):
+    import types
+    if isinstance(obj, types.MethodType):
+        obj.im_func.__doc__ = docstring
+    else:
+        obj.__doc__ = docstring
+""")

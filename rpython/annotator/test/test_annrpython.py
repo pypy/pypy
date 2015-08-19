@@ -1135,7 +1135,7 @@ class TestAnnotateTestCase:
 
         assert famCinit.calltables == {(1, (), False): [{mdescCinit.funcdesc: gfCinit}] }
 
-    def test_isinstance_usigned(self):
+    def test_isinstance_unsigned_1(self):
         def f(x):
             return isinstance(x, r_uint)
         def g():
@@ -1144,6 +1144,18 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(g, [])
         assert s.const == True
+
+    def test_isinstance_unsigned_2(self):
+        class Foo:
+            pass
+        def f(x):
+            return isinstance(x, r_uint)
+        def g():
+            v = Foo()
+            return f(v)
+        a = self.RPythonAnnotator()
+        s = a.build_types(g, [])
+        assert s.const == False
 
     def test_isinstance_base_int(self):
         def f(x):
@@ -2111,6 +2123,16 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
+
+    def test_no_nul_mod(self):
+        def f(x):
+            s = "%d" % x
+            return s
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
 
     def test_mul_str0(self):
         def f(s):
@@ -4420,6 +4442,55 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         with py.test.raises(annmodel.UnionError) as exc:
             a.build_types(f2, [int])
+
+    def test_property_union_2(self):
+        py.test.xfail("FIX ME")
+        class Base(object):
+            pass
+
+        class A(Base):
+            def __init__(self):
+                pass
+
+            @property
+            def x(self):
+                return 42
+
+        class B(Base):
+            def __init__(self, x):
+                self.x = x
+
+        def f(n):
+            if n < 0:
+                obj = A()
+            else:
+                obj = B(n)
+            return obj.x
+        a = self.RPythonAnnotator()
+        # Ideally, this should translate to something sensible,
+        # but for now, AnnotatorError is better than silently mistranslating.
+        with py.test.raises(annmodel.AnnotatorError):
+            a.build_types(f, [int])
+
+    def test_property_union_3(self):
+        py.test.xfail("FIX ME")
+        class Base(object):
+            pass
+        class A(Base):
+            @property
+            def x(self):
+                return 42
+        class B(Base):
+            x = 43
+        def f(n):
+            if n < 0:
+                obj = A()
+            else:
+                obj = B()
+            return obj.x
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.AnnotatorError):
+            a.build_types(f, [int])
 
 
 def g(n):

@@ -30,13 +30,17 @@ class TestDist(object):
         if hasattr(self, 'saved_cwd'):
             os.chdir(self.saved_cwd)
 
-    def run(self, args):
+    def run(self, args, cwd=None):
         env = os.environ.copy()
-        newpath = self.rootdir
-        if 'PYTHONPATH' in env:
-            newpath += os.pathsep + env['PYTHONPATH']
-        env['PYTHONPATH'] = newpath
-        subprocess.check_call([self.executable] + args, env=env)
+        # a horrible hack to prevent distutils from finding ~/.pydistutils.cfg
+        # (there is the --no-user-cfg option, but not in Python 2.6...)
+        env['HOME'] = '/this/path/does/not/exist'
+        if cwd is None:
+            newpath = self.rootdir
+            if 'PYTHONPATH' in env:
+                newpath += os.pathsep + env['PYTHONPATH']
+            env['PYTHONPATH'] = newpath
+        subprocess.check_call([self.executable] + args, cwd=cwd, env=env)
 
     def _prepare_setuptools(self):
         if hasattr(TestDist, '_setuptools_ready'):
@@ -45,8 +49,7 @@ class TestDist(object):
             import setuptools
         except ImportError:
             py.test.skip("setuptools not found")
-        subprocess.check_call([self.executable, 'setup.py', 'egg_info'],
-                              cwd=self.rootdir)
+        self.run(['setup.py', 'egg_info'], cwd=self.rootdir)
         TestDist._setuptools_ready = True
 
     def check_produced_files(self, content, curdir=None):
@@ -57,9 +60,16 @@ class TestDist(object):
             if (name.endswith('.so') or name.endswith('.pyd') or
                 name.endswith('.dylib')):
                 found_so = os.path.join(curdir, name)
-                name = name.split('.')[0] + '.SO' # foo.cpython-34m.so => foo.SO
+                # foo.cpython-34m.so => foo
+                name = name.split('.')[0]
+                # foo_d.so => foo (Python 2 debug builds)
+                if name.endswith('_d') and hasattr(sys, 'gettotalrefcount'):
+                    name = name.rsplit('_', 1)[0]
+                name += '.SO'
             if name.startswith('pycparser') and name.endswith('.egg'):
                 continue    # no clue why this shows up sometimes and not others
+            if name == '.eggs':
+                continue    # seems new in 3.5, ignore it
             assert name in content, "found unexpected file %r" % (
                 os.path.join(curdir, name),)
             value = content.pop(name)

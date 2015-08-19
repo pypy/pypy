@@ -126,6 +126,7 @@ class AppTestNumSupport(BaseNumpyAppTest):
         assert not np.can_cast(rec1, rec2, 'equiv')
         assert np.can_cast(rec2, rec3, 'equiv')
         assert np.can_cast(rec1, rec2)
+        assert np.can_cast(int, rec1)
 
     def test_min_scalar_type(self):
         import numpy as np

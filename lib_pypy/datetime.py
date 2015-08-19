@@ -536,16 +536,17 @@ class timedelta(object):
         return self
 
     def __repr__(self):
+        module = "datetime." if self.__class__ is timedelta else ""
         if self._microseconds:
-            return "%s(%d, %d, %d)" % ('datetime.' + self.__class__.__name__,
+            return "%s(%d, %d, %d)" % (module + self.__class__.__name__,
                                        self._days,
                                        self._seconds,
                                        self._microseconds)
         if self._seconds:
-            return "%s(%d, %d)" % ('datetime.' + self.__class__.__name__,
+            return "%s(%d, %d)" % (module + self.__class__.__name__,
                                    self._days,
                                    self._seconds)
-        return "%s(%d)" % ('datetime.' + self.__class__.__name__, self._days)
+        return "%s(%d)" % (module + self.__class__.__name__, self._days)
 
     def __str__(self):
         mm, ss = divmod(self._seconds, 60)
@@ -798,7 +799,8 @@ class date(object):
         >>> repr(dt)
         'datetime.datetime(2010, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)'
         """
-        return "%s(%d, %d, %d)" % ('datetime.' + self.__class__.__name__,
+        module = "datetime." if self.__class__ is date else ""
+        return "%s(%d, %d, %d)" % (module + self.__class__.__name__,
                                    self._year,
                                    self._month,
                                    self._day)
@@ -1286,7 +1288,8 @@ class time(object):
             s = ", %d" % self._second
         else:
             s = ""
-        s= "%s(%d, %d%s)" % ('datetime.' + self.__class__.__name__,
+        module = "datetime." if self.__class__ is time else ""
+        s= "%s(%d, %d%s)" % (module + self.__class__.__name__,
                              self._hour, self._minute, s)
         if self._tzinfo is not None:
             assert s[-1:] == ")"
@@ -1698,7 +1701,8 @@ class datetime(date):
         if L[-1] == 0:
             del L[-1]
         s = ", ".join(map(str, L))
-        s = "%s(%s)" % ('datetime.' + self.__class__.__name__, s)
+        module = "datetime." if self.__class__ is datetime else ""
+        s = "%s(%s)" % (module + self.__class__.__name__, s)
         if self._tzinfo is not None:
             assert s[-1:] == ")"
             s = s[:-1] + ", tzinfo=%r" % self._tzinfo + ")"

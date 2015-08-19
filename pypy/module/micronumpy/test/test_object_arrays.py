@@ -83,8 +83,8 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
     def test_complex_op(self):
         import numpy as np
         import sys
-        a = np.array(['abc', 'def'], dtype=object) 
-        b = np.array([1, 2, 3], dtype=object) 
+        a = np.array(['abc', 'def'], dtype=object)
+        b = np.array([1, 2, 3], dtype=object)
         c = np.array([complex(1, 1), complex(1, -1)], dtype=object)
         for arg in (a,b,c):
             assert (arg == np.real(arg)).all()
@@ -164,3 +164,26 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         a = np.array([(1, 'object')], dt)
         # Wrong way - should complain about writing buffer to object dtype
         raises(ValueError, np.array, [1, 'object'], dt)
+
+    def test_astype(self):
+        import numpy as np
+        a = np.array([b'a' * 100], dtype='O')
+        assert 'a' * 100 in str(a)
+        b = a.astype('S')
+        assert 'a' * 100 in str(b)
+        a = np.array([123], dtype='U')
+        assert a[0] == u'123'
+        b = a.astype('O')
+        assert b[0] == u'123'
+        assert type(b[0]) is unicode
+
+        class MyFloat(object):
+            def __float__(self):
+                return 1.0
+        a = np.array([MyFloat()])
+        assert a.shape == (1,)
+        assert a.dtype == np.object_
+        b = a.astype(float)
+        assert b.shape == (1,)
+        assert b.dtype == np.float_
+        assert (b == 1.0).all()

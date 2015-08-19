@@ -15,14 +15,17 @@ to change at some point.  Usually it is useful to look at the tests in
 listsort
 --------
 
-The :source:`rpython/rlib/listsort.py` module contains an implementation of the timsort sorting algorithm
-(the sort method of lists is not RPython). To use it, subclass from the
-``listsort.TimSort`` class and override the ``lt`` method to change the
-comparison behaviour. The constructor of ``TimSort`` takes a list as an
-argument, which will be sorted in place when the ``sort`` method of the
-``TimSort`` instance is called. **Warning:** currently only one type of list can
-be sorted using the ``listsort`` module in one program, otherwise the annotator
-will be confused.
+The :source:`rpython/rlib/listsort.py` module contains an implementation
+of the timsort sorting algorithm (the sort method of lists is not
+RPython). To use it, make (globally) one class by calling ``MySort =
+listsort.make_timsort_class(lt=my_comparison_func)``.  There are also
+other optional arguments, but usually you give with ``lt=...`` a
+function that compares two objects from your lists.  You need one class
+per "type" of list and per comparison function.
+
+The constructor of ``MySort`` takes a list as an argument, which will be
+sorted in place when the ``sort`` method of the ``MySort`` instance is
+called.
 
 
 nonconst
@@ -154,6 +157,20 @@ which wraps an iterator. Looping over the iterator in RPython code will not
 produce a loop in the resulting flow graph but will unroll the loop instead.
 
 
+rsre
+----
+
+The implementation of regular expressions we use for PyPy.  Note that it
+is hard to reuse in other languages: in Python, regular expressions are
+first compiled into a bytecode format by pure Python code from the
+standard library.  This lower-level module only understands this
+bytecode format.  Without a complete Python interpreter you can't
+translate the regexp syntax to the bytecode format.  (There are hacks
+for limited use cases where you have only static regexps: they can be
+precompiled during translation.  Alternatively, you could imagine
+executing a Python subprocess just to translate a regexp at runtime...)
+
+
 parsing
 -------
 
@@ -174,7 +191,8 @@ Regular Expressions
 -------------------
 
 The regular expression syntax is mostly a subset of the syntax of the `re`_
-module. By default, non-special characters match themselves. If you concatenate
+module.  *Note: this is different from rlib.rsre.*
+By default, non-special characters match themselves. If you concatenate
 regular expressions the result will match the concatenation of strings matched
 by the single regular expressions.
 

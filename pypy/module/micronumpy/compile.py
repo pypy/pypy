@@ -47,6 +47,9 @@ class W_TypeObject(W_Root):
     def lookup(self, name):
         return self.getdictvalue(self, name)
 
+    def getname(self, space):
+        return self.name
+
 class FakeSpace(ObjSpace):
     w_ValueError = W_TypeObject("ValueError")
     w_TypeError = W_TypeObject("TypeError")

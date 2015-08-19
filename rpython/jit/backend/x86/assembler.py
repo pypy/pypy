@@ -382,7 +382,8 @@ class Assembler386(BaseAssembler):
             # we have one word to align
             mc.SUB_ri(esp.value, 7 * WORD) # align and reserve some space
             mc.MOV_sr(WORD, eax.value) # save for later
-            mc.MOVSD_sx(2 * WORD, xmm0.value)   # 32-bit: also 3 * WORD
+            if self.cpu.supports_floats:
+                mc.MOVSD_sx(2 * WORD, xmm0.value)   # 32-bit: also 3 * WORD
             if IS_X86_32:
                 mc.MOV_sr(4 * WORD, edx.value)
                 mc.MOV_sr(0, ebp.value)
@@ -423,7 +424,8 @@ class Assembler386(BaseAssembler):
         else:
             if IS_X86_32:
                 mc.MOV_rs(edx.value, 4 * WORD)
-            mc.MOVSD_xs(xmm0.value, 2 * WORD)
+            if self.cpu.supports_floats:
+                mc.MOVSD_xs(xmm0.value, 2 * WORD)
             mc.MOV_rs(eax.value, WORD) # restore
             self._restore_exception(mc, exc0, exc1)
             mc.MOV(exc0, RawEspLoc(WORD * 5, REF))
@@ -1331,7 +1333,7 @@ class Assembler386(BaseAssembler):
         loc1, = arglocs
         assert isinstance(resloc, RegLoc)
         assert isinstance(loc1, RegLoc)
-        self.mc.MOVD32_xr(resloc.value, loc1.value)
+        self.mc.MOVD32_xr(resloc.value, loc1.value)   # zero-extending
 
     def genop_llong_eq(self, op, arglocs, resloc):
         loc1, loc2, locxtmp = arglocs
@@ -2432,7 +2434,7 @@ class Assembler386(BaseAssembler):
         while i < nbytes:
             addr = addr_add(base_loc, startindex_loc, baseofs + i, scale)
             current = nbytes - i
-            if current >= 16:
+            if current >= 16 and self.cpu.supports_floats:
                 current = 16
                 if not null_reg_cleared:
                     self.mc.XORPS_xx(null_loc.value, null_loc.value)

@@ -107,7 +107,7 @@ def parse_line(line, flags):
         classnames = set(classnames)
     else:
         classnames = set()
-    
+
     is_storage_source = old_storage is None
     if is_storage_source:
         if operation in STORAGE_SOURCES:
@@ -115,16 +115,16 @@ def parse_line(line, flags):
         else:
             print "Using operation %s as storage source." % operation
     old_storage = str(old_storage)
-    
+
     if new_storage in NODE_RENAMINGS:
         new_storage = NODE_RENAMINGS[new_storage]
     if old_storage in NODE_RENAMINGS:
         old_storage = NODE_RENAMINGS[old_storage]
-    
+
     return LogEntry(operation, old_storage, new_storage, classname, size, objects, classnames, is_storage_source)
 
 class LogEntry(object):
-    
+
     def __init__(self, operation, old_storage, new_storage, classname, size, objects, classnames, is_storage_source):
         self.operation = operation
         self.old_storage = old_storage
@@ -135,16 +135,16 @@ class LogEntry(object):
         self.classnames = classnames
         self.is_storage_source = is_storage_source
         assert old_storage != new_storage, "old and new storage identical in log entry: %s" % self
-    
+
     def full_key(self):
         return (self.operation, self.old_storage, self.new_storage)
-    
+
     def __lt__(self, other):
         return self.classname < other.classname
-    
+
     def __repr__(self):
         return "%s(%s)" % (self.__str__(), object.__repr__(self))
-    
+
     def __str__(self):
         old_storage_string = "%s -> " % self.old_storage if self.old_storage else ""
         classname_string = " of %s" % self.classname if self.classname else ""
@@ -156,12 +156,12 @@ class LogEntry(object):
 # ====================================================================
 
 class Operations(object):
-    
+
     def __init__(self, objects=0, slots=0, element_classnames=[]):
         self.objects = objects
         self.slots = slots
         self.element_classnames = set(element_classnames)
-    
+
     def __str__(self, total=None):
         if self.objects == 0:
             avg_slots = 0
@@ -172,7 +172,10 @@ class Operations(object):
         else:
             percent_slots = ""
         if total is not None and total.objects != 0:
-            percent_objects = " (%.1f%%)" % percent(self.objects, total.objects)
+            if percent(self.objects, total.objects) < 0.1:
+                percent_objects = " (&lt; 0.1%)"
+            else:
+                percent_objects = " (%.1f%%)" % percent(self.objects, total.objects)
         else:
             percent_objects = ""
         slots = format(self.slots, ",d")
@@ -180,50 +183,50 @@ class Operations(object):
         classnames = (" [ elements: %s ]" % ' '.join([str(x) for x in self.element_classnames])) \
                                     if len(self.element_classnames) else ""
         return "%s%s slots in %s%s objects (avg size: %.1f)%s" % (slots, percent_slots, objects, percent_objects, avg_slots, classnames)
-    
+
     def __repr__(self):
         return "%s(%s)" % (self.__str__(), object.__repr__(self))
-    
+
     def add_log_entry(self, entry):
         self.slots = self.slots + entry.size
         self.objects = self.objects + entry.objects
         self.element_classnames |= entry.classnames
-    
+
     def __sub__(self, other):
         return Operations(self.objects - other.objects, self.slots - other.slots)
-    
+
     def __add__(self, other):
         return Operations(self.objects + other.objects, self.slots + other.slots)
-    
+
     def __lt__(self, other):
         return self.slots < other.slots
-    
+
     def empty(self):
         return self.objects == 0 and self.slots == 0
-    
+
     def prefixprint(self, key="", total=None):
         if not self.empty():
             print "%s%s" % (key, self.__str__(total))
-    
+
 class ClassOperations(object):
-    
+
     def __init__(self):
         self.classes = {}
-    
+
     def cls(self, name):
         if name not in self.classes:
             self.classes[name] = Operations()
         return self.classes[name]
-    
+
     def total(self):
         return reduce(operator.add, self.classes.values(), Operations())
-    
+
     def __str__(self):
         return "ClassOperations(%s)" % self.classes
-    
+
     def __repr__(self):
         return "%s(%s)" % (self.__str__(), object.__repr__(self))
-    
+
     def __add__(self, other):
         result = ClassOperations()
         result.classes = dict(self.classes)
@@ -231,7 +234,7 @@ class ClassOperations(object):
             result.cls(classname) # Make sure exists.
             result.classes[classname] += other_class
         return result
-    
+
     def __sub__(self, other):
         result = ClassOperations()
         result.classes = dict(self.classes)
@@ -239,34 +242,34 @@ class ClassOperations(object):
             result.cls(classname) # Make sure exists.
             result.classes[classname] -= other_class
         return result
-    
+
 class StorageEdge(object):
-    
+
     def __init__(self, operation="None", origin=None, target=None):
         self.operation = operation
         self.classes = ClassOperations()
         self.origin = origin
         self.target = target
         self.is_storage_source = False
-    
+
     def full_key(self):
         return (self.operation, self.origin.name, self.target.name)
-    
+
     def cls(self, classname):
         return self.classes.cls(classname)
-    
+
     def total(self):
         return self.classes.total()
-    
+
     def notify_nodes(self):
         self.origin.note_outgoing(self)
         self.target.note_incoming(self)
-    
+
     def add_log_entry(self, entry):
         self.cls(entry.classname).add_log_entry(entry)
         if entry.is_storage_source:
             self.is_storage_source = True
-    
+
     def as_log_entries(self):
         entries = []
         for classname, ops in self.classes.classes.items():
@@ -275,71 +278,71 @@ class StorageEdge(object):
                             ops.slots, ops.objects, ops.element_classnames, self.is_storage_source)
             entries.append(entry)
         return entries
-    
+
     def __lt__(self, other):
         return self.full_key() < other.full_key()
-    
+
     def __str__(self):
         return "[%s %s -> %s]" % (self.operation, self.origin, self.target)
-    
+
     def __repr__(self):
         return "%s(%s)" % (self.__str__(), object.__repr__(self))
-    
+
     def __add__(self, other):
         origin = self.origin if self.origin is not None else other.origin
         target = self.target if self.target is not None else other.target
         result = StorageEdge(self.operation, origin, target)
         result.classes += self.classes + other.classes
         return result
-    
+
     def __sub__(self, other):
         origin = self.origin if self.origin is not None else other.origin
         target = self.target if self.target is not None else other.target
         result = StorageEdge(self.operation, origin, target)
         result.classes += self.classes - other.classes
         return result
-    
+
 class StorageNode(object):
-    
+
     def __init__(self, name):
         self.name = name
         self.incoming = set()
         self.outgoing = set()
-    
+
     def note_incoming(self, edge):
         assert edge.target is self
         if edge not in self.incoming:
             self.incoming.add(edge)
-        
+
     def note_outgoing(self, edge):
         assert edge.origin is self
         if edge not in self.outgoing:
             self.outgoing.add(edge)
-        
+
     def incoming_edges(self, operation):
         return filter(lambda x: x.operation == operation, self.incoming)
-    
+
     def outgoing_edges(self, operation):
         return filter(lambda x: x.operation == operation, self.outgoing)
-    
+
     def sum_incoming(self, operation):
         return reduce(operator.add, self.incoming_edges(operation), StorageEdge(operation))
-        
+
     def sum_outgoing(self, operation):
         return reduce(operator.add, self.outgoing_edges(operation), StorageEdge(operation))
-    
+
     def sum_all_incoming(self):
         return reduce(operator.add, self.incoming, StorageEdge())
-    
+
     def sum_all_outgoing(self):
         return reduce(operator.add, self.outgoing, StorageEdge())
-    
+
     def __str__(self):
         return self.name
-    
+
     def __repr__(self):
         return "%s(%s)" % (self.__str__(), object.__repr__(self))
-    
+
     def merge_edge_sets(self, set1, set2, key_slot):
         getter = lambda edge: edge.__dict__[key_slot]
         set_dict = dict([(getter(edge), edge) for edge in set1])
@@ -350,7 +353,7 @@ class StorageNode(object):
             else:
                 set_dict[key] += edge
         return set(set_dict.values())
-    
+
     def __add__(self, other):
         result = StorageNode("%s %s" % (self.name, other.name))
         result.incoming = self.merge_edge_sets(self.incoming, other.incoming, "origin")
@@ -361,34 +364,34 @@ class StorageNode(object):
         for edge in result.outgoing:
             edge.origin = result
         return result
-    
+
     def __lt__(self, other):
         return self.name < other.name
-    
+
     def is_artificial(self):
         for outgoing in self.outgoing:
             if outgoing.is_storage_source:
                 return True
         return False
-    
+
     def is_storage_node(self):
         return self.is_artificial() or self.name in STORAGE_NODES
-    
+
     def dot_name(self):
         return self.name.replace(" ", "_")
-    
+
 class StorageGraph(object):
-    
+
     def __init__(self):
         self.nodes = {}
         self.edges = {}
         self.operations = set()
-    
+
     def node(self, name):
         if name not in self.nodes:
             self.nodes[name] = StorageNode(name)
         return self.nodes[name]
-    
+
     def assert_sanity(self):
         visited_edges = set()
         for node in self.nodes.values():
@@ -411,7 +414,7 @@ class StorageGraph(object):
                     print "Edge not in origin's incoming: %s\nOutgoing edge: %s\nIn node: %s" % (edge.target.incoming, edge, node)
                     assert False
         assert len(visited_edges) == len(self.edges.values()), "Not all of graph's edges visited."
-    
+
     def add_log_entry(self, log_entry):
         self.operations.add(log_entry.operation)
         key = log_entry.full_key()
@@ -420,7 +423,7 @@ class StorageGraph(object):
             self.edges[key] = edge
             edge.notify_nodes()
         self.edges[key].add_log_entry(log_entry)
-    
+
     def collapse_nodes(self, collapsed_nodes, new_name=None):
         if len(collapsed_nodes) == 0:
             return
@@ -451,16 +454,16 @@ class StorageGraph(object):
         for edge in new_node.outgoing:
             self.edges[edge.full_key()] = edge
         self.assert_sanity()
-    
+
     def collapse_nonstorage_nodes(self, new_name=None):
         nodes = filter(lambda x: not x.is_storage_node(), self.nodes.values())
         self.collapse_nodes(nodes, new_name)
-    
+
     def sorted_nodes(self):
         nodes = self.nodes.values()
         nodes.sort()
         return nodes
-    
+
 def make_graph(logfile, flags):
     graph = StorageGraph()
     def callback(entry):
@@ -484,7 +487,7 @@ def StorageNode_print_summary(self, flags, all_operations):
     print "\n%s:" % self.name
     sum = StorageEdge()
     total_incoming = self.sum_all_incoming().total() if flags.percent else None
-    
+
     print "\tIncoming:"
     for operation in all_operations:
         if flags.detailed:
@@ -494,7 +497,7 @@ def StorageNode_print_summary(self, flags, all_operations):
         for edgename, edge in edges:
             edge.print_with_name("\t\t\t", edgename, total_incoming, flags)
             sum += edge
-    
+
     print "\tOutgoing:"
     for operation in all_operations:
         if flags.detailed:
@@ -504,13 +507,13 @@ def StorageNode_print_summary(self, flags, all_operations):
         for edgename, edge in edges:
             edge.print_with_name("\t\t\t", edgename, total_incoming, flags)
             sum -= edge
-    
+
     sum.print_with_name("\t", "Remaining", total_incoming, flags)
 
 StorageNode.print_summary = StorageNode_print_summary
 
 def StorageEdge_print_with_name(self, prefix, edgename, total_reference, flags):
-    if flags.classes:   
+    if flags.classes:
         print "%s%s:" % (prefix, edgename)
         prefix += "\t\t"
         operations = self.classes.classes.items()
@@ -519,7 +522,7 @@ def StorageEdge_print_with_name(self, prefix, edgename, total_reference, flags):
         operations = [ (edgename, self.total()) ]
     for classname, classops in operations:
         classops.prefixprint("%s%s: " % (prefix, classname), total_reference)
-    
+
 StorageEdge.print_with_name = StorageEdge_print_with_name
 
 # ====================================================================
@@ -558,15 +561,21 @@ def dot_string(graph, flags):
     incoming_cache = {}
     if not flags.allstorage:
         graph.collapse_nonstorage_nodes("Other")
-    
+
     def make_label(edge, prefix="", total_edge=None, slots_per_object=False):
         object_suffix = " objects"
         slots_suffix = " slots"
         if not flags.objects or not flags.slots:
             object_suffix = slots_suffix = ""
         if total_edge and flags.percent and total_edge.objects != 0:
-            percent_objects = " (%.1f%%)" % percent(edge.objects, total_edge.objects)
-            percent_slots = " (%.1f%%)" % percent(edge.slots, total_edge.slots)
+            if percent(edge.objects, total_edge.objects) < 0.1:
+                percent_objects = " (&lt; 0.1%)"
+            else:
+                percent_objects = " (%.1f%%)" % percent(edge.objects, total_edge.objects)
+            if percent(edge.slots, total_edge.slots) < 0.1:
+                percent_slots = " (&lt; 0.1%)"
+            else:
+                percent_slots = " (%.1f%%)" % percent(edge.slots, total_edge.slots)
         else:
             percent_objects = percent_slots = ""
         label = ""
@@ -577,7 +586,7 @@ def dot_string(graph, flags):
         if slots_per_object and flags.slotsPerObject:
             label += "%.1f slots/object<BR/>" % (float(total.slots) / total.objects)
         return label
-    
+
     for node in graph.nodes.values():
         incoming = node.sum_all_incoming().total()
         outgoing = node.sum_all_outgoing().total()
@@ -593,7 +602,7 @@ def dot_string(graph, flags):
             if remaining.objects != incoming.objects:
                 label += make_label(remaining, "Remaining: ", incoming)
         result += "%s [label=<<B><U>%s</U></B><BR/>%s>%s];" % (node.dot_name(), node.name, label, shape)
-    
+
     for edge in graph.edges.values():
         total = edge.total()
         incoming = incoming_cache[edge.origin.name]
@@ -601,7 +610,7 @@ def dot_string(graph, flags):
         target_node = edge.target.dot_name()
         source_node = edge.origin.dot_name()
         result += "%s -> %s [label=<%s>];" % (source_node, target_node, label)
-    
+
     result += "}"
     return result
 
@@ -629,24 +638,24 @@ def command_print_entries(logfile, flags):
 # ====================================================================
 
 class Flags(object):
-    
+
     def __init__(self, flags):
         self.flags = {}
         for name, short in flags:
             self.__dict__[name] = False
             self.flags[short] = name
-    
+
     def handle(self, arg):
         if arg in self.flags:
             self.__dict__[self.flags[arg]] = True
             return True
         else:
             return False
-    
+
     def __str__(self):
         descriptions = [ ("%s (%s)" % description) for description in self.flags.items() ]
         return "[%s]" % " | ".join(descriptions)
-    
+
 def usage(flags, commands):
     print "Arguments: logfile command %s" % flags
     print "Available commands: %s" % commands
@@ -656,25 +665,25 @@ def main(argv):
     flags = Flags([
         # General
         ('verbose', '-v'),
-        
+
         # All outputs
         ('percent', '-p'),
         ('allstorage', '-a'),
-        
+
         # Text outputs
         ('detailed', '-d'),
         ('classes', '-c'),
-        
+
         # dot outputs
         ('slots', '-s'),
         ('objects', '-o'),
         ('slotsPerObject', '-S'),
     ])
-    
+
     command_prefix = "command_"
     module = sys.modules[__name__].__dict__
     commands = [ a[len(command_prefix):] for a in module.keys() if a.startswith(command_prefix) ]
-    
+
     if len(argv) < 2:
         usage(flags, commands)
     logfile = argv[0]
@@ -686,7 +695,7 @@ def main(argv):
             usage(flags, commands)
     if command not in commands:
         usage(flags, commands)
-    
+
     func = module[command_prefix + command]
     func(logfile, flags)
 

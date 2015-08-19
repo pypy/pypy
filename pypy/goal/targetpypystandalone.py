@@ -1,6 +1,6 @@
 import py
 
-import os, sys
+import os, sys, subprocess
 
 import pypy
 from pypy.interpreter import gateway
@@ -21,7 +21,10 @@ except NameError:
     this_dir = os.path.dirname(sys.argv[0])
 
 def debug(msg):
-    os.write(2, "debug: " + msg + '\n')
+    try:
+        os.write(2, "debug: " + msg + '\n')
+    except OSError:
+        pass     # bah, no working stderr :-(
 
 # __________  Entry point  __________
 
@@ -94,13 +97,16 @@ def create_entry_point(space, w_dict):
         from pypy.module.sys.initpath import pypy_find_stdlib
         verbose = rffi.cast(lltype.Signed, verbose)
         if ll_home:
-            home = rffi.charp2str(ll_home)
+            home1 = rffi.charp2str(ll_home)
+            home = os.path.join(home1, 'x') # <- so that 'll_home' can be
+                                            # directly the root directory
         else:
-            home = pypydir
+            home = home1 = pypydir
         w_path = pypy_find_stdlib(space, home)
         if space.is_none(w_path):
             if verbose:
-                debug("Failed to find library based on pypy_find_stdlib")
+                debug("pypy_setup_home: directories 'lib-python' and 'lib_pypy'"
+                      " not found in '%s' or in any parent directory" % home1)
             return rffi.cast(rffi.INT, 1)
         space.startup()
         space.call_function(w_pathsetter, w_path)
@@ -122,13 +128,7 @@ def create_entry_point(space, w_dict):
 
     @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
-        after = rffi.aroundstate.after
-        if after: after()
-        source = rffi.charp2str(ll_source)
-        res = _pypy_execute_source(source)
-        before = rffi.aroundstate.before
-        if before: before()
-        return rffi.cast(rffi.INT, res)
+        return pypy_execute_source_ptr(ll_source, 0)
 
     @entrypoint('main', [rffi.CCHARP, lltype.Signed],
                 c_name='pypy_execute_source_ptr')
@@ -136,9 +136,7 @@ def create_entry_point(space, w_dict):
         after = rffi.aroundstate.after
         if after: after()
         source = rffi.charp2str(ll_source)
-        space.setitem(w_globals, space.wrap('c_argument'),
-                      space.wrap(ll_ptr))
-        res = _pypy_execute_source(source)
+        res = _pypy_execute_source(source, ll_ptr)
         before = rffi.aroundstate.before
         if before: before()
         return rffi.cast(rffi.INT, res)
@@ -163,15 +161,21 @@ def create_entry_point(space, w_dict):
         before = rffi.aroundstate.before
         if before: before()
 
-    w_globals = space.newdict()
-    space.setitem(w_globals, space.wrap('__builtins__'),
-                  space.builtin_modules['__builtin__'])
-
-    def _pypy_execute_source(source):
+    def _pypy_execute_source(source, c_argument):
         try:
-            compiler = space.createcompiler()
-            stmt = compiler.compile(source, 'c callback', 'exec', 0)
-            stmt.exec_code(space, w_globals, w_globals)
+            w_globals = space.newdict(module=True)
+            space.setitem(w_globals, space.wrap('__builtins__'),
+                          space.builtin_modules['__builtin__'])
+            space.setitem(w_globals, space.wrap('c_argument'),
+                          space.wrap(c_argument))
+            space.appexec([space.wrap(source), w_globals], """(src, glob):
+                import sys
+                stmt = compile(src, 'c callback', 'exec')
+                if not hasattr(sys, '_pypy_execute_source'):
+                    sys._pypy_execute_source = []
+                sys._pypy_execute_source.append(glob)
+                exec stmt in glob
+            """)
         except OperationError, e:
             debug("OperationError:")
             debug(" operror-type: " + e.w_type.getname(space))
@@ -291,8 +295,49 @@ class PyPyTarget(object):
         options = make_dict(config)
         wrapstr = 'space.wrap(%r)' % (options)
         pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
+        if config.objspace.usemodules._cffi_backend:
+            self.hack_for_cffi_modules(driver)
 
         return self.get_entry_point(config)
+    
+    def hack_for_cffi_modules(self, driver):
+        # HACKHACKHACK
+        # ugly hack to modify target goal from compile_c to build_cffi_imports
+        # this should probably get cleaned up and merged with driver.create_exe
+        from rpython.translator.driver import taskdef
+        import types
+
+        class Options(object):
+            pass
+
+
+        def mkexename(name):
+            if sys.platform == 'win32':
+                name = name.new(ext='exe')
+            return name
+
+        @taskdef(['compile_c'], "Create cffi bindings for modules")
+        def task_build_cffi_imports(self):
+            from pypy.tool.build_cffi_imports import create_cffi_import_libraries
+            ''' Use cffi to compile cffi interfaces to modules'''
+            exename = mkexename(driver.compute_exe_name())
+            basedir = exename
+            while not basedir.join('include').exists():
+                _basedir = basedir.dirpath()
+                if _basedir == basedir:
+                    raise ValueError('interpreter %s not inside pypy repo', 
+                                     str(exename))
+                basedir = _basedir
+            modules = self.config.objspace.usemodules.getpaths()
+            options = Options()
+            # XXX possibly adapt options using modules
+            failures = create_cffi_import_libraries(exename, options, basedir)
+            # if failures, they were already printed
+            print  >> sys.stderr, str(exename),'successfully built, but errors while building the above modules will be ignored'
+        driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
+        driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, ['compile_c']
+        driver.default_goal = 'build_cffi_imports'
+        # HACKHACKHACK end
 
     def jitpolicy(self, driver):
         from pypy.module.pypyjit.policy import PyPyJitPolicy

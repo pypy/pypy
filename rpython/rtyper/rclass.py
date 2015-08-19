@@ -7,6 +7,7 @@ from rpython.annotator import description, model as annmodel
 from rpython.rlib.objectmodel import UnboxedValue
 from rpython.tool.pairtype import pairtype, pair
 from rpython.tool.identity_dict import identity_dict
+from rpython.tool.flattenrec import FlattenRecursion
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype
@@ -767,11 +768,14 @@ class InstanceRepr(Repr):
             self.initialize_prebuilt_data(Ellipsis, self.classdef, result)
             return result
 
+    _initialize_data_flattenrec = FlattenRecursion()
+
     def initialize_prebuilt_instance(self, value, classdef, result):
         # must fill in the hash cache before the other ones
         # (see test_circular_hash_initialization)
         self.initialize_prebuilt_hash(value, result)
-        self.initialize_prebuilt_data(value, classdef, result)
+        self._initialize_data_flattenrec(self.initialize_prebuilt_data,
+                                         value, classdef, result)
 
     def get_ll_hash_function(self):
         return ll_inst_hash
@@ -912,9 +916,9 @@ class InstanceRepr(Repr):
                             name, None)
                         if attrvalue is None:
                             # Ellipsis from get_reusable_prebuilt_instance()
-                            if value is not Ellipsis:
-                                warning("prebuilt instance %r has no "
-                                        "attribute %r" % (value, name))
+                            #if value is not Ellipsis:
+                                #warning("prebuilt instance %r has no "
+                                #        "attribute %r" % (value, name))
                             llattrvalue = r.lowleveltype._defl()
                         else:
                             llattrvalue = r.convert_desc_or_const(attrvalue)

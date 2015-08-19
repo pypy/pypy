@@ -44,7 +44,7 @@
 #ifndef BASE_GETPC_H_
 #define BASE_GETPC_H_
 
-#include "config.h"
+#include "vmprof_config.h"
 
 // On many linux systems, we may need _GNU_SOURCE to get access to
 // the defined constants that define the register we want to see (eg
@@ -132,7 +132,7 @@ static const CallUnrollInfo callunrollinfo[] = {
   }
 };
 
-inline void* GetPC(ucontext_t *signal_ucontext) {
+void* GetPC(ucontext_t *signal_ucontext) {
   // See comment above struct CallUnrollInfo.  Only try instruction
   // flow matching if both eip and esp looks reasonable.
   const int eip = signal_ucontext->uc_mcontext.gregs[REG_EIP];
@@ -168,7 +168,7 @@ inline void* GetPC(ucontext_t *signal_ucontext) {
 typedef int ucontext_t;
 #endif
 
-inline void* GetPC(ucontext_t *signal_ucontext) {
+void* GetPC(ucontext_t *signal_ucontext) {
   RAW_LOG(ERROR, "GetPC is not yet implemented on Windows\n");
   return NULL;
 }
@@ -178,7 +178,7 @@ inline void* GetPC(ucontext_t *signal_ucontext) {
 // the right value for your system, and add it to the list in
 // configure.ac (or set it manually in your config.h).
 #else
-inline void* GetPC(ucontext_t *signal_ucontext) {
+void* GetPC(ucontext_t *signal_ucontext) {
   return (void*)signal_ucontext->PC_FROM_UCONTEXT;   // defined in config.h
 }
 

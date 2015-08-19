@@ -275,16 +275,13 @@ class MIFrame(object):
         return self.execute(rop.MARK_OPAQUE_PTR, box)
 
     @arguments("box", "box")
-    def opimpl_record_known_class(self, box, clsbox):
+    def opimpl_record_exact_class(self, box, clsbox):
         from rpython.rtyper.lltypesystem import llmemory
         if self.metainterp.heapcache.is_class_known(box):
             return
         adr = clsbox.getaddr()
-        bounding_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
-        if bounding_class.subclassrange_max - bounding_class.subclassrange_min == 1:
-            # precise class knowledge, this can be used
-            self.execute(rop.RECORD_KNOWN_CLASS, box, clsbox)
-            self.metainterp.heapcache.class_now_known(box)
+        self.execute(rop.RECORD_EXACT_CLASS, box, clsbox)
+        self.metainterp.heapcache.class_now_known(box)
 
     @arguments("box")
     def _opimpl_any_return(self, box):
@@ -372,7 +369,10 @@ class MIFrame(object):
         ).compile()
 
     def _establish_nullity(self, box, orgpc):
+        heapcache = self.metainterp.heapcache
         value = box.nonnull()
+        if heapcache.is_nullity_known(box):
+            return value
         if value:
             if not self.metainterp.heapcache.is_class_known(box):
                 self.metainterp.generate_guard(rop.GUARD_NONNULL, box,
@@ -383,6 +383,7 @@ class MIFrame(object):
                                                resumepc=orgpc)
                 promoted_box = box.constbox()
                 self.metainterp.replace_box(box, promoted_box)
+        heapcache.nullity_now_known(box)
         return value
 
     @arguments("box", "label", "orgpc")
@@ -649,16 +650,16 @@ class MIFrame(object):
 
     @specialize.arg(1)
     def _opimpl_getfield_gc_any_pureornot(self, opnum, box, fielddescr):
-        tobox = self.metainterp.heapcache.getfield(box, fielddescr)
-        if tobox is not None:
+        upd = self.metainterp.heapcache.get_field_updater(box, fielddescr)
+        if upd.currfieldbox is not None:
             # sanity check: see whether the current struct value
             # corresponds to what the cache thinks the value is
             resbox = executor.execute(self.metainterp.cpu, self.metainterp,
                                       rop.GETFIELD_GC, fielddescr, box)
-            assert resbox.constbox().same_constant(tobox.constbox())
-            return tobox
+            assert resbox.constbox().same_constant(upd.currfieldbox.constbox())
+            return upd.currfieldbox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
-        self.metainterp.heapcache.getfield_now_known(box, fielddescr, resbox)
+        upd.getfield_now_known(resbox)
         return resbox
 
     @arguments("box", "descr", "orgpc")
@@ -679,10 +680,11 @@ class MIFrame(object):
 
     @arguments("box", "box", "descr")
     def _opimpl_setfield_gc_any(self, box, valuebox, fielddescr):
-        tobox = self.metainterp.heapcache.getfield(box, fielddescr)
-        if tobox is valuebox:
+        upd = self.metainterp.heapcache.get_field_updater(box, fielddescr)
+        if upd.currfieldbox is valuebox:
             return
-        self.metainterp.execute_setfield_gc(fielddescr, box, valuebox)
+        self.metainterp.execute_and_record(rop.SETFIELD_GC, fielddescr, box, valuebox)
+        upd.setfield(valuebox)
         # The following logic is disabled because buggy.  It is supposed
         # to be: not(we're writing null into a freshly allocated object)
         # but the bug is that is_unescaped() can be True even after the
@@ -1922,9 +1924,10 @@ class MetaInterp(object):
         resbox = executor.execute(self.cpu, self, opnum, descr, *argboxes)
         if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
             return self._record_helper_pure(opnum, resbox, descr, *argboxes)
-        else:
-            return self._record_helper_nonpure_varargs(opnum, resbox, descr,
-                                                       list(argboxes))
+        if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
+            return self._record_helper_ovf(opnum, resbox, descr, *argboxes)
+        return self._record_helper_nonpure_varargs(opnum, resbox, descr,
+                                                   list(argboxes))
 
     @specialize.arg(1)
     def execute_and_record_varargs(self, opnum, argboxes, descr=None):
@@ -1951,6 +1954,12 @@ class MetaInterp(object):
             resbox = resbox.nonconstbox()    # ensure it is a Box
             return self._record_helper_nonpure_varargs(opnum, resbox, descr, list(argboxes))
 
+    def _record_helper_ovf(self, opnum, resbox, descr, *argboxes):
+        if (self.last_exc_value_box is None and
+                self._all_constants(*argboxes)):
+            return resbox.constbox()
+        return self._record_helper_nonpure_varargs(opnum, resbox, descr, list(argboxes))
+
     def _record_helper_pure_varargs(self, opnum, resbox, descr, argboxes):
         canfold = self._all_constants_varargs(argboxes)
         if canfold:
@@ -1962,10 +1971,6 @@ class MetaInterp(object):
 
     def _record_helper_nonpure_varargs(self, opnum, resbox, descr, argboxes):
         assert resbox is None or isinstance(resbox, Box)
-        if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST and
-            self.last_exc_value_box is None and
-            self._all_constants_varargs(argboxes)):
-            return resbox.constbox()
         # record the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, Counters.RECORDED_OPS)

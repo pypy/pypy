@@ -8,6 +8,7 @@ from pypy.module.test_lib_pypy.cffi_tests.udir import udir
 
 def setup_module(mod):
     SRC = """
+    #include <string.h>
     #define FOOBAR (-42)
     static const int FOOBAZ = -43;
     #define BIGPOS 420000000000L
@@ -54,6 +55,7 @@ def setup_module(mod):
     struct foo_s;
     typedef struct bar_s { int x; signed char a[]; } bar_t;
     enum foo_e { AA, BB, CC };
+    int strlen(const char *);
     """)
     ffi.set_source('re_python_pysrc', None)
     ffi.emit_python_code(str(tmpdir.join('re_python_pysrc.py')))
@@ -82,9 +84,19 @@ def test_function():
 def test_function_with_varargs():
     import _cffi_backend
     from re_python_pysrc import ffi
-    lib = ffi.dlopen(extmod)
+    lib = ffi.dlopen(extmod, 0)
     assert lib.add43(45, ffi.cast("int", -5)) == 45
     assert type(lib.add43) is _cffi_backend.FFI.CData
+
+def test_dlopen_none():
+    import _cffi_backend
+    from re_python_pysrc import ffi
+    name = None
+    if sys.platform == 'win32':
+        import ctypes.util
+        name = ctypes.util.find_msvcrt()
+    lib = ffi.dlopen(name)
+    assert lib.strlen(b"hello") == 5
 
 def test_dlclose():
     import _cffi_backend
