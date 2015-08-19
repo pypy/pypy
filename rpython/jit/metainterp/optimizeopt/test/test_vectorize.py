@@ -97,6 +97,7 @@ class VecTestHelper(DependencyBaseTest):
             if cycle is not None:
                 print "CYCLE found %s" % cycle
             self.show_dot_graph(opt.dependency_graph, "early_exit_" + self.test_name)
+            assert cycle is None
             opt.schedule(False)
         opt.unroll_loop_iterations(loop, unroll_factor)
         opt.loop.operations = opt.get_newoperations()
@@ -1348,7 +1349,6 @@ class BaseTestVectorize(VecTestHelper):
         guard_true(i22, descr=<ResumeGuardTrueDescr object at 0x7fc657d7bdc0>) [p1, p0, p5, p6, p7, p12, p13, i14]
         jump(p0, p1, p5, p6, p7, p12, p13, i31, i15, i16, i17, i18, i19, i20)
         """
-        # schedule 885 -> ptype is non for raw_load?
         opt = self.vectorize(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)
 

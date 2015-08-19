@@ -4,6 +4,7 @@ from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import (rop, GuardResOp, ResOperation)
 from rpython.jit.metainterp.resume import Snapshot
+from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (BoxPtr, ConstPtr, ConstInt, BoxInt,
     Box, Const, BoxFloat, AbstractValue)
@@ -61,8 +62,13 @@ class Path(object):
             count -= 1
         while i < count: 
             op = self.path[i].getoperation()
-            if op.getopnum() != rop.GUARD_EARLY_EXIT and not op.is_always_pure():
+            if not op.is_always_pure():
                 return False
+            if op.is_guard():
+                descr = op.getdescr()
+                assert isinstance(descr, ResumeGuardDescr)
+                if not descr or not descr.exits_early():
+                    return False
             i += 1
         return True
 
@@ -286,9 +292,8 @@ class Node(object):
             else:
                 iterdir = node.provides()
             if index >= len(iterdir):
-                #if blacklist:
-                    #blacklist_visit[node] = None
-                #    print "blacklisting 1", node, "path", '->'.join([str(p.opidx) for p in path.path])
+                if blacklist:
+                    blacklist_visit[node] = None
                 continue
             else:
                 next_dep = iterdir[index]
@@ -297,7 +302,6 @@ class Node(object):
                 if index < len(iterdir):
                     worklist.append((index, node, pathlen))
                 else:
-                    print "blacklisting 2", node, "path", '->'.join([str(p.opidx) for p in path.path])
                     blacklist_visit[node] = None
                 path.cut_off_at(pathlen)
                 path.walk(next_node)
@@ -385,9 +389,6 @@ class Dependency(object):
         return self.to == to
     def points_at(self, at):
         return self.at == at
-    def i_points_at(self, idx):
-        # REM
-        return self.at.opidx == idx
 
     def add_dependency(self, at, to, arg):
         self.args.append((at,arg))
@@ -576,17 +577,16 @@ class DependencyGraph(object):
         # pass 2 correct guard dependencies
         for guard_node in self.guards:
             self.build_guard_dependencies(guard_node, tracker)
-        # pass 3 find schedulable nodes
-        jump_node = self.nodes[jump_pos]
-        label_node = self.nodes[label_pos]
+
+    def prepare_for_scheduling(self):
+        jump_node = self.nodes[len(self.nodes)-1]
+        jump_node.emitted = True
+        label_node = self.nodes[0]
         for node in self.nodes:
-            if node != jump_node:
-                if node.depends_count() == 0:
-                    self.schedulable_nodes.insert(0, node)
-                # every leaf instruction points to the jump_op. in theory every instruction
-                # points to jump_op. this forces the jump/finish op to be the last operation
-                if node.provides_count() == 0:
-                    node.edge_to(jump_node, None, label='jump')
+            if node.depends_count() == 0:
+                self.schedulable_nodes.insert(0, node)
+        if not we_are_translated():
+            assert self.schedulable_nodes[-1] == label_node
 
     def guard_argument_protection(self, guard_node, tracker):
         """ the parameters the guard protects are an indicator for

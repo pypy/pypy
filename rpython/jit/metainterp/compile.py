@@ -674,6 +674,9 @@ class ResumeGuardDescr(ResumeDescr):
         cloned.copy_all_attributes_from(self)
         return cloned
 
+    def exits_early(self):
+        return True
+
 class ResumeGuardNonnullDescr(ResumeGuardDescr):
     guard_opnum = rop.GUARD_NONNULL
 

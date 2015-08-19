@@ -469,6 +469,7 @@ class VectorizingOptimizer(Optimizer):
         if sched_data is None:
             sched_data = VecScheduleData(self.cpu.vector_register_size,
                                          self.costmodel, self.orig_label_args)
+        self.dependency_graph.prepare_for_scheduling()
         scheduler = Scheduler(self.dependency_graph, sched_data)
         renamer = Renamer()
         #
@@ -515,49 +516,34 @@ class VectorizingOptimizer(Optimizer):
         label_node = graph.getnode(0)
         ee_guard_node = graph.getnode(ee_pos)
         guards = graph.guards
-        unique = set()
         for guard_node in guards:
             if guard_node is ee_guard_node:
                 continue
             modify_later = []
             last_prev_node = None
-            for path in guard_node.iterate_paths(ee_guard_node, backwards=True, blacklist=True):
-                p = '->'.join([str(p.opidx) for p in path.path])
-                if p in unique:
-                    assert 0
+            valid = True
+            for prev_dep in guard_node.depends():
+                prev_node = prev_dep.to
+                if prev_dep.is_failarg():
+                    # remove this edge later.
+                    # 1) only because of failing, this dependency exists
+                    # 2) non pure operation points to this guard.
+                    #    but if this guard only depends on pure operations, it can be checked
+                    #    at an earlier position, the non pure op can execute later!
+                    modify_later.append((prev_node, guard_node))
                 else:
-                    unique.add(p)
-                print "PATH:", p
-                if not we_are_translated():
-                    path.check_acyclic()
-                prev_node = path.second()
-                dep = prev_node.depends_on(guard_node)
-                if dep.is_failarg():
-                    # this dependency we are able to break because it is soley
-                    # relevant due to one or multiple fail args
-                    if prev_node is not last_prev_node:
-                        #  ...
-                        #  o  o
-                        #  \ /
-                        #  (a)
-                        #   |
-                        #  (g)
-                        # this graph yields 2 paths from (g), thus (a) is
-                        # remembered and skipped the second time visited
-                        modify_later.append((prev_node, guard_node))
-                        print "  => remove guard -> second"
-                    last_prev_node = prev_node
-                    continue
-                if path.is_always_pure(exclude_first=True, exclude_last=True):
-                    path.set_schedule_priority(10)
-                    if path.last() is ee_guard_node:
-                        modify_later.append((path.last_but_one(), None))
-                        print "  => always pure"
-                else:
-                    # transformation is invalid.
-                    # exit and do not enter else branch!
-                    break
-            else:
+                    for path in prev_node.iterate_paths(ee_guard_node, backwards=True, blacklist=True):
+                        if path.is_always_pure(exclude_first=True, exclude_last=True):
+                            path.set_schedule_priority(10)
+                            if path.last() is ee_guard_node:
+                                modify_later.append((path.last_but_one(), None))
+                        else:
+                            # transformation is invalid.
+                            # exit and do not enter else branch!
+                            valid = False
+                    if not valid:
+                        break
+            if valid:
                 # transformation is valid, modify the graph and execute
                 # this guard earlier
                 for a,b in modify_later:
@@ -568,7 +554,8 @@ class VectorizingOptimizer(Optimizer):
                         if last_but_one is ee_guard_node:
                             continue
                         ee_guard_node.remove_edge_to(last_but_one)
-                        label_node.edge_to(last_but_one, label='pullup')
+                        #label_node.edge_to(last_but_one, label='pullup')
+                print "guard", guard_node, "moved earlier"
                 # only the last guard needs a connection
                 guard_node.edge_to(ee_guard_node, label='pullup-last-guard')
                 self.relax_guard_to(guard_node, ee_guard_node)

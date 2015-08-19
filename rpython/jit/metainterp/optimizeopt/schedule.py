@@ -98,6 +98,11 @@ class Scheduler(object):
 
             raise AssertionError("schedule failed cannot continue. possible reason: cycle")
 
+        jump_node = self.graph.nodes[-1]
+        assert jump_node.getopnum() == rop.JUMP
+        self.sched_data.unpack_from_vector(jump_node.getoperation(), self)
+        oplist.append(jump_node.getoperation())
+
 def vectorbox_outof_box(box, count=-1, size=-1, type='-'):
     if box.type not in (FLOAT, INT):
         raise AssertionError("cannot create vector box of type %s" % (box.type))
