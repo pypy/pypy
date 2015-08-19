@@ -145,6 +145,8 @@ class UnrollOptimizer(Optimization):
         args = [self.get_box_replacement(op) for op in jump_op.getarglist()]
         target_token = jitcelltoken.target_tokens[0]
         virtual_state = self.get_virtual_state(args)
+        target_virtual_state = target_token.virtual_state
+        
         short_preamble = target_token.short_preamble
         extra = self.inline_short_preamble(args,
             short_preamble[0].getarglist(), short_preamble[1:-1],

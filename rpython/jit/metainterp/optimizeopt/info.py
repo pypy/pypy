@@ -420,8 +420,11 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
 
 class ArrayStructInfo(ArrayPtrInfo):
     def __init__(self, size, vdescr=None):
+        from rpython.jit.metainterp.optimizeopt import intutils
+
         self.length = size
         lgt = len(vdescr.get_all_fielddescrs())
+        self.lenbound = intutils.ConstIntBound(size)
         self.vdescr = vdescr
         self._items = [None] * (size * lgt)
 

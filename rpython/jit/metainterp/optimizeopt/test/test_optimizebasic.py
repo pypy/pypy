@@ -568,8 +568,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i3 = getfield_gc_i(p3, descr=valuedescr)
         escape_n(i3)
         p1 = new_with_vtable(descr=nodesize)
-        setfield_gc(p1, i1, descr=valuedescr)
         p1sub = new_with_vtable(descr=nodesize2)
+        setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p1sub, i1, descr=valuedescr)
         setfield_gc(p1, p1sub, descr=nextdescr)
         jump(i1, p1, p2)
@@ -584,10 +584,10 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p3sub = getfield_gc_r(p3, descr=nextdescr)
         i3 = getfield_gc_i(p3sub, descr=valuedescr)
         escape_n(i3)
-        p1 = new_with_vtable(descr=nodesize)
         p2sub = new_with_vtable(descr=nodesize2)
-        setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
+        p1 = new_with_vtable(descr=nodesize)
+        setfield_gc(p2sub, i1, descr=valuedescr)
         jump(i1, p1, p2)
         """
         # The same as test_p123_simple, but in the end the "old" p2 contains
@@ -3040,9 +3040,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p3 = force_token()
         #
         p2 = new_with_vtable(descr=vref_descr)
-        setfield_gc(p2, p3, descr=virtualtokendescr)
-        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p0, p2, descr=nextdescr)
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
+        setfield_gc(p2, p3, descr=virtualtokendescr)
         #
         call_may_force_n(i1, descr=mayforcevirtdescr)
         guard_not_forced() [i1]
@@ -3051,9 +3051,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p2, NULL, descr=virtualtokendescr)
         p1 = new_with_vtable(descr=nodesize)
         p1b = new_with_vtable(descr=nodesize)
+        setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p1b, 252, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
-        setfield_gc(p2, p1, descr=virtualforceddescr)
         jump(p0, i1)
         """
         self.optimize_loop(ops, expected)
@@ -3080,9 +3080,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p3 = force_token()
         #
         p2 = new_with_vtable(descr=vref_descr)
-        setfield_gc(p2, p3, descr=virtualtokendescr)
-        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p0, p2, descr=nextdescr)
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
+        setfield_gc(p2, p3, descr=virtualtokendescr)
         #
         call_may_force_n(i1, descr=mayforcevirtdescr)
         guard_not_forced() [p2, i1]
@@ -3091,9 +3091,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p2, NULL, descr=virtualtokendescr)
         p1 = new_with_vtable(descr=nodesize)
         p1b = new_with_vtable(descr=nodesize)
+        setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p1b, i1, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
-        setfield_gc(p2, p1, descr=virtualforceddescr)
         jump(p0, i1)
         """
         # the point of this test is that 'i1' should show up in the fail_args

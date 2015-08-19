@@ -484,13 +484,21 @@ class Optimizer(Optimization):
             newargs = inputargs
         self.init_inparg_dict_from(newargs)
         self.call_pure_results = call_pure_results
-        for op in ops:
+        if ops[-1].getopnum() in (rop.FINISH, rop.JUMP):
+            last = len(ops) - 1
+            extra_jump = True
+        else:
+            extra_jump = False
+            last = len(ops)
+        for i in range(last):
             self._really_emitted_operation = None
-            self.first_optimization.propagate_forward(op)
+            self.first_optimization.propagate_forward(ops[i])
         #self.loop.operations = self.get_newoperations()
         #self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
         self.flush()
+        if extra_jump:
+            self.first_optimization.propagate_forward(ops[-1])
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
         return BasicLoopInfo(newargs), self._newoperations
 
