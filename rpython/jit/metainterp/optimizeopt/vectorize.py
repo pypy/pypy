@@ -515,23 +515,27 @@ class VectorizingOptimizer(Optimizer):
         label_node = graph.getnode(0)
         ee_guard_node = graph.getnode(ee_pos)
         guards = graph.guards
+        unique = set()
         for guard_node in guards:
             if guard_node is ee_guard_node:
                 continue
             modify_later = []
             last_prev_node = None
-            i = 0
             for path in guard_node.iterate_paths(ee_guard_node, backwards=True, blacklist=True):
+                p = '->'.join([str(p.opidx) for p in path.path])
+                if p in unique:
+                    assert 0
+                else:
+                    unique.add(p)
+                print "PATH:", p
                 if not we_are_translated():
                     path.check_acyclic()
-                print "loop", i
-                i+=1
                 prev_node = path.second()
                 dep = prev_node.depends_on(guard_node)
                 if dep.is_failarg():
                     # this dependency we are able to break because it is soley
                     # relevant due to one or multiple fail args
-                    if prev_node == last_prev_node:
+                    if prev_node is not last_prev_node:
                         #  ...
                         #  o  o
                         #  \ /
@@ -540,18 +544,19 @@ class VectorizingOptimizer(Optimizer):
                         #  (g)
                         # this graph yields 2 paths from (g), thus (a) is
                         # remembered and skipped the second time visited
-                        continue
-                    modify_later.append((prev_node, guard_node))
+                        modify_later.append((prev_node, guard_node))
+                        print "  => remove guard -> second"
+                    last_prev_node = prev_node
+                    continue
+                if path.is_always_pure(exclude_first=True, exclude_last=True):
+                    path.set_schedule_priority(10)
+                    if path.last() is ee_guard_node:
+                        modify_later.append((path.last_but_one(), None))
+                        print "  => always pure"
                 else:
-                    if path.is_always_pure(exclude_first=True, exclude_last=True):
-                        path.set_schedule_priority(10)
-                        if path.last() is ee_guard_node:
-                            modify_later.append((path.last_but_one(), None))
-                    else:
-                        # transformation is invalid.
-                        # exit and do not enter else branch!
-                        break
-                last_prev_node = prev_node
+                    # transformation is invalid.
+                    # exit and do not enter else branch!
+                    break
             else:
                 # transformation is valid, modify the graph and execute
                 # this guard earlier

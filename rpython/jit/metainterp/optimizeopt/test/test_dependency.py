@@ -17,6 +17,10 @@ class FakeNode(Node):
     def __repr__(self):
         return "n%d" % self.opidx
 
+class FakeDependencyGraph(DependencyGraph):
+    def __init__(self):
+        pass
+
 class DependencyBaseTest(BaseTest):
 
     def setup_method(self, method):
@@ -391,7 +395,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         self.assert_dependencies(trace, full_check=True)
 
 
-    def test_iterate_paths(self):
+    def test_iterate(self):
         n1,n2,n3,n4,n5 = [FakeNode(i+1) for i in range(5)]
         # n1 -> n2 -> n4 -> n5
         #  +---> n3 --^
@@ -434,7 +438,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         for i in r:
             assert paths[i].as_str() == "n0 -> %s -> n%d" % (nodes[i], len(r)+1)
 
-    def test_iterate_paths_blacklist_diamond(self):
+    def test_iterate_blacklist_diamond(self):
         blacklist = {}
         n1,n2,n3,n4 = [FakeNode(i+1) for i in range(4)]
         # n1 -> n2 -> n4
@@ -445,9 +449,9 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         paths = list(n1.iterate_paths(n4, blacklist=True))
         assert len(paths) == 2
         assert paths[0].as_str() == "n1 -> n2 -> n4"
-        assert paths[1].as_str() == "n1 -> n3"
+        assert paths[1].as_str() == "n1 -> n3 -> n4"
 
-    def test_iterate_paths_blacklist_double_diamond(self):
+    def test_iterate_blacklist_double_diamond(self):
         blacklist = {}
         n1,n2,n3,n4,n5,n6,n7,n8 = [FakeNode(i+1) for i in range(8)]
         # n1 -> n2 -> n4 -> n5 -> n6 --> n8
@@ -461,8 +465,56 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         paths = list(n1.iterate_paths(n8, blacklist=True))
         assert len(paths) == 3
         assert paths[0].as_str() == "n1 -> n2 -> n4 -> n5 -> n6 -> n8"
-        assert paths[1].as_str() == "n1 -> n2 -> n4 -> n5 -> n7"
-        assert paths[2].as_str() == "n1 -> n3"
+        assert paths[1].as_str() == "n1 -> n2 -> n4 -> n5 -> n7 -> n8"
+        assert paths[2].as_str() == "n1 -> n3 -> n4"
+
+    def test_iterate_blacklist_split_path(self):
+        blacklist = {}
+        n1,n2,n3,n4,n5,n6,n7,n8 = [FakeNode(i+1) for i in range(8)]
+        n1.edge_to(n2);
+        n3.edge_to(n2);
+        n2.edge_to(n4);
+        n3.edge_to(n4);
+
+        paths = list(n4.iterate_paths(n3, backwards=True, blacklist=True))
+        assert len(paths) == 2
+        assert paths[0].as_str() == "n4 -> n2 -> n3"
+        assert paths[1].as_str() == "n4 -> n3"
+
+        n5.edge_to(n1)
+        n5.edge_to(n3)
+
+        paths = list(n4.iterate_paths(n5, backwards=True, blacklist=True))
+        assert len(paths) == 3
+        assert paths[0].as_str() == "n4 -> n2 -> n1 -> n5"
+        assert paths[1].as_str() == "n4 -> n2 -> n3 -> n5"
+        assert paths[2].as_str() == "n4 -> n3"
+
+    def test_sccs(self):
+        n1,n2 = FakeNode(1), FakeNode(2)
+        n1.edge_to(n2); n2.edge_to(n1)
+
+        graph = FakeDependencyGraph()
+        graph.nodes = [n1,n2]
+        cycle = graph.cycles()
+        assert cycle == [n1, n2]
+
+        n3 = FakeNode(0)
+        graph.nodes = [n3]
+        cycle = graph.cycles()
+        assert cycle is None
+
+    def test_cycles_2(self):
+        n1,n2,n3,n4 = FakeNode(1), FakeNode(2), FakeNode(3), FakeNode(4)
+        n1.edge_to(n3); n3.edge_to(n4); n4.edge_to(n1)
+
+        graph = FakeDependencyGraph()
+        graph.nodes = [n1,n2,n3]
+        cycle = graph.cycles()
+        assert cycle is not None
+        assert cycle == [n1,n3,n4]
+
+
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):
     pass

@@ -93,6 +93,9 @@ class VecTestHelper(DependencyBaseTest):
         self.show_dot_graph(DependencyGraph(opt.loop), "original_" + self.test_name)
         opt.analyse_index_calculations()
         if opt.dependency_graph is not None:
+            cycle = opt.dependency_graph.cycles()
+            if cycle is not None:
+                print "CYCLE found %s" % cycle
             self.show_dot_graph(opt.dependency_graph, "early_exit_" + self.test_name)
             opt.schedule(False)
         opt.unroll_loop_iterations(loop, unroll_factor)

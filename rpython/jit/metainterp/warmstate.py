@@ -304,6 +304,8 @@ class WarmEnterState(object):
         self.vec = bool(value)
 
     def set_param_vec_params(self, value):
+        if NonConstant(False):
+            value = 'blah' # not a constant ''
         values = value.split(":")
         self.vec_all = bool(values[0])
         self.vec_cost = 0

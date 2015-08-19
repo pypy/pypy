@@ -112,6 +112,7 @@ class Node(object):
         # save the operation that produces the result for the first argument
         # only for guard_true/guard_false
         self.guard_bool_bool_node = None
+        self._stack = False
 
     def getoperation(self):
         return self.op
@@ -285,28 +286,31 @@ class Node(object):
             else:
                 iterdir = node.provides()
             if index >= len(iterdir):
-                if blacklist:
-                    blacklist_visit[node] = None
+                #if blacklist:
+                    #blacklist_visit[node] = None
+                #    print "blacklisting 1", node, "path", '->'.join([str(p.opidx) for p in path.path])
                 continue
             else:
                 next_dep = iterdir[index]
                 next_node = next_dep.to
                 index += 1
-                if blacklist and next_node in blacklist_visit:
-                    yield Path(path.path[:])
-                    continue
                 if index < len(iterdir):
                     worklist.append((index, node, pathlen))
                 else:
+                    print "blacklisting 2", node, "path", '->'.join([str(p.opidx) for p in path.path])
                     blacklist_visit[node] = None
                 path.cut_off_at(pathlen)
                 path.walk(next_node)
+                if blacklist and next_node in blacklist_visit:
+                    yield Path(path.path[:])
+                    continue
                 pathlen += 1
 
                 if next_node is to or (path_max_len > 0 and pathlen >= path_max_len):
                     yield Path(path.path[:])
-                    if blacklist:
-                        blacklist_visit[next_node] = None
+                    # note that the destiantion node ``to'' is never blacklisted
+                    #if blacklist:
+                    #    blacklist_visit[next_node] = None
                 else:
                     worklist.append((0, next_node, pathlen))
 
@@ -731,6 +735,17 @@ class DependencyGraph(object):
             # and the next guard instruction
             tracker.add_non_pure(node)
 
+    def cycles(self):
+        """ NOT_RPYTHON """
+        stack = []
+        for node in self.nodes:
+            node._stack = False
+        #
+        label = self.nodes[0]
+        if _first_cycle(stack, label):
+            return stack
+        return None
+
     def __repr__(self):
         graph = "graph([\n"
         for node in self.nodes:
@@ -744,6 +759,7 @@ class DependencyGraph(object):
         return graph + "      ])"
 
     def as_dot(self):
+        """ NOT_RPTYHON """
         if not we_are_translated():
             dot = "digraph dep_graph {\n"
             for node in self.nodes:
@@ -764,6 +780,49 @@ class DependencyGraph(object):
             dot += "\n}\n"
             return dot
         raise NotImplementedError("dot only for debug purpose")
+
+def _first_cycle(stack, node):
+    node._stack = True
+    stack.append(node)
+
+    for dep in node.provides():
+        succ = dep.to
+        if succ._stack:
+            # found cycle!
+            while stack[0] is not succ:
+                del stack[0]
+            return True
+        else:
+            return _first_cycle(stack, succ)
+
+    return False
+
+def _strongly_connect(index, stack, cycles, node):
+    """ currently unused """
+    node._scc_index = index
+    node._scc_lowlink = index
+    index += 1
+    stack.append(node)
+    node._scc_stack = True
+
+    for dep in node.provides():
+        succ = dep.to
+        if succ._scc_index == -1:
+            index = _strongly_connect(index, stack, cycles, succ)
+            node._scc_lowlink = min(node._scc_lowlink, succ._scc_lowlink)
+        elif succ._scc_stack:
+            node._scc_lowlink = min(node._scc_lowlink, succ._scc_index)
+
+    if node._scc_lowlink == node._scc_index:
+        cycle = []
+        while True:
+            w = stack.pop()
+            w._scc_stack = False
+            cycle.append(w)
+            if w is node:
+                break
+        cycles.append(cycle)
+    return index
 
 class IntegralForwardModification(object):
     """ Calculates integral modifications on integer boxes. """
