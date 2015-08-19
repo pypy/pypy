@@ -303,20 +303,17 @@ class WarmEnterState(object):
     def set_param_vec(self, value):
         self.vec = bool(value)
 
-    def set_param_vec_params(self, value):
-        if NonConstant(False):
-            value = 'blah' # not a constant ''
-        values = value.split(":")
-        self.vec_all = bool(values[0])
-        self.vec_cost = 0
-        if len(values) > 1:
-            self.vec_cost = int(values[1])
-        self.vec_length = 50
-        if len(values) > 2:
-            self.vec_length = int(values[2])
-        self.vec_ratio = 0.60
-        if len(values) > 3:
-            self.vec_ratio = float(values[3])
+    def set_param_vec_all(self, value):
+        self.vec_all = bool(value)
+
+    def set_param_vec_cost(self, value):
+        self.vec_cost = bool(value)
+
+    def set_param_vec_length(self, value):
+        self.vec_length = int(value)
+
+    def set_param_vec_ratio(self, value):
+        self.vec_ratio = value / 10.0
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)

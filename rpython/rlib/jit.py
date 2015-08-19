@@ -554,13 +554,11 @@ PARAMETER_DOCS = {
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     'max_unroll_recursion': 'how many levels deep to unroll a recursive function',
     'vec': 'turn on the vectorization optimization (vecopt). requires sse4.1',
-    'vec_params': 'parameters to the optimization separated by colons. <all>[:<cost>[:<length>[:<ratio>]]]. '
-                  'all = 1: try to vectorize trace loops that occur outside of the numpy library. '
-                  'cost = 0: threshold for which traces to bail. 0 means the costs '
-                  'balance the unpacking, if below the vectorizer bails out. '
-                  'length = 50:  the amount of instructions allowed in "all" traces. '
-                  'ratio = 0.60: the number statements that have vector equivalents divided '
-                  'by the total number of trace instructions.',
+    'vec_all': 'all = 1: try to vectorize trace loops that occur outside of the numpy library.',
+    'vec_cost': 'cost = 0: threshold for which traces to bail. 0 means the costs.',
+    'vec_length': 'length = 50:  the amount of instructions allowed in "all" traces.',
+    'vec_ratio': 'ratio = 6: an integer (0-10 => X / 10) statements that have vector equivalents '
+                 'divided by the total number of trace instructions.',
 }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -577,7 +575,10 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'enable_opts': 'all',
               'max_unroll_recursion': 7,
               'vec': 0,
-              'vec_params': '0:0:50:0.60',
+              'vec_all': 0,
+              'vec_cost': 0,
+              'vec_length': 50,
+              'vec_ratio': 6,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
@@ -799,11 +800,9 @@ def set_user_param(driver, text):
         value = parts[1]
         if name == 'enable_opts':
             set_param(driver, 'enable_opts', value)
-        elif name == 'vec_params':
-            set_param(driver, 'vec_params', value)
         else:
             for name1, _ in unroll_parameters:
-                if name1 == name and name1 != 'vec_params' and name1 != 'enable_opts':
+                if name1 == name and name1 != 'enable_opts':
                     try:
                         set_param(driver, name1, int(value))
                     except ValueError:
@@ -969,8 +968,6 @@ class ExtSetParam(ExtRegistryEntry):
         assert s_name.is_constant()
         if s_name.const == 'enable_opts':
             assert annmodel.SomeString(can_be_None=True).contains(s_value)
-        elif s_name.const == 'vec_params':
-            assert annmodel.SomeString(can_be_None=True).contains(s_value)
         else:
             assert (s_value == annmodel.s_None or
                     annmodel.SomeInteger().contains(s_value))
@@ -985,8 +982,6 @@ class ExtSetParam(ExtRegistryEntry):
         driver = hop.inputarg(lltype.Void, arg=0)
         name = hop.args_s[1].const
         if name == 'enable_opts':
-            repr = string_repr
-        elif name == 'vec_params':
             repr = string_repr
         else:
             repr = lltype.Signed
