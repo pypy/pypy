@@ -128,13 +128,7 @@ def create_entry_point(space, w_dict):
 
     @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
-        after = rffi.aroundstate.after
-        if after: after()
-        source = rffi.charp2str(ll_source)
-        res = _pypy_execute_source(source)
-        before = rffi.aroundstate.before
-        if before: before()
-        return rffi.cast(rffi.INT, res)
+        return pypy_execute_source_ptr(ll_source, 0)
 
     @entrypoint('main', [rffi.CCHARP, lltype.Signed],
                 c_name='pypy_execute_source_ptr')
@@ -142,9 +136,7 @@ def create_entry_point(space, w_dict):
         after = rffi.aroundstate.after
         if after: after()
         source = rffi.charp2str(ll_source)
-        space.setitem(w_globals, space.wrap('c_argument'),
-                      space.wrap(ll_ptr))
-        res = _pypy_execute_source(source)
+        res = _pypy_execute_source(source, ll_ptr)
         before = rffi.aroundstate.before
         if before: before()
         return rffi.cast(rffi.INT, res)
@@ -169,15 +161,21 @@ def create_entry_point(space, w_dict):
         before = rffi.aroundstate.before
         if before: before()
 
-    w_globals = space.newdict()
-    space.setitem(w_globals, space.wrap('__builtins__'),
-                  space.builtin_modules['__builtin__'])
-
-    def _pypy_execute_source(source):
+    def _pypy_execute_source(source, c_argument):
         try:
-            compiler = space.createcompiler()
-            stmt = compiler.compile(source, 'c callback', 'exec', 0)
-            stmt.exec_code(space, w_globals, w_globals)
+            w_globals = space.newdict(module=True)
+            space.setitem(w_globals, space.wrap('__builtins__'),
+                          space.builtin_modules['__builtin__'])
+            space.setitem(w_globals, space.wrap('c_argument'),
+                          space.wrap(c_argument))
+            space.appexec([space.wrap(source), w_globals], """(src, glob):
+                import sys
+                stmt = compile(src, 'c callback', 'exec')
+                if not hasattr(sys, '_pypy_execute_source'):
+                    sys._pypy_execute_source = []
+                sys._pypy_execute_source.append(glob)
+                exec stmt in glob
+            """)
         except OperationError, e:
             debug("OperationError:")
             debug(" operror-type: " + e.w_type.getname(space))

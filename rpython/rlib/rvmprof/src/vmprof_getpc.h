@@ -44,7 +44,7 @@
 #ifndef BASE_GETPC_H_
 #define BASE_GETPC_H_
 
-#include "rvmprof_config.h"
+#include "vmprof_config.h"
 
 // On many linux systems, we may need _GNU_SOURCE to get access to
 // the defined constants that define the register we want to see (eg

@@ -6,9 +6,9 @@
 #endif
 
 #ifdef RPYTHON_VMPROF
-RPY_EXTERN void rpython_vmprof_ignore_signals(int ignored);
+RPY_EXTERN void vmprof_ignore_signals(int ignored);
 static void pypy_codemap_invalid_set(int ignored) {
-    rpython_vmprof_ignore_signals(ignored);
+    vmprof_ignore_signals(ignored);
 }
 #else
 static void pypy_codemap_invalid_set(int ignored) {

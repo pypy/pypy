@@ -616,26 +616,33 @@ class InstanceRepr(Repr):
                 while rbase.classdef is not None:
                     immutable_fields.update(rbase.immutable_field_set)
                     rbase = rbase.rbase
-                self._parse_field_list(immutable_fields, accessor)
+                self._parse_field_list(immutable_fields, accessor, hints)
 
-    def _parse_field_list(self, fields, accessor):
+    def _parse_field_list(self, fields, accessor, hints):
         ranking = {}
         for name in fields:
+            quasi = False
             if name.endswith('?[*]'):   # a quasi-immutable field pointing to
                 name = name[:-4]        # an immutable array
                 rank = IR_QUASIIMMUTABLE_ARRAY
+                quasi = True
             elif name.endswith('[*]'):    # for virtualizables' lists
                 name = name[:-3]
                 rank = IR_IMMUTABLE_ARRAY
             elif name.endswith('?'):    # a quasi-immutable field
                 name = name[:-1]
                 rank = IR_QUASIIMMUTABLE
+                quasi = True
             else:                       # a regular immutable/green field
                 rank = IR_IMMUTABLE
             try:
                 mangled_name, r = self._get_field(name)
             except KeyError:
                 continue
+            if quasi and hints.get("immutable"):
+                raise TyperError(
+                    "can't have _immutable_ = True and a quasi-immutable field "
+                    "%s in class %s" % (name, self.classdef))
             ranking[mangled_name] = rank
         accessor.initialize(self.object_type, ranking)
         return ranking
