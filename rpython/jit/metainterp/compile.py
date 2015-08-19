@@ -266,6 +266,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                descr=start_descr)
     mid_descr_token = TargetToken(jitcell_token,
                                   original_jitcell_token=jitcell_token)
+    mid_descr_token.short_preamble = loop_info.short_preamble
+    mid_descr_token.virtual_state = start_state.virtual_state
     mid_label = ResOperation(rop.LABEL, loop_info.label_args,
                              descr=mid_descr_token)
     # XXX assign short preamble and virtual state
@@ -1043,10 +1045,12 @@ def compile_trace(metainterp, resumekey):
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
-        info, newops = optimize_trace(metainterp_sd, jitdriver_sd, data)
+        try:
+            info, newops = optimize_trace(metainterp_sd, jitdriver_sd, data)
+        finally:
+            forget_optimization_info(inputargs)
+            forget_optimization_info(operations)
     except InvalidLoop:
-        forget_optimization_info(inputargs)
-        forget_optimization_info(operations)
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop
@@ -1056,9 +1060,9 @@ def compile_trace(metainterp, resumekey):
     new_trace = create_empty_loop(metainterp)
     new_trace.inputargs = info.inputargs
     new_trace.operations = newops
+    target_token = new_trace.operations[-1].getdescr()
     resumekey.compile_and_attach(metainterp, new_trace)
     record_loop_or_bridge(metainterp_sd, new_trace)
-    target_token = new_trace.operations[-1].getdescr()
     return target_token
     xxxx
     if new_trace.operations[-1].getopnum() != rop.LABEL:

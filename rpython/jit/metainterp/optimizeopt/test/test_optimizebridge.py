@@ -18,6 +18,8 @@ class TestOptimizeBridge(BaseTest, LLtypeMixin):
         info = self.unroll_and_optimize(loop, None)
         jitcell_token = compile.make_jitcell_token(None)
         mid_label_descr = TargetToken(jitcell_token)
+        mid_label_descr.short_preamble = info.short_preamble
+        mid_label_descr.virtual_state = info.virtual_state
         start_label_descr = TargetToken(jitcell_token)
         jitcell_token.target_tokens = [mid_label_descr, start_label_descr]
         loop.operations[0].setdescr(mid_label_descr)
@@ -28,6 +30,7 @@ class TestOptimizeBridge(BaseTest, LLtypeMixin):
         bridge = self.parse(bridge_ops, postprocess=self.postprocess)
         start_label = ResOperation(rop.LABEL, bridge.inputargs)
         bridge.operations[-1].setdescr(jitcell_token)
+        self.add_guard_future_condition(bridge)
         data = compile.BridgeCompileData(start_label, bridge.operations,
                                          enable_opts=self.enable_opts,
                             inline_short_preamble=inline_short_preamble)
@@ -85,4 +88,9 @@ class TestOptimizeBridge(BaseTest, LLtypeMixin):
         [i0, i1, i2]
         jump(i0, i1, i2)
         """
-        self.optimize(loop, bridge, bridge)
+        expected = """
+        [i0, i1, i2]
+        i3 = int_add(i0, 1)
+        jump(i0, i1, i2, i3)
+        """
+        self.optimize(loop, bridge, expected)

@@ -79,11 +79,12 @@ class UnrollOptimizer(Optimization):
         modifier = VirtualStateConstructor(self.optimizer)
         return modifier.get_virtual_state(args)
 
-    def _check_no_forwarding(self, lsts):
+    def _check_no_forwarding(self, lsts, check_newops=True):
         for lst in lsts:
             for op in lst:
                 assert op.get_forwarded() is None
-        assert not self.optimizer._newoperations
+        if check_newops:
+            assert not self.optimizer._newoperations
     
     def optimize_preamble(self, start_label, end_label, ops, call_pure_results):
         self._check_no_forwarding([[start_label, end_label], ops])
@@ -110,7 +111,12 @@ class UnrollOptimizer(Optimization):
         pass_to_short = state.virtual_state.make_inputargs(orig_jump_args,
                                     self.optimizer, force_boxes=True,
                                     append_virtuals=True)
-        extra_jump_args = self.inline_short_preamble(pass_to_short)
+        sb = self.short_preamble_producer
+        self.optimizer._clean_optimization_info(sb.short_inputargs)
+        extra_jump_args = self.inline_short_preamble(pass_to_short,
+                                sb.short_inputargs, sb.short,
+                                sb.short_preamble_jump,
+                                self.optimizer.patchguardop)
         # remove duplicates, removes stuff from used boxes too
         label_args, jump_args = self.filter_extra_jump_args(
             start_label.getarglist() + self.short_preamble_producer.used_boxes,
@@ -125,6 +131,8 @@ class UnrollOptimizer(Optimization):
     def optimize_bridge(self, start_label, operations, call_pure_results,
                         inline_short_preamble):
         assert inline_short_preamble
+        self._check_no_forwarding([start_label.getarglist(),
+                                    operations])
         info, ops = self.optimizer.propagate_all_forward(
             start_label.getarglist()[:], operations[:-1],
             call_pure_results, True)
@@ -134,9 +142,15 @@ class UnrollOptimizer(Optimization):
 
     def jump_to_existing_trace(self, jump_op, inline_short_preamble):
         jitcelltoken = jump_op.getdescr()
-        args = jump_op.getarglist()
+        args = [self.get_box_replacement(op) for op in jump_op.getarglist()]
+        target_token = jitcelltoken.target_tokens[0]
         virtual_state = self.get_virtual_state(args)
+        short_preamble = target_token.short_preamble
+        extra = self.inline_short_preamble(args,
+            short_preamble[0].getarglist(), short_preamble[1:-1],
+            short_preamble[-1].getarglist(), self.optimizer.patchguardop)
         self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
+                                  args=args + extra,
                                   descr=jitcelltoken.target_tokens[0]))
 
     def filter_extra_jump_args(self, label_args, jump_args):
@@ -153,22 +167,24 @@ class UnrollOptimizer(Optimization):
             d[arg] = None
         return new_label_args, new_jump_args
 
-    def inline_short_preamble(self, jump_args):
-        sb = self.short_preamble_producer
-        assert len(sb.short_inputargs) == len(jump_args)
+    def inline_short_preamble(self, jump_args, short_inputargs, short_ops,
+                              short_jump_op, patchguardop):
+        self._check_no_forwarding([short_inputargs, short_ops], False)
+        assert len(short_inputargs) == len(jump_args)
         for i in range(len(jump_args)):
-            sb.short_inputargs[i].set_forwarded(None)
-            self.make_equal_to(sb.short_inputargs[i], jump_args[i])
-        patchguardop = self.optimizer.patchguardop
-        for op in sb.short:
+            short_inputargs[i].set_forwarded(None)
+            self.make_equal_to(short_inputargs[i], jump_args[i])
+        for op in short_ops:
             if op.is_guard():
                 op = self.replace_op_with(op, op.getopnum())
                 op.rd_snapshot = patchguardop.rd_snapshot
                 op.rd_frame_info_list = patchguardop.rd_frame_info_list
             self.optimizer.send_extra_operation(op)
         res = [self.optimizer.get_box_replacement(op) for op in
-                sb.short_preamble_jump]
-        for op in sb.short_inputargs:
+                short_jump_op]
+        for op in short_inputargs:
+            op.set_forwarded(None)
+        for op in short_ops:
             op.set_forwarded(None)
         return res
 

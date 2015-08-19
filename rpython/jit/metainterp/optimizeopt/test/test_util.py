@@ -395,9 +395,10 @@ class FakeMetaInterpStaticData(object):
             return ""
 
 class Info(object):
-    def __init__(self, preamble, short_preamble=None):
+    def __init__(self, preamble, short_preamble=None, virtual_state=None):
         self.preamble = preamble
         self.short_preamble = short_preamble
+        self.virtual_state = virtual_state
 
 class Storage(compile.ResumeGuardDescr):
     "for tests."
@@ -494,7 +495,8 @@ class BaseTest(object):
                                loop_info.extra_same_as + [emit_end_label])
         loop.inputargs = inputargs
         loop.operations = [emit_end_label] + ops
-        return Info(preamble, loop_info.short_preamble)
+        return Info(preamble, loop_info.short_preamble,
+                    start_state.virtual_state)
 
 
 class FakeDescr(compile.ResumeGuardDescr):
