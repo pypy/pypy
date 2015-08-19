@@ -38,6 +38,9 @@ class PtrInfo(AbstractInfo):
     def get_known_class(self, cpu):
         return None
 
+    def getlenbound(self):
+        return None
+
     def getnullness(self):
         if self.is_null():
             return INFO_NULL

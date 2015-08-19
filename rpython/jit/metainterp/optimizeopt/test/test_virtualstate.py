@@ -8,6 +8,7 @@ from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
      InputArgFloat
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import rclass
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, \
                                                            equaloplists
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
@@ -25,10 +26,13 @@ class FakeOptimizer(Optimizer):
 
 class BaseTestGenerateGuards(BaseTest):
 
-    def _box_or_value(self, box_or_value=None):
-        if box_or_value is None:
+    def _box_or_value(self, boxinfo=None):
+        if boxinfo is None:
             return None, None
-        elif isinstance(box_or_value, OptValue):
+        else:
+            xxx
+        # el
+        if isinstance(box_or_value, OptValue):
             value = box_or_value
             box = value.box
         else:
@@ -57,19 +61,21 @@ class BaseTestGenerateGuards(BaseTest):
         assert equaloplists(guards, loop.operations, False,
                             boxmap)
 
-    def check_no_guards(self, info1, info2, box_or_value=None, state=None):
-        value, _ = self._box_or_value(box_or_value)
+    def check_no_guards(self, info1, info2, boxinfo=None, state=None):
+        assert boxinfo is None
+        boxinfo, _ = self._box_or_value(boxinfo)
         if info1.position == -1:
             info1.position = 0
         if info2.position == -1:
             info2.position = 0
         if state is None:
             state = GenerateGuardState(self.cpu)
-        info1.generate_guards(info2, value, state)
+        info1.generate_guards(info2, boxinfo, None, state)
         assert not state.extra_guards
         return state
 
     def check_invalid(self, info1, info2, box_or_value=None, state=None):
+        assert box_or_value is None
         value, _ = self._box_or_value(box_or_value)
         if info1.position == -1:
             info1.position = 0
@@ -78,7 +84,7 @@ class BaseTestGenerateGuards(BaseTest):
         if state is None:
             state = GenerateGuardState(self.cpu)
         with py.test.raises(VirtualStatesCantMatch):
-            info1.generate_guards(info2, value, state)
+            info1.generate_guards(info2, None, None, state)
 
     def test_make_inputargs(self):
         optimizer = FakeOptimizer()
@@ -150,22 +156,23 @@ class BaseTestGenerateGuards(BaseTest):
                 if i != j:
                     assert not isgeneral('r', inorder[j], 'r', inorder[i])
 
-        i1 = IntLowerBound(10)
-        i2 = IntUnbounded()
+        i1 = IntUnbounded()
+        i2 = IntLowerBound(10)
         assert isgeneral('i', i1, 'i', i2)
         assert not isgeneral('i', i2, 'i', i1)
 
-        assert isgeneral(OptValue(ConstInt(7)), OptValue(ConstInt(7)))
-        S = lltype.GcStruct('S')
+        assert isgeneral('i', ConstIntBound(7), 'i', ConstIntBound(7))
+        S = lltype.GcStruct('S', ('parent', rclass.OBJECT))
         foo = lltype.malloc(S)
+        foo_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        foo.parent.typeptr = foo_vtable
         fooref = lltype.cast_opaque_ptr(llmemory.GCREF, foo)
-        assert isgeneral(OptValue(ConstPtr(fooref)),
-                         OptValue(ConstPtr(fooref)))
+        assert isgeneral('r', info.ConstPtrInfo(ConstPtr(fooref)),
+                         'r', info.ConstPtrInfo(ConstPtr(fooref)))
 
-        value1 = PtrOptValue(BoxPtr())
-        value1.make_nonnull(None)
-        value2 = PtrOptValue(ConstPtr(self.nullptr))
-        assert not isgeneral(value1, value2)
+        value1 = info.NonNullPtrInfo()
+        value2 = info.ConstPtrInfo(ConstPtr(self.nullptr))
+        assert not isgeneral('r', value1, 'r', value2)
 
     def test_field_matching_generalization(self):
         const1 = NotVirtualStateInfo(OptValue(ConstInt(1)))
