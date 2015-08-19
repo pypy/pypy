@@ -1207,16 +1207,16 @@ def test_virtual_adder_make_virtual():
     modifier.vfieldboxes = {}
 
     vdescr = LLtypeMixin.nodesize2
-    v4 = info.InstancePtrInfo(ConstAddr(LLtypeMixin.node_vtable_adr2,
-                                        LLtypeMixin.cpu), vdescr)
+    ca = ConstAddr(LLtypeMixin.node_vtable_adr2, LLtypeMixin.cpu)
+    v4 = info.InstancePtrInfo(ca, vdescr)
     b4s.set_forwarded(v4)
-    v4.setfield(LLtypeMixin.nextdescr, b2s)
-    v4.setfield(LLtypeMixin.valuedescr, b3s)
-    v4.setfield(LLtypeMixin.otherdescr, b5s)
-    v2 = info.InstancePtrInfo(ConstAddr(LLtypeMixin.node_vtable_adr,
-                                        LLtypeMixin.cpu), LLtypeMixin.nodesize)
-    v2.setfield(LLtypeMixin.nextdescr, b4s)
-    v2.setfield(LLtypeMixin.valuedescr, c1s)
+    v4.setfield(LLtypeMixin.nextdescr, ca, b2s)
+    v4.setfield(LLtypeMixin.valuedescr, ca, b3s)
+    v4.setfield(LLtypeMixin.otherdescr, ca, b5s)
+    ca = ConstAddr(LLtypeMixin.node_vtable_adr, LLtypeMixin.cpu)
+    v2 = info.InstancePtrInfo(ca, LLtypeMixin.nodesize)
+    v2.setfield(LLtypeMixin.nextdescr, b4s, ca)
+    v2.setfield(LLtypeMixin.valuedescr, c1s, ca)
     b2s.set_forwarded(v2)
 
     modifier.register_virtual_fields(b2s, [c1s, None, None, b4s])
@@ -1335,9 +1335,10 @@ def test_virtual_adder_make_vstruct():
     modifier.vfieldboxes = {}
     v2 = info.StructPtrInfo(LLtypeMixin.ssize)
     b2s.set_forwarded(v2)
-    v2.setfield(LLtypeMixin.adescr, c1s)
-    v2.setfield(LLtypeMixin.bdescr, b4s)
-    modifier.register_virtual_fields(b2s, [c1s, b4s])
+    v2.setfield(LLtypeMixin.adescr, b2s, c1s)
+    v2.setfield(LLtypeMixin.abisdescr, b2s, c1s)
+    v2.setfield(LLtypeMixin.bdescr, b2s, b4s)
+    modifier.register_virtual_fields(b2s, [c1s, c1s, b4s])
     liveboxes = []
     modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
     dump_storage(storage, liveboxes)
@@ -1357,6 +1358,7 @@ def test_virtual_adder_make_vstruct():
     expected = [
         (rop.NEW, [], b2t.getref_base(), LLtypeMixin.ssize),
         (rop.SETFIELD_GC, [b2t, c1s],  None, LLtypeMixin.adescr),
+        (rop.SETFIELD_GC, [b2t, c1s],  None, LLtypeMixin.abisdescr),
         (rop.SETFIELD_GC, [b2t, b4t], None, LLtypeMixin.bdescr),
         ]
     with CompareableConsts():

@@ -9,7 +9,7 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.history import ConstInt, get_const_ptr_for_string
 from rpython.jit.metainterp import executor, compile, resume
 from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgInt,\
-     OpHelpers
+     OpHelpers, InputArgRef
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.jit.tool.oparser import parse
 
@@ -2483,11 +2483,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
                                  fieldvalue.strip(), strict=False)
                 index += 1
 
-    def check_expanded_fail_descr(self, expectedtext, guard_opnum):
+    def check_expanded_fail_descr(self, expectedtext, guard_opnum, values=None):
         from rpython.jit.metainterp.test.test_resume import ResumeDataFakeReader
         from rpython.jit.metainterp.test.test_resume import MyMetaInterp
         guard_op, = [op for op in self.loop.operations if op.is_guard()]
         fail_args = guard_op.getfailargs()
+        if values is not None:
+            fail_args = values
         fdescr = guard_op.getdescr()
         assert fdescr.guard_opnum == guard_opnum
         reader = ResumeDataFakeReader(fdescr, fail_args,
@@ -2727,11 +2729,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(p1, i2, i4)
         """
         self.optimize_loop(ops, expected)
-        self.loop.inputargs[0].setref_base(self.nodeaddr)
-        self.check_expanded_fail_descr('''
+        self.check_expanded_fail_descr(
+            '''
             p1.nextdescr = p2
             where p2 is a node_vtable, valuedescr=i2
-            ''', rop.GUARD_TRUE)
+            ''', rop.GUARD_TRUE, values=[InputArgInt(0),
+                                         InputArgRef(self.nodeaddr)])
 
     def test_expand_fail_lazy_setfield_2(self):
         ops = """
