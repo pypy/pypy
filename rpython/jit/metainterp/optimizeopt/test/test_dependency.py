@@ -59,7 +59,7 @@ class DependencyBaseTest(BaseTest):
                 dependency = node_a.getedge_to(node_b)
                 if dependency is None and idx_b not in exceptions.setdefault(idx,[]):
                     self.show_dot_graph(graph, self.test_name + '_except')
-                    assert dependency is not None, \
+                    assert dependency is not None or node_b.getopnum() == rop.JUMP, \
                        " it is expected that instruction at index" + \
                        " %s depends on instr on index %s but it does not.\n%s" \
                             % (node_a, node_b, graph)
@@ -168,8 +168,6 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         self.assert_dependent(1,2)
         self.assert_dependent(2,3)
         self.assert_dependent(1,3)
-        self.assert_dependent(2,4)
-        self.assert_dependent(3,4)
 
     def test_def_use_jump_use_def(self):
         ops = """
@@ -336,7 +334,6 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         jump(p0, i1) # 4:
         """
         self.assert_dependencies(ops, full_check=True)
-        assert self.last_graph.getnode(1).provides_count() == 1
         self.assert_independent(1,2)
         self.assert_independent(1,3) # they modify 2 different cells
 

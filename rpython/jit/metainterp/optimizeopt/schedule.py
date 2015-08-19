@@ -82,6 +82,7 @@ class Scheduler(object):
         self.renamer = renamer
         self.oplist = oplist
         self.unpack = unpack
+
         while self.has_more():
             i = self.next_index(self.schedulable_nodes)
             if i >= 0:

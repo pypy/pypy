@@ -55,7 +55,7 @@ class VecTestHelper(DependencyBaseTest):
             for i,op in enumerate(loop.operations):
                 if op.getopnum() == rop.LABEL:
                     op.setdescr(tt)
-        loop.operations = pre + loop.operations
+        loop.operations = pre + filter(lambda op: op.getopnum() != rop.DEBUG_MERGE_POINT, loop.operations)
         if loop.operations[-1].getopnum() == rop.JUMP:
             loop.operations[-1].setdescr(token)
         for op in loop.operations:
@@ -1495,8 +1495,8 @@ class BaseTestVectorize(VecTestHelper):
         debug_merge_point(0, 0, '<code object <module>. file '/home/rich/fijal.py'. line 2> #34 FOR_ITER')
         jump(p0, p1, p5, p6, p7, p9, p11, p70)
         """        
-        opt = self.schedule(self.parse_loop(trace))
-        self.debug_print_operations(opt.loop)
+        #opt = self.schedule(self.parse_loop(trace))
+        #self.debug_print_operations(opt.loop)
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

@@ -555,7 +555,6 @@ class VectorizingOptimizer(Optimizer):
                             continue
                         ee_guard_node.remove_edge_to(last_but_one)
                         #label_node.edge_to(last_but_one, label='pullup')
-                print "guard", guard_node, "moved earlier"
                 # only the last guard needs a connection
                 guard_node.edge_to(ee_guard_node, label='pullup-last-guard')
                 self.relax_guard_to(guard_node, ee_guard_node)

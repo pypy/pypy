@@ -62,13 +62,15 @@ class Path(object):
             count -= 1
         while i < count: 
             op = self.path[i].getoperation()
-            if not op.is_always_pure():
-                return False
             if op.is_guard():
                 descr = op.getdescr()
-                assert isinstance(descr, ResumeGuardDescr)
-                if not descr or not descr.exits_early():
+                if not descr:
                     return False
+                assert isinstance(descr, ResumeGuardDescr)
+                if not descr.exits_early():
+                    return False
+            elif not op.is_always_pure():
+                return False
             i += 1
         return True
 
