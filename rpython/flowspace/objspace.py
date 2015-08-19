@@ -13,6 +13,11 @@ from rpython.flowspace.pygraph import PyGraph
 
 def _assert_rpythonic(func):
     """Raise ValueError if ``func`` is obviously not RPython"""
+    try:
+        func.func_code.co_cellvars
+    except AttributeError:
+        raise ValueError("%r is not RPython: it is likely an unexpected "
+                         "built-in function or type" % (func,))
     if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
         raise ValueError("%r is tagged as NOT_RPYTHON" % (func,))
     if func.func_code.co_cellvars:
