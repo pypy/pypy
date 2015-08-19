@@ -55,9 +55,11 @@ class KnownTypesVersion(object):
 
 class PyCode(eval.Code):
     "CPython-style code objects."
-    _immutable_ = True
-    _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
-                          "co_freevars[*]", "co_cellvars[*]",
+    _immutable_fields_ = ["_signature", "co_argcount", "co_cellvars[*]",
+                          "co_code", "co_consts_w[*]", "co_filename",
+                          "co_firstlineno", "co_flags", "co_freevars[*]",
+                          "co_lnotab", "co_names_w[*]", "co_nlocals",
+                          "co_stacksize", "co_varnames[*]",
                           "_args_as_cellvars[*]", "_known_types_version?"]
 
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
