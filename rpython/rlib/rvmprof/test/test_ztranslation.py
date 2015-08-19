@@ -1,4 +1,6 @@
-import time, os, sys, py
+import time, os, sys
+sys.path += ['.'] # for subprocess in test_interpreted
+import py
 from rpython.tool.udir import udir
 from rpython.rlib import rvmprof
 from rpython.translator.c.test.test_genc import compile
