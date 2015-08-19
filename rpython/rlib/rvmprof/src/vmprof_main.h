@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/types.h>
+#include <signal.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "vmprof_getpc.h"
@@ -457,7 +458,7 @@ static int close_profile(void)
     if (!srcf)
         return -1;
 
-    while ((size = fread(buf, 1, sizeof buf, src))) {
+    while ((size = fread(buf, 1, sizeof buf, srcf))) {
         if (_write_all(buf, size) < 0) {
             pclose(srcf);
             return -1;
