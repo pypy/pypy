@@ -8,8 +8,13 @@ from rpython.jit.metainterp.history import TargetToken
 class TestOptimizeBridge(BaseTest, LLtypeMixin):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
 
-    def optimize(self, ops, bridge_ops, expected, inline_short_preamble=True):
+    def optimize(self, ops, bridge_ops, expected, expected_loop=None,
+                 inline_short_preamble=True):
         loop = self.parse(ops, postprocess=self.postprocess)
+        if expected_loop is not None:
+            xxx
+            exp_loop = self.parse(expected_loop, postprocess=self.postprocess)
+            self.assert_equal(loop, convert_old_style_to_targets(exp_loop))
         info = self.unroll_and_optimize(loop, None)
         jitcell_token = compile.make_jitcell_token(None)
         mid_label_descr = TargetToken(jitcell_token)
@@ -36,6 +41,18 @@ class TestOptimizeBridge(BaseTest, LLtypeMixin):
         expected = self.parse(expected, postprocess=self.postprocess)
         self.assert_equal(bridge, convert_old_style_to_targets(expected,
                                                                jump=True))
+        jump_bridge = bridge.operations[-1]
+        jump_d = jump_bridge.getdescr()
+        jump_args = jump_bridge.getarglist()
+        if loop.operations[0].getdescr() is jump_d:
+            # jump to loop
+            label_args = loop.operations[0].getarglist()
+        else:
+            assert info.preamble.operations[0].getdescr() is jump_d
+            label_args = info.preamble.operations[0].getarglist()
+        assert len(jump_args) == len(label_args)
+        for a, b in zip(jump_args, label_args):
+            assert a.type == b.type
     
     def test_simple(self):
         loop = """
@@ -54,3 +71,18 @@ class TestOptimizeBridge(BaseTest, LLtypeMixin):
         jump(i1)
         """
         self.optimize(loop, bridge, expected)
+
+    def test_minimal_short_preamble(self):
+        loop = """
+        [i0, i1, i3]
+        i2 = int_add(i0, 1)
+        i4 = int_add(i3, i2)
+        i5 = int_is_true(i4)
+        guard_true(i5) [i2, i4, i5]
+        jump(i0, i1, i4)
+        """
+        bridge = """
+        [i0, i1, i2]
+        jump(i0, i1, i2)
+        """
+        self.optimize(loop, bridge, bridge)
