@@ -521,6 +521,10 @@ class Optimizer(Optimization):
     def _emit_operation(self, op):
         assert not op.is_call_pure()
         orig_op = op
+        op = self.get_box_replacement(op)
+        if op.is_constant():
+            return # can happen e.g. if we postpone the operation that becomes
+            # constant
         op = self.replace_op_with(op, op.getopnum())
         for i in range(op.numargs()):
             arg = self.force_box(op.getarg(i))

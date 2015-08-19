@@ -122,6 +122,23 @@ class UnrollOptimizer(Optimization):
                            self.short_preamble_producer.extra_same_as),
                 self.optimizer._newoperations)
 
+    def optimize_bridge(self, start_label, operations, call_pure_results,
+                        inline_short_preamble):
+        assert inline_short_preamble
+        info, ops = self.optimizer.propagate_all_forward(
+            start_label.getarglist()[:], operations[:-1],
+            call_pure_results, True)
+        jump_op = operations[-1]
+        self.jump_to_existing_trace(jump_op, inline_short_preamble)
+        return info, self.optimizer._newoperations[:]
+
+    def jump_to_existing_trace(self, jump_op, inline_short_preamble):
+        jitcelltoken = jump_op.getdescr()
+        args = jump_op.getarglist()
+        virtual_state = self.get_virtual_state(args)
+        self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
+                                  descr=jitcelltoken.target_tokens[0]))
+
     def filter_extra_jump_args(self, label_args, jump_args):
         new_label_args = []
         new_jump_args = []
