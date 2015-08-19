@@ -9,7 +9,7 @@ from pypy.interpreter.baseobjspace import W_Root
 class Code(W_Root):
     """A code is a compiled version of some source code.
     Abstract base class."""
-    _immutable_ = True
+    _immutable_fields_ = ['fast_natural_arity', 'co_name', 'hidden_applevel']
     hidden_applevel = False
 
     # n >= 0 : arity
