@@ -876,8 +876,8 @@ class VecScheduleData(SchedulerData):
             descr = label.getdescr()
             assert isinstance(descr, TargetToken)
             token = TargetToken(descr.targeting_jitcell_token)
-            oplist[0] = label.copy_and_change(label.getopnum(), label_args, None, token)
-            oplist[-1] = jump.copy_and_change(jump.getopnum(), jump_args, None, token)
+            oplist[0] = label.copy_and_change(label.getopnum(), args=label_args, descr=token)
+            oplist[-1] = jump.copy_and_change(jump.getopnum(), args=jump_args, descr=token)
             #
             return [ResOperation(rop.LABEL, orig_label_args, None, descr)] + \
                    self.invariant_oplist + oplist

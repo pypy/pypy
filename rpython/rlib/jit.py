@@ -554,10 +554,10 @@ PARAMETER_DOCS = {
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     'max_unroll_recursion': 'how many levels deep to unroll a recursive function',
     'vec': 'turn on the vectorization optimization (vecopt). requires sse4.1',
-    'vec_all': 'all = 1: try to vectorize trace loops that occur outside of the numpy library.',
-    'vec_cost': 'cost = 0: threshold for which traces to bail. 0 means the costs.',
-    'vec_length': 'length = 50:  the amount of instructions allowed in "all" traces.',
-    'vec_ratio': 'ratio = 6: an integer (0-10 => X / 10) statements that have vector equivalents '
+    'vec_all': 'try to vectorize trace loops that occur outside of the numpy library.',
+    'vec_cost': 'threshold for which traces to bail. 0 means the costs.',
+    'vec_length': 'the amount of instructions allowed in "all" traces.',
+    'vec_ratio': 'an integer (0-10 transfored into a float by X / 10.0) statements that have vector equivalents '
                  'divided by the total number of trace instructions.',
 }
 
@@ -577,8 +577,8 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'vec': 0,
               'vec_all': 0,
               'vec_cost': 0,
-              'vec_length': 50,
-              'vec_ratio': 6,
+              'vec_length': 60,
+              'vec_ratio': 2,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 

@@ -801,20 +801,33 @@ class LoopVersion(object):
         op.setfailargs(self.inputargs)
         op.rd_snapshot = None
 
-    def update_token(self, jitcell_token):
+    def update_token(self, jitcell_token, all_target_tokens):
         # this is only invoked for versioned loops!
-        label = self.operations[self.label_pos]
+        label_index = index_of_first(rop.LABEL, self.operations, 0)
+        label = self.operations[label_index]
         jump = self.operations[-1]
         #
-        assert label.getopnum() == rop.LABEL
         assert jump.getopnum() == rop.JUMP
         #
         token = TargetToken(jitcell_token)
         token.original_jitcell_token = jitcell_token
+        all_target_tokens.append(token)
+        if label.getdescr() is not jump.getdescr():
+            label_index = index_of_first(rop.LABEL, self.operations, 1)
+            if label_index > 0:
+                second_label = self.operations[label_index]
+                # set the inner loop
+                second_label.setdescr(token)
+                jump.setdescr(token)
+                # set the first label
+                token = TargetToken(jitcell_token)
+                token.original_jitcell_token = jitcell_token
+                all_target_tokens.append(token)
+                label.setdescr(token)
+                return
         label.setdescr(token)
         jump.setdescr(token)
 
-        return token
 
 class TreeLoop(object):
     inputargs = None

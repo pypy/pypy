@@ -161,10 +161,9 @@ def compile_loop(metainterp, greenkey, start,
     assert part.operations[-1].getopnum() != rop.LABEL
 
     if loop.versions is not None:
-        # several different loop version have been generated
+        # every different loop version must update their target tokens
         for version in loop.versions:
-            token = version.update_token(jitcell_token)
-            all_target_tokens.append(token)
+            version.update_token(jitcell_token, all_target_tokens)
 
     if not loop.quasi_immutable_deps:
         loop.quasi_immutable_deps = None
@@ -186,6 +185,9 @@ def compile_loop(metainterp, greenkey, start,
     return all_target_tokens[0]
 
 def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token):
+    """ if a loop version is created for a guard instruction (e.g. they are known
+        to fail frequently, then a version can be created that is immediatly compiled.
+    """
     metainterp_sd = metainterp.staticdata
     cpu = metainterp_sd.cpu
     if loop.versions is not None:

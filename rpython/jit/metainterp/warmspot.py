@@ -72,7 +72,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     loop_longevity=0, retrace_limit=5, function_threshold=4,
                     enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, 
                     max_unroll_recursion=7, vec=0, vec_all=0, vec_cost=0,
-                    vec_length=50, vec_ratio=6, **kwds):
+                    vec_length=60, vec_ratio=2, **kwds):
     from rpython.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:

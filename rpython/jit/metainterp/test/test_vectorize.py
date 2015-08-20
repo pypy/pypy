@@ -19,12 +19,12 @@ class VectorizeTests:
     def setup_method(self, method):
         print "RUNNING", method.__name__
 
-    def meta_interp(self, f, args, policy=None):
+    def meta_interp(self, f, args, policy=None, vec=True, vec_all=False):
         return ll_meta_interp(f, args, enable_opts=self.enable_opts,
                               policy=policy,
                               CPUClass=self.CPUClass,
                               type_system=self.type_system,
-                              vec=True)
+                              vec=vec, vec_all=vec_all)
 
     @py.test.mark.parametrize('i',[3,4,5,6,7,8,9,50])
     def test_vectorize_simple_load_arith_store_int_add_index(self,i):
@@ -154,7 +154,6 @@ class VectorizeTests:
 
     def test_sum(self):
         myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
-        myjitdriver2 = JitDriver(greens = [], reds = 'auto', vectorize=True)
         T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
         def f(d):
             va = lltype.malloc(T, d, flavor='raw', zero=True)
@@ -170,6 +169,56 @@ class VectorizeTests:
             return accum
         res = self.meta_interp(f, [60])
         assert res == f(60) == sum(range(60))
+
+    def test_constant_expand(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
+        def f(d):
+            va = lltype.malloc(T, d, flavor='raw', zero=True)
+            i = 0
+            while i < d:
+                myjitdriver.jit_merge_point()
+                va[i] = va[i] + 34.5
+                i += 1
+            val = va[0]
+            lltype.free(va, flavor='raw')
+            return val
+        res = self.meta_interp(f, [60])
+        assert res == f(60) == 34.5
+
+    def test_constant_expand_vec_all(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
+        def f(d):
+            va = lltype.malloc(T, d, flavor='raw', zero=True)
+            i = 0
+            while i < d:
+                myjitdriver.jit_merge_point()
+                if not (i < 60):
+                    raise IndexError
+                va[i] = va[i] + 34.5
+                i += 1
+            val = va[0]
+            lltype.free(va, flavor='raw')
+            return val
+        res = self.meta_interp(f, [60], vec_all=True)
+        assert res == f(60) == 34.5
+
+    def test_variable_expand(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
+        def f(d,variable):
+            va = lltype.malloc(T, d, flavor='raw', zero=True)
+            i = 0
+            while i < d:
+                myjitdriver.jit_merge_point()
+                va[i] = va[i] + variable
+                i += 1
+            val = va[0]
+            lltype.free(va, flavor='raw')
+            return val
+        res = self.meta_interp(f, [60,58.4547])
+        assert res == f(60,58.4547) == 58.4547
 
     @py.test.mark.parametrize('i',[15])
     def test_array_bounds_check_elimination(self,i):
