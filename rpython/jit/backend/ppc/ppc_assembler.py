@@ -437,7 +437,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         mc.b_abs(self.propagate_exception_path)
 
         mc.prepare_insts_blocks()
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         # here we do not need a function descr. This is being only called using
         # an internal ABI
         self.malloc_slowpath = rawstart
@@ -539,7 +539,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         mc.blr()
 
         mc.prepare_insts_blocks()
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         if IS_PPC_64:
             self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
         self.stack_check_slowpath = rawstart
@@ -597,7 +597,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         mc.blr()
         #
         mc.prepare_insts_blocks()
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def _build_propagate_exception_path(self):
@@ -611,7 +611,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         mc.load_imm(r.RES, self.cpu.propagate_exception_descr)
         self._gen_epilogue(mc)
         mc.prepare_insts_blocks()
-        self.propagate_exception_path = mc.materialize(self.cpu.asmmemmgr, [])
+        self.propagate_exception_path = mc.materialize(self.cpu, [])
 
     # The code generated here serves as an exit stub from
     # the executed machine code.
@@ -642,8 +642,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self._gen_epilogue(mc)
 
         mc.prepare_insts_blocks()
-        return mc.materialize(self.cpu.asmmemmgr, [],
-                                   self.cpu.gc_ll_descr.gcrootmap)
+        return mc.materialize(self.cpu, [], self.cpu.gc_ll_descr.gcrootmap)
 
     def _gen_epilogue(self, mc):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
@@ -1115,7 +1114,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.datablockwrapper.done()
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
-        start = self.mc.materialize(self.cpu.asmmemmgr, allblocks, 
+        start = self.mc.materialize(self.cpu, allblocks,
                                     self.cpu.gc_ll_descr.gcrootmap)
         #from pypy.rlib.rarithmetic import r_uint
         #print "=== Loop start is at %s ===" % hex(r_uint(start))

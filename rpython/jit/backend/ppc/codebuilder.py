@@ -951,10 +951,9 @@ class OverwritingBuilder(PPCAssembler):
             self.cb.insts[i + startindex] = new_inst
 
 class PPCBuilder(BlockBuilderMixin, PPCAssembler):
-    def __init__(self, failargs_limit=1000, r0_in_use=False):
+    def __init__(self):
         PPCAssembler.__init__(self)
         self.init_block_builder()
-        self.r0_in_use = r0_in_use
         self.ops_offset = {}
 
     def mark_op(self, op):
@@ -1214,12 +1213,14 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
                     self.cmpld(block, a, b)
                 
     def alloc_scratch_reg(self):
-        assert not self.r0_in_use
-        self.r0_in_use = True
+        pass
+        #assert not self.r0_in_use
+        #self.r0_in_use = True
 
     def free_scratch_reg(self):
-        assert self.r0_in_use
-        self.r0_in_use = False
+        pass
+        #assert self.r0_in_use
+        #self.r0_in_use = False
 
 class scratch_reg(object):
     def __init__(self, mc):

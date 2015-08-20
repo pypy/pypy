@@ -9,8 +9,7 @@ from rpython.jit.metainterp.history import (AbstractFailDescr,
                                             ConstInt, ConstPtr,
                                             Const,
                                             BoxFloat, ConstFloat)
-from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi, rclass
-from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.backend.ppc.arch import IS_PPC_32
 import py
