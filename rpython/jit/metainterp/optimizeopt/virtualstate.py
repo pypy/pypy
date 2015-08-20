@@ -122,14 +122,17 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
             raise VirtualStatesCantMatch("field descrs don't match")
 
         for i in range(len(self.fielddescrs)):
-            yyy
             if other.fielddescrs[i] is not self.fielddescrs[i]:
                 raise VirtualStatesCantMatch("field descrs don't match")
-            if value is not None:
-                v = value._fields[self.fielddescrs[i]] # must be there
+            if box is not None:
+                fieldbox = opinfo._fields[self.fielddescrs[i].get_index()]
+                # must be there
+                fieldinfo = fieldbox.get_forwarded()
             else:
-                v = None
-            self.fieldstate[i].generate_guards(other.fieldstate[i], v, state)
+                fieldbox = None
+                fieldinfo = None
+            self.fieldstate[i].generate_guards(other.fieldstate[i], fieldbox,
+                                               fieldinfo, state)
 
 
     def _generalization_of_structpart(self, other):
@@ -196,14 +199,15 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             raise VirtualStatesCantMatch("other is a different kind of array")
         if len(self.fieldstate) != len(other.fieldstate):
             raise VirtualStatesCantMatch("other has a different length")
-        v = None
+        fieldbox = None
+        fieldinfo = None
         for i in range(len(self.fieldstate)):
-            xxxx
-            if value is not None:
-                assert isinstance(value, virtualize.VArrayValue)
-                v = value._items[i]
+            if box is not None:
+                assert isinstance(opinfo, info.ArrayPtrInfo)
+                fieldbox = opinfo._items[i]
+                fieldinfo = fieldbox.get_forwarded()
             self.fieldstate[i].generate_guards(other.fieldstate[i],
-                                               v, state)
+                                            fieldbox, fieldinfo, state)
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         box = optimizer.get_box_replacement(box)
@@ -234,7 +238,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         self.arraydescr = arraydescr
         self.fielddescrs = fielddescrs
 
-    def _generate_guards(self, other, value, state):
+    def _generate_guards(self, other, box, opinfo, state):
         if not isinstance(other, VArrayStructStateInfo):
             raise VirtualStatesCantMatch("other is not an VArrayStructStateInfo")
         if self.arraydescr is not other.arraydescr:
@@ -244,7 +248,8 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
             raise VirtualStatesCantMatch("other has a different length")
 
         p = 0
-        v = None
+        fieldbox = None
+        fieldinfo = None
         for i in range(len(self.fielddescrs)):
             if len(self.fielddescrs[i]) != len(other.fielddescrs[i]):
                 raise VirtualStatesCantMatch("other has a different length")
@@ -252,11 +257,12 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
                 descr = self.fielddescrs[i][j]
                 if descr is not other.fielddescrs[i][j]:
                     raise VirtualStatesCantMatch("other is a different kind of array")
-                if value is not None:
+                if box is not None:
+                    xxx
                     assert isinstance(value, virtualize.VArrayStructValue)
                     v = value._items[i][descr]
                 self.fieldstate[p].generate_guards(other.fieldstate[p],
-                                                   v,
+                                                   fieldbox, fieldinfo,
                                                    state)
                 p += 1
 
