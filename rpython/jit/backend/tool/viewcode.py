@@ -51,14 +51,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'ppc' : 'powerpc:common64',
     }
     machine_endianness = {
-        'x86': 'little',
-        'x86-without-sse2': 'little',
-        'x86_32': 'little',
-        'x86_64': 'little',
-        'x86-64': 'little',
-        'i386': 'little',
-        'arm': 'little',
-        'arm_32': 'little',
+        # default value: 'little'
         'ppc' : 'big',
     }
     cmd = find_objdump()
@@ -75,7 +68,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'file': tmpfile,
         'origin': originaddr,
         'machine': objdump_machine_option[backend_name],
-        'endianness': machine_endianness[backend_name],
+        'endianness': machine_endianness.get(backend_name, 'little'),
     }, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
     assert not p.returncode, ('Encountered an error running objdump: %s' %
