@@ -4,8 +4,11 @@ from rpython.jit.backend.ppc.opassembler import OpAssembler
 from rpython.jit.backend.ppc.codebuilder import (PPCBuilder, OverwritingBuilder,
                                                  scratch_reg)
 from rpython.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
-                                          LR_BC_OFFSET,
-                                          STD_FRAME_SIZE_IN_BYTES)
+                                          LR_BC_OFFSET, REGISTERS_SAVED,
+                                          GPR_SAVE_AREA_OFFSET,
+                                          THREADLOCAL_ADDR_OFFSET,
+                                          STD_FRAME_SIZE_IN_BYTES,
+                                          JITFRAME_FIXED_SIZE)
 from rpython.jit.backend.ppc.helper.assembler import Saved_Volatiles
 from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import rpython.jit.backend.ppc.register as r
@@ -30,6 +33,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.ppc.locations import StackLocation, get_spp_offset, imm
 from rpython.rlib.jit import AsmInfo
 from rpython.rlib.objectmodel import compute_unique_id
+from rpython.rlib.rarithmetic import r_uint
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
@@ -128,6 +132,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
     # The code generated here allocates a new stackframe 
     # and is the first machine code to be executed.
     def _make_frame(self, frame_depth):
+        XXX
         self.mc.make_function_prologue(frame_depth)
 
         # save SPP at the bottom of the stack frame
@@ -683,26 +688,20 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.mc.store(r.SCRATCH.value, r.SP.value,
                       STD_FRAME_SIZE_IN_BYTES + LR_BC_OFFSET)
 
-        XXXX
-        # save SPP at the bottom of the stack frame
-        self.mc.store(r.SPP.value, r.SP.value, WORD)
+        # save registers r25 to r31
+        for i, reg in enumerate(REGISTERS_SAVED):
+            self.mc.store(reg.value, r.SP.value,
+                          GPR_SAVE_AREA_OFFSET + i * WORD)
 
-        # compute spilling pointer (SPP)
-        self.mc.addi(r.SPP.value, r.SP.value, 
-                frame_depth - self.OFFSET_SPP_TO_OLD_BACKCHAIN)
+        # save r4, the second argument, to THREADLOCAL_ADDR_OFFSET
+        self.mc.store(r.r4.value, r.SP.value, THREADLOCAL_ADDR_OFFSET)
 
-        # save nonvolatile registers
-        self._save_nonvolatiles()
+        # move r3, the first argument, to r31 (SPP): the jitframe object
+        self.mc.mr(r.SPP.value, r.r3.value)
 
-        # save r31, use r30 as scratch register
-        # this is safe because r30 has been saved already
-        assert NONVOLATILES[-1] == r.SPP
-        ofs_to_r31 = (self.OFFSET_SPP_TO_GPR_SAVE_AREA +
-                      WORD * (len(NONVOLATILES)-1))
-        self.mc.load(r.r30.value, r.SP.value, WORD)
-        self.mc.store(r.r30.value, r.SPP.value, ofs_to_r31)
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
+            XXX
             self.gen_shadowstack_header(gcrootmap)
 
     def _call_header_with_stack_check(self):
@@ -813,6 +812,10 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         self.current_clt.frame_info.update_frame_depth(baseofs, frame_depth)
 
+    def patch_stack_checks(self, framedepth, rawstart):
+        for ofs in self.frame_depth_to_patch:
+            self._patch_frame_depth(ofs + rawstart, framedepth)
+
     @rgc.no_release_gil
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
                       operations, looptoken, log):
@@ -864,9 +867,9 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         ops_offset = self.mc.ops_offset
         if not we_are_translated():
             # used only by looptoken.dump() -- useful in tests
-            looptoken._x86_rawstart = rawstart
-            looptoken._x86_fullsize = full_size
-            looptoken._x86_ops_offset = ops_offset
+            looptoken._ppc_rawstart = rawstart
+            looptoken._ppc_fullsize = full_size
+            looptoken._ppc_ops_offset = ops_offset
         looptoken._ll_function_addr = rawstart
         if logger:
             logger.log_loop(inputargs, operations, 0, "rewritten",
@@ -875,26 +878,26 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.fixup_target_tokens(rawstart)
         self.teardown()
         # oprofile support
-        if self.cpu.profile_agent is not None:
-            name = "Loop # %s: %s" % (looptoken.number, loopname)
-            self.cpu.profile_agent.native_code_written(name,
-                                                       rawstart, full_size)
+        #if self.cpu.profile_agent is not None:
+        #    name = "Loop # %s: %s" % (looptoken.number, loopname)
+        #    self.cpu.profile_agent.native_code_written(name,
+        #                                               rawstart, full_size)
         return AsmInfo(ops_offset, rawstart + looppos,
                        size_excluding_failure_stuff - looppos)
 
-    def _assemble(self, operations, regalloc):
+    def _assemble(self, regalloc, inputargs, operations):
+        self._regalloc = regalloc
         regalloc.compute_hint_frame_locations(operations)
-        self._walk_operations(operations, regalloc)
-        frame_depth = regalloc.frame_manager.get_frame_depth()
-        param_depth = self.max_stack_params
+        regalloc.walk_operations(inputargs, operations)
+        if 1: # we_are_translated() or self.cpu.dont_keepalive_stuff:
+            self._regalloc = None   # else keep it around for debugging
+        frame_depth = regalloc.get_final_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
-            frame_depth = max(frame_depth,
-                              jump_target_descr._ppc_clt.frame_depth)
-            param_depth = max(param_depth, 
-                              jump_target_descr._ppc_clt.param_depth)
-        return frame_depth, param_depth
-
+            tgt_depth = jump_target_descr._ppc_clt.frame_info.jfi_frame_depth
+            target_frame_depth = tgt_depth - JITFRAME_FIXED_SIZE
+            frame_depth = max(frame_depth, target_frame_depth)
+        return frame_depth
 
     def assemble_bridge(self, faildescr, inputargs, operations, looptoken, log):
         if not we_are_translated():
@@ -1032,64 +1035,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         assert self.datablockwrapper is None
         self.max_stack_params = 0
 
-    def _walk_operations(self, operations, regalloc):
-        self._regalloc = regalloc
-        while regalloc.position() < len(operations) - 1:
-            regalloc.next_instruction()
-            pos = regalloc.position()
-            op = operations[pos]
-            opnum = op.getopnum()
-            if op.has_no_side_effect() and op.result not in regalloc.longevity:
-                regalloc.possibly_free_vars_for_op(op)
-            elif self.can_merge_with_next_guard(op, pos, operations)\
-                    and opnum in (rop.CALL_RELEASE_GIL, rop.CALL_ASSEMBLER,\
-                    rop.CALL_MAY_FORCE):  # XXX fix  
-                guard = operations[pos + 1]
-                assert guard.is_guard()
-                arglocs = regalloc.operations_with_guard[opnum](regalloc, op,
-                                                                guard)
-                operations_with_guard[opnum](self, op,
-                                             guard, arglocs, regalloc)
-                regalloc.next_instruction()
-                regalloc.possibly_free_vars_for_op(guard)
-                regalloc.possibly_free_vars(guard.getfailargs())
-            elif not we_are_translated() and op.getopnum() == -124:
-                regalloc.prepare_force_spill(op)
-            else:
-                arglocs = regalloc.operations[opnum](regalloc, op)
-                if arglocs is not None:
-                    self.operations[opnum](self, op, arglocs, regalloc)
-            if op.is_guard():
-                regalloc.possibly_free_vars(op.getfailargs())
-            if op.result:
-                regalloc.possibly_free_var(op.result)
-            regalloc.possibly_free_vars_for_op(op)
-            regalloc.free_temp_vars()
-            regalloc._check_invariants()
-
-    def can_merge_with_next_guard(self, op, i, operations):
-        if (op.getopnum() == rop.CALL_MAY_FORCE or
-            op.getopnum() == rop.CALL_ASSEMBLER or
-            op.getopnum() == rop.CALL_RELEASE_GIL):
-            assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
-            return True
-        if not op.is_comparison():
-            if op.is_ovf():
-                if (operations[i + 1].getopnum() != rop.GUARD_NO_OVERFLOW and
-                    operations[i + 1].getopnum() != rop.GUARD_OVERFLOW):
-                    assert 0, "int_xxx_ovf not followed by guard_(no)_overflow"
-                return True
-            return False
-        if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
-            operations[i + 1].getopnum() != rop.GUARD_FALSE):
-            return False
-        if operations[i + 1].getarg(0) is not op.result:
-            return False
-        if (self._regalloc.longevity[op.result][1] > i + 1 or
-            op.result in operations[i + 1].getfailargs()):
-            return False
-        return True
-
     def gen_64_bit_func_descr(self):
         return self.datablockwrapper.malloc_aligned(3*WORD, alignment=1)
 
@@ -1138,7 +1083,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         start = self.mc.materialize(self.cpu, allblocks,
                                     self.cpu.gc_ll_descr.gcrootmap)
-        #from pypy.rlib.rarithmetic import r_uint
         #print "=== Loop start is at %s ===" % hex(r_uint(start))
         return start
 
@@ -1160,8 +1104,15 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         return startpos
 
     def write_pending_failure_recoveries(self):
-        for tok in self.pending_guards:
+        # for each pending guard, generate the code of the recovery stub
+        # at the end of self.mc.
+        for tok in self.pending_guard_tokens:
             tok.pos_recovery_stub = self.generate_quick_failure(tok)
+
+    def patch_pending_failure_recoveries(self, rawstart):
+        clt = self.current_clt
+        for tok in self.pending_guard_tokens:
+            xxxxxxxxx
 
     def process_pending_guards(self, block_start):
         clt = self.current_clt

@@ -198,26 +198,35 @@ class Regalloc(BaseRegalloc):
 
     def __init__(self, assembler=None):
         self.cpu = assembler.cpu
-        self.frame_manager = PPCFrameManager(self.cpu.get_baseofs_of_frame_field())
+        #self.frame_manager = PPCFrameManager(self.cpu.get_baseofs_of_frame_field())
         self.assembler = assembler
         self.jump_target_descr = None
         self.final_jump_op = None
 
-    def _prepare(self,  inputargs, operations):
-        self.fm = self.frame_manager
-        longevity, last_real_usage = compute_vars_longevity(inputargs,
-                                                            operations)
+    def _prepare(self,  inputargs, operations, allgcrefs):
+        cpu = self.assembler.cpu
+        self.fm = PPCFrameManager(cpu.get_baseofs_of_frame_field())
+        operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
+                                                       allgcrefs)
+        # compute longevity of variables
+        longevity, last_real_usage = compute_vars_longevity(
+                                                    inputargs, operations)
         self.longevity = longevity
         self.last_real_usage = last_real_usage
-        fm = self.frame_manager
-        asm = self.assembler
-        self.fprm = FPRegisterManager(longevity, fm, asm)
-        self.rm = PPCRegisterManager(longevity, fm, asm)
+        self.rm = PPCRegisterManager(self.longevity,
+                                     frame_manager = self.fm,
+                                     assembler = self.assembler)
+        self.fprm = FPRegisterManager(self.longevity, frame_manager = self.fm,
+                                      assembler = self.assembler)
+        return operations
 
-    def prepare_loop(self, inputargs, operations, looptoken):
-        self._prepare(inputargs, operations)
+    def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
+        operations = self._prepare(inputargs, operations, allgcrefs)
         self._set_initial_bindings(inputargs, looptoken)
-        self.possibly_free_vars(inputargs)
+        # note: we need to make a copy of inputargs because possibly_free_vars
+        # is also used on op args, which is a non-resizable list
+        self.possibly_free_vars(list(inputargs))
+        return operations
 
     def prepare_bridge(self, inputargs, arglocs, ops):
         self._prepare(inputargs, ops)
@@ -250,6 +259,9 @@ class Regalloc(BaseRegalloc):
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
+
+    def get_final_frame_depth(self):
+        return self.fm.get_frame_depth()
 
     def possibly_free_var(self, var):
         if var.type == FLOAT:
@@ -289,18 +301,41 @@ class Regalloc(BaseRegalloc):
                         forbidden_vars=forbidden_vars,
                         selected_reg=selected_reg)
 
-    def _check_invariants(self):
-        self.rm._check_invariants()
-        self.fprm._check_invariants()
+    def walk_operations(self, inputargs, operations):
+        i = 0
+        #self.operations = operations
+        while i < len(operations):
+            op = operations[i]
+            self.assembler.mc.mark_op(op)
+            self.rm.position = i
+            self.fprm.position = i
+            if op.has_no_side_effect() and op.result not in self.longevity:
+                i += 1
+                self.possibly_free_vars_for_op(op)
+                continue
+            if self.can_merge_with_next_guard(op, i, operations):
+                oplist_with_guard[op.getopnum()](self, op, operations[i + 1])
+                i += 1
+            elif not we_are_translated() and op.getopnum() == -124:
+                self._consider_force_spill(op)
+            else:
+                oplist[op.getopnum()](self, op)
+            self.possibly_free_vars_for_op(op)
+            self.rm._check_invariants()
+            self.fprm._check_invariants()
+            i += 1
+        assert not self.rm.reg_bindings
+        assert not self.fprm.reg_bindings
+        #self.flush_loop()
+        self.assembler.mc.mark_op(None) # end of the loop
+        for arg in inputargs:
+            self.possibly_free_var(arg)
 
     def loc(self, var):
         if var.type == FLOAT:
             return self.fprm.loc(var)
         else:
             return self.rm.loc(var)
-
-    def position(self):
-        return self.rm.position
 
     def next_instruction(self):
         self.rm.next_instruction()
@@ -681,11 +716,10 @@ class Regalloc(BaseRegalloc):
         return []
 
     def prepare_setfield_gc(self, op):
-        boxes = op.getarglist()
-        a0, a1 = boxes
         ofs, size, sign = unpack_fielddescr(op.getdescr())
-        base_loc = self._ensure_value_is_boxed(a0, boxes)
-        value_loc = self._ensure_value_is_boxed(a1, boxes)
+        args = op.getarglist()
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        value_loc = self.make_sure_var_in_reg(op.getarg(1), args)
         if _check_imm_arg(ofs):
             ofs_loc = imm(ofs)
         else:
@@ -1103,8 +1137,8 @@ def notimplemented_with_guard(self, op, guard_op):
 
 
 
-operations = [notimplemented] * (rop._LAST + 1)
-operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
+oplist = [notimplemented] * (rop._LAST + 1)
+oplist_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
 
 def get_scale(size):
     scale = 0
@@ -1120,7 +1154,7 @@ for key, value in rop.__dict__.items():
     methname = 'prepare_%s' % key
     if hasattr(Regalloc, methname):
         func = getattr(Regalloc, methname).im_func
-        operations[value] = func
+        oplist[value] = func
 
 for key, value in rop.__dict__.items():
     key = key.lower()
@@ -1129,8 +1163,5 @@ for key, value in rop.__dict__.items():
     methname = 'prepare_guard_%s' % key
     if hasattr(Regalloc, methname):
         func = getattr(Regalloc, methname).im_func
-        operations_with_guard[value] = func
-        operations[value] = add_none_argument(func)
-
-Regalloc.operations = operations
-Regalloc.operations_with_guard = operations_with_guard
+        oplist_with_guard[value] = func
+        oplist[value] = add_none_argument(func)

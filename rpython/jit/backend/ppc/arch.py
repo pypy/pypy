@@ -61,15 +61,21 @@ MAX_FREG_PARAMS         = 13
 # register r31.
 
 
+LR_BC_OFFSET            = 16
+PARAM_SAVE_AREA_OFFSET  = 48
+THREADLOCAL_ADDR_OFFSET = 112
+GPR_SAVE_AREA_OFFSET    = 120
+
 REGISTERS_SAVED         = [r.r25, r.r26, r.r27, r.r28, r.r29, r.r30, r.r31]
 assert REGISTERS_SAVED == [_r for _r in r.NONVOLATILES
                               if _r in r.MANAGED_REGS or _r == r.r31]
 
-STD_FRAME_SIZE_IN_BYTES = 120 + len(REGISTERS_SAVED) * WORD
+STD_FRAME_SIZE_IN_BYTES = GPR_SAVE_AREA_OFFSET + len(REGISTERS_SAVED) * WORD
 assert STD_FRAME_SIZE_IN_BYTES % 16 == 0
 
-# offset to LR in BACKCHAIN
-if IS_PPC_32:
-    LR_BC_OFFSET = WORD
-else:
-    LR_BC_OFFSET = 16
+
+# The JITFRAME_FIXED_SIZE is measured in words, and should be the
+# number of registers that need to be saved into the jitframe when
+# failing a guard, for example.  (Note: it is about the jitframe,
+# not the frame.)
+JITFRAME_FIXED_SIZE = len(r.MANAGED_REGS) + len(r.MANAGED_FP_REGS)
