@@ -5,6 +5,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rlib import rmmap, rarithmetic
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError
+from rpython.rlib.rstring import StringBuilder
 
 if rmmap.HAVE_LARGEFILE_SUPPORT:
     OFF_T = rarithmetic.r_longlong
@@ -20,6 +21,10 @@ class W_MMap(W_Root):
     def readbuf_w(self, space):
         self.check_valid()
         return MMapBuffer(self.space, self.mmap, True)
+
+    def writebuf_w(self, space):
+        self.check_writeable()
+        return MMapBuffer(self.space, self.mmap, False)
 
     def close(self):
         self.mmap.close()
@@ -163,17 +168,18 @@ class W_MMap(W_Root):
         self.check_valid()
 
         space = self.space
-        start, stop, step = space.decode_index(w_index, self.mmap.size)
+        start, stop, step, length = space.decode_index4(w_index, self.mmap.size)
         if step == 0:  # index only
             return space.wrap(self.mmap.getitem(start))
         elif step == 1:
             if stop - start < 0:
                 return space.wrap("")
-            return space.wrap(self.mmap.getslice(start, stop - start))
+            return space.wrap(self.mmap.getslice(start, length))
         else:
-            res = "".join([self.mmap.getitem(i)
-                           for i in range(start, stop, step)])
-            return space.wrap(res)
+            b = StringBuilder(length)
+            for i in range(start, stop, step):
+                b.append(self.mmap.getitem(i))
+            return space.wrap(b.build())
 
     def descr_setitem(self, w_index, w_value):
         space = self.space
@@ -199,6 +205,46 @@ class W_MMap(W_Root):
                 for i in range(length):
                     self.mmap.setitem(start, value[i])
                     start += step
+
+    def descr_getslice(self, space, w_ilow, w_ihigh):
+        self.check_valid()
+        i = space.getindex_w(w_ilow, None)
+        j = space.getindex_w(w_ihigh, None)
+        if i < 0:
+            i = 0
+        elif i > self.mmap.size:
+            i = self.mmap.size
+        if j < 0:
+            j = 0
+        if j < i:
+            j = i
+        elif j > self.mmap.size:
+            j = self.mmap.size
+        return space.wrap(self.mmap.getslice(i, (j - i)))
+
+    def descr_setslice(self, space, w_ilow, w_ihigh, w_item):
+        self.check_valid()
+        i = space.getindex_w(w_ilow, None)
+        j = space.getindex_w(w_ihigh, None)
+        if i < 0:
+            i = 0
+        elif i > self.mmap.size:
+            i = self.mmap.size
+        if j < 0:
+            j = 0
+        if j < i:
+            j = i
+        elif j > self.mmap.size:
+            j = self.mmap.size
+        if not space.isinstance_w(w_item, space.w_str):
+            raise OperationError(space.w_IndexError, space.wrap(
+                "mmap slice assignment must be a string"))
+        value = space.realstr_w(w_item)
+        if len(value) != (j - i):
+            raise OperationError(space.w_IndexError, space.wrap(
+                "mmap slice assignment is wrong size"))
+        self.check_writeable()
+        self.mmap.setslice(i, value)
 
 if rmmap._POSIX:
 
@@ -255,6 +301,8 @@ W_MMap.typedef = TypeDef("mmap.mmap",
     __len__ = interp2app(W_MMap.__len__),
     __getitem__ = interp2app(W_MMap.descr_getitem),
     __setitem__ = interp2app(W_MMap.descr_setitem),
+    __getslice__ = interp2app(W_MMap.descr_getslice),
+    __setslice__ = interp2app(W_MMap.descr_setslice),
 )
 
 constants = rmmap.constants

@@ -5,16 +5,15 @@
 # This version is based on cffi, and is a translation of _tkinter.c
 # from CPython, version 2.7.4.
 
+import sys
+
 class TclError(Exception):
     pass
 
-import cffi
-try:
-    from .tklib import tklib, tkffi
-except cffi.VerificationError:
-    raise ImportError("Tk headers and development libraries are required")
+from .tklib_cffi import ffi as tkffi, lib as tklib
 
 from .app import TkApp
+from .tclobj import TclObject as Tcl_Obj
 
 TK_VERSION = tkffi.string(tklib.get_tk_version())
 TCL_VERSION = tkffi.string(tklib.get_tcl_version())
@@ -50,4 +49,6 @@ def _flatten(item):
     result = []
     _flatten1(result, item, 0)
     return tuple(result)
-    
+
+
+tklib.Tcl_FindExecutable(sys.executable)

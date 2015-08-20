@@ -20,8 +20,14 @@ __all__ = ["register", "lookup", "open", "EncodedFile", "BOM", "BOM_BE",
            "BOM_LE", "BOM32_BE", "BOM32_LE", "BOM64_BE", "BOM64_LE",
            "BOM_UTF8", "BOM_UTF16", "BOM_UTF16_LE", "BOM_UTF16_BE",
            "BOM_UTF32", "BOM_UTF32_LE", "BOM_UTF32_BE",
+           "CodecInfo", "Codec", "IncrementalEncoder", "IncrementalDecoder",
+           "StreamReader", "StreamWriter",
+           "StreamReaderWriter", "StreamRecoder",
+           "getencoder", "getdecoder", "getincrementalencoder",
+           "getincrementaldecoder", "getreader", "getwriter",
+           "encode", "decode", "iterencode", "iterdecode",
            "strict_errors", "ignore_errors", "replace_errors",
-           "xmlcharrefreplace_errors",
+           "xmlcharrefreplace_errors", "backslashreplace_errors",
            "register_error", "lookup_error"]
 
 ### Constants
@@ -456,15 +462,12 @@ class StreamReader(Codec):
 
         # read until we get the required number of characters (if available)
         while True:
-            # can the request can be satisfied from the character buffer?
-            if chars < 0:
-                if size < 0:
-                    if self.charbuffer:
-                        break
-                elif len(self.charbuffer) >= size:
-                    break
-            else:
+            # can the request be satisfied from the character buffer?
+            if chars >= 0:
                 if len(self.charbuffer) >= chars:
+                    break
+            elif size >= 0:
+                if len(self.charbuffer) >= size:
                     break
             # we need more data
             if size < 0:
@@ -1054,7 +1057,7 @@ def make_encoding_map(decoding_map):
         during translation.
 
         One example where this happens is cp875.py which decodes
-        multiple character to \u001a.
+        multiple character to \\u001a.
 
     """
     m = {}

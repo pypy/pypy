@@ -1,17 +1,16 @@
-from pypy.objspace.std.model import W_Object
-from pypy.objspace.std.stdtypedef import StdTypeDef
-
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.typedef import TypeDef
 
 
 class TestTypeObject:
     def test_not_acceptable_as_base_class(self):
         space = self.space
-        class W_Stuff(W_Object):
+        class W_Stuff(W_Root):
             pass
         def descr__new__(space, w_subtype):
             return space.allocate_instance(W_Stuff, w_subtype)
-        W_Stuff.typedef = StdTypeDef("stuff",
+        W_Stuff.typedef = TypeDef("stuff",
                                      __new__ = interp2app(descr__new__))
         W_Stuff.typedef.acceptable_as_base_class = False
         w_stufftype = space.gettypeobject(W_Stuff.typedef)
@@ -1032,6 +1031,48 @@ class AppTestTypeObject:
         A.__dict__['x'] = 5
         assert A.x == 5
 
+    def test_we_already_got_one_1(self):
+        # Issue #2079: highly obscure: CPython complains if we say
+        # ``__slots__="__dict__"`` and there is already a __dict__...
+        # but from the "best base" only.  If the __dict__ comes from
+        # another base, it doesn't complain.  Shrug and copy the logic.
+        class A(object):
+            __slots__ = ()
+        class B(object):
+            pass
+        class C(A, B):     # "best base" is A
+            __slots__ = ("__dict__",)
+        class D(A, B):     # "best base" is A
+            __slots__ = ("__weakref__",)
+        try:
+            class E(B, A):   # "best base" is B
+                __slots__ = ("__dict__",)
+        except TypeError, e:
+            assert 'we already got one' in str(e)
+        else:
+            raise AssertionError("TypeError not raised")
+        try:
+            class F(B, A):   # "best base" is B
+                __slots__ = ("__weakref__",)
+        except TypeError, e:
+            assert 'we already got one' in str(e)
+        else:
+            raise AssertionError("TypeError not raised")
+
+    def test_we_already_got_one_2(self):
+        class A(object):
+            __slots__ = ()
+        class B:
+            pass
+        class C(A, B):     # "best base" is A
+            __slots__ = ("__dict__",)
+        class D(A, B):     # "best base" is A
+            __slots__ = ("__weakref__",)
+        class C(B, A):     # "best base" is A
+            __slots__ = ("__dict__",)
+        class D(B, A):     # "best base" is A
+            __slots__ = ("__weakref__",)
+
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
@@ -1166,3 +1207,17 @@ class AppTestNewShortcut:
                 return x + 1
         a = A()
         assert a.f(1) == 2
+
+    def test_eq_returns_notimplemented(self):
+        assert type.__eq__(int, 42) is NotImplemented
+        assert type.__ne__(dict, 42) is NotImplemented
+        assert type.__eq__(int, int) is True
+        assert type.__eq__(int, dict) is False
+
+    def test_cmp_on_types(self):
+        class X(type):
+            def __cmp__(self, other):
+                return -1
+        class Y:
+            __metaclass__ = X
+        assert (Y < Y) is True

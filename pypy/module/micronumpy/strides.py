@@ -10,77 +10,91 @@ class BaseChunk(object):
     pass
 
 
-class RecordChunk(BaseChunk):
-    def __init__(self, name):
-        self.name = name
-
-    def apply(self, space, orig_arr):
-        arr = orig_arr.implementation
-        ofs, subdtype = arr.dtype.fields[self.name]
-        # ofs only changes start
-        # create a view of the original array by extending
-        # the shape, strides, backstrides of the array
-        strides, backstrides = calc_strides(subdtype.shape,
-                                            subdtype.subdtype, arr.order)
-        final_shape = arr.shape + subdtype.shape
-        final_strides = arr.get_strides() + strides
-        final_backstrides = arr.get_backstrides() + backstrides
-        final_dtype = subdtype
-        if subdtype.subdtype:
-            final_dtype = subdtype.subdtype
-        return W_NDimArray.new_slice(space, arr.start + ofs, final_strides,
-                                     final_backstrides,
-                                     final_shape, arr, orig_arr, final_dtype)
-
-
-class Chunks(BaseChunk):
-    def __init__(self, l):
-        self.l = l
-
-    @jit.unroll_safe
-    def extend_shape(self, old_shape):
-        shape = []
-        i = -1
-        for i, c in enumerate_chunks(self.l):
-            if c.step != 0:
-                shape.append(c.lgt)
-        s = i + 1
-        assert s >= 0
-        return shape[:] + old_shape[s:]
-
-    def apply(self, space, orig_arr):
-        arr = orig_arr.implementation
-        shape = self.extend_shape(arr.shape)
-        r = calculate_slice_strides(arr.shape, arr.start, arr.get_strides(),
-                                    arr.get_backstrides(), self.l)
-        _, start, strides, backstrides = r
-        return W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
-                                     shape[:], arr, orig_arr)
-
-
 class Chunk(BaseChunk):
-    axis_step = 1
+    input_dim = 1
 
     def __init__(self, start, stop, step, lgt):
         self.start = start
         self.stop = stop
         self.step = step
         self.lgt = lgt
+        if self.step == 0:
+            self.out_dim = 0
+        else:
+            self.out_dim = 1
+
+    def compute(self, space, base_length, base_stride):
+        stride = base_stride * self.step
+        backstride = base_stride * max(0, self.lgt - 1) * self.step
+        return self.start, self.lgt, stride, backstride
 
     def __repr__(self):
         return 'Chunk(%d, %d, %d, %d)' % (self.start, self.stop, self.step,
                                           self.lgt)
 
+class IntegerChunk(BaseChunk):
+    input_dim = 1
+    out_dim = 0
+    def __init__(self, w_idx):
+        self.w_idx = w_idx
+
+    def compute(self, space, base_length, base_stride):
+        start, _, _, _ = space.decode_index4(self.w_idx, base_length)
+        return start, 0, 0, 0
+
+
+class SliceChunk(BaseChunk):
+    input_dim = 1
+    out_dim = 1
+
+    def __init__(self, w_slice):
+        self.w_slice = w_slice
+
+    def compute(self, space, base_length, base_stride):
+        start, stop, step, length = space.decode_index4(self.w_slice, base_length)
+        stride = base_stride * step
+        backstride = base_stride * max(0, length - 1) * step
+        return start, length, stride, backstride
 
 class NewAxisChunk(Chunk):
-    start = 0
-    stop = 1
-    step = 1
-    lgt = 1
-    axis_step = 0
+    input_dim = 0
+    out_dim = 1
 
     def __init__(self):
         pass
+
+    def compute(self, space, base_length, base_stride):
+        return 0, 1, 0, 0
+
+class EllipsisChunk(BaseChunk):
+    input_dim = 0
+    out_dim = 0
+    def __init__(self):
+        pass
+
+    def compute(self, space, base_length, base_stride):
+        backstride = base_stride * max(0, base_length - 1)
+        return 0, base_length, base_stride, backstride
+
+
+def new_view(space, w_arr, chunks):
+    arr = w_arr.implementation
+    r = calculate_slice_strides(space, arr.shape, arr.start, arr.get_strides(),
+                                arr.get_backstrides(), chunks)
+    shape, start, strides, backstrides = r
+    return W_NDimArray.new_slice(space, start, strides[:], backstrides[:],
+                                 shape[:], arr, w_arr)
+
+@jit.unroll_safe
+def _extend_shape(old_shape, chunks):
+    shape = []
+    i = -1
+    for i, c in enumerate_chunks(chunks):
+        if c.out_dim > 0:
+            shape.append(c.lgt)
+    s = i + 1
+    assert s >= 0
+    return shape[:] + old_shape[s:]
 
 
 class BaseTransform(object):
@@ -103,41 +117,56 @@ def enumerate_chunks(chunks):
     result = []
     i = -1
     for chunk in chunks:
-        i += chunk.axis_step
+        i += chunk.input_dim
         result.append((i, chunk))
     return result
 
 
-@jit.look_inside_iff(lambda shape, start, strides, backstrides, chunks:
+@jit.look_inside_iff(lambda space, shape, start, strides, backstrides, chunks:
                      jit.isconstant(len(chunks)))
-def calculate_slice_strides(shape, start, strides, backstrides, chunks):
+def calculate_slice_strides(space, shape, start, strides, backstrides, chunks):
+    """
+    Note: `chunks` must contain exactly one EllipsisChunk object.
+    """
     size = 0
+    used_dims = 0
     for chunk in chunks:
-        if chunk.step != 0:
-            size += 1
-    rstrides = [0] * size
-    rbackstrides = [0] * size
+        used_dims += chunk.input_dim
+        size += chunk.out_dim
+    if used_dims > len(shape):
+        raise oefmt(space.w_IndexError, "too many indices for array")
+    else:
+        extra_dims = len(shape) - used_dims
+    rstrides = [0] * (size + extra_dims)
+    rbackstrides = [0] * (size + extra_dims)
     rstart = start
-    rshape = [0] * size
-    i = -1
-    j = 0
-    for i, chunk in enumerate_chunks(chunks):
-        try:
-            s_i = strides[i]
-        except IndexError:
-            continue
-        if chunk.step != 0:
-            rstrides[j] = s_i * chunk.step
-            rbackstrides[j] = s_i * max(0, chunk.lgt - 1) * chunk.step
-            rshape[j] = chunk.lgt
+    rshape = [0] * (size + extra_dims)
+    rstart = start
+    i = 0  # index of the current dimension in the input array
+    j = 0  # index of the current dimension in the result view
+    for chunk in chunks:
+        if isinstance(chunk, NewAxisChunk):
+            rshape[j] = 1
             j += 1
-        rstart += s_i * chunk.start
-    # add a reminder
-    s = i + 1
-    assert s >= 0
-    rstrides += strides[s:]
-    rbackstrides += backstrides[s:]
-    rshape += shape[s:]
+            continue
+        elif isinstance(chunk, EllipsisChunk):
+            for k in range(extra_dims):
+                start, length, stride, backstride = chunk.compute(
+                        space, shape[i], strides[i])
+                rshape[j] = length
+                rstrides[j] = stride
+                rbackstrides[j] = backstride
+                j += 1
+                i += 1
+            continue
+        start, length, stride, backstride = chunk.compute(space, shape[i], strides[i])
+        if chunk.out_dim == 1:
+            rshape[j] = length
+            rstrides[j] = stride
+            rbackstrides[j] = backstride
+            j += chunk.out_dim
+        rstart += strides[i] * start
+        i += chunk.input_dim
     return rshape, rstart, rstrides, rbackstrides
 
 
@@ -185,8 +214,14 @@ def find_shape_and_elems(space, w_iterable, dtype):
 
 
 def _find_shape_and_elems(space, w_iterable, is_rec_type):
+    from pypy.objspace.std.bufferobject import W_Buffer
     shape = [space.len_w(w_iterable)]
-    batch = space.listview(w_iterable)
+    if space.isinstance_w(w_iterable, space.w_buffer):
+        batch = [space.wrap(0)] * shape[0]
+        for i in range(shape[0]):
+            batch[i] = space.ord(space.getitem(w_iterable, space.wrap(i)))
+    else:
+        batch = space.listview(w_iterable)
     while True:
         if not batch:
             return shape[:], []
@@ -214,24 +249,6 @@ def _find_shape_and_elems(space, w_iterable, is_rec_type):
         batch = new_batch
 
 
-def find_dtype_for_seq(space, elems_w, dtype):
-    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
-    if len(elems_w) == 1:
-        w_elem = elems_w[0]
-        if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
-            w_elem = w_elem.get_scalar_value()
-        return find_dtype_for_scalar(space, w_elem, dtype)
-    return _find_dtype_for_seq(space, elems_w, dtype)
-
-
-def _find_dtype_for_seq(space, elems_w, dtype):
-    from pypy.module.micronumpy.ufuncs import find_dtype_for_scalar
-    for w_elem in elems_w:
-        if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
-            w_elem = w_elem.get_scalar_value()
-        dtype = find_dtype_for_scalar(space, w_elem, dtype)
-    return dtype
-
 
 @jit.unroll_safe
 def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
@@ -241,11 +258,15 @@ def shape_agreement(space, shape1, w_arr2, broadcast_down=True):
     shape2 = w_arr2.get_shape()
     ret = _shape_agreement(shape1, shape2)
     if len(ret) < max(len(shape1), len(shape2)):
+        def format_shape(shape):
+            if len(shape) > 1:
+                return ",".join([str(x) for x in shape])
+            else:
+                return '%d,' % shape[0]
         raise OperationError(space.w_ValueError,
             space.wrap("operands could not be broadcast together with shapes (%s) (%s)" % (
-                ",".join([str(x) for x in shape1]),
-                ",".join([str(x) for x in shape2]),
-            ))
+                format_shape(shape1), format_shape(shape2)),
+            )
         )
     if not broadcast_down and len([x for x in ret if x != 1]) > len([x for x in shape2 if x != 1]):
         raise OperationError(space.w_ValueError,
@@ -270,7 +291,7 @@ def shape_agreement_multiple(space, array_list, shape=None):
                 shape = shape_agreement(space, shape, arr)
     return shape
 
-
+@jit.unroll_safe
 def _shape_agreement(shape1, shape2):
     """ Checks agreement about two shapes with respect to broadcasting. Returns
     the resulting shape.
@@ -362,6 +383,13 @@ def calc_strides(shape, dtype, order):
         backstrides.reverse()
     return strides, backstrides
 
+@jit.unroll_safe
+def calc_backstrides(strides, shape):
+    ndims = len(shape)
+    new_backstrides = [0] * ndims
+    for nd in range(ndims):
+        new_backstrides[nd] = (shape[nd] - 1) * strides[nd]
+    return new_backstrides
 
 # Recalculating strides. Find the steps that the iteration does for each
 # dimension, given the stride and shape. Then try to create a new stride that
@@ -420,5 +448,47 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                 if oldI >= -len(old_shape):
                     cur_step = steps[oldI]
                     n_old_elems_to_use *= old_shape[oldI]
-    assert len(new_strides) == len(new_shape)
     return new_strides[:]
+
+def calc_start(shape, strides):
+    ''' Strides can be negative for non-contiguous data.
+    Calculate the appropriate positive starting position so
+    the indexing still works properly
+    '''
+    start = 0
+    for i in range(len(shape)):
+        if strides[i] < 0:
+            start -= strides[i] * (shape[i] - 1)
+    return start
+
+@jit.unroll_safe
+def is_c_contiguous(arr):
+    shape = arr.get_shape()
+    strides = arr.get_strides()
+    ret = True
+    sd = arr.dtype.elsize
+    for i in range(len(shape) - 1, -1, -1):
+        dim = shape[i]
+        if strides[i] != sd:
+            ret = False
+            break
+        if dim == 0:
+            break
+        sd *= dim
+    return ret
+
+@jit.unroll_safe
+def is_f_contiguous(arr):
+    shape = arr.get_shape()
+    strides = arr.get_strides()
+    ret = True
+    sd = arr.dtype.elsize
+    for i in range(len(shape)):
+        dim = shape[i]
+        if strides[i] != sd:
+            ret = False
+            break
+        if dim == 0:
+            break
+        sd *= dim
+    return ret

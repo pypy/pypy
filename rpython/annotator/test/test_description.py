@@ -1,4 +1,4 @@
-from rpython.annotator.description import ClassDesc
+from rpython.annotator.description import ClassDesc, is_mixin
 
 class FakeBookkeeper:
     def __init__(self):
@@ -20,3 +20,13 @@ def test_getcommonbase():
     dC = bk.getdesc(C)
     dD = bk.getdesc(D)
     assert ClassDesc.getcommonbase([dC, dD]) is dA
+
+def test_is_mixin():
+    class Mixin1(object):
+        _mixin_ = True
+
+    class A(Mixin1):
+        pass
+
+    assert is_mixin(Mixin1)
+    assert not is_mixin(A)

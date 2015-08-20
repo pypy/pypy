@@ -4,7 +4,8 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
     cast_base_ptr_to_instance, llstr)
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.lltypesystem import llmemory, lltype, rclass
+from rpython.rtyper.lltypesystem import llmemory, lltype
+from rpython.rtyper import rclass
 
 
 def register_helper(s_result):
@@ -129,7 +130,7 @@ def stats_get_counter_value(warmrunnerdesc, no):
 
 @register_helper(annmodel.SomeFloat())
 def stats_get_times_value(warmrunnerdesc, no):
-    return warmrunnerdesc.metainterp_sd.profiler.times[no]
+    return warmrunnerdesc.metainterp_sd.profiler.get_times(no)
 
 LOOP_RUN_CONTAINER = lltype.GcArray(lltype.Struct('elem',
                                                   ('type', lltype.Char),

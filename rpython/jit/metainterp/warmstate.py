@@ -4,6 +4,7 @@ import weakref
 from rpython.jit.codewriter import support, heaptracker, longlong
 from rpython.jit.metainterp import history
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
+from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
@@ -127,8 +128,54 @@ def hash_whatever(TYPE, x):
 JC_TRACING         = 0x01
 JC_DONT_TRACE_HERE = 0x02
 JC_TEMPORARY       = 0x04
+JC_TRACING_OCCURRED= 0x08
 
 class BaseJitCell(object):
+    """Subclasses of BaseJitCell are used in tandem with the single
+    JitCounter instance to record places in the JIT-tracked user program
+    where something particular occurs with the JIT.  For some
+    'greenkeys' (e.g. Python bytecode position), we create one instance
+    of JitCell and attach it to that greenkey.  This is implemented
+    with jitcounter.install_new_cell(), but conceptually you can think
+    about JitCode instances as attached to some locations of the
+    app-level Python code.
+
+    We create subclasses of BaseJitCell --one per jitdriver-- so that
+    they can store greenkeys of different types.  
+
+    Note that we don't create a JitCell the first time we see a given
+    greenkey position in the interpreter.  At first, we only hash the
+    greenkey and use that in the JitCounter to record the number of
+    times we have seen it.  We only create a JitCell when the
+    JitCounter's total time value reaches 1.0 and we are starting to
+    JIT-compile.
+
+    A JitCell has a 'wref_procedure_token' that is non-None when we
+    actually have a compiled procedure for that greenkey.  (It is a
+    weakref, so that it could later be freed; in this case the JitCell
+    will likely be reclaimed a bit later by 'should_remove_jitcell()'.)
+
+    There are other less-common cases where we also create a JitCell: to
+    record some long-term flags about the greenkey.  In general, a
+    JitCell can have any combination of the following flags set:
+
+        JC_TRACING: we are now tracing the loop from this greenkey.
+        We'll likely end up with a wref_procedure_token, soonish.
+
+        JC_TRACING_OCCURRED: set if JC_TRACING was set at least once.
+
+        JC_TEMPORARY: a "temporary" wref_procedure_token.
+        It's the procedure_token of a dummy loop that simply calls
+        back the interpreter.  Used for a CALL_ASSEMBLER where the
+        target was not compiled yet.  In this situation we are still
+        ticking the JitCounter for the same hash, until we reach the
+        threshold and start tracing the loop in earnest.
+
+        JC_DONT_TRACE_HERE: when tracing, don't inline calls to
+        this particular function.  (We only set this flag when aborting
+        due to a trace too long, so we use the same flag as a hint to
+        also mean "please trace from here as soon as possible".)
+    """
     flags = 0     # JC_xxx flags
     wref_procedure_token = None
     next = None
@@ -139,6 +186,9 @@ class BaseJitCell(object):
             if token and not token.invalidated:
                 return token
         return None
+
+    def has_seen_a_procedure_token(self):
+        return self.wref_procedure_token is not None
 
     def set_procedure_token(self, token, tmp=False):
         self.wref_procedure_token = self._makeref(token)
@@ -154,9 +204,14 @@ class BaseJitCell(object):
     def should_remove_jitcell(self):
         if self.get_procedure_token() is not None:
             return False    # don't remove JitCells with a procedure_token
-        # don't remove JitCells that are being traced, or JitCells with
-        # the "don't trace here" flag.  Other JitCells can be removed.
-        return (self.flags & (JC_TRACING | JC_DONT_TRACE_HERE)) == 0
+        if self.flags & JC_TRACING:
+            return False    # don't remove JitCells that are being traced
+        if self.flags & JC_DONT_TRACE_HERE:
+            # if we have this flag, and we *had* a procedure_token but
+            # we no longer have one, then remove me.  this prevents this
+            # JitCell from being immortal.
+            return self.has_seen_a_procedure_token()     # i.e. dead weakref
+        return True   # Other JitCells can be removed.
 
 # ____________________________________________________________
 
@@ -201,6 +256,9 @@ class WarmEnterState(object):
     def set_param_inlining(self, value):
         self.inlining = value
 
+    def set_param_disable_unrolling(self, value):
+        self.disable_unrolling_threshold = value
+
     def set_param_enable_opts(self, value):
         from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES
 
@@ -236,6 +294,11 @@ class WarmEnterState(object):
         if self.warmrunnerdesc:
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.max_unroll_loops = value
+
+    def set_param_max_unroll_recursion(self, value):
+        if self.warmrunnerdesc:
+            if self.warmrunnerdesc.memory_manager:
+                self.warmrunnerdesc.memory_manager.max_unroll_recursion = value
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
@@ -323,7 +386,7 @@ class WarmEnterState(object):
             if cell is None:
                 cell = JitCell(*greenargs)
                 jitcounter.install_new_cell(hash, cell)
-            cell.flags |= JC_TRACING
+            cell.flags |= JC_TRACING | JC_TRACING_OCCURRED
             try:
                 metainterp.compile_and_run_once(jitdriver_sd, *args)
             finally:
@@ -365,6 +428,18 @@ class WarmEnterState(object):
             # machine code was already compiled for these greenargs
             procedure_token = cell.get_procedure_token()
             if procedure_token is None:
+                if cell.flags & JC_DONT_TRACE_HERE:
+                    if not cell.has_seen_a_procedure_token():
+                        # A JC_DONT_TRACE_HERE, i.e. a non-inlinable function.
+                        # If we never tried to trace it, try it now immediately.
+                        # Otherwise, count normally.
+                        if cell.flags & JC_TRACING_OCCURRED:
+                            tick = jitcounter.tick(hash, increment_threshold)
+                        else:
+                            tick = True
+                        if tick:
+                            bound_reached(hash, cell, *args)
+                        return
                 # it was an aborted compilation, or maybe a weakref that
                 # has been freed
                 jitcounter.cleanup_chain(hash)
@@ -467,6 +542,12 @@ class WarmEnterState(object):
                 return JitCell.get_jitcell(*greenargs)
 
             @staticmethod
+            def trace_next_iteration(greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                hash = JitCell.get_uhash(*greenargs)
+                jitcounter.change_current_fraction(hash, 0.98)
+
+            @staticmethod
             def ensure_jit_cell_at_key(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
                 hash = JitCell.get_uhash(*greenargs)
@@ -494,25 +575,32 @@ class WarmEnterState(object):
         JitCell = self.make_jitcell_subclass()
         jd = self.jitdriver_sd
         cpu = self.cpu
+        rtyper = self.warmrunnerdesc.rtyper
 
-        def can_inline_greenargs(*greenargs):
+        def can_inline_callable(greenkey):
+            greenargs = unwrap_greenkey(greenkey)
             if can_never_inline(*greenargs):
                 return False
             cell = JitCell.get_jitcell(*greenargs)
             if cell is not None and (cell.flags & JC_DONT_TRACE_HERE) != 0:
                 return False
             return True
-        def can_inline_callable(greenkey):
-            greenargs = unwrap_greenkey(greenkey)
-            return can_inline_greenargs(*greenargs)
-        self.can_inline_greenargs = can_inline_greenargs
         self.can_inline_callable = can_inline_callable
+
+        def dont_trace_here(greenkey):
+            # Set greenkey as somewhere that tracing should not occur into;
+            # notice that, as per the description of JC_DONT_TRACE_HERE earlier,
+            # if greenkey hasn't been traced separately, setting
+            # JC_DONT_TRACE_HERE will force tracing the next time the function
+            # is encountered.
+            cell = JitCell.ensure_jit_cell_at_key(greenkey)
+            cell.flags |= JC_DONT_TRACE_HERE
+        self.dont_trace_here = dont_trace_here
 
         if jd._should_unroll_one_iteration_ptr is None:
             def should_unroll_one_iteration(greenkey):
                 return False
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             inline_ptr = jd._should_unroll_one_iteration_ptr
             def should_unroll_one_iteration(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
@@ -535,21 +623,27 @@ class WarmEnterState(object):
         self.get_assembler_token = get_assembler_token
 
         #
+        jitdriver = self.jitdriver_sd.jitdriver
+        if self.jitdriver_sd.jitdriver:
+            drivername = jitdriver.name
+        else:
+            drivername = '<unknown jitdriver>'
         get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
         if get_location_ptr is None:
-            jitdriver = self.jitdriver_sd.jitdriver
-            if self.jitdriver_sd.jitdriver:
-                drivername = jitdriver.name
-            else:
-                drivername = '<unknown jitdriver>'
             missing = '(%s: no get_printable_location)' % drivername
             def get_location_str(greenkey):
                 return missing
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             unwrap_greenkey = self.make_unwrap_greenkey()
+            # the following missing text should not be seen, as it is
+            # returned only if debug_prints are currently not enabled,
+            # but it may show up anyway (consider it bugs)
+            missing = ('(%s: get_printable_location '
+                       'disabled, no debug_print)' % drivername)
             #
             def get_location_str(greenkey):
+                if not have_debug_prints_for("jit-"):
+                    return missing
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
                 llres = fn(*greenargs)
@@ -563,7 +657,6 @@ class WarmEnterState(object):
             def confirm_enter_jit(*args):
                 return True
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             #
             def confirm_enter_jit(*args):
                 fn = support.maybe_on_top_of_llinterp(rtyper,
@@ -576,10 +669,15 @@ class WarmEnterState(object):
             def can_never_inline(*greenargs):
                 return False
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             #
             def can_never_inline(*greenargs):
                 fn = support.maybe_on_top_of_llinterp(rtyper,
                                                       can_never_inline_ptr)
                 return fn(*greenargs)
         self.can_never_inline = can_never_inline
+        get_unique_id_ptr = self.jitdriver_sd._get_unique_id_ptr
+        def get_unique_id(greenkey):
+            greenargs = unwrap_greenkey(greenkey)
+            fn = support.maybe_on_top_of_llinterp(rtyper, get_unique_id_ptr)
+            return fn(*greenargs)
+        self.get_unique_id = get_unique_id

@@ -14,7 +14,6 @@ from rpython.flowspace.model import *
 from rpython.rlib.rarithmetic import r_uint, base_int, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib import objectmodel
-from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError
 from rpython.flowspace.operation import op
 
@@ -49,20 +48,10 @@ class TestAnnotateTestCase:
     class RPythonAnnotator(_RPythonAnnotator):
         def build_types(self, *args):
             s = _RPythonAnnotator.build_types(self, *args)
+            self.validate()
             if option.view:
                 self.translator.view()
             return s
-
-    def make_fun(self, func):
-        import inspect
-        try:
-            func = func.im_func
-        except AttributeError:
-            pass
-        name = func.func_name
-        funcgraph = build_flow(func)
-        funcgraph.source = inspect.getsource(func)
-        return funcgraph
 
     def test_simple_func(self):
         """
@@ -364,6 +353,25 @@ class TestAnnotateTestCase:
         s = a.build_types(snippet.func_arg_unpack, [])
         assert isinstance(s, annmodel.SomeInteger)
         assert s.const == 3
+
+    def test_star_unpack_list(self):
+        def g():
+            pass
+        def f(l):
+            return g(*l)
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.AnnotatorError):
+            a.build_types(f, [[int]])
+
+    def test_star_unpack_and_keywords(self):
+        def g(a, b, c=0, d=0):
+            return a + b + c + d
+
+        def f(a, b):
+            return g(a, *(b,), d=5)
+        a = self.RPythonAnnotator()
+        s_result = a.build_types(f, [int, int])
+        assert isinstance(s_result, annmodel.SomeInteger)
 
     def test_pbc_attr_preserved_on_instance(self):
         a = self.RPythonAnnotator()
@@ -857,7 +865,11 @@ class TestAnnotateTestCase:
         s = a.build_types(snippet.harmonic, [int])
         assert s.knowntype == float
         # check that the list produced by range() is not mutated or resized
-        for s_value in a.bindings.values():
+        graph = graphof(a, snippet.harmonic)
+        all_vars = set().union(*[block.getvariables() for block in graph.iterblocks()])
+        print all_vars
+        for var in all_vars:
+            s_value = var.annotation
             if isinstance(s_value, annmodel.SomeList):
                 assert not s_value.listdef.listitem.resized
                 assert not s_value.listdef.listitem.mutated
@@ -1123,7 +1135,7 @@ class TestAnnotateTestCase:
 
         assert famCinit.calltables == {(1, (), False): [{mdescCinit.funcdesc: gfCinit}] }
 
-    def test_isinstance_usigned(self):
+    def test_isinstance_unsigned_1(self):
         def f(x):
             return isinstance(x, r_uint)
         def g():
@@ -1132,6 +1144,18 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(g, [])
         assert s.const == True
+
+    def test_isinstance_unsigned_2(self):
+        class Foo:
+            pass
+        def f(x):
+            return isinstance(x, r_uint)
+        def g():
+            v = Foo()
+            return f(v)
+        a = self.RPythonAnnotator()
+        s = a.build_types(g, [])
+        assert s.const == False
 
     def test_isinstance_base_int(self):
         def f(x):
@@ -1884,7 +1908,7 @@ class TestAnnotateTestCase:
                 return None
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
-        assert s.knowntype == dict
+        assert s.knowntype == annmodel.SomeOrderedDict.knowntype
 
     def test_const_list_and_none(self):
         def g(l=None):
@@ -2099,6 +2123,16 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
+
+    def test_no_nul_mod(self):
+        def f(x):
+            s = "%d" % x
+            return s
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
 
     def test_mul_str0(self):
         def f(s):
@@ -2767,8 +2801,8 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         a.build_types(f, [])
         v1, v2 = graphof(a, readout).getargs()
-        assert not a.bindings[v1].is_constant()
-        assert not a.bindings[v2].is_constant()
+        assert not a.binding(v1).is_constant()
+        assert not a.binding(v2).is_constant()
 
     def test_prebuilt_mutables_dont_use_eq(self):
         # test that __eq__ is not called during annotation, at least
@@ -4300,6 +4334,163 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeString)
+
+    def test_isinstance_str_1(self):
+        def g():
+            pass
+        def f(n):
+            if n > 5:
+                s = "foo"
+            else:
+                s = None
+            g()
+            return isinstance(s, str)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeBool)
+        assert not s.is_constant()
+
+    def test_isinstance_str_2(self):
+        def g():
+            pass
+        def f(n):
+            if n > 5:
+                s = "foo"
+            else:
+                s = None
+            g()
+            if isinstance(s, str):
+                return s
+            return ""
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeString)
+        assert not s.can_be_none()
+
+    def test_property_getter(self):
+        class O1(object):
+            def __init__(self, x):
+                self._x = x
+            @property
+            def x(self):
+                return self._x
+        def f(n):
+            o = O1(n)
+            return o.x + getattr(o, 'x')
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeInteger)
+        op = list(graphof(a, f).iterblocks())[0].operations
+        i = 0
+        c = 0
+        while i < len(op):
+            if op[i].opname == 'getattr':
+                c += 1
+                assert op[i].args[1].value == 'x__getter__'
+                i += 1
+                assert i < len(op) and op[i].opname == 'simple_call' and \
+                            op[i].args[0] == op[i - 1].result
+            i += 1
+        assert c == 2
+
+    def test_property_setter(self):
+        class O2(object):
+            def __init__(self):
+                self._x = 0
+            def set_x(self, v):
+                self._x = v
+            x = property(fset=set_x)
+        def f(n):
+            o = O2()
+            o.x = n
+            setattr(o, 'x', n)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        op = list(graphof(a, f).iterblocks())[0].operations
+        i = 0
+        c = 0
+        while i < len(op):
+            if op[i].opname == 'getattr':
+                c += 1
+                assert op[i].args[1].value == 'x__setter__'
+                i += 1
+                assert i < len(op) and op[i].opname == 'simple_call' and \
+                            op[i].args[0] == op[i - 1].result and len(op[i].args) == 2
+            i += 1
+        assert c == 2
+
+    def test_property_unionerr(self):
+        class O1(object):
+            def __init__(self, x):
+                self._x = x
+            @property
+            def x(self):
+                return self._x
+        class O2(O1):
+            def set_x(self, v):
+                self._x = v
+            x = property(fset=set_x)
+        def f1(n):
+            o = O2(n)
+            return o.x
+        def f2(n):
+            o = O2(n)
+            o.x = 20
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f1, [int])
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.UnionError) as exc:
+            a.build_types(f2, [int])
+
+    def test_property_union_2(self):
+        py.test.xfail("FIX ME")
+        class Base(object):
+            pass
+
+        class A(Base):
+            def __init__(self):
+                pass
+
+            @property
+            def x(self):
+                return 42
+
+        class B(Base):
+            def __init__(self, x):
+                self.x = x
+
+        def f(n):
+            if n < 0:
+                obj = A()
+            else:
+                obj = B(n)
+            return obj.x
+        a = self.RPythonAnnotator()
+        # Ideally, this should translate to something sensible,
+        # but for now, AnnotatorError is better than silently mistranslating.
+        with py.test.raises(annmodel.AnnotatorError):
+            a.build_types(f, [int])
+
+    def test_property_union_3(self):
+        py.test.xfail("FIX ME")
+        class Base(object):
+            pass
+        class A(Base):
+            @property
+            def x(self):
+                return 42
+        class B(Base):
+            x = 43
+        def f(n):
+            if n < 0:
+                obj = A()
+            else:
+                obj = B()
+            return obj.x
+        a = self.RPythonAnnotator()
+        with py.test.raises(annmodel.AnnotatorError):
+            a.build_types(f, [int])
 
 
 def g(n):

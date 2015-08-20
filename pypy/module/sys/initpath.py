@@ -18,6 +18,13 @@ _MACOSX = sys.platform == 'darwin'
 _WIN32 = sys.platform == 'win32'
 
 
+def _exists_and_is_executable(fn):
+    # os.access checks using the user's real uid and gid.
+    # Since pypy should not be run setuid/setgid, this
+    # should be sufficient.
+    return os.path.isfile(fn) and os.access(fn, os.X_OK)
+
+
 def find_executable(executable):
     """
     Return the absolute path of the executable, by looking into PATH and
@@ -34,14 +41,14 @@ def find_executable(executable):
         if path:
             for dir in path.split(os.pathsep):
                 fn = os.path.join(dir, executable)
-                if os.path.isfile(fn):
+                if _exists_and_is_executable(fn):
                     executable = fn
                     break
     executable = rpath.rabspath(executable)
 
     # 'sys.executable' should not end up being an non-existing file;
     # just use '' in this case. (CPython issue #7774)
-    return executable if os.path.isfile(executable) else ''
+    return executable if _exists_and_is_executable(executable) else ''
 
 
 def _readlink_maybe(filename):

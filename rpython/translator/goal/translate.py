@@ -24,7 +24,7 @@ GOALS = [
     ("annotate", "do type inference", "-a --annotate", ""),
     ("rtype", "do rtyping", "-t --rtype", ""),
     ("pyjitpl", "JIT generation step", "--pyjitpl", ""),
-    ("jittest", "JIT test with llgraph backend", "--jittest", ""),
+    ("jittest", "JIT test with llgraph backend", "--pyjittest", ""),
     ("backendopt", "do backend optimizations", "--backendopt", ""),
     ("source", "create source", "-s --source", ""),
     ("compile", "compile", "-c --compile", " (default goal)"),
@@ -308,7 +308,9 @@ def main():
                 samefile = this_exe.samefile(exe_name)
                 assert not samefile, (
                     'Output file %s is the currently running '
-                    'interpreter (use --output=...)' % exe_name)
+                    'interpreter (please move the executable, and '
+                    'possibly its associated libpypy-c, somewhere else '
+                    'before you execute it)' % exe_name)
             except EnvironmentError:
                 pass
 

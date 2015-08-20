@@ -5,6 +5,22 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.objectmodel import we_are_translated
 
+annotated_jit_entrypoints = []
+
+def export_symbol(func):
+    func.exported_symbol = True
+    return func
+
+all_jit_entrypoints = []
+
+def jit_entrypoint(argtypes, restype, c_name):
+    def deco(func):
+        func.c_name = c_name
+        func.relax_sig_check = True
+        export_symbol(func)
+        all_jit_entrypoints.append((func, argtypes, restype))
+        return func
+    return deco
 
 def entrypoint_lowlevel(key, argtypes, c_name=None, relax=False):
     """ Note: entrypoint should call llop.gc_stack_bottom on it's own.
@@ -14,16 +30,13 @@ def entrypoint_lowlevel(key, argtypes, c_name=None, relax=False):
 
     if key == 'main' than it's included by default
     """
-    from rpython.translator.tool.cbuild import ExternalCompilationInfo
-
     def deco(func):
         secondary_entrypoints.setdefault(key, []).append((func, argtypes))
         if c_name is not None:
             func.c_name = c_name
         if relax:
             func.relax_sig_check = True
-        func._compilation_info = ExternalCompilationInfo(
-            export_symbols=[c_name or func.func_name])
+        export_symbol(func)
         return func
     return deco
 
@@ -33,8 +46,6 @@ pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_excep
 def entrypoint(key, argtypes, c_name=None):
     """if key == 'main' than it's included by default
     """
-    from rpython.translator.tool.cbuild import ExternalCompilationInfo
-
     def deco(func):
         source = py.code.Source("""
         def wrapper(%(args)s):
@@ -67,8 +78,7 @@ def entrypoint(key, argtypes, c_name=None):
         wrapper.func_name = func.func_name
         if c_name is not None:
             wrapper.c_name = c_name
-        wrapper._compilation_info = ExternalCompilationInfo(
-            export_symbols=[c_name or func.func_name])
+        export_symbol(wrapper)
         return wrapper
     return deco
 

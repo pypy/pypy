@@ -222,6 +222,13 @@ class AppTestW_SpecialisedTupleObject:
         t = (F(42), F(43))
         assert type(t[0]) is F
 
+    def test_bug_tuples_of_nans(self):
+        N = float('nan')
+        T = (N, N)
+        assert N in T
+        assert T == (N, N)
+        assert (0.0, 0.0) == (-0.0, -0.0)
+
 
 class AppTestAll(test_tupleobject.AppTestW_TupleObject):
     spaceconfig = {"objspace.std.withspecialisedtuple": True}

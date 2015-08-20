@@ -1,12 +1,14 @@
 from __future__ import absolute_import
-import types, py
-from rpython.annotator.signature import enforce_signature_args, enforce_signature_return
+import types
+from rpython.annotator.signature import (
+    enforce_signature_args, enforce_signature_return, finish_type)
 from rpython.flowspace.model import Constant, FunctionGraph
 from rpython.flowspace.bytecode import cpython_code_signature
-from rpython.annotator.argument import rawshape, ArgErr
+from rpython.annotator.argument import rawshape, ArgErr, simple_args
 from rpython.tool.sourcetools import valid_identifier, func_with_new_name
 from rpython.tool.pairtype import extendabletype
-from rpython.annotator.model import AnnotatorError
+from rpython.annotator.model import (
+    AnnotatorError, SomeInteger, SomeString, s_ImpossibleValue)
 
 class CallFamily(object):
     """A family of Desc objects that could be called from common call sites.
@@ -14,12 +16,11 @@ class CallFamily(object):
     objects, where the equivalence relation is the transitive closure of
     'd1~d2 if d1 and d2 might be called at the same call site'.
     """
-    overridden = False
     normalized = False
-    modified   = True
+    modified = True
 
     def __init__(self, desc):
-        self.descs = { desc: True }
+        self.descs = {desc: True}
         self.calltables = {}  # see calltable_lookup_row()
         self.total_calltable_size = 0
 
@@ -30,7 +31,7 @@ class CallFamily(object):
         for shape, table in other.calltables.items():
             for row in table:
                 self.calltable_add_row(shape, row)
-    absorb = update # UnionFind API
+    absorb = update  # UnionFind API
 
     def calltable_lookup_row(self, callshape, row):
         # this code looks up a table of which graph to
@@ -69,13 +70,12 @@ class FrozenAttrFamily(object):
         self.descs.update(other.descs)
         self.read_locations.update(other.read_locations)
         self.attrs.update(other.attrs)
-    absorb = update # UnionFind API
+    absorb = update  # UnionFind API
 
     def get_s_value(self, attrname):
         try:
             return self.attrs[attrname]
         except KeyError:
-            from rpython.annotator.model import s_ImpossibleValue
             return s_ImpossibleValue
 
     def set_s_value(self, attrname, s_value):
@@ -97,8 +97,7 @@ class ClassAttrFamily(object):
     # ClassAttrFamily is more precise: it is only about one attribut name.
 
     def __init__(self, desc):
-        from rpython.annotator.model import s_ImpossibleValue
-        self.descs = { desc: True }
+        self.descs = {desc: True}
         self.read_locations = {}     # set of position_keys
         self.s_value = s_ImpossibleValue    # union of possible values
 
@@ -107,7 +106,7 @@ class ClassAttrFamily(object):
         self.descs.update(other.descs)
         self.read_locations.update(other.read_locations)
         self.s_value = unionof(self.s_value, other.s_value)
-    absorb = update # UnionFind API
+    absorb = update  # UnionFind API
 
     def get_s_value(self, attrname):
         return self.s_value
@@ -165,9 +164,9 @@ class Desc(object):
     def bind_under(self, classdef, name):
         return self
 
+    @staticmethod
     def simplify_desc_set(descs):
         pass
-    simplify_desc_set = staticmethod(simplify_desc_set)
 
 
 class NoStandardGraph(Exception):
@@ -175,7 +174,6 @@ class NoStandardGraph(Exception):
 
 class FunctionDesc(Desc):
     knowntype = types.FunctionType
-    overridden = False
 
     def __init__(self, bookkeeper, pyobj=None,
                  name=None, signature=None, defaults=None,
@@ -220,7 +218,7 @@ class FunctionDesc(Desc):
         [graph] = self._cache.values()
         relax_sig_check = getattr(self.pyobj, "relax_sig_check", False)
         if (graph.signature != self.signature or
-            graph.defaults  != self.defaults) and not relax_sig_check:
+                graph.defaults != self.defaults) and not relax_sig_check:
             raise NoStandardGraph(self)
         return graph
 
@@ -231,7 +229,7 @@ class FunctionDesc(Desc):
             def nameof(thing):
                 if isinstance(thing, str):
                     return thing
-                elif hasattr(thing, '__name__'): # mostly types and functions
+                elif hasattr(thing, '__name__'):  # mostly types and functions
                     return thing.__name__
                 elif hasattr(thing, 'name') and isinstance(thing.name, str):
                     return thing.name            # mostly ClassDescs
@@ -242,7 +240,7 @@ class FunctionDesc(Desc):
 
             if key is not None and alt_name is None:
                 postfix = valid_identifier(nameof(key))
-                alt_name = "%s__%s"%(self.name, postfix)
+                alt_name = "%s__%s" % (self.name, postfix)
             graph = self.buildgraph(alt_name, builder)
             self._cache[key] = graph
             return graph
@@ -270,7 +268,7 @@ class FunctionDesc(Desc):
 
     def specialize(self, inputcells, op=None):
         if (op is None and
-            getattr(self.bookkeeper, "position_key", None) is not None):
+                getattr(self.bookkeeper, "position_key", None) is not None):
             _, block, i = self.bookkeeper.position_key
             op = block.operations[i]
         if self.specializer is None:
@@ -282,15 +280,16 @@ class FunctionDesc(Desc):
         enforceargs = getattr(self.pyobj, '_annenforceargs_', None)
         signature = getattr(self.pyobj, '_signature_', None)
         if enforceargs and signature:
-            raise Exception("%r: signature and enforceargs cannot both be used" % (self,))
+            raise Exception("%r: signature and enforceargs cannot both be "
+                            "used" % (self,))
         if enforceargs:
             if not callable(enforceargs):
                 from rpython.annotator.signature import Sig
                 enforceargs = Sig(*enforceargs)
                 self.pyobj._annenforceargs_ = enforceargs
-            enforceargs(self, inputcells) # can modify inputcells in-place
+            enforceargs(self, inputcells)  # can modify inputcells in-place
         if signature:
-            enforce_signature_args(self, signature[0], inputcells) # mutates inputcells
+            enforce_signature_args(self, signature[0], inputcells)  # mutates inputcells
         if getattr(self.pyobj, '_annspecialcase_', '').endswith("call_location"):
             return self.specializer(self, inputcells, op)
         else:
@@ -311,7 +310,8 @@ class FunctionDesc(Desc):
             if signature:
                 sigresult = enforce_signature_return(self, signature[1], result)
                 if sigresult is not None:
-                    self.bookkeeper.annotator.addpendingblock(graph, graph.returnblock, [sigresult])
+                    self.bookkeeper.annotator.addpendingblock(
+                        graph, graph.returnblock, [sigresult])
                     result = sigresult
         # Some specializations may break the invariant of returning
         # annotations that are always more general than the previous time.
@@ -320,6 +320,24 @@ class FunctionDesc(Desc):
         result = unionof(result, s_previous_result)
         return result
 
+    def get_call_parameters(self, args_s):
+        args = simple_args(args_s)
+        inputcells = self.parse_arguments(args)
+        graph = self.specialize(inputcells)
+        assert isinstance(graph, FunctionGraph)
+        # if that graph has a different signature, we need to re-parse
+        # the arguments.
+        # recreate the args object because inputcells may have been changed
+        new_args = args.unmatch_signature(self.signature, inputcells)
+        inputcells = self.parse_arguments(new_args, graph)
+        signature = getattr(self.pyobj, '_signature_', None)
+        if signature:
+            s_result = finish_type(signature[1], self.bookkeeper, self.pyobj)
+            if s_result is not None:
+                self.bookkeeper.annotator.addpendingblock(
+                    graph, graph.returnblock, [s_result])
+        return graph, inputcells
+
     def bind_under(self, classdef, name):
         # XXX static methods
         return self.bookkeeper.getmethoddesc(self,
@@ -327,12 +345,14 @@ class FunctionDesc(Desc):
                                              None,       # selfclassdef
                                              name)
 
-    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
+    @staticmethod
+    def consider_call_site(descs, args, s_result, op):
         shape = rawshape(args)
         row = FunctionDesc.row_to_consider(descs, args, op)
+        family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
-    consider_call_site = staticmethod(consider_call_site)
 
+    @staticmethod
     def variant_for_call_site(bookkeeper, family, descs, args, op):
         shape = rawshape(args)
         bookkeeper.enter(None)
@@ -342,14 +362,13 @@ class FunctionDesc(Desc):
             bookkeeper.leave()
         index = family.calltable_lookup_row(shape, row)
         return shape, index
-    variant_for_call_site = staticmethod(variant_for_call_site)
 
     def rowkey(self):
         return self
 
+    @staticmethod
     def row_to_consider(descs, args, op):
         # see comments in CallFamily
-        from rpython.annotator.model import s_ImpossibleValue
         row = {}
         for desc in descs:
             def enlist(graph, ignore):
@@ -358,7 +377,6 @@ class FunctionDesc(Desc):
             desc.pycall(enlist, args, s_ImpossibleValue, op)
             assert row
         return row
-    row_to_consider = staticmethod(row_to_consider)
 
     def get_s_signatures(self, shape):
         family = self.getcallfamily()
@@ -387,6 +405,9 @@ class FunctionDesc(Desc):
 
             return s_sigs
 
+def is_mixin(cls):
+    return cls.__dict__.get('_mixin_', False)
+
 NODEFAULT = object()
 
 class ClassDesc(Desc):
@@ -396,95 +417,106 @@ class ClassDesc(Desc):
     settled = False
     _detect_invalid_attrs = None
 
-    def __init__(self, bookkeeper, pyobj=None,
+    def __init__(self, bookkeeper, cls,
                  name=None, basedesc=None, classdict=None,
                  specialize=None):
-        super(ClassDesc, self).__init__(bookkeeper, pyobj)
+        super(ClassDesc, self).__init__(bookkeeper, cls)
+        if '__NOT_RPYTHON__' in cls.__dict__:
+            raise AnnotatorError('Bad class')
 
         if name is None:
-            name = pyobj.__module__ + '.' + pyobj.__name__
+            name = cls.__module__ + '.' + cls.__name__
         self.name = name
         self.basedesc = basedesc
         if classdict is None:
             classdict = {}    # populated below
         self.classdict = classdict     # {attr: Constant-or-Desc}
         if specialize is None:
-            specialize = pyobj.__dict__.get('_annspecialcase_', '')
+            specialize = cls.__dict__.get('_annspecialcase_', '')
         self.specialize = specialize
         self._classdefs = {}
 
-        if pyobj is not None:
-            assert pyobj.__module__ != '__builtin__'
-            cls = pyobj
-            base = object
-            baselist = list(cls.__bases__)
+        if is_mixin(cls):
+            raise AnnotatorError("cannot use directly the class %r because "
+                                 "it is a _mixin_" % (cls,))
 
-            if cls.__dict__.get('_mixin_', False):
-                raise AnnotatorError("cannot use directly the class %r because "
-                                     "it is a _mixin_" % (cls,))
+        assert cls.__module__ != '__builtin__'
+        baselist = list(cls.__bases__)
 
-            # special case: skip BaseException in Python 2.5, and pretend
-            # that all exceptions ultimately inherit from Exception instead
-            # of BaseException (XXX hack)
-            if cls is Exception:
-                baselist = []
-            elif baselist == [py.builtin.BaseException]:
-                baselist = [Exception]
+        # special case: skip BaseException, and pretend
+        # that all exceptions ultimately inherit from Exception instead
+        # of BaseException (XXX hack)
+        if cls is Exception:
+            baselist = []
+        elif baselist == [BaseException]:
+            baselist = [Exception]
 
-            mixins_before = []
-            mixins_after = []
-            for b1 in baselist:
-                if b1 is object:
-                    continue
-                if b1.__dict__.get('_mixin_', False):
-                    if base is object:
-                        mixins_before.append(b1)
-                    else:
-                        mixins_after.append(b1)
+        mixins_before = []
+        mixins_after = []
+        base = object
+        for b1 in baselist:
+            if b1 is object:
+                continue
+            if is_mixin(b1):
+                if base is object:
+                    mixins_before.append(b1)
                 else:
-                    assert base is object, ("multiple inheritance only supported "
-                                            "with _mixin_: %r" % (cls,))
-                    base = b1
-            if mixins_before and mixins_after:
-                raise Exception("unsupported: class %r has mixin bases both"
-                                " before and after the regular base" % (self,))
-            self.add_mixins(mixins_after, check_not_in=base)
-            self.add_mixins(mixins_before)
-            self.add_sources_for_class(cls)
+                    mixins_after.append(b1)
+            else:
+                assert base is object, ("multiple inheritance only supported "
+                                        "with _mixin_: %r" % (cls,))
+                base = b1
+        if mixins_before and mixins_after:
+            raise Exception("unsupported: class %r has mixin bases both"
+                            " before and after the regular base" % (self,))
+        self.add_mixins(mixins_after, check_not_in=base)
+        self.add_mixins(mixins_before)
+        self.add_sources_for_class(cls)
 
-            if base is not object:
-                self.basedesc = bookkeeper.getdesc(base)
+        if base is not object:
+            self.basedesc = bookkeeper.getdesc(base)
 
-            if '_settled_' in cls.__dict__:
-                self.settled = bool(cls.__dict__['_settled_'])
+        if '_settled_' in cls.__dict__:
+            self.settled = bool(cls.__dict__['_settled_'])
 
-            if '__slots__' in cls.__dict__ or '_attrs_' in cls.__dict__:
-                attrs = {}
-                for decl in ('__slots__', '_attrs_'):
-                    decl = cls.__dict__.get(decl, [])
-                    if isinstance(decl, str):
-                        decl = (decl,)
-                    decl = dict.fromkeys(decl)
-                    attrs.update(decl)
-                if self.basedesc is not None:
-                    if self.basedesc.all_enforced_attrs is None:
-                        raise Exception("%r has slots or _attrs_, "
-                                        "but not its base class"
-                                        % (pyobj,))
-                    attrs.update(self.basedesc.all_enforced_attrs)
-                self.all_enforced_attrs = attrs
+        if '__slots__' in cls.__dict__ or '_attrs_' in cls.__dict__:
+            attrs = {}
+            for decl in ('__slots__', '_attrs_'):
+                decl = cls.__dict__.get(decl, [])
+                if isinstance(decl, str):
+                    decl = (decl,)
+                decl = dict.fromkeys(decl)
+                attrs.update(decl)
+            if self.basedesc is not None:
+                if self.basedesc.all_enforced_attrs is None:
+                    raise Exception("%r has slots or _attrs_, "
+                                    "but not its base class" % (cls,))
+                attrs.update(self.basedesc.all_enforced_attrs)
+            self.all_enforced_attrs = attrs
 
-            if (self.is_builtin_exception_class() and
+        if (self.is_builtin_exception_class() and
                 self.all_enforced_attrs is None):
-                from rpython.annotator import classdef
-                if self.pyobj not in classdef.FORCE_ATTRIBUTES_INTO_CLASSES:
-                    self.all_enforced_attrs = []    # no attribute allowed
+            if cls not in FORCE_ATTRIBUTES_INTO_CLASSES:
+                self.all_enforced_attrs = []    # no attribute allowed
 
     def add_source_attribute(self, name, value, mixin=False):
+        if isinstance(value, property):
+            # special case for property object
+            if value.fget is not None:
+                newname = name + '__getter__'
+                func = func_with_new_name(value.fget, newname)
+                self.add_source_attribute(newname, func, mixin)
+            if value.fset is not None:
+                newname = name + '__setter__'
+                func = func_with_new_name(value.fset, newname)
+                self.add_source_attribute(newname, func, mixin)
+            self.classdict[name] = Constant(value)
+            return
+
         if isinstance(value, types.FunctionType):
             # for debugging
             if not hasattr(value, 'class_'):
-                value.class_ = self.pyobj # remember that this is really a method
+                value.class_ = self.pyobj
             if self.specialize:
                 # make a custom funcdesc that specializes on its first
                 # argument (i.e. 'self').
@@ -509,7 +541,7 @@ class ClassDesc(Desc):
         if isinstance(value, staticmethod) and mixin:
             # make a new copy of staticmethod
             func = value.__get__(42)
-            value =  staticmethod(func_with_new_name(func, func.__name__))
+            value = staticmethod(func_with_new_name(func, func.__name__))
 
         if type(value) in MemberDescriptorTypes:
             # skip __slots__, showing up in the class as 'member' objects
@@ -541,8 +573,8 @@ class ClassDesc(Desc):
         add(check_not_in)
         #
         for base in reversed(mro):
-            assert base.__dict__.get("_mixin_", False), ("Mixin class %r has non"
-                "mixin base class %r" % (mixins, base))
+            assert is_mixin(base), (
+                "Mixin class %r has non mixin base class %r" % (mixins, base))
             for name, value in base.__dict__.items():
                 if name in skip:
                     continue
@@ -559,18 +591,17 @@ class ClassDesc(Desc):
         try:
             return self._classdefs[key]
         except KeyError:
-            from rpython.annotator.classdef import ClassDef, FORCE_ATTRIBUTES_INTO_CLASSES
+            from rpython.annotator.classdef import ClassDef
             classdef = ClassDef(self.bookkeeper, self)
             self.bookkeeper.classdefs.append(classdef)
             self._classdefs[key] = classdef
 
             # forced attributes
-            if self.pyobj is not None:
-                cls = self.pyobj
-                if cls in FORCE_ATTRIBUTES_INTO_CLASSES:
-                    for name, s_value in FORCE_ATTRIBUTES_INTO_CLASSES[cls].items():
-                        classdef.generalize_attr(name, s_value)
-                        classdef.find_attribute(name).modified(classdef)
+            cls = self.pyobj
+            if cls in FORCE_ATTRIBUTES_INTO_CLASSES:
+                for name, s_value in FORCE_ATTRIBUTES_INTO_CLASSES[cls].items():
+                    classdef.generalize_attr(name, s_value)
+                    classdef.find_attribute(name).modified(classdef)
 
             # register all class attributes as coming from this ClassDesc
             # (as opposed to prebuilt instances)
@@ -637,8 +668,7 @@ class ClassDesc(Desc):
         return s_instance
 
     def is_exception_class(self):
-        return self.pyobj is not None and issubclass(self.pyobj,
-                                                     py.builtin.BaseException)
+        return issubclass(self.pyobj, BaseException)
 
     def is_builtin_exception_class(self):
         if self.is_exception_class():
@@ -671,7 +701,6 @@ class ClassDesc(Desc):
         # look up an attribute in the class
         cdesc = self.lookup(name)
         if cdesc is None:
-            from rpython.annotator.model import s_ImpossibleValue
             return s_ImpossibleValue
         else:
             # delegate to s_get_value to turn it into an annotation
@@ -705,14 +734,12 @@ class ClassDesc(Desc):
     def find_source_for(self, name):
         if name in self.classdict:
             return self
-        if self.pyobj is not None:
-            # check whether in the case the classdesc corresponds to a real class
-            # there is a new attribute
-            cls = self.pyobj
-            if name in cls.__dict__:
-                self.add_source_attribute(name, cls.__dict__[name])
-                if name in self.classdict:
-                    return self
+        # check whether there is a new attribute
+        cls = self.pyobj
+        if name in cls.__dict__:
+            self.add_source_attribute(name, cls.__dict__[name])
+            if name in self.classdict:
+                return self
         return None
 
     def maybe_return_immutable_list(self, attr, s_result):
@@ -720,7 +747,7 @@ class ClassDesc(Desc):
         # either 'lst[*]' or 'lst?[*]'
         # should really return an immutable list as a result.  Implemented
         # by changing the result's annotation (but not, of course, doing an
-        # actual copy in the rtyper).  Tested in rpython.rtyper.test.test_rlist,
+        # actual copy in the rtyper). Tested in rpython.rtyper.test.test_rlist,
         # test_immutable_list_out_of_instance.
         if self._detect_invalid_attrs and attr in self._detect_invalid_attrs:
             raise Exception("field %r was migrated to %r from a subclass in "
@@ -732,7 +759,7 @@ class ClassDesc(Desc):
         while cdesc is not None:
             if '_immutable_fields_' in cdesc.classdict:
                 if (search1 in cdesc.classdict['_immutable_fields_'].value or
-                    search2 in cdesc.classdict['_immutable_fields_'].value):
+                        search2 in cdesc.classdict['_immutable_fields_'].value):
                     s_result.listdef.never_resize()
                     s_copy = s_result.listdef.offspring()
                     s_copy.listdef.mark_as_immutable()
@@ -748,7 +775,8 @@ class ClassDesc(Desc):
             cdesc = cdesc.basedesc
         return s_result     # common case
 
-    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
+    @staticmethod
+    def consider_call_site(descs, args, s_result, op):
         from rpython.annotator.model import SomeInstance, SomePBC, s_None
         if len(descs) == 1:
             # call to a single class, look at the result annotation
@@ -783,18 +811,14 @@ class ClassDesc(Desc):
                     "unexpected dynamic __init__?")
                 initfuncdesc, = s_init.descriptions
                 if isinstance(initfuncdesc, FunctionDesc):
-                    initmethdesc = bookkeeper.getmethoddesc(initfuncdesc,
-                                                            classdef,
-                                                            classdef,
-                                                            '__init__')
+                    from rpython.annotator.bookkeeper import getbookkeeper
+                    initmethdesc = getbookkeeper().getmethoddesc(
+                        initfuncdesc, classdef, classdef, '__init__')
                     initdescs.append(initmethdesc)
         # register a call to exactly these __init__ methods
         if initdescs:
             initdescs[0].mergecallfamilies(*initdescs[1:])
-            initfamily = initdescs[0].getcallfamily()
-            MethodDesc.consider_call_site(bookkeeper, initfamily, initdescs,
-                                          args, s_None, op)
-    consider_call_site = staticmethod(consider_call_site)
+            MethodDesc.consider_call_site(initdescs, args, s_None, op)
 
     def getallbases(self):
         desc = self
@@ -802,6 +826,7 @@ class ClassDesc(Desc):
             yield desc
             desc = desc.basedesc
 
+    @staticmethod
     def getcommonbase(descs):
         commondesc = descs[0]
         for desc in descs[1:]:
@@ -811,7 +836,6 @@ class ClassDesc(Desc):
                 desc = desc.basedesc
             commondesc = desc
         return commondesc
-    getcommonbase = staticmethod(getcommonbase)
 
     def rowkey(self):
         return self
@@ -870,7 +894,7 @@ class MethodDesc(Desc):
         from rpython.annotator.model import SomeInstance
         if self.selfclassdef is None:
             raise Exception("calling %r" % (self,))
-        s_instance = SomeInstance(self.selfclassdef, flags = self.flags)
+        s_instance = SomeInstance(self.selfclassdef, flags=self.flags)
         args = args.prepend(s_instance)
         return self.funcdesc.pycall(schedule, args, s_previous_result, op)
 
@@ -886,10 +910,11 @@ class MethodDesc(Desc):
                                              flags)
 
     @staticmethod
-    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
+    def consider_call_site(descs, args, s_result, op):
         cnt, keys, star = rawshape(args)
         shape = cnt + 1, keys, star  # account for the extra 'self'
         row = FunctionDesc.row_to_consider(descs, args, op)
+        family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
 
     def rowkey(self):
@@ -898,6 +923,7 @@ class MethodDesc(Desc):
         # FunctionDesc to use as a key in that family.
         return self.funcdesc
 
+    @staticmethod
     def simplify_desc_set(descs):
         # Some hacking needed to make contains() happy on SomePBC: if the
         # set of MethodDescs contains some "redundant" ones, i.e. ones that
@@ -944,7 +970,6 @@ class MethodDesc(Desc):
                         if cdef1 is not cdef2 and cdef1.issubclass(cdef2):
                             descs.remove(desc1)
                             break
-    simplify_desc_set = staticmethod(simplify_desc_set)
 
 
 def new_or_old_class(c):
@@ -962,7 +987,7 @@ class FrozenDesc(Desc):
         self._read_attribute = read_attribute
         self.attrcache = {}
         self.knowntype = new_or_old_class(pyobj)
-        assert bool(pyobj), "__nonzero__ unsupported on frozen PBC %r" %(pyobj,)
+        assert bool(pyobj), "__nonzero__ unsupported on frozen PBC %r" % (pyobj,)
 
     def has_attribute(self, attr):
         if attr in self.attrcache:
@@ -989,7 +1014,6 @@ class FrozenDesc(Desc):
         try:
             value = self.read_attribute(attr)
         except AttributeError:
-            from rpython.annotator.model import s_ImpossibleValue
             return s_ImpossibleValue
         else:
             return self.bookkeeper.immutablevalue(value)
@@ -1047,10 +1071,11 @@ class MethodOfFrozenDesc(Desc):
         return self.funcdesc.pycall(schedule, args, s_previous_result, op)
 
     @staticmethod
-    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
+    def consider_call_site(descs, args, s_result, op):
         cnt, keys, star = rawshape(args)
         shape = cnt + 1, keys, star  # account for the extra 'self'
         row = FunctionDesc.row_to_consider(descs, args, op)
+        family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
 
     def rowkey(self):
@@ -1066,3 +1091,18 @@ try:
     MemberDescriptorTypes.append(type(OSError.errno))
 except AttributeError:    # on CPython <= 2.4
     pass
+
+# ____________________________________________________________
+
+FORCE_ATTRIBUTES_INTO_CLASSES = {
+    EnvironmentError: {'errno': SomeInteger(),
+                       'strerror': SomeString(can_be_None=True),
+                       'filename': SomeString(can_be_None=True)},
+}
+
+try:
+    WindowsError
+except NameError:
+    pass
+else:
+    FORCE_ATTRIBUTES_INTO_CLASSES[WindowsError] = {'winerror': SomeInteger()}

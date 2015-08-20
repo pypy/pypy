@@ -29,7 +29,7 @@ class GCManagedHeap(object):
                                                lltype2vtable,
                                                self.llinterp)
         self.get_type_id = layoutbuilder.get_type_id
-        layoutbuilder.initialize_gc_query_function(self.gc)
+        gcdata = layoutbuilder.initialize_gc_query_function(self.gc)
 
         constants = collect_constants(flowgraphs)
         for obj in constants:
@@ -38,7 +38,24 @@ class GCManagedHeap(object):
 
         self.constantroots = layoutbuilder.addresses_of_static_ptrs
         self.constantrootsnongc = layoutbuilder.addresses_of_static_ptrs_in_nongc
+        self.prepare_custom_trace_funcs(gcdata)
         self._all_prebuilt_gc = layoutbuilder.all_prebuilt_gc
+
+    def prepare_custom_trace_funcs(self, gcdata):
+        custom_trace_funcs = self.llinterp.typer.custom_trace_funcs
+
+        def custom_trace(obj, typeid, callback, arg):
+            for TP, func in custom_trace_funcs:
+                if typeid == self.get_type_id(TP):
+                    func(self.gc, obj, callback, arg)
+                    return
+            else:
+                assert False
+        
+        for TP, func in custom_trace_funcs:
+            gcdata._has_got_custom_trace(self.get_type_id(TP))
+
+        self.gc.custom_trace_dispatcher = custom_trace
 
     # ____________________________________________________________
     #
@@ -56,16 +73,6 @@ class GCManagedHeap(object):
         else:
             return lltype.malloc(TYPE, n, flavor=flavor, zero=zero,
                                  track_allocation=track_allocation)
-
-    def malloc_nonmovable(self, TYPE, n=None, zero=False):
-        typeid = self.get_type_id(TYPE)
-        if not self.gc.can_malloc_nonmovable():
-            return lltype.nullptr(TYPE)
-        addr = self.gc.malloc_nonmovable(typeid, n, zero=zero)
-        result = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
-        if not self.gc.malloc_zero_filled:
-            gctypelayout.zero_gc_pointers(result)
-        return result
 
     def add_memory_pressure(self, size):
         if hasattr(self.gc, 'raw_malloc_memory_pressure'):
@@ -122,6 +129,15 @@ class GCManagedHeap(object):
     def can_move(self, addr):
         return self.gc.can_move(addr)
 
+    def pin(self, addr):
+        return self.gc.pin(addr)
+
+    def unpin(self, addr):
+        self.gc.unpin(addr)
+
+    def _is_pinned(self, addr):
+        return self.gc._is_pinned(addr)
+
     def weakref_create_getlazy(self, objgetter):
         # we have to be lazy in reading the llinterp variable containing
         # the 'obj' pointer, because the gc.malloc() call below could
@@ -175,7 +191,8 @@ class LLInterpRootWalker:
 
     def walk_roots(self, collect_stack_root,
                    collect_static_in_prebuilt_nongc,
-                   collect_static_in_prebuilt_gc):
+                   collect_static_in_prebuilt_gc,
+                   is_minor=False):
         gcheap = self.gcheap
         gc = gcheap.gc
         if collect_static_in_prebuilt_gc:
@@ -187,7 +204,7 @@ class LLInterpRootWalker:
                 if self.gcheap.gc.points_to_valid_gc_object(addrofaddr):
                     collect_static_in_prebuilt_nongc(gc, addrofaddr)
         if collect_stack_root:
-            for addrofaddr in gcheap.llinterp.find_roots():
+            for addrofaddr in gcheap.llinterp.find_roots(is_minor):
                 if self.gcheap.gc.points_to_valid_gc_object(addrofaddr):
                     collect_stack_root(gc, addrofaddr)
 

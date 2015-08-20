@@ -65,11 +65,9 @@ class InstallTestCase(support.TempdirManager,
         check_path(cmd.install_scripts, os.path.join(destination, "bin"))
         check_path(cmd.install_data, destination)
 
+    @unittest.skipIf(sys.version < '2.6',
+                     'site.USER_SITE was introduced in 2.6')
     def test_user_site(self):
-        # site.USER_SITE was introduced in 2.6
-        if sys.version < '2.6':
-            return
-
         # preparing the environment for the test
         self.old_user_base = site.USER_BASE
         self.old_user_site = site.USER_SITE
@@ -237,7 +235,7 @@ class InstallTestCase(support.TempdirManager,
                 self.test_record()
         finally:
             install_module.DEBUG = False
-        self.assertTrue(len(self.logs) > old_logs_len)
+        self.assertGreater(len(self.logs), old_logs_len)
 
 
 def test_suite():

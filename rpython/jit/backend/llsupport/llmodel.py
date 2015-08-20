@@ -1,4 +1,5 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
@@ -14,12 +15,15 @@ from rpython.jit.backend.llsupport.descr import (
     get_call_descr, get_interiorfield_descr,
     FieldDescr, ArrayDescr, CallDescr, InteriorFieldDescr,
     FLAG_POINTER, FLAG_FLOAT)
-from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
+from rpython.jit.backend.llsupport.memcpy import memset_fn
+from rpython.jit.backend.llsupport import asmmemmgr, codemap
 from rpython.rlib.unroll import unrolling_iterable
 
 
 class AbstractLLCPU(AbstractCPU):
     from rpython.jit.metainterp.typesystem import llhelper as ts
+
+    HAS_CODEMAP = False
 
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
@@ -46,7 +50,9 @@ class AbstractLLCPU(AbstractCPU):
             self._setup_exception_handling_translated()
         else:
             self._setup_exception_handling_untranslated()
-        self.asmmemmgr = AsmMemoryManager()
+        self.asmmemmgr = asmmemmgr.AsmMemoryManager()
+        if self.HAS_CODEMAP:
+            self.codemap = codemap.CodemapStorage()
         self._setup_frame_realloc(translate_support_code)
         ad = self.gc_ll_descr.getframedescrs(self).arraydescr
         self.signedarraydescr = ad
@@ -60,6 +66,9 @@ class AbstractLLCPU(AbstractCPU):
             self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize,
                                               ad.lendescr, FLAG_FLOAT)
         self.setup()
+        self._debug_errno_container = lltype.malloc(
+            rffi.CArray(lltype.Signed), 7, flavor='raw', zero=True,
+            track_allocation=False)
 
     def getarraydescr_for_frame(self, type):
         if type == history.FLOAT:
@@ -72,6 +81,16 @@ class AbstractLLCPU(AbstractCPU):
 
     def setup(self):
         pass
+
+    def finish_once(self):
+        if self.HAS_CODEMAP:
+            self.codemap.finish_once()
+
+    def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
+                     unique_id=0, log=True, name='', logger=None):
+        return self.assembler.assemble_loop(jd_id, unique_id, logger, name,
+                                            inputargs, operations,
+                                            looptoken, log=log)
 
     def _setup_frame_realloc(self, translate_support_code):
         FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF, lltype.Signed],
@@ -207,6 +226,8 @@ class AbstractLLCPU(AbstractCPU):
             for rawstart, rawstop in blocks:
                 self.gc_ll_descr.freeing_block(rawstart, rawstop)
                 self.asmmemmgr.free(rawstart, rawstop)
+                if self.HAS_CODEMAP:
+                    self.codemap.free_asm_block(rawstart, rawstop)
 
     def force(self, addr_of_force_token):
         frame = rffi.cast(jitframe.JITFRAMEPTR, addr_of_force_token)
@@ -215,7 +236,14 @@ class AbstractLLCPU(AbstractCPU):
         return lltype.cast_opaque_ptr(llmemory.GCREF, frame)
 
     def make_execute_token(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF],
+        # The JIT backend must generate functions with the following
+        # signature: it takes the jitframe and the threadlocal_addr
+        # as arguments, and it returns the (possibly reallocated) jitframe.
+        # The backend can optimize OS_THREADLOCALREF_GET calls to return a
+        # field of this threadlocal_addr, but only if 'translate_support_code':
+        # in untranslated tests, threadlocal_addr is a dummy container
+        # for errno tests only.
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.Address],
                                              llmemory.GCREF))
 
         lst = [(i, history.getkind(ARG)[0]) for i, ARG in enumerate(ARGS)]
@@ -247,8 +275,14 @@ class AbstractLLCPU(AbstractCPU):
                     else:
                         assert kind == history.REF
                         self.set_ref_value(ll_frame, num, arg)
+                if self.translate_support_code:
+                    ll_threadlocal_addr = llop.threadlocalref_addr(
+                        llmemory.Address)
+                else:
+                    ll_threadlocal_addr = rffi.cast(llmemory.Address,
+                        self._debug_errno_container)
                 llop.gc_writebarrier(lltype.Void, ll_frame)
-                ll_frame = func(ll_frame)
+                ll_frame = func(ll_frame, ll_threadlocal_addr)
             finally:
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
@@ -299,6 +333,7 @@ class AbstractLLCPU(AbstractCPU):
         return ofs, size, sign
     unpack_fielddescr_size._always_inline_ = True
 
+    @specialize.memo()
     def arraydescrof(self, A):
         return get_array_descr(self.gc_ll_descr, A)
 
@@ -607,6 +642,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_new_array(self, length, arraydescr):
         return self.gc_ll_descr.gc_malloc_array(length, arraydescr)
+    bh_new_array_clear = bh_new_array
 
     def bh_newstr(self, length):
         return self.gc_ll_descr.gc_malloc_str(length)

@@ -6,13 +6,15 @@ import cStringIO
 import pickletools
 import copy_reg
 
-from test.test_support import TestFailed, verbose, have_unicode, TESTFN, impl_detail
+from test.test_support import TestFailed, verbose, have_unicode, TESTFN
 try:
-    from test.test_support import _2G, _1M, precisionbigmemtest
+    from test.test_support import _2G, _1M, precisionbigmemtest, impl_detail
 except ImportError:
     # this import might fail when run on older Python versions by test_xpickle
     _2G = _1M = 0
     def precisionbigmemtest(*args, **kwargs):
+        return lambda self: None
+    def impl_detail(*args, **kwargs):
         return lambda self: None
 
 # Tests that try a number of pickle protocols should have a
@@ -1154,30 +1156,34 @@ class AbstractPersistentPicklerTests(unittest.TestCase):
         if isinstance(object, int) and object % 2 == 0:
             self.id_count += 1
             return str(object)
+        elif object == "test_false_value":
+            self.false_count += 1
+            return ""
         else:
             return None
 
     def persistent_load(self, oid):
-        self.load_count += 1
-        object = int(oid)
-        assert object % 2 == 0
-        return object
+        if not oid:
+            self.load_false_count += 1
+            return "test_false_value"
+        else:
+            self.load_count += 1
+            object = int(oid)
+            assert object % 2 == 0
+            return object
 
     def test_persistence(self):
-        self.id_count = 0
-        self.load_count = 0
-        L = range(10)
-        self.assertEqual(self.loads(self.dumps(L)), L)
-        self.assertEqual(self.id_count, 5)
-        self.assertEqual(self.load_count, 5)
-
-    def test_bin_persistence(self):
-        self.id_count = 0
-        self.load_count = 0
-        L = range(10)
-        self.assertEqual(self.loads(self.dumps(L, 1)), L)
-        self.assertEqual(self.id_count, 5)
-        self.assertEqual(self.load_count, 5)
+        L = range(10) + ["test_false_value"]
+        for proto in protocols:
+            self.id_count = 0
+            self.false_count = 0
+            self.load_false_count = 0
+            self.load_count = 0
+            self.assertEqual(self.loads(self.dumps(L, proto)), L)
+            self.assertEqual(self.id_count, 5)
+            self.assertEqual(self.false_count, 1)
+            self.assertEqual(self.load_count, 5)
+            self.assertEqual(self.load_false_count, 1)
 
 class AbstractPicklerUnpicklerObjectTests(unittest.TestCase):
 

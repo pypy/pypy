@@ -7,7 +7,6 @@ import pypy.module.imp.importing
 
 class Module(MixedModule):
     """Built-in functions, exceptions, and other objects."""
-    expose__file__attribute = False
 
     appleveldefs = {
         'execfile'      : 'app_io.execfile',

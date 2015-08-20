@@ -242,6 +242,16 @@ class BaseTestRDict(BaseRtypingTest):
         res = self.interpret(func, ())#, view=True)
         assert res == 14
 
+    def test_list_dict(self):
+        def func():
+            dic = self.newdict()
+            dic[' 4'] = 1000
+            dic[' 8'] = 200
+            keys = list(dic)
+            return ord(keys[0][1]) + ord(keys[1][1]) - 2*ord('0') + len(keys)
+        res = self.interpret(func, ())#, view=True)
+        assert res == 14
+
     def test_dict_inst_keys(self):
         class Empty:
             pass
@@ -868,6 +878,81 @@ class BaseTestRDict(BaseRtypingTest):
         res = self.interpret(func, [])
         assert lltype.typeOf(res.item0) == lltype.typeOf(res.item1)
 
+    def test_r_dict(self):
+        class FooError(Exception):
+            pass
+        def myeq(n, m):
+            return n == m
+        def myhash(n):
+            if n < 0:
+                raise FooError
+            return -n
+        def f(n):
+            d = self.new_r_dict(myeq, myhash)
+            for i in range(10):
+                d[i] = i*i
+            try:
+                value1 = d[n]
+            except FooError:
+                value1 = 99
+            try:
+                value2 = n in d
+            except FooError:
+                value2 = 99
+            try:
+                value3 = d[-n]
+            except FooError:
+                value3 = 99
+            try:
+                value4 = (-n) in d
+            except FooError:
+                value4 = 99
+            return (value1 * 1000000 +
+                    value2 * 10000 +
+                    value3 * 100 +
+                    value4)
+        res = self.interpret(f, [5])
+        assert res == 25019999
+
+    def test_r_dict_popitem_hash(self):
+        def deq(n, m):
+            return n == m
+        def dhash(n):
+            return ~n
+        def func():
+            d = self.new_r_dict(deq, dhash)
+            d[5] = 2
+            d[6] = 3
+            k1, v1 = d.popitem()
+            assert len(d) == 1
+            k2, v2 = d.popitem()
+            try:
+                d.popitem()
+            except KeyError:
+                pass
+            else:
+                assert 0, "should have raised KeyError"
+            assert len(d) == 0
+            return k1*1000 + v1*100 + k2*10 + v2
+
+        res = self.interpret(func, [])
+        assert res in [5263, 6352]
+
+    def test_prebuilt_r_dict(self):
+        def deq(n, m):
+            return (n & 3) == (m & 3)
+        def dhash(n):
+            return n & 3
+        d = self.new_r_dict(deq, dhash)
+        d[0x123] = "abcd"
+        d[0x231] = "efgh"
+        def func():
+            return d[0x348973] + d[0x12981]
+
+        res = self.interpret(func, [])
+        res = self.ll_to_string(res)
+        assert res == "abcdefgh"
+
 
 class TestRDict(BaseTestRDict):
     @staticmethod
@@ -877,6 +962,10 @@ class TestRDict(BaseTestRDict):
     @staticmethod
     def newdict2():
         return {}
+
+    @staticmethod
+    def new_r_dict(myeq, myhash):
+        return r_dict(myeq, myhash)
 
     def test_two_dicts_with_different_value_types(self):
         def func(i):
@@ -916,6 +1005,7 @@ class TestRDict(BaseTestRDict):
 
 
     def test_dict_resize(self):
+        py.test.skip("test written for non-ordered dicts, update or kill")
         # XXX we no longer automatically resize on 'del'.  We need to
         # hack a bit in this test to trigger a resize by continuing to
         # fill the dict's table while keeping the actual size very low
@@ -936,7 +1026,7 @@ class TestRDict(BaseTestRDict):
         res = self.interpret(func, [1])
         assert len(res.entries) == rdict.DICT_INITSIZE
 
-    def test_opt_nullkeymarker(self):
+    def test_opt_dummykeymarker(self):
         def f():
             d = {"hello": None}
             d["world"] = None
@@ -944,10 +1034,9 @@ class TestRDict(BaseTestRDict):
         res = self.interpret(f, [])
         assert res.item0 == True
         DICT = lltype.typeOf(res.item1).TO
-        assert not hasattr(DICT.entries.TO.OF, 'f_everused')# non-None string keys
-        assert not hasattr(DICT.entries.TO.OF, 'f_valid')   # strings have a dummy
+        assert not hasattr(DICT.entries.TO.OF, 'f_valid')   # strs have a dummy
 
-    def test_opt_nullvaluemarker(self):
+    def test_opt_dummyvaluemarker(self):
         def f(n):
             d = {-5: "abcd"}
             d[123] = "def"
@@ -955,28 +1044,7 @@ class TestRDict(BaseTestRDict):
         res = self.interpret(f, [-5])
         assert res.item0 == 4
         DICT = lltype.typeOf(res.item1).TO
-        assert not hasattr(DICT.entries.TO.OF, 'f_everused')# non-None str values
         assert not hasattr(DICT.entries.TO.OF, 'f_valid')   # strs have a dummy
-
-    def test_opt_nonullmarker(self):
-        class A:
-            pass
-        def f(n):
-            if n > 5:
-                a = A()
-            else:
-                a = None
-            d = {a: -5441}
-            d[A()] = n+9872
-            return d[a], d
-        res = self.interpret(f, [-5])
-        assert res.item0 == -5441
-        DICT = lltype.typeOf(res.item1).TO
-        assert hasattr(DICT.entries.TO.OF, 'f_everused') # can-be-None A instances
-        assert not hasattr(DICT.entries.TO.OF, 'f_valid')# with a dummy A instance
-
-        res = self.interpret(f, [6])
-        assert res.item0 == -5441
 
     def test_opt_nonnegint_dummy(self):
         def f(n):
@@ -988,7 +1056,6 @@ class TestRDict(BaseTestRDict):
         assert res.item0 == 1
         assert res.item1 == 24
         DICT = lltype.typeOf(res.item2).TO
-        assert hasattr(DICT.entries.TO.OF, 'f_everused') # all ints can be zero
         assert not hasattr(DICT.entries.TO.OF, 'f_valid')# nonneg int: dummy -1
 
     def test_opt_no_dummy(self):
@@ -1001,7 +1068,6 @@ class TestRDict(BaseTestRDict):
         assert res.item0 == 1
         assert res.item1 == -24
         DICT = lltype.typeOf(res.item2).TO
-        assert hasattr(DICT.entries.TO.OF, 'f_everused') # all ints can be zero
         assert hasattr(DICT.entries.TO.OF, 'f_valid')    # no dummy available
 
     def test_opt_boolean_has_no_dummy(self):
@@ -1014,7 +1080,6 @@ class TestRDict(BaseTestRDict):
         assert res.item0 == 1
         assert res.item1 is True
         DICT = lltype.typeOf(res.item2).TO
-        assert hasattr(DICT.entries.TO.OF, 'f_everused') # all ints can be zero
         assert hasattr(DICT.entries.TO.OF, 'f_valid')    # no dummy available
 
     def test_opt_multiple_identical_dicts(self):
@@ -1032,66 +1097,6 @@ class TestRDict(BaseTestRDict):
         # all three dicts should use the same low-level type
         assert lltype.typeOf(res.item1) == lltype.typeOf(res.item2)
         assert lltype.typeOf(res.item1) == lltype.typeOf(res.item3)
-
-    def test_r_dict(self):
-        class FooError(Exception):
-            pass
-        def myeq(n, m):
-            return n == m
-        def myhash(n):
-            if n < 0:
-                raise FooError
-            return -n
-        def f(n):
-            d = r_dict(myeq, myhash)
-            for i in range(10):
-                d[i] = i*i
-            try:
-                value1 = d[n]
-            except FooError:
-                value1 = 99
-            try:
-                value2 = n in d
-            except FooError:
-                value2 = 99
-            try:
-                value3 = d[-n]
-            except FooError:
-                value3 = 99
-            try:
-                value4 = (-n) in d
-            except FooError:
-                value4 = 99
-            return (value1 * 1000000 +
-                    value2 * 10000 +
-                    value3 * 100 +
-                    value4)
-        res = self.interpret(f, [5])
-        assert res == 25019999
-
-    def test_dict_popitem_hash(self):
-        def deq(n, m):
-            return n == m
-        def dhash(n):
-            return ~n
-        def func():
-            d = r_dict(deq, dhash)
-            d[5] = 2
-            d[6] = 3
-            k1, v1 = d.popitem()
-            assert len(d) == 1
-            k2, v2 = d.popitem()
-            try:
-                d.popitem()
-            except KeyError:
-                pass
-            else:
-                assert 0, "should have raised KeyError"
-            assert len(d) == 0
-            return k1*1000 + v1*100 + k2*10 + v2
-
-        res = self.interpret(func, [])
-        assert res in [5263, 6352]
 
     def test_nonnull_hint(self):
         def eq(a, b):
@@ -1113,6 +1118,7 @@ class TestRDict(BaseTestRDict):
         assert sorted(DICT.TO.entries.TO.OF._flds) == ['f_hash', 'key', 'value']
 
     def test_deleted_entry_reusage_with_colliding_hashes(self):
+        py.test.skip("test written for non-ordered dicts, update or kill")
         def lowlevelhash(value):
             p = rstr.mallocstr(len(value))
             for i in range(len(value)):

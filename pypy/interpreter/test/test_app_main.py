@@ -167,6 +167,11 @@ class TestParseCommandLine:
         self.check([], {'PYTHONNOUSERSITE': '1'}, sys_argv=[''], run_stdin=True, no_user_site=1)
         self.check([], {'PYTHONUNBUFFERED': '1'}, sys_argv=[''], run_stdin=True, unbuffered=1)
         self.check([], {'PYTHONVERBOSE': '1'}, sys_argv=[''], run_stdin=True, verbose=1)
+        self.check([], {'PYTHONOPTIMIZE': '1'}, sys_argv=[''], run_stdin=True, optimize=1)
+        self.check([], {'PYTHONOPTIMIZE': '0'}, sys_argv=[''], run_stdin=True, optimize=1)
+        self.check([], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
+        self.check(['-O'], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
+        self.check(['-OOO'], {'PYTHONOPTIMIZE': 'abc'}, sys_argv=[''], run_stdin=True, optimize=3)
 
     def test_sysflags(self):
         flags = (
@@ -945,7 +950,7 @@ class AppTestAppMain:
         prefix = udir.join('pathtest').ensure(dir=1)
         fake_exe = 'bin/pypy-c'
         if sys.platform == 'win32':
-            fake_exe += '.exe'
+            fake_exe = 'pypy-c.exe'
         fake_exe = prefix.join(fake_exe).ensure(file=1)
         expected_path = [str(prefix.join(subdir).ensure(dir=1))
                          for subdir in ('lib_pypy',
@@ -984,6 +989,13 @@ class AppTestAppMain:
             assert sys.executable == ''
             assert sys.path == old_sys_path + [self.goal_dir]
 
+            app_main.setup_bootstrap_path(self.fake_exe)
+            if not sys.platform == 'win32':
+                # an existing file is always 'executable' on windows
+                assert sys.executable == ''      # not executable!
+                assert sys.path == old_sys_path + [self.goal_dir]
+
+            os.chmod(self.fake_exe, 0755)
             app_main.setup_bootstrap_path(self.fake_exe)
             assert sys.executable == self.fake_exe
             assert self.goal_dir not in sys.path

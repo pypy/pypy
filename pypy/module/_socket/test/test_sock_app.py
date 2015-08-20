@@ -1,4 +1,4 @@
-import sys
+import sys, os
 import py
 from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.tool.udir import udir
@@ -309,9 +309,15 @@ def test_timeout():
 
 
 class AppTestSocket:
+    spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct'])
+
     def setup_class(cls):
         cls.space = space
         cls.w_udir = space.wrap(str(udir))
+
+    def teardown_class(cls):
+        if not cls.runappdirect:
+            cls.space.sys.getmodule('_socket').shutdown(cls.space)
 
     def test_module(self):
         import _socket
@@ -371,6 +377,19 @@ class AppTestSocket:
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         assert s.fileno() > -1
         assert isinstance(s.fileno(), int)
+
+    def test_socket_repr(self):
+        import _socket
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        try:
+            expected = ('<socket object, fd=%s, family=%s, type=%s, protocol=%s>'
+                        % (s.fileno(), s.family, s.type, s.proto))
+            assert repr(s) == expected
+        finally:
+            s.close()
+        expected = ('<socket object, fd=-1, family=%s, type=%s, protocol=%s>'
+                    % (s.family, s.type, s.proto))
+        assert repr(s) == expected
 
     def test_socket_close(self):
         import _socket, os
@@ -498,6 +517,13 @@ class AppTestSocket:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         reuse = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
         assert reuse == 0
+        #
+        raises(TypeError, s.setsockopt, socket.SOL_SOCKET,
+                          socket.SO_REUSEADDR, 2 ** 31)
+        raises(TypeError, s.setsockopt, socket.SOL_SOCKET,
+                          socket.SO_REUSEADDR, 2 ** 32 + 1)
+        assert s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR) == 0
+        #
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         reuse = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
         assert reuse != 0
@@ -593,6 +619,34 @@ class AppTestSocket:
             s.close()
         finally:
             os.chdir(oldcwd)
+
+    def test_automatic_shutdown(self):
+        # doesn't really test anything, but at least should not explode
+        # in close_all_sockets()
+        import _socket
+        self.foo = _socket.socket()
+
+
+class AppTestPacket:
+    def setup_class(cls):
+        if not hasattr(os, 'getuid') or os.getuid() != 0:
+            py.test.skip("AF_PACKET needs to be root for testing")
+        w_ok = space.appexec([], "(): import _socket; " +
+                                 "return hasattr(_socket, 'AF_PACKET')")
+        if not space.is_true(w_ok):
+            py.test.skip("no AF_PACKET on this platform")
+        cls.space = space
+
+    def test_convert_between_tuple_and_sockaddr_ll(self):
+        import _socket
+        s = _socket.socket(_socket.AF_PACKET, _socket.SOCK_RAW)
+        assert s.getsockname() == ('', 0, 0, 0, '')
+        s.bind(('lo', 123))
+        a, b, c, d, e = s.getsockname()
+        assert (a, b, c) == ('lo', 123, 0)
+        assert isinstance(d, int)
+        assert isinstance(e, str)
+        assert 0 <= len(e) <= 8
 
 
 class AppTestSocketTCP:
@@ -715,6 +769,11 @@ class AppTestSocketTCP:
         assert nbytes == len(MSG)
         msg = buf[:len(MSG)]
         assert msg == MSG
+
+        conn.send(MSG)
+        buf = bytearray(8)
+        exc = raises(ValueError, cli.recvfrom_into, buf, 1024)
+        assert str(exc.value) == "nbytes is greater than the length of the buffer"
 
     def test_family(self):
         import socket

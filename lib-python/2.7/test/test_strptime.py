@@ -313,7 +313,7 @@ class StrptimeTests(unittest.TestCase):
         # when time.tzname[0] == time.tzname[1] and time.daylight
         tz_name = time.tzname[0]
         if tz_name.upper() in ("UTC", "GMT"):
-            return
+            self.skipTest('need non-UTC/GMT timezone')
         try:
             original_tzname = time.tzname
             original_daylight = time.daylight
@@ -484,6 +484,24 @@ class CalculationTests(unittest.TestCase):
         test_helper((2006, 12, 31), "Last Sunday of 2006")
         test_helper((2006, 12, 24), "Second to last Sunday of 2006")
 
+    def test_week_0(self):
+        def check(value, format, *expected):
+            self.assertEqual(_strptime._strptime_time(value, format)[:-1], expected)
+        check('2015 0 0', '%Y %U %w', 2014, 12, 28, 0, 0, 0, 6, -3)
+        check('2015 0 0', '%Y %W %w', 2015, 1, 4, 0, 0, 0, 6, 4)
+        check('2015 0 1', '%Y %U %w', 2014, 12, 29, 0, 0, 0, 0, -2)
+        check('2015 0 1', '%Y %W %w', 2014, 12, 29, 0, 0, 0, 0, -2)
+        check('2015 0 2', '%Y %U %w', 2014, 12, 30, 0, 0, 0, 1, -1)
+        check('2015 0 2', '%Y %W %w', 2014, 12, 30, 0, 0, 0, 1, -1)
+        check('2015 0 3', '%Y %U %w', 2014, 12, 31, 0, 0, 0, 2, 0)
+        check('2015 0 3', '%Y %W %w', 2014, 12, 31, 0, 0, 0, 2, 0)
+        check('2015 0 4', '%Y %U %w', 2015, 1, 1, 0, 0, 0, 3, 1)
+        check('2015 0 4', '%Y %W %w', 2015, 1, 1, 0, 0, 0, 3, 1)
+        check('2015 0 5', '%Y %U %w', 2015, 1, 2, 0, 0, 0, 4, 2)
+        check('2015 0 5', '%Y %W %w', 2015, 1, 2, 0, 0, 0, 4, 2)
+        check('2015 0 6', '%Y %U %w', 2015, 1, 3, 0, 0, 0, 5, 3)
+        check('2015 0 6', '%Y %W %w', 2015, 1, 3, 0, 0, 0, 5, 3)
+
 
 class CacheTests(unittest.TestCase):
     """Test that caching works properly."""
@@ -526,7 +544,7 @@ class CacheTests(unittest.TestCase):
         try:
             locale.setlocale(locale.LC_TIME, ('en_US', 'UTF8'))
         except locale.Error:
-            return
+            self.skipTest('test needs en_US.UTF8 locale')
         try:
             _strptime._strptime_time('10', '%d')
             # Get id of current cache object.
@@ -543,7 +561,7 @@ class CacheTests(unittest.TestCase):
             # If this is the case just suppress the exception and fall-through
             # to the resetting to the original locale.
             except locale.Error:
-                pass
+                self.skipTest('test needs de_DE.UTF8 locale')
         # Make sure we don't trample on the locale setting once we leave the
         # test.
         finally:

@@ -201,6 +201,11 @@ def enforceargs(*types_, **kwds):
         return result
     return decorator
 
+def always_inline(func):
+    """ mark the function as to-be-inlined by the RPython optimizations (not
+    the JIT!), no matter its size."""
+    func._always_inline_ = True
+    return func
 
 
 # ____________________________________________________________
@@ -631,6 +636,30 @@ class UnboxedValue(object):
 
 # ____________________________________________________________
 
+def likely(condition):
+    assert isinstance(condition, bool)
+    return condition
+
+def unlikely(condition):
+    assert isinstance(condition, bool)
+    return condition
+
+class Entry(ExtRegistryEntry):
+    _about_ = (likely, unlikely)
+
+    def compute_result_annotation(self, s_x):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeBool()
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        vlist = hop.inputargs(lltype.Bool)
+        hop.exception_cannot_occur()
+        return hop.genop(self.instance.__name__, vlist,
+                         resulttype=lltype.Bool)
+
+# ____________________________________________________________
+
 
 class r_dict(object):
     """An RPython dict-like object.
@@ -748,6 +777,17 @@ def prepare_dict_update(dict, n_elements):
         dict._prepare_dict_update(n_elements)
         # ^^ call an extra method that doesn't exist before translation
 
+@specialize.call_location()
+def reversed_dict(d):
+    """Equivalent to reversed(ordered_dict), but works also for
+    regular dicts."""
+    # note that there is also __pypy__.reversed_dict(), which we could
+    # try to use here if we're not translated and running on top of pypy,
+    # but that seems a bit pointless
+    if not we_are_translated():
+        d = d.keys()
+    return reversed(d)
+
 
 # ____________________________________________________________
 
@@ -766,10 +806,14 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
     flatten = {}
     caller = sys._getframe(1)
     caller_name = caller.f_globals.get('__name__')
+    immutable_fields = []
     for base in inspect.getmro(M):
         if base is object:
             continue
         for key, value in base.__dict__.items():
+            if key == '_immutable_fields_':
+                immutable_fields.extend(value)
+                continue
             if key.startswith('__') and key.endswith('__'):
                 if key not in special_methods:
                     continue
@@ -795,4 +839,9 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
         if key in target:
             raise Exception("import_from_mixin: would overwrite the value "
                             "already defined locally for %r" % (key,))
+        if key == '_mixin_':
+            raise Exception("import_from_mixin(M): class M should not "
+                            "have '_mixin_ = True'")
         target[key] = value
+    if immutable_fields:
+        target['_immutable_fields_'] = target.get('_immutable_fields_', []) + immutable_fields

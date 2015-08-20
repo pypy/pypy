@@ -33,7 +33,7 @@ def polluted_qgen(translator):
         try:
             for block in g.iterblocks():
                 for v in block.getvariables():
-                    s = annotator.binding(v, None)
+                    s = annotator.annotation(v)
                     if s and s.__class__ == annmodel.SomeObject and s.knowntype != type:
                         raise Found
         except Found:
@@ -44,8 +44,8 @@ def check_exceptblocks_qgen(translator):
     annotator = translator.annotator
     for graph in translator.graphs:
         et, ev = graph.exceptblock.inputargs
-        s_et = annotator.binding(et, None)
-        s_ev = annotator.binding(ev, None)
+        s_et = annotator.annotation(et)
+        s_ev = annotator.annotation(ev)
         if s_et:
             if s_et.knowntype == type:
                 if s_et.__class__ == annmodel.SomeType:

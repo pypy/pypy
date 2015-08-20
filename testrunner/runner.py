@@ -101,7 +101,9 @@ def dry_run(args, cwd, out, timeout=None):
     return 0
 
 def getsignalname(n):
-    for name, value in signal.__dict__.items():
+    # "sorted()" to pick a deterministic answer in case of synonyms.
+    # Also, getting SIGABRT is more understandable than SIGIOT...
+    for name, value in sorted(signal.__dict__.items()):
         if value == n and name.startswith('SIG'):
             return name
     return 'signal %d' % (n,)
@@ -407,7 +409,8 @@ def main(args):
     run_param.dry_run = opts.dry_run
 
     if run_param.dry_run:
-        print >>out, run_param.__dict__
+        print >>out, '\n'.join([str((k, getattr(run_param, k))) \
+                        for k in dir(run_param) if k[:2] != '__'])
     
     res = execute_tests(run_param, testdirs, logfile, out)
 

@@ -3,7 +3,7 @@ It should not be imported by the module itself
 """
 import re
 from pypy.interpreter import special
-from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
+from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root, ObjSpace
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.nonconst import NonConstant
@@ -34,9 +34,9 @@ class BadToken(Exception):
 
 
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any",
-                        "unegative", "flat", "tostring","count_nonzero",
-                        "argsort"]
-TWO_ARG_FUNCTIONS = ["dot", 'take']
+                        "unegative", "flat", "tostring", "count_nonzero",
+                        "argsort", "cumsum", "logical_xor_reduce"]
+TWO_ARG_FUNCTIONS = ["dot", 'take', 'searchsorted']
 TWO_ARG_FUNCTIONS_OR_NONE = ['view', 'astype']
 THREE_ARG_FUNCTIONS = ['where']
 
@@ -47,7 +47,10 @@ class W_TypeObject(W_Root):
     def lookup(self, name):
         return self.getdictvalue(self, name)
 
-class FakeSpace(object):
+    def getname(self, space):
+        return self.name
+
+class FakeSpace(ObjSpace):
     w_ValueError = W_TypeObject("ValueError")
     w_TypeError = W_TypeObject("TypeError")
     w_IndexError = W_TypeObject("IndexError")
@@ -67,6 +70,8 @@ class FakeSpace(object):
     w_unicode = W_TypeObject("unicode")
     w_complex = W_TypeObject("complex")
     w_dict = W_TypeObject("dict")
+    w_object = W_TypeObject("object")
+    w_buffer = W_TypeObject("buffer")
 
     def __init__(self):
         """NOT_RPYTHON"""
@@ -88,7 +93,8 @@ class FakeSpace(object):
         return self.wrap(len(w_obj.items))
 
     def getattr(self, w_obj, w_attr):
-        return StringObject(NonConstant('foo'))
+        assert isinstance(w_attr, StringObject)
+        return w_obj.getdictvalue(self, w_attr.v)
 
     def isinstance_w(self, w_obj, w_tp):
         try:
@@ -109,6 +115,9 @@ class FakeSpace(object):
             if stop < 0:
                 stop += size + 1
             if step < 0:
+                start, stop = stop, start
+                start -= 1
+                stop -= 1
                 lgt = (stop - start + 1) / step + 1
             else:
                 lgt = (stop - start - 1) / step + 1
@@ -198,6 +207,12 @@ class FakeSpace(object):
         assert isinstance(w_obj, BoolObject)
         return bool(w_obj.intval)
 
+    def gt(self, w_lhs, w_rhs):
+        return BoolObject(self.int_w(w_lhs) > self.int_w(w_rhs))
+
+    def lt(self, w_lhs, w_rhs):
+        return BoolObject(self.int_w(w_lhs) < self.int_w(w_rhs))
+
     def is_w(self, w_obj, w_what):
         return w_obj is w_what
 
@@ -230,8 +245,7 @@ class FakeSpace(object):
 
     def call_method(self, w_obj, s, *args):
         # XXX even the hacks have hacks
-        return None
-        #return getattr(w_obj, 'descr_' + s)(self, *args)
+        return getattr(w_obj, 'descr_' + s)(self, *args)
 
     @specialize.arg(1)
     def interp_w(self, tp, what):
@@ -475,7 +489,6 @@ class ArrayConstant(Node):
 
 class SliceConstant(Node):
     def __init__(self, start, stop, step):
-        # no negative support for now
         self.start = start
         self.stop = stop
         self.step = step
@@ -557,12 +570,17 @@ class FunctionCall(Node):
                 w_res = arr.descr_any(interp.space)
             elif self.name == "all":
                 w_res = arr.descr_all(interp.space)
+            elif self.name == "cumsum":
+                w_res = arr.descr_cumsum(interp.space)
+            elif self.name == "logical_xor_reduce":
+                logical_xor = ufuncs.get(interp.space).logical_xor
+                w_res = logical_xor.reduce(interp.space, arr, None)
             elif self.name == "unegative":
                 neg = ufuncs.get(interp.space).negative
-                w_res = neg.call(interp.space, [arr])
+                w_res = neg.call(interp.space, [arr], None, None, None)
             elif self.name == "cos":
                 cos = ufuncs.get(interp.space).cos
-                w_res = cos.call(interp.space, [arr])
+                w_res = cos.call(interp.space, [arr], None, None, None)
             elif self.name == "flat":
                 w_res = arr.descr_get_flatiter(interp.space)
             elif self.name == "argsort":
@@ -582,6 +600,9 @@ class FunctionCall(Node):
                 w_res = arr.descr_dot(interp.space, arg)
             elif self.name == 'take':
                 w_res = arr.descr_take(interp.space, arg)
+            elif self.name == "searchsorted":
+                w_res = arr.descr_searchsorted(interp.space, arg,
+                                               interp.space.wrap('left'))
             else:
                 assert False # unreachable code
         elif self.name in THREE_ARG_FUNCTIONS:

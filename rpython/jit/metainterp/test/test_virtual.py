@@ -3,7 +3,8 @@ from rpython.rlib.jit import JitDriver, promote, dont_look_inside
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp.test.support import LLJitMixin
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.codewriter import heaptracker
 
@@ -706,6 +707,25 @@ class VirtualTests:
                 n -= 1
             return node[0] + node[1]
         assert self.meta_interp(f, [40]) == f(40)
+
+    def test_virtual_array_with_nulls(self):
+        class Foo:
+            pass
+        myjitdriver = JitDriver(greens=[], reds=['n', 'node'])
+        def f(n):
+            node = [None, Foo()]
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, node=node)
+                myjitdriver.jit_merge_point(n=n, node=node)
+                newnode = [None] * 2
+                if (n >> 3) & 1:
+                    newnode[1] = node[1]
+                else:
+                    newnode[1] = node[1]
+                node = newnode
+                n -= 1
+            return 42
+        assert self.meta_interp(f, [40]) == 42
 
     def test_this_doesnt_force1(self):
         mydriver = JitDriver(reds=['i', 'j'], greens=[])

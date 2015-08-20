@@ -1,13 +1,16 @@
+from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.module.micronumpy import ufuncs, support, concrete
-from pypy.module.micronumpy.base import W_NDimArray, convert_to_array
+from pypy.module.micronumpy import support, concrete
+from pypy.module.micronumpy.base import W_NDimArray, convert_to_array, W_NumpyObject
 from pypy.module.micronumpy.descriptor import decode_w_dtype
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                             shape_agreement, shape_agreement_multiple)
+from pypy.module.micronumpy.casting import (find_binop_result_dtype, 
+                    can_cast_array, can_cast_type)
 
 
 def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
@@ -45,7 +48,6 @@ class OpFlag(object):
         self.tmp_copy = ''
         self.allocate = False
 
-
 def parse_op_flag(space, lst):
     op_flag = OpFlag()
     for w_item in lst:
@@ -71,17 +73,17 @@ def parse_op_flag(space, lst):
         elif item == 'allocate':
             op_flag.allocate = True
         elif item == 'no_subtype':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                '"no_subtype" op_flag not implemented yet'))
+            raise oefmt(space.w_NotImplementedError,
+                '"no_subtype" op_flag not implemented yet')
         elif item == 'arraymask':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                '"arraymask" op_flag not implemented yet'))
+            raise oefmt(space.w_NotImplementedError,
+                '"arraymask" op_flag not implemented yet')
         elif item == 'writemask':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                '"writemask" op_flag not implemented yet'))
+            raise oefmt(space.w_NotImplementedError,
+                '"writemask" op_flag not implemented yet')
         else:
-            raise OperationError(space.w_ValueError, space.wrap(
-                'op_flags must be a tuple or array of per-op flag-tuples'))
+            raise oefmt(space.w_ValueError,
+                'op_flags must be a tuple or array of per-op flag-tuples')
     if op_flag.rw == '':
         raise oefmt(space.w_ValueError,
                     "None of the iterator flags READWRITE, READONLY, or "
@@ -94,25 +96,20 @@ def parse_func_flags(space, nditer, w_flags):
         return
     elif not space.isinstance_w(w_flags, space.w_tuple) and not \
             space.isinstance_w(w_flags, space.w_list):
-        raise OperationError(space.w_ValueError, space.wrap(
-            'Iter global flags must be a list or tuple of strings'))
+        raise oefmt(space.w_ValueError,
+            'Iter global flags must be a list or tuple of strings')
     lst = space.listview(w_flags)
     for w_item in lst:
         if not space.isinstance_w(w_item, space.w_str) and not \
                 space.isinstance_w(w_item, space.w_unicode):
-            typename = space.type(w_item).getname(space)
             raise oefmt(space.w_TypeError,
-                        'expected string or Unicode object, %s found',
-                        typename)
+                        "expected string or Unicode object, %T found",
+                        w_item)
         item = space.str_w(w_item)
         if item == 'external_loop':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                'nditer external_loop not implemented yet'))
             nditer.external_loop = True
         elif item == 'buffered':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                'nditer buffered not implemented yet'))
-            # For numpy compatability
+            # Each iterator should be 1d
             nditer.buffered = True
         elif item == 'c_index':
             nditer.tracked_index = 'C'
@@ -131,8 +128,8 @@ def parse_func_flags(space, nditer, w_flags):
         elif item == 'refs_ok':
             nditer.refs_ok = True
         elif item == 'reduce_ok':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                'nditer reduce_ok not implemented yet'))
+            raise oefmt(space.w_NotImplementedError,
+                'nditer reduce_ok not implemented yet')
             nditer.reduce_ok = True
         elif item == 'zerosize_ok':
             nditer.zerosize_ok = True
@@ -141,9 +138,9 @@ def parse_func_flags(space, nditer, w_flags):
                         'Unexpected iterator global flag "%s"',
                         item)
     if nditer.tracked_index and nditer.external_loop:
-        raise OperationError(space.w_ValueError, space.wrap(
+        raise oefmt(space.w_ValueError,
             'Iterator flag EXTERNAL_LOOP cannot be used if an index or '
-            'multi-index is being tracked'))
+            'multi-index is being tracked')
 
 
 def is_backward(imp, order):
@@ -155,27 +152,169 @@ def is_backward(imp, order):
         raise NotImplementedError('not implemented yet')
 
 
-def get_iter(space, order, arr, shape, dtype):
-    imp = arr.implementation
-    backward = is_backward(imp, order)
-    if arr.is_scalar():
-        return ArrayIter(imp, 1, [], [], [])
-    if (imp.strides[0] < imp.strides[-1] and not backward) or \
-       (imp.strides[0] > imp.strides[-1] and backward):
-        # flip the strides. Is this always true for multidimension?
-        strides = imp.strides[:]
-        backstrides = imp.backstrides[:]
-        shape = imp.shape[:]
-        strides.reverse()
-        backstrides.reverse()
-        shape.reverse()
-    else:
-        strides = imp.strides
-        backstrides = imp.backstrides
-    r = calculate_broadcast_strides(strides, backstrides, imp.shape,
-                                    shape, backward)
-    return ArrayIter(imp, imp.get_size(), shape, r[0], r[1])
+class OperandIter(ArrayIter):
+    _immutable_fields_ = ['slice_shape', 'slice_stride', 'slice_backstride',
+                          'operand_type', 'base']
 
+    def getitem(self, state):
+        # cannot be called - must return a boxed value
+        assert False
+
+    def getitem_bool(self, state):
+        # cannot be called - must return a boxed value
+        assert False
+
+    def setitem(self, state, elem):
+        # cannot be called - must return a boxed value
+        assert False
+
+
+class ConcreteIter(OperandIter):
+    def __init__(self, array, size, shape, strides, backstrides,
+                 op_flags, base):
+        OperandIter.__init__(self, array, size, shape, strides, backstrides)
+        self.slice_shape =[]
+        self.slice_stride = []
+        self.slice_backstride = []
+        if op_flags.rw == 'r':
+            self.operand_type = concrete.ConcreteNonWritableArrayWithBase
+        else:
+            self.operand_type = concrete.ConcreteArrayWithBase
+        self.base = base
+
+    def getoperand(self, state):
+        assert state.iterator is self
+        impl = self.operand_type
+        res = impl([], self.array.dtype, self.array.order, [], [],
+                   self.array.storage, self.base)
+        res.start = state.offset
+        return res
+
+
+class SliceIter(OperandIter):
+    def __init__(self, array, size, shape, strides, backstrides, slice_shape,
+                 slice_stride, slice_backstride, op_flags, base):
+        OperandIter.__init__(self, array, size, shape, strides, backstrides)
+        self.slice_shape = slice_shape
+        self.slice_stride = slice_stride
+        self.slice_backstride = slice_backstride
+        if op_flags.rw == 'r':
+            self.operand_type = concrete.NonWritableSliceArray
+        else:
+            self.operand_type = concrete.SliceArray
+        self.base = base
+
+    def getoperand(self, state):
+        assert state.iterator is self
+        impl = self.operand_type
+        arr = impl(state.offset, self.slice_stride, self.slice_backstride,
+                   self.slice_shape, self.array, self.base)
+        return arr
+
+
+def calculate_ndim(op_in, oa_ndim):
+    if oa_ndim >=0:
+        return oa_ndim
+    else:
+        ndim = 0
+        for op in op_in:
+            if op is None:
+                continue
+            assert isinstance(op, W_NDimArray)
+            ndim = max(ndim, op.ndims())
+    return ndim
+
+def coalesce_axes(it, space):
+    # Copy logic from npyiter_coalesce_axes, used in ufunc iterators
+    # and in nditer's with 'external_loop' flag
+    can_coalesce = True
+    for idim in range(it.ndim - 1):
+        for op_it, _ in it.iters:
+            if op_it is None:
+                continue
+            assert isinstance(op_it, ArrayIter)
+            indx = len(op_it.strides)
+            if it.order == 'F':
+                indx = len(op_it.array.strides) - indx
+                assert indx >=0
+                astrides = op_it.array.strides[indx:]
+            else:
+                astrides = op_it.array.strides[:indx]
+            # does op_it iters over array "naturally"
+            if astrides != op_it.strides:
+                can_coalesce = False
+                break
+        if can_coalesce:
+            for i in range(len(it.iters)):
+                new_iter = coalesce_iter(it.iters[i][0], it.op_flags[i], it,
+                                         it.order)
+                it.iters[i] = (new_iter, new_iter.reset())
+            if len(it.shape) > 1:
+                if it.order == 'F':
+                    it.shape = it.shape[1:]
+                else:
+                    it.shape = it.shape[:-1]
+            else:
+                it.shape = [1]
+
+        else:
+            break
+    # Always coalesce at least one
+    for i in range(len(it.iters)):
+        new_iter = coalesce_iter(it.iters[i][0], it.op_flags[i], it, 'C')
+        it.iters[i] = (new_iter, new_iter.reset())
+    if len(it.shape) > 1:
+        if it.order == 'F':
+            it.shape = it.shape[1:]
+        else:
+            it.shape = it.shape[:-1]
+    else:
+        it.shape = [1]
+
+
+def coalesce_iter(old_iter, op_flags, it, order, flat=True):
+    '''
+    We usually iterate through an array one value at a time.
+    But after coalesce(), getoperand() will return a slice by removing
+    the fastest varying dimension(s) from the beginning or end of the shape.
+    If flat is true, then the slice will be 1d, otherwise stack up the shape of
+    the fastest varying dimension in the slice, so an iterator of a  'C' array
+    of shape (2,4,3) after two calls to coalesce will iterate 2 times over a slice
+    of shape (4,3) by setting the offset to the beginning of the data at each iteration
+    '''
+    shape = [s+1 for s in old_iter.shape_m1]
+    if len(shape) < 1:
+        return old_iter
+    strides = old_iter.strides
+    backstrides = old_iter.backstrides
+    if order == 'F':
+        new_shape = shape[1:]
+        new_strides = strides[1:]
+        new_backstrides = backstrides[1:]
+        _stride = old_iter.slice_stride + [strides[0]]
+        _shape =  old_iter.slice_shape + [shape[0]]
+        _backstride = old_iter.slice_backstride + [strides[0] * (shape[0] - 1)]
+        fastest = shape[0]
+    else:
+        new_shape = shape[:-1]
+        new_strides = strides[:-1]
+        new_backstrides = backstrides[:-1]
+        # use the operand's iterator's rightmost stride,
+        # even if it is not the fastest (for 'F' or swapped axis)
+        _stride = [strides[-1]] + old_iter.slice_stride
+        _shape = [shape[-1]]  + old_iter.slice_shape
+        _backstride = [(shape[-1] - 1) * strides[-1]] + old_iter.slice_backstride
+        fastest = shape[-1]
+    if fastest == 0:
+        return old_iter
+    if flat:
+        _shape = [support.product(_shape)]
+        if len(_stride) > 1:
+            _stride = [min(_stride[0], _stride[1])]
+        _backstride = [(shape[0] - 1) * _stride[0]]
+    return SliceIter(old_iter.array, old_iter.size / fastest,
+                new_shape, new_strides, new_backstrides,
+                _shape, _stride, _backstride, op_flags, it)
 
 class IndexIterator(object):
     def __init__(self, shape, backward=False):
@@ -183,8 +322,8 @@ class IndexIterator(object):
         self.index = [0] * len(shape)
         self.backward = backward
 
+    @jit.unroll_safe
     def next(self):
-        # TODO It's probably possible to refactor all the "next" method from each iterator
         for i in range(len(self.shape) - 1, -1, -1):
             if self.index[i] < self.shape[i] - 1:
                 self.index[i] += 1
@@ -204,9 +343,10 @@ class IndexIterator(object):
         return ret
 
 
-class W_NDIter(W_Root):
-    def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting,
-                 w_op_axes, w_itershape, w_buffersize, order):
+class W_NDIter(W_NumpyObject):
+    _immutable_fields_ = ['ndim', ]
+    def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes,
+                 w_casting, w_op_axes, w_itershape, buffersize=0, order='K'):
         self.order = order
         self.external_loop = False
         self.buffered = False
@@ -222,6 +362,10 @@ class W_NDIter(W_Root):
         self.done = False
         self.first_next = True
         self.op_axes = []
+        if not space.is_w(w_casting, space.w_None):
+            self.casting = space.str_w(w_casting)
+        else:
+            self.casting = 'safe'
         # convert w_seq operands to a list of W_NDimArray
         if space.isinstance_w(w_seq, space.w_tuple) or \
            space.isinstance_w(w_seq, space.w_list):
@@ -236,28 +380,33 @@ class W_NDIter(W_Root):
         self.op_flags = parse_op_arg(space, 'op_flags', w_op_flags,
                                      len(self.seq), parse_op_flag)
         # handle w_op_axes
+        oa_ndim = -1
         if not space.is_none(w_op_axes):
-            self.set_op_axes(space, w_op_axes)
+            oa_ndim = self.set_op_axes(space, w_op_axes)
+        self.ndim = calculate_ndim(self.seq, oa_ndim)
 
         # handle w_op_dtypes part 1: creating self.dtypes list from input
         if not space.is_none(w_op_dtypes):
             w_seq_as_list = space.listview(w_op_dtypes)
             self.dtypes = [decode_w_dtype(space, w_elem) for w_elem in w_seq_as_list]
             if len(self.dtypes) != len(self.seq):
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "op_dtypes must be a tuple/list matching the number of ops"))
+                raise oefmt(space.w_ValueError,
+                    "op_dtypes must be a tuple/list matching the number of ops")
         else:
             self.dtypes = []
 
         # handle None or writable operands, calculate my shape
-        self.iters = []
         outargs = [i for i in range(len(self.seq))
                    if self.seq[i] is None or self.op_flags[i].rw == 'w']
         if len(outargs) > 0:
             out_shape = shape_agreement_multiple(space, [self.seq[i] for i in outargs])
         else:
             out_shape = None
-        self.shape = iter_shape = shape_agreement_multiple(space, self.seq,
+        if space.isinstance_w(w_itershape, space.w_tuple) or \
+           space.isinstance_w(w_itershape, space.w_list):
+            self.shape = [space.int_w(i) for i in space.listview(w_itershape)]
+        else:
+            self.shape = shape_agreement_multiple(space, self.seq,
                                                            shape=out_shape)
         if len(outargs) > 0:
             # Make None operands writeonly and flagged for allocation
@@ -271,16 +420,23 @@ class W_NDIter(W_Root):
                         continue
                     if self.op_flags[i].rw == 'w':
                         continue
-                    out_dtype = ufuncs.find_binop_result_dtype(
+                    out_dtype = find_binop_result_dtype(
                         space, self.seq[i].get_dtype(), out_dtype)
             for i in outargs:
                 if self.seq[i] is None:
                     # XXX can we postpone allocation to later?
-                    self.seq[i] = W_NDimArray.from_shape(space, iter_shape, out_dtype)
+                    self.seq[i] = W_NDimArray.from_shape(space, self.shape, out_dtype)
                 else:
                     if not self.op_flags[i].broadcast:
-                        # Raises if ooutput cannot be broadcast
-                        shape_agreement(space, iter_shape, self.seq[i], False)
+                        # Raises if output cannot be broadcast
+                        try:
+                            shape_agreement(space, self.shape, self.seq[i], False)
+                        except OperationError as e:
+                            raise oefmt(space.w_ValueError, "non-broadcastable"
+                                " output operand with shape %s doesn't match "
+                                "the broadcast shape %s", 
+                                str(self.seq[i].get_shape()),
+                                str(self.shape)) 
 
         if self.tracked_index != "":
             if self.order == "K":
@@ -289,71 +445,129 @@ class W_NDIter(W_Root):
                 backward = False
             else:
                 backward = self.order != self.tracked_index
-            self.index_iter = IndexIterator(iter_shape, backward=backward)
+            self.index_iter = IndexIterator(self.shape, backward=backward)
 
         # handle w_op_dtypes part 2: copy where needed if possible
         if len(self.dtypes) > 0:
             for i in range(len(self.seq)):
-                selfd = self.dtypes[i]
+                self_d = self.dtypes[i]
                 seq_d = self.seq[i].get_dtype()
-                if not selfd:
+                if not self_d:
                     self.dtypes[i] = seq_d
-                elif selfd != seq_d:
-                    if not 'r' in self.op_flags[i].tmp_copy:
-                        raise oefmt(space.w_TypeError,
-                                    "Iterator operand required copying or "
-                                    "buffering for operand %d", i)
-                    impl = self.seq[i].implementation
-                    new_impl = impl.astype(space, selfd)
-                    self.seq[i] = W_NDimArray(new_impl)
+                elif self_d != seq_d:
+                        impl = self.seq[i].implementation
+                        order = support.get_order_as_CF(impl.order, self.order)
+                        if self.buffered or 'r' in self.op_flags[i].tmp_copy:
+                            if not can_cast_array(
+                                    space, self.seq[i], self_d, self.casting):
+                                raise oefmt(space.w_TypeError, "Iterator operand %d"
+                                    " dtype could not be cast from %s to %s"
+                                    " according to the rule '%s'", i, 
+                                    space.str_w(seq_d.descr_repr(space)),
+                                    space.str_w(self_d.descr_repr(space)),
+                                    self.casting)
+ 
+                            new_impl = impl.astype(space, self_d, order).copy(space)
+                            self.seq[i] = W_NDimArray(new_impl)
+                        else:
+                            raise oefmt(space.w_TypeError, "Iterator "
+                                "operand required copying or buffering, "
+                                "but neither copying nor buffering was "
+                                "enabled")
+                        if 'w' in self.op_flags[i].rw:
+                            if not can_cast_type(
+                                    space, self_d, seq_d, self.casting):
+                                raise oefmt(space.w_TypeError, "Iterator"
+                                    " requested dtype could not be cast from "
+                                    " %s to %s, the operand %d dtype, accord"
+                                    "ing to the rule '%s'", 
+                                    space.str_w(self_d.descr_repr(space)),
+                                    space.str_w(seq_d.descr_repr(space)),
+                                    i, self.casting)
+        elif self.buffered:
+            for i in range(len(self.seq)):
+                if i not in outargs:
+                    self.seq[i] = self.seq[i].descr_copy(space,
+                                     w_order=space.wrap(self.order))
+            self.dtypes = [s.get_dtype() for s in self.seq]
         else:
             #copy them from seq
             self.dtypes = [s.get_dtype() for s in self.seq]
 
         # create an iterator for each operand
+        self.iters = []
         for i in range(len(self.seq)):
-            it = get_iter(space, self.order, self.seq[i], iter_shape, self.dtypes[i])
+            it = self.get_iter(space, i)
+            it.contiguous = False
             self.iters.append((it, it.reset()))
+
+        if self.external_loop:
+            coalesce_axes(self, space)
+
+    def get_iter(self, space, i):
+        arr = self.seq[i]
+        dtype = self.dtypes[i]
+        shape = self.shape
+        imp = arr.implementation
+        backward = is_backward(imp, self.order)
+        if arr.is_scalar():
+            return ConcreteIter(imp, 1, [], [], [], self.op_flags[i], self)
+        if (abs(imp.strides[0]) < abs(imp.strides[-1]) and not backward) or \
+           (abs(imp.strides[0]) > abs(imp.strides[-1]) and backward):
+            # flip the strides. Is this always true for multidimension?
+            strides = imp.strides[:]
+            backstrides = imp.backstrides[:]
+            shape = imp.shape[:]
+            strides.reverse()
+            backstrides.reverse()
+            shape.reverse()
+        else:
+            strides = imp.strides
+            backstrides = imp.backstrides
+        r = calculate_broadcast_strides(strides, backstrides, imp.shape,
+                                        shape, backward)
+        iter_shape = shape
+        if len(shape) != len(r[0]):
+            # shape can be shorter when using an external loop, just return a view
+            iter_shape = imp.shape
+        return ConcreteIter(imp, imp.get_size(), iter_shape, r[0], r[1],
+                            self.op_flags[i], self)
+
 
     def set_op_axes(self, space, w_op_axes):
         if space.len_w(w_op_axes) != len(self.seq):
             raise oefmt(space.w_ValueError,
                         "op_axes must be a tuple/list matching the number of ops")
         op_axes = space.listview(w_op_axes)
-        l = -1
+        oa_ndim = -1
         for w_axis in op_axes:
             if not space.is_none(w_axis):
                 axis_len = space.len_w(w_axis)
-                if l == -1:
-                    l = axis_len
-                elif axis_len != l:
+                if oa_ndim == -1:
+                    oa_ndim = axis_len
+                elif axis_len != oa_ndim:
                     raise oefmt(space.w_ValueError,
                                 "Each entry of op_axes must have the same size")
                 self.op_axes.append([space.int_w(x) if not space.is_none(x) else -1
                                      for x in space.listview(w_axis)])
-        if l == -1:
+        if oa_ndim == -1:
             raise oefmt(space.w_ValueError,
                         "If op_axes is provided, at least one list of axes "
                         "must be contained within it")
-        raise Exception('xxx TODO')
+        raise oefmt(space.w_NotImplementedError, "op_axis not finished yet")
         # Check that values make sense:
         # - in bounds for each operand
         # ValueError: Iterator input op_axes[0][3] (==3) is not a valid axis of op[0], which has 2 dimensions
         # - no repeat axis
         # ValueError: The 'op_axes' provided to the iterator constructor for operand 1 contained duplicate value 0
+        return oa_ndim
 
     def descr_iter(self, space):
         return space.wrap(self)
 
-    def getitem(self, it, st, op_flags):
-        if op_flags.rw == 'r':
-            impl = concrete.ConcreteNonWritableArrayWithBase
-        else:
-            impl = concrete.ConcreteArrayWithBase
-        res = impl([], it.array.dtype, it.array.order, [], [],
-                   it.array.storage, self)
-        res.start = st.offset
-        return W_NDimArray(res)
+    def getitem(self, it, st):
+        w_res = W_NDimArray(it.getoperand(st))
+        return w_res
 
     def descr_getitem(self, space, w_idx):
         idx = space.int_w(w_idx)
@@ -362,7 +576,7 @@ class W_NDIter(W_Root):
         except IndexError:
             raise oefmt(space.w_IndexError,
                         "Iterator operand index %d is out of bounds", idx)
-        return self.getitem(it, st, self.op_flags[idx])
+        return self.getitem(it, st)
 
     def descr_setitem(self, space, w_idx, w_value):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
@@ -370,6 +584,7 @@ class W_NDIter(W_Root):
     def descr_len(self, space):
         space.wrap(len(self.iters))
 
+    @jit.unroll_safe
     def descr_next(self, space):
         for it, st in self.iters:
             if not it.done(st):
@@ -384,7 +599,7 @@ class W_NDIter(W_Root):
             else:
                 self.first_next = False
         for i, (it, st) in enumerate(self.iters):
-            res.append(self.getitem(it, st, self.op_flags[i]))
+            res.append(self.getitem(it, st))
             self.iters[i] = (it, it.next(st))
         if len(res) < 2:
             return res[0]
@@ -476,7 +691,7 @@ class W_NDIter(W_Root):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_ndim(self, space):
-        raise oefmt(space.w_NotImplementedError, "not implemented yet")
+        return space.wrap(self.ndim)
 
     def descr_get_nop(self, space):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
@@ -491,14 +706,14 @@ class W_NDIter(W_Root):
 @unwrap_spec(w_flags=WrappedDefault(None), w_op_flags=WrappedDefault(None),
              w_op_dtypes=WrappedDefault(None), order=str,
              w_casting=WrappedDefault(None), w_op_axes=WrappedDefault(None),
-             w_itershape=WrappedDefault(None), w_buffersize=WrappedDefault(None))
-def descr__new__(space, w_subtype, w_seq, w_flags, w_op_flags, w_op_dtypes,
-                 w_casting, w_op_axes, w_itershape, w_buffersize, order='K'):
+             w_itershape=WrappedDefault(None), buffersize=int)
+def descr_new_nditer(space, w_subtype, w_seq, w_flags, w_op_flags, w_op_dtypes,
+                 w_casting, w_op_axes, w_itershape, buffersize=0, order='K'):
     return W_NDIter(space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting, w_op_axes,
-                    w_itershape, w_buffersize, order)
+                    w_itershape, buffersize, order)
 
 W_NDIter.typedef = TypeDef('numpy.nditer',
-    __new__ = interp2app(descr__new__),
+    __new__ = interp2app(descr_new_nditer),
 
     __iter__ = interp2app(W_NDIter.descr_iter),
     __getitem__ = interp2app(W_NDIter.descr_getitem),

@@ -13,6 +13,11 @@ from rpython.flowspace.pygraph import PyGraph
 
 def _assert_rpythonic(func):
     """Raise ValueError if ``func`` is obviously not RPython"""
+    try:
+        func.func_code.co_cellvars
+    except AttributeError:
+        raise ValueError("%r is not RPython: it is likely an unexpected "
+                         "built-in function or type" % (func,))
     if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
         raise ValueError("%r is tagged as NOT_RPYTHON" % (func,))
     if func.func_code.co_cellvars:
@@ -30,7 +35,7 @@ in %r""" % (func,))
 
 def build_flow(func):
     """
-    Create the flow graph for the function.
+    Create the flow graph (in SSA form) for the function.
     """
     _assert_rpythonic(func)
     if (isgeneratorfunction(func) and
@@ -41,7 +46,6 @@ def build_flow(func):
     ctx = FlowContext(graph, code)
     ctx.build_flow()
     fixeggblocks(graph)
-    checkgraph(graph)
     if code.is_generator:
         tweak_generator_graph(graph)
     return graph

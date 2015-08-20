@@ -49,7 +49,7 @@ def excepthook_failsafe(exctype, value):
     except:
         return False    # got an exception again... ignore, report the original
 
-def exit(exitcode=0):
+def exit(exitcode=None):
     """Exit the interpreter by raising SystemExit(exitcode).
 If the exitcode is omitted or None, it defaults to zero (i.e., success).
 If the exitcode is numeric, it will be used as the system exit status.

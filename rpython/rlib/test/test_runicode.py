@@ -118,6 +118,17 @@ class UnicodeTests(object):
         if addstuff:
             assert result.endswith(u"some rest in ascii")
 
+    def test_charmap_encodeerror(self):
+        def errorhandler(errors, enc, msg, t, startingpos,
+                         endingpos):
+            assert t[startingpos:endingpos] == u'\t\n  \r'
+            return None, ' ', endingpos
+        s = u'aa\t\n  \raa'
+        mapping = {u'a': 'a'}
+        r = runicode.unicode_encode_charmap(s, len(s), None, errorhandler,
+                                            mapping=mapping)
+        assert r == 'aa aa'
+
 
 class TestDecoding(UnicodeTests):
     # XXX test bom recognition in utf-16
@@ -127,6 +138,12 @@ class TestDecoding(UnicodeTests):
         for i in range(128):
             for encoding in "utf-8 latin-1 ascii".split():
                 self.checkdecode(chr(i), encoding)
+
+    def test_fast_str_decode_ascii(self):
+        u = runicode.fast_str_decode_ascii("abc\x00\x7F")
+        assert type(u) is unicode
+        assert u == u"abc\x00\x7F"
+        py.test.raises(ValueError, runicode.fast_str_decode_ascii, "ab\x80")
 
     def test_all_first_256(self):
         for i in range(256):
@@ -230,6 +247,9 @@ class TestDecoding(UnicodeTests):
         assert decode(s, 3, None) == (u'a+', 3)
         assert decode(s, 4, None) == (u'a+-', 4)
         assert decode(s, 5, None) == (u'a+-b', 5)
+
+        assert decode((27 * u"\u3042" + "\n").encode('utf7')[:28], 28, None) == (u'', 0)
+        assert decode('+MEI\n+MEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCMEIwQjBCME', 72, None) == (u'\u3042\n', 5)
 
     def test_utf7_surrogates(self):
         encode = self.getencoder('utf-7')
@@ -803,3 +823,20 @@ class TestTranslation(object):
                 u, len(u), True) == r'\ud800\udc00'
             assert runicode.unicode_encode_raw_unicode_escape(
                 u, len(u), True) == r'\ud800\udc00'
+
+    def test_encode_surrogate_pair_utf8(self):
+        u = runicode.UNICHR(0xD800) + runicode.UNICHR(0xDC00)
+        if runicode.MAXUNICODE < 65536:
+            # Narrow unicode build, consider utf16 surrogate pairs
+            assert runicode.unicode_encode_utf_8(
+                u, len(u), True, allow_surrogates=True) == '\xf0\x90\x80\x80'
+            assert runicode.unicode_encode_utf_8(
+                u, len(u), True, allow_surrogates=False) == '\xf0\x90\x80\x80'
+        else:
+            # Wide unicode build, merge utf16 surrogate pairs only when allowed
+            assert runicode.unicode_encode_utf_8(
+                u, len(u), True, allow_surrogates=True) == '\xf0\x90\x80\x80'
+            # Surrogates not merged, encoding fails.
+            py.test.raises(
+                UnicodeEncodeError, runicode.unicode_encode_utf_8,
+                u, len(u), True, allow_surrogates=False)

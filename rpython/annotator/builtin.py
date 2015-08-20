@@ -156,7 +156,10 @@ def builtin_isinstance(s_obj, s_type, variables=None):
     if s_type.is_constant():
         typ = s_type.const
         if issubclass(typ, rpython.rlib.rarithmetic.base_int):
-            r.const = issubclass(s_obj.knowntype, typ)
+            try:
+                r.const = issubclass(s_obj.knowntype, typ)
+            except TypeError:    # s_obj.knowntype is not a Python type at all
+                r.const = False
         else:
             if typ == long:
                 getbookkeeper().warning("isinstance(., long) is not RPython")
@@ -255,8 +258,13 @@ for name, value in globals().items():
         BUILTIN_ANALYZERS[original] = value
 
 
-@analyzer_for(getattr(OSError.__init__, 'im_func', OSError.__init__))
-def OSError_init(s_self, *args):
+@analyzer_for(getattr(object.__init__, 'im_func', object.__init__))
+def object_init(s_self, *args):
+    # ignore - mostly used for abstract classes initialization
+    pass
+
+@analyzer_for(getattr(EnvironmentError.__init__, 'im_func', EnvironmentError.__init__))
+def EnvironmentError_init(s_self, *args):
     pass
 
 try:
@@ -267,11 +275,6 @@ else:
     @analyzer_for(getattr(WindowsError.__init__, 'im_func', WindowsError.__init__))
     def WindowsError_init(s_self, *args):
         pass
-
-@analyzer_for(getattr(object.__init__, 'im_func', object.__init__))
-def object_init(s_self, *args):
-    # ignore - mostly used for abstract classes initialization
-    pass
 
 
 @analyzer_for(sys.getdefaultencoding)

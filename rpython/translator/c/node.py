@@ -11,7 +11,7 @@ from rpython.translator.c.support import c_char_array_constant, barebonearray
 from rpython.translator.c.primitive import PrimitiveType, name_signed
 from rpython.rlib import exports
 from rpython.rlib.rfloat import isfinite, isinf
-from rpython.translator.c import extfunc
+
 
 def needs_gcheader(T):
     if not isinstance(T, ContainerType):
@@ -23,22 +23,15 @@ def needs_gcheader(T):
             return False   # gcheader already in the first field
     return True
 
-class defaultproperty(object):
-    def __init__(self, fget):
-        self.fget = fget
-    def __get__(self, obj, cls=None):
-        if obj is None:
-            return self
-        else:
-            return self.fget(obj)
-
 class Node(object):
     __slots__ = ("db", )
+
     def __init__(self, db):
         self.db = db
 
 class NodeWithDependencies(Node):
     __slots__ = ("dependencies", )
+
     def __init__(self, db):
         Node.__init__(self, db)
         self.dependencies = set()
@@ -108,9 +101,9 @@ class StructDefNode(NodeWithDependencies):
             else:
                 typename = db.gettype(T, who_asks=self)
             self.fields.append((self.c_struct_field_name(name), typename))
-        self.gcinfo  # force it to be computed
+        self.computegcinfo(self.db.gcpolicy)
 
-    def computegcinfo(self):
+    def computegcinfo(self, gcpolicy):
         # let the gcpolicy do its own setup
         self.gcinfo = None   # unless overwritten below
         rtti = None
@@ -121,9 +114,8 @@ class StructDefNode(NodeWithDependencies):
             except ValueError:
                 pass
         if self.varlength is None:
-            self.db.gcpolicy.struct_setup(self, rtti)
+            gcpolicy.struct_setup(self, rtti)
         return self.gcinfo
-    gcinfo = defaultproperty(computegcinfo)
 
     def gettype(self):
         return self.fulltypename
@@ -219,7 +211,7 @@ class ArrayDefNode(NodeWithDependencies):
             return      # setup() was already called, likely by __init__
         db = self.db
         ARRAY = self.ARRAY
-        self.gcinfo    # force it to be computed
+        self.computegcinfo(db.gcpolicy)
         if self.varlength is not None:
             self.normalizedtypename = db.gettype(ARRAY, who_asks=self)
         if needs_gcheader(ARRAY):
@@ -229,13 +221,12 @@ class ArrayDefNode(NodeWithDependencies):
                 self.gcfields.append(gc_field)
         self.itemtypename = db.gettype(ARRAY.OF, who_asks=self)
 
-    def computegcinfo(self):
+    def computegcinfo(self, gcpolicy):
         # let the gcpolicy do its own setup
         self.gcinfo = None   # unless overwritten below
         if self.varlength is None:
-            self.db.gcpolicy.array_setup(self)
+            gcpolicy.array_setup(self)
         return self.gcinfo
-    gcinfo = defaultproperty(computegcinfo)
 
     def gettype(self):
         return self.fulltypename
@@ -471,7 +462,7 @@ class ContainerNode(Node):
         parent, parentindex = parentlink(obj)
         if obj in exports.EXPORTS_obj2name:
             self.name = exports.EXPORTS_obj2name[obj]
-            self.globalcontainer = True
+            self.globalcontainer = 2    # meh
         elif parent is None:
             self.name = db.namespace.uniquename('g_' + self.basename())
             self.globalcontainer = True
@@ -495,6 +486,9 @@ class ContainerNode(Node):
         T = self.getTYPE()
         return hasattr(T, "_hints") and T._hints.get('thread_local')
 
+    def is_exported(self):
+        return self.globalcontainer == 2    # meh
+
     def compilation_info(self):
         return getattr(self.obj, self.eci_name, None)
 
@@ -514,19 +508,24 @@ class ContainerNode(Node):
         type, name = self.get_declaration()
         yield '%s;' % (
             forward_cdecl(type, name, self.db.standalone,
-                          self.is_thread_local()))
+                          is_thread_local=self.is_thread_local(),
+                          is_exported=self.is_exported()))
 
     def implementation(self):
         if llgroup.member_of_group(self.obj):
             return []
         lines = list(self.initializationexpr())
         type, name = self.get_declaration()
-        if name != self.name:
-            lines[0] = '{ ' + lines[0]    # extra braces around the 'a' part
-            lines[-1] += ' }'             # of the union
-        lines[0] = '%s = %s' % (
-            cdecl(type, name, self.is_thread_local()),
-            lines[0])
+        if name != self.name and len(lines) < 2:
+            # a union with length 0
+            lines[0] = cdecl(type, name, self.is_thread_local())
+        else:
+            if name != self.name:
+                lines[0] = '{ ' + lines[0]    # extra braces around the 'a' part
+                lines[-1] += ' }'             # of the union
+            lines[0] = '%s = %s' % (
+                cdecl(type, name, self.is_thread_local()),
+                lines[0])
         lines[-1] += ';'
         return lines
 
@@ -563,7 +562,6 @@ class StructNode(ContainerNode):
     def initializationexpr(self, decoration=''):
         T = self.getTYPE()
         is_empty = True
-        yield '{'
         defnode = self.db.gettypedefnode(T)
 
         data = []
@@ -592,7 +590,13 @@ class StructNode(ContainerNode):
             padding_drop = T._hints['get_padding_drop'](d)
         else:
             padding_drop = []
+        type, name = self.get_declaration()
+        if name != self.name and self.getvarlength() < 1 and len(data) < 2:
+            # an empty union
+            yield ''
+            return
 
+        yield '{'
         for name, value in data:
             if name in padding_drop:
                 continue
@@ -828,10 +832,13 @@ class FuncNode(ContainerNode):
         return self.funcgens[0].allconstantvalues() #Assume identical for all funcgens
 
     def forward_declaration(self):
+        callable = getattr(self.obj, '_callable', None)
+        is_exported = getattr(callable, 'exported_symbol', False)
         for funcgen in self.funcgens:
             yield '%s;' % (
                 forward_cdecl(self.implementationtypename,
-                    funcgen.name(self.name), self.db.standalone))
+                    funcgen.name(self.name), self.db.standalone,
+                    is_exported=is_exported))
 
     def implementation(self):
         for funcgen in self.funcgens:
@@ -908,15 +915,8 @@ def sandbox_transform(fnobj, db):
     return [FunctionCodeGenerator(graph, db)]
 
 def select_function_code_generators(fnobj, db, functionname):
-    # XXX this logic is completely broken nowadays
-    #     _external_name does not mean that this is done oldstyle
     sandbox = db.need_sandboxing(fnobj)
-    if hasattr(fnobj, '_external_name'):
-        if sandbox:
-            return sandbox_stub(fnobj, db)
-        db.externalfuncs[fnobj._external_name] = fnobj
-        return []
-    elif hasattr(fnobj, 'graph'):
+    if hasattr(fnobj, 'graph'):
         if sandbox and sandbox != "if_external":
             # apply the sandbox transformation
             return sandbox_transform(fnobj, db)
@@ -932,7 +932,7 @@ def select_function_code_generators(fnobj, db, functionname):
             assert fnobj.external == 'CPython'
             return [CExternalFunctionCodeGenerator(fnobj, db)]
     elif hasattr(fnobj._callable, "c_name"):
-        return []
+        return []    # this case should only be used for entrypoints
     else:
         raise ValueError("don't know how to generate code for %r" % (fnobj,))
 
@@ -959,30 +959,12 @@ class ExtType_OpaqueNode(ContainerNode):
                 args.append('0')
         yield 'RPyOpaque_SETUP_%s(%s);' % (T.tag, ', '.join(args))
 
-class ThreadLocalRefOpaqueNode(ContainerNode):
-    nodekind = 'tlrefopaque'
-
-    def basename(self):
-        return self.obj._name
-
-    def enum_dependencies(self):
-        return []
-
-    def initializationexpr(self, decoration=''):
-        return ['0']
-
-    def startupcode(self):
-        p = self.getptrname()
-        yield 'RPyThreadStaticTLS_Create(%s);' % (p,)
-
 
 def opaquenode_factory(db, T, obj):
     if T == RuntimeTypeInfo:
         return db.gcpolicy.rtti_node_factory()(db, T, obj)
     if T.hints.get("render_structure", False):
         return ExtType_OpaqueNode(db, T, obj)
-    if T.hints.get("threadlocalref", False):
-        return ThreadLocalRefOpaqueNode(db, T, obj)
     raise Exception("don't know about %r" % (T,))
 
 

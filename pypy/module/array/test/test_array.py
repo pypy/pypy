@@ -1035,8 +1035,3 @@ class AppTestArray(BaseArrayTests):
 
     def test_fresh_array_buffer_str(self):
         assert str(buffer(self.array('i'))) == ''
-
-
-class AppTestArrayBuiltinShortcut(AppTestArray):
-    spaceconfig = AppTestArray.spaceconfig.copy()
-    spaceconfig['objspace.std.builtinshortcut'] = True

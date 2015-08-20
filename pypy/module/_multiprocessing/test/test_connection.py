@@ -189,9 +189,11 @@ class AppTestSocketConnection(BaseConnectionTest):
         assert data2 == '\x00\x00\x00\x04defg'
 
     def test_repr(self):
-        import _multiprocessing
-        c = _multiprocessing.Connection(1)
-        assert repr(c) == '<read-write Connection, handle 1>'
+        import _multiprocessing, os
+        fd = os.dup(1)     # closed by Connection.__del__
+        c = _multiprocessing.Connection(fd)
+        assert repr(c) == '<read-write Connection, handle %d>' % fd
         if hasattr(_multiprocessing, 'PipeConnection'):
-            c = _multiprocessing.PipeConnection(1)
-            assert repr(c) == '<read-write PipeConnection, handle 1>'
+            fd = os.dup(1)     # closed by PipeConnection.__del__
+            c = _multiprocessing.PipeConnection(fd)
+            assert repr(c) == '<read-write PipeConnection, handle %d>' % fd

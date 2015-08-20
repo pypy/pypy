@@ -196,6 +196,30 @@ if obj is a class or ClassDef the class definition graph is shown"""
             return
         self._show(page)
 
+    def do_findv(self, varname):
+        """ findv [varname]
+find a stack frame that has a certain variable (the default is "graph")
+"""
+        if not varname:
+            varname = "graph"
+        printfr = self.print_stack_entry
+        self.print_stack_entry = lambda *args: None
+        try:
+            num = 0
+            while self.curindex:
+                frame = self.curframe
+                if varname in frame.f_locals:
+                    printfr(self.stack[self.curindex])
+                    print "%s = %s" % (varname, frame.f_locals[varname])
+                    return
+                num += 1
+                self.do_up(None)
+            print "no %s found" % (varname, )
+            for i in range(num):
+                self.do_down(None)
+        finally:
+            del self.print_stack_entry
+
     def _attrs(self, arg, pr):
         arg, expr = self._parse_modif(arg, 'match')
         if expr == '_':

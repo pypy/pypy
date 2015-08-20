@@ -3,7 +3,7 @@ from __future__ import with_statement
 from pypy.interpreter.error import OperationError
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import keepalive_until_here, specialize
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -216,6 +216,18 @@ def as_unsigned_long(space, w_ob, strict):
 neg_msg = "can't convert negative number to unsigned"
 ovf_msg = "long too big to convert"
 
+def signext(value, size):
+    # 'value' is sign-extended from 'size' bytes to a full integer.
+    # 'size' should be smaller than a full integer size.
+    if size == rffi.sizeof(rffi.SIGNEDCHAR):
+        return rffi.cast(lltype.Signed, rffi.cast(rffi.SIGNEDCHAR, value))
+    elif size == rffi.sizeof(rffi.SHORT):
+        return rffi.cast(lltype.Signed, rffi.cast(rffi.SHORT, value))
+    elif size == rffi.sizeof(rffi.INT):
+        return rffi.cast(lltype.Signed, rffi.cast(rffi.INT, value))
+    else:
+        raise AssertionError("unsupported size")
+
 # ____________________________________________________________
 
 class _NotStandardObject(Exception):
@@ -259,11 +271,11 @@ def object_as_bool(space, w_ob):
     from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveLongDouble
     is_cdata = isinstance(w_ob, W_CData)
     if is_cdata and isinstance(w_ob.ctype, W_CTypePrimitiveFloat):
-        if isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble):
-            result = is_nonnull_longdouble(w_ob._cdata)
-        else:
-            result = is_nonnull_float(w_ob._cdata, w_ob.ctype.size)
-        keepalive_until_here(w_ob)
+        with w_ob as ptr:
+            if isinstance(w_ob.ctype, W_CTypePrimitiveLongDouble):
+                result = is_nonnull_longdouble(ptr)
+            else:
+                result = is_nonnull_float(ptr, w_ob.ctype.size)
         return result
     #
     if not is_cdata and space.lookup(w_ob, '__float__') is not None:
@@ -334,13 +346,26 @@ def _raw_memclear(dest, size):
 
 # ____________________________________________________________
 
-def pack_list_to_raw_array_bounds(int_list, target, size, vmin, vrangemax):
+def pack_list_to_raw_array_bounds_signed(int_list, target, size):
     for TP, TPP in _prim_signed_types:
         if size == rffi.sizeof(TP):
             ptr = rffi.cast(TPP, target)
             for i in range(len(int_list)):
                 x = int_list[i]
-                if r_uint(x) - vmin > vrangemax:
+                y = rffi.cast(TP, x)
+                if x != rffi.cast(lltype.Signed, y):
+                    return x      # overflow
+                ptr[i] = y
+            return 0
+    raise NotImplementedError("bad integer size")
+
+def pack_list_to_raw_array_bounds_unsigned(int_list, target, size, vrangemax):
+    for TP, TPP in _prim_signed_types:
+        if size == rffi.sizeof(TP):
+            ptr = rffi.cast(TPP, target)
+            for i in range(len(int_list)):
+                x = int_list[i]
+                if r_uint(x) > vrangemax:
                     return x      # overflow
                 ptr[i] = rffi.cast(TP, x)
             return 0

@@ -252,7 +252,8 @@ class OperationError(Exception):
                                w_t, w_v, w_tb],
                 """(where, objrepr, extra_line, t, v, tb):
                     import sys, traceback
-                    sys.stderr.write('From %s%s:\\n' % (where, objrepr))
+                    if where or objrepr:
+                        sys.stderr.write('From %s%s:\\n' % (where, objrepr))
                     if extra_line:
                         sys.stderr.write(extra_line)
                     traceback.print_exception(t, v, tb)
@@ -486,10 +487,10 @@ def wrap_oserror(space, e, filename=None, exception_name='w_OSError',
                              w_exception_class=w_exception_class)
 wrap_oserror._annspecialcase_ = 'specialize:arg(3)'
 
-def exception_from_errno(space, w_type):
-    from rpython.rlib.rposix import get_errno
+def exception_from_saved_errno(space, w_type):
+    from rpython.rlib.rposix import get_saved_errno
 
-    errno = get_errno()
+    errno = get_saved_errno()
     msg = os.strerror(errno)
     w_error = space.call_function(w_type, space.wrap(errno), space.wrap(msg))
     return OperationError(w_type, w_error)

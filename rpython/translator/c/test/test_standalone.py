@@ -2,10 +2,12 @@ import py
 import sys, os, re
 
 from rpython.config.translationoption import get_combined_translation_config
+from rpython.config.translationoption import SUPPORT__THREAD
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.debug import ll_assert, have_debug_prints, debug_flush
-from rpython.rlib.debug import debug_print, debug_start, debug_stop, debug_offset
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
+from rpython.rlib.debug import debug_offset, have_debug_prints_for
 from rpython.rlib.entrypoint import entrypoint, secondary_entrypoints
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.translator import TranslationContext
@@ -21,13 +23,14 @@ def setup_module(module):
         # Do not open dreaded dialog box on segfault
         import ctypes
         SEM_NOGPFAULTERRORBOX = 0x0002 # From MSDN
-        old_err_mode = ctypes.windll.kernel32.GetErrorMode()
-        new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
-        ctypes.windll.kernel32.SetErrorMode(new_err_mode)
-        module.old_err_mode = old_err_mode
+        if hasattr(ctypes.windll.kernel32, 'GetErrorMode'):
+            old_err_mode = ctypes.windll.kernel32.GetErrorMode()
+            new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
+            ctypes.windll.kernel32.SetErrorMode(new_err_mode)
+            module.old_err_mode = old_err_mode
 
 def teardown_module(module):
-    if os.name == 'nt':
+    if os.name == 'nt' and hasattr(module, 'old_err_mode'):
         import ctypes
         ctypes.windll.kernel32.SetErrorMode(module.old_err_mode)
 
@@ -35,7 +38,7 @@ class StandaloneTests(object):
     config = None
 
     def compile(self, entry_point, debug=True, shared=False,
-                stackcheck=False, entrypoints=None):
+                stackcheck=False, entrypoints=None, local_icon=None):
         t = TranslationContext(self.config)
         ann = t.buildannotator()
         ann.build_types(entry_point, [s_list_of_strings])
@@ -52,6 +55,9 @@ class StandaloneTests(object):
             insert_ll_stackcheck(t)
 
         t.config.translation.shared = shared
+        if local_icon:
+            t.config.translation.icon = os.path.join(os.path.dirname(__file__),
+                                                     local_icon)
 
         if entrypoints is not None:
             kwds = {'secondary_entrypoints': [(i, None) for i in entrypoints]}
@@ -70,6 +76,36 @@ class StandaloneTests(object):
 
 class TestStandalone(StandaloneTests):
 
+    def compile(self, *args, **kwds):
+        t, builder = StandaloneTests.compile(self, *args, **kwds)
+        #
+        # verify that the executable re-export symbols, but not too many
+        if sys.platform.startswith('linux') and not kwds.get('shared', False):
+            seen_main = False
+            g = os.popen("objdump -T '%s'" % builder.executable_name, 'r')
+            for line in g:
+                if not line.strip():
+                    continue
+                if '*UND*' in line:
+                    continue
+                name = line.split()[-1]
+                if name.startswith('__'):
+                    continue
+                if name == 'main':
+                    seen_main = True
+                    continue
+                if name == 'pypy_debug_file':     # ok to export this one
+                    continue
+                if 'pypy' in name.lower() or 'rpy' in name.lower():
+                    raise Exception("Unexpected exported name %r.  "
+                        "What is likely missing is RPY_EXTERN before the "
+                        "declaration of this C function or global variable"
+                        % (name,))
+            g.close()
+            assert seen_main, "did not see 'main' exported"
+        #
+        return t, builder
+
     def test_hello_world(self):
         def entry_point(argv):
             os.write(1, "hello world\n")
@@ -79,7 +115,7 @@ class TestStandalone(StandaloneTests):
                 os.write(1, "   '" + str(s) + "'\n")
             return 0
 
-        t, cbuilder = self.compile(entry_point)
+        t, cbuilder = self.compile(entry_point, local_icon='red.ico')
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
 
@@ -187,6 +223,8 @@ class TestStandalone(StandaloneTests):
         assert map(float, data.split()) == [0.0, 0.0]
 
     def test_profopt(self):
+        if sys.platform == 'win32':
+            py.test.skip("no profopt on win32")
         def add(a,b):
             return a + b - b + b - b + b - b + b - b + b - b + b - b + b
         def entry_point(argv):
@@ -313,6 +351,8 @@ class TestStandalone(StandaloneTests):
             tell = -1
         def entry_point(argv):
             x = "got:"
+            if have_debug_prints_for("my"): x += "M"
+            if have_debug_prints_for("myc"): x += "m"
             debug_start  ("mycat")
             if have_debug_prints(): x += "b"
             debug_print    ("foo", r_longlong(2), "bar", 3)
@@ -350,7 +390,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG=:- (means print to stderr)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ':-'})
-        assert out.strip() == 'got:bcda.%d.' % tell
+        assert out.strip() == 'got:Mmbcda.%d.' % tell
         assert 'toplevel' in err
         assert '{mycat' in err
         assert 'mycat}' in err
@@ -365,7 +405,7 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': ':%s' % path})
         size = os.stat(str(path)).st_size
-        assert out.strip() == 'got:bcda.' + str(size) + '.'
+        assert out.strip() == 'got:Mmbcda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -418,7 +458,7 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': 'myc:%s' % path})
         size = os.stat(str(path)).st_size
-        assert out.strip() == 'got:bda.' + str(size) + '.'
+        assert out.strip() == 'got:Mmbda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -449,7 +489,7 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': 'myc,cat2:%s' % path})
         size = os.stat(str(path)).st_size
-        assert out.strip() == 'got:bcda.' + str(size) + '.'
+        assert out.strip() == 'got:Mmbcda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -805,14 +845,16 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point, shared=True)
         assert cbuilder.shared_library_name is not None
         assert cbuilder.shared_library_name != cbuilder.executable_name
-        if os.name == 'posix':
-            library_path = cbuilder.shared_library_name.dirpath()
-            if sys.platform == 'darwin':
-                monkeypatch.setenv('DYLD_LIBRARY_PATH', library_path)
-            else:
-                monkeypatch.setenv('LD_LIBRARY_PATH', library_path)
+        #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
+        if sys.platform == 'win32':
+            # Make sure we have a test_1w.exe
+            # Since stdout, stderr are piped, we will get output
+            exe = cbuilder.executable_name
+            wexe = exe.new(purebasename=exe.purebasename + 'w')
+            out, err = cbuilder.cmdexec("a b", exe = wexe)
+            assert out == "3"
 
     def test_gcc_options(self):
         # check that the env var CC is correctly interpreted, even if
@@ -1024,11 +1066,12 @@ class TestThread(object):
     gcrootfinder = 'shadowstack'
     config = None
 
-    def compile(self, entry_point):
+    def compile(self, entry_point, no__thread=True):
         t = TranslationContext(self.config)
         t.config.translation.gc = "semispace"
         t.config.translation.gcrootfinder = self.gcrootfinder
         t.config.translation.thread = True
+        t.config.translation.no__thread = no__thread
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
         #
@@ -1140,7 +1183,7 @@ class TestThread(object):
 
     def test_thread_and_gc(self):
         import time, gc
-        from rpython.rlib import rthread
+        from rpython.rlib import rthread, rposix
         from rpython.rtyper.lltypesystem import lltype
         from rpython.rlib.objectmodel import invoke_around_extcall
 
@@ -1161,14 +1204,22 @@ class TestThread(object):
                 self.head = head
                 self.tail = tail
 
+        def check_errno(value):
+            rposix.set_saved_errno(value)
+            for i in range(10000000):
+                pass
+            assert rposix.get_saved_errno() == value
+
         def bootstrap():
             rthread.gc_thread_start()
+            check_errno(42)
             state.xlist.append(Cons(123, Cons(456, None)))
             gc.collect()
             rthread.gc_thread_die()
 
         def new_thread():
             ident = rthread.start_new_thread(bootstrap, ())
+            check_errno(41)
             time.sleep(0.5)    # enough time to start, hopefully
             return ident
 
@@ -1207,14 +1258,19 @@ class TestThread(object):
                 os.write(1, "%d ok\n" % (i+1))
             return 0
 
-        t, cbuilder = self.compile(entry_point)
-        data = cbuilder.cmdexec('')
-        assert data.splitlines() == ['hello world',
-                                     '1 ok',
-                                     '2 ok',
-                                     '3 ok',
-                                     '4 ok',
-                                     '5 ok']
+        def runme(no__thread):
+            t, cbuilder = self.compile(entry_point, no__thread=no__thread)
+            data = cbuilder.cmdexec('')
+            assert data.splitlines() == ['hello world',
+                                         '1 ok',
+                                         '2 ok',
+                                         '3 ok',
+                                         '4 ok',
+                                         '5 ok']
+
+        if SUPPORT__THREAD:
+            runme(no__thread=False)
+        runme(no__thread=True)
 
 
     def test_gc_with_fork_without_threads(self):
@@ -1365,10 +1421,12 @@ class TestShared(StandaloneTests):
             return 0
 
         t, cbuilder = self.compile(entry_point, shared=True,
-                                   entrypoints=[f])
+                                   entrypoints=[f], local_icon='red.ico')
         ext_suffix = '.so'
         if cbuilder.eci.platform.name == 'msvc':
             ext_suffix = '.dll'
+        elif cbuilder.eci.platform.name.startswith('darwin'):
+            ext_suffix = '.dylib'
         libname = cbuilder.executable_name.join('..', 'lib' +
                                       cbuilder.modulename + ext_suffix)
         lib = ctypes.CDLL(str(libname))

@@ -1,7 +1,6 @@
 from rpython.rtyper.lltypesystem.lltype import DelayedPointer
 from rpython.translator.simplify import get_graph
 from rpython.tool.algo.unionfind import UnionFind
-from rpython.rtyper.lltypesystem import rclass
 
 
 class GraphAnalyzer(object):
@@ -49,6 +48,9 @@ class GraphAnalyzer(object):
 
     def analyze_exceptblock(self, block, seen=None):
         return self.bottom_result()
+
+    def analyze_exceptblock_in_graph(self, graph, block, seen=None):
+        return self.analyze_exceptblock(block, seen)
 
     def analyze_startblock(self, block, seen=None):
         return self.bottom_result()
@@ -122,7 +124,7 @@ class GraphAnalyzer(object):
             elif block is graph.exceptblock:
                 result = self.add_to_result(
                     result,
-                    self.analyze_exceptblock(block, seen)
+                    self.analyze_exceptblock_in_graph(graph, block, seen)
                 )
             if not self.is_top_result(result):
                 for op in block.operations:

@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.typesystem import deref, fieldType, arrayItem
-from rpython.rtyper.lltypesystem.rclass import OBJECT
+from rpython.rtyper.rclass import OBJECT
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.translator.backendopt.graphanalyze import BoolGraphAnalyzer
 
@@ -11,10 +11,11 @@ class EffectInfo(object):
     EF_ELIDABLE_CANNOT_RAISE           = 0 #elidable function (and cannot raise)
     EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
     EF_CANNOT_RAISE                    = 2 #a function which cannot raise
-    EF_ELIDABLE_CAN_RAISE              = 3 #elidable function (but can raise)
-    EF_CAN_RAISE                       = 4 #normal function (can raise)
-    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 5 #can raise and force virtualizables
-    EF_RANDOM_EFFECTS                  = 6 #can do whatever
+    EF_ELIDABLE_OR_MEMORYERROR         = 3 #elidable, can only raise MemoryError
+    EF_ELIDABLE_CAN_RAISE              = 4 #elidable function (but can raise)
+    EF_CAN_RAISE                       = 5 #normal function (can raise)
+    EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 6 #can raise and force virtualizables
+    EF_RANDOM_EFFECTS                  = 7 #can do whatever
 
     # the 'oopspecindex' field is one of the following values:
     OS_NONE                     = 0    # normal case, no oopspec
@@ -23,8 +24,7 @@ class EffectInfo(object):
     OS_SHRINK_ARRAY             = 3    # rgc.ll_shrink_array
     OS_DICT_LOOKUP              = 4    # ll_dict_lookup
     OS_THREADLOCALREF_GET       = 5    # llop.threadlocalref_get
-    OS_GET_ERRNO                = 6    # rposix.get_errno
-    OS_SET_ERRNO                = 7    # rposix.set_errno
+    OS_NOT_IN_TRACE             = 8    # for calls not recorded in the jit trace
     #
     OS_STR_CONCAT               = 22   # "stroruni.concat"
     OS_STR_SLICE                = 23   # "stroruni.slice"
@@ -36,6 +36,7 @@ class EffectInfo(object):
     OS_STREQ_NONNULL_CHAR       = 29   # s1 == char  (assert s1!=NULL)
     OS_STREQ_CHECKNULL_CHAR     = 30   # s1!=NULL and s1==char
     OS_STREQ_LENGTHOK           = 31   # s1 == s2    (assert len(s1)==len(s2))
+    OS_STR_CMP                  = 32   # "stroruni.cmp"
     #
     OS_UNI_CONCAT               = 42   #
     OS_UNI_SLICE                = 43   #
@@ -47,6 +48,7 @@ class EffectInfo(object):
     OS_UNIEQ_NONNULL_CHAR       = 49   #   (must be the same amount as for
     OS_UNIEQ_CHECKNULL_CHAR     = 50   #   STR, in the same order)
     OS_UNIEQ_LENGTHOK           = 51   #
+    OS_UNI_CMP                  = 52
     _OS_offset_uni              = OS_UNI_CONCAT - OS_STR_CONCAT
     #
     OS_LIBFFI_CALL              = 62
@@ -79,6 +81,7 @@ class EffectInfo(object):
     OS_LLONG_U_TO_FLOAT         = 94
     #
     OS_MATH_SQRT                = 100
+    OS_MATH_READ_TIMESTAMP      = 101
     #
     OS_RAW_MALLOC_VARSIZE_CHAR  = 110
     OS_RAW_FREE                 = 111
@@ -93,7 +96,10 @@ class EffectInfo(object):
     _OS_CANRAISE = set([
         OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL, OS_RAW_MALLOC_VARSIZE_CHAR,
         OS_JIT_FORCE_VIRTUAL, OS_SHRINK_ARRAY, OS_DICT_LOOKUP,
+        OS_NOT_IN_TRACE,
     ])
+
+    _NO_CALL_RELEASE_GIL_TARGET = (llmemory.NULL, 0)
 
     def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,
                 readonly_descrs_interiorfields,
@@ -102,7 +108,7 @@ class EffectInfo(object):
                 extraeffect=EF_CAN_RAISE,
                 oopspecindex=OS_NONE,
                 can_invalidate=False,
-                call_release_gil_target=llmemory.NULL,
+                call_release_gil_target=_NO_CALL_RELEASE_GIL_TARGET,
                 extradescrs=None):
         key = (frozenset_or_none(readonly_descrs_fields),
                frozenset_or_none(readonly_descrs_arrays),
@@ -113,27 +119,35 @@ class EffectInfo(object):
                extraeffect,
                oopspecindex,
                can_invalidate)
-        if call_release_gil_target:
+        tgt_func, tgt_saveerr = call_release_gil_target
+        if tgt_func:
             key += (object(),)    # don't care about caching in this case
         if key in cls._cache:
             return cls._cache[key]
         if extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
             assert readonly_descrs_fields is None
             assert readonly_descrs_arrays is None
+            assert readonly_descrs_interiorfields is None
             assert write_descrs_fields is None
             assert write_descrs_arrays is None
+            assert write_descrs_interiorfields is None
         else:
             assert readonly_descrs_fields is not None
             assert readonly_descrs_arrays is not None
+            assert readonly_descrs_interiorfields is not None
             assert write_descrs_fields is not None
             assert write_descrs_arrays is not None
+            assert write_descrs_interiorfields is not None
         result = object.__new__(cls)
         result.readonly_descrs_fields = readonly_descrs_fields
         result.readonly_descrs_arrays = readonly_descrs_arrays
         result.readonly_descrs_interiorfields = readonly_descrs_interiorfields
         if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
            extraeffect == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
+           extraeffect == EffectInfo.EF_ELIDABLE_OR_MEMORYERROR or \
            extraeffect == EffectInfo.EF_ELIDABLE_CAN_RAISE:
+            # Ignore the writes.  Note that this ignores also writes with
+            # no corresponding reads (rarely the case, but possible).
             result.write_descrs_fields = []
             result.write_descrs_arrays = []
             result.write_descrs_interiorfields = []
@@ -146,19 +160,23 @@ class EffectInfo(object):
         result.oopspecindex = oopspecindex
         result.extradescrs = extradescrs
         result.call_release_gil_target = call_release_gil_target
-        if result.check_can_raise():
+        if result.check_can_raise(ignore_memoryerror=True):
             assert oopspecindex in cls._OS_CANRAISE
         cls._cache[key] = result
         return result
 
-    def check_can_raise(self):
-        return self.extraeffect > self.EF_CANNOT_RAISE
+    def check_can_raise(self, ignore_memoryerror=False):
+        if ignore_memoryerror:
+            return self.extraeffect > self.EF_ELIDABLE_OR_MEMORYERROR
+        else:
+            return self.extraeffect > self.EF_CANNOT_RAISE
 
     def check_can_invalidate(self):
         return self.can_invalidate
 
     def check_is_elidable(self):
         return (self.extraeffect == self.EF_ELIDABLE_CAN_RAISE or
+                self.extraeffect == self.EF_ELIDABLE_OR_MEMORYERROR or
                 self.extraeffect == self.EF_ELIDABLE_CANNOT_RAISE)
 
     def check_forces_virtual_or_virtualizable(self):
@@ -168,7 +186,8 @@ class EffectInfo(object):
         return self.extraeffect >= self.EF_RANDOM_EFFECTS
 
     def is_call_release_gil(self):
-        return bool(self.call_release_gil_target)
+        tgt_func, tgt_saveerr = self.call_release_gil_target
+        return bool(tgt_func)
 
     def __repr__(self):
         more = ''
@@ -191,7 +210,8 @@ def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
                                  oopspecindex=EffectInfo.OS_NONE,
                                  can_invalidate=False,
-                                 call_release_gil_target=llmemory.NULL,
+                                 call_release_gil_target=
+                                     EffectInfo._NO_CALL_RELEASE_GIL_TARGET,
                                  extradescr=None):
     from rpython.translator.backendopt.writeanalyze import top_set
     if effects is top_set or extraeffect == EffectInfo.EF_RANDOM_EFFECTS:

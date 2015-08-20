@@ -8,7 +8,7 @@ from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
     BaseValueIterator, BaseItemIterator, _never_equal_to_string
 )
-from pypy.objspace.std.typeobject import TypeCell
+from pypy.objspace.std.typeobject import MutableCell
 
 
 # ____________________________________________________________
@@ -20,7 +20,7 @@ NUM_DIGITS_POW2 = 1 << NUM_DIGITS
 # we want to propagate knowledge that the result cannot be negative
 
 class AbstractAttribute(object):
-    _immutable_fields_ = ['terminator', 'ever_mutated?']
+    _immutable_fields_ = ['terminator']
     cache_attrs = None
     _size_estimate = 0
 
@@ -28,7 +28,6 @@ class AbstractAttribute(object):
         self.space = space
         assert isinstance(terminator, Terminator)
         self.terminator = terminator
-        self.ever_mutated = False
 
     def read(self, obj, selector):
         attr = self.find_map_attr(selector)
@@ -276,13 +275,15 @@ class DevolvedDictTerminator(Terminator):
         return Terminator.set_terminator(self, obj, terminator)
 
 class PlainAttribute(AbstractAttribute):
-    _immutable_fields_ = ['selector', 'storageindex', 'back']
+    _immutable_fields_ = ['selector', 'storageindex', 'back', 'ever_mutated?']
+
     def __init__(self, selector, back):
         AbstractAttribute.__init__(self, back.space, back.terminator)
         self.selector = selector
         self.storageindex = back.length()
         self.back = back
         self._size_estimate = self.length() * NUM_DIGITS_POW2
+        self.ever_mutated = False
 
     def _copy_attr(self, obj, new_obj):
         w_value = self.read(obj, self.selector)
@@ -291,7 +292,8 @@ class PlainAttribute(AbstractAttribute):
     def delete(self, obj, selector):
         if selector == self.selector:
             # ok, attribute is deleted
-            self.ever_mutated = True
+            if not self.ever_mutated:
+                self.ever_mutated = True
             return self.back.copy(obj)
         new_obj = self.back.delete(obj, selector)
         if new_obj is not None:
@@ -537,17 +539,19 @@ def _make_subclass_size_n(supercls, n):
     rangen = unroll.unrolling_iterable(range(n))
     nmin1 = n - 1
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
+    valnmin1 = "_value%s" % nmin1
     class subcls(BaseMapdictObject, supercls):
         def _init_empty(self, map):
-            for i in rangen:
-                setattr(self, "_value%s" % i, erase_item(None))
+            for i in rangenmin1:
+                setattr(self, "_value%s" % i, None)
+            setattr(self, valnmin1, erase_item(None))
             self.map = map
 
         def _has_storage_list(self):
             return self.map.length() > n
 
         def _mapdict_get_storage_list(self):
-            erased = getattr(self, "_value%s" % nmin1)
+            erased = getattr(self, valnmin1)
             return unerase_list(erased)
 
         def _mapdict_read_storage(self, storageindex):
@@ -555,23 +559,21 @@ def _make_subclass_size_n(supercls, n):
             if storageindex < nmin1:
                 for i in rangenmin1:
                     if storageindex == i:
-                        erased = getattr(self, "_value%s" % i)
-                        return unerase_item(erased)
+                        return getattr(self, "_value%s" % i)
             if self._has_storage_list():
                 return self._mapdict_get_storage_list()[storageindex - nmin1]
             erased = getattr(self, "_value%s" % nmin1)
             return unerase_item(erased)
 
         def _mapdict_write_storage(self, storageindex, value):
-            erased = erase_item(value)
             for i in rangenmin1:
                 if storageindex == i:
-                    setattr(self, "_value%s" % i, erased)
+                    setattr(self, "_value%s" % i, value)
                     return
             if self._has_storage_list():
                 self._mapdict_get_storage_list()[storageindex - nmin1] = value
                 return
-            setattr(self, "_value%s" % nmin1, erased)
+            setattr(self, "_value%s" % nmin1, erase_item(value))
 
         def _mapdict_storage_length(self):
             if self._has_storage_list():
@@ -583,9 +585,9 @@ def _make_subclass_size_n(supercls, n):
             len_storage = len(storage)
             for i in rangenmin1:
                 if i < len_storage:
-                    erased = erase_item(storage[i])
+                    erased = storage[i]
                 else:
-                    erased = erase_item(None)
+                    erased = None
                 setattr(self, "_value%s" % i, erased)
             has_storage_list = self._has_storage_list()
             if len_storage < n:
@@ -872,15 +874,15 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
         if version_tag is not None:
             name = space.str_w(w_name)
             # We need to care for obscure cases in which the w_descr is
-            # a TypeCell, which may change without changing the version_tag
+            # a MutableCell, which may change without changing the version_tag
             _, w_descr = w_type._pure_lookup_where_possibly_with_method_cache(
                 name, version_tag)
             #
             selector = ("", INVALID)
             if w_descr is None:
                 selector = (name, DICT) # common case: no such attr in the class
-            elif isinstance(w_descr, TypeCell):
-                pass              # we have a TypeCell in the class: give up
+            elif isinstance(w_descr, MutableCell):
+                pass              # we have a MutableCell in the class: give up
             elif space.is_data_descr(w_descr):
                 # we have a data descriptor, which means the dictionary value
                 # (if any) has no relevance.
@@ -929,11 +931,11 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
     # We know here that w_obj.getdictvalue(space, name) just returned None,
     # so the 'name' is not in the instance.  We repeat the lookup to find it
     # in the class, this time taking care of the result: it can be either a
-    # quasi-constant class attribute, or actually a TypeCell --- which we
+    # quasi-constant class attribute, or actually a MutableCell --- which we
     # must not cache.  (It should not be None here, but you never know...)
     _, w_method = w_type._pure_lookup_where_possibly_with_method_cache(
         name, version_tag)
-    if w_method is None or isinstance(w_method, TypeCell):
+    if w_method is None or isinstance(w_method, MutableCell):
         return
     _fill_cache(pycode, nameindex, map, version_tag, -1, w_method)
 

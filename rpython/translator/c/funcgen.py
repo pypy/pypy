@@ -3,8 +3,7 @@ from rpython.translator.c.support import USESLOTS # set to False if necessary wh
 from rpython.translator.c.support import cdecl
 from rpython.translator.c.support import llvalue_from_constant, gen_assignments
 from rpython.translator.c.support import c_string_constant, barebonearray
-from rpython.flowspace.model import Variable, Constant
-from rpython.flowspace.model import c_last_exception, copygraph
+from rpython.flowspace.model import Variable, Constant, copygraph
 from rpython.rtyper.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
     SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
     Array, FixedSizeArray, ForwardReference, FuncType)
@@ -13,6 +12,7 @@ from rpython.rtyper.lltypesystem.llmemory import Address
 from rpython.translator.backendopt.ssa import SSI_to_SSA
 from rpython.translator.backendopt.innerloop import find_inner_loops
 from rpython.tool.identity_dict import identity_dict
+from rpython.rlib.objectmodel import CDefinedIntSymbolic
 
 
 LOCALVAR = 'l_%s'
@@ -232,7 +232,7 @@ class FunctionCodeGenerator(object):
                 for op in self.gen_link(block.exits[0]):
                     yield op
             else:
-                assert block.exitswitch != c_last_exception
+                assert not block.canraise
                 # block ending in a switch on a value
                 TYPE = self.lltypemap(block.exitswitch)
                 if TYPE == Bool:
@@ -652,6 +652,11 @@ class FunctionCodeGenerator(object):
     OP_CAST_ADR_TO_PTR = OP_CAST_POINTER
     OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
 
+    def OP_LENGTH_OF_SIMPLE_GCARRAY_FROM_OPAQUE(self, op):
+        return ('%s = *(long *)(((char *)%s) + sizeof(struct pypy_header0));'
+                '  /* length_of_simple_gcarray_from_opaque */'
+            % (self.expr(op.result), self.expr(op.args[0])))
+
     def OP_CAST_INT_TO_PTR(self, op):
         TYPE = self.lltypemap(op.result)
         typename = self.db.gettype(TYPE)
@@ -791,6 +796,13 @@ class FunctionCodeGenerator(object):
     def OP_DEBUG_STOP(self, op):
         return self._op_debug('PYPY_DEBUG_STOP', op.args[0])
 
+    def OP_HAVE_DEBUG_PRINTS_FOR(self, op):
+        arg = op.args[0]
+        assert isinstance(arg, Constant) and isinstance(arg.value, str)
+        string_literal = c_string_constant(arg.value)
+        return '%s = pypy_have_debug_prints_for(%s);' % (
+            self.expr(op.result), string_literal)
+
     def OP_DEBUG_ASSERT(self, op):
         return 'RPyAssert(%s, %s);' % (self.expr(op.args[0]),
                                        c_string_constant(op.args[1].value))
@@ -899,5 +911,22 @@ class FunctionCodeGenerator(object):
                 self.expr(op.args[0]))
         else:
             return None    # use the default
+
+    def OP_THREADLOCALREF_GET(self, op):
+        typename = self.db.gettype(op.result.concretetype)
+        if isinstance(op.args[0], Constant):
+            assert isinstance(op.args[0].value, CDefinedIntSymbolic)
+            fieldname = op.args[0].value.expr
+            assert fieldname.startswith('RPY_TLOFS_')
+            fieldname = fieldname[10:]
+            return '%s = (%s)RPY_THREADLOCALREF_GET(%s);' % (
+                self.expr(op.result),
+                cdecl(typename, ''),
+                fieldname)
+        else:
+            return 'OP_THREADLOCALREF_GET_NONCONST(%s, %s, %s);' % (
+                cdecl(typename, ''),
+                self.expr(op.args[0]),
+                self.expr(op.result))
 
 assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

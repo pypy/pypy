@@ -1,5 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 import unittest, test.test_support
+from test.script_helper import assert_python_ok, assert_python_failure
 import sys, os, cStringIO
 import struct
 import operator
@@ -114,90 +115,69 @@ class SysModuleTest(unittest.TestCase):
         clear_check(exc)
 
     def test_exit(self):
+        # call with two arguments
         self.assertRaises(TypeError, sys.exit, 42, 42)
 
         # call without argument
-        try:
-            sys.exit(0)
-        except SystemExit, exc:
-            self.assertEqual(exc.code, 0)
-        except:
-            self.fail("wrong exception")
-        else:
-            self.fail("no exception")
+        with self.assertRaises(SystemExit) as cm:
+            sys.exit()
+        self.assertIsNone(cm.exception.code)
+
+        rc, out, err = assert_python_ok('-c', 'import sys; sys.exit()')
+        self.assertEqual(rc, 0)
+        self.assertEqual(out, b'')
+        self.assertEqual(err, b'')
+
+        # call with integer argument
+        with self.assertRaises(SystemExit) as cm:
+            sys.exit(42)
+        self.assertEqual(cm.exception.code, 42)
 
         # call with tuple argument with one entry
         # entry will be unpacked
-        try:
-            sys.exit(42)
-        except SystemExit, exc:
-            self.assertEqual(exc.code, 42)
-        except:
-            self.fail("wrong exception")
-        else:
-            self.fail("no exception")
-
-        # call with integer argument
-        try:
+        with self.assertRaises(SystemExit) as cm:
             sys.exit((42,))
-        except SystemExit, exc:
-            self.assertEqual(exc.code, 42)
-        except:
-            self.fail("wrong exception")
-        else:
-            self.fail("no exception")
+        self.assertEqual(cm.exception.code, 42)
 
         # call with string argument
-        try:
+        with self.assertRaises(SystemExit) as cm:
             sys.exit("exit")
-        except SystemExit, exc:
-            self.assertEqual(exc.code, "exit")
-        except:
-            self.fail("wrong exception")
-        else:
-            self.fail("no exception")
+        self.assertEqual(cm.exception.code, "exit")
 
         # call with tuple argument with two entries
-        try:
+        with self.assertRaises(SystemExit) as cm:
             sys.exit((17, 23))
-        except SystemExit, exc:
-            self.assertEqual(exc.code, (17, 23))
-        except:
-            self.fail("wrong exception")
-        else:
-            self.fail("no exception")
+        self.assertEqual(cm.exception.code, (17, 23))
 
         # test that the exit machinery handles SystemExits properly
-        import subprocess
         # both unnormalized...
-        rc = subprocess.call([sys.executable, "-c",
-                              "raise SystemExit, 46"])
+        rc, out, err = assert_python_failure('-c', 'raise SystemExit, 46')
         self.assertEqual(rc, 46)
+        self.assertEqual(out, b'')
+        self.assertEqual(err, b'')
         # ... and normalized
-        rc = subprocess.call([sys.executable, "-c",
-                              "raise SystemExit(47)"])
+        rc, out, err = assert_python_failure('-c', 'raise SystemExit(47)')
         self.assertEqual(rc, 47)
+        self.assertEqual(out, b'')
+        self.assertEqual(err, b'')
 
-        def check_exit_message(code, expected, env=None):
-            process = subprocess.Popen([sys.executable, "-c", code],
-                                       stderr=subprocess.PIPE, env=env)
-            stdout, stderr = process.communicate()
-            self.assertEqual(process.returncode, 1)
-            self.assertTrue(stderr.startswith(expected),
-                "%s doesn't start with %s" % (repr(stderr), repr(expected)))
+        def check_exit_message(code, expected, **env_vars):
+            rc, out, err = assert_python_failure('-c', code, **env_vars)
+            self.assertEqual(rc, 1)
+            self.assertEqual(out, b'')
+            self.assertTrue(err.startswith(expected),
+                "%s doesn't start with %s" % (repr(err), repr(expected)))
 
-        # test that stderr buffer if flushed before the exit message is written
+        # test that stderr buffer is flushed before the exit message is written
         # into stderr
         check_exit_message(
             r'import sys; sys.stderr.write("unflushed,"); sys.exit("message")',
             b"unflushed,message")
 
         # test that the unicode message is encoded to the stderr encoding
-        env = os.environ.copy()
-        env['PYTHONIOENCODING'] = 'latin-1'
         check_exit_message(
             r'import sys; sys.exit(u"h\xe9")',
-            b"h\xe9", env=env)
+            b"h\xe9", PYTHONIOENCODING='latin-1')
 
     def test_getdefaultencoding(self):
         if test.test_support.have_unicode:
@@ -266,15 +246,16 @@ class SysModuleTest(unittest.TestCase):
         #  still has 5 elements
         maj, min, buildno, plat, csd = sys.getwindowsversion()
 
+    @unittest.skipUnless(hasattr(sys, "setdlopenflags"),
+                         'test needs sys.setdlopenflags()')
     def test_dlopenflags(self):
-        if hasattr(sys, "setdlopenflags"):
-            self.assertTrue(hasattr(sys, "getdlopenflags"))
-            self.assertRaises(TypeError, sys.getdlopenflags, 42)
-            oldflags = sys.getdlopenflags()
-            self.assertRaises(TypeError, sys.setdlopenflags)
-            sys.setdlopenflags(oldflags+1)
-            self.assertEqual(sys.getdlopenflags(), oldflags+1)
-            sys.setdlopenflags(oldflags)
+        self.assertTrue(hasattr(sys, "getdlopenflags"))
+        self.assertRaises(TypeError, sys.getdlopenflags, 42)
+        oldflags = sys.getdlopenflags()
+        self.assertRaises(TypeError, sys.setdlopenflags)
+        sys.setdlopenflags(oldflags+1)
+        self.assertEqual(sys.getdlopenflags(), oldflags+1)
+        sys.setdlopenflags(oldflags)
 
     @test.test_support.impl_detail("reference counting")
     def test_refcount(self):
@@ -448,7 +429,7 @@ class SysModuleTest(unittest.TestCase):
             self.assertEqual(type(getattr(sys.flags, attr)), int, attr)
         self.assertTrue(repr(sys.flags))
 
-    @test.test_support.impl_detail("sys._clear_type_cache")
+    @test.test_support.cpython_only
     def test_clear_type_cache(self):
         sys._clear_type_cache()
 
@@ -493,7 +474,7 @@ class SysModuleTest(unittest.TestCase):
         p.wait()
         self.assertIn(executable, ["''", repr(sys.executable)])
 
-@unittest.skipUnless(test.test_support.check_impl_detail(), "sys.getsizeof()")
+@test.test_support.cpython_only
 class SizeofTest(unittest.TestCase):
 
     def setUp(self):
@@ -517,6 +498,31 @@ class SizeofTest(unittest.TestCase):
         self.assertEqual(sys.getsizeof(True), size('l'))
         # but lists are
         self.assertEqual(sys.getsizeof([]), size('P PP') + gc_header_size)
+
+    def test_errors(self):
+        class BadSizeof(object):
+            def __sizeof__(self):
+                raise ValueError
+        self.assertRaises(ValueError, sys.getsizeof, BadSizeof())
+
+        class InvalidSizeof(object):
+            def __sizeof__(self):
+                return None
+        self.assertRaises(TypeError, sys.getsizeof, InvalidSizeof())
+        sentinel = ["sentinel"]
+        self.assertIs(sys.getsizeof(InvalidSizeof(), sentinel), sentinel)
+
+        class OverflowSizeof(long):
+            def __sizeof__(self):
+                return int(self)
+        self.assertEqual(sys.getsizeof(OverflowSizeof(sys.maxsize)),
+                         sys.maxsize + self.gc_headsize)
+        with self.assertRaises(OverflowError):
+            sys.getsizeof(OverflowSizeof(sys.maxsize + 1))
+        with self.assertRaises(ValueError):
+            sys.getsizeof(OverflowSizeof(-1))
+        with self.assertRaises((ValueError, OverflowError)):
+            sys.getsizeof(OverflowSizeof(-sys.maxsize - 1))
 
     def test_default(self):
         size = test.test_support.calcobjsize

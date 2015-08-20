@@ -49,7 +49,6 @@ class TestUntestedModules(unittest.TestCase):
             import getpass
             import htmlentitydefs
             import ihooks
-            import imghdr
             import imputil
             import keyword
             import linecache
@@ -72,7 +71,6 @@ class TestUntestedModules(unittest.TestCase):
             import sunaudio
             import symbol
             import tabnanny
-            import timeit
             import toaiff
             import token
             try:

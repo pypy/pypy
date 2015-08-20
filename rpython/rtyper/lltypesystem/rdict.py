@@ -2,6 +2,7 @@ from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant
 from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import objectmodel, jit
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.rarithmetic import r_uint, intmask, LONG_BIT
@@ -306,6 +307,9 @@ class DictRepr(AbstractDictRepr):
 
     def rtype_method_items(self, hop):
         return self._rtype_method_kvi(hop, ll_dict_items)
+
+    def rtype_bltn_list(self, hop):
+        return self._rtype_method_kvi(hop, ll_dict_keys)
 
     def rtype_method_iterkeys(self, hop):
         hop.exception_cannot_occur()
@@ -665,6 +669,7 @@ def ll_newdict(DICT):
     d.num_items = 0
     d.resize_counter = DICT_INITSIZE * 2
     return d
+DictRepr.ll_newdict = staticmethod(ll_newdict)
 
 def ll_newdict_size(DICT, length_estimate):
     length_estimate = (length_estimate // 2) * 3
@@ -687,26 +692,6 @@ def _ll_malloc_entries(ENTRIES, n):
 def _ll_free_entries(entries):
     pass
 
-
-def rtype_r_dict(hop, i_force_non_null=None):
-    r_dict = hop.r_result
-    if not r_dict.custom_eq_hash:
-        raise TyperError("r_dict() call does not return an r_dict instance")
-    v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
-    v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
-    if i_force_non_null is not None:
-        assert i_force_non_null == 2
-        hop.inputarg(lltype.Void, arg=2)
-    cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
-    hop.exception_cannot_occur()
-    v_result = hop.gendirectcall(ll_newdict, cDICT)
-    if r_dict.r_rdict_eqfn.lowleveltype != lltype.Void:
-        cname = hop.inputconst(lltype.Void, 'fnkeyeq')
-        hop.genop('setfield', [v_result, cname, v_eqfn])
-    if r_dict.r_rdict_hashfn.lowleveltype != lltype.Void:
-        cname = hop.inputconst(lltype.Void, 'fnkeyhash')
-        hop.genop('setfield', [v_result, cname, v_hashfn])
-    return v_result
 
 # ____________________________________________________________
 #

@@ -2,8 +2,7 @@
 Type inference for user-defined classes.
 """
 from rpython.annotator.model import (
-    SomePBC, s_ImpossibleValue, unionof, s_None, SomeInteger,
-    SomeTuple, SomeString, AnnotatorError)
+    SomePBC, s_ImpossibleValue, unionof, s_None, AnnotatorError)
 from rpython.annotator import description
 
 
@@ -129,7 +128,8 @@ class Attribute(object):
                 self.attr_allowed = False
                 if not self.readonly:
                     raise NoSuchAttrError(
-                        "setting forbidden attribute %r on %r" % (
+                        "the attribute %r goes here to %r, "
+                        "but it is forbidden here" % (
                         self.name, homedef))
 
     def modified(self, classdef='?'):
@@ -154,6 +154,8 @@ class ClassDef(object):
         self.subdefs = []
         self.attr_sources = {}   # {name: list-of-sources}
         self.read_locations_of__class__ = {}
+        self.repr = None
+        self.extra_access_sets = {}
 
         if classdesc.basedesc:
             self.basedef = classdesc.basedesc.getuniqueclassdef()
@@ -434,25 +436,3 @@ class InstanceSource(object):
 class NoSuchAttrError(AnnotatorError):
     """Raised when an attribute is found on a class where __slots__
      or _attrs_ forbits it."""
-
-# ____________________________________________________________
-
-FORCE_ATTRIBUTES_INTO_CLASSES = {
-    OSError: {'errno': SomeInteger()},
-    }
-
-try:
-    WindowsError
-except NameError:
-    pass
-else:
-    FORCE_ATTRIBUTES_INTO_CLASSES[WindowsError] = {'winerror': SomeInteger()}
-
-try:
-    import termios
-except ImportError:
-    pass
-else:
-    FORCE_ATTRIBUTES_INTO_CLASSES[termios.error] = \
-        {'args': SomeTuple([SomeInteger(), SomeString()])}
-

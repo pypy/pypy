@@ -119,7 +119,7 @@ def test_convert_and_run_from_pyjitpl():
                       "\x01\x02",          # int_return/i
                       [],
                       num_regs_i=3, num_regs_r=0, num_regs_f=0)
-        jitcode.is_portal = True
+        jitcode.jitdriver_sd = "foo" # not none
         pc = 1
         registers_i = [history.BoxInt(40), history.ConstInt(2), None]
     class MyMetaInterp:

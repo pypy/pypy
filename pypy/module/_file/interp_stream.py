@@ -34,8 +34,12 @@ class W_AbstractStream(W_Root):
         # this function runs with the GIL acquired so there is no race
         # condition in the creation of the lock
         me = self.space.getexecutioncontext()   # used as thread ident
-        if self.slockowner is me:
-            return False    # already acquired by the current thread
+        if self.slockowner is not None:
+            if self.slockowner is me:
+                return False    # already acquired by the current thread
+            if self.slockowner.thread_disappeared:
+                self.slockowner = None
+                self.slock = None
         try:
             if self.slock is None:
                 self.slock = self.space.allocate_lock()

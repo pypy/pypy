@@ -1,17 +1,55 @@
 from __future__ import with_statement
+
+from rpython.rlib import rgc, ropenssl
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rstring import StringBuilder
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.tool.sourcetools import func_renamer
+
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter.error import OperationError
-from rpython.tool.sourcetools import func_renamer
-from pypy.interpreter.baseobjspace import W_Root
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib import rgc, ropenssl
-from rpython.rlib.rstring import StringBuilder
 from pypy.module.thread.os_lock import Lock
 
 
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
 
+def hash_name_mapper_callback(obj_name, userdata):
+    if not obj_name:
+        return
+    # Ignore aliased names, they pollute the list and OpenSSL appears
+    # to have a its own definition of alias as the resulting list
+    # still contains duplicate and alternate names for several
+    # algorithms.
+    if rffi.cast(lltype.Signed, obj_name[0].c_alias):
+        return
+    try:
+        space = global_name_fetcher.space
+        w_name = space.wrap(rffi.charp2str(obj_name[0].c_name))
+        global_name_fetcher.meth_names.append(w_name)
+    except OperationError, e:
+        global_name_fetcher.w_error = e
+
+class NameFetcher:
+    def setup(self, space):
+        self.space = space
+        self.meth_names = []
+        self.w_error = None
+    def _cleanup_(self):
+        self.__dict__.clear()
+global_name_fetcher = NameFetcher()
+
+def fetch_names(space):
+    global_name_fetcher.setup(space)
+    ropenssl.init_digests()
+    ropenssl.OBJ_NAME_do_all(ropenssl.OBJ_NAME_TYPE_MD_METH,
+                             hash_name_mapper_callback, None)
+    if global_name_fetcher.w_error:
+        raise global_name_fetcher.w_error
+    meth_names = global_name_fetcher.meth_names
+    global_name_fetcher.meth_names = None
+    return space.call_function(space.w_frozenset, space.newlist(meth_names))
 
 class W_Hash(W_Root):
     NULL_CTX = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
@@ -99,10 +137,10 @@ class W_Hash(W_Root):
             with self.lock:
                 ropenssl.EVP_MD_CTX_copy(ctx, self.ctx)
             digest_size = self.digest_size
-            with lltype.scoped_alloc(rffi.CCHARP.TO, digest_size) as digest:
-                ropenssl.EVP_DigestFinal(ctx, digest, None)
+            with rffi.scoped_alloc_buffer(digest_size) as buf:
+                ropenssl.EVP_DigestFinal(ctx, buf.raw, None)
                 ropenssl.EVP_MD_CTX_cleanup(ctx)
-                return rffi.charpsize2str(digest, digest_size)
+                return buf.str(digest_size)
 
 
 W_Hash.typedef = TypeDef(
@@ -118,7 +156,7 @@ W_Hash.typedef = TypeDef(
     block_size=GetSetProperty(W_Hash.get_block_size),
     name=GetSetProperty(W_Hash.get_name),
 )
-W_Hash.acceptable_as_base_class = False
+W_Hash.typedef.acceptable_as_base_class = False
 
 @unwrap_spec(name=str, string='bufferstr')
 def new(space, name, string=''):

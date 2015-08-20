@@ -86,7 +86,7 @@ class W_StringIO(W_TextIOBase):
         initval = space.unicode_w(w_initval)
         size = len(initval)
         self.resize_buffer(size)
-        self.buf = [c for c in initval]
+        self.buf = list(initval)
         pos = space.getindex_w(w_pos, space.w_TypeError)
         if pos < 0:
             raise OperationError(space.w_ValueError,

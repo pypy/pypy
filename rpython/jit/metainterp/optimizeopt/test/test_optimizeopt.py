@@ -1,4 +1,4 @@
-import py
+import py, sys
 from rpython.rlib.objectmodel import instantiate
 from rpython.jit.metainterp import compile, resume
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt, TreeLoop
@@ -45,7 +45,7 @@ class BaseTestWithUnroll(BaseTest):
 
     def optimize_loop(self, ops, expected, expected_preamble=None,
                       call_pure_results=None, expected_short=None):
-        loop = self.parse(ops)
+        loop = self.parse(ops, postprocess=self.postprocess)
         if expected != "crash!":
             expected = self.parse(expected)
         if expected_preamble:
@@ -96,41 +96,6 @@ class BaseTestWithUnroll(BaseTest):
 
 
 class OptimizeOptTest(BaseTestWithUnroll):
-    def setup_method(self, meth=None):
-        class FailDescr(compile.ResumeGuardDescr):
-            oparse = None
-            def _oparser_uses_descr_of_guard(self, oparse, fail_args):
-                # typically called 3 times: once when parsing 'ops',
-                # once when parsing 'preamble', once when parsing 'expected'.
-                self.oparse = oparse
-                self.rd_frame_info_list, self.rd_snapshot = snapshot(fail_args)
-            def _clone_if_mutable(self):
-                assert self is fdescr
-                return fdescr2
-            def __repr__(self):
-                if self is fdescr:
-                    return 'fdescr'
-                if self is fdescr2:
-                    return 'fdescr2'
-                return compile.ResumeGuardDescr.__repr__(self)
-        #
-        def snapshot(fail_args, got=[]):
-            if not got:    # only the first time, i.e. when parsing 'ops'
-                rd_frame_info_list = resume.FrameInfo(None, "code", 11)
-                rd_snapshot = resume.Snapshot(None, fail_args)
-                got.append(rd_frame_info_list)
-                got.append(rd_snapshot)
-            return got
-        #
-        fdescr = instantiate(FailDescr)
-        self.namespace['fdescr'] = fdescr
-        fdescr2 = instantiate(FailDescr)
-        self.namespace['fdescr2'] = fdescr2
-
-    def teardown_method(self, meth):
-        self.namespace.pop('fdescr', None)
-        self.namespace.pop('fdescr2', None)
-
     def test_simple(self):
         ops = """
         []
@@ -190,6 +155,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
             args = []
             for _ in range(oparity[opnum]):
                 args.append(random.randrange(1, 20))
+            if opnum == rop.INT_SIGNEXT:
+                # 2nd arg is number of bytes to extend from ---
+                # must not be too random
+                args[-1] = random.choice([1, 2] if sys.maxint < 2**32 else
+                                         [1, 2, 4])
             ops = """
             []
             i1 = %s(%s)
@@ -217,7 +187,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        short = """
+        [i2]
+        p3 = cast_int_to_ptr(i2)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
 
     def test_reverse_of_cast_2(self):
         ops = """
@@ -699,11 +674,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i]
         i1 = int_is_true(i)
         guard_false(i1) [i]
-        jump(i)
+        jump()
         """
         expected = """
-        [i]
-        jump(i)
+        []
+        jump()
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -1308,7 +1283,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
@@ -1318,7 +1293,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i0, p1, p3]
         i28 = int_add(i0, 1)
-        i29 = int_add(i28, 1)
+        i29 = int_add(i0, 2)
         p30 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p30, i28, descr=nextdescr)
         setfield_gc(p3, p30, descr=valuedescr)
@@ -1397,7 +1372,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_nonvirtual_dont_write_null_fields_on_force(self):
+    def test_nonvirtual_write_null_fields_on_force(self):
         ops = """
         [i]
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -1411,6 +1386,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i]
         p1 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, 0, descr=valuedescr)
         escape(p1)
         i2 = getfield_gc(p1, descr=valuedescr)
         jump(i2)
@@ -1557,12 +1533,32 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_varray_clear_unroll_bug(self):
+        ops = """
+        [p0]
+        i0 = getarrayitem_gc(p0, 0, descr=arraydescr)
+        i1 = getarrayitem_gc(p0, 1, descr=arraydescr)
+        i2 = getarrayitem_gc(p0, 2, descr=arraydescr)
+        i3 = int_add(i0, i1)
+        i4 = int_add(i3, i2)
+        p1 = new_array_clear(3, descr=arraydescr)
+        setarrayitem_gc(p1, 1, i4, descr=arraydescr)
+        setarrayitem_gc(p1, 0, 25, descr=arraydescr)
+        jump(p1)
+        """
+        expected = """
+        [i1]
+        i2 = int_add(25, i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_varray_alloc_and_set(self):
         ops = """
         [i1]
         p1 = new_array(2, descr=arraydescr)
         setarrayitem_gc(p1, 0, 25, descr=arraydescr)
-        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
+        i2 = getarrayitem_gc(p1, 0, descr=arraydescr)
         jump(i2)
         """
         preamble = """
@@ -1608,7 +1604,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_nonvirtual_array_dont_write_null_fields_on_force(self):
+    def test_nonvirtual_array_write_null_fields_on_force(self):
         ops = """
         [i1]
         p1 = new_array(5, descr=arraydescr)
@@ -1621,6 +1617,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1]
         p1 = new_array(5, descr=arraydescr)
         setarrayitem_gc(p1, 0, i1, descr=arraydescr)
+        setarrayitem_gc(p1, 1, 0, descr=arraydescr)
         escape(p1)
         jump(i1)
         """
@@ -1696,8 +1693,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         []
         p1 = new_array(3, descr=arraydescr)
         escape(p1)
-        i2 = arraylen_gc(p1)
-        escape(i2)
+        escape(3)
         jump()
         """
         self.optimize_loop(ops, expected)
@@ -1999,6 +1995,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [f1]
         f2 = float_add(f1, f1)
         jump(f2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_raw_buffer_forced_but_slice_not_forced(self):
+        ops = """
+        [f1]
+        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        guard_no_exception() []
+        i1 = int_add(i0, 8)
+        escape(i0)
+        setarrayitem_raw(i1, 0, f1, descr=rawarraydescr_float)
+        jump(f1)
+        """
+        expected = """
+        [f1]
+        i0 = call('malloc', 16, descr=raw_malloc_descr)
+        #guard_no_exception() []  # XXX should appear
+        escape(i0)
+        i1 = int_add(i0, 8)
+        setarrayitem_raw(i1, 0, f1, descr=rawarraydescr_float)
+        jump(f1)
         """
         self.optimize_loop(ops, expected)
 
@@ -2956,20 +2973,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_merge_guard_nonnull_guard_class(self):
         ops = """
         [p1, i0, i1, i2, p2]
-        guard_nonnull(p1, descr=fdescr) [i0]
+        guard_nonnull(p1) [i0]
         i3 = int_add(i1, i2)
         guard_class(p1, ConstClass(node_vtable)) [i1]
         jump(p2, i0, i1, i3, p2)
         """
         preamble = """
         [p1, i0, i1, i2, p2]
-        guard_nonnull_class(p1, ConstClass(node_vtable), descr=fdescr) [i0]
+        guard_nonnull_class(p1, ConstClass(node_vtable)) [i0]
         i3 = int_add(i1, i2)
         jump(p2, i0, i1, i3)
         """
         expected = """
         [p2, i0, i1, i2]
-        guard_nonnull_class(p2, ConstClass(node_vtable), descr=fdescr2) [i0]
+        guard_nonnull_class(p2, ConstClass(node_vtable)) [i0]
         i3 = int_add(i1, i2)
         jump(p2, i0, i1, i3)
         """
@@ -2979,20 +2996,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_merge_guard_nonnull_guard_value(self):
         ops = """
         [p1, i0, i1, i2, p2]
-        guard_nonnull(p1, descr=fdescr) [i0]
+        guard_nonnull(p1) [i0]
         i3 = int_add(i1, i2)
         guard_value(p1, ConstPtr(myptr)) [i1]
         jump(p2, i0, i1, i3, p2)
         """
         preamble = """
         [p1, i0, i1, i2, p2]
-        guard_value(p1, ConstPtr(myptr), descr=fdescr) [i0]
+        guard_value(p1, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
         jump(p2, i0, i1, i3)
         """
         expected = """
         [p2, i0, i1, i2]
-        guard_value(p2, ConstPtr(myptr), descr=fdescr2) [i0]
+        guard_value(p2, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
         jump(ConstPtr(myptr), i0, i1, i3)
         """
@@ -3002,7 +3019,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_merge_guard_nonnull_guard_class_guard_value(self):
         ops = """
         [p1, i0, i1, i2, p2]
-        guard_nonnull(p1, descr=fdescr) [i0]
+        guard_nonnull(p1) [i0]
         i3 = int_add(i1, i2)
         guard_class(p1, ConstClass(node_vtable)) [i2]
         i4 = int_sub(i3, 1)
@@ -3011,14 +3028,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         preamble = """
         [p1, i0, i1, i2, p2]
-        guard_value(p1, ConstPtr(myptr), descr=fdescr) [i0]
+        guard_value(p1, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
         i4 = int_sub(i3, 1)
         jump(p2, i0, i1, i4)
         """
         expected = """
         [p2, i0, i1, i2]
-        guard_value(p2, ConstPtr(myptr), descr=fdescr2) [i0]
+        guard_value(p2, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
         i4 = int_sub(i3, 1)
         jump(ConstPtr(myptr), i0, i1, i4)
@@ -3066,6 +3083,69 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p0)
         """
         self.optimize_loop(ops, expected, preamble)
+
+    def test_remove_multiple_add_1(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i1, 2)
+        i3 = int_add(i2, 1)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i0, 3)
+        i3 = int_add(i0, 4)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_multiple_add_2(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(2, i1)
+        i3 = int_add(i2, 1)
+        i4 = int_mul(i3, 5)
+        i5 = int_add(5, i4)
+        i6 = int_add(1, i5)
+        i7 = int_add(i2, i6)
+        i8 = int_add(i7, 1)
+        jump(i8)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_add(i0, 3)
+        i3 = int_add(i0, 4)
+        i4 = int_mul(i3, 5)
+        i5 = int_add(5, i4)
+        i6 = int_add(i4, 6)
+        i7 = int_add(i2, i6)
+        i8 = int_add(i7, 1)
+        jump(i8)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_multiple_add_3(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, %s)
+        i2 = int_add(i1, %s)
+        i3 = int_add(i0, %s)
+        i4 = int_add(i3, %s)
+        jump(i4)
+        """ % (sys.maxint - 1, sys.maxint - 2, -sys.maxint, -sys.maxint + 1)
+        expected = """
+        [i0]
+        i1 = int_add(i0, %s)
+        i2 = int_add(i0, %s)
+        i3 = int_add(i0, %s)
+        i4 = int_add(i0, %s)
+        jump(i4)
+        """ % (sys.maxint - 1, -5, -sys.maxint, 3)
+        self.optimize_loop(ops, expected)
 
     def test_remove_duplicate_pure_op(self):
         ops = """
@@ -3592,7 +3672,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(p1, descr=plaincalldescr)
+        i3 = call_pure(p1, descr=elidablecalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i4, i3)
         '''
@@ -3604,11 +3684,73 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call(p1, descr=plaincalldescr)
+        i3 = call(p1, descr=elidablecalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         i148 = same_as(i3)
         i147 = same_as(i3)
         jump(p1, i4, i3, i148)
+        '''
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_call_pure_invalidates_caches_2(self):
+        # same as test_call_pure_invalidates_caches, but with
+        # an EF_ELIDABLE_OR_MEMORYERROR, which can still be moved
+        # out of the main loop potentially into the short preamble
+        ops = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call_pure(p1, descr=elidable2calldescr)
+        guard_no_exception() []
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i4, i3)
+        '''
+        expected = '''
+        [p1, i4, i3, i5]
+        setfield_gc(p1, i5, descr=valuedescr)
+        jump(p1, i3, i5, i5)
+        '''
+        preamble = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call(p1, descr=elidable2calldescr)
+        guard_no_exception() []
+        setfield_gc(p1, i3, descr=valuedescr)
+        i148 = same_as(i3)
+        i147 = same_as(i3)
+        jump(p1, i4, i3, i148)
+        '''
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_call_pure_can_raise(self):
+        # same as test_call_pure_invalidates_caches, but this time
+        # with an EF_ELIDABLE_CAN_RAISE, which *cannot* be moved
+        # out of the main loop: the problem is that it cannot be
+        # present in the short preamble, because nobody would catch
+        # the potential exception
+        ops = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call_pure(p1, descr=elidable3calldescr)
+        guard_no_exception() []
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i4, i3)
+        '''
+        expected = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call(p1, descr=elidable3calldescr)
+        guard_no_exception() []
+        setfield_gc(p1, i3, descr=valuedescr)
+        jump(p1, i4, i3)
+        '''
+        preamble = '''
+        [p1, i1, i4]
+        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call(p1, descr=elidable3calldescr)
+        guard_no_exception() []
+        setfield_gc(p1, i3, descr=valuedescr)
+        i167 = same_as(i3)
+        jump(p1, i4, i3)
         '''
         self.optimize_loop(ops, expected, preamble)
 
@@ -3617,7 +3759,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call_pure(p1, descr=plaincalldescr)
+        i3 = call_pure(p1, descr=elidablecalldescr)
         setfield_gc(p1, i1, descr=valuedescr)
         jump(p1, i4, i3)
         '''
@@ -3629,8 +3771,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
-        i3 = call(p1, descr=plaincalldescr)
-        setfield_gc(p1, i1, descr=valuedescr)
+        i3 = call(p1, descr=elidablecalldescr)
         i151 = same_as(i3)
         jump(p1, i4, i3, i151)
         '''
@@ -3643,15 +3784,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, i1, i2]
         escape(i1)
         escape(i2)
-        i3 = call_pure(123456, 4, 5, 6, descr=plaincalldescr)
-        i4 = call_pure(123456, 4, i0, 6, descr=plaincalldescr)
+        i3 = call_pure(123456, 4, 5, 6, descr=elidablecalldescr)
+        i4 = call_pure(123456, 4, i0, 6, descr=elidablecalldescr)
         jump(i0, i3, i4)
         '''
         preamble = '''
         [i0, i1, i2]
         escape(i1)
         escape(i2)
-        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        i4 = call(123456, 4, i0, 6, descr=elidablecalldescr)
         i153 = same_as(i4)
         jump(i0, i4, i153)
         '''
@@ -3663,34 +3804,67 @@ class OptimizeOptTest(BaseTestWithUnroll):
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
 
+    def test_call_pure_constant_folding_memoryerr(self):
+        ops = '''
+        [p0, i0]
+        escape(i0)
+        i3 = call_pure(123456, p0, descr=elidable2calldescr)
+        guard_no_exception() []
+        jump(p0, i3)
+        '''
+        preamble = '''
+        [p0, i0]
+        escape(i0)
+        i3 = call(123456, p0, descr=elidable2calldescr)
+        guard_no_exception() []
+        i4 = same_as(i3)
+        jump(p0, i3, i4)
+        '''
+        expected = '''
+        [p0, i3, i4]
+        escape(i3)
+        jump(p0, i4, i4)
+        '''
+        self.optimize_loop(ops, expected, preamble)
+
     def test_call_pure_constant_folding_exc(self):
         # CALL_PURE may be followed by GUARD_NO_EXCEPTION
+        # we can't remove such call_pures from the loop,
+        # because the short preamble can't call them safely.
+        # We can still check that an all-constant call_pure is removed,
+        # and that duplicate call_pures are folded.
         arg_consts = [ConstInt(i) for i in (123456, 4, 5, 6)]
         call_pure_results = {tuple(arg_consts): ConstInt(42)}
         ops = '''
-        [i0, i1, i2]
+        [i0, i1, i2, i9]
         escape(i1)
         escape(i2)
-        i3 = call_pure(123456, 4, 5, 6, descr=plaincalldescr)
+        escape(i9)
+        i3 = call_pure(123456, 4, 5, 6, descr=elidable3calldescr)
         guard_no_exception() []
-        i4 = call_pure(123456, 4, i0, 6, descr=plaincalldescr)
+        i4 = call_pure(123456, 4, i0, 6, descr=elidable3calldescr)
         guard_no_exception() []
-        jump(i0, i3, i4)
+        i5 = call_pure(123456, 4, i0, 6, descr=elidable3calldescr)
+        guard_no_exception() []
+        jump(i0, i3, i4, i5)
         '''
         preamble = '''
-        [i0, i1, i2]
+        [i0, i1, i2, i9]
         escape(i1)
         escape(i2)
-        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        escape(i9)
+        i4 = call(123456, 4, i0, 6, descr=elidable3calldescr)
         guard_no_exception() []
-        i155 = same_as(i4)
-        jump(i0, i4, i155)
+        jump(i0, i4)
         '''
         expected = '''
-        [i0, i2, i3]
+        [i0, i2]
         escape(42)
         escape(i2)
-        jump(i0, i3, i3)
+        escape(i2)
+        i4 = call(123456, 4, i0, 6, descr=elidable3calldescr)
+        guard_no_exception() []
+        jump(i0, i4)
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
 
@@ -3700,6 +3874,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = '''
         [p1, i1, i2]
         p2 = call_pure(0, p1, i1, i2, descr=strslicedescr)
+        guard_no_exception() []
         escape(p2)
         jump(p1, i1, i2)
         '''
@@ -3749,6 +3924,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1]
         p0 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p0, descr=virtualtokendescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -3781,6 +3957,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = force_token()
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
@@ -3810,7 +3987,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2 = virtual_ref(p1, 2)
         setfield_gc(p0, p2, descr=nextdescr)
         call_may_force(i1, descr=mayforcevirtdescr)
-        guard_not_forced(descr=fdescr) [p2, p1]
+        guard_not_forced() [p2, p1]
         virtual_ref_finish(p2, p1)
         setfield_gc(p0, NULL, descr=nextdescr)
         jump(p0, i1)
@@ -3820,11 +3997,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = force_token()
         #
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force(i1, descr=mayforcevirtdescr)
-        guard_not_forced(descr=fdescr2) [p2, i1]
+        guard_not_forced() [p2, i1]
         #
         setfield_gc(p0, NULL, descr=nextdescr)
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -3855,7 +4033,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p2 = virtual_ref(p1, 2)
         setfield_gc(p0, p2, descr=refdescr)
         call(i1, descr=nonwritedescr)
-        guard_no_exception(descr=fdescr) [p2, p1]
+        guard_no_exception() [p2, p1]
         virtual_ref_finish(p2, p1)
         setfield_gc(p0, NULL, descr=refdescr)
         escape()
@@ -3865,7 +4043,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, i1]
         p3 = force_token()
         call(i1, descr=nonwritedescr)
-        guard_no_exception(descr=fdescr) [p3, i1, p0]
+        guard_no_exception() [p3, i1, p0]
         setfield_gc(p0, NULL, descr=refdescr)
         escape()
         jump(p0, i1)
@@ -3874,7 +4052,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, i1]
         p3 = force_token()
         call(i1, descr=nonwritedescr)
-        guard_no_exception(descr=fdescr2) [p3, i1, p0]
+        guard_no_exception() [p3, i1, p0]
         setfield_gc(p0, NULL, descr=refdescr)
         escape()
         jump(p0, i1)
@@ -3907,6 +4085,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1]
         p3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         escape(p2)
         p1 = new_with_vtable(ConstClass(node_vtable))
@@ -3932,6 +4111,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i1, p1]
         p3 = force_token()
         p2 = new_with_vtable(ConstClass(jit_virtual_ref_vtable))
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
         escape(p2)
         setfield_gc(p2, p1, descr=virtualforceddescr)
@@ -4016,7 +4196,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_arraycopy_dest_not_virtual(self):
         ops = '''
         []
-        p1 = new_array(3, descr=arraydescr)
+        p1 = new_array_clear(3, descr=arraydescr)
         p2 = new_array(3, descr=arraydescr)
         setarrayitem_gc(p1, 2, 10, descr=arraydescr)
         setarrayitem_gc(p2, 2, 13, descr=arraydescr)
@@ -4744,7 +4924,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_complains_getfieldpure_setfield(self):
-        from rpython.jit.metainterp.optimizeopt.heap import BogusPureField
+        from rpython.jit.metainterp.optimizeopt.heap import BogusImmutableField
         ops = """
         [p3]
         p1 = escape()
@@ -4752,7 +4932,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, p3, descr=nextdescr)
         jump(p3)
         """
-        self.raises(BogusPureField, self.optimize_loop, ops, "crash!")
+        self.raises(BogusImmutableField, self.optimize_loop, ops, "crash!")
 
     def test_dont_complains_different_field(self):
         ops = """
@@ -5558,6 +5738,44 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i11)
         """
         self.optimize_loop(ops, ops, ops)
+
+    def test_bound_backpropagate_int_signext(self):
+        ops = """
+        []
+        i0 = escape()
+        i1 = int_signext(i0, 1)
+        i2 = int_eq(i0, i1)
+        guard_true(i2) []
+        i3 = int_le(i0, 127)    # implied by equality with int_signext
+        guard_true(i3) []
+        i5 = int_gt(i0, -129)   # implied by equality with int_signext
+        guard_true(i5) []
+        jump()
+        """
+        expected = """
+        []
+        i0 = escape()
+        i1 = int_signext(i0, 1)
+        i2 = int_eq(i0, i1)
+        guard_true(i2) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_bound_backpropagate_int_signext_2(self):
+        ops = """
+        []
+        i0 = escape()
+        i1 = int_signext(i0, 1)
+        i2 = int_eq(i0, i1)
+        guard_true(i2) []
+        i3 = int_le(i0, 126)    # false for i1 == 127
+        guard_true(i3) []
+        i5 = int_gt(i0, -128)   # false for i1 == -128
+        guard_true(i5) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
 
     def test_mul_ovf(self):
         ops = """
@@ -6866,11 +7084,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
 
-    def test_record_known_class(self):
+    def test_record_exact_class(self):
         ops = """
         [p0]
         p1 = getfield_gc(p0, descr=nextdescr)
-        record_known_class(p1, ConstClass(node_vtable))
+        record_exact_class(p1, ConstClass(node_vtable))
         guard_class(p1, ConstClass(node_vtable)) []
         jump(p1)
         """
@@ -6886,13 +7104,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, p1, i0]
         quasiimmut_field(p0, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc(p0, descr=quasifielddescr)
+        i1 = getfield_gc_pure(p0, descr=quasifielddescr)
         escape(i1)
         jump(p1, p0, i1)
         """
         expected = """
         [p0, p1, i0]
-        i1 = getfield_gc(p0, descr=quasifielddescr)
+        i1 = getfield_gc_pure(p0, descr=quasifielddescr)
         escape(i1)
         jump(p1, p0, i1)
         """
@@ -6903,7 +7121,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         []
         quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
+        i1 = getfield_gc_pure(ConstPtr(quasiptr), descr=quasifielddescr)
         escape(i1)
         jump()
         """
@@ -6955,11 +7173,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0a, i0b]
         quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
+        i1 = getfield_gc_pure(ConstPtr(quasiptr), descr=quasifielddescr)
         call_may_force(i0b, descr=mayforcevirtdescr)
         quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i2 = getfield_gc(ConstPtr(quasiptr), descr=quasifielddescr)
+        i2 = getfield_gc_pure(ConstPtr(quasiptr), descr=quasifielddescr)
         i3 = escape(i1)
         i4 = escape(i2)
         jump(i3, i4)
@@ -6982,11 +7200,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p, 421, descr=quasifielddescr)
         quasiimmut_field(p, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc(p, descr=quasifielddescr)
+        i1 = getfield_gc_pure(p, descr=quasifielddescr)
         call_may_force(i0b, descr=mayforcevirtdescr)
         quasiimmut_field(p, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i2 = getfield_gc(p, descr=quasifielddescr)
+        i2 = getfield_gc_pure(p, descr=quasifielddescr)
         i3 = escape(i1)
         i4 = escape(i2)
         jump(i3, i4)
@@ -7134,7 +7352,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_add(i1, i2)
         setfield_gc(p0, ii, descr=valuedescr)
         setfield_gc(p1, ii, descr=otherdescr)
-        jump(p0, p1, ii2, ii, ii, ii)
+        i7 = same_as(ii)
+        i8 = same_as(ii)
+        jump(p0, p1, ii2, ii, i8, i7)
         """
         expected = """
         [p0, p1, ii, ii2, i1, i2]
@@ -7143,7 +7363,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, ii, descr=otherdescr)
         jump(p0, p1, ii2, ii, ii, ii)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected, preamble)
 
     def test_dont_specialize_on_boxes_equal(self):
         ops = """
@@ -7199,11 +7419,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         short = """
         [p0]
         p1 = getfield_gc(p0, descr=nextdescr)
-        guard_nonnull(p1) []
-        guard_class(p1, ConstClass(node_vtable)) []
+        guard_nonnull_class(p1, ConstClass(node_vtable)) []
         p2 = getfield_gc(p1, descr=nextdescr)
-        guard_nonnull(p2) []
-        guard_class(p2, ConstClass(node_vtable)) []
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []
         jump(p0)
         """
         self.optimize_loop(ops, expected, expected_short=short)
@@ -8235,7 +8453,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
         quasiimmut_field(p69, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        p71 = getfield_gc(p69, descr=quasifielddescr) # inst_code
+        p71 = getfield_gc_pure(p69, descr=quasifielddescr) # inst_code
         guard_value(p71, -4247) []
 
         p106 = new_with_vtable(ConstClass(node_vtable))
@@ -8246,30 +8464,18 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p106, p108, descr=nextdescr) # inst_storage
         jump(p106)
         """
-        expected = """
-        []
-        p72 = getfield_gc(ConstPtr(myptr2), descr=quasifielddescr)
-        guard_value(p72, -4247) []
-        jump()
-        """
-        self.optimize_loop(ops, expected)
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_issue1080_infinitie_loop_simple(self):
         ops = """
         [p69]
         quasiimmut_field(p69, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        p71 = getfield_gc(p69, descr=quasifielddescr) # inst_code
+        p71 = getfield_gc_pure(p69, descr=quasifielddescr) # inst_code
         guard_value(p71, -4247) []
         jump(ConstPtr(myptr))
         """
-        expected = """
-        []
-        p72 = getfield_gc(ConstPtr(myptr), descr=quasifielddescr)
-        guard_value(p72, -4247) []
-        jump()
-        """
-        self.optimize_loop(ops, expected)
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_only_strengthen_guard_if_class_matches(self):
         ops = """
@@ -8298,6 +8504,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_licm_boxed_opaque_getitem_unknown_class(self):
+        # Explanation: the getfield_gc(p2) is done on what starts as
+        # an opaque object.  The getfield_gc(p1) is moved out of the
+        # (non-preamble) loop.  It looks like the getfield_gc(p2)
+        # should also move out.  However, moving the getfield_gc(p2)
+        # earlier can be dangerous with opaque pointers: we can't move
+        # it before other guards that indirectly check for which type
+        # of object is in p2.  (In this simple test there are no guard
+        # at all between the start of the loop and the
+        # getfield_gc(p2), but in general there are.)
+        #
+        # There are two cases: (1) moving the getfield_gc(p2) out of
+        # the loop into the preamble: this does not look like a
+        # problem because we already have a getfield_gc(p2) there, on
+        # the same p2.  Case (2) is moving the getfield_gc(p2) into
+        # the short preamble: this is more problematic because the
+        # short preamble can't do the indirect checking on p1.
         ops = """
         [p1]
         p2 = getfield_gc(p1, descr=nextdescr)
@@ -8331,6 +8553,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_licm_unboxed_opaque_getitem_unknown_class(self):
+        # see test_licm_boxed_opaque_getitem_unknown_class
         ops = """
         [p2]
         mark_opaque_ptr(p2)
@@ -8415,6 +8638,28 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p0, i2, p1)        
         """
         self.optimize_loop(ops, expected, preamble)
+
+    def test_getfield_proven_constant(self):
+        py.test.skip("not working")
+        ops = """
+        [p0]
+        i1 = getfield_gc(p0, descr=valuedescr)
+        guard_value(i1, 13) []
+        escape(i1)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        escape(13)
+        jump(p0)
+        """
+        expected_short = """
+        [p0]
+        i1 = getfield_gc(p0, descr=valuedescr)
+        guard_value(i1, 13) []
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, expected_short=expected_short)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

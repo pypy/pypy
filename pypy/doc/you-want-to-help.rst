@@ -1,4 +1,3 @@
-
 You want to help with PyPy, now what?
 =====================================
 
@@ -24,12 +23,13 @@ important lessons that everyone willing to contribute should learn:
 * PyPy uses an entirely different set of tools - most of them included
   in the PyPy repository. There is no Makefile, nor autoconf. More below.
 
+
 Architecture
-============
+------------
 
 PyPy has layers. The 100 miles view:
 
-* `RPython`_ is the language in which we write interpreters. Not the entire
+* :ref:`RPython <rpython:language>` is the language in which we write interpreters. Not the entire
   PyPy project is written in RPython, only the parts that are compiled in
   the translation process. The interesting point is that RPython has no parser,
   it's compiled from the live python objects, which makes it possible to do
@@ -38,16 +38,12 @@ PyPy has layers. The 100 miles view:
 
   The RPython standard library is to be found in the ``rlib`` subdirectory.
 
-.. _`RPython`: coding-guide.html#RPython
-
 * The translation toolchain - this is the part that takes care of translating
-  RPython to flow graphs and then to C. There is more in the `architecture`_
+  RPython to flow graphs and then to C. There is more in the :doc:`architecture <architecture>`
   document written about it.
 
   It lives in the ``rpython`` directory: ``flowspace``, ``annotator``
   and ``rtyper``.
-
-.. _`architecture`: architecture.html 
 
 * Python Interpreter and modules
 
@@ -59,7 +55,7 @@ PyPy has layers. The 100 miles view:
   directory.  The standard library of Python (with a few changes to
   accomodate PyPy) is in ``lib-python``.
 
-* Just-in-Time Compiler (JIT): `we have a tracing JIT`_ that traces the
+* :ref:`Just-in-Time Compiler (JIT) <rpython:jit>`: we have a tracing JIT that traces the
   interpreter written in RPython, rather than the user program that it
   interprets.  As a result it applies to any interpreter, i.e. any
   language.  But getting it to work correctly is not trivial: it
@@ -71,19 +67,15 @@ PyPy has layers. The 100 miles view:
   that turns it into machine code.  Writing a new backend is a
   traditional way to get into the project.
 
-.. _`we have a tracing JIT`: jit/index.html
-
 * Garbage Collectors (GC): as you may notice if you are used to CPython's
   C code, there are no ``Py_INCREF/Py_DECREF`` equivalents in RPython code.
-  `Garbage collection in PyPy`_ is inserted
+  :ref:`rpython:garbage-collection` is inserted
   during translation.  Moreover, this is not reference counting; it is a real
   GC written as more RPython code.  The best one we have so far is in
   ``rpython/memory/gc/incminimark.py``.
 
-.. _`Garbage collection in PyPy`: garbage_collection.html
-
 
 Toolset
-=======
+-------
 
 xxx

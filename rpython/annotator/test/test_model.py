@@ -20,25 +20,6 @@ slist = [s1, s2, s3, s4, s6]  # not s5 -- unionof(s4,s5) modifies s4 and s5
 class C(object):
     pass
 
-class DummyClassDef:
-    def __init__(self, cls=C):
-        self.cls = cls
-        self.name = cls.__name__
-
-si0 = SomeInstance(DummyClassDef(), True)
-si1 = SomeInstance(DummyClassDef())
-sTrue = SomeBool()
-sTrue.const = True
-sFalse = SomeBool()
-sFalse.const = False
-
-def test_is_None():
-    assert pair(s_None, s_None).is_() == sTrue
-    assert pair(si1, s_None).is_() == sFalse
-    assert pair(si0, s_None).is_() != sTrue
-    assert pair(si0, s_None).is_() != sFalse
-    assert pair(si0, s_None).is_() == SomeBool()
-
 def test_equality():
     assert s1 != s2 != s3 != s4 != s5 != s6
     assert s1 == SomeType()
@@ -55,6 +36,10 @@ def test_contains():
                        (s3, s2), (s3, s3),           (s3, s6),
                                            (s4, s4), (s4, s6),
                                                      (s6, s6)])
+
+def test_signedness():
+    assert not SomeInteger(unsigned=True).contains(SomeInteger())
+    assert SomeInteger(unsigned=True).contains(SomeInteger(nonneg=True))
 
 def test_commonbase_simple():
     class A0:
@@ -136,3 +121,11 @@ def test_not_const():
     assert s_int != SomeInteger()
     assert not_const(s_int) == SomeInteger()
     assert not_const(s_None) == s_None
+
+
+def test_nonnulify():
+    s = SomeString(can_be_None=True).nonnulify()
+    assert s.can_be_None is True
+    assert s.no_nul is True
+    s = SomeChar().nonnulify()
+    assert s.no_nul is True

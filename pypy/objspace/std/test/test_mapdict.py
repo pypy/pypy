@@ -144,7 +144,7 @@ def test_attr_immutability(monkeypatch):
     assert obj2.map.back.ever_mutated == True
     assert obj2.map is obj.map
 
-def test_attr_immutability_delete(monkeypatch):
+def test_attr_immutability_delete():
     cls = Class()
     obj = cls.instantiate()
     obj.setdictvalue(space, "a", 10)
@@ -451,12 +451,12 @@ def test_specialized_class():
         obj = objectcls()
         obj.user_setup(space, cls)
         obj.setdictvalue(space, "a", w1)
-        assert unerase_item(obj._value0) is w1
+        assert obj._value0 is w1
         assert obj.getdictvalue(space, "a") is w1
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
         obj.setdictvalue(space, "a", w2)
-        assert unerase_item(obj._value0) is w2
+        assert obj._value0 is w2
         assert obj.getdictvalue(space, "a") == w2
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
@@ -474,7 +474,7 @@ def test_specialized_class():
 
         res = obj.deldictvalue(space, "a")
         assert res
-        assert unerase_item(obj._value0) is w4
+        assert obj._value0 is w4
         assert obj.getdictvalue(space, "a") is None
         assert obj.getdictvalue(space, "b") is w4
         assert obj.getdictvalue(space, "c") is None
@@ -699,6 +699,15 @@ class AppTestWithMapDict(object):
         a.x = 42
         del a.x
         raises(AttributeError, "a.x")
+
+    def test_reversed_dict(self):
+        import __pypy__
+        class X(object):
+            pass
+        x = X(); x.a = 10; x.b = 20; x.c = 30
+        d = x.__dict__
+        assert list(__pypy__.reversed_dict(d)) == d.keys()[::-1]
+
 
 class AppTestWithMapDictAndCounters(object):
     spaceconfig = {"objspace.std.withmapdict": True,

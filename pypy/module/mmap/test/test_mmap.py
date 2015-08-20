@@ -524,6 +524,11 @@ class AppTestMMap:
         f.seek(0)
         m = mmap(f.fileno(), 6)
         assert m[-3:7] == "bar"
+        assert m.__getslice__(-3, 7) == "foobar"
+        m.__setslice__(2, 4, "zz")
+        assert m.__getslice__(-3, 7) == "fozzar"
+        raises(TypeError, m.__getslice__, "abc", 2)
+        raises(IndexError, m.__setslice__, 2, 4, None)
 
         assert m[1:0:1] == ""
 

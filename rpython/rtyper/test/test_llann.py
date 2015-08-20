@@ -8,8 +8,7 @@ from rpython.rtyper.annlowlevel import (annotate_lowlevel_helper,
     cast_instance_to_base_ptr, cast_base_ptr_to_instance)
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem.lltype import *
-from rpython.rtyper.rclass import fishllattr
-from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+from rpython.rtyper.rclass import fishllattr, OBJECTPTR
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.translator import TranslationContext
 

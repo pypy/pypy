@@ -62,6 +62,7 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
+        'attach_gdb'                : 'interp_magic.attach_gdb',
         'internal_repr'             : 'interp_magic.internal_repr',
         'bytebuffer'                : 'bytebuffer.bytebuffer',
         'identity_dict'             : 'interp_identitydict.W_IdentityDict',
@@ -71,6 +72,8 @@ class Module(MixedModule):
         'debug_print_once'          : 'interp_debug.debug_print_once',
         'debug_flush'               : 'interp_debug.debug_flush',
         'builtinify'                : 'interp_magic.builtinify',
+        'hidden_applevel'           : 'interp_magic.hidden_applevel',
+        'get_hidden_tb'             : 'interp_magic.get_hidden_tb',
         'lookup_special'            : 'interp_magic.lookup_special',
         'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
         'validate_fd'               : 'interp_magic.validate_fd',
@@ -78,9 +81,12 @@ class Module(MixedModule):
         'newlist_hint'              : 'interp_magic.newlist_hint',
         'add_memory_pressure'       : 'interp_magic.add_memory_pressure',
         'newdict'                   : 'interp_dict.newdict',
+        'reversed_dict'             : 'interp_dict.reversed_dict',
         'strategy'                  : 'interp_magic.strategy',  # dict,set,list
         'set_debug'                 : 'interp_magic.set_debug',
         'locals_to_fast'            : 'interp_magic.locals_to_fast',
+        'save_module_content_for_future_reload':
+                          'interp_magic.save_module_content_for_future_reload',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
@@ -95,8 +101,6 @@ class Module(MixedModule):
 
     def setup_after_space_initialization(self):
         """NOT_RPYTHON"""
-        if not self.space.config.translating:
-            self.extra_interpdef('interp_pdb', 'interp_magic.interp_pdb')
         if self.space.config.objspace.std.withmethodcachecounter:
             self.extra_interpdef('method_cache_counter',
                                  'interp_magic.method_cache_counter')

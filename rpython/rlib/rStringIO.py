@@ -125,19 +125,19 @@ class RStringIO(object):
         assert result >= 0
         return result
 
-    def read(self, n=-1):
+    def read(self, size=-1):
         p = self.__pos
-        if p == 0 and n < 0:
+        if p == 0 and size < 0:
             self.__pos = AT_END
             return self.getvalue()     # reading everything
-        if p == AT_END or n == 0:
+        if p == AT_END or size == 0:
             return ''
         assert p >= 0
         self.__copy_into_bigbuffer()
         mysize = len(self.__bigbuffer)
         count = mysize - p
-        if n >= 0:
-            count = min(n, count)
+        if size >= 0:
+            count = min(size, count)
         if count <= 0:
             return ''
         if p == 0 and count == mysize:

@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.micronumpy import constants as NPY
 
 
@@ -39,6 +39,23 @@ def clipmode_converter(space, w_mode):
             return mode
     raise OperationError(space.w_TypeError,
                          space.wrap("clipmode not understood"))
+
+
+def searchside_converter(space, w_obj):
+    try:
+        s = space.str_w(w_obj)
+    except OperationError:
+        s = None
+    if not s:
+        raise oefmt(space.w_ValueError,
+                    "expected nonempty string for keyword 'side'")
+    if s[0] == 'l' or s[0] == 'L':
+        return NPY.SEARCHLEFT
+    elif s[0] == 'r' or s[0] == 'R':
+        return NPY.SEARCHRIGHT
+    else:
+        raise oefmt(space.w_ValueError,
+                    "'%s' is an invalid value for keyword 'side'", s)
 
 
 def order_converter(space, w_order, default):
@@ -96,3 +113,12 @@ def shape_converter(space, w_size, dtype):
         shape.append(space.int_w(w_item))
     shape += dtype.shape
     return shape[:]
+
+def out_converter(space, w_out):
+    from .ndarray import W_NDimArray
+    if space.is_none(w_out):
+        return None
+    elif not isinstance(w_out, W_NDimArray):
+        raise oefmt(space.w_TypeError, 'output must be an array')
+    else:
+        return w_out

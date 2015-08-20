@@ -18,6 +18,7 @@ class GCBase(object):
     needs_write_barrier = False
     malloc_zero_filled = False
     prebuilt_gc_objects_are_static_roots = True
+    can_usually_pin_objects = False
     object_minimal_size = 0
     gcflag_extra = 0   # or a real GC flag that is always 0 when not collecting
 
@@ -47,9 +48,6 @@ class GCBase(object):
     def _teardown(self):
         pass
 
-    def can_malloc_nonmovable(self):
-        return not self.moving_gc
-
     def can_optimize_clean_setarrayitems(self):
         return True     # False in case of card marking
 
@@ -73,9 +71,9 @@ class GCBase(object):
                             member_index,
                             is_rpython_class,
                             has_custom_trace,
-                            get_custom_trace,
                             fast_path_tracing,
-                            has_gcptr):
+                            has_gcptr,
+                            cannot_pin):
         self.getfinalizer = getfinalizer
         self.getlightfinalizer = getlightfinalizer
         self.is_varsize = is_varsize
@@ -91,9 +89,9 @@ class GCBase(object):
         self.member_index = member_index
         self.is_rpython_class = is_rpython_class
         self.has_custom_trace = has_custom_trace
-        self.get_custom_trace = get_custom_trace
         self.fast_path_tracing = fast_path_tracing
         self.has_gcptr = has_gcptr
+        self.cannot_pin = cannot_pin
 
     def get_member_index(self, type_id):
         return self.member_index(type_id)
@@ -130,15 +128,10 @@ class GCBase(object):
         return self.get_size(obj)
 
     def malloc(self, typeid, length=0, zero=False):
-        """For testing.  The interface used by the gctransformer is
+        """NOT_RPYTHON
+        For testing.  The interface used by the gctransformer is
         the four malloc_[fixed,var]size[_clear]() functions.
         """
-        # Rules about fallbacks in case of missing malloc methods:
-        #  * malloc_fixedsize_clear() and malloc_varsize_clear() are mandatory
-        #  * malloc_fixedsize() and malloc_varsize() fallback to the above
-        # XXX: as of r49360, gctransformer.framework never inserts calls
-        # to malloc_varsize(), but always uses malloc_varsize_clear()
-
         size = self.fixed_size(typeid)
         needs_finalizer = bool(self.getfinalizer(typeid))
         finalizer_is_light = bool(self.getlightfinalizer(typeid))
@@ -149,14 +142,15 @@ class GCBase(object):
             assert not needs_finalizer
             itemsize = self.varsize_item_sizes(typeid)
             offset_to_length = self.varsize_offset_to_length(typeid)
-            if zero or not hasattr(self, 'malloc_varsize'):
+            if self.malloc_zero_filled:
                 malloc_varsize = self.malloc_varsize_clear
             else:
                 malloc_varsize = self.malloc_varsize
             ref = malloc_varsize(typeid, length, size, itemsize,
                                  offset_to_length)
+            size += itemsize * length
         else:
-            if zero or not hasattr(self, 'malloc_fixedsize'):
+            if self.malloc_zero_filled:
                 malloc_fixedsize = self.malloc_fixedsize_clear
             else:
                 malloc_fixedsize = self.malloc_fixedsize
@@ -164,15 +158,24 @@ class GCBase(object):
                                    finalizer_is_light,
                                    contains_weakptr)
         # lots of cast and reverse-cast around...
-        return llmemory.cast_ptr_to_adr(ref)
-
-    def malloc_nonmovable(self, typeid, length=0, zero=False):
-        return self.malloc(typeid, length, zero)
+        ref = llmemory.cast_ptr_to_adr(ref)
+        if zero and not self.malloc_zero_filled:
+            llmemory.raw_memclear(ref, size)
+        return ref
 
     def id(self, ptr):
         return lltype.cast_ptr_to_int(ptr)
 
     def can_move(self, addr):
+        return False
+
+    def pin(self, addr):
+        return False
+
+    def unpin(self, addr):
+        pass
+
+    def _is_pinned(self, addr):
         return False
 
     def set_max_heap_size(self, size):
@@ -216,29 +219,50 @@ class GCBase(object):
     def _trace_slow_path(self, obj, callback, arg):
         typeid = self.get_type_id(obj)
         if self.has_gcptr_in_varsize(typeid):
-            item = obj + self.varsize_offset_to_variable_part(typeid)
             length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
-            offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
-            itemlength = self.varsize_item_sizes(typeid)
-            while length > 0:
-                j = 0
-                while j < len(offsets):
-                    itemobj = item + offsets[j]
-                    if self.points_to_valid_gc_object(itemobj):
-                        callback(itemobj, arg)
-                    j += 1
-                item += itemlength
-                length -= 1
+            if length > 0:
+                item = obj + self.varsize_offset_to_variable_part(typeid)
+                offsets = self.varsize_offsets_to_gcpointers_in_var_part(typeid)
+                itemlength = self.varsize_item_sizes(typeid)
+                len_offsets = len(offsets)
+                if len_offsets == 1:     # common path #1
+                    offsets0 = offsets[0]
+                    while length > 0:
+                        itemobj0 = item + offsets0
+                        if self.points_to_valid_gc_object(itemobj0):
+                            callback(itemobj0, arg)
+                        item += itemlength
+                        length -= 1
+                elif len_offsets == 2:   # common path #2
+                    offsets0 = offsets[0]
+                    offsets1 = offsets[1]
+                    while length > 0:
+                        itemobj0 = item + offsets0
+                        if self.points_to_valid_gc_object(itemobj0):
+                            callback(itemobj0, arg)
+                        itemobj1 = item + offsets1
+                        if self.points_to_valid_gc_object(itemobj1):
+                            callback(itemobj1, arg)
+                        item += itemlength
+                        length -= 1
+                else:                    # general path
+                    while length > 0:
+                        j = 0
+                        while j < len_offsets:
+                            itemobj = item + offsets[j]
+                            if self.points_to_valid_gc_object(itemobj):
+                                callback(itemobj, arg)
+                            j += 1
+                        item += itemlength
+                        length -= 1
         if self.has_custom_trace(typeid):
-            generator = self.get_custom_trace(typeid)
-            item = llmemory.NULL
-            while True:
-                item = generator(obj, item)
-                if not item:
-                    break
-                if self.points_to_valid_gc_object(item):
-                    callback(item, arg)
+            self.custom_trace_dispatcher(obj, typeid, callback, arg)
     _trace_slow_path._annspecialcase_ = 'specialize:arg(2)'
+
+    def _trace_callback(self, callback, arg, addr):
+        if self.is_valid_gc_object(addr.address[0]):
+            callback(addr, arg)
+    _trace_callback._annspecialcase_ = 'specialize:arg(1)'
 
     def trace_partial(self, obj, start, stop, callback, arg):
         """Like trace(), but only walk the array part, for indices in

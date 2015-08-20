@@ -17,6 +17,10 @@ try:
 except ImportError:
     assert '__pypy__' not in _sys.builtin_module_names
     newdict = lambda _ : {}
+try:
+    from __pypy__ import reversed_dict
+except ImportError:
+    reversed_dict = lambda d: reversed(d.keys())
 
 try:
     from thread import get_ident as _get_ident
@@ -29,142 +33,35 @@ except ImportError:
 ################################################################################
 
 class OrderedDict(dict):
-    'Dictionary that remembers insertion order'
-    # An inherited dict maps keys to values.
-    # The inherited dict provides __getitem__, __len__, __contains__, and get.
-    # The remaining methods are order-aware.
-    # Big-O running times for all methods are the same as regular dictionaries.
+    '''Dictionary that remembers insertion order.
 
-    # The internal self.__map dict maps keys to links in a doubly linked list.
-    # The circular doubly linked list starts and ends with a sentinel element.
-    # The sentinel element never gets deleted (this simplifies the algorithm).
-    # Each link is stored as a list of length three:  [PREV, NEXT, KEY].
+    In PyPy all dicts are ordered anyway.  This is mostly useful as a
+    placeholder to mean "this dict must be ordered even on CPython".
 
-    def __init__(self, *args, **kwds):
-        '''Initialize an ordered dictionary.  The signature is the same as
-        regular dictionaries, but keyword arguments are not recommended because
-        their insertion order is arbitrary.
-
-        '''
-        if len(args) > 1:
-            raise TypeError('expected at most 1 arguments, got %d' % len(args))
-        try:
-            self.__root
-        except AttributeError:
-            self.__root = root = []                     # sentinel node
-            root[:] = [root, root, None]
-            self.__map = {}
-        self.__update(*args, **kwds)
-
-    def __setitem__(self, key, value, dict_setitem=dict.__setitem__):
-        'od.__setitem__(i, y) <==> od[i]=y'
-        # Setting a new item creates a new link at the end of the linked list,
-        # and the inherited dictionary is updated with the new key/value pair.
-        if key not in self:
-            root = self.__root
-            last = root[0]
-            last[1] = root[0] = self.__map[key] = [last, root, key]
-        return dict_setitem(self, key, value)
-
-    def __delitem__(self, key, dict_delitem=dict.__delitem__):
-        'od.__delitem__(y) <==> del od[y]'
-        # Deleting an existing item uses self.__map to find the link which gets
-        # removed by updating the links in the predecessor and successor nodes.
-        dict_delitem(self, key)
-        link_prev, link_next, _ = self.__map.pop(key)
-        link_prev[1] = link_next                        # update link_prev[NEXT]
-        link_next[0] = link_prev                        # update link_next[PREV]
-
-    def __iter__(self):
-        'od.__iter__() <==> iter(od)'
-        # Traverse the linked list in order.
-        root = self.__root
-        curr = root[1]                                  # start at the first node
-        while curr is not root:
-            yield curr[2]                               # yield the curr[KEY]
-            curr = curr[1]                              # move to next node
+    Known difference: iterating over an OrderedDict which is being
+    concurrently modified raises RuntimeError in PyPy.  In CPython
+    instead we get some behavior that appears reasonable in some
+    cases but is nonsensical in other cases.  This is officially
+    forbidden by the CPython docs, so we forbid it explicitly for now.
+    '''
 
     def __reversed__(self):
-        'od.__reversed__() <==> reversed(od)'
-        # Traverse the linked list in reverse order.
-        root = self.__root
-        curr = root[0]                                  # start at the last node
-        while curr is not root:
-            yield curr[2]                               # yield the curr[KEY]
-            curr = curr[0]                              # move to previous node
-
-    def clear(self):
-        'od.clear() -> None.  Remove all items from od.'
-        root = self.__root
-        root[:] = [root, root, None]
-        self.__map.clear()
-        dict.clear(self)
-
-    # -- the following methods do not depend on the internal structure --
-
-    def keys(self):
-        'od.keys() -> list of keys in od'
-        return list(self)
-
-    def values(self):
-        'od.values() -> list of values in od'
-        return [self[key] for key in self]
-
-    def items(self):
-        'od.items() -> list of (key, value) pairs in od'
-        return [(key, self[key]) for key in self]
-
-    def iterkeys(self):
-        'od.iterkeys() -> an iterator over the keys in od'
-        return iter(self)
-
-    def itervalues(self):
-        'od.itervalues -> an iterator over the values in od'
-        for k in self:
-            yield self[k]
-
-    def iteritems(self):
-        'od.iteritems -> an iterator over the (key, value) pairs in od'
-        for k in self:
-            yield (k, self[k])
-
-    update = MutableMapping.update
-
-    __update = update # let subclasses override update without breaking __init__
-
-    __marker = object()
-
-    def pop(self, key, default=__marker):
-        '''od.pop(k[,d]) -> v, remove specified key and return the corresponding
-        value.  If key is not found, d is returned if given, otherwise KeyError
-        is raised.
-
-        '''
-        if key in self:
-            result = self[key]
-            del self[key]
-            return result
-        if default is self.__marker:
-            raise KeyError(key)
-        return default
-
-    def setdefault(self, key, default=None):
-        'od.setdefault(k[,d]) -> od.get(k,d), also set od[k]=d if k not in od'
-        if key in self:
-            return self[key]
-        self[key] = default
-        return default
+        return reversed_dict(self)
 
     def popitem(self, last=True):
         '''od.popitem() -> (k, v), return and remove a (key, value) pair.
         Pairs are returned in LIFO order if last is true or FIFO order if false.
 
         '''
-        if not self:
-            raise KeyError('dictionary is empty')
-        key = next(reversed(self) if last else iter(self))
-        value = self.pop(key)
-        return key, value
+        if last:
+            return dict.popitem(self)
+        else:
+            it = dict.__iter__(self)
+            try:
+                k = it.next()
+            except StopIteration:
+                raise KeyError('dictionary is empty')
+            return (k, self.pop(k))
 
     def __repr__(self, _repr_running={}):
         'od.__repr__() <==> repr(od)'
@@ -183,8 +80,6 @@ class OrderedDict(dict):
         'Return state information for pickling'
         items = [[k, self[k]] for k in self]
         inst_dict = vars(self).copy()
-        for k in vars(OrderedDict()):
-            inst_dict.pop(k, None)
         if inst_dict:
             return (self.__class__, (items,), inst_dict)
         return self.__class__, (items,)
@@ -192,17 +87,6 @@ class OrderedDict(dict):
     def copy(self):
         'od.copy() -> a shallow copy of od'
         return self.__class__(self)
-
-    @classmethod
-    def fromkeys(cls, iterable, value=None):
-        '''OD.fromkeys(S[, v]) -> New ordered dictionary with keys from S.
-        If not specified, the value defaults to None.
-
-        '''
-        self = cls()
-        for key in iterable:
-            self[key] = value
-        return self
 
     def __eq__(self, other):
         '''od.__eq__(y) <==> od==y.  Comparison to another OD is order-sensitive
@@ -319,6 +203,7 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
     if isinstance(field_names, basestring):
         field_names = field_names.replace(',', ' ').split()
     field_names = map(str, field_names)
+    typename = str(typename)
     if rename:
         seen = set()
         for index, name in enumerate(field_names):
@@ -331,6 +216,8 @@ def namedtuple(typename, field_names, verbose=False, rename=False):
                 field_names[index] = '_%d' % index
             seen.add(name)
     for name in [typename] + field_names:
+        if type(name) != str:
+            raise TypeError('Type names and field names must be strings')
         if not all(c.isalnum() or c=='_' for c in name):
             raise ValueError('Type names and field names can only contain '
                              'alphanumeric characters and underscores: %r' % name)
@@ -443,7 +330,7 @@ class Counter(dict):
     #   http://code.activestate.com/recipes/259174/
     #   Knuth, TAOCP Vol. II section 4.6.3
 
-    def __init__(self, iterable=None, **kwds):
+    def __init__(*args, **kwds):
         '''Create a new, empty Counter object.  And if given, count elements
         from an input iterable.  Or, initialize the count from another mapping
         of elements to their counts.
@@ -454,8 +341,15 @@ class Counter(dict):
         >>> c = Counter(a=4, b=2)                   # a new counter from keyword args
 
         '''
+        if not args:
+            raise TypeError("descriptor '__init__' of 'Counter' object "
+                            "needs an argument")
+        self = args[0]
+        args = args[1:]
+        if len(args) > 1:
+            raise TypeError('expected at most 1 arguments, got %d' % len(args))
         super(Counter, self).__init__()
-        self.update(iterable, **kwds)
+        self.update(*args, **kwds)
 
     def __missing__(self, key):
         'The count of elements not in the Counter is zero.'
@@ -506,7 +400,7 @@ class Counter(dict):
         raise NotImplementedError(
             'Counter.fromkeys() is undefined.  Use Counter(iterable) instead.')
 
-    def update(self, iterable=None, **kwds):
+    def update(*args, **kwds):
         '''Like dict.update() but add counts instead of replacing them.
 
         Source can be an iterable, a dictionary, or another Counter instance.
@@ -526,6 +420,14 @@ class Counter(dict):
         # contexts.  Instead, we implement straight-addition.  Both the inputs
         # and outputs are allowed to contain zero and negative counts.
 
+        if not args:
+            raise TypeError("descriptor 'update' of 'Counter' object "
+                            "needs an argument")
+        self = args[0]
+        args = args[1:]
+        if len(args) > 1:
+            raise TypeError('expected at most 1 arguments, got %d' % len(args))
+        iterable = args[0] if args else None
         if iterable is not None:
             if isinstance(iterable, Mapping):
                 if self:
@@ -541,7 +443,7 @@ class Counter(dict):
         if kwds:
             self.update(kwds)
 
-    def subtract(self, iterable=None, **kwds):
+    def subtract(*args, **kwds):
         '''Like dict.update() but subtracts counts instead of replacing them.
         Counts can be reduced below zero.  Both the inputs and outputs are
         allowed to contain zero and negative counts.
@@ -557,6 +459,14 @@ class Counter(dict):
         -1
 
         '''
+        if not args:
+            raise TypeError("descriptor 'subtract' of 'Counter' object "
+                            "needs an argument")
+        self = args[0]
+        args = args[1:]
+        if len(args) > 1:
+            raise TypeError('expected at most 1 arguments, got %d' % len(args))
+        iterable = args[0] if args else None
         if iterable is not None:
             self_get = self.get
             if isinstance(iterable, Mapping):

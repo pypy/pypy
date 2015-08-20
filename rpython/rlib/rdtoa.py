@@ -32,10 +32,6 @@ eci = ExternalCompilationInfo(
     includes = ['src/dtoa.h'],
     libraries = [],
     separate_module_sources = [source_file],
-    export_symbols = ['_PyPy_dg_strtod',
-                      '_PyPy_dg_dtoa',
-                      '_PyPy_dg_freedtoa',
-                      ],
     )
 
 # dtoa.c is limited to 'int', so we refuse to pass it

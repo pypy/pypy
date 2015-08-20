@@ -4,14 +4,24 @@ from rpython.jit.backend.x86.regloc import *
 from rpython.jit.backend.x86.test.test_rx86 import CodeBuilder32, CodeBuilder64, assert_encodes_as
 from rpython.jit.backend.x86.assembler import heap
 from rpython.jit.backend.x86.arch import IS_X86_64, IS_X86_32
+from rpython.jit.backend.x86 import codebuf
+from rpython.jit.backend.x86.callbuilder import follow_jump
 from rpython.rlib.rarithmetic import intmask
 import py.test
 
 class LocationCodeBuilder32(CodeBuilder32, LocationCodeBuilder):
-    pass
+    def force_frame_size(self, frame_size):
+        pass
+
+    def stack_frame_size_delta(self, delta):
+        pass
 
 class LocationCodeBuilder64(CodeBuilder64, LocationCodeBuilder):
-    pass
+    def force_frame_size(self, frame_size):
+        pass
+
+    def stack_frame_size_delta(self, delta):
+        pass
 
 cb32 = LocationCodeBuilder32
 cb64 = LocationCodeBuilder64
@@ -62,7 +72,6 @@ def test_cmp_16():
 
 def test_relocation():
     from rpython.rtyper.lltypesystem import lltype, rffi
-    from rpython.jit.backend.x86 import codebuf
     for target in [0x01020304, -0x05060708, 0x0102030405060708]:
         if target > sys.maxint:
             continue
@@ -95,6 +104,37 @@ def test_relocation():
         mc.copy_to_raw_memory(rawstart)
         assert ''.join([buf[i] for i in range(length)]) == expected
         lltype.free(buf, flavor='raw')
+
+class Fake32CodeBlockWrapper(codebuf.MachineCodeBlockWrapper):
+    def check_stack_size_at_ret(self):
+        pass
+        
+def test_follow_jump_instructions_32():
+    buf = lltype.malloc(rffi.CCHARP.TO, 80, flavor='raw')
+    raw = rffi.cast(lltype.Signed, buf)
+    mc = Fake32CodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
+    mc.RET()
+    mc.copy_to_raw_memory(raw)
+    mc = Fake32CodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
+    assert follow_jump(raw) == raw
+    mc.JMP(imm(raw))
+    mc.copy_to_raw_memory(raw + 20)
+    assert buf[20] == '\xE9'    # JMP
+    assert buf[21] == '\xE7'    #     -25
+    assert buf[22] == '\xFF'
+    assert buf[23] == '\xFF'
+    assert buf[24] == '\xFF'
+    mc = Fake32CodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
+    assert follow_jump(raw + 20) == raw
+    mc.JMP(imm(raw))
+    mc.copy_to_raw_memory(raw + 40)
+    assert buf[40] == '\xE9'    # JMP
+    assert buf[41] == '\xD3'    #     -45
+    assert buf[42] == '\xFF'
+    assert buf[43] == '\xFF'
+    assert buf[44] == '\xFF'
+    assert follow_jump(raw + 40) == raw
+    lltype.free(buf, flavor='raw')
 
 
 class Test64Bits:

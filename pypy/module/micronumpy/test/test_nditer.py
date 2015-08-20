@@ -63,23 +63,19 @@ class AppTestNDIter(BaseNumpyAppTest):
         from numpy import arange, nditer, array
         a = arange(24).reshape(2, 3, 4)
         import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, a, flags=['external_loop'])
-            skip('nditer external_loop not implmented')
         r = []
-        n = 0
         for x in nditer(a, flags=['external_loop']):
             r.append(x)
-            n += 1
-        assert n == 1
+        assert len(r) == 1
+        assert r[0].shape == (24,)
         assert (array(r) == range(24)).all()
         r = []
-        n = 0
         for x in nditer(a, flags=['external_loop'], order='F'):
             r.append(x)
-            n += 1
-        assert n == 12
-        assert (array(r) == [[ 0, 12], [ 4, 16], [ 8, 20], [ 1, 13], [ 5, 17], [ 9, 21], [ 2, 14], [ 6, 18], [10, 22], [ 3, 15], [ 7, 19], [11, 23]]).all()
+        assert len(r) == 12
+        assert (array(r) == [[ 0, 12], [ 4, 16], [ 8, 20], [ 1, 13], [ 5, 17], [ 9, 21],
+                             [ 2, 14], [ 6, 18], [10, 22], [ 3, 15], [ 7, 19], [11, 23],
+                            ]).all()
         e = raises(ValueError, 'r[0][0] = 0')
         assert str(e.value) == 'assignment destination is read-only'
         r = []
@@ -114,12 +110,14 @@ class AppTestNDIter(BaseNumpyAppTest):
             r.append((value, it.index))
         assert r == [(0, 0), (1, 2), (2, 4), (3, 1), (4, 3), (5, 5)]
 
-    @py.test.mark.xfail(reason="Fortran order not implemented")
     def test_iters_with_different_order(self):
         from numpy import nditer, array
 
         a = array([[1, 2], [3, 4]], order="C")
-        b = array([[1, 2], [3, 4]], order="F")
+        try:
+            b = array([[1, 2], [3, 4]], order="F")
+        except (NotImplementedError, ValueError):
+            skip('Fortran order not implemented')
 
         it = nditer([a, b])
 
@@ -148,19 +146,60 @@ class AppTestNDIter(BaseNumpyAppTest):
         # assert str(exc.value).startswith("Iterator flag EXTERNAL_LOOP cannot")
 
     def test_buffered(self):
-        from numpy import arange, nditer, array
-        a = arange(6).reshape(2,3)
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, a, flags=['buffered'])
-            skip('nditer buffered not implmented')
+        from numpy import arange, nditer, array, isscalar
+        a = arange(24).reshape(2, 3, 4)
         r = []
-        for x in nditer(a, flags=['external_loop', 'buffered'], order='F'):
+        for x in nditer(a, flags=['external_loop'], order='F'):
             r.append(x)
         array_r = array(r)
         assert len(array_r.shape) == 2
-        assert array_r.shape == (1, 6)
-        assert (array_r == [0, 3, 1, 4, 2, 5]).all()
+        assert array_r.shape == (12, 2)
+        assert (array_r == [[0, 12], [4, 16], [8, 20], [1, 13], [5, 17], [9, 21],
+                      [2, 14], [6, 18], [10, 22], [3, 15], [7, 19], [11, 23]]).all
+        assert (a == arange(24).reshape(2, 3, 4)).all()
+        a[0,0,0] = 100
+        assert r[0][0] == 100
+
+        r = []
+        try:
+            it = nditer(a, flags=['buffered'], order='F')
+        except NotImplementedError as e:
+            assert 'unsupported value for order' in str(e)
+            skip('buffered with order="F" requires fortran tmp array creation')
+        for x in it:
+            r.append(x)
+        array_r = array(r)
+        assert len(array_r.shape) == 1
+        assert array_r.shape == (24,)
+        assert r[0].shape == ()
+        assert not isscalar(r[0])
+        assert (array_r == [0, 12, 4, 16, 8, 20, 1, 13, 5, 17, 9, 21,
+                      2, 14, 6, 18, 10, 22, 3, 15, 7, 19, 11, 23]).all
+        assert a.shape == (2, 3, 4)
+        a[0,0,0] = 0
+        # buffered copies the data into a tmp array
+        assert r[0] == 100
+        assert (a == arange(24).reshape(2, 3, 4)).all()
+
+        r = []
+        for x in nditer(a, flags=['external_loop', 'buffered'], order='F'):
+            r.append(x)
+        assert r[0].shape == (24,)
+        assert (array_r == [0, 12, 4, 16, 8, 20, 1, 13, 5, 17, 9, 21,
+                      2, 14, 6, 18, 10, 22, 3, 15, 7, 19, 11, 23]).all
+        assert a.shape == (2, 3, 4)
+        assert (a == arange(24).reshape(2, 3, 4)).all()
+
+    def test_zerosize(self):
+        from numpy import nditer, array
+        for a in [ array([]), array([1]), array([1, 2]) ]:
+            buffersize = max(16 * 1024 ** 2 // a.itemsize, 1)
+            r = []
+            for chunk in nditer(a, 
+                    flags=['external_loop', 'buffered', 'zerosize_ok'],
+                    buffersize=buffersize, order='C'):
+                r.append(chunk)
+            assert (r == a).all()
 
     def test_op_dtype(self):
         from numpy import arange, nditer, sqrt, array
@@ -168,7 +207,8 @@ class AppTestNDIter(BaseNumpyAppTest):
         exc = raises(TypeError, nditer, a, op_dtypes=['complex'])
         assert str(exc.value).startswith("Iterator operand required copying or buffering")
         exc = raises(ValueError, nditer, a, op_flags=['copy'], op_dtypes=['complex128'])
-        assert str(exc.value) == "None of the iterator flags READWRITE, READONLY, or WRITEONLY were specified for an operand"
+        assert str(exc.value) == "None of the iterator flags READWRITE," \
+                    " READONLY, or WRITEONLY were specified for an operand"
         r = []
         for x in nditer(a, op_flags=['readonly','copy'],
                         op_dtypes=['complex128']):
@@ -186,11 +226,10 @@ class AppTestNDIter(BaseNumpyAppTest):
         from numpy import arange, nditer
         import sys
         a = arange(6.)
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, a, flags=['buffered'], op_dtypes=['float32'])
-            skip('nditer casting not implemented yet')
         exc = raises(TypeError, nditer, a, flags=['buffered'], op_dtypes=['float32'])
-        assert str(exc.value).startswith("Iterator operand 0 dtype could not be cast")
+        assert str(exc.value) == "Iterator operand 0 dtype could not be " + \
+            "cast from dtype('float64') to dtype('float32') according to the" +\
+            " rule 'safe'"
         r = []
         for x in nditer(a, flags=['buffered'], op_dtypes=['float32'],
                                 casting='same_kind'):
@@ -217,14 +256,11 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert r == [(0, 0), (1, 1), (2, 2), (0, 3), (1, 4), (2, 5)]
         a = arange(2)
         exc = raises(ValueError, nditer, [a, b])
-        assert str(exc.value).find('shapes (2) (2,3)') > 0
+        assert str(exc.value).find('shapes (2,) (2,3)') > 0
 
     def test_outarg(self):
         from numpy import nditer, zeros, arange
         import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, [1, 2], flags=['external_loop'])
-            skip('nditer external_loop not implmented')
 
         def square1(a):
             it = nditer([a, None])
@@ -246,16 +282,17 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert (c == [1., 4., 9.]).all()
         assert (b == c).all()
         exc = raises(ValueError, square2, arange(6).reshape(2, 3), out=b)
-        assert str(exc.value).find('cannot be broadcasted') > 0
+        assert str(exc.value).find("doesn't match the broadcast shape") > 0
 
     def test_outer_product(self):
         from numpy import nditer, arange
         a = arange(3)
         import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, nditer, a, flags=['external_loop'])
-            skip('nditer external_loop not implmented')
         b = arange(8).reshape(2,4)
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, nditer, [a, b, None], flags=['external_loop'],
+                   op_axes=[[0, -1, -1], [-1, 0, 1], None])
+            skip('nditer op_axes not implemented yet')
         it = nditer([a, b, None], flags=['external_loop'],
                     op_axes=[[0, -1, -1], [-1, 0, 1], None])
         for x, y, z in it:
@@ -320,3 +357,37 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert res == [(0, (0, 0)), (1, (0, 1)),
                        (2, (0, 2)), (3, (1, 0)),
                        (4, (1, 1)), (5, (1, 2))]
+
+    def test_itershape(self):
+        # Check that allocated outputs work with a specified shape
+        from numpy import nditer, arange
+        import sys
+        if '__pypy__' in sys.builtin_module_names:
+            skip("op_axes not totally supported yet")
+        a = arange(6, dtype='i2').reshape(2,3)
+        i = nditer([a, None], [], [['readonly'], ['writeonly','allocate']],
+                            op_axes=[[0,1,None], None],
+                            itershape=(-1,-1,4))
+        assert i.operands[1].shape == (2,3,4)
+        assert i.operands[1].strides, (24,8,2)
+
+        i = nditer([a.T, None], [], [['readonly'], ['writeonly','allocate']],
+                            op_axes=[[0,1,None], None],
+                            itershape=(-1,-1,4))
+        assert i.operands[1].shape, (3,2,4)
+        assert i.operands[1].strides, (8,24,2)
+
+        i = nditer([a.T, None], [], [['readonly'], ['writeonly','allocate']],
+                            order='F',
+                            op_axes=[[0,1,None], None],
+                            itershape=(-1,-1,4))
+        assert i.operands[1].shape, (3,2,4)
+        assert i.operands[1].strides, (2,6,12)
+
+        # If we specify 1 in the itershape, it shouldn't allow broadcasting
+        # of that dimension to a bigger value
+        raises(ValueError, nditer, [a, None], [],
+                            [['readonly'], ['writeonly','allocate']],
+                            op_axes=[[0,1,None], None],
+                            itershape=(-1,1,4))
+

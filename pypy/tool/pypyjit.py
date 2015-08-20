@@ -17,7 +17,6 @@ except AttributeError:
 from pypy.objspace.std import Space
 from rpython.config.translationoption import set_opt_level
 from pypy.config.pypyoption import get_pypy_config, set_pypy_opt_level
-from pypy.objspace.std import multimethod
 from rpython.rtyper.annlowlevel import llhelper, llstr, hlstr
 from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.rtyper.lltypesystem import lltype
@@ -42,8 +41,6 @@ config.objspace.usemodules.micronumpy = False
 #
 set_pypy_opt_level(config, level='jit')
 
-config.objspace.std.multimethods = 'mrd'
-multimethod.Installer = multimethod.InstallerVersion2
 print config
 
 import sys, pdb

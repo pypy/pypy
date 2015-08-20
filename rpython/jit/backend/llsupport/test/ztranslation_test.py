@@ -2,10 +2,10 @@ import os, sys, py
 from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
 from rpython.rlib.jit import PARAMETERS, dont_look_inside
-from rpython.rlib.jit import promote
+from rpython.rlib.jit import promote, _get_virtualizable_token
 from rpython.rlib import jit_hooks, rposix
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rlib.rthread import ThreadLocalReference
+from rpython.rlib.rthread import ThreadLocalReference, ThreadLocalField
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.support import CCompiledMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
@@ -26,19 +26,16 @@ class TranslationTest(CCompiledMixin):
         # - profiler
         # - full optimizer
         # - floats neg and abs
-        # - threadlocalref_get
-        # - get_errno, set_errno
         # - llexternal with macro=True
 
-        class Frame(object):
+        class BasicFrame(object):
             _virtualizable_ = ['i']
 
             def __init__(self, i):
                 self.i = i
 
-        class Foo(object):
+        class Frame(BasicFrame):
             pass
-        t = ThreadLocalReference(Foo)
 
         eci = ExternalCompilationInfo(post_include_bits=['''
 #define pypy_my_fabs(x)  fabs(x)
@@ -65,6 +62,7 @@ class TranslationTest(CCompiledMixin):
             while frame.i > 3:
                 jitdriver.can_enter_jit(frame=frame, total=total, j=j)
                 jitdriver.jit_merge_point(frame=frame, total=total, j=j)
+                _get_virtualizable_token(frame)
                 total += frame.i
                 if frame.i >= 20:
                     frame.i -= 2
@@ -74,9 +72,6 @@ class TranslationTest(CCompiledMixin):
                 k = myabs1(myabs2(j))
                 if k - abs(j):  raise ValueError
                 if k - abs(-j): raise ValueError
-                if t.get().nine != 9: raise ValueError
-                rposix.set_errno(total)
-                if rposix.get_errno() != total: raise ValueError
             return chr(total % 253)
         #
         class Virt2(object):
@@ -104,12 +99,8 @@ class TranslationTest(CCompiledMixin):
             return res
         #
         def main(i, j):
-            foo = Foo()
-            foo.nine = -(i + j)
-            t.set(foo)
             a_char = f(i, j)
             a_float = libffi_stuff(i, j)
-            keepalive_until_here(foo)
             return ord(a_char) * 10 + int(a_float)
         expected = main(40, -49)
         res = self.meta_interp(main, [40, -49])
@@ -121,6 +112,7 @@ class TranslationTestCallAssembler(CCompiledMixin):
 
     def test_direct_assembler_call_translates(self):
         """Test CALL_ASSEMBLER and the recursion limit"""
+        # - also tests threadlocalref_get
         from rpython.rlib.rstackovf import StackOverflow
 
         class Thing(object):
@@ -137,6 +129,11 @@ class TranslationTestCallAssembler(CCompiledMixin):
             pass
 
         somewhere_else = SomewhereElse()
+
+        class Foo(object):
+            pass
+        t = ThreadLocalReference(Foo, loop_invariant=True)
+        tf = ThreadLocalField(lltype.Char, "test_call_assembler_")
 
         def change(newthing):
             somewhere_else.frame.thing = newthing
@@ -163,6 +160,8 @@ class TranslationTestCallAssembler(CCompiledMixin):
                     nextval = 13
                 frame.thing = Thing(nextval + 1)
                 i += 1
+                if t.get().nine != 9: raise ValueError
+                if ord(tf.getraw()) != 0x92: raise ValueError
             return frame.thing.val
 
         driver2 = JitDriver(greens = [], reds = ['n'])
@@ -184,13 +183,25 @@ class TranslationTestCallAssembler(CCompiledMixin):
                 n = portal2(n)
         assert portal2(10) == -9
 
-        def mainall(codeno, bound):
-            return main(codeno) + main2(bound)
+        def setup(value):
+            foo = Foo()
+            foo.nine = value
+            t.set(foo)
+            tf.setraw("\x92")
+            return foo
 
+        def mainall(codeno, bound):
+            foo = setup(bound + 8)
+            result = main(codeno) + main2(bound)
+            keepalive_until_here(foo)
+            return result
+
+        tmp_obj = setup(9)
+        expected_1 = main(0)
         res = self.meta_interp(mainall, [0, 1], inline=True,
                                policy=StopAtXPolicy(change))
         print hex(res)
-        assert res & 255 == main(0)
+        assert res & 255 == expected_1
         bound = res & ~255
         assert 1024 <= bound <= 131072
         assert bound & (bound-1) == 0       # a power of two

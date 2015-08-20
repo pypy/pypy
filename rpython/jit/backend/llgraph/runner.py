@@ -11,11 +11,11 @@ from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
 from rpython.rtyper.llinterp import LLInterpreter, LLException
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rclass, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
-from rpython.rlib.rtimer import read_timestamp
 
 class LLTrace(object):
     has_been_freed = False
@@ -226,6 +226,7 @@ _example_res = {'v': None,
                 'i': 0,
                 'f': 0.0}
 
+
 class LLGraphCPU(model.AbstractCPU):
     from rpython.jit.metainterp.typesystem import llhelper as ts
     supports_floats = True
@@ -244,8 +245,8 @@ class LLGraphCPU(model.AbstractCPU):
         self.stats = stats or MiniStats()
         self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True,
-                     name='', logger=None):
+    def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
+                     unique_id=0, log=True, name='', logger=None):
         clt = model.CompiledLoopToken(self, looptoken.number)
         looptoken.compiled_loop_token = clt
         lltrace = LLTrace(inputargs, operations)
@@ -642,15 +643,17 @@ class LLGraphCPU(model.AbstractCPU):
 
     def bh_new_array(self, length, arraydescr):
         array = lltype.malloc(arraydescr.A, length, zero=True)
+        assert getkind(arraydescr.A.OF) != 'ref' # getkind crashes on structs
+        return lltype.cast_opaque_ptr(llmemory.GCREF, array)
+
+    def bh_new_array_clear(self, length, arraydescr):
+        array = lltype.malloc(arraydescr.A, length, zero=True)
         return lltype.cast_opaque_ptr(llmemory.GCREF, array)
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
-
-    def bh_read_timestamp(self):
-        return read_timestamp()
 
     def bh_new_raw_buffer(self, size):
         return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
@@ -932,7 +935,7 @@ class LLFrame(object):
         del self.force_guard_op
         return res
 
-    def execute_call_release_gil(self, descr, func, *args):
+    def execute_call_release_gil(self, descr, saveerr, func, *args):
         if hasattr(descr, '_original_func_'):
             func = descr._original_func_     # see pyjitpl.py
             # we want to call the function that does the aroundstate
@@ -1021,6 +1024,12 @@ class LLFrame(object):
             pass
         else:
             stats.add_merge_point_location(args[1:])
+
+    def execute_enter_portal_frame(self, descr, *args):
+        pass
+
+    def execute_leave_portal_frame(self, descr, *args):
+        pass
 
     def execute_new_with_vtable(self, _, vtable):
         descr = heaptracker.vtable2descr(self.cpu, vtable)

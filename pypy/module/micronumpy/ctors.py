@@ -3,7 +3,7 @@ from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstring import strip_spaces
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.module.micronumpy import descriptor, loop
+from pypy.module.micronumpy import descriptor, loop, support
 from pypy.module.micronumpy.base import (
     W_NDimArray, convert_to_array, W_NumpyObject)
 from pypy.module.micronumpy.converters import shape_converter
@@ -38,6 +38,34 @@ def try_array_method(space, w_object, w_dtype=None):
         raise oefmt(space.w_ValueError,
                     "object __array__ method not producing an array")
 
+def try_interface_method(space, w_object):
+    try:
+        w_interface = space.getattr(w_object, space.wrap("__array_interface__"))
+    except OperationError, e:
+        if e.match(space, space.w_AttributeError):
+            return None
+        raise
+    if w_interface is None:
+        # happens from compile.py
+        return None
+    version = space.int_w(space.finditem(w_interface, space.wrap("version")))
+    if version < 3:
+        raise oefmt(space.w_NotImplementedError,
+                "__array_interface__ version %d not supported", version)
+    # make a view into the data
+    w_shape = space.finditem(w_interface, space.wrap('shape'))
+    w_dtype = space.finditem(w_interface, space.wrap('typestr'))
+    w_descr = space.finditem(w_interface, space.wrap('descr'))
+    data_w = space.listview(space.finditem(w_interface, space.wrap('data')))
+    w_strides = space.finditem(w_interface, space.wrap('strides'))
+    shape = [space.int_w(i) for i in space.listview(w_shape)]
+    dtype = descriptor.decode_w_dtype(space, w_dtype)
+    rw = space.is_true(data_w[1])
+    #print 'create view from shape',shape,'dtype',dtype,'descr',w_descr,'data',data_w[0],'rw',rw
+    raise oefmt(space.w_NotImplementedError,
+                "creating array from __array_interface__ not supported yet")
+    return
+
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
 def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
@@ -63,7 +91,11 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             # continue with w_array, but do further operations in place
             w_object = w_array
             copy = False
-
+    if not isinstance(w_object, W_NDimArray):
+        w_array = try_interface_method(space, w_object)
+        if w_array is not None:
+            w_object = w_array
+            copy = False
     dtype = descriptor.decode_w_dtype(space, w_dtype)
 
     if space.is_none(w_order):
@@ -75,18 +107,45 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
         if order != 'C':  # or order != 'F':
             raise oefmt(space.w_ValueError, "Unknown order: %s", order)
 
-    # arrays with correct dtype
-    if isinstance(w_object, W_NDimArray) and \
-            (space.is_none(w_dtype) or w_object.get_dtype() is dtype):
+    if isinstance(w_object, W_NDimArray):
+        if (dtype is None or w_object.get_dtype() is dtype):
+            if copy and (subok or type(w_object) is W_NDimArray):
+                return w_object.descr_copy(space, w_order)
+            elif not copy and (subok or type(w_object) is W_NDimArray):
+                return w_object
+        if subok and not type(w_object) is W_NDimArray:
+            raise oefmt(space.w_NotImplementedError,
+                "array(..., subok=True) only partially implemented")
+        # we have a ndarray, but need to copy or change dtype
+        if dtype is None:
+            dtype = w_object.get_dtype()
+        if dtype != w_object.get_dtype():
+            # silently reject the copy value
+            copy = True
         if copy:
-            return w_object.descr_copy(space)
+            shape = w_object.get_shape()
+            w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
+            if support.product(shape) == 1:
+                w_arr.set_scalar_value(dtype.coerce(space,
+                        w_object.implementation.getitem(0)))
+            else:
+                loop.setslice(space, shape, w_arr.implementation, w_object.implementation)
+            return w_arr
         else:
-            return w_object
-
-    # not an array or incorrect dtype
-    shape, elems_w = strides.find_shape_and_elems(space, w_object, dtype)
+            imp = w_object.implementation
+            w_base = imp.base() or w_object
+            with imp as storage:
+                sz = support.product(w_object.get_shape()) * dtype.elsize
+                return W_NDimArray.from_shape_and_storage(space,
+                    w_object.get_shape(), storage, dtype, storage_bytes=sz,
+                    w_base=w_base, start=imp.start)
+    else:
+        # not an array
+        shape, elems_w = strides.find_shape_and_elems(space, w_object, dtype)
+    if dtype is None and space.isinstance_w(w_object, space.w_buffer):
+        dtype = descriptor.get_dtype_cache(space).w_uint8dtype
     if dtype is None or (dtype.is_str_or_unicode() and dtype.elsize < 1):
-        dtype = strides.find_dtype_for_seq(space, elems_w, dtype)
+        dtype = find_dtype_for_seq(space, elems_w, dtype)
         if dtype is None:
             dtype = descriptor.get_dtype_cache(space).w_float64dtype
         elif dtype.is_str_or_unicode() and dtype.elsize < 1:
@@ -94,7 +153,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             dtype = descriptor.variable_dtype(space, dtype.char + '1')
 
     w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
-    if len(elems_w) == 1:
+    if support.product(shape) == 1:
         w_arr.set_scalar_value(dtype.coerce(space, elems_w[0]))
     else:
         loop.assign(space, w_arr, elems_w)
@@ -113,7 +172,7 @@ def numpify(space, w_object):
         return w_array
 
     shape, elems_w = strides.find_shape_and_elems(space, w_object, None)
-    dtype = strides.find_dtype_for_seq(space, elems_w, None)
+    dtype = find_dtype_for_seq(space, elems_w, None)
     if dtype is None:
         dtype = descriptor.get_dtype_cache(space).w_float64dtype
     elif dtype.is_str_or_unicode() and dtype.elsize < 1:
@@ -127,6 +186,21 @@ def numpify(space, w_object):
         loop.assign(space, w_arr, elems_w)
         return w_arr
 
+def _dtype_guess(space, dtype, w_elem):
+    from .casting import scalar2dtype, find_binop_result_dtype
+    if isinstance(w_elem, W_NDimArray) and w_elem.is_scalar():
+        w_elem = w_elem.get_scalar_value()
+    elem_dtype = scalar2dtype(space, w_elem)
+    return find_binop_result_dtype(space, elem_dtype, dtype)
+
+def find_dtype_for_seq(space, elems_w, dtype):
+    if len(elems_w) == 1:
+        w_elem = elems_w[0]
+        return _dtype_guess(space, dtype, w_elem)
+    for w_elem in elems_w:
+        dtype = _dtype_guess(space, dtype, w_elem)
+    return dtype
+
 
 def _zeros_or_empty(space, w_shape, w_dtype, w_order, zero):
     dtype = space.interp_w(descriptor.W_Dtype,
@@ -134,6 +208,15 @@ def _zeros_or_empty(space, w_shape, w_dtype, w_order, zero):
     if dtype.is_str_or_unicode() and dtype.elsize < 1:
         dtype = descriptor.variable_dtype(space, dtype.char + '1')
     shape = shape_converter(space, w_shape, dtype)
+    for dim in shape:
+        if dim < 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "negative dimensions are not allowed"))
+    try:
+        support.product(shape)
+    except OverflowError:
+        raise OperationError(space.w_ValueError, space.wrap(
+            "array is too big."))
     return W_NDimArray.from_shape(space, shape, dtype=dtype, zero=zero)
 
 def empty(space, w_shape, w_dtype=None, w_order=None):
@@ -293,5 +376,5 @@ def frombuffer(space, w_buffer, w_dtype=None, count=-1, offset=0):
         return a
     else:
         writable = not buf.readonly
-    return W_NDimArray.from_shape_and_storage(space, [n], storage, dtype=dtype,
-                                              w_base=w_buffer, writable=writable)
+    return W_NDimArray.from_shape_and_storage(space, [n], storage, storage_bytes=s,
+                                dtype=dtype, w_base=w_buffer, writable=writable)

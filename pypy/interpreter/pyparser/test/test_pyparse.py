@@ -64,6 +64,13 @@ stuff = "nothing"
         assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
                            "in position 16: ordinal not in range(128)")
 
+    def test_non_unicode_codec(self):
+        exc = py.test.raises(SyntaxError, self.parse, """\
+# coding: string-escape
+\x70\x72\x69\x6e\x74\x20\x32\x2b\x32\x0a
+""").value
+        assert exc.msg == "codec did not return a unicode object"
+
     def test_syntax_error(self):
         parse = self.parse
         exc = py.test.raises(SyntaxError, parse, "name another for").value

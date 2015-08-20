@@ -14,7 +14,8 @@ from rpython.rtyper.lltypesystem import rlist as rlist_ll
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.llinterp import LLInterpreter
-from rpython.rtyper.lltypesystem import lltype, rclass, rffi, llmemory, rstr as ll_rstr, rdict as ll_rdict
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory, rstr as ll_rstr, rdict as ll_rdict
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import rordereddict
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.module import ll_math
@@ -97,8 +98,9 @@ def autodetect_jit_markers_redvars(graph):
             op.args.extend(reds_v)
             if jitdriver.numreds is None:
                 jitdriver.numreds = len(reds_v)
-            else:
-                assert jitdriver.numreds == len(reds_v), 'inconsistent number of reds_v'
+            elif jitdriver.numreds != len(reds_v):
+                raise AssertionError("there are multiple jit_merge_points "
+                                     "with the same jitdriver")
 
 def split_before_jit_merge_point(graph, portalblock, portalopindex):
     """Split the block just before the 'jit_merge_point',
@@ -106,7 +108,7 @@ def split_before_jit_merge_point(graph, portalblock, portalopindex):
     """
     # split the block just before the jit_merge_point()
     if portalopindex > 0:
-        link = split_block(None, portalblock, portalopindex)
+        link = split_block(portalblock, portalopindex)
         portalblock = link.target
     portalop = portalblock.operations[0]
     # split again, this time enforcing the order of the live vars
@@ -114,7 +116,7 @@ def split_before_jit_merge_point(graph, portalblock, portalopindex):
     assert portalop.opname == 'jit_marker'
     assert portalop.args[0].value == 'jit_merge_point'
     greens_v, reds_v = decode_hp_hint_args(portalop)
-    link = split_block(None, portalblock, 0, greens_v + reds_v)
+    link = split_block(portalblock, 0, greens_v + reds_v)
     return link.target
 
 def sort_vars(args_v):
@@ -180,11 +182,11 @@ def _ll_0_newlist(LIST):
     return LIST.ll_newlist(0)
 def _ll_1_newlist(LIST, count):
     return LIST.ll_newlist(count)
-def _ll_2_newlist(LIST, count, item):
-    return rlist.ll_alloc_and_set(LIST, count, item)
 _ll_0_newlist.need_result_type = True
 _ll_1_newlist.need_result_type = True
-_ll_2_newlist.need_result_type = True
+
+_ll_1_newlist_clear = rlist._ll_alloc_and_clear
+_ll_1_newlist_clear.need_result_type = True
 
 def _ll_1_newlist_hint(LIST, hint):
     return LIST.ll_newlist_hint(hint)
@@ -227,6 +229,13 @@ def _ll_1_gc_identityhash(x):
 # with the same id() to appear).
 def _ll_1_gc_id(ptr):
     return llop.gc_id(lltype.Signed, ptr)
+
+
+def _ll_1_gc_pin(ptr):
+    return llop.gc_pin(lltype.Bool, ptr)
+
+def _ll_1_gc_unpin(ptr):
+    llop.gc_unpin(lltype.Void, ptr)
 
 
 @oopspec("jit.force_virtual(inst)")
@@ -288,6 +297,10 @@ def _ll_1_cast_float_to_uint(x):
     # XXX on 32-bit platforms, this should be done using cast_float_to_longlong
     # (which is a residual call right now in the x86 backend)
     return llop.cast_float_to_uint(lltype.Unsigned, x)
+
+def _ll_0_ll_read_timestamp():
+    from rpython.rlib import rtimer
+    return rtimer.read_timestamp()
 
 
 # math support
@@ -690,10 +703,9 @@ class LLtypeHelpers:
     build_ll_1_raw_free_no_track_allocation = (
         build_raw_free_builder(track_allocation=False))
 
-    def build_ll_0_threadlocalref_getter(opaqueid):
-        def _ll_0_threadlocalref_getter():
-            return llop.threadlocalref_get(rclass.OBJECTPTR, opaqueid)
-        return _ll_0_threadlocalref_getter
+    def _ll_1_threadlocalref_get(TP, offset):
+        return llop.threadlocalref_get(TP, offset)
+    _ll_1_threadlocalref_get.need_result_type = 'exact'   # don't deref
 
     def _ll_1_weakref_create(obj):
         return llop.weakref_create(llmemory.WeakRefPtr, obj)
@@ -806,8 +818,18 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res,
     s_result = lltype_to_annotation(ll_res)
     impl = setup_extra_builtin(rtyper, oopspec_name, len(args_s), extra)
     if getattr(impl, 'need_result_type', False):
-        bk = rtyper.annotator.bookkeeper
-        args_s.insert(0, annmodel.SomePBC([bk.getdesc(deref(ll_res))]))
+        if hasattr(rtyper, 'annotator'):
+            bk = rtyper.annotator.bookkeeper
+            ll_restype = ll_res
+            if impl.need_result_type != 'exact':
+                ll_restype = deref(ll_restype)
+            desc = bk.getdesc(ll_restype)
+        else:
+            class TestingDesc(object):
+                knowntype = int
+                pyobj = None
+            desc = TestingDesc()
+        args_s.insert(0, annmodel.SomePBC([desc]))
     #
     if hasattr(rtyper, 'annotator'):  # regular case
         mixlevelann = MixLevelHelperAnnotator(rtyper)

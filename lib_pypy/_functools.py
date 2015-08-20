@@ -8,28 +8,51 @@ class partial(object):
     partial(func, *args, **keywords) - new function with partial application
     of the given arguments and keywords.
     """
-
-    def __init__(self, func, *args, **keywords):
+    def __init__(*args, **keywords):
+        if len(args) < 2:
+            raise TypeError('__init__() takes at least 2 arguments (%d given)'
+                            % len(args))
+        self, func, args = args[0], args[1], args[2:]
         if not callable(func):
             raise TypeError("the first argument must be callable")
-        self.func = func
-        self.args = args
-        self.keywords = keywords or None
+        self._func = func
+        self._args = args
+        self._keywords = keywords
+
+    def __delattr__(self, key):
+        if key == '__dict__':
+            raise TypeError("a partial object's dictionary may not be deleted")
+        object.__delattr__(self, key)
+
+    @property
+    def func(self):
+        return self._func
+
+    @property
+    def args(self):
+        return self._args
+
+    @property
+    def keywords(self):
+        return self._keywords
 
     def __call__(self, *fargs, **fkeywords):
-        if self.keywords is not None:
-            fkeywords = dict(self.keywords, **fkeywords)
-        return self.func(*(self.args + fargs), **fkeywords)
+        if self._keywords:
+            fkeywords = dict(self._keywords, **fkeywords)
+        return self._func(*(self._args + fargs), **fkeywords)
 
     def __reduce__(self):
         d = dict((k, v) for k, v in self.__dict__.iteritems() if k not in
-                ('func', 'args', 'keywords'))
+                ('_func', '_args', '_keywords'))
         if len(d) == 0:
             d = None
-        return (type(self), (self.func,),
-                (self.func, self.args, self.keywords, d))
+        return (type(self), (self._func,),
+                (self._func, self._args, self._keywords, d))
 
     def __setstate__(self, state):
-        self.func, self.args, self.keywords, d = state
+        func, args, keywords, d = state
         if d is not None:
             self.__dict__.update(d)
+        self._func = func
+        self._args = args
+        self._keywords = keywords

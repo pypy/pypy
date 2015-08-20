@@ -10,7 +10,7 @@ from rpython.rlib.debug import (have_debug_prints, ll_assert, debug_start,
     debug_stop, debug_print)
 from rpython.rtyper import annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
-from rpython.rtyper.lltypesystem.rclass import OBJECTPTR
+from rpython.rtyper.rclass import OBJECTPTR
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 
 
@@ -18,9 +18,6 @@ from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 # guard operation, and to decode it again.  This is a bit advanced,
 # because it needs to support optimize.py which encodes virtuals with
 # arbitrary cycles and also to compress the information
-
-class AlreadyForced(Exception):
-    pass
 
 class Snapshot(object):
     __slots__ = ('prev', 'boxes')
@@ -55,7 +52,7 @@ def _ensure_parent_resumedata(framestack, n):
                                          back.get_list_of_active_boxes(True))
 
 def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
-                       storage):
+                       snapshot_storage):
     n = len(framestack) - 1
     if virtualizable_boxes is not None:
         boxes = virtualref_boxes + virtualizable_boxes
@@ -66,14 +63,14 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
         _ensure_parent_resumedata(framestack, n)
         frame_info_list = FrameInfo(top.parent_resumedata_frame_info_list,
                                     top.jitcode, top.pc)
-        storage.rd_frame_info_list = frame_info_list
+        snapshot_storage.rd_frame_info_list = frame_info_list
         snapshot = Snapshot(top.parent_resumedata_snapshot,
                             top.get_list_of_active_boxes(False))
         snapshot = Snapshot(snapshot, boxes)
-        storage.rd_snapshot = snapshot
+        snapshot_storage.rd_snapshot = snapshot
     else:
-        storage.rd_frame_info_list = None
-        storage.rd_snapshot = Snapshot(None, boxes)
+        snapshot_storage.rd_frame_info_list = None
+        snapshot_storage.rd_snapshot = Snapshot(None, boxes)
 
 #
 # The following is equivalent to the RPython-level declaration:
@@ -270,8 +267,9 @@ _frame_info_placeholder = (None, 0, 0)
 
 class ResumeDataVirtualAdder(VirtualVisitor):
 
-    def __init__(self, storage, memo):
+    def __init__(self, storage, snapshot_storage, memo):
         self.storage = storage
+        self.snapshot_storage = snapshot_storage
         self.memo = memo
 
     def make_virtual_info(self, value, fieldnums):
@@ -295,8 +293,11 @@ class ResumeDataVirtualAdder(VirtualVisitor):
     def visit_vstruct(self, typedescr, fielddescrs):
         return VStructInfo(typedescr, fielddescrs)
 
-    def visit_varray(self, arraydescr):
-        return VArrayInfo(arraydescr)
+    def visit_varray(self, arraydescr, clear):
+        if clear:
+            return VArrayInfoClear(arraydescr)
+        else:
+            return VArrayInfoNotClear(arraydescr)
 
     def visit_varraystruct(self, arraydescr, fielddescrs):
         return VArrayStructInfo(arraydescr, fielddescrs)
@@ -354,13 +355,14 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         storage = self.storage
         # make sure that nobody attached resume data to this guard yet
         assert not storage.rd_numb
-        snapshot = storage.rd_snapshot
+        snapshot = self.snapshot_storage.rd_snapshot
         assert snapshot is not None # is that true?
         numb, liveboxes_from_env, v = self.memo.number(optimizer, snapshot)
         self.liveboxes_from_env = liveboxes_from_env
         self.liveboxes = {}
         storage.rd_numb = numb
-        storage.rd_snapshot = None
+        self.snapshot_storage.rd_snapshot = None
+        storage.rd_frame_info_list = self.snapshot_storage.rd_frame_info_list
 
         # collect liveboxes and virtuals
         n = len(liveboxes_from_env) - v
@@ -545,7 +547,7 @@ class VStructInfo(AbstractVirtualStructInfo):
         debug_print("\tvstructinfo", self.typedescr.repr_rpython(), " at ",  compute_unique_id(self))
         AbstractVirtualStructInfo.debug_prints(self)
 
-class VArrayInfo(AbstractVirtualInfo):
+class AbstractVArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
         #self.fieldnums = ...
@@ -554,27 +556,38 @@ class VArrayInfo(AbstractVirtualInfo):
     def allocate(self, decoder, index):
         length = len(self.fieldnums)
         arraydescr = self.arraydescr
-        array = decoder.allocate_array(length, arraydescr)
+        array = decoder.allocate_array(length, arraydescr, self.clear)
         decoder.virtuals_cache.set_ptr(index, array)
         # NB. the check for the kind of array elements is moved out of the loop
         if arraydescr.is_array_of_pointers():
             for i in range(length):
-                decoder.setarrayitem_ref(array, i, self.fieldnums[i],
-                                         arraydescr)
+                num = self.fieldnums[i]
+                if not tagged_eq(num, UNINITIALIZED):
+                    decoder.setarrayitem_ref(array, i, num, arraydescr)
         elif arraydescr.is_array_of_floats():
             for i in range(length):
-                decoder.setarrayitem_float(array, i, self.fieldnums[i],
-                                           arraydescr)
+                num = self.fieldnums[i]
+                if not tagged_eq(num, UNINITIALIZED):
+                    decoder.setarrayitem_float(array, i, num, arraydescr)
         else:
             for i in range(length):
-                decoder.setarrayitem_int(array, i, self.fieldnums[i],
-                                         arraydescr)
+                num = self.fieldnums[i]
+                if not tagged_eq(num, UNINITIALIZED):
+                    decoder.setarrayitem_int(array, i, num, arraydescr)
         return array
 
     def debug_prints(self):
-        debug_print("\tvarrayinfo", self.arraydescr, " at ",  compute_unique_id(self))
+        debug_print("\tvarrayinfo", self.arraydescr, " at ",
+                    compute_unique_id(self), " clear=", self.clear)
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
+
+
+class VArrayInfoClear(AbstractVArrayInfo):
+    clear = True
+
+class VArrayInfoNotClear(AbstractVArrayInfo):
+    clear = False
 
 
 class VAbstractRawInfo(AbstractVirtualInfo):
@@ -637,7 +650,8 @@ class VArrayStructInfo(AbstractVirtualInfo):
 
     @specialize.argtype(1)
     def allocate(self, decoder, index):
-        array = decoder.allocate_array(len(self.fielddescrs), self.arraydescr)
+        array = decoder.allocate_array(len(self.fielddescrs), self.arraydescr,
+                                       clear=True)
         decoder.virtuals_cache.set_ptr(index, array)
         p = 0
         for i in range(len(self.fielddescrs)):
@@ -979,8 +993,11 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
     def allocate_struct(self, typedescr):
         return self.metainterp.execute_new(typedescr)
 
-    def allocate_array(self, length, arraydescr):
+    def allocate_array(self, length, arraydescr, clear):
         lengthbox = ConstInt(length)
+        if clear:
+            return self.metainterp.execute_new_array_clear(arraydescr,
+                                                           lengthbox)
         return self.metainterp.execute_new_array(arraydescr, lengthbox)
 
     def allocate_raw_buffer(self, size):
@@ -1302,7 +1319,9 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def allocate_struct(self, typedescr):
         return self.cpu.bh_new(typedescr)
 
-    def allocate_array(self, length, arraydescr):
+    def allocate_array(self, length, arraydescr, clear):
+        if clear:
+            return self.cpu.bh_new_array_clear(length, arraydescr)
         return self.cpu.bh_new_array(length, arraydescr)
 
     def allocate_string(self, length):

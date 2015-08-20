@@ -10,28 +10,30 @@ http://morepypy.blogspot.com/2011/10/more-compact-lists-with-list-strategies.htm
 import operator
 import sys
 
-from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import (WrappedDefault, unwrap_spec, applevel,
-    interp2app)
-from pypy.interpreter.generator import GeneratorIterator
-from pypy.interpreter.signature import Signature
-from pypy.objspace.std import slicetype
-from pypy.objspace.std.bytesobject import W_BytesObject
-from pypy.objspace.std.floatobject import W_FloatObject
-from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.iterobject import (W_FastListIterObject,
-    W_ReverseSeqIterObject)
-from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std.stdtypedef import StdTypeDef
-from pypy.objspace.std.tupleobject import W_AbstractTupleObject
-from pypy.objspace.std.unicodeobject import W_UnicodeObject
-from pypy.objspace.std.util import get_positive_index, negate
 from rpython.rlib import debug, jit, rerased
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
-    instantiate, newlist_hint, resizelist_hint, specialize, import_from_mixin)
+    import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize)
+from rpython.rlib import longlong2float
 from rpython.tool.sourcetools import func_with_new_name
+
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import (
+    WrappedDefault, applevel, interp2app, unwrap_spec)
+from pypy.interpreter.generator import GeneratorIterator
+from pypy.interpreter.signature import Signature
+from pypy.interpreter.typedef import TypeDef
+from pypy.objspace.std.bytesobject import W_BytesObject
+from pypy.objspace.std.floatobject import W_FloatObject
+from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.iterobject import (
+    W_FastListIterObject, W_ReverseSeqIterObject)
+from pypy.objspace.std.sliceobject import (
+    W_SliceObject, normalize_simple_slice, unwrap_start_stop)
+from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
+from pypy.objspace.std.util import get_positive_index, negate
 
 __all__ = ['W_ListObject', 'make_range_list', 'make_empty_list_with_size']
 
@@ -72,33 +74,56 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
             return SizeListStrategy(space, sizehint)
         return space.fromcache(EmptyListStrategy)
 
-    # check for ints
-    for w_obj in list_w:
-        if not type(w_obj) is W_IntObject:
-            break
-    else:
-        return space.fromcache(IntegerListStrategy)
+    w_firstobj = list_w[0]
+    check_int_or_float = False
 
-    # check for strings
-    for w_obj in list_w:
-        if not type(w_obj) is W_BytesObject:
-            break
-    else:
-        return space.fromcache(BytesListStrategy)
+    if type(w_firstobj) is W_IntObject:
+        # check for all-ints
+        for i in range(1, len(list_w)):
+            w_obj = list_w[i]
+            if type(w_obj) is not W_IntObject:
+                check_int_or_float = (type(w_obj) is W_FloatObject)
+                break
+        else:
+            return space.fromcache(IntegerListStrategy)
 
-    # check for unicode
-    for w_obj in list_w:
-        if not type(w_obj) is W_UnicodeObject:
-            break
-    else:
-        return space.fromcache(UnicodeListStrategy)
+    elif type(w_firstobj) is W_BytesObject:
+        # check for all-strings
+        for i in range(1, len(list_w)):
+            if type(list_w[i]) is not W_BytesObject:
+                break
+        else:
+            return space.fromcache(BytesListStrategy)
 
-    # check for floats
-    for w_obj in list_w:
-        if not type(w_obj) is W_FloatObject:
+    elif type(w_firstobj) is W_UnicodeObject:
+        # check for all-unicodes
+        for i in range(1, len(list_w)):
+            if type(list_w[i]) is not W_UnicodeObject:
+                break
+        else:
+            return space.fromcache(UnicodeListStrategy)
+
+    elif type(w_firstobj) is W_FloatObject:
+        # check for all-floats
+        for i in range(1, len(list_w)):
+            w_obj = list_w[i]
+            if type(w_obj) is not W_FloatObject:
+                check_int_or_float = (type(w_obj) is W_IntObject)
+                break
+        else:
+            return space.fromcache(FloatListStrategy)
+
+    if check_int_or_float:
+        for w_obj in list_w:
+            if type(w_obj) is W_IntObject:
+                if longlong2float.can_encode_int32(space.int_w(w_obj)):
+                    continue    # ok
+            elif type(w_obj) is W_FloatObject:
+                if longlong2float.can_encode_float(space.float_w(w_obj)):
+                    continue    # ok
             break
-    else:
-        return space.fromcache(FloatListStrategy)
+        else:
+            return space.fromcache(IntOrFloatListStrategy)
 
     return space.fromcache(ObjectListStrategy)
 
@@ -175,6 +200,12 @@ class W_ListObject(W_Root):
         storage = strategy.erase(list_u)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
+    @staticmethod
+    def newlist_int(space, list_i):
+        strategy = space.fromcache(IntegerListStrategy)
+        storage = strategy.erase(list_i)
+        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
+
     def __repr__(self):
         """ representation for debugging purposes """
         return "%s(%s, %s)" % (self.__class__.__name__, self.strategy,
@@ -187,9 +218,9 @@ class W_ListObject(W_Root):
 
     def switch_to_object_strategy(self):
         list_w = self.getitems()
-        self.strategy = self.space.fromcache(ObjectListStrategy)
-        # XXX this is quite indirect
-        self.init_from_list_w(list_w)
+        object_strategy = self.space.fromcache(ObjectListStrategy)
+        self.strategy = object_strategy
+        object_strategy.init_from_list_w(self, list_w)
 
     def _temporarily_as_objects(self):
         if self.strategy is self.space.fromcache(ObjectListStrategy):
@@ -358,11 +389,13 @@ class W_ListObject(W_Root):
 
     @staticmethod
     def descr_new(space, w_listtype, __args__):
+        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
         w_obj = space.allocate_instance(W_ListObject, w_listtype)
         w_obj.clear(space)
         return w_obj
 
     def descr_init(self, space, __args__):
+        """x.__init__(...) initializes x; see help(type(x)) for signature"""
         # this is on the silly side
         w_iterable, = __args__.parse_obj(
                 None, 'list', init_signature, init_defaults)
@@ -615,8 +648,8 @@ class W_ListObject(W_Root):
         try:
             i = self.find(w_value, 0, sys.maxint)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("list.remove(x): x not in list"))
+            raise oefmt(space.w_ValueError,
+                        "list.remove(): %R is not in list", w_value)
         if i < self.length():  # otherwise list was mutated
             self.pop(i)
 
@@ -626,13 +659,12 @@ class W_ListObject(W_Root):
         first index of value'''
         # needs to be safe against eq_w() mutating the w_list behind our back
         size = self.length()
-        i, stop = slicetype.unwrap_start_stop(
-                space, size, w_start, w_stop, True)
+        i, stop = unwrap_start_stop(space, size, w_start, w_stop)
+        # note that 'i' and 'stop' can be bigger than the length of the list
         try:
             i = self.find(w_value, i, stop)
         except ValueError:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("list.index(x): x not in list"))
+            raise oefmt(space.w_ValueError, "%R is not in list", w_value)
         return space.wrap(i)
 
     @unwrap_spec(reverse=bool)
@@ -1374,12 +1406,15 @@ class AbstractUnwrappedStrategy(object):
             return W_ListObject.from_storage_and_strategy(
                     self.space, storage, self)
 
+    def switch_to_next_strategy(self, w_list, w_sample_item):
+        w_list.switch_to_object_strategy()
+
     def append(self, w_list, w_item):
         if self.is_correct_type(w_item):
             self.unerase(w_list.lstorage).append(self.unwrap(w_item))
             return
 
-        w_list.switch_to_object_strategy()
+        self.switch_to_next_strategy(w_list, w_item)
         w_list.append(w_item)
 
     def insert(self, w_list, index, w_item):
@@ -1389,7 +1424,7 @@ class AbstractUnwrappedStrategy(object):
             l.insert(index, self.unwrap(w_item))
             return
 
-        w_list.switch_to_object_strategy()
+        self.switch_to_next_strategy(w_list, w_item)
         w_list.insert(index, w_item)
 
     def _extend_from_list(self, w_list, w_other):
@@ -1413,7 +1448,7 @@ class AbstractUnwrappedStrategy(object):
             except IndexError:
                 raise
         else:
-            w_list.switch_to_object_strategy()
+            self.switch_to_next_strategy(w_list, w_item)
             w_list.setitem(index, w_item)
 
     def setslice(self, w_list, start, step, slicelength, w_other):
@@ -1578,6 +1613,9 @@ class ObjectListStrategy(ListStrategy):
     def getitems(self, w_list):
         return self.unerase(w_list.lstorage)
 
+    # no sort() method here: W_ListObject.descr_sort() handles this
+    # case explicitly
+
 
 class IntegerListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
@@ -1620,6 +1658,11 @@ class IntegerListStrategy(ListStrategy):
             assert other is not None
             l += other
             return
+        if (w_other.strategy is self.space.fromcache(FloatListStrategy) or
+            w_other.strategy is self.space.fromcache(IntOrFloatListStrategy)):
+            if self.switch_to_int_or_float_strategy(w_list):
+                w_list.extend(w_other)
+                return
         return self._base_extend_from_list(w_list, w_other)
 
 
@@ -1630,7 +1673,45 @@ class IntegerListStrategy(ListStrategy):
             storage = self.erase(w_other.getitems_int())
             w_other = W_ListObject.from_storage_and_strategy(
                     self.space, storage, self)
+        if (w_other.strategy is self.space.fromcache(FloatListStrategy) or
+            w_other.strategy is self.space.fromcache(IntOrFloatListStrategy)):
+            if self.switch_to_int_or_float_strategy(w_list):
+                w_list.setslice(start, step, slicelength, w_other)
+                return
         return self._base_setslice(w_list, start, step, slicelength, w_other)
+
+
+    @staticmethod
+    def int_2_float_or_int(w_list):
+        l = IntegerListStrategy.unerase(w_list.lstorage)
+        if not longlong2float.CAN_ALWAYS_ENCODE_INT32:
+            for intval in l:
+                if not longlong2float.can_encode_int32(intval):
+                    raise ValueError
+        return [longlong2float.encode_int32_into_longlong_nan(intval)
+                for intval in l]
+
+    def switch_to_int_or_float_strategy(self, w_list):
+        try:
+            generalized_list = self.int_2_float_or_int(w_list)
+        except ValueError:
+            return False
+        strategy = self.space.fromcache(IntOrFloatListStrategy)
+        w_list.strategy = strategy
+        w_list.lstorage = strategy.erase(generalized_list)
+        return True
+
+    def switch_to_next_strategy(self, w_list, w_sample_item):
+        if type(w_sample_item) is W_FloatObject:
+            if self.switch_to_int_or_float_strategy(w_list):
+                # yes, we can switch to IntOrFloatListStrategy
+                # (ignore here the extremely unlikely case where
+                # w_sample_item is just the wrong nonstandard NaN float;
+                # it will caught later and yet another switch will occur)
+                return
+        # no, fall back to ObjectListStrategy
+        w_list.switch_to_object_strategy()
+
 
 class FloatListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
@@ -1662,6 +1743,193 @@ class FloatListStrategy(ListStrategy):
 
     def getitems_float(self, w_list):
         return self.unerase(w_list.lstorage)
+
+
+    _base_extend_from_list = _extend_from_list
+
+    def _extend_from_list(self, w_list, w_other):
+        if (w_other.strategy is self.space.fromcache(IntegerListStrategy) or
+            w_other.strategy is self.space.fromcache(IntOrFloatListStrategy)):
+            # xxx a case that we don't optimize: [3.4].extend([9999999999999])
+            # will cause a switch to int-or-float, followed by another
+            # switch to object
+            if self.switch_to_int_or_float_strategy(w_list):
+                w_list.extend(w_other)
+                return
+        return self._base_extend_from_list(w_list, w_other)
+
+
+    _base_setslice = setslice
+
+    def setslice(self, w_list, start, step, slicelength, w_other):
+        if (w_other.strategy is self.space.fromcache(IntegerListStrategy) or
+            w_other.strategy is self.space.fromcache(IntOrFloatListStrategy)):
+            if self.switch_to_int_or_float_strategy(w_list):
+                w_list.setslice(start, step, slicelength, w_other)
+                return
+        return self._base_setslice(w_list, start, step, slicelength, w_other)
+
+
+    def _safe_find(self, w_list, obj, start, stop):
+        from rpython.rlib.rfloat import isnan
+        #
+        l = self.unerase(w_list.lstorage)
+        stop = min(stop, len(l))
+        if not isnan(obj):
+            for i in range(start, stop):
+                val = l[i]
+                if val == obj:
+                    return i
+        else:
+            search = longlong2float.float2longlong(obj)
+            for i in range(start, stop):
+                val = l[i]
+                if longlong2float.float2longlong(val) == search:
+                    return i
+        raise ValueError
+
+    @staticmethod
+    def float_2_float_or_int(w_list):
+        l = FloatListStrategy.unerase(w_list.lstorage)
+        generalized_list = []
+        for floatval in l:
+            if not longlong2float.can_encode_float(floatval):
+                raise ValueError
+            generalized_list.append(
+                longlong2float.float2longlong(floatval))
+        return generalized_list
+
+    def switch_to_int_or_float_strategy(self, w_list):
+        # xxx we should be able to use the same lstorage, but
+        # there is a typing issue (float vs longlong)...
+        try:
+            generalized_list = self.float_2_float_or_int(w_list)
+        except ValueError:
+            return False
+        strategy = self.space.fromcache(IntOrFloatListStrategy)
+        w_list.strategy = strategy
+        w_list.lstorage = strategy.erase(generalized_list)
+        return True
+
+    def switch_to_next_strategy(self, w_list, w_sample_item):
+        if type(w_sample_item) is W_IntObject:
+            sample_intval = self.space.int_w(w_sample_item)
+            if longlong2float.can_encode_int32(sample_intval):
+                if self.switch_to_int_or_float_strategy(w_list):
+                    # yes, we can switch to IntOrFloatListStrategy
+                    return
+        # no, fall back to ObjectListStrategy
+        w_list.switch_to_object_strategy()
+
+
+class IntOrFloatListStrategy(ListStrategy):
+    import_from_mixin(AbstractUnwrappedStrategy)
+
+    _none_value = longlong2float.float2longlong(0.0)
+
+    def wrap(self, llval):
+        if longlong2float.is_int32_from_longlong_nan(llval):
+            intval = longlong2float.decode_int32_from_longlong_nan(llval)
+            return self.space.wrap(intval)
+        else:
+            floatval = longlong2float.longlong2float(llval)
+            return self.space.wrap(floatval)
+
+    def unwrap(self, w_int_or_float):
+        if type(w_int_or_float) is W_IntObject:
+            intval = self.space.int_w(w_int_or_float)
+            return longlong2float.encode_int32_into_longlong_nan(intval)
+        else:
+            floatval = self.space.float_w(w_int_or_float)
+            return longlong2float.float2longlong(floatval)
+
+    erase, unerase = rerased.new_erasing_pair("longlong")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def is_correct_type(self, w_obj):
+        if type(w_obj) is W_IntObject:
+            intval = self.space.int_w(w_obj)
+            return longlong2float.can_encode_int32(intval)
+        elif type(w_obj) is W_FloatObject:
+            floatval = self.space.float_w(w_obj)
+            return longlong2float.can_encode_float(floatval)
+        else:
+            return False
+
+    def list_is_correct_type(self, w_list):
+        return w_list.strategy is self.space.fromcache(IntOrFloatListStrategy)
+
+    def sort(self, w_list, reverse):
+        l = self.unerase(w_list.lstorage)
+        sorter = IntOrFloatSort(l, len(l))
+        # Reverse sort stability achieved by initially reversing the list,
+        # applying a stable forward sort, then reversing the final result.
+        if reverse:
+            l.reverse()
+        sorter.sort()
+        if reverse:
+            l.reverse()
+
+    _base_extend_from_list = _extend_from_list
+
+    def _extend_longlong(self, w_list, longlong_list):
+        l = self.unerase(w_list.lstorage)
+        l += longlong_list
+
+    def _extend_from_list(self, w_list, w_other):
+        if w_other.strategy is self.space.fromcache(IntegerListStrategy):
+            try:
+                longlong_list = IntegerListStrategy.int_2_float_or_int(w_other)
+            except ValueError:
+                pass
+            else:
+                return self._extend_longlong(w_list, longlong_list)
+        if w_other.strategy is self.space.fromcache(FloatListStrategy):
+            try:
+                longlong_list = FloatListStrategy.float_2_float_or_int(w_other)
+            except ValueError:
+                pass
+            else:
+                return self._extend_longlong(w_list, longlong_list)
+        return self._base_extend_from_list(w_list, w_other)
+
+    _base_setslice = setslice
+
+    def _temporary_longlong_list(self, longlong_list):
+        storage = self.erase(longlong_list)
+        return W_ListObject.from_storage_and_strategy(self.space, storage, self)
+
+    def setslice(self, w_list, start, step, slicelength, w_other):
+        if w_other.strategy is self.space.fromcache(IntegerListStrategy):
+            try:
+                longlong_list = IntegerListStrategy.int_2_float_or_int(w_other)
+            except ValueError:
+                pass
+            else:
+                w_other = self._temporary_longlong_list(longlong_list)
+        elif w_other.strategy is self.space.fromcache(FloatListStrategy):
+            try:
+                longlong_list = FloatListStrategy.float_2_float_or_int(w_other)
+            except ValueError:
+                pass
+            else:
+                w_other = self._temporary_longlong_list(longlong_list)
+        return self._base_setslice(w_list, start, step, slicelength, w_other)
+
+    def _safe_find(self, w_list, obj, start, stop):
+        l = self.unerase(w_list.lstorage)
+        # careful: we must consider that 0.0 == -0.0 == 0, but also
+        # NaN == NaN if they have the same bit pattern.
+        fobj = longlong2float.maybe_decode_longlong_as_float(obj)
+        for i in range(start, min(stop, len(l))):
+            llval = l[i]
+            if llval == obj:     # equal as longlongs: includes NaN == NaN
+                return i
+            fval = longlong2float.maybe_decode_longlong_as_float(llval)
+            if fval == fobj:     # cases like 0.0 == -0.0 or 42 == 42.0
+                return i
+        raise ValueError
 
 
 class BytesListStrategy(ListStrategy):
@@ -1759,6 +2027,7 @@ listrepr = app.interphook("listrepr")
 TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
 FloatBaseTimSort = make_timsort_class()
+IntOrFloatBaseTimSort = make_timsort_class()
 StringBaseTimSort = make_timsort_class()
 UnicodeBaseTimSort = make_timsort_class()
 
@@ -1787,6 +2056,13 @@ class IntSort(IntBaseTimSort):
 class FloatSort(FloatBaseTimSort):
     def lt(self, a, b):
         return a < b
+
+
+class IntOrFloatSort(IntOrFloatBaseTimSort):
+    def lt(self, a, b):
+        fa = longlong2float.maybe_decode_longlong_as_float(a)
+        fb = longlong2float.maybe_decode_longlong_as_float(b)
+        return fa < fb
 
 
 class StringSort(StringBaseTimSort):
@@ -1829,9 +2105,9 @@ class CustomKeyCompareSort(CustomCompareSort):
         return CustomCompareSort.lt(self, a.w_key, b.w_key)
 
 
-W_ListObject.typedef = StdTypeDef("list",
-    __doc__ = """list() -> new list
-list(sequence) -> new list initialized from sequence's items""",
+W_ListObject.typedef = TypeDef("list",
+    __doc__ = """list() -> new empty list
+list(iterable) -> new list initialized from iterable's items""",
     __new__ = interp2app(W_ListObject.descr_new),
     __init__ = interp2app(W_ListObject.descr_init),
     __repr__ = interp2app(W_ListObject.descr_repr),
@@ -1872,3 +2148,4 @@ list(sequence) -> new list initialized from sequence's items""",
     insert = interp2app(W_ListObject.descr_insert),
     remove = interp2app(W_ListObject.descr_remove),
 )
+W_ListObject.typedef.flag_sequence_bug_compat = True

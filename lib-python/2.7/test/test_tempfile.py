@@ -343,10 +343,9 @@ class test__mkstemp_inner(TC):
         finally:
             os.rmdir(dir)
 
+    @unittest.skipUnless(has_stat, 'os.stat not available')
     def test_file_mode(self):
         # _mkstemp_inner creates files with the proper mode
-        if not has_stat:
-            return            # ugh, can't use SkipTest.
 
         file = self.do_create()
         mode = stat.S_IMODE(os.stat(file.name).st_mode)
@@ -358,10 +357,9 @@ class test__mkstemp_inner(TC):
             expected = user * (1 + 8 + 64)
         self.assertEqual(mode, expected)
 
+    @unittest.skipUnless(has_spawnl, 'os.spawnl not available')
     def test_noinherit(self):
         # _mkstemp_inner file handles are not inherited by child processes
-        if not has_spawnl:
-            return            # ugh, can't use SkipTest.
 
         if support.verbose:
             v="v"
@@ -396,10 +394,9 @@ class test__mkstemp_inner(TC):
                     "child process caught fatal signal %d" % -retval)
         self.assertFalse(retval > 0, "child process reports failure %d"%retval)
 
+    @unittest.skipUnless(has_textmode, "text mode not available")
     def test_textmode(self):
         # _mkstemp_inner can create files in text mode
-        if not has_textmode:
-            return            # ugh, can't use SkipTest.
 
         self.do_create(bin=0).write("blat\n")
         # XXX should test that the file really is a text file
@@ -591,10 +588,9 @@ class test_mkdtemp(TC):
         finally:
             os.rmdir(dir)
 
+    @unittest.skipUnless(has_stat, 'os.stat not available')
     def test_mode(self):
         # mkdtemp creates directories with the proper mode
-        if not has_stat:
-            return            # ugh, can't use SkipTest.
 
         dir = self.do_create()
         try:
@@ -778,6 +774,24 @@ class test_NamedTemporaryFile(TC):
             with f:
                 pass
         self.assertRaises(ValueError, use_closed)
+
+    def test_no_leak_fd(self):
+        # Issue #21058: don't leak file descriptor when fdopen() fails
+        old_close = os.close
+        old_fdopen = os.fdopen
+        closed = []
+        def close(fd):
+            closed.append(fd)
+        def fdopen(*args):
+            raise ValueError()
+        os.close = close
+        os.fdopen = fdopen
+        try:
+            self.assertRaises(ValueError, tempfile.NamedTemporaryFile)
+            self.assertEqual(len(closed), 1)
+        finally:
+            os.close = old_close
+            os.fdopen = old_fdopen
 
     # How to test the mode and bufsize parameters?
 

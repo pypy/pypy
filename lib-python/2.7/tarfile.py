@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: iso-8859-1 -*-
 #-------------------------------------------------------------------
 # tarfile.py
@@ -42,6 +41,7 @@ __credits__ = "Gustavo Niemeyer, Niels Gustäbel, Richard Townsend."
 #---------
 # Imports
 #---------
+from __builtin__ import open as bltn_open
 import sys
 import os
 import shutil
@@ -418,28 +418,34 @@ class _Stream:
         self.pos      = 0L
         self.closed   = False
 
-        if comptype == "gz":
-            try:
-                import zlib
-            except ImportError:
-                raise CompressionError("zlib module is not available")
-            self.zlib = zlib
-            self.crc = zlib.crc32("") & 0xffffffffL
-            if mode == "r":
-                self._init_read_gz()
-            else:
-                self._init_write_gz()
+        try:
+            if comptype == "gz":
+                try:
+                    import zlib
+                except ImportError:
+                    raise CompressionError("zlib module is not available")
+                self.zlib = zlib
+                self.crc = zlib.crc32("") & 0xffffffffL
+                if mode == "r":
+                    self._init_read_gz()
+                else:
+                    self._init_write_gz()
 
-        if comptype == "bz2":
-            try:
-                import bz2
-            except ImportError:
-                raise CompressionError("bz2 module is not available")
-            if mode == "r":
-                self.dbuf = ""
-                self.cmp = bz2.BZ2Decompressor()
-            else:
-                self.cmp = bz2.BZ2Compressor()
+            elif comptype == "bz2":
+                try:
+                    import bz2
+                except ImportError:
+                    raise CompressionError("bz2 module is not available")
+                if mode == "r":
+                    self.dbuf = ""
+                    self.cmp = bz2.BZ2Decompressor()
+                else:
+                    self.cmp = bz2.BZ2Compressor()
+        except:
+            if not self._extfileobj:
+                self.fileobj.close()
+            self.closed = True
+            raise
 
     def __del__(self):
         if hasattr(self, "closed") and not self.closed:
@@ -486,26 +492,26 @@ class _Stream:
         if self.closed:
             return
 
-        if self.mode == "w" and self.comptype != "tar":
-            self.buf += self.cmp.flush()
-
-        if self.mode == "w" and self.buf:
-            self.fileobj.write(self.buf)
-            self.buf = ""
-            if self.comptype == "gz":
-                # The native zlib crc is an unsigned 32-bit integer, but
-                # the Python wrapper implicitly casts that to a signed C
-                # long.  So, on a 32-bit box self.crc may "look negative",
-                # while the same crc on a 64-bit box may "look positive".
-                # To avoid irksome warnings from the `struct` module, force
-                # it to look positive on all boxes.
-                self.fileobj.write(struct.pack("<L", self.crc & 0xffffffffL))
-                self.fileobj.write(struct.pack("<L", self.pos & 0xffffFFFFL))
-
-        if not self._extfileobj:
-            self.fileobj.close()
-
         self.closed = True
+        try:
+            if self.mode == "w" and self.comptype != "tar":
+                self.buf += self.cmp.flush()
+
+            if self.mode == "w" and self.buf:
+                self.fileobj.write(self.buf)
+                self.buf = ""
+                if self.comptype == "gz":
+                    # The native zlib crc is an unsigned 32-bit integer, but
+                    # the Python wrapper implicitly casts that to a signed C
+                    # long.  So, on a 32-bit box self.crc may "look negative",
+                    # while the same crc on a 64-bit box may "look positive".
+                    # To avoid irksome warnings from the `struct` module, force
+                    # it to look positive on all boxes.
+                    self.fileobj.write(struct.pack("<L", self.crc & 0xffffffffL))
+                    self.fileobj.write(struct.pack("<L", self.pos & 0xffffFFFFL))
+        finally:
+            if not self._extfileobj:
+                self.fileobj.close()
 
     def _init_read_gz(self):
         """Initialize for reading a gzip compressed fileobj.
@@ -1509,10 +1515,11 @@ class TarFile(object):
            can be determined, `mode' is overridden by `fileobj's mode.
            `fileobj' is not closed, when TarFile is closed.
         """
-        if len(mode) > 1 or mode not in "raw":
+        modes = {"r": "rb", "a": "r+b", "w": "wb"}
+        if mode not in modes:
             raise ValueError("mode must be 'r', 'a' or 'w'")
         self.mode = mode
-        self._mode = {"r": "rb", "a": "r+b", "w": "wb"}[mode]
+        self._mode = modes[mode]
 
         if not fileobj:
             if self.mode == "a" and not os.path.exists(name):
@@ -1682,16 +1689,19 @@ class TarFile(object):
             filemode = filemode or "r"
             comptype = comptype or "tar"
 
-            if filemode not in "rw":
+            if filemode not in ("r", "w"):
                 raise ValueError("mode must be 'r' or 'w'")
 
-            t = cls(name, filemode,
-                    _Stream(name, filemode, comptype, fileobj, bufsize),
-                    **kwargs)
+            stream = _Stream(name, filemode, comptype, fileobj, bufsize)
+            try:
+                t = cls(name, filemode, stream, **kwargs)
+            except:
+                stream.close()
+                raise
             t._extfileobj = False
             return t
 
-        elif mode in "aw":
+        elif mode in ("a", "w"):
             return cls.taropen(name, mode, fileobj, **kwargs)
 
         raise ValueError("undiscernible mode")
@@ -1700,7 +1710,7 @@ class TarFile(object):
     def taropen(cls, name, mode="r", fileobj=None, **kwargs):
         """Open uncompressed tar archive name for reading or writing.
         """
-        if len(mode) > 1 or mode not in "raw":
+        if mode not in ("r", "a", "w"):
             raise ValueError("mode must be 'r', 'a' or 'w'")
         return cls(name, mode, fileobj, **kwargs)
 
@@ -1709,7 +1719,7 @@ class TarFile(object):
         """Open gzip compressed tar archive name for reading or writing.
            Appending is not allowed.
         """
-        if len(mode) > 1 or mode not in "rw":
+        if mode not in ("r", "w"):
             raise ValueError("mode must be 'r' or 'w'")
 
         try:
@@ -1719,11 +1729,22 @@ class TarFile(object):
             raise CompressionError("gzip module is not available")
 
         try:
-            t = cls.taropen(name, mode,
-                gzip.GzipFile(name, mode, compresslevel, fileobj),
-                **kwargs)
+            fileobj = gzip.GzipFile(name, mode, compresslevel, fileobj)
+        except OSError:
+            if fileobj is not None and mode == 'r':
+                raise ReadError("not a gzip file")
+            raise
+
+        try:
+            t = cls.taropen(name, mode, fileobj, **kwargs)
         except IOError:
-            raise ReadError("not a gzip file")
+            fileobj.close()
+            if mode == 'r':
+                raise ReadError("not a gzip file")
+            raise
+        except:
+            fileobj.close()
+            raise
         t._extfileobj = False
         return t
 
@@ -1732,7 +1753,7 @@ class TarFile(object):
         """Open bzip2 compressed tar archive name for reading or writing.
            Appending is not allowed.
         """
-        if len(mode) > 1 or mode not in "rw":
+        if mode not in ("r", "w"):
             raise ValueError("mode must be 'r' or 'w'.")
 
         try:
@@ -1748,7 +1769,13 @@ class TarFile(object):
         try:
             t = cls.taropen(name, mode, fileobj, **kwargs)
         except (IOError, EOFError):
-            raise ReadError("not a bzip2 file")
+            fileobj.close()
+            if mode == 'r':
+                raise ReadError("not a bzip2 file")
+            raise
+        except:
+            fileobj.close()
+            raise
         t._extfileobj = False
         return t
 
@@ -1769,18 +1796,19 @@ class TarFile(object):
         if self.closed:
             return
 
-        if self.mode in "aw":
-            self.fileobj.write(NUL * (BLOCKSIZE * 2))
-            self.offset += (BLOCKSIZE * 2)
-            # fill up the end with zero-blocks
-            # (like option -b20 for tar does)
-            blocks, remainder = divmod(self.offset, RECORDSIZE)
-            if remainder > 0:
-                self.fileobj.write(NUL * (RECORDSIZE - remainder))
-
-        if not self._extfileobj:
-            self.fileobj.close()
         self.closed = True
+        try:
+            if self.mode in "aw":
+                self.fileobj.write(NUL * (BLOCKSIZE * 2))
+                self.offset += (BLOCKSIZE * 2)
+                # fill up the end with zero-blocks
+                # (like option -b20 for tar does)
+                blocks, remainder = divmod(self.offset, RECORDSIZE)
+                if remainder > 0:
+                    self.fileobj.write(NUL * (RECORDSIZE - remainder))
+        finally:
+            if not self._extfileobj:
+                self.fileobj.close()
 
     def getmember(self, name):
         """Return a TarInfo object for member `name'. If `name' can not be
@@ -2585,5 +2613,4 @@ def is_tarfile(name):
     except TarError:
         return False
 
-bltn_open = open
 open = TarFile.open

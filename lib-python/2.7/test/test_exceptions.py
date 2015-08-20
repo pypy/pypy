@@ -92,7 +92,7 @@ class ExceptionTests(unittest.TestCase):
 
         self.raise_catch(TabError, "TabError")
         # can only be tested under -tt, and is the only test for -tt
-        #try: compile("try:\n\t1/0\n    \t1/0\nfinally:\n pass\n", '<string>', 'exec')
+        #try: compile("try:\n\t1.0/0.0\n    \t1.0/0.0\nfinally:\n pass\n", '<string>', 'exec')
         #except TabError: pass
         #else: self.fail("TabError not raised")
 
@@ -430,6 +430,12 @@ class ExceptionTests(unittest.TestCase):
         self.assertEqual(str(u), "can't translate characters in position 1-4: 965230951443685724997")
         u.start = 1000
         self.assertEqual(str(u), "can't translate characters in position 1000-4: 965230951443685724997")
+
+    def test_unicode_errors_no_object(self):
+        # See issue #21134.
+        klasses = UnicodeEncodeError, UnicodeDecodeError, UnicodeTranslateError
+        for klass in klasses:
+            self.assertEqual(str(klass.__new__(klass)), "")
 
     def test_badisinstance(self):
         # Bug #2542: if issubclass(e, MyException) raises an exception,

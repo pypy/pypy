@@ -1,5 +1,5 @@
 from test.test_support import (TESTFN, run_unittest, import_module, unlink,
-                               requires, _2G, _4G)
+                               requires, _2G, _4G, gc_collect, cpython_only)
 import unittest
 import os, re, itertools, socket, sys
 
@@ -179,25 +179,27 @@ class MmapTests(unittest.TestCase):
         import sys
         f = open(TESTFN, "r+b")
         try:
-            m = mmap.mmap(f.fileno(), mapsize+1)
-        except ValueError:
-            # we do not expect a ValueError on Windows
-            # CAUTION:  This also changes the size of the file on disk, and
-            # later tests assume that the length hasn't changed.  We need to
-            # repair that.
-            if sys.platform.startswith('win'):
-                self.fail("Opening mmap with size+1 should work on Windows.")
-        else:
-            # we expect a ValueError on Unix, but not on Windows
-            if not sys.platform.startswith('win'):
-                self.fail("Opening mmap with size+1 should raise ValueError.")
-            m.close()
-        f.close()
-        if sys.platform.startswith('win'):
-            # Repair damage from the resizing test.
-            f = open(TESTFN, 'r+b')
-            f.truncate(mapsize)
+            try:
+                m = mmap.mmap(f.fileno(), mapsize+1)
+            except ValueError:
+                # we do not expect a ValueError on Windows
+                # CAUTION:  This also changes the size of the file on disk, and
+                # later tests assume that the length hasn't changed.  We need to
+                # repair that.
+                if sys.platform.startswith('win'):
+                    self.fail("Opening mmap with size+1 should work on Windows.")
+            else:
+                # we expect a ValueError on Unix, but not on Windows
+                if not sys.platform.startswith('win'):
+                    self.fail("Opening mmap with size+1 should raise ValueError.")
+                m.close()
+        finally:
             f.close()
+            if sys.platform.startswith('win'):
+                # Repair damage from the resizing test.
+                f = open(TESTFN, 'r+b')
+                f.truncate(mapsize)
+                f.close()
 
         # Opening mmap with access=ACCESS_WRITE
         f = open(TESTFN, "r+b")
@@ -327,26 +329,25 @@ class MmapTests(unittest.TestCase):
         mf.close()
         f.close()
 
+    @unittest.skipUnless(hasattr(os, "stat"), "needs os.stat()")
     def test_entire_file(self):
         # test mapping of entire file by passing 0 for map length
-        if hasattr(os, "stat"):
-            f = open(TESTFN, "w+")
+        f = open(TESTFN, "w+")
 
-            f.write(2**16 * 'm') # Arbitrary character
-            f.close()
+        f.write(2**16 * 'm') # Arbitrary character
+        f.close()
 
-            f = open(TESTFN, "rb+")
-            mf = mmap.mmap(f.fileno(), 0)
-            self.assertEqual(len(mf), 2**16, "Map size should equal file size.")
-            self.assertEqual(mf.read(2**16), 2**16 * "m")
-            mf.close()
-            f.close()
+        f = open(TESTFN, "rb+")
+        mf = mmap.mmap(f.fileno(), 0)
+        self.assertEqual(len(mf), 2**16, "Map size should equal file size.")
+        self.assertEqual(mf.read(2**16), 2**16 * "m")
+        mf.close()
+        f.close()
 
+    @unittest.skipUnless(hasattr(os, "stat"), "needs os.stat()")
     def test_length_0_offset(self):
         # Issue #10916: test mapping of remainder of file by passing 0 for
         # map length with an offset doesn't cause a segfault.
-        if not hasattr(os, "stat"):
-            self.skipTest("needs os.stat")
         # NOTE: allocation granularity is currently 65536 under Win64,
         # and therefore the minimum offset alignment.
         with open(TESTFN, "wb") as f:
@@ -359,12 +360,10 @@ class MmapTests(unittest.TestCase):
             finally:
                 mf.close()
 
+    @unittest.skipUnless(hasattr(os, "stat"), "needs os.stat()")
     def test_length_0_large_offset(self):
         # Issue #10959: test mapping of a file by passing 0 for
         # map length with a large offset doesn't cause a segfault.
-        if not hasattr(os, "stat"):
-            self.skipTest("needs os.stat")
-
         with open(TESTFN, "wb") as f:
             f.write(115699 * b'm') # Arbitrary character
 
@@ -545,9 +544,8 @@ class MmapTests(unittest.TestCase):
                 return mmap.mmap.__new__(klass, -1, *args, **kwargs)
         anon_mmap(PAGESIZE)
 
+    @unittest.skipUnless(hasattr(mmap, 'PROT_READ'), "needs mmap.PROT_READ")
     def test_prot_readonly(self):
-        if not hasattr(mmap, 'PROT_READ'):
-            return
         mapsize = 10
         with open(TESTFN, "wb") as f:
             f.write("a"*mapsize)
@@ -594,67 +592,78 @@ class MmapTests(unittest.TestCase):
         self.assertRaises(ValueError, m.write, "bar")
         m.close()
 
-    if os.name == 'nt':
-        def test_tagname(self):
-            data1 = "0123456789"
-            data2 = "abcdefghij"
-            assert len(data1) == len(data2)
+    @unittest.skipUnless(os.name == 'nt', 'requires Windows')
+    def test_tagname(self):
+        data1 = "0123456789"
+        data2 = "abcdefghij"
+        assert len(data1) == len(data2)
 
-            # Test same tag
-            m1 = mmap.mmap(-1, len(data1), tagname="foo")
-            m1[:] = data1
-            m2 = mmap.mmap(-1, len(data2), tagname="foo")
-            m2[:] = data2
-            self.assertEqual(m1[:], data2)
-            self.assertEqual(m2[:], data2)
-            m2.close()
-            m1.close()
+        # Test same tag
+        m1 = mmap.mmap(-1, len(data1), tagname="foo")
+        m1[:] = data1
+        m2 = mmap.mmap(-1, len(data2), tagname="foo")
+        m2[:] = data2
+        self.assertEqual(m1[:], data2)
+        self.assertEqual(m2[:], data2)
+        m2.close()
+        m1.close()
 
-            # Test different tag
-            m1 = mmap.mmap(-1, len(data1), tagname="foo")
-            m1[:] = data1
-            m2 = mmap.mmap(-1, len(data2), tagname="boo")
-            m2[:] = data2
-            self.assertEqual(m1[:], data1)
-            self.assertEqual(m2[:], data2)
-            m2.close()
-            m1.close()
+        # Test different tag
+        m1 = mmap.mmap(-1, len(data1), tagname="foo")
+        m1[:] = data1
+        m2 = mmap.mmap(-1, len(data2), tagname="boo")
+        m2[:] = data2
+        self.assertEqual(m1[:], data1)
+        self.assertEqual(m2[:], data2)
+        m2.close()
+        m1.close()
 
-        def test_crasher_on_windows(self):
-            # Should not crash (Issue 1733986)
-            m = mmap.mmap(-1, 1000, tagname="foo")
-            try:
-                mmap.mmap(-1, 5000, tagname="foo")[:] # same tagname, but larger size
-            except:
-                pass
-            m.close()
+    @cpython_only
+    @unittest.skipUnless(os.name == 'nt', 'requires Windows')
+    def test_sizeof(self):
+        m1 = mmap.mmap(-1, 100)
+        tagname = "foo"
+        m2 = mmap.mmap(-1, 100, tagname=tagname)
+        self.assertEqual(sys.getsizeof(m2),
+                         sys.getsizeof(m1) + len(tagname) + 1)
 
-            # Should not crash (Issue 5385)
-            with open(TESTFN, "wb") as f:
-                f.write("x"*10)
-            f = open(TESTFN, "r+b")
-            m = mmap.mmap(f.fileno(), 0)
-            f.close()
-            try:
-                m.resize(0) # will raise WindowsError
-            except:
-                pass
-            try:
-                m[:]
-            except:
-                pass
-            m.close()
+    @unittest.skipUnless(os.name == 'nt', 'requires Windows')
+    def test_crasher_on_windows(self):
+        # Should not crash (Issue 1733986)
+        m = mmap.mmap(-1, 1000, tagname="foo")
+        try:
+            mmap.mmap(-1, 5000, tagname="foo")[:] # same tagname, but larger size
+        except:
+            pass
+        m.close()
 
-        def test_invalid_descriptor(self):
-            # socket file descriptors are valid, but out of range
-            # for _get_osfhandle, causing a crash when validating the
-            # parameters to _get_osfhandle.
-            s = socket.socket()
-            try:
-                with self.assertRaises(mmap.error):
-                    m = mmap.mmap(s.fileno(), 10)
-            finally:
-                s.close()
+        # Should not crash (Issue 5385)
+        with open(TESTFN, "wb") as f:
+            f.write("x"*10)
+        f = open(TESTFN, "r+b")
+        m = mmap.mmap(f.fileno(), 0)
+        f.close()
+        try:
+            m.resize(0) # will raise WindowsError
+        except:
+            pass
+        try:
+            m[:]
+        except:
+            pass
+        m.close()
+
+    @unittest.skipUnless(os.name == 'nt', 'requires Windows')
+    def test_invalid_descriptor(self):
+        # socket file descriptors are valid, but out of range
+        # for _get_osfhandle, causing a crash when validating the
+        # parameters to _get_osfhandle.
+        s = socket.socket()
+        try:
+            with self.assertRaises(mmap.error):
+                m = mmap.mmap(s.fileno(), 10)
+        finally:
+            s.close()
 
 
 class LargeMmapTests(unittest.TestCase):

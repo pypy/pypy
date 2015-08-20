@@ -19,10 +19,16 @@ STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
 
 
 def make_write_blocking_error(space, written):
+    # XXX CPython reads 'errno' here.  I *think* it doesn't make sense,
+    # because we might reach this point after calling a write() method
+    # that may be overridden by the user, if that method returns None.
+    # In that case what we get is a potentially nonsense errno.  But
+    # we'll use get_saved_errno() anyway, and hope (like CPython does)
+    # that we're getting a reasonable value at this point.
     w_type = space.gettypeobject(W_BlockingIOError.typedef)
     w_value = space.call_function(
         w_type,
-        space.wrap(rposix.get_errno()),
+        space.wrap(rposix.get_saved_errno()),
         space.wrap("write could not complete without blocking"),
         space.wrap(written))
     return OperationError(w_type, w_value)
@@ -190,9 +196,11 @@ class BufferedMixin:
         return space.getattr(self.w_raw, space.wrap("closed"))
 
     def name_get_w(self, space):
+        self._check_init(space)
         return space.getattr(self.w_raw, space.wrap("name"))
 
     def mode_get_w(self, space):
+        self._check_init(space)
         return space.getattr(self.w_raw, space.wrap("mode"))
 
     def readable_w(self, space):
@@ -208,6 +216,7 @@ class BufferedMixin:
         return space.call_method(self.w_raw, "seekable")
 
     def isatty_w(self, space):
+        self._check_init(space)
         return space.call_method(self.w_raw, "isatty")
 
     def repr_w(self, space):
@@ -215,7 +224,7 @@ class BufferedMixin:
         try:
             w_name = space.getattr(self, space.wrap("name"))
         except OperationError, e:
-            if not e.match(space, space.w_AttributeError):
+            if not e.match(space, space.w_Exception):
                 raise
             return space.wrap("<%s>" % (typename,))
         else:
@@ -565,7 +574,7 @@ class BufferedMixin:
 
         # Flush the write buffer if necessary
         if self.writable:
-            self._writer_flush_unlocked(space)
+            self._flush_and_rewind_unlocked(space)
         self._reader_reset_buf()
 
         # Read whole blocks, and don't buffer them
@@ -812,11 +821,6 @@ class BufferedMixin:
         self._check_closed(space, "flush of closed file")
         with self.lock:
             self._flush_and_rewind_unlocked(space)
-            if self.readable:
-                # Rewind the raw stream so that its position corresponds to
-                # the current logical position.
-                self._raw_seek(space, -self._raw_offset(), 1)
-                self._reader_reset_buf()
 
     def _flush_and_rewind_unlocked(self, space):
         self._writer_flush_unlocked(space)
@@ -919,9 +923,15 @@ def make_forwarding_method(method, writer=False, reader=False):
     @func_renamer(method + '_w')
     def method_w(self, space, __args__):
         if writer:
+            if self.w_writer is None:
+                raise oefmt(space.w_ValueError,
+                            "I/O operation on uninitialized object")
             w_meth = space.getattr(self.w_writer, space.wrap(method))
             w_result = space.call_args(w_meth, __args__)
         if reader:
+            if self.w_reader is None:
+                raise oefmt(space.w_ValueError,
+                            "I/O operation on uninitialized object")
             w_meth = space.getattr(self.w_reader, space.wrap(method))
             w_result = space.call_args(w_meth, __args__)
         return w_result
@@ -962,9 +972,26 @@ class W_BufferedRWPair(W_BufferedIOBase):
             method, writer=True)
 
     # forward to both
-    for method in ['close']:
-        locals()[method + '_w'] = make_forwarding_method(
-            method, writer=True, reader=True)
+    def close_w(self, space, __args__):
+        if self.w_writer is None:
+            raise oefmt(space.w_ValueError,
+                        "I/O operation on uninitialized object")
+        w_meth = space.getattr(self.w_writer, space.wrap("close"))
+        try:
+            space.call_args(w_meth, __args__)
+        except OperationError as e:
+            pass
+        else:
+            e = None
+
+        if self.w_reader is None:
+            raise oefmt(space.w_ValueError,
+                        "I/O operation on uninitialized object")
+        w_meth = space.getattr(self.w_reader, space.wrap("close"))
+        space.call_args(w_meth, __args__)
+
+        if e:
+            raise e
 
     def isatty_w(self, space):
         if space.is_true(space.call_method(self.w_writer, "isatty")):

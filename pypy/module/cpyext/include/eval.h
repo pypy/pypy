@@ -19,14 +19,14 @@ extern "C" {
 #define PyEval_CallObject(func,arg) \
         PyEval_CallObjectWithKeywords(func, arg, (PyObject *)NULL)
 
-PyObject * PyEval_CallFunction(PyObject *obj, const char *format, ...);
-PyObject * PyEval_CallMethod(PyObject *obj, const char *name, const char *format, ...);
-PyObject * PyObject_CallFunction(PyObject *obj, const char *format, ...);
-PyObject * PyObject_CallMethod(PyObject *obj, const char *name, const char *format, ...);
-PyObject * _PyObject_CallFunction_SizeT(PyObject *obj, const char *format, ...);
-PyObject * _PyObject_CallMethod_SizeT(PyObject *obj, const char *name, const char *format, ...);
-PyObject * PyObject_CallFunctionObjArgs(PyObject *callable, ...);
-PyObject * PyObject_CallMethodObjArgs(PyObject *callable, PyObject *name, ...);
+PyAPI_FUNC(PyObject *) PyEval_CallFunction(PyObject *obj, const char *format, ...);
+PyAPI_FUNC(PyObject *) PyEval_CallMethod(PyObject *obj, const char *name, const char *format, ...);
+PyAPI_FUNC(PyObject *) PyObject_CallFunction(PyObject *obj, const char *format, ...);
+PyAPI_FUNC(PyObject *) PyObject_CallMethod(PyObject *obj, const char *name, const char *format, ...);
+PyAPI_FUNC(PyObject *) _PyObject_CallFunction_SizeT(PyObject *obj, const char *format, ...);
+PyAPI_FUNC(PyObject *) _PyObject_CallMethod_SizeT(PyObject *obj, const char *name, const char *format, ...);
+PyAPI_FUNC(PyObject *) PyObject_CallFunctionObjArgs(PyObject *callable, ...);
+PyAPI_FUNC(PyObject *) PyObject_CallMethodObjArgs(PyObject *callable, PyObject *name, ...);
 
 /* These constants are also defined in cpyext/eval.py */
 #define Py_single_input 256

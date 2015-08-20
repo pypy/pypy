@@ -7,13 +7,78 @@ r_uint32 = rffi.r_uint
 assert r_uint32.BITS == 32
 UINT32MAX = 2 ** 32 - 1
 
-# keep in sync with the C code in pypy__decay_jit_counters
+# keep in sync with the C code in pypy__decay_jit_counters below
 ENTRY = lltype.Struct('timetable_entry',
                       ('times', lltype.FixedSizeArray(rffi.FLOAT, 5)),
                       ('subhashes', lltype.FixedSizeArray(rffi.USHORT, 5)))
 
 
 class JitCounter:
+    """A process translated with the JIT contains one prebuilt instance
+    of this class.  It is used for three things:
+
+    * It maps greenkey hashes to counters, to know when we have seen this
+      greenkey enough to reach the 'threshold' or 'function_threshold'
+      parameters.  This is done in a lossy way by a fixed-size 'timetable'.
+
+    * It handles the counters on the failing guards, for 'trace_eagerness'.
+      This is done in the same 'timetable'.
+
+    * It records the JitCell objects that are created when we compile
+      a loop, in a non-lossy dictionary-like strurcture.  This is done
+      in the 'celltable'.
+
+    The 'timetable' is a table of DEFAULT_SIZE entries, each of which
+    containing 5 entries.  From a hash value, we use the index number
+    '_get_index(hash)', and then we look in all five entries for a
+    matching '_get_subhash(hash)'.  The five entries are roughly kept
+    sorted by decreasing recorded time.  The hash value itself should be
+    computed accordingly: we only use bits 21:32 for _get_index and
+    bits 0:16 for _get_subhash.  (This organization is "probably good"
+    to get not-too-random behavior; another motivation for it was for
+    the STM branch, to avoid pointless conflicts between threads.)
+
+    The time value stored in the timetable is a (short-precision)
+    floating-point number.  The idea is that a value of 0.0 means
+    absent, and values go up to the maximum of 1.0.
+
+    'compute_threshold(threshold)' returns basically the fraction
+    1.0/threshold, corresponding to the 'increment' value for the
+    following APIs.
+
+    'tick(hash, increment)' adds 'increment' to the time value stored
+    with the 'hash'.  Remember that only bits 0:16,21:32 of the hash
+    are used; in case of collision between two hashes, they will grow
+    twice as fast, because each tick() call will contribute to the
+    colliding time value.
+
+    'fetch_next_hash()' returns a "random" hash value suitable for
+    using in tick() later.  Used when compiling guards; when the
+    guard actually fails, we'll tick() the guard's stored random hash.
+
+    'reset(hash)', 'change_current_fraction(hash, new_time_value)'
+    change the time value associated with a hash.  The former resets
+    it to zero, and the latter changes it to the given value (which
+    should be a value close to 1.0).
+
+    'set_decay(decay)', 'decay_all_counters()' is used to globally
+    reduce all the stored time values.  They all get multiplied by
+    a fraction close to (but smaller than) 1.0, computed from the
+    'decay' parameter.
+
+    'install_new_cell(hash, newcell)' adds the new JitCell to the
+    celltable, at the index given by 'hash' (bits 21:32).  Unlike
+    the timetable, the celltable stores a linked list of JitCells
+    for every entry, and so it is not lossy.
+
+    'lookup_chain(hash)' returns the first JitCell at 'hash'.  You can
+    then walk the chain by following the '.next' attributes until you
+    reach None.
+
+    'cleanup_chain(hash)' resets the timetable's 'hash' entry and
+    cleans up the celltable at 'hash'.  It removes those JitCells
+    for which 'cell.should_remove_jitcell()' returns True.
+    """
     DEFAULT_SIZE = 2048
 
     def __init__(self, size=DEFAULT_SIZE, translator=None):
@@ -135,6 +200,34 @@ class JitCounter:
             self.reset(hash)
             return True
     tick._always_inline_ = True
+
+    def change_current_fraction(self, hash, new_fraction):
+        """Change the value stored for 'hash' to be the given 'new_fraction',
+        which should be a float equal to or slightly lower than 1.0.
+        """
+        p_entry = self.timetable[self._get_index(hash)]
+        subhash = self._get_subhash(hash)
+
+        # find in 'n' the index that will be overwritten: the first within
+        # range(5) that contains either the right subhash, or a null time
+        # (or, if there isn't any, then just n == 4 will do).
+        n = 0
+        while n < 4 and (p_entry.subhashes[n] != subhash and
+                         float(p_entry.times[n]) != 0.0):
+            n += 1
+
+        # move one step to the right all elements [n - 1, n - 2, ..., 0],
+        # (this overwrites the old item at index 'n')
+        while n > 0:
+            n -= 1
+            p_entry.subhashes[n + 1] = p_entry.subhashes[n]
+            p_entry.times[n + 1]     = p_entry.times[n]
+
+        # insert the new hash at index 0.  This is a good approximation,
+        # because change_current_fraction() should be used for
+        # new_fraction == value close to 1.0.
+        p_entry.subhashes[0] = rffi.cast(rffi.USHORT, subhash)
+        p_entry.times[0]     = r_singlefloat(new_fraction)
 
     def reset(self, hash):
         p_entry = self.timetable[self._get_index(hash)]

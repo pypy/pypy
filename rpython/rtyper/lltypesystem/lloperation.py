@@ -216,6 +216,7 @@ LL_OPERATIONS = {
     'int_xor':              LLOp(canfold=True),
 
     'int_between':          LLOp(canfold=True),   # a <= b < c
+    'int_force_ge_zero':    LLOp(canfold=True),   # 0 if a < 0 else a
 
     'int_add_ovf':          LLOp(canraise=(OverflowError,), tryfold=True),
     'int_add_nonneg_ovf':   LLOp(canraise=(OverflowError,), tryfold=True),
@@ -364,12 +365,13 @@ LL_OPERATIONS = {
     'convert_float_bytes_to_longlong': LLOp(canfold=True),
     'convert_longlong_bytes_to_float': LLOp(canfold=True),
 
+    'likely':               LLOp(canfold=True),
+    'unlikely':             LLOp(canfold=True),
+
     # __________ pointer operations __________
 
     'malloc':               LLOp(canmallocgc=True),
     'malloc_varsize':       LLOp(canmallocgc=True),
-    'malloc_nonmovable':    LLOp(canmallocgc=True),
-    'malloc_nonmovable_varsize':LLOp(canmallocgc=True),
     'shrink_array':         LLOp(canrun=True),
     'zero_gc_pointers_inside': LLOp(),
     'free':                 LLOp(),
@@ -397,6 +399,7 @@ LL_OPERATIONS = {
     'direct_arrayitems':    LLOp(canfold=True),
     'direct_ptradd':        LLOp(canfold=True),
     'cast_opaque_ptr':      LLOp(sideeffects=False),
+    'length_of_simple_gcarray_from_opaque': LLOp(sideeffects=False),
 
     # __________ address operations __________
 
@@ -408,6 +411,7 @@ LL_OPERATIONS = {
     'raw_malloc_usage':     LLOp(sideeffects=False),
     'raw_free':             LLOp(),
     'raw_memclear':         LLOp(),
+    'raw_memset':           LLOp(),
     'raw_memcopy':          LLOp(),
     'raw_memmove':          LLOp(),
     'raw_load':             LLOp(sideeffects=False, canrun=True),
@@ -445,12 +449,14 @@ LL_OPERATIONS = {
     'jit_force_virtual':    LLOp(canrun=True),
     'jit_is_virtual':       LLOp(canrun=True),
     'jit_force_quasi_immutable': LLOp(canrun=True),
-    'jit_record_known_class'  : LLOp(canrun=True),
+    'jit_record_exact_class'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
     'jit_conditional_call': LLOp(),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
-    'do_malloc_fixedsize_clear':LLOp(canmallocgc=True),
+    'do_malloc_fixedsize':LLOp(canmallocgc=True),
+    'do_malloc_fixedsize_clear': LLOp(canmallocgc=True),
+    'do_malloc_varsize':  LLOp(canmallocgc=True),
     'do_malloc_varsize_clear':  LLOp(canmallocgc=True),
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
@@ -480,6 +486,9 @@ LL_OPERATIONS = {
     'gc_writebarrier':      LLOp(canrun=True),
     'gc_writebarrier_before_copy': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canmallocgc=True),
+    'gc_pin'              : LLOp(canrun=True),
+    'gc_unpin'            : LLOp(canrun=True),
+    'gc__is_pinned'        : LLOp(canrun=True),
 
     'gc_get_rpy_roots'    : LLOp(),
     'gc_get_rpy_referents': LLOp(),
@@ -488,6 +497,7 @@ LL_OPERATIONS = {
     'gc_is_rpy_instance'  : LLOp(),
     'gc_dump_rpy_heap'    : LLOp(),
     'gc_typeids_z'        : LLOp(),
+    'gc_typeids_list'     : LLOp(),
     'gc_gcflag_extra'     : LLOp(),
     'gc_add_memory_pressure': LLOp(),
 
@@ -541,9 +551,8 @@ LL_OPERATIONS = {
     'getslice':             LLOp(canraise=(Exception,)),
     'check_and_clear_exc':  LLOp(),
 
-    'threadlocalref_get':   LLOp(sideeffects=False),
-    'threadlocalref_getaddr': LLOp(sideeffects=False),
-    'threadlocalref_set':   LLOp(),
+    'threadlocalref_addr':  LLOp(sideeffects=False),  # get (or make) addr of tl
+    'threadlocalref_get':   LLOp(sideeffects=False),  # read field (no check)
 
     # __________ debugging __________
     'debug_view':           LLOp(),
@@ -551,6 +560,7 @@ LL_OPERATIONS = {
     'debug_start':          LLOp(canrun=True),
     'debug_stop':           LLOp(canrun=True),
     'have_debug_prints':    LLOp(canrun=True),
+    'have_debug_prints_for':LLOp(canrun=True),
     'debug_offset':         LLOp(canrun=True),
     'debug_flush':          LLOp(canrun=True),
     'debug_assert':         LLOp(tryfold=True),
@@ -564,6 +574,7 @@ LL_OPERATIONS = {
     'debug_reraise_traceback': LLOp(),
     'debug_print_traceback':   LLOp(),
     'debug_nonnull_pointer':   LLOp(canrun=True),
+    'debug_forked':            LLOp(),
 
     # __________ instrumentation _________
     'instrument_count':     LLOp(),

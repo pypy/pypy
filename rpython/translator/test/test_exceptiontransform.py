@@ -27,8 +27,6 @@ def interpret(func, values):
     return interp.eval_graph(graph, values)
 
 class TestExceptionTransform:
-    type_system = 'lltype'
-
     def compile(self, fn, inputargs):
         from rpython.translator.c.test.test_genc import compile
         return compile(fn, inputargs)

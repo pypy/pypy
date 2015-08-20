@@ -59,7 +59,7 @@ class RegrTest:
     def __init__(self, basename, core=False, compiler=None, usemodules='',
                  skip=None):
         self.basename = basename
-        self._usemodules = usemodules.split() + ['signal', 'rctime', 'itertools', '_socket']
+        self._usemodules = usemodules.split() + ['signal', 'time', 'itertools', '_socket']
         self._compiler = compiler
         self.core = core
         self.skip = skip
@@ -205,6 +205,7 @@ testmap = [
     RegrTest('test_email.py'),
     RegrTest('test_email_codecs.py'),
     RegrTest('test_email_renamed.py'),
+    RegrTest('test_ensurepip.py'),
     RegrTest('test_enumerate.py', core=True),
     RegrTest('test_eof.py', core=True),
     RegrTest('test_epoll.py'),
@@ -265,6 +266,7 @@ testmap = [
     RegrTest('test_imageop.py'),
     RegrTest('test_imaplib.py'),
     RegrTest('test_imgfile.py'),
+    RegrTest('test_imghdr.py'),
     RegrTest('test_imp.py', core=True, usemodules='thread'),
     RegrTest('test_import.py', core=True),
     RegrTest('test_importhooks.py', core=True),
@@ -397,6 +399,7 @@ testmap = [
     RegrTest('test_socketserver.py', usemodules='thread'),
     RegrTest('test_softspace.py', core=True),
     RegrTest('test_sort.py', core=True),
+    RegrTest('test_spwd.py'),
     RegrTest('test_sqlite.py', usemodules="thread _rawffi zlib"),
     RegrTest('test_ssl.py', usemodules='_ssl _socket select'),
     RegrTest('test_startfile.py'),
@@ -435,6 +438,7 @@ testmap = [
     RegrTest('test_threading_local.py', usemodules="thread", core=True),
     RegrTest('test_threadsignals.py', usemodules="thread"),
     RegrTest('test_time.py', core=True),
+    RegrTest('test_timeit.py'),
     RegrTest('test_timeout.py'),
     RegrTest('test_tk.py'),
     RegrTest('test_tokenize.py'),
@@ -543,8 +547,6 @@ class RunFileExternal(py.test.collect.File):
 # invoking in a separate process: py.py TESTFILE
 #
 import os
-import time
-import getpass
 
 class ReallyRunFileExternal(py.test.collect.Item):
     class ExternalFailure(Exception):
@@ -663,17 +665,11 @@ class ReallyRunFileExternal(py.test.collect.Item):
             timedout = test_stderr.rfind("KeyboardInterrupt") != -1
         if test_stderr.rfind(26*"=" + "skipped" + 26*"=") != -1:
             skipped = True
-        outcome = 'OK'
         if not exit_status:
             # match "FAIL" but not e.g. "FAILURE", which is in the output of a
             # test in test_zipimport_support.py
             if re.search(r'\bFAIL\b', test_stdout) or re.search('[^:]ERROR', test_stderr):
-                outcome = 'FAIL'
                 exit_status = 2
-        elif timedout:
-            outcome = "T/O"
-        else:
-            outcome = "ERR"
 
         return skipped, exit_status, test_stdout, test_stderr
 

@@ -74,6 +74,8 @@ class StringBuffer(Buffer):
             return ""
         if step == 1:
             assert 0 <= start <= stop
+            if start == 0 and stop == len(self.value):
+                return self.value
             return self.value[start:stop]
         return Buffer.getslice(self, start, stop, step, size)
 
@@ -115,3 +117,8 @@ class SubBuffer(Buffer):
             return        # otherwise, adding self.offset might make 'start'
                           # out of bounds
         self.buffer.setslice(self.offset + start, string)
+
+    def get_raw_address(self):
+        from rpython.rtyper.lltypesystem import rffi
+        ptr = self.buffer.get_raw_address()
+        return rffi.ptradd(ptr, self.offset)

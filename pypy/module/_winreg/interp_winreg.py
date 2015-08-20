@@ -1,5 +1,5 @@
 from __future__ import with_statement
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.baseobjspace import W_Root, BufferInterfaceNotFound
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError, wrap_windowserror, oefmt
@@ -266,10 +266,16 @@ def convert_to_regdata(space, w_value, typ):
     buf = None
 
     if typ == rwinreg.REG_DWORD:
-        if space.isinstance_w(w_value, space.w_int):
+        if space.is_none(w_value) or (
+                space.isinstance_w(w_value, space.w_int) or
+                space.isinstance_w(w_value, space.w_long)):
+            if space.is_none(w_value):
+                value = r_uint(0)
+            else:
+                value = space.c_uint_w(w_value)
             buflen = rffi.sizeof(rwin32.DWORD)
             buf1 = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
-            buf1[0] = space.uint_w(w_value)
+            buf1[0] = value
             buf = rffi.cast(rffi.CCHARP, buf1)
 
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
@@ -329,7 +335,7 @@ def convert_to_regdata(space, w_value, typ):
         else:
             try:
                 value = w_value.readbuf_w(space)
-            except TypeError:
+            except BufferInterfaceNotFound:
                 raise oefmt(space.w_TypeError,
                             "Objects of type '%T' can not be used as binary "
                             "registry values", w_value)

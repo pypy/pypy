@@ -129,7 +129,8 @@ class DescrOperation(object):
     # This is meant to be a *mixin*.
 
     def is_data_descr(space, w_obj):
-        return space.lookup(w_obj, '__set__') is not None
+        return (space.lookup(w_obj, '__set__') is not None or
+                space.lookup(w_obj, '__delete__') is not None)
 
     def get_and_call_args(space, w_descr, w_obj, args):
         # a special case for performance and to avoid infinite recursion
@@ -180,14 +181,14 @@ class DescrOperation(object):
     def set(space, w_descr, w_obj, w_val):
         w_set = space.lookup(w_descr, '__set__')
         if w_set is None:
-            raise oefmt(space.w_TypeError,
+            raise oefmt(space.w_AttributeError,
                         "'%T' object is not a descriptor with set", w_descr)
         return space.get_and_call_function(w_set, w_descr, w_obj, w_val)
 
     def delete(space, w_descr, w_obj):
         w_delete = space.lookup(w_descr, '__delete__')
         if w_delete is None:
-            raise oefmt(space.w_TypeError,
+            raise oefmt(space.w_AttributeError,
                         "'%T' object is not a descriptor with delete", w_descr)
         return space.get_and_call_function(w_delete, w_descr, w_obj)
 
@@ -520,6 +521,8 @@ class DescrOperation(object):
         return space.get_and_call_function(w_check, w_type, w_sub)
 
     def isinstance_allow_override(space, w_inst, w_type):
+        if space.type(w_inst) is w_type:
+            return space.w_True # fast path copied from cpython
         w_check = space.lookup(w_type, "__instancecheck__")
         if w_check is not None:
             return space.get_and_call_function(w_check, w_type, w_inst)
@@ -671,6 +674,7 @@ def _make_binop_impl(symbol, specialnames):
     left, right = specialnames
     errormsg = "unsupported operand type(s) for %s: '%%N' and '%%N'" % (
         symbol.replace('%', '%%'),)
+    seq_bug_compat = (symbol == '+' or symbol == '*')
 
     def binop_impl(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
@@ -686,20 +690,16 @@ def _make_binop_impl(symbol, specialnames):
             # __xxx__ and __rxxx__ methods where found by identity.
             # Note that space.is_w() is potentially not happy if one of them
             # is None...
-            if w_left_src is not w_right_src:    # XXX
-                # -- cpython bug compatibility: see objspace/std/test/
-                # -- test_unicodeobject.test_str_unicode_concat_overrides.
-                # -- The following handles "unicode + string subclass" by
-                # -- pretending that the unicode is a superclass of the
-                # -- string, thus giving priority to the string subclass'
-                # -- __radd__() method.  The case "string + unicode subclass"
-                # -- is handled directly by add__String_Unicode().
-                if symbol == '+' and space.is_w(w_typ1, space.w_unicode):
-                    w_typ1 = space.w_basestring
-                # -- end of bug compatibility
-                if space.is_true(space.issubtype(w_typ2, w_typ1)):
-                    if (w_left_src and w_right_src and
-                        not space.abstract_issubclass_w(w_left_src, w_right_src) and
+            if w_right_src and (w_left_src is not w_right_src) and w_left_src:
+                # 'seq_bug_compat' is for cpython bug-to-bug compatibility:
+                # see objspace/std/test/test_unicodeobject.*concat_overrides
+                # and objspace/test/test_descrobject.*rmul_overrides.
+                # For cases like "unicode + string subclass".
+                if ((seq_bug_compat and w_typ1.flag_sequence_bug_compat
+                                    and not w_typ2.flag_sequence_bug_compat)
+                        # the non-bug-compat part is the following check:
+                        or space.is_true(space.issubtype(w_typ2, w_typ1))):
+                    if (not space.abstract_issubclass_w(w_left_src, w_right_src) and
                         not space.abstract_issubclass_w(w_typ1, w_right_src)):
                         w_obj1, w_obj2 = w_obj2, w_obj1
                         w_left_impl, w_right_impl = w_right_impl, w_left_impl
@@ -761,9 +761,26 @@ def _make_inplace_impl(symbol, specialnames):
     noninplacespacemethod = specialname[3:-2]
     if noninplacespacemethod in ['or', 'and']:
         noninplacespacemethod += '_'     # not too clean
+    seq_bug_compat = (symbol == '+=' or symbol == '*=')
+    rhs_method = '__r' + specialname[3:]
+
     def inplace_impl(space, w_lhs, w_rhs):
         w_impl = space.lookup(w_lhs, specialname)
         if w_impl is not None:
+            # 'seq_bug_compat' is for cpython bug-to-bug compatibility:
+            # see objspace/test/test_descrobject.*rmul_overrides.
+            # For cases like "list += object-overriding-__radd__".
+            if (seq_bug_compat and space.type(w_lhs).flag_sequence_bug_compat
+                           and not space.type(w_rhs).flag_sequence_bug_compat):
+                w_res = _invoke_binop(space, space.lookup(w_rhs, rhs_method),
+                                      w_rhs, w_lhs)
+                if w_res is not None:
+                    return w_res
+                # xxx if __radd__ is defined but returns NotImplemented,
+                # then it might be called again below.  Oh well, too bad.
+                # Anyway that's a case where we're likely to end up in
+                # a TypeError.
+            #
             w_res = space.get_and_call_function(w_impl, w_lhs, w_rhs)
             if _check_notimplemented(space, w_res):
                 return w_res

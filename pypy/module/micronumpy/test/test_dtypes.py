@@ -23,7 +23,7 @@ class AppTestDtypes(BaseAppTestDtypes):
             from numpy.core.multiarray import typeinfo
         except ImportError:
             # running on dummy module
-            from numpypy import typeinfo
+            from numpy import typeinfo
         assert typeinfo['Number'] == np.number
         assert typeinfo['LONGLONG'] == ('q', 9, 64, 8, 9223372036854775807L,
                                         -9223372036854775808L, np.longlong)
@@ -39,7 +39,7 @@ class AppTestDtypes(BaseAppTestDtypes):
                                     np.dtype('int').type)
 
     def test_dtype_basic(self):
-        from numpypy import dtype
+        from numpy import dtype
         import sys
 
         d = dtype('?')
@@ -58,6 +58,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert exc.value[0] == "there are no fields defined"
 
         assert dtype('int8').num == 1
+        assert dtype(u'int8').num == 1
         assert dtype('int8').name == 'int8'
         assert dtype('void').name == 'void'
         assert dtype(int).fields is None
@@ -91,6 +92,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert d == np.dtype('i8')
         assert d.shape == ()
         d = np.dtype((np.int64, 1,))
+        assert d.shape == ()
         assert d == np.dtype('i8')
         assert d.shape == ()
         d = np.dtype((np.int64, 4))
@@ -104,15 +106,21 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert d.shape == ()
 
     def test_dtype_eq(self):
-        from numpypy import dtype
+        from numpy import dtype
 
         assert dtype("int8") == "int8"
         assert "int8" == dtype("int8")
         raises(TypeError, lambda: dtype("int8") == 3)
         assert dtype(bool) == bool
+        assert dtype('f8') != dtype(('f8', (1,)))
+
+    def test_dtype_cmp(self):
+        from numpy import dtype
+        assert dtype('int8') <= dtype('int8')
+        assert not (dtype('int8') < dtype('int8'))
 
     def test_dtype_aliases(self):
-        from numpypy import dtype
+        from numpy import dtype
         assert dtype('bool8') is dtype('bool')
         assert dtype('byte') is dtype('int8')
         assert dtype('ubyte') is dtype('uint8')
@@ -132,7 +140,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert dtype('clongdouble').num in (15, 16)
 
     def test_dtype_with_types(self):
-        from numpypy import dtype
+        from numpy import dtype
 
         assert dtype(bool).num == 0
         if self.ptr_size == 4:
@@ -140,23 +148,25 @@ class AppTestDtypes(BaseAppTestDtypes):
             assert dtype('uint32').num == 8
             assert dtype('int64').num == 9
             assert dtype('uint64').num == 10
+            assert dtype('intp').num == 5
+            assert dtype('uintp').num == 6
         else:
             assert dtype('int32').num == 5
             assert dtype('uint32').num == 6
             assert dtype('int64').num == 7
             assert dtype('uint64').num == 8
+            assert dtype('intp').num == 7
+            assert dtype('uintp').num == 8
         assert dtype(int).num == 7
         assert dtype('int').num == 7
         assert dtype('uint').num == 8
-        assert dtype('intp').num == 7
-        assert dtype('uintp').num == 8
         assert dtype(long).num == 9
         assert dtype(float).num == 12
         assert dtype('float').num == 12
         assert dtype('complex').num == 15
 
     def test_array_dtype_attr(self):
-        from numpypy import array, dtype
+        from numpy import array, dtype
 
         a = array(range(5), long)
         assert a.dtype is dtype(long)
@@ -182,7 +192,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert np.dtype('S5').isbuiltin == 0
 
     def test_repr_str(self):
-        from numpypy import dtype
+        from numpy import dtype
         b = dtype(int).newbyteorder().newbyteorder().byteorder
         assert '.dtype' in repr(dtype)
         d = dtype('?')
@@ -208,7 +218,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert str(d) == "|V16"
 
     def test_bool_array(self):
-        from numpypy import array, False_, True_
+        from numpy import array, False_, True_
 
         a = array([0, 1, 2, 2.5], dtype='?')
         assert a[0] is False_
@@ -216,7 +226,7 @@ class AppTestDtypes(BaseAppTestDtypes):
             assert a[i] is True_
 
     def test_copy_array_with_dtype(self):
-        from numpypy import array, longlong, False_
+        from numpy import array, longlong, False_
 
         a = array([0, 1, 2, 3], dtype=long)
         # int on 64-bit, long in 32-bit
@@ -230,35 +240,35 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert b[0] is False_
 
     def test_zeros_bool(self):
-        from numpypy import zeros, False_
+        from numpy import zeros, False_
 
         a = zeros(10, dtype=bool)
         for i in range(10):
             assert a[i] is False_
 
     def test_ones_bool(self):
-        from numpypy import ones, True_
+        from numpy import ones, True_
 
         a = ones(10, dtype=bool)
         for i in range(10):
             assert a[i] is True_
 
     def test_zeros_long(self):
-        from numpypy import zeros, longlong
+        from numpy import zeros, longlong
         a = zeros(10, dtype=long)
         for i in range(10):
             assert isinstance(a[i], longlong)
             assert a[1] == 0
 
     def test_ones_long(self):
-        from numpypy import ones, longlong
+        from numpy import ones, longlong
         a = ones(10, dtype=long)
         for i in range(10):
             assert isinstance(a[i], longlong)
             assert a[1] == 1
 
     def test_overflow(self):
-        from numpypy import array, dtype
+        from numpy import array, dtype
         assert array([128], 'b')[0] == -128
         assert array([256], 'B')[0] == 0
         assert array([32768], 'h')[0] == -32768
@@ -273,7 +283,7 @@ class AppTestDtypes(BaseAppTestDtypes):
         raises(OverflowError, "array([2**64], 'Q')")
 
     def test_bool_binop_types(self):
-        from numpypy import array, dtype
+        from numpy import array, dtype
         types = [
             '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd',
             'e'
@@ -282,10 +292,10 @@ class AppTestDtypes(BaseAppTestDtypes):
             types += ['g', 'G']
         a = array([True], '?')
         for t in types:
-            assert (a + array([0], t)).dtype is dtype(t)
+            assert (a + array([0], t)).dtype == dtype(t)
 
     def test_binop_types(self):
-        from numpypy import array, dtype
+        from numpy import array, dtype
         tests = [('b','B','h'), ('b','h','h'), ('b','H','i'), ('b','i','i'),
                  ('b','l','l'), ('b','q','q'), ('b','Q','d'), ('B','h','h'),
                  ('B','H','H'), ('B','i','i'), ('B','I','I'), ('B','l','l'),
@@ -306,10 +316,10 @@ class AppTestDtypes(BaseAppTestDtypes):
         for d1, d2, dout in tests:
             # make a failed test print helpful info
             d3 = (array([1], d1) + array([1], d2)).dtype
-            assert (d1, d2) == (d1, d2) and d3 is dtype(dout)
+            assert (d1, d2) == (d1, d2) and d3 == dtype(dout)
 
     def test_add(self):
-        import numpypy as np
+        import numpy as np
         for dtype in ["int8", "int16", "I"]:
             a = np.array(range(5), dtype=dtype)
             b = a + a
@@ -325,22 +335,26 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert len(d) == 2
 
     def test_shape(self):
-        from numpypy import dtype
+        from numpy import dtype
         assert dtype(long).shape == ()
 
     def test_cant_subclass(self):
-        from numpypy import dtype
+        from numpy import dtype
         # You can't subclass dtype
         raises(TypeError, type, "Foo", (dtype,), {})
 
     def test_can_subclass(self):
-        import numpypy
-        class xyz(numpypy.void):
+        import numpy as np
+        class xyz(np.void):
             pass
-        assert True
+        assert np.dtype(xyz).name == 'xyz'
+        # another obscure API, used in numpy record.py
+        # it seems numpy throws away the subclass type and parses the spec
+        a = np.dtype((xyz, [('x', 'int32'), ('y', 'float32')]))
+        assert repr(a) == "dtype([('x', '<i4'), ('y', '<f4')])"
 
     def test_index(self):
-        import numpypy as np
+        import numpy as np
         for dtype in [np.int8, np.int16, np.int32, np.int64]:
             a = np.array(range(10), dtype=dtype)
             b = np.array([0] * 10, dtype=dtype)
@@ -348,7 +362,7 @@ class AppTestDtypes(BaseAppTestDtypes):
                 a[idx] += 1
 
     def test_hash(self):
-        import numpypy as numpy
+        import numpy
         for tp, value in [
             (numpy.int8, 4),
             (numpy.int16, 5),
@@ -392,9 +406,10 @@ class AppTestDtypes(BaseAppTestDtypes):
         t5 = dtype([('x', '<f4'), ('y', '<i4')])
         t6 = dtype([('y', '<i4'), ('x', '<f4')])
         assert hash(t5) != hash(t6)
+
     def test_pickle(self):
         import numpy as np
-        from numpypy import array, dtype
+        from numpy import array, dtype
         from cPickle import loads, dumps
         a = array([1,2,3])
         if self.ptr_size == 8:
@@ -404,10 +419,10 @@ class AppTestDtypes(BaseAppTestDtypes):
         assert loads(dumps(a.dtype)) == a.dtype
         assert np.dtype('bool').__reduce__() == (dtype, ('b1', 0, 1), (3, '|', None, None, None, -1, -1, 0))
         assert np.dtype('|V16').__reduce__() == (dtype, ('V16', 0, 1), (3, '|', None, None, None, 16, 1, 0))
-        assert np.dtype(('<f8', 2)).__reduce__() == (dtype, ('V16', 0, 1), (3, '|', (dtype('float64'), (2,)), None, None, 16, 1, 0))
+        assert np.dtype(('<f8', 2)).__reduce__() == (dtype, ('V16', 0, 1), (3, '|', (dtype('float64'), (2,)), None, None, 16, 8, 0))
 
     def test_newbyteorder(self):
-        import numpypy as np
+        import numpy as np
         import sys
         sys_is_le = sys.byteorder == 'little'
         native_code = sys_is_le and '<' or '>'
@@ -471,15 +486,25 @@ class AppTestDtypes(BaseAppTestDtypes):
         class O(object):
             pass
         for o in [object, O]:
-            if '__pypy__' not in sys.builtin_module_names:
+            if self.ptr_size == 4:
+                assert np.dtype(o).str == '|O4'
+            elif self.ptr_size == 8:
                 assert np.dtype(o).str == '|O8'
             else:
-                exc = raises(NotImplementedError, "np.dtype(o)")
-                assert exc.value[0] == "cannot create dtype with type '%s'" % o.__name__
+                assert False,'self._ptr_size unknown'
+        # Issue gh-2798
+        if '__pypy__' in sys.builtin_module_names:
+            a = np.array(['a'], dtype="O")
+            raises(NotImplementedError, a.astype, ("O", [("name", "O")]))
+            skip("(base_dtype, new_dtype) dtype specification discouraged")
+        a = np.array(['a'], dtype="O").astype(("O", [("name", "O")]))
+        assert a[0] == 'a'
+        assert a == 'a'
+        assert a['name'].dtype == a.dtype
 
 class AppTestTypes(BaseAppTestDtypes):
     def test_abstract_types(self):
-        import numpypy as numpy
+        import numpy
 
         raises(TypeError, numpy.generic, 0)
         raises(TypeError, numpy.number, 0)
@@ -525,16 +550,16 @@ class AppTestTypes(BaseAppTestDtypes):
         #assert a.dtype is numpy.dtype('|V4')
 
     def test_new(self):
-        import numpypy as np
+        import numpy as np
         assert np.int_(4) == 4
         assert np.float_(3.4) == 3.4
 
     def test_pow(self):
-        from numpypy import int_
+        from numpy import int_
         assert int_(4) ** 2 == 16
 
     def test_bool(self):
-        import numpypy as numpy
+        import numpy
 
         assert numpy.bool_.mro() == [numpy.bool_, numpy.generic, object]
         assert numpy.bool_(3) is numpy.True_
@@ -549,7 +574,7 @@ class AppTestTypes(BaseAppTestDtypes):
         assert numpy.bool_("False") is numpy.True_
 
     def test_int8(self):
-        import numpypy as numpy
+        import numpy
 
         assert numpy.int8.mro() == [numpy.int8, numpy.signedinteger,
                                     numpy.integer, numpy.number,
@@ -573,7 +598,7 @@ class AppTestTypes(BaseAppTestDtypes):
         assert numpy.int8('128') == -128
 
     def test_uint8(self):
-        import numpypy as numpy
+        import numpy
 
         assert numpy.uint8.mro() == [numpy.uint8, numpy.unsignedinteger,
                                      numpy.integer, numpy.number,
@@ -598,7 +623,7 @@ class AppTestTypes(BaseAppTestDtypes):
         assert numpy.uint8('256') == 0
 
     def test_int16(self):
-        import numpypy as numpy
+        import numpy
 
         x = numpy.int16(3)
         assert x == 3
@@ -640,7 +665,7 @@ class AppTestTypes(BaseAppTestDtypes):
             assert numpy.uint32('4294967296') == 0
 
     def test_int_(self):
-        import numpypy as numpy
+        import numpy
 
         assert numpy.int_ is numpy.dtype(int).type
         assert numpy.int_.mro() == [numpy.int_, numpy.signedinteger,
@@ -664,6 +689,7 @@ class AppTestTypes(BaseAppTestDtypes):
 
         assert numpy.int64(9223372036854775807) == 9223372036854775807
         assert numpy.int64(9223372036854775807) == 9223372036854775807
+        assert numpy.int64(-9223372036854775807) == -9223372036854775807
         raises(OverflowError, numpy.int64, 9223372036854775808)
         raises(OverflowError, numpy.int64, 9223372036854775808L)
 
@@ -674,16 +700,8 @@ class AppTestTypes(BaseAppTestDtypes):
                                       numpy.integer, numpy.number,
                                       numpy.generic, object]
         import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            # These tests pass "by chance" on numpy, things that are larger than
-            # platform long (i.e. a python int), don't get put in a normal box,
-            # instead they become an object array containing a long, we don't have
-            # yet, so these can't pass.
-            assert numpy.uint64(9223372036854775808) == 9223372036854775808
-            assert numpy.uint64(18446744073709551615) == 18446744073709551615
-        else:
-            raises(OverflowError, numpy.int64, 9223372036854775808)
-            raises(OverflowError, numpy.int64, 18446744073709551615)
+        raises(OverflowError, numpy.int64, 9223372036854775808)
+        raises(OverflowError, numpy.int64, 18446744073709551615)
         raises(OverflowError, numpy.uint64, 18446744073709551616)
         assert numpy.uint64((2<<63) - 1) == (2<<63) - 1
 
@@ -751,7 +769,7 @@ class AppTestTypes(BaseAppTestDtypes):
 
     def test_complex_format(self):
         import sys
-        import numpypy as numpy
+        import numpy
 
         for complex_ in (numpy.complex128, numpy.complex64,):
             for real, imag, should in [
@@ -791,7 +809,7 @@ class AppTestTypes(BaseAppTestDtypes):
             assert "{:g}".format(numpy.complex_(0.5+1.5j)) == '{:g}'.format(0.5+1.5j)
 
     def test_complex(self):
-        import numpypy as numpy
+        import numpy
 
         assert numpy.complex_ is numpy.complex128
         assert numpy.csingle is numpy.complex64
@@ -811,7 +829,7 @@ class AppTestTypes(BaseAppTestDtypes):
         assert d.char == 'F'
 
     def test_subclass_type(self):
-        import numpypy as numpy
+        import numpy
 
         class X(numpy.float64):
             def m(self):
@@ -825,12 +843,12 @@ class AppTestTypes(BaseAppTestDtypes):
         assert b.dtype.type is numpy.float64
 
     def test_long_as_index(self):
-        from numpypy import int_, float64
+        from numpy import int_, float64
         assert (1, 2, 3)[int_(1)] == 2
         raises(TypeError, lambda: (1, 2, 3)[float64(1)])
 
     def test_int(self):
-        from numpypy import int32, int64, int_
+        from numpy import int32, int64, int_
         import sys
         assert issubclass(int_, int)
         if sys.maxint == (1<<31) - 1:
@@ -840,39 +858,9 @@ class AppTestTypes(BaseAppTestDtypes):
             assert issubclass(int64, int)
             assert int_ is int64
 
-    def test_various_types(self):
-        import numpypy as numpy
-
-        assert numpy.int16 is numpy.short
-        assert numpy.int8 is numpy.byte
-        assert numpy.bool_ is numpy.bool8
-        assert numpy.intp().dtype.num == 7
-        assert numpy.intp().dtype.char == 'l'
-        if self.ptr_size == 4:
-            assert numpy.intp().dtype.name == 'int32'
-            assert numpy.intp is numpy.int32
-            assert numpy.uintp is numpy.uint32
-        elif self.ptr_size == 8:
-            assert numpy.intp().dtype.name == 'int64'
-            assert numpy.intp is numpy.int64
-            assert numpy.uintp is numpy.uint64
-
-        assert issubclass(numpy.float64, numpy.floating)
-        assert issubclass(numpy.longfloat, numpy.floating)
-        assert not issubclass(numpy.float64, numpy.longfloat)
-        assert not issubclass(numpy.longfloat, numpy.float64)
-
-    def test_mro(self):
-        import numpypy as numpy
-
-        assert numpy.int16.__mro__ == (numpy.int16, numpy.signedinteger,
-                                       numpy.integer, numpy.number,
-                                       numpy.generic, object)
-        assert numpy.bool_.__mro__ == (numpy.bool_, numpy.generic, object)
-
     def test_operators(self):
         from operator import truediv
-        from numpypy import float64, int_, True_, False_
+        from numpy import float64, int_, True_, False_
         assert 5 / int_(2) == int_(2)
         assert truediv(int_(3), int_(2)) == float64(1.5)
         assert truediv(3, int_(2)) == float64(1.5)
@@ -898,7 +886,7 @@ class AppTestTypes(BaseAppTestDtypes):
 
     def test_alternate_constructs(self):
         import numpy as np
-        from numpypy import dtype
+        from numpy import dtype
         nnp = self.non_native_prefix
         byteorder = self.native_prefix
         assert dtype('i8') == dtype(byteorder + 'i8') == dtype('=i8') == dtype(long)
@@ -921,7 +909,7 @@ class AppTestTypes(BaseAppTestDtypes):
         assert d.str == '|S0'
 
     def test_dtype_str(self):
-        from numpypy import dtype
+        from numpy import dtype
         byteorder = self.native_prefix
         assert dtype('i8').str == byteorder + 'i8'
         assert dtype('<i8').str == '<i8'
@@ -948,35 +936,37 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype(('f8', 2)).str == "|V16"
 
     def test_intp(self):
-        from numpypy import dtype
-        for s in ['p', 'int']:
-            assert dtype(s) is dtype('intp')
-        for s in ['P', 'uint']:
-            assert dtype(s) is dtype('uintp')
-        assert dtype('p').num == 7
-        assert dtype('P').num == 8
-        assert dtype('p').char == 'l'
-        assert dtype('P').char == 'L'
+        from numpy import dtype
+        assert dtype('p') is dtype('intp')
+        assert dtype('P') is dtype('uintp')
         assert dtype('p').kind == 'i'
         assert dtype('P').kind == 'u'
         if self.ptr_size == 4:
+            assert dtype('p').num == 5
+            assert dtype('P').num == 6
+            assert dtype('p').char == 'i'
+            assert dtype('P').char == 'I'
             assert dtype('p').name == 'int32'
             assert dtype('P').name == 'uint32'
         else:
+            assert dtype('p').num == 7
+            assert dtype('P').num == 8
+            assert dtype('p').char == 'l'
+            assert dtype('P').char == 'L'
             assert dtype('p').name == 'int64'
             assert dtype('P').name == 'uint64'
 
     def test_alignment(self):
-        from numpypy import dtype
+        from numpy import dtype
         assert dtype('i4').alignment == 4
 
     def test_isnative(self):
-        from numpypy import dtype
+        from numpy import dtype
         assert dtype('i4').isnative == True
         assert dtype('>i8').isnative == False
 
     def test_any_all_nonzero(self):
-        import numpypy as numpy
+        import numpy
         x = numpy.bool_(True)
         assert x.any() is numpy.True_
         assert x.all() is numpy.True_
@@ -999,7 +989,7 @@ class AppTestTypes(BaseAppTestDtypes):
         assert x.__nonzero__() is True
 
     def test_ravel(self):
-        from numpypy import float64, int8, array
+        from numpy import float64, int8, array
         x = float64(42.5).ravel()
         assert x.dtype == float64
         assert (x == array([42.5])).all()
@@ -1022,7 +1012,7 @@ class AppTestTypes(BaseAppTestDtypes):
 
 class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
     def test_mro(self):
-        from numpypy import str_, unicode_, character, flexible, generic
+        from numpy import str_, unicode_, character, flexible, generic
         import sys
         if '__pypy__' in sys.builtin_module_names:
             assert str_.mro() == [str_, character, flexible, generic,
@@ -1036,7 +1026,7 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
                                       flexible, generic, object]
 
     def test_str_dtype(self):
-        from numpypy import dtype, str_
+        from numpy import dtype, str_
 
         raises(TypeError, "dtype('Sx')")
         for t in ['S8', '|S8', '=S8']:
@@ -1057,7 +1047,7 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
             assert d.str == '|S1'
 
     def test_unicode_dtype(self):
-        from numpypy import dtype, unicode_
+        from numpy import dtype, unicode_
 
         raises(TypeError, "dtype('Ux')")
         d = dtype('U8')
@@ -1068,23 +1058,9 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
         assert d.name == "unicode256"
         assert d.num == 19
 
-    def test_string_boxes(self):
-        from numpypy import str_
-        assert isinstance(str_(3), str_)
-
-    def test_unicode_boxes(self):
-        from numpypy import unicode_
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            exc = raises(NotImplementedError, unicode_, 3)
-            assert exc.value.message.find('not supported yet') >= 0
-        else:
-            u = unicode_(3)
-            assert isinstance(u, unicode)
-
     def test_character_dtype(self):
         import numpy as np
-        from numpypy import array, character
+        from numpy import array, character
         x = array([["A", "B"], ["C", "D"]], character)
         assert (x == [["A", "B"], ["C", "D"]]).all()
         d = np.dtype('c')
@@ -1095,10 +1071,18 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
 
 class AppTestRecordDtypes(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+    def setup_class(cls):
+        BaseNumpyAppTest.setup_class.im_func(cls)
+        if option.runappdirect:
+            cls.w_test_for_core_internal = cls.space.wrap(True)
+        else:
+            cls.w_test_for_core_internal = cls.space.wrap(False)
 
     def test_create(self):
-        from numpypy import dtype, void
+        from numpy import dtype, void
 
+        d = dtype([('x', 'i4'), ('y', 'i1')], align=True)
+        assert d.itemsize == 8
         raises(ValueError, "dtype([('x', int), ('x', float)])")
         d = dtype([("x", "<i4"), ("y", "<f4"), ("z", "<u2"), ("v", "<f8")])
         assert d.fields['x'] == (dtype('<i4'), 0)
@@ -1145,18 +1129,29 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         exc = raises(ValueError, "dtype([('a', '<i8'), ('a', '<f8')])")
         assert exc.value[0] == 'two fields with the same name'
 
+    def test_array_from_record(self):
+        import numpy as np
+        a = np.array(('???', -999, -12345678.9),
+                     dtype=[('c', '|S3'), ('a', '<i8'), ('b', '<f8')])
+        # Change the order of the keys
+        b = np.array(a, dtype=[('a', '<i8'), ('b', '<f8'), ('c', '|S3')])
+        assert b.base is None
+        assert b.dtype.fields['a'][1] == 0
+        assert b['a'] == -999
+        a = np.array(('N/A', 1e+20, 1e+20, 999999),
+                     dtype=[('name', '|S4'), ('x', '<f8'),
+                            ('y', '<f8'), ('block', '<i8', (2, 3))])
+        assert (a['block'] == 999999).all()
+
     def test_create_from_dict(self):
         import numpy as np
         import sys
         d = {'names': ['r','g','b','a'],
              'formats': [np.uint8, np.uint8, np.uint8, np.uint8]}
-        if '__pypy__' not in sys.builtin_module_names:
-            dt = np.dtype(d)
-        else:
-            raises(NotImplementedError, np.dtype, d)
+        dt = np.dtype(d)
 
     def test_create_subarrays(self):
-        from numpypy import dtype
+        from numpy import dtype
         d = dtype([("x", "float", (2,)), ("y", "int64", (2,))])
         assert d.itemsize == 32
         assert d.name == "void256"
@@ -1232,7 +1227,8 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
 
         d = np.dtype(('<f8', 2))
         exc = raises(ValueError, "d.__setstate__((3, '|', None, ('f0', 'f1'), None, 16, 1, 0))")
-        assert exc.value[0] == 'inconsistent fields and names'
+        inconsistent = 'inconsistent fields and names in Numpy dtype unpickling'
+        assert exc.value[0] == inconsistent
         assert d.fields is None
         assert d.shape == (2,)
         assert d.subdtype is not None
@@ -1240,7 +1236,7 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
 
         d = np.dtype(('<f8', 2))
         exc = raises(ValueError, "d.__setstate__((3, '|', None, None, {'f0': (np.dtype('float64'), 0), 'f1': (np.dtype('float64'), 8)}, 16, 1, 0))")
-        assert exc.value[0] == 'inconsistent fields and names'
+        assert exc.value[0] == inconsistent
         assert d.fields is None
         assert d.shape == (2,)
         assert d.subdtype is not None
@@ -1277,18 +1273,22 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert repr(d) == "dtype([('f0', '<f8'), ('f1', '<f8')])"
 
     def test_pickle_record(self):
-        from numpypy import array, dtype
+        from numpy import array, dtype
         from cPickle import loads, dumps
 
         d = dtype([("x", "int32"), ("y", "int32"), ("z", "int32"), ("value", float)])
-        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '|', None, ('x', 'y', 'z', 'value'), {'y': (dtype('int32'), 4), 'x': (dtype('int32'), 0), 'z': (dtype('int32'), 8), 'value': (dtype('float64'), 12)}, 20, 1, 0))
+        assert d.__reduce__() == (dtype, ('V20', 0, 1), (3, '|', None,
+                     ('x', 'y', 'z', 'value'),
+                     {'y': (dtype('int32'), 4), 'x': (dtype('int32'), 0),
+                      'z': (dtype('int32'), 8), 'value': (dtype('float64'), 12),
+                      }, 20, 1, 16))
 
         new_d = loads(dumps(d))
 
         assert new_d.__reduce__() == d.__reduce__()
 
     def test_pickle_record_subarrays(self):
-        from numpypy import array, dtype
+        from numpy import array, dtype
         from cPickle import loads, dumps
 
         d = dtype([("x", "int32", (3,)), ("y", "int32", (2,)), ("z", "int32", (4,)), ("value", float, (5,))])
@@ -1299,6 +1299,187 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
         assert keys == ["value", "x", "y", "z"]
 
         assert new_d.itemsize == d.itemsize == 76
+
+    def test_shape_invalid(self):
+        import numpy as np
+        # Check that the shape is valid.
+        max_int = 2 ** (8 * 4 - 1)
+        max_intp = 2 ** (8 * np.dtype('intp').itemsize - 1) - 1
+        # Too large values (the datatype is part of this)
+        raises(ValueError, np.dtype, [('a', 'f4', max_int // 4 + 1)])
+        raises(ValueError, np.dtype, [('a', 'f4', max_int + 1)])
+        raises(ValueError, np.dtype, [('a', 'f4', (max_int, 2))])
+        # Takes a different code path (fails earlier:
+        raises(ValueError, np.dtype, [('a', 'f4', max_intp + 1)])
+        # Negative values
+        raises(ValueError, np.dtype, [('a', 'f4', -1)])
+        raises(ValueError, np.dtype, [('a', 'f4', (-1, -1))])
+
+    def test_aligned_size(self):
+        import numpy as np
+        if self.test_for_core_internal:
+            try:
+                from numpy.core import _internal
+            except ImportError:
+                skip ('no numpy.core._internal available')
+        # Check that structured dtypes get padded to an aligned size
+        dt = np.dtype('i4, i1', align=True)
+        assert dt.itemsize == 8
+        dt = np.dtype([('f0', 'i4'), ('f1', 'i1')], align=True)
+        assert dt.itemsize == 8
+        dt = np.dtype({'names':['f0', 'f1'],
+                       'formats':['i4', 'u1'],
+                       'offsets':[0, 4]}, align=True)
+        assert dt.itemsize == 8
+        dt = np.dtype({'f0': ('i4', 0), 'f1':('u1', 4)}, align=True)
+        assert dt.itemsize == 8
+        assert dt.alignment == 4
+        assert str(dt) == "{'names':['f0','f1'], 'formats':['<i4','u1'], 'offsets':[0,4], 'itemsize':8, 'aligned':True}"
+        dt = np.dtype([('f1', 'u1'), ('f0', 'i4')], align=True)
+        assert str(dt) == "{'names':['f1','f0'], 'formats':['u1','<i4'], 'offsets':[0,4], 'itemsize':8, 'aligned':True}"
+        # Nesting should preserve that alignment
+        dt1 = np.dtype([('f0', 'i4'),
+                       ('f1', [('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')]),
+                       ('f2', 'i1')], align=True)
+        assert dt1.alignment == 4
+        assert dt1['f1'].itemsize == 12
+        assert dt1.itemsize == 20
+        dt2 = np.dtype({'names':['f0', 'f1', 'f2'],
+                       'formats':['i4',
+                                  [('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')],
+                                  'i1'],
+                       'offsets':[0, 4, 16]}, align=True)
+        assert dt2.itemsize == 20
+        dt3 = np.dtype({'f0': ('i4', 0),
+                       'f1': ([('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')], 4),
+                       'f2': ('i1', 16)}, align=True)
+        assert dt3.itemsize == 20
+        assert dt1 == dt2
+        answer = "{'names':['f0','f1','f2'], " + \
+                    "'formats':['<i4',{'names':['f1','f2','f3'], " + \
+                                      "'formats':['i1','<i4','i1'], " + \
+                                      "'offsets':[0,4,8], 'itemsize':12}," + \
+                                 "'i1'], " + \
+                    "'offsets':[0,4,16], 'itemsize':20, 'aligned':True}"
+        assert str(dt3) == answer
+        assert dt2 == dt3
+        # Nesting should preserve packing
+        dt1 = np.dtype([('f0', 'i4'),
+                       ('f1', [('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')]),
+                       ('f2', 'i1')], align=False)
+        assert dt1.itemsize == 11
+        dt2 = np.dtype({'names':['f0', 'f1', 'f2'],
+                       'formats':['i4',
+                                  [('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')],
+                                  'i1'],
+                       'offsets':[0, 4, 10]}, align=False)
+        assert dt2.itemsize == 11
+        dt3 = np.dtype({'f0': ('i4', 0),
+                       'f1': ([('f1', 'i1'), ('f2', 'i4'), ('f3', 'i1')], 4),
+                       'f2': ('i1', 10)}, align=False)
+        assert dt3.itemsize == 11
+        assert dt1 == dt2
+        assert dt2 == dt3
+
+    def test_bad_param(self):
+        import numpy as np
+        # Can't give a size that's too small
+        raises(ValueError, np.dtype,
+                        {'names':['f0', 'f1'],
+                         'formats':['i4', 'i1'],
+                         'offsets':[0, 4],
+                         'itemsize':4})
+        # If alignment is enabled, the alignment (4) must divide the itemsize
+        raises(ValueError, np.dtype,
+                        {'names':['f0', 'f1'],
+                         'formats':['i4', 'i1'],
+                         'offsets':[0, 4],
+                         'itemsize':9}, align=True)
+        # If alignment is enabled, the individual fields must be aligned
+        raises(ValueError, np.dtype,
+                        {'names':['f0', 'f1'],
+                         'formats':['i1', 'f4'],
+                         'offsets':[0, 2]}, align=True)
+        dt = np.dtype(np.double)
+        attr = ["subdtype", "descr", "str", "name", "base", "shape",
+                "isbuiltin", "isnative", "isalignedstruct", "fields",
+                "metadata", "hasobject"]
+        for s in attr:
+            raises(AttributeError, delattr, dt, s)
+
+        raises(TypeError, np.dtype,
+            dict(names=set(['A', 'B']), formats=['f8', 'i4']))
+        raises(TypeError, np.dtype,
+            dict(names=['A', 'B'], formats=set(['f8', 'i4'])))
+
+    def test_complex_dtype_repr(self):
+        import numpy as np
+        dt = np.dtype([('top', [('tiles', ('>f4', (64, 64)), (1,)),
+                                ('rtile', '>f4', (64, 36))], (3,)),
+                       ('bottom', [('bleft', ('>f4', (8, 64)), (1,)),
+                                   ('bright', '>f4', (8, 36))])])
+        assert repr(dt) == (
+                     "dtype([('top', [('tiles', ('>f4', (64, 64)), (1,)), "
+                     "('rtile', '>f4', (64, 36))], (3,)), "
+                     "('bottom', [('bleft', ('>f4', (8, 64)), (1,)), "
+                     "('bright', '>f4', (8, 36))])])")
+
+        # If the sticky aligned flag is set to True, it makes the
+        # str() function use a dict representation with an 'aligned' flag
+        dt = np.dtype([('top', [('tiles', ('>f4', (64, 64)), (1,)),
+                                ('rtile', '>f4', (64, 36))],
+                                (3,)),
+                       ('bottom', [('bleft', ('>f4', (8, 64)), (1,)),
+                                   ('bright', '>f4', (8, 36))])],
+                       align=True)
+        assert str(dt) == (
+                    "{'names':['top','bottom'], "
+                     "'formats':[([('tiles', ('>f4', (64, 64)), (1,)), "
+                                  "('rtile', '>f4', (64, 36))], (3,)),"
+                                 "[('bleft', ('>f4', (8, 64)), (1,)), "
+                                  "('bright', '>f4', (8, 36))]], "
+                     "'offsets':[0,76800], "
+                     "'itemsize':80000, "
+                     "'aligned':True}")
+
+        dt = np.dtype({'names': ['r', 'g', 'b'], 'formats': ['u1', 'u1', 'u1'],
+                        'offsets': [0, 1, 2],
+                        'titles': ['Red pixel', 'Green pixel', 'Blue pixel']},
+                        align=True)
+        assert repr(dt) == (
+                    "dtype([(('Red pixel', 'r'), 'u1'), "
+                    "(('Green pixel', 'g'), 'u1'), "
+                    "(('Blue pixel', 'b'), 'u1')], align=True)")
+
+        dt = np.dtype({'names': ['rgba', 'r', 'g', 'b'],
+                       'formats': ['<u4', 'u1', 'u1', 'u1'],
+                       'offsets': [0, 0, 1, 2],
+                       'titles': ['Color', 'Red pixel',
+                                  'Green pixel', 'Blue pixel']}, align=True)
+        assert repr(dt) == (
+                    "dtype({'names':['rgba','r','g','b'],"
+                    " 'formats':['<u4','u1','u1','u1'],"
+                    " 'offsets':[0,0,1,2],"
+                    " 'titles':['Color','Red pixel',"
+                              "'Green pixel','Blue pixel'],"
+                    " 'itemsize':4}, align=True)")
+
+        dt = np.dtype({'names': ['r', 'b'], 'formats': ['u1', 'u1'],
+                        'offsets': [0, 2],
+                        'titles': ['Red pixel', 'Blue pixel'],
+                        'itemsize': 4})
+        assert repr(dt) == (
+                    "dtype({'names':['r','b'], "
+                    "'formats':['u1','u1'], "
+                    "'offsets':[0,2], "
+                    "'titles':['Red pixel','Blue pixel'], "
+                    "'itemsize':4})")
+        if 'datetime64' not in dir(np):
+            skip('datetime dtype not available')
+        dt = np.dtype([('a', '<M8[D]'), ('b', '<m8[us]')])
+        assert repr(dt) == (
+                    "dtype([('a', '<M8[D]'), ('b', '<m8[us]')])")
+
 
 class AppTestNotDirect(BaseNumpyAppTest):
     def setup_class(cls):
@@ -1320,7 +1501,7 @@ class AppTestNotDirect(BaseNumpyAppTest):
             cls.w_check_non_native = cls.space.wrap(interp2app(check_non_native))
 
     def test_non_native(self):
-        from numpypy import array
+        from numpy import array
         a = array([1, 2, 3], dtype=self.non_native_prefix + 'i2')
         assert a[0] == 1
         assert (a + a)[1] == 4
@@ -1341,15 +1522,45 @@ class AppTestNotDirect(BaseNumpyAppTest):
         assert a[0] == 1
         assert (a + a)[1] == 4
 
-class AppTestObjectDtypes(BaseNumpyAppTest):
-    def test_scalar_from_object(self):
-        from numpypy import array
-        import sys
-        class Polynomial(object):
-            pass
-        if '__pypy__' in sys.builtin_module_names:
-            exc = raises(NotImplementedError, array, Polynomial())
-            assert exc.value.message.find('unable to create dtype from objects') >= 0
-        else:
-            a = array(Polynomial())
-            assert a.shape == ()
+class AppTestMonsterType(BaseNumpyAppTest):
+    """Test deeply nested subtypes."""
+    def test1(self):
+        import numpy as np
+        simple1 = np.dtype({'names': ['r', 'b'], 'formats': ['u1', 'u1'],
+            'titles': ['Red pixel', 'Blue pixel']})
+        a = np.dtype([('yo', int), ('ye', simple1),
+            ('yi', np.dtype((int, (3, 2))))])
+        b = np.dtype([('yo', int), ('ye', simple1),
+            ('yi', np.dtype((int, (3, 2))))])
+        assert a == b
+
+        c = np.dtype([('yo', int), ('ye', simple1),
+            ('yi', np.dtype((a, (3, 2))))])
+        d = np.dtype([('yo', int), ('ye', simple1),
+            ('yi', np.dtype((a, (3, 2))))])
+        assert c == d
+
+
+class AppTestMetadata(BaseNumpyAppTest):
+    def test_no_metadata(self):
+        import numpy as np
+        d = np.dtype(int)
+        assert d.metadata is None
+
+    def test_metadata_takes_dict(self):
+        import numpy as np
+        d = np.dtype(int, metadata={'datum': 1})
+        assert d.metadata == {'datum': 1}
+
+    def test_metadata_rejects_nondict(self):
+        import numpy as np
+        raises(TypeError, np.dtype, int, metadata='datum')
+        raises(TypeError, np.dtype, int, metadata=1)
+        raises(TypeError, np.dtype, int, metadata=None)
+
+    def test_nested_metadata(self):
+        import numpy as np
+        d = np.dtype([('a', np.dtype(int, metadata={'datum': 1}))])
+        assert d['a'].metadata == {'datum': 1}
+
+

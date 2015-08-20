@@ -3,7 +3,6 @@ Pointers.
 """
 
 from rpython.rlib import rposix
-from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.annlowlevel import llstr, llunicode
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -49,7 +48,7 @@ class W_CTypePtrOrArray(W_CType):
         space = self.space
         if (isinstance(w_ob, cdataobj.W_CData) and
                 isinstance(w_ob.ctype, W_CTypePtrOrArray)):
-            value = w_ob._cdata
+            value = w_ob.unsafe_escaping_ptr()
         else:
             value = misc.as_unsigned_long(space, w_ob, strict=False)
             value = rffi.cast(rffi.CCHARP, value)
@@ -108,34 +107,33 @@ class W_CTypePtrOrArray(W_CType):
     def string(self, cdataobj, maxlen):
         space = self.space
         if isinstance(self.ctitem, ctypeprim.W_CTypePrimitive):
-            cdata = cdataobj._cdata
-            if not cdata:
-                raise oefmt(space.w_RuntimeError, "cannot use string() on %s",
-                            space.str_w(cdataobj.repr()))
-            #
-            from pypy.module._cffi_backend import ctypearray
-            length = maxlen
-            if length < 0 and isinstance(self, ctypearray.W_CTypeArray):
-                length = cdataobj.get_array_length()
-            #
-            # pointer to a primitive type of size 1: builds and returns a str
-            if self.ctitem.size == rffi.sizeof(lltype.Char):
-                if length < 0:
-                    s = rffi.charp2str(cdata)
-                else:
-                    s = rffi.charp2strn(cdata, length)
-                keepalive_until_here(cdataobj)
-                return space.wrap(s)
-            #
-            # pointer to a wchar_t: builds and returns a unicode
-            if self.is_unichar_ptr_or_array():
-                cdata = rffi.cast(rffi.CWCHARP, cdata)
-                if length < 0:
-                    u = rffi.wcharp2unicode(cdata)
-                else:
-                    u = rffi.wcharp2unicoden(cdata, length)
-                keepalive_until_here(cdataobj)
-                return space.wrap(u)
+            with cdataobj as ptr:
+                if not ptr:
+                    raise oefmt(space.w_RuntimeError,
+                                "cannot use string() on %s",
+                                space.str_w(cdataobj.repr()))
+                #
+                from pypy.module._cffi_backend import ctypearray
+                length = maxlen
+                if length < 0 and isinstance(self, ctypearray.W_CTypeArray):
+                    length = cdataobj.get_array_length()
+                #
+                # pointer to a primitive type of size 1: builds and returns a str
+                if self.ctitem.size == rffi.sizeof(lltype.Char):
+                    if length < 0:
+                        s = rffi.charp2str(ptr)
+                    else:
+                        s = rffi.charp2strn(ptr, length)
+                    return space.wrap(s)
+                #
+                # pointer to a wchar_t: builds and returns a unicode
+                if self.is_unichar_ptr_or_array():
+                    cdata = rffi.cast(rffi.CWCHARP, ptr)
+                    if length < 0:
+                        u = rffi.wcharp2unicode(cdata)
+                    else:
+                        u = rffi.wcharp2unicoden(cdata, length)
+                    return space.wrap(u)
         #
         return W_CType.string(self, cdataobj, maxlen)
 
@@ -162,7 +160,7 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
             if not (self.can_cast_anything or other.can_cast_anything):
                 raise self._convert_error("compatible pointer", w_ob)
 
-        rffi.cast(rffi.CCHARPP, cdata)[0] = w_ob._cdata
+        rffi.cast(rffi.CCHARPP, cdata)[0] = w_ob.unsafe_escaping_ptr()
 
     def _alignof(self):
         from pypy.module._cffi_backend import newtype
@@ -187,7 +185,7 @@ class W_CTypePointer(W_CTypePtrBase):
         self.is_void_ptr = isinstance(ctitem, ctypevoid.W_CTypeVoid)
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
-    def newp(self, w_init):
+    def newp(self, w_init, allocator):
         from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
         space = self.space
         ctitem = self.ctitem
@@ -201,31 +199,37 @@ class W_CTypePointer(W_CTypePtrBase):
             # a W_CDataPtrToStruct object which has a strong reference
             # to a W_CDataNewOwning that really contains the structure.
             #
-            if ctitem.with_var_array and not space.is_w(w_init, space.w_None):
-                datasize = ctitem.convert_struct_from_object(
-                    lltype.nullptr(rffi.CCHARP.TO), w_init, datasize)
+            if not space.is_w(w_init, space.w_None):
+                ctitem.force_lazy_struct()
+                if ctitem._with_var_array:
+                    datasize = ctitem.convert_struct_from_object(
+                        lltype.nullptr(rffi.CCHARP.TO), w_init, datasize)
             #
-            cdatastruct = cdataobj.W_CDataNewOwning(space, datasize, ctitem)
-            cdata = cdataobj.W_CDataPtrToStructOrUnion(space,
-                                                       cdatastruct._cdata,
+            cdatastruct = allocator.allocate(space, datasize, ctitem)
+            ptr = cdatastruct.unsafe_escaping_ptr()
+            cdata = cdataobj.W_CDataPtrToStructOrUnion(space, ptr,
                                                        self, cdatastruct)
         else:
             if self.is_char_or_unichar_ptr_or_array():
                 datasize *= 2       # forcefully add a null character
-            cdata = cdataobj.W_CDataNewOwning(space, datasize, self)
+            cdata = allocator.allocate(space, datasize, self)
         #
         if not space.is_w(w_init, space.w_None):
-            ctitem.convert_from_object(cdata._cdata, w_init)
-            keepalive_until_here(cdata)
+            with cdata as ptr:
+                ctitem.convert_from_object(ptr, w_init)
         return cdata
 
     def _check_subscript_index(self, w_cdata, i):
         if (isinstance(w_cdata, cdataobj.W_CDataNewOwning) or
             isinstance(w_cdata, cdataobj.W_CDataPtrToStructOrUnion)):
             if i != 0:
-                space = self.space
-                raise oefmt(space.w_IndexError,
+                raise oefmt(self.space.w_IndexError,
                             "cdata '%s' can only be indexed by 0", self.name)
+        else:
+            if not w_cdata.unsafe_escaping_ptr():
+                raise oefmt(self.space.w_RuntimeError,
+                            "cannot dereference null pointer from cdata '%s'",
+                            self.name)
         return self
 
     def _check_slice_index(self, w_cdata, start, stop):
@@ -308,24 +312,37 @@ class W_CTypePointer(W_CTypePtrBase):
     def getcfield(self, attr):
         return self.ctitem.getcfield(attr)
 
-    def typeoffsetof(self, fieldname):
-        if fieldname is None:
-            return W_CTypePtrBase.typeoffsetof(self, fieldname)
-        else:
-            return self.ctitem.typeoffsetof(fieldname)
+    def typeoffsetof_field(self, fieldname, following):
+        if following == 0:
+            return self.ctitem.typeoffsetof_field(fieldname, -1)
+        return W_CTypePtrBase.typeoffsetof_field(self, fieldname, following)
+
+    def typeoffsetof_index(self, index):
+        space = self.space
+        ctitem = self.ctitem
+        if ctitem.size < 0:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("pointer to opaque"))
+        try:
+            offset = ovfcheck(index * ctitem.size)
+        except OverflowError:
+            raise OperationError(space.w_OverflowError,
+                    space.wrap("array offset would overflow a ssize_t"))
+        return ctitem, offset
 
     def rawaddressof(self, cdata, offset):
         from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
         space = self.space
         ctype2 = cdata.ctype
         if (isinstance(ctype2, W_CTypeStructOrUnion) or
-               (isinstance(ctype2, W_CTypePtrOrArray) and
-                isinstance(ctype2.ctitem, W_CTypeStructOrUnion))):
-            ptrdata = rffi.ptradd(cdata._cdata, offset)
-            return cdataobj.W_CData(space, ptrdata, self)
+                isinstance(ctype2, W_CTypePtrOrArray)):
+            ptr = cdata.unsafe_escaping_ptr()
+            ptr = rffi.ptradd(ptr, offset)
+            return cdataobj.W_CData(space, ptr, self)
         else:
             raise OperationError(space.w_TypeError,
-                     space.wrap("expected a 'cdata struct-or-union' object"))
+                    space.wrap("expected a cdata struct/union/array/pointer"
+                               " object"))
 
     def _fget(self, attrchar):
         if attrchar == 'i':     # item
@@ -335,7 +352,8 @@ class W_CTypePointer(W_CTypePtrBase):
 # ____________________________________________________________
 
 
-rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], rffi.CCHARP)
+rffi_fdopen = rffi.llexternal("fdopen", [rffi.INT, rffi.CCHARP], rffi.CCHARP,
+                              save_err=rffi.RFFI_SAVE_ERRNO)
 rffi_setbuf = rffi.llexternal("setbuf", [rffi.CCHARP, rffi.CCHARP], lltype.Void)
 rffi_fclose = rffi.llexternal("fclose", [rffi.CCHARP], rffi.INT)
 
@@ -345,7 +363,7 @@ class CffiFileObj(object):
     def __init__(self, fd, mode):
         self.llf = rffi_fdopen(fd, mode)
         if not self.llf:
-            raise OSError(rposix.get_errno(), "fdopen failed")
+            raise OSError(rposix.get_saved_errno(), "fdopen failed")
         rffi_setbuf(self.llf, lltype.nullptr(rffi.CCHARP.TO))
 
     def close(self):

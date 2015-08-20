@@ -45,7 +45,6 @@ class LowLevelDatabase(object):
         self.delayedfunctionptrs = []
         self.completedcontainers = 0
         self.containerstats = {}
-        self.externalfuncs = {}
         self.helper2ptr = {}
 
         # late_initializations is for when the value you want to
@@ -286,6 +285,8 @@ class LowLevelDatabase(object):
             for value in newdependencies:
                 #if isinstance(value, _uninitialized):
                 #    continue
+                if isinstance(value, lltype._uninitialized):
+                    continue
                 if isinstance(typeOf(value), ContainerType):
                     node = self.getcontainernode(value)
                     if parent and node._funccodegen_owner is not None:

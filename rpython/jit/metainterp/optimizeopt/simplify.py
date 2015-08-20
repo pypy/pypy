@@ -35,7 +35,7 @@ class OptSimplify(Optimization):
         #     but it's a bit hard to implement robustly if heap.py is also run
         pass
 
-    def optimize_RECORD_KNOWN_CLASS(self, op):
+    def optimize_RECORD_EXACT_CLASS(self, op):
         pass
 
     def optimize_LABEL(self, op):
@@ -48,6 +48,7 @@ class OptSimplify(Optimization):
 
     def optimize_JUMP(self, op):
         if not self.unroll:
+            op = op.clone()
             descr = op.getdescr()
             assert isinstance(descr, JitCellToken)
             if not descr.target_tokens:

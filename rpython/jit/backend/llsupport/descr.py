@@ -35,9 +35,11 @@ class SizeDescr(AbstractDescr):
     size = 0      # help translation
     tid = llop.combine_ushort(lltype.Signed, 0, 0)
 
-    def __init__(self, size, count_fields_if_immut=-1):
+    def __init__(self, size, count_fields_if_immut=-1,
+                 gc_fielddescrs=None):
         self.size = size
         self.count_fields_if_immut = count_fields_if_immut
+        self.gc_fielddescrs = gc_fielddescrs
 
     def count_fields_if_immutable(self):
         return self.count_fields_if_immut
@@ -58,10 +60,13 @@ def get_size_descr(gccache, STRUCT):
     except KeyError:
         size = symbolic.get_size(STRUCT, gccache.translate_support_code)
         count_fields_if_immut = heaptracker.count_fields_if_immutable(STRUCT)
+        gc_fielddescrs = heaptracker.gc_fielddescrs(gccache, STRUCT)
         if heaptracker.has_gcstruct_a_vtable(STRUCT):
-            sizedescr = SizeDescrWithVTable(size, count_fields_if_immut)
+            sizedescr = SizeDescrWithVTable(size, count_fields_if_immut,
+                                            gc_fielddescrs)
         else:
-            sizedescr = SizeDescr(size, count_fields_if_immut)
+            sizedescr = SizeDescr(size, count_fields_if_immut,
+                                  gc_fielddescrs)
         gccache.init_size_descr(STRUCT, sizedescr)
         cache[STRUCT] = sizedescr
         return sizedescr
@@ -94,6 +99,9 @@ class FieldDescr(ArrayOrFieldDescr):
         self.offset = offset
         self.field_size = field_size
         self.flag = flag
+
+    def __repr__(self):
+        return 'FieldDescr<%s>' % (self.name,)
 
     def is_pointer_field(self):
         return self.flag == FLAG_POINTER
@@ -305,17 +313,18 @@ def get_interiorfield_descr(gc_ll_descr, ARRAY, name, arrayfieldname=None):
 # ____________________________________________________________
 # CallDescrs
 
+def _missing_call_stub_i(func, args_i, args_r, args_f):
+    return 0
+def _missing_call_stub_r(func, args_i, args_r, args_f):
+    return lltype.nullptr(llmemory.GCREF.TO)
+def _missing_call_stub_f(func, args_i, args_r, args_f):
+    return longlong.ZEROF
+
 class CallDescr(AbstractDescr):
     arg_classes = ''     # <-- annotation hack
     result_type = '\x00'
     result_flag = '\x00'
     ffi_flags = 1
-    call_stub_i = staticmethod(lambda func, args_i, args_r, args_f:
-                               0)
-    call_stub_r = staticmethod(lambda func, args_i, args_r, args_f:
-                               lltype.nullptr(llmemory.GCREF.TO))
-    call_stub_f = staticmethod(lambda func,args_i,args_r,args_f:
-                               longlong.ZEROF)
 
     def __init__(self, arg_classes, result_type, result_signed, result_size,
                  extrainfo=None, ffi_flags=1):
@@ -332,6 +341,9 @@ class CallDescr(AbstractDescr):
         self.result_size = result_size
         self.extrainfo = extrainfo
         self.ffi_flags = ffi_flags
+        self.call_stub_i = _missing_call_stub_i
+        self.call_stub_r = _missing_call_stub_r
+        self.call_stub_f = _missing_call_stub_f
         # NB. the default ffi_flags is 1, meaning FUNCFLAG_CDECL, which
         # makes sense on Windows as it's the one for all the C functions
         # we are compiling together with the JIT.  On non-Windows platforms

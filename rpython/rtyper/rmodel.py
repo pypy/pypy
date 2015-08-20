@@ -2,8 +2,7 @@ from rpython.annotator import model as annmodel, unaryop, binaryop, description
 from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError, MissingRTypeOperation
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.lltypesystem.lltype import (Void, Bool, typeOf,
-    LowLevelType, isCompatibleType)
+from rpython.rtyper.lltypesystem.lltype import Void, Bool, LowLevelType
 from rpython.tool.pairtype import pairtype, extendabletype, pair
 
 
@@ -26,6 +25,7 @@ class Repr(object):
     """
     __metaclass__ = extendabletype
     _initialized = setupstate.NOTINITIALIZED
+    __NOT_RPYTHON__ = True
 
     def __repr__(self):
         return '<%s %s>' % (self.__class__.__name__, self.lowleveltype)
@@ -120,14 +120,9 @@ class Repr(object):
 
     def convert_const(self, value):
         "Convert the given constant value to the low-level repr of 'self'."
-        if self.lowleveltype is not Void:
-            try:
-                realtype = typeOf(value)
-            except (AssertionError, AttributeError, TypeError):
-                realtype = '???'
-            if realtype != self.lowleveltype:
-                raise TyperError("convert_const(self = %r, value = %r)" % (
-                    self, value))
+        if not self.lowleveltype._contains_value(value):
+            raise TyperError("convert_const(self = %r, value = %r)" % (
+                self, value))
         return value
 
     def get_ll_eq_function(self):
@@ -291,11 +286,9 @@ class __extend__(pairtype(Repr, Repr)):
 
     # default implementation for checked getitems
 
-    def rtype_getitem_idx_key((r_c1, r_o1), hop):
+    def rtype_getitem_idx((r_c1, r_o1), hop):
         return pair(r_c1, r_o1).rtype_getitem(hop)
 
-    rtype_getitem_idx = rtype_getitem_idx_key
-    rtype_getitem_key = rtype_getitem_idx_key
 
 # ____________________________________________________________
 
@@ -356,18 +349,9 @@ def inputconst(reqtype, value):
         lltype = reqtype
     else:
         raise TypeError(repr(reqtype))
-    # Void Constants can hold any value;
-    # non-Void Constants must hold a correctly ll-typed value
-    if lltype is not Void:
-        try:
-            realtype = typeOf(value)
-        except (AssertionError, AttributeError):
-            realtype = '???'
-        if not isCompatibleType(realtype, lltype):
-            raise TyperError("inputconst(reqtype = %s, value = %s):\n"
-                             "expected a %r,\n"
-                             "     got a %r" % (reqtype, value,
-                                                lltype, realtype))
+    if not lltype._contains_value(value):
+        raise TyperError("inputconst(): expected a %r, got %r" %
+                         (lltype, value))
     c = Constant(value)
     c.concretetype = lltype
     return c
@@ -395,7 +379,7 @@ def getgcflavor(classdef):
 
 def externalvsinternal(rtyper, item_repr): # -> external_item_repr, (internal_)item_repr
     from rpython.rtyper import rclass
-    if (isinstance(item_repr, rclass.AbstractInstanceRepr) and
+    if (isinstance(item_repr, rclass.InstanceRepr) and
         getattr(item_repr, 'gcflavor', 'gc') == 'gc'):
         return item_repr, rclass.getinstancerepr(rtyper, None)
     else:
@@ -422,7 +406,8 @@ class DummyValueBuilder(object):
     def __ne__(self, other):
         return not (self == other)
 
-    def build_ll_dummy_value(self):
+    @property
+    def ll_dummy_value(self):
         TYPE = self.TYPE
         try:
             return self.rtyper.cache_dummy_values[TYPE]
@@ -434,8 +419,6 @@ class DummyValueBuilder(object):
                 p = lltype.malloc(TYPE, immortal=True)
             self.rtyper.cache_dummy_values[TYPE] = p
             return p
-
-    ll_dummy_value = property(build_ll_dummy_value)
 
 
 # logging/warning

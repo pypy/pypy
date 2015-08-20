@@ -25,7 +25,7 @@ from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.llinterp import LLInterpreter, LLException
-from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
+from rpython.rtyper.rclass import OBJECT, OBJECT_VTABLE
 from rpython.rtyper import raddress
 from rpython.translator.platform import platform
 from array import array
@@ -1133,7 +1133,8 @@ def get_ctypes_callable(funcptr, calling_conv):
     try:
         eci = _eci_cache[old_eci]
     except KeyError:
-        eci = old_eci.compile_shared_lib(ignore_a_files=True)
+        eci = old_eci.compile_shared_lib(ignore_a_files=True,
+                                         defines=['RPYTHON_LL2CTYPES'])
         _eci_cache[old_eci] = eci
 
     libraries = eci.testonly_libraries + eci.libraries + eci.frameworks

@@ -1,10 +1,10 @@
 from pypy.interpreter import gateway
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.signature import Signature
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.stdtypedef import StdTypeDef
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 from rpython.rlib.objectmodel import r_dict
@@ -169,18 +169,20 @@ class W_BaseSetObject(W_Root):
         return setrepr(space, w_currently_in_repr, self)
 
     def descr_cmp(self, space, w_other):
-        # hack hack until we get the expected result
-        raise OperationError(space.w_TypeError,
-                space.wrap('cannot compare sets using cmp()'))
+        if space.is_w(space.type(self), space.type(w_other)):
+            # hack hack until we get the expected result
+            raise OperationError(space.w_TypeError,
+                    space.wrap('cannot compare sets using cmp()'))
+        else:
+            return space.w_NotImplemented
 
     def descr_eq(self, space, w_other):
         if isinstance(w_other, W_BaseSetObject):
             return space.wrap(self.equals(w_other))
 
         if not space.isinstance_w(w_other, space.w_set):
-            return space.w_False
+            return space.w_NotImplemented
 
-        # tested in test_builtinshortcut.py
         # XXX do not make new setobject here
         w_other_as_set = self._newobj(space, w_other)
         return space.wrap(self.equals(w_other_as_set))
@@ -190,7 +192,7 @@ class W_BaseSetObject(W_Root):
             return space.wrap(not self.equals(w_other))
 
         if not space.isinstance_w(w_other, space.w_set):
-            return space.w_True
+            return space.w_NotImplemented
 
         # XXX this is not tested
         w_other_as_set = self._newobj(space, w_other)
@@ -200,8 +202,7 @@ class W_BaseSetObject(W_Root):
     # correct answer here!
     def descr_lt(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap('can only compare to a set'))
+            return space.w_NotImplemented
 
         if self.length() >= w_other.length():
             return space.w_False
@@ -210,8 +211,7 @@ class W_BaseSetObject(W_Root):
 
     def descr_le(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap('can only compare to a set'))
+            return space.w_NotImplemented
 
         if self.length() > w_other.length():
             return space.w_False
@@ -219,8 +219,7 @@ class W_BaseSetObject(W_Root):
 
     def descr_gt(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap('can only compare to a set'))
+            return space.w_NotImplemented
 
         if self.length() <= w_other.length():
             return space.w_False
@@ -229,8 +228,7 @@ class W_BaseSetObject(W_Root):
 
     def descr_ge(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
-            raise OperationError(self.space.w_TypeError,
-                                 self.space.wrap('can only compare to a set'))
+            return space.w_NotImplemented
 
         if self.length() < w_other.length():
             return space.w_False
@@ -515,7 +513,7 @@ class W_SetObject(W_BaseSetObject):
         W_SetObject.__init__(w_obj, space)
         return w_obj
 
-W_SetObject.typedef = StdTypeDef("set",
+W_SetObject.typedef = TypeDef("set",
     __doc__ = """set(iterable) --> set object
 
 Build an unordered collection.""",
@@ -616,7 +614,7 @@ class W_FrozensetObject(W_BaseSetObject):
 
         return space.wrap(hash)
 
-W_FrozensetObject.typedef = StdTypeDef("frozenset",
+W_FrozensetObject.typedef = TypeDef("frozenset",
     __doc__ = """frozenset(iterable) --> frozenset object
 
 Build an immutable unordered collection.""",
@@ -1542,7 +1540,7 @@ class W_SetIterObject(W_Root):
             return w_key
         raise OperationError(space.w_StopIteration, space.w_None)
 
-W_SetIterObject.typedef = StdTypeDef("setiterator",
+W_SetIterObject.typedef = TypeDef("setiterator",
     __length_hint__ = gateway.interp2app(W_SetIterObject.descr_length_hint),
     __iter__ = gateway.interp2app(W_SetIterObject.descr_iter),
     next = gateway.interp2app(W_SetIterObject.descr_next)

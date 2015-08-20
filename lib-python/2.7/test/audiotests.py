@@ -6,11 +6,19 @@ import pickle
 import sys
 import base64
 
+class UnseekableIO(file):
+    def tell(self):
+        raise io.UnsupportedOperation
+
+    def seek(self, *args, **kwargs):
+        raise io.UnsupportedOperation
+
 def fromhex(s):
     return base64.b16decode(s.replace(' ', ''))
 
 def byteswap2(data):
-    a = array.array('h', data)
+    a = array.array('h')
+    a.fromstring(data)
     a.byteswap()
     return a.tostring()
 
@@ -21,7 +29,8 @@ def byteswap3(data):
     return bytes(ba)
 
 def byteswap4(data):
-    a = array.array('i', data)
+    a = array.array('i')
+    a.fromstring(data)
     a.byteswap()
     return a.tostring()
 
@@ -52,8 +61,9 @@ class AudioTests:
         self.assertEqual(params,
                 (nchannels, sampwidth, framerate, nframes, comptype, compname))
 
-        dump = pickle.dumps(params)
-        self.assertEqual(pickle.loads(dump), params)
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            dump = pickle.dumps(params, proto)
+            self.assertEqual(pickle.loads(dump), params)
 
 
 class AudioWriteTests(AudioTests):
@@ -130,6 +140,62 @@ class AudioWriteTests(AudioTests):
         with open(TESTFN, 'rb') as testfile:
             self.assertEqual(testfile.read(13), b'ababagalamaga')
             self.check_file(testfile, self.nframes, self.frames)
+
+    def test_unseekable_read(self):
+        f = self.create_file(TESTFN)
+        f.setnframes(self.nframes)
+        f.writeframes(self.frames)
+        f.close()
+
+        with UnseekableIO(TESTFN, 'rb') as testfile:
+            self.check_file(testfile, self.nframes, self.frames)
+
+    def test_unseekable_write(self):
+        with UnseekableIO(TESTFN, 'wb') as testfile:
+            f = self.create_file(testfile)
+            f.setnframes(self.nframes)
+            f.writeframes(self.frames)
+            f.close()
+            self.fout = None
+
+        self.check_file(TESTFN, self.nframes, self.frames)
+
+    def test_unseekable_incompleted_write(self):
+        with UnseekableIO(TESTFN, 'wb') as testfile:
+            testfile.write(b'ababagalamaga')
+            f = self.create_file(testfile)
+            f.setnframes(self.nframes + 1)
+            try:
+                f.writeframes(self.frames)
+            except IOError:
+                pass
+            try:
+                f.close()
+            except IOError:
+                pass
+
+        with open(TESTFN, 'rb') as testfile:
+            self.assertEqual(testfile.read(13), b'ababagalamaga')
+            self.check_file(testfile, self.nframes + 1, self.frames)
+
+    def test_unseekable_overflowed_write(self):
+        with UnseekableIO(TESTFN, 'wb') as testfile:
+            testfile.write(b'ababagalamaga')
+            f = self.create_file(testfile)
+            f.setnframes(self.nframes - 1)
+            try:
+                f.writeframes(self.frames)
+            except IOError:
+                pass
+            try:
+                f.close()
+            except IOError:
+                pass
+
+        with open(TESTFN, 'rb') as testfile:
+            self.assertEqual(testfile.read(13), b'ababagalamaga')
+            framesize = self.nchannels * self.sampwidth
+            self.check_file(testfile, self.nframes - 1, self.frames[:-framesize])
 
 
 class AudioTestsWithSourceFile(AudioTests):

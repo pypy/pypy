@@ -1,11 +1,12 @@
 from rpython.jit.backend.llsupport import jitframe
-from rpython.jit.backend.llsupport.memcpy import memcpy_fn
+from rpython.jit.backend.llsupport.memcpy import memcpy_fn, memset_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.jit.backend.llsupport.codemap import CodemapBuilder
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
     ConstInt, BoxInt, AbstractFailDescr)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib import rgc
-from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints,
+from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints_for,
                                 debug_print)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import specialize, compute_unique_id
@@ -63,6 +64,7 @@ class BaseAssembler(object):
     def __init__(self, cpu, translate_support_code=False):
         self.cpu = cpu
         self.memcpy_addr = 0
+        self.memset_addr = 0
         self.rtyper = cpu.rtyper
         self._debug = False
 
@@ -79,6 +81,7 @@ class BaseAssembler(object):
         else:
             self.gc_size_of_header = WORD # for tests
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
+        self.memset_addr = self.cpu.cast_ptr_to_int(memset_fn)
         self._build_failure_recovery(False, withfloats=False)
         self._build_failure_recovery(True, withfloats=False)
         self._build_wb_slowpath(False)
@@ -106,10 +109,13 @@ class BaseAssembler(object):
                 kind='unicode')
         else:
             self.malloc_slowpath_unicode = None
-        self.cond_call_slowpath = [self._build_cond_call_slowpath(False, False),
-                                   self._build_cond_call_slowpath(False, True),
-                                   self._build_cond_call_slowpath(True, False),
-                                   self._build_cond_call_slowpath(True, True)]
+        lst = [0, 0, 0, 0]
+        lst[0] = self._build_cond_call_slowpath(False, False)
+        lst[1] = self._build_cond_call_slowpath(False, True)
+        if self.cpu.supports_floats:
+            lst[2] = self._build_cond_call_slowpath(True, False)
+            lst[3] = self._build_cond_call_slowpath(True, True)
+        self.cond_call_slowpath = lst
 
         self._build_stack_check_slowpath()
         self._build_release_gil(gc_ll_descr.gcrootmap)
@@ -117,14 +123,17 @@ class BaseAssembler(object):
             # if self._debug is already set it means that someone called
             # set_debug by hand before initializing the assembler. Leave it
             # as it is
-            debug_start('jit-backend-counts')
-            self.set_debug(have_debug_prints())
-            debug_stop('jit-backend-counts')
+            self.set_debug(have_debug_prints_for('jit-backend-counts'))
         # when finishing, we only have one value at [0], the rest dies
         self.gcmap_for_finish = lltype.malloc(jitframe.GCMAP, 1,
                                               flavor='raw',
                                               track_allocation=False)
         self.gcmap_for_finish[0] = r_uint(1)
+
+    def setup(self, looptoken):
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder = CodemapBuilder()
+        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
     def set_debug(self, v):
         r = self._debug
@@ -153,7 +162,7 @@ class BaseAssembler(object):
                 i = pos - self.cpu.JITFRAME_FIXED_SIZE
                 assert i >= 0
                 tp = inputargs[input_i].type
-                locs.append(self.new_stack_loc(i, pos, tp))
+                locs.append(self.new_stack_loc(i, tp))
             input_i += 1
         return locs
 
@@ -190,9 +199,18 @@ class BaseAssembler(object):
             positions[i] = rffi.cast(rffi.USHORT, position)
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
-        # we want the descr to keep alive
-        guardtok.faildescr.rd_loop_token = self.current_clt
         return fail_descr, target
+
+    def enter_portal_frame(self, op):
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.enter_portal_frame(op.getarg(0).getint(),
+                                                    op.getarg(1).getint(),
+                                                    self.mc.get_relative_pos())
+
+    def leave_portal_frame(self, op):
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.leave_portal_frame(op.getarg(0).getint(),
+                                                    self.mc.get_relative_pos())
 
     def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
         self._store_force_index(guard_op)
@@ -223,7 +241,8 @@ class BaseAssembler(object):
                 raise AssertionError(kind)
 
         gcref = cast_instance_to_gcref(value)
-        rgc._make_sure_does_not_move(gcref)
+        if gcref:
+            rgc._make_sure_does_not_move(gcref)
         value = rffi.cast(lltype.Signed, gcref)
         je_location = self._call_assembler_check_descr(value, tmploc)
         #
@@ -275,6 +294,9 @@ class BaseAssembler(object):
         # YYY very minor leak -- we need the counters to stay alive
         # forever, just because we want to report them at the end
         # of the process
+
+        # XXX the numbers here are ALMOST unique, but not quite, use a counter
+        #     or something
         struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
                                track_allocation=False)
         struct.i = 0
@@ -294,10 +316,16 @@ class BaseAssembler(object):
                 struct = self.loop_run_counters[i]
                 if struct.type == 'l':
                     prefix = 'TargetToken(%d)' % struct.number
-                elif struct.type == 'b':
-                    prefix = 'bridge ' + str(struct.number)
                 else:
-                    prefix = 'entry ' + str(struct.number)
+                    num = struct.number
+                    if num == -1:
+                        num = '-1'
+                    else:
+                        num = str(r_uint(num))
+                    if struct.type == 'b':
+                        prefix = 'bridge %s' % num
+                    else:
+                        prefix = 'entry %s' % num
                 debug_print(prefix + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
 

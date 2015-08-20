@@ -10,7 +10,8 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.executor import execute_nonspec
 from rpython.jit.metainterp.resoperation import opname
 from rpython.jit.codewriter import longlong
-from rpython.rtyper.lltypesystem import lltype, rstr, rclass
+from rpython.rtyper.lltypesystem import lltype, rstr
+from rpython.rtyper import rclass
 
 class PleaseRewriteMe(Exception):
     pass
@@ -52,10 +53,13 @@ class OperationBuilder(object):
 
     def do(self, opnum, argboxes, descr=None):
         self.fakemetainterp._got_exc = None
-        v_result = execute_nonspec(self.cpu, self.fakemetainterp,
-                                   opnum, argboxes, descr)
-        if isinstance(v_result, Const):
-            v_result = v_result.clonebox()
+        if opnum == rop.ZERO_PTR_FIELD:
+            v_result = None
+        else:
+            v_result = execute_nonspec(self.cpu, self.fakemetainterp,
+                                       opnum, argboxes, descr)
+            if isinstance(v_result, Const):
+                v_result = v_result.clonebox()
         self.loop.operations.append(ResOperation(opnum, argboxes, v_result,
                                                  descr))
         return v_result
@@ -231,7 +235,7 @@ class OperationBuilder(object):
                 ', '.join([names[v] for v in fail_args]))
         print >>s, '    operations = ['
         for op in self.loop.operations:
-            self.process_operation(s, op, names) 
+            self.process_operation(s, op, names)
         print >>s, '        ]'
         for i, op in enumerate(self.loop.operations):
             if op.is_guard():
@@ -316,6 +320,14 @@ class ConstUnaryOperation(UnaryOperation):
             self.put(builder, [ConstInt(r.random_integer())])
         else:
             self.put(builder, [ConstFloat(r.random_float_storage())])
+
+class SignExtOperation(AbstractOperation):
+    def produce_into(self, builder, r):
+        sizes = [1, 2]
+        if sys.maxint > (1 << 32):
+            sizes.append(4)
+        self.put(builder, [r.choice(builder.intvars),
+                           ConstInt(r.choice(sizes))])
 
 class BinaryOperation(AbstractOperation):
     def __init__(self, opnum, and_mask=-1, or_mask=0, boolres=False):
@@ -505,6 +517,7 @@ for _op in [rop.INT_NEG,
 OPERATIONS.append(UnaryOperation(rop.INT_IS_TRUE, boolres=True))
 OPERATIONS.append(UnaryOperation(rop.INT_IS_ZERO, boolres=True))
 OPERATIONS.append(ConstUnaryOperation(rop.SAME_AS, boolres='sometimes'))
+OPERATIONS.append(SignExtOperation(rop.INT_SIGNEXT))
 
 for _op in [rop.INT_ADD_OVF,
             rop.INT_SUB_OVF,

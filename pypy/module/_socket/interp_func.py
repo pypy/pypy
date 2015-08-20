@@ -1,7 +1,8 @@
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import SocketError, INVALID_SOCKET
+from rpython.rlib.rarithmetic import intmask
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.module._socket.interp_socket import (
     converted_error, W_Socket, addr_as_object, ipaddr_from_object
@@ -46,9 +47,8 @@ def gethostbyname_ex(space, host):
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
-    lock = space.fromcache(State).netdb_lock
     try:
-        res = rsocket.gethostbyname_ex(host, lock)
+        res = rsocket.gethostbyname_ex(host)
     except SocketError, e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
@@ -60,9 +60,8 @@ def gethostbyaddr(space, host):
     Return the true host name, a list of aliases, and a list of IP addresses,
     for a host.  The host argument is a string giving a host name or IP number.
     """
-    lock = space.fromcache(State).netdb_lock
     try:
-        res = rsocket.gethostbyaddr(host, lock)
+        res = rsocket.gethostbyaddr(host)
     except SocketError, e:
         raise converted_error(space, e)
     return common_wrapgethost(space, res)
@@ -143,7 +142,7 @@ def fromfd(space, fd, family, type, proto=0):
         sock = rsocket.fromfd(fd, family, type, proto)
     except SocketError, e:
         raise converted_error(space, e)
-    return space.wrap(W_Socket(sock))
+    return space.wrap(W_Socket(space, sock))
 
 @unwrap_spec(family=int, type=int, proto=int)
 def socketpair(space, family=rsocket.socketpair_default_family,
@@ -161,8 +160,8 @@ def socketpair(space, family=rsocket.socketpair_default_family,
     except SocketError, e:
         raise converted_error(space, e)
     return space.newtuple([
-        space.wrap(W_Socket(sock1)),
-        space.wrap(W_Socket(sock2))
+        space.wrap(W_Socket(space, sock1)),
+        space.wrap(W_Socket(space, sock2))
     ])
 
 # The following 4 functions refuse all negative numbers, like CPython 2.6.
@@ -174,7 +173,7 @@ def ntohs(space, x):
 
     Convert a 16-bit integer from network to host byte order.
     """
-    return space.wrap(rsocket.ntohs(x))
+    return space.wrap(rsocket.ntohs(intmask(x)))
 
 @unwrap_spec(x="c_uint")
 def ntohl(space, x):
@@ -190,7 +189,7 @@ def htons(space, x):
 
     Convert a 16-bit integer from host to network byte order.
     """
-    return space.wrap(rsocket.htons(x))
+    return space.wrap(rsocket.htons(intmask(x)))
 
 @unwrap_spec(x="c_uint")
 def htonl(space, x):
@@ -248,9 +247,9 @@ def inet_ntop(space, family, packed):
         ip = rsocket.inet_ntop(family, packed)
     except SocketError, e:
         raise converted_error(space, e)
-    except ValueError, e:     # XXX the message is lost in RPython
-        raise OperationError(space.w_ValueError,
-                  space.wrap(str(e)))
+    except ValueError:
+        raise oefmt(space.w_ValueError,
+                    "invalid length of packed IP address string")
     return space.wrap(ip)
 
 @unwrap_spec(family=int, socktype=int, proto=int, flags=int)
@@ -319,10 +318,3 @@ def setdefaulttimeout(space, w_timeout):
             raise OperationError(space.w_ValueError,
                                  space.wrap('Timeout value out of range'))
     rsocket.setdefaulttimeout(timeout)
-
-class State(object):
-    def __init__(self, space):
-        self.netdb_lock = None
-
-    def startup(self, space):
-        self.netdb_lock = space.allocate_lock()

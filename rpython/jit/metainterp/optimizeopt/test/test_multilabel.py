@@ -32,6 +32,7 @@ class BaseTestMultiLabel(BaseTest):
                   if op.getopnum()==rop.LABEL]
         prv = 0
         last_label = []
+        state = None
         for nxt in labels + [len(loop.operations)]:
             assert prv != nxt
             operations = last_label + loop.operations[prv:nxt]
@@ -44,7 +45,8 @@ class BaseTestMultiLabel(BaseTest):
             part.operations = operations
 
             self.add_guard_future_condition(part)
-            self._do_optimize_loop(part, None)
+            state = self._do_optimize_loop(part, None, state,
+                                           export_state=True)
             if part.operations[-1].getopnum() == rop.LABEL:
                 last_label = [part.operations.pop()]
             else:
@@ -150,10 +152,10 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
     def test_nonmatching_arraystruct_1(self):
         ops = """
         [p1, f0]
-        p2 = new_array(3, descr=complexarraydescr)
+        p2 = new_array_clear(3, descr=complexarraydescr)
         setinteriorfield_gc(p2, 2, f0, descr=complexrealdescr)
         label(p2, f0)
-        p4 = new_array(3, descr=complexarraydescr)
+        p4 = new_array_clear(3, descr=complexarraydescr)
         setinteriorfield_gc(p4, 2, f0, descr=compleximagdescr)
         jump(p4, f0)
         """
@@ -163,10 +165,10 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
     def test_nonmatching_arraystruct_2(self):
         ops = """
         [p1, f0]
-        p2 = new_array(3, descr=complexarraydescr)
+        p2 = new_array_clear(3, descr=complexarraydescr)
         setinteriorfield_gc(p2, 2, f0, descr=complexrealdescr)
         label(p2, f0)
-        p4 = new_array(2, descr=complexarraydescr)
+        p4 = new_array_clear(2, descr=complexarraydescr)
         setinteriorfield_gc(p4, 0, f0, descr=complexrealdescr)
         jump(p4, f0)
         """
@@ -198,7 +200,7 @@ class OptimizeoptTestMultiLabel(BaseTestMultiLabel):
     def test_not_virtual_arraystruct(self):
         ops = """
         [p1]
-        p3 = new_array(3, descr=complexarraydescr)
+        p3 = new_array_clear(3, descr=complexarraydescr)
         label(p3)
         p4 = escape()
         jump(p4)
@@ -496,7 +498,8 @@ dispatch_opt = make_dispatcher_method(OptRenameStrlen, 'optimize_',
 
 class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
 
-    def _do_optimize_loop(self, loop, call_pure_results):
+    def _do_optimize_loop(self, loop, call_pure_results, state,
+                          export_state=False):
         from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
         from rpython.jit.metainterp.optimizeopt.util import args_dict
         from rpython.jit.metainterp.optimizeopt.pure import OptPure
@@ -504,7 +507,7 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         self.loop = loop
         loop.call_pure_results = args_dict()
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        optimize_unroll(metainterp_sd, loop, [OptRewrite(), OptRenameStrlen(), OptHeap(), OptPure()], True)
+        return optimize_unroll(metainterp_sd, loop, [OptRewrite(), OptRenameStrlen(), OptHeap(), OptPure()], True, state, export_state)
 
     def test_optimizer_renaming_boxes1(self):
         ops = """
@@ -542,8 +545,8 @@ class BaseTestOptimizerRenamingBoxes(BaseTestMultiLabel):
         self.optimize_loop(ops, expected)
 
 
-class TestLLtype(OptimizeoptTestMultiLabel, LLtypeMixin):
+class XxxTestLLtype(OptimizeoptTestMultiLabel, LLtypeMixin):
     pass
 
-class TestOptimizerRenamingBoxesLLtype(BaseTestOptimizerRenamingBoxes, LLtypeMixin):
+class XxxTestOptimizerRenamingBoxesLLtype(BaseTestOptimizerRenamingBoxes, LLtypeMixin):
     pass

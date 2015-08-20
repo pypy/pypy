@@ -956,3 +956,68 @@ class TestLowLevelType(object):
 
         fn = self.getcompiled(f, [int])
         assert fn(0) == 9
+
+    def test_call_null_funcptr(self):
+        fnptr = nullptr(FuncType([], Void))
+        def f(n):
+            if n > 10:
+                fnptr()    # never reached, or so we hope
+            return n
+
+        fn = self.getcompiled(f, [int])
+        assert fn(6) == 6
+
+    def test_likely_unlikely(self):
+        from rpython.rlib.objectmodel import likely, unlikely
+
+        def f(n):
+            if unlikely(n > 50):
+                return -10
+            if likely(n > 5):
+                return 42
+            return 3
+
+        fn = self.getcompiled(f, [int])
+        assert fn(0) == 3
+        assert fn(10) == 42
+        assert fn(100) == -10
+
+    def test_cast_to_bool_1(self):
+        def f(n):
+            return cast_primitive(Bool, n)
+
+        fn = self.getcompiled(f, [int])
+        assert fn(0) == False
+        assert fn(1) == True
+        assert fn(256) == True
+        assert fn(-2**24) == True
+
+    def test_cast_to_bool_1_longlong(self):
+        def f(n):
+            return cast_primitive(Bool, n)
+
+        fn = self.getcompiled(f, [r_longlong])
+        assert fn(r_longlong(0)) == False
+        assert fn(r_longlong(1)) == True
+        assert fn(r_longlong(256)) == True
+        assert fn(r_longlong(2**32)) == True
+
+    def test_cast_to_bool_2(self):
+        def f(n):
+            return rffi.cast(Bool, n)
+
+        fn = self.getcompiled(f, [int])
+        assert fn(0) == False
+        assert fn(1) == True
+        assert fn(256) == True
+        assert fn(-2**24) == True
+
+    def test_cast_to_bool_2_longlong(self):
+        def f(n):
+            return rffi.cast(Bool, n)
+
+        fn = self.getcompiled(f, [r_longlong])
+        assert fn(r_longlong(0)) == False
+        assert fn(r_longlong(1)) == True
+        assert fn(r_longlong(256)) == True
+        assert fn(r_longlong(2**32)) == True

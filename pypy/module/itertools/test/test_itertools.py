@@ -237,6 +237,19 @@ class AppTestItertools:
         assert list(itertools.islice(xrange(10), None,None)) == range(10)
         assert list(itertools.islice(xrange(10), None,None,None)) == range(10)
 
+        # check source iterator is not referenced from islice()
+        # after the latter has been exhausted
+        import weakref
+        for args in [(1,), (None,), (0, None, 2)]:
+            it = (x for x in (1, 2, 3))
+            wr = weakref.ref(it)
+            it = itertools.islice(it, *args)
+            assert wr() is not None
+            list(it)  # exhaust the iterator
+            import gc; gc.collect()
+            assert wr() is None
+            raises(StopIteration, next, it)
+
     def test_islice_dropitems_exact(self):
         import itertools
 

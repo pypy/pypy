@@ -1,6 +1,4 @@
-from __future__ import with_statement
-
-from rpython.rlib import jit
+from rpython.rlib import jit, rgc
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import ovfcheck, widen
@@ -15,9 +13,7 @@ from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, make_weakref_descr)
-from pypy.interpreter.generator import GeneratorIterator
 from pypy.module._file.interp_file import W_File
-from pypy.objspace.std.floatobject import W_FloatObject
 
 
 @unwrap_spec(typecode=str)
@@ -654,7 +650,7 @@ def make_array(mytype):
             try:
                 item = unwrap(w_item)
             except OperationError, e:
-                if isinstance(w_item, W_FloatObject):
+                if space.isinstance_w(w_item, space.w_float):
                     # Odd special case from cpython
                     raise
                 if mytype.method != '' and e.match(space, space.w_TypeError):
@@ -702,11 +698,10 @@ def make_array(mytype):
                                          self.space.wrap(msg))
             return result
 
+        @rgc.must_be_light_finalizer
         def __del__(self):
-            # note that we don't call clear_all_weakrefs here because
-            # an array with freed buffer is ok to see - it's just empty with 0
-            # length
-            self.setlen(0)
+            if self.buffer:
+                lltype.free(self.buffer, flavor='raw')
 
         def setlen(self, size, zero=False, overallocate=True):
             if size > 0:

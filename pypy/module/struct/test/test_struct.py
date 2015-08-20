@@ -63,12 +63,22 @@ class AppTestStruct(object):
     def test_deprecation_warning(self):
         import warnings
         for code in 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q':
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter("always")
-                raises(TypeError, self.struct.pack, code, 3j)
-            assert len(w) == 1
-            assert str(w[0].message) == "integer argument expected, got non-integer"
-            assert w[0].category is DeprecationWarning
+            for val in [3., 3j]:
+                with warnings.catch_warnings(record=True) as w:
+                    warnings.simplefilter("always")
+                    if type(val) is float:
+                        self.struct.pack(code, val)
+                    else:
+                        raises(TypeError, self.struct.pack, code, val)
+                assert len(w) == 1
+                if type(val) is float:
+                    assert str(w[0].message) == (
+                        "integer argument expected, got float")
+                else:
+                    assert str(w[0].message) == (
+                        "integer argument expected, got non-integer"
+                        " (implicit conversion using __int__ is deprecated)")
+                assert w[0].category is DeprecationWarning
 
     def test_pack_standard_little(self):
         """
@@ -328,6 +338,12 @@ class AppTestStruct(object):
             raises(error, unpack, "0p", "")   # segfaults on CPython 2.5.2!
         raises(error, pack, "b", 150)   # argument out of range
         # XXX the accepted ranges still differs between PyPy and CPython
+        exc = raises(error, pack, ">d", 'abc')
+        assert str(exc.value) == "required argument is not a float"
+        exc = raises(error, pack, ">l", 'abc')
+        assert str(exc.value) == "cannot convert argument to integer"
+        exc = raises(error, pack, ">H", 'abc')
+        assert str(exc.value) == "cannot convert argument to integer"
 
     def test_overflow_error(self):
         """
@@ -374,9 +390,9 @@ class AppTestStruct(object):
                                       self.struct.pack("ii", 17, 42) +
                                       '\x00' * (19-sz-2))
         exc = raises(TypeError, self.struct.pack_into, "ii", buffer(b), 0, 17, 42)
-        assert str(exc.value) == "buffer is read-only"
+        assert str(exc.value) == "must be read-write buffer, not buffer"
         exc = raises(TypeError, self.struct.pack_into, "ii", 'test', 0, 17, 42)
-        assert str(exc.value) == "Cannot use string as modifiable buffer"
+        assert str(exc.value) == "must be read-write buffer, not str"
         exc = raises(self.struct.error, self.struct.pack_into, "ii", b[0:1], 0, 17, 42)
         assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes"
 
@@ -412,6 +428,9 @@ class AppTestStruct(object):
         assert s.unpack(s.pack(42)) == (42,)
         assert s.unpack_from(memoryview(s.pack(42))) == (42,)
 
+    def test_overflow(self):
+        raises(self.struct.error, self.struct.pack, 'i', 1<<65)
+
 
 class AppTestStructBuffer(object):
     spaceconfig = dict(usemodules=['struct', '__pypy__'])
@@ -433,6 +452,8 @@ class AppTestStructBuffer(object):
         assert b[:] == ('\x00' * 2 +
                         self.struct.pack("ii", 17, 42) +
                         '\x00' * (19-sz-2))
+        m = memoryview(b)
+        self.struct.pack_into("ii", m, 2, 17, 42)
 
     def test_unpack_from(self):
         b = self.bytebuffer(19)

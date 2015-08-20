@@ -1,4 +1,5 @@
-from rpython.rtyper.lltypesystem import lltype, rclass
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper import rclass
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.rlib.objectmodel import we_are_translated

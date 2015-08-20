@@ -60,6 +60,28 @@ class AppTestNestedScope:
     def test_lambda_in_genexpr(self):
         assert eval('map(apply, (lambda: t for t in range(10)))') == range(10)
 
+    def test_cell_repr(self):
+        import re
+        from repr import repr as r # Don't shadow builtin repr
+
+        def get_cell():
+            x = 42
+            def inner():
+                return x
+            return inner
+        x = get_cell().__closure__[0]
+        assert re.match(r'<cell at 0x[0-9A-Fa-f]+: int object at 0x[0-9A-Fa-f]+>', repr(x))
+        assert re.match(r'<cell at.*\.\.\..*>', r(x))
+
+        def get_cell():
+            if False:
+                x = 42
+            def inner():
+                return x
+            return inner
+        x = get_cell().__closure__[0]
+        assert re.match(r'<cell at 0x[0-9A-Fa-f]+: empty>', repr(x))
+
     def test_cell_contents(self):
         def f(x):
             def f(y):

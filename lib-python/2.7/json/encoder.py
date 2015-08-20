@@ -529,3 +529,10 @@ class JSONEncoder(object):
                                           _current_indent_level):
                 yield chunk
             self.__remove_markers(markers, o)
+
+
+# overwrite some helpers here with more efficient versions
+try:
+    from _pypyjson import raw_encode_basestring_ascii
+except ImportError:
+    pass

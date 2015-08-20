@@ -1,4 +1,3 @@
-
 Contributors to PyPy
 ====================
 
@@ -9,24 +8,24 @@ appropriate measure but it's something)::
   Armin Rigo
   Maciej Fijalkowski
   Carl Friedrich Bolz
-  Antonio Cuni
   Amaury Forgeot d'Arc
+  Antonio Cuni
   Samuele Pedroni
   Alex Gaynor
+  Brian Kearns
+  Matti Picus
+  Philip Jenvey
   Michael Hudson
   David Schneider
-  Matti Picus
-  Brian Kearns
-  Philip Jenvey
   Holger Krekel
   Christian Tismer
   Hakan Ardo
-  Benjamin Peterson
   Manuel Jacob
+  Ronan Lamy
+  Benjamin Peterson
   Anders Chrigstrom
   Eric van Riet Paap
   Wim Lavrijsen
-  Ronan Lamy
   Richard Emslie
   Alexander Schremmer
   Dan Villiom Podlaski Christiansen
@@ -34,19 +33,20 @@ appropriate measure but it's something)::
   Sven Hager
   Anders Lehmann
   Aurelien Campeas
+  Remi Meier
   Niklaus Haldimann
   Camillo Bruni
   Laura Creighton
   Toon Verwaest
-  Remi Meier
+  Romain Guillebert
   Leonardo Santagada
   Seo Sanghyeon
-  Romain Guillebert
   Justin Peel
   Ronny Pfannschmidt
   David Edelsohn
   Anders Hammarquist
   Jakub Gustak
+  Gregor Wegberg
   Guido Wesdorp
   Lawrence Oluyede
   Bartosz Skowron
@@ -57,10 +57,12 @@ appropriate measure but it's something)::
   Ludovic Aubry
   Jacob Hallen
   Jason Creighton
+  Richard Plangger
   Alex Martelli
   Michal Bendowski
-  Jan de Mooij
   stian
+  Jan de Mooij
+  Tyler Wade
   Michael Foord
   Stephan Diehl
   Stefan Schwarzer
@@ -69,19 +71,25 @@ appropriate measure but it's something)::
   Patrick Maupin
   Bob Ippolito
   Bruno Gola
+  David Malcolm
   Jean-Paul Calderone
   Timo Paulssen
   Squeaky
   Alexandre Fayolle
   Simon Burton
   Marius Gedminas
-  John Witulski
+  Martin Matusiak
   Konstantin Lopuhin
+  Wenzhu Man
+  John Witulski
+  Laurence Tratt
+  Ivan Sichmann Freitas
   Greg Price
   Dario Bertini
   Mark Pearse
   Simon Cross
   Andreas Stührk
+  Stefano Rivera
   Jean-Philippe St. Pierre
   Guido van Rossum
   Pavel Vinogradov
@@ -91,30 +99,26 @@ appropriate measure but it's something)::
   Tobias Oberstein
   Adrian Kuhn
   Boris Feigin
-  Stefano Rivera
   tav
   Taavi Burns
   Georg Brandl
   Bert Freudenberg
   Stian Andreassen
-  Laurence Tratt
+  Edd Barrett
   Wanja Saatkamp
-  Ivan Sichmann Freitas
   Gerald Klix
   Mike Blume
+  Tobias Pape
   Oscar Nierstrasz
   Stefan H. Muller
   Jeremy Thurgood
-  Gregor Wegberg
   Rami Chowdhury
-  Tobias Pape
-  Edd Barrett
-  David Malcolm
   Eugene Oden
   Henry Mason
+  Vasily Kuznetsov
   Preston Timmons
-  Jeff Terrace
   David Ripton
+  Jeff Terrace
   Dusty Phillips
   Lukas Renggli
   Guenter Jantzen
@@ -128,19 +132,23 @@ appropriate measure but it's something)::
   Nicholas Riley
   Jason Chu
   Igor Trindade Oliveira
+  Tim Felgentreff
   Rocco Moretti
   Gintautas Miliauskas
   Michael Twomey
   Lucian Branescu Mihaila
-  Tim Felgentreff
-  Tyler Wade
+  Yichao Yu
+  Anton Gulenko
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
   Karl Bartel
+  Wouter van Heyst
+  Sebastian Pawluś
   Brian Dorsey
   Victor Stinner
   Andrews Medina
+  anatoly techtonik
   Stuart Williams
   Jasper Schulz
   Christian Hudon
@@ -149,25 +157,28 @@ appropriate measure but it's something)::
   Aaron Iles
   Michael Cheng
   Justas Sadzevicius
-  Mikael Schönenberg
   Gasper Zejn
   Neil Shepperd
-  Elmo Mäntynen
-  Jonathan David Riehl
   Stanislaw Halik
+  Mikael Schönenberg
+  Berkin Ilbeyi
+  Elmo M?ntynen
+  Jonathan David Riehl
   Anders Qvist
+  Corbin Simpson
   Chirag Jadwani
   Beatrice During
   Alex Perry
   Vincent Legoll
   Alan McIntyre
   Alexander Sedov
-  Corbin Simpson
+  Attila Gobi
   Christopher Pope
-  wenzhuman
   Christian Tismer 
   Marc Abramowitz
   Dan Stromberg
+  Arjun Naik
+  Valentina Mukhamedzhanova
   Stefano Parmesan
   Alexis Daboville
   Jens-Uwe Mager
@@ -178,6 +189,7 @@ appropriate measure but it's something)::
   Lukas Vacek
   Andrew Dalke
   Sylvain Thenault
+  Jakub Stasiak
   Nathan Taylor
   Vladimir Kryachko
   Jacek Generowicz
@@ -185,10 +197,10 @@ appropriate measure but it's something)::
   Jacob Oscarson
   Travis Francis Athougies
   Ryan Gonzalez
+  Ian Foote
   Kristjan Valur Jonsson
-  Sebastian Pawluś
+  David Lievens
   Neil Blakey-Milner
-  anatoly techtonik
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
@@ -202,6 +214,9 @@ appropriate measure but it's something)::
   Martin Blais
   Lene Wagner
   Tomo Cocoa
+  Toni Mattis
+  Lucas Stadler
+  Julian Berman
   roberto@goyle
   Yury V. Zaytsev
   Anna Katrina Dominguez
@@ -209,9 +224,12 @@ appropriate measure but it's something)::
   Bobby Impollonia
   timo@eistee.fritz.box
   Andrew Thompson
+  Yusei Tahara
   Ben Darnell
   Roberto De Ioris
   Juan Francisco Cantero Hurtado
+  Ruochen Huang
+  Jeong YunWon
   Godefroid Chappelle
   Joshua Gilbert
   Dan Colish
@@ -219,6 +237,7 @@ appropriate measure but it's something)::
   Michael Hudson-Doyle
   Anders Sigfridsson
   Yasir Suhail
+  Jason Michalski
   rafalgalczynski@gmail.com
   Floris Bruynooghe
   Laurens Van Houtven
@@ -226,46 +245,58 @@ appropriate measure but it's something)::
   Gustavo Niemeyer
   Stephan Busemann
   Rafał Gałczyński
-  Yusei Tahara
   Christian Muirhead
+  Berker Peksag
   James Lan
+  Volodymyr Vladymyrov
   shoma hosaka
-  Daniel Neuh?user
-  Matthew Miller
+  Daniel Neuhäuser
+  Ben Mather
+  halgari
+  Boglarka Vezer
+  Chris Pressey
   Buck Golemon
   Konrad Delong
   Dinu Gherman
   Chris Lambacher
   coolbutuseless@gmail.com
-  Rodrigo Araújo
-  w31rd0
   Jim Baker
+  Rodrigo Araújo
+  Nikolaos-Digenis Karagiannis
   James Robert
   Armin Ronacher
   Brett Cannon
+  Donald Stufft
   yrttyr
   aliceinwire
   OlivierBlanvillain
+  Dan Sanders
   Zooko Wilcox-O Hearn
   Tomer Chachamu
   Christopher Groskopf
   Asmo Soinio
   Stefan Marr
   jiaaro
+  Mads Kiilerich
   opassembler.py
   Antony Lee
   Jim Hunziker
   Markus Unterwaditzer
   Even Wiik Thomassen
   jbs
+  squeaky
   soareschen
   Kurt Griffiths
   Mike Bayer
+  Matthew Miller
   Flavio Percoco
   Kristoffer Kleine
   yasirs
   Michael Chermside
   Anna Ravencroft
+  Andrey Churin
+  Dan Crosta
   Julien Phalip
+  Roman Podoliaka
   Dan Loewenherz
 

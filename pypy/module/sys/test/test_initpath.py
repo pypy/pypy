@@ -57,6 +57,7 @@ def test_find_executable(tmpdir, monkeypatch):
     a.join('pypy').ensure(file=True)
     b.join('pypy').ensure(file=True)
     #
+    monkeypatch.setattr(os, 'access', lambda x, y: True)
     # if there is already a slash, don't do anything
     monkeypatch.chdir(tmpdir)
     assert find_executable('a/pypy') == a.join('pypy')
@@ -82,7 +83,11 @@ def test_find_executable(tmpdir, monkeypatch):
     # if pypy is found but it's not a file, ignore it
     c.join('pypy').ensure(dir=True)
     assert find_executable('pypy') == a.join('pypy')
+    # if pypy is found but it's not executable, ignore it
+    monkeypatch.setattr(os, 'access', lambda x, y: False)
+    assert find_executable('pypy') == ''
     #
+    monkeypatch.setattr(os, 'access', lambda x, y: True)
     monkeypatch.setattr(initpath, 'we_are_translated', lambda: True)
     monkeypatch.setattr(initpath, '_WIN32', True)
     monkeypatch.setenv('PATH', str(a))

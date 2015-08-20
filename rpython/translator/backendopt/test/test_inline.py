@@ -47,8 +47,6 @@ class CustomError2(Exception):
         self.data2 = 456
 
 class TestInline(BaseRtypingTest):
-    type_system = 'lltype'
-
     def translate(self, func, argtypes):
         t = TranslationContext()
         t.buildannotator().build_types(func, argtypes)

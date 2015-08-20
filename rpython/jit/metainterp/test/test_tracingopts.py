@@ -107,6 +107,28 @@ class TestLLtype(LLJitMixin):
         assert res == -7 * 2
         self.check_operations_history(getfield_gc=1)
 
+    def test_heap_caching_nonnull(self):
+        class A:
+            def __init__(self, x=None):
+                self.next = x
+        a0 = A()
+        a1 = A()
+        a2 = A(a1)
+        def fn(n):
+            if n > 0:
+                a = a1
+            else:
+                a = a2
+            if a.next:
+                a = A(a.next)
+                result = a.next is not None
+                a0.next = a
+                return result
+            return False
+        res = self.interp_operations(fn, [-7])
+        assert res == True
+        self.check_operations_history(guard_nonnull=1)
+
     def test_heap_caching_while_tracing_invalidation(self):
         class A:
             pass
@@ -333,11 +355,25 @@ class TestLLtype(LLJitMixin):
             a[-1] = n
             x1 = a[-1]
             a[n - n - 1] = n + 1
-            return a[-1] + x1
+            return a[-1] + x1 + 1000 * a[2]
         res = self.interp_operations(fn, [7])
         assert res == 7 + 7 + 1
         self.check_operations_history(setarrayitem_gc=2,
-                setfield_gc=0)
+                setfield_gc=2, call=0)
+
+    def test_list_caching_negative_nonzero_init(self):
+        def fn(n):
+            a = [42] * n
+            if n > 1000:
+                a.append(0)
+            a[-1] = n
+            x1 = a[-1]
+            a[n - n - 1] = n + 1
+            return a[-1] + x1 + 1000 * a[2]
+        res = self.interp_operations(fn, [7])
+        assert res == 7 + 7 + 1 + 42000
+        self.check_operations_history(setarrayitem_gc=2,
+                setfield_gc=0, call=1)
 
     def test_virtualizable_with_array_heap_cache(self):
         myjitdriver = jit.JitDriver(greens = [], reds = ['n', 'x', 'i', 'frame'],

@@ -1,6 +1,6 @@
-=======================
-What's new since PyPy 2.3?
-=======================
+======================
+What's new in PyPy 2.3
+======================
 
 .. this is a revision shortly after release-2.3
 .. startrev: 394146e9bb67
@@ -17,7 +17,8 @@ Annotator cleanups
 
 .. branch: unify-call-ops
 
-.. branch packaging
+.. branch: packaging
+
 Use argparse for packaging.py, and add third-party components to LICENSE file.
 Also mention that gdbm is GPL.
 Do not crash the packaging process on failure in CFFI or license-building,

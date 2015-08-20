@@ -17,8 +17,10 @@ class Module(MixedModule):
     def startup(self, space):
         from rpython.rlib.rsocket import rsocket_startup
         rsocket_startup()
-        from pypy.module._socket.interp_func import State
-        space.fromcache(State).startup(space)
+
+    def shutdown(self, space):
+        from pypy.module._socket.interp_socket import close_all_sockets
+        close_all_sockets(space)
 
     def buildloaders(cls):
         from rpython.rlib import rsocket

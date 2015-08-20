@@ -9,7 +9,8 @@ class Capture:
     
     def __init__(self, mixed_out_err = False):
         "Start capture of the Unix-level stdout and stderr."
-        if (not hasattr(os, 'tmpfile') or
+        if (sys.platform == 'win32' or # os.tmpfile fails, cpython issue #2232
+            not hasattr(os, 'tmpfile') or
             not hasattr(os, 'dup') or
             not hasattr(os, 'dup2') or
             not hasattr(os, 'fdopen')):

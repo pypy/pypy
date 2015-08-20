@@ -558,6 +558,22 @@ class WarmspotTests(object):
         assert res == 7 - 3
         self.check_trace_count(2)
 
+    def test_jitdriver_single_jit_merge_point(self):
+        jitdriver = JitDriver(greens=[], reds='auto')
+        def g1(n):
+            jitdriver.jit_merge_point()
+            return n
+        def g2():
+            jitdriver.jit_merge_point()
+        def f(n):
+            if n:
+                g1(n)
+            else:
+                g2()
+        e = py.test.raises(AssertionError, self.meta_interp, f, [42])
+        assert str(e.value) == ("there are multiple jit_merge_points "
+                                "with the same jitdriver")
+
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLGraphCPU
@@ -568,7 +584,7 @@ class TestWarmspotDirect(object):
         from rpython.jit.metainterp.typesystem import llhelper
         from rpython.jit.codewriter.support import annotate
         from rpython.jit.metainterp.warmspot import WarmRunnerDesc
-        from rpython.rtyper.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
+        from rpython.rtyper.rclass import OBJECT, OBJECT_VTABLE
         from rpython.rtyper.lltypesystem import lltype, llmemory
         exc_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
         cls.exc_vtable = exc_vtable

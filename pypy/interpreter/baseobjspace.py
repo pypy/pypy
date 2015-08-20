@@ -8,13 +8,13 @@ from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize)
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import r_uint, SHRT_MIN, SHRT_MAX, \
-    INT_MIN, INT_MAX, UINT_MAX
+    INT_MIN, INT_MAX, UINT_MAX, USHRT_MAX
 
 from pypy.interpreter.executioncontext import (ExecutionContext, ActionFlag,
     UserDelAction)
 from pypy.interpreter.error import OperationError, new_exception_class, oefmt
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.miscutils import ThreadLocals
+from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
 
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
@@ -200,7 +200,7 @@ class W_Root(object):
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.buffer_w(space, flags)
-        raise TypeError
+        raise BufferInterfaceNotFound
 
     def readbuf_w(self, space):
         w_impl = space.lookup(self, '__buffer__')
@@ -208,7 +208,7 @@ class W_Root(object):
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.readbuf_w(space)
-        raise TypeError
+        raise BufferInterfaceNotFound
 
     def writebuf_w(self, space):
         w_impl = space.lookup(self, '__buffer__')
@@ -216,7 +216,7 @@ class W_Root(object):
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.writebuf_w(space)
-        raise TypeError
+        raise BufferInterfaceNotFound
 
     def charbuf_w(self, space):
         w_impl = space.lookup(self, '__buffer__')
@@ -224,7 +224,7 @@ class W_Root(object):
             w_result = space.get_and_call_function(w_impl, self)
             if space.isinstance_w(w_result, space.w_buffer):
                 return w_result.charbuf_w(space)
-        raise TypeError
+        raise BufferInterfaceNotFound
 
     def str_w(self, space):
         self._typed_unwrap_error(space, "string")
@@ -354,6 +354,9 @@ class SpaceCache(Cache):
 class DescrMismatch(Exception):
     pass
 
+class BufferInterfaceNotFound(Exception):
+    pass
+
 def wrappable_class_name(Class):
     try:
         return Class.typedef.name
@@ -384,7 +387,7 @@ class ObjSpace(object):
         self.builtin_modules = {}
         self.reloading_modules = {}
 
-        self.interned_strings = {}
+        self.interned_strings = make_weak_value_dictionary(self, str, W_Root)
         self.actionflag = ActionFlag()    # changed by the signal module
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
@@ -521,11 +524,6 @@ class ObjSpace(object):
             for name in self.config.objspace.extmodules.split(','):
                 if name not in modules:
                     modules.append(name)
-
-        # a bit of custom logic: rctime take precedence over time
-        # XXX this could probably be done as a "requires" in the config
-        if 'rctime' in modules and 'time' in modules:
-            modules.remove('time')
 
         self._builtinmodule_list = modules
         return self._builtinmodule_list
@@ -717,7 +715,7 @@ class ObjSpace(object):
         return self.wrap(not self.is_true(w_obj))
 
     def eq_w(self, w_obj1, w_obj2):
-        """shortcut for space.is_true(space.eq(w_obj1, w_obj2))"""
+        """Implements equality with the double check 'x is y or x == y'."""
         return self.is_w(w_obj1, w_obj2) or self.is_true(self.eq(w_obj1, w_obj2))
 
     def is_(self, w_one, w_two):
@@ -782,25 +780,30 @@ class ObjSpace(object):
             return self.w_False
 
     def new_interned_w_str(self, w_s):
+        assert isinstance(w_s, W_Root)   # and is not None
         s = self.str_w(w_s)
         if not we_are_translated():
             assert type(s) is str
-        try:
-            return self.interned_strings[s]
-        except KeyError:
-            pass
-        self.interned_strings[s] = w_s
-        return w_s
+        w_s1 = self.interned_strings.get(s)
+        if w_s1 is None:
+            w_s1 = w_s
+            self.interned_strings.set(s, w_s1)
+        return w_s1
 
     def new_interned_str(self, s):
         if not we_are_translated():
             assert type(s) is str
-        try:
-            return self.interned_strings[s]
-        except KeyError:
-            pass
-        w_s = self.interned_strings[s] = self.wrap(s)
-        return w_s
+        w_s1 = self.interned_strings.get(s)
+        if w_s1 is None:
+            w_s1 = self.wrap(s)
+            self.interned_strings.set(s, w_s1)
+        return w_s1
+
+    def is_interned_str(self, s):
+        # interface for marshal_impl
+        if not we_are_translated():
+            assert type(s) is str
+        return self.interned_strings.get(s) is not None
 
     def descr_self_interp_w(self, RequiredClass, w_obj):
         if not isinstance(w_obj, RequiredClass):
@@ -1017,6 +1020,9 @@ class ObjSpace(object):
     def newlist_unicode(self, list_u):
         return self.newlist([self.wrap(u) for u in list_u])
 
+    def newlist_int(self, list_i):
+        return self.newlist([self.wrap(i) for i in list_i])
+
     def newlist_hint(self, sizehint):
         from pypy.objspace.std.listobject import make_empty_list_with_size
         return make_empty_list_with_size(self, sizehint)
@@ -1077,7 +1083,7 @@ class ObjSpace(object):
 
     def call_valuestack(self, w_func, nargs, frame):
         from pypy.interpreter.function import Function, Method, is_builtin_code
-        if frame.is_being_profiled and is_builtin_code(w_func):
+        if frame.get_is_being_profiled() and is_builtin_code(w_func):
             # XXX: this code is copied&pasted :-( from the slow path below
             # call_valuestack().
             args = frame.make_arguments(nargs)
@@ -1389,7 +1395,7 @@ class ObjSpace(object):
         # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
         try:
             return w_obj.buffer_w(self, flags)
-        except TypeError:
+        except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
                         "'%T' does not have the buffer interface", w_obj)
 
@@ -1397,7 +1403,7 @@ class ObjSpace(object):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
             return w_obj.readbuf_w(self)
-        except TypeError:
+        except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
                         "expected a readable buffer object")
 
@@ -1405,7 +1411,7 @@ class ObjSpace(object):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
             return w_obj.writebuf_w(self)
-        except TypeError:
+        except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
                         "expected a writeable buffer object")
 
@@ -1413,7 +1419,7 @@ class ObjSpace(object):
         # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
         try:
             return w_obj.charbuf_w(self)
-        except TypeError:
+        except BufferInterfaceNotFound:
             raise oefmt(self.w_TypeError,
                         "expected a character buffer object")
 
@@ -1437,11 +1443,11 @@ class ObjSpace(object):
                 return self.str(w_obj).readbuf_w(self)
             try:
                 return w_obj.buffer_w(self, 0)
-            except TypeError:
+            except BufferInterfaceNotFound:
                 pass
             try:
                 return w_obj.readbuf_w(self)
-            except TypeError:
+            except BufferInterfaceNotFound:
                 self._getarg_error("string or buffer", w_obj)
         elif code == 's#':
             if self.isinstance_w(w_obj, self.w_str):
@@ -1450,24 +1456,23 @@ class ObjSpace(object):
                 return self.str(w_obj).str_w(self)
             try:
                 return w_obj.readbuf_w(self).as_str()
-            except TypeError:
+            except BufferInterfaceNotFound:
                 self._getarg_error("string or read-only buffer", w_obj)
         elif code == 'w*':
             try:
-                try:
-                    return w_obj.buffer_w(self, self.BUF_WRITABLE)
-                except OperationError:
-                    self._getarg_error("read-write buffer", w_obj)
-            except TypeError:
+                return w_obj.buffer_w(self, self.BUF_WRITABLE)
+            except OperationError:
+                self._getarg_error("read-write buffer", w_obj)
+            except BufferInterfaceNotFound:
                 pass
             try:
                 return w_obj.writebuf_w(self)
-            except TypeError:
+            except BufferInterfaceNotFound:
                 self._getarg_error("read-write buffer", w_obj)
         elif code == 't#':
             try:
                 return w_obj.charbuf_w(self)
-            except TypeError:
+            except BufferInterfaceNotFound:
                 self._getarg_error("string or read-only character buffer", w_obj)
         else:
             assert False
@@ -1489,13 +1494,13 @@ class ObjSpace(object):
                 raise
         try:
             buf = w_obj.buffer_w(self, 0)
-        except TypeError:
+        except BufferInterfaceNotFound:
             pass
         else:
             return buf.as_str()
         try:
             buf = w_obj.readbuf_w(self)
-        except TypeError:
+        except BufferInterfaceNotFound:
             self._getarg_error("string or buffer", w_obj)
         else:
             return buf.as_str()
@@ -1505,6 +1510,8 @@ class ObjSpace(object):
 
     def str_w(self, w_obj):
         return w_obj.str_w(self)
+
+    bytes_w = str_w  # Python2
 
     def str0_w(self, w_obj):
         "Like str_w, but rejects strings with NUL bytes."
@@ -1644,6 +1651,16 @@ class ObjSpace(object):
         elif value > SHRT_MAX:
             raise oefmt(self.w_OverflowError,
                 "signed short integer is greater than maximum")
+        return value
+
+    def c_ushort_w(self, w_obj):
+        value = self.int_w(w_obj)
+        if value < 0:
+            raise oefmt(self.w_OverflowError,
+                "can't convert negative value to C unsigned short")
+        elif value > USHRT_MAX:
+            raise oefmt(self.w_OverflowError,
+                "Python int too large for C unsigned short")
         return value
 
     def truncatedint_w(self, w_obj, allow_conversion=True):
@@ -1899,5 +1916,4 @@ ObjSpace.IrregularOpTable = [
     'newdict',
     'newslice',
     'call_args',
-    'marshal_w',
 ]

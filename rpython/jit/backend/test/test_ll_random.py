@@ -1,5 +1,6 @@
 import py
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass, rffi, rstr
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper import rclass
 from rpython.jit.backend.test import test_random
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
@@ -16,6 +17,10 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
     def __init__(self, *args, **kw):
         test_random.OperationBuilder.__init__(self, *args, **kw)
         self.vtable_counter = 0
+        # note: rstrs and runicodes contain either new local strings, or
+        # constants.  In other words, all BoxPtrs here were created earlier
+        # by the trace before, and so it should be kind of fine to mutate
+        # them with strsetitem/unicodesetitem.
         self.rstrs = []
         self.runicodes = []
         self.structure_types = []
@@ -95,7 +100,10 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
             fields.append(('parent', rclass.OBJECT))
             kwds['hints'] = {'vtable': with_vtable._obj}
         for i in range(r.randrange(1, 5)):
-            TYPE = self.get_random_primitive_type(r)
+            if r.random() < 0.1:
+                TYPE = llmemory.GCREF
+            else:
+                TYPE = self.get_random_primitive_type(r)
             fields.append(('f%d' % i, TYPE))
         S = type('S%d' % self.counter, *fields, **kwds)
         self.counter += 1
@@ -246,13 +254,43 @@ class GuardNonNullClassOperation(GuardClassOperation):
             op = ResOperation(self.opnum, [v, c_vtable2], None)
             return op, False
 
+class ZeroPtrFieldOperation(test_random.AbstractOperation):
+    def field_descr(self, builder, r):
+        if getattr(builder.cpu, 'is_llgraph', False):
+            raise test_random.CannotProduceOperation
+        v, S = builder.get_structptr_var(r, )
+        names = S._names
+        if names[0] == 'parent':
+            names = names[1:]
+        choice = []
+        for name in names:
+            FIELD = getattr(S, name)
+            if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+                choice.append(name)
+        if not choice:
+            raise test_random.CannotProduceOperation
+        name = r.choice(choice)
+        descr = builder.cpu.fielddescrof(S, name)
+        return v, descr.offset
+
+    def produce_into(self, builder, r):
+        v, offset = self.field_descr(builder, r)
+        builder.do(self.opnum, [v, ConstInt(offset)], None)
+
 class GetFieldOperation(test_random.AbstractOperation):
     def field_descr(self, builder, r):
         v, S = builder.get_structptr_var(r, )
         names = S._names
         if names[0] == 'parent':
             names = names[1:]
-        name = r.choice(names)
+        choice = []
+        for name in names:
+            FIELD = getattr(S, name)
+            if not isinstance(FIELD, lltype.Ptr):
+                choice.append(name)
+        if not choice:
+            raise test_random.CannotProduceOperation
+        name = r.choice(choice)
         descr = builder.cpu.fielddescrof(S, name)
         descr._random_info = 'cpu.fielddescrof(..., %r)' % (name,)
         descr._random_type = S
@@ -274,7 +312,14 @@ class GetInteriorFieldOperation(test_random.AbstractOperation):
                                          array_of_structs=True)
         array = v.getref(lltype.Ptr(A))
         v_index = builder.get_index(len(array), r)
-        name = r.choice(A.OF._names)
+        choice = []
+        for name in A.OF._names:
+            FIELD = getattr(A.OF, name)
+            if not isinstance(FIELD, lltype.Ptr):
+                choice.append(name)
+        if not choice:
+            raise test_random.CannotProduceOperation
+        name = r.choice(choice)
         descr = builder.cpu.interiorfielddescrof(A, name)
         descr._random_info = 'cpu.interiorfielddescrof(..., %r)' % (name,)
         descr._random_type = A
@@ -443,6 +488,8 @@ class AbstractGetItemOperation(AbstractStringOperation):
 class AbstractSetItemOperation(AbstractStringOperation):
     def produce_into(self, builder, r):
         v_string = self.get_string(builder, r)
+        if not isinstance(v_string, BoxPtr):
+            raise test_random.CannotProduceOperation  # setitem(Const, ...)
         v_index = builder.get_index(len(v_string.getref(self.ptr).chars), r)
         v_target = ConstInt(r.random_integer() % self.max)
         builder.do(self.opnum, [v_string, v_index, v_target])
@@ -521,7 +568,7 @@ class BaseCallOperation(test_random.AbstractOperation):
         subset = builder.subset_of_intvars(r)
         funcargs = ", ".join(['arg_%d' % i for i in range(len(subset))])
         S, v = builder.get_structptr_var(r, must_have_vtable=True)
-        
+
         code = py.code.Source("""
         def f(%s):
             raise LLException(vtable, ptr)
@@ -682,6 +729,7 @@ for i in range(4):      # make more common
     OPERATIONS.append(GetFieldOperation(rop.GETFIELD_GC))
     OPERATIONS.append(GetInteriorFieldOperation(rop.GETINTERIORFIELD_GC))
     OPERATIONS.append(SetFieldOperation(rop.SETFIELD_GC))
+    OPERATIONS.append(ZeroPtrFieldOperation(rop.ZERO_PTR_FIELD))
     OPERATIONS.append(SetInteriorFieldOperation(rop.SETINTERIORFIELD_GC))
     OPERATIONS.append(NewOperation(rop.NEW))
     OPERATIONS.append(NewOperation(rop.NEW_WITH_VTABLE))
@@ -689,7 +737,7 @@ for i in range(4):      # make more common
     OPERATIONS.append(GetArrayItemOperation(rop.GETARRAYITEM_GC))
     OPERATIONS.append(GetArrayItemOperation(rop.GETARRAYITEM_GC))
     OPERATIONS.append(SetArrayItemOperation(rop.SETARRAYITEM_GC))
-    OPERATIONS.append(NewArrayOperation(rop.NEW_ARRAY))
+    OPERATIONS.append(NewArrayOperation(rop.NEW_ARRAY_CLEAR))
     OPERATIONS.append(ArrayLenOperation(rop.ARRAYLEN_GC))
     OPERATIONS.append(NewStrOperation(rop.NEWSTR))
     OPERATIONS.append(NewUnicodeOperation(rop.NEWUNICODE))

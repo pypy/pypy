@@ -1,7 +1,6 @@
 from rpython.rtyper.rmodel import inputconst, log
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.rclass import FieldListAccessor
-from rpython.rtyper.lltypesystem.rclass import InstanceRepr
+from rpython.rtyper.rclass import (FieldListAccessor, InstanceRepr)
 
 
 class VirtualizableInstanceRepr(InstanceRepr):
@@ -39,8 +38,8 @@ class VirtualizableInstanceRepr(InstanceRepr):
             else:
                 self._super()._setup_repr(hints = hints)
             c_vfields = self.classdef.classdesc.classdict['_virtualizable_']
-            self.my_redirected_fields = self._parse_field_list(c_vfields.value,
-                                                               self.accessor)
+            self.my_redirected_fields = self._parse_field_list(
+                c_vfields.value, self.accessor, hints)
         else:
             self._super()._setup_repr()
             # ootype needs my_redirected_fields even for subclass. lltype does

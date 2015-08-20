@@ -4,6 +4,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
     debug_print)
 from rpython.rlib.objectmodel import we_are_translated, compute_unique_id
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
 
@@ -15,10 +16,14 @@ class Logger(object):
     def log_loop(self, inputargs, operations, number=0, type=None, ops_offset=None, name=''):
         if type is None:
             debug_start("jit-log-noopt-loop")
+            debug_print("# Loop", number, '(%s)' % name, ":", "noopt",
+                        "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-loop")
         elif type == "rewritten":
             debug_start("jit-log-rewritten-loop")
+            debug_print("# Loop", number, '(%s)' % name, ":", type,
+                        "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-rewritten-loop")
         elif number == -2:
@@ -37,12 +42,18 @@ class Logger(object):
                    descr=None, ops_offset=None):
         if extra == "noopt":
             debug_start("jit-log-noopt-bridge")
+            debug_print("# bridge out of Guard",
+                        "0x%x" % compute_unique_id(descr),
+                        "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-noopt-bridge")
         elif extra == "rewritten":
             debug_start("jit-log-rewritten-bridge")
+            debug_print("# bridge out of Guard",
+                        "0x%x" % compute_unique_id(descr),
+                        "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
-            debug_stop("jit-log-rewritten-bridge")            
+            debug_stop("jit-log-rewritten-bridge")
         elif extra == "compiling":
             debug_start("jit-log-compiling-bridge")
             logops = self._log_operations(inputargs, operations, ops_offset)
@@ -50,7 +61,7 @@ class Logger(object):
         else:
             debug_start("jit-log-opt-bridge")
             debug_print("# bridge out of Guard",
-                        "0x%x" % compute_unique_id(descr),
+                        "0x%x" % r_uint(compute_unique_id(descr)),
                         "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset)
             debug_stop("jit-log-opt-bridge")
@@ -126,6 +137,14 @@ class LogOperations(object):
             s = jd_sd.warmstate.get_location_str(op.getarglist()[3:])
             s = s.replace(',', '.') # we use comma for argument splitting
             return "debug_merge_point(%d, %d, '%s')" % (op.getarg(1).getint(), op.getarg(2).getint(), s)
+        if op.getopnum() == rop.JIT_DEBUG:
+            args = op.getarglist()
+            s = args[0]._get_str()
+            s = s.replace(',', '.') # we use comma for argument splitting
+            s2 = ''
+            for box in args[1:]:
+                s2 += ', %d' % box.getint()
+            return "jit_debug('%s'%s)" % (s, s2)
         if ops_offset is None:
             offset = -1
         else:
@@ -144,7 +163,7 @@ class LogOperations(object):
         if op.getdescr() is not None:
             descr = op.getdescr()
             if is_guard and self.guard_number:
-                hash = compute_unique_id(descr)
+                hash = r_uint(compute_unique_id(descr))
                 r = "<Guard0x%x>" % hash
             else:
                 r = self.repr_of_descr(descr)
@@ -159,13 +178,6 @@ class LogOperations(object):
             fail_args = ''
         return s_offset + res + op.getopname() + '(' + args + ')' + fail_args
 
-    def _log_inputarg_setup_ops(self, op):
-        target_token = op.getdescr()
-        if isinstance(target_token, TargetToken):
-            if target_token.exported_state:
-                for op in target_token.exported_state.inputarg_setup_ops:
-                    debug_print('    ' + self.repr_of_resop(op))
-
     def _log_operations(self, inputargs, operations, ops_offset):
         if not have_debug_prints():
             return
@@ -175,10 +187,10 @@ class LogOperations(object):
             args = ", ".join([self.repr_of_arg(arg) for arg in inputargs])
             debug_print('[' + args + ']')
         for i in range(len(operations)):
-            op = operations[i]
+            #op = operations[i]
             debug_print(self.repr_of_resop(operations[i], ops_offset))
-            if op.getopnum() == rop.LABEL:
-                self._log_inputarg_setup_ops(op)
+            #if op.getopnum() == rop.LABEL:
+            #    self._log_inputarg_setup_ops(op)
         if ops_offset and None in ops_offset:
             offset = ops_offset[None]
             debug_print("+%d: --end of the loop--" % offset)

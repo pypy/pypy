@@ -650,7 +650,7 @@ class TestOptionalsChoices(ParserTestCase):
 
 
 class TestOptionalsRequired(ParserTestCase):
-    """Tests the an optional action that is required"""
+    """Tests an optional action that is required"""
 
     argument_signatures = [
         Sig('-x', type=int, required=True),
@@ -2730,6 +2730,13 @@ class TestSetDefaults(TestCase):
         parser = ErrorRaisingArgumentParser(parents=[parent])
         self.assertEqual(NS(x='foo'), parser.parse_args([]))
 
+    def test_set_defaults_on_parent_and_subparser(self):
+        parser = argparse.ArgumentParser()
+        xparser = parser.add_subparsers().add_parser('X')
+        parser.set_defaults(foo=1)
+        xparser.set_defaults(foo=2)
+        self.assertEqual(NS(foo=2), parser.parse_args(['X']))
+
     def test_set_defaults_same_as_add_argument(self):
         parser = ErrorRaisingArgumentParser()
         parser.set_defaults(w='W', x='X', y='Y', z='Z')
@@ -2942,6 +2949,60 @@ class TestHelpBiggerOptionals(HelpTestCase):
     version = '''\
         0.1
         '''
+
+class TestShortColumns(HelpTestCase):
+    '''Test extremely small number of columns.
+
+    TestCase prevents "COLUMNS" from being too small in the tests themselves,
+    but we don't want any exceptions thrown in such case. Only ugly representation.
+    '''
+    def setUp(self):
+        env = test_support.EnvironmentVarGuard()
+        env.set("COLUMNS", '15')
+        self.addCleanup(env.__exit__)
+
+    parser_signature            = TestHelpBiggerOptionals.parser_signature
+    argument_signatures         = TestHelpBiggerOptionals.argument_signatures
+    argument_group_signatures   = TestHelpBiggerOptionals.argument_group_signatures
+    usage = '''\
+        usage: PROG
+               [-h]
+               [-v]
+               [-x]
+               [--y Y]
+               foo
+               bar
+        '''
+    help = usage + '''\
+
+        DESCRIPTION
+
+        positional arguments:
+          foo
+            FOO HELP
+          bar
+            BAR HELP
+
+        optional arguments:
+          -h, --help
+            show this
+            help
+            message and
+            exit
+          -v, --version
+            show
+            program's
+            version
+            number and
+            exit
+          -x
+            X HELP
+          --y Y
+            Y HELP
+
+        EPILOG
+    '''
+    version                     = TestHelpBiggerOptionals.version
 
 
 class TestHelpBiggerOptionalGroups(HelpTestCase):
@@ -4402,6 +4463,12 @@ class TestNamespace(TestCase):
         self.assertTrue(ns1 != ns4)
         self.assertTrue(ns2 != ns3)
         self.assertTrue(ns2 != ns4)
+
+    def test_equality_returns_notimplemeted(self):
+        # See issue 21481
+        ns = argparse.Namespace(a=1, b=2)
+        self.assertIs(ns.__eq__(None), NotImplemented)
+        self.assertIs(ns.__ne__(None), NotImplemented)
 
 
 # ===================

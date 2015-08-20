@@ -142,7 +142,7 @@ _math_functions = ['acos', 'asin', 'atan', 'atan2', 'ceil', 'cos', 'cosh',
         'log10', 'modf', 'pi', 'pow', 'sin', 'sinh', 'sqrt', 'tan', 'tanh']
 
 __all__ = (_tg_classes + _tg_screen_functions + _tg_turtle_functions +
-           _tg_utilities + _math_functions)
+           _tg_utilities + ['Terminator'] + _math_functions)
 
 _alias_list = ['addshape', 'backward', 'bk', 'fd', 'ht', 'lt', 'pd', 'pos',
                'pu', 'rt', 'seth', 'setpos', 'setposition', 'st',
@@ -835,7 +835,7 @@ class Shape(object):
             if isinstance(data, list):
                 data = tuple(data)
         elif type_ == "image":
-            if isinstance(data, str):
+            if isinstance(data, basestring):
                 if data.lower().endswith(".gif") and isfile(data):
                     data = TurtleScreen._image(data)
                 # else data assumed to be Photoimage
@@ -1098,7 +1098,7 @@ class TurtleScreen(TurtleScreenBase):
         """
         if len(color) == 1:
             color = color[0]
-        if isinstance(color, str):
+        if isinstance(color, basestring):
             if self._iscolorstring(color) or color == "":
                 return color
             else:
@@ -1235,7 +1235,7 @@ class TurtleScreen(TurtleScreenBase):
     def _incrementudc(self):
         """Increment update counter."""
         if not TurtleScreen._RUNNING:
-            TurtleScreen._RUNNNING = True
+            TurtleScreen._RUNNING = True
             raise Terminator
         if self._tracing > 0:
             self._updatecounter += 1
@@ -2499,7 +2499,7 @@ class RawTurtle(TPen, TNavigator):
         Example (for a Turtle instance named turtle):
         >>> turtle.setundobuffer(42)
         """
-        if size is None:
+        if size is None or size <= 0:
             self.undobuffer = None
         else:
             self.undobuffer = Tbuffer(size)
@@ -2602,7 +2602,7 @@ class RawTurtle(TPen, TNavigator):
     def _cc(self, args):
         """Convert colortriples to hexstrings.
         """
-        if isinstance(args, str):
+        if isinstance(args, basestring):
             return args
         try:
             r, g, b = args
@@ -3228,7 +3228,7 @@ class RawTurtle(TPen, TNavigator):
         """
         #print "dot-1:", size, color
         if not color:
-            if isinstance(size, (str, tuple)):
+            if isinstance(size, (basestring, tuple)):
                 color = self._colorstr(size)
                 size = self._pensize + max(self._pensize, 4)
             else:
@@ -3644,7 +3644,7 @@ class _Screen(TurtleScreen):
             Turtle._screen = None
             _Screen._root = None
             _Screen._canvas = None
-        TurtleScreen._RUNNING = True
+        TurtleScreen._RUNNING = False
         root.destroy()
 
     def bye(self):
@@ -3685,7 +3685,6 @@ class _Screen(TurtleScreen):
         except AttributeError:
             exit(0)
 
-
 class Turtle(RawTurtle):
     """RawTurtle auto-creating (scrolled) canvas.
 
@@ -3707,18 +3706,6 @@ class Turtle(RawTurtle):
                            visible=visible)
 
 Pen = Turtle
-
-def _getpen():
-    """Create the 'anonymous' turtle if not already present."""
-    if Turtle._pen is None:
-        Turtle._pen = Turtle()
-    return Turtle._pen
-
-def _getscreen():
-    """Create a TurtleScreen if not already present."""
-    if Turtle._screen is None:
-        Turtle._screen = Screen()
-    return Turtle._screen
 
 def write_docstringdict(filename="turtle_docstringdict"):
     """Create and write docstring-dictionary to file.
@@ -3847,30 +3834,41 @@ def _screen_docrevise(docstr):
 ## as functions. So we can enhance, change, add, delete methods to these
 ## classes and do not need to change anything here.
 
+__func_body = """\
+def {name}{paramslist}:
+    if {obj} is None:
+        if not TurtleScreen._RUNNING:
+            TurtleScreen._RUNNING = True
+            raise Terminator
+        {obj} = {init}
+    try:
+        return {obj}.{name}{argslist}
+    except TK.TclError:
+        if not TurtleScreen._RUNNING:
+            TurtleScreen._RUNNING = True
+            raise Terminator
+        raise
+"""
 
-for methodname in _tg_screen_functions:
-    pl1, pl2 = getmethparlist(eval('_Screen.' + methodname))
-    if pl1 == "":
-        print ">>>>>>", pl1, pl2
-        continue
-    defstr = ("def %(key)s%(pl1)s: return _getscreen().%(key)s%(pl2)s" %
-                                   {'key':methodname, 'pl1':pl1, 'pl2':pl2})
-    exec defstr
-    eval(methodname).__doc__ = _screen_docrevise(eval('_Screen.'+methodname).__doc__)
+def _make_global_funcs(functions, cls, obj, init, docrevise):
+    for methodname in functions:
+        method = getattr(cls, methodname)
+        pl1, pl2 = getmethparlist(method)
+        if pl1 == "":
+            print ">>>>>>", pl1, pl2
+            continue
+        defstr = __func_body.format(obj=obj, init=init, name=methodname,
+                                    paramslist=pl1, argslist=pl2)
+        exec defstr in globals()
+        globals()[methodname].__doc__ = docrevise(method.__doc__)
 
-for methodname in _tg_turtle_functions:
-    pl1, pl2 = getmethparlist(eval('Turtle.' + methodname))
-    if pl1 == "":
-        print ">>>>>>", pl1, pl2
-        continue
-    defstr = ("def %(key)s%(pl1)s: return _getpen().%(key)s%(pl2)s" %
-                                   {'key':methodname, 'pl1':pl1, 'pl2':pl2})
-    exec defstr
-    eval(methodname).__doc__ = _turtle_docrevise(eval('Turtle.'+methodname).__doc__)
+_make_global_funcs(_tg_screen_functions, _Screen,
+                   'Turtle._screen', 'Screen()', _screen_docrevise)
+_make_global_funcs(_tg_turtle_functions, Turtle,
+                   'Turtle._pen', 'Turtle()', _turtle_docrevise)
 
 
 done = mainloop = TK.mainloop
-del pl1, pl2, defstr
 
 if __name__ == "__main__":
     def switchpen():
@@ -3913,7 +3911,7 @@ if __name__ == "__main__":
         down()
         # some text
         write("startstart", 1)
-        write("start", 1)
+        write(u"start", 1)
         color("red")
         # staircase
         for i in range(5):
@@ -3988,7 +3986,7 @@ if __name__ == "__main__":
         tri = getturtle()
         tri.resizemode("auto")
         turtle = Turtle()
-        turtle.resizemode("auto")
+        turtle.resizemode(u"auto")
         turtle.shape("turtle")
         turtle.reset()
         turtle.left(90)
@@ -3998,7 +3996,7 @@ if __name__ == "__main__":
         turtle.lt(30)
         turtle.down()
         turtle.speed(6)
-        turtle.color("blue","orange")
+        turtle.color("blue",u"orange")
         turtle.pensize(2)
         tri.speed(6)
         setheading(towards(turtle))
@@ -4013,9 +4011,9 @@ if __name__ == "__main__":
                 tri.stamp()
                 switchpen()
             count += 1
-        tri.write("CAUGHT! ", font=("Arial", 16, "bold"), align="right")
+        tri.write("CAUGHT! ", font=("Arial", 16, "bold"), align=u"right")
         tri.pencolor("black")
-        tri.pencolor("red")
+        tri.pencolor(u"red")
 
         def baba(xdummy, ydummy):
             clearscreen()

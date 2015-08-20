@@ -364,12 +364,45 @@ class TestRbuiltin(BaseRtypingTest):
                 assert res == isinstance([A(), B(), C()][x-1], [A, B, C][y-1]) * 3
 
     def test_isinstance_list(self):
+        def g():
+            pass
         def f(i):
             if i == 0:
                 l = []
             else:
                 l = None
+            g()
             return isinstance(l, list)
+        res = self.interpret(f, [0])
+        assert res is True
+        res = self.interpret(f, [1])
+        assert res is False
+
+    def test_isinstance_str(self):
+        def g():
+            pass
+        def f(i):
+            if i == 0:
+                l = "foobar"
+            else:
+                l = None
+            g()
+            return isinstance(l, str)
+        res = self.interpret(f, [0])
+        assert res is True
+        res = self.interpret(f, [1])
+        assert res is False
+
+    def test_isinstance_unicode(self):
+        def g():
+            pass
+        def f(i):
+            if i == 0:
+                l = u"foobar"
+            else:
+                l = None
+            g()
+            return isinstance(l, unicode)
         res = self.interpret(f, [0])
         assert res is True
         res = self.interpret(f, [1])
@@ -508,6 +541,14 @@ class TestRbuiltin(BaseRtypingTest):
             return lltype.cast_primitive(lltype.Signed, v)
         res = self.interpret(llf, [rffi.r_short(123)], policy=LowLevelAnnotatorPolicy())
         assert res == 123
+        def llf(v):
+            return lltype.cast_primitive(lltype.Bool, v)
+        res = self.interpret(llf, [2**24], policy=LowLevelAnnotatorPolicy())
+        assert res == True
+        def llf(v):
+            return lltype.cast_primitive(lltype.Bool, v)
+        res = self.interpret(llf, [rffi.r_longlong(2**48)], policy=LowLevelAnnotatorPolicy())
+        assert res == True
 
     def test_force_cast(self):
         def llfn(v):

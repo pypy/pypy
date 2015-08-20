@@ -345,7 +345,7 @@ def fsum(space, w_iterable):
             else:
                 partials.append(v)
     if special_sum != 0.0:
-        if rfloat.isnan(special_sum):
+        if rfloat.isnan(inf_sum):
             raise OperationError(space.w_ValueError, space.wrap("-inf + inf"))
         return space.wrap(special_sum)
     hi = 0.0

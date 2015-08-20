@@ -59,7 +59,7 @@ class FakeLLOp(object):
         x += self.gcheaderbuilder.size_gc_header
         return x, tid
 
-    def do_malloc_fixedsize_clear(self, RESTYPE, type_id, size,
+    def do_malloc_fixedsize(self, RESTYPE, type_id, size,
                                   has_finalizer, has_light_finalizer,
                                   contains_weakptr):
         assert not contains_weakptr
@@ -70,7 +70,9 @@ class FakeLLOp(object):
         self.record.append(("fixedsize", repr(size), tid, p))
         return p
 
-    def do_malloc_varsize_clear(self, RESTYPE, type_id, length, size,
+    do_malloc_fixedsize_clear = do_malloc_fixedsize
+
+    def do_malloc_varsize(self, RESTYPE, type_id, length, size,
                                 itemsize, offset_to_length):
         p, tid = self._malloc(type_id, size + itemsize * length)
         (p + offset_to_length).signed[0] = length
@@ -79,6 +81,8 @@ class FakeLLOp(object):
                             repr(size), repr(itemsize),
                             repr(offset_to_length), p))
         return p
+
+    do_malloc_varsize_clear = do_malloc_varsize
 
     def _write_barrier_failing_case(self, adr_struct):
         self.record.append(('barrier', adr_struct))
@@ -193,14 +197,6 @@ class TestFramework(object):
         assert is_valid_int(wbdescr.jit_wb_if_flag_byteofs)
         assert is_valid_int(wbdescr.jit_wb_if_flag_singlebyte)
 
-    def test_get_rid_of_debug_merge_point(self):
-        operations = [
-            ResOperation(rop.DEBUG_MERGE_POINT, ['dummy', 2], None),
-            ]
-        gc_ll_descr = self.gc_ll_descr
-        operations = gc_ll_descr.rewrite_assembler(None, operations, [])
-        assert len(operations) == 0
-
     def test_record_constptrs(self):
         class MyFakeCPU(object):
             def cast_adr_to_int(self, adr):
@@ -250,17 +246,22 @@ def test_custom_tracer():
     frame.jf_gcmap[2] = r_uint(2 | 16 | 32 | 128)
     frame.jf_gcmap[3] = r_uint(0)
     frame_adr = llmemory.cast_ptr_to_adr(frame)
+    #
     all_addrs = []
-    next = jitframe.jitframe_trace(frame_adr, llmemory.NULL)
-    while next:
-        all_addrs.append(next)
-        next = jitframe.jitframe_trace(frame_adr, next)
+    class FakeGC:
+        def _trace_callback(self, callback, arg, addr):
+            assert callback == "hello"
+            assert arg == "world"
+            all_addrs.append(addr)
+    jitframe.jitframe_trace(FakeGC(), frame_adr, "hello", "world")
+    #
     counter = 0
     for name in jitframe.JITFRAME._names:
         TP = getattr(jitframe.JITFRAME, name)
         if isinstance(TP, lltype.Ptr) and TP.TO._gckind == 'gc': 
             assert all_addrs[counter] == frame_adr + jitframe.getofs(name)
             counter += 1
+    assert counter == 5
     # gcpattern
     assert all_addrs[5] == indexof(0)
     assert all_addrs[6] == indexof(1)
@@ -269,13 +270,18 @@ def test_custom_tracer():
     assert all_addrs[9] == indexof(7)
     if sys.maxint == 2**31 - 1:
         assert all_addrs[10] == indexof(31)
-        assert all_addrs[11] == indexof(33 + 32)
+        assert all_addrs[11] == indexof(65)
+        assert all_addrs[12] == indexof(68)
+        assert all_addrs[13] == indexof(69)
+        assert all_addrs[14] == indexof(71)
     else:
         assert all_addrs[10] == indexof(63)
-        assert all_addrs[11] == indexof(65 + 64)
+        assert all_addrs[11] == indexof(129)
+        assert all_addrs[12] == indexof(132)
+        assert all_addrs[13] == indexof(133)
+        assert all_addrs[14] == indexof(135)
 
-    assert len(all_addrs) == 5 + 6 + 4
-    # 5 static fields, 4 addresses from gcmap, 2 from gcpattern
+    assert len(all_addrs) == 15
     lltype.free(frame_info, flavor='raw')
     lltype.free(frame.jf_gcmap, flavor='raw')
 
@@ -287,12 +293,12 @@ def test_custom_tracer_2():
     frame.jf_gcmap[0] = r_uint(18446744073441116160)
     frame.jf_gcmap[1] = r_uint(18446740775107559407)
     frame.jf_gcmap[2] = r_uint(3)
-    all_addrs = []
     frame_adr = llmemory.cast_ptr_to_adr(frame)
-    next = jitframe.jitframe_trace(frame_adr, llmemory.NULL)
-    while next:
-        all_addrs.append(next)
-        next = jitframe.jitframe_trace(frame_adr, next)
+    class FakeGC:
+        def _trace_callback(self, callback, arg, addr):
+            assert callback == "hello"
+            assert arg == "world"
+    jitframe.jitframe_trace(FakeGC(), frame_adr, "hello", "world")
     # assert did not hang
 
     lltype.free(frame_info, flavor='raw')

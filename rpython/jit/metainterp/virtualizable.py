@@ -49,7 +49,13 @@ class VirtualizableInfo(object):
             ARRAYPTR = fieldType(VTYPE, name)
             ARRAY = deref(ARRAYPTR)
             assert isinstance(ARRAYPTR, lltype.Ptr)
-            assert isinstance(ARRAY, lltype.GcArray)
+            if not isinstance(ARRAY, lltype.GcArray):
+                raise Exception(
+                    "The virtualizable field '%s' is not an array (found %r)."
+                    " It usually means that you must try harder to ensure that"
+                    " the list is not resized at run-time. You can do that by"
+                    " using rpython.rlib.debug.make_sure_not_resized()." %
+                    (name, ARRAY))
             ARRAYITEMTYPES.append(arrayItem(ARRAY))
         self.array_descrs = [cpu.arraydescrof(deref(fieldType(VTYPE, name)))
                              for name in array_fields]

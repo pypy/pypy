@@ -82,8 +82,8 @@ consts: ("'doc string'", 'None')
 
 import unittest
 import weakref
-import _testcapi
-from test import test_support
+from test.test_support import run_doctest, run_unittest, cpython_only
+from test.test_support import gc_collect
 
 
 def consts(t):
@@ -105,7 +105,9 @@ def dump(co):
 
 class CodeTest(unittest.TestCase):
 
+    @cpython_only
     def test_newempty(self):
+        import _testcapi
         co = _testcapi.code_newempty("filename", "funcname", 15)
         self.assertEqual(co.co_filename, "filename")
         self.assertEqual(co.co_name, "funcname")
@@ -133,13 +135,12 @@ class CodeWeakRefTest(unittest.TestCase):
         coderef = weakref.ref(f.__code__, callback)
         self.assertTrue(bool(coderef()))
         del f
-        test_support.gc_collect()
+        gc_collect()
         self.assertFalse(bool(coderef()))
         self.assertTrue(self.called)
 
 
 def test_main(verbose=None):
-    from test.test_support import run_doctest, run_unittest
     from test import test_code
     run_doctest(test_code, verbose)
     run_unittest(CodeTest, CodeWeakRefTest)

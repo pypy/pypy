@@ -205,6 +205,8 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             raise BadVirtualState
         for i in range(len(self.fieldstate)):
             v = value.get_item_value(i)
+            if v is None:
+                v = value.get_missing_null_value()
             s = self.fieldstate[i]
             if s.position > self.position:
                 s.enum_forced_boxes(boxes, v, optimizer)
@@ -278,18 +280,18 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value, is_opaque=False):
         self.is_opaque = is_opaque
-        self.known_class = value.known_class
-        self.level = value.level
-        if value.intbound is None:
+        self.known_class = value.get_known_class()
+        self.level = value.getlevel()
+        if value.getintbound() is None:
             self.intbound = IntUnbounded()
         else:
-            self.intbound = value.intbound.clone()
+            self.intbound = value.getintbound().clone()
         if value.is_constant():
             self.constbox = value.box
         else:
             self.constbox = None
         self.position_in_notvirtuals = -1
-        self.lenbound = value.lenbound
+        self.lenbound = value.getlenbound()
 
 
     def _generate_guards(self, other, value, state):
@@ -344,9 +346,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             if other.level == LEVEL_UNKNOWN:
                 if (box and box.nonnull() and
                         self.known_class.same_constant(cpu.ts.cls_of_box(box))):
-                    op = ResOperation(rop.GUARD_NONNULL, [box], None)
-                    extra_guards.append(op)
-                    op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
+                    op = ResOperation(rop.GUARD_NONNULL_CLASS, [box, self.known_class], None)
                     extra_guards.append(op)
                     return
                 else:
@@ -535,8 +535,13 @@ class VirtualStateConstructor(VirtualVisitor):
             self.info[box] = info = value.visitor_dispatch_virtual_type(self)
             if value.is_virtual():
                 flds = self.fieldboxes[box]
-                info.fieldstate = [self.state(b) for b in flds]
+                info.fieldstate = [self.state_or_none(b, value) for b in flds]
         return info
+
+    def state_or_none(self, box, value):
+        if box is None:
+            box = value.get_missing_null_value().box
+        return self.state(box)
 
     def get_virtual_state(self, jump_args):
         self.optimizer.force_at_end_of_preamble()
@@ -563,7 +568,10 @@ class VirtualStateConstructor(VirtualVisitor):
     def visit_vstruct(self, typedescr, fielddescrs):
         return VStructStateInfo(typedescr, fielddescrs)
 
-    def visit_varray(self, arraydescr):
+    def visit_varray(self, arraydescr, clear):
+        # 'clear' is ignored here.  I *think* it is correct, because so
+        # far in force_at_end_of_preamble() we force all array values
+        # to be non-None, so clearing is not important any more
         return VArrayStateInfo(arraydescr)
 
     def visit_varraystruct(self, arraydescr, fielddescrs):
@@ -575,13 +583,12 @@ class BoxNotProducable(Exception):
 
 
 class ShortBoxes(object):
-    def __init__(self, optimizer, surviving_boxes, availible_boxes=None):
+    def __init__(self, optimizer, surviving_boxes):
         self.potential_ops = {}
         self.alternatives = {}
         self.synthetic = {}
         self.rename = {}
         self.optimizer = optimizer
-        self.availible_boxes = availible_boxes
         self.assumed_classes = {}
 
         if surviving_boxes is not None:
@@ -652,8 +659,6 @@ class ShortBoxes(object):
         if isinstance(box, Const):
             return
         if box in self.short_boxes_in_production:
-            raise BoxNotProducable
-        if self.availible_boxes is not None and box not in self.availible_boxes:
             raise BoxNotProducable
         self.short_boxes_in_production[box] = None
 

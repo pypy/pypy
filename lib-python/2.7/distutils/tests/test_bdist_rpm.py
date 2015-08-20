@@ -25,6 +25,7 @@ setup(name='foo', version='0.1', py_modules=['foo'],
 """
 
 class BuildRpmTestCase(support.TempdirManager,
+                       support.EnvironGuard,
                        support.LoggingSilencer,
                        unittest.TestCase):
 
@@ -39,20 +40,18 @@ class BuildRpmTestCase(support.TempdirManager,
         sys.argv[:] = self.old_sys_argv[1]
         super(BuildRpmTestCase, self).tearDown()
 
+    # XXX I am unable yet to make this test work without
+    # spurious sdtout/stderr output under Mac OS X
+    @unittest.skipUnless(sys.platform.startswith('linux'),
+                         'spurious sdtout/stderr output under Mac OS X')
+    @unittest.skipIf(find_executable('rpm') is None,
+                     'the rpm command is not found')
+    @unittest.skipIf(find_executable('rpmbuild') is None,
+                     'the rpmbuild command is not found')
     def test_quiet(self):
-
-        # XXX I am unable yet to make this test work without
-        # spurious sdtout/stderr output under Mac OS X
-        if sys.platform != 'linux2':
-            return
-
-        # this test will run only if the rpm commands are found
-        if (find_executable('rpm') is None or
-            find_executable('rpmbuild') is None):
-            return
-
         # let's create a package
         tmp_dir = self.mkdtemp()
+        os.environ['HOME'] = tmp_dir   # to confine dir '.rpmdb' creation
         pkg_dir = os.path.join(tmp_dir, 'foo')
         os.mkdir(pkg_dir)
         self.write_file((pkg_dir, 'setup.py'), SETUP_PY)
@@ -77,27 +76,25 @@ class BuildRpmTestCase(support.TempdirManager,
         cmd.run()
 
         dist_created = os.listdir(os.path.join(pkg_dir, 'dist'))
-        self.assertTrue('foo-0.1-1.noarch.rpm' in dist_created)
+        self.assertIn('foo-0.1-1.noarch.rpm', dist_created)
 
         # bug #2945: upload ignores bdist_rpm files
         self.assertIn(('bdist_rpm', 'any', 'dist/foo-0.1-1.src.rpm'), dist.dist_files)
         self.assertIn(('bdist_rpm', 'any', 'dist/foo-0.1-1.noarch.rpm'), dist.dist_files)
 
+    # XXX I am unable yet to make this test work without
+    # spurious sdtout/stderr output under Mac OS X
+    @unittest.skipUnless(sys.platform.startswith('linux'),
+                         'spurious sdtout/stderr output under Mac OS X')
+    # http://bugs.python.org/issue1533164
+    @unittest.skipIf(find_executable('rpm') is None,
+                     'the rpm command is not found')
+    @unittest.skipIf(find_executable('rpmbuild') is None,
+                     'the rpmbuild command is not found')
     def test_no_optimize_flag(self):
-
-        # XXX I am unable yet to make this test work without
-        # spurious sdtout/stderr output under Mac OS X
-        if sys.platform != 'linux2':
-            return
-
-        # http://bugs.python.org/issue1533164
-        # this test will run only if the rpm command is found
-        if (find_executable('rpm') is None or
-            find_executable('rpmbuild') is None):
-            return
-
         # let's create a package that brakes bdist_rpm
         tmp_dir = self.mkdtemp()
+        os.environ['HOME'] = tmp_dir   # to confine dir '.rpmdb' creation
         pkg_dir = os.path.join(tmp_dir, 'foo')
         os.mkdir(pkg_dir)
         self.write_file((pkg_dir, 'setup.py'), SETUP_PY)
@@ -121,7 +118,7 @@ class BuildRpmTestCase(support.TempdirManager,
         cmd.run()
 
         dist_created = os.listdir(os.path.join(pkg_dir, 'dist'))
-        self.assertTrue('foo-0.1-1.noarch.rpm' in dist_created)
+        self.assertIn('foo-0.1-1.noarch.rpm', dist_created)
 
         # bug #2945: upload ignores bdist_rpm files
         self.assertIn(('bdist_rpm', 'any', 'dist/foo-0.1-1.src.rpm'), dist.dist_files)

@@ -30,12 +30,24 @@ class TestX86(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
-    add_loop_instructions = ['mov', 'add', 'test', 'je', 'jmp']
     if WORD == 4:
-        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'call', 'jmp']
+        add_loop_instructions = ['mov',
+                                 'lea',    # a nop, for the label
+                                 'add', 'test', 'je', 'jmp',
+                                 'nop']    # padding
+        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'call', 'jmp',
+                                    'lea', 'lea']   # padding
     else:
-        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'mov', 'mov',
-                                    'call', 'mov', 'jmp']
+        add_loop_instructions = ['mov',
+                                 'nop',    # for the label
+                                 'add', 'test', 'je', 'jmp',
+                                 'data32']   # padding
+        bridge_loop_instructions = [
+            'cmp', 'jge', 'mov', 'mov', 'mov', 'mov', 'call', 'mov', 'jmp',
+            'nop']      # padding
+        bridge_loop_instructions_alternative = [
+            'cmp', 'jge', 'mov', 'mov', 'mov', 'call', 'mov', 'jmp',
+            'nop']      # padding
 
     def get_cpu(self):
         cpu = CPU(rtyper=None, stats=FakeStats())
@@ -461,7 +473,7 @@ class TestX86(LLtypeBackendTest):
                 mc.RET()
             else:
                 mc.RET16_i(40)
-            rawstart = mc.materialize(cpu.asmmemmgr, [])
+            rawstart = mc.materialize(cpu, [])
             #
             calldescr = cpu._calldescr_dynamic_for_tests([types.slong] * 10,
                                                          types.slong)
@@ -478,28 +490,29 @@ class TestX86(LLtypeBackendTest):
             i6 = BoxInt()
             c = ConstInt(-1)
             faildescr = BasicFailDescr(1)
+            cz = ConstInt(0)
             # we must call it repeatedly: if the stack pointer gets increased
             # by 40 bytes by the STDCALL call, and if we don't expect it,
             # then we are going to get our stack emptied unexpectedly by
             # several repeated calls
             ops = [
             ResOperation(rop.CALL_RELEASE_GIL,
-                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
                          i3, descr=calldescr),
             ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
 
             ResOperation(rop.CALL_RELEASE_GIL,
-                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
                          i4, descr=calldescr),
             ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
 
             ResOperation(rop.CALL_RELEASE_GIL,
-                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
                          i5, descr=calldescr),
             ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
 
             ResOperation(rop.CALL_RELEASE_GIL,
-                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
                          i6, descr=calldescr),
             ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
 

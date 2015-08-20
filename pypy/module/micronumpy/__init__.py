@@ -2,7 +2,9 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 
 class MultiArrayModule(MixedModule):
-    appleveldefs = {'arange': 'app_numpy.arange'}
+    appleveldefs = {
+        'arange': 'app_numpy.arange',
+        'add_docstring': 'app_numpy.add_docstring'}
     interpleveldefs = {
         'ndarray': 'ndarray.W_NDimArray',
         'dtype': 'descriptor.W_Dtype',
@@ -21,18 +23,30 @@ class MultiArrayModule(MixedModule):
         'count_nonzero': 'arrayops.count_nonzero',
         'dot': 'arrayops.dot',
         'where': 'arrayops.where',
+        'result_type': 'casting.result_type',
+        'can_cast': 'casting.can_cast',
+        'min_scalar_type': 'casting.min_scalar_type',
+        'promote_types': 'casting.w_promote_types',
 
         'set_string_function': 'appbridge.set_string_function',
         'typeinfo': 'descriptor.get_dtype_cache(space).w_typeinfo',
         'nditer': 'nditer.W_NDIter',
+
+        'set_docstring': 'support.descr_set_docstring',
     }
     for c in ['MAXDIMS', 'CLIP', 'WRAP', 'RAISE']:
         interpleveldefs[c] = 'space.wrap(constants.%s)' % c
 
+    def startup(self, space):
+        from pypy.module.micronumpy.concrete import _setup
+        _setup()
 
 class UMathModule(MixedModule):
     appleveldefs = {}
-    interpleveldefs = {'FLOATING_POINT_SUPPORT': 'space.wrap(1)'}
+    interpleveldefs = {
+        'FLOATING_POINT_SUPPORT': 'space.wrap(1)',
+        'frompyfunc': 'ufuncs.frompyfunc',
+        }
     # ufuncs
     for exposed, impl in [
         ("absolute", "absolute"),

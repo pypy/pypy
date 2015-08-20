@@ -2,7 +2,6 @@
 import py
 import sys
 from pypy.objspace.std import intobject as iobj
-from pypy.objspace.std.multimethod import FailedToImplement
 from rpython.rlib.rarithmetic import r_uint, is_valid_int
 from rpython.rlib.rbigint import rbigint
 
@@ -522,10 +521,19 @@ class AppTestInt:
             (10, 4),
             (150, 8),
             (-1, 1),
+            (-2, 2),
+            (-3, 2),
+            (-4, 3),
             (-10, 4),
             (-150, 8),
         ]:
             assert val.bit_length() == bits
+
+    def test_bit_length_max(self):
+        import sys
+        val = -sys.maxint-1
+        bits = 32 if val == -2147483648 else 64
+        assert val.bit_length() == bits
 
     def test_int_real(self):
         class A(int): pass
@@ -583,6 +591,12 @@ class AppTestInt:
              "a = x / 7; b = operator.truediv(x, 7)", ns)
         assert ns['a'] == 9007199254740991.0
         assert ns['b'] == 9007199254740991.0
+
+    def test_int_of_bool(self):
+        x = int(False)
+        assert x == 0
+        assert type(x) is int
+        assert str(x) == "0"
 
 
 class AppTestIntShortcut(AppTestInt):

@@ -4,6 +4,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import rffi
+from rpython.jit.backend.x86.arch import IS_X86_64
 
 BYTE_REG_FLAG = 0x20
 NO_BASE_REGISTER = -1
@@ -33,8 +34,9 @@ class R(object):
     xmmnames = ['xmm%d' % i for i in range(16)]
 
 def low_byte(reg):
-    # XXX: On 32-bit, this only works for 0 <= reg < 4
-    # Maybe we should check this?
+    # On 32-bit, this only works for 0 <= reg < 4.  The caller checks that.
+    # On 64-bit, it works for any register, but the assembler instruction
+    # must include a REX prefix (possibly with no modifier flags).
     return reg | BYTE_REG_FLAG
 
 def high_byte(reg):
@@ -303,13 +305,20 @@ REX_X = 2
 REX_B = 1
 
 @specialize.arg(2)
-def encode_rex(mc, rexbyte, basevalue, orbyte):
+def encode_rex(mc, rexbyte, w, orbyte):
     if mc.WORD == 8:
         assert 0 <= rexbyte < 8
-        if basevalue != 0 or rexbyte != 0:
-            if basevalue == 0:
-                basevalue = 0x40
-            mc.writechar(chr(basevalue | rexbyte))
+        mc.writechar(chr(0x40 | w | rexbyte))
+    else:
+        assert rexbyte == 0
+    return 0
+
+@specialize.arg(2)
+def encode_rex_opt(mc, rexbyte, _, orbyte):
+    if mc.WORD == 8:
+        assert 0 <= rexbyte < 8
+        if rexbyte != 0:
+            mc.writechar(chr(0x40 | rexbyte))
     else:
         assert rexbyte == 0
     return 0
@@ -321,9 +330,9 @@ def encode_rex(mc, rexbyte, basevalue, orbyte):
 # the REX prefix in all cases.  It is only useful on instructions which
 # have an 8-bit register argument, to force access to the "sil" or "dil"
 # registers (as opposed to "ah-dh").
-rex_w  = encode_rex, 0, (0x40 | REX_W), None      # a REX.W prefix
-rex_nw = encode_rex, 0, 0, None                   # an optional REX prefix
-rex_fw = encode_rex, 0, 0x40, None                # a forced REX prefix
+rex_w  = encode_rex, 0, REX_W, None       # a REX.W prefix
+rex_nw = encode_rex_opt, 0, 0, None       # an optional REX prefix
+rex_fw = encode_rex, 0, 0, None           # a forced REX prefix
 
 # ____________________________________________________________
 
@@ -446,6 +455,11 @@ def shifts(mod_field):
 class AbstractX86CodeBuilder(object):
     """Abstract base class."""
 
+    def __init__(self):
+        self.frame_positions = []
+        self.frame_assignments = []
+        self.force_frame_size(self.WORD)
+
     def writechar(self, char):
         raise NotImplementedError
 
@@ -463,6 +477,24 @@ class AbstractX86CodeBuilder(object):
         self.writechar(chr((imm >> 16) & 0xFF))
         self.writechar(chr((imm >> 24) & 0xFF))
 
+    def force_frame_size(self, frame_size):
+        self.frame_positions.append(self.get_relative_pos())
+        self.frame_assignments.append(frame_size)
+        self._frame_size = frame_size
+
+    def stack_frame_size_delta(self, delta):
+        "Called when we generate an instruction that changes the value of ESP"
+        self._frame_size += delta
+        self.frame_positions.append(self.get_relative_pos()) 
+        self.frame_assignments.append(self._frame_size)
+        assert self._frame_size >= self.WORD
+
+    def check_stack_size_at_ret(self):
+        if IS_X86_64:
+            assert self._frame_size == self.WORD
+            if not we_are_translated():
+                self._frame_size = None
+
     # ------------------------------ MOV ------------------------------
 
     MOV_ri = insn(register(1), '\xB8', immediate(2))
@@ -473,13 +505,23 @@ class AbstractX86CodeBuilder(object):
     INC_m = insn(rex_w, '\xFF', orbyte(0), mem_reg_plus_const(1))
     INC_j = insn(rex_w, '\xFF', orbyte(0), abs_(1))
 
-    ADD_ri,ADD_rr,ADD_rb,_,_,ADD_rm,ADD_rj,_,_ = common_modes(0)
+    AD1_ri,ADD_rr,ADD_rb,_,_,ADD_rm,ADD_rj,_,_ = common_modes(0)
     OR_ri, OR_rr, OR_rb, _,_,OR_rm, OR_rj, _,_ = common_modes(1)
     AND_ri,AND_rr,AND_rb,_,_,AND_rm,AND_rj,_,_ = common_modes(4)
-    SUB_ri,SUB_rr,SUB_rb,_,_,SUB_rm,SUB_rj,SUB_ji8,SUB_mi8 = common_modes(5)
+    SU1_ri,SUB_rr,SUB_rb,_,_,SUB_rm,SUB_rj,SUB_ji8,SUB_mi8 = common_modes(5)
     SBB_ri,SBB_rr,SBB_rb,_,_,SBB_rm,SBB_rj,_,_ = common_modes(3)
     XOR_ri,XOR_rr,XOR_rb,_,_,XOR_rm,XOR_rj,_,_ = common_modes(6)
     CMP_ri,CMP_rr,CMP_rb,CMP_bi,CMP_br,CMP_rm,CMP_rj,_,_ = common_modes(7)
+
+    def ADD_ri(self, reg, immed):
+        self.AD1_ri(reg, immed)
+        if reg == R.esp:
+            self.stack_frame_size_delta(-immed)
+
+    def SUB_ri(self, reg, immed):
+        self.SU1_ri(reg, immed)
+        if reg == R.esp:
+            self.stack_frame_size_delta(+immed)
 
     CMP_mi8 = insn(rex_w, '\x83', orbyte(7<<3), mem_reg_plus_const(1), immediate(2, 'b'))
     CMP_mi32 = insn(rex_w, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2))
@@ -530,28 +572,64 @@ class AbstractX86CodeBuilder(object):
     # ------------------------------ Misc stuff ------------------------------
 
     NOP = insn('\x90')
-    RET = insn('\xC3')
-    RET16_i = insn('\xC2', immediate(1, 'h'))
+    RE1 = insn('\xC3')
+    RE116_i = insn('\xC2', immediate(1, 'h'))
 
-    PUSH_r = insn(rex_nw, register(1), '\x50')
-    PUSH_b = insn(rex_nw, '\xFF', orbyte(6<<3), stack_bp(1))
-    PUSH_i8 = insn('\x6A', immediate(1, 'b'))
-    PUSH_i32 = insn('\x68', immediate(1, 'i'))
-    def PUSH_i(mc, immed):
+    def RET(self):
+        self.check_stack_size_at_ret()
+        self.RE1()
+
+    def RET16_i(self, immed):
+        self.check_stack_size_at_ret()
+        self.RE116_i(immed)
+
+    PUS1_r = insn(rex_nw, register(1), '\x50')
+    PUS1_b = insn(rex_nw, '\xFF', orbyte(6<<3), stack_bp(1))
+    PUS1_m = insn(rex_nw, '\xFF', orbyte(6<<3), mem_reg_plus_const(1))
+    PUS1_i8 = insn('\x6A', immediate(1, 'b'))
+    PUS1_i32 = insn('\x68', immediate(1, 'i'))
+
+    def PUSH_r(self, reg):
+        self.PUS1_r(reg)
+        self.stack_frame_size_delta(+self.WORD)
+
+    def PUSH_b(self, ofs):
+        self.PUS1_b(ofs)
+        self.stack_frame_size_delta(+self.WORD)
+
+    def PUSH_m(self, ofs):
+        self.PUS1_m(ofs)
+        self.stack_frame_size_delta(+self.WORD)
+
+    def PUSH_i(self, immed):
         if single_byte(immed):
-            mc.PUSH_i8(immed)
+            self.PUS1_i8(immed)
         else:
-            mc.PUSH_i32(immed)
+            self.PUS1_i32(immed)
+        self.stack_frame_size_delta(+self.WORD)
 
-    POP_r = insn(rex_nw, register(1), '\x58')
-    POP_b = insn(rex_nw, '\x8F', orbyte(0<<3), stack_bp(1))
+    PO1_r = insn(rex_nw, register(1), '\x58')
+    PO1_b = insn(rex_nw, '\x8F', orbyte(0<<3), stack_bp(1))
+
+    def POP_r(self, reg):
+        self.PO1_r(reg)
+        self.stack_frame_size_delta(-self.WORD)
+
+    def POP_b(self, ofs):
+        self.PO1_b(ofs)
+        self.stack_frame_size_delta(-self.WORD)
 
     LEA_rb = insn(rex_w, '\x8D', register(1,8), stack_bp(2))
-    LEA_rs = insn(rex_w, '\x8D', register(1,8), stack_sp(2))
+    LE1_rs = insn(rex_w, '\x8D', register(1,8), stack_sp(2))
     LEA32_rb = insn(rex_w, '\x8D', register(1,8),stack_bp(2,force_32bits=True))
     LEA_ra = insn(rex_w, '\x8D', register(1, 8), mem_reg_plus_scaled_reg_plus_const(2))
     LEA_rm = insn(rex_w, '\x8D', register(1, 8), mem_reg_plus_const(2))
     LEA_rj = insn(rex_w, '\x8D', register(1, 8), abs_(2))
+
+    def LEA_rs(self, reg, ofs):
+        self.LE1_rs(reg, ofs)
+        if reg == R.esp:
+            self.stack_frame_size_delta(-ofs)
 
     CALL_l = insn('\xE8', relative(1))
     CALL_r = insn(rex_nw, '\xFF', register(1), chr(0xC0 | (2<<3)))
@@ -563,14 +641,29 @@ class AbstractX86CodeBuilder(object):
     # register-register exchange.
     XCHG_rr = insn(rex_w, '\x87', register(1), register(2,8), '\xC0')
 
-    JMP_l = insn('\xE9', relative(1))
-    JMP_r = insn(rex_nw, '\xFF', orbyte(4<<3), register(1), '\xC0')
+    JM1_l = insn('\xE9', relative(1))
+    JM1_r = insn(rex_nw, '\xFF', orbyte(4<<3), register(1), '\xC0')
     # FIXME: J_il8 and JMP_l8 assume the caller will do the appropriate
     # calculation to find the displacement, but J_il does it for the caller.
     # We need to be consistent.
-    JMP_l8 = insn('\xEB', immediate(1, 'b'))
+    JM1_l8 = insn('\xEB', immediate(1, 'b'))
     J_il8 = insn(immediate(1, 'o'), '\x70', immediate(2, 'b'))
     J_il = insn('\x0F', immediate(1,'o'), '\x80', relative(2))
+
+    def JMP_l(self, rel):
+        self.JM1_l(rel)
+        if not we_are_translated():
+            self._frame_size = None
+
+    def JMP_r(self, reg):
+        self.JM1_r(reg)
+        if not we_are_translated():
+            self._frame_size = None
+
+    def JMP_l8(self, rel):
+        self.JM1_l8(rel)
+        if not we_are_translated():
+            self._frame_size = None
 
     SET_ir = insn(rex_fw, '\x0F', immediate(1,'o'),'\x90', byte_register(2), '\xC0')
 
@@ -634,6 +727,9 @@ class AbstractX86CodeBuilder(object):
     MOVD32_xs = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), stack_sp(2))
 
     PSRAD_xi = xmminsn('\x66', rex_nw, '\x0F\x72', register(1), '\xE0', immediate(2, 'b'))
+    MOVUPS_mx = xmminsn(rex_nw, '\x0F\x11', register(2, 8), mem_reg_plus_const(1))
+    MOVUPS_jx = xmminsn(rex_nw, '\x0F\x11', register(2, 8), abs_(1))
+    MOVUPS_ax = xmminsn(rex_nw, '\x0F\x11', register(2, 8), mem_reg_plus_scaled_reg_plus_const(1))
 
     # ------------------------------------------------------------
 
@@ -659,10 +755,38 @@ Conditions = {
 def invert_condition(cond_num):
     return cond_num ^ 1
 
+
 class X86_32_CodeBuilder(AbstractX86CodeBuilder):
     WORD = 4
 
     PMOVMSKB_rx = xmminsn('\x66', rex_nw, '\x0F\xD7', register(1, 8), register(2), '\xC0')
+
+    # multibyte nops, from 0 to 15 bytes
+    MULTIBYTE_NOPs = [
+        '',
+        '\x90',                          # nop
+        '\x66\x90',                      # xchg ax, ax
+        '\x8d\x76\x00',                  # lea    0x0(%esi),%esi
+        '\x8d\x74\x26\x00',              # lea    0x0(%esi,%eiz,1),%esi
+        '\x90\x8d\x74\x26\x00',          # nop; lea 0x0(%esi,%eiz,1),%esi
+        '\x8d\xb6\x00\x00\x00\x00',      # lea    0x0(%esi),%esi
+        '\x8d\xb4\x26\x00\x00\x00\x00',  # lea    0x0(%esi,%eiz,1),%esi
+        ('\x90'                          # nop
+         '\x8d\xb4\x26\x00\x00\x00\x00'),#   lea    0x0(%esi,%eiz,1),%esi
+        ('\x89\xf6'                      # mov    %esi,%esi
+         '\x8d\xbc\x27\x00\x00\x00\x00'),#   lea    0x0(%edi,%eiz,1),%edi
+        ('\x8d\x76\x00'                  # lea    0x0(%esi),%esi
+         '\x8d\xbc\x27\x00\x00\x00\x00'),#   lea    0x0(%edi,%eiz,1),%edi
+        ('\x8d\x74\x26\x00'              # lea    0x0(%esi,%eiz,1),%esi
+         '\x8d\xbc\x27\x00\x00\x00\x00'),#   lea    0x0(%edi,%eiz,1),%edi
+        ('\x8d\xb6\x00\x00\x00\x00'      # lea    0x0(%esi),%esi
+         '\x8d\xbf\x00\x00\x00\x00'),    #   lea    0x0(%edi),%edi
+        ('\x8d\xb6\x00\x00\x00\x00'      # lea    0x0(%esi),%esi
+         '\x8d\xbc\x27\x00\x00\x00\x00'),#   lea    0x0(%edi,%eiz,1),%edi
+        ('\x8d\xb4\x26\x00\x00\x00\x00'  # lea    0x0(%esi,%eiz,1),%esi
+         '\x8d\xbc\x27\x00\x00\x00\x00'),#   lea    0x0(%edi,%eiz,1),%edi
+        ('\xeb\x0d' + '\x90' * 13)]      # jmp +x0d; a bunch of nops
+
 
 class X86_64_CodeBuilder(AbstractX86CodeBuilder):
     WORD = 8
@@ -693,6 +817,24 @@ class X86_64_CodeBuilder(AbstractX86CodeBuilder):
             self.MOV_ri32(reg, immed)
         else:
             self.MOV_ri64(reg, immed)
+
+    # multibyte nops, from 0 to 15 bytes
+    MULTIBYTE_NOPs = ([
+        '',
+        '\x90',                          # nop
+        '\x66\x90',                      # xchg ax, ax
+        '\x0f\x1f\x00',                  # nopl   (%rax)
+        '\x0f\x1f\x40\x00',              # nopl   0x0(%rax)
+        '\x0f\x1f\x44\x00\x00',          # nopl   0x0(%rax,%rax,1)
+        '\x66\x0f\x1f\x44\x00\x00',      # nopw   0x0(%rax,%rax,1)
+        '\x0f\x1f\x80\x00\x00\x00\x00',  # nopl   0x0(%rax)
+        ('\x0f\x1f\x84\x00\x00\x00\x00'  # nopl   0x0(%rax,%rax,1)
+         '\x00'),
+        ('\x66\x0f\x1f\x84\x00\x00\x00'  # nopw   0x0(%rax,%rax,1)
+         '\x00\x00')] +
+        ['\x66' * _i + '\x2e\x0f\x1f'    # nopw   %cs:0x0(%rax,%rax,1)
+         '\x84\x00\x00\x00\x00\x00' for _i in range(1, 7)])
+
 
 def define_modrm_modes(insnname_template, before_modrm, after_modrm=[], regtype='GPR'):
     def add_insn(code, *modrm):
@@ -764,6 +906,7 @@ define_modrm_modes('MULSD_x*', ['\xF2', rex_nw, '\x0F\x59', register(1, 8)], reg
 define_modrm_modes('DIVSD_x*', ['\xF2', rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
 define_modrm_modes('UCOMISD_x*', ['\x66', rex_nw, '\x0F\x2E', register(1, 8)], regtype='XMM')
 define_modrm_modes('XORPD_x*', ['\x66', rex_nw, '\x0F\x57', register(1, 8)], regtype='XMM')
+define_modrm_modes('XORPS_x*', [rex_nw, '\x0F\x57', register(1, 8)], regtype='XMM')
 define_modrm_modes('ANDPD_x*', ['\x66', rex_nw, '\x0F\x54', register(1, 8)], regtype='XMM')
 
 def define_pxmm_insn(insnname_template, insn_char):

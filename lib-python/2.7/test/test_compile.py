@@ -1,3 +1,4 @@
+import math
 import unittest
 import sys
 import _ast
@@ -89,6 +90,27 @@ class TestSpecifics(unittest.TestCase):
             exec("a = b + 1", g) in g
         with self.assertRaises(TypeError):
             exec("a = b + 1", g, l) in g, l
+
+    def test_nested_qualified_exec(self):
+        # Can use qualified exec in nested functions.
+        code = ["""
+def g():
+    def f():
+        if True:
+            exec "" in {}, {}
+        """, """
+def g():
+    def f():
+        if True:
+            exec("", {}, {})
+        """, """
+def g():
+    def f():
+        if True:
+            exec("", {})
+        """]
+        for c in code:
+            compile(c, "<code>", "exec")
 
     def test_exec_with_general_mapping_for_locals(self):
 
@@ -392,9 +414,24 @@ if 1:
         l = lambda: "foo"
         self.assertIsNone(l.__doc__)
 
-    def test_unicode_encoding(self):
+    @test_support.requires_unicode
+    def test_encoding(self):
+        code = b'# -*- coding: badencoding -*-\npass\n'
+        self.assertRaises(SyntaxError, compile, code, 'tmp', 'exec')
         code = u"# -*- coding: utf-8 -*-\npass\n"
         self.assertRaises(SyntaxError, compile, code, "tmp", "exec")
+        code = 'u"\xc2\xa4"\n'
+        self.assertEqual(eval(code), u'\xc2\xa4')
+        code = u'u"\xc2\xa4"\n'
+        self.assertEqual(eval(code), u'\xc2\xa4')
+        code = '# -*- coding: latin1 -*-\nu"\xc2\xa4"\n'
+        self.assertEqual(eval(code), u'\xc2\xa4')
+        code = '# -*- coding: utf-8 -*-\nu"\xc2\xa4"\n'
+        self.assertEqual(eval(code), u'\xa4')
+        code = '# -*- coding: iso8859-15 -*-\nu"\xc2\xa4"\n'
+        self.assertEqual(eval(code), test_support.u(r'\xc2\u20ac'))
+        code = 'u"""\\\n# -*- coding: utf-8 -*-\n\xc2\xa4"""\n'
+        self.assertEqual(eval(code), u'# -*- coding: utf-8 -*-\n\xc2\xa4')
 
     def test_subscripts(self):
         # SF bug 1448804
@@ -521,8 +558,46 @@ if 1:
         self.assertRaises(TypeError, compile, ast, '<ast>', 'exec')
 
 
+class TestStackSize(unittest.TestCase):
+    # These tests check that the computed stack size for a code object
+    # stays within reasonable bounds (see issue #21523 for an example
+    # dysfunction).
+    N = 100
+
+    def check_stack_size(self, code):
+        # To assert that the alleged stack size is not O(N), we
+        # check that it is smaller than log(N).
+        if isinstance(code, str):
+            code = compile(code, "<foo>", "single")
+        max_size = math.ceil(math.log(len(code.co_code)))
+        self.assertLessEqual(code.co_stacksize, max_size)
+
+    def test_and(self):
+        self.check_stack_size("x and " * self.N + "x")
+
+    def test_or(self):
+        self.check_stack_size("x or " * self.N + "x")
+
+    def test_and_or(self):
+        self.check_stack_size("x and x or " * self.N + "x")
+
+    def test_chained_comparison(self):
+        self.check_stack_size("x < " * self.N + "x")
+
+    def test_if_else(self):
+        self.check_stack_size("x if x else " * self.N + "x")
+
+    def test_binop(self):
+        self.check_stack_size("x + " * self.N + "x")
+
+    def test_func_and(self):
+        code = "def f(x):\n"
+        code += "   x and x\n" * self.N
+        self.check_stack_size(code)
+
+
 def test_main():
-    test_support.run_unittest(TestSpecifics)
+    test_support.run_unittest(__name__)
 
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

@@ -11,7 +11,7 @@ r"""subprocess - Subprocesses with accessible I/O streams
 
 This module allows you to spawn processes, connect to their
 input/output/error pipes, and obtain their return codes.  This module
-intends to replace several other, older modules and functions, like:
+intends to replace several older modules and functions:
 
 os.system
 os.spawn*
@@ -645,6 +645,8 @@ def list2cmdline(seq):
 
 
 class Popen(object):
+    _child_created = False  # Set here since __del__ checks it
+
     def __init__(self, args, bufsize=0, executable=None,
                  stdin=None, stdout=None, stderr=None,
                  preexec_fn=None, close_fds=False, shell=False,
@@ -653,7 +655,21 @@ class Popen(object):
         """Create new Popen instance."""
         _cleanup()
 
-        self._child_created = False
+        # --- PyPy hack, see _pypy_install_libs_after_virtualenv() ---
+        # match arguments passed by different versions of virtualenv
+        if args[1:] in (
+            ['-c', 'import sys; print(sys.prefix)'],        # 1.6 10ba3f3c
+            ['-c', "\nimport sys\nprefix = sys.prefix\n"    # 1.7 0e9342ce
+             "if sys.version_info[0] == 3:\n"
+             "    prefix = prefix.encode('utf8')\n"
+             "if hasattr(sys.stdout, 'detach'):\n"
+             "    sys.stdout = sys.stdout.detach()\n"
+             "elif hasattr(sys.stdout, 'buffer'):\n"
+             "    sys.stdout = sys.stdout.buffer\nsys.stdout.write(prefix)\n"],
+            ['-c', 'import sys;out=sys.stdout;getattr(out, "buffer"'
+             ', out).write(sys.prefix.encode("utf-8"))']):  # 1.7.2 a9454bce
+            _pypy_install_libs_after_virtualenv(args[0])
+
         if not isinstance(bufsize, (int, long)):
             raise TypeError("bufsize must be an integer")
 
@@ -750,11 +766,11 @@ class Popen(object):
         return data
 
 
-    def __del__(self, _maxint=sys.maxint, _active=_active):
+    def __del__(self, _maxint=sys.maxint):
         # If __init__ hasn't had a chance to execute (e.g. if it
         # was passed an undeclared keyword argument), we don't
         # have a _child_created attribute at all.
-        if not getattr(self, '_child_created', False):
+        if not self._child_created:
             # We didn't get to successfully create a child process.
             return
         # In case the child hasn't been waited on, check if it's done.
@@ -1038,7 +1054,15 @@ class Popen(object):
                     try:
                         self.stdin.write(input)
                     except IOError as e:
-                        if e.errno != errno.EPIPE:
+                        if e.errno == errno.EPIPE:
+                            # communicate() should ignore broken pipe error
+                            pass
+                        elif (e.errno == errno.EINVAL
+                              and self.poll() is not None):
+                            # Issue #19612: stdin.write() fails with EINVAL
+                            # if the process already exited before the write
+                            pass
+                        else:
                             raise
                 self.stdin.close()
 
@@ -1334,7 +1358,7 @@ class Popen(object):
                 _WTERMSIG=os.WTERMSIG, _WIFEXITED=os.WIFEXITED,
                 _WEXITSTATUS=os.WEXITSTATUS):
             # This method is called (indirectly) by __del__, so it cannot
-            # refer to anything outside of its local scope."""
+            # refer to anything outside of its local scope.
             if _WIFSIGNALED(sts):
                 self.returncode = -_WTERMSIG(sts)
             elif _WIFEXITED(sts):
@@ -1557,6 +1581,27 @@ class Popen(object):
             """Kill the process with SIGKILL
             """
             self.send_signal(signal.SIGKILL)
+
+
+def _pypy_install_libs_after_virtualenv(target_executable):
+    # https://bitbucket.org/pypy/pypy/issue/1922/future-proofing-virtualenv
+    #
+    # PyPy 2.4.1 turned --shared on by default.  This means the pypy binary
+    # depends on the 'libpypy-c.so' shared library to be able to run.
+    # The virtualenv code existing at the time did not account for this
+    # and would break.  Try to detect that we're running under such a
+    # virtualenv in the "Testing executable with" phase and copy the
+    # library ourselves.
+    caller = sys._getframe(2)
+    if ('virtualenv_version' in caller.f_globals and
+                  'copyfile' in caller.f_globals):
+        dest_dir = sys.pypy_resolvedirof(target_executable)
+        src_dir = sys.pypy_resolvedirof(sys.executable)
+        for libname in ['libpypy-c.so', 'libpypy-c.dylib']:
+            dest_library = os.path.join(dest_dir, libname)
+            src_library = os.path.join(src_dir, libname)
+            if os.path.exists(src_library):
+                caller.f_globals['copyfile'](src_library, dest_library)
 
 
 def _demo_posix():

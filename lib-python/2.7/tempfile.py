@@ -1,10 +1,10 @@
 """Temporary files.
 
 This module provides generic, low- and high-level interfaces for
-creating temporary files and directories.  The interfaces listed
-as "safe" just below can be used without fear of race conditions.
-Those listed as "unsafe" cannot, and are provided for backward
-compatibility only.
+creating temporary files and directories.  All of the interfaces
+provided by this module can be used without fear of race conditions
+except for 'mktemp'.  'mktemp' is subject to race conditions and
+should not be used; it is provided for backward compatibility only.
 
 This module also provides some data items to the user:
 
@@ -413,9 +413,11 @@ class _TemporaryFileWrapper:
         def close(self):
             if not self.close_called:
                 self.close_called = True
-                self.file.close()
-                if self.delete:
-                    self.unlink(self.name)
+                try:
+                    self.file.close()
+                finally:
+                    if self.delete:
+                        self.unlink(self.name)
 
         def __del__(self):
             self.close()
@@ -460,8 +462,12 @@ def NamedTemporaryFile(mode='w+b', bufsize=-1, suffix="",
         flags |= _os.O_TEMPORARY
 
     (fd, name) = _mkstemp_inner(dir, prefix, suffix, flags)
-    file = _os.fdopen(fd, mode, bufsize)
-    return _TemporaryFileWrapper(file, name, delete)
+    try:
+        file = _os.fdopen(fd, mode, bufsize)
+        return _TemporaryFileWrapper(file, name, delete)
+    except:
+        _os.close(fd)
+        raise
 
 if _os.name != 'posix' or _os.sys.platform == 'cygwin':
     # On non-POSIX and Cygwin systems, assume that we cannot unlink a file

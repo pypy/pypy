@@ -7,6 +7,7 @@ from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.rtyper.annlowlevel import hlstr
 from rpython.jit.metainterp.warmspot import get_stats
+from rpython.jit.backend.llsupport import codemap
 
 class RecursiveTests:
 
@@ -774,8 +775,8 @@ class RecursiveTests:
         def main(codeno):
             frame = Frame()
             frame.thing = Thing(0)
-            portal(codeno, frame)
-            return frame.thing.val
+            result = portal(codeno, frame)
+            return result
 
         def portal(codeno, frame):
             i = 0
@@ -791,10 +792,10 @@ class RecursiveTests:
                     s += subframe.thing.val
                 frame.thing = Thing(nextval + 1)
                 i += 1
-            return frame.thing.val
+            return frame.thing.val + s
 
         res = self.meta_interp(main, [0], inline=True)
-        self.check_resops(call=0, cond_call=0) # got removed by optimization
+        self.check_resops(call=0, cond_call=2)
         assert res == main(0)
 
     def test_directly_call_assembler_virtualizable_reset_token(self):
@@ -1112,6 +1113,37 @@ class RecursiveTests:
         assert res == 2095
         self.check_resops(call_assembler=12)
 
+    def test_inline_recursion_limit(self):
+        driver = JitDriver(greens = ["threshold", "loop"], reds=["i"])
+        @dont_look_inside
+        def f():
+            set_param(driver, "max_unroll_recursion", 10)
+        def portal(threshold, loop, i):
+            f()
+            if i > threshold:
+                return i
+            while True:
+                driver.jit_merge_point(threshold=threshold, loop=loop, i=i)
+                if loop:
+                    portal(threshold, False, 0)
+                else:
+                    portal(threshold, False, i + 1)
+                    return i
+                if i > 10:
+                    return 1
+                i += 1
+                driver.can_enter_jit(threshold=threshold, loop=loop, i=i)
+
+        res1 = portal(10, True, 0)
+        res2 = self.meta_interp(portal, [10, True, 0], inline=True)
+        assert res1 == res2
+        self.check_resops(call_assembler=2)
+
+        res1 = portal(9, True, 0)
+        res2 = self.meta_interp(portal, [9, True, 0], inline=True)
+        assert res1 == res2
+        self.check_resops(call_assembler=0)
+
     def test_handle_jitexception_in_portal(self):
         # a test for _handle_jitexception_in_portal in blackhole.py
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'str'],
@@ -1265,6 +1297,40 @@ class RecursiveTests:
         self.meta_interp(portal, [0])
         self.check_trace_count_at_most(2)   # and not, e.g., 24
 
+    def test_get_unique_id(self):
+        lst = []
+        
+        def reg_codemap(self, (start, size, l)):
+            lst.append((start, size))
+            old_reg_codemap(self, (start, size, l))
+        
+        old_reg_codemap = codemap.CodemapStorage.register_codemap
+        try:
+            codemap.CodemapStorage.register_codemap = reg_codemap
+            def get_unique_id(pc, code):
+                return (code + 1) * 2
+
+            driver = JitDriver(greens=["pc", "code"], reds='auto',
+                               get_unique_id=get_unique_id)
+
+            def f(pc, code):
+                i = 0
+                while i < 10:
+                    driver.jit_merge_point(pc=pc, code=code)
+                    pc += 1
+                    if pc == 3:
+                        if code == 1:
+                            f(0, 0)
+                        pc = 0
+                    i += 1
+
+            self.meta_interp(f, [0, 1], inline=True)
+            self.check_get_unique_id(lst) # overloaded on assembler backends
+        finally:
+            codemap.CodemapStorage.register_codemap = old_reg_codemap
+
+    def check_get_unique_id(self, lst):
+        pass
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass

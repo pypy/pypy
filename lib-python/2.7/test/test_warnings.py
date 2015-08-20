@@ -62,6 +62,25 @@ class BaseTest(unittest.TestCase):
         sys.modules['warnings'] = original_warnings
         super(BaseTest, self).tearDown()
 
+class PublicAPITests(BaseTest):
+
+    """Ensures that the correct values are exposed in the
+    public API.
+    """
+
+    def test_module_all_attribute(self):
+        self.assertTrue(hasattr(self.module, '__all__'))
+        target_api = ["warn", "warn_explicit", "showwarning",
+                      "formatwarning", "filterwarnings", "simplefilter",
+                      "resetwarnings", "catch_warnings"]
+        self.assertSetEqual(set(self.module.__all__),
+                            set(target_api))
+
+class CPublicAPITests(PublicAPITests, unittest.TestCase):
+    module = c_warnings
+
+class PyPublicAPITests(PublicAPITests, unittest.TestCase):
+    module = py_warnings
 
 class FilterTests(object):
 
@@ -259,11 +278,10 @@ class WarnTests(unittest.TestCase):
         finally:
             warning_tests.__file__ = filename
 
+    @unittest.skipUnless(hasattr(sys, 'argv'), 'test needs sys.argv')
     def test_missing_filename_main_with_argv(self):
         # If __file__ is not specified and the caller is __main__ and sys.argv
         # exists, then use sys.argv[0] as the file.
-        if not hasattr(sys, 'argv'):
-            return
         filename = warning_tests.__file__
         module_name = warning_tests.__name__
         try:
@@ -544,6 +562,15 @@ class _WarningsTests(BaseTest):
         finally:
             globals_dict['__file__'] = oldfile
 
+    def test_stderr_none(self):
+        rc, stdout, stderr = assert_python_ok("-c",
+            "import sys; sys.stderr = None; "
+            "import warnings; warnings.simplefilter('always'); "
+            "warnings.warn('Warning!')")
+        self.assertEqual(stdout, b'')
+        self.assertNotIn(b'Warning!', stderr)
+        self.assertNotIn(b'Error', stderr)
+
 
 class WarningsDisplayTests(unittest.TestCase):
 
@@ -671,7 +698,7 @@ class CatchWarningTests(BaseTest):
         # Explicit tests for the test_support convenience wrapper
         wmod = self.module
         if wmod is not sys.modules['warnings']:
-            return
+            self.skipTest('module to test is not loaded warnings module')
         with test_support.check_warnings(quiet=False) as w:
             self.assertEqual(w.warnings, [])
             wmod.simplefilter("always")

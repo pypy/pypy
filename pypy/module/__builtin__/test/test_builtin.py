@@ -31,8 +31,10 @@ class AppTestBuiltinApp:
         emptyfile.write('')
         nullbytes = udir.join('nullbytes.py')
         nullbytes.write('#abc\x00def\n')
+        nonexistent = udir.join('builtins-nonexistent')
         cls.w_emptyfile = space.wrap(str(emptyfile))
         cls.w_nullbytes = space.wrap(str(nullbytes))
+        cls.w_nonexistent = space.wrap(str(nonexistent))
 
     def test_builtin_names(self):
         import __builtin__
@@ -627,6 +629,9 @@ def fn(): pass
         raises(TypeError, compile, src, 'mymod', 'exec', 0)
         execfile(self.nullbytes) # works
 
+    def test_execfile_args(self):
+        raises(TypeError, execfile, self.nonexistent, {}, ())
+
     def test_compile_null_bytes_flag(self):
         try:
             from _ast import PyCF_ACCEPT_NULL_BYTES
@@ -646,9 +651,12 @@ def fn(): pass
         out = sys.stdout = StringIO.StringIO()
         try:
             pr("Hello,", "person!")
+            pr("2nd line", file=None)
+            sys.stdout = None
+            pr("nowhere")
         finally:
             sys.stdout = save
-        assert out.getvalue() == "Hello, person!\n"
+        assert out.getvalue() == "Hello, person!\n2nd line\n"
         out = StringIO.StringIO()
         pr("Hello,", "person!", file=out)
         assert out.getvalue() == "Hello, person!\n"
@@ -663,7 +671,6 @@ def fn(): pass
         result = out.getvalue()
         assert isinstance(result, unicode)
         assert result == u"Hello, person!\n"
-        pr("Hello", file=None) # This works.
         out = StringIO.StringIO()
         pr(None, file=out)
         assert out.getvalue() == "None\n"

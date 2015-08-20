@@ -62,24 +62,6 @@ def predeclare_utility_functions(db, rtyper):
                 yield (fname, graph)
 
 
-def predeclare_extfuncs(db, rtyper):
-    modules = {}
-    def module_name(c_name):
-        frags = c_name[3:].split('_')
-        if frags[0] == '':
-            return '_' + frags[1]
-        else:
-            return frags[0]
-
-    for func, funcobj in db.externalfuncs.items():
-        # construct a define LL_NEED_<modname> to make it possible to isolate in-development externals and headers
-        modname = module_name(func)
-        if modname not in modules:
-            modules[modname] = True
-            yield 'LL_NEED_%s' % modname.upper(), 1
-        funcptr = funcobj._as_ptr()
-        yield func, funcptr
-
 def predeclare_exception_data(db, rtyper):
     # Exception-related types and constants
     exceptiondata = rtyper.exceptiondata
@@ -90,7 +72,6 @@ def predeclare_exception_data(db, rtyper):
 
     yield ('RPYTHON_EXCEPTION_MATCH',  exceptiondata.fn_exception_match)
     yield ('RPYTHON_TYPE_OF_EXC_INST', exceptiondata.fn_type_of_exc_inst)
-    yield ('RPYTHON_RAISE_OSERROR',    exceptiondata.fn_raise_OSError)
 
     yield ('RPyExceptionOccurred1',    exctransformer.rpyexc_occured_ptr.value)
     yield ('RPyFetchExceptionType',    exctransformer.rpyexc_fetch_type_ptr.value)
@@ -113,7 +94,6 @@ def predeclare_all(db, rtyper):
     for fn in [predeclare_common_types,
                predeclare_utility_functions,
                predeclare_exception_data,
-               predeclare_extfuncs,
                ]:
         for t in fn(db, rtyper):
             yield t
@@ -123,7 +103,6 @@ def get_all(db, rtyper):
     for fn in [predeclare_common_types,
                predeclare_utility_functions,
                predeclare_exception_data,
-               predeclare_extfuncs,
                ]:
         for t in fn(db, rtyper):
             yield t[1]

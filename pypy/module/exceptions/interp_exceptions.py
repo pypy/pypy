@@ -278,10 +278,10 @@ W_UnicodeError = _new_exception('UnicodeError', W_ValueError,
 
 class W_UnicodeTranslateError(W_UnicodeError):
     """Unicode translation error."""
-    object = None
-    start = None
-    end = None
-    reason = None
+    w_object = None
+    w_start = None
+    w_end = None
+    w_reason = None
 
     def descr_init(self, space, w_object, w_start, w_end, w_reason):
         # typechecking
@@ -299,6 +299,8 @@ class W_UnicodeTranslateError(W_UnicodeError):
 
     def descr_str(self, space):
         return space.appexec([space.wrap(self)], r"""(self):
+            if self.object is None:
+                return ""
             if self.end == self.start + 1:
                 badchar = ord(self.object[self.start])
                 if badchar <= 0xff:
@@ -642,6 +644,8 @@ class W_UnicodeDecodeError(W_UnicodeError):
 
     def descr_str(self, space):
         return space.appexec([self], """(self):
+            if self.object is None:
+                return ""
             if self.end == self.start + 1:
                 return "'%s' codec can't decode byte 0x%02x in position %d: %s"%(
                     self.encoding,
@@ -730,6 +734,8 @@ class W_UnicodeEncodeError(W_UnicodeError):
 
     def descr_str(self, space):
         return space.appexec([self], r"""(self):
+            if self.object is None:
+                return ""
             if self.end == self.start + 1:
                 badchar = ord(self.object[self.start])
                 if badchar <= 0xff:

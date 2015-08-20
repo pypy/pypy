@@ -10,6 +10,7 @@ from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
     EffectInfo, CallInfoCollection)
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rlib import rposix
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer
 from rpython.translator.backendopt.graphanalyze import DependencyTracker
@@ -30,6 +31,8 @@ class CallControl(object):
             self.rtyper = cpu.rtyper
             translator = self.rtyper.annotator.translator
             self.raise_analyzer = RaiseAnalyzer(translator)
+            self.raise_analyzer_ignore_memoryerror = RaiseAnalyzer(translator)
+            self.raise_analyzer_ignore_memoryerror.do_ignore_memory_error()
             self.readwrite_analyzer = ReadWriteAnalyzer(translator)
             self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
             self.quasiimmut_analyzer = QuasiImmutAnalyzer(translator)
@@ -114,6 +117,10 @@ class CallControl(object):
             if self.jitdriver_sd_from_portal_runner_ptr(funcptr) is not None:
                 return 'recursive'
             funcobj = funcptr._obj
+            assert (funcobj is not rposix._get_errno and
+                    funcobj is not rposix._set_errno), (
+                "the JIT must never come close to _get_errno() or _set_errno();"
+                " it should all be done at a lower level")
             if getattr(funcobj, 'graph', None) is None:
                 return 'residual'
             targetgraph = funcobj.graph
@@ -136,7 +143,7 @@ class CallControl(object):
     def grab_initial_jitcodes(self):
         for jd in self.jitdrivers_sd:
             jd.mainjitcode = self.get_jitcode(jd.portal_graph)
-            jd.mainjitcode.is_portal = True
+            jd.mainjitcode.jitdriver_sd = jd
 
     def enum_pending_graphs(self):
         while self.unfinished_graphs:
@@ -206,7 +213,7 @@ class CallControl(object):
         # get the 'elidable' and 'loopinvariant' flags from the function object
         elidable = False
         loopinvariant = False
-        call_release_gil_target = llmemory.NULL
+        call_release_gil_target = EffectInfo._NO_CALL_RELEASE_GIL_TARGET
         if op.opname == "direct_call":
             funcobj = op.args[0].value._obj
             assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
@@ -218,9 +225,9 @@ class CallControl(object):
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
             if getattr(func, "_call_aroundstate_target_", None):
-                call_release_gil_target = func._call_aroundstate_target_
-                call_release_gil_target = llmemory.cast_ptr_to_adr(
-                    call_release_gil_target)
+                tgt_func, tgt_saveerr = func._call_aroundstate_target_
+                tgt_func = llmemory.cast_ptr_to_adr(tgt_func)
+                call_release_gil_target = (tgt_func, tgt_saveerr)
         elif op.opname == 'indirect_call':
             # check that we're not trying to call indirectly some
             # function with the special flags
@@ -255,11 +262,14 @@ class CallControl(object):
             elif loopinvariant:
                 extraeffect = EffectInfo.EF_LOOPINVARIANT
             elif elidable:
-                if self._canraise(op):
+                cr = self._canraise(op)
+                if cr == "mem":
+                    extraeffect = EffectInfo.EF_ELIDABLE_OR_MEMORYERROR
+                elif cr:
                     extraeffect = EffectInfo.EF_ELIDABLE_CAN_RAISE
                 else:
                     extraeffect = EffectInfo.EF_ELIDABLE_CANNOT_RAISE
-            elif self._canraise(op):
+            elif self._canraise(op):   # True or "mem"
                 extraeffect = EffectInfo.EF_CAN_RAISE
             else:
                 extraeffect = EffectInfo.EF_CANNOT_RAISE
@@ -273,11 +283,16 @@ class CallControl(object):
                 " effects): EF=%s" % (op, extraeffect))
         if elidable:
             if extraeffect not in (EffectInfo.EF_ELIDABLE_CANNOT_RAISE,
+                                   EffectInfo.EF_ELIDABLE_OR_MEMORYERROR,
                                    EffectInfo.EF_ELIDABLE_CAN_RAISE):
                 raise Exception(
-                "in operation %r: this calls an _elidable_function_,"
+                "in operation %r: this calls an elidable function,"
                 " but this contradicts other sources (e.g. it can have random"
                 " effects): EF=%s" % (op, extraeffect))
+            elif RESULT is lltype.Void:
+                raise Exception(
+                    "in operation %r: this calls an elidable function "
+                    "but the function has no result" % (op, ))
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op, self.seen), self.cpu,
@@ -296,10 +311,17 @@ class CallControl(object):
                                     effectinfo)
 
     def _canraise(self, op):
+        """Returns True, False, or "mem" to mean 'only MemoryError'."""
         if op.opname == 'pseudo_call_cannot_raise':
             return False
         try:
-            return self.raise_analyzer.can_raise(op)
+            if self.raise_analyzer.can_raise(op):
+                if self.raise_analyzer_ignore_memoryerror.can_raise(op):
+                    return True
+                else:
+                    return "mem"
+            else:
+                return False
         except lltype.DelayedPointer:
             return True  # if we need to look into the delayed ptr that is
                          # the portal, then it's certainly going to raise

@@ -846,6 +846,27 @@ class StringTests:
             'jump': 1, 'guard_true': 2, 'int_ge': 2, 'int_add': 2, 'int_sub': 2
         })
 
+    def test_compare_single_char_for_ordering(self):
+        jitdriver = JitDriver(reds=['result', 'n'], greens=[])
+        _str = self._str
+        constant1 = _str("abcdefghij")
+
+        def cmpstr(x, y):
+            return x > _str(y)
+
+        def f(n):
+            cmpstr(_str("abc"), "def")  # force x and y to be annot as strings
+            result = 0
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n, result=result)
+                c = constant1[n]
+                result += cmpstr(c, "c")
+                n -= 1
+            return result
+
+        res = self.meta_interp(f, [9])
+        assert res == f(9)
+        self.check_resops(newstr=0, newunicode=0, call=0)
 
 
 class TestLLtype(StringTests, LLJitMixin):
@@ -876,7 +897,11 @@ class TestLLtypeUnicode(TestLLtype):
                 m -= 1
             return 42
         self.meta_interp(f, [6, 7])
-        self.check_resops(unicodesetitem=2, newunicode=2, call=4,
+        # used to be 'call=4', but the call to ll_str2unicode in the
+        # loop is not safe to remove; see 56eebe9dd813.  We can still
+        # remove the call to ll_str, because that cannot raise anything
+        # else than MemoryError.
+        self.check_resops(unicodesetitem=2, newunicode=2, call=5,
                           copyunicodecontent=2, unicodegetitem=0)
 
     def test_str2unicode_fold(self):

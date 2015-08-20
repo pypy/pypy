@@ -116,6 +116,8 @@ def feof(fp):
     validate_fd(fileno(fp))
     return _feof(fp)
 
+def is_valid_fp(fp):
+    return is_valid_fd(fileno(fp))
 
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
@@ -190,7 +192,7 @@ cpyext_namespace = NameManager('cpyext_')
 
 class ApiFunction:
     def __init__(self, argtypes, restype, callable, error=_NOT_SPECIFIED,
-                 c_name=None):
+                 c_name=None, gil=None):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
@@ -206,6 +208,7 @@ class ApiFunction:
         assert argnames[0] == 'space'
         self.argnames = argnames[1:]
         assert len(self.argnames) == len(self.argtypes)
+        self.gil = gil
 
     def _freeze_(self):
         return True
@@ -221,14 +224,15 @@ class ApiFunction:
     def get_wrapper(self, space):
         wrapper = getattr(self, '_wrapper', None)
         if wrapper is None:
-            wrapper = make_wrapper(space, self.callable)
+            wrapper = make_wrapper(space, self.callable, self.gil)
             self._wrapper = wrapper
             wrapper.relax_sig_check = True
             if self.c_name is not None:
                 wrapper.c_name = cpyext_namespace.uniquename(self.c_name)
         return wrapper
 
-def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
+def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
+                gil=None):
     """
     Declares a function to be exported.
     - `argtypes`, `restype` are lltypes and describe the function signature.
@@ -238,6 +242,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
       SytemError.
     - set `external` to False to get a C function pointer, but not exported by
       the API headers.
+    - set `gil` to "acquire", "release" or "around" to acquire the GIL,
+      release the GIL, or both
     """
     if isinstance(restype, lltype.Typedef):
         real_restype = restype.OF
@@ -260,7 +266,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
             c_name = None
         else:
             c_name = func_name
-        api_function = ApiFunction(argtypes, restype, func, error, c_name=c_name)
+        api_function = ApiFunction(argtypes, restype, func, error,
+                                   c_name=c_name, gil=gil)
         func.api_func = api_function
 
         if external:
@@ -420,6 +427,7 @@ SYMBOLS_C = [
     'PyThread_ReInitTLS',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
+    'PyStructSequence_UnnamedField',
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 
@@ -592,12 +600,15 @@ def build_type_checkers(type_name, cls=None):
 pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_exception', [], lltype.Void)
 
 # Make the wrapper for the cases (1) and (2)
-def make_wrapper(space, callable):
+def make_wrapper(space, callable, gil=None):
     "NOT_RPYTHON"
     names = callable.api_func.argnames
     argtypes_enum_ui = unrolling_iterable(enumerate(zip(callable.api_func.argtypes,
         [name.startswith("w_") for name in names])))
     fatal_value = callable.api_func.restype._defl()
+    gil_acquire = (gil == "acquire" or gil == "around")
+    gil_release = (gil == "release" or gil == "around")
+    assert gil is None or gil_acquire or gil_release
 
     @specialize.ll()
     def wrapper(*args):
@@ -605,6 +616,10 @@ def make_wrapper(space, callable):
         from pypy.module.cpyext.pyobject import Reference
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
+        if gil_acquire:
+            after = rffi.aroundstate.after
+            if after:
+                after()
         rffi.stackcounter.stacks_counter += 1
         llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
         retval = fatal_value
@@ -676,6 +691,10 @@ def make_wrapper(space, callable):
                 print str(e)
                 pypy_debug_catch_fatal_exception()
         rffi.stackcounter.stacks_counter -= 1
+        if gil_release:
+            before = rffi.aroundstate.before
+            if before:
+                before()
         return retval
     callable._always_inline_ = 'try'
     wrapper.__name__ = "wrapper for %r" % (callable, )
@@ -773,7 +792,7 @@ def build_bridge(space):
     struct PyPyAPI {
     %(members)s
     } _pypyAPI;
-    struct PyPyAPI* pypyAPI = &_pypyAPI;
+    RPY_EXTERN struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
     functions = generate_decls_and_callbacks(db, export_symbols)
@@ -944,9 +963,8 @@ def generate_decls_and_callbacks(db, export_symbols, api_struct=True):
         name_no_star = process_va_name(name)
         header = ('%s pypy_va_get_%s(va_list* vp)' %
                   (name, name_no_star))
-        pypy_decls.append(header + ';')
+        pypy_decls.append('RPY_EXTERN ' + header + ';')
         functions.append(header + '\n{return va_arg(*vp, %s);}\n' % name)
-        export_symbols.append('pypy_va_get_%s' % (name_no_star,))
 
     for name, (typ, expr) in GLOBALS.iteritems():
         if name.endswith('#'):
@@ -972,7 +990,6 @@ def build_eci(building_bridge, export_symbols, code):
     "NOT_RPYTHON"
     # Build code and get pointer to the structure
     kwds = {}
-    export_symbols_eci = export_symbols[:]
 
     compile_extra=['-DPy_BUILD_CORE']
 
@@ -986,7 +1003,6 @@ def build_eci(building_bridge, export_symbols, code):
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
             compile_extra.append('-g')
-        export_symbols_eci.append('pypyAPI')
     else:
         kwds["includes"] = ['Python.h'] # this is our Python.h
 
@@ -1007,6 +1023,7 @@ def build_eci(building_bridge, export_symbols, code):
     if sys.platform == 'win32':
         get_pythonapi_source = '''
         #include <windows.h>
+        RPY_EXTERN
         HANDLE pypy_get_pythonapi_handle() {
             MEMORY_BASIC_INFORMATION  mi;
             memset(&mi, 0, sizeof(mi));
@@ -1019,7 +1036,6 @@ def build_eci(building_bridge, export_symbols, code):
         }
         '''
         separate_module_sources.append(get_pythonapi_source)
-        export_symbols_eci.append('pypy_get_pythonapi_handle')
 
     eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
@@ -1042,7 +1058,6 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "missing.c",
                                ],
         separate_module_sources=separate_module_sources,
-        export_symbols=export_symbols_eci,
         compile_extra=compile_extra,
         **kwds
         )
@@ -1096,33 +1111,78 @@ def setup_library(space):
     trunk_include = pypydir.dirpath() / 'include'
     copy_header_files(trunk_include)
 
-initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
+def _load_from_cffi(space, name, path, initptr):
+    from pypy.module._cffi_backend import cffi1_module
+    cffi1_module.load_cffi1_module(space, name, path, initptr)
+
 @unwrap_spec(path=str, name=str)
 def load_extension_module(space, path, name):
+    # note: this is used both to load CPython-API-style C extension
+    # modules (cpyext) and to load CFFI-style extension modules
+    # (_cffi_backend).  Any of the two can be disabled at translation
+    # time, though.  For this reason, we need to be careful about the
+    # order of things here.
+    from rpython.rlib import rdynload
+
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
+    basename = name.split('.')[-1]
+    try:
+        ll_libname = rffi.str2charp(path)
+        try:
+            dll = rdynload.dlopen(ll_libname)
+        finally:
+            lltype.free(ll_libname, flavor='raw')
+    except rdynload.DLOpenError, e:
+        raise oefmt(space.w_ImportError,
+                    "unable to load extension module '%s': %s",
+                    path, e.msg)
+    look_for = None
+    #
+    if space.config.objspace.usemodules._cffi_backend:
+        look_for = '_cffi_pypyinit_%s' % (basename,)
+        try:
+            initptr = rdynload.dlsym(dll, look_for)
+        except KeyError:
+            pass
+        else:
+            try:
+                _load_from_cffi(space, name, path, initptr)
+            except:
+                rdynload.dlclose(dll)
+                raise
+            return
+    #
+    if space.config.objspace.usemodules.cpyext:
+        also_look_for = 'init%s' % (basename,)
+        try:
+            initptr = rdynload.dlsym(dll, also_look_for)
+        except KeyError:
+            pass
+        else:
+            load_cpyext_module(space, name, path, dll, initptr)
+            return
+        if look_for is not None:
+            look_for += ' or ' + also_look_for
+        else:
+            look_for = also_look_for
+    #
+    raise oefmt(space.w_ImportError,
+                "function %s not found in library %s", look_for, path)
+
+initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
+
+def load_cpyext_module(space, name, path, dll, initptr):
+    from rpython.rlib import rdynload
+
+    space.getbuiltinmodule("cpyext")    # mandatory to init cpyext
     state = space.fromcache(State)
     if state.find_extension(name, path) is not None:
+        rdynload.dlclose(dll)
         return
     old_context = state.package_context
     state.package_context = name, path
     try:
-        from rpython.rlib import rdynload
-        try:
-            ll_libname = rffi.str2charp(path)
-            try:
-                dll = rdynload.dlopen(ll_libname)
-            finally:
-                lltype.free(ll_libname, flavor='raw')
-        except rdynload.DLOpenError, e:
-            raise oefmt(space.w_ImportError,
-                        "unable to load extension module '%s': %s",
-                        path, e.msg)
-        try:
-            initptr = rdynload.dlsym(dll, 'init%s' % (name.split('.')[-1],))
-        except KeyError:
-            raise oefmt(space.w_ImportError,
-                        "function init%s not found in library %s", name, path)
         initfunc = rffi.cast(initfunctype, initptr)
         generic_cpy_call(space, initfunc)
         state.check_and_raise_exception()

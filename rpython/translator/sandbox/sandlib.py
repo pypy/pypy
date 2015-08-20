@@ -459,6 +459,15 @@ class VirtualizedSandboxedProc(SandboxedProc):
 
     do_ll_os__ll_os_lstat = do_ll_os__ll_os_stat
 
+    def do_ll_os__ll_os_access(self, vpathname, mode):
+        try:
+            node = self.get_node(vpathname)
+        except OSError, e:
+            if e.errno == errno.ENOENT:
+                return False
+            raise
+        return node.access(mode)
+
     def do_ll_os__ll_os_isatty(self, fd):
         return self.virtual_console_isatty and fd in (0, 1, 2)
 

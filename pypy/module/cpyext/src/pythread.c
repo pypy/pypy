@@ -1,11 +1,18 @@
 #include <Python.h>
+#ifndef _WIN32
+# include <pthread.h>
+#endif
 #include "pythread.h"
 #include "src/thread.h"
 
 long
 PyThread_get_thread_ident(void)
 {
-    return RPyThreadGetIdent();
+#ifdef _WIN32
+    return (long)GetCurrentThreadId();
+#else
+    return (long)pthread_self();
+#endif
 }
 
 PyThread_type_lock

@@ -8,6 +8,11 @@ import StringIO
 import urllib2
 from urllib2 import Request, OpenerDirector
 
+try:
+    import ssl
+except ImportError:
+    ssl = None
+
 # XXX
 # Request
 # CacheFTPHandler (hard to write)
@@ -20,7 +25,7 @@ class TrivialTests(unittest.TestCase):
         self.assertRaises(ValueError, urllib2.urlopen, 'bogus url')
 
         # XXX Name hacking to get this to work on Windows.
-        fname = os.path.abspath(urllib2.__file__).replace('\\', '/')
+        fname = os.path.abspath(urllib2.__file__).replace(os.sep, '/')
 
         # And more hacking to get it to work on MacOS. This assumes
         # urllib.pathname2url works, unfortunately...
@@ -46,6 +51,14 @@ class TrivialTests(unittest.TestCase):
                  ('a="b\\"c", d="e\\,f", g="h\\\\i"', ['a="b"c"', 'd="e,f"', 'g="h\\i"'])]
         for string, list in tests:
             self.assertEqual(urllib2.parse_http_list(string), list)
+
+    @unittest.skipUnless(ssl, "ssl module required")
+    def test_cafile_and_context(self):
+        context = ssl.create_default_context()
+        with self.assertRaises(ValueError):
+            urllib2.urlopen(
+                "https://localhost", cafile="/nonexistent/path", context=context
+            )
 
 
 def test_request_headers_dict():
@@ -278,6 +291,7 @@ class MockHTTPClass:
         self.req_headers = []
         self.data = None
         self.raise_on_endheaders = False
+        self.sock = None
         self._tunnel_headers = {}
 
     def __call__(self, host, timeout=socket._GLOBAL_DEFAULT_TIMEOUT):
@@ -593,8 +607,8 @@ class OpenerDirectorTests(unittest.TestCase):
                 self.assertIsInstance(args[0], Request)
                 # response from opener.open is None, because there's no
                 # handler that defines http_open to handle it
-                self.assertTrue(args[1] is None or
-                             isinstance(args[1], MockResponse))
+                if args[1] is not None:
+                    self.assertIsInstance(args[1], MockResponse)
 
 
 def sanepathname2url(path):
@@ -926,7 +940,8 @@ class HandlerTests(unittest.TestCase):
                            MockHeaders({"location": to_url}))
                 except urllib2.HTTPError:
                     # 307 in response to POST requires user OK
-                    self.assertTrue(code == 307 and data is not None)
+                    self.assertEqual(code, 307)
+                    self.assertIsNotNone(data)
                 self.assertEqual(o.req.get_full_url(), to_url)
                 try:
                     self.assertEqual(o.req.get_method(), "GET")

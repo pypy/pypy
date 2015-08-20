@@ -2,6 +2,7 @@ import py, errno, sys
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
 import socket as cpy_socket
+from rpython.translator.c.test.test_genc import compile
 
 
 def setup_module(mod):
@@ -310,7 +311,7 @@ def getaddrinfo_pydotorg(i, result):
     assert isinstance(lst, list)
     found = False
     for family, socktype, protocol, canonname, addr in lst:
-        if addr.get_host() == '140.211.10.69':
+        if addr.get_host() == '104.130.43.121':
             found = True
     result[i] += found
 
@@ -520,6 +521,7 @@ def test_no_AF_NETLINK():
     _test_cond_include('AF_NETLINK')
 
 def test_thread_safe_gethostbyaddr():
+    py.test.skip("hits non-thread-safe issues with ll2ctypes")
     import threading
     nthreads = 10
     ip = '8.8.8.8'
@@ -539,6 +541,7 @@ def test_thread_safe_gethostbyaddr():
     assert sum(result) == nthreads
 
 def test_thread_safe_gethostbyname_ex():
+    py.test.skip("hits non-thread-safe issues with ll2ctypes")
     import threading
     nthreads = 10
     domain = 'google.com'
@@ -557,6 +560,7 @@ def test_thread_safe_gethostbyname_ex():
     assert sum(result) == nthreads
 
 def test_getaddrinfo_pydotorg_threadsafe():
+    py.test.skip("hits non-thread-safe issues with ll2ctypes")
     import threading
     nthreads = 10
     result = [0] * nthreads
@@ -567,4 +571,19 @@ def test_getaddrinfo_pydotorg_threadsafe():
     for i in range(nthreads):
         threads[i].join()
     assert sum(result) == nthreads
- 
+
+def test_translate_netdb_lock():
+    def f():
+        rsocket_startup()
+        gethostbyaddr("localhost")
+        return 0
+    fc = compile(f, [])
+    assert fc() == 0
+
+def test_translate_netdb_lock_thread():
+    def f():
+        rsocket_startup()
+        gethostbyaddr("localhost")
+        return 0
+    fc = compile(f, [], thread=True)
+    assert fc() == 0

@@ -1,12 +1,14 @@
 import py, sys
 from rpython.jit.codewriter import support
+from rpython.jit.codewriter.heaptracker import int_signext
 from rpython.jit.codewriter.flatten import flatten_graph, reorder_renaming_list
 from rpython.jit.codewriter.flatten import GraphFlattener, ListOfKind, Register
 from rpython.jit.codewriter.format import assert_format
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractDescr
-from rpython.rtyper.lltypesystem import lltype, rclass, rstr, rffi
+from rpython.rtyper.lltypesystem import lltype, rstr, rffi
+from rpython.rtyper import rclass
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.translator.unsimplify import varoftype
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_longlong, r_ulonglong
@@ -280,30 +282,6 @@ class TestFlatten:
             foobar hi_there!
         """)
 
-    def test_switch(self):
-        def f(n):
-            if n == -5:  return 12
-            elif n == 2: return 51
-            elif n == 7: return 1212
-            else:        return 42
-        self.encoding_test(f, [65], """
-            -live-
-            int_guard_value %i0
-            goto_if_not_int_eq %i0, $-5, L1
-            int_return $12
-            ---
-            L1:
-            goto_if_not_int_eq %i0, $2, L2
-            int_return $51
-            ---
-            L2:
-            goto_if_not_int_eq %i0, $7, L3
-            int_return $1212
-            ---
-            L3:
-            int_return $42
-        """)
-
     def test_switch_dict(self):
         def f(x):
             if   x == 1: return 61
@@ -319,21 +297,27 @@ class TestFlatten:
             int_return $-1
             ---
             L1:
+            -live-
             int_return $61
             ---
             L2:
+            -live-
             int_return $511
             ---
             L3:
+            -live-
             int_return $-22
             ---
             L4:
+            -live-
             int_return $81
             ---
             L5:
+            -live-
             int_return $17
             ---
             L6:
+            -live-
             int_return $54
         """)
 
@@ -779,54 +763,41 @@ class TestFlatten:
             (rffi.SIGNEDCHAR, rffi.LONG, ""),
             (rffi.SIGNEDCHAR, rffi.ULONG, ""),
 
-            (rffi.UCHAR, rffi.SIGNEDCHAR, """int_sub %i0, $-128 -> %i1
-                                             int_and %i1, $255 -> %i2
-                                             int_add %i2, $-128 -> %i3"""),
+            (rffi.UCHAR, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.UCHAR, rffi.UCHAR, ""),
             (rffi.UCHAR, rffi.SHORT, ""),
             (rffi.UCHAR, rffi.USHORT, ""),
             (rffi.UCHAR, rffi.LONG, ""),
             (rffi.UCHAR, rffi.ULONG, ""),
 
-            (rffi.SHORT, rffi.SIGNEDCHAR, """int_sub %i0, $-128 -> %i1
-                                             int_and %i1, $255 -> %i2
-                                             int_add %i2, $-128 -> %i3"""),
+            (rffi.SHORT, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.SHORT, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
             (rffi.SHORT, rffi.SHORT, ""),
             (rffi.SHORT, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
             (rffi.SHORT, rffi.LONG, ""),
             (rffi.SHORT, rffi.ULONG, ""),
 
-            (rffi.USHORT, rffi.SIGNEDCHAR, """int_sub %i0, $-128 -> %i1
-                                              int_and %i1, $255 -> %i2
-                                              int_add %i2, $-128 -> %i3"""),
+            (rffi.USHORT, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.USHORT, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
-            (rffi.USHORT, rffi.SHORT, """int_sub %i0, $-32768 -> %i1
-                                         int_and %i1, $65535 -> %i2
-                                         int_add %i2, $-32768 -> %i3"""),
+            (rffi.USHORT, rffi.SHORT, "int_signext %i0, $2 -> %i1"),
             (rffi.USHORT, rffi.USHORT, ""),
             (rffi.USHORT, rffi.LONG, ""),
             (rffi.USHORT, rffi.ULONG, ""),
+            (rffi.USHORT, lltype.Bool, "int_is_true %i0 -> %i1"),
 
-            (rffi.LONG, rffi.SIGNEDCHAR, """int_sub %i0, $-128 -> %i1
-                                            int_and %i1, $255 -> %i2
-                                            int_add %i2, $-128 -> %i3"""),
+            (rffi.LONG, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.LONG, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
-            (rffi.LONG, rffi.SHORT, """int_sub %i0, $-32768 -> %i1
-                                       int_and %i1, $65535 -> %i2
-                                       int_add %i2, $-32768 -> %i3"""),
+            (rffi.LONG, rffi.SHORT, "int_signext %i0, $2 -> %i1"),
             (rffi.LONG, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
+            (rffi.LONG, lltype.Bool, "int_is_true %i0 -> %i1"),
             (rffi.LONG, rffi.LONG, ""),
             (rffi.LONG, rffi.ULONG, ""),
 
-            (rffi.ULONG, rffi.SIGNEDCHAR, """int_sub %i0, $-128 -> %i1
-                                             int_and %i1, $255 -> %i2
-                                             int_add %i2, $-128 -> %i3"""),
+            (rffi.ULONG, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.ULONG, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
-            (rffi.ULONG, rffi.SHORT, """int_sub %i0, $-32768 -> %i1
-                                        int_and %i1, $65535 -> %i2
-                                        int_add %i2, $-32768 -> %i3"""),
+            (rffi.ULONG, rffi.SHORT, "int_signext %i0, $2 -> %i1"),
             (rffi.ULONG, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
+            (rffi.ULONG, lltype.Bool, "int_is_true %i0 -> %i1"),
             (rffi.ULONG, rffi.LONG, ""),
             (rffi.ULONG, rffi.ULONG, ""),
             ]:
@@ -848,8 +819,15 @@ class TestFlatten:
                         FROM = rffi.LONGLONG
                     else:
                         FROM = rffi.ULONGLONG
-                    expected.insert(0,
-                        "residual_call_irf_i $<* fn llong_to_int>, I[], R[], F[%f0], <Descr> -> %i0")
+                    if TO == lltype.Bool:
+                        prefix = 'u' if FROM == rffi.ULONGLONG else ''
+                        expected = [
+                            "residual_call_irf_i $<* fn %sllong_ne>, I[], R[], F[%%f0, $0L], <Descr> -> %%i0" % prefix,
+                            "int_return %i0",
+                        ]
+                    else:
+                        expected.insert(0,
+                            "residual_call_irf_i $<* fn llong_to_int>, I[], R[], F[%f0], <Descr> -> %i0")
                     expectedstr = '\n'.join(expected)
                     self.encoding_test(f, [rffi.cast(FROM, 42)], expectedstr,
                                        transform=True)
@@ -890,6 +868,17 @@ class TestFlatten:
             cast_int_to_float %i0 -> %f0
             float_return %f0
         """, transform=True)
+        def f(n):
+            return rffi.cast(lltype.Bool, n)
+        self.encoding_test(f, [0.1], """
+            float_ne %f0, $0.0 -> %i0
+            int_return %i0
+        """, transform=True)
+        self.encoding_test(f, [rffi.cast(lltype.SingleFloat, 0.5)], """
+            cast_singlefloat_to_float %i0 -> %f0
+            float_ne %f0, $0.0 -> %i1
+            int_return %i1
+        """, transform=True)
 
         # Casts to lltype.SingleFloat
         def g(n):
@@ -909,18 +898,14 @@ class TestFlatten:
             return rffi.cast(rffi.SIGNEDCHAR, n)
         self.encoding_test(f, [12.456], """
             cast_float_to_int %f0 -> %i0
-            int_sub %i0, $-128 -> %i1
-            int_and %i1, $255 -> %i2
-            int_add %i2, $-128 -> %i3
-            int_return %i3
+            int_signext %i0, $1 -> %i1
+            int_return %i1
         """, transform=True)
         self.encoding_test(f, [rffi.cast(lltype.SingleFloat, 12.456)], """
             cast_singlefloat_to_float %i0 -> %f0
             cast_float_to_int %f0 -> %i1
-            int_sub %i1, $-128 -> %i2
-            int_and %i2, $255 -> %i3
-            int_add %i3, $-128 -> %i4
-            int_return %i4
+            int_signext %i1, $1 -> %i2
+            int_return %i2
         """, transform=True)
 
         def f(dbl):
@@ -1035,12 +1020,30 @@ class TestFlatten:
         e = py.test.raises(AssertionError, self.encoding_test, f, [], "!",
                            transform=True)
         assert str(e.value).startswith("A virtualizable array is passed aroun")
+        assert "<Descr>" in str(e.value)
+
+    def test_vable_attribute_list_copied_around(self):
+        class F:
+            _virtualizable_ = ['vlist[*]']
+            vlist = None
+            def __init__(self, x):
+                self.vlist = [x]
+        def g():
+            return F(42)
+        def f():
+            f = g()
+            f.extrastuff = f.vlist
+        e = py.test.raises(AssertionError, self.encoding_test, f, [], "!",
+                           transform=True)
+        assert str(e.value).startswith("A virtualizable array is passed aroun")
+        assert "<Descr>" in str(e.value)
 
 
 def check_force_cast(FROM, TO, operations, value):
     """Check that the test is correctly written..."""
     import re
     r = re.compile('(\w+) \%i\d, \$(-?\d+)')
+    r2 = re.compile('(\w+) \%i\d')
     #
     value = rffi.cast(FROM, value)
     value = rffi.cast(lltype.Signed, value)
@@ -1050,11 +1053,18 @@ def check_force_cast(FROM, TO, operations, value):
     #
     for op in operations:
         match = r.match(op)
+        if match is None:
+            match = r2.match(op)
         assert match, "line %r does not match regexp" % (op,)
         opname = match.group(1)
-        if   opname == 'int_add': value += int(match.group(2))
-        elif opname == 'int_sub': value -= int(match.group(2))
-        elif opname == 'int_and': value &= int(match.group(2))
-        else: assert 0, opname
+        if opname == 'int_and':
+            value &= int(match.group(2))
+        elif opname == 'int_signext':
+            numbytes = int(match.group(2))
+            value = int_signext(value, numbytes)
+        elif opname == 'int_is_true':
+            value = bool(value)
+        else:
+            assert 0, opname
     #
     assert rffi.cast(lltype.Signed, value) == expected_value

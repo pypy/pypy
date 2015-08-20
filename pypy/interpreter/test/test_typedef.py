@@ -341,6 +341,28 @@ class TestTypeDef:
         assert space.is_true(space.ne(w_a, w_b))
         assert not space.is_true(space.ne(w_b, w_c))
 
+    def test_class_attr(self):
+        class W_SomeType(W_Root):
+            pass
+
+        seen = []
+        def make_me(space):
+            seen.append(1)
+            return space.wrap("foobar")
+
+        W_SomeType.typedef = typedef.TypeDef(
+            'some_type',
+            abc = typedef.ClassAttr(make_me)
+            )
+        assert seen == []
+        self.space.appexec([W_SomeType()], """(x):
+            assert type(x).abc == "foobar"
+            assert x.abc == "foobar"
+            assert type(x).abc == "foobar"
+        """)
+        assert seen == [1]
+
+
 class AppTestTypeDef:
 
     def setup_class(cls):
@@ -379,6 +401,7 @@ class AppTestTypeDef:
         assert bm.im_class is B
         assert bm.__doc__ == "aaa"
         assert bm.x == 3
+        assert type(bm).__doc__ == "instancemethod(function, instance, class)\n\nCreate an instance method object."
         raises(AttributeError, setattr, bm, 'x', 15)
         l = []
         assert l.append.__self__ is l

@@ -134,14 +134,6 @@ class AbstractDescr(AbstractValue):
     def repr_of_descr(self):
         return '%r' % (self,)
 
-    def _clone_if_mutable(self):
-        return self
-    def clone_if_mutable(self):
-        clone = self._clone_if_mutable()
-        if not we_are_translated():
-            assert clone.__class__ is self.__class__
-        return clone
-
     def hide(self, cpu):
         descr_ptr = cpu.ts.cast_instance_to_base_ref(self)
         return cpu.ts.cast_to_ref(descr_ptr)
@@ -159,6 +151,8 @@ class AbstractFailDescr(AbstractDescr):
     index = -1
     final_descr = False
 
+    _attrs_ = ('adr_jump_offset', 'rd_locs', 'rd_loop_token')
+
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop):
@@ -174,6 +168,10 @@ class BasicFinalDescr(AbstractFailDescr):
 class BasicFailDescr(AbstractFailDescr):
     def __init__(self, identifier=None):
         self.identifier = identifier      # for testing
+
+
+class MissingValue(object):
+    "NOT_RPYTHON"
 
 
 class Const(AbstractValue):
@@ -279,13 +277,14 @@ class ConstFloat(Const):
             # careful in this comparison: if self.value and other.value
             # are both NaN, stored as regular floats (i.e. on 64-bit),
             # then just using "==" would say False: two NaNs are always
-            # different from each other.
+            # different from each other.  Conversely, "0.0 == -0.0" but
+            # they are not the same constant.
             return (longlong.extract_bits(self.value) ==
                     longlong.extract_bits(other.value))
         return False
 
     def nonnull(self):
-        return self.value != longlong.ZEROF
+        return bool(longlong.extract_bits(self.value))
 
     def _getrepr_(self):
         return self.getfloat()
@@ -460,7 +459,7 @@ class BoxFloat(Box):
         return longlong.gethash(self.value)
 
     def nonnull(self):
-        return self.value != longlong.ZEROF
+        return bool(longlong.extract_bits(self.value))
 
     def _getrepr_(self):
         return self.getfloat()
@@ -616,7 +615,6 @@ class TargetToken(AbstractDescr):
         self.original_jitcell_token = None
 
         self.virtual_state = None
-        self.exported_state = None
         self.short_preamble = None
 
     def repr_of_descr(self):
@@ -886,6 +884,8 @@ class Stats(object):
             insns[opname] = insns.get(opname, 0) + 1
         if expected is not None:
             insns.pop('debug_merge_point', None)
+            insns.pop('enter_portal_frame', None)
+            insns.pop('leave_portal_frame', None)
             assert insns == expected
         for insn, expected_count in check.items():
             getattr(rop, insn.upper())  # fails if 'rop.INSN' does not exist
@@ -903,6 +903,8 @@ class Stats(object):
     def _check_insns(self, insns, expected, check):
         if expected is not None:
             insns.pop('debug_merge_point', None)
+            insns.pop('enter_portal_frame', None)
+            insns.pop('leave_portal_frame', None)
             insns.pop('label', None)
             assert insns == expected
         for insn, expected_count in check.items():

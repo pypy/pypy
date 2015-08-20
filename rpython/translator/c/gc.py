@@ -71,13 +71,20 @@ class BasicGcPolicy(object):
         return ''
 
     def OP_GC_THREAD_RUN(self, funcgen, op):
-        return ''
+        # The gc transformer leaves this operation in the graphs
+        # in all cases except with framework+shadowstack.  In that
+        # case the operation is removed because redundant with
+        # rthread.get_or_make_ident().
+        return 'RPY_THREADLOCALREF_ENSURE();'
 
     def OP_GC_THREAD_START(self, funcgen, op):
         return ''
 
     def OP_GC_THREAD_DIE(self, funcgen, op):
-        return ''
+        # The gc transformer leaves this operation in the graphs
+        # (but may insert a call to a gcrootfinder-specific
+        # function just before).
+        return 'RPython_ThreadLocals_ThreadDie();'
 
     def OP_GC_THREAD_BEFORE_FORK(self, funcgen, op):
         return '%s = NULL;' % funcgen.expr(op.result)

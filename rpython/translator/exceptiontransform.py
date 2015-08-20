@@ -1,12 +1,12 @@
 from rpython.translator.simplify import join_blocks, cleanup_graph
-from rpython.translator.unsimplify import copyvar, varoftype
+from rpython.translator.unsimplify import varoftype
 from rpython.translator.unsimplify import insert_empty_block, split_block
 from rpython.translator.backendopt import canraise, inline
 from rpython.flowspace.model import Block, Constant, Variable, Link, \
-    c_last_exception, SpaceOperation, FunctionGraph, mkentrymap
+    SpaceOperation, FunctionGraph, mkentrymap
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem import lloperation
-from rpython.rtyper.lltypesystem.rclass import ll_inst_type
+from rpython.rtyper.rclass import ll_inst_type
 from rpython.rtyper import rtyper
 from rpython.rtyper.rmodel import inputconst
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
@@ -243,7 +243,7 @@ class ExceptionTransformer(object):
         elif block is graph.returnblock:
             return need_exc_matching, n_gen_exc_checks
         last_operation = len(block.operations) - 1
-        if block.exitswitch == c_last_exception:
+        if block.canraise:
             need_exc_matching = True
             last_operation -= 1
         elif (len(block.exits) == 1 and
@@ -251,8 +251,7 @@ class ExceptionTransformer(object):
               len(block.operations) and
               (block.exits[0].args[0].concretetype is lltype.Void or
                block.exits[0].args[0] is block.operations[-1].result) and
-              block.operations[-1].opname not in ('malloc',     # special cases
-                                                  'malloc_nonmovable')):
+              block.operations[-1].opname not in ('malloc', 'malloc_varsize')):     # special cases
             last_operation -= 1
         lastblock = block
         for i in range(last_operation, -1, -1):
@@ -260,7 +259,7 @@ class ExceptionTransformer(object):
             if not self.raise_analyzer.can_raise(op):
                 continue
 
-            splitlink = split_block(None, block, i+1)
+            splitlink = split_block(block, i+1)
             afterblock = splitlink.target
             if lastblock is block:
                 lastblock = afterblock
@@ -268,11 +267,8 @@ class ExceptionTransformer(object):
             self.gen_exc_check(block, graph.returnblock, afterblock)
             n_gen_exc_checks += 1
         if need_exc_matching:
-            assert lastblock.exitswitch == c_last_exception
+            assert lastblock.canraise
             if not self.raise_analyzer.can_raise(lastblock.operations[-1]):
-                #print ("operation %s cannot raise, but has exception"
-                #       " guarding in graph %s" % (lastblock.operations[-1],
-                #                                  graph))
                 lastblock.exitswitch = None
                 lastblock.recloseblock(lastblock.exits[0])
                 lastblock.exits[0].exitcase = None
@@ -309,8 +305,7 @@ class ExceptionTransformer(object):
         reraise = self.comes_from_last_exception(entrymap, link)
         result = Variable()
         result.concretetype = lltype.Void
-        block = Block([copyvar(None, v)
-                       for v in graph.exceptblock.inputargs])
+        block = Block([v.copy() for v in graph.exceptblock.inputargs])
         if reraise:
             block.operations = [
                 SpaceOperation("direct_call",
@@ -349,7 +344,7 @@ class ExceptionTransformer(object):
         inlined, the correct exception matching blocks are produced."""
         # XXX slightly annoying: construct a graph by hand
         # but better than the alternative
-        result = copyvar(None, op.result)
+        result = op.result.copy()
         opargs = []
         inputargs = []
         callargs = []
@@ -393,10 +388,6 @@ class ExceptionTransformer(object):
         return newgraph, SpaceOperation("direct_call", [fptr] + callargs, op.result)
 
     def gen_exc_check(self, block, returnblock, normalafterblock=None):
-        #var_exc_occured = Variable()
-        #var_exc_occured.concretetype = lltype.Bool
-        #block.operations.append(SpaceOperation("safe_call", [self.rpyexc_occured_ptr], var_exc_occured))
-
         llops = rtyper.LowLevelOpList(None)
 
         spaceop = block.operations[-1]
@@ -407,6 +398,10 @@ class ExceptionTransformer(object):
         else:
             v_exc_type = self.gen_getfield('exc_type', llops)
             var_no_exc = self.gen_isnull(v_exc_type, llops)
+        #
+        # We could add a "var_no_exc is likely true" hint, but it seems
+        # not to help, so it was commented out again.
+        #var_no_exc = llops.genop('likely', [var_no_exc], lltype.Bool)
 
         block.operations.extend(llops)
 
@@ -425,38 +420,33 @@ class ExceptionTransformer(object):
         l0.exitcase = l0.llexitcase = True
 
         block.recloseblock(l0, l)
-
         insert_zeroing_op = False
-        if spaceop.opname == 'malloc':
+        if spaceop.opname in ['malloc','malloc_varsize']:
             flavor = spaceop.args[1].value['flavor']
             if flavor == 'gc':
                 insert_zeroing_op = True
-        elif spaceop.opname == 'malloc_nonmovable':
-            # xxx we cannot insert zero_gc_pointers_inside after
-            # malloc_nonmovable, because it can return null.  For now
-            # we simply always force the zero=True flag on
-            # malloc_nonmovable.
-            c_flags = spaceop.args[1]
-            c_flags.value = c_flags.value.copy()
-            spaceop.args[1].value['zero'] = True
+            true_zero = spaceop.args[1].value.get('zero', False)
         # NB. when inserting more special-cases here, keep in mind that
         # you also need to list the opnames in transform_block()
         # (see "special cases")
 
         if insert_zeroing_op:
             if normalafterblock is None:
-                normalafterblock = insert_empty_block(None, l0)
+                normalafterblock = insert_empty_block(l0)
             v_result = spaceop.result
             if v_result in l0.args:
                 result_i = l0.args.index(v_result)
                 v_result_after = normalafterblock.inputargs[result_i]
             else:
-                v_result_after = copyvar(None, v_result)
+                v_result_after = v_result.copy()
                 l0.args.append(v_result)
                 normalafterblock.inputargs.append(v_result_after)
+            if true_zero:
+                opname = "zero_everything_inside"
+            else:
+                opname = "zero_gc_pointers_inside"
             normalafterblock.operations.insert(
-                0, SpaceOperation('zero_gc_pointers_inside',
-                                  [v_result_after],
+                0, SpaceOperation(opname, [v_result_after],
                                   varoftype(lltype.Void)))
 
     def setup_excdata(self):

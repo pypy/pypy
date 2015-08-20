@@ -1,18 +1,20 @@
 """
 Callbacks.
 """
-import os
+import sys, os
 
-from rpython.rlib import clibffi, rweakref, jit
+from rpython.rlib import clibffi, rweakref, jit, jit_libffi
 from rpython.rlib.objectmodel import compute_unique_id, keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._cffi_backend import cerrno, misc
 from pypy.module._cffi_backend.cdataobj import W_CData
-from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, BIG_ENDIAN, W_CTypeFunc
+from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, W_CTypeFunc
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
 from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
+
+BIG_ENDIAN = sys.byteorder == 'big'
 
 # ____________________________________________________________
 
@@ -20,8 +22,9 @@ from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
 class W_CDataCallback(W_CData):
     #_immutable_fields_ = ...
     ll_error = lltype.nullptr(rffi.CCHARP.TO)
+    w_onerror = None
 
-    def __init__(self, space, ctype, w_callable, w_error):
+    def __init__(self, space, ctype, w_callable, w_error, w_onerror):
         raw_closure = rffi.cast(rffi.CCHARP, clibffi.closureHeap.alloc())
         W_CData.__init__(self, space, raw_closure, ctype)
         #
@@ -29,6 +32,12 @@ class W_CDataCallback(W_CData):
             raise oefmt(space.w_TypeError,
                         "expected a callable object, not %T", w_callable)
         self.w_callable = w_callable
+        if not space.is_none(w_onerror):
+            if not space.is_true(space.callable(w_onerror)):
+                raise oefmt(space.w_TypeError,
+                            "expected a callable object for 'onerror', not %T",
+                            w_onerror)
+            self.w_onerror = w_onerror
         #
         fresult = self.getfunctype().ctitem
         size = fresult.size
@@ -45,11 +54,15 @@ class W_CDataCallback(W_CData):
         #
         cif_descr = self.getfunctype().cif_descr
         if not cif_descr:
-            raise OperationError(space.w_NotImplementedError,
-                                 space.wrap("callbacks with '...'"))
-        res = clibffi.c_ffi_prep_closure(self.get_closure(), cif_descr.cif,
-                                         invoke_callback,
-                                         rffi.cast(rffi.VOIDP, self.unique_id))
+            raise oefmt(space.w_NotImplementedError,
+                        "%s: callback with unsupported argument or "
+                        "return type or with '...'", self.getfunctype().name)
+        with self as ptr:
+            closure_ptr = rffi.cast(clibffi.FFI_CLOSUREP, ptr)
+            unique_id = rffi.cast(rffi.VOIDP, self.unique_id)
+            res = clibffi.c_ffi_prep_closure(closure_ptr, cif_descr.cif,
+                                             invoke_callback,
+                                             unique_id)
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
             raise OperationError(space.w_SystemError,
                 space.wrap("libffi failed to build this callback"))
@@ -61,12 +74,9 @@ class W_CDataCallback(W_CData):
             from pypy.module.thread.os_thread import setup_threads
             setup_threads(space)
 
-    def get_closure(self):
-        return rffi.cast(clibffi.FFI_CLOSUREP, self._cdata)
-
     #@rgc.must_be_light_finalizer
     def __del__(self):
-        clibffi.closureHeap.free(self.get_closure())
+        clibffi.closureHeap.free(rffi.cast(clibffi.FFI_CLOSUREP, self._ptr))
         if self.ll_error:
             lltype.free(self.ll_error, flavor='raw')
 
@@ -98,14 +108,14 @@ class W_CDataCallback(W_CData):
 
     def print_error(self, operr, extra_line):
         space = self.space
-        operr.write_unraisable(space, "callback ", self.w_callable,
+        operr.write_unraisable(space, "cffi callback ", self.w_callable,
                                with_traceback=True, extra_line=extra_line)
 
     def write_error_return_value(self, ll_res):
         fresult = self.getfunctype().ctitem
         if fresult.size > 0:
             misc._raw_memcopy(self.ll_error, ll_res, fresult.size)
-            keepalive_until_here(self)
+            keepalive_until_here(self)     # to keep self.ll_error alive
 
 
 global_callback_mapping = rweakref.RWeakValueDictionary(int, W_CDataCallback)
@@ -158,8 +168,31 @@ def convert_from_object_fficallback(fresult, ll_res, w_res):
 STDERR = 2
 
 
+@jit.dont_look_inside
+def _handle_applevel_exception(space, callback, e, ll_res, extra_line):
+    callback.write_error_return_value(ll_res)
+    if callback.w_onerror is None:
+        callback.print_error(e, extra_line)
+    else:
+        try:
+            e.normalize_exception(space)
+            w_t = e.w_type
+            w_v = e.get_w_value(space)
+            w_tb = space.wrap(e.get_traceback())
+            w_res = space.call_function(callback.w_onerror,
+                                        w_t, w_v, w_tb)
+            if not space.is_none(w_res):
+                callback.convert_result(ll_res, w_res)
+        except OperationError, e2:
+            # double exception! print a double-traceback...
+            callback.print_error(e, extra_line)    # original traceback
+            e2.write_unraisable(space, '', with_traceback=True,
+                                extra_line="\nDuring the call to 'onerror', "
+                                           "another exception occurred:\n\n")
+
+
 @jit.jit_callback("CFFI")
-def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
+def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care
     ll_args - rffi.VOIDPP - pointer to array of pointers to args
@@ -167,7 +200,6 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     ll_userdata - a special structure which holds necessary information
                   (what the real callback is for example), casted to VOIDP
     """
-    e = cerrno.get_real_errno()
     ll_res = rffi.cast(rffi.CCHARP, ll_res)
     unique_id = rffi.cast(lltype.Signed, ll_userdata)
     callback = global_callback_mapping.get(unique_id)
@@ -176,7 +208,7 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         try:
             os.write(STDERR, "SystemError: invoking a callback "
                              "that was already freed\n")
-        except OSError:
+        except:
             pass
         # In this case, we don't even know how big ll_res is.  Let's assume
         # it is just a 'ffi_arg', and store 0 there.
@@ -184,21 +216,16 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         return
     #
     must_leave = False
-    ec = None
     space = callback.space
     try:
         must_leave = space.threadlocals.try_enter_thread(space)
-        ec = cerrno.get_errno_container(space)
-        cerrno.save_errno_into(ec, e)
         extra_line = ''
         try:
             w_res = callback.invoke(ll_args)
             extra_line = "Trying to convert the result back to C:\n"
             callback.convert_result(ll_res, w_res)
         except OperationError, e:
-            # got an app-level exception
-            callback.print_error(e, extra_line)
-            callback.write_error_return_value(ll_res)
+            _handle_applevel_exception(space, callback, e, ll_res, extra_line)
         #
     except Exception, e:
         # oups! last-level attempt to recover.
@@ -206,10 +233,13 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
             os.write(STDERR, "SystemError: callback raised ")
             os.write(STDERR, str(e))
             os.write(STDERR, "\n")
-        except OSError:
+        except:
             pass
         callback.write_error_return_value(ll_res)
     if must_leave:
         space.threadlocals.leave_thread(space)
-    if ec is not None:
-        cerrno.restore_errno_from(ec)
+
+def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
+    cerrno._errno_after(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
+    _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata)
+    cerrno._errno_before(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)

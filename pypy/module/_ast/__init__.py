@@ -15,7 +15,7 @@ class Module(MixedModule):
 
 def _setup():
     defs = Module.interpleveldefs
-    for name, cls in ast.__dict__.iteritems():
-        if isinstance(cls, type) and issubclass(cls, ast.AST):
-            defs[name.lstrip("_")] = cls.__module__ + "." + name
+    defs['AST'] = "pypy.interpreter.astcompiler.ast.get(space).w_AST"
+    for (name, base, fields, attributes) in ast.State.AST_TYPES:
+        defs[name] = "pypy.interpreter.astcompiler.ast.get(space).w_" + name
 _setup()

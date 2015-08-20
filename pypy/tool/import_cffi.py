@@ -20,7 +20,8 @@ def main(cffi_dir):
     cffi_dest.ensure(dir=1)
     test_dest = pypydir.join('module', 'test_lib_pypy', 'cffi_tests')
     test_dest.ensure(dir=1)
-    for p in cffi_dir.join('cffi').visit(fil='*.py'):
+    for p in (list(cffi_dir.join('cffi').visit(fil='*.py')) +
+              list(cffi_dir.join('cffi').visit(fil='*.h'))):
         cffi_dest.join('..', p.relto(cffi_dir)).write(p.read())
     for p in cffi_dir.join('testing').visit(fil='*.py'):
         path = test_dest.join(p.relto(cffi_dir.join('testing')))

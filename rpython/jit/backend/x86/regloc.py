@@ -151,6 +151,8 @@ class RegLoc(AssemblerLocation):
 
     def lowest8bits(self):
         assert not self.is_xmm
+        if WORD == 4:
+            assert 0 <= self.value < 4
         return RegLoc(rx86.low_byte(self.value), False)
 
     def higher8bits(self):
@@ -514,6 +516,7 @@ class LocationCodeBuilder(object):
                 if code == possible_code:
                     val = getattr(loc, "value_" + possible_code)()
                     if possible_code == 'i':
+                        # This is for CALL or JMP only.
                         if self.WORD == 4:
                             _rx86_getattr(self, name + "_l")(val)
                             self.add_pending_relocation()
@@ -664,6 +667,7 @@ class LocationCodeBuilder(object):
 
     MOVDQ = _binaryop('MOVDQ')
     MOVD32 = _binaryop('MOVD32')
+    MOVUPS = _binaryop('MOVUPS')
 
     CALL = _relative_unaryop('CALL')
     JMP = _relative_unaryop('JMP')

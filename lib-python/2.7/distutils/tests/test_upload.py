@@ -7,6 +7,7 @@ from test.test_support import run_unittest
 from distutils.command import upload as upload_mod
 from distutils.command.upload import upload
 from distutils.core import Distribution
+from distutils.errors import DistutilsError
 
 from distutils.tests.test_config import PYPIRC, PyPIRCCommandTestCase
 
@@ -41,16 +42,17 @@ username:me
 
 class FakeOpen(object):
 
-    def __init__(self, url):
+    def __init__(self, url, msg=None, code=None):
         self.url = url
         if not isinstance(url, str):
             self.req = url
         else:
             self.req = None
-        self.msg = 'OK'
+        self.msg = msg or 'OK'
+        self.code = code or 200
 
     def getcode(self):
-        return 200
+        return self.code
 
 
 class uploadTestCase(PyPIRCCommandTestCase):
@@ -60,13 +62,15 @@ class uploadTestCase(PyPIRCCommandTestCase):
         self.old_open = upload_mod.urlopen
         upload_mod.urlopen = self._urlopen
         self.last_open = None
+        self.next_msg = None
+        self.next_code = None
 
     def tearDown(self):
         upload_mod.urlopen = self.old_open
         super(uploadTestCase, self).tearDown()
 
     def _urlopen(self, url):
-        self.last_open = FakeOpen(url)
+        self.last_open = FakeOpen(url, msg=self.next_msg, code=self.next_code)
         return self.last_open
 
     def test_finalize_options(self):
@@ -78,7 +82,7 @@ class uploadTestCase(PyPIRCCommandTestCase):
         cmd.finalize_options()
         for attr, waited in (('username', 'me'), ('password', 'secret'),
                              ('realm', 'pypi'),
-                             ('repository', 'http://pypi.python.org/pypi')):
+                             ('repository', 'https://pypi.python.org/pypi')):
             self.assertEqual(getattr(cmd, attr), waited)
 
     def test_saved_password(self):
@@ -115,14 +119,19 @@ class uploadTestCase(PyPIRCCommandTestCase):
         # what did we send ?
         self.assertIn('dédé', self.last_open.req.data)
         headers = dict(self.last_open.req.headers)
-        self.assertEqual(headers['Content-length'], '2085')
+        self.assertEqual(headers['Content-length'], '2159')
         self.assertTrue(headers['Content-type'].startswith('multipart/form-data'))
         self.assertEqual(self.last_open.req.get_method(), 'POST')
         self.assertEqual(self.last_open.req.get_full_url(),
-                         'http://pypi.python.org/pypi')
-        self.assertTrue('xxx' in self.last_open.req.data)
+                         'https://pypi.python.org/pypi')
+        self.assertIn('xxx', self.last_open.req.data)
         auth = self.last_open.req.headers['Authorization']
-        self.assertFalse('\n' in auth)
+        self.assertNotIn('\n', auth)
+
+    def test_upload_fails(self):
+        self.next_msg = "Not Found"
+        self.next_code = 404
+        self.assertRaises(DistutilsError, self.test_upload)
 
 def test_suite():
     return unittest.makeSuite(uploadTestCase)

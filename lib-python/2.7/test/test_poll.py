@@ -3,14 +3,13 @@
 import os
 import random
 import select
-import _testcapi
 try:
     import threading
 except ImportError:
     threading = None
 import time
 import unittest
-from test.test_support import TESTFN, run_unittest, reap_threads
+from test.test_support import TESTFN, run_unittest, reap_threads, cpython_only
 
 try:
     select.poll
@@ -159,14 +158,23 @@ class PollTests(unittest.TestCase):
         if x != 5:
             self.fail('Overflow must have occurred')
 
+        # Issues #15989, #17919
+        self.assertRaises(OverflowError, pollster.register, 0, -1)
+        self.assertRaises(OverflowError, pollster.register, 0, 1 << 64)
+        self.assertRaises(OverflowError, pollster.modify, 1, -1)
+        self.assertRaises(OverflowError, pollster.modify, 1, 1 << 64)
+
+    @cpython_only
+    def test_poll_c_limits(self):
+        from _testcapi import USHRT_MAX, INT_MAX, UINT_MAX
         pollster = select.poll()
-        # Issue 15989
-        self.assertRaises(OverflowError, pollster.register, 0,
-                          _testcapi.SHRT_MAX + 1)
-        self.assertRaises(OverflowError, pollster.register, 0,
-                          _testcapi.USHRT_MAX + 1)
-        self.assertRaises(OverflowError, pollster.poll, _testcapi.INT_MAX + 1)
-        self.assertRaises(OverflowError, pollster.poll, _testcapi.UINT_MAX + 1)
+        pollster.register(1)
+
+        # Issues #15989, #17919
+        self.assertRaises(OverflowError, pollster.register, 0, USHRT_MAX + 1)
+        self.assertRaises(OverflowError, pollster.modify, 1, USHRT_MAX + 1)
+        self.assertRaises(OverflowError, pollster.poll, INT_MAX + 1)
+        self.assertRaises(OverflowError, pollster.poll, UINT_MAX + 1)
 
     @unittest.skipUnless(threading, 'Threading required for this test.')
     @reap_threads

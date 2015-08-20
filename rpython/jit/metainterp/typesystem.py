@@ -1,4 +1,5 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory, rclass
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import rclass
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, llstr
 from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
 from rpython.jit.metainterp import history
