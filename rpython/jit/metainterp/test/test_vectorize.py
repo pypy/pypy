@@ -220,6 +220,27 @@ class VectorizeTests:
         res = self.meta_interp(f, [60,58.4547])
         assert res == f(60,58.4547) == 58.4547
 
+    def test_accum(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
+        def f(d, value):
+            va = lltype.malloc(T, d, flavor='raw', zero=True)
+            for i in range(d):
+                va[i] = value
+            r = 0
+            i = 0
+            while i < d:
+                myjitdriver.jit_merge_point()
+                if i >= d:
+                    raise IndexError
+                r += va[i]
+                i += 1
+            lltype.free(va, flavor='raw')
+            return r
+        res = self.meta_interp(f, [60,0.1], vec_all=True)
+        assert res == f(60,0.1) == 60*0.1
+
+
     @py.test.mark.parametrize('i',[15])
     def test_array_bounds_check_elimination(self,i):
         myjitdriver = JitDriver(greens = [],
