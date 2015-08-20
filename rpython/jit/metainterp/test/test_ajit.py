@@ -268,6 +268,7 @@ class BasicTests:
                 y -= 1
             return res
         res = self.meta_interp(f, [6, sys.maxint, 48])
+        self.check_trace_count(6)
         assert res == f(6, sys.maxint, 48)
 
     def test_loop_invariant_mul_bridge_ovf2(self):
