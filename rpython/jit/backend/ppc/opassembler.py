@@ -5,9 +5,8 @@ import rpython.jit.backend.ppc.condition as c
 import rpython.jit.backend.ppc.register as r
 from rpython.jit.backend.ppc.locations import imm
 from rpython.jit.backend.ppc.locations import imm as make_imm_loc
-from rpython.jit.backend.ppc.arch import (IS_PPC_32, WORD, BACKCHAIN_SIZE,
-                                          MAX_REG_PARAMS, MAX_FREG_PARAMS,
-                                          FORCE_INDEX_OFS, JITFRAME_FIXED_SIZE)
+from rpython.jit.backend.ppc.arch import (IS_PPC_32, WORD,
+                                          MAX_REG_PARAMS, MAX_FREG_PARAMS)
 
 from rpython.jit.metainterp.history import (JitCellToken, TargetToken, Box,
                                             AbstractFailDescr, FLOAT, INT, REF)

@@ -1073,14 +1073,14 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         if IS_PPC_64:
             self.load(r.TOC.value, r.SP.value, 5 * WORD)
 
-    def make_function_prologue(self, frame_size):
-        """ Build a new stackframe of size frame_size 
-            and store the LR in the previous frame.
-        """
-        with scratch_reg(self):
-            self.store_update(r.SP.value, r.SP.value, -frame_size)
-            self.mflr(r.SCRATCH.value)
-            self.store(r.SCRATCH.value, r.SP.value, frame_size + LR_BC_OFFSET) 
+    ## def make_function_prologue(self, frame_size):
+    ##     """ Build a new stackframe of size frame_size 
+    ##         and store the LR in the previous frame.
+    ##     """
+    ##     with scratch_reg(self):
+    ##         self.store_update(r.SP.value, r.SP.value, -frame_size)
+    ##         self.mflr(r.SCRATCH.value)
+    ##         self.store(r.SCRATCH.value, r.SP.value, frame_size + LR_BC_OFFSET) 
 
     def restore_LR_from_caller_frame(self, frame_size):
         """ Restore the LR from the calling frame.

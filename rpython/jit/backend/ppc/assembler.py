@@ -1,6 +1,6 @@
 import os
 from rpython.jit.backend.ppc import form
-from rpython.jit.backend.ppc import asmfunc
+#from rpython.jit.backend.ppc import asmfunc
 
 # don't be fooled by the fact that there's some separation between a
 # generic assembler class and a PPC assembler class... there's

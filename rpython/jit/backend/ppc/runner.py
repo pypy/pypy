@@ -1,7 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.llinterp import LLInterpreter
-from rpython.jit.backend.ppc.arch import FORCE_INDEX_OFS
+#from rpython.jit.backend.ppc.arch import FORCE_INDEX_OFS
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.ppc.ppc_assembler import AssemblerPPC
 from rpython.jit.backend.ppc.arch import WORD
@@ -43,22 +43,12 @@ class PPC_CPU(AbstractLLCPU):
     def finish_once(self):
         self.assembler.finish_once()
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True, name=""):
-        return self.assembler.assemble_loop(name, inputargs,
-                                      operations, looptoken, log)
-
     def compile_bridge(self, faildescr, inputargs, operations,
                       original_loop_token, log=False):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
         return self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                        original_loop_token, log=log)
-
-    def clear_latest_values(self, count):
-        setitem = self.assembler.fail_boxes_ptr.setitem
-        null = lltype.nullptr(llmemory.GCREF.TO)
-        for index in range(count):
-            setitem(index, null)
 
     @staticmethod
     def cast_ptr_to_int(x):
