@@ -1,5 +1,4 @@
 import time, os, sys
-sys.path += ['.'] # for subprocess in test_interpreted
 import py
 from rpython.tool.udir import udir
 from rpython.rlib import rvmprof
@@ -59,7 +58,8 @@ def target(driver, args):
 def test_interpreted():
     # takes forever if the Python process is already big...
     import subprocess
-    subprocess.check_call([sys.executable, __file__])
+    env = os.environ.copy()
+    subprocess.check_call([sys.executable, __file__],env=env)
 
 def test_compiled():
     fn = compile(main, [], gcpolicy="minimark")
