@@ -265,8 +265,8 @@ class LLGraphCPU(model.AbstractCPU):
         self.stats = stats or MiniStats()
         self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
-    def stitch_bridge(self, faildescr, jitcell_token):
-        pass
+    def stitch_bridge(self, faildescr, compiled_faildescr, jitcell_token):
+        faildescr._llgraph_bridge = compiled_faildescr._llgraph_bridge
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='', logger=None):
@@ -736,7 +736,10 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_box_unpack(self, vx, index):
         return vx[index]
 
-    def bh_vec_expand(self, x, count):
+    def bh_vec_float_expand(self, x, count):
+        return [x] * count
+
+    def bh_vec_int_expand(self, x, count):
         return [x] * count
 
     def bh_vec_int_signext(self, vx, ext):

@@ -505,7 +505,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         full_size = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(looptoken)
-        looptoken.rawstart = rawstart
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
         looptoken._ll_loop_code = looppos + rawstart
@@ -570,6 +569,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         fullsize = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(original_loop_token)
+        faildescr.rawstart = rawstart
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
         debug_bridge(descr_number, rawstart, codeendpos)
@@ -592,9 +592,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                                        rawstart, fullsize)
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
-    def stitch_bridge(self, faildescr, token):
-        assert token.rawstart != 0
-        self.patch_jump_for_descr(faildescr, token.rawstart)
+    def stitch_bridge(self, faildescr, compiled_faildescr, token):
+        self.patch_jump_for_descr(faildescr, compiled_faildescr.rawstart)
 
     def write_pending_failure_recoveries(self, regalloc):
         # for each pending guard, generate the code of the recovery stub

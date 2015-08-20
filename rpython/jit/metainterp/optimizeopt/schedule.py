@@ -515,7 +515,7 @@ class OpToVectorOp(object):
             i += 1
         else:
             expand_opnum = getexpandopnum(box_type)
-            op = ResOperation(expand_opnum, [arg], vbox)
+            op = ResOperation(expand_opnum, [arg, ConstInt(vbox.item_count)], vbox)
             ops.append(op)
             if variables is not None:
                 variables.append(vbox)

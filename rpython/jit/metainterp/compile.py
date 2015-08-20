@@ -186,7 +186,8 @@ def compile_loop(metainterp, greenkey, start,
 
 def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token):
     """ if a loop version is created for a guard instruction (e.g. they are known
-        to fail frequently, then a version can be created that is immediatly compiled.
+        to fail frequently) then a version can be created that is immediatly compiled
+        and stitched to the guard.
     """
     metainterp_sd = metainterp.staticdata
     cpu = metainterp_sd.cpu
@@ -203,8 +204,8 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
                                    faildescr, version.inputargs,
                                    version.operations, jitcell_token)
             record_loop_or_bridge(metainterp_sd, vl)
-            for faildescr in version.faildescrs[1:]:
-                cpu.stitch_bridge(faildescr, jitcell_token)
+            for fd in version.faildescrs[1:]:
+                cpu.stitch_bridge(fd, faildescr, jitcell_token)
     loop.versions = None
 
 def compile_retrace(metainterp, greenkey, start,

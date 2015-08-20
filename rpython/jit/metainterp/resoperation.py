@@ -528,8 +528,8 @@ _oplist = [
     'VEC_FLOAT_PACK/4',          # VEC_FLOAT_PACK(vX, var/const, index, item_count)
     'VEC_INT_UNPACK/3',          # iX|fX = VEC_INT_UNPACK(vX, index, item_count)
     'VEC_INT_PACK/4',            # VEC_INT_PACK(vX, var/const, index, item_count)
-    'VEC_FLOAT_EXPAND/1',        # vX = VEC_FLOAT_EXPAND(var/const)
-    'VEC_INT_EXPAND/1',          # vX = VEC_INT_EXPAND(var/const)
+    'VEC_FLOAT_EXPAND/2',        # vX = VEC_FLOAT_EXPAND(var/const, item_count)
+    'VEC_INT_EXPAND/2',          # vX = VEC_INT_EXPAND(var/const, item_count)
     'VEC_BOX/1',
     '_VEC_PURE_LAST',
     #

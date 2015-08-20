@@ -194,7 +194,7 @@ class VectorizeTests:
             i = 0
             while i < d:
                 myjitdriver.jit_merge_point()
-                if not (i < 60):
+                if not (i < d):
                     raise IndexError
                 va[i] = va[i] + 34.5
                 i += 1
@@ -231,14 +231,14 @@ class VectorizeTests:
             i = 0
             while i < d:
                 myjitdriver.jit_merge_point()
-                if i >= d:
+                if not(i < d):
                     raise IndexError
                 r += va[i]
                 i += 1
             lltype.free(va, flavor='raw')
             return r
-        res = self.meta_interp(f, [60,0.1], vec_all=True)
-        assert res == f(60,0.1) == 60*0.1
+        res = self.meta_interp(f, [60,0.5], vec_all=True)
+        assert res == f(60,0.5) == 60*0.5
 
 
     @py.test.mark.parametrize('i',[15])
