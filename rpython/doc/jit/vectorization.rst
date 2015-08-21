@@ -7,6 +7,18 @@ memory load/store operations. They must be adjacent in memory. The requirement f
 that is that they use the same index variable and offset can be expressed as a
 a linear or affine combination.
 
+Command line flags:
+
+* --jit vec=1: turns on the vectorization for marked jitdrivers
+  (e.g. those in the NumPyPy module).
+* --jit vec_all=1: turns on the vectorization for any jit driver. See parameters for
+  the filtering heuristics of traces.
+* --jit vec_ratio=2: A number from 0 to 10 that represents a real number (vec_ratio / 10).
+  This filters traces if vec_all is enabled. N is the trace count then the number of
+  vector transformable operations (add_int -> vec_add_int) M, the following must hold:
+  M / N >= (vec_ratio / 10)
+* --jit vec_length=60: The maximum number of trace instructions the vectorizer filters for.
+
 Features
 --------
 
@@ -38,6 +50,28 @@ Calculations on the index variable that are redundant (because of the merged
 load/store instructions) are not removed. The backend removes these instructions
 while assembling the trace.
 
+In addition a simple heuristic (enabled by --jit vec_all=1) tries to remove
+array bound checks for application level loops. It tries to identify the array
+bound checks and adds a transitive guard at the top of the loop::
+
+    label(...)
+    ...
+    guard(i < n) # index guard
+    ...
+    guard(i < len(a))
+    a = load(..., i, ...)
+    ...
+    jump(...)
+    # becomes
+    guard(n < len(a))
+    label(...)
+    guard(i < n) # index guard
+    ...
+    a = load(..., i, ...)
+    ...
+    jump(...)
+
+
 
 Future Work and Limitations
 ---------------------------
@@ -54,5 +88,9 @@ Future Work and Limitations
   to have 2 xmm registers (one filled with zero bits and the other with one every bit).
   This cuts down 2 instructions for guard checking, trading for higher register pressure.
 * prod, sum are only supported by 64 bit data types
+* isomorphic function prevents the following cases for combination into a pair:
+  1) getarrayitem_gc, getarrayitem_gc_pure
+  2) int_add(v,1), int_sub(v,-1)
 
 .. _PMUL: http://stackoverflow.com/questions/8866973/can-long-integer-routines-benefit-from-sse/8867025#8867025
+
