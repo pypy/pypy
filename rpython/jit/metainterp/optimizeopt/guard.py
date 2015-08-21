@@ -276,9 +276,9 @@ class GuardStrengthenOpt(object):
                 if descr.loop_version():
                     root_version.register_guard(op, version)
 
-        if user_code:
-            version = loop.snapshot()
-            self.eliminate_array_bound_checks(loop, root_version, version)
+            if user_code:
+                version = loop.snapshot()
+                self.eliminate_array_bound_checks(loop, root_version, version)
 
     def emit_operation(self, op):
         self.renamer.rename(op)
