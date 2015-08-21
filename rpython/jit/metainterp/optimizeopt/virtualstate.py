@@ -21,6 +21,11 @@ class VirtualStatesCantMatch(Exception):
         self.msg = msg
         self.state = state
 
+def get_forwarded(box):
+    if not isinstance(box, Const):
+        return box.get_forwarded()
+    xxx
+
 class GenerateGuardState(object):
     def __init__(self, cpu=None, guards=None, renum=None, bad=None):
         self.cpu = cpu
@@ -206,8 +211,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             if box is not None:
                 assert isinstance(opinfo, info.ArrayPtrInfo)
                 fieldbox = opinfo._items[i]
-                xxx
-                fieldinfo = fieldbox.get_forwarded()
+                fieldinfo = get_forwarded(fieldbox)
             self.fieldstate[i].generate_guards(other.fieldstate[i],
                                             fieldbox, fieldinfo, state)
 
@@ -309,6 +313,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             self.constbox = info.getconst()
             if type == 'r':
                 self.known_class = info.get_known_class(cpu)
+            elif type == 'i':
+                self.intbound = info
         elif type == 'r':
             if info:
                 self.known_class = info.get_known_class(cpu)

@@ -374,11 +374,11 @@ class BaseTestGenerateGuards(BaseTest):
 
 
     def test_intbounds(self):
-        value1 = IntBound()
+        value1 = IntUnbounded()
         value1.make_ge(IntBound(0, 10))
         value1.make_le(IntBound(20, 30))
         info1 = NotVirtualStateInfo(self.cpu, 'i', value1)
-        info2 = NotVirtualStateInfo(self.cpu, 'i', IntBound())
+        info2 = NotVirtualStateInfo(self.cpu, 'i', IntUnbounded())
         expected = """
         [i0]
         i1 = int_ge(i0, 0)
@@ -386,39 +386,38 @@ class BaseTestGenerateGuards(BaseTest):
         i2 = int_le(i0, 30)
         guard_true(i2) []
         """
-        self.guards(info1, info2, value1, expected)
-        self.check_invalid(info1, info2, BoxInt(50))
+        self.guards(info1, info2, InputArgInt(), value1, expected)
+        self.check_invalid(info1, info2, InputArgInt(50))
 
     def test_intbounds_constant(self):
-        value1 = IntOptValue(BoxInt(15))
-        value1.intbound.make_ge(IntBound(0, 10))
-        value1.intbound.make_le(IntBound(20, 30))
-        info1 = NotVirtualStateInfo(value1)
-        info2 = NotVirtualStateInfo(IntOptValue(ConstInt(10000)))
+        value1 = IntUnbounded()
+        value1.make_ge(IntBound(0, 10))
+        value1.make_le(IntBound(20, 30))
+        info1 = NotVirtualStateInfo(self.cpu, 'i', value1)
+        info2 = NotVirtualStateInfo(self.cpu, 'i', ConstIntBound(10000))
         self.check_invalid(info1, info2)
-        info1 = NotVirtualStateInfo(value1)
-        info2 = NotVirtualStateInfo(IntOptValue(ConstInt(11)))
+        info1 = NotVirtualStateInfo(self.cpu, 'i', value1)
+        info2 = NotVirtualStateInfo(self.cpu, 'i', ConstIntBound(11))
         self.check_no_guards(info1, info2)
 
     def test_known_class(self):
-        value1 = PtrOptValue(self.nodebox)
-        classbox = self.cpu.ts.cls_of_box(self.nodebox)
-        value1.make_constant_class(None, classbox)
-        info1 = NotVirtualStateInfo(value1)
-        info2 = NotVirtualStateInfo(PtrOptValue(self.nodebox))
+        classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
+        value1 = info.InstancePtrInfo(classbox)
+        info1 = NotVirtualStateInfo(self.cpu, 'r', value1)
+        info2 = NotVirtualStateInfo(self.cpu, 'r', None)
         expected = """
         [p0]
         guard_nonnull_class(p0, ConstClass(node_vtable)) []        
         """
-        self.guards(info1, info2, self.nodebox, expected)
-        self.check_invalid(info1, info2, BoxPtr())
+        self.guards(info1, info2, InputArgRef(self.nodeaddr), None, expected)
+        self.check_invalid(info1, info2, InputArgRef())
 
     def test_known_class_value(self):
-        value1 = PtrOptValue(self.nodebox)
-        classbox = self.cpu.ts.cls_of_box(self.nodebox)
-        value1.make_constant_class(None, classbox)
-        box = self.nodebox
-        guards = value1.make_guards(box)
+        classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
+        value1 = info.InstancePtrInfo(classbox)
+        box = InputArgRef()
+        guards = []
+        value1.make_guards(box, guards)
         expected = """
         [p0]
         guard_nonnull_class(p0, ConstClass(node_vtable)) []
@@ -426,10 +425,10 @@ class BaseTestGenerateGuards(BaseTest):
         self.compare(guards, expected, [box])
 
     def test_known_value(self):
-        value1 = PtrOptValue(self.nodebox)
-        value1.make_constant(ConstInt(1))
-        box = self.nodebox
-        guards = value1.make_guards(box)
+        value1 = ConstIntBound(1)
+        box = InputArgInt()
+        guards = []
+        value1.make_guards(box, guards)
         expected = """
         [i0]
         guard_value(i0, 1) []
@@ -437,21 +436,20 @@ class BaseTestGenerateGuards(BaseTest):
         self.compare(guards, expected, [box])
 
     def test_equal_inputargs(self):
-        value = PtrOptValue(self.nodebox)
-        classbox = self.cpu.ts.cls_of_box(self.nodebox)
-        value.make_constant_class(None, classbox)
-        knownclass_info = NotVirtualStateInfo(value)
+        classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
+        value = info.InstancePtrInfo(classbox)
+        knownclass_info = NotVirtualStateInfo(self.cpu, 'r', value)
         vstate1 = VirtualState([knownclass_info, knownclass_info])
         assert vstate1.generalization_of(vstate1)
 
-        unknown_info1 = NotVirtualStateInfo(PtrOptValue(self.nodebox))
+        unknown_info1 = NotVirtualStateInfo(self.cpu, 'r', None)
         vstate2 = VirtualState([unknown_info1, unknown_info1])
         assert vstate2.generalization_of(vstate2)
         assert not vstate1.generalization_of(vstate2)
         assert vstate2.generalization_of(vstate1)
 
-        unknown_info1 = NotVirtualStateInfo(PtrOptValue(self.nodebox))
-        unknown_info2 = NotVirtualStateInfo(PtrOptValue(self.nodebox))
+        unknown_info1 = NotVirtualStateInfo(self.cpu, 'r', None)
+        unknown_info2 = NotVirtualStateInfo(self.cpu, 'r', None)
         vstate3 = VirtualState([unknown_info1, unknown_info2])
         assert vstate3.generalization_of(vstate2)
         assert vstate3.generalization_of(vstate1)
@@ -462,24 +460,25 @@ class BaseTestGenerateGuards(BaseTest):
         [p0]
         guard_nonnull_class(p0, ConstClass(node_vtable)) []
         """
-        state = vstate1.generate_guards(vstate2, [value, value], self.cpu)
-        self.compare(state.extra_guards, expected, [self.nodebox])
+        box = InputArgRef(self.nodeaddr)
+        state = vstate1.generate_guards(vstate2, [box, box], [None, None],
+                                        self.cpu)
+        self.compare(state.extra_guards, expected, [box])
 
         with py.test.raises(VirtualStatesCantMatch):
-            vstate1.generate_guards(vstate3, [value, value],
+            vstate1.generate_guards(vstate3, [box, box], [None, None],
                                     self.cpu)
         with py.test.raises(VirtualStatesCantMatch):
-            vstate2.generate_guards(vstate3, [value, value],
+            vstate2.generate_guards(vstate3, [box, box], [None, None],
                                     self.cpu)
 
 
     def test_generate_guards_on_virtual_fields_matches_array(self):
-        innervalue1 = PtrOptValue(self.nodebox)
-        constclassbox = self.cpu.ts.cls_of_box(self.nodebox)
-        innervalue1.make_constant_class(None, constclassbox)
-        innerinfo1 = NotVirtualStateInfo(innervalue1)
+        classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
+        innervalue1 = info.InstancePtrInfo(classbox)
+        innerinfo1 = NotVirtualStateInfo(self.cpu, 'r', innervalue1)
         innerinfo1.position = 1
-        innerinfo2 = NotVirtualStateInfo(PtrOptValue(self.nodebox))
+        innerinfo2 = NotVirtualStateInfo(self.cpu, 'r', None)
         innerinfo2.position = 1
 
         descr = object()
@@ -490,14 +489,15 @@ class BaseTestGenerateGuards(BaseTest):
         info2 = VArrayStateInfo(descr)
         info2.fieldstate = [innerinfo2]
 
-        value1 = VArrayValue(descr, None, 1, self.nodebox)
-        value1._items[0] = PtrOptValue(self.nodebox)
+        value1 = info.ArrayPtrInfo(vdescr=descr, size=1)
+        box = InputArgRef(self.nodeaddr)
+        value1._items[0] = box
 
         expected = """
         [p0]
         guard_nonnull_class(p0, ConstClass(node_vtable)) []
         """
-        self.guards(info1, info2, value1, expected, [self.nodebox])
+        self.guards(info1, info2, InputArgRef(), value1, expected, [box])
 
     def test_generate_guards_on_virtual_fields_matches_instance(self):
         innervalue1 = PtrOptValue(self.nodebox)
