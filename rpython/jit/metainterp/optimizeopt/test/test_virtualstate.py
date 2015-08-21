@@ -374,11 +374,11 @@ class BaseTestGenerateGuards(BaseTest):
 
 
     def test_intbounds(self):
-        value1 = IntOptValue(BoxInt(15))
-        value1.intbound.make_ge(IntBound(0, 10))
-        value1.intbound.make_le(IntBound(20, 30))
-        info1 = NotVirtualStateInfo(value1)
-        info2 = NotVirtualStateInfo(IntOptValue(BoxInt()))
+        value1 = IntBound()
+        value1.make_ge(IntBound(0, 10))
+        value1.make_le(IntBound(20, 30))
+        info1 = NotVirtualStateInfo(self.cpu, 'i', value1)
+        info2 = NotVirtualStateInfo(self.cpu, 'i', IntBound())
         expected = """
         [i0]
         i1 = int_ge(i0, 0)
