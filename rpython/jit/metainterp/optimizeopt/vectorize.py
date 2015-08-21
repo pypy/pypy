@@ -299,12 +299,13 @@ class VectorizingOptimizer(Optimizer):
         return unroll_count-1 # it is already unrolled once
 
     def find_adjacent_memory_refs(self):
-        """ the pre pass already builds a hash of memory references and the
-        operations. Since it is in SSA form there are no array indices.
-        If there are two array accesses in the unrolled loop
-        i0,i1 and i1 = int_add(i0,c), then i0 = i0 + 0, i1 = i0 + 1.
-        They are represented as a linear combination: i*c/d + e, i is a variable,
-        all others are integers that are calculated in reverse direction"""
+        """ The pre pass already builds a hash of memory references and the
+            operations. Since it is in SSA form there are no array indices.
+            If there are two array accesses in the unrolled loop
+            i0,i1 and i1 = int_add(i0,c), then i0 = i0 + 0, i1 = i0 + 1.
+            They are represented as a linear combination: i*c/d + e, i is a variable,
+            all others are integers that are calculated in reverse direction
+        """
         loop = self.loop
         operations = loop.operations
 
@@ -328,6 +329,9 @@ class VectorizingOptimizer(Optimizer):
                             self.packset.add_pack(pair)
 
     def extend_packset(self):
+        """ Follow dependency chains to find more candidates to put into
+            pairs.
+        """
         pack_count = self.packset.pack_count()
         while True:
             for pack in self.packset.packs:
@@ -375,11 +379,11 @@ class VectorizingOptimizer(Optimizer):
 
     def combine_packset(self):
         """ Combination is done iterating the packs that have
-        a sorted op index of the first operation (= left).
-        If a pack is marked as 'full', the next pack that is
-        encountered having the full_pack.right == pack.left,
-        the pack is removed. This is because the packs have
-        intersecting edges.
+            a sorted op index of the first operation (= left).
+            If a pack is marked as 'full', the next pack that is
+            encountered having the full_pack.right == pack.left,
+            the pack is removed. This is because the packs have
+            intersecting edges.
         """
         if len(self.packset.packs) == 0:
             raise NotAVectorizeableLoop()
@@ -445,7 +449,6 @@ class VectorizingOptimizer(Optimizer):
         for pack in self.packset.packs:
             pack.update_pack_of_nodes()
 
-
         if not we_are_translated():
             # some test cases check the accumulation variables
             self.packset.accum_vars = {}
@@ -470,6 +473,10 @@ class VectorizingOptimizer(Optimizer):
                 assert False
 
     def schedule(self, vector=False, sched_data=None):
+        """ Scheduling the trace and emitting vector operations
+            for packed instructions.
+        """
+
         self.clear_newoperations()
         if sched_data is None:
             sched_data = VecScheduleData(self.cpu.vector_register_size,
@@ -520,7 +527,7 @@ class VectorizingOptimizer(Optimizer):
 
     def prepend_invariant_operations(self, sched_data):
         """ Add invariant operations to the trace loop. returns the operation list
-            as first argument and a second a boolean value. it is true if any inva
+            as first argument and a second a boolean value.
         """
         oplist = self._newoperations
 
@@ -552,6 +559,11 @@ class VectorizingOptimizer(Optimizer):
         return oplist
 
     def analyse_index_calculations(self):
+        """ Tries to move guarding instructions an all the instructions that
+            need to be computed for the guard to the loop header. This ensures
+            that guards fail 'early' and relax dependencies. Without this
+            step vectorization would not be possible!
+        """
         ee_pos = self.loop.find_first_index(rop.GUARD_EARLY_EXIT)
         if len(self.loop.operations) <= 2 or ee_pos == -1:
             raise NotAVectorizeableLoop()
@@ -627,6 +639,10 @@ class VectorizingOptimizer(Optimizer):
 
 
 class CostModel(object):
+    """ Utility to estimate the savings for the new trace loop.
+        The main reaons to have this is of frequent unpack instructions,
+        and the missing ability (by design) to detect not vectorizable loops.
+    """
     def __init__(self, threshold, vec_reg_size):
         self.threshold = threshold
         self.vec_reg_size = vec_reg_size
@@ -657,7 +673,6 @@ class CostModel(object):
         return self.savings >= 0
 
 class X86_CostModel(CostModel):
-
     def record_pack_savings(self, pack, times):
         cost, benefit_factor = (1,1)
         node = pack.operations[0]
@@ -693,7 +708,9 @@ class X86_CostModel(CostModel):
         self.record_vector_pack(src, index, count)
 
 def isomorphic(l_op, r_op):
-    """ Subject of definition """
+    """ Subject of definition, here it is equal operation.
+        See limintations (vectorization.rst).
+    """
     if l_op.getopnum() == r_op.getopnum():
         return True
     return False
@@ -716,6 +733,8 @@ class PackSet(object):
         self.packs.append(pack)
 
     def can_be_packed(self, lnode, rnode, origin_pack, forward):
+        """ Check to ensure that two nodes might be packed into a Pair.
+        """
         if isomorphic(lnode.getoperation(), rnode.getoperation()):
             if lnode.independent(rnode):
                 if forward and isinstance(origin_pack, AccumPair):
@@ -782,8 +801,9 @@ class PackSet(object):
         return False
 
     def combine(self, i, j):
-        """ combine two packs. it is assumed that the attribute self.packs
-        is not iterated when calling this method. """
+        """ Combine two packs. it is assumed that the attribute self.packs
+            is not iterated when calling this method.
+        """
         pack_i = self.packs[i]
         pack_j = self.packs[j]
         operations = pack_i.operations
@@ -893,6 +913,4 @@ class PackSet(object):
             # rename the variable with the box
             sched_data.setvector_of_box(accum.getoriginalbox(), 0, result) # prevent it from expansion
             renamer.start_renaming(accum.getoriginalbox(), result)
-            if not we_are_translated():
-                print "renaming accum", accum.getoriginalbox(), "->", result
 
