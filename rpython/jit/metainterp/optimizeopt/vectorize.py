@@ -52,8 +52,6 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         #
         gso = GuardStrengthenOpt(opt.dependency_graph.index_vars, opt.has_two_labels)
         gso.propagate_all_forward(opt.loop, user_code)
-        # connect all compile loop version fail descriptors to this version
-        #version.register_all_guards(loop.operations, opt.appended_arg_count)
         #
         #
         end = time.clock()

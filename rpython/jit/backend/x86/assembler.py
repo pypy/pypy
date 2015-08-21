@@ -569,7 +569,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         fullsize = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(original_loop_token)
-        faildescr.bridge_rawstart = rawstart
+        original_loop_token.rawstart = rawstart
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
         debug_bridge(descr_number, rawstart, codeendpos)

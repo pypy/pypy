@@ -221,7 +221,7 @@ class VectorizeTests:
         assert res == f(60,58.4547) == 58.4547
 
     def test_accum(self):
-        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
         T = lltype.Array(rffi.DOUBLE)
         def f(d, value):
             va = lltype.malloc(T, d, flavor='raw', zero=True)
@@ -239,7 +239,7 @@ class VectorizeTests:
                 i += 1
             lltype.free(va, flavor='raw')
             return r
-        res = self.meta_interp(f, [60,0.5], vec_all=True)
+        res = self.meta_interp(f, [60,0.5], vec=True)
         assert res == f(60,0.5) == 60*0.5
 
 
