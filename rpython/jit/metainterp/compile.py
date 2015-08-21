@@ -199,6 +199,39 @@ def record_loop_or_bridge(metainterp_sd, loop):
 # ____________________________________________________________
 
 
+def compile_simple_loop(metainterp, greenkey, start, inputargs, ops, jumpargs,
+                        enable_opts):
+    from rpython.jit.metainterp.optimizeopt import optimize_trace
+
+    jitdriver_sd = metainterp.jitdriver_sd
+    metainterp_sd = metainterp.staticdata
+    jitcell_token = make_jitcell_token(jitdriver_sd)
+    label = ResOperation(rop.LABEL, inputargs[:], descr=jitcell_token)
+    jump_op = ResOperation(rop.JUMP, jumpargs[:], descr=jitcell_token)
+    call_pure_results = metainterp.call_pure_results
+    data = SimpleCompileData(label, ops + [jump_op],
+                                 call_pure_results=call_pure_results,
+                                 enable_opts=enable_opts)
+    try:
+        loop_info, ops = optimize_trace(metainterp_sd, jitdriver_sd,
+                                        data)
+    except InvalidLoop:
+        return None
+    loop = create_empty_loop(metainterp)
+    loop.original_jitcell_token = jitcell_token
+    loop.inputargs = loop_info.inputargs
+    jump_op = ops[-1]
+    target_token = TargetToken(jitcell_token)
+    target_token.original_jitcell_token = jitcell_token
+    label.setdescr(target_token)
+    jump_op.setdescr(target_token)
+    loop.operations = [label] + ops
+    loop.check_consistency()
+    jitcell_token.target_tokens = [target_token]
+    send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
+    record_loop_or_bridge(metainterp_sd, loop)
+    return target_token
+
 def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                  full_preamble_needed=True, try_disabling_unroll=False):
     """Try to compile a new procedure by closing the current history back
@@ -217,12 +250,14 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         enable_opts = enable_opts.copy()
         del enable_opts['unroll']
 
+    ops = history.operations[start:]
+    if 'unroll' not in enable_opts:
+        return compile_simple_loop(metainterp, greenkey, start, inputargs, ops,
+                                   jumpargs, enable_opts)
     jitcell_token = make_jitcell_token(jitdriver_sd)
-    h_ops = history.operations
     label = ResOperation(rop.LABEL, inputargs,
                          descr=TargetToken(jitcell_token))
     end_label = ResOperation(rop.LABEL, jumpargs, descr=jitcell_token)
-    ops = h_ops[start:]
     call_pure_results = metainterp.call_pure_results
     preamble_data = LoopCompileData(label, end_label, ops,
                                     call_pure_results=call_pure_results,
