@@ -47,8 +47,8 @@ class TestMicroNumPy(BaseTestPyPyC):
             return c.sum()
         """.format(op=op, adtype=adtype, bdtype=bdtype, count=count, a=a, b=b)
         exec py.code.Source(source).compile()
-        vlog = self.run(main, [], vectorize=1)
-        log = self.run(main, [], vectorize=0)
+        vlog = self.run(main, [], vec=1)
+        log = self.run(main, [], vec=0)
         assert log.result == vlog.result
         assert log.result == result
 
