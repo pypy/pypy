@@ -461,7 +461,11 @@ static int close_profile(void)
     close(srcfd);
 #else
     // freebsd and mac
+#if defined(__APPLE__)
+	sprintf(buf, "vmmap %d", getpid());
+#else
     sprintf(buf, "procstat -v %d", getpid());
+#endif
     FILE *srcf = popen(buf, "r");
     if (!srcf)
         return -1;
