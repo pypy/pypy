@@ -636,8 +636,7 @@ class BaseRegalloc(object):
             assert isinstance(box, Box)
             loc = self.fm.get_new_loc(box)
             locs.append(loc.value - base_ofs)
-        if looptoken.compiled_loop_token is not None:
-            # for tests
+        if looptoken.compiled_loop_token is not None:   # <- for tests
             looptoken.compiled_loop_token._ll_initial_locs = locs
 
     def can_merge_with_next_guard(self, op, i, operations):
