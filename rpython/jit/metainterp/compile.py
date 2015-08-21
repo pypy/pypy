@@ -196,6 +196,7 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
         # this assumes that the root trace (= loop) is already compiled
         root = loop.versions[0]
         for faildescr in root.faildescrs:
+            assert isinstance(faildescr, CompileLoopVersionDescr)
             version = faildescr.version
             if not version or version.compiled():
                 continue
@@ -217,6 +218,7 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
                 # to assign it's fail descr
                 continue
             for faildescr in lv.faildescrs:
+                assert isinstance(faildescr, CompileLoopVersionDescr)
                 version = faildescr.version
                 if version and version.compiled():
                     cpu.stitch_bridge(faildescr, version._compiled)
