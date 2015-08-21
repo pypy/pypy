@@ -319,11 +319,12 @@ class GuardBaseTest(SchedulerBaseTest):
         opt = self.optguards(loop1, True)
         self.assert_guard_count(loop1, 2)
         self.assert_contains_sequence(loop1, """
-        i40 = int_ge(42, i2)
-        guard_true(i40) []
         ...
         i10 = int_gt(i1, 42)
         guard_true(i10) []
+        ...
+        i40 = int_gt(i11, i2)
+        guard_true(i40) []
         ...
         """)
 

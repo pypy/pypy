@@ -17,6 +17,11 @@ from rpython.rtyper import rclass
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
 
+class LLAsmInfo(object):
+    def __init__(self, lltrace):
+        self.ops_offset = None
+        self.lltrace = lltrace
+
 class LLTrace(object):
     has_been_freed = False
     invalid = False
@@ -266,7 +271,7 @@ class LLGraphCPU(model.AbstractCPU):
         self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
     def stitch_bridge(self, faildescr, target):
-        faildescr._llgraph_bridge = target
+        faildescr._llgraph_bridge = target.lltrace
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='', logger=None):
@@ -285,7 +290,7 @@ class LLGraphCPU(model.AbstractCPU):
         faildescr._llgraph_bridge = lltrace
         clt._llgraph_alltraces.append(lltrace)
         self._record_labels(lltrace)
-        return lltrace
+        return LLAsmInfo(lltrace)
 
     def _record_labels(self, lltrace):
         for i, op in enumerate(lltrace.operations):
@@ -753,6 +758,13 @@ class LLGraphCPU(model.AbstractCPU):
             values.append(val)
         return values
 
+    def bh_vec_getarrayitem_gc(self, struct, offset, count, descr):
+        values = []
+        for i in range(count):
+            val = self.bh_getarrayitem_gc(struct, offset + i, descr)
+            values.append(val)
+        return values
+
     def bh_vec_raw_load(self, struct, offset, count, descr):
         values = []
         stride = descr.get_item_size_in_bytes()
@@ -770,6 +782,9 @@ class LLGraphCPU(model.AbstractCPU):
         for i,n in enumerate(newvalues):
             self.bh_setarrayitem_raw(struct, offset + i, n, descr)
 
+    def bh_vec_setarrayitem_gc(self, struct, offset, newvalues, descr):
+        for i,n in enumerate(newvalues):
+            self.bh_setarrayitem_gc(struct, offset + i, n, descr)
 
     def store_fail_descr(self, deadframe, descr):
         pass # I *think*

@@ -1006,7 +1006,7 @@ class AsmInfo(object):
     asmlen - assembler block length
     rawstart - address a guard can jump to
     """
-    def __init__(self, ops_offset, asmaddr, asmlen, rawstart):
+    def __init__(self, ops_offset, asmaddr, asmlen, rawstart=0):
         self.ops_offset = ops_offset
         self.asmaddr = asmaddr
         self.asmlen = asmlen
