@@ -97,8 +97,8 @@ class AbstractLLCPU(AbstractCPU):
                                             inputargs, operations,
                                             looptoken, log=log)
 
-    def stitch_bridge(self, faildescr, compiled_faildescr, token):
-        self.assembler.stitch_bridge(faildescr, compiled_faildescr, token)
+    def stitch_bridge(self, faildescr, target):
+        self.assembler.stitch_bridge(faildescr, target)
 
     def _setup_frame_realloc(self, translate_support_code):
         FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF, lltype.Signed],

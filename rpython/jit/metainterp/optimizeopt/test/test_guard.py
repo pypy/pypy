@@ -84,7 +84,7 @@ class GuardBaseTest(SchedulerBaseTest):
             if op.is_guard():
                 op.setdescr(compile.CompileLoopVersionDescr())
         dep = DependencyGraph(loop)
-        opt = GuardStrengthenOpt(dep.index_vars)
+        opt = GuardStrengthenOpt(dep.index_vars, False)
         opt.propagate_all_forward(loop, user_code)
         return opt
 

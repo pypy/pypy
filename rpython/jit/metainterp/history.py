@@ -758,38 +758,7 @@ class LoopVersion(object):
         label = operations[idx]
         self.label_pos = idx
         self.inputargs = label.getarglist()
-
-    def register_all_guards(self, opt_ops, invariant_arg_count=0):
-        from rpython.jit.metainterp.compile import CompileLoopVersionDescr
-        pass_by = 0
-        idx = index_of_first(rop.LABEL, opt_ops)
-        if opt_ops[idx].getdescr() is not opt_ops[-1].getdescr():
-            idx = index_of_first(rop.LABEL, opt_ops, pass_by=1)
-        assert idx >= 0
-        version_failargs = opt_ops[idx].getarglist()
-        if invariant_arg_count > 0:
-            # constant/variable expansion append arguments to the label
-            # if they are not removed, the register allocator cannot
-            # reconstruct the binding if len(inputargs) != len(faillocs)
-            to = len(version_failargs) - invariant_arg_count
-            assert to >= 0
-            version_failargs = version_failargs[:to]
-
-        for op in opt_ops:
-            if op.is_guard():
-                assert isinstance(op, GuardResOp)
-                descr = op.getdescr()
-                if descr.loop_version():
-                    assert isinstance(descr, CompileLoopVersionDescr)
-                    if descr.version is None:
-                        # currently there is only ONE versioning,
-                        # that is the original loop after unrolling.
-                        # if there are more possibilites, let the descr
-                        # know which loop version he preferes
-                        descr.version = self
-                        self.faildescrs.append(descr)
-                        op.setfailargs(version_failargs)
-                        op.rd_snapshot = None
+        self.compiled = None
 
     def register_guard(self, op):
         from rpython.jit.metainterp.compile import CompileLoopVersionDescr
@@ -798,8 +767,6 @@ class LoopVersion(object):
         assert isinstance(descr, CompileLoopVersionDescr)
         descr.version = self
         self.faildescrs.append(descr)
-        op.setfailargs(self.inputargs)
-        op.rd_snapshot = None
 
     def update_token(self, jitcell_token, all_target_tokens):
         # this is only invoked for versioned loops!
@@ -892,8 +859,14 @@ class TreeLoop(object):
         return self.operations
 
     def find_first_index(self, opnum, pass_by=0):
-        """ return the first operation having the same opnum or -1 """
+        """ return the first index of the operation having the same opnum or -1 """
         return index_of_first(opnum, self.operations, pass_by)
+
+    def find_first(self, opnum, pass_by=0):
+        index = self.find_first_index(opnum, pass_by)
+        if index != -1:
+            return self.operations[index]
+        return None
 
     def snapshot(self):
         version = LoopVersion(self.copy_operations())
@@ -901,7 +874,7 @@ class TreeLoop(object):
         return version
 
     def copy_operations(self):
-        from rpython.jit.metainterp.compile import ResumeGuardDescr
+        from rpython.jit.metainterp.compile import ResumeGuardDescr, CompileLoopVersionDescr
         ignore = (rop.DEBUG_MERGE_POINT,)
         operations = []
         for op in self.operations:
@@ -913,6 +886,8 @@ class TreeLoop(object):
             if cloned.is_guard() and descr:
                 assert isinstance(descr, ResumeGuardDescr)
                 cloned.setdescr(descr.clone())
+                if isinstance(descr, CompileLoopVersionDescr):
+                    descr.version.register_guard(cloned)
         return operations
 
     def get_display_text(self):    # for graphpage.py

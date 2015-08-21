@@ -856,34 +856,6 @@ class VecScheduleData(SchedulerData):
         assert not isinstance(box, BoxVector)
         self.box_to_vbox[box] = (off, vector)
 
-    def prepend_invariant_operations(self, oplist, orig_label_args):
-        if len(self.invariant_oplist) > 0:
-            label = oplist[0]
-            assert label.getopnum() == rop.LABEL
-            #
-            jump = oplist[-1]
-            assert jump.getopnum() == rop.JUMP
-            #
-            label_args = label.getarglist()[:]
-            jump_args = jump.getarglist()
-            for var in self.invariant_vector_vars:
-                label_args.append(var)
-                jump_args.append(var)
-            #
-            # in case of any invariant_vector_vars, the label is restored
-            # and the invariant operations are added between the original label
-            # and the new label
-            descr = label.getdescr()
-            assert isinstance(descr, TargetToken)
-            token = TargetToken(descr.targeting_jitcell_token)
-            oplist[0] = label.copy_and_change(label.getopnum(), args=label_args, descr=token)
-            oplist[-1] = jump.copy_and_change(jump.getopnum(), args=jump_args, descr=token)
-            #
-            return [ResOperation(rop.LABEL, orig_label_args, None, descr)] + \
-                   self.invariant_oplist + oplist
-        #
-        return oplist
-
 class Pack(object):
     """ A pack is a set of n statements that are:
         * isomorphic

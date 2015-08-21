@@ -265,8 +265,8 @@ class LLGraphCPU(model.AbstractCPU):
         self.stats = stats or MiniStats()
         self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
-    def stitch_bridge(self, faildescr, compiled_faildescr, jitcell_token):
-        faildescr._llgraph_bridge = compiled_faildescr._llgraph_bridge
+    def stitch_bridge(self, faildescr, target):
+        faildescr._llgraph_bridge = target
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='', logger=None):
@@ -285,6 +285,7 @@ class LLGraphCPU(model.AbstractCPU):
         faildescr._llgraph_bridge = lltrace
         clt._llgraph_alltraces.append(lltrace)
         self._record_labels(lltrace)
+        return lltrace
 
     def _record_labels(self, lltrace):
         for i, op in enumerate(lltrace.operations):

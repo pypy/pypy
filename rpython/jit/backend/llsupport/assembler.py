@@ -35,7 +35,6 @@ class GuardToken(object):
         self.exc = exc
         self.is_guard_not_invalidated = is_guard_not_invalidated
         self.is_guard_not_forced = is_guard_not_forced
-        self.rawstart = 0
 
     def compute_gcmap(self, gcmap, failargs, fail_locs, frame_depth):
         # note that regalloc has a very similar compute, but
@@ -70,7 +69,7 @@ class BaseAssembler(object):
         self.rtyper = cpu.rtyper
         self._debug = False
 
-    def stitch_bridge(self, faildescr, compiled_faildescr, token):
+    def stitch_bridge(self, faildescr, target):
         raise NotImplementedError
 
     def setup_once(self):

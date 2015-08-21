@@ -49,10 +49,11 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
         #
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, 0)
         opt.propagate_all_forward()
-        gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
+        #
+        gso = GuardStrengthenOpt(opt.dependency_graph.index_vars, opt.has_two_labels)
         gso.propagate_all_forward(opt.loop, user_code)
         # connect all compile loop version fail descriptors to this version
-        version.register_all_guards(loop.operations, opt.appended_arg_count)
+        #version.register_all_guards(loop.operations, opt.appended_arg_count)
         #
         #
         end = time.clock()
@@ -135,6 +136,7 @@ class VectorizingOptimizer(Optimizer):
         self.costmodel = X86_CostModel(cost_threshold, self.cpu.vector_register_size)
         self.appended_arg_count = 0
         self.orig_label_args = None
+        self.has_two_labels = False
 
     def propagate_all_forward(self, clear=True):
         self.clear_newoperations()
@@ -503,10 +505,45 @@ class VectorizingOptimizer(Optimizer):
                     accum = arg.getaccum()
                     if accum:
                         accum.save_to_descr(op.getdescr(),i)
-        self.loop.operations = \
-            sched_data.prepend_invariant_operations(self._newoperations,
-                                                    self.orig_label_args)
+            self.has_two_labels = len(sched_data.invariant_oplist) > 0
+            self.loop.operations = self.prepend_invariant_operations(sched_data)
+        else:
+            self.loop.operations = self._newoperations
+        
         self.clear_newoperations()
+
+    def prepend_invariant_operations(self, sched_data):
+        """ Add invariant operations to the trace loop. returns the operation list
+            as first argument and a second a boolean value. it is true if any inva
+        """
+        oplist = self._newoperations
+
+        if len(sched_data.invariant_oplist) > 0:
+            label = oplist[0]
+            assert label.getopnum() == rop.LABEL
+            #
+            jump = oplist[-1]
+            assert jump.getopnum() == rop.JUMP
+            #
+            label_args = label.getarglist()[:]
+            jump_args = jump.getarglist()
+            for var in sched_data.invariant_vector_vars:
+                label_args.append(var)
+                jump_args.append(var)
+            #
+            # in case of any invariant_vector_vars, the label is restored
+            # and the invariant operations are added between the original label
+            # and the new label
+            descr = label.getdescr()
+            assert isinstance(descr, TargetToken)
+            token = TargetToken(descr.targeting_jitcell_token)
+            oplist[0] = label.copy_and_change(label.getopnum(), args=label_args, descr=token)
+            oplist[-1] = jump.copy_and_change(jump.getopnum(), args=jump_args, descr=token)
+            #
+            return [ResOperation(rop.LABEL, self.orig_label_args, None, descr)] + \
+                   sched_data.invariant_oplist + oplist
+        #
+        return oplist
 
     def analyse_index_calculations(self):
         ee_pos = self.loop.find_first_index(rop.GUARD_EARLY_EXIT)
@@ -580,7 +617,6 @@ class VectorizingOptimizer(Optimizer):
             descr.copy_all_attributes_from(olddescr)
         #
         tgt_op.setdescr(descr)
-        tgt_op.rd_snapshot = op.rd_snapshot
         tgt_op.setfailargs(op.getfailargs()[:])
 
 

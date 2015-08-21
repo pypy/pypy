@@ -322,7 +322,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             if accum:
                 loc = self.loc(accum.getoriginalbox())
                 faillocs.append(loc)
-                import pdb; pdb.set_trace()
                 self.update_accumulation_loc(arg, accum, descr, i)
             else:
                 faillocs.append(self.loc(arg))

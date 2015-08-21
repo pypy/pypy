@@ -222,17 +222,19 @@ class VectorizeTests:
 
     def test_accum(self):
         myjitdriver = JitDriver(greens = [], reds = 'auto')
-        T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
+        T = lltype.Array(rffi.DOUBLE)
         def f(d, value):
             va = lltype.malloc(T, d, flavor='raw', zero=True)
             for i in range(d):
                 va[i] = value
             r = 0
             i = 0
+            k = d + 2
+            # in this case a guard k <= d is inserted which fails right away!
             while i < d:
                 myjitdriver.jit_merge_point()
-                if not(i < d):
-                    raise IndexError
+                #if not(i < k):
+                #    k -= 1
                 r += va[i]
                 i += 1
             lltype.free(va, flavor='raw')

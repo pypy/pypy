@@ -10,7 +10,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.jit.metainterp.history import (ConstInt, BoxVector, 
         BoxFloat, BoxInt, ConstFloat, Box, Const)
-from rpython.jit.metainterp.compile import ResumeGuardDescr
+from rpython.jit.metainterp.compile import ResumeGuardDescr, CompileLoopVersionDescr
 from rpython.rlib.objectmodel import we_are_translated
 
 class Guard(object):
@@ -70,7 +70,7 @@ class Guard(object):
                 return (lc <= 0 and rc >= 0)
         return False
 
-    def transitive_imply(self, other, opt):
+    def transitive_imply(self, other, opt, loop):
         if self.op.getopnum() != other.op.getopnum():
             # stronger restriction, intermixing e.g. <= and < would be possible
             return None
@@ -91,6 +91,8 @@ class Guard(object):
         assert isinstance(descr, ResumeGuardDescr)
         guard.setdescr(descr.clone())
         guard.setarg(0, box_result)
+        label = loop.find_first(rop.LABEL)
+        guard.setfailargs(label.getarglist())
         opt.emit_operation(guard)
 
         return guard
@@ -149,6 +151,10 @@ class Guard(object):
     def set_to_none(self, operations):
         assert operations[self.index] is self.op
         operations[self.index] = None
+        descr = self.op.getdescr()
+        if isinstance(descr, CompileLoopVersionDescr) and descr.version:
+            descr.version.faildescrs.remove(descr)
+            descr.version = None
         if operations[self.index-1] is self.cmp_op:
             operations[self.index-1] = None
 
@@ -171,12 +177,14 @@ class Guard(object):
         return Guard(index, guard_op, cmp_op, index_vars)
 
 class GuardStrengthenOpt(object):
-    def __init__(self, index_vars):
+    """ Note that this optimization is only used in the vector optimizer (yet) """
+    def __init__(self, index_vars, has_two_labels):
         self.index_vars = index_vars
         self._newoperations = []
         self.strength_reduced = 0 # how many guards could be removed?
         self.strongest_guards = {}
         self.guards = {}
+        self.has_two_labels = has_two_labels
 
     def collect_guard_information(self, loop):
         operations = loop.operations
@@ -256,8 +264,18 @@ class GuardStrengthenOpt(object):
         # the guards are ordered. guards[i] is before guards[j] iff i < j
         self.collect_guard_information(loop)
         self.eliminate_guards(loop)
+        #
+        assert len(loop.versions) == 1, "none or more than one version created"
+        version = loop.versions[0]
 
-        if user_code or True:
+        for op in loop.operations:
+            if not op.is_guard():
+                continue
+            descr = op.getdescr()
+            if isinstance(descr, CompileLoopVersionDescr):
+                version.register_guard(op)
+
+        if user_code and False:
             version = loop.snapshot()
             self.eliminate_array_bound_checks(loop, version)
 
@@ -278,11 +296,16 @@ class GuardStrengthenOpt(object):
             # iff we add invariant guards
             one = guards[0]
             for other in guards[1:]:
-                transitive_guard = one.transitive_imply(other, self)
+                transitive_guard = one.transitive_imply(other, self, loop)
                 if transitive_guard:
                     other.set_to_none(loop.operations)
                     version.register_guard(transitive_guard)
 
-        loop.operations = self._newoperations + \
-                [op for op in loop.operations if op]
+        if self.has_two_labels:
+            oplist = [loop.operations[0]] + self._newoperations + \
+                     [op for op in loop.operations[1:] if op]
+            loop.operations = oplist
+        else:
+            loop.operations = self._newoperations + \
+                    [op for op in loop.operations if op]
 
