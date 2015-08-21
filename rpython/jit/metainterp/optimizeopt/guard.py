@@ -264,16 +264,17 @@ class GuardStrengthenOpt(object):
         self.collect_guard_information(loop)
         self.eliminate_guards(loop)
         #
-        assert len(loop.versions) == 2, "need one orignal loop version (before trans) and the current one"
-        root_version = loop.versions[0]
-        version = loop.versions[1]
+        if len(loop.versions) >= 2:
+            assert len(loop.version) == 2
+            root_version = loop.versions[0]
+            version = loop.versions[1]
 
-        for op in loop.operations:
-            if not op.is_guard():
-                continue
-            descr = op.getdescr()
-            if descr.loop_version():
-                root_version.register_guard(op, version)
+            for op in loop.operations:
+                if not op.is_guard():
+                    continue
+                descr = op.getdescr()
+                if descr.loop_version():
+                    root_version.register_guard(op, version)
 
         if user_code:
             version = loop.snapshot()

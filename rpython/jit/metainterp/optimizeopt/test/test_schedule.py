@@ -184,7 +184,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         v10[i64|2] = vec_box(2)
         v20[i64|2] = vec_int_pack(v10[i64|2], i0, 0, 1)
         v30[i64|2] = vec_int_pack(v20[i64|2], i1, 1, 1)
-        v40[i64|2] = vec_int_expand(73)
+        v40[i64|2] = vec_int_expand(73,2)
         #
         v50[i64|2] = vec_int_add(v30[i64|2], v40[i64|2])
         """, False)
@@ -200,7 +200,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         v10[f64|2] = vec_box(2)
         v20[f64|2] = vec_float_pack(v10[f64|2], f0, 0, 1)
         v30[f64|2] = vec_float_pack(v20[f64|2], f1, 1, 1)
-        v40[f64|2] = vec_float_expand(73.0)
+        v40[f64|2] = vec_float_expand(73.0,2)
         #
         v50[f64|2] = vec_float_add(v30[f64|2], v40[f64|2])
         """, False)
@@ -220,7 +220,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         v10[f64|2] = vec_box(2)
         v20[f64|2] = vec_float_pack(v10[f64|2], f0, 0, 1)
         v30[f64|2] = vec_float_pack(v20[f64|2], f1, 1, 1)
-        v40[f64|2] = vec_float_expand(f5) # only expaned once
+        v40[f64|2] = vec_float_expand(f5,2) # only expaned once
         #
         v50[f64|2] = vec_float_add(v30[f64|2], v40[f64|2])
         v60[f64|2] = vec_float_add(v50[f64|2], v40[f64|2])
@@ -367,7 +367,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack3 = self.pack(loop1, 4, 6, I64, None)
         loop2 = self.schedule(loop1, [pack1,pack2,pack3], prepend_invariant=True)
         loop3 = self.parse("""
-        v9[i64|2] = vec_int_expand(255)
+        v9[i64|2] = vec_int_expand(255,2)
         v10[i64|2] = vec_raw_load(p0, i1, 2, descr=long)
         v11[i64|2] = vec_int_and(v10[i64|2], v9[i64|2])
         guard_true(v11[i64|2]) []
@@ -404,8 +404,8 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack1 = self.pack(loop1, 0, 2, I64, I64)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse("""
-        v1[i64|2] = vec_int_expand(255)
-        v2[i64|2] = vec_int_expand(i1)
+        v1[i64|2] = vec_int_expand(255,2)
+        v2[i64|2] = vec_int_expand(i1,2)
         v3[i64|2] = vec_int_and(v1[i64|2], v2[i64|2])
         """, False)
         self.assert_equal(loop2, loop3)
@@ -418,8 +418,8 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack1 = self.pack(loop1, 0, 2, I64, I64)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse("""
-        v1[i64|2] = vec_int_expand(255)
-        v2[i64|2] = vec_int_expand(i1)
+        v1[i64|2] = vec_int_expand(255, 2)
+        v2[i64|2] = vec_int_expand(i1, 2)
         v3[i64|2] = vec_int_and(v1[i64|2], v2[i64|2])
         """, False)
         self.assert_equal(loop2, loop3)
@@ -437,7 +437,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack4 = self.pack(loop1, 4, 6, I64, I64)
         loop2 = self.schedule(loop1, [pack1,pack4], prepend_invariant=True)
         loop3 = self.parse("""
-        v1[i64|2] = vec_int_expand(255)
+        v1[i64|2] = vec_int_expand(255,2)
         v2[i64|2] = vec_box(2)
         v3[i64|2] = vec_int_pack(v2[i64|2], i1, 0, 1)
         v4[i64|2] = vec_int_pack(v3[i64|2], i2, 1, 1)

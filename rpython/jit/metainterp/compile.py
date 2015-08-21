@@ -191,7 +191,7 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
     """
     metainterp_sd = metainterp.staticdata
     cpu = metainterp_sd.cpu
-    if loop.versions is not None:
+    if loop.versions:
         # compile each version once for the first fail descr!
         # this assumes that the root trace (= loop) is already compiled
         root = loop.versions[0]

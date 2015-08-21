@@ -134,7 +134,7 @@ class VecTestHelper(DependencyBaseTest):
         opt.combine_packset()
         opt.schedule(True)
         if with_guard_opt:
-            gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
+            gso = GuardStrengthenOpt(opt.dependency_graph.index_vars, opt.has_two_labels)
             gso.propagate_all_forward(opt.loop)
         return opt
 
@@ -147,7 +147,7 @@ class VecTestHelper(DependencyBaseTest):
         opt.schedule(True)
         if not opt.costmodel.profitable():
             raise NotAProfitableLoop()
-        gso = GuardStrengthenOpt(opt.dependency_graph.index_vars)
+        gso = GuardStrengthenOpt(opt.dependency_graph.index_vars, opt.has_two_labels)
         gso.propagate_all_forward(opt.loop)
         return opt
 
@@ -988,7 +988,7 @@ class BaseTestVectorize(VecTestHelper):
         opt="""
         [p0,i0]
         label(p0,i0)
-        v3 = vec_int_expand(42)
+        v3 = vec_int_expand(42, 2)
         label(p0,i0,v3)
         i20 = int_add(i0, 1)
         i30 = int_lt(i20, 10)
@@ -1018,7 +1018,7 @@ class BaseTestVectorize(VecTestHelper):
         opt="""
         [p0,i0,f3]
         label(p0,i0,f3)
-        v3 = vec_float_expand(f3)
+        v3 = vec_float_expand(f3,2)
         label(p0,i0,f3,v3)
         i20 = int_add(i0, 1)
         i30 = int_lt(i20, 10)
@@ -1412,7 +1412,7 @@ class BaseTestVectorize(VecTestHelper):
         guard_false(i33, descr=<ResumeGuardFalseDescr object at 0x7f89c54cddc0>) [p1, p0, p6, p7, i29, None, None]
         jump(p0, p1, p6, p7, i29, p14, p15)
         """        
-        opt = self.schedule(self.parse_loop(trace))
+        #opt = self.schedule(self.parse_loop(trace))
         #self.debug_print_operations(opt.loop)
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
