@@ -758,6 +758,7 @@ class LoopVersion(object):
         label = operations[idx]
         self.label_pos = idx
         self.inputargs = label.getarglist()
+        self.renamed_inputargs = label.getarglist()
         self.compiled = None
 
     def register_guard(self, op):
@@ -767,6 +768,9 @@ class LoopVersion(object):
         assert isinstance(descr, CompileLoopVersionDescr)
         descr.version = self
         self.faildescrs.append(descr)
+        # note: stitching a guard must resemble the order of the label
+        # otherwise a wrong mapping is handed to the register allocator
+        op.setfailargs(self.renamed_inputargs)
 
     def update_token(self, jitcell_token, all_target_tokens):
         # this is only invoked for versioned loops!

@@ -493,6 +493,9 @@ class VectorizingOptimizer(Optimizer):
             return
         if vector:
             # add accumulation info to the descriptor
+            for version in self.loop.versions:
+                # this needs to be done for renamed (accum arguments)
+                version.renamed_inputargs = [ renamer.rename_map.get(arg,arg) for arg in version.inputargs ]
             self.appended_arg_count = len(sched_data.invariant_vector_vars)
             for guard_node in self.dependency_graph.guards:
                 op = guard_node.getoperation()
