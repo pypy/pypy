@@ -272,10 +272,10 @@ class GuardStrengthenOpt(object):
             if not op.is_guard():
                 continue
             descr = op.getdescr()
-            if isinstance(descr, CompileLoopVersionDescr):
+            if descr.loop_version():
                 version.register_guard(op)
 
-        if user_code and False:
+        if user_code:
             version = loop.snapshot()
             self.eliminate_array_bound_checks(loop, version)
 

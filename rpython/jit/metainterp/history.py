@@ -746,7 +746,6 @@ def index_of_first(opnum, operations, pass_by=0):
                 pass_by -= 1
     return -1
 
-
 class LoopVersion(object):
 
     def __init__(self, operations):
@@ -766,8 +765,8 @@ class LoopVersion(object):
         assert isinstance(op, GuardResOp)
         descr = op.getdescr()
         assert isinstance(descr, CompileLoopVersionDescr)
-        descr.version = self
         self.faildescrs.append(descr)
+        descr.version = self
         # note: stitching a guard must resemble the order of the label
         # otherwise a wrong mapping is handed to the register allocator
         op.setfailargs(self.renamed_inputargs)
@@ -873,12 +872,18 @@ class TreeLoop(object):
         return None
 
     def snapshot(self):
-        version = LoopVersion(self.copy_operations())
+        faildescrs = []
+        version = LoopVersion(self.copy_operations(faildescrs))
+        version.faildescrs = faildescrs
+        if not we_are_translated():
+            print "LOOP SNAPSHOT"
+            for op in version.operations:
+                print "", op
         self.versions.append(version)
         return version
 
-    def copy_operations(self):
-        from rpython.jit.metainterp.compile import ResumeGuardDescr, CompileLoopVersionDescr
+    def copy_operations(self, faildescrs=None):
+        from rpython.jit.metainterp.compile import ResumeGuardDescr
         ignore = (rop.DEBUG_MERGE_POINT,)
         operations = []
         for op in self.operations:
@@ -890,8 +895,8 @@ class TreeLoop(object):
             if cloned.is_guard() and descr:
                 assert isinstance(descr, ResumeGuardDescr)
                 cloned.setdescr(descr.clone())
-                if isinstance(descr, CompileLoopVersionDescr):
-                    descr.version.register_guard(cloned)
+                if faildescrs and descr.loop_version():
+                    faildescrs.append(cloned.getdescr())
         return operations
 
     def get_display_text(self):    # for graphpage.py

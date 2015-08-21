@@ -202,14 +202,17 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
             vl.inputargs = version.inputargs
             vl.operations = version.operations
             vl.original_jitcell_token = jitcell_token
-            send_bridge_to_backend(jitdriver_sd, metainterp_sd,
+            asminfo = send_bridge_to_backend(jitdriver_sd, metainterp_sd,
                                    faildescr, version.inputargs,
                                    version.operations, jitcell_token)
             record_loop_or_bridge(metainterp_sd, vl)
+            assert asminfo is not None
+            version.compiled = asminfo
         # stitch the rest of the traces
         for version in loop.versions:
             for faildescr in version.faildescrs[1:]:
-                cpu.stitch_bridge(faildescr, jitcell_token)
+                if faildescr.version.compiled:
+                    cpu.stitch_bridge(faildescr, version.compiled)
     loop.versions = None
 
 def compile_retrace(metainterp, greenkey, start,
@@ -441,6 +444,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     #if metainterp_sd.warmrunnerdesc is not None:    # for tests
     #    metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(
     #        original_loop_token)
+    return asminfo
 
 # ____________________________________________________________
 
@@ -745,11 +749,6 @@ class CompileLoopVersionDescr(ResumeGuardDescr):
 
     def loop_version(self):
         return True
-
-    def clone(self):
-        cloned = ResumeGuardDescr.clone(self)
-        cloned.version = self.version
-        return cloned
 
 class AllVirtuals:
     llopaque = True

@@ -1004,11 +1004,13 @@ class AsmInfo(object):
     ops_offset - dict of offsets of operations or None
     asmaddr - (int) raw address of assembler block
     asmlen - assembler block length
+    rawstart - address a guard can jump to
     """
-    def __init__(self, ops_offset, asmaddr, asmlen):
+    def __init__(self, ops_offset, asmaddr, asmlen, rawstart):
         self.ops_offset = ops_offset
         self.asmaddr = asmaddr
         self.asmlen = asmlen
+        self.rawstart = rawstart
 
 class JitDebugInfo(object):
     """ An object representing debug info. Attributes meanings:

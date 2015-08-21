@@ -233,8 +233,8 @@ class VectorizeTests:
             # in this case a guard k <= d is inserted which fails right away!
             while i < d:
                 myjitdriver.jit_merge_point()
-                #if not(i < k):
-                #    k -= 1
+                if not(i < k):
+                    k -= 1
                 r += va[i]
                 i += 1
             lltype.free(va, flavor='raw')
