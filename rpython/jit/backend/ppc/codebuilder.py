@@ -2,7 +2,6 @@ import os
 from rpython.jit.backend.ppc.ppc_form import PPCForm as Form
 from rpython.jit.backend.ppc.locations import RegisterLocation
 from rpython.jit.backend.ppc.ppc_field import ppc_fields
-from rpython.jit.backend.ppc.assembler import Assembler
 from rpython.jit.backend.ppc.arch import (IS_PPC_32, WORD, IS_PPC_64, 
                                        LR_BC_OFFSET)
 import rpython.jit.backend.ppc.register as r
@@ -54,7 +53,7 @@ MB = Form("rA", "rS", "rB", "MB", "ME", "Rc")
 MDI = Form("rA", "rS", "sh", "mbe", "XO5", "Rc")
 MDS = Form("rA", "rS", "rB", "mbe", "XO7", "Rc")
 
-class BasicPPCAssembler(Assembler):
+class BasicPPCAssembler(object):
 
     def disassemble(cls, inst, labels={}, pc=0):
         cache = cls.__dict__.get('idesc cache')
@@ -1132,11 +1131,6 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.slw(target_reg, from_reg, numbit_reg)
         else:
             self.sld(target_reg, from_reg, numbit_reg)
-
-    def prepare_insts_blocks(self, show=False):
-        insts = self.insts
-        for inst in insts:
-            self.write32(inst)
 
     def _dump_trace(self, addr, name, formatter=-1):
         if not we_are_translated():

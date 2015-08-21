@@ -424,7 +424,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         mc.addi(r.SP.value, r.SP.value, frame_size)
         mc.b_abs(self.propagate_exception_path)
 
-        mc.prepare_insts_blocks()
         rawstart = mc.materialize(self.cpu, [])
         # here we do not need a function descr. This is being only called using
         # an internal ABI
@@ -526,7 +525,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         mc.addi(r.SP.value, r.SP.value, both_framesizes)
         mc.blr()
 
-        mc.prepare_insts_blocks()
         rawstart = mc.materialize(self.cpu, [])
         if IS_PPC_64:
             self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
@@ -584,7 +582,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         mc.addi(r.SP.value, r.SP.value, frame_size)
         mc.blr()
         #
-        mc.prepare_insts_blocks()
         rawstart = mc.materialize(self.cpu, [])
         self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
@@ -598,7 +595,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
 
         mc.load_imm(r.RES, self.cpu.propagate_exception_descr)
         self._gen_epilogue(mc)
-        mc.prepare_insts_blocks()
         self.propagate_exception_path = mc.materialize(self.cpu, [])
 
     # The code generated here serves as an exit stub from
@@ -629,7 +625,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         # generate return and restore registers
         self._gen_epilogue(mc)
 
-        mc.prepare_insts_blocks()
         return mc.materialize(self.cpu, [], self.cpu.gc_ll_descr.gcrootmap)
 
     def _gen_epilogue(self, mc):
@@ -945,7 +940,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         frame_depth -= self.OFFSET_SPP_TO_OLD_BACKCHAIN
         mc.load_imm(r.SCRATCH, -frame_depth)
         mc.add(r.SP.value, r.SPP.value, r.SCRATCH.value)
-        mc.prepare_insts_blocks()
         mc.copy_to_raw_memory(rawstart + sp_patch_location)
 
     DESCR_REF       = 0x00
@@ -1051,7 +1045,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         return looptoken._ppc_arglocs
 
     def materialize_loop(self, looptoken, show=False):
-        self.mc.prepare_insts_blocks(show)
         self.datablockwrapper.done()
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
@@ -1099,7 +1092,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
                 mc = PPCBuilder()
                 offset = tok.pos_recovery_stub - tok.offset
                 mc.b_cond_offset(offset, tok.fcond)
-                mc.prepare_insts_blocks(True)
                 mc.copy_to_raw_memory(block_start + tok.offset)
             else:
                 clt.invalidate_positions.append((block_start + tok.offset,
@@ -1111,7 +1103,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         mc = PPCBuilder()
         patch_addr = faildescr._ppc_block_start + faildescr._ppc_guard_pos
         mc.b_abs(bridge_addr)
-        mc.prepare_insts_blocks()
         mc.copy_to_raw_memory(patch_addr)
         faildescr._failure_recovery_code_ofs = 0
 

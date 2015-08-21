@@ -61,6 +61,8 @@ def make_func(name, desc):
     return d[name]
 
 def make_rassembler(cls):
+    # XXX tooons of very-old code patched to get medium-old code patched
+    # to get newer code :-(
     bases = [make_rassembler(b) for b in cls.__bases__]
     ns = {}
     for k, v in cls.__dict__.iteritems():
@@ -69,6 +71,6 @@ def make_rassembler(cls):
         ns[k] = v
     rcls = type('R' + cls.__name__, tuple(bases), ns)
     def emit(self, value):
-        self.insts.append(value)
+        self.write32(value)
     rcls.emit = emit
     return rcls
