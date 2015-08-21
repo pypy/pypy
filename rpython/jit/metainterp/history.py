@@ -910,10 +910,6 @@ class TreeLoop(object):
             self.versions.append(LoopVersion(None))
         root_version = self.versions[0]
         version = LoopVersion(self)
-        if not we_are_translated():
-            print "LOOP SNAPSHOT"
-            for op in version.operations:
-                print "", op
         self.versions.append(version)
         return version
 
