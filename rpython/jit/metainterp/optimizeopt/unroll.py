@@ -6,7 +6,7 @@ from rpython.jit.metainterp.optimizeopt import info, intutils
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
      Optimization, LoopInfo, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
-    VirtualStateConstructor)
+    VirtualStateConstructor, VirtualStatesCantMatch)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 
 class UnrollableOptimizer(Optimizer):
@@ -90,7 +90,7 @@ class UnrollOptimizer(Optimization):
         self._check_no_forwarding([[start_label, end_label], ops])
         info, newops = self.optimizer.propagate_all_forward(
             start_label.getarglist()[:], ops, call_pure_results)
-        exported_state = self.export_state(start_label, end_label,
+        exported_state = self.export_state(start_label, end_label.getarglist(),
                                            info.inputargs)
         # we need to absolutely make sure that we've cleaned up all
         # the optimization info
@@ -137,25 +137,43 @@ class UnrollOptimizer(Optimization):
             start_label.getarglist()[:], operations[:-1],
             call_pure_results, True)
         jump_op = operations[-1]
-        self.jump_to_existing_trace(jump_op, inline_short_preamble)
-        return info, self.optimizer._newoperations[:]
+        vs = self.jump_to_existing_trace(jump_op, inline_short_preamble)
+        if vs is None:
+            return info, self.optimizer._newoperations[:]
+        exported_state = self.export_state(start_label,
+                                           operations[-1].getarglist(),
+                                           info.inputargs)
+        self.optimizer._clean_optimization_info(self.optimizer._newoperations)
+        return exported_state, self.optimizer._newoperations
 
     def jump_to_existing_trace(self, jump_op, inline_short_preamble):
         jitcelltoken = jump_op.getdescr()
         args = [self.get_box_replacement(op) for op in jump_op.getarglist()]
-        target_token = jitcelltoken.target_tokens[0]
         virtual_state = self.get_virtual_state(args)
-        target_virtual_state = target_token.virtual_state
-        
-        short_preamble = target_token.short_preamble
-        extra = self.inline_short_preamble(args,
-            short_preamble[0].getarglist(), short_preamble[1:-1],
-            short_preamble[-1].getarglist(), self.optimizer.patchguardop)
-        self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
-                                  args=args + extra,
-                                  descr=jitcelltoken.target_tokens[0]))
+        infos = [self.optimizer.getinfo(arg) for arg in args]
+        for target_token in jitcelltoken.target_tokens:
+            target_virtual_state = target_token.virtual_state
+            if target_virtual_state is None:
+                continue
+            try:
+                extra_guards = target_virtual_state.generate_guards(
+                    virtual_state, args, infos, self.optimizer.cpu)
+                assert not extra_guards.extra_guards
+            except VirtualStatesCantMatch:
+                continue
+            short_preamble = target_token.short_preamble
+            extra = self.inline_short_preamble(args,
+                short_preamble[0].getarglist(), short_preamble[1:-1],
+                short_preamble[-1].getarglist(), self.optimizer.patchguardop)
+            self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
+                                      args=args + extra,
+                                      descr=target_token))
+            return None # explicit because the return can be non-None
+        return virtual_state
 
     def filter_extra_jump_args(self, label_args, jump_args):
+        label_args = [self.get_box_replacement(x) for x in label_args]
+        jump_args = [self.get_box_replacement(x) for x in jump_args]
         new_label_args = []
         new_jump_args = []
         assert len(label_args) == len(jump_args)
@@ -190,8 +208,7 @@ class UnrollOptimizer(Optimization):
             op.set_forwarded(None)
         return res
 
-    def export_state(self, start_label, end_label, renamed_inputargs):
-        original_label_args = end_label.getarglist()
+    def export_state(self, start_label, original_label_args, renamed_inputargs):
         end_args = [self.get_box_replacement(a) for a in original_label_args]
         virtual_state = self.get_virtual_state(end_args)
         inparg_mapping = [(start_label.getarg(i), end_args[i])
@@ -222,13 +239,15 @@ class UnrollOptimizer(Optimization):
     def import_state(self, targetop, exported_state):
         # the mapping between input args (from old label) and what we need
         # to actually emit. Update the info
-        for source, target in exported_state.inputarg_mapping:
-            if source is not target:
-                source.set_forwarded(target)
-            info = exported_state.exported_infos.get(target, None)
+        assert len(exported_state.inputarg_mapping) == len(targetop.getarglist())
+        for i, (s, target) in enumerate(exported_state.inputarg_mapping):
+            source = targetop.getarg(i)
+            assert source is not target
+            source.set_forwarded(target)
+            info = exported_state.exported_infos.get(source, None)
             if info is not None:
                 self.optimizer.setinfo_from_preamble(source, info,
-                                        exported_state.exported_infos)
+                                            exported_state.exported_infos)
         # import the optimizer state, starting from boxes that can be produced
         # by short preamble
         self.short_preamble_producer = ShortPreambleBuilder(
@@ -262,6 +281,9 @@ class UnrollInfo(LoopInfo):
         self.short_preamble = short_preamble
         self.label_args = label_args
         self.extra_same_as = extra_same_as
+
+    def final(self):
+        return True
             
 class ExportedState(LoopInfo):
     """ Exported state consists of a few pieces of information:
@@ -289,3 +311,6 @@ class ExportedState(LoopInfo):
         self.short_boxes = short_boxes
         self.renamed_inputargs = renamed_inputargs
         self.short_inputargs = short_inputargs
+
+    def final(self):
+        return False

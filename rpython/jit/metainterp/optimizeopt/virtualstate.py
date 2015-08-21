@@ -127,6 +127,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
             if box is not None:
                 fieldbox = opinfo._fields[self.fielddescrs[i].get_index()]
                 # must be there
+                xxx
                 fieldinfo = fieldbox.get_forwarded()
             else:
                 fieldbox = None
@@ -205,6 +206,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             if box is not None:
                 assert isinstance(opinfo, info.ArrayPtrInfo)
                 fieldbox = opinfo._items[i]
+                xxx
                 fieldinfo = fieldbox.get_forwarded()
             self.fieldstate[i].generate_guards(other.fieldstate[i],
                                             fieldbox, fieldinfo, state)
@@ -344,7 +346,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         if self.level == LEVEL_UNKNOWN:
             # confusingly enough, this is done also for pointers
             # which have the full range as the "bound", so it always works
-            return self._generate_guards_intbounds(other, box, extra_guards)
+            return self._generate_guards_intbounds(other, box, opinfo,
+                                                   extra_guards)
 
         # the following conditions often peek into the runtime value that the
         # box had when tracing. This value is only used as an educated guess.
@@ -412,13 +415,13 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 raise VirtualStatesCantMatch("other not constant")
         assert 0, "unreachable"
 
-    def _generate_guards_intbounds(self, other, boxinfo, extra_guards):
+    def _generate_guards_intbounds(self, other, box, opinfo, extra_guards):
         if self.intbound is None:
             return
         if self.intbound.contains_bound(other.intbound):
             return
-        if (boxinfo is not None and isinstance(box, BoxInt) and
-                self.intbound.contains(box.getint())):
+        if (opinfo is not None and opinfo.is_constant() and
+                self.intbound.contains(opinfo.getint())):
             # this may generate a few more guards than needed, but they are
             # optimized away when emitting them
             self.intbound.make_guards(box, extra_guards)
@@ -502,11 +505,11 @@ class VirtualState(object):
             return False
         return True
 
-    def generate_guards(self, other, values, cpu):
-        assert len(self.state) == len(other.state) == len(values)
+    def generate_guards(self, other, boxes, infos, cpu):
+        assert len(self.state) == len(other.state) == len(boxes) == len(infos)
         state = GenerateGuardState(cpu)
         for i in range(len(self.state)):
-            self.state[i].generate_guards(other.state[i], values[i],
+            self.state[i].generate_guards(other.state[i], boxes[i], infos[i],
                                           state)
         return state
 

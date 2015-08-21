@@ -27,6 +27,9 @@ class BasicLoopInfo(LoopInfo):
     def __init__(self, inputargs):
         self.inputargs = inputargs
 
+    def final(self):
+        return True
+
 
 class Optimization(object):
     next_optimization = None
@@ -337,7 +340,7 @@ class Optimizer(Optimization):
         return op
 
     def is_inputarg(self, op):
-        #return True
+        return True
         return op in self.inparg_dict
 
     def get_constant_box(self, box):

@@ -58,6 +58,7 @@ def optimize_trace(metainterp_sd, jitdriver_sd, compile_data):
         return compile_data.optimize(metainterp_sd, jitdriver_sd,
                                      optimizations, unroll)
     finally:
+        compile_data.forget_optimization_info()
         debug_stop("jit-optimize")
 
 if __name__ == '__main__':

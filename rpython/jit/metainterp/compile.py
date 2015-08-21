@@ -225,27 +225,14 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                     call_pure_results=call_pure_results,
                                     enable_opts=enable_opts)
     try:
-        try:
-            start_state, preamble_ops = optimize_trace(metainterp_sd,
-                                                       jitdriver_sd,
-                                                       preamble_data)
-        except InvalidLoop:
-            return None
-    finally:
-        forget_optimization_info(ops)
-        forget_optimization_info(inputargs)
+        start_state, preamble_ops = optimize_trace(metainterp_sd, jitdriver_sd,
+                                                   preamble_data)
+    except InvalidLoop:
+        return None
 
-    #loop = create_empty_loop(metainterp)
-    #loop.inputargs = part.inputargs
-    #loop.operations = part.operations
-    #loop.quasi_immutable_deps = {}
-    #if part.quasi_immutable_deps:
-    #    loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
-    #lastopnum = preamble_ops[-1].getopnum()
-    #if lastopnum != rop.FINISH:
-    #if start_state is not None:
-    assert start_state is not None
-    end_label = ResOperation(rop.LABEL, start_state.end_args,
+    metainterp_sd = metainterp.staticdata
+    jitdriver_sd = metainterp.jitdriver_sd
+    end_label = ResOperation(rop.LABEL, inputargs,
                              descr=jitcell_token)
     jump_op = ResOperation(rop.JUMP, jumpargs, descr=jitcell_token)
     loop_data = UnrolledLoopData(end_label, jump_op, ops, start_state,
@@ -279,44 +266,6 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
     return start_descr
-            
-            #part.quasi_immutable_deps = None
-    #         part.operations = [part.operations[-1]] + \
-    #                           [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
-    #                           [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
-    #                                         None, descr=jitcell_token)]
-    #         target_token = part.operations[0].getdescr()
-    #         assert isinstance(target_token, TargetToken)
-    #         all_target_tokens.append(target_token)
-    #         inputargs = jumpargs
-    #         jumpargs = part.operations[-1].getarglist()
-
-    #         try:
-    #             optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
-    #                            start_state=start_state, export_state=False)
-    #         except InvalidLoop:
-    #             return None
-
-    #         loop.operations = loop.operations[:-1] + part.operations
-    #         if part.quasi_immutable_deps:
-    #             loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
-    # assert part.operations[-1].getopnum() != rop.LABEL
-
-    # if not loop.quasi_immutable_deps:
-    #     loop.quasi_immutable_deps = None
-    # for box in loop.inputargs:
-    #     assert not isinstance(box, Const)
-
-    # loop.original_jitcell_token = jitcell_token
-    # for label in all_target_tokens:
-    #     assert isinstance(label, TargetToken)
-    #     if label.virtual_state and label.short_preamble:
-    #         metainterp_sd.logger_ops.log_short_preamble([], label.short_preamble)
-    # jitcell_token.target_tokens = all_target_tokens
-    # propagate_original_jitcell_token(loop)
-    # send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
-    # record_loop_or_bridge(metainterp_sd, loop)
-    # return all_target_tokens[0]
 
 def compile_retrace(metainterp, greenkey, start,
                     inputargs, jumpargs,
@@ -324,7 +273,6 @@ def compile_retrace(metainterp, greenkey, start,
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
-    xxx
     from rpython.jit.metainterp.optimizeopt import optimize_trace
 
     history = metainterp.history
@@ -333,24 +281,21 @@ def compile_retrace(metainterp, greenkey, start,
 
     loop_jitcell_token = metainterp.get_procedure_token(greenkey)
     assert loop_jitcell_token
-    assert partial_trace.operations[-1].getopnum() == rop.LABEL
 
-    part = create_empty_loop(metainterp)
-    part.inputargs = inputargs[:]
-    h_ops = history.operations
-
-    part.operations = [partial_trace.operations[-1]] + \
-                      h_ops[start:] + \
-                      [ResOperation(rop.JUMP, jumpargs, descr=loop_jitcell_token)]
-    label = part.operations[0]
-    orignial_label = label.clone()
-    assert label.getopnum() == rop.LABEL
+    end_label = ResOperation(rop.LABEL, inputargs,
+                             descr=loop_jitcell_token)
+    jump_op = ResOperation(rop.JUMP, jumpargs, descr=loop_jitcell_token)
+    enable_opts = jitdriver_sd.warmstate.enable_opts
+    ops = history.operations[start:]
+    call_pure_results = metainterp.call_pure_results
+    loop_data = UnrolledLoopData(end_label, jump_op, ops, start_state,
+                                 call_pure_results=call_pure_results,
+                                 enable_opts=enable_opts)
     try:
-        optimize_trace(metainterp_sd, jitdriver_sd, part,
-                       jitdriver_sd.warmstate.enable_opts,
-                       start_state=start_state, export_state=False)
+        loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
+                                             loop_data)
     except InvalidLoop:
-        xxx # XXX forget optimizations
+        xxx
         # Fall back on jumping to preamble
         target_token = label.getdescr()
         assert isinstance(target_token, TargetToken)
@@ -365,33 +310,29 @@ def compile_retrace(metainterp, greenkey, start,
         except InvalidLoop:
             xxx # XXX forget optimizations
             return None
-    assert part.operations[-1].getopnum() != rop.LABEL
-    target_token = label.getdescr()
-    assert isinstance(target_token, TargetToken)
-    assert loop_jitcell_token.target_tokens
-    loop_jitcell_token.target_tokens.append(target_token)
-    if target_token.short_preamble:
-        metainterp_sd.logger_ops.log_short_preamble([], target_token.short_preamble)
 
     loop = partial_trace
-    loop.operations = loop.operations[:-1] + part.operations
+    target_token = TargetToken(loop_jitcell_token)
+    target_token.original_jitcell_token = loop_jitcell_token
+    target_token.short_preamble = loop_info.short_preamble
+    target_token.virtual_state = start_state.virtual_state
+    loop_ops[-1].setdescr(target_token)
+    mid_label = ResOperation(rop.LABEL, loop_info.label_args,
+                             descr=target_token)
+    loop.operations = (loop.operations + loop_info.extra_same_as + [mid_label]
+                       + loop_ops)
+    loop_jitcell_token.target_tokens.append(target_token)
 
-    quasi_immutable_deps = {}
-    if loop.quasi_immutable_deps:
-        quasi_immutable_deps.update(loop.quasi_immutable_deps)
-    if part.quasi_immutable_deps:
-        quasi_immutable_deps.update(part.quasi_immutable_deps)
-    if quasi_immutable_deps:
-        loop.quasi_immutable_deps = quasi_immutable_deps
+    #quasi_immutable_deps = {}
+    #if loop.quasi_immutable_deps:
+    #    quasi_immutable_deps.update(loop.quasi_immutable_deps)
+    #if part.quasi_immutable_deps:
+    #    quasi_immutable_deps.update(part.quasi_immutable_deps)
+    #if quasi_immutable_deps:
+    #    loop.quasi_immutable_deps = quasi_immutable_deps
 
-    for box in loop.inputargs:
-        assert isinstance(box, Box)
-
-    target_token = loop.operations[-1].getdescr()
     resumekey.compile_and_attach(metainterp, loop)
 
-    target_token = label.getdescr()
-    assert isinstance(target_token, TargetToken)
     record_loop_or_bridge(metainterp_sd, loop)
     return target_token
 
@@ -1036,20 +977,18 @@ def compile_trace(metainterp, resumekey):
     call_pure_results = metainterp.call_pure_results
 
     if operations[-1].getopnum() == rop.JUMP:
+        jump_op = operations[-1]
         data = BridgeCompileData(label, operations[:],
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
                                  inline_short_preamble=inline_short_preamble)
     else:
+        jump_op = None
         data = SimpleCompileData(label, operations[:],
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
-        try:
-            info, newops = optimize_trace(metainterp_sd, jitdriver_sd, data)
-        finally:
-            forget_optimization_info(inputargs)
-            forget_optimization_info(operations)
+        info, newops = optimize_trace(metainterp_sd, jitdriver_sd, data)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
@@ -1058,24 +997,16 @@ def compile_trace(metainterp, resumekey):
         return None
 
     new_trace = create_empty_loop(metainterp)
-    new_trace.inputargs = info.inputargs
     new_trace.operations = newops
-    target_token = new_trace.operations[-1].getdescr()
-    resumekey.compile_and_attach(metainterp, new_trace)
-    record_loop_or_bridge(metainterp_sd, new_trace)
-    return target_token
-    xxxx
-    if new_trace.operations[-1].getopnum() != rop.LABEL:
-        # We managed to create a bridge.  Dispatch to resumekey to
-        # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
+    if info.final():
+        new_trace.inputargs = info.inputargs
         target_token = new_trace.operations[-1].getdescr()
         resumekey.compile_and_attach(metainterp, new_trace)
         record_loop_or_bridge(metainterp_sd, new_trace)
         return target_token
-    else:
-        raise Exception("should not occur with tracing disabled")
-        metainterp.retrace_needed(new_trace, state)
-        return None
+    new_trace.inputargs = info.renamed_inputargs
+    metainterp.retrace_needed(new_trace, info)
+    return None
 
 # ____________________________________________________________
 
