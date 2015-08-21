@@ -372,6 +372,10 @@ class IntOp(object):
     def copy_value_from(self, other):
         self.setint(other.getint())
 
+    def constbox(self):
+        from rpython.jit.metainterp import history
+        return history.ConstInt(self.getint())
+
     def nonnull(self):
         return self._resint != 0
 
@@ -393,6 +397,10 @@ class FloatOp(object):
 
     def copy_value_from(self, other):
         self.setfloatstorage(other.getfloatstorage())
+
+    def constbox(self):
+        from rpython.jit.metainterp import history
+        return history.ConstFloat(self.getfloatstorage())
 
     def nonnull(self):
         return bool(longlong.extract_bits(self._resfloat))
@@ -427,6 +435,11 @@ class RefOp(object):
 
     def nonnull(self):
         return bool(self._resref)
+
+    def constbox(self):
+        from rpython.jit.metainterp import history
+        return history.ConstPtr(self.getref_base())
+
 
 class AbstractInputArg(AbstractValue):
     _forwarded = None

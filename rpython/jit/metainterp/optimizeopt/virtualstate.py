@@ -420,8 +420,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             return
         if self.intbound.contains_bound(other.intbound):
             return
-        if (opinfo is not None and opinfo.is_constant() and
-                self.intbound.contains(opinfo.getint())):
+        if (box is not None and self.intbound.contains(box.getint())):
             # this may generate a few more guards than needed, but they are
             # optimized away when emitting them
             self.intbound.make_guards(box, extra_guards)
