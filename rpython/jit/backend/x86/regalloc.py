@@ -337,14 +337,17 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         """
         assert isinstance(descr, ResumeGuardDescr)
         accum_info = descr.rd_accum_list
+        count = 0
         while accum_info:
             if accum_info.box is accum.getoriginalbox():
                 accum_info.loc = self.loc(arg)
                 accum_info.position = pos
                 break
+            count += 1
             accum_info = accum_info.prev
         else:
-            raise AssertionError("accum box has no accum_info entry")
+            llop.debug_print(lltype.Void, "[accumulator] %d accumulators, none matched box %s\n" % (count, accum_info.box))
+            assert 0
 
     def perform_with_guard(self, op, guard_op, arglocs, result_loc):
         faillocs = self.locs_for_fail(guard_op)

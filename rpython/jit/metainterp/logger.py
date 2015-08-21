@@ -102,7 +102,6 @@ class LogOperations(object):
         return descr.repr_of_descr()
 
     def repr_of_arg(self, arg):
-        return str(arg) # XXX
         try:
             mv = self.memo[arg]
         except KeyError:
