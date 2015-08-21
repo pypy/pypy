@@ -807,6 +807,10 @@ _opvector = {
     rop.RAW_LOAD:         rop.VEC_RAW_LOAD,
     rop.GETARRAYITEM_RAW: rop.VEC_GETARRAYITEM_RAW,
     rop.GETARRAYITEM_GC: rop.VEC_GETARRAYITEM_GC,
+    # note that there is no _PURE operation for vector operations.
+    # reason: currently we do not care if it is pure or not!
+    rop.GETARRAYITEM_RAW_PURE: rop.VEC_GETARRAYITEM_RAW,
+    rop.GETARRAYITEM_GC_PURE: rop.VEC_GETARRAYITEM_GC,
     rop.RAW_STORE:        rop.VEC_RAW_STORE,
     rop.SETARRAYITEM_RAW: rop.VEC_SETARRAYITEM_RAW,
     rop.SETARRAYITEM_GC: rop.VEC_SETARRAYITEM_GC,

@@ -265,7 +265,7 @@ class GuardStrengthenOpt(object):
         self.eliminate_guards(loop)
         #
         if len(loop.versions) >= 2:
-            assert len(loop.version) == 2
+            assert len(loop.versions) == 2
             root_version = loop.versions[0]
             version = loop.versions[1]
 

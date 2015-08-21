@@ -138,6 +138,8 @@ class VectorAssemblerMixin(object):
         self._vec_load(resloc, src_addr, integer_loc.value,
                        size_loc.value, aligned_loc.value)
 
+    genop_vec_getarrayitem_gc = genop_vec_getarrayitem_raw
+
     def genop_vec_raw_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, ofs, integer_loc, aligned_loc = arglocs
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
@@ -163,6 +165,8 @@ class VectorAssemblerMixin(object):
         dest_loc = addr_add(base_loc, ofs_loc, baseofs.value, scale)
         self._vec_store(dest_loc, value_loc, integer_loc.value,
                         size_loc.value, aligned_loc.value)
+
+    genop_discard_vec_setarrayitem_gc = genop_discard_vec_setarrayitem_raw
 
     def genop_discard_vec_raw_store(self, op, arglocs):
         base_loc, ofs_loc, value_loc, size_loc, baseofs, integer_loc, aligned_loc = arglocs
@@ -560,6 +564,7 @@ class VectorRegallocMixin(object):
         self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
                           imm(integer), imm(aligned)], result_loc)
 
+    consider_vec_getarrayitem_gc = consider_vec_getarrayitem_raw
     consider_vec_raw_load = consider_vec_getarrayitem_raw
 
     def consider_vec_setarrayitem_raw(self, op):
@@ -578,6 +583,7 @@ class VectorRegallocMixin(object):
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
                                  imm(itemsize), imm(ofs), imm(integer), imm(aligned)])
 
+    consider_vec_setarrayitem_gc = consider_vec_setarrayitem_raw
     consider_vec_raw_store = consider_vec_setarrayitem_raw
 
     def consider_vec_arith(self, op):

@@ -283,6 +283,27 @@ class VectorizeTests:
         res = self.meta_interp(f, [i])
         assert res == f(i)
 
+    @py.test.mark.parametrize('i,v1,v2',[(25,2.5,0.3)])
+    def test_list_vectorize(self,i,v1,v2):
+        myjitdriver = JitDriver(greens = [],
+                                reds = 'auto')
+        def f(d, v1, v2):
+            a = [v1] * d
+            b = [v2] * d
+            i = 0
+            while i < len(a):
+                myjitdriver.jit_merge_point()
+                a[i] = a[i] + b[i]
+                i += 1
+            s = 0
+            for i in range(d):
+                s += a[i]
+            return s
+        res = self.meta_interp(f, [i,v1,v2], vec_all=True)
+        # sum helps to generate the rounding error of floating points
+        # return 69.999 ... instead of 70, (v1+v2)*i == 70.0
+        assert res == f(i,v1,v2) == sum([v1+v2]*i)
+
 class VectorizeLLtypeTests(VectorizeTests):
     pass
 
