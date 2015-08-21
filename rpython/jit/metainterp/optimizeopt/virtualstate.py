@@ -119,9 +119,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         if box is not None:
-            yyy
-            assert isinstance(value, virtualize.AbstractVirtualStructValue)
-            assert value.is_virtual()
+            assert opinfo.is_virtual()
 
         if len(self.fielddescrs) != len(other.fielddescrs):
             raise VirtualStatesCantMatch("field descrs don't match")
@@ -132,8 +130,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
             if box is not None:
                 fieldbox = opinfo._fields[self.fielddescrs[i].get_index()]
                 # must be there
-                xxx
-                fieldinfo = fieldbox.get_forwarded()
+                fieldinfo = get_forwarded(fieldbox)
             else:
                 fieldbox = None
                 fieldinfo = None

@@ -500,28 +500,29 @@ class BaseTestGenerateGuards(BaseTest):
         self.guards(info1, info2, InputArgRef(), value1, expected, [box])
 
     def test_generate_guards_on_virtual_fields_matches_instance(self):
-        innervalue1 = PtrOptValue(self.nodebox)
-        constclassbox = self.cpu.ts.cls_of_box(self.nodebox)
-        innervalue1.make_constant_class(None, constclassbox)
-        innerinfo1 = NotVirtualStateInfo(innervalue1)
+        classbox = self.cpu.ts.cls_of_box(InputArgRef(self.nodeaddr))
+        innervalue1 = info.InstancePtrInfo(classbox)
+        innerinfo1 = NotVirtualStateInfo(self.cpu, 'r', innervalue1)
         innerinfo1.position = 1
-        innerinfo2 = NotVirtualStateInfo(PtrOptValue(self.nodebox))
+        innerinfo2 = NotVirtualStateInfo(self.cpu, 'r', None)
         innerinfo2.position = 1
 
-        info1 = VirtualStateInfo(ConstInt(42), [1])
+        info1 = VirtualStateInfo(ConstInt(42), [self.nextdescr])
         info1.fieldstate = [innerinfo1]
 
-        info2 = VirtualStateInfo(ConstInt(42), [1])
+        info2 = VirtualStateInfo(ConstInt(42), [self.nextdescr])
         info2.fieldstate = [innerinfo2]
 
-        value1 = VirtualValue(self.cpu, constclassbox, self.nodebox)
-        value1._fields = {1: PtrOptValue(self.nodebox)}
+        value1 = info.InstancePtrInfo(classbox, self.nodesize)
+        nodebox = InputArgRef(self.nodeaddr)
+        value1._fields = [None] * (self.nextdescr.get_index() + 1)
+        value1._fields[self.nextdescr.get_index()] = nodebox
 
         expected = """
         [p0]
         guard_nonnull_class(p0, ConstClass(node_vtable)) []
         """
-        self.guards(info1, info2, value1, expected, [self.nodebox])
+        self.guards(info1, info2, nodebox, value1, expected, [nodebox])
 
     def test_generate_guards_on_virtual_fields_matches_struct(self):
         innervalue1 = PtrOptValue(self.nodebox)
