@@ -38,6 +38,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
     user_code = not jitdriver_sd.vec and warmstate.vec_all
     if user_code and user_loop_bail_fast_path(loop, warmstate):
         return
+    # the original loop (output of optimize_unroll)
     version = loop.snapshot()
     try:
         debug_start("vec-opt-loop")
@@ -493,7 +494,7 @@ class VectorizingOptimizer(Optimizer):
             return
         if vector:
             # add accumulation info to the descriptor
-            for version in self.loop.versions:
+            for version in self.loop.versions[1:]:
                 # this needs to be done for renamed (accum arguments)
                 version.renamed_inputargs = [ renamer.rename_map.get(arg,arg) for arg in version.inputargs ]
             self.appended_arg_count = len(sched_data.invariant_vector_vars)
@@ -874,7 +875,7 @@ class PackSet(object):
                 box = result
             elif accum.operator == Accum.MULTIPLY:
                 # multiply is only supported by floats
-                op = ResOperation(rop.VEC_FLOAT_EXPAND, [ConstFloat(1.0)], box)
+                op = ResOperation(rop.VEC_FLOAT_EXPAND, [ConstFloat(1.0), ConstInt(size)], box)
                 sched_data.invariant_oplist.append(op)
             else:
                 raise NotImplementedError("can only handle + and *")

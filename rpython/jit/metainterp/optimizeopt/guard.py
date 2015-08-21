@@ -152,8 +152,7 @@ class Guard(object):
         assert operations[self.index] is self.op
         operations[self.index] = None
         descr = self.op.getdescr()
-        if isinstance(descr, CompileLoopVersionDescr) and descr.version:
-            descr.version.faildescrs.remove(descr)
+        if descr and descr.loop_version():
             descr.version = None
         if operations[self.index-1] is self.cmp_op:
             operations[self.index-1] = None
@@ -265,19 +264,20 @@ class GuardStrengthenOpt(object):
         self.collect_guard_information(loop)
         self.eliminate_guards(loop)
         #
-        assert len(loop.versions) == 1, "none or more than one version created"
-        version = loop.versions[0]
+        assert len(loop.versions) == 2, "need one orignal loop version (before trans) and the current one"
+        root_version = loop.versions[0]
+        version = loop.versions[1]
 
         for op in loop.operations:
             if not op.is_guard():
                 continue
             descr = op.getdescr()
             if descr.loop_version():
-                version.register_guard(op)
+                root_version.register_guard(op, version)
 
         if user_code:
             version = loop.snapshot()
-            self.eliminate_array_bound_checks(loop, version)
+            self.eliminate_array_bound_checks(loop, root_version, version)
 
     def emit_operation(self, op):
         self.renamer.rename(op)
@@ -286,7 +286,7 @@ class GuardStrengthenOpt(object):
     def operation_position(self):
         return len(self._newoperations)
 
-    def eliminate_array_bound_checks(self, loop, version):
+    def eliminate_array_bound_checks(self, loop, root_version, version):
         self._newoperations = []
         for key, guards in self.strongest_guards.items():
             if len(guards) <= 1:
@@ -299,7 +299,7 @@ class GuardStrengthenOpt(object):
                 transitive_guard = one.transitive_imply(other, self, loop)
                 if transitive_guard:
                     other.set_to_none(loop.operations)
-                    version.register_guard(transitive_guard)
+                    root_version.register_guard(transitive_guard, version)
 
         if self.has_two_labels:
             oplist = [loop.operations[0]] + self._newoperations + \

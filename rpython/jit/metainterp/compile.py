@@ -162,7 +162,7 @@ def compile_loop(metainterp, greenkey, start,
 
     if loop.versions is not None:
         # every different loop version must update their target tokens
-        for version in loop.versions:
+        for version in loop.versions[1:]:
             version.update_token(jitcell_token, all_target_tokens)
 
     if not loop.quasi_immutable_deps:
@@ -194,10 +194,11 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
     if loop.versions is not None:
         # compile each version once for the first fail descr!
         # this assumes that the root trace (= loop) is already compiled
-        for version in loop.versions:
-            if len(version.faildescrs) == 0:
+        root = loop.versions[0]
+        for faildescr in root.faildescrs:
+            version = faildescr.version
+            if not version or version.compiled():
                 continue
-            faildescr = version.faildescrs[0]
             vl = create_empty_loop(metainterp)
             vl.inputargs = version.inputargs
             vl.operations = version.operations
@@ -207,12 +208,19 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
                                    version.operations, jitcell_token)
             record_loop_or_bridge(metainterp_sd, vl)
             assert asminfo is not None
-            version.compiled = asminfo
+            version._compiled = asminfo
+            faildescr.version = None
         # stitch the rest of the traces
-        for version in loop.versions:
-            for faildescr in version.faildescrs[1:]:
-                if faildescr.version.compiled:
-                    cpu.stitch_bridge(faildescr, version.compiled)
+        for lv in loop.versions:
+            if not lv.compiled():
+                # the version was never compiled, do not bother
+                # to assign it's fail descr
+                continue
+            for faildescr in lv.faildescrs:
+                version = faildescr.version
+                if version and version.compiled():
+                    cpu.stitch_bridge(faildescr, version._compiled)
+                faildescr.version = None
     loop.versions = None
 
 def compile_retrace(metainterp, greenkey, start,

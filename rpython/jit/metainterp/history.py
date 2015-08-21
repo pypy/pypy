@@ -748,28 +748,62 @@ def index_of_first(opnum, operations, pass_by=0):
 
 class LoopVersion(object):
 
-    def __init__(self, operations):
-        self.operations = operations
+    def __init__(self, loop):
         self.faildescrs = []
-        #
-        idx = index_of_first(rop.LABEL, operations)
-        assert idx >= 0
-        label = operations[idx]
-        self.label_pos = idx
-        self.inputargs = label.getarglist()
-        self.renamed_inputargs = label.getarglist()
-        self.compiled = None
+        self._compiled = None
+        if loop:
+            self.operations = self.copy_operations(loop.operations) 
+            idx = index_of_first(rop.LABEL, self.operations)
+            assert idx >= 0
+            label = self.operations[idx]
+            self.inputargs = label.getarglist()
+            self.renamed_inputargs = label.getarglist()
+        else:
+            self.operations = None
+            self.inputargs = None
+            self.renamed_inputargs = None
 
-    def register_guard(self, op):
+    def compiled(self):
+        if self.operations is None:
+            # root version must always be compiled
+            return True
+
+        return self._compiled is not None
+
+    def copy_operations(self, operations):
+        from rpython.jit.metainterp.compile import ResumeGuardDescr
+        ignore = (rop.DEBUG_MERGE_POINT,)
+        oplist = []
+        for op in operations:
+            if op.getopnum() in ignore:
+                continue
+            cloned = op.clone()
+            oplist.append(cloned)
+            if cloned.is_guard():
+                olddescr = cloned.getdescr()
+                if not olddescr:
+                    continue
+                descr = olddescr.clone()
+                cloned.setdescr(descr)
+                if olddescr.loop_version():
+                    # copy the version
+                    descr.version = olddescr.version
+                    self.faildescrs.append(descr)
+        return oplist
+
+    def register_guard(self, op, version):
         from rpython.jit.metainterp.compile import CompileLoopVersionDescr
         assert isinstance(op, GuardResOp)
         descr = op.getdescr()
+        if not descr.loop_version():
+            assert 0, "cannot register a guard that is not a CompileLoopVersionDescr"
         assert isinstance(descr, CompileLoopVersionDescr)
+        descr.version = version
         self.faildescrs.append(descr)
-        descr.version = self
         # note: stitching a guard must resemble the order of the label
         # otherwise a wrong mapping is handed to the register allocator
-        op.setfailargs(self.renamed_inputargs)
+        op.setfailargs(version.renamed_inputargs)
+        assert version.renamed_inputargs is not None
 
     def update_token(self, jitcell_token, all_target_tokens):
         # this is only invoked for versioned loops!
@@ -797,7 +831,6 @@ class LoopVersion(object):
                 return
         label.setdescr(token)
         jump.setdescr(token)
-
 
 class TreeLoop(object):
     inputargs = None
@@ -872,32 +905,17 @@ class TreeLoop(object):
         return None
 
     def snapshot(self):
-        faildescrs = []
-        version = LoopVersion(self.copy_operations(faildescrs))
-        version.faildescrs = faildescrs
+        if len(self.versions) == 0:
+            # create a root version, simplyfies the code in compile.py
+            self.versions.append(LoopVersion(None))
+        root_version = self.versions[0]
+        version = LoopVersion(self)
         if not we_are_translated():
             print "LOOP SNAPSHOT"
             for op in version.operations:
                 print "", op
         self.versions.append(version)
         return version
-
-    def copy_operations(self, faildescrs=None):
-        from rpython.jit.metainterp.compile import ResumeGuardDescr
-        ignore = (rop.DEBUG_MERGE_POINT,)
-        operations = []
-        for op in self.operations:
-            if op.getopnum() in ignore:
-                continue
-            cloned = op.clone()
-            operations.append(cloned)
-            descr = cloned.getdescr()
-            if cloned.is_guard() and descr:
-                assert isinstance(descr, ResumeGuardDescr)
-                cloned.setdescr(descr.clone())
-                if faildescrs and descr.loop_version():
-                    faildescrs.append(cloned.getdescr())
-        return operations
 
     def get_display_text(self):    # for graphpage.py
         return self.name + '\n' + repr(self.inputargs)
