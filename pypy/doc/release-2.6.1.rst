@@ -4,9 +4,8 @@ PyPy 2.6.1
 
 We're pleased to announce PyPy 2.6.1, an update to PyPy 2.6.0 released June 1.
 We have updated stdlib to 2.7.10, `cffi`_ to version 1.2, extended support for
-the new vmprof_ statistical profiler for multiple threads, partially
-implemented unicode dtypes in numpy, added support for the axis keyword to
-many numpy methods, and in general improved numpy compatability.
+the new vmprof_ statistical profiler for multiple threads, and increased
+functionality of numpy.
 
 You can download the PyPy 2.6.1 release here:
 
@@ -72,9 +71,13 @@ Highlights
 
 * Bug Fixes
 
-  * 
+  * Revive non-SSE2 support
 
-  * 
+  * Fixes for detaching _io.Buffer*
+
+  * On Windows, close (and flush) all open sockets on exiting
+
+  * Drop support for ancient macOS v10.4 and before
 
   * Issues reported with our previous release were resolved_ after reports from users on
     our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
@@ -82,23 +85,54 @@ Highlights
 
 * New features:
 
-  * 
+  * cffi was updated to version 1.2
+
+  * The python stdlib was updated to 2.7.10 from 2.7.9
+
+  * vmprof now supports multiple threads
+
+  * The translation process builds cffi import libraries for some stdlib
+    packages, which should prevent confusion when package.py is not used
+
+  * better support for gdb debugging
+
+  * freebsd should be able to translate PyPy "out of the box" with no patches
 
 * Numpy:
 
-  * 
+  * Better support for record dtypes, including the ``align`` keyword
 
-  * 
+  * Implement casting and create output arrays accordingly (still missing some corner cases)
+
+  * Support creation of unicode ndarrays
+
+  * Better support ndarray.flags
+
+  * Support ``axis`` argument in more functions
+
+  * Refactor array indexing to support ellipses
+
+  * Allow the docstrings of built-in numpy objects to be set at run-time
+
+  * Support the ``buffered`` nditer creation keyword
 
 * Performance improvements:
 
-  * 
+  * Delay recursive calls to make them non-recursive
 
-  * 
+  * Skip loop unrolling if it compiles too much code
 
-  * 
+  * Tweak the heapcache
 
-  * 
+  * Add a list strategy for lists that store both floats and 32-bit integers.
+    The latter are encoded as nonstandard NaNs.  Benchmarks show that the speed
+    of such lists is now very close to the speed of purely-int or purely-float
+    lists. 
+
+  * Simplify implementation of ffi.gc() to avoid most weakrefs
+
+  * Massively improve the performance of map() with more than
+    one sequence argument
 
 .. _`vmprof`: https://vmprof.readthedocs.org
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-2.6.0.html
