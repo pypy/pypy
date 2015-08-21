@@ -47,7 +47,8 @@ class LoopCompileData(CompileData):
         self.call_pure_results = call_pure_results
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
-        from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
+        from rpython.jit.metainterp.optimizeopt.unroll import (UnrollOptimizer,
+                                                               Optimizer)
 
         if unroll:
             opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
@@ -55,7 +56,9 @@ class LoopCompileData(CompileData):
                                          self.operations,
                                          self.call_pure_results)
         else:
-            xxx
+            opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
+            return opt.propagate_all_forward(self.start_label.getarglist(),
+               self.operations, self.call_pure_results, self.enable_opts)
 
 class SimpleCompileData(CompileData):
     """ This represents label() ops jump with no extra info associated with
@@ -242,7 +245,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
                                              loop_data)
     except InvalidLoop:
-        xxx
+        return None
 
     loop = create_empty_loop(metainterp)
     loop.original_jitcell_token = jitcell_token

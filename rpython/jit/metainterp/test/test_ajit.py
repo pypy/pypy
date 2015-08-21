@@ -314,7 +314,7 @@ class BasicTests:
         assert res == 252
         self.check_trace_count(1)
         self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
-                           'getfield_gc_pure': 1, 'int_mul': 1,
+                           'getfield_gc_pure_i': 1, 'int_mul': 1,
                            'guard_true': 2, 'int_sub': 2})
 
     def test_loops_are_transient(self):
@@ -413,7 +413,7 @@ class BasicTests:
         assert res == 42
         # CALL_PURE is not recorded in the history if all-constant args
         self.check_operations_history(int_add=0, int_mul=0,
-                                      call=0, call_pure=0)
+                                      call=0, call_pure_i=0)
 
     def test_residual_call_elidable_1(self):
         @elidable
@@ -425,7 +425,7 @@ class BasicTests:
         assert res == 42
         # CALL_PURE is recorded in the history if not-all-constant args
         self.check_operations_history(int_add=1, int_mul=0,
-                                      call=0, call_pure=1)
+                                      call=0, call_pure_i=1)
 
     def test_residual_call_elidable_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
@@ -442,7 +442,7 @@ class BasicTests:
         assert res == 0
         # CALL_PURE is recorded in the history, but turned into a CALL
         # by optimizeopt.py
-        self.check_resops(call_pure=0, call=2, int_sub=0)
+        self.check_resops(call_pure_i=0, call_i=2, int_sub=0)
 
     def test_constfold_call_elidable(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
@@ -458,7 +458,7 @@ class BasicTests:
         res = self.meta_interp(f, [21, 5])
         assert res == -1
         # the CALL_PURE is constant-folded away by optimizeopt.py
-        self.check_resops(call_pure=0, call=0, int_sub=2)
+        self.check_resops(call_pure_i=0, call_i=0, int_sub=2)
 
     def test_constfold_call_elidable_2(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
@@ -478,7 +478,7 @@ class BasicTests:
         res = self.meta_interp(f, [21, 5])
         assert res == -1
         # the CALL_PURE is constant-folded away by optimizeopt.py
-        self.check_resops(call_pure=0, call=0, int_sub=2)
+        self.check_resops(call_pure_i=0, call_i=0, int_sub=2)
 
     def test_elidable_function_returning_object(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
@@ -503,7 +503,8 @@ class BasicTests:
         res = self.meta_interp(f, [21, 5])
         assert res == -1
         # the CALL_PURE is constant-folded away by optimizeopt.py
-        self.check_resops(call_pure=0, call=0, getfield_gc=1, int_sub=2)
+        self.check_resops(call_pure_r=0, call_r=0, getfield_gc_i=1, int_sub=2,
+                          call_pure_i=0, call_i=0)
 
     def test_elidable_raising(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
@@ -524,12 +525,12 @@ class BasicTests:
         res = self.meta_interp(f, [22, 6])
         assert res == -3
         # the CALL_PURE is constant-folded away during tracing
-        self.check_resops(call_pure=0, call=0, int_sub=2)
+        self.check_resops(call_pure_i=0, call_i=0, int_sub=2)
         #
         res = self.meta_interp(f, [22, -5])
         assert res == 0
         # raises: becomes CALL and is not constant-folded away
-        self.check_resops(call_pure=0, call=2, int_sub=2)
+        self.check_resops(call_pure_i=0, call_i=2, int_sub=2)
 
     def test_elidable_raising_2(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
@@ -550,12 +551,12 @@ class BasicTests:
         res = self.meta_interp(f, [22, 6])
         assert res == -3
         # the CALL_PURE is constant-folded away by optimizeopt.py
-        self.check_resops(call_pure=0, call=0, int_sub=2)
+        self.check_resops(call_pure_i=0, call_i=0, int_sub=2)
         #
         res = self.meta_interp(f, [22, -5])
         assert res == 0
         # raises: becomes CALL and is not constant-folded away
-        self.check_resops(call_pure=0, call=2, int_sub=2)
+        self.check_resops(call_pure_i=0, call_i=2, int_sub=2)
 
     def test_constant_across_mp(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
