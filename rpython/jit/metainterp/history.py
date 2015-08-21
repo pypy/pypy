@@ -771,7 +771,8 @@ class LoopVersion(object):
         return self._compiled is not None
 
     def copy_operations(self, operations):
-        from rpython.jit.metainterp.compile import ResumeGuardDescr
+        from rpython.jit.metainterp.compile import (ResumeGuardDescr,
+                CompileLoopVersionDescr)
         ignore = (rop.DEBUG_MERGE_POINT,)
         oplist = []
         for op in operations:
@@ -787,6 +788,8 @@ class LoopVersion(object):
                 cloned.setdescr(descr)
                 if olddescr.loop_version():
                     # copy the version
+                    assert isinstance(olddescr, CompileLoopVersionDescr)
+                    assert isinstance(descr, CompileLoopVersionDescr)
                     descr.version = olddescr.version
                     self.faildescrs.append(descr)
         return oplist

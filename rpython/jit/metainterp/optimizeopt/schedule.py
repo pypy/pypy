@@ -303,6 +303,7 @@ class OpToVectorOp(object):
 
 
     def transform_pack(self):
+        """ high level transformation routine of a pack to operations """
         op = self.pack.leftmost()
         args = op.getarglist()
         self.before_argument_transform(args)
@@ -344,6 +345,7 @@ class OpToVectorOp(object):
         return self.pack.operations
 
     def transform_arguments(self, args):
+        """ transforming one argument to a vector box argument """
         for i,arg in enumerate(args):
             if isinstance(arg, BoxVector):
                 continue
@@ -444,6 +446,7 @@ class OpToVectorOp(object):
         return vbox_cloned
 
     def unpack(self, vbox, index, count, arg_ptype):
+        """ extract parts of the vector box into another vector box """
         assert index < vbox.getcount()
         assert index + count <= vbox.getcount()
         assert count > 0
@@ -491,6 +494,9 @@ class OpToVectorOp(object):
         assert result.getcount() > arg0.getcount()
 
     def expand(self, arg, argidx):
+        """ expand a value into a vector box. useful for arith metic
+            of one vector with a scalar (either constant/varialbe)
+        """
         elem_count = self.input_type.getcount()
         vbox = self.input_type.new_vector_box(elem_count)
         box_type = arg.type
@@ -665,10 +671,6 @@ class PassThroughOp(OpToVectorOp):
     def get_input_type_given(self, output_type, op):
         raise AssertionError("cannot infer input type from output type")
 
-    # OLD
-    def determine_output_type(self, op):
-        return None
-
 GUARD_TF = PassThroughOp((PT_INT_GENERIC,))
 INT_OP_TO_VOP = OpToVectorOp((PT_INT_GENERIC, PT_INT_GENERIC), INT_RES)
 FLOAT_OP_TO_VOP = OpToVectorOp((PT_FLOAT_GENERIC, PT_FLOAT_GENERIC), FLOAT_RES)
@@ -784,6 +786,7 @@ class VecScheduleData(SchedulerData):
             scheduler.oplist.append(op)
 
     def as_vector_operation(self, scheduler, pack):
+        """ transform a pack into a single or several operation """
         assert pack.opcount() > 1
         # properties that hold for the pack are:
         # + isomorphism (see func above)
@@ -794,7 +797,6 @@ class VecScheduleData(SchedulerData):
         op = pack.operations[0].getoperation()
         determine_trans(op).as_vector_operation(pack, self, scheduler, oplist)
         #
-        # XXX
         if pack.is_accumulating():
             box = oplist[position].result
             assert box is not None
@@ -804,6 +806,9 @@ class VecScheduleData(SchedulerData):
                 scheduler.renamer.start_renaming(op.result, box)
 
     def unpack_from_vector(self, op, scheduler):
+        """ if a box is needed that is currently stored within a vector
+            box, this utility creates a unpacking instruction
+        """
         args = op.getarglist()
 
         # unpack for an immediate use
@@ -917,6 +922,7 @@ class Pack(object):
             node.pack_position = i
 
     def rightmost_match_leftmost(self, other):
+        """ check if pack A can be combined with pack B """
         assert isinstance(other, Pack)
         rightmost = self.operations[-1]
         leftmost = other.operations[0]
@@ -955,6 +961,7 @@ class Pair(Pack):
                    self.right is other.right
 
 class AccumPair(Pair):
+    """ A pair that keeps track of an accumulation value """
     def __init__(self, left, right, input_type, output_type, accum):
         assert isinstance(left, Node)
         assert isinstance(right, Node)

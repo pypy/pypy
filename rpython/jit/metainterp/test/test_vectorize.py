@@ -283,7 +283,7 @@ class VectorizeTests:
         res = self.meta_interp(f, [i])
         assert res == f(i)
 
-    @py.test.mark.parametrize('i,v1,v2',[(25,2.5,0.3)])
+    @py.test.mark.parametrize('i,v1,v2',[(25,2.5,0.3), (15,44.0,22.2)])
     def test_list_vectorize(self,i,v1,v2):
         myjitdriver = JitDriver(greens = [],
                                 reds = 'auto')
