@@ -83,6 +83,15 @@ def make_trampoline_function(name, func, token, restok):
     func.c_name = cont_name
     func._dont_inline_ = True
 
+    if sys.platform == 'darwin':
+        # according to internet "At the time UNIX was written in 1974...."
+        # "... all C functions are prefixed with _"
+        cont_name = '_' + cont_name
+        tramp_name = '_' + tramp_name
+        PLT = ""
+    else:
+        PLT = "@PLT"
+
     assert detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64), (
         "rvmprof only supports x86-64 CPUs for now")
 
@@ -107,17 +116,15 @@ def make_trampoline_function(name, func, token, restok):
     target.write("""\
 \t.text
 \t.globl\t%(tramp_name)s
-\t.type\t%(tramp_name)s, @function
 %(tramp_name)s:
 \t.cfi_startproc
 \tpushq\t%(reg)s
 \t.cfi_def_cfa_offset 16
-\tcall %(cont_name)s@PLT
+\tcall %(cont_name)s%(PLT)s
 \taddq\t$8, %%rsp
 \t.cfi_def_cfa_offset 8
 \tret
 \t.cfi_endproc
-\t.size\t%(tramp_name)s, .-%(tramp_name)s
 """ % locals())
 
     def tok2cname(tok):
@@ -151,7 +158,7 @@ static int cmp_%s(void *addr) {
     )
 
     return rffi.llexternal(
-        tramp_name,
+        tramp_name.lstrip("_"),
         [token2lltype(tok) for tok in token] + [lltype.Signed],
         token2lltype(restok),
         compilation_info=eci,
