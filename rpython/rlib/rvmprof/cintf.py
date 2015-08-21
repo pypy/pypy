@@ -79,6 +79,7 @@ def make_trampoline_function(name, func, token, restok):
 
     cont_name = 'rpyvmprof_f_%s_%s' % (name, token)
     tramp_name = 'rpyvmprof_t_%s_%s' % (name, token)
+    orig_tramp_name = tramp_name
 
     func.c_name = cont_name
     func._dont_inline_ = True
@@ -136,7 +137,7 @@ def make_trampoline_function(name, func, token, restok):
 
     header = 'RPY_EXTERN %s %s(%s);\n' % (
         tok2cname(restok),
-        tramp_name,
+        orig_tramp_name,
         ', '.join([tok2cname(tok) for tok in token] + ['long']))
 
     header += """\
@@ -150,7 +151,7 @@ static int cmp_%s(void *addr) {
 #endif
 #define VMPROF_ADDR_OF_TRAMPOLINE cmp_%s
 }
-""" % (tramp_name, tramp_name, tramp_name)
+""" % (tramp_name, orig_tramp_name, tramp_name)
 
     eci = ExternalCompilationInfo(
         post_include_bits = [header],
@@ -158,7 +159,7 @@ static int cmp_%s(void *addr) {
     )
 
     return rffi.llexternal(
-        tramp_name.lstrip("_"),
+        orig_tramp_name,
         [token2lltype(tok) for tok in token] + [lltype.Signed],
         token2lltype(restok),
         compilation_info=eci,
