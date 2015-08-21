@@ -12,6 +12,7 @@ from rpython.jit.metainterp.jitexc import NotAProfitableLoop
 class SchedulerData(object):
     pass
 class Scheduler(object):
+    """ The base class to be instantiated to (re)schedule a vector trace. """
     def __init__(self, graph, sched_data):
         assert isinstance(sched_data, SchedulerData)
         self.graph = graph
@@ -37,6 +38,8 @@ class Scheduler(object):
         return -1
 
     def schedulable(self, candidate):
+        """ Is the candidate scheduleable? Boils down to dependency_count == 0
+        """
         if candidate.pack:
             pack = candidate.pack
             if pack.is_accumulating():
@@ -52,6 +55,11 @@ class Scheduler(object):
         return candidate.depends_count() == 0
 
     def scheduled(self, node):
+        """ Call this function if an operation has been emitted
+            adds new operations to the schedule list if
+            their dependency count drops to zero.
+            In addition it keeps the list sorted (see priority)
+        """
         node.position = len(self.oplist)
         for dep in node.provides()[:]: # COPY
             to = dep.to
@@ -79,6 +87,9 @@ class Scheduler(object):
         node.emitted = True
 
     def emit_into(self, oplist, renamer, unpack=False):
+        """ Emit all the operations into the oplist parameter.
+            Initiates the scheduling.
+        """
         self.renamer = renamer
         self.oplist = oplist
         self.unpack = unpack
@@ -303,7 +314,7 @@ class OpToVectorOp(object):
 
 
     def transform_pack(self):
-        """ high level transformation routine of a pack to operations """
+        """ High level transformation routine of a pack to operations """
         op = self.pack.leftmost()
         args = op.getarglist()
         self.before_argument_transform(args)
@@ -345,7 +356,7 @@ class OpToVectorOp(object):
         return self.pack.operations
 
     def transform_arguments(self, args):
-        """ transforming one argument to a vector box argument """
+        """ Transforming one argument to a vector box argument """
         for i,arg in enumerate(args):
             if isinstance(arg, BoxVector):
                 continue
@@ -446,7 +457,7 @@ class OpToVectorOp(object):
         return vbox_cloned
 
     def unpack(self, vbox, index, count, arg_ptype):
-        """ extract parts of the vector box into another vector box """
+        """ Extract parts of the vector box into another vector box """
         assert index < vbox.getcount()
         assert index + count <= vbox.getcount()
         assert count > 0
@@ -494,7 +505,7 @@ class OpToVectorOp(object):
         assert result.getcount() > arg0.getcount()
 
     def expand(self, arg, argidx):
-        """ expand a value into a vector box. useful for arith metic
+        """ Expand a value into a vector box. useful for arith metic
             of one vector with a scalar (either constant/varialbe)
         """
         elem_count = self.input_type.getcount()
@@ -637,10 +648,9 @@ class LoadToVectorLoad(OpToVectorOp):
         return None
 
 class StoreToVectorStore(OpToVectorOp):
-    """
-    Storing operations are special because they are not allowed
-    to store to memory if the vector is not fully filled.
-    Thus a modified split_pack function
+    """ Storing operations are special because they are not allowed
+        to store to memory if the vector is not fully filled.
+        Thus a modified split_pack function.
     """
     def __init__(self):
         OpToVectorOp.__init__(self, (None, None, PT_GENERIC), None)
@@ -659,8 +669,8 @@ class StoreToVectorStore(OpToVectorOp):
 
 class PassThroughOp(OpToVectorOp):
     """ This pass through is only applicable if the target
-    operation is capable of handling vector operations.
-    Guard true/false is such an example.
+        operation is capable of handling vector operations.
+        Guard true/false is such an example.
     """
     def __init__(self, args):
         OpToVectorOp.__init__(self, args, None)
@@ -720,12 +730,12 @@ ROP_ARG_RES_VECTOR = {
 
 def determine_input_output_types(pack, node, forward):
     """ This function is two fold. If moving forward, it
-    gets an input type from the packs output type and returns
-    the transformed packtype.
+        gets an input type from the packs output type and returns
+        the transformed packtype.
 
-    Moving backward, the origins pack input type is the output
-    type and the transformation of the packtype (in reverse direction)
-    is the input
+        Moving backward, the origins pack input type is the output
+        type and the transformation of the packtype (in reverse direction)
+        is the input
     """
     op = node.getoperation()
     op2vecop = determine_trans(op)
@@ -763,8 +773,8 @@ class VecScheduleData(SchedulerData):
         self.seen = {}
 
     def schedule_candidate(self, scheduler, candidate):
-        """ if you implement a scheduler this operations is called
-        to emit the actual operation into the oplist of the scheduler
+        """ If you implement a scheduler this operations is called
+            to emit the actual operation into the oplist of the scheduler.
         """
         renamer = scheduler.renamer
         if candidate.pack:
@@ -786,7 +796,9 @@ class VecScheduleData(SchedulerData):
             scheduler.oplist.append(op)
 
     def as_vector_operation(self, scheduler, pack):
-        """ transform a pack into a single or several operation """
+        """ Transform a pack into a single or several operation.
+            Calls the as_vector_operation of the OpToVectorOp implementation.
+        """
         assert pack.opcount() > 1
         # properties that hold for the pack are:
         # + isomorphism (see func above)
@@ -806,8 +818,8 @@ class VecScheduleData(SchedulerData):
                 scheduler.renamer.start_renaming(op.result, box)
 
     def unpack_from_vector(self, op, scheduler):
-        """ if a box is needed that is currently stored within a vector
-            box, this utility creates a unpacking instruction
+        """ If a box is needed that is currently stored within a vector
+            box, this utility creates a unpacking instruction.
         """
         args = op.getarglist()
 
@@ -881,8 +893,8 @@ class Pack(object):
         return self.operations[0].getoperation()
 
     def is_full(self, vec_reg_size):
-        """ if one input element times the opcount is equal
-        to the vector register size, we are full!
+        """ If one input element times the opcount is equal
+            to the vector register size, we are full!
         """
         ptype = self.input_type
         if self.input_type is None:
@@ -922,7 +934,7 @@ class Pack(object):
             node.pack_position = i
 
     def rightmost_match_leftmost(self, other):
-        """ check if pack A can be combined with pack B """
+        """ Check if pack A can be combined with pack B """
         assert isinstance(other, Pack)
         rightmost = self.operations[-1]
         leftmost = other.operations[0]

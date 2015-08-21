@@ -33,6 +33,9 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 
 def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, warmstate):
+    """ Enter the world of SIMD instructions. Bails if it cannot
+        transform the trace.
+    """
     optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
                     inline_short_preamble, start_state, False)
     user_code = not jitdriver_sd.vec and warmstate.vec_all
@@ -88,8 +91,9 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
             raise
 
 def user_loop_bail_fast_path(loop, warmstate):
-    """ in a fast path over the trace loop: try to prevent vecopt
-    of spending time on a loop that will most probably fail """
+    """ In a fast path over the trace loop: try to prevent vecopt
+        of spending time on a loop that will most probably fail.
+    """
 
     resop_count = 0 # the count of operations minus debug_merge_points
     vector_instr = 0
@@ -112,7 +116,7 @@ def user_loop_bail_fast_path(loop, warmstate):
     if resop_count > warmstate.vec_length:
         return True
 
-    if float(vector_instr)/float(resop_count) <= warmstate.vec_ratio:
+    if (float(vector_instr)/float(resop_count)) < warmstate.vec_ratio:
         return True
 
     return False
