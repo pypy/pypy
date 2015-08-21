@@ -85,23 +85,11 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
     #    OFFSET_STACK_ARGS += MAX_REG_PARAMS * WORD
 
     def __init__(self, cpu, translate_support_code=False):
-        self.cpu = cpu
-        self.mc = None
-        self.memcpy_addr = 0
-        self.pending_guards = None
-        self.fail_boxes_count = 0
-        self.current_clt = None
-        self.malloc_slowpath = 0
-        self.wb_slowpath = [0, 0, 0, 0]
-        self._regalloc = None
-        self.datablockwrapper = None
-        self.max_stack_params = 0
-        self.propagate_exception_path = 0
-        self.stack_check_slowpath = 0
-        self.setup_failure_recovery()
-        self._debug = False
+        BaseAssembler.__init__(self, cpu, translate_support_code)
         self.loop_run_counters = []
-        self.debug_counter_descr = cpu.fielddescrof(DEBUG_COUNTER, 'i')
+        self.setup_failure_recovery()
+        self.stack_check_slowpath = 0
+        self.teardown()
 
     def set_debug(self, v):
         self._debug = v
@@ -645,11 +633,12 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         return mc.materialize(self.cpu, [], self.cpu.gc_ll_descr.gcrootmap)
 
     def _gen_epilogue(self, mc):
+        XXX
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self.gen_footer_shadowstack(gcrootmap, mc)
-        # save SPP in r5
-        # (assume that r5 has been written to failboxes)
+
+        # save SPP back in r3
         mc.mr(r.r5.value, r.SPP.value)
         self._restore_nonvolatiles(mc, r.r5)
         # load old backchain into r4
@@ -682,6 +671,12 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
     #    self.mc.b_offset(loophead)
 
     def _call_header(self):
+        if IS_PPC_64:
+            # Reserve space for a function descriptor, 3 words
+            self.mc.write64(0)
+            self.mc.write64(0)
+            self.mc.write64(0)
+
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
         self.mc.store_update(r.SP.value, r.SP.value, -STD_FRAME_SIZE_IN_BYTES)
         self.mc.mflr(r.SCRATCH.value)
@@ -758,6 +753,27 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             pmc.bc(4, 1, offset) # jump if SCRATCH <= r16, i. e. not(SCRATCH > r16)
             pmc.overwrite()
 
+    def _call_footer(self):
+        # the return value is the jitframe
+        self.mc.mr(r.r3.value, r.SPP.value)
+
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self._call_footer_shadowstack(gcrootmap)
+
+        # load old backchain into r4
+        self.mc.load(r.r4.value, r.SP.value,
+                     STD_FRAME_SIZE_IN_BYTES + LR_BC_OFFSET)
+
+        # restore registers r25 to r31
+        for i, reg in enumerate(REGISTERS_SAVED):
+            self.mc.load(reg.value, r.SP.value,
+                         GPR_SAVE_AREA_OFFSET + i * WORD)
+
+        self.mc.addi(r.SP.value, r.SP.value, STD_FRAME_SIZE_IN_BYTES)
+        self.mc.mtlr(r.r4.value)     # restore LR
+        self.mc.blr()
+
     def setup(self, looptoken):
         BaseAssembler.setup(self, looptoken)
         assert self.memcpy_addr != 0, "setup_once() not called?"
@@ -775,38 +791,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
         #self.max_stack_params = 0
-
-    def _append_debugging_code(self, operations, tp, number, token):
-        counter = self._register_counter(tp, number, token)
-        c_adr = ConstInt(rffi.cast(lltype.Signed, counter))
-        box = BoxInt()
-        box2 = BoxInt()
-        ops = [ResOperation(rop.GETFIELD_RAW, [c_adr],
-                            box, descr=self.debug_counter_descr),
-               ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
-               ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
-                            None, descr=self.debug_counter_descr)]
-        operations.extend(ops)
-
-    @specialize.argtype(1)
-    def _inject_debugging_code(self, looptoken, operations, tp, number):
-        if self._debug:
-            # before doing anything, let's increase a counter
-            s = 0
-            for op in operations:
-                s += op.getopnum()
-            looptoken._ppc_debug_checksum = s
-
-            newoperations = []
-            self._append_debugging_code(newoperations, tp, number,
-                                        None)
-            for op in operations:
-                newoperations.append(op)
-                if op.getopnum() == rop.LABEL:
-                    self._append_debugging_code(newoperations, 'l', number,
-                                                op.getdescr())
-            operations = newoperations
-        return operations
 
     def update_frame_depth(self, frame_depth):
         baseofs = self.cpu.get_baseofs_of_frame_field()
@@ -852,6 +836,9 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         full_size = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(looptoken)
+        if IS_PPC_64:    # fix the function descriptor (3 words)
+            rffi.cast(rffi.LONGP, rawstart)[0] = rawstart + 3 * WORD
+        #
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
         looptoken._ll_loop_code = looppos + rawstart
@@ -1027,22 +1014,9 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         return size
 
     def teardown(self):
-        self.patch_list = None
-        self.pending_guards = None
-        self.current_clt = None
+        self.pending_guard_tokens = None
         self.mc = None
-        self._regalloc = None
-        assert self.datablockwrapper is None
-        self.max_stack_params = 0
-
-    def gen_64_bit_func_descr(self):
-        return self.datablockwrapper.malloc_aligned(3*WORD, alignment=1)
-
-    def write_64_bit_func_descr(self, descr, start_addr):
-        data = rffi.cast(rffi.CArrayPtr(lltype.Signed), descr)
-        data[0] = start_addr
-        data[1] = 0
-        data[2] = 0
+        self.current_clt = None
 
     def compute_frame_depth(self, spilling_area, param_depth):
         PARAMETER_AREA = param_depth * WORD
@@ -1432,9 +1406,6 @@ for key, value in rop.__dict__.items():
     if hasattr(AssemblerPPC, methname):
         func = getattr(AssemblerPPC, methname).im_func
         operations_with_guard[value] = func
-
-AssemblerPPC.operations = operations
-AssemblerPPC.operations_with_guard = operations_with_guard
 
 class BridgeAlreadyCompiled(Exception):
     pass

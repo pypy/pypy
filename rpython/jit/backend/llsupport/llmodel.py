@@ -282,6 +282,7 @@ class AbstractLLCPU(AbstractCPU):
                     ll_threadlocal_addr = rffi.cast(llmemory.Address,
                         self._debug_errno_container)
                 llop.gc_writebarrier(lltype.Void, ll_frame)
+                import pdb;pdb.set_trace()
                 ll_frame = func(ll_frame, ll_threadlocal_addr)
             finally:
                 if not self.translate_support_code:

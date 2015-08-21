@@ -30,6 +30,7 @@ from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.rlib import rgc
 
 # xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
 # that it is a LABEL that was not compiled yet.
@@ -302,6 +303,9 @@ class Regalloc(BaseRegalloc):
                         selected_reg=selected_reg)
 
     def walk_operations(self, inputargs, operations):
+        from rpython.jit.backend.ppc.ppc_assembler import (
+            operations_with_guard as asm_operations_with_guard,
+            operations as asm_operations)
         i = 0
         #self.operations = operations
         while i < len(operations):
@@ -314,13 +318,22 @@ class Regalloc(BaseRegalloc):
                 self.possibly_free_vars_for_op(op)
                 continue
             if self.can_merge_with_next_guard(op, i, operations):
-                oplist_with_guard[op.getopnum()](self, op, operations[i + 1])
+                arglocs = oplist_with_guard[op.getopnum()](self, op,
+                                                           operations[i + 1])
+                assert arglocs is not None
+                asm_operations_with_guard[op.getopnum()](self.assembler, op,
+                                                     operations[i + 1],
+                                                     arglocs, self)
                 i += 1
             elif not we_are_translated() and op.getopnum() == -124:
                 self._consider_force_spill(op)
             else:
-                oplist[op.getopnum()](self, op)
+                arglocs = oplist[op.getopnum()](self, op)
+                if arglocs is not None:
+                    asm_operations[op.getopnum()](self.assembler, op,
+                                                  arglocs, self)
             self.possibly_free_vars_for_op(op)
+            self.free_temp_vars()
             self.rm._check_invariants()
             self.fprm._check_invariants()
             i += 1
@@ -530,15 +543,17 @@ class Regalloc(BaseRegalloc):
         return [loc1, res]
 
     def prepare_finish(self, op):
-        if op.numargs() > 0:
-            loc = self.loc(op.getarg(0))
-            self.possibly_free_var(op.getarg(0))
+        descr = op.getdescr()
+        fail_descr = cast_instance_to_gcref(descr)
+        # we know it does not move, but well
+        rgc._make_sure_does_not_move(fail_descr)
+        fail_descr = rffi.cast(lltype.Signed, fail_descr)
+        if op.numargs() == 1:
+            loc = self.make_sure_var_in_reg(op.getarg(0))
+            locs = [loc, imm(fail_descr)]
         else:
-            descr = op.getdescr()
-            fail_descr = cast_instance_to_gcref(descr)
-            fail_descr = rffi.cast(lltype.Signed, fail_descr)
-            loc = imm(fail_descr)
-        return [loc]
+            locs = [imm(fail_descr)]
+        return locs
 
     def prepare_call_malloc_gc(self, op):
         return self._prepare_call(op)
@@ -747,6 +762,12 @@ class Regalloc(BaseRegalloc):
     prepare_getfield_raw = prepare_getfield_gc
     prepare_getfield_raw_pure = prepare_getfield_gc
     prepare_getfield_gc_pure = prepare_getfield_gc
+
+    def prepare_increment_debug_counter(self, op):
+        args = op.getarglist()
+        base_loc = self._ensure_value_is_boxed(args[0])
+        temp_loc = self.get_scratch_reg(INT, args)
+        return [base_loc, temp_loc]
 
     def prepare_getinteriorfield_gc(self, op):
         t = unpack_interiorfielddescr(op.getdescr())

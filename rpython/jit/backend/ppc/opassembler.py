@@ -346,10 +346,46 @@ class MiscOpAssembler(object):
 
     _mixin_ = True
 
+    def emit_increment_debug_counter(self, op, arglocs, regalloc):
+        [addr_loc, value_loc] = arglocs
+        self.mc.load(value_loc.value, addr_loc.value, 0)
+        self.mc.addi(value_loc.value, value_loc.value, 1)
+        self.mc.store(value_loc.value, addr_loc.value, 0)
+
     def emit_finish(self, op, arglocs, regalloc):
-        [argloc] = arglocs
-        self._gen_epilogue(self.mc)
-        # ARM has a fcond argument to this function, returned at the end
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        if len(arglocs) == 2:
+            [return_val, fail_descr_loc] = arglocs
+            self.mc.std(return_val.value, r.SPP.value, base_ofs)
+        else:
+            [fail_descr_loc] = arglocs
+
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        self.mc.load_imm(r.r5, fail_descr_loc.getint())
+        self.mc.std(r.r5.value, r.SPP.value, ofs)
+
+        ## arglist = op.getarglist()
+        ## if arglist and arglist[0].type == REF:
+        ##     if self._finish_gcmap:
+        ##         # we're returning with a guard_not_forced_2, and
+        ##         # additionally we need to say that eax/rax contains
+        ##         # a reference too:
+        ##         self._finish_gcmap[0] |= r_uint(1)
+        ##         gcmap = self._finish_gcmap
+        ##     else:
+        ##         gcmap = self.gcmap_for_finish
+        ##     self.push_gcmap(self.mc, gcmap, store=True)
+        ## elif self._finish_gcmap:
+        ##     # we're returning with a guard_not_forced_2
+        ##     gcmap = self._finish_gcmap
+        ##     self.push_gcmap(self.mc, gcmap, store=True)
+        ## else:
+        ##     # note that the 0 here is redundant, but I would rather
+        ##     # keep that one and kill all the others
+        ##     ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        ##     self.mc.MOV_bi(ofs, 0)
+        # exit function
+        self._call_footer()
 
     def emit_jump(self, op, arglocs, regalloc):
         # The backend's logic assumes that the target code is in a piece of
