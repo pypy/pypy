@@ -25,7 +25,7 @@ class AppTestVMProf(object):
             assert s[i + 1] == 0    # 0
             assert s[i + 2] == 1    # VERSION_THREAD_ID
             assert s[i + 3] == 4    # len('pypy')
-            assert s[i + 4: i + 8] == 'pypy'
+            assert s[i + 4: i + 8] == b'pypy'
             i += 8
             while i < len(s):
                 if s[i] == 3:
