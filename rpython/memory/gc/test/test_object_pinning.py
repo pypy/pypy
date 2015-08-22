@@ -966,7 +966,7 @@ class TestIncminimark(PinningGCTest):
         self.gc.minor_collection()
         assert self.gc.gc_state == self.STATE_MARKING
         self.gc.major_collection_step()
-        assert self.gc.objects_to_trace.tolist() == [adr1]
+        assert self.gc.objects_to_trace.tolist() == []
         assert self.gc.more_objects_to_trace.tolist() == [adr2]
 
         self.write(ptr2, 'data', lltype.nullptr(T))
