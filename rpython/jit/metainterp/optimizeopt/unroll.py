@@ -8,6 +8,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
     VirtualStateConstructor, VirtualStatesCantMatch)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp import compile
 
 class UnrollableOptimizer(Optimizer):
     def force_op_from_preamble(self, preamble_op):
@@ -130,13 +131,19 @@ class UnrollOptimizer(Optimization):
 
     def optimize_bridge(self, start_label, operations, call_pure_results,
                         inline_short_preamble):
-        assert inline_short_preamble
         self._check_no_forwarding([start_label.getarglist(),
                                     operations])
         info, ops = self.optimizer.propagate_all_forward(
             start_label.getarglist()[:], operations[:-1],
             call_pure_results, True)
         jump_op = operations[-1]
+        if not inline_short_preamble:
+            cell_token = jump_op.getdescr()
+            assert cell_token.target_tokens[0].virtual_state is None
+            jump_op = jump_op.copy_and_change(rop.JUMP,
+                                        descr=cell_token.target_tokens[0])
+            self.optimizer.send_extra_operation(jump_op)
+            return info, self.optimizer._newoperations[:]
         vs = self.jump_to_existing_trace(jump_op, inline_short_preamble)
         if vs is None:
             return info, self.optimizer._newoperations[:]
@@ -196,7 +203,8 @@ class UnrollOptimizer(Optimization):
             self.make_equal_to(short_inputargs[i], jump_args[i])
         for op in short_ops:
             if op.is_guard():
-                op = self.replace_op_with(op, op.getopnum())
+                op = self.replace_op_with(op, op.getopnum(),
+                                          descr=compile.ResumeAtPositionDescr())
                 op.rd_snapshot = patchguardop.rd_snapshot
                 op.rd_frame_info_list = patchguardop.rd_frame_info_list
             self.optimizer.send_extra_operation(op)

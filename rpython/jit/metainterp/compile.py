@@ -300,7 +300,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     loop.operations = ([start_label] + preamble_ops + loop_info.extra_same_as +
                        [mid_label] + loop_ops)
     loop.check_consistency()
-    jitcell_token.target_tokens = [mid_descr_token, start_descr]
+    jitcell_token.target_tokens = [start_descr, mid_descr_token]
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
     return start_descr
@@ -1015,13 +1015,11 @@ def compile_trace(metainterp, resumekey):
     call_pure_results = metainterp.call_pure_results
 
     if operations[-1].getopnum() == rop.JUMP:
-        jump_op = operations[-1]
         data = BridgeCompileData(label, operations[:],
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
                                  inline_short_preamble=inline_short_preamble)
     else:
-        jump_op = None
         data = SimpleCompileData(label, operations[:],
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
