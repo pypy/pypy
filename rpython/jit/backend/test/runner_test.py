@@ -230,6 +230,8 @@ class BaseBackendTest(Runner):
         self.cpu.compile_loop(inputargs, operations, looptoken)
         if hasattr(looptoken, '_x86_ops_offset'):
             del looptoken._x86_ops_offset # else it's kept alive
+        if hasattr(looptoken, '_ppc_ops_offset'):
+            del looptoken._ppc_ops_offset # else it's kept alive
         del i0, i1, i2
         del inputargs
         del operations

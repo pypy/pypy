@@ -72,10 +72,3 @@ assert REGISTERS_SAVED == [_r for _r in r.NONVOLATILES
 
 STD_FRAME_SIZE_IN_BYTES = GPR_SAVE_AREA_OFFSET + len(REGISTERS_SAVED) * WORD
 assert STD_FRAME_SIZE_IN_BYTES % 16 == 0
-
-
-# The JITFRAME_FIXED_SIZE is measured in words, and should be the
-# number of registers that need to be saved into the jitframe when
-# failing a guard, for example.  (Note: it is about the jitframe,
-# not the frame.)
-JITFRAME_FIXED_SIZE = len(r.MANAGED_REGS) + len(r.MANAGED_FP_REGS)

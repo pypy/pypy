@@ -1,7 +1,5 @@
 # ../x86/jump.py
 # XXX combine with ../x86/jump.py and move to llsupport
-import sys
-from rpython.tool.pairtype import extendabletype
 
 def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
     pending_dests = len(dst_locations)
@@ -77,9 +75,9 @@ def _move(assembler, src, dst, tmpreg):
 def remap_frame_layout_mixed(assembler,
                              src_locations1, dst_locations1, tmpreg1,
                              src_locations2, dst_locations2, tmpreg2):
-    # find and push the xmm stack locations from src_locations2 that
+    # find and push the fp stack locations from src_locations2 that
     # are going to be overwritten by dst_locations1
-    from pypy.jit.backend.ppc.arch import WORD
+    from rpython.jit.backend.ppc.arch import WORD
     extrapushes = []
     dst_keys = {}
     for loc in dst_locations1:
@@ -104,10 +102,10 @@ def remap_frame_layout_mixed(assembler,
     # remap the integer and pointer registers and stack locations
     remap_frame_layout(assembler, src_locations1, dst_locations1, tmpreg1)
     #
-    # remap the vfp registers and stack locations
+    # remap the fp registers and stack locations
     remap_frame_layout(assembler, src_locations2, dst_locations2, tmpreg2)
     #
-    # finally, pop the extra xmm stack locations
+    # finally, pop the extra fp stack locations
     while len(extrapushes) > 0:
         loc = extrapushes.pop()
         assembler.regalloc_pop(loc)

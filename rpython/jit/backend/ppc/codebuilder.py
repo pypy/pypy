@@ -923,15 +923,15 @@ else:
     def flush_icache(x, y): pass
 
 class PPCGuardToken(GuardToken):
-    # We may have to find a suitable default value for fcond
-    def __init__(self, cpu, gcmap, descr, failargs, faillocs, offset,
+    def __init__(self, cpu, gcmap, descr, failargs, faillocs,
                  exc, frame_depth, is_guard_not_invalidated=False,
-                 is_guard_not_forced=False, fcond=c.EQ):
+                 is_guard_not_forced=False, fcond=c.UH):
+        assert fcond != c.UH
         GuardToken.__init__(self, cpu, gcmap, descr, failargs, faillocs, exc,
                             frame_depth, is_guard_not_invalidated,
                             is_guard_not_forced)
         self.fcond = fcond
-        self.offset = offset
+        #self.offset = offset
 
 class OverwritingBuilder(PPCAssembler):
     def __init__(self, cb, start, num_insts):
@@ -989,14 +989,6 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.lwzx(rD.value, 0, rD.value)
         else:
             self.ldx(rD.value, 0, rD.value)
-
-    def store_reg(self, source_reg, addr):
-        with scratch_reg(self):
-            self.load_imm(r.SCRATCH, addr)
-            if IS_PPC_32:
-                self.stwx(source_reg.value, 0, r.SCRATCH.value)
-            else:
-                self.stdx(source_reg.value, 0, r.SCRATCH.value)
 
     def b_offset(self, target):
         curpos = self.currpos()
@@ -1160,7 +1152,7 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self.writechar(chr(word & 0xFF))
 
     def currpos(self):
-        return self.get_rel_pos()
+        return self.get_relative_pos()
 
     def flush_cache(self, addr):
         startaddr = rffi.cast(lltype.Signed, addr)

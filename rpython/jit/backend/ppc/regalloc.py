@@ -5,7 +5,7 @@ from rpython.jit.backend.ppc.arch import (WORD, MY_COPY_OF_REGS, IS_PPC_32)
 from rpython.jit.codewriter import longlong
 from rpython.jit.backend.ppc.jump import (remap_frame_layout,
                                           remap_frame_layout_mixed)
-from rpython.jit.backend.ppc.locations import imm, get_fp_offset, get_spp_offset
+from rpython.jit.backend.ppc.locations import imm, get_fp_offset
 from rpython.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
                                                      prepare_cmp_op,
                                                      prepare_unary_int_op,
@@ -192,7 +192,7 @@ class PPCFrameManager(FrameManager):
 
     @staticmethod
     def get_loc_index(loc):
-        assert loc.is_stack()
+        assert isinstance(loc, locations.StackLocation)
         return loc.position
 
 class Regalloc(BaseRegalloc):
@@ -227,28 +227,41 @@ class Regalloc(BaseRegalloc):
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
+        self.min_bytes_before_label = 4    # for redirect_call_assembler()
         return operations
 
-    def prepare_bridge(self, inputargs, arglocs, ops):
-        self._prepare(inputargs, ops)
+    def prepare_bridge(self, inputargs, arglocs, operations, allgcrefs,
+                       frame_info):
+        operations = self._prepare(inputargs, operations, allgcrefs)
         self._update_bindings(arglocs, inputargs)
+        self.min_bytes_before_label = 0
+        return operations
+
+    def ensure_next_label_is_at_least_at_position(self, at_least_position):
+        self.min_bytes_before_label = max(self.min_bytes_before_label,
+                                          at_least_position)
 
     def _update_bindings(self, locs, inputargs):
+        # XXX this should probably go to llsupport/regalloc.py
         used = {}
         i = 0
         for loc in locs:
+            if loc is None: # xxx bit kludgy
+                loc = r.SPP
             arg = inputargs[i]
             i += 1
             if loc.is_reg():
-                self.rm.reg_bindings[arg] = loc
+                if loc is r.SPP:
+                    self.rm.bindings_to_frame_reg[arg] = None
+                else:
+                    self.rm.reg_bindings[arg] = loc
+                    used[loc] = None
             elif loc.is_fp_reg():
                 self.fprm.reg_bindings[arg] = loc
+                used[loc] = None
             else:
                 assert loc.is_stack()
-                self.frame_manager.set_binding(arg, loc)
-            used[loc] = None
-
-        # XXX combine with x86 code and move to llsupport
+                self.fm.bind(arg, loc)
         self.rm.free_regs = []
         for reg in self.rm.all_regs:
             if reg not in used:
@@ -257,9 +270,10 @@ class Regalloc(BaseRegalloc):
         for reg in self.fprm.all_regs:
             if reg not in used:
                 self.fprm.free_regs.append(reg)
-        # note: we need to make a copy of inputargs because possibly_free_vars
-        # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
+        self.fm.finish_binding()
+        self.rm._check_invariants()
+        self.fprm._check_invariants()
 
     def get_final_frame_depth(self):
         return self.fm.get_frame_depth()
@@ -317,7 +331,12 @@ class Regalloc(BaseRegalloc):
                 i += 1
                 self.possibly_free_vars_for_op(op)
                 continue
-            if self.can_merge_with_next_guard(op, i, operations):
+            if self.can_merge_with_next_guard(op, i, operations) and (
+                # XXX FIX
+                op.getopnum() in (rop.CALL_RELEASE_GIL, rop.CALL_ASSEMBLER,
+                                  rop.CALL_MAY_FORCE)
+                # XXX FIX
+                ):
                 arglocs = oplist_with_guard[op.getopnum()](self, op,
                                                            operations[i + 1])
                 assert arglocs is not None
@@ -339,10 +358,17 @@ class Regalloc(BaseRegalloc):
             i += 1
         assert not self.rm.reg_bindings
         assert not self.fprm.reg_bindings
-        #self.flush_loop()
+        self.flush_loop()
         self.assembler.mc.mark_op(None) # end of the loop
         for arg in inputargs:
             self.possibly_free_var(arg)
+
+    def flush_loop(self):
+        # Emit a nop in the rare case where we have a guard_not_invalidated
+        # immediately before a label
+        mc = self.assembler.mc
+        while self.min_bytes_before_label > mc.get_relative_pos():
+            mc.nop()
 
     def loc(self, var):
         if var.type == FLOAT:
@@ -359,6 +385,10 @@ class Regalloc(BaseRegalloc):
             self.fprm.force_spill_var(var)
         else:
             self.rm.force_spill_var(var)
+
+    def _consider_force_spill(self, op):
+        # This operation is used only for testing
+        self.force_spill_var(op.getarg(0))
 
     def before_call(self, force_store=[], save_all_regs=False):
         self.rm.before_call(force_store, save_all_regs)
@@ -561,12 +591,13 @@ class Regalloc(BaseRegalloc):
     def _prepare_guard(self, op, args=None):
         if args is None:
             args = []
-        args.append(imm(len(self.frame_manager.used)))
+        args.append(imm(self.fm.get_frame_depth()))
         for arg in op.getfailargs():
             if arg:
                 args.append(self.loc(arg))
             else:
                 args.append(None)
+        self.possibly_free_vars(op.getfailargs())
         return args
     
     def prepare_guard_true(self, op):
@@ -695,7 +726,7 @@ class Regalloc(BaseRegalloc):
             if isinstance(box, Box):
                 loc = arglocs[i]
                 if loc is not None and loc.is_stack():
-                    self.frame_manager.hint_frame_locations[box] = loc
+                    self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
 
     def prepare_jump(self, op):
         descr = op.getdescr()
@@ -1067,7 +1098,6 @@ class Regalloc(BaseRegalloc):
         return [res_loc]
 
     def prepare_label(self, op):
-        # XXX big refactoring needed?
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
         inputargs = op.getarglist()
@@ -1082,15 +1112,26 @@ class Regalloc(BaseRegalloc):
             assert isinstance(arg, Box)
             if self.last_real_usage.get(arg, -1) <= position:
                 self.force_spill_var(arg)
-
+        #
+        # we need to make sure that no variable is stored in spp (=r31)
+        for arg in inputargs:
+            if self.loc(arg) is r.SPP:
+                loc2 = self.fm.loc(arg)
+                self.assembler.mc.store(r.SPP, loc2)
+        self.rm.bindings_to_frame_reg.clear()
         #
         for i in range(len(inputargs)):
             arg = inputargs[i]
             assert isinstance(arg, Box)
             loc = self.loc(arg)
+            assert loc is not r.SPP
             arglocs[i] = loc
             if loc.is_reg():
-                self.frame_manager.mark_as_free(arg)
+                self.fm.mark_as_free(arg)
+        #
+        # if we are too close to the start of the loop, the label's target may
+        # get overridden by redirect_call_assembler().  (rare case)
+        self.flush_loop()
         #
         descr._ppc_arglocs = arglocs
         descr._ppc_loop_code = self.assembler.mc.currpos()

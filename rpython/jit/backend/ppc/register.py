@@ -37,6 +37,16 @@ MANAGED_REGS = [r3, r4, r5, r6, r7, r8, r9, r10, r11, r12,
 
 MANAGED_FP_REGS = VOLATILES_FLOAT[1:] #+ NONVOLATILES_FLOAT
 
+
+# The JITFRAME_FIXED_SIZE is measured in words, and should be the
+# number of registers that need to be saved into the jitframe when
+# failing a guard, for example.
+ALL_REG_INDEXES = {}
+for _r in MANAGED_REGS + MANAGED_FP_REGS:
+    ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES)
+JITFRAME_FIXED_SIZE = len(ALL_REG_INDEXES)
+
+
 PARAM_REGS = [r3, r4, r5, r6, r7, r8, r9, r10]
 PARAM_FPREGS = [f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13]
 

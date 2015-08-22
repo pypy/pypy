@@ -7,12 +7,12 @@ from rpython.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                           LR_BC_OFFSET, REGISTERS_SAVED,
                                           GPR_SAVE_AREA_OFFSET,
                                           THREADLOCAL_ADDR_OFFSET,
-                                          STD_FRAME_SIZE_IN_BYTES,
-                                          JITFRAME_FIXED_SIZE)
+                                          STD_FRAME_SIZE_IN_BYTES)
 from rpython.jit.backend.ppc.helper.assembler import Saved_Volatiles
 from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import rpython.jit.backend.ppc.register as r
 import rpython.jit.backend.ppc.condition as c
+from rpython.jit.backend.ppc.register import JITFRAME_FIXED_SIZE
 from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.jit.metainterp.history import ConstInt, BoxInt
 from rpython.jit.backend.llsupport import jitframe
@@ -30,7 +30,7 @@ from rpython.rlib import rgc
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.jit.backend.ppc.locations import StackLocation, get_spp_offset, imm
+from rpython.jit.backend.ppc.locations import StackLocation, get_fp_offset, imm
 from rpython.rlib.jit import AsmInfo
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib.rarithmetic import r_uint
@@ -166,50 +166,29 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         mc.addi(r.r15.value, r.r15.value, -2 * WORD)  # SUB r15, r15, 2*WORD
         mc.store(r.r15.value, r.r14.value, 0) # STR r15, [rootstacktop]
 
+    def new_stack_loc(self, i, tp):
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        return StackLocation(i, get_fp_offset(base_ofs, i), tp)
+
     def setup_failure_recovery(self):
-
-        @rgc.no_collect
-        def failure_recovery_func(mem_loc, spilling_pointer,
-                                  managed_registers_pointer):
-            """
-                mem_loc is a pointer to the beginning of the encoding.
-
-                spilling_pointer is the address of the spilling area.
-            """
-            regs = rffi.cast(rffi.LONGP, managed_registers_pointer)
-            fpregs = rffi.ptradd(regs, len(r.MANAGED_REGS))
-            fpregs = rffi.cast(rffi.LONGP, fpregs)
-            return self.decode_registers_and_descr(mem_loc, 
-                                                   spilling_pointer,
-                                                   regs, fpregs)
-
-        self.failure_recovery_func = failure_recovery_func
-        self.failure_recovery_code = [0, 0, 0]
-
-    recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed] * 3,
-            lltype.Signed))
+        self.failure_recovery_code = [0, 0, 0, 0]
 
     # TODO: see with we really need the ignored_regs argument
     def _push_all_regs_to_jitframe(self, mc, ignored_regs, withfloats,
                                    callee_only=False):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if callee_only:
-            # Only push registers used to pass arguments to the callee
-            regs = r.VOLATILES
+            regs = XXX
         else:
-            regs = r.ALL_REGS
+            regs = r.MANAGED_REGS
         # For now, just push all regs to the jitframe
-        for i, reg in enumerate(regs):
-            # XXX should we progress to higher addresses?
-            mc.store_reg(reg, base_ofs - (i * WORD))
-
+        for reg in regs:
+            v = r.ALL_REG_INDEXES[reg]
+            mc.std(reg.value, r.SPP.value, base_ofs + v * WORD)
         if withfloats:
-            if callee_only:
-                regs = r.VOLATILES_FLOAT
-            else:
-                regs = r.ALL_FLOAT_REGS
-            for i, reg in enumerate(regs):
-                pass # TODO find or create the proper store indexed for fpr's
+            for reg in r.MANAGED_FP_REGS:
+                v = r.ALL_REG_INDEXES[reg]
+                mc.stfd(reg.value, r.SPP.value, base_ofs + v * WORD)
 
     def _pop_all_regs_from_jitframe(self, mc, ignored_regs, withfloats,
                                     callee_only=False):
@@ -230,135 +209,36 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             for i, reg in enumerate(regs):
                 pass # TODO find or create the proper load indexed for fpr's
 
-    @rgc.no_collect
-    def decode_registers_and_descr(self, mem_loc, spp, registers, fp_registers):
-        """Decode locations encoded in memory at mem_loc and write the values
-        to the failboxes.  Values for spilled vars and registers are stored on
-        stack at frame_loc """
-        assert spp & 1 == 0
-        self.fail_force_index = spp + FORCE_INDEX_OFS
-        bytecode = rffi.cast(rffi.UCHARP, mem_loc)
-        num = 0
-        value = 0
-        fvalue = 0
-        code_inputarg = False
-        while True:
-            code = rffi.cast(lltype.Signed, bytecode[0])
-            bytecode = rffi.ptradd(bytecode, 1)
-            if code >= self.CODE_FROMSTACK:
-                if code > 0x7F:
-                    shift = 7
-                    code &= 0x7F
-                    while True:
-                        nextcode = rffi.cast(lltype.Signed, bytecode[0])
-                        bytecode = rffi.ptradd(bytecode, 1)
-                        code |= (nextcode & 0x7F) << shift
-                        shift += 7
-                        if nextcode <= 0x7F:
-                            break
-                # load the value from the stack
-                kind = code & 3
-                code = int((code - self.CODE_FROMSTACK) >> 2)
-                if code_inputarg:
-                    code = ~code
-                    code_inputarg = False
-                if kind == self.DESCR_FLOAT:
-                    start = spp + get_spp_offset(int(code))
-                    fvalue = rffi.cast(rffi.LONGP, start)[0]
-                else:
-                    start = spp + get_spp_offset(int(code))
-                    value = rffi.cast(rffi.LONGP, start)[0]
-            else:
-                # 'code' identifies a register: load its value
-                kind = code & 3
-                if kind == self.DESCR_SPECIAL:
-                    if code == self.CODE_HOLE:
-                        num += 1
-                        continue
-                    if code == self.CODE_INPUTARG:
-                        code_inputarg = True
-                        continue
-                    assert code == self.CODE_STOP
-                    break
-                code >>= 2
-                if kind == self.DESCR_FLOAT:
-                    reg_index = r.get_managed_fpreg_index(code)
-                    fvalue = fp_registers[reg_index]
-                else:
-                    reg_index = r.get_managed_reg_index(code)
-                    value = registers[reg_index]
-            # store the loaded value into fail_boxes_<type>
-            if kind == self.DESCR_FLOAT:
-                tgt = self.fail_boxes_float.get_addr_for_num(num)
-                rffi.cast(rffi.LONGP, tgt)[0] = fvalue
-            else:
-                if kind == self.DESCR_INT:
-                    tgt = self.fail_boxes_int.get_addr_for_num(num)
-                elif kind == self.DESCR_REF:
-                    assert (value & 3) == 0, "misaligned pointer"
-                    tgt = self.fail_boxes_ptr.get_addr_for_num(num)
-                else:
-                    assert 0, "bogus kind"
-                rffi.cast(rffi.LONGP, tgt)[0] = value
-            num += 1
-        self.fail_boxes_count = num
-        fail_index = rffi.cast(rffi.INTP, bytecode)[0]
-        fail_index = rffi.cast(lltype.Signed, fail_index)
-        return fail_index
-
-    def decode_inputargs(self, code):
-        descr_to_box_type = [REF, INT, FLOAT]
-        bytecode = rffi.cast(rffi.UCHARP, code)
-        arglocs = []
-        code_inputarg = False
-        while 1:
-            # decode the next instruction from the bytecode
-            code = rffi.cast(lltype.Signed, bytecode[0])
-            bytecode = rffi.ptradd(bytecode, 1)
-            if code >= self.CODE_FROMSTACK:
-                # 'code' identifies a stack location
-                if code > 0x7F:
-                    shift = 7
-                    code &= 0x7F
-                    while True:
-                        nextcode = rffi.cast(lltype.Signed, bytecode[0])
-                        bytecode = rffi.ptradd(bytecode, 1)
-                        code |= (nextcode & 0x7F) << shift
-                        shift += 7
-                        if nextcode <= 0x7F:
-                            break
-                kind = code & 3
-                code = (code - self.CODE_FROMSTACK) >> 2
-                if code_inputarg:
-                    code = ~code
-                    code_inputarg = False
-                loc = PPCFrameManager.frame_pos(code, descr_to_box_type[kind])
-            elif code == self.CODE_STOP:
-                break
-            elif code == self.CODE_HOLE:
-                continue
-            elif code == self.CODE_INPUTARG:
-                code_inputarg = True
-                continue
-            else:
-                # 'code' identifies a register
-                kind = code & 3
-                code >>= 2
-                if kind == self.DESCR_FLOAT:
-                    assert (r.ALL_FLOAT_REGS[code] is 
-                            r.MANAGED_FP_REGS[r.get_managed_fpreg_index(code)])
-                    loc = r.ALL_FLOAT_REGS[code]
-                else:
-                    #loc = r.all_regs[code]
-                    assert (r.ALL_REGS[code] is 
-                            r.MANAGED_REGS[r.get_managed_reg_index(code)])
-                    loc = r.ALL_REGS[code]
-            arglocs.append(loc)
-        return arglocs[:]
-
-    # TODO
     def _build_failure_recovery(self, exc, withfloats=False):
-        pass
+        mc = PPCBuilder()
+        self.mc = mc
+
+        # fill in the jf_descr and jf_gcmap fields of the frame according
+        # to which failure we are resuming from.  These are set before
+        # this function is called (see generate_quick_failure()).
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.store(r.r0.value, r.SPP.value, ofs)
+        mc.store(r.r2.value, r.SPP.value, ofs2)
+
+        self._push_all_regs_to_jitframe(mc, [], withfloats)
+
+        if exc:
+            # We might have an exception pending.  Load it into r2...
+            mc.write32(0)
+            #mc.MOV(ebx, heap(self.cpu.pos_exc_value()))
+            #mc.MOV(heap(self.cpu.pos_exception()), imm0)
+            #mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
+            ## ...and save ebx into 'jf_guard_exc'
+            #offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            #mc.MOV_br(offset, ebx.value)
+
+        # now we return from the complete frame, which starts from
+        # _call_header_with_stack_check().  The _call_footer below does it.
+        self._call_footer()
+        rawstart = mc.materialize(self.cpu, [])
+        self.failure_recovery_code[exc + 2 * withfloats] = rawstart
+        self.mc = None
 
     # TODO
     def build_frame_realloc_slowpath(self):
@@ -836,7 +716,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         #
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
-        looptoken._ll_loop_code = looppos + rawstart
+        looptoken._ppc_loop_code = looppos + rawstart
         debug_start("jit-backend-addr")
         debug_print("Loop %d (%s) has address 0x%x to 0x%x (bootstrap 0x%x)" % (
             looptoken.number, loopname,
@@ -881,56 +761,48 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth
 
-    def assemble_bridge(self, faildescr, inputargs, operations, looptoken, log):
+    @rgc.no_release_gil
+    def assemble_bridge(self, faildescr, inputargs, operations,
+                        original_loop_token, log, logger):
         if not we_are_translated():
+            # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
 
-        self.setup(looptoken)
+        self.setup(original_loop_token)
         descr_number = compute_unique_id(faildescr)
         if log:
             operations = self._inject_debugging_code(faildescr, operations,
                                                      'b', descr_number)
-        assert isinstance(faildescr, AbstractFailDescr)
-        arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
 
+        arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
         regalloc = Regalloc(assembler=self)
+        startpos = self.mc.get_relative_pos()
         operations = regalloc.prepare_bridge(inputargs, arglocs,
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
-
-        startpos = self.mc.currpos()
-        spilling_area, param_depth = self._assemble(operations, regalloc)
-        codeendpos = self.mc.currpos()
-
+        #self._check_frame_depth(self.mc, regalloc.get_gcmap())
+        frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
+        codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
-
-        rawstart = self.materialize_loop(looptoken, False)
-        self.process_pending_guards(rawstart)
-        self.patch_trace(faildescr, looptoken, rawstart, regalloc)
-        self.fixup_target_tokens(rawstart)
-        self.current_clt.frame_depth = max(self.current_clt.frame_depth,
-                spilling_area)
-        self.current_clt.param_depth = max(self.current_clt.param_depth, param_depth)
-
-        if not we_are_translated():
-            # for the benefit of tests
-            faildescr._ppc_bridge_frame_depth = self.current_clt.frame_depth
-            faildescr._ppc_bridge_param_depth = self.current_clt.param_depth
-            if log:
-                self.mc._dump_trace(rawstart, 'bridge_%d.asm' %
-                self.cpu.total_compiled_bridges)
-
-        self._patch_sp_offset(sp_patch_location, rawstart)
-
+        fullsize = self.mc.get_relative_pos()
+        #
+        rawstart = self.materialize_loop(original_loop_token)
+        self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
+                                rawstart)
+        debug_bridge(descr_number, rawstart, codeendpos)
+        self.patch_pending_failure_recoveries(rawstart)
+        # patch the jump from original guard
+        self.patch_jump_for_descr(faildescr, rawstart)
         ops_offset = self.mc.ops_offset
+        frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
+                          frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+        if logger:
+            logger.log_bridge(inputargs, operations, "rewritten",
+                              ops_offset=ops_offset)
+        self.fixup_target_tokens(rawstart)
+        self.update_frame_depth(frame_depth)
         self.teardown()
-
-        debug_start("jit-backend-addr")
-        debug_print("bridge out of Guard %d has address %x to %x" %
-                    (descr_number, rawstart, rawstart + codeendpos))
-        debug_stop("jit-backend-addr")
-
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
     def _patch_sp_offset(self, sp_patch_location, rawstart):
@@ -1053,21 +925,20 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         #print "=== Loop start is at %s ===" % hex(r_uint(start))
         return start
 
-    def push_gcmap(self, mc, gcmap, push=False, store=False):
+    def load_gcmap(self, mc, gcmap):
+        # load the current gcmap into register r2
         ptr = rffi.cast(lltype.Signed, gcmap)
-        if push:
-            with scratch_reg(mc):
-                mc.load_imm(r.SCRATCH, ptr)
-                mc.stdu(r.SCRATCH.value, r.SP.value, -WORD)
-        elif store:
-            assert False, "Not implemented"
+        mc.load_imm(r.r2, ptr)
 
     def generate_quick_failure(self, guardtok):
         startpos = self.mc.currpos()
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
-        self.regalloc_push(imm(fail_descr))
-        self.push_gcmap(self.mc, gcmap=guardtok.gcmap, push=True)
-        self.mc.call(target)
+        assert target != 0
+        self.load_gcmap(self.mc, gcmap=guardtok.gcmap)   # -> r2
+        self.mc.load_imm(r.r0, target)
+        self.mc.mtctr(r.r0.value)
+        self.mc.load_imm(r.r0, fail_descr)
+        self.mc.bctr()
         return startpos
 
     def write_pending_failure_recoveries(self):
@@ -1079,32 +950,37 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
     def patch_pending_failure_recoveries(self, rawstart):
         clt = self.current_clt
         for tok in self.pending_guard_tokens:
-            xxxxxxxxx
-
-    def process_pending_guards(self, block_start):
-        clt = self.current_clt
-        for tok in self.pending_guards:
-            descr = tok.faildescr
-            assert isinstance(descr, AbstractFailDescr)
-            descr._ppc_block_start = block_start
-
+            addr = rawstart + tok.pos_jump_offset
+            #
+            # XXX see patch_jump_for_descr()
+            #tok.faildescr.adr_jump_offset = addr
+            tok.faildescr.adr_recovery_stub = rawstart + tok.pos_recovery_stub
+            #
+            relative_target = tok.pos_recovery_stub - tok.pos_jump_offset
+            #
             if not tok.is_guard_not_invalidated:
                 mc = PPCBuilder()
-                offset = tok.pos_recovery_stub - tok.offset
-                mc.b_cond_offset(offset, tok.fcond)
-                mc.copy_to_raw_memory(block_start + tok.offset)
+                mc.b_cond_offset(relative_target, tok.fcond)
+                mc.copy_to_raw_memory(addr)
             else:
-                clt.invalidate_positions.append((block_start + tok.offset,
-                        descr._ppc_guard_pos - tok.offset))
+                # GUARD_NOT_INVALIDATED, record an entry in
+                # clt.invalidate_positions of the form:
+                #     (addr-in-the-code-of-the-not-yet-written-jump-target,
+                #      relative-target-to-use)
+                relpos = tok.pos_jump_offset
+                clt.invalidate_positions.append((rawstart + relpos,
+                                                 relative_target))
 
-    def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
-        # The first instruction (word) is not overwritten, because it is the
-        # one that actually checks the condition
+    def patch_jump_for_descr(self, faildescr, adr_new_target):
+        # 'faildescr.adr_jump_offset' is the address of an instruction that is a
+        # conditional jump.  We must patch this conditional jump to go
+        # to 'adr_new_target'.  If the target is too far away, we can't
+        # patch it inplace, and instead we patch the quick failure code
+        # (which should be at least 5 instructions, so enough).
+        # --- XXX for now we always use the second solution ---
         mc = PPCBuilder()
-        patch_addr = faildescr._ppc_block_start + faildescr._ppc_guard_pos
-        mc.b_abs(bridge_addr)
-        mc.copy_to_raw_memory(patch_addr)
-        faildescr._failure_recovery_code_ofs = 0
+        mc.b_abs(adr_new_target)
+        mc.copy_to_raw_memory(faildescr.adr_recovery_stub)
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token

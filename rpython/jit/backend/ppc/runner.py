@@ -18,8 +18,13 @@ class PPC_CPU(AbstractLLCPU):
     IS_64_BIT = True
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
 
+    from rpython.jit.backend.ppc.register import JITFRAME_FIXED_SIZE
     frame_reg = r.SP
-    all_reg_indexes = range(len(r.ALL_REGS))
+    all_reg_indexes = [-1] * 32
+    for _i, _r in enumerate(r.MANAGED_REGS):
+        all_reg_indexes[_r.value] = _i
+    gen_regs = r.MANAGED_REGS
+    float_regs = r.MANAGED_FP_REGS
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
@@ -31,7 +36,7 @@ class PPC_CPU(AbstractLLCPU):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
-        # floats are not supported yet
+        # floats are supported.  singlefloats are not supported yet
         self.supports_floats = True
 
     def setup(self):
@@ -44,11 +49,11 @@ class PPC_CPU(AbstractLLCPU):
         self.assembler.finish_once()
 
     def compile_bridge(self, faildescr, inputargs, operations,
-                      original_loop_token, log=False):
+                       original_loop_token, log=True, logger=None):
         clt = original_loop_token.compiled_loop_token
         clt.compiling_a_bridge()
         return self.assembler.assemble_bridge(faildescr, inputargs, operations,
-                                       original_loop_token, log=log)
+                                              original_loop_token, log, logger)
 
     @staticmethod
     def cast_ptr_to_int(x):

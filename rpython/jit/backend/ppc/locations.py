@@ -1,9 +1,7 @@
 from rpython.jit.metainterp.history import INT, FLOAT
 import sys
 
-# TODO: solve the circular import: runner -> arch -> register -> locations ->
-# arch
-# XXX import from arch.py, currently we have a circular import
+# cannot import from arch.py, currently we have a circular import
 if sys.maxint == (2**31 - 1):
     WORD = 4
     FWORD = 8
@@ -12,8 +10,6 @@ else:
     FWORD = 8
 DWORD = 2 * WORD
 
-# JITFRAME_FIXED_SIZE is also duplicated because of the circular import
-JITFRAME_FIXED_SIZE = 27 + 31 + 1 + 4 + 1
 
 class AssemblerLocation(object):
     _immutable_ = True
@@ -148,11 +144,8 @@ class StackLocation(AssemblerLocation):
 def imm(val):
     return ImmLocation(val)
 
-def get_spp_offset(pos):
-    if pos < 0:
-        return -pos * WORD
-    else:
-        return -(pos + 1) * WORD
-
 def get_fp_offset(base_ofs, position):
-    return base_ofs + position
+    from rpython.jit.backend.ppc.register import JITFRAME_FIXED_SIZE
+    # Argument is a frame position (0, 1, 2...).
+    # Returns the n'th word beyond the fixed frame size.
+    return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)

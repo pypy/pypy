@@ -9,6 +9,7 @@ GT = (1, SET)
 LT = (0, SET)
 EQ = (2, SET)
 GE = (0, UNSET)
+UH = (-1, -1)    # invalid
 
 # values below are random ...
 

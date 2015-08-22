@@ -211,24 +211,24 @@ class FloatOpAssembler(object):
     def emit_cast_float_to_int(self, op, arglocs, regalloc):
         l0, temp_loc, res = arglocs
         self.mc.fctidz(temp_loc.value, l0.value)
-        self.mc.stfd(temp_loc.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
-        self.mc.ld(res.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+        self.mc.stfd(temp_loc.value, r.SP.value, -16)
+        self.mc.ld(res.value, r.SP.value, -16)
 
     def emit_cast_int_to_float(self, op, arglocs, regalloc):
         l0, temp_loc, res = arglocs
-        self.mc.std(l0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
-        self.mc.lfd(temp_loc.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+        self.mc.std(l0.value, r.SP.value, -16)
+        self.mc.lfd(temp_loc.value, r.SP.value, -16)
         self.mc.fcfid(res.value, temp_loc.value)
 
     def emit_convert_float_bytes_to_longlong(self, op, arglocs, regalloc):
         l0, res = arglocs
-        self.mc.stfd(l0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
-        self.mc.ld(res.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+        self.mc.stfd(l0.value, r.SP.value, -16)
+        self.mc.ld(res.value, r.SP.value, -16)
 
     def emit_convert_longlong_bytes_to_float(self, op, arglocs, regalloc):
         l0, res = arglocs
-        self.mc.std(l0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
-        self.mc.lfd(res.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+        self.mc.std(l0.value, r.SP.value, -16)
+        self.mc.lfd(res.value, r.SP.value, -16)
 
 class GuardOpAssembler(object):
 
@@ -237,22 +237,22 @@ class GuardOpAssembler(object):
     def _emit_guard(self, op, arglocs, fcond, save_exc=False,
                     is_guard_not_invalidated=False,
                     is_guard_not_forced=False):
-        pos = self.mc.currpos()
-        self.mc.nop()     # has to be patched later on
         token = self.build_guard_token(op, arglocs[0].value, arglocs[1:],
                                        fcond, save_exc, is_guard_not_invalidated,
                                        is_guard_not_forced)
-        self.pending_guards.append(token)
+        token.pos_jump_offset = self.mc.currpos()
+        self.mc.nop()     # has to be patched later on
+        self.pending_guard_tokens.append(token)
 
     def build_guard_token(self, op, frame_depth, arglocs, fcond, save_exc,
                           is_guard_not_invalidated=False,
                           is_guard_not_forced=False):
         descr = op.getdescr()
-        offset = self.mc.currpos()
-        gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
+        gcmap = allocate_gcmap(self, frame_depth, r.JITFRAME_FIXED_SIZE)
         token = PPCGuardToken(self.cpu, gcmap, descr, op.getfailargs(),
                               arglocs, save_exc, frame_depth,
-                              is_guard_not_invalidated, is_guard_not_forced)
+                              is_guard_not_invalidated, is_guard_not_forced,
+                              fcond)
         return token
 
     def emit_guard_true(self, op, arglocs, regalloc):
@@ -356,7 +356,10 @@ class MiscOpAssembler(object):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if len(arglocs) == 2:
             [return_val, fail_descr_loc] = arglocs
-            self.mc.std(return_val.value, r.SPP.value, base_ofs)
+            if op.getarg(0).type == FLOAT:
+                self.mc.stfd(return_val.value, r.SPP.value, base_ofs)
+            else:
+                self.mc.std(return_val.value, r.SPP.value, base_ofs)
         else:
             [fail_descr_loc] = arglocs
 
