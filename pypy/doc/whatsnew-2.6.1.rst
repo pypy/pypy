@@ -3,7 +3,7 @@ What's new in PyPy 2.6.1
 ========================
 
 .. this is a revision shortly after release-2.6.0
-.. startrev: 91904d5c5188
+.. startrev: 3332c09a0ad8
 
 .. branch: use_min_scalar
 Correctly resolve the output dtype of ufunc(array, scalar) calls.
@@ -70,3 +70,7 @@ Update tinylang goals to match current rpython
 .. branch: vmprof-review
 
 Clean up of vmprof, notably to handle correctly multiple threads
+
+.. branch: no_boehm_dl
+
+Remove extra link library from Boehm GC
