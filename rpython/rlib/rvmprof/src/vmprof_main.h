@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/types.h>
+#include <signal.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "vmprof_getpc.h"
@@ -51,6 +52,14 @@ static void *(*mainloop_get_virtual_ip)(char *) = 0;
 static int opened_profile(char *interp_name);
 static void flush_codes(void);
 
+#ifdef __APPLE__
+#define UNWIND_NAME "/usr/lib/system/libunwind.dylib"
+#define UNW_PREFIX "unw"
+#else
+#define UNWIND_NAME "libunwind.so"
+#define UNW_PREFIX "_ULx86_64"
+#endif
+
 RPY_EXTERN
 char *vmprof_init(int fd, double interval, char *interp_name)
 {
@@ -61,15 +70,15 @@ char *vmprof_init(int fd, double interval, char *interp_name)
     if (!unw_get_reg) {
         void *libhandle;
 
-        if (!(libhandle = dlopen("libunwind.so", RTLD_LAZY | RTLD_LOCAL)))
+        if (!(libhandle = dlopen(UNWIND_NAME, RTLD_LAZY | RTLD_LOCAL)))
             goto error;
-        if (!(unw_get_reg = dlsym(libhandle, "_ULx86_64_get_reg")))
+        if (!(unw_get_reg = dlsym(libhandle, UNW_PREFIX "_get_reg")))
             goto error;
-        if (!(unw_get_proc_info = dlsym(libhandle, "_ULx86_64_get_proc_info")))
+        if (!(unw_get_proc_info = dlsym(libhandle, UNW_PREFIX "_get_proc_info")))
             goto error;
-        if (!(unw_init_local = dlsym(libhandle, "_ULx86_64_init_local")))
+        if (!(unw_init_local = dlsym(libhandle, UNW_PREFIX  "_init_local")))
             goto error;
-        if (!(unw_step = dlsym(libhandle, "_ULx86_64_step")))
+        if (!(unw_step = dlsym(libhandle, UNW_PREFIX  "_step")))
             goto error;
     }
     if (prepare_concurrent_bufs() < 0)
@@ -452,12 +461,16 @@ static int close_profile(void)
     close(srcfd);
 #else
     // freebsd and mac
+#if defined(__APPLE__)
+	sprintf(buf, "vmmap %d", getpid());
+#else
     sprintf(buf, "procstat -v %d", getpid());
+#endif
     FILE *srcf = popen(buf, "r");
     if (!srcf)
         return -1;
 
-    while ((size = fread(buf, 1, sizeof buf, src))) {
+    while ((size = fread(buf, 1, sizeof buf, srcf))) {
         if (_write_all(buf, size) < 0) {
             pclose(srcf);
             return -1;
