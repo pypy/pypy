@@ -79,6 +79,8 @@ Highlights
 
   * Drop support for ancient macOS v10.4 and before
 
+  * Clear up contention in the garbage collector between trace-me-later and pinning
+
   * Issues reported with our previous release were resolved_ after reports from users on
     our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
     #pypy.
