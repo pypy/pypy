@@ -343,7 +343,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
 
         extra_guards = state.extra_guards
         cpu = state.cpu
-        if self.lenbound and not self.lenbound.generalization_of(other.lenbound):
+        if self.lenbound and not self.lenbound.contains_bound(other.lenbound):
             raise VirtualStatesCantMatch("length bound does not match")
 
         if self.level == LEVEL_UNKNOWN:
