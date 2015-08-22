@@ -46,7 +46,7 @@ extern "C" {
 # endif
 #else
 # include <stdint.h>
-# if (defined (__SVR4) && defined (__sun)) || defined(_AIX)
+# if (defined (__SVR4) && defined (__sun)) || defined(_AIX) || defined(__hpux)
 #  include <alloca.h>
 # endif
 #endif

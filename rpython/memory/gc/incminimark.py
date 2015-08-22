@@ -1911,7 +1911,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #
                 self.old_objects_pointing_to_pinned.append(parent)
                 self.updated_old_objects_pointing_to_pinned = True
-                self.header(parent).tid |= GCFLAG_PINNED
+                self.header(parent).tid |= GCFLAG_PINNED_OBJECT_PARENT_KNOWN
             #
             if hdr.tid & GCFLAG_VISITED:
                 return
@@ -2343,13 +2343,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         while self.objects_to_trace.non_empty():
             self.visit_all_objects_step(sys.maxint)
 
+    TEST_VISIT_SINGLE_STEP = False    # for tests
+
     def visit_all_objects_step(self, size_to_track):
         # Objects can be added to pending by visit
         pending = self.objects_to_trace
         while pending.non_empty():
             obj = pending.pop()
             size_to_track -= self.visit(obj)
-            if size_to_track < 0:
+            if size_to_track < 0 or self.TEST_VISIT_SINGLE_STEP:
                 return 0
         return size_to_track
 
