@@ -90,8 +90,14 @@ def make_trampoline_function(name, func, token, restok):
         cont_name = '_' + cont_name
         tramp_name = '_' + tramp_name
         PLT = ""
+        size_decl = ""
+        type_decl = ""
     else:
         PLT = "@PLT"
+        type_decl = "\t.type\t%s, @function" % (tramp_name,)
+        size_decl = "\t.size\t%s, .-%s" % (
+            tramp_name, tramp_name)
+
 
     assert detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64), (
         "rvmprof only supports x86-64 CPUs for now")
@@ -114,9 +120,12 @@ def make_trampoline_function(name, func, token, restok):
     target = udir.join('module_cache')
     target.ensure(dir=1)
     target = target.join('trampoline_%s_%s.vmprof.s' % (name, token))
+    # NOTE! the tabs in this file are absolutely essential, things
+    #       that don't start with \t are silently ignored (<arigato>: WAT!?)
     target.write("""\
 \t.text
 \t.globl\t%(tramp_name)s
+%(type_decl)s
 %(tramp_name)s:
 \t.cfi_startproc
 \tpushq\t%(reg)s
@@ -126,6 +135,7 @@ def make_trampoline_function(name, func, token, restok):
 \t.cfi_def_cfa_offset 8
 \tret
 \t.cfi_endproc
+%(size_decl)s
 """ % locals())
 
     def tok2cname(tok):
