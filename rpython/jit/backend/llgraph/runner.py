@@ -101,9 +101,6 @@ class SizeDescr(AbstractDescr):
     def is_object(self):
         return self._is_object
 
-    def as_vtable_size_descr(self):
-        return self
-
     def count_fields_if_immutable(self):
         return heaptracker.count_fields_if_immutable(self.S)
 
