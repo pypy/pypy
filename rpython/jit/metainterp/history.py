@@ -550,13 +550,6 @@ class Accum(object):
     def accumulates_value(self):
         return True
 
-    def save_to_descr(self, descr, position):
-        from rpython.jit.metainterp.compile import ResumeGuardDescr
-        from rpython.jit.metainterp.resume import AccumInfo
-        assert isinstance(descr, ResumeGuardDescr)
-        ai = AccumInfo(descr.rd_accum_list, position, self.operator, self.var)
-        descr.rd_accum_list = ai
-
 class BoxVector(Box):
     type = VECTOR
     _attrs_ = ('item_type','item_count','item_size','item_signed','accum')
@@ -819,7 +812,7 @@ class LoopVersion(object):
         token = TargetToken(jitcell_token)
         token.original_jitcell_token = jitcell_token
         all_target_tokens.append(token)
-        if label.getdescr() is not jump.getdescr():
+        if label.getdescr() is None or label.getdescr() is not jump.getdescr():
             label_index = index_of_first(rop.LABEL, self.operations, 1)
             if label_index > 0:
                 second_label = self.operations[label_index]

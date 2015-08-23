@@ -35,13 +35,20 @@ class FrameInfo(object):
         self.pc = pc
 
 class AccumInfo(object):
-    __slots__ = ('prev', 'position', 'operation', 'box', 'loc')
-    def __init__(self, prev, position, operation, box):
+    __slots__ = ('prev', 'accum_operation', 'scalar_position', 'scalar_box', 'vector_loc')
+    def __init__(self, prev, position, operation, box, loc):
         self.prev = prev
-        self.operation = operation
-        self.position = position
-        self.box = box
-        self.loc = None
+        self.accum_operation = operation
+        self.scalar_position = position
+        self.scalar_box = box
+        self.vector_loc = loc
+
+    def __repr__(self):
+        return 'AccumInfo(%s,%s,%s,%s,%s)' % (self.prev is None,
+                                              self.accum_operation,
+                                              self.scalar_position,
+                                              self.scalar_box,
+                                              self.vector_loc)
 
 def _ensure_parent_resumedata(framestack, n):
     target = framestack[n]

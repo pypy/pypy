@@ -84,19 +84,19 @@ class VectorAssemblerMixin(object):
         assert regalloc is not None
         accum_info = faildescr.rd_accum_list
         while accum_info:
-            pos = accum_info.position
-            loc = accum_info.loc
-            tgtloc = fail_locs[pos]
+            pos = accum_info.scalar_position
+            scalar_loc = fail_locs[pos]
+            vector_loc = accum_info.vector_loc
             # the upper elements will be lost if saved to the stack!
-            assert isinstance(loc, RegLoc)
-            if not isinstance(tgtloc, RegLoc):
-                tgtloc = regalloc.force_allocate_reg(accum_info.box)
-            arg = accum_info.box
-            assert arg is not None
-            if accum_info.operation == '+':
-                self._accum_reduce_sum(arg, loc, tgtloc)
-            elif accum_info.operation == '*':
-                self._accum_reduce_mul(arg, loc, tgtloc)
+            scalar_arg = accum_info.scalar_box
+            assert isinstance(vector_loc, RegLoc)
+            if not isinstance(scalar_loc, RegLoc):
+                scalar_loc = regalloc.force_allocate_reg(scalar_arg)
+            assert scalar_arg is not None
+            if accum_info.accum_operation == '+':
+                self._accum_reduce_sum(scalar_arg, vector_loc, scalar_loc)
+            elif accum_info.accum_operation == '*':
+                self._accum_reduce_mul(scalar_arg, vector_loc, scalar_loc)
             else:
                 not_implemented("accum operator %s not implemented" %
                                             (accum_info.operation)) 

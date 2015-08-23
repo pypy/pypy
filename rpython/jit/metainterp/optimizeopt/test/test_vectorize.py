@@ -1412,8 +1412,19 @@ class BaseTestVectorize(VecTestHelper):
         guard_false(i33, descr=<ResumeGuardFalseDescr object at 0x7f89c54cddc0>) [p1, p0, p6, p7, i29, None, None]
         jump(p0, p1, p6, p7, i29, p14, p15)
         """        
-        #opt = self.schedule(self.parse_loop(trace))
-        #self.debug_print_operations(opt.loop)
+        trace = """
+        [p0, p1, p6, p7, p8, p11, p13, p15, i46, f43, i32, i36, i40]
+        i51 = int_lt(i46, i32)
+        guard_true(i51, descr=<Guard0x7fa98ec2b780>) [p1, p0, p15, p6, p7, p8, p11, p13, f43, i46]
+        i52 = int_lt(i46, i36)
+        guard_true(i52, descr=<Guard0x7fa98ec2b7d8>) [p1, p0, p11, i46, p6, p7, p8, p13, p15, f43, None]
+        f54 = getarrayitem_raw(i40, i46, descr=floatarraydescr)
+        f55 = float_add(f43, f54)
+        i56 = int_add(i46, 1)
+        jump(p0, p1, p6, p7, p8, p11, p13, p15, i56, f55, i32, i36, i40)
+        """
+        opt = self.schedule(self.parse_loop(trace))
+        self.debug_print_operations(opt.loop)
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

@@ -10,7 +10,6 @@ from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import (Const, Box, VOID,
     BoxVector, ConstInt)
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
-from rpython.jit.metainterp.compile import CompileLoopVersionDescr
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
@@ -600,12 +599,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # at the end of self.mc.
         for tok in self.pending_guard_tokens:
             descr = tok.faildescr
-            if not isinstance(descr, CompileLoopVersionDescr):
-                regalloc.position = tok.position
-                tok.pos_recovery_stub = self.generate_quick_failure(tok, regalloc)
-            else:
+            if descr.loop_version():
                 startpos = self.mc.get_relative_pos()
                 self.store_info_on_descr(startpos, tok)
+            else:
+                regalloc.position = tok.position
+                tok.pos_recovery_stub = self.generate_quick_failure(tok, regalloc)
         if WORD == 8 and len(self.pending_memoryerror_trampoline_from) > 0:
             self.error_trampoline_64 = self.generate_propagate_error_64()
 

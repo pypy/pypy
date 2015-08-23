@@ -509,15 +509,16 @@ class VectorizingOptimizer(Optimizer):
                 # this needs to be done for renamed (accum arguments)
                 version.renamed_inputargs = [ renamer.rename_map.get(arg,arg) for arg in version.inputargs ]
             self.appended_arg_count = len(sched_data.invariant_vector_vars)
-            for guard_node in self.dependency_graph.guards:
-                op = guard_node.getoperation()
-                failargs = op.getfailargs()
-                for i,arg in enumerate(failargs):
-                    if arg is None:
-                        continue
-                    accum = arg.getaccum()
-                    if accum:
-                        accum.save_to_descr(op.getdescr(),i)
+            #for guard_node in self.dependency_graph.guards:
+            #    op = guard_node.getoperation()
+            #    failargs = op.getfailargs()
+            #    for i,arg in enumerate(failargs):
+            #        if arg is None:
+            #            continue
+            #        accum = arg.getaccum()
+            #        if accum:
+            #            pass
+            #            #accum.save_to_descr(op.getdescr(),i)
             self.has_two_labels = len(sched_data.invariant_oplist) > 0
             self.loop.operations = self.prepend_invariant_operations(sched_data)
         else:
