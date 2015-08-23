@@ -2505,7 +2505,7 @@ class BasicTests:
                 if counter > 10:
                     return 7
         assert self.meta_interp(build, []) == 7
-        self.check_resops(getfield_gc_pure=2)
+        self.check_resops(getfield_gc_pure_r=2)
 
     def test_args_becomming_equal(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a', 'b'])
