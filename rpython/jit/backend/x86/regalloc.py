@@ -345,8 +345,10 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 break
             count += 1
             accum_info = accum_info.prev
-        if count == 0:
+        else:
             msg = "[accumulator] %d accumulators, none matched box %s" % (count, accum_info.box)
+            print msg
+            import pdb; pdb.set_trace()
             not_implemented(msg)
 
     def perform_with_guard(self, op, guard_op, arglocs, result_loc):
