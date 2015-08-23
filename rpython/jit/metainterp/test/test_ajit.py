@@ -1606,7 +1606,7 @@ class BasicTests:
                 y.v = g(y.v) - y.v/y.v + lc/l[0] - 1
             return y.v
         res = self.meta_interp(f, [20], listops=True)
-        self.check_resops(getarrayitem_gc=0, getfield_gc=1)
+        self.check_resops(getarrayitem_gc_i=0, getfield_gc_i=1)
 
     def test_guard_isnull_nonnull(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'res'])
@@ -1661,7 +1661,7 @@ class BasicTests:
             return res
         res = self.meta_interp(g, [21])
         assert res == 3 * 21
-        self.check_resops(call=1)
+        self.check_resops(call_r=1)
 
     def test_bug_optimizeopt_mutates_ops(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'res', 'const', 'a'])
@@ -1823,7 +1823,7 @@ class BasicTests:
         assert res == 6*8 + 6**8
         self.check_trace_count(4)
         self.check_resops({'guard_class': 2, 'int_gt': 4,
-                           'getfield_gc': 4, 'guard_true': 4,
+                           'getfield_gc_i': 4, 'guard_true': 4,
                            'int_sub': 4, 'jump': 2, 'int_mul': 2,
                            'int_add': 2})
 
@@ -1866,7 +1866,7 @@ class BasicTests:
         res = self.meta_interp(g, [6, 20])
         assert res == g(6, 20)
         self.check_trace_count(8)
-        self.check_resops(getarrayitem_gc=10)
+        self.check_resops(getarrayitem_gc_i=10)
 
     def test_multiple_specialied_versions_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])

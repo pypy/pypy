@@ -7,7 +7,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
      Optimization, LoopInfo, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
     VirtualStateConstructor, VirtualStatesCantMatch)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp
 from rpython.jit.metainterp import compile
 
 class UnrollableOptimizer(Optimizer):
@@ -169,7 +169,13 @@ class UnrollOptimizer(Optimization):
                 extra_guards = target_virtual_state.generate_guards(
                     virtual_state, jump_op.getarglist(), infos,
                     self.optimizer.cpu)
-                assert not extra_guards.extra_guards
+                patchguardop = self.optimizer.patchguardop
+                for guard in extra_guards.extra_guards:
+                    if isinstance(guard, GuardResOp):
+                        guard.rd_snapshot = patchguardop.rd_snapshot
+                        guard.rd_frame_info_list = patchguardop.rd_frame_info_list
+                        guard.setdescr(compile.ResumeAtPositionDescr())
+                    self.send_extra_operation(guard)
             except VirtualStatesCantMatch:
                 continue
             short_preamble = target_token.short_preamble

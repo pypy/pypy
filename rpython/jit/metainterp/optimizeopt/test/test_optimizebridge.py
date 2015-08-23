@@ -116,3 +116,6 @@ class TestOptimizeBridge(BaseTest, LLtypeMixin):
         jump(1, 3)
         """
         self.optimize(loop, bridge, expected)
+
+    def test_virtual_state_guard_needed(self):
+        pass
