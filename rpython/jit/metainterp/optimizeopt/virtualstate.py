@@ -3,7 +3,7 @@ from rpython.jit.metainterp.history import (ConstInt, Const,
         ConstPtr, ConstFloat)
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded,\
-     ConstIntBound
+     ConstIntBound, MININT, MAXINT
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
      AbstractInputArg
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
@@ -325,6 +325,10 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 # XXX strings?
                 self.lenbound = info.getlenbound(None)
         elif type == 'i':
+            if info.lower < MININT / 2:
+                info.lower = MININT
+            if info.upper > MAXINT / 2:
+                info.upper = MAXINT
             self.intbound = info
 
     def is_const(self):
