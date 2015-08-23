@@ -209,9 +209,8 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
                                    version.operations, jitcell_token)
             record_loop_or_bridge(metainterp_sd, vl)
             assert asminfo is not None
-            version._compiled = asminfo
+            version._compiled = (asminfo, faildescr, faildescr.version, jitcell_token)
             faildescr.version = None
-        # stitch the rest of the traces
         for lv in loop.versions:
             if not lv.compiled():
                 # the version was never compiled, do not bother
@@ -221,7 +220,7 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
                 assert isinstance(faildescr, CompileLoopVersionDescr)
                 version = faildescr.version
                 if version and version.compiled():
-                    cpu.stitch_bridge(faildescr, version._compiled)
+                    cpu.stitch_bridge(faildescr, version)
                 faildescr.version = None
     loop.versions = None
 

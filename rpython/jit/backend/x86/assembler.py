@@ -590,9 +590,57 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                                        rawstart, fullsize)
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos, rawstart)
 
-    def stitch_bridge(self, faildescr, target):
-        assert target.rawstart != 0
-        self.patch_jump_for_descr(faildescr, target.rawstart)
+    def stitch_bridge(self, faildescr, version):
+        """ Stitching means that one can enter a bridge with a complete different register
+            allocation. This needs remapping which is done here for both normal registers
+            and accumulation registers.
+            Why? Because this only generates a very small junk of memory, instead of
+            duplicating the loop assembler!
+        """
+        asminfo, bridge_faildescr, compiled_version, looptoken = version._compiled
+        assert asminfo.rawstart != 0
+        self.mc = codebuf.MachineCodeBlockWrapper()
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
+                                                   allblocks)
+        frame_info = self.datablockwrapper.malloc_aligned(
+            jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
+
+        self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
+        # if accumulation is saved at the guard, we need to update it here!
+        guard_locs = self.rebuild_faillocs_from_descr(faildescr, version.inputargs)
+        bridge_locs = self.rebuild_faillocs_from_descr(bridge_faildescr, compiled_version.inputargs)
+        guard_accum_info = faildescr.rd_accum_list
+        # O(n^2), but usually you only have at most 1 fail argument
+        while guard_accum_info:
+            bridge_accum_info = bridge_faildescr.rd_accum_list
+            while bridge_accum_info:
+                if bridge_accum_info.scalar_position == guard_accum_info.scalar_position:
+                    # the mapping might be wrong!
+                    if bridge_accum_info.vector_loc is not guard_accum_info.vector_loc:
+                        self.mov(guard_accum_info.vector_loc, bridge_accum_info.vector_loc)
+                bridge_accum_info = bridge_accum_info.prev
+            guard_accum_info = guard_accum_info.prev
+
+        # register mapping is most likely NOT valid, thus remap it in this
+        # short piece of assembler
+        assert len(guard_locs) == len(bridge_locs)
+        for i,gloc in enumerate(guard_locs):
+            bloc = bridge_locs[i]
+            bstack = bloc.location_code() == 'b'
+            gstack = gloc.location_code() == 'b'
+            if bstack and gstack:
+                pass
+            elif gloc is not bloc:
+                self.mov(gloc, bloc)
+        self.mc.JMP_l(0)
+        self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
+        offset = self.mc.get_relative_pos() - 4
+        rawstart = self.materialize_loop(looptoken)
+        # update the exit target
+        self._patch_jump_for_descr(rawstart + offset, asminfo.rawstart)
+        # update the guard to jump right to this custom piece of assembler
+        self.patch_jump_for_descr(faildescr, rawstart)
 
     def write_pending_failure_recoveries(self, regalloc):
         # for each pending guard, generate the code of the recovery stub
@@ -732,6 +780,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def patch_jump_for_descr(self, faildescr, adr_new_target):
         adr_jump_offset = faildescr.adr_jump_offset
+        self._patch_jump_for_descr(adr_jump_offset, adr_new_target)
+        faildescr.adr_jump_offset = 0    # means "patched"
+
+    def _patch_jump_for_descr(self, adr_jump_offset, adr_new_target):
         assert adr_jump_offset != 0
         offset = adr_new_target - (adr_jump_offset + 4)
         # If the new target fits within a rel32 of the jump, just patch
@@ -752,7 +804,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             p = rffi.cast(rffi.INTP, adr_jump_offset)
             adr_target = adr_jump_offset + 4 + rffi.cast(lltype.Signed, p[0])
             mc.copy_to_raw_memory(adr_target)
-        faildescr.adr_jump_offset = 0    # means "patched"
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
