@@ -573,7 +573,7 @@ class OptHeap(Optimization):
         cf = None
         if indexb.is_constant():
             index = indexb.getint()
-            arrayinfo.getlenbound().make_gt_const(index)
+            arrayinfo.getlenbound(None).make_gt_const(index)
             # use the cache on (arraydescr, index), which is a constant
             cf = self.arrayitem_cache(op.getdescr(), index)
             field = cf.getfield_from_cache(self, arrayinfo, op.getdescr())
@@ -602,7 +602,7 @@ class OptHeap(Optimization):
         cf = None
         if indexb.is_constant():
             index = indexb.getint()
-            arrayinfo.getlenbound().make_gt_const(index)
+            arrayinfo.getlenbound(None).make_gt_const(index)
             # use the cache on (arraydescr, index), which is a constant
             cf = self.arrayitem_cache(op.getdescr(), index)
             fieldvalue = cf.getfield_from_cache(self, arrayinfo, op.getdescr())
@@ -631,7 +631,7 @@ class OptHeap(Optimization):
         if indexb.is_constant():
             arrayinfo = self.ensure_ptr_info_arg0(op)
             # arraybound
-            arrayinfo.getlenbound().make_gt_const(indexb.getint())
+            arrayinfo.getlenbound(None).make_gt_const(indexb.getint())
             cf = self.arrayitem_cache(op.getdescr(), indexb.getint())
             cf.do_setfield(self, op)
         else:

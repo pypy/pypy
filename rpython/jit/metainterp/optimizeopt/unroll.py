@@ -219,9 +219,6 @@ class UnrollOptimizer(Optimization):
     def export_state(self, start_label, original_label_args, renamed_inputargs):
         end_args = [self.get_box_replacement(a) for a in original_label_args]
         virtual_state = self.get_virtual_state(end_args)
-        inparg_mapping = [(start_label.getarg(i), end_args[i])
-                          for i in range(len(end_args)) if
-                          start_label.getarg(i) is not end_args[i]]
         infos = {}
         for arg in end_args:
             infos[arg] = self.optimizer.getinfo(arg)
@@ -240,15 +237,16 @@ class UnrollOptimizer(Optimization):
                 infos[op] = self.optimizer.getinfo(op)
         self.optimizer._clean_optimization_info(end_args)
         self.optimizer._clean_optimization_info(start_label.getarglist())
-        return ExportedState(label_args, inparg_mapping, virtual_state, infos,
+        return ExportedState(label_args, end_args, virtual_state, infos,
                              short_boxes, renamed_inputargs,
                              short_inputargs)
 
     def import_state(self, targetop, exported_state):
         # the mapping between input args (from old label) and what we need
         # to actually emit. Update the info
-        assert len(exported_state.inputarg_mapping) == len(targetop.getarglist())
-        for i, (s, target) in enumerate(exported_state.inputarg_mapping):
+        assert (len(exported_state.next_iteration_args) ==
+                len(targetop.getarglist()))
+        for i, target in enumerate(exported_state.next_iteration_args):
             source = targetop.getarg(i)
             assert source is not target
             source.set_forwarded(target)
@@ -296,9 +294,7 @@ class UnrollInfo(LoopInfo):
 class ExportedState(LoopInfo):
     """ Exported state consists of a few pieces of information:
 
-    * inputarg_mapping - a list of tuples with original inputarg box
-                         as the first element and the second element being
-                         what it maps to (potentially const)
+    * next_iteration_args - starting arguments for next iteration
     * exported_infos - a mapping from ops to infos, including inputargs
     * end_args - arguments that end up in the label leading to the next
                  iteration
@@ -309,11 +305,11 @@ class ExportedState(LoopInfo):
     * short_inputargs - the renamed inputargs for short preamble
     """
     
-    def __init__(self, end_args, inputarg_mapping, virtual_state,
+    def __init__(self, end_args, next_iteration_args, virtual_state,
                  exported_infos, short_boxes, renamed_inputargs,
                  short_inputargs):
         self.end_args = end_args
-        self.inputarg_mapping = inputarg_mapping
+        self.next_iteration_args = next_iteration_args
         self.virtual_state = virtual_state
         self.exported_infos = exported_infos
         self.short_boxes = short_boxes

@@ -38,7 +38,7 @@ class PtrInfo(AbstractInfo):
     def get_known_class(self, cpu):
         return None
 
-    def getlenbound(self):
+    def getlenbound(self, mode):
         return None
 
     def getnullness(self):
@@ -331,9 +331,10 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             self.lenbound = intutils.ConstIntBound(size)
         self._clear = clear
 
-    def getlenbound(self):
+    def getlenbound(self, mode):
         from rpython.jit.metainterp.optimizeopt import intutils
-        
+
+        assert mode is None
         if self.lenbound is None:
             assert self.length == -1
             self.lenbound = intutils.IntLowerBound(0)
@@ -518,9 +519,9 @@ class ConstPtrInfo(PtrInfo):
         info = self._get_array_info(optheap)
         return info.getitem(index)
 
-    def setitem(self, index, op, cf=None, optheap=None):
+    def setitem(self, index, struct, op, cf=None, optheap=None):
         info = self._get_array_info(optheap)
-        info.setitem(index, op, cf)
+        info.setitem(index, struct, op, cf)
 
     def setfield(self, descr, struct, op, optheap=None, cf=None):
         info = self._get_info(optheap)
@@ -563,9 +564,13 @@ class ConstPtrInfo(PtrInfo):
         return self._unpack_str(mode)
 
     def getlenbound(self, mode):
-        from rpython.jit.metainterp.optimizeopt.intutils import ConstIntBound
-        
-        return ConstIntBound(self.getstrlen(None, None, mode).getint())
+        from rpython.jit.metainterp.optimizeopt.intutils import ConstIntBound,\
+                IntLowerBound
+
+        if mode is None:
+            return IntLowerBound(0)
+        else:
+            return ConstIntBound(self.getstrlen(None, None, mode).getint())
     
     def getstrlen(self, op, string_optimizer, mode, create_ops=True):
         from rpython.jit.metainterp.optimizeopt import vstring

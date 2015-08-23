@@ -411,7 +411,7 @@ class OptIntBounds(Optimization):
     def optimize_ARRAYLEN_GC(self, op):
         array = self.ensure_ptr_info_arg0(op)
         self.emit_operation(op)
-        self.optimizer.setintbound(op, array.getlenbound())
+        self.optimizer.setintbound(op, array.getlenbound(None))
 
     def optimize_STRLEN(self, op):
         self.emit_operation(op)

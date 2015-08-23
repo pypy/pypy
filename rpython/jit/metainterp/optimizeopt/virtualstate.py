@@ -319,7 +319,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                     self.level = LEVEL_KNOWNCLASS
                 elif info.is_nonnull():
                     self.level = LEVEL_NONNULL
-                self.lenbound = info.getlenbound()
+                # XXX strings?
+                self.lenbound = info.getlenbound(None)
         elif type == 'i':
             self.intbound = info
 

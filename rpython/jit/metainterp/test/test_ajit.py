@@ -914,7 +914,7 @@ class BasicTests:
             return n
         res = self.meta_interp(f, [20, 1, 2])
         assert res == 0
-        self.check_resops(call=0)
+        self.check_resops(call_i=0, call_r=0)
 
     def test_abs(self):
         myjitdriver = JitDriver(greens = [], reds = ['i', 't'])
