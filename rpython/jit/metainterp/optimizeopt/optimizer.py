@@ -553,7 +553,8 @@ class Optimizer(Optimization):
                 op = self.store_final_boxes_in_guard(guard_op, pendingfields)
                 # for unrolling
                 for farg in op.getfailargs():
-                    self.force_box(farg)
+                    if farg:
+                        self.force_box(farg)
         elif op.can_raise():
             self.exception_might_have_happened = True
         self._really_emitted_operation = op
