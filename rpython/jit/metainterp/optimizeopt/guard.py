@@ -224,7 +224,6 @@ class GuardStrengthenOpt(object):
                     continue
                 elif other.implies(guard, self):
                     # implied
-                    guard.rd_accum_list = None
                     self.guards[guard.index] = None # mark as 'do not emit'
                     replaced = True
                     continue

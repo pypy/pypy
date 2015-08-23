@@ -10,6 +10,7 @@ from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.metainterp.history import (Const, Box, VOID,
     BoxVector, ConstInt)
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
+from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
@@ -598,6 +599,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             duplicating the loop assembler!
         """
         asminfo, bridge_faildescr, compiled_version, looptoken = version._compiled
+        assert isinstance(bridge_faildescr, ResumeGuardDescr)
+        assert isinstance(faildescr, ResumeGuardDescr)
         assert asminfo.rawstart != 0
         self.mc = codebuf.MachineCodeBlockWrapper()
         allblocks = self.get_asmmemmgr_blocks(looptoken)

@@ -37,6 +37,8 @@ class LLTrace(object):
                 newbox = _cache[box]
             except KeyError:
                 newbox = _cache[box] = box.__class__()
+            if hasattr(box, 'accum') and box.accum:
+                newbox.accum = box.accum
             return newbox
         #
         self.inputargs = map(mapping, inputargs)
@@ -271,8 +273,7 @@ class LLGraphCPU(model.AbstractCPU):
         self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
     def stitch_bridge(self, faildescr, target):
-        import pdb; pdb.set_trace()
-        faildescr._llgraph_bridge = target.lltrace
+        faildescr._llgraph_bridge = target._lltrace
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='', logger=None):
@@ -291,6 +292,8 @@ class LLGraphCPU(model.AbstractCPU):
         faildescr._llgraph_bridge = lltrace
         clt._llgraph_alltraces.append(lltrace)
         self._record_labels(lltrace)
+        if faildescr.loop_version():
+            faildescr.version._lltrace = lltrace
         return LLAsmInfo(lltrace)
 
     def _record_labels(self, lltrace):
@@ -903,30 +906,27 @@ class LLFrame(object):
 
     # -----------------------------------------------------
 
-    def _accumulate(self, descr, failargs, value):
-        if not hasattr(descr, 'rd_accum_list'):
-            return
-        accum = descr.rd_accum_list
-        while accum is not None:
-            value = values[accum.scalar_position]
+    def _accumulate(self, descr, failargs, values):
+        for i,box in enumerate(self.current_op.getfailargs()):
+            if box is None:
+                continue
+            accum = box.getaccum()
+            if not accum:
+                continue
+            value = values[i]
             assert isinstance(value, list)
-            if accum.operation == '+':
+            if accum.operator == '+':
                 value = sum(value)
-                break
-            elif accum.operation == '*':
+            elif accum.operator == '*':
                 def prod(acc, x): return acc * x
                 value = reduce(prod, value, 1)
-                break
             else:
                 raise NotImplementedError("accum operator in fail guard")
-            values[accum.scalar_position] = value
-            accum = accum.prev
+            values[i] = value
 
     def fail_guard(self, descr, saved_data=None):
         values = []
         for i,box in enumerate(self.current_op.getfailargs()):
-            if box.getaccum() or isinstance(box, BoxVector):
-                import pdb; pdb.set_trace();
             if box is not None:
                 value = self.env[box]
             else:
