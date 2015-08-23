@@ -194,6 +194,11 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
         if self.size != -1:
             self.buffer = RawBuffer(cpu, None)
 
+    def _get_buffer(self):
+        buffer = self.buffer
+        assert buffer is not None
+        return buffer
+
     def getitem_raw(self, offset, itemsize, descr):
         if not self.is_virtual():
             raise InvalidRawOperation
@@ -201,37 +206,39 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
             # for the test above: it's not enough to check is_virtual()
             # on the original object, because it might be a VRawSliceValue
             # instead.  If it is a virtual one, then we'll reach here anway.
-        return self.buffer.read_value(offset, itemsize, descr)
+        return self._get_buffer().read_value(offset, itemsize, descr)
 
     def setitem_raw(self, offset, itemsize, descr, itemop):
         if not self.is_virtual():
             raise InvalidRawOperation
-        self.buffer.write_value(offset, itemsize, descr, itemop)
+        self._get_buffer().write_value(offset, itemsize, descr, itemop)
 
     def is_virtual(self):
         return self.size != -1
 
     def _force_elements(self, op, optforce, descr):
         self.size = -1
-        for i in range(len(self.buffer.offsets)):
+        buffer = self._get_buffer()
+        for i in range(len(buffer.offsets)):
             # write the value
-            offset = self.buffer.offsets[i]
-            descr = self.buffer.descrs[i]
-            itembox = self.buffer.values[i]
+            offset = buffer.offsets[i]
+            descr = buffer.descrs[i]
+            itembox = buffer.values[i]
             op = ResOperation(rop.RAW_STORE,
                               [op, ConstInt(offset), itembox], descr=descr)
             optforce.emit_operation(op)
 
     def visitor_walk_recursive(self, op, visitor, optimizer):
-        itemboxes = self.buffer.values
+        itemboxes = self._get_buffer().values
         visitor.register_virtual_fields(op, itemboxes)
         # there can be no virtuals stored in raw buffer
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
+        buffer = self._get_buffer()
         return visitor.visit_vrawbuffer(self.size,
-                                        self.buffer.offsets[:],
-                                        self.buffer.descrs[:])
+                                        buffer.offsets[:],
+                                        buffer.descrs[:])
 
 class RawStructPtrInfo(AbstractRawPtrInfo):
     def __init__(self):
