@@ -340,7 +340,6 @@ class Optimizer(Optimization):
         return op
 
     def is_inputarg(self, op):
-        return True
         return op in self.inparg_dict
 
     def get_constant_box(self, box):
@@ -483,9 +482,9 @@ class Optimizer(Optimization):
                 new_arg = OpHelpers.inputarg_from_tp(inparg.type)
                 inparg.set_forwarded(new_arg)
                 newargs.append(new_arg)
+            self.init_inparg_dict_from(newargs)
         else:
             newargs = inputargs
-        self.init_inparg_dict_from(newargs)
         self.call_pure_results = call_pure_results
         if ops[-1].getopnum() in (rop.FINISH, rop.JUMP):
             last = len(ops) - 1

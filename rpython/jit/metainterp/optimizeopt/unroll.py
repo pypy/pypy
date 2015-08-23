@@ -105,6 +105,7 @@ class UnrollOptimizer(Optimization):
         self.potential_extra_ops = {}
         label_args = state.virtual_state.make_inputargs(
             start_label.getarglist(), self.optimizer)
+        self.optimizer.init_inparg_dict_from(label_args)
         self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops,
                                              call_pure_results, False)
         orig_jump_args = [self.get_box_replacement(op)
