@@ -3680,7 +3680,7 @@ class BaseLLtypeTests(BasicTests):
             return n
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_resops(call=0, call_may_force=0, new_array=0)
+        self.check_resops(call_i=0, call_may_force_i=0, new_array=0)
 
 
     def test_convert_from_SmallFunctionSetPBCRepr_to_FunctionsPBCRepr(self):
@@ -4101,7 +4101,9 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         res = self.meta_interp(f, [10])
         assert res == 2003     # two runs before jitting; then one tracing run
-        self.check_resops(int_add=0, call=0, call_may_force=0)
+        self.check_resops(int_add=0, call_i=0, call_may_force_i=0,
+                          call_r=0, call_may_force_r=0, call_f=0,
+                          call_may_force_f=0)
 
     def test_not_in_trace_exception(self):
         def g():
