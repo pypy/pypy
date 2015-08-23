@@ -49,7 +49,7 @@ class UnrollableOptimizer(Optimizer):
                 self.make_constant_class(op, known_class, False)
             if isinstance(preamble_info, info.ArrayPtrInfo):
                 arr_info = info.ArrayPtrInfo(None)
-                arr_info.lenbound = preamble_info.getlenbound()
+                arr_info.lenbound = preamble_info.getlenbound(None)
                 op.set_forwarded(arr_info)
             if preamble_info.is_nonnull():
                 self.make_nonnull(op)
@@ -103,6 +103,8 @@ class UnrollOptimizer(Optimization):
         self._check_no_forwarding([[start_label, end_jump], ops])
         self.import_state(start_label, state)
         self.potential_extra_ops = {}
+        label_args = state.virtual_state.make_inputargs(
+            start_label.getarglist(), self.optimizer)
         self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops,
                                              call_pure_results, False)
         orig_jump_args = [self.get_box_replacement(op)
@@ -120,7 +122,7 @@ class UnrollOptimizer(Optimization):
                                 self.optimizer.patchguardop)
         # remove duplicates, removes stuff from used boxes too
         label_args, jump_args = self.filter_extra_jump_args(
-            start_label.getarglist() + self.short_preamble_producer.used_boxes,
+            label_args + self.short_preamble_producer.used_boxes,
             jump_args + extra_jump_args)
         jump_op = ResOperation(rop.JUMP, jump_args)
         self.optimizer.send_extra_operation(jump_op)
@@ -250,7 +252,7 @@ class UnrollOptimizer(Optimization):
             source = targetop.getarg(i)
             assert source is not target
             source.set_forwarded(target)
-            info = exported_state.exported_infos.get(source, None)
+            info = exported_state.exported_infos.get(target, None)
             if info is not None:
                 self.optimizer.setinfo_from_preamble(source, info,
                                             exported_state.exported_infos)
