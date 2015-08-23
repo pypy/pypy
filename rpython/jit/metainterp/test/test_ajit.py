@@ -2767,9 +2767,8 @@ class BasicTests:
             return i
         #
         seen = []
-        def my_optimize_trace(metainterp_sd, jitdriver_sd, loop, enable_opts,
-                              *args, **kwds):
-            seen.append('unroll' in enable_opts)
+        def my_optimize_trace(metainterp_sd, jitdriver_sd, data):
+            seen.append('unroll' in data.enable_opts)
             raise InvalidLoop
         old_optimize_trace = optimizeopt.optimize_trace
         optimizeopt.optimize_trace = my_optimize_trace
@@ -3011,7 +3010,7 @@ class BasicTests:
             return a[0].intvalue
         res = self.meta_interp(f, [100])
         assert res == -2
-        self.check_resops(setarrayitem_gc=2, getarrayitem_gc=1)
+        self.check_resops(setarrayitem_gc=2, getarrayitem_gc_r=1)
 
     def test_continue_tracing_with_boxes_in_start_snapshot_replaced_by_optimizer(self):
         myjitdriver = JitDriver(greens = [], reds = ['sa', 'n', 'a', 'b'])
@@ -3307,7 +3306,7 @@ class BaseLLtypeTests(BasicTests):
                 lock.release()
             return n
         res = self.meta_interp(f, [10, 1])
-        self.check_resops(getfield_gc=4)
+        self.check_resops(getfield_gc_i=4)
         assert res == f(10, 1)
 
     def test_jit_merge_point_with_raw_pointer(self):
@@ -3371,10 +3370,10 @@ class BaseLLtypeTests(BasicTests):
 
         res = self.meta_interp(main, [0, 10, 2], enable_opts='')
         assert res == main(0, 10, 2)
-        self.check_resops(call=1)
+        self.check_resops(call_i=1)
         res = self.meta_interp(main, [1, 10, 2], enable_opts='')
         assert res == main(1, 10, 2)
-        self.check_resops(call=0)
+        self.check_resops(call_i=0)
 
     def test_look_inside_iff_const_float(self):
         @look_inside_iff(lambda arg: isconstant(arg))
@@ -3393,7 +3392,7 @@ class BaseLLtypeTests(BasicTests):
 
         res = self.meta_interp(main, [10], enable_opts='')
         assert res == 5.0
-        self.check_resops(call=1)
+        self.check_resops(call_f=1)
 
     def test_look_inside_iff_virtual(self):
         # There's no good reason for this to be look_inside_iff, but it's a test!
@@ -3418,10 +3417,10 @@ class BaseLLtypeTests(BasicTests):
                     i += f(A(2), n)
         res = self.meta_interp(main, [0], enable_opts='')
         assert res == main(0)
-        self.check_resops(call=1, getfield_gc=0)
+        self.check_resops(call_i=1, getfield_gc_i=0)
         res = self.meta_interp(main, [1], enable_opts='')
         assert res == main(1)
-        self.check_resops(call=0, getfield_gc=0)
+        self.check_resops(call_i=0, getfield_gc_i=0)
 
     def test_isvirtual_call_assembler(self):
         driver = JitDriver(greens = ['code'], reds = ['n', 's'])

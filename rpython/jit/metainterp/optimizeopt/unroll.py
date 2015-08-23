@@ -1,4 +1,5 @@
 
+import sys
 from rpython.jit.metainterp.history import Const
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
      ShortPreambleBuilder, PreambleOp
@@ -9,6 +10,7 @@ from rpython.jit.metainterp.optimizeopt.virtualstate import (
     VirtualStateConstructor, VirtualStatesCantMatch)
 from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp
 from rpython.jit.metainterp import compile
+from rpython.rlib.debug import debug_print
 
 class UnrollableOptimizer(Optimizer):
     def force_op_from_preamble(self, preamble_op):
@@ -142,19 +144,40 @@ class UnrollOptimizer(Optimization):
         jump_op = operations[-1]
         cell_token = jump_op.getdescr()
         if not inline_short_preamble or len(cell_token.target_tokens) == 1:
-            assert cell_token.target_tokens[0].virtual_state is None
-            jump_op = jump_op.copy_and_change(rop.JUMP,
-                                        descr=cell_token.target_tokens[0])
-            self.optimizer.send_extra_operation(jump_op)
-            return info, self.optimizer._newoperations[:]
+            return self.jump_to_preamble(cell_token, jump_op, info)
         vs = self.jump_to_existing_trace(jump_op, inline_short_preamble)
         if vs is None:
             return info, self.optimizer._newoperations[:]
+        warmrunnerdescr = self.optimizer.metainterp_sd.warmrunnerdesc
+        limit = warmrunnerdescr.memory_manager.retrace_limit
+        if cell_token.retraced_count < limit:
+            cell_token.retraced_count += 1
+            debug_print('Retracing (%d/%d)' % (cell_token.retraced_count, limit))
+        else:
+            debug_print("Retrace count reached, jumping to preamble")
+            return self.jump_to_preamble(cell_token, jump_op, info)
+        maxguards = warmrunnerdescr.memory_manager.max_retrace_guards
+        guard_count = 0
+        for op in self.optimizer._newoperations:
+            if op.is_guard():
+                guard_count += 1
+        if guard_count > maxguards:
+            target_token = cell_token.target_tokens[0]
+            target_token.targeting_jitcell_token.retraced_count = sys.maxint
+            return self.jump_to_preamble(cell_token, jump_op, info)
         exported_state = self.export_state(start_label,
                                            operations[-1].getarglist(),
                                            info.inputargs)
         self.optimizer._clean_optimization_info(self.optimizer._newoperations)
         return exported_state, self.optimizer._newoperations
+
+    def jump_to_preamble(self, cell_token, jump_op, info):
+        assert cell_token.target_tokens[0].virtual_state is None
+        jump_op = jump_op.copy_and_change(rop.JUMP,
+                                          descr=cell_token.target_tokens[0])
+        self.optimizer.send_extra_operation(jump_op)
+        return info, self.optimizer._newoperations[:]
+
 
     def jump_to_existing_trace(self, jump_op, inline_short_preamble):
         jitcelltoken = jump_op.getdescr()
