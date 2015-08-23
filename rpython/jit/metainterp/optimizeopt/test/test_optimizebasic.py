@@ -2723,17 +2723,23 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [p1, i2, i3]
-        guard_true(i3) [p1, i2]
+        guard_true(i3) [i2, p1]
         i4 = int_neg(i2)
         setfield_gc(p1, NULL, descr=nextdescr)
         jump(p1, i2, i4)
         """
         self.optimize_loop(ops, expected)
+        #
+        # initialize p1.getref_base() to return a random pointer to a NODE
+        # (it doesn't have to be self.nodeaddr, but it's convenient)
+        assert hasattr(self.oparse.getvar('p1'), '_resref')
+        self.oparse.getvar('p1')._resref = self.nodeaddr
+        #
         self.check_expanded_fail_descr(
             '''
             p1.nextdescr = p2
             where p2 is a node_vtable, valuedescr=i2
-            ''', rop.GUARD_TRUE, values=[InputArgInt(18),
+            ''', rop.GUARD_TRUE, values=[InputArgInt(0),
                                          InputArgRef(self.nodeaddr)])
 
     def test_expand_fail_lazy_setfield_2(self):
