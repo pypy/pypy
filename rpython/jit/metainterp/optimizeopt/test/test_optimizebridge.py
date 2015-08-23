@@ -94,3 +94,25 @@ class TestOptimizeBridge(BaseTest, LLtypeMixin):
         jump(i0, i1, i2, i3)
         """
         self.optimize(loop, bridge, expected)
+
+    def test_virtual_state_in_bridge(self):
+        loop = """
+        [i0, p1]
+        p0 = new_with_vtable(descr=simpledescr)
+        setfield_gc(p0, i0, descr=simplevalue)
+        i3 = int_is_true(i0)
+        guard_true(i3) [p0]
+        i1 = int_add(i0, 1)
+        jump(i1, p0)
+        """
+        bridge = """
+        [p0]
+        p1 = new_with_vtable(descr=simpledescr)
+        setfield_gc(p1, 3, descr=simplevalue)
+        jump(1, p1)
+        """
+        expected = """
+        []
+        jump(1, 3)
+        """
+        self.optimize(loop, bridge, expected)

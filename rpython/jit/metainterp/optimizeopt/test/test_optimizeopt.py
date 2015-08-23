@@ -8253,7 +8253,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p22, p18]
         i1 = getfield_gc_i(p22, descr=valuedescr)
         guard_value(i1, 2) []
-        jump(p22, p18)
+        jump()
         """
         expected = """
         [p22, p18]

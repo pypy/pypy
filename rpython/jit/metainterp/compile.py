@@ -223,7 +223,7 @@ def compile_simple_loop(metainterp, greenkey, start, inputargs, ops, jumpargs,
     jump_op = ops[-1]
     target_token = TargetToken(jitcell_token)
     target_token.original_jitcell_token = jitcell_token
-    label.setdescr(target_token)
+    label = ResOperation(rop.LABEL, loop_info.inputargs[:], descr=target_token)
     jump_op.setdescr(target_token)
     loop.operations = [label] + ops
     loop.check_consistency()

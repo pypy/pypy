@@ -1118,7 +1118,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [20], enable_opts='')
         assert res == f(20)
-        self.check_resops(call=0)
+        self.check_resops(call_i=0, call_r=0)
 
     def test_zerodivisionerror(self):
         # test the case of exception-raising operation that is not delegated

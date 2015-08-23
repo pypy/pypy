@@ -212,6 +212,12 @@ class LLtypeMixin(object):
                         ('one', lltype.Ptr(lltype.GcArray(lltype.Ptr(NODE)))))
     u_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     u_vtable_adr = llmemory.cast_ptr_to_adr(u_vtable)
+    SIMPLE = lltype.GcStruct('simple',
+        ('parent', OBJECT),
+        ('value', lltype.Signed))
+    simpledescr = cpu.sizeof(SIMPLE, True)
+    simplevalue = cpu.fielddescrof(SIMPLE, 'value')
+    simple_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     usize = cpu.sizeof(U, True)
     onedescr = cpu.fielddescrof(U, 'one')
 
@@ -350,6 +356,7 @@ class LLtypeMixin(object):
     register_known_gctype(cpu, node_vtable2, NODE2)
     register_known_gctype(cpu, node_vtable3, NODE3)
     register_known_gctype(cpu, u_vtable,     U)
+    register_known_gctype(cpu, simple_vtable,     SIMPLE)
     register_known_gctype(cpu, jit_virtual_ref_vtable,vrefinfo.JIT_VIRTUAL_REF)
     register_known_gctype(cpu, intobj_noimmut_vtable, INTOBJ_NOIMMUT)
     register_known_gctype(cpu, intobj_immut_vtable,   INTOBJ_IMMUT)

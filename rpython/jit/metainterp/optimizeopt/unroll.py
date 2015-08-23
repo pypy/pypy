@@ -140,8 +140,8 @@ class UnrollOptimizer(Optimization):
             start_label.getarglist()[:], operations[:-1],
             call_pure_results, True)
         jump_op = operations[-1]
-        if not inline_short_preamble:
-            cell_token = jump_op.getdescr()
+        cell_token = jump_op.getdescr()
+        if not inline_short_preamble or len(cell_token.target_tokens) == 1:
             assert cell_token.target_tokens[0].virtual_state is None
             jump_op = jump_op.copy_and_change(rop.JUMP,
                                         descr=cell_token.target_tokens[0])
@@ -172,7 +172,11 @@ class UnrollOptimizer(Optimization):
             except VirtualStatesCantMatch:
                 continue
             short_preamble = target_token.short_preamble
-            extra = self.inline_short_preamble(args,
+            pass_to_short = target_virtual_state.make_inputargs(args,
+                self.optimizer, force_boxes=True, append_virtuals=True)
+            args = target_virtual_state.make_inputargs(args,
+                self.optimizer)
+            extra = self.inline_short_preamble(pass_to_short,
                 short_preamble[0].getarglist(), short_preamble[1:-1],
                 short_preamble[-1].getarglist(), self.optimizer.patchguardop)
             self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,

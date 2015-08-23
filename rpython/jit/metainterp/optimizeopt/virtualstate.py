@@ -2,7 +2,8 @@ from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 from rpython.jit.metainterp.history import (ConstInt, Const,
         ConstPtr, ConstFloat)
 from rpython.jit.metainterp.optimizeopt import info
-from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded
+from rpython.jit.metainterp.optimizeopt.intutils import IntUnbounded,\
+     ConstIntBound
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
      AbstractInputArg
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
@@ -24,6 +25,8 @@ class VirtualStatesCantMatch(Exception):
 def get_forwarded(box):
     if not isinstance(box, Const):
         return box.get_forwarded()
+    if box.type == 'i':
+        return ConstIntBound(box.getint())
     xxx
 
 class GenerateGuardState(object):
@@ -627,7 +630,8 @@ class VirtualStateConstructor(VirtualVisitor):
         return NotVirtualStateInfo(self.optimizer.cpu, box.type,
                                    self.optimizer.getinfo(box))
 
-    def visit_virtual(self, known_class, fielddescrs):
+    def visit_virtual(self, descr, fielddescrs):
+        known_class = ConstInt(descr.get_vtable())
         return VirtualStateInfo(known_class, fielddescrs)
 
     def visit_vstruct(self, typedescr, fielddescrs):

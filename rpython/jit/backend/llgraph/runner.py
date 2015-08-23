@@ -104,6 +104,10 @@ class SizeDescr(AbstractDescr):
     def as_vtable_size_descr(self):
         return self
 
+    def get_vtable(self):
+        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(
+            self._corresponding_vtable))
+
     def count_fields_if_immutable(self):
         return heaptracker.count_fields_if_immutable(self.S)
 
