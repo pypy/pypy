@@ -8,7 +8,6 @@ from rpython.jit.backend.llsupport import jitframe, gc
 from rpython.jit.metainterp.gc import get_description
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.codewriter.heaptracker import register_known_gctype
 from rpython.jit.metainterp.history import JitCellToken, FLOAT
 from rpython.rtyper.lltypesystem import lltype, rffi, lltype, llmemory
 from rpython.rtyper import rclass
@@ -52,7 +51,6 @@ class RewriteTests(object):
         O = lltype.GcStruct('O', ('parent', rclass.OBJECT),
                                  ('x', lltype.Signed))
         o_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        register_known_gctype(self.cpu, o_vtable, O)
         #
         tiddescr = self.gc_ll_descr.fielddescr_tid
         wbdescr = self.gc_ll_descr.write_barrier_descr
