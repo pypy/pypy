@@ -198,17 +198,17 @@ class ArrayCachedField(CachedField):
         return op.getarg(2)
 
     def _getfield(self, opinfo, descr, optheap):
-        res = opinfo.getitem(self.index, optheap)
+        res = opinfo.getitem(descr, self.index, optheap)
         if isinstance(res, PreambleOp):
             index = res.preamble_op.getarg(1).getint()
             res = optheap.optimizer.force_op_from_preamble(res)
-            opinfo.setitem(index, None, res, optheap=optheap)
+            opinfo.setitem(descr, index, None, res, optheap=optheap)
         return res
 
     def _setfield(self, op, opinfo, optheap):
         arg = optheap.get_box_replacement(op.getarg(2))
         struct = optheap.get_box_replacement(op.getarg(0))
-        opinfo.setitem(self.index, struct, arg, self, optheap)
+        opinfo.setitem(op.getdescr(), self.index, struct, arg, self, optheap)
 
     def invalidate(self, descr):
         for opinfo in self.cached_infos:
@@ -589,7 +589,7 @@ class OptHeap(Optimization):
         self.emit_operation(op)
         # the remember the result of reading the array item
         if cf is not None:
-            arrayinfo.setitem(indexb.getint(),
+            arrayinfo.setitem(op.getdescr(), indexb.getint(),
                               self.get_box_replacement(op.getarg(0)),
                               self.get_box_replacement(op), cf,
                               self)

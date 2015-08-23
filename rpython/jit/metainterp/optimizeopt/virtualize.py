@@ -28,7 +28,8 @@ class OptVirtualize(optimizer.Optimization):
             opinfo = info.ArrayStructInfo(size, vdescr=arraydescr)
         else:
             const = self.new_const_item(arraydescr)
-            opinfo = info.ArrayPtrInfo(const, size, clear, vdescr=arraydescr)
+            opinfo = info.ArrayPtrInfo(arraydescr, const, size, clear,
+                                       vdescr=arraydescr)
         newop = self.replace_op_with(source_op, source_op.getopnum())
         newop.set_forwarded(opinfo)
         return opinfo
@@ -277,7 +278,7 @@ class OptVirtualize(optimizer.Optimization):
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                item = opinfo.getitem(indexbox.getint())
+                item = opinfo.getitem(op.getdescr(), indexbox.getint())
                 if item is None:   # reading uninitialized array items?
                     assert False, "can't read uninitialized items"
                     itemvalue = value.constvalue     # bah, just return 0
@@ -299,7 +300,7 @@ class OptVirtualize(optimizer.Optimization):
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                opinfo.setitem(indexbox.getint(),
+                opinfo.setitem(op.getdescr(), indexbox.getint(),
                                self.get_box_replacement(op.getarg(0)),
                                self.get_box_replacement(op.getarg(2)))
                 return

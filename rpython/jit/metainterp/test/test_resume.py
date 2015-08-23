@@ -1285,7 +1285,8 @@ def test_virtual_adder_make_varray():
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
 
-    v2 = info.ArrayPtrInfo(vdescr=LLtypeMixin.arraydescr, size=2)
+    v2 = info.ArrayPtrInfo(LLtypeMixin.arraydescr,
+                           vdescr=LLtypeMixin.arraydescr, size=2)
     b2s.set_forwarded(v2)
     v2._items = [b4s, c1s]
     modifier.register_virtual_fields(b2s, [b4s, c1s])

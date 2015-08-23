@@ -549,7 +549,7 @@ class OptRewrite(Optimization):
             # XXX fish fish fish
             for index in range(length.getint()):
                 if source_info and source_info.is_virtual():
-                    val = source_info.getitem(index + source_start)
+                    val = source_info.getitem(arraydescr, index + source_start)
                 else:
                     opnum = OpHelpers.getarrayitem_for_descr(arraydescr)
                     newop = ResOperation(opnum,
@@ -561,7 +561,7 @@ class OptRewrite(Optimization):
                 if val is None:
                     continue
                 if dest_info and dest_info.is_virtual():
-                    dest_info.setitem(index + dest_start,
+                    dest_info.setitem(arraydescr, index + dest_start,
                                       self.get_box_replacement(op.getarg(2)),
                                       val)
                 else:

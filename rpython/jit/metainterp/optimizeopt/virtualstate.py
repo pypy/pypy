@@ -223,7 +223,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         if len(self.fieldstate) > info.getlength():
             raise BadVirtualState
         for i in range(len(self.fieldstate)):
-            fieldbox = info.getitem(i)
+            fieldbox = info.getitem(self.arraydescr, i)
             if fieldbox is None:
                 xxx
                 v = value.get_missing_null_value()

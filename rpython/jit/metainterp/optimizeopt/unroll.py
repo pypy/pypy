@@ -48,7 +48,7 @@ class UnrollableOptimizer(Optimizer):
             if known_class:
                 self.make_constant_class(op, known_class, False)
             if isinstance(preamble_info, info.ArrayPtrInfo):
-                arr_info = info.ArrayPtrInfo(None)
+                arr_info = info.ArrayPtrInfo(preamble_info.arraydescr)
                 arr_info.lenbound = preamble_info.getlenbound(None)
                 op.set_forwarded(arr_info)
             if preamble_info.is_nonnull():
@@ -210,25 +210,27 @@ class UnrollOptimizer(Optimization):
 
     def inline_short_preamble(self, jump_args, short_inputargs, short_ops,
                               short_jump_op, patchguardop):
-        self._check_no_forwarding([short_inputargs, short_ops], False)
-        assert len(short_inputargs) == len(jump_args)
-        for i in range(len(jump_args)):
-            short_inputargs[i].set_forwarded(None)
-            self.make_equal_to(short_inputargs[i], jump_args[i])
-        for op in short_ops:
-            if op.is_guard():
-                op = self.replace_op_with(op, op.getopnum(),
-                                          descr=compile.ResumeAtPositionDescr())
-                op.rd_snapshot = patchguardop.rd_snapshot
-                op.rd_frame_info_list = patchguardop.rd_frame_info_list
-            self.optimizer.send_extra_operation(op)
-        res = [self.optimizer.get_box_replacement(op) for op in
-                short_jump_op]
-        for op in short_inputargs:
-            op.set_forwarded(None)
-        for op in short_ops:
-            op.set_forwarded(None)
-        return res
+        try:
+            self._check_no_forwarding([short_inputargs, short_ops], False)
+            assert len(short_inputargs) == len(jump_args)
+            for i in range(len(jump_args)):
+                short_inputargs[i].set_forwarded(None)
+                self.make_equal_to(short_inputargs[i], jump_args[i])
+            for op in short_ops:
+                if op.is_guard():
+                    op = self.replace_op_with(op, op.getopnum(),
+                                    descr=compile.ResumeAtPositionDescr())
+                    op.rd_snapshot = patchguardop.rd_snapshot
+                    op.rd_frame_info_list = patchguardop.rd_frame_info_list
+                self.optimizer.send_extra_operation(op)
+            res = [self.optimizer.get_box_replacement(op) for op in
+                    short_jump_op]
+            return res
+        finally:
+            for op in short_inputargs:
+                op.set_forwarded(None)
+            for op in short_ops:
+                op.set_forwarded(None)
 
     def export_state(self, start_label, original_label_args, renamed_inputargs):
         end_args = [self.get_box_replacement(a) for a in original_label_args]

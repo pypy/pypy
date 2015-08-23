@@ -317,16 +317,19 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
         return visitor.visit_vrawslice(self.offset)
 
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
-    _attrs_ = ('length', '_items', 'lenbound', '_clear')
+    _attrs_ = ('length', '_items', 'lenbound', '_clear', 'arraydescr')
 
     _items = None
     lenbound = None
     length = -1
 
-    def __init__(self, const=None, size=0, clear=False, vdescr=None):
+    def __init__(self, arraydescr, const=None, size=0, clear=False,
+                 vdescr=None):
         from rpython.jit.metainterp.optimizeopt import intutils
         self.vdescr = vdescr
+        self.arraydescr = arraydescr
         if vdescr is not None:
+            assert vdescr is arraydescr
             self._init_items(const, size, clear)
             self.lenbound = intutils.ConstIntBound(size)
         self._clear = clear
@@ -350,9 +353,9 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def all_items(self):
         return self._items
 
-    def copy_fields_to_const(self, constinfo, optheap):
+    def copy_fields_to_const(self, arraydescr, constinfo, optheap):
         if self._items is not None:
-            info = constinfo._get_array_info(optheap)
+            info = constinfo._get_array_info(arraydescr, optheap)
             info._items = self._items[:]
 
     def _force_elements(self, op, optforce, descr):
@@ -371,7 +374,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                     optforce.emit_operation(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
-    def setitem(self, index, struct_op, op, cf=None, optheap=None):
+    def setitem(self, descr, index, struct_op, op, cf=None, optheap=None):
         if self._items is None:
             self._items = [None] * (index + 1)
         if index >= len(self._items):
@@ -381,7 +384,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             assert not self.is_virtual()
             cf.register_dirty_field(struct_op, self)
 
-    def getitem(self, index, optheap=None):
+    def getitem(self, descr, index, optheap=None):
         if self._items is None or index >= len(self._items):
             return None
         return self._items[index]
@@ -418,7 +421,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def make_guards(self, op, short):
         AbstractVirtualPtrInfo.make_guards(self, op, short)
         if self.lenbound is not None:
-            lenop = ResOperation(rop.ARRAYLEN_GC, [op])
+            lenop = ResOperation(rop.ARRAYLEN_GC, [op], descr=self.arraydescr)
             short.append(lenop)
             self.lenbound.make_guards(lenop, short)
 
@@ -503,11 +506,11 @@ class ConstPtrInfo(PtrInfo):
             optheap.const_infos[ref] = info
         return info
 
-    def _get_array_info(self, optheap):
+    def _get_array_info(self, arraydescr, optheap):
         ref = self._const.getref_base()
         info = optheap.const_infos.get(ref, None)
         if info is None:
-            info = ArrayPtrInfo()
+            info = ArrayPtrInfo(arraydescr)
             optheap.const_infos[ref] = info
         return info        
 
@@ -515,13 +518,13 @@ class ConstPtrInfo(PtrInfo):
         info = self._get_info(optheap)
         return info.getfield(descr)
 
-    def getitem(self, index, optheap=None):
-        info = self._get_array_info(optheap)
-        return info.getitem(index)
+    def getitem(self, descr, index, optheap=None):
+        info = self._get_array_info(descr, optheap)
+        return info.getitem(descr, index)
 
-    def setitem(self, index, struct, op, cf=None, optheap=None):
-        info = self._get_array_info(optheap)
-        info.setitem(index, struct, op, cf)
+    def setitem(self, descr, index, struct, op, cf=None, optheap=None):
+        info = self._get_array_info(descr, optheap)
+        info.setitem(descr, index, struct, op, cf)
 
     def setfield(self, descr, struct, op, optheap=None, cf=None):
         info = self._get_info(optheap)

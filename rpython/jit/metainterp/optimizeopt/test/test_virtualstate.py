@@ -489,7 +489,7 @@ class BaseTestGenerateGuards(BaseTest):
         info2 = VArrayStateInfo(descr)
         info2.fieldstate = [innerinfo2]
 
-        value1 = info.ArrayPtrInfo(vdescr=descr, size=1)
+        value1 = info.ArrayPtrInfo(descr, vdescr=descr, size=1)
         box = InputArgRef(self.nodeaddr)
         value1._items[0] = box
 
