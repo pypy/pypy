@@ -326,6 +326,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 # on the descriptor
                 loc = self.loc(accum.getoriginalbox())
                 faillocs.append(loc)
+                assert isinstance(descr, ResumeGuardDescr)
                 descr.rd_accum_list = AccumInfo(descr.rd_accum_list,
                                                 i, accum.operator,
                                                 accum.getoriginalbox(),

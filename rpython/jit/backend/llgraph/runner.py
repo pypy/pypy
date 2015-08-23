@@ -2,8 +2,8 @@ import py, weakref
 from rpython.jit.backend import model
 from rpython.jit.backend.llgraph import support
 from rpython.jit.backend.llsupport import symbolic
-from rpython.jit.metainterp.history import AbstractDescr
-from rpython.jit.metainterp.history import Const, getkind
+from rpython.jit.metainterp.history import AbstractDescr, BoxVector
+from rpython.jit.metainterp.history import Const, getkind, Box
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID, VECTOR
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import intbounds
@@ -271,6 +271,7 @@ class LLGraphCPU(model.AbstractCPU):
         self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
 
     def stitch_bridge(self, faildescr, target):
+        import pdb; pdb.set_trace()
         faildescr._llgraph_bridge = target.lltrace
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
@@ -902,29 +903,36 @@ class LLFrame(object):
 
     # -----------------------------------------------------
 
+    def _accumulate(self, descr, failargs, value):
+        if not hasattr(descr, 'rd_accum_list'):
+            return
+        accum = descr.rd_accum_list
+        while accum is not None:
+            value = values[accum.scalar_position]
+            assert isinstance(value, list)
+            if accum.operation == '+':
+                value = sum(value)
+                break
+            elif accum.operation == '*':
+                def prod(acc, x): return acc * x
+                value = reduce(prod, value, 1)
+                break
+            else:
+                raise NotImplementedError("accum operator in fail guard")
+            values[accum.scalar_position] = value
+            accum = accum.prev
+
     def fail_guard(self, descr, saved_data=None):
         values = []
         for i,box in enumerate(self.current_op.getfailargs()):
+            if box.getaccum() or isinstance(box, BoxVector):
+                import pdb; pdb.set_trace();
             if box is not None:
                 value = self.env[box]
             else:
                 value = None
-            if hasattr(descr, 'rd_accum_list'):
-                accum = descr.rd_accum_list
-                while accum != None:
-                    if accum.position != i:
-                        accum = accum.prev
-                        continue
-                    if accum.operation == '+':
-                        value = sum(value)
-                        break
-                    elif accum.operation == '*':
-                        def prod(acc, x): return acc * x
-                        value = reduce(prod, value, 1)
-                        break
-                    else:
-                        raise NotImplementedError("accum operator in fail guard")
             values.append(value)
+        self._accumulate(descr, self.current_op.getfailargs(), values)
         if hasattr(descr, '_llgraph_bridge'):
             target = (descr._llgraph_bridge, -1)
             values = [value for value in values if value is not None]
