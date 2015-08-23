@@ -301,7 +301,6 @@ class GuardStrengthenOpt(object):
             for other in guards[1:]:
                 transitive_guard = one.transitive_imply(other, self, loop)
                 if transitive_guard:
-                    transitive_guard.rd_accum_list = None
                     other.set_to_none(loop.operations)
                     root_version.register_guard(transitive_guard, version)
 
