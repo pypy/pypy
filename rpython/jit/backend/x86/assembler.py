@@ -598,8 +598,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             Why? Because this only generates a very small junk of memory, instead of
             duplicating the loop assembler for each faildescr!
         """
-        asminfo, bridge_faildescr, looptoken = version._compiled
-        compiled_version = bridge_faildescr.version
+        asminfo, bridge_faildescr, compiled_version, looptoken = version._compiled
         assert isinstance(bridge_faildescr, ResumeGuardDescr)
         assert isinstance(faildescr, ResumeGuardDescr)
         assert asminfo.rawstart != 0

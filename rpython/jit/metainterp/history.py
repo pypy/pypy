@@ -746,7 +746,7 @@ class LoopVersion(object):
     """
     def __init__(self, loop):
         self.faildescrs = []
-        self._compiled = (None,None,None)
+        self._compiled = (None,None,None,None)
         if loop:
             self.operations = self.copy_operations(loop.operations) 
             idx = index_of_first(rop.LABEL, self.operations)
