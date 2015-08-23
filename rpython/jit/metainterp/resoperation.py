@@ -33,11 +33,12 @@ class AbstractValue(object):
         llop.debug_print(lltype.Void, "setting forwarded on:", self.__class__.__name__)
         raise SettingForwardedOnAbstractValue()
 
-    def get_box_replacement(op):
+    def get_box_replacement(op, not_const=False):
         orig_op = op
         c = 0
         while (op.get_forwarded() is not None and
-               not op.get_forwarded().is_info_class):
+               not op.get_forwarded().is_info_class and
+               (not not_const or not op.get_forwarded().is_constant())):
             c += 1
             op = op.get_forwarded()
         if op is not orig_op and c > 1:

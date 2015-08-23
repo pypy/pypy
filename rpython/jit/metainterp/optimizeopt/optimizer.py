@@ -140,8 +140,8 @@ class Optimization(object):
             return fw
         return None
 
-    def get_box_replacement(self, op):
-        return self.optimizer.get_box_replacement(op)
+    def get_box_replacement(self, op, not_const=False):
+        return self.optimizer.get_box_replacement(op, not_const=not_const)
 
     def getlastop(self):
         return self.optimizer._last_emitted_op
@@ -318,10 +318,10 @@ class Optimizer(Optimization):
             if self.get_box_replacement(op).is_constant():
                 return info.FloatConstInfo(self.get_box_replacement(op))
 
-    def get_box_replacement(self, op):
+    def get_box_replacement(self, op, not_const=False):
         if op is None:
             return op
-        return op.get_box_replacement()
+        return op.get_box_replacement(not_const)
 
     def force_box(self, op):
         op = self.get_box_replacement(op)
@@ -551,6 +551,9 @@ class Optimizer(Optimization):
             else:
                 guard_op = self.replace_op_with(op, op.getopnum())
                 op = self.store_final_boxes_in_guard(guard_op, pendingfields)
+                # for unrolling
+                for farg in op.getfailargs():
+                    self.force_box(farg)
         elif op.can_raise():
             self.exception_might_have_happened = True
         self._really_emitted_operation = op

@@ -182,7 +182,7 @@ class UnrollOptimizer(Optimization):
         return virtual_state
 
     def filter_extra_jump_args(self, label_args, jump_args):
-        label_args = [self.get_box_replacement(x) for x in label_args]
+        label_args = [self.get_box_replacement(x, True) for x in label_args]
         jump_args = [self.get_box_replacement(x) for x in jump_args]
         new_label_args = []
         new_jump_args = []
