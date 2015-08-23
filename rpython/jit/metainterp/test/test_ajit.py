@@ -1428,7 +1428,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 42
         self.check_trace_count(1)
-        self.check_resops(call=2)
+        self.check_resops(call_r=2)
 
     def test_merge_guardclass_guardvalue(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])

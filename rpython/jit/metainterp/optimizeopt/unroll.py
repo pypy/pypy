@@ -167,7 +167,8 @@ class UnrollOptimizer(Optimization):
                 continue
             try:
                 extra_guards = target_virtual_state.generate_guards(
-                    virtual_state, args, infos, self.optimizer.cpu)
+                    virtual_state, jump_op.getarglist(), infos,
+                    self.optimizer.cpu)
                 assert not extra_guards.extra_guards
             except VirtualStatesCantMatch:
                 continue
