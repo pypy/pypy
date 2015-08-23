@@ -740,10 +740,13 @@ def index_of_first(opnum, operations, pass_by=0):
     return -1
 
 class LoopVersion(object):
-
+    """ A special version of a trace loop. Use loop.snaphost() to
+        create one instance and attach it to a guard descr.
+        If not attached to a descriptor, it will not be compiled.
+    """
     def __init__(self, loop):
         self.faildescrs = []
-        self._compiled = None
+        self._compiled = (None,None,None)
         if loop:
             self.operations = self.copy_operations(loop.operations) 
             idx = index_of_first(rop.LABEL, self.operations)
@@ -761,7 +764,7 @@ class LoopVersion(object):
             # root version must always be compiled
             return True
 
-        return self._compiled is not None
+        return self._compiled[0] is not None
 
     def copy_operations(self, operations):
         from rpython.jit.metainterp.compile import (ResumeGuardDescr,

@@ -596,9 +596,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             allocation. This needs remapping which is done here for both normal registers
             and accumulation registers.
             Why? Because this only generates a very small junk of memory, instead of
-            duplicating the loop assembler!
+            duplicating the loop assembler for each faildescr!
         """
-        asminfo, bridge_faildescr, compiled_version, looptoken = version._compiled
+        asminfo, bridge_faildescr, looptoken = version._compiled
+        compiled_version = bridge_faildescr.version
         assert isinstance(bridge_faildescr, ResumeGuardDescr)
         assert isinstance(faildescr, ResumeGuardDescr)
         assert asminfo.rawstart != 0
@@ -640,7 +641,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         offset = self.mc.get_relative_pos() - 4
         rawstart = self.materialize_loop(looptoken)
-        # update the exit target
+        # update the jump to the real trace
         self._patch_jump_for_descr(rawstart + offset, asminfo.rawstart)
         # update the guard to jump right to this custom piece of assembler
         self.patch_jump_for_descr(faildescr, rawstart)

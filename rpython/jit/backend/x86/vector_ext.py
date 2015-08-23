@@ -78,7 +78,8 @@ class VectorAssemblerMixin(object):
 
     def _accum_update_at_exit(self, fail_locs, fail_args, faildescr, regalloc):
         """ If accumulation is done in this loop, at the guard exit
-        some vector registers must be adjusted to yield the correct value"""
+            some vector registers must be adjusted to yield the correct value
+        """
         if not isinstance(faildescr, ResumeGuardDescr):
             return
         assert regalloc is not None
@@ -99,7 +100,7 @@ class VectorAssemblerMixin(object):
                 self._accum_reduce_mul(scalar_arg, vector_loc, scalar_loc)
             else:
                 not_implemented("accum operator %s not implemented" %
-                                            (accum_info.operation)) 
+                                            (accum_info.accum_operation)) 
             accum_info = accum_info.prev
 
     def _accum_reduce_mul(self, arg, accumloc, targetloc):
