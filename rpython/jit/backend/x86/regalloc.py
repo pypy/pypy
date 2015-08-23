@@ -345,11 +345,9 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 break
             count += 1
             accum_info = accum_info.prev
-        else:
-            msg = "[accumulator] %d accumulators, none matched box %s\n" % (count, accum_info.box)
-            if we_are_translated():
-                llop.debug_print(lltype.Void, msg)
-            raise NotImplementedError(msg)
+        if count == 0:
+            msg = "[accumulator] %d accumulators, none matched box %s" % (count, accum_info.box)
+            not_implemented(msg)
 
     def perform_with_guard(self, op, guard_op, arglocs, result_loc):
         faillocs = self.locs_for_fail(guard_op)
