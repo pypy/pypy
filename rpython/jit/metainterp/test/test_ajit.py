@@ -3660,7 +3660,7 @@ class BaseLLtypeTests(BasicTests):
             return n
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_resops({'int_gt': 2, 'getfield_gc': 1, 'int_eq': 1,
+        self.check_resops({'int_gt': 2, 'getfield_gc_i': 1, 'int_eq': 1,
                            'guard_true': 2, 'int_sub': 2, 'jump': 1,
                            'guard_false': 1})
 
