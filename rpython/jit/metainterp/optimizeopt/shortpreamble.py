@@ -346,8 +346,8 @@ class ShortPreambleBuilder(object):
     starting from short_boxes exported from the preamble. It will build
     the short preamble and necessary extra label arguments
     """
-    def __init__(self, short_boxes, short_inputargs, exported_infos,
-                 optimizer=None):
+    def __init__(self, label_args, short_boxes, short_inputargs,
+                 exported_infos, optimizer=None):
         for produced_op in short_boxes:
             op = produced_op.short_op.res
             preamble_op = produced_op.preamble_op
@@ -359,6 +359,9 @@ class ShortPreambleBuilder(object):
                     info = empty_info
             preamble_op.set_forwarded(info)
         self.short = []
+        self.label_dict = {}
+        for arg in label_args:
+            self.label_dict[arg] = None
         self.used_boxes = []
         self.short_preamble_jump = []
         self.extra_same_as = []
@@ -390,12 +393,17 @@ class ShortPreambleBuilder(object):
     def add_preamble_op(self, preamble_op):
         if preamble_op.invented_name:
             self.extra_same_as.append(preamble_op.op)
-        self.used_boxes.append(preamble_op.op)            
+        op = preamble_op.op
+        if op in self.label_dict:
+            return
+        self.label_dict[op] = None
+        self.used_boxes.append(op)
         self.short_preamble_jump.append(preamble_op.preamble_op)
 
-    def build_short_preamble(self, sb_jump):
+    def build_short_preamble(self):
         label_op = ResOperation(rop.LABEL, self.short_inputargs[:])
-        jump_op = ResOperation(rop.JUMP, sb_jump)
+        jump_op = ResOperation(rop.JUMP, self.short_preamble_jump)
+        # WARNING! the short_preamble_jump is shared on purpose
         TreeLoop.check_consistency_of(self.short_inputargs,
                                       self.short + [jump_op], check_descr=False)
         return [label_op] + self.short + [jump_op]

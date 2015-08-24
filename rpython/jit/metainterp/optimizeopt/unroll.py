@@ -103,23 +103,28 @@ class UnrollOptimizer(Optimization):
     def optimize_peeled_loop(self, start_label, end_jump, ops, state,
                              call_pure_results):
         self._check_no_forwarding([[start_label, end_jump], ops])
-        self.import_state(start_label, state)
-        self.potential_extra_ops = {}
         label_args = state.virtual_state.make_inputargs(
             start_label.getarglist(), self.optimizer)
+        self.import_state(start_label, state, label_args)
+        self.potential_extra_ops = {}
         self.optimizer.init_inparg_dict_from(label_args)
         info, _ = self.optimizer.propagate_all_forward(
             start_label.getarglist()[:], ops, call_pure_results, False)
         label_op = ResOperation(rop.LABEL, label_args, start_label.getdescr())
-        target_token, extra = self.finalize_short_preamble(label_op,
+        target_token = self.finalize_short_preamble(label_op,
                                                     state.virtual_state)
         label_op.setdescr(target_token)
-        label_op.initarglist(label_op.getarglist() + extra)
+        extra = self.short_preamble_producer.used_boxes
+        label_args = [self.get_box_replacement(op) for op in label_args]
+        label_op.initarglist(label_args + extra)
         # force the boxes for virtual state to match
         x = state.virtual_state.make_inputargs(
             [self.get_box_replacement(x) for x in end_jump.getarglist()],
             self.optimizer, force_boxes=True)
         new_virtual_state = self.jump_to_existing_trace(end_jump)
+        # the short preamble could have grown, we reinitialize
+        # the label_op again
+        label_op.initarglist(label_args + extra)
         if new_virtual_state is not None:
             res = self.jump_to_preamble(start_label.getdescr(), end_jump,
                                          info)
@@ -169,18 +174,7 @@ class UnrollOptimizer(Optimization):
     def finalize_short_preamble(self, label_op, virtual_state):
         sb = self.short_preamble_producer
         self.optimizer._clean_optimization_info(sb.short_inputargs)
-        d = {}
-        for arg in label_op.getarglist():
-            d[arg] = None
-        new_used_boxes = []
-        new_sb_jump = []
-        for i in range(len(sb.used_boxes)):
-            ub = sb.used_boxes[i]
-            if ub in d:
-                continue
-            new_used_boxes.append(ub)
-            new_sb_jump.append(sb.short_preamble_jump[i])
-        short_preamble = sb.build_short_preamble(new_sb_jump)
+        short_preamble = sb.build_short_preamble()
         jitcelltoken = label_op.getdescr()
         if jitcelltoken.target_tokens is None:
             jitcelltoken.target_tokens = []
@@ -190,7 +184,7 @@ class UnrollOptimizer(Optimization):
         target_token.virtual_state = virtual_state
         target_token.short_preamble = short_preamble
         jitcelltoken.target_tokens.append(target_token)
-        return target_token, new_used_boxes
+        return target_token
 
     def jump_to_preamble(self, cell_token, jump_op, info):
         assert cell_token.target_tokens[0].virtual_state is None
@@ -238,6 +232,7 @@ class UnrollOptimizer(Optimization):
 
     def inline_short_preamble(self, jump_args, short_inputargs, short_ops,
                               short_jump_op, patchguardop):
+        # warning!!!! short_jump_op might have arguments appended IN PLACE
         try:
             self._check_no_forwarding([short_inputargs, short_ops], False)
             assert len(short_inputargs) == len(jump_args)
@@ -285,7 +280,7 @@ class UnrollOptimizer(Optimization):
                              short_boxes, renamed_inputargs,
                              short_inputargs)
 
-    def import_state(self, targetop, exported_state):
+    def import_state(self, targetop, exported_state, label_args):
         # the mapping between input args (from old label) and what we need
         # to actually emit. Update the info
         assert (len(exported_state.next_iteration_args) ==
@@ -301,8 +296,9 @@ class UnrollOptimizer(Optimization):
         # import the optimizer state, starting from boxes that can be produced
         # by short preamble
         self.short_preamble_producer = ShortPreambleBuilder(
-            exported_state.short_boxes, exported_state.short_inputargs,
-            exported_state.exported_infos, self.optimizer)
+            label_args, exported_state.short_boxes,
+            exported_state.short_inputargs, exported_state.exported_infos,
+            self.optimizer)
 
         for produced_op in exported_state.short_boxes:
             produced_op.produce_op(self, exported_state.exported_infos)
