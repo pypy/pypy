@@ -752,7 +752,6 @@ class VersionInfo(object):
         self.insert_index = -1
 
     def track(self, op, descr, version):
-        #print "+++", descr, "=>", version
         assert descr.loop_version()
         i = self.insert_index
         if i >= 0:
@@ -768,7 +767,6 @@ class VersionInfo(object):
 
     def remove(self, descr):
         if descr in self.leads_to:
-            #print "---", descr, "=>", self.leads_to[descr]
             del self.leads_to[descr]
         else:
             assert 0, "could not remove %s" % descr
