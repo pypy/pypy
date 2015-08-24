@@ -335,7 +335,7 @@ class AppTestFunction:
         except TypeError as e:
             msg = str(e)
             msg = msg.replace('one', '1') # CPython puts 'one', PyPy '1'
-            assert "len() takes exactly 1 argument (0 given)" in msg
+            assert "len() missing 1 required positional argument: 'obj'" in msg
         else:
             assert 0, "did not raise"
 
@@ -344,7 +344,7 @@ class AppTestFunction:
         except TypeError as e:
             msg = str(e)
             msg = msg.replace('one', '1') # CPython puts 'one', PyPy '1'
-            assert "len() takes exactly 1 argument (2 given)" in msg
+            assert "len() takes 1 positional argument but 2 were given" in msg
         else:
             assert 0, "did not raise"
 
