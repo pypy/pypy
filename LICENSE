@@ -434,4 +434,4 @@ License for 'pypy/module/_vmprof/src'
 
 The code is based on gperftools. You may see a copy of the License for it at
 
-    https://code.google.com/p/gperftools/source/browse/COPYING
+    https://github.com/gperftools/gperftools/blob/master/COPYING
