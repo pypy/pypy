@@ -754,9 +754,10 @@ class VersionInfo(object):
     def track(self, op, descr, version):
         #print "+++", descr, "=>", version
         assert descr.loop_version()
-        if self.insert_index >= 0:
-            assert self.insert_index >= 0
-            self.descrs.insert(self.insert_index, descr)
+        i = self.insert_index
+        if i >= 0:
+            assert i >= 0
+            self.descrs.insert(i, descr)
         else:
             self.descrs.append(descr)
         self.leads_to[descr] = version
