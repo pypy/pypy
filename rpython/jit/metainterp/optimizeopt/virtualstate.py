@@ -55,7 +55,7 @@ class AbstractVirtualStateInfo(object):
         as a guiding heuristic whether making such guards makes
         sense. if None is passed in for op, no guard is ever generated, and
         this function degenerates to a generalization check."""
-        assert opinfo is None or isinstance(opinfo, info.AbstractInfo)
+        assert opinfo is None or opinfo.is_constant() or isinstance(opinfo, info.AbstractInfo)
         assert self.position != -1
         if self.position in state.renum:
             if state.renum[self.position] != other.position:
