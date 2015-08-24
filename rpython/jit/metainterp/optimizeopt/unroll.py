@@ -218,7 +218,7 @@ class UnrollOptimizer(Optimization):
                 self.optimizer, append_virtuals=True)
             args = target_virtual_state.make_inputargs(args,
                 self.optimizer)
-            extra = self.inline_short_preamble(pass_to_short,
+            extra = self.inline_short_preamble(pass_to_short, args,
                 short_preamble[0].getarglist(), short_preamble,
                 short_preamble[-1].getarglist(), self.optimizer.patchguardop)
             self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
@@ -227,7 +227,8 @@ class UnrollOptimizer(Optimization):
             return None # explicit because the return can be non-None
         return virtual_state
 
-    def inline_short_preamble(self, jump_args, short_inputargs, short_ops,
+    def inline_short_preamble(self, jump_args, args_no_virtuals,
+                              short_inputargs, short_ops,
                               short_jump_op, patchguardop):
         # warning!!!! short_jump_op might have arguments appended IN PLACE
         try:
@@ -246,7 +247,8 @@ class UnrollOptimizer(Optimization):
                     op.rd_frame_info_list = patchguardop.rd_frame_info_list
                 self.optimizer.send_extra_operation(op)
                 i += 1
-            for arg in jump_args:
+            # force all of them except the virtuals
+            for arg in args_no_virtuals + short_jump_op:
                 self.optimizer.force_box(self.get_box_replacement(arg))
             return [self.get_box_replacement(box) for box in short_jump_op]
         finally:
