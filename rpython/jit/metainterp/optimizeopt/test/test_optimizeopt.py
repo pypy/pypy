@@ -7613,7 +7613,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0]
         p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_nonnull(p1) []
-        i1 = arraylen_gc(p1)
+        i1 = arraylen_gc(p1, descr=gcarraydescr)
         i2 = int_ge(i1, 8)
         guard_true(i2) []
         p2 = getarrayitem_gc_r(p1, 7, descr=gcarraydescr)
@@ -7622,7 +7622,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p0, p1, p2]
         call_n(p2, descr=nonwritedescr)
-        i3 = arraylen_gc(p1) # Should be killed by backend
+        i3 = arraylen_gc(p1, descr=gcarraydescr) # Should be killed by backend
         jump(p0, p1, p2)
         """
         self.optimize_loop(ops, expected, expected_short=short)
