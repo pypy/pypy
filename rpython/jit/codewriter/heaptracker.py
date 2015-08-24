@@ -67,12 +67,14 @@ def get_vtable_for_gcstruct(gccache, GCSTRUCT):
     if not has_gcstruct_a_vtable(GCSTRUCT):
         return None
     setup_cache_gcstruct2vtable(gccache)
-    return gccache._cache_gcstruct2vtable[GCSTRUCT]
+    try:
+        return gccache._cache_gcstruct2vtable[GCSTRUCT]
+    except KeyError:
+        return testing_gcstruct2vtable[GCSTRUCT]
 
 def setup_cache_gcstruct2vtable(gccache):
     if not hasattr(gccache, '_cache_gcstruct2vtable'):
         cache = {}
-        cache.update(testing_gcstruct2vtable)
         if gccache.rtyper:
             for rinstance in gccache.rtyper.instance_reprs.values():
                 cache[rinstance.lowleveltype.TO] = rinstance.rclass.getvtable()
