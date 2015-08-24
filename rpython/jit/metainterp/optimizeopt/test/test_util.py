@@ -12,6 +12,7 @@ from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
 from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.logger import LogOperations
+from rpython.jit.codewriter.heaptracker import register_known_gctype
 from rpython.jit.tool.oparser import OpParser
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
@@ -350,6 +351,17 @@ class LLtypeMixin(object):
     jit_virtual_ref_vtable = vrefinfo.jit_virtual_ref_vtable
     jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
     vref_descr = cpu.sizeof(vrefinfo.JIT_VIRTUAL_REF, False)
+
+    register_known_gctype(cpu, node_vtable,  NODE)
+    register_known_gctype(cpu, node_vtable2, NODE2)
+    register_known_gctype(cpu, node_vtable3, NODE3)
+    register_known_gctype(cpu, u_vtable,     U)
+    register_known_gctype(cpu, simple_vtable,     SIMPLE)
+    register_known_gctype(cpu, jit_virtual_ref_vtable,vrefinfo.JIT_VIRTUAL_REF)
+    register_known_gctype(cpu, intobj_noimmut_vtable, INTOBJ_NOIMMUT)
+    register_known_gctype(cpu, intobj_immut_vtable,   INTOBJ_IMMUT)
+    register_known_gctype(cpu, ptrobj_immut_vtable,   PTROBJ_IMMUT)
+    register_known_gctype(cpu, w_root_vtable, W_ROOT)
 
     namespace = locals()
 

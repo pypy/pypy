@@ -59,6 +59,9 @@ class SizeDescr(AbstractDescr):
         return False
 
 class SizeDescrWithVTable(SizeDescr):
+    def as_vtable_size_descr(self):
+        return self
+
     def is_object(self):
         return True
 

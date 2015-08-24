@@ -101,6 +101,9 @@ class SizeDescr(AbstractDescr):
     def is_object(self):
         return self._is_object
 
+    def as_vtable_size_descr(self):
+        return self
+
     def get_vtable(self):
         return heaptracker.adr2int(llmemory.cast_ptr_to_adr(
             self._corresponding_vtable))

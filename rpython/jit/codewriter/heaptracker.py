@@ -88,6 +88,57 @@ testing_gcstruct2vtable = {}
 
 # ____________________________________________________________
 
+VTABLETYPE = rclass.CLASSTYPE
+
+def register_known_gctype(cpu, vtable, STRUCT):
+    # register the correspondance 'vtable' <-> 'STRUCT' in the cpu
+    sizedescr = cpu.sizeof(STRUCT, vtable)
+    assert sizedescr.as_vtable_size_descr() is sizedescr
+    if getattr(sizedescr, '_corresponding_vtable', None):
+        assert sizedescr._corresponding_vtable == vtable
+        return
+    assert lltype.typeOf(vtable) == VTABLETYPE
+    if not hasattr(cpu.tracker, '_all_size_descrs_with_vtable'):
+        cpu.tracker._all_size_descrs_with_vtable = []
+        cpu.tracker._vtable_to_descr_dict = None
+    cpu.tracker._all_size_descrs_with_vtable.append(sizedescr)
+    sizedescr._corresponding_vtable = vtable
+
+def finish_registering(cpu):
+    # annotation hack for small examples which have no vtable at all
+    #if not hasattr(cpu.tracker, '_all_size_descrs_with_vtable'):
+    #    vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+    #    register_known_gctype(cpu, vtable, rclass.OBJECT)
+    pass
+
+def vtable2descr(cpu, vtable):
+    assert lltype.typeOf(vtable) is lltype.Signed
+    vtable = int2adr(vtable)
+    if we_are_translated():
+        # Build the dict {vtable: sizedescr} at runtime.
+        # This is necessary because the 'vtables' are just pointers to
+        # static data, so they can't be used as keys in prebuilt dicts.
+        d = cpu.tracker._vtable_to_descr_dict
+        if d is None:
+            d = cpu.tracker._vtable_to_descr_dict = {}
+            for descr in cpu.tracker._all_size_descrs_with_vtable:
+                key = descr._corresponding_vtable
+                key = llmemory.cast_ptr_to_adr(key)
+                d[key] = descr
+        return d[vtable]
+    else:
+        vtable = llmemory.cast_adr_to_ptr(vtable, VTABLETYPE)
+        for descr in cpu.tracker._all_size_descrs_with_vtable:
+            if descr._corresponding_vtable == vtable:
+                return descr
+        raise KeyError(vtable)
+
+def descr2vtable(cpu, descr):
+    from rpython.jit.metainterp import history
+    assert isinstance(descr, history.AbstractDescr)
+    vtable = descr.as_vtable_size_descr()._corresponding_vtable
+    vtable = llmemory.cast_ptr_to_adr(vtable)
+    return adr2int(vtable)
 
 def all_fielddescrs(gccache, STRUCT, only_gc=False, res=None,
                     get_field_descr=None):

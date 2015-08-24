@@ -1,4 +1,5 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.codewriter.heaptracker import descr2vtable
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.history import CONST_NULL
 from rpython.jit.metainterp.optimizeopt import info, optimizer
@@ -198,7 +199,7 @@ class OptVirtualize(optimizer.Optimization):
             self.emit_operation(op)
 
     def optimize_NEW_WITH_VTABLE(self, op):
-        known_class = ConstInt(op.getdescr().get_vtable())
+        known_class = ConstInt(descr2vtable(self.optimizer.cpu, op.getdescr()))
         self.make_virtual(known_class, op, op.getdescr())
 
     def optimize_NEW(self, op):

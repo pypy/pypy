@@ -1950,7 +1950,8 @@ class LLtypeBackendTest(BaseBackendTest):
         cpu = self.cpu
         t_box, T_box, descr = self.alloc_instance(self.T)
         vtable = llmemory.cast_adr_to_ptr(
-            llmemory.cast_int_to_adr(T_box.getint()), rclass.CLASSTYPE)
+            llmemory.cast_int_to_adr(T_box.getint()), heaptracker.VTABLETYPE)
+        heaptracker.register_known_gctype(cpu, vtable, self.T)
         r1 = self.execute_operation(rop.NEW_WITH_VTABLE, [], 'ref', descr)
         r2 = self.execute_operation(rop.NEW_WITH_VTABLE, [], 'ref', descr)
         assert r1 != r2

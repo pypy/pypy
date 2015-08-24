@@ -74,6 +74,7 @@ class CodeWriter(object):
             if not count % 500:
                 log.info("Produced %d jitcodes" % count)
         self.assembler.finished(self.callcontrol.callinfocollection)
+        heaptracker.finish_registering(self.cpu)
         log.info("there are %d JitCode instances." % count)
 
     def setup_vrefinfo(self, vrefinfo):
