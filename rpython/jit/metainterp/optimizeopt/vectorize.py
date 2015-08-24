@@ -23,7 +23,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleData,
         Scheduler, Pack, Pair, AccumPair, vectorbox_outof_box, getpackopnum,
         getunpackopnum, PackType, determine_input_output_types)
-from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt, copy_operations
+from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.rlib import listsort
 from rpython.rlib.objectmodel import we_are_translated
@@ -42,7 +42,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
     if user_code and user_loop_bail_fast_path(loop, warmstate):
         return
     # the original loop (output of optimize_unroll)
-    version = loop.snapshot(copy_operations(loop.operations))
+    version = loop.snapshot()
     try:
         debug_start("vec-opt-loop")
         metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "pre vectorize")
@@ -505,7 +505,7 @@ class VectorizingOptimizer(Optimizer):
             return
         if vector:
             # add accumulation info to the descriptor
-            for version in self.loop.versions[1:]:
+            for version in self.loop.versions:
                 # this needs to be done for renamed (accum arguments)
                 version.renamed_inputargs = [ renamer.rename_map.get(arg,arg) for arg in version.inputargs ]
             self.appended_arg_count = len(sched_data.invariant_vector_vars)

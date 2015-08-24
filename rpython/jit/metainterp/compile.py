@@ -194,30 +194,34 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
     if loop.versions:
         # compile each version once for the first fail descr!
         # this assumes that the root trace (= loop) is already compiled
-        to_stitch = []
-        for version in loop.versions:
-            if not version.faildescrs:
+        compiled = {}
+        info = loop.version_info
+        for descr in info.descrs:
+            print "$>", descr
+            version = info.get(descr)
+            if not version:
+                # the guard might have been removed from the trace
                 continue
-            faildescr = version.faildescrs[0]
-            assert isinstance(faildescr, ResumeGuardDescr)
-            vl = create_empty_loop(metainterp)
-            vl.inputargs = version.inputargs
-            vl.operations = version.operations
-            vl.original_jitcell_token = jitcell_token
-            asminfo = send_bridge_to_backend(jitdriver_sd, metainterp_sd,
-                                   faildescr, version.inputargs,
-                                   version.operations, jitcell_token)
-            record_loop_or_bridge(metainterp_sd, vl)
-            assert asminfo is not None
+            if version not in compiled:
+                print " +COMPILE", version
+                assert isinstance(descr, ResumeGuardDescr)
+                vl = create_empty_loop(metainterp)
+                vl.inputargs = version.inputargs
+                vl.operations = version.operations
+                vl.original_jitcell_token = jitcell_token
+                asminfo = send_bridge_to_backend(jitdriver_sd, metainterp_sd,
+                                                 descr, version.inputargs,
+                                                 version.operations, jitcell_token)
+                record_loop_or_bridge(metainterp_sd, vl)
+                assert asminfo is not None
+                compiled[version] = (asminfo, descr, version, jitcell_token)
+            else:
+                print " +stitch", version
+                param = compiled[version]
+                cpu.stitch_bridge(descr, param)
 
-            for i,fd in enumerate(version.faildescrs):
-                if i == 0:
-                    continue
-                to_stitch.append((fd, (asminfo, faildescr, version, jitcell_token)))
-        # stitch to the trace loop
-        for fd, param in to_stitch:
-            cpu.stitch_bridge(fd, param)
     loop.versions = None
+    loop.version_info = None
 
 def compile_retrace(metainterp, greenkey, start,
                     inputargs, jumpargs,

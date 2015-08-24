@@ -148,10 +148,12 @@ class Guard(object):
         self.setoperation(guard)
         self.setcmp(cmp_op)
 
-    def set_to_none(self, operations):
+    def set_to_none(self, loop):
+        operations = loop.operations
         assert operations[self.index] is self.op
         operations[self.index] = None
-        #descr = self.op.getdescr()
+        descr = self.op.getdescr()
+        loop.version_info.remove(descr)
         #if descr and descr.loop_version():
         #    assert isinstance(descr, CompileLoopVersionDescr)
         #    descr.version = None
@@ -266,22 +268,19 @@ class GuardStrengthenOpt(object):
         self.collect_guard_information(loop)
         self.eliminate_guards(loop)
         #
-        if len(loop.versions) >= 2:
-            assert len(loop.versions) == 2
-            root_version = loop.versions[0]
-            version = loop.versions[1]
+        assert len(loop.versions) == 1
+        version = loop.versions[0]
 
-            for op in loop.operations:
-                if not op.is_guard():
-                    continue
-                descr = op.getdescr()
-                if descr.loop_version():
-                    assert isinstance(descr, ResumeGuardDescr)
-                    root_version.register_guard(op, descr, version)
+        for i,op in enumerate(loop.operations):
+            if not op.is_guard():
+                continue
+            descr = op.getdescr()
+            if descr and descr.loop_version():
+                assert isinstance(descr, ResumeGuardDescr)
+                loop.version_info.track(op, descr, version)
 
-            if user_code:
-                version = loop.snapshot(copy_operations(loop.operations))
-                self.eliminate_array_bound_checks(loop, root_version, version)
+        if user_code:
+            self.eliminate_array_bound_checks(loop)
 
     def emit_operation(self, op):
         self.renamer.rename(op)
@@ -290,7 +289,10 @@ class GuardStrengthenOpt(object):
     def operation_position(self):
         return len(self._newoperations)
 
-    def eliminate_array_bound_checks(self, loop, root_version, version):
+    def eliminate_array_bound_checks(self, loop):
+        info = loop.version_info
+        info.mark()
+        version = None
         self._newoperations = []
         for key, guards in self.strongest_guards.items():
             if len(guards) <= 1:
@@ -302,10 +304,13 @@ class GuardStrengthenOpt(object):
             for other in guards[1:]:
                 transitive_guard = one.transitive_imply(other, self, loop)
                 if transitive_guard:
-                    other.set_to_none(loop.operations)
+                    if version is None:
+                        version = loop.snapshot()
+                    other.set_to_none(loop)
                     descr = transitive_guard.getdescr()
                     assert isinstance(descr, ResumeGuardDescr)
-                    root_version.register_guard(transitive_guard, descr, version)
+                    info.track(transitive_guard, descr, version)
+        info.clear()
 
         if self.has_two_labels:
             oplist = [loop.operations[0]] + self._newoperations + \
@@ -315,23 +320,3 @@ class GuardStrengthenOpt(object):
             loop.operations = self._newoperations + \
                     [op for op in loop.operations if op]
 
-def copy_operations(operations):
-    ignore = (rop.DEBUG_MERGE_POINT,)
-    oplist = []
-    for op in operations:
-        if op.getopnum() in ignore:
-            continue
-        cloned = op.clone()
-        oplist.append(cloned)
-        if cloned.is_guard():
-            olddescr = cloned.getdescr()
-            if not olddescr:
-                continue
-            assert isinstance(olddescr, ResumeGuardDescr)
-            descr = olddescr.clone()
-            assert isinstance(descr, ResumeGuardDescr)
-            cloned.setdescr(descr)
-            if olddescr.loop_version():
-                # copy the version
-                descr.version = olddescr.version
-    return oplist

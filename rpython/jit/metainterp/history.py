@@ -739,41 +739,72 @@ def index_of_first(opnum, operations, pass_by=0):
                 pass_by -= 1
     return -1
 
+class VersionInfo(object):
+    def __init__(self):
+        self.descrs = []
+        self.leads_to = {}
+        self.insert_index = -1
+
+    def mark(self):
+        self.insert_index = len(self.descrs)
+
+    def clear(self):
+        self.insert_index = -1
+
+    def track(self, op, descr, version):
+        #print "+++", descr, "=>", version
+        assert descr.loop_version()
+        if self.insert_index >= 0:
+            assert self.insert_index >= 0
+            self.descrs.insert(self.insert_index, descr)
+        else:
+            self.descrs.append(descr)
+        self.leads_to[descr] = version
+        # note: stitching a guard must resemble the order of the label
+        # otherwise a wrong mapping is handed to the register allocator
+        op.setfailargs(version.renamed_inputargs)
+        assert version.renamed_inputargs is not None
+
+    def remove(self, descr):
+        if descr in self.leads_to:
+            #print "---", descr, "=>", self.leads_to[descr]
+            del self.leads_to[descr]
+        else:
+            assert 0, "could not remove %s" % descr
+
+    def get(self, descr):
+        return self.leads_to.get(descr, None)
+
 class LoopVersion(object):
     """ A special version of a trace loop. Use loop.snaphost() to
         create one instance and attach it to a guard descr.
         If not attached to a descriptor, it will not be compiled.
     """
-    _compiled = (None,None,None,None)
     inputargs = None
     renamed_inputargs = None
 
     def __init__(self, operations):
-        self.faildescrs = None
-        self.stitchdescr = {}
         self.operations = operations
+        idx = index_of_first(rop.LABEL, self.operations)
+        assert idx >= 0
+        label = self.operations[idx]
+        self.inputargs = label.getarglist()
+        self.renamed_inputargs = label.getarglist()
 
-    def setup_once(self):
-        if self.operations:
-            idx = index_of_first(rop.LABEL, self.operations)
-            assert idx >= 0
-            label = self.operations[idx]
-            self.inputargs = label.getarglist()
-            self.renamed_inputargs = label.getarglist()
-            # register the faildescr for later stitching
-            for op in self.operations:
-                if op.is_guard():
-                    descr = op.getdescr()
-                    if descr.loop_version():
-                        self.faildescrs.append(descr)
-
-    def register_guard(self, op, descr, version):
-        assert descr.loop_version()
-        self.faildescrs.append(descr)
-        # note: stitching a guard must resemble the order of the label
-        # otherwise a wrong mapping is handed to the register allocator
-        op.setfailargs(version.renamed_inputargs)
-        assert version.renamed_inputargs is not None
+    def setup_once(self, info):
+        for op in self.operations:
+            if op.is_guard():
+                olddescr = op.getdescr()
+                if not olddescr:
+                    continue
+                descr = olddescr.clone()
+                op.setdescr(descr)
+                if descr.loop_version():
+                    toversion = info.leads_to.get(olddescr,None)
+                    if toversion:
+                        info.track(op, descr, toversion)
+                    else:
+                        assert 0, "olddescr must be found"
 
     def update_token(self, jitcell_token, all_target_tokens):
         # this is only invoked for versioned loops!
@@ -821,6 +852,7 @@ class TreeLoop(object):
     def __init__(self, name):
         self.name = name
         self.versions = []
+        self.version_info = VersionInfo()
         # self.operations = list of ResOperations
         #   ops of the kind 'guard_xxx' contain a further list of operations,
         #   which may itself contain 'guard_xxx' and so on, making a tree.
@@ -858,6 +890,9 @@ class TreeLoop(object):
         #
         self.operations = self.operations[:-1] + loop.operations
         self.versions = loop.versions
+        loop.versions = None
+        self.version_info = loop.version_info
+        loop.version_info = None
         if loop.quasi_immutable_deps:
             self.quasi_immutable_deps.update(loop.quasi_immutable_deps)
 
@@ -874,11 +909,23 @@ class TreeLoop(object):
             return self.operations[index]
         return None
 
-    def snapshot(self, operations):
-        version = LoopVersion(operations)
-        version.setup_once()
+    def snapshot(self):
+        oplist = self.copy_operations(self.operations)
+        version = LoopVersion(oplist)
+        version.setup_once(self.version_info)
+        # register the faildescr for later stitching
         self.versions.append(version)
         return version
+
+    def copy_operations(self, operations):
+        ignore = (rop.DEBUG_MERGE_POINT,)
+        oplist = []
+        for op in operations:
+            if op.getopnum() in ignore:
+                continue
+            cloned = op.clone()
+            oplist.append(cloned)
+        return oplist
 
     def get_display_text(self):    # for graphpage.py
         return self.name + '\n' + repr(self.inputargs)
