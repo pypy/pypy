@@ -92,7 +92,8 @@ class SizeDescr(AbstractDescr):
     def __init__(self, S, vtable, runner):
         self.S = S
         self._is_object = vtable is not None
-        self.vtable = vtable
+        self.all_fielddescrs = heaptracker.all_fielddescrs(runner, S,
+                                    get_field_descr=LLGraphCPU.fielddescrof)
 
     def get_all_fielddescrs(self):
         return self.all_fielddescrs
@@ -102,7 +103,7 @@ class SizeDescr(AbstractDescr):
 
     def get_vtable(self):
         return heaptracker.adr2int(llmemory.cast_ptr_to_adr(
-            self.vtable))
+            self._corresponding_vtable))
 
     def count_fields_if_immutable(self):
         return heaptracker.count_fields_if_immutable(self.S)
@@ -222,8 +223,6 @@ class InteriorFieldDescr(AbstractDescr):
         self.fieldname = fieldname
         self.FIELD = getattr(A.OF, fieldname)
         self.arraydescr = runner.arraydescrof(A)
-        assert not heaptracker.has_gcstruct_a_vtable(A)
-        runner.sizeof(A.OF, None)
         self.fielddescr = runner.fielddescrof(A.OF, fieldname)
 
     def get_arraydescr(self):
@@ -415,8 +414,6 @@ class LLGraphCPU(model.AbstractCPU):
         except KeyError:
             descr = SizeDescr(S, vtable, self)
             self.descrs[key] = descr
-            descr.all_fielddescrs = heaptracker.all_fielddescrs(self, S,
-                                    get_field_descr=LLGraphCPU.fielddescrof)
             return descr
 
     def fielddescrof(self, S, fieldname):
@@ -426,8 +423,8 @@ class LLGraphCPU(model.AbstractCPU):
         except KeyError:
             descr = FieldDescr(S, fieldname)
             self.descrs[key] = descr
-            vtable = self.descrs[('size', S)].vtable
-            descr.parent_descr = self.sizeof(S, vtable)
+            is_obj = heaptracker.has_gcstruct_a_vtable(S)
+            descr.parent_descr = self.sizeof(S, is_obj)
             if self.vinfo_for_tests is not None:
                 descr.vinfo = self.vinfo_for_tests
             return descr
