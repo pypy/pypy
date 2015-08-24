@@ -197,13 +197,13 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
         compiled = {}
         info = loop.version_info
         for descr in info.descrs:
-            print "$>", descr
+            #print "$>", descr
             version = info.get(descr)
             if not version:
                 # the guard might have been removed from the trace
                 continue
             if version not in compiled:
-                print " +COMPILE", version
+                #print " +COMPILE", version
                 assert isinstance(descr, ResumeGuardDescr)
                 vl = create_empty_loop(metainterp)
                 vl.inputargs = version.inputargs
@@ -216,7 +216,7 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
                 assert asminfo is not None
                 compiled[version] = (asminfo, descr, version, jitcell_token)
             else:
-                print " +stitch", version
+                #print " +stitch", version
                 param = compiled[version]
                 cpu.stitch_bridge(descr, param)
 
