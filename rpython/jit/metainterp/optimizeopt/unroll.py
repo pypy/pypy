@@ -113,7 +113,6 @@ class UnrollOptimizer(Optimization):
                                                     state.virtual_state)
         label_op.setdescr(target_token)
         extra = self.short_preamble_producer.used_boxes
-        label_args = [self.get_box_replacement(op) for op in label_args]
         label_op.initarglist(label_args + extra)
         # force the boxes for virtual state to match
         x = state.virtual_state.make_inputargs(
