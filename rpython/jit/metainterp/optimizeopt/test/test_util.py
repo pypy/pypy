@@ -483,7 +483,9 @@ class BaseTest(object):
         jump_op = loop.operations[-1]
         assert jump_op.getopnum() == rop.JUMP
         ops = loop.operations[:-1]
-        start_label = ResOperation(rop.LABEL, loop.inputargs)
+        jump_op.setdescr(JitCellToken())
+        start_label = ResOperation(rop.LABEL, loop.inputargs,
+                                   jump_op.getdescr())
         end_label = jump_op.copy_and_change(opnum=rop.LABEL)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
         preamble_data = compile.LoopCompileData(start_label, end_label, ops,
@@ -497,12 +499,11 @@ class BaseTest(object):
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs
         start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs)
-        emit_end_label = ResOperation(rop.LABEL, loop_info.label_args)
         preamble.operations = ([start_label] + preamble_ops +
-                               loop_info.extra_same_as + [emit_end_label])
-        loop.inputargs = loop_info.label_args[:]
-        loop.operations = [emit_end_label] + ops
-        return Info(preamble, loop_info.short_preamble,
+                               loop_info.extra_same_as + [loop_info.label_op])
+        loop.inputargs = loop_info.label_op.getarglist()[:]
+        loop.operations = [loop_info.label_op] + ops
+        return Info(preamble, loop_info.target_token.short_preamble,
                     start_state.virtual_state)
 
 

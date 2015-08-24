@@ -393,9 +393,9 @@ class ShortPreambleBuilder(object):
         self.used_boxes.append(preamble_op.op)            
         self.short_preamble_jump.append(preamble_op.preamble_op)
 
-    def build_short_preamble(self):
+    def build_short_preamble(self, sb_jump):
         label_op = ResOperation(rop.LABEL, self.short_inputargs[:])
-        jump_op = ResOperation(rop.JUMP, self.short_preamble_jump)
+        jump_op = ResOperation(rop.JUMP, sb_jump)
         TreeLoop.check_consistency_of(self.short_inputargs,
                                       self.short + [jump_op], check_descr=False)
         return [label_op] + self.short + [jump_op]

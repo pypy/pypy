@@ -8122,7 +8122,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i4 = int_add(i3, i3)
         i5 = int_add(i4, i4)
         i6 = int_add(i5, i5)
-        jump(i6, i3)
+        jump(i6)
         """
         self.optimize_loop(ops, expected, expected_short=short)
 

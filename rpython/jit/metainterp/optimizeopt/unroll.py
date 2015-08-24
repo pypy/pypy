@@ -1,6 +1,6 @@
 
 import sys
-from rpython.jit.metainterp.history import Const
+from rpython.jit.metainterp.history import Const, TargetToken
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
      ShortPreambleBuilder, PreambleOp
 from rpython.jit.metainterp.optimizeopt import info, intutils
@@ -58,10 +58,10 @@ class UnrollableOptimizer(Optimizer):
         elif isinstance(preamble_info, intutils.IntBound):
             if preamble_info.lower > MININT/2 or preamble_info.upper < MAXINT/2:
                 intbound = self.getintbound(op)
-                if preamble_info.lower > MININT/2:
+                if preamble_info.has_lower and preamble_info.lower > MININT/2:
                     intbound.has_lower = True
                     intbound.lower = preamble_info.lower
-                if preamble_info.upper < MAXINT/2:
+                if preamble_info.has_upper and preamble_info.upper < MAXINT/2:
                     intbound.has_upper = True
                     intbound.upper = preamble_info.upper
 
@@ -108,29 +108,24 @@ class UnrollOptimizer(Optimization):
         label_args = state.virtual_state.make_inputargs(
             start_label.getarglist(), self.optimizer)
         self.optimizer.init_inparg_dict_from(label_args)
-        self.optimizer.propagate_all_forward(start_label.getarglist()[:], ops,
-                                             call_pure_results, False)
-        orig_jump_args = [self.get_box_replacement(op)
-                     for op in end_jump.getarglist()]
-        jump_args = state.virtual_state.make_inputargs(orig_jump_args,
-                                    self.optimizer, force_boxes=True)
-        pass_to_short = state.virtual_state.make_inputargs(orig_jump_args,
-                                    self.optimizer, force_boxes=True,
-                                    append_virtuals=True)
-        sb = self.short_preamble_producer
-        self.optimizer._clean_optimization_info(sb.short_inputargs)
-        extra_jump_args = self.inline_short_preamble(pass_to_short,
-                                sb.short_inputargs, sb.short,
-                                sb.short_preamble_jump,
-                                self.optimizer.patchguardop)
-        # remove duplicates, removes stuff from used boxes too
-        label_args, jump_args = self.filter_extra_jump_args(
-            label_args + self.short_preamble_producer.used_boxes,
-            jump_args + extra_jump_args)
-        jump_op = ResOperation(rop.JUMP, jump_args)
-        self.optimizer.send_extra_operation(jump_op)
-        return (UnrollInfo(self.short_preamble_producer.build_short_preamble(),
-                           label_args,
+        info, _ = self.optimizer.propagate_all_forward(
+            start_label.getarglist()[:], ops, call_pure_results, False)
+        label_op = ResOperation(rop.LABEL, label_args, start_label.getdescr())
+        target_token, extra = self.finalize_short_preamble(label_op,
+                                                    state.virtual_state)
+        label_op.setdescr(target_token)
+        label_op.initarglist(label_op.getarglist() + extra)
+        # force the boxes for virtual state to match
+        x = state.virtual_state.make_inputargs(
+            [self.get_box_replacement(x) for x in end_jump.getarglist()],
+            self.optimizer, force_boxes=True)
+        new_virtual_state = self.jump_to_existing_trace(end_jump)
+        if new_virtual_state is not None:
+            res = self.jump_to_preamble(start_label.getdescr(), end_jump,
+                                         info)
+            xxx
+            #return new_virtual_state, self.optimizer._newoperations
+        return (UnrollInfo(target_token, label_op,
                            self.short_preamble_producer.extra_same_as),
                 self.optimizer._newoperations)
 
@@ -145,7 +140,7 @@ class UnrollOptimizer(Optimization):
         cell_token = jump_op.getdescr()
         if not inline_short_preamble or len(cell_token.target_tokens) == 1:
             return self.jump_to_preamble(cell_token, jump_op, info)
-        vs = self.jump_to_existing_trace(jump_op, inline_short_preamble)
+        vs = self.jump_to_existing_trace(jump_op)
         if vs is None:
             return info, self.optimizer._newoperations[:]
         warmrunnerdescr = self.optimizer.metainterp_sd.warmrunnerdesc
@@ -171,6 +166,32 @@ class UnrollOptimizer(Optimization):
         self.optimizer._clean_optimization_info(self.optimizer._newoperations)
         return exported_state, self.optimizer._newoperations
 
+    def finalize_short_preamble(self, label_op, virtual_state):
+        sb = self.short_preamble_producer
+        self.optimizer._clean_optimization_info(sb.short_inputargs)
+        d = {}
+        for arg in label_op.getarglist():
+            d[arg] = None
+        new_used_boxes = []
+        new_sb_jump = []
+        for i in range(len(sb.used_boxes)):
+            ub = sb.used_boxes[i]
+            if ub in d:
+                continue
+            new_used_boxes.append(ub)
+            new_sb_jump.append(sb.short_preamble_jump[i])
+        short_preamble = sb.build_short_preamble(new_sb_jump)
+        jitcelltoken = label_op.getdescr()
+        if jitcelltoken.target_tokens is None:
+            jitcelltoken.target_tokens = []
+        target_token = TargetToken(jitcelltoken,
+                                   original_jitcell_token=jitcelltoken)
+        target_token.original_jitcell_token = jitcelltoken
+        target_token.virtual_state = virtual_state
+        target_token.short_preamble = short_preamble
+        jitcelltoken.target_tokens.append(target_token)
+        return target_token, new_used_boxes
+
     def jump_to_preamble(self, cell_token, jump_op, info):
         assert cell_token.target_tokens[0].virtual_state is None
         jump_op = jump_op.copy_and_change(rop.JUMP,
@@ -179,7 +200,7 @@ class UnrollOptimizer(Optimization):
         return info, self.optimizer._newoperations[:]
 
 
-    def jump_to_existing_trace(self, jump_op, inline_short_preamble):
+    def jump_to_existing_trace(self, jump_op):
         jitcelltoken = jump_op.getdescr()
         args = [self.get_box_replacement(op) for op in jump_op.getarglist()]
         virtual_state = self.get_virtual_state(args)
@@ -203,7 +224,7 @@ class UnrollOptimizer(Optimization):
                 continue
             short_preamble = target_token.short_preamble
             pass_to_short = target_virtual_state.make_inputargs(args,
-                self.optimizer, force_boxes=True, append_virtuals=True)
+                self.optimizer, append_virtuals=True)
             args = target_virtual_state.make_inputargs(args,
                 self.optimizer)
             extra = self.inline_short_preamble(pass_to_short,
@@ -214,22 +235,6 @@ class UnrollOptimizer(Optimization):
                                       descr=target_token))
             return None # explicit because the return can be non-None
         return virtual_state
-
-    def filter_extra_jump_args(self, label_args, jump_args):
-        label_args = [self.get_box_replacement(x, True) for x in label_args]
-        jump_args = [self.get_box_replacement(x) for x in jump_args]
-        new_label_args = []
-        new_jump_args = []
-        assert len(label_args) == len(jump_args)
-        d = {}
-        for i in range(len(label_args)):
-            arg = label_args[i]
-            if arg in d:
-                continue
-            new_label_args.append(arg)
-            new_jump_args.append(jump_args[i])
-            d[arg] = None
-        return new_label_args, new_jump_args
 
     def inline_short_preamble(self, jump_args, short_inputargs, short_ops,
                               short_jump_op, patchguardop):
@@ -318,13 +323,13 @@ class UnrollOptimizer(Optimization):
 class UnrollInfo(LoopInfo):
     """ A state after optimizing the peeled loop, contains the following:
 
-    * short_preamble - list of operations that go into short preamble
-    * label_args - additional things to put in the label
+    * target_token - generated target token
+    * label_args - label operations at the beginning
     * extra_same_as - list of extra same as to add at the end of the preamble
     """
-    def __init__(self, short_preamble, label_args, extra_same_as):
-        self.short_preamble = short_preamble
-        self.label_args = label_args
+    def __init__(self, target_token, label_op, extra_same_as):
+        self.target_token = target_token
+        self.label_op = label_op
         self.extra_same_as = extra_same_as
 
     def final(self):

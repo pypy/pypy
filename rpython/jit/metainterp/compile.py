@@ -289,18 +289,11 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                               original_jitcell_token=jitcell_token)
     start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs,
                                descr=start_descr)
-    mid_descr_token = TargetToken(jitcell_token,
-                                  original_jitcell_token=jitcell_token)
-    mid_descr_token.short_preamble = loop_info.short_preamble
-    mid_descr_token.virtual_state = start_state.virtual_state
-    mid_label = ResOperation(rop.LABEL, loop_info.label_args,
-                             descr=mid_descr_token)
     # XXX assign short preamble and virtual state
-    loop_ops[-1].setdescr(mid_descr_token)
     loop.operations = ([start_label] + preamble_ops + loop_info.extra_same_as +
-                       [mid_label] + loop_ops)
+                       [loop_info.label_op] + loop_ops)
     loop.check_consistency()
-    jitcell_token.target_tokens = [start_descr, mid_descr_token]
+    jitcell_token.target_tokens = [start_descr] + jitcell_token.target_tokens
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
     return start_descr
@@ -333,33 +326,13 @@ def compile_retrace(metainterp, greenkey, start,
         loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
                                              loop_data)
     except InvalidLoop:
-        xxx
         # Fall back on jumping to preamble
-        target_token = label.getdescr()
-        assert isinstance(target_token, TargetToken)
-        part.operations = [orignial_label] + \
-                          [ResOperation(rop.JUMP, inputargs[:],
-                                        descr=loop_jitcell_token)]
-        try:
-            optimize_trace(metainterp_sd, jitdriver_sd, part,
-                           jitdriver_sd.warmstate.enable_opts,
-                           inline_short_preamble=False, start_state=start_state,
-                           export_state=False)
-        except InvalidLoop:
-            xxx # XXX forget optimizations
-            return None
+        xxx
 
     loop = partial_trace
-    target_token = TargetToken(loop_jitcell_token)
-    target_token.original_jitcell_token = loop_jitcell_token
-    target_token.short_preamble = loop_info.short_preamble
-    target_token.virtual_state = start_state.virtual_state
-    loop_ops[-1].setdescr(target_token)
-    mid_label = ResOperation(rop.LABEL, loop_info.label_args,
-                             descr=target_token)
-    loop.operations = (loop.operations + loop_info.extra_same_as + [mid_label]
+    loop.operations = (loop.operations + loop_info.extra_same_as +
+                       [loop_info.label_op]
                        + loop_ops)
-    loop_jitcell_token.target_tokens.append(target_token)
 
     #quasi_immutable_deps = {}
     #if loop.quasi_immutable_deps:
@@ -369,6 +342,7 @@ def compile_retrace(metainterp, greenkey, start,
     #if quasi_immutable_deps:
     #    loop.quasi_immutable_deps = quasi_immutable_deps
 
+    target_token = loop.operations[-1].getdescr()
     resumekey.compile_and_attach(metainterp, loop)
 
     record_loop_or_bridge(metainterp_sd, loop)

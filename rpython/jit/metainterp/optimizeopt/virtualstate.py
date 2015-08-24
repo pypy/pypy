@@ -133,12 +133,18 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
             if box is not None:
                 fieldbox = opinfo._fields[self.fielddescrs[i].get_index()]
                 # must be there
-                fieldinfo = get_forwarded(fieldbox)
+                if fieldbox is not None:
+                    fieldinfo = get_forwarded(fieldbox)
+                else:
+                    fieldinfo = None
             else:
                 fieldbox = None
                 fieldinfo = None
-            self.fieldstate[i].generate_guards(other.fieldstate[i], fieldbox,
-                                               fieldinfo, state)
+            # XXX all those ifs are for tests, not sure what to do
+            if self.fieldstate[i] is not None:
+                self.fieldstate[i].generate_guards(other.fieldstate[i],
+                                                   fieldbox,
+                                                   fieldinfo, state)
 
 
     def _generalization_of_structpart(self, other):

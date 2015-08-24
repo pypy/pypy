@@ -336,6 +336,8 @@ class Optimizer(Optimization):
                 sb = self.optunroll.short_preamble_producer
                 sb.add_preamble_op(preamble_op)
         if info is not None:
+            if op.type == 'i' and info.is_constant():
+                return ConstInt(info.getint())
             return info.force_box(op, self)
         return op
 
