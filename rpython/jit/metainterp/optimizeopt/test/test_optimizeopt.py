@@ -7243,7 +7243,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p25, p187, i184, p189]
-        jump(p189, p187, i184, p189) # <- XXX is this correct for bridges?
+        jump(p25, p187, i184, p189) # <- XXX is this correct for bridges?
         """
         self.optimize_loop(ops, expected, preamble, expected_short=short)
 
