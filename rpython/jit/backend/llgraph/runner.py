@@ -90,7 +90,9 @@ class CallDescr(AbstractDescr):
 
 class SizeDescr(AbstractDescr):
     def __init__(self, S, vtable, runner):
+        assert not isinstance(vtable, bool)
         self.S = S
+        self._vtable = vtable
         self._is_object = vtable is not None
         self.all_fielddescrs = heaptracker.all_fielddescrs(runner, S,
                                     get_field_descr=LLGraphCPU.fielddescrof)
@@ -102,8 +104,7 @@ class SizeDescr(AbstractDescr):
         return self._is_object
 
     def get_vtable(self):
-        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(
-            self._corresponding_vtable))
+        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(self._vtable))
 
     def count_fields_if_immutable(self):
         return heaptracker.count_fields_if_immutable(self.S)
@@ -692,7 +693,7 @@ class LLGraphCPU(model.AbstractCPU):
         result = lltype.malloc(descr.S, zero=True)
         result_as_objptr = lltype.cast_pointer(rclass.OBJECTPTR, result)
         result_as_objptr.typeptr = support.cast_from_int(rclass.CLASSTYPE,
-                                                descr._corresponding_vtable)
+                                                descr._vtable)
         return lltype.cast_opaque_ptr(llmemory.GCREF, result)
 
     def bh_new_array(self, length, arraydescr):

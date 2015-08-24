@@ -8,10 +8,6 @@ class CPUTotalTracker(object):
     total_freed_loops = 0
     total_freed_bridges = 0
 
-    # for heaptracker
-    # _all_size_descrs_with_vtable = None
-    _vtable_to_descr_dict = None
-
 class AbstractCPU(object):
     supports_floats = False
     supports_longlong = False

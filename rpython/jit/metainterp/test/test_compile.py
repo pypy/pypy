@@ -89,8 +89,6 @@ def test_compile_loop():
     metainterp.history = History()
     metainterp.history.operations = loop.operations[:-1]
     metainterp.history.inputargs = loop.inputargs[:]
-    cpu.tracker._all_size_descrs_with_vtable = (
-        LLtypeMixin.cpu.tracker._all_size_descrs_with_vtable)
     #
     greenkey = 'faked'
     target_token = compile_loop(metainterp, greenkey, 0,

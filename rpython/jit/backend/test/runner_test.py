@@ -1820,7 +1820,6 @@ class LLtypeBackendTest(BaseBackendTest):
                 p = p.parent
         else:
             descr = cpu.sizeof(T, vtable_for_T)
-            descr._corresponding_vtable = vtable_for_T
         t = lltype.malloc(T)
         if T == self.T:
             t.parent.parent.typeptr = vtable_for_T
