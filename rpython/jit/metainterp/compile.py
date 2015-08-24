@@ -162,7 +162,7 @@ def compile_loop(metainterp, greenkey, start,
 
     if loop.versions is not None:
         # every different loop version must update their target tokens
-        for version in loop.versions[1:]:
+        for version in loop.versions:
             version.update_token(jitcell_token, all_target_tokens)
 
     if not loop.quasi_immutable_deps:
@@ -194,12 +194,12 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
     if loop.versions:
         # compile each version once for the first fail descr!
         # this assumes that the root trace (= loop) is already compiled
-        root = loop.versions[0]
-        for faildescr in root.faildescrs:
-            assert isinstance(faildescr, CompileLoopVersionDescr)
-            version = faildescr.version
-            if not version or version.compiled():
+        to_stitch = []
+        for version in loop.versions:
+            if not version.faildescrs:
                 continue
+            faildescr = version.faildescrs[0]
+            assert isinstance(faildescr, ResumeGuardDescr)
             vl = create_empty_loop(metainterp)
             vl.inputargs = version.inputargs
             vl.operations = version.operations
@@ -209,20 +209,14 @@ def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token
                                    version.operations, jitcell_token)
             record_loop_or_bridge(metainterp_sd, vl)
             assert asminfo is not None
-            version._compiled = (asminfo, faildescr, faildescr.version, jitcell_token)
-            faildescr.version = None
+
+            for i,fd in enumerate(version.faildescrs):
+                if i == 0:
+                    continue
+                to_stitch.append((fd, (asminfo, faildescr, version, jitcell_token)))
         # stitch to the trace loop
-        for lv in loop.versions:
-            if not lv.compiled():
-                # the version was never compiled, do not bother
-                # to assign it's fail descr
-                continue
-            for faildescr in lv.faildescrs:
-                assert isinstance(faildescr, CompileLoopVersionDescr)
-                version = faildescr.version
-                if version and version.compiled():
-                    cpu.stitch_bridge(faildescr, version)
-                faildescr.version = None
+        for fd, param in to_stitch:
+            cpu.stitch_bridge(fd, param)
     loop.versions = None
 
 def compile_retrace(metainterp, greenkey, start,
@@ -531,7 +525,7 @@ class ResumeDescr(AbstractFailDescr):
 class ResumeGuardDescr(ResumeDescr):
     _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
                'rd_frame_info_list', 'rd_pendingfields', 'rd_accum_list',
-               'status')
+               'status', 'version')
     
     rd_numb = lltype.nullptr(NUMBERING)
     rd_count = 0
@@ -542,6 +536,7 @@ class ResumeGuardDescr(ResumeDescr):
     rd_accum_list = None
 
     status = r_uint(0)
+    version = None
 
     def copy_all_attributes_from(self, other):
         assert isinstance(other, ResumeGuardDescr)
@@ -745,11 +740,6 @@ class ResumeAtLoopHeaderDescr(ResumeGuardDescr):
 
 class CompileLoopVersionDescr(ResumeGuardDescr):
     guard_opnum = rop.GUARD_EARLY_EXIT
-
-    operations = None
-    inputargs = None
-    faillocs = None
-    version = None
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         assert 0, "this guard must never fail"

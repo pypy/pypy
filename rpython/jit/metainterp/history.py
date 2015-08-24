@@ -744,60 +744,31 @@ class LoopVersion(object):
         create one instance and attach it to a guard descr.
         If not attached to a descriptor, it will not be compiled.
     """
-    def __init__(self, loop):
-        self.faildescrs = []
-        self._compiled = (None,None,None,None)
-        if loop:
-            self.operations = self.copy_operations(loop.operations) 
+    _compiled = (None,None,None,None)
+    inputargs = None
+    renamed_inputargs = None
+
+    def __init__(self, operations):
+        self.faildescrs = None
+        self.stitchdescr = {}
+        self.operations = operations
+
+    def setup_once(self):
+        if self.operations:
             idx = index_of_first(rop.LABEL, self.operations)
             assert idx >= 0
             label = self.operations[idx]
             self.inputargs = label.getarglist()
             self.renamed_inputargs = label.getarglist()
-        else:
-            self.operations = None
-            self.inputargs = None
-            self.renamed_inputargs = None
+            # register the faildescr for later stitching
+            for op in self.operations:
+                if op.is_guard():
+                    descr = op.getdescr()
+                    if descr.loop_version():
+                        self.faildescrs.append(descr)
 
-    def compiled(self):
-        if self.operations is None:
-            # root version must always be compiled
-            return True
-
-        return self._compiled[0] is not None
-
-    def copy_operations(self, operations):
-        from rpython.jit.metainterp.compile import (ResumeGuardDescr,
-                CompileLoopVersionDescr)
-        ignore = (rop.DEBUG_MERGE_POINT,)
-        oplist = []
-        for op in operations:
-            if op.getopnum() in ignore:
-                continue
-            cloned = op.clone()
-            oplist.append(cloned)
-            if cloned.is_guard():
-                olddescr = cloned.getdescr()
-                if not olddescr:
-                    continue
-                descr = olddescr.clone()
-                cloned.setdescr(descr)
-                if olddescr.loop_version():
-                    # copy the version
-                    assert isinstance(olddescr, CompileLoopVersionDescr)
-                    assert isinstance(descr, CompileLoopVersionDescr)
-                    descr.version = olddescr.version
-                    self.faildescrs.append(descr)
-        return oplist
-
-    def register_guard(self, op, version):
-        from rpython.jit.metainterp.compile import CompileLoopVersionDescr
-        assert isinstance(op, GuardResOp)
-        descr = op.getdescr()
-        if not descr.loop_version():
-            assert 0, "cannot register a guard that is not a CompileLoopVersionDescr"
-        assert isinstance(descr, CompileLoopVersionDescr)
-        descr.version = version
+    def register_guard(self, op, descr, version):
+        assert descr.loop_version()
         self.faildescrs.append(descr)
         # note: stitching a guard must resemble the order of the label
         # otherwise a wrong mapping is handed to the register allocator
@@ -903,12 +874,9 @@ class TreeLoop(object):
             return self.operations[index]
         return None
 
-    def snapshot(self):
-        if len(self.versions) == 0:
-            # create a root version, simplyfies the code in compile.py
-            self.versions.append(LoopVersion(None))
-        root_version = self.versions[0]
-        version = LoopVersion(self)
+    def snapshot(self, operations):
+        version = LoopVersion(operations)
+        version.setup_once()
         self.versions.append(version)
         return version
 

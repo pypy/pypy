@@ -591,14 +591,14 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                                        rawstart, fullsize)
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos, rawstart)
 
-    def stitch_bridge(self, faildescr, version):
+    def stitch_bridge(self, faildescr, target):
         """ Stitching means that one can enter a bridge with a complete different register
             allocation. This needs remapping which is done here for both normal registers
             and accumulation registers.
             Why? Because this only generates a very small junk of memory, instead of
             duplicating the loop assembler for each faildescr!
         """
-        asminfo, bridge_faildescr, compiled_version, looptoken = version._compiled
+        asminfo, bridge_faildescr, version, looptoken = target
         assert isinstance(bridge_faildescr, ResumeGuardDescr)
         assert isinstance(faildescr, ResumeGuardDescr)
         assert asminfo.rawstart != 0
@@ -612,7 +612,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         # if accumulation is saved at the guard, we need to update it here!
         guard_locs = self.rebuild_faillocs_from_descr(faildescr, version.inputargs)
-        bridge_locs = self.rebuild_faillocs_from_descr(bridge_faildescr, compiled_version.inputargs)
+        bridge_locs = self.rebuild_faillocs_from_descr(bridge_faildescr, version.inputargs)
         guard_accum_info = faildescr.rd_accum_list
         # O(n^2), but usually you only have at most 1 fail argument
         while guard_accum_info:

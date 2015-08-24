@@ -151,10 +151,10 @@ class Guard(object):
     def set_to_none(self, operations):
         assert operations[self.index] is self.op
         operations[self.index] = None
-        descr = self.op.getdescr()
-        if descr and descr.loop_version():
-            assert isinstance(descr, CompileLoopVersionDescr)
-            descr.version = None
+        #descr = self.op.getdescr()
+        #if descr and descr.loop_version():
+        #    assert isinstance(descr, CompileLoopVersionDescr)
+        #    descr.version = None
         if operations[self.index-1] is self.cmp_op:
             operations[self.index-1] = None
 
@@ -276,10 +276,11 @@ class GuardStrengthenOpt(object):
                     continue
                 descr = op.getdescr()
                 if descr.loop_version():
-                    root_version.register_guard(op, version)
+                    assert isinstance(descr, ResumeGuardDescr)
+                    root_version.register_guard(op, descr, version)
 
             if user_code:
-                version = loop.snapshot()
+                version = loop.snapshot(copy_operations(loop.operations))
                 self.eliminate_array_bound_checks(loop, root_version, version)
 
     def emit_operation(self, op):
@@ -302,7 +303,9 @@ class GuardStrengthenOpt(object):
                 transitive_guard = one.transitive_imply(other, self, loop)
                 if transitive_guard:
                     other.set_to_none(loop.operations)
-                    root_version.register_guard(transitive_guard, version)
+                    descr = transitive_guard.getdescr()
+                    assert isinstance(descr, ResumeGuardDescr)
+                    root_version.register_guard(transitive_guard, descr, version)
 
         if self.has_two_labels:
             oplist = [loop.operations[0]] + self._newoperations + \
@@ -312,3 +315,23 @@ class GuardStrengthenOpt(object):
             loop.operations = self._newoperations + \
                     [op for op in loop.operations if op]
 
+def copy_operations(operations):
+    ignore = (rop.DEBUG_MERGE_POINT,)
+    oplist = []
+    for op in operations:
+        if op.getopnum() in ignore:
+            continue
+        cloned = op.clone()
+        oplist.append(cloned)
+        if cloned.is_guard():
+            olddescr = cloned.getdescr()
+            if not olddescr:
+                continue
+            assert isinstance(olddescr, ResumeGuardDescr)
+            descr = olddescr.clone()
+            assert isinstance(descr, ResumeGuardDescr)
+            cloned.setdescr(descr)
+            if olddescr.loop_version():
+                # copy the version
+                descr.version = olddescr.version
+    return oplist
