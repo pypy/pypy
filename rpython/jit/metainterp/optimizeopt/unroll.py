@@ -103,9 +103,7 @@ class UnrollOptimizer(Optimization):
     def optimize_peeled_loop(self, start_label, end_jump, ops, state,
                              call_pure_results):
         self._check_no_forwarding([[start_label, end_jump], ops])
-        label_args = state.virtual_state.make_inputargs(
-            start_label.getarglist(), self.optimizer)
-        self.import_state(start_label, state, label_args)
+        label_args = self.import_state(start_label, state)
         self.potential_extra_ops = {}
         self.optimizer.init_inparg_dict_from(label_args)
         info, _ = self.optimizer.propagate_all_forward(
@@ -280,7 +278,7 @@ class UnrollOptimizer(Optimization):
                              short_boxes, renamed_inputargs,
                              short_inputargs)
 
-    def import_state(self, targetop, exported_state, label_args):
+    def import_state(self, targetop, exported_state):
         # the mapping between input args (from old label) and what we need
         # to actually emit. Update the info
         assert (len(exported_state.next_iteration_args) ==
@@ -295,6 +293,9 @@ class UnrollOptimizer(Optimization):
                                             exported_state.exported_infos)
         # import the optimizer state, starting from boxes that can be produced
         # by short preamble
+        label_args = exported_state.virtual_state.make_inputargs(
+            targetop.getarglist(), self.optimizer)
+        
         self.short_preamble_producer = ShortPreambleBuilder(
             label_args, exported_state.short_boxes,
             exported_state.short_inputargs, exported_state.exported_infos,
@@ -302,6 +303,8 @@ class UnrollOptimizer(Optimization):
 
         for produced_op in exported_state.short_boxes:
             produced_op.produce_op(self, exported_state.exported_infos)
+
+        return label_args
 
     def is_call_pure_with_exception(self, op):
         if op.is_call_pure():
