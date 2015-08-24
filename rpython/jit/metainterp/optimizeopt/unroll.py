@@ -115,7 +115,7 @@ class UnrollOptimizer(Optimization):
         extra = self.short_preamble_producer.used_boxes
         label_op.initarglist(label_args + extra)
         # force the boxes for virtual state to match
-        x = state.virtual_state.make_inputargs(
+        state.virtual_state.make_inputargs(
             [self.get_box_replacement(x) for x in end_jump.getarglist()],
             self.optimizer, force_boxes=True)
         new_virtual_state = self.jump_to_existing_trace(end_jump)
@@ -219,7 +219,7 @@ class UnrollOptimizer(Optimization):
             args = target_virtual_state.make_inputargs(args,
                 self.optimizer)
             extra = self.inline_short_preamble(pass_to_short,
-                short_preamble[0].getarglist(), short_preamble[1:-1],
+                short_preamble[0].getarglist(), short_preamble,
                 short_preamble[-1].getarglist(), self.optimizer.patchguardop)
             self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
                                       args=args + extra,
@@ -236,16 +236,19 @@ class UnrollOptimizer(Optimization):
             for i in range(len(jump_args)):
                 short_inputargs[i].set_forwarded(None)
                 self.make_equal_to(short_inputargs[i], jump_args[i])
-            for op in short_ops:
+            i = 1
+            while i < len(short_ops) - 1:
+                op = short_ops[i]
                 if op.is_guard():
                     op = self.replace_op_with(op, op.getopnum(),
                                     descr=compile.ResumeAtPositionDescr())
                     op.rd_snapshot = patchguardop.rd_snapshot
                     op.rd_frame_info_list = patchguardop.rd_frame_info_list
                 self.optimizer.send_extra_operation(op)
-            res = [self.optimizer.get_box_replacement(op) for op in
-                    short_jump_op]
-            return res
+                i += 1
+            for arg in jump_args:
+                self.optimizer.force_box(self.get_box_replacement(arg))
+            return [self.get_box_replacement(box) for box in short_jump_op]
         finally:
             for op in short_inputargs:
                 op.set_forwarded(None)

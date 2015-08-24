@@ -7231,7 +7231,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p188 = getarrayitem_gc_r(p187, 42, descr=gcarraydescr)
         guard_value(p188, ConstPtr(myptr)) []
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
-        jump(p25, p187, i184)
+        p5 = same_as_r(p25)
+        jump(p25, p187, i184, p5)
         """
         short = """
         [p1, p187, i184]
@@ -7242,7 +7243,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p25, p187, i184, p189]
-        jump(p25, p187, i184, p189)
+        jump(p189, p187, i184, p189) # <- XXX is this correct for bridges?
         """
         self.optimize_loop(ops, expected, preamble, expected_short=short)
 
