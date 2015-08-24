@@ -7,7 +7,6 @@ from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.metainterp.gc import get_description
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.codewriter.heaptracker import register_known_gctype
 from rpython.jit.metainterp.history import JitCellToken, FLOAT
 from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -64,7 +63,6 @@ class RewriteTests(object):
                                  ('x', lltype.Signed))
         o_descr = self.cpu.sizeof(O, True)
         o_vtable = globals()['o_vtable']
-        register_known_gctype(self.cpu, o_vtable, O)
         #
         tiddescr = self.gc_ll_descr.fielddescr_tid
         wbdescr = self.gc_ll_descr.write_barrier_descr

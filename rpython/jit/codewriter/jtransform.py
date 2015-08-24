@@ -932,7 +932,6 @@ class Transformer(object):
                     return self._do_builtin_call(op, 'alloc_with_del', [],
                                                  extra=(RESULT, vtable),
                                                  extrakey=STRUCT)
-            heaptracker.register_known_gctype(self.cpu, vtable, STRUCT)
             opname = 'new_with_vtable'
         else:
             opname = 'new'
@@ -1936,10 +1935,6 @@ class Transformer(object):
     # VirtualRefs.
 
     def _handle_virtual_ref_call(self, op, oopspec_name, args):
-        vrefinfo = self.callcontrol.virtualref_info
-        heaptracker.register_known_gctype(self.cpu,
-                                          vrefinfo.jit_virtual_ref_vtable,
-                                          vrefinfo.JIT_VIRTUAL_REF)
         return SpaceOperation(oopspec_name, list(args), op.result)
 
     # -----------
