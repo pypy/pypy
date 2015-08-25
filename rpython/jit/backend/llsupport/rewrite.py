@@ -121,7 +121,8 @@ class GcRewriterAssembler(object):
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
             # ---------- GETFIELD_GC ----------
-            if op.getopnum() == rop.GETFIELD_GC:
+            if op.getopnum() in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
+                                 rop.GETFIELD_GC_R):
                 self.handle_getfield_gc(op)
                 continue
             # ---------- turn NEWxxx into CALL_MALLOC_xxx ----------
@@ -194,7 +195,7 @@ class GcRewriterAssembler(object):
         followed by a bunch of 'setfields', and the 'pending_zeros'
         optimization we do here is meant for this case."""
         self.emit_pending_zeros()
-        self.newops.append(op)
+        self.emit_op(op)
 
     # ----------
 

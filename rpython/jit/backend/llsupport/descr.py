@@ -59,9 +59,6 @@ class SizeDescr(AbstractDescr):
         return False
 
 class SizeDescrWithVTable(SizeDescr):
-    def as_vtable_size_descr(self):
-        return self
-
     def is_object(self):
         return True
 
@@ -198,10 +195,10 @@ def get_field_descr(gccache, STRUCT, fieldname):
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
         if STRUCT is rclass.OBJECT:
-            fielddescr.parent_descr = get_size_descr(gccache, STRUCT, None)
+            vtable = None
         else:
-            fielddescr.parent_descr = get_size_descr(gccache, STRUCT,
-                            heaptracker.get_vtable_for_gcstruct(gccache, STRUCT))
+            vtable = heaptracker.get_vtable_for_gcstruct(gccache, STRUCT)
+        fielddescr.parent_descr = get_size_descr(gccache, STRUCT, vtable)
         return fielddescr
 
 def get_type_flag(TYPE):

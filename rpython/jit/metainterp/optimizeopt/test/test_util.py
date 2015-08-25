@@ -12,7 +12,6 @@ from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
 from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.logger import LogOperations
-from rpython.jit.codewriter.heaptracker import register_known_gctype
 from rpython.jit.tool.oparser import OpParser
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
@@ -122,9 +121,9 @@ class LLtypeMixin(object):
     myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(NODE))
     nullptr = lltype.nullptr(llmemory.GCREF.TO)
     #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
-    nodesize = cpu.sizeof(NODE, True)
-    nodesize2 = cpu.sizeof(NODE2, True)
-    nodesize3 = cpu.sizeof(NODE3, True)
+    nodesize = cpu.sizeof(NODE, node_vtable)
+    nodesize2 = cpu.sizeof(NODE2, node_vtable2)
+    nodesize3 = cpu.sizeof(NODE3, node_vtable3)
     valuedescr = cpu.fielddescrof(NODE, 'value')
     floatdescr = cpu.fielddescrof(NODE, 'floatval')
     chardescr = cpu.fielddescrof(NODE, 'charval')
@@ -140,7 +139,7 @@ class LLtypeMixin(object):
     QUASI = lltype.GcStruct('QUASIIMMUT', ('inst_field', lltype.Signed),
                             ('mutate_field', rclass.OBJECTPTR),
                             hints={'immutable_fields': accessor})
-    quasisize = cpu.sizeof(QUASI, False)
+    quasisize = cpu.sizeof(QUASI, None)
     quasi = lltype.malloc(QUASI, immortal=True)
     quasi.inst_field = -4247
     quasifielddescr = cpu.fielddescrof(QUASI, 'inst_field')
@@ -163,8 +162,8 @@ class LLtypeMixin(object):
     intobj_immut_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     noimmut_intval = cpu.fielddescrof(INTOBJ_NOIMMUT, 'intval')
     immut_intval = cpu.fielddescrof(INTOBJ_IMMUT, 'intval')
-    noimmut_descr = cpu.sizeof(INTOBJ_NOIMMUT, True)
-    immut_descr = cpu.sizeof(INTOBJ_IMMUT, True)
+    noimmut_descr = cpu.sizeof(INTOBJ_NOIMMUT, intobj_noimmut_vtable)
+    immut_descr = cpu.sizeof(INTOBJ_IMMUT, intobj_immut_vtable)
 
     PTROBJ_IMMUT = lltype.GcStruct('PTROBJ_IMMUT', ('parent', OBJECT),
                                             ('ptrval', lltype.Ptr(OBJECT)),
@@ -179,7 +178,7 @@ class LLtypeMixin(object):
     # a GcStruct not inheriting from OBJECT
     S = lltype.GcStruct('TUPLE', ('a', lltype.Signed), ('abis', lltype.Signed),
                         ('b', lltype.Ptr(NODE)))
-    ssize = cpu.sizeof(S, False)
+    ssize = cpu.sizeof(S, None)
     adescr = cpu.fielddescrof(S, 'a')
     abisdescr = cpu.fielddescrof(S, 'abis')
     bdescr = cpu.fielddescrof(S, 'b')
@@ -202,7 +201,7 @@ class LLtypeMixin(object):
     inst_w_list = cpu.fielddescrof(W_ROOT, 'inst_w_list')
     w_root_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     
-    tsize = cpu.sizeof(T, False)
+    tsize = cpu.sizeof(T, None)
     cdescr = cpu.fielddescrof(T, 'c')
     ddescr = cpu.fielddescrof(T, 'd')
     arraydescr3 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(NODE)))
@@ -215,10 +214,10 @@ class LLtypeMixin(object):
     SIMPLE = lltype.GcStruct('simple',
         ('parent', OBJECT),
         ('value', lltype.Signed))
-    simpledescr = cpu.sizeof(SIMPLE, True)
     simplevalue = cpu.fielddescrof(SIMPLE, 'value')
     simple_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
-    usize = cpu.sizeof(U, True)
+    simpledescr = cpu.sizeof(SIMPLE, simple_vtable)
+    #usize = cpu.sizeof(U, ...)
     onedescr = cpu.fielddescrof(U, 'one')
 
     FUNC = lltype.FuncType([lltype.Signed], lltype.Signed)
@@ -350,18 +349,7 @@ class LLtypeMixin(object):
 
     jit_virtual_ref_vtable = vrefinfo.jit_virtual_ref_vtable
     jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
-    vref_descr = cpu.sizeof(vrefinfo.JIT_VIRTUAL_REF, False)
-
-    register_known_gctype(cpu, node_vtable,  NODE)
-    register_known_gctype(cpu, node_vtable2, NODE2)
-    register_known_gctype(cpu, node_vtable3, NODE3)
-    register_known_gctype(cpu, u_vtable,     U)
-    register_known_gctype(cpu, simple_vtable,     SIMPLE)
-    register_known_gctype(cpu, jit_virtual_ref_vtable,vrefinfo.JIT_VIRTUAL_REF)
-    register_known_gctype(cpu, intobj_noimmut_vtable, INTOBJ_NOIMMUT)
-    register_known_gctype(cpu, intobj_immut_vtable,   INTOBJ_IMMUT)
-    register_known_gctype(cpu, ptrobj_immut_vtable,   PTROBJ_IMMUT)
-    register_known_gctype(cpu, w_root_vtable, W_ROOT)
+    vref_descr = cpu.sizeof(vrefinfo.JIT_VIRTUAL_REF, jit_virtual_ref_vtable)
 
     namespace = locals()
 

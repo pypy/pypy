@@ -335,11 +335,7 @@ def getvtable(cpu, S=None):
     cls1.subclassrange_min = 1
     cls1.subclassrange_max = 3
     if S is not None:
-        descr = cpu.sizeof(S)
-        if not hasattr(cpu.tracker, '_all_size_descrs_with_vtable'):
-            cpu.tracker._all_size_descrs_with_vtable = []
-        cpu.tracker._all_size_descrs_with_vtable.append(descr)
-        descr._corresponding_vtable = cls1
+        descr = cpu.sizeof(S, cls1)    # xxx may be not needed any more
     return llmemory.cast_adr_to_int(llmemory.cast_ptr_to_adr(cls1), "symbolic")
 
 def test_bug_2():
