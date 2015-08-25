@@ -61,8 +61,8 @@ def create_entry_point(space, w_dict):
                         rlocale.setlocale(rlocale.LC_CTYPE, '')
                     except rlocale.LocaleError:
                         pass
-                w_executable = space.fsdecode(space.wrapbytes(argv[0]))
-                w_argv = space.newlist([space.fsdecode(space.wrapbytes(s))
+                w_executable = space.wrap_fsdecoded(argv[0])
+                w_argv = space.newlist([space.wrap_fsdecoded(s)
                                         for s in argv[1:]])
                 w_exitcode = space.call_function(w_entry_point, w_executable, w_argv)
                 exitcode = space.int_w(w_exitcode)

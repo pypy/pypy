@@ -42,7 +42,7 @@ long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
 }
 
 
-""" + open(str(srcdir.join("rvmprof_get_custom_offset.h"))).read())
+""" + open(str(srcdir.join("vmprof_get_custom_offset.h"))).read())
 
 class TestDirect(object):
     def test_infrastructure(self):

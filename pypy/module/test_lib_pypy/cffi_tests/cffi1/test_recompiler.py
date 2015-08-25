@@ -25,6 +25,9 @@ def verify(ffi, module_name, source, *args, **kwds):
     if 1:     # test the .cpp mode too
         kwds.setdefault('source_extension', '.cpp')
         source = 'extern "C" {\n%s\n}' % (source,)
+    else:
+        kwds['extra_compile_args'] = (kwds.get('extra_compile_args', []) +
+                                      ['-Werror'])
     return recompiler._verify(ffi, module_name, source, *args, **kwds)
 
 

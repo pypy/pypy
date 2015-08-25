@@ -66,7 +66,7 @@ static int prepare_concurrent_bufs(void)
     unprepare_concurrent_bufs();
     profbuf_all_buffers = mmap(NULL, sizeof(struct profbuf_s) * MAX_NUM_BUFFERS,
                                PROT_READ | PROT_WRITE,
-                               MAP_PRIVATE | MAP_ANONYMOUS,
+                               MAP_PRIVATE | MAP_ANON,
                                -1, 0);
     if (profbuf_all_buffers == MAP_FAILED) {
         profbuf_all_buffers = NULL;
@@ -190,10 +190,17 @@ static void commit_buffer(int fd, struct profbuf_s *buf)
     }
 }
 
+static void cancel_buffer(struct profbuf_s *buf)
+{
+    long i = buf - profbuf_all_buffers;
+    assert(profbuf_state[i] == PROFBUF_FILLING);
+    profbuf_state[i] = PROFBUF_UNUSED;
+}
+
 static int shutdown_concurrent_bufs(int fd)
 {
     /* no signal handler can be running concurrently here, because we
-       already did rpython_vmprof_ignore_signals(1) */
+       already did vmprof_ignore_signals(1) */
     assert(profbuf_write_lock == 0);
     profbuf_write_lock = 2;
 

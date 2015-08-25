@@ -19,7 +19,8 @@ def ensure__main__(space):
 def compilecode(space, source, filename, cmd='exec'):
     w = space.wrap
     w_code = space.builtin.call(
-        'compile', space.wrapbytes(source), w(filename), w(cmd), w(0), w(0))
+        'compile', space.wrapbytes(source), space.wrap_fsdecoded(filename),
+        w(cmd), w(0), w(0))
     pycode = space.interp_w(eval.Code, w_code)
     return pycode
 
@@ -44,7 +45,8 @@ def _run_eval_string(source, filename, space, eval):
 
         space.setitem(w_globals, w('__builtins__'), space.builtin)
         if filename is not None:
-            space.setitem(w_globals, w('__file__'), w(filename))
+            space.setitem(w_globals, w('__file__'),
+                          space.wrap_fsdecoded(filename))
 
         retval = pycode.exec_code(space, w_globals, w_globals)
         if eval:
