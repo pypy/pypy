@@ -432,7 +432,12 @@ class LLGraphCPU(model.AbstractCPU):
         except KeyError:
             descr = FieldDescr(S, fieldname)
             self.descrs[key] = descr
-            descr.parent_descr = self.sizeof(S, Ellipsis)
+            if (isinstance(S, lltype.GcStruct) and
+                    heaptracker.has_gcstruct_a_vtable(S)):
+                vtable = Ellipsis
+            else:
+                vtable = None
+            descr.parent_descr = self.sizeof(S, vtable)
             if self.vinfo_for_tests is not None:
                 descr.vinfo = self.vinfo_for_tests
             return descr
