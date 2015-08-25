@@ -369,8 +369,12 @@ class ShortPreambleBuilder(object):
 
     def use_box(self, box, preamble_op, optimizer=None):
         for arg in preamble_op.getarglist():
-            if isinstance(arg, Const) or isinstance(arg, AbstractInputArg):
-                pass
+            if isinstance(arg, Const):
+                continue
+            if isinstance(arg, AbstractInputArg):
+                info = arg.get_forwarded()
+                if info is not None and info is not empty_info:
+                    info.make_guards(arg, self.short)
             elif arg.get_forwarded() is None:
                 pass
             else:
