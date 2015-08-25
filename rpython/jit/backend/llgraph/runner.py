@@ -111,8 +111,8 @@ class SizeDescr(AbstractDescr):
                                                                self.S)
         return heaptracker.adr2int(llmemory.cast_ptr_to_adr(self._vtable))
 
-    def count_fields_if_immutable(self):
-        return heaptracker.count_fields_if_immutable(self.S)
+    def is_immutable(self):
+        return heaptracker.is_immutable_struct(self.S)
 
     def __repr__(self):
         return 'SizeDescr(%r)' % (self.S,)

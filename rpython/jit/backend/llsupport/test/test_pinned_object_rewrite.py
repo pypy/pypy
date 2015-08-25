@@ -1,7 +1,7 @@
 from test_rewrite import get_size_descr, get_array_descr, get_description, BaseFakeCPU
 from rpython.jit.backend.llsupport.descr import get_size_descr,\
      get_field_descr, get_array_descr, ArrayDescr, FieldDescr,\
-     SizeDescrWithVTable, get_interiorfield_descr
+     SizeDescr, get_interiorfield_descr
 from rpython.jit.backend.llsupport.gc import GcLLDescr_boehm,\
      GcLLDescr_framework, MovableObjectTracker
 from rpython.jit.backend.llsupport import jitframe, gc
@@ -115,7 +115,7 @@ class TestFramework(RewriteTests):
         #
         class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT, is_object):
-                descr = SizeDescrWithVTable(104)
+                descr = SizeDescr(104)
                 descr.tid = 9315
                 descr.vtable = 12
                 return descr

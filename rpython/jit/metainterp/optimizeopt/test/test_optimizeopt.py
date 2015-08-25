@@ -6091,7 +6091,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # ----------
         ops = """
         [p1]
-        p0 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
+        p0 = new_with_vtable(descr=ptrobj_immut_descr)
         setfield_gc(p0, p1, descr=immut_ptrval)
         escape_n(p0)
         jump(p1)
@@ -6100,8 +6100,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # ----------
         ops = """
         []
-        p0 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
-        p1 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        p0 = new_with_vtable(descr=ptrobj_immut_descr)
+        p1 = new_with_vtable(descr=immut_descr)
         setfield_gc(p1, 1242, descr=immut_intval)
         setfield_gc(p0, p1, descr=immut_ptrval)
         escape_n(p0)
@@ -6115,6 +6115,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
                 p1 = other.container.ptrval
                 p1cast = lltype.cast_pointer(lltype.Ptr(self.INTOBJ_IMMUT), p1)
                 return p1cast.intval == 1242
+            def _normalizedcontainer(self):
+                return self
         self.namespace['ptrobj1242'] = lltype._ptr(llmemory.GCREF,
                                                    PtrObj1242())
         expected = """
@@ -6191,6 +6193,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
                 assert p2 != p1
                 p2cast = lltype.cast_pointer(lltype.Ptr(self.PTROBJ_IMMUT), p2)
                 return p2cast.ptrval == p1
+            def _normalizedcontainer(self):
+                return self
         self.namespace['ptrobjself2'] = lltype._ptr(llmemory.GCREF,
                                                     PtrObjSelf2())
         expected = """

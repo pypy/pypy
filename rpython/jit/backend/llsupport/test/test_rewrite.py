@@ -1,6 +1,6 @@
 from rpython.jit.backend.llsupport.descr import get_size_descr,\
      get_field_descr, get_array_descr, ArrayDescr, FieldDescr,\
-     SizeDescrWithVTable, get_interiorfield_descr
+     SizeDescr, get_interiorfield_descr
 from rpython.jit.backend.llsupport.gc import GcLLDescr_boehm,\
      GcLLDescr_framework
 from rpython.jit.backend.llsupport import jitframe
@@ -163,8 +163,8 @@ class TestBoehm(RewriteTests):
         class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT, is_object):
                 assert is_object
-                return SizeDescrWithVTable(102, gc_fielddescrs=[],
-                                           vtable=o_vtable)
+                return SizeDescr(102, gc_fielddescrs=[],
+                                 vtable=o_vtable)
         self.cpu = FakeCPU()
         self.gc_ll_descr = GcLLDescr_boehm(None, None, None)
 
@@ -301,7 +301,7 @@ class TestFramework(RewriteTests):
         #
         class FakeCPU(BaseFakeCPU):
             def sizeof(self, STRUCT, is_object):
-                descr = SizeDescrWithVTable(104, gc_fielddescrs=[])
+                descr = SizeDescr(104, gc_fielddescrs=[])
                 descr.tid = 9315
                 return descr
         self.cpu = FakeCPU()

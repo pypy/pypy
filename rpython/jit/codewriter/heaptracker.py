@@ -20,30 +20,8 @@ def int_signext(value, numbytes):
     a -= r_uint(1 << (b8 - 1))     # a -= 128
     return intmask(a)
 
-def count_fields_if_immutable(STRUCT):
-    if not isinstance(STRUCT, lltype.GcStruct):
-        return -1
-    if STRUCT._hints.get('immutable', False):
-        try:
-            return _count_fields(STRUCT)
-        except ValueError:
-            pass
-    return -1
-
-def _count_fields(STRUCT):
-    if STRUCT == rclass.OBJECT:
-        return 0    # don't count 'typeptr'
-    result = 0
-    for fieldname, TYPE in STRUCT._flds.items():
-        if TYPE is lltype.Void:
-            pass       # ignore Voids
-        elif not isinstance(TYPE, lltype.ContainerType):
-            result += 1
-        elif isinstance(TYPE, lltype.GcStruct):
-            result += _count_fields(TYPE)
-        else:
-            raise ValueError(TYPE)
-    return result
+def is_immutable_struct(S):
+    return isinstance(S, lltype.GcStruct) and S._hints.get('immutable', False)
 
 # ____________________________________________________________
 

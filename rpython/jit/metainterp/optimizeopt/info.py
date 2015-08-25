@@ -5,6 +5,7 @@ from rpython.jit.metainterp.resoperation import AbstractValue, ResOperation,\
 from rpython.jit.metainterp.history import ConstInt, Const
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
+from rpython.jit.metainterp.executor import execute
 
 
 INFO_NULL = 0
@@ -22,7 +23,10 @@ class AbstractInfo(AbstractValue):
     def getconst(self):
         raise Exception("not a constant")
 
-    
+    def _is_immutable_and_filled_with_constants(self, optimizer, memo=None):
+        return False
+
+
 class PtrInfo(AbstractInfo):
     _attrs_ = ()
 
@@ -109,6 +113,15 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
     def force_box(self, op, optforce):
         if self.is_virtual():
             optforce.forget_numberings()
+            #
+            if self._is_immutable_and_filled_with_constants(optforce.optimizer):
+                constptr = optforce.optimizer.constant_fold(op)
+                op.set_forwarded(constptr)
+                descr = self.vdescr
+                self.vdescr = None
+                self._force_elements_immutable(descr, constptr, optforce)
+                return constptr
+            #
             op.set_forwarded(None)
             optforce._emit_operation(op)
             newop = optforce.getlastop()
@@ -213,6 +226,46 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         opnum = OpHelpers.getfield_for_descr(descr)
         getfield_op = ResOperation(opnum, [structbox], descr=descr)
         shortboxes.add_heap_op(op, getfield_op)
+
+    def _is_immutable_and_filled_with_constants(self, optimizer, memo=None):
+        # check if it is possible to force the given structure into a
+        # compile-time constant: this is allowed only if it is declared
+        # immutable, if all fields are already filled, and if each field
+        # is either a compile-time constant or (recursively) a structure
+        # which also answers True to the same question.
+        #
+        assert self.is_virtual()
+        if not self.vdescr.is_immutable():
+            return False
+        if memo is not None and self in memo:
+            return True       # recursive case: assume yes
+        #
+        for op in self._fields:
+            if op is None:
+                return False     # there is an uninitialized field
+            op = op.get_box_replacement()
+            if op.is_constant():
+                pass            # it is a constant value: ok
+            else:
+                fieldinfo = optimizer.getptrinfo(op)
+                if fieldinfo and fieldinfo.is_virtual():
+                    # recursive check
+                    if memo is None:
+                        memo = {self: None}
+                    if not fieldinfo._is_immutable_and_filled_with_constants(
+                            optimizer, memo):
+                        return False
+                else:
+                    return False    # not a constant at all
+        return True
+
+    def _force_elements_immutable(self, descr, constptr, optforce):
+        for i, flddescr in enumerate(descr.get_all_fielddescrs()):
+            fld = self._fields[i]
+            subbox = optforce.force_box(fld)
+            assert isinstance(subbox, Const)
+            execute(optforce.optimizer.cpu, None, rop.SETFIELD_GC,
+                    flddescr, constptr, subbox)
 
 class InstancePtrInfo(AbstractStructPtrInfo):
     _attrs_ = ('_known_class',)
