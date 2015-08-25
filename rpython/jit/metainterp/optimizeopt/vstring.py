@@ -114,12 +114,6 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         if self.lgtop is not None:
             return self.lgtop
         assert not self.is_virtual()
-        #if lengthop is not None:
-        #    xxx
-        #    box = self.force_box(op, string_optimizer)
-        #    lengthop = string_optimizer.optimizer.replace_op_with(lengthop,
-        #        mode.STRLEN, [box])
-        #else:
         if not create_ops:
             return None
         lengthop = ResOperation(mode.STRLEN, [op])
@@ -325,102 +319,6 @@ class VStringConcatInfo(StrPtrInfo):
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
         return visitor.visit_vstrconcat(self.mode is mode_unicode)
-
-# class __extend__(optimizer.OptValue):
-#     """New methods added to the base class OptValue for this file."""
-
-#     def getstrlen(self, string_optimizer, mode, lengthop):
-#         if mode is mode_string:
-#             s = self.get_constant_string_spec(mode_string)
-#             if s is not None:
-#                 return ConstInt(len(s))
-#         else:
-#             s = self.get_constant_string_spec(mode_unicode)
-#             if s is not None:
-#                 return ConstInt(len(s))
-#         if string_optimizer is None:
-#             return None
-#         self.ensure_nonnull()
-#         box = self.force_box(string_optimizer)
-#         if lengthop is not None:
-#             lengthop = string_optimizer.optimizer.replace_op_with(lengthop,
-#                 mode.STRLEN, [box])
-#         else:
-#             lengthop = ResOperation(mode.STRLEN, [box])
-#         string_optimizer.emit_operation(lengthop)
-#         return lengthop
-
-#     @specialize.arg(1)
-#     def get_constant_string_spec(self, mode):
-#         if self.is_constant():
-#             s = self.box.getref(lltype.Ptr(mode.LLTYPE))
-#             return mode.hlstr(s)
-#         else:
-#             return None
-
-#     def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
-#         # Copies the pointer-to-string 'self' into the target string
-#         # given by 'targetbox', at the specified offset.  Returns the offset
-#         # at the end of the copy.
-#         lengthbox = self.getstrlen(string_optimizer, mode, None)
-#         srcbox = self.force_box(string_optimizer)
-#         return copy_str_content(string_optimizer, srcbox, targetbox,
-#                                 CONST_0, offsetbox, lengthbox, mode)
-
-
-
-class XVStringPlainInfo(object):
-    """A string built with newstr(const)."""
-
-    def _visitor_walk_recursive(self, visitor):
-        charboxes = []
-        for value in self._chars:
-            if value is not None:
-                box = value.get_key_box()
-            else:
-                box = None
-            charboxes.append(box)
-        visitor.register_virtual_fields(self.keybox, charboxes)
-        for value in self._chars:
-            if value is not None:
-                value.visitor_walk_recursive(visitor)
-
-    @specialize.argtype(1)
-    def _visitor_dispatch_virtual_type(self, visitor):
-        return visitor.visit_vstrplain(self.mode is mode_unicode)
-
-
-class XVStringConcatInfo(object):
-    """The concatenation of two other strings."""
-
-    def _visitor_walk_recursive(self, visitor):
-        # we don't store the lengthvalue in guards, because the
-        # guard-failed code starts with a regular STR_CONCAT again
-        leftbox = self.left.get_key_box()
-        rightbox = self.right.get_key_box()
-        visitor.register_virtual_fields(self.keybox, [leftbox, rightbox])
-        self.left.visitor_walk_recursive(visitor)
-        self.right.visitor_walk_recursive(visitor)
-
-    @specialize.argtype(1)
-    def _visitor_dispatch_virtual_type(self, visitor):
-        return visitor.visit_vstrconcat(self.mode is mode_unicode)
-
-
-class XVStringSliceInfo(object):
-
-    def _visitor_walk_recursive(self, visitor):
-        boxes = [self.vstr.get_key_box(),
-                 self.vstart.get_key_box(),
-                 self.vlength.get_key_box()]
-        visitor.register_virtual_fields(self.keybox, boxes)
-        self.vstr.visitor_walk_recursive(visitor)
-        self.vstart.visitor_walk_recursive(visitor)
-        self.vlength.visitor_walk_recursive(visitor)
-
-    @specialize.argtype(1)
-    def _visitor_dispatch_virtual_type(self, visitor):
-        return visitor.visit_vstrslice(self.mode is mode_unicode)
 
 
 def copy_str_content(string_optimizer, srcbox, targetbox,
