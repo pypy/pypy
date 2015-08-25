@@ -143,7 +143,8 @@ def main_(argv=None):
     if interactiveconfig.runmodule:
         command = args.pop(0)
     for arg in args:
-        space.call_method(space.sys.get('argv'), 'append', space.wrap(arg))
+        space.call_method(space.sys.get('argv'), 'append',
+                          space.wrap_fsdecoded(arg))
 
     # load the source of the program given as command-line argument
     if interactiveconfig.runcommand:

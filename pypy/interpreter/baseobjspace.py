@@ -1050,6 +1050,9 @@ class ObjSpace(object):
         from pypy.objspace.std.listobject import make_empty_list_with_size
         return make_empty_list_with_size(self, sizehint)
 
+    def wrap_fsdecoded(self, x):
+        return self.fsdecode(self.wrapbytes(x))
+
     @jit.unroll_safe
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
