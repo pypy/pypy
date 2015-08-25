@@ -350,7 +350,7 @@ def get_sourcefile(space, filename):
     start = len(filename) - 4
     stop = len(filename) - 1
     if not 0 <= start <= stop or filename[start:stop].lower() != ".py":
-        return space.wrap(filename)
+        return space.wrap_fsdecoded(filename)
     py = make_source_pathname(filename)
     if py is None:
         py = filename[:-1]
@@ -360,8 +360,8 @@ def get_sourcefile(space, filename):
         pass
     else:
         if stat.S_ISREG(st.st_mode):
-            return space.wrap(py)
-    return space.wrap(filename)
+            return space.wrap_fsdecoded(py)
+    return space.wrap_fsdecoded(filename)
 
 def update_code_filenames(space, code_w, pathname, oldname=None):
     assert isinstance(code_w, PyCode)
