@@ -96,28 +96,22 @@ class W_STMSet(W_Root):
 
     def get_length(self):
         array, count = self.h.list()
-        try:
-            total_length = 0
-            for i in range(count):
-                subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
-                assert subarray
-                total_length += len(subarray)
-        finally:
-            self.h.freelist(array)
+        total_length = 0
+        for i in range(count):
+            subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+            assert subarray
+            total_length += len(subarray)
         return total_length
 
     def get_items_w(self):
         array, count = self.h.list()
-        try:
-            result_list_w = []
-            for i in range(count):
-                subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
-                assert subarray
-                for j in range(len(subarray)):
-                    w_item = cast_gcref_to_instance(W_Root, subarray[j])
-                    result_list_w.append(w_item)
-        finally:
-            self.h.freelist(array)
+        result_list_w = []
+        for i in range(count):
+            subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+            assert subarray
+            for j in range(len(subarray)):
+                w_item = cast_gcref_to_instance(W_Root, subarray[j])
+                result_list_w.append(w_item)
         return result_list_w
 
     def len_w(self, space):

@@ -325,6 +325,9 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
                 stm_allocate_preexisting(sizeof(stm_hashtable_entry_t),
                                          (char *)&initial.header);
             hashtable->additions++;
+            /* make sure .object is NULL in all segments before
+               "publishing" the entry in the hashtable: */
+            write_fence();
         }
         table->items[i] = entry;
         write_fence();     /* make sure 'table->items' is written here */
@@ -422,7 +425,7 @@ long stm_hashtable_length_upper_bound(stm_hashtable_t *hashtable)
 }
 
 long stm_hashtable_list(object_t *hobj, stm_hashtable_t *hashtable,
-                        stm_hashtable_entry_t **results)
+                        stm_hashtable_entry_t * TLPREFIX *results)
 {
     /* Set the read marker.  It will be left as long as we're running
        the same transaction.

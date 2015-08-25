@@ -214,7 +214,7 @@ _STM_HASHTABLE_ENTRY = lltype.GcStruct('HASHTABLE_ENTRY',
                                        ('index', lltype.Unsigned),
                                        ('object', llmemory.GCREF))
 _STM_HASHTABLE_ENTRY_P = lltype.Ptr(_STM_HASHTABLE_ENTRY)
-_STM_HASHTABLE_ENTRY_ARRAY = rffi.CArray(_STM_HASHTABLE_ENTRY_P)
+_STM_HASHTABLE_ENTRY_ARRAY = lltype.GcArray(_STM_HASHTABLE_ENTRY_P)
 
 @dont_look_inside
 def _ll_hashtable_get(h, key):
@@ -234,15 +234,12 @@ def _ll_hashtable_len(h):
 def _ll_hashtable_list(h):
     upper_bound = llop.stm_hashtable_length_upper_bound(lltype.Signed,
                                                         h.ll_raw_hashtable)
-    array = lltype.malloc(_STM_HASHTABLE_ENTRY_ARRAY, upper_bound,
-                          flavor='raw')
+    array = lltype.malloc(_STM_HASHTABLE_ENTRY_ARRAY, upper_bound)
+    # 'array' is newly allocated, thus we don't need to do a manual
+    # write_barrier for stm as requested by stm_hashtable_list
     count = llop.stm_hashtable_list(lltype.Signed, h, h.ll_raw_hashtable,
-                                    array)
+                                    lltype.direct_arrayitems(array))
     return (array, count)
-
-@dont_look_inside
-def _ll_hashtable_freelist(h, array):
-    lltype.free(array, flavor='raw')
 
 @dont_look_inside
 def _ll_hashtable_lookup(h, key):
@@ -261,7 +258,6 @@ _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                            'set': _ll_hashtable_set,
                                            'len': _ll_hashtable_len,
                                           'list': _ll_hashtable_list,
-                                      'freelist': _ll_hashtable_freelist,
                                         'lookup': _ll_hashtable_lookup,
                                       'writeobj': _ll_hashtable_writeobj})
 NULL_HASHTABLE = lltype.nullptr(_HASHTABLE_OBJ)
@@ -331,9 +327,6 @@ class HashtableForTest(object):
         for i in range(3):
             items.append("additional garbage for testing")
         return items, count
-
-    def freelist(self, array):
-        pass
 
     def lookup(self, key):
         assert type(key) is int

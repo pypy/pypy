@@ -271,7 +271,7 @@ static void _signal_handler(int sig, siginfo_t *siginfo, void *context)
 /* ############# commit log ############# */
 
 
-void _dbg_print_commit_log()
+void _dbg_print_commit_log(void)
 {
     struct stm_commit_log_entry_s *cl = &commit_log_root;
 

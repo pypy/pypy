@@ -360,7 +360,7 @@ def stm_hashtable_list(funcgen, op):
     arg2 = funcgen.expr(op.args[2])
     result = funcgen.expr(op.result)
     return ('%s = stm_hashtable_list((object_t *)%s, %s, '
-            '(stm_hashtable_entry_t **)%s);' % (result, arg0, arg1, arg2))
+            '(stm_hashtable_entry_t * TLPREFIX*)(%s));' % (result, arg0, arg1, arg2))
 
 def stm_hashtable_tracefn(funcgen, op):
     arg0 = funcgen.expr(op.args[0])

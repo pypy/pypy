@@ -437,7 +437,7 @@ static void mark_visit_from_active_queues(void)
             queue_entry_t *entry = seg->added_in_this_transaction;
 
             while (entry != NULL) {
-                mark_visit_possibly_new_object(entry->object, pseg);
+                mark_visit_possibly_overflow_object(entry->object, pseg);
                 entry = entry->next;
             }
         } TREE_LOOP_END;

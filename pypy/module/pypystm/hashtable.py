@@ -61,30 +61,21 @@ class W_Hashtable(W_Root):
 
     def keys_w(self, space):
         array, count = self.h.list()
-        try:
-            lst = [intmask(array[i].index) for i in range(count)]
-        finally:
-            self.h.freelist(array)
+        lst = [intmask(array[i].index) for i in range(count)]
         return space.newlist_int(lst)
 
     def values_w(self, space):
         array, count = self.h.list()
-        try:
-            lst_w = [cast_gcref_to_instance(W_Root, array[i].object)
-                     for i in range(count)]
-        finally:
-            self.h.freelist(array)
+        lst_w = [cast_gcref_to_instance(W_Root, array[i].object)
+                 for i in range(count)]
         return space.newlist(lst_w)
 
     def items_w(self, space):
         array, count = self.h.list()
-        try:
-            lst_w = [space.newtuple([
-                         space.wrap(intmask(array[i].index)),
-                         cast_gcref_to_instance(W_Root, array[i].object)])
-                     for i in range(count)]
-        finally:
-            self.h.freelist(array)
+        lst_w = [space.newtuple([
+            space.wrap(intmask(array[i].index)),
+            cast_gcref_to_instance(W_Root, array[i].object)])
+                 for i in range(count)]
         return space.newlist(lst_w)
 
 

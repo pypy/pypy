@@ -309,7 +309,7 @@ static void _recursively_bump_finalization_state_from_1_to_2(
 {
     assert(_finalization_state(obj) == 1);
     /* The call will add GCFLAG_VISITED recursively, thus bump state 1->2 */
-    mark_visit_possibly_new_object(obj, pseg);
+    mark_visit_possibly_overflow_object(obj, pseg);
 }
 
 static struct list_s *mark_finalize_step1(
@@ -431,7 +431,7 @@ static void mark_visit_from_finalizer1(
     if (f != NULL && f->run_finalizers != NULL) {
         LIST_FOREACH_R(f->run_finalizers, object_t * /*item*/,
                        ({
-                           mark_visit_possibly_new_object(item, pseg);
+                           mark_visit_possibly_overflow_object(item, pseg);
                        }));
     }
 }

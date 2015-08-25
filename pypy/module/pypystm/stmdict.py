@@ -157,49 +157,40 @@ class W_STMDict(W_Root):
 
     def get_length(self):
         array, count = self.h.list()
-        try:
-            total_length_times_two = 0
-            for i in range(count):
-                subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
-                assert subarray
-                total_length_times_two += len(subarray)
-        finally:
-            self.h.freelist(array)
+        total_length_times_two = 0
+        for i in range(count):
+            subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+            assert subarray
+            total_length_times_two += len(subarray)
         return total_length_times_two >> 1
 
     def get_keys_values_w(self, offset):
         array, count = self.h.list()
-        try:
-            result_list_w = []
-            for i in range(count):
-                subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
-                assert subarray
-                j = offset
-                limit = len(subarray)
-                while j < limit:
-                    w_item = cast_gcref_to_instance(W_Root, subarray[j])
-                    result_list_w.append(w_item)
-                    j += 2
-        finally:
-            self.h.freelist(array)
+        result_list_w = []
+        for i in range(count):
+            subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+            assert subarray
+            j = offset
+            limit = len(subarray)
+            while j < limit:
+                w_item = cast_gcref_to_instance(W_Root, subarray[j])
+                result_list_w.append(w_item)
+                j += 2
         return result_list_w
 
     def get_items_w(self, space):
         array, count = self.h.list()
-        try:
-            result_list_w = []
-            for i in range(count):
-                subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
-                assert subarray
-                j = 0
-                limit = len(subarray)
-                while j < limit:
-                    w_key = cast_gcref_to_instance(W_Root, subarray[j])
-                    w_value = cast_gcref_to_instance(W_Root, subarray[j + 1])
-                    result_list_w.append(space.newtuple([w_key, w_value]))
-                    j += 2
-        finally:
-            self.h.freelist(array)
+        result_list_w = []
+        for i in range(count):
+            subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+            assert subarray
+            j = 0
+            limit = len(subarray)
+            while j < limit:
+                w_key = cast_gcref_to_instance(W_Root, subarray[j])
+                w_value = cast_gcref_to_instance(W_Root, subarray[j + 1])
+                result_list_w.append(space.newtuple([w_key, w_value]))
+                j += 2
         return result_list_w
 
     def len_w(self, space):
