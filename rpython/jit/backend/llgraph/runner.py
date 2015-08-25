@@ -700,7 +700,7 @@ class LLGraphCPU(model.AbstractCPU):
         result = lltype.malloc(descr.S, zero=True)
         result_as_objptr = lltype.cast_pointer(rclass.OBJECTPTR, result)
         result_as_objptr.typeptr = support.cast_from_int(rclass.CLASSTYPE,
-                                                descr._vtable)
+                                                descr.get_vtable())
         return lltype.cast_opaque_ptr(llmemory.GCREF, result)
 
     def bh_new_array(self, length, arraydescr):
