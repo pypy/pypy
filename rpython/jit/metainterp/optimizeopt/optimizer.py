@@ -342,6 +342,7 @@ class Optimizer(Optimization):
         return op
 
     def is_inputarg(self, op):
+        return True
         return op in self.inparg_dict
 
     def get_constant_box(self, box):
