@@ -123,9 +123,9 @@ class UnrollOptimizer(Optimization):
         # the label_op again
         label_op.initarglist(label_args + extra)
         if new_virtual_state is not None:
-            res = self.jump_to_preamble(start_label.getdescr(), end_jump,
-                                         info)
-            xxx
+            self.jump_to_preamble(start_label.getdescr(), end_jump, info)
+            return (UnrollInfo(target_token, label_op, []),
+                    self.optimizer._newoperations)
             #return new_virtual_state, self.optimizer._newoperations
         return (UnrollInfo(target_token, label_op,
                            self.short_preamble_producer.extra_same_as),

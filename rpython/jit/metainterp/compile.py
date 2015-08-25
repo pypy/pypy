@@ -305,6 +305,7 @@ def compile_retrace(metainterp, greenkey, start,
     to the first operation.
     """
     from rpython.jit.metainterp.optimizeopt import optimize_trace
+    from rpython.jit.metainterp.optimizeopt.optimizer import BasicLoopInfo
 
     history = metainterp.history
     metainterp_sd = metainterp.staticdata
@@ -328,6 +329,7 @@ def compile_retrace(metainterp, greenkey, start,
     except InvalidLoop:
         # Fall back on jumping to preamble
         xxx
+        return None
 
     loop = partial_trace
     loop.operations = (loop.operations + loop_info.extra_same_as +
