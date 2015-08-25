@@ -169,6 +169,7 @@ class LLtypeMixin(object):
                                             ('ptrval', lltype.Ptr(OBJECT)),
                                             hints={'immutable': True})
     ptrobj_immut_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
+    ptrobj_immut_descr = cpu.sizeof(PTROBJ_IMMUT, ptrobj_immut_vtable)
     immut_ptrval = cpu.fielddescrof(PTROBJ_IMMUT, 'ptrval')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
