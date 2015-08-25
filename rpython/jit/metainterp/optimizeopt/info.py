@@ -35,6 +35,11 @@ class PtrInfo(AbstractInfo):
     def is_virtual(self):
         return False
 
+    def force_at_the_end_of_preamble(self, op, optforce, rec):
+        if not self.is_virtual():
+            return optforce.get_box_replacement(op)
+        return self._force_at_the_end_of_preamble(op, optforce, rec)
+
     def get_known_class(self, cpu):
         return None
 
@@ -115,6 +120,9 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
             return newop
         return op
 
+    def _force_at_the_end_of_preamble(self, op, optforce, rec):
+        return self.force_box(op, optforce)
+
     def is_virtual(self):
         return self.vdescr is not None
 
@@ -169,6 +177,21 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                     optforce.optheap.propagate_forward(setfieldop)
                 else:
                     optforce.emit_operation(setfieldop)
+
+    def _force_at_the_end_of_preamble(self, op, optforce, rec):
+        if self._fields is None:
+            return optforce.get_box_replacement(op)
+        if self in rec:
+            return optforce.get_box_replacement(op)
+        rec[self] = None
+        for i, fldbox in enumerate(self._fields):
+            if fldbox is not None:
+                info = optforce.getptrinfo(fldbox)
+                if info is not None:
+                    fldbox = info.force_at_the_end_of_preamble(fldbox, optforce,
+                                                               rec)
+                    self._fields[i] = fldbox
+        return op
 
     def _visitor_walk_recursive(self, instbox, visitor, optimizer):
         lst = self.vdescr.get_all_fielddescrs()
@@ -424,6 +447,21 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             getarrayitem_op = ResOperation(opnum, [structbox, ConstInt(index)],
                                            descr=descr)
             shortboxes.add_heap_op(op, getarrayitem_op)
+
+    def _force_at_the_end_of_preamble(self, op, optforce, rec):
+        if self._items is None:
+            return optforce.get_box_replacement(op)
+        if self in rec:
+            return optforce.get_box_replacement(op)
+        rec[self] = None
+        for i, fldbox in enumerate(self._items):
+            if fldbox is not None:
+                info = optforce.getptrinfo(fldbox)
+                if info is not None:
+                    fldbox = info.force_at_the_end_of_preamble(fldbox, optforce,
+                                                               rec)
+                    self._items[i] = fldbox
+        return op
 
     def make_guards(self, op, short):
         AbstractVirtualPtrInfo.make_guards(self, op, short)

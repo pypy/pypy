@@ -144,7 +144,7 @@ class Optimization(object):
         return self.optimizer.get_box_replacement(op, not_const=not_const)
 
     def getlastop(self):
-        return self.optimizer._last_emitted_op
+        return self.optimizer.getlastop()
 
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         return self.optimizer.replace_op_with(op, newopnum, args, descr)

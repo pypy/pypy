@@ -502,17 +502,20 @@ class OptString(optimizer.Optimization):
 
     def make_vstring_plain(self, op, mode, length):
         vvalue = VStringPlainInfo(mode, True, length)
-        self.make_equal_to(op, vvalue)
+        op = self.replace_op_with(op, op.getopnum())
+        op.set_forwarded(vvalue)
         return vvalue
 
     def make_vstring_concat(self, op, mode, vleft, vright):
         vvalue = VStringConcatInfo(mode, vleft, vright, True)
-        self.make_equal_to(op, vvalue)
+        op = self.replace_op_with(op, op.getopnum())
+        op.set_forwarded(vvalue)
         return vvalue
 
     def make_vstring_slice(self, op, strbox, startbox, mode, lengthbox):
         vvalue = VStringSliceInfo(strbox, startbox, lengthbox, mode)
-        self.make_equal_to(op, vvalue)
+        op = self.replace_op_with(op, op.getopnum())
+        op.set_forwarded(vvalue)
         return vvalue
 
     def optimize_NEWSTR(self, op):

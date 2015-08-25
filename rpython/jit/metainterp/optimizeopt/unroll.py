@@ -193,8 +193,8 @@ class UnrollOptimizer(Optimization):
 
     def jump_to_existing_trace(self, jump_op):
         jitcelltoken = jump_op.getdescr()
+        virtual_state = self.get_virtual_state(jump_op.getarglist())
         args = [self.get_box_replacement(op) for op in jump_op.getarglist()]
-        virtual_state = self.get_virtual_state(args)
         infos = [self.optimizer.getinfo(arg) for arg in args]
         for target_token in jitcelltoken.target_tokens:
             target_virtual_state = target_token.virtual_state
@@ -202,8 +202,7 @@ class UnrollOptimizer(Optimization):
                 continue
             try:
                 extra_guards = target_virtual_state.generate_guards(
-                    virtual_state, jump_op.getarglist(), infos,
-                    self.optimizer.cpu)
+                    virtual_state, args, infos, self.optimizer.cpu)
                 patchguardop = self.optimizer.patchguardop
                 for guard in extra_guards.extra_guards:
                     if isinstance(guard, GuardResOp):
@@ -258,8 +257,8 @@ class UnrollOptimizer(Optimization):
                 op.set_forwarded(None)
 
     def export_state(self, start_label, original_label_args, renamed_inputargs):
+        virtual_state = self.get_virtual_state(original_label_args)
         end_args = [self.get_box_replacement(a) for a in original_label_args]
-        virtual_state = self.get_virtual_state(end_args)
         infos = {}
         for arg in end_args:
             infos[arg] = self.optimizer.getinfo(arg)
