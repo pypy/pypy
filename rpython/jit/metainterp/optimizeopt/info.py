@@ -669,6 +669,7 @@ class ConstPtrInfo(PtrInfo):
                 IntLowerBound
 
         if mode is None:
+            # XXX we can do better if we know it's an array
             return IntLowerBound(0)
         else:
             return ConstIntBound(self.getstrlen(None, None, mode).getint())

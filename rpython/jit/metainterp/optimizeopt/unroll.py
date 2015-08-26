@@ -77,6 +77,7 @@ class UnrollOptimizer(Optimization):
     distinction anymore)"""
 
     short_preamble_producer = None
+    main_target_token = None
 
     def __init__(self, metainterp_sd, jitdriver_sd, optimizations):
         self.optimizer = UnrollableOptimizer(metainterp_sd, jitdriver_sd,

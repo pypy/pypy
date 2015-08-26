@@ -431,8 +431,9 @@ class OptIntBounds(Optimization):
         v2 = self.getptrinfo(op.getarg(0))
         intbound = self.getintbound(op.getarg(1))
         if (intbound.has_lower and v2 is not None and
-            v2.getlenbound(v2.mode) is not None):
-            v2.getlenbound(v2.mode).make_ge(IntLowerBound(intbound.lower + 1))
+            v2.getlenbound(vstring.mode_string) is not None):
+            lb = IntLowerBound(intbound.lower + 1)
+            v2.getlenbound(vstring.mode_string).make_ge(lb)
         v1.make_ge(IntLowerBound(0))
         v1.make_lt(IntUpperBound(256))
 
@@ -474,8 +475,9 @@ class OptIntBounds(Optimization):
         v2 = self.getptrinfo(op.getarg(0))
         intbound = self.getintbound(op.getarg(1))
         if (intbound.has_lower and v2 is not None and
-            v2.getlenbound(v2.mode) is not None):
-            v2.getlenbound(v2.mode).make_ge(IntLowerBound(intbound.lower + 1))
+            v2.getlenbound(vstring.mode_unicode) is not None):
+            lb = IntLowerBound(intbound.lower + 1)
+            v2.getlenbound(vstring.mode_unicode).make_ge(lb)
 
     def make_int_lt(self, box1, box2):
         b1 = self.getintbound(box1)

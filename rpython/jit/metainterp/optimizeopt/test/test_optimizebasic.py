@@ -3724,6 +3724,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_int_add_sub_constants_inverse(self):
+        py.test.skip("reenable")
         import sys
         ops = """
         [i0, i10, i11, i12, i13]
@@ -4257,6 +4258,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         strsetitem(p3, i2, i0)
         i5 = int_add(i2, 1)
         strsetitem(p3, i5, i1)
+        ifoo = int_add(i5, 1)
         jump(i1, i0, p3)
         """
         self.optimize_strunicode_loop(ops, expected)
