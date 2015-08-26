@@ -1,13 +1,11 @@
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
-from rpython.jit.metainterp.history import (ConstInt, Const,
-        ConstPtr, ConstFloat)
+from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimizeopt.intutils import \
-     ConstIntBound, MININT, MAXINT, IntBound
+     MININT, MAXINT, IntBound
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
-     AbstractInputArg
-from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.rlib.objectmodel import we_are_translated
+     InputArgInt, InputArgRef, InputArgFloat
+from rpython.rlib.debug import debug_print
 
 LEVEL_UNKNOWN = '\x00'
 LEVEL_NONNULL = '\x01'
@@ -22,16 +20,11 @@ class VirtualStatesCantMatch(Exception):
         self.msg = msg
         self.state = state
 
-def get_forwarded(box):
-    if not isinstance(box, Const):
-        return box.get_forwarded()
-    if box.type == 'i':
-        return ConstIntBound(box.getint())
-    xxx
 
 class GenerateGuardState(object):
-    def __init__(self, cpu=None, guards=None, renum=None, bad=None):
-        self.cpu = cpu
+    def __init__(self, optimizer=None, guards=None, renum=None, bad=None):
+        self.optimizer = optimizer
+        self.cpu = optimizer.cpu
         if guards is None:
             guards = []
         self.extra_guards = guards
@@ -42,20 +35,29 @@ class GenerateGuardState(object):
             bad = {}
         self.bad = bad
 
+    def get_runtime_field(self, box, descr):
+        if descr.is_pointer_field():
+            xxx
+        elif descr.is_float_field():
+            yyy
+        else:
+            struct = box.getref_base()
+            return InputArgInt(self.cpu.bh_getfield_gc_i(struct, descr))
+
 class AbstractVirtualStateInfo(object):
     position = -1
 
-    def generate_guards(self, other, op, opinfo, state):
+    def generate_guards(self, other, op, runtime_op, state):
         """ generate guards (output in the list extra_guards) that make runtime
         values of the shape other match the shape of self. if that's not
         possible, VirtualStatesCantMatch is thrown and bad gets keys set which
         parts of the state are the problem.
 
-        the function can peek into opinfo (and particularly also the op)
+        the function can peek into the information about the op, as well
+        as runtime value (passed in runtime_op)
         as a guiding heuristic whether making such guards makes
         sense. if None is passed in for op, no guard is ever generated, and
         this function degenerates to a generalization check."""
-        assert opinfo is None or opinfo.is_constant() or isinstance(opinfo, info.AbstractInfo)
         assert self.position != -1
         if self.position in state.renum:
             if state.renum[self.position] != other.position:
@@ -69,14 +71,14 @@ class AbstractVirtualStateInfo(object):
         else:
             state.renum[self.position] = other.position
             try:
-                self._generate_guards(other, op, opinfo, state)
+                self._generate_guards(other, op, runtime_op, state)
             except VirtualStatesCantMatch, e:
                 state.bad[self] = state.bad[other] = None
                 if e.state is None:
                     e.state = state
                 raise e
 
-    def _generate_guards(self, other, value, state):
+    def _generate_guards(self, other, box, runtime_box, state):
         raise VirtualStatesCantMatch(
                 'Generating guards for making the VirtualStates ' +
                 'at hand match have not been implemented')
@@ -114,14 +116,15 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
 
-    def _generate_guards(self, other, box, opinfo, state):
+    def _generate_guards(self, other, box, runtime_box, state):
         if not self._generalization_of_structpart(other):
             raise VirtualStatesCantMatch("different kinds of structs")
 
         assert isinstance(other, AbstractVirtualStructStateInfo)
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
-        if box is not None:
+        opinfo = state.optimizer.getptrinfo(box)
+        if runtime_box is not None:
             assert opinfo.is_virtual()
 
         if len(self.fielddescrs) != len(other.fielddescrs):
@@ -130,21 +133,18 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         for i in range(len(self.fielddescrs)):
             if other.fielddescrs[i] is not self.fielddescrs[i]:
                 raise VirtualStatesCantMatch("field descrs don't match")
-            if box is not None:
+            if runtime_box is not None:
                 fieldbox = opinfo._fields[self.fielddescrs[i].get_index()]
                 # must be there
-                if fieldbox is not None:
-                    fieldinfo = get_forwarded(fieldbox)
-                else:
-                    fieldinfo = None
+                fieldbox_runtime = state.get_runtime_field(runtime_box,
+                                                           self.fielddescrs[i])
             else:
                 fieldbox = None
-                fieldinfo = None
-            # XXX all those ifs are for tests, not sure what to do
+                fieldbox_runtime = None
             if self.fieldstate[i] is not None:
                 self.fieldstate[i].generate_guards(other.fieldstate[i],
                                                    fieldbox,
-                                                   fieldinfo, state)
+                                                   fieldbox_runtime, state)
 
 
     def _generalization_of_structpart(self, other):
@@ -205,6 +205,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         self.arraydescr = arraydescr
 
     def _generate_guards(self, other, box, opinfo, state):
+        xxx
         if not isinstance(other, VArrayStateInfo):
             raise VirtualStatesCantMatch("other is not an array")
         if self.arraydescr is not other.arraydescr:
@@ -251,6 +252,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         self.fielddescrs = fielddescrs
 
     def _generate_guards(self, other, box, opinfo, state):
+        xxxx
         if not isinstance(other, VArrayStructStateInfo):
             raise VirtualStatesCantMatch("other is not an VArrayStructStateInfo")
         if self.arraydescr is not other.arraydescr:
@@ -344,7 +346,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def is_virtual(self):
         return False
 
-    def _generate_guards(self, other, box, opinfo, state):
+    def _generate_guards(self, other, box, runtime_box, state):
         if self.is_opaque:
             box = None # generating guards for opaque pointers isn't safe
         # XXX This will always retrace instead of forcing anything which
@@ -365,7 +367,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         if self.level == LEVEL_UNKNOWN:
             # confusingly enough, this is done also for pointers
             # which have the full range as the "bound", so it always works
-            return self._generate_guards_intbounds(other, box, opinfo,
+            return self._generate_guards_intbounds(other, box, runtime_box,
                                                    extra_guards)
 
         # the following conditions often peek into the runtime value that the
@@ -375,7 +377,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         # will always generate correct behaviour, but performance will differ.
         elif self.level == LEVEL_NONNULL:
             if other.level == LEVEL_UNKNOWN:
-                if box is not None and box.nonnull():
+                if runtime_box is not None and runtime_box.nonnull():
                     op = ResOperation(rop.GUARD_NONNULL, [box], None)
                     extra_guards.append(op)
                     return
@@ -394,15 +396,16 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
 
         elif self.level == LEVEL_KNOWNCLASS:
             if other.level == LEVEL_UNKNOWN:
-                if (box and box.nonnull() and
-                        self.known_class.same_constant(cpu.ts.cls_of_box(box))):
+                if (runtime_box and runtime_box.nonnull() and
+              self.known_class.same_constant(cpu.ts.cls_of_box(runtime_box))):
                     op = ResOperation(rop.GUARD_NONNULL_CLASS, [box, self.known_class], None)
                     extra_guards.append(op)
                     return
                 else:
                     raise VirtualStatesCantMatch("other's class is unknown")
             elif other.level == LEVEL_NONNULL:
-                if box and self.known_class.same_constant(cpu.ts.cls_of_box(box)):
+                if (runtime_box and self.known_class.same_constant(
+                        cpu.ts.cls_of_box(runtime_box))):
                     op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
                     extra_guards.append(op)
                     return
@@ -426,7 +429,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 if self.constbox.same_constant(other.constbox):
                     return
                 raise VirtualStatesCantMatch("different constants")
-            if box is not None and self.constbox.same_constant(box.constbox()):
+            if runtime_box is not None and self.constbox.same_constant(runtime_box.constbox()):
                 op = ResOperation(rop.GUARD_VALUE, [box, self.constbox], None)
                 extra_guards.append(op)
                 return
@@ -434,12 +437,13 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 raise VirtualStatesCantMatch("other not constant")
         assert 0, "unreachable"
 
-    def _generate_guards_intbounds(self, other, box, opinfo, extra_guards):
+    def _generate_guards_intbounds(self, other, box, runtime_box, extra_guards):
         if self.intbound is None:
             return
         if self.intbound.contains_bound(other.intbound):
             return
-        if (box is not None and self.intbound.contains(box.getint())):
+        if (runtime_box is not None and
+            self.intbound.contains(runtime_box.getint())):
             # this may generate a few more guards than needed, but they are
             # optimized away when emitting them
             self.intbound.make_guards(box, extra_guards)
@@ -523,12 +527,13 @@ class VirtualState(object):
             return False
         return True
 
-    def generate_guards(self, other, boxes, infos, cpu):
-        assert len(self.state) == len(other.state) == len(boxes) == len(infos)
-        state = GenerateGuardState(cpu)
+    def generate_guards(self, other, boxes, runtime_boxes, optimizer):
+        assert (len(self.state) == len(other.state) == len(boxes) ==
+                len(runtime_boxes))
+        state = GenerateGuardState(optimizer)
         for i in range(len(self.state)):
-            self.state[i].generate_guards(other.state[i], boxes[i], infos[i],
-                                          state)
+            self.state[i].generate_guards(other.state[i], boxes[i],
+                                          runtime_boxes[i], state)
         return state
 
     def make_inputargs(self, inputargs, optimizer, force_boxes=False,
@@ -577,24 +582,6 @@ class VirtualStateConstructor(VirtualVisitor):
 
     def already_seen_virtual(self, keybox):
         return keybox in self.fieldboxes
-
-    #def state(self, box):
-    #    xxx
-    #    value = self.getvalue(box)
-    #    box = value.get_key_box()
-    #    try:
-    #        info = self.info[box]
-    #    except KeyError:
-    #        self.info[box] = info = value.visitor_dispatch_virtual_type(self)
-    #        if value.is_virtual():
-    #            flds = self.fieldboxes[box]
-    #            info.fieldstate = [self.state_or_none(b, value) for b in flds]
-    #    return info
-
-    #def state_or_none(self, box, value):
-    #    if box is None:
-    #        box = value.get_missing_null_value().box
-    #    return self.state(box)
 
     def create_state_or_none(self, box, opt):
         if box is None:

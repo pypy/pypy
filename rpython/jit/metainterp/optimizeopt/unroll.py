@@ -202,14 +202,13 @@ class UnrollOptimizer(Optimization):
         jitcelltoken = jump_op.getdescr()
         virtual_state = self.get_virtual_state(jump_op.getarglist())
         args = [self.get_box_replacement(op) for op in jump_op.getarglist()]
-        infos = [self.optimizer.getinfo(arg) for arg in args]
         for target_token in jitcelltoken.target_tokens:
             target_virtual_state = target_token.virtual_state
             if target_virtual_state is None:
                 continue
             try:
                 extra_guards = target_virtual_state.generate_guards(
-                    virtual_state, args, infos, self.optimizer.cpu)
+                    virtual_state, args, jump_op.getarglist(), self.optimizer)
                 patchguardop = self.optimizer.patchguardop
                 for guard in extra_guards.extra_guards:
                     if isinstance(guard, GuardResOp):

@@ -190,11 +190,11 @@ class DictTests:
         # not cached anyway.
         res = self.meta_interp(f, [100], listops=True)
         assert res == f(50)
-        self.check_resops({'new_array_clear': 2, 'getfield_gc': 2,
+        self.check_resops({'new_array_clear': 2, 'getfield_gc_r': 2,
                            'guard_true': 4, 'jump': 1,
-                           'new_with_vtable': 2, 'getinteriorfield_gc': 2,
+                           'new_with_vtable': 2, 'getinteriorfield_gc_i': 2,
                            'setfield_gc': 14, 'int_gt': 2, 'int_sub': 2,
-                           'call': 10, 'int_ge': 2,
+                           'call_i': 6, 'call_n': 2, 'call_r': 2, 'int_ge': 2,
                            'guard_no_exception': 8, 'new': 2})
 
     def test_unrolling_of_dict_iter(self):
