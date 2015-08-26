@@ -631,9 +631,11 @@ class TreeLoop(object):
         raise Exception("TreeLoop.token is killed")
     token = property(_token, _token)
 
-    # This is the jitcell where the trace starts. Labels within the trace might
-    # belong to some other jitcells in the sens that jumping to this other
-    # jitcell will result in a jump to the label.
+    # This is the jitcell where the trace starts.  Labels within the
+    # trace might belong to some other jitcells, i.e. they might have
+    # TargetTokens with a different value for 'targeting_jitcell_token'.
+    # But these TargetTokens also have a 'original_jitcell_token' field,
+    # which must be equal to this one.
     original_jitcell_token = None
 
     def __init__(self, name):
