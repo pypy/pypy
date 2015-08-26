@@ -2739,8 +2739,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             '''
             p1.nextdescr = p2
             where p2 is a node_vtable, valuedescr=i2
-            ''', rop.GUARD_TRUE, values=[InputArgInt(0),
-                                         InputArgRef(self.nodeaddr)])
+            ''', rop.GUARD_TRUE, values=[InputArgRef(self.nodeaddr),
+                                         InputArgInt(0)])
 
     def test_expand_fail_lazy_setfield_2(self):
         ops = """
