@@ -87,6 +87,7 @@ class Module(MixedModule):
         'save_module_content_for_future_reload':
                           'interp_magic.save_module_content_for_future_reload',
         'normalize_exc'             : 'interp_magic.normalize_exc',
+        'StdErrPrinter'             : 'interp_stderrprinter.W_StdErrPrinter',
     }
 
     submodules = {

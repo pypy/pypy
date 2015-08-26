@@ -43,9 +43,10 @@ PYPYLOG: If set to a non-empty value, enable logging.
 """
 
 try:
-    from __pypy__ import hidden_applevel
+    from __pypy__ import hidden_applevel, StdErrPrinter
 except ImportError:
     hidden_applevel = lambda f: f
+    StdErrPrinter = None
 try:
     from _ast import PyCF_ACCEPT_NULL_BYTES
 except ImportError:
@@ -265,6 +266,9 @@ def setup_and_fix_paths(ignore_environment=False, **extra):
 def initstdio(encoding=None, unbuffered=False):
     if hasattr(sys, 'stdin'):
         return # already initialized
+
+    if StdErrPrinter is not None:
+        sys.stderr = sys.__stderr__ = StdErrPrinter(2)
 
     if 1:  # keep indentation
         if encoding and ':' in encoding:
