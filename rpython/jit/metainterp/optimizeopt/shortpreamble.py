@@ -388,10 +388,10 @@ class ShortPreambleBuilder(object):
             self.short.append(ResOperation(rop.GUARD_NO_OVERFLOW, [], None))
         info = preamble_op.get_forwarded()
         preamble_op.set_forwarded(None)
-        if info is not empty_info:
-            info.make_guards(preamble_op, self.short)
         if optimizer is not None:
             optimizer.setinfo_from_preamble(box, info, None)
+        if info is not empty_info:
+            info.make_guards(preamble_op, self.short)
         return preamble_op
 
     def add_preamble_op(self, preamble_op):

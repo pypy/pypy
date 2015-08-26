@@ -295,6 +295,15 @@ class Optimizer(Optimization):
         for o in self.optimizations:
             o.force_at_end_of_preamble()
 
+    def force_box_for_end_of_preamble(self, box):
+        if box.type == 'r':
+            info = self.getptrinfo(box)
+            if info is not None and info.is_virtual():
+                rec = {}
+                return info.force_at_the_end_of_preamble(box, self, rec)
+            return box
+        return box
+
     def flush(self):
         for o in self.optimizations:
             o.flush()

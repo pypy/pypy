@@ -93,7 +93,7 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
                 optforce.get_box_replacement(op).set_forwarded(c_s)
                 return c_s
         self._is_virtual = False
-        lengthbox = self.getstrlen(op, optforce, self.mode)
+        lengthbox = self.getstrlen(op, optforce.optstring, self.mode)
         newop = ResOperation(self.mode.NEWSTR, [lengthbox])
         if not we_are_translated():
             newop.name = 'FORCE'
@@ -122,16 +122,26 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         string_optimizer.emit_operation(lengthop)
         return lengthop
 
+    def make_guards(self, op, short):
+        info.AbstractVirtualPtrInfo.make_guards(self, op, short)
+        if self.lenbound and self.lenbound.lower >= 1:
+            if self.mode is mode_string:
+                lenop = ResOperation(rop.STRLEN, [op])
+            elif self.mode is mode_unicode:
+                lenop = ResOperation(rop.UNICODELEN, [op])
+            short.append(lenop)
+            self.lenbound.make_guards(lenop, short)
+
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):
-         # Copies the pointer-to-string 'self' into the target string
-         # given by 'targetbox', at the specified offset.  Returns the offset
-         # at the end of the copy.
-         lengthbox = self.getstrlen(op, string_optimizer, mode)
-         srcbox = self.force_box(op, string_optimizer)
-         return copy_str_content(string_optimizer, srcbox, targetbox,
-                                 CONST_0, offsetbox, lengthbox, mode)
-
+        # Copies the pointer-to-string 'self' into the target string
+        # given by 'targetbox', at the specified offset.  Returns the offset
+        # at the end of the copy.
+        lengthbox = self.getstrlen(op, string_optimizer, mode)
+        srcbox = self.force_box(op, string_optimizer)
+        return copy_str_content(string_optimizer, srcbox, targetbox,
+                                CONST_0, offsetbox, lengthbox, mode)
+     
 class VStringPlainInfo(StrPtrInfo):
     #_attrs_ = ('mode', '_is_virtual')
 
@@ -397,6 +407,9 @@ def _strgetitem(string_optimizer, strbox, indexbox, mode, resbox=None):
 
 class OptString(optimizer.Optimization):
     "Handling of strings and unicodes."
+
+    def setup(self):
+        self.optimizer.optstring = self
 
     def make_vstring_plain(self, op, mode, length):
         vvalue = VStringPlainInfo(mode, True, length)

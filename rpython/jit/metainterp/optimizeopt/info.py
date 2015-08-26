@@ -67,7 +67,7 @@ class PtrInfo(AbstractInfo):
         pass
 
     def make_guards(self, op, short):
-        pass
+        short.append(ResOperation(rop.GUARD_VALUE, [op, self._const]))
     
 class NonNullPtrInfo(PtrInfo):
     _attrs_ = ('last_guard_pos',)
@@ -698,3 +698,9 @@ class ConstPtrInfo(PtrInfo):
                                         lgt, mode)
 
     
+class FloatConstInfo(AbstractInfo):
+    def __init__(self, const):
+        self._const = const
+
+    def make_guards(self, op, short):
+        short.append(ResOperation(rop.GUARD_VALUE, [op, self._const]))

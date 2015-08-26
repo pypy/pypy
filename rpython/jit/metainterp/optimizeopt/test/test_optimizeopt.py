@@ -4892,7 +4892,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_setgetfield_raw(self):
         ops = """
         [p4, p7, i30]
-        p16 = getfield_gc_r(p4, descr=valuedescr)
+        p16 = getfield_gc_r(p4, descr=nextdescr)
         guard_value(p16, ConstPtr(myptr), descr=<Guard3>) []
         i1 = getfield_raw_i(p7, descr=nextdescr)
         i2 = int_add(i1, i30)
@@ -4913,7 +4913,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_setgetarrayitem_raw(self):
         ops = """
         [p4, i7, i30]
-        p16 = getfield_gc_r(p4, descr=valuedescr)
+        p16 = getfield_gc_r(p4, descr=otherdescr)
         guard_value(p16, ConstPtr(myptr), descr=<Guard3>) []
         i1 = getarrayitem_raw_i(i7, 1, descr=arraydescr)
         i2 = int_add(i1, i30)
@@ -6379,8 +6379,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_str_concat_consts(self):
         ops = """
         []
-        p1 = same_as(s"ab")
-        p2 = same_as(s"cde")
+        p1 = same_as_r(s"ab")
+        p2 = same_as_r(s"cde")
         p3 = call_r(0, p1, p2, descr=strconcatdescr)
         escape_n(p3)
         jump()
@@ -6404,13 +6404,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p1, i1, i2, i3]
         escape_n(i3)
         i4 = int_sub(i2, i1)
-        i5 = same_as_i(i4)
-        jump(p1, i1, i2, i4, i5)
+        jump(p1, i1, i2, i4)
         """
         expected = """
-        [p1, i1, i2, i3, i4]
+        [p1, i1, i2, i3]
         escape_n(i3)
-        jump(p1, i1, i2, i4, i4)
+        jump(p1, i1, i2, i3)
         """
         self.optimize_strunicode_loop(ops, expected, preamble)
 
@@ -7249,21 +7248,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         short = """
         [p1, p187, i184]
+        guard_nonnull(p187) []
+        i10 = arraylen_gc(p187, descr=gcarraydescr)
+        i11 = int_ge(i10, 43)
+        guard_true(i11) []
         p188 = getarrayitem_gc_r(p187, 42, descr=gcarraydescr)
-        #guard_value(p188, ConstPtr(myptr)) []
+        guard_value(p188, ConstPtr(myptr)) []
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
         jump(p25)
         """
         expected = """
         [p25, p187, i184, p189]
-        jump(p25, p187, i184, p189) # <- XXX is this correct for bridges?
+        ifoo = arraylen_gc(p187, descr=gcarraydescr) # killed by backend
+        jump(p189, p187, i184, p189)
         """
         self.optimize_loop(ops, expected, preamble, expected_short=short)
 
     def test_constant_getfield1bis(self):
         ops = """
         [p1, p187, i184]
-        p188 = getarrayitem_gc_r(p187, 42, descr=arraydescr)
+        p188 = getarrayitem_gc_r(p187, 42, descr=gcarraydescr)
         guard_value(p188, ConstPtr(myptr)) []
         p25 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
         p26 = call_r(p25, descr=nonwritedescr)
@@ -7272,6 +7276,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p24, p187, i184, p25]
         p26 = call_r(p25, descr=nonwritedescr)
+        ifoo = arraylen_gc(p187, descr=gcarraydescr) # killed
         jump(p26, p187, i184, p25)
         """
         self.optimize_loop(ops, expected)
@@ -7431,6 +7436,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         short = """
         [p0]
+        guard_nonnull_class(p0, ConstClass(node_vtable)) []
         p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_nonnull_class(p1, ConstClass(node_vtable)) []
         p2 = getfield_gc_r(p1, descr=nextdescr)
@@ -7531,10 +7537,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         short = """
         [p9]
+        guard_nonnull(p9) []
         i843 = strlen(p9)
         i848 = int_ge(i843, 0)
         guard_true(i848)[]
-        jump(p9, i843)
+        jump(i843)
         """
         expected = """
         [p9, i2]
@@ -7625,6 +7632,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         short = """
         [p0]
+        guard_nonnull(p0) []
         p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_nonnull(p1) []
         i1 = arraylen_gc(p1, descr=gcarraydescr)
@@ -7728,6 +7736,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p9, i1, i843]
         call_n(i843, descr=nonwritedescr)
+        ifoo = arraylen_gc(p9)
         jump(p9, i1, i843)
         """
         self.optimize_loop(ops, expected)
@@ -7742,6 +7751,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         short = """
         [p0]
+        guard_nonnull(p0) []
         p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_nonnull(p1) []
         i1 = arraylen_gc(p1)
@@ -7768,6 +7778,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         short = """
         [p0]
+        guard_nonnull(p0) []
         p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_nonnull(p1) []
         i1 = strlen(p1)
@@ -7778,7 +7789,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i8) []
         i9 = int_le(i22, 255)
         guard_true(i9) []
-        jump(p0, i22, p1)
+        jump(i22, p1)
         """
         expected = """
         [p0, i22, p1]
@@ -7798,6 +7809,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         short = """
         [p0]
+        guard_nonnull(p0) []
         p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_nonnull(p1) []
         i1 = unicodelen(p1)
@@ -7806,7 +7818,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i22 = unicodegetitem(p1, 7, descr=<GcPtrArrayDescr>)
         i8 = int_ge(i22, 0)
         guard_true(i8) []
-        jump(p0, i22, p1)
+        jump(i22, p1)
         """
         expected = """
         [p0, i22, p1]
@@ -7906,6 +7918,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         short = """
         [p0]
+        guard_nonnull(p0) []
         i0 = getfield_gc_i(p0, descr=valuedescr)
         guard_value(i0, 1) []
         jump()
@@ -8004,9 +8017,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p5, p6, i14, i12]
         i13 = int_add(i14, 7)
-        call_n(i12, i13, descr=nonwritedescr)
+        call_n(i13, i12, descr=nonwritedescr)
         setfield_gc(p6, i14, descr=chardescr)
-        jump(p5, p6, i14, i12)
+        jump(p5, p6, i14, i13)
         """
         self.optimize_loop(ops, expected)
 
@@ -8055,10 +8068,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_constptr_constptr_getfield_setfield(self):
         ops = """
         [p0]
-        p10 = getfield_gc_r(ConstPtr(myptr), descr=valuedescr)
+        p10 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
         guard_value(p10, ConstPtr(myptr2)) []
         call_n(p10, descr=nonwritedescr)
-        setfield_gc(ConstPtr(myptr), ConstPtr(myptr2), descr=valuedescr)
+        setfield_gc(ConstPtr(myptr), ConstPtr(myptr2), descr=otherdescr)
         jump(p0)
         """
         expected = """
@@ -8086,10 +8099,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_box_constptr_getfield_setfield(self):
         ops = """
         [p0]
-        p10 = getfield_gc_r(p0, descr=valuedescr)
+        p10 = getfield_gc_r(p0, descr=otherdescr)
         guard_value(p10, ConstPtr(myptr2)) []
         call_n(p10, descr=nonwritedescr)
-        setfield_gc(p0, ConstPtr(myptr2), descr=valuedescr)
+        setfield_gc(p0, ConstPtr(myptr2), descr=otherdescr)
         jump(p0)
         """
         expected = """
@@ -8102,10 +8115,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_import_constants_when_folding_pure_operations(self):
         ops = """
         [p0]
-        f1 = getfield_gc_f(p0, descr=valuedescr)
+        f1 = getfield_gc_f(p0, descr=floatdescr)
         f2 = float_abs(f1)
         call_n(7.0, descr=nonwritedescr)
-        setfield_gc(p0, -7.0, descr=valuedescr)
+        setfield_gc(p0, -7.0, descr=floatdescr)
         jump(p0)
         """
         expected = """
@@ -8141,6 +8154,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected, expected_short=short)
 
     def test_prioritize_getfield1(self):
+        py.test.skip("we no longer do it, and while unfortunate I don't think it's that relevant")
         ops = """
         [p1, p2]
         i1 = getfield_gc_i(p1, descr=valuedescr)
@@ -8265,6 +8279,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         short = """
         [p22, p18]
+        guard_nonnull(p22) []
         i1 = getfield_gc_i(p22, descr=valuedescr)
         guard_value(i1, 2) []
         jump()
@@ -8296,6 +8311,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         short = """
         [p22, p18, i1]
+        guard_nonnull(p22) []
         i2 = getfield_gc_i(p22, descr=valuedescr)
         jump(i2)
         """
@@ -8341,6 +8357,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call_n(p2, descr=nonwritedescr)
         p3 = new_with_vtable(descr=nodesize)
         setarrayitem_gc(p1, 3, p3, descr=gcarraydescr)
+        ifoo = arraylen_gc(p1, descr=gcarraydescr) # killed
         jump(p1, p3)
         """
         self.optimize_loop(ops, expected)

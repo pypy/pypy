@@ -609,9 +609,6 @@ class VirtualStateConstructor(VirtualVisitor):
             pass
         if box.type == 'r':
             info = opt.getptrinfo(box)
-            if info is not None:
-                rec = {}
-                box = info.force_at_the_end_of_preamble(box, opt.optimizer, rec)
             if info is not None and info.is_virtual():
                 result = info.visitor_dispatch_virtual_type(self)
                 self.info[box] = result
@@ -629,7 +626,6 @@ class VirtualStateConstructor(VirtualVisitor):
         return result
 
     def get_virtual_state(self, jump_args):
-        self.optimizer.force_at_end_of_preamble()
         if self.optimizer.optearlyforce:
             opt = self.optimizer.optearlyforce
         else:

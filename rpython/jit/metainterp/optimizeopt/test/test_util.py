@@ -118,7 +118,9 @@ class LLtypeMixin(object):
     node2.parent.parent.typeptr = node_vtable2
     node2addr = lltype.cast_opaque_ptr(llmemory.GCREF, node2)
     myptr = lltype.cast_opaque_ptr(llmemory.GCREF, node)
-    myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(NODE))
+    mynode2 = lltype.malloc(NODE)
+    mynode2.parent.typeptr = node_vtable
+    myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode2)
     nullptr = lltype.nullptr(llmemory.GCREF.TO)
     #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
     nodesize = cpu.sizeof(NODE, node_vtable)

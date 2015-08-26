@@ -6,6 +6,7 @@ from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
 from rpython.jit.metainterp.optimizeopt import info, intutils
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
      Optimization, LoopInfo, MININT, MAXINT
+from rpython.jit.metainterp.optimizeopt.vstring import StrPtrInfo
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
     VirtualStateConstructor, VirtualStatesCantMatch)
 from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp
@@ -53,6 +54,10 @@ class UnrollableOptimizer(Optimizer):
                 arr_info = info.ArrayPtrInfo(preamble_info.arraydescr)
                 arr_info.lenbound = preamble_info.getlenbound(None)
                 op.set_forwarded(arr_info)
+            if isinstance(preamble_info, StrPtrInfo):
+                str_info = StrPtrInfo(preamble_info.mode)
+                str_info.lenbound = preamble_info.getlenbound(None)
+                op.set_forwarded(str_info)
             if preamble_info.is_nonnull():
                 self.make_nonnull(op)
         elif isinstance(preamble_info, intutils.IntBound):
@@ -111,6 +116,7 @@ class UnrollOptimizer(Optimization):
         label_op = ResOperation(rop.LABEL, label_args, start_label.getdescr())
         target_token = self.finalize_short_preamble(label_op,
                                                     state.virtual_state)
+        self.main_target_token = target_token
         label_op.setdescr(target_token)
         extra = self.short_preamble_producer.used_boxes
         label_op.initarglist(label_args + extra)
@@ -212,11 +218,15 @@ class UnrollOptimizer(Optimization):
                     self.send_extra_operation(guard)
             except VirtualStatesCantMatch:
                 continue
-            short_preamble = target_token.short_preamble
             pass_to_short = target_virtual_state.make_inputargs(args,
                 self.optimizer, append_virtuals=True)
             args = target_virtual_state.make_inputargs(args,
                 self.optimizer)
+            if target_token is self.main_target_token:
+                # rebuild the short preamble, it might have changed
+                new_sp = self.short_preamble_producer.build_short_preamble()
+                target_token.short_preamble = new_sp
+            short_preamble = target_token.short_preamble
             extra = self.inline_short_preamble(pass_to_short, args,
                 short_preamble[0].getarglist(), short_preamble,
                 short_preamble[-1].getarglist(), self.optimizer.patchguardop)
@@ -257,8 +267,11 @@ class UnrollOptimizer(Optimization):
                 op.set_forwarded(None)
 
     def export_state(self, start_label, original_label_args, renamed_inputargs):
-        virtual_state = self.get_virtual_state(original_label_args)
-        end_args = [self.get_box_replacement(a) for a in original_label_args]
+        self.optimizer.force_at_end_of_preamble()
+        end_args = [self.optimizer.force_box_for_end_of_preamble(a)
+                    for a in original_label_args]
+        virtual_state = self.get_virtual_state(end_args)
+        end_args = [self.get_box_replacement(arg) for arg in end_args]
         infos = {}
         for arg in end_args:
             infos[arg] = self.optimizer.getinfo(arg)

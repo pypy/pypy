@@ -417,21 +417,22 @@ class OptIntBounds(Optimization):
         self.emit_operation(op)
         self.make_nonnull_str(op.getarg(0), vstring.mode_string)
         array = self.getptrinfo(op.getarg(0))
-        new_op = self.get_box_replacement(op)
-        if not new_op.is_constant():
-            new_op.set_forwarded(array.getlenbound(vstring.mode_string))
+        self.optimizer.setintbound(op, array.getlenbound(vstring.mode_string))
 
     def optimize_UNICODELEN(self, op):
         self.emit_operation(op)
         self.make_nonnull_str(op.getarg(0), vstring.mode_unicode)
         array = self.getptrinfo(op.getarg(0))
-        new_op = self.get_box_replacement(op)
-        if not new_op.is_constant():
-            new_op.set_forwarded(array.getlenbound(vstring.mode_unicode))
+        self.optimizer.setintbound(op, array.getlenbound(vstring.mode_unicode))
 
     def optimize_STRGETITEM(self, op):
         self.emit_operation(op)
         v1 = self.getintbound(op)
+        v2 = self.getptrinfo(op.getarg(0))
+        intbound = self.getintbound(op.getarg(1))
+        if (intbound.has_lower and v2 is not None and
+            v2.getlenbound(v2.mode) is not None):
+            v2.getlenbound(v2.mode).make_ge(IntLowerBound(intbound.lower + 1))
         v1.make_ge(IntLowerBound(0))
         v1.make_lt(IntUpperBound(256))
 
@@ -470,6 +471,11 @@ class OptIntBounds(Optimization):
         self.emit_operation(op)
         b1 = self.getintbound(op)
         b1.make_ge(IntLowerBound(0))
+        v2 = self.getptrinfo(op.getarg(0))
+        intbound = self.getintbound(op.getarg(1))
+        if (intbound.has_lower and v2 is not None and
+            v2.getlenbound(v2.mode) is not None):
+            v2.getlenbound(v2.mode).make_ge(IntLowerBound(intbound.lower + 1))
 
     def make_int_lt(self, box1, box2):
         b1 = self.getintbound(box1)
