@@ -449,7 +449,7 @@ class DefTracker(object):
                     while i >= 0:
                         def_node = def_chain[i][0]
                         oref = def_node.memory_ref
-                        if oref is not None and mref.indices_can_alias(oref):
+                        if oref is not None and mref.alias(oref):
                             return def_node
                         elif oref is None:
                             return def_node
@@ -968,17 +968,10 @@ class IndexVar(AbstractValue):
                self.coefficient_div == 1 and \
                self.constant == 0
 
-    def __eq__(self, other):
-        if self.same_variable(other):
-            return self.diff(other) == 0
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
     def less(self, other):
+        # TODO
         if self.same_variable(other):
-            return self.diff(other) < 0
+            return self.constant_diff(other) < 0
         return False
 
     def clone(self):
@@ -990,14 +983,26 @@ class IndexVar(AbstractValue):
 
     def same_variable(self, other):
         assert isinstance(other, IndexVar)
-        return other.var is self.var
+        return other.var == self.var
 
-    def diff(self, other):
+    def same_mulfactor(self, other):
+        coeff = self.coefficient_mul == other.coefficient_mul
+        coeff = coeff and (self.coefficient_div == other.coefficient_div)
+        if not coeff:
+            # if not equal, try to check if they divide without rest
+            selfmod = self.coefficient_mul % self.coefficient_div
+            othermod = other.coefficient_mul % other.coefficient_div
+            if selfmod == 0 and othermod == 0:
+                # yet another chance for them to be equal
+                selfdiv = self.coefficient_mul // self.coefficient_div
+                otherdiv = other.coefficient_mul // other.coefficient_div
+                coeff = selfdiv == otherdiv
+        return coeff
+
+    def constant_diff(self, other):
         """ calculates the difference as a second parameter """
         assert isinstance(other, IndexVar)
-        mycoeff = self.coefficient_mul // self.coefficient_div
-        othercoeff = other.coefficient_mul // other.coefficient_div
-        return mycoeff + self.constant - (othercoeff + other.constant)
+        return self.constant - other.constant
 
     def emit_operations(self, opt, result_box=None):
         box = self.var
@@ -1029,7 +1034,7 @@ class IndexVar(AbstractValue):
         return box
 
     def compare(self, other):
-        """ returns if the two are compareable as a first result
+        """ Returns if the two are compareable as a first result
             and a number (-1,0,1) of the ordering
         """
         coeff = self.coefficient_mul == other.coefficient_mul
@@ -1055,6 +1060,16 @@ class IndexVar(AbstractValue):
         if svar.same_box(ovar):
             return True, c
         return False, 0
+
+    def __eq__(self, other):
+        if not self.same_variable(other):
+            return False
+        if not self.same_mulfactor(other):
+            return False
+        return self.constant_diff(other) == 0
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __repr__(self):
         if self.is_identity():
@@ -1083,51 +1098,64 @@ class MemoryRef(object):
 
     def is_adjacent_to(self, other):
         """ this is a symmetric relation """
+        if not self.same_array(other):
+            return False
+        if not self.index_var.same_variable(other.index_var):
+            return False
+        if not self.index_var.same_mulfactor(other.index_var):
+            return False
         stride = self.stride()
-        if self.match(other):
-            return abs(self.index_var.diff(other.index_var)) - stride == 0
-        return False
+        return abs(self.index_var.constant_diff(other.index_var)) - stride == 0
 
-    def match(self, other):
-        assert isinstance(other, MemoryRef)
-        if self.array == other.array and self.descr == other.descr:
-            return self.index_var.same_variable(other.index_var)
-        return False
+    def is_adjacent_after(self, other):
+        """ the asymetric relation to is_adjacent_to """
+        if not self.same_array(other):
+            return False
+        if not self.index_var.same_variable(other.index_var):
+            return False
+        if not self.index_var.same_mulfactor(other.index_var):
+            return False
+        stride = self.stride()
+        return other.index_var.constant_diff(self.index_var) == stride
+
+    def alias(self, other):
+        """ is this reference an alias to other?
+            they can alias iff self.origin != other.origin, or their
+            linear combination point to the same element.
+        """
+        assert other is not None
+        if not self.same_array(other):
+            return False
+        svar = self.index_var
+        ovar = other.index_var
+        if not svar.same_variable(ovar):
+            return True
+        if not svar.same_mulfactor(ovar):
+            return True
+        return abs(svar.constant_diff(ovar)) < self.stride()
+
+    def same_array(self, other):
+        return self.array is other.array and self.descr == other.descr
+
+    def __eq__(self, other):
+        """ NOT_RPYTHON """
+        if not self.same_array(other):
+            return False
+        if not self.index_var.same_variable(other.index_var):
+            return False
+        if not self.index_var.same_mulfactor(other.index_var):
+            return False
+        stride = self.stride()
+        return other.index_var.constant_diff(self.index_var) == 0
+
+    #def __ne__(self, other):
+    #    return not self.__eq__(other)
 
     def stride(self):
         """ the stride in bytes """
         if not self.raw_access:
             return 1
         return self.descr.get_item_size_in_bytes()
-
-    def is_adjacent_after(self, other):
-        """ the asymetric relation to is_adjacent_to """
-        stride = self.stride()
-        if self.match(other):
-            return other.index_var.diff(self.index_var) == stride
-        return False
-
-    def indices_can_alias(self, other):
-        """ can to array indices alias? they can alias iff 
-        self.origin != other.origin, or their
-        linear combination point to the same element.
-        """
-        assert other is not None
-        if not self.index_var.same_variable(other.index_var):
-            return True
-        stride = self.stride()
-        if self.match(other):
-            diff = self.index_var.diff(other.index_var)
-            return abs(diff) < stride
-        return False
-
-    def __eq__(self, other):
-        if self.match(other):
-            return self.index_var.diff(other.index_var) == 0
-        return False
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
 
     def __repr__(self):
         return 'MemRef(%s,%s)' % (self.array, self.index_var)

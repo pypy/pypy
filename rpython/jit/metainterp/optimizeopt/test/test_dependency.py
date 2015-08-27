@@ -137,7 +137,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         assert i.is_identity()
         assert not i.less(j)
         assert i.same_variable(j)
-        assert i.diff(j) == 0
+        assert i.constant_diff(j) == 0
 
     def test_index_var_diff(self):
         b = FakeBox()
@@ -145,31 +145,41 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         j = IndexVar(b,1,1,1)
         assert not i.is_identity()
         assert not j.is_identity()
-        assert i.diff(j) == 1
+        assert not i.same_mulfactor(j)
+        assert i.constant_diff(j) == -1
 
     def test_memoryref_basic(self):
         i = FakeBox()
         a = FakeBox()
         m1 = memoryref(a, i, (1,1,0))
         m2 = memoryref(a, i, (1,1,0))
-        assert m1.match(m2)
+        assert m1.alias(m2)
 
-    @py.test.mark.parametrize('coeff1,coeff2,adja,alias',
-            [((1,1,0), (1,1,0), False, True),
-             ((4,2,0), (8,4,0), False, True),
-             ((4,2,0), (8,2,0), False, True),
-             ((4,2,1), (8,4,0), True, False),
+    @py.test.mark.parametrize('coeff1,coeff2,state',
+            #                    +------------------ adjacent
+            #                    |+----------------- adjacent_after
+            #                    ||+---------------- adjacent_befure
+            #                    |||+--------------- alias
+            #                    ||||
+            [((1,1,0), (1,1,0), 'ffft'),
+             ((4,2,0), (8,4,0), 'ffft'),
+             ((4,2,0), (8,2,0), 'ffft'),
+             ((4,2,1), (8,4,0), 'tftf'),
             ])
-    def test_memoryref_adjacent_alias(self, coeff1,
-                                      coeff2, adja,
-                                      alias):
+    def test_memoryref_adjacent_alias(self, coeff1, coeff2, state):
         i = FakeBox()
         a = FakeBox()
         m1 = memoryref(a, i, coeff1)
         m2 = memoryref(a, i, coeff2)
-        assert m1.is_adjacent_after(m2) == adja
-        assert m2.is_adjacent_after(m1) == adja
-        assert m1.indices_can_alias(m2) == alias
+        adja = state[0] == 't'
+        adja_after = state[1] == 't'
+        adja_before = state[2] == 't'
+        alias = state[3] == 't'
+        assert m1.is_adjacent_to(m2) == adja
+        assert m2.is_adjacent_to(m1) == adja
+        assert m1.is_adjacent_after(m2) == adja_after
+        assert m2.is_adjacent_after(m1) == adja_before
+        assert m1.alias(m2) == alias
 
     def test_dependency_empty(self):
         ops = """

@@ -76,6 +76,7 @@ class VecTestHelper(DependencyBaseTest):
         return opt
 
     def vectoroptimizer_unrolled(self, loop, unroll_factor = -1):
+        loop.snapshot()
         opt = self.vectoroptimizer(loop)
         opt.linear_find_smallest_type(loop)
         if unroll_factor == -1 and opt.smallest_type_bytes == 0:
@@ -1024,7 +1025,7 @@ class BaseTestVectorize(VecTestHelper):
         i30 = int_lt(i20, 10)
         i2 = int_add(i0, 2)
         i3 = int_lt(i2, 10)
-        guard_true(i3) [p0,i0]
+        guard_true(i3) [p0,i0,f3]
         i4 = int_add(i0, 2)
         i5 = int_lt(i2, 10)
         v1 = vec_getarrayitem_raw(p0, i0, 2, descr=floatarraydescr)
@@ -1090,7 +1091,7 @@ class BaseTestVectorize(VecTestHelper):
         i52 = int_ge(i50, i18) 
         i637 = int_add(i28, 2)
         i638 = int_ge(i637, i18)
-        guard_false(i638) [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
+        guard_false(i638) [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
         i55 = int_add(i44, 16) 
         i629 = int_add(i28, 2)
         i57 = int_ge(i637, i18) 
@@ -1123,7 +1124,7 @@ class BaseTestVectorize(VecTestHelper):
         i4 = int_ge(i3, 36)
         i50 = int_add(i1, 4)
         i51 = int_ge(i50, 36)
-        guard_false(i51) []
+        guard_false(i51) [p0, p1, i1]
         i5 = int_add(i1, 2)
         i8 = int_ge(i5, 36)
         i6 = int_add(i1, 3)
@@ -1165,7 +1166,7 @@ class BaseTestVectorize(VecTestHelper):
         i186 = int_lt(i5, 100)
         i500 = int_add(i4, 16)
         i501 = int_lt(i500, 100)
-        guard_true(i501) []
+        guard_true(i501) [p0, p1, p2, i0, i4]
         i189 = int_add(i0, 8)
         i187 = int_add(i4, 8)
         i198 = int_add(i0, 12)

@@ -80,6 +80,7 @@ del guard
 
 class GuardBaseTest(SchedulerBaseTest):
     def optguards(self, loop, user_code=False):
+        loop.snapshot()
         for op in loop.operations:
             if op.is_guard():
                 op.setdescr(compile.CompileLoopVersionDescr())
