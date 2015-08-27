@@ -764,6 +764,12 @@ class Stats(object):
 
     def check_resops(self, expected=None, omit_finish=True, **check):
         insns = {}
+        if 'call' in check:
+            assert check.pop('call') == 0
+            check['call_i'] = check['call_r'] = check['call_f'] = check['call_n'] = 0
+        if 'call_pure' in check:
+            assert check.pop('call_pure') == 0
+            check['call_pure_i'] = check['call_pure_r'] = check['call_pure_f'] = 0
         for loop in self.get_all_loops():
             insns = loop.summary(adding_insns=insns, omit_finish=omit_finish)
         return self._check_insns(insns, expected, check)

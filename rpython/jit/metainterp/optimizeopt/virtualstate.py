@@ -653,4 +653,3 @@ class VirtualStateConstructor(VirtualVisitor):
 
     def visit_varraystruct(self, arraydescr, length, fielddescrs):
         return VArrayStructStateInfo(arraydescr, fielddescrs)
-

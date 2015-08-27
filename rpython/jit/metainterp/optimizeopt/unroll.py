@@ -149,6 +149,11 @@ class UnrollOptimizer(Optimization):
         cell_token = jump_op.getdescr()
         if not inline_short_preamble or len(cell_token.target_tokens) == 1:
             return self.jump_to_preamble(cell_token, jump_op, info)
+        # force all the information that does not go to the short
+        # preamble at all
+        self.optimizer.force_at_end_of_preamble()
+        for a in jump_op.getarglist():
+            self.optimizer.force_box_for_end_of_preamble(a)
         vs = self.jump_to_existing_trace(jump_op)
         if vs is None:
             return info, self.optimizer._newoperations[:]
