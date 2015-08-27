@@ -1,3 +1,6 @@
+see rpython.translator.backendopt.finalizer.py for an XXX
+about light finalizers
+
 ------------------------------------------------------------
 
 the loop in
