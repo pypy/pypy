@@ -152,7 +152,7 @@ class VStringPlainInfo(StrPtrInfo):
             self._chars = [None] * length
         StrPtrInfo.__init__(self, mode, is_virtual, length)
 
-    def setitem(self, index, op, cf=None, optheap=None):
+    def strsetitem(self, index, op, cf=None, optheap=None):
         self._chars[index] = op
 
     def shrink(self, length):
@@ -165,7 +165,7 @@ class VStringPlainInfo(StrPtrInfo):
         self._chars = longerlist[start:stop]
         # slice the 'longerlist', which may also contain Nones
 
-    def getitem(self, index, optheap=None):
+    def strgetitem(self, index, optheap=None):
         return self._chars[index]
 
     def is_virtual(self):
@@ -199,7 +199,7 @@ class VStringPlainInfo(StrPtrInfo):
                                  offsetbox, mode):
         for i in range(len(self._chars)):
             assert not isinstance(targetbox, Const) # ConstPtr never makes sense
-            charbox = self.getitem(i) # can't be virtual
+            charbox = self.strgetitem(i) # can't be virtual
             if charbox is not None:
                 op = ResOperation(mode.STRSETITEM, [targetbox,
                                                     offsetbox,
@@ -452,7 +452,7 @@ class OptString(optimizer.Optimization):
         if opinfo and opinfo.is_virtual():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
-                opinfo.setitem(indexbox.getint(),
+                opinfo.strsetitem(indexbox.getint(),
                               self.get_box_replacement(op.getarg(2)))
                 return
         self.make_nonnull(op.getarg(0))
@@ -481,7 +481,7 @@ class OptString(optimizer.Optimization):
             # even if no longer virtual
             vindex = self.getintbound(index)
             if vindex.is_constant():
-                result = sinfo.getitem(vindex.getint())
+                result = sinfo.strgetitem(vindex.getint())
                 if result is not None:
                     if op is not None:
                         self.make_equal_to(op, result)
@@ -549,7 +549,7 @@ class OptString(optimizer.Optimization):
                 vresult = self.strgetitem(None, op.getarg(0),
                                           ConstInt(index + src_start), mode)
                 if dst_virtual:
-                    dst.setitem(index + dst_start, vresult)
+                    dst.strsetitem(index + dst_start, vresult)
                 else:
                     new_op = ResOperation(mode.STRSETITEM, [
                         op.getarg(1), ConstInt(index + dst_start),

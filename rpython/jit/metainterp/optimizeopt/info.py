@@ -436,7 +436,8 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def all_items(self):
         return self._items
 
-    def copy_fields_to_const(self, arraydescr, constinfo, optheap):
+    def copy_fields_to_const(self, constinfo, optheap):
+        arraydescr = self.arraydescr
         if self._items is not None:
             info = constinfo._get_array_info(arraydescr, optheap)
             info._items = self._items[:]

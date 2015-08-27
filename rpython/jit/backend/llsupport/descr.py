@@ -45,6 +45,7 @@ class SizeDescr(AbstractDescr):
         self.gc_fielddescrs = gc_fielddescrs
         self.all_fielddescrs = all_fielddescrs
         self.vtable = vtable
+        assert vtable is not None
         self.immutable_flag = immutable_flag
 
     def get_all_fielddescrs(self):
@@ -195,7 +196,7 @@ def get_field_descr(gccache, STRUCT, fieldname):
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
         if STRUCT is rclass.OBJECT:
-            vtable = None
+            vtable = lltype.nullptr(rclass.OBJECT_VTABLE)
         else:
             vtable = heaptracker.get_vtable_for_gcstruct(gccache, STRUCT)
         fielddescr.parent_descr = get_size_descr(gccache, STRUCT, vtable)

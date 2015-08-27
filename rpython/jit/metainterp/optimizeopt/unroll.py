@@ -1,6 +1,6 @@
 
 import sys
-from rpython.jit.metainterp.history import Const, TargetToken
+from rpython.jit.metainterp.history import Const, TargetToken, JitCellToken
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
      ShortPreambleBuilder, PreambleOp
 from rpython.jit.metainterp.optimizeopt import info, intutils
@@ -98,7 +98,7 @@ class UnrollOptimizer(Optimization):
     def optimize_preamble(self, start_label, end_label, ops, call_pure_results):
         self._check_no_forwarding([[start_label, end_label], ops])
         info, newops = self.optimizer.propagate_all_forward(
-            start_label.getarglist()[:], ops, call_pure_results)
+            start_label.getarglist()[:], ops, call_pure_results, True)
         exported_state = self.export_state(start_label, end_label.getarglist(),
                                            info.inputargs)
         # we need to absolutely make sure that we've cleaned up all
@@ -185,6 +185,7 @@ class UnrollOptimizer(Optimization):
         self.optimizer._clean_optimization_info(sb.short_inputargs)
         short_preamble = sb.build_short_preamble()
         jitcelltoken = label_op.getdescr()
+        assert isinstance(jitcelltoken, JitCellToken)
         if jitcelltoken.target_tokens is None:
             jitcelltoken.target_tokens = []
         target_token = TargetToken(jitcelltoken,
@@ -205,6 +206,7 @@ class UnrollOptimizer(Optimization):
 
     def jump_to_existing_trace(self, jump_op):
         jitcelltoken = jump_op.getdescr()
+        assert isinstance(jitcelltoken, JitCellToken)
         virtual_state = self.get_virtual_state(jump_op.getarglist())
         args = [self.get_box_replacement(op) for op in jump_op.getarglist()]
         for target_token in jitcelltoken.target_tokens:

@@ -93,7 +93,7 @@ class SizeDescr(AbstractDescr):
         assert not isinstance(vtable, bool)
         self.S = S
         self._vtable = vtable
-        self._is_object = vtable is not None
+        self._is_object = bool(vtable)
         self.all_fielddescrs = heaptracker.all_fielddescrs(runner, S,
                                     get_field_descr=LLGraphCPU.fielddescrof)
         self._runner = runner

@@ -58,7 +58,7 @@ class LoopCompileData(CompileData):
         else:
             opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
             return opt.propagate_all_forward(self.start_label.getarglist(),
-               self.operations, self.call_pure_results, self.enable_opts)
+               self.operations, self.call_pure_results)
 
 class SimpleCompileData(CompileData):
     """ This represents label() ops jump with no extra info associated with
@@ -77,7 +77,7 @@ class SimpleCompileData(CompileData):
         #assert not unroll
         opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.propagate_all_forward(self.start_label.getarglist(),
-            self.operations, self.call_pure_results, self.enable_opts)
+            self.operations, self.call_pure_results)
 
 class BridgeCompileData(CompileData):
     """ This represents ops() with a jump at the end that goes to some
@@ -226,7 +226,8 @@ def compile_simple_loop(metainterp, greenkey, start, inputargs, ops, jumpargs,
     label = ResOperation(rop.LABEL, loop_info.inputargs[:], descr=target_token)
     jump_op.setdescr(target_token)
     loop.operations = [label] + ops
-    loop.check_consistency()
+    if not we_are_translated():
+        loop.check_consistency()
     jitcell_token.target_tokens = [target_token]
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
@@ -289,10 +290,10 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                               original_jitcell_token=jitcell_token)
     start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs,
                                descr=start_descr)
-    # XXX assign short preamble and virtual state
     loop.operations = ([start_label] + preamble_ops + loop_info.extra_same_as +
                        [loop_info.label_op] + loop_ops)
-    loop.check_consistency()
+    if not we_are_translated():
+        loop.check_consistency()
     jitcell_token.target_tokens = [start_descr] + jitcell_token.target_tokens
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
