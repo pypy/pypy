@@ -8735,5 +8735,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, expected_short=expected_short)
 
+    def test_cached_arrayitem_write_descr(self):
+        ops = """
+        [p0, p1, i0]
+        setarrayitem_gc(p0, 0, i0, descr=arraydescr)
+        ifoo = call_i(descr=writearraydescr)
+        i1 = getarrayitem_gc_i(p1, 0, descr=arraydescr)
+        jump(p0, p1, i1)
+        """
+        self.optimize_loop(ops, ops)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
