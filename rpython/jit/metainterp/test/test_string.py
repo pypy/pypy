@@ -147,7 +147,7 @@ class StringTests:
         self.meta_interp(f, [6, 7])
         self.check_resops(newstr=0, strsetitem=0,
                          newunicode=0, unicodesetitem=0,
-                         call=0, call_pure=0)
+                         call_i=0, call_pure_i=0, call_r=0, call_pure_r=0)
 
     def test_strconcat_escape_str_str(self):
         _str = self._str
@@ -870,8 +870,8 @@ class StringTests:
 
 
 class TestLLtype(StringTests, LLJitMixin):
-    CALL = "call"
-    CALL_PURE = "call_pure"
+    CALL = "call_i"
+    CALL_PURE = "call_pure_i"
 
 
 class TestLLtypeUnicode(TestLLtype):

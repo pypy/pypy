@@ -52,11 +52,11 @@ class UnrollableOptimizer(Optimizer):
                 self.make_constant_class(op, known_class, False)
             if isinstance(preamble_info, info.ArrayPtrInfo):
                 arr_info = info.ArrayPtrInfo(preamble_info.arraydescr)
-                arr_info.lenbound = preamble_info.getlenbound(None)
+                arr_info.lenbound = preamble_info.getlenbound(None).clone()
                 op.set_forwarded(arr_info)
             if isinstance(preamble_info, StrPtrInfo):
                 str_info = StrPtrInfo(preamble_info.mode)
-                str_info.lenbound = preamble_info.getlenbound(None)
+                str_info.lenbound = preamble_info.getlenbound(None).clone()
                 op.set_forwarded(str_info)
             if preamble_info.is_nonnull():
                 self.make_nonnull(op)
