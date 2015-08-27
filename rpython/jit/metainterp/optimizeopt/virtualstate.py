@@ -1,7 +1,7 @@
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.info import ArrayPtrInfo,\
-     ArrayStructInfo
+     ArrayStructInfo, AbstractStructPtrInfo
 from rpython.jit.metainterp.optimizeopt.intutils import \
      MININT, MAXINT, IntBound
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
@@ -175,6 +175,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         box = optimizer.get_box_replacement(box)
         info = optimizer.getptrinfo(box)
+        assert isinstance(info, AbstractStructPtrInfo)
         if info is None or not info.is_virtual():
             raise BadVirtualState()
         for i in range(len(self.fielddescrs)):
@@ -255,7 +256,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         for i in range(len(self.fieldstate)):
             fieldbox = info.getitem(self.arraydescr, i)
             if fieldbox is None:
-                xxx
+                raise Exception("do we ever get here?")
                 v = value.get_missing_null_value()
             s = self.fieldstate[i]
             if s.position > self.position:

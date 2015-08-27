@@ -1,5 +1,6 @@
 
 from collections import OrderedDict
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.resoperation import ResOperation, OpHelpers,\
      rop, AbstractResOp, AbstractInputArg
 from rpython.jit.metainterp.history import Const, make_hashable_int,\
@@ -409,6 +410,7 @@ class ShortPreambleBuilder(object):
         label_op = ResOperation(rop.LABEL, self.short_inputargs[:])
         jump_op = ResOperation(rop.JUMP, self.short_preamble_jump)
         # WARNING! the short_preamble_jump is shared on purpose
-        TreeLoop.check_consistency_of(self.short_inputargs,
-                                      self.short + [jump_op], check_descr=False)
+        if not we_are_translated():
+            TreeLoop.check_consistency_of(self.short_inputargs,
+                                self.short + [jump_op], check_descr=False)
         return [label_op] + self.short + [jump_op]

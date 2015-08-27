@@ -67,7 +67,7 @@ class PtrInfo(AbstractInfo):
         pass
 
     def make_guards(self, op, short):
-        short.append(ResOperation(rop.GUARD_VALUE, [op, self._const]))
+        pass
     
 class NonNullPtrInfo(PtrInfo):
     _attrs_ = ('last_guard_pos',)
@@ -158,6 +158,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     def copy_fields_to_const(self, constinfo, optheap):
         if self._fields is not None:
             info = constinfo._get_info(optheap)
+            assert isinstance(info, AbstractStructPtrInfo)
             info._fields = self._fields[:]
 
     def all_items(self):
@@ -440,6 +441,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         arraydescr = self.arraydescr
         if self._items is not None:
             info = constinfo._get_array_info(arraydescr, optheap)
+            assert isinstance(info, ArrayPtrInfo)
             info._items = self._items[:]
 
     def _force_elements(self, op, optforce, descr):
@@ -598,6 +600,9 @@ class ConstPtrInfo(PtrInfo):
 
     def getconst(self):
         return self._const
+
+    def make_guards(self, op, short):
+        short.append(ResOperation(rop.GUARD_VALUE, [op, self._const]))
 
     def _get_info(self, optheap):
         ref = self._const.getref_base()

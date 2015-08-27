@@ -52,11 +52,15 @@ class UnrollableOptimizer(Optimizer):
                 self.make_constant_class(op, known_class, False)
             if isinstance(preamble_info, info.ArrayPtrInfo):
                 arr_info = info.ArrayPtrInfo(preamble_info.arraydescr)
-                arr_info.lenbound = preamble_info.getlenbound(None).clone()
+                bound = preamble_info.getlenbound(None).clone()
+                assert isinstance(bound, intutils.IntBound)
+                arr_info.lenbound = bound
                 op.set_forwarded(arr_info)
             if isinstance(preamble_info, StrPtrInfo):
                 str_info = StrPtrInfo(preamble_info.mode)
-                str_info.lenbound = preamble_info.getlenbound(None).clone()
+                bound = preamble_info.getlenbound(None).clone()
+                assert isinstance(bound, intutils.IntBound)
+                str_info.lenbound = bound
                 op.set_forwarded(str_info)
             if preamble_info.is_nonnull():
                 self.make_nonnull(op)
@@ -130,7 +134,9 @@ class UnrollOptimizer(Optimization):
         # the label_op again
         label_op.initarglist(label_args + extra)
         if new_virtual_state is not None:
-            self.jump_to_preamble(start_label.getdescr(), end_jump, info)
+            celltoken = start_label.getdescr()
+            assert isinstance(celltoken, JitCellToken)
+            self.jump_to_preamble(celltoken, end_jump, info)
             return (UnrollInfo(target_token, label_op, []),
                     self.optimizer._newoperations)
             #return new_virtual_state, self.optimizer._newoperations
@@ -147,6 +153,7 @@ class UnrollOptimizer(Optimization):
             call_pure_results, True)
         jump_op = operations[-1]
         cell_token = jump_op.getdescr()
+        assert isinstance(cell_token, JitCellToken)
         if not inline_short_preamble or len(cell_token.target_tokens) == 1:
             return self.jump_to_preamble(cell_token, jump_op, info)
         # force all the information that does not go to the short

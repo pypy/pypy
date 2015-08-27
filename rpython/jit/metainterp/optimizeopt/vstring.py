@@ -127,7 +127,8 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         if self.lenbound and self.lenbound.lower >= 1:
             if self.mode is mode_string:
                 lenop = ResOperation(rop.STRLEN, [op])
-            elif self.mode is mode_unicode:
+            else:
+                assert self.mode is mode_unicode
                 lenop = ResOperation(rop.UNICODELEN, [op])
             short.append(lenop)
             self.lenbound.make_guards(lenop, short)

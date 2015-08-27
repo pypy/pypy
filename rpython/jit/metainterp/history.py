@@ -523,6 +523,7 @@ class TreeLoop(object):
 
     @staticmethod
     def check_consistency_of(inputargs, operations, check_descr=True):
+        "NOT_RPYTHON"
         for box in inputargs:
             assert not isinstance(box, Const), "Loop.inputargs contains %r" % (box,)
         seen = dict.fromkeys(inputargs)
