@@ -1,6 +1,9 @@
 # ____________________________________________________________
 
 import sys
+assert __version__ == "1.2.1", ("This test_c.py file is for testing a version"
+                                " of cffi that differs from the one that we"
+                                " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
     type_or_class = "type"
     mandatory_b_prefix = ''
@@ -3424,7 +3427,3 @@ def test_mixup():
                             "be 'foo *', but the types are different (check "
                             "that you are not e.g. mixing up different ffi "
                             "instances)")
-
-def test_version():
-    # this test is here mostly for PyPy
-    assert __version__ == "1.2.1"
