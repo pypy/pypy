@@ -641,6 +641,6 @@ class VirtualStateConstructor(VirtualVisitor):
         # to be non-None, so clearing is not important any more
         return VArrayStateInfo(arraydescr)
 
-    def visit_varraystruct(self, arraydescr, fielddescrs):
+    def visit_varraystruct(self, arraydescr, length, fielddescrs):
         return VArrayStructStateInfo(arraydescr, fielddescrs)
 
