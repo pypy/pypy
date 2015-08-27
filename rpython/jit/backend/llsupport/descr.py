@@ -106,12 +106,17 @@ class FieldDescr(ArrayOrFieldDescr):
     field_size = 0
     flag = '\x00'
 
-    def __init__(self, name, offset, field_size, flag, index_in_parent=0):
+    def __init__(self, name, offset, field_size, flag, index_in_parent=0,
+                 is_pure=False):
         self.name = name
         self.offset = offset
         self.field_size = field_size
         self.flag = flag
         self.index = index_in_parent
+        self._is_pure = is_pure
+
+    def is_always_pure(self):
+        return self._is_pure
 
     def __repr__(self):
         return 'FieldDescr<%s>' % (self.name,)
@@ -184,7 +189,9 @@ def get_field_descr(gccache, STRUCT, fieldname):
         flag = get_type_flag(FIELDTYPE)
         name = '%s.%s' % (STRUCT._name, fieldname)
         index_in_parent = heaptracker.get_fielddescr_index_in(STRUCT, fieldname)
-        fielddescr = FieldDescr(name, offset, size, flag, index_in_parent)
+        is_pure = STRUCT._immutable_field(fieldname)
+        fielddescr = FieldDescr(name, offset, size, flag, index_in_parent,
+                                is_pure)
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
         if STRUCT is rclass.OBJECT:
@@ -234,14 +241,18 @@ class ArrayDescr(ArrayOrFieldDescr):
     vinfo = None
     all_interiorfielddescrs = None
 
-    def __init__(self, basesize, itemsize, lendescr, flag):
+    def __init__(self, basesize, itemsize, lendescr, flag, is_pure=False):
         self.basesize = basesize
         self.itemsize = itemsize
         self.lendescr = lendescr    # or None, if no length
         self.flag = flag
+        self._is_pure = is_pure
 
     def get_all_fielddescrs(self):
         return self.all_interiorfielddescrs
+
+    def is_always_pure(self):
+        return self._is_pure
 
     def is_array_of_pointers(self):
         return self.flag == FLAG_POINTER
@@ -297,7 +308,8 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
         else:
             lendescr = get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT)
         flag = get_type_flag(ARRAY_INSIDE.OF)
-        arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag)
+        is_pure = ARRAY_INSIDE._immutable_field(None)
+        arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag, is_pure)
         cache[ARRAY_OR_STRUCT] = arraydescr
         if isinstance(ARRAY_INSIDE.OF, lltype.Struct):
             descrs = heaptracker.all_interiorfielddescrs(gccache,

@@ -328,7 +328,7 @@ def compile_retrace(metainterp, greenkey, start,
                                              loop_data)
     except InvalidLoop:
         # Fall back on jumping to preamble
-        xxx
+        raise Exception("think about it")
         return None
 
     loop = partial_trace
