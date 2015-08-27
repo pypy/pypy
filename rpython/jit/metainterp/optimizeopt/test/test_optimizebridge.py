@@ -9,8 +9,10 @@ class TestOptimizeBridge(BaseTest, LLtypeMixin):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
 
     def optimize(self, ops, bridge_ops, expected, expected_loop=None,
-                 inline_short_preamble=True):
+                 inline_short_preamble=True, jump_values=None,
+                 bridge_values=None):
         loop = self.parse(ops, postprocess=self.postprocess)
+        self.set_values(loop.operations, jump_values)
         if expected_loop is not None:
             xxx
             exp_loop = self.parse(expected_loop, postprocess=self.postprocess)
@@ -28,6 +30,7 @@ class TestOptimizeBridge(BaseTest, LLtypeMixin):
         guards = [op for op in loop.operations if op.is_guard()]
         assert len(guards) == 1, "more than one guard in the loop"
         bridge = self.parse(bridge_ops, postprocess=self.postprocess)
+        self.set_values(bridge.operations, bridge_values)
         start_label = ResOperation(rop.LABEL, bridge.inputargs)
         bridge.operations[-1].setdescr(jitcell_token)
         self.add_guard_future_condition(bridge)
@@ -115,7 +118,9 @@ class TestOptimizeBridge(BaseTest, LLtypeMixin):
         [p0]
         jump(1, 3)
         """
-        self.optimize(loop, bridge, expected)
+        self.optimize(loop, bridge, expected,
+                      jump_values=[None, self.simpleaddr],
+                      bridge_values=[None, self.simpleaddr])
 
     def test_virtual_state_guard_needed(self):
         pass

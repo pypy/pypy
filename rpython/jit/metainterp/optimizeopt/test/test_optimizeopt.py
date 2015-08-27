@@ -48,15 +48,7 @@ class BaseTestWithUnroll(BaseTest):
                       call_pure_results=None, expected_short=None,
                       jump_values=None):
         loop = self.parse(ops, postprocess=self.postprocess)
-        jump_op = loop.operations[-1]
-        if jump_values is not None:
-            for i, v in enumerate(jump_values):
-                if v is not None:
-                    jump_op.getarg(i).setref_base(v)
-        else:
-            for i, box in enumerate(jump_op.getarglist()):
-                if box.type == 'r' and not box.is_constant():
-                    box.setref_base(self.nodefulladdr)
+        self.set_values(loop.operations, jump_values)
         if expected != "crash!":
             expected = self.parse(expected)
         if expected_preamble:

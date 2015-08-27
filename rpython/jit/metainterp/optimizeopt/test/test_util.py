@@ -233,6 +233,8 @@ class LLtypeMixin(object):
     simplevalue = cpu.fielddescrof(SIMPLE, 'value')
     simple_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     simpledescr = cpu.sizeof(SIMPLE, simple_vtable)
+    simple = lltype.malloc(SIMPLE, zero=True)
+    simpleaddr = lltype.cast_opaque_ptr(llmemory.GCREF, simple)
     #usize = cpu.sizeof(U, ...)
     onedescr = cpu.fielddescrof(U, 'one')
 
@@ -514,6 +516,19 @@ class BaseTest(object):
         loop.operations = [loop_info.label_op] + ops
         return Info(preamble, loop_info.target_token.short_preamble,
                     start_state.virtual_state)
+
+    def set_values(self, ops, jump_values=None):
+        jump_op = ops[-1]
+        assert jump_op.getopnum() == rop.JUMP
+        if jump_values is not None:
+            for i, v in enumerate(jump_values):
+                if v is not None:
+                    jump_op.getarg(i).setref_base(v)
+        else:
+            for i, box in enumerate(jump_op.getarglist()):
+                if box.type == 'r' and not box.is_constant():
+                    box.setref_base(self.nodefulladdr)
+
 
 
 class FakeDescr(compile.ResumeGuardDescr):
