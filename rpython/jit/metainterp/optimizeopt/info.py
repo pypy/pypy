@@ -443,18 +443,20 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
 
     def _force_elements(self, op, optforce, descr):
         arraydescr = op.getdescr()
+        const = optforce.new_const_item(self.arraydescr)
         for i in range(self.length):
             item = self._items[i]
-            if item is not None:
-                subbox = optforce.force_box(item)
-                setop = ResOperation(rop.SETARRAYITEM_GC,
-                                     [op, ConstInt(i), subbox],
-                                      descr=arraydescr)
-                self._items[i] = None
-                if optforce.optheap is not None:
-                    optforce.optheap.propagate_forward(setop)
-                else:
-                    optforce.emit_operation(setop)
+            if item is None or self._clear and const.same_constant(item):
+                continue
+            subbox = optforce.force_box(item)
+            setop = ResOperation(rop.SETARRAYITEM_GC,
+                                 [op, ConstInt(i), subbox],
+                                  descr=arraydescr)
+            self._items[i] = None
+            if optforce.optheap is not None:
+                optforce.optheap.propagate_forward(setop)
+            else:
+                optforce.emit_operation(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
     def setitem(self, descr, index, struct_op, op, cf=None, optheap=None):
