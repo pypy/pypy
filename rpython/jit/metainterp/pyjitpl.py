@@ -726,6 +726,7 @@ class MIFrame(object):
             else:
                 assert type == 'f'
                 assert resvalue == upd.currfieldbox.getfloatstorage()
+            return upd.currfieldbox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
         upd.getfield_now_known(resbox)
         return resbox
