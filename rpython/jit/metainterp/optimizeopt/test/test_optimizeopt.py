@@ -45,8 +45,18 @@ class BaseTestWithUnroll(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
 
     def optimize_loop(self, ops, expected, expected_preamble=None,
-                      call_pure_results=None, expected_short=None):
+                      call_pure_results=None, expected_short=None,
+                      jump_values=None):
         loop = self.parse(ops, postprocess=self.postprocess)
+        jump_op = loop.operations[-1]
+        if jump_values is not None:
+            for i, v in enumerate(jump_values):
+                if v is not None:
+                    jump_op.getarg(i).setref_base(v)
+        else:
+            for i, box in enumerate(jump_op.getarglist()):
+                if box.type == 'r' and not box.is_constant():
+                    box.setref_base(self.nodefulladdr)
         if expected != "crash!":
             expected = self.parse(expected)
         if expected_preamble:
@@ -796,7 +806,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i1, p3)
         """
         # We cannot track virtuals that survive for more than two iterations.
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble,
+                           jump_values=[None, self.nodefulladdr, None])
 
     def test_p123_nested(self):
         ops = """
@@ -829,7 +840,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p4, p1sub, descr=nextdescr)
         jump(i1, p4)
         """
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble,
+                      jump_values=[None, self.nodefulladdr, self.nodefulladdr])
 
     def test_p123_anti_nested(self):
         ops = """
@@ -865,7 +877,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, p3sub, descr=nextdescr)
         jump(i1, p1, p3sub, i1)
         """
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble,
+                jump_values=[None, self.nodefulladdr, self.nodefulladdr, None])
 
     def test_dont_delay_setfields(self):
         ops = """
@@ -902,7 +915,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p3, i2, descr=valuedescr)
         jump(p3, i2)
         """
-        self.optimize_loop(ops, expected, preamble, expected_short=short)
+        self.optimize_loop(ops, expected, preamble, expected_short=short,
+                           jump_values=[None, self.nodefulladdr])
 
     # ----------
 
@@ -1004,7 +1018,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = int_add(i2, i)
         jump(i, i1)
         """
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble,
+                           jump_values=[None, self.nodefulladdr])
 
     def test_virtual_float(self):
         ops = """
@@ -1477,7 +1492,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p33 = new_array(0, descr=arraydescr)
         setfield_gc(p31, p33, descr=bdescr)
         p35 = new_with_vtable(descr=nodesize)
-        setfield_gc(p35, p31, descr=valuedescr)
+        setfield_gc(p35, p31, descr=nexttupledescr)
         jump(p0, p35)
         """
         expected = """
@@ -1493,7 +1508,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_isnull(p18) [p0, p8]
         p31 = new(descr=ssize)
         p35 = new_with_vtable(descr=nodesize)
-        setfield_gc(p35, p31, descr=valuedescr)
+        setfield_gc(p35, p31, descr=nexttupledescr)
         jump(p0, p35)
         """
         expected = """
@@ -1508,7 +1523,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_isnull(p18) [p0, p8]
         p31 = new(descr=ssize)
         p35 = new_with_vtable(descr=nodesize)
-        setfield_gc(p35, p31, descr=valuedescr)
+        setfield_gc(p35, p31, descr=nexttupledescr)
         jump(p0, p35, p19, p18)
         """
         expected = """
@@ -1553,7 +1568,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_add(25, i1)
         jump(i2)
         """
-        self.optimize_loop(ops, expected)
+        jump_values = [self.arrayref]
+        self.optimize_loop(ops, expected, jump_values=jump_values)
 
     def test_varray_alloc_and_set(self):
         ops = """
@@ -1651,7 +1667,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_value(i3, 15) []
         jump(5)
         """
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble,
+                           jump_values=[None, self.arrayref])
 
     def test_p123_array(self):
         ops = """
@@ -1677,7 +1694,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i1, p1)
         """
         # We cannot track virtuals that survive for more than two iterations.
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble,
+                           jump_values=[None, self.arrayref, None])
 
     def test_varray_forced_1(self):
         ops = """
@@ -1720,7 +1738,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_n(i1)
         jump(i1)
         """
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble,
+                           jump_values=[None, self.tupleaddr])
 
     def test_p123_vstruct(self):
         ops = """
@@ -1746,7 +1765,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i1, p1)
         """
         # We cannot track virtuals that survive for more than two iterations.
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble,
+                           jump_values=[None, self.tupleaddr, None])
 
     def test_virtual_raw_malloc_basic(self):
         ops = """
@@ -2764,7 +2784,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = escape_r()
         jump(i0, p3)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected,
+                           jump_values=[None, self.array2ref])
 
     def test_bug_3(self):
         ops = """
@@ -3284,9 +3305,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_ovf_guard_in_short_preamble1(self):
         ops = """
         [p8, p11, i24]
-        p26 = new_with_vtable(descr=nodesize)
+        p26 = new(descr=ssize)
         setfield_gc(p26, i24, descr=adescr)
-        i34 = getfield_gc_pure_i(p11, descr=valuedescr)
+        i34 = getfield_gc_pure_i(p11, descr=abisdescr)
         i35 = getfield_gc_pure_i(p26, descr=adescr)
         i36 = int_add_ovf(i34, i35)
         guard_no_overflow() []
@@ -3336,7 +3357,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_no_overflow() []
         jump(p0, p1, i16, p3, i17, i7, i11)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected,
+                           jump_values=[None, None, self.tupleaddr])
 
     def test_int_and_or_with_zero(self):
         ops = """
@@ -6143,7 +6165,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         []
         jump()
         """
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble, jump_values=
+                           [self.immutaddr])
 
     def test_immutable_constantfold_recursive(self):
         ops = """

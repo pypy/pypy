@@ -35,13 +35,22 @@ class GenerateGuardState(object):
             bad = {}
         self.bad = bad
 
-    def get_runtime_field(self, box, descr):
-        if descr.is_pointer_field():
-            xxx
-        elif descr.is_float_field():
-            yyy
+    def get_runtime_item(self, box, descr, i):
+        array = box.getref_base()
+        if descr.is_array_of_pointers():
+            return InputArgRef(self.cpu.bh_getarrayitem_gc_r(array, i, descr))
+        elif descr.is_array_of_floats():
+            return InputArgFloat(self.cpu.bh_getarrayitem_gc_f(array, i, descr))
         else:
-            struct = box.getref_base()
+            return InputArgInt(self.cpu.bh_getarrayitem_gc_i(array, i, descr))
+
+    def get_runtime_field(self, box, descr):
+        struct = box.getref_base()
+        if descr.is_pointer_field():
+            return InputArgRef(self.cpu.bh_getfield_gc_r(struct, descr))
+        elif descr.is_float_field():
+            return InputArgFloat(self.cpu.bh_getfield_gc_f(struct, descr))
+        else:
             return InputArgInt(self.cpu.bh_getfield_gc_i(struct, descr))
 
 class AbstractVirtualStateInfo(object):
@@ -204,8 +213,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
 
-    def _generate_guards(self, other, box, opinfo, state):
-        xxx
+    def _generate_guards(self, other, box, runtime_box, state):
         if not isinstance(other, VArrayStateInfo):
             raise VirtualStatesCantMatch("other is not an array")
         if self.arraydescr is not other.arraydescr:
@@ -213,14 +221,16 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         if len(self.fieldstate) != len(other.fieldstate):
             raise VirtualStatesCantMatch("other has a different length")
         fieldbox = None
-        fieldinfo = None
+        fieldbox_runtime = None
         for i in range(len(self.fieldstate)):
-            if box is not None:
+            if runtime_box is not None:
+                opinfo = state.optimizer.getptrinfo(box)
                 assert isinstance(opinfo, info.ArrayPtrInfo)
                 fieldbox = opinfo._items[i]
-                fieldinfo = get_forwarded(fieldbox)
+                fieldbox_runtime = state.get_runtime_item(runtime_box,
+                                            self.arraydescr, i)
             self.fieldstate[i].generate_guards(other.fieldstate[i],
-                                            fieldbox, fieldinfo, state)
+                                            fieldbox, fieldbox_runtime, state)
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         box = optimizer.get_box_replacement(box)

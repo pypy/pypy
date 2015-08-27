@@ -94,11 +94,15 @@ class LLtypeMixin(object):
     cpu = runner.LLGraphCPU(None)
 
     NODE = lltype.GcForwardReference()
+    S = lltype.GcForwardReference()
     NODE.become(lltype.GcStruct('NODE', ('parent', OBJECT),
                                         ('value', lltype.Signed),
                                         ('floatval', lltype.Float),
                                         ('charval', lltype.Char),
+                                        ('nexttuple', lltype.Ptr(S)),
                                         ('next', lltype.Ptr(NODE))))
+    S.become(lltype.GcStruct('TUPLE', ('a', lltype.Signed), ('abis', lltype.Signed),
+                        ('b', lltype.Ptr(NODE))))
     NODE2 = lltype.GcStruct('NODE2', ('parent', NODE),
                                      ('other', lltype.Ptr(NODE)))
 
@@ -130,6 +134,7 @@ class LLtypeMixin(object):
     floatdescr = cpu.fielddescrof(NODE, 'floatval')
     chardescr = cpu.fielddescrof(NODE, 'charval')
     nextdescr = cpu.fielddescrof(NODE, 'next')
+    nexttupledescr = cpu.fielddescrof(NODE, 'nexttuple')
     otherdescr = cpu.fielddescrof(NODE2, 'other')
     valuedescr3 = cpu.fielddescrof(NODE3, 'value')
     nextdescr3 = cpu.fielddescrof(NODE3, 'next')
@@ -164,6 +169,8 @@ class LLtypeMixin(object):
     intobj_immut_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     noimmut_intval = cpu.fielddescrof(INTOBJ_NOIMMUT, 'intval')
     immut_intval = cpu.fielddescrof(INTOBJ_IMMUT, 'intval')
+    immut = lltype.malloc(INTOBJ_IMMUT, zero=True)
+    immutaddr = lltype.cast_opaque_ptr(llmemory.GCREF, immut)
     noimmut_descr = cpu.sizeof(INTOBJ_NOIMMUT, intobj_noimmut_vtable)
     immut_descr = cpu.sizeof(INTOBJ_IMMUT, intobj_immut_vtable)
 
@@ -175,12 +182,18 @@ class LLtypeMixin(object):
     immut_ptrval = cpu.fielddescrof(PTROBJ_IMMUT, 'ptrval')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
+    array = lltype.malloc(lltype.GcArray(lltype.Signed), 15, zero=True)
+    arrayref = lltype.cast_opaque_ptr(llmemory.GCREF, array)
+    array2 = lltype.malloc(lltype.GcArray(lltype.Ptr(S)), 15, zero=True)
+    array2ref = lltype.cast_opaque_ptr(llmemory.GCREF, array2)
     gcarraydescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF))
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
 
     # a GcStruct not inheriting from OBJECT
-    S = lltype.GcStruct('TUPLE', ('a', lltype.Signed), ('abis', lltype.Signed),
-                        ('b', lltype.Ptr(NODE)))
+    tpl = lltype.malloc(S, zero=True)
+    tupleaddr = lltype.cast_opaque_ptr(llmemory.GCREF, tpl)
+    nodefull2 = lltype.malloc(NODE, zero=True)
+    nodefull2addr = lltype.cast_opaque_ptr(llmemory.GCREF, nodefull2)
     ssize = cpu.sizeof(S, None)
     adescr = cpu.fielddescrof(S, 'a')
     abisdescr = cpu.fielddescrof(S, 'abis')
@@ -269,6 +282,11 @@ class LLtypeMixin(object):
     chararraydescr = cpu.arraydescrof(chararray)
     u2array = lltype.GcArray(rffi.USHORT)
     u2arraydescr = cpu.arraydescrof(u2array)
+
+    nodefull = lltype.malloc(NODE2, zero=True)
+    nodefull.parent.next = lltype.cast_pointer(lltype.Ptr(NODE), nodefull)
+    nodefull.parent.nexttuple = tpl
+    nodefulladdr = lltype.cast_opaque_ptr(llmemory.GCREF, nodefull)
 
     # array of structs (complex data)
     complexarray = lltype.GcArray(
