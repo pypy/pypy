@@ -1365,9 +1365,10 @@ static void _core_commit_transaction(bool external)
         stm_rewind_jmp_forget(STM_SEGMENT->running_thread);
     }
 
+    commit_finalizers();
+
     /* XXX do we still need a s_mutex_lock() section here? */
     s_mutex_lock();
-    commit_finalizers();
 
     /* update 'overflow_number' if needed */
     if (STM_PSEGMENT->overflow_number_has_been_used) {
