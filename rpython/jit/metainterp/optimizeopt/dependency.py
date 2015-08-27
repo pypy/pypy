@@ -1073,9 +1073,9 @@ class IndexVar(AbstractValue):
 
     def __repr__(self):
         if self.is_identity():
-            return 'IndexVar(%s+%s)' % (self.var, repr(self.next_nonconst))
+            return 'idx(%s)' % (self.var,)
 
-        return 'IndexVar((%s*(%s/%s)+%s))' % (self.var, self.coefficient_mul,
+        return 'idx(%s*(%s/%s)+%s)' % (self.var, self.coefficient_mul,
                                             self.coefficient_div, self.constant)
 
 class MemoryRef(object):

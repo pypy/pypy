@@ -319,16 +319,16 @@ class VectorizingOptimizer(Optimizer):
             for node_b,memref_b in memory_refs:
                 if memref_a is memref_b:
                     continue
+                #print "???", memref_a.index_var, memref_b.index_var
                 # instead of compare every possible combination and
                 # exclue a_opidx == b_opidx only consider the ones
                 # that point forward:
-                if node_a.is_before(node_b):
-                    if memref_a.is_adjacent_to(memref_b):
-                        pair = self.packset.can_be_packed(node_a, node_b, None, False)
-                        if pair:
-                            if node_a.op.getopnum() == rop.GETARRAYITEM_RAW:
-                                print "found", memref_a.index_var, memref_b.index_var
-                            self.packset.add_pack(pair)
+                if memref_a.is_adjacent_after(memref_b):
+                    pair = self.packset.can_be_packed(node_a, node_b, None, False)
+                    if pair:
+                        if node_a.op.getopnum() == rop.GETARRAYITEM_RAW:
+                            print " => found", memref_a.index_var, memref_b.index_var
+                        self.packset.add_pack(pair)
 
     def extend_packset(self):
         """ Follow dependency chains to find more candidates to put into
@@ -389,13 +389,13 @@ class VectorizingOptimizer(Optimizer):
         """
         if len(self.packset.packs) == 0:
             raise NotAVectorizeableLoop()
-        packsort(self.packset.packs).sort()
-        if not we_are_translated():
-            # ensure we are really sorted!
-            x = 0
-            for i,pack in enumerate(self.packset.packs):
-                assert x <= pack.left.getindex()
-                x = pack.left.getindex()
+        #packsort(self.packset.packs).sort()
+        #if not we_are_translated():
+        #    # ensure we are really sorted!
+        #    x = 0
+        #    for i,pack in enumerate(self.packset.packs):
+        #        assert x <= pack.left.getindex()
+        #        x = pack.left.getindex()
         i = 0
         j = 0
         end_ij = len(self.packset.packs)
@@ -413,31 +413,31 @@ class VectorizingOptimizer(Optimizer):
                     pack2 = self.packset.packs[j]
                     # remove intermediate
                     left = pack1.operations[0]
-                    if left in orphan:
-                        # a pack was filled, thus the rhs was put
-                        # into the orphan map.
-                        if orphan[left] is False:
-                            # this pack might be redundant if pack1.right
-                            # is the at the left position in another pack
-                            assert pack1.opcount() == 2
-                            right = pack1.operations[1]
-                            orphan[right] = True
-                            pack1.clear()
-                            del self.packset.packs[i]
-                            end_ij -= 1
-                            continue
-                        else:
-                            # left is not an orphan, this pack proves that
-                            # there might be more packs
-                            del orphan[left]
+                    #if left in orphan:
+                    #    # a pack was filled, thus the rhs was put
+                    #    # into the orphan map.
+                    #    if orphan[left] is False:
+                    #        # this pack might be redundant if pack1.right
+                    #        # is the at the left position in another pack
+                    #        assert pack1.opcount() == 2
+                    #        right = pack1.operations[1]
+                    #        orphan[right] = True
+                    #        pack1.clear()
+                    #        del self.packset.packs[i]
+                    #        end_ij -= 1
+                    #        continue
+                    #    else:
+                    #        # left is not an orphan, this pack proves that
+                    #        # there might be more packs
+                    #        del orphan[left]
                     # check if the pack is already full
-                    if pack1.is_full(self.cpu.vector_register_size):
-                        right = pack1.operations[-1]
-                        # False indicates that the next pair might not
-                        # be needed, because left is already computed
-                        # in another set
-                        orphan[right] = False
-                        break
+                    #if pack1.is_full(self.cpu.vector_register_size):
+                    #    right = pack1.operations[-1]
+                    #    # False indicates that the next pair might not
+                    #    # be needed, because left is already computed
+                    #    # in another set
+                    #    orphan[right] = False
+                    #    break
                     if pack1.rightmost_match_leftmost(pack2):
                         end_ij = self.packset.combine(i,j)
                     else:
@@ -449,7 +449,10 @@ class VectorizingOptimizer(Optimizer):
             if len_before == len(self.packset.packs):
                 break
         for pack in self.packset.packs:
-            pack.update_pack_of_nodes()
+            if pack.pack_byte_size() > self.cpu.vector_register_size:
+                pack.split(self.packset.packs, self.cpu.vector_register_size)
+            else:
+                pack.update_pack_of_nodes()
 
         if not we_are_translated():
             # some test cases check the accumulation variables

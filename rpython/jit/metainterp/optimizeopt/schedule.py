@@ -892,15 +892,21 @@ class Pack(object):
     def leftmost(self):
         return self.operations[0].getoperation()
 
-    def is_full(self, vec_reg_size):
-        """ If one input element times the opcount is equal
-            to the vector register size, we are full!
-        """
+    def pack_type(self):
         ptype = self.input_type
         if self.input_type is None:
             # load does not have an input type, but only an output type
             ptype = self.output_type
+        return ptype
 
+    def pack_byte_size(self):
+        return self.pack_type().getsize() * self.opcount()
+
+    def is_full(self, vec_reg_size):
+        """ If one input element times the opcount is equal
+            to the vector register size, we are full!
+        """
+        ptype = self.pack_type()
         op = self.leftmost()
         if op.casts_box():
             cur_bytes = ptype.getsize() * self.opcount()
@@ -908,7 +914,7 @@ class Pack(object):
             assert cur_bytes <= max_bytes
             return cur_bytes == max_bytes
 
-        bytes = ptype.getsize() * len(self.operations)
+        bytes = self.pack_byte_size()
         assert bytes <= vec_reg_size
         if bytes == vec_reg_size:
             return True
@@ -933,6 +939,20 @@ class Pack(object):
             node.pack = self
             node.pack_position = i
 
+    def split(self, packlist, vec_reg_size):
+        pack = self
+        pack_type = self.pack_type()
+        max_count = vec_reg_size // pack_type.getsize()
+        assert max_count * pack_type.getsize() == vec_reg_size
+        while pack.pack_byte_size() > vec_reg_size:
+            newpack = pack.clone()
+            oplist = pack.operations[:max_count]
+            newpack.operations = pack.operations[max_count:]
+            pack.operations = oplist
+            pack.update_pack_of_nodes()
+            newpack.update_pack_of_nodes()
+            pack = newpack
+
     def rightmost_match_leftmost(self, other):
         """ Check if pack A can be combined with pack B """
         assert isinstance(other, Pack)
@@ -953,6 +973,12 @@ class Pack(object):
 
     def is_accumulating(self):
         return self.accum is not None
+
+    def clone(self):
+        cloned = Pack(self.operations, self.input_type, self.output_type)
+        cloned.accum = self.accum
+        return cloned
+
 
 class Pair(Pack):
     """ A special Pack object with only two statements. """
