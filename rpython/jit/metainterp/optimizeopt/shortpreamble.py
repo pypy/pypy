@@ -69,8 +69,9 @@ class HeapOp(AbstractShortOp):
         else:
             index = g.getarg(1).getint()
             assert index >= 0
+            cf = optheap.arrayitem_cache(descr, index)
             opinfo.setitem(self.getfield_op.getdescr(), index, self.res,
-                           pop, optheap=optheap)
+                           pop, cf, optheap=optheap)
 
     def add_op_to_short(self, sb):
         sop = self.getfield_op
