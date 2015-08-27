@@ -105,7 +105,7 @@ class AbstractVirtualStateInfo(object):
                 'Generating guards for making the VirtualStates ' +
                 'at hand match have not been implemented')
 
-    def enum_forced_boxes(self, boxes, structbox, optimizer, force_boxes=False):
+    def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         raise NotImplementedError
 
     def enum(self, virtual_state):
@@ -148,6 +148,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         opinfo = state.optimizer.getptrinfo(box)
         if runtime_box is not None:
             assert opinfo.is_virtual()
+        assert isinstance(opinfo, AbstractStructPtrInfo)
 
         if len(self.fielddescrs) != len(other.fielddescrs):
             raise VirtualStatesCantMatch("field descrs don't match")
@@ -293,6 +294,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         fieldbox = None
         fieldbox_runtime = None
         opinfo = state.optimizer.getptrinfo(box)
+        assert isinstance(opinfo, ArrayPtrInfo)
         for i in range(self.length):
             for descr in self.fielddescrs:
                 index = i * len(self.fielddescrs) + descr.get_index()
@@ -311,8 +313,8 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
             if s is not None:
                 s.enum(virtual_state)
 
-    def enum_forced_boxes(self, boxes, structbox, optimizer, force_boxes=False):
-        opinfo = optimizer.getptrinfo(structbox)
+    def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
+        opinfo = optimizer.getptrinfo(box)
         if not isinstance(opinfo, ArrayStructInfo):
             raise BadVirtualState
         if not opinfo.is_virtual():
@@ -360,7 +362,6 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                     self.level = LEVEL_KNOWNCLASS
                 elif info.is_nonnull():
                     self.level = LEVEL_NONNULL
-                # XXX strings?
                 self.lenbound = info.getlenbound(None)
         elif type == 'i':
             if isinstance(info, IntBound):

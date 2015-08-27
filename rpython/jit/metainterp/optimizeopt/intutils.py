@@ -227,6 +227,7 @@ class IntBound(AbstractInfo):
         return True
 
     def contains_bound(self, other):
+        assert isinstance(other, IntBound)
         if other.has_lower:
             if not self.contains(other.lower):
                 return False

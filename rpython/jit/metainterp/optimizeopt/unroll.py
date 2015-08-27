@@ -266,6 +266,7 @@ class UnrollOptimizer(Optimization):
                 if op.is_guard():
                     op = self.replace_op_with(op, op.getopnum(),
                                     descr=compile.ResumeAtPositionDescr())
+                    assert isinstance(op, GuardResOp)
                     op.rd_snapshot = patchguardop.rd_snapshot
                     op.rd_frame_info_list = patchguardop.rd_frame_info_list
                 self.optimizer.send_extra_operation(op)

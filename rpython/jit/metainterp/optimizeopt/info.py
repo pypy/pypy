@@ -462,7 +462,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                 optforce.emit_operation(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
-    def setitem(self, descr, index, struct_op, op, cf=None, optheap=None):
+    def setitem(self, descr, index, struct, op, cf=None, optheap=None):
         if self._items is None:
             self._items = [None] * (index + 1)
         if index >= len(self._items):
@@ -470,7 +470,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         self._items[index] = op
         if cf is not None:
             assert not self.is_virtual()
-            cf.register_dirty_field(struct_op, self)
+            cf.register_dirty_field(struct, self)
 
     def getitem(self, descr, index, optheap=None):
         if self._items is None or index >= len(self._items):
