@@ -231,6 +231,9 @@ class InteriorFieldDescr(AbstractDescr):
         self.arraydescr = runner.arraydescrof(A)
         self.fielddescr = runner.fielddescrof(A.OF, fieldname)
 
+    def get_index(self):
+        return self.fielddescr.get_index()
+
     def get_arraydescr(self):
         return self.arraydescr
 

@@ -1,6 +1,7 @@
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
 from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
-from rpython.jit.metainterp.optimizeopt import info
+from rpython.jit.metainterp.optimizeopt.info import ArrayPtrInfo,\
+     ArrayStructInfo
 from rpython.jit.metainterp.optimizeopt.intutils import \
      MININT, MAXINT, IntBound
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
@@ -53,6 +54,18 @@ class GenerateGuardState(object):
         else:
             return InputArgInt(self.cpu.bh_getfield_gc_i(struct, descr))
 
+    def get_runtime_interiorfield(self, box, descr, i):
+        struct = box.getref_base()
+        if descr.is_pointer_field():
+            return InputArgRef(self.cpu.bh_getinteriorfield_gc_r(struct, i,
+                                                                 descr))
+        elif descr.is_float_field():
+            return InputArgFloat(self.cpu.bh_getinteriorfield_gc_f(struct, i,
+                                                                   descr))
+        else:
+            return InputArgInt(self.cpu.bh_getinteriorfield_gc_i(struct, i,
+                                                                 descr))
+
 class AbstractVirtualStateInfo(object):
     position = -1
 
@@ -92,7 +105,7 @@ class AbstractVirtualStateInfo(object):
                 'Generating guards for making the VirtualStates ' +
                 'at hand match have not been implemented')
 
-    def enum_forced_boxes(self, boxes, value, optimizer):
+    def enum_forced_boxes(self, boxes, structbox, optimizer, force_boxes=False):
         raise NotImplementedError
 
     def enum(self, virtual_state):
@@ -225,7 +238,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         for i in range(len(self.fieldstate)):
             if runtime_box is not None:
                 opinfo = state.optimizer.getptrinfo(box)
-                assert isinstance(opinfo, info.ArrayPtrInfo)
+                assert isinstance(opinfo, ArrayPtrInfo)
                 fieldbox = opinfo._items[i]
                 fieldbox_runtime = state.get_runtime_item(runtime_box,
                                             self.arraydescr, i)
@@ -257,12 +270,12 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
 
 
 class VArrayStructStateInfo(AbstractVirtualStateInfo):
-    def __init__(self, arraydescr, fielddescrs):
+    def __init__(self, arraydescr, fielddescrs, length):
         self.arraydescr = arraydescr
         self.fielddescrs = fielddescrs
+        self.length = length
 
-    def _generate_guards(self, other, box, opinfo, state):
-        xxxx
+    def _generate_guards(self, other, box, runtime_box, state):
         if not isinstance(other, VArrayStructStateInfo):
             raise VirtualStatesCantMatch("other is not an VArrayStructStateInfo")
         if self.arraydescr is not other.arraydescr:
@@ -271,48 +284,54 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         if len(self.fielddescrs) != len(other.fielddescrs):
             raise VirtualStatesCantMatch("other has a different length")
 
-        p = 0
+        if len(self.fielddescrs) != len(other.fielddescrs):
+            raise VirtualStatesCantMatch("other has a different length")
+        for j, descr in enumerate(self.fielddescrs):
+            if descr is not other.fielddescrs[j]:
+                raise VirtualStatesCantMatch("other is a different kind of array")
         fieldbox = None
-        fieldinfo = None
-        for i in range(len(self.fielddescrs)):
-            if len(self.fielddescrs[i]) != len(other.fielddescrs[i]):
-                raise VirtualStatesCantMatch("other has a different length")
-            for j in range(len(self.fielddescrs[i])):
-                descr = self.fielddescrs[i][j]
-                if descr is not other.fielddescrs[i][j]:
-                    raise VirtualStatesCantMatch("other is a different kind of array")
+        fieldbox_runtime = None
+        opinfo = state.optimizer.getptrinfo(box)
+        for i in range(self.length):
+            for descr in self.fielddescrs:
+                index = i * len(self.fielddescrs) + descr.get_index()
+                fieldstate = self.fieldstate[index]
+                if fieldstate is None:
+                    continue
                 if box is not None:
-                    xxx
-                    assert isinstance(value, virtualize.VArrayStructValue)
-                    v = value._items[i][descr]
-                self.fieldstate[p].generate_guards(other.fieldstate[p],
-                                                   fieldbox, fieldinfo,
-                                                   state)
-                p += 1
+                    fieldbox = opinfo._items[index]
+                    fieldbox_runtime = state.get_runtime_interiorfield(
+                        runtime_box, descr, i)
+                self.fieldstate[index].generate_guards(other.fieldstate[index],
+                                       fieldbox, fieldbox_runtime, state)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
-            s.enum(virtual_state)
+            if s is not None:
+                s.enum(virtual_state)
 
-    def enum_forced_boxes(self, boxes, value, optimizer):
-        xxx
-        if not isinstance(value, virtualize.VArrayStructValue):
+    def enum_forced_boxes(self, boxes, structbox, optimizer, force_boxes=False):
+        opinfo = optimizer.getptrinfo(structbox)
+        if not isinstance(opinfo, ArrayStructInfo):
             raise BadVirtualState
-        if not value.is_virtual():
+        if not opinfo.is_virtual():
             raise BadVirtualState
-        if len(self.fielddescrs) > len(value._items):
-            raise BadVirtualState
-        p = 0
-        for i in range(len(self.fielddescrs)):
-            for j in range(len(self.fielddescrs[i])):
-                try:
-                    v = value._items[i][self.fielddescrs[i][j]]
-                except KeyError:
-                    raise BadVirtualState
-                s = self.fieldstate[p]
-                if s.position > self.position:
-                    s.enum_forced_boxes(boxes, v, optimizer)
-                p += 1
+        #if len(self.fielddescrs) > len(value._items):
+        #    raise BadVirtualState
+        for i in range(self.length):
+            for descr in self.fielddescrs:
+                index = i * len(self.fielddescrs) + descr.get_index()
+                fieldstate = self.fieldstate[index]
+                itembox = opinfo._items[i * len(self.fielddescrs) +
+                                        descr.get_index()]
+                if fieldstate is None:
+                    if itembox is not None:
+                        raise BadVirtualState
+                    continue
+                # I think itembox must be present here
+                if fieldstate.position > self.position:
+                    fieldstate.enum_forced_boxes(boxes, itembox, optimizer,
+                                                 force_boxes)
 
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStructStateInfo(%d):' % self.position)
@@ -652,4 +671,4 @@ class VirtualStateConstructor(VirtualVisitor):
         return VArrayStateInfo(arraydescr)
 
     def visit_varraystruct(self, arraydescr, length, fielddescrs):
-        return VArrayStructStateInfo(arraydescr, fielddescrs)
+        return VArrayStructStateInfo(arraydescr, fielddescrs, length)

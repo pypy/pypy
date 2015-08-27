@@ -320,6 +320,9 @@ class InteriorFieldDescr(AbstractDescr):
         self.arraydescr = arraydescr
         self.fielddescr = fielddescr
 
+    def get_index(self):
+        return self.fielddescr.get_index()
+
     def get_arraydescr(self):
         return self.arraydescr
 
