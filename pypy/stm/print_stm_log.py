@@ -331,14 +331,16 @@ def dump_summary(stmlog):
     #
     values = stmlog.get_conflicts()
     for c in values[:15]:
-        intervals = 48
+        intervals = 60
         timeline = [0] * intervals
         for t in c.timestamps:
             idx = int((t - start_time) / total_time * intervals)
             timeline[idx] += 1
 
         print str(c)
-        print "time line:", "".join(['x' if i else '.' for i in timeline])
+        max_events = float(max(timeline))+0.1
+        print "time line:", "|"+"".join(['_xX'[int(i / max_events * 3)]
+                                     if i else ' ' for i in timeline])+"|"
         print
 
 
