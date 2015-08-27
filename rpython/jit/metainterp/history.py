@@ -770,6 +770,12 @@ class Stats(object):
         if 'call_pure' in check:
             assert check.pop('call_pure') == 0
             check['call_pure_i'] = check['call_pure_r'] = check['call_pure_f'] = 0
+        if 'call_may_force' in check:
+            assert check.pop('call_may_force') == 0
+            check['call_may_force_i'] = check['call_may_force_r'] = check['call_may_force_f'] = check['call_may_force_n'] = 0
+        if 'call_assembler' in check:
+            assert check.pop('call_assembler') == 0
+            check['call_assembler_i'] = check['call_assembler_r'] = check['call_assembler_f'] = check['call_assembler_n'] = 0
         for loop in self.get_all_loops():
             insns = loop.summary(adding_insns=insns, omit_finish=omit_finish)
         return self._check_insns(insns, expected, check)
