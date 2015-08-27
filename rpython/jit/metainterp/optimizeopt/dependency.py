@@ -934,11 +934,11 @@ class IndexVar(AbstractValue):
     """ IndexVar is an AbstractValue only to ensure that a box can be assigned
         to the same variable as an index var.
     """
-    def __init__(self, var):
+    def __init__(self, var, coeff_mul=1, coeff_div=1, constant=0):
         self.var = var
-        self.coefficient_mul = 1
-        self.coefficient_div = 1
-        self.constant = 0
+        self.coefficient_mul = coeff_mul
+        self.coefficient_div = coeff_div
+        self.constant = constant
         # saves the next modification that uses a variable
         self.next_nonconst = None
         self.current_end = None
@@ -990,7 +990,7 @@ class IndexVar(AbstractValue):
 
     def same_variable(self, other):
         assert isinstance(other, IndexVar)
-        return other.var == self.var
+        return other.var is self.var
 
     def diff(self, other):
         """ calculates the difference as a second parameter """
@@ -1060,9 +1060,8 @@ class IndexVar(AbstractValue):
         if self.is_identity():
             return 'IndexVar(%s+%s)' % (self.var, repr(self.next_nonconst))
 
-        return 'IndexVar((%s*(%s/%s)+%s) + %s)' % (self.var, self.coefficient_mul,
-                                            self.coefficient_div, self.constant,
-                                            repr(self.next_nonconst))
+        return 'IndexVar((%s*(%s/%s)+%s))' % (self.var, self.coefficient_mul,
+                                            self.coefficient_div, self.constant)
 
 class MemoryRef(object):
     """ a memory reference to an array object. IntegralForwardModification is able

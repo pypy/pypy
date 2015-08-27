@@ -13,6 +13,11 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                      free_raw_storage, raw_storage_getitem)
 
+def malloc(T,n):
+    return lltype.malloc(T, n, flavor='raw', zero=True)
+def free(mem):
+    lltype.free(mem, flavor='raw')
+
 class VectorizeTests:
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
 
@@ -289,8 +294,8 @@ class VectorizeTests:
         myjitdriver = JitDriver(greens = [],
                                 reds = 'auto')
         def f(d, v1, v2):
-            a = [v1] * d
-            b = [v2] * d
+            a = [v1] * i
+            b = [v2] * i
             i = 0
             while i < len(a):
                 myjitdriver.jit_merge_point()
@@ -304,6 +309,31 @@ class VectorizeTests:
         # sum helps to generate the rounding error of floating points
         # return 69.999 ... instead of 70, (v1+v2)*i == 70.0
         assert res == f(i,v1,v2) == sum([v1+v2]*i)
+
+    @py.test.mark.parametrize('size',[12])
+    def test_body_multiple_accesses(self, size):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        T = lltype.Array(rffi.CHAR, hints={'nolength': True})
+        def f(size):
+            vector_a = malloc(T, size)
+            vector_b = malloc(T, size)
+            i = 0
+            while i < size:
+                myjitdriver.jit_merge_point()
+                # should unroll and group them correctly
+                c1 = vector_a[i]
+                c2 = vector_a[i+1]
+                c3 = vector_a[i+2]
+                #
+                vector_b[i] = c1
+                vector_b[i+1] = c2
+                vector_b[i+2] = c3
+                i += 3
+            free(vector_a)
+            free(vector_b)
+            return 0
+        res = self.meta_interp(f, [size], vec_all=True)
+        assert res == f(size)
 
 class VectorizeLLtypeTests(VectorizeTests):
     pass

@@ -7,19 +7,10 @@ from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, Dependency,
         IndexVar, MemoryRef, Node)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.backend.llgraph.runner import ArrayDescr
+from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype
 from rpython.conftest import option
-
-class FakeNode(Node):
-    def __init__(self, i):
-        Node.__init__(self, None, i)
-        pass
-
-    def __repr__(self):
-        return "n%d" % self.opidx
-
-class FakeDependencyGraph(DependencyGraph):
-    def __init__(self):
-        pass
 
 class DependencyBaseTest(BaseTest):
 
@@ -138,6 +129,48 @@ class DependencyBaseTest(BaseTest):
         return self.last_graph.memory_refs[node]
 
 class BaseTestDependencyGraph(DependencyBaseTest):
+
+    def test_index_var_basic(self):
+        b = FakeBox()
+        i = IndexVar(b,1,1,0)
+        j = IndexVar(b,1,1,0)
+        assert i.is_identity()
+        assert not i.less(j)
+        assert i.same_variable(j)
+        assert i.diff(j) == 0
+
+    def test_index_var_diff(self):
+        b = FakeBox()
+        i = IndexVar(b,4,2,0)
+        j = IndexVar(b,1,1,1)
+        assert not i.is_identity()
+        assert not j.is_identity()
+        assert i.diff(j) == 1
+
+    def test_memoryref_basic(self):
+        i = FakeBox()
+        a = FakeBox()
+        m1 = memoryref(a, i, (1,1,0))
+        m2 = memoryref(a, i, (1,1,0))
+        assert m1.match(m2)
+
+    @py.test.mark.parametrize('coeff1,coeff2,adja,alias',
+            [((1,1,0), (1,1,0), False, True),
+             ((4,2,0), (8,4,0), False, True),
+             ((4,2,0), (8,2,0), False, True),
+             ((4,2,1), (8,4,0), True, False),
+            ])
+    def test_memoryref_adjacent_alias(self, coeff1,
+                                      coeff2, adja,
+                                      alias):
+        i = FakeBox()
+        a = FakeBox()
+        m1 = memoryref(a, i, coeff1)
+        m2 = memoryref(a, i, coeff2)
+        assert m1.is_adjacent_after(m2) == adja
+        assert m2.is_adjacent_after(m1) == adja
+        assert m1.indices_can_alias(m2) == alias
+
     def test_dependency_empty(self):
         ops = """
         [] # 0: 1
@@ -511,6 +544,49 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         assert cycle is not None
         assert cycle == [n1,n3,n4]
 
+class FakeMemoryRefResOp(object):
+    def __init__(self, array, descr):
+        self.array = array
+        self.descr = descr
+    def getarg(self, index):
+        return self.array
+    def getdescr(self):
+        return self.descr
+
+FLOAT = ArrayDescr(lltype.Float)
+SFLOAT = ArrayDescr(lltype.SingleFloat)
+CHAR = ArrayDescr(rffi.r_signedchar)
+UCHAR = ArrayDescr(rffi.r_uchar)
+SHORT = ArrayDescr(rffi.r_short)
+USHORT = ArrayDescr(rffi.r_ushort)
+INT = ArrayDescr(rffi.r_int)
+UINT = ArrayDescr(rffi.r_uint)
+LONG = ArrayDescr(rffi.r_longlong)
+ULONG = ArrayDescr(rffi.r_ulonglong)
+
+def memoryref(array, var, mod=(1,1,0), descr=None, raw=False):
+    if descr is None:
+        descr = FLOAT
+    mul, div, off = mod
+    op = FakeMemoryRefResOp(array, descr)
+    return MemoryRef(op,
+                     IndexVar(var, mul, div, off),
+                     raw)
+
+class FakeBox(object):
+    pass
+
+class FakeNode(Node):
+    def __init__(self, i):
+        Node.__init__(self, None, i)
+        pass
+
+    def __repr__(self):
+        return "n%d" % self.opidx
+
+class FakeDependencyGraph(DependencyGraph):
+    def __init__(self):
+        pass
 
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):

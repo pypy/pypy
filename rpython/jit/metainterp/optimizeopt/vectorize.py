@@ -326,6 +326,8 @@ class VectorizingOptimizer(Optimizer):
                     if memref_a.is_adjacent_to(memref_b):
                         pair = self.packset.can_be_packed(node_a, node_b, None, False)
                         if pair:
+                            if node_a.op.getopnum() == rop.GETARRAYITEM_RAW:
+                                print "found", memref_a.index_var, memref_b.index_var
                             self.packset.add_pack(pair)
 
     def extend_packset(self):
