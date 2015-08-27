@@ -3447,7 +3447,7 @@ class BaseLLtypeTests(BasicTests):
             return s
 
         self.meta_interp(f, [1, 10], inline=True)
-        self.check_resops(call=0, call_may_force=0, call_assembler=2)
+        self.check_resops(call_i=0, call_may_force_i=0, call_assembler_i=2)
 
     def test_reuse_elidable_result(self):
         driver = JitDriver(reds=['n', 's'], greens = [])
@@ -3461,7 +3461,7 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(main, [10])
         assert res == main(10)
         self.check_resops({'int_gt': 2, 'strlen': 2, 'guard_true': 2,
-                           'int_sub': 2, 'jump': 1, 'call': 2,
+                           'int_sub': 2, 'jump': 1, 'call_r': 2,
                            'guard_no_exception': 2, 'int_add': 4})
 
     def test_elidable_method(self):
@@ -3514,10 +3514,10 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(main, [0, 10])
         assert res == main(0, 10)
         # 2 calls, one for f() and one for char_mul
-        self.check_resops(call=4)
+        self.check_resops(call_i=2, call_r=2)
         res = self.meta_interp(main, [1, 10])
         assert res == main(1, 10)
-        self.check_resops(call=0)
+        self.check_resops(call_i=0, call_r=0)
 
     def test_setarrayitem_followed_by_arraycopy(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'x', 'y'])
