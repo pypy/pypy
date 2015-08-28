@@ -147,7 +147,7 @@ class AbstractFailDescr(AbstractDescr):
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
-    def compile_and_attach(self, metainterp, new_loop):
+    def compile_and_attach(self, metainterp, new_loop, orig_inputargs):
         raise NotImplementedError
 
 class BasicFinalDescr(AbstractFailDescr):
