@@ -226,6 +226,7 @@ def get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT):
         (_, _, ofs) = symbolic.get_array_token(ARRAY_OR_STRUCT, tsc)
         size = symbolic.get_size(lltype.Signed, tsc)
         result = FieldDescr("len", ofs, size, get_type_flag(lltype.Signed))
+        result.parent_descr = None
         cache[ARRAY_OR_STRUCT] = result
         return result
 
