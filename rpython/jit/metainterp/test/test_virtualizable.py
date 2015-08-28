@@ -283,7 +283,8 @@ class ExplicitVirtualizableTests:
         res = self.meta_interp(f, [16])
         assert res == 3001 + 16 * 80
         self.check_simple_loop(setarrayitem_gc=0, setfield_gc=0,
-                               getarrayitem_gc=0, getfield_gc=0)
+            getarrayitem_gc_i=0, getarrayitem_gc_r=0, getfield_gc_i=0,
+            getfield_gc_r=0)
 
     def test_synchronize_arrays_in_return(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy2'],

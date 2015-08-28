@@ -229,7 +229,8 @@ def compile_simple_loop(metainterp, greenkey, start, inputargs, ops, jumpargs,
     if not we_are_translated():
         loop.check_consistency()
     jitcell_token.target_tokens = [target_token]
-    send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
+    send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
+                         inputargs)
     record_loop_or_bridge(metainterp_sd, loop)
     return target_token
 
@@ -295,7 +296,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     if not we_are_translated():
         loop.check_consistency()
     jitcell_token.target_tokens = [start_descr] + jitcell_token.target_tokens
-    send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
+    send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
+                         inputargs)
     record_loop_or_bridge(metainterp_sd, loop)
     return start_descr
 
@@ -346,7 +348,7 @@ def compile_retrace(metainterp, greenkey, start,
     #    loop.quasi_immutable_deps = quasi_immutable_deps
 
     target_token = loop.operations[-1].getdescr()
-    resumekey.compile_and_attach(metainterp, loop)
+    resumekey.compile_and_attach(metainterp, loop, inputargs)
 
     record_loop_or_bridge(metainterp_sd, loop)
     return target_token
@@ -380,7 +382,7 @@ def emit_op(lst, op):
                         for a in op.getfailargs()])
     lst.append(op)
 
-def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd):
+def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd, vable):
     # XXX merge with rewriting
     vinfo = jitdriver_sd.virtualizable_info
     extra_ops = []
@@ -398,7 +400,6 @@ def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd):
         i += 1
     arrayindex = 0
     for descr in vinfo.array_field_descrs:
-        vable = vable_box.getref_base()
         arraylen = vinfo.get_array_length(vable, arrayindex)
         arrayop = ResOperation(rop.GETFIELD_GC_R, [vable_box], descr)
         emit_op(extra_ops, arrayop)
@@ -454,12 +455,14 @@ def forget_optimization_info(lst, reset_values=False):
         if reset_values:
             item.reset_value()
 
-def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
+def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
+                         orig_inpargs):
     forget_optimization_info(loop.operations)
     forget_optimization_info(loop.inputargs)
     vinfo = jitdriver_sd.virtualizable_info
     if vinfo is not None:
-        patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd)
+        vable = orig_inpargs[jitdriver_sd.index_of_virtualizable].getref_base()
+        patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd, vable)
 
     original_jitcell_token = loop.original_jitcell_token
     globaldata = metainterp_sd.globaldata
@@ -756,7 +759,7 @@ class ResumeGuardDescr(ResumeDescr):
         # incremented at all as long as ST_BUSY_FLAG was set.
         self.status &= ~self.ST_BUSY_FLAG
 
-    def compile_and_attach(self, metainterp, new_loop):
+    def compile_and_attach(self, metainterp, new_loop, orig_inputargs):
         # We managed to create a bridge.  Attach the new operations
         # to the corresponding guard_op and compile from there
         assert metainterp.resumekey_original_loop_token is not None
@@ -943,7 +946,7 @@ class ResumeFromInterpDescr(ResumeDescr):
     def __init__(self, original_greenkey):
         self.original_greenkey = original_greenkey
 
-    def compile_and_attach(self, metainterp, new_loop):
+    def compile_and_attach(self, metainterp, new_loop, orig_inputargs):
         # We managed to create a bridge going from the interpreter
         # to previously-compiled code.  We keep 'new_loop', which is not
         # a loop at all but ends in a jump to the target loop.  It starts
@@ -953,7 +956,8 @@ class ResumeFromInterpDescr(ResumeDescr):
         new_loop.original_jitcell_token = jitcell_token = make_jitcell_token(jitdriver_sd)
         #propagate_original_jitcell_token(new_loop)
         send_loop_to_backend(self.original_greenkey, metainterp.jitdriver_sd,
-                             metainterp_sd, new_loop, "entry bridge")
+                             metainterp_sd, new_loop, "entry bridge",
+                             orig_inputargs)
         # send the new_loop to warmspot.py, to be called directly the next time
         jitdriver_sd.warmstate.attach_procedure_to_interp(
             self.original_greenkey, jitcell_token)
@@ -1014,7 +1018,7 @@ def compile_trace(metainterp, resumekey):
     if info.final():
         new_trace.inputargs = info.inputargs
         target_token = new_trace.operations[-1].getdescr()
-        resumekey.compile_and_attach(metainterp, new_trace)
+        resumekey.compile_and_attach(metainterp, new_trace, inputargs)
         record_loop_or_bridge(metainterp_sd, new_trace)
         return target_token
     new_trace.inputargs = info.renamed_inputargs
