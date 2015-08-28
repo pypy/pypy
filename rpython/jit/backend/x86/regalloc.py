@@ -428,6 +428,8 @@ class RegAlloc(BaseRegalloc):
         self.perform_guard(op, [x, y], None)
 
     consider_guard_nonnull_class = consider_guard_class
+    consider_guard_gc_type = consider_guard_class
+    consider_guard_nonnull_gc_type = consider_guard_class
 
     def _consider_binop_part(self, op, symm=False):
         x = op.getarg(0)

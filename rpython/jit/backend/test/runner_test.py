@@ -4832,3 +4832,51 @@ class LLtypeBackendTest(BaseBackendTest):
                                 assert a[i].a == a[i].b == val
                             else:
                                 assert a[i] == rffi.cast(OF, val)
+
+    def test_passing_guard_gc_type_struct(self):
+        if not self.cpu.supports_guard_gc_type:
+            py.test.skip("guard_gc_type not available")
+        t_box, _, descr = self.alloc_instance(self.T)
+        c_typeid = ConstInt(descr.get_type_id())
+        self.execute_operation(rop.GUARD_GC_TYPE, [t_box, c_typeid], 'void')
+        assert not self.guard_failed
+        self.execute_operation(rop.GUARD_NONNULL_GC_TYPE, [t_box, c_typeid],
+                               'void')
+        assert not self.guard_failed
+
+    def test_passing_guard_gc_type_array(self):
+        if not self.cpu.supports_guard_gc_type:
+            py.test.skip("guard_gc_type not available")
+        a_box, A = self.alloc_array_of(rffi.SHORT, 342)
+        arraydescr = self.cpu.arraydescrof(A)
+        c_typeid = ConstInt(arraydescr.get_type_id())
+        self.execute_operation(rop.GUARD_GC_TYPE, [a_box, c_typeid], 'void')
+        assert not self.guard_failed
+        self.execute_operation(rop.GUARD_NONNULL_GC_TYPE, [a_box, c_typeid],
+                               'void')
+        assert not self.guard_failed
+
+    def test_failing_guard_gc_type(self):
+        if not self.cpu.supports_guard_gc_type:
+            py.test.skip("guard_gc_type not available")
+        t_box, _, tdescr = self.alloc_instance(self.T)
+        u_box, _, udescr = self.alloc_instance(self.U)
+        a_box, A = self.alloc_array_of(rffi.SHORT, 342)
+        adescr = self.cpu.arraydescrof(A)
+        c_ttypeid = ConstInt(tdescr.get_type_id())
+        c_utypeid = ConstInt(udescr.get_type_id())
+        c_atypeid = ConstInt(adescr.get_type_id())
+        null_box = self.null_instance()
+        for opname, args in [(rop.GUARD_GC_TYPE, [t_box, c_utypeid]),
+                             (rop.GUARD_GC_TYPE, [u_box, c_ttypeid]),
+                             (rop.GUARD_GC_TYPE, [a_box, c_utypeid]),
+                             (rop.GUARD_GC_TYPE, [t_box, c_atypeid]),
+                             (rop.GUARD_NONNULL_GC_TYPE, [t_box, c_utypeid]),
+                             (rop.GUARD_NONNULL_GC_TYPE, [u_box, c_ttypeid]),
+                             (rop.GUARD_NONNULL_GC_TYPE, [a_box, c_ttypeid]),
+                             (rop.GUARD_NONNULL_GC_TYPE, [u_box, c_atypeid]),
+                             (rop.GUARD_NONNULL_GC_TYPE, [null_box, c_ttypeid]),
+                             (rop.GUARD_NONNULL_GC_TYPE, [null_box, c_atypeid]),
+                             ]:
+            assert self.execute_operation(opname, args, 'void') == None
+            assert self.guard_failed

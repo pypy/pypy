@@ -16,6 +16,7 @@ from rpython.rtyper import rclass
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
+from rpython.rlib.objectmodel import Symbolic
 
 class LLTrace(object):
     has_been_freed = False
@@ -88,6 +89,10 @@ class CallDescr(AbstractDescr):
     def get_result_type(self):
         return getkind(self.RESULT)[0]
 
+class TypeIDSymbolic(Symbolic):
+    def __init__(self, STRUCT_OR_ARRAY):
+        self.STRUCT_OR_ARRAY = STRUCT_OR_ARRAY
+
 class SizeDescr(AbstractDescr):
     def __init__(self, S, vtable, runner):
         assert not isinstance(vtable, bool)
@@ -113,6 +118,10 @@ class SizeDescr(AbstractDescr):
 
     def is_immutable(self):
         return heaptracker.is_immutable_struct(self.S)
+
+    def get_type_id(self):
+        assert isinstance(self.S, lltype.GcStruct)
+        return TypeIDSymbolic(self.S)     # integer-like symbolic
 
     def __repr__(self):
         return 'SizeDescr(%r)' % (self.S,)
@@ -222,6 +231,10 @@ class ArrayDescr(AbstractDescr):
         return intbounds.get_integer_max(
             not _is_signed_kind(self.A.OF), rffi.sizeof(self.A.OF))
 
+    def get_type_id(self):
+        assert isinstance(self.A, lltype.GcArray)
+        return TypeIDSymbolic(self.A)     # integer-like symbolic
+
 
 class InteriorFieldDescr(AbstractDescr):
     def __init__(self, A, fieldname, runner):
@@ -281,6 +294,7 @@ class LLGraphCPU(model.AbstractCPU):
     supports_floats = True
     supports_longlong = r_uint is not r_ulonglong
     supports_singlefloats = True
+    supports_guard_gc_type = True
     translate_support_code = False
     is_llgraph = True
 
@@ -892,6 +906,16 @@ class LLFrame(object):
     def execute_guard_nonnull_class(self, descr, arg, klass):
         self.execute_guard_nonnull(descr, arg)
         self.execute_guard_class(descr, arg, klass)
+
+    def execute_guard_gc_type(self, descr, arg, typeid):
+        assert isinstance(typeid, TypeIDSymbolic)
+        TYPE = arg._obj.container._TYPE
+        if TYPE != typeid.STRUCT_OR_ARRAY:
+            self.fail_guard(descr)
+
+    def execute_guard_nonnull_gc_type(self, descr, arg, typeid):
+        self.execute_guard_nonnull(descr, arg)
+        self.execute_guard_gc_type(descr, arg, typeid)
 
     def execute_guard_no_exception(self, descr):
         if self.last_exception is not None:
