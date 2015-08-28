@@ -408,8 +408,7 @@ class ShortPreambleBuilder(object):
 
     def build_short_preamble(self):
         label_op = ResOperation(rop.LABEL, self.short_inputargs[:])
-        jump_op = ResOperation(rop.JUMP, self.short_preamble_jump)
-        # WARNING! the short_preamble_jump is shared on purpose
+        jump_op = ResOperation(rop.JUMP, self.short_preamble_jump[:])
         if not we_are_translated():
             TreeLoop.check_consistency_of(self.short_inputargs,
                                 self.short + [jump_op], check_descr=False)

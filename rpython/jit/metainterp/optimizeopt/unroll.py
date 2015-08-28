@@ -81,7 +81,6 @@ class UnrollOptimizer(Optimization):
     distinction anymore)"""
 
     short_preamble_producer = None
-    main_target_token = None
 
     def __init__(self, metainterp_sd, jitdriver_sd, optimizations):
         self.optimizer = UnrollableOptimizer(metainterp_sd, jitdriver_sd,
@@ -121,20 +120,15 @@ class UnrollOptimizer(Optimization):
             start_label.getarglist()[:], ops, call_pure_results, False,
             flush=False)
         label_op = ResOperation(rop.LABEL, label_args, start_label.getdescr())
+        extra_same_as = self.short_preamble_producer.extra_same_as[:]
         target_token = self.finalize_short_preamble(label_op,
                                                     state.virtual_state)
-        self.main_target_token = target_token
         label_op.setdescr(target_token)
-        extra = self.short_preamble_producer.used_boxes
-        label_op.initarglist(label_args + extra)
         # force the boxes for virtual state to match
         state.virtual_state.make_inputargs(
             [self.get_box_replacement(x) for x in end_jump.getarglist()],
             self.optimizer, force_boxes=True)
         new_virtual_state = self.jump_to_existing_trace(end_jump)
-        # the short preamble could have grown, we reinitialize
-        # the label_op again
-        label_op.initarglist(label_args + extra)
         if new_virtual_state is not None:
             celltoken = start_label.getdescr()
             assert isinstance(celltoken, JitCellToken)
@@ -142,8 +136,7 @@ class UnrollOptimizer(Optimization):
             return (UnrollInfo(target_token, label_op, []),
                     self.optimizer._newoperations)
             #return new_virtual_state, self.optimizer._newoperations
-        return (UnrollInfo(target_token, label_op,
-                           self.short_preamble_producer.extra_same_as),
+        return (UnrollInfo(target_token, label_op, extra_same_as),
                 self.optimizer._newoperations)
 
     def optimize_bridge(self, start_label, operations, call_pure_results,
@@ -203,6 +196,8 @@ class UnrollOptimizer(Optimization):
         target_token.virtual_state = virtual_state
         target_token.short_preamble = short_preamble
         jitcelltoken.target_tokens.append(target_token)
+        self.short_preamble_producer = None # no more boxes
+        label_op.initarglist(label_op.getarglist() + sb.used_boxes)
         return target_token
 
     def jump_to_preamble(self, cell_token, jump_op, info):
@@ -238,13 +233,9 @@ class UnrollOptimizer(Optimization):
                 self.optimizer, append_virtuals=True)
             args = target_virtual_state.make_inputargs(args,
                 self.optimizer)
-            if target_token is self.main_target_token:
-                # rebuild the short preamble, it might have changed
-                new_sp = self.short_preamble_producer.build_short_preamble()
-                target_token.short_preamble = new_sp
             short_preamble = target_token.short_preamble
             extra = self.inline_short_preamble(pass_to_short, args,
-                short_preamble[0].getarglist(), short_preamble,
+                short_preamble[0].getarglist(), short_preamble[1:-1],
                 short_preamble[-1].getarglist(), self.optimizer.patchguardop)
             self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
                                       args=args + extra,
@@ -255,16 +246,13 @@ class UnrollOptimizer(Optimization):
     def inline_short_preamble(self, jump_args, args_no_virtuals,
                               short_inputargs, short_ops,
                               short_jump_op, patchguardop):
-        # warning!!!! short_jump_op might have arguments appended IN PLACE
         try:
             self._check_no_forwarding([short_inputargs, short_ops], False)
             assert len(short_inputargs) == len(jump_args)
             for i in range(len(jump_args)):
                 short_inputargs[i].set_forwarded(None)
                 self.make_equal_to(short_inputargs[i], jump_args[i])
-            i = 1
-            while i < len(short_ops) - 1:
-                op = short_ops[i]
+            for op in short_ops:
                 if op.is_guard():
                     op = self.replace_op_with(op, op.getopnum(),
                                     descr=compile.ResumeAtPositionDescr())
@@ -272,7 +260,6 @@ class UnrollOptimizer(Optimization):
                     op.rd_snapshot = patchguardop.rd_snapshot
                     op.rd_frame_info_list = patchguardop.rd_frame_info_list
                 self.optimizer.send_extra_operation(op)
-                i += 1
             # force all of them except the virtuals
             for arg in args_no_virtuals + short_jump_op:
                 self.optimizer.force_box(self.get_box_replacement(arg))
@@ -284,9 +271,9 @@ class UnrollOptimizer(Optimization):
                 op.set_forwarded(None)
 
     def export_state(self, start_label, original_label_args, renamed_inputargs):
-        self.optimizer.force_at_end_of_preamble()
         end_args = [self.optimizer.force_box_for_end_of_preamble(a)
                     for a in original_label_args]
+        self.optimizer.force_at_end_of_preamble()
         virtual_state = self.get_virtual_state(end_args)
         end_args = [self.get_box_replacement(arg) for arg in end_args]
         infos = {}

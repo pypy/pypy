@@ -855,19 +855,19 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = getfield_gc_i(p3sub, descr=valuedescr)
         escape_n(i3)
         p2sub = new_with_vtable(descr=nodesize2)
-        setfield_gc(p2, p2sub, descr=nextdescr)
         setfield_gc(p2sub, i1, descr=valuedescr)
-        i4 = same_as_i(i1)
-        jump(i1, p2, p2sub, i4)
+        setfield_gc(p2, p2sub, descr=nextdescr)
+        jump(i1, p2, p2sub)
         """
         expected = """
-        [i1, p2, p10, i10]
-        escape_n(i10)
+        [i1, p2, p10]
+        i3 = getfield_gc_i(p10, descr=valuedescr)
+        escape_n(i3)
         p1 = new_with_vtable(descr=nodesize)
         p3sub = new_with_vtable(descr=nodesize2)
         setfield_gc(p3sub, i1, descr=valuedescr)
         setfield_gc(p1, p3sub, descr=nextdescr)
-        jump(i1, p1, p3sub, i1)
+        jump(i1, p1, p3sub)
         """
         self.optimize_loop(ops, expected, preamble,
                 jump_values=[None, self.nodefulladdr, self.nodefulladdr, None])
