@@ -265,7 +265,8 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
-            s.enum(virtual_state)
+            if s:
+                s.enum(virtual_state)
 
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStateInfo(%d):' % self.position)
@@ -573,6 +574,8 @@ class VirtualState(object):
 
     def make_inputargs(self, inputargs, optimizer, force_boxes=False,
                        append_virtuals=False):
+        if optimizer.optearlyforce:
+            optimizer = optimizer.optearlyforce
         assert len(inputargs) == len(self.state)
         boxes = [None] * self.numnotvirtuals
 

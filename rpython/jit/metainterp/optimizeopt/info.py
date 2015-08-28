@@ -123,7 +123,7 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
                 return constptr
             #
             op.set_forwarded(None)
-            optforce._emit_operation(op)
+            optforce.emit_operation(op)
             newop = optforce.getlastop()
             op.set_forwarded(newop)
             newop.set_forwarded(self)
@@ -187,10 +187,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
                                           descr=flddescr)
                 self._fields[i] = None
-                if optforce.optheap is not None:
-                    optforce.optheap.propagate_forward(setfieldop)
-                else:
-                    optforce.emit_operation(setfieldop)
+                optforce.emit_operation(setfieldop)
 
     def _force_at_the_end_of_preamble(self, op, optforce, rec):
         if self._fields is None:
@@ -456,10 +453,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                                  [op, ConstInt(i), subbox],
                                   descr=arraydescr)
             self._items[i] = None
-            if optforce.optheap is not None:
-                optforce.optheap.propagate_forward(setop)
-            else:
-                optforce.emit_operation(setop)
+            optforce.emit_operation(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
     def setitem(self, descr, index, struct, op, cf=None, optheap=None):
