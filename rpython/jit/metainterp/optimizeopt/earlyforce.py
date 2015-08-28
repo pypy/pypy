@@ -26,7 +26,7 @@ class OptEarlyForce(Optimization):
             not is_raw_free(op, opnum)):
 
             for arg in op.getarglist():
-                self.optimizer.force_box(arg)
+                self.optimizer.force_box(arg, self)
         self.emit_operation(op)
 
     def setup(self):

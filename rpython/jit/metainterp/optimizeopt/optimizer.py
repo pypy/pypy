@@ -146,8 +146,8 @@ class Optimization(object):
     def getlastop(self):
         return self.optimizer.getlastop()
 
-    def force_box(self, box):
-        return self.optimizer.force_box(box)
+    def force_box(self, box, optforce=None):
+        return self.optimizer.force_box(box, optforce)
 
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         return self.optimizer.replace_op_with(op, newopnum, args, descr)
@@ -336,8 +336,10 @@ class Optimizer(Optimization):
             return op
         return op.get_box_replacement(not_const)
 
-    def force_box(self, op):
+    def force_box(self, op, optforce=None):
         op = self.get_box_replacement(op)
+        if optforce is None:
+            optforce = self
         info = op.get_forwarded()
         if self.optunroll and self.optunroll.potential_extra_ops:
             # XXX hack
@@ -351,7 +353,7 @@ class Optimizer(Optimization):
         if info is not None:
             if op.type == 'i' and info.is_constant():
                 return ConstInt(info.getint())
-            return info.force_box(op, self)
+            return info.force_box(op, optforce)
         return op
 
     def is_inputarg(self, op):

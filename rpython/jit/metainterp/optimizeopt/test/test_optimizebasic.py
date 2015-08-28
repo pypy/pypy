@@ -579,9 +579,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i3 = getfield_gc_i(p3, descr=valuedescr)
         escape_n(i3)
         p1 = new_with_vtable(descr=nodesize)
-        setfield_gc(p1, i1, descr=valuedescr)
         p1sub = new_with_vtable(descr=nodesize2)
         setfield_gc(p1sub, i1, descr=valuedescr)
+        setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p1, p1sub, descr=nextdescr)
         jump(i1, p1, p2)
         """
@@ -5782,6 +5782,26 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         escape_n(p0)
         escape_n(i1)
         jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_force_virtual_write(self):
+        ops = """
+        [i1, i2]
+        p1 = new(descr=ssize)
+        setfield_gc(p1, i1, descr=adescr)
+        setfield_gc(p1, i2, descr=bdescr)
+        call_n(123, p1, descr=writeadescr)
+        i3 = getfield_gc_i(p1, descr=bdescr)
+        finish(i3)
+        """
+        expected = """
+        [i1, i2]
+        p1 = new(descr=ssize)
+        setfield_gc(p1, i1, descr=adescr)
+        call_n(123, p1, descr=writeadescr)
+        setfield_gc(p1, i2, descr=bdescr)
+        finish(i2)
         """
         self.optimize_loop(ops, expected)
 
