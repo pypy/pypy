@@ -13,7 +13,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp
 from rpython.jit.metainterp import compile
 from rpython.rlib.debug import debug_print
 
-class UnrollableOptimizer(Optimizer):
+class UnrollableOptimizer(Optimizer):    
     def force_op_from_preamble(self, preamble_op):
         if isinstance(preamble_op, PreambleOp):
             op = preamble_op.op
