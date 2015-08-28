@@ -3,7 +3,7 @@ PyPy 2.6.1
 ==========
 
 We're pleased to announce PyPy 2.6.1, an update to PyPy 2.6.0 released June 1.
-We have updated stdlib to 2.7.10, `cffi`_ to version 1.2, extended support for
+We have updated stdlib to 2.7.10, `cffi`_ to version 1.3, extended support for
 the new vmprof_ statistical profiler for multiple threads, and increased
 functionality of numpy.
 
@@ -87,7 +87,7 @@ Highlights
 
 * New features:
 
-  * cffi was updated to version 1.2
+  * cffi was updated to version 1.3
 
   * The python stdlib was updated to 2.7.10 from 2.7.9
 
