@@ -491,6 +491,22 @@ class AppTestInterpObjectPickling:
         assert pack.mod is result
 
 
+    def test_pickle_generator_crash(self):
+        import pickle
+
+        def f():
+            yield 0
+
+        x = f()
+        x.next()
+        try:
+            x.next()
+        except StopIteration:
+            y = pickle.loads(pickle.dumps(x))
+        assert 'finished' in y.__name__
+        assert 'finished' in repr(y)
+        assert y.gi_code is None
+
 class AppTestGeneratorCloning:
 
     def setup_class(cls):

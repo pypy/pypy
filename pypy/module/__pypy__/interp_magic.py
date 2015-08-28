@@ -15,12 +15,10 @@ def internal_repr(space, w_object):
     return space.wrap('%r' % (w_object,))
 
 
-def interp_pdb(space):
-    """Run an interp-level pdb.
-    This is not available in translated versions of PyPy."""
-    assert not we_are_translated()
-    import pdb
-    pdb.set_trace()
+def attach_gdb(space):
+    """Run an interp-level gdb (or pdb when untranslated)"""
+    from rpython.rlib.debug import attach_gdb
+    attach_gdb()
 
 
 @unwrap_spec(name=str)
@@ -58,6 +56,20 @@ def builtinify(space, w_func):
     func = space.interp_w(Function, w_func)
     bltn = BuiltinFunction(func)
     return space.wrap(bltn)
+
+def hidden_applevel(space, w_func):
+    """Decorator that hides a function's frame from app-level"""
+    from pypy.interpreter.function import Function
+    func = space.interp_w(Function, w_func)
+    func.getcode().hidden_applevel = True
+    return w_func
+
+def get_hidden_tb(space):
+    """Return the traceback of the current exception being handled by a
+    frame hidden from applevel.
+    """
+    operr = space.getexecutioncontext().sys_exc_info(for_hidden=True)
+    return space.w_None if operr is None else space.wrap(operr.get_traceback())
 
 @unwrap_spec(meth=str)
 def lookup_special(space, w_obj, meth):

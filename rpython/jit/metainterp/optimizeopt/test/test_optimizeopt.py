@@ -7111,11 +7111,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
 
-    def test_record_known_class(self):
+    def test_record_exact_class(self):
         ops = """
         [p0]
         p1 = getfield_gc_r(p0, descr=nextdescr)
-        record_known_class(p1, ConstClass(node_vtable))
+        record_exact_class(p1, ConstClass(node_vtable))
         guard_class(p1, ConstClass(node_vtable)) []
         jump(p1)
         """
@@ -8496,6 +8496,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_issue1080_infinitie_loop_virtual(self):
+        # Same comment as the following test_issue1080_infinitie_loop_simple
         ops = """
         [p10]
         p52 = getfield_gc_r(p10, descr=nextdescr) # inst_storage
@@ -8518,6 +8519,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_issue1080_infinitie_loop_simple(self):
+        # 'quasiimmutdescr' is a QuasiImmutDescr initialized with the
+        # 'quasibox' as the quasi-immutable instance.  We close the loop
+        # with ConstPtr(myptr), i.e. a different pointer.  The test checks
+        # that the resulting loop is invalid.
         ops = """
         [p69]
         quasiimmut_field(p69, descr=quasiimmutdescr)
@@ -8749,6 +8754,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i19)
         """
         self.optimize_loop(ops, expected, expected_short=expected_short)
+ 
 
     def test_cached_arrayitem_write_descr(self):
         ops = """

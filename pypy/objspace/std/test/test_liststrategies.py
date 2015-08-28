@@ -1,8 +1,10 @@
 import sys
+import py
 from pypy.objspace.std.listobject import (
     W_ListObject, EmptyListStrategy, ObjectListStrategy, IntegerListStrategy,
     FloatListStrategy, BytesListStrategy, RangeListStrategy,
-    SimpleRangeListStrategy, make_range_list, UnicodeListStrategy)
+    SimpleRangeListStrategy, make_range_list, UnicodeListStrategy,
+    IntOrFloatListStrategy)
 from pypy.objspace.std import listobject
 from pypy.objspace.std.test.test_listobject import TestW_ListObject
 
@@ -166,7 +168,6 @@ class TestW_ListStrategies(TestW_ListObject):
         assert isinstance(l.strategy, IntegerListStrategy)
 
     def test_list_empty_after_delete(self):
-        import py
         py.test.skip("return to emptyliststrategy is not supported anymore")
         l = W_ListObject(self.space, [self.space.wrap(3)])
         assert isinstance(l.strategy, IntegerListStrategy)
@@ -317,7 +318,7 @@ class TestW_ListStrategies(TestW_ListObject):
 
         l = W_ListObject(space, [w(1.1), w(2.2), w(3.3)])
         assert isinstance(l.strategy, FloatListStrategy)
-        l.extend(W_ListObject(space, [w(4), w(5), w(6)]))
+        l.extend(W_ListObject(space, [w("abc"), w("def"), w("ghi")]))
         assert isinstance(l.strategy, ObjectListStrategy)
 
     def test_empty_extend_with_any(self):
@@ -732,6 +733,306 @@ class TestW_ListStrategies(TestW_ListObject):
         assert list_orig == list_copy == [1, 2, 3]
         list_copy[0] = 42
         assert list_orig == [1, 2, 3]
+
+    def test_int_or_float_special_nan(self):
+        from rpython.rlib import longlong2float, rarithmetic
+        space = self.space
+        ll = rarithmetic.r_longlong(0xfffffffe12345678 - 2**64)
+        specialnan = longlong2float.longlong2float(ll)
+        w_l = W_ListObject(space, [space.wrap(1), space.wrap(specialnan)])
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+
+    def test_int_or_float_int_overflow(self):
+        if sys.maxint == 2147483647:
+            py.test.skip("only on 64-bit")
+        space = self.space
+        ok1 = 2**31 - 1
+        ok2 = -2**31
+        ovf1 = ok1 + 1
+        ovf2 = ok2 - 1
+        w_l = W_ListObject(space, [space.wrap(1.2), space.wrap(ovf1)])
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        w_l = W_ListObject(space, [space.wrap(1.2), space.wrap(ovf2)])
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        w_l = W_ListObject(space, [space.wrap(1.2), space.wrap(ok1)])
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        w_l = W_ListObject(space, [space.wrap(1.2), space.wrap(ok2)])
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+
+    def test_int_or_float_base(self):
+        from rpython.rlib.rfloat import INFINITY, NAN
+        space = self.space
+        w = space.wrap
+        w_l = W_ListObject(space, [space.wrap(1), space.wrap(2.3)])
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        w_l.append(w(int(2**31-1)))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        w_l.append(w(-5.1))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        assert space.int_w(w_l.getitem(2)) == 2**31-1
+        assert space.float_w(w_l.getitem(3)) == -5.1
+        w_l.append(w(INFINITY))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        w_l.append(w(NAN))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        w_l.append(w(-NAN))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        w_l.append(space.newlist([]))
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+
+    def test_int_or_float_from_integer(self):
+        space = self.space
+        w = space.wrap
+        w_l = W_ListObject(space, [space.wrap(int(-2**31))])
+        assert isinstance(w_l.strategy, IntegerListStrategy)
+        w_l.append(w(-5.1))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        assert space.int_w(w_l.getitem(0)) == -2**31
+        assert space.float_w(w_l.getitem(1)) == -5.1
+        assert space.len_w(w_l) == 2
+
+    def test_int_or_float_from_integer_overflow(self):
+        if sys.maxint == 2147483647:
+            py.test.skip("only on 64-bit")
+        space = self.space
+        w = space.wrap
+        ovf1 = -2**31 - 1
+        w_l = W_ListObject(space, [space.wrap(ovf1)])
+        assert isinstance(w_l.strategy, IntegerListStrategy)
+        w_l.append(w(-5.1))
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        assert space.int_w(w_l.getitem(0)) == ovf1
+        assert space.float_w(w_l.getitem(1)) == -5.1
+        assert space.len_w(w_l) == 2
+
+    def test_int_or_float_from_integer_special_nan(self):
+        from rpython.rlib import longlong2float, rarithmetic
+        space = self.space
+        w = space.wrap
+        w_l = W_ListObject(space, [space.wrap(int(-2**31))])
+        assert isinstance(w_l.strategy, IntegerListStrategy)
+        ll = rarithmetic.r_longlong(0xfffffffe12345678 - 2**64)
+        specialnan = longlong2float.longlong2float(ll)
+        w_l.append(w(specialnan))
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        assert space.int_w(w_l.getitem(0)) == -2**31
+        assert space.len_w(w_l) == 2
+
+    def test_int_or_float_from_float(self):
+        space = self.space
+        w = space.wrap
+        w_l = W_ListObject(space, [space.wrap(-42.5)])
+        assert isinstance(w_l.strategy, FloatListStrategy)
+        w_l.append(w(-15))
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        assert space.float_w(w_l.getitem(0)) == -42.5
+        assert space.int_w(w_l.getitem(1)) == -15
+        assert space.len_w(w_l) == 2
+
+    def test_int_or_float_from_float_int_overflow(self):
+        if sys.maxint == 2147483647:
+            py.test.skip("only on 64-bit")
+        space = self.space
+        w = space.wrap
+        ovf1 = 2 ** 31
+        w_l = W_ListObject(space, [space.wrap(1.2)])
+        assert isinstance(w_l.strategy, FloatListStrategy)
+        w_l.append(w(ovf1))
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        assert space.float_w(w_l.getitem(0)) == 1.2
+        assert space.int_w(w_l.getitem(1)) == ovf1
+        assert space.len_w(w_l) == 2
+
+    def test_int_or_float_from_float_special_nan(self):
+        from rpython.rlib import longlong2float, rarithmetic
+        space = self.space
+        w = space.wrap
+        ll = rarithmetic.r_longlong(0xfffffffe12345678 - 2**64)
+        specialnan = longlong2float.longlong2float(ll)
+        w_l = W_ListObject(space, [space.wrap(specialnan)])
+        assert isinstance(w_l.strategy, FloatListStrategy)
+        w_l.append(w(42))
+        assert isinstance(w_l.strategy, ObjectListStrategy)
+        assert space.int_w(w_l.getitem(1)) == 42
+        assert space.len_w(w_l) == 2
+
+    def test_int_or_float_extend(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(3), space.wrap(4.5)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, IntOrFloatListStrategy)
+        w_l1.extend(w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [0, 1.2, 3, 4.5]
+
+    def test_int_or_float_extend_mixed_1(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(3)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, IntegerListStrategy)
+        w_l1.extend(w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert [(type(x), x) for x in space.unwrap(w_l1)] == [
+            (int, 0), (float, 1.2), (int, 3)]
+
+    def test_int_or_float_extend_mixed_2(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(3.4)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, FloatListStrategy)
+        w_l1.extend(w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [0, 1.2, 3.4]
+
+    def test_int_or_float_extend_mixed_3(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0)])
+        w_l2 = W_ListObject(space, [space.wrap(3.4)])
+        assert isinstance(w_l1.strategy, IntegerListStrategy)
+        assert isinstance(w_l2.strategy, FloatListStrategy)
+        w_l1.extend(w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [0, 3.4]
+
+    def test_int_or_float_extend_mixed_4(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0)])
+        w_l2 = W_ListObject(space, [space.wrap(3.4), space.wrap(-2)])
+        assert isinstance(w_l1.strategy, IntegerListStrategy)
+        assert isinstance(w_l2.strategy, IntOrFloatListStrategy)
+        w_l1.extend(w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [0, 3.4, -2]
+
+    def test_int_or_float_extend_mixed_5(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(-2.5)])
+        w_l2 = W_ListObject(space, [space.wrap(42)])
+        assert isinstance(w_l1.strategy, FloatListStrategy)
+        assert isinstance(w_l2.strategy, IntegerListStrategy)
+        w_l1.extend(w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [-2.5, 42]
+
+    def test_int_or_float_extend_mixed_5_overflow(self):
+        if sys.maxint == 2147483647:
+            py.test.skip("only on 64-bit")
+        space = self.space
+        ovf1 = 2 ** 35
+        w_l1 = W_ListObject(space, [space.wrap(-2.5)])
+        w_l2 = W_ListObject(space, [space.wrap(ovf1)])
+        assert isinstance(w_l1.strategy, FloatListStrategy)
+        assert isinstance(w_l2.strategy, IntegerListStrategy)
+        w_l1.extend(w_l2)
+        assert isinstance(w_l1.strategy, ObjectListStrategy)
+        assert space.unwrap(w_l1) == [-2.5, ovf1]
+
+    def test_int_or_float_extend_mixed_6(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(-2.5)])
+        w_l2 = W_ListObject(space, [space.wrap(3.4), space.wrap(-2)])
+        assert isinstance(w_l1.strategy, FloatListStrategy)
+        assert isinstance(w_l2.strategy, IntOrFloatListStrategy)
+        w_l1.extend(w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [-2.5, 3.4, -2]
+
+    def test_int_or_float_setslice(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(3), space.wrap(4.5)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, IntOrFloatListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [3, 4.5, 1.2]
+
+    def test_int_or_float_setslice_mixed_1(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(12)])
+        w_l2 = W_ListObject(space, [space.wrap(3.2), space.wrap(4.5)])
+        assert isinstance(w_l1.strategy, IntegerListStrategy)
+        assert isinstance(w_l2.strategy, FloatListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [3.2, 4.5, 12]
+
+    def test_int_or_float_setslice_mixed_2(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(12)])
+        w_l2 = W_ListObject(space, [space.wrap(3.2), space.wrap(45)])
+        assert isinstance(w_l1.strategy, IntegerListStrategy)
+        assert isinstance(w_l2.strategy, IntOrFloatListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [3.2, 45, 12]
+
+    def test_int_or_float_setslice_mixed_3(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0.1), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(32), space.wrap(45)])
+        assert isinstance(w_l1.strategy, FloatListStrategy)
+        assert isinstance(w_l2.strategy, IntegerListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [32, 45, 1.2]
+
+    def test_int_or_float_setslice_mixed_4(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0.1), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(3.2), space.wrap(45)])
+        assert isinstance(w_l1.strategy, FloatListStrategy)
+        assert isinstance(w_l2.strategy, IntOrFloatListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [3.2, 45, 1.2]
+
+    def test_int_or_float_setslice_mixed_5(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(32), space.wrap(45)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, IntegerListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [32, 45, 1.2]
+
+    def test_int_or_float_setslice_mixed_5_overflow(self):
+        if sys.maxint == 2147483647:
+            py.test.skip("only on 64-bit")
+        space = self.space
+        ovf1 = 2 ** 35
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(32), space.wrap(ovf1)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, IntegerListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, ObjectListStrategy)
+        assert space.unwrap(w_l1) == [32, ovf1, 1.2]
+
+    def test_int_or_float_setslice_mixed_6(self):
+        space = self.space
+        w_l1 = W_ListObject(space, [space.wrap(0), space.wrap(1.2)])
+        w_l2 = W_ListObject(space, [space.wrap(3.2), space.wrap(4.5)])
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert isinstance(w_l2.strategy, FloatListStrategy)
+        w_l1.setslice(0, 1, 1, w_l2)
+        assert isinstance(w_l1.strategy, IntOrFloatListStrategy)
+        assert space.unwrap(w_l1) == [3.2, 4.5, 1.2]
+
+    def test_int_or_float_sort(self):
+        space = self.space
+        w_l = W_ListObject(space, [space.wrap(1.2), space.wrap(1),
+                                   space.wrap(1.0), space.wrap(5)])
+        w_l.sort(False)
+        assert [(type(x), x) for x in space.unwrap(w_l)] == [
+            (int, 1), (float, 1.0), (float, 1.2), (int, 5)]
+        w_l.sort(True)
+        assert [(type(x), x) for x in space.unwrap(w_l)] == [
+            (int, 5), (float, 1.2), (int, 1), (float, 1.0)]
 
 
 class TestW_ListStrategiesDisabled:

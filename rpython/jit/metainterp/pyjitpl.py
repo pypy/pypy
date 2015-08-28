@@ -274,16 +274,13 @@ class MIFrame(object):
         return self.execute(rop.MARK_OPAQUE_PTR, box)
 
     @arguments("box", "box")
-    def opimpl_record_known_class(self, box, clsbox):
+    def opimpl_record_exact_class(self, box, clsbox):
         from rpython.rtyper.lltypesystem import llmemory
         if self.metainterp.heapcache.is_class_known(box):
             return
         adr = clsbox.getaddr()
-        bounding_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
-        if bounding_class.subclassrange_max - bounding_class.subclassrange_min == 1:
-            # precise class knowledge, this can be used
-            self.execute(rop.RECORD_KNOWN_CLASS, box, clsbox)
-            self.metainterp.heapcache.class_now_known(box)
+        self.execute(rop.RECORD_EXACT_CLASS, box, clsbox)
+        self.metainterp.heapcache.class_now_known(box)
 
     @arguments("box")
     def _opimpl_any_return(self, box):
@@ -371,7 +368,10 @@ class MIFrame(object):
         ).compile()
 
     def _establish_nullity(self, box, orgpc):
+        heapcache = self.metainterp.heapcache
         value = box.nonnull()
+        if heapcache.is_nullity_known(box):
+            return value
         if value:
             if not self.metainterp.heapcache.is_class_known(box):
                 self.metainterp.generate_guard(rop.GUARD_NONNULL, box,
@@ -382,6 +382,7 @@ class MIFrame(object):
                                                resumepc=orgpc)
                 promoted_box = executor.constant_from_op(box)
                 self.metainterp.replace_box(box, promoted_box)
+        heapcache.nullity_now_known(box)
         return value
 
     @arguments("box", "label", "orgpc")

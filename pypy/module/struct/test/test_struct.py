@@ -390,9 +390,9 @@ class AppTestStruct(object):
                                       self.struct.pack("ii", 17, 42) +
                                       '\x00' * (19-sz-2))
         exc = raises(TypeError, self.struct.pack_into, "ii", buffer(b), 0, 17, 42)
-        assert str(exc.value) == "argument must be read-write buffer, not buffer"
+        assert str(exc.value) == "must be read-write buffer, not buffer"
         exc = raises(TypeError, self.struct.pack_into, "ii", 'test', 0, 17, 42)
-        assert str(exc.value) == "argument must be read-write buffer, not str"
+        assert str(exc.value) == "must be read-write buffer, not str"
         exc = raises(self.struct.error, self.struct.pack_into, "ii", b[0:1], 0, 17, 42)
         assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes"
 
@@ -427,6 +427,9 @@ class AppTestStruct(object):
         s = self.struct.Struct('i')
         assert s.unpack(s.pack(42)) == (42,)
         assert s.unpack_from(memoryview(s.pack(42))) == (42,)
+
+    def test_overflow(self):
+        raises(self.struct.error, self.struct.pack, 'i', 1<<65)
 
 
 class AppTestStructBuffer(object):

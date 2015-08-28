@@ -9,7 +9,7 @@ from rpython.rlib import jit
 from rpython.rlib.jit import current_trace_length, unroll_parameters
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.pycode import CO_GENERATOR
+from pypy.interpreter.pycode import CO_GENERATOR, PyCode
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame, Yield
 from pypy.interpreter.baseobjspace import W_Root
@@ -35,7 +35,8 @@ def get_printable_location(next_instr, is_being_profiled, bytecode):
     return '%s #%d %s' % (bytecode.get_repr(), next_instr, name)
 
 def get_unique_id(next_instr, is_being_profiled, bytecode):
-    return bytecode._unique_id
+    from rpython.rlib import rvmprof
+    return rvmprof.get_unique_id(bytecode)
 
 
 def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):

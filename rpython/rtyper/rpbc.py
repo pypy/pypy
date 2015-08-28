@@ -750,6 +750,10 @@ class ClassesPBCRepr(Repr):
     def get_ll_eq_function(self):
         return None
 
+    def ll_str(self, ptr):
+        cls = lltype.cast_pointer(CLASSTYPE, ptr)
+        return cls.name
+
 
 def ll_cls_hash(cls):
     if not cls:

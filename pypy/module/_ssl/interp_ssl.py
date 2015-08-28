@@ -136,7 +136,7 @@ class SSLNpnProtocols(object):
     def __init__(self, ctx, protos):
         self.protos = protos
         self.buf, self.pinned, self.is_raw = rffi.get_nonmovingbuffer(protos)
-        NPN_STORAGE.set(r_uint(rffi.cast(rffi.UINT, self.buf)), self)
+        NPN_STORAGE.set(rffi.cast(lltype.Unsigned, self.buf), self)
 
         # set both server and client callbacks, because the context
         # can be used to create both types of sockets
@@ -151,7 +151,7 @@ class SSLNpnProtocols(object):
 
     @staticmethod
     def advertiseNPN_cb(s, data_ptr, len_ptr, args):
-        npn = NPN_STORAGE.get(r_uint(rffi.cast(rffi.UINT, args)))
+        npn = NPN_STORAGE.get(rffi.cast(lltype.Unsigned, args))
         if npn and npn.protos:
             data_ptr[0] = npn.buf
             len_ptr[0] = rffi.cast(rffi.UINT, len(npn.protos))
@@ -163,7 +163,7 @@ class SSLNpnProtocols(object):
 
     @staticmethod
     def selectNPN_cb(s, out_ptr, outlen_ptr, server, server_len, args):
-        npn = NPN_STORAGE.get(r_uint(rffi.cast(rffi.UINT, args)))
+        npn = NPN_STORAGE.get(rffi.cast(lltype.Unsigned, args))
         if npn and npn.protos:
             client = npn.buf
             client_len = len(npn.protos)
@@ -182,7 +182,7 @@ class SSLAlpnProtocols(object):
     def __init__(self, ctx, protos):
         self.protos = protos
         self.buf, self.pinned, self.is_raw = rffi.get_nonmovingbuffer(protos)
-        ALPN_STORAGE.set(r_uint(rffi.cast(rffi.UINT, self.buf)), self)
+        ALPN_STORAGE.set(rffi.cast(lltype.Unsigned, self.buf), self)
 
         with rffi.scoped_str2charp(protos) as protos_buf:
             if libssl_SSL_CTX_set_alpn_protos(
@@ -197,7 +197,7 @@ class SSLAlpnProtocols(object):
 
     @staticmethod
     def selectALPN_cb(s, out_ptr, outlen_ptr, client, client_len, args):
-        alpn = ALPN_STORAGE.get(r_uint(rffi.cast(rffi.UINT, args)))
+        alpn = ALPN_STORAGE.get(rffi.cast(lltype.Unsigned, args))
         if alpn and alpn.protos:
             server = alpn.buf
             server_len = len(alpn.protos)

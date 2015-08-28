@@ -145,23 +145,32 @@ def can_cast_type(space, origin, target, casting):
     # equivalent to PyArray_CanCastTypeTo
     if origin == target:
         return True
-    if origin.is_record() or target.is_record():
-        return can_cast_record(space, origin, target, casting)
-
-    if casting == 'no':
-        return origin.eq(space, target)
-    elif casting == 'equiv':
-        return origin.num == target.num and origin.elsize == target.elsize
-    elif casting == 'unsafe':
+    if casting == 'unsafe':
         return True
+    elif casting == 'no':
+        return origin.eq(space, target)
+    if origin.num == target.num:
+        if origin.is_record():
+            return (target.is_record() and
+                    can_cast_record(space, origin, target, casting))
+        else:
+            if casting == 'equiv':
+                return origin.elsize == target.elsize
+            elif casting == 'safe':
+                return origin.elsize <= target.elsize
+            else:
+                return True
+
     elif casting == 'same_kind':
         if can_cast_to(origin, target):
             return True
         if origin.kind in kind_ordering and target.kind in kind_ordering:
             return kind_ordering[origin.kind] <= kind_ordering[target.kind]
         return False
-    else:  # 'safe'
+    elif casting == 'safe':
         return can_cast_to(origin, target)
+    else:  # 'equiv'
+        return origin.num == target.num and origin.elsize == target.elsize
 
 def can_cast_record(space, origin, target, casting):
     if origin is target:
@@ -325,6 +334,8 @@ def scalar2dtype(space, w_obj):
         return complex_dtype
     elif space.isinstance_w(w_obj, space.w_str):
         return variable_dtype(space, 'S%d' % space.len_w(w_obj))
+    elif space.isinstance_w(w_obj, space.w_unicode):
+        return new_unicode_dtype(space, space.len_w(w_obj))
     return object_dtype
 
 @signature(ann.instance(W_Dtype), ann.instance(W_Dtype), returns=ann.bool())

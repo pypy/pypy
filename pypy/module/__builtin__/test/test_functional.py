@@ -57,6 +57,11 @@ class AppTestMap:
         b = []
         assert map(lambda x, y: x, a, b) == a
 
+    def test_map_second_item(self):
+        a = []
+        b = [1, 2, 3, 4, 5]
+        assert map(lambda x, y: y, a, b) == b
+
     def test_map_iterables(self):
         class A(object):
             def __init__(self, n):

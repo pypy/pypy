@@ -74,6 +74,8 @@ class StringBuffer(Buffer):
             return ""
         if step == 1:
             assert 0 <= start <= stop
+            if start == 0 and stop == len(self.value):
+                return self.value
             return self.value[start:stop]
         return Buffer.getslice(self, start, stop, step, size)
 

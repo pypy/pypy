@@ -2,7 +2,7 @@ import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rdynload
 
-VERSION = "1.1.2"
+VERSION = "1.2.1"
 
 
 class Module(MixedModule):

@@ -451,12 +451,12 @@ def test_specialized_class():
         obj = objectcls()
         obj.user_setup(space, cls)
         obj.setdictvalue(space, "a", w1)
-        assert unerase_item(obj._value0) is w1
+        assert obj._value0 is w1
         assert obj.getdictvalue(space, "a") is w1
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
         obj.setdictvalue(space, "a", w2)
-        assert unerase_item(obj._value0) is w2
+        assert obj._value0 is w2
         assert obj.getdictvalue(space, "a") == w2
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
@@ -474,7 +474,7 @@ def test_specialized_class():
 
         res = obj.deldictvalue(space, "a")
         assert res
-        assert unerase_item(obj._value0) is w4
+        assert obj._value0 is w4
         assert obj.getdictvalue(space, "a") is None
         assert obj.getdictvalue(space, "b") is w4
         assert obj.getdictvalue(space, "c") is None

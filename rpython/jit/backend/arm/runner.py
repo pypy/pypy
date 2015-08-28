@@ -64,12 +64,6 @@ class AbstractARMCPU(AbstractLLCPU):
                                               operations,
                                               original_loop_token, log=log)
 
-    def clear_latest_values(self, count):
-        setitem = self.assembler.fail_boxes_ptr.setitem
-        null = lltype.nullptr(llmemory.GCREF.TO)
-        for index in range(count):
-            setitem(index, null)
-
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return CPU_ARM.cast_adr_to_int(adr)

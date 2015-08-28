@@ -356,7 +356,7 @@ class OptRewrite(Optimization):
     def optimize_GUARD_FALSE(self, op):
         self.optimize_guard(op, CONST_0)
 
-    def optimize_RECORD_KNOWN_CLASS(self, op):
+    def optimize_RECORD_EXACT_CLASS(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
         expectedclassbox = op.getarg(1)
         assert isinstance(expectedclassbox, Const)

@@ -107,6 +107,28 @@ class TestLLtype(LLJitMixin):
         assert res == -7 * 2
         self.check_operations_history(getfield_gc=1)
 
+    def test_heap_caching_nonnull(self):
+        class A:
+            def __init__(self, x=None):
+                self.next = x
+        a0 = A()
+        a1 = A()
+        a2 = A(a1)
+        def fn(n):
+            if n > 0:
+                a = a1
+            else:
+                a = a2
+            if a.next:
+                a = A(a.next)
+                result = a.next is not None
+                a0.next = a
+                return result
+            return False
+        res = self.interp_operations(fn, [-7])
+        assert res == True
+        self.check_operations_history(guard_nonnull=1)
+
     def test_heap_caching_while_tracing_invalidation(self):
         class A:
             pass
