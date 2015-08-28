@@ -80,7 +80,7 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 30
-        self.check_simple_loop(setfield_gc=0, getfield_gc=0)
+        self.check_simple_loop(setfield_gc=0, getfield_gc_i=0)
 
     def test_preexisting_access_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
@@ -105,8 +105,8 @@ class ExplicitVirtualizableTests:
         assert f(5) == 185
         res = self.meta_interp(f, [5])
         assert res == 185
-        self.check_resops(setfield_gc=0,
-                          getfield_gc=2)  # <= at the header of the loop
+        self.check_resops(setfield_gc=0, getfield_gc_r=1,
+                          getfield_gc_i=1)  # <= at the header of the loop
 
     def test_two_paths_access(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
@@ -128,7 +128,7 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [18])
         assert res == 10118
-        self.check_resops(setfield_gc=0, getfield_gc=2)
+        self.check_resops(setfield_gc=0, getfield_gc_i=1, getfield_gc_r=1)
 
     def test_synchronize_in_return(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
@@ -152,7 +152,7 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [18])
         assert res == 10180
-        self.check_resops(setfield_gc=0, getfield_gc=2)
+        self.check_resops(setfield_gc=0, getfield_gc_i=1, getfield_gc_r=1)
 
     def test_synchronize_in_return_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy'],
@@ -207,7 +207,7 @@ class ExplicitVirtualizableTests:
             return res
         res = self.meta_interp(f, [40])
         assert res == 50 * 4
-        self.check_resops(setfield_gc=0, getfield_gc=4)
+        self.check_resops(setfield_gc=0, getfield_gc_i=2, getfield_gc_r=2)
 
     def test_double_frame(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'xy', 'other'],
@@ -230,8 +230,9 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 134
-        self.check_simple_loop(setfield_gc=1, getfield_gc=0, cond_call=1)
-        self.check_resops(setfield_gc=2, getfield_gc=4)
+        self.check_simple_loop(setfield_gc=1, getfield_gc_i=0, cond_call=1,
+                               getfield_gc_r=0)
+        self.check_resops(setfield_gc=2, getfield_gc_i=2, getfield_gc_r=2)
 
     # ------------------------------
 

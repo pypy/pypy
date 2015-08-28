@@ -777,6 +777,9 @@ class Stats(object):
         if 'call_assembler' in check:
             assert check.pop('call_assembler') == 0
             check['call_assembler_i'] = check['call_assembler_r'] = check['call_assembler_f'] = check['call_assembler_n'] = 0
+        if 'getfield_gc' in check:
+            assert check.pop('getfield_gc') == 0
+            check['getfield_gc_i'] = check['getfield_gc_r'] = check['getfield_gc_f'] = 0
         for loop in self.get_all_loops():
             insns = loop.summary(adding_insns=insns, omit_finish=omit_finish)
         return self._check_insns(insns, expected, check)
