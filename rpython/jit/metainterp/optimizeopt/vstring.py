@@ -93,7 +93,7 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
                 optforce.get_box_replacement(op).set_forwarded(c_s)
                 return c_s
         self._is_virtual = False
-        lengthbox = self.getstrlen(op, optforce.optstring, self.mode)
+        lengthbox = self.getstrlen(op, optforce.optimizer.optstring, self.mode)
         newop = ResOperation(self.mode.NEWSTR, [lengthbox])
         if not we_are_translated():
             newop.name = 'FORCE'
