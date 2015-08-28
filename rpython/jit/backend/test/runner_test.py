@@ -4857,6 +4857,8 @@ class LLtypeBackendTest(BaseBackendTest):
         assert not self.guard_failed
 
     def test_failing_guard_gc_type(self):
+        if not self.cpu.supports_guard_gc_type:
+            py.test.skip("guard_gc_type not available")
         t_box, _, tdescr = self.alloc_instance(self.T)
         u_box, _, udescr = self.alloc_instance(self.U)
         a_box, A = self.alloc_array_of(rffi.SHORT, 342)

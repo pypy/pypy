@@ -1734,10 +1734,10 @@ class Assembler386(BaseAssembler):
             self.mc.CMP(locs[0], locs[1])
         self.implement_guard(guard_token, 'NE')
 
-    def _cmp_guard_class(self, locs):
+    def _cmp_guard_class(self, loc_ptr, loc_classptr):
         offset = self.cpu.vtable_offset
         if offset is not None:
-            self.mc.CMP(mem(locs[0], offset), locs[1])
+            self.mc.CMP(mem(loc_ptr, offset), loc_classptr)
         else:
             # XXX hard-coded assumption: to go from an object to its class
             # we use the following algorithm:
@@ -1749,26 +1749,38 @@ class Assembler386(BaseAssembler):
             #   - multiply by 4 (on 32-bits only) and use it as an
             #     offset in type_info_group
             #   - add 16/32 bytes, to go past the TYPE_INFO structure
-            loc = locs[1]
-            assert isinstance(loc, ImmedLoc)
-            classptr = loc.value
+            assert isinstance(loc_classptr, ImmedLoc)
+            classptr = loc_classptr.value
             # here, we have to go back from 'classptr' to the value expected
-            # from reading the half-word in the object header.  Note that
-            # this half-word is at offset 0 on a little-endian machine;
-            # it would be at offset 2 or 4 on a big-endian machine.
+            # from reading the half-word in the object header.
             from rpython.memory.gctypelayout import GCData
             sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
             type_info_group = llop.gc_get_type_info_group(llmemory.Address)
             type_info_group = rffi.cast(lltype.Signed, type_info_group)
             expected_typeid = classptr - sizeof_ti - type_info_group
-            if IS_X86_32:
-                expected_typeid >>= 2
-                self.mc.CMP16(mem(locs[0], 0), ImmedLoc(expected_typeid))
-            elif IS_X86_64:
-                self.mc.CMP32_mi((locs[0].value, 0), expected_typeid)
+            self._cmp_guard_gc_type(loc_ptr, ImmedLoc(expected_typeid))
+
+    def _cmp_guard_gc_type(self, loc_ptr, loc_expected_typeid):
+        # Note that the typeid half-word is at offset 0 on a little-endian
+        # machine; it would be at offset 2 or 4 on a big-endian machine.
+        assert self.cpu.supports_guard_gc_type
+        if IS_X86_32:
+            self.mc.CMP16(mem(loc_ptr, 0), loc_expected_typeid)
+        else:
+            self.mc.CMP32(mem(loc_ptr, 0), loc_expected_typeid)
+
+    def _cmp_guard_class_or_gc_type(self, guard_op, locs):
+        if (  guard_op.getopnum() == rop.GUARD_CLASS or
+              guard_op.getopnum() == rop.GUARD_NONNULL_CLASS):
+            self._cmp_guard_class(locs[0], locs[1])
+        elif (guard_op.getopnum() == rop.GUARD_GC_TYPE or
+              guard_op.getopnum() == rop.GUARD_NONNULL_GC_TYPE):
+            self._cmp_guard_gc_type(locs[0], locs[1])
+        else:
+            assert 0
 
     def genop_guard_guard_class(self, ign_1, guard_op, guard_token, locs, ign_2):
-        self._cmp_guard_class(locs)
+        self._cmp_guard_class_or_gc_type(guard_op, locs)
         self.implement_guard(guard_token, 'NE')
 
     def genop_guard_guard_nonnull_class(self, ign_1, guard_op,
@@ -1777,13 +1789,16 @@ class Assembler386(BaseAssembler):
         # Patched below
         self.mc.J_il8(rx86.Conditions['B'], 0)
         jb_location = self.mc.get_relative_pos()
-        self._cmp_guard_class(locs)
+        self._cmp_guard_class_or_gc_type(guard_op, locs)
         # patch the JB above
         offset = self.mc.get_relative_pos() - jb_location
         assert 0 < offset <= 127
         self.mc.overwrite(jb_location-1, chr(offset))
         #
         self.implement_guard(guard_token, 'NE')
+
+    genop_guard_guard_gc_type = genop_guard_guard_class
+    genop_guard_guard_nonnull_gc_type = genop_guard_guard_nonnull_class
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
                                  fail_locs, frame_depth):
