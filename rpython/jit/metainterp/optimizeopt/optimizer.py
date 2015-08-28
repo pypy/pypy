@@ -303,7 +303,8 @@ class Optimizer(Optimization):
             info = self.getptrinfo(box)
             if info is not None and info.is_virtual():
                 rec = {}
-                return info.force_at_the_end_of_preamble(box, self, rec)
+                return info.force_at_the_end_of_preamble(box,
+                                                self.optearlyforce, rec)
             return box
         return box
 
@@ -490,7 +491,7 @@ class Optimizer(Optimization):
             return CONST_0
 
     def propagate_all_forward(self, inputargs, ops, call_pure_results=None,
-                              rename_inputargs=True):
+                              rename_inputargs=True, flush=True):
         if rename_inputargs:
             newargs = []
             for inparg in inputargs:
@@ -513,7 +514,8 @@ class Optimizer(Optimization):
         #self.loop.operations = self.get_newoperations()
         #self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
-        self.flush()
+        if flush:
+            self.flush()
         if extra_jump:
             self.first_optimization.propagate_forward(ops[-1])
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)

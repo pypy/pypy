@@ -102,7 +102,8 @@ class UnrollOptimizer(Optimization):
     def optimize_preamble(self, start_label, end_label, ops, call_pure_results):
         self._check_no_forwarding([[start_label, end_label], ops])
         info, newops = self.optimizer.propagate_all_forward(
-            start_label.getarglist()[:], ops, call_pure_results, True)
+            start_label.getarglist()[:], ops, call_pure_results, True,
+            flush=False)
         exported_state = self.export_state(start_label, end_label.getarglist(),
                                            info.inputargs)
         # we need to absolutely make sure that we've cleaned up all
@@ -117,7 +118,8 @@ class UnrollOptimizer(Optimization):
         self.potential_extra_ops = {}
         self.optimizer.init_inparg_dict_from(label_args)
         info, _ = self.optimizer.propagate_all_forward(
-            start_label.getarglist()[:], ops, call_pure_results, False)
+            start_label.getarglist()[:], ops, call_pure_results, False,
+            flush=False)
         label_op = ResOperation(rop.LABEL, label_args, start_label.getdescr())
         target_token = self.finalize_short_preamble(label_op,
                                                     state.virtual_state)

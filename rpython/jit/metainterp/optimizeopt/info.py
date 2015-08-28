@@ -560,7 +560,7 @@ class ArrayStructInfo(ArrayPtrInfo):
                     setfieldop = ResOperation(rop.SETINTERIORFIELD_GC,
                                               [op, ConstInt(index), subbox],
                                               descr=flddescr)
-                    optforce._emit_operation(setfieldop)
+                    optforce.emit_operation(setfieldop)
                     # heapcache does not work for interiorfields
                     # if it does, we would need a fix here
                 i += 1
