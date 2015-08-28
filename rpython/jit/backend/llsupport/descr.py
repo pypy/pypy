@@ -190,7 +190,7 @@ def get_field_descr(gccache, STRUCT, fieldname):
         flag = get_type_flag(FIELDTYPE)
         name = '%s.%s' % (STRUCT._name, fieldname)
         index_in_parent = heaptracker.get_fielddescr_index_in(STRUCT, fieldname)
-        is_pure = STRUCT._immutable_field(fieldname)
+        is_pure = bool(STRUCT._immutable_field(fieldname))
         fielddescr = FieldDescr(name, offset, size, flag, index_in_parent,
                                 is_pure)
         cachedict = cache.setdefault(STRUCT, {})
@@ -309,7 +309,7 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
         else:
             lendescr = get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT)
         flag = get_type_flag(ARRAY_INSIDE.OF)
-        is_pure = ARRAY_INSIDE._immutable_field(None)
+        is_pure = bool(ARRAY_INSIDE._immutable_field(None))
         arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag, is_pure)
         cache[ARRAY_OR_STRUCT] = arraydescr
         if isinstance(ARRAY_INSIDE.OF, lltype.Struct):
