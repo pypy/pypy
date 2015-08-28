@@ -234,8 +234,10 @@ class UnrollOptimizer(Optimization):
             args = target_virtual_state.make_inputargs(args,
                 self.optimizer)
             short_preamble = target_token.short_preamble
+            lgt = len(short_preamble) - 1
+            assert lgt >= 0
             extra = self.inline_short_preamble(pass_to_short, args,
-                short_preamble[0].getarglist(), short_preamble[1:-1],
+                short_preamble[0].getarglist(), short_preamble[1:lgt],
                 short_preamble[-1].getarglist(), self.optimizer.patchguardop)
             self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
                                       args=args + extra,
