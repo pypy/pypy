@@ -1767,7 +1767,8 @@ class Assembler386(BaseAssembler):
         if IS_X86_32:
             self.mc.CMP16(mem(loc_ptr, 0), loc_expected_typeid)
         else:
-            self.mc.CMP32(mem(loc_ptr, 0), loc_expected_typeid)
+            assert isinstance(loc_expected_typeid, ImmedLoc)
+            self.mc.CMP32_mi((loc_ptr.value, 0), loc_expected_typeid.value)
 
     def _cmp_guard_class_or_gc_type(self, guard_op, locs):
         if (  guard_op.getopnum() == rop.GUARD_CLASS or
