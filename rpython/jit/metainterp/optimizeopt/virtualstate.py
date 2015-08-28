@@ -3,7 +3,7 @@ from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.info import ArrayPtrInfo,\
      ArrayStructInfo, AbstractStructPtrInfo
 from rpython.jit.metainterp.optimizeopt.intutils import \
-     MININT, MAXINT, IntBound
+     MININT, MAXINT, IntBound, IntLowerBound
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
      InputArgInt, InputArgRef, InputArgFloat
 from rpython.rlib.debug import debug_print
@@ -391,9 +391,13 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
 
         extra_guards = state.extra_guards
         cpu = state.cpu
-        if (self.lenbound and other.lenbound and
-                not self.lenbound.contains_bound(other.lenbound)):
-            raise VirtualStatesCantMatch("length bound does not match")
+        if self.lenbound:
+            if other.lenbound is None:
+                other_bound = IntLowerBound(0)
+            else:
+                other_bound = other.lenbound
+            if not self.lenbound.contains_bound(other_bound):
+                raise VirtualStatesCantMatch("length bound does not match")
 
         if self.level == LEVEL_UNKNOWN:
             # confusingly enough, this is done also for pointers
