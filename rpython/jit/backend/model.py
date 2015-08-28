@@ -15,6 +15,7 @@ class AbstractCPU(object):
     # longlongs are supported by the JIT, but stored as doubles.
     # Boxes and Consts are BoxFloats and ConstFloats.
     supports_singlefloats = False
+    supports_guard_gc_type = False
 
     propagate_exception_descr = None
 
