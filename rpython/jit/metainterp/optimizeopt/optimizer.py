@@ -146,8 +146,8 @@ class Optimization(object):
     def getlastop(self):
         return self.optimizer.getlastop()
 
-    def force_box(self, box, optforce=None):
-        return self.optimizer.force_box(box, optforce)
+    def force_box(self, op, optforce=None):
+        return self.optimizer.force_box(op, optforce)
 
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         return self.optimizer.replace_op_with(op, newopnum, args, descr)
