@@ -1454,7 +1454,9 @@ class BaseBackendTest(Runner):
         assert longlong.getrealfloat(f2) == 0.75
         assert longlong.getrealfloat(f3) == 133.0
 
-    def test_integers_and_guards2(self):
+    dummy_op = ResOperation(rop.SAME_AS, [ConstInt(42)], BoxInt(42))
+
+    def test_integers_and_guards2(self, extra_op=[]):
         for opname, compare in [
             (rop.INT_IS_TRUE, lambda x: bool(x)),
             (rop.INT_IS_ZERO, lambda x: not bool(x))]:
@@ -1469,10 +1471,11 @@ class BaseBackendTest(Runner):
                 inputargs = [box]
                 operations = [
                     ResOperation(opname, [box], res),
+                    ] + extra_op + [
                     ResOperation(opguard, [res], None, descr=faildescr1),
                     ResOperation(rop.FINISH, [], None, descr=faildescr2),
                     ]
-                operations[1].setfailargs([])
+                operations[-2].setfailargs([])
                 looptoken = JitCellToken()
                 self.cpu.compile_loop(inputargs, operations, looptoken)
                 #
@@ -1484,7 +1487,10 @@ class BaseBackendTest(Runner):
                     expected ^= guard_case
                     assert fail.identifier == 2 - expected
 
-    def test_integers_and_guards(self):
+    def test_integers_and_guards2_x(self):
+        self.test_integers_and_guards2([self.dummy_op])
+
+    def test_integers_and_guards(self, extra_op=[]):
         for opname, compare in [
             (rop.INT_LT, lambda x, y: x < y),
             (rop.INT_LE, lambda x, y: x <= y),
@@ -1514,6 +1520,7 @@ class BaseBackendTest(Runner):
                                     if isinstance(ib, BoxInt)]
                     operations = [
                         ResOperation(opname, [ibox1, ibox2], b1),
+                        ] + extra_op + [
                         ResOperation(opguard, [b1], None, descr=faildescr1),
                         ResOperation(rop.FINISH, [], None, descr=faildescr2),
                         ]
@@ -1538,7 +1545,10 @@ class BaseBackendTest(Runner):
                                     expected ^= guard_case
                                     assert fail.identifier == 2 - expected
 
-    def test_integers_and_guards_uint(self):
+    def test_integers_and_guards_x(self):
+        self.test_integers_and_guards([self.dummy_op])
+
+    def test_integers_and_guards_uint(self, extra_op=[]):
         for opname, compare in [
             (rop.UINT_LE, lambda x, y: (x) <= (y)),
             (rop.UINT_GT, lambda x, y: (x) >  (y)),
@@ -1566,6 +1576,7 @@ class BaseBackendTest(Runner):
                                     if isinstance(ib, BoxInt)]
                     operations = [
                         ResOperation(opname, [ibox1, ibox2], b1),
+                        ] + extra_op + [
                         ResOperation(opguard, [b1], None, descr=faildescr1),
                         ResOperation(rop.FINISH, [], None, descr=faildescr2),
                         ]
@@ -1590,7 +1601,10 @@ class BaseBackendTest(Runner):
                                     expected ^= guard_case
                                     assert fail.identifier == 2 - expected
 
-    def test_floats_and_guards(self):
+    def test_integers_and_guards_uint_x(self):
+        self.test_integers_and_guards_uint([self.dummy_op])
+
+    def test_floats_and_guards(self, extra_op=[]):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
         for opname, compare in [
@@ -1622,6 +1636,7 @@ class BaseBackendTest(Runner):
                                     if isinstance(fb, BoxFloat)]
                     operations = [
                         ResOperation(opname, [fbox1, fbox2], b1),
+                        ] + extra_op + [
                         ResOperation(opguard, [b1], None, descr=faildescr1),
                         ResOperation(rop.FINISH, [], None, descr=faildescr2),
                         ]
@@ -1649,6 +1664,9 @@ class BaseBackendTest(Runner):
                                     expected = compare(test1, test2)
                                     expected ^= guard_case
                                     assert fail.identifier == 2 - expected
+
+    def test_floats_and_guards_x(self):
+        self.test_floats_and_guards([self.dummy_op])
 
     def test_unused_result_int(self):
         # test pure operations on integers whose result is not used
@@ -1746,16 +1764,18 @@ class BaseBackendTest(Runner):
                 # if we expect a boolean, also check the combination with
                 # a GUARD_TRUE or GUARD_FALSE
                 if isinstance(expected, bool):
+                  for extra_op in ([], [self.dummy_op]):
                     for guard_opnum, expected_id in [(rop.GUARD_TRUE, 1),
                                                      (rop.GUARD_FALSE, 0)]:
                         box = BoxInt()
                         operations = [
                             ResOperation(opnum, list(testcase), box),
+                            ] + extra_op + [
                             ResOperation(guard_opnum, [box], None,
                                          descr=BasicFailDescr(4)),
                             ResOperation(rop.FINISH, [], None,
                                          descr=BasicFinalDescr(5))]
-                        operations[1].setfailargs([])
+                        operations[-2].setfailargs([])
                         looptoken = JitCellToken()
                         # Use "set" to unique-ify inputargs
                         unique_testcase_list = list(set(testcase))

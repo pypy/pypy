@@ -2,53 +2,70 @@ import rpython.jit.backend.ppc.condition as c
 from rpython.rlib.rarithmetic import intmask
 from rpython.jit.backend.ppc.arch import MAX_REG_PARAMS, IS_PPC_32, WORD
 from rpython.jit.metainterp.history import FLOAT
+from rpython.jit.metainterp.resoperation import rop
 import rpython.jit.backend.ppc.register as r
 from rpython.rtyper.lltypesystem import rffi, lltype
 
-def gen_emit_cmp_op(condition, signed=True, fp=False):
-    def f(self, op, arglocs, regalloc):
-        l0, l1, res = arglocs
-        # do the comparison
-        self.mc.cmp_op(0, l0.value, l1.value,
-                       imm=l1.is_imm(), signed=signed, fp=fp)
-        # After the comparison, place the result
-        # in the first bit of the CR
-        if condition == c.LT or condition == c.U_LT:
-            self.mc.cror(0, 0, 0)
-        elif condition == c.LE or condition == c.U_LE:
-            self.mc.cror(0, 0, 2)
-        elif condition == c.EQ:
-            self.mc.cror(0, 2, 2)
-        elif condition == c.GE or condition == c.U_GE:
-            self.mc.cror(0, 1, 2)
-        elif condition == c.GT or condition == c.U_GT:
-            self.mc.cror(0, 1, 1)
-        elif condition == c.NE:
-            self.mc.crnor(0, 2, 2)
-        else:
-            assert 0, "condition not known"
+def test_condition_for(condition, guard_op):
+    opnum = guard_op.getopnum()
+    if opnum == rop.GUARD_FALSE:
+        return condition
+    elif opnum == rop.GUARD_TRUE:
+        return c.negate(condition)
+    assert 0, opnum
 
-        resval = res.value 
+def do_emit_cmp_op(self, guard_op, arglocs, condition, signed, fp):
+    l0 = arglocs[0]
+    l1 = arglocs[1]
+    assert not l0.is_imm()
+    # do the comparison
+    self.mc.cmp_op(0, l0.value, l1.value,
+                   imm=l1.is_imm(), signed=signed, fp=fp)
+
+    # CR bits:
+    #     0: LT
+    #     1: GT
+    #     2: EQ
+    #     3: UNordered
+
+    if fp:
+        # Support for NaNs: with LE or GE, if one of the operands is a
+        # NaN, we get CR=1,0,0,0 (unordered bit only).  We're about to
+        # check "not GT" or "not LT", but in case of NaN we want to
+        # get the answer False.
+        if condition == c.LE:
+            self.mc.crnor(1, 1, 3)
+            condition = c.GT
+        elif condition == c.GE:
+            self.mc.crnor(0, 0, 3)
+            condition = c.LT
+
+    if guard_op is None:
+        # After the comparison, place the result in a single bit of the CR
+        bit, invert = c.encoding[condition]
+        assert 0 <= bit <= 3
+        if invert == 12:
+            pass
+        elif invert == 4:
+            self.mc.crnor(bit, bit, bit)
+        else:
+            assert 0
+
+        assert len(arglocs) == 3
+        res = arglocs[2]
+        resval = res.value
         # move the content of the CR to resval
-        self.mc.mfcr(resval)       
+        self.mc.mfcr(resval)
         # zero out everything except of the result
-        self.mc.rlwinm(resval, resval, 1, 31, 31)
-    return f
+        self.mc.rlwinm(resval, resval, 1 + bit, 31, 31)
+    else:
+        failargs = arglocs[2:]
+        fcond = test_condition_for(condition, guard_op)
+        self._emit_guard(guard_op, failargs, fcond)
 
-def gen_emit_unary_cmp_op(condition):
-    def f(self, op, arglocs, regalloc):
-        reg, res = arglocs
-
-        self.mc.cmp_op(0, reg.value, 0, imm=True)
-        if condition == c.IS_ZERO:
-            self.mc.cror(0, 2, 2)
-        elif condition == c.IS_TRUE:
-            self.mc.cror(0, 0, 1)
-        else:
-            assert 0, "condition not known"
-
-        self.mc.mfcr(res.value)
-        self.mc.rlwinm(res.value, res.value, 1, 31, 31)
+def gen_emit_cmp_op(condition, signed=True, fp=False):
+    def f(self, op, guard_op, arglocs, regalloc):
+        do_emit_cmp_op(self, guard_op, arglocs, condition, signed, fp)
     return f
 
 def count_reg_args(args):

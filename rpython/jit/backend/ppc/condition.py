@@ -1,22 +1,32 @@
-# CONDITION = (BI (number of bit tested in CR), BO (12 if bit is 1, else 4))
+EQ = 0
+NE = 1
+LE = 2
+GT = 3
+LT = 4
+GE = 5
+SO = 6
+NS = 7
+UH = -1    # invalid
 
-SET   = 12
-UNSET = 4
+def negate(cond):
+    return cond ^ 1
 
-LE = (1, UNSET)
-NE = (2, UNSET)
-GT = (1, SET)
-LT = (0, SET)
-EQ = (2, SET)
-GE = (0, UNSET)
-UH = (-1, -1)    # invalid
+assert negate(EQ) == NE
+assert negate(NE) == EQ
+assert negate(LE) == GT
+assert negate(GT) == LE
+assert negate(LT) == GE
+assert negate(GE) == LT
+assert negate(SO) == NS
+assert negate(NS) == SO
 
-# values below are random ...
-
-U_LT = 50
-U_LE = 60
-U_GT = 70
-U_GE = 80
-
-IS_TRUE = 90
-IS_ZERO = 100
+encoding = [
+    (2, 12),   # EQ
+    (2, 4),    # NE
+    (1, 4),    # LE
+    (1, 12),   # GT
+    (0, 12),   # LT
+    (0, 4),    # GE
+    (3, 12),   # SO
+    (3, 4),    # NS
+]

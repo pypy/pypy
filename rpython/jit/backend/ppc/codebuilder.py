@@ -643,7 +643,7 @@ class PPCAssembler(BasicPPCAssembler):
     bdnz     = BA.bc(BO=16, BI=0)
     bdnzt    = BA.bc(BO=8)
     bdnzf    = BA.bc(BO=0)
-    bdz      = BA.bc(BO=18)
+    bdz      = BA.bc(BO=18, BI=0)
     bdzt     = BA.bc(BO=10)
     bdzf     = BA.bc(BO=2)
 
@@ -652,7 +652,7 @@ class PPCAssembler(BasicPPCAssembler):
     bdnza    = BA.bca(BO=16, BI=0)
     bdnzta   = BA.bca(BO=8)
     bdnzfa   = BA.bca(BO=0)
-    bdza     = BA.bca(BO=18)
+    bdza     = BA.bca(BO=18, BI=0)
     bdzta    = BA.bca(BO=10)
     bdzfa    = BA.bca(BO=2)
 
@@ -661,7 +661,7 @@ class PPCAssembler(BasicPPCAssembler):
     bdnzl    = BA.bcl(BO=16, BI=0)
     bdnztl   = BA.bcl(BO=8)
     bdnzfl   = BA.bcl(BO=0)
-    bdzl     = BA.bcl(BO=18)
+    bdzl     = BA.bcl(BO=18, BI=0)
     bdztl    = BA.bcl(BO=10)
     bdzfl    = BA.bcl(BO=2)
 
@@ -670,7 +670,7 @@ class PPCAssembler(BasicPPCAssembler):
     bdnzla   = BA.bcla(BO=16, BI=0)
     bdnztla  = BA.bcla(BO=8)
     bdnzfla  = BA.bcla(BO=0)
-    bdzla    = BA.bcla(BO=18)
+    bdzla    = BA.bcla(BO=18, BI=0)
     bdztla   = BA.bcla(BO=10)
     bdzfla   = BA.bcla(BO=2)
 
@@ -934,20 +934,24 @@ class PPCGuardToken(GuardToken):
         #self.offset = offset
 
 class OverwritingBuilder(PPCAssembler):
-    def __init__(self, cb, start, num_insts):
+    def __init__(self, mc, start, num_insts=0):
         PPCAssembler.__init__(self)
-        self.cb = cb
+        self.mc = mc
         self.index = start
-        self.num_insts = num_insts
 
     def currpos(self):
         assert 0, "not implemented"
 
+    def write32(self, word):
+        index = self.index
+        self.mc.overwrite(index,     chr((word >> 24) & 0xff))
+        self.mc.overwrite(index + 1, chr((word >> 16) & 0xff))
+        self.mc.overwrite(index + 2, chr((word >> 8) & 0xff))
+        self.mc.overwrite(index + 3, chr(word & 0xff))
+        self.index = index + 4
+
     def overwrite(self):
-        assert len(self.insts) <= self.num_insts
-        startindex  = self.index / 4
-        for i, new_inst in enumerate(self.insts):
-            self.cb.insts[i + startindex] = new_inst
+        pass
 
 class PPCBuilder(BlockBuilderMixin, PPCAssembler):
     def __init__(self):
@@ -997,16 +1001,16 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self.b(offset)
 
     def b_cond_offset(self, offset, condition):
-        BI = condition[0]
-        BO = condition[1]
+        assert condition != c.UH
+        BI, BO = c.encoding[condition]
 
         pos = self.currpos()
         target_ofs = offset - pos
         self.bc(BO, BI, target_ofs)
 
     def b_cond_abs(self, addr, condition):
-        BI = condition[0]
-        BO = condition[1]
+        assert condition != c.UH
+        BI, BO = c.encoding[condition]
 
         with scratch_reg(self):
             self.load_imm(r.SCRATCH, addr)

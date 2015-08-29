@@ -24,6 +24,9 @@ class AssemblerLocation(object):
     def is_reg(self):
         return False
 
+    def is_core_reg(self):      # for llsupport/assembler.py
+        return self.is_reg()
+
     def is_fp_reg(self):
         return False
 

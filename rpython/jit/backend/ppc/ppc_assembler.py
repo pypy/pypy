@@ -224,14 +224,18 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self._push_all_regs_to_jitframe(mc, [], withfloats)
 
         if exc:
-            # We might have an exception pending.  Load it into r2...
-            mc.write32(0)
-            #mc.MOV(ebx, heap(self.cpu.pos_exc_value()))
-            #mc.MOV(heap(self.cpu.pos_exception()), imm0)
-            #mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
-            ## ...and save ebx into 'jf_guard_exc'
-            #offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
-            #mc.MOV_br(offset, ebx.value)
+            # We might have an exception pending.
+            mc.load_imm(r.r2, self.cpu.pos_exc_value())
+            # Copy it into 'jf_guard_exc'
+            offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            mc.load(r.r0.value, r.r2.value, 0)
+            mc.store(r.r0.value, r.SPP.value, offset)
+            # Zero out the exception fields
+            diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
+            assert _check_imm_arg(diff)
+            mc.li(r.r0.value, 0)
+            mc.store(r.r0.value, r.r2.value, 0)
+            mc.store(r.r0.value, r.r2.value, diff)
 
         # now we return from the complete frame, which starts from
         # _call_header_with_stack_check().  The _call_footer below does it.
@@ -275,7 +279,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
 
         mc.cmp_op(0, r.RES.value, 0, imm=True)
         jmp_pos = mc.currpos()
-        mc.nop()
+        mc.trap()
 
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.load_imm(r.r4, nursery_free_adr)
@@ -375,7 +379,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
 
         jnz_location = mc.currpos()
-        mc.nop()
+        mc.trap()
 
         # restore parameter registers
         for i, reg in enumerate(r.PARAM_REGS):
@@ -600,7 +604,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             self.mc.mfctr(r.r16.value)
 
             patch_loc = self.mc.currpos()
-            self.mc.nop()
+            self.mc.trap()
 
             # make minimal frame which contains the LR
             #
@@ -636,15 +640,16 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_footer_shadowstack(gcrootmap)
 
-        # load old backchain into r4
-        self.mc.load(r.r4.value, r.SP.value,
-                     STD_FRAME_SIZE_IN_BYTES + LR_BC_OFFSET)
-
         # restore registers r25 to r31
         for i, reg in enumerate(REGISTERS_SAVED):
             self.mc.load(reg.value, r.SP.value,
                          GPR_SAVE_AREA_OFFSET + i * WORD)
 
+        # load the return address into r4
+        self.mc.load(r.r4.value, r.SP.value,
+                     STD_FRAME_SIZE_IN_BYTES + LR_BC_OFFSET)
+
+        # throw away the stack frame and return to r4
         self.mc.addi(r.SP.value, r.SP.value, STD_FRAME_SIZE_IN_BYTES)
         self.mc.mtlr(r.r4.value)     # restore LR
         self.mc.blr()
@@ -654,6 +659,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         assert self.memcpy_addr != 0, "setup_once() not called?"
         self.current_clt = looptoken.compiled_loop_token
         self.pending_guard_tokens = []
+        self.pending_guard_tokens_recovered = 0
         #if WORD == 8:
         #    self.pending_memoryerror_trampoline_from = []
         #    self.error_trampoline_64 = 0
@@ -930,6 +936,21 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         ptr = rffi.cast(lltype.Signed, gcmap)
         mc.load_imm(r.r2, ptr)
 
+    def break_long_loop(self):
+        # If the loop is too long, the guards in it will jump forward
+        # more than 32 KB.  We use an approximate hack to know if we
+        # should break the loop here with an unconditional "b" that
+        # jumps over the target code.
+        jmp_pos = self.mc.currpos()
+        self.mc.trap()
+
+        self.write_pending_failure_recoveries()
+
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, jmp_pos, 1)
+        pmc.b(currpos - jmp_pos)
+        pmc.overwrite()
+
     def generate_quick_failure(self, guardtok):
         startpos = self.mc.currpos()
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
@@ -944,10 +965,15 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
     def write_pending_failure_recoveries(self):
         # for each pending guard, generate the code of the recovery stub
         # at the end of self.mc.
-        for tok in self.pending_guard_tokens:
+        for i in range(self.pending_guard_tokens_recovered,
+                       len(self.pending_guard_tokens)):
+            tok = self.pending_guard_tokens[i]
             tok.pos_recovery_stub = self.generate_quick_failure(tok)
+        self.pending_guard_tokens_recovered = len(self.pending_guard_tokens)
 
     def patch_pending_failure_recoveries(self, rawstart):
+        assert (self.pending_guard_tokens_recovered ==
+                len(self.pending_guard_tokens))
         clt = self.current_clt
         for tok in self.pending_guard_tokens:
             addr = rawstart + tok.pos_jump_offset
@@ -987,15 +1013,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         if clt.asmmemmgr_blocks is None:
             clt.asmmemmgr_blocks = []
         return clt.asmmemmgr_blocks
-
-    def _prepare_sp_patch_position(self):
-        """Generate NOPs as placeholder to patch the instruction(s) to update
-        the sp according to the number of spilled variables"""
-        size = SIZE_LOAD_IMM_PATCH_SP
-        l = self.mc.currpos()
-        for _ in range(size):
-            self.mc.nop()
-        return l
 
     def regalloc_mov(self, prev_loc, loc):
         if prev_loc.is_imm():
@@ -1137,29 +1154,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         else:
             raise AssertionError('Trying to pop to an invalid location')
 
-    def _ensure_result_bit_extension(self, resloc, size, signed):
-        if size == 1:
-            if not signed: #unsigned char
-                if IS_PPC_32:
-                    self.mc.rlwinm(resloc.value, resloc.value, 0, 24, 31)
-                else:
-                    self.mc.rldicl(resloc.value, resloc.value, 0, 56)
-            else:
-                self.mc.extsb(resloc.value, resloc.value)
-        elif size == 2:
-            if not signed:
-                if IS_PPC_32:
-                    self.mc.rlwinm(resloc.value, resloc.value, 0, 16, 31)
-                else:
-                    self.mc.rldicl(resloc.value, resloc.value, 0, 48)
-            else:
-                self.mc.extsh(resloc.value, resloc.value)
-        elif size == 4:
-            if not signed:
-                self.mc.rldicl(resloc.value, resloc.value, 0, 32)
-            else:
-                self.mc.extsw(resloc.value, resloc.value)
-
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
         assert size & (WORD-1) == 0     # must be correctly aligned
 
@@ -1178,7 +1172,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             self.mc.cmp_op(0, r.r4.value, r.SCRATCH.value, signed=False)
 
         fast_jmp_pos = self.mc.currpos()
-        self.mc.nop()
+        self.mc.trap()
 
         # We load into r3 the address stored at nursery_free_adr. We calculate
         # the new value for nursery_free_adr and store in r1 The we load the
@@ -1212,6 +1206,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             gcrootmap.write_callshape(mark, force_index)
 
     def propagate_memoryerror_if_r3_is_null(self):
+        return # XXXXXXXXX
         self.mc.cmp_op(0, r.RES.value, 0, imm=True)
         self.mc.b_cond_abs(self.propagate_exception_path, c.EQ)
 
@@ -1253,6 +1248,10 @@ def notimplemented_op_with_guard(self, op, guard_op, arglocs, regalloc):
             (op.getopname(), guard_op.getopname())
     raise NotImplementedError(op)
 
+def add_none_argument(fn):
+    return (lambda self, op, arglocs, regalloc:
+                        fn(self, op, None, arglocs, regalloc))
+
 operations = [notimplemented_op] * (rop._LAST + 1)
 operations_with_guard = [notimplemented_op_with_guard] * (rop._LAST + 1)
 
@@ -1271,8 +1270,10 @@ for key, value in rop.__dict__.items():
         continue
     methname = 'emit_guard_%s' % key
     if hasattr(AssemblerPPC, methname):
+        assert operations[value] is notimplemented_op
         func = getattr(AssemblerPPC, methname).im_func
         operations_with_guard[value] = func
+        operations[value] = add_none_argument(func)
 
 class BridgeAlreadyCompiled(Exception):
     pass

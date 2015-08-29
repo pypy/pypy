@@ -1,11 +1,10 @@
-from rpython.jit.backend.ppc.helper.assembler import (gen_emit_cmp_op,
-                                                      gen_emit_unary_cmp_op)
+from rpython.jit.backend.ppc.helper.assembler import gen_emit_cmp_op
 from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import rpython.jit.backend.ppc.condition as c
 import rpython.jit.backend.ppc.register as r
 from rpython.jit.backend.ppc.locations import imm
 from rpython.jit.backend.ppc.locations import imm as make_imm_loc
-from rpython.jit.backend.ppc.arch import (IS_PPC_32, WORD,
+from rpython.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                           MAX_REG_PARAMS, MAX_FREG_PARAMS)
 
 from rpython.jit.metainterp.history import (JitCellToken, TargetToken, Box,
@@ -17,12 +16,11 @@ from rpython.jit.backend.ppc.codebuilder import (OverwritingBuilder, scratch_reg
                                                  PPCBuilder, PPCGuardToken)
 from rpython.jit.backend.ppc.regalloc import TempPtr, TempInt
 from rpython.jit.backend.llsupport import symbolic
-from rpython.jit.backend.llsupport.descr import InteriorFieldDescr
+from rpython.jit.backend.llsupport.descr import InteriorFieldDescr, CallDescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype
 from rpython.jit.metainterp.resoperation import rop
-
-NO_FORCE_INDEX = -1
+from rpython.jit.backend.ppc import callbuilder
 
 class IntOpAssembler(object):
         
@@ -30,47 +28,58 @@ class IntOpAssembler(object):
 
     def emit_int_add(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
-        if l0.is_imm():
-            self.mc.addi(res.value, l1.value, l0.value)
-        elif l1.is_imm():
+        assert not l0.is_imm()
+        if l1.is_imm():
             self.mc.addi(res.value, l0.value, l1.value)
         else:
             self.mc.add(res.value, l0.value, l1.value)
 
-    def emit_int_add_ovf(self, op, arglocs, regalloc):
-        l0, l1, res = arglocs
-        self.mc.addo(res.value, l0.value, l1.value)
-
     def emit_int_sub(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
-        if l0.is_imm():
-            self.mc.subfic(res.value, l1.value, l0.value)
-        elif l1.is_imm():
+        assert not l0.is_imm()
+        if l1.is_imm():
             self.mc.subi(res.value, l0.value, l1.value)
         else:
             self.mc.sub(res.value, l0.value, l1.value)
  
-    def emit_int_sub_ovf(self, op, arglocs, regalloc):
-        l0, l1, res = arglocs
-        self.mc.subfo(res.value, l1.value, l0.value)
-
     def emit_int_mul(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
-        if l0.is_imm():
-            self.mc.mulli(res.value, l1.value, l0.value)
-        elif l1.is_imm():
+        assert not l0.is_imm()
+        if l1.is_imm():
             self.mc.mulli(res.value, l0.value, l1.value)
         elif IS_PPC_32:
             self.mc.mullw(res.value, l0.value, l1.value)
         else:
             self.mc.mulld(res.value, l0.value, l1.value)
 
-    def emit_int_mul_ovf(self, op, arglocs, regalloc):
-        l0, l1, res = arglocs
-        if IS_PPC_32:
-            self.mc.mullwo(res.value, l0.value, l1.value)
+    def do_emit_int_binary_ovf(self, op, guard_op, arglocs, emit):
+        l0, l1, res = arglocs[0], arglocs[1], arglocs[2]
+        self.mc.load_imm(r.SCRATCH, 0)
+        self.mc.mtxer(r.SCRATCH.value)
+        emit(res.value, l0.value, l1.value)
+        #
+        failargs = arglocs[3:]
+        assert guard_op is not None
+        opnum = guard_op.getopnum()
+        if opnum == rop.GUARD_NO_OVERFLOW:
+            fcond = c.SO
+        elif opnum == rop.GUARD_OVERFLOW:
+            fcond = c.NS
         else:
-            self.mc.mulldo(res.value, l0.value, l1.value)
+            assert 0
+        self._emit_guard(guard_op, failargs, fcond)
+
+    def emit_guard_int_add_ovf(self, op, guard_op, arglocs, regalloc):
+        self.do_emit_int_binary_ovf(op, guard_op, arglocs, self.mc.addox)
+
+    def emit_guard_int_sub_ovf(self, op, guard_op, arglocs, regalloc):
+        self.do_emit_int_binary_ovf(op, guard_op, arglocs, self.mc.subox)
+
+    def emit_guard_int_mul_ovf(self, op, guard_op, arglocs, regalloc):
+        if IS_PPC_32:
+            self.do_emit_int_binary_ovf(op, guard_op, arglocs, self.mc.mullwox)
+        else:
+            self.do_emit_int_binary_ovf(op, guard_op, arglocs, self.mc.mulldox)
 
     def emit_int_floordiv(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
@@ -130,26 +139,26 @@ class IntOpAssembler(object):
         else:
             self.mc.divdu(res.value, l0.value, l1.value)
 
-    emit_int_le = gen_emit_cmp_op(c.LE)
-    emit_int_lt = gen_emit_cmp_op(c.LT)
-    emit_int_gt = gen_emit_cmp_op(c.GT)
-    emit_int_ge = gen_emit_cmp_op(c.GE)
-    emit_int_eq = gen_emit_cmp_op(c.EQ)
-    emit_int_ne = gen_emit_cmp_op(c.NE)
+    emit_guard_int_le = gen_emit_cmp_op(c.LE)
+    emit_guard_int_lt = gen_emit_cmp_op(c.LT)
+    emit_guard_int_gt = gen_emit_cmp_op(c.GT)
+    emit_guard_int_ge = gen_emit_cmp_op(c.GE)
+    emit_guard_int_eq = gen_emit_cmp_op(c.EQ)
+    emit_guard_int_ne = gen_emit_cmp_op(c.NE)
 
-    emit_uint_lt = gen_emit_cmp_op(c.U_LT, signed=False)
-    emit_uint_le = gen_emit_cmp_op(c.U_LE, signed=False)
-    emit_uint_gt = gen_emit_cmp_op(c.U_GT, signed=False)
-    emit_uint_ge = gen_emit_cmp_op(c.U_GE, signed=False)
+    emit_guard_uint_lt = gen_emit_cmp_op(c.LT, signed=False)
+    emit_guard_uint_le = gen_emit_cmp_op(c.LE, signed=False)
+    emit_guard_uint_gt = gen_emit_cmp_op(c.GT, signed=False)
+    emit_guard_uint_ge = gen_emit_cmp_op(c.GE, signed=False)
 
-    emit_int_is_zero = gen_emit_unary_cmp_op(c.IS_ZERO)
-    emit_int_is_true = gen_emit_unary_cmp_op(c.IS_TRUE)
+    emit_guard_int_is_zero = emit_guard_int_eq   # EQ to 0
+    emit_guard_int_is_true = emit_guard_int_ne   # NE to 0
 
-    emit_ptr_eq = emit_int_eq
-    emit_ptr_ne = emit_int_ne
+    emit_guard_ptr_eq = emit_guard_int_eq
+    emit_guard_ptr_ne = emit_guard_int_ne
 
-    emit_instance_ptr_eq = emit_ptr_eq
-    emit_instance_ptr_ne = emit_ptr_ne
+    emit_guard_instance_ptr_eq = emit_guard_ptr_eq
+    emit_guard_instance_ptr_ne = emit_guard_ptr_ne
 
     def emit_int_neg(self, op, arglocs, regalloc):
         l0, res = arglocs
@@ -158,6 +167,18 @@ class IntOpAssembler(object):
     def emit_int_invert(self, op, arglocs, regalloc):
         l0, res = arglocs
         self.mc.not_(res.value, l0.value)
+
+    def emit_int_signext(self, op, arglocs, regalloc):
+        l0, res = arglocs
+        extend_from = op.getarg(1).getint()
+        if extend_from == 1:
+            self.mc.extsb(res.value, l0.value)
+        elif extend_from == 2:
+            self.mc.extsh(res.value, l0.value)
+        elif extend_from == 4:
+            self.mc.extsw(res.value, l0.value)
+        else:
+            raise AssertionError(extend_from)
 
     def emit_int_force_ge_zero(self, op, arglocs, regalloc):
         arg, res = arglocs
@@ -201,12 +222,12 @@ class FloatOpAssembler(object):
         l0, res = arglocs
         self.mc.fsqrt(res.value, l0.value)
 
-    emit_float_le = gen_emit_cmp_op(c.LE, fp=True)
-    emit_float_lt = gen_emit_cmp_op(c.LT, fp=True)
-    emit_float_gt = gen_emit_cmp_op(c.GT, fp=True)
-    emit_float_ge = gen_emit_cmp_op(c.GE, fp=True)
-    emit_float_eq = gen_emit_cmp_op(c.EQ, fp=True)
-    emit_float_ne = gen_emit_cmp_op(c.NE, fp=True)
+    emit_guard_float_le = gen_emit_cmp_op(c.LE, fp=True)
+    emit_guard_float_lt = gen_emit_cmp_op(c.LT, fp=True)
+    emit_guard_float_gt = gen_emit_cmp_op(c.GT, fp=True)
+    emit_guard_float_ge = gen_emit_cmp_op(c.GE, fp=True)
+    emit_guard_float_eq = gen_emit_cmp_op(c.EQ, fp=True)
+    emit_guard_float_ne = gen_emit_cmp_op(c.NE, fp=True)
 
     def emit_cast_float_to_int(self, op, arglocs, regalloc):
         l0, temp_loc, res = arglocs
@@ -215,10 +236,10 @@ class FloatOpAssembler(object):
         self.mc.ld(res.value, r.SP.value, -16)
 
     def emit_cast_int_to_float(self, op, arglocs, regalloc):
-        l0, temp_loc, res = arglocs
+        l0, res = arglocs
         self.mc.std(l0.value, r.SP.value, -16)
-        self.mc.lfd(temp_loc.value, r.SP.value, -16)
-        self.mc.fcfid(res.value, temp_loc.value)
+        self.mc.lfd(res.value, r.SP.value, -16)
+        self.mc.fcfid(res.value, res.value)
 
     def emit_convert_float_bytes_to_longlong(self, op, arglocs, regalloc):
         l0, res = arglocs
@@ -241,7 +262,8 @@ class GuardOpAssembler(object):
                                        fcond, save_exc, is_guard_not_invalidated,
                                        is_guard_not_forced)
         token.pos_jump_offset = self.mc.currpos()
-        self.mc.nop()     # has to be patched later on
+        if not is_guard_not_invalidated:
+            self.mc.trap()     # has to be patched later on
         self.pending_guard_tokens.append(token)
 
     def build_guard_token(self, op, frame_depth, arglocs, fcond, save_exc,
@@ -269,24 +291,6 @@ class GuardOpAssembler(object):
         self.mc.cmp_op(0, l0.value, 0, imm=True)
         self._emit_guard(op, failargs, c.NE)
 
-    # TODO - Evaluate whether this can be done with 
-    #        SO bit instead of OV bit => usage of CR
-    #        instead of XER could be more efficient
-    def _emit_ovf_guard(self, op, arglocs, cond):
-        # move content of XER to GPR
-        with scratch_reg(self.mc):
-            self.mc.mfspr(r.SCRATCH.value, 1)
-            # shift and mask to get comparison result
-            self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value, 1, 0, 0)
-            self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
-        self._emit_guard(op, arglocs, cond)
-
-    def emit_guard_no_overflow(self, op, arglocs, regalloc):
-        self._emit_ovf_guard(op, arglocs, c.NE)
-
-    def emit_guard_overflow(self, op, arglocs, regalloc):
-        self._emit_ovf_guard(op, arglocs, c.EQ)
-
     def emit_guard_value(self, op, arglocs, regalloc):
         l0 = arglocs[0]
         l1 = arglocs[1]
@@ -307,15 +311,15 @@ class GuardOpAssembler(object):
 
     def emit_guard_class(self, op, arglocs, regalloc):
         self._cmp_guard_class(op, arglocs, regalloc)
-        self._emit_guard(op, arglocs[3:], c.NE, save_exc=False)
+        self._emit_guard(op, arglocs[3:], c.NE)
 
     def emit_guard_nonnull_class(self, op, arglocs, regalloc):
         self.mc.cmp_op(0, arglocs[0].value, 1, imm=True, signed=False)
         patch_pos = self.mc.currpos()
-        self.mc.nop()
+        self.mc.trap()
         self._cmp_guard_class(op, arglocs, regalloc)
         pmc = OverwritingBuilder(self.mc, patch_pos, 1)
-        pmc.bc(12, 0, self.mc.currpos() - patch_pos)
+        pmc.bc(12, 0, self.mc.currpos() - patch_pos)    # LT
         pmc.overwrite()
         self._emit_guard(op, arglocs[3:], c.NE, save_exc=False)
 
@@ -330,7 +334,7 @@ class GuardOpAssembler(object):
             # here, we have to go back from 'classptr' to the value expected
             # from reading the half-word in the object header.  Note that
             # this half-word is at offset 0 on a little-endian machine;
-            # it would be at offset 2 (32 bit) or 4 (64 bit) on a
+            # but it is at offset 2 (32 bit) or 4 (64 bit) on a
             # big-endian machine.
             with scratch_reg(self.mc):
                 if IS_PPC_32:
@@ -340,7 +344,7 @@ class GuardOpAssembler(object):
                 self.mc.cmp_op(0, r.SCRATCH.value, typeid.value, imm=typeid.is_imm())
 
     def emit_guard_not_invalidated(self, op, locs, regalloc):
-        return self._emit_guard(op, locs, c.EQ, is_guard_not_invalidated=True)
+        return self._emit_guard(op, locs, c.UH, is_guard_not_invalidated=True)
 
 class MiscOpAssembler(object):
 
@@ -349,12 +353,12 @@ class MiscOpAssembler(object):
     def emit_increment_debug_counter(self, op, arglocs, regalloc):
         [addr_loc, value_loc] = arglocs
         self.mc.load(value_loc.value, addr_loc.value, 0)
-        self.mc.addi(value_loc.value, value_loc.value, 1)
+        self.mc.addi(value_loc.value, value_loc.value, 1)   # can't use r0!
         self.mc.store(value_loc.value, addr_loc.value, 0)
 
     def emit_finish(self, op, arglocs, regalloc):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        if len(arglocs) == 2:
+        if len(arglocs) > 1:
             [return_val, fail_descr_loc] = arglocs
             if op.getarg(0).type == FLOAT:
                 self.mc.stfd(return_val.value, r.SPP.value, base_ofs)
@@ -409,7 +413,8 @@ class MiscOpAssembler(object):
 
     def emit_same_as(self, op, arglocs, regalloc):
         argloc, resloc = arglocs
-        self.regalloc_mov(argloc, resloc)
+        if argloc is not resloc:
+            self.regalloc_mov(argloc, resloc)
 
     emit_cast_ptr_to_int = emit_same_as
     emit_cast_int_to_ptr = emit_same_as
@@ -427,131 +432,129 @@ class MiscOpAssembler(object):
         loc, loc1, resloc, pos_exc_value, pos_exception = arglocs[:5]
         failargs = arglocs[5:]
         self.mc.load_imm(loc1, pos_exception.value)
-
-        with scratch_reg(self.mc):
-            self.mc.load(r.SCRATCH.value, loc1.value, 0)
-            self.mc.cmp_op(0, r.SCRATCH.value, loc.value)
+        self.mc.load(r.SCRATCH.value, loc1.value, 0)
+        self.mc.cmp_op(0, r.SCRATCH.value, loc.value)
 
         self._emit_guard(op, failargs, c.NE, save_exc=True)
         self.mc.load_imm(loc, pos_exc_value.value)
 
         if resloc:
             self.mc.load(resloc.value, loc.value, 0)
+ 
+        self.mc.load_imm(r.SCRATCH, 0)
+        self.mc.store(r.SCRATCH.value, loc.value, 0)
+        self.mc.store(r.SCRATCH.value, loc1.value, 0)
 
-        with scratch_reg(self.mc):
-            self.mc.load_imm(r.SCRATCH, 0)
-            self.mc.store(r.SCRATCH.value, loc.value, 0)
-            self.mc.store(r.SCRATCH.value, loc1.value, 0)
-
-    def emit_call(self, op, arglocs, regalloc, force_index=NO_FORCE_INDEX):
-        if force_index == NO_FORCE_INDEX:
-            force_index = self.write_new_force_index()
+    def emit_call(self, op, arglocs, regalloc):
         resloc = arglocs[0]
         adr = arglocs[1]
         arglist = arglocs[2:]
+
+        cb = callbuilder.CallBuilder(self, adr, arglist, resloc)
+
         descr = op.getdescr()
-        size = descr.get_result_size()
-        signed = descr.is_result_signed()
-        self._emit_call(force_index, adr, arglist, resloc, (size, signed))
+        assert isinstance(descr, CallDescr)
+        cb.argtypes = descr.get_arg_types()
+        cb.restype  = descr.get_result_type()
 
-    def _emit_call(self, force_index, adr, arglocs,
-                   result=None, result_info=(-1,-1)):
-        n_args = len(arglocs)
+        cb.emit()
 
-        # collect variables that need to go in registers
-        # and the registers they will be stored in 
-        num = 0
-        fpnum = 0
-        count = 0
-        non_float_locs = []
-        non_float_regs = []
-        float_locs = []
-        float_regs = []
-        stack_args = []
-        float_stack_arg = False
-        for i in range(n_args):
-            arg = arglocs[i]
+    ## def _emit_call(self, adr, arglocs, result=None, result_info=(-1,-1)):
+    ##     n_args = len(arglocs)
 
-            if arg.type == FLOAT:
-                if fpnum < MAX_FREG_PARAMS:
-                    fpreg = r.PARAM_FPREGS[fpnum]
-                    float_locs.append(arg)
-                    float_regs.append(fpreg)
-                    fpnum += 1
-                    # XXX Duplicate float arguments in GPR slots
-                    if num < MAX_REG_PARAMS:
-                        num += 1
-                    else:
-                        stack_args.append(arg)
-                else:
-                    stack_args.append(arg)
-            else:
-                if num < MAX_REG_PARAMS:
-                    reg = r.PARAM_REGS[num]
-                    non_float_locs.append(arg)
-                    non_float_regs.append(reg)
-                    num += 1
-                else:
-                    stack_args.append(arg)
-                    float_stack_arg = True
+    ##     # collect variables that need to go in registers
+    ##     # and the registers they will be stored in 
+    ##     num = 0
+    ##     fpnum = 0
+    ##     count = 0
+    ##     non_float_locs = []
+    ##     non_float_regs = []
+    ##     float_locs = []
+    ##     float_regs = []
+    ##     stack_args = []
+    ##     float_stack_arg = False
+    ##     for i in range(n_args):
+    ##         arg = arglocs[i]
 
-        if adr in non_float_regs:
-            non_float_locs.append(adr)
-            non_float_regs.append(r.r11)
-            adr = r.r11
+    ##         if arg.type == FLOAT:
+    ##             if fpnum < MAX_FREG_PARAMS:
+    ##                 fpreg = r.PARAM_FPREGS[fpnum]
+    ##                 float_locs.append(arg)
+    ##                 float_regs.append(fpreg)
+    ##                 fpnum += 1
+    ##                 # XXX Duplicate float arguments in GPR slots
+    ##                 if num < MAX_REG_PARAMS:
+    ##                     num += 1
+    ##                 else:
+    ##                     stack_args.append(arg)
+    ##             else:
+    ##                 stack_args.append(arg)
+    ##         else:
+    ##             if num < MAX_REG_PARAMS:
+    ##                 reg = r.PARAM_REGS[num]
+    ##                 non_float_locs.append(arg)
+    ##                 non_float_regs.append(reg)
+    ##                 num += 1
+    ##             else:
+    ##                 stack_args.append(arg)
+    ##                 float_stack_arg = True
 
-        # compute maximum of parameters passed
-        self.max_stack_params = max(self.max_stack_params, len(stack_args))
+    ##     if adr in non_float_regs:
+    ##         non_float_locs.append(adr)
+    ##         non_float_regs.append(r.r11)
+    ##         adr = r.r11
 
-        # compute offset at which parameters are stored
-        if IS_PPC_32:
-            param_offset = BACKCHAIN_SIZE * WORD
-        else:
-            # space for first 8 parameters
-            param_offset = ((BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD)
+    ##     # compute maximum of parameters passed
+    ##     self.max_stack_params = max(self.max_stack_params, len(stack_args))
 
-        with scratch_reg(self.mc):
-            if float_stack_arg:
-                self.mc.stfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
-            for i, arg in enumerate(stack_args):
-                offset = param_offset + i * WORD
-                if arg is not None:
-                    if arg.type == FLOAT:
-                        self.regalloc_mov(arg, r.f0)
-                        self.mc.stfd(r.f0.value, r.SP.value, offset)
-                    else:
-                        self.regalloc_mov(arg, r.SCRATCH)
-                        self.mc.store(r.SCRATCH.value, r.SP.value, offset)
-            if float_stack_arg:
-                self.mc.lfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+    ##     # compute offset at which parameters are stored
+    ##     if IS_PPC_32:
+    ##         param_offset = BACKCHAIN_SIZE * WORD
+    ##     else:
+    ##         # space for first 8 parameters
+    ##         param_offset = ((BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD)
 
-        # remap values stored in core registers
-        remap_frame_layout(self, float_locs, float_regs, r.f0)
-        remap_frame_layout(self, non_float_locs, non_float_regs, r.SCRATCH)
+    ##     with scratch_reg(self.mc):
+    ##         if float_stack_arg:
+    ##             self.mc.stfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
+    ##         for i, arg in enumerate(stack_args):
+    ##             offset = param_offset + i * WORD
+    ##             if arg is not None:
+    ##                 if arg.type == FLOAT:
+    ##                     self.regalloc_mov(arg, r.f0)
+    ##                     self.mc.stfd(r.f0.value, r.SP.value, offset)
+    ##                 else:
+    ##                     self.regalloc_mov(arg, r.SCRATCH)
+    ##                     self.mc.store(r.SCRATCH.value, r.SP.value, offset)
+    ##         if float_stack_arg:
+    ##             self.mc.lfd(r.f0.value, r.SPP.value, FORCE_INDEX_OFS + WORD)
 
-        # the actual call
-        if adr.is_imm():
-            self.mc.call(adr.value)
-        elif adr.is_stack():
-            self.regalloc_mov(adr, r.SCRATCH)
-            self.mc.call_register(r.SCRATCH)
-        elif adr.is_reg():
-            self.mc.call_register(adr)
-        else:
-            assert 0, "should not reach here"
+    ##     # remap values stored in core registers
+    ##     remap_frame_layout(self, float_locs, float_regs, r.f0)
+    ##     remap_frame_layout(self, non_float_locs, non_float_regs, r.SCRATCH)
 
-        self.mark_gc_roots(force_index)
-        # ensure the result is wellformed and stored in the correct location
-        if result is not None and result_info != (-1, -1):
-            self._ensure_result_bit_extension(result, result_info[0],
-                                                      result_info[1])
+    ##     # the actual call
+    ##     if adr.is_imm():
+    ##         self.mc.call(adr.value)
+    ##     elif adr.is_stack():
+    ##         self.regalloc_mov(adr, r.SCRATCH)
+    ##         self.mc.call_register(r.SCRATCH)
+    ##     elif adr.is_reg():
+    ##         self.mc.call_register(adr)
+    ##     else:
+    ##         assert 0, "should not reach here"
+
+    ##     self.mark_gc_roots(force_index)
+    ##     # ensure the result is wellformed and stored in the correct location
+    ##     if result is not None and result_info != (-1, -1):
+    ##         self._ensure_result_bit_extension(result, result_info[0],
+    ##                                                   result_info[1])
 
 class FieldOpAssembler(object):
 
     _mixin_ = True
 
-    def emit_setfield_gc(self, op, arglocs, regalloc):
-        value_loc, base_loc, ofs, size = arglocs
+    def _write_to_mem(self, value_loc, base_loc, ofs, size):
         if size.value == 8:
             if value_loc.is_fp_reg():
                 if ofs.is_imm():
@@ -581,10 +584,17 @@ class FieldOpAssembler(object):
         else:
             assert 0, "size not supported"
 
-    emit_setfield_raw = emit_setfield_gc
+    def emit_setfield_gc(self, op, arglocs, regalloc):
+        value_loc, base_loc, ofs, size = arglocs
+        self._write_to_mem(value_loc, base_loc, ofs, size)
 
-    def emit_getfield_gc(self, op, arglocs, regalloc):
-        base_loc, ofs, res, size = arglocs
+    emit_setfield_raw = emit_setfield_gc
+    emit_zero_ptr_field = emit_setfield_gc
+
+    def _load_from_mem(self, res, base_loc, ofs, size, signed):
+        # res, base_loc, ofs, size and signed are all locations
+        assert base_loc is not r.SCRATCH
+        sign = signed.value
         if size.value == 8:
             if res.is_fp_reg():
                 if ofs.is_imm():
@@ -597,261 +607,229 @@ class FieldOpAssembler(object):
                 else:
                     self.mc.ldx(res.value, base_loc.value, ofs.value)
         elif size.value == 4:
-            if ofs.is_imm():
-                self.mc.lwz(res.value, base_loc.value, ofs.value)
+            if IS_PPC_64 and sign:
+                if ofs.is_imm():
+                    self.mc.lwa(res.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.lwax(res.value, base_loc.value, ofs.value)
             else:
-                self.mc.lwzx(res.value, base_loc.value, ofs.value)
+                if ofs.is_imm():
+                    self.mc.lwz(res.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.lwzx(res.value, base_loc.value, ofs.value)
         elif size.value == 2:
-            if ofs.is_imm():
-                self.mc.lhz(res.value, base_loc.value, ofs.value)
+            if sign:
+                if ofs.is_imm():
+                    self.mc.lha(res.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.lhax(res.value, base_loc.value, ofs.value)
             else:
-                self.mc.lhzx(res.value, base_loc.value, ofs.value)
+                if ofs.is_imm():
+                    self.mc.lhz(res.value, base_loc.value, ofs.value)
+                else:
+                    self.mc.lhzx(res.value, base_loc.value, ofs.value)
         elif size.value == 1:
             if ofs.is_imm():
                 self.mc.lbz(res.value, base_loc.value, ofs.value)
             else:
                 self.mc.lbzx(res.value, base_loc.value, ofs.value)
+            if sign:
+                self.mc.extsb(res.value, res.value)
         else:
             assert 0, "size not supported"
 
-        signed = op.getdescr().is_field_signed()
-        if signed:
-            self._ensure_result_bit_extension(res, size.value, signed)
+    def emit_getfield_gc(self, op, arglocs, regalloc):
+        base_loc, ofs, res, size, sign = arglocs
+        self._load_from_mem(res, base_loc, ofs, size, sign)
 
     emit_getfield_raw = emit_getfield_gc
     emit_getfield_raw_pure = emit_getfield_gc
     emit_getfield_gc_pure = emit_getfield_gc
 
-    def emit_getinteriorfield_gc(self, op, arglocs, regalloc):
-        (base_loc, index_loc, res_loc,
-            ofs_loc, ofs, itemsize, fieldsize) = arglocs
-        with scratch_reg(self.mc):
-            if _check_imm_arg(itemsize.value):
-                self.mc.mulli(r.SCRATCH.value, index_loc.value, itemsize.value)
-            else:
-                self.mc.load_imm(r.SCRATCH, itemsize.value)
-                self.mc.mullw(r.SCRATCH.value, index_loc.value, r.SCRATCH.value)
-            descr = op.getdescr()
-            assert isinstance(descr, InteriorFieldDescr)
-            signed = descr.fielddescr.is_field_signed()
-            if ofs.value > 0:
-                if ofs_loc.is_imm():
-                    self.mc.addic(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
-                else:
-                    self.mc.add(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
+    SIZE2SCALE = dict([(1<<_i, _i) for _i in range(32)])
 
-            if fieldsize.value == 8:
-                if res_loc.is_fp_reg():
-                    self.mc.lfdx(res_loc.value, base_loc.value, r.SCRATCH.value)
-                else:
-                    self.mc.ldx(res_loc.value, base_loc.value, r.SCRATCH.value)
-            elif fieldsize.value == 4:
-                self.mc.lwzx(res_loc.value, base_loc.value, r.SCRATCH.value)
-                if signed:
-                    self.mc.extsw(res_loc.value, res_loc.value)
-            elif fieldsize.value == 2:
-                self.mc.lhzx(res_loc.value, base_loc.value, r.SCRATCH.value)
-                if signed:
-                    self.mc.extsh(res_loc.value, res_loc.value)
-            elif fieldsize.value == 1:
-                self.mc.lbzx(res_loc.value, base_loc.value, r.SCRATCH.value)
-                if signed:
-                    self.mc.extsb(res_loc.value, res_loc.value)
+    def _multiply_by_constant(self, loc, multiply_by, scratch_loc):
+        if multiply_by == 1:
+            return loc
+        try:
+            scale = self.SIZE2SCALE[multiply_by]
+        except KeyError:
+            if _check_imm_arg(multiply_by):
+                self.mc.mulli(scratch_loc.value, loc.value, multiply_by)
             else:
-                assert 0
+                self.mc.load_imm(scratch_loc.value, multiply_by)
+                if IS_PPC_32:
+                    self.mc.mullw(scratch_loc.value, loc.value,
+                                  scratch_loc.value)
+                else:
+                    self.mc.mulld(scratch_loc.value, loc.value,
+                                  scratch_loc.value)
+        else:
+            self.mc.sldi(scratch_loc.value, loc.value, scale)
+        return scratch_loc
+
+    def _apply_scale(self, ofs, index_loc, itemsize):
+        # For arrayitem and interiorfield reads and writes: this returns an
+        # offset suitable for use in ld/ldx or similar instructions.
+        # The result will be either the register r2 or a 16-bit immediate.
+        # The arguments stand for "ofs + index_loc * itemsize",
+        # with the following constrains:
+        assert ofs.is_imm()                # must be an immediate...
+        assert _check_imm_arg(ofs.getint())   # ...that fits 16 bits
+        assert index_loc is not r.SCRATCH2 # can be a reg or imm (any size)
+        assert itemsize.is_imm()           # must be an immediate (any size)
+
+        multiply_by = itemsize.value
+        offset = ofs.getint()
+        if index_loc.is_imm():
+            offset += index_loc.getint() * multiply_by
+            if _check_imm_arg(offset):
+                return imm(offset)
+            else:
+                self.mc.load_imm(r.SCRATCH2, offset)
+                return r.SCRATCH2
+        else:
+            index_loc = self._multiply_by_constant(index_loc, multiply_by,
+                                                   r.SCRATCH2)
+            # here, the new index_loc contains 'index_loc * itemsize'.
+            # If offset != 0 then we have to add it here.  Note that
+            # mc.addi() would not be valid with operand r0.
+            if offset != 0:
+                self.mc.addi(r.SCRATCH2.value, index_loc.value, offset)
+                index_loc = r.SCRATCH2
+            return index_loc
+
+    def emit_getinteriorfield_gc(self, op, arglocs, regalloc):
+        (base_loc, index_loc, res_loc, ofs_loc,
+            itemsize, fieldsize, fieldsign) = arglocs
+        ofs_loc = self._apply_scale(ofs_loc, index_loc, itemsize)
+        self._load_from_mem(res_loc, base_loc, ofs_loc, fieldsize, fieldsign)
 
     emit_getinteriorfield_raw = emit_getinteriorfield_gc
 
     def emit_setinteriorfield_gc(self, op, arglocs, regalloc):
-        (base_loc, index_loc, value_loc,
-            ofs_loc, ofs, itemsize, fieldsize) = arglocs
-        with scratch_reg(self.mc):
-            if _check_imm_arg(itemsize.value):
-                self.mc.mulli(r.SCRATCH.value, index_loc.value, itemsize.value)
-            else:
-                self.mc.load_imm(r.SCRATCH, itemsize.value)
-                self.mc.mullw(r.SCRATCH.value, index_loc.value, r.SCRATCH.value)
-            if ofs.value > 0:
-                if ofs_loc.is_imm():
-                    self.mc.addic(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
-                else:
-                    self.mc.add(r.SCRATCH.value, r.SCRATCH.value, ofs_loc.value)
-            if fieldsize.value == 8:
-                if value_loc.is_fp_reg():
-                    self.mc.stfdx(value_loc.value, base_loc.value, r.SCRATCH.value)
-                else:
-                    self.mc.stdx(value_loc.value, base_loc.value, r.SCRATCH.value)
-            elif fieldsize.value == 4:
-                self.mc.stwx(value_loc.value, base_loc.value, r.SCRATCH.value)
-            elif fieldsize.value == 2:
-                self.mc.sthx(value_loc.value, base_loc.value, r.SCRATCH.value)
-            elif fieldsize.value == 1:
-                self.mc.stbx(value_loc.value, base_loc.value, r.SCRATCH.value)
-            else:
-                assert 0
+        (base_loc, index_loc, value_loc, ofs_loc,
+            itemsize, fieldsize) = arglocs
+        ofs_loc = self._apply_scale(ofs_loc, index_loc, itemsize)
+        self._write_to_mem(value_loc, base_loc, ofs_loc, fieldsize)
 
     emit_setinteriorfield_raw = emit_setinteriorfield_gc
-
-class ArrayOpAssembler(object):
-    
-    _mixin_ = True
 
     def emit_arraylen_gc(self, op, arglocs, regalloc):
         res, base_loc, ofs = arglocs
         self.mc.load(res.value, base_loc.value, ofs.value)
 
-    def emit_setarrayitem_gc(self, op, arglocs, regalloc):
-        value_loc, base_loc, ofs_loc, scratch_loc, scale, ofs = arglocs
-        assert ofs_loc.is_reg()
-
-        if scale.value > 0:
-            #scale_loc = r.SCRATCH
-            scale_loc = scratch_loc
-            if IS_PPC_32:
-                self.mc.slwi(scale_loc.value, ofs_loc.value, scale.value)
-            else:
-                self.mc.sldi(scale_loc.value, ofs_loc.value, scale.value)
-        else:
-            scale_loc = ofs_loc
-
-        # add the base offset
-        if ofs.value > 0:
-            self.mc.addi(r.SCRATCH.value, scale_loc.value, ofs.value)
-            scale_loc = r.SCRATCH
-
-        if scale.value == 3:
-            if value_loc.is_fp_reg():
-                self.mc.stfdx(value_loc.value, base_loc.value, scale_loc.value)
-            else:
-                self.mc.stdx(value_loc.value, base_loc.value, scale_loc.value)
-        elif scale.value == 2:
-            self.mc.stwx(value_loc.value, base_loc.value, scale_loc.value)
-        elif scale.value == 1:
-            self.mc.sthx(value_loc.value, base_loc.value, scale_loc.value)
-        elif scale.value == 0:
-            self.mc.stbx(value_loc.value, base_loc.value, scale_loc.value)
-        else:
-            assert 0, "scale %s not supported" % (scale.value)
-
+    emit_setarrayitem_gc = emit_setinteriorfield_gc
     emit_setarrayitem_raw = emit_setarrayitem_gc
 
-    def _write_to_mem(self, value_loc, base_loc, ofs_loc, scale):
-        if scale.value == 3:
-            if value_loc.is_fp_reg():
-                self.mc.stfdx(value_loc.value, base_loc.value, ofs_loc.value)
-            else:
-                self.mc.stdx(value_loc.value, base_loc.value, ofs_loc.value)
-        elif scale.value == 2:
-            self.mc.stwx(value_loc.value, base_loc.value, ofs_loc.value)
-        elif scale.value == 1:
-            self.mc.sthx(value_loc.value, base_loc.value, ofs_loc.value)
-        elif scale.value == 0:
-            self.mc.stbx(value_loc.value, base_loc.value, ofs_loc.value)
-        else:
-            assert 0
-
-    def emit_raw_store(self, op, arglocs, regalloc):
-        value_loc, base_loc, ofs_loc, scale, ofs = arglocs
-        assert ofs_loc.is_reg()
-        self._write_to_mem(value_loc, base_loc, ofs_loc, scale)
-
-    def emit_getarrayitem_gc(self, op, arglocs, regalloc):
-        res, base_loc, ofs_loc, scratch_loc, scale, ofs = arglocs
-        assert ofs_loc.is_reg()
-        signed = op.getdescr().is_item_signed()
-
-        if scale.value > 0:
-            scale_loc = scratch_loc
-            if IS_PPC_32:
-                self.mc.slwi(scale_loc.value, ofs_loc.value, scale.value)
-            else:
-                self.mc.sldi(scale_loc.value, ofs_loc.value, scale.value)
-        else:
-            scale_loc = ofs_loc
-
-        # add the base offset
-        if ofs.value > 0:
-            self.mc.addi(r.SCRATCH.value, scale_loc.value, ofs.value)
-            scale_loc = r.SCRATCH
-
-        if scale.value == 3:
-            if res.is_fp_reg():
-                self.mc.lfdx(res.value, base_loc.value, scale_loc.value)
-            else:
-                self.mc.ldx(res.value, base_loc.value, scale_loc.value)
-        elif scale.value == 2:
-            self.mc.lwzx(res.value, base_loc.value, scale_loc.value)
-            if signed:
-                self.mc.extsw(res.value, res.value)
-        elif scale.value == 1:
-            self.mc.lhzx(res.value, base_loc.value, scale_loc.value)
-            if signed:
-                self.mc.extsh(res.value, res.value)
-        elif scale.value == 0:
-            self.mc.lbzx(res.value, base_loc.value, scale_loc.value)
-            if signed:
-                self.mc.extsb(res.value, res.value)
-        else:
-            assert 0
-
+    emit_getarrayitem_gc = emit_getinteriorfield_gc
     emit_getarrayitem_raw = emit_getarrayitem_gc
     emit_getarrayitem_gc_pure = emit_getarrayitem_gc
 
-    def _load_from_mem(self, res_loc, base_loc, ofs_loc, scale, signed=False):
-        if scale.value == 3:
-            if res_loc.is_fp_reg():
-                self.mc.lfdx(res_loc.value, base_loc.value, ofs_loc.value)
-            else:
-                self.mc.ldx(res_loc.value, base_loc.value, ofs_loc.value)
-        elif scale.value == 2:
-            self.mc.lwzx(res_loc.value, base_loc.value, ofs_loc.value)
-            if signed:
-                self.mc.extsw(res_loc.value, res_loc.value)
-        elif scale.value == 1:
-            self.mc.lhzx(res_loc.value, base_loc.value, ofs_loc.value)
-            if signed:
-                self.mc.extsh(res_loc.value, res_loc.value)
-        elif scale.value == 0:
-            self.mc.lbzx(res_loc.value, base_loc.value, ofs_loc.value)
-            if signed:
-                self.mc.extsb(res_loc.value, res_loc.value)
-        else:
-            assert 0
+    emit_raw_store = emit_setarrayitem_gc
+    emit_raw_load = emit_getarrayitem_gc
 
-    def emit_raw_load(self, op, arglocs, regalloc):
-        res_loc, base_loc, ofs_loc, scale, ofs = arglocs
-        assert ofs_loc.is_reg()
-        # no base offset
-        assert ofs.value == 0
-        signed = op.getdescr().is_item_signed()
-        self._load_from_mem(res_loc, base_loc, ofs_loc, scale, signed)
+    def _copy_in_scratch2(self, loc):
+        if loc.is_imm():
+            self.mc.li(r.SCRATCH2.value, loc.value)
+        elif loc is not r.SCRATCH2:
+            self.mc.mr(r.SCRATCH2.value, loc.value)
+        return r.SCRATCH2
+
+    def emit_zero_array(self, op, arglocs, regalloc):
+        base_loc, startindex_loc, length_loc, ofs_loc, itemsize_loc = arglocs
+
+        # assume that an array where an item size is N:
+        # * if N is even, then all items are aligned to a multiple of 2
+        # * if N % 4 == 0, then all items are aligned to a multiple of 4
+        # * if N % 8 == 0, then all items are aligned to a multiple of 8
+        itemsize = itemsize_loc.getint()
+        if itemsize & 1:
+            stepsize = 1
+            stXux = self.mc.stbux
+            stXu = self.mc.stbu
+            stX  = self.mc.stb
+        elif itemsize & 2:
+            stepsize = 2
+            stXux = self.mc.sthux
+            stXu = self.mc.sthu
+            stX  = self.mc.sth
+        elif (itemsize & 4) or IS_PPC_32:
+            stepsize = 4
+            stXux = self.mc.stwux
+            stXu = self.mc.stwu
+            stX  = self.mc.stw
+        else:
+            stepsize = WORD
+            stXux = self.mc.stdux
+            stXu = self.mc.stdu
+            stX  = self.mc.std
+
+        repeat_factor = itemsize // stepsize
+        if repeat_factor != 1:
+            # This is only for itemsize not in (1, 2, 4, WORD).
+            # Include the repeat_factor inside length_loc if it is a constant
+            if length_loc.is_imm():
+                length_loc = imm(length_loc.value * repeat_factor)
+                repeat_factor = 1     # included
+
+        unroll = -1
+        if length_loc.is_imm():
+            if length_loc.value <= 8:
+                unroll = length_loc.value
+                if unroll <= 0:
+                    return     # nothing to do
+
+        ofs_loc = self._apply_scale(ofs_loc, startindex_loc, itemsize_loc)
+        ofs_loc = self._copy_in_scratch2(ofs_loc)
+
+        if unroll > 0:
+            assert repeat_factor == 1
+            self.mc.li(r.SCRATCH.value, 0)
+            stXux(r.SCRATCH.value, ofs_loc.value, base_loc.value)
+            for i in range(1, unroll):
+                stX(r.SCRATCH.value, ofs_loc.value, i * stepsize)
+
+        else:
+            if length_loc.is_imm():
+                self.mc.load_imm(r.SCRATCH, length_loc.value)
+                length_loc = r.SCRATCH
+                jz_location = -1
+                assert repeat_factor == 1
+            else:
+                self.mc.cmp_op(0, length_loc.value, 0, imm=True)
+                jz_location = self.mc.currpos()
+                self.mc.trap()
+                length_loc = self._multiply_by_constant(length_loc,
+                                                        repeat_factor,
+                                                        r.SCRATCH)
+            self.mc.mtctr(length_loc.value)
+            self.mc.li(r.SCRATCH.value, 0)
+
+            stXux(r.SCRATCH.value, ofs_loc.value, base_loc.value)
+            bdz_location = self.mc.currpos()
+            self.mc.trap()
+
+            loop_location = self.mc.currpos()
+            stXu(r.SCRATCH.value, ofs_loc.value, stepsize)
+            self.mc.bdnz(loop_location - self.mc.currpos())
+
+            pmc = OverwritingBuilder(self.mc, bdz_location, 1)
+            pmc.bdz(self.mc.currpos() - bdz_location)
+            pmc.overwrite()
+
+            if jz_location != -1:
+                pmc = OverwritingBuilder(self.mc, jz_location, 1)
+                pmc.bc(4, 1, self.mc.currpos() - jz_location)    # !GT
+                pmc.overwrite()
 
 class StrOpAssembler(object):
 
     _mixin_ = True
 
-    def emit_strlen(self, op, arglocs, regalloc):
-        l0, l1, res = arglocs
-        if l1.is_imm():
-            self.mc.load(res.value, l0.value, l1.getint())
-        else:
-            self.mc.loadx(res.value, l0.value, l1.value)
-
-    def emit_strgetitem(self, op, arglocs, regalloc):
-        res, base_loc, ofs_loc, basesize = arglocs
-        if ofs_loc.is_imm():
-            self.mc.addi(res.value, base_loc.value, ofs_loc.getint())
-        else:
-            self.mc.add(res.value, base_loc.value, ofs_loc.value)
-        self.mc.lbz(res.value, res.value, basesize.value)
-
-    def emit_strsetitem(self, op, arglocs, regalloc):
-        value_loc, base_loc, ofs_loc, temp_loc, basesize = arglocs
-        if ofs_loc.is_imm():
-            self.mc.addi(temp_loc.value, base_loc.value, ofs_loc.getint())
-        else:
-            self.mc.add(temp_loc.value, base_loc.value, ofs_loc.value)
-        self.mc.stb(value_loc.value, temp_loc.value, basesize.value)
+    emit_strlen = FieldOpAssembler.emit_getfield_gc
+    emit_strgetitem = FieldOpAssembler.emit_getarrayitem_gc
+    emit_strsetitem = FieldOpAssembler.emit_setarrayitem_gc
 
     #from ../x86/regalloc.py:928 ff.
     def emit_copystrcontent(self, op, arglocs, regalloc):
@@ -901,6 +879,7 @@ class StrOpAssembler(object):
         else:
             length_box = TempInt()
             length_loc = regalloc.force_allocate_reg(length_box, forbidden_vars)
+            xxxxxxxxxxxxxxxxxxxxxxxx
             imm = regalloc.convert_to_imm(args[4])
             self.load(length_loc, imm)
         if is_unicode:
@@ -919,7 +898,7 @@ class StrOpAssembler(object):
         # call memcpy()
         regalloc.before_call()
         imm_addr = make_imm_loc(self.memcpy_addr)
-        self._emit_call(NO_FORCE_INDEX, imm_addr,
+        self._emit_call(imm_addr,
                             [dstaddr_loc, srcaddr_loc, length_loc])
 
         regalloc.possibly_free_var(length_box)
@@ -970,41 +949,9 @@ class UnicodeOpAssembler(object):
 
     _mixin_ = True
 
-    emit_unicodelen = StrOpAssembler.emit_strlen
-
-    def emit_unicodegetitem(self, op, arglocs, regalloc):
-        # res is used as a temporary location
-        # => it is save to use it before loading the result
-        res, base_loc, ofs_loc, scale, basesize, itemsize = arglocs
-
-        if IS_PPC_32:
-            self.mc.slwi(res.value, ofs_loc.value, scale.value)
-        else:
-            self.mc.sldi(res.value, ofs_loc.value, scale.value)
-        self.mc.add(res.value, base_loc.value, res.value)
-
-        if scale.value == 2:
-            self.mc.lwz(res.value, res.value, basesize.value)
-        elif scale.value == 1:
-            self.mc.lhz(res.value, res.value, basesize.value)
-        else:
-            assert 0, itemsize.value
-
-    def emit_unicodesetitem(self, op, arglocs, regalloc):
-        value_loc, base_loc, ofs_loc, temp_loc, scale, basesize, itemsize = arglocs
-
-        if IS_PPC_32:
-            self.mc.slwi(temp_loc.value, ofs_loc.value, scale.value)
-        else:
-            self.mc.sldi(temp_loc.value, ofs_loc.value, scale.value)
-        self.mc.add(temp_loc.value, base_loc.value, temp_loc.value)
-
-        if scale.value == 2:
-            self.mc.stw(value_loc.value, temp_loc.value, basesize.value)
-        elif scale.value == 1:
-            self.mc.sth(value_loc.value, temp_loc.value, basesize.value)
-        else:
-            assert 0, itemsize.value
+    emit_unicodelen = FieldOpAssembler.emit_getfield_gc
+    emit_unicodegetitem = FieldOpAssembler.emit_getarrayitem_gc
+    emit_unicodesetitem = FieldOpAssembler.emit_setarrayitem_gc
 
 
 class AllocOpAssembler(object):
@@ -1169,7 +1116,6 @@ class ForceOpAssembler(object):
     def emit_force_token(self, op, arglocs, regalloc):
         res_loc = arglocs[0]
         self.mc.mr(res_loc.value, r.SPP.value)
-        self.mc.addi(res_loc.value, res_loc.value, FORCE_INDEX_OFS)
 
     #    self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.LT)
     # from: ../x86/assembler.py:1668
@@ -1186,6 +1132,7 @@ class ForceOpAssembler(object):
         assert isinstance(descr, JitCellToken)
         # check value
         assert tmploc is r.RES
+        xxxxxxxxxxxx
         self._emit_call(fail_index, imm(descr._ppc_func_addr),
                                 callargs, result=tmploc)
         if op.result is None:
@@ -1320,6 +1267,7 @@ class ForceOpAssembler(object):
         size = descr.get_result_size()
         signed = descr.is_result_signed()
         #
+        xxxxxxxxxxxxxx
         self._emit_call(fail_index, adr, callargs, resloc, (size, signed))
 
         with scratch_reg(self.mc):
@@ -1348,6 +1296,7 @@ class ForceOpAssembler(object):
         size = descr.get_result_size()
         signed = descr.is_result_signed()
         #
+        xxxxxxxxxxxxxxx
         self._emit_call(fail_index, adr, callargs, resloc, (size, signed))
         # then reopen the stack
         if gcrootmap:
@@ -1366,7 +1315,7 @@ class ForceOpAssembler(object):
         with Saved_Volatiles(self.mc):
             #self._emit_call(NO_FORCE_INDEX, self.releasegil_addr, 
             #                [], self._regalloc)
-            self._emit_call(NO_FORCE_INDEX, imm(self.releasegil_addr), [])
+            self._emit_call(imm(self.releasegil_addr), [])
 
     def call_reacquire_gil(self, gcrootmap, save_loc):
         # save the previous result into the stack temporarily.
@@ -1374,12 +1323,12 @@ class ForceOpAssembler(object):
         # to save vfp regs in this case. Besides the result location
         assert gcrootmap.is_shadow_stack
         with Saved_Volatiles(self.mc):
-            self._emit_call(NO_FORCE_INDEX, imm(self.reacqgil_addr), [])
+            self._emit_call(imm(self.reacqgil_addr), [])
 
 
 class OpAssembler(IntOpAssembler, GuardOpAssembler,
                   MiscOpAssembler, FieldOpAssembler,
-                  ArrayOpAssembler, StrOpAssembler,
+                  StrOpAssembler,
                   UnicodeOpAssembler, ForceOpAssembler,
                   AllocOpAssembler, FloatOpAssembler):
 

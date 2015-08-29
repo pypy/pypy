@@ -1,4 +1,0 @@
-
-prepare_guard_int_lt & friends: re-enable in walk_operations()
-
-guard_xyz: fail if the target of the branch is too far away (+32k?)

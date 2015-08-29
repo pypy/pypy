@@ -24,6 +24,7 @@ VOLATILES           = [r0, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12]
 VOLATILES_FLOAT  = [f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13]
 
 SCRATCH    = r0
+SCRATCH2   = r2
 FP_SCRATCH = f0
 SP         = r1
 TOC        = r2
@@ -42,18 +43,15 @@ MANAGED_FP_REGS = VOLATILES_FLOAT[1:] #+ NONVOLATILES_FLOAT
 # number of registers that need to be saved into the jitframe when
 # failing a guard, for example.
 ALL_REG_INDEXES = {}
-for _r in MANAGED_REGS + MANAGED_FP_REGS:
+for _r in MANAGED_REGS:
     ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES)
-JITFRAME_FIXED_SIZE = len(ALL_REG_INDEXES)
+for _r in MANAGED_FP_REGS:
+    ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES) + 1
+    #       we leave a never-used hole for f0  ^^^  in the jitframe
+    #       to simplify store_info_on_descr(), which assumes that the
+    #       register number N is at offset N after the non-fp regs
+JITFRAME_FIXED_SIZE = len(ALL_REG_INDEXES) + 1
 
 
 PARAM_REGS = [r3, r4, r5, r6, r7, r8, r9, r10]
 PARAM_FPREGS = [f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13]
-
-def get_managed_reg_index(reg):
-    if reg > r13.value:
-        return reg - 4
-    return reg - 3
-
-def get_managed_fpreg_index(reg):
-    return reg - 1

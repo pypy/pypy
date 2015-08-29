@@ -19,6 +19,9 @@ class FakeStats(object):
 
 class TestPPC(LLtypeBackendTest):
 
+    # for the individual tests see
+    # ====> ../../test/runner_test.py
+
     if IS_PPC_32:
         add_loop_instructions = ["mr", "add", "cmpwi", "beq", "b"]
     else:
@@ -96,7 +99,6 @@ class TestPPC(LLtypeBackendTest):
             assert self.cpu.get_int_value(deadframe, i) == i + 1
 
     def test_unicodesetitem_really_needs_temploc(self):
-        py.test.skip("XXX")
         u_box = self.alloc_unicode(u"abcdsdasdsaddefg")
         
         i0 = BoxInt()
@@ -171,3 +173,32 @@ class TestPPC(LLtypeBackendTest):
         l1 = ('debug_print', preambletoken.repr_of_descr() + ':1')
         l2 = ('debug_print', targettoken.repr_of_descr() + ':9')
         assert ('jit-backend-counts', [l0, l1, l2]) in dlog
+
+    def test_compile_more_than_32k(self):
+        # the guard_true needs a "b.cond" jumping forward more than 32 kb
+        i0 = BoxInt()
+        i1 = BoxInt()
+        looptoken = JitCellToken()
+        targettoken = TargetToken()
+        operations = [
+            ResOperation(rop.LABEL, [i0], None, descr=targettoken),
+            ResOperation(rop.INT_LE, [i0, ConstInt(9)], i1),
+            ResOperation(rop.GUARD_TRUE, [i1], None, descr=BasicFailDescr(5)),
+            ]
+        operations[2].setfailargs([i0])
+        inputargs = [i0]
+        NUM = 8193
+        for i in range(NUM):
+            i2 = BoxInt()
+            operations.append(
+                ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i2))
+            i0 = i2
+        operations.append(
+            ResOperation(rop.JUMP, [i0], None, descr=targettoken))
+
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken, -42)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 5
+        res = self.cpu.get_int_value(deadframe, 0)
+        assert res == -42 + NUM

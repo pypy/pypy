@@ -6,13 +6,8 @@ from rpython.jit.codewriter import longlong
 from rpython.jit.backend.ppc.jump import (remap_frame_layout,
                                           remap_frame_layout_mixed)
 from rpython.jit.backend.ppc.locations import imm, get_fp_offset
-from rpython.jit.backend.ppc.helper.regalloc import (_check_imm_arg,
-                                                     prepare_cmp_op,
-                                                     prepare_unary_int_op,
-                                                     prepare_binary_int_op,
-                                                     prepare_binary_int_op_with_imm,
-                                                     prepare_unary_cmp,
-                                                     prepare_float_op)
+from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg, check_imm_box
+from rpython.jit.backend.ppc.helper import regalloc as helper
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                             Box, BoxPtr,
                                             INT, REF, FLOAT)
@@ -31,6 +26,8 @@ from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib import rgc
+
+LIMIT_LOOP_BREAK = 15000      # should be much smaller than 32 KB
 
 # xxx hack: set a default value for TargetToken._arm_loop_code.  If 0, we know
 # that it is a LABEL that was not compiled yet.
@@ -56,11 +53,12 @@ class TempFloat(TempBox):
 
 
 class FPRegisterManager(RegisterManager):
-    all_regs              = r.ALL_FLOAT_REGS
+    all_regs              = r.MANAGED_FP_REGS
     box_types             = [FLOAT]
     save_around_call_regs = r.VOLATILES_FLOAT
 
     def convert_to_imm(self, c):
+        assert isinstance(c, ConstFloat)
         adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
         x = c.getfloatstorage()
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
@@ -72,25 +70,21 @@ class FPRegisterManager(RegisterManager):
     def call_result_location(self, v):
         return r.f1
 
-    def ensure_value_is_boxed(self, thing, forbidden_vars=[]):
-        loc = None
-        if isinstance(thing, Const):
-            assert isinstance(thing, ConstFloat)
-            loc = self.get_scratch_reg(FLOAT, self.temp_boxes + forbidden_vars)
-            immvalue = self.convert_to_imm(thing)
+    def ensure_reg(self, box):
+        if isinstance(box, Const):
+            loc = self.get_scratch_reg()
+            immvalue = self.convert_to_imm(box)
             self.assembler.load(loc, immvalue)
         else:
-            loc = self.make_sure_var_in_reg(thing,
-                            forbidden_vars=self.temp_boxes + forbidden_vars)
+            assert box in self.temp_boxes
+            loc = self.make_sure_var_in_reg(box,
+                    forbidden_vars=self.temp_boxes)
         return loc
 
-    def get_scratch_reg(self, type=FLOAT, forbidden_vars=[],
-                                                        selected_reg=None):
-        assert type == FLOAT  # for now
+    def get_scratch_reg(self):
         box = TempFloat()
+        reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes)
         self.temp_boxes.append(box)
-        reg = self.force_allocate_reg(box, forbidden_vars=forbidden_vars,
-                                                    selected_reg=selected_reg)
         return reg
 
 
@@ -142,39 +136,23 @@ class PPCRegisterManager(RegisterManager):
             assert isinstance(c, ConstPtr)
             return locations.ImmLocation(rffi.cast(lltype.Signed, c.value))
 
-    def ensure_value_is_boxed(self, thing, forbidden_vars=None):
-        loc = None
-        if isinstance(thing, Const):
-            if isinstance(thing, ConstPtr):
-                tp = REF
-            else:
-                tp = INT
-            loc = self.get_scratch_reg(tp, forbidden_vars=self.temp_boxes
-                                                            + forbidden_vars)
-            immvalue = self.convert_to_imm(thing)
+    def ensure_reg(self, box):
+        if isinstance(box, Const):
+            loc = self.get_scratch_reg()
+            immvalue = self.convert_to_imm(box)
             self.assembler.load(loc, immvalue)
         else:
-            loc = self.make_sure_var_in_reg(thing,
-                            forbidden_vars=self.temp_boxes + forbidden_vars)
+            assert box in self.temp_boxes
+            loc = self.make_sure_var_in_reg(box,
+                    forbidden_vars=self.temp_boxes)
         return loc
 
-    def allocate_scratch_reg(self, type=INT, selected_reg=None, forbidden_vars=None):
-        """Allocate a scratch register, possibly spilling a managed register.
-        This register is freed after emitting the current operation and can not
-        be spilled"""
+    def get_scratch_reg(self):
         box = TempBox()
-        reg = self.force_allocate_reg(box,
-                            selected_reg=selected_reg,
-                            forbidden_vars=forbidden_vars)
-        return reg, box
-
-    def get_scratch_reg(self, type=INT, forbidden_vars=[], selected_reg=None):
-        assert type == INT or type == REF
-        box = TempBox()
+        reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes)
         self.temp_boxes.append(box)
-        reg = self.force_allocate_reg(box, forbidden_vars=forbidden_vars,
-                                                    selected_reg=selected_reg)
         return reg
+
 
 class PPCFrameManager(FrameManager):
     def __init__(self, base_ofs):
@@ -194,6 +172,7 @@ class PPCFrameManager(FrameManager):
     def get_loc_index(loc):
         assert isinstance(loc, locations.StackLocation)
         return loc.position
+
 
 class Regalloc(BaseRegalloc):
 
@@ -279,49 +258,36 @@ class Regalloc(BaseRegalloc):
         return self.fm.get_frame_depth()
 
     def possibly_free_var(self, var):
-        if var.type == FLOAT:
-            self.fprm.possibly_free_var(var)
-        else:
-            self.rm.possibly_free_var(var)
+        if var is not None:
+            if var.type == FLOAT:
+                self.fprm.possibly_free_var(var)
+            else:
+                self.rm.possibly_free_var(var)
 
     def possibly_free_vars(self, vars):
         for var in vars:
-            if var is not None:  # xxx kludgy
-                self.possibly_free_var(var)
+            self.possibly_free_var(var)
 
     def possibly_free_vars_for_op(self, op):
         for i in range(op.numargs()):
             var = op.getarg(i)
-            if var is not None:
-                self.possibly_free_var(var)
+            self.possibly_free_var(var)
 
-    def try_allocate_reg(self, v, selected_reg=None, need_lower_byte=False):
-        if v.type == FLOAT:
-            return self.fprm.try_allocate_reg(v, selected_reg, need_lower_byte)
-        else:
-            return self.rm.try_allocate_reg(v, selected_reg, need_lower_byte)
-
-    def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None, 
-            need_lower_byte=False):
+    def force_allocate_reg(self, var):
         if var.type == FLOAT:
-            return self.fprm.force_allocate_reg(var, forbidden_vars,
-                                                selected_reg, need_lower_byte)
+            forbidden_vars = self.fprm.temp_boxes
+            return self.fprm.force_allocate_reg(var, forbidden_vars)
         else:
-            return self.rm.force_allocate_reg(var, forbidden_vars,
-                                              selected_reg, need_lower_byte)
-
-    def allocate_scratch_reg(self, type=INT, forbidden_vars=[], selected_reg=None):
-        assert type == INT # XXX extend this once floats are supported
-        return self.rm.allocate_scratch_reg(type=type,
-                        forbidden_vars=forbidden_vars,
-                        selected_reg=selected_reg)
+            forbidden_vars = self.rm.temp_boxes
+            return self.rm.force_allocate_reg(var, forbidden_vars)
 
     def walk_operations(self, inputargs, operations):
         from rpython.jit.backend.ppc.ppc_assembler import (
             operations_with_guard as asm_operations_with_guard,
             operations as asm_operations)
         i = 0
-        #self.operations = operations
+        self.limit_loop_break = (self.assembler.mc.get_relative_pos() +
+                                     LIMIT_LOOP_BREAK)
         while i < len(operations):
             op = operations[i]
             self.assembler.mc.mark_op(op)
@@ -331,30 +297,38 @@ class Regalloc(BaseRegalloc):
                 i += 1
                 self.possibly_free_vars_for_op(op)
                 continue
-            if self.can_merge_with_next_guard(op, i, operations) and (
-                # XXX FIX
-                op.getopnum() in (rop.CALL_RELEASE_GIL, rop.CALL_ASSEMBLER,
-                                  rop.CALL_MAY_FORCE)
-                # XXX FIX
-                ):
-                arglocs = oplist_with_guard[op.getopnum()](self, op,
-                                                           operations[i + 1])
-                assert arglocs is not None
-                asm_operations_with_guard[op.getopnum()](self.assembler, op,
-                                                     operations[i + 1],
-                                                     arglocs, self)
+            #
+            for j in range(op.numargs()):
+                box = op.getarg(j)
+                if box.type != FLOAT:
+                    self.rm.temp_boxes.append(box)
+                else:
+                    self.fprm.temp_boxes.append(box)
+            #
+            opnum = op.getopnum()
+            if self.can_merge_with_next_guard(op, i, operations):
                 i += 1
-            elif not we_are_translated() and op.getopnum() == -124:
+                self.rm.position = i
+                self.fprm.position = i
+                arglocs = oplist_with_guard[opnum](self, op, operations[i])
+                assert arglocs is not None
+                asm_operations_with_guard[opnum](self.assembler, op,
+                                                 operations[i],
+                                                 arglocs, self)
+            elif not we_are_translated() and opnum == -124:
                 self._consider_force_spill(op)
             else:
-                arglocs = oplist[op.getopnum()](self, op)
+                arglocs = oplist[opnum](self, op)
                 if arglocs is not None:
-                    asm_operations[op.getopnum()](self.assembler, op,
-                                                  arglocs, self)
-            self.possibly_free_vars_for_op(op)
-            self.free_temp_vars()
+                    asm_operations[opnum](self.assembler, op, arglocs, self)
+            self.free_op_vars()
+            self.possibly_free_var(op.result)
             self.rm._check_invariants()
             self.fprm._check_invariants()
+            if self.assembler.mc.get_relative_pos() > self.limit_loop_break:
+                self.assembler.break_long_loop()
+                self.limit_loop_break = (self.assembler.mc.get_relative_pos() +
+                                             LIMIT_LOOP_BREAK)
             i += 1
         assert not self.rm.reg_bindings
         assert not self.fprm.reg_bindings
@@ -406,43 +380,39 @@ class Regalloc(BaseRegalloc):
         else:
             return self.rm.call_result_location(v)
 
-    def _ensure_value_is_boxed(self, thing, forbidden_vars=[]):
-        if thing.type == FLOAT:
-            return self.fprm.ensure_value_is_boxed(thing, forbidden_vars)
+    def ensure_reg(self, box):
+        if box.type == FLOAT:
+            return self.fprm.ensure_reg(box)
         else:
-            return self.rm.ensure_value_is_boxed(thing, forbidden_vars)
+            return self.rm.ensure_reg(box)
 
-    def get_scratch_reg(self, type, forbidden_vars=[], selected_reg=None):
+    def ensure_reg_or_16bit_imm(self, box):
+        if box.type == FLOAT:
+            return self.fprm.ensure_reg(box)
+        else:
+            if check_imm_box(box):
+                return imm(box.getint())
+            return self.rm.ensure_reg(box)
+
+    def ensure_reg_or_any_imm(self, box):
+        if box.type == FLOAT:
+            return self.fprm.ensure_reg(box)
+        else:
+            if isinstance(box, Const):
+                return imm(box.getint())
+            return self.rm.ensure_reg(box)
+
+    def get_scratch_reg(self, type):
         if type == FLOAT:
-            return self.fprm.get_scratch_reg(type, forbidden_vars,
-                                                                selected_reg)
+            return self.fprm.get_scratch_reg()
         else:
-            return self.rm.get_scratch_reg(type, forbidden_vars, selected_reg)
+            return self.rm.get_scratch_reg()
 
-    def free_temp_vars(self):
+    def free_op_vars(self):
+        # free the boxes in the 'temp_boxes' lists, which contain both
+        # temporary boxes and all the current operation's arguments
         self.rm.free_temp_vars()
         self.fprm.free_temp_vars()
-
-    def make_sure_var_in_reg(self, var, forbidden_vars=[],
-                             selected_reg=None, need_lower_byte=False):
-        if var.type == FLOAT:
-            assert 0, "not implemented yet"
-        else:
-           return self.rm.make_sure_var_in_reg(var, forbidden_vars,
-                    selected_reg, need_lower_byte)
-
-    def convert_to_imm(self, value):
-        if isinstance(value, ConstInt):
-            return self.rm.convert_to_imm(value)
-        else:
-            assert isinstance(value, ConstFloat)
-            return self.fprm.convert_to_imm(value)
-
-    def _sync_var(self, v):
-        if v.type == FLOAT:
-            self.fprm._sync_var(v)
-        else:
-            self.rm._sync_var(v)
 
     # ******************************************************
     # *         P R E P A R E  O P E R A T I O N S         * 
@@ -452,123 +422,90 @@ class Regalloc(BaseRegalloc):
     def void(self, op):
         return []
 
-    prepare_int_add = prepare_binary_int_op_with_imm()
-    prepare_int_sub = prepare_binary_int_op_with_imm()
-    prepare_int_mul = prepare_binary_int_op_with_imm()
+    prepare_int_add = helper.prepare_int_add_or_mul
+    prepare_int_sub = helper.prepare_int_sub
+    prepare_int_mul = helper.prepare_int_add_or_mul
 
-    prepare_int_floordiv = prepare_binary_int_op()
-    prepare_int_mod = prepare_binary_int_op()
-    prepare_int_and = prepare_binary_int_op()
-    prepare_int_or = prepare_binary_int_op()
-    prepare_int_xor = prepare_binary_int_op()
-    prepare_int_lshift = prepare_binary_int_op()
-    prepare_int_rshift = prepare_binary_int_op()
-    prepare_uint_rshift = prepare_binary_int_op()
-    prepare_uint_floordiv = prepare_binary_int_op()
+    prepare_int_floordiv = helper.prepare_binary_op
+    prepare_int_mod = helper.prepare_binary_op
+    prepare_int_and = helper.prepare_binary_op
+    prepare_int_or = helper.prepare_binary_op
+    prepare_int_xor = helper.prepare_binary_op
+    prepare_int_lshift = helper.prepare_binary_op
+    prepare_int_rshift = helper.prepare_binary_op
+    prepare_uint_rshift = helper.prepare_binary_op
+    prepare_uint_floordiv = helper.prepare_binary_op
 
-    prepare_int_add_ovf = prepare_binary_int_op()
-    prepare_int_sub_ovf = prepare_binary_int_op()
-    prepare_int_mul_ovf = prepare_binary_int_op()
+    prepare_guard_int_add_ovf = helper.prepare_int_binary_ovf
+    prepare_guard_int_sub_ovf = helper.prepare_int_binary_ovf
+    prepare_guard_int_mul_ovf = helper.prepare_int_binary_ovf
 
-    prepare_int_neg = prepare_unary_int_op()
-    prepare_int_invert = prepare_unary_int_op()
+    prepare_int_neg = helper.prepare_unary_op
+    prepare_int_invert = helper.prepare_unary_op
+    prepare_int_signext = helper.prepare_unary_op
 
-    prepare_int_le = prepare_cmp_op()
-    prepare_int_lt = prepare_cmp_op()
-    prepare_int_ge = prepare_cmp_op()
-    prepare_int_gt = prepare_cmp_op()
-    prepare_int_eq = prepare_cmp_op()
-    prepare_int_ne = prepare_cmp_op()
+    prepare_guard_int_le = helper.prepare_cmp_op
+    prepare_guard_int_lt = helper.prepare_cmp_op
+    prepare_guard_int_ge = helper.prepare_cmp_op
+    prepare_guard_int_gt = helper.prepare_cmp_op
+    prepare_guard_int_eq = helper.prepare_cmp_op
+    prepare_guard_int_ne = helper.prepare_cmp_op
 
-    prepare_ptr_eq = prepare_int_eq
-    prepare_ptr_ne = prepare_int_ne
+    prepare_guard_ptr_eq = prepare_guard_int_eq
+    prepare_guard_ptr_ne = prepare_guard_int_ne
 
-    prepare_instance_ptr_eq = prepare_ptr_eq
-    prepare_instance_ptr_ne = prepare_ptr_ne
+    prepare_guard_instance_ptr_eq = prepare_guard_ptr_eq
+    prepare_guard_instance_ptr_ne = prepare_guard_ptr_ne
 
-    prepare_uint_lt = prepare_cmp_op()
-    prepare_uint_le = prepare_cmp_op()
-    prepare_uint_gt = prepare_cmp_op()
-    prepare_uint_ge = prepare_cmp_op()
+    prepare_guard_uint_lt = helper.prepare_cmp_op_unsigned
+    prepare_guard_uint_le = helper.prepare_cmp_op_unsigned
+    prepare_guard_uint_gt = helper.prepare_cmp_op_unsigned
+    prepare_guard_uint_ge = helper.prepare_cmp_op_unsigned
 
-    prepare_int_is_true = prepare_unary_cmp()
-    prepare_int_is_zero = prepare_unary_cmp()
+    prepare_guard_int_is_true = helper.prepare_unary_cmp
+    prepare_guard_int_is_zero = helper.prepare_unary_cmp
 
-    prepare_float_add = prepare_float_op(name='prepare_float_add')
-    prepare_float_sub = prepare_float_op(name='prepare_float_sub')
-    prepare_float_mul = prepare_float_op(name='prepare_float_mul')
-    prepare_float_truediv = prepare_float_op(name='prepare_float_truediv')
+    prepare_float_add = helper.prepare_binary_op
+    prepare_float_sub = helper.prepare_binary_op
+    prepare_float_mul = helper.prepare_binary_op
+    prepare_float_truediv = helper.prepare_binary_op
 
-    prepare_float_lt = prepare_float_op(float_result=False,
-                                        name='prepare_op_float_lt')
-    prepare_float_le = prepare_float_op(float_result=False,
-                                        name='prepare_op_float_le')
-    prepare_float_eq = prepare_float_op(float_result=False,
-                                        name='prepare_op_float_eq')
-    prepare_float_ne = prepare_float_op(float_result=False,
-                                        name='prepare_op_float_ne')
-    prepare_float_gt = prepare_float_op(float_result=False,
-                                        name='prepare_op_float_gt')
-    prepare_float_ge = prepare_float_op(float_result=False,
-                                        name='prepare_op_float_ge')
-    prepare_float_neg = prepare_float_op(base=False,
-                                         name='prepare_op_float_neg')
-    prepare_float_abs = prepare_float_op(base=False,
-                                         name='prepare_op_float_abs')
+    prepare_guard_float_lt = helper.prepare_float_cmp
+    prepare_guard_float_le = helper.prepare_float_cmp
+    prepare_guard_float_eq = helper.prepare_float_cmp
+    prepare_guard_float_ne = helper.prepare_float_cmp
+    prepare_guard_float_gt = helper.prepare_float_cmp
+    prepare_guard_float_ge = helper.prepare_float_cmp
+    prepare_float_neg = helper.prepare_unary_op
+    prepare_float_abs = helper.prepare_unary_op
 
-    prepare_guard_float_lt = prepare_float_op(guard=True,
-                            float_result=False, name='prepare_guard_float_lt')
-    prepare_guard_float_le = prepare_float_op(guard=True,
-                            float_result=False, name='prepare_guard_float_le')
-    prepare_guard_float_eq = prepare_float_op(guard=True,
-                            float_result=False, name='prepare_guard_float_eq')
-    prepare_guard_float_ne = prepare_float_op(guard=True,
-                            float_result=False, name='prepare_guard_float_ne')
-    prepare_guard_float_gt = prepare_float_op(guard=True,
-                            float_result=False, name='prepare_guard_float_gt')
-    prepare_guard_float_ge = prepare_float_op(guard=True,
-                            float_result=False, name='prepare_guard_float_ge')
-
-    def prepare_int_force_ge_zero(self, op):
-        argloc = self._ensure_value_is_boxed(op.getarg(0))
-        resloc = self.force_allocate_reg(op.result, [op.getarg(0)])
-        return [argloc, resloc]
+    prepare_int_force_ge_zero = helper.prepare_unary_op
 
     def prepare_math_sqrt(self, op):
-        loc = self._ensure_value_is_boxed(op.getarg(1))
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
+        loc = self.ensure_reg(op.getarg(1))
+        self.free_op_vars()
         res = self.fprm.force_allocate_reg(op.result)
-        self.possibly_free_var(op.result)
         return [loc, res]
 
     def prepare_cast_float_to_int(self, op):
-        loc1 = self._ensure_value_is_boxed(op.getarg(0))
+        loc1 = self.ensure_reg(op.getarg(0))
+        self.free_op_vars()
         temp_loc = self.get_scratch_reg(FLOAT)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
         res = self.rm.force_allocate_reg(op.result)
         return [loc1, temp_loc, res]
 
     def prepare_cast_int_to_float(self, op):
-        loc1 = self._ensure_value_is_boxed(op.getarg(0))
-        temp_loc = self.get_scratch_reg(FLOAT)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
+        loc1 = self.ensure_reg(op.getarg(0))
         res = self.fprm.force_allocate_reg(op.result)
-        return [loc1, temp_loc, res]
+        return [loc1, res]
 
     def prepare_convert_float_bytes_to_longlong(self, op):
-        loc1 = self._ensure_value_is_boxed(op.getarg(0))
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
+        loc1 = self.ensure_reg(op.getarg(0))
         res = self.rm.force_allocate_reg(op.result)
         return [loc1, res]
 
     def prepare_convert_longlong_bytes_to_float(self, op):
-        loc1 = self._ensure_value_is_boxed(op.getarg(0))
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
+        loc1 = self.ensure_reg(op.getarg(0))
         res = self.fprm.force_allocate_reg(op.result)
         return [loc1, res]
 
@@ -578,8 +515,8 @@ class Regalloc(BaseRegalloc):
         # we know it does not move, but well
         rgc._make_sure_does_not_move(fail_descr)
         fail_descr = rffi.cast(lltype.Signed, fail_descr)
-        if op.numargs() == 1:
-            loc = self._ensure_value_is_boxed(op.getarg(0))
+        if op.numargs() > 0:
+            loc = self.ensure_reg(op.getarg(0))
             locs = [loc, imm(fail_descr)]
         else:
             locs = [imm(fail_descr)]
@@ -598,10 +535,14 @@ class Regalloc(BaseRegalloc):
             else:
                 args.append(None)
         self.possibly_free_vars(op.getfailargs())
+        #
+        # generate_quick_failure() produces up to 14 instructions per guard
+        self.limit_loop_break -= 14 * 4
+        #
         return args
-    
+
     def prepare_guard_true(self, op):
-        l0 = self._ensure_value_is_boxed(op.getarg(0))
+        l0 = self.ensure_reg(op.getarg(0))
         args = self._prepare_guard(op, [l0])
         return args
 
@@ -609,22 +550,17 @@ class Regalloc(BaseRegalloc):
     prepare_guard_nonnull = prepare_guard_true
     prepare_guard_isnull = prepare_guard_true
 
-    def prepare_guard_no_overflow(self, op):
+    def prepare_guard_not_invalidated(self, op):
+        pos = self.assembler.mc.get_relative_pos()
+        self.ensure_next_label_is_at_least_at_position(pos + 4)
         locs = self._prepare_guard(op)
-        self.possibly_free_vars(op.getfailargs())
         return locs
 
-    prepare_guard_overflow = prepare_guard_no_overflow
-    prepare_guard_not_invalidated = prepare_guard_no_overflow
-
     def prepare_guard_exception(self, op):
-        boxes = op.getarglist()
-        arg0 = ConstInt(rffi.cast(lltype.Signed, op.getarg(0).getint()))
-        loc = self._ensure_value_is_boxed(arg0)
-        loc1 = self.get_scratch_reg(INT, boxes)
+        loc = self.ensure_reg(op.getarg(0))
+        loc1 = r.SCRATCH2
         if op.result in self.longevity:
-            resloc = self.force_allocate_reg(op.result, boxes)
-            self.possibly_free_var(op.result)
+            resloc = self.force_allocate_reg(op.result)
         else:
             resloc = None
         pos_exc_value = imm(self.cpu.pos_exc_value())
@@ -634,35 +570,26 @@ class Regalloc(BaseRegalloc):
         return arglocs
 
     def prepare_guard_no_exception(self, op):
-        loc = self._ensure_value_is_boxed(
-                    ConstInt(self.cpu.pos_exception()))
+        loc = self.ensure_reg(ConstInt(self.cpu.pos_exception()))
         arglocs = self._prepare_guard(op, [loc])
         return arglocs
 
     def prepare_guard_value(self, op):
-        boxes = op.getarglist()
-        a0, a1 = boxes
-        l0 = self._ensure_value_is_boxed(a0, boxes)
-        l1 = self._ensure_value_is_boxed(a1, boxes)
-        assert op.result is None
+        l0 = self.ensure_reg(op.getarg(0))
+        l1 = self.ensure_reg_or_16bit_imm(op.getarg(1))
         arglocs = self._prepare_guard(op, [l0, l1])
-        self.possibly_free_vars(op.getarglist())
-        self.possibly_free_vars(op.getfailargs())
         return arglocs
 
     def prepare_guard_class(self, op):
-        assert isinstance(op.getarg(0), Box)
-        boxes = op.getarglist()
-
-        x = self._ensure_value_is_boxed(boxes[0], boxes)
-        y_val = rffi.cast(lltype.Signed, op.getarg(1).getint())
+        x = self.ensure_reg(op.getarg(0))
+        y_val = force_int(op.getarg(1).getint())
 
         arglocs = [x, None, None]
 
         offset = self.cpu.vtable_offset
         if offset is not None:
-            y = self.get_scratch_reg(INT, forbidden_vars=boxes)
-            self.assembler.load(y, imm(y_val))
+            y = r.SCRATCH2
+            self.assembler.mc.load_imm(y, y_val)
 
             assert _check_imm_arg(offset)
             offset_loc = imm(offset)
@@ -686,12 +613,7 @@ class Regalloc(BaseRegalloc):
             expected_typeid = classptr - sizeof_ti - type_info_group
             if IS_PPC_32:
                 expected_typeid >>= 2
-            if _check_imm_arg(expected_typeid):
-                arglocs[1] = imm(expected_typeid)
-            else:
-                y = self.get_scratch_reg(INT, forbidden_vars=boxes)
-                self.assembler.load(y, imm(expected_typeid))
-                arglocs[1] = y
+            arglocs[1] = self.ensure_reg_or_16bit_imm(ConstInt(expected_typeid))
 
         return self._prepare_guard(op, arglocs)
 
@@ -762,78 +684,53 @@ class Regalloc(BaseRegalloc):
         return []
 
     def prepare_setfield_gc(self, op):
-        ofs, size, sign = unpack_fielddescr(op.getdescr())
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        value_loc = self.make_sure_var_in_reg(op.getarg(1), args)
-        if _check_imm_arg(ofs):
-            ofs_loc = imm(ofs)
-        else:
-            ofs_loc = self.get_scratch_reg(INT, boxes)
-            self.assembler.load(ofs_loc, imm(ofs))
+        ofs, size, _ = unpack_fielddescr(op.getdescr())
+        base_loc = self.ensure_reg(op.getarg(0))
+        value_loc = self.ensure_reg(op.getarg(1))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
         return [value_loc, base_loc, ofs_loc, imm(size)]
 
     prepare_setfield_raw = prepare_setfield_gc
 
     def prepare_getfield_gc(self, op):
-        a0 = op.getarg(0)
         ofs, size, sign = unpack_fielddescr(op.getdescr())
-        base_loc = self._ensure_value_is_boxed(a0)
-        immofs = imm(ofs)
-        if _check_imm_arg(ofs):
-            ofs_loc = immofs
-        else:
-            ofs_loc = self.get_scratch_reg(INT, [a0])
-            self.assembler.load(ofs_loc, immofs)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
+        base_loc = self.ensure_reg(op.getarg(0))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
+        self.free_op_vars()
         res = self.force_allocate_reg(op.result)
-        return [base_loc, ofs_loc, res, imm(size)]
+        return [base_loc, ofs_loc, res, imm(size), imm(sign)]
 
     prepare_getfield_raw = prepare_getfield_gc
     prepare_getfield_raw_pure = prepare_getfield_gc
     prepare_getfield_gc_pure = prepare_getfield_gc
 
     def prepare_increment_debug_counter(self, op):
-        args = op.getarglist()
-        base_loc = self._ensure_value_is_boxed(args[0])
-        temp_loc = self.get_scratch_reg(INT, args)
+        base_loc = self.ensure_reg(op.getarg(0))
+        temp_loc = r.SCRATCH2
         return [base_loc, temp_loc]
 
     def prepare_getinteriorfield_gc(self, op):
         t = unpack_interiorfielddescr(op.getdescr())
         ofs, itemsize, fieldsize, sign = t
-        args = op.getarglist()
-        base_loc = self._ensure_value_is_boxed(op.getarg(0), args)
-        index_loc = self._ensure_value_is_boxed(op.getarg(1), args)
-        if _check_imm_arg(ofs):
-            ofs_loc = imm(ofs)
-        else:
-            ofs_loc = self.get_scratch_reg(INT, args)
-            self.assembler.load(ofs_loc, imm(ofs))
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
+        self.free_op_vars()
         result_loc = self.force_allocate_reg(op.result)
-        self.possibly_free_var(op.result)
-        return [base_loc, index_loc, result_loc, ofs_loc, imm(ofs),
-                                    imm(itemsize), imm(fieldsize)]
+        return [base_loc, index_loc, result_loc, ofs_loc,
+                imm(itemsize), imm(fieldsize), imm(sign)]
 
     prepare_getinteriorfield_raw = prepare_getinteriorfield_gc
 
     def prepare_setinteriorfield_gc(self, op):
         t = unpack_interiorfielddescr(op.getdescr())
-        ofs, itemsize, fieldsize, sign = t
-        args = op.getarglist()
-        base_loc = self._ensure_value_is_boxed(op.getarg(0), args)
-        index_loc = self._ensure_value_is_boxed(op.getarg(1), args)
-        value_loc = self._ensure_value_is_boxed(op.getarg(2), args)
-        if _check_imm_arg(ofs):
-            ofs_loc = imm(ofs)
-        else:
-            ofs_loc = self.get_scratch_reg(INT, args)
-            self.assembler.load(ofs_loc, imm(ofs))
-        return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
-                                        imm(itemsize), imm(fieldsize)]
+        ofs, itemsize, fieldsize, _ = t
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        value_loc = self.ensure_reg(op.getarg(2))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
+        return [base_loc, index_loc, value_loc, ofs_loc,
+                imm(itemsize), imm(fieldsize)]
 
     prepare_setinteriorfield_raw = prepare_setinteriorfield_gc
 
@@ -841,164 +738,123 @@ class Regalloc(BaseRegalloc):
         arraydescr = op.getdescr()
         assert isinstance(arraydescr, ArrayDescr)
         ofs = arraydescr.lendescr.offset
-        arg = op.getarg(0)
-        base_loc = self._ensure_value_is_boxed(arg)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
+        assert _check_imm_arg(ofs)
+        base_loc = self.ensure_reg(op.getarg(0))
+        self.free_op_vars()
         res = self.force_allocate_reg(op.result)
         return [res, base_loc, imm(ofs)]
 
     def prepare_setarrayitem_gc(self, op):
         size, ofs, _ = unpack_arraydescr(op.getdescr())
-        scale = get_scale(size)
-        args = op.getarglist()
-        base_loc = self._ensure_value_is_boxed(args[0], args)
-        ofs_loc = self._ensure_value_is_boxed(args[1], args)
-        value_loc = self._ensure_value_is_boxed(args[2], args)
-        scratch_loc = self.rm.get_scratch_reg(INT, args)
-        assert _check_imm_arg(ofs)
-        return [value_loc, base_loc, ofs_loc, scratch_loc, imm(scale), imm(ofs)]
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        value_loc = self.ensure_reg(op.getarg(2))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
+        imm_size = imm(size)
+        return [base_loc, index_loc, value_loc, ofs_loc,
+                imm_size, imm_size]
 
     prepare_setarrayitem_raw = prepare_setarrayitem_gc
 
     def prepare_raw_store(self, op):
         size, ofs, _ = unpack_arraydescr(op.getdescr())
-        scale = get_scale(size)
-        args = op.getarglist()
-        base_loc = self._ensure_value_is_boxed(args[0], args)
-        ofs_loc = self._ensure_value_is_boxed(args[1], args)
-        value_loc = self._ensure_value_is_boxed(args[2], args)
-        assert _check_imm_arg(ofs)
-        return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        value_loc = self.ensure_reg(op.getarg(2))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
+        return [base_loc, index_loc, value_loc, ofs_loc,
+                imm(1), imm(size)]
 
     def prepare_getarrayitem_gc(self, op):
-        boxes = op.getarglist()
-        size, ofs, _ = unpack_arraydescr(op.getdescr())
-        scale = get_scale(size)
-        base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
-        ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
-        scratch_loc = self.rm.get_scratch_reg(INT, boxes)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        res = self.force_allocate_reg(op.result)
-        assert _check_imm_arg(ofs)
-        return [res, base_loc, ofs_loc, scratch_loc, imm(scale), imm(ofs)]
+        size, ofs, sign = unpack_arraydescr(op.getdescr())
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
+        self.free_op_vars()
+        result_loc = self.force_allocate_reg(op.result)
+        imm_size = imm(size)
+        return [base_loc, index_loc, result_loc, ofs_loc,
+                imm_size, imm_size, imm(sign)]
 
     prepare_getarrayitem_raw = prepare_getarrayitem_gc
     prepare_getarrayitem_gc_pure = prepare_getarrayitem_gc
 
     def prepare_raw_load(self, op):
-        boxes = op.getarglist()
-        size, ofs, _ = unpack_arraydescr(op.getdescr())
-        scale = get_scale(size)
-        base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
-        ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        res = self.force_allocate_reg(op.result)
-        assert _check_imm_arg(ofs)
-        return [res, base_loc, ofs_loc, imm(scale), imm(ofs)]
+        size, ofs, sign = unpack_arraydescr(op.getdescr())
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
+        self.free_op_vars()
+        result_loc = self.force_allocate_reg(op.result)
+        return [base_loc, index_loc, result_loc, ofs_loc,
+                imm(1), imm(size), imm(sign)]
 
     def prepare_strlen(self, op):
-        args = op.getarglist()
-        l0 = self._ensure_value_is_boxed(op.getarg(0))
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                         self.cpu.translate_support_code)
-        immofs = imm(ofs_length)
-        if _check_imm_arg(ofs_length):
-            l1 = immofs
-        else:
-            l1 = self.get_scratch_reg(INT, args)
-            self.assembler.load(l1, immofs)
-
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-
-        res = self.force_allocate_reg(op.result)
-        self.possibly_free_var(op.result)
-        return [l0, l1, res]
+                                             self.cpu.translate_support_code)
+        base_loc = self.ensure_reg(op.getarg(0))
+        self.free_op_vars()
+        result_loc = self.force_allocate_reg(op.result)
+        return [base_loc, imm(ofs_length), result_loc, imm(WORD), imm(0)]
 
     def prepare_strgetitem(self, op):
-        boxes = op.getarglist()
-        base_loc = self._ensure_value_is_boxed(boxes[0])
-
-        a1 = boxes[1]
-        ofs_loc = self._ensure_value_is_boxed(a1, boxes)
-
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        res = self.force_allocate_reg(op.result)
-
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                         self.cpu.translate_support_code)
-        assert itemsize == 1
-        return [res, base_loc, ofs_loc, imm(basesize)]
+        basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
+                                    self.cpu.translate_support_code)
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(basesize))
+        self.free_op_vars()
+        result_loc = self.force_allocate_reg(op.result)
+        imm_size = imm(itemsize)
+        return [base_loc, index_loc, result_loc, ofs_loc,
+                imm_size, imm_size, imm(0)]
 
     def prepare_strsetitem(self, op):
-        boxes = op.getarglist()
-        base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
-        ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
-        value_loc = self._ensure_value_is_boxed(boxes[2], boxes)
-        temp_loc = self.get_scratch_reg(INT, boxes)
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                         self.cpu.translate_support_code)
-        assert itemsize == 1
-        return [value_loc, base_loc, ofs_loc, temp_loc, imm(basesize)]
+        basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
+                                    self.cpu.translate_support_code)
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        value_loc = self.ensure_reg(op.getarg(2))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(basesize))
+        imm_size = imm(itemsize)
+        return [base_loc, index_loc, value_loc, ofs_loc,
+                imm_size, imm_size]
 
-    prepare_copystrcontent = void
-    prepare_copyunicodecontent = void
+    #prepare_copystrcontent = void
+    #prepare_copyunicodecontent = void
 
     def prepare_unicodelen(self, op):
-        l0 = self._ensure_value_is_boxed(op.getarg(0))
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                         self.cpu.translate_support_code)
-        immofs = imm(ofs_length)
-        if _check_imm_arg(ofs_length):
-            l1 = immofs
-        else:
-            l1 = self.get_scratch_reg(INT, [op.getarg(0)])
-            self.assembler.load(l1, immofs)
-
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        res = self.force_allocate_reg(op.result)
-        return [l0, l1, res]
+                                             self.cpu.translate_support_code)
+        base_loc = self.ensure_reg(op.getarg(0))
+        self.free_op_vars()
+        result_loc = self.force_allocate_reg(op.result)
+        return [base_loc, imm(ofs_length), result_loc, imm(WORD), imm(0)]
 
     def prepare_unicodegetitem(self, op):
-        boxes = op.getarglist()
-        base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
-        ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
-
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        res = self.force_allocate_reg(op.result)
-
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                         self.cpu.translate_support_code)
-        scale = itemsize / 2
-        return [res, base_loc, ofs_loc,
-            imm(scale), imm(basesize), imm(itemsize)]
+        basesize, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
+                                    self.cpu.translate_support_code)
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(basesize))
+        self.free_op_vars()
+        result_loc = self.force_allocate_reg(op.result)
+        imm_size = imm(itemsize)
+        return [base_loc, index_loc, result_loc, ofs_loc,
+                imm_size, imm_size, imm(0)]
 
     def prepare_unicodesetitem(self, op):
-        boxes = op.getarglist()
-        base_loc = self._ensure_value_is_boxed(boxes[0], boxes)
-        ofs_loc = self._ensure_value_is_boxed(boxes[1], boxes)
-        value_loc = self._ensure_value_is_boxed(boxes[2], boxes)
-        temp_loc = self.get_scratch_reg(INT, boxes)
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                         self.cpu.translate_support_code)
-        scale = itemsize / 2
-        return [value_loc, base_loc, ofs_loc, temp_loc,
-            imm(scale), imm(basesize), imm(itemsize)]
+        basesize, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
+                                    self.cpu.translate_support_code)
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        value_loc = self.ensure_reg(op.getarg(2))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(basesize))
+        imm_size = imm(itemsize)
+        return [base_loc, index_loc, value_loc, ofs_loc,
+                imm_size, imm_size]
 
-    def prepare_same_as(self, op):
-        arg = op.getarg(0)
-        argloc = self._ensure_value_is_boxed(arg)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        resloc = self.force_allocate_reg(op.result)
-        return [argloc, resloc]
-
+    prepare_same_as = helper.prepare_unary_op
     prepare_cast_ptr_to_int = prepare_same_as
     prepare_cast_int_to_ptr = prepare_same_as
 
@@ -1055,6 +911,7 @@ class Regalloc(BaseRegalloc):
                 continue
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert use_copy_area
+                xxxxxxxxxx   # check REGLOC_TO_COPY_AREA_OFS
                 assert reg in self.rm.REGLOC_TO_COPY_AREA_OFS
                 area_offset = self.rm.REGLOC_TO_COPY_AREA_OFS[reg]
                 gcrootmap.add_frame_offset(shape, area_offset)
@@ -1094,7 +951,6 @@ class Regalloc(BaseRegalloc):
 
     def prepare_force_token(self, op):
         res_loc = self.force_allocate_reg(op.result)
-        self.possibly_free_var(op.result)
         return [res_loc]
 
     def prepare_label(self, op):
@@ -1185,6 +1041,20 @@ class Regalloc(BaseRegalloc):
         self.force_spill_var(op.getarg(0))
         return []
 
+    def prepare_zero_ptr_field(self, op):
+        base_loc = self.ensure_reg(op.getarg(0))
+        ofs_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
+        value_loc = self.ensure_reg(ConstInt(0))
+        return [value_loc, base_loc, ofs_loc, imm(WORD)]
+
+    def prepare_zero_array(self, op):
+        itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
+        base_loc = self.ensure_reg(op.getarg(0))
+        startindex_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
+        length_loc = self.ensure_reg_or_16bit_imm(op.getarg(2))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
+        return [base_loc, startindex_loc, length_loc, ofs_loc, imm(itemsize)]
+
 def add_none_argument(fn):
     return lambda self, op: fn(self, op, None)
 
@@ -1198,16 +1068,14 @@ def notimplemented_with_guard(self, op, guard_op):
     raise NotImplementedError(op)
 
 
+def force_int(intvalue):
+    # a hack before transaction: force the intvalue argument through
+    # rffi.cast(), to turn Symbolics into real values
+    return rffi.cast(lltype.Signed, intvalue)
+
 
 oplist = [notimplemented] * (rop._LAST + 1)
 oplist_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
-
-def get_scale(size):
-    scale = 0
-    while (1 << scale) < size:
-        scale += 1
-    assert (1 << scale) == size
-    return scale
 
 for key, value in rop.__dict__.items():
     key = key.lower()
@@ -1224,6 +1092,7 @@ for key, value in rop.__dict__.items():
         continue
     methname = 'prepare_guard_%s' % key
     if hasattr(Regalloc, methname):
+        assert oplist[value] is notimplemented
         func = getattr(Regalloc, methname).im_func
         oplist_with_guard[value] = func
         oplist[value] = add_none_argument(func)
