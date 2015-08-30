@@ -136,7 +136,8 @@ class UnrollOptimizer(Optimization):
             celltoken = start_label.getdescr()
             assert isinstance(celltoken, JitCellToken)
             self.jump_to_preamble(celltoken, end_jump, info)
-            return (UnrollInfo(target_token, label_op, []),
+            return (UnrollInfo(target_token, label_op, [],
+                               self.optimizer.quasi_immutable_deps),
                     self.optimizer._newoperations)
             #return new_virtual_state, self.optimizer._newoperations
         return (UnrollInfo(target_token, label_op, extra_same_as,
