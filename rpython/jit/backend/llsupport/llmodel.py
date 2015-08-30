@@ -40,7 +40,7 @@ class AbstractLLCPU(AbstractCPU):
         else:
             translator = None
         self.gc_ll_descr = get_ll_description(gcdescr, translator, rtyper)
-        self.supports_guard_gc_type = bool(translate_support_code)
+        self.supports_guard_gc_type = self.gc_ll_descr.supports_guard_gc_type
         if translator and translator.config.translation.gcremovetypeptr:
             self.vtable_offset = None
         else:
