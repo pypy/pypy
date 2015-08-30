@@ -1111,7 +1111,7 @@ class RecursiveTests:
         assert main(0, 1) == 2095
         res = self.meta_interp(main, [0, 1], inline=True)
         assert res == 2095
-        self.check_resops(call_assembler_i=12)
+        self.check_resops(call_assembler_n=12)
 
     def test_inline_recursion_limit(self):
         driver = JitDriver(greens = ["threshold", "loop"], reds=["i"])
@@ -1137,7 +1137,7 @@ class RecursiveTests:
         res1 = portal(10, True, 0)
         res2 = self.meta_interp(portal, [10, True, 0], inline=True)
         assert res1 == res2
-        self.check_resops(call_assembler=2)
+        self.check_resops(call_assembler_i=2)
 
         res1 = portal(9, True, 0)
         res2 = self.meta_interp(portal, [9, True, 0], inline=True)

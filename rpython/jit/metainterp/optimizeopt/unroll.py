@@ -171,15 +171,12 @@ class UnrollOptimizer(Optimization):
         else:
             debug_print("Retrace count reached, jumping to preamble")
             return self.jump_to_preamble(cell_token, jump_op, info)
-        maxguards = warmrunnerdescr.memory_manager.max_retrace_guards
-        guard_count = 0
-        for op in self.optimizer._newoperations:
-            if op.is_guard():
-                guard_count += 1
-        if guard_count > maxguards:
-            target_token = cell_token.target_tokens[0]
-            target_token.targeting_jitcell_token.retraced_count = sys.maxint
-            return self.jump_to_preamble(cell_token, jump_op, info)
+        #maxguards = warmrunnerdescr.memory_manager.max_retrace_guards
+        #guard_count = self.count_guards(self.optimizer._newoperations)
+        #if guard_count > maxguards:
+        #    target_token = cell_token.target_tokens[0]
+        #    target_token.targeting_jitcell_token.retraced_count = sys.maxint
+        #    return self.jump_to_preamble(cell_token, jump_op, info)
         exported_state = self.export_state(start_label,
                                            operations[-1].getarglist(),
                                            info.inputargs)
@@ -344,6 +341,13 @@ class UnrollOptimizer(Optimization):
                 effectinfo.EF_ELIDABLE_OR_MEMORYERROR)
             return effectinfo.extraeffect != effectinfo.EF_ELIDABLE_CANNOT_RAISE
         return False
+
+    def count_guards(self, ops):
+        guard_count = 0
+        for op in ops:
+            if op.is_guard():
+                guard_count += 1
+        return guard_count
 
 
 class UnrollInfo(LoopInfo):
