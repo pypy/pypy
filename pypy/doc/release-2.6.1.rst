@@ -34,18 +34,15 @@ CPython 2.7. It's fast (`pypy and cpython 2.7.x`_ performance comparison)
 due to its integrated tracing JIT compiler.
 
 This release supports **x86** machines on most common operating systems
-(Linux 32/64, Mac OS X 64, Windows, OpenBSD_, freebsd_),
+(Linux 32/64, Mac OS X 64, Windows 32, OpenBSD_, freebsd_),
 as well as newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux.
 
-While we support 32 bit python on Windows, work on the native Windows 64
-bit python is still stalling, we would welcome a volunteer 
-to `handle that`_. We also welcome developers with other operating systems or
+We also welcome developers of other
 `dynamic languages`_ to see what RPython can do for them.
 
 .. _`pypy and cpython 2.7.x`: http://speed.pypy.org
 .. _OpenBSD: http://cvsweb.openbsd.org/cgi-bin/cvsweb/ports/lang/pypy
 .. _freebsd: https://svnweb.freebsd.org/ports/head/lang/pypy/
-.. _`handle that`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
 .. _`dynamic languages`: http://pypyjs.org
 
 Highlights 
