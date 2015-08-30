@@ -220,6 +220,8 @@ def compile_simple_loop(metainterp, greenkey, start, inputargs, ops, jumpargs,
     loop = create_empty_loop(metainterp)
     loop.original_jitcell_token = jitcell_token
     loop.inputargs = loop_info.inputargs
+    if loop_info.quasi_immutable_deps:
+        loop.quasi_immutable_deps = loop_info.quasi_immutable_deps
     jump_op = ops[-1]
     target_token = TargetToken(jitcell_token)
     target_token.original_jitcell_token = jitcell_token
@@ -287,6 +289,13 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     loop = create_empty_loop(metainterp)
     loop.original_jitcell_token = jitcell_token
     loop.inputargs = start_state.renamed_inputargs
+    quasi_immutable_deps = {}
+    if start_state.quasi_immutable_deps:
+        quasi_immutable_deps.update(start_state.quasi_immutable_deps)
+    if loop_info.quasi_immutable_deps:
+        quasi_immutable_deps.update(loop_info.quasi_immutable_deps)
+    if quasi_immutable_deps:
+        loop.quasi_immutable_deps = quasi_immutable_deps
     start_descr = TargetToken(jitcell_token,
                               original_jitcell_token=jitcell_token)
     start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs,
@@ -335,17 +344,18 @@ def compile_retrace(metainterp, greenkey, start,
         return None
 
     loop = partial_trace
+    loop.original_jitcell_token = loop_jitcell_token
     loop.operations = (loop.operations + loop_info.extra_same_as +
                        [loop_info.label_op]
                        + loop_ops)
 
-    #quasi_immutable_deps = {}
-    #if loop.quasi_immutable_deps:
-    #    quasi_immutable_deps.update(loop.quasi_immutable_deps)
-    #if part.quasi_immutable_deps:
-    #    quasi_immutable_deps.update(part.quasi_immutable_deps)
-    #if quasi_immutable_deps:
-    #    loop.quasi_immutable_deps = quasi_immutable_deps
+    quasi_immutable_deps = {}
+    if loop_info.quasi_immutable_deps:
+        quasi_immutable_deps.update(loop_info.quasi_immutable_deps)
+    if start_state.quasi_immutable_deps:
+        quasi_immutable_deps.update(start_state.quasi_immutable_deps)
+    if quasi_immutable_deps:
+        loop.quasi_immutable_deps = quasi_immutable_deps
 
     target_token = loop.operations[-1].getdescr()
     resumekey.compile_and_attach(metainterp, loop, inputargs)
@@ -420,13 +430,12 @@ def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd, vable):
         emit_op(extra_ops, op)
     loop.operations = extra_ops
 
-#def propagate_original_jitcell_token(trace):
-#    for op in trace.operations:
-#        if op.getopnum() == rop.LABEL:
-#            token = op.getdescr()
-#            assert isinstance(token, TargetToken)
-#            assert token.original_jitcell_token is None
-#            token.original_jitcell_token = trace.original_jitcell_token
+def propagate_original_jitcell_token(trace):
+    for op in trace.operations:
+        if op.getopnum() == rop.LABEL:
+            token = op.getdescr()
+            assert isinstance(token, TargetToken)
+            token.original_jitcell_token = trace.original_jitcell_token
 
 
 def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
@@ -767,7 +776,7 @@ class ResumeGuardDescr(ResumeDescr):
         inputargs = new_loop.inputargs
         if not we_are_translated():
             self._debug_suboperations = new_loop.operations
-        #propagate_original_jitcell_token(new_loop)
+        propagate_original_jitcell_token(new_loop)
         send_bridge_to_backend(metainterp.jitdriver_sd, metainterp.staticdata,
                                self, inputargs, new_loop.operations,
                                new_loop.original_jitcell_token)
@@ -954,7 +963,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         metainterp_sd = metainterp.staticdata
         jitdriver_sd = metainterp.jitdriver_sd
         new_loop.original_jitcell_token = jitcell_token = make_jitcell_token(jitdriver_sd)
-        #propagate_original_jitcell_token(new_loop)
+        propagate_original_jitcell_token(new_loop)
         send_loop_to_backend(self.original_greenkey, metainterp.jitdriver_sd,
                              metainterp_sd, new_loop, "entry bridge",
                              orig_inputargs)
@@ -1015,6 +1024,8 @@ def compile_trace(metainterp, resumekey):
 
     new_trace = create_empty_loop(metainterp)
     new_trace.operations = newops
+    if info.quasi_immutable_deps:
+        new_trace.quasi_immutable_deps = info.quasi_immutable_deps
     if info.final():
         new_trace.inputargs = info.inputargs
         target_token = new_trace.operations[-1].getdescr()

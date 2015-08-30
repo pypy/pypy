@@ -105,6 +105,7 @@ class UnrollOptimizer(Optimization):
             flush=False)
         exported_state = self.export_state(start_label, end_label.getarglist(),
                                            info.inputargs)
+        exported_state.quasi_immutable_deps = info.quasi_immutable_deps
         # we need to absolutely make sure that we've cleaned up all
         # the optimization info
         self.optimizer._clean_optimization_info(self.optimizer._newoperations)
@@ -138,7 +139,8 @@ class UnrollOptimizer(Optimization):
             return (UnrollInfo(target_token, label_op, []),
                     self.optimizer._newoperations)
             #return new_virtual_state, self.optimizer._newoperations
-        return (UnrollInfo(target_token, label_op, extra_same_as),
+        return (UnrollInfo(target_token, label_op, extra_same_as,
+                           self.optimizer.quasi_immutable_deps),
                 self.optimizer._newoperations)
 
     def optimize_bridge(self, start_label, operations, call_pure_results,
@@ -181,6 +183,7 @@ class UnrollOptimizer(Optimization):
         exported_state = self.export_state(start_label,
                                            operations[-1].getarglist(),
                                            info.inputargs)
+        exported_state.quasi_immutable_deps = self.optimizer.quasi_immutable_deps
         self.optimizer._clean_optimization_info(self.optimizer._newoperations)
         return exported_state, self.optimizer._newoperations
 
@@ -198,7 +201,7 @@ class UnrollOptimizer(Optimization):
         target_token.virtual_state = virtual_state
         target_token.short_preamble = short_preamble
         jitcelltoken.target_tokens.append(target_token)
-        self.short_preamble_producer = ExtendedShortPreambleBuilder()
+        self.short_preamble_producer = None # ExtendedShortPreambleBuilder()
         label_op.initarglist(label_op.getarglist() + sb.used_boxes)
         return target_token
 
@@ -350,10 +353,12 @@ class UnrollInfo(LoopInfo):
     * label_args - label operations at the beginning
     * extra_same_as - list of extra same as to add at the end of the preamble
     """
-    def __init__(self, target_token, label_op, extra_same_as):
+    def __init__(self, target_token, label_op, extra_same_as,
+                 quasi_immutable_deps):
         self.target_token = target_token
         self.label_op = label_op
         self.extra_same_as = extra_same_as
+        self.quasi_immutable_deps = quasi_immutable_deps
 
     def final(self):
         return True
@@ -370,6 +375,7 @@ class ExportedState(LoopInfo):
     * short boxes - a mapping op -> preamble_op
     * renamed_inputargs - the start label arguments in optimized version
     * short_inputargs - the renamed inputargs for short preamble
+    * quasi_immutable_deps - for tracking quasi immutables
     """
     
     def __init__(self, end_args, next_iteration_args, virtual_state,

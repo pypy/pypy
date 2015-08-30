@@ -24,8 +24,9 @@ class LoopInfo(object):
     pass
 
 class BasicLoopInfo(LoopInfo):
-    def __init__(self, inputargs):
+    def __init__(self, inputargs, quasi_immutable_deps):
         self.inputargs = inputargs
+        self.quasi_immutable_deps = quasi_immutable_deps
 
     def final(self):
         return True
@@ -508,15 +509,14 @@ class Optimizer(Optimization):
         for i in range(last):
             self._really_emitted_operation = None
             self.first_optimization.propagate_forward(ops[i])
-        #self.loop.operations = self.get_newoperations()
-        #self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
         if flush:
             self.flush()
         if extra_jump:
             self.first_optimization.propagate_forward(ops[-1])
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
-        return BasicLoopInfo(newargs), self._newoperations
+        return (BasicLoopInfo(newargs, self.quasi_immutable_deps),
+                self._newoperations)
 
     def _clean_optimization_info(self, lst):
         for op in lst:
