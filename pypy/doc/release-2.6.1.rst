@@ -12,27 +12,9 @@ You can download the PyPy 2.6.1 release here:
     http://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
-project, and for those who donate to our three sub-projects, as well as our
-volunteers and contributors.  
-
-We've shown quite a bit of progress, but we're slowly running out of funds.
-Please consider donating more, or even better convince your employer to donate,
-so we can finish those projects! The three sub-projects are:
-
-* `Py3k`_ (supporting Python 3.x): We have released a Python 3.2.5 compatible version
-  we call PyPy3 2.4.0, and are working toward a Python 3.3 compatible version
-
-* `STM`_ (software transactional memory): We have released a first working version,
-  and continue to try out new promising paths of achieving a fast multithreaded Python
-
-* `NumPy`_ which requires installation of our fork of upstream numpy,
-  available `on bitbucket`_
+project, and our volunteers and contributors.  
 
 .. _`cffi`: https://cffi.readthedocs.org
-.. _`Py3k`: http://pypy.org/py3donate.html
-.. _`STM`: http://pypy.org/tmdonate2.html
-.. _`NumPy`: http://pypy.org/numpydonate.html
-.. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy
 
 We would also like to encourage new people to join the project. PyPy has many
 layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
