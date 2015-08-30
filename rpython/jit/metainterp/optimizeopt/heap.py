@@ -59,40 +59,6 @@ class CachedField(object):
             structbox = optimizer.get_box_replacement(self.cached_structs[i])
             info.produce_short_preamble_ops(structbox, descr, index, optimizer,
                                             shortboxes)
-        return
-
-        XXXXX
-        for structvalue in self._cached_fields_getfield_op.keys():
-            op = self._cached_fields_getfield_op[structvalue]
-            if not op:
-                continue
-            value = optimizer.getvalue(op.getarg(0))
-            if value in optimizer.opaque_pointers:
-                if value.getlevel() < LEVEL_KNOWNCLASS:
-                    continue
-                if op.getopnum() != rop.SETFIELD_GC and op.getopnum() != rop.GETFIELD_GC:
-                    continue
-            if structvalue in self._cached_fields:
-                if op.getopnum() == rop.SETFIELD_GC:
-                    result = op.getarg(1)
-                    if isinstance(result, Const):
-                        newresult = result.clonebox()
-                        optimizer.make_constant(newresult, result)
-                        result = newresult
-                    getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
-                                         result, op.getdescr())
-                    shortboxes.add_potential(getop, synthetic=True)
-                if op.getopnum() == rop.SETARRAYITEM_GC:
-                    result = op.getarg(2)
-                    if isinstance(result, Const):
-                        newresult = result.clonebox()
-                        optimizer.make_constant(newresult, result)
-                        result = newresult
-                    getop = ResOperation(rop.GETARRAYITEM_GC, [op.getarg(0), op.getarg(1)],
-                                         result, op.getdescr())
-                    shortboxes.add_potential(getop, synthetic=True)
-                elif op.result is not None:
-                    shortboxes.add_potential(op)
 
     def possible_aliasing(self, optheap, opinfo):
         # If lazy_setfield is set and contains a setfield on a different
