@@ -186,8 +186,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 subbox = optforce.force_box(fld)
                 setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
                                           descr=flddescr)
-                if not flddescr.is_always_pure():
-                    self._fields[i] = None
+                self._fields[i] = None
                 optforce.emit_operation(setfieldop)
 
     def _force_at_the_end_of_preamble(self, op, optforce, rec):
@@ -453,8 +452,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             setop = ResOperation(rop.SETARRAYITEM_GC,
                                  [op, ConstInt(i), subbox],
                                   descr=arraydescr)
-            if not self.arraydescr.is_always_pure():
-                self._items[i] = None
+            self._items[i] = None
             optforce.emit_operation(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
