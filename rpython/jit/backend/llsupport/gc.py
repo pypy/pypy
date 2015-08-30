@@ -253,6 +253,7 @@ class GcLLDescr_boehm(GcLLDescription):
     str_type_id           = 0
     unicode_type_id       = 0
     get_malloc_slowpath_addr = None
+    supports_guard_gc_type   = False
 
     def is_shadow_stack(self):
         return False
@@ -417,6 +418,7 @@ class GcLLDescr_framework(GcLLDescription):
     kind = 'framework'
     round_up = True
     layoutbuilder = None
+    supports_guard_gc_type = True
 
     def is_shadow_stack(self):
         return self.gcrootmap.is_shadow_stack
