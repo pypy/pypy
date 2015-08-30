@@ -1023,7 +1023,7 @@ class RecursiveTests:
         res = self.meta_interp(portal, [2, 0], inline=True,
                                policy=StopAtXPolicy(residual))
         assert res == portal(2, 0)
-        self.check_resops(call_assembler=4)
+        self.check_resops(call_assembler_i=4)
 
     def test_inline_without_hitting_the_loop(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i'],
@@ -1073,7 +1073,7 @@ class RecursiveTests:
         assert portal(0, 1) == 2095
         res = self.meta_interp(portal, [0, 1], inline=True)
         assert res == 2095
-        self.check_resops(call_assembler=12)
+        self.check_resops(call_assembler_i=12)
 
     def test_inline_with_hitting_the_loop_sometimes_exc(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i', 'k'],
@@ -1111,7 +1111,7 @@ class RecursiveTests:
         assert main(0, 1) == 2095
         res = self.meta_interp(main, [0, 1], inline=True)
         assert res == 2095
-        self.check_resops(call_assembler=12)
+        self.check_resops(call_assembler_i=12)
 
     def test_inline_recursion_limit(self):
         driver = JitDriver(greens = ["threshold", "loop"], reds=["i"])
