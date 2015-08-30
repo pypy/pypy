@@ -120,12 +120,12 @@ class UnrollOptimizer(Optimization):
             start_label.getarglist()[:], ops, call_pure_results, False,
             flush=False)
         label_op = ResOperation(rop.LABEL, label_args, start_label.getdescr())
-        extra_same_as = self.short_preamble_producer.extra_same_as[:]
         args = state.virtual_state.make_inputargs(
             [self.get_box_replacement(x) for x in end_jump.getarglist()],
             self.optimizer, force_boxes=True)
         for arg in args:
             self.optimizer.force_box(arg)
+        extra_same_as = self.short_preamble_producer.extra_same_as[:]
         target_token = self.finalize_short_preamble(label_op,
                                                     state.virtual_state)
         label_op.setdescr(target_token)
