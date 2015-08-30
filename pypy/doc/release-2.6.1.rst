@@ -73,7 +73,7 @@ Highlights
 
   * The python stdlib was updated to 2.7.10 from 2.7.9
 
-  * vmprof now supports multiple threads
+  * vmprof now supports multiple threads and OS X
 
   * The translation process builds cffi import libraries for some stdlib
     packages, which should prevent confusion when package.py is not used
