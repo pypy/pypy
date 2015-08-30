@@ -4013,9 +4013,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = force_token()
         #
         p2 = new_with_vtable(descr=vref_descr)
-        setfield_gc(p0, p2, descr=nextdescr)
-        setfield_gc(p2, NULL, descr=virtualforceddescr)
         setfield_gc(p2, p3, descr=virtualtokendescr)
+        setfield_gc(p2, NULL, descr=virtualforceddescr)
+        setfield_gc(p0, p2, descr=nextdescr)
         #
         call_may_force_n(i1, descr=mayforcevirtdescr)
         guard_not_forced() [p2, i1]
@@ -4024,9 +4024,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p2, NULL, descr=virtualtokendescr)
         p1 = new_with_vtable(descr=nodesize)
         p1b = new_with_vtable(descr=nodesize)
-        setfield_gc(p2, p1, descr=virtualforceddescr)
         setfield_gc(p1b, i1, descr=valuedescr)
         setfield_gc(p1, p1b, descr=nextdescr)
+        setfield_gc(p2, p1, descr=virtualforceddescr)
         jump(p0, i1)
         """
         # the point of this test is that 'i1' should show up in the fail_args
@@ -4686,8 +4686,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, p0]
         p1 = new_array(i0, descr=gcarraydescr)
         i1 = arraylen_gc(p1)
-        setarrayitem_gc(p0, 0, p1, descr=gcarraydescr)
         ifoo = arraylen_gc(p0, descr=gcarraydescr)
+        setarrayitem_gc(p0, 0, p1, descr=gcarraydescr)
         jump(i0, p0)
         """
         self.optimize_loop(ops, expected)

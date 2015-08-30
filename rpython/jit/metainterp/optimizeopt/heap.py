@@ -473,11 +473,6 @@ class OptHeap(Optimization):
             if indexb is None or indexb.contains(idx):
                 cf.force_lazy_setfield(self, None, can_cache)
 
-    def force_at_end_of_preamble(self):
-        self.cached_dict_reads.clear()
-        self.corresponding_array_descrs.clear()
-        self.force_all_lazy_setfields_and_arrayitems()
-
     def force_all_lazy_setfields_and_arrayitems(self):
         items = self.cached_fields.items()
         if not we_are_translated():

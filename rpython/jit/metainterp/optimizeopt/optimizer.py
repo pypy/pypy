@@ -206,9 +206,6 @@ class Optimization(object):
     def setup(self):
         pass
 
-    def force_at_end_of_preamble(self):
-        pass
-
     # Called after last operation has been propagated to flush out any posponed ops
     def flush(self):
         pass
@@ -295,10 +292,6 @@ class Optimizer(Optimization):
         if value.last_guard_pos == -1:
             return
         self.replaces_guard[op] = value.last_guard_pos
-
-    def force_at_end_of_preamble(self):
-        for o in self.optimizations:
-            o.force_at_end_of_preamble()
 
     def force_box_for_end_of_preamble(self, box):
         if box.type == 'r':

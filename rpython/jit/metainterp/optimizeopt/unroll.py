@@ -2,7 +2,7 @@
 import sys
 from rpython.jit.metainterp.history import Const, TargetToken, JitCellToken
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
-     ShortPreambleBuilder, PreambleOp
+     ShortPreambleBuilder, ExtendedShortPreambleBuilder, PreambleOp
 from rpython.jit.metainterp.optimizeopt import info, intutils
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
      Optimization, LoopInfo, MININT, MAXINT
@@ -121,13 +121,15 @@ class UnrollOptimizer(Optimization):
             flush=False)
         label_op = ResOperation(rop.LABEL, label_args, start_label.getdescr())
         extra_same_as = self.short_preamble_producer.extra_same_as[:]
+        args = state.virtual_state.make_inputargs(
+            [self.get_box_replacement(x) for x in end_jump.getarglist()],
+            self.optimizer, force_boxes=True)
+        for arg in args:
+            self.optimizer.force_box(arg)
         target_token = self.finalize_short_preamble(label_op,
                                                     state.virtual_state)
         label_op.setdescr(target_token)
         # force the boxes for virtual state to match
-        state.virtual_state.make_inputargs(
-            [self.get_box_replacement(x) for x in end_jump.getarglist()],
-            self.optimizer, force_boxes=True)
         new_virtual_state = self.jump_to_existing_trace(end_jump)
         if new_virtual_state is not None:
             celltoken = start_label.getdescr()
@@ -153,7 +155,7 @@ class UnrollOptimizer(Optimization):
             return self.jump_to_preamble(cell_token, jump_op, info)
         # force all the information that does not go to the short
         # preamble at all
-        self.optimizer.force_at_end_of_preamble()
+        self.optimizer.flush()
         for a in jump_op.getarglist():
             self.optimizer.force_box_for_end_of_preamble(a)
         vs = self.jump_to_existing_trace(jump_op)
@@ -196,7 +198,7 @@ class UnrollOptimizer(Optimization):
         target_token.virtual_state = virtual_state
         target_token.short_preamble = short_preamble
         jitcelltoken.target_tokens.append(target_token)
-        self.short_preamble_producer = None # no more boxes
+        self.short_preamble_producer = ExtendedShortPreambleBuilder()
         label_op.initarglist(label_op.getarglist() + sb.used_boxes)
         return target_token
 
@@ -275,7 +277,7 @@ class UnrollOptimizer(Optimization):
     def export_state(self, start_label, original_label_args, renamed_inputargs):
         end_args = [self.optimizer.force_box_for_end_of_preamble(a)
                     for a in original_label_args]
-        self.optimizer.force_at_end_of_preamble()
+        self.optimizer.flush()
         virtual_state = self.get_virtual_state(end_args)
         end_args = [self.get_box_replacement(arg) for arg in end_args]
         infos = {}

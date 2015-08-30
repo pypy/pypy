@@ -343,7 +343,10 @@ class EmptyInfo(info.AbstractInfo):
 
 empty_info = EmptyInfo()
 
-class ShortPreambleBuilder(object):
+class AbstractShortPreambleBuilder(object):
+    pass
+
+class ShortPreambleBuilder(AbstractShortPreambleBuilder):
     """ ShortPreambleBuilder is used during optimizing of the peeled loop,
     starting from short_boxes exported from the preamble. It will build
     the short preamble and necessary extra label arguments
@@ -413,3 +416,6 @@ class ShortPreambleBuilder(object):
             TreeLoop.check_consistency_of(self.short_inputargs,
                                 self.short + [jump_op], check_descr=False)
         return [label_op] + self.short + [jump_op]
+
+class ExtendedShortPreambleBuilder(AbstractShortPreambleBuilder):
+    pass
