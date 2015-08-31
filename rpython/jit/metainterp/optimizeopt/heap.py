@@ -309,6 +309,8 @@ class OptHeap(Optimization):
             opnum == rop.UNICODESETITEM or       # no effect on GC struct/array
             opnum == rop.DEBUG_MERGE_POINT or    # no effect whatsoever
             opnum == rop.JIT_DEBUG or            # no effect whatsoever
+            opnum == rop.ENTER_PORTAL_FRAME or   # no effect whatsoever
+            opnum == rop.LEAVE_PORTAL_FRAME or   # no effect whatsoever
             opnum == rop.COPYSTRCONTENT or       # no effect on GC struct/array
             opnum == rop.COPYUNICODECONTENT):    # no effect on GC struct/array
             return
