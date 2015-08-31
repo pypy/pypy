@@ -608,6 +608,16 @@ def test_iterkeys_with_hash():
     r = interpret(f, [29])
     assert r == 0.0
 
+def test_contains_with_hash():
+    def f(i):
+        d = {i+.5: 5}
+        assert contains_with_hash(d, i+.5, compute_hash(i+.5))
+        assert not contains_with_hash(d, i+.3, compute_hash(i+.3))
+        return 0
+
+    f(29)
+    interpret(f, [29])
+
 def test_import_from_mixin():
     class M:    # old-style
         def f(self): pass

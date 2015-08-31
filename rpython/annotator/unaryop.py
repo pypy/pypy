@@ -369,14 +369,19 @@ def _can_only_throw(s_dct, *ignore):
         return None    # r_dict: can throw anything
     return []          # else: no possible exception
 
-@op.contains.register(SomeDict)
-def contains_SomeDict(annotator, dct, element):
-    annotator.annotation(dct).dictdef.generalize_key(annotator.annotation(element))
-    if annotator.annotation(dct)._is_empty():
+# also used for objectmodel.contains_with_hash()
+def dict_contains(s_dct, s_element):
+    s_dct.dictdef.generalize_key(s_element)
+    if s_dct._is_empty():
         s_bool = SomeBool()
         s_bool.const = False
         return s_bool
     return s_Bool
+
+@op.contains.register(SomeDict)
+def contains_SomeDict(annotator, dct, element):
+    return dict_contains(annotator.annotation(dct),
+                         annotator.annotation(element))
 contains_SomeDict.can_only_throw = _can_only_throw
 
 class __extend__(SomeDict):

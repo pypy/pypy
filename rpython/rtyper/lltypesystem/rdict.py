@@ -871,6 +871,11 @@ def ll_contains(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
     return not i & HIGHEST_BIT
 
+# for objectmodel.contains_with_hash()
+def ll_contains_with_hash(d, key, hash):
+    i = ll_dict_lookup(d, key, hash)
+    return not i & HIGHEST_BIT
+
 POPITEMINDEX = lltype.Struct('PopItemIndex', ('nextindex', lltype.Signed))
 global_popitem_index = lltype.malloc(POPITEMINDEX, zero=True, immortal=True)
 
