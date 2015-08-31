@@ -24,8 +24,9 @@ I32_2 =  PackType('i',4,True,2)
 I16 = PackType('i',2,True,8)
 
 class FakePackSet(PackSet):
-    def __init__(self):
-        self.packs = None
+    def __init__(self, packs):
+        self.packs = packs
+        self.vec_reg_size = 16
 
 class FakeDependencyGraph(DependencyGraph):
     """ A dependency graph that is able to emit every instruction
@@ -115,8 +116,7 @@ class SchedulerBaseTest(DependencyBaseTest):
                 pair = Pair(o1,o2,pack.input_type,pack.output_type)
                 pairs.append(pair)
 
-        opt.packset = FakePackSet()
-        opt.packset.packs = pairs
+        opt.packset = FakePackSet(pairs)
 
         if not prepend_invariant:
             def pio(oplist, labels):
@@ -149,7 +149,8 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         loop2 = self.schedule(loop1, [pack1])
         loop3 = self.parse("""
         v10[i32|4] = vec_raw_load(p0, i0, 4, descr=float)
-        v11[i32|2] = vec_raw_load(p0, i4, 2, descr=float)
+        f10 = raw_load(p0, i4, descr=float)
+        f11 = raw_load(p0, i5, descr=float)
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -379,17 +380,19 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         loop1 = self.parse("""
         i10 = raw_load(p0, i1, descr=float)
         i11 = raw_load(p0, i2, descr=float)
+        i12 = raw_load(p0, i3, descr=float)
+        i13 = raw_load(p0, i4, descr=float)
         raw_store(p0, i3, i10, descr=float)
         raw_store(p0, i4, i11, descr=float)
         """)
-        pack1 = self.pack(loop1, 0, 2, None, I32_2)
-        pack2 = self.pack(loop1, 2, 4, I32_2, None)
+        pack1 = self.pack(loop1, 0, 4, None, I32)
+        pack2 = self.pack(loop1, 4, 6, I32_2, None)
         loop2 = self.schedule(loop1, [pack1,pack2], prepend_invariant=True)
         loop3 = self.parse("""
-        v1[i32|2] = vec_raw_load(p0, i1, 2, descr=float)
-        i10 = vec_int_unpack(v1[i32|2], 0, 1)
+        v1[i32|4] = vec_raw_load(p0, i1, 4, descr=float)
+        i10 = vec_int_unpack(v1[i32|4], 0, 1)
         raw_store(p0, i3, i10, descr=float)
-        i11 = vec_int_unpack(v1[i32|2], 1, 1)
+        i11 = vec_int_unpack(v1[i32|4], 1, 1)
         raw_store(p0, i4, i11, descr=float)
         """, False)
         # unfortunate ui32 is the type for float32... the unsigned u is for
@@ -466,5 +469,13 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         packs.append(pack)
         assert len(packs) == 2
 
-
+    def test_combine_packset_nearly_empty_pack(self):
+        trace = self.parse("""
+        i10 = int_add(i1, i3)
+        i11 = int_add(i2, i3)
+        """)
+        pack = self.pack(trace, 0, 2, I16, I16)
+        packset = FakePackSet([pack])
+        packset.split_overloaded_packs()
+        assert len(packset.packs) == 0
 

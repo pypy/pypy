@@ -272,21 +272,12 @@ class OpToVectorOp(object):
         self.sched_data = sched_data
         self.vecops = oplist
         self.costmodel = sched_data.costmodel
-        #
         self.input_type = pack.input_type
         self.output_type = pack.output_type
         #
         self.check_if_pack_supported(pack)
-
-        #
-        if self.must_be_full_but_is_not(pack):
-            for op in pack.operations:
-                operation = op.getoperation()
-                self.sched_data.unpack_from_vector(operation, scheduler)
-                self.vecops.append(operation)
-        else:
-            self.pack = pack
-            self.transform_pack()
+        self.pack = pack
+        self.transform_pack()
         #
         self.pack = None
         self.costmodel = None
@@ -294,9 +285,6 @@ class OpToVectorOp(object):
         self.sched_data = None
         self.input_type = None
         self.output_type = None
-
-    def must_be_full_but_is_not(self, pack):
-        return False
 
     def before_argument_transform(self, args):
         pass
@@ -1008,6 +996,8 @@ class Pack(object):
                 packlist.append(newpack)
             else:
                 newpack.clear()
+                newpack.operations = []
+                break
 
     def slice_operations(self, vec_reg_size):
         count = opcount_filling_vector_register(self, vec_reg_size)

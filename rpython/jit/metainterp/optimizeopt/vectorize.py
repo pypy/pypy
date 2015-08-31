@@ -317,9 +317,7 @@ class VectorizingOptimizer(Optimizer):
         loop = self.loop
         operations = loop.operations
 
-        self.packset = PackSet(self.dependency_graph, operations,
-                               self.unroll_count, self.smallest_type_bytes,
-                               self.cpu)
+        self.packset = PackSet(self.cpu.vector_register_size)
         graph = self.dependency_graph
         memory_refs = graph.memory_refs.items()
         # initialize the pack set
@@ -422,14 +420,8 @@ class VectorizingOptimizer(Optimizer):
                 j = 0
             if len_before == len(self.packset.packs):
                 break
-        newpacks = []
-        vec_reg_size = self.cpu.vector_register_size
-        for pack in self.packset.packs:
-            if pack.pack_load(vec_reg_size) > Pack.FULL:
-                pack.split(newpacks, vec_reg_size)
-                continue
-            pack.update_pack_of_nodes()
-        self.packset.packs.extend(newpacks)
+
+        self.packset.split_overloaded_packs()
 
         if not we_are_translated():
             # some test cases check the accumulation variables
@@ -700,15 +692,10 @@ def isomorphic(l_op, r_op):
     return False
 
 class PackSet(object):
-    def __init__(self, dependency_graph, operations, unroll_count,
-                 smallest_type_bytes, cpu):
+    _attrs_ = ('packs', 'vec_reg_size')
+    def __init__(self, vec_reg_size):
         self.packs = []
-        self.dependency_graph = dependency_graph
-        self.operations = operations
-        self.unroll_count = unroll_count
-        self.smallest_type_bytes = smallest_type_bytes
-        self.cpu = cpu
-        self.vec_reg_size = self.cpu.vector_register_size
+        self.vec_reg_size = vec_reg_size
 
     def pack_count(self):
         return len(self.packs)
@@ -897,4 +884,18 @@ class PackSet(object):
             # rename the variable with the box
             sched_data.setvector_of_box(accum.getoriginalbox(), 0, result) # prevent it from expansion
             renamer.start_renaming(accum.getoriginalbox(), result)
+
+    def split_overloaded_packs(self):
+        newpacks = []
+        for i,pack in enumerate(self.packs):
+            load = pack.pack_load(self.vec_reg_size)
+            if load > Pack.FULL:
+                pack.split(newpacks, self.vec_reg_size)
+                continue
+            if load < Pack.FULL:
+                pack.clear()
+                self.packs[i] = None
+                continue
+            pack.update_pack_of_nodes()
+        self.packs = [pack for pack in self.packs + newpacks if pack]
 
