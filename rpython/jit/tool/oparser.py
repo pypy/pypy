@@ -325,7 +325,7 @@ class OpParser(object):
 
     def parse_op_no_result(self, line):
         opnum, args, descr, fail_args = self.parse_op(line)
-        res = self.create_op_no_result(opnum, args, descr, fail_args)
+        res = self.create_op(opnum, args, None, descr, fail_args)
         return res
 
     def parse_next_op(self, line):

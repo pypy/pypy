@@ -418,4 +418,5 @@ class ShortPreambleBuilder(AbstractShortPreambleBuilder):
         return [label_op] + self.short + [jump_op]
 
 class ExtendedShortPreambleBuilder(AbstractShortPreambleBuilder):
-    pass
+    def __init__(self, sb):
+        self.sb = sb

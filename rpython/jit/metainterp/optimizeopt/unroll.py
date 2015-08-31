@@ -1,5 +1,4 @@
 
-import sys
 from rpython.jit.metainterp.history import Const, TargetToken, JitCellToken
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
      ShortPreambleBuilder, ExtendedShortPreambleBuilder, PreambleOp
@@ -199,7 +198,7 @@ class UnrollOptimizer(Optimization):
         target_token.virtual_state = virtual_state
         target_token.short_preamble = short_preamble
         jitcelltoken.target_tokens.append(target_token)
-        self.short_preamble_producer = None # ExtendedShortPreambleBuilder()
+        self.short_preamble_producer = ExtendedShortPreambleBuilder(sb)
         label_op.initarglist(label_op.getarglist() + sb.used_boxes)
         return target_token
 
@@ -232,25 +231,24 @@ class UnrollOptimizer(Optimization):
                     self.send_extra_operation(guard)
             except VirtualStatesCantMatch:
                 continue
-            pass_to_short = target_virtual_state.make_inputargs(args,
-                self.optimizer, append_virtuals=True)
-            args = target_virtual_state.make_inputargs(args,
-                self.optimizer)
+            args, virtuals = target_virtual_state.make_inputargs_and_virtuals(
+                args, self.optimizer)
             short_preamble = target_token.short_preamble
-            lgt = len(short_preamble) - 1
-            assert lgt >= 0
-            extra = self.inline_short_preamble(pass_to_short, args,
-                short_preamble[0].getarglist(), short_preamble[1:lgt],
-                short_preamble[-1].getarglist(), self.optimizer.patchguardop)
+            extra = self.inline_short_preamble(args + virtuals, args,
+                                short_preamble, self.optimizer.patchguardop)
             self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
                                       args=args + extra,
                                       descr=target_token))
             return None # explicit because the return can be non-None
         return virtual_state
 
-    def inline_short_preamble(self, jump_args, args_no_virtuals,
-                              short_inputargs, short_ops,
-                              short_jump_op, patchguardop):
+    def inline_short_preamble(self, jump_args, args_no_virtuals, short,
+                              patchguardop):
+        short_inputargs = short[0].getarglist()
+        short_jump_op = short[-1].getarglist()
+        lgt = len(short) - 1
+        assert lgt >= 0
+        short_ops = short[1:lgt]        
         try:
             self._check_no_forwarding([short_inputargs, short_ops], False)
             assert len(short_inputargs) == len(jump_args)
@@ -284,15 +282,14 @@ class UnrollOptimizer(Optimization):
         infos = {}
         for arg in end_args:
             infos[arg] = self.optimizer.getinfo(arg)
-        label_args = virtual_state.make_inputargs(end_args, self.optimizer)
+        label_args, virtuals = virtual_state.make_inputargs_and_virtuals(
+            end_args, self.optimizer)
         for arg in label_args:
             infos[arg] = self.optimizer.getinfo(arg)            
         sb = ShortBoxes()
-        label_args_plus_virtuals = virtual_state.make_inputargs(end_args,
-                                        self.optimizer, append_virtuals=True)
         short_boxes = sb.create_short_boxes(self.optimizer, renamed_inputargs,
-                                            label_args_plus_virtuals)
-        short_inputargs = sb.create_short_inputargs(label_args_plus_virtuals)
+                                            label_args + virtuals)
+        short_inputargs = sb.create_short_inputargs(label_args + virtuals)
         for produced_op in short_boxes:
             op = produced_op.short_op.res
             if not isinstance(op, Const):
