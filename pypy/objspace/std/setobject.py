@@ -965,6 +965,9 @@ class AbstractUnwrappedSetStrategy(object):
         other_dict = self.unerase(w_other.sstorage)
         result_dict = self.get_empty_dict()
         for key in iterator:
+            # xxx performance issue when compared to CPython: the next
+            # two lines will recompute twice the hash of 'key', whereas
+            # CPython reuses the hash from 'iterator' in both cases.
             if key not in other_dict:
                 result_dict[key] = None
         return self.erase(result_dict)
