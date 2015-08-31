@@ -344,34 +344,6 @@ class EmptyInfo(info.AbstractInfo):
 empty_info = EmptyInfo()
 
 class AbstractShortPreambleBuilder(object):
-    pass
-
-class ShortPreambleBuilder(AbstractShortPreambleBuilder):
-    """ ShortPreambleBuilder is used during optimizing of the peeled loop,
-    starting from short_boxes exported from the preamble. It will build
-    the short preamble and necessary extra label arguments
-    """
-    def __init__(self, label_args, short_boxes, short_inputargs,
-                 exported_infos, optimizer=None):
-        for produced_op in short_boxes:
-            op = produced_op.short_op.res
-            preamble_op = produced_op.preamble_op
-            if isinstance(op, Const):
-                info = optimizer.getinfo(op)
-            else:
-                info = exported_infos[op]
-                if info is None:
-                    info = empty_info
-            preamble_op.set_forwarded(info)
-        self.short = []
-        self.label_dict = {}
-        for arg in label_args:
-            self.label_dict[arg] = None
-        self.used_boxes = []
-        self.short_preamble_jump = []
-        self.extra_same_as = []
-        self.short_inputargs = short_inputargs
-
     def use_box(self, box, preamble_op, optimizer=None):
         for arg in preamble_op.getarglist():
             if isinstance(arg, Const):
@@ -398,6 +370,32 @@ class ShortPreambleBuilder(AbstractShortPreambleBuilder):
         if info is not empty_info:
             info.make_guards(preamble_op, self.short)
         return preamble_op
+
+class ShortPreambleBuilder(AbstractShortPreambleBuilder):
+    """ ShortPreambleBuilder is used during optimizing of the peeled loop,
+    starting from short_boxes exported from the preamble. It will build
+    the short preamble and necessary extra label arguments
+    """
+    def __init__(self, label_args, short_boxes, short_inputargs,
+                 exported_infos, optimizer=None):
+        for produced_op in short_boxes:
+            op = produced_op.short_op.res
+            preamble_op = produced_op.preamble_op
+            if isinstance(op, Const):
+                info = optimizer.getinfo(op)
+            else:
+                info = exported_infos[op]
+                if info is None:
+                    info = empty_info
+            preamble_op.set_forwarded(info)
+        self.short = []
+        self.label_dict = {}
+        for arg in label_args:
+            self.label_dict[arg] = None
+        self.used_boxes = []
+        self.short_preamble_jump = []
+        self.extra_same_as = []
+        self.short_inputargs = short_inputargs
 
     def add_preamble_op(self, preamble_op):
         """ Notice that we're actually using the preamble_op, add it to
@@ -444,3 +442,8 @@ class ExtendedShortPreambleBuilder(AbstractShortPreambleBuilder):
         self.sb.label_dict[op] = None
         self.label_args.append(op)
         self.jump_args.append(preamble_op.preamble_op)
+
+    def use_box(self, box, preamble_op, optimizer=None):
+        jump_op = self.short.pop()
+        AbstractShortPreambleBuilder.use_box(self, box, preamble_op, optimizer)
+        self.short.append(jump_op)

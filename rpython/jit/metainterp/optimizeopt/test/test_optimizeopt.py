@@ -8372,9 +8372,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p1, p2]
         call_n(p2, descr=nonwritedescr)
+        ifoo = arraylen_gc(p1, descr=gcarraydescr) # killed
         p3 = new_with_vtable(descr=nodesize)
         setarrayitem_gc(p1, 3, p3, descr=gcarraydescr)
-        ifoo = arraylen_gc(p1, descr=gcarraydescr) # killed
         jump(p1, p3)
         """
         self.optimize_loop(ops, expected)
