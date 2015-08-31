@@ -621,8 +621,8 @@ class GcRewriterAssembler(object):
         val = op.getarg(0)
         if not self.write_barrier_applied(val):
             v = op.getarg(1)
-            if (v.type == 'r' and not isinstance(v, ConstPtr) or
-                rgc.needs_write_barrier(v.value)):
+            if (v.type == 'r' and (not isinstance(v, ConstPtr) or
+                rgc.needs_write_barrier(v.value))):
                 self.gen_write_barrier(val)
                 #op = op.copy_and_change(rop.SETFIELD_RAW)
         self.emit_op(op)
@@ -631,8 +631,8 @@ class GcRewriterAssembler(object):
         val = op.getarg(0)
         if not self.write_barrier_applied(val):
             v = op.getarg(2)
-            if (v.type == 'r' and not isinstance(v, ConstPtr) or
-                rgc.needs_write_barrier(v.value)):
+            if (v.type == 'r' and (not isinstance(v, ConstPtr) or
+                rgc.needs_write_barrier(v.value))):
                 self.gen_write_barrier_array(val, op.getarg(1))
                 #op = op.copy_and_change(rop.SET{ARRAYITEM,INTERIORFIELD}_RAW)
         self.emit_op(op)
