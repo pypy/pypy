@@ -289,15 +289,32 @@ class VectorizeTests:
         res = self.meta_interp(f, [i])
         assert res == f(i)
 
-    @py.test.mark.parametrize('i,v1,v2',[(25,2.5,0.3), (15,44.0,22.2)])
+    @py.test.mark.parametrize('i,v1,v2',[(25,2.5,0.3)])
     def test_list_vectorize(self,i,v1,v2):
         myjitdriver = JitDriver(greens = [],
                                 reds = 'auto')
+        class ListF(object):
+            def __init__(self, size, init=0.0):
+                self.list = [init] * size
+            def __getitem__(self, key):
+                if key < 0:
+                    raise IndexError
+                if key >= len(self.list):
+                    raise IndexError
+                return self.list[key]
+            def __setitem__(self, key, value):
+                if key < 0:
+                    raise IndexError
+                if key >= len(self.list):
+                    raise IndexError
+                self.list[key] = value
+            def append(self, value):
+                self.list.append(value)
         def f(d, v1, v2):
-            a = [v1] * i
-            b = [v2] * i
+            a = ListF(d, v1)
+            b = ListF(d, v2)
             i = 0
-            while i < len(a):
+            while i < d:
                 myjitdriver.jit_merge_point()
                 a[i] = a[i] + b[i]
                 i += 1

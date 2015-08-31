@@ -940,11 +940,16 @@ class Pack(object):
             node.pack_position = i
 
     def split(self, packlist, vec_reg_size):
+        """ Combination phase creates the biggest packs that are possible.
+            In this step the pack is reduced in size to fit into an
+            vector register.
+        """
         pack = self
         pack_type = self.pack_type()
         max_count = vec_reg_size // pack_type.getsize()
         assert max_count * pack_type.getsize() == vec_reg_size
         while pack.pack_byte_size() > vec_reg_size:
+            assert max_count > 0
             newpack = pack.clone()
             oplist = pack.operations[:max_count]
             newpack.operations = pack.operations[max_count:]
@@ -952,6 +957,7 @@ class Pack(object):
             pack.update_pack_of_nodes()
             newpack.update_pack_of_nodes()
             pack = newpack
+            packlist.append(newpack)
 
     def rightmost_match_leftmost(self, other):
         """ Check if pack A can be combined with pack B """

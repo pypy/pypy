@@ -315,6 +315,9 @@ class WarmEnterState(object):
     def set_param_vec_ratio(self, value):
         self.vec_ratio = value / 10.0
 
+    def set_param_vec_guard_ratio(self, value):
+        self.vec_guard_ratio = value / 10.0
+
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
         cell.flags |= JC_DONT_TRACE_HERE

@@ -559,6 +559,8 @@ PARAMETER_DOCS = {
     'vec_length': 'the amount of instructions allowed in "all" traces.',
     'vec_ratio': 'an integer (0-10 transfored into a float by X / 10.0) statements that have vector equivalents '
                  'divided by the total number of trace instructions.',
+    'vec_guard_ratio': 'an integer (0-10 transfored into a float by X / 10.0) divided by the'
+                       ' total number of trace instructions.',
 }
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
@@ -579,6 +581,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'vec_cost': 0,
               'vec_length': 60,
               'vec_ratio': 2,
+              'vec_guard_ratio': 3,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 

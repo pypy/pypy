@@ -97,6 +97,8 @@ def user_loop_bail_fast_path(loop, warmstate):
 
     resop_count = 0 # the count of operations minus debug_merge_points
     vector_instr = 0
+    guard_count = 0
+    blacklist = (rop.CALL, rop.CALL_ASSEMBLER)
     at_least_one_array_access = True
     for i,op in enumerate(loop.operations):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
@@ -110,6 +112,13 @@ def user_loop_bail_fast_path(loop, warmstate):
         if op.is_primitive_array_access():
             at_least_one_array_access = True
 
+        if warmstate.vec_ratio > 0.0:
+            if op.getopnum() in blacklist:
+                return True
+
+        if op.is_guard():
+            guard_count += 1
+
     if not at_least_one_array_access:
         return True
 
@@ -117,6 +126,9 @@ def user_loop_bail_fast_path(loop, warmstate):
         return True
 
     if (float(vector_instr)/float(resop_count)) < warmstate.vec_ratio:
+        return True
+
+    if float(guard_count)/float(resop_count) > warmstate.vec_guard_ratio:
         return True
 
     return False
