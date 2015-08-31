@@ -400,6 +400,9 @@ class ShortPreambleBuilder(AbstractShortPreambleBuilder):
         return preamble_op
 
     def add_preamble_op(self, preamble_op):
+        """ Notice that we're actually using the preamble_op, add it to
+        label and jump
+        """
         if preamble_op.invented_name:
             self.extra_same_as.append(preamble_op.op)
         op = preamble_op.op
@@ -418,5 +421,26 @@ class ShortPreambleBuilder(AbstractShortPreambleBuilder):
         return [label_op] + self.short + [jump_op]
 
 class ExtendedShortPreambleBuilder(AbstractShortPreambleBuilder):
-    def __init__(self, sb):
+    """ A special preamble builder that is called while we're building
+    short preamble
+    """
+    def __init__(self, target_token, sb):
         self.sb = sb
+        self.extra_same_as = self.sb.extra_same_as
+        self.target_token = target_token
+
+    def setup(self, inputargs, jump_args, short, label_args):
+        self.inputargs = inputargs
+        self.jump_args = jump_args
+        self.short = short
+        self.label_args = label_args
+
+    def add_preamble_op(self, preamble_op):
+        if preamble_op.invented_name:
+            self.extra_same_as.append(preamble_op.op)
+        op = preamble_op.op
+        if op in self.sb.label_dict:
+            return
+        self.sb.label_dict[op] = None
+        self.label_args.append(op)
+        self.jump_args.append(preamble_op.preamble_op)

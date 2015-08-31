@@ -130,7 +130,7 @@ class UnrollOptimizer(Optimization):
                                                     state.virtual_state)
         label_op.setdescr(target_token)
         # force the boxes for virtual state to match
-        new_virtual_state = self.jump_to_existing_trace(end_jump)
+        new_virtual_state = self.jump_to_existing_trace(end_jump, label_op)
         if new_virtual_state is not None:
             celltoken = start_label.getdescr()
             assert isinstance(celltoken, JitCellToken)
@@ -160,7 +160,7 @@ class UnrollOptimizer(Optimization):
         self.optimizer.flush()
         for a in jump_op.getarglist():
             self.optimizer.force_box_for_end_of_preamble(a)
-        vs = self.jump_to_existing_trace(jump_op)
+        vs = self.jump_to_existing_trace(jump_op, None)
         if vs is None:
             return info, self.optimizer._newoperations[:]
         warmrunnerdescr = self.optimizer.metainterp_sd.warmrunnerdesc
@@ -198,7 +198,8 @@ class UnrollOptimizer(Optimization):
         target_token.virtual_state = virtual_state
         target_token.short_preamble = short_preamble
         jitcelltoken.target_tokens.append(target_token)
-        self.short_preamble_producer = ExtendedShortPreambleBuilder(sb)
+        self.short_preamble_producer = ExtendedShortPreambleBuilder(
+            target_token, sb)
         label_op.initarglist(label_op.getarglist() + sb.used_boxes)
         return target_token
 
@@ -210,7 +211,7 @@ class UnrollOptimizer(Optimization):
         return info, self.optimizer._newoperations[:]
 
 
-    def jump_to_existing_trace(self, jump_op):
+    def jump_to_existing_trace(self, jump_op, label_op):
         jitcelltoken = jump_op.getdescr()
         assert isinstance(jitcelltoken, JitCellToken)
         virtual_state = self.get_virtual_state(jump_op.getarglist())
@@ -235,7 +236,8 @@ class UnrollOptimizer(Optimization):
                 args, self.optimizer)
             short_preamble = target_token.short_preamble
             extra = self.inline_short_preamble(args + virtuals, args,
-                                short_preamble, self.optimizer.patchguardop)
+                                short_preamble, self.optimizer.patchguardop,
+                                target_token, label_op)
             self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
                                       args=args + extra,
                                       descr=target_token))
@@ -243,34 +245,40 @@ class UnrollOptimizer(Optimization):
         return virtual_state
 
     def inline_short_preamble(self, jump_args, args_no_virtuals, short,
-                              patchguardop):
+                              patchguardop, target_token, label_op):
         short_inputargs = short[0].getarglist()
-        short_jump_op = short[-1].getarglist()
-        lgt = len(short) - 1
-        assert lgt >= 0
-        short_ops = short[1:lgt]        
+        short_jump_args = short[-1].getarglist()
+        if (self.short_preamble_producer and
+            self.short_preamble_producer.target_token is target_token):
+            # this means we're inlining the short preamble that's being
+            # built. Make sure we modify the correct things in-place
+            self.short_preamble_producer.setup(short_inputargs, short_jump_args,
+                                               short, label_op.getarglist())
         try:
-            self._check_no_forwarding([short_inputargs, short_ops], False)
+            self._check_no_forwarding([short_inputargs, short], False)
             assert len(short_inputargs) == len(jump_args)
             for i in range(len(jump_args)):
                 short_inputargs[i].set_forwarded(None)
                 self.make_equal_to(short_inputargs[i], jump_args[i])
-            for op in short_ops:
+            i = 1
+            while i < len(short) - 1:
+                op = short[i]
                 if op.is_guard():
                     op = self.replace_op_with(op, op.getopnum(),
                                     descr=compile.ResumeAtPositionDescr())
                     assert isinstance(op, GuardResOp)
                     op.rd_snapshot = patchguardop.rd_snapshot
                     op.rd_frame_info_list = patchguardop.rd_frame_info_list
+                i += 1
                 self.optimizer.send_extra_operation(op)
             # force all of them except the virtuals
-            for arg in args_no_virtuals + short_jump_op:
+            for arg in short_jump_args:
                 self.optimizer.force_box(self.get_box_replacement(arg))
-            return [self.get_box_replacement(box) for box in short_jump_op]
+            return [self.get_box_replacement(box) for box in short_jump_args]
         finally:
             for op in short_inputargs:
                 op.set_forwarded(None)
-            for op in short_ops:
+            for op in short:
                 op.set_forwarded(None)
 
     def export_state(self, start_label, original_label_args, renamed_inputargs):
