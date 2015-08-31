@@ -592,6 +592,22 @@ def test_resizelist_hint_len():
     r = interpret(f, [29])
     assert r == 1
 
+def test_iterkeys_with_hash():
+    def f(i):
+        d = {i+.0: 5, i+.5: 6}
+        total = 0
+        for k, h in iterkeys_with_hash(d):
+            print k, h
+            print compute_hash(k)
+            total += k * h
+        total -= (i + 0.0) * compute_hash(i + 0.0)
+        total -= (i + 0.5) * compute_hash(i + 0.5)
+        return total
+
+    assert f(29) == 0.0
+    r = interpret(f, [29])
+    assert r == 0.0
+
 def test_import_from_mixin():
     class M:    # old-style
         def f(self): pass

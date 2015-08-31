@@ -788,6 +788,27 @@ def reversed_dict(d):
         d = d.keys()
     return reversed(d)
 
+def iterkeys_with_hash(d):
+    """Iterates (key, hash) pairs without recomputing the hash."""
+    assert not we_are_translated()    # this code is only before translation
+    for k in d:
+        yield k, compute_hash(k)
+
+class Entry(ExtRegistryEntry):
+    _about_ = iterkeys_with_hash
+
+    def compute_result_annotation(self, s_d):
+        from rpython.annotator.model import SomeDict, SomeIterator, s_None
+        if isinstance(s_d, SomeDict):
+            return SomeIterator(s_d, 'keys_with_hash')
+        if s_None.contains(s_d):
+            return None
+        raise Exception("iterkeys_with_hash(x): x not a dict")
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem.rdict import DictIteratorRepr
+        hop.exception_cannot_occur()
+        return DictIteratorRepr(hop.args_r[0], "keys_with_hash").newiter(hop)
 
 # ____________________________________________________________
 

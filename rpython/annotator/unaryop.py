@@ -11,7 +11,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
     SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
-    s_Bool, s_None, unionof, add_knowntypedata,
+    s_Bool, s_None, s_Int, unionof, add_knowntypedata,
     HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
@@ -409,6 +409,8 @@ class __extend__(SomeDict):
                 return s_ImpossibleValue
             else:
                 return SomeTuple((s_key, s_value))
+        if variant == 'keys_with_hash':
+            return SomeTuple((self.dictdef.read_key(), s_Int))
         else:
             raise ValueError
 
