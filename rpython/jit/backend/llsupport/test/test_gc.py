@@ -23,7 +23,7 @@ def test_boehm():
     #
     # ---------- gc_malloc ----------
     S = lltype.GcStruct('S', ('x', lltype.Signed))
-    sizedescr = descr.get_size_descr(gc_ll_descr, S, False)
+    sizedescr = descr.get_size_descr(gc_ll_descr, S)
     p = gc_ll_descr.gc_malloc(sizedescr)
     assert record == [(sizedescr.size, p)]
     del record[:]
@@ -143,7 +143,7 @@ class TestFramework(object):
 
     def test_gc_malloc(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
-        sizedescr = descr.get_size_descr(self.gc_ll_descr, S, False)
+        sizedescr = descr.get_size_descr(self.gc_ll_descr, S)
         p = self.gc_ll_descr.gc_malloc(sizedescr)
         assert lltype.typeOf(p) == llmemory.GCREF
         assert self.llop1.record == [("fixedsize", repr(sizedescr.size),

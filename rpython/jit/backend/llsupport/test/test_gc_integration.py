@@ -754,7 +754,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
     def test_malloc_1(self):
         cpu = self.cpu
-        sizeof = cpu.sizeof(self.S, False)
+        sizeof = cpu.sizeof(self.S, None)
         sizeof.tid = 0
         size = sizeof.size
         loop = self.parse("""

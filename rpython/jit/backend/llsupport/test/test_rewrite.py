@@ -29,13 +29,13 @@ class RewriteTests(object):
     def check_rewrite(self, frm_operations, to_operations, **namespace):
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('y', lltype.Signed))
-        sdescr = get_size_descr(self.gc_ll_descr, S, False)
+        sdescr = get_size_descr(self.gc_ll_descr, S)
         sdescr.tid = 1234
         #
         T = lltype.GcStruct('T', ('y', lltype.Signed),
                                  ('z', lltype.Ptr(S)),
                                  ('t', lltype.Signed))
-        tdescr = get_size_descr(self.gc_ll_descr, T, False)
+        tdescr = get_size_descr(self.gc_ll_descr, T)
         tdescr.tid = 5678
         tzdescr = get_field_descr(self.gc_ll_descr, T, 'z')
         #
@@ -55,7 +55,7 @@ class RewriteTests(object):
         clendescr = cdescr.lendescr
         #
         E = lltype.GcStruct('Empty')
-        edescr = get_size_descr(self.gc_ll_descr, E, False)
+        edescr = get_size_descr(self.gc_ll_descr, E)
         edescr.tid = 9000
         #
         vtable_descr = self.gc_ll_descr.fielddescr_vtable
@@ -1045,13 +1045,13 @@ class TestFramework(RewriteTests):
         self.check_rewrite("""
             []
             p0 = new(descr=tdescr)
-            p1 = getfield_gc(p0, descr=tdescr)
+            p1 = getfield_gc_r(p0, descr=tdescr)
             jump(p1)
         """, """
             []
             p0 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p0, 5678, descr=tiddescr)
             zero_ptr_field(p0, %(tdescr.gc_fielddescrs[0].offset)s)
-            p1 = getfield_gc(p0, descr=tdescr)
+            p1 = getfield_gc_r(p0, descr=tdescr)
             jump(p1)
         """)

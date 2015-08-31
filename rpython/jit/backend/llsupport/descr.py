@@ -67,7 +67,7 @@ class SizeDescr(AbstractDescr):
         assert self.tid != 0
         return self.tid
 
-def get_size_descr(gccache, STRUCT, vtable):
+def get_size_descr(gccache, STRUCT, vtable=lltype.nullptr(rclass.OBJECT_VTABLE)):
     cache = gccache._cache_size
     assert not isinstance(vtable, bool)
     try:
