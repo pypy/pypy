@@ -256,12 +256,10 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             raise BadVirtualState
         for i in range(len(self.fieldstate)):
             fieldbox = info.getitem(self.arraydescr, i)
-            if fieldbox is None:
-                raise Exception("do we ever get here?")
-                v = value.get_missing_null_value()
             s = self.fieldstate[i]
-            if s.position > self.position:
-                s.enum_forced_boxes(boxes, fieldbox, optimizer, force_boxes)
+            if s is not None:
+                if s.position > self.position:
+                    s.enum_forced_boxes(boxes, fieldbox, optimizer, force_boxes)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
