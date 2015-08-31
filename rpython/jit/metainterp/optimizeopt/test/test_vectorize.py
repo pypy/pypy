@@ -1427,5 +1427,51 @@ class BaseTestVectorize(VecTestHelper):
         opt = self.schedule(self.parse_loop(trace))
         self.debug_print_operations(opt.loop)
 
+    def test_arraylen(self):
+        trace = """
+        [i45, i33, p40]
+        # while i < len(l):
+        # LOAD_FAST i
+        # LOAD_GLOBAL len
+        guard_not_invalidated(descr=<Guard0x7f82c00c3518>) [i33,p40]
+        # LOAD_FAST l
+        # CALL_FUNCTION 1
+        # COMPARE_OP <
+        i50 = int_lt(i45, i33)
+        guard_true(i50) [i50,i33,p40]
+        # POP_JUMP_IF_FALSE 70
+        # l[i] = l[i] + 1
+        # LOAD_FAST l
+        # LOAD_FAST i
+        # BINARY_SUBSCR 
+        i51 = uint_ge(i45, i33)
+        guard_false(i51) [i50, i45]
+        i52 = getarrayitem_gc(p40, i45, descr=intarraydescr)
+        # LOAD_CONST 1
+        # BINARY_ADD 
+        i53 = int_add(i52, 1)
+        #guard_no_overflow(descr=<Guard0x7f82c00c33b8>) []
+        # LOAD_FAST l
+        # LOAD_FAST i
+        # STORE_SUBSCR 
+        setarrayitem_gc(p40, i45, i53, descr=intarraydescr)
+        # i += 1
+        # LOAD_FAST i
+        # LOAD_CONST 1
+        # INPLACE_ADD 
+        i54 = int_add(i45,1)
+        # STORE_FAST i
+        # JUMP_ABSOLUTE 21
+        #getfield_raw_i(140199654614400, descr=<FieldS pypysig_long_struct.c_value 0>)
+        #None = i55 < 0
+        #guard(i56 is false)
+        # LOAD_FAST i
+        #i34 = arraylen_gc(p40, descr=<ArrayS 8>)
+        jump(i54, i33, p40)
+        """
+        opt = self.vectorize(self.parse_loop(trace))
+        self.debug_print_operations(opt.loop)
+
+
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

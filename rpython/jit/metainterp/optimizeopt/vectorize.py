@@ -133,10 +133,6 @@ def user_loop_bail_fast_path(loop, warmstate):
 
     return False
 
-def cmp_pack_lt(a,b):
-    return a.left.getindex() < b.left.getindex()
-packsort = listsort.make_timsort_class(lt=cmp_pack_lt)
-
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
 
@@ -401,13 +397,6 @@ class VectorizingOptimizer(Optimizer):
         """
         if len(self.packset.packs) == 0:
             raise NotAVectorizeableLoop()
-        #packsort(self.packset.packs).sort()
-        #if not we_are_translated():
-        #    # ensure we are really sorted!
-        #    x = 0
-        #    for i,pack in enumerate(self.packset.packs):
-        #        assert x <= pack.left.getindex()
-        #        x = pack.left.getindex()
         i = 0
         j = 0
         end_ij = len(self.packset.packs)
@@ -423,33 +412,6 @@ class VectorizingOptimizer(Optimizer):
                         continue
                     pack1 = self.packset.packs[i]
                     pack2 = self.packset.packs[j]
-                    # remove intermediate
-                    left = pack1.operations[0]
-                    #if left in orphan:
-                    #    # a pack was filled, thus the rhs was put
-                    #    # into the orphan map.
-                    #    if orphan[left] is False:
-                    #        # this pack might be redundant if pack1.right
-                    #        # is the at the left position in another pack
-                    #        assert pack1.opcount() == 2
-                    #        right = pack1.operations[1]
-                    #        orphan[right] = True
-                    #        pack1.clear()
-                    #        del self.packset.packs[i]
-                    #        end_ij -= 1
-                    #        continue
-                    #    else:
-                    #        # left is not an orphan, this pack proves that
-                    #        # there might be more packs
-                    #        del orphan[left]
-                    # check if the pack is already full
-                    #if pack1.is_full(self.cpu.vector_register_size):
-                    #    right = pack1.operations[-1]
-                    #    # False indicates that the next pair might not
-                    #    # be needed, because left is already computed
-                    #    # in another set
-                    #    orphan[right] = False
-                    #    break
                     if pack1.rightmost_match_leftmost(pack2):
                         end_ij = self.packset.combine(i,j)
                     else:
@@ -460,11 +422,14 @@ class VectorizingOptimizer(Optimizer):
                 j = 0
             if len_before == len(self.packset.packs):
                 break
+        newpacks = []
+        vec_reg_size = self.cpu.vector_register_size
         for pack in self.packset.packs:
-            if pack.pack_byte_size() > self.cpu.vector_register_size:
-                pack.split(self.packset.packs, self.cpu.vector_register_size)
-            else:
-                pack.update_pack_of_nodes()
+            if pack.pack_load(vec_reg_size) > Pack.FULL:
+                pack.split(newpacks, vec_reg_size)
+                continue
+            pack.update_pack_of_nodes()
+        self.packset.packs.extend(newpacks)
 
         if not we_are_translated():
             # some test cases check the accumulation variables
@@ -483,9 +448,10 @@ class VectorizingOptimizer(Optimizer):
                 if accum:
                     self.packset.accum_vars[accum.var] = accum.pos
 
-                print " %dx %s (accum? %d) " % (len(pack.operations),
-                                                pack.operations[0].op.getopname(),
-                                                accum is not None)
+                print " %dx %s " % (len(pack.operations),
+                                    pack.operations[0].op.getopname())
+                if accum:
+                    print "   accumulates!"
             if fail:
                 assert False
 

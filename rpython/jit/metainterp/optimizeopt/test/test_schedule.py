@@ -452,3 +452,19 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         v9[i64|2] = vec_int_and(v4[i64|2], v8[i64|2])
         """, False)
         self.assert_equal(loop2, loop3)
+
+    def test_split_cast(self):
+        trace = self.parse("""
+        f10 = cast_int_to_float(i1)
+        f11 = cast_int_to_float(i2)
+        f12 = cast_int_to_float(i3)
+        f13 = cast_int_to_float(i4)
+        """)
+        pack = self.pack(trace, 0, 4, I64, F32)
+        packs = []
+        pack.split(packs, 16)
+        packs.append(pack)
+        assert len(packs) == 2
+
+
+

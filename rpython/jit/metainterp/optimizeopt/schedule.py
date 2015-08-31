@@ -240,6 +240,11 @@ class PackType(object):
     def getcount(self):
         return self.count
 
+    def pack_byte_size(self, pack):
+        if len(pack.operations) == 0:
+            return 0
+        return self.getsize() * pack.opcount()
+
 
 PT_GENERIC = PackType(PackType.UNKNOWN_TYPE, -1, False)
 PT_FLOAT_2 = PackType(FLOAT, 4, False, 2)
@@ -873,11 +878,43 @@ class VecScheduleData(SchedulerData):
         assert not isinstance(box, BoxVector)
         self.box_to_vbox[box] = (off, vector)
 
+def opcount_filling_vector_register(pack, vec_reg_size):
+    """ how many operations of that kind can one execute
+        with a machine instruction of register size X?
+    """
+    pack_type = pack.input_type
+    if pack_type is None:
+        pack_type = pack.output_type # load operations
+
+    op = pack.leftmost()
+    if op.casts_box():
+        count = pack_type.getcount()
+        return count
+
+    count = vec_reg_size // pack_type.getsize()
+    return count
+
+def maximum_byte_size(pack, vec_reg_size):
+    """ The maxmum size in bytes the operation is able to
+        process with the hardware register and the operation
+        semantics.
+    """
+    op = pack.leftmost()
+    if op.casts_box():
+        # casting is special, often only takes a half full vector
+        pack_type = pack.input_type
+        if pack_type is None:
+            pack_type = self.output_type # load operations
+        return pack_type.byte_size()
+    return vec_reg_size
+
 class Pack(object):
     """ A pack is a set of n statements that are:
         * isomorphic
         * independent
     """
+    FULL = 0
+
     def __init__(self, ops, input_type, output_type):
         self.operations = ops
         self.accum = None
@@ -899,30 +936,43 @@ class Pack(object):
             ptype = self.output_type
         return ptype
 
-    def pack_byte_size(self):
-        return self.pack_type().getsize() * self.opcount()
+    def input_byte_size(self):
+        """ The amount of bytes the operations need with the current
+            entries in self.operations. E.g. cast_singlefloat_to_float
+            takes only #2 operations.
+        """
+        return self._byte_size(self.input_type)
+
+    def output_byte_size(self):
+        """ The amount of bytes the operations need with the current
+            entries in self.operations. E.g. vec_load(..., descr=short) 
+            with 10 operations returns 20
+        """
+        return self._byte_size(self.output_type)
+
+    def pack_load(self, vec_reg_size):
+        """ Returns the load of the pack. A value
+            smaller than 0 indicates that it is empty
+            or nearly empty, zero indicates that all slots
+            are used and > 0 indicates that too many operations
+            are in this pack instance.
+        """
+        if len(self.operations) == 0:
+            return -1
+        size = maximum_byte_size(self, vec_reg_size)
+        if self.input_type is None:
+            # e.g. load operations
+            return self.output_type.pack_byte_size(self) - size
+        # default only consider the input type
+        # e.g. store operations, int_add, ...
+        return self.input_type.pack_byte_size(self) - size
+
 
     def is_full(self, vec_reg_size):
         """ If one input element times the opcount is equal
             to the vector register size, we are full!
         """
-        ptype = self.pack_type()
-        op = self.leftmost()
-        if op.casts_box():
-            cur_bytes = ptype.getsize() * self.opcount()
-            max_bytes = self.input_type.byte_size()
-            assert cur_bytes <= max_bytes
-            return cur_bytes == max_bytes
-
-        bytes = self.pack_byte_size()
-        assert bytes <= vec_reg_size
-        if bytes == vec_reg_size:
-            return True
-        if ptype.getcount() != -1:
-            size = ptype.getcount() * ptype.getsize()
-            assert bytes <= size
-            return bytes == size
-        return False
+        return self.pack_load(vec_reg_size) == Pack.FULL
 
     def opnum(self):
         assert len(self.operations) > 0
@@ -930,9 +980,8 @@ class Pack(object):
 
     def clear(self):
         for node in self.operations:
-            if node.pack is not self:
-                node.pack = None
-                node.pack_position = -1
+            node.pack = None
+            node.pack_position = -1
 
     def update_pack_of_nodes(self):
         for i,node in enumerate(self.operations):
@@ -945,19 +994,28 @@ class Pack(object):
             vector register.
         """
         pack = self
-        pack_type = self.pack_type()
-        max_count = vec_reg_size // pack_type.getsize()
-        assert max_count * pack_type.getsize() == vec_reg_size
-        while pack.pack_byte_size() > vec_reg_size:
-            assert max_count > 0
-            newpack = pack.clone()
-            oplist = pack.operations[:max_count]
-            newpack.operations = pack.operations[max_count:]
+        while pack.pack_load(vec_reg_size) > Pack.FULL:
+            pack.clear()
+            oplist, newoplist = pack.slice_operations(vec_reg_size)
             pack.operations = oplist
             pack.update_pack_of_nodes()
-            newpack.update_pack_of_nodes()
-            pack = newpack
-            packlist.append(newpack)
+            assert pack.is_full(vec_reg_size)
+            #
+            newpack = pack.clone(newoplist)
+            load = newpack.pack_load(vec_reg_size)
+            if load >= Pack.FULL:
+                pack = newpack
+                packlist.append(newpack)
+            else:
+                newpack.clear()
+
+    def slice_operations(self, vec_reg_size):
+        count = opcount_filling_vector_register(self, vec_reg_size)
+        newoplist = self.operations[count:]
+        oplist = self.operations[:count]
+        assert len(newoplist) + len(oplist) == len(self.operations)
+        assert len(newoplist) != 0
+        return oplist, newoplist
 
     def rightmost_match_leftmost(self, other):
         """ Check if pack A can be combined with pack B """
@@ -974,14 +1032,16 @@ class Pack(object):
         return rightmost is leftmost and accum
 
     def __repr__(self):
+        if len(self.operations) == 0:
+            return "Pack(-, [])"
         opname = self.operations[0].getoperation().getopname()
         return "Pack(%s,%r)" % (opname, self.operations)
 
     def is_accumulating(self):
         return self.accum is not None
 
-    def clone(self):
-        cloned = Pack(self.operations, self.input_type, self.output_type)
+    def clone(self, oplist):
+        cloned = Pack(oplist, self.input_type, self.output_type)
         cloned.accum = self.accum
         return cloned
 
