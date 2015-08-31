@@ -252,6 +252,7 @@ class UnrollOptimizer(Optimization):
             self.short_preamble_producer.target_token is target_token):
             # this means we're inlining the short preamble that's being
             # built. Make sure we modify the correct things in-place
+            # THIS WILL MODIFY ALL THE LISTS PROVIDED, POTENTIALLY
             self.short_preamble_producer.setup(short_inputargs, short_jump_args,
                                                short, label_op.getarglist())
         try:
