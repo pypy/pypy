@@ -293,7 +293,7 @@ class OpParser(object):
 
         return opnum, args, descr, fail_args
 
-    def create_op(self, opnum, args, descr, fail_args):
+    def create_op(self, opnum, args, res, descr, fail_args):
         if opnum in ALL_ESCAPE_OPS:
             op = ALL_ESCAPE_OPS[opnum]()
             op.initarglist(args)
@@ -319,13 +319,13 @@ class OpParser(object):
         opnum, args, descr, fail_args = self.parse_op(op)
         if res in self.vars:
             raise ParseError("Double assign to var %s in line: %s" % (res, line))
-        resop = self.create_op(opnum, args, descr, fail_args)
+        resop = self.create_op(opnum, args, res, descr, fail_args)
         self.vars[res] = resop
         return resop
 
     def parse_op_no_result(self, line):
         opnum, args, descr, fail_args = self.parse_op(line)
-        res = self.create_op(opnum, args, descr, fail_args)
+        res = self.create_op_no_result(opnum, args, descr, fail_args)
         return res
 
     def parse_next_op(self, line):
