@@ -798,12 +798,14 @@ def _iterkeys_with_hash_untranslated(d):
     for k in d:
         yield (k, _expected_hash(d, k))
 
+@specialize.call_location()
 def iterkeys_with_hash(d):
     """Iterates (key, hash) pairs without recomputing the hash."""
     if not we_are_translated():
         return _iterkeys_with_hash_untranslated(d)
     return d.iterkeys_with_hash()
 
+@specialize.call_location()
 def contains_with_hash(d, key, h):
     """Same as 'key in d'.  The extra argument is the hash.  Use this only
     if you got the hash just now from some other ..._with_hash() function."""
@@ -812,6 +814,7 @@ def contains_with_hash(d, key, h):
         return key in d
     return d.contains_with_hash(key, h)
 
+@specialize.call_location()
 def setitem_with_hash(d, key, h, value):
     """Same as 'd[key] = value'.  The extra argument is the hash.  Use this only
     if you got the hash just now from some other ..._with_hash() function."""
@@ -821,6 +824,7 @@ def setitem_with_hash(d, key, h, value):
         return
     d.setitem_with_hash(key, h, value)
 
+@specialize.call_location()
 def getitem_with_hash(d, key, h):
     """Same as 'd[key]'.  The extra argument is the hash.  Use this only
     if you got the hash just now from some other ..._with_hash() function."""
