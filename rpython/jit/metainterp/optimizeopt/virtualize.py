@@ -160,10 +160,11 @@ class OptVirtualize(optimizer.Optimization):
                 return False
             tokeninfo = self.getptrinfo(tokenop)
             if (tokeninfo is not None and tokeninfo.is_constant() and
-                    not tokeninfo.is_null()):
-                forcedvalue = vref.getfield(vrefinfo.descr_forced, None)
-                if forcedvalue is not None and not forcedvalue.is_null():
-                    self.make_equal_to(op, forcedvalue)
+                    not tokeninfo.is_nonnull()):
+                forcedop = vref.getfield(vrefinfo.descr_forced, None)
+                forcedinfo = self.getptrinfo(forcedop)
+                if forcedinfo is not None and not forcedinfo.is_null():
+                    self.make_equal_to(op, forcedop)
                     self.last_emitted_operation = REMOVED
                     return True
         return False
