@@ -8,6 +8,8 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 from rpython.rlib.objectmodel import r_dict
+from rpython.rlib.objectmodel import iterkeys_with_hash, contains_with_hash
+from rpython.rlib.objectmodel import setitem_with_hash
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib import rerased, jit
 
@@ -961,15 +963,12 @@ class AbstractUnwrappedSetStrategy(object):
         return self.erase(result_dict)
 
     def _difference_unwrapped(self, w_set, w_other):
-        iterator = self.unerase(w_set.sstorage).iterkeys()
+        self_dict = self.unerase(w_set.sstorage)
         other_dict = self.unerase(w_other.sstorage)
         result_dict = self.get_empty_dict()
-        for key in iterator:
-            # xxx performance issue when compared to CPython: the next
-            # two lines will recompute twice the hash of 'key', whereas
-            # CPython reuses the hash from 'iterator' in both cases.
-            if key not in other_dict:
-                result_dict[key] = None
+        for key, keyhash in iterkeys_with_hash(self_dict):
+            if not contains_with_hash(other_dict, key, keyhash):
+                setitem_with_hash(result_dict, key, keyhash, None)
         return self.erase(result_dict)
 
     def _difference_base(self, w_set, w_other):
