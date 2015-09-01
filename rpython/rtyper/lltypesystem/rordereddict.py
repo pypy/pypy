@@ -379,6 +379,16 @@ class OrderedDictRepr(AbstractDictRepr):
         hop.gendirectcall(ll_dict_setitem_with_hash,
                           v_dict, v_key, v_hash, v_value)
 
+    def rtype_method_getitem_with_hash(self, hop):
+        v_dict, v_key, v_hash = hop.inputargs(
+            self, self.key_repr, lltype.Signed)
+        if not self.custom_eq_hash:
+            hop.has_implicit_exception(KeyError)  # record that we know about it
+        hop.exception_is_here()
+        v_res = hop.gendirectcall(ll_dict_getitem_with_hash,
+                                  v_dict, v_key, v_hash)
+        return self.recast_value(hop.llops, v_res)
+
 class __extend__(pairtype(OrderedDictRepr, rmodel.Repr)):
 
     def rtype_getitem((r_dict, r_key), hop):
@@ -563,6 +573,13 @@ def ll_dict_bool(d):
 
 def ll_dict_getitem(d, key):
     index = d.lookup_function(d, key, d.keyhash(key), FLAG_LOOKUP)
+    if index >= 0:
+        return d.entries[index].value
+    else:
+        raise KeyError
+
+def ll_dict_getitem_with_hash(d, key, hash):
+    index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
     if index >= 0:
         return d.entries[index].value
     else:

@@ -788,23 +788,23 @@ def reversed_dict(d):
         d = d.keys()
     return reversed(d)
 
+def _expected_hash(d, key):
+    if isinstance(d, r_dict):
+        xxx
+    else:
+        return compute_hash(key)
+
 def iterkeys_with_hash(d):
     """Iterates (key, hash) pairs without recomputing the hash."""
     if not we_are_translated():
-        if isinstance(d, r_dict):
-            xxx
-        else:
-            return ((k, compute_hash(k)) for k in d)
+        return ((k, _expected_hash(d, k)) for k in d)
     return d.iterkeys_with_hash()
 
 def contains_with_hash(d, key, h):
     """Same as 'key in d'.  The extra argument is the hash.  Use this only
     if you got the hash just now from some other ..._with_hash() function."""
     if not we_are_translated():
-        if isinstance(d, r_dict):
-            xxx
-        else:
-            assert compute_hash(key) == h
+        assert _expected_hash(d, key) == h
         return key in d
     return d.contains_with_hash(key, h)
 
@@ -812,13 +812,18 @@ def setitem_with_hash(d, key, h, value):
     """Same as 'd[key] = value'.  The extra argument is the hash.  Use this only
     if you got the hash just now from some other ..._with_hash() function."""
     if not we_are_translated():
-        if isinstance(d, r_dict):
-            xxx
-        else:
-            assert compute_hash(key) == h
+        assert _expected_hash(d, key) == h
         d[key] = value
         return
     d.setitem_with_hash(key, h, value)
+
+def getitem_with_hash(d, key, h):
+    """Same as 'd[key]'.  The extra argument is the hash.  Use this only
+    if you got the hash just now from some other ..._with_hash() function."""
+    if not we_are_translated():
+        assert _expected_hash(d, key) == h
+        return d[key]
+    return d.getitem_with_hash(key, h)
 
 # ____________________________________________________________
 

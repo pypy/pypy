@@ -627,6 +627,15 @@ def test_setitem_with_hash():
     res = interpret(f, [27])
     assert res == 42
 
+def test_getitem_with_hash():
+    def f(i):
+        d = {i+.5: 42, i+.6: -612}
+        return getitem_with_hash(d, i+.5, compute_hash(i+.5))
+
+    assert f(29) == 42
+    res = interpret(f, [27])
+    assert res == 42
+
 def test_import_from_mixin():
     class M:    # old-style
         def f(self): pass

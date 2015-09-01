@@ -475,6 +475,10 @@ class __extend__(SomeDict):
         pair(self, s_key).setitem(s_value)
     method_setitem_with_hash.can_only_throw = _dict_can_only_throw_nothing
 
+    def method_getitem_with_hash(self, s_key, s_hash):
+        return pair(self, s_key).getitem()
+    method_getitem_with_hash.can_only_throw = _dict_can_only_throw_keyerror
+
 @op.contains.register(SomeString)
 @op.contains.register(SomeUnicodeString)
 def contains_String(annotator, string, char):
