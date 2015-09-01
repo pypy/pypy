@@ -606,6 +606,20 @@ def test_iterkeys_with_hash():
     r = interpret(f, [29])
     assert r == 0.0
 
+def test_iteritems_with_hash():
+    def f(i):
+        d = {i+.0: 5, i+.5: 6}
+        total = 0
+        for k, v, h in iteritems_with_hash(d):
+            total += k * h * v
+        total -= (i + 0.0) * compute_hash(i + 0.0) * 5
+        total -= (i + 0.5) * compute_hash(i + 0.5) * 6
+        return total
+
+    assert f(29) == 0.0
+    r = interpret(f, [29])
+    assert r == 0.0
+
 def test_contains_with_hash():
     def f(i):
         d = {i+.5: 5}

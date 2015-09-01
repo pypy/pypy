@@ -403,18 +403,22 @@ class __extend__(SomeDict):
             return self.dictdef.read_key()
         elif variant == 'values':
             return self.dictdef.read_value()
-        elif variant == 'items':
+        elif variant == 'items' or variant == 'items_with_hash':
             s_key   = self.dictdef.read_key()
             s_value = self.dictdef.read_value()
             if (isinstance(s_key, SomeImpossibleValue) or
                 isinstance(s_value, SomeImpossibleValue)):
                 return s_ImpossibleValue
-            else:
+            elif variant == 'items':
                 return SomeTuple((s_key, s_value))
-        if variant == 'keys_with_hash':
-            return SomeTuple((self.dictdef.read_key(), s_Int))
-        else:
-            raise ValueError
+            elif variant == 'items_with_hash':
+                return SomeTuple((s_key, s_value, s_Int))
+        elif variant == 'keys_with_hash':
+            s_key = self.dictdef.read_key()
+            if isinstance(s_key, SomeImpossibleValue):
+                return s_ImpossibleValue
+            return SomeTuple((s_key, s_Int))
+        raise ValueError(variant)
 
     def method_get(self, key, dfl):
         self.dictdef.generalize_key(key)
@@ -454,6 +458,9 @@ class __extend__(SomeDict):
 
     def method_iterkeys_with_hash(self):
         return SomeIterator(self, 'keys_with_hash')
+
+    def method_iteritems_with_hash(self):
+        return SomeIterator(self, 'items_with_hash')
 
     def method_clear(self):
         pass

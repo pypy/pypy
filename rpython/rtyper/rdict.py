@@ -80,7 +80,7 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
         hop.exception_is_here()
         v_index = hop.gendirectcall(self._ll_dictnext, v_iter)
         if ((variant == 'items' and hop.r_result.lowleveltype != lltype.Void) or
-             variant == 'keys_with_hash'):
+             variant == 'keys_with_hash' or variant == 'items_with_hash'):
             # this allocates the tuple for the result, directly in the function
             # where it will be used (likely).  This will let it be removed.
             c1 = hop.inputconst(lltype.Void, hop.r_result.lowleveltype.TO)
@@ -99,22 +99,32 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
             c_key = hop.inputconst(lltype.Void, 'key')
             v_key = hop.genop('getinteriorfield', [v_entries, v_index, c_key],
                               resulttype=KEY)
-        if variant == 'values' or variant == 'items':
+        if (variant == 'values' or variant == 'items'
+                                or variant == 'items_with_hash'):
             VALUE = ENTRIES.TO.OF.value
             c_value = hop.inputconst(lltype.Void, 'value')
             v_value = hop.genop('getinteriorfield', [v_entries,v_index,c_value],
                                 resulttype=VALUE)
-        elif variant == 'keys_with_hash':
-            v_value = hop.gendirectcall(ENTRIES.TO.hash, v_entries, v_index)
+        if variant == 'keys_with_hash' or variant == 'items_with_hash':
+            v_hash = hop.gendirectcall(ENTRIES.TO.hash, v_entries, v_index)
         #
         if variant == 'keys' or variant == 'reversed':
             return self.r_dict.recast_key(hop.llops, v_key)
         elif variant == 'values':
             return self.r_dict.recast_value(hop.llops, v_value)
+        elif variant == 'keys_with_hash':
+            ITEM0 = v_result.concretetype.TO.item0
+            if ITEM0 != v_key.concretetype:
+                v_key = hop.genop('cast_pointer', [v_key], resulttype=ITEM0)
+            c_item0 = hop.inputconst(lltype.Void, 'item0')
+            c_item1 = hop.inputconst(lltype.Void, 'item1')
+            hop.genop('setfield', [v_result, c_item0, v_key])
+            hop.genop('setfield', [v_result, c_item1, v_hash])
+            return v_result
         elif hop.r_result.lowleveltype == lltype.Void:
             return hop.inputconst(lltype.Void, None)
         else:
-            assert variant == 'items' or variant == 'keys_with_hash'
+            assert variant == 'items' or variant == 'items_with_hash'
             ITEM0 = v_result.concretetype.TO.item0
             ITEM1 = v_result.concretetype.TO.item1
             if ITEM0 != v_key.concretetype:
@@ -125,4 +135,7 @@ class AbstractDictIteratorRepr(rmodel.IteratorRepr):
             c_item1 = hop.inputconst(lltype.Void, 'item1')
             hop.genop('setfield', [v_result, c_item0, v_key])
             hop.genop('setfield', [v_result, c_item1, v_value])
+            if variant == 'items_with_hash':
+                c_item2 = hop.inputconst(lltype.Void, 'item2')
+                hop.genop('setfield', [v_result, c_item2, v_hash])
             return v_result

@@ -339,6 +339,10 @@ class OrderedDictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()
         return DictIteratorRepr(self, "keys_with_hash").newiter(hop)
 
+    def rtype_method_iteritems_with_hash(self, hop):
+        hop.exception_cannot_occur()
+        return DictIteratorRepr(self, "items_with_hash").newiter(hop)
+
     def rtype_method_clear(self, hop):
         v_dict, = hop.inputargs(self)
         hop.exception_cannot_occur()

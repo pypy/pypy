@@ -805,6 +805,17 @@ def iterkeys_with_hash(d):
         return _iterkeys_with_hash_untranslated(d)
     return d.iterkeys_with_hash()
 
+def _iteritems_with_hash_untranslated(d):
+    for k, v in d.iteritems():
+        yield (k, v, _expected_hash(d, k))
+
+@specialize.call_location()
+def iteritems_with_hash(d):
+    """Iterates (key, value, keyhash) triples without recomputing the hash."""
+    if not we_are_translated():
+        return _iteritems_with_hash_untranslated(d)
+    return d.iteritems_with_hash()
+
 @specialize.call_location()
 def contains_with_hash(d, key, h):
     """Same as 'key in d'.  The extra argument is the hash.  Use this only
