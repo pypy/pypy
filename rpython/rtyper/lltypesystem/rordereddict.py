@@ -335,6 +335,10 @@ class OrderedDictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()
         return DictIteratorRepr(self, "items").newiter(hop)
 
+    def rtype_method_iterkeys_with_hash(self, hop):
+        hop.exception_cannot_occur()
+        return DictIteratorRepr(self, "keys_with_hash").newiter(hop)
+
     def rtype_method_clear(self, hop):
         v_dict, = hop.inputargs(self)
         hop.exception_cannot_occur()
@@ -357,6 +361,13 @@ class OrderedDictRepr(AbstractDictRepr):
         hop.exception_is_here()
         v_res = hop.gendirectcall(target, *v_args)
         return self.recast_value(hop.llops, v_res)
+
+    def rtype_method_contains_with_hash(self, hop):
+        v_dict, v_key, v_hash = hop.inputargs(self, self.key_repr,
+                                              lltype.Signed)
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_dict_contains_with_hash,
+                                 v_dict, v_key, v_hash)
 
 class __extend__(pairtype(OrderedDictRepr, rmodel.Repr)):
 
@@ -1215,6 +1226,10 @@ ll_dict_items  = _make_ll_keys_values_items('items')
 
 def ll_dict_contains(d, key):
     i = d.lookup_function(d, key, d.keyhash(key), FLAG_LOOKUP)
+    return i >= 0
+
+def ll_dict_contains_with_hash(d, key, hash):
+    i = d.lookup_function(d, key, hash, FLAG_LOOKUP)
     return i >= 0
 
 def _ll_getnextitem(dic):

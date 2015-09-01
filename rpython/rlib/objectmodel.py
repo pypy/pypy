@@ -790,53 +790,23 @@ def reversed_dict(d):
 
 def iterkeys_with_hash(d):
     """Iterates (key, hash) pairs without recomputing the hash."""
-    assert not we_are_translated()    # this code is only before translation
-    for k in d:
-        yield k, hash(k)
+    if not we_are_translated():
+        if isinstance(d, r_dict):
+            xxx
+        else:
+            return ((k, compute_hash(k)) for k in d)
+    return d.iterkeys_with_hash()
 
 def contains_with_hash(d, key, h):
     """Same as 'key in d'.  The extra argument is the hash.  Use this only
     if you got the hash just now from some other ..._with_hash() function."""
-    assert not we_are_translated()    # this code is only before translation
-    assert hash(key) == h
-    return key in d
-
-class Entry(ExtRegistryEntry):
-    _about_ = iterkeys_with_hash
-
-    def compute_result_annotation(self, s_d):
-        from rpython.annotator.model import SomeDict, SomeIterator, s_None
-        if isinstance(s_d, SomeDict):
-            return SomeIterator(s_d, 'keys_with_hash')
-        if s_None.contains(s_d):
-            return None
-        raise Exception("iterkeys_with_hash(x): x not a dict")
-
-    def specialize_call(self, hop):
-        from rpython.rtyper.lltypesystem.rdict import DictIteratorRepr
-        hop.exception_cannot_occur()
-        return DictIteratorRepr(hop.args_r[0], "keys_with_hash").newiter(hop)
-
-class Entry(ExtRegistryEntry):
-    _about_ = contains_with_hash
-
-    def compute_result_annotation(self, s_d, s_key, s_hash):
-        from rpython.annotator.model import s_Bool, SomeDict, s_None
-        from rpython.annotator.unaryop import dict_contains
-        if isinstance(s_d, SomeDict):
-            return dict_contains(s_d, s_key)
-        if s_None.contains(s_d):
-            return None
-        raise Exception("contains_with_hash(x, ...): x not a dict")
-
-    def specialize_call(self, hop):
-        from rpython.rtyper.lltypesystem import lltype
-        from rpython.rtyper.lltypesystem.rdict import ll_contains_with_hash
-        r_dict = hop.args_r[0]
-        v_dict, v_key, v_hash = hop.inputargs(r_dict, r_dict.key_repr,
-                                              lltype.Signed)
-        hop.exception_cannot_occur()
-        return hop.gendirectcall(ll_contains_with_hash, v_dict, v_key, v_hash)
+    if not we_are_translated():
+        if isinstance(d, r_dict):
+            xxx
+        else:
+            assert compute_hash(key) == h
+        return key in d
+    return d.contains_with_hash(key, h)
 
 # ____________________________________________________________
 

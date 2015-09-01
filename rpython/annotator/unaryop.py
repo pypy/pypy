@@ -369,7 +369,6 @@ def _can_only_throw(s_dct, *ignore):
         return None    # r_dict: can throw anything
     return []          # else: no possible exception
 
-# also used for objectmodel.contains_with_hash()
 def dict_contains(s_dct, s_element):
     s_dct.dictdef.generalize_key(s_element)
     if s_dct._is_empty():
@@ -455,6 +454,9 @@ class __extend__(SomeDict):
     def method_iteritems(self):
         return SomeIterator(self, 'items')
 
+    def method_iterkeys_with_hash(self):
+        return SomeIterator(self, 'keys_with_hash')
+
     def method_clear(self):
         pass
 
@@ -466,6 +468,9 @@ class __extend__(SomeDict):
         if s_dfl is not None:
             self.dictdef.generalize_value(s_dfl)
         return self.dictdef.read_value()
+
+    def method_contains_with_hash(self, s_key, s_hash):
+        return dict_contains(self, s_key)
 
 @op.contains.register(SomeString)
 @op.contains.register(SomeUnicodeString)
