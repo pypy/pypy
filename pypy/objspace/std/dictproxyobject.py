@@ -1,4 +1,5 @@
 from rpython.rlib import rerased
+from rpython.rlib.objectmodel import iteritems_with_hash
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.dictmultiobject import (
@@ -103,8 +104,8 @@ class DictProxyStrategy(DictStrategy):
         return self.unerase(w_dict.dstorage).dict_w.iterkeys()
     def getitervalues(self, w_dict):
         return self.unerase(w_dict.dstorage).dict_w.itervalues()
-    def getiteritems(self, w_dict):
-        return self.unerase(w_dict.dstorage).dict_w.iteritems()
+    def getiteritems_with_hash(self, w_dict):
+        return iteritems_with_hash(self.unerase(w_dict.dstorage).dict_w)
     def wrapkey(space, key):
         return space.wrap(key)
     def wrapvalue(space, value):

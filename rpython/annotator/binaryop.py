@@ -520,26 +520,32 @@ class __extend__(pairtype(SomeDict, SomeDict)):
         return dic1.__class__(dic1.dictdef.union(dic2.dictdef))
 
 
-class __extend__(pairtype(SomeDict, SomeObject)):
+def _dict_can_only_throw_keyerror(s_dct, *ignore):
+    if s_dct.dictdef.dictkey.custom_eq_hash:
+        return None    # r_dict: can throw anything
+    return [KeyError]
 
-    def _can_only_throw(dic1, *ignore):
-        if dic1.dictdef.dictkey.custom_eq_hash:
-            return None
-        return [KeyError]
+def _dict_can_only_throw_nothing(s_dct, *ignore):
+    if s_dct.dictdef.dictkey.custom_eq_hash:
+        return None    # r_dict: can throw anything
+    return []          # else: no possible exception
+
+
+class __extend__(pairtype(SomeDict, SomeObject)):
 
     def getitem((dic1, obj2)):
         dic1.dictdef.generalize_key(obj2)
         return dic1.dictdef.read_value()
-    getitem.can_only_throw = _can_only_throw
+    getitem.can_only_throw = _dict_can_only_throw_keyerror
 
     def setitem((dic1, obj2), s_value):
         dic1.dictdef.generalize_key(obj2)
         dic1.dictdef.generalize_value(s_value)
-    setitem.can_only_throw = _can_only_throw
+    setitem.can_only_throw = _dict_can_only_throw_nothing
 
     def delitem((dic1, obj2)):
         dic1.dictdef.generalize_key(obj2)
-    delitem.can_only_throw = _can_only_throw
+    delitem.can_only_throw = _dict_can_only_throw_keyerror
 
 
 class __extend__(pairtype(SomeTuple, SomeInteger)):
