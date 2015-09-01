@@ -794,10 +794,14 @@ def _expected_hash(d, key):
     else:
         return compute_hash(key)
 
+def _iterkeys_with_hash_untranslated(d):
+    for k in d:
+        yield (k, _expected_hash(d, k))
+
 def iterkeys_with_hash(d):
     """Iterates (key, hash) pairs without recomputing the hash."""
     if not we_are_translated():
-        return ((k, _expected_hash(d, k)) for k in d)
+        return _iterkeys_with_hash_untranslated(d)
     return d.iterkeys_with_hash()
 
 def contains_with_hash(d, key, h):
