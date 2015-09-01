@@ -326,6 +326,12 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
                 stm_allocate_preexisting(sizeof(stm_hashtable_entry_t),
                                          (char *)&initial.header);
             hashtable->additions++;
+            /* make sure .object is NULL in all segments before
+               "publishing" the entry in the hashtable.  In other words,
+               the following write_fence() prevents a partially
+               initialized 'entry' from showing up in table->items[i],
+               where it could be read from other threads. */
+            write_fence();
         }
         table->items[i] = entry;
         write_fence();     /* make sure 'table->items' is written here */
