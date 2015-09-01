@@ -80,6 +80,11 @@ class AbstractResOp(AbstractValue):
     def getopnum(self):
         return self.opnum
 
+    #def same_box(self, other):
+    #    if self.is_same_as():
+    #        return self is other or self.getarg(0).same_box(other)
+    #    return self is other
+
     def get_forwarded(self):
         return self._forwarded
 

@@ -100,6 +100,9 @@ class CachedField(object):
             # need any _lazy_setfield: the heap value is already right.
             # Note that this may reset to None a non-None lazy_setfield,
             # cancelling its previous effects with no side effect.
+            
+            # Now, we have to force the item in the short preamble
+            self._getfield(structinfo, op.getdescr(), optheap)
             self._lazy_setfield = None
 
     def getfield_from_cache(self, optheap, opinfo, descr):

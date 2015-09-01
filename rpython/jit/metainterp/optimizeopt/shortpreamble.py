@@ -99,7 +99,11 @@ class PureOp(AbstractShortOp):
         optpure = opt.optimizer.optpure
         if optpure is None:
             return
-        op = self.res
+        if invented_name:
+            op = self.orig_op.copy_and_change(self.orig_op.getopnum())
+            op.set_forwarded(self.res)
+        else:
+            op = self.res
         if preamble_op.is_call():
             optpure.extra_call_pure.append(PreambleOp(op, preamble_op,
                                                       invented_name))
@@ -199,8 +203,7 @@ class ShortInputArg(AbstractShortOp):
         return ProducedShortOp(self, self.preamble_op)
 
     def produce_op(self, opt, preamble_op, exported_infos, invented_name):
-        pass
-        #assert not invented_name
+        assert not invented_name
 
     def __repr__(self):
         return "INP(%r -> %r)" % (self.res, self.preamble_op)
@@ -233,8 +236,7 @@ class ShortBoxes(object):
             self.add_op_to_short(shortop)
         #
         for op, produced_op in self.produced_short_boxes.iteritems():
-            if not isinstance(produced_op, ShortInputArg):
-                short_boxes.append(produced_op)
+            short_boxes.append(produced_op)
 
         for short_op in self.const_short_boxes:
             getfield_op = short_op.getfield_op
@@ -262,13 +264,13 @@ class ShortBoxes(object):
         else:
             return None
 
-    def _pick_op_index(self, lst, pick_inparg=True):
+    def _pick_op_index(self, lst, pick_other=True):
         index = -1
         for i, item in enumerate(lst):
             if (not isinstance(item.short_op, HeapOp) and
-                (pick_inparg or not isinstance(item.short_op, ShortInputArg))):
+                (pick_other or isinstance(item.short_op, ShortInputArg))):
                 if index != -1:
-                    assert pick_inparg
+                    assert pick_other
                     return self._pick_op_index(lst, False)
                 index = i
         if index == -1:
@@ -293,7 +295,9 @@ class ShortBoxes(object):
                         opnum = OpHelpers.same_as_for_type(shortop.res.type)
                         new_name = ResOperation(opnum, [shortop.res])
                         assert lst[i].short_op is not pop.short_op
+                        orig_op = lst[i].short_op.res
                         lst[i].short_op.res = new_name
+                        lst[i].short_op.orig_op = orig_op
                         lst[i].invented_name = True
                         self.produced_short_boxes[new_name] = lst[i]
             else:
@@ -389,9 +393,6 @@ class ShortPreambleBuilder(AbstractShortPreambleBuilder):
                     info = empty_info
             preamble_op.set_forwarded(info)
         self.short = []
-        self.label_dict = {}
-        for arg in label_args:
-            self.label_dict[arg] = None
         self.used_boxes = []
         self.short_preamble_jump = []
         self.extra_same_as = []
@@ -401,12 +402,9 @@ class ShortPreambleBuilder(AbstractShortPreambleBuilder):
         """ Notice that we're actually using the preamble_op, add it to
         label and jump
         """
+        op = preamble_op.op.get_box_replacement()
         if preamble_op.invented_name:
-            self.extra_same_as.append(preamble_op.op)
-        op = preamble_op.op
-        if op in self.label_dict:
-            return
-        self.label_dict[op] = None
+            self.extra_same_as.append(op)
         self.used_boxes.append(op)
         self.short_preamble_jump.append(preamble_op.preamble_op)
 
@@ -434,12 +432,12 @@ class ExtendedShortPreambleBuilder(AbstractShortPreambleBuilder):
         self.label_args = label_args
 
     def add_preamble_op(self, preamble_op):
+        """ Notice that we're actually using the preamble_op, add it to
+        label and jump
+        """
+        op = preamble_op.op.get_box_replacement()
         if preamble_op.invented_name:
-            self.extra_same_as.append(preamble_op.op)
-        op = preamble_op.op
-        if op in self.sb.label_dict:
-            return
-        self.sb.label_dict[op] = None
+            self.extra_same_as.append(op)
         self.label_args.append(op)
         self.jump_args.append(preamble_op.preamble_op)
 

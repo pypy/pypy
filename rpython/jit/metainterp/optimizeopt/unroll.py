@@ -21,8 +21,10 @@ class UnrollableOptimizer(Optimizer):
             self.optunroll.short_preamble_producer.use_box(op,
                                                 preamble_op.preamble_op, self)
             if not preamble_op.op.is_constant():
+                if preamble_op.invented_name:
+                    op = self.get_box_replacement(op)
                 self.optunroll.potential_extra_ops[op] = preamble_op
-            return op
+            return preamble_op.op
         return preamble_op
 
     def setinfo_from_preamble_list(self, lst, infos):
