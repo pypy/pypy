@@ -506,8 +506,10 @@ class TreeLoop(object):
     def get_operations(self):
         return self.operations
 
-    def get_display_text(self):    # for graphpage.py
-        return self.name + '\n' + repr(self.inputargs)
+    def get_display_text(self, memo):    # for graphpage.py
+        return '%s\n[%s]' % (
+            self.name,
+            ', '.join([box.repr(memo) for box in self.inputargs]))
 
     def show(self, errmsg=None):
         "NOT_RPYTHON"

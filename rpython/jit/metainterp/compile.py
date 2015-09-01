@@ -789,6 +789,7 @@ class ResumeGuardDescr(ResumeDescr):
         new_loop.original_jitcell_token = metainterp.resumekey_original_loop_token
         inputargs = new_loop.inputargs
         if not we_are_translated():
+            self._debug_subinputargs = new_loop.inputargs
             self._debug_suboperations = new_loop.operations
         propagate_original_jitcell_token(new_loop)
         send_bridge_to_backend(metainterp.jitdriver_sd, metainterp.staticdata,
