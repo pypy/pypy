@@ -430,7 +430,7 @@ the terms of the GPL license version 2 or any later version.  Thus the
 gdbm module, provided in the file lib_pypy/gdbm.py, is redistributed
 under the terms of the GPL license as well.
 
-License for 'pypy/module/_vmprof/src'
+License for 'rpython/rlib/rvmprof/src'
 --------------------------------------
 
 The code is based on gperftools. You may see a copy of the License for it at
