@@ -584,11 +584,7 @@ def ll_dict_bool(d):
     return bool(d) and d.num_live_items != 0
 
 def ll_dict_getitem(d, key):
-    index = d.lookup_function(d, key, d.keyhash(key), FLAG_LOOKUP)
-    if index >= 0:
-        return d.entries[index].value
-    else:
-        raise KeyError
+    return ll_dict_getitem_with_hash(d, key, d.keyhash(key))
 
 def ll_dict_getitem_with_hash(d, key, hash):
     index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
@@ -598,13 +594,11 @@ def ll_dict_getitem_with_hash(d, key, hash):
         raise KeyError
 
 def ll_dict_setitem(d, key, value):
-    hash = d.keyhash(key)
-    index = d.lookup_function(d, key, hash, FLAG_STORE)
-    return _ll_dict_setitem_lookup_done(d, key, value, hash, index)
+    ll_dict_setitem_with_hash(d, key, d.keyhash(key), value)
 
 def ll_dict_setitem_with_hash(d, key, hash, value):
     index = d.lookup_function(d, key, hash, FLAG_STORE)
-    return _ll_dict_setitem_lookup_done(d, key, value, hash, index)
+    _ll_dict_setitem_lookup_done(d, key, value, hash, index)
 
 # It may be safe to look inside always, it has a few branches though, and their
 # frequencies needs to be investigated.
@@ -785,10 +779,7 @@ def ll_dict_remove_deleted_items(d):
 
 
 def ll_dict_delitem(d, key):
-    index = d.lookup_function(d, key, d.keyhash(key), FLAG_DELETE)
-    if index < 0:
-        raise KeyError
-    _ll_dict_del(d, index)
+    ll_dict_delitem_with_hash(d, key, d.keyhash(key))
 
 def ll_dict_delitem_with_hash(d, key, hash):
     index = d.lookup_function(d, key, hash, FLAG_DELETE)
@@ -1274,8 +1265,7 @@ ll_dict_values = _make_ll_keys_values_items('values')
 ll_dict_items  = _make_ll_keys_values_items('items')
 
 def ll_dict_contains(d, key):
-    i = d.lookup_function(d, key, d.keyhash(key), FLAG_LOOKUP)
-    return i >= 0
+    return ll_dict_contains_with_hash(d, key, d.keyhash(key))
 
 def ll_dict_contains_with_hash(d, key, hash):
     i = d.lookup_function(d, key, hash, FLAG_LOOKUP)
