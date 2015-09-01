@@ -2348,16 +2348,22 @@ class LLtypeBackendTest(BaseBackendTest):
                 ('int_xor', 7, 3, 7),    # test without a comparison at all
                 ('int_is_true', 4242, 1, 0),
                 ('int_is_zero', 4242, 0, 1),
+                ('float_lt', -0.5, 0.2, -0.5),
+                ('float_eq', 1.1, 1.1, 1.2),
                 ]:
             called = []
 
             ops = '''
-            [i0, i1, i3, i4]
-            i2 = %s(%si1)
+            [%s, %s, i3, i4]
+            i2 = %s(%s)
             cond_call(i2, ConstClass(func_ptr), i3, i4)
             finish()
-            ''' % (operation,
-                   "i0, " if arg1 != 4242 else "")
+            ''' % ("i0" if operation.startswith('int') else "f0",
+                   "i1" if operation.startswith('int') else "f1",
+                   operation,
+                   ("i1" if operation.startswith('int_is_') else
+                    "i0, i1" if operation.startswith('int') else
+                    "f0, f1"))
             loop = parse(ops, namespace={'func_ptr': func_ptr})
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
