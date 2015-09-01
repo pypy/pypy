@@ -339,6 +339,7 @@ def compile_retrace(metainterp, greenkey, start,
         loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
                                              loop_data)
     except InvalidLoop:
+        raise Exception("think about it")
         xxx
         # Fall back on jumping directly to preamble
         jump_op = ResOperation(rop.JUMP, inputargs[:],
