@@ -8666,5 +8666,24 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, expected_short=expected_short)
 
+    def test_pass_both_short_preamble_and_arg(self):
+        ops = """
+        [i0, i1]
+        i2 = int_add(i0, 1)
+        jump(i0, i2)
+        """
+        expected = """
+        [i0, i1, i2]
+        jump(i0, i2, i2)
+        """
+        preamble = """
+        [i0, i1]
+        i2 = int_add(i0, 1)
+        i3 = same_as(i2)
+        jump(i0, i2, i3)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

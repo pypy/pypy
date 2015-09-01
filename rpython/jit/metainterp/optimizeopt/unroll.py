@@ -315,6 +315,7 @@ class UnrollOptimizer(Optimization):
         # Construct jumpargs from the virtual state
         original_jumpargs = jumpop.getarglist()[:]
         values = [self.getvalue(arg) for arg in jumpop.getarglist()]
+
         try:
             jumpargs = virtual_state.make_inputargs(values, self.optimizer)
         except BadVirtualState:
