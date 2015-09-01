@@ -326,9 +326,9 @@ def compile_retrace(metainterp, greenkey, start,
     loop_jitcell_token = metainterp.get_procedure_token(greenkey)
     assert loop_jitcell_token
 
-    end_label = ResOperation(rop.LABEL, inputargs,
+    end_label = ResOperation(rop.LABEL, inputargs[:],
                              descr=loop_jitcell_token)
-    jump_op = ResOperation(rop.JUMP, jumpargs, descr=loop_jitcell_token)
+    jump_op = ResOperation(rop.JUMP, jumpargs[:], descr=loop_jitcell_token)
     enable_opts = jitdriver_sd.warmstate.enable_opts
     ops = history.operations[start:]
     call_pure_results = metainterp.call_pure_results
@@ -339,23 +339,37 @@ def compile_retrace(metainterp, greenkey, start,
         loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
                                              loop_data)
     except InvalidLoop:
-        # Fall back on jumping to preamble
-        raise Exception("think about it")
-        return None
+        xxx
+        # Fall back on jumping directly to preamble
+        jump_op = ResOperation(rop.JUMP, inputargs[:],
+                               descr=loop_jitcell_token.target_tokens[0])
+        loop_data = SimpleCompileData(end_label, [jump_op], call_pure_results,
+                                      enable_opts)
+        try:
+            loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
+                                                 loop_data)
+        except InvalidLoop:
+            return None
+        loop = partial_trace
+        loop.original_jitcell_token = loop_jitcell_token
+        loop.operations = loop_ops[:]
+        loop.inputargs = loop_info.inputargs[:]
+        loop.check_consistency()
+    else:
 
-    loop = partial_trace
-    loop.original_jitcell_token = loop_jitcell_token
-    loop.operations = (loop.operations + loop_info.extra_same_as +
-                       [loop_info.label_op]
-                       + loop_ops)
+        loop = partial_trace
+        loop.original_jitcell_token = loop_jitcell_token
+        loop.operations = (loop.operations + loop_info.extra_same_as +
+                           [loop_info.label_op]
+                           + loop_ops)
 
-    quasi_immutable_deps = {}
-    if loop_info.quasi_immutable_deps:
-        quasi_immutable_deps.update(loop_info.quasi_immutable_deps)
-    if start_state.quasi_immutable_deps:
-        quasi_immutable_deps.update(start_state.quasi_immutable_deps)
-    if quasi_immutable_deps:
-        loop.quasi_immutable_deps = quasi_immutable_deps
+        quasi_immutable_deps = {}
+        if loop_info.quasi_immutable_deps:
+            quasi_immutable_deps.update(loop_info.quasi_immutable_deps)
+        if start_state.quasi_immutable_deps:
+            quasi_immutable_deps.update(start_state.quasi_immutable_deps)
+        if quasi_immutable_deps:
+            loop.quasi_immutable_deps = quasi_immutable_deps
 
     target_token = loop.operations[-1].getdescr()
     resumekey.compile_and_attach(metainterp, loop, inputargs)
