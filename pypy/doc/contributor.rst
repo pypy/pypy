@@ -32,6 +32,7 @@ appropriate measure but it's something)::
   Lukas Diekmann
   Sven Hager
   Anders Lehmann
+  Richard Plangger
   Aurelien Campeas
   Remi Meier
   Niklaus Haldimann
@@ -57,7 +58,6 @@ appropriate measure but it's something)::
   Ludovic Aubry
   Jacob Hallen
   Jason Creighton
-  Richard Plangger
   Alex Martelli
   Michal Bendowski
   stian
@@ -138,7 +138,6 @@ appropriate measure but it's something)::
   Michael Twomey
   Lucian Branescu Mihaila
   Yichao Yu
-  Anton Gulenko
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
@@ -185,6 +184,7 @@ appropriate measure but it's something)::
   Carl Meyer
   Karl Ramm
   Pieter Zieschang
+  Anton Gulenko
   Gabriel
   Lukas Vacek
   Andrew Dalke
@@ -217,6 +217,7 @@ appropriate measure but it's something)::
   Toni Mattis
   Lucas Stadler
   Julian Berman
+  Markus Holtermann
   roberto@goyle
   Yury V. Zaytsev
   Anna Katrina Dominguez
@@ -252,6 +253,7 @@ appropriate measure but it's something)::
   shoma hosaka
   Daniel Neuhäuser
   Ben Mather
+  Niclas Olofsson
   halgari
   Boglarka Vezer
   Chris Pressey
