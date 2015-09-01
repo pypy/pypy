@@ -301,7 +301,7 @@ def summarize_log_entries(logentries, stmlog):
     stmlog.threads = threads
     stmlog.conflicts = conflicts
 
-def dump_summary(stmlog):
+def dump_summary(stmlog, maxcount=15):
     start_time = stmlog.start_time
     total_time = stmlog.total_time
     print
@@ -330,7 +330,7 @@ def dump_summary(stmlog):
     print
     #
     values = stmlog.get_conflicts()
-    for c in values[:15]:
+    for c in values[:maxcount]:
         intervals = 60
         timeline = [0] * intervals
         for t in c.timestamps:
@@ -375,13 +375,17 @@ class StmLog(object):
             total += c.num_events
         return total
 
-    def dump(self):
-        dump_summary(self)
+    def dump(self, maxcount=15):
+        dump_summary(self, maxcount)
 
 
 def main(argv):
-    assert len(argv) == 1, "expected a filename argument"
-    StmLog(argv[0]).dump()
+    assert len(argv) >= 1, "expected a filename argument"
+    if len(argv) > 1:
+        maxcount = int(argv[1])
+    else:
+        maxcount = 5
+    StmLog(argv[0]).dump(maxcount)
     return 0
 
 if __name__ == '__main__':
