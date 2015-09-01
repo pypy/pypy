@@ -968,12 +968,6 @@ class IndexVar(AbstractValue):
                self.coefficient_div == 1 and \
                self.constant == 0
 
-    def less(self, other):
-        # TODO
-        if self.same_variable(other):
-            return self.constant_diff(other) < 0
-        return False
-
     def clone(self):
         c = IndexVar(self.var)
         c.coefficient_mul = self.coefficient_mul

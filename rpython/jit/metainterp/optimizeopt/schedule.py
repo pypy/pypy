@@ -878,7 +878,6 @@ def opcount_filling_vector_register(pack, vec_reg_size):
     if op.casts_box():
         count = pack_type.getcount()
         return count
-
     count = vec_reg_size // pack_type.getsize()
     return count
 
@@ -892,7 +891,7 @@ def maximum_byte_size(pack, vec_reg_size):
         # casting is special, often only takes a half full vector
         pack_type = pack.input_type
         if pack_type is None:
-            pack_type = self.output_type # load operations
+            pack_type = pack.output_type # load operations
         return pack_type.byte_size()
     return vec_reg_size
 
@@ -1001,6 +1000,7 @@ class Pack(object):
 
     def slice_operations(self, vec_reg_size):
         count = opcount_filling_vector_register(self, vec_reg_size)
+        assert count > 0
         newoplist = self.operations[count:]
         oplist = self.operations[:count]
         assert len(newoplist) + len(oplist) == len(self.operations)
