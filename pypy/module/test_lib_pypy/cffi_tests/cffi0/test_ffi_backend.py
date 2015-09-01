@@ -39,6 +39,96 @@ class TestFFI(backend_tests.BackendTests,
         assert ffi.from_handle(ffi.cast("char *", p)) is o
         py.test.raises(RuntimeError, ffi.from_handle, ffi.NULL)
 
+    def test_callback_onerror(self):
+        ffi = FFI(backend=self.Backend())
+        seen = []
+        def oops(*args):
+            seen.append(args)
+        def otherfunc():
+            raise LookupError
+        def cb(n):
+            otherfunc()
+        a = ffi.callback("int(*)(int)", cb, error=42, onerror=oops)
+        res = a(234)
+        assert res == 42
+        assert len(seen) == 1
+        exc, val, tb = seen[0]
+        assert exc is LookupError
+        assert isinstance(val, LookupError)
+        assert tb.tb_frame.f_code.co_name == 'cb'
+        assert tb.tb_frame.f_locals['n'] == 234
+
+    def test_ffi_new_allocator_2(self):
+        ffi = FFI(backend=self.Backend())
+        seen = []
+        def myalloc(size):
+            seen.append(size)
+            return ffi.new("char[]", b"X" * size)
+        def myfree(raw):
+            seen.append(raw)
+        alloc1 = ffi.new_allocator(myalloc, myfree)
+        alloc2 = ffi.new_allocator(alloc=myalloc, free=myfree,
+                                   should_clear_after_alloc=False)
+        p1 = alloc1("int[10]")
+        p2 = alloc2("int[]", 10)
+        assert seen == [40, 40]
+        assert ffi.typeof(p1) == ffi.typeof("int[10]")
+        assert ffi.sizeof(p1) == 40
+        assert ffi.typeof(p2) == ffi.typeof("int[]")
+        assert ffi.sizeof(p2) == 40
+        assert p1[5] == 0
+        assert p2[6] == ord('X') * 0x01010101
+        raw1 = ffi.cast("char *", p1)
+        raw2 = ffi.cast("char *", p2)
+        del p1, p2
+        retries = 0
+        while len(seen) != 4:
+            retries += 1
+            assert retries <= 5
+            import gc; gc.collect()
+        assert seen == [40, 40, raw1, raw2]
+        assert repr(seen[2]) == "<cdata 'char[]' owning 41 bytes>"
+        assert repr(seen[3]) == "<cdata 'char[]' owning 41 bytes>"
+
+    def test_ffi_new_allocator_3(self):
+        ffi = FFI(backend=self.Backend())
+        seen = []
+        def myalloc(size):
+            seen.append(size)
+            return ffi.new("char[]", b"X" * size)
+        alloc1 = ffi.new_allocator(myalloc)    # no 'free'
+        p1 = alloc1("int[10]")
+        assert seen == [40]
+        assert ffi.typeof(p1) == ffi.typeof("int[10]")
+        assert ffi.sizeof(p1) == 40
+        assert p1[5] == 0
+
+    def test_ffi_new_allocator_4(self):
+        ffi = FFI(backend=self.Backend())
+        py.test.raises(TypeError, ffi.new_allocator, free=lambda x: None)
+        #
+        def myalloc2(size):
+            raise LookupError
+        alloc2 = ffi.new_allocator(myalloc2)
+        py.test.raises(LookupError, alloc2, "int[5]")
+        #
+        def myalloc3(size):
+            return 42
+        alloc3 = ffi.new_allocator(myalloc3)
+        e = py.test.raises(TypeError, alloc3, "int[5]")
+        assert str(e.value) == "alloc() must return a cdata object (got int)"
+        #
+        def myalloc4(size):
+            return ffi.cast("int", 42)
+        alloc4 = ffi.new_allocator(myalloc4)
+        e = py.test.raises(TypeError, alloc4, "int[5]")
+        assert str(e.value) == "alloc() must return a cdata pointer, not 'int'"
+        #
+        def myalloc5(size):
+            return ffi.NULL
+        alloc5 = ffi.new_allocator(myalloc5)
+        py.test.raises(MemoryError, alloc5, "int[5]")
+
 
 class TestBitfield:
     def check(self, source, expected_ofs_y, expected_align, expected_size):

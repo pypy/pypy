@@ -9,7 +9,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rawstorage import (
     raw_storage_setitem, free_raw_storage, alloc_raw_storage)
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import keepalive_until_here, specialize
 
 from pypy.module.micronumpy import loop, constants as NPY
 from pypy.module.micronumpy.descriptor import (
@@ -20,10 +20,14 @@ from pypy.module.micronumpy.nditer import W_NDIter, coalesce_iter
 from pypy.module.micronumpy.strides import shape_agreement
 from pypy.module.micronumpy.support import (_parse_signature, product,
         get_storage_as_int, is_rhs_priority_higher)
+from .converters import out_converter
 from .casting import (
     can_cast_type, can_cast_array, can_cast_to,
     find_result_type, promote_types)
 from .boxes import W_GenericBox, W_ObjectBox
+
+REDUCE, ACCUMULATE, REDUCEAT = range(3)
+_reduce_type = ["reduce", "acccumulate", "reduceat"]
 
 def done_if_true(dtype, val):
     return dtype.itemtype.bool(val)
@@ -86,6 +90,7 @@ class W_Ufunc(W_Root):
         "identity", "int_only", "allow_bool", "allow_complex",
         "complex_to_float", "nargs", "nout", "signature"
     ]
+    w_doc = None
 
     def __init__(self, name, promote_to_largest, promote_to_float, promote_bools,
                  identity, int_only, allow_bool, allow_complex, complex_to_float):
@@ -105,6 +110,15 @@ class W_Ufunc(W_Root):
     def descr_repr(self, space):
         return space.wrap("<ufunc '%s'>" % self.name)
 
+    def get_doc(self, space):
+        # Note: allows any object to be set as docstring, because why not?
+        if self.w_doc is None:
+            return space.w_None
+        return self.w_doc
+
+    def set_doc(self, space, w_doc):
+        self.w_doc = w_doc
+
     def descr_get_identity(self, space):
         if self.identity is None:
             return space.w_None
@@ -114,10 +128,7 @@ class W_Ufunc(W_Root):
         args_w, kwds_w = __args__.unpack()
         # sig, extobj are used in generic ufuncs
         w_subok, w_out, sig, w_casting, extobj = self.parse_kwargs(space, kwds_w)
-        if space.is_w(w_out, space.w_None):
-            out = None
-        else:
-            out = w_out
+        out = out_converter(space, w_out)
         if (w_subok is not None and space.is_true(w_subok)):
             raise oefmt(space.w_NotImplementedError, "parameter subok unsupported")
         if kwds_w:
@@ -139,9 +150,6 @@ class W_Ufunc(W_Root):
             out = args_w[-1]
         else:
             args_w = args_w + [out]
-        if out is not None and not isinstance(out, W_NDimArray):
-            raise OperationError(space.w_TypeError, space.wrap(
-                                            'output must be an array'))
         if w_casting is None:
             casting = 'unsafe'
         else:
@@ -151,101 +159,52 @@ class W_Ufunc(W_Root):
         return retval
 
     def descr_accumulate(self, space, w_obj, w_axis=None, w_dtype=None, w_out=None):
-        if space.is_none(w_axis):
+        if w_axis is None:
             w_axis = space.wrap(0)
-        if space.is_none(w_out):
-            out = None
-        elif not isinstance(w_out, W_NDimArray):
-            raise OperationError(space.w_TypeError, space.wrap(
-                                                'output must be an array'))
-        else:
-            out = w_out
+        out = out_converter(space, w_out)
         return self.reduce(space, w_obj, w_axis, True, #keepdims must be true
-                           out, w_dtype, cumulative=True)
+                           out, w_dtype, variant=ACCUMULATE)
 
     @unwrap_spec(keepdims=bool)
     def descr_reduce(self, space, w_obj, w_axis=None, w_dtype=None,
                      w_out=None, keepdims=False):
-        """reduce(...)
-        reduce(a, axis=0)
-
-        Reduces `a`'s dimension by one, by applying ufunc along one axis.
-
-        Let :math:`a.shape = (N_0, ..., N_i, ..., N_{M-1})`.  Then
-        :math:`ufunc.reduce(a, axis=i)[k_0, ..,k_{i-1}, k_{i+1}, .., k_{M-1}]` =
-        the result of iterating `j` over :math:`range(N_i)`, cumulatively applying
-        ufunc to each :math:`a[k_0, ..,k_{i-1}, j, k_{i+1}, .., k_{M-1}]`.
-        For a one-dimensional array, reduce produces results equivalent to:
-        ::
-
-         r = op.identity # op = ufunc
-         for i in xrange(len(A)):
-           r = op(r, A[i])
-         return r
-
-        For example, add.reduce() is equivalent to sum().
-
-        Parameters
-        ----------
-        a : array_like
-            The array to act on.
-        axis : int, optional
-            The axis along which to apply the reduction.
-
-        Examples
-        --------
-        >>> np.multiply.reduce([2,3,5])
-        30
-
-        A multi-dimensional array example:
-
-        >>> X = np.arange(8).reshape((2,2,2))
-        >>> X
-        array([[[0, 1],
-                [2, 3]],
-               [[4, 5],
-                [6, 7]]])
-        >>> np.add.reduce(X, 0)
-        array([[ 4,  6],
-               [ 8, 10]])
-        >>> np.add.reduce(X) # confirm: default axis value is 0
-        array([[ 4,  6],
-               [ 8, 10]])
-        >>> np.add.reduce(X, 1)
-        array([[ 2,  4],
-               [10, 12]])
-        >>> np.add.reduce(X, 2)
-        array([[ 1,  5],
-               [ 9, 13]])
-        """
         from pypy.module.micronumpy.ndarray import W_NDimArray
         if w_axis is None:
             w_axis = space.wrap(0)
-        if space.is_none(w_out):
-            out = None
-        elif not isinstance(w_out, W_NDimArray):
-            raise OperationError(space.w_TypeError, space.wrap(
-                'output must be an array'))
-        else:
-            out = w_out
+        out = out_converter(space, w_out)
         return self.reduce(space, w_obj, w_axis, keepdims, out, w_dtype)
 
+    @specialize.arg(7)
     def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
-               cumulative=False):
+               variant=REDUCE):
         if self.nin != 2:
             raise oefmt(space.w_ValueError,
-                        "reduce only supported for binary functions")
+                        "%s only supported for binary functions",
+                        _reduce_type[variant])
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
         if obj.get_dtype().is_flexible():
             raise oefmt(space.w_TypeError,
-                        "cannot perform reduce with flexible type")
+                        "cannot perform %s with flexible type",
+                        _reduce_type[variant])
         obj_shape = obj.get_shape()
         if obj.is_scalar():
             return obj.get_scalar_value()
         shapelen = len(obj_shape)
+
         if space.is_none(w_axis):
+            axes = range(shapelen)
             axis = maxint
+        elif space.isinstance_w(w_axis, space.w_tuple):
+            axes_w = space.listview(w_axis)
+            axes = [0] * len(axes_w)
+            for i in range(len(axes_w)):
+                x = space.int_w(axes_w[i])
+                if x < 0:
+                    x += shapelen
+                if x < 0 or x >= shapelen:
+                    raise oefmt(space.w_ValueError, "'axis' entry is out of bounds")
+                axes[i] = x
         else:
             if space.isinstance_w(w_axis, space.w_tuple) and space.len_w(w_axis) == 1:
                 w_axis = space.getitem(w_axis, space.wrap(0))
@@ -254,7 +213,7 @@ class W_Ufunc(W_Root):
                 raise oefmt(space.w_ValueError, "'axis' entry is out of bounds")
             if axis < 0:
                 axis += shapelen
-        assert axis >= 0
+            axes = [axis]
         dtype = decode_w_dtype(space, dtype)
 
         if dtype is None and out is not None:
@@ -275,32 +234,101 @@ class W_Ufunc(W_Root):
             dtype = num2dtype(space, num)
 
         if self.identity is None:
-            for i in range(shapelen):
-                if space.is_none(w_axis) or i == axis:
-                    if obj_shape[i] == 0:
-                        raise oefmt(space.w_ValueError,
-                            "zero-size array to reduction operation %s "
-                            "which has no identity", self.name)
+            for i in axes:
+                if obj_shape[i] == 0:
+                    raise oefmt(space.w_ValueError,
+                        "zero-size array to reduction operation %s "
+                        "which has no identity", self.name)
 
-        if cumulative:
+        if variant == ACCUMULATE:
+            if len(axes) != 1:
+                raise oefmt(space.w_ValueError,
+                    "accumulate does not allow multiple axes")
+            axis = axes[0]
+            assert axis >= 0
             dtype = self.find_binop_type(space, dtype)
-        else:
-            _, dtype, _ = self.find_specialization(space, dtype, dtype, out,
+            shape = obj_shape[:]
+            if out:
+                # There appears to be a lot of accidental complexity in what
+                # shapes cnumpy allows for out.
+                # We simply require out.shape == obj.shape
+                if out.get_shape() != obj_shape:
+                    raise oefmt(space.w_ValueError,
+                                "output parameter shape mismatch, expecting "
+                                "[%s], got [%s]",
+                                ",".join([str(x) for x in shape]),
+                                ",".join([str(x) for x in out.get_shape()]),
+                                )
+                dtype = out.get_dtype()
+                call__array_wrap__ = False
+            else:
+                out = W_NDimArray.from_shape(space, shape, dtype,
+                                            w_instance=obj)
+                call__array_wrap__ = True
+            if shapelen > 1:
+                if obj.get_size() == 0:
+                    if self.identity is not None:
+                        out.fill(space, self.identity.convert_to(space, dtype))
+                    return out
+                loop.accumulate(
+                    space, self.func, obj, axis, dtype, out, self.identity)
+            else:
+                loop.accumulate_flat(
+                    space, self.func, obj, dtype, out, self.identity)
+            if call__array_wrap__:
+                out = space.call_method(obj, '__array_wrap__', out)
+            return out
+
+        axis_flags = [False] * shapelen
+        for i in axes:
+            if axis_flags[i]:
+                raise oefmt(space.w_ValueError, "duplicate value in 'axis'")
+            axis_flags[i] = True
+
+
+        _, dtype, _ = self.find_specialization(space, dtype, dtype, out,
                                                    casting='unsafe')
         call__array_wrap__ = True
-        if shapelen > 1 and axis < shapelen:
+        if shapelen == len(axes):
+            if out:
+                call__array_wrap__ = False
+                if out.ndims() > 0:
+                    raise oefmt(space.w_ValueError,
+                                "output parameter for reduction operation %s has "
+                                "too many dimensions", self.name)
+                dtype = out.get_dtype()
+            res = loop.reduce_flat(
+                space, self.func, obj, dtype, self.done_func, self.identity)
+            if out:
+                out.set_scalar_value(res)
+                return out
+            if keepdims:
+                shape = [1] * len(obj_shape)
+                out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
+                out.implementation.setitem(0, res)
+                res = out
+            elif not space.is_w(space.type(w_obj), space.gettypefor(W_NDimArray)):
+                # subtypes return a ndarray subtype, not a scalar
+                out = W_NDimArray.from_shape(space, [1], dtype, w_instance=obj)
+                out.implementation.setitem(0, res)
+                res = out
+            if call__array_wrap__:
+                res = space.call_method(obj, '__array_wrap__', res)
+            return res
+
+        else:
             temp = None
-            if cumulative:
+            if keepdims:
                 shape = obj_shape[:]
-                temp_shape = obj_shape[:axis] + obj_shape[axis + 1:]
-                if out:
-                    dtype = out.get_dtype()
-                temp = W_NDimArray.from_shape(space, temp_shape, dtype,
-                                              w_instance=obj)
-            elif keepdims:
-                shape = obj_shape[:axis] + [1] + obj_shape[axis + 1:]
+                for axis in axes:
+                    shape[axis] = 1
             else:
-                shape = obj_shape[:axis] + obj_shape[axis + 1:]
+                shape = [0] * (shapelen - len(axes))
+                j = 0
+                for i in range(shapelen):
+                    if not axis_flags[i]:
+                        shape[j] = obj_shape[i]
+                        j += 1
             if out:
                 # Test for shape agreement
                 # XXX maybe we need to do broadcasting here, although I must
@@ -329,51 +357,11 @@ class W_Ufunc(W_Root):
                 if self.identity is not None:
                     out.fill(space, self.identity.convert_to(space, dtype))
                 return out
-            loop.do_axis_reduce(space, shape, self.func, obj, dtype,
-                                       axis, out, self.identity, cumulative,
-                                       temp)
+            loop.reduce(
+                space, self.func, obj, axis_flags, dtype, out, self.identity)
             if call__array_wrap__:
                 out = space.call_method(obj, '__array_wrap__', out)
             return out
-        if cumulative:
-            if out:
-                call__array_wrap__ = False
-                if out.get_shape() != [obj.get_size()]:
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "out of incompatible size"))
-            else:
-                out = W_NDimArray.from_shape(space, [obj.get_size()], dtype,
-                                             w_instance=obj)
-            loop.compute_reduce_cumulative(space, obj, out, dtype, self.func,
-                                           self.identity)
-            if call__array_wrap__:
-                out = space.call_method(obj, '__array_wrap__', out)
-            return out
-        if out:
-            call__array_wrap__ = False
-            if out.ndims() > 0:
-                raise oefmt(space.w_ValueError,
-                            "output parameter for reduction operation %s has "
-                            "too many dimensions", self.name)
-            dtype = out.get_dtype()
-        res = loop.compute_reduce(space, obj, dtype, self.func, self.done_func,
-                                  self.identity)
-        if out:
-            out.set_scalar_value(res)
-            return out
-        if keepdims:
-            shape = [1] * len(obj_shape)
-            out = W_NDimArray.from_shape(space, shape, dtype, w_instance=obj)
-            out.implementation.setitem(0, res)
-            res = out
-        elif not space.is_w(space.type(w_obj), space.gettypefor(W_NDimArray)):
-            # subtypes return a ndarray subtype, not a scalar
-            out = W_NDimArray.from_shape(space, [1], dtype, w_instance=obj)
-            out.implementation.setitem(0, res)
-            res = out
-        if call__array_wrap__:
-            res = space.call_method(obj, '__array_wrap__', res)
-        return res
 
     def descr_outer(self, space, __args__):
         return self._outer(space, __args__)
@@ -450,11 +438,7 @@ class W_Ufunc1(W_Ufunc):
         w_obj = args_w[0]
         out = None
         if len(args_w) > 1:
-            out = args_w[1]
-            if space.is_w(out, space.w_None):
-                out = None
-            elif out is not None and not isinstance(out, W_NDimArray):
-                raise oefmt(space.w_TypeError, 'output must be an array')
+            out = out_converter(space, args_w[1])
         w_obj = numpify(space, w_obj)
         dtype = w_obj.get_dtype(space)
         calc_dtype, dt_out, func = self.find_specialization(space, dtype, out, casting)
@@ -527,15 +511,15 @@ class W_Ufunc2(W_Ufunc):
         W_Ufunc.__init__(self, name, promote_to_largest, promote_to_float, promote_bools,
                          identity, int_only, allow_bool, allow_complex, complex_to_float)
         self.func = func
-        self.bool_result = bool_result
         if name == 'logical_and':
             self.done_func = done_if_false
         elif name == 'logical_or':
             self.done_func = done_if_true
         else:
             self.done_func = None
+        self.bool_result = bool_result or (self.done_func is not None)
         self.simple_binary = (
-            allow_complex and allow_bool and not bool_result and not int_only
+            allow_complex and allow_bool and not self.bool_result and not int_only
             and not complex_to_float and not promote_to_float
             and not promote_bools)
 
@@ -552,10 +536,7 @@ class W_Ufunc2(W_Ufunc):
     def call(self, space, args_w, sig, casting, extobj):
         if len(args_w) > 2:
             [w_lhs, w_rhs, out] = args_w
-            if space.is_none(out):
-                out = None
-            elif not isinstance(out, W_NDimArray):
-                raise oefmt(space.w_TypeError, 'output must be an array')
+            out = out_converter(space, out)
         else:
             [w_lhs, w_rhs] = args_w
             out = None
@@ -649,7 +630,7 @@ class W_Ufunc2(W_Ufunc):
                                             r_dtype.is_complex())):
             raise oefmt(space.w_TypeError,
                 "ufunc '%s' not supported for the input types", self.name)
-        if self.bool_result:
+        if self.bool_result and not self.done_func:
             # XXX: should actually pass the arrays
             dtype = find_result_type(space, [], [l_dtype, r_dtype])
             bool_dtype = get_dtype_cache(space).w_booldtype
@@ -700,10 +681,15 @@ class W_Ufunc2(W_Ufunc):
                           ((w_arg1.is_scalar() and not w_arg2.is_scalar()) or
                            (not w_arg1.is_scalar() and w_arg2.is_scalar())))
         in_casting = safe_casting_mode(casting)
+        if use_min_scalar:
+            w_arg1 = convert_to_array(space, w_arg1)
+            w_arg2 = convert_to_array(space, w_arg2)
+        elif (in_casting == 'safe' and l_dtype.num == 7 and r_dtype.num == 7 and
+              out is None and not self.promote_to_float):
+            # while long (7) can be cast to int32 (5) on 32 bit, don't do it
+            return l_dtype, l_dtype
         for dt_in, dt_out in self.dtypes:
             if use_min_scalar:
-                w_arg1 = convert_to_array(space, w_arg1)
-                w_arg2 = convert_to_array(space, w_arg2)
                 if not (can_cast_array(space, w_arg1, dt_in, in_casting) and
                         can_cast_array(space, w_arg2, dt_in, in_casting)):
                     continue
@@ -772,7 +758,7 @@ class W_UfuncGeneric(W_Ufunc):
         self.external_loop = external_loop
 
     def reduce(self, space, w_obj, w_axis, keepdims=False, out=None, dtype=None,
-               cumulative=False):
+               variant=REDUCE):
         raise oefmt(space.w_NotImplementedError, 'not implemented yet')
 
     def call(self, space, args_w, sig, casting, extobj):
@@ -1144,6 +1130,7 @@ W_Ufunc.typedef = TypeDef("numpy.ufunc",
     __call__ = interp2app(W_Ufunc.descr_call),
     __repr__ = interp2app(W_Ufunc.descr_repr),
     __name__ = GetSetProperty(W_Ufunc.descr_get_name),
+    __doc__ = GetSetProperty(W_Ufunc.get_doc, W_Ufunc.set_doc),
 
     identity = GetSetProperty(W_Ufunc.descr_get_identity),
     accumulate = interp2app(W_Ufunc.descr_accumulate),
@@ -1155,8 +1142,6 @@ W_Ufunc.typedef = TypeDef("numpy.ufunc",
     reduce = interp2app(W_Ufunc.descr_reduce),
     outer = interp2app(W_Ufunc.descr_outer),
 )
-
-
 
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, nin, bool_result):
@@ -1481,7 +1466,7 @@ def frompyfunc(space, w_func, nin, nout, w_dtypes=None, signature='',
     if w_ret.external_loop:
         _parse_signature(space, w_ret, w_ret.signature)
     if doc:
-        w_ret.w_doc = space.wrap(doc)
+        w_ret.set_doc(space, space.wrap(doc))
     return w_ret
 
 # Instantiated in cpyext/ndarrayobject. It is here since ufunc calls

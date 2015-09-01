@@ -114,10 +114,7 @@ class Assembler386(BaseAssembler):
     def build_frame_realloc_slowpath(self):
         mc = codebuf.MachineCodeBlockWrapper()
         self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats)
-        # this is the gcmap stored by push_gcmap(mov=True) in _check_stack_frame
-        mc.MOV_rs(ecx.value, WORD)
-        gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.MOV_br(gcmap_ofs, ecx.value)
+        # the caller already did push_gcmap(store=True)
 
         if IS_X86_64:
             mc.MOV_rs(esi.value, WORD*2)
@@ -147,7 +144,7 @@ class Assembler386(BaseAssembler):
             self._load_shadowstack_top_in_ebx(mc, gcrootmap)
             mc.MOV_mr((ebx.value, -WORD), eax.value)
 
-        mc.MOV_bi(gcmap_ofs, 0)
+        self.pop_gcmap(mc)   # cancel the push_gcmap(store=True) in the caller
         self._pop_all_regs_from_frame(mc, [], self.cpu.supports_floats)
         mc.RET()
         self._frame_realloc_slowpath = mc.materialize(self.cpu, [])
@@ -164,6 +161,7 @@ class Assembler386(BaseAssembler):
         # the end of this function.
         self._push_all_regs_to_frame(mc, cond_call_register_arguments + [eax],
                                      supports_floats, callee_only)
+        # the caller already did push_gcmap(store=True)
         if IS_X86_64:
             mc.SUB(esp, imm(WORD))     # alignment
             self.set_extra_stack_depth(mc, 2 * WORD)
@@ -182,8 +180,8 @@ class Assembler386(BaseAssembler):
             mc.ADD(esp, imm(WORD * 7))
         self.set_extra_stack_depth(mc, 0)
         self._reload_frame_if_necessary(mc, align_stack=True)
+        self.pop_gcmap(mc)   # cancel the push_gcmap(store=True) in the caller
         self._pop_all_regs_from_frame(mc, [], supports_floats, callee_only)
-        self.pop_gcmap(mc)   # push_gcmap(store=True) done by the caller
         mc.RET()
         return mc.materialize(self.cpu, [])
 
@@ -203,10 +201,7 @@ class Assembler386(BaseAssembler):
         assert kind in ['fixed', 'str', 'unicode', 'var']
         mc = codebuf.MachineCodeBlockWrapper()
         self._push_all_regs_to_frame(mc, [eax, edi], self.cpu.supports_floats)
-        # store the gc pattern
-        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.MOV_rs(ecx.value, WORD)
-        mc.MOV_br(ofs, ecx.value)
+        # the caller already did push_gcmap(store=True)
         #
         if kind == 'fixed':
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
@@ -258,8 +253,7 @@ class Assembler386(BaseAssembler):
         self.set_extra_stack_depth(mc, 0)
         self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
         mc.MOV(edi, heap(nursery_free_adr))   # load this in EDI
-        # clear the gc pattern
-        mc.MOV_bi(ofs, 0)
+        self.pop_gcmap(mc)   # push_gcmap(store=True) done by the caller
         mc.RET()
         #
         # If the slowpath malloc failed, we raise a MemoryError that
@@ -646,7 +640,7 @@ class Assembler386(BaseAssembler):
         jg_location = mc.get_relative_pos()
         mc.MOV_si(WORD, 0xffffff)     # force writing 32 bit
         ofs2 = mc.get_relative_pos() - 4
-        self.push_gcmap(mc, gcmap, mov=True)
+        self.push_gcmap(mc, gcmap, store=True)
         mc.CALL(imm(self._frame_realloc_slowpath))
         # patch the JG above
         offset = mc.get_relative_pos() - jg_location
@@ -1333,7 +1327,7 @@ class Assembler386(BaseAssembler):
         loc1, = arglocs
         assert isinstance(resloc, RegLoc)
         assert isinstance(loc1, RegLoc)
-        self.mc.MOVD32_xr(resloc.value, loc1.value)
+        self.mc.MOVD32_xr(resloc.value, loc1.value)   # zero-extending
 
     def genop_llong_eq(self, op, arglocs, resloc):
         loc1, loc2, locxtmp = arglocs
@@ -1797,12 +1791,9 @@ class Assembler386(BaseAssembler):
         self.mc.JMP(imm(target))
         return startpos
 
-    def push_gcmap(self, mc, gcmap, push=False, mov=False, store=False):
+    def push_gcmap(self, mc, gcmap, push=False, store=False):
         if push:
             mc.PUSH(imm(rffi.cast(lltype.Signed, gcmap)))
-        elif mov:
-            mc.MOV(RawEspLoc(0, REF),
-                   imm(rffi.cast(lltype.Signed, gcmap)))
         else:
             assert store
             ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
@@ -2280,7 +2271,7 @@ class Assembler386(BaseAssembler):
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
         # save the gcmap
-        self.push_gcmap(self.mc, gcmap, mov=True)
+        self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.CALL(imm(follow_jump(self.malloc_slowpath)))
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
@@ -2301,7 +2292,7 @@ class Assembler386(BaseAssembler):
         self.mc.J_il8(rx86.Conditions['NA'], 0) # patched later
         jmp_adr = self.mc.get_relative_pos()
         # save the gcmap
-        self.push_gcmap(self.mc, gcmap, mov=True)
+        self.push_gcmap(self.mc, gcmap, store=True)
         self.mc.CALL(imm(follow_jump(self.malloc_slowpath)))
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
@@ -2354,7 +2345,7 @@ class Assembler386(BaseAssembler):
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr0-1, chr(offset))
         # save the gcmap
-        self.push_gcmap(self.mc, gcmap, mov=True)   # mov into RawEspLoc(0)
+        self.push_gcmap(self.mc, gcmap, store=True)
         if kind == rewrite.FLAG_ARRAY:
             self.mc.MOV_si(WORD, itemsize)
             self.mc.MOV(edi, lengthloc)

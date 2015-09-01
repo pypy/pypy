@@ -106,7 +106,7 @@ def create_package(basedir, options, _fake=False):
                                 'not find it' % (str(libpypy_c),))
         binaries.append((libpypy_c, libpypy_name))
     #
-    builddir = options.builddir
+    builddir = py.path.local(options.builddir)
     pypydir = builddir.ensure(name, dir=True)
     includedir = basedir.join('include')
     # Recursively copy all headers, shutil has only ignore

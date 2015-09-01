@@ -5,20 +5,16 @@
 # error "skiplist.c needs to be included before"
 #endif
 
-volatile int pypy_codemap_currently_invalid = 0;
-
-void pypy_codemap_invalid_set(int value)
-{
-#ifndef _MSC_VER
-    if (value)
-        __sync_lock_test_and_set(&pypy_codemap_currently_invalid, 1);
-    else
-        __sync_lock_release(&pypy_codemap_currently_invalid);
-#else
-    _InterlockedExchange((long volatile *)&pypy_codemap_currently_invalid,
-                        (long)value);
-#endif
+#ifdef RPYTHON_VMPROF
+RPY_EXTERN void vmprof_ignore_signals(int ignored);
+static void pypy_codemap_invalid_set(int ignored) {
+    vmprof_ignore_signals(ignored);
 }
+#else
+static void pypy_codemap_invalid_set(int ignored) {
+    /* nothing */
+}
+#endif
 
 
 /************************************************************/

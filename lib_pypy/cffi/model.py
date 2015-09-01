@@ -35,9 +35,6 @@ class BaseTypeByIdentity(object):
     def is_integer_type(self):
         return False
 
-    def sizeof_enabled(self):
-        return False
-
     def get_cached_btype(self, ffi, finishlist, can_delay=False):
         try:
             BType = ffi._cached_btypes[self]
@@ -80,8 +77,7 @@ void_type = VoidType()
 
 
 class BasePrimitiveType(BaseType):
-    def sizeof_enabled(self):
-        return True
+    pass
 
 
 class PrimitiveType(BasePrimitiveType):
@@ -162,10 +158,21 @@ class UnknownIntegerType(BasePrimitiveType):
         self.c_name_with_marker = name + '&'
 
     def is_integer_type(self):
-        return True    # for now
+        return True
 
     def build_backend_type(self, ffi, finishlist):
         raise NotImplementedError("integer type '%s' can only be used after "
+                                  "compilation" % self.name)
+
+class UnknownFloatType(BasePrimitiveType):
+    _attrs_ = ('name', )
+
+    def __init__(self, name):
+        self.name = name
+        self.c_name_with_marker = name + '&'
+
+    def build_backend_type(self, ffi, finishlist):
+        raise NotImplementedError("float type '%s' can only be used after "
                                   "compilation" % self.name)
 
 
@@ -205,9 +212,6 @@ class RawFunctionType(BaseFunctionType):
 class FunctionPtrType(BaseFunctionType):
     _base_pattern = '(*&)(%s)'
 
-    def sizeof_enabled(self):
-        return True
-
     def build_backend_type(self, ffi, finishlist):
         result = self.result.get_cached_btype(ffi, finishlist)
         args = []
@@ -232,9 +236,6 @@ class PointerType(BaseType):
         else:
             extra = self._base_pattern
         self.c_name_with_marker = totype.c_name_with_marker.replace('&', extra)
-
-    def sizeof_enabled(self):
-        return True
 
     def build_backend_type(self, ffi, finishlist):
         BItem = self.totype.get_cached_btype(ffi, finishlist, can_delay=True)
@@ -275,9 +276,6 @@ class ArrayType(BaseType):
             brackets = '&[%s]' % length
         self.c_name_with_marker = (
             self.item.c_name_with_marker.replace('&', brackets))
-
-    def sizeof_enabled(self):
-        return self.item.sizeof_enabled() and self.length is not None
 
     def resolve_length(self, newlength):
         return ArrayType(self.item, newlength)
@@ -433,9 +431,6 @@ class StructOrUnion(StructOrUnionOrEnum):
             from . import ffiplatform
             raise ffiplatform.VerificationMissing(self._get_c_name())
 
-    def sizeof_enabled(self):
-        return self.fldtypes is not None
-
     def build_backend_type(self, ffi, finishlist):
         self.check_not_partial()
         finishlist.append(self)
@@ -463,9 +458,6 @@ class EnumType(StructOrUnionOrEnum):
         self.enumvalues = enumvalues
         self.baseinttype = baseinttype
         self.build_c_name_with_marker()
-
-    def sizeof_enabled(self):
-        return True     # not strictly true, but external enums are obscure
 
     def force_the_name(self, forcename):
         StructOrUnionOrEnum.force_the_name(self, forcename)

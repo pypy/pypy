@@ -160,6 +160,35 @@ def test_remove_comments():
     assert func.name == 'sin'
     assert func.BType == '<func (<double>, <double>), <double>, False>'
 
+def test_remove_line_continuation_comments():
+    ffi = FFI(backend=FakeBackend())
+    ffi.cdef("""
+        double // blah \\
+                  more comments
+        x(void);
+        double // blah\\\\
+        y(void);
+        double // blah\\ \
+                  etc
+        z(void);
+    """)
+    m = ffi.dlopen(lib_m)
+    m.x
+    m.y
+    m.z
+
+def test_line_continuation_in_defines():
+    ffi = FFI(backend=FakeBackend())
+    ffi.cdef("""
+        #define ABC\\
+            42
+        #define BCD   \\
+            43
+    """)
+    m = ffi.dlopen(lib_m)
+    assert m.ABC == 42
+    assert m.BCD == 43
+
 def test_define_not_supported_for_now():
     ffi = FFI(backend=FakeBackend())
     e = py.test.raises(CDefError, ffi.cdef, '#define FOO "blah"')
@@ -237,6 +266,13 @@ def test_bool():
     #
     ffi = FFI()
     ffi.cdef("typedef _Bool bool; void f(bool);")
+
+def test_void_renamed_as_only_arg():
+    ffi = FFI()
+    ffi.cdef("typedef void void_t1;"
+             "typedef void_t1 void_t;"
+             "typedef int (*func_t)(void_t);")
+    assert ffi.typeof("func_t").args == ()
 
 def test_win_common_types():
     from cffi.commontypes import COMMON_TYPES, _CACHE

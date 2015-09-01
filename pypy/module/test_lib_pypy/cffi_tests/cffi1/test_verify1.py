@@ -2231,3 +2231,39 @@ def test_unsupported_some_primitive_types():
     #
     ffi.cdef("typedef int... foo_t;")
     py.test.raises(VerificationError, ffi.verify, "typedef float foo_t;")
+
+def test_windows_dllimport_data():
+    if sys.platform != 'win32':
+        py.test.skip("Windows only")
+    from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+    tmpfile = udir.join('dllimport_data.c')
+    tmpfile.write('int my_value = 42;\n')
+    ffi = FFI()
+    ffi.cdef("int my_value;")
+    lib = ffi.verify("extern __declspec(dllimport) int my_value;",
+                     sources = [str(tmpfile)])
+    assert lib.my_value == 42
+
+def test_macro_var():
+    ffi = FFI()
+    ffi.cdef("int myarray[50], my_value;")
+    lib = ffi.verify("""
+        int myarray[50];
+        int *get_my_value(void) {
+            static int index = 0;
+            return &myarray[index++];
+        }
+        #define my_value (*get_my_value())
+    """)
+    assert lib.my_value == 0             # [0]
+    lib.my_value = 42                    # [1]
+    assert lib.myarray[1] == 42
+    assert lib.my_value == 0             # [2]
+    lib.myarray[3] = 63
+    assert lib.my_value == 63            # [3]
+    p = ffi.addressof(lib, 'my_value')   # [4]
+    assert p[-1] == 63
+    assert p[0] == 0
+    assert p == lib.myarray + 4
+    p[1] = 82
+    assert lib.my_value == 82            # [5]

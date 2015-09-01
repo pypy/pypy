@@ -55,7 +55,7 @@ class W_CType(W_Root):
     def pack_list_of_items(self, cdata, w_ob):
         return False
 
-    def newp(self, w_init):
+    def newp(self, w_init, allocator):
         space = self.space
         raise oefmt(space.w_TypeError,
                     "expected a pointer or array ctype, got '%s'", self.name)
@@ -90,6 +90,16 @@ class W_CType(W_Root):
     def _convert_error(self, expected, w_got):
         space = self.space
         if isinstance(w_got, cdataobj.W_CData):
+            if self.name == w_got.ctype.name:
+                # in case we'd give the error message "initializer for
+                # ctype 'A' must be a pointer to same type, not cdata
+                # 'B'", but with A=B, then give instead a different error
+                # message to try to clear up the confusion
+                return oefmt(space.w_TypeError,
+                             "initializer for ctype '%s' appears indeed to "
+                             "be '%s', but the types are different (check "
+                             "that you are not e.g. mixing up different ffi "
+                             "instances)", self.name, w_got.ctype.name)
             return oefmt(space.w_TypeError,
                          "initializer for ctype '%s' must be a %s, not cdata "
                          "'%s'", self.name, expected, w_got.ctype.name)
