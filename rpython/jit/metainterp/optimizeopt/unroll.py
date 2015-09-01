@@ -138,7 +138,6 @@ class UnrollOptimizer(Optimization):
             return (UnrollInfo(target_token, label_op, [],
                                self.optimizer.quasi_immutable_deps),
                     self.optimizer._newoperations)
-            #return new_virtual_state, self.optimizer._newoperations
         return (UnrollInfo(target_token, label_op, extra_same_as,
                            self.optimizer.quasi_immutable_deps),
                 self.optimizer._newoperations)
