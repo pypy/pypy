@@ -267,14 +267,6 @@ static inline char *get_segment_base(long segment_num) {
     return stm_object_pages + segment_num * (NB_PAGES * 4096UL);
 }
 
-static inline long get_num_segment_containing_address(char *addr)
-{
-    uintptr_t delta = addr - stm_object_pages;
-    uintptr_t result = delta / (NB_PAGES * 4096UL);
-    assert(result < NB_SEGMENTS);
-    return result;
-}
-
 static inline
 struct stm_segment_info_s *get_segment(long segment_num) {
     return (struct stm_segment_info_s *)REAL_ADDRESS(

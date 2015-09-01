@@ -27,6 +27,20 @@ static inline bool is_aborting_now(uint8_t other_segment_num) {
             get_priv_segment(other_segment_num)->safe_point != SP_RUNNING);
 }
 
+static inline bool will_allocate_in_nursery(size_t size_rounded_up) {
+    OPT_ASSERT(size_rounded_up >= 16);
+    OPT_ASSERT((size_rounded_up & 7) == 0);
+
+    if (UNLIKELY(size_rounded_up >= _STM_FAST_ALLOC))
+        return false;
+
+    stm_char *p = STM_SEGMENT->nursery_current;
+    stm_char *end = p + size_rounded_up;
+    if (UNLIKELY((uintptr_t)end > STM_SEGMENT->nursery_end))
+        return false;
+    return true;
+}
+
 
 #define must_abort()   is_abort(STM_SEGMENT->nursery_end)
 static object_t *find_shadow(object_t *obj);

@@ -486,12 +486,7 @@ static void _execute_finalizers(struct finalizers_s *f)
     LIST_FREE(f->run_finalizers);
 }
 
-/* XXX: can there be a race between _invoke_general_finalizers
-        and _commit_finalizer on g_finalizers (+other places?)?
-   XXX: what happens in _execute_finalizer if the transaction
-        conflicts (or fails to become inevitable) in a finalizer?
-        (the run_finalizers list is half-way cleared?)
-   XXX: according to translator.backendopt.finalizer, getfield_gc
+/* XXX: according to translator.backendopt.finalizer, getfield_gc
         for primitive types is a safe op in light finalizers.
         I don't think that's correct in general (maybe if
         getfield on *dying obj*).

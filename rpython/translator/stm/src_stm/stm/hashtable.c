@@ -285,7 +285,8 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
     if (rc > 6) {
         /* we can only enter here once!  If we allocate stuff, we may
            run the GC, and so 'hashtableobj' might move afterwards. */
-        if (_is_in_nursery(hashtableobj)) {
+        if (_is_in_nursery(hashtableobj)
+            && will_allocate_in_nursery(sizeof(stm_hashtable_entry_t))) {
             /* this also means that the hashtable is from this
                transaction and not visible to other segments yet, so
                the new entry can be nursery-allocated. */
@@ -325,9 +326,6 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
                 stm_allocate_preexisting(sizeof(stm_hashtable_entry_t),
                                          (char *)&initial.header);
             hashtable->additions++;
-            /* make sure .object is NULL in all segments before
-               "publishing" the entry in the hashtable: */
-            write_fence();
         }
         table->items[i] = entry;
         write_fence();     /* make sure 'table->items' is written here */
@@ -361,6 +359,9 @@ void stm_hashtable_write_entry(object_t *hobj, stm_hashtable_entry_t *entry,
     if (_STM_WRITE_CHECK_SLOWPATH((object_t *)entry)) {
 
         stm_write((object_t *)entry);
+
+        /* this restriction may be lifted, see test_new_entry_if_nursery_full: */
+        assert(IMPLY(_is_young((object_t *)entry), _is_young(hobj)));
 
         uintptr_t i = list_count(STM_PSEGMENT->modified_old_objects);
         if (i > 0 && list_item(STM_PSEGMENT->modified_old_objects, i - 3)
@@ -486,7 +487,7 @@ static void _stm_compact_hashtable(struct object_s *hobj,
            objects in the segment of the running transaction.  Otherwise,
            the base case is to read them all from segment zero.
         */
-        long segnum = get_num_segment_containing_address((char *)hobj);
+        long segnum = get_segment_of_linear_address((char *)hobj);
         if (!IS_OVERFLOW_OBJ(get_priv_segment(segnum), hobj))
             segnum = 0;
 
