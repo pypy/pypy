@@ -4,6 +4,7 @@ Unary operations on SomeValues.
 
 from __future__ import absolute_import
 
+from rpython.tool.pairtype import pair
 from rpython.flowspace.operation import op
 from rpython.flowspace.model import const, Constant
 from rpython.flowspace.argument import CallSpec
@@ -16,6 +17,8 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
+from rpython.annotator.binaryop import _dict_can_only_throw_keyerror
+from rpython.annotator.binaryop import _dict_can_only_throw_nothing
 from rpython.annotator.model import AnnotatorError
 from rpython.annotator.argument import simple_args, complex_args
 
@@ -364,11 +367,6 @@ def check_negative_slice(s_start, s_stop, error="slicing"):
         raise AnnotatorError("%s: not proven to have non-negative stop" % error)
 
 
-def _can_only_throw(s_dct, *ignore):
-    if s_dct.dictdef.dictkey.custom_eq_hash:
-        return None    # r_dict: can throw anything
-    return []          # else: no possible exception
-
 def dict_contains(s_dct, s_element):
     s_dct.dictdef.generalize_key(s_element)
     if s_dct._is_empty():
@@ -381,7 +379,7 @@ def dict_contains(s_dct, s_element):
 def contains_SomeDict(annotator, dct, element):
     return dict_contains(annotator.annotation(dct),
                          annotator.annotation(element))
-contains_SomeDict.can_only_throw = _can_only_throw
+contains_SomeDict.can_only_throw = _dict_can_only_throw_nothing
 
 class __extend__(SomeDict):
 
@@ -471,6 +469,11 @@ class __extend__(SomeDict):
 
     def method_contains_with_hash(self, s_key, s_hash):
         return dict_contains(self, s_key)
+    method_contains_with_hash.can_only_throw = _dict_can_only_throw_nothing
+
+    def method_setitem_with_hash(self, s_key, s_hash, s_value):
+        pair(self, s_key).setitem(s_value)
+    method_setitem_with_hash.can_only_throw = _dict_can_only_throw_nothing
 
 @op.contains.register(SomeString)
 @op.contains.register(SomeUnicodeString)

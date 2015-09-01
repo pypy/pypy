@@ -808,6 +808,18 @@ def contains_with_hash(d, key, h):
         return key in d
     return d.contains_with_hash(key, h)
 
+def setitem_with_hash(d, key, h, value):
+    """Same as 'd[key] = value'.  The extra argument is the hash.  Use this only
+    if you got the hash just now from some other ..._with_hash() function."""
+    if not we_are_translated():
+        if isinstance(d, r_dict):
+            xxx
+        else:
+            assert compute_hash(key) == h
+        d[key] = value
+        return
+    d.setitem_with_hash(key, h, value)
+
 # ____________________________________________________________
 
 def import_from_mixin(M, special_methods=['__init__', '__del__']):

@@ -369,6 +369,16 @@ class OrderedDictRepr(AbstractDictRepr):
         return hop.gendirectcall(ll_dict_contains_with_hash,
                                  v_dict, v_key, v_hash)
 
+    def rtype_method_setitem_with_hash(self, hop):
+        v_dict, v_key, v_hash, v_value = hop.inputargs(
+            self, self.key_repr, lltype.Signed, self.value_repr)
+        if self.custom_eq_hash:
+            hop.exception_is_here()
+        else:
+            hop.exception_cannot_occur()
+        hop.gendirectcall(ll_dict_setitem_with_hash,
+                          v_dict, v_key, v_hash, v_value)
+
 class __extend__(pairtype(OrderedDictRepr, rmodel.Repr)):
 
     def rtype_getitem((r_dict, r_key), hop):
@@ -560,6 +570,10 @@ def ll_dict_getitem(d, key):
 
 def ll_dict_setitem(d, key, value):
     hash = d.keyhash(key)
+    index = d.lookup_function(d, key, hash, FLAG_STORE)
+    return _ll_dict_setitem_lookup_done(d, key, value, hash, index)
+
+def ll_dict_setitem_with_hash(d, key, hash, value):
     index = d.lookup_function(d, key, hash, FLAG_STORE)
     return _ll_dict_setitem_lookup_done(d, key, value, hash, index)
 

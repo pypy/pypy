@@ -597,8 +597,6 @@ def test_iterkeys_with_hash():
         d = {i+.0: 5, i+.5: 6}
         total = 0
         for k, h in iterkeys_with_hash(d):
-            print k, h
-            print compute_hash(k)
             total += k * h
         total -= (i + 0.0) * compute_hash(i + 0.0)
         total -= (i + 0.5) * compute_hash(i + 0.5)
@@ -617,6 +615,17 @@ def test_contains_with_hash():
 
     f(29)
     interpret(f, [29])
+
+def test_setitem_with_hash():
+    def f(i):
+        d = {}
+        setitem_with_hash(d, i+.5, compute_hash(i+.5), 42)
+        setitem_with_hash(d, i+.6, compute_hash(i+.6), -612)
+        return d[i+.5]
+
+    assert f(29) == 42
+    res = interpret(f, [27])
+    assert res == 42
 
 def test_import_from_mixin():
     class M:    # old-style
