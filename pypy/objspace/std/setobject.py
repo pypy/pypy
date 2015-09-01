@@ -9,7 +9,7 @@ from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.objectmodel import iterkeys_with_hash, contains_with_hash
-from rpython.rlib.objectmodel import setitem_with_hash
+from rpython.rlib.objectmodel import setitem_with_hash, delitem_with_hash
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib import rerased, jit
 
@@ -991,10 +991,10 @@ class AbstractUnwrappedSetStrategy(object):
         if w_set.sstorage is w_other.sstorage:
             my_dict.clear()
             return
-        iterator = self.unerase(w_other.sstorage).iterkeys()
-        for key in iterator:
+        other_dict = self.unerase(w_other.sstorage)
+        for key, keyhash in iterkeys_with_hash(other_dict):
             try:
-                del my_dict[key]
+                delitem_with_hash(my_dict, key, keyhash)
             except KeyError:
                 pass
 
@@ -1022,12 +1022,12 @@ class AbstractUnwrappedSetStrategy(object):
         d_new = self.get_empty_dict()
         d_this = self.unerase(w_set.sstorage)
         d_other = self.unerase(w_other.sstorage)
-        for key in d_other.keys():
-            if not key in d_this:
-                d_new[key] = None
-        for key in d_this.keys():
-            if not key in d_other:
-                d_new[key] = None
+        for key, keyhash in iterkeys_with_hash(d_other):
+            if not contains_with_hash(d_this, key, keyhash):
+                setitem_with_hash(d_new, key, keyhash, None)
+        for key, keyhash in iterkeys_with_hash(d_this):
+            if not contains_with_hash(d_other, key, keyhash):
+                setitem_with_hash(d_new, key, keyhash, None)
 
         storage = self.erase(d_new)
         return storage
@@ -1107,9 +1107,9 @@ class AbstractUnwrappedSetStrategy(object):
         result = self.get_empty_dict()
         d_this = self.unerase(w_set.sstorage)
         d_other = self.unerase(w_other.sstorage)
-        for key in d_this:
-            if key in d_other:
-                result[key] = None
+        for key, keyhash in iterkeys_with_hash(d_this):
+            if contains_with_hash(d_other, key, keyhash):
+                setitem_with_hash(result, key, keyhash, None)
         return self.erase(result)
 
     def intersect(self, w_set, w_other):
@@ -1127,9 +1127,10 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.sstorage = storage
 
     def _issubset_unwrapped(self, w_set, w_other):
+        d_set = self.unerase(w_set.sstorage)
         d_other = self.unerase(w_other.sstorage)
-        for item in self.unerase(w_set.sstorage):
-            if not item in d_other:
+        for key, keyhash in iterkeys_with_hash(d_set):
+            if not contains_with_hash(d_other, key, keyhash):
                 return False
         return True
 
@@ -1154,8 +1155,8 @@ class AbstractUnwrappedSetStrategy(object):
     def _isdisjoint_unwrapped(self, w_set, w_other):
         d_set = self.unerase(w_set.sstorage)
         d_other = self.unerase(w_other.sstorage)
-        for key in d_set:
-            if key in d_other:
+        for key, keyhash in iterkeys_with_hash(d_set):
+            if contains_with_hash(d_other, key, keyhash):
                 return False
         return True
 
