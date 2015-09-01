@@ -76,7 +76,7 @@ class CachedField(object):
         if self.possible_aliasing(optheap, structinfo):
             self.force_lazy_setfield(optheap, op.getdescr())
             assert not self.possible_aliasing(optheap, structinfo)
-        cached_field = self._getfield(structinfo, op.getdescr(), optheap)
+        cached_field = self._getfield(structinfo, op.getdescr(), optheap, False)
         if cached_field is not None:
             cached_field = optheap.get_box_replacement(cached_field)
 
@@ -118,9 +118,11 @@ class CachedField(object):
     def _getvalue(self, op):
         return op.getarg(1)
 
-    def _getfield(self, opinfo, descr, optheap):
+    def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getfield(descr, optheap)
         if isinstance(res, PreambleOp):
+            if not true_force:
+                return res.op
             res = optheap.optimizer.force_op_from_preamble(res)
             opinfo.setfield(descr, None, res, optheap)
         return res
@@ -163,9 +165,11 @@ class ArrayCachedField(CachedField):
     def _getvalue(self, op):
         return op.getarg(2)
 
-    def _getfield(self, opinfo, descr, optheap):
+    def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getitem(descr, self.index, optheap)
         if isinstance(res, PreambleOp):
+            if not true_force:
+                return res.op
             index = res.preamble_op.getarg(1).getint()
             res = optheap.optimizer.force_op_from_preamble(res)
             opinfo.setitem(descr, index, None, res, optheap=optheap)
