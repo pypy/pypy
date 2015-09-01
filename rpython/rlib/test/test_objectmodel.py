@@ -636,6 +636,24 @@ def test_getitem_with_hash():
     res = interpret(f, [27])
     assert res == 42
 
+def test_rdict_with_hash():
+    def f(i):
+        d = r_dict(strange_key_eq, strange_key_hash)
+        h = strange_key_hash("abc")
+        assert h == strange_key_hash("aXX") and strange_key_eq("abc", "aXX")
+        setitem_with_hash(d, "abc", h, i)
+        assert getitem_with_hash(d, "aXX", h) == i
+        try:
+            getitem_with_hash(d, "bYY", strange_key_hash("bYY"))
+        except KeyError:
+            pass
+        else:
+            raise AssertionError
+        return 0
+
+    assert f(29) == 0
+    interpret(f, [27])
+
 def test_import_from_mixin():
     class M:    # old-style
         def f(self): pass

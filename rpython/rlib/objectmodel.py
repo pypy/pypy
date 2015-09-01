@@ -790,7 +790,7 @@ def reversed_dict(d):
 
 def _expected_hash(d, key):
     if isinstance(d, r_dict):
-        xxx
+        return d.key_hash(key)
     else:
         return compute_hash(key)
 
