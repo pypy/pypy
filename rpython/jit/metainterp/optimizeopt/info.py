@@ -220,6 +220,8 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
 
     def produce_short_preamble_ops(self, structbox, descr, index, optimizer,
                                    shortboxes):
+        if self._fields is None:
+            return
         op = optimizer.get_box_replacement(self._fields[descr.get_index()])
         opnum = OpHelpers.getfield_for_descr(descr)
         getfield_op = ResOperation(opnum, [structbox], descr=descr)
@@ -492,6 +494,8 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
 
     def produce_short_preamble_ops(self, structbox, descr, index, optimizer,
                                    shortboxes):
+        if self._items is None:
+            return
         item = self._items[index]
         if item is not None:
             op = optimizer.get_box_replacement(item)
