@@ -8693,7 +8693,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i0, i1, i2]
-        jump(i0, i1, i2)
+        jump(i0, i2, i2)
         """
         preamble = """
         [i0, i1]
