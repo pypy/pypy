@@ -833,6 +833,16 @@ def getitem_with_hash(d, key, h):
         return d[key]
     return d.getitem_with_hash(key, h)
 
+@specialize.call_location()
+def delitem_with_hash(d, key, h):
+    """Same as 'del d[key]'.  The extra argument is the hash.  Use this only
+    if you got the hash just now from some other ..._with_hash() function."""
+    if not we_are_translated():
+        assert _expected_hash(d, key) == h
+        del d[key]
+        return
+    d.delitem_with_hash(key, h)
+
 # ____________________________________________________________
 
 def import_from_mixin(M, special_methods=['__init__', '__del__']):

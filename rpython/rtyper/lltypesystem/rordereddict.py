@@ -389,6 +389,14 @@ class OrderedDictRepr(AbstractDictRepr):
                                   v_dict, v_key, v_hash)
         return self.recast_value(hop.llops, v_res)
 
+    def rtype_method_delitem_with_hash(self, hop):
+        v_dict, v_key, v_hash = hop.inputargs(
+            self, self.key_repr, lltype.Signed)
+        if not self.custom_eq_hash:
+            hop.has_implicit_exception(KeyError)  # record that we know about it
+        hop.exception_is_here()
+        hop.gendirectcall(ll_dict_delitem_with_hash, v_dict, v_key, v_hash)
+
 class __extend__(pairtype(OrderedDictRepr, rmodel.Repr)):
 
     def rtype_getitem((r_dict, r_key), hop):
@@ -404,7 +412,7 @@ class __extend__(pairtype(OrderedDictRepr, rmodel.Repr)):
         if not r_dict.custom_eq_hash:
             hop.has_implicit_exception(KeyError)   # record that we know about it
         hop.exception_is_here()
-        return hop.gendirectcall(ll_dict_delitem, v_dict, v_key)
+        hop.gendirectcall(ll_dict_delitem, v_dict, v_key)
 
     def rtype_setitem((r_dict, r_key), hop):
         v_dict, v_key, v_value = hop.inputargs(r_dict, r_dict.key_repr, r_dict.value_repr)
@@ -774,6 +782,12 @@ def ll_dict_remove_deleted_items(d):
 
 def ll_dict_delitem(d, key):
     index = d.lookup_function(d, key, d.keyhash(key), FLAG_DELETE)
+    if index < 0:
+        raise KeyError
+    _ll_dict_del(d, index)
+
+def ll_dict_delitem_with_hash(d, key, hash):
+    index = d.lookup_function(d, key, hash, FLAG_DELETE)
     if index < 0:
         raise KeyError
     _ll_dict_del(d, index)

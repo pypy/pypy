@@ -636,6 +636,21 @@ def test_getitem_with_hash():
     res = interpret(f, [27])
     assert res == 42
 
+def test_delitem_with_hash():
+    def f(i):
+        d = {i+.5: 42, i+.6: -612}
+        delitem_with_hash(d, i+.5, compute_hash(i+.5))
+        try:
+            delitem_with_hash(d, i+.5, compute_hash(i+.5))
+        except KeyError:
+            pass
+        else:
+            raise AssertionError
+        return 0
+
+    f(29)
+    interpret(f, [27])
+
 def test_rdict_with_hash():
     def f(i):
         d = r_dict(strange_key_eq, strange_key_hash)
