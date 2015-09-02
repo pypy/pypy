@@ -809,19 +809,18 @@ class RegAlloc(BaseRegalloc):
         self._consider_call(op)
 
     def consider_call_may_force(self, op):
-        self._consider_call(op, True)
+        self._consider_call(op, guard_not_forced=True)
 
-    def consider_call_release_gil(self, op, guard_op):
+    def consider_call_release_gil(self, op):
         # [Const(save_err), func_addr, args...]
-        assert guard_op is not None
-        self._consider_call(op, guard_op, first_arg_index=2)
+        self._consider_call(op, guard_not_forced=True, first_arg_index=2)
 
     def consider_call_malloc_gc(self, op):
         self._consider_call(op)
 
     def consider_call_assembler(self, op):
         locs = self.locs_for_call_assembler(op)
-        self._call(op, locs, guard_not_forced_op=guard_op)
+        self._call(op, locs, guard_not_forced=True)
 
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None

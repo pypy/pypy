@@ -1899,10 +1899,9 @@ class Assembler386(BaseAssembler):
         self._store_force_index(self._following_guard_not_forced())
         self._genop_call(op, arglocs, result_loc)
 
-    def Xgenop_guard_call_release_gil(self, op, arglocs, result_loc):
+    def genop_call_release_gil(self, op, arglocs, result_loc):
         self._store_force_index(self._following_guard_not_forced())
         self._genop_call(op, arglocs, result_loc, is_call_release_gil=True)
-        self._emit_guard_not_forced(guard_token)
 
     def imm(self, v):
         return imm(v)
