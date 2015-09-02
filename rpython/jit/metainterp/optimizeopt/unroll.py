@@ -202,7 +202,10 @@ class UnrollOptimizer(Optimization):
         self.optimizer.flush()
         for a in jump_op.getarglist():
             self.optimizer.force_box_for_end_of_preamble(a)
-        vs = self.jump_to_existing_trace(jump_op, None)
+        try:
+            vs = self.jump_to_existing_trace(jump_op, None)
+        except InvalidLoop:
+            return self.jump_to_preamble(cell_token, jump_op, info)            
         if vs is None:
             return info, self.optimizer._newoperations[:]
         warmrunnerdescr = self.optimizer.metainterp_sd.warmrunnerdesc
