@@ -82,7 +82,6 @@ class Assembler386(BaseAssembler):
                                                         allblocks)
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
-        self.last_cc = rx86.cond_none
 
     def teardown(self):
         self.pending_guard_tokens = None
@@ -727,8 +726,10 @@ class Assembler386(BaseAssembler):
 
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc
+        self.last_cc = rx86.cond_none
         regalloc.compute_hint_frame_locations(operations)
         regalloc.walk_operations(inputargs, operations)
+        assert self.last_cc == rx86.cond_none
         if we_are_translated() or self.cpu.dont_keepalive_stuff:
             self._regalloc = None   # else keep it around for debugging
         frame_depth = regalloc.get_final_frame_depth()
@@ -1558,6 +1559,13 @@ class Assembler386(BaseAssembler):
         self.mc.CMP(heap(self.cpu.pos_exception()), imm0)
         self.last_cc = rx86.Conditions['Z']
         self.implement_guard(guard_token)
+        # If the previous operation was a COND_CALL, overwrite its conditional
+        # jump to jump over this GUARD_NO_EXCEPTION as well, if we can
+        if self._find_nearby_operation(-1).getopnum() == rop.COND_CALL:
+            jmp_adr = self.previous_cond_call_jcond
+            offset = self.mc.get_relative_pos() - jmp_adr
+            if offset <= 127:
+                self.mc.overwrite(jmp_adr-1, chr(offset))
 
     def genop_guard_guard_not_invalidated(self, guard_op, guard_token,
                                           locs, ign):
@@ -1878,16 +1886,16 @@ class Assembler386(BaseAssembler):
             cb.emit()
 
     def _store_force_index(self, guard_op):
+        assert (guard_op.getopnum() == rop.GUARD_NOT_FORCED or
+                guard_op.getopnum() == rop.GUARD_NOT_FORCED_2)
         faildescr = guard_op.getdescr()
         ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
         self.mc.MOV(raw_stack(ofs), imm(rffi.cast(lltype.Signed,
                                  cast_instance_to_gcref(faildescr))))
 
-    def _following_guard_not_forced(self):
+    def _find_nearby_operation(self, delta):
         regalloc = self._regalloc
-        op = regalloc.operations[regalloc.rm.position + 1]
-        assert op.getopnum() == rop.GUARD_NOT_FORCED
-        return op
+        return regalloc.operations[regalloc.rm.position + delta]
 
     def genop_guard_guard_not_forced(self, guard_op, guard_token, locs, resloc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
@@ -1896,11 +1904,11 @@ class Assembler386(BaseAssembler):
         self.implement_guard(guard_token)
 
     def genop_call_may_force(self, op, arglocs, result_loc):
-        self._store_force_index(self._following_guard_not_forced())
+        self._store_force_index(self._find_nearby_operation(+1))
         self._genop_call(op, arglocs, result_loc)
 
     def genop_call_release_gil(self, op, arglocs, result_loc):
-        self._store_force_index(self._following_guard_not_forced())
+        self._store_force_index(self._find_nearby_operation(+1))
         self._genop_call(op, arglocs, result_loc, is_call_release_gil=True)
 
     def imm(self, v):
@@ -1914,7 +1922,7 @@ class Assembler386(BaseAssembler):
         else:
             [argloc] = arglocs
             vloc = self.imm(0)
-        self._store_force_index(self._following_guard_not_forced())
+        self._store_force_index(self._find_nearby_operation(+1))
         self.call_assembler(op, argloc, vloc, result_loc, eax)
 
     def _call_assembler_emit_call(self, addr, argloc, _):
@@ -2132,9 +2140,10 @@ class Assembler386(BaseAssembler):
         self._check_frame_depth_debug(self.mc)
 
     def cond_call(self, op, gcmap, loc_cond, imm_func, arglocs):
-        self.mc.TEST(loc_cond, loc_cond)
-        self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
+        assert self.last_cc >= 0
+        self.mc.J_il8(rx86.invert_condition(self.last_cc), 0)  # patched later
         jmp_adr = self.mc.get_relative_pos()
+        self.last_cc = rx86.cond_none
         #
         self.push_gcmap(self.mc, gcmap, store=True)
         #
@@ -2175,8 +2184,9 @@ class Assembler386(BaseAssembler):
         offset = self.mc.get_relative_pos() - jmp_adr
         assert 0 < offset <= 127
         self.mc.overwrite(jmp_adr-1, chr(offset))
-        # XXX if the next operation is a GUARD_NO_EXCEPTION, we should
-        # somehow jump over it too in the fast path
+        # might be overridden again to skip over the following
+        # guard_no_exception too
+        self.previous_cond_call_jcond = jmp_adr
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
         assert size & (WORD-1) == 0     # must be correctly aligned

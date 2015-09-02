@@ -854,7 +854,7 @@ class RegAlloc(BaseRegalloc):
         imm_func = self.rm.convert_to_imm(v)
         arglocs = [self.loc(args[i]) for i in range(2, len(args))]
         gcmap = self.get_gcmap()
-        self.rm.possibly_free_var(args[0])
+        self.load_condition_into_cc(op.getarg(0))
         self.assembler.cond_call(op, gcmap, loc_cond, imm_func, arglocs)
 
     def consider_call_malloc_nursery(self, op):

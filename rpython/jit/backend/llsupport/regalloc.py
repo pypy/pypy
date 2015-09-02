@@ -643,13 +643,19 @@ class BaseRegalloc(object):
         op = operations[i]
         next_op = operations[i + 1]
         opnum = next_op.getopnum()
-        if opnum != rop.GUARD_TRUE and opnum != rop.GUARD_FALSE:
+        if (opnum != rop.GUARD_TRUE and opnum != rop.GUARD_FALSE
+                                    and opnum != rop.COND_CALL):
             return False
         if next_op.getarg(0) is not op.result:
             return False
-        if (self.longevity[op.result][1] > i + 1 or
-            op.result in operations[i + 1].getfailargs()):
+        if self.longevity[op.result][1] > i + 1:
             return False
+        if opnum != rop.COND_CALL:
+            if op.result in operations[i + 1].getfailargs():
+                return False
+        else:
+            if op.result in operations[i + 1].getarglist()[1:]:
+                return False
         return True
 
     def locs_for_call_assembler(self, op):
