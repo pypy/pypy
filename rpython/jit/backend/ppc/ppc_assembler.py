@@ -7,7 +7,8 @@ from rpython.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                           LR_BC_OFFSET, REGISTERS_SAVED,
                                           GPR_SAVE_AREA_OFFSET,
                                           THREADLOCAL_ADDR_OFFSET,
-                                          STD_FRAME_SIZE_IN_BYTES)
+                                          STD_FRAME_SIZE_IN_BYTES,
+                                          IS_BIG_ENDIAN)
 from rpython.jit.backend.ppc.helper.assembler import Saved_Volatiles
 from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import rpython.jit.backend.ppc.register as r
@@ -354,9 +355,9 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             frame_size += WORD
 
         # write function descriptor
-        if IS_PPC_64:
-            for _ in range(6):
-                mc.write32(0)
+        if IS_PPC_64 and IS_BIG_ENDIAN:
+            for _ in range(3):
+                mc.write64(0)
 
         # build frame
         mc.make_function_prologue(frame_size)
@@ -550,7 +551,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
     #    self.mc.b_offset(loophead)
 
     def _call_header(self):
-        if IS_PPC_64:
+        if IS_PPC_64 and IS_BIG_ENDIAN:
             # Reserve space for a function descriptor, 3 words
             self.mc.write64(0)
             self.mc.write64(0)
@@ -717,7 +718,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         full_size = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(looptoken)
-        if IS_PPC_64:    # fix the function descriptor (3 words)
+        if IS_PPC_64 and IS_BIG_ENDIAN:  # fix the function descriptor (3 words)
             rffi.cast(rffi.LONGP, rawstart)[0] = rawstart + 3 * WORD
         #
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
@@ -788,6 +789,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
         #self._check_frame_depth(self.mc, regalloc.get_gcmap())
+        #        XXX ^^^^^^^^^^
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()

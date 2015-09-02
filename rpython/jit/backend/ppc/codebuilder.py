@@ -2,8 +2,8 @@ import os
 from rpython.jit.backend.ppc.ppc_form import PPCForm as Form
 from rpython.jit.backend.ppc.locations import RegisterLocation
 from rpython.jit.backend.ppc.ppc_field import ppc_fields
-from rpython.jit.backend.ppc.arch import (IS_PPC_32, WORD, IS_PPC_64, 
-                                       LR_BC_OFFSET)
+from rpython.jit.backend.ppc.arch import (IS_PPC_32, WORD, IS_PPC_64,
+                                LR_BC_OFFSET, IS_BIG_ENDIAN, IS_LITTLE_ENDIAN)
 import rpython.jit.backend.ppc.register as r
 import rpython.jit.backend.ppc.condition as c
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
@@ -944,10 +944,16 @@ class OverwritingBuilder(PPCAssembler):
 
     def write32(self, word):
         index = self.index
-        self.mc.overwrite(index,     chr((word >> 24) & 0xff))
-        self.mc.overwrite(index + 1, chr((word >> 16) & 0xff))
-        self.mc.overwrite(index + 2, chr((word >> 8) & 0xff))
-        self.mc.overwrite(index + 3, chr(word & 0xff))
+        if IS_BIG_ENDIAN:
+            self.mc.overwrite(index,     chr((word >> 24) & 0xff))
+            self.mc.overwrite(index + 1, chr((word >> 16) & 0xff))
+            self.mc.overwrite(index + 2, chr((word >> 8) & 0xff))
+            self.mc.overwrite(index + 3, chr(word & 0xff))
+        elif IS_LITTLE_ENDIAN:
+            self.mc.overwrite(index    , chr(word & 0xff))
+            self.mc.overwrite(index + 1, chr((word >> 8) & 0xff))
+            self.mc.overwrite(index + 2, chr((word >> 16) & 0xff))
+            self.mc.overwrite(index + 3, chr((word >> 24) & 0xff))
         self.index = index + 4
 
     def overwrite(self):
@@ -1031,42 +1037,42 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.mtctr(r.SCRATCH.value)
         self.bctrl()
 
-    def call(self, address):
-        """ do a call to an absolute address
-        """
-        with scratch_reg(self):
-            if IS_PPC_32:
-                self.load_imm(r.SCRATCH, address)
-            else:
-                self.store(r.TOC.value, r.SP.value, 5 * WORD)
-                self.load_imm(r.r11, address)
-                self.load(r.SCRATCH.value, r.r11.value, 0)
-                self.load(r.TOC.value, r.r11.value, WORD)
-                self.load(r.r11.value, r.r11.value, 2 * WORD)
-            self.mtctr(r.SCRATCH.value)
-        self.bctrl()
+    ## def call(self, address):
+    ##     """ do a call to an absolute address
+    ##     """
+    ##     with scratch_reg(self):
+    ##         if IS_PPC_32:
+    ##             self.load_imm(r.SCRATCH, address)
+    ##         else:
+    ##             self.store(r.TOC.value, r.SP.value, 5 * WORD)
+    ##             self.load_imm(r.r11, address)
+    ##             self.load(r.SCRATCH.value, r.r11.value, 0)
+    ##             self.load(r.TOC.value, r.r11.value, WORD)
+    ##             self.load(r.r11.value, r.r11.value, 2 * WORD)
+    ##         self.mtctr(r.SCRATCH.value)
+    ##     self.bctrl()
 
-        if IS_PPC_64:
-            self.load(r.TOC.value, r.SP.value, 5 * WORD)
+    ##     if IS_PPC_64:
+    ##         self.load(r.TOC.value, r.SP.value, 5 * WORD)
 
-    def call_register(self, call_reg):
-        """ do a call to an address given in a register
-        """
-        assert isinstance(call_reg, RegisterLocation)
-        with scratch_reg(self):
-            if IS_PPC_32:
-                self.mr(r.SCRATCH.value, call_reg.value)
-            else:
-                self.store(r.TOC.value, r.SP.value, 5 * WORD)
-                self.mr(r.r11.value, call_reg.value)
-                self.load(r.SCRATCH.value, r.r11.value, 0)
-                self.load(r.TOC.value, r.r11.value, WORD)
-                self.load(r.r11.value, r.r11.value, 2 * WORD)
-            self.mtctr(r.SCRATCH.value)
-        self.bctrl()
+    ## def call_register(self, call_reg):
+    ##     """ do a call to an address given in a register
+    ##     """
+    ##     assert isinstance(call_reg, RegisterLocation)
+    ##     with scratch_reg(self):
+    ##         if IS_PPC_32:
+    ##             self.mr(r.SCRATCH.value, call_reg.value)
+    ##         else:
+    ##             self.store(r.TOC.value, r.SP.value, 5 * WORD)
+    ##             self.mr(r.r11.value, call_reg.value)
+    ##             self.load(r.SCRATCH.value, r.r11.value, 0)
+    ##             self.load(r.TOC.value, r.r11.value, WORD)
+    ##             self.load(r.r11.value, r.r11.value, 2 * WORD)
+    ##         self.mtctr(r.SCRATCH.value)
+    ##     self.bctrl()
 
-        if IS_PPC_64:
-            self.load(r.TOC.value, r.SP.value, 5 * WORD)
+    ##     if IS_PPC_64:
+    ##         self.load(r.TOC.value, r.SP.value, 5 * WORD)
 
     ## def make_function_prologue(self, frame_size):
     ##     """ Build a new stackframe of size frame_size 
@@ -1140,20 +1146,36 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             f.close()
 
     def write32(self, word):
-        self.writechar(chr((word >> 24) & 0xFF))
-        self.writechar(chr((word >> 16) & 0xFF))
-        self.writechar(chr((word >> 8) & 0xFF))
-        self.writechar(chr(word & 0xFF))
+        if IS_BIG_ENDIAN:
+            self.writechar(chr((word >> 24) & 0xFF))
+            self.writechar(chr((word >> 16) & 0xFF))
+            self.writechar(chr((word >> 8) & 0xFF))
+            self.writechar(chr(word & 0xFF))
+        elif IS_LITTLE_ENDIAN:
+            self.writechar(chr(word & 0xFF))
+            self.writechar(chr((word >> 8) & 0xFF))
+            self.writechar(chr((word >> 16) & 0xFF))
+            self.writechar(chr((word >> 24) & 0xFF))
 
     def write64(self, word):
-        self.writechar(chr((word >> 56) & 0xFF))
-        self.writechar(chr((word >> 48) & 0xFF))
-        self.writechar(chr((word >> 40) & 0xFF))
-        self.writechar(chr((word >> 32) & 0xFF))
-        self.writechar(chr((word >> 24) & 0xFF))
-        self.writechar(chr((word >> 16) & 0xFF))
-        self.writechar(chr((word >> 8) & 0xFF))
-        self.writechar(chr(word & 0xFF))
+        if IS_BIG_ENDIAN:
+            self.writechar(chr((word >> 56) & 0xFF))
+            self.writechar(chr((word >> 48) & 0xFF))
+            self.writechar(chr((word >> 40) & 0xFF))
+            self.writechar(chr((word >> 32) & 0xFF))
+            self.writechar(chr((word >> 24) & 0xFF))
+            self.writechar(chr((word >> 16) & 0xFF))
+            self.writechar(chr((word >> 8) & 0xFF))
+            self.writechar(chr(word & 0xFF))
+        elif IS_LITTLE_ENDIAN:
+            self.writechar(chr(word & 0xFF))
+            self.writechar(chr((word >> 8) & 0xFF))
+            self.writechar(chr((word >> 16) & 0xFF))
+            self.writechar(chr((word >> 24) & 0xFF))
+            self.writechar(chr((word >> 32) & 0xFF))
+            self.writechar(chr((word >> 40) & 0xFF))
+            self.writechar(chr((word >> 48) & 0xFF))
+            self.writechar(chr((word >> 56) & 0xFF))
 
     def currpos(self):
         return self.get_relative_pos()

@@ -5,7 +5,8 @@ import rpython.jit.backend.ppc.register as r
 from rpython.jit.backend.ppc.locations import imm
 from rpython.jit.backend.ppc.locations import imm as make_imm_loc
 from rpython.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
-                                          MAX_REG_PARAMS, MAX_FREG_PARAMS)
+                                          MAX_REG_PARAMS, MAX_FREG_PARAMS,
+                                          PARAM_SAVE_AREA_OFFSET)
 
 from rpython.jit.metainterp.history import (JitCellToken, TargetToken, Box,
                                             AbstractFailDescr, FLOAT, INT, REF)
@@ -232,24 +233,24 @@ class FloatOpAssembler(object):
     def emit_cast_float_to_int(self, op, arglocs, regalloc):
         l0, temp_loc, res = arglocs
         self.mc.fctidz(temp_loc.value, l0.value)
-        self.mc.stfd(temp_loc.value, r.SP.value, -16)
-        self.mc.ld(res.value, r.SP.value, -16)
+        self.mc.stfd(temp_loc.value, r.SP.value, PARAM_SAVE_AREA_OFFSET)
+        self.mc.ld(res.value, r.SP.value, PARAM_SAVE_AREA_OFFSET)
 
     def emit_cast_int_to_float(self, op, arglocs, regalloc):
         l0, res = arglocs
-        self.mc.std(l0.value, r.SP.value, -16)
-        self.mc.lfd(res.value, r.SP.value, -16)
+        self.mc.std(l0.value, r.SP.value, PARAM_SAVE_AREA_OFFSET)
+        self.mc.lfd(res.value, r.SP.value, PARAM_SAVE_AREA_OFFSET)
         self.mc.fcfid(res.value, res.value)
 
     def emit_convert_float_bytes_to_longlong(self, op, arglocs, regalloc):
         l0, res = arglocs
-        self.mc.stfd(l0.value, r.SP.value, -16)
-        self.mc.ld(res.value, r.SP.value, -16)
+        self.mc.stfd(l0.value, r.SP.value, PARAM_SAVE_AREA_OFFSET)
+        self.mc.ld(res.value, r.SP.value, PARAM_SAVE_AREA_OFFSET)
 
     def emit_convert_longlong_bytes_to_float(self, op, arglocs, regalloc):
         l0, res = arglocs
-        self.mc.std(l0.value, r.SP.value, -16)
-        self.mc.lfd(res.value, r.SP.value, -16)
+        self.mc.std(l0.value, r.SP.value, PARAM_SAVE_AREA_OFFSET)
+        self.mc.lfd(res.value, r.SP.value, PARAM_SAVE_AREA_OFFSET)
 
 class GuardOpAssembler(object):
 

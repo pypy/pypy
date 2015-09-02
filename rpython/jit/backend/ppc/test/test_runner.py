@@ -202,3 +202,37 @@ class TestPPC(LLtypeBackendTest):
         assert fail.identifier == 5
         res = self.cpu.get_int_value(deadframe, 0)
         assert res == -42 + NUM
+
+    def test_call_many_float_args(self):
+        from rpython.rtyper.annlowlevel import llhelper
+        from rpython.jit.codewriter.effectinfo import EffectInfo
+
+        seen = []
+        def func(*args):
+            seen.append(args)
+            return -42
+
+        F = lltype.Float
+        I = lltype.Signed
+        FUNC = self.FuncType([F] * 7 + [I] + [F] * 7 + [I] + [F], I)
+        FPTR = self.Ptr(FUNC)
+        func_ptr = llhelper(FPTR, func)
+        cpu = self.cpu
+        calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                    EffectInfo.MOST_GENERAL)
+        funcbox = self.get_funcbox(cpu, func_ptr)
+        argvals = [.1 * i for i in range(15)]
+        argvals.insert(7, 77)
+        argvals.insert(15, 1515)
+        argvals = tuple(argvals)
+        argboxes = []
+        for x in argvals:
+            if isinstance(x, float):
+                argboxes.append(BoxFloat(x))
+            else:
+                argboxes.append(BoxInt(x))
+        res = self.execute_operation(rop.CALL,
+                                     [funcbox] + argboxes,
+                                     'int', descr=calldescr)
+        assert res.value == -42
+        assert seen == [argvals]
