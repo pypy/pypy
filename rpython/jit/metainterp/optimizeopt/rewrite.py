@@ -249,8 +249,8 @@ class OptRewrite(Optimization):
             assert isinstance(box, Const)
             if not box.same_constant(constbox):
                 r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(op)
-                raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} (%s) was proven '
-                                  'to always fail' % r)
+                raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} (%s) '
+                                  'was proven to always fail' % r)
             return
         if emit_operation:
             self.emit_operation(op)
