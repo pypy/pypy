@@ -294,15 +294,18 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
                 raise VirtualStatesCantMatch("other is a different kind of array")
         fieldbox = None
         fieldbox_runtime = None
-        opinfo = state.optimizer.getptrinfo(box)
-        assert isinstance(opinfo, ArrayPtrInfo)
+        if box is not None:
+            opinfo = state.optimizer.getptrinfo(box)
+            assert isinstance(opinfo, ArrayPtrInfo)
+        else:
+            opinfo = None            
         for i in range(self.length):
             for descr in self.fielddescrs:
                 index = i * len(self.fielddescrs) + descr.get_index()
                 fieldstate = self.fieldstate[index]
                 if fieldstate is None:
                     continue
-                if box is not None:
+                if box is not None and opinfo is not None:
                     fieldbox = opinfo._items[index]
                     fieldbox_runtime = state.get_runtime_interiorfield(
                         runtime_box, descr, i)

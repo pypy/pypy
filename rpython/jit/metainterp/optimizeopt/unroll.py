@@ -1,4 +1,5 @@
 
+import sys
 from rpython.jit.metainterp.history import Const, TargetToken, JitCellToken
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
      ShortPreambleBuilder, ExtendedShortPreambleBuilder, PreambleOp
@@ -143,15 +144,36 @@ class UnrollOptimizer(Optimization):
         target_token = self.finalize_short_preamble(label_op,
                                                     state.virtual_state)
         label_op.setdescr(target_token)
-        new_virtual_state = self.jump_to_existing_trace(end_jump, label_op)
+        try:
+            new_virtual_state = self.jump_to_existing_trace(end_jump, label_op)
+        except InvalidLoop:
+            # inlining short preamble failed, jump to preamble
+            self.jump_to_preamble(celltoken, end_jump, info)
+            return (UnrollInfo(target_token, label_op, [],
+                               self.optimizer.quasi_immutable_deps),
+                    self.optimizer._newoperations)            
         if new_virtual_state is not None:
             self.jump_to_preamble(celltoken, end_jump, info)
             return (UnrollInfo(target_token, label_op, [],
                                self.optimizer.quasi_immutable_deps),
                     self.optimizer._newoperations)
+
+        self.disable_retracing_if_max_retrace_guards(
+            self.optimizer._newoperations, target_token)
+        
         return (UnrollInfo(target_token, label_op, extra_same_as,
                            self.optimizer.quasi_immutable_deps),
                 self.optimizer._newoperations)
+
+    def disable_retracing_if_max_retrace_guards(self, ops, target_token):
+        maxguards = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.max_retrace_guards
+        count = 0
+        for op in ops:
+            if op.is_guard():
+                count += 1
+        if count > maxguards:
+            assert isinstance(target_token, TargetToken)
+            target_token.targeting_jitcell_token.retraced_count = sys.maxint
 
     def pick_virtual_state(self, my_vs, label_vs, target_tokens):
         if target_tokens is None:
@@ -191,12 +213,6 @@ class UnrollOptimizer(Optimization):
         else:
             debug_print("Retrace count reached, jumping to preamble")
             return self.jump_to_preamble(cell_token, jump_op, info)
-        #maxguards = warmrunnerdescr.memory_manager.max_retrace_guards
-        #guard_count = self.count_guards(self.optimizer._newoperations)
-        #if guard_count > maxguards:
-        #    target_token = cell_token.target_tokens[0]
-        #    target_token.targeting_jitcell_token.retraced_count = sys.maxint
-        #    return self.jump_to_preamble(cell_token, jump_op, info)
         exported_state = self.export_state(start_label,
                                            operations[-1].getarglist(),
                                            info.inputargs)
@@ -369,13 +385,6 @@ class UnrollOptimizer(Optimization):
                 effectinfo.EF_ELIDABLE_OR_MEMORYERROR)
             return effectinfo.extraeffect != effectinfo.EF_ELIDABLE_CANNOT_RAISE
         return False
-
-    def count_guards(self, ops):
-        guard_count = 0
-        for op in ops:
-            if op.is_guard():
-                guard_count += 1
-        return guard_count
 
 
 class UnrollInfo(LoopInfo):
