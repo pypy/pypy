@@ -1908,15 +1908,14 @@ class Assembler386(BaseAssembler):
 
     # ------------------- CALL ASSEMBLER --------------------------
 
-    def Xgenop_guard_call_assembler(self, op, guard_op, guard_token,
-                                   arglocs, result_loc):
+    def genop_call_assembler(self, op, arglocs, result_loc):
         if len(arglocs) == 2:
             [argloc, vloc] = arglocs
         else:
             [argloc] = arglocs
             vloc = self.imm(0)
-        self.call_assembler(op, guard_op, argloc, vloc, result_loc, eax)
-        self._emit_guard_not_forced(guard_token)
+        self._store_force_index(self._following_guard_not_forced())
+        self.call_assembler(op, argloc, vloc, result_loc, eax)
 
     def _call_assembler_emit_call(self, addr, argloc, _):
         threadlocal_loc = RawEspLoc(THREADLOCAL_OFS, INT)
