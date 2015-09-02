@@ -215,7 +215,7 @@ class RegAlloc(BaseRegalloc):
             return self.rm.force_allocate_reg(var, forbidden_vars,
                                               selected_reg, need_lower_byte)
 
-    def force_allocate_reg_or_cc(self, var, need_lower_byte):
+    def force_allocate_reg_or_cc(self, var):
         assert var.type == INT
         if self.next_op_can_accept_cc(self.operations, self.rm.position):
             # hack: return the ebp location to mean "lives in CC".  This
@@ -225,8 +225,7 @@ class RegAlloc(BaseRegalloc):
             return ebp
         else:
             # else, return a regular register (not ebp).
-            return self.rm.force_allocate_reg(
-                var, need_lower_byte=need_lower_byte)
+            return self.rm.force_allocate_reg(var, need_lower_byte=True)
 
     def force_spill_var(self, var):
         if var.type == FLOAT:
@@ -548,7 +547,7 @@ class RegAlloc(BaseRegalloc):
         else:
             arglocs[0] = self.rm.make_sure_var_in_reg(vx)
         self.possibly_free_vars(args)
-        loc = self.force_allocate_reg_or_cc(op.result, need_lower_byte=True)
+        loc = self.force_allocate_reg_or_cc(op.result)
         self.perform(op, arglocs, loc)
 
     consider_int_lt = _consider_compop
@@ -575,7 +574,7 @@ class RegAlloc(BaseRegalloc):
     consider_float_mul = _consider_float_op      # xxx could be _symm
     consider_float_truediv = _consider_float_op
 
-    def _consider_float_cmp(self, op, guard_op):
+    def _consider_float_cmp(self, op):
         vx = op.getarg(0)
         vy = op.getarg(1)
         arglocs = [self.loc(vx), self.loc(vy)]
@@ -585,11 +584,9 @@ class RegAlloc(BaseRegalloc):
                 arglocs[1] = self.xrm.make_sure_var_in_reg(vy)
             else:
                 arglocs[0] = self.xrm.make_sure_var_in_reg(vx)
-        if guard_op is None:
-            res = self.rm.force_allocate_reg(op.result, need_lower_byte=True)
-            self.perform(op, arglocs, res)
-        else:
-            self.perform_with_guard(op, guard_op, arglocs, None)
+        self.possibly_free_vars(op.getarglist())
+        loc = self.force_allocate_reg_or_cc(op.result)
+        self.perform(op, arglocs, loc)
 
     consider_float_lt = _consider_float_cmp
     consider_float_le = _consider_float_cmp
@@ -1107,7 +1104,7 @@ class RegAlloc(BaseRegalloc):
         # doesn't need arg to be in a register
         argloc = self.loc(op.getarg(0))
         self.rm.possibly_free_var(op.getarg(0))
-        resloc = self.force_allocate_reg_or_cc(op.result, need_lower_byte=True)
+        resloc = self.force_allocate_reg_or_cc(op.result)
         self.perform(op, [argloc], resloc)
 
     consider_int_is_zero = consider_int_is_true
