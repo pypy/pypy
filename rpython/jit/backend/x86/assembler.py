@@ -1608,21 +1608,22 @@ class Assembler386(BaseAssembler):
     genop_int_sub_ovf = genop_int_sub
     genop_int_mul_ovf = genop_int_mul
 
-    def genop_guard_guard_no_overflow(self, guard_op, guard_token, locs, resl):
+    def genop_guard_guard_no_overflow(self, guard_op, guard_token, locs, ign):
         self.last_cc = rx86.Conditions['NO']
         self.implement_guard(guard_token)
 
-    def genop_guard_guard_overflow(self, guard_op, guard_token, locs, resl):
+    def genop_guard_guard_overflow(self, guard_op, guard_token, locs, ign):
         self.last_cc = rx86.Conditions['O']
         self.implement_guard(guard_token)
 
-    def Xgenop_guard_guard_value(self, ign_1, guard_op, guard_token, locs, ign_2):
+    def genop_guard_guard_value(self, guard_op, guard_token, locs, ign):
         if guard_op.getarg(0).type == FLOAT:
             assert guard_op.getarg(1).type == FLOAT
             self.mc.UCOMISD(locs[0], locs[1])
         else:
             self.mc.CMP(locs[0], locs[1])
-        self.implement_guard(guard_token, 'NE')
+        self.last_cc = rx86.Conditions['E']
+        self.implement_guard(guard_token)
 
     def _cmp_guard_class(self, locs):
         offset = self.cpu.vtable_offset
@@ -1657,12 +1658,12 @@ class Assembler386(BaseAssembler):
             elif IS_X86_64:
                 self.mc.CMP32_mi((locs[0].value, 0), expected_typeid)
 
-    def Xgenop_guard_guard_class(self, ign_1, guard_op, guard_token, locs, ign_2):
+    def genop_guard_guard_class(self, guard_op, guard_token, locs, ign):
         self._cmp_guard_class(locs)
-        self.implement_guard(guard_token, 'NE')
+        self.last_cc = rx86.Conditions['E']
+        self.implement_guard(guard_token)
 
-    def Xgenop_guard_guard_nonnull_class(self, ign_1, guard_op,
-                                        guard_token, locs, ign_2):
+    def genop_guard_guard_nonnull_class(self, guard_op, guard_token, locs, ign):
         self.mc.CMP(locs[0], imm1)
         # Patched below
         self.mc.J_il8(rx86.Conditions['B'], 0)
@@ -1673,7 +1674,8 @@ class Assembler386(BaseAssembler):
         assert 0 < offset <= 127
         self.mc.overwrite(jb_location-1, chr(offset))
         #
-        self.implement_guard(guard_token, 'NE')
+        self.last_cc = rx86.Conditions['E']
+        self.implement_guard(guard_token)
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
                                  fail_locs, frame_depth):
