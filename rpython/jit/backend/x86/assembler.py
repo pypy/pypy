@@ -1554,24 +1554,24 @@ class Assembler386(BaseAssembler):
         self.implement_guard(guard_token)
     genop_guard_guard_isnull = genop_guard_guard_false
 
-    def Xgenop_guard_guard_no_exception(self, ign_1, guard_op, guard_token,
-                                       locs, ign_2):
+    def genop_guard_guard_no_exception(self, guard_op, guard_token, locs, ign):
         self.mc.CMP(heap(self.cpu.pos_exception()), imm0)
-        self.implement_guard(guard_token, 'NZ')
+        self.last_cc = rx86.Conditions['Z']
+        self.implement_guard(guard_token)
 
-    def Xgenop_guard_guard_not_invalidated(self, ign_1, guard_op, guard_token,
-                                     locs, ign_2):
+    def genop_guard_guard_not_invalidated(self, guard_op, guard_token,
+                                          locs, ign):
         pos = self.mc.get_relative_pos() + 1 # after potential jmp
         guard_token.pos_jump_offset = pos
         self.pending_guard_tokens.append(guard_token)
 
-    def Xgenop_guard_guard_exception(self, ign_1, guard_op, guard_token,
-                                    locs, resloc):
+    def genop_guard_guard_exception(self, guard_op, guard_token, locs, resloc):
         loc = locs[0]
         loc1 = locs[1]
         self.mc.MOV(loc1, heap(self.cpu.pos_exception()))
         self.mc.CMP(loc1, loc)
-        self.implement_guard(guard_token, 'NE')
+        self.last_cc = rx86.Conditions['E']
+        self.implement_guard(guard_token)
         self._store_and_reset_exception(self.mc, resloc)
 
     def _store_and_reset_exception(self, mc, excvalloc=None, exctploc=None,
@@ -1883,20 +1883,24 @@ class Assembler386(BaseAssembler):
         self.mc.MOV(raw_stack(ofs), imm(rffi.cast(lltype.Signed,
                                  cast_instance_to_gcref(faildescr))))
 
-    def _emit_guard_not_forced(self, guard_token):
+    def _following_guard_not_forced(self):
+        regalloc = self._regalloc
+        op = regalloc.operations[regalloc.rm.position + 1]
+        assert op.getopnum() == rop.GUARD_NOT_FORCED
+        return op
+
+    def genop_guard_guard_not_forced(self, guard_op, guard_token, locs, resloc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.CMP_bi(ofs, 0)
-        self.implement_guard(guard_token, 'NE')
+        self.last_cc = rx86.Conditions['E']
+        self.implement_guard(guard_token)
 
-    def Xgenop_guard_call_may_force(self, op, guard_op, guard_token,
-                                   arglocs, result_loc):
-        self._store_force_index(guard_op)
+    def genop_call_may_force(self, op, arglocs, result_loc):
+        self._store_force_index(self._following_guard_not_forced())
         self._genop_call(op, arglocs, result_loc)
-        self._emit_guard_not_forced(guard_token)
 
-    def Xgenop_guard_call_release_gil(self, op, guard_op, guard_token,
-                                     arglocs, result_loc):
-        self._store_force_index(guard_op)
+    def Xgenop_guard_call_release_gil(self, op, arglocs, result_loc):
+        self._store_force_index(self._following_guard_not_forced())
         self._genop_call(op, arglocs, result_loc, is_call_release_gil=True)
         self._emit_guard_not_forced(guard_token)
 
@@ -2367,7 +2371,7 @@ for name, value in Assembler386.__dict__.iteritems():
         opname = name[len('genop_discard_'):]
         num = getattr(rop, opname.upper())
         genop_discard_list[num] = value
-    elif name.startswith('genop_guard_') and name != 'genop_guard_exception':
+    elif name.startswith('genop_guard_'):
         opname = name[len('genop_guard_'):]
         num = getattr(rop, opname.upper())
         genop_guard_list[num] = value

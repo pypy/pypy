@@ -418,6 +418,7 @@ class RegAlloc(BaseRegalloc):
 
     consider_guard_no_overflow = consider_guard_no_exception
     consider_guard_overflow    = consider_guard_no_exception
+    consider_guard_not_forced  = consider_guard_no_exception
 
     def consider_guard_value(self, op):
         x = self.make_sure_var_in_reg(op.getarg(0))
@@ -727,7 +728,7 @@ class RegAlloc(BaseRegalloc):
         else:
             self._consider_call(op)
 
-    def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
+    def _call(self, op, arglocs, force_store=[], guard_not_forced=False):
         # we need to save registers on the stack:
         #
         #  - at least the non-callee-saved registers
@@ -740,7 +741,7 @@ class RegAlloc(BaseRegalloc):
         #    grab_frame_values() would not be able to locate values in
         #    callee-saved registers.
         #
-        save_all_regs = guard_not_forced_op is not None
+        save_all_regs = guard_not_forced
         self.xrm.before_call(force_store, save_all_regs=save_all_regs)
         if not save_all_regs:
             gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
@@ -758,12 +759,9 @@ class RegAlloc(BaseRegalloc):
                 resloc = self.rm.after_call(op.result)
         else:
             resloc = None
-        if guard_not_forced_op is not None:
-            self.perform_with_guard(op, guard_not_forced_op, arglocs, resloc)
-        else:
-            self.perform(op, arglocs, resloc)
+        self.perform(op, arglocs, resloc)
 
-    def _consider_call(self, op, guard_not_forced_op=None, first_arg_index=1):
+    def _consider_call(self, op, guard_not_forced=False, first_arg_index=1):
         calldescr = op.getdescr()
         assert isinstance(calldescr, CallDescr)
         assert len(calldescr.arg_classes) == op.numargs() - first_arg_index
@@ -775,7 +773,7 @@ class RegAlloc(BaseRegalloc):
             sign_loc = imm0
         self._call(op, [imm(size), sign_loc] +
                        [self.loc(op.getarg(i)) for i in range(op.numargs())],
-                   guard_not_forced_op=guard_not_forced_op)
+                   guard_not_forced=guard_not_forced)
 
     def consider_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
@@ -810,9 +808,8 @@ class RegAlloc(BaseRegalloc):
                 return self._consider_math_read_timestamp(op)
         self._consider_call(op)
 
-    def consider_call_may_force(self, op, guard_op):
-        assert guard_op is not None
-        self._consider_call(op, guard_op)
+    def consider_call_may_force(self, op):
+        self._consider_call(op, True)
 
     def consider_call_release_gil(self, op, guard_op):
         # [Const(save_err), func_addr, args...]
