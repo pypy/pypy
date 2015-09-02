@@ -145,10 +145,12 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         assert isinstance(other, AbstractVirtualStructStateInfo)
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
-        opinfo = state.optimizer.getptrinfo(box)
         if runtime_box is not None:
+            opinfo = state.optimizer.getptrinfo(box)
             assert opinfo.is_virtual()
-        assert isinstance(opinfo, AbstractStructPtrInfo)
+            assert isinstance(opinfo, AbstractStructPtrInfo)
+        else:
+            opinfo = None
 
         if len(self.fielddescrs) != len(other.fielddescrs):
             raise VirtualStatesCantMatch("field descrs don't match")
@@ -551,8 +553,8 @@ class VirtualState(object):
             if s:
                 s.enum(self)
 
-    def generalization_of(self, other, bad=None, cpu=None):
-        state = GenerateGuardState(cpu=cpu, bad=bad)
+    def generalization_of(self, other, optimizer):
+        state = GenerateGuardState(optimizer)
         assert len(self.state) == len(other.state)
         try:
             for i in range(len(self.state)):

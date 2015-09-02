@@ -3,6 +3,7 @@ from rpython.jit.metainterp.history import Const, TargetToken, JitCellToken
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
      ShortPreambleBuilder, ExtendedShortPreambleBuilder, PreambleOp
 from rpython.jit.metainterp.optimizeopt import info, intutils
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
      Optimization, LoopInfo, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.vstring import StrPtrInfo
@@ -122,7 +123,18 @@ class UnrollOptimizer(Optimization):
             start_label.getarglist()[:], ops, call_pure_results, False,
             flush=False)
         label_op = ResOperation(rop.LABEL, label_args, start_label.getdescr())
-        args = state.virtual_state.make_inputargs(
+        for a in end_jump.getarglist():
+            self.optimizer.force_box_for_end_of_preamble(
+                self.optimizer.get_box_replacement(a))
+        current_vs = self.get_virtual_state(end_jump.getarglist())
+        # pick the vs we want to jump to
+        celltoken = start_label.getdescr()
+        assert isinstance(celltoken, JitCellToken)
+        target_virtual_state = self.pick_virtual_state(current_vs,
+                                                       state.virtual_state,
+                                                celltoken.target_tokens)
+        # force the boxes for virtual state to match
+        args = target_virtual_state.make_inputargs(
             [self.get_box_replacement(x) for x in end_jump.getarglist()],
             self.optimizer, force_boxes=True)
         for arg in args:
@@ -131,11 +143,8 @@ class UnrollOptimizer(Optimization):
         target_token = self.finalize_short_preamble(label_op,
                                                     state.virtual_state)
         label_op.setdescr(target_token)
-        # force the boxes for virtual state to match
         new_virtual_state = self.jump_to_existing_trace(end_jump, label_op)
         if new_virtual_state is not None:
-            celltoken = start_label.getdescr()
-            assert isinstance(celltoken, JitCellToken)
             self.jump_to_preamble(celltoken, end_jump, info)
             return (UnrollInfo(target_token, label_op, [],
                                self.optimizer.quasi_immutable_deps),
@@ -143,6 +152,16 @@ class UnrollOptimizer(Optimization):
         return (UnrollInfo(target_token, label_op, extra_same_as,
                            self.optimizer.quasi_immutable_deps),
                 self.optimizer._newoperations)
+
+    def pick_virtual_state(self, my_vs, label_vs, target_tokens):
+        if target_tokens is None:
+            return label_vs # for tests
+        for token in target_tokens:
+            if token.virtual_state is None:
+                continue
+            if token.virtual_state.generalization_of(my_vs, self.optimizer):
+                return token.virtual_state
+        return label_vs
 
     def optimize_bridge(self, start_label, operations, call_pure_results,
                         inline_short_preamble):

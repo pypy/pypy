@@ -214,7 +214,7 @@ class VirtualTests:
         assert res == f(20)
         self.check_trace_count(2)
         self.check_resops(**{self._new_op: 1})
-        self.check_resops(int_mul=0, call=1)
+        self.check_resops(int_mul=0, call_i=1)
 
     def test_two_virtuals(self):
         myjitdriver = JitDriver(greens=[], reds=['n', 'prev'])
