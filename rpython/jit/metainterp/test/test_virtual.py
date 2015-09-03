@@ -1234,7 +1234,7 @@ class VirtualMiscTests:
         res = self.meta_interp(f, [10])
         assert res == 55
         self.check_trace_count(1)
-        self.check_resops(setarrayitem_raw=2, getarrayitem_raw=4)
+        self.check_resops(setarrayitem_raw=2, getarrayitem_raw_i=4)
 
 # ____________________________________________________________
 # Run 1: all the tests instantiate a real RPython class

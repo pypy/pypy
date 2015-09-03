@@ -304,8 +304,9 @@ class Optimizer(Optimization):
             return box
         if box.type == 'i':
             info = self.getrawptrinfo(box)
-            return info.force_at_the_end_of_preamble(box, self.optearlyforce,
-                                                     None)
+            if info is not None:
+                return info.force_at_the_end_of_preamble(box,
+                                            self.optearlyforce, None)
         return box
 
     def flush(self):
