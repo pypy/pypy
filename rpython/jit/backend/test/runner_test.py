@@ -4867,3 +4867,71 @@ class LLtypeBackendTest(BaseBackendTest):
                              ]:
             assert self.execute_operation(opname, args, 'void') == None
             assert self.guard_failed
+
+    def test_guard_is_object(self):
+        if not self.cpu.supports_guard_gc_type:
+            py.test.skip("guard_gc_type not available")
+        t_box, _, _ = self.alloc_instance(self.T)
+        self.execute_operation(rop.GUARD_IS_OBJECT, [t_box], 'void')
+        #
+        assert not self.guard_failed
+        a_box, _ = self.alloc_array_of(rffi.SHORT, 342)
+        self.execute_operation(rop.GUARD_IS_OBJECT, [a_box], 'void')
+        assert self.guard_failed
+        #
+        S = lltype.GcStruct('S')
+        s = lltype.malloc(S, immortal=True, zero=True)
+        s_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, s))
+        self.execute_operation(rop.GUARD_IS_OBJECT, [s_box], 'void')
+        assert self.guard_failed
+
+    def test_guard_subclass(self):
+        if not self.cpu.supports_guard_gc_type:
+            py.test.skip("guard_gc_type not available")
+
+        xtp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        xtp.subclassrange_min = 1
+        xtp.subclassrange_max = 3
+        X = lltype.GcStruct('X', ('parent', rclass.OBJECT),
+                            hints={'vtable':  xtp._obj})
+        xptr = lltype.malloc(X)
+        xptr.parent.typeptr = xtp
+        x_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, xptr))
+        X_box = ConstInt(heaptracker.adr2int(llmemory.cast_ptr_to_adr(xtp)))
+
+        ytp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        ytp.subclassrange_min = 2
+        ytp.subclassrange_max = 2
+        assert rclass.ll_issubclass(ytp, xtp)
+        Y = lltype.GcStruct('Y', ('parent', X),
+                            hints={'vtable':  ytp._obj})
+        yptr = lltype.malloc(Y)
+        yptr.parent.parent.typeptr = ytp
+        y_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, yptr))
+        Y_box = ConstInt(heaptracker.adr2int(llmemory.cast_ptr_to_adr(ytp)))
+
+        ztp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        ztp.subclassrange_min = 4
+        ztp.subclassrange_max = 5
+        assert not rclass.ll_issubclass(ztp, xtp)
+        assert not rclass.ll_issubclass(xtp, ztp)
+        Z = lltype.GcStruct('Z', ('parent', rclass.OBJECT),
+                            hints={'vtable':  ztp._obj})
+        zptr = lltype.malloc(Z)
+        zptr.parent.typeptr = ztp
+        z_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, zptr))
+        Z_box = ConstInt(heaptracker.adr2int(llmemory.cast_ptr_to_adr(ztp)))
+
+        for num, arg, klass, is_subclass in [
+                (1, x_box, X_box, True),
+                (2, x_box, Y_box, False),
+                (3, x_box, Z_box, False),
+                (4, y_box, X_box, True),
+                (5, y_box, Y_box, True),
+                (6, y_box, Z_box, False),
+                (7, z_box, X_box, False),
+                (8, z_box, Y_box, False),
+                (9, z_box, Z_box, True),
+                ]:
+            self.execute_operation(rop.GUARD_SUBCLASS, [arg, klass], 'void')
+            assert self.guard_failed == (not is_subclass)
