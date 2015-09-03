@@ -339,11 +339,13 @@ def compile_retrace(metainterp, greenkey, start,
         loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
                                              loop_data)
     except InvalidLoop:
-        return None
+        xxxx
         # Fall back on jumping directly to preamble
         jump_op = ResOperation(rop.JUMP, inputargs[:],
                                descr=loop_jitcell_token.target_tokens[0])
-        loop_data = SimpleCompileData(end_label, [jump_op], call_pure_results,
+        loop_data = SimpleCompileData(end_label,
+                                      [jump_op],
+                                      call_pure_results,
                                       enable_opts)
         try:
             loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
@@ -352,8 +354,9 @@ def compile_retrace(metainterp, greenkey, start,
             return None
         loop = partial_trace
         loop.original_jitcell_token = loop_jitcell_token
-        loop.operations = loop_ops[:]
-        loop.inputargs = loop_info.inputargs[:]
+        import pdb
+        pdb.set_trace()
+        loop.operations = loop.operations + loop_ops[:]
         loop.check_consistency()
     else:
 
