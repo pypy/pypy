@@ -963,6 +963,9 @@ def invent_fail_descr_for_op(opnum, optimizer):
         resumedescr = ResumeGuardOverflowDescr()
     elif opnum == rop.GUARD_NO_OVERFLOW:
         resumedescr = ResumeGuardNoOverflowDescr()
+    elif opnum in (rop.GUARD_IS_OBJECT, rop.GUARD_SUBCLASS, rop.GUARD_GC_TYPE):
+        # note - this only happens in tests
+        resumedescr = ResumeAtPositionDescr()
     else:
         assert False
     return resumedescr

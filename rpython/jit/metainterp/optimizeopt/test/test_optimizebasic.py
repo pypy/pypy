@@ -5833,5 +5833,47 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_remove_guard_is_object_2(self):
+        ops = """
+        [p0]
+        i1 = getfield_gc_i(p0, descr=valuedescr)
+        guard_is_object(p0) []
+        finish(i1)
+        """
+        expected = """
+        [p0]
+        i1 = getfield_gc_i(p0, descr=valuedescr)
+        finish(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_guard_subclass_1(self):
+        ops = """
+        [p0]
+        i1 = getfield_gc_i(p0, descr=valuedescr)
+        guard_subclass(p0, ConstClass(node_vtable)) []
+        finish(i1)
+        """
+        expected = """
+        [p0]
+        i1 = getfield_gc_i(p0, descr=valuedescr)
+        finish(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_guard_subclass_2(self):
+        ops = """
+        [p0]
+        p1 = getfield_gc_i(p0, descr=otherdescr)
+        guard_subclass(p0, ConstClass(node_vtable)) []
+        finish(p1)
+        """
+        expected = """
+        [p0]
+        p1 = getfield_gc_i(p0, descr=otherdescr)
+        finish(p1)
+        """
+        self.optimize_loop(ops, expected)        
+
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
