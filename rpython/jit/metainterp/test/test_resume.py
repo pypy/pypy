@@ -1208,19 +1208,19 @@ def test_virtual_adder_make_virtual():
 
     vdescr = LLtypeMixin.nodesize2
     ca = ConstAddr(LLtypeMixin.node_vtable_adr2, LLtypeMixin.cpu)
-    v4 = info.InstancePtrInfo(ca, vdescr)
+    v4 = info.InstancePtrInfo(vdescr, ca, True)
     b4s.set_forwarded(v4)
     v4.setfield(LLtypeMixin.nextdescr, ca, b2s)
     v4.setfield(LLtypeMixin.valuedescr, ca, b3s)
     v4.setfield(LLtypeMixin.otherdescr, ca, b5s)
     ca = ConstAddr(LLtypeMixin.node_vtable_adr, LLtypeMixin.cpu)
-    v2 = info.InstancePtrInfo(ca, LLtypeMixin.nodesize)
+    v2 = info.InstancePtrInfo(LLtypeMixin.nodesize, ca, True)
     v2.setfield(LLtypeMixin.nextdescr, b4s, ca)
     v2.setfield(LLtypeMixin.valuedescr, c1s, ca)
     b2s.set_forwarded(v2)
 
-    modifier.register_virtual_fields(b2s, [c1s, None, None, b4s])
-    modifier.register_virtual_fields(b4s, [b3s, None, None, b2s, b5s])
+    modifier.register_virtual_fields(b2s, [c1s, None, None, None, b4s])
+    modifier.register_virtual_fields(b4s, [b3s, None, None, None, b2s, b5s])
 
     liveboxes = []
     modifier._number_virtuals(liveboxes, FakeOptimizer(), 0)
@@ -1285,8 +1285,7 @@ def test_virtual_adder_make_varray():
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
 
-    v2 = info.ArrayPtrInfo(LLtypeMixin.arraydescr,
-                           vdescr=LLtypeMixin.arraydescr, size=2)
+    v2 = info.ArrayPtrInfo(LLtypeMixin.arraydescr, size=2, is_virtual=True)
     b2s.set_forwarded(v2)
     v2._items = [b4s, c1s]
     modifier.register_virtual_fields(b2s, [b4s, c1s])
@@ -1334,7 +1333,7 @@ def test_virtual_adder_make_vstruct():
     modifier.liveboxes_from_env = {}
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
-    v2 = info.StructPtrInfo(LLtypeMixin.ssize)
+    v2 = info.StructPtrInfo(LLtypeMixin.ssize, is_virtual=True)
     b2s.set_forwarded(v2)
     v2.setfield(LLtypeMixin.adescr, b2s, c1s)
     v2.setfield(LLtypeMixin.abisdescr, b2s, c1s)

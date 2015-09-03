@@ -364,6 +364,9 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
         assert buffer is not None
         return buffer
 
+    def all_items(self):
+        return []
+
     def getitem_raw(self, offset, itemsize, descr):
         if not self.is_virtual():
             raise InvalidRawOperation
@@ -439,6 +442,7 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
         return visitor.visit_vrawslice(self.offset)
+
 
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('length', '_items', 'lenbound', '_clear', 'descr',
