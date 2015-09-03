@@ -20,6 +20,9 @@ class AbstractInfo(AbstractValue):
     def force_box(self, op, optforce):
         return op
 
+    def is_precise(self):
+        return False
+
     def getconst(self):
         raise Exception("not a constant")
 
@@ -118,6 +121,9 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
 
     def get_descr(self):
         return self.descr
+
+    def is_precise(self):
+        return True
 
     def force_box(self, op, optforce):
         if self.is_virtual():

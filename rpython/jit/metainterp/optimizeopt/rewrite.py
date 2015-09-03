@@ -294,8 +294,11 @@ class OptRewrite(Optimization):
 
     def optimize_GUARD_IS_OBJECT(self, op):
         info = self.getptrinfo(op.getarg(0))
-        if info is not None and info.is_about_object():
-            return
+        if info is not None:
+            if info.is_about_object():
+                return
+            if info.is_precise():
+                raise InvalidLoop()
         self.emit_operation(op)
 
     def optimize_GUARD_GC_TYPE(self, op):
