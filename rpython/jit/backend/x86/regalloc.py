@@ -430,6 +430,12 @@ class RegAlloc(BaseRegalloc):
     consider_guard_nonnull_class = consider_guard_class
     consider_guard_gc_type = consider_guard_class
 
+    def consider_guard_is_object(self, op):
+        xxx
+
+    def consider_guard_subclass(self, op):
+        xxx
+
     def _consider_binop_part(self, op, symm=False):
         x = op.getarg(0)
         y = op.getarg(1)
