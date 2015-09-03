@@ -339,8 +339,7 @@ def compile_retrace(metainterp, greenkey, start,
         loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
                                              loop_data)
     except InvalidLoop:
-        raise Exception("think about it")
-        xxx
+        return None
         # Fall back on jumping directly to preamble
         jump_op = ResOperation(rop.JUMP, inputargs[:],
                                descr=loop_jitcell_token.target_tokens[0])
@@ -1004,13 +1003,9 @@ def compile_trace(metainterp, resumekey):
     #
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
-    #new_trace = create_empty_loop(metainterp)
-    #new_trace.inputargs = metainterp.history.inputargs[:]
-
-    #new_trace.operations = metainterp.history.operations[:]
+    
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
-    state = jitdriver_sd.warmstate
     if isinstance(resumekey, ResumeAtPositionDescr):
         inline_short_preamble = False
     else:
