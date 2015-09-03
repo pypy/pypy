@@ -93,6 +93,12 @@ class TypeIDSymbolic(Symbolic):
     def __init__(self, STRUCT_OR_ARRAY):
         self.STRUCT_OR_ARRAY = STRUCT_OR_ARRAY
 
+    def __eq__(self, other):
+        return self.STRUCT_OR_ARRAY is other.STRUCT_OR_ARRAY
+
+    def __ne__(self, other):
+        return not self == other
+
 class SizeDescr(AbstractDescr):
     def __init__(self, S, vtable, runner):
         assert not isinstance(vtable, bool)
