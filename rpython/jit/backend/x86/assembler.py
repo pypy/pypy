@@ -1734,7 +1734,9 @@ class Assembler386(BaseAssembler):
             self.mc.CMP(locs[0], locs[1])
         self.implement_guard(guard_token, 'NE')
 
-    def _cmp_guard_class(self, loc_ptr, loc_classptr):
+    def _cmp_guard_class(self, locs):
+        loc_ptr = locs[0]
+        loc_classptr = locs[1]
         offset = self.cpu.vtable_offset
         if offset is not None:
             self.mc.CMP(mem(loc_ptr, offset), loc_classptr)
@@ -1770,18 +1772,8 @@ class Assembler386(BaseAssembler):
             assert isinstance(loc_expected_typeid, ImmedLoc)
             self.mc.CMP32_mi((loc_ptr.value, 0), loc_expected_typeid.value)
 
-    def _cmp_guard_class_or_gc_type(self, guard_op, locs):
-        if (  guard_op.getopnum() == rop.GUARD_CLASS or
-              guard_op.getopnum() == rop.GUARD_NONNULL_CLASS):
-            self._cmp_guard_class(locs[0], locs[1])
-        elif (guard_op.getopnum() == rop.GUARD_GC_TYPE or
-              guard_op.getopnum() == rop.GUARD_NONNULL_GC_TYPE):
-            self._cmp_guard_gc_type(locs[0], locs[1])
-        else:
-            assert 0
-
     def genop_guard_guard_class(self, ign_1, guard_op, guard_token, locs, ign_2):
-        self._cmp_guard_class_or_gc_type(guard_op, locs)
+        self._cmp_guard_class(locs)
         self.implement_guard(guard_token, 'NE')
 
     def genop_guard_guard_nonnull_class(self, ign_1, guard_op,
@@ -1790,7 +1782,7 @@ class Assembler386(BaseAssembler):
         # Patched below
         self.mc.J_il8(rx86.Conditions['B'], 0)
         jb_location = self.mc.get_relative_pos()
-        self._cmp_guard_class_or_gc_type(guard_op, locs)
+        self._cmp_guard_class(locs)
         # patch the JB above
         offset = self.mc.get_relative_pos() - jb_location
         assert 0 < offset <= 127
@@ -1798,8 +1790,10 @@ class Assembler386(BaseAssembler):
         #
         self.implement_guard(guard_token, 'NE')
 
-    genop_guard_guard_gc_type = genop_guard_guard_class
-    genop_guard_guard_nonnull_gc_type = genop_guard_guard_nonnull_class
+    def genop_guard_guard_gc_type(self, ign_1, guard_op,
+                                  guard_token, locs, ign_2):
+        self._cmp_guard_gc_type(locs[0], locs[1])
+        self.implement_guard(guard_token, 'NE')
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
                                  fail_locs, frame_depth):

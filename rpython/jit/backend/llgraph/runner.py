@@ -913,9 +913,25 @@ class LLFrame(object):
         if TYPE != typeid.STRUCT_OR_ARRAY:
             self.fail_guard(descr)
 
-    def execute_guard_nonnull_gc_type(self, descr, arg, typeid):
-        self.execute_guard_nonnull(descr, arg)
-        self.execute_guard_gc_type(descr, arg, typeid)
+    def execute_guard_is_object(self, descr, arg):
+        TYPE = arg._obj.container._TYPE
+        while TYPE is not rclass.OBJECT:
+            if not isinstance(TYPE, lltype.GcStruct):   # or TYPE is None
+                self.fail_guard(descr)
+                return
+            _, TYPE = TYPE._first_struct()
+
+    def execute_guard_subclass(self, descr, arg, klass):
+        value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, arg)
+        expected_class = llmemory.cast_adr_to_ptr(
+            llmemory.cast_int_to_adr(klass),
+            rclass.CLASSTYPE)
+        if (expected_class.subclassrange_min
+                <= value.typeptr.subclassrange_min
+                <= expected_class.subclassrange_max):
+            pass
+        else:
+            self.fail_guard(descr)
 
     def execute_guard_no_exception(self, descr):
         if self.last_exception is not None:
