@@ -4840,9 +4840,6 @@ class LLtypeBackendTest(BaseBackendTest):
         c_typeid = ConstInt(descr.get_type_id())
         self.execute_operation(rop.GUARD_GC_TYPE, [t_box, c_typeid], 'void')
         assert not self.guard_failed
-        self.execute_operation(rop.GUARD_NONNULL_GC_TYPE, [t_box, c_typeid],
-                               'void')
-        assert not self.guard_failed
 
     def test_passing_guard_gc_type_array(self):
         if not self.cpu.supports_guard_gc_type:
@@ -4851,9 +4848,6 @@ class LLtypeBackendTest(BaseBackendTest):
         arraydescr = self.cpu.arraydescrof(A)
         c_typeid = ConstInt(arraydescr.get_type_id())
         self.execute_operation(rop.GUARD_GC_TYPE, [a_box, c_typeid], 'void')
-        assert not self.guard_failed
-        self.execute_operation(rop.GUARD_NONNULL_GC_TYPE, [a_box, c_typeid],
-                               'void')
         assert not self.guard_failed
 
     def test_failing_guard_gc_type(self):
@@ -4866,17 +4860,10 @@ class LLtypeBackendTest(BaseBackendTest):
         c_ttypeid = ConstInt(tdescr.get_type_id())
         c_utypeid = ConstInt(udescr.get_type_id())
         c_atypeid = ConstInt(adescr.get_type_id())
-        null_box = self.null_instance()
         for opname, args in [(rop.GUARD_GC_TYPE, [t_box, c_utypeid]),
                              (rop.GUARD_GC_TYPE, [u_box, c_ttypeid]),
                              (rop.GUARD_GC_TYPE, [a_box, c_utypeid]),
                              (rop.GUARD_GC_TYPE, [t_box, c_atypeid]),
-                             (rop.GUARD_NONNULL_GC_TYPE, [t_box, c_utypeid]),
-                             (rop.GUARD_NONNULL_GC_TYPE, [u_box, c_ttypeid]),
-                             (rop.GUARD_NONNULL_GC_TYPE, [a_box, c_ttypeid]),
-                             (rop.GUARD_NONNULL_GC_TYPE, [u_box, c_atypeid]),
-                             (rop.GUARD_NONNULL_GC_TYPE, [null_box, c_ttypeid]),
-                             (rop.GUARD_NONNULL_GC_TYPE, [null_box, c_atypeid]),
                              ]:
             assert self.execute_operation(opname, args, 'void') == None
             assert self.guard_failed

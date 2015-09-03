@@ -913,10 +913,6 @@ class LLFrame(object):
         if TYPE != typeid.STRUCT_OR_ARRAY:
             self.fail_guard(descr)
 
-    def execute_guard_nonnull_gc_type(self, descr, arg, typeid):
-        self.execute_guard_nonnull(descr, arg)
-        self.execute_guard_gc_type(descr, arg, typeid)
-
     def execute_guard_no_exception(self, descr):
         if self.last_exception is not None:
             self.fail_guard(descr)

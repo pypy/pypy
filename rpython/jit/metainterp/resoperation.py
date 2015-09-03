@@ -661,8 +661,9 @@ _oplist = [
     'GUARD_NONNULL/1d/n',
     'GUARD_ISNULL/1d/n',
     'GUARD_NONNULL_CLASS/2d/n',
-    'GUARD_GC_TYPE/2d/n',
-    'GUARD_NONNULL_GC_TYPE/2d/n',
+    'GUARD_GC_TYPE/2d/n',       # only if supports_guard_gc_type
+    'GUARD_IS_OBJECT/1d/n',     # only if supports_guard_gc_type
+    'GUARD_SUBCLASS/2d/n',      # only if supports_guard_gc_type
     '_GUARD_FOLDABLE_LAST',
     'GUARD_NO_EXCEPTION/0d/n',   # may be called with an exception currently set
     'GUARD_EXCEPTION/1d/r',     # may be called with an exception currently set
