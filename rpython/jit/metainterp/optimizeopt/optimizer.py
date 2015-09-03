@@ -94,7 +94,7 @@ class Optimization(object):
                 last_guard_pos = opinfo.get_last_guard_pos()
             else:
                 last_guard_pos = -1
-            opinfo = info.InstancePtrInfo(class_const)
+            opinfo = info.InstancePtrInfo(None, class_const)
             opinfo.last_guard_pos = last_guard_pos
             op.set_forwarded(opinfo)
         if update_last_guard:

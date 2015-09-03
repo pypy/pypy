@@ -289,9 +289,17 @@ class InstancePtrInfo(AbstractStructPtrInfo):
 
     def make_guards(self, op, short):
         if self._known_class is not None:
-            op = ResOperation(rop.GUARD_NONNULL_CLASS, [op, self._known_class],
-                              None)
-            short.append(op)
+            short.extend([
+                ResOperation(rop.GUARD_NONNULL, [op], None),
+                ResOperation(rop.GUARD_IS_OBJECT, [op], None),
+                ResOperation(rop.GUARD_CLASS, [op, self._known_class], None)
+                ])
+        elif self.descr is not None:
+            short.extend([
+                ResOperation(rop.GUARD_NONNULL, [op], None),
+                ResOperation(rop.GUARD_IS_OBJECT, [op], None),
+                xx
+                ])
         else:
             AbstractStructPtrInfo.make_guards(self, op, short)
 
@@ -299,6 +307,9 @@ class StructPtrInfo(AbstractStructPtrInfo):
     def __init__(self, descr, is_virtual=False):
         self.descr = descr
         self._is_virtual = is_virtual
+
+    def make_guards(self, op, short):
+        xxx
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
