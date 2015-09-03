@@ -15,7 +15,7 @@ class OptVirtualize(optimizer.Optimization):
     _last_guard_not_forced_2 = None
 
     def make_virtual(self, known_class, source_op, descr):
-        opinfo = info.InstancePtrInfo(known_class, vdescr=descr)
+        opinfo = info.InstancePtrInfo(descr, known_class, is_virtual=True)
         opinfo.init_fields(descr, 0)
         newop = self.replace_op_with(source_op, source_op.getopnum())
         newop.set_forwarded(opinfo)
@@ -24,17 +24,17 @@ class OptVirtualize(optimizer.Optimization):
     def make_varray(self, arraydescr, size, source_op, clear=False):
         if arraydescr.is_array_of_structs():
             assert clear
-            opinfo = info.ArrayStructInfo(size, vdescr=arraydescr)
+            opinfo = info.ArrayStructInfo(arraydescr, size, is_virtual=True)
         else:
             const = self.new_const_item(arraydescr)
             opinfo = info.ArrayPtrInfo(arraydescr, const, size, clear,
-                                       vdescr=arraydescr)
+                                       is_virtual=True)
         newop = self.replace_op_with(source_op, source_op.getopnum())
         newop.set_forwarded(opinfo)
         return opinfo
 
     def make_vstruct(self, structdescr, source_op):
-        opinfo = info.StructPtrInfo(vdescr=structdescr)
+        opinfo = info.StructPtrInfo(structdescr, is_virtual=True)
         opinfo.init_fields(structdescr, 0)
         newop = self.replace_op_with(source_op, source_op.getopnum())
         newop.set_forwarded(opinfo)

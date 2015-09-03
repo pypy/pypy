@@ -601,6 +601,7 @@ class VStructInfo(AbstractVirtualStructInfo):
 
 class AbstractVArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr):
+        assert arraydescr is not None
         self.arraydescr = arraydescr
         #self.fieldnums = ...
 

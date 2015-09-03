@@ -449,13 +449,13 @@ class Optimizer(Optimization):
         assert opinfo is None or opinfo.__class__ is info.NonNullPtrInfo
         if (op.is_getfield() or op.getopnum() == rop.SETFIELD_GC or
             op.getopnum() == rop.QUASIIMMUT_FIELD):
-            is_object = op.getdescr().get_parent_descr().is_object()
-            if is_object:
-                opinfo = info.InstancePtrInfo()
+            descr = op.getdescr()
+            parent_descr = descr.get_parent_descr()
+            if parent_descr.is_object():
+                opinfo = info.InstancePtrInfo(parent_descr)
             else:
-                opinfo = info.StructPtrInfo()
-            opinfo.init_fields(op.getdescr().get_parent_descr(),
-                               op.getdescr().get_index())
+                opinfo = info.StructPtrInfo(parent_descr)
+            opinfo.init_fields(parent_descr, descr.get_index())
         elif (op.is_getarrayitem() or op.getopnum() == rop.SETARRAYITEM_GC or
               op.getopnum() == rop.ARRAYLEN_GC):
             opinfo = info.ArrayPtrInfo(op.getdescr())

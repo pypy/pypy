@@ -104,11 +104,11 @@ class NonNullPtrInfo(PtrInfo):
         short.append(op)
 
 class AbstractVirtualPtrInfo(NonNullPtrInfo):
-    _attrs_ = ('_cached_vinfo', 'vdescr')
-    # XXX merge _cached_vinfo with vdescr
+    _attrs_ = ('_cached_vinfo', 'descr', '_is_virtual')
+    # XXX merge _cached_vinfo with descr
 
     _cached_vinfo = None
-    vdescr = None
+    descr = None
 
     def force_box(self, op, optforce):
         if self.is_virtual():
@@ -117,9 +117,8 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
             if self._is_immutable_and_filled_with_constants(optforce.optimizer):
                 constptr = optforce.optimizer.constant_fold(op)
                 op.set_forwarded(constptr)
-                descr = self.vdescr
-                self.vdescr = None
-                self._force_elements_immutable(descr, constptr, optforce)
+                self._is_virtual = False
+                self._force_elements_immutable(self.descr, constptr, optforce)
                 return constptr
             #
             op.set_forwarded(None)
@@ -127,8 +126,8 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
             newop = optforce.getlastop()
             op.set_forwarded(newop)
             newop.set_forwarded(self)
-            descr = self.vdescr
-            self.vdescr = None
+            descr = self.descr
+            self._is_virtual = False
             self._force_elements(newop, optforce, descr)
             return newop
         return op
@@ -137,7 +136,7 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
         return self.force_box(op, optforce)
 
     def is_virtual(self):
-        return self.vdescr is not None
+        return self._is_virtual
 
 class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('_fields',)
@@ -147,6 +146,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         if self._fields is None:
             self._fields = [None] * len(descr.get_all_fielddescrs())
         if index >= len(self._fields):
+            self.descr = descr # a more precise descr
             # we found out a subclass with more fields
             extra_len = len(descr.get_all_fielddescrs()) - len(self._fields)
             self._fields = self._fields + [None] * extra_len
@@ -205,7 +205,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         return op
 
     def _visitor_walk_recursive(self, instbox, visitor, optimizer):
-        lst = self.vdescr.get_all_fielddescrs()
+        lst = self.descr.get_all_fielddescrs()
         assert self.is_virtual()
         visitor.register_virtual_fields(instbox,
                                         [optimizer.get_box_replacement(box)
@@ -235,7 +235,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         # which also answers True to the same question.
         #
         assert self.is_virtual()
-        if not self.vdescr.is_immutable():
+        if not self.descr.is_immutable():
             return False
         if memo is not None and self in memo:
             return True       # recursive case: assume yes
@@ -271,18 +271,21 @@ class InstancePtrInfo(AbstractStructPtrInfo):
     _attrs_ = ('_known_class',)
     _fields = None
 
-    def __init__(self, known_class=None, vdescr=None):
+    def __init__(self, descr=None, known_class=None, is_virtual=False):
         self._known_class = known_class
-        self.vdescr = vdescr
+        # that's a descr of best-known class, can be actually a subclass
+        # of the class described in descr
+        self.descr = descr
+        self._is_virtual = is_virtual
 
     def get_known_class(self, cpu):
         return self._known_class
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
-        fielddescrs = self.vdescr.get_all_fielddescrs()
+        fielddescrs = self.descr.get_all_fielddescrs()
         assert self.is_virtual()
-        return visitor.visit_virtual(self.vdescr, fielddescrs)
+        return visitor.visit_virtual(self.descr, fielddescrs)
 
     def make_guards(self, op, short):
         if self._known_class is not None:
@@ -293,14 +296,15 @@ class InstancePtrInfo(AbstractStructPtrInfo):
             AbstractStructPtrInfo.make_guards(self, op, short)
 
 class StructPtrInfo(AbstractStructPtrInfo):
-    def __init__(self, vdescr=None):
-        self.vdescr = vdescr
+    def __init__(self, descr, is_virtual=False):
+        self.descr = descr
+        self._is_virtual = is_virtual
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
-        fielddescrs = self.vdescr.get_all_fielddescrs()
+        fielddescrs = self.descr.get_all_fielddescrs()
         assert self.is_virtual()
-        return visitor.visit_vstruct(self.vdescr, fielddescrs)
+        return visitor.visit_vstruct(self.descr, fielddescrs)
 
 class AbstractRawPtrInfo(AbstractVirtualPtrInfo):
     def _visitor_walk_recursive(self, op, visitor, optimizer):
@@ -400,19 +404,19 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
         return visitor.visit_vrawslice(self.offset)
 
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
-    _attrs_ = ('length', '_items', 'lenbound', '_clear', 'arraydescr')
+    _attrs_ = ('length', '_items', 'lenbound', '_clear', 'descr',
+               '_is_virtual')
 
     _items = None
     lenbound = None
     length = -1
 
-    def __init__(self, arraydescr, const=None, size=0, clear=False,
-                 vdescr=None):
+    def __init__(self, descr, const=None, size=0, clear=False,
+                 is_virtual=False):
         from rpython.jit.metainterp.optimizeopt import intutils
-        self.vdescr = vdescr
-        self.arraydescr = arraydescr
-        if vdescr is not None:
-            assert vdescr is arraydescr
+        self.descr = descr
+        self._is_virtual = is_virtual
+        if is_virtual:
             self._init_items(const, size, clear)
             self.lenbound = intutils.ConstIntBound(size)
         self._clear = clear
@@ -437,15 +441,15 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         return self._items
 
     def copy_fields_to_const(self, constinfo, optheap):
-        arraydescr = self.arraydescr
+        descr = self.descr
         if self._items is not None:
-            info = constinfo._get_array_info(arraydescr, optheap)
+            info = constinfo._get_array_info(descr, optheap)
             assert isinstance(info, ArrayPtrInfo)
             info._items = self._items[:]
 
     def _force_elements(self, op, optforce, descr):
-        arraydescr = op.getdescr()
-        const = optforce.new_const_item(self.arraydescr)
+        descr = op.getdescr()
+        const = optforce.new_const_item(self.descr)
         for i in range(self.length):
             item = self._items[i]
             if item is None or self._clear and const.same_constant(item):
@@ -453,7 +457,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             subbox = optforce.force_box(item)
             setop = ResOperation(rop.SETARRAYITEM_GC,
                                  [op, ConstInt(i), subbox],
-                                  descr=arraydescr)
+                                  descr=descr)
             self._items[i] = None
             optforce.emit_operation(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
@@ -490,7 +494,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
-        return visitor.visit_varray(self.vdescr, self._clear)
+        return visitor.visit_varray(self.descr, self._clear)
 
     def produce_short_preamble_ops(self, structbox, descr, index, optimizer,
                                    shortboxes):
@@ -522,19 +526,20 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def make_guards(self, op, short):
         AbstractVirtualPtrInfo.make_guards(self, op, short)
         if self.lenbound is not None:
-            lenop = ResOperation(rop.ARRAYLEN_GC, [op], descr=self.arraydescr)
+            lenop = ResOperation(rop.ARRAYLEN_GC, [op], descr=self.descr)
             short.append(lenop)
             self.lenbound.make_guards(lenop, short)
 
 class ArrayStructInfo(ArrayPtrInfo):
-    def __init__(self, size, vdescr=None):
+    def __init__(self, descr, size, is_virtual=False):
         from rpython.jit.metainterp.optimizeopt import intutils
 
         self.length = size
-        lgt = len(vdescr.get_all_fielddescrs())
+        lgt = len(descr.get_all_fielddescrs())
         self.lenbound = intutils.ConstIntBound(size)
-        self.vdescr = vdescr
+        self.descr = descr
         self._items = [None] * (size * lgt)
+        self._is_virtual = is_virtual
 
     def _compute_index(self, index, fielddescr):
         all_fdescrs = fielddescr.get_arraydescr().get_all_fielddescrs()
@@ -571,7 +576,7 @@ class ArrayStructInfo(ArrayPtrInfo):
         itemops = [optimizer.get_box_replacement(item)
                    for item in self._items]
         visitor.register_virtual_fields(instbox, itemops)
-        fielddescrs = self.vdescr.get_all_fielddescrs()
+        fielddescrs = self.descr.get_all_fielddescrs()
         i = 0
         for index in range(self.getlength()):
             for flddescr in fielddescrs:
@@ -586,8 +591,8 @@ class ArrayStructInfo(ArrayPtrInfo):
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
-        flddescrs = self.vdescr.get_all_fielddescrs()
-        return visitor.visit_varraystruct(self.vdescr, self.getlength(),
+        flddescrs = self.descr.get_all_fielddescrs()
+        return visitor.visit_varraystruct(self.descr, self.getlength(),
                                           flddescrs)
 
 class ConstPtrInfo(PtrInfo):
@@ -602,24 +607,24 @@ class ConstPtrInfo(PtrInfo):
     def make_guards(self, op, short):
         short.append(ResOperation(rop.GUARD_VALUE, [op, self._const]))
 
-    def _get_info(self, optheap):
+    def _get_info(self, descr, optheap):
         ref = self._const.getref_base()
         info = optheap.const_infos.get(ref, None)
         if info is None:
-            info = StructPtrInfo()
+            info = StructPtrInfo(descr)
             optheap.const_infos[ref] = info
         return info
 
-    def _get_array_info(self, arraydescr, optheap):
+    def _get_array_info(self, descr, optheap):
         ref = self._const.getref_base()
         info = optheap.const_infos.get(ref, None)
         if info is None:
-            info = ArrayPtrInfo(arraydescr)
+            info = ArrayPtrInfo(descr)
             optheap.const_infos[ref] = info
         return info        
 
     def getfield(self, descr, optheap=None):
-        info = self._get_info(optheap)
+        info = self._get_info(descr.get_parent_descr(), optheap)
         return info.getfield(descr)
 
     def getitem(self, descr, index, optheap=None):
@@ -631,7 +636,7 @@ class ConstPtrInfo(PtrInfo):
         info.setitem(descr, index, struct, op, cf)
 
     def setfield(self, descr, struct, op, optheap=None, cf=None):
-        info = self._get_info(optheap)
+        info = self._get_info(descr.get_parent_descr(), optheap)
         info.setfield(descr, struct, op, optheap, cf)
 
     def is_null(self):
