@@ -2743,6 +2743,11 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         #
         # initialize p1.getref_base() to return a random pointer to a NODE
         # (it doesn't have to be self.nodeaddr, but it's convenient)
+        failargs = self.loop.operations[1].getfailargs()
+        if failargs[0].type == 'r':
+            values = [InputArgRef(self.nodeaddr), InputArgInt(0)]
+        else:
+            values = [InputArgInt(0), InputArgRef(self.nodeaddr)]
         assert hasattr(self.oparse.getvar('p1'), '_resref')
         self.oparse.getvar('p1')._resref = self.nodeaddr
         #
@@ -2750,8 +2755,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             '''
             p1.nextdescr = p2
             where p2 is a node_vtable, valuedescr=i2
-            ''', rop.GUARD_TRUE, values=[InputArgRef(self.nodeaddr),
-                                         InputArgInt(0)])
+            ''', rop.GUARD_TRUE, values=values)
 
     def test_expand_fail_lazy_setfield_2(self):
         ops = """
@@ -3637,7 +3641,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [i0, p0]
         p1 = new_array(i0, descr=arraydescr)
-        i1 = arraylen_gc(p1)
+        i1 = arraylen_gc(p1, descr=arraydescr)
         i2 = int_gt(i1, -1)
         guard_true(i2) []
         setarrayitem_gc(p0, 0, p1, descr=arraydescr)
@@ -3647,7 +3651,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [i0, p0]
         p1 = new_array(i0, descr=arraydescr)
-        i1 = arraylen_gc(p1)
+        i1 = arraylen_gc(p1, descr=arraydescr)
         setarrayitem_gc(p0, 0, p1, descr=arraydescr)
         jump(i0, p0)
         """
@@ -5802,6 +5806,30 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         call_n(123, p1, descr=writeadescr)
         setfield_gc(p1, i2, descr=bdescr)
         finish(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_guard_gc_type(self):
+        ops = """
+        [p0, p1]
+        setarrayitem_gc(p0, 1, p1, descr=gcarraydescr)
+        guard_gc_type(p0, ConstInt(gcarraydescr_tid)) []
+        """
+        expected = """
+        [p0, p1]
+        setarrayitem_gc(p0, 1, p1, descr=gcarraydescr)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_guard_is_object_1(self):
+        ops = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        guard_is_object(p0) []
+        """
+        expected = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable)) []
         """
         self.optimize_loop(ops, expected)
 
