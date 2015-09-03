@@ -362,9 +362,9 @@ class RegAlloc(BaseRegalloc):
         return self.rm.loc(v)
 
     def load_condition_into_cc(self, box):
-        if self.assembler.last_cc == rx86.cond_none:
+        if self.assembler.guard_success_cc == rx86.cond_none:
             self.assembler.test_location(self.loc(box))
-            self.assembler.last_cc = rx86.Conditions['NZ']
+            self.assembler.guard_success_cc = rx86.Conditions['NZ']
 
     def _consider_guard_cc(self, op):
         self.load_condition_into_cc(op.getarg(0))
@@ -848,14 +848,13 @@ class RegAlloc(BaseRegalloc):
         assert op.result is None
         args = op.getarglist()
         assert 2 <= len(args) <= 4 + 2     # maximum 4 arguments
-        loc_cond = self.make_sure_var_in_reg(args[0], args)
         v = args[1]
         assert isinstance(v, Const)
         imm_func = self.rm.convert_to_imm(v)
         arglocs = [self.loc(args[i]) for i in range(2, len(args))]
         gcmap = self.get_gcmap()
         self.load_condition_into_cc(op.getarg(0))
-        self.assembler.cond_call(op, gcmap, loc_cond, imm_func, arglocs)
+        self.assembler.cond_call(op, gcmap, imm_func, arglocs)
 
     def consider_call_malloc_nursery(self, op):
         size_box = op.getarg(0)

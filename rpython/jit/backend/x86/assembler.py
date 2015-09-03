@@ -726,10 +726,10 @@ class Assembler386(BaseAssembler):
 
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc
-        self.last_cc = rx86.cond_none
+        self.guard_success_cc = rx86.cond_none
         regalloc.compute_hint_frame_locations(operations)
         regalloc.walk_operations(inputargs, operations)
-        assert self.last_cc == rx86.cond_none
+        assert self.guard_success_cc == rx86.cond_none
         if we_are_translated() or self.cpu.dont_keepalive_stuff:
             self._regalloc = None   # else keep it around for debugging
         frame_depth = regalloc.get_final_frame_depth()
@@ -977,9 +977,9 @@ class Assembler386(BaseAssembler):
         # "propagate it between this operation and the next guard by keeping
         # it in the cc".  In the uncommon case, result_loc is another
         # register, and we emit a load from the cc into this register.
-        assert self.last_cc == rx86.cond_none
+        assert self.guard_success_cc == rx86.cond_none
         if result_loc is ebp:
-            self.last_cc = cond
+            self.guard_success_cc = cond
         else:
             rl = result_loc.lowest8bits()
             self.mc.SET_ir(cond, rl.value)
@@ -1551,13 +1551,13 @@ class Assembler386(BaseAssembler):
     genop_guard_guard_nonnull = genop_guard_guard_true
 
     def genop_guard_guard_false(self, guard_op, guard_token, locs, resloc):
-        self.last_cc = rx86.invert_condition(self.last_cc)
+        self.guard_success_cc = rx86.invert_condition(self.guard_success_cc)
         self.implement_guard(guard_token)
     genop_guard_guard_isnull = genop_guard_guard_false
 
     def genop_guard_guard_no_exception(self, guard_op, guard_token, locs, ign):
         self.mc.CMP(heap(self.cpu.pos_exception()), imm0)
-        self.last_cc = rx86.Conditions['Z']
+        self.guard_success_cc = rx86.Conditions['Z']
         self.implement_guard(guard_token)
         # If the previous operation was a COND_CALL, overwrite its conditional
         # jump to jump over this GUARD_NO_EXCEPTION as well, if we can
@@ -1578,7 +1578,7 @@ class Assembler386(BaseAssembler):
         loc1 = locs[1]
         self.mc.MOV(loc1, heap(self.cpu.pos_exception()))
         self.mc.CMP(loc1, loc)
-        self.last_cc = rx86.Conditions['E']
+        self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
         self._store_and_reset_exception(self.mc, resloc)
 
@@ -1617,11 +1617,11 @@ class Assembler386(BaseAssembler):
     genop_int_mul_ovf = genop_int_mul
 
     def genop_guard_guard_no_overflow(self, guard_op, guard_token, locs, ign):
-        self.last_cc = rx86.Conditions['NO']
+        self.guard_success_cc = rx86.Conditions['NO']
         self.implement_guard(guard_token)
 
     def genop_guard_guard_overflow(self, guard_op, guard_token, locs, ign):
-        self.last_cc = rx86.Conditions['O']
+        self.guard_success_cc = rx86.Conditions['O']
         self.implement_guard(guard_token)
 
     def genop_guard_guard_value(self, guard_op, guard_token, locs, ign):
@@ -1630,7 +1630,7 @@ class Assembler386(BaseAssembler):
             self.mc.UCOMISD(locs[0], locs[1])
         else:
             self.mc.CMP(locs[0], locs[1])
-        self.last_cc = rx86.Conditions['E']
+        self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
 
     def _cmp_guard_class(self, locs):
@@ -1668,7 +1668,7 @@ class Assembler386(BaseAssembler):
 
     def genop_guard_guard_class(self, guard_op, guard_token, locs, ign):
         self._cmp_guard_class(locs)
-        self.last_cc = rx86.Conditions['E']
+        self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
 
     def genop_guard_guard_nonnull_class(self, guard_op, guard_token, locs, ign):
@@ -1682,7 +1682,7 @@ class Assembler386(BaseAssembler):
         assert 0 < offset <= 127
         self.mc.overwrite(jb_location-1, chr(offset))
         #
-        self.last_cc = rx86.Conditions['E']
+        self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
@@ -1850,9 +1850,9 @@ class Assembler386(BaseAssembler):
 
     def implement_guard(self, guard_token):
         # These jumps are patched later.
-        assert self.last_cc >= 0
-        self.mc.J_il(rx86.invert_condition(self.last_cc), 0)
-        self.last_cc = rx86.cond_none
+        assert self.guard_success_cc >= 0
+        self.mc.J_il(rx86.invert_condition(self.guard_success_cc), 0)
+        self.guard_success_cc = rx86.cond_none
         guard_token.pos_jump_offset = self.mc.get_relative_pos() - 4
         self.pending_guard_tokens.append(guard_token)
 
@@ -1900,7 +1900,7 @@ class Assembler386(BaseAssembler):
     def genop_guard_guard_not_forced(self, guard_op, guard_token, locs, resloc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.CMP_bi(ofs, 0)
-        self.last_cc = rx86.Conditions['E']
+        self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
 
     def genop_call_may_force(self, op, arglocs, result_loc):
@@ -2139,11 +2139,12 @@ class Assembler386(BaseAssembler):
     def label(self):
         self._check_frame_depth_debug(self.mc)
 
-    def cond_call(self, op, gcmap, loc_cond, imm_func, arglocs):
-        assert self.last_cc >= 0
-        self.mc.J_il8(rx86.invert_condition(self.last_cc), 0)  # patched later
+    def cond_call(self, op, gcmap, imm_func, arglocs):
+        assert self.guard_success_cc >= 0
+        self.mc.J_il8(rx86.invert_condition(self.guard_success_cc), 0)
+                                                            # patched later
         jmp_adr = self.mc.get_relative_pos()
-        self.last_cc = rx86.cond_none
+        self.guard_success_cc = rx86.cond_none
         #
         self.push_gcmap(self.mc, gcmap, store=True)
         #
