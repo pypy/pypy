@@ -302,6 +302,10 @@ class Optimizer(Optimization):
                 return info.force_at_the_end_of_preamble(box,
                                                 self.optearlyforce, rec)
             return box
+        if box.type == 'i':
+            info = self.getrawptrinfo(box)
+            return info.force_at_the_end_of_preamble(box, self.optearlyforce,
+                                                     None)
         return box
 
     def flush(self):

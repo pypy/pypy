@@ -350,8 +350,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     constbox = None
     known_class = None
     
-    def __init__(self, cpu, type, info, is_opaque=False):
-        self.is_opaque = is_opaque
+    def __init__(self, cpu, type, info):
         if info and info.is_constant():
             self.level = LEVEL_CONSTANT
             self.constbox = info.getconst()
@@ -382,8 +381,6 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         return False
 
     def _generate_guards(self, other, box, runtime_box, state):
-        if self.is_opaque:
-            box = None # generating guards for opaque pointers isn't safe
         # XXX This will always retrace instead of forcing anything which
         # might be what we want sometimes?
         if not isinstance(other, NotVirtualStateInfo):
@@ -668,7 +665,6 @@ class VirtualStateConstructor(VirtualVisitor):
         return VirtualState(state)
 
     def visit_not_virtual(self, box):
-        is_opaque = box in self.optimizer.opaque_pointers
         return NotVirtualStateInfo(self.optimizer.cpu, box.type,
                                    self.optimizer.getinfo(box))
 

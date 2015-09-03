@@ -8726,5 +8726,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_raw_buffer_in_preamble(self):
+        ops = """
+        [i1]
+        i0 = call_i(123, 10, descr=raw_malloc_descr)
+        jump(i0)
+        """
+        self.optimize_loop(ops, ops)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
