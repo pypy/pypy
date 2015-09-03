@@ -292,6 +292,34 @@ class OptRewrite(Optimization):
         self.emit_operation(op)
         self.make_constant(op.getarg(0), self.optimizer.cpu.ts.CONST_NULL)
 
+    def optimize_GUARD_IS_OBJECT(self, op):
+        info = self.getptrinfo(op.getarg(0))
+        if info is not None and info.is_about_object():
+            return
+        self.emit_operation(op)
+
+    def optimize_GUARD_GC_TYPE(self, op):
+        info = self.getptrinfo(op.getarg(0))
+        if info is not None and info.get_descr() is not None:
+            if info.get_descr().get_type_id() != op.getarg(1).getint():
+                raise InvalidLoop("wrong GC types passed around!")
+            return
+        self.emit_operation(op)
+
+    def optimize_GUARD_SUBCLASS(self, op):
+        info = self.getptrinfo(op.getarg(0))
+        if info is not None and info.is_about_object():
+            known_class = info.get_known_class(self.optimizer.cpu)
+            if known_class:
+                if known_class.getint() == op.getarg(1).getint():
+                    # XXX subclass check
+                    return
+            elif info.get_descr() is not None:
+                if info.get_descr().get_vtable() == op.getarg(1).getint():
+                    # XXX check for actual subclass?
+                    return
+        self.emit_operation(op)
+
     def optimize_GUARD_NONNULL(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
         if opinfo is not None:

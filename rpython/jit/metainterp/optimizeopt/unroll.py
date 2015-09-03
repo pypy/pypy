@@ -54,7 +54,7 @@ class UnrollableOptimizer(Optimizer):
             if known_class:
                 self.make_constant_class(op, known_class, False)
             if isinstance(preamble_info, info.ArrayPtrInfo):
-                arr_info = info.ArrayPtrInfo(preamble_info.arraydescr)
+                arr_info = info.ArrayPtrInfo(preamble_info.descr)
                 bound = preamble_info.getlenbound(None).clone()
                 assert isinstance(bound, intutils.IntBound)
                 arr_info.lenbound = bound

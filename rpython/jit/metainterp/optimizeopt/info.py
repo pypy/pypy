@@ -33,6 +33,12 @@ class PtrInfo(AbstractInfo):
     def is_nonnull(self):
         return False
 
+    def is_about_object(self):
+        return False
+
+    def get_descr(self):
+        return None
+
     def is_null(self):
         return False
 
@@ -109,6 +115,9 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
 
     _cached_vinfo = None
     descr = None
+
+    def get_descr(self):
+        return self.descr
 
     def force_box(self, op, optforce):
         if self.is_virtual():
@@ -281,6 +290,9 @@ class InstancePtrInfo(AbstractStructPtrInfo):
     def get_known_class(self, cpu):
         return self._known_class
 
+    def is_about_object(self):
+        return True
+
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
         fielddescrs = self.descr.get_all_fielddescrs()
@@ -298,7 +310,8 @@ class InstancePtrInfo(AbstractStructPtrInfo):
             short.extend([
                 ResOperation(rop.GUARD_NONNULL, [op], None),
                 ResOperation(rop.GUARD_IS_OBJECT, [op], None),
-                xx
+                ResOperation(rop.GUARD_SUBCLASS, [op,
+                            ConstInt(self.descr.get_vtable())], None)
                 ])
         else:
             AbstractStructPtrInfo.make_guards(self, op, short)
@@ -309,7 +322,12 @@ class StructPtrInfo(AbstractStructPtrInfo):
         self._is_virtual = is_virtual
 
     def make_guards(self, op, short):
-        xxx
+        if self.descr is not None:
+            c_typeid = ConstInt(self.descr.get_type_id())
+            short.extend([
+                ResOperation(rop.GUARD_NONNULL, [op], None),
+                ResOperation(rop.GUARD_GC_TYPE, [op, c_typeid], None)
+            ])
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
@@ -536,6 +554,8 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
 
     def make_guards(self, op, short):
         AbstractVirtualPtrInfo.make_guards(self, op, short)
+        c_type_id = ConstInt(self.descr.get_type_id())
+        short.append(ResOperation(rop.GUARD_GC_TYPE, [op, c_type_id], None))
         if self.lenbound is not None:
             lenop = ResOperation(rop.ARRAYLEN_GC, [op], descr=self.descr)
             short.append(lenop)

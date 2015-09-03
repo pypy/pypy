@@ -886,6 +886,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         short = """
         [p1, p2]
         guard_nonnull(p1) []
+        guard_is_object(p1) []
+        guard_subclass(p1, ConstClass(node_vtable)) []
         i1 = getfield_gc_i(p1, descr=valuedescr)
         jump(i1)
         """
