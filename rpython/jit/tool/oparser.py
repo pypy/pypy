@@ -109,6 +109,8 @@ class OpParser(object):
         obj = self._consts[name]
         if typ == 'ptr':
             return self.model.ConstPtr(obj)
+        elif typ == 'int':
+            return self.model.ConstInt(obj)
         else:
             assert typ == 'class'
             return self.model.ConstInt(self.model.ptr_to_int(obj))
@@ -207,6 +209,9 @@ class OpParser(object):
             if arg.startswith('ConstClass('):
                 name = arg[len('ConstClass('):-1]
                 return self.get_const(name, 'class')
+            elif arg.startswith('ConstInt('):
+                name = arg[len('ConstInt('):-1]
+                return self.get_const(name, 'int')
             elif arg == 'None':
                 return None
             elif arg == 'NULL':

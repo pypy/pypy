@@ -187,6 +187,7 @@ class LLtypeMixin(object):
     array2 = lltype.malloc(lltype.GcArray(lltype.Ptr(S)), 15, zero=True)
     array2ref = lltype.cast_opaque_ptr(llmemory.GCREF, array2)
     gcarraydescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF))
+    gcarraydescr_tid = gcarraydescr.get_type_id()
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
 
     # a GcStruct not inheriting from OBJECT

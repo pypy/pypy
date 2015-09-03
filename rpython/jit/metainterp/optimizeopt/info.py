@@ -149,10 +149,12 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
 
 class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('_fields',)
+
     _fields = None
 
     def init_fields(self, descr, index):
         if self._fields is None:
+            self.descr = descr
             self._fields = [None] * len(descr.get_all_fielddescrs())
         if index >= len(self._fields):
             self.descr = descr # a more precise descr
@@ -166,7 +168,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
 
     def copy_fields_to_const(self, constinfo, optheap):
         if self._fields is not None:
-            info = constinfo._get_info(optheap)
+            info = constinfo._get_info(self.descr, optheap)
             assert isinstance(info, AbstractStructPtrInfo)
             info._fields = self._fields[:]
 
@@ -443,6 +445,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def __init__(self, descr, const=None, size=0, clear=False,
                  is_virtual=False):
         from rpython.jit.metainterp.optimizeopt import intutils
+        assert descr is not None
         self.descr = descr
         self._is_virtual = is_virtual
         if is_virtual:

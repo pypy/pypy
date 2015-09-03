@@ -50,6 +50,13 @@ class UnrollableOptimizer(Optimizer):
                 return
             if op.is_constant():
                 return # nothing we can learn
+            if preamble_info.get_descr() is not None:
+                if isinstance(preamble_info, info.StructPtrInfo):
+                    op.set_forwarded(info.StructPtrInfo(
+                        preamble_info.get_descr()))
+                if isinstance(preamble_info, info.InstancePtrInfo):
+                    op.set_forwarded(info.InstancePtrInfo(
+                        preamble_info.get_descr()))
             known_class = preamble_info.get_known_class(self.cpu)
             if known_class:
                 self.make_constant_class(op, known_class, False)
