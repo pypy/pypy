@@ -1548,100 +1548,96 @@ class MIFrame(object):
     def do_residual_call(self, funcbox, argboxes, descr, pc,
                          assembler_call=False,
                          assembler_call_jd=None):
-        debug_start("jit-residual-call")
-        try:
-            # First build allboxes: it may need some reordering from the
-            # list provided in argboxes, depending on the order in which
-            # the arguments are expected by the function
-            #
-            allboxes = self._build_allboxes(funcbox, argboxes, descr)
-            effectinfo = descr.get_extra_info()
-            if effectinfo.oopspecindex == effectinfo.OS_NOT_IN_TRACE:
-                return self.metainterp.do_not_in_trace_call(allboxes, descr)
+        # First build allboxes: it may need some reordering from the
+        # list provided in argboxes, depending on the order in which
+        # the arguments are expected by the function
+        #
+        allboxes = self._build_allboxes(funcbox, argboxes, descr)
+        effectinfo = descr.get_extra_info()
+        if effectinfo.oopspecindex == effectinfo.OS_NOT_IN_TRACE:
+            return self.metainterp.do_not_in_trace_call(allboxes, descr)
 
-            if (assembler_call or
-                    effectinfo.check_forces_virtual_or_virtualizable()):
-                # residual calls require attention to keep virtualizables in-sync
-                self.metainterp.clear_exception()
-                if effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
-                    resbox = self._do_jit_force_virtual(allboxes, descr, pc)
-                    if resbox is not None:
-                        return resbox
-                self.metainterp.vable_and_vrefs_before_residual_call()
-                tp = descr.get_result_type()
-                if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
-                    resbox = self.metainterp.direct_libffi_call(allboxes, descr,
-                                                                tp)
-                elif effectinfo.is_call_release_gil():
-                    resbox = self.metainterp.direct_call_release_gil(allboxes,
-                                                                descr, tp)
-                elif tp == 'i':
-                    resbox = self.metainterp.execute_and_record_varargs(
-                        rop.CALL_MAY_FORCE_I, allboxes, descr=descr)
-                elif tp == 'r':
-                    resbox = self.metainterp.execute_and_record_varargs(
-                        rop.CALL_MAY_FORCE_R, allboxes, descr=descr)
-                elif tp == 'f':
-                    resbox = self.metainterp.execute_and_record_varargs(
-                        rop.CALL_MAY_FORCE_F, allboxes, descr=descr)
-                elif tp == 'v':
-                    resbox = self.metainterp.execute_and_record_varargs(
-                        rop.CALL_MAY_FORCE_N, allboxes, descr=descr)
-                else:
-                    assert False
-                self.metainterp.vrefs_after_residual_call()
-                vablebox = None
-                if assembler_call:
-                    vablebox, resbox = self.metainterp.direct_assembler_call(
-                        assembler_call_jd)
-                if resbox and resbox.type != 'v':
-                    self.make_result_of_lastop(resbox)
-                self.metainterp.vable_after_residual_call(funcbox)
-                self.metainterp.generate_guard(rop.GUARD_NOT_FORCED, None)
-                if vablebox is not None:
-                    self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
-                self.metainterp.handle_possible_exception()
-                return resbox
+        if (assembler_call or
+                effectinfo.check_forces_virtual_or_virtualizable()):
+            # residual calls require attention to keep virtualizables in-sync
+            self.metainterp.clear_exception()
+            if effectinfo.oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
+                resbox = self._do_jit_force_virtual(allboxes, descr, pc)
+                if resbox is not None:
+                    return resbox
+            self.metainterp.vable_and_vrefs_before_residual_call()
+            tp = descr.get_result_type()
+            if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
+                resbox = self.metainterp.direct_libffi_call(allboxes, descr,
+                                                            tp)
+            elif effectinfo.is_call_release_gil():
+                resbox = self.metainterp.direct_call_release_gil(allboxes,
+                                                            descr, tp)
+            elif tp == 'i':
+                resbox = self.metainterp.execute_and_record_varargs(
+                    rop.CALL_MAY_FORCE_I, allboxes, descr=descr)
+            elif tp == 'r':
+                resbox = self.metainterp.execute_and_record_varargs(
+                    rop.CALL_MAY_FORCE_R, allboxes, descr=descr)
+            elif tp == 'f':
+                resbox = self.metainterp.execute_and_record_varargs(
+                    rop.CALL_MAY_FORCE_F, allboxes, descr=descr)
+            elif tp == 'v':
+                resbox = self.metainterp.execute_and_record_varargs(
+                    rop.CALL_MAY_FORCE_N, allboxes, descr=descr)
             else:
-                effect = effectinfo.extraeffect
-                tp = descr.get_result_type()
-                if effect == effectinfo.EF_LOOPINVARIANT:
-                    if tp == 'i':
-                        return self.execute_varargs(rop.CALL_LOOPINVARIANT_I,
-                                                    allboxes,
-                                                    descr, False, False)
-                    elif tp == 'r':
-                        return self.execute_varargs(rop.CALL_LOOPINVARIANT_R,
-                                                    allboxes,
-                                                    descr, False, False)
-                    elif tp == 'f':
-                        return self.execute_varargs(rop.CALL_LOOPINVARIANT_F,
-                                                    allboxes,
-                                                    descr, False, False)
-                    elif tp == 'v':
-                        return self.execute_varargs(rop.CALL_LOOPINVARIANT_N,
-                                                    allboxes,
-                                                    descr, False, False)
-                    else:
-                        assert False
-                exc = effectinfo.check_can_raise()
-                pure = effectinfo.check_is_elidable()
+                assert False
+            self.metainterp.vrefs_after_residual_call()
+            vablebox = None
+            if assembler_call:
+                vablebox, resbox = self.metainterp.direct_assembler_call(
+                    assembler_call_jd)
+            if resbox and resbox.type != 'v':
+                self.make_result_of_lastop(resbox)
+            self.metainterp.vable_after_residual_call(funcbox)
+            self.metainterp.generate_guard(rop.GUARD_NOT_FORCED, None)
+            if vablebox is not None:
+                self.metainterp.history.record(rop.KEEPALIVE, [vablebox], None)
+            self.metainterp.handle_possible_exception()
+            return resbox
+        else:
+            effect = effectinfo.extraeffect
+            tp = descr.get_result_type()
+            if effect == effectinfo.EF_LOOPINVARIANT:
                 if tp == 'i':
-                    return self.execute_varargs(rop.CALL_I, allboxes, descr,
-                                                exc, pure)
+                    return self.execute_varargs(rop.CALL_LOOPINVARIANT_I,
+                                                allboxes,
+                                                descr, False, False)
                 elif tp == 'r':
-                    return self.execute_varargs(rop.CALL_R, allboxes, descr,
-                                                exc, pure)
+                    return self.execute_varargs(rop.CALL_LOOPINVARIANT_R,
+                                                allboxes,
+                                                descr, False, False)
                 elif tp == 'f':
-                    return self.execute_varargs(rop.CALL_F, allboxes, descr,
-                                                exc, pure)
+                    return self.execute_varargs(rop.CALL_LOOPINVARIANT_F,
+                                                allboxes,
+                                                descr, False, False)
                 elif tp == 'v':
-                    return self.execute_varargs(rop.CALL_N, allboxes, descr,
-                                                exc, pure)
+                    return self.execute_varargs(rop.CALL_LOOPINVARIANT_N,
+                                                allboxes,
+                                                descr, False, False)
                 else:
                     assert False
-        finally:
-            debug_stop("jit-residual-call")
+            exc = effectinfo.check_can_raise()
+            pure = effectinfo.check_is_elidable()
+            if tp == 'i':
+                return self.execute_varargs(rop.CALL_I, allboxes, descr,
+                                            exc, pure)
+            elif tp == 'r':
+                return self.execute_varargs(rop.CALL_R, allboxes, descr,
+                                            exc, pure)
+            elif tp == 'f':
+                return self.execute_varargs(rop.CALL_F, allboxes, descr,
+                                            exc, pure)
+            elif tp == 'v':
+                return self.execute_varargs(rop.CALL_N, allboxes, descr,
+                                            exc, pure)
+            else:
+                assert False
 
     def do_conditional_call(self, condbox, funcbox, argboxes, descr, pc):
         if isinstance(condbox, ConstInt) and condbox.value == 0:
