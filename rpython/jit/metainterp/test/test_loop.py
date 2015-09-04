@@ -1009,6 +1009,116 @@ class LoopTest(object):
 
         assert f(15) == self.meta_interp(f, [15])
 
+    def test_unroll_issue_1(self):
+        class A(object):
+            _attrs_ = []
+            def checkcls(self):
+                raise NotImplementedError
+
+        class B(A):
+            def __init__(self, b_value):
+                self.b_value = b_value
+            def get_value(self):
+                return self.b_value
+            def checkcls(self):
+                return self.b_value
+
+        @dont_look_inside
+        def check(a):
+            return isinstance(a, B)
+
+        jitdriver = JitDriver(greens=[], reds='auto')
+
+        def f(a, xx):
+            i = 0
+            total = 0
+            while i < 10:
+                jitdriver.jit_merge_point()
+                if check(a):
+                    if xx & 1:
+                        total *= a.checkcls()
+                    total += a.get_value()
+                i += 1
+            return total
+
+        def run(n):
+            bt = f(B(n), 1)
+            bt = f(B(n), 2)
+            at = f(A(), 3)
+            return at * 100000 + bt
+
+        assert run(42) == 420
+        res = self.meta_interp(run, [42], backendopt=True)
+        assert res == 420
+
+    def test_unroll_issue_2(self):
+        class B(object):
+            def __init__(self, b_value):
+                self.b_value = b_value
+        class C(object):
+            pass
+
+        from rpython.rlib.rerased import new_erasing_pair
+        b_erase, b_unerase = new_erasing_pair("B")
+        c_erase, c_unerase = new_erasing_pair("C")
+
+        @elidable
+        def unpack_b(a):
+            return b_unerase(a)
+
+        jitdriver = JitDriver(greens=[], reds='auto')
+
+        def f(a, flag):
+            i = 0
+            total = 0
+            while i < 10:
+                jitdriver.jit_merge_point()
+                if flag:
+                    total += unpack_b(a).b_value
+                    flag += 1
+                i += 1
+            return total
+
+        def run(n):
+            res = f(b_erase(B(n)), 1)
+            f(c_erase(C()), 0)
+            return res
+
+        assert run(42) == 420
+        res = self.meta_interp(run, [42], backendopt=True)
+        assert res == 420
+
+    def test_unroll_issue_3(self):
+        from rpython.rlib.rerased import new_erasing_pair
+        b_erase, b_unerase = new_erasing_pair("B")    # list of ints
+        c_erase, c_unerase = new_erasing_pair("C")    # list of Nones
+
+        @elidable
+        def unpack_b(a):
+            return b_unerase(a)
+
+        jitdriver = JitDriver(greens=[], reds='auto')
+
+        def f(a, flag):
+            i = 0
+            total = 0
+            while i < 10:
+                jitdriver.jit_merge_point()
+                if flag:
+                    total += unpack_b(a)[0]
+                    flag += 1
+                i += 1
+            return total
+
+        def run(n):
+            res = f(b_erase([n]), 1)
+            f(c_erase([None]), 0)
+            return res
+
+        assert run(42) == 420
+        res = self.meta_interp(run, [42], backendopt=True)
+        assert res == 420
+
 
 class TestLLtype(LoopTest, LLJitMixin):
     pass
