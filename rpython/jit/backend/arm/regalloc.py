@@ -524,7 +524,9 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_invert = prepare_unary_op
 
     def prepare_op_call(self, op, fcond):
-        effectinfo = op.getdescr().get_extra_info()
+        calldescr = op.getdescr()
+        assert calldescr is not None
+        effectinfo = calldescr.get_extra_info()
         if effectinfo is not None:
             oopspecindex = effectinfo.oopspecindex
             if oopspecindex in (EffectInfo.OS_LLONG_ADD,
@@ -576,13 +578,12 @@ class Regalloc(BaseRegalloc):
 
     def _call(self, op, arglocs, force_store=[], save_all_regs=False):
         # spill variables that need to be saved around calls
-        self.vfprm.before_call(save_all_regs=save_all_regs)
+        self.vfprm.before_call(force_store, save_all_regs=save_all_regs)
         if not save_all_regs:
             gcrootmap = self.cpu.gc_ll_descr.gcrootmap
             if gcrootmap and gcrootmap.is_shadow_stack:
                 save_all_regs = 2
-        self.rm.before_call(save_all_regs=save_all_regs)
-        self.before_call_called = True
+        self.rm.before_call(force_store, save_all_regs=save_all_regs)
         resloc = None
         if op.result:
             resloc = self.after_call(op.result)
@@ -1173,9 +1174,8 @@ class Regalloc(BaseRegalloc):
             arg = op.getarg(i)
             self.make_sure_var_in_reg(arg, args_so_far, selected_reg=reg)
             args_so_far.append(arg)
-        loc_cond = self.make_sure_var_in_reg(op.getarg(0), args_so_far)
-        gcmap = self.get_gcmap([tmpreg])
-        self.assembler.cond_call(op, gcmap, loc_cond, tmpreg, fcond)
+        self.load_condition_into_cc(op.getarg(0))
+        return [tmpreg]
 
     def prepare_op_force_token(self, op, fcond):
         # XXX for now we return a regular reg
@@ -1229,15 +1229,13 @@ class Regalloc(BaseRegalloc):
         self.assembler.store_force_descr(op, fail_locs[1:], fail_locs[0].value)
         self.possibly_free_vars(op.getfailargs())
 
-    def prepare_guard_call_may_force(self, op, guard_op, fcond):
-        args = self._prepare_call(op, save_all_regs=True)
-        return self._prepare_guard(guard_op, args)
+    def prepare_op_call_may_force(self, op, fcond):
+        return self._prepare_call(op, save_all_regs=True)
 
-    def prepare_guard_call_release_gil(self, op, guard_op, fcond):
-        args = self._prepare_call(op, save_all_regs=True, first_arg_index=2)
-        return self._prepare_guard(guard_op, args)
+    def prepare_op_call_release_gil(self, op, fcond):
+        return self._prepare_call(op, save_all_regs=True, first_arg_index=2)
 
-    def prepare_guard_call_assembler(self, op, guard_op, fcond):
+    def prepare_op_call_assembler(self, op, fcond):
         locs = self.locs_for_call_assembler(op, guard_op)
         tmploc = self.get_scratch_reg(INT, selected_reg=r.r0)
         resloc = self._call(op, locs + [tmploc], save_all_regs=True)
