@@ -695,8 +695,8 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _setup_guard_is_object(self):
         from rpython.memory.gctypelayout import GCData, T_IS_RPYTHON_INSTANCE
-        self._infobits_offset = symbolic.get_field_token(GCData.TYPE_INFO,
-                                                         'infobits', True)
+        self._infobits_offset, _ = symbolic.get_field_token(GCData.TYPE_INFO,
+                                                            'infobits', True)
         self._T_IS_RPYTHON_INSTANCE = T_IS_RPYTHON_INSTANCE
 
     def get_translated_info_for_guard_is_object(self):
