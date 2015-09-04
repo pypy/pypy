@@ -104,13 +104,15 @@ class UnrolledLoopData(CompileData):
     run of LoopCompileData. Jump goes to the same label
     """
     def __init__(self, start_label, end_jump, operations, state,
-                 call_pure_results=None, enable_opts=None):
+                 call_pure_results=None, enable_opts=None,
+                 inline_short_preamble=True):
         self.start_label = start_label
         self.end_jump = end_jump
         self.operations = operations
         self.enable_opts = enable_opts
         self.state = state
         self.call_pure_results = call_pure_results
+        self.inline_short_preamble = inline_short_preamble
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
@@ -118,7 +120,8 @@ class UnrolledLoopData(CompileData):
         assert unroll # we should not be here if it's disabled
         opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.optimize_peeled_loop(self.start_label, self.end_jump,
-            self.operations, self.state, self.call_pure_results)
+            self.operations, self.state, self.call_pure_results,
+            self.inline_short_preamble)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
@@ -339,40 +342,31 @@ def compile_retrace(metainterp, greenkey, start,
         loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
                                              loop_data)
     except InvalidLoop:
-        xxxx
         # Fall back on jumping directly to preamble
-        jump_op = ResOperation(rop.JUMP, inputargs[:],
-                               descr=loop_jitcell_token.target_tokens[0])
-        loop_data = SimpleCompileData(end_label,
-                                      [jump_op],
-                                      call_pure_results,
-                                      enable_opts)
+        jump_op = ResOperation(rop.JUMP, inputargs[:], descr=loop_jitcell_token)
+        loop_data = UnrolledLoopData(end_label, jump_op, [jump_op], start_state,
+                                     call_pure_results=call_pure_results,
+                                     enable_opts=enable_opts,
+                                     inline_short_preamble=False)
         try:
             loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
                                                  loop_data)
         except InvalidLoop:
             return None
-        loop = partial_trace
-        loop.original_jitcell_token = loop_jitcell_token
-        import pdb
-        pdb.set_trace()
-        loop.operations = loop.operations + loop_ops[:]
-        loop.check_consistency()
-    else:
 
-        loop = partial_trace
-        loop.original_jitcell_token = loop_jitcell_token
-        loop.operations = (loop.operations + loop_info.extra_same_as +
-                           [loop_info.label_op]
-                           + loop_ops)
+    loop = partial_trace
+    loop.original_jitcell_token = loop_jitcell_token
+    loop.operations = (loop.operations + loop_info.extra_same_as +
+                       [loop_info.label_op]
+                       + loop_ops)
 
-        quasi_immutable_deps = {}
-        if loop_info.quasi_immutable_deps:
-            quasi_immutable_deps.update(loop_info.quasi_immutable_deps)
-        if start_state.quasi_immutable_deps:
-            quasi_immutable_deps.update(start_state.quasi_immutable_deps)
-        if quasi_immutable_deps:
-            loop.quasi_immutable_deps = quasi_immutable_deps
+    quasi_immutable_deps = {}
+    if loop_info.quasi_immutable_deps:
+        quasi_immutable_deps.update(loop_info.quasi_immutable_deps)
+    if start_state.quasi_immutable_deps:
+        quasi_immutable_deps.update(start_state.quasi_immutable_deps)
+    if quasi_immutable_deps:
+        loop.quasi_immutable_deps = quasi_immutable_deps
 
     target_token = loop.operations[-1].getdescr()
     resumekey.compile_and_attach(metainterp, loop, inputargs)

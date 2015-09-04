@@ -122,7 +122,7 @@ class UnrollOptimizer(Optimization):
         return exported_state, self.optimizer._newoperations
 
     def optimize_peeled_loop(self, start_label, end_jump, ops, state,
-                             call_pure_results):
+                             call_pure_results, inline_short_preamble=True):
         self._check_no_forwarding([[start_label, end_jump], ops])
         label_args = self.import_state(start_label, state)
         self.potential_extra_ops = {}
@@ -138,6 +138,7 @@ class UnrollOptimizer(Optimization):
         # pick the vs we want to jump to
         celltoken = start_label.getdescr()
         assert isinstance(celltoken, JitCellToken)
+        
         target_virtual_state = self.pick_virtual_state(current_vs,
                                                        state.virtual_state,
                                                 celltoken.target_tokens)
@@ -154,6 +155,13 @@ class UnrollOptimizer(Optimization):
         target_token = self.finalize_short_preamble(label_op,
                                                     state.virtual_state)
         label_op.setdescr(target_token)
+
+        if not inline_short_preamble:
+            self.jump_to_preamble(celltoken, end_jump, info)
+            return (UnrollInfo(target_token, label_op, [],
+                               self.optimizer.quasi_immutable_deps),
+                    self.optimizer._newoperations)            
+
         try:
             new_virtual_state = self.jump_to_existing_trace(end_jump, label_op)
         except InvalidLoop:
