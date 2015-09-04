@@ -1612,17 +1612,20 @@ class Assembler386(BaseAssembler):
             mc.MOV(heap(self.cpu.pos_exc_value()), tmploc)
         mc.MOV(heap(self.cpu.pos_exception()), exctploc)
 
-    genop_int_add_ovf = genop_int_add
-    genop_int_sub_ovf = genop_int_sub
-    genop_int_mul_ovf = genop_int_mul
-
-    def genop_guard_guard_no_overflow(self, guard_op, guard_token, locs, ign):
+    def genop_int_add_ovf(self, op, arglocs, resloc):
+        self.genop_int_add(op, arglocs, resloc)
         self.guard_success_cc = rx86.Conditions['NO']
-        self.implement_guard(guard_token)
 
-    def genop_guard_guard_overflow(self, guard_op, guard_token, locs, ign):
-        self.guard_success_cc = rx86.Conditions['O']
-        self.implement_guard(guard_token)
+    def genop_int_sub_ovf(self, op, arglocs, resloc):
+        self.genop_int_sub(op, arglocs, resloc)
+        self.guard_success_cc = rx86.Conditions['NO']
+
+    def genop_int_mul_ovf(self, op, arglocs, resloc):
+        self.genop_int_mul(op, arglocs, resloc)
+        self.guard_success_cc = rx86.Conditions['NO']
+
+    genop_guard_guard_no_overflow = genop_guard_guard_true
+    genop_guard_guard_overflow    = genop_guard_guard_false
 
     def genop_guard_guard_value(self, guard_op, guard_token, locs, ign):
         if guard_op.getarg(0).type == FLOAT:
