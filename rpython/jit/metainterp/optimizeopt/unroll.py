@@ -124,7 +124,10 @@ class UnrollOptimizer(Optimization):
     def optimize_peeled_loop(self, start_label, end_jump, ops, state,
                              call_pure_results, inline_short_preamble=True):
         self._check_no_forwarding([[start_label, end_jump], ops])
-        label_args = self.import_state(start_label, state)
+        try:
+            label_args = self.import_state(start_label, state)
+        except VirtualStatesCantMatch:
+            raise InvalidLoop
         self.potential_extra_ops = {}
         self.optimizer.init_inparg_dict_from(label_args)
         info, _ = self.optimizer.propagate_all_forward(
