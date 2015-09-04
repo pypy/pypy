@@ -277,7 +277,7 @@ class ResOpAssembler(BaseAssembler):
                 self.mc.CMP_rr(r.ip.value, typeid.value, cond=fcond)
 
     def emit_op_guard_not_invalidated(self, op, locs, regalloc, fcond):
-        return self._emit_guard(op, locs, fcond, save_exc=False,
+        return self._emit_guard(op, locs, save_exc=False,
                                             is_guard_not_invalidated=True)
 
     def emit_op_label(self, op, arglocs, regalloc, fcond):
