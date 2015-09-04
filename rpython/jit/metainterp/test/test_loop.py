@@ -953,62 +953,6 @@ class LoopTest(object):
         res = self.meta_interp(f, [20, 10])
         assert res == f(20, 10)
 
-    def test_subclasses_dont_match(self):
-        class A(object):
-            def __init__(self, val):
-                self.val = val
-
-            def getval(self):
-                return self.val
-
-        class B(A):
-            def __init__(self, foo, val):
-                self.foo = foo
-                self.val = val
-                self.val2 = val
-
-            def getval(self):
-                return self.val2
-
-        class Container(object):
-            def __init__(self, x):
-                self.x = x
-
-        myjitdriver = JitDriver(greens = [], reds = 'auto')
-
-        @dont_look_inside
-        def externfn(a, i):
-            if i > 7:
-                return 1
-            return 0
-
-        class Foo(Exception):
-            pass
-
-        @dont_look_inside
-        def checkclass(a):
-            if type(a) is not B:
-                raise Foo()
-
-        def f(n):
-            i = 0
-            a = Container(B(A(n), n))
-            b = Container(A(n))
-            s = 0
-            while i < n:
-                myjitdriver.jit_merge_point()
-                i += 1
-                try:
-                    checkclass(a.x)
-                except Foo:
-                    pass
-                else:
-                    s += a.x.val2
-                if externfn(a, i):
-                    a = b
-
-        assert f(15) == self.meta_interp(f, [15])
-
     def test_unroll_issue_1(self):
         class A(object):
             _attrs_ = []
