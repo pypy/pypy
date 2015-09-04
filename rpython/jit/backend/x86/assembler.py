@@ -11,6 +11,7 @@ from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
+from rpython.rtyper import rclass
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
@@ -1786,16 +1787,57 @@ class Assembler386(BaseAssembler):
         [loc_object, loc_typeid] = locs
         # idea: read the typeid, fetch the field 'infobits' from the big
         # typeinfo table, and check the flag 'T_IS_RPYTHON_INSTANCE'.
-        base_type_info, shift_by, IS_OBJECT_FLAG = (
-            self.cpu.gc_ll_descr.get_translated_info_for_guard_is_object())
         if IS_X86_32:
             self.mc.MOVZX16(loc_typeid, mem(loc_object, 0))
         else:
             self.mc.MOV32(loc_typeid, mem(loc_object, 0))
-        loc_infobits = addr_add(imm(base_type_info), loc_typeid, scale=shift_by)
+        #
+        base_type_info, shift_by, sizeof_ti = (
+            self.cpu.gc_ll_descr.get_translated_info_for_typeinfo())
+        infobits_offset, IS_OBJECT_FLAG = (
+            self.cpu.gc_ll_descr.get_translated_info_for_guard_is_object())
+        loc_infobits = addr_add(imm(base_type_info), loc_typeid,
+                                scale=shift_by, offset=infobits_offset)
         self.mc.TEST(loc_infobits, imm(IS_OBJECT_FLAG))
         #
         self.implement_guard(guard_token, 'Z')
+
+    def genop_guard_guard_subclass(self, op, guard_op,
+                                   guard_token, locs, ign_2):
+        assert self.cpu.supports_guard_gc_type
+        [loc_object, loc_check_against_class, loc_tmp] = locs
+        assert isinstance(loc_object, RegLoc)
+        assert isinstance(loc_tmp, RegLoc)
+        offset = self.cpu.vtable_offset
+        offset2 = self.cpu.subclassrange_min_offset
+        if offset is not None:
+            # read this field to get the vtable pointer
+            self.mc.MOV_rm(loc_tmp.value, (loc_object.value, offset))
+            # read the vtable's subclassrange_min field
+            self.mc.MOV_rm(loc_tmp.value, (loc_tmp.value, offset2))
+        else:
+            # read the typeid
+            if IS_X86_32:
+                self.mc.MOVZX16(loc_tmp, mem(loc_object, 0))
+            else:
+                self.mc.MOV32(loc_tmp, mem(loc_object, 0))
+            # read the vtable's subclassrange_min field, as a single
+            # step with the correct offset
+            base_type_info, shift_by, sizeof_ti = (
+                self.cpu.gc_ll_descr.get_translated_info_for_typeinfo())
+            self.mc.MOV(loc_tmp, addr_add(imm(base_type_info), loc_tmp,
+                                          scale = shift_by,
+                                          offset = sizeof_ti + offset2))
+        # get the two bounds to check against
+        vtable_ptr = loc_check_against_class.getint()
+        vtable_ptr = rffi.cast(rclass.CLASSTYPE, vtable_ptr)
+        check_min = vtable_ptr.subclassrange_min
+        check_max = vtable_ptr.subclassrange_max
+        # check by doing the unsigned comparison (tmp - min) < (max - min)
+        self.mc.SUB_ri(loc_tmp.value, check_min)
+        self.mc.CMP_ri(loc_tmp.value, check_max - check_min)
+        # the guard fails if we get a "not below" result
+        self.implement_guard(guard_token, 'NB')
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
                                  fail_locs, frame_depth):

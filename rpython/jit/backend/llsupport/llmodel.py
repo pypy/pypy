@@ -54,6 +54,8 @@ class AbstractLLCPU(AbstractCPU):
             self.vtable_offset, _ = symbolic.get_field_token(rclass.OBJECT,
                                                              'typeptr',
                                                         translate_support_code)
+        self.subclassrange_min_offset, _ = symbolic.get_field_token(
+            rclass.OBJECT_VTABLE, 'subclassrange_min', translate_support_code)
         if translate_support_code:
             self._setup_exception_handling_translated()
         else:
