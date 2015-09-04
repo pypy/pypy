@@ -64,7 +64,7 @@ class SizeDescr(AbstractDescr):
         return heaptracker.adr2int(llmemory.cast_ptr_to_adr(self.vtable))
 
     def get_type_id(self):
-        assert self.tid != 0
+        assert self.tid
         return self.tid
 
 def get_size_descr(gccache, STRUCT, vtable=lltype.nullptr(rclass.OBJECT_VTABLE)):
@@ -293,7 +293,7 @@ class ArrayDescr(ArrayOrFieldDescr):
         assert False
 
     def get_type_id(self):
-        assert self.tid != 0
+        assert self.tid
         return self.tid
 
     def repr_of_descr(self):

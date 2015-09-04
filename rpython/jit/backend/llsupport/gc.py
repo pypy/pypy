@@ -24,6 +24,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 class MovableObjectTracker(object):
 
     ptr_array_type = lltype.GcArray(llmemory.GCREF)
+    ptr_array_gcref = lltype.nullptr(llmemory.GCREF.TO)
 
     def __init__(self, cpu, const_pointers):
         size = len(const_pointers)
@@ -438,6 +439,7 @@ class GcLLDescr_framework(GcLLDescription):
             self._make_gcrootmap()
             self._setup_gcclass()
             self._setup_tid()
+            self._setup_guard_is_object()
         self._setup_write_barrier()
         self._setup_str()
         self._make_functions(really_not_translated)
@@ -661,6 +663,54 @@ class GcLLDescr_framework(GcLLDescription):
 
     def get_malloc_slowpath_array_addr(self):
         return self.get_malloc_fn_addr('malloc_array')
+
+    def get_typeid_from_classptr_if_gcremovetypeptr(self, classptr):
+        """Returns the typeid corresponding from a vtable pointer 'classptr'.
+        This function only works if cpu.vtable_offset is None, i.e. in
+        a translation with --gcremovetypeptr.
+         """
+        from rpython.memory.gctypelayout import GCData
+        assert self.gcdescr.config.translation.gcremovetypeptr
+
+        # hard-coded assumption: to go from an object to its class
+        # we would use the following algorithm:
+        #   - read the typeid from mem(locs[0]), i.e. at offset 0;
+        #     this is a complete word (N=4 bytes on 32-bit, N=8 on
+        #     64-bits)
+        #   - keep the lower half of what is read there (i.e.
+        #     truncate to an unsigned 'N / 2' bytes value)
+        #   - multiply by 4 (on 32-bits only) and use it as an
+        #     offset in type_info_group
+        #   - add 16/32 bytes, to go past the TYPE_INFO structure
+        # here, we have to go back from 'classptr' back to the typeid,
+        # so we do (part of) these computations in reverse.
+
+        sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
+        type_info_group = llop.gc_get_type_info_group(llmemory.Address)
+        type_info_group = rffi.cast(lltype.Signed, type_info_group)
+        expected_typeid = classptr - sizeof_ti - type_info_group
+        if WORD == 4:
+            expected_typeid >>= 2
+        return expected_typeid
+
+    def _setup_guard_is_object(self):
+        from rpython.memory.gctypelayout import GCData, T_IS_RPYTHON_INSTANCE
+        self._infobits_offset, _ = symbolic.get_field_token(GCData.TYPE_INFO,
+                                                            'infobits', True)
+        self._T_IS_RPYTHON_INSTANCE = T_IS_RPYTHON_INSTANCE
+
+    def get_translated_info_for_guard_is_object(self):
+        type_info_group = llop.gc_get_type_info_group(llmemory.Address)
+        type_info_group = rffi.cast(lltype.Signed, type_info_group)
+        infobits_offset = rffi.cast(lltype.Signed, self._infobits_offset)
+        if WORD == 4:
+            shift_by = 2
+        elif WORD == 8:
+            shift_by = 0
+        return (type_info_group + infobits_offset,
+                shift_by,
+                self._T_IS_RPYTHON_INSTANCE)
+
 
 # ____________________________________________________________
 

@@ -1741,25 +1741,10 @@ class Assembler386(BaseAssembler):
         if offset is not None:
             self.mc.CMP(mem(loc_ptr, offset), loc_classptr)
         else:
-            # XXX hard-coded assumption: to go from an object to its class
-            # we use the following algorithm:
-            #   - read the typeid from mem(locs[0]), i.e. at offset 0;
-            #     this is a complete word (N=4 bytes on 32-bit, N=8 on
-            #     64-bits)
-            #   - keep the lower half of what is read there (i.e.
-            #     truncate to an unsigned 'N / 2' bytes value)
-            #   - multiply by 4 (on 32-bits only) and use it as an
-            #     offset in type_info_group
-            #   - add 16/32 bytes, to go past the TYPE_INFO structure
             assert isinstance(loc_classptr, ImmedLoc)
             classptr = loc_classptr.value
-            # here, we have to go back from 'classptr' to the value expected
-            # from reading the half-word in the object header.
-            from rpython.memory.gctypelayout import GCData
-            sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
-            type_info_group = llop.gc_get_type_info_group(llmemory.Address)
-            type_info_group = rffi.cast(lltype.Signed, type_info_group)
-            expected_typeid = classptr - sizeof_ti - type_info_group
+            expected_typeid = (self.cpu.gc_ll_descr
+                    .get_typeid_from_classptr_if_gcremovetypeptr(classptr))
             self._cmp_guard_gc_type(loc_ptr, ImmedLoc(expected_typeid))
 
     def _cmp_guard_gc_type(self, loc_ptr, loc_expected_typeid):
@@ -1794,6 +1779,23 @@ class Assembler386(BaseAssembler):
                                   guard_token, locs, ign_2):
         self._cmp_guard_gc_type(locs[0], locs[1])
         self.implement_guard(guard_token, 'NE')
+
+    def genop_guard_guard_is_object(self, ign_1, guard_op,
+                                    guard_token, locs, ign_2):
+        assert self.cpu.supports_guard_gc_type
+        [loc_object, loc_typeid] = locs
+        # idea: read the typeid, fetch the field 'infobits' from the big
+        # typeinfo table, and check the flag 'T_IS_RPYTHON_INSTANCE'.
+        base_type_info, shift_by, IS_OBJECT_FLAG = (
+            self.cpu.gc_ll_descr.get_translated_info_for_guard_is_object())
+        if IS_X86_32:
+            self.mc.MOVZX16(loc_typeid, mem(loc_object, 0))
+        else:
+            self.mc.MOV32(loc_typeid, mem(loc_object, 0))
+        loc_infobits = addr_add(imm(base_type_info), loc_typeid, scale=shift_by)
+        self.mc.TEST(loc_infobits, imm(IS_OBJECT_FLAG))
+        #
+        self.implement_guard(guard_token, 'Z')
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
                                  fail_locs, frame_depth):

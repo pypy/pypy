@@ -431,10 +431,14 @@ class RegAlloc(BaseRegalloc):
     consider_guard_gc_type = consider_guard_class
 
     def consider_guard_is_object(self, op):
-        xxx
+        x = self.make_sure_var_in_reg(op.getarg(0))
+        tmp_box = TempVar()
+        y = self.rm.force_allocate_reg(tmp_box)
+        self.rm.possibly_free_var(tmp_box)
+        self.perform_guard(op, [x, y], None)
 
     def consider_guard_subclass(self, op):
-        xxx
+        assert 0 # xxx
 
     def _consider_binop_part(self, op, symm=False):
         x = op.getarg(0)
@@ -798,6 +802,7 @@ class RegAlloc(BaseRegalloc):
 
     def _consider_real_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
+        assert effectinfo is not None
         oopspecindex = effectinfo.oopspecindex
         if oopspecindex != EffectInfo.OS_NONE:
             if IS_X86_32:
