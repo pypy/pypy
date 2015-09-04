@@ -9,12 +9,14 @@ from rpython.jit.backend import detect_cpu
 cpu = detect_cpu.autodetect()
 
 def pytest_addoption(parser):
+    # XXX nowadays, use the command line argument "--slow"
+
     group = parser.getgroup('translation test options')
     group.addoption('--run-translation-tests',
                     action="store_true",
                     default=False,
                     dest="run_translation_tests",
-                    help="run tests that translate code")
+                    help="THIS OPTION IS IGNORED, USE ``--slow''")
 
 def pytest_collect_directory(path, parent):
     if not cpu.startswith('arm'):
