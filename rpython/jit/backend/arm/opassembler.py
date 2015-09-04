@@ -5,13 +5,10 @@ from rpython.jit.backend.arm import shift
 from rpython.jit.backend.arm.arch import WORD, DOUBLE_WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                 gen_emit_op_unary_cmp,
-                                                gen_emit_guard_unary_cmp,
                                                 gen_emit_op_ri,
                                                 gen_emit_cmp_op,
-                                                gen_emit_cmp_op_guard,
                                                 gen_emit_float_op,
                                                 gen_emit_float_cmp_op,
-                                                gen_emit_float_cmp_op_guard,
                                                 gen_emit_unary_float_op,
                                                 saved_registers)
 from rpython.jit.backend.arm.helper.regalloc import check_imm_arg
@@ -160,36 +157,19 @@ class ResOpAssembler(BaseAssembler):
     emit_op_int_gt = gen_emit_cmp_op('int_gt', c.GT)
     emit_op_int_ge = gen_emit_cmp_op('int_ge', c.GE)
 
-    emit_guard_int_lt = gen_emit_cmp_op_guard('int_lt', c.LT)
-    emit_guard_int_le = gen_emit_cmp_op_guard('int_le', c.LE)
-    emit_guard_int_eq = gen_emit_cmp_op_guard('int_eq', c.EQ)
-    emit_guard_int_ne = gen_emit_cmp_op_guard('int_ne', c.NE)
-    emit_guard_int_gt = gen_emit_cmp_op_guard('int_gt', c.GT)
-    emit_guard_int_ge = gen_emit_cmp_op_guard('int_ge', c.GE)
-
     emit_op_uint_le = gen_emit_cmp_op('uint_le', c.LS)
     emit_op_uint_gt = gen_emit_cmp_op('uint_gt', c.HI)
     emit_op_uint_lt = gen_emit_cmp_op('uint_lt', c.LO)
     emit_op_uint_ge = gen_emit_cmp_op('uint_ge', c.HS)
 
-    emit_guard_uint_le = gen_emit_cmp_op_guard('uint_le', c.LS)
-    emit_guard_uint_gt = gen_emit_cmp_op_guard('uint_gt', c.HI)
-    emit_guard_uint_lt = gen_emit_cmp_op_guard('uint_lt', c.LO)
-    emit_guard_uint_ge = gen_emit_cmp_op_guard('uint_ge', c.HS)
-
     emit_op_ptr_eq = emit_op_instance_ptr_eq = emit_op_int_eq
     emit_op_ptr_ne = emit_op_instance_ptr_ne = emit_op_int_ne
-    emit_guard_ptr_eq = emit_guard_instance_ptr_eq = emit_guard_int_eq
-    emit_guard_ptr_ne = emit_guard_instance_ptr_ne = emit_guard_int_ne
 
     emit_op_int_add_ovf = emit_op_int_add
     emit_op_int_sub_ovf = emit_op_int_sub
 
     emit_op_int_is_true = gen_emit_op_unary_cmp('int_is_true', c.NE)
     emit_op_int_is_zero = gen_emit_op_unary_cmp('int_is_zero', c.EQ)
-
-    emit_guard_int_is_true = gen_emit_guard_unary_cmp('int_is_true', c.NE)
-    emit_guard_int_is_zero = gen_emit_guard_unary_cmp('int_is_zero', c.EQ)
 
     def emit_op_int_invert(self, op, arglocs, regalloc, fcond):
         reg, res = arglocs
@@ -1124,13 +1104,6 @@ class ResOpAssembler(BaseAssembler):
     emit_op_float_ne = gen_emit_float_cmp_op('float_ne', c.NE)
     emit_op_float_gt = gen_emit_float_cmp_op('float_gt', c.GT)
     emit_op_float_ge = gen_emit_float_cmp_op('float_ge', c.GE)
-
-    emit_guard_float_lt = gen_emit_float_cmp_op_guard('float_lt', c.VFP_LT)
-    emit_guard_float_le = gen_emit_float_cmp_op_guard('float_le', c.VFP_LE)
-    emit_guard_float_eq = gen_emit_float_cmp_op_guard('float_eq', c.EQ)
-    emit_guard_float_ne = gen_emit_float_cmp_op_guard('float_ne', c.NE)
-    emit_guard_float_gt = gen_emit_float_cmp_op_guard('float_gt', c.GT)
-    emit_guard_float_ge = gen_emit_float_cmp_op_guard('float_ge', c.GE)
 
     def emit_op_cast_float_to_int(self, op, arglocs, regalloc, fcond):
         arg, res = arglocs

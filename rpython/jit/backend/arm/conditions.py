@@ -13,6 +13,7 @@ LT = 0xB
 GT = 0xC
 LE = 0xD
 AL = 0xE
+cond_none = -1
 
 opposites = [NE, EQ, CC, CS, PL, MI, VC, VS, LS, HI, LT, GE, LE, GT, AL]
 

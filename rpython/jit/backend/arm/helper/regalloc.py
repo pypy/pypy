@@ -50,42 +50,28 @@ def prepare_op_ri(name=None, imm_size=0xFF, commutative=True, allow_zero=True):
         f.__name__ = name
     return f
 
-def prepare_float_op(name=None, base=True, float_result=True, guard=False):
-    if guard:
-        def f(self, op, guard_op, fcond):
-            locs = []
-            loc1 = self.make_sure_var_in_reg(op.getarg(0))
-            locs.append(loc1)
-            if base:
-                loc2 = self.make_sure_var_in_reg(op.getarg(1))
-                locs.append(loc2)
-            self.possibly_free_vars_for_op(op)
-            self.free_temp_vars()
-            if guard_op is None:
-                res = self.force_allocate_reg(op.result)
-                assert float_result == (op.result.type == FLOAT)
-                locs.append(res)
-                return locs
-            else:
-                args = self._prepare_guard(guard_op, locs)
-                return args
-    else:
-        def f(self, op, fcond):
-            locs = []
-            loc1 = self.make_sure_var_in_reg(op.getarg(0))
-            locs.append(loc1)
-            if base:
-                loc2 = self.make_sure_var_in_reg(op.getarg(1))
-                locs.append(loc2)
-            self.possibly_free_vars_for_op(op)
-            self.free_temp_vars()
-            res = self.force_allocate_reg(op.result)
-            assert float_result == (op.result.type == FLOAT)
-            locs.append(res)
-            return locs
-    if name:
-        f.__name__ = name
-    return f
+def prepare_unary_op(self, op, fcond):
+    loc1 = self.make_sure_var_in_reg(op.getarg(0))
+    self.possibly_free_vars_for_op(op)
+    self.free_temp_vars()
+    res = self.force_allocate_reg(op.result)
+    return [loc1, res]
+
+def prepare_two_regs_op(self, op, fcond):
+    loc1 = self.make_sure_var_in_reg(op.getarg(0))
+    loc2 = self.make_sure_var_in_reg(op.getarg(1))
+    self.possibly_free_vars_for_op(op)
+    self.free_temp_vars()
+    res = self.force_allocate_reg(op.result)
+    return [loc1, loc2, res]
+
+def prepare_float_cmp(self, op, fcond):
+    loc1 = self.make_sure_var_in_reg(op.getarg(0))
+    loc2 = self.make_sure_var_in_reg(op.getarg(1))
+    self.possibly_free_vars_for_op(op)
+    self.free_temp_vars()
+    res = self.force_allocate_reg_or_cc(op.result)
+    return [loc1, loc2, res]
 
 def prepare_op_by_helper_call(name):
     def f(self, op, fcond):
@@ -106,43 +92,28 @@ def prepare_op_by_helper_call(name):
     f.__name__ = name
     return f
 
-def prepare_cmp_op(name=None):
-    def f(self, op, guard_op, fcond):
-        assert fcond is not None
-        boxes = list(op.getarglist())
-        arg0, arg1 = boxes
-        imm_a1 = check_imm_box(arg1)
+def prepare_int_cmp(self, op, fcond):
+    assert fcond is not None
+    boxes = list(op.getarglist())
+    arg0, arg1 = boxes
+    imm_a1 = check_imm_box(arg1)
 
-        l0 = self.make_sure_var_in_reg(arg0, forbidden_vars=boxes)
-        if imm_a1:
-            l1 = self.convert_to_imm(arg1)
-        else:
-            l1 = self.make_sure_var_in_reg(arg1, forbidden_vars=boxes)
+    l0 = self.make_sure_var_in_reg(arg0, forbidden_vars=boxes)
+    if imm_a1:
+        l1 = self.convert_to_imm(arg1)
+    else:
+        l1 = self.make_sure_var_in_reg(arg1, forbidden_vars=boxes)
 
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        if guard_op is None:
-            res = self.force_allocate_reg(op.result)
-            return [l0, l1, res]
-        else:
-            args = self._prepare_guard(guard_op, [l0, l1])
-            return args
-    if name:
-        f.__name__ = name
-    return f
+    self.possibly_free_vars_for_op(op)
+    self.free_temp_vars()
+    res = self.force_allocate_reg_or_cc(op.result)
+    return [l0, l1, res]
 
-def prepare_op_unary_cmp(name=None):
-    def f(self, op, guard_op, fcond):
-        assert fcond is not None
-        a0 = op.getarg(0)
-        assert isinstance(a0, Box)
-        reg = self.make_sure_var_in_reg(a0)
-        self.possibly_free_vars_for_op(op)
-        if guard_op is None:
-            res = self.force_allocate_reg(op.result, [a0])
-            return [reg, res]
-        else:
-            return self._prepare_guard(guard_op, [reg])
-    if name:
-        f.__name__ = name
-    return f
+def prepare_unary_cmp(self, op, fcond):
+    assert fcond is not None
+    a0 = op.getarg(0)
+    assert isinstance(a0, Box)
+    reg = self.make_sure_var_in_reg(a0)
+    self.possibly_free_vars_for_op(op)
+    res = self.force_allocate_reg_or_cc(op.result)
+    return [reg, res]
