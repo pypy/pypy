@@ -19,6 +19,7 @@ opposites = [NE, EQ, CC, CS, PL, MI, VC, VS, LS, HI, LT, GE, LE, GT, AL]
 
 
 def get_opposite_of(operation):
+    assert operation >= 0
     return opposites[operation]
 
 # see mapping for floating poin according to

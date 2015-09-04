@@ -81,6 +81,7 @@ def gen_emit_float_op(name, opname):
         return fcond
     f.__name__ = 'emit_op_%s' % name
     return f
+
 def gen_emit_unary_float_op(name, opname):
     op_rr = getattr(InstrBuilder, opname)
     def f(self, op, arglocs, regalloc, fcond):

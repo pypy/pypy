@@ -203,9 +203,15 @@ class ResOpAssembler(BaseAssembler):
                                     fcond=fcond)
         return token
 
-    def _emit_guard(self, op, arglocs, fcond, save_exc,
+    def _emit_guard(self, op, arglocs, save_exc,
                                     is_guard_not_invalidated=False,
                                     is_guard_not_forced=False):
+        if is_guard_not_invalidated:
+            fcond = c.cond_none
+        else:
+            fcond = self.guard_success_cc
+            self.guard_success_cc = c.cond_none
+            assert fcond != c.cond_none
         pos = self.mc.currpos()
         token = self.build_guard_token(op, arglocs[0].value, arglocs[1:], pos, fcond, save_exc,
                                         is_guard_not_invalidated,
@@ -231,17 +237,12 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     def emit_op_guard_true(self, op, arglocs, regalloc, fcond):
-        l0 = arglocs[0]
-        failargs = arglocs[1:]
-        self.mc.CMP_ri(l0.value, 0)
-        fcond = self._emit_guard(op, failargs, c.NE, save_exc=False)
+        fcond = self._emit_guard(op, arglocs, save_exc=False)
         return fcond
 
     def emit_op_guard_false(self, op, arglocs, regalloc, fcond):
-        l0 = arglocs[0]
-        failargs = arglocs[1:]
-        self.mc.CMP_ri(l0.value, 0)
-        fcond = self._emit_guard(op, failargs, c.EQ, save_exc=False)
+        self.guard_success_cc = c.get_opposite_of(self.guard_success_cc)
+        fcond = self._emit_guard(op, arglocs, save_exc=False)
         return fcond
 
     def emit_op_guard_value(self, op, arglocs, regalloc, fcond):

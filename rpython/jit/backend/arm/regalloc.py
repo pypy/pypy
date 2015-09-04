@@ -5,6 +5,7 @@ from rpython.jit.backend.llsupport.regalloc import FrameManager, \
         RegisterManager, TempBox, compute_vars_longevity, BaseRegalloc, \
         get_scale
 from rpython.jit.backend.arm import registers as r
+from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import locations
 from rpython.jit.backend.arm.locations import imm, get_fp_offset
 from rpython.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
@@ -656,14 +657,25 @@ class Regalloc(BaseRegalloc):
             locs = [imm(fail_descr)]
         return locs
 
-    def prepare_op_guard_true(self, op, fcond):
-        l0 = self.make_sure_var_in_reg(op.getarg(0))
-        args = self._prepare_guard(op, [l0])
+    def load_condition_into_cc(self, box):
+        if self.assembler.guard_success_cc == c.cond_none:
+            loc = self.loc(box)
+            if not loc.is_core_reg():
+                assert loc.is_stack()
+                self.assembler.regalloc_mov(loc, r.lr)
+                loc = r.lr
+            self.mc.CMP_ri(loc.value, 0)
+            self.assembler.guard_success_cc = c.NE
+
+    def _prepare_guard_cc(self, op, fcond):
+        self.load_condition_into_cc(op.getarg(0))
+        args = self._prepare_guard(op, [])
         return args
 
-    prepare_op_guard_false = prepare_op_guard_true
-    prepare_op_guard_nonnull = prepare_op_guard_true
-    prepare_op_guard_isnull = prepare_op_guard_true
+    prepare_op_guard_true = _prepare_guard_cc
+    prepare_op_guard_false = _prepare_guard_cc
+    prepare_op_guard_nonnull = _prepare_guard_cc
+    prepare_op_guard_isnull = _prepare_guard_cc
 
     def prepare_op_guard_value(self, op, fcond):
         boxes = op.getarglist()
