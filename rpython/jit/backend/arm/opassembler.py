@@ -111,32 +111,25 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     #ref: http://blogs.arm.com/software-enablement/detecting-overflow-from-mul/
-    def emit_guard_int_mul_ovf(self, op, guard, arglocs, regalloc, fcond):
+    def emit_op_int_mul_ovf(self, op, arglocs, regalloc, fcond):
         reg1 = arglocs[0]
         reg2 = arglocs[1]
         res = arglocs[2]
-        failargs = arglocs[3:]
         self.mc.SMULL(res.value, r.ip.value, reg1.value, reg2.value,
                                                                 cond=fcond)
         self.mc.CMP_rr(r.ip.value, res.value, shifttype=shift.ASR,
                                                         imm=31, cond=fcond)
-
-        if guard.getopnum() == rop.GUARD_OVERFLOW:
-            fcond = self._emit_guard(guard, failargs, c.NE, save_exc=False)
-        elif guard.getopnum() == rop.GUARD_NO_OVERFLOW:
-            fcond = self._emit_guard(guard, failargs, c.EQ, save_exc=False)
-        else:
-            assert 0
+        self.guard_success_cc = c.EQ
         return fcond
 
-    def emit_guard_int_add_ovf(self, op, guard, arglocs, regalloc, fcond):
-        self.int_add_impl(op, arglocs[0:3], regalloc, fcond, flags=True)
-        self._emit_guard_overflow(guard, arglocs[3:], fcond)
+    def emit_op_int_add_ovf(self, op, arglocs, regalloc, fcond):
+        fcond = self.int_add_impl(op, arglocs, regalloc, fcond, flags=True)
+        self.guard_success_cc = c.VC
         return fcond
 
-    def emit_guard_int_sub_ovf(self, op, guard, arglocs, regalloc, fcond):
-        self.int_sub_impl(op, arglocs[0:3], regalloc, fcond, flags=True)
-        self._emit_guard_overflow(guard, arglocs[3:], fcond)
+    def emit_op_int_sub_ovf(self, op, arglocs, regalloc, fcond):
+        fcond = self.int_sub_impl(op, arglocs, regalloc, fcond, flags=True)
+        self.guard_success_cc = c.VC
         return fcond
 
     emit_op_int_floordiv = gen_emit_op_by_helper_call('int_floordiv', 'DIV')
@@ -164,9 +157,6 @@ class ResOpAssembler(BaseAssembler):
 
     emit_op_ptr_eq = emit_op_instance_ptr_eq = emit_op_int_eq
     emit_op_ptr_ne = emit_op_instance_ptr_ne = emit_op_int_ne
-
-    emit_op_int_add_ovf = emit_op_int_add
-    emit_op_int_sub_ovf = emit_op_int_sub
 
     emit_op_int_is_true = gen_emit_op_unary_cmp('int_is_true', c.NE)
     emit_op_int_is_zero = gen_emit_op_unary_cmp('int_is_zero', c.EQ)
@@ -227,15 +217,6 @@ class ResOpAssembler(BaseAssembler):
             self.mc.BKPT()
         return c.AL
 
-    def _emit_guard_overflow(self, guard, failargs, fcond):
-        if guard.getopnum() == rop.GUARD_OVERFLOW:
-            fcond = self._emit_guard(guard, failargs, c.VS, save_exc=False)
-        elif guard.getopnum() == rop.GUARD_NO_OVERFLOW:
-            fcond = self._emit_guard(guard, failargs, c.VC, save_exc=False)
-        else:
-            assert 0
-        return fcond
-
     def emit_op_guard_true(self, op, arglocs, regalloc, fcond):
         fcond = self._emit_guard(op, arglocs, save_exc=False)
         return fcond
@@ -265,11 +246,8 @@ class ResOpAssembler(BaseAssembler):
     emit_op_guard_nonnull = emit_op_guard_true
     emit_op_guard_isnull = emit_op_guard_false
 
-    def emit_op_guard_no_overflow(self, op, arglocs, regalloc, fcond):
-        return self._emit_guard(op, arglocs, c.VC, save_exc=False)
-
-    def emit_op_guard_overflow(self, op, arglocs, regalloc, fcond):
-        return self._emit_guard(op, arglocs, c.VS, save_exc=False)
+    emit_op_guard_no_overflow = emit_op_guard_true
+    emit_op_guard_overflow    = emit_op_guard_false
 
     def emit_op_guard_class(self, op, arglocs, regalloc, fcond):
         self._cmp_guard_class(op, arglocs, regalloc, fcond)

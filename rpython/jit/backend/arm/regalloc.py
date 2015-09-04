@@ -483,25 +483,6 @@ class Regalloc(BaseRegalloc):
         resloc = self.force_allocate_reg(op.result)
         return [argloc, imm(numbytes), resloc]
 
-    def prepare_guard_int_mul_ovf(self, op, guard, fcond):
-        boxes = op.getarglist()
-        reg1 = self.make_sure_var_in_reg(boxes[0], forbidden_vars=boxes)
-        reg2 = self.make_sure_var_in_reg(boxes[1], forbidden_vars=boxes)
-        res = self.force_allocate_reg(op.result)
-        return self._prepare_guard(guard, [reg1, reg2, res])
-
-    def prepare_guard_int_add_ovf(self, op, guard, fcond):
-        locs = self._prepare_op_int_add(op, fcond)
-        res = self.force_allocate_reg(op.result)
-        locs.append(res)
-        return self._prepare_guard(guard, locs)
-
-    def prepare_guard_int_sub_ovf(self, op, guard, fcond):
-        locs = self._prepare_op_int_sub(op, fcond)
-        res = self.force_allocate_reg(op.result)
-        locs.append(res)
-        return self._prepare_guard(guard, locs)
-
     prepare_op_int_floordiv = prepare_op_by_helper_call('int_floordiv')
     prepare_op_int_mod = prepare_op_by_helper_call('int_mod')
     prepare_op_uint_floordiv = prepare_op_by_helper_call('unit_floordiv')
@@ -534,6 +515,7 @@ class Regalloc(BaseRegalloc):
 
     prepare_op_int_add_ovf = prepare_op_int_add
     prepare_op_int_sub_ovf = prepare_op_int_sub
+    prepare_op_int_mul_ovf = prepare_op_int_mul
 
     prepare_op_int_is_true = prepare_unary_cmp
     prepare_op_int_is_zero = prepare_unary_cmp
@@ -699,6 +681,7 @@ class Regalloc(BaseRegalloc):
 
     prepare_op_guard_overflow = prepare_op_guard_no_overflow
     prepare_op_guard_not_invalidated = prepare_op_guard_no_overflow
+    prepare_op_guard_not_forced = prepare_op_guard_no_overflow
 
     def prepare_op_guard_exception(self, op, fcond):
         boxes = op.getarglist()
