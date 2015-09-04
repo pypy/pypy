@@ -693,6 +693,17 @@ class GcLLDescr_framework(GcLLDescription):
             expected_typeid >>= 2
         return expected_typeid
 
+    def get_translated_info_for_typeinfo(self):
+        from rpython.memory.gctypelayout import GCData
+        type_info_group = llop.gc_get_type_info_group(llmemory.Address)
+        type_info_group = rffi.cast(lltype.Signed, type_info_group)
+        if WORD == 4:
+            shift_by = 2
+        elif WORD == 8:
+            shift_by = 0
+        sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
+        return (type_info_group, shift_by, sizeof_ti)
+
     def _setup_guard_is_object(self):
         from rpython.memory.gctypelayout import GCData, T_IS_RPYTHON_INSTANCE
         self._infobits_offset, _ = symbolic.get_field_token(GCData.TYPE_INFO,
@@ -700,16 +711,8 @@ class GcLLDescr_framework(GcLLDescription):
         self._T_IS_RPYTHON_INSTANCE = T_IS_RPYTHON_INSTANCE
 
     def get_translated_info_for_guard_is_object(self):
-        type_info_group = llop.gc_get_type_info_group(llmemory.Address)
-        type_info_group = rffi.cast(lltype.Signed, type_info_group)
         infobits_offset = rffi.cast(lltype.Signed, self._infobits_offset)
-        if WORD == 4:
-            shift_by = 2
-        elif WORD == 8:
-            shift_by = 0
-        return (type_info_group + infobits_offset,
-                shift_by,
-                self._T_IS_RPYTHON_INSTANCE)
+        return (infobits_offset, self._T_IS_RPYTHON_INSTANCE)
 
 
 # ____________________________________________________________

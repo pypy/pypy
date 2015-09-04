@@ -438,7 +438,12 @@ class RegAlloc(BaseRegalloc):
         self.perform_guard(op, [x, y], None)
 
     def consider_guard_subclass(self, op):
-        assert 0 # xxx
+        x = self.make_sure_var_in_reg(op.getarg(0))
+        y = self.loc(op.getarg(1))
+        tmp_box = TempVar()
+        z = self.rm.force_allocate_reg(tmp_box)
+        self.rm.possibly_free_var(tmp_box)
+        self.perform_guard(op, [x, y, z], None)
 
     def _consider_binop_part(self, op, symm=False):
         x = op.getarg(0)
