@@ -2356,7 +2356,7 @@ class LLtypeBackendTest(BaseBackendTest):
             ops = '''
             [%s, %s, i3, i4]
             i2 = %s(%s)
-            cond_call(i2, ConstClass(func_ptr), i3, i4)
+            cond_call(i2, ConstClass(func_ptr), i3, i4, descr=calldescr)
             guard_no_exception(descr=faildescr) []
             finish()
             ''' % ("i0" if operation.startswith('int') else "f0",
@@ -2366,6 +2366,7 @@ class LLtypeBackendTest(BaseBackendTest):
                     "i0, i1" if operation.startswith('int') else
                     "f0, f1"))
             loop = parse(ops, namespace={'func_ptr': func_ptr,
+                                         'calldescr': calldescr,
                                          'faildescr': BasicFailDescr()})
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
