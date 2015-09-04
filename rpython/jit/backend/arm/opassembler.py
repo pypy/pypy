@@ -1039,6 +1039,7 @@ class ResOpAssembler(BaseAssembler):
         self.mc.CMP_ri(r.ip.value, 0)
         self.guard_success_cc = c.EQ
         self._emit_guard(op, arglocs, save_exc=True, is_guard_not_forced=True)
+        return fcond
 
     def emit_op_call_may_force(self, op, arglocs, regalloc, fcond):
         self._store_force_index(self._find_nearby_operation(+1))

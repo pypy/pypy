@@ -647,7 +647,7 @@ class Regalloc(BaseRegalloc):
                 assert loc.is_stack()
                 self.assembler.regalloc_mov(loc, r.lr)
                 loc = r.lr
-            self.mc.CMP_ri(loc.value, 0)
+            self.assembler.mc.CMP_ri(loc.value, 0)
             self.assembler.guard_success_cc = c.NE
 
     def _prepare_guard_cc(self, op, fcond):
@@ -1236,10 +1236,9 @@ class Regalloc(BaseRegalloc):
         return self._prepare_call(op, save_all_regs=True, first_arg_index=2)
 
     def prepare_op_call_assembler(self, op, fcond):
-        locs = self.locs_for_call_assembler(op, guard_op)
+        locs = self.locs_for_call_assembler(op)
         tmploc = self.get_scratch_reg(INT, selected_reg=r.r0)
         resloc = self._call(op, locs + [tmploc], save_all_regs=True)
-        self.possibly_free_vars(guard_op.getfailargs())
         return locs + [resloc, tmploc]
 
     def _prepare_args_for_new_op(self, new_args):
