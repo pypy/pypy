@@ -431,7 +431,11 @@ class RegAlloc(BaseRegalloc):
     consider_guard_gc_type = consider_guard_class
 
     def consider_guard_is_object(self, op):
-        xxx
+        x = self.make_sure_var_in_reg(op.getarg(0))
+        tmp_box = TempVar()
+        y = self.rm.force_allocate_reg(tmp_box)
+        self.rm.possibly_free_var(tmp_box)
+        self.perform_guard(op, [x, y], None)
 
     def consider_guard_subclass(self, op):
         xxx
