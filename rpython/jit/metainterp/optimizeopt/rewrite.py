@@ -12,6 +12,8 @@ from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_me
 from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
      OpHelpers
 from rpython.rlib.rarithmetic import highest_bit
+from rpython.rtyper.lltypesystem import llmemory
+from rpython.rtyper import rclass
 import math
 
 class OptRewrite(Optimization):
@@ -309,17 +311,31 @@ class OptRewrite(Optimization):
             return
         self.emit_operation(op)
 
+    def _check_subclass(self, vtable1, vtable2):
+        # checks that vtable1 is a subclass of vtable2
+        known_class = llmemory.cast_adr_to_ptr(
+            llmemory.cast_int_to_adr(vtable1),
+            rclass.CLASSTYPE)
+        expected_class = llmemory.cast_adr_to_ptr(
+            llmemory.cast_int_to_adr(vtable2),
+            rclass.CLASSTYPE)
+        if (expected_class.subclassrange_min
+                <= known_class.subclassrange_min
+                <= expected_class.subclassrange_max):
+            return True
+        return False
+
     def optimize_GUARD_SUBCLASS(self, op):
         info = self.getptrinfo(op.getarg(0))
         if info is not None and info.is_about_object():
             known_class = info.get_known_class(self.optimizer.cpu)
             if known_class:
-                if known_class.getint() == op.getarg(1).getint():
-                    # XXX subclass check
+                if self._check_subclass(known_class.getint(),
+                                        op.getarg(1).getint()):
                     return
             elif info.get_descr() is not None:
-                if info.get_descr().get_vtable() == op.getarg(1).getint():
-                    # XXX check for actual subclass?
+                if self._check_subclass(info.get_descr().get_vtable(),
+                                        op.getarg(1).getint()):
                     return
         self.emit_operation(op)
 
