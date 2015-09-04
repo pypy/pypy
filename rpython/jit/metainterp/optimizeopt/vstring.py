@@ -122,8 +122,8 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         string_optimizer.emit_operation(lengthop)
         return lengthop
 
-    def make_guards(self, op, short):
-        info.AbstractVirtualPtrInfo.make_guards(self, op, short)
+    def make_guards(self, op, short, optimizer):
+        info.AbstractVirtualPtrInfo.make_guards(self, op, short, optimizer)
         if self.lenbound and self.lenbound.lower >= 1:
             if self.mode is mode_string:
                 lenop = ResOperation(rop.STRLEN, [op])
@@ -131,7 +131,7 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
                 assert self.mode is mode_unicode
                 lenop = ResOperation(rop.UNICODELEN, [op])
             short.append(lenop)
-            self.lenbound.make_guards(lenop, short)
+            self.lenbound.make_guards(lenop, short, optimizer)
 
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):

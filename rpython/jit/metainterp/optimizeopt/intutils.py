@@ -257,7 +257,7 @@ class IntBound(AbstractInfo):
         res.has_upper = self.has_upper
         return res
 
-    def make_guards(self, box, guards):
+    def make_guards(self, box, guards, optimizer):
         if self.is_constant():
             guards.append(ResOperation(rop.GUARD_VALUE,
                                        [box, ConstInt(self.upper)]))

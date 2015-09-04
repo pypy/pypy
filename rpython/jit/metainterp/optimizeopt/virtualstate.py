@@ -404,7 +404,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             # confusingly enough, this is done also for pointers
             # which have the full range as the "bound", so it always works
             return self._generate_guards_intbounds(other, box, runtime_box,
-                                                   extra_guards)
+                                                   extra_guards,
+                                                   state.optimizer)
 
         # the following conditions often peek into the runtime value that the
         # box had when tracing. This value is only used as an educated guess.
@@ -473,7 +474,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 raise VirtualStatesCantMatch("other not constant")
         assert 0, "unreachable"
 
-    def _generate_guards_intbounds(self, other, box, runtime_box, extra_guards):
+    def _generate_guards_intbounds(self, other, box, runtime_box, extra_guards,
+                                   optimizer):
         if self.intbound is None:
             return
         if self.intbound.contains_bound(other.intbound):
@@ -482,7 +484,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             self.intbound.contains(runtime_box.getint())):
             # this may generate a few more guards than needed, but they are
             # optimized away when emitting them
-            self.intbound.make_guards(box, extra_guards)
+            self.intbound.make_guards(box, extra_guards, optimizer)
             return
         raise VirtualStatesCantMatch("intbounds don't match")
 

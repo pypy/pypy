@@ -355,14 +355,14 @@ class AbstractShortPreambleBuilder(object):
             if isinstance(arg, AbstractInputArg):
                 info = arg.get_forwarded()
                 if info is not None and info is not empty_info:
-                    info.make_guards(arg, self.short)
+                    info.make_guards(arg, self.short, optimizer)
             elif arg.get_forwarded() is None:
                 pass
             else:
                 self.short.append(arg)
                 info = arg.get_forwarded()
                 if info is not empty_info:
-                    info.make_guards(arg, self.short)
+                    info.make_guards(arg, self.short, optimizer)
                 arg.set_forwarded(None)
         self.short.append(preamble_op)
         if preamble_op.is_ovf():
@@ -372,7 +372,7 @@ class AbstractShortPreambleBuilder(object):
         if optimizer is not None:
             optimizer.setinfo_from_preamble(box, info, None)
         if info is not empty_info:
-            info.make_guards(preamble_op, self.short)
+            info.make_guards(preamble_op, self.short, optimizer)
         return preamble_op
 
 class ShortPreambleBuilder(AbstractShortPreambleBuilder):

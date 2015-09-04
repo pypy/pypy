@@ -37,6 +37,7 @@ class AbstractLLCPU(AbstractCPU):
         self.translate_support_code = translate_support_code
         if translate_support_code and rtyper is not None:
             translator = rtyper.annotator.translator
+            self.remove_gctypeptr = translator.config.translation.gcremovetypeptr
         else:
             translator = None
         self.gc_ll_descr = get_ll_description(gcdescr, translator, rtyper)

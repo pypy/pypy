@@ -75,7 +75,7 @@ class PtrInfo(AbstractInfo):
     def copy_fields_to_const(self, constinfo, optheap):
         pass
 
-    def make_guards(self, op, short):
+    def make_guards(self, op, short, optimizer):
         pass
     
 class NonNullPtrInfo(PtrInfo):
@@ -108,7 +108,7 @@ class NonNullPtrInfo(PtrInfo):
             return
         return self._visitor_walk_recursive(instbox, visitor, optimizer)
 
-    def make_guards(self, op, short):
+    def make_guards(self, op, short, optimizer):
         op = ResOperation(rop.GUARD_NONNULL, [op], None)
         short.append(op)
 
@@ -307,29 +307,28 @@ class InstancePtrInfo(AbstractStructPtrInfo):
         assert self.is_virtual()
         return visitor.visit_virtual(self.descr, fielddescrs)
 
-    def make_guards(self, op, short):
+    def make_guards(self, op, short, optimizer):
         if self._known_class is not None:
-            short.extend([
-                ResOperation(rop.GUARD_NONNULL, [op], None),
-                ResOperation(rop.GUARD_IS_OBJECT, [op], None),
-                ResOperation(rop.GUARD_CLASS, [op, self._known_class], None)
-                ])
+            short.append(ResOperation(rop.GUARD_NONNULL, [op], None))
+            if not optimizer.cpu.remove_gctypeptr:
+                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op], None))
+            short.append(ResOperation(rop.GUARD_CLASS,
+                                      [op, self._known_class], None))
         elif self.descr is not None:
-            short.extend([
-                ResOperation(rop.GUARD_NONNULL, [op], None),
-                ResOperation(rop.GUARD_IS_OBJECT, [op], None),
-                ResOperation(rop.GUARD_SUBCLASS, [op,
-                            ConstInt(self.descr.get_vtable())], None)
-                ])
+            short.append(ResOperation(rop.GUARD_NONNULL, [op], None))
+            if not optimizer.cpu.remove_gctypeptr:
+                short.append(ResOperation(rop.GUARD_IS_OBJECT, [op], None))
+            short.append(ResOperation(rop.GUARD_SUBCLASS, [op,
+                            ConstInt(self.descr.get_vtable())], None))
         else:
-            AbstractStructPtrInfo.make_guards(self, op, short)
+            AbstractStructPtrInfo.make_guards(self, op, short, optimizer)
 
 class StructPtrInfo(AbstractStructPtrInfo):
     def __init__(self, descr, is_virtual=False):
         self.descr = descr
         self._is_virtual = is_virtual
 
-    def make_guards(self, op, short):
+    def make_guards(self, op, short, optimizer):
         if self.descr is not None:
             c_typeid = ConstInt(self.descr.get_type_id())
             short.extend([
@@ -565,14 +564,14 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                     self._items[i] = fldbox
         return op
 
-    def make_guards(self, op, short):
-        AbstractVirtualPtrInfo.make_guards(self, op, short)
+    def make_guards(self, op, short, optimizer):
+        AbstractVirtualPtrInfo.make_guards(self, op, short, optimizer)
         c_type_id = ConstInt(self.descr.get_type_id())
         short.append(ResOperation(rop.GUARD_GC_TYPE, [op, c_type_id], None))
         if self.lenbound is not None:
             lenop = ResOperation(rop.ARRAYLEN_GC, [op], descr=self.descr)
             short.append(lenop)
-            self.lenbound.make_guards(lenop, short)
+            self.lenbound.make_guards(lenop, short, optimizer)
 
 class ArrayStructInfo(ArrayPtrInfo):
     def __init__(self, descr, size, is_virtual=False):
@@ -648,7 +647,7 @@ class ConstPtrInfo(PtrInfo):
     def getconst(self):
         return self._const
 
-    def make_guards(self, op, short):
+    def make_guards(self, op, short, optimizer):
         short.append(ResOperation(rop.GUARD_VALUE, [op, self._const]))
 
     def _get_info(self, descr, optheap):
@@ -758,5 +757,5 @@ class FloatConstInfo(AbstractInfo):
     def __init__(self, const):
         self._const = const
 
-    def make_guards(self, op, short):
+    def make_guards(self, op, short, optimizer):
         short.append(ResOperation(rop.GUARD_VALUE, [op, self._const]))

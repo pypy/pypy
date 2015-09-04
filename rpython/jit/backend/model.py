@@ -19,6 +19,8 @@ class AbstractCPU(object):
 
     propagate_exception_descr = None
 
+    remove_gctypeptr = False
+
     def __init__(self):
         self.tracker = CPUTotalTracker()
 
