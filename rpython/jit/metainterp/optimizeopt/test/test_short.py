@@ -27,39 +27,21 @@ class TestShortBoxes(object):
         i1 = InputArgInt()
         op = ResOperation(rop.INT_ADD, [i0, i1])
         sb = ShortBoxes()
-        short_boxes = sb.create_short_boxes(Opt([op]), [i0, i1])
-        assert short_boxes == [(op, None)]
+        short_boxes = sb.create_short_boxes(Opt([op]), [i0, i1], [i0, i1])
+        assert len(short_boxes) == 3
+        short_boxes.sort(key=str)
+        # inputarg
+        assert short_boxes[0].short_op.res is i0
+        assert short_boxes[0].preamble_op is sb.short_inputargs[0]
+        # pure op
+        assert short_boxes[2].preamble_op.getarg(0) is sb.short_inputargs[0]
+        assert short_boxes[2].short_op.res is op
 
     def test_pure_ops_does_not_work(self):
         i0 = InputArgInt()
         i1 = InputArgInt()
         op = ResOperation(rop.INT_ADD, [i0, i1])
         sb = ShortBoxes()
-        short_boxes = sb.create_short_boxes(Opt([op]), [i0])
-        assert short_boxes == []
-
-    def test_multiple_similar_ops(self):
-        """ This can happen e.g. if heap cache and pure ops produce
-        the same thing. So let's say we have:
-
-        i0 = int_add(i0, 1)
-        setfield_gc(p0, i0)
-
-        now i0 can be gotten in two ways - from getfield or from int_add,
-        we store both in short preamble (in case someone else who inlines
-        the short preamble does not share them)
-        """
-        py.test.skip("l8r")
-        i0 = InputArgInt()
-        i1 = InputArgInt()
-        op = ResOperation(rop.INT_ADD, [i0, i1])
-        op1 = ResOperation(rop.GETFIELD_GC_I, [i0], descr=Descr())
-        sb = ShortBoxes()
-        sb.create_short_boxes(Opt([op, (op, op1)]), [i0, i1])
-        assert len(sb.short_boxes) == 2
-        l = [x.getopnum() for x, _ in sb.short_boxes]
-        l.sort()
-        assert l == [rop.INT_ADD, rop.SAME_AS_I]
-        assert [x for x, y in sb.short_boxes][0] == op
-        assert [y for x, y in sb.short_boxes] == [op, op1]
+        short_boxes = sb.create_short_boxes(Opt([op]), [i0], [i0])
+        assert len(short_boxes) == 1 # just inparg
 
