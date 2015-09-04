@@ -5,13 +5,13 @@ from rpython.jit.metainterp.history import BasicFinalDescr, BasicFailDescr
 from rpython.jit.metainterp.gc import get_description
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rtyper.rclass import getclassrepr
+from rpython.rtyper.rclass import getclassrepr, getinstancerepr
 from rpython.translator.unsimplify import call_initial_function
 from rpython.translator.translator import TranslationContext
 from rpython.translator.c import genc
 
 
-def test_guard_class():
+def run_guards_translated(gcremovetypeptr):
     class A(object):
         pass
     class B(A):
@@ -24,7 +24,7 @@ def test_guard_class():
 
     t = TranslationContext()
     t.config.translation.gc = "minimark"
-    t.config.translation.gcremovetypeptr = True
+    t.config.translation.gcremovetypeptr = gcremovetypeptr
     ann = t.buildannotator()
     ann.build_types(main, [s_list_of_strings], main_entry_point=True)
     rtyper = t.buildrtyper()
@@ -32,6 +32,8 @@ def test_guard_class():
 
     classdef = ann.bookkeeper.getuniqueclassdef(B)
     rclass = getclassrepr(rtyper, classdef)
+    rinstance = getinstancerepr(rtyper, classdef)
+    LLB = rinstance.lowleveltype.TO
     vtable_B = rclass.getvtable()
     adr_vtable_B = llmemory.cast_ptr_to_adr(vtable_B)
     vtable_B = llmemory.cast_adr_to_int(adr_vtable_B, mode="symbolic")
@@ -44,7 +46,10 @@ def test_guard_class():
     finaldescr = BasicFinalDescr()
     faildescr = BasicFailDescr()
 
-    loop = parse("""
+    descr_B = cpu.sizeof(LLB, vtable_B)
+    typeid_B = descr_B.get_type_id()
+
+    loop1 = parse("""
     [p0]
     guard_class(p0, ConstInt(vtable_B), descr=faildescr) []
     finish(descr=finaldescr)
@@ -52,13 +57,44 @@ def test_guard_class():
                     'faildescr': faildescr,
                     'vtable_B': vtable_B})
 
+    loop2 = parse("""
+    [p0]
+    guard_gc_type(p0, ConstInt(typeid_B), descr=faildescr) []
+    finish(descr=finaldescr)
+    """, namespace={'finaldescr': finaldescr,
+                    'faildescr': faildescr,
+                    'typeid_B': typeid_B})
+
+    loop3 = parse("""
+    [p0]
+    guard_is_object(p0, descr=faildescr) []
+    finish(descr=finaldescr)
+    """, namespace={'finaldescr': finaldescr,
+                    'faildescr': faildescr})
+
     def g():
         cpu.setup_once()
-        token = JitCellToken()
-        cpu.compile_loop(loop.inputargs, loop.operations, token)
+        token1 = JitCellToken()
+        token2 = JitCellToken()
+        token3 = JitCellToken()
+        cpu.compile_loop(loop1.inputargs, loop1.operations, token1)
+        cpu.compile_loop(loop2.inputargs, loop2.operations, token2)
+        cpu.compile_loop(loop3.inputargs, loop3.operations, token3)
 
-        for x in [A(),B(), C()]:
-            p0 = rffi.cast(llmemory.GCREF, x)
+        for token, p0 in [
+                (token1, rffi.cast(llmemory.GCREF, A())),
+                (token1, rffi.cast(llmemory.GCREF, B())),
+                (token1, rffi.cast(llmemory.GCREF, C())),
+
+                (token2, rffi.cast(llmemory.GCREF, A())),
+                (token2, rffi.cast(llmemory.GCREF, B())),
+                (token2, rffi.cast(llmemory.GCREF, C())),
+                (token2, rffi.cast(llmemory.GCREF, [42, 43])),
+
+                (token3, rffi.cast(llmemory.GCREF, A())),
+                (token3, rffi.cast(llmemory.GCREF, B())),
+                (token3, rffi.cast(llmemory.GCREF, [44, 45])),
+                ]:
             frame = execute_token(token, p0)
             descr = cpu.get_latest_descr(frame)
             if descr is finaldescr:
@@ -75,4 +111,22 @@ def test_guard_class():
     cbuilder.compile()
     
     data = cbuilder.cmdexec('')
-    assert data == 'fail\nmatch\nfail\n'
+    assert data == ('fail\n'
+                    'match\n'
+                    'fail\n'
+
+                    'fail\n'
+                    'match\n'
+                    'fail\n'
+                    'fail\n'
+
+                    'match\n'
+                    'match\n'
+                    'fail\n')
+
+
+def test_guards_translated_with_gctypeptr():
+    run_guards_translated(gcremovetypeptr=False)
+
+def test_guards_translated_without_gctypeptr():
+    run_guards_translated(gcremovetypeptr=True)
