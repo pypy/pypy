@@ -10,7 +10,7 @@ from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.history import (TreeLoop, ConstInt,
                                             JitCellToken, TargetToken)
 from rpython.jit.metainterp.resoperation import rop, ResOperation,\
-     InputArgRef
+     InputArgRef, InputArgInt
 from rpython.jit.metainterp.optimizeopt.shortpreamble import \
      ShortPreambleBuilder, PreambleOp, ShortInputArg
 from rpython.jit.metainterp.compile import LoopCompileData
@@ -23,8 +23,14 @@ from rpython.jit.codewriter import heaptracker
 class FakeOptimizer(object):
     optearlyforce = None
 
+    class cpu:
+        remove_gctypeptr = True
+
     def getptrinfo(self, box):
         return box.get_forwarded()
+
+    def setinfo_from_preamble(self, *args):
+        pass
 
     def get_box_replacement(self, box):
         return box
@@ -83,9 +89,7 @@ class TestUnroll(BaseTestUnroll):
         assert vs.make_inputargs([1], FakeOptimizer()) == []
         assert vs.state[0].level == LEVEL_CONSTANT
         # we have exported values for i1, which happens to be an inputarg
-        assert es.inputarg_mapping[0][1].getint() == 1
-        assert isinstance(es.inputarg_mapping[0][1], ConstInt)
-        sb = ShortPreambleBuilder(es.short_boxes, es.short_inputargs,
+        sb = ShortPreambleBuilder([], es.short_boxes, es.short_inputargs,
                                   es.exported_infos)
         sp = sb.build_short_preamble()
         exp = """
@@ -116,7 +120,10 @@ class TestUnroll(BaseTestUnroll):
         assert isinstance(vs.state[0], NotVirtualStateInfo)
         assert vs.state[0].level == LEVEL_UNKNOWN
         op = preamble.operations[0]
-        assert es.short_boxes[0].short_op.res is op
+        short_boxes = [box for box in es.short_boxes
+                       if not isinstance(box.short_op, ShortInputArg)]
+        assert len(short_boxes) == 1
+        assert short_boxes[0].short_op.res is op
 
     def test_guard_class(self):
         loop = """
@@ -134,47 +141,47 @@ class TestUnroll(BaseTestUnroll):
 
     def test_virtual(self):
         loop = """
-        [p1, p2]
-        p0 = new_with_vtable(descr=nodesize)
-        setfield_gc(p0, 1, descr=valuedescr)
-        setfield_gc(p0, p1, descr=nextdescr)
-        jump(p0, p0)
+        [p1, p2, i3]
+        p0 = new_with_vtable(descr=simpledescr)
+        setfield_gc(p0, i3, descr=simplevalue)
+        jump(p0, p0, i3)
         """
         es, loop, preamble = self.optimize(loop)
         vs = es.virtual_state
         assert vs.state[0] is vs.state[1]
         assert isinstance(vs.state[0], VirtualStateInfo)
         assert isinstance(vs.state[0].fieldstate[0], NotVirtualStateInfo)
-        assert vs.state[0].fieldstate[0].level == LEVEL_CONSTANT
-        assert isinstance(vs.state[0].fieldstate[3], NotVirtualStateInfo)
-        assert vs.state[0].fieldstate[3].level == LEVEL_UNKNOWN
+        assert vs.state[0].fieldstate[0].level == LEVEL_UNKNOWN
         assert vs.numnotvirtuals == 1
         p = InputArgRef()
-        py.test.raises(BadVirtualState, vs.make_inputargs, [p, p],
-                       FakeOptimizer())
-        ptrinfo = info.StructPtrInfo(self.nodesize)
-        p2 = InputArgRef()
-        ptrinfo._fields = [None, None, None, p2]
+        i = InputArgInt()
+        ptrinfo = info.StructPtrInfo(self.nodesize, is_virtual=True)
+        ptrinfo._fields = [i]
         p.set_forwarded(ptrinfo)
-        vs.make_inputargs([p, p], FakeOptimizer())
+        vs.make_inputargs([p, p, i], FakeOptimizer())
 
-    def test_short_boxes_heapcache(self):
+    def test_short_boxes_heapcache(self):        
         loop = """
         [p0, i1]
         i0 = getfield_gc_i(p0, descr=valuedescr)
-        jump(p0, i0)
+        jump(p0, i1)
         """
         es, loop, preamble = self.optimize(loop)
         op = preamble.operations[0]
-        assert len(es.short_boxes) == 1
-        assert es.short_boxes[0].short_op.res is op
-        sb = ShortPreambleBuilder(es.short_boxes, es.short_inputargs,
-                                  es.exported_infos)
+        short_boxes = [box for box in es.short_boxes
+                       if not isinstance(box.short_op, ShortInputArg)]
+        assert len(short_boxes) == 1
+        assert short_boxes[0].short_op.res is op
+        sb = ShortPreambleBuilder(loop.inputargs,
+                                  es.short_boxes, es.short_inputargs,
+                                  es.exported_infos, FakeOptimizer())
         op = preamble.operations[0]
-        short_op = sb.use_box(op)
-        sb.add_preamble_op(PreambleOp(op, short_op))
+        short_op = sb.use_box(op, short_boxes[0].preamble_op, FakeOptimizer())
+        sb.add_preamble_op(PreambleOp(op, short_op, False))
         exp_short = """
         [p0, i1]
+        guard_nonnull(p0) []
+        guard_subclass(p0, ConstClass(node_vtable)) []
         i0 = getfield_gc_i(p0, descr=valuedescr)
         jump(i0)
         """
@@ -189,7 +196,9 @@ class TestUnroll(BaseTestUnroll):
         """
         es, loop, preamble = self.optimize(loop)
         op = preamble.operations[0]
-        assert es.short_boxes[0].short_op.res is op
+        short_boxes = [box for box in es.short_boxes
+                       if not isinstance(box.short_op, ShortInputArg)]
+        assert short_boxes[0].short_op.res is op
         assert es.exported_infos[op].is_constant()
 
     def test_only_setfield(self):
@@ -201,10 +210,12 @@ class TestUnroll(BaseTestUnroll):
         """
         es, loop, preamble = self.optimize(loop)
         p0, p1 = es.short_inputargs
-        assert es.short_boxes[0].short_op.res.getint() == 5
-        assert es.short_boxes[1].short_op.res.getint() == 5
-        assert es.short_boxes[0].preamble_op.getarg(0) is p0
-        assert es.short_boxes[1].preamble_op.getarg(0) is p1
+        short_boxes = [box for box in es.short_boxes
+                       if not isinstance(box.short_op, ShortInputArg)]
+        assert short_boxes[0].short_op.res.getint() == 5
+        assert short_boxes[1].short_op.res.getint() == 5
+        assert short_boxes[0].preamble_op.getarg(0) is p0
+        assert short_boxes[1].preamble_op.getarg(0) is p1
 
     def test_double_getfield_plus_pure(self):
         loop = """
@@ -216,7 +227,7 @@ class TestUnroll(BaseTestUnroll):
         jump(p0)
         """
         es, loop, preamble = self.optimize(loop)
-        assert len(es.short_boxes) == 3
+        assert len(es.short_boxes) == 4
         # both getfields are available as
         # well as getfield_gc_pure
         
@@ -233,8 +244,7 @@ class TestUnroll(BaseTestUnroll):
         jump(i1, p1, p2)
         """
         es, loop, preamble = self.optimize(loop)
-        assert len(producable_short_boxes(es.short_boxes)) == 2
-        xxx
+        assert len(producable_short_boxes(es.short_boxes)) == 1
 
     def test_setfield_forced_virtual(self):
         loop = """
@@ -245,29 +255,22 @@ class TestUnroll(BaseTestUnroll):
         jump(p2, p3)
         """
         es, loop, preamble = self.optimize(loop)
-        sb = ShortPreambleBuilder(es.short_boxes, es.short_inputargs,
+        sb = ShortPreambleBuilder(loop.inputargs, es.short_boxes,
+                                  es.short_inputargs,
                                   es.exported_infos)
-        assert len(sb.producable_ops) == 1
-        op = sb.producable_ops.keys()[0]
-        pop = sb.use_box(op)
-        sb.add_preamble_op(PreambleOp(op, pop))
+        short_boxes = [box for box in es.short_boxes
+                       if not isinstance(box.short_op, ShortInputArg)]
+        op = short_boxes[0].short_op.res
+        pop = sb.use_box(op, short_boxes[0].preamble_op, FakeOptimizer())
+        sb.add_preamble_op(PreambleOp(op, pop, False))
         exp_short = """
-        [p0]
+        [p0, p1]
+        guard_nonnull(p0) []
+        guard_subclass(p0, ConstClass(node_vtable)) []
         i1 = getfield_gc_i(p0, descr=valuedescr)
         jump(i1)
         """
         self.compare_short(sb.build_short_preamble(), exp_short)
-
-    def test_no_short_boxes(self):
-        loop = """
-        [p0, p1]
-        p2 = escape_r(p0)
-        p3 = escape_r(p1)
-        setfield_gc(p2, p3, descr=nextdescr)
-        jump(p2, p3)
-        """
-        es, loop, preamble = self.optimize(loop)
-        assert not es.short_boxes
 
     def test_loopinvariant(self):
         loop = """
@@ -278,7 +281,7 @@ class TestUnroll(BaseTestUnroll):
         jump(i1)
         """
         es, loop, preamble = self.optimize(loop)
-        assert len(es.short_boxes) == 1
+        assert len(es.short_boxes) == 2
 
     def test_circular_force(self):
         ops = """
