@@ -9,7 +9,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
      Optimization, LoopInfo, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.vstring import StrPtrInfo
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
-    VirtualStateConstructor, VirtualStatesCantMatch, BadVirtualState)
+    VirtualStateConstructor, VirtualStatesCantMatch)
 from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp
 from rpython.jit.metainterp import compile
 from rpython.rlib.debug import debug_print
@@ -149,7 +149,7 @@ class UnrollOptimizer(Optimization):
                self.optimizer, force_boxes=True)
             for arg in args:
                 self.optimizer.force_box(arg)
-        except BadVirtualState:
+        except VirtualStatesCantMatch:
             raise InvalidLoop
         extra_same_as = self.short_preamble_producer.extra_same_as[:]
         target_token = self.finalize_short_preamble(label_op,

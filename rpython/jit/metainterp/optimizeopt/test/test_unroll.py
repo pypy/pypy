@@ -16,7 +16,7 @@ from rpython.jit.metainterp.optimizeopt.shortpreamble import \
 from rpython.jit.metainterp.compile import LoopCompileData
 from rpython.jit.metainterp.optimizeopt.virtualstate import \
      NotVirtualStateInfo, LEVEL_CONSTANT, LEVEL_UNKNOWN, LEVEL_KNOWNCLASS,\
-     VirtualStateInfo, BadVirtualState
+     VirtualStateInfo
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.codewriter import heaptracker
 
