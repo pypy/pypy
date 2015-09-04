@@ -25,6 +25,12 @@ class AbstractLLCPU(AbstractCPU):
 
     HAS_CODEMAP = False
 
+    done_with_this_frame_descr_int      = None   # overridden by pyjitpl.py
+    done_with_this_frame_descr_float    = None
+    done_with_this_frame_descr_ref      = None
+    done_with_this_frame_descr_void     = None
+    exit_frame_with_exception_descr_ref = None
+
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
         assert type(opts) is not bool

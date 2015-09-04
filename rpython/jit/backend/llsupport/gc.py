@@ -24,6 +24,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 class MovableObjectTracker(object):
 
     ptr_array_type = lltype.GcArray(llmemory.GCREF)
+    ptr_array_gcref = lltype.nullptr(llmemory.GCREF.TO)
 
     def __init__(self, cpu, const_pointers):
         size = len(const_pointers)
@@ -669,7 +670,7 @@ class GcLLDescr_framework(GcLLDescription):
         a translation with --gcremovetypeptr.
          """
         from rpython.memory.gctypelayout import GCData
-        assert translator.config.translation.gcremovetypeptr
+        assert self.gcdescr.config.translation.gcremovetypeptr
 
         # hard-coded assumption: to go from an object to its class
         # we would use the following algorithm:

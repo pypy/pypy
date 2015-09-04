@@ -1791,7 +1791,7 @@ class Assembler386(BaseAssembler):
         if IS_X86_32:
             self.mc.MOVZX16(loc_typeid, mem(loc_object, 0))
         else:
-            self.mc.MOVZX32(loc_typeid, mem(loc_object, 0))
+            self.mc.MOV32(loc_typeid, mem(loc_object, 0))
         loc_infobits = addr_add(imm(base_type_info), loc_typeid, scale=shift_by)
         self.mc.TEST(loc_infobits, imm(IS_OBJECT_FLAG))
         #
