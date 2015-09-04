@@ -178,9 +178,10 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         box = optimizer.get_box_replacement(box)
         info = optimizer.getptrinfo(box)
-        assert isinstance(info, AbstractStructPtrInfo)
         if info is None or not info.is_virtual():
             raise BadVirtualState()
+        else:
+            assert isinstance(info, AbstractStructPtrInfo)
         for i in range(len(self.fielddescrs)):
             state = self.fieldstate[i]
             if not state:
