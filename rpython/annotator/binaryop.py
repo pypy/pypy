@@ -425,8 +425,9 @@ class __extend__(pairtype(SomeString, SomeTuple),
 class __extend__(pairtype(SomeString, SomeObject),
                  pairtype(SomeUnicodeString, SomeObject)):
 
-    def mod((s_string, args)):
-        return s_string.__class__()
+    def mod((s_string, s_arg)):
+        assert not isinstance(s_arg, SomeTuple)
+        return pair(s_string, SomeTuple([s_arg])).mod()
 
 class __extend__(pairtype(SomeFloat, SomeFloat)):
 

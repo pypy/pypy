@@ -44,7 +44,7 @@
 #ifndef BASE_GETPC_H_
 #define BASE_GETPC_H_
 
-#include "rvmprof_config.h"
+#include "vmprof_config.h"
 
 // On many linux systems, we may need _GNU_SOURCE to get access to
 // the defined constants that define the register we want to see (eg
@@ -53,7 +53,9 @@
 // If #define _GNU_SOURCE causes problems, this might work instead.
 // It will cause problems for FreeBSD though!, because it turns off
 // the needed __BSD_VISIBLE.
-//#define _XOPEN_SOURCE 500
+#ifdef __APPLE__
+#define _XOPEN_SOURCE 500
+#endif
 
 #include <string.h>         // for memcmp
 #if defined(HAVE_SYS_UCONTEXT_H)
@@ -179,7 +181,11 @@ void* GetPC(ucontext_t *signal_ucontext) {
 // configure.ac (or set it manually in your config.h).
 #else
 void* GetPC(ucontext_t *signal_ucontext) {
+#ifdef __APPLE__
+  return (void*)(signal_ucontext->uc_mcontext->__ss.__rip);
+#else
   return (void*)signal_ucontext->PC_FROM_UCONTEXT;   // defined in config.h
+#endif
 }
 
 #endif

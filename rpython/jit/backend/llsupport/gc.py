@@ -9,7 +9,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.codewriter import heaptracker
-from rpython.jit.metainterp.history import ConstPtr, AbstractDescr, BoxPtr, ConstInt
+from rpython.jit.metainterp.history import ConstPtr, AbstractDescr, ConstInt
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.symbolic import WORD
@@ -24,6 +24,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 class MovableObjectTracker(object):
 
     ptr_array_type = lltype.GcArray(llmemory.GCREF)
+    ptr_array_gcref = lltype.nullptr(llmemory.GCREF.TO)
 
     def __init__(self, cpu, const_pointers):
         size = len(const_pointers)
@@ -127,8 +128,9 @@ class GcLLDescription(GcCache):
     def gc_malloc_unicode(self, num_elem):
         return self._bh_malloc_array(num_elem, self.unicode_descr)
 
-    def _record_constptrs(self, op, gcrefs_output_list, ops_with_movable_const_ptr,
-            changeable_const_pointers):
+    def _record_constptrs(self, op, gcrefs_output_list,
+                          ops_with_movable_const_ptr,
+                          changeable_const_pointers):
         ops_with_movable_const_ptr[op] = []
         for i in range(op.numargs()):
             v = op.getarg(i)
@@ -155,15 +157,13 @@ class GcLLDescription(GcCache):
             v = op.getarg(arg_i)
             # assert to make sure we got what we expected
             assert isinstance(v, ConstPtr)
-            result_ptr = BoxPtr()
             array_index = moving_obj_tracker.get_array_index(v)
-            load_op = ResOperation(rop.GETARRAYITEM_GC,
+            load_op = ResOperation(rop.GETARRAYITEM_GC_R,
                     [moving_obj_tracker.const_ptr_gcref_array,
                         ConstInt(array_index)],
-                    result_ptr,
                     descr=moving_obj_tracker.ptr_array_descr)
             newops.append(load_op)
-            op.setarg(arg_i, result_ptr)
+            op.setarg(arg_i, load_op)
         #
         newops.append(op)
         return newops
@@ -254,6 +254,7 @@ class GcLLDescr_boehm(GcLLDescription):
     str_type_id           = 0
     unicode_type_id       = 0
     get_malloc_slowpath_addr = None
+    supports_guard_gc_type   = False
 
     def is_shadow_stack(self):
         return False
@@ -417,6 +418,8 @@ class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
     kind = 'framework'
     round_up = True
+    layoutbuilder = None
+    supports_guard_gc_type = True
 
     def is_shadow_stack(self):
         return self.gcrootmap.is_shadow_stack
@@ -436,6 +439,7 @@ class GcLLDescr_framework(GcLLDescription):
             self._make_gcrootmap()
             self._setup_gcclass()
             self._setup_tid()
+            self._setup_guard_is_object()
         self._setup_write_barrier()
         self._setup_str()
         self._make_functions(really_not_translated)
@@ -635,13 +639,15 @@ class GcLLDescr_framework(GcLLDescription):
         #self.gcrootmap.initialize()
 
     def init_size_descr(self, S, descr):
+        if not isinstance(S, lltype.GcStruct):
+            return
         if self.layoutbuilder is not None:
             type_id = self.layoutbuilder.get_type_id(S)
-            assert not self.layoutbuilder.is_weakref_type(S)
-            assert not self.layoutbuilder.has_finalizer(S)
             descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)
 
     def init_array_descr(self, A, descr):
+        if not isinstance(A, (lltype.GcArray, lltype.GcStruct)):
+            return
         if self.layoutbuilder is not None:
             type_id = self.layoutbuilder.get_type_id(A)
             descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)
@@ -657,6 +663,57 @@ class GcLLDescr_framework(GcLLDescription):
 
     def get_malloc_slowpath_array_addr(self):
         return self.get_malloc_fn_addr('malloc_array')
+
+    def get_typeid_from_classptr_if_gcremovetypeptr(self, classptr):
+        """Returns the typeid corresponding from a vtable pointer 'classptr'.
+        This function only works if cpu.vtable_offset is None, i.e. in
+        a translation with --gcremovetypeptr.
+         """
+        from rpython.memory.gctypelayout import GCData
+        assert self.gcdescr.config.translation.gcremovetypeptr
+
+        # hard-coded assumption: to go from an object to its class
+        # we would use the following algorithm:
+        #   - read the typeid from mem(locs[0]), i.e. at offset 0;
+        #     this is a complete word (N=4 bytes on 32-bit, N=8 on
+        #     64-bits)
+        #   - keep the lower half of what is read there (i.e.
+        #     truncate to an unsigned 'N / 2' bytes value)
+        #   - multiply by 4 (on 32-bits only) and use it as an
+        #     offset in type_info_group
+        #   - add 16/32 bytes, to go past the TYPE_INFO structure
+        # here, we have to go back from 'classptr' back to the typeid,
+        # so we do (part of) these computations in reverse.
+
+        sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
+        type_info_group = llop.gc_get_type_info_group(llmemory.Address)
+        type_info_group = rffi.cast(lltype.Signed, type_info_group)
+        expected_typeid = classptr - sizeof_ti - type_info_group
+        if WORD == 4:
+            expected_typeid >>= 2
+        return expected_typeid
+
+    def get_translated_info_for_typeinfo(self):
+        from rpython.memory.gctypelayout import GCData
+        type_info_group = llop.gc_get_type_info_group(llmemory.Address)
+        type_info_group = rffi.cast(lltype.Signed, type_info_group)
+        if WORD == 4:
+            shift_by = 2
+        elif WORD == 8:
+            shift_by = 0
+        sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
+        return (type_info_group, shift_by, sizeof_ti)
+
+    def _setup_guard_is_object(self):
+        from rpython.memory.gctypelayout import GCData, T_IS_RPYTHON_INSTANCE
+        self._infobits_offset, _ = symbolic.get_field_token(GCData.TYPE_INFO,
+                                                            'infobits', True)
+        self._T_IS_RPYTHON_INSTANCE = T_IS_RPYTHON_INSTANCE
+
+    def get_translated_info_for_guard_is_object(self):
+        infobits_offset = rffi.cast(lltype.Signed, self._infobits_offset)
+        return (infobits_offset, self._T_IS_RPYTHON_INSTANCE)
+
 
 # ____________________________________________________________
 

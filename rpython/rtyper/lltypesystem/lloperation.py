@@ -449,7 +449,7 @@ LL_OPERATIONS = {
     'jit_force_virtual':    LLOp(canrun=True),
     'jit_is_virtual':       LLOp(canrun=True),
     'jit_force_quasi_immutable': LLOp(canrun=True),
-    'jit_record_known_class'  : LLOp(canrun=True),
+    'jit_record_exact_class'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
     'jit_conditional_call': LLOp(),
     'get_exception_addr':   LLOp(),
@@ -498,6 +498,7 @@ LL_OPERATIONS = {
     'gc_dump_rpy_heap'    : LLOp(),
     'gc_typeids_z'        : LLOp(),
     'gc_typeids_list'     : LLOp(),
+    'gc_gettypeid'        : LLOp(),
     'gc_gcflag_extra'     : LLOp(),
     'gc_add_memory_pressure': LLOp(),
 

@@ -725,10 +725,15 @@ def do_get_objects(callback):
     result_w = []
     #
     if not we_are_translated():   # fast path before translation
-        for gcref in roots:       # 'roots' is all objects in this case
-            w_obj = callback(gcref)
-            if w_obj is not None:
-                result_w.append(w_obj)
+        seen = set()
+        while roots:
+            gcref = roots.pop()
+            if gcref not in seen:
+                seen.add(gcref)
+                w_obj = callback(gcref)
+                if w_obj is not None:
+                    result_w.append(w_obj)
+                roots.extend(get_rpy_referents(gcref))
         return result_w
     #
     pending = roots[:]
@@ -767,3 +772,19 @@ def clear_gcflag_extra(fromlist):
         if get_gcflag_extra(gcref):
             toggle_gcflag_extra(gcref)
             pending.extend(get_rpy_referents(gcref))
+
+all_typeids = {}
+        
+def get_typeid(obj):
+    raise Exception("does not work untranslated")
+
+class GetTypeidEntry(ExtRegistryEntry):
+    _about_ = get_typeid
+
+    def compute_result_annotation(self, s_obj):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeInteger()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_gettypeid', hop.args_v, resulttype=hop.r_result)

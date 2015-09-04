@@ -153,14 +153,14 @@ def _is_signed_kind(TYPE):
             rffi.cast(TYPE, -1) == -1)
 
 class ArrayDescr(AbstractDescr):
-    def __init__(self, A):
+    all_interiorfielddescrs = None
+    
+    def __init__(self, A, runner):
         self.A = self.OUTERA = A
+        self._is_pure = A._immutable_field(None)
         self.concrete_type = '\x00'
         if isinstance(A, lltype.Struct):
             self.A = A._flds[A._arrayfld]
-
-    def __repr__(self):
-        return 'ArrayDescr(%r)' % (self.OUTERA,)
 
     def is_array_of_primitives(self):
         kind = getkind(self.A.OF)
@@ -169,12 +169,23 @@ class ArrayDescr(AbstractDescr):
                kind == ''
 
 
+    def is_always_pure(self):
+        return self._is_pure
+
+    def get_all_fielddescrs(self):
+        return self.all_interiorfielddescrs
+
+    def __repr__(self):
+        return 'ArrayDescr(%r)' % (self.OUTERA,)
+
+    def get_all_fielddescrs(self):
+        return self.all_interiorfielddescrs
+
+    def __repr__(self):
+        return 'ArrayDescr(%r)' % (self.OUTERA,)
+
     def is_array_of_pointers(self):
         return getkind(self.A.OF) == 'ref'
-
-    def getflag(self):
-        from rpython.jit.backend.llsupport.descr import get_type_flag
-        return get_type_flag(self.A.OF)
 
     def is_array_of_floats(self):
         return getkind(self.A.OF) == 'float'
@@ -206,12 +217,27 @@ class ArrayDescr(AbstractDescr):
         return intbounds.get_integer_max(
             not _is_signed_kind(self.A.OF), rffi.sizeof(self.A.OF))
 
+    def get_type_id(self):
+        assert isinstance(self.A, lltype.GcArray)
+        return TypeIDSymbolic(self.A)     # integer-like symbolic
+
 
 class InteriorFieldDescr(AbstractDescr):
-    def __init__(self, A, fieldname):
+    def __init__(self, A, fieldname, runner):
         self.A = A
         self.fieldname = fieldname
         self.FIELD = getattr(A.OF, fieldname)
+        self.arraydescr = runner.arraydescrof(A)
+        self.fielddescr = runner.fielddescrof(A.OF, fieldname)
+
+    def get_index(self):
+        return self.fielddescr.get_index()
+
+    def get_arraydescr(self):
+        return self.arraydescr
+
+    def get_field_descr(self):
+        return self.fielddescr
 
     def __repr__(self):
         return 'InteriorFieldDescr(%r, %r)' % (self.A, self.fieldname)
@@ -254,9 +280,9 @@ class LLGraphCPU(model.AbstractCPU):
     supports_floats = True
     supports_longlong = r_uint is not r_ulonglong
     supports_singlefloats = True
+    supports_guard_gc_type = True
     translate_support_code = False
     is_llgraph = True
-
     vector_extension = True
     vector_register_size = 16 # in bytes
     vector_horizontal_operations = True
@@ -367,10 +393,10 @@ class LLGraphCPU(model.AbstractCPU):
         values = []
         for box in frame.force_guard_op.getfailargs():
             if box is not None:
-                if box is not frame.current_op.result:
+                if box is not frame.current_op:
                     value = frame.env[box]
                 else:
-                    value = box.value    # 0 or 0.0 or NULL
+                    value = box.getvalue()    # 0 or 0.0 or NULL
             else:
                 value = None
             values.append(value)
@@ -398,14 +424,19 @@ class LLGraphCPU(model.AbstractCPU):
             self.descrs[key] = descr
             return descr
 
-    def sizeof(self, S):
+    def sizeof(self, S, vtable):
         key = ('size', S)
         try:
-            return self.descrs[key]
+            descr = self.descrs[key]
         except KeyError:
-            descr = SizeDescr(S)
+            descr = SizeDescr(S, vtable, self)
             self.descrs[key] = descr
-            return descr
+            descr.all_fielddescrs = heaptracker.all_fielddescrs(self, S,
+                    get_field_descr=LLGraphCPU.fielddescrof)
+        if descr._is_object and vtable is not Ellipsis:
+            assert vtable
+            heaptracker.testing_gcstruct2vtable.setdefault(S, vtable)
+        return descr
 
     def fielddescrof(self, S, fieldname):
         key = ('field', S, fieldname)
@@ -414,6 +445,12 @@ class LLGraphCPU(model.AbstractCPU):
         except KeyError:
             descr = FieldDescr(S, fieldname)
             self.descrs[key] = descr
+            if (isinstance(S, lltype.GcStruct) and
+                    heaptracker.has_gcstruct_a_vtable(S)):
+                vtable = Ellipsis
+            else:
+                vtable = None
+            descr.parent_descr = self.sizeof(S, vtable)
             if self.vinfo_for_tests is not None:
                 descr.vinfo = self.vinfo_for_tests
             return descr
@@ -423,8 +460,12 @@ class LLGraphCPU(model.AbstractCPU):
         try:
             return self.descrs[key]
         except KeyError:
-            descr = ArrayDescr(A)
+            descr = ArrayDescr(A, self)
             self.descrs[key] = descr
+            if isinstance(A, lltype.Array) and isinstance(A.OF, lltype.Struct):
+                descrs = heaptracker.all_interiorfielddescrs(self,
+                        A, get_field_descr=LLGraphCPU.interiorfielddescrof)
+                descr.all_interiorfielddescrs = descrs
             return descr
 
     def interiorfielddescrof(self, A, fieldname):
@@ -432,7 +473,7 @@ class LLGraphCPU(model.AbstractCPU):
         try:
             return self.descrs[key]
         except KeyError:
-            descr = InteriorFieldDescr(A, fieldname)
+            descr = InteriorFieldDescr(A, fieldname, self)
             self.descrs[key] = descr
             return descr
 
@@ -492,13 +533,17 @@ class LLGraphCPU(model.AbstractCPU):
         p = support.cast_arg(lltype.Ptr(descr.S), p)
         return support.cast_result(descr.FIELD, getattr(p, descr.fieldname))
 
-    bh_getfield_gc_pure = bh_getfield_gc
+    bh_getfield_gc_pure_i = bh_getfield_gc
+    bh_getfield_gc_pure_r = bh_getfield_gc
+    bh_getfield_gc_pure_f = bh_getfield_gc
     bh_getfield_gc_i = bh_getfield_gc
     bh_getfield_gc_r = bh_getfield_gc
     bh_getfield_gc_f = bh_getfield_gc
 
     bh_getfield_raw = bh_getfield_gc
-    bh_getfield_raw_pure = bh_getfield_raw
+    bh_getfield_raw_pure_i = bh_getfield_raw
+    bh_getfield_raw_pure_r = bh_getfield_raw
+    bh_getfield_raw_pure_f = bh_getfield_raw
     bh_getfield_raw_i = bh_getfield_raw
     bh_getfield_raw_r = bh_getfield_raw
     bh_getfield_raw_f = bh_getfield_raw
@@ -526,13 +571,17 @@ class LLGraphCPU(model.AbstractCPU):
         array = a._obj
         return support.cast_result(descr.A.OF, array.getitem(index))
 
-    bh_getarrayitem_gc_pure = bh_getarrayitem_gc
+    bh_getarrayitem_gc_pure_i = bh_getarrayitem_gc
+    bh_getarrayitem_gc_pure_r = bh_getarrayitem_gc
+    bh_getarrayitem_gc_pure_f = bh_getarrayitem_gc
     bh_getarrayitem_gc_i = bh_getarrayitem_gc
     bh_getarrayitem_gc_r = bh_getarrayitem_gc
     bh_getarrayitem_gc_f = bh_getarrayitem_gc
 
     bh_getarrayitem_raw = bh_getarrayitem_gc
-    bh_getarrayitem_raw_pure = bh_getarrayitem_raw
+    bh_getarrayitem_raw_pure_i = bh_getarrayitem_raw
+    bh_getarrayitem_raw_pure_r = bh_getarrayitem_raw
+    bh_getarrayitem_raw_pure_f = bh_getarrayitem_raw
     bh_getarrayitem_raw_i = bh_getarrayitem_raw
     bh_getarrayitem_raw_r = bh_getarrayitem_raw
     bh_getarrayitem_raw_f = bh_getarrayitem_raw
@@ -665,11 +714,11 @@ class LLGraphCPU(model.AbstractCPU):
         return lltype.cast_opaque_ptr(llmemory.GCREF,
                                       lltype.malloc(sizedescr.S, zero=True))
 
-    def bh_new_with_vtable(self, vtable, descr):
+    def bh_new_with_vtable(self, descr):
         result = lltype.malloc(descr.S, zero=True)
         result_as_objptr = lltype.cast_pointer(rclass.OBJECTPTR, result)
         result_as_objptr.typeptr = support.cast_from_int(rclass.CLASSTYPE,
-                                                         vtable)
+                                                descr.get_vtable())
         return lltype.cast_opaque_ptr(llmemory.GCREF, result)
 
     def bh_new_array(self, length, arraydescr):
@@ -889,8 +938,8 @@ class LLFrame(object):
                     i = 0
                 self.do_renaming(targetargs, j.args)
                 continue
-            if op.result is not None:
-                self.setenv(op.result, resval)
+            if op.type != 'v':
+                self.setenv(op, resval)
             else:
                 assert resval is None
             i += 1
@@ -985,6 +1034,32 @@ class LLFrame(object):
         self.execute_guard_nonnull(descr, arg)
         self.execute_guard_class(descr, arg, klass)
 
+    def execute_guard_gc_type(self, descr, arg, typeid):
+        assert isinstance(typeid, TypeIDSymbolic)
+        TYPE = arg._obj.container._TYPE
+        if TYPE != typeid.STRUCT_OR_ARRAY:
+            self.fail_guard(descr)
+
+    def execute_guard_is_object(self, descr, arg):
+        TYPE = arg._obj.container._TYPE
+        while TYPE is not rclass.OBJECT:
+            if not isinstance(TYPE, lltype.GcStruct):   # or TYPE is None
+                self.fail_guard(descr)
+                return
+            _, TYPE = TYPE._first_struct()
+
+    def execute_guard_subclass(self, descr, arg, klass):
+        value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, arg)
+        expected_class = llmemory.cast_adr_to_ptr(
+            llmemory.cast_int_to_adr(klass),
+            rclass.CLASSTYPE)
+        if (expected_class.subclassrange_min
+                <= value.typeptr.subclassrange_min
+                <= expected_class.subclassrange_max):
+            pass
+        else:
+            self.fail_guard(descr)
+
     def execute_guard_no_exception(self, descr):
         if self.last_exception is not None:
             self.fail_guard(descr)
@@ -1056,6 +1131,7 @@ class LLFrame(object):
     def execute_guard_overflow(self, descr):
         if not self.overflow_flag:
             self.fail_guard(descr)
+        return lltype.nullptr(llmemory.GCREF.TO) # I think it's fine....
 
     def execute_jump(self, descr, *args):
         raise Jump(descr._llgraph_target, args)
@@ -1070,9 +1146,9 @@ class LLFrame(object):
         if not cond:
             return
         # cond_call can't have a return value
-        self.execute_call(calldescr, func, *args)
+        self.execute_call_n(calldescr, func, *args)
 
-    def execute_call(self, calldescr, func, *args):
+    def _execute_call(self, calldescr, func, *args):
         effectinfo = calldescr.get_extra_info()
         if effectinfo is not None and hasattr(effectinfo, 'oopspecindex'):
             oopspecindex = effectinfo.oopspecindex
@@ -1088,16 +1164,25 @@ class LLFrame(object):
             res = _example_res[getkind(TP.RESULT)[0]]
         return res
 
-    def execute_call_may_force(self, calldescr, func, *args):
-        call_op = self.lltrace.operations[self.current_index]
+    execute_call_i = _execute_call
+    execute_call_r = _execute_call
+    execute_call_f = _execute_call
+    execute_call_n = _execute_call
+
+    def _execute_call_may_force(self, calldescr, func, *args):
         guard_op = self.lltrace.operations[self.current_index + 1]
         assert guard_op.getopnum() == rop.GUARD_NOT_FORCED
         self.force_guard_op = guard_op
-        res = self.execute_call(calldescr, func, *args)
+        res = self._execute_call(calldescr, func, *args)
         del self.force_guard_op
         return res
 
-    def execute_call_release_gil(self, descr, saveerr, func, *args):
+    execute_call_may_force_n = _execute_call_may_force
+    execute_call_may_force_r = _execute_call_may_force
+    execute_call_may_force_f = _execute_call_may_force
+    execute_call_may_force_i = _execute_call_may_force
+
+    def _execute_call_release_gil(self, descr, saveerr, func, *args):
         if hasattr(descr, '_original_func_'):
             func = descr._original_func_     # see pyjitpl.py
             # we want to call the function that does the aroundstate
@@ -1122,7 +1207,13 @@ class LLFrame(object):
         del self.force_guard_op
         return support.cast_result(descr.RESULT, result)
 
-    def execute_call_assembler(self, descr, *args):
+    execute_call_release_gil_n = _execute_call_release_gil
+    execute_call_release_gil_i = _execute_call_release_gil
+    execute_call_release_gil_r = _execute_call_release_gil
+    execute_call_release_gil_f = _execute_call_release_gil
+
+    def _new_execute_call_assembler(def_val):
+        def _execute_call_assembler(self, descr, *args):
         # XXX simplify the following a bit
         #
         # pframe = CALL_ASSEMBLER(args..., descr=looptoken)
@@ -1169,14 +1260,21 @@ class LLFrame(object):
             assert self.last_exception is None, "exception left behind"
             self.last_exception = lle
             # fish op
-            op = self.current_op
-            return op.result and op.result.value
+                result = def_val
         if isinstance(result, float):
             result = support.cast_to_floatstorage(result)
         return result
+        return _execute_call_assembler
 
-    def execute_same_as(self, _, x):
+    execute_call_assembler_i = _new_execute_call_assembler(0)
+    execute_call_assembler_r = _new_execute_call_assembler(lltype.nullptr(llmemory.GCREF.TO))
+    execute_call_assembler_f = _new_execute_call_assembler(0.0)
+    execute_call_assembler_n = _new_execute_call_assembler(None)
+
+    def execute_same_as_i(self, _, x):
         return x
+    execute_same_as_f = execute_same_as_i
+    execute_same_as_r = execute_same_as_i
 
     def execute_debug_merge_point(self, descr, *args):
         from rpython.jit.metainterp.warmspot import get_stats
@@ -1193,9 +1291,8 @@ class LLFrame(object):
     def execute_leave_portal_frame(self, descr, *args):
         pass
 
-    def execute_new_with_vtable(self, _, vtable):
-        descr = heaptracker.vtable2descr(self.cpu, vtable)
-        return self.cpu.bh_new_with_vtable(vtable, descr)
+    def execute_new_with_vtable(self, descr):
+        return self.cpu.bh_new_with_vtable(descr)
 
     def execute_force_token(self, _):
         return self

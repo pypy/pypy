@@ -278,6 +278,47 @@ def _setslice(space, shape, target, source):
     return target
 
 
+def split_iter(arr, axis_flags):
+    """Prepare 2 iterators for nested iteration over `arr`.
+
+    Arguments:
+        arr: instance of BaseConcreteArray
+        axis_flags: list of bools, one for each dimension of `arr`.The inner
+        iterator operates over the dimensions for which the flag is True
+    """
+    shape = arr.get_shape()
+    strides = arr.get_strides()
+    backstrides = arr.get_backstrides()
+    shapelen = len(shape)
+    assert len(axis_flags) == shapelen
+    inner_shape = [-1] * shapelen
+    inner_strides = [-1] * shapelen
+    inner_backstrides = [-1] * shapelen
+    outer_shape = [-1] * shapelen
+    outer_strides = [-1] * shapelen
+    outer_backstrides = [-1] * shapelen
+    for i in range(len(shape)):
+        if axis_flags[i]:
+            inner_shape[i] = shape[i]
+            inner_strides[i] = strides[i]
+            inner_backstrides[i] = backstrides[i]
+            outer_shape[i] = 1
+            outer_strides[i] = 0
+            outer_backstrides[i] = 0
+        else:
+            outer_shape[i] = shape[i]
+            outer_strides[i] = strides[i]
+            outer_backstrides[i] = backstrides[i]
+            inner_shape[i] = 1
+            inner_strides[i] = 0
+            inner_backstrides[i] = 0
+    inner_iter = ArrayIter(arr, support.product(inner_shape),
+                           inner_shape, inner_strides, inner_backstrides)
+    outer_iter = ArrayIter(arr, support.product(outer_shape),
+                           outer_shape, outer_strides, outer_backstrides)
+    return inner_iter, outer_iter
+
+
 reduce_flat_driver = jit.JitDriver(
     name='numpy_reduce_flat',
     greens = ['shapelen', 'func', 'done_func', 'calc_dtype'], reds = 'auto',
@@ -311,34 +352,8 @@ def reduce(space, func, w_arr, axis_flags, dtype, out, identity):
     out_iter, out_state = out.create_iter()
     out_iter.track_index = False
     shape = w_arr.get_shape()
-    strides = w_arr.implementation.get_strides()
-    backstrides = w_arr.implementation.get_backstrides()
     shapelen = len(shape)
-    inner_shape = [-1] * shapelen
-    inner_strides = [-1] * shapelen
-    inner_backstrides = [-1] * shapelen
-    outer_shape = [-1] * shapelen
-    outer_strides = [-1] * shapelen
-    outer_backstrides = [-1] * shapelen
-    for i in range(len(shape)):
-        if axis_flags[i]:
-            inner_shape[i] = shape[i]
-            inner_strides[i] = strides[i]
-            inner_backstrides[i] = backstrides[i]
-            outer_shape[i] = 1
-            outer_strides[i] = 0
-            outer_backstrides[i] = 0
-        else:
-            outer_shape[i] = shape[i]
-            outer_strides[i] = strides[i]
-            outer_backstrides[i] = backstrides[i]
-            inner_shape[i] = 1
-            inner_strides[i] = 0
-            inner_backstrides[i] = 0
-    inner_iter = ArrayIter(w_arr.implementation, support.product(inner_shape),
-                           inner_shape, inner_strides, inner_backstrides)
-    outer_iter = ArrayIter(w_arr.implementation, support.product(outer_shape),
-                           outer_shape, outer_strides, outer_backstrides)
+    inner_iter, outer_iter = split_iter(w_arr.implementation, axis_flags)
     assert outer_iter.size == out_iter.size
 
     if identity is not None:
@@ -491,17 +506,51 @@ def _new_argmin_argmax(op_name):
     arg_driver = jit.JitDriver(name='numpy_' + op_name,
                                greens = ['shapelen', 'dtype'],
                                reds = 'auto')
+    arg_flat_driver = jit.JitDriver(name='numpy_flat_' + op_name,
+                                    greens = ['shapelen', 'dtype'],
+                                    reds = 'auto')
 
-    def argmin_argmax(arr):
+    def argmin_argmax(space, w_arr, w_out, axis):
+        from pypy.module.micronumpy.descriptor import get_dtype_cache
+        dtype = w_arr.get_dtype()
+        shapelen = len(w_arr.get_shape())
+        axis_flags = [False] * shapelen
+        axis_flags[axis] = True
+        inner_iter, outer_iter = split_iter(w_arr.implementation, axis_flags)
+        outer_state = outer_iter.reset()
+        out_iter, out_state = w_out.create_iter()
+        while not outer_iter.done(outer_state):
+            inner_state = inner_iter.reset()
+            inner_state.offset = outer_state.offset
+            cur_best = inner_iter.getitem(inner_state)
+            inner_state = inner_iter.next(inner_state)
+            result = 0
+            idx = 1
+            while not inner_iter.done(inner_state):
+                arg_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
+                w_val = inner_iter.getitem(inner_state)
+                new_best = getattr(dtype.itemtype, op_name)(cur_best, w_val)
+                if dtype.itemtype.ne(new_best, cur_best):
+                    result = idx
+                    cur_best = new_best
+                inner_state = inner_iter.next(inner_state)
+                idx += 1
+            result = get_dtype_cache(space).w_longdtype.box(result)
+            out_iter.setitem(out_state, result)
+            out_state = out_iter.next(out_state)
+            outer_state = outer_iter.next(outer_state)
+        return w_out
+
+    def argmin_argmax_flat(w_arr):
         result = 0
         idx = 1
-        dtype = arr.get_dtype()
-        iter, state = arr.create_iter()
+        dtype = w_arr.get_dtype()
+        iter, state = w_arr.create_iter()
         cur_best = iter.getitem(state)
         state = iter.next(state)
-        shapelen = len(arr.get_shape())
+        shapelen = len(w_arr.get_shape())
         while not iter.done(state):
-            arg_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
+            arg_flat_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
             w_val = iter.getitem(state)
             new_best = getattr(dtype.itemtype, op_name)(cur_best, w_val)
             if dtype.itemtype.ne(new_best, cur_best):
@@ -510,9 +559,10 @@ def _new_argmin_argmax(op_name):
             state = iter.next(state)
             idx += 1
         return result
-    return argmin_argmax
-argmin = _new_argmin_argmax('min')
-argmax = _new_argmin_argmax('max')
+
+    return argmin_argmax, argmin_argmax_flat
+argmin, argmin_flat = _new_argmin_argmax('min')
+argmax, argmax_flat = _new_argmin_argmax('max')
 
 dot_driver = jit.JitDriver(name = 'numpy_dot',
                            greens = ['dtype'],

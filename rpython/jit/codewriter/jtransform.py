@@ -252,9 +252,11 @@ class Transformer(object):
             TO = op.result.concretetype.TO
             if lltype._castdepth(TO, FROM) > 0:
                 vtable = heaptracker.get_vtable_for_gcstruct(self.cpu, TO)
-                const_vtable = Constant(vtable, lltype.typeOf(vtable))
-                return [None, # hack, do the right renaming from op.args[0] to op.result
-                        SpaceOperation("record_known_class", [op.args[0], const_vtable], None)]
+                if vtable.subclassrange_max - vtable.subclassrange_min == 1:
+                    # it's a precise class check
+                    const_vtable = Constant(vtable, lltype.typeOf(vtable))
+                    return [None, # hack, do the right renaming from op.args[0] to op.result
+                            SpaceOperation("record_exact_class", [op.args[0], const_vtable], None)]
 
     def rewrite_op_likely(self, op):
         return None   # "no real effect"
@@ -271,8 +273,8 @@ class Transformer(object):
             arg = llmemory.raw_malloc_usage(arg)
             return [Constant(arg, lltype.Signed)]
 
-    def rewrite_op_jit_record_known_class(self, op):
-        return SpaceOperation("record_known_class", [op.args[0], op.args[1]], None)
+    def rewrite_op_jit_record_exact_class(self, op):
+        return SpaceOperation("record_exact_class", [op.args[0], op.args[1]], None)
 
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
@@ -932,11 +934,11 @@ class Transformer(object):
                     return self._do_builtin_call(op, 'alloc_with_del', [],
                                                  extra=(RESULT, vtable),
                                                  extrakey=STRUCT)
-            heaptracker.register_known_gctype(self.cpu, vtable, STRUCT)
             opname = 'new_with_vtable'
         else:
             opname = 'new'
-        sizedescr = self.cpu.sizeof(STRUCT)
+            vtable = lltype.nullptr(rclass.OBJECT_VTABLE)
+        sizedescr = self.cpu.sizeof(STRUCT, vtable)
         op1 = SpaceOperation(opname, [sizedescr], op.result)
         if zero:
             return self.zero_contents([op1], op.result, STRUCT)
@@ -1619,7 +1621,7 @@ class Transformer(object):
                 descrs = (self.cpu.arraydescrof(ARRAY),
                           self.cpu.fielddescrof(LIST, 'length'),
                           self.cpu.fielddescrof(LIST, 'items'),
-                          self.cpu.sizeof(LIST))
+                          self.cpu.sizeof(LIST, None))
         else:
             prefix = 'do_fixed_'
             if self._array_of_voids(LIST):
@@ -1951,10 +1953,6 @@ class Transformer(object):
     # VirtualRefs.
 
     def _handle_virtual_ref_call(self, op, oopspec_name, args):
-        vrefinfo = self.callcontrol.virtualref_info
-        heaptracker.register_known_gctype(self.cpu,
-                                          vrefinfo.jit_virtual_ref_vtable,
-                                          vrefinfo.JIT_VIRTUAL_REF)
         return SpaceOperation(oopspec_name, list(args), op.result)
 
     # -----------

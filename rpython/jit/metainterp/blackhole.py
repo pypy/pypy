@@ -536,7 +536,7 @@ class BlackholeInterpreter(object):
     def bhimpl_mark_opaque_ptr(a):
         pass
     @arguments("r", "i")
-    def bhimpl_record_known_class(a, b):
+    def bhimpl_record_exact_class(a, b):
         pass
 
     @arguments("i", returns="i")
@@ -1392,8 +1392,7 @@ class BlackholeInterpreter(object):
 
     @arguments("cpu", "d", returns="r")
     def bhimpl_new_with_vtable(cpu, descr):
-        vtable = heaptracker.descr2vtable(cpu, descr)
-        return cpu.bh_new_with_vtable(vtable, descr)
+        return cpu.bh_new_with_vtable(descr)
 
     @arguments("cpu", "r", returns="i")
     def bhimpl_guard_class(cpu, struct):
@@ -1666,8 +1665,8 @@ def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
         nextbh = curbh
     firstbh = nextbh
     #
-    if metainterp.last_exc_value_box is not None:
-        current_exc = metainterp.last_exc_value_box.getref(rclass.OBJECTPTR)
+    if metainterp.last_exc_value:
+        current_exc = metainterp.last_exc_value
     else:
         current_exc = lltype.nullptr(rclass.OBJECTPTR.TO)
     if not raising_exception:

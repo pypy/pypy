@@ -854,7 +854,7 @@ def configure_boehm(platform=None):
         platform = None
     else:
         library_dir = ''
-        libraries = ['gc', 'dl']
+        libraries = ['gc']
         includes=['gc/gc.h']
     eci = ExternalCompilationInfo(
         platform=platform,

@@ -1,14 +1,12 @@
 import sys, os
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import jit, rgc, rposix
 from rpython.rlib.rvmprof import cintf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
 from rpython.rtyper.lltypesystem import rffi
 
-MAX_CODES = 8000 - 255
-MAX_FUNC_NAME = 255
+MAX_FUNC_NAME = 1023
 
 # ____________________________________________________________
 
@@ -18,7 +16,6 @@ class VMProfError(Exception):
         self.msg = msg
     def __str__(self):
         return self.msg
-
 
 class VMProf(object):
 
@@ -31,11 +28,10 @@ class VMProf(object):
             self._code_unique_id = 0 # XXX this is wrong, it won't work on 32bit
         else:
             self._code_unique_id = 0x7000000000000000
+        self.cintf = cintf.setup()
 
     def _cleanup_(self):
         self.is_enabled = False
-        self.fileno = -1
-        self._current_codes = None
 
     @specialize.argtype(1)
     def register_code(self, code, full_name_func):
@@ -102,18 +98,13 @@ class VMProf(object):
         assert fileno >= 0
         if self.is_enabled:
             raise VMProfError("vmprof is already enabled")
-        if not (1e-6 <= interval < 1.0):
-            raise VMProfError("bad value for 'interval'")
-        interval_usec = int(interval * 1000000.0)
 
-        p_error = cintf.vmprof_init(fileno)
+        p_error = self.cintf.vmprof_init(fileno, interval, "pypy")
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
 
-        self.fileno = fileno
-        self._write_header(interval_usec)
         self._gather_all_code_objs()
-        res = cintf.vmprof_enable(interval_usec)
+        res = self.cintf.vmprof_enable()
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
         self.is_enabled = True
@@ -125,10 +116,7 @@ class VMProf(object):
         if not self.is_enabled:
             raise VMProfError("vmprof is not enabled")
         self.is_enabled = False
-        if self._current_codes is not None:
-            self._flush_codes()
-        self.fileno = -1
-        res = cintf.vmprof_disable()
+        res = self.cintf.vmprof_disable()
         if res < 0:
             raise VMProfError(os.strerror(rposix.get_saved_errno()))
 
@@ -136,48 +124,8 @@ class VMProf(object):
         assert name.count(':') == 3 and len(name) <= MAX_FUNC_NAME, (
             "the name must be 'class:func_name:func_line:filename' "
             "and at most %d characters; got '%s'" % (MAX_FUNC_NAME, name))
-        b = self._current_codes
-        if b is None:
-            b = self._current_codes = StringBuilder()
-        b.append('\x02')
-        _write_long_to_string_builder(uid, b)
-        _write_long_to_string_builder(len(name), b)
-        b.append(name)
-        if b.getlength() >= MAX_CODES:
-            self._flush_codes()
-
-    def _flush_codes(self):
-        buf = self._current_codes.build()
-        self._current_codes = None
-        cintf.vmprof_write_buf(buf, len(buf))
-        # NOTE: keep in mind that vmprof_write_buf() can only write
-        # a maximum of 8184 bytes.  This should be guaranteed here because:
-        assert MAX_CODES + 17 + MAX_FUNC_NAME <= 8184
-
-    def _write_header(self, interval_usec):
-        b = StringBuilder()
-        _write_long_to_string_builder(0, b)
-        _write_long_to_string_builder(3, b)
-        _write_long_to_string_builder(0, b)
-        _write_long_to_string_builder(interval_usec, b)
-        _write_long_to_string_builder(0, b)
-        b.append('\x04') # interp name
-        b.append(chr(len('pypy')))
-        b.append('pypy')
-        buf = b.build()
-        cintf.vmprof_write_buf(buf, len(buf))
-
-
-def _write_long_to_string_builder(l, b):
-    b.append(chr(l & 0xff))
-    b.append(chr((l >> 8) & 0xff))
-    b.append(chr((l >> 16) & 0xff))
-    b.append(chr((l >> 24) & 0xff))
-    if sys.maxint > 2147483647:
-        b.append(chr((l >> 32) & 0xff))
-        b.append(chr((l >> 40) & 0xff))
-        b.append(chr((l >> 48) & 0xff))
-        b.append(chr((l >> 56) & 0xff))
+        if self.cintf.vmprof_register_virtual_function(name, uid, 500000) < 0:
+            raise VMProfError("vmprof buffers full!  disk full or too slow")
 
 
 def vmprof_execute_code(name, get_code_fn, result_class=None):
@@ -196,6 +144,11 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
     (including 'self' if applicable).
     """
     def decorate(func):
+        try:
+            _get_vmprof()
+        except cintf.VMProfPlatformUnsupported:
+            return func
+
         if hasattr(func, 'im_self'):
             assert func.im_self is None
             func = func.im_func

@@ -100,12 +100,6 @@ class AbstractX86CPU(AbstractLLCPU):
         return self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                               original_loop_token, log, logger)
 
-    def clear_latest_values(self, count):
-        setitem = self.assembler.fail_boxes_ptr.setitem
-        null = lltype.nullptr(llmemory.GCREF.TO)
-        for index in range(count):
-            setitem(index, null)
-
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return CPU386.cast_adr_to_int(adr)

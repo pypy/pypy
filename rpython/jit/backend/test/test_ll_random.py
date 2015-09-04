@@ -123,8 +123,6 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
         vtable.name = rclass.alloc_array_name(name)
         self.structure_types_and_vtables.append((S, vtable))
         #
-        heaptracker.register_known_gctype(self.cpu, vtable, S)
-        #
         return S, vtable
 
     def get_random_structure(self, r, has_vtable=False):

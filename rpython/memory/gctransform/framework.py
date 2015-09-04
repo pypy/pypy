@@ -350,6 +350,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 [s_gc, annmodel.SomeInteger(knowntype=llgroup.r_halfword)],
                 annmodel.SomeInteger())
 
+        self.gc_gettypeid_ptr = getfn(GCClass.get_type_id_cast,
+                                       [s_gc, SomeAddress()],
+                                       annmodel.SomeInteger())
+
         if hasattr(GCClass, 'writebarrier_before_copy'):
             self.wb_before_copy_ptr = \
                     getfn(GCClass.writebarrier_before_copy.im_func,
@@ -815,6 +819,16 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call", [self.shrink_array_ptr, self.c_const_gc,
                                   v_addr, v_length],
                   resultvar=op.result)
+
+    def gct_gc_gettypeid(self, hop):
+        op = hop.spaceop
+        v_addr = op.args[0]
+        if v_addr.concretetype != llmemory.Address:
+            v_addr = hop.genop("cast_ptr_to_adr", [v_addr],
+                               resulttype=llmemory.Address)
+        hop.genop("direct_call", [self.gc_gettypeid_ptr, self.c_const_gc,
+                                  v_addr],
+                         resultvar=op.result)
 
     def gct_gc_writebarrier(self, hop):
         if self.write_barrier_ptr is None:

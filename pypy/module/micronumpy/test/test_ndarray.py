@@ -1605,20 +1605,21 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.argmax() == 5
         assert a.argmax(axis=None, out=None) == 5
         assert a[:2, ].argmax() == 3
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, a.argmax, axis=0)
+        assert (a.argmax(axis=0) == array([2, 2])).all()
 
     def test_argmin(self):
-        from numpy import array
-        a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
+        import numpy as np
+        a = np.array([-1.2, 3.4, 5.7, -3.0, 2.7])
         assert a.argmin() == 3
+        assert a.argmin(axis=0) == 3
         assert a.argmin(axis=None, out=None) == 3
-        b = array([])
+        b = np.array([])
         raises(ValueError, "b.argmin()")
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, a.argmin, axis=0)
+        c = np.arange(6).reshape(2, 3)
+        assert c.argmin() == 0
+        assert (c.argmin(axis=0) == np.array([0, 0, 0])).all()
+        assert (c.argmin(axis=1) == [0, 0]).all()
+
 
     def test_all(self):
         from numpy import array
@@ -2667,6 +2668,15 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[0, :: -1] = numpy.array([11, 12])
         assert (a == [[12, 11], [5, 10]]).all()
 
+        a = numpy.zeros((3, 2), int)
+        b = numpy.ones((3, 1), int)
+        exc = raises(ValueError, 'a[:, 1] = b')
+        assert str(exc.value) == "could not broadcast " +\
+                "input array from shape (3,1) into shape (3)"
+        a[:, 1] = b[:,0] > 0.5
+        assert (a == [[0, 1], [0, 1], [0, 1]]).all()
+        
+
     def test_ufunc(self):
         from numpy import array
         a = array([[1, 2], [3, 4], [5, 6]])
@@ -2908,14 +2918,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         exc = raises(IndexError, "b[0, 1] = 42")
         assert str(exc.value) == "unsupported iterator index"
         assert b.index == 1
-        a = array([(False, False, False), 
-                   (False, False, False), 
+        a = array([(False, False, False),
                    (False, False, False),
-                  ], 
+                   (False, False, False),
+                  ],
                    dtype=[('a', '|b1'), ('b', '|b1'), ('c', '|b1')])
-        a.flat = [(True, True, True), 
-                  (True, True, True), 
-                  (True, True, True)] 
+        a.flat = [(True, True, True),
+                  (True, True, True),
+                  (True, True, True)]
         assert (a.view(bool) == True).all()
 
     def test_flatiter_ops(self):
@@ -3807,7 +3817,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         assert (a == [1, 2]).all()
 
     def test_pickle(self):
-        from numpy import dtype, array
+        from numpy import dtype, array, int32
         from cPickle import loads, dumps
 
         d = dtype([('x', str), ('y', 'int32')])
@@ -3824,6 +3834,11 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
         assert a[0]['y'] == 2
         assert a[1]['y'] == 1
+        
+        a = array([(1, [])], dtype=[('a', int32), ('b', int32, 0)])
+        assert a['b'].shape == (1, 0)
+        b = loads(dumps(a))
+        assert b['b'].shape == (1, 0)
 
     def test_subarrays(self):
         from numpy import dtype, array, zeros

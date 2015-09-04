@@ -1,6 +1,5 @@
-from rpython.jit.metainterp.history import (ConstInt, BoxInt, ConstFloat,
-    BoxFloat, TargetToken, BoxVector)
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.history import ConstInt, ConstFloat
+from rpython.jit.metainterp.resoperation import rop, AbstractInputArg
 from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
     debug_print)
 from rpython.rlib.objectmodel import we_are_translated, compute_unique_id
@@ -114,27 +113,26 @@ class LogOperations(object):
                 if name:
                     return 'ConstClass(' + name + ')'
             return str(arg.value)
-        elif isinstance(arg, BoxInt):
-            return 'i' + str(mv)
         elif isinstance(arg, self.ts.ConstRef):
             if arg.value:
                 return 'ConstPtr(ptr' + str(mv) + ')'
             return 'ConstPtr(null)'
-        elif isinstance(arg, self.ts.BoxRef):
-            return 'p' + str(mv)
         elif isinstance(arg, ConstFloat):
-            return str(arg.getfloat())
-        elif isinstance(arg, BoxFloat):
-            return 'f' + str(mv)
-        elif isinstance(arg, BoxVector):
-            return 'v%s[%s%d|%d]' % (str(mv), arg.item_type,
-                                     arg.item_size * 8, arg.item_count)
+            return str(arg.getfloatstorage())
         elif arg is None:
             return 'None'
+        elif arg.type == 'i':
+            return 'i' + str(mv)
+        elif arg.type == 'r':
+            return 'p' + str(mv)
+        elif arg.type == 'f':
+            return 'f' + str(mv)
         else:
             return '?'
 
     def repr_of_resop(self, op, ops_offset=None):
+        if isinstance(op, AbstractInputArg):
+            return self.repr_of_arg(op)
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
             jd_sd = self.metainterp_sd.jitdrivers_sd[op.getarg(0).getint()]
             s = jd_sd.warmstate.get_location_str(op.getarglist()[3:])
@@ -158,8 +156,8 @@ class LogOperations(object):
             s_offset = "+%d: " % offset
         args = ", ".join([self.repr_of_arg(op.getarg(i)) for i in range(op.numargs())])
 
-        if op.result is not None:
-            res = self.repr_of_arg(op.result) + " = "
+        if op.type != 'v':
+            res = self.repr_of_arg(op) + " = "
         else:
             res = ""
         is_guard = op.is_guard()
@@ -181,7 +179,8 @@ class LogOperations(object):
             fail_args = ''
         return s_offset + res + op.getopname() + '(' + args + ')' + fail_args
 
-    def _log_operations(self, inputargs, operations, ops_offset):
+
+    def _log_operations(self, inputargs, operations, ops_offset=None):
         if not have_debug_prints():
             return
         if ops_offset is None:
@@ -198,6 +197,8 @@ class LogOperations(object):
             offset = ops_offset[None]
             debug_print("+%d: --end of the loop--" % offset)
 
+    def log_loop(self, loop):
+        self._log_operations(loop.inputargs, loop.operations)
 
 def int_could_be_an_address(x):
     if we_are_translated():

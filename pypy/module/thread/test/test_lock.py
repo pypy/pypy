@@ -116,9 +116,6 @@ class AppTestLockAgain(GenericTestThread):
 class AppTestLockSignals(GenericTestThread):
     pytestmark = py.test.mark.skipif("os.name != 'posix'")
 
-    def setup_class(cls):
-        cls.w_using_pthread_cond = cls.space.wrap(sys.platform == 'freebsd6')
-
     def w_acquire_retries_on_intr(self, lock):
         import thread, os, signal, time
         self.sig_recvd = False
@@ -157,8 +154,6 @@ class AppTestLockSignals(GenericTestThread):
         raise KeyboardInterrupt
 
     def test_lock_acquire_interruption(self):
-        if self.using_pthread_cond:
-            skip('POSIX condition variables cannot be interrupted')
         import thread, signal, time
         # Mimic receiving a SIGINT (KeyboardInterrupt) with SIGALRM while stuck
         # in a deadlock.

@@ -77,9 +77,9 @@ def test_compile_loop():
     #
     loop = parse('''
     [p1]
-    i1 = getfield_gc(p1, descr=valuedescr)
+    i1 = getfield_gc_i(p1, descr=valuedescr)
     i2 = int_add(i1, 1)
-    p2 = new_with_vtable(ConstClass(node_vtable))
+    p2 = new_with_vtable(descr=nodesize)
     setfield_gc(p2, i2, descr=valuedescr)
     jump(p2)
     ''', namespace=LLtypeMixin.__dict__.copy())
@@ -90,8 +90,6 @@ def test_compile_loop():
     metainterp.history = History()
     metainterp.history.operations = loop.operations[:-1]
     metainterp.history.inputargs = loop.inputargs[:]
-    cpu.tracker._all_size_descrs_with_vtable = (
-        LLtypeMixin.cpu.tracker._all_size_descrs_with_vtable)
     #
     greenkey = 'faked'
     target_token = compile_loop(metainterp, greenkey, 0,

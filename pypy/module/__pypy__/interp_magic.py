@@ -15,12 +15,10 @@ def internal_repr(space, w_object):
     return space.wrap('%r' % (w_object,))
 
 
-def interp_pdb(space):
-    """Run an interp-level pdb.
-    This is not available in translated versions of PyPy."""
-    assert not we_are_translated()
-    import pdb
-    pdb.set_trace()
+def attach_gdb(space):
+    """Run an interp-level gdb (or pdb when untranslated)"""
+    from rpython.rlib.debug import attach_gdb
+    attach_gdb()
 
 
 @unwrap_spec(name=str)

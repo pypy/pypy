@@ -545,7 +545,7 @@ class LLFrame(object):
     def op_jit_marker(self, *args):
         pass
 
-    def op_jit_record_known_class(self, *args):
+    def op_jit_record_exact_class(self, *args):
         pass
 
     def op_jit_conditional_call(self, *args):
@@ -708,6 +708,9 @@ class LLFrame(object):
 
     def op_gc_add_memory_pressure(self, size):
         self.heap.add_memory_pressure(size)
+
+    def op_gc_gettypeid(self, obj):
+        return lltype.cast_primitive(lltype.Signed, self.heap.gettypeid(obj))
 
     def op_shrink_array(self, obj, smallersize):
         return self.heap.shrink_array(obj, smallersize)

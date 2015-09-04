@@ -155,13 +155,13 @@ def _run_with_machine_code(testself, args):
     faildescr = cpu.get_latest_descr(deadframe)
     assert faildescr.__class__.__name__.startswith('DoneWithThisFrameDescr')
     if metainterp.jitdriver_sd.result_type == history.INT:
-        return cpu.get_int_value(deadframe, 0)
+        return deadframe, cpu.get_int_value(deadframe, 0)
     elif metainterp.jitdriver_sd.result_type == history.REF:
-        return cpu.get_ref_value(deadframe, 0)
+        return deadframe, cpu.get_ref_value(deadframe, 0)
     elif metainterp.jitdriver_sd.result_type == history.FLOAT:
-        return cpu.get_float_value(deadframe, 0)
+        return deadframe, cpu.get_float_value(deadframe, 0)
     else:
-        return None
+        return deadframe, None
 
 
 class JitMixin:
@@ -251,7 +251,8 @@ class JitMixin:
         result2 = _run_with_pyjitpl(self, args)
         assert result1 == result2 or isnan(result1) and isnan(result2)
         # try to run it by running the code compiled just before
-        result3 = _run_with_machine_code(self, args)
+        df, result3 = _run_with_machine_code(self, args)
+        self._lastframe = df
         assert result1 == result3 or result3 == NotImplemented or isnan(result1) and isnan(result3)
         #
         if (longlong.supports_longlong and

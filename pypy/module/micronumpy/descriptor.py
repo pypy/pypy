@@ -588,7 +588,8 @@ class W_Dtype(W_Root):
         return space.newtuple([w_class, builder_args, data])
 
     def descr_setstate(self, space, w_data):
-        if self.fields is None:  # if builtin dtype
+        if self.fields is None and not isinstance(self.itemtype, types.VoidType):  
+            # if builtin dtype (but not w_voiddtype)
             return space.w_None
 
         version = space.int_w(space.getitem(w_data, space.wrap(0)))

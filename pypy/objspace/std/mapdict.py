@@ -539,17 +539,19 @@ def _make_subclass_size_n(supercls, n):
     rangen = unroll.unrolling_iterable(range(n))
     nmin1 = n - 1
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
+    valnmin1 = "_value%s" % nmin1
     class subcls(BaseMapdictObject, supercls):
         def _init_empty(self, map):
-            for i in rangen:
-                setattr(self, "_value%s" % i, erase_item(None))
+            for i in rangenmin1:
+                setattr(self, "_value%s" % i, None)
+            setattr(self, valnmin1, erase_item(None))
             self.map = map
 
         def _has_storage_list(self):
             return self.map.length() > n
 
         def _mapdict_get_storage_list(self):
-            erased = getattr(self, "_value%s" % nmin1)
+            erased = getattr(self, valnmin1)
             return unerase_list(erased)
 
         def _mapdict_read_storage(self, storageindex):
@@ -557,23 +559,21 @@ def _make_subclass_size_n(supercls, n):
             if storageindex < nmin1:
                 for i in rangenmin1:
                     if storageindex == i:
-                        erased = getattr(self, "_value%s" % i)
-                        return unerase_item(erased)
+                        return getattr(self, "_value%s" % i)
             if self._has_storage_list():
                 return self._mapdict_get_storage_list()[storageindex - nmin1]
             erased = getattr(self, "_value%s" % nmin1)
             return unerase_item(erased)
 
         def _mapdict_write_storage(self, storageindex, value):
-            erased = erase_item(value)
             for i in rangenmin1:
                 if storageindex == i:
-                    setattr(self, "_value%s" % i, erased)
+                    setattr(self, "_value%s" % i, value)
                     return
             if self._has_storage_list():
                 self._mapdict_get_storage_list()[storageindex - nmin1] = value
                 return
-            setattr(self, "_value%s" % nmin1, erased)
+            setattr(self, "_value%s" % nmin1, erase_item(value))
 
         def _mapdict_storage_length(self):
             if self._has_storage_list():
@@ -585,9 +585,9 @@ def _make_subclass_size_n(supercls, n):
             len_storage = len(storage)
             for i in rangenmin1:
                 if i < len_storage:
-                    erased = erase_item(storage[i])
+                    erased = storage[i]
                 else:
-                    erased = erase_item(None)
+                    erased = None
                 setattr(self, "_value%s" % i, erased)
             has_storage_list = self._has_storage_list()
             if len_storage < n:

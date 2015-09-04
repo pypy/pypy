@@ -428,6 +428,9 @@ class AppTestStruct(object):
         assert s.unpack(s.pack(42)) == (42,)
         assert s.unpack_from(memoryview(s.pack(42))) == (42,)
 
+    def test_overflow(self):
+        raises(self.struct.error, self.struct.pack, 'i', 1<<65)
+
 
 class AppTestStructBuffer(object):
     spaceconfig = dict(usemodules=['struct', '__pypy__'])

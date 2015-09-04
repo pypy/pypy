@@ -4,9 +4,9 @@ import py
 from rpython.rlib.objectmodel import r_dict, compute_identity_hash, specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp import resoperation
+from rpython.rlib.debug import make_sure_not_resized
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.resume import Snapshot, AccumInfo
 
@@ -70,26 +70,9 @@ def quicksort(array, left, right):
         quicksort(array, pivotnewindex + 1, right)
 
 def sort_descrs(lst):
+    # unused, should I leave it or kill it?
     quicksort(lst, 0, len(lst)-1)
 
-
-def descrlist_hash(l):
-    res = 0x345678
-    for descr in l:
-        y = compute_identity_hash(descr)
-        res = intmask((1000003 * res) ^ y)
-    return res
-
-def descrlist_eq(l1, l2):
-    if len(l1) != len(l2):
-        return False
-    for i in range(len(l1)):
-        if l1[i] is not l2[i]:
-            return False
-    return True
-
-def descrlist_dict():
-    return r_dict(descrlist_eq, descrlist_hash)
 
 # ____________________________________________________________
 
@@ -135,10 +118,17 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
     width = totwidth / 2 - 1
     print ' Comparing lists '.center(totwidth, '-')
     text_right = text_right or 'expected'
+    memo = {}
     print '%s| %s' % ('optimized'.center(width), text_right.center(width))
     for op1, op2 in itertools.izip_longest(oplist1, oplist2, fillvalue=''):
-        txt1 = str(op1)
-        txt2 = str(op2)
+        if op1:
+            txt1 = op1.repr(memo)
+        else:
+            txt1 = ''
+        if op2:
+            txt2 = op2.repr(memo)
+        else:
+            txt2 = ''
         while txt1 or txt2:
             part1 = txt1[:width]
             part2 = txt2[:width]
@@ -151,23 +141,19 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
             txt2 = txt2[width:]
     print '-' * totwidth
 
-    for op1, op2 in zip(oplist1, oplist2):
+    for i_count, (op1, op2) in enumerate(zip(oplist1, oplist2)):
         assert op1.getopnum() == op2.getopnum()
         assert op1.numargs() == op2.numargs()
         for i in range(op1.numargs()):
             x = op1.getarg(i)
             y = op2.getarg(i)
-            assert x.same_shape(y)
             assert x.same_box(remap.get(y, y))
-        if op2.result in remap:
-            if op2.result is None:
-                assert op1.result == remap[op2.result]
-            else:
-                assert op1.result.same_shape(op2.result)
-                assert op1.result.same_box(remap[op2.result])
+        if op2 in remap:
+            assert op1.same_box(remap[op2])
         else:
-            remap[op2.result] = op1.result
-        if op1.getopnum() not in [rop.JUMP, rop.LABEL] and not op1.is_guard():
+            if op1.type != 'v':
+                remap[op2] = op1
+        if op1.getopnum() not in [rop.JUMP, rop.LABEL, rop.FINISH] and not op1.is_guard():
             assert op1.getdescr() == op2.getdescr()
         if op1.getfailargs() or op2.getfailargs():
             assert len(op1.getfailargs()) == len(op2.getfailargs())
@@ -187,53 +173,6 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
                             break
                     else:
                         assert False
+
     assert len(oplist1) == len(oplist2)
     return True
-
-class Renamer(object):
-    def __init__(self):
-        self.rename_map = {}
-
-    def rename_box(self, box):
-        return self.rename_map.get(box, box)
-
-    def start_renaming(self, var, tovar):
-        self.rename_map[var] = tovar
-
-    def rename(self, op):
-        for i, arg in enumerate(op.getarglist()):
-            arg = self.rename_map.get(arg, arg)
-            op.setarg(i, arg)
-
-        if op.is_guard():
-            assert isinstance(op, resoperation.GuardResOp)
-            op.rd_snapshot = self.rename_rd_snapshot(op.rd_snapshot)
-            self.rename_failargs(op)
-
-        return True
-
-    def rename_failargs(self, guard, clone=False):
-        if guard.getfailargs() is not None:
-            if clone:
-                args = guard.getfailargs()[:]
-            else:
-                args = guard.getfailargs()
-            for i,arg in enumerate(args):
-                args[i] = self.rename_map.get(arg,arg)
-            return args
-        return None
-
-    def rename_rd_snapshot(self, snapshot, clone=False):
-        # snapshots are nested like the MIFrames
-        if snapshot is None:
-            return None
-        if clone:
-            boxes = snapshot.boxes[:]
-        else:
-            boxes = snapshot.boxes
-        for i,box in enumerate(boxes):
-            value = self.rename_map.get(box,box)
-            boxes[i] = value
-        #
-        rec_snap = self.rename_rd_snapshot(snapshot.prev, clone)
-        return Snapshot(rec_snap, boxes)

@@ -1,0 +1,4 @@
+* mark_opaque_pointer is ignored (which is fine until unrolling)
+* implement unrolling
+* implement more cases of copying _fields and _items between normal info
+  and ConstPtrInfo when proven constant

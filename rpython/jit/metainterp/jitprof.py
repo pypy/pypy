@@ -116,9 +116,9 @@ class Profiler(BaseProfiler):
         return self.times[num]
 
     def count_ops(self, opnum, kind=Counters.OPS):
-        from rpython.jit.metainterp.resoperation import rop
+        from rpython.jit.metainterp.resoperation import OpHelpers
         self.counters[kind] += 1
-        if opnum == rop.CALL and kind == Counters.RECORDED_OPS:
+        if OpHelpers.is_call(opnum) and kind == Counters.RECORDED_OPS:
             self.calls += 1
 
     def print_stats(self):

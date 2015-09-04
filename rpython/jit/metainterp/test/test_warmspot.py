@@ -558,6 +558,22 @@ class WarmspotTests(object):
         assert res == 7 - 3
         self.check_trace_count(2)
 
+    def test_jitdriver_single_jit_merge_point(self):
+        jitdriver = JitDriver(greens=[], reds='auto')
+        def g1(n):
+            jitdriver.jit_merge_point()
+            return n
+        def g2():
+            jitdriver.jit_merge_point()
+        def f(n):
+            if n:
+                g1(n)
+            else:
+                g2()
+        e = py.test.raises(AssertionError, self.meta_interp, f, [42])
+        assert str(e.value) == ("there are multiple jit_merge_points "
+                                "with the same jitdriver")
+
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLGraphCPU
@@ -597,8 +613,7 @@ class TestWarmspotDirect(object):
                 self._no = no
 
         class FakeDescr:
-            def as_vtable_size_descr(self):
-                return self
+            pass
 
         class FakeCPU(object):
             supports_floats = False

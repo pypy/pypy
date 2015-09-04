@@ -62,6 +62,7 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
+        'attach_gdb'                : 'interp_magic.attach_gdb',
         'internal_repr'             : 'interp_magic.internal_repr',
         'bytebuffer'                : 'bytebuffer.bytebuffer',
         'identity_dict'             : 'interp_identitydict.W_IdentityDict',
@@ -100,8 +101,6 @@ class Module(MixedModule):
 
     def setup_after_space_initialization(self):
         """NOT_RPYTHON"""
-        if not self.space.config.translating:
-            self.extra_interpdef('interp_pdb', 'interp_magic.interp_pdb')
         if self.space.config.objspace.std.withmethodcachecounter:
             self.extra_interpdef('method_cache_counter',
                                  'interp_magic.method_cache_counter')
@@ -112,18 +111,22 @@ class Module(MixedModule):
                                      'interp_magic.mapdict_cache_counter')
         PYC_MAGIC = get_pyc_magic(self.space)
         self.extra_interpdef('PYC_MAGIC', 'space.wrap(%d)' % PYC_MAGIC)
+        # XXX
+        # the following code prevents --fork-before=pyjitpl from working,
+        # proper fix would be to use some llop that is only rendered by the
+        # JIT
         #
-        try:
-            from rpython.jit.backend import detect_cpu
-            model = detect_cpu.autodetect()
-            self.extra_interpdef('cpumodel', 'space.wrap(%r)' % model)
-        except Exception:
-            if self.space.config.translation.jit:
-                raise
-            else:
-                pass   # ok fine to ignore in this case
+        #try:
+        #    from rpython.jit.backend import detect_cpu
+        #    model = detect_cpu.autodetect()
+        #    self.extra_interpdef('cpumodel', 'space.wrap(%r)' % model)
+        #except Exception:
+        #    if self.space.config.translation.jit:
+        #        raise
+        #    else:
+        #        pass   # ok fine to ignore in this case
         #
-        if self.space.config.translation.jit:
-            features = detect_cpu.getcpufeatures(model)
-            self.extra_interpdef('jit_backend_features',
-                                    'space.wrap(%r)' % features)
+        #if self.space.config.translation.jit:
+        ##    features = detect_cpu.getcpufeatures(model)
+        #    self.extra_interpdef('jit_backend_features',
+        #                            'space.wrap(%r)' % features)
