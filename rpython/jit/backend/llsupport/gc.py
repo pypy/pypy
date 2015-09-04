@@ -688,7 +688,7 @@ class GcLLDescr_framework(GcLLDescription):
         type_info_group = llop.gc_get_type_info_group(llmemory.Address)
         type_info_group = rffi.cast(lltype.Signed, type_info_group)
         expected_typeid = classptr - sizeof_ti - type_info_group
-        if IS_X86_32:
+        if WORD == 4:
             expected_typeid >>= 2
         return expected_typeid
 
@@ -702,7 +702,13 @@ class GcLLDescr_framework(GcLLDescription):
         type_info_group = llop.gc_get_type_info_group(llmemory.Address)
         type_info_group = rffi.cast(lltype.Signed, type_info_group)
         infobits_offset = rffi.cast(lltype.Signed, self._infobits_offset)
-        return (type_info_group + infobits_offset, self._T_IS_RPYTHON_INSTANCE)
+        if WORD == 4:
+            shift_by = 2
+        elif WORD == 8:
+            shift_by = 0
+        return (type_info_group + infobits_offset,
+                shift_by,
+                self._T_IS_RPYTHON_INSTANCE)
 
 
 # ____________________________________________________________

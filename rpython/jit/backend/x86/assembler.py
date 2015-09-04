@@ -1786,14 +1786,12 @@ class Assembler386(BaseAssembler):
         [loc_object, loc_typeid] = locs
         # idea: read the typeid, fetch the field 'infobits' from the big
         # typeinfo table, and check the flag 'T_IS_RPYTHON_INSTANCE'.
-        base_type_info, IS_OBJECT_FLAG = (
+        base_type_info, shift_by, IS_OBJECT_FLAG = (
             self.cpu.gc_ll_descr.get_translated_info_for_guard_is_object())
         if IS_X86_32:
             self.mc.MOVZX16(loc_typeid, mem(loc_object, 0))
-            shift_by = 2
         else:
             self.mc.MOVZX32(loc_typeid, mem(loc_object, 0))
-            shift_by = 0
         loc_infobits = addr_add(imm(base_type_info), loc_typeid, scale=shift_by)
         self.mc.TEST(loc_infobits, imm(IS_OBJECT_FLAG))
         #
