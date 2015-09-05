@@ -158,11 +158,11 @@ class AbstractResOp(AbstractValue):
         # RPython-friendly version
         if self.type != 'v':
             try:
-                sres = '%s = ' % memo[self]
+                num = memo[self]
             except KeyError:
-                name = self.type + str(len(memo))
-                memo[self] = name
-                sres = name + ' = '
+                num = len(memo)
+                memo[self] = num
+            sres = self.type + str(num) + ' = '
         #if self.result is not None:
         #    sres = '%s = ' % (self.result,)
         else:
@@ -185,11 +185,11 @@ class AbstractResOp(AbstractValue):
 
     def repr_short(self, memo):
         try:
-            return memo[self]
+            num = memo[self]
         except KeyError:
-            name = self.type + str(len(memo))
-            memo[self] = name
-            return name
+            num = len(memo)
+            memo[self] = num
+        return self.type + str(num)
 
     def __repr__(self):
         r = self.repr(self._repr_memo)
@@ -458,11 +458,11 @@ class AbstractInputArg(AbstractValue):
 
     def repr(self, memo):
         try:
-            return memo[self]
+            num = memo[self]
         except KeyError:
-            name = self.type + str(len(memo))
-            memo[self] = name
-            return name
+            num = len(memo)
+            memo[self] = num
+        return self.type + str(num)
 
     def __repr__(self):
         return self.repr(self._repr_memo)
