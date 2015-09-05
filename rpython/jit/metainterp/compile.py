@@ -303,6 +303,11 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                               original_jitcell_token=jitcell_token)
     start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs,
                                descr=start_descr)
+    label_token = loop_info.label_op.getdescr()
+    assert isinstance(label_token, TargetToken)
+    if label_token.short_preamble:
+        metainterp_sd.logger_ops.log_short_preamble([],
+                                                label_token.short_preamble)
     loop.operations = ([start_label] + preamble_ops + loop_info.extra_same_as +
                        [loop_info.label_op] + loop_ops)
     if not we_are_translated():
@@ -354,6 +359,11 @@ def compile_retrace(metainterp, greenkey, start,
         except InvalidLoop:
             return None
 
+    label_token = loop_info.label_op.getdescr()
+    assert isinstance(label_token, TargetToken)
+    if label_token.short_preamble:
+        metainterp_sd.logger_ops.log_short_preamble([],
+                                                label_token.short_preamble)
     loop = partial_trace
     loop.original_jitcell_token = loop_jitcell_token
     loop.operations = (loop.operations + loop_info.extra_same_as +
