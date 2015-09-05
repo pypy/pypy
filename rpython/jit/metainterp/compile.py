@@ -469,8 +469,8 @@ def propagate_original_jitcell_token(trace):
 
 def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
                     looptoken, log=True, name='', memo=None):
-    metainterp_sd.logger_ops.log_loop(inputargs, operations, number=-2,
-                                      type='compiling', name=name, memo=memo)
+    metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
+                                      'compiling', None, name, memo)
     return metainterp_sd.cpu.compile_loop(inputargs,
                                           operations, looptoken,
                                           jd_id=jd_id, unique_id=unique_id,
