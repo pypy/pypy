@@ -396,7 +396,7 @@ class FakeMetaInterpStaticData(object):
 
     class logger_noopt:
         @classmethod
-        def log_loop(*args):
+        def log_loop(*args, **kwds):
             pass
 
     class logger_ops:
