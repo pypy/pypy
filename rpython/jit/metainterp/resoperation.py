@@ -33,16 +33,17 @@ class AbstractValue(object):
         llop.debug_print(lltype.Void, "setting forwarded on:", self.__class__.__name__)
         raise SettingForwardedOnAbstractValue()
 
+    @specialize.arg(1)
     def get_box_replacement(op, not_const=False):
-        orig_op = op
-        c = 0
-        while (op.get_forwarded() is not None and
-               not op.get_forwarded().is_info_class and
-               (not not_const or not op.get_forwarded().is_constant())):
-            c += 1
-            op = op.get_forwarded()
-        if op is not orig_op and c > 1:
-            orig_op.set_forwarded(op)
+        # Read the chain "op, op._forwarded, op._forwarded._forwarded..."
+        # until we reach None or an Info instance, and return the last
+        # item before that.
+        while isinstance(op, AbstractResOpOrInputArg):  # else, _forwarded is None
+            next_op = op._forwarded
+            if (next_op is None or next_op.is_info_class or
+                (not_const and next_op.is_constant())):
+                return op
+            op = next_op
         return op
 
     def reset_value(self):
@@ -62,10 +63,18 @@ def ResOperation(opnum, args, descr=None):
     return op
 
 
-class AbstractResOp(AbstractValue):
+class AbstractResOpOrInputArg(AbstractValue):
+    _attrs_ = ('_forwarded',)
+    _forwarded = None # either another resop or OptInfo  
+
+    def get_forwarded(self):
+        return self._forwarded
+
+
+class AbstractResOp(AbstractResOpOrInputArg):
     """The central ResOperation class, representing one operation."""
 
-    _attrs_ = ('_forwarded',)
+    _attrs_ = ()
 
     # debug
     name = ""
@@ -75,7 +84,6 @@ class AbstractResOp(AbstractValue):
     type = 'v'
     boolreflex = -1
     boolinverse = -1
-    _forwarded = None # either another resop or OptInfo
 
     def getopnum(self):
         return self.opnum
@@ -84,9 +92,6 @@ class AbstractResOp(AbstractValue):
     #    if self.is_same_as():
     #        return self is other or self.getarg(0).same_box(other)
     #    return self is other
-
-    def get_forwarded(self):
-        return self._forwarded
 
     def set_forwarded(self, forwarded_to):
         assert forwarded_to is not self
@@ -447,12 +452,7 @@ class RefOp(object):
         return history.ConstPtr(self.getref_base())
 
 
-class AbstractInputArg(AbstractValue):
-    _forwarded = None
-
-    def get_forwarded(self):
-        return self._forwarded
-
+class AbstractInputArg(AbstractResOpOrInputArg):
     def set_forwarded(self, forwarded_to):
         self._forwarded = forwarded_to
 
