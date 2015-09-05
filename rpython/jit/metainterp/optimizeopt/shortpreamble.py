@@ -74,6 +74,10 @@ class HeapOp(AbstractShortOp):
             opinfo.setitem(self.getfield_op.getdescr(), index, self.res,
                            pop, cf, optheap=optheap)
 
+    def repr(self, memo):
+        return "HeapOp(%s, %s)" % (self.res.repr(memo),
+                                   self.getfield_op.repr(memo))
+
     def add_op_to_short(self, sb):
         sop = self.getfield_op
         preamble_arg = sb.produce_arg(sop.getarg(0))
@@ -125,6 +129,9 @@ class PureOp(AbstractShortOp):
             opnum = op.getopnum()
         return ProducedShortOp(self, op.copy_and_change(opnum, args=arglist))
 
+    def repr(self, memo):
+        return "PureOp(%s)" % (self.res.repr(memo),)
+
     def __repr__(self):
         return "PureOp(%r)" % (self.res,)
 
@@ -152,6 +159,9 @@ class LoopInvariantOp(AbstractShortOp):
         opnum = OpHelpers.call_loopinvariant_for_descr(op.getdescr())
         return ProducedShortOp(self, op.copy_and_change(opnum, args=arglist))
 
+    def repr(self, memo):
+        return "LoopInvariantOp(%s)" % (self.res.repr(memo),)
+
     def __repr__(self):
         return "LoopInvariantOp(%r)" % (self.res,)
 
@@ -174,6 +184,11 @@ class CompoundOp(AbstractShortOp):
                 l.append(pop)
         return l
 
+    def repr(self, memo):
+        return "CompoundOp(%s, %s, %s)" % (self.res.repr(memo),
+                                           self.one.repr(memo),
+                                           self.two.repr(memo))
+
 class AbstractProducedShortOp(object):
     pass
 
@@ -187,6 +202,9 @@ class ProducedShortOp(AbstractProducedShortOp):
     def produce_op(self, opt, exported_infos):
         self.short_op.produce_op(opt, self.preamble_op, exported_infos,
                                  invented_name=self.invented_name)
+
+    def repr(self, memo):
+        return self.short_op.repr(memo)
 
     def __repr__(self):
         return "%r -> %r" % (self.short_op, self.preamble_op)
@@ -204,6 +222,9 @@ class ShortInputArg(AbstractShortOp):
 
     def produce_op(self, opt, preamble_op, exported_infos, invented_name):
         assert not invented_name
+
+    def repr(self, memo):
+        return "INP(%s)" % (self.res.repr(memo),)
 
     def __repr__(self):
         return "INP(%r -> %r)" % (self.res, self.preamble_op)

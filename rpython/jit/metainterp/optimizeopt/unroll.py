@@ -12,7 +12,7 @@ from rpython.jit.metainterp.optimizeopt.virtualstate import (
     VirtualStateConstructor, VirtualStatesCantMatch)
 from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp
 from rpython.jit.metainterp import compile
-from rpython.rlib.debug import debug_print
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
 
 class UnrollableOptimizer(Optimizer):    
     def force_op_from_preamble(self, preamble_op):
@@ -455,6 +455,15 @@ class ExportedState(LoopInfo):
         self.short_boxes = short_boxes
         self.renamed_inputargs = renamed_inputargs
         self.short_inputargs = short_inputargs
+        self.dump()
+
+    def dump(self):
+        debug_start("jit-log-exported-state")
+        memo = {}
+        debug_print("[" + ", ".join([x.repr_short(memo) for x in self.next_iteration_args]) + "]")
+        for box in self.short_boxes:
+            debug_print("  " + box.repr(memo))
+        debug_stop("jit-log-exported-state")
 
     def final(self):
         return False
