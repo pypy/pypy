@@ -1884,6 +1884,8 @@ class MetaInterp(object):
         self.call_ids = []
         self.current_call_id = 0
 
+        self.box_names_memo = {}
+
     def retrace_needed(self, trace, exported_state):
         self.partial_trace = trace
         self.retracing_from = len(self.history.operations) - 1
@@ -2206,11 +2208,11 @@ class MetaInterp(object):
         else:
             greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
             self.staticdata.warmrunnerdesc.hooks.on_abort(reason,
-                                                          jd_sd.jitdriver,
-                                                          greenkey,
-                                                          jd_sd.warmstate.get_location_str(greenkey),
-                                                          self.staticdata.logger_ops._make_log_operations(),
-                                                          self.history.operations)
+                    jd_sd.jitdriver, greenkey,
+                    jd_sd.warmstate.get_location_str(greenkey),
+                    self.staticdata.logger_ops._make_log_operations(
+                        self.box_names_memo),
+                    self.history.operations)
         self.staticdata.stats.aborted()
 
     def blackhole_if_trace_too_long(self):

@@ -239,7 +239,6 @@ class Optimizer(Optimization):
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd
         self.cpu = metainterp_sd.cpu
-        self.logops = LogOperations(metainterp_sd, False)
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.interned_ints = {}
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)

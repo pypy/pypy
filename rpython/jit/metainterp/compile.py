@@ -24,6 +24,8 @@ def giveup():
     raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
 
 class CompileData(object):
+    memo = None
+    
     def forget_optimization_info(self):
         for arg in self.start_label.getarglist():
             arg.set_forwarded(None)
@@ -54,7 +56,8 @@ class LoopCompileData(CompileData):
             opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
             return opt.optimize_preamble(self.start_label, self.end_label,
                                          self.operations,
-                                         self.call_pure_results)
+                                         self.call_pure_results,
+                                         self.box_names_memo)
         else:
             opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
             return opt.propagate_all_forward(self.start_label.getarglist(),
@@ -97,7 +100,8 @@ class BridgeCompileData(CompileData):
         opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.optimize_bridge(self.start_label, self.operations,
                                    self.call_pure_results,
-                                   self.inline_short_preamble)
+                                   self.inline_short_preamble,
+                                   self.box_names_memo)
 
 class UnrolledLoopData(CompileData):
     """ This represents label() ops jump with extra info that's from the
@@ -217,7 +221,7 @@ def compile_simple_loop(metainterp, greenkey, start, inputargs, ops, jumpargs,
                                  enable_opts=enable_opts)
     try:
         loop_info, ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                        data)
+                                        metainterp.box_names_memo, data)
     except InvalidLoop:
         return None
     loop = create_empty_loop(metainterp)
@@ -235,7 +239,7 @@ def compile_simple_loop(metainterp, greenkey, start, inputargs, ops, jumpargs,
         loop.check_consistency()
     jitcell_token.target_tokens = [target_token]
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
-                         inputargs)
+                         inputargs, metainterp.box_names_memo)
     record_loop_or_bridge(metainterp_sd, loop)
     return target_token
 
@@ -271,6 +275,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                     enable_opts=enable_opts)
     try:
         start_state, preamble_ops = optimize_trace(metainterp_sd, jitdriver_sd,
+                                                   metainterp.box_names_memo,
                                                    preamble_data)
     except InvalidLoop:
         return None
@@ -285,6 +290,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                  enable_opts=enable_opts)
     try:
         loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
+                                             metainterp.box_names_memo,
                                              loop_data)
     except InvalidLoop:
         return None
@@ -307,14 +313,14 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     assert isinstance(label_token, TargetToken)
     if label_token.short_preamble:
         metainterp_sd.logger_ops.log_short_preamble([],
-                                                label_token.short_preamble)
+            label_token.short_preamble, metainterp.box_names_memo)
     loop.operations = ([start_label] + preamble_ops + loop_info.extra_same_as +
                        [loop_info.label_op] + loop_ops)
     if not we_are_translated():
         loop.check_consistency()
     jitcell_token.target_tokens = [start_descr] + jitcell_token.target_tokens
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
-                         inputargs)
+                         inputargs, metainterp.box_names_memo)
     record_loop_or_bridge(metainterp_sd, loop)
     return start_descr
 
@@ -345,6 +351,7 @@ def compile_retrace(metainterp, greenkey, start,
                                  enable_opts=enable_opts)
     try:
         loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
+                                             metainterp.box_names_memo,
                                              loop_data)
     except InvalidLoop:
         # Fall back on jumping directly to preamble
@@ -355,6 +362,7 @@ def compile_retrace(metainterp, greenkey, start,
                                      inline_short_preamble=False)
         try:
             loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
+                                                 metainterp.box_names_memo,
                                                  loop_data)
         except InvalidLoop:
             return None
@@ -363,7 +371,7 @@ def compile_retrace(metainterp, greenkey, start,
     assert isinstance(label_token, TargetToken)
     if label_token.short_preamble:
         metainterp_sd.logger_ops.log_short_preamble([],
-                                                label_token.short_preamble)
+            label_token.short_preamble, metainterp.box_names_memo)
     loop = partial_trace
     loop.original_jitcell_token = loop_jitcell_token
     loop.operations = (loop.operations + loop_info.extra_same_as +
@@ -460,9 +468,9 @@ def propagate_original_jitcell_token(trace):
 
 
 def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
-                    looptoken, log=True, name=''):
+                    looptoken, log=True, name='', memo=None):
     metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
-                                      'compiling', name=name)
+                                      'compiling', name=name, memo=memo)
     return metainterp_sd.cpu.compile_loop(inputargs,
                                           operations, looptoken,
                                           jd_id=jd_id, unique_id=unique_id,
@@ -470,8 +478,9 @@ def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
                                           logger=metainterp_sd.logger_ops)
 
 def do_compile_bridge(metainterp_sd, faildescr, inputargs, operations,
-                      original_loop_token, log=True):
-    metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling")
+                      original_loop_token, log=True, memo=None):
+    metainterp_sd.logger_ops.log_bridge(inputargs, operations, "compiling",
+                                        memo=memo)
     assert isinstance(faildescr, AbstractFailDescr)
     return metainterp_sd.cpu.compile_bridge(faildescr, inputargs, operations,
                                             original_loop_token, log=log,
@@ -486,7 +495,7 @@ def forget_optimization_info(lst, reset_values=False):
             item.reset_value()
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
-                         orig_inpargs):
+                         orig_inpargs, memo):
     forget_optimization_info(loop.operations)
     forget_optimization_info(loop.inputargs)
     vinfo = jitdriver_sd.virtualizable_info
@@ -521,7 +530,8 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
         asminfo = do_compile_loop(jitdriver_sd.index, unique_id, metainterp_sd,
                                   loop.inputargs,
                                   operations, original_jitcell_token,
-                                  name=loopname)
+                                  name=loopname,
+                                  memo=memo)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
@@ -545,7 +555,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
         metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(original_jitcell_token)
 
 def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
-                           operations, original_loop_token):
+                           operations, original_loop_token, memo):
     forget_optimization_info(operations)
     forget_optimization_info(inputargs)
     if not we_are_translated():
@@ -567,7 +577,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     try:
         asminfo = do_compile_bridge(metainterp_sd, faildescr, inputargs,
                                     operations,
-                                    original_loop_token)
+                                    original_loop_token, memo)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
@@ -583,7 +593,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     else:
         ops_offset = None
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, None, faildescr,
-                                        ops_offset)
+                                        ops_offset, memo=memo)
     #
     #if metainterp_sd.warmrunnerdesc is not None:    # for tests
     #    metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(
@@ -801,7 +811,8 @@ class ResumeGuardDescr(ResumeDescr):
         propagate_original_jitcell_token(new_loop)
         send_bridge_to_backend(metainterp.jitdriver_sd, metainterp.staticdata,
                                self, inputargs, new_loop.operations,
-                               new_loop.original_jitcell_token)
+                               new_loop.original_jitcell_token,
+                               metainterp.box_names_memo)
 
     def make_a_counter_per_value(self, guard_value_op):
         assert guard_value_op.getopnum() == rop.GUARD_VALUE
@@ -991,7 +1002,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         propagate_original_jitcell_token(new_loop)
         send_loop_to_backend(self.original_greenkey, metainterp.jitdriver_sd,
                              metainterp_sd, new_loop, "entry bridge",
-                             orig_inputargs)
+                             orig_inputargs, metainterp.box_names_memo)
         # send the new_loop to warmspot.py, to be called directly the next time
         jitdriver_sd.warmstate.attach_procedure_to_interp(
             self.original_greenkey, jitcell_token)
@@ -1035,7 +1046,8 @@ def compile_trace(metainterp, resumekey):
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
     try:
-        info, newops = optimize_trace(metainterp_sd, jitdriver_sd, data)
+        info, newops = optimize_trace(metainterp_sd, jitdriver_sd,
+                                      metainterp.box_names_memo, data)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
