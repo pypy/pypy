@@ -54,7 +54,7 @@ def optimize_trace(metainterp_sd, jitdriver_sd, compile_data, memo=None):
     try:
         metainterp_sd.logger_noopt.log_loop(inputargs,
                                             compile_data.operations,
-                                            memo)
+                                            memo=memo)
         if memo is None:
             memo = {}
         compile_data.box_names_memo = memo
