@@ -49,6 +49,16 @@ def contains_SomeObject(annotator, obj, element):
     return s_Bool
 contains_SomeObject.can_only_throw = []
 
+@op.contains.register(SomeNone)
+def contains_SomeNone(annotator, obj, element):
+    # return False here for the case "... in None", because it can be later
+    # generalized to "... in d" where d is either None or the empty dict
+    # (which would also return the constant False)
+    s_bool = SomeBool()
+    s_bool.const = False
+    return s_bool
+contains_SomeNone.can_only_throw = []
+
 @op.simple_call.register(SomeObject)
 def simple_call_SomeObject(annotator, func, *args):
     return annotator.annotation(func).call(
