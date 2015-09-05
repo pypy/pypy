@@ -13,7 +13,7 @@ def _check_imm_arg(i):
 def _prepare_cmp_op(signed):
     lower_bound = -2**15 if signed else 0
     upper_bound = 2**15-1 if signed else 2**16-1
-    def f(self, op, guard_op):
+    def f(self, op):
         l0 = self.ensure_reg(op.getarg(0))
         a1 = op.getarg(1)
         if check_imm_box(a1, lower_bound, upper_bound):
@@ -21,34 +21,25 @@ def _prepare_cmp_op(signed):
         else:
             l1 = self.ensure_reg(a1)
         self.free_op_vars()
-        if guard_op is None:
-            res = self.force_allocate_reg(op.result)
-            return [l0, l1, res]
-        else:
-            return self._prepare_guard(guard_op, [l0, l1])
+        res = self.force_allocate_reg_or_cc(op.result)
+        return [l0, l1, res]
     return f
 prepare_cmp_op          = _prepare_cmp_op(signed=True)
 prepare_cmp_op_unsigned = _prepare_cmp_op(signed=False)
 
-def prepare_unary_cmp(self, op, guard_op):
+def prepare_unary_cmp(self, op):
     l0 = self.ensure_reg(op.getarg(0))
     l1 = imm(0)
     self.free_op_vars()
-    if guard_op is None:
-        res = self.force_allocate_reg(op.result)
-        return [l0, l1, res]
-    else:
-        return self._prepare_guard(guard_op, [l0, l1])
+    res = self.force_allocate_reg_or_cc(op.result)
+    return [l0, l1, res]
 
-def prepare_float_cmp(self, op, guard_op):
+def prepare_float_cmp(self, op):
     l0 = self.ensure_reg(op.getarg(0))
     l1 = self.ensure_reg(op.getarg(1))
     self.free_op_vars()
-    if guard_op is None:
-        res = self.force_allocate_reg(op.result)
-        return [l0, l1, res]
-    else:
-        return self._prepare_guard(guard_op, [l0, l1])
+    res = self.force_allocate_reg_or_cc(op.result)
+    return [l0, l1, res]
 
 def prepare_unary_op(self, op):
     l0 = self.ensure_reg(op.getarg(0))
@@ -87,11 +78,3 @@ def prepare_int_sub(self, op):
     self.free_op_vars()
     res = self.force_allocate_reg(op.result)
     return [l0, l1, res]
-
-def prepare_int_binary_ovf(self, op, guard_op):
-    reg1 = self.ensure_reg(op.getarg(0))
-    reg2 = self.ensure_reg(op.getarg(1))
-    self.free_op_vars()
-    res = self.force_allocate_reg(op.result)
-    assert guard_op is not None
-    return self._prepare_guard(guard_op, [reg1, reg2, res])

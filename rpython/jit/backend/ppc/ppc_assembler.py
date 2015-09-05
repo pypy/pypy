@@ -32,6 +32,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.ppc.locations import StackLocation, get_fp_offset, imm
+from rpython.jit.backend.ppc import callbuilder
 from rpython.rlib.jit import AsmInfo
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib.rarithmetic import r_uint
@@ -70,6 +71,9 @@ def higher(w):
 
 def high(w):
     return (w >> 16) & 0x0000FFFF
+
+class JitFrameTooDeep(Exception):
+    pass
 
 class AssemblerPPC(OpAssembler, BaseAssembler):
 
@@ -174,18 +178,19 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
     def setup_failure_recovery(self):
         self.failure_recovery_code = [0, 0, 0, 0]
 
-    # TODO: see with we really need the ignored_regs argument
     def _push_all_regs_to_jitframe(self, mc, ignored_regs, withfloats,
                                    callee_only=False):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if callee_only:
-            regs = XXX
+            regs = PPCRegisterManager.save_around_call_regs
         else:
-            regs = r.MANAGED_REGS
-        # For now, just push all regs to the jitframe
+            regs = PPCRegisterManager.all_regs
+        #
         for reg in regs:
-            v = r.ALL_REG_INDEXES[reg]
-            mc.std(reg.value, r.SPP.value, base_ofs + v * WORD)
+            if reg not in ignored_regs:
+                v = r.ALL_REG_INDEXES[reg]
+                mc.std(reg.value, r.SPP.value, base_ofs + v * WORD)
+        #
         if withfloats:
             for reg in r.MANAGED_FP_REGS:
                 v = r.ALL_REG_INDEXES[reg]
@@ -195,20 +200,19 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
                                     callee_only=False):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if callee_only:
-            regs = r.VOLATILES
+            regs = PPCRegisterManager.save_around_call_regs
         else:
-            regs = r.ALL_REGS
-        for i, reg in enumerate(regs):
-            # XXX should we progress to higher addressess
-            mc.load_from_addr(reg, base_ofs - (i * WORD))
-
+            regs = PPCRegisterManager.all_regs
+        #
+        for reg in regs:
+            if reg not in ignored_regs:
+                v = r.ALL_REG_INDEXES[reg]
+                mc.ld(reg.value, r.SPP.value, base_ofs + v * WORD)
+        #
         if withfloats:
-            if callee_only:
-                regs = r.VOLATILES_FLOAT
-            else:
-                regs = r.ALL_FLOAT_REGS
-            for i, reg in enumerate(regs):
-                pass # TODO find or create the proper load indexed for fpr's
+            for reg in r.MANAGED_FP_REGS:
+                v = r.ALL_REG_INDEXES[reg]
+                mc.lfd(reg.value, r.SPP.value, base_ofs + v * WORD)
 
     def _build_failure_recovery(self, exc, withfloats=False):
         mc = PPCBuilder()
@@ -245,13 +249,114 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
         self.mc = None
 
-    # TODO
     def build_frame_realloc_slowpath(self):
-        pass
+        mc = PPCBuilder()
+        self.mc = mc
 
-    # TODO
+        # signature of this _frame_realloc_slowpath function:
+        #   * on entry, r0 is the new size
+        #   * on entry, r2 is the gcmap
+        #   * no managed register must be modified
+
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.store(r.r2.value, r.SPP.value, ofs2)
+
+        self._push_all_regs_to_jitframe(mc, [], self.cpu.supports_floats)
+
+        # Save away the LR inside r30
+        mc.mflr(r.RCS1.value)
+
+        # First argument is SPP (= r31), which is the jitframe
+        mc.mr(r.r3.value, r.SPP.value)
+
+        # Second argument is the new size, which is still in r0 here
+        mc.mr(r.r4.value, r.r0.value)
+
+        self._store_and_reset_exception(mc, r.RCS2, r.RCS3)
+
+        # Do the call
+        adr = rffi.cast(lltype.Signed, self.cpu.realloc_frame)
+        cb = callbuilder.CallBuilder(self, imm(adr), [r.r3, r.r4], r.r3)
+        cb.emit()
+
+        # The result is stored back into SPP (= r31)
+        mc.mr(r.SPP.value, r.r3.value)
+
+        self._restore_exception(mc, r.RCS2, r.RCS3)
+
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self._load_shadowstack_top_in_ebx(mc, gcrootmap)
+            mc.MOV_mr((ebx.value, -WORD), eax.value)
+
+        mc.mtlr(r.RCS1.value)     # restore LR
+        self._pop_all_regs_from_jitframe(mc, [], self.cpu.supports_floats)
+        mc.blr()
+
+        self._frame_realloc_slowpath = mc.materialize(self.cpu, [])
+        self.mc = None
+
+    def _store_and_reset_exception(self, mc, excvalloc, exctploc):
+        """Reset the exception, after fetching it inside the two regs.
+        """
+        mc.load_imm(r.r2, self.cpu.pos_exc_value())
+        diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
+        assert _check_imm_arg(diff)
+        # Load the exception fields into the two registers
+        mc.load(excvalloc.value, r.r2.value, 0)
+        mc.load(exctploc.value, r.r2.value, diff)
+        # Zero out the exception fields
+        mc.li(r.r0.value, 0)
+        mc.store(r.r0.value, r.r2.value, 0)
+        mc.store(r.r0.value, r.r2.value, diff)
+
+    def _restore_exception(self, mc, excvalloc, exctploc):
+        mc.load_imm(r.r2, self.cpu.pos_exc_value())
+        diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
+        assert _check_imm_arg(diff)
+        # Store the exception fields from the two registers
+        mc.store(excvalloc.value, r.r2.value, 0)
+        mc.store(exctploc.value, r.r2.value, diff)
+
     def _build_cond_call_slowpath(self, supports_floats, callee_only):
-        pass
+        """ This builds a general call slowpath, for whatever call happens to
+        come.
+        """
+        # signature of these cond_call_slowpath functions:
+        #   * on entry, r12 contains the function to call
+        #   * r3, r4, r5, r6 contain arguments for the call
+        #   * r2 is the gcmap
+        #   * the old value of these regs must already be stored in the jitframe
+        #   * on exit, all registers are restored from the jitframe
+
+        mc = PPCBuilder()
+        self.mc = mc
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.store(r.r2.value, r.SPP.value, ofs2)
+
+        # copy registers to the frame, with the exception of r3 to r6 and r12,
+        # because these have already been saved by the caller.  Note that
+        # this is not symmetrical: these 5 registers are saved by the caller
+        # but restored here at the end of this function.
+        self._push_all_regs_to_jitframe(mc, [r.r3, r.r4, r.r5, r.r6, r.r12],
+                                        supports_floats, callee_only)
+
+        # Save away the LR inside r30
+        mc.mflr(r.RCS1.value)
+
+        # Do the call
+        cb = callbuilder.CallBuilder(self, r.r12, [r.r3, r.r4, r.r5, r.r6],
+                                     None)
+        cb.emit()
+
+        # Finish
+        # XXX self._reload_frame_if_necessary(mc, align_stack=True)
+
+        mc.mtlr(r.RCS1.value)     # restore LR
+        self._pop_all_regs_from_jitframe(mc, [], supports_floats, callee_only)
+        mc.blr()
+        self.mc = None
+        return mc.materialize(self.cpu, [])
 
     def _build_malloc_slowpath(self):
         mc = PPCBuilder()
@@ -672,15 +777,42 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
                                                         allblocks)
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
-        #self.max_stack_params = 0
 
     def update_frame_depth(self, frame_depth):
+        if frame_depth > 0x7fff:
+            raise JitFrameTooDeep     # XXX
         baseofs = self.cpu.get_baseofs_of_frame_field()
         self.current_clt.frame_info.update_frame_depth(baseofs, frame_depth)
 
-    def patch_stack_checks(self, framedepth, rawstart):
-        for ofs in self.frame_depth_to_patch:
-            self._patch_frame_depth(ofs + rawstart, framedepth)
+    def patch_stack_checks(self, frame_depth):
+        if frame_depth > 0x7fff:
+            raise JitFrameTooDeep     # XXX
+        for traps_pos, jmp_target in self.frame_depth_to_patch:
+            pmc = OverwritingBuilder(self.mc, traps_pos, 3)
+            # three traps, so exactly three instructions to patch here
+            pmc.cmpdi(0, r.r2.value, frame_depth)         # 1
+            pmc.bc(7, 0, jmp_target - (traps_pos + 4))    # 2   "bge+"
+            pmc.li(r.r0.value, frame_depth)               # 3
+            pmc.overwrite()
+
+    def _check_frame_depth(self, mc, gcmap):
+        """ check if the frame is of enough depth to follow this bridge.
+        Otherwise reallocate the frame in a helper.
+        """
+        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+        ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
+        mc.ld(r.r2.value, r.SPP.value, ofs)
+        patch_pos = mc.currpos()
+        mc.trap()     # placeholder for cmpdi(0, r2, ...)
+        mc.trap()     # placeholder for bge
+        mc.trap()     # placeholder for li(r0, ...)
+        mc.load_imm(r.SCRATCH2, self._frame_realloc_slowpath)
+        mc.mtctr(r.SCRATCH2.value)
+        #XXXXX:
+        if we_are_translated(): XXX #self.load_gcmap(mc, gcmap)  # -> r2
+        mc.bctrl()
+
+        self.frame_depth_to_patch.append((patch_pos, mc.currpos()))
 
     @rgc.no_release_gil
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
@@ -717,12 +849,11 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.write_pending_failure_recoveries()
         full_size = self.mc.get_relative_pos()
         #
+        self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         rawstart = self.materialize_loop(looptoken)
         if IS_PPC_64 and IS_BIG_ENDIAN:  # fix the function descriptor (3 words)
             rffi.cast(rffi.LONGP, rawstart)[0] = rawstart + 3 * WORD
         #
-        self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
-                                rawstart)
         looptoken._ppc_loop_code = looppos + rawstart
         debug_start("jit-backend-addr")
         debug_print("Loop %d (%s) has address 0x%x to 0x%x (bootstrap 0x%x)" % (
@@ -756,8 +887,10 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
 
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc
+        self.guard_success_cc = c.cond_none
         regalloc.compute_hint_frame_locations(operations)
         regalloc.walk_operations(inputargs, operations)
+        assert self.guard_success_cc == c.cond_none
         if 1: # we_are_translated() or self.cpu.dont_keepalive_stuff:
             self._regalloc = None   # else keep it around for debugging
         frame_depth = regalloc.get_final_frame_depth()
@@ -788,16 +921,14 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
-        #self._check_frame_depth(self.mc, regalloc.get_gcmap())
-        #        XXX ^^^^^^^^^^
+        self._check_frame_depth(self.mc, "??")
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
         #
+        self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         rawstart = self.materialize_loop(original_loop_token)
-        self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
-                                rawstart)
         debug_bridge(descr_number, rawstart, codeendpos)
         self.patch_pending_failure_recoveries(rawstart)
         # patch the jump from original guard
@@ -812,15 +943,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.update_frame_depth(frame_depth)
         self.teardown()
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
-
-    def _patch_sp_offset(self, sp_patch_location, rawstart):
-        mc = PPCBuilder()
-        frame_depth = self.compute_frame_depth(self.current_clt.frame_depth,
-                                               self.current_clt.param_depth)
-        frame_depth -= self.OFFSET_SPP_TO_OLD_BACKCHAIN
-        mc.load_imm(r.SCRATCH, -frame_depth)
-        mc.add(r.SP.value, r.SPP.value, r.SCRATCH.value)
-        mc.copy_to_raw_memory(rawstart + sp_patch_location)
 
     DESCR_REF       = 0x00
     DESCR_INT       = 0x01
@@ -938,6 +1060,10 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         ptr = rffi.cast(lltype.Signed, gcmap)
         mc.load_imm(r.r2, ptr)
 
+    def push_gcmap(self, mc, gcmap, store):
+        assert store is True
+        # XXX IGNORED FOR NOW
+
     def break_long_loop(self):
         # If the loop is too long, the guards in it will jump forward
         # more than 32 KB.  We use an approximate hack to know if we
@@ -962,6 +1088,9 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.mc.mtctr(r.r0.value)
         self.mc.load_imm(r.r0, fail_descr)
         self.mc.bctr()
+        # we need to write at least 6 insns here, for patch_jump_for_descr()
+        while self.mc.currpos() < startpos + 6 * 4:
+            self.mc.trap()
         return startpos
 
     def write_pending_failure_recoveries(self):
@@ -1004,7 +1133,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         # conditional jump.  We must patch this conditional jump to go
         # to 'adr_new_target'.  If the target is too far away, we can't
         # patch it inplace, and instead we patch the quick failure code
-        # (which should be at least 5 instructions, so enough).
+        # (which should be at least 6 instructions, so enough).
         # --- XXX for now we always use the second solution ---
         mc = PPCBuilder()
         mc.b_abs(adr_new_target)
@@ -1098,63 +1227,44 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         assert 0, "not supported location"
     mov_loc_loc = regalloc_mov
 
-    def regalloc_push(self, loc):
+    def regalloc_push(self, loc, already_pushed):
         """Pushes the value stored in loc to the stack
         Can trash the current value of SCRATCH when pushing a stack
         loc"""
-        self.mc.addi(r.SP.value, r.SP.value, -WORD) # decrease stack pointer
         assert IS_PPC_64, 'needs to updated for ppc 32'
 
-        if loc.is_imm():
-            with scratch_reg(self.mc):
-                self.regalloc_mov(loc, r.SCRATCH)
-                self.mc.store(r.SCRATCH.value, r.SP.value, 0)
-        elif loc.is_imm_float():
-            with scratch_reg(self.mc):
-                self.regalloc_mov(loc, r.FP_SCRATCH)
-                self.mc.store(r.FP_SCRATCH.value, r.SP.value, 0)
-        elif loc.is_stack():
-            # XXX this code has to be verified
-            with scratch_reg(self.mc):
-                self.regalloc_mov(loc, r.SCRATCH)
-                # push value
-                self.mc.store(r.SCRATCH.value, r.SP.value, 0)
-        elif loc.is_reg():
-            # push value
-            self.mc.store(loc.value, r.SP.value, 0)
-        elif loc.is_fp_reg():
-            self.mc.addi(r.SP.value, r.SP.value, -WORD) # decrease stack pointer
-            # push value
-            self.mc.stfd(loc.value, r.SP.value, 0)
-        else:
-            raise AssertionError('Trying to push an invalid location')
+        index = WORD * (~already_pushed)
 
-    def regalloc_pop(self, loc):
+        if loc.type == FLOAT:
+            if not loc.is_fp_reg():
+                self.regalloc_mov(loc, r.FP_SCRATCH)
+                loc = r.FP_SCRATCH
+            self.mc.stfd(loc.value, r.SP.value, index)
+        else:
+            if not loc.is_core_reg():
+                self.regalloc_mov(loc, r.SCRATCH)
+                loc = r.SCRATCH
+            self.mc.std(loc.value, r.SP.value, index)
+
+    def regalloc_pop(self, loc, already_pushed):
         """Pops the value on top of the stack to loc. Can trash the current
         value of SCRATCH when popping to a stack loc"""
         assert IS_PPC_64, 'needs to updated for ppc 32'
-        if loc.is_stack():
-            # XXX this code has to be verified
-            with scratch_reg(self.mc):
-                # pop value
-                if IS_PPC_32:
-                    self.mc.lwz(r.SCRATCH.value, r.SP.value, 0)
-                else:
-                    self.mc.ld(r.SCRATCH.value, r.SP.value, 0)
-                self.mc.addi(r.SP.value, r.SP.value, WORD) # increase stack pointer
-                self.regalloc_mov(r.SCRATCH, loc)
-        elif loc.is_reg():
-            # pop value
-            if IS_PPC_32:
-                self.mc.lwz(loc.value, r.SP.value, 0)
+
+        index = WORD * (~already_pushed)
+
+        if loc.type == FLOAT:
+            if loc.is_fp_reg():
+                self.mc.lfd(loc.value, r.SP.value, index)
             else:
-                self.mc.ld(loc.value, r.SP.value, 0)
-            self.mc.addi(r.SP.value, r.SP.value, WORD) # increase stack pointer
-        elif loc.is_fp_reg():
-            self.mc.lfd(loc.value, r.SP.value, 0)
-            self.mc.addi(r.SP.value, r.SP.value, WORD) # increase stack pointer
+                self.mc.lfd(r.FP_SCRATCH.value, r.SP.value, index)
+                self.regalloc_mov(r.FP_SCRATCH.value, loc)
         else:
-            raise AssertionError('Trying to pop to an invalid location')
+            if loc.is_core_reg():
+                self.mc.ld(loc.value, r.SP.value, index)
+            else:
+                self.mc.ld(r.SCRATCH.value, r.SP.value, index)
+                self.regalloc_mov(r.SCRATCH.value, loc)
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
         assert size & (WORD-1) == 0     # must be correctly aligned
@@ -1245,17 +1355,7 @@ def notimplemented_op(self, op, arglocs, regalloc):
     print "[PPC/asm] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 
-def notimplemented_op_with_guard(self, op, guard_op, arglocs, regalloc):
-    print "[PPC/asm] %s with guard %s not implemented" % \
-            (op.getopname(), guard_op.getopname())
-    raise NotImplementedError(op)
-
-def add_none_argument(fn):
-    return (lambda self, op, arglocs, regalloc:
-                        fn(self, op, None, arglocs, regalloc))
-
 operations = [notimplemented_op] * (rop._LAST + 1)
-operations_with_guard = [notimplemented_op_with_guard] * (rop._LAST + 1)
 
 for key, value in rop.__dict__.items():
     key = key.lower()
@@ -1265,17 +1365,6 @@ for key, value in rop.__dict__.items():
     if hasattr(AssemblerPPC, methname):
         func = getattr(AssemblerPPC, methname).im_func
         operations[value] = func
-
-for key, value in rop.__dict__.items():
-    key = key.lower()
-    if key.startswith('_'):
-        continue
-    methname = 'emit_guard_%s' % key
-    if hasattr(AssemblerPPC, methname):
-        assert operations[value] is notimplemented_op
-        func = getattr(AssemblerPPC, methname).im_func
-        operations_with_guard[value] = func
-        operations[value] = add_none_argument(func)
 
 class BridgeAlreadyCompiled(Exception):
     pass

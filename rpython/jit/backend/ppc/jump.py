@@ -51,7 +51,7 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
                 dst = dst_locations[i]
                 originalkey = dst.as_key()
                 if srccount[originalkey] >= 0:
-                    assembler.regalloc_push(dst)
+                    assembler.regalloc_push(dst, 0)
                     while True:
                         key = dst.as_key()
                         assert srccount[key] == 1
@@ -63,7 +63,7 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
                             break
                         _move(assembler, src, dst, tmpreg)
                         dst = src
-                    assembler.regalloc_pop(dst)
+                    assembler.regalloc_pop(dst, 0)
             assert pending_dests == 0
 
 def _move(assembler, src, dst, tmpreg):
@@ -91,7 +91,7 @@ def remap_frame_layout_mixed(assembler,
             key = loc.as_key()
             if (key in dst_keys or (loc.width > WORD and
                                     (key + 1) in dst_keys)):
-                assembler.regalloc_push(loc)
+                assembler.regalloc_push(loc, len(extrapushes))
                 extrapushes.append(dstloc)
                 continue
         src_locations2red.append(loc)
@@ -108,4 +108,4 @@ def remap_frame_layout_mixed(assembler,
     # finally, pop the extra fp stack locations
     while len(extrapushes) > 0:
         loc = extrapushes.pop()
-        assembler.regalloc_pop(loc)
+        assembler.regalloc_pop(loc, len(extrapushes))

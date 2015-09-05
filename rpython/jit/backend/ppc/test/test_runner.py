@@ -3,7 +3,7 @@ from rpython.jit.backend.ppc.runner import PPC_CPU
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.history import (AbstractFailDescr,
                                             AbstractDescr,
-                                            BasicFailDescr,
+                                            BasicFailDescr, BasicFinalDescr,
                                             BoxInt, Box, BoxPtr,
                                             JitCellToken, TargetToken,
                                             ConstInt, ConstPtr,
@@ -100,7 +100,7 @@ class TestPPC(LLtypeBackendTest):
 
     def test_unicodesetitem_really_needs_temploc(self):
         u_box = self.alloc_unicode(u"abcdsdasdsaddefg")
-        
+
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
@@ -116,21 +116,41 @@ class TestPPC(LLtypeBackendTest):
         inputargs = [i0,i1,i2,i3,i4,i5,i6,i7,i8,i9,p10]
         looptoken = JitCellToken()
         targettoken = TargetToken()
-        faildescr = BasicFailDescr(1)
+        finaldescr = BasicFinalDescr(1)
+
+        i11 = BoxInt()
+        i12 = BoxInt()
+        i13 = BoxInt()
+        i14 = BoxInt()
+        i15 = BoxInt()
+        i16 = BoxInt()
+        i17 = BoxInt()
+        i18 = BoxInt()
+        i19 = BoxInt()
 
         operations = [
             ResOperation(rop.LABEL, inputargs, None, descr=targettoken),
             ResOperation(rop.UNICODESETITEM, 
                          [p10, i6, ConstInt(123)], None),
-            ResOperation(rop.FINISH, inputargs, None, descr=faildescr)
+            ResOperation(rop.INT_ADD, [i0,  i1], i11),
+            ResOperation(rop.INT_ADD, [i11, i2], i12),
+            ResOperation(rop.INT_ADD, [i12, i3], i13),
+            ResOperation(rop.INT_ADD, [i13, i4], i14),
+            ResOperation(rop.INT_ADD, [i14, i5], i15),
+            ResOperation(rop.INT_ADD, [i15, i6], i16),
+            ResOperation(rop.INT_ADD, [i16, i7], i17),
+            ResOperation(rop.INT_ADD, [i17, i8], i18),
+            ResOperation(rop.INT_ADD, [i18, i9], i19),
+            ResOperation(rop.FINISH, [i19], None, descr=finaldescr)
             ]
 
         args = [(i + 1) for i in range(10)] + [u_box.getref_base()]
         self.cpu.compile_loop(inputargs, operations, looptoken)
-        fail = self.cpu.execute_token(looptoken, *args)
+        deadframe = self.cpu.execute_token(looptoken, *args)
+        fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 1
-        for i in range(10):
-            assert self.cpu.get_latest_value_int(i) == args[i]
+        res = self.cpu.get_int_value(deadframe, 0)
+        assert res == sum(args[:10])
 
     def test_debugger_on(self):
         py.test.skip("XXX")

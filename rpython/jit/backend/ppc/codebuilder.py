@@ -47,6 +47,7 @@ XL1 = Form("crfD", "crfS")
 XL2 = Form("crbD", "XO1", "Rc")
 XFL = Form("FM", "frB", "XO1", "Rc")
 XFX = Form("CRM", "rS", "XO1")
+XLL = Form("LL", "XO1")
 
 MI = Form("rA", "rS", "SH", "MB", "ME", "Rc")
 MB = Form("rA", "rS", "rB", "MB", "ME", "Rc")
@@ -542,7 +543,8 @@ class BasicPPCAssembler(object):
     subfzeo = XO0(31, OE=1, XO2=200, Rc=0)
     subfzeox= XO0(31, OE=1, XO2=200, Rc=1)
 
-    sync    = X(31, XO1=598)
+    sync    = XLL(31, LL=0, XO1=598)
+    lwsync  = XLL(31, LL=1, XO1=598)
 
     tlbia = X(31, XO1=370)
     tlbie = Form("rB", "XO1")(31, XO1=306)
@@ -925,8 +927,8 @@ else:
 class PPCGuardToken(GuardToken):
     def __init__(self, cpu, gcmap, descr, failargs, faillocs,
                  exc, frame_depth, is_guard_not_invalidated=False,
-                 is_guard_not_forced=False, fcond=c.UH):
-        assert fcond != c.UH
+                 is_guard_not_forced=False, fcond=c.cond_none):
+        assert fcond != c.cond_none
         GuardToken.__init__(self, cpu, gcmap, descr, failargs, faillocs, exc,
                             frame_depth, is_guard_not_invalidated,
                             is_guard_not_forced)
@@ -1007,7 +1009,7 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self.b(offset)
 
     def b_cond_offset(self, offset, condition):
-        assert condition != c.UH
+        assert condition != c.cond_none
         BI, BO = c.encoding[condition]
 
         pos = self.currpos()
@@ -1015,7 +1017,7 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self.bc(BO, BI, target_ofs)
 
     def b_cond_abs(self, addr, condition):
-        assert condition != c.UH
+        assert condition != c.cond_none
         BI, BO = c.encoding[condition]
 
         with scratch_reg(self):
@@ -1035,6 +1037,29 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         with scratch_reg(self):
             self.load_imm(r.SCRATCH, address)
             self.mtctr(r.SCRATCH.value)
+        self.bctrl()
+
+    if IS_BIG_ENDIAN:
+        RAW_CALL_REG = r.r2
+    else:
+        RAW_CALL_REG = r.r12
+
+    def raw_call(self):
+        """Emit a call to the address stored in the register RAW_CALL_REG."""
+        if IS_BIG_ENDIAN:
+            # Load the function descriptor (currently in r2) from memory:
+            #  [r2 + 0]  -> ctr
+            #  [r2 + 16] -> r11
+            #  [r2 + 8]  -> r2  (= TOC)
+            assert self.RAW_CALL_REG is r.r2
+            self.ld(r.SCRATCH.value, r.r2.value, 0)
+            self.ld(r.r11.value, r.r2.value, 16)
+            self.mtctr(r.SCRATCH.value)
+            self.ld(r.TOC.value, r.r2.value, 8)   # must be last: TOC is r2
+        elif IS_LITTLE_ENDIAN:
+            assert self.RAW_CALL_REG is r.r12     # 'r12' is fixed by this ABI
+            self.mtctr(r.r12.value)
+        # Call the function
         self.bctrl()
 
     ## def call(self, address):

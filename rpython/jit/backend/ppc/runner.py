@@ -1,6 +1,7 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.llinterp import LLInterpreter
+from rpython.rlib import rgc
 #from rpython.jit.backend.ppc.arch import FORCE_INDEX_OFS
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.ppc.ppc_assembler import AssemblerPPC
@@ -14,9 +15,10 @@ py.log.setconsumer('jitbackend', ansi_log)
 
 class PPC_CPU(AbstractLLCPU):
 
+    supports_floats = True
+    # missing: supports_singlefloats
 
     IS_64_BIT = True
-    BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
 
     from rpython.jit.backend.ppc.register import JITFRAME_FIXED_SIZE
     frame_reg = r.SP
@@ -24,7 +26,10 @@ class PPC_CPU(AbstractLLCPU):
     for _i, _r in enumerate(r.MANAGED_REGS):
         all_reg_indexes[_r.value] = _i
     gen_regs = r.MANAGED_REGS
-    float_regs = r.MANAGED_FP_REGS
+    float_regs = [None] + r.MANAGED_FP_REGS
+    #             ^^^^ we leave a never-used hole for f0 in the jitframe
+    #             for rebuild_faillocs_from_descr(), as a counter-workaround
+    #             for the reverse hack in ALL_REG_INDEXES
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
@@ -36,15 +41,14 @@ class PPC_CPU(AbstractLLCPU):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
-        # floats are supported.  singlefloats are not supported yet
-        self.supports_floats = True
-
     def setup(self):
         self.assembler = AssemblerPPC(self)
 
+    @rgc.no_release_gil
     def setup_once(self):
         self.assembler.setup_once()
 
+    @rgc.no_release_gil
     def finish_once(self):
         self.assembler.finish_once()
 
@@ -55,69 +59,12 @@ class PPC_CPU(AbstractLLCPU):
         return self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                               original_loop_token, log, logger)
 
-    @staticmethod
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return PPC_CPU.cast_adr_to_int(adr)
+    cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
+    cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
-    # XXX find out how big FP registers are on PPC32
-    all_null_registers = lltype.malloc(rffi.LONGP.TO,
-                        len(r.MANAGED_REGS),
-                        flavor='raw', zero=True, immortal=True)
-
-    def force(self, addr_of_force_index):
-        TP = rffi.CArrayPtr(lltype.Signed)
-
-        spilling_pointer = addr_of_force_index - FORCE_INDEX_OFS
-
-        fail_index = rffi.cast(TP, addr_of_force_index)[0]
-        assert fail_index >= 0, "already forced!"
-        faildescr = self.get_fail_descr_from_number(fail_index)
-        rffi.cast(TP, addr_of_force_index)[0] = ~fail_index
-
-        bytecode = self.assembler._find_failure_recovery_bytecode(faildescr)
-        addr_all_null_registers = rffi.cast(rffi.LONG, self.all_null_registers)
-        # start of "no gc operation!" block
-        fail_index_2 = self.assembler.failure_recovery_func(
-                bytecode,
-                spilling_pointer,
-                addr_all_null_registers)
-        self.assembler.leave_jitted_hook()
-        # end of "no gc operation!" block
-        assert fail_index == fail_index_2
-        return faildescr
-
-    # return the number of values that can be returned
-    def get_latest_value_count(self):
-        return self.assembler.fail_boxes_count
-
-    # fetch the result of the computation and return it
-    def get_latest_value_float(self, index):
-        return self.assembler.fail_boxes_float.getitem(index)
-
-    def get_latest_value_int(self, index):
-        return self.assembler.fail_boxes_int.getitem(index)
-
-    def get_latest_value_ref(self, index):
-        return self.assembler.fail_boxes_ptr.getitem(index)
-
-    def get_latest_force_token(self):
-        return self.assembler.fail_force_index
-    
-    def get_on_leave_jitted_hook(self):
-        return self.assembler.leave_jitted_hook
-
-    # walk through the given trace and generate machine code
-    def _walk_trace_ops(self, codebuilder, operations):
-        for op in operations:
-            codebuilder.build_op(op, self)
-                
-    def get_box_index(self, box):
-        return self.arg_to_box[box]
-
-    def teardown(self):
-        self.patch_list = None
-        self.reg_map = None
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)

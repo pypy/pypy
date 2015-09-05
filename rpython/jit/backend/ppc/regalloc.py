@@ -20,6 +20,7 @@ from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.descr import ArrayDescr
 import rpython.jit.backend.ppc.register as r
+import rpython.jit.backend.ppc.condition as c
 from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
@@ -55,7 +56,7 @@ class TempFloat(TempBox):
 class FPRegisterManager(RegisterManager):
     all_regs              = r.MANAGED_FP_REGS
     box_types             = [FLOAT]
-    save_around_call_regs = r.VOLATILES_FLOAT
+    save_around_call_regs = [_r for _r in all_regs if _r in r.VOLATILES_FLOAT]
 
     def convert_to_imm(self, c):
         assert isinstance(c, ConstFloat)
@@ -92,7 +93,8 @@ class PPCRegisterManager(RegisterManager):
     all_regs              = r.MANAGED_REGS
     box_types             = None       # or a list of acceptable types
     no_lower_byte_regs    = all_regs
-    save_around_call_regs = r.VOLATILES
+    save_around_call_regs = [_r for _r in all_regs if _r in r.VOLATILES]
+    frame_reg             = r.SPP
 
     REGLOC_TO_COPY_AREA_OFS = {
         r.r5:   MY_COPY_OF_REGS + 0 * WORD,
@@ -281,13 +283,25 @@ class Regalloc(BaseRegalloc):
             forbidden_vars = self.rm.temp_boxes
             return self.rm.force_allocate_reg(var, forbidden_vars)
 
+    def force_allocate_reg_or_cc(self, var):
+        assert var.type == INT
+        if self.next_op_can_accept_cc(self.operations, self.rm.position):
+            # hack: return the SPP location to mean "lives in CC".  This
+            # SPP will not actually be used, and the location will be freed
+            # after the next op as usual.
+            self.rm.force_allocate_frame_reg(var)
+            return r.SPP
+        else:
+            # else, return a regular register (not SPP).
+            return self.force_allocate_reg(var)
+
     def walk_operations(self, inputargs, operations):
         from rpython.jit.backend.ppc.ppc_assembler import (
-            operations_with_guard as asm_operations_with_guard,
             operations as asm_operations)
         i = 0
         self.limit_loop_break = (self.assembler.mc.get_relative_pos() +
                                      LIMIT_LOOP_BREAK)
+        self.operations = operations
         while i < len(operations):
             op = operations[i]
             self.assembler.mc.mark_op(op)
@@ -306,21 +320,11 @@ class Regalloc(BaseRegalloc):
                     self.fprm.temp_boxes.append(box)
             #
             opnum = op.getopnum()
-            if self.can_merge_with_next_guard(op, i, operations):
-                i += 1
-                self.rm.position = i
-                self.fprm.position = i
-                arglocs = oplist_with_guard[opnum](self, op, operations[i])
-                assert arglocs is not None
-                asm_operations_with_guard[opnum](self.assembler, op,
-                                                 operations[i],
-                                                 arglocs, self)
-            elif not we_are_translated() and opnum == -124:
+            if not we_are_translated() and opnum == -124:
                 self._consider_force_spill(op)
             else:
                 arglocs = oplist[opnum](self, op)
-                if arglocs is not None:
-                    asm_operations[opnum](self.assembler, op, arglocs, self)
+                asm_operations[opnum](self.assembler, op, arglocs, self)
             self.free_op_vars()
             self.possibly_free_var(op.result)
             self.rm._check_invariants()
@@ -334,6 +338,7 @@ class Regalloc(BaseRegalloc):
         assert not self.fprm.reg_bindings
         self.flush_loop()
         self.assembler.mc.mark_op(None) # end of the loop
+        self.operations = None
         for arg in inputargs:
             self.possibly_free_var(arg)
 
@@ -343,6 +348,10 @@ class Regalloc(BaseRegalloc):
         mc = self.assembler.mc
         while self.min_bytes_before_label > mc.get_relative_pos():
             mc.nop()
+
+    def get_gcmap(self, noregs=False):
+        #xxxxxx
+        return '???'
 
     def loc(self, var):
         if var.type == FLOAT:
@@ -436,46 +445,46 @@ class Regalloc(BaseRegalloc):
     prepare_uint_rshift = helper.prepare_binary_op
     prepare_uint_floordiv = helper.prepare_binary_op
 
-    prepare_guard_int_add_ovf = helper.prepare_int_binary_ovf
-    prepare_guard_int_sub_ovf = helper.prepare_int_binary_ovf
-    prepare_guard_int_mul_ovf = helper.prepare_int_binary_ovf
+    prepare_int_add_ovf = helper.prepare_binary_op
+    prepare_int_sub_ovf = helper.prepare_binary_op
+    prepare_int_mul_ovf = helper.prepare_binary_op
 
     prepare_int_neg = helper.prepare_unary_op
     prepare_int_invert = helper.prepare_unary_op
     prepare_int_signext = helper.prepare_unary_op
 
-    prepare_guard_int_le = helper.prepare_cmp_op
-    prepare_guard_int_lt = helper.prepare_cmp_op
-    prepare_guard_int_ge = helper.prepare_cmp_op
-    prepare_guard_int_gt = helper.prepare_cmp_op
-    prepare_guard_int_eq = helper.prepare_cmp_op
-    prepare_guard_int_ne = helper.prepare_cmp_op
+    prepare_int_le = helper.prepare_cmp_op
+    prepare_int_lt = helper.prepare_cmp_op
+    prepare_int_ge = helper.prepare_cmp_op
+    prepare_int_gt = helper.prepare_cmp_op
+    prepare_int_eq = helper.prepare_cmp_op
+    prepare_int_ne = helper.prepare_cmp_op
 
-    prepare_guard_ptr_eq = prepare_guard_int_eq
-    prepare_guard_ptr_ne = prepare_guard_int_ne
+    prepare_ptr_eq = prepare_int_eq
+    prepare_ptr_ne = prepare_int_ne
 
-    prepare_guard_instance_ptr_eq = prepare_guard_ptr_eq
-    prepare_guard_instance_ptr_ne = prepare_guard_ptr_ne
+    prepare_instance_ptr_eq = prepare_ptr_eq
+    prepare_instance_ptr_ne = prepare_ptr_ne
 
-    prepare_guard_uint_lt = helper.prepare_cmp_op_unsigned
-    prepare_guard_uint_le = helper.prepare_cmp_op_unsigned
-    prepare_guard_uint_gt = helper.prepare_cmp_op_unsigned
-    prepare_guard_uint_ge = helper.prepare_cmp_op_unsigned
+    prepare_uint_lt = helper.prepare_cmp_op_unsigned
+    prepare_uint_le = helper.prepare_cmp_op_unsigned
+    prepare_uint_gt = helper.prepare_cmp_op_unsigned
+    prepare_uint_ge = helper.prepare_cmp_op_unsigned
 
-    prepare_guard_int_is_true = helper.prepare_unary_cmp
-    prepare_guard_int_is_zero = helper.prepare_unary_cmp
+    prepare_int_is_true = helper.prepare_unary_cmp
+    prepare_int_is_zero = helper.prepare_unary_cmp
 
     prepare_float_add = helper.prepare_binary_op
     prepare_float_sub = helper.prepare_binary_op
     prepare_float_mul = helper.prepare_binary_op
     prepare_float_truediv = helper.prepare_binary_op
 
-    prepare_guard_float_lt = helper.prepare_float_cmp
-    prepare_guard_float_le = helper.prepare_float_cmp
-    prepare_guard_float_eq = helper.prepare_float_cmp
-    prepare_guard_float_ne = helper.prepare_float_cmp
-    prepare_guard_float_gt = helper.prepare_float_cmp
-    prepare_guard_float_ge = helper.prepare_float_cmp
+    prepare_float_lt = helper.prepare_float_cmp
+    prepare_float_le = helper.prepare_float_cmp
+    prepare_float_eq = helper.prepare_float_cmp
+    prepare_float_ne = helper.prepare_float_cmp
+    prepare_float_gt = helper.prepare_float_cmp
+    prepare_float_ge = helper.prepare_float_cmp
     prepare_float_neg = helper.prepare_unary_op
     prepare_float_abs = helper.prepare_unary_op
 
@@ -541,14 +550,21 @@ class Regalloc(BaseRegalloc):
         #
         return args
 
-    def prepare_guard_true(self, op):
-        l0 = self.ensure_reg(op.getarg(0))
-        args = self._prepare_guard(op, [l0])
-        return args
+    def load_condition_into_cc(self, box):
+        if self.assembler.guard_success_cc == c.cond_none:
+            loc = self.ensure_reg(box)
+            mc = self.assembler.mc
+            mc.cmp_op(0, loc.value, 0, imm=True)
+            self.assembler.guard_success_cc = c.NE
 
-    prepare_guard_false = prepare_guard_true
-    prepare_guard_nonnull = prepare_guard_true
-    prepare_guard_isnull = prepare_guard_true
+    def _prepare_guard_cc(self, op):
+        self.load_condition_into_cc(op.getarg(0))
+        return self._prepare_guard(op)
+
+    prepare_guard_true = _prepare_guard_cc
+    prepare_guard_false = _prepare_guard_cc
+    prepare_guard_nonnull = _prepare_guard_cc
+    prepare_guard_isnull = _prepare_guard_cc
 
     def prepare_guard_not_invalidated(self, op):
         pos = self.assembler.mc.get_relative_pos()
@@ -570,9 +586,12 @@ class Regalloc(BaseRegalloc):
         return arglocs
 
     def prepare_guard_no_exception(self, op):
-        loc = self.ensure_reg(ConstInt(self.cpu.pos_exception()))
-        arglocs = self._prepare_guard(op, [loc])
+        arglocs = self._prepare_guard(op)
         return arglocs
+
+    prepare_guard_no_overflow = prepare_guard_no_exception
+    prepare_guard_overflow = prepare_guard_no_exception
+    prepare_guard_not_forced = prepare_guard_no_exception
 
     def prepare_guard_value(self, op):
         l0 = self.ensure_reg(op.getarg(0))
@@ -863,12 +882,13 @@ class Regalloc(BaseRegalloc):
         if effectinfo is not None:
             oopspecindex = effectinfo.oopspecindex
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
+                xxxxxxxxx
                 args = self.prepare_math_sqrt(op)
                 self.assembler.emit_math_sqrt(op, args, self)
                 return
         return self._prepare_call(op)
 
-    def _prepare_call(self, op, force_store=[], save_all_regs=False):
+    def _prepare_call(self, op, save_all_regs=False):
         args = []
         args.append(None)
         for i in range(op.numargs()):
@@ -1003,12 +1023,11 @@ class Regalloc(BaseRegalloc):
         if jump_op is not None and jump_op.getdescr() is descr:
             self._compute_hint_frame_locations_from_descr(descr)
 
-    def prepare_guard_call_may_force(self, op, guard_op):
-        args = self._prepare_call(op, save_all_regs=True)
-        return self._prepare_guard(guard_op, args)
+    def prepare_call_may_force(self, op):
+        return self._prepare_call(op, save_all_regs=True)
 
-    prepare_guard_call_release_gil = prepare_guard_call_may_force
-    
+    prepare_call_release_gil = prepare_call_may_force
+
     def prepare_guard_call_assembler(self, op, guard_op):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
@@ -1055,18 +1074,20 @@ class Regalloc(BaseRegalloc):
         ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
         return [base_loc, startindex_loc, length_loc, ofs_loc, imm(itemsize)]
 
-def add_none_argument(fn):
-    return lambda self, op: fn(self, op, None)
+    def prepare_cond_call(self, op):
+        self.load_condition_into_cc(op.getarg(0))
+        locs = []
+        # support between 0 and 4 integer arguments
+        assert 2 <= op.numargs() <= 2 + 4
+        for i in range(1, op.numargs()):
+            loc = self.loc(op.getarg(i))
+            assert loc.type != FLOAT
+            locs.append(loc)
+        return locs
 
 def notimplemented(self, op):
     print "[PPC/regalloc] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
-
-def notimplemented_with_guard(self, op, guard_op):
-    print "[PPC/regalloc] %s with guard %s not implemented" % \
-            (op.getopname(), guard_op.getopname())
-    raise NotImplementedError(op)
-
 
 def force_int(intvalue):
     # a hack before transaction: force the intvalue argument through
@@ -1075,7 +1096,6 @@ def force_int(intvalue):
 
 
 oplist = [notimplemented] * (rop._LAST + 1)
-oplist_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
 
 for key, value in rop.__dict__.items():
     key = key.lower()
@@ -1085,14 +1105,3 @@ for key, value in rop.__dict__.items():
     if hasattr(Regalloc, methname):
         func = getattr(Regalloc, methname).im_func
         oplist[value] = func
-
-for key, value in rop.__dict__.items():
-    key = key.lower()
-    if key.startswith('_'):
-        continue
-    methname = 'prepare_guard_%s' % key
-    if hasattr(Regalloc, methname):
-        assert oplist[value] is notimplemented
-        func = getattr(Regalloc, methname).im_func
-        oplist_with_guard[value] = func
-        oplist[value] = add_none_argument(func)

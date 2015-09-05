@@ -6,7 +6,7 @@ LT = 4
 GE = 5
 SO = 6
 NS = 7
-UH = -1    # invalid
+cond_none = -1    # invalid
 
 def negate(cond):
     return cond ^ 1

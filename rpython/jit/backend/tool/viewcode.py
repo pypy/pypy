@@ -52,13 +52,11 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
     }
     machine_endianness = {
         # default value: 'little'
-        'ppc' : 'big',
+        'ppc' : sys.byteorder,     # i.e. same as the running machine...
     }
     cmd = find_objdump()
     objdump = ('%(command)s -b binary -m %(machine)s '
-               # NOTE: specifying endianness is annoying to debug the ppc
-               # backend on little-endian machines; better use the native one
-               #'--endian=%(endianness)s '
+               '--endian=%(endianness)s '
                '--disassembler-options=intel-mnemonics '
                '--adjust-vma=%(origin)d -D %(file)s')
     #
