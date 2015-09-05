@@ -46,7 +46,7 @@ def build_opt_chain(metainterp_sd, enable_opts):
 
     return optimizations, unroll
 
-def optimize_trace(metainterp_sd, jitdriver_sd, memo, compile_data):
+def optimize_trace(metainterp_sd, jitdriver_sd, compile_data, memo=None):
     """Optimize loop.operations to remove internal overheadish operations.
     """
     debug_start("jit-optimize")
@@ -55,6 +55,8 @@ def optimize_trace(metainterp_sd, jitdriver_sd, memo, compile_data):
         metainterp_sd.logger_noopt.log_loop(inputargs,
                                             compile_data.operations,
                                             memo)
+        if memo is None:
+            memo = {}
         compile_data.box_names_memo = memo
         optimizations, unroll = build_opt_chain(metainterp_sd,
                                                 compile_data.enable_opts)

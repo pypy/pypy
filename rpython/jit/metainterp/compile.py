@@ -221,7 +221,7 @@ def compile_simple_loop(metainterp, greenkey, start, inputargs, ops, jumpargs,
                                  enable_opts=enable_opts)
     try:
         loop_info, ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                        metainterp.box_names_memo, data)
+                                        data, metainterp.box_names_memo)
     except InvalidLoop:
         return None
     loop = create_empty_loop(metainterp)
@@ -275,8 +275,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                     enable_opts=enable_opts)
     try:
         start_state, preamble_ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                                   metainterp.box_names_memo,
-                                                   preamble_data)
+                                                   preamble_data,
+                                                   metainterp.box_names_memo)
     except InvalidLoop:
         return None
 
@@ -290,8 +290,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                  enable_opts=enable_opts)
     try:
         loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                             metainterp.box_names_memo,
-                                             loop_data)
+                                             loop_data,
+                                             metainterp.box_names_memo)
     except InvalidLoop:
         return None
 
@@ -351,8 +351,8 @@ def compile_retrace(metainterp, greenkey, start,
                                  enable_opts=enable_opts)
     try:
         loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                             metainterp.box_names_memo,
-                                             loop_data)
+                                             loop_data,
+                                             metainterp.box_names_memo)
     except InvalidLoop:
         # Fall back on jumping directly to preamble
         jump_op = ResOperation(rop.JUMP, inputargs[:], descr=loop_jitcell_token)
@@ -362,8 +362,8 @@ def compile_retrace(metainterp, greenkey, start,
                                      inline_short_preamble=False)
         try:
             loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                                 metainterp.box_names_memo,
-                                                 loop_data)
+                                                 loop_data,
+                                                 metainterp.box_names_memo)
         except InvalidLoop:
             return None
 
@@ -469,8 +469,8 @@ def propagate_original_jitcell_token(trace):
 
 def do_compile_loop(jd_id, unique_id, metainterp_sd, inputargs, operations,
                     looptoken, log=True, name='', memo=None):
-    metainterp_sd.logger_ops.log_loop(inputargs, operations, -2,
-                                      'compiling', name=name, memo=memo)
+    metainterp_sd.logger_ops.log_loop(inputargs, operations, number=-2,
+                                      type='compiling', name=name, memo=memo)
     return metainterp_sd.cpu.compile_loop(inputargs,
                                           operations, looptoken,
                                           jd_id=jd_id, unique_id=unique_id,
@@ -1047,7 +1047,7 @@ def compile_trace(metainterp, resumekey):
                                  enable_opts=enable_opts)
     try:
         info, newops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                      metainterp.box_names_memo, data)
+                                      data, metainterp.box_names_memo)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
