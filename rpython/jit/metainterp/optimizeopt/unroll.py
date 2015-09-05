@@ -127,7 +127,7 @@ class UnrollOptimizer(Optimization):
         try:
             label_args = self.import_state(start_label, state)
         except VirtualStatesCantMatch:
-            raise InvalidLoop
+            raise InvalidLoop("Cannot import state, virtual states don't match")
         self.potential_extra_ops = {}
         self.optimizer.init_inparg_dict_from(label_args)
         info, _ = self.optimizer.propagate_all_forward(
@@ -153,7 +153,9 @@ class UnrollOptimizer(Optimization):
             for arg in args:
                 self.optimizer.force_box(arg)
         except VirtualStatesCantMatch:
-            raise InvalidLoop
+            raise InvalidLoop("Virtual states did not match "
+                              "after picking the virtual state, when forcing"
+                              " boxes")
         extra_same_as = self.short_preamble_producer.extra_same_as[:]
         target_token = self.finalize_short_preamble(label_op,
                                                     state.virtual_state)
