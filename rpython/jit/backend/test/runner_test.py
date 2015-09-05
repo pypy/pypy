@@ -2293,7 +2293,7 @@ class LLtypeBackendTest(BaseBackendTest):
                     value |= 32768
                 assert s.data.tid == value
 
-    def test_cond_call(self):
+    def test_cond_call_1(self):
         def func_void(*args):
             called.append(args)
 
@@ -2329,6 +2329,52 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert self.cpu.get_int_value(frame, j + 1) == j + 1
             assert longlong.getrealfloat(self.cpu.get_float_value(frame, 6)) == 1.2
             assert longlong.getrealfloat(self.cpu.get_float_value(frame, 7)) == 3.4
+
+    def test_cond_call_2(self):
+        def func_void(*args):
+            called.append(args)
+
+        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Void)
+        func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
+
+        for (operation, arg1, arg2_if_true, arg2_if_false) in [
+                ('int_lt', -5, 2, -5),
+                ('int_le', 5, 5, -6),
+                ('int_eq', 11, 11, 12),
+                ('int_ne', 11, 12, 11),
+                ('int_gt', 8, -1, 8),
+                ('int_xor', 7, 3, 7),    # test without a comparison at all
+                ('int_is_true', 4242, 1, 0),
+                ('int_is_zero', 4242, 0, 1),
+                ('float_lt', -0.5, 0.2, -0.5),
+                ('float_eq', 1.1, 1.1, 1.2),
+                ]:
+            called = []
+
+            ops = '''
+            [%s, %s, i3, i4]
+            i2 = %s(%s)
+            cond_call(i2, ConstClass(func_ptr), i3, i4, descr=calldescr)
+            guard_no_exception(descr=faildescr) []
+            finish()
+            ''' % ("i0" if operation.startswith('int') else "f0",
+                   "i1" if operation.startswith('int') else "f1",
+                   operation,
+                   ("i1" if operation.startswith('int_is_') else
+                    "i0, i1" if operation.startswith('int') else
+                    "f0, f1"))
+            loop = parse(ops, namespace={'func_ptr': func_ptr,
+                                         'calldescr': calldescr,
+                                         'faildescr': BasicFailDescr()})
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            frame = self.cpu.execute_token(looptoken, arg1, arg2_if_false, 0, 0)
+            assert called == []
+            frame = self.cpu.execute_token(looptoken, arg1, arg2_if_true,
+                                           67, 89)
+            assert called == [(67, 89)]
 
     def test_force_operations_returning_void(self):
         values = []

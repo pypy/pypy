@@ -5,13 +5,16 @@ from rpython.jit.backend.llsupport.regalloc import FrameManager, \
         RegisterManager, TempBox, compute_vars_longevity, BaseRegalloc, \
         get_scale
 from rpython.jit.backend.arm import registers as r
+from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import locations
 from rpython.jit.backend.arm.locations import imm, get_fp_offset
 from rpython.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
-                                                    prepare_op_unary_cmp,
+                                                    prepare_unary_cmp,
                                                     prepare_op_ri,
-                                                    prepare_cmp_op,
-                                                    prepare_float_op,
+                                                    prepare_int_cmp,
+                                                    prepare_unary_op,
+                                                    prepare_two_regs_op,
+                                                    prepare_float_cmp,
                                                     check_imm_arg,
                                                     check_imm_box,
                                                     VMEM_imm_size,
@@ -146,6 +149,7 @@ class CoreRegisterManager(ARMRegisterManager):
     box_types = None       # or a list of acceptable types
     no_lower_byte_regs = all_regs
     save_around_call_regs = r.caller_resp
+    frame_reg = r.fp
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
@@ -234,6 +238,18 @@ class Regalloc(BaseRegalloc):
         else:
             return self.rm.force_allocate_reg(var, forbidden_vars,
                                               selected_reg, need_lower_byte)
+
+    def force_allocate_reg_or_cc(self, var, forbidden_vars=[]):
+        assert var.type == INT
+        if self.next_op_can_accept_cc(self.operations, self.rm.position):
+            # hack: return the 'fp' location to mean "lives in CC".  This
+            # fp will not actually be used, and the location will be freed
+            # after the next op as usual.
+            self.rm.force_allocate_frame_reg(var)
+            return r.fp
+        else:
+            # else, return a regular register (not fp).
+            return self.rm.force_allocate_reg(var)
 
     def try_allocate_reg(self, v, selected_reg=None, need_lower_byte=False):
         if v.type == FLOAT:
@@ -467,25 +483,6 @@ class Regalloc(BaseRegalloc):
         resloc = self.force_allocate_reg(op.result)
         return [argloc, imm(numbytes), resloc]
 
-    def prepare_guard_int_mul_ovf(self, op, guard, fcond):
-        boxes = op.getarglist()
-        reg1 = self.make_sure_var_in_reg(boxes[0], forbidden_vars=boxes)
-        reg2 = self.make_sure_var_in_reg(boxes[1], forbidden_vars=boxes)
-        res = self.force_allocate_reg(op.result)
-        return self._prepare_guard(guard, [reg1, reg2, res])
-
-    def prepare_guard_int_add_ovf(self, op, guard, fcond):
-        locs = self._prepare_op_int_add(op, fcond)
-        res = self.force_allocate_reg(op.result)
-        locs.append(res)
-        return self._prepare_guard(guard, locs)
-
-    def prepare_guard_int_sub_ovf(self, op, guard, fcond):
-        locs = self._prepare_op_int_sub(op, fcond)
-        res = self.force_allocate_reg(op.result)
-        locs.append(res)
-        return self._prepare_guard(guard, locs)
-
     prepare_op_int_floordiv = prepare_op_by_helper_call('int_floordiv')
     prepare_op_int_mod = prepare_op_by_helper_call('int_mod')
     prepare_op_uint_floordiv = prepare_op_by_helper_call('unit_floordiv')
@@ -500,58 +497,36 @@ class Regalloc(BaseRegalloc):
     prepare_op_uint_rshift = prepare_op_ri('uint_rshift', imm_size=0x1F,
                                         allow_zero=False, commutative=False)
 
-    prepare_op_int_lt = prepare_cmp_op('int_lt')
-    prepare_op_int_le = prepare_cmp_op('int_le')
-    prepare_op_int_eq = prepare_cmp_op('int_eq')
-    prepare_op_int_ne = prepare_cmp_op('int_ne')
-    prepare_op_int_gt = prepare_cmp_op('int_gt')
-    prepare_op_int_ge = prepare_cmp_op('int_ge')
+    prepare_op_int_lt = prepare_int_cmp
+    prepare_op_int_le = prepare_int_cmp
+    prepare_op_int_eq = prepare_int_cmp
+    prepare_op_int_ne = prepare_int_cmp
+    prepare_op_int_gt = prepare_int_cmp
+    prepare_op_int_ge = prepare_int_cmp
 
-    prepare_op_uint_le = prepare_cmp_op('uint_le')
-    prepare_op_uint_gt = prepare_cmp_op('uint_gt')
+    prepare_op_uint_le = prepare_int_cmp
+    prepare_op_uint_gt = prepare_int_cmp
 
-    prepare_op_uint_lt = prepare_cmp_op('uint_lt')
-    prepare_op_uint_ge = prepare_cmp_op('uint_ge')
+    prepare_op_uint_lt = prepare_int_cmp
+    prepare_op_uint_ge = prepare_int_cmp
 
     prepare_op_ptr_eq = prepare_op_instance_ptr_eq = prepare_op_int_eq
     prepare_op_ptr_ne = prepare_op_instance_ptr_ne = prepare_op_int_ne
 
-    prepare_guard_int_lt = prepare_cmp_op('guard_int_lt')
-    prepare_guard_int_le = prepare_cmp_op('guard_int_le')
-    prepare_guard_int_eq = prepare_cmp_op('guard_int_eq')
-    prepare_guard_int_ne = prepare_cmp_op('guard_int_ne')
-    prepare_guard_int_gt = prepare_cmp_op('guard_int_gt')
-    prepare_guard_int_ge = prepare_cmp_op('guard_int_ge')
-
-    prepare_guard_uint_le = prepare_cmp_op('guard_uint_le')
-    prepare_guard_uint_gt = prepare_cmp_op('guard_uint_gt')
-
-    prepare_guard_uint_lt = prepare_cmp_op('guard_uint_lt')
-    prepare_guard_uint_ge = prepare_cmp_op('guard_uint_ge')
-
-    prepare_guard_ptr_eq = prepare_guard_instance_ptr_eq = prepare_guard_int_eq
-    prepare_guard_ptr_ne = prepare_guard_instance_ptr_ne = prepare_guard_int_ne
-
     prepare_op_int_add_ovf = prepare_op_int_add
     prepare_op_int_sub_ovf = prepare_op_int_sub
+    prepare_op_int_mul_ovf = prepare_op_int_mul
 
-    prepare_op_int_is_true = prepare_op_unary_cmp('int_is_true')
-    prepare_op_int_is_zero = prepare_op_unary_cmp('int_is_zero')
+    prepare_op_int_is_true = prepare_unary_cmp
+    prepare_op_int_is_zero = prepare_unary_cmp
 
-    prepare_guard_int_is_true = prepare_op_unary_cmp('int_is_true')
-    prepare_guard_int_is_zero = prepare_op_unary_cmp('int_is_zero')
-
-    def prepare_op_int_neg(self, op, fcond):
-        l0 = self.make_sure_var_in_reg(op.getarg(0))
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        resloc = self.force_allocate_reg(op.result)
-        return [l0, resloc]
-
-    prepare_op_int_invert = prepare_op_int_neg
+    prepare_op_int_neg = prepare_unary_op
+    prepare_op_int_invert = prepare_unary_op
 
     def prepare_op_call(self, op, fcond):
-        effectinfo = op.getdescr().get_extra_info()
+        calldescr = op.getdescr()
+        assert calldescr is not None
+        effectinfo = calldescr.get_extra_info()
         if effectinfo is not None:
             oopspecindex = effectinfo.oopspecindex
             if oopspecindex in (EffectInfo.OS_LLONG_ADD,
@@ -603,13 +578,12 @@ class Regalloc(BaseRegalloc):
 
     def _call(self, op, arglocs, force_store=[], save_all_regs=False):
         # spill variables that need to be saved around calls
-        self.vfprm.before_call(save_all_regs=save_all_regs)
+        self.vfprm.before_call(force_store, save_all_regs=save_all_regs)
         if not save_all_regs:
             gcrootmap = self.cpu.gc_ll_descr.gcrootmap
             if gcrootmap and gcrootmap.is_shadow_stack:
                 save_all_regs = 2
-        self.rm.before_call(save_all_regs=save_all_regs)
-        self.before_call_called = True
+        self.rm.before_call(force_store, save_all_regs=save_all_regs)
         resloc = None
         if op.result:
             resloc = self.after_call(op.result)
@@ -666,14 +640,25 @@ class Regalloc(BaseRegalloc):
             locs = [imm(fail_descr)]
         return locs
 
-    def prepare_op_guard_true(self, op, fcond):
-        l0 = self.make_sure_var_in_reg(op.getarg(0))
-        args = self._prepare_guard(op, [l0])
+    def load_condition_into_cc(self, box):
+        if self.assembler.guard_success_cc == c.cond_none:
+            loc = self.loc(box)
+            if not loc.is_core_reg():
+                assert loc.is_stack()
+                self.assembler.regalloc_mov(loc, r.lr)
+                loc = r.lr
+            self.assembler.mc.CMP_ri(loc.value, 0)
+            self.assembler.guard_success_cc = c.NE
+
+    def _prepare_guard_cc(self, op, fcond):
+        self.load_condition_into_cc(op.getarg(0))
+        args = self._prepare_guard(op, [])
         return args
 
-    prepare_op_guard_false = prepare_op_guard_true
-    prepare_op_guard_nonnull = prepare_op_guard_true
-    prepare_op_guard_isnull = prepare_op_guard_true
+    prepare_op_guard_true = _prepare_guard_cc
+    prepare_op_guard_false = _prepare_guard_cc
+    prepare_op_guard_nonnull = _prepare_guard_cc
+    prepare_op_guard_isnull = _prepare_guard_cc
 
     def prepare_op_guard_value(self, op, fcond):
         boxes = op.getarglist()
@@ -697,6 +682,7 @@ class Regalloc(BaseRegalloc):
 
     prepare_op_guard_overflow = prepare_op_guard_no_overflow
     prepare_op_guard_not_invalidated = prepare_op_guard_no_overflow
+    prepare_op_guard_not_forced = prepare_op_guard_no_overflow
 
     def prepare_op_guard_exception(self, op, fcond):
         boxes = op.getarglist()
@@ -1188,9 +1174,8 @@ class Regalloc(BaseRegalloc):
             arg = op.getarg(i)
             self.make_sure_var_in_reg(arg, args_so_far, selected_reg=reg)
             args_so_far.append(arg)
-        loc_cond = self.make_sure_var_in_reg(op.getarg(0), args_so_far)
-        gcmap = self.get_gcmap([tmpreg])
-        self.assembler.cond_call(op, gcmap, loc_cond, tmpreg, fcond)
+        self.load_condition_into_cc(op.getarg(0))
+        return [tmpreg]
 
     def prepare_op_force_token(self, op, fcond):
         # XXX for now we return a regular reg
@@ -1244,19 +1229,16 @@ class Regalloc(BaseRegalloc):
         self.assembler.store_force_descr(op, fail_locs[1:], fail_locs[0].value)
         self.possibly_free_vars(op.getfailargs())
 
-    def prepare_guard_call_may_force(self, op, guard_op, fcond):
-        args = self._prepare_call(op, save_all_regs=True)
-        return self._prepare_guard(guard_op, args)
+    def prepare_op_call_may_force(self, op, fcond):
+        return self._prepare_call(op, save_all_regs=True)
 
-    def prepare_guard_call_release_gil(self, op, guard_op, fcond):
-        args = self._prepare_call(op, save_all_regs=True, first_arg_index=2)
-        return self._prepare_guard(guard_op, args)
+    def prepare_op_call_release_gil(self, op, fcond):
+        return self._prepare_call(op, save_all_regs=True, first_arg_index=2)
 
-    def prepare_guard_call_assembler(self, op, guard_op, fcond):
-        locs = self.locs_for_call_assembler(op, guard_op)
+    def prepare_op_call_assembler(self, op, fcond):
+        locs = self.locs_for_call_assembler(op)
         tmploc = self.get_scratch_reg(INT, selected_reg=r.r0)
         resloc = self._call(op, locs + [tmploc], save_all_regs=True)
-        self.possibly_free_vars(guard_op.getfailargs())
         return locs + [resloc, tmploc]
 
     def _prepare_args_for_new_op(self, new_args):
@@ -1271,39 +1253,18 @@ class Regalloc(BaseRegalloc):
             arglocs.append(t)
         return arglocs
 
-    prepare_op_float_add = prepare_float_op(name='prepare_op_float_add')
-    prepare_op_float_sub = prepare_float_op(name='prepare_op_float_sub')
-    prepare_op_float_mul = prepare_float_op(name='prepare_op_float_mul')
-    prepare_op_float_truediv = prepare_float_op(name='prepare_op_float_truediv')
-    prepare_op_float_lt = prepare_float_op(float_result=False,
-                                            name='prepare_op_float_lt')
-    prepare_op_float_le = prepare_float_op(float_result=False,
-                                            name='prepare_op_float_le')
-    prepare_op_float_eq = prepare_float_op(float_result=False,
-                                            name='prepare_op_float_eq')
-    prepare_op_float_ne = prepare_float_op(float_result=False,
-                                            name='prepare_op_float_ne')
-    prepare_op_float_gt = prepare_float_op(float_result=False,
-                                            name='prepare_op_float_gt')
-    prepare_op_float_ge = prepare_float_op(float_result=False,
-                                            name='prepare_op_float_ge')
-    prepare_op_float_neg = prepare_float_op(base=False,
-                                            name='prepare_op_float_neg')
-    prepare_op_float_abs = prepare_float_op(base=False,
-                                            name='prepare_op_float_abs')
-
-    prepare_guard_float_lt = prepare_float_op(guard=True,
-                            float_result=False, name='prepare_guard_float_lt')
-    prepare_guard_float_le = prepare_float_op(guard=True,
-                            float_result=False, name='prepare_guard_float_le')
-    prepare_guard_float_eq = prepare_float_op(guard=True,
-                            float_result=False, name='prepare_guard_float_eq')
-    prepare_guard_float_ne = prepare_float_op(guard=True,
-                            float_result=False, name='prepare_guard_float_ne')
-    prepare_guard_float_gt = prepare_float_op(guard=True,
-                            float_result=False, name='prepare_guard_float_gt')
-    prepare_guard_float_ge = prepare_float_op(guard=True,
-                            float_result=False, name='prepare_guard_float_ge')
+    prepare_op_float_add = prepare_two_regs_op
+    prepare_op_float_sub = prepare_two_regs_op
+    prepare_op_float_mul = prepare_two_regs_op
+    prepare_op_float_truediv = prepare_two_regs_op
+    prepare_op_float_lt = prepare_float_cmp
+    prepare_op_float_le = prepare_float_cmp
+    prepare_op_float_eq = prepare_float_cmp
+    prepare_op_float_ne = prepare_float_cmp
+    prepare_op_float_gt = prepare_float_cmp
+    prepare_op_float_ge = prepare_float_cmp
+    prepare_op_float_neg = prepare_unary_op
+    prepare_op_float_abs = prepare_unary_op
 
     def _prepare_op_math_sqrt(self, op, fcond):
         loc = self.make_sure_var_in_reg(op.getarg(1))
@@ -1327,10 +1288,8 @@ class Regalloc(BaseRegalloc):
         self.force_spill_var(op.getarg(0))
         return []
 
-    prepare_op_convert_float_bytes_to_longlong = prepare_float_op(base=False,
-                              name='prepare_op_convert_float_bytes_to_longlong')
-    prepare_op_convert_longlong_bytes_to_float = prepare_float_op(base=False,
-                              name='prepare_op_convert_longlong_bytes_to_float')
+    prepare_op_convert_float_bytes_to_longlong = prepare_unary_op
+    prepare_op_convert_longlong_bytes_to_float = prepare_unary_op
 
     #def prepare_op_read_timestamp(self, op, fcond):
     #    loc = self.get_scratch_reg(INT)
@@ -1348,22 +1307,12 @@ class Regalloc(BaseRegalloc):
         return [loc1, res]
 
 
-def add_none_argument(fn):
-    return lambda self, op, fcond: fn(self, op, None, fcond)
-
-
 def notimplemented(self, op, fcond):
     print "[ARM/regalloc] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 
 
-def notimplemented_with_guard(self, op, guard_op, fcond):
-    print "[ARM/regalloc] %s with guard %s not implemented" % \
-                        (op.getopname(), guard_op.getopname())
-    raise NotImplementedError(op)
-
 operations = [notimplemented] * (rop._LAST + 1)
-operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
 
 
 for key, value in rop.__dict__.items():
@@ -1374,13 +1323,3 @@ for key, value in rop.__dict__.items():
     if hasattr(Regalloc, methname):
         func = getattr(Regalloc, methname).im_func
         operations[value] = func
-
-for key, value in rop.__dict__.items():
-    key = key.lower()
-    if key.startswith('_'):
-        continue
-    methname = 'prepare_guard_%s' % key
-    if hasattr(Regalloc, methname):
-        func = getattr(Regalloc, methname).im_func
-        operations_with_guard[value] = func
-        operations[value] = add_none_argument(func)
