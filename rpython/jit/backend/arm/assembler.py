@@ -937,7 +937,7 @@ class AssemblerARM(ResOpAssembler):
             opnum = op.getopnum()
             if op.has_no_side_effect() and op.result not in regalloc.longevity:
                 regalloc.possibly_free_vars_for_op(op)
-            if not we_are_translated() and op.getopnum() == -124:
+            elif not we_are_translated() and op.getopnum() == -124:
                 regalloc.prepare_force_spill(op, fcond)
             else:
                 arglocs = regalloc_operations[opnum](regalloc, op, fcond)
