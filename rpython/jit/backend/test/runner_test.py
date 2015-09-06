@@ -1111,12 +1111,12 @@ class BaseBackendTest(Runner):
                             r_box = self.alloc_string("!???????!")
                             if r_box_is_const:
                                 r_box = r_box.constbox()
-                                self.execute_operation(rop.COPYSTRCONTENT,
-                                                       [s_box, r_box,
-                                                        srcstart_box,
-                                                        dststart_box,
-                                                        length_box], 'void')
-                                assert self.look_string(r_box) == "!??cdef?!"
+                            self.execute_operation(rop.COPYSTRCONTENT,
+                                                   [s_box, r_box,
+                                                    srcstart_box,
+                                                    dststart_box,
+                                                    length_box], 'void')
+                            assert self.look_string(r_box) == "!??cdef?!"
 
     def test_copyunicodecontent(self):
         s_box = self.alloc_unicode(u"abcdef")
@@ -1128,12 +1128,12 @@ class BaseBackendTest(Runner):
                             r_box = self.alloc_unicode(u"!???????!")
                             if r_box_is_const:
                                 r_box = r_box.constbox()
-                                self.execute_operation(rop.COPYUNICODECONTENT,
-                                                       [s_box, r_box,
-                                                        srcstart_box,
-                                                        dststart_box,
-                                                        length_box], 'void')
-                                assert self.look_unicode(r_box) == u"!??cdef?!"
+                            self.execute_operation(rop.COPYUNICODECONTENT,
+                                                   [s_box, r_box,
+                                                    srcstart_box,
+                                                    dststart_box,
+                                                    length_box], 'void')
+                            assert self.look_unicode(r_box) == u"!??cdef?!"
 
     def test_do_unicode_basic(self):
         u = self.cpu.bh_newunicode(5)
