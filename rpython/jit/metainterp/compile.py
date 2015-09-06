@@ -285,6 +285,9 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     end_label = ResOperation(rop.LABEL, inputargs,
                              descr=jitcell_token)
     jump_op = ResOperation(rop.JUMP, jumpargs, descr=jitcell_token)
+    start_descr = TargetToken(jitcell_token,
+                              original_jitcell_token=jitcell_token)
+    jitcell_token.target_tokens = [start_descr]
     loop_data = UnrolledLoopData(end_label, jump_op, ops, start_state,
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts)
@@ -305,8 +308,6 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         quasi_immutable_deps.update(loop_info.quasi_immutable_deps)
     if quasi_immutable_deps:
         loop.quasi_immutable_deps = quasi_immutable_deps
-    start_descr = TargetToken(jitcell_token,
-                              original_jitcell_token=jitcell_token)
     start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs,
                                descr=start_descr)
     label_token = loop_info.label_op.getdescr()
@@ -318,7 +319,6 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                        [loop_info.label_op] + loop_ops)
     if not we_are_translated():
         loop.check_consistency()
-    jitcell_token.target_tokens = [start_descr] + jitcell_token.target_tokens
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
                          inputargs, metainterp.box_names_memo)
     record_loop_or_bridge(metainterp_sd, loop)
