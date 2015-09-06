@@ -726,7 +726,10 @@ class MIFrame(object):
                 assert resvalue == upd.currfieldbox.getref_base()
             else:
                 assert type == 'f'
-                assert resvalue == upd.currfieldbox.getfloatstorage()
+                # make the comparison more robust again NaNs
+                # see ConstFloat.same_constant
+                assert ConstFloat(resvalue).same_constant(
+                    upd.currfieldbox.constbox())
             return upd.currfieldbox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
         upd.getfield_now_known(resbox)
