@@ -5873,7 +5873,16 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p1 = getfield_gc_i(p0, descr=otherdescr)
         finish(p1)
         """
-        self.optimize_loop(ops, expected)        
+        self.optimize_loop(ops, expected)
+
+    def test_nonnull_str2unicode(self):
+        ops = """
+        [p0]
+        guard_nonnull(p0) []
+        p1 = call_r(0, p0, descr=s2u_descr)      # string -> unicode
+        finish(p1)
+        """
+        self.optimize_loop(ops, ops)
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

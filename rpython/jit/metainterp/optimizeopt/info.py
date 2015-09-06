@@ -77,7 +77,11 @@ class PtrInfo(AbstractInfo):
 
     def make_guards(self, op, short, optimizer):
         pass
-    
+
+    @specialize.arg(2)
+    def get_constant_string_spec(self, string_optimizer, mode):
+        return None # can't be constant
+
 class NonNullPtrInfo(PtrInfo):
     _attrs_ = ('last_guard_pos',)
     last_guard_pos = -1
