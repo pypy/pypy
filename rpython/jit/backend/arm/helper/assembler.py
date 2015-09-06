@@ -50,7 +50,7 @@ def gen_emit_op_by_helper_call(name, opname):
     helper = getattr(InstrBuilder, opname)
     def f(self, op, arglocs, regalloc, fcond):
         assert fcond is not None
-        if op.result:
+        if op.type != 'v':
             regs = r.caller_resp[1:] + [r.ip]
         else:
             regs = r.caller_resp

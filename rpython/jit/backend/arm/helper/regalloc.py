@@ -111,7 +111,7 @@ def prepare_int_cmp(self, op, fcond):
 def prepare_unary_cmp(self, op, fcond):
     assert fcond is not None
     a0 = op.getarg(0)
-    assert isinstance(a0, Box)
+    assert not isinstance(a0, Const)
     reg = self.make_sure_var_in_reg(a0)
     self.possibly_free_vars_for_op(op)
     res = self.force_allocate_reg_or_cc(op)
