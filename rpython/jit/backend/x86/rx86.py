@@ -754,6 +754,7 @@ Conditions = {
                  'LE': 14,    'NG': 14,
                 'NLE': 15,     'G': 15,
 }
+cond_none = -1
 
 def invert_condition(cond_num):
     return cond_num ^ 1

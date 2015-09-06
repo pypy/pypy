@@ -592,6 +592,97 @@ def test_resizelist_hint_len():
     r = interpret(f, [29])
     assert r == 1
 
+def test_iterkeys_with_hash():
+    def f(i):
+        d = {i+.0: 5, i+.5: 6}
+        total = 0
+        for k, h in iterkeys_with_hash(d):
+            total += k * h
+        total -= (i + 0.0) * compute_hash(i + 0.0)
+        total -= (i + 0.5) * compute_hash(i + 0.5)
+        return total
+
+    assert f(29) == 0.0
+    r = interpret(f, [29])
+    assert r == 0.0
+
+def test_iteritems_with_hash():
+    def f(i):
+        d = {i+.0: 5, i+.5: 6}
+        total = 0
+        for k, v, h in iteritems_with_hash(d):
+            total += k * h * v
+        total -= (i + 0.0) * compute_hash(i + 0.0) * 5
+        total -= (i + 0.5) * compute_hash(i + 0.5) * 6
+        return total
+
+    assert f(29) == 0.0
+    r = interpret(f, [29])
+    assert r == 0.0
+
+def test_contains_with_hash():
+    def f(i):
+        d = {i+.5: 5}
+        assert contains_with_hash(d, i+.5, compute_hash(i+.5))
+        assert not contains_with_hash(d, i+.3, compute_hash(i+.3))
+        return 0
+
+    f(29)
+    interpret(f, [29])
+
+def test_setitem_with_hash():
+    def f(i):
+        d = {}
+        setitem_with_hash(d, i+.5, compute_hash(i+.5), 42)
+        setitem_with_hash(d, i+.6, compute_hash(i+.6), -612)
+        return d[i+.5]
+
+    assert f(29) == 42
+    res = interpret(f, [27])
+    assert res == 42
+
+def test_getitem_with_hash():
+    def f(i):
+        d = {i+.5: 42, i+.6: -612}
+        return getitem_with_hash(d, i+.5, compute_hash(i+.5))
+
+    assert f(29) == 42
+    res = interpret(f, [27])
+    assert res == 42
+
+def test_delitem_with_hash():
+    def f(i):
+        d = {i+.5: 42, i+.6: -612}
+        delitem_with_hash(d, i+.5, compute_hash(i+.5))
+        try:
+            delitem_with_hash(d, i+.5, compute_hash(i+.5))
+        except KeyError:
+            pass
+        else:
+            raise AssertionError
+        return 0
+
+    f(29)
+    interpret(f, [27])
+
+def test_rdict_with_hash():
+    def f(i):
+        d = r_dict(strange_key_eq, strange_key_hash)
+        h = strange_key_hash("abc")
+        assert h == strange_key_hash("aXX") and strange_key_eq("abc", "aXX")
+        setitem_with_hash(d, "abc", h, i)
+        assert getitem_with_hash(d, "aXX", h) == i
+        try:
+            getitem_with_hash(d, "bYY", strange_key_hash("bYY"))
+        except KeyError:
+            pass
+        else:
+            raise AssertionError
+        return 0
+
+    assert f(29) == 0
+    interpret(f, [27])
+
 def test_import_from_mixin():
     class M:    # old-style
         def f(self): pass

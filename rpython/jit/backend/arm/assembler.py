@@ -12,8 +12,7 @@ from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.arm.opassembler import ResOpAssembler
 from rpython.jit.backend.arm.regalloc import (Regalloc,
     CoreRegisterManager, check_imm_arg, VFPRegisterManager,
-    operations as regalloc_operations,
-    operations_with_guard as regalloc_operations_with_guard)
+    operations as regalloc_operations)
 from rpython.jit.backend.llsupport import jitframe, rewrite
 from rpython.jit.backend.llsupport.assembler import DEBUG_COUNTER, debug_bridge, BaseAssembler
 from rpython.jit.backend.llsupport.regalloc import get_scale, valid_addressing_size
@@ -645,8 +644,10 @@ class AssemblerARM(ResOpAssembler):
                        size_excluding_failure_stuff - loop_head)
 
     def _assemble(self, regalloc, inputargs, operations):
+        self.guard_success_cc = c.cond_none
         regalloc.compute_hint_frame_locations(operations)
         self._walk_operations(inputargs, operations, regalloc)
+        assert self.guard_success_cc == c.cond_none
         frame_depth = regalloc.get_final_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
@@ -927,6 +928,7 @@ class AssemblerARM(ResOpAssembler):
     def _walk_operations(self, inputargs, operations, regalloc):
         fcond = c.AL
         self._regalloc = regalloc
+        regalloc.operations = operations
         while regalloc.position() < len(operations) - 1:
             regalloc.next_instruction()
             i = regalloc.position()
@@ -935,17 +937,6 @@ class AssemblerARM(ResOpAssembler):
             opnum = op.getopnum()
             if op.has_no_side_effect() and op.result not in regalloc.longevity:
                 regalloc.possibly_free_vars_for_op(op)
-            elif self._regalloc.can_merge_with_next_guard(op, i, operations):
-                guard = operations[i + 1]
-                assert guard.is_guard()
-                arglocs = regalloc_operations_with_guard[opnum](regalloc, op,
-                                        guard, fcond)
-                fcond = asm_operations_with_guard[opnum](self, op,
-                                        guard, arglocs, regalloc, fcond)
-                assert fcond is not None
-                regalloc.next_instruction()
-                regalloc.possibly_free_vars_for_op(guard)
-                regalloc.possibly_free_vars(guard.getfailargs())
             elif not we_are_translated() and op.getopnum() == -124:
                 regalloc.prepare_force_spill(op, fcond)
             else:
@@ -962,6 +953,7 @@ class AssemblerARM(ResOpAssembler):
             regalloc.free_temp_vars()
             regalloc._check_invariants()
         self.mc.mark_op(None)  # end of the loop
+        regalloc.operations = None
 
     def regalloc_emit_extra(self, op, arglocs, fcond, regalloc):
         # for calls to a function with a specifically-supported OS_xxx
@@ -1516,21 +1508,11 @@ def notimplemented_op(self, op, arglocs, regalloc, fcond):
     raise NotImplementedError(op)
 
 
-def notimplemented_op_with_guard(self, op, guard_op, arglocs, regalloc, fcond):
-    print "[ARM/asm] %s with guard %s not implemented" % \
-                        (op.getopname(), guard_op.getopname())
-    raise NotImplementedError(op)
-
 asm_operations = [notimplemented_op] * (rop._LAST + 1)
-asm_operations_with_guard = [notimplemented_op_with_guard] * (rop._LAST + 1)
 asm_extra_operations = {}
 
 for name, value in ResOpAssembler.__dict__.iteritems():
-    if name.startswith('emit_guard_'):
-        opname = name[len('emit_guard_'):]
-        num = getattr(rop, opname.upper())
-        asm_operations_with_guard[num] = value
-    elif name.startswith('emit_opx_'):
+    if name.startswith('emit_opx_'):
         opname = name[len('emit_opx_'):]
         num = getattr(EffectInfo, 'OS_' + opname.upper())
         asm_extra_operations[num] = value

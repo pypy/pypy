@@ -241,6 +241,17 @@ class Test64Bits:
         )
         assert cb.getvalue() == expected_instructions
 
+    def test_MOV_64bit_constant_into_rax(self):
+        base_constant = 0xFEDCBA9876543210
+        cb = LocationCodeBuilder64()
+        cb.MOV(eax, imm(base_constant))
+
+        expected_instructions = (
+                # mov rax, 0xFEDCBA9876543210
+                '\x48\xB8\x10\x32\x54\x76\x98\xBA\xDC\xFE'
+        )
+        assert cb.getvalue() == expected_instructions
+
     def test_MOV_64bit_address_into_r11(self):
         base_addr = 0xFEDCBA9876543210
         cb = LocationCodeBuilder64()

@@ -263,8 +263,8 @@ class OptRewrite(Optimization):
                 if not intbound.getint() == constbox.getint():
                     r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(
                         op)
-                    raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} (%s) was '
-                                      'proven to always fail' % r)
+                    raise InvalidLoop('A GUARD_{VALUE,TRUE,FALSE} (%s) '
+                                      'was proven to always fail' % r)
                 return
         elif box.type == 'r':
             box = self.get_box_replacement(box)
@@ -272,8 +272,8 @@ class OptRewrite(Optimization):
                 if not box.same_constant(constbox):
                     r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(
                         op)
-                    raise InvalidLoop('A GUARD_VALUE (%s) was proven '
-                                      'to always fail' % r)
+                    raise InvalidLoop('A GUARD_VALUE (%s) '
+                                      'was proven to always fail' % r)
                 return
                     
         if emit_operation:
