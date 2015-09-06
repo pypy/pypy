@@ -404,6 +404,7 @@ class FloatOp(object):
     getfloat = getfloatstorage
     
     def setfloatstorage(self, floatval):
+        assert lltype.typeOf(floatval) is longlong.FLOATSTORAGE
         self._resfloat = floatval
 
     def copy_value_from(self, other):
@@ -478,7 +479,7 @@ class InputArgInt(IntOp, AbstractInputArg):
         self.setint(intval)
 
 class InputArgFloat(FloatOp, AbstractInputArg):
-    def __init__(self, f=0.0):
+    def __init__(self, f=longlong.ZEROF):
         self.setfloatstorage(f)
 
 class InputArgRef(RefOp, AbstractInputArg):

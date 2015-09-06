@@ -470,8 +470,10 @@ def wrap_constant(value):
         return ConstInt(value)
     elif isinstance(value, bool):
         return ConstInt(int(value))
-    elif isinstance(value, float):
+    elif lltype.typeOf(value) == longlong.FLOATSTORAGE:
         return ConstFloat(value)
+    elif isinstance(value, float):
+        return ConstFloat(longlong.getfloatstorage(value))
     else:
         assert lltype.typeOf(value) == llmemory.GCREF
         return ConstPtr(value)
