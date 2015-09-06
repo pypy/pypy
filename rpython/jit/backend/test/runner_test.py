@@ -1664,6 +1664,8 @@ class BaseBackendTest(Runner):
                     expectedtype = 'int'
                 got = self.execute_operation(opnum, inputargs,
                                              expectedtype)
+                if not isinstance(expected, bool):
+                    got = longlong.getrealfloat(got)
                 if isnan(expected):
                     ok = isnan(got)
                 elif isinf(expected):
@@ -1765,9 +1767,9 @@ class BaseBackendTest(Runner):
             wait_a_bit()
             res2 = self.execute_operation(rop.CALL_I, [funcbox], 'int', calldescr)
         else:
-            res1 = self.execute_operation(rop.CALL_I, [funcbox],'float',calldescr)
+            res1 = self.execute_operation(rop.CALL_F, [funcbox],'float',calldescr)
             wait_a_bit()
-            res2 = self.execute_operation(rop.CALL_I, [funcbox],'float',calldescr)
+            res2 = self.execute_operation(rop.CALL_F, [funcbox],'float',calldescr)
         assert res1 < res2 < res1 + 2**32
 
 
@@ -4008,9 +4010,10 @@ class LLtypeBackendTest(BaseBackendTest):
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                          EffectInfo.MOST_GENERAL)
         funcbox = self.get_funcbox(self.cpu, f)
-        res = self.execute_operation(rop.CALL, [funcbox, BoxFloat(value)],
+        res = self.execute_operation(rop.CALL_F,
+                                     [funcbox, InputArgFloat(value)],
                                      'float', descr=calldescr)
-        assert res.getfloatstorage() == expected
+        assert res == expected
 
     def test_singlefloat_result_of_call_direct(self):
         if not self.cpu.supports_singlefloats:
