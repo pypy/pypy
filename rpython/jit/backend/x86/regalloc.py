@@ -443,9 +443,9 @@ class RegAlloc(BaseRegalloc):
 
     def consider_guard_subclass(self, op):
         x = self.make_sure_var_in_reg(op.getarg(0))
-        y = self.loc(op.getarg(1))
         tmp_box = TempVar()
-        z = self.rm.force_allocate_reg(tmp_box)
+        z = self.rm.force_allocate_reg(tmp_box, [op.getarg(0)])
+        y = self.loc(op.getarg(1))
         self.rm.possibly_free_var(tmp_box)
         self.perform_guard(op, [x, y, z], None)
 
