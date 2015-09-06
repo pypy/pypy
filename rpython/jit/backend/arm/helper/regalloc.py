@@ -1,13 +1,13 @@
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
-from rpython.jit.metainterp.history import Const, FLOAT
+from rpython.jit.metainterp.history import Const, ConstInt, FLOAT
 from rpython.rlib.objectmodel import we_are_translated
 
 VMEM_imm_size=0x3FC
 default_imm_size=0xFF
 
 def check_imm_arg(arg, size=default_imm_size, allow_zero=True):
-    assert not isinstance(arg, Const)
+    assert not isinstance(arg, Const)     # because it must be an int :-)
     if not we_are_translated():
         if not isinstance(arg, int):
             import pdb; pdb.set_trace()
@@ -19,7 +19,7 @@ def check_imm_arg(arg, size=default_imm_size, allow_zero=True):
     return i <= size and lower_bound
 
 def check_imm_box(arg, size=0xFF, allow_zero=True):
-    if isinstance(arg, Const):
+    if isinstance(arg, ConstInt):
         return check_imm_arg(arg.getint(), size, allow_zero)
     return False
 
@@ -111,7 +111,7 @@ def prepare_int_cmp(self, op, fcond):
 def prepare_unary_cmp(self, op, fcond):
     assert fcond is not None
     a0 = op.getarg(0)
-    assert isinstance(a0, Box)
+    assert not isinstance(a0, Const)
     reg = self.make_sure_var_in_reg(a0)
     self.possibly_free_vars_for_op(op)
     res = self.force_allocate_reg_or_cc(op)
