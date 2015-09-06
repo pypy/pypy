@@ -504,7 +504,8 @@ class OptRewrite(Optimization):
             self.emit_operation(op)
 
     def optimize_INT_IS_TRUE(self, op):
-        if self.getintbound(op.getarg(0)).is_bool():
+        if (not self.is_raw_ptr(op.getarg(0)) and
+            self.getintbound(op.getarg(0)).is_bool()):
             self.make_equal_to(op, op.getarg(0))
             return
         self._optimize_nullness(op, op.getarg(0), True)

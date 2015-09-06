@@ -8736,23 +8736,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, ops)
 
-    def test_pass_both_short_preamble_and_arg(self):
+    def test_raw_buffer_int_is_true(self):
         ops = """
-        [i0, i1]
-        i2 = int_add(i0, 1)
-        jump(i0, i2)
+        [iinp]
+        i0 = call_i(123, 10, descr=raw_malloc_descr)
+        i1 = int_is_true(i0)
+        guard_true(i1) []
+        i2 = int_is_zero(i0)
+        guard_false(i2) []
+        jump(i0)
         """
         expected = """
-        [i0, i1, i2]
-        jump(i0, i2, i2)
+        [i2]
+        i0 = call_i(123, 10, descr=raw_malloc_descr)
+        jump(i0)
         """
-        preamble = """
-        [i0, i1]
-        i2 = int_add(i0, 1)
-        i3 = same_as(i2)
-        jump(i0, i2, i3)
-        """
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected)
 
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):

@@ -560,6 +560,8 @@ class OptIntBounds(Optimization):
                     self.propagate_bounds_backward(op.getarg(1))
 
     def _propagate_int_is_true_or_zero(self, op, valnonzero, valzero):
+        if self.is_raw_ptr(op.getarg(0)):
+            return
         r = self.getintbound(op)
         if r.is_constant():
             if r.getint() == valnonzero:

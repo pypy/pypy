@@ -49,7 +49,7 @@ class Optimization(object):
         self.last_emitted_operation = op
         self.next_optimization.propagate_forward(op)
 
-    def getintbound(self, op):#, create=True):
+    def getintbound(self, op):
         assert op.type == 'i'
         op = self.get_box_replacement(op)
         if isinstance(op, ConstInt):
@@ -75,13 +75,13 @@ class Optimization(object):
             op.set_forwarded(bound)
 
     def getnullness(self, op):
-        if op.type == 'i':
-            return self.getintbound(op).getnullness()
-        elif op.type == 'r':
+        if op.type == 'r' or self.is_raw_ptr(op):
             ptrinfo = self.getptrinfo(op)
             if ptrinfo is None:
                 return info.INFO_UNKNOWN
             return ptrinfo.getnullness()
+        elif op.type == 'i':
+            return self.getintbound(op).getnullness()
         assert False
 
     def make_constant_class(self, op, class_const, update_last_guard=True):
