@@ -948,7 +948,7 @@ class AssemblerARM(ResOpAssembler):
             if op.is_guard():
                 regalloc.possibly_free_vars(op.getfailargs())
             if op.type != 'v':
-                regalloc.possibly_free_var(op.result)
+                regalloc.possibly_free_var(op)
             regalloc.possibly_free_vars_for_op(op)
             regalloc.free_temp_vars()
             regalloc._check_invariants()
