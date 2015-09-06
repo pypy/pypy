@@ -24,8 +24,7 @@ from rpython.jit.backend.arm.jump import remap_frame_layout_mixed
 from rpython.jit.backend.arm.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat,
-                                            ConstPtr, BoxInt,
-                                            Box, BoxPtr,
+                                            ConstPtr,
                                             INT, REF, FLOAT)
 from rpython.jit.metainterp.history import TargetToken
 from rpython.jit.metainterp.resoperation import rop
@@ -689,8 +688,8 @@ class Regalloc(BaseRegalloc):
         arg0 = ConstInt(rffi.cast(lltype.Signed, op.getarg(0).getint()))
         loc = self.make_sure_var_in_reg(arg0)
         loc1 = self.get_scratch_reg(INT, boxes)
-        if op.result in self.longevity:
-            resloc = self.force_allocate_reg(op.result, boxes)
+        if op in self.longevity:
+            resloc = self.force_allocate_reg(op, boxes)
             self.possibly_free_var(op.result)
         else:
             resloc = None
@@ -706,55 +705,23 @@ class Regalloc(BaseRegalloc):
         return arglocs
 
     def prepare_op_guard_class(self, op, fcond):
-        return self._prepare_guard_class(op, fcond)
-
-    prepare_op_guard_nonnull_class = prepare_op_guard_class
-
-    def _prepare_guard_class(self, op, fcond):
         assert not isinstance(op.getarg(0), Const)
         boxes = op.getarglist()
 
         x = self.make_sure_var_in_reg(boxes[0], boxes)
         y_val = rffi.cast(lltype.Signed, op.getarg(1).getint())
 
-        arglocs = [x, None, None]
+        arglocs = [x, imm(y_val)]
 
         offset = self.cpu.vtable_offset
         if offset is not None:
             y = self.get_scratch_reg(INT, forbidden_vars=boxes)
-            self.assembler.load(y, imm(y_val))
-
-            assert check_imm_arg(offset)
-            offset_loc = imm(offset)
-
+            self.assembler.load(y, arglocs[1])
             arglocs[1] = y
-            arglocs[2] = offset_loc
-        else:
-            # XXX hard-coded assumption: to go from an object to its class
-            # we use the following algorithm:
-            #   - read the typeid from mem(locs[0]), i.e. at offset 0
-            #   - keep the lower 16 bits read there
-            #   - multiply by 4 and use it as an offset in type_info_group
-            #   - add 16 bytes, to go past the TYPE_INFO structure
-            classptr = y_val
-            # here, we have to go back from 'classptr' to the value expected
-            # from reading the 16 bits in the object header
-            from rpython.memory.gctypelayout import GCData
-            sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
-            type_info_group = llop.gc_get_type_info_group(llmemory.Address)
-            type_info_group = rffi.cast(lltype.Signed, type_info_group)
-            expected_typeid = classptr - sizeof_ti - type_info_group
-            expected_typeid >>= 2
-            if check_imm_arg(expected_typeid):
-                arglocs[1] = imm(expected_typeid)
-            else:
-                y = self.get_scratch_reg(INT, forbidden_vars=boxes)
-                self.assembler.load(y, imm(expected_typeid))
-                arglocs[1] = y
 
         return self._prepare_guard(op, arglocs)
 
-        return arglocs
+    prepare_op_guard_nonnull_class = prepare_op_guard_class
 
     def compute_hint_frame_locations(self, operations):
         # optimization only: fill in the 'hint_frame_locations' dictionary
@@ -782,7 +749,7 @@ class Regalloc(BaseRegalloc):
         assert len(arglocs) == jump_op.numargs()
         for i in range(jump_op.numargs()):
             box = jump_op.getarg(i)
-            if isinstance(box, Box):
+            if not isinstance(box, Const):
                 loc = arglocs[i]
                 if loc is not None and loc.is_stack():
                     self.frame_manager.hint_frame_pos[box] = (
@@ -1115,7 +1082,7 @@ class Regalloc(BaseRegalloc):
             # for boehm, this function should never be called
         arraydescr = op.getdescr()
         length_box = op.getarg(2)
-        assert isinstance(length_box, BoxInt) # we cannot have a const here!
+        assert not isinstance(length_box, Const) # we cannot have a const here!
         # the result will be in r0
         self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
         # we need r1 as a temporary
@@ -1194,14 +1161,14 @@ class Regalloc(BaseRegalloc):
         # of some guard
         position = self.rm.position
         for arg in inputargs:
-            assert isinstance(arg, Box)
+            assert not isinstance(arg, Const)
             if self.last_real_usage.get(arg, -1) <= position:
                 self.force_spill_var(arg)
 
         #
         for i in range(len(inputargs)):
             arg = inputargs[i]
-            assert isinstance(arg, Box)
+            assert not isinstance(arg, Const)
             loc = self.loc(arg)
             arglocs[i] = loc
             if loc.is_core_reg() or loc.is_vfp_reg():

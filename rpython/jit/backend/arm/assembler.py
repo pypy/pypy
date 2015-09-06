@@ -708,7 +708,7 @@ class AssemblerARM(ResOpAssembler):
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         if logger:
-            logger.log_bridge(inputargs, operations, "rewritten",
+            logger.log_bridge(inputargs, operations, "rewritten", faildescr,
                               ops_offset=ops_offset)
         self.teardown()
 
@@ -935,9 +935,9 @@ class AssemblerARM(ResOpAssembler):
             op = operations[i]
             self.mc.mark_op(op)
             opnum = op.getopnum()
-            if op.has_no_side_effect() and op.result not in regalloc.longevity:
+            if op.has_no_side_effect() and op not in regalloc.longevity:
                 regalloc.possibly_free_vars_for_op(op)
-            elif not we_are_translated() and op.getopnum() == -124:
+            elif not we_are_translated() and op.getopnum() == -127:
                 regalloc.prepare_force_spill(op, fcond)
             else:
                 arglocs = regalloc_operations[opnum](regalloc, op, fcond)
@@ -947,7 +947,7 @@ class AssemblerARM(ResOpAssembler):
                     assert fcond is not None
             if op.is_guard():
                 regalloc.possibly_free_vars(op.getfailargs())
-            if op.result:
+            if op.type != 'v':
                 regalloc.possibly_free_var(op.result)
             regalloc.possibly_free_vars_for_op(op)
             regalloc.free_temp_vars()
