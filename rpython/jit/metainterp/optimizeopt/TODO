@@ -3,3 +3,4 @@
 * reenable cpu check (breaks --fork-before)
 * reenable jit iface
 * fix OS X, win, arm, 32bit
+* reenable the int_add optimization
