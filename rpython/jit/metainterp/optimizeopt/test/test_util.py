@@ -12,7 +12,7 @@ from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
 from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.logger import LogOperations
-from rpython.jit.tool.oparser import OpParser
+from rpython.jit.tool.oparser import OpParser, pure_parse
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
@@ -35,6 +35,12 @@ def test_sort_descrs():
         sort_descrs(lst2)
         assert lst2 == lst
 
+def make_remap(inp1, inp2):
+    remap = {}
+    for a, b in zip(inp1, inp2):
+        remap[b] = a
+    return remap
+
 def test_equaloplists():
     ops = """
     [i0]
@@ -48,9 +54,12 @@ def test_equaloplists():
     loop2 = pure_parse(ops, namespace=namespace)
     loop3 = pure_parse(ops.replace("i2 = int_add", "i2 = int_sub"),
                        namespace=namespace)
-    assert equaloplists(loop1.operations, loop2.operations)
+    assert equaloplists(loop1.operations, loop2.operations,
+                        remap=make_remap(loop1.inputargs,
+                                         loop2.inputargs))
     py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations)")
+                   "equaloplists(loop1.operations, loop3.operations,"
+                   "remap=make_remap(loop1.inputargs, loop3.inputargs))")
 
 def test_equaloplists_fail_args():
     ops = """
@@ -65,13 +74,16 @@ def test_equaloplists_fail_args():
     loop2 = pure_parse(ops.replace("[i2, i1]", "[i1, i2]"),
                        namespace=namespace)
     py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop2.operations)")
+                   "equaloplists(loop1.operations, loop2.operations,"
+                   "remap=make_remap(loop1.inputargs, loop2.inputargs))")
     assert equaloplists(loop1.operations, loop2.operations,
+                        remap=make_remap(loop1.inputargs, loop2.inputargs),
                         strict_fail_args=False)
     loop3 = pure_parse(ops.replace("[i2, i1]", "[i2, i0]"),
                        namespace=namespace)
     py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations)")
+                   "equaloplists(loop1.operations, loop3.operations,"
+                   " remap=make_remap(loop1.inputargs, loop3.inputargs))")
 
 # ____________________________________________________________
 
