@@ -2,9 +2,9 @@ import py
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.test.runner_test import LLtypeBackendTest,\
      boxfloat, constfloat
-from rpython.jit.metainterp.history import (BasicFailDescr, BasicFinalDescr,
-                                            BoxInt)
-from rpython.jit.metainterp.resoperation import ResOperation, rop
+from rpython.jit.metainterp.history import BasicFailDescr, BasicFinalDescr
+from rpython.jit.metainterp.resoperation import (ResOperation, rop,
+                                                 InputArgInt)
 from rpython.jit.tool.oparser import parse
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import rclass
@@ -52,30 +52,29 @@ class TestARM(LLtypeBackendTest):
 
     def test_result_is_spilled(self):
         cpu = self.cpu
-        inp = [BoxInt(i) for i in range(1, 15)]
-        out = [BoxInt(i) for i in range(1, 15)]
+        inp = [InputArgInt(i) for i in range(1, 15)]
         looptoken = JitCellToken()
         targettoken = TargetToken()
         operations = [
             ResOperation(rop.LABEL, inp, None, descr=targettoken),
-            ResOperation(rop.INT_ADD, [inp[0], inp[1]], out[0]),
-            ResOperation(rop.INT_ADD, [inp[2], inp[3]], out[1]),
-            ResOperation(rop.INT_ADD, [inp[4], inp[5]], out[2]),
-            ResOperation(rop.INT_ADD, [inp[6], inp[7]], out[3]),
-            ResOperation(rop.INT_ADD, [inp[8], inp[9]], out[4]),
-            ResOperation(rop.INT_ADD, [inp[10], inp[11]], out[5]),
-            ResOperation(rop.INT_ADD, [inp[12], inp[13]], out[6]),
-            ResOperation(rop.INT_ADD, [inp[0], inp[1]], out[7]),
-            ResOperation(rop.INT_ADD, [inp[2], inp[3]], out[8]),
-            ResOperation(rop.INT_ADD, [inp[4], inp[5]], out[9]),
-            ResOperation(rop.INT_ADD, [inp[6], inp[7]], out[10]),
-            ResOperation(rop.INT_ADD, [inp[8], inp[9]], out[11]),
-            ResOperation(rop.INT_ADD, [inp[10], inp[11]], out[12]),
-            ResOperation(rop.INT_ADD, [inp[12], inp[13]], out[13]),
-            ResOperation(rop.GUARD_FALSE, [inp[1]], None, descr=BasicFailDescr(1)),
-            ResOperation(rop.FINISH, [inp[1]], None, descr=BasicFinalDescr(1)),
+            ResOperation(rop.INT_ADD, [inp[0], inp[1]]),
+            ResOperation(rop.INT_ADD, [inp[2], inp[3]]),
+            ResOperation(rop.INT_ADD, [inp[4], inp[5]]),
+            ResOperation(rop.INT_ADD, [inp[6], inp[7]]),
+            ResOperation(rop.INT_ADD, [inp[8], inp[9]]),
+            ResOperation(rop.INT_ADD, [inp[10], inp[11]]),
+            ResOperation(rop.INT_ADD, [inp[12], inp[13]]),
+            ResOperation(rop.INT_ADD, [inp[0], inp[1]]),
+            ResOperation(rop.INT_ADD, [inp[2], inp[3]]),
+            ResOperation(rop.INT_ADD, [inp[4], inp[5]]),
+            ResOperation(rop.INT_ADD, [inp[6], inp[7]]),
+            ResOperation(rop.INT_ADD, [inp[8], inp[9]]),
+            ResOperation(rop.INT_ADD, [inp[10], inp[11]]),
+            ResOperation(rop.INT_ADD, [inp[12], inp[13]]),
+            ResOperation(rop.GUARD_FALSE, [inp[1]], descr=BasicFailDescr(1)),
+            ResOperation(rop.FINISH, [inp[1]], descr=BasicFinalDescr(1)),
             ]
-        operations[-2].setfailargs(out)
+        operations[-2].setfailargs(operations[1:15])
         cpu.compile_loop(inp, operations, looptoken)
         args = [i for i in range(1, 15)]
         deadframe = self.cpu.execute_token(looptoken, *args)

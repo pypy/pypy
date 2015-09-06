@@ -2,7 +2,7 @@ from __future__ import with_statement
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm.codebuilder import InstrBuilder
-from rpython.jit.metainterp.history import ConstInt, BoxInt, FLOAT
+from rpython.jit.metainterp.history import FLOAT
 from rpython.rlib.rarithmetic import r_uint, r_longlong, intmask
 from rpython.jit.metainterp.resoperation import rop
 

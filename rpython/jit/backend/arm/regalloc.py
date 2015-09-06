@@ -2,7 +2,7 @@ from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib import rgc
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.jit.backend.llsupport.regalloc import FrameManager, \
-        RegisterManager, TempBox, compute_vars_longevity, BaseRegalloc, \
+        RegisterManager, TempVar, compute_vars_longevity, BaseRegalloc, \
         get_scale
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm import locations
@@ -43,21 +43,21 @@ from rpython.jit.backend.llsupport.descr import CallDescr
 # that it is a LABEL that was not compiled yet.
 TargetToken._ll_loop_code = 0
 
-class TempInt(TempBox):
+class TempInt(TempVar):
     type = INT
 
     def __repr__(self):
         return "<TempInt at %s>" % (id(self),)
 
 
-class TempPtr(TempBox):
+class TempPtr(TempVar):
     type = REF
 
     def __repr__(self):
         return "<TempPtr at %s>" % (id(self),)
 
 
-class TempFloat(TempBox):
+class TempFloat(TempVar):
     type = FLOAT
 
     def __repr__(self):
@@ -725,7 +725,7 @@ class Regalloc(BaseRegalloc):
     prepare_op_guard_nonnull_class = prepare_op_guard_class
 
     def _prepare_guard_class(self, op, fcond):
-        assert isinstance(op.getarg(0), Box)
+        assert not isinstance(op.getarg(0), Const)
         boxes = op.getarglist()
 
         x = self.make_sure_var_in_reg(boxes[0], boxes)
@@ -1100,7 +1100,7 @@ class Regalloc(BaseRegalloc):
 
     def prepare_op_call_malloc_nursery_varsize_frame(self, op, fcond):
         size_box = op.getarg(0)
-        assert isinstance(size_box, BoxInt) # we cannot have a const here!
+        assert not isinstance(size_box, ConstInt) # we cannot have a const here!
         # sizeloc must be in a register, but we can free it now
         # (we take care explicitly of conflicts with r0 or r1)
         sizeloc = self.rm.make_sure_var_in_reg(size_box)
@@ -1134,7 +1134,7 @@ class Regalloc(BaseRegalloc):
         # the result will be in r0
         self.rm.force_allocate_reg(op.result, selected_reg=r.r0)
         # we need r1 as a temporary
-        tmp_box = TempBox()
+        tmp_box = TempVar()
         self.rm.force_allocate_reg(tmp_box, selected_reg=r.r1)
         gcmap = self.get_gcmap([r.r0, r.r1]) # allocate the gcmap *before*
         self.rm.possibly_free_var(tmp_box)

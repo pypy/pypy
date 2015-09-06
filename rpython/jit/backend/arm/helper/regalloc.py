@@ -1,14 +1,13 @@
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
-from rpython.jit.metainterp.history import ConstInt, BoxInt, Box, FLOAT
-from rpython.jit.metainterp.history import ConstInt
+from rpython.jit.metainterp.history import Const, FLOAT
 from rpython.rlib.objectmodel import we_are_translated
 
 VMEM_imm_size=0x3FC
 default_imm_size=0xFF
 
 def check_imm_arg(arg, size=default_imm_size, allow_zero=True):
-    assert not isinstance(arg, ConstInt)
+    assert not isinstance(arg, Const)
     if not we_are_translated():
         if not isinstance(arg, int):
             import pdb; pdb.set_trace()
@@ -20,7 +19,7 @@ def check_imm_arg(arg, size=default_imm_size, allow_zero=True):
     return i <= size and lower_bound
 
 def check_imm_box(arg, size=0xFF, allow_zero=True):
-    if isinstance(arg, ConstInt):
+    if isinstance(arg, Const):
         return check_imm_arg(arg.getint(), size, allow_zero)
     return False
 
@@ -96,7 +95,7 @@ def prepare_op_by_helper_call(name):
         arg2 = self.rm.make_sure_var_in_reg(a1, selected_reg=r.r1)
         assert arg1 == r.r0
         assert arg2 == r.r1
-        if isinstance(a0, Box) and self.stays_alive(a0):
+        if not isinstance(a0, Const) and self.stays_alive(a0):
             self.force_spill_var(a0)
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
@@ -135,7 +134,6 @@ def prepare_op_unary_cmp(name=None):
     def f(self, op, guard_op, fcond):
         assert fcond is not None
         a0 = op.getarg(0)
-        assert isinstance(a0, Box)
         reg = self.make_sure_var_in_reg(a0)
         self.possibly_free_vars_for_op(op)
         if guard_op is None:
