@@ -27,11 +27,8 @@ from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 IS_32_BIT = sys.maxint < 2**32
 IS_64_BIT = sys.maxint > 2**32
 
-def constfloat(x):
-    return ConstFloat(longlong.getfloatstorage(x))
-
-def boxfloat(x):
-    return InputArgFloat(longlong.getfloatstorage(x))
+boxfloat = InputArgFloat.fromfloat
+constfloat = ConstFloat.fromfloat
 
 def clone(op):
     if op.type == 'i':
@@ -421,6 +418,8 @@ class BaseBackendTest(Runner):
         from rpython.jit.metainterp.test.test_executor import get_float_tests
         for opnum, boxargs, rettype, retvalue in get_float_tests(self.cpu):
             res = self.execute_operation(opnum, boxargs, rettype)
+            if rettype == 'float':
+                res = longlong.getrealfloat(res)
             assert res == retvalue
 
     def test_ovf_operations(self, reversed=False):
@@ -563,7 +562,7 @@ class BaseBackendTest(Runner):
             res = self.execute_operation(rop.CALL_F,
                                          [funcbox] + args,
                                          'float', descr=calldescr)
-            assert abs(res - 4.6) < 0.0001
+            assert abs(longlong.getrealfloat(res) - 4.6) < 0.0001
 
     def test_call_many_arguments(self):
         # Test calling a function with a large number of arguments (more than
@@ -648,7 +647,7 @@ class BaseBackendTest(Runner):
         res = self.execute_operation(rop.CALL_F, [funcbox, constfloat(1.5),
                                                 constfloat(2.5)], 'float',
                                      descr=calldescr)
-        assert res == 4.0
+        assert longlong.getrealfloat(res) == 4.0
 
 
     def test_field_basic(self):
@@ -706,13 +705,13 @@ class BaseBackendTest(Runner):
                                    'void', descr=floatdescr)
             res = self.execute_operation(rop.GETFIELD_GC_F, [t_box],
                                          'float', descr=floatdescr)
-            assert res == 3.4
+            assert longlong.getrealfloat(res) == 3.4
             #
             self.execute_operation(rop.SETFIELD_GC, [t_box, constfloat(-3.6)],
                                    'void', descr=floatdescr)
             res = self.execute_operation(rop.GETFIELD_GC_F, [t_box],
                                          'float', descr=floatdescr)
-            assert res == -3.6
+            assert longlong.getrealfloat(res) == -3.6
 
 
     def test_passing_guards(self):
@@ -933,10 +932,10 @@ class BaseBackendTest(Runner):
                                    'void', descr=arraydescr)
             r = self.execute_operation(rop.GETARRAYITEM_GC_F, [a_box, InputArgInt(1)],
                                        'float', descr=arraydescr)
-            assert r == 3.5
+            assert longlong.getrealfloat(r) == 3.5
             r = self.execute_operation(rop.GETARRAYITEM_GC_F, [a_box, InputArgInt(2)],
                                        'float', descr=arraydescr)
-            assert r == 4.5
+            assert longlong.getrealfloat(r) == 4.5
 
         # For platforms where sizeof(INT) != sizeof(Signed) (ie, x86-64)
         a_box, A = self.alloc_array_of(rffi.INT, 342)
@@ -979,7 +978,7 @@ class BaseBackendTest(Runner):
         self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, longlong.getfloatstorage(2.5), kdescr)
         r = self.execute_operation(rop.GETINTERIORFIELD_GC_F, [a_box, InputArgInt(3)],
                                    'float', descr=kdescr)
-        assert r == 2.5
+        assert longlong.getrealfloat(r) == 2.5
         #
         NUMBER_FIELDS = [('vs', lltype.Signed),
                          ('vu', lltype.Unsigned),
@@ -1133,9 +1132,9 @@ class BaseBackendTest(Runner):
 
         if self.cpu.supports_floats:
             r = self.execute_operation(rop.SAME_AS_F, [constfloat(5.5)], 'float')
-            assert r == 5.5
+            assert longlong.getrealfloat(r) == 5.5
             r = self.execute_operation(rop.SAME_AS_F, [boxfloat(5.5)], 'float')
-            assert r == 5.5
+            assert longlong.getrealfloat(r) == 5.5
 
     def test_virtual_ref(self):
         pass   # VIRTUAL_REF must not reach the backend nowadays
@@ -4128,7 +4127,7 @@ class LLtypeBackendTest(BaseBackendTest):
             res = self.execute_operation(rop.CALL_F,
                         [funcbox, boxfloat(arg)],
                          'float', descr=calldescr)
-            assert res == expected
+            assert longlong.getrealfloat(res) == expected
 
     def test_compile_loop_with_target(self):
         looptoken = JitCellToken()

@@ -270,6 +270,10 @@ class ConstFloat(Const):
         assert lltype.typeOf(valuestorage) is longlong.FLOATSTORAGE
         self.value = valuestorage
 
+    @staticmethod
+    def fromfloat(x):
+        return ConstFloat(longlong.getfloatstorage(x))
+
     def getfloatstorage(self):
         return self.value
 

@@ -171,7 +171,7 @@ class OpParser(object):
         if elem.startswith('i'):
             v = InputArgInt(0)
         elif elem.startswith('f'):
-            v = InputArgFloat(0.0)
+            v = InputArgFloat.fromfloat(0.0)
         else:
             from rpython.rtyper.lltypesystem import lltype, llmemory
             assert elem.startswith('p')

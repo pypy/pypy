@@ -63,11 +63,9 @@ class FakeCPU(AbstractCPU):
     def bh_strsetitem(self, string, index, newvalue):
         self.fakestrsetitem = (string, index, newvalue)
 
-def boxfloat(x):
-    return InputArgFloat(longlong.getfloatstorage(x))
 
-def constfloat(x):
-    return ConstFloat(longlong.getfloatstorage(x))
+boxfloat = InputArgFloat.fromfloat
+constfloat = ConstFloat.fromfloat
 
 
 def test_execute():
