@@ -436,7 +436,7 @@ class BaseTestGenerateGuards(BaseTest):
         value1 = ConstIntBound(1)
         box = InputArgInt()
         guards = []
-        value1.make_guards(box, guards)
+        value1.make_guards(box, guards, FakeOptimizer(self.cpu))
         expected = """
         [i0]
         guard_value(i0, 1) []
