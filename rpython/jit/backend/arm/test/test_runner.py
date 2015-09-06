@@ -56,7 +56,7 @@ class TestARM(LLtypeBackendTest):
         looptoken = JitCellToken()
         targettoken = TargetToken()
         operations = [
-            ResOperation(rop.LABEL, inp, None, descr=targettoken),
+            ResOperation(rop.LABEL, inp, descr=targettoken),
             ResOperation(rop.INT_ADD, [inp[0], inp[1]]),
             ResOperation(rop.INT_ADD, [inp[2], inp[3]]),
             ResOperation(rop.INT_ADD, [inp[4], inp[5]]),
@@ -103,7 +103,7 @@ class TestARM(LLtypeBackendTest):
         lt2.outermost_jitdriver_sd = FakeJitDriverSD()
         loop1 = parse('''
         [i0]
-        i1 = call_assembler(i0, descr=lt2)
+        i1 = call_assembler_i(i0, descr=lt2)
         guard_not_forced()[]
         finish(i1)
         ''', namespace=locals())
@@ -180,19 +180,19 @@ class TestARM(LLtypeBackendTest):
     def test_float_field(self):
         if not self.cpu.supports_floats:
             py.test.skip('requires floats')
+        t_box, T_box, _ = self.alloc_instance(self.TFloat)
         floatdescr = self.cpu.fielddescrof(self.SFloat, 'float')
-        t_box, T_box = self.alloc_instance(self.TFloat)
         self.execute_operation(rop.SETFIELD_GC, [t_box, boxfloat(3.4)],
                                'void', descr=floatdescr)
-        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+        res = self.execute_operation(rop.GETFIELD_GC_F, [t_box],
                                      'float', descr=floatdescr)
-        assert res.getfloat() == 3.4
+        assert longlong.getrealfloat(res) == 3.4
         #
         self.execute_operation(rop.SETFIELD_GC, [t_box, constfloat(-3.6)],
                                'void', descr=floatdescr)
-        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+        res = self.execute_operation(rop.GETFIELD_GC_F, [t_box],
                                      'float', descr=floatdescr)
-        assert res.getfloat() == -3.6
+        assert longlong.getrealfloat(res) == -3.6
 
     def test_compile_loop_many_int_args(self):
         for numargs in range(2, 30):
@@ -268,13 +268,13 @@ class TestARM(LLtypeBackendTest):
         targettoken = TargetToken()
         ops = """
         [i0, f3]
-        i2 = same_as(i0)    # but forced to be in a register
+        i2 = same_as_i(i0)    # but forced to be in a register
         force_spill(i2)
         force_spill(f3)
         f4 = float_add(f3, 5.0)
         label(f3, f4, descr=targettoken)
         force_spill(f3)
-        f5 = same_as(f3)    # but forced to be in a register
+        f5 = same_as_f(f3)    # but forced to be in a register
         finish(f5)
         """
         faildescr = BasicFailDescr(2)
@@ -283,8 +283,8 @@ class TestARM(LLtypeBackendTest):
         info = self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         ops2 = """
         [i0, f1]
-        i1 = same_as(i0)
-        f2 = same_as(f1)
+        i1 = same_as_i(i0)
+        f2 = same_as_f(f1)
         f3 = float_add(f1, 10.0)
         force_spill(f3)
         force_spill(i1)

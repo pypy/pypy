@@ -43,7 +43,7 @@ def prepare_op_ri(name=None, imm_size=0xFF, commutative=True, allow_zero=True):
             l1 = self.make_sure_var_in_reg(a1, boxes)
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
-        res = self.force_allocate_reg(op.result, boxes)
+        res = self.force_allocate_reg(op, boxes)
         return [l0, l1, res]
     if name:
         f.__name__ = name
@@ -53,7 +53,7 @@ def prepare_unary_op(self, op, fcond):
     loc1 = self.make_sure_var_in_reg(op.getarg(0))
     self.possibly_free_vars_for_op(op)
     self.free_temp_vars()
-    res = self.force_allocate_reg(op.result)
+    res = self.force_allocate_reg(op)
     return [loc1, res]
 
 def prepare_two_regs_op(self, op, fcond):
@@ -61,7 +61,7 @@ def prepare_two_regs_op(self, op, fcond):
     loc2 = self.make_sure_var_in_reg(op.getarg(1))
     self.possibly_free_vars_for_op(op)
     self.free_temp_vars()
-    res = self.force_allocate_reg(op.result)
+    res = self.force_allocate_reg(op)
     return [loc1, loc2, res]
 
 def prepare_float_cmp(self, op, fcond):
@@ -69,7 +69,7 @@ def prepare_float_cmp(self, op, fcond):
     loc2 = self.make_sure_var_in_reg(op.getarg(1))
     self.possibly_free_vars_for_op(op)
     self.free_temp_vars()
-    res = self.force_allocate_reg_or_cc(op.result)
+    res = self.force_allocate_reg_or_cc(op)
     return [loc1, loc2, res]
 
 def prepare_op_by_helper_call(name):
@@ -85,8 +85,8 @@ def prepare_op_by_helper_call(name):
             self.force_spill_var(a0)
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
-        self.after_call(op.result)
-        self.possibly_free_var(op.result)
+        self.after_call(op)
+        self.possibly_free_var(op)
         return []
     f.__name__ = name
     return f
@@ -105,7 +105,7 @@ def prepare_int_cmp(self, op, fcond):
 
     self.possibly_free_vars_for_op(op)
     self.free_temp_vars()
-    res = self.force_allocate_reg_or_cc(op.result)
+    res = self.force_allocate_reg_or_cc(op)
     return [l0, l1, res]
 
 def prepare_unary_cmp(self, op, fcond):
@@ -114,5 +114,5 @@ def prepare_unary_cmp(self, op, fcond):
     assert isinstance(a0, Box)
     reg = self.make_sure_var_in_reg(a0)
     self.possibly_free_vars_for_op(op)
-    res = self.force_allocate_reg_or_cc(op.result)
+    res = self.force_allocate_reg_or_cc(op)
     return [reg, res]

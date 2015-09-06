@@ -1063,7 +1063,7 @@ class RegAlloc(BaseRegalloc):
     consider_setarrayitem_raw = consider_setarrayitem_gc
     consider_raw_store = consider_setarrayitem_gc
 
-    def _consider_getfield_gc(self, op):
+    def _consider_getfield(self, op):
         ofs, size, sign = unpack_fielddescr(op.getdescr())
         ofs_loc = imm(ofs)
         size_loc = imm(size)
@@ -1076,22 +1076,22 @@ class RegAlloc(BaseRegalloc):
             sign_loc = imm0
         self.perform(op, [base_loc, ofs_loc, size_loc, sign_loc], result_loc)
 
-    consider_getfield_gc_i = _consider_getfield_gc    
-    consider_getfield_gc_r = _consider_getfield_gc    
-    consider_getfield_gc_f = _consider_getfield_gc    
-    consider_getfield_raw_i = _consider_getfield_gc
-    consider_getfield_raw_f = _consider_getfield_gc
-    consider_getfield_raw_pure_i = _consider_getfield_gc
-    consider_getfield_raw_pure_f = _consider_getfield_gc
-    consider_getfield_gc_pure_i = _consider_getfield_gc
-    consider_getfield_gc_pure_r = _consider_getfield_gc
-    consider_getfield_gc_pure_f = _consider_getfield_gc
+    consider_getfield_gc_i = _consider_getfield
+    consider_getfield_gc_r = _consider_getfield
+    consider_getfield_gc_f = _consider_getfield
+    consider_getfield_raw_i = _consider_getfield
+    consider_getfield_raw_f = _consider_getfield
+    consider_getfield_raw_pure_i = _consider_getfield
+    consider_getfield_raw_pure_f = _consider_getfield
+    consider_getfield_gc_pure_i = _consider_getfield
+    consider_getfield_gc_pure_r = _consider_getfield
+    consider_getfield_gc_pure_f = _consider_getfield
 
     def consider_increment_debug_counter(self, op):
         base_loc = self.loc(op.getarg(0))
         self.perform_discard(op, [base_loc])
 
-    def _consider_getarrayitem_gc(self, op):
+    def _consider_getarrayitem(self, op):
         itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
@@ -1104,20 +1104,20 @@ class RegAlloc(BaseRegalloc):
         self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
                           sign_loc], result_loc)
 
-    consider_getarrayitem_gc_i = _consider_getarrayitem_gc
-    consider_getarrayitem_gc_r = _consider_getarrayitem_gc
-    consider_getarrayitem_gc_f = _consider_getarrayitem_gc
-    consider_getarrayitem_raw_i = _consider_getarrayitem_gc
-    consider_getarrayitem_raw_f = _consider_getarrayitem_gc
-    consider_getarrayitem_gc_pure_i = _consider_getarrayitem_gc
-    consider_getarrayitem_gc_pure_r = _consider_getarrayitem_gc
-    consider_getarrayitem_gc_pure_f = _consider_getarrayitem_gc
-    consider_getarrayitem_raw_pure_i = _consider_getarrayitem_gc
-    consider_getarrayitem_raw_pure_f = _consider_getarrayitem_gc
-    consider_raw_load_i = _consider_getarrayitem_gc
-    consider_raw_load_f = _consider_getarrayitem_gc
+    consider_getarrayitem_gc_i = _consider_getarrayitem
+    consider_getarrayitem_gc_r = _consider_getarrayitem
+    consider_getarrayitem_gc_f = _consider_getarrayitem
+    consider_getarrayitem_raw_i = _consider_getarrayitem
+    consider_getarrayitem_raw_f = _consider_getarrayitem
+    consider_getarrayitem_gc_pure_i = _consider_getarrayitem
+    consider_getarrayitem_gc_pure_r = _consider_getarrayitem
+    consider_getarrayitem_gc_pure_f = _consider_getarrayitem
+    consider_getarrayitem_raw_pure_i = _consider_getarrayitem
+    consider_getarrayitem_raw_pure_f = _consider_getarrayitem
+    consider_raw_load_i = _consider_getarrayitem
+    consider_raw_load_f = _consider_getarrayitem
 
-    def _consider_getinteriorfield_gc(self, op):
+    def _consider_getinteriorfield(self, op):
         t = unpack_interiorfielddescr(op.getdescr())
         ofs, itemsize, fieldsize, sign = imm(t[0]), imm(t[1]), imm(t[2]), t[3]
         if sign:
@@ -1145,9 +1145,9 @@ class RegAlloc(BaseRegalloc):
         self.perform(op, [base_loc, ofs, itemsize, fieldsize,
                           index_loc, temp_loc, sign_loc], result_loc)
 
-    consider_getinteriorfield_gc_i = _consider_getinteriorfield_gc
-    consider_getinteriorfield_gc_r = _consider_getinteriorfield_gc
-    consider_getinteriorfield_gc_f = _consider_getinteriorfield_gc
+    consider_getinteriorfield_gc_i = _consider_getinteriorfield
+    consider_getinteriorfield_gc_r = _consider_getinteriorfield
+    consider_getinteriorfield_gc_f = _consider_getinteriorfield
 
     def consider_int_is_true(self, op):
         # doesn't need arg to be in a register
