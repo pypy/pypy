@@ -1357,24 +1357,24 @@ class Assembler386(BaseAssembler):
         else:
             not_implemented("save_into_mem size = %d" % size)
 
-    def _genop_getfield_gc(self, op, arglocs, resloc):
+    def _genop_getfield(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, sign_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         source_addr = AddressLoc(base_loc, ofs_loc)
         self.load_from_mem(resloc, source_addr, size_loc, sign_loc)
 
-    genop_getfield_gc_i = _genop_getfield_gc
-    genop_getfield_gc_r = _genop_getfield_gc
-    genop_getfield_gc_f = _genop_getfield_gc
-    genop_getfield_raw_i = _genop_getfield_gc
-    genop_getfield_raw_f = _genop_getfield_gc
-    genop_getfield_raw_pure_i = _genop_getfield_gc
-    genop_getfield_raw_pure_f = _genop_getfield_gc
-    genop_getfield_gc_pure_i = _genop_getfield_gc
-    genop_getfield_gc_pure_r = _genop_getfield_gc
-    genop_getfield_gc_pure_f = _genop_getfield_gc
+    genop_getfield_gc_i = _genop_getfield
+    genop_getfield_gc_r = _genop_getfield
+    genop_getfield_gc_f = _genop_getfield
+    genop_getfield_raw_i = _genop_getfield
+    genop_getfield_raw_f = _genop_getfield
+    genop_getfield_raw_pure_i = _genop_getfield
+    genop_getfield_raw_pure_f = _genop_getfield
+    genop_getfield_gc_pure_i = _genop_getfield
+    genop_getfield_gc_pure_r = _genop_getfield
+    genop_getfield_gc_pure_f = _genop_getfield
 
-    def _genop_getarrayitem_gc(self, op, arglocs, resloc):
+    def _genop_getarrayitem(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
         assert isinstance(ofs, ImmedLoc)
         assert isinstance(size_loc, ImmedLoc)
@@ -1382,16 +1382,16 @@ class Assembler386(BaseAssembler):
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
-    genop_getarrayitem_gc_i = _genop_getarrayitem_gc
-    genop_getarrayitem_gc_r = _genop_getarrayitem_gc
-    genop_getarrayitem_gc_f = _genop_getarrayitem_gc
-    genop_getarrayitem_gc_pure_i = _genop_getarrayitem_gc
-    genop_getarrayitem_gc_pure_r = _genop_getarrayitem_gc
-    genop_getarrayitem_gc_pure_f = _genop_getarrayitem_gc
-    genop_getarrayitem_raw_i = _genop_getarrayitem_gc
-    genop_getarrayitem_raw_f = _genop_getarrayitem_gc
-    genop_getarrayitem_raw_pure_i = _genop_getarrayitem_gc
-    genop_getarrayitem_raw_pure_f = _genop_getarrayitem_gc
+    genop_getarrayitem_gc_i = _genop_getarrayitem
+    genop_getarrayitem_gc_r = _genop_getarrayitem
+    genop_getarrayitem_gc_f = _genop_getarrayitem
+    genop_getarrayitem_gc_pure_i = _genop_getarrayitem
+    genop_getarrayitem_gc_pure_r = _genop_getarrayitem
+    genop_getarrayitem_gc_pure_f = _genop_getarrayitem
+    genop_getarrayitem_raw_i = _genop_getarrayitem
+    genop_getarrayitem_raw_f = _genop_getarrayitem
+    genop_getarrayitem_raw_pure_i = _genop_getarrayitem
+    genop_getarrayitem_raw_pure_f = _genop_getarrayitem
 
     def _genop_raw_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
@@ -1446,16 +1446,16 @@ class Assembler386(BaseAssembler):
         assert isinstance(ofs_loc, ImmedLoc)
         return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
 
-    def _genop_getinteriorfield_gc(self, op, arglocs, resloc):
+    def _genop_getinteriorfield(self, op, arglocs, resloc):
         (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
             index_loc, temp_loc, sign_loc) = arglocs
         src_addr = self._get_interiorfield_addr(temp_loc, index_loc,
                                                 itemsize_loc, base_loc,
                                                 ofs_loc)
         self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
-    genop_getinteriorfield_gc_i = _genop_getinteriorfield_gc
-    genop_getinteriorfield_gc_r = _genop_getinteriorfield_gc
-    genop_getinteriorfield_gc_f = _genop_getinteriorfield_gc
+    genop_getinteriorfield_gc_i = _genop_getinteriorfield
+    genop_getinteriorfield_gc_r = _genop_getinteriorfield
+    genop_getinteriorfield_gc_f = _genop_getinteriorfield
 
     def genop_discard_increment_debug_counter(self, op, arglocs):
         # The argument should be an immediate address.  This should
@@ -1697,17 +1697,16 @@ class Assembler386(BaseAssembler):
         self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
 
-    def genop_guard_guard_gc_type(self, ign_1, guard_op,
-                                  guard_token, locs, ign_2):
+    def genop_guard_guard_gc_type(self, guard_op, guard_token, locs, ign):
         self._cmp_guard_gc_type(locs[0], locs[1])
-        self.implement_guard(guard_token, 'NE')
+        self.guard_success_cc = rx86.Conditions['E']
+        self.implement_guard(guard_token)
 
-    def genop_guard_guard_is_object(self, ign_1, guard_op,
-                                    guard_token, locs, ign_2):
+    def genop_guard_guard_is_object(self, guard_op, guard_token, locs, ign):
         assert self.cpu.supports_guard_gc_type
         [loc_object, loc_typeid] = locs
-        # idea: read the typeid, fetch the field 'infobits' from the big
-        # typeinfo table, and check the flag 'T_IS_RPYTHON_INSTANCE'.
+        # idea: read the typeid, fetch one byte of the field 'infobits' from
+        # the big typeinfo table, and check the flag 'T_IS_RPYTHON_INSTANCE'.
         if IS_X86_32:
             self.mc.MOVZX16(loc_typeid, mem(loc_object, 0))
         else:
@@ -1719,12 +1718,12 @@ class Assembler386(BaseAssembler):
             self.cpu.gc_ll_descr.get_translated_info_for_guard_is_object())
         loc_infobits = addr_add(imm(base_type_info), loc_typeid,
                                 scale=shift_by, offset=infobits_offset)
-        self.mc.TEST(loc_infobits, imm(IS_OBJECT_FLAG))
+        self.mc.TEST8(loc_infobits, imm(IS_OBJECT_FLAG))
         #
-        self.implement_guard(guard_token, 'Z')
+        self.guard_success_cc = rx86.Conditions['NZ']
+        self.implement_guard(guard_token)
 
-    def genop_guard_guard_subclass(self, op, guard_op,
-                                   guard_token, locs, ign_2):
+    def genop_guard_guard_subclass(self, guard_op, guard_token, locs, ign):
         assert self.cpu.supports_guard_gc_type
         [loc_object, loc_check_against_class, loc_tmp] = locs
         assert isinstance(loc_object, RegLoc)
@@ -1757,8 +1756,9 @@ class Assembler386(BaseAssembler):
         # check by doing the unsigned comparison (tmp - min) < (max - min)
         self.mc.SUB_ri(loc_tmp.value, check_min)
         self.mc.CMP_ri(loc_tmp.value, check_max - check_min)
-        # the guard fails if we get a "not below" result
-        self.implement_guard(guard_token, 'NB')
+        # the guard passes if we get a result of "below"
+        self.guard_success_cc = rx86.Conditions['B']
+        self.implement_guard(guard_token)
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
                                  fail_locs, frame_depth):
