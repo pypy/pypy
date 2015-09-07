@@ -420,6 +420,9 @@ class Optimizer(Optimization):
         op = self.get_box_replacement(op)
         if op.is_constant():
             return
+        if op.type == 'i':
+            # raw pointers
+            return
         opinfo = op.get_forwarded()
         if opinfo is not None:
             assert opinfo.is_nonnull()
