@@ -3287,6 +3287,50 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         '''
         self.optimize_loop(ops, expected)
 
+    def test_arraycopy_invalidate_1(self):
+        ops = """
+        [i5]
+        p0 = escape()
+        p1 = new_array_clear(i5, descr=arraydescr)
+        call(0, p0, p1, 0, 0, i5, descr=arraycopydescr)
+        i2 = getarrayitem_gc(p1, 0, descr=arraydescr)   # != NULL
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_arraycopy_invalidate_2(self):
+        ops = """
+        [i5]
+        p0 = escape()
+        p1 = new_array_clear(i5, descr=arraydescr)
+        call(0, p0, p1, 0, 0, 100, descr=arraycopydescr)
+        i2 = getarrayitem_gc(p1, 0, descr=arraydescr)   # != NULL
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_arraycopy_invalidate_3(self):
+        ops = """
+        [i5]
+        p0 = escape()
+        p1 = new_array_clear(100, descr=arraydescr)
+        call(0, p0, p1, 0, 0, i5, descr=arraycopydescr)
+        i2 = getarrayitem_gc(p1, 0, descr=arraydescr)   # != NULL
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_arraycopy_invalidate_4(self):
+        ops = """
+        [i5]
+        p0 = escape()
+        p1 = new_array_clear(100, descr=arraydescr)
+        call(0, p0, p1, 0, 0, 100, descr=arraycopydescr)
+        i2 = getarrayitem_gc(p1, 0, descr=arraydescr)   # != NULL
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
     def test_bound_lt(self):
         ops = """
         [i0]
