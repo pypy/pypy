@@ -383,6 +383,9 @@ class OpParser(object):
                 return num, ops
             elif line.startswith(" "*(indent + 1)):
                 raise ParseError("indentation not valid any more")
+            elif line.startswith(" " * indent + "#"):
+                num += 1
+                continue
             else:
                 line = line.strip()
                 offset, line = self.parse_offset(line)
