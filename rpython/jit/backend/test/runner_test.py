@@ -1804,8 +1804,11 @@ class LLtypeBackendTest(BaseBackendTest):
 
 
     def alloc_instance(self, T):
-        vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
-        vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
+        if hasattr(T, 'parent'):
+            vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
+            vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
+        else:
+            vtable_for_T = None
         cpu = self.cpu
         class FakeGCCache(object):
             pass
@@ -1827,11 +1830,12 @@ class LLtypeBackendTest(BaseBackendTest):
         elif T == self.U:
             t.parent.parent.parent.typeptr = vtable_for_T
         t_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, t))
-        T_box = ConstInt(heaptracker.adr2int(vtable_for_T_addr))
         if not hasattr(T, 'parent'):
             vtable = None
+            T_box = None
         else:
             vtable = vtable_for_T
+            T_box = ConstInt(heaptracker.adr2int(vtable_for_T_addr))
         descr = cpu.sizeof(T, vtable)
         return t_box, T_box, descr
 
@@ -3463,7 +3467,8 @@ class LLtypeBackendTest(BaseBackendTest):
         x = cpu.bh_new(descrsize)
         lltype.cast_opaque_ptr(lltype.Ptr(S), x)    # type check
         #
-        _, T, descrsize2 = self.alloc_instance(rclass.OBJECT)
+        X = lltype.GcStruct('X', ('parent', rclass.OBJECT))
+        _, T, descrsize2 = self.alloc_instance(X)
         x = cpu.bh_new_with_vtable(descrsize2)
         lltype.cast_opaque_ptr(lltype.Ptr(rclass.OBJECT), x)    # type check
         # well...
