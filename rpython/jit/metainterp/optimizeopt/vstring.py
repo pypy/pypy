@@ -393,10 +393,13 @@ def _strgetitem(string_optimizer, strbox, indexbox, mode, resbox=None):
     if isinstance(strbox, ConstPtr) and isinstance(indexbox, ConstInt):
         if mode is mode_string:
             s = strbox.getref(lltype.Ptr(rstr.STR))
-            return ConstInt(ord(s.chars[indexbox.getint()]))
+            resnewbox = ConstInt(ord(s.chars[indexbox.getint()]))
         else:
             s = strbox.getref(lltype.Ptr(rstr.UNICODE))
-            return ConstInt(ord(s.chars[indexbox.getint()]))
+            resnewbox = ConstInt(ord(s.chars[indexbox.getint()]))
+        if resbox is not None:
+            string_optimizer.make_equal_to(resbox, resnewbox)
+        return resnewbox
     if resbox is None:
         resbox = ResOperation(mode.STRGETITEM, [strbox, indexbox])
     else:
