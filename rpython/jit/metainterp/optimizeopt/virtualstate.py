@@ -164,6 +164,8 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                 fieldbox = None
                 fieldbox_runtime = None
             if self.fieldstate[i] is not None:
+                if other.fieldstate[i] is None:
+                    raise VirtualStatesCantMatch
                 self.fieldstate[i].generate_guards(other.fieldstate[i],
                                                    fieldbox,
                                                    fieldbox_runtime, state)
@@ -244,7 +246,10 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
                 fieldbox = opinfo._items[i]
                 fieldbox_runtime = state.get_runtime_item(runtime_box,
                                             self.arraydescr, i)
-            self.fieldstate[i].generate_guards(other.fieldstate[i],
+            if self.fieldstate[i] is not None:
+                if other.fieldstate[i] is None:
+                    raise VirtualStatesCantMatch
+                self.fieldstate[i].generate_guards(other.fieldstate[i],
                                             fieldbox, fieldbox_runtime, state)
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
@@ -303,6 +308,8 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
                 fieldstate = self.fieldstate[index]
                 if fieldstate is None:
                     continue
+                if other.fieldstate[index] is None:
+                    raise VirtualStatesCantMatch
                 if box is not None and opinfo is not None:
                     fieldbox = opinfo._items[index]
                     fieldbox_runtime = state.get_runtime_interiorfield(
