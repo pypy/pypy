@@ -187,11 +187,9 @@ class VStringPlainInfo(StrPtrInfo):
 
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):
-        if not self.is_virtual():
-            # and not self.is_completely_initialized():
-            raise Exception("implement me")
-            return VAbstractStringValue.string_copy_parts(
-                self, string_optimizer, targetbox, offsetbox, mode)
+        if not self.is_virtual(): # and not self.is_completely_initialized():
+            return StrPtrInfo.string_copy_parts(self, op, string_optimizer,
+                                                targetbox, offsetbox, mode)
         else:
             return self.initialize_forced_string(op, string_optimizer,
                                                  targetbox, offsetbox, mode)
