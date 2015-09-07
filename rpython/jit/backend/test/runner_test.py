@@ -1808,7 +1808,7 @@ class LLtypeBackendTest(BaseBackendTest):
             vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
             vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
         else:
-            vtable_for_T = None
+            vtable_for_T = lltype.nullptr(rclass.OBJECT_VTABLE)
         cpu = self.cpu
         class FakeGCCache(object):
             pass
@@ -1831,7 +1831,7 @@ class LLtypeBackendTest(BaseBackendTest):
             t.parent.parent.parent.typeptr = vtable_for_T
         t_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, t))
         if not hasattr(T, 'parent'):
-            vtable = None
+            vtable = lltype.nullptr(rclass.OBJECT_VTABLE)
             T_box = None
         else:
             vtable = vtable_for_T
@@ -1934,7 +1934,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_new_plain_struct(self):
         cpu = self.cpu
         S = lltype.GcStruct('S', ('x', lltype.Char), ('y', lltype.Char))
-        sizedescr = cpu.sizeof(S, None)
+        sizedescr = cpu.sizeof(S)
         r1 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
         r2 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
         assert r1 != r2
@@ -3463,7 +3463,7 @@ class LLtypeBackendTest(BaseBackendTest):
         #    descrfld_ry)
         #assert rs.y == a
         #
-        descrsize = cpu.sizeof(S, None)
+        descrsize = cpu.sizeof(S)
         x = cpu.bh_new(descrsize)
         lltype.cast_opaque_ptr(lltype.Ptr(S), x)    # type check
         #
@@ -4801,8 +4801,8 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("llgraph can't do zero_ptr_field")
         T = lltype.GcStruct('T')
         S = lltype.GcStruct('S', ('x', lltype.Ptr(T)))
-        tdescr = self.cpu.sizeof(T, None)
-        sdescr = self.cpu.sizeof(S, None)
+        tdescr = self.cpu.sizeof(T)
+        sdescr = self.cpu.sizeof(S)
         fielddescr = self.cpu.fielddescrof(S, 'x')
         loop = parse("""
         []

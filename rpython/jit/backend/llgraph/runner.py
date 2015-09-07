@@ -434,7 +434,7 @@ class LLGraphCPU(model.AbstractCPU):
             self.descrs[key] = descr
             return descr
 
-    def sizeof(self, S, vtable):
+    def sizeof(self, S, vtable=lltype.nullptr(rclass.OBJECT_VTABLE)):
         key = ('size', S)
         try:
             descr = self.descrs[key]
