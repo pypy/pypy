@@ -4,7 +4,7 @@ from rpython.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo,\
      VStructStateInfo, LEVEL_CONSTANT,\
      VArrayStateInfo, NotVirtualStateInfo, VirtualState,\
      GenerateGuardState, VirtualStatesCantMatch, VArrayStructStateInfo
-from rpython.jit.metainterp.history import ConstInt, ConstPtr
+from rpython.jit.metainterp.history import ConstInt, ConstPtr, TargetToken
 from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
      InputArgFloat
 from rpython.jit.backend.llgraph.runner import ArrayDescr
@@ -18,7 +18,7 @@ from rpython.jit.metainterp.history import TreeLoop, JitCellToken
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp.resoperation import ResOperation, rop
-from rpython.jit.metainterp import resume
+from rpython.jit.metainterp import resume, compile
 from rpython.jit.metainterp.optimizeopt import info
 
 class FakeOptimizer(Optimizer):
@@ -810,7 +810,7 @@ class BaseTestGenerateGuards(BaseTest):
         info1.enum_forced_boxes([None], nodebox, FakeOptimizer(self.cpu))
 
 class BaseTestBridges(BaseTest):
-    enable_opts = "intbounds:rewrite:virtualize:string:pure:heap:unroll"
+    enable_opts = "intbounds:rewrite:virtualize:string:pure:earlyforce:heap:unroll"
 
     def _do_optimize_bridge(self, bridge, call_pure_results):
         from rpython.jit.metainterp.optimizeopt import optimize_trace
@@ -827,30 +827,50 @@ class BaseTestBridges(BaseTest):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        optimize_trace(metainterp_sd, None, bridge, self.enable_opts)
-
+        start_label = ResOperation(rop.LABEL, bridge.inputargs)
+        data = compile.BridgeCompileData(start_label, bridge.operations,
+            enable_opts=self.enable_opts, inline_short_preamble=True)
+            
+        info, newops = optimize_trace(metainterp_sd, None, data)
+        if info.final():
+            bridge.operations = newops
+            bridge.inputargs = info.inputargs
+        return info
         
-    def optimize_bridge(self, loops, bridge, expected, expected_target='Loop', **boxvalues):
+    def optimize_bridge(self, loops, bridge, expected, expected_target='Loop',
+                        boxvalues=None):
         if isinstance(loops, str):
             loops = (loops, )
         loops = [self.parse(loop, postprocess=self.postprocess)
                  for loop in loops]
         bridge = self.parse(bridge, postprocess=self.postprocess)
         self.add_guard_future_condition(bridge)
-        for loop in loops:
-            loop.preamble = self.unroll_and_optimize(loop).preamble
-        preamble = loops[0].preamble
         token = JitCellToken()
+        jump_args = bridge.operations[-1].getarglist()
+        if boxvalues is not None:
+            assert isinstance(boxvalues, list)
+            assert len(jump_args) == len(boxvalues)
+            for jump_arg, v in zip(jump_args, boxvalues):
+                jump_arg.setref_base(v)
+        for loop in loops:
+            loop_jump_args = loop.operations[-1].getarglist()
+            if boxvalues is not None:
+                assert isinstance(boxvalues, list)
+                assert len(jump_args) == len(boxvalues)
+                for jump_arg, v in zip(loop_jump_args, boxvalues):
+                    jump_arg.setref_base(v)
+            info = self.unroll_and_optimize(loop)
+            loop.preamble = info.preamble
+            loop.preamble.operations[0].setdescr(TargetToken(token))
+        preamble = loops[0].preamble
         token.target_tokens = [l.operations[0].getdescr() for l in [preamble] + loops]
 
         boxes = {}
         for b in bridge.inputargs + [op for op in bridge.operations]:
             boxes[str(b)] = b
-        #for b, v in boxvalues.items():
-        #    boxes[b].value = v
         bridge.operations[-1].setdescr(token)
-        self._do_optimize_bridge(bridge, None)
-        if bridge.operations[-1].getopnum() == rop.LABEL:
+        info = self._do_optimize_bridge(bridge, None)
+        if not info.final():
             assert expected == 'RETRACE'
             return
 
@@ -882,19 +902,22 @@ class BaseTestBridges(BaseTest):
         expected = """
         [p0]
         guard_nonnull(p0) []
+        guard_is_object(p0) []
+        guard_subclass(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         jump(p0)
         """
-        self.optimize_bridge(loop, bridge, 'RETRACE', p0=self.nullptr)
-        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
-        self.optimize_bridge(loop, expected, expected, p0=self.myptr)
-        self.optimize_bridge(loop, expected, expected, p0=self.nullptr)
+        self.optimize_bridge(loop, bridge, expected, 'Loop', [self.myptr])
+        self.optimize_bridge(loop, expected, expected, 'Loop', [self.myptr])
+        self.optimize_bridge(loop, expected, expected, 'Loop', [self.nullptr])
+        self.optimize_bridge(loop, bridge, 'RETRACE', 'Loop', [self.nullptr])
 
     def test_cached_nonnull(self):
         loop = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_nonnull(p1) []
-        call(p1, descr=nonwritedescr)
+        call_n(p1, descr=nonwritedescr)
         jump(p0)
         """
         bridge = """
@@ -904,16 +927,18 @@ class BaseTestBridges(BaseTest):
         expected = """
         [p0]
         guard_nonnull(p0) []
-        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_is_object(p0) []
+        guard_subclass(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_nonnull(p1) []
         jump(p0, p1)
         """
-        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
+        self.optimize_bridge(loop, bridge, expected, boxvalues=[self.myptr])
 
     def test_cached_unused_nonnull(self):        
         loop = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_nonnull(p1) []
         jump(p0)
         """
@@ -924,31 +949,34 @@ class BaseTestBridges(BaseTest):
         expected = """
         [p0]
         guard_nonnull(p0) []
-        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_is_object(p0) []
+        guard_subclass(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_nonnull(p1) []
         jump(p0)
         """        
-        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
+        self.optimize_bridge(loop, bridge, expected, boxvalues=[self.myptr])
 
     def test_cached_invalid_nonnull(self):        
         loop = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_nonnull(p1) []
         jump(p0)
         """
         bridge = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_value(p1, ConstPtr(nullptr)) []        
         jump(p0)
         """
-        self.optimize_bridge(loop, bridge, bridge, 'Preamble', p0=self.myptr)
+        self.optimize_bridge(loop, bridge, bridge, 'Preamble',
+                             boxvalues=[self.myptr])
 
     def test_multiple_nonnull(self):
         loops = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         jump(p0)
         """, """
         [p0]
@@ -962,22 +990,25 @@ class BaseTestBridges(BaseTest):
         [p0]
         jump(p0)
         """
-        self.optimize_bridge(loops, bridge, expected, 'Loop1', p0=self.nullptr)
+        self.optimize_bridge(loops, bridge, expected, 'Loop1', [self.nullptr])
         expected = """
         [p0]
         guard_nonnull(p0) []
+        guard_is_object(p0) []
+        guard_subclass(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         jump(p0)
         """
-        self.optimize_bridge(loops, bridge, expected, 'Loop0', p0=self.myptr)
+        self.optimize_bridge(loops, bridge, expected, 'Loop0', [self.myptr])
 
     def test_constant(self):
         loops = """
         [i0]
-        i1 = same_as(1)
+        i1 = same_as_i(1)
         jump(i1)
         """, """
         [i0]
-        i1 = same_as(2)
+        i1 = same_as_i(2)
         jump(i1)
         """, """
         [i0]
@@ -998,7 +1029,7 @@ class BaseTestBridges(BaseTest):
     def test_cached_constant(self):
         loop = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_value(p1, ConstPtr(myptr)) []
         jump(p0)
         """
@@ -1009,23 +1040,25 @@ class BaseTestBridges(BaseTest):
         expected = """
         [p0]
         guard_nonnull(p0) []
-        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_is_object(p0) []
+        guard_subclass(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_value(p1, ConstPtr(myptr)) []       
         jump(p0)
         """
-        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
+        self.optimize_bridge(loop, bridge, expected, 'Loop', [self.myptr])
 
     def test_simple_virtual(self):
         loops = """
         [p0, p1]
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, p1, descr=nextdescr)
         setfield_gc(p2, 7, descr=adescr)
         setfield_gc(p2, 42, descr=bdescr)
         jump(p2, p1)
         ""","""
         [p0, p1]
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, p1, descr=nextdescr)
         setfield_gc(p2, 9, descr=adescr)
         jump(p2, p1)
@@ -1034,25 +1067,26 @@ class BaseTestBridges(BaseTest):
         [p0, p1]
         jump(p1)
         """
-        self.optimize_bridge(loops, loops[0], expected, 'Loop0')
-        self.optimize_bridge(loops, loops[1], expected, 'Loop1')
+        ptr0 = lltype.malloc(self.NODE, zero=True)
+        self.optimize_bridge(loops, loops[0], expected, 'Loop0', [ptr0, None])
+        self.optimize_bridge(loops, loops[1], expected, 'Loop1', [ptr0, None])
         bridge = """
         [p0, p1]
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, p1, descr=nextdescr)
         setfield_gc(p2, 42, descr=adescr)
         setfield_gc(p2, 7, descr=bdescr)
         jump(p2, p1)
         """
-        self.optimize_bridge(loops, bridge, "RETRACE")
+        self.optimize_bridge(loops, bridge, "RETRACE", None, [ptr0, None])
         bridge = """
         [p0, p1]
-        p2 = new_with_vtable(ConstClass(node_vtable))
+        p2 = new_with_vtable(descr=nodesize)
         setfield_gc(p2, p1, descr=nextdescr)
         setfield_gc(p2, 7, descr=adescr)
         jump(p2, p1)
         """
-        self.optimize_bridge(loops, bridge, "RETRACE")
+        self.optimize_bridge(loops, bridge, "RETRACE", None, [ptr0, None])
 
     def test_known_class(self):
         loops = """
@@ -1068,16 +1102,16 @@ class BaseTestBridges(BaseTest):
         [p0]
         jump(p0)
         """
-        self.optimize_bridge(loops, bridge, loops[0], 'Loop0', p0=self.nodebox.value)
-        self.optimize_bridge(loops, bridge, loops[1], 'Loop1', p0=self.nodebox2.value)
-        self.optimize_bridge(loops[0], bridge, 'RETRACE', p0=self.nodebox2.value)
-        self.optimize_bridge(loops, loops[0], loops[0], 'Loop0', p0=self.nullptr)
-        self.optimize_bridge(loops, loops[1], loops[1], 'Loop1', p0=self.nullptr)
+        self.optimize_bridge(loops, bridge, loops[0], 'Loop0', [self.myptr])
+        self.optimize_bridge(loops, bridge, loops[1], 'Loop1', [self.myptr3])
+        self.optimize_bridge(loops[0], bridge, 'RETRACE', [self.myptr3])
+        self.optimize_bridge(loops, loops[0], loops[0], 'Loop0', [self.nullptr])
+        self.optimize_bridge(loops, loops[1], loops[1], 'Loop1', [self.nullptr])
 
     def test_cached_known_class(self):
         loop = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_class(p1, ConstClass(node_vtable)) []
         jump(p0)
         """
@@ -1088,42 +1122,48 @@ class BaseTestBridges(BaseTest):
         expected = """
         [p0]
         guard_nonnull(p0) []
-        p1 = getfield_gc(p0, descr=nextdescr)
-        guard_nonnull_class(p1, ConstClass(node_vtable)) []
+        guard_is_object(p0) []
+        guard_subclass(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        guard_nonnull(p1) []
+        guard_is_object(p1) []
+        guard_class(p1, ConstClass(node_vtable)) []
         jump(p0)        
         """
-        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
+        self.optimize_bridge(loop, bridge, expected, 'Loop', [self.myptr])
 
 
     def test_lenbound_array(self):
         loop = """
         [p0]
-        i2 = getarrayitem_gc(p0, 10, descr=arraydescr)
-        call(i2, descr=nonwritedescr)
+        i2 = getarrayitem_gc_i(p0, 10, descr=arraydescr)
+        call_n(i2, descr=nonwritedescr)
         jump(p0)
         """
         expected = """
         [p0]
-        i2 = getarrayitem_gc(p0, 10, descr=arraydescr)
-        call(i2, descr=nonwritedescr)
+        i2 = getarrayitem_gc_i(p0, 10, descr=arraydescr)
+        call_n(i2, descr=nonwritedescr)
+        ifoo = arraylen_gc(p0, descr=arraydescr)
         jump(p0, i2)
         """
-        self.optimize_bridge(loop, loop, expected, 'Loop0')
+        self.optimize_bridge(loop, loop, expected, 'Loop0', [self.myptr])
         bridge = """
         [p0]
-        i2 = getarrayitem_gc(p0, 15, descr=arraydescr)
+        i2 = getarrayitem_gc_i(p0, 15, descr=arraydescr)
         jump(p0)
         """
         expected = """
         [p0]
-        i2 = getarrayitem_gc(p0, 15, descr=arraydescr)
-        i3 = getarrayitem_gc(p0, 10, descr=arraydescr)
+        i2 = getarrayitem_gc_i(p0, 15, descr=arraydescr)
+        ifoo = arraylen_gc(p0, descr=arraydescr)
+        i3 = getarrayitem_gc_i(p0, 10, descr=arraydescr)
         jump(p0, i3)
         """        
-        self.optimize_bridge(loop, bridge, expected, 'Loop0')
+        self.optimize_bridge(loop, bridge, expected, 'Loop0', [self.myptr])
         bridge = """
         [p0]
-        i2 = getarrayitem_gc(p0, 5, descr=arraydescr)
+        i2 = getarrayitem_gc_i(p0, 5, descr=arraydescr)
         jump(p0)
         """
         self.optimize_bridge(loop, bridge, 'RETRACE')
@@ -1136,50 +1176,50 @@ class BaseTestBridges(BaseTest):
     def test_cached_lenbound_array(self):
         loop = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
-        i2 = getarrayitem_gc(p1, 10, descr=arraydescr)
-        call(i2, descr=nonwritedescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        i2 = getarrayitem_gc_i(p1, 10, descr=arraydescr)
+        call_n(i2, descr=nonwritedescr)
         jump(p0)
         """
         expected = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
-        i2 = getarrayitem_gc(p1, 10, descr=arraydescr)
-        call(i2, descr=nonwritedescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        i2 = getarrayitem_gc_i(p1, 10, descr=arraydescr)
+        call_n(i2, descr=nonwritedescr)
         i3 = arraylen_gc(p1, descr=arraydescr) # Should be killed by backend
-        jump(p0, i2, p1)
+        jump(p0, p1, i2)
         """
         self.optimize_bridge(loop, loop, expected)
         bridge = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
-        i2 = getarrayitem_gc(p1, 15, descr=arraydescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        i2 = getarrayitem_gc_i(p1, 15, descr=arraydescr)
         jump(p0)
         """
         expected = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
-        i2 = getarrayitem_gc(p1, 15, descr=arraydescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        i2 = getarrayitem_gc_i(p1, 15, descr=arraydescr)
         i3 = arraylen_gc(p1, descr=arraydescr) # Should be killed by backend        
-        i4 = getarrayitem_gc(p1, 10, descr=arraydescr)
-        jump(p0, i4, p1)
+        i4 = getarrayitem_gc_i(p1, 10, descr=arraydescr)
+        jump(p0, p1, i4)
         """        
         self.optimize_bridge(loop, bridge, expected)
         bridge = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
-        i2 = getarrayitem_gc(p1, 5, descr=arraydescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        i2 = getarrayitem_gc_i(p1, 5, descr=arraydescr)
         jump(p0)
         """
         expected = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr)
-        i2 = getarrayitem_gc(p1, 5, descr=arraydescr)
+        p1 = getfield_gc_r(p0, descr=nextdescr)
+        i2 = getarrayitem_gc_i(p1, 5, descr=arraydescr)
         i3 = arraylen_gc(p1, descr=arraydescr) # Should be killed by backend
         i4 = int_ge(i3, 11)
         guard_true(i4) []
-        i5 = getarrayitem_gc(p1, 10, descr=arraydescr)
-        jump(p0, i5, p1)
+        i5 = getarrayitem_gc_i(p1, 10, descr=arraydescr)
+        jump(p0, p1, i5)
         """        
         self.optimize_bridge(loop, bridge, expected)
         bridge = """
@@ -1189,24 +1229,27 @@ class BaseTestBridges(BaseTest):
         expected = """
         [p0]
         guard_nonnull(p0) []
-        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_is_object(p0) []
+        guard_subclass(p0, ConstClass(node_vtable)) []
+        p1 = getfield_gc_r(p0, descr=nextdescr)
         guard_nonnull(p1) []
+        guard_gc_type(p1, ConstInt(arraydescr_tid)) []
         i3 = arraylen_gc(p1, descr=arraydescr) # Should be killed by backend
         i4 = int_ge(i3, 11)
         guard_true(i4) []
-        i5 = getarrayitem_gc(p1, 10, descr=arraydescr)
-        jump(p0, i5, p1)
+        i5 = getarrayitem_gc_i(p1, 10, descr=arraydescr)
+        jump(p0, p1, i5)
         """        
-        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
+        self.optimize_bridge(loop, bridge, expected, 'Loop', [self.myptr])
 
     def test_cached_setarrayitem_gc(self):
         loop = """
         [p0, p1]
-        p2 = getfield_gc(p0, descr=nextdescr)
-        pp = getarrayitem_gc(p2, 0, descr=arraydescr)
-        call(pp, descr=nonwritedescr)
-        p3 = getfield_gc(p1, descr=nextdescr)
-        setarrayitem_gc(p2, 0, p3, descr=arraydescr)
+        p2 = getfield_gc_r(p0, descr=nextdescr)
+        pp = getarrayitem_gc_r(p2, 0, descr=gcarraydescr)
+        call_n(pp, descr=nonwritedescr)
+        p3 = getfield_gc_r(p1, descr=nextdescr)
+        setarrayitem_gc(p2, 0, p3, descr=gcarraydescr)
         jump(p0, p3)
         """
         bridge = """
@@ -1216,21 +1259,25 @@ class BaseTestBridges(BaseTest):
         expected = """
         [p0, p1]
         guard_nonnull(p0) []
-        p2 = getfield_gc(p0, descr=nextdescr)
+        guard_is_object(p0) []
+        guard_subclass(p0, ConstClass(node_vtable)) []
+        p2 = getfield_gc_r(p0, descr=nextdescr)
         guard_nonnull(p2) []
-        i5 = arraylen_gc(p2, descr=arraydescr)
+        guard_gc_type(p2, ConstInt(gcarraydescr_tid)) []
+        i5 = arraylen_gc(p2, descr=gcarraydescr)
         i6 = int_ge(i5, 1)
         guard_true(i6) []
-        p3 = getarrayitem_gc(p2, 0, descr=arraydescr)
-        jump(p0, p1, p3, p2)
+        p3 = getarrayitem_gc_r(p2, 0, descr=gcarraydescr)
+        jump(p0, p1, p2, p3)
         """
-        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
+        self.optimize_bridge(loop, bridge, expected, 'Loop', [self.myptr,
+                                                              None])
 
     def test_cache_constant_setfield(self):
         loop = """
         [p5]
-        i10 = getfield_gc(p5, descr=valuedescr)
-        call(i10, descr=nonwritedescr) 
+        i10 = getfield_gc_i(p5, descr=valuedescr)
+        call_n(i10, descr=nonwritedescr) 
         setfield_gc(p5, 1, descr=valuedescr)
         jump(p5)
         """
@@ -1241,11 +1288,13 @@ class BaseTestBridges(BaseTest):
         expected = """
         [p0]
         guard_nonnull(p0) []
-        i10 = getfield_gc(p0, descr=valuedescr)
+        guard_is_object(p0) []
+        guard_subclass(p0, ConstClass(node_vtable)) []
+        i10 = getfield_gc_i(p0, descr=valuedescr)
         guard_value(i10, 1) []
         jump(p0)
         """
-        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)        
+        self.optimize_bridge(loop, bridge, expected, 'Loop', [self.myptr])
         bridge = """
         [p0]
         setfield_gc(p0, 7, descr=valuedescr)
@@ -1256,14 +1305,14 @@ class BaseTestBridges(BaseTest):
         setfield_gc(p0, 7, descr=valuedescr)
         jump(p0)
         """
-        self.optimize_bridge(loop, bridge, expected, 'Preamble', p0=self.myptr)
+        self.optimize_bridge(loop, bridge, expected, 'Preamble', [self.myptr])
 
     def test_cached_equal_fields(self):
         loop = """
         [p5, p6]
-        i10 = getfield_gc(p5, descr=valuedescr)
-        i11 = getfield_gc(p6, descr=nextdescr)
-        call(i10, i11, descr=nonwritedescr)
+        i10 = getfield_gc_i(p5, descr=valuedescr)
+        i11 = getfield_gc_i(p6, descr=chardescr)
+        call_n(i10, i11, descr=nonwritedescr)
         setfield_gc(p6, i10, descr=nextdescr)        
         jump(p5, p6)
         """
@@ -1275,145 +1324,16 @@ class BaseTestBridges(BaseTest):
         [p5, p6]
         guard_nonnull(p5) []
         guard_nonnull(p6) []
-        i10 = getfield_gc(p5, descr=valuedescr)
-        i11 = getfield_gc(p6, descr=nextdescr)
+        guard_is_object(p5) []
+        guard_subclass(p5, ConstClass(node_vtable)) []
+        i10 = getfield_gc_i(p5, descr=valuedescr)
+        guard_is_object(p6) []
+        guard_subclass(p6, ConstClass(node_vtable)) []
+        i11 = getfield_gc_i(p6, descr=chardescr)
         jump(p5, p6, i10, i11)
         """
-        self.optimize_bridge(loop, bridge, expected, p5=self.myptr, p6=self.myptr2)
-
-    def test_licm_boxed_opaque_getitem(self):
-        loop = """
-        [p1]
-        p2 = getfield_gc(p1, descr=nextdescr) 
-        mark_opaque_ptr(p2)        
-        guard_class(p2,  ConstClass(node_vtable)) []
-        i3 = getfield_gc(p2, descr=otherdescr)
-        i4 = call(i3, descr=nonwritedescr)
-        jump(p1)
-        """
-        bridge = """
-        [p1]
-        guard_nonnull(p1) []
-        jump(p1)
-        """
-        expected = """
-        [p1]
-        guard_nonnull(p1) []
-        p2 = getfield_gc(p1, descr=nextdescr)
-        jump(p1)
-        """        
-        self.optimize_bridge(loop, bridge, expected, 'Preamble')
-        
-        bridge = """
-        [p1]
-        p2 = getfield_gc(p1, descr=nextdescr) 
-        guard_class(p2,  ConstClass(node_vtable2)) []
-        jump(p1)
-        """
-        expected = """
-        [p1]
-        p2 = getfield_gc(p1, descr=nextdescr) 
-        guard_class(p2,  ConstClass(node_vtable2)) []
-        jump(p1)
-        """
-        self.optimize_bridge(loop, bridge, expected, 'Preamble')
-
-        bridge = """
-        [p1]
-        p2 = getfield_gc(p1, descr=nextdescr) 
-        guard_class(p2,  ConstClass(node_vtable)) []
-        jump(p1)
-        """
-        expected = """
-        [p1]
-        p2 = getfield_gc(p1, descr=nextdescr) 
-        guard_class(p2,  ConstClass(node_vtable)) []
-        i3 = getfield_gc(p2, descr=otherdescr)
-        jump(p1, i3)
-        """
-        self.optimize_bridge(loop, bridge, expected, 'Loop')
-
-    def test_licm_unboxed_opaque_getitem(self):
-        loop = """
-        [p2]
-        mark_opaque_ptr(p2)        
-        guard_class(p2,  ConstClass(node_vtable)) []
-        i3 = getfield_gc(p2, descr=otherdescr)
-        i4 = call(i3, descr=nonwritedescr)
-        jump(p2)
-        """
-        bridge = """
-        [p1]
-        guard_nonnull(p1) []
-        jump(p1)
-        """
-        self.optimize_bridge(loop, bridge, 'RETRACE', p1=self.myptr)
-        self.optimize_bridge(loop, bridge, 'RETRACE', p1=self.myptr2)
-        
-        bridge = """
-        [p2]
-        guard_class(p2,  ConstClass(node_vtable2)) []
-        jump(p2)
-        """
-        self.optimize_bridge(loop, bridge, 'RETRACE')
-
-        bridge = """
-        [p2]
-        guard_class(p2,  ConstClass(node_vtable)) []
-        jump(p2)
-        """
-        expected = """
-        [p2]
-        guard_class(p2,  ConstClass(node_vtable)) []
-        i3 = getfield_gc(p2, descr=otherdescr)
-        jump(p2, i3)
-        """
-        self.optimize_bridge(loop, bridge, expected, 'Loop')
-
-    def test_licm_virtual_opaque_getitem(self):
-        loop = """
-        [p1]
-        p2 = getfield_gc(p1, descr=nextdescr) 
-        mark_opaque_ptr(p2)        
-        guard_class(p2,  ConstClass(node_vtable)) []
-        i3 = getfield_gc(p2, descr=otherdescr)
-        i4 = call(i3, descr=nonwritedescr)
-        p3 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p3, p2, descr=nextdescr)
-        jump(p3)
-        """
-        bridge = """
-        [p1]
-        p3 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p3, p1, descr=nextdescr)
-        jump(p3)
-        """
-        self.optimize_bridge(loop, bridge, 'RETRACE', p1=self.myptr)
-        self.optimize_bridge(loop, bridge, 'RETRACE', p1=self.myptr2)
-
-        bridge = """
-        [p1]
-        p3 = new_with_vtable(ConstClass(node_vtable))
-        guard_class(p1,  ConstClass(node_vtable2)) []
-        setfield_gc(p3, p1, descr=nextdescr)
-        jump(p3)
-        """
-        self.optimize_bridge(loop, bridge, 'RETRACE')
-
-        bridge = """
-        [p1]
-        p3 = new_with_vtable(ConstClass(node_vtable))
-        guard_class(p1,  ConstClass(node_vtable)) []
-        setfield_gc(p3, p1, descr=nextdescr)
-        jump(p3)
-        """
-        expected = """
-        [p1]
-        guard_class(p1,  ConstClass(node_vtable)) []
-        i3 = getfield_gc(p1, descr=otherdescr)
-        jump(p1, i3)
-        """
-        self.optimize_bridge(loop, bridge, expected)
+        self.optimize_bridge(loop, bridge, expected, 'Loop',
+                             [self.myptr, self.myptr2])
 
 
 class TestLLtypeGuards(BaseTestGenerateGuards, LLtypeMixin):
@@ -1425,6 +1345,9 @@ class TestLLtypeBridges(BaseTestBridges, LLtypeMixin):
 
 
 class TestShortBoxes:
+
+    def setup_class(self):
+        py.test.skip("rewrite")
     
     def test_short_box_duplication_direct(self):
         class Optimizer(FakeOptimizer):

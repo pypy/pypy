@@ -137,6 +137,9 @@ class LLtypeMixin(object):
     mynode2 = lltype.malloc(NODE)
     mynode2.parent.typeptr = node_vtable
     myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode2)
+    mynode3 = lltype.malloc(NODE2)
+    mynode3.parent.parent.typeptr = node_vtable2
+    myptr3 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode3)
     nullptr = lltype.nullptr(llmemory.GCREF.TO)
     #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
     nodesize = cpu.sizeof(NODE, node_vtable)
@@ -195,6 +198,7 @@ class LLtypeMixin(object):
     immut_ptrval = cpu.fielddescrof(PTROBJ_IMMUT, 'ptrval')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
+    arraydescr_tid = arraydescr.get_type_id()
     array = lltype.malloc(lltype.GcArray(lltype.Signed), 15, zero=True)
     arrayref = lltype.cast_opaque_ptr(llmemory.GCREF, array)
     array2 = lltype.malloc(lltype.GcArray(lltype.Ptr(S)), 15, zero=True)
