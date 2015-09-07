@@ -1106,6 +1106,10 @@ class Transformer(object):
         if self._is_gc(op.args[0]):
             return op
 
+    def rewrite_op_cast_opaque_ptr(self, op):
+        # None causes the result of this op to get aliased to op.args[0]
+        return None
+
     def rewrite_op_force_cast(self, op):
         v_arg = op.args[0]
         v_result = op.result
