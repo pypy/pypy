@@ -4234,6 +4234,27 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_str_concat_2(self):
+        ops = """
+        [p1, p2]
+        p3 = call_r(0, "fo", p1, descr=strconcatdescr)
+        escape_n(p3)
+        i5 = strgetitem(p3, 0)
+        escape_n(i5)
+        jump(p2, p3)
+        """
+        expected = """
+        [p1, p2]
+        i1 = strlen(p1)
+        i2 = strlen(p2)
+        i3 = int_add(i1, i2)
+        p3 = newstr(i3)
+        copystrcontent(p1, p3, 0, 0, i1)
+        copystrcontent(p2, p3, 0, i1, i2)
+        jump(p2, p3)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
     def test_str_concat_vstr2_str(self):
         ops = """
         [i0, i1, p2]
