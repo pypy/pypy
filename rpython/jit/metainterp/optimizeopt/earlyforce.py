@@ -22,7 +22,6 @@ class OptEarlyForce(Optimization):
             opnum != rop.SAME_AS_I and
             opnum != rop.SAME_AS_R and
             opnum != rop.SAME_AS_F and
-            opnum != rop.MARK_OPAQUE_PTR and
             not is_raw_free(op, opnum)):
 
             for arg in op.getarglist():

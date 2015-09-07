@@ -770,7 +770,6 @@ _oplist = [
     '_MALLOC_LAST',
     'FORCE_TOKEN/0/r',
     'VIRTUAL_REF/2/r',    # removed before it's passed to the backend
-    'MARK_OPAQUE_PTR/1/n',
     # this one has no *visible* side effect, since the virtualizable
     # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----

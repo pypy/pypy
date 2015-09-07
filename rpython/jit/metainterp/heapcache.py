@@ -163,7 +163,7 @@ class HeapCache(object):
             # its argument
             # XXX really?
             pass
-        # GETFIELD_GC, MARK_OPAQUE_PTR, PTR_EQ, and PTR_NE don't escape their
+        # GETFIELD_GC, PTR_EQ, and PTR_NE don't escape their
         # arguments
         elif (opnum != rop.GETFIELD_GC_R and
               opnum != rop.GETFIELD_GC_I and
@@ -171,7 +171,6 @@ class HeapCache(object):
               opnum != rop.GETFIELD_GC_PURE_R and
               opnum != rop.GETFIELD_GC_PURE_I and
               opnum != rop.GETFIELD_GC_PURE_F and
-              opnum != rop.MARK_OPAQUE_PTR and
               opnum != rop.PTR_EQ and
               opnum != rop.PTR_NE and
               opnum != rop.INSTANCE_PTR_EQ and

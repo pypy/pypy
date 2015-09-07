@@ -269,10 +269,6 @@ class MIFrame(object):
     def opimpl_ptr_iszero(self, box):
         return self.execute(rop.PTR_EQ, box, history.CONST_NULL)
 
-    @arguments("box")
-    def opimpl_mark_opaque_ptr(self, box):
-        return self.execute(rop.MARK_OPAQUE_PTR, box)
-
     @arguments("box", "box")
     def opimpl_record_exact_class(self, box, clsbox):
         from rpython.rtyper.lltypesystem import llmemory
