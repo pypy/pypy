@@ -102,7 +102,8 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         newop.set_forwarded(self)
         op = optforce.get_box_replacement(op)
         op.set_forwarded(newop)
-        self.initialize_forced_string(op, optforce, op, CONST_0, self.mode)
+        optstring = optforce.optimizer.optstring
+        self.initialize_forced_string(op, optstring, op, CONST_0, self.mode)
         return newop
 
     def initialize_forced_string(self, op, string_optimizer, targetbox,
@@ -344,7 +345,8 @@ def copy_str_content(string_optimizer, srcbox, targetbox,
         # up to M characters are done "inline", i.e. with STRGETITEM/STRSETITEM
         # instead of just a COPYSTRCONTENT.
         for i in range(lgt.getint()):
-            charbox = _strgetitem(string_optimizer, srcbox, srcoffsetbox, mode)
+            charbox = string_optimizer.strgetitem(None, srcbox, srcoffsetbox,
+                                                  mode)
             srcoffsetbox = _int_add(string_optimizer, srcoffsetbox, CONST_1)
             assert not isinstance(targetbox, Const)# ConstPtr never makes sense
             string_optimizer.emit_operation(ResOperation(mode.STRSETITEM,
