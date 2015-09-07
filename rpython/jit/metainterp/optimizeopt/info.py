@@ -500,7 +500,10 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         const = optforce.new_const_item(self.descr)
         for i in range(self.length):
             item = self._items[i]
-            if item is None or self._clear and const.same_constant(item):
+            if item is None:
+                continue
+            if self._clear and const.same_constant(item):
+                # clear the item so we don't know what's there
                 self._items[i] = None
                 continue
             subbox = optforce.force_box(item)
