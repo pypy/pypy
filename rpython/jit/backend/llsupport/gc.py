@@ -725,6 +725,24 @@ class GcLLDescr_framework(GcLLDescription):
         infobits_offset += self._infobits_offset_plus
         return (infobits_offset, self._T_IS_RPYTHON_INSTANCE_BYTE)
 
+    def get_actual_typeid(self, gcptr):
+        # Read the whole GC header word.  The typeid is the lower half-word.
+        hdr = rffi.cast(self.HDRPTR, gcptr)
+        type_id = llop.extract_ushort(llgroup.HALFWORD, hdr.tid)
+        return llop.combine_ushort(lltype.Signed, type_id, 0)
+
+    def check_is_object(self, gcptr):
+        # read the typeid, fetch one byte of the field 'infobits' from
+        # the big typeinfo table, and check the flag 'T_IS_RPYTHON_INSTANCE'.
+        typeid = self.get_actual_typeid(gcptr)
+        #
+        base_type_info, shift_by, sizeof_ti = (
+            self.get_translated_info_for_typeinfo())
+        infobits_offset, IS_OBJECT_FLAG = (
+            self.get_translated_info_for_guard_is_object())
+        p = base_type_info + (typeid << shift_by) + infobits_offset
+        p = rffi.cast(rffi.CCHARP, p)
+        return (ord(p[0]) & IS_OBJECT_FLAG) != 0
 
 # ____________________________________________________________
 

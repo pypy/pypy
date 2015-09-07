@@ -517,6 +517,22 @@ class LLGraphCPU(model.AbstractCPU):
             self.descrs[key] = descr
             return descr
 
+    def check_is_object(self, gcptr):
+        """Check if the given, non-null gcptr refers to an rclass.OBJECT
+        or not at all (an unrelated GcStruct or a GcArray).  Only usable
+        in the llgraph backend, or after translation of a real backend."""
+        ptr = lltype.normalizeptr(gcptr._obj.container._as_ptr())
+        T = lltype.typeOf(ptr).TO
+        return heaptracker.has_gcstruct_a_vtable(T) or T is rclass.OBJECT
+
+    def get_actual_typeid(self, gcptr):
+        """Fetch the actual typeid of the given gcptr, as an integer.
+        Only usable in the llgraph backend, or after translation of a
+        real backend.  (Here in the llgraph backend, returns a
+        TypeIDSymbolic instead of a real integer.)"""
+        ptr = lltype.normalizeptr(gcptr._obj.container._as_ptr())
+        return TypeIDSymbolic(lltype.typeOf(ptr).TO)
+
     # ------------------------------------------------------------
 
     def maybe_on_top_of_llinterp(self, func, args, RESULT):

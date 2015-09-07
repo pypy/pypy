@@ -4888,6 +4888,9 @@ class LLtypeBackendTest(BaseBackendTest):
         c_typeid = ConstInt(descr.get_type_id())
         self.execute_operation(rop.GUARD_GC_TYPE, [t_box, c_typeid], 'void')
         assert not self.guard_failed
+        #
+        got_typeid = self.cpu.get_actual_typeid(t_box.getref_base())
+        assert got_typeid == c_typeid.getint()
 
     def test_passing_guard_gc_type_array(self):
         if not self.cpu.supports_guard_gc_type:
@@ -4897,6 +4900,9 @@ class LLtypeBackendTest(BaseBackendTest):
         c_typeid = ConstInt(arraydescr.get_type_id())
         self.execute_operation(rop.GUARD_GC_TYPE, [a_box, c_typeid], 'void')
         assert not self.guard_failed
+        #
+        got_typeid = self.cpu.get_actual_typeid(a_box.getref_base())
+        assert got_typeid == c_typeid.getint()
 
     def test_failing_guard_gc_type(self):
         if not self.cpu.supports_guard_gc_type:
@@ -4915,23 +4921,29 @@ class LLtypeBackendTest(BaseBackendTest):
                              ]:
             assert self.execute_operation(opname, args, 'void') == None
             assert self.guard_failed
+            #
+            got_typeid = self.cpu.get_actual_typeid(args[0].getref_base())
+            assert got_typeid != args[1].getint()
 
     def test_guard_is_object(self):
         if not self.cpu.supports_guard_gc_type:
             py.test.skip("guard_gc_type not available")
         t_box, _, _ = self.alloc_instance(self.T)
         self.execute_operation(rop.GUARD_IS_OBJECT, [t_box], 'void')
-        #
         assert not self.guard_failed
+        assert self.cpu.check_is_object(t_box.getref_base())
+        #
         a_box, _ = self.alloc_array_of(rffi.SHORT, 342)
         self.execute_operation(rop.GUARD_IS_OBJECT, [a_box], 'void')
         assert self.guard_failed
+        assert not self.cpu.check_is_object(a_box.getref_base())
         #
         S = lltype.GcStruct('S')
         s = lltype.malloc(S, immortal=True, zero=True)
         s_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, s))
         self.execute_operation(rop.GUARD_IS_OBJECT, [s_box], 'void')
         assert self.guard_failed
+        assert not self.cpu.check_is_object(s_box.getref_base())
 
     def test_guard_subclass(self):
         if not self.cpu.supports_guard_gc_type:
