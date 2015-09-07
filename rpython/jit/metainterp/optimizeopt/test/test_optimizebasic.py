@@ -5933,5 +5933,21 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_random_strange_guards_on_consts(self):
+        ops = """
+        [p0]
+        guard_value(p0, ConstPtr(nodeaddr)) []
+        guard_is_object(p0) []
+        guard_subclass(p0, ConstClass(node_vtable)) []
+        guard_gc_type(p0, ConstInt(node_tid)) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        guard_value(p0, ConstPtr(nodeaddr)) []
+        jump(ConstPtr(nodeaddr))
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

@@ -296,6 +296,13 @@ class OptRewrite(Optimization):
 
     def optimize_GUARD_IS_OBJECT(self, op):
         info = self.getptrinfo(op.getarg(0))
+        if info and info.is_constant():
+            if info.is_null():
+                raise InvalidLoop("A GUARD_IS_OBJECT(NULL) found")
+            c = self.get_box_replacement(op.getarg(0))
+            if self.optimizer.cpu.check_is_object(c.getref_base()):
+                return
+            raise InvalidLoop("A GUARD_IS_OBJECT(not-an-object) found")
         if info is not None:
             if info.is_about_object():
                 return
@@ -305,6 +312,12 @@ class OptRewrite(Optimization):
 
     def optimize_GUARD_GC_TYPE(self, op):
         info = self.getptrinfo(op.getarg(0))
+        if info and info.is_constant():
+            c = self.get_box_replacement(op.getarg(0))
+            tid = self.optimizer.cpu.get_actual_typeid(c.getref_base())
+            if tid != op.getarg(1).getint():
+                raise InvalidLoop("wrong GC type ID found on a constant")
+            return
         if info is not None and info.get_descr() is not None:
             if info.get_descr().get_type_id() != op.getarg(1).getint():
                 raise InvalidLoop("wrong GC types passed around!")
@@ -327,6 +340,12 @@ class OptRewrite(Optimization):
 
     def optimize_GUARD_SUBCLASS(self, op):
         info = self.getptrinfo(op.getarg(0))
+        if info and info.is_constant():
+            c = self.get_box_replacement(op.getarg(0))
+            vtable = self.optimizer.cpu.ts.cls_of_box(c).getint()
+            if self._check_subclass(vtable, op.getarg(1).getint()):
+                return
+            raise InvalidLoop("GUARD_SUBCLASS(const) proven to always fail")
         if info is not None and info.is_about_object():
             known_class = info.get_known_class(self.optimizer.cpu)
             if known_class:

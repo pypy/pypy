@@ -140,6 +140,7 @@ class LLtypeMixin(object):
     nullptr = lltype.nullptr(llmemory.GCREF.TO)
     #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
     nodesize = cpu.sizeof(NODE, node_vtable)
+    node_tid = nodesize.get_type_id()
     nodesize2 = cpu.sizeof(NODE2, node_vtable2)
     nodesize3 = cpu.sizeof(NODE3, node_vtable3)
     valuedescr = cpu.fielddescrof(NODE, 'value')
