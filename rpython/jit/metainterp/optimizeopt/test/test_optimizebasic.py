@@ -3324,41 +3324,45 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 
     def test_arraycopy_invalidate_1(self):
         ops = """
-        [p0, i5]
-        p1 = new_array_clear(i5, descr=gcarraydescr)
+        [i5]
+        p0 = escape_r()
+        p1 = new_array_clear(i5, descr=arraydescr)
         call_n(0, p0, p1, 0, 0, i5, descr=arraycopydescr)
-        p2 = getarrayitem_gc_r(p1, 0, descr=gcarraydescr)   # != NULL
-        jump(p2)
+        i2 = getarrayitem_gc_i(p1, 0, descr=arraydescr)   # != NULL
+        jump(i2)
         """
         self.optimize_loop(ops, ops)
 
     def test_arraycopy_invalidate_2(self):
         ops = """
-        [p0, i5]
-        p1 = new_array_clear(i5, descr=gcarraydescr)
-        call_n(0, p0, p1, 0, 0, 3, descr=arraycopydescr)
-        p2 = getarrayitem_gc_r(p1, 0, descr=gcarraydescr)   # != NULL
-        jump(p2)
+        [i5]
+        p0 = escape_r()
+        p1 = new_array_clear(i5, descr=arraydescr)
+        call_n(0, p0, p1, 0, 0, 100, descr=arraycopydescr)
+        i2 = getarrayitem_gc_i(p1, 0, descr=arraydescr)   # != NULL
+        jump(i2)
         """
         self.optimize_loop(ops, ops)
 
     def test_arraycopy_invalidate_3(self):
         ops = """
-        [p0, i5]
-        p1 = new_array_clear(3, descr=gcarraydescr)
+        [i5]
+        p0 = escape_r()
+        p1 = new_array_clear(100, descr=arraydescr)
         call_n(0, p0, p1, 0, 0, i5, descr=arraycopydescr)
-        p2 = getarrayitem_gc_r(p1, 0, descr=gcarraydescr)   # != NULL
-        jump(p2)
+        i2 = getarrayitem_gc_i(p1, 0, descr=arraydescr)   # != NULL
+        jump(i2)
         """
         self.optimize_loop(ops, ops)
 
     def test_arraycopy_invalidate_4(self):
         ops = """
-        [p0, i5]
-        p1 = new_array_clear(3, descr=gcarraydescr)
-        call_n(0, p0, p1, 0, 0, 3, descr=arraycopydescr)
-        p2 = getarrayitem_gc_r(p1, 0, descr=gcarraydescr)   # != NULL
-        jump(p2)
+        [i5]
+        p0 = escape_r()
+        p1 = new_array_clear(100, descr=arraydescr)
+        call_n(0, p0, p1, 0, 0, 100, descr=arraycopydescr)
+        i2 = getarrayitem_gc_i(p1, 0, descr=arraydescr)   # != NULL
+        jump(i2)
         """
         self.optimize_loop(ops, ops)
 
