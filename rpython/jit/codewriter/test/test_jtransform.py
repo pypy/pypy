@@ -46,7 +46,7 @@ class FakeCPU:
         return ('interiorfielddescr', ARRAY, name)
     def arraydescrof(self, ARRAY):
         return FakeDescr(('arraydescr', ARRAY))
-    def sizeof(self, STRUCT):
+    def sizeof(self, STRUCT, vtable=None):
         return FakeDescr(('sizedescr', STRUCT))
 
 class FakeDescr(tuple):

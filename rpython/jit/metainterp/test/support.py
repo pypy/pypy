@@ -10,6 +10,7 @@ from rpython.jit.metainterp import pyjitpl, history, jitexc
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter import codewriter, longlong
 from rpython.rlib.rfloat import isnan
+from rpython.rlib.jit import ENABLE_ALL_OPTS
 from rpython.translator.backendopt.all import backend_optimizations
 
 
@@ -164,6 +165,8 @@ def _run_with_machine_code(testself, args):
 
 class JitMixin:
     basic = True
+    enable_opts = ENABLE_ALL_OPTS
+    
 
     # Basic terminology: the JIT produces "loops" and "bridges".
     # Bridges are always attached to failing guards.  Every loop is
@@ -180,7 +183,8 @@ class JitMixin:
         the ones that end in FINISH.  Either pass a dictionary (then
         the check must match exactly), or some keyword arguments (then
         the check is only about the instructions named)."""
-        get_stats().check_resops(expected=expected, **check)
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            get_stats().check_resops(expected=expected, **check)
 
     def check_simple_loop(self, expected=None, **check):
         """Useful in the simplest case when we have only one loop
@@ -188,51 +192,62 @@ class JitMixin:
         Only the operations within the loop formed by that single jump
         will be counted; the bridges are all ignored.  If several loops
         were compiled, complains."""
-        get_stats().check_simple_loop(expected=expected, **check)
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            get_stats().check_simple_loop(expected=expected, **check)
 
     def check_trace_count(self, count): # was check_loop_count
         """Check the number of loops and bridges compiled."""
-        assert get_stats().compiled_count == count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().compiled_count == count
 
     def check_trace_count_at_most(self, count):
         """Check the number of loops and bridges compiled."""
-        assert get_stats().compiled_count <= count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().compiled_count <= count
 
     def check_jitcell_token_count(self, count): # was check_tree_loop_count
         """This should check the number of independent trees of code.
         (xxx it is not 100% clear that the count is correct)"""
-        assert len(get_stats().jitcell_token_wrefs) == count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert len(get_stats().jitcell_token_wrefs) == count
 
     def check_target_token_count(self, count):
         """(xxx unknown)"""
-        tokens = get_stats().get_all_jitcell_tokens()
-        n = sum([len(t.target_tokens) for t in tokens])
-        assert n == count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            tokens = get_stats().get_all_jitcell_tokens()
+            n = sum([len(t.target_tokens) for t in tokens])
+            assert n == count
 
     def check_enter_count(self, count):
         """Check the number of times pyjitpl ran.  (Every time, it
         should have produced either one loop or one bridge, or aborted;
         but it is not 100% clear that this is still correct in the
         presence of unrolling.)"""
-        assert get_stats().enter_count == count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().enter_count == count
 
     def check_enter_count_at_most(self, count):
         """Check the number of times pyjitpl ran."""
-        assert get_stats().enter_count <= count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().enter_count <= count
 
     def check_aborted_count(self, count):
         """Check the number of times pyjitpl was aborted."""
-        assert get_stats().aborted_count == count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().aborted_count == count
 
     def check_aborted_count_at_least(self, count):
         """Check the number of times pyjitpl was aborted."""
-        assert get_stats().aborted_count >= count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().aborted_count >= count
 
     def meta_interp(self, *args, **kwds):
         kwds['CPUClass'] = self.CPUClass
         kwds['type_system'] = self.type_system
         if "backendopt" not in kwds:
             kwds["backendopt"] = False
+        if "enable_opts" not in kwds and hasattr(self, 'enable_opts'):
+            kwds['enable_opts'] = self.enable_opts
         old = codewriter.CodeWriter.debug
         try:
             codewriter.CodeWriter.debug = True

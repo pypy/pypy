@@ -58,7 +58,7 @@ class FakeCPU:
         return FakeDescr()
     def fielddescrof(self, STRUCT, name):
         return FakeDescr()
-    def sizeof(self, STRUCT):
+    def sizeof(self, STRUCT, vtable=None):
         return FakeDescr()
     def arraydescrof(self, ARRAY):
         return FakeDescr()
