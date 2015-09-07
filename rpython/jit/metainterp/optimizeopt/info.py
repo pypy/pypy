@@ -501,6 +501,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         for i in range(self.length):
             item = self._items[i]
             if item is None or self._clear and const.same_constant(item):
+                self._items[i] = None
                 continue
             subbox = optforce.force_box(item)
             setop = ResOperation(rop.SETARRAYITEM_GC,
