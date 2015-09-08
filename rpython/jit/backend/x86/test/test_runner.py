@@ -215,7 +215,7 @@ class TestX86(LLtypeBackendTest):
                              ('c2', lltype.Char),
                              ('c3', lltype.Char))
         res = InputArgRef(self.execute_operation(rop.NEW, [],
-                                     'ref', self.cpu.sizeof(TP, None)))
+                                     'ref', self.cpu.sizeof(TP)))
         ofs_s = self.cpu.fielddescrof(TP, 's')
         ofs_i = self.cpu.fielddescrof(TP, 'i')
         #ofs_f = self.cpu.fielddescrof(TP, 'f')
