@@ -83,10 +83,6 @@ class XxxAbstractValue(object):
     def getfloat(self):
         return longlong.getrealfloat(self.getfloatstorage())
 
-    def getlonglong(self):
-        assert longlong.supports_longlong
-        return self.getfloatstorage()
-
     def getref_base(self):
         raise NotImplementedError
 
