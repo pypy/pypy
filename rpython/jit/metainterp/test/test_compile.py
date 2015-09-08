@@ -10,6 +10,8 @@ from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 
 class FakeCPU(object):
+    supports_guard_gc_type = True
+    
     class Storage:
         pass
     

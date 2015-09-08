@@ -6,7 +6,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
      ConstIntBound, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp,\
-     OpHelpers
+     OpHelpers, ResOperation
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
@@ -26,7 +26,9 @@ class LoopInfo(object):
 class BasicLoopInfo(LoopInfo):
     def __init__(self, inputargs, quasi_immutable_deps):
         self.inputargs = inputargs
+        self.label_op = ResOperation(rop.LABEL, inputargs)
         self.quasi_immutable_deps = quasi_immutable_deps
+        self.extra_same_as = []
 
     def final(self):
         return True
