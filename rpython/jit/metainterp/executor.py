@@ -48,7 +48,7 @@ def new_do_call(rettype):
         # get the function address as an integer
         func = argboxes[0].getint()
         # do the call using the correct function from the cpu
-        if rettype == INT or rettype == 'S':       # *S*ingle float
+        if rettype == INT:
             try:
                 result = cpu.bh_call_i(func, args_i, args_r, args_f, descr)
             except Exception, e:
