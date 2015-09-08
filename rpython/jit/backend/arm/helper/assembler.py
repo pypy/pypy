@@ -2,7 +2,7 @@ from __future__ import with_statement
 from rpython.jit.backend.arm import conditions as c
 from rpython.jit.backend.arm import registers as r
 from rpython.jit.backend.arm.codebuilder import InstrBuilder
-from rpython.jit.metainterp.history import ConstInt, BoxInt, FLOAT
+from rpython.jit.metainterp.history import FLOAT
 from rpython.rlib.rarithmetic import r_uint, r_longlong, intmask
 from rpython.jit.metainterp.resoperation import rop
 
@@ -50,7 +50,7 @@ def gen_emit_op_by_helper_call(name, opname):
     helper = getattr(InstrBuilder, opname)
     def f(self, op, arglocs, regalloc, fcond):
         assert fcond is not None
-        if op.result:
+        if op.type != 'v':
             regs = r.caller_resp[1:] + [r.ip]
         else:
             regs = r.caller_resp

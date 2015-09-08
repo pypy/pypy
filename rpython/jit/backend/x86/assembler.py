@@ -6,11 +6,12 @@ from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
                                                 DEBUG_COUNTER, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.metainterp.history import Const, Box, VOID
+from rpython.jit.metainterp.history import Const, VOID
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
+from rpython.rtyper import rclass
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
@@ -556,7 +557,7 @@ class Assembler386(BaseAssembler):
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         if logger:
-            logger.log_bridge(inputargs, operations, "rewritten",
+            logger.log_bridge(inputargs, operations, "rewritten", faildescr,
                               ops_offset=ops_offset)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
@@ -851,13 +852,8 @@ class Assembler386(BaseAssembler):
     def dump(self, text):
         if not self.verbose:
             return
-        _prev = Box._extended_display
-        try:
-            Box._extended_display = False
-            pos = self.mc.get_relative_pos()
-            print >> sys.stderr, ' 0x%x  %s' % (pos, text)
-        finally:
-            Box._extended_display = _prev
+        pos = self.mc.get_relative_pos()
+        print >> sys.stderr, ' 0x%x  %s' % (pos, text)
 
     # ------------------------------------------------------------
 
@@ -1074,6 +1070,7 @@ class Assembler386(BaseAssembler):
     genop_int_neg = _unaryop("NEG")
     genop_int_invert = _unaryop("NOT")
     genop_int_add = _binaryop_or_lea("ADD", is_add=True)
+    genop_nursery_ptr_increment = _binaryop_or_lea('ADD', is_add=True)
     genop_int_sub = _binaryop_or_lea("SUB", is_add=False)
     genop_int_mul = _binaryop("IMUL")
     genop_int_and = _binaryop("AND")
@@ -1197,10 +1194,13 @@ class Assembler386(BaseAssembler):
         self.test_location(arglocs[0])
         self.flush_cc(rx86.Conditions['Z'], resloc)
 
-    def genop_same_as(self, op, arglocs, resloc):
+    def _genop_same_as(self, op, arglocs, resloc):
         self.mov(arglocs[0], resloc)
-    genop_cast_ptr_to_int = genop_same_as
-    genop_cast_int_to_ptr = genop_same_as
+    genop_same_as_i = _genop_same_as
+    genop_same_as_r = _genop_same_as
+    genop_same_as_f = _genop_same_as
+    genop_cast_ptr_to_int = _genop_same_as
+    genop_cast_int_to_ptr = _genop_same_as
 
     def genop_int_force_ge_zero(self, op, arglocs, resloc):
         self.mc.TEST(arglocs[0], arglocs[0])
@@ -1357,17 +1357,24 @@ class Assembler386(BaseAssembler):
         else:
             not_implemented("save_into_mem size = %d" % size)
 
-    def genop_getfield_gc(self, op, arglocs, resloc):
+    def _genop_getfield(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, sign_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         source_addr = AddressLoc(base_loc, ofs_loc)
         self.load_from_mem(resloc, source_addr, size_loc, sign_loc)
 
-    genop_getfield_raw = genop_getfield_gc
-    genop_getfield_raw_pure = genop_getfield_gc
-    genop_getfield_gc_pure = genop_getfield_gc
+    genop_getfield_gc_i = _genop_getfield
+    genop_getfield_gc_r = _genop_getfield
+    genop_getfield_gc_f = _genop_getfield
+    genop_getfield_raw_i = _genop_getfield
+    genop_getfield_raw_f = _genop_getfield
+    genop_getfield_raw_pure_i = _genop_getfield
+    genop_getfield_raw_pure_f = _genop_getfield
+    genop_getfield_gc_pure_i = _genop_getfield
+    genop_getfield_gc_pure_r = _genop_getfield
+    genop_getfield_gc_pure_f = _genop_getfield
 
-    def genop_getarrayitem_gc(self, op, arglocs, resloc):
+    def _genop_getarrayitem(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
         assert isinstance(ofs, ImmedLoc)
         assert isinstance(size_loc, ImmedLoc)
@@ -1375,15 +1382,24 @@ class Assembler386(BaseAssembler):
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
-    genop_getarrayitem_gc_pure = genop_getarrayitem_gc
-    genop_getarrayitem_raw = genop_getarrayitem_gc
-    genop_getarrayitem_raw_pure = genop_getarrayitem_gc
+    genop_getarrayitem_gc_i = _genop_getarrayitem
+    genop_getarrayitem_gc_r = _genop_getarrayitem
+    genop_getarrayitem_gc_f = _genop_getarrayitem
+    genop_getarrayitem_gc_pure_i = _genop_getarrayitem
+    genop_getarrayitem_gc_pure_r = _genop_getarrayitem
+    genop_getarrayitem_gc_pure_f = _genop_getarrayitem
+    genop_getarrayitem_raw_i = _genop_getarrayitem
+    genop_getarrayitem_raw_f = _genop_getarrayitem
+    genop_getarrayitem_raw_pure_i = _genop_getarrayitem
+    genop_getarrayitem_raw_pure_f = _genop_getarrayitem
 
-    def genop_raw_load(self, op, arglocs, resloc):
+    def _genop_raw_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
         assert isinstance(ofs, ImmedLoc)
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
+    genop_raw_load_i = _genop_raw_load
+    genop_raw_load_f = _genop_raw_load
 
     def _imul_const_scaled(self, mc, targetreg, sourcereg, itemsize):
         """Produce one operation to do roughly
@@ -1430,13 +1446,16 @@ class Assembler386(BaseAssembler):
         assert isinstance(ofs_loc, ImmedLoc)
         return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
 
-    def genop_getinteriorfield_gc(self, op, arglocs, resloc):
+    def _genop_getinteriorfield(self, op, arglocs, resloc):
         (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
             index_loc, temp_loc, sign_loc) = arglocs
         src_addr = self._get_interiorfield_addr(temp_loc, index_loc,
                                                 itemsize_loc, base_loc,
                                                 ofs_loc)
         self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
+    genop_getinteriorfield_gc_i = _genop_getinteriorfield
+    genop_getinteriorfield_gc_r = _genop_getinteriorfield
+    genop_getinteriorfield_gc_f = _genop_getinteriorfield
 
     def genop_discard_increment_debug_counter(self, op, arglocs):
         # The argument should be an immediate address.  This should
@@ -1637,37 +1656,27 @@ class Assembler386(BaseAssembler):
         self.implement_guard(guard_token)
 
     def _cmp_guard_class(self, locs):
+        loc_ptr = locs[0]
+        loc_classptr = locs[1]
         offset = self.cpu.vtable_offset
         if offset is not None:
-            self.mc.CMP(mem(locs[0], offset), locs[1])
+            self.mc.CMP(mem(loc_ptr, offset), loc_classptr)
         else:
-            # XXX hard-coded assumption: to go from an object to its class
-            # we use the following algorithm:
-            #   - read the typeid from mem(locs[0]), i.e. at offset 0;
-            #     this is a complete word (N=4 bytes on 32-bit, N=8 on
-            #     64-bits)
-            #   - keep the lower half of what is read there (i.e.
-            #     truncate to an unsigned 'N / 2' bytes value)
-            #   - multiply by 4 (on 32-bits only) and use it as an
-            #     offset in type_info_group
-            #   - add 16/32 bytes, to go past the TYPE_INFO structure
-            loc = locs[1]
-            assert isinstance(loc, ImmedLoc)
-            classptr = loc.value
-            # here, we have to go back from 'classptr' to the value expected
-            # from reading the half-word in the object header.  Note that
-            # this half-word is at offset 0 on a little-endian machine;
-            # it would be at offset 2 or 4 on a big-endian machine.
-            from rpython.memory.gctypelayout import GCData
-            sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
-            type_info_group = llop.gc_get_type_info_group(llmemory.Address)
-            type_info_group = rffi.cast(lltype.Signed, type_info_group)
-            expected_typeid = classptr - sizeof_ti - type_info_group
-            if IS_X86_32:
-                expected_typeid >>= 2
-                self.mc.CMP16(mem(locs[0], 0), ImmedLoc(expected_typeid))
-            elif IS_X86_64:
-                self.mc.CMP32_mi((locs[0].value, 0), expected_typeid)
+            assert isinstance(loc_classptr, ImmedLoc)
+            classptr = loc_classptr.value
+            expected_typeid = (self.cpu.gc_ll_descr
+                    .get_typeid_from_classptr_if_gcremovetypeptr(classptr))
+            self._cmp_guard_gc_type(loc_ptr, ImmedLoc(expected_typeid))
+
+    def _cmp_guard_gc_type(self, loc_ptr, loc_expected_typeid):
+        # Note that the typeid half-word is at offset 0 on a little-endian
+        # machine; it would be at offset 2 or 4 on a big-endian machine.
+        assert self.cpu.supports_guard_gc_type
+        if IS_X86_32:
+            self.mc.CMP16(mem(loc_ptr, 0), loc_expected_typeid)
+        else:
+            assert isinstance(loc_expected_typeid, ImmedLoc)
+            self.mc.CMP32_mi((loc_ptr.value, 0), loc_expected_typeid.value)
 
     def genop_guard_guard_class(self, guard_op, guard_token, locs, ign):
         self._cmp_guard_class(locs)
@@ -1686,6 +1695,69 @@ class Assembler386(BaseAssembler):
         self.mc.overwrite(jb_location-1, chr(offset))
         #
         self.guard_success_cc = rx86.Conditions['E']
+        self.implement_guard(guard_token)
+
+    def genop_guard_guard_gc_type(self, guard_op, guard_token, locs, ign):
+        self._cmp_guard_gc_type(locs[0], locs[1])
+        self.guard_success_cc = rx86.Conditions['E']
+        self.implement_guard(guard_token)
+
+    def genop_guard_guard_is_object(self, guard_op, guard_token, locs, ign):
+        assert self.cpu.supports_guard_gc_type
+        [loc_object, loc_typeid] = locs
+        # idea: read the typeid, fetch one byte of the field 'infobits' from
+        # the big typeinfo table, and check the flag 'T_IS_RPYTHON_INSTANCE'.
+        if IS_X86_32:
+            self.mc.MOVZX16(loc_typeid, mem(loc_object, 0))
+        else:
+            self.mc.MOV32(loc_typeid, mem(loc_object, 0))
+        #
+        base_type_info, shift_by, sizeof_ti = (
+            self.cpu.gc_ll_descr.get_translated_info_for_typeinfo())
+        infobits_offset, IS_OBJECT_FLAG = (
+            self.cpu.gc_ll_descr.get_translated_info_for_guard_is_object())
+        loc_infobits = addr_add(imm(base_type_info), loc_typeid,
+                                scale=shift_by, offset=infobits_offset)
+        self.mc.TEST8(loc_infobits, imm(IS_OBJECT_FLAG))
+        #
+        self.guard_success_cc = rx86.Conditions['NZ']
+        self.implement_guard(guard_token)
+
+    def genop_guard_guard_subclass(self, guard_op, guard_token, locs, ign):
+        assert self.cpu.supports_guard_gc_type
+        [loc_object, loc_check_against_class, loc_tmp] = locs
+        assert isinstance(loc_object, RegLoc)
+        assert isinstance(loc_tmp, RegLoc)
+        offset = self.cpu.vtable_offset
+        offset2 = self.cpu.subclassrange_min_offset
+        if offset is not None:
+            # read this field to get the vtable pointer
+            self.mc.MOV_rm(loc_tmp.value, (loc_object.value, offset))
+            # read the vtable's subclassrange_min field
+            self.mc.MOV_rm(loc_tmp.value, (loc_tmp.value, offset2))
+        else:
+            # read the typeid
+            if IS_X86_32:
+                self.mc.MOVZX16(loc_tmp, mem(loc_object, 0))
+            else:
+                self.mc.MOV32(loc_tmp, mem(loc_object, 0))
+            # read the vtable's subclassrange_min field, as a single
+            # step with the correct offset
+            base_type_info, shift_by, sizeof_ti = (
+                self.cpu.gc_ll_descr.get_translated_info_for_typeinfo())
+            self.mc.MOV(loc_tmp, addr_add(imm(base_type_info), loc_tmp,
+                                          scale = shift_by,
+                                          offset = sizeof_ti + offset2))
+        # get the two bounds to check against
+        vtable_ptr = loc_check_against_class.getint()
+        vtable_ptr = rffi.cast(rclass.CLASSTYPE, vtable_ptr)
+        check_min = vtable_ptr.subclassrange_min
+        check_max = vtable_ptr.subclassrange_max
+        # check by doing the unsigned comparison (tmp - min) < (max - min)
+        self.mc.SUB_ri(loc_tmp.value, check_min)
+        self.mc.CMP_ri(loc_tmp.value, check_max - check_min)
+        # the guard passes if we get a result of "below"
+        self.guard_success_cc = rx86.Conditions['B']
         self.implement_guard(guard_token)
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
@@ -1859,8 +1931,12 @@ class Assembler386(BaseAssembler):
         guard_token.pos_jump_offset = self.mc.get_relative_pos() - 4
         self.pending_guard_tokens.append(guard_token)
 
-    def genop_call(self, op, arglocs, resloc):
+    def _genop_real_call(self, op, arglocs, resloc):
         self._genop_call(op, arglocs, resloc)
+    genop_call_i = _genop_real_call
+    genop_call_r = _genop_real_call
+    genop_call_f = _genop_real_call
+    genop_call_n = _genop_real_call
 
     def _genop_call(self, op, arglocs, resloc, is_call_release_gil=False):
         from rpython.jit.backend.llsupport.descr import CallDescr
@@ -1906,20 +1982,28 @@ class Assembler386(BaseAssembler):
         self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
 
-    def genop_call_may_force(self, op, arglocs, result_loc):
+    def _genop_call_may_force(self, op, arglocs, result_loc):
         self._store_force_index(self._find_nearby_operation(+1))
         self._genop_call(op, arglocs, result_loc)
+    genop_call_may_force_i = _genop_call_may_force
+    genop_call_may_force_r = _genop_call_may_force
+    genop_call_may_force_f = _genop_call_may_force
+    genop_call_may_force_n = _genop_call_may_force
 
-    def genop_call_release_gil(self, op, arglocs, result_loc):
+    def _genop_call_release_gil(self, op, arglocs, result_loc):
         self._store_force_index(self._find_nearby_operation(+1))
         self._genop_call(op, arglocs, result_loc, is_call_release_gil=True)
+    genop_call_release_gil_i = _genop_call_release_gil
+    genop_call_release_gil_r = _genop_call_release_gil
+    genop_call_release_gil_f = _genop_call_release_gil
+    genop_call_release_gil_n = _genop_call_release_gil
 
     def imm(self, v):
         return imm(v)
 
     # ------------------- CALL ASSEMBLER --------------------------
 
-    def genop_call_assembler(self, op, arglocs, result_loc):
+    def _genop_call_assembler(self, op, arglocs, result_loc):
         if len(arglocs) == 2:
             [argloc, vloc] = arglocs
         else:
@@ -1927,6 +2011,10 @@ class Assembler386(BaseAssembler):
             vloc = self.imm(0)
         self._store_force_index(self._find_nearby_operation(+1))
         self.call_assembler(op, argloc, vloc, result_loc, eax)
+    genop_call_assembler_i = _genop_call_assembler
+    genop_call_assembler_r = _genop_call_assembler
+    genop_call_assembler_f = _genop_call_assembler
+    genop_call_assembler_n = _genop_call_assembler
 
     def _call_assembler_emit_call(self, addr, argloc, _):
         threadlocal_loc = RawEspLoc(THREADLOCAL_OFS, INT)
@@ -1974,9 +2062,9 @@ class Assembler386(BaseAssembler):
         return jmp_location
 
     def _call_assembler_load_result(self, op, result_loc):
-        if op.result is not None:
+        if op.type != 'v':
             # load the return value from the dead frame's value index 0
-            kind = op.result.type
+            kind = op.type
             descr = self.cpu.getarraydescr_for_frame(kind)
             ofs = self.cpu.unpack_arraydescr(descr)
             if kind == FLOAT:

@@ -3,7 +3,7 @@ from rpython.jit.backend.llsupport.memcpy import memcpy_fn, memset_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.codemap import CodemapBuilder
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
-    ConstInt, BoxInt, AbstractFailDescr)
+    ConstInt, AbstractFailDescr)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib import rgc
 from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints_for,
@@ -223,11 +223,11 @@ class BaseAssembler(object):
         self._call_assembler_emit_call(self.imm(descr._ll_function_addr),
                                         argloc, tmploc)
 
-        if op.result is None:
+        if op.type == 'v':
             assert result_loc is None
             value = self.cpu.done_with_this_frame_descr_void
         else:
-            kind = op.result.type
+            kind = op.type
             if kind == INT:
                 assert result_loc is tmploc
                 value = self.cpu.done_with_this_frame_descr_int

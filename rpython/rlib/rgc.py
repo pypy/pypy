@@ -772,3 +772,19 @@ def clear_gcflag_extra(fromlist):
         if get_gcflag_extra(gcref):
             toggle_gcflag_extra(gcref)
             pending.extend(get_rpy_referents(gcref))
+
+all_typeids = {}
+        
+def get_typeid(obj):
+    raise Exception("does not work untranslated")
+
+class GetTypeidEntry(ExtRegistryEntry):
+    _about_ = get_typeid
+
+    def compute_result_annotation(self, s_obj):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeInteger()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_gettypeid', hop.args_v, resulttype=lltype.Signed)

@@ -6,15 +6,15 @@ in a nicer fashion
 from rpython.jit.tool.oparser_model import get_model
 
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
-                                            ResOpWithDescr, N_aryOp, \
-                                            UnaryOp, PlainResOp
+     InputArgInt, InputArgRef, InputArgFloat, ResOpWithDescr, N_aryOp, \
+     UnaryOp, PlainResOp, optypes
 
 class ParseError(Exception):
     pass
 
 class ESCAPE_OP(N_aryOp, ResOpWithDescr):
 
-    OPNUM = -123
+    is_source_op = True
 
     def getopnum(self):
         return self.OPNUM
@@ -22,14 +22,44 @@ class ESCAPE_OP(N_aryOp, ResOpWithDescr):
     def getopname(self):
         return 'escape'
 
-    def clone(self):
-        op = ESCAPE_OP(self.result)
-        op.initarglist(self.getarglist()[:])
+    def copy_and_change(self, opnum, args=None, descr=None):
+        assert opnum == self.OPNUM
+        op = self.__class__()
+        if args is not None:
+            op.initarglist(args)
+        else:
+            op.initarglist(self._args[:])
+        assert descr is None
         return op
+
+
+class ESCAPE_OP_I(ESCAPE_OP):
+    type = 'i'
+    OPNUM = -123
+
+class ESCAPE_OP_F(ESCAPE_OP):
+    type = 'f'
+    OPNUM = -124
+
+class ESCAPE_OP_N(ESCAPE_OP):
+    type = 'v'
+    OPNUM = -125
+
+class ESCAPE_OP_R(ESCAPE_OP):
+    type = 'r'
+    OPNUM = -126
+
+ALL_ESCAPE_OPS = {
+    ESCAPE_OP_I.OPNUM: ESCAPE_OP_I,
+    ESCAPE_OP_F.OPNUM: ESCAPE_OP_F,
+    ESCAPE_OP_N.OPNUM: ESCAPE_OP_N,
+    ESCAPE_OP_R.OPNUM: ESCAPE_OP_R
+}
 
 class FORCE_SPILL(UnaryOp, PlainResOp):
 
-    OPNUM = -124
+    OPNUM = -127
+    is_source_op = True
 
     def getopnum(self):
         return self.OPNUM
@@ -37,14 +67,9 @@ class FORCE_SPILL(UnaryOp, PlainResOp):
     def getopname(self):
         return 'force_spill'
 
-    def clone(self):
-        op = FORCE_SPILL(self.result)
-        op.initarglist(self.getarglist()[:])
-        return op
-
-    def copy_and_change(self, opnum, args=None, result=None, descr=None):
+    def copy_and_change(self, opnum, args=None, descr=None):
         assert opnum == self.OPNUM
-        newop = FORCE_SPILL(result or self.result)
+        newop = FORCE_SPILL()
         newop.initarglist(args or self.getarglist())
         return newop
 
@@ -84,6 +109,8 @@ class OpParser(object):
         obj = self._consts[name]
         if typ == 'ptr':
             return self.model.ConstPtr(obj)
+        elif typ == 'int':
+            return self.model.ConstInt(obj)
         else:
             assert typ == 'class'
             return self.model.ConstInt(self.model.ptr_to_int(obj))
@@ -104,6 +131,7 @@ class OpParser(object):
                 raise
 
     def box_for_var(self, elem):
+        xxx
         try:
             return self._cache[self.type_system, elem]
         except KeyError:
@@ -136,8 +164,20 @@ class OpParser(object):
         vars = []
         for elem in elements:
             elem = elem.strip()
-            vars.append(self.newvar(elem))
+            vars.append(self.newinputarg(elem))
         return vars
+
+    def newinputarg(self, elem):
+        if elem.startswith('i'):
+            v = InputArgInt(0)
+        elif elem.startswith('f'):
+            v = InputArgFloat.fromfloat(0.0)
+        else:
+            from rpython.rtyper.lltypesystem import lltype, llmemory
+            assert elem.startswith('p')
+            v = InputArgRef(lltype.nullptr(llmemory.GCREF.TO))
+        self.vars[elem] = v
+        return v
 
     def newvar(self, elem):
         box = self.box_for_var(elem)
@@ -169,6 +209,9 @@ class OpParser(object):
             if arg.startswith('ConstClass('):
                 name = arg[len('ConstClass('):-1]
                 return self.get_const(name, 'class')
+            elif arg.startswith('ConstInt('):
+                name = arg[len('ConstInt('):-1]
+                return self.get_const(name, 'int')
             elif arg == 'None':
                 return None
             elif arg == 'NULL':
@@ -208,8 +251,14 @@ class OpParser(object):
         try:
             opnum = getattr(rop, opname.upper())
         except AttributeError:
-            if opname == 'escape':
-                opnum = ESCAPE_OP.OPNUM
+            if opname == 'escape_i':
+                opnum = ESCAPE_OP_I.OPNUM
+            elif opname == 'escape_f':
+                opnum = ESCAPE_OP_F.OPNUM
+            elif opname == 'escape_n':
+                opnum = ESCAPE_OP_N.OPNUM
+            elif opname == 'escape_r':
+                opnum = ESCAPE_OP_R.OPNUM
             elif opname == 'force_spill':
                 opnum = FORCE_SPILL.OPNUM
             else:
@@ -249,19 +298,19 @@ class OpParser(object):
 
         return opnum, args, descr, fail_args
 
-    def create_op(self, opnum, args, result, descr, fail_args):
-        if opnum == ESCAPE_OP.OPNUM:
-            op = ESCAPE_OP(result)
+    def create_op(self, opnum, args, res, descr, fail_args):
+        if opnum in ALL_ESCAPE_OPS:
+            op = ALL_ESCAPE_OPS[opnum]()
             op.initarglist(args)
             assert descr is None
             return op
         if opnum == FORCE_SPILL.OPNUM:
-            op = FORCE_SPILL(result)
+            op = FORCE_SPILL()
             op.initarglist(args)
             assert descr is None
             return op
         else:
-            res = ResOperation(opnum, args, result, descr)
+            res = ResOperation(opnum, args, descr)
             if fail_args is not None:
                 res.setfailargs(fail_args)
             if self._postproces:
@@ -275,10 +324,9 @@ class OpParser(object):
         opnum, args, descr, fail_args = self.parse_op(op)
         if res in self.vars:
             raise ParseError("Double assign to var %s in line: %s" % (res, line))
-        rvar = self.box_for_var(res)
-        self.vars[res] = rvar
-        res = self.create_op(opnum, args, rvar, descr, fail_args)
-        return res
+        resop = self.create_op(opnum, args, res, descr, fail_args)
+        self.vars[res] = resop
+        return resop
 
     def parse_op_no_result(self, line):
         opnum, args, descr, fail_args = self.parse_op(line)
@@ -335,6 +383,9 @@ class OpParser(object):
                 return num, ops
             elif line.startswith(" "*(indent + 1)):
                 raise ParseError("indentation not valid any more")
+            elif line.startswith(" " * indent + "#"):
+                num += 1
+                continue
             else:
                 line = line.strip()
                 offset, line = self.parse_offset(line)
