@@ -116,3 +116,47 @@ class AppTestDict:
         res = d.pop(42.0, "foo")
         assert res == "bar"
         raises(KeyError, "d[42.0]")
+
+
+    def test_custom_evil_eq(self):
+        import pypystm
+
+        class A(object):
+            depth = []
+            def __hash__(self):
+                return 1
+            def __eq__(self, other):
+                if not self.depth:
+                    self.depth.append(1)
+                    del d[a]
+                    print "del a"
+                return self is other
+        d = pypystm.stmdict()
+        a = A()
+        b = A()
+        d[a] = "a"
+        d[b] = "b" # dels a
+        assert a not in d
+        assert b in d
+
+    def test_custom_evil_eq2(self):
+        import pypystm
+
+        class A(object):
+            depth = []
+            def __hash__(self):
+                return 1
+            def __eq__(self, other):
+                if not self.depth:
+                    self.depth.append(1)
+                    del d[a]
+                    print "del a"
+                return self is other
+        d = pypystm.stmdict()
+        a = A()
+        b = A()
+        d[a] = "a"
+        assert d.get(b) is None
+        assert a not in d
+        assert b not in d
+        assert d.keys() == []

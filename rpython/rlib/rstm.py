@@ -298,20 +298,23 @@ NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
 
 class HashtableForTest(object):
     def __init__(self):
-        self._content = {}      # dict {integer: GCREF}
+        self._content = {}      # dict {integer: Entry(obj=GCREF)}
 
     def _cleanup_(self):
         raise Exception("cannot translate a prebuilt rstm.Hashtable object")
 
     def get(self, key):
         assert type(key) is int
-        return self._content.get(key, NULL_GCREF)
+        return self.lookup(key).object
+        # return self._content.get(key, NULL_GCREF)
 
     def set(self, key, value):
         assert type(key) is int
         assert lltype.typeOf(value) == llmemory.GCREF
         if value:
-            self._content[key] = value
+            entry = self.lookup(key)
+            entry._obj = value
+            # self._content[key] = value
         else:
             try:
                 del self._content[key]
@@ -319,10 +322,11 @@ class HashtableForTest(object):
                 pass
 
     def len(self):
-        return len(self._content)
+        items = [self.lookup(key) for key, v in self._content.items() if v.object != NULL_GCREF]
+        return len(items)
 
     def list(self):
-        items = [self.lookup(key) for key in self._content]
+        items = [self.lookup(key) for key, v in self._content.items() if v.object != NULL_GCREF]
         count = len(items)
         for i in range(3):
             items.append("additional garbage for testing")
@@ -330,7 +334,7 @@ class HashtableForTest(object):
 
     def lookup(self, key):
         assert type(key) is int
-        return EntryObjectForTest(self, key)
+        return self._content.setdefault(key, EntryObjectForTest(self, key))
 
     def writeobj(self, entry, nvalue):
         assert isinstance(entry, EntryObjectForTest)
@@ -341,9 +345,10 @@ class EntryObjectForTest(object):
         self.hashtable = hashtable
         self.key = key
         self.index = r_uint(key)
+        self._obj = NULL_GCREF
 
     def _getobj(self):
-        return self.hashtable.get(self.key)
+        return self._obj
     def _setobj(self, nvalue):
         raise Exception("can't assign to the 'object' attribute:"
                         " use h.writeobj() instead")
