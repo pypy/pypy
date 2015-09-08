@@ -8,8 +8,22 @@ from rpython.jit.codewriter import longlong
 class SettingForwardedOnAbstractValue(Exception):
     pass
 
+class CountingDict(object):
+    def __init__(self):
+        self._d = weakref.WeakKeyDictionary()
+        self.counter = 0
+
+    def __getitem__(self, item):
+        try:
+            return self._d[item]
+        except KeyError:
+            c = self.counter
+            self.counter += 1
+            self._d[item] = c
+            return c
+
 class AbstractValue(object):
-    _repr_memo = {} # weakref.WeakKeyDictionary()
+    _repr_memo = CountingDict()
     is_info_class = False
     _attrs_ = ()
     namespace = None
