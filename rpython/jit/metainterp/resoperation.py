@@ -1021,7 +1021,7 @@ def get_deep_immutable_oplist(operations):
 class OpHelpers(object):
     @staticmethod
     def call_for_descr(descr):
-        tp = descr.get_result_type()
+        tp = descr.get_normalized_result_type()
         if tp == 'i':
             return rop.CALL_I
         elif tp == 'r':
@@ -1033,7 +1033,7 @@ class OpHelpers(object):
 
     @staticmethod
     def call_pure_for_descr(descr):
-        tp = descr.get_result_type()
+        tp = descr.get_normalized_result_type()
         if tp == 'i':
             return rop.CALL_PURE_I
         elif tp == 'r':
@@ -1045,7 +1045,7 @@ class OpHelpers(object):
 
     @staticmethod
     def call_may_force_for_descr(descr):
-        tp = descr.get_result_type()
+        tp = descr.get_normalized_result_type()
         if tp == 'i':
             return rop.CALL_MAY_FORCE_I
         elif tp == 'r':
@@ -1057,7 +1057,7 @@ class OpHelpers(object):
 
     @staticmethod
     def call_assembler_for_descr(descr):
-        tp = descr.get_result_type()
+        tp = descr.get_normalized_result_type()
         if tp == 'i':
             return rop.CALL_ASSEMBLER_I
         elif tp == 'r':
@@ -1069,7 +1069,7 @@ class OpHelpers(object):
 
     @staticmethod
     def call_loopinvariant_for_descr(descr):
-        tp = descr.get_result_type()
+        tp = descr.get_normalized_result_type()
         if tp == 'i':
             return rop.CALL_LOOPINVARIANT_I
         elif tp == 'r':

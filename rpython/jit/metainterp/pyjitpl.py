@@ -1565,7 +1565,7 @@ class MIFrame(object):
                 if resbox is not None:
                     return resbox
             self.metainterp.vable_and_vrefs_before_residual_call()
-            tp = descr.get_result_type()
+            tp = descr.get_normalized_result_type()
             if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
                 resbox = self.metainterp.direct_libffi_call(allboxes, descr,
                                                             tp)
@@ -1601,7 +1601,7 @@ class MIFrame(object):
             return resbox
         else:
             effect = effectinfo.extraeffect
-            tp = descr.get_result_type()
+            tp = descr.get_normalized_result_type()
             if effect == effectinfo.EF_LOOPINVARIANT:
                 if tp == 'i':
                     return self.execute_varargs(rop.CALL_LOOPINVARIANT_I,

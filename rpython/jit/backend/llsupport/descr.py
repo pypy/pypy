@@ -474,6 +474,13 @@ class CallDescr(AbstractDescr):
     def get_result_type(self):
         return self.result_type
 
+    def get_normalized_result_type(self):
+        if self.result_type == 'S':
+            return 'i'
+        if self.result_type == 'L':
+            return 'f'
+        return self.result_type
+
     def get_result_size(self):
         return self.result_size
 
