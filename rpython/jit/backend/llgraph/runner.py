@@ -89,6 +89,8 @@ class CallDescr(AbstractDescr):
     def get_result_type(self):
         return getkind(self.RESULT)[0]
 
+    get_normalized_result_type = get_result_type
+
 class TypeIDSymbolic(Symbolic):
     def __init__(self, STRUCT_OR_ARRAY):
         self.STRUCT_OR_ARRAY = STRUCT_OR_ARRAY
