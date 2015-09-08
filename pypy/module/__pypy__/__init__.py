@@ -116,17 +116,17 @@ class Module(MixedModule):
         # proper fix would be to use some llop that is only rendered by the
         # JIT
         #
-        #try:
-        #    from rpython.jit.backend import detect_cpu
-        #    model = detect_cpu.autodetect()
-        #    self.extra_interpdef('cpumodel', 'space.wrap(%r)' % model)
-        #except Exception:
-        #    if self.space.config.translation.jit:
-        #        raise
-        #    else:
-        #        pass   # ok fine to ignore in this case
-        #
-        #if self.space.config.translation.jit:
-        ##    features = detect_cpu.getcpufeatures(model)
-        #    self.extra_interpdef('jit_backend_features',
-        #                            'space.wrap(%r)' % features)
+        try:
+            from rpython.jit.backend import detect_cpu
+            model = detect_cpu.autodetect()
+            self.extra_interpdef('cpumodel', 'space.wrap(%r)' % model)
+        except Exception:
+            if self.space.config.translation.jit:
+                raise
+            else:
+                pass   # ok fine to ignore in this case
+        
+        if self.space.config.translation.jit:
+            features = detect_cpu.getcpufeatures(model)
+            self.extra_interpdef('jit_backend_features',
+                                    'space.wrap(%r)' % features)
