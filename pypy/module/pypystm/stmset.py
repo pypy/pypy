@@ -17,7 +17,27 @@ ARRAY = lltype.GcArray(llmemory.GCREF)
 PARRAY = lltype.Ptr(ARRAY)
 
 
-def find_equal_item(space, array, w_key):
+
+def really_find_equal_item(space, h, w_key):
+    hkey = space.hash_w(w_key)
+    entry = h.lookup(hkey)
+    array = lltype.cast_opaque_ptr(PARRAY, entry.object)
+    while True:
+        if not array:
+            return (entry, array, -1)
+
+        i = _find_equal_item(space, array, w_key)
+        if not space.type(w_key).compares_by_identity():
+            entry2 = h.lookup(hkey)
+            array2 = lltype.cast_opaque_ptr(PARRAY, entry2.object)
+            if array2 != array:
+                entry = entry2
+                array = array2
+                continue
+
+        return (entry, array, i)
+
+def _find_equal_item(space, array, w_key):
     w_item = cast_gcref_to_instance(W_Root, array[0])
     if space.eq_w(w_key, w_item):
         return 0
@@ -44,10 +64,8 @@ class W_STMSet(W_Root):
         self.h = rstm.create_hashtable()
 
     def contains_w(self, space, w_key):
-        hkey = space.hash_w(w_key)
-        gcref = self.h.get(hkey)
-        array = lltype.cast_opaque_ptr(PARRAY, gcref)
-        if array and find_equal_item(space, array, w_key) >= 0:
+        entry, array, i = really_find_equal_item(space, self.h, w_key)
+        if array and i >= 0:
             return space.w_True
         return space.w_False
 
@@ -55,17 +73,22 @@ class W_STMSet(W_Root):
         hkey = space.hash_w(w_key)
         entry = self.h.lookup(hkey)
         array = lltype.cast_opaque_ptr(PARRAY, entry.object)
-        if array:
-            if find_equal_item(space, array, w_key) >= 0:
-                return      # already there
-            L = len(array)
-            narray = lltype.malloc(ARRAY, L + 1)
-            ll_arraycopy(array, narray, 0, 0, L)
-        else:
-            narray = lltype.malloc(ARRAY, 1)
-            L = 0
-        narray[L] = cast_instance_to_gcref(w_key)
-        self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
+        while True:
+            if array:
+                entry, array, i = really_find_equal_item(space, self.h, w_key)
+                if not array:
+                    continue
+                if i >= 0:
+                    return      # already there
+                L = len(array)
+                narray = lltype.malloc(ARRAY, L + 1)
+                ll_arraycopy(array, narray, 0, 0, L)
+            else:
+                narray = lltype.malloc(ARRAY, 1)
+                L = 0
+            narray[L] = cast_instance_to_gcref(w_key)
+            self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
+            return
 
     def try_remove(self, space, w_key):
         hkey = space.hash_w(w_key)
@@ -73,8 +96,8 @@ class W_STMSet(W_Root):
         array = lltype.cast_opaque_ptr(PARRAY, entry.object)
         if not array:
             return False
-        i = find_equal_item(space, array, w_key)
-        if i < 0:
+        entry, array, i = really_find_equal_item(space, self.h, w_key)
+        if not array or i < 0:
             return False
         # found
         L = len(array) - 1

@@ -119,8 +119,6 @@ class AppTestDict:
 
 
     def test_custom_evil_eq(self):
-        import pypystm
-
         class A(object):
             depth = []
             def __hash__(self):
@@ -131,6 +129,7 @@ class AppTestDict:
                     del d[a]
                     print "del a"
                 return self is other
+        import pypystm
         d = pypystm.stmdict()
         a = A()
         b = A()
@@ -140,8 +139,6 @@ class AppTestDict:
         assert b in d
 
     def test_custom_evil_eq2(self):
-        import pypystm
-
         class A(object):
             depth = []
             def __hash__(self):
@@ -152,6 +149,7 @@ class AppTestDict:
                     del d[a]
                     print "del a"
                 return self is other
+        import pypystm
         d = pypystm.stmdict()
         a = A()
         b = A()
