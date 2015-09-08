@@ -787,4 +787,4 @@ class GetTypeidEntry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        return hop.genop('gc_gettypeid', hop.args_v, resulttype=hop.r_result)
+        return hop.genop('gc_gettypeid', hop.args_v, resulttype=lltype.Signed)
