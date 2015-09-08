@@ -18,6 +18,8 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop,\
 class UnrollableOptimizer(Optimizer):    
     def force_op_from_preamble(self, preamble_op):
         if isinstance(preamble_op, PreambleOp):
+            if self.optunroll.short_preamble_producer is None:
+                assert False # unreachable code
             op = preamble_op.op
             self.optimizer.inparg_dict[op] = None # XXX ARGH
             # special hack for int_add(x, accumulator-const) optimization

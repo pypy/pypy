@@ -17,6 +17,7 @@ class PreambleOp(AbstractResOp):
 
     See force_op_from_preamble for details how the extra things are put.
     """
+    op = None
     
     def __init__(self, op, preamble_op, invented_name):
         self.op = op
@@ -24,15 +25,23 @@ class PreambleOp(AbstractResOp):
         self.invented_name = invented_name
 
     def numargs(self):
+        if self.op is None:
+            return 0
         return self.op.numargs()
 
     def getarglist(self):
+        if self.op is None:
+            return []
         return self.op.getarglist()
 
     def getarg(self, i):
+        if self.op is None:
+            return None
         return self.op.getarg(i)
 
     def getdescr(self):
+        if self.op is None:
+            return None
         return self.op.getdescr()
 
     def __repr__(self):

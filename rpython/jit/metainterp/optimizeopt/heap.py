@@ -170,7 +170,8 @@ class ArrayCachedField(CachedField):
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getitem(descr, self.index, optheap)
-        if isinstance(res, PreambleOp):
+        if (isinstance(res, PreambleOp) and
+            optheap.optimizer.cpu.supports_guard_gc_type):
             if not true_force:
                 return res.op
             index = res.preamble_op.getarg(1).getint()

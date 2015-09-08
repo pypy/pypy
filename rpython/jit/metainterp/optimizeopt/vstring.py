@@ -217,6 +217,9 @@ class VStringPlainInfo(StrPtrInfo):
 
 class VStringSliceInfo(StrPtrInfo):
     length = -1
+    start = None
+    lgtop = None
+    s = None
     
     def __init__(self, s, start, length, mode):
         self.s = s
@@ -265,6 +268,10 @@ class VStringSliceInfo(StrPtrInfo):
 
 class VStringConcatInfo(StrPtrInfo):
     #_attrs_ = ('mode', 'vleft', 'vright', '_is_virtual')
+
+    vleft = None
+    vright = None
+    _is_virtual = False
     
     def __init__(self, mode, vleft, vright, is_virtual):
         self.vleft = vleft

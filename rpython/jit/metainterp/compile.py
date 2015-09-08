@@ -262,7 +262,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         del enable_opts['unroll']
 
     ops = history.operations[start:]
-    if 'unroll' not in enable_opts:
+    if 'unroll' not in enable_opts or not metainterp.cpu.supports_guard_gc_type:
         return compile_simple_loop(metainterp, greenkey, start, inputargs, ops,
                                    jumpargs, enable_opts)
     jitcell_token = make_jitcell_token(jitdriver_sd)

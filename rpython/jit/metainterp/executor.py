@@ -15,6 +15,7 @@ from rpython.jit.codewriter import longlong
 
 # ____________________________________________________________
 
+@specialize.arg(4)
 def _do_call(cpu, metainterp, argboxes, descr, rettype):
     assert metainterp is not None
     # count the number of arguments of the different types
