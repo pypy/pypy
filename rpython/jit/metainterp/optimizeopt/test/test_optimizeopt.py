@@ -8767,12 +8767,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_n(ix)
         jump(p0)
         """
-        ops = """
-        []
-        escape_n(0)
-        jump()
+        expected = """
+        [p0, p1, i2]
+        # XXX why is Const not a part of virtualstate???
+        guard_value(p1, ConstPtr(myarray)) []
+        escape_n(i2)
+        jump(p0, ConstPtr(myarray), 0)
         """
-        self.optimize_loop(ops, ops)
+        self.optimize_loop(ops, expected)
 
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
