@@ -373,6 +373,7 @@ class CallingConvTests(Runner):
                                          [funcbox] + argslist,
                                          'float', descr=calldescr)
             expected = func(*argvalues)
+            res = longlong.getrealfloat(res)
             assert abs(res - expected) < 0.0001
 
 

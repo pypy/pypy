@@ -2,7 +2,7 @@ import sys
 
 import py
 
-from rpython.jit.codewriter import heaptracker
+from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp import history, compile, resume, executor, jitexc
@@ -3013,7 +3013,7 @@ class MetaInterp(object):
                     rop.GETARRAYITEM_RAW_F,
                                     [box_exchange_buffer,
                                      ConstInt(ofs // itemsize)],
-                                     0.0, descr)
+                                     longlong.ZEROF, descr)
             else:
                 assert kind == 'v'
                 continue

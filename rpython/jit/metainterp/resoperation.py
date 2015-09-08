@@ -409,7 +409,7 @@ class FloatOp(object):
 
     type = 'f'
 
-    _resfloat = 0.0
+    _resfloat = longlong.ZEROF
 
     def getfloatstorage(self):
         return self._resfloat
