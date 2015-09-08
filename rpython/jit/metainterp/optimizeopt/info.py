@@ -708,6 +708,12 @@ class ConstPtrInfo(PtrInfo):
     def get_known_class(self, cpu):
         if not self._const.nonnull():
             return None
+        if cpu.supports_guard_gc_type:
+            # we should only be called on an unknown box here from
+            # virtualstate.py, which is only when the cpu supports
+            # guard_gc_type
+            if not cpu.check_is_object(self._const.getref_base()):
+                return None
         return cpu.ts.cls_of_box(self._const)
 
     def same_info(self, other):

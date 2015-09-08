@@ -8767,6 +8767,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape_n(ix)
         jump(p0)
         """
+        ops = """
+        []
+        escape_n(0)
+        jump()
+        """
         self.optimize_loop(ops, ops)
 
 
