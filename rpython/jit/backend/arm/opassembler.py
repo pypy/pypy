@@ -29,6 +29,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rtyper import rclass
 from rpython.jit.backend.arm import callbuilder
 from rpython.rlib.rarithmetic import r_uint
 
@@ -334,7 +335,7 @@ class ResOpAssembler(BaseAssembler):
                                  base_type_info + sizeof_ti + offset2)
             if shift_by > 0:
                 self.mc.LSL_ri(r.ip.value, r.ip.value, shift_by)
-            self.mc.LDR_rr(r.ip.value, r.ip.value, l.lr.value)
+            self.mc.LDR_rr(r.ip.value, r.ip.value, r.lr.value)
         # get the two bounds to check against
         vtable_ptr = loc_check_against_class.getint()
         vtable_ptr = rffi.cast(rclass.CLASSTYPE, vtable_ptr)
@@ -352,7 +353,8 @@ class ResOpAssembler(BaseAssembler):
             self.mc.CMP_rr(r.ip.value, r.lr.value)
         # the guard passes if we get a result of "below or equal"
         self.guard_success_cc = c.LS
-        self.implement_guard(guard_token)
+        self._emit_guard(op, arglocs[2:], save_exc=False)
+        return fcond
 
     def emit_op_guard_not_invalidated(self, op, locs, regalloc, fcond):
         return self._emit_guard(op, locs, save_exc=False,
