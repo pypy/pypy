@@ -33,6 +33,8 @@ assert ENABLE_ALL_OPTS == ALL_OPTS_NAMES, (
 def build_opt_chain(metainterp_sd, enable_opts):
     optimizations = []
     unroll = 'unroll' in enable_opts    # 'enable_opts' is normally a dict
+    if not metainterp_sd.cpu.supports_guard_gc_type:
+        unroll = False
     for name, opt in unroll_all_opts:
         if name in enable_opts:
             if opt is not None:
@@ -40,8 +42,7 @@ def build_opt_chain(metainterp_sd, enable_opts):
                 optimizations.append(o)
 
     if ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
-        or 'heap' not in enable_opts or 'unroll' not in enable_opts
-        or 'pure' not in enable_opts):
+        or 'heap' not in enable_opts or 'pure' not in enable_opts):
         optimizations.append(OptSimplify(unroll))
 
     return optimizations, unroll

@@ -2772,9 +2772,9 @@ class BasicTests:
             raise InvalidLoop
         old_optimize_trace = optimizeopt.optimize_trace
         optimizeopt.optimize_trace = my_optimize_trace
-        if not self.basic:
-            py.test.skip("unrolling")
         try:
+            if not self.basic:
+                py.test.skip("unrolling")
             res = self.meta_interp(f, [23, 4])
             assert res == 23
             assert False in seen

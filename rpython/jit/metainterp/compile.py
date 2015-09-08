@@ -1049,6 +1049,7 @@ def compile_trace(metainterp, resumekey):
         info, newops = optimize_trace(metainterp_sd, jitdriver_sd,
                                       data, metainterp.box_names_memo)
     except InvalidLoop:
+        #pdb.post_mortem(sys.exc_info()[2])
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop
