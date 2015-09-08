@@ -1,5 +1,5 @@
 #!/usr/bin/env pypy
-import sys
+import sys, os
 import struct, re, linecache
 
 # ____________________________________________________________
@@ -389,4 +389,9 @@ def main(argv):
     return 0
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+    if sys.stdout.isatty():
+        sys.stdout = os.popen("less --quit-if-one-screen", "w")
+    try:
+        sys.exit(main(sys.argv[1:]))
+    finally:
+        sys.stdout.close()
