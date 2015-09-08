@@ -131,7 +131,7 @@ class LogOperations(object):
                 return 'ConstPtr(ptr' + str(mv) + ')'
             return 'ConstPtr(null)'
         elif isinstance(arg, ConstFloat):
-            return str(arg.getfloatstorage())
+            return str(arg.getfloat())
         elif arg is None:
             return 'None'
         elif arg.type == 'i':

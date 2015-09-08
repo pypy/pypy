@@ -622,12 +622,12 @@ class History(object):
         elif isinstance(value, bool):
             assert op.type == 'i'
             op.setint(int(value))
-        elif isinstance(value, float):
-            assert op.type == 'f'
-            op.setfloatstorage(value)
         elif lltype.typeOf(value) == lltype.Signed:
             assert op.type == 'i'
             op.setint(value)
+        elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
+            assert op.type == 'f'
+            op.setfloatstorage(value)
         else:
             assert lltype.typeOf(value) == llmemory.GCREF
             assert op.type == 'r'
