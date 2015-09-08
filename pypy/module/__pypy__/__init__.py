@@ -116,6 +116,8 @@ class Module(MixedModule):
         # proper fix would be to use some llop that is only rendered by the
         # JIT
         #
+        if self.space.config.translation.fork_before == 'pyjitpl':
+            return
         try:
             from rpython.jit.backend import detect_cpu
             model = detect_cpu.autodetect()
