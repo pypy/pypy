@@ -111,13 +111,6 @@ class Module(MixedModule):
                                      'interp_magic.mapdict_cache_counter')
         PYC_MAGIC = get_pyc_magic(self.space)
         self.extra_interpdef('PYC_MAGIC', 'space.wrap(%d)' % PYC_MAGIC)
-        # XXX
-        # the following code prevents --fork-before=pyjitpl from working,
-        # proper fix would be to use some llop that is only rendered by the
-        # JIT
-        #
-        if self.space.config.translation.fork_before == 'pyjitpl':
-            return
         try:
             from rpython.jit.backend import detect_cpu
             model = detect_cpu.autodetect()
