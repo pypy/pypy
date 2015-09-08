@@ -135,6 +135,7 @@ class LLtypeMixin(object):
     node2addr = lltype.cast_opaque_ptr(llmemory.GCREF, node2)
     myptr = lltype.cast_opaque_ptr(llmemory.GCREF, node)
     mynode2 = lltype.malloc(NODE)
+    myarray = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(lltype.GcArray(lltype.Signed), 13))
     mynode2.parent.typeptr = node_vtable
     myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode2)
     mynode3 = lltype.malloc(NODE2)

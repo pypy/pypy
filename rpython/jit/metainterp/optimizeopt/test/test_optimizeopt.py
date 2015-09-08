@@ -8753,6 +8753,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_back_and_forth(self):
+        ops = """
+        [p0]
+        p1 = getfield_gc_pure_r(p0, descr=bdescr)
+        ptemp = new_with_vtable(descr=nodesize)
+        setfield_gc(ptemp, p1, descr=nextdescr)
+        p2 = getfield_gc_r(ptemp, descr=nextdescr)
+        ix = getarrayitem_gc_pure_i(p2, 0, descr=arraydescr)
+        pfoo = getfield_gc_r(ptemp, descr=nextdescr)
+        guard_value(pfoo, ConstPtr(myarray)) []
+        ifoo = int_add(ix, 13)
+        escape_n(ix)
+        jump(p0)
+        """
+        self.optimize_loop(ops, ops)
+
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
