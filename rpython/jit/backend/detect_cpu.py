@@ -122,6 +122,8 @@ def getcpuclass(backend_name="auto"):
 
 
 def getcpufeatures(backend_name="auto"):
+    if backend_name == "auto":
+        backend_name = autodetect()
     return {
         MODEL_X86: ['floats', 'singlefloats', 'longlong'],
         MODEL_X86_NO_SSE2: ['longlong'],
