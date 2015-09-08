@@ -725,6 +725,9 @@ typedef TLPREFIX struct stm_hashtable_entry_s stm_hashtable_entry_t;
 
 stm_hashtable_t *stm_hashtable_create(void);
 void stm_hashtable_free(stm_hashtable_t *);
+/* lookup returns a reference to an entry. This entry is only valid
+   in the current transaction and needs to be looked up again if there
+   may have been a break inbetween. */
 stm_hashtable_entry_t *stm_hashtable_lookup(object_t *, stm_hashtable_t *,
                                             uintptr_t key);
 object_t *stm_hashtable_read(object_t *, stm_hashtable_t *, uintptr_t key);
