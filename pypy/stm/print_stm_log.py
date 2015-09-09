@@ -390,7 +390,7 @@ def main(argv):
 
 if __name__ == '__main__':
     if sys.stdout.isatty():
-        sys.stdout = os.popen("less --quit-if-one-screen", "w")
+        sys.stdout = os.popen("less --quit-if-one-screen --no-init", "w")
     try:
         sys.exit(main(sys.argv[1:]))
     finally:
