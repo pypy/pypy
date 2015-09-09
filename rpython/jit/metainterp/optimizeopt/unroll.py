@@ -50,7 +50,6 @@ class UnrollableOptimizer(Optimizer):
             return
         if isinstance(preamble_info, info.PtrInfo):
             if preamble_info.is_virtual():
-                # XXX do we want to sanitize this?
                 op.set_forwarded(preamble_info)
                 self.setinfo_from_preamble_list(preamble_info.all_items(),
                                           exported_infos)
