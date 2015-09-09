@@ -57,6 +57,10 @@ class UnrollableOptimizer(Optimizer):
                 return
             if op.is_constant():
                 return # nothing we can learn
+            if preamble_info.is_constant():
+                # but op is not
+                op.set_forwarded(preamble_info.getconst())
+                return
             if preamble_info.get_descr() is not None:
                 if isinstance(preamble_info, info.StructPtrInfo):
                     op.set_forwarded(info.StructPtrInfo(

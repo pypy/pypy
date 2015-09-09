@@ -8768,14 +8768,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p0)
         """
         expected = """
-        [p0, p1, i2]
-        # XXX why is Const not a part of virtualstate???
-        guard_value(p1, ConstPtr(myarray)) []
-        escape_n(i2)
-        jump(p0, ConstPtr(myarray), 0)
+        [p0]
+        escape_n(0)
+        jump(p0)
         """
         self.optimize_loop(ops, expected)
 
+    def test_guard_value_const_virtualstate(self):
+        ops = """
+        [p0, i0]
+        p1 = new_with_vtable(descr=nodesize)
+        setfield_gc(p1, i0, descr=valuedescr)
+        guard_value(i0, 13) []
+        i1 = getfield_gc_i(p1, descr=valuedescr)
+        jump(p1, i1)
+        """
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
