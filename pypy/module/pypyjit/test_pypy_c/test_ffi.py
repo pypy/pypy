@@ -163,7 +163,7 @@ class Test__ffi(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('getfield', """
             guard_not_invalidated(descr=...)
-            i57 = getfield_raw(i46, descr=<FieldS dynamic 0>)
+            i57 = getfield_raw_i(i46, descr=<FieldS dynamic 0>)
         """)
         assert loop.match_by_id('setfield', """
             setfield_raw(i44, i57, descr=<FieldS dynamic 0>)
