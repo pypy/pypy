@@ -26,6 +26,7 @@ class TranslationTest(CCompiledMixin):
         # - profiler
         # - full optimizer
         # - floats neg and abs
+        # - cast_int_to_float
         # - llexternal with macro=True
 
         class BasicFrame(object):
@@ -69,6 +70,7 @@ class TranslationTest(CCompiledMixin):
                 frame.i -= 1
                 j *= -0.712
                 if j + (-j):    raise ValueError
+                j += frame.i
                 k = myabs1(myabs2(j))
                 if k - abs(j):  raise ValueError
                 if k - abs(-j): raise ValueError
