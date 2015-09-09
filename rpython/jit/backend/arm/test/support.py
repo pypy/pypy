@@ -10,6 +10,7 @@ from rpython.rlib.jit import JitDriver
 class JitARMMixin(support.LLJitMixin):
     type_system = 'lltype'
     CPUClass = getcpuclass()
+    basic = True
 
     def check_jumps(self, maxcount):
         pass
