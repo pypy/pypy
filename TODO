@@ -1,3 +1,32 @@
+------------------------------------------------------------
+
+also a possible cause for the thing below this one:
+   pypy-stm frees 530936 loop tokens
+   pypy26 frees 446 loop tokens
+meaning, loops get freed and probably must be retraced all
+the time... see XXXXXX in memmgr.py
+
+------------------------------------------------------------
+
+annotating and rtyping pixie with --jit=off and 1 thread (no
+conflicts) is:
+STM: 148s
+pypy2.6: 91.3s
+
+This difference may also explain a similar with-jit result:
+STM: 96
+pypy2.6: 64.5s
+which gets even worse with more than 1 thread:
+STM: 116s (4 threads)
+pypy2.6: 64s (still using only 1 thread)
+
+TODOs:
+1) stmdict/stmset need strategies
+2) methodcache missing or generally no-jit performance is bad here
+3) theoretically, more threads shouldn't take even longer
+
+------------------------------------------------------------
+
 see rpython.translator.backendopt.finalizer.py for an XXX
 about light finalizers
 

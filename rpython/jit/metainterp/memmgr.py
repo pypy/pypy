@@ -73,6 +73,7 @@ class MemoryManager(object):
             # STM: never produce conflicts from this function
             # (except possibly the first time it is called)
             with stm_ignored:
+                # XXXXXXXXXXXXXXXX: does it even have any real effect? (no)
                 looptoken.generation = self.current_generation
             if not stm_is_enabled():
                 self.alive_loops[looptoken] = None
