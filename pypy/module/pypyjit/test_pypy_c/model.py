@@ -326,7 +326,7 @@ class OpMatcher(object):
         # to repeat it every time
         ticker_check = """
             guard_not_invalidated?
-            ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+            ticker0 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker_cond0 = int_lt(ticker0, 0)
             guard_false(ticker_cond0, descr=...)
         """

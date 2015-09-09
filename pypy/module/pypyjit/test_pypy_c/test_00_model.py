@@ -76,7 +76,7 @@ class BaseTestPyPyC(object):
             stdout = stdout.splitlines(True)[-1]
         #
         # parse the JIT log
-        rawlog = logparser.parse_log_file(str(logfile))
+        rawlog = logparser.parse_log_file(str(logfile), verbose=False)
         rawtraces = logparser.extract_category(rawlog, 'jit-log-opt-')
         log = Log(rawtraces)
         log.result = eval(stdout)
@@ -471,7 +471,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             # this is the actual loop
             'int_lt', 'guard_true', 'int_add',
             # this is the signal checking stuff
-            'guard_not_invalidated', 'getfield_raw', 'int_lt', 'guard_false',
+            'guard_not_invalidated', 'getfield_raw_i', 'int_lt', 'guard_false',
             'jump'
             ]
 
@@ -536,7 +536,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             # this is the actual loop
             'int_lt', 'guard_true', 'force_token', 'int_add',
             # this is the signal checking stuff
-            'guard_not_invalidated', 'getfield_raw', 'int_lt', 'guard_false',
+            'guard_not_invalidated', 'getfield_raw_i', 'int_lt', 'guard_false',
             'jump'
             ]
 
@@ -555,7 +555,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             i8 = int_add(i4, 1)
             # signal checking stuff
             guard_not_invalidated(descr=...)
-            i10 = getfield_raw(..., descr=<.* pypysig_long_struct.c_value .*>)
+            i10 = getfield_raw_i(..., descr=<.* pypysig_long_struct.c_value .*>)
             i14 = int_lt(i10, 0)
             guard_false(i14, descr=...)
             jump(..., descr=...)

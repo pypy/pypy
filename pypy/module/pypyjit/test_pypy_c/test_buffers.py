@@ -18,7 +18,7 @@ class TestBuffers(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('match', """
             guard_not_invalidated(descr=...)
-            i65 = getfield_gc(p18, descr=...)
+            i65 = getfield_gc_i(p18, descr=...)
             i67 = int_gt(0, i65)
             guard_false(i67, descr=...)
             i69 = int_gt(#, i65)
@@ -56,7 +56,7 @@ class TestBuffers(BaseTestPyPyC):
             guard_false(i99, descr=...)
             i100 = int_lshift(i98, 24)
             i101 = int_or(i97, i100)
-            i102 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value 0>)
+            i102 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value 0>)
             i103 = int_lt(i102, 0)
             guard_false(i103, descr=...)
         """)
