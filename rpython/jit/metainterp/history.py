@@ -166,7 +166,7 @@ def newconst(value):
         return ConstInt(value)
     elif isinstance(value, bool):
         return ConstInt(int(value))
-    elif isinstance(value, float):
+    elif lltype.typeOf(value) == longlong.FLOATSTORAGE:
         return ConstFloat(value)
     else:
         assert lltype.typeOf(value) == llmemory.GCREF
