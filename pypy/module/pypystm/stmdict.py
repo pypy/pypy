@@ -16,23 +16,39 @@ ARRAY = lltype.GcArray(llmemory.GCREF)
 PARRAY = lltype.Ptr(ARRAY)
 
 
-
+# XXX: should have identity-dict strategy
 def really_find_equal_item(space, h, w_key):
     hkey = space.hash_w(w_key)
     entry = h.lookup(hkey)
     array = lltype.cast_opaque_ptr(PARRAY, entry.object)
-    while True:
-        if not array:
-            return (entry, array, -1)
+    if not array:
+        return (entry, array, -1)
+    if space.type(w_key).compares_by_identity():
+        # fastpath
+        return (entry, array, _find_equal_item(space, array, w_key))
+    # slowpath
+    return _really_find_equal_item_loop(space, h, w_key, entry, array, hkey)
 
+@jit.dont_look_inside
+def _really_find_equal_item_loop(space, h, w_key, entry, array, hkey):
+    assert not space.type(w_key).compares_by_identity() # assume it stays that way
+    while True:
+        assert array
         i = _find_equal_item(space, array, w_key)
-        if not space.type(w_key).compares_by_identity():
-            entry2 = h.lookup(hkey)
-            array2 = lltype.cast_opaque_ptr(PARRAY, entry2.object)
-            if array2 != array:
-                entry = entry2
-                array = array2
-                continue
+        # custom __eq__ may have been called in _find_equal_item()
+        #
+        # Only if entry.object changed during the call to _find_equal_item()
+        # we have to re-lookup the entry. This is ok since entry.object=array!=NULL
+        # when we enter here and therefore, entry can only be thrown out of
+        # the hashtable if it gets NULLed somehow, thus, changing entry.object.
+        array2 = lltype.cast_opaque_ptr(PARRAY, entry.object)
+        if array != array2:
+            # re-get entry (and array)
+            entry = h.lookup(hkey)
+            array = lltype.cast_opaque_ptr(PARRAY, entry.object)
+            if not array:
+                return (entry, array, -1)
+            continue
 
         return (entry, array, i)
 
@@ -69,7 +85,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
 
 def pop_from_entry(h, space, w_key):
     entry, array, i = really_find_equal_item(space, h, w_key)
-    if i < 0:
+    if i < 0: # or not array
         return None
     # found
     w_value = cast_gcref_to_instance(W_Root, array[i + 1])
@@ -97,28 +113,21 @@ class W_STMDict(W_Root):
         space.raise_key_error(w_key)
 
     def setitem_w(self, space, w_key, w_value):
-        hkey = space.hash_w(w_key)
-        entry = self.h.lookup(hkey)
-        array = lltype.cast_opaque_ptr(PARRAY, entry.object)
-        while True:
-            if array:
-                entry, array, i = really_find_equal_item(space, self.h, w_key)
-                if not array:
-                    continue
-                if i >= 0:
-                    # already there, update the value
-                    array[i + 1] = cast_instance_to_gcref(w_value)
-                    return
-                L = len(array)
-                narray = lltype.malloc(ARRAY, L + 2)
-                ll_arraycopy(array, narray, 0, 0, L)
-            else:
-                narray = lltype.malloc(ARRAY, 2)
-                L = 0
-            narray[L] = cast_instance_to_gcref(w_key)
-            narray[L + 1] = cast_instance_to_gcref(w_value)
-            self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
-            return
+        entry, array, i = really_find_equal_item(space, self.h, w_key)
+        if array:
+            if i >= 0:
+                # already there, update the value
+                array[i + 1] = cast_instance_to_gcref(w_value)
+                return
+            L = len(array)
+            narray = lltype.malloc(ARRAY, L + 2)
+            ll_arraycopy(array, narray, 0, 0, L)
+        else:
+            narray = lltype.malloc(ARRAY, 2)
+            L = 0
+        narray[L] = cast_instance_to_gcref(w_key)
+        narray[L + 1] = cast_instance_to_gcref(w_value)
+        self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
 
     def delitem_w(self, space, w_key):
         if pop_from_entry(self.h, space, w_key) is None:
@@ -148,27 +157,22 @@ class W_STMDict(W_Root):
 
     @unwrap_spec(w_default=WrappedDefault(None))
     def setdefault_w(self, space, w_key, w_default):
-        hkey = space.hash_w(w_key)
-        entry = self.h.lookup(hkey)
-        array = lltype.cast_opaque_ptr(PARRAY, entry.object)
-        while True:
-            if array:
-                entry, array, i = really_find_equal_item(space, self.h, w_key)
-                if not array:
-                    continue
-                if i >= 0:
-                    # already there, return the existing value
-                    return cast_gcref_to_instance(W_Root, array[i + 1])
-                L = len(array)
-                narray = lltype.malloc(ARRAY, L + 2)
-                ll_arraycopy(array, narray, 0, 0, L)
-            else:
-                narray = lltype.malloc(ARRAY, 2)
-                L = 0
-            narray[L] = cast_instance_to_gcref(w_key)
-            narray[L + 1] = cast_instance_to_gcref(w_default)
-            self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
-            return w_default
+        entry, array, i = really_find_equal_item(space, self.h, w_key)
+        if array:
+            if i >= 0:
+                # already there, return the existing value
+                return cast_gcref_to_instance(W_Root, array[i + 1])
+            L = len(array)
+            narray = lltype.malloc(ARRAY, L + 2)
+            ll_arraycopy(array, narray, 0, 0, L)
+        else:
+            narray = lltype.malloc(ARRAY, 2)
+            L = 0
+        narray[L] = cast_instance_to_gcref(w_key)
+        narray[L + 1] = cast_instance_to_gcref(w_default)
+        self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
+        return w_default
+
 
     def get_length(self):
         array, count = self.h.list()

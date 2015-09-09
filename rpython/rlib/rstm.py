@@ -317,6 +317,11 @@ class HashtableForTest(object):
             # self._content[key] = value
         else:
             try:
+                # set entry to value (since somebody may still have
+                # a reference to it), then delete it from the table,
+                # as that may happen *anytime* if _obj==NULL
+                entry = self.lookup(key)
+                entry._obj = value
                 del self._content[key]
             except KeyError:
                 pass
