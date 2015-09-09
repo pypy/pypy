@@ -39,6 +39,10 @@ class UnrollableOptimizer(Optimizer):
             i = infos.get(item, None)
             if i is not None:
                 self.setinfo_from_preamble(item, i, infos)
+            else:
+                item.set_forwarded(None)
+                # let's not inherit stuff we don't
+                # know anything about
 
     def setinfo_from_preamble(self, op, preamble_info, exported_infos):
         op = self.get_box_replacement(op)
@@ -128,10 +132,10 @@ class UnrollOptimizer(Optimization):
     def optimize_peeled_loop(self, start_label, end_jump, ops, state,
                              call_pure_results, inline_short_preamble=True):
         self._check_no_forwarding([[start_label, end_jump], ops])
-        try:
-            label_args = self.import_state(start_label, state)
-        except VirtualStatesCantMatch:
-            raise InvalidLoop("Cannot import state, virtual states don't match")
+        #try:
+        label_args = self.import_state(start_label, state)
+        #except VirtualStatesCantMatch:
+        #    raise InvalidLoop("Cannot import state, virtual states don't match")
         self.potential_extra_ops = {}
         self.optimizer.init_inparg_dict_from(label_args)
         info, _ = self.optimizer.propagate_all_forward(
@@ -349,6 +353,22 @@ class UnrollOptimizer(Optimization):
             for op in short:
                 op.set_forwarded(None)
 
+    def _expand_info(self, arg, infos):
+        info = self.optimizer.getinfo(arg)
+        if arg in infos:
+            return
+        if info:
+            infos[arg] = info
+            if info.is_virtual():
+                self._expand_infos_from_virtual(info, infos)
+
+    def _expand_infos_from_virtual(self, info, infos):
+        items = info.all_items()
+        for item in items:
+            if item is None:
+                continue
+            self._expand_info(item, infos)
+
     def export_state(self, start_label, original_label_args, renamed_inputargs,
                      memo):
         end_args = [self.optimizer.force_box_for_end_of_preamble(a)
@@ -358,11 +378,11 @@ class UnrollOptimizer(Optimization):
         end_args = [self.get_box_replacement(arg) for arg in end_args]
         infos = {}
         for arg in end_args:
-            infos[arg] = self.optimizer.getinfo(arg)
+            self._expand_info(arg, infos)
         label_args, virtuals = virtual_state.make_inputargs_and_virtuals(
             end_args, self.optimizer)
         for arg in label_args:
-            infos[arg] = self.optimizer.getinfo(arg)            
+            self._expand_info(arg, infos)
         sb = ShortBoxes()
         short_boxes = sb.create_short_boxes(self.optimizer, renamed_inputargs,
                                             label_args + virtuals)

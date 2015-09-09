@@ -20,6 +20,9 @@ class AbstractInfo(AbstractValue):
     def force_box(self, op, optforce):
         return op
 
+    def is_virtual(self):
+        return False
+
     def is_precise(self):
         return False
 
