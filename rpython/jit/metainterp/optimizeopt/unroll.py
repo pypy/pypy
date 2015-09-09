@@ -93,6 +93,8 @@ class UnrollableOptimizer(Optimizer):
                 if preamble_info.has_upper and preamble_info.upper < MAXINT/2:
                     intbound.has_upper = True
                     intbound.upper = preamble_info.upper
+        elif isinstance(preamble_info, info.FloatConstInfo):
+            op.set_forwarded(preamble_info._const)
 
 
 class UnrollOptimizer(Optimization):

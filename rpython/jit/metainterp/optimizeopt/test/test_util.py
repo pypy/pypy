@@ -199,6 +199,7 @@ class LLtypeMixin(object):
     immut_ptrval = cpu.fielddescrof(PTROBJ_IMMUT, 'ptrval')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
+    floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
     arraydescr_tid = arraydescr.get_type_id()
     array = lltype.malloc(lltype.GcArray(lltype.Signed), 15, zero=True)
     arrayref = lltype.cast_opaque_ptr(llmemory.GCREF, array)

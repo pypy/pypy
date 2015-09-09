@@ -8789,5 +8789,19 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_constant_float_pure(self):
+        ops = """
+        [p0]
+        f0 = getarrayitem_gc_pure_f(p0, 3, descr=floatarraydescr)
+        guard_value(f0, 1.03) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        ifoo = arraylen_gc(p0, descr=floatarraydescr)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
