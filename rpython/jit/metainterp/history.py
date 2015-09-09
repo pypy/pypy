@@ -573,7 +573,7 @@ class JitCellToken(AbstractDescr):
     outermost_jitdriver_sd = None
     # and more data specified by the backend when the loop is compiled
     number = -1
-    generation = r_int64(0)
+    generation = r_int64(0) # unused on STM
     # one purpose of LoopToken is to keep alive the CompiledLoopToken
     # returned by the backend.  When the LoopToken goes away, the
     # CompiledLoopToken has its __del__ called, which frees the assembler

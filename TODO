@@ -1,5 +1,6 @@
 ------------------------------------------------------------
 
+## maybe resolved:
 also a possible cause for the thing below this one:
    pypy-stm frees 530936 loop tokens
    pypy26 frees 446 loop tokens
