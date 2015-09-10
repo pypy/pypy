@@ -406,7 +406,8 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
             optforce.emit_operation(setfield_op)
 
     def _visitor_walk_recursive(self, op, visitor, optimizer):
-        itemboxes = self._get_buffer().values
+        itemboxes = [optimizer.get_box_replacement(box)
+                     for box in self._get_buffer().values]
         visitor.register_virtual_fields(op, itemboxes)
         # there can be no virtuals stored in raw buffer
 
