@@ -48,14 +48,14 @@ class UnrollableOptimizer(Optimizer):
         op = self.get_box_replacement(op)
         if op.get_forwarded() is not None:
             return
+        if op.is_constant():
+            return # nothing we can learn
         if isinstance(preamble_info, info.PtrInfo):
             if preamble_info.is_virtual():
                 op.set_forwarded(preamble_info)
                 self.setinfo_from_preamble_list(preamble_info.all_items(),
                                           exported_infos)
                 return
-            if op.is_constant():
-                return # nothing we can learn
             if preamble_info.is_constant():
                 # but op is not
                 op.set_forwarded(preamble_info.getconst())
