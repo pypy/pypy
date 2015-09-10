@@ -450,32 +450,30 @@ class DefTracker(object):
     def definition(self, arg, node=None, argcell=None):
         if arg.is_constant():
             return None
-        if arg.is_inputarg():
+        def_chain = self.defs.get(arg,None)
+        if not def_chain:
             return None
-        def_chain = self.defs[arg]
-        if len(def_chain) == 1:
-            return def_chain[0][0]
+        if not argcell:
+            return def_chain[-1][0]
         else:
-            if not argcell:
-                return def_chain[-1][0]
-            else:
-                assert node is not None
-                i = len(def_chain)-1
-                try:
-                    mref = node.memory_ref
-                    while i >= 0:
-                        def_node = def_chain[i][0]
-                        oref = def_node.memory_ref
-                        if oref is not None and mref.alias(oref):
-                            return def_node
-                        elif oref is None:
-                            return def_node
-                        i -= 1
-                except KeyError:
-                    # when a key error is raised, this means
-                    # no information is available, safe default
-                    pass
-                return def_chain[-1][0]
+            assert node is not None
+            i = len(def_chain)-1
+            try:
+                mref = node.memory_ref
+                while i >= 0:
+                    def_node = def_chain[i][0]
+                    oref = def_node.memory_ref
+                    if oref is not None and mref.alias(oref):
+                        return def_node
+                    elif oref is None:
+                        return def_node
+                    i -= 1
+                return None
+            except KeyError:
+                # when a key error is raised, this means
+                # no information is available, safe default
+                pass
+            return def_chain[-1][0]
 
     def depends_on_arg(self, arg, to, argcell=None):
         try:
@@ -703,7 +701,9 @@ class DependencyGraph(object):
         # handle fail args
         if guard_op.getfailargs():
             for arg in guard_op.getfailargs():
-                if arg is None or not tracker.is_defined(arg):
+                if arg is None:
+                    continue
+                if not tracker.is_defined(arg):
                     continue
                 try:
                     for at in tracker.redefinitions(arg):

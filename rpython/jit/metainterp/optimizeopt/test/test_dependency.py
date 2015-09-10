@@ -333,7 +333,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         """
         self.assert_dependencies(ops, full_check=True)
 
-    def test_not_forced(self):
+    def test_call_not_forced_exception(self):
         ops="""
         [p0, p1, i2, i5] # 0: 1,2,4?,5,6
         i4 = call_i(i5, i2, descr=nonwritedescr) # 1: 2,4,6
@@ -344,8 +344,8 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         jump(p2, p1, i2, i5) # 6:
         """
         self.assert_dependencies(ops, full_check=True)
+        assert self.last_graph.nodes[1].priority == 100
         assert self.last_graph.nodes[2].priority == 100
-        assert self.last_graph.nodes[3].priority == 100
 
     def test_setarrayitem_dependency(self):
         ops="""
@@ -368,7 +368,6 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         """
         self.assert_dependencies(ops, full_check=True)
         self.assert_dependent(1,2)
-        self.assert_dependent(0,3)
 
     def test_setarrayitem_dont_depend_with_memref_info(self):
         ops="""
@@ -424,7 +423,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
     def test_cyclic(self):
         trace = """
         [p0, p1, p5, p6, p7, p9, p11, p12] # 0: 1,6
-        guard_early_exit() [] # 1: 2,4,6,7
+        guard_early_exit() [] # 1:
         p13 = getfield_gc_r(p9) # 2: 3,5,6
         guard_nonnull(p13) [] # 3: 5,6
         i14 = getfield_gc_i(p9) # 4: 6
