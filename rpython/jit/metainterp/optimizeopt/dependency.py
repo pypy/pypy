@@ -27,10 +27,20 @@ MODIFY_COMPLEX_OBJ = [ (rop.SETARRAYITEM_GC, 0, 1)
 
 LOAD_COMPLEX_OBJ = [ (rop.GETARRAYITEM_GC_I, 0, 1)
                    , (rop.GETARRAYITEM_GC_F, 0, 1)
+                   , (rop.GETARRAYITEM_GC_R, 0, 1)
                    , (rop.GETARRAYITEM_RAW_I, 0, 1)
                    , (rop.GETARRAYITEM_RAW_F, 0, 1)
                    , (rop.RAW_LOAD_I, 0, 1)
                    , (rop.RAW_LOAD_F, 0, 1)
+                   , (rop.GETINTERIORFIELD_GC_I, 0, 1)
+                   , (rop.GETINTERIORFIELD_GC_F, 0, 1)
+                   , (rop.GETINTERIORFIELD_GC_R, 0, 1)
+                   , (rop.GETFIELD_GC_I, 0, -1)
+                   , (rop.GETFIELD_GC_F, 0, -1)
+                   , (rop.GETFIELD_GC_R, 0, -1)
+                   , (rop.GETFIELD_RAW_I, 0, -1)
+                   , (rop.GETFIELD_RAW_F, 0, -1)
+                   , (rop.GETFIELD_RAW_R, 0, -1)
                    ]
 
 class Path(object):
@@ -209,7 +219,7 @@ class Node(object):
             # if it is a constant argument it cannot be destroyed.
             # neither can a box float be destroyed. BoxInt can
             # contain a reference thus it is assumed to be destroyed
-            if isinstance(arg, Const) or isinstance(arg, BoxFloat):
+            if arg.is_constant() or arg.type == 'f':
                 args.append((arg, None, False))
             else:
                 args.append((arg, None, True))
@@ -556,7 +566,7 @@ class DependencyGraph(object):
             # definition of a new variable
             if op.type != 'v':
                 # In SSA form. Modifications get a new variable
-                tracker.define(op.result(), node)
+                tracker.define(op, node)
             # usage of defined variables
             if op.is_always_pure() or op.is_final():
                 # normal case every arguments definition is set
@@ -604,10 +614,10 @@ class DependencyGraph(object):
         if guard_opnum in (rop.GUARD_TRUE, rop.GUARD_FALSE):
             for dep in guard_node.depends():
                 op = dep.to.getoperation()
-                if op.returns_bool_result() and op.result == guard_op.getarg(0):
+                if op.returns_bool_result() and op is guard_op.getarg(0):
                     guard_node.guard_bool_bool_node = dep.to
                     for arg in op.getarglist():
-                        if isinstance(arg, Box):
+                        if not arg.is_constant():
                             self.guard_exit_dependence(guard_node, arg, tracker)
                     break
             else:
@@ -619,7 +629,7 @@ class DependencyGraph(object):
         elif guard_op.is_foldable_guard():
             # these guards carry their protected variables directly as a parameter
             for arg in guard_node.getoperation().getarglist():
-                if isinstance(arg, Box):
+                if not arg.is_constant():
                     self.guard_exit_dependence(guard_node, arg, tracker)
         elif guard_opnum == rop.GUARD_NOT_FORCED_2:
             # must be emitted before finish, thus delayed the longest
@@ -873,7 +883,7 @@ class IntegralForwardModification(object):
 
     multiplicative_func_source = """
     def operation_{name}(self, op, node):
-        box_r = op.result
+        box_r = op
         if not box_r:
             return
         box_a0 = op.getarg(0)

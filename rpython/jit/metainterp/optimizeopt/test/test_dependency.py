@@ -302,7 +302,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
     def test_exception_dep(self):
         ops="""
         [p0, i1, i2] # 0: 1,3?
-        i4 = call(p0, 1, descr=nonwritedescr) # 1: 2,3
+        i4 = call_i(p0, 1, descr=nonwritedescr) # 1: 2,3
         guard_no_exception() [] # 2: 3
         jump(p0, i1, i2) # 3:
         """
@@ -312,9 +312,9 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         ops="""
         [p0, p1, i2] # 0: 1,2?,3?,4?,5?
         i3 = int_add(i2,1) # 1: 2
-        i4 = call(p0, i3, descr=nonwritedescr) # 2: 3,4,5?
+        i4 = call_i(p0, i3, descr=nonwritedescr) # 2: 3,4,5?
         guard_no_exception() [i2] # 3: 4?,5?
-        p2 = getarrayitem_gc(p1,i3,descr=intarraydescr) # 4: 5
+        p2 = getarrayitem_gc_r(p1, i3, descr=arraydescr) # 4: 5
         jump(p2, p1, i3) # 5:
         """
         self.assert_dependencies(ops, full_check=True)
@@ -323,9 +323,9 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         ops="""
         [p0, p1, i2, i5] # 0: 1,2?,3?,4?,5?
         i3 = int_add(i2,1) # 1: 2
-        i4 = call(i5, i3, descr=nonwritedescr) # 2: 3,4,5?
+        i4 = call_i(i5, i3, descr=nonwritedescr) # 2: 3,4,5?
         guard_no_exception() [i2] # 3: 5?
-        p2 = getarrayitem_gc(p1,i3,descr=chararraydescr) # 4: 5
+        p2 = getarrayitem_gc_r(p1,i3,descr=chararraydescr) # 4: 5
         jump(p2, p1, i3, i5) # 5:
         """
         self.assert_dependencies(ops, full_check=True)
@@ -333,11 +333,11 @@ class BaseTestDependencyGraph(DependencyBaseTest):
     def test_not_forced(self):
         ops="""
         [p0, p1, i2, i5] # 0: 1,2,4?,5,6
-        i4 = call(i5, i2, descr=nonwritedescr) # 1: 2,4,6
+        i4 = call_i(i5, i2, descr=nonwritedescr) # 1: 2,4,6
         guard_not_forced() [i2] # 2: 3
         guard_no_exception() [] # 3: 6
         i3 = int_add(i2,1) # 4: 5
-        p2 = getarrayitem_gc(p1,i3,descr=chararraydescr) # 5: 6
+        p2 = getarrayitem_gc_r(p1,i3,descr=chararraydescr) # 5: 6
         jump(p2, p1, i2, i5) # 6:
         """
         self.assert_dependencies(ops, full_check=True)
@@ -348,7 +348,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         ops="""
         [p0, i1] # 0: 1,2?,3?,4?
         setarrayitem_raw(p0, i1, 1, descr=floatarraydescr) # 1: 2,3
-        i2 = getarrayitem_raw(p0, i1, descr=floatarraydescr) # 2: 4
+        i2 = getarrayitem_raw_i(p0, i1, descr=floatarraydescr) # 2: 4
         setarrayitem_raw(p0, i1, 2, descr=floatarraydescr) # 3: 4
         jump(p0, i2) # 4:
         """
@@ -383,22 +383,22 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         ops = """
         [i0, i1, i2, i3, i4, i5, i6, i7] # 0: 1,2,3,4,6,7,8,9,10,12,14,17,19,20,21
         i9 = int_mul(i0, 8) # 1: 2
-        i10 = raw_load(i3, i9, descr=intarraydescr) # 2: 5, 10
+        i10 = raw_load_i(i3, i9, descr=arraydescr) # 2: 5, 10
         i11 = int_mul(i0, 8) # 3: 4
-        i12 = raw_load(i4, i11, descr=intarraydescr) # 4: 5,10
+        i12 = raw_load_i(i4, i11, descr=arraydescr) # 4: 5,10
         i13 = int_add(i10, i12) # 5: 7,10
         i14 = int_mul(i0, 8) # 6: 7
-        raw_store(i5, i14, i13, descr=intarraydescr) # 7: 21
+        raw_store(i5, i14, i13, descr=arraydescr) # 7: 21
         i16 = int_add(i0, 1) # 8: 9,10,11,13,16,18
         i17 = int_lt(i16, i7) # 9: 10
         guard_true(i17) [i7, i13, i5, i4, i3, i12, i10, i16] # 10: 11,13,16,18,19,21
         i18 = int_mul(i16, 8) # 11:
-        i19 = raw_load(i3, i18, descr=intarraydescr) # 12:
+        i19 = raw_load_i(i3, i18, descr=arraydescr) # 12:
         i20 = int_mul(i16, 8) # 13:
-        i21 = raw_load(i4, i20, descr=intarraydescr) # 14:
+        i21 = raw_load_i(i4, i20, descr=arraydescr) # 14:
         i22 = int_add(i19, i21) # 15:
         i23 = int_mul(i16, 8) # 16:
-        raw_store(i5, i23, i22, descr=intarraydescr) # 17:
+        raw_store(i5, i23, i22, descr=arraydescr) # 17:
         i24 = int_add(i16, 1) # 18:
         i25 = int_lt(i24, i7) # 19:
         guard_true(i25) [i7, i22, i5, i4, i3, i21, i19, i24] # 20:
@@ -408,11 +408,10 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         self.assert_dependent(2,12)
 
     def test_getfield(self):
-        pass 
         trace = """
         [p0, p1] # 0: 1,2,5
-        p2 = getfield_gc(p0) # 1: 3,5
-        p3 = getfield_gc(p0) # 2: 4
+        p2 = getfield_gc_r(p0) # 1: 3,5
+        p3 = getfield_gc_r(p0) # 2: 4
         guard_nonnull(p2) [p2] # 3: 4,5
         guard_nonnull(p3) [p3] # 4: 5
         jump(p0,p2) # 5:
@@ -424,10 +423,10 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         trace = """
         [p0, p1, p5, p6, p7, p9, p11, p12] # 0: 1,6
         guard_early_exit() [] # 1: 2,4,6,7
-        p13 = getfield_gc(p9) # 2: 3,5,6
+        p13 = getfield_gc_r(p9) # 2: 3,5,6
         guard_nonnull(p13) [] # 3: 5,6
-        i14 = getfield_gc(p9) # 4: 6
-        p15 = getfield_gc(p13) # 5: 6
+        i14 = getfield_gc_i(p9) # 4: 6
+        p15 = getfield_gc_r(p13) # 5: 6
         guard_class(p15, 140737326900656) [p1, p0, p9, i14, p15, p13, p5, p6, p7] # 6: 7
         jump(p0,p1,p5,p6,p7,p9,p11,p12) # 7:
         """
