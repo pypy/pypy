@@ -4,12 +4,11 @@ It needs also the information about integral modifications
 gathered with IntegralForwardModification
 """
 
-from rpython.jit.metainterp.optimizeopt.util import Renamer
+from rpython.jit.metainterp.optimizeopt.renamer import Renamer
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
-from rpython.jit.metainterp.history import (ConstInt, BoxVector, 
-        BoxFloat, BoxInt, ConstFloat, Box, Const)
+from rpython.jit.metainterp.history import (ConstInt, ConstFloat, Const)
 from rpython.jit.metainterp.compile import ResumeGuardDescr, CompileLoopVersionDescr
 from rpython.rlib.objectmodel import we_are_translated
 

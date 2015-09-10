@@ -599,9 +599,7 @@ class Optimizer(Optimization):
         assert pendingfields is not None
         if op.getdescr() is not None:
             descr = op.getdescr()
-            assert isinstance(descr, compile.ResumeAtPositionDescr) or \
-                   isinstance(descr, compile.ResumeAtLoopHeaderDescr)
-
+            assert isinstance(descr, compile.ResumeAtPositionDescr)
         else:
             descr = compile.invent_fail_descr_for_op(op.getopnum(), self)
             op.setdescr(descr)
@@ -745,10 +743,11 @@ class Optimizer(Optimization):
     # These are typically removed already by OptRewrite, but it can be
     # dissabled and unrolling emits some SAME_AS ops to setup the
     # optimizier state. These needs to always be optimized out.
-    def optimize_MARK_OPAQUE_PTR(self, op):
+    def optimize_SAME_AS_I(self, op):
         self.make_equal_to(op, op.getarg(0))
     optimize_SAME_AS_R = optimize_SAME_AS_I
     optimize_SAME_AS_F = optimize_SAME_AS_I
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)
+

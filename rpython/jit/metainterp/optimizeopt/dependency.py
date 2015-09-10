@@ -6,8 +6,8 @@ from rpython.jit.metainterp.resoperation import (rop, GuardResOp, ResOperation)
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import (BoxPtr, ConstPtr, ConstInt, BoxInt,
-    Box, Const, BoxFloat, AbstractValue)
+from rpython.jit.metainterp.history import (ConstPtr, ConstInt,Const,
+        AbstractValue)
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import we_are_translated
@@ -25,12 +25,12 @@ MODIFY_COMPLEX_OBJ = [ (rop.SETARRAYITEM_GC, 0, 1)
                      , (rop.UNICODESETITEM, 0, -1)
                      ]
 
-LOAD_COMPLEX_OBJ = [ (rop.GETARRAYITEM_GC, 0, 1)
-                   , (rop.GETARRAYITEM_RAW, 0, 1)
-                   , (rop.RAW_LOAD, 0, 1)
-                   , (rop.GETINTERIORFIELD_GC, 0, 1)
-                   , (rop.GETFIELD_GC, 0, -1)
-                   , (rop.GETFIELD_RAW, 0, -1)
+LOAD_COMPLEX_OBJ = [ (rop.GETARRAYITEM_GC_I, 0, 1)
+                   , (rop.GETARRAYITEM_GC_F, 0, 1)
+                   , (rop.GETARRAYITEM_RAW_I, 0, 1)
+                   , (rop.GETARRAYITEM_RAW_F, 0, 1)
+                   , (rop.RAW_LOAD_I, 0, 1)
+                   , (rop.RAW_LOAD_F, 0, 1)
                    ]
 
 class Path(object):
@@ -554,9 +554,9 @@ class DependencyGraph(object):
                 continue
             intformod.inspect_operation(op,node)
             # definition of a new variable
-            if op.result is not None:
+            if op.type != 'v':
                 # In SSA form. Modifications get a new variable
-                tracker.define(op.result, node)
+                tracker.define(op.result(), node)
             # usage of defined variables
             if op.is_always_pure() or op.is_final():
                 # normal case every arguments definition is set
@@ -847,9 +847,7 @@ class IntegralForwardModification(object):
 
     additive_func_source = """
     def operation_{name}(self, op, node):
-        box_r = op.result
-        if not box_r:
-            return
+        box_r = op
         box_a0 = op.getarg(0)
         box_a1 = op.getarg(1)
         if self.is_const_integral(box_a0) and self.is_const_integral(box_a1):
@@ -914,15 +912,21 @@ class IntegralForwardModification(object):
             self.memory_refs[node] = node.memory_ref
     """
     exec py.code.Source(array_access_source
-           .format(name='RAW_LOAD',raw_access=True)).compile()
+           .format(name='RAW_LOAD_I',raw_access=True)).compile()
+    exec py.code.Source(array_access_source
+           .format(name='RAW_LOAD_F',raw_access=True)).compile()
     exec py.code.Source(array_access_source
            .format(name='RAW_STORE',raw_access=True)).compile()
     exec py.code.Source(array_access_source
-           .format(name='GETARRAYITEM_RAW',raw_access=False)).compile()
+           .format(name='GETARRAYITEM_RAW_I',raw_access=False)).compile()
+    exec py.code.Source(array_access_source
+           .format(name='GETARRAYITEM_RAW_F',raw_access=False)).compile()
     exec py.code.Source(array_access_source
            .format(name='SETARRAYITEM_RAW',raw_access=False)).compile()
     exec py.code.Source(array_access_source
-           .format(name='GETARRAYITEM_GC',raw_access=False)).compile()
+           .format(name='GETARRAYITEM_GC_I',raw_access=False)).compile()
+    exec py.code.Source(array_access_source
+           .format(name='GETARRAYITEM_GC_F',raw_access=False)).compile()
     exec py.code.Source(array_access_source
            .format(name='SETARRAYITEM_GC',raw_access=False)).compile()
     del array_access_source

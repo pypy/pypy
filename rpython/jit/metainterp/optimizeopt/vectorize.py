@@ -10,21 +10,20 @@ import time
 
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
-from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
+#from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from rpython.jit.metainterp.compile import (ResumeAtLoopHeaderDescr,
         CompileLoopVersionDescr, invent_fail_descr_for_op, ResumeGuardDescr)
-from rpython.jit.metainterp.history import (ConstInt, VECTOR, FLOAT, INT,
-        BoxVector, BoxFloat, BoxInt, ConstFloat, TargetToken, JitCellToken, Box,
-        LoopVersion, Accum, AbstractFailDescr)
+from rpython.jit.metainterp.history import (INT, FLOAT, VECTOR, ConstInt, ConstFloat,
+        TargetToken, JitCellToken, LoopVersion, AbstractFailDescr)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
-from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method, Renamer
+from rpython.jit.metainterp.optimizeopt.renamer import Renamer
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleData,
         Scheduler, Pack, Pair, AccumPair, vectorbox_outof_box, getpackopnum,
         getunpackopnum, PackType, determine_input_output_types)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
-from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
+from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp, Accum)
 from rpython.rlib import listsort
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -36,8 +35,8 @@ def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
     """ Enter the world of SIMD instructions. Bails if it cannot
         transform the trace.
     """
-    optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
-                    inline_short_preamble, start_state, False)
+    #optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
+    #                inline_short_preamble, start_state, False)
     user_code = not jitdriver_sd.vec and warmstate.vec_all
     if user_code and user_loop_bail_fast_path(loop, warmstate):
         return
@@ -332,8 +331,6 @@ class VectorizingOptimizer(Optimizer):
                 if memref_a.is_adjacent_after(memref_b):
                     pair = self.packset.can_be_packed(node_a, node_b, None, False)
                     if pair:
-                        if node_a.op.getopnum() == rop.GETARRAYITEM_RAW:
-                            print " => found", memref_a.index_var, memref_b.index_var
                         self.packset.add_pack(pair)
 
     def extend_packset(self):

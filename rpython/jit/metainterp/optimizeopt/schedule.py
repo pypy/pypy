@@ -1,10 +1,9 @@
-
-from rpython.jit.metainterp.history import (VECTOR,FLOAT,INT,ConstInt,BoxVector,
-        BoxFloat,BoxInt,ConstFloat,TargetToken,Box)
+from rpython.jit.metainterp.history import (VECTOR, FLOAT, INT,
+        ConstInt, ConstFloat, TargetToken)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
-from rpython.jit.metainterp.optimizeopt.util import Renamer
+from rpython.jit.metainterp.optimizeopt.renamer import Renamer
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.jitexc import NotAProfitableLoop
 
@@ -705,9 +704,12 @@ ROP_ARG_RES_VECTOR = {
     rop.VEC_FLOAT_NE:    OpToVectorOp((PT_FLOAT_GENERIC,PT_FLOAT_GENERIC), INT_RES),
     rop.VEC_INT_IS_TRUE: OpToVectorOp((PT_INT_GENERIC,PT_INT_GENERIC), PT_INT_GENERIC),
 
-    rop.VEC_RAW_LOAD:         LOAD_TRANS,
-    rop.VEC_GETARRAYITEM_RAW: LOAD_TRANS,
-    rop.VEC_GETARRAYITEM_GC: LOAD_TRANS,
+    rop.VEC_RAW_LOAD_I:         LOAD_TRANS,
+    rop.VEC_RAW_LOAD_F:         LOAD_TRANS,
+    rop.VEC_GETARRAYITEM_RAW_I: LOAD_TRANS,
+    rop.VEC_GETARRAYITEM_RAW_F: LOAD_TRANS,
+    rop.VEC_GETARRAYITEM_GC_I: LOAD_TRANS,
+    rop.VEC_GETARRAYITEM_GC_F: LOAD_TRANS,
     rop.VEC_RAW_STORE:        STORE_TRANS,
     rop.VEC_SETARRAYITEM_RAW: STORE_TRANS,
     rop.VEC_SETARRAYITEM_GC: STORE_TRANS,

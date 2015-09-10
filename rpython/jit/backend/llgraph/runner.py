@@ -1274,56 +1274,56 @@ class LLFrame(object):
 
     def _new_execute_call_assembler(def_val):
         def _execute_call_assembler(self, descr, *args):
-        # XXX simplify the following a bit
-        #
-        # pframe = CALL_ASSEMBLER(args..., descr=looptoken)
-        # ==>
-        #     pframe = CALL looptoken.loopaddr(*args)
-        #     JUMP_IF_FAST_PATH @fastpath
-        #     res = CALL assembler_call_helper(pframe)
-        #     jmp @done
-        #   @fastpath:
-        #     res = GETFIELD(pframe, 'result')
-        #   @done:
-        #
-        call_op = self.lltrace.operations[self.current_index]
-        guard_op = self.lltrace.operations[self.current_index + 1]
-        assert guard_op.getopnum() == rop.GUARD_NOT_FORCED
-        self.force_guard_op = guard_op
-        pframe = self.cpu._execute_token(descr, *args)
-        del self.force_guard_op
-        #
-        jd = descr.outermost_jitdriver_sd
-        assert jd is not None, ("call_assembler(): the loop_token needs "
-                                "to have 'outermost_jitdriver_sd'")
-        if jd.index_of_virtualizable != -1:
-            vable = args[jd.index_of_virtualizable]
-        else:
-            vable = lltype.nullptr(llmemory.GCREF.TO)
-        #
-        # Emulate the fast path
-        #
-        faildescr = self.cpu.get_latest_descr(pframe)
-        if faildescr == self.cpu.done_with_this_frame_descr_int:
-            return self.cpu.get_int_value(pframe, 0)
-        elif faildescr == self.cpu.done_with_this_frame_descr_ref:
-            return self.cpu.get_ref_value(pframe, 0)
-        elif faildescr == self.cpu.done_with_this_frame_descr_float:
-            return self.cpu.get_float_value(pframe, 0)
-        elif faildescr == self.cpu.done_with_this_frame_descr_void:
-            return None
+            # XXX simplify the following a bit
+            #
+            # pframe = CALL_ASSEMBLER(args..., descr=looptoken)
+            # ==>
+            #     pframe = CALL looptoken.loopaddr(*args)
+            #     JUMP_IF_FAST_PATH @fastpath
+            #     res = CALL assembler_call_helper(pframe)
+            #     jmp @done
+            #   @fastpath:
+            #     res = GETFIELD(pframe, 'result')
+            #   @done:
+            #
+            call_op = self.lltrace.operations[self.current_index]
+            guard_op = self.lltrace.operations[self.current_index + 1]
+            assert guard_op.getopnum() == rop.GUARD_NOT_FORCED
+            self.force_guard_op = guard_op
+            pframe = self.cpu._execute_token(descr, *args)
+            del self.force_guard_op
+            #
+            jd = descr.outermost_jitdriver_sd
+            assert jd is not None, ("call_assembler(): the loop_token needs "
+                                    "to have 'outermost_jitdriver_sd'")
+            if jd.index_of_virtualizable != -1:
+                vable = args[jd.index_of_virtualizable]
+            else:
+                vable = lltype.nullptr(llmemory.GCREF.TO)
+            #
+            # Emulate the fast path
+            #
+            faildescr = self.cpu.get_latest_descr(pframe)
+            if faildescr == self.cpu.done_with_this_frame_descr_int:
+                return self.cpu.get_int_value(pframe, 0)
+            elif faildescr == self.cpu.done_with_this_frame_descr_ref:
+                return self.cpu.get_ref_value(pframe, 0)
+            elif faildescr == self.cpu.done_with_this_frame_descr_float:
+                return self.cpu.get_float_value(pframe, 0)
+            elif faildescr == self.cpu.done_with_this_frame_descr_void:
+                return None
 
-        assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
-        try:
-            result = assembler_helper_ptr(pframe, vable)
-        except LLException, lle:
-            assert self.last_exception is None, "exception left behind"
-            self.last_exception = lle
-            # fish op
+            assembler_helper_ptr = jd.assembler_helper_adr.ptr  # fish
+            try:
+                result = assembler_helper_ptr(pframe, vable)
+            except LLException, lle:
+                assert self.last_exception is None, "exception left behind"
+                self.last_exception = lle
+                # fish op
                 result = def_val
-        if isinstance(result, float):
-            result = support.cast_to_floatstorage(result)
-        return result
+            if isinstance(result, float):
+                result = support.cast_to_floatstorage(result)
+            return result
         return _execute_call_assembler
 
     execute_call_assembler_i = _new_execute_call_assembler(0)

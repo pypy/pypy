@@ -28,7 +28,7 @@ class DependencyBaseTest(BaseTest):
     def parse_loop(self, ops):
         loop = self.parse(ops, postprocess=self.postprocess)
         token = JitCellToken()
-        loop.operations = [ResOperation(rop.LABEL, loop.inputargs, None, 
+        loop.operations = [ResOperation(rop.LABEL, loop.inputargs,
                                    descr=TargetToken(token))] + loop.operations
         if loop.operations[-1].getopnum() == rop.JUMP:
             loop.operations[-1].setdescr(token)
@@ -135,7 +135,6 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         i = IndexVar(b,1,1,0)
         j = IndexVar(b,1,1,0)
         assert i.is_identity()
-        assert not i.less(j)
         assert i.same_variable(j)
         assert i.constant_diff(j) == 0
 
@@ -563,16 +562,7 @@ class FakeMemoryRefResOp(object):
     def getdescr(self):
         return self.descr
 
-FLOAT = ArrayDescr(lltype.Float)
-SFLOAT = ArrayDescr(lltype.SingleFloat)
-CHAR = ArrayDescr(rffi.r_signedchar)
-UCHAR = ArrayDescr(rffi.r_uchar)
-SHORT = ArrayDescr(rffi.r_short)
-USHORT = ArrayDescr(rffi.r_ushort)
-INT = ArrayDescr(rffi.r_int)
-UINT = ArrayDescr(rffi.r_uint)
-LONG = ArrayDescr(rffi.r_longlong)
-ULONG = ArrayDescr(rffi.r_ulonglong)
+FLOAT = ArrayDescr(lltype.GcArray(lltype.Float), None)
 
 def memoryref(array, var, mod=(1,1,0), descr=None, raw=False):
     if descr is None:

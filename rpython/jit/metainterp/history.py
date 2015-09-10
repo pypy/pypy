@@ -369,92 +369,6 @@ CONST_NULL = ConstPtr(ConstPtr.value)
 
 # ____________________________________________________________
 
-class Accum(object):
-    PLUS = '+'
-    MULTIPLY = '*'
-
-    def __init__(self, opnum, var, pos):
-        self.var = var
-        self.pos = pos
-        self.operator = Accum.PLUS
-        if opnum == rop.FLOAT_MUL:
-            self.operator = Accum.MULTIPLY
-
-    def getoriginalbox(self):
-        return self.var
-
-    def getop(self):
-        return self.operator
-
-    def accumulates_value(self):
-        return True
-
-class BoxVector(Box):
-    type = VECTOR
-    _attrs_ = ('item_type','item_count','item_size','item_signed','accum')
-    _extended_display = False
-
-    def __init__(self, item_type=FLOAT, item_count=2, item_size=8, item_signed=False, accum=None):
-        assert item_type in (FLOAT, INT)
-        self.item_type = item_type
-        self.item_count = item_count
-        self.item_size = item_size
-        self.item_signed = item_signed
-        self.accum = None
-
-    def gettype(self):
-        return self.item_type
-
-    def getsize(self):
-        return self.item_size
-
-    def getsigned(self):
-        return self.item_signed
-
-    def getcount(self):
-        return self.item_count
-
-    def fully_packed(self, vec_reg_size):
-        return self.item_size * self.item_count == vec_reg_size
-
-    def forget_value(self):
-        raise NotImplementedError("cannot forget value of vector")
-
-    def clonebox(self):
-        return BoxVector(self.item_type, self.item_count, self.item_size, self.item_signed)
-
-    def constbox(self):
-        raise NotImplementedError("not possible to have a constant vector box")
-
-    def nonnull(self):
-        raise NotImplementedError("no value known, nonnull is unkown")
-
-    def repr_rpython(self):
-        return repr_rpython(self, 'bv')
-
-    def same_shape(self, other):
-        if not isinstance(other, BoxVector):
-            return False
-        #
-        if other.item_size == -1 or self.item_size == -1:
-            # fallback for tests that do not specify the size
-            return True
-        #
-        if self.item_type != other.item_type:
-            return False
-        if self.item_size != other.item_size:
-            return False
-        if self.item_count != other.item_count:
-            return False
-        if self.item_signed != other.item_signed:
-            return False
-        return True
-
-    def getaccum(self):
-        return self.accum
-
-# ____________________________________________________________
-
 
 def make_hashable_int(i):
     from rpython.rtyper.lltypesystem.ll2ctypes import NotCtypesAllocatedStructure
@@ -815,7 +729,7 @@ class TreeLoop(object):
                     ops = op.getdescr()._debug_suboperations
                     TreeLoop.check_consistency_of_branch(ops, seen.copy())
                 for box in op.getfailargs() or []:
-            if box is not None:
+                    if box is not None:
                         assert not isinstance(box, Const)
                         assert box in seen
             elif check_descr:

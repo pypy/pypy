@@ -65,7 +65,7 @@ class AbstractValue(object):
 
 def ResOperation(opnum, args, descr=None):
     cls = opclasses[opnum]
-    op = cls(result)
+    op = cls()
     op.initarglist(args)
     if descr is not None:
         assert isinstance(op, ResOpWithDescr)
@@ -527,6 +527,92 @@ class RefOp(object):
         from rpython.jit.metainterp import history
         return history.ConstPtr(self.getref_base())
 
+class Accum(object):
+    PLUS = '+'
+    MULTIPLY = '*'
+
+    def __init__(self, opnum, var, pos):
+        self.var = var
+        self.pos = pos
+        self.operator = Accum.PLUS
+        if opnum == rop.FLOAT_MUL:
+            self.operator = Accum.MULTIPLY
+
+    def getoriginalbox(self):
+        return self.var
+
+    def getop(self):
+        return self.operator
+
+    def accumulates_value(self):
+        return True
+
+class VectorOp(object):
+    _mixin_ = True
+    _attrs_ = ('item_type','item_count','item_size','item_signed','accum')
+    _extended_display = False
+
+    type = 'V'
+
+    #def __init__(self, item_type=FLOAT, item_count=2, item_size=8, item_signed=False, accum=None):
+    #    assert item_type in (FLOAT, INT)
+    #    self.item_type = item_type
+    #    self.item_count = item_count
+    #    self.item_size = item_size
+    #    self.item_signed = item_signed
+    #    self.accum = None
+
+    def gettype(self):
+        return self.item_type
+
+    def getsize(self):
+        return self.item_size
+
+    def getsigned(self):
+        return self.item_signed
+
+    def getcount(self):
+        return self.item_count
+
+    def fully_packed(self, vec_reg_size):
+        return self.item_size * self.item_count == vec_reg_size
+
+    def forget_value(self):
+        raise NotImplementedError("cannot forget value of vector")
+
+    def clonebox(self):
+        return BoxVector(self.item_type, self.item_count, self.item_size, self.item_signed)
+
+    def constbox(self):
+        raise NotImplementedError("not possible to have a constant vector box")
+
+    def nonnull(self):
+        raise NotImplementedError("no value known, nonnull is unkown")
+
+    def repr_rpython(self):
+        return repr_rpython(self, 'bv')
+
+    def same_shape(self, other):
+        if not isinstance(other, BoxVector):
+            return False
+        #
+        if other.item_size == -1 or self.item_size == -1:
+            # fallback for tests that do not specify the size
+            return True
+        #
+        if self.item_type != other.item_type:
+            return False
+        if self.item_size != other.item_size:
+            return False
+        if self.item_count != other.item_count:
+            return False
+        if self.item_signed != other.item_signed:
+            return False
+        return True
+
+    def getaccum(self):
+        return self.accum
+
 
 class AbstractInputArg(AbstractResOpOrInputArg):
     def set_forwarded(self, forwarded_to):
@@ -753,6 +839,7 @@ _oplist = [
     'GUARD_NOT_FORCED_2/0d/n',    # same as GUARD_NOT_FORCED, but for finish()
     'GUARD_NOT_INVALIDATED/0d/n',
     'GUARD_FUTURE_CONDITION/0d/n',
+    'GUARD_EARLY_EXIT/0d/n',
     # is removable, may be patched by an optimization
     '_GUARD_LAST', # ----- end of guard operations -----
 
@@ -787,42 +874,43 @@ _oplist = [
     # vector operations
     '_VEC_PURE_FIRST',
     '_VEC_ARITHMETIC_FIRST',
-    'VEC_INT_ADD/2',
-    'VEC_INT_SUB/2',
-    'VEC_INT_MUL/2',
-    'VEC_INT_AND/2',
-    'VEC_INT_OR/2',
-    'VEC_INT_XOR/2',
-    'VEC_FLOAT_ADD/2',
-    'VEC_FLOAT_SUB/2',
-    'VEC_FLOAT_MUL/2',
-    'VEC_FLOAT_TRUEDIV/2',
-    'VEC_FLOAT_NEG/1',
-    'VEC_FLOAT_ABS/1',
+    'VEC_INT_ADD/2/i',
+    'VEC_INT_SUB/2/i',
+    'VEC_INT_MUL/2/i',
+    'VEC_INT_AND/2/i',
+    'VEC_INT_OR/2/i',
+    'VEC_INT_XOR/2/i',
+    'VEC_FLOAT_ADD/2/f',
+    'VEC_FLOAT_SUB/2/f',
+    'VEC_FLOAT_MUL/2/f',
+    'VEC_FLOAT_TRUEDIV/2/f',
+    'VEC_FLOAT_NEG/1/f',
+    'VEC_FLOAT_ABS/1/f',
     '_VEC_ARITHMETIC_LAST',
-    'VEC_FLOAT_EQ/2b',
-    'VEC_FLOAT_NE/2b',
-    'VEC_INT_IS_TRUE/1b',
-    'VEC_INT_NE/2b',
-    'VEC_INT_EQ/2b',
+    'VEC_FLOAT_EQ/2b/f',
+    'VEC_FLOAT_NE/2b/f',
+    'VEC_INT_IS_TRUE/1b/i',
+    'VEC_INT_NE/2b/i',
+    'VEC_INT_EQ/2b/i',
 
     '_VEC_CAST_FIRST',
-    'VEC_INT_SIGNEXT/2',
+    'VEC_INT_SIGNEXT/2/i',
     # double -> float: v2 = cast(v1, 2) equal to v2 = (v1[0], v1[1], X, X)
-    'VEC_CAST_FLOAT_TO_SINGLEFLOAT/1',
+    'VEC_CAST_FLOAT_TO_SINGLEFLOAT/1/i',
     # v4 = cast(v3, 0, 2), v4 = (v3[0], v3[1])
-    'VEC_CAST_SINGLEFLOAT_TO_FLOAT/1',
-    'VEC_CAST_FLOAT_TO_INT/1',
-    'VEC_CAST_INT_TO_FLOAT/1',
+    'VEC_CAST_SINGLEFLOAT_TO_FLOAT/1/f',
+    'VEC_CAST_FLOAT_TO_INT/1/i',
+    'VEC_CAST_INT_TO_FLOAT/1/f',
     '_VEC_CAST_LAST',
 
-    'VEC_FLOAT_UNPACK/3',        # iX|fX = VEC_FLOAT_UNPACK(vX, index, item_count)
-    'VEC_FLOAT_PACK/4',          # VEC_FLOAT_PACK(vX, var/const, index, item_count)
-    'VEC_INT_UNPACK/3',          # iX|fX = VEC_INT_UNPACK(vX, index, item_count)
-    'VEC_INT_PACK/4',            # VEC_INT_PACK(vX, var/const, index, item_count)
-    'VEC_FLOAT_EXPAND/2',        # vX = VEC_FLOAT_EXPAND(var/const, item_count)
-    'VEC_INT_EXPAND/2',          # vX = VEC_INT_EXPAND(var/const, item_count)
-    'VEC_BOX/1',
+    'VEC_INT_BOX/1/i',
+    'VEC_INT_UNPACK/3/i',          # iX|fX = VEC_INT_UNPACK(vX, index, item_count)
+    'VEC_INT_PACK/4/i',            # VEC_INT_PACK(vX, var/const, index, item_count)
+    'VEC_INT_EXPAND/2/i',          # vX = VEC_INT_EXPAND(var/const, item_count)
+    'VEC_FLOAT_BOX/1/f',
+    'VEC_FLOAT_UNPACK/3/f',        # iX|fX = VEC_FLOAT_UNPACK(vX, index, item_count)
+    'VEC_FLOAT_PACK/4/f',          # VEC_FLOAT_PACK(vX, var/const, index, item_count)
+    'VEC_FLOAT_EXPAND/2/f',        # vX = VEC_FLOAT_EXPAND(var/const, item_count)
     '_VEC_PURE_LAST',
     #
     'INT_LT/2b/i',
@@ -872,11 +960,11 @@ _oplist = [
 
     '_RAW_LOAD_FIRST',
     'GETARRAYITEM_GC/2d/rfi',
-    'VEC_GETARRAYITEM_GC/3d',
+    'VEC_GETARRAYITEM_GC/3d/fi',
     'GETARRAYITEM_RAW/2d/fi',
-    'VEC_GETARRAYITEM_RAW/3d',
+    'VEC_GETARRAYITEM_RAW/3d/fi',
     'RAW_LOAD/2d/fi',
-    'VEC_RAW_LOAD/3d',
+    'VEC_RAW_LOAD/3d/fi',
     '_RAW_LOAD_LAST',
 
     'GETINTERIORFIELD_GC/2d/rfi',
@@ -899,11 +987,11 @@ _oplist = [
     'INCREMENT_DEBUG_COUNTER/1/n',
     '_RAW_STORE_FIRST',
     'SETARRAYITEM_GC/3d/n',
-    'VEC_SETARRAYITEM_GC/3d',
+    'VEC_SETARRAYITEM_GC/3d/n',
     'SETARRAYITEM_RAW/3d/n',
-    'VEC_SETARRAYITEM_RAW/3d',
+    'VEC_SETARRAYITEM_RAW/3d/n',
     'RAW_STORE/3d/n',
-    'VEC_RAW_STORE/3d',
+    'VEC_RAW_STORE/3d/n',
     '_RAW_STORE_LAST',
     'SETINTERIORFIELD_GC/3d/n',
     'SETINTERIORFIELD_RAW/3d/n',    # right now, only used by tests
@@ -1000,7 +1088,7 @@ def setup(debug_print=False):
             for r in result:
                 if len(result) == 1:
                     cls_name = name
-            else:
+                else:
                     cls_name = name + '_' + r.upper()
                 setattr(rop, cls_name, i)
                 opname[i] = cls_name
@@ -1126,13 +1214,18 @@ _opboolreflex = {
     rop.PTR_NE: rop.PTR_NE,
 }
 _opvector = {
-    rop.RAW_LOAD:         rop.VEC_RAW_LOAD,
-    rop.GETARRAYITEM_RAW: rop.VEC_GETARRAYITEM_RAW,
-    rop.GETARRAYITEM_GC: rop.VEC_GETARRAYITEM_GC,
+    rop.RAW_LOAD_I:         rop.VEC_RAW_LOAD_I,
+    rop.RAW_LOAD_F:         rop.VEC_RAW_LOAD_F,
+    rop.GETARRAYITEM_RAW_I: rop.VEC_GETARRAYITEM_RAW_I,
+    rop.GETARRAYITEM_RAW_F: rop.VEC_GETARRAYITEM_RAW_F,
+    rop.GETARRAYITEM_GC_I: rop.VEC_GETARRAYITEM_GC_I,
+    rop.GETARRAYITEM_GC_F: rop.VEC_GETARRAYITEM_GC_F,
     # note that there is no _PURE operation for vector operations.
     # reason: currently we do not care if it is pure or not!
-    rop.GETARRAYITEM_RAW_PURE: rop.VEC_GETARRAYITEM_RAW,
-    rop.GETARRAYITEM_GC_PURE: rop.VEC_GETARRAYITEM_GC,
+    rop.GETARRAYITEM_RAW_PURE_I: rop.VEC_GETARRAYITEM_RAW_I,
+    rop.GETARRAYITEM_RAW_PURE_F: rop.VEC_GETARRAYITEM_RAW_F,
+    rop.GETARRAYITEM_GC_PURE_I: rop.VEC_GETARRAYITEM_GC_I,
+    rop.GETARRAYITEM_GC_PURE_F: rop.VEC_GETARRAYITEM_GC_F,
     rop.RAW_STORE:        rop.VEC_RAW_STORE,
     rop.SETARRAYITEM_RAW: rop.VEC_SETARRAYITEM_RAW,
     rop.SETARRAYITEM_GC: rop.VEC_SETARRAYITEM_GC,

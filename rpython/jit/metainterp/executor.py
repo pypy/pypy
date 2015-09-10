@@ -17,37 +17,37 @@ from rpython.jit.codewriter import longlong
 
 @specialize.arg(4)
 def _do_call(cpu, metainterp, argboxes, descr, rettype):
-        assert metainterp is not None
-        # count the number of arguments of the different types
-        count_i = count_r = count_f = 0
-        for i in range(1, len(argboxes)):
-            type = argboxes[i].type
-            if   type == INT:   count_i += 1
-            elif type == REF:   count_r += 1
-            elif type == FLOAT: count_f += 1
-        # allocate lists for each type that has at least one argument
-        if count_i: args_i = [0] * count_i
-        else:       args_i = None
-        if count_r: args_r = [NULL] * count_r
-        else:       args_r = None
-        if count_f: args_f = [longlong.ZEROF] * count_f
-        else:       args_f = None
-        # fill in the lists
-        count_i = count_r = count_f = 0
-        for i in range(1, len(argboxes)):
-            box = argboxes[i]
-            if   box.type == INT:
-                args_i[count_i] = box.getint()
-                count_i += 1
-            elif box.type == REF:
-                args_r[count_r] = box.getref_base()
-                count_r += 1
-            elif box.type == FLOAT:
-                args_f[count_f] = box.getfloatstorage()
-                count_f += 1
-        # get the function address as an integer
-        func = argboxes[0].getint()
-        # do the call using the correct function from the cpu
+    assert metainterp is not None
+    # count the number of arguments of the different types
+    count_i = count_r = count_f = 0
+    for i in range(1, len(argboxes)):
+        type = argboxes[i].type
+        if   type == INT:   count_i += 1
+        elif type == REF:   count_r += 1
+        elif type == FLOAT: count_f += 1
+    # allocate lists for each type that has at least one argument
+    if count_i: args_i = [0] * count_i
+    else:       args_i = None
+    if count_r: args_r = [NULL] * count_r
+    else:       args_r = None
+    if count_f: args_f = [longlong.ZEROF] * count_f
+    else:       args_f = None
+    # fill in the lists
+    count_i = count_r = count_f = 0
+    for i in range(1, len(argboxes)):
+        box = argboxes[i]
+        if   box.type == INT:
+            args_i[count_i] = box.getint()
+            count_i += 1
+        elif box.type == REF:
+            args_r[count_r] = box.getref_base()
+            count_r += 1
+        elif box.type == FLOAT:
+            args_f[count_f] = box.getfloatstorage()
+            count_f += 1
+    # get the function address as an integer
+    func = argboxes[0].getint()
+    # do the call using the correct function from the cpu
     if rettype == INT:
         try:
             result = cpu.bh_call_i(func, args_i, args_r, args_f, descr)
@@ -386,11 +386,14 @@ def _make_execute_list():
                          rop.CALL_MALLOC_NURSERY_VARSIZE_FRAME,
                          rop.NURSERY_PTR_INCREMENT,
                          rop.LABEL,
-                         rop.VEC_RAW_LOAD,
+                         rop.VEC_RAW_LOAD_I,
+                         rop.VEC_RAW_LOAD_F,
                          rop.VEC_RAW_STORE,
-                         rop.VEC_GETARRAYITEM_RAW,
+                         rop.VEC_GETARRAYITEM_RAW_I,
+                         rop.VEC_GETARRAYITEM_RAW_F,
                          rop.VEC_SETARRAYITEM_RAW,
-                         rop.VEC_GETARRAYITEM_GC,
+                         rop.VEC_GETARRAYITEM_GC_I,
+                         rop.VEC_GETARRAYITEM_GC_F,
                          rop.VEC_SETARRAYITEM_GC,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
