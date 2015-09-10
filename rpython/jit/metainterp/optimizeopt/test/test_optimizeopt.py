@@ -8803,5 +8803,30 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_resume_forced_raw_ptr(self):
+        ops = """
+        [i0]
+        i = call_i('malloc', 10, descr=raw_malloc_descr)
+        is = int_add(i, 8)
+        escape_n(i)
+        i1 = int_add(i0, 1)
+        i2 = int_lt(i1, 100)
+        guard_true(i2) [is]
+        call_n('free', i, descr=raw_free_descr)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        i = call_i('malloc', 10, descr=raw_malloc_descr)
+        is = int_add(i, 8)
+        escape_n(i)
+        i1 = int_add(i0, 1)
+        i2 = int_lt(i1, 100)
+        guard_true(i2) [is]
+        call_n('free', i, descr=raw_free_descr)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
