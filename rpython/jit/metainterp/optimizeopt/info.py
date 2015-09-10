@@ -447,7 +447,8 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
     def _visitor_walk_recursive(self, op, visitor, optimizer):
         source_op = optimizer.get_box_replacement(op.getarg(0))
         visitor.register_virtual_fields(op, [source_op])
-        self.parent.visitor_walk_recursive(source_op, visitor, optimizer)
+        if self.parent.is_virtual():
+            self.parent.visitor_walk_recursive(source_op, visitor, optimizer)
 
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):

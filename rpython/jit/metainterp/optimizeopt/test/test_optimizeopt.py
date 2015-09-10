@@ -8818,11 +8818,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [i0]
         i = call_i('malloc', 10, descr=raw_malloc_descr)
-        is = int_add(i, 8)
         escape_n(i)
         i1 = int_add(i0, 1)
         i2 = int_lt(i1, 100)
-        guard_true(i2) [is]
+        guard_true(i2) [i]
         call_n('free', i, descr=raw_free_descr)
         jump(i1)
         """
