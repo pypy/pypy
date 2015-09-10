@@ -83,6 +83,13 @@ class MemoryManager(object):
                 looptoken.generation = self.current_generation
                 self.alive_loops[looptoken] = None
             else:
+                with stm_ignored:
+                    # The next line only updates one segment. the whole point
+                    # of doing it is to reduce the number of entries added
+                    # to the hashtable that belong to the same looptoken.
+                    # Hopefully the above if will prevent a huge number of
+                    # "duplicates" in this way.
+                    looptoken.generation = self.current_generation
                 next_key = rstm.stm_count()
                 tokgen = lltype.malloc(TOKENGEN)
                 tokgen.token = annlowlevel.cast_instance_to_gcref(looptoken)
@@ -126,15 +133,20 @@ class MemoryManager(object):
                     # make 'stm_alive_loops' empty, and add the loops that we
                     # must keep in the set 'keep_loops'
                     stm_alive_loops.set(key, rstm.NULL_GCREF)
-                    oldtotal += 1
 
                     tokgen = lltype.cast_opaque_ptr(PTOKENGEN, gcref)
                     looptoken = annlowlevel.cast_gcref_to_instance(JitCellToken,
                                                                    tokgen.token)
-                    #if self._must_keep_loop(looptoken, max_generation):
-                    if not (0 <= tokgen.generation < max_generation or
-                            looptoken.invalidated):
+                    if looptoken not in keep_loops:
+                        oldtotal += 1 # we may have duplicates
+                        #if self._must_keep_loop(looptoken, max_generation):
+                        if not (0 <= tokgen.generation < max_generation or
+                                looptoken.invalidated):
+                            keep_loops[looptoken] = tokgen
+                    elif tokgen.generation > keep_loops[looptoken].generation:
+                        # update with higher generation:
                         keep_loops[looptoken] = tokgen
+
             newtotal = len(keep_loops)
             #
             # now re-add loops with key numbers that *end* at 'new_count'

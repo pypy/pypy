@@ -7,6 +7,9 @@ also a possible cause for the thing below this one:
 meaning, loops get freed and probably must be retraced all
 the time... see XXXXXX in memmgr.py
 
+one problem was wrong counting, so now its 1551 vs. 446. Still
+probably too much.
+
 ------------------------------------------------------------
 
 annotating and rtyping pixie with --jit=off and 1 thread (no
