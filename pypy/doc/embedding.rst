@@ -20,10 +20,6 @@ The API is:
    It initializes the RPython/PyPy GC and does a bunch of necessary startup
    code. This function cannot fail.
 
-.. function:: void pypy_init_threads(void);
-
-   Initialize threads. Only need to be called if there are any threads involved
-
 .. function:: int pypy_setup_home(char* home, int verbose);
 
    This function searches the PyPy standard library starting from the given
@@ -37,6 +33,11 @@ The API is:
 
    Function returns 0 on success or -1 on failure, can be called multiple times
    until the library is found.
+
+.. function:: void pypy_init_threads(void);
+
+   Initialize threads. Only need to be called if there are any threads involved.
+   *Must be called after pypy_setup_home()*
 
 .. function:: int pypy_execute_source(char* source);
 

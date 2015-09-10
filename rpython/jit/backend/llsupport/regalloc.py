@@ -639,30 +639,26 @@ class BaseRegalloc(object):
         if looptoken.compiled_loop_token is not None:   # <- for tests
             looptoken.compiled_loop_token._ll_initial_locs = locs
 
-    def can_merge_with_next_guard(self, op, i, operations):
-        if (op.is_call_may_force() or op.is_call_assembler() or
-            op.is_call_release_gil()):
-            assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
-            return True
-        if not op.is_comparison():
-            if op.is_ovf():
-                if (operations[i + 1].getopnum() != rop.GUARD_NO_OVERFLOW and
-                    operations[i + 1].getopnum() != rop.GUARD_OVERFLOW):
-                    not_implemented("int_xxx_ovf not followed by "
-                                    "guard_(no)_overflow")
-                return True
+    def next_op_can_accept_cc(self, operations, i):
+        op = operations[i]
+        next_op = operations[i + 1]
+        opnum = next_op.getopnum()
+        if (opnum != rop.GUARD_TRUE and opnum != rop.GUARD_FALSE
+                                    and opnum != rop.COND_CALL):
             return False
-        if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
-            operations[i + 1].getopnum() != rop.GUARD_FALSE):
+        if next_op.getarg(0) is not op:
             return False
-        if operations[i + 1].getarg(0) is not op:
+        if self.longevity[op][1] > i + 1:
             return False
-        if (self.longevity[op][1] > i + 1 or
-            op in operations[i + 1].getfailargs()):
-            return False
+        if opnum != rop.COND_CALL:
+            if op in operations[i + 1].getfailargs():
+                return False
+        else:
+            if op in operations[i + 1].getarglist()[1:]:
+                return False
         return True
 
-    def locs_for_call_assembler(self, op, guard_op):
+    def locs_for_call_assembler(self, op):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         if op.numargs() == 2:

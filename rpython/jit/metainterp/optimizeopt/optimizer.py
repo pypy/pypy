@@ -6,7 +6,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
      ConstIntBound, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp,\
-     OpHelpers
+     OpHelpers, ResOperation
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
@@ -26,7 +26,9 @@ class LoopInfo(object):
 class BasicLoopInfo(LoopInfo):
     def __init__(self, inputargs, quasi_immutable_deps):
         self.inputargs = inputargs
+        self.label_op = ResOperation(rop.LABEL, inputargs)
         self.quasi_immutable_deps = quasi_immutable_deps
+        self.extra_same_as = []
 
     def final(self):
         return True
@@ -49,7 +51,7 @@ class Optimization(object):
         self.last_emitted_operation = op
         self.next_optimization.propagate_forward(op)
 
-    def getintbound(self, op):#, create=True):
+    def getintbound(self, op):
         assert op.type == 'i'
         op = self.get_box_replacement(op)
         if isinstance(op, ConstInt):
@@ -75,13 +77,13 @@ class Optimization(object):
             op.set_forwarded(bound)
 
     def getnullness(self, op):
-        if op.type == 'i':
-            return self.getintbound(op).getnullness()
-        elif op.type == 'r':
+        if op.type == 'r' or self.is_raw_ptr(op):
             ptrinfo = self.getptrinfo(op)
             if ptrinfo is None:
                 return info.INFO_UNKNOWN
             return ptrinfo.getnullness()
+        elif op.type == 'i':
+            return self.getintbound(op).getnullness()
         assert False
 
     def make_constant_class(self, op, class_const, update_last_guard=True):
@@ -239,7 +241,6 @@ class Optimizer(Optimization):
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd
         self.cpu = metainterp_sd.cpu
-        self.logops = LogOperations(metainterp_sd, False)
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.interned_ints = {}
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
@@ -420,6 +421,9 @@ class Optimizer(Optimization):
     def make_nonnull(self, op):
         op = self.get_box_replacement(op)
         if op.is_constant():
+            return
+        if op.type == 'i':
+            # raw pointers
             return
         opinfo = op.get_forwarded()
         if opinfo is not None:
@@ -741,15 +745,10 @@ class Optimizer(Optimization):
     # These are typically removed already by OptRewrite, but it can be
     # dissabled and unrolling emits some SAME_AS ops to setup the
     # optimizier state. These needs to always be optimized out.
-    def optimize_SAME_AS_I(self, op):
+    def optimize_MARK_OPAQUE_PTR(self, op):
         self.make_equal_to(op, op.getarg(0))
     optimize_SAME_AS_R = optimize_SAME_AS_I
     optimize_SAME_AS_F = optimize_SAME_AS_I
-
-    def optimize_MARK_OPAQUE_PTR(self, op):
-        #value = self.getvalue(op.getarg(0))
-        #self.optimizer.opaque_pointers[value] = True
-        pass # XXX what do we do with that?
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)

@@ -38,14 +38,14 @@ class Logger(logger.Logger):
                          loop.inputargs, loop.operations, ops_offset=ops_offset,
                          name=name)
 
-    def _make_log_operations(self1):
+    def _make_log_operations(self1, memo):
         class LogOperations(logger.LogOperations):
             def repr_of_descr(self, descr):
                 for k, v in self1.namespace.items():
                     if v == descr:
                         return k
                 return descr.repr_of_descr()
-        logops = LogOperations(self1.metainterp_sd, self1.guard_number)
+        logops = LogOperations(self1.metainterp_sd, self1.guard_number, memo)
         self1.logops = logops
         return logops
 

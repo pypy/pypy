@@ -3322,6 +3322,50 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         '''
         self.optimize_loop(ops, expected)
 
+    def test_arraycopy_invalidate_1(self):
+        ops = """
+        [i5]
+        p0 = escape_r()
+        p1 = new_array_clear(i5, descr=arraydescr)
+        call_n(0, p0, p1, 0, 0, i5, descr=arraycopydescr)
+        i2 = getarrayitem_gc_i(p1, 0, descr=arraydescr)   # != NULL
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_arraycopy_invalidate_2(self):
+        ops = """
+        [i5]
+        p0 = escape_r()
+        p1 = new_array_clear(i5, descr=arraydescr)
+        call_n(0, p0, p1, 0, 0, 100, descr=arraycopydescr)
+        i2 = getarrayitem_gc_i(p1, 0, descr=arraydescr)   # != NULL
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_arraycopy_invalidate_3(self):
+        ops = """
+        [i5]
+        p0 = escape_r()
+        p1 = new_array_clear(100, descr=arraydescr)
+        call_n(0, p0, p1, 0, 0, i5, descr=arraycopydescr)
+        i2 = getarrayitem_gc_i(p1, 0, descr=arraydescr)   # != NULL
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_arraycopy_invalidate_4(self):
+        ops = """
+        [i5]
+        p0 = escape_r()
+        p1 = new_array_clear(100, descr=arraydescr)
+        call_n(0, p0, p1, 0, 0, 100, descr=arraycopydescr)
+        i2 = getarrayitem_gc_i(p1, 0, descr=arraydescr)   # != NULL
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
     def test_bound_lt(self):
         ops = """
         [i0]
@@ -4234,6 +4278,29 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_str_concat_2(self):
+        ops = """
+        [p1, p2]
+        p3 = call_r(0, s"fo", p1, descr=strconcatdescr)
+        escape_n(p3)
+        i5 = strgetitem(p3, 0)
+        escape_n(i5)
+        jump(p2, p3)
+        """
+        expected = """
+        [p1, p2]
+        i1 = strlen(p1)
+        i0 = int_add(2, i1)
+        p5 = newstr(i0)
+        strsetitem(p5, 0, 102)
+        strsetitem(p5, 1, 111)
+        copystrcontent(p1, p5, 0, 2, i1)
+        escape_n(p5)
+        escape_n(102)
+        jump(p2, p5)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
     def test_str_concat_vstr2_str(self):
         ops = """
         [i0, i1, p2]
@@ -4245,6 +4312,32 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [i0, i1, p2]
+        i2 = strlen(p2)
+        i3 = int_add(2, i2)
+        p3 = newstr(i3)
+        strsetitem(p3, 0, i0)
+        strsetitem(p3, 1, i1)
+        copystrcontent(p2, p3, 0, 2, i2)
+        jump(i1, i0, p3)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_str_concat_vstr2_str_2(self):
+        ops = """
+        [i0, i1, p2]
+        p1 = newstr(2)
+        strsetitem(p1, 0, i0)
+        strsetitem(p1, 1, i1)
+        escape_n(p1)
+        p3 = call_r(0, p1, p2, descr=strconcatdescr)
+        jump(i1, i0, p3)
+        """
+        expected = """
+        [i0, i1, p2]
+        p1 = newstr(2)
+        strsetitem(p1, 0, i0)
+        strsetitem(p1, 1, i1)
+        escape_n(p1)
         i2 = strlen(p2)
         i3 = int_add(2, i2)
         p3 = newstr(i3)
@@ -5873,7 +5966,32 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p1 = getfield_gc_i(p0, descr=otherdescr)
         finish(p1)
         """
-        self.optimize_loop(ops, expected)        
+        self.optimize_loop(ops, expected)
+
+    def test_nonnull_str2unicode(self):
+        ops = """
+        [p0]
+        guard_nonnull(p0) []
+        p1 = call_r(0, p0, descr=s2u_descr)      # string -> unicode
+        finish(p1)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_random_strange_guards_on_consts(self):
+        ops = """
+        [p0]
+        guard_value(p0, ConstPtr(nodeaddr)) []
+        guard_is_object(p0) []
+        guard_subclass(p0, ConstClass(node_vtable)) []
+        guard_gc_type(p0, ConstInt(node_tid)) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        guard_value(p0, ConstPtr(nodeaddr)) []
+        jump(ConstPtr(nodeaddr))
+        """
+        self.optimize_loop(ops, expected)
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

@@ -117,6 +117,11 @@ def run_guards_translated(gcremovetypeptr):
                 print 'fail'
             else:
                 print '???'
+            #
+            if token is token2:    # guard_gc_type
+                print int(cpu.get_actual_typeid(p0) == typeid_B)
+            if token is token3:    # guard_is_object
+                print int(cpu.check_is_object(p0))
 
     call_initial_function(t, g)
 
@@ -129,14 +134,14 @@ def run_guards_translated(gcremovetypeptr):
                     'match\n'
                     'fail\n'
 
-                    'fail\n'
-                    'match\n'
-                    'fail\n'
-                    'fail\n'
+                    'fail\n'  '0\n'
+                    'match\n' '1\n'
+                    'fail\n'  '0\n'
+                    'fail\n'  '0\n'
 
-                    'match\n'
-                    'match\n'
-                    'fail\n'
+                    'match\n' '1\n'
+                    'match\n' '1\n'
+                    'fail\n'  '0\n'
 
                     'fail\n'
                     'match\n'

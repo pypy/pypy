@@ -156,7 +156,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
                 op = opname[opnum]
             except KeyError:
                 continue
-            if 'FLOAT' in op or 'VEC_' in op:
+            if 'FLOAT' in op:
                 continue
             args = []
             for _ in range(oparity[opnum]):
@@ -8735,6 +8735,73 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i0)
         """
         self.optimize_loop(ops, ops)
+
+    def test_raw_buffer_int_is_true(self):
+        ops = """
+        [iinp]
+        i0 = call_i(123, 10, descr=raw_malloc_descr)
+        i1 = int_is_true(i0)
+        guard_true(i1) []
+        i2 = int_is_zero(i0)
+        guard_false(i2) []
+        jump(i0)
+        """
+        expected = """
+        [i2]
+        i0 = call_i(123, 10, descr=raw_malloc_descr)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_back_and_forth(self):
+        ops = """
+        [p0]
+        p1 = getfield_gc_pure_r(p0, descr=bdescr)
+        ptemp = new_with_vtable(descr=nodesize)
+        setfield_gc(ptemp, p1, descr=nextdescr)
+        p2 = getfield_gc_r(ptemp, descr=nextdescr)
+        ix = getarrayitem_gc_pure_i(p2, 0, descr=arraydescr)
+        pfoo = getfield_gc_r(ptemp, descr=nextdescr)
+        guard_value(pfoo, ConstPtr(myarray)) []
+        ifoo = int_add(ix, 13)
+        escape_n(ix)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        escape_n(0)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_guard_value_const_virtualstate(self):
+        ops = """
+        [p0, i0]
+        p1 = new_with_vtable(descr=nodesize)
+        setfield_gc(p1, i0, descr=valuedescr)
+        guard_value(i0, 13) []
+        i1 = getfield_gc_i(p1, descr=valuedescr)
+        jump(p1, i1)
+        """
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_constant_float_pure(self):
+        ops = """
+        [p0]
+        f0 = getarrayitem_gc_pure_f(p0, 3, descr=floatarraydescr)
+        guard_value(f0, 1.03) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        ifoo = arraylen_gc(p0, descr=floatarraydescr)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

@@ -570,7 +570,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'trace_limit': 6000,
               'inlining': 1,
               'loop_longevity': 1000,
-              'retrace_limit': 5,
+              'retrace_limit': 0,
               'max_retrace_guards': 15,
               'max_unroll_loops': 0,
               'disable_unrolling': 200,

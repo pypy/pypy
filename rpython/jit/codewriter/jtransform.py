@@ -1108,7 +1108,7 @@ class Transformer(object):
 
     def rewrite_op_cast_opaque_ptr(self, op):
         # None causes the result of this op to get aliased to op.args[0]
-        return [SpaceOperation('mark_opaque_ptr', op.args, None), None]
+        return None
 
     def rewrite_op_force_cast(self, op):
         v_arg = op.args[0]

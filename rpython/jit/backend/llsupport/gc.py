@@ -706,14 +706,43 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _setup_guard_is_object(self):
         from rpython.memory.gctypelayout import GCData, T_IS_RPYTHON_INSTANCE
-        self._infobits_offset, _ = symbolic.get_field_token(GCData.TYPE_INFO,
-                                                            'infobits', True)
-        self._T_IS_RPYTHON_INSTANCE = T_IS_RPYTHON_INSTANCE
+        import struct
+        infobits_offset, _ = symbolic.get_field_token(GCData.TYPE_INFO,
+                                                      'infobits', True)
+        # compute the offset to the actual *byte*, and the byte mask
+        mask = struct.pack("l", T_IS_RPYTHON_INSTANCE)
+        assert mask.count('\x00') == len(mask) - 1
+        infobits_offset_plus = 0
+        while mask.startswith('\x00'):
+            infobits_offset_plus += 1
+            mask = mask[1:]
+        self._infobits_offset = infobits_offset
+        self._infobits_offset_plus = infobits_offset_plus
+        self._T_IS_RPYTHON_INSTANCE_BYTE = ord(mask[0])
 
     def get_translated_info_for_guard_is_object(self):
         infobits_offset = rffi.cast(lltype.Signed, self._infobits_offset)
-        return (infobits_offset, self._T_IS_RPYTHON_INSTANCE)
+        infobits_offset += self._infobits_offset_plus
+        return (infobits_offset, self._T_IS_RPYTHON_INSTANCE_BYTE)
 
+    def get_actual_typeid(self, gcptr):
+        # Read the whole GC header word.  The typeid is the lower half-word.
+        hdr = rffi.cast(self.HDRPTR, gcptr)
+        type_id = llop.extract_ushort(llgroup.HALFWORD, hdr.tid)
+        return llop.combine_ushort(lltype.Signed, type_id, 0)
+
+    def check_is_object(self, gcptr):
+        # read the typeid, fetch one byte of the field 'infobits' from
+        # the big typeinfo table, and check the flag 'T_IS_RPYTHON_INSTANCE'.
+        typeid = self.get_actual_typeid(gcptr)
+        #
+        base_type_info, shift_by, sizeof_ti = (
+            self.get_translated_info_for_typeinfo())
+        infobits_offset, IS_OBJECT_FLAG = (
+            self.get_translated_info_for_guard_is_object())
+        p = base_type_info + (typeid << shift_by) + infobits_offset
+        p = rffi.cast(rffi.CCHARP, p)
+        return (ord(p[0]) & IS_OBJECT_FLAG) != 0
 
 # ____________________________________________________________
 

@@ -147,12 +147,13 @@ class OptPure(Optimization):
             old_op = self.optimizer._newoperations[pos]
             if self.optimize_call_pure(op, old_op):
                 return
-        for i, old_op in enumerate(self.extra_call_pure):
-            if self.optimize_call_pure(op, old_op):
-                if isinstance(old_op, PreambleOp):
-                    old_op = self.optimizer.force_op_from_preamble(old_op)
-                    self.extra_call_pure[i] = old_op
-                return
+        if self.extra_call_pure:
+            for i, old_op in enumerate(self.extra_call_pure):
+                if self.optimize_call_pure(op, old_op):
+                    if isinstance(old_op, PreambleOp):
+                        old_op = self.optimizer.force_op_from_preamble(old_op)
+                        self.extra_call_pure[i] = old_op
+                    return
 
         # replace CALL_PURE with just CALL
         opnum = OpHelpers.call_for_descr(op.getdescr())

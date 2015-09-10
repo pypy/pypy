@@ -381,6 +381,9 @@ class LocationCodeBuilder(object):
         def insn_with_64_bit_immediate(self, loc1, loc2):
             # These are the worst cases:
             val2 = loc2.value_i()
+            if name == 'MOV' and isinstance(loc1, RegLoc):
+                self.MOV_ri(loc1.value, val2)
+                return
             code1 = loc1.location_code()
             if code1 == 'j':
                 checkvalue = loc1.value_j()
@@ -402,8 +405,6 @@ class LocationCodeBuilder(object):
             else:
                 # For this case, we should not need the scratch register more than here.
                 self._load_scratch(val2)
-                if name == 'MOV' and loc1 is X86_64_SCRATCH_REG:
-                    return     # don't need a dummy "MOV r11, r11"
                 INSN(self, loc1, X86_64_SCRATCH_REG)
 
         def invoke(self, codes, val1, val2):

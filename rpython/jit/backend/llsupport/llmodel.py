@@ -488,8 +488,24 @@ class AbstractLLCPU(AbstractCPU):
         descrs = self.gc_ll_descr.getframedescrs(self)
         base_ofs = self.unpack_arraydescr(descrs.arraydescr)
         return base_ofs
+
     # ____________________________________________________________
 
+    def check_is_object(self, gcptr):
+        """Check if the given, non-null gcptr refers to an rclass.OBJECT
+        or not at all (an unrelated GcStruct or a GcArray).  Only usable
+        in the llgraph backend, or after translation of a real backend."""
+        assert self.supports_guard_gc_type
+        return self.gc_ll_descr.check_is_object(gcptr)
+
+    def get_actual_typeid(self, gcptr):
+        """Fetch the actual typeid of the given gcptr, as an integer.
+        Only usable in the llgraph backend, or after translation of a
+        real backend."""
+        assert self.supports_guard_gc_type
+        return self.gc_ll_descr.get_actual_typeid(gcptr)
+
+    # ____________________________________________________________
 
     def bh_arraylen_gc(self, array, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)

@@ -20,6 +20,9 @@ class AbstractInfo(AbstractValue):
     def force_box(self, op, optforce):
         return op
 
+    def is_virtual(self):
+        return False
+
     def is_precise(self):
         return False
 
@@ -77,7 +80,11 @@ class PtrInfo(AbstractInfo):
 
     def make_guards(self, op, short, optimizer):
         pass
-    
+
+    @specialize.arg(2)
+    def get_constant_string_spec(self, string_optimizer, mode):
+        return None # can't be constant
+
 class NonNullPtrInfo(PtrInfo):
     _attrs_ = ('last_guard_pos',)
     last_guard_pos = -1
@@ -239,6 +246,9 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                                    shortboxes):
         if self._fields is None:
             return
+        if descr.get_index() >= len(self._fields):
+            # we don't know about this item
+            return
         op = optimizer.get_box_replacement(self._fields[descr.get_index()])
         opnum = OpHelpers.getfield_for_descr(descr)
         getfield_op = ResOperation(opnum, [structbox], descr=descr)
@@ -396,7 +406,8 @@ class RawBufferPtrInfo(AbstractRawPtrInfo):
             optforce.emit_operation(setfield_op)
 
     def _visitor_walk_recursive(self, op, visitor, optimizer):
-        itemboxes = self._get_buffer().values
+        itemboxes = [optimizer.get_box_replacement(box)
+                     for box in self._get_buffer().values]
         visitor.register_virtual_fields(op, itemboxes)
         # there can be no virtuals stored in raw buffer
 
@@ -493,7 +504,11 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         const = optforce.new_const_item(self.descr)
         for i in range(self.length):
             item = self._items[i]
-            if item is None or self._clear and const.same_constant(item):
+            if item is None:
+                continue
+            if self._clear and const.same_constant(item):
+                # clear the item so we don't know what's there
+                self._items[i] = None
                 continue
             subbox = optforce.force_box(item)
             setop = ResOperation(rop.SETARRAYITEM_GC,
@@ -540,6 +555,9 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
     def produce_short_preamble_ops(self, structbox, descr, index, optimizer,
                                    shortboxes):
         if self._items is None:
+            return
+        if index >= len(self._items):
+            # we don't know about this item
             return
         item = self._items[index]
         if item is not None:
@@ -694,6 +712,12 @@ class ConstPtrInfo(PtrInfo):
     def get_known_class(self, cpu):
         if not self._const.nonnull():
             return None
+        if cpu.supports_guard_gc_type:
+            # we should only be called on an unknown box here from
+            # virtualstate.py, which is only when the cpu supports
+            # guard_gc_type
+            if not cpu.check_is_object(self._const.getref_base()):
+                return None
         return cpu.ts.cls_of_box(self._const)
 
     def same_info(self, other):

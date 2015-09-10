@@ -8,8 +8,22 @@ from rpython.jit.codewriter import longlong
 class SettingForwardedOnAbstractValue(Exception):
     pass
 
+class CountingDict(object):
+    def __init__(self):
+        self._d = weakref.WeakKeyDictionary()
+        self.counter = 0
+
+    def __getitem__(self, item):
+        try:
+            return self._d[item]
+        except KeyError:
+            c = self.counter
+            self.counter += 1
+            self._d[item] = c
+            return c
+
 class AbstractValue(object):
-    _repr_memo = {} # weakref.WeakKeyDictionary()
+    _repr_memo = CountingDict()
     is_info_class = False
     _attrs_ = ()
     namespace = None
@@ -33,16 +47,17 @@ class AbstractValue(object):
         llop.debug_print(lltype.Void, "setting forwarded on:", self.__class__.__name__)
         raise SettingForwardedOnAbstractValue()
 
+    @specialize.arg(1)
     def get_box_replacement(op, not_const=False):
-        orig_op = op
-        c = 0
-        while (op.get_forwarded() is not None and
-               not op.get_forwarded().is_info_class and
-               (not not_const or not op.get_forwarded().is_constant())):
-            c += 1
-            op = op.get_forwarded()
-        if op is not orig_op and c > 1:
-            orig_op.set_forwarded(op)
+        # Read the chain "op, op._forwarded, op._forwarded._forwarded..."
+        # until we reach None or an Info instance, and return the last
+        # item before that.
+        while isinstance(op, AbstractResOpOrInputArg):  # else, _forwarded is None
+            next_op = op._forwarded
+            if (next_op is None or next_op.is_info_class or
+                (not_const and next_op.is_constant())):
+                return op
+            op = next_op
         return op
 
     def reset_value(self):
@@ -62,10 +77,18 @@ def ResOperation(opnum, args, descr=None):
     return op
 
 
-class AbstractResOp(AbstractValue):
+class AbstractResOpOrInputArg(AbstractValue):
+    _attrs_ = ('_forwarded',)
+    _forwarded = None # either another resop or OptInfo  
+
+    def get_forwarded(self):
+        return self._forwarded
+
+
+class AbstractResOp(AbstractResOpOrInputArg):
     """The central ResOperation class, representing one operation."""
 
-    _attrs_ = ('_forwarded',)
+    _attrs_ = ()
 
     # debug
     name = ""
@@ -75,15 +98,9 @@ class AbstractResOp(AbstractValue):
     type = 'v'
     boolreflex = -1
     boolinverse = -1
-    _forwarded = None # either another resop or OptInfo
     vector = -1
     # XXX
     casts = ('\x00', -1, '\x00', -1)
-
-    _attrs_ = ('result',)
-
-    def __init__(self, result):
-        self.result = result
 
     def getopnum(self):
         return self.opnum
@@ -92,9 +109,6 @@ class AbstractResOp(AbstractValue):
     #    if self.is_same_as():
     #        return self is other or self.getarg(0).same_box(other)
     #    return self is other
-
-    def get_forwarded(self):
-        return self._forwarded
 
     def set_forwarded(self, forwarded_to):
         assert forwarded_to is not self
@@ -166,11 +180,11 @@ class AbstractResOp(AbstractValue):
         # RPython-friendly version
         if self.type != 'v':
             try:
-                sres = '%s = ' % memo[self]
+                num = memo[self]
             except KeyError:
-                name = self.type + str(len(memo))
-                memo[self] = name
-                sres = name + ' = '
+                num = len(memo)
+                memo[self] = num
+            sres = self.type + str(num) + ' = '
         #if self.result is not None:
         #    sres = '%s = ' % (self.result,)
         else:
@@ -193,11 +207,11 @@ class AbstractResOp(AbstractValue):
 
     def repr_short(self, memo):
         try:
-            return memo[self]
+            num = memo[self]
         except KeyError:
-            name = self.type + str(len(memo))
-            memo[self] = name
-            return name
+            num = len(memo)
+            memo[self] = num
+        return self.type + str(num)
 
     def __repr__(self):
         r = self.repr(self._repr_memo)
@@ -456,7 +470,7 @@ class FloatOp(object):
 
     type = 'f'
 
-    _resfloat = 0.0
+    _resfloat = longlong.ZEROF
 
     def getfloatstorage(self):
         return self._resfloat
@@ -465,6 +479,7 @@ class FloatOp(object):
     getfloat = getfloatstorage
     
     def setfloatstorage(self, floatval):
+        assert lltype.typeOf(floatval) is longlong.FLOATSTORAGE
         self._resfloat = floatval
 
     def copy_value_from(self, other):
@@ -513,22 +528,17 @@ class RefOp(object):
         return history.ConstPtr(self.getref_base())
 
 
-class AbstractInputArg(AbstractValue):
-    _forwarded = None
-
-    def get_forwarded(self):
-        return self._forwarded
-
+class AbstractInputArg(AbstractResOpOrInputArg):
     def set_forwarded(self, forwarded_to):
         self._forwarded = forwarded_to
 
     def repr(self, memo):
         try:
-            return memo[self]
+            num = memo[self]
         except KeyError:
-            name = self.type + str(len(memo))
-            memo[self] = name
-            return name
+            num = len(memo)
+            memo[self] = num
+        return self.type + str(num)
 
     def __repr__(self):
         return self.repr(self._repr_memo)
@@ -544,8 +554,12 @@ class InputArgInt(IntOp, AbstractInputArg):
         self.setint(intval)
 
 class InputArgFloat(FloatOp, AbstractInputArg):
-    def __init__(self, f=0.0):
+    def __init__(self, f=longlong.ZEROF):
         self.setfloatstorage(f)
+
+    @staticmethod
+    def fromfloat(x):
+        return InputArgFloat(longlong.getfloatstorage(x))
 
 class InputArgRef(RefOp, AbstractInputArg):
     def __init__(self, r=lltype.nullptr(llmemory.GCREF.TO)):
@@ -878,7 +892,6 @@ _oplist = [
     '_MALLOC_LAST',
     'FORCE_TOKEN/0/r',
     'VIRTUAL_REF/2/r',    # removed before it's passed to the backend
-    'MARK_OPAQUE_PTR/1/n',
     # this one has no *visible* side effect, since the virtualizable
     # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
@@ -993,9 +1006,9 @@ def setup(debug_print=False):
                 opname[i] = cls_name
                 cls = create_class_for_op(cls_name, i, arity, withdescr, r)
                 cls._cls_has_bool_result = boolresult
-        opclasses.append(cls)
-        oparity.append(arity)
-        opwithdescr.append(withdescr)
+                opclasses.append(cls)
+                oparity.append(arity)
+                opwithdescr.append(withdescr)
                 optypes.append(r)
                 if debug_print:
                     print '%30s = %d' % (cls_name, i)
@@ -1198,7 +1211,7 @@ def get_deep_immutable_oplist(operations):
 class OpHelpers(object):
     @staticmethod
     def call_for_descr(descr):
-        tp = descr.get_result_type()
+        tp = descr.get_normalized_result_type()
         if tp == 'i':
             return rop.CALL_I
         elif tp == 'r':
@@ -1210,7 +1223,7 @@ class OpHelpers(object):
 
     @staticmethod
     def call_pure_for_descr(descr):
-        tp = descr.get_result_type()
+        tp = descr.get_normalized_result_type()
         if tp == 'i':
             return rop.CALL_PURE_I
         elif tp == 'r':
@@ -1222,7 +1235,7 @@ class OpHelpers(object):
 
     @staticmethod
     def call_may_force_for_descr(descr):
-        tp = descr.get_result_type()
+        tp = descr.get_normalized_result_type()
         if tp == 'i':
             return rop.CALL_MAY_FORCE_I
         elif tp == 'r':
@@ -1234,7 +1247,7 @@ class OpHelpers(object):
 
     @staticmethod
     def call_assembler_for_descr(descr):
-        tp = descr.get_result_type()
+        tp = descr.get_normalized_result_type()
         if tp == 'i':
             return rop.CALL_ASSEMBLER_I
         elif tp == 'r':
@@ -1246,7 +1259,7 @@ class OpHelpers(object):
 
     @staticmethod
     def call_loopinvariant_for_descr(descr):
-        tp = descr.get_result_type()
+        tp = descr.get_normalized_result_type()
         if tp == 'i':
             return rop.CALL_LOOPINVARIANT_I
         elif tp == 'r':

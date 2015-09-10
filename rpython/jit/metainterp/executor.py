@@ -15,8 +15,8 @@ from rpython.jit.codewriter import longlong
 
 # ____________________________________________________________
 
-def new_do_call(rettype):
-    def do_call(cpu, metainterp, argboxes, descr):
+@specialize.arg(4)
+def _do_call(cpu, metainterp, argboxes, descr, rettype):
         assert metainterp is not None
         # count the number of arguments of the different types
         count_i = count_r = count_f = 0
@@ -48,34 +48,38 @@ def new_do_call(rettype):
         # get the function address as an integer
         func = argboxes[0].getint()
         # do the call using the correct function from the cpu
-        if rettype == INT or rettype == 'S':       # *S*ingle float
-            try:
-                result = cpu.bh_call_i(func, args_i, args_r, args_f, descr)
-            except Exception, e:
-                metainterp.execute_raised(e)
-                result = 0
-            return result
-        if rettype == REF:
-            try:
-                result = cpu.bh_call_r(func, args_i, args_r, args_f, descr)
-            except Exception, e:
-                metainterp.execute_raised(e)
-                result = NULL
-            return result
-        if rettype == FLOAT:
-            try:
-                result = cpu.bh_call_f(func, args_i, args_r, args_f, descr)
-            except Exception, e:
-                metainterp.execute_raised(e)
-                result = longlong.ZEROF
-            return result
-        if rettype == VOID:
-            try:
-                cpu.bh_call_v(func, args_i, args_r, args_f, descr)
-            except Exception, e:
-                metainterp.execute_raised(e)
-            return None
-        raise AssertionError("bad rettype")
+    if rettype == INT:
+        try:
+            result = cpu.bh_call_i(func, args_i, args_r, args_f, descr)
+        except Exception, e:
+            metainterp.execute_raised(e)
+            result = 0
+        return result
+    if rettype == REF:
+        try:
+            result = cpu.bh_call_r(func, args_i, args_r, args_f, descr)
+        except Exception, e:
+            metainterp.execute_raised(e)
+            result = NULL
+        return result
+    if rettype == FLOAT:
+        try:
+            result = cpu.bh_call_f(func, args_i, args_r, args_f, descr)
+        except Exception, e:
+            metainterp.execute_raised(e)
+            result = longlong.ZEROF
+        return result
+    if rettype == VOID:
+        try:
+            cpu.bh_call_v(func, args_i, args_r, args_f, descr)
+        except Exception, e:
+            metainterp.execute_raised(e)
+        return None
+    raise AssertionError("bad rettype")
+
+def new_do_call(rettype):
+    def do_call(cpu, metainterp, argboxes, descr):
+        return _do_call(cpu, metainterp, argboxes, descr, rettype)
     do_call.func_name = "do_call_" + rettype
     return do_call
 
@@ -479,8 +483,10 @@ def wrap_constant(value):
         return ConstInt(value)
     elif isinstance(value, bool):
         return ConstInt(int(value))
-    elif isinstance(value, float):
+    elif lltype.typeOf(value) == longlong.FLOATSTORAGE:
         return ConstFloat(value)
+    elif isinstance(value, float):
+        return ConstFloat(longlong.getfloatstorage(value))
     else:
         assert lltype.typeOf(value) == llmemory.GCREF
         return ConstPtr(value)

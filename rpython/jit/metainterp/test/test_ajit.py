@@ -2767,12 +2767,14 @@ class BasicTests:
             return i
         #
         seen = []
-        def my_optimize_trace(metainterp_sd, jitdriver_sd, data):
+        def my_optimize_trace(metainterp_sd, jitdriver_sd, data, memo=None):
             seen.append('unroll' in data.enable_opts)
             raise InvalidLoop
         old_optimize_trace = optimizeopt.optimize_trace
         optimizeopt.optimize_trace = my_optimize_trace
         try:
+            if not self.basic:
+                py.test.skip("unrolling")
             res = self.meta_interp(f, [23, 4])
             assert res == 23
             assert False in seen
@@ -2903,7 +2905,7 @@ class BasicTests:
         res = self.meta_interp(f, [10, 7])
         assert res == f(10, 7)
         self.check_jitcell_token_count(2)
-        if 0:
+        if self.basic:
             for cell in get_stats().get_all_jitcell_tokens():
                 assert len(cell.target_tokens) == 2
 
@@ -2913,8 +2915,9 @@ class BasicTests:
         res = self.meta_interp(g, [10])
         assert res == g(10)
         self.check_jitcell_token_count(2)
-        for cell in get_stats().get_all_jitcell_tokens():
-            assert len(cell.target_tokens) <= 3
+        if self.basic:
+            for cell in get_stats().get_all_jitcell_tokens():
+                assert len(cell.target_tokens) <= 3
 
         def g(n):
             return f(n, 2) + f(n, 3) + f(n, 4) + f(n, 5) + f(n, 6) + f(n, 7)
@@ -2924,12 +2927,13 @@ class BasicTests:
         # 2 loops and one function
         self.check_jitcell_token_count(3)
         cnt = 0
-        for cell in get_stats().get_all_jitcell_tokens():
-            if cell.target_tokens is None:
-                cnt += 1
-            else:
-                assert len(cell.target_tokens) <= 4
-        assert cnt == 1
+        if self.basic:
+            for cell in get_stats().get_all_jitcell_tokens():
+                if cell.target_tokens is None:
+                    cnt += 1
+                else:
+                    assert len(cell.target_tokens) <= 4
+            assert cnt == 1
 
     def test_frame_finished_during_retrace(self):
         class Base(object):

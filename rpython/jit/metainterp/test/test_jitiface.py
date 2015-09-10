@@ -12,8 +12,6 @@ from rpython.jit.metainterp.jitprof import Profiler, EmptyProfiler
 class JitHookInterfaceTests(object):
     # !!!note!!! - don't subclass this from the backend. Subclass the LL
     # class later instead
-    def setup_class(cls):
-        py.test.skip("disabled")
     
     def test_abort_quasi_immut(self):
         reasons = []
@@ -119,43 +117,6 @@ class JitHookInterfaceTests(object):
 
         self.meta_interp(loop, [1, 10], policy=JitPolicy(MyJitIface()))
         assert called == ["compile", "before_compile_bridge", "compile_bridge"]
-
-    def test_resop_interface(self):
-        driver = JitDriver(greens = [], reds = ['i'])
-
-        def loop(i):
-            while i > 0:
-                driver.jit_merge_point(i=i)
-                i -= 1
-
-        def main():
-            loop(1)
-            op = jit_hooks.resop_new(rop.INT_ADD,
-                                     [jit_hooks.boxint_new(3),
-                                      jit_hooks.boxint_new(4)],
-                                     jit_hooks.boxint_new(1))
-            assert hlstr(jit_hooks.resop_getopname(op)) == 'int_add'
-            assert jit_hooks.resop_getopnum(op) == rop.INT_ADD
-            box = jit_hooks.resop_getarg(op, 0)
-            assert jit_hooks.box_getint(box) == 3
-            box2 = jit_hooks.box_clone(box)
-            assert box2 != box
-            assert jit_hooks.box_getint(box2) == 3
-            assert not jit_hooks.box_isconst(box2)
-            box3 = jit_hooks.box_constbox(box)
-            assert jit_hooks.box_getint(box) == 3
-            assert jit_hooks.box_isconst(box3)
-            box4 = jit_hooks.box_nonconstbox(box)
-            assert not jit_hooks.box_isconst(box4)
-            box5 = jit_hooks.boxint_new(18)
-            jit_hooks.resop_setarg(op, 0, box5)
-            assert jit_hooks.resop_getarg(op, 0) == box5
-            box6 = jit_hooks.resop_getresult(op)
-            assert jit_hooks.box_getint(box6) == 1
-            jit_hooks.resop_setresult(op, box5)
-            assert jit_hooks.resop_getresult(op) == box5
-
-        self.meta_interp(main, [])
 
     def test_get_stats(self):
         driver = JitDriver(greens = [], reds = ['i', 's'])

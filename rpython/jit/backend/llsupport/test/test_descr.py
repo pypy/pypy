@@ -13,24 +13,24 @@ def test_get_size_descr():
     T = lltype.GcStruct('T')
     S = lltype.GcStruct('S', ('x', lltype.Char),
                              ('y', lltype.Ptr(T)))
-    descr_s = get_size_descr(c0, S, None)
-    descr_t = get_size_descr(c0, T, None)
+    descr_s = get_size_descr(c0, S)
+    descr_t = get_size_descr(c0, T)
     assert descr_s.size == symbolic.get_size(S, False)
     assert descr_t.size == symbolic.get_size(T, False)
     assert descr_s.is_immutable() == False
     assert descr_t.is_immutable() == False
     assert descr_t.gc_fielddescrs == []
     assert len(descr_s.gc_fielddescrs) == 1
-    assert descr_s == get_size_descr(c0, S, None)
-    assert descr_s != get_size_descr(c1, S, None)
+    assert descr_s == get_size_descr(c0, S)
+    assert descr_s != get_size_descr(c1, S)
     #
-    descr_s = get_size_descr(c1, S, None)
+    descr_s = get_size_descr(c1, S)
     assert isinstance(descr_s.size, Symbolic)
     assert descr_s.is_immutable() == False
 
     PARENT = lltype.Struct('P', ('x', lltype.Ptr(T)))
     STRUCT = lltype.GcStruct('S', ('parent', PARENT), ('y', lltype.Ptr(T)))
-    descr_struct = get_size_descr(c0, STRUCT, None)
+    descr_struct = get_size_descr(c0, STRUCT)
     assert len(descr_struct.gc_fielddescrs) == 2
 
 def test_get_size_descr_immut():
@@ -49,7 +49,7 @@ def test_get_size_descr_immut():
     for STRUCT in [S, T, U, V]:
         for translated in [False, True]:
             c0 = GcCache(translated)
-            descr_s = get_size_descr(c0, STRUCT, None)
+            descr_s = get_size_descr(c0, STRUCT)
             assert descr_s.is_immutable() == True
 
 def test_get_field_descr():
@@ -329,7 +329,7 @@ def test_repr_of_descr():
     S = lltype.GcStruct('S', ('x', lltype.Char),
                              ('y', lltype.Ptr(T)),
                              ('z', lltype.Ptr(T)))
-    descr1 = get_size_descr(c0, S, None)
+    descr1 = get_size_descr(c0, S)
     s = symbolic.get_size(S, False)
     assert repr_of_descr(descr1) == '<SizeDescr %d>' % s
     #

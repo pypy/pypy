@@ -9,14 +9,17 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
      Optimization, LoopInfo, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.vstring import StrPtrInfo
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
-    VirtualStateConstructor, VirtualStatesCantMatch, BadVirtualState)
+    VirtualStateConstructor, VirtualStatesCantMatch)
 from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp
 from rpython.jit.metainterp import compile
-from rpython.rlib.debug import debug_print
+from rpython.rlib.debug import debug_print, debug_start, debug_stop,\
+     have_debug_prints
 
 class UnrollableOptimizer(Optimizer):    
     def force_op_from_preamble(self, preamble_op):
         if isinstance(preamble_op, PreambleOp):
+            if self.optunroll.short_preamble_producer is None:
+                assert False # unreachable code
             op = preamble_op.op
             self.optimizer.inparg_dict[op] = None # XXX ARGH
             # special hack for int_add(x, accumulator-const) optimization
@@ -36,20 +39,27 @@ class UnrollableOptimizer(Optimizer):
             i = infos.get(item, None)
             if i is not None:
                 self.setinfo_from_preamble(item, i, infos)
+            else:
+                item.set_forwarded(None)
+                # let's not inherit stuff we don't
+                # know anything about
 
     def setinfo_from_preamble(self, op, preamble_info, exported_infos):
         op = self.get_box_replacement(op)
         if op.get_forwarded() is not None:
             return
+        if op.is_constant():
+            return # nothing we can learn
         if isinstance(preamble_info, info.PtrInfo):
             if preamble_info.is_virtual():
-                # XXX do we want to sanitize this?
                 op.set_forwarded(preamble_info)
                 self.setinfo_from_preamble_list(preamble_info.all_items(),
                                           exported_infos)
                 return
-            if op.is_constant():
-                return # nothing we can learn
+            if preamble_info.is_constant():
+                # but op is not
+                op.set_forwarded(preamble_info.getconst())
+                return
             if preamble_info.get_descr() is not None:
                 if isinstance(preamble_info, info.StructPtrInfo):
                     op.set_forwarded(info.StructPtrInfo(
@@ -83,6 +93,8 @@ class UnrollableOptimizer(Optimizer):
                 if preamble_info.has_upper and preamble_info.upper < MAXINT/2:
                     intbound.has_upper = True
                     intbound.upper = preamble_info.upper
+        elif isinstance(preamble_info, info.FloatConstInfo):
+            op.set_forwarded(preamble_info._const)
 
 
 class UnrollOptimizer(Optimization):
@@ -108,13 +120,14 @@ class UnrollOptimizer(Optimization):
         if check_newops:
             assert not self.optimizer._newoperations
     
-    def optimize_preamble(self, start_label, end_label, ops, call_pure_results):
+    def optimize_preamble(self, start_label, end_label, ops, call_pure_results,
+                          memo):
         self._check_no_forwarding([[start_label, end_label], ops])
         info, newops = self.optimizer.propagate_all_forward(
             start_label.getarglist()[:], ops, call_pure_results, True,
             flush=False)
         exported_state = self.export_state(start_label, end_label.getarglist(),
-                                           info.inputargs)
+                                           info.inputargs, memo)
         exported_state.quasi_immutable_deps = info.quasi_immutable_deps
         # we need to absolutely make sure that we've cleaned up all
         # the optimization info
@@ -124,7 +137,10 @@ class UnrollOptimizer(Optimization):
     def optimize_peeled_loop(self, start_label, end_jump, ops, state,
                              call_pure_results, inline_short_preamble=True):
         self._check_no_forwarding([[start_label, end_jump], ops])
-        label_args = self.import_state(start_label, state)
+        try:
+            label_args = self.import_state(start_label, state)
+        except VirtualStatesCantMatch:
+            raise InvalidLoop("Cannot import state, virtual states don't match")
         self.potential_extra_ops = {}
         self.optimizer.init_inparg_dict_from(label_args)
         info, _ = self.optimizer.propagate_all_forward(
@@ -149,8 +165,10 @@ class UnrollOptimizer(Optimization):
                self.optimizer, force_boxes=True)
             for arg in args:
                 self.optimizer.force_box(arg)
-        except BadVirtualState:
-            raise InvalidLoop
+        except VirtualStatesCantMatch:
+            raise InvalidLoop("Virtual states did not match "
+                              "after picking the virtual state, when forcing"
+                              " boxes")
         extra_same_as = self.short_preamble_producer.extra_same_as[:]
         target_token = self.finalize_short_preamble(label_op,
                                                     state.virtual_state)
@@ -204,7 +222,7 @@ class UnrollOptimizer(Optimization):
         return label_vs
 
     def optimize_bridge(self, start_label, operations, call_pure_results,
-                        inline_short_preamble):
+                        inline_short_preamble, box_names_memo):
         self._check_no_forwarding([start_label.getarglist(),
                                     operations])
         info, ops = self.optimizer.propagate_all_forward(
@@ -236,7 +254,7 @@ class UnrollOptimizer(Optimization):
             return self.jump_to_preamble(cell_token, jump_op, info)
         exported_state = self.export_state(start_label,
                                            operations[-1].getarglist(),
-                                           info.inputargs)
+                                           info.inputargs, box_names_memo)
         exported_state.quasi_immutable_deps = self.optimizer.quasi_immutable_deps
         self.optimizer._clean_optimization_info(self.optimizer._newoperations)
         return exported_state, self.optimizer._newoperations
@@ -340,7 +358,24 @@ class UnrollOptimizer(Optimization):
             for op in short:
                 op.set_forwarded(None)
 
-    def export_state(self, start_label, original_label_args, renamed_inputargs):
+    def _expand_info(self, arg, infos):
+        info = self.optimizer.getinfo(arg)
+        if arg in infos:
+            return
+        if info:
+            infos[arg] = info
+            if info.is_virtual():
+                self._expand_infos_from_virtual(info, infos)
+
+    def _expand_infos_from_virtual(self, info, infos):
+        items = info.all_items()
+        for item in items:
+            if item is None:
+                continue
+            self._expand_info(item, infos)
+
+    def export_state(self, start_label, original_label_args, renamed_inputargs,
+                     memo):
         end_args = [self.optimizer.force_box_for_end_of_preamble(a)
                     for a in original_label_args]
         self.optimizer.flush()
@@ -348,11 +383,11 @@ class UnrollOptimizer(Optimization):
         end_args = [self.get_box_replacement(arg) for arg in end_args]
         infos = {}
         for arg in end_args:
-            infos[arg] = self.optimizer.getinfo(arg)
+            self._expand_info(arg, infos)
         label_args, virtuals = virtual_state.make_inputargs_and_virtuals(
             end_args, self.optimizer)
         for arg in label_args:
-            infos[arg] = self.optimizer.getinfo(arg)            
+            self._expand_info(arg, infos)
         sb = ShortBoxes()
         short_boxes = sb.create_short_boxes(self.optimizer, renamed_inputargs,
                                             label_args + virtuals)
@@ -365,7 +400,7 @@ class UnrollOptimizer(Optimization):
         self.optimizer._clean_optimization_info(start_label.getarglist())
         return ExportedState(label_args, end_args, virtual_state, infos,
                              short_boxes, renamed_inputargs,
-                             short_inputargs)
+                             short_inputargs, memo)
 
     def import_state(self, targetop, exported_state):
         # the mapping between input args (from old label) and what we need
@@ -442,7 +477,7 @@ class ExportedState(LoopInfo):
     
     def __init__(self, end_args, next_iteration_args, virtual_state,
                  exported_infos, short_boxes, renamed_inputargs,
-                 short_inputargs):
+                 short_inputargs, memo):
         self.end_args = end_args
         self.next_iteration_args = next_iteration_args
         self.virtual_state = virtual_state
@@ -450,6 +485,15 @@ class ExportedState(LoopInfo):
         self.short_boxes = short_boxes
         self.renamed_inputargs = renamed_inputargs
         self.short_inputargs = short_inputargs
+        self.dump(memo)
+
+    def dump(self, memo):
+        if have_debug_prints():
+            debug_start("jit-log-exported-state")
+            debug_print("[" + ", ".join([x.repr_short(memo) for x in self.next_iteration_args]) + "]")
+            for box in self.short_boxes:
+                debug_print("  " + box.repr(memo))
+            debug_stop("jit-log-exported-state")
 
     def final(self):
         return False

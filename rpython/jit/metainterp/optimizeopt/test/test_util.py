@@ -1,5 +1,6 @@
 import py, random
 
+from rpython.rlib.debug import debug_print
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import (
@@ -11,7 +12,7 @@ from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
 from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.logger import LogOperations
-from rpython.jit.tool.oparser import OpParser
+from rpython.jit.tool.oparser import OpParser, pure_parse
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
 from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
@@ -34,6 +35,12 @@ def test_sort_descrs():
         sort_descrs(lst2)
         assert lst2 == lst
 
+def make_remap(inp1, inp2):
+    remap = {}
+    for a, b in zip(inp1, inp2):
+        remap[b] = a
+    return remap
+
 def test_equaloplists():
     ops = """
     [i0]
@@ -47,9 +54,12 @@ def test_equaloplists():
     loop2 = pure_parse(ops, namespace=namespace)
     loop3 = pure_parse(ops.replace("i2 = int_add", "i2 = int_sub"),
                        namespace=namespace)
-    assert equaloplists(loop1.operations, loop2.operations)
+    assert equaloplists(loop1.operations, loop2.operations,
+                        remap=make_remap(loop1.inputargs,
+                                         loop2.inputargs))
     py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations)")
+                   "equaloplists(loop1.operations, loop3.operations,"
+                   "remap=make_remap(loop1.inputargs, loop3.inputargs))")
 
 def test_equaloplists_fail_args():
     ops = """
@@ -64,13 +74,16 @@ def test_equaloplists_fail_args():
     loop2 = pure_parse(ops.replace("[i2, i1]", "[i1, i2]"),
                        namespace=namespace)
     py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop2.operations)")
+                   "equaloplists(loop1.operations, loop2.operations,"
+                   "remap=make_remap(loop1.inputargs, loop2.inputargs))")
     assert equaloplists(loop1.operations, loop2.operations,
+                        remap=make_remap(loop1.inputargs, loop2.inputargs),
                         strict_fail_args=False)
     loop3 = pure_parse(ops.replace("[i2, i1]", "[i2, i0]"),
                        namespace=namespace)
     py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations)")
+                   "equaloplists(loop1.operations, loop3.operations,"
+                   " remap=make_remap(loop1.inputargs, loop3.inputargs))")
 
 # ____________________________________________________________
 
@@ -93,6 +106,7 @@ class LLtypeMixin(object):
     cpu = runner.LLGraphCPU(None)
 
     NODE = lltype.GcForwardReference()
+    S = lltype.GcForwardReference()
     NODE.become(lltype.GcStruct('NODE', ('parent', OBJECT),
                                         ('value', lltype.Signed),
                                         ('floatval', lltype.Float),
@@ -121,11 +135,16 @@ class LLtypeMixin(object):
     node2addr = lltype.cast_opaque_ptr(llmemory.GCREF, node2)
     myptr = lltype.cast_opaque_ptr(llmemory.GCREF, node)
     mynode2 = lltype.malloc(NODE)
+    myarray = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(lltype.GcArray(lltype.Signed), 13, zero=True))
     mynode2.parent.typeptr = node_vtable
     myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode2)
+    mynode3 = lltype.malloc(NODE2)
+    mynode3.parent.parent.typeptr = node_vtable2
+    myptr3 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode3)
     nullptr = lltype.nullptr(llmemory.GCREF.TO)
     #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
     nodesize = cpu.sizeof(NODE, node_vtable)
+    node_tid = nodesize.get_type_id()
     nodesize2 = cpu.sizeof(NODE2, node_vtable2)
     nodesize3 = cpu.sizeof(NODE3, node_vtable3)
     valuedescr = cpu.fielddescrof(NODE, 'value')
@@ -137,7 +156,7 @@ class LLtypeMixin(object):
     valuedescr3 = cpu.fielddescrof(NODE3, 'value')
     nextdescr3 = cpu.fielddescrof(NODE3, 'next')
     assert valuedescr3.is_always_pure()
-    otherdescr = cpu.fielddescrof(NODE2, 'other')
+    assert nextdescr3.is_always_pure()
 
     accessor = FieldListAccessor()
     accessor.initialize(None, {'inst_field': IR_QUASIIMMUTABLE})
@@ -180,6 +199,8 @@ class LLtypeMixin(object):
     immut_ptrval = cpu.fielddescrof(PTROBJ_IMMUT, 'ptrval')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
+    floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
+    arraydescr_tid = arraydescr.get_type_id()
     array = lltype.malloc(lltype.GcArray(lltype.Signed), 15, zero=True)
     arrayref = lltype.cast_opaque_ptr(llmemory.GCREF, array)
     array2 = lltype.malloc(lltype.GcArray(lltype.Ptr(S)), 15, zero=True)
@@ -187,12 +208,6 @@ class LLtypeMixin(object):
     gcarraydescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF))
     gcarraydescr_tid = gcarraydescr.get_type_id()
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
-    intarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
-    int32arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.INT))
-    int16arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.SHORT))
-    uintarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Unsigned))
-    chararraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Char))
-    singlefloatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.SingleFloat))
 
     # a GcStruct not inheriting from OBJECT
     tpl = lltype.malloc(S, zero=True)
@@ -203,7 +218,7 @@ class LLtypeMixin(object):
     adescr = cpu.fielddescrof(S, 'a')
     abisdescr = cpu.fielddescrof(S, 'abis')
     bdescr = cpu.fielddescrof(S, 'b')
-    sbox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(S)))
+    #sbox = BoxPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(S)))
     arraydescr2 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(S)))
 
     T = lltype.GcStruct('TUPLE',
@@ -388,15 +403,6 @@ class Fake(object):
     failargs_limit = 1000
     storedebug = None
 
-class FakeWarmState(object):
-    vec = True # default is on
-    vec_all = False
-    vec_cost = 0
-    def __init__(self, enable_opts):
-        self.enable_opts = enable_opts
-
-class FakeJitDriverStaticData(object):
-    vec = False
 
 class FakeMetaInterpStaticData(object):
 
@@ -409,7 +415,7 @@ class FakeMetaInterpStaticData(object):
 
     class logger_noopt:
         @classmethod
-        def log_loop(*args):
+        def log_loop(*args, **kwds):
             pass
 
     class logger_ops:
@@ -488,15 +494,7 @@ class BaseTest(object):
             metainterp_sd.virtualref_info = self.vrefinfo
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
-        jitdriver_sd = FakeJitDriverStaticData()
-        if hasattr(self, 'jitdriver_sd'):
-            jitdriver_sd = self.jitdriver_sd
-        warmstate = FakeWarmState(self.enable_opts)
         #
-        # XXX return optimize_trace(metainterp_sd, jitdriver_sd, loop, warmstate,
-        # XXX                       start_state=start_state,
-        # XXX                       export_state=export_state)
-
         compile_data.enable_opts = self.enable_opts
         state = optimize_trace(metainterp_sd, None, compile_data)
         return state
@@ -551,7 +549,6 @@ class BaseTest(object):
                 if box.type == 'r' and not box.is_constant():
                     box.setref_base(self.nodefulladdr)
 
-        return preamble
 
 
 class FakeDescr(compile.ResumeGuardDescr):

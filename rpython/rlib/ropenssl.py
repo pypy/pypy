@@ -29,7 +29,8 @@ includes += [
     'openssl/rand.h',
     'openssl/evp.h',
     'openssl/ossl_typ.h',
-    'openssl/x509v3.h']
+    'openssl/x509v3.h',
+    'openssl/comp.h']
 
 eci = ExternalCompilationInfo(
     libraries = libraries,

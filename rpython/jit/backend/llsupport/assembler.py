@@ -215,8 +215,7 @@ class BaseAssembler(object):
             self.codemap_builder.leave_portal_frame(op.getarg(0).getint(),
                                                     self.mc.get_relative_pos())
 
-    def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
-        self._store_force_index(guard_op)
+    def call_assembler(self, op, argloc, vloc, result_loc, tmploc):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         #
@@ -265,9 +264,6 @@ class BaseAssembler(object):
         #
         # Here we join Path A and Path B again
         self._call_assembler_patch_jmp(jmp_location)
-        # XXX here should be emitted guard_not_forced, but due
-        #     to incompatibilities in how it's done, we leave it for the
-        #     caller to deal with
 
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):

@@ -84,10 +84,6 @@ class XxxAbstractValue(object):
     def getfloat(self):
         return longlong.getrealfloat(self.getfloatstorage())
 
-    def getlonglong(self):
-        assert longlong.supports_longlong
-        return self.getfloatstorage()
-
     def getref_base(self):
         raise NotImplementedError
 
@@ -186,7 +182,7 @@ def newconst(value):
         return ConstInt(value)
     elif isinstance(value, bool):
         return ConstInt(int(value))
-    elif isinstance(value, float):
+    elif lltype.typeOf(value) == longlong.FLOATSTORAGE:
         return ConstFloat(value)
     else:
         assert lltype.typeOf(value) == llmemory.GCREF
@@ -285,6 +281,10 @@ class ConstFloat(Const):
     def __init__(self, valuestorage):
         assert lltype.typeOf(valuestorage) is longlong.FLOATSTORAGE
         self.value = valuestorage
+
+    @staticmethod
+    def fromfloat(x):
+        return ConstFloat(longlong.getfloatstorage(x))
 
     def getfloatstorage(self):
         return self.value
@@ -787,18 +787,19 @@ class TreeLoop(object):
                                   check_descr=check_descr)
         for op in self.operations:
             descr = op.getdescr()
-            if op.getopnum() == rop.LABEL and isinstance(descr, TargetToken):
+            if check_descr and op.getopnum() == rop.LABEL and isinstance(descr, TargetToken):
                 assert descr.original_jitcell_token is self.original_jitcell_token
 
     @staticmethod
     def check_consistency_of(inputargs, operations, check_descr=True):
         "NOT_RPYTHON"
         for box in inputargs:
-            assert isinstance(box, Box), "Loop.inputargs contains %r" % (box,)
-        seen = TreeLoop.seen_args(inputargs)
+            assert not isinstance(box, Const), "Loop.inputargs contains %r" % (box,)
+        seen = dict.fromkeys(inputargs)
         assert len(seen) == len(inputargs), (
                "duplicate Box in the Loop.inputargs")
-        TreeLoop.check_consistency_of_branch(operations, seen)
+        TreeLoop.check_consistency_of_branch(operations, seen,
+                                             check_descr=check_descr)
 
     @staticmethod
     def check_consistency_of_branch(operations, seen, check_descr=True):
@@ -814,10 +815,6 @@ class TreeLoop(object):
                     ops = op.getdescr()._debug_suboperations
                     TreeLoop.check_consistency_of_branch(ops, seen.copy())
                 for box in op.getfailargs() or []:
-                    TreeLoop.check_if_box_was_seen(box, seen)
-            else:
-                assert op.getfailargs() is None
-            box = op.result
             if box is not None:
                         assert not isinstance(box, Const)
                         assert box in seen
@@ -859,7 +856,6 @@ class TreeLoop(object):
     def __repr__(self):
         return '<%s>' % (self.name,)
 
-
 def _list_all_operations(result, operations, omit_finish=True):
     if omit_finish and operations[-1].getopnum() == rop.FINISH:
         # xxx obscure
@@ -887,12 +883,12 @@ class History(object):
         elif isinstance(value, bool):
             assert op.type == 'i'
             op.setint(int(value))
-        elif isinstance(value, float):
-            assert op.type == 'f'
-            op.setfloatstorage(value)
         elif lltype.typeOf(value) == lltype.Signed:
             assert op.type == 'i'
             op.setint(value)
+        elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
+            assert op.type == 'f'
+            op.setfloatstorage(value)
         else:
             assert lltype.typeOf(value) == llmemory.GCREF
             assert op.type == 'r'

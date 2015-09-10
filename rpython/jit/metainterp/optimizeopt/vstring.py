@@ -102,7 +102,8 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         newop.set_forwarded(self)
         op = optforce.get_box_replacement(op)
         op.set_forwarded(newop)
-        self.initialize_forced_string(op, optforce, op, CONST_0, self.mode)
+        optstring = optforce.optimizer.optstring
+        self.initialize_forced_string(op, optstring, op, CONST_0, self.mode)
         return newop
 
     def initialize_forced_string(self, op, string_optimizer, targetbox,
@@ -187,11 +188,9 @@ class VStringPlainInfo(StrPtrInfo):
 
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):
-        if not self.is_virtual():
-            # and not self.is_completely_initialized():
-            raise Exception("implement me")
-            return VAbstractStringValue.string_copy_parts(
-                self, string_optimizer, targetbox, offsetbox, mode)
+        if not self.is_virtual(): # and not self.is_completely_initialized():
+            return StrPtrInfo.string_copy_parts(self, op, string_optimizer,
+                                                targetbox, offsetbox, mode)
         else:
             return self.initialize_forced_string(op, string_optimizer,
                                                  targetbox, offsetbox, mode)
@@ -218,6 +217,9 @@ class VStringPlainInfo(StrPtrInfo):
 
 class VStringSliceInfo(StrPtrInfo):
     length = -1
+    start = None
+    lgtop = None
+    s = None
     
     def __init__(self, s, start, length, mode):
         self.s = s
@@ -266,6 +268,10 @@ class VStringSliceInfo(StrPtrInfo):
 
 class VStringConcatInfo(StrPtrInfo):
     #_attrs_ = ('mode', 'vleft', 'vright', '_is_virtual')
+
+    vleft = None
+    vright = None
+    _is_virtual = False
     
     def __init__(self, mode, vleft, vright, is_virtual):
         self.vleft = vleft
@@ -346,7 +352,8 @@ def copy_str_content(string_optimizer, srcbox, targetbox,
         # up to M characters are done "inline", i.e. with STRGETITEM/STRSETITEM
         # instead of just a COPYSTRCONTENT.
         for i in range(lgt.getint()):
-            charbox = _strgetitem(string_optimizer, srcbox, srcoffsetbox, mode)
+            charbox = string_optimizer.strgetitem(None, srcbox, srcoffsetbox,
+                                                  mode)
             srcoffsetbox = _int_add(string_optimizer, srcoffsetbox, CONST_1)
             assert not isinstance(targetbox, Const)# ConstPtr never makes sense
             string_optimizer.emit_operation(ResOperation(mode.STRSETITEM,
@@ -393,10 +400,13 @@ def _strgetitem(string_optimizer, strbox, indexbox, mode, resbox=None):
     if isinstance(strbox, ConstPtr) and isinstance(indexbox, ConstInt):
         if mode is mode_string:
             s = strbox.getref(lltype.Ptr(rstr.STR))
-            return ConstInt(ord(s.chars[indexbox.getint()]))
+            resnewbox = ConstInt(ord(s.chars[indexbox.getint()]))
         else:
             s = strbox.getref(lltype.Ptr(rstr.UNICODE))
-            return ConstInt(ord(s.chars[indexbox.getint()]))
+            resnewbox = ConstInt(ord(s.chars[indexbox.getint()]))
+        if resbox is not None:
+            string_optimizer.make_equal_to(resbox, resnewbox)
+        return resnewbox
     if resbox is None:
         resbox = ResOperation(mode.STRGETITEM, [strbox, indexbox])
     else:

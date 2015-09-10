@@ -31,11 +31,19 @@ class TestShortBoxes(object):
         assert len(short_boxes) == 3
         short_boxes.sort(key=str)
         # inputarg
-        assert short_boxes[0].short_op.res is i0
-        assert short_boxes[0].preamble_op is sb.short_inputargs[0]
+        for i in range(3):
+            if short_boxes[i].short_op.res is i0:
+                assert short_boxes[i].preamble_op is sb.short_inputargs[0]
+                break
+        else:
+            raise Exception("did not find!")
         # pure op
-        assert short_boxes[2].preamble_op.getarg(0) is sb.short_inputargs[0]
-        assert short_boxes[2].short_op.res is op
+        for i in range(3):
+            if short_boxes[2].preamble_op.getarg(0) is sb.short_inputargs[0]:
+                assert short_boxes[2].short_op.res is op
+                break
+        else:
+            raise Exception("did not find!")
 
     def test_pure_ops_does_not_work(self):
         i0 = InputArgInt()

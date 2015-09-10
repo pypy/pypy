@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 
 from rpython.jit.tool.oparser import parse, OpParser
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp.history import AbstractDescr, BoxInt, JitCellToken,\
+from rpython.jit.metainterp.history import AbstractDescr, JitCellToken,\
      TargetToken
 
 class BaseTestOparser(object):

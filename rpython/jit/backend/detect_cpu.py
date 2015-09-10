@@ -129,11 +129,15 @@ def getcpuclass(backend_name="auto"):
 
 
 def getcpufeatures(backend_name="auto"):
-    """NOT_RPYTHON"""
-    cpucls = getcpuclass(backend_name)
-    return [attr[len('supports_'):] for attr in dir(cpucls)
-                            if attr.startswith('supports_')
-                                and getattr(cpucls, attr)]
+    if backend_name == "auto":
+        backend_name = autodetect()
+    return {
+        MODEL_X86: ['floats', 'singlefloats', 'longlong'],
+        MODEL_X86_NO_SSE2: ['longlong'],
+        MODEL_X86_64: ['floats', 'singlefloats'],
+        MODEL_ARM: ['floats', 'singlefloats', 'longlong'],
+        MODEL_PPC_64: [], # we don't even have PPC directory, so no
+    }[backend_name]
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:

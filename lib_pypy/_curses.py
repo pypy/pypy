@@ -1026,16 +1026,22 @@ def start_color():
 
 def tigetflag(capname):
     _ensure_initialised_setupterm()
+    if isinstance(capname, unicode):
+        capname = capname.encode('ascii')
     return lib.tigetflag(capname)
 
 
 def tigetnum(capname):
     _ensure_initialised_setupterm()
+    if isinstance(capname, unicode):
+        capname = capname.encode('ascii')
     return lib.tigetnum(capname)
 
 
 def tigetstr(capname):
     _ensure_initialised_setupterm()
+    if isinstance(capname, unicode):
+        capname = capname.encode('ascii')
     val = lib.tigetstr(capname)
     if int(ffi.cast("intptr_t", val)) in (0, -1):
         return None

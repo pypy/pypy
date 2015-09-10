@@ -23,8 +23,9 @@ class FakeFieldDescr(AbstractDescr):
         self.fieldname = fieldname
 
 class FakeSizeDescr(AbstractDescr):
-    def __init__(self, STRUCT):
+    def __init__(self, STRUCT, vtable=None):
         self.STRUCT = STRUCT
+        self.vtable = vtable
 
 class FakeArrayDescr(AbstractDescr):
     def __init__(self, ARRAY):

@@ -42,7 +42,6 @@ class SizeDescr(AbstractDescr):
                  vtable=lltype.nullptr(rclass.OBJECT_VTABLE),
                  immutable_flag=False):
         self.size = size
-        self.count_fields_if_immut = count_fields_if_immut
         self.gc_fielddescrs = gc_fielddescrs
         self.all_fielddescrs = all_fielddescrs
         self.vtable = vtable
@@ -61,7 +60,14 @@ class SizeDescr(AbstractDescr):
     def is_immutable(self):
         return self.immutable_flag
 
-def get_size_descr(gccache, STRUCT):
+    def get_vtable(self):
+        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(self.vtable))
+
+    def get_type_id(self):
+        assert self.tid
+        return self.tid
+
+def get_size_descr(gccache, STRUCT, vtable=lltype.nullptr(rclass.OBJECT_VTABLE)):
     cache = gccache._cache_size
     assert not isinstance(vtable, bool)
     try:
@@ -489,6 +495,13 @@ class CallDescr(AbstractDescr):
         return self.arg_classes
 
     def get_result_type(self):
+        return self.result_type
+
+    def get_normalized_result_type(self):
+        if self.result_type == 'S':
+            return 'i'
+        if self.result_type == 'L':
+            return 'f'
         return self.result_type
 
     def get_result_size(self):

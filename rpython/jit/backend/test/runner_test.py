@@ -27,11 +27,8 @@ from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 IS_32_BIT = sys.maxint < 2**32
 IS_64_BIT = sys.maxint > 2**32
 
-def constfloat(x):
-    return ConstFloat(longlong.getfloatstorage(x))
-
-def boxfloat(x):
-    return InputArgFloat(longlong.getfloatstorage(x))
+boxfloat = InputArgFloat.fromfloat
+constfloat = ConstFloat.fromfloat
 
 def clone(op):
     if op.type == 'i':
@@ -421,6 +418,8 @@ class BaseBackendTest(Runner):
         from rpython.jit.metainterp.test.test_executor import get_float_tests
         for opnum, boxargs, rettype, retvalue in get_float_tests(self.cpu):
             res = self.execute_operation(opnum, boxargs, rettype)
+            if rettype == 'float':
+                res = longlong.getrealfloat(res)
             assert res == retvalue
 
     def test_ovf_operations(self, reversed=False):
@@ -563,7 +562,7 @@ class BaseBackendTest(Runner):
             res = self.execute_operation(rop.CALL_F,
                                          [funcbox] + args,
                                          'float', descr=calldescr)
-            assert abs(res - 4.6) < 0.0001
+            assert abs(longlong.getrealfloat(res) - 4.6) < 0.0001
 
     def test_call_many_arguments(self):
         # Test calling a function with a large number of arguments (more than
@@ -648,7 +647,7 @@ class BaseBackendTest(Runner):
         res = self.execute_operation(rop.CALL_F, [funcbox, constfloat(1.5),
                                                 constfloat(2.5)], 'float',
                                      descr=calldescr)
-        assert res == 4.0
+        assert longlong.getrealfloat(res) == 4.0
 
 
     def test_field_basic(self):
@@ -706,13 +705,13 @@ class BaseBackendTest(Runner):
                                    'void', descr=floatdescr)
             res = self.execute_operation(rop.GETFIELD_GC_F, [t_box],
                                          'float', descr=floatdescr)
-            assert res == 3.4
+            assert longlong.getrealfloat(res) == 3.4
             #
             self.execute_operation(rop.SETFIELD_GC, [t_box, constfloat(-3.6)],
                                    'void', descr=floatdescr)
             res = self.execute_operation(rop.GETFIELD_GC_F, [t_box],
                                          'float', descr=floatdescr)
-            assert res == -3.6
+            assert longlong.getrealfloat(res) == -3.6
 
 
     def test_passing_guards(self):
@@ -933,10 +932,10 @@ class BaseBackendTest(Runner):
                                    'void', descr=arraydescr)
             r = self.execute_operation(rop.GETARRAYITEM_GC_F, [a_box, InputArgInt(1)],
                                        'float', descr=arraydescr)
-            assert r == 3.5
+            assert longlong.getrealfloat(r) == 3.5
             r = self.execute_operation(rop.GETARRAYITEM_GC_F, [a_box, InputArgInt(2)],
                                        'float', descr=arraydescr)
-            assert r == 4.5
+            assert longlong.getrealfloat(r) == 4.5
 
         # For platforms where sizeof(INT) != sizeof(Signed) (ie, x86-64)
         a_box, A = self.alloc_array_of(rffi.INT, 342)
@@ -979,7 +978,7 @@ class BaseBackendTest(Runner):
         self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, longlong.getfloatstorage(2.5), kdescr)
         r = self.execute_operation(rop.GETINTERIORFIELD_GC_F, [a_box, InputArgInt(3)],
                                    'float', descr=kdescr)
-        assert r == 2.5
+        assert longlong.getrealfloat(r) == 2.5
         #
         NUMBER_FIELDS = [('vs', lltype.Signed),
                          ('vu', lltype.Unsigned),
@@ -1073,12 +1072,12 @@ class BaseBackendTest(Runner):
                             r_box = self.alloc_string("!???????!")
                             if r_box_is_const:
                                 r_box = wrap_constant(r_box.getref_base())
-                                self.execute_operation(rop.COPYSTRCONTENT,
-                                                       [s_box, r_box,
-                                                        srcstart_box,
-                                                        dststart_box,
-                                                        length_box], 'void')
-                                assert self.look_string(r_box) == "!??cdef?!"
+                            self.execute_operation(rop.COPYSTRCONTENT,
+                                                   [s_box, r_box,
+                                                    srcstart_box,
+                                                    dststart_box,
+                                                    length_box], 'void')
+                            assert self.look_string(r_box) == "!??cdef?!"
 
     def test_copyunicodecontent(self):
         s_box = self.alloc_unicode(u"abcdef")
@@ -1090,12 +1089,12 @@ class BaseBackendTest(Runner):
                             r_box = self.alloc_unicode(u"!???????!")
                             if r_box_is_const:
                                 r_box = wrap_constant(r_box.getref_base())
-                                self.execute_operation(rop.COPYUNICODECONTENT,
-                                                       [s_box, r_box,
-                                                        srcstart_box,
-                                                        dststart_box,
-                                                        length_box], 'void')
-                                assert self.look_unicode(r_box) == u"!??cdef?!"
+                            self.execute_operation(rop.COPYUNICODECONTENT,
+                                                   [s_box, r_box,
+                                                    srcstart_box,
+                                                    dststart_box,
+                                                    length_box], 'void')
+                            assert self.look_unicode(r_box) == u"!??cdef?!"
 
     def test_do_unicode_basic(self):
         u = self.cpu.bh_newunicode(5)
@@ -1133,9 +1132,9 @@ class BaseBackendTest(Runner):
 
         if self.cpu.supports_floats:
             r = self.execute_operation(rop.SAME_AS_F, [constfloat(5.5)], 'float')
-            assert r == 5.5
+            assert longlong.getrealfloat(r) == 5.5
             r = self.execute_operation(rop.SAME_AS_F, [boxfloat(5.5)], 'float')
-            assert r == 5.5
+            assert longlong.getrealfloat(r) == 5.5
 
     def test_virtual_ref(self):
         pass   # VIRTUAL_REF must not reach the backend nowadays
@@ -1665,6 +1664,8 @@ class BaseBackendTest(Runner):
                     expectedtype = 'int'
                 got = self.execute_operation(opnum, inputargs,
                                              expectedtype)
+                if not isinstance(expected, bool):
+                    got = longlong.getrealfloat(got)
                 if isnan(expected):
                     ok = isnan(got)
                 elif isinf(expected):
@@ -1766,9 +1767,9 @@ class BaseBackendTest(Runner):
             wait_a_bit()
             res2 = self.execute_operation(rop.CALL_I, [funcbox], 'int', calldescr)
         else:
-            res1 = self.execute_operation(rop.CALL_I, [funcbox],'float',calldescr)
+            res1 = self.execute_operation(rop.CALL_F, [funcbox],'float',calldescr)
             wait_a_bit()
-            res2 = self.execute_operation(rop.CALL_I, [funcbox],'float',calldescr)
+            res2 = self.execute_operation(rop.CALL_F, [funcbox],'float',calldescr)
         assert res1 < res2 < res1 + 2**32
 
 
@@ -1803,8 +1804,11 @@ class LLtypeBackendTest(BaseBackendTest):
 
 
     def alloc_instance(self, T):
-        vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
-        vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
+        if hasattr(T, 'parent'):
+            vtable_for_T = lltype.malloc(self.MY_VTABLE, immortal=True)
+            vtable_for_T_addr = llmemory.cast_ptr_to_adr(vtable_for_T)
+        else:
+            vtable_for_T = lltype.nullptr(rclass.OBJECT_VTABLE)
         cpu = self.cpu
         class FakeGCCache(object):
             pass
@@ -1826,11 +1830,12 @@ class LLtypeBackendTest(BaseBackendTest):
         elif T == self.U:
             t.parent.parent.parent.typeptr = vtable_for_T
         t_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, t))
-        T_box = ConstInt(heaptracker.adr2int(vtable_for_T_addr))
         if not hasattr(T, 'parent'):
-            vtable = None
+            vtable = lltype.nullptr(rclass.OBJECT_VTABLE)
+            T_box = None
         else:
             vtable = vtable_for_T
+            T_box = ConstInt(heaptracker.adr2int(vtable_for_T_addr))
         descr = cpu.sizeof(T, vtable)
         return t_box, T_box, descr
 
@@ -1929,7 +1934,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_new_plain_struct(self):
         cpu = self.cpu
         S = lltype.GcStruct('S', ('x', lltype.Char), ('y', lltype.Char))
-        sizedescr = cpu.sizeof(S, None)
+        sizedescr = cpu.sizeof(S)
         r1 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
         r2 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
         assert r1 != r2
@@ -2243,7 +2248,7 @@ class LLtypeBackendTest(BaseBackendTest):
                     value |= 32768
                 assert s.data.tid == value
 
-    def test_cond_call(self):
+    def test_cond_call_1(self):
         def func_void(*args):
             called.append(args)
 
@@ -2279,6 +2284,52 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert self.cpu.get_int_value(frame, j + 1) == j + 1
             assert longlong.getrealfloat(self.cpu.get_float_value(frame, 6)) == 1.2
             assert longlong.getrealfloat(self.cpu.get_float_value(frame, 7)) == 3.4
+
+    def test_cond_call_2(self):
+        def func_void(*args):
+            called.append(args)
+
+        FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Void)
+        func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
+
+        for (operation, arg1, arg2_if_true, arg2_if_false) in [
+                ('int_lt', -5, 2, -5),
+                ('int_le', 5, 5, -6),
+                ('int_eq', 11, 11, 12),
+                ('int_ne', 11, 12, 11),
+                ('int_gt', 8, -1, 8),
+                ('int_xor', 7, 3, 7),    # test without a comparison at all
+                ('int_is_true', 4242, 1, 0),
+                ('int_is_zero', 4242, 0, 1),
+                ('float_lt', -0.5, 0.2, -0.5),
+                ('float_eq', 1.1, 1.1, 1.2),
+                ]:
+            called = []
+
+            ops = '''
+            [%s, %s, i3, i4]
+            i2 = %s(%s)
+            cond_call(i2, ConstClass(func_ptr), i3, i4, descr=calldescr)
+            guard_no_exception(descr=faildescr) []
+            finish()
+            ''' % ("i0" if operation.startswith('int') else "f0",
+                   "i1" if operation.startswith('int') else "f1",
+                   operation,
+                   ("i1" if operation.startswith('int_is_') else
+                    "i0, i1" if operation.startswith('int') else
+                    "f0, f1"))
+            loop = parse(ops, namespace={'func_ptr': func_ptr,
+                                         'calldescr': calldescr,
+                                         'faildescr': BasicFailDescr()})
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            frame = self.cpu.execute_token(looptoken, arg1, arg2_if_false, 0, 0)
+            assert called == []
+            frame = self.cpu.execute_token(looptoken, arg1, arg2_if_true,
+                                           67, 89)
+            assert called == [(67, 89)]
 
     def test_force_operations_returning_void(self):
         values = []
@@ -3412,11 +3463,12 @@ class LLtypeBackendTest(BaseBackendTest):
         #    descrfld_ry)
         #assert rs.y == a
         #
-        descrsize = cpu.sizeof(S, None)
+        descrsize = cpu.sizeof(S)
         x = cpu.bh_new(descrsize)
         lltype.cast_opaque_ptr(lltype.Ptr(S), x)    # type check
         #
-        _, T, descrsize2 = self.alloc_instance(rclass.OBJECT)
+        X = lltype.GcStruct('X', ('parent', rclass.OBJECT))
+        _, T, descrsize2 = self.alloc_instance(X)
         x = cpu.bh_new_with_vtable(descrsize2)
         lltype.cast_opaque_ptr(lltype.Ptr(rclass.OBJECT), x)    # type check
         # well...
@@ -4009,9 +4061,10 @@ class LLtypeBackendTest(BaseBackendTest):
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                          EffectInfo.MOST_GENERAL)
         funcbox = self.get_funcbox(self.cpu, f)
-        res = self.execute_operation(rop.CALL, [funcbox, BoxFloat(value)],
+        res = self.execute_operation(rop.CALL_F,
+                                     [funcbox, InputArgFloat(value)],
                                      'float', descr=calldescr)
-        assert res.getfloatstorage() == expected
+        assert res == expected
 
     def test_singlefloat_result_of_call_direct(self):
         if not self.cpu.supports_singlefloats:
@@ -4128,7 +4181,7 @@ class LLtypeBackendTest(BaseBackendTest):
             res = self.execute_operation(rop.CALL_F,
                         [funcbox, boxfloat(arg)],
                          'float', descr=calldescr)
-            assert res == expected
+            assert longlong.getrealfloat(res) == expected
 
     def test_compile_loop_with_target(self):
         looptoken = JitCellToken()
@@ -4748,8 +4801,8 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("llgraph can't do zero_ptr_field")
         T = lltype.GcStruct('T')
         S = lltype.GcStruct('S', ('x', lltype.Ptr(T)))
-        tdescr = self.cpu.sizeof(T, None)
-        sdescr = self.cpu.sizeof(S, None)
+        tdescr = self.cpu.sizeof(T)
+        sdescr = self.cpu.sizeof(S)
         fielddescr = self.cpu.fielddescrof(S, 'x')
         loop = parse("""
         []
@@ -4840,6 +4893,9 @@ class LLtypeBackendTest(BaseBackendTest):
         c_typeid = ConstInt(descr.get_type_id())
         self.execute_operation(rop.GUARD_GC_TYPE, [t_box, c_typeid], 'void')
         assert not self.guard_failed
+        #
+        got_typeid = self.cpu.get_actual_typeid(t_box.getref_base())
+        assert got_typeid == c_typeid.getint()
 
     def test_passing_guard_gc_type_array(self):
         if not self.cpu.supports_guard_gc_type:
@@ -4849,6 +4905,9 @@ class LLtypeBackendTest(BaseBackendTest):
         c_typeid = ConstInt(arraydescr.get_type_id())
         self.execute_operation(rop.GUARD_GC_TYPE, [a_box, c_typeid], 'void')
         assert not self.guard_failed
+        #
+        got_typeid = self.cpu.get_actual_typeid(a_box.getref_base())
+        assert got_typeid == c_typeid.getint()
 
     def test_failing_guard_gc_type(self):
         if not self.cpu.supports_guard_gc_type:
@@ -4867,23 +4926,29 @@ class LLtypeBackendTest(BaseBackendTest):
                              ]:
             assert self.execute_operation(opname, args, 'void') == None
             assert self.guard_failed
+            #
+            got_typeid = self.cpu.get_actual_typeid(args[0].getref_base())
+            assert got_typeid != args[1].getint()
 
     def test_guard_is_object(self):
         if not self.cpu.supports_guard_gc_type:
             py.test.skip("guard_gc_type not available")
         t_box, _, _ = self.alloc_instance(self.T)
         self.execute_operation(rop.GUARD_IS_OBJECT, [t_box], 'void')
-        #
         assert not self.guard_failed
+        assert self.cpu.check_is_object(t_box.getref_base())
+        #
         a_box, _ = self.alloc_array_of(rffi.SHORT, 342)
         self.execute_operation(rop.GUARD_IS_OBJECT, [a_box], 'void')
         assert self.guard_failed
+        assert not self.cpu.check_is_object(a_box.getref_base())
         #
         S = lltype.GcStruct('S')
         s = lltype.malloc(S, immortal=True, zero=True)
         s_box = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, s))
         self.execute_operation(rop.GUARD_IS_OBJECT, [s_box], 'void')
         assert self.guard_failed
+        assert not self.cpu.check_is_object(s_box.getref_base())
 
     def test_guard_subclass(self):
         if not self.cpu.supports_guard_gc_type:

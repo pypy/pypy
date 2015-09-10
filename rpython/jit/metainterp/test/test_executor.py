@@ -63,11 +63,9 @@ class FakeCPU(AbstractCPU):
     def bh_strsetitem(self, string, index, newvalue):
         self.fakestrsetitem = (string, index, newvalue)
 
-def boxfloat(x):
-    return InputArgFloat(longlong.getfloatstorage(x))
 
-def constfloat(x):
-    return ConstFloat(longlong.getfloatstorage(x))
+boxfloat = InputArgFloat.fromfloat
+constfloat = ConstFloat.fromfloat
 
 
 def test_execute():
@@ -84,7 +82,7 @@ def test_execute_varargs():
     argboxes = [InputArgInt(99999), InputArgInt(321), constfloat(2.25), ConstInt(123),
                 InputArgRef(), boxfloat(5.5)]
     box = execute_varargs(cpu, FakeMetaInterp(), rop.CALL_F, argboxes, descr)
-    assert box == 42.5
+    assert longlong.getrealfloat(box) == 42.5
     assert cpu.fakecalled == (99999, [321, 123],
                               [ConstPtr.value],
                               [longlong.getfloatstorage(2.25),
@@ -99,7 +97,7 @@ def test_execute_nonspec():
     argboxes = [InputArgInt(321), ConstInt(123)]
     box = _execute_arglist(cpu, FakeMetaInterp(), rop.CALL_F,
                            argboxes, FakeCallDescr())
-    assert box == 42.5
+    assert longlong.getrealfloat(box) == 42.5
     # arity == 0
     box = _execute_arglist(cpu, None, rop.NEW, [], descr)
     assert box.fakeargs == ('new', descr)
@@ -298,7 +296,7 @@ def get_float_tests(cpu):
         boxargs = []
         for x in args:
             if isinstance(x, float):
-                boxargs.append(InputArgFloat(x))
+                boxargs.append(boxfloat(x))
             else:
                 boxargs.append(InputArgInt(x))
         yield opnum, boxargs, rettype, retvalue
@@ -309,13 +307,15 @@ def get_float_tests(cpu):
             if (isinstance(args[0], float) and
                 isinstance(args[1], float) and
                 args[0] == args[1]):
-                commonbox = InputArgFloat(args[0])
+                commonbox = boxfloat(args[0])
                 yield opnum, [commonbox, commonbox], rettype, retvalue
 
 def test_float_ops():
     cpu = FakeCPU()
     for opnum, boxargs, rettype, retvalue in get_float_tests(cpu):
         res = _execute_arglist(cpu, None, opnum, boxargs)
+        if rettype == 'float':
+            res = longlong.getrealfloat(res)
         assert res == retvalue
 
 def make_args_for_op(op, a, b):

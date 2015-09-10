@@ -2,9 +2,9 @@ import py, weakref
 from rpython.jit.backend import model
 from rpython.jit.backend.llgraph import support
 from rpython.jit.backend.llsupport import symbolic
-from rpython.jit.metainterp.history import AbstractDescr, BoxVector
-from rpython.jit.metainterp.history import Const, getkind, Box
-from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID, VECTOR
+from rpython.jit.metainterp.history import AbstractDescr
+from rpython.jit.metainterp.history import Const, getkind
+from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import intbounds
 from rpython.jit.codewriter import longlong, heaptracker
@@ -16,6 +16,7 @@ from rpython.rtyper import rclass
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
+from rpython.rlib.objectmodel import Symbolic
 
 class LLAsmInfo(object):
     def __init__(self, lltrace):
@@ -30,7 +31,9 @@ class LLTrace(object):
         # We need to clone the list of operations because the
         # front-end will mutate them under our feet again.  We also
         # need to make sure things get freed.
-        def mapping(box, _cache={}):
+        _cache={}
+        
+        def mapping(box):
             if isinstance(box, Const) or box is None:
                 return box
             try:
@@ -53,8 +56,8 @@ class LLTrace(object):
                 newdescr = None
             newop = op.copy_and_change(op.getopnum(),
                                        map(mapping, op.getarglist()),
-                                       mapping(op.result),
                                        newdescr)
+            _cache[op] = newop
             if op.getfailargs() is not None:
                 newop.setfailargs(map(mapping, op.getfailargs()))
             self.operations.append(newop)
@@ -93,15 +96,45 @@ class CallDescr(AbstractDescr):
     def get_result_type(self):
         return getkind(self.RESULT)[0]
 
+    get_normalized_result_type = get_result_type
+
+class TypeIDSymbolic(Symbolic):
+    def __init__(self, STRUCT_OR_ARRAY):
+        self.STRUCT_OR_ARRAY = STRUCT_OR_ARRAY
+
+    def __eq__(self, other):
+        return self.STRUCT_OR_ARRAY is other.STRUCT_OR_ARRAY
+
+    def __ne__(self, other):
+        return not self == other
+
 class SizeDescr(AbstractDescr):
-    def __init__(self, S):
+    def __init__(self, S, vtable, runner):
+        assert not isinstance(vtable, bool)
+        self.S = S
+        self._vtable = vtable
+        self._is_object = bool(vtable)
+        self._runner = runner
+
+    def get_all_fielddescrs(self):
+        return self.all_fielddescrs
+
+    def is_object(self):
         self.S = S
 
-    def as_vtable_size_descr(self):
-        return self
+    def get_vtable(self):
+        assert self._vtable is not None
+        if self._vtable is Ellipsis:
+            self._vtable = heaptracker.get_vtable_for_gcstruct(self._runner,
+                                                               self.S)
+        return heaptracker.adr2int(llmemory.cast_ptr_to_adr(self._vtable))
 
-    def count_fields_if_immutable(self):
-        return heaptracker.count_fields_if_immutable(self.S)
+    def is_immutable(self):
+        return heaptracker.is_immutable_struct(self.S)
+
+    def get_type_id(self):
+        assert isinstance(self.S, lltype.GcStruct)
+        return TypeIDSymbolic(self.S)     # integer-like symbolic
 
     def __repr__(self):
         return 'SizeDescr(%r)' % (self.S,)
@@ -111,9 +144,20 @@ class FieldDescr(AbstractDescr):
         self.S = S
         self.fieldname = fieldname
         self.FIELD = getattr(S, fieldname)
+        self.index = heaptracker.get_fielddescr_index_in(S, fieldname)
+        self._is_pure = S._immutable_field(fieldname)
+
+    def is_always_pure(self):
+        return self._is_pure
+
+    def get_parent_descr(self):
+        return self.parent_descr
 
     def get_vinfo(self):
         return self.vinfo
+
+    def get_index(self):
+        return self.index
 
     def __repr__(self):
         return 'FieldDescr(%r, %r)' % (self.S, self.fieldname)
@@ -424,7 +468,7 @@ class LLGraphCPU(model.AbstractCPU):
             self.descrs[key] = descr
             return descr
 
-    def sizeof(self, S, vtable):
+    def sizeof(self, S, vtable=lltype.nullptr(rclass.OBJECT_VTABLE)):
         key = ('size', S)
         try:
             descr = self.descrs[key]
@@ -506,6 +550,22 @@ class LLGraphCPU(model.AbstractCPU):
             descr = CallDescr(RESULT, ARGS, extrainfo, ABI=cif_description.abi)
             self.descrs[key] = descr
             return descr
+
+    def check_is_object(self, gcptr):
+        """Check if the given, non-null gcptr refers to an rclass.OBJECT
+        or not at all (an unrelated GcStruct or a GcArray).  Only usable
+        in the llgraph backend, or after translation of a real backend."""
+        ptr = lltype.normalizeptr(gcptr._obj.container._as_ptr())
+        T = lltype.typeOf(ptr).TO
+        return heaptracker.has_gcstruct_a_vtable(T) or T is rclass.OBJECT
+
+    def get_actual_typeid(self, gcptr):
+        """Fetch the actual typeid of the given gcptr, as an integer.
+        Only usable in the llgraph backend, or after translation of a
+        real backend.  (Here in the llgraph backend, returns a
+        TypeIDSymbolic instead of a real integer.)"""
+        ptr = lltype.normalizeptr(gcptr._obj.container._as_ptr())
+        return TypeIDSymbolic(lltype.typeOf(ptr).TO)
 
     # ------------------------------------------------------------
 

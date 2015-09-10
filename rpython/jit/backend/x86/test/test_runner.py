@@ -215,7 +215,7 @@ class TestX86(LLtypeBackendTest):
                              ('c2', lltype.Char),
                              ('c3', lltype.Char))
         res = InputArgRef(self.execute_operation(rop.NEW, [],
-                                     'ref', self.cpu.sizeof(TP, None)))
+                                     'ref', self.cpu.sizeof(TP)))
         ofs_s = self.cpu.fielddescrof(TP, 's')
         ofs_i = self.cpu.fielddescrof(TP, 'i')
         #ofs_f = self.cpu.fielddescrof(TP, 'f')
@@ -481,10 +481,6 @@ class TestX86(LLtypeBackendTest):
             funcbox = ConstInt(rawstart)
             i1 = InputArgInt()
             i2 = InputArgInt()
-            i3 = InputArgInt()
-            i4 = InputArgInt()
-            i5 = InputArgInt()
-            i6 = InputArgInt()
             c = ConstInt(-1)
             faildescr = BasicFailDescr(1)
             cz = ConstInt(0)
@@ -493,29 +489,35 @@ class TestX86(LLtypeBackendTest):
             # then we are going to get our stack emptied unexpectedly by
             # several repeated calls
             ops = [
-            ResOperation(rop.CALL_RELEASE_GIL,
+            ResOperation(rop.CALL_RELEASE_GIL_I,
                          [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
-                         i3, descr=calldescr),
-            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                         descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
 
-            ResOperation(rop.CALL_RELEASE_GIL,
+            ResOperation(rop.CALL_RELEASE_GIL_I,
                          [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
-                         i4, descr=calldescr),
-            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                         descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
 
-            ResOperation(rop.CALL_RELEASE_GIL,
+            ResOperation(rop.CALL_RELEASE_GIL_I,
                          [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
-                         i5, descr=calldescr),
-            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                         descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
 
-            ResOperation(rop.CALL_RELEASE_GIL,
+            ResOperation(rop.CALL_RELEASE_GIL_I,
                          [cz, funcbox, i1, c, c, c, c, c, c, c, c, i2],
-                         i6, descr=calldescr),
-            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                         descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
+            ]
+            i3 = ops[0]
+            i4 = ops[2]
+            i5 = ops[4]
+            i6 = ops[6]
 
-            ResOperation(rop.GUARD_FALSE, [i3], None,
+            ops += [
+            ResOperation(rop.GUARD_FALSE, [i3],
                          descr=BasicFailDescr(0)),
-            ResOperation(rop.FINISH, [], None,
+            ResOperation(rop.FINISH, [],
                          descr=BasicFinalDescr(1))
             ]
             ops[-2].setfailargs([i3, i4, i5, i6])

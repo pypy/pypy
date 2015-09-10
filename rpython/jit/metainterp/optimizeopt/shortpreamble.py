@@ -17,6 +17,7 @@ class PreambleOp(AbstractResOp):
 
     See force_op_from_preamble for details how the extra things are put.
     """
+    op = None
     
     def __init__(self, op, preamble_op, invented_name):
         self.op = op
@@ -24,15 +25,23 @@ class PreambleOp(AbstractResOp):
         self.invented_name = invented_name
 
     def numargs(self):
+        if self.op is None:
+            return 0
         return self.op.numargs()
 
     def getarglist(self):
+        if self.op is None:
+            return []
         return self.op.getarglist()
 
     def getarg(self, i):
+        if self.op is None:
+            return None
         return self.op.getarg(i)
 
     def getdescr(self):
+        if self.op is None:
+            return None
         return self.op.getdescr()
 
     def __repr__(self):
@@ -73,6 +82,10 @@ class HeapOp(AbstractShortOp):
             cf = optheap.arrayitem_cache(descr, index)
             opinfo.setitem(self.getfield_op.getdescr(), index, self.res,
                            pop, cf, optheap=optheap)
+
+    def repr(self, memo):
+        return "HeapOp(%s, %s)" % (self.res.repr(memo),
+                                   self.getfield_op.repr(memo))
 
     def add_op_to_short(self, sb):
         sop = self.getfield_op
@@ -125,6 +138,9 @@ class PureOp(AbstractShortOp):
             opnum = op.getopnum()
         return ProducedShortOp(self, op.copy_and_change(opnum, args=arglist))
 
+    def repr(self, memo):
+        return "PureOp(%s)" % (self.res.repr(memo),)
+
     def __repr__(self):
         return "PureOp(%r)" % (self.res,)
 
@@ -152,6 +168,9 @@ class LoopInvariantOp(AbstractShortOp):
         opnum = OpHelpers.call_loopinvariant_for_descr(op.getdescr())
         return ProducedShortOp(self, op.copy_and_change(opnum, args=arglist))
 
+    def repr(self, memo):
+        return "LoopInvariantOp(%s)" % (self.res.repr(memo),)
+
     def __repr__(self):
         return "LoopInvariantOp(%r)" % (self.res,)
 
@@ -174,6 +193,11 @@ class CompoundOp(AbstractShortOp):
                 l.append(pop)
         return l
 
+    def repr(self, memo):
+        return "CompoundOp(%s, %s, %s)" % (self.res.repr(memo),
+                                           self.one.repr(memo),
+                                           self.two.repr(memo))
+
 class AbstractProducedShortOp(object):
     pass
 
@@ -187,6 +211,9 @@ class ProducedShortOp(AbstractProducedShortOp):
     def produce_op(self, opt, exported_infos):
         self.short_op.produce_op(opt, self.preamble_op, exported_infos,
                                  invented_name=self.invented_name)
+
+    def repr(self, memo):
+        return self.short_op.repr(memo)
 
     def __repr__(self):
         return "%r -> %r" % (self.short_op, self.preamble_op)
@@ -204,6 +231,9 @@ class ShortInputArg(AbstractShortOp):
 
     def produce_op(self, opt, preamble_op, exported_infos, invented_name):
         assert not invented_name
+
+    def repr(self, memo):
+        return "INP(%s)" % (self.res.repr(memo),)
 
     def __repr__(self):
         return "INP(%r -> %r)" % (self.res, self.preamble_op)

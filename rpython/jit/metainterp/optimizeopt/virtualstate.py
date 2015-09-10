@@ -13,9 +13,6 @@ LEVEL_NONNULL = '\x01'
 LEVEL_KNOWNCLASS = '\x02'
 LEVEL_CONSTANT = '\x03'
 
-class BadVirtualState(Exception):
-    pass
-
 class VirtualStatesCantMatch(Exception):
     def __init__(self, msg='?', state=None):
         self.msg = msg
@@ -167,6 +164,8 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
                 fieldbox = None
                 fieldbox_runtime = None
             if self.fieldstate[i] is not None:
+                if other.fieldstate[i] is None:
+                    raise VirtualStatesCantMatch
                 self.fieldstate[i].generate_guards(other.fieldstate[i],
                                                    fieldbox,
                                                    fieldbox_runtime, state)
@@ -179,7 +178,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         box = optimizer.get_box_replacement(box)
         info = optimizer.getptrinfo(box)
         if info is None or not info.is_virtual():
-            raise BadVirtualState()
+            raise VirtualStatesCantMatch()
         else:
             assert isinstance(info, AbstractStructPtrInfo)
         for i in range(len(self.fielddescrs)):
@@ -247,16 +246,19 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
                 fieldbox = opinfo._items[i]
                 fieldbox_runtime = state.get_runtime_item(runtime_box,
                                             self.arraydescr, i)
-            self.fieldstate[i].generate_guards(other.fieldstate[i],
+            if self.fieldstate[i] is not None:
+                if other.fieldstate[i] is None:
+                    raise VirtualStatesCantMatch
+                self.fieldstate[i].generate_guards(other.fieldstate[i],
                                             fieldbox, fieldbox_runtime, state)
 
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         box = optimizer.get_box_replacement(box)
         info = optimizer.getptrinfo(box)
         if info is None or not info.is_virtual():
-            raise BadVirtualState()
+            raise VirtualStatesCantMatch()
         if len(self.fieldstate) > info.getlength():
-            raise BadVirtualState
+            raise VirtualStatesCantMatch
         for i in range(len(self.fieldstate)):
             fieldbox = info.getitem(self.arraydescr, i)
             s = self.fieldstate[i]
@@ -306,6 +308,8 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
                 fieldstate = self.fieldstate[index]
                 if fieldstate is None:
                     continue
+                if other.fieldstate[index] is None:
+                    raise VirtualStatesCantMatch
                 if box is not None and opinfo is not None:
                     fieldbox = opinfo._items[index]
                     fieldbox_runtime = state.get_runtime_interiorfield(
@@ -321,11 +325,11 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
     def enum_forced_boxes(self, boxes, box, optimizer, force_boxes=False):
         opinfo = optimizer.getptrinfo(box)
         if not isinstance(opinfo, ArrayStructInfo):
-            raise BadVirtualState
+            raise VirtualStatesCantMatch
         if not opinfo.is_virtual():
-            raise BadVirtualState
+            raise VirtualStatesCantMatch
         #if len(self.fielddescrs) > len(value._items):
-        #    raise BadVirtualState
+        #    raise VirtualStatesCantMatch
         for i in range(self.length):
             for descr in self.fielddescrs:
                 index = i * len(self.fielddescrs) + descr.get_index()
@@ -334,7 +338,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
                                         descr.get_index()]
                 if fieldstate is None:
                     if itembox is not None:
-                        raise BadVirtualState
+                        raise VirtualStatesCantMatch
                     continue
                 # I think itembox must be present here
                 if fieldstate.position > self.position:
@@ -501,7 +505,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                     if force_boxes:
                         info.force_box(box, optimizer)
                     else:
-                        raise BadVirtualState
+                        raise VirtualStatesCantMatch
         boxes[self.position_in_notvirtuals] = box
 
     def _enum(self, virtual_state):
