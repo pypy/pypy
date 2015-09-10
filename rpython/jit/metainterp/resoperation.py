@@ -63,6 +63,9 @@ class AbstractValue(object):
     def reset_value(self):
         pass
 
+    def is_inputarg(self):
+        return False
+
 def ResOperation(opnum, args, descr=None):
     cls = opclasses[opnum]
     op = cls()
@@ -99,7 +102,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
     boolreflex = -1
     boolinverse = -1
     vector = -1
-    # XXX
     casts = ('\x00', -1, '\x00', -1)
 
     def getopnum(self):
@@ -428,14 +430,6 @@ class GuardResOp(ResOpWithDescr):
         newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
 
-    def clone(self):
-        newop = AbstractResOp.clone(self)
-        assert isinstance(newop, GuardResOp)
-        newop.setfailargs(self.getfailargs())
-        newop.rd_snapshot = self.rd_snapshot
-        newop.rd_frame_info_list = self.rd_frame_info_list
-        return newop
-
 # ===========
 # type mixins
 # ===========
@@ -634,7 +628,10 @@ class AbstractInputArg(AbstractResOpOrInputArg):
 
     def forget_value(self):
         pass
-    
+
+    def is_inputarg(self):
+        return True
+
 class InputArgInt(IntOp, AbstractInputArg):
     def __init__(self, intval=0):
         self.setint(intval)

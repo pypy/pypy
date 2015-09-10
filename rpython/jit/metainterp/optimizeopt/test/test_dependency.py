@@ -6,6 +6,7 @@ from rpython.jit.metainterp.optimizeopt.test.test_util import (
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, Dependency,
         IndexVar, MemoryRef, Node)
+from rpython.jit.metainterp.optimizeopt.vector import TraceLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.llgraph.runner import ArrayDescr
 from rpython.rtyper.lltypesystem import rffi
@@ -28,10 +29,9 @@ class DependencyBaseTest(BaseTest):
     def parse_loop(self, ops):
         loop = self.parse(ops, postprocess=self.postprocess)
         token = JitCellToken()
-        loop.operations = [ResOperation(rop.LABEL, loop.inputargs,
-                                   descr=TargetToken(token))] + loop.operations
-        if loop.operations[-1].getopnum() == rop.JUMP:
-            loop.operations[-1].setdescr(token)
+        label = ResOperation(rop.LABEL, loop.inputargs, descr=TargetToken(token))
+        loop = TraceLoop(label, loop.operations[:-1], loop.operations[-1])
+        loop.jump.setdescr(token)
         return loop
 
     def assert_edges(self, graph, edge_list, exceptions):
@@ -39,13 +39,17 @@ class DependencyBaseTest(BaseTest):
         adding None instead of a list of integers skips the test.
         This checks both if a dependency forward and backward exists.
         """
-        assert len(edge_list) == len(graph.nodes)
+        assert len(edge_list) == len(graph.nodes) + 2
+        edge_list = edge_list[1:-1]
         for idx,edges in enumerate(edge_list):
             if edges is None:
                 continue
             node_a = graph.getnode(idx)
             dependencies = node_a.provides()[:]
             for idx_b in edges:
+                if idx_b == 0 or idx_b >= len(graph.nodes) + 2 -1:
+                    continue
+                idx_b -= 1
                 node_b = graph.getnode(idx_b)
                 dependency = node_a.getedge_to(node_b)
                 if dependency is None and idx_b not in exceptions.setdefault(idx,[]):
@@ -87,11 +91,17 @@ class DependencyBaseTest(BaseTest):
         return graph
 
     def assert_independent(self, a, b):
+        # XXX
+        a -= 1
+        b -= 1
         a = self.last_graph.getnode(a)
         b = self.last_graph.getnode(b)
         assert a.independent(b), "{a} and {b} are dependent!".format(a=a,b=b)
 
     def assert_dependent(self, a, b):
+        # XXX
+        a -= 1
+        b -= 1
         a = self.last_graph.getnode(a)
         b = self.last_graph.getnode(b)
         assert not a.independent(b), "{a} and {b} are independent!".format(a=a,b=b)
@@ -204,9 +214,6 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         jump() # 4:
         """
         graph = self.assert_dependencies(ops, full_check=True)
-        self.assert_independent(0,1)
-        self.assert_independent(0,2)
-        self.assert_independent(0,3)
         self.assert_dependent(1,2)
         self.assert_dependent(2,3)
         self.assert_dependent(1,3)
@@ -231,9 +238,9 @@ class BaseTestDependencyGraph(DependencyBaseTest):
 
     def test_dependency_guard_2(self):
         ops = """
-        [i1] # 0: 1,2?,3?
+        [i1] # 0: 1,2?,3
         i2 = int_le(i1, 10) # 1: 2
-        guard_true(i2) [i1] # 2: 3
+        guard_true(i2) [i1] # 2:
         i3 = int_add(i1,1) # 3: 4
         jump(i3) # 4:
         """
@@ -243,7 +250,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         ops = """
         [i1] # 0: 1,2?,3
         i2 = int_lt(i1,10) # 1: 2
-        guard_false(i2) [i1] # 2: 3
+        guard_false(i2) [i1] # 2:
         i3 = int_add(i1,i1) # 3: 4
         jump(i3) # 4:
         """
@@ -257,15 +264,12 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         jump(i1) # 3:
         """
         self.assert_dependencies(ops, full_check=True)
-        self.assert_dependent(0,1)
-        self.assert_dependent(0,2)
-        self.assert_dependent(0,3)
 
     def test_dependencies_1(self):
         ops="""
         [i0, i1, i2] # 0: 1,3,6,7,11?
         i4 = int_gt(i1, 0) # 1: 2
-        guard_true(i4) [] # 2: 3, 5, 11?
+        guard_true(i4) [] # 2: 5, 11?
         i6 = int_sub(i1, 1) # 3: 4
         i8 = int_gt(i6, 0) # 4: 5
         guard_false(i8) [] # 5: 10
@@ -279,7 +283,6 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         self.assert_dependencies(ops, full_check=True)
         self.assert_independent(6, 2)
         self.assert_independent(6, 1)
-        self.assert_dependent(6, 0)
 
     def test_prevent_double_arg(self):
         ops="""
@@ -313,7 +316,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         [p0, p1, i2] # 0: 1,2?,3?,4?,5?
         i3 = int_add(i2,1) # 1: 2
         i4 = call_i(p0, i3, descr=nonwritedescr) # 2: 3,4,5?
-        guard_no_exception() [i2] # 3: 4?,5?
+        guard_no_exception() [i2] # 3:
         p2 = getarrayitem_gc_r(p1, i3, descr=arraydescr) # 4: 5
         jump(p2, p1, i3) # 5:
         """
@@ -419,7 +422,6 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         self.assert_dependencies(trace, full_check=True)
 
     def test_cyclic(self):
-        pass 
         trace = """
         [p0, p1, p5, p6, p7, p9, p11, p12] # 0: 1,6
         guard_early_exit() [] # 1: 2,4,6,7

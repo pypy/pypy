@@ -14,11 +14,12 @@ from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableL
 from rpython.jit.metainterp.compile import (ResumeAtLoopHeaderDescr,
         CompileLoopVersionDescr, invent_fail_descr_for_op, ResumeGuardDescr)
 from rpython.jit.metainterp.history import (INT, FLOAT, VECTOR, ConstInt, ConstFloat,
-        TargetToken, JitCellToken, LoopVersion, AbstractFailDescr)
+        TargetToken, JitCellToken, AbstractFailDescr)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
 from rpython.jit.metainterp.optimizeopt.renamer import Renamer
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
+from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleData,
         Scheduler, Pack, Pair, AccumPair, vectorbox_outof_box, getpackopnum,
         getunpackopnum, PackType, determine_input_output_types)
@@ -30,57 +31,60 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import Counters
 from rpython.rtyper.lltypesystem import lltype, rffi
 
-def optimize_vector(metainterp_sd, jitdriver_sd, loop, optimizations,
-                    inline_short_preamble, start_state, warmstate):
-    """ Enter the world of SIMD instructions. Bails if it cannot
-        transform the trace.
-    """
-    #optimize_unroll(metainterp_sd, jitdriver_sd, loop, optimizations,
-    #                inline_short_preamble, start_state, False)
+class TraceLoop(object):
+    def __init__(self, label, oplist, jump):
+        self.label = label
+        self.prefix = []
+        self.prefix_label = None
+        assert self.label.getopnum() == rop.LABEL
+        self.operations = oplist
+        self.jump = jump
+        assert self.jump.getopnum() == rop.JUMP
+
+    def all_operations(self):
+        return [self.label] + self.operations + [self.jump]
+
+def optimize_vector(metainterp_sd, jitdriver_sd, warmstate, loop_info, loop_ops):
+    """ Enter the world of SIMD. Bails if it cannot transform the trace. """
     user_code = not jitdriver_sd.vec and warmstate.vec_all
     if user_code and user_loop_bail_fast_path(loop, warmstate):
         return
     # the original loop (output of optimize_unroll)
-    version = loop.snapshot()
+    info = LoopVersionInfo(loop_info)
+    version = info.snapshot(loop_ops, info.label_op)
+    loop = TraceLoop(loop_info.label_op, loop_ops[:-1], loop_ops[-1])
     try:
         debug_start("vec-opt-loop")
-        metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "pre vectorize")
+        metainterp_sd.logger_noopt.log_loop([], loop.all_operations(), -2, None, None, "pre vectorize")
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZE_TRY)
         #
         start = time.clock()
-        #
-        #
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, 0)
-        opt.propagate_all_forward()
+        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, warmstate.vec_cost)
+        opt.propagate_all_forward(info, loop)
         #
         gso = GuardStrengthenOpt(opt.dependency_graph.index_vars, opt.has_two_labels)
-        gso.propagate_all_forward(opt.loop, user_code)
-        #
-        #
+        gso.propagate_all_forward(info, loop, user_code)
         end = time.clock()
         #
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
-        metainterp_sd.logger_noopt.log_loop(loop.inputargs, loop.operations, -2, None, None, "post vectorize")
+        metainterp_sd.logger_noopt.log_loop([], loop.all_operations(), -2, None, None, "post vectorize")
         #
         nano = int((end-start)*10.0**9)
         debug_print("# vecopt factor: %d opcount: (%d -> %d) took %dns" % \
                       (opt.unroll_count+1, len(version.operations), len(loop.operations), nano))
         debug_stop("vec-opt-loop")
         #
+        return info, loop.operations + [loop.jump]
     except NotAVectorizeableLoop:
         debug_stop("vec-opt-loop")
         # vectorization is not possible
-        loop.operations = version.operations
-        loop.versions = None
+        return loop_info, version.operations
     except NotAProfitableLoop:
         debug_stop("vec-opt-loop")
         # cost model says to skip this loop
-        loop.operations = version.operations
-        loop.versions = None
+        return loop_info, version.operations
     except Exception as e:
         debug_stop("vec-opt-loop")
-        loop.operations = version.operations
-        loop.versions = None
         debug_print("failed to vectorize loop. THIS IS A FATAL ERROR!")
         if we_are_translated():
             from rpython.rtyper.lltypesystem import lltype
@@ -135,31 +139,30 @@ def user_loop_bail_fast_path(loop, warmstate):
 class VectorizingOptimizer(Optimizer):
     """ Try to unroll the loop and find instructions to group """
 
-    def __init__(self, metainterp_sd, jitdriver_sd, loop, cost_threshold):
-        Optimizer.__init__(self, metainterp_sd, jitdriver_sd, loop, [])
+    def __init__(self, metainterp_sd, jitdriver_sd, cost_threshold):
+        Optimizer.__init__(self, metainterp_sd, jitdriver_sd)
+        self.cpu = metainterp_sd.cpu
+        self.costmodel = X86_CostModel(cost_threshold, self.cpu.vector_register_size)
         self.dependency_graph = None
         self.packset = None
         self.unroll_count = 0
         self.smallest_type_bytes = 0
         self.sched_data = None
-        self.cpu = metainterp_sd.cpu
-        self.costmodel = X86_CostModel(cost_threshold, self.cpu.vector_register_size)
         self.appended_arg_count = 0
         self.orig_label_args = None
         self.has_two_labels = False
 
-    def propagate_all_forward(self, clear=True):
-        self.clear_newoperations()
-        label = self.loop.operations[0]
-        self.orig_label_args = label.getarglist()[:]
-        jump = self.loop.operations[-1]
+    def propagate_all_forward(self, info, loop):
+        label = loop.label
+        jump = loop.jump
+        self.orig_label_args = label.getarglist_copy()
         if jump.getopnum() not in (rop.LABEL, rop.JUMP) or \
            label.getopnum() != rop.LABEL:
             raise NotAVectorizeableLoop()
         if jump.numargs() != label.numargs():
             raise NotAVectorizeableLoop()
 
-        self.linear_find_smallest_type(self.loop)
+        self.linear_find_smallest_type(loop)
         byte_count = self.smallest_type_bytes
         vsize = self.cpu.vector_register_size
         if vsize == 0 or byte_count == 0 or label.getopnum() != rop.LABEL:
@@ -168,13 +171,13 @@ class VectorizingOptimizer(Optimizer):
             raise NotAVectorizeableLoop()
 
         # find index guards and move to the earliest position
-        self.analyse_index_calculations()
+        self.analyse_index_calculations(loop)
         if self.dependency_graph is not None:
             self.schedule(False) # reorder the trace
 
         # unroll
         self.unroll_count = self.get_unroll_count(vsize)
-        self.unroll_loop_iterations(self.loop, self.unroll_count)
+        self.unroll_loop_iterations(loop, self.unroll_count)
         self.loop.operations = self.get_newoperations();
         self.clear_newoperations();
 
@@ -205,7 +208,7 @@ class VectorizingOptimizer(Optimizer):
         if not we_are_translated():
             target_token.assumed_classes = {}
         if jump_op.getopnum() == rop.LABEL:
-            jump_op = ResOperation(rop.JUMP, jump_op.getarglist(), None, target_token)
+            jump_op = ResOperation(rop.JUMP, jump_op.getarglist(), target_token)
         else:
             jump_op = jump_op.clone()
             jump_op.setdescr(target_token)
@@ -531,18 +534,17 @@ class VectorizingOptimizer(Optimizer):
         #
         return oplist
 
-    def analyse_index_calculations(self):
+    def analyse_index_calculations(self, loop):
         """ Tries to move guarding instructions an all the instructions that
             need to be computed for the guard to the loop header. This ensures
             that guards fail 'early' and relax dependencies. Without this
             step vectorization would not be possible!
         """
-        ee_pos = self.loop.find_first_index(rop.GUARD_EARLY_EXIT)
-        if len(self.loop.operations) <= 2 or ee_pos == -1:
+        self.dependency_graph = graph = DependencyGraph(loop)
+        ee_guard_node = graph.getnode(0)
+        if ee_guard_node.getopnum() != rop.GUARD_EARLY_EXIT:
             raise NotAVectorizeableLoop()
-        self.dependency_graph = graph = DependencyGraph(self.loop)
         label_node = graph.getnode(0)
-        ee_guard_node = graph.getnode(ee_pos)
         guards = graph.guards
         for guard_node in guards:
             if guard_node is ee_guard_node:

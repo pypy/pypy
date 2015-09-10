@@ -481,111 +481,6 @@ class TargetToken(AbstractDescr):
     def repr_of_descr(self):
         return 'TargetToken(%d)' % compute_unique_id(self)
 
-def index_of_first(opnum, operations, pass_by=0):
-    """ returns the position of the first operation matching the opnum.
-    Or -1 if non is found
-    """
-    for i,op in enumerate(operations):
-        if op.getopnum() == opnum:
-            if pass_by == 0:
-                return i
-            else:
-                pass_by -= 1
-    return -1
-
-class VersionInfo(object):
-    def __init__(self):
-        self.descrs = []
-        self.leads_to = {}
-        self.insert_index = -1
-
-    def mark(self):
-        self.insert_index = len(self.descrs)
-
-    def clear(self):
-        self.insert_index = -1
-
-    def track(self, op, descr, version):
-        assert descr.loop_version()
-        i = self.insert_index
-        if i >= 0:
-            assert i >= 0
-            self.descrs.insert(i, descr)
-        else:
-            self.descrs.append(descr)
-        self.leads_to[descr] = version
-        # note: stitching a guard must resemble the order of the label
-        # otherwise a wrong mapping is handed to the register allocator
-        op.setfailargs(version.renamed_inputargs)
-        assert version.renamed_inputargs is not None
-
-    def remove(self, descr):
-        if descr in self.leads_to:
-            del self.leads_to[descr]
-        else:
-            assert 0, "could not remove %s" % descr
-
-    def get(self, descr):
-        return self.leads_to.get(descr, None)
-
-class LoopVersion(object):
-    """ A special version of a trace loop. Use loop.snaphost() to
-        create one instance and attach it to a guard descr.
-        If not attached to a descriptor, it will not be compiled.
-    """
-    inputargs = None
-    renamed_inputargs = None
-
-    def __init__(self, operations):
-        self.operations = operations
-        idx = index_of_first(rop.LABEL, self.operations)
-        assert idx >= 0
-        label = self.operations[idx]
-        self.inputargs = label.getarglist()
-        self.renamed_inputargs = label.getarglist()
-
-    def setup_once(self, info):
-        for op in self.operations:
-            if op.is_guard():
-                olddescr = op.getdescr()
-                if not olddescr:
-                    continue
-                descr = olddescr.clone()
-                op.setdescr(descr)
-                if descr.loop_version():
-                    toversion = info.leads_to.get(olddescr,None)
-                    if toversion:
-                        info.track(op, descr, toversion)
-                    else:
-                        assert 0, "olddescr must be found"
-
-    def update_token(self, jitcell_token, all_target_tokens):
-        # this is only invoked for versioned loops!
-        label_index = index_of_first(rop.LABEL, self.operations, 0)
-        label = self.operations[label_index]
-        jump = self.operations[-1]
-        #
-        assert jump.getopnum() == rop.JUMP
-        #
-        token = TargetToken(jitcell_token)
-        token.original_jitcell_token = jitcell_token
-        all_target_tokens.append(token)
-        if label.getdescr() is None or label.getdescr() is not jump.getdescr():
-            label_index = index_of_first(rop.LABEL, self.operations, 1)
-            if label_index > 0:
-                second_label = self.operations[label_index]
-                # set the inner loop
-                second_label.setdescr(token)
-                jump.setdescr(token)
-                # set the first label
-                token = TargetToken(jitcell_token)
-                token.original_jitcell_token = jitcell_token
-                all_target_tokens.append(token)
-                label.setdescr(token)
-                return
-        label.setdescr(token)
-        jump.setdescr(token)
-
 class TreeLoop(object):
     inputargs = None
     operations = None
@@ -607,7 +502,6 @@ class TreeLoop(object):
     def __init__(self, name):
         self.name = name
         self.versions = []
-        self.version_info = VersionInfo()
         # self.operations = list of ResOperations
         #   ops of the kind 'guard_xxx' contain a further list of operations,
         #   which may itself contain 'guard_xxx' and so on, making a tree.
@@ -626,30 +520,30 @@ class TreeLoop(object):
             insns[opname] = insns.get(opname, 0) + 1
         return insns
 
-    def append_loop(self, loop, all_target_tokens):
-        # append e.g. the peeled loop to this loop!
-        jump = loop.operations[-1]
-        assert jump.getdescr() is not None
-        target_token = None
-        i = 0
-        # adds all target token until the one is found that jumps from the 
-        # last instruction to the label
-        while i < len(loop.operations) and target_token is not jump.getdescr():
-            # there is another label
-            op = loop.operations[i]
-            if op.getopnum() == rop.LABEL:
-                target_token = op.getdescr()
-                assert isinstance(target_token, TargetToken)
-                all_target_tokens.append(target_token)
-            i += 1
-        #
-        self.operations = self.operations[:-1] + loop.operations
-        self.versions = loop.versions
-        loop.versions = None
-        self.version_info = loop.version_info
-        loop.version_info = None
-        if loop.quasi_immutable_deps:
-            self.quasi_immutable_deps.update(loop.quasi_immutable_deps)
+    # XXX VECdef append_loop(self, loop, all_target_tokens):
+    # XXX VEC    # append e.g. the peeled loop to this loop!
+    # XXX VEC    jump = loop.operations[-1]
+    # XXX VEC    assert jump.getdescr() is not None
+    # XXX VEC    target_token = None
+    # XXX VEC    i = 0
+    # XXX VEC    # adds all target token until the one is found that jumps from the 
+    # XXX VEC    # last instruction to the label
+    # XXX VEC    while i < len(loop.operations) and target_token is not jump.getdescr():
+    # XXX VEC        # there is another label
+    # XXX VEC        op = loop.operations[i]
+    # XXX VEC        if op.getopnum() == rop.LABEL:
+    # XXX VEC            target_token = op.getdescr()
+    # XXX VEC            assert isinstance(target_token, TargetToken)
+    # XXX VEC            all_target_tokens.append(target_token)
+    # XXX VEC        i += 1
+    # XXX VEC    #
+    # XXX VEC    self.operations = self.operations[:-1] + loop.operations
+    # XXX VEC    self.versions = loop.versions
+    # XXX VEC    loop.versions = None
+    # XXX VEC    self.version_info = loop.version_info
+    # XXX VEC    loop.version_info = None
+    # XXX VEC    if loop.quasi_immutable_deps:
+    # XXX VEC        self.quasi_immutable_deps.update(loop.quasi_immutable_deps)
 
     def get_operations(self):
         return self.operations
@@ -658,34 +552,6 @@ class TreeLoop(object):
         return '%s\n[%s]' % (
             self.name,
             ', '.join([box.repr(memo) for box in self.inputargs]))
-
-    def find_first_index(self, opnum, pass_by=0):
-        """ return the first index of the operation having the same opnum or -1 """
-        return index_of_first(opnum, self.operations, pass_by)
-
-    def find_first(self, opnum, pass_by=0):
-        index = self.find_first_index(opnum, pass_by)
-        if index != -1:
-            return self.operations[index]
-        return None
-
-    def snapshot(self):
-        oplist = self.copy_operations(self.operations)
-        version = LoopVersion(oplist)
-        version.setup_once(self.version_info)
-        # register the faildescr for later stitching
-        self.versions.append(version)
-        return version
-
-    def copy_operations(self, operations):
-        ignore = (rop.DEBUG_MERGE_POINT,)
-        oplist = []
-        for op in operations:
-            if op.getopnum() in ignore:
-                continue
-            cloned = op.clone()
-            oplist.append(cloned)
-        return oplist
 
     def get_display_text(self):    # for graphpage.py
         return self.name + '\n' + repr(self.inputargs)

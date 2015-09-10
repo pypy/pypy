@@ -199,7 +199,10 @@ class LLtypeMixin(object):
     immut_ptrval = cpu.fielddescrof(PTROBJ_IMMUT, 'ptrval')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
+    int32arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.INT))
+    int16arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.SHORT))
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
+    float32arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.SingleFloat))
     arraydescr_tid = arraydescr.get_type_id()
     array = lltype.malloc(lltype.GcArray(lltype.Signed), 15, zero=True)
     arrayref = lltype.cast_opaque_ptr(llmemory.GCREF, array)
@@ -207,7 +210,6 @@ class LLtypeMixin(object):
     array2ref = lltype.cast_opaque_ptr(llmemory.GCREF, array2)
     gcarraydescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF))
     gcarraydescr_tid = gcarraydescr.get_type_id()
-    floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
 
     # a GcStruct not inheriting from OBJECT
     tpl = lltype.malloc(S, zero=True)
@@ -403,6 +405,15 @@ class Fake(object):
     failargs_limit = 1000
     storedebug = None
 
+class FakeWarmState(object):
+    vec = True # default is on
+    vec_all = False
+    vec_cost = 0
+    def __init__(self, enable_opts):
+        self.enable_opts = enable_opts
+
+class FakeJitDriverStaticData(object):
+    vec = False
 
 class FakeMetaInterpStaticData(object):
 

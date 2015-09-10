@@ -261,14 +261,14 @@ class GuardStrengthenOpt(object):
         #
         loop.operations = self._newoperations[:]
 
-    def propagate_all_forward(self, loop, user_code=False):
+    def propagate_all_forward(self, info, loop, user_code=False):
         """ strengthens the guards that protect an integral value """
         # the guards are ordered. guards[i] is before guards[j] iff i < j
         self.collect_guard_information(loop)
         self.eliminate_guards(loop)
         #
-        assert len(loop.versions) == 1
-        version = loop.versions[0]
+        assert len(info.versions) == 1
+        version = info.versions[0]
 
         for i,op in enumerate(loop.operations):
             if not op.is_guard():
@@ -276,10 +276,10 @@ class GuardStrengthenOpt(object):
             descr = op.getdescr()
             if descr and descr.loop_version():
                 assert isinstance(descr, ResumeGuardDescr)
-                loop.version_info.track(op, descr, version)
+                info.track(op, descr, version)
 
         if user_code:
-            self.eliminate_array_bound_checks(loop)
+            self.eliminate_array_bound_checks(info, loop)
 
     def emit_operation(self, op):
         self.renamer.rename(op)
@@ -288,8 +288,7 @@ class GuardStrengthenOpt(object):
     def operation_position(self):
         return len(self._newoperations)
 
-    def eliminate_array_bound_checks(self, loop):
-        info = loop.version_info
+    def eliminate_array_bound_checks(self, info, loop):
         info.mark()
         version = None
         self._newoperations = []

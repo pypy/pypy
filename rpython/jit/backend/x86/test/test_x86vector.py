@@ -5,13 +5,13 @@ from rpython.jit.backend.x86.test.test_assembler import \
         (TestRegallocPushPop as BaseTestAssembler)
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.metainterp.history import ConstFloat
-from rpython.jit.metainterp.test import support, test_vectorize
+from rpython.jit.metainterp.test import support, test_metavec
 from rpython.jit.metainterp.warmspot import ll_meta_interp
 from rpython.rlib.jit import JitDriver
 from rpython.rtyper.lltypesystem import lltype
 
 
-class TestBasic(test_vectorize.VectorizeLLtypeTests, test_basic.Jit386Mixin):
+class TestBasic(test_metavec.VectorizeLLtypeTests, test_basic.Jit386Mixin):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'

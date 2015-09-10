@@ -6,7 +6,7 @@ from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
 from rpython.jit.metainterp.optimizeopt import info, intutils
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
-     Optimization, LoopInfo, MININT, MAXINT
+     Optimization, LoopInfo, MININT, MAXINT, BasicLoopInfo
 from rpython.jit.metainterp.optimizeopt.vstring import StrPtrInfo
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
     VirtualStateConstructor, VirtualStatesCantMatch)
@@ -443,7 +443,7 @@ class UnrollOptimizer(Optimization):
         return False
 
 
-class UnrollInfo(LoopInfo):
+class UnrollInfo(BasicLoopInfo):
     """ A state after optimizing the peeled loop, contains the following:
 
     * target_token - generated target token
@@ -459,7 +459,7 @@ class UnrollInfo(LoopInfo):
 
     def final(self):
         return True
-            
+
 class ExportedState(LoopInfo):
     """ Exported state consists of a few pieces of information:
 

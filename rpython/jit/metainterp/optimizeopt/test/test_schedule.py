@@ -1,15 +1,16 @@
 import py
 
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
-from rpython.jit.metainterp.optimizeopt.util import equaloplists, Renamer
-from rpython.jit.metainterp.optimizeopt.vectorize import (VecScheduleData,
+from rpython.jit.metainterp.optimizeopt.util import equaloplists
+from rpython.jit.metainterp.optimizeopt.renamer import Renamer
+from rpython.jit.metainterp.optimizeopt.vec import (VecScheduleData,
         Pack, Pair, NotAProfitableLoop, VectorizingOptimizer, X86_CostModel,
         PackSet)
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
 from rpython.jit.metainterp.optimizeopt.schedule import PackType
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import DependencyBaseTest
-from rpython.jit.metainterp.optimizeopt.test.test_vectorize import (FakeMetaInterpStaticData,
+from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpStaticData,
         FakeJitDriverStaticData)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.tool.oparser import parse as opparse
@@ -42,8 +43,8 @@ class SchedulerBaseTest(DependencyBaseTest):
     def namespace(self):
         return {
             'double': self.floatarraydescr,
-            'float': self.singlefloatarraydescr,
-            'long': self.intarraydescr,
+            'float': self.float32arraydescr,
+            'long': self.arraydescr,
             'int': self.int32arraydescr,
             'short': self.int16arraydescr,
             'char': self.chararraydescr,
@@ -77,8 +78,7 @@ class SchedulerBaseTest(DependencyBaseTest):
         loop = opparse(src, cpu=self.cpu, namespace=self.namespace())
         if inc_label_jump:
             token = JitCellToken()
-            label = ResOperation(rop.LABEL, loop.inputargs,
-                                 None, descr=TargetToken(token))
+            label = ResOperation(rop.LABEL, loop.inputargs, descr=TargetToken(token))
             loop.operations = [label] + loop.operations
             loop.graph = FakeDependencyGraph(loop)
             return loop
@@ -138,19 +138,19 @@ class SchedulerBaseTest(DependencyBaseTest):
 class Test(SchedulerBaseTest, LLtypeMixin):
     def test_schedule_split_load(self):
         loop1 = self.parse("""
-        i10 = raw_load(p0, i0, descr=float)
-        i11 = raw_load(p0, i1, descr=float)
-        i12 = raw_load(p0, i2, descr=float)
-        i13 = raw_load(p0, i3, descr=float)
-        i14 = raw_load(p0, i4, descr=float)
-        i15 = raw_load(p0, i5, descr=float)
+        f10 = raw_load_f(p0, i0, descr=float)
+        f11 = raw_load_f(p0, i1, descr=float)
+        f12 = raw_load_f(p0, i2, descr=float)
+        f13 = raw_load_f(p0, i3, descr=float)
+        f14 = raw_load_f(p0, i4, descr=float)
+        f15 = raw_load_f(p0, i5, descr=float)
         """)
         pack1 = self.pack(loop1, 0, 6, None, F32)
         loop2 = self.schedule(loop1, [pack1])
         loop3 = self.parse("""
         v10[i32|4] = vec_raw_load(p0, i0, 4, descr=float)
-        f10 = raw_load(p0, i4, descr=float)
-        f11 = raw_load(p0, i5, descr=float)
+        f10 = raw_load_f(p0, i4, descr=float)
+        f11 = raw_load_f(p0, i5, descr=float)
         """, False)
         self.assert_equal(loop2, loop3)
 

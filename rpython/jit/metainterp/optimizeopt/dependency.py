@@ -444,7 +444,14 @@ class DefTracker(object):
         for _def in self.defs[arg]:
             yield _def[0]
 
+    def is_defined(self, arg):
+        return arg in self.defs
+
     def definition(self, arg, node=None, argcell=None):
+        if arg.is_constant():
+            return None
+        if arg.is_inputarg():
+            return None
         def_chain = self.defs[arg]
         if len(def_chain) == 1:
             return def_chain[0][0]
@@ -473,6 +480,8 @@ class DefTracker(object):
     def depends_on_arg(self, arg, to, argcell=None):
         try:
             at = self.definition(arg, to, argcell)
+            if at is None:
+                return
             at.edge_to(to, arg)
         except KeyError:
             if not we_are_translated():
@@ -501,7 +510,9 @@ class DependencyGraph(object):
     """
     def __init__(self, loop):
         self.loop = loop
-        self.nodes = [ Node(op,i) for i,op in enumerate(loop.operations) ]
+        self.label = Node(loop.label, 0)
+        self.nodes = [ Node(op,i+1) for i,op in enumerate(loop.operations) ]
+        self.jump = Node(loop.jump, len(self.nodes)+1)
         self.invariant_vars = {}
         self.update_invariant_vars()
         self.memory_refs = {}
@@ -515,8 +526,8 @@ class DependencyGraph(object):
         return self.nodes[i]
 
     def update_invariant_vars(self):
-        label_op = self.nodes[0].getoperation()
-        jump_op = self.nodes[-1].getoperation()
+        label_op = self.label.getoperation()
+        jump_op = self.jump.getoperation()
         assert label_op.numargs() == jump_op.numargs()
         for i in range(label_op.numargs()):
             label_box = label_op.getarg(i)
@@ -668,6 +679,8 @@ class DependencyGraph(object):
 
     def guard_exit_dependence(self, guard_node, var, tracker):
         def_node = tracker.definition(var)
+        if def_node is None:
+            return
         for dep in def_node.provides():
             if guard_node.is_before(dep.to) and dep.because_of(var):
                 guard_node.edge_to(dep.to, var, label='guard_exit('+str(var)+')')
@@ -690,7 +703,7 @@ class DependencyGraph(object):
         # handle fail args
         if guard_op.getfailargs():
             for arg in guard_op.getfailargs():
-                if arg is None:
+                if arg is None or not tracker.is_defined(arg):
                     continue
                 try:
                     for at in tracker.redefinitions(arg):
@@ -728,10 +741,11 @@ class DependencyGraph(object):
                             # A trace is not entirely in SSA form. complex object
                             # modification introduces WAR/WAW dependencies
                             def_node = tracker.definition(arg)
-                            for dep in def_node.provides():
-                                if dep.to != node:
-                                    dep.to.edge_to(node, argcell, label='war')
-                            def_node.edge_to(node, argcell)
+                            if def_node:
+                                for dep in def_node.provides():
+                                    if dep.to != node:
+                                        dep.to.edge_to(node, argcell, label='war')
+                                def_node.edge_to(node, argcell)
                         except KeyError:
                             pass
                     else:

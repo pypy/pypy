@@ -255,6 +255,12 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     history = metainterp.history
     warmstate = jitdriver_sd.warmstate
 
+    enable_opts = jitdriver_sd.warmstate.enable_opts
+    if try_disabling_unroll:
+        if 'unroll' not in enable_opts:
+            return None
+        enable_opts = enable_opts.copy()
+        del enable_opts['unroll']
 
     ops = history.operations[start:]
     if 'unroll' not in enable_opts:
@@ -292,6 +298,12 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                                              metainterp.box_names_memo)
     except InvalidLoop:
         return None
+
+    if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all):
+        from rpython.jit.metainterp.optimizeopt.vector import optimize_vector
+        loop_info, loop_ops = optimize_vector(metainterp_sd,
+                                              jitdriver_sd, warmstate,
+                                              loop_info, loop_ops)
     #
     loop = create_empty_loop(metainterp)
     loop.original_jitcell_token = jitcell_token
@@ -312,15 +324,14 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
             label_token.short_preamble, metainterp.box_names_memo)
     loop.operations = ([start_label] + preamble_ops + loop_info.extra_same_as +
                        [loop_info.label_op] + loop_ops)
+    if loop.versions is not None:
+        # every different loop version must update their target tokens
+        for version in loop.versions:
+            version.update_token(jitcell_token, all_target_tokens)
     if not we_are_translated():
         loop.check_consistency()
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
                          inputargs, metainterp.box_names_memo)
-
-    # XXX if loop.versions is not None:
-    #    # every different loop version must update their target tokens
-    #    for version in loop.versions:
-    #        version.update_token(jitcell_token, all_target_tokens)
 
     record_loop_or_bridge(metainterp_sd, loop)
     generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token)

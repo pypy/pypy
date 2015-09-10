@@ -11,15 +11,12 @@ from rpython.jit.metainterp.optimizeopt import optimize_trace
 import rpython.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
 from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
-from rpython.jit.metainterp.optimizeopt.unroll import Inliner
 from rpython.jit.metainterp.optimizeopt.vectorize import (VectorizingOptimizer, MemoryRef,
         isomorphic, Pair, NotAVectorizeableLoop, NotAProfitableLoop, GuardStrengthenOpt,
         CostModel)
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.history import ConstInt, BoxInt, get_const_ptr_for_string
-from rpython.jit.metainterp import executor, compile, resume
+from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.rlib.rarithmetic import LONG_BIT
 
 class FakeJitDriverStaticData(object):
     vec=True
@@ -250,7 +247,7 @@ class BaseTestVectorize(VecTestHelper):
         """ it currently rejects pointer arrays """
         ops = """
         [p0,i0]
-        raw_load(p0,i0,descr=arraydescr2)
+        raw_load_r(p0,i0,descr=arraydescr2)
         jump(p0,i0)
         """
         self.assert_vectorize(self.parse_loop(ops), self.parse_loop(ops))
@@ -280,14 +277,14 @@ class BaseTestVectorize(VecTestHelper):
         it is unrolled 16 times. (it is the smallest type in the trace) """
         ops = """
         [p0,i0]
-        raw_load(p0,i0,descr=chararraydescr)
+        raw_load_i(p0,i0,descr=chararraydescr)
         jump(p0,i0)
         """
         opt_ops = """
         [p0,i0]
         {}
         jump(p0,i0)
-        """.format(('\n' + ' ' *8).join(['raw_load(p0,i0,descr=chararraydescr)'] * 16))
+        """.format(('\n' + ' ' *8).join(['raw_load_i(p0,i0,descr=chararraydescr)'] * 16))
         self.assert_unroll_loop_equals(self.parse_loop(ops), self.parse_loop(opt_ops))
 
     def test_unroll_vector_addition(self):
@@ -295,8 +292,8 @@ class BaseTestVectorize(VecTestHelper):
         8 byte) """
         ops = """
         [p0,p1,p2,i0]
-        i1 = raw_load(p1, i0, descr=floatarraydescr)
-        i2 = raw_load(p2, i0, descr=floatarraydescr)
+        i1 = raw_load_i(p1, i0, descr=floatarraydescr)
+        i2 = raw_load_i(p2, i0, descr=floatarraydescr)
         i3 = int_add(i1,i2)
         raw_store(p0, i0, i3, descr=floatarraydescr)
         i4 = int_add(i0, 1)
@@ -309,15 +306,15 @@ class BaseTestVectorize(VecTestHelper):
         i4 = int_add(i0, 1)
         i5 = int_le(i4, 10)
         guard_true(i5) []
-        i1 = raw_load(p1, i0, descr=floatarraydescr)
-        i2 = raw_load(p2, i0, descr=floatarraydescr)
+        i1 = raw_load_i(p1, i0, descr=floatarraydescr)
+        i2 = raw_load_i(p2, i0, descr=floatarraydescr)
         i3 = int_add(i1,i2)
         raw_store(p0, i0, i3, descr=floatarraydescr)
         i9 = int_add(i4, 1)
         i10 = int_le(i9, 10)
         guard_true(i10) []
-        i6 = raw_load(p1, i4, descr=floatarraydescr)
-        i7 = raw_load(p2, i4, descr=floatarraydescr)
+        i6 = raw_load_i(p1, i4, descr=floatarraydescr)
+        i7 = raw_load_i(p2, i4, descr=floatarraydescr)
         i8 = int_add(i6,i7)
         raw_store(p0, i4, i8, descr=floatarraydescr)
         jump(p0,p1,p2,i9)
@@ -327,7 +324,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_estimate_unroll_factor_smallest_byte_zero(self):
         ops = """
         [p0,i0]
-        raw_load(p0,i0,descr=arraydescr)
+        raw_load_i(p0,i0,descr=arraydescr)
         jump(p0,i0)
         """
         vopt = self.vectoroptimizer(self.parse_loop(ops))
@@ -337,7 +334,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_array_operation_indices_not_unrolled(self):
         ops = """
         [p0,i0]
-        raw_load(p0,i0,descr=arraydescr)
+        raw_load_i(p0,i0,descr=arraydescr)
         jump(p0,i0)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
@@ -347,7 +344,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_array_operation_indices_unrolled_1(self):
         ops = """
         [p0,i0]
-        raw_load(p0,i0,descr=chararraydescr)
+        raw_load_i(p0,i0,descr=chararraydescr)
         jump(p0,i0)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),1)
@@ -358,8 +355,8 @@ class BaseTestVectorize(VecTestHelper):
     def test_array_operation_indices_unrolled_2(self):
         ops = """
         [p0,i0,i1]
-        i3 = raw_load(p0,i0,descr=chararraydescr)
-        i4 = raw_load(p0,i1,descr=chararraydescr)
+        i3 = raw_load_i(p0,i0,descr=chararraydescr)
+        i4 = raw_load_i(p0,i1,descr=chararraydescr)
         jump(p0,i3,i4)
         """
         loop = self.parse_loop(ops)
@@ -381,7 +378,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_array_memory_ref_adjacent_1(self):
         ops = """
         [p0,i0]
-        i3 = raw_load(p0,i0,descr=chararraydescr)
+        i3 = raw_load_i(p0,i0,descr=chararraydescr)
         i1 = int_add(i0,1)
         jump(p0,i1)
         """
@@ -401,7 +398,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_array_memory_ref_1(self):
         ops = """
         [p0,i0]
-        i3 = raw_load(p0,i0,descr=chararraydescr)
+        i3 = raw_load_i(p0,i0,descr=chararraydescr)
         jump(p0,i0)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
@@ -415,7 +412,7 @@ class BaseTestVectorize(VecTestHelper):
         ops = """
         [p0,i0]
         i1 = int_add(i0,1)
-        i3 = raw_load(p0,i1,descr=chararraydescr)
+        i3 = raw_load_i(p0,i1,descr=chararraydescr)
         jump(p0,i1)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
@@ -429,7 +426,7 @@ class BaseTestVectorize(VecTestHelper):
         ops = """
         [p0,i0]
         i1 = int_sub(i0,1)
-        i3 = raw_load(p0,i1,descr=chararraydescr)
+        i3 = raw_load_i(p0,i1,descr=chararraydescr)
         jump(p0,i1)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
@@ -444,7 +441,7 @@ class BaseTestVectorize(VecTestHelper):
         [p0,i0]
         i1 = int_add(i0,1)
         i2 = int_mul(i1,3)
-        i3 = raw_load(p0,i2,descr=chararraydescr)
+        i3 = raw_load_i(p0,i2,descr=chararraydescr)
         jump(p0,i1)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
@@ -461,7 +458,7 @@ class BaseTestVectorize(VecTestHelper):
         i2 = int_mul(i1,3)
         i3 = int_add(i2,5)
         i4 = int_mul(i3,6)
-        i5 = raw_load(p0,i4,descr=chararraydescr)
+        i5 = raw_load_i(p0,i4,descr=chararraydescr)
         jump(p0,i4)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
@@ -479,7 +476,7 @@ class BaseTestVectorize(VecTestHelper):
         i4 = int_mul(i3,6)
         i5 = int_add(i4,30)
         i6 = int_mul(i5,57)
-        i7 = raw_load(p0,i6,descr=chararraydescr)
+        i7 = raw_load_i(p0,i6,descr=chararraydescr)
         jump(p0,i6)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
@@ -497,7 +494,7 @@ class BaseTestVectorize(VecTestHelper):
         i2 = int_mul(i1,3)
         i3 = int_sub(i2,3)
         i4 = int_mul(i3,2)
-        i5 = raw_load(p0,i4,descr=chararraydescr)
+        i5 = raw_load_i(p0,i4,descr=chararraydescr)
         jump(p0,i4)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
@@ -511,9 +508,9 @@ class BaseTestVectorize(VecTestHelper):
     def test_array_memory_ref_not_adjacent_1(self):
         ops = """
         [p0,i0,i4]
-        i3 = raw_load(p0,i0,descr=chararraydescr)
+        i3 = raw_load_i(p0,i0,descr=chararraydescr)
         i1 = int_add(i0,1)
-        i5 = raw_load(p0,i4,descr=chararraydescr)
+        i5 = raw_load_i(p0,i4,descr=chararraydescr)
         i6 = int_add(i4,1)
         jump(p0,i1,i6)
         """
@@ -544,7 +541,7 @@ class BaseTestVectorize(VecTestHelper):
         [p0,i0]
         i1 = int_floordiv(i0,2)
         i2 = int_floordiv(i1,8)
-        i3 = raw_load(p0,i2,descr=chararraydescr)
+        i3 = raw_load_i(p0,i2,descr=chararraydescr)
         jump(p0,i2)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
@@ -555,7 +552,7 @@ class BaseTestVectorize(VecTestHelper):
         [p0,i0]
         i1 = int_add(i0,8)
         i2 = uint_floordiv(i1,2)
-        i3 = raw_load(p0,i2,descr=chararraydescr)
+        i3 = raw_load_i(p0,i2,descr=chararraydescr)
         jump(p0,i2)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
@@ -567,10 +564,10 @@ class BaseTestVectorize(VecTestHelper):
         [p0,i0]
         i1 = int_add(i0,8)
         i2 = int_floordiv(i1,2)
-        i3 = raw_load(p0,i2,descr=chararraydescr)
+        i3 = raw_load_i(p0,i2,descr=chararraydescr)
         i4 = int_add(i0,4)
         i5 = int_mul(i4,2)
-        i6 = raw_load(p0,i5,descr=chararraydescr)
+        i6 = raw_load_i(p0,i5,descr=chararraydescr)
         jump(p0,i2)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
@@ -586,11 +583,11 @@ class BaseTestVectorize(VecTestHelper):
         [p0,i0]
         i1 = int_add(i0,4)
         i2 = int_mul(i1,2)
-        i3 = raw_load(p0,i2,descr=chararraydescr)
+        i3 = raw_load_i(p0,i2,descr=chararraydescr)
         i4 = int_add(i0,2)
         i5 = int_mul(i4,2)
         i6 = int_add(i5,4)
-        i7 = raw_load(p0,i6,descr=chararraydescr)
+        i7 = raw_load_i(p0,i6,descr=chararraydescr)
         jump(p0,i2)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
@@ -606,11 +603,11 @@ class BaseTestVectorize(VecTestHelper):
         [p0,i0]
         i1 = int_add(i0,4)
         i2 = int_floordiv(i1,2)
-        i3 = raw_load(p0,i2,descr=chararraydescr)
+        i3 = raw_load_i(p0,i2,descr=chararraydescr)
         i4 = int_add(i0,2)
         i5 = int_mul(i4,2)
         i6 = int_add(i5,4)
-        i7 = raw_load(p0,i6,descr=chararraydescr)
+        i7 = raw_load_i(p0,i6,descr=chararraydescr)
         jump(p0,i2)
         """
         vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
@@ -640,7 +637,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_packset_init_raw_load_not_adjacent_and_adjacent(self):
         ops = """
         [p0,i0]
-        i3 = raw_load(p0, i0, descr=chararraydescr)
+        i3 = raw_load_i(p0, i0, descr=chararraydescr)
         jump(p0,i0)
         """
         loop = self.parse_loop(ops)
@@ -650,7 +647,7 @@ class BaseTestVectorize(VecTestHelper):
         ops = """
         [p0,i0]
         i2 = int_add(i0,1)
-        raw_load(p0, i2, descr=chararraydescr)
+        raw_load_i(p0, i2, descr=chararraydescr)
         jump(p0,i2)
         """
         loop = self.parse_loop(ops)
@@ -778,17 +775,17 @@ class BaseTestVectorize(VecTestHelper):
         for i,t in packidx:
             self.assert_pack(vopt.packset.packs[i], t)
 
-    @pytest.mark.parametrize("descr,stride,packs",
-            [('char',1,1),('float',8,4),('int',8,4),('singlefloat',4,2)])
+    @pytest.mark.parametrize("descr,stride,packs,suffix",
+            [('char',1,1,'_i'),('float',8,4,'_f'),('int',8,4,'_i'),('float32',4,2,'_i')])
     def test_packset_combine_2_loads_in_trace(self, descr, stride,packs):
         ops = """
         [p0,i0]
-        i3 = raw_load(p0, i0, descr={type}arraydescr)
+        i3 = raw_load{suffix}(p0, i0, descr={type}arraydescr)
         i1 = int_add(i0,{stride})
-        i4 = raw_load(p0, i1, descr={type}arraydescr)
+        i4 = raw_load{suffix}(p0, i1, descr={type}arraydescr)
         i2 = int_add(i1,{stride})
         jump(p0,i2)
-        """.format(type=descr,stride=stride)
+        """.format(type=descr,stride=stride,suffix=suffix)
         loop = self.parse_loop(ops)
         vopt = self.combine_packset(loop,3)
         assert len(vopt.dependency_graph.memory_refs) == 8
@@ -838,8 +835,8 @@ class BaseTestVectorize(VecTestHelper):
         i1 = int_add(i0, {stride})
         i10 = int_le(i1, 128)
         guard_true(i10) []
-        i2 = raw_load(p0, i0, descr={descr}arraydescr)
-        i3 = raw_load(p1, i0, descr={descr}arraydescr)
+        i2 = raw_load{suffix}(p0, i0, descr={descr}arraydescr)
+        i3 = raw_load{suffix}(p1, i0, descr={descr}arraydescr)
         i4 = {op}(i2,i3)
         raw_store(p2, i0, i4, descr={descr}arraydescr)
         jump(p0,p1,p2,i1)
@@ -899,10 +896,10 @@ class BaseTestVectorize(VecTestHelper):
         [i0, i1, i2, i3, i4]
         guard_early_exit() []
         i6 = int_mul(i0, 8)
-        i7 = raw_load(i2, i6, descr=intarraydescr)
-        i8 = raw_load(i3, i6, descr=intarraydescr)
+        i7 = raw_load(i2, i6, descr=arraydescr)
+        i8 = raw_load(i3, i6, descr=arraydescr)
         i9 = int_add(i7, i8)
-        raw_store(i4, i6, i9, descr=intarraydescr)
+        raw_store(i4, i6, i9, descr=arraydescr)
         i11 = int_add(i0, 1)
         i12 = int_lt(i11, i1)
         guard_true(i12) [i4, i3, i2, i1, i11]
@@ -918,10 +915,10 @@ class BaseTestVectorize(VecTestHelper):
         i14 = int_mul(i11, 8) 
         i18 = int_lt(i13, i1) 
         guard_true(i18) []
-        v19 = vec_raw_load(i2, i6, 2, descr=intarraydescr) 
-        v20 = vec_raw_load(i3, i6, 2, descr=intarraydescr) 
+        v19 = vec_raw_load(i2, i6, 2, descr=arraydescr) 
+        v20 = vec_raw_load(i3, i6, 2, descr=arraydescr) 
         v21 = vec_int_add(v19, v20) 
-        vec_raw_store(i4, i6, v21, descr=intarraydescr) 
+        vec_raw_store(i4, i6, v21, descr=arraydescr) 
         jump(i13, i1, i2, i3, i4)
         """
         vopt = self.schedule(self.parse_loop(ops),1)
@@ -1446,7 +1443,7 @@ class BaseTestVectorize(VecTestHelper):
         # BINARY_SUBSCR 
         i51 = uint_ge(i45, i33)
         guard_false(i51) [i50, i45]
-        i52 = getarrayitem_gc(p40, i45, descr=intarraydescr)
+        i52 = getarrayitem_gc(p40, i45, descr=arraydescr)
         # LOAD_CONST 1
         # BINARY_ADD 
         i53 = int_add(i52, 1)
@@ -1454,7 +1451,7 @@ class BaseTestVectorize(VecTestHelper):
         # LOAD_FAST l
         # LOAD_FAST i
         # STORE_SUBSCR 
-        setarrayitem_gc(p40, i45, i53, descr=intarraydescr)
+        setarrayitem_gc(p40, i45, i53, descr=arraydescr)
         # i += 1
         # LOAD_FAST i
         # LOAD_CONST 1
