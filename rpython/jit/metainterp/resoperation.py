@@ -82,6 +82,11 @@ def ResOperation(opnum, args, descr=None):
         op.setdescr(descr)
     return op
 
+def VecOperation(opnum, args, type, count, descr=None):
+    op = ResOperation(opnum, args, descr)
+    op.item_type = type
+    op.item_count = count
+    return op
 
 class AbstractResOpOrInputArg(AbstractValue):
     _attrs_ = ('_forwarded',)
@@ -89,8 +94,6 @@ class AbstractResOpOrInputArg(AbstractValue):
 
     def get_forwarded(self):
         return self._forwarded
-
-
 
 class AbstractResOp(AbstractResOpOrInputArg):
     """The central ResOperation class, representing one operation."""
@@ -555,8 +558,8 @@ class Accum(object):
 
 class VectorOp(object):
     _mixin_ = True
-    _attrs_ = ('item_type','item_count','item_size','item_signed','accum')
-    _extended_display = False
+    #_attrs_ = ('item_type','item_count','item_size','item_signed','accum')
+    _attrs_ = ('item_type', 'item_count')
 
     #def __init__(self, item_type=FLOAT, item_count=2, item_size=8, item_signed=False, accum=None):
     #    assert item_type in (FLOAT, INT)
@@ -567,13 +570,10 @@ class VectorOp(object):
     #    self.accum = None
 
     def gettype(self):
-        return self.item_type
+        return self.type
 
-    def getsize(self):
-        return self.item_size
-
-    def getsigned(self):
-        return self.item_signed
+    def getbytes(self):
+        return self.slot_bytes
 
     def getcount(self):
         return self.item_count

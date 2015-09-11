@@ -7,7 +7,7 @@ from rpython.jit.metainterp.optimizeopt.vector import (VecScheduleState,
         Pack, Pair, NotAProfitableLoop, VectorizingOptimizer, X86_CostModel,
         PackSet)
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
-from rpython.jit.metainterp.optimizeopt.schedule import PackType, Scheduler
+from rpython.jit.metainterp.optimizeopt.schedule import Type, Scheduler
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import (DependencyBaseTest,
         FakeDependencyGraph)
@@ -17,13 +17,13 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.tool.oparser import parse as opparse
 from rpython.jit.tool.oparser_model import get_model
 
-F64 = PackType('f',8,False,2)
-F32 = PackType('f',4,False,4)
-F32_2 =  PackType('f',4,False,2)
-I64 = PackType('i',8,True,2)
-I32 = PackType('i',4,True,4)
-I32_2 =  PackType('i',4,True,2)
-I16 = PackType('i',2,True,8)
+F64 = Type('f',8,False)
+F32 = Type('f',4,False)
+F32_2 =  Type('f',4,False)
+I64 = Type('i',8,True)
+I32 = Type('i',4,True)
+I32_2 =  Type('i',4,True)
+I16 = Type('i',2,True)
 
 class FakePackSet(PackSet):
     def __init__(self, packs):
@@ -77,7 +77,6 @@ class SchedulerBaseTest(DependencyBaseTest):
         pairs = []
         for pack in packs:
             for i in range(len(pack.operations)-1):
-                pack.clear()
                 o1 = pack.operations[i]
                 o2 = pack.operations[i+1]
                 pair = Pair(o1,o2,pack.input_type,pack.output_type)
@@ -100,10 +99,10 @@ class Test(SchedulerBaseTest, LLtypeMixin):
 
     def test_next_must_not_loop_forever(self):
         scheduler = Scheduler()
-        def schedulable(node):
+        def delay(node, state):
             node.count += 1
-            return False
-        scheduler.schedulable = schedulable
+            return True
+        scheduler.delay = delay
         class State(object): pass
         class Node(object): emitted = False; pack = None; count = 0
         state = State()
@@ -269,7 +268,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         """)
         pack1 = self.pack(loop1, 0, 8, None, F64)
         pack2 = self.pack(loop1, 8, 16, F64, I32_2)
-        I16_2 = PackType('i',2,True,2)
+        I16_2 = Type('i',2,True)
         pack3 = self.pack(loop1, 16, 24, I32_2, I16_2)
         pack4 = self.pack(loop1, 24, 32, I16, None)
         def void(b,c):

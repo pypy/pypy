@@ -599,16 +599,6 @@ class DependencyGraph(object):
         for guard_node in self.guards:
             self.build_guard_dependencies(guard_node, tracker)
 
-    def prepare_for_scheduling(self):
-        jump_node = self.nodes[len(self.nodes)-1]
-        jump_node.emitted = True
-        label_node = self.nodes[0]
-        for node in self.nodes:
-            if node.depends_count() == 0:
-                self.schedulable_nodes.insert(0, node)
-        if not we_are_translated():
-            assert self.schedulable_nodes[-1] == label_node
-
     def guard_argument_protection(self, guard_node, tracker):
         """ the parameters the guard protects are an indicator for
             dependencies. Consider the example:

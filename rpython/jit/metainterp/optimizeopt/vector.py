@@ -22,7 +22,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
 from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleState,
         Scheduler, Pack, Pair, AccumPair, vectorbox_outof_box, getpackopnum,
-        getunpackopnum, PackType, determine_input_output_types)
+        getunpackopnum, Type, determine_input_output_types)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp, Accum)
 from rpython.rlib import listsort
@@ -449,21 +449,12 @@ class VectorizingOptimizer(Optimizer):
             if fail:
                 assert False
 
-    def schedule(self, state): # TODO  vector=False, sched_data=None):
-        """ Scheduling the trace and emitting vector operations
-            for packed instructions.
-        """
+    def schedule(self, state):
         state.prepare()
         scheduler = Scheduler()
         scheduler.walk_and_emit(state)
-        #
-        if not we_are_translated():
-            for node in graph.nodes:
-                assert node.emitted
-        #
         if state.profitable():
             return
-        #
         state.post_schedule()
 
     def prepend_invariant_operations(self, sched_data):
@@ -681,14 +672,13 @@ class PackSet(object):
                     return None
                 #
                 if origin_pack is None:
-                    descr = lnode.getoperation().getdescr()
-                    ptype = PackType.by_descr(descr, self.vec_reg_size)
-                    if lnode.getoperation().is_primitive_load():
+                    op = lnode.getoperation()
+                    if op.is_primitive_load():
                         # load outputs value, no input
-                        return Pair(lnode, rnode, None, ptype)
+                        return Pair(lnode, rnode, None, Type.of(op))
                     else:
                         # store only has an input
-                        return Pair(lnode, rnode, ptype, None)
+                        return Pair(lnode, rnode, Type.of(op), None)
                 if self.profitable_pack(lnode, rnode, origin_pack, forward):
                     input_type, output_type = \
                         determine_input_output_types(origin_pack, lnode, forward)
