@@ -215,6 +215,18 @@ class RegAlloc(BaseRegalloc):
             return self.rm.force_allocate_reg(var, forbidden_vars,
                                               selected_reg, need_lower_byte)
 
+    def force_allocate_reg_or_cc(self, var):
+        assert var.type == INT
+        if self.next_op_can_accept_cc(self.operations, self.rm.position):
+            # hack: return the ebp location to mean "lives in CC".  This
+            # ebp will not actually be used, and the location will be freed
+            # after the next op as usual.
+            self.rm.force_allocate_frame_reg(var)
+            return ebp
+        else:
+            # else, return a regular register (not ebp).
+            return self.rm.force_allocate_reg(var, need_lower_byte=True)
+
     def force_spill_var(self, var):
         if var.type == FLOAT:
             return self.xrm.force_spill_var(var)
@@ -278,20 +290,8 @@ class RegAlloc(BaseRegalloc):
             self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
         self.assembler.regalloc_perform_math(op, arglocs, result_loc)
 
-    def locs_for_fail(self, guard_op):
-        return [self.loc(v) for v in guard_op.getfailargs()]
-
-    def perform_with_guard(self, op, guard_op, arglocs, result_loc):
-        faillocs = self.locs_for_fail(guard_op)
-        self.rm.position += 1
-        self.xrm.position += 1
-        self.assembler.regalloc_perform_with_guard(op, guard_op, faillocs,
-                                                   arglocs, result_loc,
-                                                   self.fm.get_frame_depth())
-        self.possibly_free_vars(guard_op.getfailargs())
-
     def perform_guard(self, guard_op, arglocs, result_loc):
-        faillocs = self.locs_for_fail(guard_op)
+        faillocs = [self.loc(v) for v in guard_op.getfailargs()]
         if not we_are_translated():
             if result_loc is not None:
                 self.assembler.dump('%s <- %s(%s)' % (result_loc, guard_op,
@@ -310,7 +310,7 @@ class RegAlloc(BaseRegalloc):
 
     def walk_operations(self, inputargs, operations):
         i = 0
-        #self.operations = operations
+        self.operations = operations
         while i < len(operations):
             op = operations[i]
             self.assembler.mc.mark_op(op)
@@ -321,10 +321,7 @@ class RegAlloc(BaseRegalloc):
                 i += 1
                 self.possibly_free_vars_for_op(op)
                 continue
-            if self.can_merge_with_next_guard(op, i, operations):
-                oplist_with_guard[op.getopnum()](self, op, operations[i + 1])
-                i += 1
-            elif not we_are_translated() and op.getopnum() == -124:
+            if not we_are_translated() and op.getopnum() == -124:
                 self._consider_force_spill(op)
             else:
                 oplist[op.getopnum()](self, op)
@@ -336,6 +333,7 @@ class RegAlloc(BaseRegalloc):
         assert not self.xrm.reg_bindings
         self.flush_loop()
         self.assembler.mc.mark_op(None) # end of the loop
+        self.operations = None
         for arg in inputargs:
             self.possibly_free_var(arg)
 
@@ -363,14 +361,19 @@ class RegAlloc(BaseRegalloc):
             return self.xrm.loc(v)
         return self.rm.loc(v)
 
-    def _consider_guard(self, op):
-        loc = self.rm.make_sure_var_in_reg(op.getarg(0))
-        self.perform_guard(op, [loc], None)
+    def load_condition_into_cc(self, box):
+        if self.assembler.last_cc == rx86.cond_none:
+            self.assembler.test_location(self.loc(box))
+            self.assembler.last_cc = rx86.Conditions['NZ']
 
-    consider_guard_true = _consider_guard
-    consider_guard_false = _consider_guard
-    consider_guard_nonnull = _consider_guard
-    consider_guard_isnull = _consider_guard
+    def _consider_guard_cc(self, op):
+        self.load_condition_into_cc(op.getarg(0))
+        self.perform_guard(op, [], None)
+
+    consider_guard_true = _consider_guard_cc
+    consider_guard_false = _consider_guard_cc
+    consider_guard_nonnull = _consider_guard_cc
+    consider_guard_isnull = _consider_guard_cc
 
     def consider_finish(self, op):
         # the frame is in ebp, but we have to point where in the frame is
@@ -415,6 +418,7 @@ class RegAlloc(BaseRegalloc):
 
     consider_guard_no_overflow = consider_guard_no_exception
     consider_guard_overflow    = consider_guard_no_exception
+    consider_guard_not_forced  = consider_guard_no_exception
 
     def consider_guard_value(self, op):
         x = self.make_sure_var_in_reg(op.getarg(0))
@@ -482,17 +486,9 @@ class RegAlloc(BaseRegalloc):
     consider_int_or  = _consider_binop_symm
     consider_int_xor = _consider_binop_symm
 
-    def _consider_binop_with_guard(self, op, guard_op):
-        loc, argloc = self._consider_binop_part(op)
-        self.perform_with_guard(op, guard_op, [loc, argloc], loc)
-
-    def _consider_binop_with_guard_symm(self, op, guard_op):
-        loc, argloc = self._consider_binop_part(op, symm=True)
-        self.perform_with_guard(op, guard_op, [loc, argloc], loc)
-
-    consider_int_mul_ovf = _consider_binop_with_guard_symm
-    consider_int_sub_ovf = _consider_binop_with_guard
-    consider_int_add_ovf = _consider_binop_with_guard_symm
+    consider_int_mul_ovf = _consider_binop_symm
+    consider_int_sub_ovf = _consider_binop
+    consider_int_add_ovf = _consider_binop_symm
 
     def consider_int_neg(self, op):
         res = self.rm.force_result_in_reg(op.result, op.getarg(0))
@@ -541,7 +537,7 @@ class RegAlloc(BaseRegalloc):
 
     consider_uint_floordiv = consider_int_floordiv
 
-    def _consider_compop(self, op, guard_op):
+    def _consider_compop(self, op):
         vx = op.getarg(0)
         vy = op.getarg(1)
         arglocs = [self.loc(vx), self.loc(vy)]
@@ -551,12 +547,9 @@ class RegAlloc(BaseRegalloc):
             pass
         else:
             arglocs[0] = self.rm.make_sure_var_in_reg(vx)
-        if guard_op is None:
-            loc = self.rm.force_allocate_reg(op.result, args,
-                                             need_lower_byte=True)
-            self.perform(op, arglocs, loc)
-        else:
-            self.perform_with_guard(op, guard_op, arglocs, None)
+        self.possibly_free_vars(args)
+        loc = self.force_allocate_reg_or_cc(op.result)
+        self.perform(op, arglocs, loc)
 
     consider_int_lt = _consider_compop
     consider_int_gt = _consider_compop
@@ -582,7 +575,7 @@ class RegAlloc(BaseRegalloc):
     consider_float_mul = _consider_float_op      # xxx could be _symm
     consider_float_truediv = _consider_float_op
 
-    def _consider_float_cmp(self, op, guard_op):
+    def _consider_float_cmp(self, op):
         vx = op.getarg(0)
         vy = op.getarg(1)
         arglocs = [self.loc(vx), self.loc(vy)]
@@ -592,11 +585,9 @@ class RegAlloc(BaseRegalloc):
                 arglocs[1] = self.xrm.make_sure_var_in_reg(vy)
             else:
                 arglocs[0] = self.xrm.make_sure_var_in_reg(vx)
-        if guard_op is None:
-            res = self.rm.force_allocate_reg(op.result, need_lower_byte=True)
-            self.perform(op, arglocs, res)
-        else:
-            self.perform_with_guard(op, guard_op, arglocs, None)
+        self.possibly_free_vars(op.getarglist())
+        loc = self.force_allocate_reg_or_cc(op.result)
+        self.perform(op, arglocs, loc)
 
     consider_float_lt = _consider_float_cmp
     consider_float_le = _consider_float_cmp
@@ -737,7 +728,7 @@ class RegAlloc(BaseRegalloc):
         else:
             self._consider_call(op)
 
-    def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
+    def _call(self, op, arglocs, force_store=[], guard_not_forced=False):
         # we need to save registers on the stack:
         #
         #  - at least the non-callee-saved registers
@@ -750,7 +741,7 @@ class RegAlloc(BaseRegalloc):
         #    grab_frame_values() would not be able to locate values in
         #    callee-saved registers.
         #
-        save_all_regs = guard_not_forced_op is not None
+        save_all_regs = guard_not_forced
         self.xrm.before_call(force_store, save_all_regs=save_all_regs)
         if not save_all_regs:
             gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
@@ -768,12 +759,9 @@ class RegAlloc(BaseRegalloc):
                 resloc = self.rm.after_call(op.result)
         else:
             resloc = None
-        if guard_not_forced_op is not None:
-            self.perform_with_guard(op, guard_not_forced_op, arglocs, resloc)
-        else:
-            self.perform(op, arglocs, resloc)
+        self.perform(op, arglocs, resloc)
 
-    def _consider_call(self, op, guard_not_forced_op=None, first_arg_index=1):
+    def _consider_call(self, op, guard_not_forced=False, first_arg_index=1):
         calldescr = op.getdescr()
         assert isinstance(calldescr, CallDescr)
         assert len(calldescr.arg_classes) == op.numargs() - first_arg_index
@@ -785,7 +773,7 @@ class RegAlloc(BaseRegalloc):
             sign_loc = imm0
         self._call(op, [imm(size), sign_loc] +
                        [self.loc(op.getarg(i)) for i in range(op.numargs())],
-                   guard_not_forced_op=guard_not_forced_op)
+                   guard_not_forced=guard_not_forced)
 
     def consider_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
@@ -820,21 +808,19 @@ class RegAlloc(BaseRegalloc):
                 return self._consider_math_read_timestamp(op)
         self._consider_call(op)
 
-    def consider_call_may_force(self, op, guard_op):
-        assert guard_op is not None
-        self._consider_call(op, guard_op)
+    def consider_call_may_force(self, op):
+        self._consider_call(op, guard_not_forced=True)
 
-    def consider_call_release_gil(self, op, guard_op):
+    def consider_call_release_gil(self, op):
         # [Const(save_err), func_addr, args...]
-        assert guard_op is not None
-        self._consider_call(op, guard_op, first_arg_index=2)
+        self._consider_call(op, guard_not_forced=True, first_arg_index=2)
 
     def consider_call_malloc_gc(self, op):
         self._consider_call(op)
 
-    def consider_call_assembler(self, op, guard_op):
-        locs = self.locs_for_call_assembler(op, guard_op)
-        self._call(op, locs, guard_not_forced_op=guard_op)
+    def consider_call_assembler(self, op):
+        locs = self.locs_for_call_assembler(op)
+        self._call(op, locs, guard_not_forced=True)
 
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
@@ -868,7 +854,7 @@ class RegAlloc(BaseRegalloc):
         imm_func = self.rm.convert_to_imm(v)
         arglocs = [self.loc(args[i]) for i in range(2, len(args))]
         gcmap = self.get_gcmap()
-        self.rm.possibly_free_var(args[0])
+        self.load_condition_into_cc(op.getarg(0))
         self.assembler.cond_call(op, gcmap, loc_cond, imm_func, arglocs)
 
     def consider_call_malloc_nursery(self, op):
@@ -1110,14 +1096,12 @@ class RegAlloc(BaseRegalloc):
         self.perform(op, [base_loc, ofs, itemsize, fieldsize,
                           index_loc, temp_loc, sign_loc], result_loc)
 
-    def consider_int_is_true(self, op, guard_op):
+    def consider_int_is_true(self, op):
         # doesn't need arg to be in a register
         argloc = self.loc(op.getarg(0))
-        if guard_op is not None:
-            self.perform_with_guard(op, guard_op, [argloc], None)
-        else:
-            resloc = self.rm.force_allocate_reg(op.result, need_lower_byte=True)
-            self.perform(op, [argloc], resloc)
+        self.rm.possibly_free_var(op.getarg(0))
+        resloc = self.force_allocate_reg_or_cc(op.result)
+        self.perform(op, [argloc], resloc)
 
     consider_int_is_zero = consider_int_is_true
 
@@ -1471,28 +1455,14 @@ class RegAlloc(BaseRegalloc):
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
 
-    def not_implemented_op_with_guard(self, op, guard_op):
-        not_implemented("not implemented operation with guard: %s" % (
-            op.getopname(),))
 
 oplist = [RegAlloc.not_implemented_op] * rop._LAST
-oplist_with_guard = [RegAlloc.not_implemented_op_with_guard] * rop._LAST
-
-def add_none_argument(fn):
-    return lambda self, op: fn(self, op, None)
 
 for name, value in RegAlloc.__dict__.iteritems():
     if name.startswith('consider_'):
         name = name[len('consider_'):]
         num = getattr(rop, name.upper())
-        if (is_comparison_or_ovf_op(num)
-            or num == rop.CALL_MAY_FORCE
-            or num == rop.CALL_ASSEMBLER
-            or num == rop.CALL_RELEASE_GIL):
-            oplist_with_guard[num] = value
-            oplist[num] = add_none_argument(value)
-        else:
-            oplist[num] = value
+        oplist[num] = value
 
 def get_ebp_ofs(base_ofs, position):
     # Argument is a frame position (0, 1, 2...).

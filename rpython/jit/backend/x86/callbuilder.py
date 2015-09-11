@@ -266,9 +266,9 @@ class CallBuilderX86(AbstractCallBuilder):
                 rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             tlofsreg = self.get_tlofs_reg()   # => esi or r12 (possibly reused)
-            mc.MOV_rm(edi.value, (tlofsreg.value, p_errno))
-            mc.MOV32_rm(edi.value, (edi.value, 0))
-            mc.MOV32_mr((tlofsreg.value, rpy_errno), edi.value)
+            mc.MOV_rm(ecx.value, (tlofsreg.value, p_errno))
+            mc.MOV32_rm(ecx.value, (ecx.value, 0))
+            mc.MOV32_mr((tlofsreg.value, rpy_errno), ecx.value)
 
         if handle_lasterror and (save_err & (rffi.RFFI_SAVE_LASTERROR |
                                              rffi.RFFI_SAVE_WSALASTERROR)):

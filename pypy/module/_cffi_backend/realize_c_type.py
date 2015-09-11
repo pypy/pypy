@@ -81,6 +81,13 @@ def get_primitive_type(ffi, num):
         if num == cffi_opcode._UNKNOWN_PRIM:
             raise oefmt(ffi.w_FFIError, "primitive integer type with an "
                         "unexpected size (or not an integer type at all)")
+        elif num == cffi_opcode._UNKNOWN_FLOAT_PRIM:
+            raise oefmt(ffi.w_FFIError, "primitive floating-point type with an "
+                        "unexpected size (or not a float type at all)")
+        elif num == cffi_opcode._UNKNOWN_LONG_DOUBLE:
+            raise oefmt(ffi.w_FFIError, "primitive floating-point type is "
+                        "'long double', not supported for now with "
+                        "the syntax 'typedef double... xxx;'")
         else:
             raise oefmt(space.w_NotImplementedError, "prim=%d", num)
     realize_cache = space.fromcache(RealizeCache)
