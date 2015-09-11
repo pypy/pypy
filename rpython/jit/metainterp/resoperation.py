@@ -66,6 +66,9 @@ class AbstractValue(object):
     def is_inputarg(self):
         return False
 
+    def returns_vector(self):
+        return False
+
 def ResOperation(opnum, args, descr=None):
     cls = opclasses[opnum]
     op = cls()
@@ -88,6 +91,7 @@ class AbstractResOpOrInputArg(AbstractValue):
         return self._forwarded
 
 
+
 class AbstractResOp(AbstractResOpOrInputArg):
     """The central ResOperation class, representing one operation."""
 
@@ -101,8 +105,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
     type = 'v'
     boolreflex = -1
     boolinverse = -1
-    vector = -1
-    casts = ('\x00', -1, '\x00', -1)
+    vector = -1 # -1 means, no vector equivalent, -2 it is a vector statement
 
     def getopnum(self):
         return self.opnum
@@ -357,6 +360,12 @@ class AbstractResOp(AbstractResOpOrInputArg):
     def is_label(self):
         return self.getopnum() == rop.LABEL
 
+    def returns_void(self):
+        return self.type == 'v'
+
+    def returns_vector(self):
+        return self.type != 'v' and self.vector == -2
+
 # ===================
 # Top of the hierachy
 # ===================
@@ -365,6 +374,9 @@ class PlainResOp(AbstractResOp):
     pass
 
 class CastResOp(AbstractResOp):
+    _attrs_ = ('casts')
+    casts = ('\x00', -1, '\x00', -1)
+
     def casts_box(self):
         return True
 
@@ -546,8 +558,6 @@ class VectorOp(object):
     _attrs_ = ('item_type','item_count','item_size','item_signed','accum')
     _extended_display = False
 
-    type = 'V'
-
     #def __init__(self, item_type=FLOAT, item_count=2, item_size=8, item_signed=False, accum=None):
     #    assert item_type in (FLOAT, INT)
     #    self.item_type = item_type
@@ -650,6 +660,13 @@ class InputArgRef(RefOp, AbstractInputArg):
 
     def reset_value(self):
         self.setref_base(lltype.nullptr(llmemory.GCREF.TO))
+
+class InputArgVector(VectorOp, AbstractInputArg):
+    def __init__(self):
+        pass
+
+    def returns_vector(self):
+        return True
 
 # ============
 # arity mixins
@@ -1154,6 +1171,8 @@ def create_class_for_op(name, opnum, arity, withdescr, result_type):
         mixins.append(RefOp)
     else:
         assert result_type == 'n'
+    if name.startswith('VEC'):
+        mixins.insert(1,VectorOp)
 
     cls_name = '%s_OP' % name
     bases = (get_base_class(tuple(mixins), baseclass),)
@@ -1271,6 +1290,8 @@ def setup2():
             cls.vector = _opvector[opnum]
         if name in _cast_ops:
             cls.casts = _cast_ops[name]
+        if name.startswith('VEC'):
+            cls.vector = -2
 setup2()
 del _opboolinverse
 del _opboolreflex

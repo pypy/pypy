@@ -20,7 +20,7 @@ from rpython.jit.metainterp.optimizeopt.renamer import Renamer
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
-from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleData,
+from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleState,
         Scheduler, Pack, Pair, AccumPair, vectorbox_outof_box, getpackopnum,
         getunpackopnum, PackType, determine_input_output_types)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
@@ -31,9 +31,10 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import Counters
 from rpython.rtyper.lltypesystem import lltype, rffi
 
-class TraceLoop(object):
+class VectorLoop(object):
     def __init__(self, label, oplist, jump):
         self.label = label
+        self.inputargs = label.getarglist()
         self.prefix = []
         self.prefix_label = None
         assert self.label.getopnum() == rop.LABEL
@@ -41,7 +42,7 @@ class TraceLoop(object):
         self.jump = jump
         assert self.jump.getopnum() == rop.JUMP
 
-    def all_operations(self):
+    def operation_list(self):
         return [self.label] + self.operations + [self.jump]
 
 def optimize_vector(metainterp_sd, jitdriver_sd, warmstate, loop_info, loop_ops):
@@ -52,10 +53,10 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate, loop_info, loop_ops)
     # the original loop (output of optimize_unroll)
     info = LoopVersionInfo(loop_info)
     version = info.snapshot(loop_ops, info.label_op)
-    loop = TraceLoop(loop_info.label_op, loop_ops[:-1], loop_ops[-1])
+    loop = VectorLoop(loop_info.label_op, loop_ops[:-1], loop_ops[-1])
     try:
         debug_start("vec-opt-loop")
-        metainterp_sd.logger_noopt.log_loop([], loop.all_operations(), -2, None, None, "pre vectorize")
+        metainterp_sd.logger_noopt.log_loop([], loop.operation_list(), -2, None, None, "pre vectorize")
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZE_TRY)
         #
         start = time.clock()
@@ -67,7 +68,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate, loop_info, loop_ops)
         end = time.clock()
         #
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
-        metainterp_sd.logger_noopt.log_loop([], loop.all_operations(), -2, None, None, "post vectorize")
+        metainterp_sd.logger_noopt.log_loop([], loop.operation_list(), -2, None, None, "post vectorize")
         #
         nano = int((end-start)*10.0**9)
         debug_print("# vecopt factor: %d opcount: (%d -> %d) took %dns" % \
@@ -142,8 +143,7 @@ class VectorizingOptimizer(Optimizer):
     def __init__(self, metainterp_sd, jitdriver_sd, cost_threshold):
         Optimizer.__init__(self, metainterp_sd, jitdriver_sd)
         self.cpu = metainterp_sd.cpu
-        self.costmodel = X86_CostModel(cost_threshold, self.cpu.vector_register_size)
-        self.dependency_graph = None
+        self.cost_threshold = cost_threshold
         self.packset = None
         self.unroll_count = 0
         self.smallest_type_bytes = 0
@@ -171,9 +171,10 @@ class VectorizingOptimizer(Optimizer):
             raise NotAVectorizeableLoop()
 
         # find index guards and move to the earliest position
-        self.analyse_index_calculations(loop)
-        if self.dependency_graph is not None:
-            self.schedule(False) # reorder the trace
+        graph = self.analyse_index_calculations(loop)
+        if graph is not None:
+            state = SchedulerState(graph)
+            self.schedule(state) # reorder the trace
 
         # unroll
         self.unroll_count = self.get_unroll_count(vsize)
@@ -182,13 +183,15 @@ class VectorizingOptimizer(Optimizer):
         self.clear_newoperations();
 
         # vectorize
-        self.dependency_graph = DependencyGraph(self.loop)
+        graph = DependencyGraph(loop)
         self.find_adjacent_memory_refs()
         self.extend_packset()
         self.combine_packset()
-        self.costmodel.reset_savings()
-        self.schedule(True)
-        if not self.costmodel.profitable():
+        # TODO move cost model to CPU
+        costmodel = X86_CostModel(self.cpu, self.cost_threshold)
+        state = VecScheduleState(graph, self.packset, self.cpu, costmodel)
+        self.schedule(state)
+        if not state.profitable():
             raise NotAProfitableLoop()
 
     def emit_unrolled_operation(self, op):
@@ -308,7 +311,7 @@ class VectorizingOptimizer(Optimizer):
         unroll_count = simd_vec_reg_bytes // byte_count
         return unroll_count-1 # it is already unrolled once
 
-    def find_adjacent_memory_refs(self):
+    def find_adjacent_memory_refs(self, graph):
         """ The pre pass already builds a hash of memory references and the
             operations. Since it is in SSA form there are no array indices.
             If there are two array accesses in the unrolled loop
@@ -320,7 +323,6 @@ class VectorizingOptimizer(Optimizer):
         operations = loop.operations
 
         self.packset = PackSet(self.cpu.vector_register_size)
-        graph = self.dependency_graph
         memory_refs = graph.memory_refs.items()
         # initialize the pack set
         for node_a,memref_a in memory_refs:
@@ -447,59 +449,22 @@ class VectorizingOptimizer(Optimizer):
             if fail:
                 assert False
 
-    def schedule(self, vector=False, sched_data=None):
+    def schedule(self, state): # TODO  vector=False, sched_data=None):
         """ Scheduling the trace and emitting vector operations
             for packed instructions.
         """
-
-        self.clear_newoperations()
-        if sched_data is None:
-            sched_data = VecScheduleData(self.cpu.vector_register_size,
-                                         self.costmodel, self.orig_label_args)
-        self.dependency_graph.prepare_for_scheduling()
-        scheduler = Scheduler(self.dependency_graph, sched_data)
-        renamer = Renamer()
-        #
-        if vector:
-            self.packset.accumulate_prepare(sched_data, renamer)
-        #
-        for node in scheduler.schedulable_nodes:
-            op = node.getoperation()
-            if op.is_label():
-                seen = sched_data.seen
-                for arg in op.getarglist():
-                    sched_data.seen[arg] = None
-                break
-        #
-        scheduler.emit_into(self._newoperations, renamer, unpack=vector)
+        state.prepare()
+        scheduler = Scheduler()
+        scheduler.walk_and_emit(state)
         #
         if not we_are_translated():
-            for node in self.dependency_graph.nodes:
+            for node in graph.nodes:
                 assert node.emitted
-        if vector and not self.costmodel.profitable():
+        #
+        if state.profitable():
             return
-        if vector:
-            # add accumulation info to the descriptor
-            for version in self.loop.versions:
-                # this needs to be done for renamed (accum arguments)
-                version.renamed_inputargs = [ renamer.rename_map.get(arg,arg) for arg in version.inputargs ]
-            self.appended_arg_count = len(sched_data.invariant_vector_vars)
-            #for guard_node in self.dependency_graph.guards:
-            #    op = guard_node.getoperation()
-            #    failargs = op.getfailargs()
-            #    for i,arg in enumerate(failargs):
-            #        if arg is None:
-            #            continue
-            #        accum = arg.getaccum()
-            #        if accum:
-            #            pass
-            #            #accum.save_to_descr(op.getdescr(),i)
-            self.has_two_labels = len(sched_data.invariant_oplist) > 0
-            self.loop.operations = self.prepend_invariant_operations(sched_data)
-        else:
-            self.loop.operations = self._newoperations
-        
-        self.clear_newoperations()
+        #
+        state.post_schedule()
 
     def prepend_invariant_operations(self, sched_data):
         """ Add invariant operations to the trace loop. returns the operation list
@@ -540,7 +505,7 @@ class VectorizingOptimizer(Optimizer):
             that guards fail 'early' and relax dependencies. Without this
             step vectorization would not be possible!
         """
-        self.dependency_graph = graph = DependencyGraph(loop)
+        graph = DependencyGraph(loop)
         ee_guard_node = graph.getnode(0)
         if ee_guard_node.getopnum() != rop.GUARD_EARLY_EXIT:
             raise NotAVectorizeableLoop()
@@ -618,9 +583,9 @@ class CostModel(object):
         The main reaons to have this is of frequent unpack instructions,
         and the missing ability (by design) to detect not vectorizable loops.
     """
-    def __init__(self, threshold, vec_reg_size):
+    def __init__(self, cpu, threshold):
         self.threshold = threshold
-        self.vec_reg_size = vec_reg_size
+        self.vec_reg_size = cpu.vector_register_size
         self.savings = 0
 
     def reset_savings(self):
@@ -850,11 +815,12 @@ class PackSet(object):
         #
         return None, -1
 
-    def accumulate_prepare(self, sched_data, renamer):
-        vec_reg_size = sched_data.vec_reg_size
+    def accumulate_prepare(self, state):
+        vec_reg_size = state.vec_reg_size
         for pack in self.packs:
             if not pack.is_accumulating():
                 continue
+            xxx
             accum = pack.accum
             # create a new vector box for the parameters
             box = pack.input_type.new_vector_box()
@@ -862,27 +828,27 @@ class PackSet(object):
             # reset the box to zeros or ones
             if accum.operator == Accum.PLUS:
                 op = ResOperation(rop.VEC_BOX, [ConstInt(size)], box)
-                sched_data.invariant_oplist.append(op)
+                state.invariant_oplist.append(op)
                 result = box.clonebox()
                 op = ResOperation(rop.VEC_INT_XOR, [box, box], result)
-                sched_data.invariant_oplist.append(op)
+                state.invariant_oplist.append(op)
                 box = result
             elif accum.operator == Accum.MULTIPLY:
                 # multiply is only supported by floats
                 op = ResOperation(rop.VEC_FLOAT_EXPAND, [ConstFloat(1.0), ConstInt(size)], box)
-                sched_data.invariant_oplist.append(op)
+                state.invariant_oplist.append(op)
             else:
-                raise NotImplementedError("can only handle + and *")
+                raise NotImplementedError("can only handle %s" % accum.operator)
             result = box.clonebox()
             assert isinstance(result, BoxVector)
             result.accum = accum
             # pack the scalar value
             op = ResOperation(getpackopnum(box.gettype()),
                               [box, accum.var, ConstInt(0), ConstInt(1)], result)
-            sched_data.invariant_oplist.append(op)
+            state.invariant_oplist.append(op)
             # rename the variable with the box
-            sched_data.setvector_of_box(accum.getoriginalbox(), 0, result) # prevent it from expansion
-            renamer.start_renaming(accum.getoriginalbox(), result)
+            state.setvector_of_box(accum.getoriginalbox(), 0, result) # prevent it from expansion
+            state.renamer.start_renaming(accum.getoriginalbox(), result)
 
     def split_overloaded_packs(self):
         newpacks = []

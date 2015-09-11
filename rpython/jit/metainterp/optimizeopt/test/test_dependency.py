@@ -6,12 +6,27 @@ from rpython.jit.metainterp.optimizeopt.test.test_util import (
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, Dependency,
         IndexVar, MemoryRef, Node)
-from rpython.jit.metainterp.optimizeopt.vector import TraceLoop
+from rpython.jit.metainterp.optimizeopt.vector import VectorLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.llgraph.runner import ArrayDescr
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from rpython.conftest import option
+
+class FakeDependencyGraph(DependencyGraph):
+    """ A dependency graph that is able to emit every instruction
+    one by one. """
+    def __init__(self, loop):
+        self.loop = loop
+        if isinstance(loop, list):
+            self.nodes = loop
+        else:
+            operations = loop.operations
+            self.nodes = [Node(op,i) for i,op in \
+                            enumerate(operations)]
+        self.schedulable_nodes = list(reversed(self.nodes))
+        self.guards = []
+
 
 class DependencyBaseTest(BaseTest):
 
@@ -26,12 +41,20 @@ class DependencyBaseTest(BaseTest):
             assert node.independent(node)
         return self.last_graph
 
-    def parse_loop(self, ops):
+    def parse_loop(self, ops, add_label=True, **kwargs):
         loop = self.parse(ops, postprocess=self.postprocess)
+        loop.operations = filter(lambda op: op.getopnum() != rop.DEBUG_MERGE_POINT, loop.operations)
         token = JitCellToken()
-        label = ResOperation(rop.LABEL, loop.inputargs, descr=TargetToken(token))
-        loop = TraceLoop(label, loop.operations[:-1], loop.operations[-1])
+        if add_label:
+            label = ResOperation(rop.LABEL, loop.inputargs, descr=TargetToken(token))
+        else:
+            label = loop.operations[0]
+            label.setdescr(TargetToken(token))
+        loop = VectorLoop(label, loop.operations[1:-1], loop.operations[-1])
         loop.jump.setdescr(token)
+        for op in loop.operations:
+            if op.getopnum() == rop.GUARD_EARLY_EXIT and op.getdescr() is None:
+                op.setdescr(compile.ResumeAtLoopHeaderDescr())
         return loop
 
     def assert_edges(self, graph, edge_list, exceptions):
@@ -533,8 +556,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         n1,n2 = FakeNode(1), FakeNode(2)
         n1.edge_to(n2); n2.edge_to(n1)
 
-        graph = FakeDependencyGraph()
-        graph.nodes = [n1,n2]
+        graph = FakeDependencyGraph([n1,n2])
         cycle = graph.cycles()
         assert cycle == [n1, n2]
 
@@ -547,7 +569,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         n1,n2,n3,n4 = FakeNode(1), FakeNode(2), FakeNode(3), FakeNode(4)
         n1.edge_to(n3); n3.edge_to(n4); n4.edge_to(n1)
 
-        graph = FakeDependencyGraph()
+        graph = FakeDependencyGraph([n1,n2])
         graph.nodes = [n1,n2,n3]
         cycle = graph.cycles()
         assert cycle is not None
@@ -583,10 +605,6 @@ class FakeNode(Node):
 
     def __repr__(self):
         return "n%d" % self.opidx
-
-class FakeDependencyGraph(DependencyGraph):
-    def __init__(self):
-        pass
 
 
 class TestLLtype(BaseTestDependencyGraph, LLtypeMixin):

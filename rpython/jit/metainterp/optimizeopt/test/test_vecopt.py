@@ -11,9 +11,9 @@ from rpython.jit.metainterp.optimizeopt import optimize_trace
 import rpython.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
 from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
-from rpython.jit.metainterp.optimizeopt.vectorize import (VectorizingOptimizer, MemoryRef,
+from rpython.jit.metainterp.optimizeopt.vector import (VectorizingOptimizer, MemoryRef,
         isomorphic, Pair, NotAVectorizeableLoop, NotAProfitableLoop, GuardStrengthenOpt,
-        CostModel)
+        CostModel, VectorLoop)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.resoperation import rop, ResOperation
@@ -41,25 +41,6 @@ class VecTestHelper(DependencyBaseTest):
 
     jitdriver_sd = FakeJitDriverStaticData()
 
-    def parse_loop(self, ops, add_label=True):
-        loop = self.parse(ops, postprocess=self.postprocess)
-        token = JitCellToken()
-        pre = []
-        tt = TargetToken(token)
-        if add_label:
-            pre = [ResOperation(rop.LABEL, loop.inputargs, None, descr=tt)]
-        else:
-            for i,op in enumerate(loop.operations):
-                if op.getopnum() == rop.LABEL:
-                    op.setdescr(tt)
-        loop.operations = pre + filter(lambda op: op.getopnum() != rop.DEBUG_MERGE_POINT, loop.operations)
-        if loop.operations[-1].getopnum() == rop.JUMP:
-            loop.operations[-1].setdescr(token)
-        for op in loop.operations:
-            if op.getopnum() == rop.GUARD_EARLY_EXIT and op.getdescr() is None:
-                op.setdescr(compile.ResumeAtLoopHeaderDescr())
-        return loop
-
     def assert_vectorize(self, loop, expected_loop, call_pure_results=None):
         self._do_optimize_loop(loop, call_pure_results, export_state=True)
         self.assert_equal(loop, expected_loop)
@@ -67,7 +48,7 @@ class VecTestHelper(DependencyBaseTest):
     def vectoroptimizer(self, loop):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, 0)
+        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, 0)
         label_index = loop.find_first_index(rop.LABEL)
         opt.orig_label_args = loop.operations[label_index].getarglist()[:]
         return opt
@@ -89,48 +70,48 @@ class VecTestHelper(DependencyBaseTest):
             guard.setdescr(compile.ResumeAtLoopHeaderDescr())
             loop.operations.insert(idx+1, guard)
         self.show_dot_graph(DependencyGraph(opt.loop), "original_" + self.test_name)
-        opt.analyse_index_calculations()
-        if opt.dependency_graph is not None:
+        graph = opt.analyse_index_calculations()
+        if graph is not None:
             cycle = opt.dependency_graph.cycles()
             if cycle is not None:
                 print "CYCLE found %s" % cycle
             self.show_dot_graph(opt.dependency_graph, "early_exit_" + self.test_name)
             assert cycle is None
-            opt.schedule(False)
+            loop.operations = opt.schedule(False)
         opt.unroll_loop_iterations(loop, unroll_factor)
         opt.loop.operations = opt.get_newoperations()
         self.debug_print_operations(opt.loop)
         opt.clear_newoperations()
-        opt.dependency_graph = DependencyGraph(loop)
-        self.last_graph = opt.dependency_graph
+        graph = DependencyGraph(loop)
+        self.last_graph = graph
         self.show_dot_graph(self.last_graph, self.test_name)
-        return opt
+        return opt, graph
 
     def init_packset(self, loop, unroll_factor = -1):
-        opt = self.vectoroptimizer_unrolled(loop, unroll_factor)
-        opt.find_adjacent_memory_refs()
+        opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
+        opt.find_adjacent_memory_refs(graph)
         return opt
 
     def extend_packset(self, loop, unroll_factor = -1):
-        opt = self.vectoroptimizer_unrolled(loop, unroll_factor)
-        opt.find_adjacent_memory_refs()
+        opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
+        opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
         return opt
 
     def combine_packset(self, loop, unroll_factor = -1):
-        opt = self.vectoroptimizer_unrolled(loop, unroll_factor)
-        opt.find_adjacent_memory_refs()
+        opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
+        opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
         opt.combine_packset()
         return opt
 
     def schedule(self, loop, unroll_factor = -1, with_guard_opt=False):
-        opt = self.vectoroptimizer_unrolled(loop, unroll_factor)
+        opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.costmodel = FakeCostModel()
-        opt.find_adjacent_memory_refs()
+        opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
         opt.combine_packset()
-        opt.schedule(True)
+        opt.schedule(graph, True)
         if with_guard_opt:
             gso = GuardStrengthenOpt(opt.dependency_graph.index_vars, opt.has_two_labels)
             gso.propagate_all_forward(opt.loop)
@@ -204,8 +185,7 @@ class VecTestHelper(DependencyBaseTest):
 
 class BaseTestVectorize(VecTestHelper):
 
-    def test_vectorize_skip_impossible_1(self):
-        """ this trace does not contain a raw load / raw store from an array """
+    def test_vectorize_skip(self):
         ops = """
         [p0,i0]
         i1 = int_add(i0,1)

@@ -8,33 +8,44 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.jitexc import NotAProfitableLoop
 
 
-class SchedulerData(object):
-    pass
-class Scheduler(object):
-    """ The base class to be instantiated to (re)schedule a vector trace. """
-    def __init__(self, graph, sched_data):
-        assert isinstance(sched_data, SchedulerData)
+class SchedulerState(object):
+    def __init__(self, graph):
+        self.renamer = Renamer()
         self.graph = graph
-        self.schedulable_nodes = self.graph.schedulable_nodes
-        self.sched_data = sched_data
-        self.oplist = None
-        self.renamer = None
+        self.oplist = []
+        self.worklist = []
+
+    def post_schedule(self):
+        pass
+
+    def profitable(self):
+        return self.costmodel.profitable()
+
+    def prepare(self):
+        pass
 
     def has_more(self):
-        return len(self.schedulable_nodes) > 0
+        return len(self.worklist) > 0
 
-    def next_index(self, candidate_list):
-        i = len(candidate_list)-1
-        while i >= 0:
-            candidate = candidate_list[i]
-            if candidate.emitted:
-                del candidate_list[i]
-                i -= 1
+class Scheduler(object):
+    """ The base class to be instantiated to (re)schedule a vector trace. """
+    def __init__(self):
+        pass
+
+    def next(self, state):
+        worklist = state.worklist
+        visited = 0
+        while len(worklist) > 0:
+            if visited == len(worklist):
+                return None
+            node = worklist.pop()
+            if node.emitted:
                 continue
-            if self.schedulable(candidate):
-                return i
-            i -= 1
-        return -1
+            if self.schedulable(node):
+                return node
+            worklist.insert(0, node)
+            visited += 1
+        return None
 
     def schedulable(self, candidate):
         """ Is the candidate scheduleable? Boils down to dependency_count == 0
@@ -53,12 +64,14 @@ class Scheduler(object):
                         return False
         return candidate.depends_count() == 0
 
-    def scheduled(self, node):
+    def scheduled(self, node, state):
         """ Call this function if an operation has been emitted
             adds new operations to the schedule list if
             their dependency count drops to zero.
             In addition it keeps the list sorted (see priority)
         """
+        state.renamer.rename(op)
+        state.unpack_from_vector(op, self)
         node.position = len(self.oplist)
         for dep in node.provides()[:]: # COPY
             to = dep.to
@@ -85,36 +98,37 @@ class Scheduler(object):
         node.clear_dependencies()
         node.emitted = True
 
-    def emit_into(self, oplist, renamer, unpack=False):
+    def walk_and_emit(self, state): # TODO oplist, renamer, unpack=False):
         """ Emit all the operations into the oplist parameter.
             Initiates the scheduling.
         """
-        self.renamer = renamer
-        self.oplist = oplist
-        self.unpack = unpack
-
-        while self.has_more():
-            i = self.next_index(self.schedulable_nodes)
-            if i >= 0:
-                candidate = self.schedulable_nodes[i]
-                del self.schedulable_nodes[i]
-                self.sched_data.schedule_candidate(self, candidate)
+        assert isinstance(state, SchedulerState)
+        while state.has_more():
+            node = self.next(state)
+            if node:
+                if not state.emit(node):
+                    if not node.emitted:
+                        op = node.getoperation()
+                        scheduler.scheduled(node, state)
                 continue
+
+
 
             # it happens that packs can emit many nodes that have been
             # added to the scheuldable_nodes list, in this case it could
             # be that no next exists even though the list contains elements
-            if not self.has_more():
+            if not state.has_more():
                 break
 
             raise AssertionError("schedule failed cannot continue. possible reason: cycle")
 
-        jump_node = self.graph.nodes[-1]
-        jump_op = jump_node.getoperation()
-        renamer.rename(jump_op)
-        assert jump_op.getopnum() == rop.JUMP
-        self.sched_data.unpack_from_vector(jump_op, self)
-        oplist.append(jump_op)
+        # TODO
+        #jump_node = self.graph.nodes[-1]
+        #jump_op = jump_node.getoperation()
+        #renamer.rename(jump_op)
+        #assert jump_op.getopnum() == rop.JUMP
+        #self.sched_data.unpack_from_vector(jump_op, self)
+        #oplist.append(jump_op)
 
 def vectorbox_outof_box(box, count=-1, size=-1, type='-'):
     if box.type not in (FLOAT, INT):
@@ -178,7 +192,7 @@ class PackType(object):
 
     @staticmethod
     def of(box, count=-1):
-        assert isinstance(box, BoxVector)
+        assert box.type == 'V'
         if count == -1:
             count = box.getcount()
         return PackType(box.gettype(), box.getsize(), box.getsigned(), count)
@@ -210,6 +224,7 @@ class PackType(object):
         assert count > 1
         assert self.type in ('i','f')
         assert self.size > 0
+        xxx
         return BoxVector(self.type, count, self.size, self.signed)
 
     def combine(self, other):
@@ -312,10 +327,9 @@ class OpToVectorOp(object):
         self.before_argument_transform(args)
         self.transform_arguments(args)
         #
-        result = op.result
-        result = self.transform_result(result)
+        vop = ResOperation(op.vector, args, op.getdescr())
+        #result = self.transform_result(op)
         #
-        vop = ResOperation(op.vector, args, result, op.getdescr())
         if op.is_guard():
             assert isinstance(op, GuardResOp)
             assert isinstance(vop, GuardResOp)
@@ -334,7 +348,7 @@ class OpToVectorOp(object):
             if i >= vbox.getcount():
                 break
             op = node.getoperation()
-            self.sched_data.setvector_of_box(op.result, i, vbox)
+            self.sched_data.setvector_of_box(op, i, vbox)
         return vbox
 
     def new_result_vector_box(self):
@@ -348,9 +362,18 @@ class OpToVectorOp(object):
         return self.pack.operations
 
     def transform_arguments(self, args):
-        """ Transforming one argument to a vector box argument """
+        """ Transforming one argument to a vector box argument
+            The following cases can occur:
+            1) argument is present in the box_to_vbox map.
+               a) vector can be reused immediatly (simple case)
+               b) vector is to big
+               c) vector is to small
+            2) argument is not known to reside in a vector
+               a) expand vars/consts before the label and add as argument
+               b) expand vars created in the loop body
+        """
         for i,arg in enumerate(args):
-            if isinstance(arg, BoxVector):
+            if arg.returns_vector():
                 continue
             if not self.is_vector_arg(i):
                 continue
@@ -478,7 +501,7 @@ class OpToVectorOp(object):
         return new_box
 
     def _check_vec_pack(self, op):
-        result = op.result
+        result = op
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
         index = op.getarg(2)
@@ -754,63 +777,89 @@ def determine_trans(op):
         raise NotImplementedError("missing vecop for '%s'" % (op.getopname(),))
     return op2vecop
 
-class VecScheduleData(SchedulerData):
-    def __init__(self, vec_reg_size, costmodel, inputargs):
+class VecScheduleState(SchedulerState):
+    def __init__(self, graph, packset, cpu, costmodel):
+        SchedulerState.__init__(self, graph)
         self.box_to_vbox = {}
-        self.vec_reg_size = vec_reg_size
+        self.cpu = cpu
+        self.vec_reg_size = cpu.vector_register_size
         self.invariant_oplist = []
         self.invariant_vector_vars = []
         self.expanded_map = {}
         self.costmodel = costmodel
         self.inputargs = {}
-        for arg in inputargs:
+        self.packset = packset
+        for arg in graph.loop.inputargs:
             self.inputargs[arg] = None
         self.seen = {}
 
-    def schedule_candidate(self, scheduler, candidate):
+    def post_schedule(self):
+        pass
+        # TODO label rename
+        if vector:
+            # XXX
+            # add accumulation info to the descriptor
+            #for version in self.loop.versions:
+            #    # this needs to be done for renamed (accum arguments)
+            #    version.renamed_inputargs = [ renamer.rename_map.get(arg,arg) for arg in version.inputargs ]
+            #self.appended_arg_count = len(sched_data.invariant_vector_vars)
+            ##for guard_node in graph.guards:
+            ##    op = guard_node.getoperation()
+            ##    failargs = op.getfailargs()
+            ##    for i,arg in enumerate(failargs):
+            ##        if arg is None:
+            ##            continue
+            ##        accum = arg.getaccum()
+            ##        if accum:
+            ##            pass
+            ##            #accum.save_to_descr(op.getdescr(),i)
+            #self.has_two_labels = len(sched_data.invariant_oplist) > 0
+            #self.loop.operations = self.prepend_invariant_operations(sched_data)
+            pass
+
+
+    def profitable(self):
+        return self.costmodel.profitable()
+
+    def prepare(self):
+        SchedulerState.prepare(self)
+        self.graph.prepare_for_scheduling()
+        self.packset.accumulate_prepare(self)
+        for arg in self.graph.loop.label.getarglist():
+            self.seen[arg] = None
+
+    def emit(self, node, scheduler):
         """ If you implement a scheduler this operations is called
             to emit the actual operation into the oplist of the scheduler.
         """
-        renamer = scheduler.renamer
-        if candidate.pack:
-            for node in candidate.pack.operations:
-                renamer.rename(node.getoperation())
+        if node.pack:
+            for node in node.pack.operations:
                 scheduler.scheduled(node)
-            self.as_vector_operation(scheduler, candidate.pack)
-        else:
-            op = candidate.getoperation()
-            renamer.rename(op)
-            self.unpack_from_vector(op, scheduler)
-            scheduler.scheduled(candidate)
-            op = candidate.getoperation()
-            #
-            # prevent some instructions in the resulting trace!
-            if op.getopnum() in (rop.DEBUG_MERGE_POINT,
-                                 rop.GUARD_EARLY_EXIT):
-                return
-            scheduler.oplist.append(op)
+            self.as_vector_operation(node.pack)
+            return True
+        return False
 
-    def as_vector_operation(self, scheduler, pack):
+
+    def as_vector_operation(self, pack):
         """ Transform a pack into a single or several operation.
             Calls the as_vector_operation of the OpToVectorOp implementation.
         """
         assert pack.opcount() > 1
         # properties that hold for the pack are:
-        # + isomorphism (see func above)
+        # + isomorphism (see func)
         # + tightly packed (no room between vector elems)
 
-        oplist = scheduler.oplist
-        position = len(oplist)
-        op = pack.operations[0].getoperation()
-        determine_trans(op).as_vector_operation(pack, self, scheduler, oplist)
+        position = len(self.oplist)
+        op = pack.leftmost().getoperation()
+        determine_trans(op).as_vector_operation(pack, self, self.oplist)
         #
         if pack.is_accumulating():
             box = oplist[position].result
             assert box is not None
             for node in pack.operations:
                 op = node.getoperation()
-                assert op.result is not None
-                scheduler.renamer.start_renaming(op.result, box)
+                assert not op.returns_void()
+                scheduler.renamer.start_renaming(op, box)
 
     def unpack_from_vector(self, op, scheduler):
         """ If a box is needed that is currently stored within a vector
@@ -820,17 +869,17 @@ class VecScheduleData(SchedulerData):
 
         # unpack for an immediate use
         for i, arg in enumerate(op.getarglist()):
-            if isinstance(arg, Box):
+            if not arg.is_constant():
                 argument = self._unpack_from_vector(i, arg, scheduler)
                 if arg is not argument:
                     op.setarg(i, argument)
-        if op.result:
-            self.seen[op.result] = None
+        if not op.returns_void():
+            self.seen[op] = None
         # unpack for a guard exit
         if op.is_guard():
             fail_args = op.getfailargs()
             for i, arg in enumerate(fail_args):
-                if arg and isinstance(arg, Box):
+                if arg and not arg.is_constant():
                     argument = self._unpack_from_vector(i, arg, scheduler)
                     if arg is not argument:
                         fail_args[i] = argument
@@ -865,7 +914,7 @@ class VecScheduleData(SchedulerData):
 
     def setvector_of_box(self, box, off, vector):
         assert off < vector.getcount()
-        assert not isinstance(box, BoxVector)
+        assert box.type != 'V'
         self.box_to_vbox[box] = (off, vector)
 
 def opcount_filling_vector_register(pack, vec_reg_size):
