@@ -106,7 +106,7 @@ class TestInstance(BaseTestPyPyC):
         entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         ops = entry_bridge.ops_by_id('mutate', opcode='LOAD_ATTR')
         assert log.opnames(ops) == ['guard_value', 'guard_not_invalidated',
-                                    'getfield_gc']
+                                    'getfield_gc_i']
         # the STORE_ATTR is folded away
         assert list(entry_bridge.ops_by_id('meth1', opcode='STORE_ATTR')) == []
         #
@@ -154,8 +154,8 @@ class TestInstance(BaseTestPyPyC):
         entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         ops = entry_bridge.ops_by_id('mutate', opcode='LOAD_ATTR')
         assert log.opnames(ops) == ['guard_value', 'guard_not_invalidated',
-                                    'getfield_gc', 'guard_nonnull_class',
-                                    'getfield_gc', 'guard_value', # type check on the attribute
+                                    'getfield_gc_r', 'guard_nonnull_class',
+                                    'getfield_gc_r', 'guard_value', # type check on the attribute
                                     ]
         # the STORE_ATTR is folded away
         assert list(entry_bridge.ops_by_id('meth1', opcode='STORE_ATTR')) == []
@@ -209,11 +209,11 @@ class TestInstance(BaseTestPyPyC):
         assert loop.match_by_id('loadattr1',
         '''
         guard_not_invalidated(descr=...)
-        i19 = call(ConstClass(ll_call_lookup_function), _, _, _, 0, descr=...)
+        i19 = call_i(ConstClass(ll_call_lookup_function), _, _, _, 0, descr=...)
         guard_no_exception(descr=...)
         i22 = int_lt(i19, 0)
         guard_true(i22, descr=...)
-        i26 = call(ConstClass(ll_call_lookup_function), _, _, _, 0, descr=...)
+        i26 = call_i(ConstClass(ll_call_lookup_function), _, _, _, 0, descr=...)
         guard_no_exception(descr=...)
         i29 = int_lt(i26, 0)
         guard_true(i29, descr=...)
