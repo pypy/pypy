@@ -43,9 +43,9 @@ class TestDicts(BaseTestPyPyC):
         # can't change ;)
         assert loop.match_by_id("getitem", """
             ...
-            i26 = call(ConstClass(ll_call_lookup_function), p18, p6, i25, 0, descr=...)
+            i26 = call_i(ConstClass(ll_call_lookup_function), p18, p6, i25, 0, descr=...)
             ...
-            p33 = getinteriorfield_gc(p31, i26, descr=<InteriorFieldDescr <FieldP odictentry.value .*>>)
+            p33 = getinteriorfield_gc_r(p31, i26, descr=<InteriorFieldDescr <FieldP odictentry.value .*>>)
             ...
         """)
 

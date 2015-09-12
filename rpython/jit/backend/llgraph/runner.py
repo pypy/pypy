@@ -1085,7 +1085,7 @@ class LLFrame(object):
             # we want to call the function that does the aroundstate
             # manipulation here (as a hack, instead of really doing
             # the aroundstate manipulation ourselves)
-            return self.execute_call_may_force(descr, func, *args)
+            return self._execute_call_may_force(descr, func, *args)
         guard_op = self.lltrace.operations[self.current_index + 1]
         assert guard_op.getopnum() == rop.GUARD_NOT_FORCED
         self.force_guard_op = guard_op
