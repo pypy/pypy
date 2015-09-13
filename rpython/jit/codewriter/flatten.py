@@ -216,24 +216,21 @@ class GraphFlattener(object):
             if linkfalse.llexitcase == True:
                 linkfalse, linktrue = linktrue, linkfalse
             opname = 'goto_if_not'
-            livebefore = False
             if isinstance(block.exitswitch, tuple):
                 # special case produced by jtransform.optimize_goto_if_not()
                 opname = 'goto_if_not_' + block.exitswitch[0]
                 opargs = block.exitswitch[1:]
                 if opargs[-1] == '-live-before':
-                    livebefore = True
                     opargs = opargs[:-1]
             else:
                 assert block.exitswitch.concretetype == lltype.Bool
                 opargs = [block.exitswitch]
             #
             lst = self.flatten_list(opargs) + [TLabel(linkfalse)]
-            if livebefore:
-                self.emitline('-live-')
+            self.emitline('-live-')
             self.emitline(opname, *lst)
-            if not livebefore:
-                self.emitline('-live-', TLabel(linkfalse))
+            #if not livebefore:
+            #    self.emitline('-live-', TLabel(linkfalse))
             # true path:
             self.make_link(linktrue)
             # false path:

@@ -1473,7 +1473,7 @@ class BlackholeInterpreter(object):
         elif opnum == rop.GUARD_TRUE:
             # Produced directly by some goto_if_not_xxx() opcode that did not
             # jump, but which must now jump.  The pc is just after the opcode.
-            self.position = self.jitcode.follow_jump(self.position)
+            pass # self.position = self.jitcode.follow_jump(self.position)
         #
         elif opnum == rop.GUARD_FALSE:
             # Produced directly by some goto_if_not_xxx() opcode that jumped,

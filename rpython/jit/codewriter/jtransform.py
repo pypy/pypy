@@ -211,8 +211,8 @@ class Transformer(object):
                 # ok! optimize this case
                 block.operations.remove(op)
                 block.exitswitch = (op.opname,) + tuple(op.args)
-                if op.opname in ('ptr_iszero', 'ptr_nonzero'):
-                    block.exitswitch += ('-live-before',)
+                #if op.opname in ('ptr_iszero', 'ptr_nonzero'):
+                block.exitswitch += ('-live-before',)
                 # if the variable escape to the next block along a link,
                 # replace it with a constant, because we know its value
                 for link in block.exits:

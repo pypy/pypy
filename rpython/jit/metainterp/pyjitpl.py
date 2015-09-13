@@ -329,37 +329,37 @@ class MIFrame(object):
     def opimpl_goto(self, target):
         self.pc = target
 
-    @arguments("box", "label")
-    def opimpl_goto_if_not(self, box, target):
+    @arguments("box", "label", "orgpc")
+    def opimpl_goto_if_not(self, box, target, orgpc):
         switchcase = box.getint()
         if switchcase:
             opnum = rop.GUARD_TRUE
         else:
             opnum = rop.GUARD_FALSE
-        self.metainterp.generate_guard(opnum, box)
+        self.metainterp.generate_guard(opnum, box, resumepc=orgpc)
         if not switchcase:
             self.pc = target
 
-    @arguments("box", "label")
-    def opimpl_goto_if_not_int_is_true(self, box, target):
+    @arguments("box", "label", "orgpc")
+    def opimpl_goto_if_not_int_is_true(self, box, target, orgpc):
         condbox = self.execute(rop.INT_IS_TRUE, box)
-        self.opimpl_goto_if_not(condbox, target)
+        self.opimpl_goto_if_not(condbox, target, orgpc)
 
-    @arguments("box", "label")
-    def opimpl_goto_if_not_int_is_zero(self, box, target):
+    @arguments("box", "label", "orgpc")
+    def opimpl_goto_if_not_int_is_zero(self, box, target, orgpc):
         condbox = self.execute(rop.INT_IS_ZERO, box)
-        self.opimpl_goto_if_not(condbox, target)
+        self.opimpl_goto_if_not(condbox, target, orgpc)
 
     for _opimpl in ['int_lt', 'int_le', 'int_eq', 'int_ne', 'int_gt', 'int_ge',
                     'ptr_eq', 'ptr_ne']:
         exec py.code.Source('''
-            @arguments("box", "box", "label")
-            def opimpl_goto_if_not_%s(self, b1, b2, target):
+            @arguments("box", "box", "label", "orgpc")
+            def opimpl_goto_if_not_%s(self, b1, b2, target, orgpc):
                 if b1 is b2:
                     condbox = %s
                 else:
                     condbox = self.execute(rop.%s, b1, b2)
-                self.opimpl_goto_if_not(condbox, target)
+                self.opimpl_goto_if_not(condbox, target, orgpc)
         ''' % (_opimpl, FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
         ).compile()
 
@@ -2456,7 +2456,7 @@ class MetaInterp(object):
         if opnum == rop.GUARD_FUTURE_CONDITION:
             pass
         elif opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
-            frame.pc = frame.jitcode.follow_jump(frame.pc)
+            pass # frame.pc = frame.jitcode.follow_jump(frame.pc)
         elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops jumping;
             pass                  # or a switch that was in its "default" case
         elif opnum == rop.GUARD_VALUE or opnum == rop.GUARD_CLASS:

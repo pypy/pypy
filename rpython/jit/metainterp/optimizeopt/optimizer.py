@@ -599,6 +599,8 @@ class Optimizer(Optimization):
         descr.copy_all_attributes_from(last_guard_op.getdescr())
         guard_op.setdescr(descr)
         guard_op.setfailargs(last_guard_op.getfailargs())
+        if guard_op.getopnum() == rop.GUARD_VALUE:
+            guard_op = self._maybe_replace_guard_value(guard_op, descr)
         return guard_op
 
     def getlastop(self):
@@ -641,24 +643,28 @@ class Optimizer(Optimization):
         descr.store_final_boxes(op, newboxes, self.metainterp_sd)
         #
         if op.getopnum() == rop.GUARD_VALUE:
-            if op.getarg(0).type == 'i':
-                b = self.getintbound(op.getarg(0))
-                if b.is_bool():
-                    # Hack: turn guard_value(bool) into guard_true/guard_false.
-                    # This is done after the operation is emitted to let
-                    # store_final_boxes_in_guard set the guard_opnum field of
-                    # the descr to the original rop.GUARD_VALUE.
-                    constvalue = op.getarg(1).getint()
-                    if constvalue == 0:
-                        opnum = rop.GUARD_FALSE
-                    elif constvalue == 1:
-                        opnum = rop.GUARD_TRUE
-                    else:
-                        raise AssertionError("uh?")
-                    newop = self.replace_op_with(op, opnum, [op.getarg(0)], descr)
-                    return newop
-            # a real GUARD_VALUE.  Make it use one counter per value.
-            descr.make_a_counter_per_value(op)
+            op = self._maybe_replace_guard_value(op, descr)
+        return op
+
+    def _maybe_replace_guard_value(self, op, descr):
+        if op.getarg(0).type == 'i':
+            b = self.getintbound(op.getarg(0))
+            if b.is_bool():
+                # Hack: turn guard_value(bool) into guard_true/guard_false.
+                # This is done after the operation is emitted to let
+                # store_final_boxes_in_guard set the guard_opnum field of
+                # the descr to the original rop.GUARD_VALUE.
+                constvalue = op.getarg(1).getint()
+                if constvalue == 0:
+                    opnum = rop.GUARD_FALSE
+                elif constvalue == 1:
+                    opnum = rop.GUARD_TRUE
+                else:
+                    raise AssertionError("uh?")
+                newop = self.replace_op_with(op, opnum, [op.getarg(0)], descr)
+                return newop
+        # a real GUARD_VALUE.  Make it use one counter per value.
+        descr.make_a_counter_per_value(op)
         return op
 
     def optimize_default(self, op):
