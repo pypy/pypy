@@ -237,7 +237,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
                 self.getopnum() == rop.GUARD_NO_OVERFLOW)
 
     def is_jit_debug(self):
-        return rop._JIT_DEBUG_FIRST <= self.getopnim() <= rop._JIT_DEBUG_LAST
+        return rop._JIT_DEBUG_FIRST <= self.getopnum() <= rop._JIT_DEBUG_LAST
 
     def is_always_pure(self):
         return rop._ALWAYS_PURE_FIRST <= self.getopnum() <= rop._ALWAYS_PURE_LAST
