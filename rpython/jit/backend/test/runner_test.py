@@ -2601,16 +2601,16 @@ class LLtypeBackendTest(BaseBackendTest):
         # call: 8 bytes too much.  If we repeat the call often enough, crash.
         ops = []
         for i in range(50):
-            i3 = InputArgInt()
             ops += [
-                ResOperation(rop.CALL_RELEASE_GIL,
-                             [ConstInt(0), funcbox, i1, i2], i3,
+                ResOperation(rop.CALL_RELEASE_GIL_N,
+                             [ConstInt(0), funcbox, i1, i2],
                              descr=calldescr),
                 ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
                 ]
+            i3 = ops[-2]
             ops[-1].setfailargs([])
         ops += [
-            ResOperation(rop.FINISH, [i3], None, descr=BasicFinalDescr(0))
+            ResOperation(rop.FINISH, [i3], descr=BasicFinalDescr(0))
         ]
         looptoken = JitCellToken()
         self.cpu.compile_loop([i1, i2], ops, looptoken)
