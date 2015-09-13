@@ -230,8 +230,8 @@ class BasicTests:
         res = self.meta_interp(f, [6, 32, 16])
         assert res == 1692
         self.check_trace_count(3)
-        self.check_resops({'int_lt': 2, 'int_gt': 4, 'guard_false': 2,
-                           'guard_true': 4, 'int_sub': 4, 'jump': 3,
+        self.check_resops({'int_lt': 4, 'int_gt': 4, 'guard_false': 2,
+                           'guard_true': 6, 'int_sub': 4, 'jump': 3,
                            'int_mul': 3, 'int_add': 4})
 
     def test_loop_invariant_mul_ovf2(self):

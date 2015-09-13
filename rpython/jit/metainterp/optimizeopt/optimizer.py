@@ -587,7 +587,7 @@ class Optimizer(Optimization):
         elif op.can_raise():
             self.exception_might_have_happened = True
         if self._emitting:
-            if op.has_no_side_effect() or op.is_guard():
+            if op.has_no_side_effect() or op.is_guard() or op.is_jit_debug():
                 pass
             else:
                 self._last_guard_op = None
