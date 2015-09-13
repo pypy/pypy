@@ -3072,16 +3072,16 @@ class LLtypeBackendTest(BaseBackendTest):
                         rffi.RFFI_SAVE_LASTERROR | rffi.RFFI_ALT_ERRNO,
                         ]:
             faildescr = BasicFailDescr(1)
-            inputargs = [BoxInt() for i in range(7)]
-            i1 = BoxInt()
+            inputargs = [InputArgInt() for i in range(7)]
             ops = [
-                ResOperation(rop.CALL_RELEASE_GIL,
+                ResOperation(rop.CALL_RELEASE_GIL_I,
                              [ConstInt(saveerr), ConstInt(func1_adr)]
-                                 + inputargs, i1,
+                                 + inputargs,
                              descr=calldescr),
-                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
-                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+                ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
             ]
+            i1 = ops[0]
+            ops += [ResOperation(rop.FINISH, [i1], descr=BasicFinalDescr(0))]
             ops[-2].setfailargs([])
             looptoken = JitCellToken()
             self.cpu.compile_loop(inputargs, ops, looptoken)
@@ -3142,16 +3142,16 @@ class LLtypeBackendTest(BaseBackendTest):
                         rffi.RFFI_READSAVED_LASTERROR | rffi.RFFI_ALT_ERRNO,
                        ]:
             faildescr = BasicFailDescr(1)
-            inputargs = [BoxInt() for i in range(7)]
-            i1 = BoxInt()
+            inputargs = [InputArgInt() for i in range(7)]
             ops = [
-                ResOperation(rop.CALL_RELEASE_GIL,
+                ResOperation(rop.CALL_RELEASE_GIL_I,
                              [ConstInt(saveerr), ConstInt(func1_adr)]
-                                 + inputargs, i1,
+                                 + inputargs, 
                              descr=calldescr),
-                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
-                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+                ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
             ]
+            i1 = ops[-2]
+            ops += [ResOperation(rop.FINISH, [i1], descr=BasicFinalDescr(0))]
             ops[-2].setfailargs([])
             looptoken = JitCellToken()
             self.cpu.compile_loop(inputargs, ops, looptoken)
