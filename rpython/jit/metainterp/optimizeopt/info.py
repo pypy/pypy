@@ -782,5 +782,11 @@ class FloatConstInfo(AbstractInfo):
     def __init__(self, const):
         self._const = const
 
+    def is_constant(self):
+        return True
+
+    def getconst(self):
+        return self._const
+
     def make_guards(self, op, short, optimizer):
         short.append(ResOperation(rop.GUARD_VALUE, [op, self._const]))

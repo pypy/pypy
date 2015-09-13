@@ -378,6 +378,10 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 if info.upper > MAXINT / 2:
                     info.upper = MAXINT
                 self.intbound = info
+        elif type == 'f':
+            if info and info.is_constant():
+                self.level = LEVEL_CONSTANT
+                self.constbox = info.getconst()
 
     def is_const(self):
         return self.constbox is not None

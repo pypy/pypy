@@ -8827,5 +8827,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_with_floats(self):
+        ops = """
+        [p1, i1]
+        p0 = new_with_vtable(descr=nodesize)
+        i2 = int_add(i1, 1)
+        setfield_gc(p0, 0.0000, descr=floatdescr)
+        setfield_gc(p0, i2, descr=valuedescr)
+        jump(p0, i2)
+        """
+        expected = """
+        [i1]
+        i2 = int_add(i1, 1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
