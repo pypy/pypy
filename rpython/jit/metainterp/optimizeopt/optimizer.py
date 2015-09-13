@@ -257,8 +257,6 @@ class Optimizer(Optimization):
         self.optearlyforce = None
         self.optunroll = None
 
-        self._emitting = True
-
         self.set_optimizations(optimizations)
         self.setup()
 
@@ -580,9 +578,8 @@ class Optimizer(Optimization):
                         self.force_box(farg)
         elif op.can_raise():
             self.exception_might_have_happened = True
-        if self._emitting:
-            self._really_emitted_operation = op
-            self._newoperations.append(op)
+        self._really_emitted_operation = op
+        self._newoperations.append(op)
 
     def getlastop(self):
         return self._really_emitted_operation
