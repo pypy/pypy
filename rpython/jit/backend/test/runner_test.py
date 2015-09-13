@@ -2602,10 +2602,10 @@ class LLtypeBackendTest(BaseBackendTest):
         ops = []
         for i in range(50):
             ops += [
-                ResOperation(rop.CALL_RELEASE_GIL_N,
+                ResOperation(rop.CALL_RELEASE_GIL_I,
                              [ConstInt(0), funcbox, i1, i2],
                              descr=calldescr),
-                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
                 ]
             i3 = ops[-2]
             ops[-1].setfailargs([])

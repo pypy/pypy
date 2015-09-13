@@ -89,6 +89,7 @@ class W_ArrayInstance(W_DataInstance):
         # function call, ffi_call() writes 8 bytes into it even if the
         # function's result type asks for less.
         memsize = clibffi.adjust_return_size(memsize)
+        import pdb;pdb.set_trace()
         W_DataInstance.__init__(self, space, memsize, address)
         self.length = length
         self.shape = shape
