@@ -65,7 +65,7 @@ class TestMisc(BaseTestPyPyC):
         assert loop.match("""
             i7 = int_gt(i4, 1)
             guard_true(i7, descr=...)
-            p11 = call(ConstClass(rbigint.int_mul), p5, i4, descr=...)
+            p11 = call_r(ConstClass(rbigint.int_mul), p5, i4, descr=...)
             guard_no_exception(descr=...)
             i13 = int_sub(i4, 1)
             --TICK--
@@ -113,14 +113,14 @@ class TestMisc(BaseTestPyPyC):
             i12 = int_is_true(i4)
             guard_true(i12, descr=...)
             guard_not_invalidated(descr=...)
-            i13 = int_add_ovf(i8, i9)
-            guard_no_overflow(descr=...)
-            i10p = getfield_gc_pure(p10, descr=...)
+            i10p = getfield_gc_pure_i(p10, descr=...)
             i10 = int_mul_ovf(2, i10p)
             guard_no_overflow(descr=...)
             i14 = int_add_ovf(i13, i10)
             guard_no_overflow(descr=...)
-            setfield_gc(p7, p11, descr=...)
+            i13 = int_add_ovf(i14, i9)
+            guard_no_overflow(descr=...)
+            setfield_gc(p17, p10, descr=...)
             i17 = int_sub_ovf(i4, 1)
             guard_no_overflow(descr=...)
             --TICK--
@@ -277,6 +277,7 @@ class TestMisc(BaseTestPyPyC):
             i28 = int_add_ovf(i10, i25)
             guard_no_overflow(descr=...)
             --TICK--
+            if00 = arraylen_gc(p16, descr=...)
             jump(..., descr=...)
         """)
 
