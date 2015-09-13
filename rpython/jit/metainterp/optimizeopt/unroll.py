@@ -434,18 +434,6 @@ class UnrollOptimizer(Optimization):
 
         return label_args
 
-    def is_call_pure_with_exception(self, op):
-        if op.is_call_pure():
-            effectinfo = op.getdescr().get_extra_info()
-            # Assert that only EF_ELIDABLE_CANNOT_RAISE or
-            # EF_ELIDABLE_OR_MEMORYERROR end up here, not
-            # for example EF_ELIDABLE_CAN_RAISE.
-            assert effectinfo.extraeffect in (
-                effectinfo.EF_ELIDABLE_CANNOT_RAISE,
-                effectinfo.EF_ELIDABLE_OR_MEMORYERROR)
-            return effectinfo.extraeffect != effectinfo.EF_ELIDABLE_CANNOT_RAISE
-        return False
-
 
 class UnrollInfo(LoopInfo):
     """ A state after optimizing the peeled loop, contains the following:
