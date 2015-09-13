@@ -1,7 +1,6 @@
 from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
-from rpython.jit.metainterp.logger import LogOperations
-from rpython.jit.metainterp.history import Const, ConstInt, REF, ConstPtr
+from rpython.jit.metainterp.history import Const, ConstInt, ConstPtr
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
      ConstIntBound, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -258,6 +257,7 @@ class Optimizer(Optimization):
         self.optunroll = None
 
         self._emitting = True
+        self._last_guard_op = None
 
         self.set_optimizations(optimizations)
         self.setup()
@@ -573,16 +573,33 @@ class Optimizer(Optimization):
                 return
             else:
                 guard_op = self.replace_op_with(op, op.getopnum())
-                op = self.store_final_boxes_in_guard(guard_op, pendingfields)
-                # for unrolling
-                for farg in op.getfailargs():
-                    if farg:
-                        self.force_box(farg)
+                if self._last_guard_op:
+                    op = self._copy_resume_data_from(guard_op,
+                                                     self._last_guard_op)
+                else:
+                    op = self.store_final_boxes_in_guard(guard_op,
+                                                         pendingfields)
+                    self._last_guard_op = op
+                    # for unrolling
+                    for farg in op.getfailargs():
+                        if farg:
+                            self.force_box(farg)
         elif op.can_raise():
             self.exception_might_have_happened = True
         if self._emitting:
+            if op.has_no_side_effect() or op.is_guard():
+                pass
+            else:
+                self._last_guard_op = None
             self._really_emitted_operation = op
             self._newoperations.append(op)
+
+    def _copy_resume_data_from(self, guard_op, last_guard_op):
+        descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self)
+        descr.copy_all_attributes_from(last_guard_op.getdescr())
+        guard_op.setdescr(descr)
+        guard_op.setfailargs(last_guard_op.getfailargs())
+        return guard_op
 
     def getlastop(self):
         return self._really_emitted_operation
