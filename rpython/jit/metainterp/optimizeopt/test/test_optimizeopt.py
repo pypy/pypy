@@ -8843,5 +8843,43 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_same_as_preserves_info_in_the_preamble(self):
+        ops = """
+        [p0, p1, i1]
+        i2 = int_add(i1, 1)
+        setfield_gc(p0, i2, descr=valuedescr)
+        i = int_le(i2, 13)
+        guard_true(i) []
+        if00 = getfield_gc_i(p0, descr=valuedescr)
+        icheck = int_le(if00, 13)
+        guard_true(icheck) []
+        jump(p0, p1, i1)
+        """
+        expected = """
+        [p0, p1, i1, i2]
+        setfield_gc(p0, i2, descr=valuedescr)
+        jump(p0, p1, i1, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_same_as_preserves_info_in_the_preamble_2(self):
+        ops = """
+        [i0, p0]
+        ifoo = getfield_gc_i(p0, descr=valuedescr)
+        icheck = int_lt(ifoo, 13)
+        guard_true(icheck) []
+        i1 = int_add(i0, 1)
+        i2 = int_lt(i1, 13)
+        guard_true(i2) []
+        setfield_gc(p0, i1, descr=valuedescr)
+        jump(i0, p0)
+        """
+        expected = """
+        [i0, p0, i4]
+        setfield_gc(p0, i4, descr=valuedescr)
+        jump(i0, p0, i4)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

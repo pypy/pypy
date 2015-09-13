@@ -10,7 +10,8 @@ from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
 from rpython.jit.metainterp.optimizeopt.vstring import StrPtrInfo
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
     VirtualStateConstructor, VirtualStatesCantMatch)
-from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp
+from rpython.jit.metainterp.resoperation import rop, ResOperation, GuardResOp,\
+     AbstractResOp
 from rpython.jit.metainterp import compile
 from rpython.rlib.debug import debug_print, debug_start, debug_stop,\
      have_debug_prints
@@ -359,7 +360,10 @@ class UnrollOptimizer(Optimization):
                 op.set_forwarded(None)
 
     def _expand_info(self, arg, infos):
-        info = self.optimizer.getinfo(arg)
+        if isinstance(arg, AbstractResOp) and arg.is_same_as():
+            info = self.optimizer.getinfo(arg.getarg(0))
+        else:
+            info = self.optimizer.getinfo(arg)
         if arg in infos:
             return
         if info:
@@ -395,7 +399,7 @@ class UnrollOptimizer(Optimization):
         for produced_op in short_boxes:
             op = produced_op.short_op.res
             if not isinstance(op, Const):
-                infos[op] = self.optimizer.getinfo(op)
+                self._expand_info(op, infos)
         self.optimizer._clean_optimization_info(end_args)
         self.optimizer._clean_optimization_info(start_label.getarglist())
         return ExportedState(label_args, end_args, virtual_state, infos,
