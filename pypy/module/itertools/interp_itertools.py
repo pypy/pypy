@@ -2,6 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
+from rpython.rlib import jit
 
 
 class W_Count(W_Root):
@@ -322,6 +323,11 @@ W_IFilterFalse.typedef = TypeDef(
     """)
 
 
+islice_ignore_items_driver = jit.JitDriver(name='islice_ignore_items',
+                                           greens=['tp'],
+                                           reds=['num', 'w_islice',
+                                                 'w_iterator'])
+
 class W_ISlice(W_Root):
     def __init__(self, space, w_iterable, w_startstop, args_w):
         self.iterable = space.iter(w_iterable)
@@ -410,7 +416,13 @@ class W_ISlice(W_Root):
         w_iterator = self.iterable
         if w_iterator is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
+
+        tp = self.space.type(w_iterator)
         while True:
+            islice_ignore_items_driver.jit_merge_point(tp=tp,
+                                                       num=num,
+                                                       w_islice=self,
+                                                       w_iterator=w_iterator)
             try:
                 self.space.next(w_iterator)
             except OperationError as e:
