@@ -1069,6 +1069,26 @@ class LoopTest(object):
         res = self.meta_interp(run, [42], backendopt=True)
         assert res == 420
 
+    def test_not_too_many_bridges(self):
+        jitdriver = JitDriver(greens = [], reds = 'auto')
+
+        def f(i):
+            s = 0
+            while i > 0:
+                jitdriver.jit_merge_point()
+                if i % 2 == 0:
+                    s += 1
+                elif i % 3 == 0:
+                    s += 1
+                elif i % 5 == 0:
+                    s += 1
+                elif i % 7 == 0:
+                    s += 1            
+                i -= 1
+            return s
+
+        self.meta_interp(f, [30])
+        self.check_trace_count(4)
 
 class TestLLtype(LoopTest, LLJitMixin):
     pass

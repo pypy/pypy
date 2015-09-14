@@ -598,7 +598,8 @@ class Optimizer(Optimization):
         descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self)
         descr.copy_all_attributes_from(last_guard_op.getdescr())
         guard_op.setdescr(descr)
-        guard_op.setfailargs(last_guard_op.getfailargs())
+        descr.store_final_boxes(guard_op, last_guard_op.getfailargs(),
+                                self.metainterp_sd)
         if guard_op.getopnum() == rop.GUARD_VALUE:
             guard_op = self._maybe_replace_guard_value(guard_op, descr)
         return guard_op
