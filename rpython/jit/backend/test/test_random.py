@@ -61,6 +61,13 @@ class OperationBuilder(object):
             if result is not None:
                 c_result = wrap_constant(result)
                 op.copy_value_from(c_result)
+        else:
+            import ctypes
+            addr = self.cpu.cast_gcref_to_int(argboxes[0].getref_base())
+            offset = argboxes[1].getint()
+            assert (offset % ctypes.sizeof(ctypes.c_long)) == 0
+            ptr = ctypes.cast(addr, ctypes.POINTER(ctypes.c_long))
+            ptr[offset / ctypes.sizeof(ctypes.c_long)] = 0
         self.loop.operations.append(op)
         return op
 
