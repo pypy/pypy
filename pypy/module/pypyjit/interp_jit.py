@@ -6,7 +6,8 @@ This is transformed to become a JIT by code elsewhere: rpython/jit/*
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
 from rpython.rlib import jit, jit_hooks
-from rpython.rlib.jit import current_trace_length, unroll_parameters
+from rpython.rlib.jit import current_trace_length, unroll_parameters,\
+     JitHookInterface
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, oefmt
@@ -213,3 +214,77 @@ def trace_next_iteration(space, next_instr, is_being_profiled, w_pycode):
     jit_hooks.trace_next_iteration(
         'pypyjit', r_uint(next_instr), int(is_being_profiled), ll_pycode)
     return space.w_None
+
+@unwrap_spec(hash=r_uint)
+@dont_look_inside
+def trace_next_iteration_hash(space, hash):
+    jit_hooks.trace_next_iteration_hash(hash)
+    return space.w_None
+
+class Cache(object):
+    in_recursion = False
+
+    def __init__(self, space):
+        self.w_compile_bridge = None
+        self.w_compile_loop = None
+
+def set_compile_bridge(space, w_hook):
+    cache = space.fromcache(Cache)
+    assert w_hook is not None
+    cache.w_compile_bridge = w_hook
+
+def set_compile_loop(space, w_hook):
+    from rpython.rlib.nonconst import NonConstant
+    
+    cache = space.fromcache(Cache)
+    assert w_hook is not None
+    cache.w_compile_loop = w_hook
+    cache.in_recursion = NonConstant(False)
+
+class PyPyJitHookInterface(JitHookInterface):
+    def after_compile(self, debug_info):
+        space = self.space
+        cache = space.fromcache(Cache)
+        if cache.in_recursion:
+            return
+        l_w = []
+        if not space.is_true(cache.w_compile_loop):
+            return
+        for i, op in enumerate(debug_info.operations):
+            if op.is_guard():
+                w_t = space.newtuple([space.wrap(i), space.wrap(op.get_hash())])
+                l_w.append(w_t)
+        try:
+            cache.in_recursion = True
+            try:
+                space.call_function(cache.w_compile_loop, space.newlist(l_w))
+            except OperationError, e:
+                e.write_unraisable(space, "jit hook ", cache.w_compile_bridge)
+        finally:
+            cache.in_recursion = False
+
+    def after_compile_bridge(self, debug_info):
+        space = self.space
+        cache = space.fromcache(Cache)
+        if cache.in_recursion:
+            return
+        if not space.is_true(cache.w_compile_bridge):
+            return
+        w_hash = space.wrap(debug_info.fail_descr.get_hash())
+        try:
+            cache.in_recursion = True
+            try:
+                space.call_function(cache.w_compile_bridge, w_hash)
+            except OperationError, e:
+                e.write_unraisable(space, "jit hook ", cache.w_compile_bridge)
+        finally:
+            cache.in_recursion = False
+
+    def before_compile(self, debug_info):
+        pass
+
+    def before_compile_bridge(self, debug_info):
+        pass
+
+pypy_hooks = PyPyJitHookInterface()
+

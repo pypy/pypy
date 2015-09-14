@@ -11,6 +11,7 @@ class Module(MixedModule):
         'get_jitcell_at_key': 'interp_jit.get_jitcell_at_key',
         'dont_trace_here': 'interp_jit.dont_trace_here',
         'trace_next_iteration': 'interp_jit.trace_next_iteration',
+        'set_compile_bridge': 'interp_jit.set_compile_bridge',
         #'set_compile_hook': 'interp_resop.set_compile_hook',
         #'set_optimize_hook': 'interp_resop.set_optimize_hook',
         #'set_abort_hook': 'interp_resop.set_abort_hook',
