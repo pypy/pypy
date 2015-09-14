@@ -618,7 +618,7 @@ class WarmRunnerDesc(object):
                 jitdrivers_by_name[name] = jd
         m = _find_jit_markers(self.translator.graphs,
                               ('get_jitcell_at_key', 'trace_next_iteration',
-                               'dont_trace_here'))
+                               'dont_trace_here', 'trace_next_iteration_hash'))
         accessors = {}
 
         def get_accessor(name, jitdriver_name, function, ARGS, green_arg_spec):
@@ -663,6 +663,8 @@ class WarmRunnerDesc(object):
                 func = JitCell.get_jitcell
             elif op.args[0].value == 'dont_trace_here':
                 func = JitCell.dont_trace_here
+            elif op.args[0].value == 'trace_next_iteration_hash':
+                func = JitCell.trace_next_iteration_hash
             else:
                 func = JitCell._trace_next_iteration
             argspec = jitdrivers_by_name[jitdriver_name]._green_args_spec

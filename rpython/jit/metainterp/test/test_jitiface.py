@@ -1,12 +1,13 @@
 
 import py
-from rpython.rlib.jit import JitDriver, JitHookInterface, Counters
+from rpython.rlib.jit import JitDriver, JitHookInterface, Counters, dont_look_inside
 from rpython.rlib import jit_hooks
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rtyper.annlowlevel import hlstr, cast_instance_to_gcref
 from rpython.jit.metainterp.jitprof import Profiler, EmptyProfiler
+from rpython.jit.codewriter.policy import JitPolicy
 
 
 class JitHookInterfaceTests(object):
@@ -225,6 +226,58 @@ class JitHookInterfaceTests(object):
         self.check_resops(call_assembler_n=0)
         self.meta_interp(main, [1, 1], inline=True)
         self.check_resops(call_assembler_n=8)
+
+    def test_trace_next_iteration_hash(self):
+        driver = JitDriver(greens = ['s'], reds = ['i'], name="name")
+        class Hashes(object):
+            check = False
+            
+            def __init__(self):
+                self.l = []
+                self.t = []
+
+        hashes = Hashes()
+
+        class Hooks(object):
+            def before_compile(self, debug_info):
+                pass
+
+            def after_compile(self, debug_info):
+                for op in debug_info.operations:
+                    if op.is_guard():
+                        hashes.l.append(op.getdescr().get_hash())
+
+            def before_compile_bridge(self, debug_info):
+                pass
+
+            def after_compile_bridge(self, debug_info):
+                hashes.t.append(debug_info.fail_descr.get_hash())
+
+        hooks = Hooks()
+
+        @dont_look_inside
+        def foo():
+            if hashes.l:
+                for item in hashes.l:
+                    jit_hooks.trace_next_iteration_hash("name", item)
+
+        def loop(i, s):
+            while i > 0:
+                driver.jit_merge_point(s=s, i=i)
+                foo()
+                if i == 3:
+                    i -= 1
+                i -= 1
+
+        def main(s, check):
+            hashes.check = check
+            loop(10, s)
+
+        self.meta_interp(main, [1, 0], policy=JitPolicy(hooks))
+        assert len(hashes.l) == 4
+        assert len(hashes.t) == 0
+        self.meta_interp(main, [1, 1], policy=JitPolicy(hooks))
+        assert len(hashes.t) == 1
 
 class LLJitHookInterfaceTests(JitHookInterfaceTests):
     # use this for any backend, instead of the super class
