@@ -646,7 +646,7 @@ class WarmRunnerDesc(object):
                 exec py.code.Source("""
                 def accessor(arg0):
                     function(arg0)
-                """)
+                """).compile() in d
                 FUNC = lltype.Ptr(lltype.FuncType(lltype.Unsigned, lltype.Void))
             else:
                 exec py.code.Source("""
