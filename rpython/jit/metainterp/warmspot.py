@@ -642,6 +642,12 @@ class WarmRunnerDesc(object):
                     return cast_instance_to_gcref(function(%s))
                 """ % (arg_spec, convert, arg_spec)).compile() in d
                 FUNC = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
+            elif name == "trace_next_iteration_hash":
+                exec py.code.Source("""
+                def accessor(arg0):
+                    function(arg0)
+                """)
+                FUNC = lltype.Ptr(lltype.FuncType(lltype.Unsigned, lltype.Void))
             else:
                 exec py.code.Source("""
                 def accessor(%s):
