@@ -344,8 +344,18 @@ class OpParser(object):
         if res in self.vars:
             raise ParseError("Double assign to var %s in line: %s" % (res, line))
         resop = self.create_op(opnum, args, res, descr, fail_args)
+        self.update_vector_count(resop, res)
         self.vars[res] = resop
         return resop
+
+    def update_vector_count(self, resop, var):
+        pattern = re.compile('.*\[(\d+)x(u?)(i|f)(\d+)\]')
+        match = pattern.match(var)
+        if match:
+            resop.count = int(match.group(1))
+            resop.signed = not (match.group(2) == 'u')
+            resop.datatype = match.group(3)
+            resop.bytesize = int(match.group(4)) // 8
 
     def parse_op_no_result(self, line):
         opnum, args, descr, fail_args = self.parse_op(line)

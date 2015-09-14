@@ -50,7 +50,7 @@ class DependencyBaseTest(BaseTest):
         else:
             label = loop.operations[0]
             label.setdescr(TargetToken(token))
-        loop = VectorLoop(label, loop.operations[1:-1], loop.operations[-1])
+        loop = VectorLoop(label, loop.operations[0:-1], loop.operations[-1])
         loop.jump.setdescr(token)
         for op in loop.operations:
             if op.getopnum() == rop.GUARD_EARLY_EXIT and op.getdescr() is None:

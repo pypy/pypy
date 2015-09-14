@@ -99,7 +99,7 @@ class Typed(object):
     _attrs_ = ('datatype', 'bytesize', 'signed')
 
     datatype = '\x00'
-    bytesize = -1
+    bytesize = -1 # -1 means the biggest size known to the machine
     signed = True
 
     def inittype(self):
@@ -112,10 +112,17 @@ class Typed(object):
             descr = self.getdescr()
             type = self.type
             if descr.is_array_of_floats() or descr.concrete_type == 'f':
-                type = FLOAT
+                type = 'f'
             self.bytesize = descr.get_item_size_in_bytes()
             self.sign = descr.is_item_signed()
             self.datatype = type
+        elif self.opnum == rop.INT_SIGNEXT:
+            arg0 = self.getarg(0)
+            arg1 = self.getarg(1)
+            self.setdatatype('i', arg1.value, arg0.signed)
+        elif self.is_typecast():
+            ft,tt = self.cast_types()
+            self.setdatatype(tt, self.cast_to_bytesize(), tt == 'i')
         else:
             # pass through the type of the first input argument
             if self.numargs() == 0:
@@ -123,7 +130,7 @@ class Typed(object):
             arg0 = self.getarg(0)
             self.setdatatype(arg0.datatype, arg0.bytesize, arg0.signed)
         assert self.datatype != '\x00'
-        assert self.bytesize > 0
+        #assert self.bytesize > 0
 
     def setdatatype(self, data_type, bytesize, signed):
         self.datatype = data_type
@@ -134,7 +141,7 @@ class Typed(object):
         sign = '-'
         if not self.signed:
             sign = '+'
-        return 'Type(%s%s, %d)' % (sign, self.type, self.size)
+        return 'Type(%s%s, %d)' % (sign, self.type, self.bytesize)
 
 class AbstractResOpOrInputArg(AbstractValue, Typed):
     _attrs_ = ('_forwarded',)
@@ -159,6 +166,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
     boolinverse = -1
     vector = -1 # -1 means, no vector equivalent, -2 it is a vector statement
     casts = ('\x00', -1, '\x00', -1)
+    count = -1 
 
     def getopnum(self):
         return self.opnum
@@ -409,15 +417,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
     def forget_value(self):
         pass
 
-    def casts_box(self):
-        return False
-
-    def cast_to(self):
-        return ('\x00',-1)
-
-    def cast_from(self):
-        return ('\x00',-1)
-
     def is_label(self):
         return self.getopnum() == rop.LABEL
 
@@ -429,6 +428,26 @@ class AbstractResOp(AbstractResOpOrInputArg):
 
     def returns_vector(self):
         return self.type != 'v' and self.vector == -2
+
+    def is_typecast(self):
+        return False
+
+    def cast_types(self):
+        return self.casts[0], self.casts[2]
+
+    def cast_to_bytesize(self):
+        return self.casts[1]
+
+    def cast_from_bytesize(self):
+        return self.casts[3]
+
+    def casts_up(self):
+        return self.cast_to_bytesize() > self.cast_from_bytesize()
+
+    def casts_down(self):
+        # includes the cast as noop
+        return self.cast_to_bytesize() <= self.cast_from_bytesize()
+
 
 # ===================
 # Top of the hierachy
@@ -598,7 +617,7 @@ class Accum(object):
 class CastOp(object):
     _mixin_ = True
 
-    def casts_box(self):
+    def is_typecast(self):
         return True
 
     def cast_to(self):
@@ -614,14 +633,39 @@ class CastOp(object):
         return (to_type,size)
 
     def cast_from(self):
-        return ('\x00',-1)
+        type, size, a, b = self.casts
+        if size == -1:
+            return self.bytesize
+        return (type, size)
+
+class SignExtOp(object):
+    _mixin_ = True
+
+    def is_typecast(self):
+        return True
+
+    def cast_types(self):
+        return self.casts[0], self.casts[2]
+
+    def cast_to_bytesize(self):
+        from rpython.jit.metainterp.history import ConstInt
+        arg = self.getarg(1)
+        assert isinstance(arg, ConstInt)
+        return arg.value
+
+    def cast_from_bytesize(self):
+        arg = self.getarg(0)
+        return arg.bytesize
 
 class VectorOp(object):
     _mixin_ = True
-    _attrs_ = ('count',)
 
     def repr_rpython(self):
         return repr_rpython(self, 'bv')
+
+    def vector_bytesize(self):
+        assert self.count > 0
+        return self.byte_size * self.count
 
     def same_shape(self, other):
         """ NOT_RPYTHON """
@@ -675,10 +719,12 @@ class AbstractInputArg(AbstractResOpOrInputArg):
 class InputArgInt(IntOp, AbstractInputArg):
     def __init__(self, intval=0):
         self.setint(intval)
+        self.datatype = 'i'
 
 class InputArgFloat(FloatOp, AbstractInputArg):
     def __init__(self, f=longlong.ZEROF):
         self.setfloatstorage(f)
+        self.datatype = 'f'
 
     @staticmethod
     def fromfloat(x):
@@ -687,13 +733,14 @@ class InputArgFloat(FloatOp, AbstractInputArg):
 class InputArgRef(RefOp, AbstractInputArg):
     def __init__(self, r=lltype.nullptr(llmemory.GCREF.TO)):
         self.setref_base(r)
+        self.datatype = 'r'
 
     def reset_value(self):
         self.setref_base(lltype.nullptr(llmemory.GCREF.TO))
 
 class InputArgVector(VectorOp, AbstractInputArg):
-    def __init__(self):
-        pass
+    def __init__(self, datatype):
+        self.datatype = datatype
 
     def returns_vector(self):
         return True
@@ -947,11 +994,10 @@ _oplist = [
     'VEC_CAST_INT_TO_FLOAT/1/f',
     '_VEC_CAST_LAST',
 
-    'VEC_INT_BOX/1/i',
+    'VEC_BOX/0/if',
     'VEC_INT_UNPACK/3/i',          # iX|fX = VEC_INT_UNPACK(vX, index, item_count)
     'VEC_INT_PACK/4/i',            # VEC_INT_PACK(vX, var/const, index, item_count)
     'VEC_INT_EXPAND/2/i',          # vX = VEC_INT_EXPAND(var/const, item_count)
-    'VEC_FLOAT_BOX/1/f',
     'VEC_FLOAT_UNPACK/3/f',        # iX|fX = VEC_FLOAT_UNPACK(vX, index, item_count)
     'VEC_FLOAT_PACK/4/f',          # VEC_FLOAT_PACK(vX, var/const, index, item_count)
     'VEC_FLOAT_EXPAND/2/f',        # vX = VEC_FLOAT_EXPAND(var/const, item_count)
@@ -1090,13 +1136,13 @@ _oplist = [
 ]
 
 _cast_ops = {
-    'INT_SIGNEXT': ('i', 0, 'i', 0),
     'CAST_FLOAT_TO_INT': ('f', 8, 'i', 4),
     'CAST_INT_TO_FLOAT': ('i', 4, 'f', 8),
     'CAST_FLOAT_TO_SINGLEFLOAT': ('f', 8, 'f', 4),
     'CAST_SINGLEFLOAT_TO_FLOAT': ('f', 4, 'f', 8),
-    'CAST_PTR_TO_INT': ('r', 0, 'i', 4),
-    'CAST_INT_TO_PTR': ('i', 4, 'r', 0),
+    'INT_SIGNEXT': ('i', 0, 'i', 0),
+    #'CAST_PTR_TO_INT': ('r', 0, 'i', 4),
+    #'CAST_INT_TO_PTR': ('i', 4, 'r', 0),
 }
 
 # ____________________________________________________________
@@ -1187,6 +1233,8 @@ def create_class_for_op(name, opnum, arity, withdescr, result_type):
     else:
         baseclass = PlainResOp
     mixins = [arity2mixin.get(arity, N_aryOp)]
+    if name.startswith('VEC'):
+        mixins.append(VectorOp)
     if result_type == 'i':
         mixins.append(IntOp)
     elif result_type == 'f':
@@ -1196,9 +1244,9 @@ def create_class_for_op(name, opnum, arity, withdescr, result_type):
     else:
         assert result_type == 'n'
     if name in _cast_ops:
+        if name == "INT_SIGNEXT":
+            mixins.append(SignExtOp)
         mixins.append(CastOp)
-    if name.startswith('VEC'):
-        mixins.insert(1,VectorOp)
 
     cls_name = '%s_OP' % name
     bases = (get_base_class(tuple(mixins), baseclass),)

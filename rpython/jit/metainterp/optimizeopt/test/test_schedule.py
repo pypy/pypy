@@ -67,8 +67,8 @@ class SchedulerBaseTest(DependencyBaseTest):
         loop.graph = FakeDependencyGraph(loop)
         return loop
 
-    def pack(self, loop, l, r, input_type, output_type):
-        return Pack(loop.graph.nodes[1+l:1+r])
+    def pack(self, loop, l, r, input_type=None, output_type=None):
+        return Pack(loop.graph.nodes[l:r])
 
     def schedule(self, loop, packs, vec_reg_size=16,
                  prepend_invariant=False, overwrite_funcs=None):
@@ -115,6 +115,21 @@ class Test(SchedulerBaseTest, LLtypeMixin):
             assert node.count == 1
         # must return here, then the test passed
 
+    def test_split_pack(self):
+        loop1 = self.parse_trace("""
+        f10 = raw_load_f(p0, i0, descr=double)
+        f11 = raw_load_f(p0, i1, descr=double)
+        f12 = raw_load_f(p0, i2, descr=double)
+        """)
+        ps = PackSet(16)
+        ps.packs = [self.pack(loop1, 0, 3)]
+        op1 = ps.packs[0].operations[0]
+        op2 = ps.packs[0].operations[1]
+        ps.split_overloaded_packs()
+        assert len(ps.packs) == 1
+        assert ps.packs[0].leftmost() is op1.getoperation()
+        assert ps.packs[0].rightmost() is op2.getoperation()
+
     def test_schedule_split_load(self):
         loop1 = self.parse_trace("""
         f10 = raw_load_f(p0, i0, descr=float)
@@ -124,10 +139,10 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         f14 = raw_load_f(p0, i4, descr=float)
         f15 = raw_load_f(p0, i5, descr=float)
         """)
-        pack1 = self.pack(loop1, 0, 6, None, F32)
+        pack1 = self.pack(loop1, 0, 6)
         loop2 = self.schedule(loop1, [pack1])
         loop3 = self.parse_trace("""
-        v10[4xi32] = vec_raw_load_i(p0, i0, descr=float)
+        v10[4xi32] = vec_raw_load_f(p0, i0, descr=float)
         f10 = raw_load_f(p0, i4, descr=float)
         f11 = raw_load_f(p0, i5, descr=float)
         """, False)
@@ -135,21 +150,21 @@ class Test(SchedulerBaseTest, LLtypeMixin):
 
     def test_int_to_float(self):
         loop1 = self.parse_trace("""
-        i10 = raw_load(p0, i0, descr=long)
-        i11 = raw_load(p0, i1, descr=long)
+        i10 = raw_load_i(p0, i0, descr=long)
+        i11 = raw_load_i(p0, i1, descr=long)
         i12 = int_signext(i10, 4)
         i13 = int_signext(i11, 4)
         f10 = cast_int_to_float(i12)
         f11 = cast_int_to_float(i13)
         """)
-        pack1 = self.pack(loop1, 0, 2, None, I64)
-        pack2 = self.pack(loop1, 2, 4, I64, I32_2)
-        pack3 = self.pack(loop1, 4, 6, I32_2, F32_2)
+        pack1 = self.pack(loop1, 0, 2)
+        pack2 = self.pack(loop1, 2, 4)
+        pack3 = self.pack(loop1, 4, 6)
         loop2 = self.schedule(loop1, [pack1, pack2, pack3])
         loop3 = self.parse_trace("""
-        v10[i64|2] = vec_raw_load_i(p0, i0, descr=long)
-        v20[i32|2] = vec_int_signext(v10[i64|2], 4)
-        v30[f64|2] = vec_cast_int_to_float(v20[i32|2])
+        v10[2xi64] = vec_raw_load_i(p0, i0, descr=long)
+        v20[2xi32] = vec_int_signext(v10[2xi64], 4)
+        v30[2xf64] = vec_cast_int_to_float(v20[2xi32])
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -161,12 +176,12 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack1 = self.pack(loop1, 0, 2, I64, I64)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse_trace("""
-        v10[i64|2] = vec_box(2)
-        v20[i64|2] = vec_int_pack(v10[i64|2], i0, 0, 1)
-        v30[i64|2] = vec_int_pack(v20[i64|2], i1, 1, 1)
-        v40[i64|2] = vec_int_expand(73,2)
+        v10[2xi64] = vec_box_i()
+        v20[2xi64] = vec_int_pack(v10[2xi64], i0, 0, 1)
+        v30[2xi64] = vec_int_pack(v20[2xi64], i1, 1, 1)
+        v40[2xi64] = vec_int_expand(73,2)
         #
-        v50[i64|2] = vec_int_add(v30[i64|2], v40[i64|2])
+        v50[2xi64] = vec_int_add(v30[2xi64], v40[2xi64])
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -177,12 +192,12 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack1 = self.pack(loop1, 0, 2, F64, F64)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse_trace("""
-        v10[f64|2] = vec_box(2)
-        v20[f64|2] = vec_float_pack(v10[f64|2], f0, 0, 1)
-        v30[f64|2] = vec_float_pack(v20[f64|2], f1, 1, 1)
-        v40[f64|2] = vec_float_expand(73.0,2)
+        v10[2xf64] = vec_box_f()
+        v20[2xf64] = vec_float_pack(v10[2xf64], f0, 0, 1)
+        v30[2xf64] = vec_float_pack(v20[2xf64], f1, 1, 1)
+        v40[2xf64] = vec_float_expand(73.0,2)
         #
-        v50[f64|2] = vec_float_add(v30[f64|2], v40[f64|2])
+        v50[2xf64] = vec_float_add(v30[2xf64], v40[2xf64])
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -197,13 +212,13 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack2 = self.pack(loop1, 2, 4, F64, F64)
         loop2 = self.schedule(loop1, [pack1, pack2], prepend_invariant=True)
         loop3 = self.parse_trace("""
-        v10[f64|2] = vec_box(2)
-        v20[f64|2] = vec_float_pack(v10[f64|2], f0, 0, 1)
-        v30[f64|2] = vec_float_pack(v20[f64|2], f1, 1, 1)
-        v40[f64|2] = vec_float_expand(f5,2) # only expaned once
+        v10[2xf64] = vec_box_f()
+        v20[2xf64] = vec_float_pack(v10[2xf64], f0, 0, 1)
+        v30[2xf64] = vec_float_pack(v20[2xf64], f1, 1, 1)
+        v40[2xf64] = vec_float_expand(f5,2) # only expaned once
         #
-        v50[f64|2] = vec_float_add(v30[f64|2], v40[f64|2])
-        v60[f64|2] = vec_float_add(v50[f64|2], v40[f64|2])
+        v50[2xf64] = vec_float_add(v30[2xf64], v40[2xf64])
+        v60[2xf64] = vec_float_add(v50[2xf64], v40[2xf64])
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -217,7 +232,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         loop1 = self.parse_trace("""
         i10 = int_signext(i1, 4)
         i11 = int_signext(i1, 4)
-        """, additional_args=['v10[i64|2]'])
+        """, additional_args=['v10[2xi64]'])
         pack1 = self.pack(loop1, 0, 2, I64, I32_2)
         var = self.find_input_arg('v10', loop1)
         def i1inv103204(v):
@@ -227,20 +242,20 @@ class Test(SchedulerBaseTest, LLtypeMixin):
                                 'getvector_of_box': i1inv103204,
                               })
         loop3 = self.parse_trace("""
-        v11[i32|2] = vec_int_signext(v10[i64|2], 4)
-        """, False, additional_args=['v10[i64|2]'])
+        v11[2xi32] = vec_int_signext(v10[2xi64], 4)
+        """, False, additional_args=['v10[2xi64]'])
         self.assert_equal(loop2, loop3)
 
     def test_cast_float_to_int(self):
         loop1 = self.parse_trace("""
-        f10 = raw_load(p0, i1, descr=double)
-        f11 = raw_load(p0, i2, descr=double)
-        f12 = raw_load(p0, i3, descr=double)
-        f13 = raw_load(p0, i4, descr=double)
-        f14 = raw_load(p0, i5, descr=double)
-        f15 = raw_load(p0, i6, descr=double)
-        f16 = raw_load(p0, i7, descr=double)
-        f17 = raw_load(p0, i8, descr=double)
+        f10 = raw_load_f(p0, i1, descr=double)
+        f11 = raw_load_f(p0, i2, descr=double)
+        f12 = raw_load_f(p0, i3, descr=double)
+        f13 = raw_load_f(p0, i4, descr=double)
+        f14 = raw_load_f(p0, i5, descr=double)
+        f15 = raw_load_f(p0, i6, descr=double)
+        f16 = raw_load_f(p0, i7, descr=double)
+        f17 = raw_load_f(p0, i8, descr=double)
         #
         i10 = cast_float_to_int(f10)
         i11 = cast_float_to_int(f11)
@@ -281,31 +296,31 @@ class Test(SchedulerBaseTest, LLtypeMixin):
                                   '_prevent_signext': void
                               })
         loop3 = self.parse_trace("""
-        v10[f64|2] = vec_raw_load_f(p0, i1, descr=double)
-        v11[f64|2] = vec_raw_load_f(p0, i3, descr=double)
-        v12[f64|2] = vec_raw_load_f(p0, i5, descr=double)
-        v13[f64|2] = vec_raw_load_f(p0, i7, descr=double)
-        v14[i32|2] = vec_cast_float_to_int(v10[f64|2])
-        v15[i32|2] = vec_cast_float_to_int(v11[f64|2])
-        v16[i32|2] = vec_cast_float_to_int(v12[f64|2])
-        v17[i32|2] = vec_cast_float_to_int(v13[f64|2])
-        v18[i16|2] = vec_int_signext(v14[i32|2],2)
-        v19[i16|2] = vec_int_signext(v15[i32|2],2)
-        v20[i16|2] = vec_int_signext(v16[i32|2],2)
-        v21[i16|2] = vec_int_signext(v17[i32|2],2)
-        v22[i16|4] = vec_int_pack(v18[i16|2], v19[i16|2], 2, 2)
-        v23[i16|6] = vec_int_pack(v22[i16|4], v20[i16|2], 4, 2)
-        v24[i16|8] = vec_int_pack(v23[i16|6], v21[i16|2], 6, 2)
-        vec_raw_store(p1, i1, v24[i16|8], descr=short)
+        v10[2xf64] = vec_raw_load_f(p0, i1, descr=double)
+        v11[2xf64] = vec_raw_load_f(p0, i3, descr=double)
+        v12[2xf64] = vec_raw_load_f(p0, i5, descr=double)
+        v13[2xf64] = vec_raw_load_f(p0, i7, descr=double)
+        v14[2xi32] = vec_cast_float_to_int(v10[2xf64])
+        v15[2xi32] = vec_cast_float_to_int(v11[2xf64])
+        v16[2xi32] = vec_cast_float_to_int(v12[2xf64])
+        v17[2xi32] = vec_cast_float_to_int(v13[2xf64])
+        v18[2xi16] = vec_int_signext(v14[2xi32],2)
+        v19[2xi16] = vec_int_signext(v15[2xi32],2)
+        v20[2xi16] = vec_int_signext(v16[2xi32],2)
+        v21[2xi16] = vec_int_signext(v17[2xi32],2)
+        v22[4xi16] = vec_int_pack(v18[2xi16], v19[2xi16], 2, 2)
+        v23[6xi16] = vec_int_pack(v22[4xi16], v20[2xi16], 4, 2)
+        v24[8xi16] = vec_int_pack(v23[6xi16], v21[2xi16], 6, 2)
+        vec_raw_store(p1, i1, v24[8xi16], descr=short)
         """, False)
         self.assert_equal(loop2, loop3)
 
     def test_cast_float_to_single_float(self):
         loop1 = self.parse_trace("""
-        f10 = raw_load(p0, i1, descr=double)
-        f11 = raw_load(p0, i2, descr=double)
-        f12 = raw_load(p0, i3, descr=double)
-        f13 = raw_load(p0, i4, descr=double)
+        f10 = raw_load_f(p0, i1, descr=double)
+        f11 = raw_load_f(p0, i2, descr=double)
+        f12 = raw_load_f(p0, i3, descr=double)
+        f13 = raw_load_f(p0, i4, descr=double)
         #
         i10 = cast_float_to_singlefloat(f10)
         i11 = cast_float_to_singlefloat(f11)
@@ -322,19 +337,19 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack3 = self.pack(loop1, 8, 12, I32, None)
         loop2 = self.schedule(loop1, [pack1,pack2,pack3])
         loop3 = self.parse_trace("""
-        v44[f64|2] = vec_raw_load_f(p0, i1, descr=double) 
-        v45[f64|2] = vec_raw_load_f(p0, i3, descr=double) 
-        v46[i32|2] = vec_cast_float_to_singlefloat(v44[f64|2]) 
-        v47[i32|2] = vec_cast_float_to_singlefloat(v45[f64|2]) 
-        v41[i32|4] = vec_int_pack(v46[i32|2], v47[i32|2], 2, 2) 
-        vec_raw_store(p1, i1, v41[i32|4], descr=float)
+        v44[2xf64] = vec_raw_load_f(p0, i1, descr=double) 
+        v45[2xf64] = vec_raw_load_f(p0, i3, descr=double) 
+        v46[2xi32] = vec_cast_float_to_singlefloat(v44[2xf64]) 
+        v47[2xi32] = vec_cast_float_to_singlefloat(v45[2xf64]) 
+        v41[4xi32] = vec_int_pack(v46[2xi32], v47[2xi32], 2, 2) 
+        vec_raw_store(p1, i1, v41[4xi32], descr=float)
         """, False)
         self.assert_equal(loop2, loop3)
 
     def test_all(self):
         loop1 = self.parse_trace("""
-        i10 = raw_load(p0, i1, descr=long)
-        i11 = raw_load(p0, i2, descr=long)
+        i10 = raw_load_i(p0, i1, descr=long)
+        i11 = raw_load_i(p0, i2, descr=long)
         #
         i12 = int_and(i10, 255)
         i13 = int_and(i11, 255)
@@ -347,20 +362,20 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack3 = self.pack(loop1, 4, 6, I64, None)
         loop2 = self.schedule(loop1, [pack1,pack2,pack3], prepend_invariant=True)
         loop3 = self.parse_trace("""
-        v9[i64|2] = vec_int_expand(255,2)
-        v10[i64|2] = vec_raw_load_i(p0, i1, descr=long)
-        v11[i64|2] = vec_int_and(v10[i64|2], v9[i64|2])
-        guard_true(v11[i64|2]) []
+        v9[2xi64] = vec_int_expand(255,2)
+        v10[2xi64] = vec_raw_load_i(p0, i1, descr=long)
+        v11[2xi64] = vec_int_and(v10[2xi64], v9[2xi64])
+        guard_true(v11[2xi64]) []
         """, False)
         self.assert_equal(loop2, loop3)
 
 
     def test_split_load_store(self):
         loop1 = self.parse_trace("""
-        i10 = raw_load(p0, i1, descr=float)
-        i11 = raw_load(p0, i2, descr=float)
-        i12 = raw_load(p0, i3, descr=float)
-        i13 = raw_load(p0, i4, descr=float)
+        i10 = raw_load_f(p0, i1, descr=float)
+        i11 = raw_load_f(p0, i2, descr=float)
+        i12 = raw_load_f(p0, i3, descr=float)
+        i13 = raw_load_f(p0, i4, descr=float)
         raw_store(p0, i3, i10, descr=float)
         raw_store(p0, i4, i11, descr=float)
         """)
@@ -368,10 +383,10 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack2 = self.pack(loop1, 4, 6, I32_2, None)
         loop2 = self.schedule(loop1, [pack1,pack2], prepend_invariant=True)
         loop3 = self.parse_trace("""
-        v1[i32|4] = vec_raw_load_i(p0, i1, descr=float)
-        i10 = vec_int_unpack(v1[i32|4], 0, 1)
+        v1[4xi32] = vec_raw_load_i(p0, i1, descr=float)
+        i10 = vec_int_unpack(v1[4xi32], 0, 1)
         raw_store(p0, i3, i10, descr=float)
-        i11 = vec_int_unpack(v1[i32|4], 1, 1)
+        i11 = vec_int_unpack(v1[4xi32], 1, 1)
         raw_store(p0, i4, i11, descr=float)
         """, False)
         # unfortunate ui32 is the type for float32... the unsigned u is for
@@ -386,9 +401,9 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack1 = self.pack(loop1, 0, 2, I64, I64)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse_trace("""
-        v1[i64|2] = vec_int_expand(255,2)
-        v2[i64|2] = vec_int_expand(i1,2)
-        v3[i64|2] = vec_int_and(v1[i64|2], v2[i64|2])
+        v1[2xi64] = vec_int_expand(255,2)
+        v2[2xi64] = vec_int_expand(i1,2)
+        v3[2xi64] = vec_int_and(v1[2xi64], v2[2xi64])
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -400,9 +415,9 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack1 = self.pack(loop1, 0, 2, I64, I64)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse_trace("""
-        v1[i64|2] = vec_int_expand(255, 2)
-        v2[i64|2] = vec_int_expand(i1, 2)
-        v3[i64|2] = vec_int_and(v1[i64|2], v2[i64|2])
+        v1[2xi64] = vec_int_expand(255, 2)
+        v2[2xi64] = vec_int_expand(i1, 2)
+        v3[2xi64] = vec_int_and(v1[2xi64], v2[2xi64])
         """, False)
         self.assert_equal(loop2, loop3)
 
@@ -419,19 +434,19 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack4 = self.pack(loop1, 4, 6, I64, I64)
         loop2 = self.schedule(loop1, [pack1,pack4], prepend_invariant=True)
         loop3 = self.parse_trace("""
-        v1[i64|2] = vec_int_expand(255,2)
-        v2[i64|2] = vec_box(2)
-        v3[i64|2] = vec_int_pack(v2[i64|2], i1, 0, 1)
-        v4[i64|2] = vec_int_pack(v3[i64|2], i2, 1, 1)
-        v5[i64|2] = vec_int_and(v1[i64|2], v4[i64|2])
-        i10 = vec_int_unpack(v5[i64|2], 0, 1)
+        v1[2xi64] = vec_int_expand(255,2)
+        v2[2xi64] = vec_box_i()
+        v3[2xi64] = vec_int_pack(v2[2xi64], i1, 0, 1)
+        v4[2xi64] = vec_int_pack(v3[2xi64], i2, 1, 1)
+        v5[2xi64] = vec_int_and(v1[2xi64], v4[2xi64])
+        i10 = vec_int_unpack(v5[2xi64], 0, 1)
         i12 = uint_floordiv(i10,1)
-        i11 = vec_int_unpack(v5[i64|2], 1, 1)
+        i11 = vec_int_unpack(v5[2xi64], 1, 1)
         i13 = uint_floordiv(i11,1)
-        v6[i64|2] = vec_box(2)
-        v7[i64|2] = vec_int_pack(v6[i64|2], i12, 0, 1)
-        v8[i64|2] = vec_int_pack(v7[i64|2], i13, 1, 1)
-        v9[i64|2] = vec_int_and(v4[i64|2], v8[i64|2])
+        v6[2xi64] = vec_box_i()
+        v7[2xi64] = vec_int_pack(v6[2xi64], i12, 0, 1)
+        v8[2xi64] = vec_int_pack(v7[2xi64], i13, 1, 1)
+        v9[2xi64] = vec_int_and(v4[2xi64], v8[i64])
         """, False)
         self.assert_equal(loop2, loop3)
 
