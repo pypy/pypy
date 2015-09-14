@@ -355,7 +355,7 @@ class Node(object):
     def __repr__(self):
         pack = ''
         if self.pack:
-            pack = "p: %d" % self.pack.opcount()
+            pack = "p: %d" % self.pack.numops()
         return "Node(%s,%s i: %d)" % (self.op.getopname(), pack, self.opidx)
 
     def __ne__(self, other):

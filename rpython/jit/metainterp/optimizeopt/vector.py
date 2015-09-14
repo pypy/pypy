@@ -22,7 +22,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
 from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleState,
         Scheduler, Pack, Pair, AccumPair, vectorbox_outof_box, getpackopnum,
-        getunpackopnum, Type, determine_input_output_types)
+        getunpackopnum)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp, Accum)
 from rpython.rlib import listsort
@@ -453,7 +453,7 @@ class VectorizingOptimizer(Optimizer):
         state.prepare()
         scheduler = Scheduler()
         scheduler.walk_and_emit(state)
-        if state.profitable():
+        if not state.profitable():
             return
         state.post_schedule()
 
@@ -674,15 +674,11 @@ class PackSet(object):
                 if origin_pack is None:
                     op = lnode.getoperation()
                     if op.is_primitive_load():
-                        # load outputs value, no input
-                        return Pair(lnode, rnode, None, Type.of(op))
+                        return Pair(lnode, rnode)
                     else:
-                        # store only has an input
-                        return Pair(lnode, rnode, Type.of(op), None)
+                        return Pair(lnode, rnode)
                 if self.profitable_pack(lnode, rnode, origin_pack, forward):
-                    input_type, output_type = \
-                        determine_input_output_types(origin_pack, lnode, forward)
-                    return Pair(lnode, rnode, input_type, output_type)
+                    return Pair(lnode, rnode)
             else:
                 if self.contains_pair(lnode, rnode):
                     return None
@@ -734,17 +730,9 @@ class PackSet(object):
         operations = pack_i.operations
         for op in pack_j.operations[1:]:
             operations.append(op)
-        input_type = pack_i.input_type
-        output_type = pack_i.output_type
-        if input_type:
-            input_type.combine(pack_j.input_type)
-        if output_type:
-            output_type.combine(pack_j.output_type)
-        pack = Pack(operations, input_type, output_type)
+        pack = Pack(operations)
         self.packs[i] = pack
-        # preserve the accum variable (if present) of the
-        # left most pack, that is the pack with the earliest
-        # operation at index 0 in the trace
+        # preserve the accum variable (if present)
         pack.accum = pack_i.accum
         pack_i.accum = pack_j.accum = None
 
@@ -851,6 +839,5 @@ class PackSet(object):
                 pack.clear()
                 self.packs[i] = None
                 continue
-            pack.update_pack_of_nodes()
         self.packs = [pack for pack in self.packs + newpacks if pack]
 

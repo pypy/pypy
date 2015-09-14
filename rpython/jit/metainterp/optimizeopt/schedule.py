@@ -18,7 +18,7 @@ class SchedulerState(object):
 
     def post_schedule(self):
         loop = self.graph.loop
-        self.renamer.rename(loop.label.getoperation())
+        self.renamer.rename(loop.jump)
 
     def profitable(self):
         return self.costmodel.profitable()
@@ -66,7 +66,7 @@ class Scheduler(object):
             Keeps worklist sorted (see priority) """
         op = node.getoperation()
         state.renamer.rename(op)
-        state.unpack_from_vector(op, self)
+        state.unpack_from_vector(op)
         node.position = len(state.oplist)
         worklist = state.worklist
         for dep in node.provides()[:]: # COPY
@@ -97,6 +97,7 @@ class Scheduler(object):
         """ Emit all the operations into the oplist parameter.
             Initiates the scheduling. """
         assert isinstance(state, SchedulerState)
+        import pdb; pdb.set_trace()
         while state.has_more():
             node = self.next(state)
             if node:
@@ -177,40 +178,43 @@ UNSIGNED_OPS = (rop.UINT_FLOORDIV, rop.UINT_RSHIFT,
                 rop.UINT_LT, rop.UINT_LE,
                 rop.UINT_GT, rop.UINT_GE)
 
-class Type(object):
-    """ The type of one operation. Saves type, size and sign. """
-    @staticmethod
-    def of(op):
-        descr = op.getdescr()
-        if descr:
-            type = INT
-            if descr.is_array_of_floats() or descr.concrete_type == FLOAT:
-                type = FLOAT
-            size = descr.get_item_size_in_bytes()
-            sign = descr.is_item_signed()
-            return Type(type, size, sign)
-        else:
-            size = 8
-            sign = True
-            if op.type == 'f' or op.getopnum() in UNSIGNED_OPS:
-                sign = False
-            return Type(op.type, size, sign)
-
-    def __init__(self, type, size, signed):
-        assert type in (FLOAT, INT)
-        self.type = type
-        self.size = size
-        self.signed = signed
-
-    def clone(self):
-        return Type(self.type, self.size, self.signed)
-
-    def __repr__(self):
-        sign = '-'
-        if not self.signed:
-            sign = '+'
-        return 'Type(%s%s, %d)' % (sign, self.type, self.size)
-
+#class Type(object):
+#    """ The type of one operation. Saves type, size and sign. """
+#    @staticmethod
+#    def of(op):
+#        descr = op.getdescr()
+#        if descr:
+#            type = INT
+#            if descr.is_array_of_floats() or descr.concrete_type == FLOAT:
+#                type = FLOAT
+#            size = descr.get_item_size_in_bytes()
+#            sign = descr.is_item_signed()
+#            return Type(type, size, sign)
+#        else:
+#            size = 8
+#            sign = True
+#            if op.type == 'f' or op.getopnum() in UNSIGNED_OPS:
+#                sign = False
+#            return Type(op.type, size, sign)
+#
+#    def __init__(self, type, size, signed):
+#        assert type in (FLOAT, INT)
+#        self.type = type
+#        self.size = size
+#        self.signed = signed
+#
+#    def bytecount(self):
+#        return self.size
+#
+#    def clone(self):
+#        return Type(self.type, self.size, self.signed)
+#
+#    def __repr__(self):
+#        sign = '-'
+#        if not self.signed:
+#            sign = '+'
+#        return 'Type(%s%s, %d)' % (sign, self.type, self.size)
+#
     #UNKNOWN_TYPE = '-'
 
     #@staticmethod
@@ -268,10 +272,6 @@ class Type(object):
     #def getcount(self):
     #    return self.count
 
-    #def pack_byte_size(self, pack):
-    #    if len(pack.operations) == 0:
-    #        return 0
-    #    return self.getsize() * pack.opcount()
 
 class TypeRestrict(object):
     ANY_TYPE = -1
@@ -301,6 +301,20 @@ class TypeOutput(object):
         self.type = type
         self.count = count
 
+
+    def bytecount(self):
+        return self.count * self.type.bytecount()
+
+class DataTyper(object):
+
+    def infer_type(self, op):
+        # default action, pass through: find the first arg
+        # the output is the same as the first argument!
+        if op.returns_void() or op.argcount() == 0:
+            return
+        arg0 = op.getarg(0)
+        op.setdatatype(arg0.datatype, arg0.bytesize, arg0.signed)
+
 class PassFirstArg(TypeOutput):
     def __init__(self):
         pass
@@ -316,17 +330,14 @@ class OpToVectorOp(object):
         op = pack.leftmost()
         args = op.getarglist()
         self.prepare_arguments(state, op.getarglist())
-        #
-        vop = VecOperation(op.vector, args, otype.   op.getdescr())
-        #result = self.transform_result(op)
+        vop = VecOperation(op.vector, args, op, pack.numops(), op.getdescr())
         #
         if op.is_guard():
             assert isinstance(op, GuardResOp)
             assert isinstance(vop, GuardResOp)
             vop.setfailargs(op.getfailargs())
             vop.rd_snapshot = op.rd_snapshot
-        self.vecops.append(vop)
-        self.costmodel.record_pack_savings(self.pack, self.pack.opcount())
+        state.costmodel.record_pack_savings(pack, pack.numops())
         #
         if pack.is_accumulating():
             box = oplist[position].result
@@ -335,8 +346,10 @@ class OpToVectorOp(object):
                 op = node.getoperation()
                 assert not op.returns_void()
                 scheduler.renamer.start_renaming(op, box)
+        #
+        state.oplist.append(vop)
 
-    def transform_arguments(self, state, args):
+    def prepare_arguments(self, state, args):
         self.before_argument_transform(args)
         # Transforming one argument to a vector box argument
         # The following cases can occur:
@@ -732,12 +745,12 @@ class LoadToVectorLoad(OpToVectorOp):
     def __init__(self):
         OpToVectorOp.__init__(self, (), TypeRestrict())
 
-    def before_argument_transform(self, args):
-        count = min(self.output_type.getcount(), len(self.getoperations()))
-        args.append(ConstInt(count))
+    # OLD def before_argument_transform(self, args):
+        #count = min(self.output_type.getcount(), len(self.getoperations()))
+        #args.append(ConstInt(count))
 
     def get_output_type_given(self, input_type, op):
-        return Type.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
+        return xxx#Type.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
 
     def get_input_type_given(self, output_type, op):
         return None
@@ -760,7 +773,7 @@ class StoreToVectorStore(OpToVectorOp):
         return None
 
     def get_input_type_given(self, output_type, op):
-        return Type.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
+        return xxx#Type.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
 
 class PassThroughOp(OpToVectorOp):
     """ This pass through is only applicable if the target
@@ -778,7 +791,7 @@ class PassThroughOp(OpToVectorOp):
 
 
 class trans(object):
-    PASS = PassFirstArg()
+    DT_PASS = DataTyper()
 
     TR_ANY_FLOAT = TypeRestrict(FLOAT)
     TR_ANY_INTEGER = TypeRestrict(INT)
@@ -787,9 +800,9 @@ class trans(object):
     TR_LONG = TypeRestrict(INT, 8, 2)
     TR_INT_2 = TypeRestrict(INT, 4, 2)
 
-    INT = OpToVectorOp((TR_ANY_INTEGER, TR_ANY_INTEGER), PASS)
-    FLOAT = OpToVectorOp((TR_ANY_FLOAT, TR_ANY_FLOAT), PASS)
-    FLOAT_UNARY = OpToVectorOp((TR_ANY_FLOAT,), PASS)
+    INT = OpToVectorOp((TR_ANY_INTEGER, TR_ANY_INTEGER), DT_PASS)
+    FLOAT = OpToVectorOp((TR_ANY_FLOAT, TR_ANY_FLOAT), DT_PASS)
+    FLOAT_UNARY = OpToVectorOp((TR_ANY_FLOAT,), DT_PASS)
     LOAD = LoadToVectorLoad()
     STORE = StoreToVectorStore()
     GUARD = PassThroughOp((TR_ANY_INTEGER,))
@@ -838,6 +851,11 @@ class trans(object):
         rop.VEC_FLOAT_NE:    OpToVectorOp((TR_ANY_FLOAT,TR_ANY_FLOAT), None),
         rop.VEC_INT_IS_TRUE: OpToVectorOp((TR_ANY_INTEGER,TR_ANY_INTEGER), None), # TR_ANY_INTEGER),
     }
+
+    # TODO?
+    UNSIGNED_OPS = (rop.UINT_FLOORDIV, rop.UINT_RSHIFT,
+                    rop.UINT_LT, rop.UINT_LE,
+                    rop.UINT_GT, rop.UINT_GE)
 
 def determine_input_output_types(pack, node, forward):
     """ This function is two fold. If moving forward, it
@@ -888,8 +906,10 @@ class VecScheduleState(SchedulerState):
 
     def post_schedule(self):
         loop = self.graph.loop
-        self.sched_data.unpack_from_vector(loop.jump.getoperation(), self)
+        self.unpack_from_vector(loop.jump)
         SchedulerState.post_schedule(self)
+
+        self.graph.loop.operations = self.oplist
 
         # add accumulation info to the descriptor
         #for version in self.loop.versions:
@@ -928,11 +948,11 @@ class VecScheduleState(SchedulerState):
             to emit the actual operation into the oplist of the scheduler.
         """
         if node.pack:
+            assert node.pack.numops() > 1
             for node in node.pack.operations:
                 scheduler.mark_emitted(node, self)
-                assert node.pack.opcount() > 1
-                op2vecop = determine_trans(node.pack.leftmost())
-                op2vecop.as_vector_operation(self, node.pack)
+            op2vecop = determine_trans(node.pack.leftmost())
+            op2vecop.as_vector_operation(self, node.pack)
             return True
         return False
 
@@ -950,7 +970,7 @@ class VecScheduleState(SchedulerState):
                         return True
         return False
 
-    def unpack_from_vector(self, op, scheduler):
+    def unpack_from_vector(self, op):
         """ If a box is needed that is currently stored within a vector
             box, this utility creates a unpacking instruction.
         """
@@ -959,7 +979,7 @@ class VecScheduleState(SchedulerState):
         # unpack for an immediate use
         for i, arg in enumerate(op.getarglist()):
             if not arg.is_constant():
-                argument = self._unpack_from_vector(i, arg, scheduler)
+                argument = self._unpack_from_vector(i, arg)
                 if arg is not argument:
                     op.setarg(i, argument)
         if not op.returns_void():
@@ -969,11 +989,11 @@ class VecScheduleState(SchedulerState):
             fail_args = op.getfailargs()
             for i, arg in enumerate(fail_args):
                 if arg and not arg.is_constant():
-                    argument = self._unpack_from_vector(i, arg, scheduler)
+                    argument = self._unpack_from_vector(i, arg)
                     if arg is not argument:
                         fail_args[i] = argument
 
-    def _unpack_from_vector(self, i, arg, scheduler):
+    def _unpack_from_vector(self, i, arg):
         if arg in self.seen or arg.type == 'V':
             return arg
         (j, vbox) = self.getvector_of_box(arg)
@@ -982,14 +1002,14 @@ class VecScheduleState(SchedulerState):
                 return arg
             arg_cloned = arg.clonebox()
             self.seen[arg_cloned] = None
-            scheduler.renamer.start_renaming(arg, arg_cloned)
+            self.renamer.start_renaming(arg, arg_cloned)
             self.setvector_of_box(arg_cloned, j, vbox)
             cj = ConstInt(j)
             ci = ConstInt(1)
             opnum = getunpackopnum(vbox.gettype())
             unpack_op = ResOperation(opnum, [vbox, cj, ci], arg_cloned)
             self.costmodel.record_vector_unpack(vbox, j, 1)
-            scheduler.oplist.append(unpack_op)
+            self.oplist.append(unpack_op)
             return arg_cloned
         return arg
 
@@ -1042,15 +1062,19 @@ class Pack(object):
     """
     FULL = 0
 
-    def __init__(self, ops, input_type, output_type):
+    def __init__(self, ops):
         self.operations = ops
         self.accum = None
-        self.input_type = input_type
-        self.output_type = output_type
-        assert self.input_type is not None or self.output_type is not None
         self.update_pack_of_nodes()
+        # initializes the type
+        # TODO
+        #input_type, output_type = \
+        #    determine_input_output_types(origin_pack, lnode, forward)
+        #self.input_type = input_type
+        #self.output_type = output_type
+        #assert self.input_type is not None or self.output_type is not None
 
-    def opcount(self):
+    def numops(self):
         return len(self.operations)
 
     def leftmost(self):
@@ -1078,22 +1102,25 @@ class Pack(object):
         return self._byte_size(self.output_type)
 
     def pack_load(self, vec_reg_size):
-        """ Returns the load of the pack. A value
-            smaller than 0 indicates that it is empty
-            or nearly empty, zero indicates that all slots
-            are used and > 0 indicates that too many operations
-            are in this pack instance.
+        """ Returns the load of the pack a vector register would hold
+            just after executing the operation.
+            returns: < 0 - empty, nearly empty
+                     = 0 - full
+                     > 0 - overloaded
         """
-        if len(self.operations) == 0:
+        left = self.leftmost()
+        if left.returns_void():
+            return 0
+        if self.numops() == 0:
             return -1
         size = maximum_byte_size(self, vec_reg_size)
-        if self.input_type is None:
+        return left.bytesize * self.numops() - size
+        #if self.input_type is None:
             # e.g. load operations
-            return self.output_type.pack_byte_size(self) - size
+        #    return self.output_type.bytecount(self) - size
         # default only consider the input type
         # e.g. store operations, int_add, ...
-        return self.input_type.pack_byte_size(self) - size
-
+        #return self.input_type.bytecount(self) - size
 
     def is_full(self, vec_reg_size):
         """ If one input element times the opcount is equal
@@ -1131,12 +1158,14 @@ class Pack(object):
             newpack = pack.clone(newoplist)
             load = newpack.pack_load(vec_reg_size)
             if load >= Pack.FULL:
+                pack.update_pack_of_nodes()
                 pack = newpack
                 packlist.append(newpack)
             else:
                 newpack.clear()
                 newpack.operations = []
                 break
+        pack.update_pack_of_nodes()
 
     def slice_operations(self, vec_reg_size):
         count = opcount_filling_vector_register(self, vec_reg_size)
@@ -1163,31 +1192,26 @@ class Pack(object):
 
     def __repr__(self):
         if len(self.operations) == 0:
-            return "Pack(-, [])"
-        opname = self.operations[0].getoperation().getopname()
-        return "Pack(%s,%r)" % (opname, self.operations)
+            return "Pack(empty)"
+        return "Pack(%dx %s)" % (self.numops(), self.operations[0])
 
     def is_accumulating(self):
         return self.accum is not None
 
     def clone(self, oplist):
-        cloned = Pack(oplist, self.input_type, self.output_type)
+        cloned = Pack(oplist)
         cloned.accum = self.accum
         return cloned
 
 
 class Pair(Pack):
     """ A special Pack object with only two statements. """
-    def __init__(self, left, right, input_type, output_type):
+    def __init__(self, left, right):
         assert isinstance(left, Node)
         assert isinstance(right, Node)
         self.left = left
         self.right = right
-        if input_type:
-            input_type = input_type.clone()
-        if output_type:
-            output_type = output_type.clone()
-        Pack.__init__(self, [left, right], input_type, output_type)
+        Pack.__init__(self, [left, right])
 
     def __eq__(self, other):
         if isinstance(other, Pair):

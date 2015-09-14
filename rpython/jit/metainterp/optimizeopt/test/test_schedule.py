@@ -7,7 +7,7 @@ from rpython.jit.metainterp.optimizeopt.vector import (VecScheduleState,
         Pack, Pair, NotAProfitableLoop, VectorizingOptimizer, X86_CostModel,
         PackSet)
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
-from rpython.jit.metainterp.optimizeopt.schedule import Type, Scheduler
+from rpython.jit.metainterp.optimizeopt.schedule import Scheduler
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import (DependencyBaseTest,
         FakeDependencyGraph)
@@ -17,13 +17,13 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.tool.oparser import parse as opparse
 from rpython.jit.tool.oparser_model import get_model
 
-F64 = Type('f',8,False)
-F32 = Type('f',4,False)
-F32_2 =  Type('f',4,False)
-I64 = Type('i',8,True)
-I32 = Type('i',4,True)
-I32_2 =  Type('i',4,True)
-I16 = Type('i',2,True)
+F64 = None #('f',8,False)
+F32 = None #('f',4,False)
+F32_2 =  None #('f',4,False)
+I64 = None #('i',8,True)
+I32 = None #('i',4,True)
+I32_2 =  None #('i',4,True)
+I16 = None #('i',2,True)
 
 class FakePackSet(PackSet):
     def __init__(self, packs):
@@ -68,7 +68,7 @@ class SchedulerBaseTest(DependencyBaseTest):
         return loop
 
     def pack(self, loop, l, r, input_type, output_type):
-        return Pack(loop.graph.nodes[1+l:1+r], input_type, output_type)
+        return Pack(loop.graph.nodes[1+l:1+r])
 
     def schedule(self, loop, packs, vec_reg_size=16,
                  prepend_invariant=False, overwrite_funcs=None):
@@ -79,7 +79,7 @@ class SchedulerBaseTest(DependencyBaseTest):
             for i in range(len(pack.operations)-1):
                 o1 = pack.operations[i]
                 o2 = pack.operations[i+1]
-                pair = Pair(o1,o2,pack.input_type,pack.output_type)
+                pair = Pair(o1,o2)
                 pairs.append(pair)
         packset = FakePackSet(pairs)
         state = VecScheduleState(loop.graph, packset, self.cpu, cm)
@@ -94,6 +94,9 @@ class SchedulerBaseTest(DependencyBaseTest):
             state.prepend_invariant_operations = lambda list, _: list
         opt.combine_packset()
         opt.schedule(state)
+        # works for now. might be the wrong class?
+        # wrap label + operations + jump it in tree loop otherwise
+        return state.graph.loop
 
 class Test(SchedulerBaseTest, LLtypeMixin):
 
@@ -124,7 +127,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack1 = self.pack(loop1, 0, 6, None, F32)
         loop2 = self.schedule(loop1, [pack1])
         loop3 = self.parse_trace("""
-        v10[i32|4] = vec_raw_load_i(p0, i0, 4, descr=float)
+        v10[4xi32] = vec_raw_load_i(p0, i0, descr=float)
         f10 = raw_load_f(p0, i4, descr=float)
         f11 = raw_load_f(p0, i5, descr=float)
         """, False)
@@ -144,7 +147,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack3 = self.pack(loop1, 4, 6, I32_2, F32_2)
         loop2 = self.schedule(loop1, [pack1, pack2, pack3])
         loop3 = self.parse_trace("""
-        v10[i64|2] = vec_raw_load_i(p0, i0, 2, descr=long)
+        v10[i64|2] = vec_raw_load_i(p0, i0, descr=long)
         v20[i32|2] = vec_int_signext(v10[i64|2], 4)
         v30[f64|2] = vec_cast_int_to_float(v20[i32|2])
         """, False)
@@ -268,7 +271,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         """)
         pack1 = self.pack(loop1, 0, 8, None, F64)
         pack2 = self.pack(loop1, 8, 16, F64, I32_2)
-        I16_2 = Type('i',2,True)
+        I16_2 = None #Type('i',2,True)
         pack3 = self.pack(loop1, 16, 24, I32_2, I16_2)
         pack4 = self.pack(loop1, 24, 32, I16, None)
         def void(b,c):
@@ -278,10 +281,10 @@ class Test(SchedulerBaseTest, LLtypeMixin):
                                   '_prevent_signext': void
                               })
         loop3 = self.parse_trace("""
-        v10[f64|2] = vec_raw_load_f(p0, i1, 2, descr=double)
-        v11[f64|2] = vec_raw_load_f(p0, i3, 2, descr=double)
-        v12[f64|2] = vec_raw_load_f(p0, i5, 2, descr=double)
-        v13[f64|2] = vec_raw_load_f(p0, i7, 2, descr=double)
+        v10[f64|2] = vec_raw_load_f(p0, i1, descr=double)
+        v11[f64|2] = vec_raw_load_f(p0, i3, descr=double)
+        v12[f64|2] = vec_raw_load_f(p0, i5, descr=double)
+        v13[f64|2] = vec_raw_load_f(p0, i7, descr=double)
         v14[i32|2] = vec_cast_float_to_int(v10[f64|2])
         v15[i32|2] = vec_cast_float_to_int(v11[f64|2])
         v16[i32|2] = vec_cast_float_to_int(v12[f64|2])
@@ -319,8 +322,8 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack3 = self.pack(loop1, 8, 12, I32, None)
         loop2 = self.schedule(loop1, [pack1,pack2,pack3])
         loop3 = self.parse_trace("""
-        v44[f64|2] = vec_raw_load_f(p0, i1, 2, descr=double) 
-        v45[f64|2] = vec_raw_load_f(p0, i3, 2, descr=double) 
+        v44[f64|2] = vec_raw_load_f(p0, i1, descr=double) 
+        v45[f64|2] = vec_raw_load_f(p0, i3, descr=double) 
         v46[i32|2] = vec_cast_float_to_singlefloat(v44[f64|2]) 
         v47[i32|2] = vec_cast_float_to_singlefloat(v45[f64|2]) 
         v41[i32|4] = vec_int_pack(v46[i32|2], v47[i32|2], 2, 2) 
@@ -345,7 +348,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         loop2 = self.schedule(loop1, [pack1,pack2,pack3], prepend_invariant=True)
         loop3 = self.parse_trace("""
         v9[i64|2] = vec_int_expand(255,2)
-        v10[i64|2] = vec_raw_load_i(p0, i1, 2, descr=long)
+        v10[i64|2] = vec_raw_load_i(p0, i1, descr=long)
         v11[i64|2] = vec_int_and(v10[i64|2], v9[i64|2])
         guard_true(v11[i64|2]) []
         """, False)
@@ -365,7 +368,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         pack2 = self.pack(loop1, 4, 6, I32_2, None)
         loop2 = self.schedule(loop1, [pack1,pack2], prepend_invariant=True)
         loop3 = self.parse_trace("""
-        v1[i32|4] = vec_raw_load_i(p0, i1, 4, descr=float)
+        v1[i32|4] = vec_raw_load_i(p0, i1, descr=float)
         i10 = vec_int_unpack(v1[i32|4], 0, 1)
         raw_store(p0, i3, i10, descr=float)
         i11 = vec_int_unpack(v1[i32|4], 1, 1)
