@@ -214,7 +214,7 @@ class CallBuilder(AbstractCallBuilder):
         # replace b1_location with BEQ(here)
         jmp_target = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, b1_location, 1)
-        pmc.bc(12, 2, jmp_target - b1_location)    # "beq"
+        pmc.beq(jmp_target - b1_location)
         pmc.overwrite()
 
         if not we_are_translated():        # for testing: now we can access

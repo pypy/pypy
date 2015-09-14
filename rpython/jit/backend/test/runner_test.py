@@ -1113,12 +1113,12 @@ class BaseBackendTest(Runner):
                             r_box = self.alloc_string("!???????!")
                             if r_box_is_const:
                                 r_box = r_box.constbox()
-                                self.execute_operation(rop.COPYSTRCONTENT,
-                                                       [s_box, r_box,
-                                                        srcstart_box,
-                                                        dststart_box,
-                                                        length_box], 'void')
-                                assert self.look_string(r_box) == "!??cdef?!"
+                            self.execute_operation(rop.COPYSTRCONTENT,
+                                                   [s_box, r_box,
+                                                    srcstart_box,
+                                                    dststart_box,
+                                                    length_box], 'void')
+                            assert self.look_string(r_box) == "!??cdef?!"
 
     def test_copyunicodecontent(self):
         s_box = self.alloc_unicode(u"abcdef")
@@ -1130,12 +1130,12 @@ class BaseBackendTest(Runner):
                             r_box = self.alloc_unicode(u"!???????!")
                             if r_box_is_const:
                                 r_box = r_box.constbox()
-                                self.execute_operation(rop.COPYUNICODECONTENT,
-                                                       [s_box, r_box,
-                                                        srcstart_box,
-                                                        dststart_box,
-                                                        length_box], 'void')
-                                assert self.look_unicode(r_box) == u"!??cdef?!"
+                            self.execute_operation(rop.COPYUNICODECONTENT,
+                                                   [s_box, r_box,
+                                                    srcstart_box,
+                                                    dststart_box,
+                                                    length_box], 'void')
+                            assert self.look_unicode(r_box) == u"!??cdef?!"
 
     def test_do_unicode_basic(self):
         u = self.cpu.bh_newunicode(5)
@@ -2178,7 +2178,7 @@ class LLtypeBackendTest(BaseBackendTest):
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         class WriteBarrierDescr(AbstractDescr):
             jit_wb_if_flag = 4096
-            jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
+            jit_wb_if_flag_byteofs = struct.pack("l", 4096).index('\x10')
             jit_wb_if_flag_singlebyte = 0x10
             def get_write_barrier_fn(self, cpu):
                 return funcbox.getint()
@@ -2212,7 +2212,7 @@ class LLtypeBackendTest(BaseBackendTest):
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         class WriteBarrierDescr(AbstractDescr):
             jit_wb_if_flag = 4096
-            jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
+            jit_wb_if_flag_byteofs = struct.pack("l", 4096).index('\x10')
             jit_wb_if_flag_singlebyte = 0x10
             jit_wb_cards_set = 0       # <= without card marking
             def get_write_barrier_fn(self, cpu):
@@ -2259,10 +2259,10 @@ class LLtypeBackendTest(BaseBackendTest):
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         class WriteBarrierDescr(AbstractDescr):
             jit_wb_if_flag = 4096
-            jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
+            jit_wb_if_flag_byteofs = struct.pack("l", 4096).index('\x10')
             jit_wb_if_flag_singlebyte = 0x10
             jit_wb_cards_set = 32768
-            jit_wb_cards_set_byteofs = struct.pack("i", 32768).index('\x80')
+            jit_wb_cards_set_byteofs = struct.pack("l", 32768).index('\x80')
             jit_wb_cards_set_singlebyte = -0x80
             jit_wb_card_page_shift = 7
             def get_write_barrier_from_array_fn(self, cpu):
@@ -3674,6 +3674,7 @@ class LLtypeBackendTest(BaseBackendTest):
         assert not called
 
     def test_assembler_call_propagate_exc(self):
+        # WARNING: this test depends on test_memoryerror first passing
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph can't fake exceptions well enough, give up")
 
@@ -4985,3 +4986,35 @@ class LLtypeBackendTest(BaseBackendTest):
                                 assert a[i].a == a[i].b == val
                             else:
                                 assert a[i] == rffi.cast(OF, val)
+
+    def test_jump_float_constant(self):
+        f0 = BoxFloat()
+        f1 = BoxFloat()
+        i2 = BoxInt()
+        f3 = BoxFloat()
+        i4 = BoxInt()
+        looptoken = JitCellToken()
+        targettoken = TargetToken()
+        operations = [
+            ResOperation(rop.LABEL, [f0, f1], None, descr=targettoken),
+            ResOperation(rop.CAST_FLOAT_TO_INT, [f1], i2),
+            ResOperation(rop.GUARD_VALUE, [i2, ConstInt(123456)], None,
+                         descr=BasicFailDescr(6)),
+            ResOperation(rop.FLOAT_ADD, [f0, ConstFloat(-0.5)], f3),
+            ResOperation(rop.FLOAT_GT, [f3, ConstFloat(9.12)], i4),
+            ResOperation(rop.GUARD_TRUE, [i4], None, descr=BasicFailDescr(2)),
+            ResOperation(rop.JUMP, [f3, ConstFloat(123456.78912)], None,
+                         descr=targettoken),
+            ]
+        inputargs = [f0, f1]
+        operations[2].setfailargs([])
+        operations[-2].setfailargs([f1, f3])
+
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken, 12.25, 123456.01)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 2
+        res = longlong.getrealfloat(self.cpu.get_float_value(deadframe, 0))
+        assert res == 123456.78912
+        res = longlong.getrealfloat(self.cpu.get_float_value(deadframe, 1))
+        assert res == 8.75

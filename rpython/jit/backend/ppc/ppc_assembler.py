@@ -28,7 +28,7 @@ from rpython.jit.metainterp.history import (INT, REF, FLOAT)
 from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
                                 have_debug_prints)
 from rpython.rlib import rgc
-from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.ppc.locations import StackLocation, get_fp_offset, imm
@@ -92,8 +92,10 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
     def __init__(self, cpu, translate_support_code=False):
         BaseAssembler.__init__(self, cpu, translate_support_code)
         self.loop_run_counters = []
+        self.wb_slowpath = [0, 0, 0, 0, 0]
         self.setup_failure_recovery()
         self.stack_check_slowpath = 0
+        self.propagate_exception_path = 0
         self.teardown()
 
     def set_debug(self, v):
@@ -121,33 +123,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         for i, reg in enumerate(NONVOLATILES_FLOAT):
             mc.lfd(reg.value, spp_reg.value,
                         self.OFFSET_SPP_TO_FPR_SAVE_AREA + WORD * i)
-
-    # The code generated here allocates a new stackframe 
-    # and is the first machine code to be executed.
-    def _make_frame(self, frame_depth):
-        XXX
-        self.mc.make_function_prologue(frame_depth)
-
-        # save SPP at the bottom of the stack frame
-        self.mc.store(r.SPP.value, r.SP.value, WORD)
-
-        # compute spilling pointer (SPP)
-        self.mc.addi(r.SPP.value, r.SP.value, 
-                frame_depth - self.OFFSET_SPP_TO_OLD_BACKCHAIN)
-
-        # save nonvolatile registers
-        self._save_nonvolatiles()
-
-        # save r31, use r30 as scratch register
-        # this is safe because r30 has been saved already
-        assert NONVOLATILES[-1] == r.SPP
-        ofs_to_r31 = (self.OFFSET_SPP_TO_GPR_SAVE_AREA +
-                      WORD * (len(NONVOLATILES)-1))
-        self.mc.load(r.r30.value, r.SP.value, WORD)
-        self.mc.store(r.r30.value, r.SPP.value, ofs_to_r31)
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap and gcrootmap.is_shadow_stack:
-            self.gen_shadowstack_header(gcrootmap)
 
     def gen_shadowstack_header(self, gcrootmap):
         # we need to put two words into the shadowstack: the MARKER_FRAME
@@ -296,7 +271,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self._frame_realloc_slowpath = mc.materialize(self.cpu, [])
         self.mc = None
 
-    def _store_and_reset_exception(self, mc, excvalloc, exctploc):
+    def _store_and_reset_exception(self, mc, excvalloc, exctploc=None):
         """Reset the exception, after fetching it inside the two regs.
         """
         mc.load_imm(r.r2, self.cpu.pos_exc_value())
@@ -304,7 +279,8 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         assert _check_imm_arg(diff)
         # Load the exception fields into the two registers
         mc.load(excvalloc.value, r.r2.value, 0)
-        mc.load(exctploc.value, r.r2.value, diff)
+        if exctploc is not None:
+            mc.load(exctploc.value, r.r2.value, diff)
         # Zero out the exception fields
         mc.li(r.r0.value, 0)
         mc.store(r.r0.value, r.r2.value, 0)
@@ -359,6 +335,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         return mc.materialize(self.cpu, [])
 
     def _build_malloc_slowpath(self):
+        xxxxxxx
         mc = PPCBuilder()
         frame_size = (len(r.MANAGED_FP_REGS) * WORD
                     + (BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD)
@@ -405,7 +382,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         # if r3 == 0 we skip the return above and jump to the exception path
         offset = mc.currpos() - jmp_pos
         pmc = OverwritingBuilder(mc, jmp_pos, 1)
-        pmc.bc(12, 2, offset) 
+        pmc.beq(offset)
         pmc.overwrite()
         # restore the frame before leaving
         with scratch_reg(mc):
@@ -500,7 +477,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         mc.b(self.propagate_exception_path)
 
         pmc = OverwritingBuilder(mc, jnz_location, 1)
-        pmc.bc(4, 2, mc.currpos() - jnz_location)
+        pmc.bne(mc.currpos() - jnz_location)
         pmc.overwrite()
 
         # restore link register out of preprevious frame
@@ -520,7 +497,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
         self.stack_check_slowpath = rawstart
 
-    # TODO: see what need to be done when for_frame is True
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         descr = self.cpu.gc_ll_descr.write_barrier_descr
         if descr is None:
@@ -536,56 +512,108 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         #
         # This builds a helper function called from the slow path of
         # write barriers.  It must save all registers, and optionally
-        # all fp registers.
+        # all fp registers.  It takes its single argument in r0.
         mc = PPCBuilder()
+        old_mc = self.mc
+        self.mc = mc
         #
-        frame_size = ((len(r.VOLATILES) + len(r.VOLATILES_FLOAT)
-                      + BACKCHAIN_SIZE + MAX_REG_PARAMS) * WORD)
-        mc.make_function_prologue(frame_size)
-        for i in range(len(r.VOLATILES)):
-                       mc.store(r.VOLATILES[i].value, r.SP.value,
-                              (BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
-        if self.cpu.supports_floats:
-            for i in range(len(r.VOLATILES_FLOAT)):
-                           mc.stfd(r.VOLATILES_FLOAT[i].value, r.SP.value,
-                                  (len(r.VOLATILES) + BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
+        ignored_regs = [reg for reg in r.MANAGED_REGS if not (
+                            # 'reg' will be pushed if the following is true:
+                            reg in r.VOLATILES or
+                            reg is r.RCS1 or
+                            (withcards and reg is r.RCS2))]
+        if not for_frame:
+            # push all volatile registers, push RCS1, and sometimes push RCS2
+            self._push_all_regs_to_jitframe(mc, ignored_regs, withfloats)
+        else:
+            return #XXXXX
+            # we have one word to align
+            mc.SUB_ri(esp.value, 7 * WORD) # align and reserve some space
+            mc.MOV_sr(WORD, eax.value) # save for later
+            if self.cpu.supports_floats:
+                mc.MOVSD_sx(2 * WORD, xmm0.value)   # 32-bit: also 3 * WORD
+            if IS_X86_32:
+                mc.MOV_sr(4 * WORD, edx.value)
+                mc.MOV_sr(0, ebp.value)
+                exc0, exc1 = esi, edi
+            else:
+                mc.MOV_rr(edi.value, ebp.value)
+                exc0, exc1 = ebx, r12
+            mc.MOV(RawEspLoc(WORD * 5, REF), exc0)
+            mc.MOV(RawEspLoc(WORD * 6, INT), exc1)
+            # note that it's save to store the exception in register,
+            # since the call to write barrier can't collect
+            # (and this is assumed a bit left and right here, like lack
+            # of _reload_frame_if_necessary)
+            self._store_and_reset_exception(mc, exc0, exc1)
 
-        mc.call(rffi.cast(lltype.Signed, func))
-        if self.cpu.supports_floats:
-            for i in range(len(r.VOLATILES_FLOAT)):
-                           mc.lfd(r.VOLATILES_FLOAT[i].value, r.SP.value,
-                                  (len(r.VOLATILES) + BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
-        for i in range(len(r.VOLATILES)):
-                       mc.load(r.VOLATILES[i].value, r.SP.value,
-                              (BACKCHAIN_SIZE + MAX_REG_PARAMS + i) * WORD)
-        mc.restore_LR_from_caller_frame(frame_size)
+        if withcards:
+            mc.mr(r.RCS2.value, r.r0.value)
+        #
+        # Save the lr into r.RCS1
+        mc.mflr(r.RCS1.value)
+        #
+        func = rffi.cast(lltype.Signed, func)
+        cb = callbuilder.CallBuilder(self, imm(func), [r.r0], None)
+        cb.emit()
+        #
+        # Restore lr
+        mc.mtlr(r.RCS1.value)
         #
         if withcards:
-            # A final compare before the RET, for the caller.  Careful to
+            # A final andix before the blr, for the caller.  Careful to
             # not follow this instruction with another one that changes
-            # the status of the CPU flags!
-            mc.lbz(r.SCRATCH.value, r.r3.value,
-                   descr.jit_wb_if_flag_byteofs)
-            mc.extsb(r.SCRATCH.value, r.SCRATCH.value)
-            mc.cmpwi(0, r.SCRATCH.value, 0)
+            # the status of cr0!
+            card_marking_mask = descr.jit_wb_cards_set_singlebyte
+            mc.lbz(r.RCS2.value, r.RCS2.value, descr.jit_wb_if_flag_byteofs)
+            mc.andix(r.RCS2.value, r.RCS2.value, card_marking_mask & 0xFF)
         #
-        mc.addi(r.SP.value, r.SP.value, frame_size)
-        mc.blr()
-        #
+
+        if not for_frame:
+            self._pop_all_regs_from_jitframe(mc, ignored_regs, withfloats)
+            mc.blr()
+        else:
+            XXXXXXX
+            if IS_X86_32:
+                mc.MOV_rs(edx.value, 4 * WORD)
+            if self.cpu.supports_floats:
+                mc.MOVSD_xs(xmm0.value, 2 * WORD)
+            mc.MOV_rs(eax.value, WORD) # restore
+            self._restore_exception(mc, exc0, exc1)
+            mc.MOV(exc0, RawEspLoc(WORD * 5, REF))
+            mc.MOV(exc1, RawEspLoc(WORD * 6, INT))
+            mc.LEA_rs(esp.value, 7 * WORD)
+            mc.RET()
+
+        self.mc = old_mc
         rawstart = mc.materialize(self.cpu, [])
-        self.wb_slowpath[withcards + 2 * withfloats] = rawstart
+        if for_frame:
+            self.wb_slowpath[4] = rawstart
+        else:
+            self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def _build_propagate_exception_path(self):
         if not self.cpu.propagate_exception_descr:
             return
 
-        mc = PPCBuilder()
-        # the following call may be needed in the future:
-        # self._store_and_reset_exception()
+        self.mc = PPCBuilder()
+        #
+        # read and reset the current exception
 
-        mc.load_imm(r.RES, self.cpu.propagate_exception_descr)
-        self._gen_epilogue(mc)
-        self.propagate_exception_path = mc.materialize(self.cpu, [])
+        propagate_exception_descr = rffi.cast(lltype.Signed,
+                  cast_instance_to_gcref(self.cpu.propagate_exception_descr))
+        ofs3 = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+        ofs4 = self.cpu.get_ofs_of_frame_field('jf_descr')
+
+        self._store_and_reset_exception(self.mc, r.r3)
+        self.mc.load_imm(r.r4, propagate_exception_descr)
+        self.mc.std(r.r3.value, r.SPP.value, ofs3)
+        self.mc.std(r.r4.value, r.SPP.value, ofs4)
+        #
+        self._call_footer()
+        rawstart = self.mc.materialize(self.cpu, [])
+        self.propagate_exception_path = rawstart
+        self.mc = None
 
     # The code generated here serves as an exit stub from
     # the executed machine code.
@@ -616,28 +644,6 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self._gen_epilogue(mc)
 
         return mc.materialize(self.cpu, [], self.cpu.gc_ll_descr.gcrootmap)
-
-    def _gen_epilogue(self, mc):
-        XXX
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        if gcrootmap and gcrootmap.is_shadow_stack:
-            self.gen_footer_shadowstack(gcrootmap, mc)
-
-        # save SPP back in r3
-        mc.mr(r.r5.value, r.SPP.value)
-        self._restore_nonvolatiles(mc, r.r5)
-        # load old backchain into r4
-        if IS_PPC_32:
-            ofs = WORD
-        else:
-            ofs = WORD * 2
-        mc.load(r.r4.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN + ofs) 
-        mc.mtlr(r.r4.value)     # restore LR
-        # From SPP, we have a constant offset to the old backchain. We use the
-        # SPP to re-establish the old backchain because this exit stub is
-        # generated before we know how much space the entire frame will need.
-        mc.addi(r.SP.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN) # restore old SP
-        mc.blr()
 
     def _save_managed_regs(self, mc):
         """ store managed registers in ENCODING AREA
@@ -735,7 +741,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             offset = self.mc.currpos() - patch_loc
             #
             pmc = OverwritingBuilder(self.mc, patch_loc, 1)
-            pmc.bc(4, 1, offset) # jump if SCRATCH <= r16, i. e. not(SCRATCH > r16)
+            pmc.ble(offset) # jump if SCRATCH <= r16, i. e. not(SCRATCH > r16)
             pmc.overwrite()
 
     def _call_footer(self):
@@ -944,97 +950,11 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.teardown()
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
 
-    DESCR_REF       = 0x00
-    DESCR_INT       = 0x01
-    DESCR_FLOAT     = 0x02
-    DESCR_SPECIAL   = 0x03
-    CODE_FROMSTACK  = 128
-    CODE_STOP       = 0 | DESCR_SPECIAL
-    CODE_HOLE       = 4 | DESCR_SPECIAL
-    CODE_INPUTARG   = 8 | DESCR_SPECIAL
-
-    def gen_descr_encoding(self, descr, failargs, locs):
-        assert self.mc is not None
-        buf = []
-        for i in range(len(failargs)):
-            arg = failargs[i]
-            if arg is not None:
-                if arg.type == REF:
-                    kind = self.DESCR_REF
-                elif arg.type == INT:
-                    kind = self.DESCR_INT
-                elif arg.type == FLOAT:
-                    kind = self.DESCR_FLOAT
-                else:
-                    raise AssertionError("bogus kind")
-                loc = locs[i]
-                if loc.is_stack():
-                    pos = loc.position
-                    if pos < 0:
-                        buf.append(self.CODE_INPUTARG)
-                        pos = ~pos
-                    n = self.CODE_FROMSTACK // 4 + pos
-                else:
-                    assert loc.is_reg() or loc.is_fp_reg()
-                    n = loc.value
-                n = kind + 4 * n
-                while n > 0x7F:
-                    buf.append((n & 0x7F) | 0x80)
-                    n >>= 7
-            else:
-                n = self.CODE_HOLE
-            buf.append(n)
-        buf.append(self.CODE_STOP)
-
-        fdescr = self.cpu.get_fail_descr_number(descr)
-
-        buf.append((fdescr >> 24) & 0xFF)
-        buf.append((fdescr >> 16) & 0xFF)
-        buf.append((fdescr >>  8) & 0xFF)
-        buf.append( fdescr        & 0xFF)
-        
-        lenbuf = len(buf)
-        # XXX fix memory leaks
-        enc_arr = lltype.malloc(rffi.CArray(rffi.CHAR), lenbuf, 
-                                flavor='raw', track_allocation=False)
-        enc_ptr = rffi.cast(lltype.Signed, enc_arr)
-        for i, byte in enumerate(buf):
-            enc_arr[i] = chr(byte)
-        # assert that the fail_boxes lists are big enough
-        assert len(failargs) <= self.fail_boxes_int.SIZE
-        return enc_ptr
-
-    def align(self, size):
-        while size % 8 != 0:
-            size += 1
-        return size
-
     def teardown(self):
         self.pending_guard_tokens = None
         self.mc = None
         self.current_clt = None
 
-    def compute_frame_depth(self, spilling_area, param_depth):
-        PARAMETER_AREA = param_depth * WORD
-        if IS_PPC_64:
-            PARAMETER_AREA += MAX_REG_PARAMS * WORD
-        SPILLING_AREA = spilling_area * WORD
-
-        frame_depth = (  GPR_SAVE_AREA
-                       + FPR_SAVE_AREA
-                       + FLOAT_INT_CONVERSION
-                       + FORCE_INDEX
-                       + self.ENCODING_AREA
-                       + SPILLING_AREA
-                       + PARAMETER_AREA
-                       + BACKCHAIN_SIZE * WORD)
-
-        # align stack pointer
-        while frame_depth % (4 * WORD) != 0:
-            frame_depth += WORD
-
-        return frame_depth
-    
     def _find_failure_recovery_bytecode(self, faildescr):
         return faildescr._failure_recovery_code_adr
 
@@ -1207,7 +1127,8 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
                 with scratch_reg(self.mc):
                     offset = loc.value
                     self.mc.load_imm(r.SCRATCH, value)
-                    self.mc.store(r.SCRATCH.value, r.SPP.value, offset)
+                    self.mc.lfdx(r.FP_SCRATCH.value, 0, r.SCRATCH.value)
+                    self.mc.stfd(r.FP_SCRATCH.value, r.SPP.value, offset)
                 return
             assert 0, "not supported location"
         elif prev_loc.is_fp_reg():
@@ -1258,13 +1179,13 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
                 self.mc.lfd(loc.value, r.SP.value, index)
             else:
                 self.mc.lfd(r.FP_SCRATCH.value, r.SP.value, index)
-                self.regalloc_mov(r.FP_SCRATCH.value, loc)
+                self.regalloc_mov(r.FP_SCRATCH, loc)
         else:
             if loc.is_core_reg():
                 self.mc.ld(loc.value, r.SP.value, index)
             else:
                 self.mc.ld(r.SCRATCH.value, r.SP.value, index)
-                self.regalloc_mov(r.SCRATCH.value, loc)
+                self.regalloc_mov(r.SCRATCH, loc)
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size):
         assert size & (WORD-1) == 0     # must be correctly aligned
@@ -1301,7 +1222,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
 
         offset = self.mc.currpos() - fast_jmp_pos
         pmc = OverwritingBuilder(self.mc, fast_jmp_pos, 1)
-        pmc.bc(4, 1, offset) # jump if LE (not GT)
+        pmc.ble(offset) # jump if LE (not GT)
         pmc.overwrite()
         
         with scratch_reg(self.mc):
@@ -1318,8 +1239,10 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             gcrootmap.write_callshape(mark, force_index)
 
     def propagate_memoryerror_if_r3_is_null(self):
-        return # XXXXXXXXX
-        self.mc.cmp_op(0, r.RES.value, 0, imm=True)
+        # if self.propagate_exception_path == 0 (tests), this may jump to 0
+        # and segfaults.  too bad.  the alternative is to continue anyway
+        # with r3==0, but that will segfault too.
+        self.mc.cmp_op(0, r.r3.value, 0, imm=True)
         self.mc.b_cond_abs(self.propagate_exception_path, c.EQ)
 
     def write_new_force_index(self):

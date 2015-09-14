@@ -2,7 +2,6 @@ import py
 import random, sys, os
 
 from rpython.jit.backend.ppc.codebuilder import BasicPPCAssembler, PPCBuilder
-from rpython.jit.backend.ppc.symbol_lookup import lookup
 from rpython.jit.backend.ppc.regname import *
 from rpython.jit.backend.ppc.register import *
 from rpython.jit.backend.ppc import form

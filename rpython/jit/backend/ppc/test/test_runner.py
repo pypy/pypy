@@ -23,16 +23,22 @@ class TestPPC(LLtypeBackendTest):
     # ====> ../../test/runner_test.py
 
     if IS_PPC_32:
-        add_loop_instructions = ["mr", "add", "cmpwi", "beq", "b"]
+        add_loop_instructions = ["ld", "add", "cmpwi", "beq", "b"]
     else:
-        add_loop_instructions = ["mr", "add", "cmpdi", "beq", "b"]
-    bridge_loop_instructions_short = ["lis", "ori", "mtctr", "bctr"]
-    bridge_loop_instructions_long = ["lis", "ori", "rldicr", "oris", "ori",
-                                     "mtctr", "bctr"]
-   
-    def setup_method(self, meth):
-        self.cpu = PPC_CPU(rtyper=None, stats=FakeStats())
-        self.cpu.setup_once()
+        add_loop_instructions = ["ld", "add", "cmpdi", "beq", "b"]
+    bridge_loop_instructions = [
+        "ld", "cmpdi", "bge+",
+        "li", "lis", "ori", "mtctr", "bctrl",
+        "lis", "ori", "mtctr", "bctr"]
+    bridge_loop_instructions_alternative = [
+        "ld", "cmpdi", "bge+",
+        "li", "li", "rldicr", "oris", "ori", "mtctr", "bctrl",
+        "li", "rldicr", "oris", "ori", "mtctr", "bctr"]
+
+    def get_cpu(self):
+        cpu = PPC_CPU(rtyper=None, stats=FakeStats())
+        cpu.setup_once()
+        return cpu
 
     def test_compile_loop_many_int_args(self):
         for numargs in range(2, 16):

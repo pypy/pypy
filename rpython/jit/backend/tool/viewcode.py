@@ -49,10 +49,12 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'arm': 'arm',
         'arm_32': 'arm',
         'ppc' : 'powerpc:common64',
+        'ppc-64' : 'powerpc:common64',
     }
     machine_endianness = {
         # default value: 'little'
         'ppc' : sys.byteorder,     # i.e. same as the running machine...
+        'ppc-64' : sys.byteorder,     # i.e. same as the running machine...
     }
     cmd = find_objdump()
     objdump = ('%(command)s -b binary -m %(machine)s '

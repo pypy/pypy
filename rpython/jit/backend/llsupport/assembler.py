@@ -213,6 +213,23 @@ class BaseAssembler(object):
                                                     self.mc.get_relative_pos())
 
     def call_assembler(self, op, argloc, vloc, result_loc, tmploc):
+        """
+            * argloc: location of the frame argument that we're passing to
+                      the called assembler (this is the first return value
+                      of locs_for_call_assembler())
+
+            * vloc:   location of the virtualizable (not in a register;
+                      this is the optional second return value of
+                      locs_for_call_assembler(), or imm(0) if none returned)
+
+            * result_loc: location of op.result (which is not be
+                          confused with the next one)
+
+            * tmploc: location where the actual call to the other piece
+                      of assembler will return its jitframe result
+                      (which is always a REF), before the helper may be
+                      called
+        """
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         #

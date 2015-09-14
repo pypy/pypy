@@ -6,7 +6,9 @@ from rpython.jit.backend.ppc.locations import imm
 from rpython.jit.backend.ppc.locations import imm as make_imm_loc
 from rpython.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                           MAX_REG_PARAMS, MAX_FREG_PARAMS,
-                                          PARAM_SAVE_AREA_OFFSET)
+                                          PARAM_SAVE_AREA_OFFSET,
+                                          THREADLOCAL_ADDR_OFFSET,
+                                          IS_BIG_ENDIAN)
 
 from rpython.jit.metainterp.history import (JitCellToken, TargetToken, Box,
                                             AbstractFailDescr, FLOAT, INT, REF)
@@ -22,6 +24,7 @@ from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.backend.ppc import callbuilder
 
 class IntOpAssembler(object):
@@ -209,7 +212,7 @@ class FloatOpAssembler(object):
         l0, res = arglocs
         self.mc.fabs(res.value, l0.value)
 
-    def emit_math_sqrt(self, op, arglocs, regalloc):
+    def _emit_math_sqrt(self, op, arglocs, regalloc):
         l0, res = arglocs
         self.mc.fsqrt(res.value, l0.value)
 
@@ -320,7 +323,7 @@ class GuardOpAssembler(object):
         self.mc.trap()
         self._cmp_guard_class(op, arglocs, regalloc)
         pmc = OverwritingBuilder(self.mc, patch_pos, 1)
-        pmc.bc(12, 0, self.mc.currpos() - patch_pos)    # LT
+        pmc.blt(self.mc.currpos() - patch_pos)
         pmc.overwrite()
         self.guard_success_cc = c.EQ
         self._emit_guard(op, arglocs[3:])
@@ -354,6 +357,13 @@ class GuardOpAssembler(object):
         self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
         self.guard_success_cc = c.EQ
         self._emit_guard(op, arglocs)
+
+    def emit_guard_not_forced_2(self, op, arglocs, regalloc):
+        guard_token = self.build_guard_token(op, arglocs[0].value, arglocs[1:],
+                                             c.cond_none, save_exc=False)
+        self._finish_gcmap = guard_token.gcmap
+        self._store_force_index(op)
+        self.store_info_on_descr(0, guard_token)
 
 
 class MiscOpAssembler(object):
@@ -448,6 +458,8 @@ class MiscOpAssembler(object):
             pmc.overwrite()
 
     def emit_guard_exception(self, op, arglocs, regalloc):
+        # XXX FIXME
+        # XXX pos_exc_value and pos_exception are 8 bytes apart, don't need both
         loc, loc1, resloc, pos_exc_value, pos_exception = arglocs[:5]
         failargs = arglocs[5:]
         self.mc.load_imm(loc1, pos_exception.value)
@@ -490,6 +502,9 @@ class CallOpAssembler(object):
             cb.emit()
 
     def emit_call(self, op, arglocs, regalloc):
+        oopspecindex = regalloc.get_oopspecindex(op)
+        if oopspecindex == EffectInfo.OS_MATH_SQRT:
+            return self._emit_math_sqrt(op, arglocs, regalloc)
         self._emit_call(op, arglocs)
 
     def emit_call_may_force(self, op, arglocs, regalloc):
@@ -832,7 +847,7 @@ class FieldOpAssembler(object):
 
             if jz_location != -1:
                 pmc = OverwritingBuilder(self.mc, jz_location, 1)
-                pmc.bc(4, 1, self.mc.currpos() - jz_location)    # !GT
+                pmc.ble(self.mc.currpos() - jz_location)    # !GT
                 pmc.overwrite()
 
 class StrOpAssembler(object):
@@ -843,118 +858,61 @@ class StrOpAssembler(object):
     emit_strgetitem = FieldOpAssembler.emit_getarrayitem_gc
     emit_strsetitem = FieldOpAssembler.emit_setarrayitem_gc
 
-    #from ../x86/regalloc.py:928 ff.
     def emit_copystrcontent(self, op, arglocs, regalloc):
-        assert len(arglocs) == 0
-        self._emit_copystrcontent(op, regalloc, is_unicode=False)
+        self._emit_copycontent(arglocs, is_unicode=False)
 
     def emit_copyunicodecontent(self, op, arglocs, regalloc):
-        assert len(arglocs) == 0
-        self._emit_copystrcontent(op, regalloc, is_unicode=True)
+        self._emit_copycontent(arglocs, is_unicode=True)
 
-    def _emit_copystrcontent(self, op, regalloc, is_unicode):
-        # compute the source address
-        args = op.getarglist()
-        base_loc = regalloc._ensure_value_is_boxed(args[0], args)
-        ofs_loc = regalloc._ensure_value_is_boxed(args[2], args)
-        assert args[0] is not args[1]    # forbidden case of aliasing
-        regalloc.possibly_free_var(args[0])
-        if args[3] is not args[2] is not args[4]:  # MESS MESS MESS: don't free
-            regalloc.possibly_free_var(args[2])     # it if ==args[3] or args[4]
-        srcaddr_box = TempPtr()
-        forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
-        srcaddr_loc = regalloc.force_allocate_reg(srcaddr_box)
-        self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
-                                        is_unicode=is_unicode)
-
-        # compute the destination address
-        forbidden_vars = [args[4], args[3], srcaddr_box]
-        dstaddr_box = TempPtr()
-        dstaddr_loc = regalloc.force_allocate_reg(dstaddr_box)
-        forbidden_vars.append(dstaddr_box)
-        base_loc = regalloc._ensure_value_is_boxed(args[1], forbidden_vars)
-        ofs_loc = regalloc._ensure_value_is_boxed(args[3], forbidden_vars)
-        assert base_loc.is_reg()
-        assert ofs_loc.is_reg()
-        regalloc.possibly_free_var(args[1])
-        if args[3] is not args[4]:     # more of the MESS described above
-            regalloc.possibly_free_var(args[3])
-        regalloc.free_temp_vars()
-        self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
-                                        is_unicode=is_unicode)
-
-        # compute the length in bytes
-        forbidden_vars = [srcaddr_box, dstaddr_box]
-        if isinstance(args[4], Box):
-            length_box = args[4]
-            length_loc = regalloc.make_sure_var_in_reg(args[4], forbidden_vars)
+    def _emit_load_for_copycontent(self, dst, src_ptr, src_ofs, scale):
+        if src_ofs.is_imm():
+            value = src_ofs.value << scale
+            if value < 32768:
+                self.mc.addi(dst.value, src_ptr.value, value)
+            else:
+                self.mc.load_imm(dst, value)
+                self.mc.add(dst.value, src_ptr.value, dst.value)
+        elif scale == 0:
+            self.mc.add(dst.value, src_ptr.value, src_ofs.value)
         else:
-            length_box = TempInt()
-            length_loc = regalloc.force_allocate_reg(length_box, forbidden_vars)
-            xxxxxxxxxxxxxxxxxxxxxxxx
-            imm = regalloc.convert_to_imm(args[4])
-            self.load(length_loc, imm)
-        if is_unicode:
-            bytes_box = TempPtr()
-            bytes_loc = regalloc.force_allocate_reg(bytes_box, forbidden_vars)
-            scale = self._get_unicode_item_scale()
-            assert length_loc.is_reg()
-            with scratch_reg(self.mc):
-                self.mc.load_imm(r.SCRATCH, 1 << scale)
-                if IS_PPC_32:
-                    self.mc.mullw(bytes_loc.value, r.SCRATCH.value, length_loc.value)
-                else:
-                    self.mc.mulld(bytes_loc.value, r.SCRATCH.value, length_loc.value)
-            length_box = bytes_box
-            length_loc = bytes_loc
-        # call memcpy()
-        regalloc.before_call()
-        imm_addr = make_imm_loc(self.memcpy_addr)
-        self._emit_call(imm_addr,
-                            [dstaddr_loc, srcaddr_loc, length_loc])
+            self.mc.sldi(dst.value, src_ofs.value, scale)
+            self.mc.add(dst.value, src_ptr.value, dst.value)
 
-        regalloc.possibly_free_var(length_box)
-        regalloc.possibly_free_var(dstaddr_box)
-        regalloc.possibly_free_var(srcaddr_box)
+    def _emit_copycontent(self, arglocs, is_unicode):
+        [src_ptr_loc, dst_ptr_loc,
+         src_ofs_loc, dst_ofs_loc, length_loc] = arglocs
 
-    def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
         if is_unicode:
-            ofs_items, _, _ = symbolic.get_array_token(rstr.UNICODE,
-                                                  self.cpu.translate_support_code)
-            scale = self._get_unicode_item_scale()
+            basesize, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
+                                        self.cpu.translate_support_code)
+            if   itemsize == 2: scale = 1
+            elif itemsize == 4: scale = 2
+            else: raise AssertionError
         else:
-            ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
-                                                  self.cpu.translate_support_code)
+            basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
+                                        self.cpu.translate_support_code)
             assert itemsize == 1
             scale = 0
-        self._gen_address(ofsloc, ofs_items, scale, resloc, baseloc)
 
-    def _gen_address(self, sizereg, baseofs, scale, result, baseloc=None):
-        assert sizereg.is_reg()
-        if scale > 0:
-            scaled_loc = r.r0
-            if IS_PPC_32:
-                self.mc.slwi(scaled_loc.value, sizereg.value, scale)
-            else:
-                self.mc.sldi(scaled_loc.value, sizereg.value, scale)
-        else:
-            scaled_loc = sizereg
-        if baseloc is not None:
-            assert baseloc.is_reg()
-            self.mc.add(result.value, baseloc.value, scaled_loc.value)
-            self.mc.addi(result.value, result.value, baseofs)
-        else:
-            self.mc.addi(result.value, scaled_loc.value, baseofs)
+        self._emit_load_for_copycontent(r.r0, src_ptr_loc, src_ofs_loc, scale)
+        self._emit_load_for_copycontent(r.r2, dst_ptr_loc, dst_ofs_loc, scale)
 
-    def _get_unicode_item_scale(self):
-        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                                                  self.cpu.translate_support_code)
-        if itemsize == 4:
-            return 2
-        elif itemsize == 2:
-            return 1
+        if length_loc.is_imm():
+            length = length_loc.getint()
+            self.mc.load_imm(r.r5, length << scale)
         else:
-            raise AssertionError("bad unicode item size")
+            if scale > 0:
+                self.mc.sldi(r.r5.value, length_loc.value, scale)
+            elif length_loc is not r.r5:
+                self.mc.mr(r.r5.value, length_loc.value)
+
+        self.mc.mr(r.r4.value, r.r0.value)
+        self.mc.addi(r.r4.value, r.r4.value, basesize)
+        self.mc.addi(r.r3.value, r.r2.value, basesize)
+
+        cb = callbuilder.CallBuilder(self, imm(self.memcpy_addr),
+                                     [r.r3, r.r4, r.r5], None)
+        cb.emit()
 
 
 class UnicodeOpAssembler(object):
@@ -991,135 +949,142 @@ class AllocOpAssembler(object):
     emit_jit_debug = emit_debug_merge_point
     emit_keepalive = emit_debug_merge_point
 
-    def emit_cond_call_gc_wb(self, op, arglocs, regalloc):
+    def _write_barrier_fastpath(self, mc, descr, arglocs, regalloc, array=False,
+                                is_frame=False, align_stack=False):
         # Write code equivalent to write_barrier() in the GC: it checks
-        # a flag in the object at arglocs[0], and if set, it calls the
-        # function remember_young_pointer() from the GC.  The two arguments
-        # to the call are in arglocs[:2].  The latter saves registers as needed
-        # and call the function jit_remember_young_pointer() from the GC.
-        descr = op.getdescr()
+        # a flag in the object at arglocs[0], and if set, it calls a
+        # helper piece of assembler.  The latter saves registers as needed
+        # and call the function remember_young_pointer() from the GC.
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
         #
-        opnum = op.getopnum()
-        card_marking = False
+        card_marking_mask = 0
         mask = descr.jit_wb_if_flag_singlebyte
-        if opnum == rop.COND_CALL_GC_WB_ARRAY and descr.jit_wb_cards_set != 0:
+        if array and descr.jit_wb_cards_set != 0:
             # assumptions the rest of the function depends on:
             assert (descr.jit_wb_cards_set_byteofs ==
                     descr.jit_wb_if_flag_byteofs)
-            assert descr.jit_wb_cards_set_singlebyte == -0x80
-            card_marking = True
-            mask = descr.jit_wb_if_flag_singlebyte | -0x80
+            card_marking_mask = descr.jit_wb_cards_set_singlebyte
         #
         loc_base = arglocs[0]
+        assert loc_base.is_reg()
+        if is_frame:
+            assert loc_base is r.SPP
         assert _check_imm_arg(descr.jit_wb_if_flag_byteofs)
-        with scratch_reg(self.mc):
-            self.mc.lbz(r.SCRATCH.value, loc_base.value,
-                        descr.jit_wb_if_flag_byteofs)
-            # test whether this bit is set
-            mask &= 0xFF
-            self.mc.andix(r.SCRATCH.value, r.SCRATCH.value, mask)
+        mc.lbz(r.SCRATCH2.value, loc_base.value, descr.jit_wb_if_flag_byteofs)
+        mc.andix(r.SCRATCH.value, r.SCRATCH2.value, mask & 0xFF)
 
-        jz_location = self.mc.currpos()
-        self.mc.nop()
+        jz_location = mc.get_relative_pos()
+        mc.trap()        # patched later with 'beq'
 
         # for cond_call_gc_wb_array, also add another fast path:
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
-        if card_marking:
-            with scratch_reg(self.mc):
-                self.mc.lbz(r.SCRATCH.value, loc_base.value,
-                            descr.jit_wb_if_flag_byteofs)
-                self.mc.extsb(r.SCRATCH.value, r.SCRATCH.value)
-
-                # test whether this bit is set
-                self.mc.cmpwi(0, r.SCRATCH.value, 0)
-
-                js_location = self.mc.currpos()
-                self.mc.nop()
+        if card_marking_mask:
+            # GCFLAG_CARDS_SET is in the same byte, loaded in r2 already
+            mc.andix(r.SCRATCH.value, r.SCRATCH2.value,
+                     card_marking_mask & 0xFF)
+            js_location = mc.get_relative_pos()
+            mc.trap()        # patched later with 'bne'
         else:
             js_location = 0
 
         # Write only a CALL to the helper prepared in advance, passing it as
         # argument the address of the structure we are writing into
         # (the first argument to COND_CALL_GC_WB).
-        helper_num = card_marking
-
-        if self._regalloc.fprm.reg_bindings:
+        helper_num = (card_marking_mask != 0)
+        if is_frame:
+            helper_num = 4
+        elif regalloc.fprm.reg_bindings:
             helper_num += 2
         if self.wb_slowpath[helper_num] == 0:    # tests only
             assert not we_are_translated()
             self.cpu.gc_ll_descr.write_barrier_descr = descr
-            self._build_wb_slowpath(card_marking,
-                                    bool(self._regalloc.fprm.reg_bindings))
+            self._build_wb_slowpath(card_marking_mask != 0,
+                                    bool(regalloc.fprm.reg_bindings))
             assert self.wb_slowpath[helper_num] != 0
         #
-        if loc_base is not r.r3:
-            self.mc.store(r.r3.value, r.SP.value, 24)
-            remap_frame_layout(self, [loc_base], [r.r3], r.SCRATCH)
-        addr = self.wb_slowpath[helper_num]
-        func = rffi.cast(lltype.Signed, addr)
-        self.mc.bl_abs(func)
-        if loc_base is not r.r3:
-            self.mc.load(r.r3.value, r.SP.value, 24)
+        if not is_frame:
+            mc.mr(r.r0.value, loc_base.value)    # unusual argument location
+        if is_frame and align_stack:
+            XXXX
+            mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
+        mc.load_imm(r.SCRATCH2, self.wb_slowpath[helper_num])
+        mc.mtctr(r.SCRATCH2.value)
+        mc.bctrl()
+        if is_frame and align_stack:
+            XXXX
+            mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
 
-        # if GCFLAG_CARDS_SET, then we can do the whole thing that would
-        # be done in the CALL above with just four instructions, so here
-        # is an inline copy of them
-        if card_marking:
-            with scratch_reg(self.mc):
-                jns_location = self.mc.currpos()
-                self.mc.nop()  # jump to the exit, patched later
-                # patch the JS above
-                offset = self.mc.currpos()
-                pmc = OverwritingBuilder(self.mc, js_location, 1)
-                # Jump if JS comparison is less than (bit set)
-                pmc.bc(12, 0, offset - js_location)
-                pmc.overwrite()
-                #
-                # case GCFLAG_CARDS_SET: emit a few instructions to do
-                # directly the card flag setting
-                loc_index = arglocs[1]
-                assert loc_index.is_reg()
-                tmp1 = arglocs[-1]
-                tmp2 = arglocs[-2]
-                tmp3 = arglocs[-3]
-                #byteofs
-                s = 3 + descr.jit_wb_card_page_shift
+        if card_marking_mask:
+            # The helper ends again with a check of the flag in the object.
+            # So here, we can simply write again a beq, which will be
+            # taken if GCFLAG_CARDS_SET is still not set.
+            jns_location = mc.get_relative_pos()
+            mc.trap()
+            #
+            # patch the 'bne' above
+            currpos = mc.currpos()
+            pmc = OverwritingBuilder(mc, js_location, 1)
+            pmc.bne(currpos - js_location)
+            pmc.overwrite()
+            #
+            # case GCFLAG_CARDS_SET: emit a few instructions to do
+            # directly the card flag setting
+            loc_index = arglocs[1]
+            if loc_index.is_reg():
 
-                self.mc.srli_op(tmp3.value, loc_index.value, s)
-                self.mc.not_(tmp3.value, tmp3.value)
+                tmp_loc = arglocs[2]
+                n = descr.jit_wb_card_page_shift
 
-                # byte_index
-                self.mc.li(r.SCRATCH.value, 7)
-                self.mc.srli_op(loc_index.value, loc_index.value,
-                                descr.jit_wb_card_page_shift)
-                self.mc.and_(tmp1.value, r.SCRATCH.value, loc_index.value)
+                # compute in tmp_loc the byte offset:
+                #     ~(index >> (card_page_shift + 3))   ('~' is 'not_' below)
+                mc.srli_op(tmp_loc.value, loc_index.value, n + 3)
 
-                # set the bit
-                self.mc.li(tmp2.value, 1)
-                self.mc.lbzx(r.SCRATCH.value, loc_base.value, tmp3.value)
-                self.mc.sl_op(tmp2.value, tmp2.value, tmp1.value)
-                self.mc.or_(r.SCRATCH.value, r.SCRATCH.value, tmp2.value)
-                self.mc.stbx(r.SCRATCH.value, loc_base.value, tmp3.value)
+                # compute in r2 the index of the bit inside the byte:
+                #     (index >> card_page_shift) & 7
+                mc.rldicl(r.SCRATCH2.value, loc_index.value, 64 - n, 61)
+                mc.li(r.SCRATCH.value, 1)
+                mc.not_(tmp_loc.value, tmp_loc.value)
+
+                # set r2 to 1 << r2
+                mc.sl_op(r.SCRATCH2.value, r.SCRATCH.value, r.SCRATCH2.value)
+
+                # set this bit inside the byte of interest
+                mc.lbzx(r.SCRATCH.value, loc_base.value, tmp_loc.value)
+                mc.or_(r.SCRATCH.value, r.SCRATCH.value, r.SCRATCH2.value)
+                mc.stbx(r.SCRATCH.value, loc_base.value, tmp_loc.value)
                 # done
 
-                # patch the JNS above
-                offset = self.mc.currpos()
-                pmc = OverwritingBuilder(self.mc, jns_location, 1)
-                # Jump if JNS comparison is not less than (bit not set)
-                pmc.bc(4, 0, offset - jns_location)
-                pmc.overwrite()
+            else:
+                byte_index = loc_index.value >> descr.jit_wb_card_page_shift
+                byte_ofs = ~(byte_index >> 3)
+                byte_val = 1 << (byte_index & 7)
+                assert _check_imm_arg(byte_ofs)
+
+                mc.lbz(r.SCRATCH.value, loc_base.value, byte_ofs)
+                mc.ori(r.SCRATCH.value, r.SCRATCH.value, byte_val)
+                mc.stb(r.SCRATCH.value, loc_base.value, byte_ofs)
+            #
+            # patch the beq just above
+            currpos = mc.currpos()
+            pmc = OverwritingBuilder(mc, jns_location, 1)
+            pmc.beq(currpos - jns_location)
+            pmc.overwrite()
 
         # patch the JZ above
-        offset = self.mc.currpos()
-        pmc = OverwritingBuilder(self.mc, jz_location, 1)
-        # Jump if JZ comparison is zero (CMP 0 is equal)
-        pmc.bc(12, 2, offset - jz_location)
+        currpos = mc.currpos()
+        pmc = OverwritingBuilder(mc, jz_location, 1)
+        pmc.beq(currpos - jz_location)
         pmc.overwrite()
 
-    emit_cond_call_gc_wb_array = emit_cond_call_gc_wb
+    def emit_cond_call_gc_wb(self, op, arglocs, regalloc):
+        self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs, regalloc)
+
+    def emit_cond_call_gc_wb_array(self, op, arglocs, regalloc):
+        self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs, regalloc,
+                                     array=True)
+
 
 class ForceOpAssembler(object):
 
@@ -1129,215 +1094,95 @@ class ForceOpAssembler(object):
         res_loc = arglocs[0]
         self.mc.mr(res_loc.value, r.SPP.value)
 
-    #    self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.LT)
-    # from: ../x86/assembler.py:1668
-    # XXX Split into some helper methods
-    def emit_guard_call_assembler(self, op, guard_op, arglocs, regalloc):
-        tmploc = arglocs[1]
-        resloc = arglocs[2]
-        callargs = arglocs[3:]
-
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self._write_fail_index(fail_index)
-        descr = op.getdescr()
-        assert isinstance(descr, JitCellToken)
-        # check value
-        assert tmploc is r.RES
-        xxxxxxxxxxxx
-        self._emit_call(fail_index, imm(descr._ppc_func_addr),
-                                callargs, result=tmploc)
-        if op.result is None:
-            value = self.cpu.done_with_this_frame_void_v
+    def emit_call_assembler(self, op, arglocs, regalloc):
+        if len(arglocs) == 3:
+            [result_loc, argloc, vloc] = arglocs
         else:
-            kind = op.result.type
-            if kind == INT:
-                value = self.cpu.done_with_this_frame_int_v
-            elif kind == REF:
-                value = self.cpu.done_with_this_frame_ref_v
-            elif kind == FLOAT:
-                value = self.cpu.done_with_this_frame_float_v
-            else:
-                raise AssertionError(kind)
+            [result_loc, argloc] = arglocs
+            vloc = imm(0)
+        self._store_force_index(self._find_nearby_operation(regalloc, +1))
+        # 'result_loc' is either r3 or f1
+        self.call_assembler(op, argloc, vloc, result_loc, r.r3)
 
-        # take fast path on equality
-        # => jump on inequality
-        with scratch_reg(self.mc):
-            self.mc.load_imm(r.SCRATCH, value)
-            self.mc.cmp_op(0, tmploc.value, r.SCRATCH.value)
+    imm = staticmethod(imm)   # for call_assembler()
 
-        #if values are equal we take the fast path
-        # Slow path, calling helper
-        # jump to merge point
+    def _call_assembler_emit_call(self, addr, argloc, _):
+        self.regalloc_mov(argloc, r.r3)
+        self.mc.ld(r.r4.value, r.SP.value, THREADLOCAL_ADDR_OFFSET)
 
-        jd = descr.outermost_jitdriver_sd
-        assert jd is not None
+        cb = callbuilder.CallBuilder(self, addr, [r.r3, r.r4], r.r3)
+        cb.emit()
 
-        # Path A: load return value and reset token
-        # Fast Path using result boxes
+    def _call_assembler_emit_helper_call(self, addr, arglocs, result_loc):
+        cb = callbuilder.CallBuilder(self, addr, arglocs, result_loc)
+        cb.emit()
 
-        fast_jump_pos = self.mc.currpos()
-        self.mc.nop()
-
-        # Reset the vable token --- XXX really too much special logic here:-(
-        if jd.index_of_virtualizable >= 0:
-            from pypy.jit.backend.llsupport.descr import FieldDescr
-            fielddescr = jd.vable_token_descr
-            assert isinstance(fielddescr, FieldDescr)
-            ofs = fielddescr.offset
-            tmploc = regalloc.get_scratch_reg(INT)
-            with scratch_reg(self.mc):
-                self.mov_loc_loc(arglocs[0], r.SCRATCH)
-                self.mc.li(tmploc.value, 0)
-                self.mc.storex(tmploc.value, 0, r.SCRATCH.value)
-
-        if op.result is not None:
-            # load the return value from fail_boxes_xxx[0]
-            kind = op.result.type
-            if kind == INT:
-                adr = self.fail_boxes_int.get_addr_for_num(0)
-            elif kind == REF:
-                adr = self.fail_boxes_ptr.get_addr_for_num(0)
-            elif kind == FLOAT:
-                adr = self.fail_boxes_float.get_addr_for_num(0)
-            else:
-                raise AssertionError(kind)
-            with scratch_reg(self.mc):
-                self.mc.load_imm(r.SCRATCH, adr)
-                if op.result.type == FLOAT:
-                    self.mc.lfdx(resloc.value, 0, r.SCRATCH.value)
-                else:
-                    self.mc.loadx(resloc.value, 0, r.SCRATCH.value)
-
-        # jump to merge point, patched later
-        fast_path_to_end_jump_pos = self.mc.currpos()
-        self.mc.nop()
-
-        jmp_pos = self.mc.currpos()
-        pmc = OverwritingBuilder(self.mc, fast_jump_pos, 1)
-        pmc.bc(4, 2, jmp_pos - fast_jump_pos)
-        pmc.overwrite()
-
-        # Path B: use assembler helper
-        asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        if self.cpu.supports_floats:
-            floats = r.VOLATILES_FLOAT
+    def _call_assembler_check_descr(self, value, tmploc):
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        self.mc.ld(r.r5.value, r.r3.value, ofs)
+        if _check_imm_arg(value):
+            self.mc.cmp_op(0, r.r5.value, value, imm=True)
         else:
-            floats = []
+            self.mc.load_imm(r.r4, value)
+            self.mc.cmp_op(0, r.r5.value, r.r4.value, imm=False)
+        jump_if_eq = self.mc.currpos()
+        self.mc.nop()      # patched later
+        return jump_if_eq
 
-        with Saved_Volatiles(self.mc, save_RES=False):
-            # result of previous call is in r3
-            self.mov_loc_loc(arglocs[0], r.r4)
-            self.mc.call(asm_helper_adr)
-
-        # merge point
+    def _call_assembler_patch_je(self, result_loc, je_location):
+        jump_to_done = self.mc.currpos()
+        self.mc.nop()      # patched later
+        #
         currpos = self.mc.currpos()
-        pmc = OverwritingBuilder(self.mc, fast_path_to_end_jump_pos, 1)
-        pmc.b(currpos - fast_path_to_end_jump_pos)
+        pmc = OverwritingBuilder(self.mc, je_location, 1)
+        pmc.beq(currpos - je_location)
+        pmc.overwrite()
+        #
+        return jump_to_done
+
+    def _call_assembler_load_result(self, op, result_loc):
+        if op.result is not None:
+            # load the return value from the dead frame's value index 0
+            kind = op.result.type
+            descr = self.cpu.getarraydescr_for_frame(kind)
+            ofs = self.cpu.unpack_arraydescr(descr)
+            if kind == FLOAT:
+                assert result_loc is r.f1
+                self.mc.lfd(r.f1.value, r.r3.value, ofs)
+            else:
+                assert result_loc is r.r3
+                self.mc.ld(r.r3.value, r.r3.value, ofs)
+
+    def _call_assembler_patch_jmp(self, jmp_location):
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, jmp_location, 1)
+        pmc.b(currpos - jmp_location)
         pmc.overwrite()
 
-        with scratch_reg(self.mc):
-            self.mc.load(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS)
-            self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
-
-        self._emit_guard(guard_op, regalloc._prepare_guard(guard_op),
-                                        xxxxxxxxxxxxxxxxx+c.LT, save_exc=True)
-
-    # ../x86/assembler.py:668
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # some minimal sanity checking
         old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
         new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
         assert old_nbargs == new_nbargs
-        oldadr = oldlooptoken._ppc_func_addr
-        target = newlooptoken._ppc_func_addr
-        if IS_PPC_32:
-            # we overwrite the instructions at the old _ppc_func_addr
-            # to start with a JMP to the new _ppc_func_addr.
+        oldadr = oldlooptoken._ll_function_addr
+        target = newlooptoken._ll_function_addr
+        if IS_PPC_32 or not IS_BIG_ENDIAN:
+            # we overwrite the instructions at the old _ll_function_addr
+            # to start with a JMP to the new _ll_function_addr.
             # Ideally we should rather patch all existing CALLs, but well.
             mc = PPCBuilder()
             mc.b_abs(target)
             mc.copy_to_raw_memory(oldadr)
         else:
-            # PPC64 trampolines are data so overwrite the code address
-            # in the function descriptor at the old address
-            # (TOC and static chain pointer are the same).
+            # PPC64 big-endian trampolines are data so overwrite the code
+            # address in the function descriptor at the old address.
+            # Copy the whole 3-word trampoline, even though the other
+            # words are always zero so far.
             odata = rffi.cast(rffi.CArrayPtr(lltype.Signed), oldadr)
             tdata = rffi.cast(rffi.CArrayPtr(lltype.Signed), target)
             odata[0] = tdata[0]
-
-    def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self._write_fail_index(fail_index)
-        numargs = op.numargs()
-        callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
-        adr = arglocs[1]
-        resloc = arglocs[0]
-        #
-        descr = op.getdescr()
-        size = descr.get_result_size()
-        signed = descr.is_result_signed()
-        #
-        xxxxxxxxxxxxxx
-        self._emit_call(fail_index, adr, callargs, resloc, (size, signed))
-
-        with scratch_reg(self.mc):
-            self.mc.load(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS)
-            self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
-
-        self._emit_guard(guard_op, arglocs[1 + numargs:],
-                         xxxxxxxxxxxxxx+c.LT, save_exc=True)
-
-    def emit_guard_call_release_gil(self, op, guard_op, arglocs, regalloc):
-
-        # first, close the stack in the sense of the asmgcc GC root tracker
-        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
-        numargs = op.numargs()
-        callargs = arglocs[2:numargs + 1]  # extract the arguments to the call
-        adr = arglocs[1]
-        resloc = arglocs[0]
-
-        if gcrootmap:
-            self.call_release_gil(gcrootmap, arglocs)
-        # do the call
-        faildescr = guard_op.getdescr()
-        fail_index = self.cpu.get_fail_descr_number(faildescr)
-        self._write_fail_index(fail_index)
-        #
-        descr = op.getdescr()
-        size = descr.get_result_size()
-        signed = descr.is_result_signed()
-        #
-        xxxxxxxxxxxxxxx
-        self._emit_call(fail_index, adr, callargs, resloc, (size, signed))
-        # then reopen the stack
-        if gcrootmap:
-            self.call_reacquire_gil(gcrootmap, resloc)
-
-        with scratch_reg(self.mc):
-            self.mc.load(r.SCRATCH.value, r.SPP.value, 0)
-            self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
-
-        self._emit_guard(guard_op, arglocs[1 + numargs:],
-                         xxxxxxxxxxxxxxxxxx+c.LT, save_exc=True)
-
-    def call_release_gil(self, gcrootmap, save_registers):
-        # XXX don't know whether this is correct
-        # XXX use save_registers here
-        assert gcrootmap.is_shadow_stack
-        with Saved_Volatiles(self.mc):
-            #self._emit_call(NO_FORCE_INDEX, self.releasegil_addr, 
-            #                [], self._regalloc)
-            self._emit_call(imm(self.releasegil_addr), [])
-
-    def call_reacquire_gil(self, gcrootmap, save_loc):
-        # save the previous result into the stack temporarily.
-        # XXX like with call_release_gil(), we assume that we don't need
-        # to save vfp regs in this case. Besides the result location
-        assert gcrootmap.is_shadow_stack
-        with Saved_Volatiles(self.mc):
-            self._emit_call(imm(self.reacqgil_addr), [])
+            odata[1] = tdata[1]
+            odata[2] = tdata[2]
 
 
 class OpAssembler(IntOpAssembler, GuardOpAssembler,

@@ -2,7 +2,6 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rlib import rgc
-#from rpython.jit.backend.ppc.arch import FORCE_INDEX_OFS
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.ppc.ppc_assembler import AssemblerPPC
 from rpython.jit.backend.ppc.arch import WORD
@@ -33,11 +32,6 @@ class PPC_CPU(AbstractLLCPU):
 
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
-        if gcdescr is not None:
-            gcdescr.force_index_ofs = FORCE_INDEX_OFS
-            # XXX for now the ppc backend does not support the gcremovetypeptr
-            # translation option
-            # assert gcdescr.config.translation.gcremovetypeptr is False
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
@@ -80,8 +74,7 @@ class PPC_CPU(AbstractLLCPU):
 
         for jmp, tgt in looptoken.compiled_loop_token.invalidate_positions:
             mc = PPCBuilder()
-            mc.b_offset(tgt)
-            mc.prepare_insts_blocks()
+            mc.b_offset(tgt)     # a single instruction
             mc.copy_to_raw_memory(jmp)
         # positions invalidated
         looptoken.compiled_loop_token.invalidate_positions = []

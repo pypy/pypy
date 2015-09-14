@@ -490,7 +490,7 @@ class Regalloc(BaseRegalloc):
 
     prepare_int_force_ge_zero = helper.prepare_unary_op
 
-    def prepare_math_sqrt(self, op):
+    def _prepare_math_sqrt(self, op):
         loc = self.ensure_reg(op.getarg(1))
         self.free_op_vars()
         res = self.fprm.force_allocate_reg(op.result)
@@ -839,8 +839,17 @@ class Regalloc(BaseRegalloc):
         return [base_loc, index_loc, value_loc, ofs_loc,
                 imm_size, imm_size]
 
-    #prepare_copystrcontent = void
-    #prepare_copyunicodecontent = void
+    def prepare_copystrcontent(self, op):
+        src_ptr_loc = self.ensure_reg(op.getarg(0))
+        dst_ptr_loc = self.ensure_reg(op.getarg(1))
+        src_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(2))
+        dst_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(3))
+        length_loc  = self.ensure_reg_or_any_imm(op.getarg(4))
+        self._spill_before_call(save_all_regs=False)
+        return [src_ptr_loc, dst_ptr_loc,
+                src_ofs_loc, dst_ofs_loc, length_loc]
+
+    prepare_copyunicodecontent = prepare_copystrcontent
 
     def prepare_unicodelen(self, op):
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
@@ -877,22 +886,21 @@ class Regalloc(BaseRegalloc):
     prepare_cast_ptr_to_int = prepare_same_as
     prepare_cast_int_to_ptr = prepare_same_as
 
-    def prepare_call(self, op):
-        effectinfo = op.getdescr().get_extra_info()
+    def get_oopspecindex(self, op):
+        descr = op.getdescr()
+        assert descr is not None
+        effectinfo = descr.get_extra_info()
         if effectinfo is not None:
-            oopspecindex = effectinfo.oopspecindex
-            if oopspecindex == EffectInfo.OS_MATH_SQRT:
-                xxxxxxxxx
-                args = self.prepare_math_sqrt(op)
-                self.assembler.emit_math_sqrt(op, args, self)
-                return
+            return effectinfo.oopspecindex
+        return EffectInfo.OS_NONE
+
+    def prepare_call(self, op):
+        oopspecindex = self.get_oopspecindex(op)
+        if oopspecindex == EffectInfo.OS_MATH_SQRT:
+            return self._prepare_math_sqrt(op)
         return self._prepare_call(op)
 
-    def _prepare_call(self, op, save_all_regs=False):
-        args = []
-        args.append(None)
-        for i in range(op.numargs()):
-            args.append(self.loc(op.getarg(i)))
+    def _spill_before_call(self, save_all_regs=False):
         # spill variables that need to be saved around calls
         self.fprm.before_call(save_all_regs=save_all_regs)
         if not save_all_regs:
@@ -900,10 +908,16 @@ class Regalloc(BaseRegalloc):
             if gcrootmap and gcrootmap.is_shadow_stack:
                 save_all_regs = 2
         self.rm.before_call(save_all_regs=save_all_regs)
+
+    def _prepare_call(self, op, save_all_regs=False):
+        args = []
+        args.append(None)
+        for i in range(op.numargs()):
+            args.append(self.loc(op.getarg(i)))
+        self._spill_before_call(save_all_regs)
         if op.result:
             resloc = self.after_call(op.result)
             args[0] = resloc
-        self.before_call_called = True
         return args
 
     def prepare_call_malloc_nursery(self, op):
@@ -943,31 +957,16 @@ class Regalloc(BaseRegalloc):
     prepare_keepalive = void
 
     def prepare_cond_call_gc_wb(self, op):
-        assert op.result is None
-        # we force all arguments in a reg because it will be needed anyway by
-        # the following setfield_gc or setarrayitem_gc. It avoids loading it
-        # twice from the memory.
-        N = op.numargs()
-        args = op.getarglist()
-        arglocs = [self._ensure_value_is_boxed(op.getarg(i), args)
-                   for i in range(N)]
-        card_marking = False
-        if op.getopnum() == rop.COND_CALL_GC_WB_ARRAY:
-            descr = op.getdescr()
-            if we_are_translated():
-                cls = self.cpu.gc_ll_descr.has_write_barrier_class()
-                assert cls is not None and isinstance(descr, cls)
-            card_marking = descr.jit_wb_cards_set != 0
-        if card_marking:  # allocate scratch registers
-            tmp1 = self.get_scratch_reg(INT)
-            tmp2 = self.get_scratch_reg(INT)
-            tmp3 = self.get_scratch_reg(INT)
-            arglocs.append(tmp1)
-            arglocs.append(tmp2)
-            arglocs.append(tmp3)
+        arglocs = [self.ensure_reg(op.getarg(0))]
         return arglocs
 
-    prepare_cond_call_gc_wb_array = prepare_cond_call_gc_wb
+    def prepare_cond_call_gc_wb_array(self, op):
+        arglocs = [self.ensure_reg(op.getarg(0)),
+                   self.ensure_reg_or_16bit_imm(op.getarg(1)),
+                   None]
+        if arglocs[1].is_reg():
+            arglocs[2] = self.get_scratch_reg(INT)
+        return arglocs
 
     def prepare_force_token(self, op):
         res_loc = self.force_allocate_reg(op.result)
@@ -1028,21 +1027,11 @@ class Regalloc(BaseRegalloc):
 
     prepare_call_release_gil = prepare_call_may_force
 
-    def prepare_guard_call_assembler(self, op, guard_op):
-        descr = op.getdescr()
-        assert isinstance(descr, JitCellToken)
-        jd = descr.outermost_jitdriver_sd
-        assert jd is not None
-        vable_index = jd.index_of_virtualizable
-        if vable_index >= 0:
-            self._sync_var(op.getarg(vable_index))
-            vable = self.frame_manager.loc(op.getarg(vable_index))
-        else:
-            vable = imm(0)
-        # make sure the call result location is free
-        tmploc = self.get_scratch_reg(INT, selected_reg=r.RES)
-        self.possibly_free_vars(guard_op.getfailargs())
-        return [vable, tmploc] + self._prepare_call(op, save_all_regs=True)
+    def prepare_call_assembler(self, op):
+        locs = self.locs_for_call_assembler(op)
+        self._spill_before_call(save_all_regs=True)
+        resloc = self.after_call(op.result)
+        return [resloc] + locs
 
     def _prepare_args_for_new_op(self, new_args):
         gc_ll_descr = self.cpu.gc_ll_descr
@@ -1059,6 +1048,11 @@ class Regalloc(BaseRegalloc):
     def prepare_force_spill(self, op):
         self.force_spill_var(op.getarg(0))
         return []
+
+    def prepare_guard_not_forced_2(self, op):
+        self.rm.before_call(op.getfailargs(), save_all_regs=True)
+        arglocs = self._prepare_guard(op)
+        return arglocs
 
     def prepare_zero_ptr_field(self, op):
         base_loc = self.ensure_reg(op.getarg(0))
