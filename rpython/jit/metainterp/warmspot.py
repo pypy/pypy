@@ -617,7 +617,8 @@ class WarmRunnerDesc(object):
             if name != 'jitdriver':
                 jitdrivers_by_name[name] = jd
         m = _find_jit_markers(self.translator.graphs,
-                              ('get_jitcell_at_key', 'trace_next_iteration'))
+                              ('get_jitcell_at_key', 'trace_next_iteration',
+                               'dont_trace_here'))
         accessors = {}
 
         def get_accessor(name, jitdriver_name, function, ARGS):
@@ -627,12 +628,20 @@ class WarmRunnerDesc(object):
             d = {'function': function,
                  'cast_instance_to_gcref': cast_instance_to_gcref}
             arg_spec = ", ".join([("arg%d" % i) for i in range(len(ARGS))])
-            exec py.code.Source("""
-            def accessor(%s):
-                return cast_instance_to_gcref(function(%s))
-            """ % (arg_spec, arg_spec)).compile() in d
-            FUNC = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
-            ll_ptr = self.helper_func(FUNC, d['accessor'])
+            if name == 'get_jitcell_at_key':
+                exec py.code.Source("""
+                def accessor(%s):
+                    return cast_instance_to_gcref(function(%s))
+                """ % (arg_spec, arg_spec)).compile() in d
+                FUNC = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
+            else:
+                exec py.code.Source("""
+                def accessor(%s):
+                    function(%s)
+                """ % (arg_spec, arg_spec)).compile() in d
+                FUNC = lltype.Ptr(lltype.FuncType(ARGS, lltype.Void))
+            func = d['accessor']
+            ll_ptr = self.helper_func(FUNC, func)
             accessors[(name, jitdriver_name)] = ll_ptr
             return ll_ptr
 
@@ -643,6 +652,8 @@ class WarmRunnerDesc(object):
             ARGS = [x.concretetype for x in op.args[2:]]
             if op.args[0].value == 'get_jitcell_at_key':
                 func = JitCell.get_jitcell
+            elif op.args[0].value == 'dont_trace_here':
+                func = JitCell.dont_trace_here
             else:
                 func = JitCell._trace_next_iteration
             accessor = get_accessor(op.args[0].value,

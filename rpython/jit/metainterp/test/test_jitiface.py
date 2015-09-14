@@ -175,6 +175,31 @@ class JitHookInterfaceTests(object):
         self.meta_interp(main, [5])
         self.check_jitcell_token_count(2)
 
+    def test_dont_trace_here(self):
+        driver = JitDriver(greens = ['s'], reds = ['i', 'k'], name='jit')
+
+        def loop(i, s):
+            k = 4
+            while i > 0:
+                driver.jit_merge_point(k=k, i=i, s=s)
+                if s == 1:
+                    loop(3, 0)
+                k -= 1
+                i -= 1
+                if k == 0:
+                    k = 4
+                    driver.can_enter_jit(k=k, i=i, s=s)
+
+        def main(s, check):
+            if check:
+                jit_hooks.dont_trace_here("jit", 0)
+            loop(30, s)
+
+        self.meta_interp(main, [1, 0], inline=True)
+        self.check_resops(call_assembler_n=0)
+        self.meta_interp(main, [1, 1], inline=True)
+        self.check_resops(call_assembler_n=8)
+
 class LLJitHookInterfaceTests(JitHookInterfaceTests):
     # use this for any backend, instead of the super class
     
