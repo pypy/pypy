@@ -252,7 +252,7 @@ class PyPyJitHookInterface(JitHookInterface):
             return
         for i, op in enumerate(debug_info.operations):
             if op.is_guard():
-                w_t = space.newtuple([space.wrap(i), space.wrap(op.get_hash())])
+                w_t = space.newtuple([space.wrap(i), space.wrap(op.getopnum()), space.wrap(op.get_hash())])
                 l_w.append(w_t)
         try:
             cache.in_recursion = True
