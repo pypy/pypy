@@ -149,3 +149,21 @@ class GetJitCellEntry(ExtRegistryEntry):
                   for i, arg in enumerate(hop.args_r[1:])]
         return hop.genop('jit_marker', [c_name, c_jitdriver] + args_v,
                          resulttype=hop.r_result)
+
+def trace_next_iteration(name, *greenkey):
+    raise Exception("need to run translated")
+
+class TraceNextIterationEntry(ExtRegistryEntry):
+    _about_ = trace_next_iteration
+
+    def compute_result_annotation(self, s_name, *args_s):
+        assert s_name.is_constant()
+
+    def specialize_call(self, hop):
+        c_jitdriver = Constant(hop.args_s[0].const, concretetype=lltype.Void)
+        c_name = Constant("trace_next_iteration", concretetype=lltype.Void)
+        hop.exception_cannot_occur()
+        args_v = [hop.inputarg(arg, arg=i + 1)
+                  for i, arg in enumerate(hop.args_r[1:])]
+        return hop.genop('jit_marker', [c_name, c_jitdriver] + args_v,
+                         resulttype=hop.r_result)

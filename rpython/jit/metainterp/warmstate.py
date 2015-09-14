@@ -545,6 +545,10 @@ class WarmEnterState(object):
             @staticmethod
             def trace_next_iteration(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
+                JitCell._trace_next_iteration(*greenargs)
+
+            @staticmethod
+            def _trace_next_iteration(*greenargs):
                 hash = JitCell.get_uhash(*greenargs)
                 jitcounter.change_current_fraction(hash, 0.98)
 

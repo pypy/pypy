@@ -129,6 +129,17 @@ def _find_jit_marker(graphs, marker_name, check_driver=True):
                     results.append((graph, block, i))
     return results
 
+def _find_jit_markers(graphs, marker_names):
+    results = []
+    for graph in graphs:
+        for block in graph.iterblocks():
+            for i in range(len(block.operations)):
+                op = block.operations[i]
+                if (op.opname == 'jit_marker' and
+                    op.args[0].value in marker_names):
+                    results.append((graph, block, i))
+    return results
+
 def find_can_enter_jit(graphs):
     return _find_jit_marker(graphs, 'can_enter_jit')
 
@@ -605,12 +616,12 @@ class WarmRunnerDesc(object):
             name = jd.jitdriver.name
             if name != 'jitdriver':
                 jitdrivers_by_name[name] = jd
-        m = _find_jit_marker(self.translator.graphs, 'get_jitcell_at_key',
-                             False)
+        m = _find_jit_markers(self.translator.graphs,
+                              ('get_jitcell_at_key', 'trace_next_iteration'))
         accessors = {}
 
-        def get_accessor(jitdriver_name, function, ARGS):
-            a = accessors.get(jitdriver_name)
+        def get_accessor(name, jitdriver_name, function, ARGS):
+            a = accessors.get((name, jitdriver_name))
             if a:
                 return a
             d = {'function': function,
@@ -622,7 +633,7 @@ class WarmRunnerDesc(object):
             """ % (arg_spec, arg_spec)).compile() in d
             FUNC = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
             ll_ptr = self.helper_func(FUNC, d['accessor'])
-            accessors[jitdriver_name] = ll_ptr
+            accessors[(name, jitdriver_name)] = ll_ptr
             return ll_ptr
 
         for graph, block, index in m:
@@ -630,7 +641,12 @@ class WarmRunnerDesc(object):
             jitdriver_name = op.args[1].value
             JitCell = jitdrivers_by_name[jitdriver_name].warmstate.JitCell
             ARGS = [x.concretetype for x in op.args[2:]]
-            accessor = get_accessor(jitdriver_name, JitCell.get_jitcell,
+            if op.args[0].value == 'get_jitcell_at_key':
+                func = JitCell.get_jitcell
+            else:
+                func = JitCell._trace_next_iteration
+            accessor = get_accessor(op.args[0].value,
+                                    jitdriver_name, func,
                                     ARGS)
             v_result = op.result
             c_accessor = Constant(accessor, concretetype=lltype.Void)

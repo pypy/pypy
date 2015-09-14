@@ -168,8 +168,12 @@ class JitHookInterfaceTests(object):
             loop(30, s)
             assert jit_hooks.get_jitcell_at_key("jit", s)
             assert not jit_hooks.get_jitcell_at_key("jit", s + 1)
+            jit_hooks.trace_next_iteration("jit", s + 1)
+            loop(s + 3, s + 1)
+            assert jit_hooks.get_jitcell_at_key("jit", s + 1)
 
         self.meta_interp(main, [5])
+        self.check_jitcell_token_count(2)
 
 class LLJitHookInterfaceTests(JitHookInterfaceTests):
     # use this for any backend, instead of the super class
