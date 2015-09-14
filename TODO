@@ -1,21 +1,13 @@
 ------------------------------------------------------------
 
-## maybe resolved:
-also a possible cause for the thing below this one:
-   pypy-stm frees 530936 loop tokens
-   pypy26 frees 446 loop tokens
-meaning, loops get freed and probably must be retraced all
-the time... see XXXXXX in memmgr.py
-
-one problem was wrong counting, so now its 1551 vs. 446. Still
-probably too much.
-
-------------------------------------------------------------
-
 annotating and rtyping pixie with --jit=off and 1 thread (no
 conflicts) is:
 STM: 148s
 pypy2.6: 91.3s
+
+full mapdict and methodcache bring STM down to 130s, which
+is a reasonable 40% overhead. --> think about fixing mapdict
+and methodcache with STM
 
 This difference may also explain a similar with-jit result:
 STM: 96
@@ -25,8 +17,8 @@ STM: 116s (4 threads)
 pypy2.6: 64s (still using only 1 thread)
 
 TODOs:
-1) stmdict/stmset need strategies
-2) methodcache missing or generally no-jit performance is bad here
+1) stmdict/stmset need strategies (only ~2% perf here)
+2) methodcache & mapdict for generally better no-jit performance
 3) theoretically, more threads shouldn't take even longer
 
 ------------------------------------------------------------
