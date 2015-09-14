@@ -407,11 +407,12 @@ class W_ISlice(W_Root):
             raise
 
     def _ignore_items(self, num):
-        if self.iterable is None:
+        w_iterator = self.iterable
+        if w_iterator is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         while True:
             try:
-                self.space.next(self.iterable)
+                self.space.next(w_iterator)
             except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.iterable = None
