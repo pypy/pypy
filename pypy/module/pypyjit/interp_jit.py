@@ -5,11 +5,13 @@ This is transformed to become a JIT by code elsewhere: rpython/jit/*
 
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
-from rpython.rlib import jit
+from rpython.rlib import jit, jit_hooks
 from rpython.rlib.jit import current_trace_length, unroll_parameters
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pycode import CO_GENERATOR, PyCode
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame, Yield
 from pypy.interpreter.baseobjspace import W_Root
@@ -188,3 +190,23 @@ like tools.  For that purpose, if g = not_from_assembler(f), then
     __call__ = interp2app(W_NotFromAssembler.descr_call),
 )
 W_NotFromAssembler.typedef.acceptable_as_base_class = False
+
+@unwrap_spec(next_instr=int, is_being_profiled=bool, pycode=PyCode)
+def get_jitcell_at_key(space, next_instr, is_being_profiled, pycode):
+    ll_pycode = cast_instance_to_gcref(pycode)
+    return space.wrap(bool(jit_hooks.get_jitcell_at_key(
+        'pypyjit', next_instr, int(is_being_profiled), ll_pycode)))
+
+@unwrap_spec(next_instr=int, is_being_profiled=bool, pycode=PyCode)
+def dont_trace_here(space, next_instr, is_being_profiled, pycode):
+    ll_pycode = cast_instance_to_gcref(pycode)
+    jit_hooks.dont_trace_here(
+        'pypyjit', next_instr, int(is_being_profiled), ll_pycode)
+    return space.w_None
+
+@unwrap_spec(next_instr=int, is_being_profiled=bool, pycode=PyCode)
+def trace_next_iteration(space, next_instr, is_being_profiled, pycode):
+    ll_pycode = cast_instance_to_gcref(pycode)
+    jit_hooks.trace_next_iteration(
+        'pypyjit', next_instr, int(is_being_profiled), ll_pycode)
+    return space.w_None
