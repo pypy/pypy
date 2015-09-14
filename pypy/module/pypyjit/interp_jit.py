@@ -218,7 +218,7 @@ def trace_next_iteration(space, next_instr, is_being_profiled, w_pycode):
 @unwrap_spec(hash=r_uint)
 @dont_look_inside
 def trace_next_iteration_hash(space, hash):
-    jit_hooks.trace_next_iteration_hash(hash)
+    jit_hooks.trace_next_iteration_hash('pypyjit', hash)
     return space.w_None
 
 class Cache(object):
