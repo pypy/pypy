@@ -28,7 +28,7 @@ class Module(MixedModule):
     def setup_after_space_initialization(self):
         # force the __extend__ hacks to occur early
         from pypy.module.pypyjit.interp_jit import pypyjitdriver
-        from pypy.module.pypyjit.hooks import pypy_hooks
+        from pypy.module.pypyjit.interp_jit import pypy_hooks
         # add the 'defaults' attribute
         from rpython.rlib.jit import PARAMETERS
         space = self.space
