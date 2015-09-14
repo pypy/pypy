@@ -225,8 +225,8 @@ class Cache(object):
     in_recursion = False
 
     def __init__(self, space):
-        self.w_compile_bridge = None
-        self.w_compile_loop = None
+        self.w_compile_bridge = space.w_None
+        self.w_compile_loop = space.w_None
 
 def set_compile_bridge(space, w_hook):
     cache = space.fromcache(Cache)
