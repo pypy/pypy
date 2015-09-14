@@ -5,7 +5,7 @@ from rpython.rlib import jit_hooks
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.metainterp.resoperation import rop
-from rpython.rtyper.annlowlevel import hlstr
+from rpython.rtyper.annlowlevel import hlstr, cast_instance_to_gcref
 from rpython.jit.metainterp.jitprof import Profiler, EmptyProfiler
 
 
@@ -171,6 +171,32 @@ class JitHookInterfaceTests(object):
             jit_hooks.trace_next_iteration("jit", s + 1)
             loop(s + 3, s + 1)
             assert jit_hooks.get_jitcell_at_key("jit", s + 1)
+
+        self.meta_interp(main, [5])
+        self.check_jitcell_token_count(2)
+
+    def test_get_jitcell_at_key_ptr(self):
+        driver = JitDriver(greens = ['s'], reds = ['i'], name='jit')
+
+        class Green(object):
+            pass
+
+        def loop(i, s):
+            while i > 0:
+                driver.jit_merge_point(i=i, s=s)
+                i -= 1
+
+        def main(s):
+            g1 = Green()
+            g2 = Green()
+            g1_ptr = cast_instance_to_gcref(g1)
+            g2_ptr = cast_instance_to_gcref(g2)
+            loop(10, g1)
+            assert jit_hooks.get_jitcell_at_key("jit", g1_ptr)
+            assert not jit_hooks.get_jitcell_at_key("jit", g2_ptr)
+            jit_hooks.trace_next_iteration("jit", g2_ptr)
+            loop(2, g2)
+            assert jit_hooks.get_jitcell_at_key("jit", g2_ptr)
 
         self.meta_interp(main, [5])
         self.check_jitcell_token_count(2)

@@ -621,24 +621,33 @@ class WarmRunnerDesc(object):
                                'dont_trace_here'))
         accessors = {}
 
-        def get_accessor(name, jitdriver_name, function, ARGS):
+        def get_accessor(name, jitdriver_name, function, ARGS, green_arg_spec):
             a = accessors.get((name, jitdriver_name))
             if a:
                 return a
             d = {'function': function,
-                 'cast_instance_to_gcref': cast_instance_to_gcref}
+                 'cast_instance_to_gcref': cast_instance_to_gcref,
+                 'lltype': lltype}
             arg_spec = ", ".join([("arg%d" % i) for i in range(len(ARGS))])
+            arg_converters = []
+            for i, spec in enumerate(green_arg_spec):
+                if isinstance(spec, lltype.Ptr):
+                    arg_converters.append("arg%d = lltype.cast_opaque_ptr(type%d, arg%d)" % (i, i, i))
+                    d['type%d' % i] = spec
+            convert = ";".join(arg_converters)
             if name == 'get_jitcell_at_key':
                 exec py.code.Source("""
                 def accessor(%s):
+                    %s
                     return cast_instance_to_gcref(function(%s))
-                """ % (arg_spec, arg_spec)).compile() in d
+                """ % (arg_spec, convert, arg_spec)).compile() in d
                 FUNC = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
             else:
                 exec py.code.Source("""
                 def accessor(%s):
+                    %s
                     function(%s)
-                """ % (arg_spec, arg_spec)).compile() in d
+                """ % (arg_spec, convert, arg_spec)).compile() in d
                 FUNC = lltype.Ptr(lltype.FuncType(ARGS, lltype.Void))
             func = d['accessor']
             ll_ptr = self.helper_func(FUNC, func)
@@ -656,9 +665,10 @@ class WarmRunnerDesc(object):
                 func = JitCell.dont_trace_here
             else:
                 func = JitCell._trace_next_iteration
+            argspec = jitdrivers_by_name[jitdriver_name]._green_args_spec
             accessor = get_accessor(op.args[0].value,
                                     jitdriver_name, func,
-                                    ARGS)
+                                    ARGS, argspec)
             v_result = op.result
             c_accessor = Constant(accessor, concretetype=lltype.Void)
             newop = SpaceOperation('direct_call', [c_accessor] + op.args[2:],
