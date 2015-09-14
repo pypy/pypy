@@ -270,7 +270,7 @@ class PyPyJitHookInterface(JitHookInterface):
             return
         if not space.is_true(cache.w_compile_bridge):
             return
-        w_hash = space.wrap(debug_info.fail_descr.get_hash())
+        w_hash = space.wrap(debug_info.fail_descr.get_jitcounter_hash())
         try:
             cache.in_recursion = True
             try:
