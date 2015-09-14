@@ -173,7 +173,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         i10 = int_add(i0, 73)
         i11 = int_add(i1, 73)
         """)
-        pack1 = self.pack(loop1, 0, 2, I64, I64)
+        pack1 = self.pack(loop1, 0, 2)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True)
         loop3 = self.parse_trace("""
         v10[2xi64] = vec_box_i()

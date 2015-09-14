@@ -165,17 +165,9 @@ def getunpackopnum(type):
     #
     raise AssertionError("getunpackopnum type %s not supported" % (type,))
 
-def getexpandopnum(type):
-    if type == INT:
-        return rop.VEC_INT_EXPAND
-    elif type == FLOAT:
-        return rop.VEC_FLOAT_EXPAND
-    #
-    raise AssertionError("getexpandopnum type %s not supported" % (type,))
-
-UNSIGNED_OPS = (rop.UINT_FLOORDIV, rop.UINT_RSHIFT,
-                rop.UINT_LT, rop.UINT_LE,
-                rop.UINT_GT, rop.UINT_GE)
+#UNSIGNED_OPS = (rop.UINT_FLOORDIV, rop.UINT_RSHIFT,
+#                rop.UINT_LT, rop.UINT_LE,
+#                rop.UINT_GT, rop.UINT_GE)
 
 #class Type(object):
 #    """ The type of one operation. Saves type, size and sign. """
@@ -446,7 +438,7 @@ def prepare_arguments(state, pack, args):
         if not vecop:
             # 2) constant/variable expand this box
             # TODO just as one function call
-            vecop = self.expand(arg, i)
+            vecop = expand(state, pack, args, arg, i)
             state.setvector_of_box(arg, 0, vecop)
             pos = 0
             continue
@@ -696,26 +688,24 @@ def _check_vec_pack(self, op):
     assert index.value + count.value <= result.getcount()
     assert result.getcount() > arg0.getcount()
 
-def expand(self, arg, argidx):
+def expand(state, pack, op, arg, argidx):
     """ Expand a value into a vector box. useful for arith metic
         of one vector with a scalar (either constant/varialbe)
     """
-    elem_count = self.input_type.getcount()
-    vbox = self.input_type.new_vector_box(elem_count)
+    vecop = OpHelpers.create_vec(OpHelpers.vector_for_type(arg.type), None,
+                            arg.type, op.bytesize, op.signed, op.count)
     box_type = arg.type
-    expanded_map = self.sched_data.expanded_map
-    # note that heterogenous nodes are not yet tracked
-    already_expanded = expanded_map.get(arg, None)
-    if already_expanded:
-        return already_expanded
+    #expanded_map = state.expanded_map
+    ## note that heterogenous nodes are not yet tracked
+    #already_expanded = expanded_map.get(arg, None)
+    #if already_expanded:
+    #    return already_expanded
 
-    ops = self.sched_data.invariant_oplist
-    variables = self.sched_data.invariant_vector_vars
-    if isinstance(arg,Box) and arg not in self.sched_data.inputargs:
+    ops = state.invariant_oplist
+    variables = state.invariant_vector_vars
+    if not arg.is_constant() and arg not in state.inputargs:
         ops = self.vecops
         variables = None
-    if isinstance(arg, BoxVector):
-        box_type = arg.gettype()
 
     for i, node in enumerate(self.getoperations()):
         op = node.getoperation()
@@ -723,12 +713,12 @@ def expand(self, arg, argidx):
             break
         i += 1
     else:
-        expand_opnum = getexpandopnum(box_type)
-        op = ResOperation(expand_opnum, [arg, ConstInt(vbox.item_count)], vbox)
+        vecop = OpHelpers.create_expand(arg.type, arg, op.count)
+        ops.append(vecop)
         ops.append(op)
         if variables is not None:
-            variables.append(vbox)
-        expanded_map[arg] = vbox
+            variables.append(vecop)
+        expanded_map[arg] = vecop
         return vbox
 
     op = ResOperation(rop.VEC_BOX, [ConstInt(elem_count)], vbox)

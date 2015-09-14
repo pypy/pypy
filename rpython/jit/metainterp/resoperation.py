@@ -4,6 +4,8 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.objectmodel import compute_identity_hash
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.jit.codewriter import longlong
+from rpython.jit.backend.llsupport.symbolic import (WORD as INT_WORD,
+        SIZEOF_FLOAT as FLOAT_WORD)
 
 class SettingForwardedOnAbstractValue(Exception):
     pass
@@ -127,13 +129,24 @@ class Typed(object):
             # pass through the type of the first input argument
             if self.numargs() == 0:
                 return
-            arg0 = self.getarg(0)
-            self.setdatatype(arg0.datatype, arg0.bytesize, arg0.signed)
+            i = 0
+            arg = self.getarg(i)
+            while arg.is_constant() and i+1 < self.numargs():
+                i += 1
+                arg = self.getarg(i)
+            if arg.is_constant():
+                return
+            self.setdatatype(arg.datatype, arg.bytesize, arg.signed)
         assert self.datatype != '\x00'
         #assert self.bytesize > 0
 
     def setdatatype(self, data_type, bytesize, signed):
         self.datatype = data_type
+        if bytesize == -1:
+            if data_type == 'i':
+                bytesize = INT_WORD
+            elif data_type == 'f':
+                bytesize = FLOAT_WORD
         self.bytesize = bytesize
         self.signed = signed
 
@@ -994,13 +1007,10 @@ _oplist = [
     'VEC_CAST_INT_TO_FLOAT/1/f',
     '_VEC_CAST_LAST',
 
-    'VEC_BOX/0/if',
-    'VEC_INT_UNPACK/3/i',          # iX|fX = VEC_INT_UNPACK(vX, index, item_count)
-    'VEC_INT_PACK/4/i',            # VEC_INT_PACK(vX, var/const, index, item_count)
-    'VEC_INT_EXPAND/2/i',          # vX = VEC_INT_EXPAND(var/const, item_count)
-    'VEC_FLOAT_UNPACK/3/f',        # iX|fX = VEC_FLOAT_UNPACK(vX, index, item_count)
-    'VEC_FLOAT_PACK/4/f',          # VEC_FLOAT_PACK(vX, var/const, index, item_count)
-    'VEC_FLOAT_EXPAND/2/f',        # vX = VEC_FLOAT_EXPAND(var/const, item_count)
+    'VEC/0/if',
+    'VEC_UNPACK/3/if',          # iX|fX = VEC_INT_UNPACK(vX, index, item_count)
+    'VEC_PACK/4/if',            # VEC_INT_PACK(vX, var/const, index, item_count)
+    'VEC_EXPAND/2/if',          # vX = VEC_INT_EXPAND(var/const, item_count)
     '_VEC_PURE_LAST',
     #
     'INT_LT/2b/i',
@@ -1554,3 +1564,22 @@ class OpHelpers(object):
         else:
             assert tp == 'f'
             return InputArgFloat()
+
+    @staticmethod
+    def create_expand(datatype, arg, bytesize, signed, count):
+        if datatype == 'i':
+            opnum = rop.VEC_EXPAND_I
+        else:
+            assert datatype == 'f'
+            opnum = rop.VEC_EXPAND_F
+        return VecOperationNew(opnum, [arg], datatype, bytesize, signed, count)
+
+    @staticmethod
+    def create_vec(datatype, arg, bytesize, signed, count):
+        if type == 'i':
+            opnum = rop.VEC_I
+        else:
+            assert type == 'f'
+            opnum = rop.VEC_F
+        return VecOperationNew(opnum, [arg], datatype, bytesize, signed, count)
+
