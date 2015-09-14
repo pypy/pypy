@@ -1,9 +1,9 @@
-import sys
+import sys, py
 
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import (llhelper, MixLevelHelperAnnotator,
-    cast_base_ptr_to_instance, hlstr)
+    cast_base_ptr_to_instance, hlstr, cast_instance_to_gcref)
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLException
@@ -236,6 +236,7 @@ class WarmRunnerDesc(object):
         self.rewrite_can_enter_jits()
         self.rewrite_set_param_and_get_stats()
         self.rewrite_force_virtual(vrefinfo)
+        self.rewrite_jitcell_accesses()
         self.rewrite_force_quasi_immutable()
         self.add_finish()
         self.metainterp_sd.finish_setup(self.codewriter)
@@ -597,6 +598,45 @@ class WarmRunnerDesc(object):
             assert False
         (_, jd._PTR_ASSEMBLER_HELPER_FUNCTYPE) = self.cpu.ts.get_FuncType(
             [llmemory.GCREF, llmemory.GCREF], ASMRESTYPE)
+
+    def rewrite_jitcell_accesses(self):
+        jitdrivers_by_name = {}
+        for jd in self.jitdrivers_sd:
+            name = jd.jitdriver.name
+            if name != 'jitdriver':
+                jitdrivers_by_name[name] = jd
+        m = _find_jit_marker(self.translator.graphs, 'get_jitcell_at_key',
+                             False)
+        accessors = {}
+
+        def get_accessor(jitdriver_name, function, ARGS):
+            a = accessors.get(jitdriver_name)
+            if a:
+                return a
+            d = {'function': function,
+                 'cast_instance_to_gcref': cast_instance_to_gcref}
+            arg_spec = ", ".join([("arg%d" % i) for i in range(len(ARGS))])
+            exec py.code.Source("""
+            def accessor(%s):
+                return cast_instance_to_gcref(function(%s))
+            """ % (arg_spec, arg_spec)).compile() in d
+            FUNC = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
+            ll_ptr = self.helper_func(FUNC, d['accessor'])
+            accessors[jitdriver_name] = ll_ptr
+            return ll_ptr
+
+        for graph, block, index in m:
+            op = block.operations[index]
+            jitdriver_name = op.args[1].value
+            JitCell = jitdrivers_by_name[jitdriver_name].warmstate.JitCell
+            ARGS = [x.concretetype for x in op.args[2:]]
+            accessor = get_accessor(jitdriver_name, JitCell.get_jitcell,
+                                    ARGS)
+            v_result = op.result
+            c_accessor = Constant(accessor, concretetype=lltype.Void)
+            newop = SpaceOperation('direct_call', [c_accessor] + op.args[2:],
+                                   v_result)
+            block.operations[index] = newop
 
     def rewrite_can_enter_jits(self):
         sublists = {}

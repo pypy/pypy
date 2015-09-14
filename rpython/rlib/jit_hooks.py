@@ -5,6 +5,7 @@ from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
     cast_base_ptr_to_instance, llstr)
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import llmemory, lltype
+from rpython.flowspace.model import Constant
 from rpython.rtyper import rclass
 
 
@@ -127,3 +128,24 @@ LOOP_RUN_CONTAINER = lltype.GcArray(lltype.Struct('elem',
 @register_helper(lltype.Ptr(LOOP_RUN_CONTAINER))
 def stats_get_loop_run_times(warmrunnerdesc):
     return warmrunnerdesc.metainterp_sd.cpu.get_all_loop_runs()
+
+# ---------------------- jitcell interface ----------------------
+
+def get_jitcell_at_key(name, *greenkey):
+    raise Exception("need to run translated")
+
+class GetJitCellEntry(ExtRegistryEntry):
+    _about_ = get_jitcell_at_key
+
+    def compute_result_annotation(self, s_name, *args_s):
+        assert s_name.is_constant()
+        return SomePtr(llmemory.GCREF)
+
+    def specialize_call(self, hop):
+        c_jitdriver = Constant(hop.args_s[0].const, concretetype=lltype.Void)
+        c_name = Constant("get_jitcell_at_key", concretetype=lltype.Void)
+        hop.exception_cannot_occur()
+        args_v = [hop.inputarg(arg, arg=i + 1)
+                  for i, arg in enumerate(hop.args_r[1:])]
+        return hop.genop('jit_marker', [c_name, c_jitdriver] + args_v,
+                         resulttype=hop.r_result)

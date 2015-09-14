@@ -156,6 +156,20 @@ class JitHookInterfaceTests(object):
             assert jit_hooks.stats_get_times_value(None, Counters.TRACING) == 0
         self.meta_interp(main, [], ProfilerClass=EmptyProfiler)
 
+    def test_get_jitcell_at_key(self):
+        driver = JitDriver(greens = ['s'], reds = ['i'], name='jit')
+
+        def loop(i, s):
+            while i > s:
+                driver.jit_merge_point(i=i, s=s)
+                i -= 1
+
+        def main(s):
+            loop(30, s)
+            assert jit_hooks.get_jitcell_at_key("jit", s)
+            assert not jit_hooks.get_jitcell_at_key("jit", s + 1)
+
+        self.meta_interp(main, [5])
 
 class LLJitHookInterfaceTests(JitHookInterfaceTests):
     # use this for any backend, instead of the super class
