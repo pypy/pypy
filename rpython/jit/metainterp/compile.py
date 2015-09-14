@@ -738,7 +738,7 @@ class ResumeGuardDescr(ResumeDescr):
         metainterp.handle_guard_failure(self, deadframe)
     _trace_and_compile_from_bridge._dont_inline_ = True
 
-    def get_hash(self):
+    def get_jitcounter_hash(self):
         return self.status & self.ST_SHIFT_MASK
 
     def must_compile(self, deadframe, metainterp_sd, jitdriver_sd):

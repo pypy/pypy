@@ -245,13 +245,13 @@ class JitHookInterfaceTests(object):
             def after_compile(self, debug_info):
                 for op in debug_info.operations:
                     if op.is_guard():
-                        hashes.l.append(op.getdescr().get_hash())
+                        hashes.l.append(op.getdescr().get_jitcounter_hash())
 
             def before_compile_bridge(self, debug_info):
                 pass
 
             def after_compile_bridge(self, debug_info):
-                hashes.t.append(debug_info.fail_descr.get_hash())
+                hashes.t.append(debug_info.fail_descr.get_jitcounter_hash())
 
         hooks = Hooks()
 
