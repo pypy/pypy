@@ -1,7 +1,7 @@
 from rpython.jit.metainterp.history import (VECTOR, FLOAT, INT,
         ConstInt, ConstFloat, TargetToken)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation,
-        GuardResOp, VecOperation)
+        GuardResOp, VecOperation, OpHelpers)
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.renamer import Renamer
@@ -437,10 +437,7 @@ def prepare_arguments(state, pack, args):
         pos, vecop = state.getvector_of_box(arg)
         if not vecop:
             # 2) constant/variable expand this box
-            # TODO just as one function call
-            vecop = expand(state, pack, args, arg, i)
-            state.setvector_of_box(arg, 0, vecop)
-            pos = 0
+            expand(state, pack, args, arg, i)
             continue
         args[i] = vecop
         assemble_scattered_values(state, pack, args, i)
@@ -688,18 +685,13 @@ def _check_vec_pack(self, op):
     assert index.value + count.value <= result.getcount()
     assert result.getcount() > arg0.getcount()
 
-def expand(state, pack, op, arg, argidx):
+def expand(state, pack, args, arg, index):
     """ Expand a value into a vector box. useful for arith metic
         of one vector with a scalar (either constant/varialbe)
     """
-    vecop = OpHelpers.create_vec(OpHelpers.vector_for_type(arg.type), None,
-                            arg.type, op.bytesize, op.signed, op.count)
+    left = pack.leftmost()
     box_type = arg.type
-    #expanded_map = state.expanded_map
-    ## note that heterogenous nodes are not yet tracked
-    #already_expanded = expanded_map.get(arg, None)
-    #if already_expanded:
-    #    return already_expanded
+    expanded_map = state.expanded_map
 
     ops = state.invariant_oplist
     variables = state.invariant_vector_vars
@@ -707,36 +699,40 @@ def expand(state, pack, op, arg, argidx):
         ops = self.vecops
         variables = None
 
-    for i, node in enumerate(self.getoperations()):
+    for i, node in enumerate(pack.operations):
         op = node.getoperation()
-        if not arg.same_box(op.getarg(argidx)):
+        if not arg.same_box(op.getarg(index)):
             break
         i += 1
     else:
-        vecop = OpHelpers.create_expand(arg.type, arg, op.count)
-        ops.append(vecop)
-        ops.append(op)
+        # note that heterogenous nodes are not yet tracked
+        already_expanded = expanded_map.get(arg, None)
+        if already_expanded:
+            return already_expanded
+        vecop = OpHelpers.create_vec_expand(arg, op.bytesize, op.signed, pack.numops())
+        state.oplist.append(vecop)
         if variables is not None:
             variables.append(vecop)
         expanded_map[arg] = vecop
-        return vbox
+        for i in range(vecop.count):
+            state.setvector_of_box(arg, i, vecop)
+        args[index] = vecop
+        return vecop
 
-    op = ResOperation(rop.VEC_BOX, [ConstInt(elem_count)], vbox)
-    ops.append(op)
-    opnum = getpackopnum(arg.type)
-    for i,node in enumerate(self.getoperations()):
+    vecop = OpHelpers.create_vec(arg.type, left.bytesize, left.signed)
+    state.oplist.append(vecop)
+    for i,node in enumerate(pack.operations):
         op = node.getoperation()
-        arg = op.getarg(argidx)
-        new_box = vbox.clonebox()
-        ci = ConstInt(i)
-        c1 = ConstInt(1)
-        op = ResOperation(opnum, [vbox,arg,ci,c1], new_box)
-        vbox = new_box
-        ops.append(op)
+        arg = op.getarg(index)
+        arguments = [vecop, arg, ConstInt(i), ConstInt(1)]
+        vecop = OpHelpers.create_vec_pack(arg.type, arguments, left.bytesize,
+                                          left.signed, vecop.count+1)
+        state.setvector_of_box(arg, i, vecop)
+        state.oplist.append(vecop)
 
     if variables is not None:
-        variables.append(vbox)
-    return vbox
+        variables.append(vecop)
+    args[index] = vecop
 
 class OpToVectorOp(object):
     def __init__(self): #, restrictargs, typeoutput):

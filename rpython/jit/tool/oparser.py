@@ -8,8 +8,8 @@ import re
 from rpython.jit.tool.oparser_model import get_model
 
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
-     InputArgInt, InputArgRef, InputArgFloat, ResOpWithDescr, N_aryOp, \
-     UnaryOp, PlainResOp, optypes
+     InputArgInt, InputArgRef, InputArgFloat, InputArgVector, \
+     ResOpWithDescr, N_aryOp, UnaryOp, PlainResOp, optypes
 
 class ParseError(Exception):
     pass
@@ -191,6 +191,9 @@ class OpParser(object):
             v = InputArgInt(0)
         elif elem.startswith('f'):
             v = InputArgFloat(0.0)
+        elif elem.startswith('v'):
+            v = InputArgVector()
+            elem = self.update_vector(v, elem)
         else:
             from rpython.rtyper.lltypesystem import lltype, llmemory
             assert elem.startswith('p')
@@ -231,6 +234,11 @@ class OpParser(object):
             elif arg.startswith('ConstInt('):
                 name = arg[len('ConstInt('):-1]
                 return self.get_const(name, 'int')
+            elif arg.startswith('v') and '[' in arg:
+                i = 1
+                while i < len(arg) and arg[i] != '[':
+                    i += 1
+                return self.getvar(arg[:i])
             elif arg == 'None':
                 return None
             elif arg == 'NULL':
@@ -344,11 +352,11 @@ class OpParser(object):
         if res in self.vars:
             raise ParseError("Double assign to var %s in line: %s" % (res, line))
         resop = self.create_op(opnum, args, res, descr, fail_args)
-        self.update_vector_count(resop, res)
+        res = self.update_vector(resop, res)
         self.vars[res] = resop
         return resop
 
-    def update_vector_count(self, resop, var):
+    def update_vector(self, resop, var):
         pattern = re.compile('.*\[(\d+)x(u?)(i|f)(\d+)\]')
         match = pattern.match(var)
         if match:
@@ -356,6 +364,8 @@ class OpParser(object):
             resop.signed = not (match.group(2) == 'u')
             resop.datatype = match.group(3)
             resop.bytesize = int(match.group(4)) // 8
+            return var[:var.find('[')]
+        return var
 
     def parse_op_no_result(self, line):
         opnum, args, descr, fail_args = self.parse_op(line)

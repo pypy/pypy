@@ -36,6 +36,9 @@ class AbstractValue(object):
     def same_box(self, other):
         return self is other
 
+    def same_shape(self, other):
+        return self is other
+
     def repr_short(self, memo):
         return self.repr(memo)
 
@@ -69,6 +72,9 @@ class AbstractValue(object):
         return False
 
     def returns_vector(self):
+        return False
+
+    def is_vector(self):
         return False
 
 def ResOperation(opnum, args, descr=None):
@@ -684,16 +690,11 @@ class VectorOp(object):
         """ NOT_RPYTHON """
         if not other.is_vector():
             return False
-        #
-        # TODO ? if other.item_size == -1 or self.item_size == -1:
-            # fallback for tests that do not specify the size
-        #    return True
-        #
         if self.datatype != other.datatype:
             return False
         if self.bytesize != other.bytesize:
             return False
-        if self.signed!= other.signed:
+        if self.signed != other.signed:
             return False
         if self.count != other.count:
             return False
@@ -752,8 +753,8 @@ class InputArgRef(RefOp, AbstractInputArg):
         self.setref_base(lltype.nullptr(llmemory.GCREF.TO))
 
 class InputArgVector(VectorOp, AbstractInputArg):
-    def __init__(self, datatype):
-        self.datatype = datatype
+    def __init__(self):
+        self.type = 'v'
 
     def returns_vector(self):
         return True
@@ -1008,9 +1009,9 @@ _oplist = [
     '_VEC_CAST_LAST',
 
     'VEC/0/if',
-    'VEC_UNPACK/3/if',          # iX|fX = VEC_INT_UNPACK(vX, index, item_count)
-    'VEC_PACK/4/if',            # VEC_INT_PACK(vX, var/const, index, item_count)
-    'VEC_EXPAND/2/if',          # vX = VEC_INT_EXPAND(var/const, item_count)
+    'VEC_UNPACK/3/if',          # iX|fX = VEC_INT_UNPACK(vX, index, count)
+    'VEC_PACK/4/if',            # VEC_INT_PACK(vX, var/const, index, count)
+    'VEC_EXPAND/1/if',          # vX = VEC_INT_EXPAND(var/const)
     '_VEC_PURE_LAST',
     #
     'INT_LT/2b/i',
@@ -1566,20 +1567,29 @@ class OpHelpers(object):
             return InputArgFloat()
 
     @staticmethod
-    def create_expand(datatype, arg, bytesize, signed, count):
-        if datatype == 'i':
+    def create_vec_expand(arg, bytesize, signed, count):
+        if arg.type == 'i':
             opnum = rop.VEC_EXPAND_I
         else:
-            assert datatype == 'f'
+            assert arg.type == 'f'
             opnum = rop.VEC_EXPAND_F
-        return VecOperationNew(opnum, [arg], datatype, bytesize, signed, count)
+        return VecOperationNew(opnum, [arg], arg.type, bytesize, signed, count)
 
     @staticmethod
-    def create_vec(datatype, arg, bytesize, signed, count):
-        if type == 'i':
+    def create_vec(datatype, bytesize, signed):
+        if datatype == 'i':
             opnum = rop.VEC_I
         else:
-            assert type == 'f'
+            assert datatype == 'f'
             opnum = rop.VEC_F
-        return VecOperationNew(opnum, [arg], datatype, bytesize, signed, count)
+        return VecOperationNew(opnum, [], datatype, bytesize, signed, 0)
+
+    @staticmethod
+    def create_vec_pack(datatype, args, bytesize, signed, count):
+        if datatype == 'i':
+            opnum = rop.VEC_PACK_I
+        else:
+            assert datatype == 'f'
+            opnum = rop.VEC_PACK_F
+        return VecOperationNew(opnum, args, datatype, bytesize, signed, count)
 

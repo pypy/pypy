@@ -825,7 +825,6 @@ class PackSet(object):
             state.renamer.start_renaming(accum.getoriginalbox(), result)
 
     def split_overloaded_packs(self):
-        import pdb; pdb. set_trace()
         newpacks = []
         for i,pack in enumerate(self.packs):
             load = pack.pack_load(self.vec_reg_size)
