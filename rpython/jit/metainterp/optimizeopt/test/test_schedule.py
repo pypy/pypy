@@ -226,12 +226,10 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         i11 = int_signext(i1, 4)
         """, additional_args=['v10[2xi64]'])
         pack1 = self.pack(loop1, 0, 2)
-        var = self.find_input_arg('v10', loop1)
-        def i1inv103204(v):
-            return 0, var
+        var = loop1.inputargs[-1]
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True,
                               overwrite_funcs = {
-                                'getvector_of_box': i1inv103204,
+                                'getvector_of_box': lambda v: (0, var),
                               })
         loop3 = self.parse_trace("""
         v11[2xi32] = vec_int_signext(v10[2xi64], 4)

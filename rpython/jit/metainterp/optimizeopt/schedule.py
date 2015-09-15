@@ -19,6 +19,7 @@ class SchedulerState(object):
     def post_schedule(self):
         loop = self.graph.loop
         self.renamer.rename(loop.jump)
+        loop.operations = self.oplist
 
     def profitable(self):
         return self.costmodel.profitable()
@@ -93,7 +94,7 @@ class Scheduler(object):
         node.clear_dependencies()
         node.emitted = True
 
-    def walk_and_emit(self, state): # TODO oplist, renamer, unpack=False):
+    def walk_and_emit(self, state):
         """ Emit all the operations into the oplist parameter.
             Initiates the scheduling. """
         assert isinstance(state, SchedulerState)
@@ -515,9 +516,6 @@ def position_values(state, pack, args, index, arg, pos):
         #assert vecop is not None
         #args[i] = vecop
 
-def before_argument_transform(self, args):
-    pass
-
 def check_if_pack_supported(self, pack):
     op0 = pack.operations[0].getoperation()
     if self.input_type is None:
@@ -533,90 +531,6 @@ def check_if_pack_supported(self, pack):
         if insize == 8 or insize == 1:
             # see assembler for comment why
             raise NotAProfitableLoop
-
-#def transform_result(self, result):
-#    if result is None:
-#        return None
-#    vbox = self.new_result_vector_box()
-#    #
-#    # mark the position and the vbox in the hash
-#    for i, node in enumerate(self.getoperations()):
-#        if i >= vbox.getcount():
-#            break
-#        op = node.getoperation()
-#        self.sched_data.setvector_of_box(op, i, vbox)
-#    return vbox
-
-#def new_result_vector_box(self):
-#    type = self.output_type.gettype()
-#    size = self.output_type.getsize()
-#    count = min(self.output_type.getcount(), len(self.pack.operations))
-#    signed = self.output_type.signed
-#    return BoxVector(type, count, size, signed)
-
-#def getoperations(self):
-#    return self.pack.operations
-
-#def transform_arguments(self, args):
-#    """ Transforming one argument to a vector box argument
-#        The following cases can occur:
-#        1) argument is present in the box_to_vbox map.
-#           a) vector can be reused immediatly (simple case)
-#           b) vector is to big
-#           c) vector is to small
-#        2) argument is not known to reside in a vector
-#           a) expand vars/consts before the label and add as argument
-#           b) expand vars created in the loop body
-#    """
-#    for i,arg in enumerate(args):
-#        if arg.returns_vector():
-#            continue
-#        if not self.is_vector_arg(i):
-#            continue
-#        box_pos, vbox = self.sched_data.getvector_of_box(arg)
-#        if not vbox:
-#            # constant/variable expand this box
-#            vbox = self.expand(arg, i)
-#            self.sched_data.setvector_of_box(arg, 0, vbox)
-#            box_pos = 0
-#        # convert size i64 -> i32, i32 -> i64, ...
-#        if self.input_type.getsize() > 0 and \
-#           self.input_type.getsize() != vbox.getsize():
-#            vbox = self.extend(vbox, self.input_type)
-
-#        # use the input as an indicator for the pack type
-#        packable = self.input_type.getcount()
-#        packed = vbox.getcount()
-#        assert packed >= 0
-#        assert packable >= 0
-#        if packed > packable:
-#            # the argument has more items than the operation is able to process!
-#            # box_pos == 0 then it is already at the right place
-#            if box_pos != 0:
-#                args[i] = self.unpack(vbox, box_pos, packed - box_pos, self.input_type)
-#                self.update_arg_in_vector_pos(i, args[i])
-#                #self.update_input_output(self.pack)
-#                continue
-#            else:
-#                assert vbox is not None
-#                args[i] = vbox
-#                continue
-#        vboxes = self.vector_boxes_for_args(i)
-#        if packed < packable and len(vboxes) > 1:
-#            # the argument is scattered along different vector boxes
-#            args[i] = self.gather(vboxes, packable)
-#            self.update_arg_in_vector_pos(i, args[i])
-#            continue
-#        if box_pos != 0:
-#            # The vector box is at a position != 0 but it
-#            # is required to be at position 0. Unpack it!
-#            args[i] = self.unpack(vbox, box_pos, packed - box_pos, self.input_type)
-#            self.update_arg_in_vector_pos(i, args[i])
-#            continue
-#            #self.update_input_output(self.pack)
-#        #
-#        assert vbox is not None
-#        args[i] = vbox
 
 def extend(self, vbox, newtype):
     assert vbox.gettype() == newtype.gettype()
@@ -734,154 +648,6 @@ def expand(state, pack, args, arg, index):
         variables.append(vecop)
     args[index] = vecop
 
-class OpToVectorOp(object):
-    def __init__(self): #, restrictargs, typeoutput):
-        pass
-        #self.args = list(restrictargs) # do not use a tuple. rpython cannot union
-        #self.out = typeoutput
-
-class OpToVectorOpConv(OpToVectorOp):
-    def __init__(self, intype, outtype):
-        #self.from_size = intype.getsize()
-        #self.to_size = outtype.getsize()
-        #OpToVectorOp.__init__(self, (intype, ), outtype)
-        pass
-
-    def new_result_vector_box(self):
-        type = self.output_type.gettype()
-        size = self.to_size
-        count = self.output_type.getcount()
-        vec_reg_size = self.sched_data.vec_reg_size
-        if count * size > vec_reg_size:
-            count = vec_reg_size // size
-        signed = self.output_type.signed
-        assert type in ('i','f')
-        assert size > 0
-        assert count > 1
-        return BoxVector(type, count, size, signed)
-
-    def get_output_type_given(self, input_type, op):
-        return self.result_ptype
-
-    def get_input_type_given(self, output_type, op):
-        return self.arg_ptypes[0]
-
-    def force_input(self, ptype):
-        return self.arg_ptypes[0]
-
-class SignExtToVectorOp(OpToVectorOp):
-    def __init__(self, intype, outtype):
-        OpToVectorOp.__init__(self, intype, outtype)
-        self.size = -1
-
-    def before_argument_transform(self, args):
-        sizearg = args[1]
-        assert isinstance(sizearg, ConstInt)
-        self.size = sizearg.value
-
-    def new_result_vector_box(self):
-        type = self.output_type.gettype()
-        count = self.input_type.getcount()
-        vec_reg_size = self.sched_data.vec_reg_size
-        if count * self.size > vec_reg_size:
-            count = vec_reg_size // self.size
-        signed = self.input_type.signed
-        assert type in ('i','f')
-        assert self.size > 0
-        assert count > 1
-        return BoxVector(type, count, self.size, signed)
-
-    def get_output_type_given(self, input_type, op):
-        sizearg = op.getarg(1)
-        assert isinstance(sizearg, ConstInt)
-        output_type = input_type.clone()
-        output_type.setsize(sizearg.value)
-        return output_type
-
-    def get_input_type_given(self, output_type, op):
-        raise AssertionError("can never infer input type!")
-
-class LoadToVectorLoad(OpToVectorOp):
-    def __init__(self):
-        OpToVectorOp.__init__(self, (), TypeRestrict())
-
-    # OLD def before_argument_transform(self, args):
-        #count = min(self.output_type.getcount(), len(self.getoperations()))
-        #args.append(ConstInt(count))
-
-    def get_output_type_given(self, input_type, op):
-        return xxx#Type.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
-
-    def get_input_type_given(self, output_type, op):
-        return None
-
-class StoreToVectorStore(OpToVectorOp):
-    """ Storing operations are special because they are not allowed
-        to store to memory if the vector is not fully filled.
-        Thus a modified split_pack function.
-    """
-    def __init__(self):
-        OpToVectorOp.__init__(self, (None, None, TypeRestrict()), None)
-        self.has_descr = True
-
-    def must_be_full_but_is_not(self, pack):
-        vrs = self.sched_data.vec_reg_size
-        it = pack.input_type
-        return it.getsize() * it.getcount() < vrs
-
-    def get_output_type_given(self, input_type, op):
-        return None
-
-    def get_input_type_given(self, output_type, op):
-        return xxx#Type.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
-
-class PassThroughOp(OpToVectorOp):
-    """ This pass through is only applicable if the target
-        operation is capable of handling vector operations.
-        Guard true/false is such an example.
-    """
-    def __init__(self, args):
-        OpToVectorOp.__init__(self, args, None)
-
-    def get_output_type_given(self, input_type, op):
-        return None
-
-    def get_input_type_given(self, output_type, op):
-        raise AssertionError("cannot infer input type from output type")
-
-
-
-#def determine_input_output_types(pack, node, forward):
-#    """ This function is two fold. If moving forward, it
-#        gets an input type from the packs output type and returns
-#        the transformed packtype.
-#
-#        Moving backward, the origins pack input type is the output
-#        type and the transformation of the packtype (in reverse direction)
-#        is the input
-#    """
-#    op = node.getoperation()
-#    op2vecop = determine_trans(op)
-#    if forward:
-#        input_type = op2vecop.force_input(pack.output_type)
-#        output_type = op2vecop.get_output_type_given(input_type, op)
-#        if output_type:
-#            output_type = output_type.clone()
-#    else:
-#        # going backwards, things are not that easy anymore
-#        output_type = pack.input_type
-#        input_type = op2vecop.get_input_type_given(output_type, op)
-#        if input_type:
-#            input_type = input_type.clone()
-#
-#    return input_type, output_type
-
-def determine_trans(op):
-    op2vecop = trans.MAPPING.get(op.vector, None)
-    if op2vecop is None:
-        raise NotImplementedError("missing vecop for '%s'" % (op.getopname(),))
-    return op2vecop
-
 class VecScheduleState(SchedulerState):
     def __init__(self, graph, packset, cpu, costmodel):
         SchedulerState.__init__(self, graph)
@@ -902,8 +668,6 @@ class VecScheduleState(SchedulerState):
         loop = self.graph.loop
         self.unpack_from_vector(loop.jump)
         SchedulerState.post_schedule(self)
-
-        self.graph.loop.operations = self.oplist
 
         # add accumulation info to the descriptor
         #for version in self.loop.versions:
@@ -945,7 +709,6 @@ class VecScheduleState(SchedulerState):
             assert node.pack.numops() > 1
             for node in node.pack.operations:
                 scheduler.mark_emitted(node, self)
-            # TODO op2vecop = determine_trans(node.pack.leftmost())
             turn_to_vector(self, node.pack)
             return True
         return False
@@ -1219,3 +982,239 @@ class AccumPair(Pair):
         self.left = left
         self.right = right
         self.accum = accum
+
+#class OpToVectorOp(object):
+#    def __init__(self): #, restrictargs, typeoutput):
+#        pass
+#        #self.args = list(restrictargs) # do not use a tuple. rpython cannot union
+#        #self.out = typeoutput
+#
+#class OpToVectorOpConv(OpToVectorOp):
+#    def __init__(self, intype, outtype):
+#        #self.from_size = intype.getsize()
+#        #self.to_size = outtype.getsize()
+#        #OpToVectorOp.__init__(self, (intype, ), outtype)
+#        pass
+#
+#    def new_result_vector_box(self):
+#        type = self.output_type.gettype()
+#        size = self.to_size
+#        count = self.output_type.getcount()
+#        vec_reg_size = self.sched_data.vec_reg_size
+#        if count * size > vec_reg_size:
+#            count = vec_reg_size // size
+#        signed = self.output_type.signed
+#        assert type in ('i','f')
+#        assert size > 0
+#        assert count > 1
+#        return BoxVector(type, count, size, signed)
+#
+#    def get_output_type_given(self, input_type, op):
+#        return self.result_ptype
+#
+#    def get_input_type_given(self, output_type, op):
+#        return self.arg_ptypes[0]
+#
+#    def force_input(self, ptype):
+#        return self.arg_ptypes[0]
+#
+#class SignExtToVectorOp(OpToVectorOp):
+#    def __init__(self, intype, outtype):
+#        OpToVectorOp.__init__(self, intype, outtype)
+#        self.size = -1
+#
+#    def before_argument_transform(self, args):
+#        sizearg = args[1]
+#        assert isinstance(sizearg, ConstInt)
+#        self.size = sizearg.value
+#
+#    def new_result_vector_box(self):
+#        type = self.output_type.gettype()
+#        count = self.input_type.getcount()
+#        vec_reg_size = self.sched_data.vec_reg_size
+#        if count * self.size > vec_reg_size:
+#            count = vec_reg_size // self.size
+#        signed = self.input_type.signed
+#        assert type in ('i','f')
+#        assert self.size > 0
+#        assert count > 1
+#        return BoxVector(type, count, self.size, signed)
+#
+#    def get_output_type_given(self, input_type, op):
+#        sizearg = op.getarg(1)
+#        assert isinstance(sizearg, ConstInt)
+#        output_type = input_type.clone()
+#        output_type.setsize(sizearg.value)
+#        return output_type
+#
+#    def get_input_type_given(self, output_type, op):
+#        raise AssertionError("can never infer input type!")
+#
+#class LoadToVectorLoad(OpToVectorOp):
+#    def __init__(self):
+#        OpToVectorOp.__init__(self, (), TypeRestrict())
+#
+#    # OLD def before_argument_transform(self, args):
+#        #count = min(self.output_type.getcount(), len(self.getoperations()))
+#        #args.append(ConstInt(count))
+#
+#    def get_output_type_given(self, input_type, op):
+#        return xxx#Type.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
+#
+#    def get_input_type_given(self, output_type, op):
+#        return None
+#
+#class StoreToVectorStore(OpToVectorOp):
+#    """ Storing operations are special because they are not allowed
+#        to store to memory if the vector is not fully filled.
+#        Thus a modified split_pack function.
+#    """
+#    def __init__(self):
+#        OpToVectorOp.__init__(self, (None, None, TypeRestrict()), None)
+#        self.has_descr = True
+#
+#    def must_be_full_but_is_not(self, pack):
+#        vrs = self.sched_data.vec_reg_size
+#        it = pack.input_type
+#        return it.getsize() * it.getcount() < vrs
+#
+#    def get_output_type_given(self, input_type, op):
+#        return None
+#
+#    def get_input_type_given(self, output_type, op):
+#        return xxx#Type.by_descr(op.getdescr(), self.sched_data.vec_reg_size)
+#
+#class PassThroughOp(OpToVectorOp):
+#    """ This pass through is only applicable if the target
+#        operation is capable of handling vector operations.
+#        Guard true/false is such an example.
+#    """
+#    def __init__(self, args):
+#        OpToVectorOp.__init__(self, args, None)
+#
+#    def get_output_type_given(self, input_type, op):
+#        return None
+#
+#    def get_input_type_given(self, output_type, op):
+#        raise AssertionError("cannot infer input type from output type")
+#
+#
+#
+##def determine_input_output_types(pack, node, forward):
+##    """ This function is two fold. If moving forward, it
+##        gets an input type from the packs output type and returns
+##        the transformed packtype.
+##
+##        Moving backward, the origins pack input type is the output
+##        type and the transformation of the packtype (in reverse direction)
+##        is the input
+##    """
+##    op = node.getoperation()
+##    op2vecop = determine_trans(op)
+##    if forward:
+##        input_type = op2vecop.force_input(pack.output_type)
+##        output_type = op2vecop.get_output_type_given(input_type, op)
+##        if output_type:
+##            output_type = output_type.clone()
+##    else:
+##        # going backwards, things are not that easy anymore
+##        output_type = pack.input_type
+##        input_type = op2vecop.get_input_type_given(output_type, op)
+##        if input_type:
+##            input_type = input_type.clone()
+##
+##    return input_type, output_type
+#
+#def determine_trans(op):
+#    op2vecop = trans.MAPPING.get(op.vector, None)
+#    if op2vecop is None:
+#        raise NotImplementedError("missing vecop for '%s'" % (op.getopname(),))
+#    return op2vecop
+
+
+#def before_argument_transform(self, args):
+#    pass
+
+#def transform_result(self, result):
+#    if result is None:
+#        return None
+#    vbox = self.new_result_vector_box()
+#    #
+#    # mark the position and the vbox in the hash
+#    for i, node in enumerate(self.getoperations()):
+#        if i >= vbox.getcount():
+#            break
+#        op = node.getoperation()
+#        self.sched_data.setvector_of_box(op, i, vbox)
+#    return vbox
+
+#def new_result_vector_box(self):
+#    type = self.output_type.gettype()
+#    size = self.output_type.getsize()
+#    count = min(self.output_type.getcount(), len(self.pack.operations))
+#    signed = self.output_type.signed
+#    return BoxVector(type, count, size, signed)
+
+#def getoperations(self):
+#    return self.pack.operations
+
+#def transform_arguments(self, args):
+#    """ Transforming one argument to a vector box argument
+#        The following cases can occur:
+#        1) argument is present in the box_to_vbox map.
+#           a) vector can be reused immediatly (simple case)
+#           b) vector is to big
+#           c) vector is to small
+#        2) argument is not known to reside in a vector
+#           a) expand vars/consts before the label and add as argument
+#           b) expand vars created in the loop body
+#    """
+#    for i,arg in enumerate(args):
+#        if arg.returns_vector():
+#            continue
+#        if not self.is_vector_arg(i):
+#            continue
+#        box_pos, vbox = self.sched_data.getvector_of_box(arg)
+#        if not vbox:
+#            # constant/variable expand this box
+#            vbox = self.expand(arg, i)
+#            self.sched_data.setvector_of_box(arg, 0, vbox)
+#            box_pos = 0
+#        # convert size i64 -> i32, i32 -> i64, ...
+#        if self.input_type.getsize() > 0 and \
+#           self.input_type.getsize() != vbox.getsize():
+#            vbox = self.extend(vbox, self.input_type)
+
+#        # use the input as an indicator for the pack type
+#        packable = self.input_type.getcount()
+#        packed = vbox.getcount()
+#        assert packed >= 0
+#        assert packable >= 0
+#        if packed > packable:
+#            # the argument has more items than the operation is able to process!
+#            # box_pos == 0 then it is already at the right place
+#            if box_pos != 0:
+#                args[i] = self.unpack(vbox, box_pos, packed - box_pos, self.input_type)
+#                self.update_arg_in_vector_pos(i, args[i])
+#                #self.update_input_output(self.pack)
+#                continue
+#            else:
+#                assert vbox is not None
+#                args[i] = vbox
+#                continue
+#        vboxes = self.vector_boxes_for_args(i)
+#        if packed < packable and len(vboxes) > 1:
+#            # the argument is scattered along different vector boxes
+#            args[i] = self.gather(vboxes, packable)
+#            self.update_arg_in_vector_pos(i, args[i])
+#            continue
+#        if box_pos != 0:
+#            # The vector box is at a position != 0 but it
+#            # is required to be at position 0. Unpack it!
+#            args[i] = self.unpack(vbox, box_pos, packed - box_pos, self.input_type)
+#            self.update_arg_in_vector_pos(i, args[i])
+#            continue
+#            #self.update_input_output(self.pack)
+#        #
+#        assert vbox is not None
+#        args[i] = vbox

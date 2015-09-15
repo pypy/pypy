@@ -734,11 +734,15 @@ class InputArgInt(IntOp, AbstractInputArg):
     def __init__(self, intval=0):
         self.setint(intval)
         self.datatype = 'i'
+        self.bytesize = INT_WORD
+        self.signed = True
 
 class InputArgFloat(FloatOp, AbstractInputArg):
     def __init__(self, f=longlong.ZEROF):
         self.setfloatstorage(f)
         self.datatype = 'f'
+        self.bytesize = FLOAT_WORD
+        self.signed = True
 
     @staticmethod
     def fromfloat(x):
