@@ -180,6 +180,8 @@ static void _stm_rehash_hashtable(stm_hashtable_t *hashtable,
         char *to_read_from = segment_base;
         if (segnum != -1) {
             /* -> compaction during major GC */
+            /* it's possible that we just created this entry, and it wasn't
+               touched in this segment yet. Then seg0 is up-to-date.  */
             to_read_from = get_page_status_in(segnum, (uintptr_t)entry / 4096UL) == PAGE_NO_ACCESS
                 ? stm_object_pages : to_read_from;
             if (((struct stm_hashtable_entry_s *)
@@ -359,7 +361,7 @@ object_t *stm_hashtable_read(object_t *hobj, stm_hashtable_t *hashtable,
                              uintptr_t key)
 {
     stm_hashtable_entry_t *e = stm_hashtable_lookup(hobj, hashtable, key);
-    stm_read((object_t *)e);
+    // stm_read((object_t *)e); - done in _lookup()
     return e->object;
 }
 

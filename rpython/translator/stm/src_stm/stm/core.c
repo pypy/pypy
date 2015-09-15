@@ -1212,8 +1212,6 @@ long _stm_start_transaction(stm_thread_local_t *tl)
                                  in abort_data_structures_from_segment_num() */
         STM_SEGMENT->nursery_mark = ((stm_char *)_stm_nursery_start +
                                      stm_fill_mark_nursery_bytes);
-    } else if (repeat_count >= 5) {
-        _stm_become_inevitable("too many retries");
     }
     return repeat_count;
 }

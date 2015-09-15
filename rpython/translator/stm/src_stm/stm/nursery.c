@@ -778,8 +778,16 @@ static object_t *allocate_shadow(object_t *obj)
     char *realobj = REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
     size_t size = stmcb_size_rounded_up((struct object_s *)realobj);
 
-    /* always gets outside as a large object for now (XXX?) */
-    object_t *nobj = (object_t *)allocate_outside_nursery_large(size);
+    /* always gets outside */
+    object_t *nobj;
+    if (size > GC_LAST_SMALL_SIZE) {
+        /* case 1: object is not small enough.
+           Ask gcpage.c for an allocation via largemalloc. */
+        nobj = (object_t *)allocate_outside_nursery_large(size);
+    } else {
+        /* case "small enough" */
+        nobj = (object_t *)allocate_outside_nursery_small(size);
+    }
 
     /* Initialize the shadow enough to be considered a valid gc object.
        If the original object stays alive at the next minor collection,
