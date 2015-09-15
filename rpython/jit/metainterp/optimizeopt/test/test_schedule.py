@@ -82,13 +82,14 @@ class SchedulerBaseTest(DependencyBaseTest):
         jitdriver_sd = FakeJitDriverStaticData()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, 0)
         opt.packset = packset
-        if not prepend_invariant:
-            state.prepend_invariant_operations = lambda list, _: list
         opt.combine_packset()
         opt.schedule(state)
         # works for now. might be the wrong class?
         # wrap label + operations + jump it in tree loop otherwise
-        return state.graph.loop
+        loop = state.graph.loop
+        if prepend_invariant:
+            loop.operations = loop.prefix + loop.operations
+        return loop
 
 class Test(SchedulerBaseTest, LLtypeMixin):
 
@@ -358,13 +359,12 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         """, False)
         self.assert_equal(loop2, loop3)
 
-
     def test_split_load_store(self):
         loop1 = self.parse_trace("""
-        i10 = raw_load_f(p0, i1, descr=float)
-        i11 = raw_load_f(p0, i2, descr=float)
-        i12 = raw_load_f(p0, i3, descr=float)
-        i13 = raw_load_f(p0, i4, descr=float)
+        i10 = raw_load_i(p0, i1, descr=float)
+        i11 = raw_load_i(p0, i2, descr=float)
+        i12 = raw_load_i(p0, i3, descr=float)
+        i13 = raw_load_i(p0, i4, descr=float)
         raw_store(p0, i3, i10, descr=float)
         raw_store(p0, i4, i11, descr=float)
         """)
@@ -454,11 +454,12 @@ class Test(SchedulerBaseTest, LLtypeMixin):
 
     def test_combine_packset_nearly_empty_pack(self):
         trace = self.parse_trace("""
-        i10 = int_add(i1, i3)
-        i11 = int_add(i2, i3)
+        i10 = int_add(i1, i1)
+        i11 = int_add(i2, i2)
+        i12 = int_add(i3, i3)
         """)
         pack = self.pack(trace, 0, 2)
         packset = FakePackSet([pack])
         packset.split_overloaded_packs()
-        assert len(packset.packs) == 0
+        assert len(packset.packs) == 1
 

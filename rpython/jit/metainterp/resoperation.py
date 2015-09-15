@@ -92,7 +92,13 @@ def ResOperation(opnum, args, descr=None):
     return op
 
 def VecOperation(opnum, args, baseop, count, descr=None):
-    return VecOperationNew(opnum, args, baseop.datatype, baseop.bytesize, baseop.signed, count, descr)
+    datatype = baseop.datatype
+    bytesize = baseop.bytesize
+    if baseop.is_typecast():
+        ft,tt = baseop.cast_types()
+        datatype = tt
+        bytesize = baseop.cast_to_bytesize()
+    return VecOperationNew(opnum, args, datatype, bytesize, baseop.signed, count, descr)
 
 def VecOperationNew(opnum, args, datateyp, bytesize, signed, count, descr=None):
     op = ResOperation(opnum, args, descr)
@@ -184,7 +190,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
     boolreflex = -1
     boolinverse = -1
     vector = -1 # -1 means, no vector equivalent, -2 it is a vector statement
-    casts = ('\x00', -1, '\x00', -1)
+    casts = ('\x00', -1, '\x00', -1, -1)
     count = -1 
 
     def getopnum(self):
@@ -271,7 +277,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
                 memo[self] = num
             if self.is_vector():
                 assert isinstance(self, VectorOp)
-                sres = 'v%d[%dx%s%d] = ' % (num, self.count, self.datatype, self.bytesize * 8)
+                sres = self.vector_repr(num) + ' = '
             else:
                 sres = self.type + str(num) + ' = '
         #if self.result is not None:
@@ -302,8 +308,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
             memo[self] = num
         if self.is_vector():
             assert isinstance(self, VectorOp)
-            return 'v%d[%dx%s%d]' % (num, self.count, self.datatype,
-                                     self.bytesize * 8)
+            return self.vector_repr(num)
         return self.type + str(num)
 
     def __repr__(self):
@@ -451,14 +456,17 @@ class AbstractResOp(AbstractResOpOrInputArg):
     def is_typecast(self):
         return False
 
+    def cast_count(self):
+        return self.casts[4]
+
     def cast_types(self):
         return self.casts[0], self.casts[2]
 
     def cast_to_bytesize(self):
-        return self.casts[1]
+        return self.casts[3]
 
     def cast_from_bytesize(self):
-        return self.casts[3]
+        return self.casts[1]
 
     def casts_up(self):
         return self.cast_to_bytesize() > self.cast_from_bytesize()
@@ -657,6 +665,11 @@ class CastOp(object):
             return self.bytesize
         return (type, size)
 
+    def cast_input_bytesize(self, vec_reg_size):
+        count = vec_reg_size // self.cast_to_bytesize()
+        size = self.cast_from_bytesize() * self.count
+        return size
+
 class SignExtOp(object):
     _mixin_ = True
 
@@ -676,11 +689,18 @@ class SignExtOp(object):
         arg = self.getarg(0)
         return arg.bytesize
 
+    def cast_count(self):
+        return self.casts[4]
+
+
 class VectorOp(object):
     _mixin_ = True
 
-    def repr_rpython(self):
-        return repr_rpython(self, 'bv')
+    def vector_repr(self, num):
+        if self.opnum in (rop.VEC_UNPACK_I, rop.VEC_UNPACK_F):
+            return self.type + str(num)
+        return 'v%d[%dx%s%d]' % (num, self.count, self.datatype,
+                                 self.bytesize * 8)
 
     def vector_bytesize(self):
         assert self.count > 0
@@ -811,7 +831,6 @@ class UnaryOp(object):
             self._arg0 = box
         else:
             raise IndexError
-
 
 class BinaryOp(object):
     _mixin_ = True
@@ -1596,4 +1615,14 @@ class OpHelpers(object):
             assert datatype == 'f'
             opnum = rop.VEC_PACK_F
         return VecOperationNew(opnum, args, datatype, bytesize, signed, count)
+
+    @staticmethod
+    def create_vec_unpack(datatype, args, bytesize, signed, count):
+        if datatype == 'i':
+            opnum = rop.VEC_UNPACK_I
+        else:
+            assert datatype == 'f'
+            opnum = rop.VEC_UNPACK_F
+        return VecOperationNew(opnum, args, datatype, bytesize, signed, count)
+
 

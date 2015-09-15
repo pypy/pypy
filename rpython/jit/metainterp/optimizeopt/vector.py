@@ -21,8 +21,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleState,
-        Scheduler, Pack, Pair, AccumPair, vectorbox_outof_box, getpackopnum,
-        getunpackopnum)
+        Scheduler, Pack, Pair, AccumPair)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp, Accum)
 from rpython.rlib import listsort
@@ -44,6 +43,11 @@ class VectorLoop(object):
 
     def operation_list(self):
         return [self.label] + self.operations + [self.jump]
+
+    def assemble_oplist(self):
+        oplist = self.prefix + [self.prefix_label] + \
+                 loop.operations + [loop.jump]
+        return oplist
 
 def optimize_vector(metainterp_sd, jitdriver_sd, warmstate, loop_info, loop_ops):
     """ Enter the world of SIMD. Bails if it cannot transform the trace. """
@@ -75,7 +79,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate, loop_info, loop_ops)
                       (opt.unroll_count+1, len(version.operations), len(loop.operations), nano))
         debug_stop("vec-opt-loop")
         #
-        return info, loop.operations + [loop.jump]
+        return info, loop.assemble_oplist()
     except NotAVectorizeableLoop:
         debug_stop("vec-opt-loop")
         # vectorization is not possible
@@ -625,7 +629,7 @@ class X86_CostModel(CostModel):
         self.savings += -count
 
     def record_vector_pack(self, src, index, count):
-        if src.gettype() == FLOAT:
+        if src.datatype == FLOAT:
             if index == 1 and count == 1:
                 self.savings -= 2
                 return
@@ -826,6 +830,7 @@ class PackSet(object):
 
     def split_overloaded_packs(self):
         newpacks = []
+        import pdb; pdb.set_trace()
         for i,pack in enumerate(self.packs):
             load = pack.pack_load(self.vec_reg_size)
             if load > Pack.FULL:
