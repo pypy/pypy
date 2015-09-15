@@ -88,7 +88,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                      rop.ENTER_PORTAL_FRAME, rop.LEAVE_PORTAL_FRAME,
                      rop.MARK_OPAQUE_PTR,
                      rop.JIT_DEBUG, rop.KEEPALIVE,
-                     rop.QUASIIMMUT_FIELD, rop.RECORD_KNOWN_CLASS,
+                     rop.QUASIIMMUT_FIELD, rop.RECORD_EXACT_CLASS,
                      ):
             self.newop(op)
             return

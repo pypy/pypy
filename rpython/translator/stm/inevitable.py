@@ -19,7 +19,7 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'stack_current', 'gc_stack_bottom', 'cast_ptr_to_int',
     'jit_force_virtual', 'jit_force_virtualizable',
     'jit_force_quasi_immutable', 'jit_marker', 'jit_is_virtual',
-    'jit_record_known_class', 'jit_ffi_save_result',
+    'jit_record_exact_class', 'jit_ffi_save_result',
     'gc_identityhash', 'gc_id', 'gc_can_move', 'gc__collect',
     'gc_adr_of_root_stack_top', 'gc_add_memory_pressure',
     'gc_pin', 'gc_unpin', 'gc__is_pinned',
