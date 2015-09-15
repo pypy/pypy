@@ -573,13 +573,15 @@ class Optimizer(Optimization):
                 return
             else:
                 guard_op = self.replace_op_with(op, op.getopnum())
-                if self._last_guard_op:
+                if self._last_guard_op and self._last_guard_count < 5:
                     op = self._copy_resume_data_from(guard_op,
                                                      self._last_guard_op)
+                    self._last_guard_count += 1
                 else:
                     op = self.store_final_boxes_in_guard(guard_op,
                                                          pendingfields)
                     self._last_guard_op = op
+                    self._last_guard_count = 0
                     # for unrolling
                     for farg in op.getfailargs():
                         if farg:
