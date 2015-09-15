@@ -5,7 +5,8 @@ try:
 except ImportError:
     py.test.skip('cffi required')
 
-srcdir = py.path.local(__file__).join("..", "..", "src")
+from rpython.rlib import rvmprof
+srcdir = py.path.local(rvmprof.__file__).join("..", "src")
 
 ffi = cffi.FFI()
 ffi.cdef("""
@@ -17,6 +18,8 @@ long buffer[];
 """)
 
 lib = ffi.verify("""
+#define PYPY_JIT_CODEMAP
+
 volatile int pypy_codemap_currently_invalid = 0;
 
 long buffer[] = {0, 0, 0, 0, 0};
@@ -39,7 +42,7 @@ long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
 }
 
 
-""" + open(str(srcdir.join("get_custom_offset.c"))).read())
+""" + open(str(srcdir.join("vmprof_get_custom_offset.h"))).read())
 
 class TestDirect(object):
     def test_infrastructure(self):

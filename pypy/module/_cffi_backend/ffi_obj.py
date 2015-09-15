@@ -10,8 +10,8 @@ from pypy.module._cffi_backend import get_dict_rtld_constants
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
 from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle
-from pypy.module._cffi_backend import cbuffer, func, cgc, wrapper
-from pypy.module._cffi_backend import cffi_opcode
+from pypy.module._cffi_backend import cbuffer, func, wrapper
+from pypy.module._cffi_backend import cffi_opcode, allocator
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
 
@@ -44,6 +44,10 @@ class FreeCtxObj(object):
 
 
 class W_FFIObject(W_Root):
+    ACCEPT_STRING = ACCEPT_STRING
+    ACCEPT_CTYPE  = ACCEPT_CTYPE
+    ACCEPT_CDATA  = ACCEPT_CDATA
+
     w_gc_wref_remove = None
 
     @jit.dont_look_inside
@@ -95,6 +99,23 @@ class W_FFIObject(W_Root):
             else:
                 raise KeyError    # don't handle this error case here
 
+    def _ffi_bad_type(self, input_text):
+        info = self.ctxobj.info
+        errmsg = rffi.charp2str(info.c_error_message)
+        if len(input_text) > 500:
+            raise oefmt(self.w_FFIError, "%s", errmsg)
+        printable_text = ['?'] * len(input_text)
+        for i in range(len(input_text)):
+            if ' ' <= input_text[i] < '\x7f':
+                printable_text[i] = input_text[i]
+            elif input_text[i] == '\t' or input_text[i] == '\n':
+                printable_text[i] = ' '
+        num_spaces = rffi.getintfield(info, 'c_error_location')
+        raise oefmt(self.w_FFIError, "%s\n%s\n%s^",
+                    rffi.charp2str(info.c_error_message),
+                    ''.join(printable_text),
+                    " " * num_spaces)
+
     @jit.dont_look_inside
     def parse_string_to_type(self, string, consider_fn_as_fnptr):
         # This cannot be made @elidable because it calls general space
@@ -108,11 +129,7 @@ class W_FFIObject(W_Root):
             info = self.ctxobj.info
             index = parse_c_type.parse_c_type(info, string)
             if index < 0:
-                num_spaces = rffi.getintfield(info, 'c_error_location')
-                raise oefmt(self.w_FFIError, "%s\n%s\n%s^",
-                            rffi.charp2str(info.c_error_message),
-                            string,
-                            " " * num_spaces)
+                raise self._ffi_bad_type(string)
             x = realize_c_type.realize_c_type_or_func(
                 self, self.ctxobj.info.c_output, index)
             assert x is not None
@@ -263,8 +280,9 @@ manipulated with:
 
 
     @unwrap_spec(w_python_callable=WrappedDefault(None),
-                 w_error=WrappedDefault(None))
-    def descr_callback(self, w_cdecl, w_python_callable, w_error):
+                 w_error=WrappedDefault(None),
+                 w_onerror=WrappedDefault(None))
+    def descr_callback(self, w_cdecl, w_python_callable, w_error, w_onerror):
         """\
 Return a callback object or a decorator making such a callback object.
 'cdecl' must name a C function pointer type.  The callback invokes the
@@ -277,14 +295,16 @@ kept alive for as long as the callback may be invoked from the C code."""
         space = self.space
         if not space.is_none(w_python_callable):
             return ccallback.W_CDataCallback(space, w_ctype,
-                                             w_python_callable, w_error)
+                                             w_python_callable, w_error,
+                                             w_onerror)
         else:
             # decorator mode: returns a single-argument function
-            return space.appexec([w_ctype, w_error],
-            """(ctype, error):
+            return space.appexec([w_ctype, w_error, w_onerror],
+            """(ctype, error, onerror):
                 import _cffi_backend
                 return lambda python_callable: (
-                    _cffi_backend.callback(ctype, python_callable, error))""")
+                    _cffi_backend.callback(ctype, python_callable,
+                                           error, onerror))""")
 
 
     def descr_cast(self, w_arg, w_ob):
@@ -328,10 +348,7 @@ Return a new cdata object that points to the same data.
 Later, when this new cdata object is garbage-collected,
 'destructor(old_cdata_object)' will be called."""
         #
-        return cgc.gc_weakrefs_build(self, w_cdata, w_destructor)
-
-    def descr___gc_wref_remove(self, w_ref):
-        return cgc.gc_wref_remove(self, w_ref)
+        return w_cdata.with_gc(w_destructor)
 
 
     @unwrap_spec(replace_with=str)
@@ -398,7 +415,31 @@ used for a longer time.  Be careful about that when copying the
 pointer to the memory somewhere else, e.g. into another structure."""
         #
         w_ctype = self.ffi_type(w_arg, ACCEPT_STRING | ACCEPT_CTYPE)
-        return w_ctype.newp(w_init)
+        return w_ctype.newp(w_init, allocator.default_allocator)
+
+
+    @unwrap_spec(w_alloc=WrappedDefault(None),
+                 w_free=WrappedDefault(None),
+                 should_clear_after_alloc=int)
+    def descr_new_allocator(self, w_alloc, w_free,
+                            should_clear_after_alloc=1):
+        """\
+Return a new allocator, i.e. a function that behaves like ffi.new()
+but uses the provided low-level 'alloc' and 'free' functions.
+
+'alloc' is called with the size as argument.  If it returns NULL, a
+MemoryError is raised.  'free' is called with the result of 'alloc'
+as argument.  Both can be either Python function or directly C
+functions.  If 'free' is None, then no free function is called.
+If both 'alloc' and 'free' are None, the default is used.
+
+If 'should_clear_after_alloc' is set to False, then the memory
+returned by 'alloc' is assumed to be already cleared (or you are
+fine with garbage); otherwise CFFI will clear it.
+        """
+        #
+        return allocator.new_allocator(self, w_alloc, w_free,
+                                       should_clear_after_alloc)
 
 
     def descr_new_handle(self, w_arg):
@@ -526,12 +567,17 @@ where you have an 'ffi' object but not any associated 'lib' object."""
 
 
 @jit.dont_look_inside
-def W_FFIObject___new__(space, w_subtype, __args__):
-    r = space.allocate_instance(W_FFIObject, w_subtype)
+def make_plain_ffi_object(space, w_ffitype=None):
+    if w_ffitype is None:
+        w_ffitype = space.gettypefor(W_FFIObject)
+    r = space.allocate_instance(W_FFIObject, w_ffitype)
     # get in 'src_ctx' a NULL which translation doesn't consider to be constant
     src_ctx = rffi.cast(parse_c_type.PCTX, 0)
     r.__init__(space, src_ctx)
-    return space.wrap(r)
+    return r
+
+def W_FFIObject___new__(space, w_subtype, __args__):
+    return space.wrap(make_plain_ffi_object(space, w_subtype))
 
 def make_CData(space):
     return space.gettypefor(W_CData)
@@ -565,7 +611,6 @@ W_FFIObject.typedef = TypeDef(
                                      W_FFIObject.set_errno,
                                      doc=W_FFIObject.doc_errno,
                                      cls=W_FFIObject),
-        __gc_wref_remove = interp2app(W_FFIObject.descr___gc_wref_remove),
         addressof   = interp2app(W_FFIObject.descr_addressof),
         alignof     = interp2app(W_FFIObject.descr_alignof),
         buffer      = interp2app(W_FFIObject.descr_buffer),
@@ -579,6 +624,7 @@ W_FFIObject.typedef = TypeDef(
         getctype    = interp2app(W_FFIObject.descr_getctype),
         integer_const = interp2app(W_FFIObject.descr_integer_const),
         new         = interp2app(W_FFIObject.descr_new),
+        new_allocator = interp2app(W_FFIObject.descr_new_allocator),
         new_handle  = interp2app(W_FFIObject.descr_new_handle),
         offsetof    = interp2app(W_FFIObject.descr_offsetof),
         sizeof      = interp2app(W_FFIObject.descr_sizeof),

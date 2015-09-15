@@ -675,3 +675,44 @@ def test_import_from_mixin():
         import_from_mixin(M)
     assert A.f is not M.f
     assert A.f.__module__ != M.f.__module__
+
+
+def test_import_from_mixin_immutable_fields():
+    class A(object):
+        _immutable_fields_ = ['a']
+
+    class B(object):
+        _immutable_fields_ = ['b']
+        import_from_mixin(A)
+
+    assert B._immutable_fields_ == ['b', 'a']
+    assert A._immutable_fields_ == ['a']
+
+
+    class B(object):
+        import_from_mixin(A)
+
+    assert B._immutable_fields_ == ['a']
+
+    class C(A):
+        _immutable_fields_ = ['c']
+
+
+    class B(object):
+        import_from_mixin(C)
+
+    assert B._immutable_fields_ == ['c', 'a']
+
+    class B(object):
+        _immutable_fields_ = ['b']
+        import_from_mixin(C)
+
+    assert B._immutable_fields_ == ['b', 'c', 'a']
+
+
+    class B(object):
+        _immutable_fields_ = ['b']
+    class BA(B):
+        import_from_mixin(C)
+
+    assert BA._immutable_fields_ == ['c', 'a']

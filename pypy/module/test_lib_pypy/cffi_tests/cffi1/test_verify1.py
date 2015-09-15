@@ -2118,25 +2118,19 @@ def test_verify_dlopen_flags():
     try:
         ffi1 = FFI()
         ffi1.cdef("int foo_verify_dlopen_flags;")
-
-        sys.setdlopenflags(ffi1.RTLD_GLOBAL | ffi1.RTLD_LAZY)
+        sys.setdlopenflags(ffi1.RTLD_GLOBAL | ffi1.RTLD_NOW)
         lib1 = ffi1.verify("int foo_verify_dlopen_flags;")
-        lib2 = get_second_lib()
-
-        lib1.foo_verify_dlopen_flags = 42
-        assert lib2.foo_verify_dlopen_flags == 42
-        lib2.foo_verify_dlopen_flags += 1
-        assert lib1.foo_verify_dlopen_flags == 43
     finally:
         sys.setdlopenflags(old)
 
-def get_second_lib():
-    # Hack, using modulename makes the test fail
     ffi2 = FFI()
-    ffi2.cdef("int foo_verify_dlopen_flags;")
-    lib2 = ffi2.verify("int foo_verify_dlopen_flags;",
-                       flags=ffi2.RTLD_GLOBAL | ffi2.RTLD_LAZY)
-    return lib2
+    ffi2.cdef("int *getptr(void);")
+    lib2 = ffi2.verify("""
+        extern int foo_verify_dlopen_flags;
+        static int *getptr(void) { return &foo_verify_dlopen_flags; }
+    """)
+    p = lib2.getptr()
+    assert ffi1.addressof(lib1, 'foo_verify_dlopen_flags') == p
 
 def test_consider_not_implemented_function_type():
     ffi = FFI()
@@ -2237,3 +2231,39 @@ def test_unsupported_some_primitive_types():
     #
     ffi.cdef("typedef int... foo_t;")
     py.test.raises(VerificationError, ffi.verify, "typedef float foo_t;")
+
+def test_windows_dllimport_data():
+    if sys.platform != 'win32':
+        py.test.skip("Windows only")
+    from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+    tmpfile = udir.join('dllimport_data.c')
+    tmpfile.write('int my_value = 42;\n')
+    ffi = FFI()
+    ffi.cdef("int my_value;")
+    lib = ffi.verify("extern __declspec(dllimport) int my_value;",
+                     sources = [str(tmpfile)])
+    assert lib.my_value == 42
+
+def test_macro_var():
+    ffi = FFI()
+    ffi.cdef("int myarray[50], my_value;")
+    lib = ffi.verify("""
+        int myarray[50];
+        int *get_my_value(void) {
+            static int index = 0;
+            return &myarray[index++];
+        }
+        #define my_value (*get_my_value())
+    """)
+    assert lib.my_value == 0             # [0]
+    lib.my_value = 42                    # [1]
+    assert lib.myarray[1] == 42
+    assert lib.my_value == 0             # [2]
+    lib.myarray[3] = 63
+    assert lib.my_value == 63            # [3]
+    p = ffi.addressof(lib, 'my_value')   # [4]
+    assert p[-1] == 63
+    assert p[0] == 0
+    assert p == lib.myarray + 4
+    p[1] = 82
+    assert lib.my_value == 82            # [5]

@@ -3,7 +3,7 @@ from rpython.translator.c.test.test_genc import compile
 
 
 def test_untranslated():
-    assert get_compiler_info() == "untranslated"
+    assert get_compiler_info() == "(untranslated)"
 
 def fn(index):
     cc = get_compiler_info()

@@ -4,11 +4,6 @@ from .cffi_opcode import *
 
 VERSION = "0x2601"
 
-try:
-    int_type = (int, long)
-except NameError:    # Python 3
-    int_type = int
-
 
 class GlobalExpr:
     def __init__(self, name, address, type_op, size=0, check_value=0):
@@ -473,6 +468,10 @@ class Recompiler:
             if tp.is_integer_type() and tp.name != '_Bool':
                 converter = '_cffi_to_c_int'
                 extraarg = ', %s' % tp.name
+            elif isinstance(tp, model.UnknownFloatType):
+                # don't check with is_float_type(): it may be a 'long
+                # double' here, and _cffi_to_c_double would loose precision
+                converter = '(%s)_cffi_to_c_double' % (tp.get_c_name(''),)
             else:
                 converter = '(%s)_cffi_to_c_%s' % (tp.get_c_name(''),
                                                    tp.name.replace(' ', '_'))
@@ -527,6 +526,8 @@ class Recompiler:
         if isinstance(tp, model.BasePrimitiveType):
             if tp.is_integer_type():
                 return '_cffi_from_c_int(%s, %s)' % (var, tp.name)
+            elif isinstance(tp, model.UnknownFloatType):
+                return '_cffi_from_c_double(%s)' % (var,)
             elif tp.name != 'long double':
                 return '_cffi_from_c_%s(%s)' % (tp.name.replace(' ', '_'), var)
             else:
@@ -749,10 +750,12 @@ class Recompiler:
     # named structs or unions
 
     def _field_type(self, tp_struct, field_name, tp_field):
-        if isinstance(tp_field, model.ArrayType) and tp_field.length == '...':
-            ptr_struct_name = tp_struct.get_c_name('*')
-            actual_length = '_cffi_array_len(((%s)0)->%s)' % (
-                ptr_struct_name, field_name)
+        if isinstance(tp_field, model.ArrayType):
+            actual_length = tp_field.length
+            if actual_length == '...':
+                ptr_struct_name = tp_struct.get_c_name('*')
+                actual_length = '_cffi_array_len(((%s)0)->%s)' % (
+                    ptr_struct_name, field_name)
             tp_item = self._field_type(tp_struct, '%s[0]' % field_name,
                                        tp_field.item)
             tp_field = model.ArrayType(tp_item, actual_length)
@@ -775,7 +778,8 @@ class Recompiler:
             try:
                 if ftype.is_integer_type() or fbitsize >= 0:
                     # accept all integers, but complain on float or double
-                    prnt('  (void)((p->%s) << 1);' % fname)
+                    prnt("  (void)((p->%s) << 1);  /* check that '%s.%s' is "
+                         "an integer */" % (fname, cname, fname))
                     continue
                 # only accept exactly the type declared, except that '[]'
                 # is interpreted as a '*' and so will match any array length.
@@ -949,7 +953,7 @@ class Recompiler:
             prnt('{')
             prnt('  int n = (%s) <= 0;' % (name,))
             prnt('  *o = (unsigned long long)((%s) << 0);'
-                 '  /* check that we get an integer */' % (name,))
+                 '  /* check that %s is an integer */' % (name, name))
             if check_value is not None:
                 if check_value > 0:
                     check_value = '%dU' % (check_value,)
@@ -978,10 +982,6 @@ class Recompiler:
         if not self.target_is_python and tp.is_integer_type():
             type_op = CffiOp(OP_CONSTANT_INT, -1)
         else:
-            if not tp.sizeof_enabled():
-                raise ffiplatform.VerificationError(
-                    "constant '%s' is of type '%s', whose size is not known"
-                    % (name, tp._get_c_name()))
             if self.target_is_python:
                 const_kind = OP_DLOPEN_CONST
             else:
@@ -1054,8 +1054,10 @@ class Recompiler:
     # global variables
 
     def _global_type(self, tp, global_name):
-        if isinstance(tp, model.ArrayType) and tp.length == '...':
-            actual_length = '_cffi_array_len(%s)' % (global_name,)
+        if isinstance(tp, model.ArrayType):
+            actual_length = tp.length
+            if actual_length == '...':
+                actual_length = '_cffi_array_len(%s)' % (global_name,)
             tp_item = self._global_type(tp.item, '%s[0]' % global_name)
             tp = model.ArrayType(tp_item, actual_length)
         return tp
@@ -1064,18 +1066,36 @@ class Recompiler:
         self._do_collect_type(self._global_type(tp, name))
 
     def _generate_cpy_variable_decl(self, tp, name):
-        pass
+        prnt = self._prnt
+        tp = self._global_type(tp, name)
+        if isinstance(tp, model.ArrayType) and tp.length is None:
+            tp = tp.item
+            ampersand = ''
+        else:
+            ampersand = '&'
+        # This code assumes that casts from "tp *" to "void *" is a
+        # no-op, i.e. a function that returns a "tp *" can be called
+        # as if it returned a "void *".  This should be generally true
+        # on any modern machine.  The only exception to that rule (on
+        # uncommon architectures, and as far as I can tell) might be
+        # if 'tp' were a function type, but that is not possible here.
+        # (If 'tp' is a function _pointer_ type, then casts from "fn_t
+        # **" to "void *" are again no-ops, as far as I can tell.)
+        prnt('static ' + tp.get_c_name('*_cffi_var_%s(void)' % (name,)))
+        prnt('{')
+        prnt('  return %s(%s);' % (ampersand, name))
+        prnt('}')
+        prnt()
 
     def _generate_cpy_variable_ctx(self, tp, name):
         tp = self._global_type(tp, name)
         type_index = self._typesdict[tp]
-        type_op = CffiOp(OP_GLOBAL_VAR, type_index)
-        if tp.sizeof_enabled():
-            size = "sizeof(%s)" % (name,)
+        if self.target_is_python:
+            op = OP_GLOBAL_VAR
         else:
-            size = 0
+            op = OP_GLOBAL_VAR_F
         self._lsts["global"].append(
-            GlobalExpr(name, '&%s' % name, type_op, size))
+            GlobalExpr(name, '_cffi_var_%s' % name, CffiOp(op, type_index)))
 
     # ----------
     # emitting the opcodes for individual types
@@ -1088,8 +1108,15 @@ class Recompiler:
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, prim_index)
 
     def _emit_bytecode_UnknownIntegerType(self, tp, index):
-        s = '_cffi_prim_int(sizeof(%s), (((%s)-1) << 0) <= 0)' % (
-            tp.name, tp.name)
+        s = ('_cffi_prim_int(sizeof(%s), (\n'
+             '           ((%s)-1) << 0 /* check that %s is an integer type */\n'
+             '         ) <= 0)' % (tp.name, tp.name, tp.name))
+        self.cffi_types[index] = CffiOp(OP_PRIMITIVE, s)
+
+    def _emit_bytecode_UnknownFloatType(self, tp, index):
+        s = ('_cffi_prim_float(sizeof(%s) *\n'
+             '           (((%s)1) / 2) * 2 /* integer => 0, float => 1 */\n'
+             '         )' % (tp.name, tp.name))
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, s)
 
     def _emit_bytecode_RawFunctionType(self, tp, index):

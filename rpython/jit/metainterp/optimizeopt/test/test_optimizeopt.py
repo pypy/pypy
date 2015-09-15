@@ -187,7 +187,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, expected)
+        short = """
+        [i2]
+        p3 = cast_int_to_ptr(i2)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
 
     def test_reverse_of_cast_2(self):
         ops = """
@@ -7079,11 +7084,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # not obvious, because of the exception UnicodeDecodeError that
         # can be raised by ll_str2unicode()
 
-    def test_record_known_class(self):
+    def test_record_exact_class(self):
         ops = """
         [p0]
         p1 = getfield_gc(p0, descr=nextdescr)
-        record_known_class(p1, ConstClass(node_vtable))
+        record_exact_class(p1, ConstClass(node_vtable))
         guard_class(p1, ConstClass(node_vtable)) []
         jump(p1)
         """
@@ -7347,7 +7352,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_add(i1, i2)
         setfield_gc(p0, ii, descr=valuedescr)
         setfield_gc(p1, ii, descr=otherdescr)
-        jump(p0, p1, ii2, ii, ii, ii)
+        i7 = same_as(ii)
+        i8 = same_as(ii)
+        jump(p0, p1, ii2, ii, i8, i7)
         """
         expected = """
         [p0, p1, ii, ii2, i1, i2]
@@ -7356,7 +7363,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, ii, descr=otherdescr)
         jump(p0, p1, ii2, ii, ii, ii)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops, expected, preamble)
 
     def test_dont_specialize_on_boxes_equal(self):
         ops = """
@@ -8438,6 +8445,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_issue1080_infinitie_loop_virtual(self):
+        # Same comment as the following test_issue1080_infinitie_loop_simple
         ops = """
         [p10]
         p52 = getfield_gc(p10, descr=nextdescr) # inst_storage
@@ -8460,6 +8468,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_issue1080_infinitie_loop_simple(self):
+        # 'quasiimmutdescr' is a QuasiImmutDescr initialized with the
+        # 'quasibox' as the quasi-immutable instance.  We close the loop
+        # with ConstPtr(myptr), i.e. a different pointer.  The test checks
+        # that the resulting loop is invalid.
         ops = """
         [p69]
         quasiimmut_field(p69, descr=quasiimmutdescr)
@@ -8631,6 +8643,28 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p0, i2, p1)        
         """
         self.optimize_loop(ops, expected, preamble)
+
+    def test_getfield_proven_constant(self):
+        py.test.skip("not working")
+        ops = """
+        [p0]
+        i1 = getfield_gc(p0, descr=valuedescr)
+        guard_value(i1, 13) []
+        escape(i1)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        escape(13)
+        jump(p0)
+        """
+        expected_short = """
+        [p0]
+        i1 = getfield_gc(p0, descr=valuedescr)
+        guard_value(i1, 13) []
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected, expected_short=expected_short)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

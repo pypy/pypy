@@ -114,6 +114,18 @@ class AppTestFFIObj:
         assert ffi.callback("int(int)", lambda x: x + "", -66)(10) == -66
         assert ffi.callback("int(int)", lambda x: x + "", error=-66)(10) == -66
 
+    def test_ffi_callback_onerror(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        def myerror(exc, val, tb):
+            seen.append(exc)
+        cb = ffi.callback("int(int)", lambda x: x + "", onerror=myerror)
+        assert cb(10) == 0
+        cb = ffi.callback("int(int)", lambda x:int(1E100), -66, onerror=myerror)
+        assert cb(10) == -66
+        assert seen == [TypeError, OverflowError]
+
     def test_ffi_callback_decorator(self):
         import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
@@ -121,6 +133,37 @@ class AppTestFFIObj:
         deco = ffi.callback("int(int)", error=-66)
         assert deco(lambda x: x + "")(10) == -66
         assert deco(lambda x: x + 42)(10) == 52
+
+    def test_ffi_callback_onerror(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        def oops(*args):
+            seen.append(args)
+
+        @ffi.callback("int(int)", onerror=oops)
+        def fn1(x):
+            return x + ""
+        assert fn1(10) == 0
+
+        @ffi.callback("int(int)", onerror=oops, error=-66)
+        def fn2(x):
+            return x + ""
+        assert fn2(10) == -66
+
+        assert len(seen) == 2
+        exc, val, tb = seen[0]
+        assert exc is TypeError
+        assert isinstance(val, TypeError)
+        assert tb.tb_frame.f_code.co_name == "fn1"
+        exc, val, tb = seen[1]
+        assert exc is TypeError
+        assert isinstance(val, TypeError)
+        assert tb.tb_frame.f_code.co_name == "fn2"
+        del seen[:]
+        #
+        raises(TypeError, ffi.callback, "int(int)",
+               lambda x: x, onerror=42)   # <- not callable
 
     def test_ffi_getctype(self):
         import _cffi_backend as _cffi1_backend
@@ -181,6 +224,12 @@ class AppTestFFIObj:
         assert str(e.value) == ("undefined struct/union name\n"
                                 "struct never_heard_of_s\n"
                                 "       ^")
+        e = raises(ffi.error, ffi.cast, "\t\n\x01\x1f~\x7f\x80\xff", 0)
+        assert str(e.value) == ("identifier expected\n"
+                                "  ??~???\n"
+                                "  ^")
+        e = raises(ffi.error, ffi.cast, "X" * 600, 0)
+        assert str(e.value) == ("undefined type name")
 
     def test_ffi_buffer(self):
         import _cffi_backend as _cffi1_backend
@@ -222,3 +271,99 @@ class AppTestFFIObj:
             import gc
             gc.collect()
         assert seen == [1]
+
+    def test_ffi_new_allocator_1(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        alloc1 = ffi.new_allocator()
+        alloc2 = ffi.new_allocator(should_clear_after_alloc=False)
+        for retry in range(100):
+            p1 = alloc1("int[10]")
+            p2 = alloc2("int[10]")
+            combination = 0
+            for i in range(10):
+                assert p1[i] == 0
+                combination |= p2[i]
+                p1[i] = -42
+                p2[i] = -43
+            if combination != 0:
+                break
+            del p1, p2
+            import gc; gc.collect()
+        else:
+            raise AssertionError("cannot seem to get an int[10] not "
+                                 "completely cleared")
+
+    def test_ffi_new_allocator_2(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        def myalloc(size):
+            seen.append(size)
+            return ffi.new("char[]", "X" * size)
+        def myfree(raw):
+            seen.append(raw)
+        alloc1 = ffi.new_allocator(myalloc, myfree)
+        alloc2 = ffi.new_allocator(alloc=myalloc, free=myfree,
+                                   should_clear_after_alloc=False)
+        p1 = alloc1("int[10]")
+        p2 = alloc2("int[]", 10)
+        assert seen == [40, 40]
+        assert ffi.typeof(p1) == ffi.typeof("int[10]")
+        assert ffi.sizeof(p1) == 40
+        assert ffi.typeof(p2) == ffi.typeof("int[]")
+        assert ffi.sizeof(p2) == 40
+        assert p1[5] == 0
+        assert p2[6] == ord('X') * 0x01010101
+        raw1 = ffi.cast("char *", p1)
+        raw2 = ffi.cast("char *", p2)
+        del p1, p2
+        retries = 0
+        while len(seen) != 4:
+            retries += 1
+            assert retries <= 5
+            import gc; gc.collect()
+        assert seen == [40, 40, raw1, raw2]
+        assert repr(seen[2]) == "<cdata 'char[]' owning 41 bytes>"
+        assert repr(seen[3]) == "<cdata 'char[]' owning 41 bytes>"
+
+    def test_ffi_new_allocator_3(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        def myalloc(size):
+            seen.append(size)
+            return ffi.new("char[]", "X" * size)
+        alloc1 = ffi.new_allocator(myalloc)    # no 'free'
+        p1 = alloc1("int[10]")
+        assert seen == [40]
+        assert ffi.typeof(p1) == ffi.typeof("int[10]")
+        assert ffi.sizeof(p1) == 40
+        assert p1[5] == 0
+
+    def test_ffi_new_allocator_4(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        raises(TypeError, ffi.new_allocator, free=lambda x: None)
+        #
+        def myalloc2(size):
+            raise LookupError
+        alloc2 = ffi.new_allocator(myalloc2)
+        raises(LookupError, alloc2, "int[5]")
+        #
+        def myalloc3(size):
+            return 42
+        alloc3 = ffi.new_allocator(myalloc3)
+        e = raises(TypeError, alloc3, "int[5]")
+        assert str(e.value) == "alloc() must return a cdata object (got int)"
+        #
+        def myalloc4(size):
+            return ffi.cast("int", 42)
+        alloc4 = ffi.new_allocator(myalloc4)
+        e = raises(TypeError, alloc4, "int[5]")
+        assert str(e.value) == "alloc() must return a cdata pointer, not 'int'"
+        #
+        def myalloc5(size):
+            return ffi.NULL
+        alloc5 = ffi.new_allocator(myalloc5)
+        raises(MemoryError, alloc5, "int[5]")

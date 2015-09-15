@@ -210,22 +210,28 @@ class AppTestSorting(BaseNumpyAppTest):
             assert (c == a).all(), msg
 
     def test_sort_unicode(self):
+        import sys
         from numpy import array
         # test unicode sorts.
         s = 'aaaaaaaa'
-        try:
-            a = array([s + chr(i) for i in range(101)], dtype=unicode)
-            b = a[::-1].copy()
-        except:
-            skip('unicode type not supported yet')
-        for kind in ['q', 'm', 'h'] :
+        a = array([s + chr(i) for i in range(101)], dtype=unicode)
+        b = a[::-1].copy()
+        for kind in ['q', 'm', 'h']:
             msg = "unicode sort, kind=%s" % kind
-            c = a.copy();
-            c.sort(kind=kind)
-            assert (c == a).all(), msg
-            c = b.copy();
-            c.sort(kind=kind)
-            assert (c == a).all(), msg
+            c = a.copy()
+            if '__pypy__' in sys.builtin_module_names:
+                exc = raises(NotImplementedError, "c.sort(kind=kind)")
+                assert 'non-numeric types' in exc.value.message
+            else:
+                c.sort(kind=kind)
+                assert (c == a).all(), msg
+            c = b.copy()
+            if '__pypy__' in sys.builtin_module_names:
+                exc = raises(NotImplementedError, "c.sort(kind=kind)")
+                assert 'non-numeric types' in exc.value.message
+            else:
+                c.sort(kind=kind)
+                assert (c == a).all(), msg
 
     def test_sort_objects(self):
         # test object array sorts.

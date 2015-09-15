@@ -168,7 +168,6 @@ copyrighted by one or more of the following people and organizations:
   Michael Twomey
   Lucian Branescu Mihaila
   Yichao Yu
-  Anton Gulenko
   Gabriel Lavoie
   Olivier Dormond
   Jared Grubb
@@ -215,6 +214,7 @@ copyrighted by one or more of the following people and organizations:
   Carl Meyer
   Karl Ramm
   Pieter Zieschang
+  Anton Gulenko
   Gabriel
   Lukas Vacek
   Andrew Dalke
@@ -247,6 +247,7 @@ copyrighted by one or more of the following people and organizations:
   Toni Mattis
   Lucas Stadler
   Julian Berman
+  Markus Holtermann
   roberto@goyle
   Yury V. Zaytsev
   Anna Katrina Dominguez
@@ -352,8 +353,7 @@ License for 'lib-python/2.7'
 Except when otherwise stated (look for LICENSE files or copyright/license
 information at the beginning of each file) the files in the 'lib-python/2.7'
 directory are all copyrighted by the Python Software Foundation and licensed
-under the Python Software License of which you can find a copy here:
-http://www.python.org/doc/Copyright.html 
+under the terms that you can find here: https://docs.python.org/2/license.html
 
 License for 'pypy/module/unicodedata/'
 ======================================
@@ -435,4 +435,4 @@ License for 'pypy/module/_vmprof/src'
 
 The code is based on gperftools. You may see a copy of the License for it at
 
-    https://code.google.com/p/gperftools/source/browse/COPYING
+    https://github.com/gperftools/gperftools/blob/master/COPYING

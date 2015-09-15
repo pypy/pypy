@@ -816,6 +816,12 @@ class TestFlowObjSpace(Base):
             from rpython import this_does_not_exist
         py.test.raises(ImportError, 'self.codetest(f)')
 
+    def test_importerror_3(self):
+        def f():
+            import rpython.flowspace.test.cant_import
+        e = py.test.raises(ImportError, 'self.codetest(f)')
+        assert "some explanation here" in str(e.value)
+
     def test_relative_import(self):
         def f():
             from ..objspace import build_flow
@@ -1356,6 +1362,15 @@ class TestFlowObjSpace(Base):
         graph = self.codetest(f)
         simplify_graph(graph)
         assert self.all_operations(graph) == {'bool': 1, 'inplace_add': 1}
+
+    def test_unexpected_builtin_function(self):
+        import itertools
+        e = py.test.raises(ValueError, build_flow, itertools.permutations)
+        assert ' is not RPython:' in str(e.value)
+        e = py.test.raises(ValueError, build_flow, itertools.tee)
+        assert ' is not RPython:' in str(e.value)
+        e = py.test.raises(ValueError, build_flow, Exception.__init__)
+        assert ' is not RPython:' in str(e.value)
 
 
 DATA = {'x': 5,

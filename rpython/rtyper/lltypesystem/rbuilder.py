@@ -10,6 +10,8 @@ from rpython.rtyper.lltypesystem.rstr import (STR, UNICODE, char_repr,
     string_repr, unichar_repr, unicode_repr)
 from rpython.rtyper.rbuilder import AbstractStringBuilderRepr
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.rtyper.annlowlevel import llstr, llunicode
+        
 
 
 # ------------------------------------------------------------
@@ -413,6 +415,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 class StringBuilderRepr(BaseStringBuilderRepr):
     lowleveltype = lltype.Ptr(STRINGBUILDER)
     basetp = STR
+    convert_to_ll = staticmethod(llstr)
     string_repr = string_repr
     char_repr = char_repr
     raw_ptr_repr = PtrRepr(
@@ -435,6 +438,7 @@ class StringBuilderRepr(BaseStringBuilderRepr):
 class UnicodeBuilderRepr(BaseStringBuilderRepr):
     lowleveltype = lltype.Ptr(UNICODEBUILDER)
     basetp = UNICODE
+    convert_to_ll = staticmethod(llunicode)
     string_repr = unicode_repr
     char_repr = unichar_repr
     raw_ptr_repr = PtrRepr(

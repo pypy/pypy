@@ -9,16 +9,16 @@ class CffiOp(object):
             assert isinstance(self.arg, str)
             return '(_cffi_opcode_t)(%s)' % (self.arg,)
         classname = CLASS_NAME[self.op]
-        return '_CFFI_OP(_CFFI_OP_%s, %d)' % (classname, self.arg)
+        return '_CFFI_OP(_CFFI_OP_%s, %s)' % (classname, self.arg)
 
     def as_python_bytes(self):
-        if self.op is None:
-            if self.arg.isdigit():
-                value = int(self.arg)     # non-negative: '-' not in self.arg
-                if value >= 2**31:
-                    raise OverflowError("cannot emit %r: limited to 2**31-1"
-                                        % (self.arg,))
-                return format_four_bytes(value)
+        if self.op is None and self.arg.isdigit():
+            value = int(self.arg)     # non-negative: '-' not in self.arg
+            if value >= 2**31:
+                raise OverflowError("cannot emit %r: limited to 2**31-1"
+                                    % (self.arg,))
+            return format_four_bytes(value)
+        if isinstance(self.arg, str):
             from .ffiplatform import VerificationError
             raise VerificationError("cannot emit to Python: %r" % (self.arg,))
         return format_four_bytes((self.arg << 8) | self.op)
@@ -53,6 +53,7 @@ OP_CONSTANT_INT    = 31
 OP_GLOBAL_VAR      = 33
 OP_DLOPEN_FUNC     = 35
 OP_DLOPEN_CONST    = 37
+OP_GLOBAL_VAR_F    = 39
 
 PRIM_VOID          = 0
 PRIM_BOOL          = 1
@@ -105,7 +106,9 @@ PRIM_INTMAX        = 46
 PRIM_UINTMAX       = 47
 
 _NUM_PRIM          = 48
-_UNKNOWN_PRIM      = -1
+_UNKNOWN_PRIM          = -1
+_UNKNOWN_FLOAT_PRIM    = -2
+_UNKNOWN_LONG_DOUBLE   = -3
 
 PRIMITIVE_TO_INDEX = {
     'char':               PRIM_CHAR,

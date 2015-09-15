@@ -26,6 +26,7 @@ typedef void *_cffi_opcode_t;
 #define _CFFI_OP_GLOBAL_VAR     33
 #define _CFFI_OP_DLOPEN_FUNC    35
 #define _CFFI_OP_DLOPEN_CONST   37
+#define _CFFI_OP_GLOBAL_VAR_F   39
 
 #define _CFFI_PRIM_VOID          0
 #define _CFFI_PRIM_BOOL          1
@@ -78,7 +79,9 @@ typedef void *_cffi_opcode_t;
 #define _CFFI_PRIM_UINTMAX      47
 
 #define _CFFI__NUM_PRIM         48
-#define _CFFI__UNKNOWN_PRIM    (-1)
+#define _CFFI__UNKNOWN_PRIM           (-1)
+#define _CFFI__UNKNOWN_FLOAT_PRIM     (-2)
+#define _CFFI__UNKNOWN_LONG_DOUBLE    (-3)
 
 
 struct _cffi_global_s {

@@ -22,12 +22,10 @@ class StringMethods(object):
         #    return orig_obj
         return self._new(s[start:stop])
 
-    @specialize.arg(4)
-    def _convert_idx_params(self, space, w_start, w_end, upper_bound=False):
+    def _convert_idx_params(self, space, w_start, w_end):
         value = self._val(space)
         lenself = len(value)
-        start, end = unwrap_start_stop(space, lenself, w_start, w_end,
-                                       upper_bound=upper_bound)
+        start, end = unwrap_start_stop(space, lenself, w_start, w_end)
         return (value, start, end)
 
     def _multi_chr(self, c):
@@ -197,7 +195,8 @@ class StringMethods(object):
             splitted = split(value, self._chr('\t'))
 
         try:
-            ovfcheck(len(splitted) * tabsize)
+            if tabsize > 0:
+                ovfcheck(len(splitted) * tabsize)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "new string is too long")
         expanded = oldtoken = splitted.pop(0)
@@ -212,6 +211,8 @@ class StringMethods(object):
     def _tabindent(self, token, tabsize):
         """calculates distance behind the token to the next tabstop"""
 
+        if tabsize <= 0:
+            return 0
         distance = tabsize
         if token:
             distance = 0
@@ -606,8 +607,7 @@ class StringMethods(object):
         return self._newlist_unwrapped(space, strs)
 
     def descr_startswith(self, space, w_prefix, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end,
-                                                       True)
+        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_prefix, space.w_tuple):
             for w_prefix in space.fixedview(w_prefix):
                 if self._startswith(space, value, w_prefix, start, end):
@@ -617,11 +617,17 @@ class StringMethods(object):
                                               end))
 
     def _startswith(self, space, value, w_prefix, start, end):
-        return startswith(value, self._op_val(space, w_prefix), start, end)
+        prefix = self._op_val(space, w_prefix)
+        if start > len(value):
+            return self._starts_ends_overflow(prefix)
+        return startswith(value, prefix, start, end)
+
+    def _starts_ends_overflow(self, prefix):
+        return False     # bug-to-bug compat: this is for strings and
+                         # bytearrays, but overridden for unicodes
 
     def descr_endswith(self, space, w_suffix, w_start=None, w_end=None):
-        (value, start, end) = self._convert_idx_params(space, w_start, w_end,
-                                                       True)
+        (value, start, end) = self._convert_idx_params(space, w_start, w_end)
         if space.isinstance_w(w_suffix, space.w_tuple):
             for w_suffix in space.fixedview(w_suffix):
                 if self._endswith(space, value, w_suffix, start, end):
@@ -631,7 +637,10 @@ class StringMethods(object):
                                             end))
 
     def _endswith(self, space, value, w_prefix, start, end):
-        return endswith(value, self._op_val(space, w_prefix), start, end)
+        prefix = self._op_val(space, w_prefix)
+        if start > len(value):
+            return self._starts_ends_overflow(prefix)
+        return endswith(value, prefix, start, end)
 
     def _strip(self, space, w_chars, left, right):
         "internal function called by str_xstrip methods"

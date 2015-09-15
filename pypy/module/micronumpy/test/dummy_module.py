@@ -38,3 +38,6 @@ def ones(*args, **kwargs):
     a = zeros(*args, **kwargs)
     a.fill(1)
     return a
+
+def isscalar(a):
+    return type(a) in [typeinfo[t] for t in types]

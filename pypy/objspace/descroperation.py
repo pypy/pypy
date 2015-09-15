@@ -521,6 +521,8 @@ class DescrOperation(object):
         return space.get_and_call_function(w_check, w_type, w_sub)
 
     def isinstance_allow_override(space, w_inst, w_type):
+        if space.type(w_inst) is w_type:
+            return space.w_True # fast path copied from cpython
         w_check = space.lookup(w_type, "__instancecheck__")
         if w_check is not None:
             return space.get_and_call_function(w_check, w_type, w_inst)

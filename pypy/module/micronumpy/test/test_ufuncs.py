@@ -540,6 +540,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for v in [float('inf'), float('-inf'), float('nan'), float('-nan')]:
             assert math.isnan(fmod(v, 2))
 
+    def test_mod(self):
+        from numpy import mod
+        assert mod(5, 3) == 2
+        assert mod(5, -3) == -1
+        assert mod(-5, 3) == 1
+        assert mod(-5, -3) == -2
+        assert mod(2.5, 1) == 0.5
+        assert mod(-1.5, 2) == 0.5
+
     def test_minimum(self):
         from numpy import array, minimum, nan, isnan
 
@@ -1035,6 +1044,13 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert np.equal.reduce([1, 2], dtype=dtype) == True
             assert np.equal.reduce([1, 2, 0], dtype=dtype) == False
 
+    def test_reduce_axes(self):
+        import numpy as np
+        a = np.arange(24).reshape(2, 3, 4)
+        b = np.add.reduce(a, axis=(0, 1))
+        assert b.shape == (4,)
+        assert (b == [60, 66, 72, 78]).all()
+
     def test_reduce_fmax(self):
         import numpy as np
         assert np.fmax.reduce(np.arange(11).astype('b')) == 10
@@ -1150,6 +1166,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert (logical_xor([True, False, True, False], [1, 2, 0, 0])
                 == [False, True, True, False]).all()
         assert (logical_not([True, False]) == [False, True]).all()
+        assert logical_and.reduce([1.,1.]) == True
 
     def test_logn(self):
         import math
@@ -1322,6 +1339,26 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert subtract.accumulate([True]*200).dtype == dtype('bool')
         assert divide.accumulate([True]*200).dtype == dtype('int8')
 
+    def test_accumulate_shapes(self):
+        import numpy as np
+        a = np.arange(6).reshape(2, 1, 3)
+        assert np.add.accumulate(a).shape == (2, 1, 3)
+        raises(ValueError, "np.add.accumulate(a, out=np.zeros((3, 1, 3)))")
+        raises(ValueError, "np.add.accumulate(a, out=np.zeros((2, 3)))")
+        raises(ValueError, "np.add.accumulate(a, out=np.zeros((2, 3, 1)))")
+        b = np.zeros((2, 1, 3))
+        np.add.accumulate(a, out=b, axis=2)
+        assert b[0, 0, 2] == 3
+
+    def test_accumulate_shapes_2(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy-specific behavior in np.ufunc.accumulate')
+        import numpy as np
+        a = np.arange(6).reshape(2, 1, 3)
+        raises(ValueError, "np.add.accumulate(a, out=np.zeros((2, 1, 3, 2)))")
+
+
     def test_noncommutative_reduce_accumulate(self):
         import numpy as np
         tosubtract = np.arange(5)
@@ -1349,3 +1386,29 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert np.add(np.float16(0), np.longdouble(0)).dtype == np.longdouble
         assert np.add(np.float16(0), np.complex64(0)).dtype == np.complex64
         assert np.add(np.float16(0), np.complex128(0)).dtype == np.complex128
+        assert np.add(np.zeros(5, dtype=np.int8), 257).dtype == np.int16
+        assert np.subtract(np.zeros(5, dtype=np.int8), 257).dtype == np.int16
+        assert np.divide(np.zeros(5, dtype=np.int8), 257).dtype == np.int16
+
+    def test_add_doc(self):
+        import sys
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('')
+        try:
+            from numpy import set_docstring
+        except ImportError:
+            from _numpypy.multiarray import set_docstring
+        import numpy as np
+        assert np.add.__doc__ is None
+        add_doc = np.add.__doc__
+        ufunc_doc = np.ufunc.__doc__
+        try:
+            np.add.__doc__ = 'np.add'
+            assert np.add.__doc__ == 'np.add'
+            # Test for interferences between ufunc objects and their class
+            set_docstring(np.ufunc, 'np.ufunc')
+            assert np.ufunc.__doc__ == 'np.ufunc'
+            assert np.add.__doc__ == 'np.add'
+        finally:
+            set_docstring(np.ufunc, ufunc_doc)
+            np.add.__doc__ = add_doc
