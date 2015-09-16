@@ -723,3 +723,18 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert 'ok!\n' in data
+
+    def test_allocate_noconflict2(self):
+        S = lltype.GcArray(lltype.Signed)
+
+        def main(argv):
+            s1 = rstm.allocate_noconflict(S, 4)
+            s1[1] = 42
+            assert s1[1] == 42
+            #
+            print "ok!"
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'ok!\n' in data

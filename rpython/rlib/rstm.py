@@ -190,11 +190,14 @@ def allocate_preexisting(p):
     return llop.stm_allocate_preexisting(TP, size, p)
 
 @specialize.ll()
-def allocate_noconflict(GCTYPE):
+def allocate_noconflict(GCTYPE, n=None):
     """Return a new instance of GCTYPE that never generates conflicts when
     reading or writing to it. However, modifications may get lost
     and are not guaranteed to propagate."""
-    return llop.stm_malloc_noconflict(lltype.Ptr(GCTYPE))
+    if n is None:
+        return llop.stm_malloc_noconflict(lltype.Ptr(GCTYPE))
+    else:
+        return llop.stm_malloc_noconflict_varsize(lltype.Ptr(GCTYPE), n)
 
 @specialize.ll()
 def allocate_nonmovable(GCTYPE):

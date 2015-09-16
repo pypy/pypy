@@ -123,9 +123,9 @@ def stm_allocate_nonmovable(funcgen, op):
     arg_type_id = funcgen.expr(op.args[1])
     result      = funcgen.expr(op.result)
     # XXX NULL returns?
-    return ('%s = (rpygcchar_t *)_stm_allocate_external(%s >= 16 ? %s : 16); ' %
+    return ('%s = (rpygcchar_t *)_stm_allocate_external(%s >= 16 ? %s : 16);\n' %
             (result, arg_size, arg_size) +
-            'pypy_stm_memclearinit((object_t*)%s, 0, %s >= 16 ? %s : 16);' %
+            'pypy_stm_memclearinit((object_t*)%s, 0, %s >= 16 ? %s : 16);\n' %
             (result, arg_size, arg_size) +
             '((rpyobj_t *)%s)->tid = %s;' % (result, arg_type_id))
 
@@ -134,11 +134,32 @@ def stm_allocate_noconflict(funcgen, op):
     arg_type_id = funcgen.expr(op.args[1])
     result      = funcgen.expr(op.result)
     # XXX NULL returns?
-    return ('%s = (rpygcchar_t *)stm_allocate_noconflict(%s >= 16 ? %s : 16); ' %
+    return ('%s = (rpygcchar_t *)stm_allocate_noconflict(%s >= 16 ? %s : 16);\n' %
             (result, arg_size, arg_size) +
-            'pypy_stm_memclearinit((object_t*)%s, 0, %s >= 16 ? %s : 16);' %
+            'pypy_stm_memclearinit((object_t*)%s, 0, %s >= 16 ? %s : 16);\n' %
             (result, arg_size, arg_size) +
             '((rpyobj_t *)%s)->tid = %s;' % (result, arg_type_id))
+
+def stm_allocate_noconflict_varsize(funcgen, op):
+    arg_size = funcgen.expr(op.args[0])
+    arg_itemsize = funcgen.expr(op.args[1])
+    arg_ofstolength = funcgen.expr(op.args[2])
+    arg_length = funcgen.expr(op.args[3])
+    arg_type_id = funcgen.expr(op.args[4])
+    result      = funcgen.expr(op.result)
+    # XXX NULL returns?
+    return """
+{
+    ssize_t size = %s + %s * %s;
+    %s = (rpygcchar_t *)stm_allocate_noconflict(size);
+    pypy_stm_memclearinit((object_t*)%s, %s, size);
+    ((rpyobj_t *)%s)->tid = %s;
+}
+    """ % (arg_size, arg_itemsize, arg_length,
+           result,
+           result, arg_size,
+           result, arg_type_id,)
+
 
 def stm_set_into_obj(funcgen, op):
     assert op.args[0].concretetype == llmemory.GCREF

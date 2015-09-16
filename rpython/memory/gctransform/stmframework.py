@@ -271,6 +271,32 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         self.pop_roots(hop, livevars)
         hop.genop("cast_opaque_ptr", [v_result], resultvar=op.result)
 
+    def gct_stm_malloc_noconflict_varsize(self, hop):
+        op = hop.spaceop
+        args = hop.inputargs()
+        PTRTYPE = op.result.concretetype
+        TYPE = PTRTYPE.TO
+        type_id = self.get_type_id(TYPE)
+        info = self.layoutbuilder.get_info(type_id)
+        info_varsize = self.layoutbuilder.get_info_varsize(type_id)
+
+        v_length = args[0]
+        c_type_id = rmodel.inputconst(TYPE_ID, type_id)
+        c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
+        c_ofstolength = rmodel.inputconst(lltype.Signed,
+                                          info_varsize.ofstolength)
+        c_varitemsize = rmodel.inputconst(lltype.Signed,
+                                          info_varsize.varitemsize)
+
+        args = [c_size, c_varitemsize, c_ofstolength, v_length, c_type_id]
+
+        livevars = self.push_roots(hop)
+        v_result = hop.genop("stm_allocate_noconflict_varsize",
+                             args, resulttype=llmemory.GCREF)
+        self.pop_roots(hop, livevars)
+        hop.genop("cast_opaque_ptr", [v_result], resultvar=op.result)
+        hop.genop("stm_set_into_obj", [v_result, c_ofstolength, v_length])
+
 
 
 
