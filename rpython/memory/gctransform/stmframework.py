@@ -234,6 +234,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
     gct_stm_queue_get                = _gct_with_roots_pushed
     gct_stm_queue_put                = _gct_with_roots_pushed
     gct_stm_queue_join               = _gct_with_roots_pushed
+    gct_stm_allocate_preexisting     = _gct_with_roots_pushed
 
 
     def gct_stm_malloc_nonmovable(self, hop):
@@ -252,6 +253,26 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                              resulttype=llmemory.GCREF)
         self.pop_roots(hop, livevars)
         hop.genop("cast_opaque_ptr", [v_result], resultvar=op.result)
+
+    def gct_stm_malloc_noconflict(self, hop):
+        op = hop.spaceop
+        PTRTYPE = op.result.concretetype
+        TYPE = PTRTYPE.TO
+        type_id = self.get_type_id(TYPE)
+
+        c_type_id = rmodel.inputconst(TYPE_ID, type_id)
+        info = self.layoutbuilder.get_info(type_id)
+        c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
+
+        livevars = self.push_roots(hop)
+        v_result = hop.genop("stm_allocate_noconflict",
+                             [c_size, c_type_id],
+                             resulttype=llmemory.GCREF)
+        self.pop_roots(hop, livevars)
+        hop.genop("cast_opaque_ptr", [v_result], resultvar=op.result)
+
+
+
 
 
 

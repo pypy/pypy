@@ -592,7 +592,6 @@ class TestSTMTranslated(CompiledSTMTests):
             assert count == 1
             assert intmask(array[0].index) == -1234
             assert cast_gcref_to_instance(X, array[0].object) is x1
-            h.freelist(array)
             #
             print "ok!"
             return 0
@@ -703,6 +702,21 @@ class TestSTMTranslated(CompiledSTMTests):
             rgc.ll_arrayclear(p)
             for i in range(11):
                 assert rffi.cast(lltype.Signed, p[i]) == 0
+            print "ok!"
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'ok!\n' in data
+
+    def test_allocate_noconflict(self):
+        S = lltype.GcStruct('S', ('n', lltype.Signed))
+
+        def main(argv):
+            s1 = rstm.allocate_noconflict(S)
+            s1.n = 42
+            assert s1.n == 42
+            #
             print "ok!"
             return 0
 

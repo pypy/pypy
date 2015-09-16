@@ -992,6 +992,7 @@ class LLFrame(object):
     op_stm_allocate_finalizer = _stm_not_implemented
     op_stm_allocate_nonmovable = _stm_not_implemented
     op_stm_allocate_preexisting = _stm_not_implemented
+    op_stm_malloc_noconflict = _stm_not_implemented
     op_stm_malloc_nonmovable = _stm_not_implemented
     op_stm_can_move = _stm_not_implemented
     op_stm_read = _stm_not_implemented
