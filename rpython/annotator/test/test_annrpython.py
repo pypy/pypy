@@ -4492,6 +4492,15 @@ class TestAnnotateTestCase:
         with py.test.raises(annmodel.AnnotatorError):
             a.build_types(f, [int])
 
+    def test_dict_can_be_none_ordering_issue(self):
+        def g(d):
+            return 42 in d
+        def f(n):
+            g(None)
+            g({})
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
+
 
 def g(n):
     return [0, 1, 2, n]

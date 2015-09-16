@@ -166,7 +166,7 @@ STATE_SCANNING = 0
 
 # The marking phase. We walk the list 'objects_to_trace' of all gray objects
 # and mark all of the things they point to gray. This step lasts until there
-# are no more gray objects.
+# are no more gray objects.  ('objects_to_trace' never contains pinned objs.)
 STATE_MARKING = 1
 
 # here we kill all the unvisited objects
@@ -1146,6 +1146,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                       "raw_malloc_might_sweep must be empty outside SWEEPING")
 
             if self.gc_state == STATE_MARKING:
+                self.objects_to_trace.foreach(self._check_not_in_nursery, None)
+                self.more_objects_to_trace.foreach(self._check_not_in_nursery,
+                                                   None)
                 self._debug_objects_to_trace_dict1 = \
                                             self.objects_to_trace.stack2dict()
                 self._debug_objects_to_trace_dict2 = \
@@ -1155,6 +1158,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self._debug_objects_to_trace_dict1.delete()
             else:
                 MovingGCBase.debug_check_consistency(self)
+
+    def _check_not_in_nursery(self, obj, ignore):
+        ll_assert(not self.is_in_nursery(obj),
+                  "'objects_to_trace' contains a nursery object")
 
     def debug_check_object(self, obj):
         # We are after a minor collection, and possibly after a major
@@ -1789,6 +1796,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # If we're incrementally marking right now, sorry, we also
                 # need to add the object to 'more_objects_to_trace' and have
                 # it fully traced once at the end of the current marking phase.
+                ll_assert(not self.is_in_nursery(obj),
+                          "expected nursery obj in collect_cardrefs_to_nursery")
                 if self.gc_state == STATE_MARKING:
                     self.header(obj).tid &= ~GCFLAG_VISITED
                     self.more_objects_to_trace.append(obj)
@@ -1845,8 +1854,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # need to record the not-visited-yet (white) old objects.  So
         # as a conservative approximation, we need to add the object to
         # the list if and only if it doesn't have GCFLAG_VISITED yet.
+        #
+        # Additionally, ignore pinned objects.
+        #
         obj = root.address[0]
-        if not self.header(obj).tid & GCFLAG_VISITED:
+        if (self.header(obj).tid & (GCFLAG_VISITED | GCFLAG_PINNED)) == 0:
             self.more_objects_to_trace.append(obj)
 
     def _trace_drag_out(self, root, parent):
@@ -1899,7 +1911,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #
                 self.old_objects_pointing_to_pinned.append(parent)
                 self.updated_old_objects_pointing_to_pinned = True
-                self.header(parent).tid |= GCFLAG_PINNED
+                self.header(parent).tid |= GCFLAG_PINNED_OBJECT_PARENT_KNOWN
             #
             if hdr.tid & GCFLAG_VISITED:
                 return
@@ -2033,6 +2045,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         new.delete()
 
     def _add_to_more_objects_to_trace(self, obj, ignored):
+        ll_assert(not self.is_in_nursery(obj), "unexpected nursery obj here")
         self.header(obj).tid &= ~GCFLAG_VISITED
         self.more_objects_to_trace.append(obj)
 
@@ -2287,8 +2300,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def collect_roots(self):
         # Collect all roots.  Starts from all the objects
         # from 'prebuilt_root_objects'.
-        self.prebuilt_root_objects.foreach(self._collect_obj,
-                                           self.objects_to_trace)
+        self.prebuilt_root_objects.foreach(self._collect_obj, None)
         #
         # Add the roots from the other sources.
         self.root_walker.walk_roots(
@@ -2298,35 +2310,40 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         # If we are in an inner collection caused by a call to a finalizer,
         # the 'run_finalizers' objects also need to be kept alive.
-        self.run_finalizers.foreach(self._collect_obj,
-                                    self.objects_to_trace)
+        self.run_finalizers.foreach(self._collect_obj, None)
 
     def enumerate_all_roots(self, callback, arg):
         self.prebuilt_root_objects.foreach(callback, arg)
         MovingGCBase.enumerate_all_roots(self, callback, arg)
     enumerate_all_roots._annspecialcase_ = 'specialize:arg(1)'
 
-    @staticmethod
-    def _collect_obj(obj, objects_to_trace):
-        objects_to_trace.append(obj)
+    def _collect_obj(self, obj, ignored):
+        # Ignore pinned objects, which are the ones still in the nursery here.
+        # Cache effects: don't read any flag out of 'obj' at this point.
+        # But only checking if it is in the nursery or not is fine.
+        llop.debug_nonnull_pointer(lltype.Void, obj)
+        if not self.is_in_nursery(obj):
+            self.objects_to_trace.append(obj)
+        else:
+            # A pinned object can be found here. Such an object is handled
+            # by minor collections and shouldn't be specially handled by
+            # major collections. Therefore we only add non-pinned objects
+            # to the 'objects_to_trace' list.
+            ll_assert(self._is_pinned(obj),
+                      "non-pinned nursery obj in _collect_obj")
+    _collect_obj._always_inline_ = True
 
     def _collect_ref_stk(self, root):
-        obj = root.address[0]
-        llop.debug_nonnull_pointer(lltype.Void, obj)
-        if not self._is_pinned(obj):
-            # XXX: check if this is the right way (groggi).
-            # A pinned object can be on the stack. Such an object is handled
-            # by minor collections and shouldn't be specially handled by
-            # major collections. Therefore we only add not pinned objects to the
-            # list below.
-            self.objects_to_trace.append(obj)
+        self._collect_obj(root.address[0], None)
 
     def _collect_ref_rec(self, root, ignored):
-        self.objects_to_trace.append(root.address[0])
+        self._collect_obj(root.address[0], None)
 
     def visit_all_objects(self):
         while self.objects_to_trace.non_empty():
             self.visit_all_objects_step(sys.maxint)
+
+    TEST_VISIT_SINGLE_STEP = False    # for tests
 
     def visit_all_objects_step(self, size_to_track):
         # Objects can be added to pending by visit
@@ -2334,7 +2351,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         while pending.non_empty():
             obj = pending.pop()
             size_to_track -= self.visit(obj)
-            if size_to_track < 0:
+            if size_to_track < 0 or self.TEST_VISIT_SINGLE_STEP:
                 return 0
         return size_to_track
 
@@ -2349,10 +2366,17 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # flag set, then the object should be in 'prebuilt_root_objects',
         # and the GCFLAG_VISITED will be reset at the end of the
         # collection.
-        # Objects with GCFLAG_PINNED can't have gcptrs (see pin()), they can be
-        # ignored.
+        # We shouldn't see an object with GCFLAG_PINNED here (the pinned
+        # objects are never added to 'objects_to_trace').  The same-valued
+        # flag GCFLAG_PINNED_OBJECT_PARENT_KNOWN is used during minor
+        # collections and shouldn't be set here either.
+        #
         hdr = self.header(obj)
-        if hdr.tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS | GCFLAG_PINNED):
+        ll_assert((hdr.tid & GCFLAG_PINNED) == 0,
+                  "pinned object in 'objects_to_trace'")
+        ll_assert(not self.is_in_nursery(obj),
+                  "nursery object in 'objects_to_trace'")
+        if hdr.tid & (GCFLAG_VISITED | GCFLAG_NO_HEAP_PTRS):
             return 0
         #
         # It's the first time.  We set the flag VISITED.  The trick is
@@ -2582,6 +2606,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # recursively convert objects from state 1 to state 2.
         # The call to visit_all_objects() will add the GCFLAG_VISITED
         # recursively.
+        ll_assert(not self.is_in_nursery(obj), "pinned finalizer object??")
         self.objects_to_trace.append(obj)
         self.visit_all_objects()
 

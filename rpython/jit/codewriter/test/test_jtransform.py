@@ -46,12 +46,11 @@ class FakeCPU:
         return ('interiorfielddescr', ARRAY, name)
     def arraydescrof(self, ARRAY):
         return FakeDescr(('arraydescr', ARRAY))
-    def sizeof(self, STRUCT):
+    def sizeof(self, STRUCT, vtable=None):
         return FakeDescr(('sizedescr', STRUCT))
 
 class FakeDescr(tuple):
-    def as_vtable_size_descr(self):
-        return self
+    pass
 
 class FakeLink:
     args = []
@@ -569,9 +568,6 @@ def test_malloc_new_with_vtable():
     op1 = Transformer(cpu).rewrite_operation(op)
     assert op1.opname == 'new_with_vtable'
     assert op1.args == [('sizedescr', S)]
-    #assert heaptracker.descr2vtable(cpu, op1.args[0]) == vtable [type check]
-    vtable_int = heaptracker.adr2int(llmemory.cast_ptr_to_adr(vtable))
-    assert heaptracker.vtable2descr(cpu, vtable_int) == op1.args[0]
 
 def test_malloc_new_with_destructor():
     vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
@@ -1331,19 +1327,6 @@ def test_no_gcstruct_nesting_outside_of_OBJECT():
                         varoftype(lltype.Signed))
     tr = Transformer(None, None)
     py.test.raises(NotImplementedError, tr.rewrite_operation, op)
-
-def test_cast_opaque_ptr():
-    S = lltype.GcStruct("S", ("x", lltype.Signed))
-    v1 = varoftype(lltype.Ptr(S))
-    v2 = varoftype(lltype.Ptr(rclass.OBJECT))
-
-    op = SpaceOperation('cast_opaque_ptr', [v1], v2)
-    tr = Transformer()
-    [op1, op2] = tr.rewrite_operation(op)
-    assert op1.opname == 'mark_opaque_ptr'
-    assert op1.args == [v1]
-    assert op1.result is None
-    assert op2 is None
 
 def _test_threadlocalref_get(loop_inv):
     from rpython.rlib.rthread import ThreadLocalField

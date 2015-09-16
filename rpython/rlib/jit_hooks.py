@@ -63,11 +63,6 @@ def resop_new(no, llargs, llres):
         res = None
     return _cast_to_gcref(ResOperation(no, args, res))
 
-@register_helper(SomePtr(llmemory.GCREF))
-def boxint_new(no):
-    from rpython.jit.metainterp.history import BoxInt
-    return _cast_to_gcref(BoxInt(no))
-
 @register_helper(annmodel.SomeInteger())
 def resop_getopnum(llop):
     return _cast_to_resop(llop).getopnum()
@@ -83,14 +78,6 @@ def resop_getarg(llop, no):
 @register_helper(annmodel.s_None)
 def resop_setarg(llop, no, llbox):
     _cast_to_resop(llop).setarg(no, _cast_to_box(llbox))
-
-@register_helper(SomePtr(llmemory.GCREF))
-def resop_getresult(llop):
-    return _cast_to_gcref(_cast_to_resop(llop).result)
-
-@register_helper(annmodel.s_None)
-def resop_setresult(llop, llbox):
-    _cast_to_resop(llop).result = _cast_to_box(llbox)
 
 @register_helper(annmodel.SomeInteger())
 def box_getint(llbox):

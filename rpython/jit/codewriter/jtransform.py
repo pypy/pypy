@@ -934,11 +934,11 @@ class Transformer(object):
                     return self._do_builtin_call(op, 'alloc_with_del', [],
                                                  extra=(RESULT, vtable),
                                                  extrakey=STRUCT)
-            heaptracker.register_known_gctype(self.cpu, vtable, STRUCT)
             opname = 'new_with_vtable'
         else:
             opname = 'new'
-        sizedescr = self.cpu.sizeof(STRUCT)
+            vtable = lltype.nullptr(rclass.OBJECT_VTABLE)
+        sizedescr = self.cpu.sizeof(STRUCT, vtable)
         op1 = SpaceOperation(opname, [sizedescr], op.result)
         if zero:
             return self.zero_contents([op1], op.result, STRUCT)
@@ -1108,7 +1108,7 @@ class Transformer(object):
 
     def rewrite_op_cast_opaque_ptr(self, op):
         # None causes the result of this op to get aliased to op.args[0]
-        return [SpaceOperation('mark_opaque_ptr', op.args, None), None]
+        return None
 
     def rewrite_op_force_cast(self, op):
         v_arg = op.args[0]
@@ -1621,7 +1621,7 @@ class Transformer(object):
                 descrs = (self.cpu.arraydescrof(ARRAY),
                           self.cpu.fielddescrof(LIST, 'length'),
                           self.cpu.fielddescrof(LIST, 'items'),
-                          self.cpu.sizeof(LIST))
+                          self.cpu.sizeof(LIST, None))
         else:
             prefix = 'do_fixed_'
             if self._array_of_voids(LIST):
@@ -1953,10 +1953,6 @@ class Transformer(object):
     # VirtualRefs.
 
     def _handle_virtual_ref_call(self, op, oopspec_name, args):
-        vrefinfo = self.callcontrol.virtualref_info
-        heaptracker.register_known_gctype(self.cpu,
-                                          vrefinfo.jit_virtual_ref_vtable,
-                                          vrefinfo.JIT_VIRTUAL_REF)
         return SpaceOperation(oopspec_name, list(args), op.result)
 
     # -----------

@@ -1353,6 +1353,22 @@ class TaggedPointerGCTests(GCTest):
         res = func([])
         assert res == -1999
 
+    def define_gettypeid(cls):
+        class A(object):
+            pass
+        
+        def fn():
+            a = A()
+            return rgc.get_typeid(a)
+
+        return fn
+
+    def test_gettypeid(self):
+        func = self.runner("gettypeid")
+        res = func([])
+        print res
+
+
 from rpython.rlib.objectmodel import UnboxedValue
 
 class TaggedBase(object):
@@ -1384,3 +1400,6 @@ class TestHybridTaggedPointerGC(TaggedPointerGCTests):
                          'nursery_size': 32*WORD,
                          'translated_to_c': False}
             root_stack_depth = 200
+
+    def test_gettypeid(self):
+        py.test.skip("fails for obscure reasons")

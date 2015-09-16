@@ -709,6 +709,9 @@ class LLFrame(object):
     def op_gc_add_memory_pressure(self, size):
         self.heap.add_memory_pressure(size)
 
+    def op_gc_gettypeid(self, obj):
+        return lloperation.llop.combine_ushort(lltype.Signed, self.heap.gettypeid(obj), 0)
+
     def op_shrink_array(self, obj, smallersize):
         return self.heap.shrink_array(obj, smallersize)
 

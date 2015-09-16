@@ -66,7 +66,7 @@ static int prepare_concurrent_bufs(void)
     unprepare_concurrent_bufs();
     profbuf_all_buffers = mmap(NULL, sizeof(struct profbuf_s) * MAX_NUM_BUFFERS,
                                PROT_READ | PROT_WRITE,
-                               MAP_PRIVATE | MAP_ANONYMOUS,
+                               MAP_PRIVATE | MAP_ANON,
                                -1, 0);
     if (profbuf_all_buffers == MAP_FAILED) {
         profbuf_all_buffers = NULL;

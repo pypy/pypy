@@ -4,11 +4,6 @@ from .cffi_opcode import *
 
 VERSION = "0x2601"
 
-try:
-    int_type = (int, long)
-except NameError:    # Python 3
-    int_type = int
-
 
 class GlobalExpr:
     def __init__(self, name, address, type_op, size=0, check_value=0):
@@ -473,6 +468,10 @@ class Recompiler:
             if tp.is_integer_type() and tp.name != '_Bool':
                 converter = '_cffi_to_c_int'
                 extraarg = ', %s' % tp.name
+            elif isinstance(tp, model.UnknownFloatType):
+                # don't check with is_float_type(): it may be a 'long
+                # double' here, and _cffi_to_c_double would loose precision
+                converter = '(%s)_cffi_to_c_double' % (tp.get_c_name(''),)
             else:
                 converter = '(%s)_cffi_to_c_%s' % (tp.get_c_name(''),
                                                    tp.name.replace(' ', '_'))
@@ -527,6 +526,8 @@ class Recompiler:
         if isinstance(tp, model.BasePrimitiveType):
             if tp.is_integer_type():
                 return '_cffi_from_c_int(%s, %s)' % (var, tp.name)
+            elif isinstance(tp, model.UnknownFloatType):
+                return '_cffi_from_c_double(%s)' % (var,)
             elif tp.name != 'long double':
                 return '_cffi_from_c_%s(%s)' % (tp.name.replace(' ', '_'), var)
             else:
@@ -1110,6 +1111,12 @@ class Recompiler:
         s = ('_cffi_prim_int(sizeof(%s), (\n'
              '           ((%s)-1) << 0 /* check that %s is an integer type */\n'
              '         ) <= 0)' % (tp.name, tp.name, tp.name))
+        self.cffi_types[index] = CffiOp(OP_PRIMITIVE, s)
+
+    def _emit_bytecode_UnknownFloatType(self, tp, index):
+        s = ('_cffi_prim_float(sizeof(%s) *\n'
+             '           (((%s)1) / 2) * 2 /* integer => 0, float => 1 */\n'
+             '         )' % (tp.name, tp.name))
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, s)
 
     def _emit_bytecode_RawFunctionType(self, tp, index):

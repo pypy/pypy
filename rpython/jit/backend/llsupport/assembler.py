@@ -3,7 +3,7 @@ from rpython.jit.backend.llsupport.memcpy import memcpy_fn, memset_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.codemap import CodemapBuilder
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
-    ConstInt, BoxInt, AbstractFailDescr)
+    ConstInt, AbstractFailDescr)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib import rgc
 from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints_for,
@@ -212,8 +212,7 @@ class BaseAssembler(object):
             self.codemap_builder.leave_portal_frame(op.getarg(0).getint(),
                                                     self.mc.get_relative_pos())
 
-    def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
-        self._store_force_index(guard_op)
+    def call_assembler(self, op, argloc, vloc, result_loc, tmploc):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         #
@@ -224,11 +223,11 @@ class BaseAssembler(object):
         self._call_assembler_emit_call(self.imm(descr._ll_function_addr),
                                         argloc, tmploc)
 
-        if op.result is None:
+        if op.type == 'v':
             assert result_loc is None
             value = self.cpu.done_with_this_frame_descr_void
         else:
-            kind = op.result.type
+            kind = op.type
             if kind == INT:
                 assert result_loc is tmploc
                 value = self.cpu.done_with_this_frame_descr_int
@@ -262,9 +261,6 @@ class BaseAssembler(object):
         #
         # Here we join Path A and Path B again
         self._call_assembler_patch_jmp(jmp_location)
-        # XXX here should be emitted guard_not_forced, but due
-        #     to incompatibilities in how it's done, we leave it for the
-        #     caller to deal with
 
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):

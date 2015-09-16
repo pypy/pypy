@@ -19,13 +19,27 @@ BIG_ENDIAN = sys.byteorder == 'big'
 # ____________________________________________________________
 
 
+class Closure(object):
+    """This small class is here to have a __del__ outside any cycle."""
+
+    ll_error = lltype.nullptr(rffi.CCHARP.TO)     # set manually
+
+    def __init__(self, ptr):
+        self.ptr = ptr
+
+    def __del__(self):
+        clibffi.closureHeap.free(rffi.cast(clibffi.FFI_CLOSUREP, self.ptr))
+        if self.ll_error:
+            lltype.free(self.ll_error, flavor='raw')
+
+
 class W_CDataCallback(W_CData):
     #_immutable_fields_ = ...
-    ll_error = lltype.nullptr(rffi.CCHARP.TO)
     w_onerror = None
 
     def __init__(self, space, ctype, w_callable, w_error, w_onerror):
         raw_closure = rffi.cast(rffi.CCHARP, clibffi.closureHeap.alloc())
+        self._closure = Closure(raw_closure)
         W_CData.__init__(self, space, raw_closure, ctype)
         #
         if not space.is_true(space.callable(w_callable)):
@@ -44,10 +58,11 @@ class W_CDataCallback(W_CData):
         if size > 0:
             if fresult.is_primitive_integer and size < SIZE_OF_FFI_ARG:
                 size = SIZE_OF_FFI_ARG
-            self.ll_error = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw',
-                                          zero=True)
+            self._closure.ll_error = lltype.malloc(rffi.CCHARP.TO, size,
+                                                   flavor='raw', zero=True)
         if not space.is_none(w_error):
-            convert_from_object_fficallback(fresult, self.ll_error, w_error)
+            convert_from_object_fficallback(fresult, self._closure.ll_error,
+                                            w_error)
         #
         self.unique_id = compute_unique_id(self)
         global_callback_mapping.set(self.unique_id, self)
@@ -73,12 +88,6 @@ class W_CDataCallback(W_CData):
         if space.config.translation.thread:
             from pypy.module.thread.os_thread import setup_threads
             setup_threads(space)
-
-    #@rgc.must_be_light_finalizer
-    def __del__(self):
-        clibffi.closureHeap.free(rffi.cast(clibffi.FFI_CLOSUREP, self._ptr))
-        if self.ll_error:
-            lltype.free(self.ll_error, flavor='raw')
 
     def _repr_extra(self):
         space = self.space
@@ -114,8 +123,8 @@ class W_CDataCallback(W_CData):
     def write_error_return_value(self, ll_res):
         fresult = self.getfunctype().ctitem
         if fresult.size > 0:
-            misc._raw_memcopy(self.ll_error, ll_res, fresult.size)
-            keepalive_until_here(self)     # to keep self.ll_error alive
+            misc._raw_memcopy(self._closure.ll_error, ll_res, fresult.size)
+            keepalive_until_here(self)   # to keep self._closure.ll_error alive
 
 
 global_callback_mapping = rweakref.RWeakValueDictionary(int, W_CDataCallback)

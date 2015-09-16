@@ -32,7 +32,6 @@ _MINGW = platform.name == "mingw32"
 _WIN32 = _MSVC or _MINGW
 _WIN64 = _WIN32 and is_emulated_long
 _MAC_OS = platform.name == "darwin"
-_FREEBSD_7 = platform.name == "freebsd7"
 
 _LITTLE_ENDIAN = sys.byteorder == 'little'
 _BIG_ENDIAN = sys.byteorder == 'big'
