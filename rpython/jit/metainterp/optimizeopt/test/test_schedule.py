@@ -22,6 +22,11 @@ class FakePackSet(PackSet):
         self.packs = packs
         self.vec_reg_size = 16
 
+class FakeVecScheduleState(VecScheduleState):
+    def __init__(self):
+        self.expanded_map = {}
+
+
 class SchedulerBaseTest(DependencyBaseTest):
 
     def setup_class(self):
@@ -294,13 +299,11 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         v15[2xi32] = vec_cast_float_to_int(v11[2xf64])
         v16[2xi32] = vec_cast_float_to_int(v12[2xf64])
         v17[2xi32] = vec_cast_float_to_int(v13[2xf64])
-        v18[2xi16] = vec_int_signext(v14[2xi32],2)
-        v19[2xi16] = vec_int_signext(v15[2xi32],2)
-        v20[2xi16] = vec_int_signext(v16[2xi32],2)
-        v21[2xi16] = vec_int_signext(v17[2xi32],2)
-        v22[4xi16] = vec_pack_i(v18[2xi16], v19[2xi16], 2, 2)
-        v23[6xi16] = vec_pack_i(v22[4xi16], v20[2xi16], 4, 2)
-        v24[8xi16] = vec_pack_i(v23[6xi16], v21[2xi16], 6, 2)
+        v22[4xi32] = vec_pack_i(v14[2xi32], v15[2xi32], 2, 2)
+        v18[4xi16] = vec_int_signext(v22[4xi32],2)
+        v23[6xi16] = vec_pack_i(v16[2xi32], v17[2xi32], 2, 2)
+        v20[4xi16] = vec_int_signext(v23[4xi32],2)
+        v24[8xi16] = vec_pack_i(v18[4xi16], v20[4xi16], 4, 4)
         vec_raw_store(p1, i1, v24[8xi16], descr=short)
         """, False)
         self.assert_equal(loop2, loop3)
@@ -462,4 +465,20 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         packset = FakePackSet([pack])
         packset.split_overloaded_packs()
         assert len(packset.packs) == 1
+
+    def test_expand(self):
+        state = FakeVecScheduleState()
+        assert state.find_expanded([]) == None
+        state.expand(['a'], 'a')
+        assert state.find_expanded(['a']) == 'a'
+        state.expand(['a','b','c'], 'abc')
+        assert state.find_expanded(['a','b','c']) == 'abc'
+        state.expand(['a','d','c'], 'adc')
+        assert state.find_expanded(['a','b','c']) == 'abc'
+        assert state.find_expanded(['a','d','c']) == 'adc'
+        assert state.find_expanded(['d','d','c']) == None
+        state.expand(['d','d','c'], 'ddc')
+        assert state.find_expanded(['d','d','c']) == 'ddc'
+
+
 

@@ -70,13 +70,14 @@ class Scheduler(object):
             return True
         return node.depends_count() != 0
 
-    def mark_emitted(self, node, state):
+    def mark_emitted(self, node, state, unpack=True):
         """ An operation has been emitted, adds new operations to the worklist
             whenever their dependency count drops to zero.
             Keeps worklist sorted (see priority) """
         op = node.getoperation()
         state.renamer.rename(op)
-        state.ensure_args_unpacked(op)
+        if unpack:
+            state.ensure_args_unpacked(op)
         node.position = len(state.oplist)
         worklist = state.worklist
         for dep in node.provides()[:]: # COPY
@@ -322,7 +323,7 @@ class trans(object):
                     rop.UINT_LT, rop.UINT_LE,
                     rop.UINT_GT, rop.UINT_GE)
 
-def turn_to_vector(state, pack):
+def turn_into_vector(state, pack):
     """ Turn a pack into a vector instruction """
     #
     # TODO self.check_if_pack_supported(pack)
@@ -546,7 +547,7 @@ def expand(state, pack, args, arg, index):
         i += 1
     else:
         # note that heterogenous nodes are not yet tracked
-        vecop = expanded_map.get(arg, None)
+        vecop = state.find_expanded([arg])
         if vecop:
             args[index] = vecop
             return vecop
@@ -554,9 +555,17 @@ def expand(state, pack, args, arg, index):
         ops.append(vecop)
         if variables is not None:
             variables.append(vecop)
-        expanded_map[arg] = vecop
+        state.expand([arg], vecop)
+        #expanded_map.setdefault(arg,[]).append((vecop, -1))
         #for i in range(vecop.count):
         #    state.setvector_of_box(arg, i, vecop)
+        args[index] = vecop
+        return vecop
+
+    # quick search if it has already been expanded
+    expandargs = [op.getoperation().getarg(index) for op in pack.operations]
+    vecop = state.find_expanded(expandargs)
+    if vecop:
         args[index] = vecop
         return vecop
 
@@ -568,8 +577,8 @@ def expand(state, pack, args, arg, index):
         arguments = [vecop, arg, ConstInt(i), ConstInt(1)]
         vecop = OpHelpers.create_vec_pack(arg.type, arguments, left.bytesize,
                                           left.signed, vecop.count+1)
-        #state.setvector_of_box(arg, i, vecop)
         ops.append(vecop)
+    state.expand(expandargs, vecop)
 
     if variables is not None:
         variables.append(vecop)
@@ -588,6 +597,44 @@ class VecScheduleState(SchedulerState):
         for arg in graph.loop.inputargs:
             self.inputargs[arg] = None
         self.seen = {}
+
+    def expand(self, args, vecop):
+        index = 0
+        if len(args) == 1:
+            # loop is executed once, thus sets -1 as index
+            index = -1
+        for arg in args:
+            self.expanded_map.setdefault(arg, []).append((vecop, index))
+            index += 1
+
+    def find_expanded(self, args):
+        if len(args) == 1:
+            candidates = self.expanded_map.get(args[0], [])
+            for (vecop, index) in candidates:
+                if index == -1:
+                    # found an expanded variable/constant
+                    return vecop
+            return None
+        possible = {}
+        for i, arg in enumerate(args):
+            expansions = self.expanded_map.get(arg, [])
+            candidates = [vecop for (vecop, index) in expansions \
+                          if i == index and possible.get(vecop,True)]
+            for vecop in candidates:
+                for key in possible.keys():
+                    if key not in candidates:
+                        # delete every not possible key,value
+                        possible[key] = False
+                # found a candidate, append it if not yet present
+                possible[vecop] = True
+
+            if not possible:
+                # no possibility left, this combination is not expanded
+                return None
+        for vecop,valid in possible.items():
+            if valid:
+                return vecop
+        return None
 
     def post_schedule(self):
         loop = self.graph.loop
@@ -633,8 +680,8 @@ class VecScheduleState(SchedulerState):
         if node.pack:
             assert node.pack.numops() > 1
             for node in node.pack.operations:
-                scheduler.mark_emitted(node, self)
-            turn_to_vector(self, node.pack)
+                scheduler.mark_emitted(node, self, unpack=False)
+            turn_into_vector(self, node.pack)
             return True
         return False
 
@@ -673,7 +720,7 @@ class VecScheduleState(SchedulerState):
                         fail_arguments[i] = arg
 
     def ensure_unpacked(self, index, arg):
-        if arg in self.seen or not arg.is_vector():
+        if arg in self.seen or arg.is_vector():
             return arg
         (pos, var) = self.getvector_of_box(arg)
         if var:
@@ -722,7 +769,8 @@ def opcount_filling_vector_register(pack, vec_reg_size):
 
     if op.is_typecast():
         if op.casts_down():
-            return vec_reg_size // op.cast_from_bytesize()
+            size = op.cast_input_bytesize(vec_reg_size)
+            return size // op.cast_from_bytesize()
         else:
             return vec_reg_size // op.cast_to_bytesize()
     return  vec_reg_size // op.bytesize
@@ -791,10 +839,10 @@ class Pack(object):
             if left.casts_down():
                 # size is reduced
                 size = left.cast_input_bytesize(vec_reg_size)
-                import pdb; pdb.set_trace()
                 return left.cast_from_bytesize() * self.numops() - size
             else:
                 # size is increased
+                #size = left.cast_input_bytesize(vec_reg_size)
                 return left.cast_to_bytesize() * self.numops() - vec_reg_size
         return left.bytesize * self.numops() - vec_reg_size
 
@@ -823,10 +871,13 @@ class Pack(object):
             In this step the pack is reduced in size to fit into an
             vector register.
         """
+        before_count = len(packlist)
+        print "splitting pack", self
         pack = self
         while pack.pack_load(vec_reg_size) > Pack.FULL:
             pack.clear()
             oplist, newoplist = pack.slice_operations(vec_reg_size)
+            print "  split of %dx, left: %d" % (len(oplist), len(newoplist))
             pack.operations = oplist
             pack.update_pack_of_nodes()
             if not pack.leftmost().is_typecast():
@@ -842,6 +893,7 @@ class Pack(object):
                 newpack.clear()
                 newpack.operations = []
                 break
+        print "  => %dx packs out of %d operations" % (-before_count + len(packlist) + 1, sum([pack.numops() for pack in packlist[before_count:]]))
         pack.update_pack_of_nodes()
 
     def slice_operations(self, vec_reg_size):

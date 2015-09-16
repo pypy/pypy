@@ -830,17 +830,19 @@ class PackSet(object):
 
     def split_overloaded_packs(self):
         newpacks = []
-        import pdb; pdb.set_trace()
         for i,pack in enumerate(self.packs):
             load = pack.pack_load(self.vec_reg_size)
             if load > Pack.FULL:
+                print "overloaded pack", pack
                 pack.split(newpacks, self.vec_reg_size)
                 continue
             if load < Pack.FULL:
+                print "underloaded pack", pack
                 for op in pack.operations:
                     op.priority = -100
                 pack.clear()
                 self.packs[i] = None
                 continue
+            print "fully packed", pack
         self.packs = [pack for pack in self.packs + newpacks if pack]
 

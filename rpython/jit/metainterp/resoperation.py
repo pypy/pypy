@@ -456,7 +456,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
     def is_typecast(self):
         return False
 
-    def cast_count(self):
+    def cast_count(self, vec_reg_size):
         return self.casts[4]
 
     def cast_types(self):
@@ -667,7 +667,7 @@ class CastOp(object):
 
     def cast_input_bytesize(self, vec_reg_size):
         count = vec_reg_size // self.cast_to_bytesize()
-        size = self.cast_from_bytesize() * self.count
+        size = self.cast_from_bytesize() * self.cast_count(vec_reg_size)
         return size
 
 class SignExtOp(object):
@@ -689,8 +689,8 @@ class SignExtOp(object):
         arg = self.getarg(0)
         return arg.bytesize
 
-    def cast_count(self):
-        return self.casts[4]
+    def cast_input_bytesize(self, vec_reg_size):
+        return vec_reg_size # self.cast_from_bytesize() * self.cast_count(vec_reg_size)
 
 
 class VectorOp(object):
@@ -1170,11 +1170,11 @@ _oplist = [
 ]
 
 _cast_ops = {
-    'CAST_FLOAT_TO_INT': ('f', 8, 'i', 4),
-    'CAST_INT_TO_FLOAT': ('i', 4, 'f', 8),
-    'CAST_FLOAT_TO_SINGLEFLOAT': ('f', 8, 'f', 4),
-    'CAST_SINGLEFLOAT_TO_FLOAT': ('f', 4, 'f', 8),
-    'INT_SIGNEXT': ('i', 0, 'i', 0),
+    'CAST_FLOAT_TO_INT': ('f', 8, 'i', 4, 2),
+    'CAST_INT_TO_FLOAT': ('i', 4, 'f', 8, 2),
+    'CAST_FLOAT_TO_SINGLEFLOAT': ('f', 8, 'f', 4, 2),
+    'CAST_SINGLEFLOAT_TO_FLOAT': ('f', 4, 'f', 8, 2),
+    'INT_SIGNEXT': ('i', 0, 'i', 0, 0),
     #'CAST_PTR_TO_INT': ('r', 0, 'i', 4),
     #'CAST_INT_TO_PTR': ('i', 4, 'r', 0),
 }
