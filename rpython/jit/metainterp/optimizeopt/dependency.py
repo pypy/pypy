@@ -356,7 +356,7 @@ class Node(object):
         pack = ''
         if self.pack:
             pack = "p: %d" % self.pack.numops()
-        return "Node(%s,%s i: %d)" % (self.op.getopname(), pack, self.opidx)
+        return "Node(%s,%s i: %d)" % (self.op, pack, self.opidx)
 
     def __ne__(self, other):
         return not self.__eq__(other)

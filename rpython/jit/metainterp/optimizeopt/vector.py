@@ -29,6 +29,8 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import Counters
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.jit.backend.llsupport.symbolic import (WORD as INT_WORD,
+        SIZEOF_FLOAT as FLOAT_WORD)
 
 class VectorLoop(object):
     def __init__(self, label, oplist, jump):
@@ -188,7 +190,7 @@ class VectorizingOptimizer(Optimizer):
 
         # vectorize
         graph = DependencyGraph(loop)
-        self.find_adjacent_memory_refs()
+        self.find_adjacent_memory_refs(graph)
         self.extend_packset()
         self.combine_packset()
         # TODO move cost model to CPU
@@ -256,7 +258,7 @@ class VectorizingOptimizer(Optimizer):
                 if op.getopnum() in prohibit_opnums:
                     continue # do not unroll this operation twice
                 copied_op = op.clone()
-                if copied_op.result is not None:
+                if not copied_op.returns_void():
                     # every result assigns a new box, thus creates an entry
                     # to the rename map.
                     new_assigned_box = copied_op.result.clonebox()
@@ -323,7 +325,7 @@ class VectorizingOptimizer(Optimizer):
             They are represented as a linear combination: i*c/d + e, i is a variable,
             all others are integers that are calculated in reverse direction
         """
-        loop = self.loop
+        loop = graph.loop
         operations = loop.operations
 
         self.packset = PackSet(self.cpu.vector_register_size)
@@ -338,8 +340,10 @@ class VectorizingOptimizer(Optimizer):
                 # exclue a_opidx == b_opidx only consider the ones
                 # that point forward:
                 if memref_a.is_adjacent_after(memref_b):
+                    print node_a.getindex(), "is after", node_b.getindex()
                     pair = self.packset.can_be_packed(node_a, node_b, None, False)
                     if pair:
+                        print "creating mem pair", pair
                         self.packset.add_pack(pair)
 
     def extend_packset(self):
@@ -348,26 +352,33 @@ class VectorizingOptimizer(Optimizer):
         """
         pack_count = self.packset.pack_count()
         while True:
-            for pack in self.packset.packs:
+            i = 0
+            packs = self.packset.packs
+            while i < len(packs):
+                pack = packs[i]
                 self.follow_def_uses(pack)
+                i += 1
             if pack_count == self.packset.pack_count():
                 pack_count = self.packset.pack_count()
-                for pack in self.packset.packs:
+                i = 0
+                while i < len(packs):
+                    pack = packs[i]
                     self.follow_use_defs(pack)
+                    i += 1
                 if pack_count == self.packset.pack_count():
                     break
             pack_count = self.packset.pack_count()
 
     def follow_use_defs(self, pack):
         assert isinstance(pack, Pair)
-        for ldep in pack.left.depends():
-            for rdep in pack.right.depends():
+        for ldep in pack.leftmost(True).depends():
+            for rdep in pack.rightmost(True).depends():
                 lnode = ldep.to
                 rnode = rdep.to
-                # only valid if the result of the left is in args of pack left
-                result = lnode.getoperation().result
-                args = pack.left.getoperation().getarglist()
-                if result is None or result not in args:
+                # only valid if left is in args of pack left
+                left = lnode.getoperation()
+                args = pack.leftmost().getarglist()
+                if left is None or left not in args:
                     continue
                 isomorph = isomorphic(lnode.getoperation(), rnode.getoperation())
                 if isomorph and lnode.is_before(rnode):
@@ -377,19 +388,25 @@ class VectorizingOptimizer(Optimizer):
 
     def follow_def_uses(self, pack):
         assert isinstance(pack, Pair)
-        for ldep in pack.left.provides():
-            for rdep in pack.right.provides():
+        print "lprov", pack.leftmost(node=True).provides_count(),
+        print "rprov", pack.rightmost(node=True).provides_count()
+        for ldep in pack.leftmost(node=True).provides():
+            for rdep in pack.rightmost(node=True).provides():
                 lnode = ldep.to
                 rnode = rdep.to
-                result = pack.left.getoperation().result
+                print "trying", lnode.getindex(), rnode.getindex(), lnode, rnode
+                left = pack.leftmost()
                 args = lnode.getoperation().getarglist()
-                if result is None or result not in args:
+                if left is None or left not in args:
                     continue
                 isomorph = isomorphic(lnode.getoperation(), rnode.getoperation())
                 if isomorph and lnode.is_before(rnode):
                     pair = self.packset.can_be_packed(lnode, rnode, pack, True)
                     if pair:
+                        print "creating pair" , pair, pair.operations[0].op, pair.operations[1].op
                         self.packset.add_pack(pair)
+                    else:
+                        print "!!!creating pair" , lnode, rnode
 
     def combine_packset(self):
         """ Combination is done iterating the packs that have
@@ -404,7 +421,6 @@ class VectorizingOptimizer(Optimizer):
         i = 0
         j = 0
         end_ij = len(self.packset.packs)
-        orphan = {}
         while True:
             len_before = len(self.packset.packs)
             i = 0
@@ -616,6 +632,7 @@ class X86_CostModel(CostModel):
             cost, benefit_factor = self.cb_signext(pack)
         #
         self.savings += benefit_factor * times - cost
+        print "$$$ recording", benefit_factor, "*", times, "-", cost, "now:", self.savings
 
     def cb_signext(self, pack):
         left = pack.leftmost()
@@ -627,13 +644,16 @@ class X86_CostModel(CostModel):
     def record_cast_int(self, fromsize, tosize, count):
         # for each move there is 1 instruction
         self.savings += -count
+        print "$$$ cast", -count, "now", self.savings
 
     def record_vector_pack(self, src, index, count):
         if src.datatype == FLOAT:
             if index == 1 and count == 1:
                 self.savings -= 2
+                print "$$$ vector pack -2 now:", self.savings
                 return
         self.savings -= count
+        print "$$$ vector pack ", count, "now", self.savings
 
     def record_vector_unpack(self, src, index, count):
         self.record_vector_pack(src, index, count)
@@ -680,6 +700,7 @@ class PackSet(object):
                 if self.profitable_pack(lnode, rnode, origin_pack, forward):
                     return Pair(lnode, rnode)
             else:
+                print "dependent"
                 if self.contains_pair(lnode, rnode):
                     return None
                 if origin_pack is not None:
@@ -688,24 +709,18 @@ class PackSet(object):
 
     def contains_pair(self, lnode, rnode):
         for pack in self.packs:
-            if pack.left is lnode or pack.right is rnode:
+            if pack.leftmost(node=True) is lnode or \
+               pack.rightmost(node=True) is rnode:
                 return True
         return False
 
     def profitable_pack(self, lnode, rnode, origin_pack, forward):
-        lpacknode = origin_pack.left
-        if self.prohibit_packing(origin_pack,
-                                 lpacknode.getoperation(),
-                                 lnode.getoperation(),
-                                 forward):
+        if self.prohibit_packing(origin_pack, origin_pack.leftmost(),
+                                 lnode.getoperation(), forward):
             return False
-        rpacknode = origin_pack.right
-        if self.prohibit_packing(origin_pack,
-                                 rpacknode.getoperation(),
-                                 rnode.getoperation(),
-                                 forward):
+        if self.prohibit_packing(origin_pack, origin_pack.rightmost(),
+                                 rnode.getoperation(), forward):
             return False
-
         return True
 
     def prohibit_packing(self, pack, packed, inquestion, forward):
@@ -713,7 +728,7 @@ class PackSet(object):
         if inquestion.vector == -1:
             return True
         if packed.is_primitive_array_access():
-            if packed.getarg(1) == inquestion.result:
+            if packed.getarg(1) is inquestion:
                 return True
         if not forward and inquestion.getopnum() == rop.INT_SIGNEXT:
             # prohibit the packing of signext in backwards direction
@@ -742,37 +757,37 @@ class PackSet(object):
     def accumulates_pair(self, lnode, rnode, origin_pack):
         # lnode and rnode are isomorphic and dependent
         assert isinstance(origin_pack, Pair)
-        lop = lnode.getoperation()
-        opnum = lop.getopnum()
+        left = lnode.getoperation()
+        opnum = left.getopnum()
 
         if opnum in (rop.FLOAT_ADD, rop.INT_ADD, rop.FLOAT_MUL):
-            roper = rnode.getoperation()
-            assert lop.numargs() == 2 and lop.result is not None
-            accum_var, accum_pos = self.getaccumulator_variable(lop, roper, origin_pack)
+            right = rnode.getoperation()
+            assert left.numargs() == 2 and not left.returns_void()
+            accum_var, accum_pos = self.getaccumulator_variable(left, right, origin_pack)
             if not accum_var:
                 return None
-            # the dependency exists only because of the result of lnode
+            # the dependency exists only because of the left?
             for dep in lnode.provides():
                 if dep.to is rnode:
                     if not dep.because_of(accum_var):
                         # not quite ... this is not handlable
                         return None
             # get the original variable
-            accum_var = lop.getarg(accum_pos)
+            accum_var = left.getarg(accum_pos)
 
             # in either of the two cases the arguments are mixed,
             # which is not handled currently
             var_pos = (accum_pos + 1) % 2
-            plop = origin_pack.left.getoperation()
-            if lop.getarg(var_pos) is not plop.result:
+            if left.getarg(var_pos) is not origin_pack.leftmost():
                 return None
-            prop = origin_pack.right.getoperation()
-            if roper.getarg(var_pos) is not prop.result:
+            if right.getarg(var_pos) is not origin_pack.rightmost():
                 return None
 
             # this can be handled by accumulation
-            ptype = origin_pack.output_type
-            if ptype.getsize() != 8:
+            size = INT_WORD
+            if left.type == 'f':
+                size = FLOAT_WORD
+            if left.bytesize == right.bytesize and left.bytesize == size:
                 # do not support if if the type size is smaller
                 # than the cpu word size.
                 # WHY?
@@ -781,16 +796,14 @@ class PackSet(object):
                 # considered. => tree pattern matching problem.
                 return None
             accum = Accum(opnum, accum_var, accum_pos)
-            return AccumPair(lnode, rnode, ptype, ptype, accum)
+            return AccumPair(lnode, rnode, accum)
 
         return None
 
-    def getaccumulator_variable(self, lop, rop, origin_pack):
-        args = rop.getarglist()
-        for i, arg in enumerate(args):
-            if arg is lop.result:
+    def getaccumulator_variable(self, left, right, origin_pack):
+        for i, arg in enumerate(right.getarglist()):
+            if arg is left:
                 return arg, i
-        #
         return None, -1
 
     def accumulate_prepare(self, state):

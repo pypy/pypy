@@ -2,14 +2,15 @@ import py
 
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.metainterp.optimizeopt.vectorize import (VecScheduleData,
-        Pack, NotAProfitableLoop, VectorizingOptimizer)
+from rpython.jit.metainterp.optimizeopt.vector import (Pack, X86_CostModel,
+        NotAProfitableLoop, VectorizingOptimizer)
+from rpython.jit.metainterp.optimizeopt.schedule import VecScheduleState
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_schedule import SchedulerBaseTest
-from rpython.jit.metainterp.optimizeopt.test.test_vectorize import (FakeMetaInterpStaticData,
+from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpStaticData,
         FakeJitDriverStaticData)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation, AbstractValue
 from rpython.jit.tool.oparser import parse as opparse
 from rpython.jit.tool.oparser_model import get_model
 
@@ -18,7 +19,7 @@ class FakeMemoryRef(object):
         self.index_var = iv
         self.array = array
 
-    def is_adjacent_to(self, other):
+    def is_adjacent_after(self, other):
         if self.array is not other.array:
             return False
         iv = self.index_var
@@ -28,36 +29,39 @@ class FakeMemoryRef(object):
         # i1 and i0 ...
         # but not i0, i2
         # ...
-        return abs(val) == 1
+        print iv, 'is after', ov, "?", val == 1
+        return val == 1
 
 class CostModelBaseTest(SchedulerBaseTest):
+
     def savings(self, loop):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
-        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, loop, [])
-        label_index = loop.find_first_index(rop.LABEL)
-        opt.orig_label_args = loop.operations[label_index].getarglist()[:]
+        opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, 0)
+        opt.orig_label_args = loop.label.getarglist()[:]
         graph = opt.dependency_graph = DependencyGraph(loop)
+        self.show_dot_graph(graph, 'costmodel')
         for k,m in graph.memory_refs.items():
             graph.memory_refs[k] = FakeMemoryRef(m.array, m.index_var)
-        opt.find_adjacent_memory_refs()
+        opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
         opt.combine_packset()
         for pack in opt.packset.packs:
             print "pack: \n   ",
             print '\n    '.join([str(op.getoperation()) for op in pack.operations])
             print
-        opt.costmodel.reset_savings()
-        opt.schedule(True)
-        return opt.costmodel.savings
+        costmodel = X86_CostModel(self.cpu, 0)
+        state = VecScheduleState(graph, opt.packset, self.cpu, costmodel)
+        opt.schedule(state)
+        return costmodel.savings
 
     def assert_operations_match(self, loop_a, loop_b):
         assert equaloplists(loop_a.operations, loop_b.operations)
 
     def test_load_2_unpack(self):
-        loop1 = self.parse("""
-        f10 = raw_load(p0, i0, descr=double)
-        f11 = raw_load(p0, i1, descr=double)
+        loop1 = self.parse_trace("""
+        f10 = raw_load_f(p0, i0, descr=double)
+        f11 = raw_load_f(p0, i1, descr=double)
         guard_true(i0) [f10]
         guard_true(i1) [f11]
         """)
@@ -68,11 +72,11 @@ class CostModelBaseTest(SchedulerBaseTest):
         assert savings == -2
 
     def test_load_4_unpack(self):
-        loop1 = self.parse("""
-        i10 = raw_load(p0, i0, descr=float)
-        i11 = raw_load(p0, i1, descr=float)
-        i12 = raw_load(p0, i2, descr=float)
-        i13 = raw_load(p0, i3, descr=float)
+        loop1 = self.parse_trace("""
+        i10 = raw_load_i(p0, i0, descr=float)
+        i11 = raw_load_i(p0, i1, descr=float)
+        i12 = raw_load_i(p0, i2, descr=float)
+        i13 = raw_load_i(p0, i3, descr=float)
         guard_true(i0) [i10]
         guard_true(i1) [i11]
         guard_true(i2) [i12]
@@ -82,29 +86,29 @@ class CostModelBaseTest(SchedulerBaseTest):
         assert savings == -1
 
     def test_load_2_unpack_1(self):
-        loop1 = self.parse("""
-        f10 = raw_load(p0, i0, descr=double)
-        f11 = raw_load(p0, i1, descr=double)
+        loop1 = self.parse_trace("""
+        f10 = raw_load_f(p0, i0, descr=double)
+        f11 = raw_load_f(p0, i1, descr=double)
         guard_true(i0) [f10]
         """)
         savings = self.savings(loop1)
         assert savings == 0
 
     def test_load_2_unpack_1_index1(self):
-        loop1 = self.parse("""
-        f10 = raw_load(p0, i0, descr=double)
-        f11 = raw_load(p0, i1, descr=double)
+        loop1 = self.parse_trace("""
+        f10 = raw_load_f(p0, i0, descr=double)
+        f11 = raw_load_f(p0, i1, descr=double)
         guard_true(i0) [f11]
         """)
         savings = self.savings(loop1)
         assert savings == -1
 
-    def test_load_arith(self):
-        loop1 = self.parse("""
-        i10 = raw_load(p0, i0, descr=int)
-        i11 = raw_load(p0, i1, descr=int)
-        i12 = raw_load(p0, i2, descr=int)
-        i13 = raw_load(p0, i3, descr=int)
+    def test_load_arith1(self):
+        loop1 = self.parse_trace("""
+        i10 = raw_load_i(p0, i0, descr=int)
+        i11 = raw_load_i(p0, i1, descr=int)
+        i12 = raw_load_i(p0, i2, descr=int)
+        i13 = raw_load_i(p0, i3, descr=int)
         i15 = int_add(i10, 1)
         i16 = int_add(i11, 1)
         i17 = int_add(i12, 1)
@@ -114,9 +118,9 @@ class CostModelBaseTest(SchedulerBaseTest):
         assert savings == 6
 
     def test_load_arith_store(self):
-        loop1 = self.parse("""
-        f10 = raw_load(p0, i0, descr=double)
-        f11 = raw_load(p0, i1, descr=double)
+        loop1 = self.parse_trace("""
+        f10 = raw_load_f(p0, i0, descr=double)
+        f11 = raw_load_f(p0, i1, descr=double)
         i20 = cast_float_to_int(f10)
         i21 = cast_float_to_int(f11)
         i30 = int_signext(i20, 4)
@@ -128,9 +132,9 @@ class CostModelBaseTest(SchedulerBaseTest):
         assert savings >= 0
 
     def test_sum(self):
-        loop1 = self.parse("""
-        f10 = raw_load(p0, i0, descr=double)
-        f11 = raw_load(p0, i1, descr=double)
+        loop1 = self.parse_trace("""
+        f10 = raw_load_f(p0, i0, descr=double)
+        f11 = raw_load_f(p0, i1, descr=double)
         f12 = float_add(f1, f10)
         f13 = float_add(f12, f11)
         """)
@@ -139,9 +143,9 @@ class CostModelBaseTest(SchedulerBaseTest):
 
     @py.test.mark.parametrize("bytes,s", [(1,None),(2,None),(4,0),(8,0)])
     def test_sum_float_to_int(self, bytes, s):
-        loop1 = self.parse("""
-        f10 = raw_load(p0, i0, descr=double)
-        f11 = raw_load(p0, i1, descr=double)
+        loop1 = self.parse_trace("""
+        f10 = raw_load_f(p0, i0, descr=double)
+        f11 = raw_load_f(p0, i1, descr=double)
         i10 = cast_float_to_int(f10)
         i11 = cast_float_to_int(f11)
         i12 = int_signext(i10, {c})
@@ -166,20 +170,20 @@ class CostModelBaseTest(SchedulerBaseTest):
                 py.test.fail("must not fail")
 
     def test_cast(self):
-        loop1 = self.parse("""
-        i100 = raw_load(p0, i1, descr=float)
-        i101 = raw_load(p0, i2, descr=float)
-        i102 = raw_load(p0, i3, descr=float)
-        i103 = raw_load(p0, i4, descr=float)
+        loop1 = self.parse_trace("""
+        i100 = raw_load_i(p0, i1, descr=float)
+        i101 = raw_load_i(p0, i2, descr=float)
+        i102 = raw_load_i(p0, i3, descr=float)
+        i103 = raw_load_i(p0, i4, descr=float)
         #
-        i104 = raw_load(p1, i1, descr=short)
-        i105 = raw_load(p1, i2, descr=short)
-        i106 = raw_load(p1, i3, descr=short)
-        i107 = raw_load(p1, i4, descr=short)
-        i108 = raw_load(p1, i5, descr=short)
-        i109 = raw_load(p1, i6, descr=short)
-        i110 = raw_load(p1, i7, descr=short)
-        i111 = raw_load(p1, i8, descr=short)
+        i104 = raw_load_i(p1, i1, descr=short)
+        i105 = raw_load_i(p1, i2, descr=short)
+        i106 = raw_load_i(p1, i3, descr=short)
+        i107 = raw_load_i(p1, i4, descr=short)
+        i108 = raw_load_i(p1, i5, descr=short)
+        i109 = raw_load_i(p1, i6, descr=short)
+        i110 = raw_load_i(p1, i7, descr=short)
+        i111 = raw_load_i(p1, i8, descr=short)
         #
         f100 = cast_int_to_float(i104)
         f101 = cast_int_to_float(i105)
@@ -192,7 +196,7 @@ class CostModelBaseTest(SchedulerBaseTest):
         """)
         try:
             self.savings(loop1)
-            py.test.fail("must not profitable!")
+            py.test.fail("must not be profitable!")
         except NotAProfitableLoop:
             pass
 

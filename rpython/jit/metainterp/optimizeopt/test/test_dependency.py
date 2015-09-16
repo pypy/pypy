@@ -6,6 +6,7 @@ from rpython.jit.metainterp.optimizeopt.test.test_util import (
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, Dependency,
         IndexVar, MemoryRef, Node)
+from rpython.jit.metainterp.compile import ResumeAtLoopHeaderDescr
 from rpython.jit.metainterp.optimizeopt.vector import VectorLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.llgraph.runner import ArrayDescr
@@ -54,7 +55,7 @@ class DependencyBaseTest(BaseTest):
         loop.jump.setdescr(token)
         for op in loop.operations:
             if op.getopnum() == rop.GUARD_EARLY_EXIT and op.getdescr() is None:
-                op.setdescr(compile.ResumeAtLoopHeaderDescr())
+                op.setdescr(ResumeAtLoopHeaderDescr())
         return loop
 
     def assert_edges(self, graph, edge_list, exceptions):

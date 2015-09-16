@@ -198,6 +198,8 @@ class OpParser(object):
             from rpython.rtyper.lltypesystem import lltype, llmemory
             assert elem.startswith('p')
             v = InputArgRef(lltype.nullptr(llmemory.GCREF.TO))
+        # ensure that the variable gets the proper naming
+        self.update_memo(v, elem)
         self.vars[elem] = v
         return v
 
@@ -353,8 +355,23 @@ class OpParser(object):
             raise ParseError("Double assign to var %s in line: %s" % (res, line))
         resop = self.create_op(opnum, args, res, descr, fail_args)
         res = self.update_vector(resop, res)
+        self.update_memo(resop, res)
         self.vars[res] = resop
         return resop
+
+    def update_memo(self, val, name):
+        """ This updates the id of the operation or inputarg.
+            Internally you will see the same variable names as
+            in the trace as string.
+        """
+        regex = re.compile("[prif](\d+)")
+        match = regex.match(name)
+        if match:
+            counter = int(match.group(1))
+            countdict = val._repr_memo
+            countdict._d[val] = counter
+            if countdict.counter < counter:
+                countdict.counter = counter
 
     def update_vector(self, resop, var):
         pattern = re.compile('.*\[(\d+)x(u?)(i|f)(\d+)\]')

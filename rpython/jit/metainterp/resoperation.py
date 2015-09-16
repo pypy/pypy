@@ -147,6 +147,11 @@ class Typed(object):
                 i += 1
                 arg = self.getarg(i)
             if arg.is_constant():
+                if arg.type == 'i':
+                    self.setdatatype('i', INT_WORD, True)
+                else:
+                    assert arg.type == 'f'
+                    self.setdatatype('f', FLOAT_WORD, False)
                 return
             self.setdatatype(arg.datatype, arg.bytesize, arg.signed)
         assert self.datatype != '\x00'
