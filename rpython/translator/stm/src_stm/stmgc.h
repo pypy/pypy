@@ -162,6 +162,7 @@ uint64_t _stm_total_allocated(void);
 #endif
 
 #define _STM_GCFLAG_WRITE_BARRIER      0x01
+#define _STM_GCFLAG_NO_CONFLICT        0x40
 #define _STM_FAST_ALLOC           (66*1024)
 #define _STM_NSE_SIGNAL_ABORT             1
 #define _STM_NSE_SIGNAL_MAX               2
@@ -778,6 +779,24 @@ void stm_queue_task_done(stm_queue_t *queue);
    Unsuitable if the current transaction is atomic! */
 long stm_queue_join(object_t *qobj, stm_queue_t *queue, stm_thread_local_t *tl);
 void stm_queue_tracefn(stm_queue_t *queue, void trace(object_t **));
+
+
+
+/* stm_allocate_noconflict() allocates a special kind of object. Validation
+   will never detect conflicts on such an object. However, writes to it can
+   get lost. More precisely: every possible point for validation during a
+   transaction may import a committed version of such objs, thereby resetting
+   it or even contain not-yet-seen values from other (committed) transactions.
+   Hence, changes to such an obj that a transaction commits may or may not
+   propagate to other transactions. */
+__attribute__((always_inline))
+static inline object_t *stm_allocate_noconflict(ssize_t size_rounded_up)
+{
+    object_t *o = stm_allocate(size_rounded_up);
+    o->stm_flags |= _STM_GCFLAG_NO_CONFLICT;
+    return o;
+}
+
 
 
 /* ==================== END ==================== */

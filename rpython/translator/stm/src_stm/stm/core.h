@@ -43,6 +43,7 @@ enum /* stm_flags */ {
     GCFLAG_CARDS_SET = _STM_GCFLAG_CARDS_SET,
     GCFLAG_VISITED = 0x10,
     GCFLAG_FINALIZATION_ORDERING = 0x20,
+    GCFLAG_NO_CONFLICT = _STM_GCFLAG_NO_CONFLICT,
     /* All remaining bits of the 32-bit 'stm_flags' field are taken by
        the "overflow number".  This is a number that identifies the
        "overflow objects" from the current transaction among all old
@@ -50,7 +51,7 @@ enum /* stm_flags */ {
        current transaction that have been flushed out of the nursery,
        which occurs if the same transaction allocates too many objects.
     */
-    GCFLAG_OVERFLOW_NUMBER_bit0 = 0x40   /* must be last */
+    GCFLAG_OVERFLOW_NUMBER_bit0 = 0x80   /* must be last */
 };
 
 #define SYNC_QUEUE_SIZE    31
