@@ -9,7 +9,7 @@ from pypy.objspace.std.dictmultiobject import (
     BaseValueIterator, BaseItemIterator, _never_equal_to_string
 )
 from pypy.objspace.std.typeobject import MutableCell
-
+from rpython.rlib.objectmodel import we_are_translated
 
 # ____________________________________________________________
 # attribute shapes
@@ -843,16 +843,32 @@ INVALID_CACHE_ENTRY = CacheEntry()
 INVALID_CACHE_ENTRY.map_wref = weakref.ref(_invalid_cache_entry_map)
                                  # different from any real map ^^^
 
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import annlowlevel
+MAPDICT_CACHE = lltype.GcArray(llmemory.GCREF)
+PMAPDICT_CACHE = lltype.Ptr(MAPDICT_CACHE)
+NULL_MAPDICTCACHE = lltype.nullptr(MAPDICT_CACHE)
+
+
 def init_mapdict_cache(pycode):
     num_entries = len(pycode.co_names_w)
-    pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
+    # pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
+    if pycode.space.config.translation.stm:
+        from rpython.rlib.rstm import allocate_noconflict
+        pycode._mapdict_caches = allocate_noconflict(MAPDICT_CACHE, num_entries)
+    else:
+        pycode._mapdict_caches = lltype.malloc(MAPDICT_CACHE, num_entries)
+    #
+    for i in range(num_entries):
+        pycode._mapdict_caches[i] = annlowlevel.cast_instance_to_gcref(INVALID_CACHE_ENTRY)
+
 
 @jit.dont_look_inside
 def _fill_cache(pycode, nameindex, map, version_tag, storageindex, w_method=None):
-    entry = pycode._mapdict_caches[nameindex]
+    entry = annlowlevel.cast_gcref_to_instance(CacheEntry, pycode._mapdict_caches[nameindex])
     if entry is INVALID_CACHE_ENTRY:
         entry = CacheEntry()
-        pycode._mapdict_caches[nameindex] = entry
+        pycode._mapdict_caches[nameindex] = annlowlevel.cast_instance_to_gcref(entry)
     entry.map_wref = weakref.ref(map)
     entry.version_tag = version_tag
     entry.storageindex = storageindex
@@ -863,7 +879,7 @@ def _fill_cache(pycode, nameindex, map, version_tag, storageindex, w_method=None
 def LOAD_ATTR_caching(pycode, w_obj, nameindex):
     # this whole mess is to make the interpreter quite a bit faster; it's not
     # used if we_are_jitted().
-    entry = pycode._mapdict_caches[nameindex]
+    entry = annlowlevel.cast_gcref_to_instance(CacheEntry, pycode._mapdict_caches[nameindex])
     map = w_obj._get_mapdict_map()
     if entry.is_valid_for_map(map) and entry.w_method is None:
         # everything matches, it's incredibly fast
@@ -920,7 +936,7 @@ LOAD_ATTR_slowpath._dont_inline_ = True
 
 def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
     pycode = f.getcode()
-    entry = pycode._mapdict_caches[nameindex]
+    entry = annlowlevel.cast_gcref_to_instance(CacheEntry, pycode._mapdict_caches[nameindex])
     if entry.is_valid_for_obj(w_obj):
         w_method = entry.w_method
         if w_method is not None:

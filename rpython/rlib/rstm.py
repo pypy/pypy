@@ -189,11 +189,15 @@ def allocate_preexisting(p):
     size = llmemory.sizeof(TP.TO)
     return llop.stm_allocate_preexisting(TP, size, p)
 
+@dont_look_inside
 @specialize.ll()
 def allocate_noconflict(GCTYPE, n=None):
     """Return a new instance of GCTYPE that never generates conflicts when
     reading or writing to it. However, modifications may get lost
     and are not guaranteed to propagate."""
+    if not we_are_translated(): # for tests
+        return lltype.malloc(GCTYPE, n=n)
+    #
     if n is None:
         return llop.stm_malloc_noconflict(lltype.Ptr(GCTYPE))
     else:

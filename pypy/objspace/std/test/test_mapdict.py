@@ -719,7 +719,7 @@ class AppTestWithMapDictAndCounters(object):
         def check(space, w_func, name):
             w_code = space.getattr(w_func, space.wrap('func_code'))
             nameindex = map(space.str_w, w_code.co_names_w).index(name)
-            entry = w_code._mapdict_caches[nameindex]
+            entry = annlowlevel.cast_gcref_to_instance(CacheEntry, w_code._mapdict_caches[nameindex])
             entry.failure_counter = 0
             entry.success_counter = 0
             INVALID_CACHE_ENTRY.failure_counter = 0
@@ -727,7 +727,7 @@ class AppTestWithMapDictAndCounters(object):
             w_res = space.call_function(w_func)
             assert space.eq_w(w_res, space.wrap(42))
             #
-            entry = w_code._mapdict_caches[nameindex]
+            entry = annlowlevel.cast_gcref_to_instance(CacheEntry, w_code._mapdict_caches[nameindex])
             if entry is INVALID_CACHE_ENTRY:
                 failures = successes = 0
             else:
