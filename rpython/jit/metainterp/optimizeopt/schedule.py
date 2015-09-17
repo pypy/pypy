@@ -18,6 +18,7 @@ class SchedulerState(object):
         self.worklist = []
         self.invariant_oplist = []
         self.invariant_vector_vars = []
+        self.seen = {}
 
     def post_schedule(self):
         loop = self.graph.loop
@@ -32,16 +33,29 @@ class SchedulerState(object):
             loop.prefix_label = loop.label.copy_and_change(opnum, args)
 
     def profitable(self):
-        return self.costmodel.profitable()
+        return True
 
     def prepare(self):
-        pass
+        for node in self.graph.nodes:
+            if node.depends_count() == 0:
+                self.worklist.insert(0, node)
 
-    def delay(self):
+    def emit(self, node, scheduler):
+        # implement me in subclass. e.g. as in VecScheduleState
+        return False
+
+    def delay(self, node):
         return False
 
     def has_more(self):
         return len(self.worklist) > 0
+
+    def ensure_args_unpacked(self, op):
+        pass
+
+    def post_emit(self, op):
+        pass
+
 
 class Scheduler(object):
     """ Create an instance of this class to (re)schedule a vector trace. """
@@ -75,11 +89,6 @@ class Scheduler(object):
         """ An operation has been emitted, adds new operations to the worklist
             whenever their dependency count drops to zero.
             Keeps worklist sorted (see priority) """
-        op = node.getoperation()
-        state.renamer.rename(op)
-        if unpack:
-            state.ensure_args_unpacked(op)
-        node.vector=Trueposition = len(state.oplist)
         worklist = state.worklist
         for dep in node.provides()[:]: # COPY
             to = dep.to
@@ -104,20 +113,28 @@ class Scheduler(object):
                     worklist.insert(0, to)
         node.clear_dependencies()
         node.emitted = True
+        if not node.is_imaginary():
+            op = node.getoperation()
+            state.renamer.rename(op)
+            if unpack:
+                state.ensure_args_unpacked(op)
+            state.post_emit(node.getoperation())
 
     def walk_and_emit(self, state):
         """ Emit all the operations into the oplist parameter.
             Initiates the scheduling. """
         assert isinstance(state, SchedulerState)
+        import pdb; pdb.set_trace()
         while state.has_more():
             node = self.next(state)
             if node:
                 if not state.emit(node, self):
                     if not node.emitted:
-                        op = node.getoperation()
                         self.mark_emitted(node, state)
-                        state.seen[op] = None
-                        state.oplist.append(op)
+                        if not node.is_imaginary():
+                            op = node.getoperation()
+                            state.seen[op] = None
+                            state.oplist.append(op)
                 continue
 
             # it happens that packs can emit many nodes that have been
@@ -246,6 +263,10 @@ def turn_into_vector(state, pack):
         assert isinstance(vecop, GuardResOp)
         vecop.setfailargs(op.getfailargs())
         vecop.rd_snapshot = op.rd_snapshot
+    if pack.is_accumulating():
+        for i,node in enumerate(pack.operations):
+            op = node.getoperation()
+            state.accumulation[op] = pack
 
 
 def prepare_arguments(state, pack, args):
@@ -456,7 +477,7 @@ class VecScheduleState(SchedulerState):
         self.packset = packset
         for arg in graph.loop.inputargs:
             self.inputargs[arg] = None
-        self.seen = {}
+        self.accumulation = {}
 
     def expand(self, args, vecop):
         index = 0
@@ -496,39 +517,33 @@ class VecScheduleState(SchedulerState):
                 return vecop
         return None
 
+    def post_emit(self, op):
+        if op.is_guard():
+            # add accumulation info to the descriptor
+            # TODO for version in self.loop.versions:
+            #    # this needs to be done for renamed (accum arguments)
+            #    version.renamed_inputargs = [ renamer.rename_map.get(arg,arg) for arg in version.inputargs ]
+            #self.appendedvar_pos_arg_count = len(sched_data.invariant_vector_vars)
+            failargs = op.getfailargs()
+            descr = op.getdescr()
+            for i,arg in enumerate(failargs):
+                if arg is None:
+                    continue
+                accum = state.accumulation.get(arg, None)
+                if accum:
+                    assert isinstance(accum, AccumPack)
+                    accum.attach_accum_info(descr.rd_accum_list, i)
+
     def post_schedule(self):
         loop = self.graph.loop
         self.ensure_args_unpacked(loop.jump)
         SchedulerState.post_schedule(self)
-
-        # add accumulation info to the descriptor
-        # TODO for version in self.loop.versions:
-        #    # this needs to be done for renamed (accum arguments)
-        #    version.renamed_inputargs = [ renamer.rename_map.get(arg,arg) for arg in version.inputargs ]
-        #self.appended_arg_count = len(sched_data.invariant_vector_vars)
-        ##for guard_node in graph.guards:
-        ##    op = guard_node.getoperation()
-        ##    failargs = op.getfailargs()
-        ##    for i,arg in enumerate(failargs):
-        ##        if arg is None:
-        ##            continue
-        ##        accum = arg.getaccum()
-        ##        if accum:
-        ##            pass
-        ##            #accum.save_to_descr(op.getdescr(),i)
-        #self.has_two_labels = len(sched_data.invariant_oplist) > 0
-        #self.loop.operations = self.prepend_invariant_operations(sched_data)
-
 
     def profitable(self):
         return self.costmodel.profitable()
 
     def prepare(self):
         SchedulerState.prepare(self)
-        for node in self.graph.nodes:
-            if node.depends_count() == 0:
-                self.worklist.insert(0, node)
-
         self.packset.accumulate_prepare(self)
         for arg in self.graph.loop.label.getarglist():
             self.seen[arg] = None
@@ -640,10 +655,14 @@ class Pack(object):
         * independent
     """
     FULL = 0
+    _attrs_ = ('operations', 'accumulator', 'operator', 'position')
+
+    operator = '\x00'
+    position = -1
+    accumulator = None
 
     def __init__(self, ops):
         self.operations = ops
-        self.accum = None
         self.update_pack_of_nodes()
 
     def numops(self):
@@ -776,13 +795,12 @@ class Pack(object):
         rightmost = self.operations[-1]
         leftmost = other.operations[0]
         # if it is not accumulating it is valid
-        accum = True
         if self.is_accumulating():
             if not other.is_accumulating():
-                accum = False
-            elif self.accum.pos != other.accum.pos:
-                accum = False
-        return rightmost is leftmost and accum
+                return False
+            elif self.position != other.position:
+                return False
+        return rightmost is leftmost
 
     def argument_vectors(self, state, pack, index, pack_args_index):
         vectors = []
@@ -800,12 +818,10 @@ class Pack(object):
         return "Pack(%dx %s)" % (self.numops(), self.operations)
 
     def is_accumulating(self):
-        return self.accum is not None
+        return False
 
     def clone(self, oplist):
-        cloned = Pack(oplist)
-        cloned.accum = self.accum
-        return cloned
+        return Pack(oplist)
 
 class Pair(Pack):
     """ A special Pack object with only two statements. """
@@ -819,10 +835,37 @@ class Pair(Pack):
             return self.left is other.left and \
                    self.right is other.right
 
-class AccumPair(Pair):
-    """ A pair that keeps track of an accumulation value """
-    def __init__(self, left, right, accum):
-        assert isinstance(left, Node)
-        assert isinstance(right, Node)
-        Pair.__init__(self, left, right)
-        self.accum = accum
+class AccumPack(Pack):
+    SUPPORTED = { rop.FLOAT_ADD: '+',
+                  rop.INT_ADD: '+',
+                  rop.FLOAT_MUL: '*',
+                }
+
+    def __init__(self, nodes, operator, accum, position):
+        Pack.__init__(self, [left, right])
+        self.accumulator = accum
+        self.operator = operator
+        self.position = position
+
+    def getdatatype(self):
+        return self.accumulator.datatype
+
+    def getbytesize(self):
+        return self.accumulator.bytesize
+
+    def getseed(self):
+        """ The accumulatoriable holding the seed value """
+        return self.accumulator
+
+    def attach_accum_info(self, descr, position, scalar):
+        descr.rd_accum_list = AccumInfo(descr.rd_accum_list,
+                                        position, self.operator,
+                                        self.scalar, None)
+
+    def is_accumulating(self):
+        return True
+
+    def clone(self):
+        return AccumPack(operations, self.operator,
+                         self.accumulator, self.position)
+

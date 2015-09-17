@@ -58,6 +58,32 @@ class DependencyBaseTest(BaseTest):
                 op.setdescr(ResumeAtLoopHeaderDescr())
         return loop
 
+    def parse_trace(self, source, inc_label_jump=True, pargs=2, iargs=10,
+              fargs=6, additional_args=None, replace_args=None):
+        args = []
+        for prefix, rang in [('p',range(pargs)),
+                             ('i',range(iargs)),
+                             ('f',range(fargs))]:
+            for i in rang:
+                args.append(prefix + str(i))
+
+        assert additional_args is None or isinstance(additional_args,list)
+        for arg in additional_args or []:
+            args.append(arg)
+        for k,v in (replace_args or {}).items():
+            for i,_ in enumerate(args):
+                if k == args[i]:
+                    args[i] = v
+                    break
+        indent = "        "
+        joinedargs = ','.join(args)
+        fmt = (indent, joinedargs, source, indent, joinedargs)
+        src = "%s[%s]\n%s\n%sjump(%s)" % fmt
+        loop = self.parse_loop(src)
+        loop.graph = FakeDependencyGraph(loop)
+        return loop
+
+
     def assert_edges(self, graph, edge_list, exceptions):
         """ Check if all dependencies are met. for complex cases
         adding None instead of a list of integers skips the test.

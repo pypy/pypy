@@ -256,6 +256,9 @@ class AbstractResOp(AbstractResOpOrInputArg):
     # common methods
     # --------------
 
+    def copy(self):
+        return self.copy_and_change(self.opnum)
+
     def copy_and_change(self, opnum, args=None, descr=None):
         "shallow copy: the returned operation is meant to be used in place of self"
         # XXX specialize
@@ -418,6 +421,9 @@ class AbstractResOp(AbstractResOpOrInputArg):
 
     def is_raw_array_access(self):
         return self.is_raw_load() or self.is_raw_store()
+
+    def is_debug(self):
+        return rop._DEBUG_FIRST <= self.getopnum() <= rop._DEBUG_LAST
 
     def is_primitive_array_access(self):
         """ Indicates that this operations loads/stores a
@@ -626,27 +632,6 @@ class RefOp(object):
         from rpython.jit.metainterp import history
         return history.ConstPtr(self.getref_base())
 
-class Accum(object):
-    PLUS = '+'
-    MULTIPLY = '*'
-
-    def __init__(self, opnum, var, pos):
-        self.var = var
-        self.pos = pos
-        self.operator = Accum.PLUS
-        if opnum == rop.FLOAT_MUL:
-            self.operator = Accum.MULTIPLY
-
-    def getdatatype(self):
-        return self.var.datatype
-
-    def getbytesize(self):
-        return self.var.bytesize
-
-    def getseed(self):
-        """ The variable holding the seed value """
-        return self.var
-
 class CastOp(object):
     _mixin_ = True
 
@@ -725,9 +710,6 @@ class VectorOp(object):
         if self.count != other.count:
             return False
         return True
-
-    def getaccum(self):
-        return self.accum
 
 class AbstractInputArg(AbstractResOpOrInputArg):
     def set_forwarded(self, forwarded_to):
@@ -1114,6 +1096,13 @@ _oplist = [
     # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
+    '_DEBUG_FIRST',
+    'DEBUG_MERGE_POINT/*/n',      # debugging only
+    'ENTER_PORTAL_FRAME/2/n',     # debugging only
+    'LEAVE_PORTAL_FRAME/1/n',     # debugging only
+    'JIT_DEBUG/*/n',              # debugging only
+    '_DEBUG_LAST',
+
     'INCREMENT_DEBUG_COUNTER/1/n',
     '_RAW_STORE_FIRST',
     'SETARRAYITEM_GC/3d/n',
@@ -1135,10 +1124,6 @@ _oplist = [
     'UNICODESETITEM/3/n',
     'COND_CALL_GC_WB/1d/n',       # [objptr] (for the write barrier)
     'COND_CALL_GC_WB_ARRAY/2d/n', # [objptr, arrayindex] (write barr. for array)
-    'DEBUG_MERGE_POINT/*/n',      # debugging only
-    'ENTER_PORTAL_FRAME/2/n',     # debugging only
-    'LEAVE_PORTAL_FRAME/1/n',     # debugging only
-    'JIT_DEBUG/*/n',              # debugging only
     'VIRTUAL_REF_FINISH/2/n',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5/n',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5/n',

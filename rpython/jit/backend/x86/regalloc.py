@@ -323,8 +323,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             if arg is None:
                 faillocs.append(None)
                 continue
-            accum = arg.getaccum()
-            if accum:
+            if arg.is_vector() and arg.getaccum():
                 # for an accumulator store the position of the original
                 # box and in llsupport/assembler save restore information
                 # on the descriptor

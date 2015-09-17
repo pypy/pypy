@@ -52,6 +52,10 @@ class AbstractLLCPU(AbstractCPU):
         else:
             translator = None
         self.gc_ll_descr = get_ll_description(gcdescr, translator, rtyper)
+        # support_guard_gc_type indicates if a gc type of an object can be read.
+        # In some states (boehm or x86 untranslated) the type is not known just yet,
+        # because there are cases where it is not guarded. The precise place where it's not
+        # is while inlining short preamble.
         self.supports_guard_gc_type = self.gc_ll_descr.supports_guard_gc_type
         if translator and translator.config.translation.gcremovetypeptr:
             self.vtable_offset = None

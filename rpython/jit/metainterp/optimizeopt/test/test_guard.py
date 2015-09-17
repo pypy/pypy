@@ -2,17 +2,17 @@ import py
 
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.history import (TargetToken, JitCellToken,
-        TreeLoop, Box, Const)
+        TreeLoop, Const)
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.metainterp.optimizeopt.vectorize import (VecScheduleData,
-        Pack, NotAProfitableLoop, VectorizingOptimizer)
+from rpython.jit.metainterp.optimizeopt.vector import (Pack,
+        NotAProfitableLoop, VectorizingOptimizer)
 from rpython.jit.metainterp.optimizeopt.dependency import (Node,
         DependencyGraph, IndexVar)
 from rpython.jit.metainterp.optimizeopt.guard import (GuardStrengthenOpt,
         Guard)
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_schedule import SchedulerBaseTest
-from rpython.jit.metainterp.optimizeopt.test.test_vectorize import (FakeMetaInterpStaticData,
+from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpStaticData,
         FakeJitDriverStaticData)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.tool.oparser_model import get_model
@@ -57,7 +57,7 @@ class FakeResOp(object):
         return self.opnum
 
 def box(value):
-    return Box._new(value)
+    return InputArgInt(value)
 
 def const(value):
     return Const._new(value)
@@ -80,12 +80,13 @@ del guard
 
 class GuardBaseTest(SchedulerBaseTest):
     def optguards(self, loop, user_code=False):
-        loop.snapshot()
+        #loop.snapshot()
         for op in loop.operations:
             if op.is_guard():
                 op.setdescr(compile.CompileLoopVersionDescr())
         dep = DependencyGraph(loop)
         opt = GuardStrengthenOpt(dep.index_vars, False)
+        xxx
         opt.propagate_all_forward(loop, user_code)
         return opt
 
@@ -159,7 +160,7 @@ class GuardBaseTest(SchedulerBaseTest):
             assert j == len(operations), self.debug_print_operations(loop)
 
     def test_basic(self):
-        loop1 = self.parse("""
+        loop1 = self.parse_trace("""
         i10 = int_lt(i1, 42)
         guard_true(i10) []
         i11 = int_add(i1, 1)
@@ -177,7 +178,7 @@ class GuardBaseTest(SchedulerBaseTest):
         """)
 
     def test_basic_sub(self):
-        loop1 = self.parse("""
+        loop1 = self.parse_trace("""
         i10 = int_gt(i1, 42)
         guard_true(i10) []
         i11 = int_sub(i1, 1)
@@ -195,7 +196,7 @@ class GuardBaseTest(SchedulerBaseTest):
         """)
 
     def test_basic_mul(self):
-        loop1 = self.parse("""
+        loop1 = self.parse_trace("""
         i10 = int_mul(i1, 4)
         i20 = int_lt(i10, 42)
         guard_true(i20) []
@@ -310,7 +311,7 @@ class GuardBaseTest(SchedulerBaseTest):
         assert not g2.implies(g1)
 
     def test_collapse(self):
-        loop1 = self.parse("""
+        loop1 = self.parse_trace("""
         i10 = int_gt(i1, 42)
         guard_true(i10) []
         i11 = int_add(i1, 1)

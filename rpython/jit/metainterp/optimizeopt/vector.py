@@ -21,10 +21,10 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleState,
-        Scheduler, Pack, Pair, AccumPair)
+        SchedulerState, Scheduler, Pack, Pair, AccumPack)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp,
-        Accum, OpHelpers, VecOperation)
+        OpHelpers, VecOperation)
 from rpython.rlib import listsort
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -60,7 +60,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate, loop_info, loop_ops)
     # the original loop (output of optimize_unroll)
     info = LoopVersionInfo(loop_info)
     version = info.snapshot(loop_ops, info.label_op)
-    loop = VectorLoop(loop_info.label_op, loop_ops[:-1], loop_ops[-1])
+    loop = VectorLoop(loop_info.label_op, loop_ops[1:-1], loop_ops[-1])
     try:
         debug_start("vec-opt-loop")
         metainterp_sd.logger_noopt.log_loop([], loop.operation_list(), -2, None, None, "pre vectorize")
@@ -160,21 +160,23 @@ class VectorizingOptimizer(Optimizer):
         self.has_two_labels = False
 
     def propagate_all_forward(self, info, loop):
-        label = loop.label
-        jump = loop.jump
-        self.orig_label_args = label.getarglist_copy()
-        if jump.getopnum() not in (rop.LABEL, rop.JUMP) or \
-           label.getopnum() != rop.LABEL:
-            raise NotAVectorizeableLoop()
-        if jump.numargs() != label.numargs():
-            raise NotAVectorizeableLoop()
-
+        #label = loop.label
+        #jump = loop.jump
+        #if jump.getopnum() not in (rop.LABEL, rop.JUMP) or \
+        #   label.getopnum() != rop.LABEL:
+        #    import pdb; pdb. set_trace()
+        #    raise NotAVectorizeableLoop()
+        #if jump.numargs() != label.numargs():
+        #    import pdb; pdb. set_trace()
+        #    raise NotAVectorizeableLoop()
+        self.orig_label_args = loop.label.getarglist_copy()
         self.linear_find_smallest_type(loop)
         byte_count = self.smallest_type_bytes
         vsize = self.cpu.vector_register_size
-        if vsize == 0 or byte_count == 0 or label.getopnum() != rop.LABEL:
+        if vsize == 0 or byte_count == 0 or loop.label.getopnum() != rop.LABEL:
             # stop, there is no chance to vectorize this trace
             # we cannot optimize normal traces (if there is no label)
+            import pdb; pdb. set_trace()
             raise NotAVectorizeableLoop()
 
         # find index guards and move to the earliest position
@@ -186,7 +188,7 @@ class VectorizingOptimizer(Optimizer):
         # unroll
         self.unroll_count = self.get_unroll_count(vsize)
         self.unroll_loop_iterations(loop, self.unroll_count)
-        self.loop.operations = self.get_newoperations();
+        loop.operations = self.get_newoperations()
         self.clear_newoperations();
 
         # vectorize
@@ -207,29 +209,26 @@ class VectorizingOptimizer(Optimizer):
 
     def unroll_loop_iterations(self, loop, unroll_count):
         """ Unroll the loop X times. unroll_count + 1 = unroll_factor """
-        op_count = len(loop.operations)
-
-        label_op = loop.operations[0].clone()
-        assert label_op.getopnum() == rop.LABEL
-        jump_op = loop.operations[op_count-1]
-        assert jump_op.getopnum() in (rop.LABEL, rop.JUMP)
+        numops = len(loop.operations)
+        label_op = loop.label
+        jump_op = loop.jump
         # use the target token of the label
-        target_token = label_op.getdescr()
-        if not we_are_translated():
-            target_token.assumed_classes = {}
-        if jump_op.getopnum() == rop.LABEL:
-            jump_op = ResOperation(rop.JUMP, jump_op.getarglist(), target_token)
-        else:
-            jump_op = jump_op.clone()
-            jump_op.setdescr(target_token)
-        assert jump_op.is_final()
+        #target_token = label_op.getdescr()
+        #if not we_are_translated():
+        #    target_token.assumed_classes = {}
+        #if jump_op.getopnum() == rop.LABEL:
+        #    jump_op = ResOperation(rop.JUMP, jump_op.getarglist(), target_token)
+        #else:
+        #    jump_op = jump_op.clone()
+        #    jump_op.setdescr(target_token)
+        #assert jump_op.is_final()
 
         self.emit_unrolled_operation(label_op)
 
         renamer = Renamer()
         operations = []
-        for i in range(1,op_count-1):
-            op = loop.operations[i].clone()
+        for i in range(1,numops-1):
+            op = loop.operations[i].copy()
             if op.is_guard():
                 assert isinstance(op, GuardResOp)
                 failargs = renamer.rename_failargs(op, clone=True)
@@ -258,13 +257,11 @@ class VectorizingOptimizer(Optimizer):
             for i, op in enumerate(operations):
                 if op.getopnum() in prohibit_opnums:
                     continue # do not unroll this operation twice
-                copied_op = op.clone()
+                copied_op = op.copy()
                 if not copied_op.returns_void():
                     # every result assigns a new box, thus creates an entry
                     # to the rename map.
-                    new_assigned_box = copied_op.result.clonebox()
-                    renamer.start_renaming(copied_op.result, new_assigned_box)
-                    copied_op.result = new_assigned_box
+                    renamer.start_renaming(op, copied_op)
                 #
                 args = copied_op.getarglist()
                 for a, arg in enumerate(args):
@@ -518,14 +515,14 @@ class VectorizingOptimizer(Optimizer):
             step vectorization would not be possible!
         """
         graph = DependencyGraph(loop)
-        ee_guard_node = graph.getnode(0)
-        if ee_guard_node.getopnum() != rop.GUARD_EARLY_EXIT:
-            raise NotAVectorizeableLoop()
-        label_node = graph.getnode(0)
+        zero_deps = {}
+        for node in graph.nodes:
+            if node.depends_count() == 0:
+                zero_deps[node] = 0
+        earlyexit = graph.imaginary_node("early exit")
         guards = graph.guards
+        one_valid = False
         for guard_node in guards:
-            if guard_node is ee_guard_node:
-                continue
             modify_later = []
             last_prev_node = None
             valid = True
@@ -537,34 +534,35 @@ class VectorizingOptimizer(Optimizer):
                     # 2) non pure operation points to this guard.
                     #    but if this guard only depends on pure operations, it can be checked
                     #    at an earlier position, the non pure op can execute later!
-                    modify_later.append((prev_node, guard_node))
+                    modify_later.append(prev_node)
                 else:
-                    for path in prev_node.iterate_paths(ee_guard_node, backwards=True, blacklist=True):
-                        if path.is_always_pure(exclude_first=True, exclude_last=True):
-                            path.set_schedule_priority(10)
-                            if path.last() is ee_guard_node:
-                                modify_later.append((path.last_but_one(), None))
-                        else:
-                            # transformation is invalid.
-                            # exit and do not enter else branch!
+                    for path in prev_node.iterate_paths(None, backwards=True, blacklist=True):
+                        if not path.is_always_pure(exclude_first=True):
+                            path.set_schedule_priority(90)
                             valid = False
+                            if path.last() in zero_deps:
+                                del zero_deps[path.last()]
                     if not valid:
                         break
             if valid:
                 # transformation is valid, modify the graph and execute
                 # this guard earlier
-                for a,b in modify_later:
-                    if b is not None:
-                        a.remove_edge_to(b)
-                    else:
-                        last_but_one = a
-                        if last_but_one is ee_guard_node:
-                            continue
-                        ee_guard_node.remove_edge_to(last_but_one)
-                        #label_node.edge_to(last_but_one, label='pullup')
-                # only the last guard needs a connection
-                guard_node.edge_to(ee_guard_node, label='pullup-last-guard')
-                self.relax_guard_to(guard_node, ee_guard_node)
+                one_valid = True
+                for node in modify_later:
+                    node.remove_edge_to(guard_node)
+                # every edge that starts in the guard, the early exit
+                # inherts the edge and guard then provides to early exit
+                for dep in guard_node.provides()[:]:
+                    earlyexit.edge_to(dep.target_node())
+                    guard_node.remove_edge_to(dep.target_node())
+                guard_node.edge_to(earlyexit)
+
+                for node in zero_deps.keys():
+                    earlyexit.edge_to(node)
+                # TODO self.relax_guard_to(guard_node, ee_guard_node)
+        if one_valid:
+            return graph
+        return None
 
     def relax_guard_to(self, guard_node, other_node):
         """ Relaxes a guard operation to an earlier guard. """
@@ -686,9 +684,10 @@ class PackSet(object):
         """
         if isomorphic(lnode.getoperation(), rnode.getoperation()):
             if lnode.independent(rnode):
-                if forward and isinstance(origin_pack, AccumPair):
+                if forward and origin_pack.is_accumulating():
                     # in this case the splitted accumulator must
                     # be combined. This case is not supported
+                    import pdb; pdb. set_trace()
                     raise NotAVectorizeableLoop()
                 #
                 if self.contains_pair(lnode, rnode):
@@ -739,20 +738,15 @@ class PackSet(object):
         return False
 
     def combine(self, i, j):
-        """ Combine two packs. it is assumed that the attribute self.packs
+        """ Combine two packs. It is assumed that the attribute self.packs
             is not iterated when calling this method.
         """
-        pack_i = self.packs[i]
-        pack_j = self.packs[j]
-        operations = pack_i.operations
-        for op in pack_j.operations[1:]:
+        pkg_a = self.packs[i]
+        pkg_b = self.packs[j]
+        operations = pkg_a.operations
+        for op in pkg_b.operations[1:]:
             operations.append(op)
-        pack = Pack(operations)
-        self.packs[i] = pack
-        # preserve the accum variable (if present)
-        pack.accum = pack_i.accum
-        pack_i.accum = pack_j.accum = None
-
+        self.packs[i] = pkg_a.clone(operations)
         del self.packs[j]
         return len(self.packs)
 
@@ -762,27 +756,27 @@ class PackSet(object):
         left = lnode.getoperation()
         opnum = left.getopnum()
 
-        if opnum in (rop.FLOAT_ADD, rop.INT_ADD, rop.FLOAT_MUL):
+        if opnum in AccumPack.SUPPORTED:
             right = rnode.getoperation()
             assert left.numargs() == 2 and not left.returns_void()
-            accum_var, accum_pos = self.getaccumulator_variable(left, right, origin_pack)
-            if not accum_var:
+            scalar, index = self.getaccumulator_variable(left, right, origin_pack)
+            if not scalar:
                 return None
             # the dependency exists only because of the left?
             for dep in lnode.provides():
                 if dep.to is rnode:
-                    if not dep.because_of(accum_var):
+                    if not dep.because_of(scalar):
                         # not quite ... this is not handlable
                         return None
             # get the original variable
-            accum_var = left.getarg(accum_pos)
+            scalar = left.getarg(index)
 
             # in either of the two cases the arguments are mixed,
             # which is not handled currently
-            var_pos = (accum_pos + 1) % 2
-            if left.getarg(var_pos) is not origin_pack.leftmost():
+            other_index = (index + 1) % 2
+            if left.getarg(other_index) is not origin_pack.leftmost():
                 return None
-            if right.getarg(var_pos) is not origin_pack.rightmost():
+            if right.getarg(other_index) is not origin_pack.rightmost():
                 return None
 
             # this can be handled by accumulation
@@ -797,8 +791,8 @@ class PackSet(object):
                 # of leading/preceding signext/floatcast instructions needs to be
                 # considered. => tree pattern matching problem.
                 return None
-            accum = Accum(opnum, accum_var, accum_pos)
-            return AccumPair(lnode, rnode, accum)
+            operator = AccumPack.SUPPORTED[opnum]
+            return AccumPack(lnode, rnode, operator, scalar, index)
 
         return None
 

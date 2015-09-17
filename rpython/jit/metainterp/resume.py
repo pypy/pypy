@@ -48,7 +48,8 @@ class FrameInfo(object):
         self.pc = pc
 
 class AccumInfo(object):
-    __slots__ = ('prev', 'accum_operation', 'scalar_position', 'scalar_box', 'vector_loc')
+    _attrs_ = ('prev', 'accum_operation', 'scalar_position', 'scalar_box', 'vector_loc')
+
     def __init__(self, prev, position, operation, box, loc):
         self.prev = prev
         self.accum_operation = operation

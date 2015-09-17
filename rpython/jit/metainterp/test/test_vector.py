@@ -342,8 +342,5 @@ class VectorizeTests:
         res = self.meta_interp(f, [size], vec_all=True)
         assert res == f(size)
 
-class VectorizeLLtypeTests(VectorizeTests):
-    pass
-
-class TestLLtype(VectorizeLLtypeTests, LLJitMixin):
+class TestLLtype(LLJitMixin, VectorizeTests):
     pass

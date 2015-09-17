@@ -648,7 +648,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 startpos = self.mc.get_relative_pos()
                 self.store_info_on_descr(startpos, tok)
             else:
-                regalloc.position = tok.position
+                # TODO regalloc.position = tok.position
                 tok.pos_recovery_stub = self.generate_quick_failure(tok, regalloc)
         if WORD == 8 and len(self.pending_memoryerror_trampoline_from) > 0:
             self.error_trampoline_64 = self.generate_propagate_error_64()
@@ -1654,27 +1654,27 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.mc.PUNPCKLDQ_xx(resloc.value, loc1.value)
 
     def genop_guard_guard_true(self, guard_op, guard_token, locs, resloc):
-        loc = locs[0]
-        if isinstance(loc, RegLoc):
-            if loc.is_xmm:
-                self._guard_vector_true(guard_op, loc)
-                # XXX
-                self.implement_guard(guard_token, 'NZ')
-                return
-        self.mc.TEST(loc, loc)
+        #loc = locs[0]
+        #if isinstance(loc, RegLoc):
+        #    if loc.is_xmm:
+        #        self._guard_vector_true(guard_op, loc)
+        #        # XXX
+        #        self.implement_guard(guard_token, 'NZ')
+        #        return
+        #self.mc.TEST(loc, loc)
         self.implement_guard(guard_token)
     genop_guard_guard_nonnull = genop_guard_guard_true
 
     def genop_guard_guard_false(self, guard_op, guard_token, locs, resloc):
         self.guard_success_cc = rx86.invert_condition(self.guard_success_cc)
-        loc = locs[0]
-        if isinstance(loc, RegLoc):
-            if loc.is_xmm:
-                self._guard_vector_false(guard_op, loc)
-                # XXX
-                self.implement_guard(guard_token, 'NZ')
-                return
-        self.mc.TEST(loc, loc)
+        # TODO loc = locs[0]
+        #if isinstance(loc, RegLoc):
+        #    if loc.is_xmm:
+        #        self._guard_vector_false(guard_op, loc)
+        #        # XXX
+        #        self.implement_guard(guard_token, 'NZ')
+        #        return
+        #self.mc.TEST(loc, loc)
         self.implement_guard(guard_token)
     genop_guard_guard_isnull = genop_guard_guard_false
 
@@ -1884,7 +1884,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.JMP(imm(self.propagate_exception_path))
         return startpos
 
-    def generate_quick_failure(self, guardtok):
+    def generate_quick_failure(self, guardtok, regalloc):
         """ Gather information about failure
         """
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)

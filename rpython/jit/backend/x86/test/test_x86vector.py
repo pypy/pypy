@@ -11,7 +11,7 @@ from rpython.rlib.jit import JitDriver
 from rpython.rtyper.lltypesystem import lltype
 
 
-class TestBasic(test_vector.VectorizeLLtypeTests, test_basic.Jit386Mixin):
+class TestBasic(test_basic.Jit386Mixin, test_vector.VectorizeTests):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'

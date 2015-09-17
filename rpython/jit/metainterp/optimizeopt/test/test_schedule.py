@@ -9,8 +9,7 @@ from rpython.jit.metainterp.optimizeopt.vector import (VecScheduleState,
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
 from rpython.jit.metainterp.optimizeopt.schedule import Scheduler
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
-from rpython.jit.metainterp.optimizeopt.test.test_dependency import (DependencyBaseTest,
-        FakeDependencyGraph)
+from rpython.jit.metainterp.optimizeopt.test.test_dependency import (DependencyBaseTest)
 from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpStaticData,
         FakeJitDriverStaticData)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
@@ -38,31 +37,6 @@ class SchedulerBaseTest(DependencyBaseTest):
             'short': self.int16arraydescr,
             'char': self.chararraydescr,
         }
-
-    def parse_trace(self, source, inc_label_jump=True, pargs=2, iargs=10,
-              fargs=6, additional_args=None, replace_args=None):
-        args = []
-        for prefix, rang in [('p',range(pargs)),
-                             ('i',range(iargs)),
-                             ('f',range(fargs))]:
-            for i in rang:
-                args.append(prefix + str(i))
-
-        assert additional_args is None or isinstance(additional_args,list)
-        for arg in additional_args or []:
-            args.append(arg)
-        for k,v in (replace_args or {}).items():
-            for i,_ in enumerate(args):
-                if k == args[i]:
-                    args[i] = v
-                    break
-        indent = "        "
-        joinedargs = ','.join(args)
-        fmt = (indent, joinedargs, source, indent, joinedargs)
-        src = "%s[%s]\n%s\n%sjump(%s)" % fmt
-        loop = self.parse_loop(src)
-        loop.graph = FakeDependencyGraph(loop)
-        return loop
 
     def pack(self, loop, l, r, input_type=None, output_type=None):
         return Pack(loop.graph.nodes[l:r])

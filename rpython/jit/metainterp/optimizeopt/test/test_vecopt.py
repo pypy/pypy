@@ -14,6 +14,7 @@ from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.vector import (VectorizingOptimizer, MemoryRef,
         isomorphic, Pair, NotAVectorizeableLoop, NotAProfitableLoop, GuardStrengthenOpt,
         CostModel, VectorLoop)
+from rpython.jit.metainterp.optimizeopt.schedule import (Scheduler, SchedulerState)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.resoperation import rop, ResOperation
@@ -42,16 +43,23 @@ class VecTestHelper(DependencyBaseTest):
     jitdriver_sd = FakeJitDriverStaticData()
 
     def assert_vectorize(self, loop, expected_loop, call_pure_results=None):
-        self._do_optimize_loop(loop, call_pure_results, export_state=True)
+        self._do_optimize_loop(loop)
         self.assert_equal(loop, expected_loop)
 
     def vectoroptimizer(self, loop):
         metainterp_sd = FakeMetaInterpStaticData(self.cpu)
         jitdriver_sd = FakeJitDriverStaticData()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, 0)
-        label_index = loop.find_first_index(rop.LABEL)
-        opt.orig_label_args = loop.operations[label_index].getarglist()[:]
+        opt.orig_label_args = loop.label.getarglist()[:]
         return opt
+
+    def earlyexit(self, loop):
+        opt = self.vectoroptimizer(loop)
+        graph = opt.analyse_index_calculations(loop)
+        graph.view()
+        state = SchedulerState(graph)
+        opt.schedule(state)
+        return graph.loop
 
     def vectoroptimizer_unrolled(self, loop, unroll_factor = -1):
         loop.snapshot()
@@ -184,6 +192,19 @@ class VecTestHelper(DependencyBaseTest):
                 (node.getoperation(), node.getindex())
 
 class BaseTestVectorize(VecTestHelper):
+
+    def test_move_guard_first(self):
+        trace = self.parse_trace("""
+        i10 = int_add(i0, i1)
+        #
+        i11 = int_add(i0, i1)
+        guard_true(i11) []
+        """)
+        add = trace.operations[1]
+        guard = trace.operations[2]
+        trace = self.earlyexit(trace)
+        assert trace.operations[0] is add
+        assert trace.operations[1] is guard
 
     def test_vectorize_skip(self):
         ops = """
@@ -757,7 +778,7 @@ class BaseTestVectorize(VecTestHelper):
 
     @pytest.mark.parametrize("descr,stride,packs,suffix",
             [('char',1,1,'_i'),('float',8,4,'_f'),('int',8,4,'_i'),('float32',4,2,'_i')])
-    def test_packset_combine_2_loads_in_trace(self, descr, stride,packs):
+    def test_packset_combine_2_loads_in_trace(self, descr, stride, packs, suffix):
         ops = """
         [p0,i0]
         i3 = raw_load{suffix}(p0, i0, descr={type}arraydescr)

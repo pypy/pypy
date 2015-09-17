@@ -132,6 +132,9 @@ class Node(object):
         self.guard_bool_bool_node = None
         self._stack = False
 
+    def is_imaginary(self):
+        return False
+
     def getoperation(self):
         return self.op
     def getindex(self):
@@ -186,8 +189,8 @@ class Node(object):
                    isinstance(descr, compile.CompileLoopVersionDescr)
         return False
 
-    def is_guard_early_exit(self):
-        return self.op.getopnum() == rop.GUARD_EARLY_EXIT
+    # TODO def is_guard_early_exit(self):
+    #    return self.op.getopnum() == rop.GUARD_EARLY_EXIT
 
     def loads_from_complex_object(self):
         return rop._ALWAYS_PURE_LAST <= self.op.getopnum() < rop._MALLOC_FIRST
@@ -286,11 +289,14 @@ class Node(object):
         return True
 
     def iterate_paths(self, to, backwards=False, path_max_len=-1, blacklist=False):
-        """ yield all nodes from self leading to 'to'. backwards determines
-        the iteration direction and blacklist marks nodes that have already been visited.
-        blacklist comes in handy if a property must hold for every path. not *every* possible
-        instance must be iterated, but trees that have already been visited can be ignored
-        after the have been visited
+        """ Yield all nodes from self leading to 'to'.
+            
+            backwards: Determines the iteration direction.
+            blacklist: Marks nodes that have already been visited.
+                       It comes in handy if a property must hold for every path.
+                       Not *every* possible instance must be iterated, but trees
+                       that have already been visited can be ignored after the
+                       first visit.
         """
         if self is to:
             return
@@ -304,6 +310,8 @@ class Node(object):
             else:
                 iterdir = node.provides()
             if index >= len(iterdir):
+                if to is None and index == 0:
+                    yield Path(path.path[:])
                 if blacklist:
                     blacklist_visit[node] = None
                 continue
@@ -322,7 +330,8 @@ class Node(object):
                     continue
                 pathlen += 1
 
-                if next_node is to or (path_max_len > 0 and pathlen >= path_max_len):
+                if next_node is to or \
+                   (path_max_len > 0 and pathlen >= path_max_len):
                     yield Path(path.path[:])
                     # note that the destiantion node ``to'' is never blacklisted
                     #if blacklist:
@@ -334,14 +343,14 @@ class Node(object):
         i = 0
         while i < len(self.adjacent_list):
             dep = self.adjacent_list[i]
-            if dep.to == node:
+            if dep.to is node:
                 del self.adjacent_list[i]
                 break
             i += 1
         i = 0
         while i < len(node.adjacent_list_back):
             dep = node.adjacent_list_back[i]
-            if dep.to == self:
+            if dep.to is self:
                 del node.adjacent_list_back[i]
                 break
             i += 1
@@ -358,15 +367,30 @@ class Node(object):
             pack = "p: %d" % self.pack.numops()
         return "Node(%s,%s i: %d)" % (self.op, pack, self.opidx)
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
+    def getdotlabel(self):
+        """ NOT_RPTYHON """
+        op_str = str(self.op)
+        if self.op.is_guard():
+            args_str = [str(arg) for arg in self.op.getfailargs()]
+            op_str += " " + ','.join(args_str)
+        return "[%d] %s" % (self.opidx, op_str)
 
-    def __eq__(self, other):
-        if other is None:
-            return False
-        assert isinstance(other, Node)
-        return self.opidx == other.opidx
+class ImaginaryNode(Node):
+    _index = 987654321 # big enough? :)
+    def __init__(self, label):
+        index = -1
+        if not we_are_translated():
+            self.dotlabel = label
+            index = ImaginaryNode._index
+            ImaginaryNode._index += 1
+        Node.__init__(self, None, index)
 
+    def is_imaginary(self):
+        return True
+
+    def getdotlabel(self):
+        """ NOT_RPTYHON """
+        return self.dotlabel
 
 class Dependency(object):
     def __init__(self, at, to, arg, failarg=False):
@@ -384,6 +408,12 @@ class Dependency(object):
             if arg[1] == var:
                 return True
         return False
+
+    def target_node(self):
+        return self.to
+
+    def origin_node(self):
+        return self.at
 
     def to_index(self):
         return self.to.getindex()
@@ -509,7 +539,8 @@ class DependencyGraph(object):
     def __init__(self, loop):
         self.loop = loop
         self.label = Node(loop.label, 0)
-        self.nodes = [ Node(op,i+1) for i,op in enumerate(loop.operations) ]
+        self.nodes = [ Node(op,i+1) for i,op in enumerate(loop.operations) if not op.is_debug() ]
+        self.inodes = [] # imaginary nodes
         self.jump = Node(loop.jump, len(self.nodes)+1)
         self.invariant_vars = {}
         self.update_invariant_vars()
@@ -522,6 +553,11 @@ class DependencyGraph(object):
 
     def getnode(self, i):
         return self.nodes[i]
+
+    def imaginary_node(self, label):
+        node = ImaginaryNode(label)
+        self.inodes.append(node)
+        return node
 
     def update_invariant_vars(self):
         label_op = self.label.getoperation()
@@ -559,18 +595,20 @@ class DependencyGraph(object):
                 node.setpriority(2)
             # the label operation defines all operations at the
             # beginning of the loop
-            if op.getopnum() == rop.LABEL and i != jump_pos:
-                node.setpriority(100)
-                label_pos = i
-                for arg in op.getarglist():
-                    tracker.define(arg, node)
-                continue # prevent adding edge to the label itself
-            elif node.is_guard_early_exit():
-                label_node = self.nodes[label_pos]
-                label_node.edge_to(node,None,label='L->EE')
-                for arg in label_node.getoperation().getarglist():
-                    tracker.define(arg, node)
-                continue
+
+            # TODO if op.getopnum() == rop.LABEL and i != jump_pos:
+            #    node.setpriority(100)
+            #    label_pos = i
+            #    for arg in op.getarglist():
+            #        tracker.define(arg, node)
+            #    continue # prevent adding edge to the label itself
+            #elif node.is_guard_early_exit():
+            #    label_node = self.nodes[label_pos]
+            #    label_node.edge_to(node,None,label='L->EE')
+            #    for arg in label_node.getoperation().getarglist():
+            #        tracker.define(arg, node)
+            #    continue
+
             intformod.inspect_operation(op,node)
             # definition of a new variable
             if op.type != 'v':
@@ -774,20 +812,22 @@ class DependencyGraph(object):
             graph += "\n"
         return graph + "      ])"
 
+    def view(self):
+        """ NOT_RPYTHON """
+        from rpython.translator.tool.graphpage import GraphPage
+        page = GraphPage()
+        page.source = self.as_dot()
+        page.links = []
+        page.display()
+
     def as_dot(self):
         """ NOT_RPTYHON """
         if not we_are_translated():
             dot = "digraph dep_graph {\n"
-            for node in self.nodes:
-                op = node.getoperation()
-                if op.getopnum() == rop.DEBUG_MERGE_POINT:
-                    continue
-                op_str = str(op)
-                if op.is_guard():
-                    op_str += " " + ','.join([str(arg) for arg in op.getfailargs()])
-                dot += " n%d [label=\"[%d]: %s\"];\n" % (node.getindex(),node.getindex(),op_str)
+            for node in self.nodes + self.inodes:
+                dot += " n%d [label=\"%s\"];\n" % (node.getindex(),node.getdotlabel())
             dot += "\n"
-            for node in self.nodes:
+            for node in self.nodes + self.inodes:
                 for dep in node.provides():
                     label = ''
                     if getattr(dep, 'label', None):
