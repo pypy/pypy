@@ -70,8 +70,9 @@ class AppTestSSL:
 
     def test_sslwrap(self):
         import _ssl, _socket, sys, gc
-        if sys.platform == 'darwin' or 'freebsd' in sys.platform:
-            skip("hangs indefinitely on OSX & FreeBSD (also on CPython)")
+        if sys.platform == 'darwin' or 'freebsd' in sys.platform or \
+                'openbsd' in sys.platform:
+            skip("hangs indefinitely on OSX & BSD (also on CPython)")
         s = _socket.socket()
         if sys.version_info < (2, 7, 9):
             ss = _ssl.sslwrap(s, 0)
