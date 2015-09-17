@@ -141,7 +141,7 @@ class CostModelBaseTest(SchedulerBaseTest):
         savings = self.savings(loop1)
         assert savings == 2
 
-    @py.test.mark.parametrize("bytes,s", [(1,None),(2,None),(4,0),(8,0)])
+    @py.test.mark.parametrize("bytes,s", [(1,0),(2,0),(4,0),(8,0)])
     def test_sum_float_to_int(self, bytes, s):
         loop1 = self.parse_trace("""
         f10 = raw_load_f(p0, i0, descr=double)
@@ -199,6 +199,17 @@ class CostModelBaseTest(SchedulerBaseTest):
             py.test.fail("must not be profitable!")
         except NotAProfitableLoop:
             pass
+
+    def test_force_long_to_int_cast(self):
+        trace = self.parse_trace("""
+        i10 = raw_load_i(p0, i1, descr=long)
+        i11 = raw_load_i(p0, i2, descr=long)
+        f10 = cast_int_to_float(i10)
+        f11 = cast_int_to_float(i11)
+        """)
+        number = self.savings(trace)
+        assert number == 1
+
 
 class Test(CostModelBaseTest, LLtypeMixin):
     pass

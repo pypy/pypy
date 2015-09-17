@@ -23,7 +23,8 @@ from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 from rpython.jit.metainterp.optimizeopt.schedule import (VecScheduleState,
         Scheduler, Pack, Pair, AccumPair)
 from rpython.jit.metainterp.optimizeopt.guard import GuardStrengthenOpt
-from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp, Accum)
+from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp,
+        Accum, OpHelpers, VecOperation)
 from rpython.rlib import listsort
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -643,8 +644,10 @@ class X86_CostModel(CostModel):
 
     def record_cast_int(self, fromsize, tosize, count):
         # for each move there is 1 instruction
-        self.savings += -count
-        print "$$$ cast", -count, "now", self.savings
+        if fromsize == 8 and tosize == 4 and count == 2:
+            self.savings -= 1
+        else:
+            self.savings += -count
 
     def record_vector_pack(self, src, index, count):
         if src.datatype == FLOAT:
@@ -700,7 +703,6 @@ class PackSet(object):
                 if self.profitable_pack(lnode, rnode, origin_pack, forward):
                     return Pair(lnode, rnode)
             else:
-                print "dependent"
                 if self.contains_pair(lnode, rnode):
                     return None
                 if origin_pack is not None:
@@ -787,7 +789,7 @@ class PackSet(object):
             size = INT_WORD
             if left.type == 'f':
                 size = FLOAT_WORD
-            if left.bytesize == right.bytesize and left.bytesize == size:
+            if not (left.bytesize == right.bytesize and left.bytesize == size):
                 # do not support if if the type size is smaller
                 # than the cpu word size.
                 # WHY?
@@ -811,35 +813,34 @@ class PackSet(object):
         for pack in self.packs:
             if not pack.is_accumulating():
                 continue
-            xxx
             accum = pack.accum
-            # create a new vector box for the parameters
-            box = pack.input_type.new_vector_box()
-            size = vec_reg_size // pack.input_type.getsize()
+            datatype = accum.getdatatype()
+            bytesize = accum.getbytesize()
+            count = vec_reg_size // bytesize
+            signed = datatype == 'i'
+            oplist = state.invariant_oplist
             # reset the box to zeros or ones
             if accum.operator == Accum.PLUS:
-                op = ResOperation(rop.VEC_BOX, [ConstInt(size)], box)
-                state.invariant_oplist.append(op)
-                result = box.clonebox()
-                op = ResOperation(rop.VEC_INT_XOR, [box, box], result)
-                state.invariant_oplist.append(op)
-                box = result
+                vecop = OpHelpers.create_vec(datatype, bytesize, signed)
+                oplist.append(vecop)
+                vecop = VecOperation(rop.VEC_INT_XOR, [vecop, vecop],
+                                     vecop, count)
+                oplist.append(vecop)
             elif accum.operator == Accum.MULTIPLY:
                 # multiply is only supported by floats
-                op = ResOperation(rop.VEC_FLOAT_EXPAND, [ConstFloat(1.0), ConstInt(size)], box)
-                state.invariant_oplist.append(op)
+                vecop = OpHelpers.create_vec_expand(ConstFloat(1.0), bytesize,
+                                                    signed, count)
+                oplist.append(vecop)
             else:
-                raise NotImplementedError("can only handle %s" % accum.operator)
-            result = box.clonebox()
-            assert isinstance(result, BoxVector)
-            result.accum = accum
+                raise NotImplementedError("cannot handle %s" % accum.operator)
             # pack the scalar value
-            op = ResOperation(getpackopnum(box.gettype()),
-                              [box, accum.var, ConstInt(0), ConstInt(1)], result)
-            state.invariant_oplist.append(op)
+            args = [vecop, accum.getseed(), ConstInt(0), ConstInt(1)]
+            vecop = OpHelpers.create_vec_pack(datatype, args, bytesize,
+                                              signed, count)
+            oplist.append(vecop)
             # rename the variable with the box
-            state.setvector_of_box(accum.getoriginalbox(), 0, result) # prevent it from expansion
-            state.renamer.start_renaming(accum.getoriginalbox(), result)
+            state.setvector_of_box(accum.getseed(), 0, vecop) # prevent it from expansion
+            state.renamer.start_renaming(accum.getseed(), vecop)
 
     def split_overloaded_packs(self):
         newpacks = []

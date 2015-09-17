@@ -637,14 +637,15 @@ class Accum(object):
         if opnum == rop.FLOAT_MUL:
             self.operator = Accum.MULTIPLY
 
-    def getoriginalbox(self):
+    def getdatatype(self):
+        return self.var.datatype
+
+    def getbytesize(self):
+        return self.var.bytesize
+
+    def getseed(self):
+        """ The variable holding the seed value """
         return self.var
-
-    def getop(self):
-        return self.operator
-
-    def accumulates_value(self):
-        return True
 
 class CastOp(object):
     _mixin_ = True
@@ -653,7 +654,7 @@ class CastOp(object):
         return True
 
     def cast_to(self):
-        _, _, to_type, size = self.casts
+        to_type, size = self.casts[2], self.casts[3]
         if self.casts[3] == 0:
             if self.getopnum() == rop.INT_SIGNEXT:
                 from rpython.jit.metainterp.history import ConstInt
