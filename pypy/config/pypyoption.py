@@ -324,8 +324,9 @@ def set_pypy_opt_level(config, level):
     if config.translation.stm:
         # having both mapdict and methodcache together is a bad idea:
         # it creates many conflicts
-        if config.objspace.std.withmapdict:
-            config.objspace.std.withmethodcache = False
+        # if config.objspace.std.withmapdict:
+        #     config.objspace.std.withmethodcache = True #False
+        pass
 
 
 def enable_allworkingmodules(config):

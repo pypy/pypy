@@ -958,7 +958,6 @@ class __extend__(pyframe.PyFrame):
         "obj.attributename"
         w_obj = self.popvalue()
         if (self.space.config.objspace.std.withmapdict and
-                not self.space.config.translation.stm and
                 not jit.we_are_jitted()):
             from pypy.objspace.std.mapdict import LOAD_ATTR_caching
             w_value = LOAD_ATTR_caching(self.getcode(), w_obj, nameindex)
