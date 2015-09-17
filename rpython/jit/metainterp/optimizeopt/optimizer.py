@@ -611,6 +611,7 @@ class Optimizer(Optimization):
         guard_op.setdescr(descr)
         descr.store_final_boxes(guard_op, last_guard_op.getfailargs(),
                                 self.metainterp_sd)
+        assert isinstance(guard_op, GuardResOp)
         descr.rd_origin_jitcode = guard_op.rd_frame_info_list.jitcode
         descr.rd_origin_pc = guard_op.rd_frame_info_list.pc
         if guard_op.getopnum() == rop.GUARD_VALUE:
