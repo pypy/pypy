@@ -696,6 +696,9 @@ class ResumeGuardDescr(ResumeDescr):
 
     status = r_uint(0)
 
+    def get_origin_data(self):
+        return self.rd_origin_jitcode, self.rd_origin_pc
+
     def copy_all_attributes_from(self, other):
         assert isinstance(other, ResumeGuardDescr)
         self.rd_count = other.rd_count
@@ -1000,11 +1003,11 @@ def invent_fail_descr_for_op(opnum, optimizer):
     return resumedescr
 
 class ResumeFromInterpDescr(ResumeDescr):
-    rd_origin_jitcode = None
-    rd_origin_pc = 0
-    
     def __init__(self, original_greenkey):
         self.original_greenkey = original_greenkey
+
+    def get_origin_data(self):
+        return None, 0
 
     def compile_and_attach(self, metainterp, new_loop, orig_inputargs):
         # We managed to create a bridge going from the interpreter
@@ -1051,19 +1054,20 @@ def compile_trace(metainterp, resumekey):
 
     call_pure_results = metainterp.call_pure_results
 
+    origin_jitcode, origin_pc = resumekey.get_origin_data()
     if operations[-1].getopnum() == rop.JUMP:
         data = BridgeCompileData(label, operations[:],
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
                                  inline_short_preamble=inline_short_preamble,
-                                 origin_jitcode=resumekey.rd_origin_jitcode,
-                                 origin_pc=resumekey.rd_origin_pc)
+                                 origin_jitcode=origin_jitcode,
+                                 origin_pc=origin_pc)
     else:
         data = SimpleCompileData(label, operations[:],
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
-                                 origin_jitcode=resumekey.rd_origin_jitcode,
-                                 origin_pc=resumekey.rd_origin_pc)
+                                 origin_jitcode=origin_jitcode,
+                                 origin_pc=origin_pc)
     try:
         info, newops = optimize_trace(metainterp_sd, jitdriver_sd,
                                       data, metainterp.box_names_memo)
