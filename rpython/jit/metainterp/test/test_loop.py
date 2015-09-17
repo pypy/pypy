@@ -1088,7 +1088,7 @@ class LoopTest(object):
             return s
 
         self.meta_interp(f, [30])
-        self.check_trace_count(4)
+        self.check_trace_count(3)
 
 class TestLLtype(LoopTest, LLJitMixin):
     pass
