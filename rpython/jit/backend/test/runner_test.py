@@ -2601,16 +2601,16 @@ class LLtypeBackendTest(BaseBackendTest):
         # call: 8 bytes too much.  If we repeat the call often enough, crash.
         ops = []
         for i in range(50):
-            i3 = InputArgInt()
             ops += [
-                ResOperation(rop.CALL_RELEASE_GIL,
-                             [ConstInt(0), funcbox, i1, i2], i3,
+                ResOperation(rop.CALL_RELEASE_GIL_I,
+                             [ConstInt(0), funcbox, i1, i2],
                              descr=calldescr),
-                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
                 ]
+            i3 = ops[-2]
             ops[-1].setfailargs([])
         ops += [
-            ResOperation(rop.FINISH, [i3], None, descr=BasicFinalDescr(0))
+            ResOperation(rop.FINISH, [i3], descr=BasicFinalDescr(0))
         ]
         looptoken = JitCellToken()
         self.cpu.compile_loop([i1, i2], ops, looptoken)
@@ -3072,16 +3072,16 @@ class LLtypeBackendTest(BaseBackendTest):
                         rffi.RFFI_SAVE_LASTERROR | rffi.RFFI_ALT_ERRNO,
                         ]:
             faildescr = BasicFailDescr(1)
-            inputargs = [BoxInt() for i in range(7)]
-            i1 = BoxInt()
+            inputargs = [InputArgInt() for i in range(7)]
             ops = [
-                ResOperation(rop.CALL_RELEASE_GIL,
+                ResOperation(rop.CALL_RELEASE_GIL_I,
                              [ConstInt(saveerr), ConstInt(func1_adr)]
-                                 + inputargs, i1,
+                                 + inputargs,
                              descr=calldescr),
-                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
-                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+                ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
             ]
+            i1 = ops[0]
+            ops += [ResOperation(rop.FINISH, [i1], descr=BasicFinalDescr(0))]
             ops[-2].setfailargs([])
             looptoken = JitCellToken()
             self.cpu.compile_loop(inputargs, ops, looptoken)
@@ -3142,16 +3142,16 @@ class LLtypeBackendTest(BaseBackendTest):
                         rffi.RFFI_READSAVED_LASTERROR | rffi.RFFI_ALT_ERRNO,
                        ]:
             faildescr = BasicFailDescr(1)
-            inputargs = [BoxInt() for i in range(7)]
-            i1 = BoxInt()
+            inputargs = [InputArgInt() for i in range(7)]
             ops = [
-                ResOperation(rop.CALL_RELEASE_GIL,
+                ResOperation(rop.CALL_RELEASE_GIL_I,
                              [ConstInt(saveerr), ConstInt(func1_adr)]
-                                 + inputargs, i1,
+                                 + inputargs, 
                              descr=calldescr),
-                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
-                ResOperation(rop.FINISH, [i1], None, descr=BasicFinalDescr(0))
+                ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
             ]
+            i1 = ops[-2]
+            ops += [ResOperation(rop.FINISH, [i1], descr=BasicFinalDescr(0))]
             ops[-2].setfailargs([])
             looptoken = JitCellToken()
             self.cpu.compile_loop(inputargs, ops, looptoken)

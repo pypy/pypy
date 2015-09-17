@@ -8,7 +8,7 @@ from rpython.jit.metainterp.history import FLOAT, ConstFloat, Const, VOID
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef
 from rpython.jit.metainterp.resoperation import InputArgFloat
-from rpython.jit.metainterp.executor import execute_nonspec_const
+from rpython.jit.metainterp.executor import _execute_arglist, wrap_constant
 from rpython.jit.metainterp.resoperation import opname
 from rpython.jit.codewriter import longlong
 from rpython.rtyper.lltypesystem import lltype, rstr
@@ -56,11 +56,18 @@ class OperationBuilder(object):
         self.fakemetainterp._got_exc = None
         op = ResOperation(opnum, argboxes, descr)
         if opnum != rop.ZERO_PTR_FIELD:
-            assert op.type != VOID, op
-            c_result = execute_nonspec_const(self.cpu, self.fakemetainterp,
-                                             opnum, argboxes, descr,
-                                             type=op.type)
-            op.copy_value_from(c_result)
+            result = _execute_arglist(self.cpu, self.fakemetainterp,
+                                      opnum, argboxes, descr)
+            if result is not None:
+                c_result = wrap_constant(result)
+                op.copy_value_from(c_result)
+        else:
+            import ctypes
+            addr = self.cpu.cast_gcref_to_int(argboxes[0].getref_base())
+            offset = argboxes[1].getint()
+            assert (offset % ctypes.sizeof(ctypes.c_long)) == 0
+            ptr = ctypes.cast(addr, ctypes.POINTER(ctypes.c_long))
+            ptr[offset / ctypes.sizeof(ctypes.c_long)] = 0
         self.loop.operations.append(op)
         return op
 
@@ -299,6 +306,8 @@ class AbstractOperation(object):
                     builder.boolvars.append(v_result)
             elif v_result.type == FLOAT:
                 builder.floatvars.append(v_result)
+                assert self.boolres != True
+            elif v_result.type == VOID:
                 assert self.boolres != True
             else:
                 raise NotImplementedError(v_result)
@@ -828,6 +837,8 @@ class RandomLoop(object):
         op = self.should_fail_by
         if not op.getfailargs():
             return False
+        for _fail_box in fail_args:
+            _fail_box.set_forwarded(None)
         # generate the branch: a sequence of operations that ends in a FINISH
         subloop = DummyLoop([])
         self.subloops.append(subloop)   # keep around for debugging

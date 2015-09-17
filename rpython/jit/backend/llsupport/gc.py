@@ -131,7 +131,7 @@ class GcLLDescription(GcCache):
     def _record_constptrs(self, op, gcrefs_output_list,
                           ops_with_movable_const_ptr,
                           changeable_const_pointers):
-        ops_with_movable_const_ptr[op] = []
+        l = None
         for i in range(op.numargs()):
             v = op.getarg(i)
             if isinstance(v, ConstPtr) and bool(v.value):
@@ -139,7 +139,10 @@ class GcLLDescription(GcCache):
                 if rgc._make_sure_does_not_move(p):
                     gcrefs_output_list.append(p)
                 else:
-                    ops_with_movable_const_ptr[op].append(i)
+                    if l is None:
+                        l = [i]
+                    else:
+                        l.append(i)
                     if v not in changeable_const_pointers:
                         changeable_const_pointers.append(v)
         #
@@ -148,8 +151,8 @@ class GcLLDescription(GcCache):
             assert rgc._make_sure_does_not_move(llref)
             gcrefs_output_list.append(llref)
         #
-        if len(ops_with_movable_const_ptr[op]) == 0:
-            del ops_with_movable_const_ptr[op]
+        if l:
+            ops_with_movable_const_ptr[op] = l
 
     def _rewrite_changeable_constptrs(self, op, ops_with_movable_const_ptr, moving_obj_tracker):
         newops = []

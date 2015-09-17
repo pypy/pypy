@@ -124,7 +124,7 @@ class TestInstance(BaseTestPyPyC):
             setfield_gc(ConstPtr(ptr39), i59, descr=...)
             i62 = int_lt(i61, 0)
             guard_false(i62, descr=...)
-            jump(p0, p1, p3, p6, p7, p12, i59, p18, i31, i59, descr=...)
+            jump(p0, p1, p3, p6, p7, p12, i59, p18, i31, i59, p100, descr=...)
         """)
 
     def test_mutate_class(self):
@@ -167,7 +167,7 @@ class TestInstance(BaseTestPyPyC):
             i70 = int_lt(i58, i33)
             guard_true(i70, descr=...)
             guard_not_invalidated(descr=...)
-            p71 = getfield_gc(p64, descr=...)
+            p71 = getfield_gc_r(p64, descr=...)
             guard_value(p71, ConstPtr(ptr42), descr=...)
             p72 = force_token()
             p73 = force_token()
@@ -175,7 +175,7 @@ class TestInstance(BaseTestPyPyC):
             i75 = getfield_raw_i(..., descr=...)
             i76 = int_lt(i75, 0)
             guard_false(i76, descr=...)
-            p77 = new_with_vtable(...)
+            p77 = new_with_vtable(descr=...)
             setfield_gc(p77, p64, descr=...)
             setfield_gc(p77, ConstPtr(null), descr=...)
             setfield_gc(p77, ConstPtr(null), descr=...)
@@ -183,7 +183,7 @@ class TestInstance(BaseTestPyPyC):
             setfield_gc(p77, ConstPtr(null), descr=...)
             setfield_gc(p77, ConstPtr(ptr42), descr=...)
             setfield_gc(ConstPtr(ptr69), p77, descr=...)
-            jump(p0, p1, p3, p6, p7, p12, i74, p20, p26, i33, p77, descr=...)
+            jump(p0, p1, p3, p6, p7, p12, i74, p20, p26, i33, p77, p100, descr=...)
 
         """)
 

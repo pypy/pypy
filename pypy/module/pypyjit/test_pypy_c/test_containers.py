@@ -81,7 +81,7 @@ class TestDicts(BaseTestPyPyC):
             setfield_gc(p13, 32, descr=<FieldS dicttable.resize_counter .+>)
             }}}
             guard_no_exception(descr=...)
-            p20 = new_with_vtable(ConstClass(W_IntObject))
+            p20 = new_with_vtable(descr=...)
             call_n(ConstClass(_ll_dict_setitem_lookup_done_trampoline), p13, p10, p20, i12, i17, descr=<Callv 0 rrrii EF=5>)
             setfield_gc(p20, i5, descr=<FieldS .*W_IntObject.inst_intval .*>)
             guard_no_exception(descr=...)

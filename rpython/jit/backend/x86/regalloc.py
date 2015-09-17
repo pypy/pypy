@@ -134,6 +134,8 @@ class RegAlloc(BaseRegalloc):
         self.final_jump_op = None
 
     def _prepare(self, inputargs, operations, allgcrefs):
+        for box in inputargs:
+            assert box.get_forwarded() is None
         cpu = self.assembler.cpu
         self.fm = X86FrameManager(cpu.get_baseofs_of_frame_field())
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,

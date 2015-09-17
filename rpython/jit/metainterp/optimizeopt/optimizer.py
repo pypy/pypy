@@ -256,7 +256,6 @@ class Optimizer(Optimization):
         self.optearlyforce = None
         self.optunroll = None
 
-        self._emitting = True
         self._last_guard_op = None
 
         self.set_optimizations(optimizations)
@@ -586,6 +585,7 @@ class Optimizer(Optimization):
                             self.force_box(farg)
         elif op.can_raise():
             self.exception_might_have_happened = True
+<<<<<<< local
         if self._emitting:
             if op.has_no_side_effect() or op.is_guard() or op.is_jit_debug():
                 pass
@@ -593,6 +593,10 @@ class Optimizer(Optimization):
                 self._last_guard_op = None
             self._really_emitted_operation = op
             self._newoperations.append(op)
+=======
+        self._really_emitted_operation = op
+        self._newoperations.append(op)
+>>>>>>> other
 
     def _copy_resume_data_from(self, guard_op, last_guard_op):
         descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self)
