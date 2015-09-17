@@ -223,12 +223,14 @@ class UnrollOptimizer(Optimization):
         return label_vs
 
     def optimize_bridge(self, start_label, operations, call_pure_results,
-                        inline_short_preamble, box_names_memo):
+                        inline_short_preamble, box_names_memo,
+                        origin_jitcode=None, origin_pc=0):
         self._check_no_forwarding([start_label.getarglist(),
                                     operations])
         info, ops = self.optimizer.propagate_all_forward(
             start_label.getarglist()[:], operations[:-1],
-            call_pure_results, True)
+            call_pure_results, True, origin_jitcode=origin_jitcode,
+            origin_pc=origin_pc)
         jump_op = operations[-1]
         cell_token = jump_op.getdescr()
         assert isinstance(cell_token, JitCellToken)

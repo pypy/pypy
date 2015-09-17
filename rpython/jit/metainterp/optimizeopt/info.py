@@ -107,6 +107,8 @@ class NonNullPtrInfo(PtrInfo):
         self.last_guard_pos = -1
 
     def mark_last_guard(self, optimizer):
+        if optimizer.getlastop() is None:
+            return
         self.last_guard_pos = len(optimizer._newoperations) - 1
         assert self.get_last_guard(optimizer).is_guard()
 

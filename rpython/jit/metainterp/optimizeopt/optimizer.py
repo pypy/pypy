@@ -497,7 +497,10 @@ class Optimizer(Optimization):
             return CONST_0
 
     def propagate_all_forward(self, inputargs, ops, call_pure_results=None,
-                              rename_inputargs=True, flush=True):
+                              rename_inputargs=True, flush=True,
+                              origin_jitcode=None, origin_pc=0):
+        self.origin_jitcode = origin_jitcode
+        self.origin_pc = origin_pc
         if rename_inputargs:
             newargs = []
             for inparg in inputargs:
@@ -563,6 +566,14 @@ class Optimizer(Optimization):
             op.setarg(i, arg)
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
         if op.is_guard():
+            assert isinstance(op, GuardResOp)
+            if self.origin_jitcode is not None:
+                if (self.origin_jitcode is op.rd_frame_info_list.jitcode and
+                    self.origin_pc is op.rd_frame_info_list.pc):
+                    self.origin_jitcode = None
+                    self.origin_pc = 0
+                else:
+                    return # we optimize the guard
             self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
             pendingfields = self.pendingfields
             self.pendingfields = None
@@ -573,7 +584,8 @@ class Optimizer(Optimization):
             else:
                 guard_op = self.replace_op_with(op, op.getopnum())
                 if (self._last_guard_op and guard_op.getdescr() is None and
-                    guard_op.getopnum() != rop.GUARD_VALUE):
+                    guard_op.getopnum() != rop.GUARD_VALUE and
+                    not guard_op.same_guard_position(self._last_guard_op)):
                     op = self._copy_resume_data_from(guard_op,
                                                      self._last_guard_op)
                 else:
@@ -599,6 +611,8 @@ class Optimizer(Optimization):
         guard_op.setdescr(descr)
         descr.store_final_boxes(guard_op, last_guard_op.getfailargs(),
                                 self.metainterp_sd)
+        descr.rd_origin_jitcode = guard_op.rd_frame_info_list.jitcode
+        descr.rd_origin_pc = guard_op.rd_frame_info_list.pc
         if guard_op.getopnum() == rop.GUARD_VALUE:
             guard_op = self._maybe_replace_guard_value(guard_op, descr)
         return guard_op
