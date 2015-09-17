@@ -1,7 +1,6 @@
 import py
 from rpython.jit.metainterp.compile import ResumeGuardDescr
-from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-    ConstFloat, BoxInt, BoxFloat, BoxVector, INT, REF,
+from rpython.jit.metainterp.history import (ConstInt, INT, REF,
     FLOAT, VECTOR, TargetToken)
 from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
     unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)
@@ -131,21 +130,28 @@ class VectorAssemblerMixin(object):
 
         not_implemented("reduce sum for %s not impl." % arg)
 
-    def genop_vec_getarrayitem_raw(self, op, arglocs, resloc):
+    def _genop_vec_getarrayitem(self, op, arglocs, resloc):
         # considers item scale (raw_load does not)
         base_loc, ofs_loc, size_loc, ofs, integer_loc, aligned_loc = arglocs
         scale = get_scale(size_loc.value)
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
         self._vec_load(resloc, src_addr, integer_loc.value,
                        size_loc.value, aligned_loc.value)
+    
+    genop_vec_getarrayitem_raw_i = _genop_vec_getarrayitem
+    genop_vec_getarrayitem_raw_f = _genop_vec_getarrayitem
+    
+    genop_vec_getarrayitem_gc_i = _genop_vec_getarrayitem
+    genop_vec_getarrayitem_gc_f = _genop_vec_getarrayitem
 
-    genop_vec_getarrayitem_gc = genop_vec_getarrayitem_raw
-
-    def genop_vec_raw_load(self, op, arglocs, resloc):
+    def _genop_vec_raw_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, ofs, integer_loc, aligned_loc = arglocs
         src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
         self._vec_load(resloc, src_addr, integer_loc.value,
                        size_loc.value, aligned_loc.value)
+
+    genop_vec_raw_load_i = _genop_vec_raw_load
+    genop_vec_raw_load_f = _genop_vec_raw_load
 
     def _vec_load(self, resloc, src_addr, integer, itemsize, aligned):
         if integer:
@@ -159,7 +165,7 @@ class VectorAssemblerMixin(object):
             elif itemsize == 8:
                 self.mc.MOVUPD(resloc, src_addr)
 
-    def genop_discard_vec_setarrayitem_raw(self, op, arglocs):
+    def _genop_discard_vec_setarrayitem(self, op, arglocs):
         # considers item scale (raw_store does not)
         base_loc, ofs_loc, value_loc, size_loc, baseofs, integer_loc, aligned_loc = arglocs
         scale = get_scale(size_loc.value)
@@ -167,7 +173,8 @@ class VectorAssemblerMixin(object):
         self._vec_store(dest_loc, value_loc, integer_loc.value,
                         size_loc.value, aligned_loc.value)
 
-    genop_discard_vec_setarrayitem_gc = genop_discard_vec_setarrayitem_raw
+    genop_discard_vec_setarrayitem_raw = _genop_discard_vec_setarrayitem
+    genop_discard_vec_setarrayitem_gc = _genop_discard_vec_setarrayitem
 
     def genop_discard_vec_raw_store(self, op, arglocs):
         base_loc, ofs_loc, value_loc, size_loc, baseofs, integer_loc, aligned_loc = arglocs
@@ -385,7 +392,7 @@ class VectorAssemblerMixin(object):
             msg = "vec int signext (%d->%d)" % (size, tosize)
             not_implemented(msg)
 
-    def genop_vec_float_expand(self, op, arglocs, resloc):
+    def genop_vec_expand_f(self, op, arglocs, resloc):
         srcloc, sizeloc = arglocs
         size = sizeloc.value
         if isinstance(srcloc, ConstFloatLoc):
@@ -401,7 +408,7 @@ class VectorAssemblerMixin(object):
         else:
             raise AssertionError("float of size %d not supported" % (size,))
 
-    def genop_vec_int_expand(self, op, arglocs, resloc):
+    def genop_vec_expand_i(self, op, arglocs, resloc):
         srcloc, sizeloc = arglocs
         if not isinstance(srcloc, RegLoc):
             self.mov(srcloc, X86_64_SCRATCH_REG)
@@ -425,7 +432,7 @@ class VectorAssemblerMixin(object):
         else:
             raise AssertionError("cannot handle size %d (int expand)" % (size,))
 
-    def genop_vec_int_pack(self, op, arglocs, resloc):
+    def genop_vec_pack_i(self, op, arglocs, resloc):
         resultloc, sourceloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
         assert isinstance(resultloc, RegLoc)
         assert isinstance(sourceloc, RegLoc)
@@ -477,9 +484,9 @@ class VectorAssemblerMixin(object):
             ri += 1
             k -= 1
 
-    genop_vec_int_unpack = genop_vec_int_pack
+    genop_vec_unpack_i = genop_vec_pack_i
 
-    def genop_vec_float_pack(self, op, arglocs, resultloc):
+    def genop_vec_pack_f(self, op, arglocs, resultloc):
         resloc, srcloc, residxloc, srcidxloc, countloc, sizeloc = arglocs
         assert isinstance(resloc, RegLoc)
         assert isinstance(srcloc, RegLoc)
@@ -533,7 +540,7 @@ class VectorAssemblerMixin(object):
                             self.mc.UNPCKHPD(resloc, srcloc)
                         # if they are equal nothing is to be done
 
-    genop_vec_float_unpack = genop_vec_float_pack
+    genop_vec_unpack_f = genop_vec_pack_f
 
     def genop_vec_cast_float_to_singlefloat(self, op, arglocs, resloc):
         self.mc.CVTPD2PS(resloc, arglocs[0])
@@ -550,7 +557,7 @@ class VectorAssemblerMixin(object):
 class VectorRegallocMixin(object):
     _mixin_ = True
 
-    def consider_vec_getarrayitem_raw(self, op):
+    def _consider_vec_getarrayitem(self, op):
         descr = op.getdescr()
         assert isinstance(descr, ArrayDescr)
         assert not descr.is_array_of_pointers() and \
@@ -565,10 +572,14 @@ class VectorRegallocMixin(object):
         self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
                           imm(integer), imm(aligned)], result_loc)
 
-    consider_vec_getarrayitem_gc = consider_vec_getarrayitem_raw
-    consider_vec_raw_load = consider_vec_getarrayitem_raw
+    consider_vec_getarrayitem_raw_i = _consider_vec_getarrayitem
+    consider_vec_getarrayitem_raw_f = _consider_vec_getarrayitem
+    consider_vec_getarrayitem_gc_i = _consider_vec_getarrayitem
+    consider_vec_getarrayitem_gc_f = _consider_vec_getarrayitem
+    consider_vec_raw_load_i = _consider_vec_getarrayitem
+    consider_vec_raw_load_f = _consider_vec_getarrayitem
 
-    def consider_vec_setarrayitem_raw(self, op):
+    def _consider_vec_setarrayitem(self, op):
         descr = op.getdescr()
         assert isinstance(descr, ArrayDescr)
         assert not descr.is_array_of_pointers() and \
@@ -584,8 +595,9 @@ class VectorRegallocMixin(object):
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
                                  imm(itemsize), imm(ofs), imm(integer), imm(aligned)])
 
-    consider_vec_setarrayitem_gc = consider_vec_setarrayitem_raw
-    consider_vec_raw_store = consider_vec_setarrayitem_raw
+    consider_vec_setarrayitem_raw = _consider_vec_setarrayitem
+    consider_vec_setarrayitem_gc = _consider_vec_setarrayitem
+    consider_vec_raw_store = _consider_vec_setarrayitem
 
     def consider_vec_arith(self, op):
         lhs = op.getarg(0)
@@ -647,8 +659,8 @@ class VectorRegallocMixin(object):
     consider_vec_int_xor = consider_vec_logic
     del consider_vec_logic
 
-    def consider_vec_int_pack(self, op):
-        # new_res = vec_int_pack(res, src, index, count)
+    def consider_vec_pack_i(self, op):
+        # new_res = vec_pack_i(res, src, index, count)
         arg = op.getarg(1)
         index = op.getarg(2)
         count = op.getarg(3)
@@ -664,9 +676,9 @@ class VectorRegallocMixin(object):
         arglocs = [resloc, srcloc, imm(residx), imm(srcidx), imm(count.value), imm(size)]
         self.perform(op, arglocs, resloc)
 
-    consider_vec_float_pack = consider_vec_int_pack
+    consider_vec_pack_f = consider_vec_pack_i
 
-    def consider_vec_int_unpack(self, op):
+    def consider_vec_unpack_i(self, op):
         index = op.getarg(1)
         count = op.getarg(2)
         assert isinstance(index, ConstInt)
@@ -688,14 +700,14 @@ class VectorRegallocMixin(object):
         arglocs = [resloc, srcloc, imm(residx), imm(index.value), imm(count.value), imm(size)]
         self.perform(op, arglocs, resloc)
 
-    consider_vec_float_unpack = consider_vec_int_unpack
+    consider_vec_unpack_f = consider_vec_unpack_i
 
-    def consider_vec_float_expand(self, op):
+    def consider_vec_expand_f(self, op):
         result = op.result
         assert isinstance(result, BoxVector)
         arg = op.getarg(0)
         args = op.getarglist()
-        if isinstance(arg, Const):
+        if arg.is_constant():
             resloc = self.xrm.force_allocate_reg(result)
             srcloc = self.xrm.expand_float(result.getsize(), arg)
         else:
@@ -705,10 +717,10 @@ class VectorRegallocMixin(object):
         size = op.result.getsize()
         self.perform(op, [srcloc, imm(size)], resloc)
 
-    def consider_vec_int_expand(self, op):
+    def consider_vec_expand_i(self, op):
         arg = op.getarg(0)
         args = op.getarglist()
-        if isinstance(arg, Const):
+        if arg.is_constant():
             srcloc = self.rm.convert_to_imm(arg)
         else:
             srcloc = self.make_sure_var_in_reg(arg, args)
@@ -739,9 +751,12 @@ class VectorRegallocMixin(object):
         else:
             self.perform(op, [resloc,imm(size)], None)
 
-    def consider_vec_box(self, op):
+    def _consider_vec(self, op):
         # pseudo instruction, needed to create a new variable
         self.xrm.force_allocate_reg(op.result)
+    
+    consider_vec_i = _consider_vec
+    consider_vec_f = _consider_vec
 
     def consider_guard_early_exit(self, op):
         pass

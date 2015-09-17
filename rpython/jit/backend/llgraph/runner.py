@@ -212,7 +212,6 @@ class ArrayDescr(AbstractDescr):
                kind == 'int' or \
                kind == ''
 
-
     def is_always_pure(self):
         return self._is_pure
 

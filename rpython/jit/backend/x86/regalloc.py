@@ -22,9 +22,8 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
 from rpython.jit.backend.x86.vector_ext import VectorRegallocMixin
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
-    ConstFloat, BoxInt, BoxFloat, BoxVector, INT, REF,
-    FLOAT, VECTOR, TargetToken)
+from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
+    ConstFloat, INT, REF, FLOAT, VECTOR, TargetToken)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.jit.metainterp.resume import AccumInfo
@@ -1168,7 +1167,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_raw_load_i = _consider_getarrayitem
     consider_raw_load_f = _consider_getarrayitem
 
-    def _consider_getinteriorfield_gc(self, op):
+    def _consider_getinteriorfield(self, op):
         t = unpack_interiorfielddescr(op.getdescr())
         ofs, itemsize, fieldsize, sign = imm(t[0]), imm(t[1]), imm(t[2]), t[3]
         if sign:
@@ -1205,7 +1204,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         argloc = self.loc(op.getarg(0))
         self.rm.possibly_free_var(op.getarg(0))
         resloc = self.force_allocate_reg_or_cc(op)
-            self.perform(op, [argloc], resloc)
+        self.perform(op, [argloc], resloc)
 
     consider_int_is_zero = consider_int_is_true
 

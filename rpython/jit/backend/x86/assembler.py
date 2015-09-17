@@ -7,8 +7,7 @@ from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
                                                 DEBUG_COUNTER, debug_bridge)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
-from rpython.jit.metainterp.history import (Const, Box, VOID,
-    BoxVector, ConstInt)
+from rpython.jit.metainterp.history import (Const, VOID, ConstInt)
 from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
@@ -1105,7 +1104,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         def genop_cmp_float(self, op, arglocs, result_loc):
             if need_direct_p:
                 direct_case = not isinstance(arglocs[1], RegLoc)
-                else:
+            else:
                 direct_case = isinstance(arglocs[0], RegLoc)
             if direct_case:
                 self.mc.UCOMISD(arglocs[0], arglocs[1])
@@ -1777,7 +1776,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # Note that the typeid half-word is at offset 0 on a little-endian
         # machine; it would be at offset 2 or 4 on a big-endian machine.
         assert self.cpu.supports_guard_gc_type
-            if IS_X86_32:
+        if IS_X86_32:
             self.mc.CMP16(mem(loc_ptr, 0), loc_expected_typeid)
         else:
             assert isinstance(loc_expected_typeid, ImmedLoc)
@@ -2092,7 +2091,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
 
-    def _genop_guard_call_may_force(self, op, guard_op, guard_token,
+    def _genop_call_may_force(self, op, guard_op, guard_token,
                                    arglocs, result_loc):
         self._store_force_index(guard_op)
         self._genop_call(op, arglocs, result_loc)
