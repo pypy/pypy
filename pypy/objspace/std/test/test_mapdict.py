@@ -719,21 +719,25 @@ class AppTestWithMapDictAndCounters(object):
         def check(space, w_func, name):
             w_code = space.getattr(w_func, space.wrap('func_code'))
             nameindex = map(space.str_w, w_code.co_names_w).index(name)
+            if not w_code._mapdict_caches:# is NULL_MAPDICTCACHE:
+                lazy_init_mapdict_cache(w_code)
+            #
             entry = annlowlevel.cast_gcref_to_instance(CacheEntry, w_code._mapdict_caches[nameindex])
             entry.failure_counter = 0
             entry.success_counter = 0
-            INVALID_CACHE_ENTRY.failure_counter = 0
+            # INVALID_CACHE_ENTRY.failure_counter = 0
+            w_code._mapdict_cache_invalid.failure_counter = 0
             #
             w_res = space.call_function(w_func)
             assert space.eq_w(w_res, space.wrap(42))
             #
             entry = annlowlevel.cast_gcref_to_instance(CacheEntry, w_code._mapdict_caches[nameindex])
-            if entry is INVALID_CACHE_ENTRY:
+            if entry is w_code._mapdict_cache_invalid:
                 failures = successes = 0
             else:
                 failures = entry.failure_counter
                 successes = entry.success_counter
-            globalfailures = INVALID_CACHE_ENTRY.failure_counter
+            globalfailures = w_code._mapdict_cache_invalid.failure_counter
             return space.wrap((failures, successes, globalfailures))
         check.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, str]
         cls.w_check = cls.space.wrap(gateway.interp2app(check))

@@ -741,18 +741,27 @@ class TestSTMTranslated(CompiledSTMTests):
 
     def test_allocate_noconflict3(self):
         MAPDICT_CACHE = lltype.GcArray(llmemory.GCREF)
+        NULL_MAPDICTCACHE = lltype.nullptr(MAPDICT_CACHE)
 
         class CacheEntry(object): pass
-        INVALID_CACHE_ENTRY = CacheEntry()
+        # INVALID_CACHE_ENTRY = CacheEntry()
 
         class P(): pass
         pbc = P()
-        pbc.cache = rstm.allocate_noconflict(MAPDICT_CACHE, 5)
-        for i in range(5):
-            pbc.cache[i] = cast_instance_to_gcref(INVALID_CACHE_ENTRY)
+        pbc.cache = NULL_MAPDICTCACHE
+
+        def init():
+            pbc.cache = rstm.allocate_noconflict(MAPDICT_CACHE, 5)
+            for i in range(5):
+                pbc.cache[i] = cast_instance_to_gcref(pbc.invalid)
+
+        pbc.init = init
 
         def main(argv):
-            assert cast_gcref_to_instance(CacheEntry, pbc.cache[1]) is INVALID_CACHE_ENTRY
+            if pbc.cache is NULL_MAPDICTCACHE:
+                pbc.invalid = CacheEntry()
+                pbc.init()
+            assert cast_gcref_to_instance(CacheEntry, pbc.cache[1]) is pbc.invalid
             #
             print "ok!"
             return 0

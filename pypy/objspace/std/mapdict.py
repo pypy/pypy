@@ -837,36 +837,53 @@ class CacheEntry(object):
                 return True
         return False
 
-_invalid_cache_entry_map = objectmodel.instantiate(AbstractAttribute)
-_invalid_cache_entry_map.terminator = None
-INVALID_CACHE_ENTRY = CacheEntry()
-INVALID_CACHE_ENTRY.map_wref = weakref.ref(_invalid_cache_entry_map)
+    def _cleanup_(self):
+        raise Exception("cannot translate a prebuilt CacheEntry") # for unknown reasons
+
+# _invalid_cache_entry_map = objectmodel.instantiate(AbstractAttribute)
+# _invalid_cache_entry_map.terminator = None
+# INVALID_CACHE_ENTRY = CacheEntry()
+# INVALID_CACHE_ENTRY.map_wref = weakref.ref(_invalid_cache_entry_map)
                                  # different from any real map ^^^
 
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import annlowlevel
 MAPDICT_CACHE = lltype.GcArray(llmemory.GCREF)
-PMAPDICT_CACHE = lltype.Ptr(MAPDICT_CACHE)
 NULL_MAPDICTCACHE = lltype.nullptr(MAPDICT_CACHE)
 
-
 def init_mapdict_cache(pycode):
-    num_entries = len(pycode.co_names_w)
     # pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
+    pycode._mapdict_caches = NULL_MAPDICTCACHE
+
+def lazy_init_mapdict_cache(pycode):
+    assert we_are_translated()
+    num_entries = len(pycode.co_names_w)
     if pycode.space.config.translation.stm:
         from rpython.rlib.rstm import allocate_noconflict
         pycode._mapdict_caches = allocate_noconflict(MAPDICT_CACHE, num_entries)
     else:
         pycode._mapdict_caches = lltype.malloc(MAPDICT_CACHE, num_entries)
     #
+    # create invalid entry (should be prebuilt, but then translation fails)
+    _invalid_cache_entry_map = objectmodel.instantiate(AbstractAttribute)
+    _invalid_cache_entry_map.terminator = None
+    pycode._mapdict_cache_invalid = CacheEntry()
+    pycode._mapdict_cache_invalid.map_wref = weakref.ref(_invalid_cache_entry_map)
+    #                                   different from any real map ^^^
+    #
     for i in range(num_entries):
-        pycode._mapdict_caches[i] = annlowlevel.cast_instance_to_gcref(INVALID_CACHE_ENTRY)
+        pycode._mapdict_caches[i] = annlowlevel.cast_instance_to_gcref(pycode._mapdict_cache_invalid)
 
 
 @jit.dont_look_inside
 def _fill_cache(pycode, nameindex, map, version_tag, storageindex, w_method=None):
+    if not we_are_translated():
+        return
+    if pycode._mapdict_caches is NULL_MAPDICTCACHE:
+        lazy_init_mapdict_cache(pycode)
+    #
     entry = annlowlevel.cast_gcref_to_instance(CacheEntry, pycode._mapdict_caches[nameindex])
-    if entry is INVALID_CACHE_ENTRY:
+    if entry is pycode._mapdict_cache_invalid:
         entry = CacheEntry()
         pycode._mapdict_caches[nameindex] = annlowlevel.cast_instance_to_gcref(entry)
     entry.map_wref = weakref.ref(map)
@@ -879,6 +896,11 @@ def _fill_cache(pycode, nameindex, map, version_tag, storageindex, w_method=None
 def LOAD_ATTR_caching(pycode, w_obj, nameindex):
     # this whole mess is to make the interpreter quite a bit faster; it's not
     # used if we_are_jitted().
+    if not we_are_translated():
+        return LOAD_ATTR_slowpath(pycode, w_obj, nameindex, w_obj._get_mapdict_map())
+    if pycode._mapdict_caches is NULL_MAPDICTCACHE:
+        lazy_init_mapdict_cache(pycode)
+    #
     entry = annlowlevel.cast_gcref_to_instance(CacheEntry, pycode._mapdict_caches[nameindex])
     map = w_obj._get_mapdict_map()
     if entry.is_valid_for_map(map) and entry.w_method is None:
@@ -930,12 +952,17 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                     _fill_cache(pycode, nameindex, map, version_tag, attr.storageindex)
                     return w_obj._mapdict_read_storage(attr.storageindex)
     if space.config.objspace.std.withmethodcachecounter:
-        INVALID_CACHE_ENTRY.failure_counter += 1
+        pycode._mapdict_cache_invalid.failure_counter += 1
     return space.getattr(w_obj, w_name)
 LOAD_ATTR_slowpath._dont_inline_ = True
 
 def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
     pycode = f.getcode()
+    if not we_are_translated():
+        return False
+    if pycode._mapdict_caches is NULL_MAPDICTCACHE:
+        lazy_init_mapdict_cache(pycode)
+    #
     entry = annlowlevel.cast_gcref_to_instance(CacheEntry, pycode._mapdict_caches[nameindex])
     if entry.is_valid_for_obj(w_obj):
         w_method = entry.w_method
