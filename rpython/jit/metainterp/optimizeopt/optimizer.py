@@ -572,7 +572,8 @@ class Optimizer(Optimization):
                 return
             else:
                 guard_op = self.replace_op_with(op, op.getopnum())
-                if self._last_guard_op and guard_op.getdescr() is None:
+                if (self._last_guard_op and guard_op.getdescr() is None and
+                    guard_op.getopnum() != rop.GUARD_VALUE):
                     op = self._copy_resume_data_from(guard_op,
                                                      self._last_guard_op)
                 else:
