@@ -573,6 +573,7 @@ class Optimizer(Optimization):
                     self.origin_jitcode = None
                     self.origin_pc = 0
                 else:
+                    self._really_emitted_operation = None # removed
                     return # we optimize the guard
             self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
             pendingfields = self.pendingfields
