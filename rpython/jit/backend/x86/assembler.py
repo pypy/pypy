@@ -175,12 +175,12 @@ class Assembler386(BaseAssembler):
             for i in range(4):
                 mc.MOV_sr(i * WORD, cond_call_register_arguments[i].value)
         mc.CALL(eax)
+        self._reload_frame_if_necessary(mc)
         if IS_X86_64:
             mc.ADD(esp, imm(WORD))
         else:
             mc.ADD(esp, imm(WORD * 7))
         self.set_extra_stack_depth(mc, 0)
-        self._reload_frame_if_necessary(mc, align_stack=True)
         self.pop_gcmap(mc)   # cancel the push_gcmap(store=True) in the caller
         self._pop_all_regs_from_frame(mc, [], supports_floats, callee_only)
         mc.RET()
@@ -244,14 +244,15 @@ class Assembler386(BaseAssembler):
                 mc.MOV_rs(edi.value, WORD * 3)  # load the itemsize
         self.set_extra_stack_depth(mc, 16)
         mc.CALL(imm(follow_jump(addr)))
+        self._reload_frame_if_necessary(mc)
         mc.ADD_ri(esp.value, 16 - WORD)
+        self.set_extra_stack_depth(mc, 0)
+        #
         mc.TEST_rr(eax.value, eax.value)
         mc.J_il(rx86.Conditions['Z'], 0xfffff) # patched later
         jz_location = mc.get_relative_pos()
         #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
-        self._reload_frame_if_necessary(mc, align_stack=True)
-        self.set_extra_stack_depth(mc, 0)
         self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
         mc.MOV(edi, heap(nursery_free_adr))   # load this in EDI
         self.pop_gcmap(mc)   # push_gcmap(store=True) done by the caller
@@ -1050,8 +1051,7 @@ class Assembler386(BaseAssembler):
         cb = callbuilder.CallBuilder(self, fnloc, arglocs)
         cb.emit_no_collect()
 
-    def _reload_frame_if_necessary(self, mc, align_stack=False,
-                                   shadowstack_reg=None):
+    def _reload_frame_if_necessary(self, mc, shadowstack_reg=None):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
@@ -1065,7 +1065,7 @@ class Assembler386(BaseAssembler):
             # frame never uses card marking, so we enforce this is not
             # an array
             self._write_barrier_fastpath(mc, wbdescr, [ebp], array=False,
-                                         is_frame=True, align_stack=align_stack)
+                                         is_frame=True)
 
     genop_int_neg = _unaryop("NEG")
     genop_int_invert = _unaryop("NOT")
@@ -2083,7 +2083,7 @@ class Assembler386(BaseAssembler):
     # ------------------- END CALL ASSEMBLER -----------------------
 
     def _write_barrier_fastpath(self, mc, descr, arglocs, array=False,
-                                is_frame=False, align_stack=False):
+                                is_frame=False):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls a
         # helper piece of assembler.  The latter saves registers as needed
@@ -2139,13 +2139,9 @@ class Assembler386(BaseAssembler):
         #
         if not is_frame:
             mc.PUSH(loc_base)
-        if is_frame and align_stack:
-            mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
         mc.CALL(imm(self.wb_slowpath[helper_num]))
         if not is_frame:
             mc.stack_frame_size_delta(-WORD)
-        if is_frame and align_stack:
-            mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
 
         if card_marking:
             # The helper ends again with a check of the flag in the object.
