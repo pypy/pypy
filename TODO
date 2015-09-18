@@ -1,25 +1,50 @@
 ------------------------------------------------------------
 
-annotating and rtyping pixie with --jit=off and 1 thread (no
-conflicts) is:
-STM: 148s
-pypy2.6: 91.3s
+annotating and rtyping pixie:
 
-full mapdict and methodcache bring STM down to 130s, which
-is a reasonable 40% overhead. --> think about fixing mapdict
-and methodcache with STM
+== with 1 thread:
+- pypy26:
+[Timer] annotate                       --- 27.6 s
+[Timer] rtype_lltype                   --- 33.5 s
+[Timer] =========================================
+[Timer] Total:                         --- 61.1 s
 
-This difference may also explain a similar with-jit result:
-STM: 96
-pypy2.6: 64.5s
-which gets even worse with more than 1 thread:
-STM: 116s (4 threads)
-pypy2.6: 64s (still using only 1 thread)
+- pypystm, with dict/set:
+[Timer] annotate                       --- 41.3 s
+[Timer] rtype_lltype                   --- 49.1 s
+[Timer] =========================================
+[Timer] Total:                         --- 90.4 s
+
+- pypystm, with stmdict/stmset:
+[Timer] annotate                       --- 41.8 s
+[Timer] rtype_lltype                   --- 49.5 s
+[Timer] =========================================
+[Timer] Total:                         --- 91.3 s
+
+== with 4 threads:
+- pypy26:
+[Timer] annotate                       --- 28.2 s
+[Timer] rtype_lltype                   --- 36.3 s
+[Timer] =========================================
+[Timer] Total:                         --- 64.4 s
+
+- pypystm, with dict/set:
+[Timer] annotate                       ---  42.1 s
+[Timer] rtype_lltype                   ---  65.8 s
+[Timer] ==========================================
+[Timer] Total:                         --- 107.9 s
+
+- pypystm, with stmdict/stmset:
+[Timer] annotate                       ---  41.5 s
+[Timer] rtype_lltype                   ---  62.5 s
+[Timer] ==========================================
+[Timer] Total:                         --- 103.9 s
 
 TODOs:
-1) stmdict/stmset need strategies (only ~2% perf here)
-2) methodcache & mapdict for generally better no-jit performance
-3) theoretically, more threads shouldn't take even longer
+- stmdict/set with strategies: ~1% perf...
+- 87% overhead when using 4 threads on STM vs. 1 thread pypy26
+  or 26% overhead of STM 4 threads vs. STM 1 thread
+--> make rtyping less conflicting?
 
 ------------------------------------------------------------
 
