@@ -308,6 +308,8 @@ class OpParser(object):
                     if arg == 'None':
                         fail_arg = None
                     else:
+                        if arg.startswith('v') and '[' in arg:
+                            arg = arg[:arg.find('[')]
                         try:
                             fail_arg = self.vars[arg]
                         except KeyError:

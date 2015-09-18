@@ -170,6 +170,11 @@ class VecTestHelper(DependencyBaseTest):
             raise NotAProfitableLoop()
         gso = GuardStrengthenOpt(graph.index_vars)
         gso.propagate_all_forward(info, loop)
+        oplist = loop.operations
+        loop.operations = loop.prefix[:]
+        if loop.prefix_label:
+            loop.operations += [loop.prefix_label]
+        loop.operations += oplist
         return opt
 
     def assert_unroll_loop_equals(self, loop, expected_loop, \
@@ -990,7 +995,7 @@ class BaseTestVectorize(VecTestHelper):
         guard_true(i3) [p0,i0]
         {dead_code}
         i500 = int_add(i0, 16)
-        i501 = int_lt(i2, 102)
+        i501 = int_lt(i500, 102)
         v10[16xi8] = vec_getarrayitem_raw_i(p0, i0, descr=chararraydescr)
         jump(p0,i2)
         """.format(dead_code=dead_code)
@@ -1001,8 +1006,8 @@ class BaseTestVectorize(VecTestHelper):
     def test_too_small_vector(self):
         ops = """
         [p0,i0]
-        i1 = getarrayitem_raw(p0, 0, descr=chararraydescr) # constant index
-        i2 = getarrayitem_raw(p0, 1, descr=chararraydescr) # constant index
+        i1 = getarrayitem_raw_i(p0, 0, descr=chararraydescr) # constant index
+        i2 = getarrayitem_raw_i(p0, 1, descr=chararraydescr) # constant index
         i4 = int_add(i1, i2)
         i3 = int_add(i0,1)
         i5 = int_lt(i3, 10)
@@ -1018,7 +1023,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_constant_expansion(self):
         ops = """
         [p0,i0]
-        i1 = getarrayitem_raw(p0, i0, descr=floatarraydescr)
+        i1 = getarrayitem_raw_i(p0, i0, descr=arraydescr)
         i4 = int_sub(i1, 42)
         i3 = int_add(i0,1)
         i5 = int_lt(i3, 10)
@@ -1027,8 +1032,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt="""
         [p0,i0]
-        label(p0,i0)
-        v3[2xf64] = vec_expand_f(42.0)
+        v3[2xf64] = vec_expand_i(42)
         label(p0,i0,v3[2xf64])
         i20 = int_add(i0, 1)
         i30 = int_lt(i20, 10)
@@ -1036,19 +1040,20 @@ class BaseTestVectorize(VecTestHelper):
         i3 = int_lt(i2, 10)
         guard_true(i3) [p0,i0]
         i4 = int_add(i0, 2)
-        i5 = int_lt(i2, 10)
-        v1[2xf64] = vec_getarrayitem_raw(p0, i0, descr=floatarraydescr)
+        i5 = int_lt(i4, 10)
+        v1[2xf64] = vec_getarrayitem_raw_i(p0, i0, descr=arraydescr)
         v2[2xf64] = vec_int_sub(v1[2xf64], v3[2xf64])
         jump(p0,i2,v3[2xf64])
         """
-        vopt = self.vectorize(self.parse_loop(ops),1)
-        self.assert_equal(vopt.loop, self.parse_loop(opt,add_label=False))
+        loop = self.parse_loop(ops)
+        vopt = self.vectorize(loop,1)
+        self.assert_equal(loop, self.parse_loop(opt))
 
     def test_variable_expansion(self):
         ops = """
         [p0,i0,f3]
-        f1 = getarrayitem_raw(p0, i0, descr=floatarraydescr)
-        f4 = int_add(f1, f3)
+        f1 = getarrayitem_raw_f(p0, i0, descr=floatarraydescr)
+        f4 = float_add(f1, f3)
         i3 = int_add(i0,1)
         i5 = int_lt(i3, 10)
         guard_true(i5) [p0, i0]
@@ -1056,7 +1061,6 @@ class BaseTestVectorize(VecTestHelper):
         """
         opt="""
         [p0,i0,f3]
-        label(p0,i0,f3)
         v3[2xf64] = vec_expand_f(f3)
         label(p0,i0,f3,v3[2xf64])
         i20 = int_add(i0, 1)
@@ -1065,18 +1069,19 @@ class BaseTestVectorize(VecTestHelper):
         i3 = int_lt(i2, 10)
         guard_true(i3) [p0,i0,f3]
         i4 = int_add(i0, 2)
-        i5 = int_lt(i2, 10)
-        v1[2xf64] = vec_getarrayitem_raw(p0, i0, descr=floatarraydescr)
-        v2[2xf64] = vec_int_add(v1[2xf64], v3[2xf64])
+        i5 = int_lt(i4, 10)
+        v1[2xf64] = vec_getarrayitem_raw_f(p0, i0, descr=floatarraydescr)
+        v2[2xf64] = vec_float_add(v1[2xf64], v3[2xf64])
         jump(p0,i2,f3,v3[2xf64])
         """
-        vopt = self.vectorize(self.parse_loop(ops),1)
-        self.assert_equal(vopt.loop, self.parse_loop(opt, add_label=False))
+        loop = self.parse_loop(ops)
+        vopt = self.vectorize(loop,1)
+        self.assert_equal(loop, self.parse_loop(opt))
 
     def test_accumulate_basic(self):
         trace = """
         [p0, i0, f0]
-        f1 = raw_load(p0, i0, descr=floatarraydescr)
+        f1 = raw_load_f(p0, i0, descr=floatarraydescr)
         f2 = float_add(f0, f1)
         i1 = int_add(i0, 8)
         i2 = int_lt(i1, 100)
@@ -1084,28 +1089,31 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0, i1, f2)
         """
         trace_opt = """
-        [p0, i0, v2[f64|2]]
+        [p0, i0, f0]
+        v6[0xf64] = vec_f()
+        v7[2xf64] = vec_int_xor(v6[0xf64], v6[0xf64])
+        v2[2xf64] = vec_pack_f(v7[2xf64], f0, 0, 1)
+        label(p0, i0, v2[2xf64])
         i1 = int_add(i0, 16)
         i2 = int_lt(i1, 100)
-        guard_false(i2) [p0, i0, v[f64|2]]
+        guard_false(i2) [p0, i0, v2[2xf64]]
         i10 = int_add(i0, 16)
         i20 = int_lt(i10, 100)
-        v1[f64|2] = vec_raw_load(p0, i0, 2, descr=floatarraydescr)
-        v3[f64|2] = vec_float_add(v2[f64|2], v1[f64|2])
-        jump(p0, i1, v3[f64|2])
+        v1[2xf64] = vec_raw_load_f(p0, i0, descr=floatarraydescr)
+        v3[2xf64] = vec_float_add(v2[2xf64], v1[2xf64])
+        jump(p0, i1, v3[2xf64])
         """
-        opt = self.vectorize(self.parse_loop(trace))
-        assert len(opt.packset.accum_vars) == 1
-        assert opt.loop.inputargs[2] in opt.packset.accum_vars
-        self.debug_print_operations(opt.loop)
+        loop = self.parse_loop(trace)
+        opt = self.vectorize(loop)
+        self.assert_equal(loop, self.parse_loop(trace_opt))
 
     def test_element_f45_in_guard_failargs(self):
         ops = """
         [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
-        f45 = raw_load(i21, i44, descr=floatarraydescr) 
+        f45 = raw_load_f(i21, i44, descr=floatarraydescr) 
         guard_not_invalidated() [p38, p12, p9, p14, f45, p39, i37, i44, f35, i40, p42, i43, None, i28, p36, i41]
         i46 = int_add(i44, 8) 
-        f47 = raw_load(i4, i41, descr=floatarraydescr) 
+        f47 = raw_load_f(i4, i41, descr=floatarraydescr) 
         i48 = int_add(i41, 8) 
         f49 = float_add(f45, f47)
         raw_store(i0, i37, f49, descr=floatarraydescr)
@@ -1131,8 +1139,8 @@ class BaseTestVectorize(VecTestHelper):
         i55 = int_add(i44, 16) 
         i629 = int_add(i28, 2)
         i57 = int_ge(i637, i18) 
-        v61 = vec_raw_load(i21, i44, 2, descr=floatarraydescr) 
-        v62 = vec_raw_load(i4, i41, 2, descr=floatarraydescr) 
+        v61 = vec_raw_load_f(i21, i44, 2, descr=floatarraydescr) 
+        v62 = vec_raw_load_f(i4, i41, 2, descr=floatarraydescr) 
         v63 = vec_float_add(v61, v62) 
         vec_raw_store(i0, i37, v63, descr=floatarraydescr) 
         f100 = vec_float_unpack(v61, 1, 1)
@@ -1145,9 +1153,9 @@ class BaseTestVectorize(VecTestHelper):
     def test_shrink_vector_size(self):
         ops = """
         [p0,p1,i1]
-        f1 = getarrayitem_raw(p0, i1, descr=floatarraydescr)
+        f1 = getarrayitem_raw_f(p0, i1, descr=floatarraydescr)
         i2 = cast_float_to_singlefloat(f1)
-        setarrayitem_raw(p1, i1, i2, descr=singlefloatarraydescr)
+        setarrayitem_raw(p1, i1, i2, descr=float32arraydescr)
         i3 = int_add(i1, 1)
         i4 = int_ge(i3, 36)
         guard_false(i4) []
@@ -1165,29 +1173,30 @@ class BaseTestVectorize(VecTestHelper):
         i6 = int_add(i1, 3)
         i11 = int_ge(i6, 36)
         i7 = int_add(i1, 4)
-        i14 = int_ge(i50, 36)
-        v17 = vec_getarrayitem_raw(p0, i1, 2, descr=floatarraydescr)
+        i14 = int_ge(i7, 36)
+        v17 = vec_getarrayitem_raw_f(p0, i1, descr=floatarraydescr)
         v19 = vec_cast_float_to_singlefloat(v17)
-        v18 = vec_getarrayitem_raw(p0, i5, 2, descr=floatarraydescr)
+        v18 = vec_getarrayitem_raw_f(p0, i5, descr=floatarraydescr)
         v20 = vec_cast_float_to_singlefloat(v18)
-        v21 = vec_float_pack(v19, v20, 2, 2)
-        vec_setarrayitem_raw(p1, i1, v21, descr=singlefloatarraydescr)
+        v21 = vec_pack_i(v19, v20, 2, 2)
+        vec_setarrayitem_raw(p1, i1, v21, descr=float32arraydescr)
         jump(p0, p1, i50)
         """
-        vopt = self.vectorize(self.parse_loop(ops))
-        self.assert_equal(vopt.loop, self.parse_loop(opt))
+        loop = self.parse_loop(ops)
+        vopt = self.vectorize(loop)
+        self.assert_equal(loop, self.parse_loop(opt))
 
     def test_castup_arith_castdown(self):
         ops = """
         [p0,p1,p2,i0,i4]
-        i10 = raw_load(p0, i0, descr=singlefloatarraydescr)
+        i10 = raw_load_i(p0, i0, descr=float32arraydescr)
         i1 = int_add(i0, 4)
-        i11 = raw_load(p1, i1, descr=singlefloatarraydescr)
+        i11 = raw_load_i(p1, i1, descr=float32arraydescr)
         f1 = cast_singlefloat_to_float(i10)
         f2 = cast_singlefloat_to_float(i11)
         f3 = float_add(f1, f2)
         i12  = cast_float_to_singlefloat(f3)
-        raw_store(p2, i4, i12, descr=singlefloatarraydescr)
+        raw_store(p2, i4, i12, descr=float32arraydescr)
         i5  = int_add(i4, 4) 
         i186 = int_lt(i5, 100) 
         guard_true(i186) []
@@ -1209,12 +1218,12 @@ class BaseTestVectorize(VecTestHelper):
         i196 = int_add(i4, 12)
         i197 = int_lt(i196, 100)
         i205 = int_add(i4, 16)
-        i206 = int_lt(i500, 100)
-        v228 = vec_raw_load(p0, i0, 4, descr=singlefloatarraydescr)
+        i206 = int_lt(i205, 100)
+        v228 = vec_raw_load_i(p0, i0, 4, descr=float32arraydescr)
         v229 = vec_cast_singlefloat_to_float(v228)
         v230 = vec_int_unpack(v228, 2, 2)
         v231 = vec_cast_singlefloat_to_float(v230)
-        v232 = vec_raw_load(p1, i1, 4, descr=singlefloatarraydescr)
+        v232 = vec_raw_load_i(p1, i1, 4, descr=float32arraydescr)
         v233 = vec_cast_singlefloat_to_float(v232)
         v234 = vec_int_unpack(v232, 2, 2)
         v235 = vec_cast_singlefloat_to_float(v234)
@@ -1222,8 +1231,8 @@ class BaseTestVectorize(VecTestHelper):
         v239 = vec_cast_float_to_singlefloat(v237)
         v236 = vec_float_add(v229, v233)
         v238 = vec_cast_float_to_singlefloat(v236)
-        v240 = vec_float_pack(v238, v239, 2, 2)
-        vec_raw_store(p2, i4, v240, descr=singlefloatarraydescr)
+        v240 = vec_pack_f(v238, v239, 2, 2)
+        vec_raw_store(p2, i4, v240, descr=float32arraydescr)
         jump(p0, p1, p2, i207, i500)
         """
         vopt = self.vectorize(self.parse_loop(ops))
@@ -1280,16 +1289,16 @@ class BaseTestVectorize(VecTestHelper):
     def test_cast_1(self):
         trace = """
         [i9, i10, p2, p11, i12, i13, p4, p5, p14, i15, p8, i16, p17, i18, i19, i20, i21, i22, i23]
-        i24 = raw_load(i20, i16, descr=singlefloatarraydescr)
+        i24 = raw_load_i(i20, i16, descr=float32arraydescr)
         guard_not_invalidated() [p8, p5, p4, p2, i24, p17, i13, i12, i10, i19, p14, p11, i18, i15, i16, None]
         i27 = int_add(i16, 4)
-        i28 = raw_load(i21, i19, descr=singlefloatarraydescr)
+        i28 = raw_load_i(i21, i19, descr=float32arraydescr)
         i30 = int_add(i19, 4)
         f31 = cast_singlefloat_to_float(i24)
         f32 = cast_singlefloat_to_float(i28)
         f33 = float_add(f31, f32)
         i34 = cast_float_to_singlefloat(f33)
-        raw_store(i22, i13, i34, descr=singlefloatarraydescr)
+        raw_store(i22, i13, i34, descr=float32arraydescr)
         i36 = int_add(i12, 1)
         i38 = int_add(i13, 4)
         i39 = int_ge(i36, i23)
@@ -1302,7 +1311,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_all_guard(self):
         trace = """
         [p0, p3, i4, i5, i6, i7]
-        f8 = raw_load(i6, i5, descr=floatarraydescr)
+        f8 = raw_load_f(i6, i5, descr=floatarraydescr)
         guard_not_invalidated() [p0, f8, p3, i5, i4]
         i9 = cast_float_to_int(f8)
         i11 = int_and(i9, 255)
@@ -1313,13 +1322,14 @@ class BaseTestVectorize(VecTestHelper):
         guard_false(i16) [p0, i13, i15, p3, None, None]
         jump(p0, p3, i13, i15, i6, i7)
         """
-        opt = self.vectorize(self.parse_loop(trace))
-        self.debug_print_operations(opt.loop)
+        loop = self.parse_loop(trace)
+        opt = self.vectorize(loop)
+        self.debug_print_operations(loop)
 
     def test_max(self):
         trace = """
         [p3, i4, p2, i5, f6, i7, i8]
-        f9 = raw_load(i7, i5, descr=floatarraydescr)
+        f9 = raw_load_f(i7, i5, descr=floatarraydescr)
         guard_not_invalidated() [p2, f9, f6, i4, i5, p3]
         i10 = float_ge(f6, f9)
         guard_false(i10) [p2, f9, f6, None, i4, i5, p3]
@@ -1331,173 +1341,9 @@ class BaseTestVectorize(VecTestHelper):
         guard_false(i17) [p2, i16, f9, i14, None, None, None, p3]
         jump(p3, i14, p2, i16, f9, i7, i8)
         """
-        opt = self.schedule(self.parse_loop(trace), with_guard_opt=True)
-        self.debug_print_operations(opt.loop)
-
-
-    def test_abc(self):
-        trace="""
-        [p0, p1, p5, p6, p7, p12, p13, i14, i15, i16, i17, i18, i19, i20]
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #117 LOAD_NAME')
-        guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7fc657d7be20>) [p1, p0, p5, p6, p7, p12, p13]
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #120 LOAD_CONST')
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #123 COMPARE_OP')
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #126 POP_JUMP_IF_FALSE')
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #129 LOAD_NAME')
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #132 LOAD_NAME')
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #135 BINARY_SUBSCR')
-        i23 = int_lt(i14, i15)
-        guard_true(i23, descr=<ResumeGuardTrueDescr object at 0x7fc657d7bd60>) [p1, p0, i14, p5, p6, p7, p12, p13, None]
-        f25 = getarrayitem_raw(i16, i14, descr=floatarraydescr)
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #136 LOAD_NAME')
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #139 LOAD_NAME')
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #142 BINARY_SUBSCR')
-        i26 = int_lt(i14, i17)
-        guard_true(i26, descr=<ResumeGuardTrueDescr object at 0x7fc657d7bca0>) [p1, p0, i14, p5, p6, p7, p12, p13, f25, None]
-        f27 = getarrayitem_raw(i18, i14, descr=floatarraydescr)
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #143 BINARY_ADD')
-        f28 = float_add(f25, f27)
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #144 LOAD_NAME')
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #147 LOAD_NAME')
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #150 STORE_SUBSCR')
-        i29 = int_lt(i14, i19)
-        guard_true(i29, descr=<ResumeGuardTrueDescr object at 0x7fc657d7bc40>) [p1, p0, i14, p5, p6, p7, p12, p13, f28, None, None]
-        setarrayitem_raw(i20, i14, f28, descr=floatarraydescr)
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #151 LOAD_NAME')
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #154 LOAD_CONST')
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #157 INPLACE_ADD')
-        i31 = int_add(i14, 1)
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #158 STORE_NAME')
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #161 JUMP_ABSOLUTE')
-        i33 = getfield_raw(140489852409120, descr=<FieldS pypysig_long_struct.c_value 0>)
-        setfield_gc(1234, i31, descr=<FieldS pypy.objspace.std.typeobject.IntMutableCell.inst_intvalue 8>)
-        i36 = int_lt(i33, 0)
-        guard_false(i36, descr=<ResumeGuardFalseDescr object at 0x7fc657d7be80>) [p1, p0, p5, p6, p7, p12, p13, None, None, None]
-        debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #117 LOAD_NAME')
-        i22 = int_lt(i14, 2024)
-        guard_true(i22, descr=<ResumeGuardTrueDescr object at 0x7fc657d7bdc0>) [p1, p0, p5, p6, p7, p12, p13, i14]
-        jump(p0, p1, p5, p6, p7, p12, p13, i31, i15, i16, i17, i18, i19, i20)
-        """
-        opt = self.vectorize(self.parse_loop(trace))
-        self.debug_print_operations(opt.loop)
-
-    def test_bug1(self):
-        trace="""
-        [p0, p1, p6, p7, p11, i83, f57, f61, f65, f70, f78, f81, i48, i56, p46]
-        guard_not_invalidated(descr=<Guard0x7fa392d5c200>) [p1, p0, p6, p7, p11, f81, f78, f70, f65, f61, f57, i83]
-        i91 = int_lt(i83, i48)
-        guard_true(i91, descr=<Guard0x7fa392d5c260>) [p1, p0, p6, p7, p11, i48, f81, f78, f70, f65, f61, f57, i83]
-        f92 = getarrayitem_raw(i56, i83, descr=floatarraydescr)
-        i93 = int_add(i83, 1)
-        i94 = int_lt(i93, i48)
-        guard_true(i94, descr=<Guard0x7fa392d5c2c0>) [p1, p0, p46, i93, p6, p7, p11, f92, None, f81, f78, f70, f65, f61, None, i83]
-        f95 = getarrayitem_raw(i56, i93, descr=floatarraydescr)
-        i96 = int_add(i83, 2)
-        i97 = int_lt(i96, i48)
-        guard_true(i97, descr=<Guard0x7fa392d5c320>) [p1, p0, p46, i96, p6, p7, p11, f95, f92, None, f81, f78, f70, f65, None, None, i83]
-        f98 = getarrayitem_raw(i56, i96, descr=floatarraydescr)
-        f99 = float_sub(f98, 128.000000)
-        f100 = float_mul(1.370705, f99)
-        f101 = float_add(f92, f100)
-        f102 = float_mul(0.698001, f99)
-        f103 = float_sub(f92, f102)
-        f104 = float_sub(f95, 128.000000)
-        f105 = float_mul(0.337633, f104)
-        f106 = float_sub(f103, f105)
-        f107 = float_mul(1.732446, f104)
-        f108 = float_add(f92, f107)
-        i109 = int_add(i83, 3)
-        i110 = getfield_raw(140340519358368, descr=<FieldS pypysig_long_struct.c_value 0>)
-        i111 = int_lt(i110, 0)
-        guard_false(i111, descr=<Guard0x7fa392d5c380>) [p1, p0, p6, p7, p11, f108, f106, f101, f98, i109, f95, f92, None, None, None, None, None, None, None, None]
-        jump(p0, p1, p6, p7, p11, i109, f92, f95, f98, f101, f106, f108, i48, i56, p46)
-        """
-        opt = self.schedule(self.parse_loop(trace))
-        self.debug_print_operations(opt.loop)
-
-    def test_1(self):
-        trace = """
-        [p0, p1, p6, p7, i13, p14, p15]
-        guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7f89c54cdc40>) [p1, p0, p6, p7, i13]
-        i17 = int_lt(i13, 10000)
-        guard_true(i17, descr=<ResumeGuardTrueDescr object at 0x7f89c54cdca0>) [p1, p0, p6, p7, i13]
-        i18 = getfield_gc(p14, descr=<FieldS list.length 8>)
-        i19 = uint_ge(i13, i18)
-        guard_false(i19, descr=<ResumeGuardFalseDescr object at 0x7f89c54cdd00>) [p1, p0, i18, i13, p14, p6, p7, None]
-        p21 = getfield_gc(p14, descr=<FieldP list.items 16>)
-        f22 = getarrayitem_gc(p21, i13, descr=<ArrayF 8>)
-        i23 = getfield_gc(p15, descr=<FieldS list.length 8>)
-        i24 = uint_ge(i13, i23)
-        guard_false(i24, descr=<ResumeGuardFalseDescr object at 0x7f89c54cdd60>) [p1, p0, i23, i13, p15, p6, p7, f22, None]
-        p25 = getfield_gc(p15, descr=<FieldP list.items 16>)
-        f26 = getarrayitem_gc(p25, i13, descr=floatarraydescr)
-        f27 = float_add(f22, f26)
-        setarrayitem_gc(p21, i13, f27, descr=floatarraydescr)
-        i29 = int_add(i13, 1)
-        #i31 = getfield_raw(140229696280448, descr=<FieldS pypysig_long_struct.c_value 0>)
-        i33 = int_lt(0, 1)
-        guard_false(i33, descr=<ResumeGuardFalseDescr object at 0x7f89c54cddc0>) [p1, p0, p6, p7, i29, None, None]
-        jump(p0, p1, p6, p7, i29, p14, p15)
-        """        
-        trace = """
-        [p0, p1, p6, p7, p8, p11, p13, p15, i46, f43, i32, i36, i40]
-        i51 = int_lt(i46, i32)
-        guard_true(i51, descr=<Guard0x7fa98ec2b780>) [p1, p0, p15, p6, p7, p8, p11, p13, f43, i46]
-        i52 = int_lt(i46, i36)
-        guard_true(i52, descr=<Guard0x7fa98ec2b7d8>) [p1, p0, p11, i46, p6, p7, p8, p13, p15, f43, None]
-        f54 = getarrayitem_raw(i40, i46, descr=floatarraydescr)
-        f55 = float_add(f43, f54)
-        i56 = int_add(i46, 1)
-        jump(p0, p1, p6, p7, p8, p11, p13, p15, i56, f55, i32, i36, i40)
-        """
-        opt = self.schedule(self.parse_loop(trace))
-        self.debug_print_operations(opt.loop)
-
-    def test_arraylen(self):
-        trace = """
-        [i45, i33, p40]
-        # while i < len(l):
-        # LOAD_FAST i
-        # LOAD_GLOBAL len
-        guard_not_invalidated(descr=<Guard0x7f82c00c3518>) [i33,p40]
-        # LOAD_FAST l
-        # CALL_FUNCTION 1
-        # COMPARE_OP <
-        i50 = int_lt(i45, i33)
-        guard_true(i50) [i50,i33,p40]
-        # POP_JUMP_IF_FALSE 70
-        # l[i] = l[i] + 1
-        # LOAD_FAST l
-        # LOAD_FAST i
-        # BINARY_SUBSCR 
-        i51 = uint_ge(i45, i33)
-        guard_false(i51) [i50, i45]
-        i52 = getarrayitem_gc(p40, i45, descr=arraydescr)
-        # LOAD_CONST 1
-        # BINARY_ADD 
-        i53 = int_add(i52, 1)
-        #guard_no_overflow(descr=<Guard0x7f82c00c33b8>) []
-        # LOAD_FAST l
-        # LOAD_FAST i
-        # STORE_SUBSCR 
-        setarrayitem_gc(p40, i45, i53, descr=arraydescr)
-        # i += 1
-        # LOAD_FAST i
-        # LOAD_CONST 1
-        # INPLACE_ADD 
-        i54 = int_add(i45,1)
-        # STORE_FAST i
-        # JUMP_ABSOLUTE 21
-        #getfield_raw_i(140199654614400, descr=<FieldS pypysig_long_struct.c_value 0>)
-        #None = i55 < 0
-        #guard(i56 is false)
-        # LOAD_FAST i
-        #i34 = arraylen_gc(p40, descr=<ArrayS 8>)
-        jump(i54, i33, p40)
-        """
-        opt = self.vectorize(self.parse_loop(trace))
-        self.debug_print_operations(opt.loop)
-
+        loop = self.parse_loop(trace)
+        opt = self.schedule(loop, with_guard_opt=True)
+        self.debug_print_operations(loop)
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

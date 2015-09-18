@@ -18,7 +18,8 @@ from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
-from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgRef
+from rpython.jit.metainterp.resoperation import (rop, ResOperation,
+        InputArgRef, AbstractValue)
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 
 
@@ -471,6 +472,7 @@ final_descr = history.BasicFinalDescr()
 class BaseTest(object):
 
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
+        AbstractValue._repr_memo.counter = 0
         self.oparse = OpParser(s, self.cpu, self.namespace, 'lltype',
                                boxkinds,
                                None, False, postprocess)

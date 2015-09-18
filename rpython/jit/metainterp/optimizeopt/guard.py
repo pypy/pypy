@@ -242,7 +242,8 @@ class GuardStrengthenOpt(object):
                 index_var = self.index_vars.get(op, None)
                 if index_var:
                     if not index_var.is_identity():
-                        index_var.emit_operations(self, op)
+                        var = index_var.emit_operations(self, op)
+                        self.renamer.start_renaming(op, var)
                         continue
             self.emit_operation(op)
         #

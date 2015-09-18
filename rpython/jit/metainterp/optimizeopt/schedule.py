@@ -451,14 +451,14 @@ def expand(state, pack, args, arg, index):
         args[index] = vecop
         return vecop
 
-    vecop = OpHelpers.create_vec(arg.type, left.bytesize, left.signed)
+    vecop = OpHelpers.create_vec(arg.type, arg.bytesize, arg.signed)
     ops.append(vecop)
     for i,node in enumerate(pack.operations):
         op = node.getoperation()
         arg = op.getarg(index)
         arguments = [vecop, arg, ConstInt(i), ConstInt(1)]
-        vecop = OpHelpers.create_vec_pack(arg.type, arguments, left.bytesize,
-                                          left.signed, vecop.count+1)
+        vecop = OpHelpers.create_vec_pack(arg.type, arguments, vecop.bytesize,
+                                          vecop.signed, vecop.count+1)
         ops.append(vecop)
     state.expand(expandargs, vecop)
 
@@ -838,12 +838,12 @@ class Pair(Pack):
 
 class AccumPack(Pack):
     SUPPORTED = { rop.FLOAT_ADD: '+',
-                  rop.INT_ADD: '+',
+                  rop.INT_ADD:   '+',
                   rop.FLOAT_MUL: '*',
                 }
 
     def __init__(self, nodes, operator, accum, position):
-        Pack.__init__(self, [left, right])
+        Pack.__init__(self, nodes)
         self.accumulator = accum
         self.operator = operator
         self.position = position
@@ -857,6 +857,11 @@ class AccumPack(Pack):
     def getseed(self):
         """ The accumulatoriable holding the seed value """
         return self.accumulator
+
+    def reduce_init(self):
+        if self.operator == '*':
+            return 1
+        return 0
 
     def attach_accum_info(self, descr, position, scalar):
         descr.rd_accum_list = AccumInfo(descr.rd_accum_list,

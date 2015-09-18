@@ -42,7 +42,7 @@ class DependencyBaseTest(BaseTest):
             assert node.independent(node)
         return self.last_graph
 
-    def parse_loop(self, ops, add_label=True, **kwargs):
+    def parse_loop(self, ops, add_label=True):
         loop = self.parse(ops, postprocess=self.postprocess)
         loop.operations = filter(lambda op: op.getopnum() != rop.DEBUG_MERGE_POINT, loop.operations)
         token = JitCellToken()

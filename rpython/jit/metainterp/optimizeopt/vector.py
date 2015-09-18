@@ -363,7 +363,7 @@ class VectorizingOptimizer(Optimizer):
             pack_count = self.packset.pack_count()
 
     def follow_use_defs(self, pack):
-        assert isinstance(pack, Pair)
+        assert pack.numops() == 2
         for ldep in pack.leftmost(True).depends():
             for rdep in pack.rightmost(True).depends():
                 lnode = ldep.to
@@ -380,7 +380,7 @@ class VectorizingOptimizer(Optimizer):
                         self.packset.add_pack(pair)
 
     def follow_def_uses(self, pack):
-        assert isinstance(pack, Pair)
+        assert pack.numops() == 2
         print "lprov", pack.leftmost(node=True).provides_count(),
         print "rprov", pack.rightmost(node=True).provides_count()
         for ldep in pack.leftmost(node=True).provides():
@@ -510,6 +510,7 @@ class VectorizingOptimizer(Optimizer):
         earlyexit = graph.imaginary_node("early exit")
         guards = graph.guards
         one_valid = False
+        valid_guards = []
         for guard_node in guards:
             modify_later = []
             last_prev_node = None
@@ -541,13 +542,16 @@ class VectorizingOptimizer(Optimizer):
                 # every edge that starts in the guard, the early exit
                 # inherts the edge and guard then provides to early exit
                 for dep in guard_node.provides()[:]:
-                    earlyexit.edge_to(dep.target_node())
+                    assert not dep.target_node().is_imaginary()
+                    earlyexit.edge_to(dep.target_node(), failarg=True)
                     guard_node.remove_edge_to(dep.target_node())
-                guard_node.edge_to(earlyexit)
+                valid_guards.append(guard_node)
 
-                for node in zero_deps.keys():
-                    earlyexit.edge_to(node)
+                guard_node.edge_to(earlyexit)
                 self.mark_guard(guard_node, loop)
+        for node in zero_deps.keys():
+            assert not node.is_imaginary()
+            earlyexit.edge_to(node)
         if one_valid:
             return graph
         return None
@@ -770,7 +774,7 @@ class PackSet(object):
                 # considered. => tree pattern matching problem.
                 return None
             operator = AccumPack.SUPPORTED[opnum]
-            return AccumPack(lnode, rnode, operator, scalar, index)
+            return AccumPack([lnode, rnode], operator, scalar, index)
 
         return None
 
@@ -785,34 +789,34 @@ class PackSet(object):
         for pack in self.packs:
             if not pack.is_accumulating():
                 continue
-            accum = pack.accum
-            datatype = accum.getdatatype()
-            bytesize = accum.getbytesize()
+            assert isinstance(pack, AccumPack)
+            datatype = pack.getdatatype()
+            bytesize = pack.getbytesize()
             count = vec_reg_size // bytesize
             signed = datatype == 'i'
             oplist = state.invariant_oplist
             # reset the box to zeros or ones
-            if accum.operator == Accum.PLUS:
+            if pack.reduce_init() == 0:
                 vecop = OpHelpers.create_vec(datatype, bytesize, signed)
                 oplist.append(vecop)
                 vecop = VecOperation(rop.VEC_INT_XOR, [vecop, vecop],
                                      vecop, count)
                 oplist.append(vecop)
-            elif accum.operator == Accum.MULTIPLY:
+            elif pack.reduce_init() == 1:
                 # multiply is only supported by floats
                 vecop = OpHelpers.create_vec_expand(ConstFloat(1.0), bytesize,
                                                     signed, count)
                 oplist.append(vecop)
             else:
-                raise NotImplementedError("cannot handle %s" % accum.operator)
+                raise NotImplementedError("cannot handle %s" % pack.operator)
             # pack the scalar value
-            args = [vecop, accum.getseed(), ConstInt(0), ConstInt(1)]
+            args = [vecop, pack.getseed(), ConstInt(0), ConstInt(1)]
             vecop = OpHelpers.create_vec_pack(datatype, args, bytesize,
                                               signed, count)
             oplist.append(vecop)
             # rename the variable with the box
-            state.setvector_of_box(accum.getseed(), 0, vecop) # prevent it from expansion
-            state.renamer.start_renaming(accum.getseed(), vecop)
+            state.setvector_of_box(pack.getseed(), 0, vecop) # prevent it from expansion
+            state.renamer.start_renaming(pack.getseed(), vecop)
 
     def split_overloaded_packs(self):
         newpacks = []

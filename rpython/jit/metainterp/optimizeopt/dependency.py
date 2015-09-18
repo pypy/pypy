@@ -1061,7 +1061,6 @@ class IndexVar(AbstractValue):
         var = self.var
         if self.is_identity():
             return var
-        last_op = None
         if self.coefficient_mul != 1:
             args = [var, ConstInt(self.coefficient_mul)]
             var = ResOperation(rop.INT_MUL, args)
@@ -1072,8 +1071,8 @@ class IndexVar(AbstractValue):
             opt.emit_operation(var)
         if self.constant > 0:
             args = [var, ConstInt(self.constant)]
-            vec = ResOperation(rop.INT_ADD, args)
-            opt.emit_operation(vec)
+            var = ResOperation(rop.INT_ADD, args)
+            opt.emit_operation(var)
         if self.constant < 0:
             args = [var, ConstInt(self.constant)]
             var = ResOperation(rop.INT_SUB, args)
