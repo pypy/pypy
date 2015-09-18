@@ -220,10 +220,10 @@ class OptRewrite(Optimization):
             v2 = self.get_box_replacement(rhs)
 
             if v1.is_constant():
-                if v1.getfloatstorage() == 1.0:
+                if v1.getfloat() == 1.0:
                     self.make_equal_to(op, v2)
                     return
-                elif v1.getfloatstorage() == -1.0:
+                elif v1.getfloat() == -1.0:
                     newop = self.replace_op_with(op, rop.FLOAT_NEG, args=[rhs])
                     self.emit_operation(newop)
                     return
