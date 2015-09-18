@@ -148,6 +148,7 @@ class TestMisc(BaseTestPyPyC):
         i18 = force_token()
         setfield_gc(p9, i17, descr=<.* .*W_XRangeIterator.inst_current .*>)
         guard_not_invalidated(descr=...)
+        i84 = int_sub(i14, 1)
         i21 = int_lt(i10, 0)
         guard_false(i21, descr=...)
         i22 = int_lt(i10, i14)
