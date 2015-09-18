@@ -13,7 +13,7 @@ computation part.
 
 import os
 
-import py
+import py, math
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
 from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
@@ -446,7 +446,11 @@ class RPythonTyper(object):
                 if isinstance(resultvar, Constant) and \
                        isinstance(hop.r_result.lowleveltype, Primitive) and \
                        hop.r_result.lowleveltype is not Void:
-                    assert resultvar.value == hop.s_result.const
+                    # assert that they are equal, or both are 'nan'
+                    assert resultvar.value == hop.s_result.const or (
+                        math.isnan(resultvar.value) and
+                        math.isnan(hop.s_result.const))
+
             resulttype = resultvar.concretetype
             op.result.concretetype = hop.r_result.lowleveltype
             if op.result.concretetype != resulttype:
