@@ -11,20 +11,31 @@ from rpython.jit.metainterp.optimizeopt import optimize_trace
 import rpython.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
 from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
-from rpython.jit.metainterp.optimizeopt.vector import (VectorizingOptimizer, MemoryRef,
-        isomorphic, Pair, NotAVectorizeableLoop, NotAProfitableLoop, GuardStrengthenOpt,
-        CostModel, VectorLoop)
-from rpython.jit.metainterp.optimizeopt.schedule import (Scheduler, SchedulerState)
+from rpython.jit.metainterp.optimizeopt.vector import (VectorizingOptimizer,
+        MemoryRef, isomorphic, Pair, NotAVectorizeableLoop, VectorLoop,
+        NotAProfitableLoop, GuardStrengthenOpt, CostModel, X86_CostModel)
+from rpython.jit.metainterp.optimizeopt.schedule import (Scheduler,
+        SchedulerState, VecScheduleState)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 
 class FakeJitDriverStaticData(object):
     vec=True
 
+class FakeLoopInfo(LoopVersionInfo):
+    def __init__(self, loop):
+        self.target_token = loop.label.getdescr()
+        self.label_op = loop.label
+        self.insert_index = -1
+        self.versions = []
+        self.leads_to = {}
+        self.descrs = []
+
 class FakeCostModel(CostModel):
-    def __init__(self):
-        CostModel.__init__(self, 0, 16)
+    def __init__(self, cpu):
+        CostModel.__init__(self, cpu, 16)
     def record_cast_int(self): pass
     def record_pack_savings(self, pack, times): pass
     def record_vector_pack(self, box, index, count): pass
@@ -33,6 +44,19 @@ class FakeCostModel(CostModel):
     def savings_for_pack(self, pack, times): pass
     def profitable(self):
         return True
+
+def index_of_first(opnum, operations, pass_by=0):
+    for i,op in enumerate(operations):
+        if op.getopnum() == opnum:
+            if pass_by == 0:
+                return i
+            else:
+                pass_by -= 1
+    return -1
+
+def find_first_index(loop, opnum, pass_by=0):
+    """ return the first index of the operation having the same opnum or -1 """
+    return index_of_first(opnum, loop.operations, pass_by)
 
 ARCH_VEC_REG_SIZE = 16
 
@@ -43,7 +67,11 @@ class VecTestHelper(DependencyBaseTest):
     jitdriver_sd = FakeJitDriverStaticData()
 
     def assert_vectorize(self, loop, expected_loop, call_pure_results=None):
-        self._do_optimize_loop(loop)
+        jump = ResOperation(rop.LABEL, loop.jump.getarglist(), loop.jump.getdescr())
+        compile_data = compile.LoopCompileData(loop.label, jump, loop.operations)
+        state = self._do_optimize_loop(compile_data)
+        loop.label = state[0].label_op
+        loop.opererations = state[1]
         self.assert_equal(loop, expected_loop)
 
     def vectoroptimizer(self, loop):
@@ -56,13 +84,11 @@ class VecTestHelper(DependencyBaseTest):
     def earlyexit(self, loop):
         opt = self.vectoroptimizer(loop)
         graph = opt.analyse_index_calculations(loop)
-        graph.view()
         state = SchedulerState(graph)
         opt.schedule(state)
         return graph.loop
 
     def vectoroptimizer_unrolled(self, loop, unroll_factor = -1):
-        loop.snapshot()
         opt = self.vectoroptimizer(loop)
         opt.linear_find_smallest_type(loop)
         if unroll_factor == -1 and opt.smallest_type_bytes == 0:
@@ -71,76 +97,84 @@ class VecTestHelper(DependencyBaseTest):
             unroll_factor = opt.get_unroll_count(ARCH_VEC_REG_SIZE)
             print ""
             print "unroll factor: ", unroll_factor, opt.smallest_type_bytes
-        if opt.loop.find_first_index(rop.GUARD_EARLY_EXIT) == -1:
-            idx = loop.find_first_index(rop.LABEL)
-            guard = ResOperation(rop.GUARD_EARLY_EXIT, [], None)
-            guard.setfailargs([])
-            guard.setdescr(compile.ResumeAtLoopHeaderDescr())
-            loop.operations.insert(idx+1, guard)
-        self.show_dot_graph(DependencyGraph(opt.loop), "original_" + self.test_name)
-        graph = opt.analyse_index_calculations()
+        # TODO if opt.loop.find_first_index(rop.GUARD_EARLY_EXIT) == -1:
+        #    idx = loop.find_first_index(rop.LABEL)
+        #    guard = ResOperation(rop.GUARD_EARLY_EXIT, [], None)
+        #    guard.setfailargs([])
+        #    guard.setdescr(compile.ResumeAtLoopHeaderDescr())
+        #    loop.operations.insert(idx+1, guard)
+        self.show_dot_graph(DependencyGraph(loop), "original_" + self.test_name)
+        graph = opt.analyse_index_calculations(loop)
         if graph is not None:
-            cycle = opt.dependency_graph.cycles()
+            cycle = graph.cycles()
             if cycle is not None:
                 print "CYCLE found %s" % cycle
-            self.show_dot_graph(opt.dependency_graph, "early_exit_" + self.test_name)
+            self.show_dot_graph(graph, "early_exit_" + self.test_name)
             assert cycle is None
-            loop.operations = opt.schedule(False)
+            state = SchedulerState(graph)
+            opt.schedule(state)
         opt.unroll_loop_iterations(loop, unroll_factor)
-        opt.loop.operations = opt.get_newoperations()
-        self.debug_print_operations(opt.loop)
-        opt.clear_newoperations()
+        self.debug_print_operations(loop)
         graph = DependencyGraph(loop)
-        self.last_graph = graph
-        self.show_dot_graph(self.last_graph, self.test_name)
+        self.last_graph = graph # legacy for test_dependency
+        self.show_dot_graph(graph, self.test_name)
+        def gmr(i):
+            return graph.memory_refs[graph.nodes[i]]
+        graph.getmemref = gmr
         return opt, graph
 
     def init_packset(self, loop, unroll_factor = -1):
         opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.find_adjacent_memory_refs(graph)
-        return opt
+        return opt, graph
 
     def extend_packset(self, loop, unroll_factor = -1):
         opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
-        return opt
+        return opt, graph
 
     def combine_packset(self, loop, unroll_factor = -1):
         opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
         opt.combine_packset()
-        return opt
+        return opt, graph
 
     def schedule(self, loop, unroll_factor = -1, with_guard_opt=False):
+        info = FakeLoopInfo(loop)
+        info.snapshot(loop.operations + [loop.jump], loop.label)
         opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
-        opt.costmodel = FakeCostModel()
         opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
         opt.combine_packset()
-        opt.schedule(graph, True)
+        costmodel = FakeCostModel(self.cpu)
+        state = VecScheduleState(graph, opt.packset, self.cpu, costmodel)
+        opt.schedule(state)
         if with_guard_opt:
-            gso = GuardStrengthenOpt(opt.dependency_graph.index_vars, opt.has_two_labels)
-            gso.propagate_all_forward(opt.loop)
+            gso = GuardStrengthenOpt(graph.index_vars)
+            gso.propagate_all_forward(info, loop)
         return opt
 
     def vectorize(self, loop, unroll_factor = -1):
-        opt = self.vectoroptimizer_unrolled(loop, unroll_factor)
-        opt.find_adjacent_memory_refs()
+        info = FakeLoopInfo(loop)
+        info.snapshot(loop.operations + [loop.jump], loop.label)
+        opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
+        opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
         opt.combine_packset()
-        opt.costmodel.reset_savings()
-        opt.schedule(True)
-        if not opt.costmodel.profitable():
+        costmodel = X86_CostModel(self.cpu, 0)
+        state = VecScheduleState(graph, opt.packset, self.cpu, costmodel)
+        opt.schedule(state)
+        if not costmodel.profitable():
             raise NotAProfitableLoop()
-        gso = GuardStrengthenOpt(opt.dependency_graph.index_vars, opt.has_two_labels)
-        gso.propagate_all_forward(opt.loop)
+        gso = GuardStrengthenOpt(graph.index_vars)
+        gso.propagate_all_forward(info, loop)
         return opt
 
     def assert_unroll_loop_equals(self, loop, expected_loop, \
                      unroll_factor = -1):
-        vectoroptimizer = self.vectoroptimizer_unrolled(loop, unroll_factor)
+        self.vectoroptimizer_unrolled(loop, unroll_factor)
         self.assert_equal(loop, expected_loop)
 
     def assert_pack(self, pack, indices):
@@ -171,23 +205,24 @@ class VecTestHelper(DependencyBaseTest):
 
     def assert_packset_not_contains_pair(self, packset, x, y):
         for pack in packset.packs:
-            if pack.left.opidx == x and \
-               pack.right.opidx == y:
+            if pack.leftmost(node=True).opidx == x and \
+               pack.rightmost(node=True).opidx == y:
                 pytest.fail("must not find packset with indices {x},{y}" \
                                 .format(x=x,y=y))
 
     def assert_packset_contains_pair(self, packset, x, y):
         for pack in packset.packs:
             if isinstance(pack, Pair):
-                if pack.left.opidx == x and \
-                   pack.right.opidx == y:
+                if pack.leftmost(node=True).opidx == x and \
+                   pack.rightmost(node=True).opidx == y:
                     break
         else:
             pytest.fail("can't find a pack set for indices {x},{y}" \
                             .format(x=x,y=y))
-    def assert_has_memory_ref_at(self, idx):
-        node = self.last_graph.nodes[idx]
-        assert node in self.last_graph.memory_refs, \
+    def assert_has_memory_ref_at(self, graph, idx):
+        idx -= 1 # label is not in the nodes
+        node = graph.nodes[idx]
+        assert node in graph.memory_refs, \
             "operation %s at pos %d has no memory ref!" % \
                 (node.getoperation(), node.getindex())
 
@@ -248,7 +283,7 @@ class BaseTestVectorize(VecTestHelper):
         """ it currently rejects pointer arrays """
         ops = """
         [p0,i0]
-        raw_load_r(p0,i0,descr=arraydescr2)
+        getarrayitem_gc_r(p0,i0,descr=arraydescr2)
         jump(p0,i0)
         """
         self.assert_vectorize(self.parse_loop(ops), self.parse_loop(ops))
@@ -257,9 +292,9 @@ class BaseTestVectorize(VecTestHelper):
         """ it currently rejects pointer arrays """
         ops = """
         [p0,i0]
-        i2 = getarrayitem_gc(p0,i0,descr=floatarraydescr)
+        i2 = getarrayitem_gc_i(p0,i0,descr=arraydescr)
         i1 = int_add(i0,1)
-        i3 = getarrayitem_gc(p0,i1,descr=floatarraydescr)
+        i3 = getarrayitem_gc_i(p0,i1,descr=arraydescr)
         i4 = int_add(i1,1)
         jump(p0,i4)
         """
@@ -267,11 +302,12 @@ class BaseTestVectorize(VecTestHelper):
         [p0,i0]
         i1 = int_add(i0,1)
         i2 = int_add(i0,2)
-        i3 = vec_getarrayitem_gc(p0,i0,2,descr=floatarraydescr)
+        v3[2xi64] = vec_getarrayitem_gc_i(p0,i0,descr=arraydescr)
         jump(p0,i2)
         """
-        vopt = self.vectorize(self.parse_loop(ops),0)
-        self.assert_equal(vopt.loop, self.parse_loop(opt))
+        loop = self.parse_loop(ops)
+        vopt = self.vectorize(loop,0)
+        self.assert_equal(loop, self.parse_loop(opt))
 
     def test_vect_unroll_char(self):
         """ a 16 byte vector register can hold 16 bytes thus 
@@ -306,14 +342,14 @@ class BaseTestVectorize(VecTestHelper):
         [p0,p1,p2,i0]
         i4 = int_add(i0, 1)
         i5 = int_le(i4, 10)
-        guard_true(i5) []
+        guard_true(i5) [p0,p1,p2,i0]
         i1 = raw_load_i(p1, i0, descr=floatarraydescr)
         i2 = raw_load_i(p2, i0, descr=floatarraydescr)
         i3 = int_add(i1,i2)
         raw_store(p0, i0, i3, descr=floatarraydescr)
         i9 = int_add(i4, 1)
         i10 = int_le(i9, 10)
-        guard_true(i10) []
+        guard_true(i10) [p0,p1,p2,i4]
         i6 = raw_load_i(p1, i4, descr=floatarraydescr)
         i7 = raw_load_i(p2, i4, descr=floatarraydescr)
         i8 = int_add(i6,i7)
@@ -338,9 +374,9 @@ class BaseTestVectorize(VecTestHelper):
         raw_load_i(p0,i0,descr=arraydescr)
         jump(p0,i0)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        assert len(vopt.dependency_graph.memory_refs) == 1
-        self.assert_has_memory_ref_at(1)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        assert len(graph.memory_refs) == 1
+        self.assert_has_memory_ref_at(graph, 1)
 
     def test_array_operation_indices_unrolled_1(self):
         ops = """
@@ -348,10 +384,10 @@ class BaseTestVectorize(VecTestHelper):
         raw_load_i(p0,i0,descr=chararraydescr)
         jump(p0,i0)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),1)
-        assert len(vopt.dependency_graph.memory_refs) == 2
-        self.assert_has_memory_ref_at(1)
-        self.assert_has_memory_ref_at(2)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),1)
+        assert len(graph.memory_refs) == 2
+        self.assert_has_memory_ref_at(graph, 1)
+        self.assert_has_memory_ref_at(graph, 2)
 
     def test_array_operation_indices_unrolled_2(self):
         ops = """
@@ -361,20 +397,20 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0,i3,i4)
         """
         loop = self.parse_loop(ops)
-        vopt = self.vectoroptimizer_unrolled(loop,0)
-        assert len(vopt.dependency_graph.memory_refs) == 2
-        self.assert_has_memory_ref_at(1)
-        self.assert_has_memory_ref_at(2)
+        vopt, graph = self.vectoroptimizer_unrolled(loop,0)
+        assert len(graph.memory_refs) == 2
+        self.assert_has_memory_ref_at(graph, 1)
+        self.assert_has_memory_ref_at(graph, 2)
         #
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),1)
-        assert len(vopt.dependency_graph.memory_refs) == 4
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),1)
+        assert len(graph.memory_refs) == 4
         for i in [1,2,3,4]:
-            self.assert_has_memory_ref_at(i)
+            self.assert_has_memory_ref_at(graph, i)
         #
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),3)
-        assert len(vopt.dependency_graph.memory_refs) == 8
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),3)
+        assert len(graph.memory_refs) == 8
         for i in [1,2,3,4,5,6,7,8]:
-            self.assert_has_memory_ref_at(i)
+            self.assert_has_memory_ref_at(graph, i)
 
     def test_array_memory_ref_adjacent_1(self):
         ops = """
@@ -384,12 +420,12 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0,i1)
         """
         loop = self.parse_loop(ops)
-        vopt = self.vectoroptimizer_unrolled(loop,1)
-        vopt.find_adjacent_memory_refs()
-        assert len(vopt.dependency_graph.memory_refs) == 2
+        vopt, graph = self.vectoroptimizer_unrolled(loop,1)
+        vopt.find_adjacent_memory_refs(graph)
+        assert len(graph.memory_refs) == 2
 
-        mref1 = self.getmemref(loop.find_first_index(rop.RAW_LOAD))
-        mref3 = self.getmemref(loop.find_first_index(rop.RAW_LOAD,1))
+        mref1 = graph.getmemref(find_first_index(loop, rop.RAW_LOAD_I))
+        mref3 = graph.getmemref(find_first_index(loop, rop.RAW_LOAD_I,1))
         assert isinstance(mref1, MemoryRef)
         assert isinstance(mref3, MemoryRef)
 
@@ -402,9 +438,9 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load_i(p0,i0,descr=chararraydescr)
         jump(p0,i0)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        vopt.find_adjacent_memory_refs()
-        mref1 = self.getmemref(1)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.find_adjacent_memory_refs(graph)
+        mref1 = graph.getmemref(0)
         assert isinstance(mref1, MemoryRef)
         assert mref1.index_var.coefficient_mul == 1
         assert mref1.index_var.constant == 0
@@ -416,9 +452,9 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load_i(p0,i1,descr=chararraydescr)
         jump(p0,i1)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        vopt.find_adjacent_memory_refs()
-        mref1 = self.getmemref(2)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.find_adjacent_memory_refs(graph)
+        mref1 = graph.getmemref(1)
         assert isinstance(mref1, MemoryRef)
         assert mref1.index_var.coefficient_mul == 1
         assert mref1.index_var.constant == 1
@@ -430,9 +466,9 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load_i(p0,i1,descr=chararraydescr)
         jump(p0,i1)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        vopt.find_adjacent_memory_refs()
-        mref1 = self.getmemref(2)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.find_adjacent_memory_refs(graph)
+        mref1 = graph.getmemref(1)
         assert isinstance(mref1, MemoryRef)
         assert mref1.index_var.coefficient_mul == 1
         assert mref1.index_var.constant == -1
@@ -445,9 +481,9 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load_i(p0,i2,descr=chararraydescr)
         jump(p0,i1)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        vopt.find_adjacent_memory_refs()
-        mref1 = self.getmemref(3)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.find_adjacent_memory_refs(graph)
+        mref1 = graph.getmemref(2)
         assert isinstance(mref1, MemoryRef)
         assert mref1.index_var.coefficient_mul == 3
         assert mref1.index_var.constant == 3
@@ -462,9 +498,9 @@ class BaseTestVectorize(VecTestHelper):
         i5 = raw_load_i(p0,i4,descr=chararraydescr)
         jump(p0,i4)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        vopt.find_adjacent_memory_refs()
-        mref1 = self.getmemref(5)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.find_adjacent_memory_refs(graph)
+        mref1 = graph.getmemref(4)
         assert isinstance(mref1, MemoryRef)
         assert mref1.index_var.coefficient_mul == 18
         assert mref1.index_var.constant == 48
@@ -480,9 +516,9 @@ class BaseTestVectorize(VecTestHelper):
         i7 = raw_load_i(p0,i6,descr=chararraydescr)
         jump(p0,i6)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        vopt.find_adjacent_memory_refs()
-        mref1 = self.getmemref(7)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.find_adjacent_memory_refs(graph)
+        mref1 = graph.getmemref(6)
         assert isinstance(mref1, MemoryRef)
         assert mref1.index_var.coefficient_mul == 1026
         assert mref1.index_var.coefficient_div == 1
@@ -498,9 +534,9 @@ class BaseTestVectorize(VecTestHelper):
         i5 = raw_load_i(p0,i4,descr=chararraydescr)
         jump(p0,i4)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        vopt.find_adjacent_memory_refs()
-        mref1 = self.getmemref(5)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.find_adjacent_memory_refs(graph)
+        mref1 = graph.getmemref(4)
         assert isinstance(mref1, MemoryRef)
         assert mref1.index_var.coefficient_mul == 6
         assert mref1.index_var.coefficient_div == 1
@@ -516,16 +552,16 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0,i1,i6)
         """
         loop = self.parse_loop(ops)
-        vopt = self.vectoroptimizer_unrolled(loop,1)
-        vopt.find_adjacent_memory_refs()
+        vopt, graph = self.vectoroptimizer_unrolled(loop,1)
+        vopt.find_adjacent_memory_refs(graph)
 
-        f = lambda x: loop.find_first_index(rop.RAW_LOAD, x)
+        f = lambda x: find_first_index(loop, rop.RAW_LOAD_I, x)
         indices = [f(0),f(1),f(2),f(3)]
         for i in indices:
-            self.assert_has_memory_ref_at(i)
-        assert len(vopt.dependency_graph.memory_refs) == 4
+            self.assert_has_memory_ref_at(graph, i+1)
+        assert len(graph.memory_refs) == 4
 
-        mref1, mref3, mref5, mref7 = [self.getmemref(i) for i in indices]
+        mref1, mref3, mref5, mref7 = [graph.getmemref(i) for i in indices]
         assert isinstance(mref1, MemoryRef)
         assert isinstance(mref3, MemoryRef)
         assert isinstance(mref5, MemoryRef)
@@ -545,9 +581,9 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load_i(p0,i2,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        vopt.find_adjacent_memory_refs()
-        mref = self.getmemref(3)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.find_adjacent_memory_refs(graph)
+        mref = graph.getmemref(2)
         assert mref.index_var.coefficient_div == 16
         ops = """
         [p0,i0]
@@ -556,9 +592,9 @@ class BaseTestVectorize(VecTestHelper):
         i3 = raw_load_i(p0,i2,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        vopt.find_adjacent_memory_refs()
-        mref = self.getmemref(3)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.find_adjacent_memory_refs(graph)
+        mref = graph.getmemref(2)
         assert mref.index_var.coefficient_div == 2
         assert mref.index_var.constant == 4
         ops = """
@@ -571,10 +607,10 @@ class BaseTestVectorize(VecTestHelper):
         i6 = raw_load_i(p0,i5,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        vopt.find_adjacent_memory_refs()
-        mref = self.getmemref(5)
-        mref2 = self.getmemref(6)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.find_adjacent_memory_refs(graph)
+        mref = graph.getmemref(2)
+        mref2 = graph.getmemref(5)
 
         self.assert_memory_ref_not_adjacent(mref, mref2)
         assert mref != mref2
@@ -591,10 +627,10 @@ class BaseTestVectorize(VecTestHelper):
         i7 = raw_load_i(p0,i6,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        vopt.find_adjacent_memory_refs()
-        mref = self.getmemref(6)
-        mref2 = self.getmemref(7)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.find_adjacent_memory_refs(graph)
+        mref = graph.getmemref(2)
+        mref2 = graph.getmemref(6)
 
         self.assert_memory_ref_not_adjacent(mref, mref2)
         assert mref == mref2
@@ -611,10 +647,10 @@ class BaseTestVectorize(VecTestHelper):
         i7 = raw_load_i(p0,i6,descr=chararraydescr)
         jump(p0,i2)
         """
-        vopt = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
-        vopt.find_adjacent_memory_refs()
-        mref = self.getmemref(6)
-        mref2 = self.getmemref(7)
+        vopt, graph = self.vectoroptimizer_unrolled(self.parse_loop(ops),0)
+        vopt.find_adjacent_memory_refs(graph)
+        mref = graph.getmemref(2)
+        mref2 = graph.getmemref(6)
 
         self.assert_memory_ref_not_adjacent(mref, mref2)
         assert mref != mref2
@@ -622,17 +658,17 @@ class BaseTestVectorize(VecTestHelper):
     def test_packset_init_simple(self):
         ops = """
         [p0,i0]
-        i3 = getarrayitem_raw(p0, i0, descr=chararraydescr)
+        i3 = getarrayitem_raw_i(p0, i0, descr=chararraydescr)
         i1 = int_add(i0, 1)
         i2 = int_le(i1, 16)
         guard_true(i2) [p0, i0]
         jump(p0,i1)
         """
         loop = self.parse_loop(ops)
-        vopt = self.init_packset(loop,1)
+        vopt, graph = self.init_packset(loop,1)
         self.assert_independent(4,8)
         assert vopt.packset is not None
-        assert len(vopt.dependency_graph.memory_refs) == 2
+        assert len(graph.memory_refs) == 2
         assert len(vopt.packset.packs) == 1
 
     def test_packset_init_raw_load_not_adjacent_and_adjacent(self):
@@ -642,8 +678,8 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0,i0)
         """
         loop = self.parse_loop(ops)
-        vopt = self.init_packset(loop,3)
-        assert len(vopt.dependency_graph.memory_refs) == 4
+        vopt, graph = self.init_packset(loop,3)
+        assert len(graph.memory_refs) == 4
         assert len(vopt.packset.packs) == 0
         ops = """
         [p0,i0]
@@ -652,8 +688,8 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0,i2)
         """
         loop = self.parse_loop(ops)
-        vopt = self.init_packset(loop,3)
-        assert len(vopt.dependency_graph.memory_refs) == 4
+        vopt, graph = self.init_packset(loop,3)
+        assert len(graph.memory_refs) == 4
         assert len(vopt.packset.packs) == 3
         for i in range(3):
             x = (i+1)*2
@@ -667,24 +703,24 @@ class BaseTestVectorize(VecTestHelper):
         i1 = int_add(i0, 1)
         i2 = int_le(i1, 16)
         guard_true(i2) [p0, i0]
-        i3 = getarrayitem_raw(p0, i1, descr=chararraydescr)
+        i3 = getarrayitem_raw_i(p0, i1, descr=chararraydescr)
         jump(p0,i1)
         """
         loop = self.parse_loop(ops)
-        vopt = self.init_packset(loop,15)
-        assert len(vopt.dependency_graph.memory_refs) == 16
+        vopt, graph = self.init_packset(loop,15)
+        assert len(graph.memory_refs) == 16
         assert len(vopt.packset.packs) == 15
         # assure that memory refs are not adjacent for all
         for i in range(15):
             for j in range(15):
                 try:
                     if i-4 == j or i+4 == j:
-                        mref1 = self.getmemref(i)
-                        mref2 = self.getmemref(j)
+                        mref1 = graph.getmemref(i)
+                        mref2 = graph.getmemref(j)
                         assert mref1.is_adjacent_to(mref2)
                     else:
-                        mref1 = self.getmemref(i)
-                        mref2 = self.getmemref(j)
+                        mref1 = graph.getmemref(i)
+                        mref2 = graph.getmemref(j)
                         assert not mref1.is_adjacent_to(mref2)
                 except KeyError:
                     pass
@@ -697,25 +733,20 @@ class BaseTestVectorize(VecTestHelper):
     def test_isomorphic_operations(self):
         ops_src = """
         [p1,p0,i0]
-        i3 = getarrayitem_raw(p0, i0, descr=chararraydescr)
+        i3 = getarrayitem_raw_i(p0, i0, descr=chararraydescr)
         i1 = int_add(i0, 1)
         i2 = int_le(i1, 16)
-        i4 = getarrayitem_raw(p0, i1, descr=chararraydescr)
-        i5 = getarrayitem_raw(p1, i1, descr=floatarraydescr)
-        i6 = getarrayitem_raw(p0, i1, descr=floatarraydescr)
+        i4 = getarrayitem_raw_i(p0, i1, descr=chararraydescr)
+        f5 = getarrayitem_raw_f(p1, i1, descr=floatarraydescr)
+        f6 = getarrayitem_raw_f(p0, i1, descr=floatarraydescr)
         guard_true(i2) [p0, i0]
         jump(p1,p0,i1)
         """
         loop = self.parse_loop(ops_src)
         ops = loop.operations
-        assert isomorphic(ops[1], ops[4])
+        assert isomorphic(ops[0], ops[3])
         assert not isomorphic(ops[0], ops[1])
         assert not isomorphic(ops[0], ops[5])
-        # TODO strong assumptions do hold here?
-        #assert not isomorphic(ops[4], ops[5])
-        #assert not isomorphic(ops[5], ops[6])
-        #assert not isomorphic(ops[4], ops[6])
-        #assert not isomorphic(ops[1], ops[6])
 
     def test_packset_extend_simple(self):
         ops = """
@@ -723,33 +754,33 @@ class BaseTestVectorize(VecTestHelper):
         i1 = int_add(i0, 1)
         i2 = int_le(i1, 16)
         guard_true(i2) [p0, i0]
-        i3 = getarrayitem_raw(p0, i1, descr=chararraydescr)
+        i3 = getarrayitem_raw_i(p0, i1, descr=chararraydescr)
         i4 = int_add(i3, 1)
         jump(p0,i1)
         """
         loop = self.parse_loop(ops)
-        vopt = self.extend_packset(loop,1)
-        assert len(vopt.dependency_graph.memory_refs) == 2
+        vopt, graph = self.extend_packset(loop,1)
+        assert len(graph.memory_refs) == 2
         self.assert_independent(5,10)
         assert len(vopt.packset.packs) == 2
-        self.assert_packset_empty(vopt.packset, len(loop.operations),
+        self.assert_packset_empty(vopt.packset,
+                                  len(loop.operations),
                                   [(5,10), (4,9)])
 
     def test_packset_extend_load_modify_store(self):
         ops = """
         [p0,i0]
-        guard_early_exit() []
         i1 = int_add(i0, 1)
         i2 = int_le(i1, 16)
         guard_true(i2) [p0, i0]
-        i3 = getarrayitem_raw(p0, i1, descr=chararraydescr)
+        i3 = getarrayitem_raw_i(p0, i1, descr=chararraydescr)
         i4 = int_mul(i3, 2)
         setarrayitem_raw(p0, i1, i4, descr=chararraydescr)
         jump(p0,i1)
         """
         loop = self.parse_loop(ops)
-        vopt = self.extend_packset(loop,1)
-        assert len(vopt.dependency_graph.memory_refs) == 4
+        vopt, graph = self.extend_packset(loop,1)
+        assert len(graph.memory_refs) == 4
         self.assert_independent(4,10)
         self.assert_independent(5,11)
         self.assert_independent(6,12)
@@ -763,15 +794,18 @@ class BaseTestVectorize(VecTestHelper):
                               ('int',2,   [(0,(2,4)),(1,(6,8))]),
                               ('singlefloat',1,[(0,(2,4,6,8))])])
     def test_packset_combine_simple(self,descr,packs,packidx):
+        suffix = '_i'
+        if 'float' in descr:
+            suffix = '_f'
         ops = """
         [p0,i0]
-        i3 = getarrayitem_raw(p0, i0, descr={descr}arraydescr)
+        i3 = getarrayitem_raw{suffix}(p0, i0, descr={descr}arraydescr)
         i1 = int_add(i0,1)
         jump(p0,i1)
-        """.format(descr=descr)
+        """.format(descr=descr,suffix=suffix)
         loop = self.parse_loop(ops)
-        vopt = self.combine_packset(loop,3)
-        assert len(vopt.dependency_graph.memory_refs) == 4
+        vopt, graph = self.combine_packset(loop,3)
+        assert len(graph.memory_refs) == 4
         assert len(vopt.packset.packs) == packs
         for i,t in packidx:
             self.assert_pack(vopt.packset.packs[i], t)
@@ -832,7 +866,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_packset_vector_operation(self, op, descr, stride):
         ops = """
         [p0,p1,p2,i0]
-        guard_early_exit() []
         i1 = int_add(i0, {stride})
         i10 = int_le(i1, 128)
         guard_true(i10) []
@@ -864,7 +897,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_schedule_vector_operation(self, op, descr, stride):
         ops = """
         [p0,p1,p2,i0] # 0
-        guard_early_exit() []
         i10 = int_le(i0, 128)  # 1, 8, 15, 22
         guard_true(i10) [p0,p1,p2,i0] # 2, 9, 16, 23
         i2 = getarrayitem_raw(p0, i0, descr={descr}arraydescr) # 3, 10, 17, 24
@@ -882,8 +914,8 @@ class BaseTestVectorize(VecTestHelper):
         i11 = int_le(i1, 128)
         guard_true(i11) []
         i12 = int_add(i1, {stride})
-        v1 = vec_getarrayitem_raw(p0, i0, 2, descr={descr}arraydescr)
-        v2 = vec_getarrayitem_raw(p1, i0, 2, descr={descr}arraydescr)
+        v1 = vec_getarrayitem_raw(p0, i0, descr={descr}arraydescr)
+        v2 = vec_getarrayitem_raw(p1, i0, descr={descr}arraydescr)
         v3 = {op}(v1,v2)
         vec_setarrayitem_raw(p2, i0, v3, descr={descr}arraydescr)
         jump(p0,p1,p2,i12)
@@ -895,7 +927,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_vschedule_trace_1(self):
         ops = """
         [i0, i1, i2, i3, i4]
-        guard_early_exit() []
         i6 = int_mul(i0, 8)
         i7 = raw_load(i2, i6, descr=arraydescr)
         i8 = raw_load(i3, i6, descr=arraydescr)
@@ -928,7 +959,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_collapse_index_guard_1(self):
         ops = """
         [p0,i0]
-        guard_early_exit() [p0,i0]
         i1 = getarrayitem_raw(p0, i0, descr=chararraydescr)
         i2 = int_add(i0, 1)
         i3 = int_lt(i2, 102)
@@ -949,7 +979,7 @@ class BaseTestVectorize(VecTestHelper):
         {dead_code}
         i500 = int_add(i0, 16)
         i501 = int_lt(i2, 102)
-        i1 = vec_getarrayitem_raw(p0, i0, 16, descr=chararraydescr)
+        v10[16xi8] = vec_getarrayitem_raw(p0, i0, descr=chararraydescr)
         jump(p0,i2)
         """.format(dead_code=dead_code)
         vopt = self.schedule(self.parse_loop(ops),15,with_guard_opt=True)
@@ -958,7 +988,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_too_small_vector(self):
         ops = """
         [p0,i0]
-        guard_early_exit() [p0,i0]
         i1 = getarrayitem_raw(p0, 0, descr=chararraydescr) # constant index
         i2 = getarrayitem_raw(p0, 1, descr=chararraydescr) # constant index
         i4 = int_add(i1, i2)
@@ -976,7 +1005,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_constant_expansion(self):
         ops = """
         [p0,i0]
-        guard_early_exit() [p0,i0]
         i1 = getarrayitem_raw(p0, i0, descr=floatarraydescr)
         i4 = int_sub(i1, 42)
         i3 = int_add(i0,1)
@@ -987,8 +1015,8 @@ class BaseTestVectorize(VecTestHelper):
         opt="""
         [p0,i0]
         label(p0,i0)
-        v3 = vec_int_expand(42, 2)
-        label(p0,i0,v3)
+        v3[2xf64] = vec_expand_f(42.0)
+        label(p0,i0,v3[2xf64])
         i20 = int_add(i0, 1)
         i30 = int_lt(i20, 10)
         i2 = int_add(i0, 2)
@@ -996,9 +1024,9 @@ class BaseTestVectorize(VecTestHelper):
         guard_true(i3) [p0,i0]
         i4 = int_add(i0, 2)
         i5 = int_lt(i2, 10)
-        v1 = vec_getarrayitem_raw(p0, i0, 2, descr=floatarraydescr)
-        v2 = vec_int_sub(v1, v3)
-        jump(p0,i2,v3)
+        v1[2xf64] = vec_getarrayitem_raw(p0, i0, descr=floatarraydescr)
+        v2[2xf64] = vec_int_sub(v1[2xf64], v3[2xf64])
+        jump(p0,i2,v3[2xf64])
         """
         vopt = self.vectorize(self.parse_loop(ops),1)
         self.assert_equal(vopt.loop, self.parse_loop(opt,add_label=False))
@@ -1006,7 +1034,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_variable_expansion(self):
         ops = """
         [p0,i0,f3]
-        guard_early_exit() [p0,i0]
         f1 = getarrayitem_raw(p0, i0, descr=floatarraydescr)
         f4 = int_add(f1, f3)
         i3 = int_add(i0,1)
@@ -1017,8 +1044,8 @@ class BaseTestVectorize(VecTestHelper):
         opt="""
         [p0,i0,f3]
         label(p0,i0,f3)
-        v3 = vec_float_expand(f3,2)
-        label(p0,i0,f3,v3)
+        v3[2xf64] = vec_expand_f(f3)
+        label(p0,i0,f3,v3[2xf64])
         i20 = int_add(i0, 1)
         i30 = int_lt(i20, 10)
         i2 = int_add(i0, 2)
@@ -1026,9 +1053,9 @@ class BaseTestVectorize(VecTestHelper):
         guard_true(i3) [p0,i0,f3]
         i4 = int_add(i0, 2)
         i5 = int_lt(i2, 10)
-        v1 = vec_getarrayitem_raw(p0, i0, 2, descr=floatarraydescr)
-        v2 = vec_int_add(v1, v3)
-        jump(p0,i2,f3,v3)
+        v1[2xf64] = vec_getarrayitem_raw(p0, i0, descr=floatarraydescr)
+        v2[2xf64] = vec_int_add(v1[2xf64], v3[2xf64])
+        jump(p0,i2,f3,v3[2xf64])
         """
         vopt = self.vectorize(self.parse_loop(ops),1)
         self.assert_equal(vopt.loop, self.parse_loop(opt, add_label=False))
@@ -1036,7 +1063,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_accumulate_basic(self):
         trace = """
         [p0, i0, f0]
-        guard_early_exit() [p0, i0, f0]
         f1 = raw_load(p0, i0, descr=floatarraydescr)
         f2 = float_add(f0, f1)
         i1 = int_add(i0, 8)
@@ -1063,7 +1089,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_element_f45_in_guard_failargs(self):
         ops = """
         [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
-        guard_early_exit() [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
         f45 = raw_load(i21, i44, descr=floatarraydescr) 
         guard_not_invalidated() [p38, p12, p9, p14, f45, p39, i37, i44, f35, i40, p42, i43, None, i28, p36, i41]
         i46 = int_add(i44, 8) 
@@ -1107,7 +1132,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_shrink_vector_size(self):
         ops = """
         [p0,p1,i1]
-        guard_early_exit() []
         f1 = getarrayitem_raw(p0, i1, descr=floatarraydescr)
         i2 = cast_float_to_singlefloat(f1)
         setarrayitem_raw(p1, i1, i2, descr=singlefloatarraydescr)
@@ -1143,7 +1167,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_castup_arith_castdown(self):
         ops = """
         [p0,p1,p2,i0,i4]
-        guard_early_exit() []
         i10 = raw_load(p0, i0, descr=singlefloatarraydescr)
         i1 = int_add(i0, 4)
         i11 = raw_load(p1, i1, descr=singlefloatarraydescr)
@@ -1196,7 +1219,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_truediv_abs_neg_float(self):
         ops = """
         [f9,p10,i11,p4,i12,p2,p5,p13,i14,p7,i15,p8,i16,f17,i18,i19]
-        guard_early_exit() [p8, p7, p5, p4, p2, f9, i12, i11, p10, i15, i14, p13]
         f20 = raw_load(i16, i12, descr=floatarraydescr)
         guard_not_invalidated() [p8, p7, p5, p4, p2, f20, None, i12, i11, p10, i15, i14, p13]
         i23 = int_add(i12, 8)
@@ -1216,7 +1238,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_axis_sum(self):
         trace = """
         [i1, p10, i11, p8, i12, p3, p4, p13, i14, i15, p6, p9, i16, i17, i18, i19, i20, i21, i22, i23]
-        guard_early_exit() [i1, p9, p8, p6, p4, p3, i11, i15, p13, i12, i14, p10]
         f24 = raw_load(i16, i12, descr=floatarraydescr)
         guard_not_invalidated() [i1, p9, p8, p6, p4, p3, f24, i11, i15, p13, i12, i14, p10]
         i26 = int_add(i12, 8)
@@ -1246,7 +1267,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_cast_1(self):
         trace = """
         [i9, i10, p2, p11, i12, i13, p4, p5, p14, i15, p8, i16, p17, i18, i19, i20, i21, i22, i23]
-        guard_early_exit() [p8, p5, p4, p2, p17, i13, i12, i10, i19, p14, p11, i18, i15, i16, i9]
         i24 = raw_load(i20, i16, descr=singlefloatarraydescr)
         guard_not_invalidated() [p8, p5, p4, p2, i24, p17, i13, i12, i10, i19, p14, p11, i18, i15, i16, None]
         i27 = int_add(i16, 4)
@@ -1269,7 +1289,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_all_guard(self):
         trace = """
         [p0, p3, i4, i5, i6, i7]
-        guard_early_exit() [p0, p3, i5, i4]
         f8 = raw_load(i6, i5, descr=floatarraydescr)
         guard_not_invalidated() [p0, f8, p3, i5, i4]
         i9 = cast_float_to_int(f8)
@@ -1287,7 +1306,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_max(self):
         trace = """
         [p3, i4, p2, i5, f6, i7, i8]
-        guard_early_exit() [p2, f6, i4, i5, p3]
         f9 = raw_load(i7, i5, descr=floatarraydescr)
         guard_not_invalidated() [p2, f9, f6, i4, i5, p3]
         i10 = float_ge(f6, f9)
@@ -1307,7 +1325,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_abc(self):
         trace="""
         [p0, p1, p5, p6, p7, p12, p13, i14, i15, i16, i17, i18, i19, i20]
-        guard_early_exit() []
         debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #117 LOAD_NAME')
         guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7fc657d7be20>) [p1, p0, p5, p6, p7, p12, p13]
         debug_merge_point(0, 0, '<code object <module>. file '/home/rich/proj/da/thesis/bench/user1.py'. line 2> #120 LOAD_CONST')
@@ -1354,7 +1371,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_bug1(self):
         trace="""
         [p0, p1, p6, p7, p11, i83, f57, f61, f65, f70, f78, f81, i48, i56, p46]
-        guard_early_exit(descr=<Guard0x7fa392d5c1a0>) [p1, p0, p6, p7, p11, f81, f78, f70, f65, f61, f57, i83]
         guard_not_invalidated(descr=<Guard0x7fa392d5c200>) [p1, p0, p6, p7, p11, f81, f78, f70, f65, f61, f57, i83]
         i91 = int_lt(i83, i48)
         guard_true(i91, descr=<Guard0x7fa392d5c260>) [p1, p0, p6, p7, p11, i48, f81, f78, f70, f65, f61, f57, i83]
@@ -1389,7 +1405,6 @@ class BaseTestVectorize(VecTestHelper):
     def test_1(self):
         trace = """
         [p0, p1, p6, p7, i13, p14, p15]
-        guard_early_exit(descr=<ResumeAtLoopHeaderDescr object at 0x7f89c54cdbe0>) [p1, p0, p6, p7, i13]
         guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7f89c54cdc40>) [p1, p0, p6, p7, i13]
         i17 = int_lt(i13, 10000)
         guard_true(i17, descr=<ResumeGuardTrueDescr object at 0x7f89c54cdca0>) [p1, p0, p6, p7, i13]

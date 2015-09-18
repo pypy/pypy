@@ -176,7 +176,6 @@ class VectorizingOptimizer(Optimizer):
         if vsize == 0 or byte_count == 0 or loop.label.getopnum() != rop.LABEL:
             # stop, there is no chance to vectorize this trace
             # we cannot optimize normal traces (if there is no label)
-            import pdb; pdb. set_trace()
             raise NotAVectorizeableLoop()
 
         # find index guards and move to the earliest position
@@ -188,8 +187,6 @@ class VectorizingOptimizer(Optimizer):
         # unroll
         self.unroll_count = self.get_unroll_count(vsize)
         self.unroll_loop_iterations(loop, self.unroll_count)
-        loop.operations = self.get_newoperations()
-        self.clear_newoperations();
 
         # vectorize
         graph = DependencyGraph(loop)
@@ -210,8 +207,6 @@ class VectorizingOptimizer(Optimizer):
     def unroll_loop_iterations(self, loop, unroll_count):
         """ Unroll the loop X times. unroll_count + 1 = unroll_factor """
         numops = len(loop.operations)
-        label_op = loop.label
-        jump_op = loop.jump
         # use the target token of the label
         #target_token = label_op.getdescr()
         #if not we_are_translated():
@@ -223,33 +218,32 @@ class VectorizingOptimizer(Optimizer):
         #    jump_op.setdescr(target_token)
         #assert jump_op.is_final()
 
-        self.emit_unrolled_operation(label_op)
+        #self.emit_unrolled_operation(label_op)
+
+        #for i in range(0,numops):
+        #    op = loop.operations[i].copy()
+        #    if op.is_guard():
+        #        assert isinstance(op, GuardResOp)
+        #        failargs = renamer.rename_failargs(op, clone=True)
+        #        snapshot = renamer.rename_rd_snapshot(op.rd_snapshot, clone=True)
+        #        op.setfailargs(failargs)
+        #        op.rd_snapshot = snapshot
+        #    operations.append(op)
+        #    self.emit_unrolled_operation(op)
 
         renamer = Renamer()
-        operations = []
-        for i in range(1,numops-1):
-            op = loop.operations[i].copy()
-            if op.is_guard():
-                assert isinstance(op, GuardResOp)
-                failargs = renamer.rename_failargs(op, clone=True)
-                snapshot = renamer.rename_rd_snapshot(op.rd_snapshot, clone=True)
-                op.setfailargs(failargs)
-                op.rd_snapshot = snapshot
-            operations.append(op)
-            self.emit_unrolled_operation(op)
-
+        operations = loop.operations
+        unrolled = []
         prohibit_opnums = (rop.GUARD_FUTURE_CONDITION,
-                           rop.GUARD_EARLY_EXIT,
                            rop.GUARD_NOT_INVALIDATED)
-
-        orig_jump_args = jump_op.getarglist()[:]
+        orig_jump_args = loop.jump.getarglist()[:]
         # it is assumed that #label_args == #jump_args
         label_arg_count = len(orig_jump_args)
         for u in range(unroll_count):
             # fill the map with the renaming boxes. keys are boxes from the label
             for i in range(label_arg_count):
-                la = label_op.getarg(i)
-                ja = jump_op.getarg(i)
+                la = loop.label.getarg(i)
+                ja = loop.jump.getarg(i)
                 ja = renamer.rename_box(ja)
                 if la != ja:
                     renamer.start_renaming(la, ja)
@@ -284,17 +278,18 @@ class VectorizingOptimizer(Optimizer):
                             renamer.rename_failargs(copied_op, clone=True)
                         copied_op.setfailargs(renamed_failargs)
                 #
-                self.emit_unrolled_operation(copied_op)
+                unrolled.append(copied_op)
 
         # the jump arguments have been changed
         # if label(iX) ... jump(i(X+1)) is called, at the next unrolled loop
         # must look like this: label(i(X+1)) ... jump(i(X+2))
-        args = jump_op.getarglist()
+        args = loop.jump.getarglist()
         for i, arg in enumerate(args):
             value = renamer.rename_box(arg)
-            jump_op.setarg(i, value)
+            loop.jump.setarg(i, value)
         #
-        self.emit_unrolled_operation(jump_op)
+        #self.emit_unrolled_operation(jump_op)
+        loop.operations = operations + unrolled
 
     def linear_find_smallest_type(self, loop):
         # O(#operations)
@@ -456,14 +451,7 @@ class VectorizingOptimizer(Optimizer):
                     fail = True
                 check[left] = None
                 check[right] = None
-                accum = pack.accum
-                if accum:
-                    self.packset.accum_vars[accum.var] = accum.pos
-
-                print " %dx %s " % (len(pack.operations),
-                                    pack.operations[0].op.getopname())
-                if accum:
-                    print "   accumulates!"
+                print " ", pack
             if fail:
                 assert False
 
@@ -537,9 +525,9 @@ class VectorizingOptimizer(Optimizer):
                     modify_later.append(prev_node)
                 else:
                     for path in prev_node.iterate_paths(None, backwards=True, blacklist=True):
-                        if not path.is_always_pure(exclude_first=True):
-                            path.set_schedule_priority(90)
+                        if not path.is_always_pure():
                             valid = False
+                        else:
                             if path.last() in zero_deps:
                                 del zero_deps[path.last()]
                     if not valid:
@@ -559,34 +547,25 @@ class VectorizingOptimizer(Optimizer):
 
                 for node in zero_deps.keys():
                     earlyexit.edge_to(node)
-                # TODO self.relax_guard_to(guard_node, ee_guard_node)
+                self.mark_guard(guard_node, loop)
         if one_valid:
             return graph
         return None
 
-    def relax_guard_to(self, guard_node, other_node):
-        """ Relaxes a guard operation to an earlier guard. """
-        # clone this operation object. if the vectorizer is
-        # not able to relax guards, it won't leave behind a modified operation
-        tgt_op = guard_node.getoperation().clone()
-        guard_node.op = tgt_op
-
-        op = other_node.getoperation()
-        assert isinstance(tgt_op, GuardResOp)
+    def mark_guard(self, node, loop):
+        """ Marks this guard as an early exit! """
+        op = node.getoperation()
         assert isinstance(op, GuardResOp)
-        olddescr = op.getdescr()
         descr = None
-        guard_true_false = tgt_op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE)
-        if guard_true_false:
+        if op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
             descr = CompileLoopVersionDescr()
         else:
             descr = ResumeAtLoopHeaderDescr()
-        if olddescr:
-            descr.copy_all_attributes_from(olddescr)
+        if op.getdescr():
+            descr.copy_all_attributes_from(op.getdescr())
         #
-        tgt_op.setdescr(descr)
-        tgt_op.setfailargs(op.getfailargs()[:])
-
+        op.setdescr(descr)
+        op.setfailargs(loop.inputargs)
 
 class CostModel(object):
     """ Utility to estimate the savings for the new trace loop.
@@ -687,7 +666,6 @@ class PackSet(object):
                 if forward and origin_pack.is_accumulating():
                     # in this case the splitted accumulator must
                     # be combined. This case is not supported
-                    import pdb; pdb. set_trace()
                     raise NotAVectorizeableLoop()
                 #
                 if self.contains_pair(lnode, rnode):

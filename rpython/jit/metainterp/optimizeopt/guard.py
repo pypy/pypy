@@ -133,15 +133,13 @@ class Guard(object):
 
     def emit_operations(self, opt):
         # create trace instructions for the index
-        box_lhs = self.emit_varops(opt, self.lhs, self.cmp_op.getarg(0))
-        box_rhs = self.emit_varops(opt, self.rhs, self.cmp_op.getarg(1))
-        box_result = self.cmp_op.result.clonebox()
+        lhs = self.emit_varops(opt, self.lhs, self.cmp_op.getarg(0))
+        rhs = self.emit_varops(opt, self.rhs, self.cmp_op.getarg(1))
         opnum = self.cmp_op.getopnum()
-        cmp_op = ResOperation(opnum, [box_lhs, box_rhs], box_result)
+        cmp_op = ResOperation(opnum, [lhs, rhs])
         opt.emit_operation(cmp_op)
         # emit that actual guard
-        guard = self.op.clone()
-        guard.setarg(0, box_result)
+        guard = ResOperation(self.op.getopnum(), [cmp_op], self.op.getdescr())
         opt.emit_operation(guard)
         self.setindex(opt.operation_position()-1)
         self.setoperation(guard)
@@ -179,13 +177,12 @@ class Guard(object):
 
 class GuardStrengthenOpt(object):
     """ Note that this optimization is only used in the vector optimizer (yet) """
-    def __init__(self, index_vars, has_two_labels):
+    def __init__(self, index_vars):
         self.index_vars = index_vars
         self._newoperations = []
         self.strength_reduced = 0 # how many guards could be removed?
         self.strongest_guards = {}
         self.guards = {}
-        self.has_two_labels = has_two_labels
 
     def collect_guard_information(self, loop):
         operations = loop.operations
@@ -251,11 +248,11 @@ class GuardStrengthenOpt(object):
                 else:
                     self.emit_operation(op)
                     continue
-            if op.result:
-                index_var = self.index_vars.get(op.result, None)
+            if not op.returns_void():
+                index_var = self.index_vars.get(op, None)
                 if index_var:
                     if not index_var.is_identity():
-                        index_var.emit_operations(self, op.result)
+                        index_var.emit_operations(self, op)
                         continue
             self.emit_operation(op)
         #

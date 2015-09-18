@@ -71,7 +71,11 @@ class Path(object):
         if exclude_last:
             count -= 1
         while i < count: 
-            op = self.path[i].getoperation()
+            node = self.path[i]
+            if node.is_imaginary():
+                i += 1
+                continue
+            op = node.getoperation()
             if op.is_guard():
                 descr = op.getdescr()
                 if not descr:
@@ -188,9 +192,6 @@ class Node(object):
             return isinstance(descr, compile.ResumeAtLoopHeaderDescr) or \
                    isinstance(descr, compile.CompileLoopVersionDescr)
         return False
-
-    # TODO def is_guard_early_exit(self):
-    #    return self.op.getopnum() == rop.GUARD_EARLY_EXIT
 
     def loads_from_complex_object(self):
         return rop._ALWAYS_PURE_LAST <= self.op.getopnum() < rop._MALLOC_FIRST
@@ -1057,33 +1058,27 @@ class IndexVar(AbstractValue):
         return self.constant - other.constant
 
     def emit_operations(self, opt, result_box=None):
-        box = self.var
+        var = self.var
         if self.is_identity():
-            return box
+            return var
         last_op = None
         if self.coefficient_mul != 1:
-            box_result = box.clonebox()
-            last_op = ResOperation(rop.INT_MUL, [box, ConstInt(self.coefficient_mul)], box_result)
-            opt.emit_operation(last_op)
-            box = box_result
+            args = [var, ConstInt(self.coefficient_mul)]
+            var = ResOperation(rop.INT_MUL, args)
+            opt.emit_operation(var)
         if self.coefficient_div != 1:
-            box_result = box.clonebox()
-            last_op = ResOperation(rop.INT_FLOORDIV, [box, ConstInt(self.coefficient_div)], box_result)
-            opt.emit_operation(last_op)
-            box = box_result
+            args = [var, ConstInt(self.coefficient_div)]
+            var = ResOperation(rop.INT_FLOORDIV, args)
+            opt.emit_operation(var)
         if self.constant > 0:
-            box_result = box.clonebox()
-            last_op = ResOperation(rop.INT_ADD, [box, ConstInt(self.constant)], box_result)
-            opt.emit_operation(last_op)
-            box = box_result
+            args = [var, ConstInt(self.constant)]
+            vec = ResOperation(rop.INT_ADD, args)
+            opt.emit_operation(vec)
         if self.constant < 0:
-            box_result = box.clonebox()
-            last_op = ResOperation(rop.INT_SUB, [box, ConstInt(self.constant)], box_result)
-            opt.emit_operation(last_op)
-            box = box_result
-        if result_box is not None:
-            last_op.result = box = result_box
-        return box
+            args = [var, ConstInt(self.constant)]
+            var = ResOperation(rop.INT_SUB, args)
+            opt.emit_operation(var)
+        return var 
 
     def compare(self, other):
         """ Returns if the two are compareable as a first result

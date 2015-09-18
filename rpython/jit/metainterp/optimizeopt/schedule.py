@@ -124,7 +124,6 @@ class Scheduler(object):
         """ Emit all the operations into the oplist parameter.
             Initiates the scheduling. """
         assert isinstance(state, SchedulerState)
-        import pdb; pdb.set_trace()
         while state.has_more():
             node = self.next(state)
             if node:

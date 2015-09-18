@@ -51,8 +51,10 @@ class DependencyBaseTest(BaseTest):
         else:
             label = loop.operations[0]
             label.setdescr(TargetToken(token))
-        loop = VectorLoop(label, loop.operations[0:-1], loop.operations[-1])
+        jump = loop.operations[-1]
+        loop = VectorLoop(label, loop.operations[0:-1], jump)
         loop.jump.setdescr(token)
+        # TODO
         for op in loop.operations:
             if op.getopnum() == rop.GUARD_EARLY_EXIT and op.getdescr() is None:
                 op.setdescr(ResumeAtLoopHeaderDescr())
@@ -184,10 +186,6 @@ class DependencyBaseTest(BaseTest):
         assert not m1.is_adjacent_to(m2)
         assert not m2.is_adjacent_to(m1)
 
-    def getmemref(self, idx):
-        node = self.last_graph.getnode(idx)
-        return self.last_graph.memory_refs[node]
-
 class BaseTestDependencyGraph(DependencyBaseTest):
 
     def test_index_var_basic(self):
@@ -264,9 +262,9 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         jump() # 4:
         """
         graph = self.assert_dependencies(ops, full_check=True)
-        self.assert_dependent(1,2)
-        self.assert_dependent(2,3)
-        self.assert_dependent(1,3)
+        self.assert_dependent(graph, 1,2)
+        self.assert_dependent(graph, 2,3)
+        self.assert_dependent(graph, 1,3)
 
     def test_def_use_jump_use_def(self):
         ops = """
@@ -417,7 +415,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         jump(p0, i1, i2) # 3:
         """
         self.assert_dependencies(ops, full_check=True)
-        self.assert_dependent(1,2)
+        self.assert_dependent(graph, 1,2)
 
     def test_setarrayitem_dont_depend_with_memref_info(self):
         ops="""
@@ -457,7 +455,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         jump(i24, i19, i21, i3, i4, i5, i22, i7) # 21:
         """
         self.assert_dependencies(ops, full_check=False)
-        self.assert_dependent(2,12)
+        self.assert_dependent(graph, 2,12)
 
     def test_getfield(self):
         trace = """

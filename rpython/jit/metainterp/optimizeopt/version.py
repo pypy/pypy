@@ -113,26 +113,26 @@ class LoopVersion(object):
         jump.setdescr(token)
 
 
-def index_of_first(opnum, operations, pass_by=0):
-    """ returns the position of the first operation matching the opnum.
-    Or -1 if non is found
-    """
-    for i,op in enumerate(operations):
-        if op.getopnum() == opnum:
-            if pass_by == 0:
-                return i
-            else:
-                pass_by -= 1
-    return -1
-
-def find_first_index(self, opnum, pass_by=0):
-    """ return the first index of the operation having the same opnum or -1 """
-    return index_of_first(opnum, self.operations, pass_by)
-
-def find_first(self, opnum, pass_by=0):
-    index = self.find_first_index(opnum, pass_by)
-    if index != -1:
-        return self.operations[index]
-    return None
+#def index_of_first(opnum, operations, pass_by=0):
+#    """ returns the position of the first operation matching the opnum.
+#    Or -1 if non is found
+#    """
+#    for i,op in enumerate(operations):
+#        if op.getopnum() == opnum:
+#            if pass_by == 0:
+#                return i
+#            else:
+#                pass_by -= 1
+#    return -1
+#
+#def find_first_index(self, opnum, pass_by=0):
+#    """ return the first index of the operation having the same opnum or -1 """
+#    return index_of_first(opnum, self.operations, pass_by)
+#
+#def find_first(self, opnum, pass_by=0):
+#    index = self.find_first_index(opnum, pass_by)
+#    if index != -1:
+#        return self.operations[index]
+#    return None
 
 
