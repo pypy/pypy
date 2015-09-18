@@ -2293,6 +2293,7 @@ class LLtypeBackendTest(BaseBackendTest):
         func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                          EffectInfo.MOST_GENERAL)
+        gfs = longlong.getfloatstorage
 
         for (operation, arg1, arg2_if_true, arg2_if_false) in [
                 ('int_lt', -5, 2, -5),
@@ -2303,8 +2304,8 @@ class LLtypeBackendTest(BaseBackendTest):
                 ('int_xor', 7, 3, 7),    # test without a comparison at all
                 ('int_is_true', 4242, 1, 0),
                 ('int_is_zero', 4242, 0, 1),
-                ('float_lt', -0.5, 0.2, -0.5),
-                ('float_eq', 1.1, 1.1, 1.2),
+                ('float_lt', gfs(-0.5), gfs(0.2), gfs(-0.5)),
+                ('float_eq', gfs(1.1), gfs(1.1), gfs(1.2)),
                 ]:
             called = []
 
