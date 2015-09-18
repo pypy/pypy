@@ -789,10 +789,11 @@ class BaseTestVectorize(VecTestHelper):
                                   [(6,12), (5,11), (4,10)])
 
     @pytest.mark.parametrize("descr,packs,packidx", 
-                             [('char',1,  [(0,(2,4,6,8))]),
-                              ('float',2, [(0,(2,4)),(1,(6,8))]),
-                              ('int',2,   [(0,(2,4)),(1,(6,8))]),
-                              ('singlefloat',1,[(0,(2,4,6,8))])])
+                             [('char',  0,       []),
+                              ('float', 2,       [(0,(1,3)),(1,(5,7))]),
+                              ('',   2,       [(0,(1,3)),(1,(5,7))]),
+                              ('float32', 1, [(0,(1,3,5,7))]),
+                             ])
     def test_packset_combine_simple(self,descr,packs,packidx):
         suffix = '_i'
         if 'float' in descr:
@@ -811,7 +812,7 @@ class BaseTestVectorize(VecTestHelper):
             self.assert_pack(vopt.packset.packs[i], t)
 
     @pytest.mark.parametrize("descr,stride,packs,suffix",
-            [('char',1,1,'_i'),('float',8,4,'_f'),('int',8,4,'_i'),('float32',4,2,'_i')])
+            [('char',1,0,'_i'),('float',8,4,'_f'),('',8,4,'_i'),('float32',4,2,'_i')])
     def test_packset_combine_2_loads_in_trace(self, descr, stride, packs, suffix):
         ops = """
         [p0,i0]
@@ -822,8 +823,8 @@ class BaseTestVectorize(VecTestHelper):
         jump(p0,i2)
         """.format(type=descr,stride=stride,suffix=suffix)
         loop = self.parse_loop(ops)
-        vopt = self.combine_packset(loop,3)
-        assert len(vopt.dependency_graph.memory_refs) == 8
+        vopt, graph = self.combine_packset(loop,3)
+        assert len(graph.memory_refs) == 8
         assert len(vopt.packset.packs) == packs
 
     def test_packset_combine_no_candidates_packset_empty(self):
@@ -840,12 +841,14 @@ class BaseTestVectorize(VecTestHelper):
 
         ops = """
         [p0,i0]
-        i3 = getarrayitem_raw(p0, i0, descr=floatarraydescr)
-        jump(p0,i3)
+        f3 = getarrayitem_raw_f(p0, i0, descr=floatarraydescr)
+        jump(p0,i0)
         """
+        loop = self.parse_loop(ops)
         try:
-            loop = self.parse_loop(ops)
             self.combine_packset(loop,15)
+            pytest.fail("combine should raise an exception if no pack "
+                        "statements are present")
         except NotAVectorizeableLoop:
             pass
 
@@ -856,14 +859,17 @@ class BaseTestVectorize(VecTestHelper):
              ('float_add','float',8),
              ('float_sub','float',8),
              ('float_mul','float',8),
-             ('float_add','singlefloat',4),
-             ('float_sub','singlefloat',4),
-             ('float_mul','singlefloat',4),
-             ('int_add','int',8),
-             ('int_sub','int',8),
-             ('int_mul','int',8),
+             ('float_add','float32',4),
+             ('float_sub','float32',4),
+             ('float_mul','float32',4),
+             ('int_add','',8),
+             ('int_sub','',8),
+             ('int_mul','',8),
             ])
     def test_packset_vector_operation(self, op, descr, stride):
+        suffix = '_i'
+        if 'float' in descr:
+            suffix = '_f'
         ops = """
         [p0,p1,p2,i0]
         i1 = int_add(i0, {stride})
@@ -874,52 +880,57 @@ class BaseTestVectorize(VecTestHelper):
         i4 = {op}(i2,i3)
         raw_store(p2, i0, i4, descr={descr}arraydescr)
         jump(p0,p1,p2,i1)
-        """.format(op=op,descr=descr,stride=stride)
+        """.format(op=op,descr=descr,stride=stride,suffix=suffix)
         loop = self.parse_loop(ops)
-        vopt = self.combine_packset(loop,3)
-        assert len(vopt.dependency_graph.memory_refs) == 12
+        vopt, graph = self.combine_packset(loop,3)
+        assert len(graph.memory_refs) == 12
         if stride == 8:
             assert len(vopt.packset.packs) == 8
         else:
-            assert len(vopt.packset.packs) == 4
-
-        for opindices in [(5,12,19,26),(6,13,20,27),
-                          (7,14,21,28),(4,11,18,25)]:
+            if descr != 'char':
+                assert len(vopt.packset.packs) == 4
+        if descr == 'char':
+            return
+        for opindices in [(4,11,18,25),(5,12,19,26),
+                          (6,13,20,27),(4,11,18,25)]:
             self.assert_has_pack_with(vopt.packset, opindices)
 
     @pytest.mark.parametrize('op,descr,stride',
             [('float_add','float',8),
              ('float_sub','float',8),
              ('float_mul','float',8),
-             ('int_add','int',8),
-             ('int_sub','int',8),
+             ('int_add','',8),
+             ('int_sub','',8),
             ])
     def test_schedule_vector_operation(self, op, descr, stride):
+        suffix = '_i'
+        if 'float' in descr:
+            suffix = '_f'
         ops = """
         [p0,p1,p2,i0] # 0
         i10 = int_le(i0, 128)  # 1, 8, 15, 22
         guard_true(i10) [p0,p1,p2,i0] # 2, 9, 16, 23
-        i2 = getarrayitem_raw(p0, i0, descr={descr}arraydescr) # 3, 10, 17, 24
-        i3 = getarrayitem_raw(p1, i0, descr={descr}arraydescr) # 4, 11, 18, 25
+        i2 = getarrayitem_raw{suffix}(p0, i0, descr={descr}arraydescr) # 3, 10, 17, 24
+        i3 = getarrayitem_raw{suffix}(p1, i0, descr={descr}arraydescr) # 4, 11, 18, 25
         i4 = {op}(i2,i3) # 5, 12, 19, 26
         setarrayitem_raw(p2, i0, i4, descr={descr}arraydescr) # 6, 13, 20, 27
         i1 = int_add(i0, {stride}) # 7, 14, 21, 28
         jump(p0,p1,p2,i1) # 29
-        """.format(op=op,descr=descr,stride=1) # stride getarray is always 1
+        """.format(op=op,descr=descr,stride=1,suffix=suffix)
         vops = """
         [p0,p1,p2,i0]
         i10 = int_le(i0, 128)
-        guard_true(i10) []
+        guard_true(i10) [p0,p1,p2,i0]
         i1 = int_add(i0, {stride})
         i11 = int_le(i1, 128)
-        guard_true(i11) []
+        guard_true(i11) [p0,p1,p2,i1]
         i12 = int_add(i1, {stride})
-        v1 = vec_getarrayitem_raw(p0, i0, descr={descr}arraydescr)
-        v2 = vec_getarrayitem_raw(p1, i0, descr={descr}arraydescr)
+        v1 = vec_getarrayitem_raw{suffix}(p0, i0, descr={descr}arraydescr)
+        v2 = vec_getarrayitem_raw{suffix}(p1, i0, descr={descr}arraydescr)
         v3 = {op}(v1,v2)
         vec_setarrayitem_raw(p2, i0, v3, descr={descr}arraydescr)
         jump(p0,p1,p2,i12)
-        """.format(op='vec_'+op,descr=descr,stride=1)
+        """.format(op='vec_'+op,descr=descr,stride=1,suffix=suffix)
         loop = self.parse_loop(ops)
         vopt = self.schedule(loop, 1)
         self.assert_equal(loop, self.parse_loop(vops))
@@ -928,8 +939,8 @@ class BaseTestVectorize(VecTestHelper):
         ops = """
         [i0, i1, i2, i3, i4]
         i6 = int_mul(i0, 8)
-        i7 = raw_load(i2, i6, descr=arraydescr)
-        i8 = raw_load(i3, i6, descr=arraydescr)
+        i7 = raw_load_i(i2, i6, descr=arraydescr)
+        i8 = raw_load_i(i3, i6, descr=arraydescr)
         i9 = int_add(i7, i8)
         raw_store(i4, i6, i9, descr=arraydescr)
         i11 = int_add(i0, 1)
@@ -940,26 +951,27 @@ class BaseTestVectorize(VecTestHelper):
         opt="""
         [i0, i1, i2, i3, i4]
         i11 = int_add(i0, 1) 
-        i6 = int_mul(i0, 8) 
         i12 = int_lt(i11, i1) 
-        guard_true(i12) []
+        guard_true(i12) [i0,i1,i2,i3,i4]
+        i6 = int_mul(i0, 8) 
         i13 = int_add(i11, 1) 
-        i14 = int_mul(i11, 8) 
         i18 = int_lt(i13, i1) 
-        guard_true(i18) []
-        v19 = vec_raw_load(i2, i6, 2, descr=arraydescr) 
-        v20 = vec_raw_load(i3, i6, 2, descr=arraydescr) 
-        v21 = vec_int_add(v19, v20) 
+        guard_true(i18) [i11,i1,i2,i3,i4]
+        i14 = int_mul(i11, 8) 
+        v19[2xi64] = vec_raw_load_i(i2, i6, descr=arraydescr) 
+        v20[2xi64] = vec_raw_load_i(i3, i6, descr=arraydescr) 
+        v21[2xi64] = vec_int_add(v19, v20) 
         vec_raw_store(i4, i6, v21, descr=arraydescr) 
         jump(i13, i1, i2, i3, i4)
         """
-        vopt = self.schedule(self.parse_loop(ops),1)
-        self.assert_equal(vopt.loop, self.parse_loop(opt))
+        loop = self.parse_loop(ops)
+        vopt = self.schedule(loop,1)
+        self.assert_equal(loop, self.parse_loop(opt))
 
     def test_collapse_index_guard_1(self):
         ops = """
         [p0,i0]
-        i1 = getarrayitem_raw(p0, i0, descr=chararraydescr)
+        i1 = getarrayitem_raw_i(p0, i0, descr=chararraydescr)
         i2 = int_add(i0, 1)
         i3 = int_lt(i2, 102)
         guard_true(i3) [p0,i0]
@@ -979,11 +991,12 @@ class BaseTestVectorize(VecTestHelper):
         {dead_code}
         i500 = int_add(i0, 16)
         i501 = int_lt(i2, 102)
-        v10[16xi8] = vec_getarrayitem_raw(p0, i0, descr=chararraydescr)
+        v10[16xi8] = vec_getarrayitem_raw_i(p0, i0, descr=chararraydescr)
         jump(p0,i2)
         """.format(dead_code=dead_code)
-        vopt = self.schedule(self.parse_loop(ops),15,with_guard_opt=True)
-        self.assert_equal(vopt.loop, self.parse_loop(opt))
+        loop = self.parse_loop(ops)
+        vopt = self.schedule(loop,15,with_guard_opt=True)
+        self.assert_equal(loop, self.parse_loop(opt))
 
     def test_too_small_vector(self):
         ops = """

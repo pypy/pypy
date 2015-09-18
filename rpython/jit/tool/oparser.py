@@ -369,6 +369,7 @@ class OpParser(object):
         if match:
             counter = int(match.group(1))
             countdict = val._repr_memo
+            assert val not in countdict._d
             countdict._d[val] = counter
             if countdict.counter < counter:
                 countdict.counter = counter

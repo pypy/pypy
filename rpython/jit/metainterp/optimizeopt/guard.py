@@ -160,19 +160,9 @@ class Guard(object):
     @staticmethod
     def of(boolarg, operations, index, index_vars):
         guard_op = operations[index]
-        i = index - 1
-        # most likely hit in the first iteration
-        while i > 0:
-            op = operations[i]
-            if op.result and op.result == boolarg:
-                if rop.INT_LT <= op.getopnum() <= rop.INT_GE:
-                    cmp_op = op
-                    break
-                return None
-            i -= 1
-        else:
-            raise AssertionError("guard_true/false first arg not defined")
-        #
+        cmp_op = guard_op.getarg(0)
+        if not (rop.INT_LT <= cmp_op.getopnum() <= rop.INT_GE):
+            return None
         return Guard(index, guard_op, cmp_op, index_vars)
 
 class GuardStrengthenOpt(object):

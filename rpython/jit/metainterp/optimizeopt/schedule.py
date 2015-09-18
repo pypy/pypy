@@ -90,27 +90,29 @@ class Scheduler(object):
             whenever their dependency count drops to zero.
             Keeps worklist sorted (see priority) """
         worklist = state.worklist
-        for dep in node.provides()[:]: # COPY
-            to = dep.to
-            node.remove_edge_to(to)
-            if not to.emitted and to.depends_count() == 0:
+        provides = node.provides()[:]
+        for dep in provides: # COPY
+            target = dep.to
+            node.remove_edge_to(target)
+            if not target.emitted and target.depends_count() == 0:
                 # sorts them by priority
                 i = len(worklist)-1
                 while i >= 0:
-                    itnode = worklist[i]
-                    c = (itnode.priority - to.priority)
-                    if c < 0: # meaning itnode.priority < to.priority:
-                        worklist.insert(i+1, to)
+                    cur = worklist[i]
+                    c = (cur.priority - target.priority)
+                    if c < 0: # meaning itnode.priority < target.priority:
+                        worklist.insert(i+1, target)
                         break
                     elif c == 0:
                         # if they have the same priority, sort them
                         # using the original position in the trace
-                        if itnode.getindex() < to.getindex():
-                            worklist.insert(i, to)
+                        if target.getindex() < cur.getindex():
+                            worklist.insert(i+1, target)
                             break
                     i -= 1
                 else:
-                    worklist.insert(0, to)
+                    print "insert at 0", target
+                    worklist.insert(0, target)
         node.clear_dependencies()
         node.emitted = True
         if not node.is_imaginary():
@@ -528,7 +530,7 @@ class VecScheduleState(SchedulerState):
             for i,arg in enumerate(failargs):
                 if arg is None:
                     continue
-                accum = state.accumulation.get(arg, None)
+                accum = self.accumulation.get(arg, None)
                 if accum:
                     assert isinstance(accum, AccumPack)
                     accum.attach_accum_info(descr.rd_accum_list, i)

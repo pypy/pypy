@@ -143,7 +143,6 @@ class DependencyBaseTest(BaseTest):
         return graph
 
     def assert_independent(self, a, b):
-        # XXX
         a -= 1
         b -= 1
         a = self.last_graph.getnode(a)
@@ -151,7 +150,6 @@ class DependencyBaseTest(BaseTest):
         assert a.independent(b), "{a} and {b} are dependent!".format(a=a,b=b)
 
     def assert_dependent(self, a, b):
-        # XXX
         a -= 1
         b -= 1
         a = self.last_graph.getnode(a)
