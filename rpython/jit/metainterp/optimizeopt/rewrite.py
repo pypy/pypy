@@ -238,7 +238,7 @@ class OptRewrite(Optimization):
         # replace "x / const" by "x * (1/const)" if possible
         newop = op
         if v2.is_constant():
-            divisor = v2.getfloatstorage()
+            divisor = v2.getfloat()
             fraction = math.frexp(divisor)[0]
             # This optimization is valid for powers of two
             # but not for zeroes, some denormals and NaN:
