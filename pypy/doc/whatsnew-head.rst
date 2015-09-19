@@ -21,3 +21,12 @@ Optimize common sequences of operations like
 
 .. branch: missing_openssl_include
 Fix for missing headers in OpenBSD, already applied in downstream ports
+
+.. branch: gc-more-incremental
+Remove a source of non-incremental-ness in the GC: now
+external_malloc() no longer runs gc_step_until() any more. If there
+is a currently-running major collection, we do only so many steps
+before returning. This number of steps depends on the size of the
+allocated object. It is controlled by tracking the general progress
+of these major collection steps and the size of old objects that
+keep adding up between them.
