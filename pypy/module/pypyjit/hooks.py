@@ -46,7 +46,8 @@ class PyPyJitIface(JitHookInterface):
         if cache.in_recursion:
             return
         if space.is_true(cache.w_compile_hook):
-            w_debug_info = W_JitLoopInfo(space, debug_info, is_bridge)
+            w_debug_info = W_JitLoopInfo(space, debug_info, is_bridge,
+                                         cache.compile_hook_with_ops)
             cache.in_recursion = True
             try:
                 try:
@@ -63,7 +64,8 @@ class PyPyJitIface(JitHookInterface):
         if cache.in_recursion:
             return
         if space.is_true(cache.w_optimize_hook):
-            w_debug_info = W_JitLoopInfo(space, debug_info, is_bridge)
+            w_debug_info = W_JitLoopInfo(space, debug_info, is_bridge,
+                                         cache.optimize_hook_with_ops)
             cache.in_recursion = True
             try:
                 try:

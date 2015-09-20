@@ -12,25 +12,22 @@ class Module(MixedModule):
         'dont_trace_here': 'interp_jit.dont_trace_here',
         'trace_next_iteration': 'interp_jit.trace_next_iteration',
         'trace_next_iteration_hash': 'interp_jit.trace_next_iteration_hash',
-        'set_compile_bridge': 'interp_jit.set_compile_bridge',
-        'set_compile_loop': 'interp_jit.set_compile_loop',
-        #'set_compile_hook': 'interp_resop.set_compile_hook',
-        #'set_optimize_hook': 'interp_resop.set_optimize_hook',
-        #'set_abort_hook': 'interp_resop.set_abort_hook',
-        #'get_stats_snapshot': 'interp_resop.get_stats_snapshot',
-        #'enable_debug': 'interp_resop.enable_debug',
-        #'disable_debug': 'interp_resop.disable_debug',
-        #'ResOperation': 'interp_resop.WrappedOp',
-        #'DebugMergePoint': 'interp_resop.DebugMergePoint',
-        #'JitLoopInfo': 'interp_resop.W_JitLoopInfo',
-        #'Box': 'interp_resop.WrappedBox',
+        'set_compile_hook': 'interp_resop.set_compile_hook',
+        'set_optimize_hook': 'interp_resop.set_optimize_hook',
+        'set_abort_hook': 'interp_resop.set_abort_hook',
+        'get_stats_snapshot': 'interp_resop.get_stats_snapshot',
+        'enable_debug': 'interp_resop.enable_debug',
+        'disable_debug': 'interp_resop.disable_debug',
+        'ResOperation': 'interp_resop.WrappedOp',
+        'DebugMergePoint': 'interp_resop.DebugMergePoint',
+        'JitLoopInfo': 'interp_resop.W_JitLoopInfo',
         'PARAMETER_DOCS': 'space.wrap(rpython.rlib.jit.PARAMETER_DOCS)',
     }
 
     def setup_after_space_initialization(self):
         # force the __extend__ hacks to occur early
         from pypy.module.pypyjit.interp_jit import pypyjitdriver
-        from pypy.module.pypyjit.interp_jit import pypy_hooks
+        from pypy.module.pypyjit.hooks import pypy_hooks
         # add the 'defaults' attribute
         from rpython.rlib.jit import PARAMETERS
         space = self.space
