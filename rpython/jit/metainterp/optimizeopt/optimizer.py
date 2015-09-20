@@ -651,6 +651,14 @@ class Optimizer(Optimization):
                                        op.getopnum(), argboxes,
                                        op.getdescr(), op.type)
 
+    def is_virtual(self, op):
+        if op.type == 'r':
+            opinfo = self.getptrinfo(op)
+            return opinfo and opinfo.is_virtual()
+        if op.type == 'i':
+            opinfo = self.getrawptrinfo(op)
+            return opinfo and opinfo.is_virtual()
+
     def pure_reverse(self, op):
         import sys
         if self.optpure is None:
