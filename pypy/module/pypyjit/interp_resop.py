@@ -22,7 +22,6 @@ class Cache(object):
     def __init__(self, space):
         self.w_compile_hook = space.w_None
         self.w_abort_hook = space.w_None
-        self.w_optimize_hook = space.w_None
 
     def getno(self):
         self.no += 1
@@ -61,25 +60,6 @@ def set_compile_hook(space, w_hook, operations=True):
     cache.w_compile_hook = w_hook
     cache.compile_hook_with_ops = operations
     cache.in_recursion = NonConstant(False)
-
-@unwrap_spec(operations=bool)
-def set_optimize_hook(space, w_hook, operations=True):
-    """ set_optimize_hook(hook, operations=True)
-
-    Set a compiling hook that will be called each time a loop is optimized,
-    but before assembler compilation. This allows adding additional
-    optimizations on Python level.
-
-    The hook will be called with the pypyjit.JitLoopInfo object. Refer to it's
-    docstring for details.
-
-    Result value will be the resulting list of operations, or None
-    """
-    cache = space.fromcache(Cache)
-    cache.w_optimize_hook = w_hook
-    cache.optimize_hook_with_ops = operations
-    cache.in_recursion = NonConstant(False)
-
 
 def set_abort_hook(space, w_hook):
     """ set_abort_hook(hook)

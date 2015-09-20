@@ -13,7 +13,6 @@ class Module(MixedModule):
         'trace_next_iteration': 'interp_jit.trace_next_iteration',
         'trace_next_iteration_hash': 'interp_jit.trace_next_iteration_hash',
         'set_compile_hook': 'interp_resop.set_compile_hook',
-        'set_optimize_hook': 'interp_resop.set_optimize_hook',
         'set_abort_hook': 'interp_resop.set_abort_hook',
         'get_stats_snapshot': 'interp_resop.get_stats_snapshot',
         'enable_debug': 'interp_resop.enable_debug',
