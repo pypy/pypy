@@ -573,7 +573,6 @@ class Optimizer(Optimization):
                     self.origin_jitcode = None
                     self.origin_pc = 0
                 else:
-                    self._really_emitted_operation = None # removed
                     return # we optimize the guard
             self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
             pendingfields = self.pendingfields
@@ -583,20 +582,7 @@ class Optimizer(Optimization):
                 del self.replaces_guard[orig_op]
                 return
             else:
-                guard_op = self.replace_op_with(op, op.getopnum())
-                if (self._last_guard_op and guard_op.getdescr() is None and
-                    guard_op.getopnum() != rop.GUARD_VALUE and
-                    not guard_op.same_guard_position(self._last_guard_op)):
-                    op = self._copy_resume_data_from(guard_op,
-                                                     self._last_guard_op)
-                else:
-                    op = self.store_final_boxes_in_guard(guard_op,
-                                                         pendingfields)
-                    self._last_guard_op = op
-                    # for unrolling
-                    for farg in op.getfailargs():
-                        if farg:
-                            self.force_box(farg)
+                op = self.emit_guard_operation(op, pendingfields)
         elif op.can_raise():
             self.exception_might_have_happened = True
         if op.has_no_side_effect() or op.is_guard() or op.is_jit_debug():
@@ -605,6 +591,24 @@ class Optimizer(Optimization):
             self._last_guard_op = None
         self._really_emitted_operation = op
         self._newoperations.append(op)
+
+    def emit_guard_operation(self, op, pendingfields):
+        guard_op = self.replace_op_with(op, op.getopnum())
+        if (self._last_guard_op and guard_op.getdescr() is None and
+            guard_op.getopnum() != rop.GUARD_VALUE and
+            not guard_op.same_guard_position(self._last_guard_op)):
+            op = self._copy_resume_data_from(guard_op,
+                                             self._last_guard_op)
+        else:
+            op = self.store_final_boxes_in_guard(guard_op, pendingfields)
+            if op.getopnum() not in (rop.GUARD_EXCEPTION, rop.GUARD_OVERFLOW):
+                self._last_guard_op = op
+            # for unrolling
+            for farg in op.getfailargs():
+                if farg:
+                    self.force_box(farg)
+        return op
+
 
     def _copy_resume_data_from(self, guard_op, last_guard_op):
         descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self)
