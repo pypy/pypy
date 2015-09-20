@@ -2905,6 +2905,7 @@ class MetaInterp(object):
         start_stack = []
         max_size = 0
         max_key = None
+        debug_start("jit-abort-longest-function")
         for pair in self.portal_trace_positions:
             key, pos = pair
             if key is not None:
@@ -2913,14 +2914,18 @@ class MetaInterp(object):
                 greenkey, startpos = start_stack.pop()
                 size = pos - startpos
                 if size > max_size:
+                    r = self.jitdriver_sd.warmstate.get_location_str(greenkey)
+                    debug_print("found new longest: %s %d" % (r, size))
                     max_size = size
                     max_key = greenkey
         if start_stack:
             key, pos = start_stack[0]
             size = len(self.history.operations) - pos
             if size > max_size:
+                debug_print("found new longest: %s %d" % (r, size))
                 max_size = size
                 max_key = key
+        debug_stop("jit-abort-longest-function")
         return max_key
 
     def record_result_of_call_pure(self, op):
