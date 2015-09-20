@@ -21,7 +21,7 @@ UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
 _MACRO_ON_POSIX = True if not _WIN32 else None
 
 if _WIN32:
-    from rpython.rlib import rwin32 
+    from rpython.rlib import rwin32
     from rpython.rlib.rwin32file import make_win32_traits
 
 class CConfig:
@@ -33,7 +33,7 @@ class CConfig:
     for _name in """fchdir fchmod fchmodat fchown fchownat fexecve fdopendir
                     fpathconf fstat fstatat fstatvfs ftruncate futimens futimes
                     futimesat linkat lchflags lchmod lchown lstat lutimes
-                    mkdirat mkfifoat mknodat openat readlinkat renameat 
+                    mkdirat mkfifoat mknodat openat readlinkat renameat
                     symlinkat unlinkat utimensat""".split():
         locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
 cConfig = rffi_platform.configure(CConfig)
@@ -376,7 +376,7 @@ else:
     @specialize.argtype(0)
     def _preferred_traits(path):
         return string_traits
-    
+
 @specialize.argtype(0, 1)
 def putenv(name, value):
     os.environ[_as_bytes(name)] = _as_bytes(value)
@@ -469,7 +469,7 @@ def lseek(fd, pos, how):
     if SEEK_SET is not None:
         if how == 0:
             how = SEEK_SET
-        elif how == 1: 
+        elif how == 1:
             how = SEEK_CUR
         elif how == 2:
             how = SEEK_END
@@ -891,7 +891,7 @@ for name in WAIT_MACROS:
 
 c_getlogin = external('getlogin', [], rffi.CCHARP,
                       releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
-c_getloadavg = external('getloadavg', 
+c_getloadavg = external('getloadavg',
                         [rffi.CArrayPtr(lltype.Float), rffi.INT], rffi.INT)
 
 @replace_os_function('getlogin')
@@ -1372,6 +1372,7 @@ def killpg(pgrp, sig):
     return handle_posix_error('killpg', c_killpg(pgrp, sig))
 
 @replace_os_function('_exit')
+@jit.dont_look_inside
 def exit(status):
     debug.debug_flush()
     c_exit(status)
@@ -1617,7 +1618,7 @@ def setresgid(rgid, egid, sgid):
 
 #___________________________________________________________________
 
-c_chroot = external('chroot', [rffi.CCHARP], rffi.INT, 
+c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('chroot')
