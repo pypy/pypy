@@ -2926,6 +2926,9 @@ class MetaInterp(object):
                 debug_print("found new longest: %s %d" % (r, size))
                 max_size = size
                 max_key = key
+        self.staticdata.logger_ops.log_abort_loop(self.history.inputargs,
+                                       self.history.operations,
+                                       self.box_names_memo)
         debug_stop("jit-abort-longest-function")
         return max_key
 
