@@ -1582,8 +1582,9 @@ class MIFrame(object):
                 resbox = self.metainterp.execute_and_record_varargs(
                     rop.CALL_MAY_FORCE_F, allboxes, descr=descr)
             elif tp == 'v':
-                resbox = self.metainterp.execute_and_record_varargs(
+                self.metainterp.execute_and_record_varargs(
                     rop.CALL_MAY_FORCE_N, allboxes, descr=descr)
+                resbox = None
             else:
                 assert False
             self.metainterp.vrefs_after_residual_call()
@@ -2961,6 +2962,8 @@ class MetaInterp(object):
         opnum = OpHelpers.call_assembler_for_descr(op.getdescr())
         op = op.copy_and_change(opnum, args=args, descr=token)
         self.history.operations.append(op)
+        if opnum == rop.CALL_ASSEMBLER_N:
+            op = None
         #
         # To fix an obscure issue, make sure the vable stays alive
         # longer than the CALL_ASSEMBLER operation.  We do it by
