@@ -3789,10 +3789,61 @@ class LLtypeBackendTest(BaseBackendTest):
         assert called == [finish_descr]
         del called[:]
 
-        # compile a replacement
+        # compile a replacement which needs more jitframe stack space
         ops = '''
         [f0, f1]
         f2 = float_sub(f0, f1)
+        f3 = float_sub(f0, f1)
+        f4 = float_sub(f0, f1)
+        f5 = float_sub(f0, f1)
+        f6 = float_sub(f0, f1)
+        f7 = float_sub(f0, f1)
+        f8 = float_sub(f0, f1)
+        f9 = float_sub(f0, f1)
+        f10 = float_sub(f0, f1)
+        f11 = float_sub(f0, f1)
+        f12 = float_sub(f0, f1)
+        f13 = float_sub(f0, f1)
+        f14 = float_sub(f0, f1)
+        f15 = float_sub(f0, f1)
+        f16 = float_sub(f0, f1)
+        f17 = float_sub(f0, f1)
+        f18 = float_sub(f0, f1)
+        f19 = float_sub(f0, f1)
+        i3 = float_eq(f2, f3)
+        i4 = float_eq(f2, f4)
+        i5 = float_eq(f2, f5)
+        i6 = float_eq(f2, f6)
+        i7 = float_eq(f2, f7)
+        i8 = float_eq(f2, f8)
+        i9 = float_eq(f2, f9)
+        i10 = float_eq(f2, f10)
+        i11 = float_eq(f2, f11)
+        i12 = float_eq(f2, f12)
+        i13 = float_eq(f2, f13)
+        i14 = float_eq(f2, f14)
+        i15 = float_eq(f2, f15)
+        i16 = float_eq(f2, f16)
+        i17 = float_eq(f2, f17)
+        i18 = float_eq(f2, f18)
+        i19 = float_eq(f2, f19)
+        guard_true(i3) []
+        guard_true(i4) []
+        guard_true(i5) []
+        guard_true(i6) []
+        guard_true(i7) []
+        guard_true(i8) []
+        guard_true(i9) []
+        guard_true(i10) []
+        guard_true(i11) []
+        guard_true(i12) []
+        guard_true(i13) []
+        guard_true(i14) []
+        guard_true(i15) []
+        guard_true(i16) []
+        guard_true(i17) []
+        guard_true(i18) []
+        guard_true(i19) []
         finish(f2)'''
         loop2 = parse(ops)
         looptoken2 = JitCellToken()
@@ -3800,8 +3851,18 @@ class LLtypeBackendTest(BaseBackendTest):
         self.cpu.compile_loop(loop2.inputargs, loop2.operations, looptoken2)
         finish_descr2 = loop2.operations[-1].getdescr()
 
+        # check the jitframeinfo
+        num1 = looptoken.compiled_loop_token.frame_info.jfi_frame_depth
+        num2 = looptoken2.compiled_loop_token.frame_info.jfi_frame_depth
+        assert num1 < num2
+
         # install it
         self.cpu.redirect_call_assembler(looptoken, looptoken2)
+
+        # check that the jitframeinfo was updated
+        num1 = looptoken.compiled_loop_token.frame_info.jfi_frame_depth
+        num2 = looptoken2.compiled_loop_token.frame_info.jfi_frame_depth
+        assert num1 == num2
 
         # now, our call_assembler should go to looptoken2
         args = [longlong.getfloatstorage(6.0),
