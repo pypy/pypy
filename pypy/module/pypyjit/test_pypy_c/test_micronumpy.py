@@ -47,7 +47,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             i31 = getfield_gc_pure_i(p1, descr=<FieldS pypy.module.micronumpy.iterators.ArrayIter.inst_size \d+>)
             i32 = int_ge(i25, i31)
             guard_false(i32, descr=...)
-            p34 = new_with_vtable(#)
+            p34 = new_with_vtable(descr=...)
             {{{
             setfield_gc(p34, p1, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst_iterator \d+>)
             setfield_gc(p34, i25, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index \d+>)
@@ -154,7 +154,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             f86 = float_add(f74, f85)
             i87 = int_add(i76, 1)
             --TICK--
-            jump(p0, p1, p6, p7, p8, p11, p13, f86, p17, i87, i62, p42, i58, p48, i41, i64, i70, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_array_flatiter_next(self):
