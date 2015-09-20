@@ -723,7 +723,6 @@ class BasicTests:
                 elif n == 7: a = 3
                 else:        a = 2
                 x = intmask(x * 10 + a)
-                print "XXXXXXXXXXXXXX", x
                 i += 1
             return x
         res = self.meta_interp(f, [0], backendopt=True)
