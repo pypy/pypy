@@ -658,6 +658,7 @@ class Optimizer(Optimization):
         if op.type == 'i':
             opinfo = self.getrawptrinfo(op)
             return opinfo and opinfo.is_virtual()
+        return False
 
     def pure_reverse(self, op):
         import sys
