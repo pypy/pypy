@@ -2922,7 +2922,7 @@ class MetaInterp(object):
             key, pos = start_stack[0]
             size = len(self.history.operations) - pos
             if size > max_size:
-                r = self.jitdriver_sd.warmstate.get_location_str(greenkey)
+                r = self.jitdriver_sd.warmstate.get_location_str(key)
                 debug_print("found new longest: %s %d" % (r, size))
                 max_size = size
                 max_key = key
