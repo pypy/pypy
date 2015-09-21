@@ -251,9 +251,10 @@ def do_int_add_ovf(cpu, metainterp, box1, box2):
     b = box2.getint()
     try:
         z = ovfcheck(a + b)
+        metainterp.ovf_flag = False
     except OverflowError:
         assert metainterp is not None
-        metainterp.execute_raised(OverflowError(), constant=True)
+        metainterp.ovf_flag = True
         z = 0
     return z
 
@@ -262,9 +263,10 @@ def do_int_sub_ovf(cpu, metainterp, box1, box2):
     b = box2.getint()
     try:
         z = ovfcheck(a - b)
+        metainterp.ovf_flag = False
     except OverflowError:
         assert metainterp is not None
-        metainterp.execute_raised(OverflowError(), constant=True)
+        metainterp.ovf_flag = True
         z = 0
     return z
 
@@ -273,9 +275,10 @@ def do_int_mul_ovf(cpu, metainterp, box1, box2):
     b = box2.getint()
     try:
         z = ovfcheck(a * b)
+        metainterp.ovf_flag = False
     except OverflowError:
         assert metainterp is not None
-        metainterp.execute_raised(OverflowError(), constant=True)
+        metainterp.ovf_flag = True
         z = 0
     return z
 

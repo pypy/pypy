@@ -402,9 +402,12 @@ class BlackholeInterpreter(object):
     def bhimpl_int_sub_ovf(a, b):
         return ovfcheck(a - b)
 
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_mul_ovf(a, b):
-        return ovfcheck(a * b)
+    @arguments("L", "i", "i", returns="i")
+    def bhimpl_int_mul_jump_if_ovf(label, a, b):
+        try:
+            return ovfcheck(a * b)
+        except OverflowError:
+            xxx
 
     @arguments("i", "i", returns="i")
     def bhimpl_int_floordiv(a, b):

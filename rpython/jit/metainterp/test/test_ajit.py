@@ -154,7 +154,10 @@ class BasicTests:
                 myjitdriver.can_enter_jit(x=x, y=y, res=res)
                 myjitdriver.jit_merge_point(x=x, y=y, res=res)
                 b = y * 2
-                res += ovfcheck(x * x) + b
+                try:
+                    res += ovfcheck(x * x) + b
+                except OverflowError:
+                    assert 0
                 y -= 1
             return res
         res = self.meta_interp(f, [6, 7])

@@ -228,17 +228,19 @@ class MIFrame(object):
         ''' % (_opimpl, FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
         ).compile()
 
-    for _opimpl in ['int_add_ovf', 'int_sub_ovf', 'int_mul_ovf']:
+    for (_opimpl, resop) in [
+            ('int_add_jump_if_ovf', 'INT_ADD_OVF'),
+            ('int_sub_jump_if_ovf', 'INT_SUB_OVF'),
+            ('int_mul_jump_if_ovf', 'INT_MUL_OVF')]:
         exec py.code.Source('''
-            @arguments("box", "box", "orgpc")
-            def opimpl_%s(self, b1, b2, orgpc):
-                self.metainterp.clear_exception()
+            @arguments("label", "box", "box", "orgpc")
+            def opimpl_%s(self, lbl, b1, b2, orgpc):
                 resbox = self.execute(rop.%s, b1, b2)
                 self.make_result_of_lastop(resbox)  # same as execute_varargs()
                 if not isinstance(resbox, Const):
-                    self.metainterp.handle_possible_overflow_error(orgpc)
+                    self.metainterp.handle_possible_overflow_error(lbl, orgpc)
                 return resbox
-        ''' % (_opimpl, _opimpl.upper())).compile()
+        ''' % (_opimpl, resop)).compile()
 
     for _opimpl in ['int_is_true', 'int_is_zero', 'int_neg', 'int_invert',
                     'cast_float_to_int', 'cast_int_to_float',
@@ -2308,7 +2310,7 @@ class MetaInterp(object):
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
         try:
-            self.prepare_resume_from_failure(key.guard_opnum, deadframe)
+            self.prepare_resume_from_failure(deadframe)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
             self.interpret()
@@ -2451,7 +2453,8 @@ class MetaInterp(object):
             else: assert 0
         self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
 
-    def prepare_resume_from_failure(self, opnum, deadframe):
+    def prepare_resume_from_failure(self, deadframe):
+        xxx
         frame = self.framestack[-1]
         if opnum == rop.GUARD_FUTURE_CONDITION:
             pass
@@ -2773,15 +2776,10 @@ class MetaInterp(object):
         else:
             self.generate_guard(rop.GUARD_NO_EXCEPTION, None, [])
 
-    def handle_possible_overflow_error(self, orgpc):
-        if self.last_exc_value:
-            op = self.generate_guard(rop.GUARD_OVERFLOW, None, resumepc=orgpc)
-            op.setref_base(lltype.cast_opaque_ptr(llmemory.GCREF,
-                                                  self.last_exc_value))
-            assert self.class_of_last_exc_is_const
-            self.last_exc_box = ConstPtr(
-                lltype.cast_opaque_ptr(llmemory.GCREF, self.last_exc_value))
-            self.finishframe_exception()
+    def handle_possible_overflow_error(self, label, orgpc):
+        if self.ovf_flag:
+            self.generate_guard(rop.GUARD_OVERFLOW, None, resumepc=orgpc)
+            self.pc = label
         else:
             self.generate_guard(rop.GUARD_NO_OVERFLOW, None, resumepc=orgpc)
 

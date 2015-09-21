@@ -691,7 +691,7 @@ _oplist = [
     'GUARD_NO_EXCEPTION/0d/n',   # may be called with an exception currently set
     'GUARD_EXCEPTION/1d/r',     # may be called with an exception currently set
     'GUARD_NO_OVERFLOW/0d/n',
-    'GUARD_OVERFLOW/0d/r',
+    'GUARD_OVERFLOW/0d/n',
     'GUARD_NOT_FORCED/0d/n',      # may be called with an exception currently set
     'GUARD_NOT_FORCED_2/0d/n',    # same as GUARD_NOT_FORCED, but for finish()
     'GUARD_NOT_INVALIDATED/0d/n',
