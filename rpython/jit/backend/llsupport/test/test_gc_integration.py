@@ -58,7 +58,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
     def test_basic(self):
         ops = '''
         [p0]
-        p1 = getfield_gc(p0, descr=fielddescr)
+        p1 = getfield_gc_r(p0, descr=fielddescr)
         finish(p1)
         '''
         self.interpret(ops, [self.struct_ptr])
@@ -67,7 +67,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
     def test_guard(self):
         ops = '''
         [i0, p0, i1, p1]
-        p3 = getfield_gc(p0, descr=fielddescr)
+        p3 = getfield_gc_r(p0, descr=fielddescr)
         guard_true(i0) [p0, i1, p1, p3]
         '''
         s1 = lltype.malloc(self.S)
@@ -101,7 +101,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
     def test_rewrite_constptr(self):
         ops = '''
         []
-        p1 = getfield_gc(ConstPtr(struct_ref), descr=fielddescr)
+        p1 = getfield_gc_r(ConstPtr(struct_ref), descr=fielddescr)
         finish(p1)
         '''
         self.interpret(ops, [])
@@ -113,30 +113,30 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         label(i0, i1, i2, i3, i4, i5, i6, i7, i8, descr=targettoken)
         guard_value(i2, 1) [i2, i3, i4, i5, i6, i7, i0, i1, i8]
         guard_class(i4, 138998336) [i4, i5, i6, i7, i0, i1, i8]
-        i11 = getfield_gc(i4, descr=intdescr)
+        i11 = getfield_gc_i(i4, descr=intdescr)
         guard_nonnull(i11) [i4, i5, i6, i7, i0, i1, i11, i8]
-        i13 = getfield_gc(i11, descr=intdescr)
+        i13 = getfield_gc_i(i11, descr=intdescr)
         guard_isnull(i13) [i4, i5, i6, i7, i0, i1, i11, i8]
-        i15 = getfield_gc(i4, descr=intdescr)
+        i15 = getfield_gc_i(i4, descr=intdescr)
         i17 = int_lt(i15, 0)
         guard_false(i17) [i4, i5, i6, i7, i0, i1, i11, i15, i8]
-        i18 = getfield_gc(i11, descr=intdescr)
+        i18 = getfield_gc_i(i11, descr=intdescr)
         i19 = int_ge(i15, i18)
         guard_false(i19) [i4, i5, i6, i7, i0, i1, i11, i15, i8]
         i20 = int_lt(i15, 0)
         guard_false(i20) [i4, i5, i6, i7, i0, i1, i11, i15, i8]
-        i21 = getfield_gc(i11, descr=intdescr)
-        i22 = getfield_gc(i11, descr=intdescr)
+        i21 = getfield_gc_i(i11, descr=intdescr)
+        i22 = getfield_gc_i(i11, descr=intdescr)
         i23 = int_mul(i15, i22)
         i24 = int_add(i21, i23)
-        i25 = getfield_gc(i4, descr=intdescr)
+        i25 = getfield_gc_i(i4, descr=intdescr)
         i27 = int_add(i25, 1)
         setfield_gc(i4, i27, descr=intdescr)
-        i29 = getfield_raw(144839744, descr=intdescr)
+        i29 = getfield_raw_i(144839744, descr=intdescr)
         i31 = int_and(i29, -2141192192)
         i32 = int_is_true(i31)
         guard_false(i32) [i4, i6, i7, i0, i1, i24]
-        i33 = getfield_gc(i0, descr=intdescr)
+        i33 = getfield_gc_i(i0, descr=intdescr)
         guard_value(i33, ConstPtr(ptr0)) [i4, i6, i7, i0, i1, i33, i24]
         jump(i0, i1, 1, 17, i4, ConstPtr(ptr0), i6, i7, i24, descr=targettoken)
         '''
@@ -392,22 +392,22 @@ class TestMallocFastpath(BaseTestRegalloc):
             self.namespace['ds%i' % i] = cpu.fielddescrof(S2, 's%d' % i)
         ops = '''
         [i0, p0]
-        p1 = getfield_gc(p0, descr=ds0)
-        p2 = getfield_gc(p0, descr=ds1)
-        p3 = getfield_gc(p0, descr=ds2)
-        p4 = getfield_gc(p0, descr=ds3)
-        p5 = getfield_gc(p0, descr=ds4)
-        p6 = getfield_gc(p0, descr=ds5)
-        p7 = getfield_gc(p0, descr=ds6)
-        p8 = getfield_gc(p0, descr=ds7)
-        p9 = getfield_gc(p0, descr=ds8)
-        p10 = getfield_gc(p0, descr=ds9)
-        p11 = getfield_gc(p0, descr=ds10)
-        p12 = getfield_gc(p0, descr=ds11)
-        p13 = getfield_gc(p0, descr=ds12)
-        p14 = getfield_gc(p0, descr=ds13)
-        p15 = getfield_gc(p0, descr=ds14)
-        p16 = getfield_gc(p0, descr=ds15)
+        p1 = getfield_gc_r(p0, descr=ds0)
+        p2 = getfield_gc_r(p0, descr=ds1)
+        p3 = getfield_gc_r(p0, descr=ds2)
+        p4 = getfield_gc_r(p0, descr=ds3)
+        p5 = getfield_gc_r(p0, descr=ds4)
+        p6 = getfield_gc_r(p0, descr=ds5)
+        p7 = getfield_gc_r(p0, descr=ds6)
+        p8 = getfield_gc_r(p0, descr=ds7)
+        p9 = getfield_gc_r(p0, descr=ds8)
+        p10 = getfield_gc_r(p0, descr=ds9)
+        p11 = getfield_gc_r(p0, descr=ds10)
+        p12 = getfield_gc_r(p0, descr=ds11)
+        p13 = getfield_gc_r(p0, descr=ds12)
+        p14 = getfield_gc_r(p0, descr=ds13)
+        p15 = getfield_gc_r(p0, descr=ds14)
+        p16 = getfield_gc_r(p0, descr=ds15)
         #
         # now all registers are in use
         p17 = call_malloc_nursery(40)
@@ -672,12 +672,12 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         loop = self.parse("""
         [p0, p1, p2]
         pf = force_token() # this is the frame
-        call(ConstClass(check_adr), pf, descr=checkdescr) # this can collect
-        p3 = getfield_gc(p0, descr=fielddescr)
+        call_n(ConstClass(check_adr), pf, descr=checkdescr) # this can collect
+        p3 = getfield_gc_r(p0, descr=fielddescr)
         pf2 = force_token()
-        call(ConstClass(check2_adr), pf2, descr=checkdescr)
+        call_n(ConstClass(check2_adr), pf2, descr=checkdescr)
         guard_nonnull(p3, descr=faildescr) [p0, p1, p2, p3]
-        p4 = getfield_gc(p0, descr=fielddescr)
+        p4 = getfield_gc_r(p0, descr=fielddescr)
         finish(p4, descr=finaldescr)
         """, namespace={'finaldescr': BasicFinalDescr(),
                         'faildescr': BasicFailDescr(),
@@ -745,7 +745,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         loop = self.parse("""
         [f0]
         i = force_token()
-        f1 = call(ConstClass(fptr), i, f0, descr=calldescr)
+        f1 = call_f(ConstClass(fptr), i, f0, descr=calldescr)
         finish(f1, descr=finaldescr)
         """, namespace={'fptr': fptr, 'calldescr': calldescr,
                         'finaldescr': BasicFinalDescr(1)})
@@ -762,7 +762,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
 
     def test_malloc_1(self):
         cpu = self.cpu
-        sizeof = cpu.sizeof(self.S)
+        sizeof = cpu.sizeof(self.S, None)
         sizeof.tid = 0
         size = sizeof.size
         loop = self.parse("""
@@ -864,11 +864,11 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         loop = self.parse("""
         [i0, p0]
         pf = force_token()
-        p1 = getarrayitem_gc(p0, 0, descr=arraydescr)
-        p2 = getarrayitem_gc(p0, 1, descr=arraydescr)
-        p3 = getarrayitem_gc(p0, 2, descr=arraydescr)
-        pdying = getarrayitem_gc(p0, 0, descr=arraydescr)
-        px = call_may_force(ConstClass(fptr), pf, pdying, i0, descr=calldescr)
+        p1 = getarrayitem_gc_r(p0, 0, descr=arraydescr)
+        p2 = getarrayitem_gc_r(p0, 1, descr=arraydescr)
+        p3 = getarrayitem_gc_r(p0, 2, descr=arraydescr)
+        pdying = getarrayitem_gc_r(p0, 0, descr=arraydescr)
+        px = call_may_force_r(ConstClass(fptr), pf, pdying, i0, descr=calldescr)
         guard_not_forced(descr=faildescr) [p1, p2, p3, px]
         finish(px, descr=finaldescr)
         """, namespace={'fptr': fptr, 'calldescr': calldescr,
@@ -908,11 +908,11 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         loop = self.parse("""
         [i0, p0]
         pf = force_token()
-        p1 = getarrayitem_gc(p0, 0, descr=arraydescr)
-        p2 = getarrayitem_gc(p0, 1, descr=arraydescr)
-        p3 = getarrayitem_gc(p0, 2, descr=arraydescr)
-        pdying = getarrayitem_gc(p0, 0, descr=arraydescr)
-        px = call(ConstClass(fptr), pf, pdying, i0, descr=calldescr)
+        p1 = getarrayitem_gc_r(p0, 0, descr=arraydescr)
+        p2 = getarrayitem_gc_r(p0, 1, descr=arraydescr)
+        p3 = getarrayitem_gc_r(p0, 2, descr=arraydescr)
+        pdying = getarrayitem_gc_r(p0, 0, descr=arraydescr)
+        px = call_r(ConstClass(fptr), pf, pdying, i0, descr=calldescr)
         guard_false(i0, descr=faildescr) [p1, p2, p3, px]
         finish(px, descr=finaldescr)
         """, namespace={'fptr': fptr, 'calldescr': calldescr,

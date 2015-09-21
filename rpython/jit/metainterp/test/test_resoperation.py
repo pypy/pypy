@@ -33,10 +33,10 @@ def test_concrete_classes():
     assert issubclass(cls, rop.BinaryOp)
     assert cls.getopnum.im_func(cls) == rop.rop.INT_ADD
 
-    cls = rop.opclasses[rop.rop.CALL]
+    cls = rop.opclasses[rop.rop.CALL_N]
     assert issubclass(cls, rop.ResOpWithDescr)
     assert issubclass(cls, rop.N_aryOp)
-    assert cls.getopnum.im_func(cls) == rop.rop.CALL
+    assert cls.getopnum.im_func(cls) == rop.rop.CALL_N
 
     cls = rop.opclasses[rop.rop.GUARD_TRUE]
     assert issubclass(cls, rop.GuardResOp)
@@ -48,36 +48,34 @@ def test_mixins_in_common_base():
     assert len(INT_ADD.__bases__) == 1
     BinaryPlainResOp = INT_ADD.__bases__[0]
     assert BinaryPlainResOp.__name__ == 'BinaryPlainResOp'
-    assert BinaryPlainResOp.__bases__ == (rop.BinaryOp, rop.PlainResOp)
+    assert BinaryPlainResOp.__bases__ == (rop.BinaryOp, rop.IntOp, rop.PlainResOp)
     INT_SUB = rop.opclasses[rop.rop.INT_SUB]
     assert INT_SUB.__bases__[0] is BinaryPlainResOp
 
 def test_instantiate():
-    op = rop.ResOperation(rop.rop.INT_ADD, ['a', 'b'], 'c')
+    op = rop.ResOperation(rop.rop.INT_ADD, ['a', 'b'])
     assert op.getarglist() == ['a', 'b']
-    assert op.result == 'c'
-    assert repr(op) == "c = int_add(a, b)"
+    #assert re.match(".*= int_add(a, b)", repr(op))
 
     mydescr = AbstractDescr()
-    op = rop.ResOperation(rop.rop.CALL, ['a', 'b'], 'c', descr=mydescr)
+    op = rop.ResOperation(rop.rop.CALL_I, ['a', 'b'], descr=mydescr)
     assert op.getarglist() == ['a', 'b']
-    assert op.result == 'c'
     assert op.getdescr() is mydescr
-    assert re.match("c = call\(a, b, descr=<.+>\)$", repr(op))
+    #assert re.match(".* = call\(a, b, descr=<.+>\)$", repr(op))
 
     mydescr = AbstractFailDescr()
-    op = rop.ResOperation(rop.rop.GUARD_NO_EXCEPTION, [], None, descr=mydescr)
-    assert re.match("guard_no_exception\(descr=<.+>\)$", repr(op))
+    op = rop.ResOperation(rop.rop.GUARD_NO_EXCEPTION, [], descr=mydescr)
+    #assert re.match("guard_no_exception\(descr=<.+>\)$", repr(op))
 
 def test_can_malloc():
     mydescr = AbstractDescr()
-    assert rop.ResOperation(rop.rop.NEW, [], 'b').can_malloc()
-    call = rop.ResOperation(rop.rop.CALL, ['a', 'b'], 'c', descr=mydescr)
+    assert rop.ResOperation(rop.rop.NEW, []).can_malloc()
+    call = rop.ResOperation(rop.rop.CALL_N, ['a', 'b'], descr=mydescr)
     assert call.can_malloc()
-    assert not rop.ResOperation(rop.rop.INT_ADD, ['a', 'b'], 'c').can_malloc()
+    assert not rop.ResOperation(rop.rop.INT_ADD, ['a', 'b']).can_malloc()
 
 def test_get_deep_immutable_oplist():
-    ops = [rop.ResOperation(rop.rop.INT_ADD, ['a', 'b'], 'c')]
+    ops = [rop.ResOperation(rop.rop.INT_ADD, ['a', 'b'])]
     newops = rop.get_deep_immutable_oplist(ops)
     py.test.raises(TypeError, "newops.append('foobar')")
     py.test.raises(TypeError, "newops[0] = 'foobar'")

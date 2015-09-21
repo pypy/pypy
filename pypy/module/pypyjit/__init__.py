@@ -8,8 +8,11 @@ class Module(MixedModule):
         'set_param':    'interp_jit.set_param',
         'residual_call': 'interp_jit.residual_call',
         'not_from_assembler': 'interp_jit.W_NotFromAssembler',
+        'get_jitcell_at_key': 'interp_jit.get_jitcell_at_key',
+        'dont_trace_here': 'interp_jit.dont_trace_here',
+        'trace_next_iteration': 'interp_jit.trace_next_iteration',
+        'trace_next_iteration_hash': 'interp_jit.trace_next_iteration_hash',
         'set_compile_hook': 'interp_resop.set_compile_hook',
-        'set_optimize_hook': 'interp_resop.set_optimize_hook',
         'set_abort_hook': 'interp_resop.set_abort_hook',
         'get_stats_snapshot': 'interp_resop.get_stats_snapshot',
         'enable_debug': 'interp_resop.enable_debug',
@@ -17,7 +20,6 @@ class Module(MixedModule):
         'ResOperation': 'interp_resop.WrappedOp',
         'DebugMergePoint': 'interp_resop.DebugMergePoint',
         'JitLoopInfo': 'interp_resop.W_JitLoopInfo',
-        'Box': 'interp_resop.WrappedBox',
         'PARAMETER_DOCS': 'space.wrap(rpython.rlib.jit.PARAMETER_DOCS)',
     }
 

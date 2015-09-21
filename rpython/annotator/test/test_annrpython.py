@@ -438,6 +438,18 @@ class TestAnnotateTestCase:
         assert s.knowntype == str
         assert s.no_nul
 
+    def test_unicode_join(self):
+        a = self.RPythonAnnotator()
+        def g(n):
+            if n:
+                return [u"foo", u"bar"]
+        def f(n):
+            g(0)
+            return u''.join(g(n))
+        s = a.build_types(f, [int])
+        assert s.knowntype == unicode
+        assert s.no_nul
+
     def test_str_split(self):
         a = self.RPythonAnnotator()
         def g(n):
@@ -446,6 +458,19 @@ class TestAnnotateTestCase:
         def f(n):
             if n:
                 return g(n).split(' ')
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeList)
+        s_item = s.listdef.listitem.s_value
+        assert s_item.no_nul
+
+    def test_unicode_split(self):
+        a = self.RPythonAnnotator()
+        def g(n):
+            if n:
+                return u"test string"
+        def f(n):
+            if n:
+                return g(n).split(u' ')
         s = a.build_types(f, [int])
         assert isinstance(s, annmodel.SomeList)
         s_item = s.listdef.listitem.s_value
@@ -470,6 +495,27 @@ class TestAnnotateTestCase:
         assert not s.can_be_None
         assert not s.no_nul
 
+    def test_unicode_split_nul(self):
+        def f(n):
+            return n.split(u'\0')[0]
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+        s = a.build_types(f, [annmodel.SomeUnicodeString(
+                                  no_nul=False, can_be_None=False)])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+        assert not s.can_be_None
+        assert s.no_nul
+
+        def g(n):
+            return n.split(u'\0', 1)[0]
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+        s = a.build_types(g, [annmodel.SomeUnicodeString(
+                                  no_nul=False, can_be_None=False)])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+        assert not s.can_be_None
+        assert not s.no_nul
+
     def test_str_splitlines(self):
         a = self.RPythonAnnotator()
         def f(a_str):
@@ -488,6 +534,18 @@ class TestAnnotateTestCase:
             else:
                 return a_str.lstrip(' ')
         s = a.build_types(f, [int, annmodel.SomeString(no_nul=True)])
+        assert s.no_nul
+
+    def test_unicode_strip(self):
+        a = self.RPythonAnnotator()
+        def f(n, a_str):
+            if n == 0:
+                return a_str.strip(u' ')
+            elif n == 1:
+                return a_str.rstrip(u' ')
+            else:
+                return a_str.lstrip(u' ')
+        s = a.build_types(f, [int, annmodel.SomeUnicodeString(no_nul=True)])
         assert s.no_nul
 
     def test_str_mul(self):
@@ -2042,6 +2100,17 @@ class TestAnnotateTestCase:
         assert s.can_be_None
         assert s.no_nul
 
+    def test_unicode_noNUL_canbeNone(self):
+        def f(a):
+            if a:
+                return u"abc"
+            else:
+                return None
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.can_be_None
+        assert s.no_nul
+
     def test_str_or_None(self):
         def f(a):
             if a:
@@ -2052,6 +2121,22 @@ class TestAnnotateTestCase:
             x = f(a)
             if x is None:
                 return "abcd"
+            return x
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert s.can_be_None
+        assert s.no_nul
+
+    def test_unicode_or_None(self):
+        def f(a):
+            if a:
+                return u"abc"
+            else:
+                return None
+        def g(a):
+            x = f(a)
+            if x is None:
+                return u"abcd"
             return x
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int])
@@ -2124,6 +2209,19 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
 
+    def test_iteritems_unicode0(self):
+        def it(d):
+            return d.iteritems()
+        def f():
+            d0 = {u'1a': u'2a', u'3': u'4'}
+            for item in it(d0):
+                return u"%s=%s" % item
+            raise ValueError
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+        assert s.no_nul
+
     def test_no_nul_mod(self):
         def f(x):
             s = "%d" % x
@@ -2133,6 +2231,14 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
 
+    def test_no_nul_mod_unicode(self):
+        def f(x):
+            s = u"%d" % x
+            return s
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [int])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+        assert s.no_nul
 
     def test_mul_str0(self):
         def f(s):
@@ -2140,6 +2246,24 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [annmodel.SomeString(no_nul=True)])
         assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeUnicodeString(no_nul=True)])
+        assert isinstance(s, annmodel.SomeUnicodeString)
+        assert s.no_nul
+
+    def test_reverse_mul_str0(self):
+        def f(s):
+            return 10*s
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeString(no_nul=True)])
+        assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [annmodel.SomeUnicodeString(no_nul=True)])
+        assert isinstance(s, annmodel.SomeUnicodeString)
         assert s.no_nul
 
     def test_getitem_str0(self):
@@ -2153,10 +2277,16 @@ class TestAnnotateTestCase:
             return s
         a = self.RPythonAnnotator()
         a.translator.config.translation.check_str_without_nul = True
-
         s = a.build_types(f, [annmodel.SomeString(no_nul=True),
                               annmodel.SomeInteger()])
         assert isinstance(s, annmodel.SomeString)
+        assert s.no_nul
+
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+        s = a.build_types(f, [annmodel.SomeUnicodeString(no_nul=True),
+                              annmodel.SomeInteger()])
+        assert isinstance(s, annmodel.SomeUnicodeString)
         assert s.no_nul
 
     def test_non_none_and_none_with_isinstance(self):
@@ -3411,6 +3541,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [unicode])
         assert isinstance(s, annmodel.SomeUnicodeString)
+        assert s.no_nul
 
     def test_unicode_char(self):
         def f(x, i):
@@ -3913,6 +4044,19 @@ class TestAnnotateTestCase:
         a.translator.config.translation.check_str_without_nul = True
         s = a.build_types(f, [annmodel.SomeString(no_nul=False)])
         assert isinstance(s, annmodel.SomeString)
+        assert s.can_be_None
+        assert s.no_nul
+
+    def test_contains_no_nul_unicode(self):
+        def f(i):
+            if u"\0" in i:
+                return None
+            else:
+                return i
+        a = self.RPythonAnnotator()
+        a.translator.config.translation.check_str_without_nul = True
+        s = a.build_types(f, [annmodel.SomeUnicodeString(no_nul=False)])
+        assert isinstance(s, annmodel.SomeUnicodeString)
         assert s.can_be_None
         assert s.no_nul
 
@@ -4491,6 +4635,15 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         with py.test.raises(annmodel.AnnotatorError):
             a.build_types(f, [int])
+
+    def test_dict_can_be_none_ordering_issue(self):
+        def g(d):
+            return 42 in d
+        def f(n):
+            g(None)
+            g({})
+        a = self.RPythonAnnotator()
+        a.build_types(f, [int])
 
 
 def g(n):

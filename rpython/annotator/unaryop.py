@@ -49,6 +49,16 @@ def contains_SomeObject(annotator, obj, element):
     return s_Bool
 contains_SomeObject.can_only_throw = []
 
+@op.contains.register(SomeNone)
+def contains_SomeNone(annotator, obj, element):
+    # return False here for the case "... in None", because it can be later
+    # generalized to "... in d" where d is either None or the empty dict
+    # (which would also return the constant False)
+    s_bool = SomeBool()
+    s_bool.const = False
+    return s_bool
+contains_SomeNone.can_only_throw = []
+
 @op.simple_call.register(SomeObject)
 def simple_call_SomeObject(annotator, func, *args):
     return annotator.annotation(func).call(
@@ -564,7 +574,9 @@ class __extend__(SomeString,
         return self.basecharclass()
 
     def method_split(self, patt, max=-1):
-        if max == -1 and patt.is_constant() and patt.const == "\0":
+        # special-case for .split( '\x00') or .split(u'\x00')
+        if max == -1 and patt.is_constant() and (
+               len(patt.const) == 1 and ord(patt.const) == 0):
             no_nul = True
         else:
             no_nul = self.no_nul

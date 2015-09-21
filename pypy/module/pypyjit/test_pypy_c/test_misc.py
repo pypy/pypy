@@ -65,7 +65,7 @@ class TestMisc(BaseTestPyPyC):
         assert loop.match("""
             i7 = int_gt(i4, 1)
             guard_true(i7, descr=...)
-            p11 = call(ConstClass(rbigint.int_mul), p5, i4, descr=...)
+            p11 = call_r(ConstClass(rbigint.int_mul), p5, i4, descr=...)
             guard_no_exception(descr=...)
             i13 = int_sub(i4, 1)
             --TICK--
@@ -113,14 +113,14 @@ class TestMisc(BaseTestPyPyC):
             i12 = int_is_true(i4)
             guard_true(i12, descr=...)
             guard_not_invalidated(descr=...)
-            i13 = int_add_ovf(i8, i9)
-            guard_no_overflow(descr=...)
-            i10p = getfield_gc_pure(p10, descr=...)
+            i10p = getfield_gc_pure_i(p10, descr=...)
             i10 = int_mul_ovf(2, i10p)
             guard_no_overflow(descr=...)
             i14 = int_add_ovf(i13, i10)
             guard_no_overflow(descr=...)
-            setfield_gc(p7, p11, descr=...)
+            i13 = int_add_ovf(i14, i9)
+            guard_no_overflow(descr=...)
+            setfield_gc(p17, p10, descr=...)
             i17 = int_sub_ovf(i4, 1)
             guard_no_overflow(descr=...)
             --TICK--
@@ -148,6 +148,7 @@ class TestMisc(BaseTestPyPyC):
         i18 = force_token()
         setfield_gc(p9, i17, descr=<.* .*W_XRangeIterator.inst_current .*>)
         guard_not_invalidated(descr=...)
+        i84 = int_sub(i14, 1)
         i21 = int_lt(i10, 0)
         guard_false(i21, descr=...)
         i22 = int_lt(i10, i14)
@@ -180,6 +181,7 @@ class TestMisc(BaseTestPyPyC):
             i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated?
+            i88 = int_sub(i9, 1)
             i25 = int_ge(i11, i9)
             guard_false(i25, descr=...)
             i27 = int_add_ovf(i7, i11)
@@ -212,6 +214,7 @@ class TestMisc(BaseTestPyPyC):
             i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated?
+            i95 = int_sub(i9, 1)
             i23 = int_lt(i18, 0)
             guard_false(i23, descr=...)
             i25 = int_ge(i18, i9)
@@ -260,25 +263,24 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             guard_not_invalidated?
-            i14 = getfield_gc(p12, descr=<FieldS list.length .*>)
             i16 = uint_ge(i12, i14)
             guard_false(i16, descr=...)
-            p16 = getfield_gc(p12, descr=<FieldP list.items .*>)
-            p17 = getarrayitem_gc(p16, i12, descr=<ArrayP .>)
+            p17 = getarrayitem_gc_r(p16, i12, descr=<ArrayP .>)
             i19 = int_add(i12, 1)
             setfield_gc(p9, i19, descr=<FieldS .*W_AbstractSeqIterObject.inst_index .*>)
             guard_nonnull_class(p17, ..., descr=...)
             guard_not_invalidated?
-            i21 = getfield_gc(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
+            i21 = getfield_gc_i(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
-            i24 = getfield_gc(p17, descr=<FieldU .*W_ArrayTypei.inst_buffer .*>)
-            i25 = getarrayitem_raw(i24, 0, descr=<.*>)
+            i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayTypei.inst_buffer .*>)
+            i25 = getarrayitem_raw_i(i24, 0, descr=<.*>)
             i27 = int_lt(1, i21)
             guard_false(i27, descr=...)
             i28 = int_add_ovf(i10, i25)
             guard_no_overflow(descr=...)
             --TICK--
+            if00 = arraylen_gc(p16, descr=...)
             jump(..., descr=...)
         """)
 
