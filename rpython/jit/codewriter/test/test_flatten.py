@@ -140,6 +140,7 @@ class TestFlatten:
 
     def encoding_test(self, func, args, expected,
                       transform=False, liveness=False, cc=None, jd=None):
+        
         graphs = self.make_graphs(func, args)
         #graphs[0].show()
         if transform:
@@ -147,7 +148,8 @@ class TestFlatten:
             cc = cc or FakeCallControl()
             transform_graph(graphs[0], FakeCPU(self.rtyper), cc, jd)
         ssarepr = flatten_graph(graphs[0], fake_regallocs(),
-                                _include_all_exc_links=not transform)
+                                _include_all_exc_links=not transform,
+                                cpu=FakeCPU(self.rtyper))
         if liveness:
             from rpython.jit.codewriter.liveness import compute_liveness
             compute_liveness(ssarepr)
@@ -575,6 +577,21 @@ class TestFlatten:
         err = py.test.raises(Exception, "self.encoding_test(f, [7, 2], '',"
                              "transform=True, liveness=True)")
         assert "ovfcheck()" in str(err)
+
+    def test_ovfcheck_reraise(self):
+        def f(i, j):
+            try:
+                ovfcheck(j + i)
+            except OverflowError:
+                raise
+        self.encoding_test(f, [7, 2], """
+            -live- %i0, %i1
+            int_add_jump_if_ovf L1, %i1, %i0 -> %i2
+            void_return
+            ---
+            L1:
+            raise $<* struct object { typeptr=... }>
+        """, transform=True, liveness=True)
 
     def test_residual_call_raising(self):
         @dont_look_inside

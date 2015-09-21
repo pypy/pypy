@@ -60,10 +60,11 @@ KINDS = ['int', 'ref', 'float']
 
 # ____________________________________________________________
 
-def flatten_graph(graph, regallocs, _include_all_exc_links=False):
+def flatten_graph(graph, regallocs, _include_all_exc_links=False,
+                  cpu=None):
     """Flatten the graph into an SSARepr, with already-computed register
     allocations.  'regallocs' in a dict {kind: RegAlloc}."""
-    flattener = GraphFlattener(graph, regallocs, _include_all_exc_links)
+    flattener = GraphFlattener(graph, regallocs, _include_all_exc_links, cpu)
     flattener.enforce_input_args()
     flattener.generate_ssa_form()
     return flattener.ssarepr
@@ -71,9 +72,11 @@ def flatten_graph(graph, regallocs, _include_all_exc_links=False):
 
 class GraphFlattener(object):
 
-    def __init__(self, graph, regallocs, _include_all_exc_links=False):
+    def __init__(self, graph, regallocs, _include_all_exc_links=False,
+                 cpu=None):
         self.graph = graph
         self.regallocs = regallocs
+        self.cpu = cpu
         self._include_all_exc_links = _include_all_exc_links
         self.registers = {}
         if graph:
@@ -100,7 +103,7 @@ class GraphFlattener(object):
         self.seen_blocks = {}
         self.make_bytecode_block(self.graph.startblock)
 
-    def make_bytecode_block(self, block):
+    def make_bytecode_block(self, block, handling_ovf=False):
         if block.exits == ():
             self.make_return(block.inputargs)
             return
@@ -122,7 +125,7 @@ class GraphFlattener(object):
                                     " is not legal in jitted blocks")
             self.serialize_op(op)
         #
-        self.insert_exits(block)
+        self.insert_exits(block, handling_ovf)
 
     def make_return(self, args):
         if len(args) == 1:
@@ -142,16 +145,16 @@ class GraphFlattener(object):
             raise Exception("?")
         self.emitline("---")
 
-    def make_link(self, link):
+    def make_link(self, link, handling_ovf):
         if (link.target.exits == ()
             and link.last_exception not in link.args
             and link.last_exc_value not in link.args):
             self.make_return(link.args)     # optimization only
             return
         self.insert_renamings(link)
-        self.make_bytecode_block(link.target)
+        self.make_bytecode_block(link.target, handling_ovf)
 
-    def make_exception_link(self, link):
+    def make_exception_link(self, link, handling_ovf):
         # Like make_link(), but also introduces the 'last_exception' and
         # 'last_exc_value' as variables if needed.  Also check if the link
         # is jumping directly to the re-raising exception block.
@@ -159,19 +162,26 @@ class GraphFlattener(object):
         assert link.last_exc_value is not None
         if link.target.operations == () and link.args == [link.last_exception,
                                                           link.last_exc_value]:
-            self.emitline("reraise")
+            if handling_ovf:
+                exc_data = self.cpu.rtyper.exceptiondata
+                ll_ovf = exc_data.get_standard_ll_exc_instance_by_class(
+                    OverflowError)
+                c = Constant(ll_ovf, concretetype=lltype.Void)
+                self.emitline("raise", c)
+            else:
+                self.emitline("reraise")
             self.emitline("---")
             return   # done
-        self.make_link(link)
+        self.make_link(link, handling_ovf)
 
-    def insert_exits(self, block):
+    def insert_exits(self, block, handling_ovf=False):
         if len(block.exits) == 1:
             # A single link, fall-through
             link = block.exits[0]
             assert link.exitcase in (None, False, True)
             # the cases False or True should not really occur, but can show
             # up in the manually hacked graphs for generators...
-            self.make_link(link)
+            self.make_link(link, handling_ovf)
         #
         elif block.canraise:
             # An exception block. See test_exc_exitswitch in test_flatten.py
@@ -185,9 +195,9 @@ class GraphFlattener(object):
                 self.emitline(opname[:7] + '_jump_if_ovf',
                               TLabel(block.exits[1]), *line[1:])
                 assert len(block.exits) == 2
-                self.make_link(block.exits[0])
+                self.make_link(block.exits[0], False)
                 self.emitline(Label(block.exits[1]))
-                self.make_exception_link(block.exits[1])
+                self.make_exception_link(block.exits[1], True)
                 return
             else:
                 while True:
@@ -201,22 +211,22 @@ class GraphFlattener(object):
                 if index == -1:
                     # cannot raise: the last instruction is not
                     # actually a '-live-'
-                    self.make_link(block.exits[0])
+                    self.make_link(block.exits[0], False)
                     return
             #
             self.emitline('catch_exception', TLabel(block.exits[0]))
-            self.make_link(block.exits[0])
+            self.make_link(block.exits[0], False)
             self.emitline(Label(block.exits[0]))
             for link in block.exits[1:]:
                 if link.exitcase is Exception:
                     # this link captures all exceptions
-                    self.make_exception_link(link)
+                    self.make_exception_link(link, False)
                     break
                 self.emitline('goto_if_exception_mismatch',
                               Constant(link.llexitcase,
                                        lltype.typeOf(link.llexitcase)),
                               TLabel(link))
-                self.make_exception_link(link)
+                self.make_exception_link(link, False)
                 self.emitline(Label(link))
             else:
                 # no link captures all exceptions, so we have to put a reraise
@@ -248,10 +258,10 @@ class GraphFlattener(object):
             #if not livebefore:
             #    self.emitline('-live-', TLabel(linkfalse))
             # true path:
-            self.make_link(linktrue)
+            self.make_link(linktrue, handling_ovf)
             # false path:
             self.emitline(Label(linkfalse))
-            self.make_link(linkfalse)
+            self.make_link(linkfalse, handling_ovf)
         #
         else:
             # A switch.
@@ -274,7 +284,7 @@ class GraphFlattener(object):
                                     switchdict)
             # emit the default path
             if block.exits[-1].exitcase == 'default':
-                self.make_link(block.exits[-1])
+                self.make_link(block.exits[-1], handling_ovf)
             else:
                 self.emitline("unreachable")
                 self.emitline("---")
@@ -288,7 +298,7 @@ class GraphFlattener(object):
                 # if the switched value doesn't match any case.
                 self.emitline(Label(switch))
                 self.emitline('-live-')
-                self.make_link(switch)
+                self.make_link(switch, handling_ovf)
 
     def insert_renamings(self, link):
         renamings = {}
