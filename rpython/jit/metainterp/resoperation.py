@@ -146,12 +146,14 @@ class Typed(object):
             while arg.is_constant() and i+1 < self.numargs():
                 i += 1
                 arg = self.getarg(i)
-            if arg.is_constant():
+            if arg.is_constant() or arg.datatype == '\x00':
                 if arg.type == 'i':
                     self.setdatatype('i', INT_WORD, True)
-                else:
-                    assert arg.type == 'f'
+                elif arg.type == 'f':
                     self.setdatatype('f', FLOAT_WORD, False)
+                else:
+                    assert arg.type == 'r'
+                    self.setdatatype('r', INT_WORD, False)
                 return
             self.setdatatype(arg.datatype, arg.bytesize, arg.signed)
         assert self.datatype != '\x00'
