@@ -2023,7 +2023,7 @@ class MetaInterp(object):
             moreargs = [box] + extraargs
         else:
             moreargs = list(extraargs)
-        if opnum == rop.GUARD_EXCEPTION or opnum == rop.GUARD_OVERFLOW:
+        if opnum == rop.GUARD_EXCEPTION:
             guard_op = self.history.record(opnum, moreargs,
                                            lltype.nullptr(llmemory.GCREF.TO))
         else:
@@ -2454,46 +2454,16 @@ class MetaInterp(object):
         self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
 
     def prepare_resume_from_failure(self, deadframe):
-        xxx
-        frame = self.framestack[-1]
-        if opnum == rop.GUARD_FUTURE_CONDITION:
-            pass
-        elif opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
-            pass # frame.pc = frame.jitcode.follow_jump(frame.pc)
-        elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops jumping;
-            pass                  # or a switch that was in its "default" case
-        elif opnum == rop.GUARD_VALUE or opnum == rop.GUARD_CLASS:
-            pass        # the pc is already set to the *start* of the opcode
-        elif (opnum == rop.GUARD_NONNULL or
-              opnum == rop.GUARD_ISNULL or
-              opnum == rop.GUARD_NONNULL_CLASS):
-            pass        # the pc is already set to the *start* of the opcode
-        elif opnum == rop.GUARD_NO_EXCEPTION or opnum == rop.GUARD_EXCEPTION:
-            exception = self.cpu.grab_exc_value(deadframe)
-            if exception:
-                self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
-                                                              exception))
-            else:
-                self.clear_exception()
-            try:
-                self.handle_possible_exception()
-            except ChangeFrame:
-                pass
-        elif opnum == rop.GUARD_NOT_INVALIDATED:
-            pass # XXX we want to do something special in resume descr,
-                 # but not now
-        elif opnum == rop.GUARD_NO_OVERFLOW:   # an overflow now detected
-            pass
-            #self.execute_raised(OverflowError(), constant=True)
-            #try:
-            #    self.finishframe_exception()
-            #except ChangeFrame:
-            #    pass
-        elif opnum == rop.GUARD_OVERFLOW:      # no longer overflowing
-            self.clear_exception()
-        else:
-            from rpython.jit.metainterp.resoperation import opname
-            raise NotImplementedError(opname[opnum])
+        exception = self.cpu.grab_exc_value(deadframe)
+        if exception:
+            self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
+                                                          exception))
+        #else:
+        #    self.clear_exception()
+        #try:
+        #    self.handle_possible_exception()
+        #except ChangeFrame:
+        #    pass
 
     def get_procedure_token(self, greenkey, with_compiled_targets=False):
         JitCell = self.jitdriver_sd.warmstate.JitCell

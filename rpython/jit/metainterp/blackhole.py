@@ -212,6 +212,20 @@ class BlackholeInterpBuilder(object):
                 assert lltype.typeOf(result) is longlong.FLOATSTORAGE
                 self.registers_f[ord(code[position])] = result
                 position += 1
+            elif resulttype == "iL":
+                result, new_position = result
+                if new_position != -1:
+                    position = new_position
+                    next_argcode = next_argcode + 2
+                else:
+                    assert argcodes[next_argcode] == '>'
+                    assert argcodes[next_argcode + 1] == 'i'
+                    next_argcode = next_argcode + 2
+                    if lltype.typeOf(result) is lltype.Bool:
+                        result = int(result)
+                    assert lltype.typeOf(result) is lltype.Signed
+                    self.registers_i[ord(code[position])] = result
+                    position += 1
             elif resulttype == 'L':
                 assert result >= 0
                 position = result
@@ -402,12 +416,12 @@ class BlackholeInterpreter(object):
     def bhimpl_int_sub_ovf(a, b):
         return ovfcheck(a - b)
 
-    @arguments("L", "i", "i", returns="i")
+    @arguments("L", "i", "i", returns="iL")
     def bhimpl_int_mul_jump_if_ovf(label, a, b):
         try:
-            return ovfcheck(a * b)
+            return ovfcheck(a * b), -1
         except OverflowError:
-            xxx
+            return 0, label
 
     @arguments("i", "i", returns="i")
     def bhimpl_int_floordiv(a, b):
