@@ -847,44 +847,8 @@ class ResumeGuardDescr(ResumeDescr):
                 assert 0, box.type
             self.status = ty | (r_uint(i) << self.ST_SHIFT)
 
-class ResumeGuardNonnullDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_NONNULL
-
-class ResumeGuardIsnullDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_ISNULL
-
-class ResumeGuardClassDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_CLASS
-
-class ResumeGuardTrueDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_TRUE
-
-class ResumeGuardFalseDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_FALSE
-
-class ResumeGuardNonnullClassDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_NONNULL_CLASS
-
-class ResumeGuardExceptionDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_EXCEPTION
-
-class ResumeGuardNoExceptionDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_NO_EXCEPTION
-
-class ResumeGuardOverflowDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_OVERFLOW
-
-class ResumeGuardNoOverflowDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_NO_OVERFLOW
-
-class ResumeGuardValueDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_VALUE
-
-class ResumeGuardNotInvalidated(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_NOT_INVALIDATED
-
 class ResumeAtPositionDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_FUTURE_CONDITION
+    pass
 
 class AllVirtuals:
     llopaque = True
@@ -905,8 +869,6 @@ class AllVirtuals:
 
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_NOT_FORCED
-
     def _init(self, metainterp_sd, jitdriver_sd):
         # to please the annotator
         self.metainterp_sd = metainterp_sd
@@ -969,37 +931,11 @@ def invent_fail_descr_for_op(opnum, optimizer):
     if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
         resumedescr = ResumeGuardForcedDescr()
         resumedescr._init(optimizer.metainterp_sd, optimizer.jitdriver_sd)
-    elif opnum == rop.GUARD_NOT_INVALIDATED:
-        resumedescr = ResumeGuardNotInvalidated()
-    elif opnum == rop.GUARD_FUTURE_CONDITION:
-        resumedescr = ResumeAtPositionDescr()
-    elif opnum == rop.GUARD_VALUE:
-        resumedescr = ResumeGuardValueDescr()
-    elif opnum == rop.GUARD_NONNULL:
-        resumedescr = ResumeGuardNonnullDescr()
-    elif opnum == rop.GUARD_ISNULL:
-        resumedescr = ResumeGuardIsnullDescr()
-    elif opnum == rop.GUARD_NONNULL_CLASS:
-        resumedescr = ResumeGuardNonnullClassDescr()
-    elif opnum == rop.GUARD_CLASS:
-        resumedescr = ResumeGuardClassDescr()
-    elif opnum == rop.GUARD_TRUE:
-        resumedescr = ResumeGuardTrueDescr()
-    elif opnum == rop.GUARD_FALSE:
-        resumedescr = ResumeGuardFalseDescr()
-    elif opnum == rop.GUARD_EXCEPTION:
-        resumedescr = ResumeGuardExceptionDescr()
-    elif opnum == rop.GUARD_NO_EXCEPTION:
-        resumedescr = ResumeGuardNoExceptionDescr()
-    elif opnum == rop.GUARD_OVERFLOW:
-        resumedescr = ResumeGuardOverflowDescr()
-    elif opnum == rop.GUARD_NO_OVERFLOW:
-        resumedescr = ResumeGuardNoOverflowDescr()
     elif opnum in (rop.GUARD_IS_OBJECT, rop.GUARD_SUBCLASS, rop.GUARD_GC_TYPE):
         # note - this only happens in tests
         resumedescr = ResumeAtPositionDescr()
     else:
-        assert False
+        resumedescr = ResumeGuardDescr()
     return resumedescr
 
 class ResumeFromInterpDescr(ResumeDescr):
