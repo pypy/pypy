@@ -36,7 +36,7 @@ from rpython.jit.backend.llsupport.symbolic import (WORD as INT_WORD,
 class VectorLoop(object):
     def __init__(self, label, oplist, jump):
         self.label = label
-        self.inputargs = label.getarglist()
+        self.inputargs = label.getarglist_copy()
         self.prefix = []
         self.prefix_label = None
         assert self.label.getopnum() == rop.LABEL
@@ -160,15 +160,6 @@ class VectorizingOptimizer(Optimizer):
         self.has_two_labels = False
 
     def propagate_all_forward(self, info, loop):
-        #label = loop.label
-        #jump = loop.jump
-        #if jump.getopnum() not in (rop.LABEL, rop.JUMP) or \
-        #   label.getopnum() != rop.LABEL:
-        #    import pdb; pdb. set_trace()
-        #    raise NotAVectorizeableLoop()
-        #if jump.numargs() != label.numargs():
-        #    import pdb; pdb. set_trace()
-        #    raise NotAVectorizeableLoop()
         self.orig_label_args = loop.label.getarglist_copy()
         self.linear_find_smallest_type(loop)
         byte_count = self.smallest_type_bytes
@@ -207,29 +198,6 @@ class VectorizingOptimizer(Optimizer):
     def unroll_loop_iterations(self, loop, unroll_count):
         """ Unroll the loop X times. unroll_count + 1 = unroll_factor """
         numops = len(loop.operations)
-        # use the target token of the label
-        #target_token = label_op.getdescr()
-        #if not we_are_translated():
-        #    target_token.assumed_classes = {}
-        #if jump_op.getopnum() == rop.LABEL:
-        #    jump_op = ResOperation(rop.JUMP, jump_op.getarglist(), target_token)
-        #else:
-        #    jump_op = jump_op.clone()
-        #    jump_op.setdescr(target_token)
-        #assert jump_op.is_final()
-
-        #self.emit_unrolled_operation(label_op)
-
-        #for i in range(0,numops):
-        #    op = loop.operations[i].copy()
-        #    if op.is_guard():
-        #        assert isinstance(op, GuardResOp)
-        #        failargs = renamer.rename_failargs(op, clone=True)
-        #        snapshot = renamer.rename_rd_snapshot(op.rd_snapshot, clone=True)
-        #        op.setfailargs(failargs)
-        #        op.rd_snapshot = snapshot
-        #    operations.append(op)
-        #    self.emit_unrolled_operation(op)
 
         renamer = Renamer()
         operations = loop.operations
@@ -560,16 +528,12 @@ class VectorizingOptimizer(Optimizer):
         """ Marks this guard as an early exit! """
         op = node.getoperation()
         assert isinstance(op, GuardResOp)
-        descr = None
         if op.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE):
             descr = CompileLoopVersionDescr()
-        else:
-            descr = ResumeAtLoopHeaderDescr()
-        if op.getdescr():
-            descr.copy_all_attributes_from(op.getdescr())
-        #
-        op.setdescr(descr)
-        op.setfailargs(loop.inputargs)
+            if op.getdescr():
+                descr.copy_all_attributes_from(op.getdescr())
+            op.setdescr(descr)
+        op.setfailargs(loop.label.getarglist_copy())
 
 class CostModel(object):
     """ Utility to estimate the savings for the new trace loop.
@@ -789,6 +753,9 @@ class PackSet(object):
         for pack in self.packs:
             if not pack.is_accumulating():
                 continue
+            for i,node in enumerate(pack.operations):
+                op = node.getoperation()
+                state.accumulation[op] = pack
             assert isinstance(pack, AccumPack)
             datatype = pack.getdatatype()
             bytesize = pack.getbytesize()
@@ -817,6 +784,7 @@ class PackSet(object):
             # rename the variable with the box
             state.setvector_of_box(pack.getseed(), 0, vecop) # prevent it from expansion
             state.renamer.start_renaming(pack.getseed(), vecop)
+
 
     def split_overloaded_packs(self):
         newpacks = []

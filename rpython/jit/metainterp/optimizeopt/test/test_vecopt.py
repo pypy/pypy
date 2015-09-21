@@ -1085,7 +1085,7 @@ class BaseTestVectorize(VecTestHelper):
         f2 = float_add(f0, f1)
         i1 = int_add(i0, 8)
         i2 = int_lt(i1, 100)
-        guard_false(i2) [p0, i0, f2]
+        guard_true(i2) [p0, i0, f2]
         jump(p0, i1, f2)
         """
         trace_opt = """
@@ -1094,9 +1094,11 @@ class BaseTestVectorize(VecTestHelper):
         v7[2xf64] = vec_int_xor(v6[0xf64], v6[0xf64])
         v2[2xf64] = vec_pack_f(v7[2xf64], f0, 0, 1)
         label(p0, i0, v2[2xf64])
+        i100 = int_add(i0, 8)
+        i200 = int_lt(i100, 100)
         i1 = int_add(i0, 16)
         i2 = int_lt(i1, 100)
-        guard_false(i2) [p0, i0, v2[2xf64]]
+        guard_true(i2) [p0, i0, v2[2xf64]]
         i10 = int_add(i0, 16)
         i20 = int_lt(i10, 100)
         v1[2xf64] = vec_raw_load_f(p0, i0, descr=floatarraydescr)
@@ -1108,7 +1110,7 @@ class BaseTestVectorize(VecTestHelper):
         self.assert_equal(loop, self.parse_loop(trace_opt))
 
     def test_element_f45_in_guard_failargs(self):
-        ops = """
+        trace = self.parse_loop("""
         [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
         f45 = raw_load_f(i21, i44, descr=floatarraydescr) 
         guard_not_invalidated() [p38, p12, p9, p14, f45, p39, i37, i44, f35, i40, p42, i43, None, i28, p36, i41]
@@ -1122,33 +1124,33 @@ class BaseTestVectorize(VecTestHelper):
         i52 = int_ge(i50, i18) 
         guard_false(i52) [p38, p12, p9, p14, i48, i46, f47, i51, i50, f45, p39, None, None, None, i40, p42, i43, None, None, p36, None]
         jump(p36, i50, p9, i51, p14, f45, p12, p38, f47, p39, i40, i48, p42, i43, i46, i21, i4, i0, i18)
-        """
-        opt = """
+        """)
+        trace_opt = self.parse_loop("""
         [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
-        guard_not_invalidated() [p38, p12, p9, p14, p39, i37, i44, f35, i40, p42, i43, f34, i28, p36, i41]
+        guard_not_invalidated() [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
         i50 = int_add(i28, 1) 
-        i48 = int_add(i41, 8) 
-        i51 = int_add(i37, 8) 
-        i54 = int_add(i41, 16) 
-        i46 = int_add(i44, 8) 
-        i56 = int_add(i37, 16) 
-        i52 = int_ge(i50, i18) 
-        i637 = int_add(i28, 2)
-        i638 = int_ge(i637, i18)
+        i20 = int_ge(i50, i18)
+        i54 = int_add(i28, 2) 
+        i638 = int_ge(i54, i18)
         guard_false(i638) [p36, i28, p9, i37, p14, f34, p12, p38, f35, p39, i40, i41, p42, i43, i44, i21, i4, i0, i18]
+        i12 = int_add(i44, 8)
+        i56 = int_add(i41, 8) 
+        i46 = int_add(i37, 8) 
+        i47 = int_add(i28, 2) 
+        i52 = int_ge(i47, i18) 
         i55 = int_add(i44, 16) 
-        i629 = int_add(i28, 2)
-        i57 = int_ge(i637, i18) 
-        v61 = vec_raw_load_f(i21, i44, 2, descr=floatarraydescr) 
-        v62 = vec_raw_load_f(i4, i41, 2, descr=floatarraydescr) 
-        v63 = vec_float_add(v61, v62) 
+        i629 = int_add(i41, 16)
+        i637 = int_add(i37, 16)
+        v61[2xf64] = vec_raw_load_f(i21, i44, descr=floatarraydescr) 
+        v62[2xf64] = vec_raw_load_f(i4, i41, descr=floatarraydescr) 
+        v63[2xf64] = vec_float_add(v61, v62) 
         vec_raw_store(i0, i37, v63, descr=floatarraydescr) 
-        f100 = vec_float_unpack(v61, 1, 1)
-        f101 = vec_float_unpack(v62, 1, 1)
+        f100 = vec_unpack_f(v61, 1, 1)
+        f101 = vec_unpack_f(v62, 1, 1)
         jump(p36, i637, p9, i56, p14, f100, p12, p38, f101, p39, i40, i54, p42, i43, i55, i21, i4, i0, i18)
-        """
-        vopt = self.vectorize(self.parse_loop(ops))
-        self.assert_equal(vopt.loop, self.parse_loop(opt))
+        """)
+        vopt = self.vectorize(trace)
+        self.assert_equal(trace, trace_opt)
 
     def test_shrink_vector_size(self):
         ops = """
@@ -1187,7 +1189,7 @@ class BaseTestVectorize(VecTestHelper):
         self.assert_equal(loop, self.parse_loop(opt))
 
     def test_castup_arith_castdown(self):
-        ops = """
+        trace = self.parse_loop("""
         [p0,p1,p2,i0,i4]
         i10 = raw_load_i(p0, i0, descr=float32arraydescr)
         i1 = int_add(i0, 4)
@@ -1201,76 +1203,57 @@ class BaseTestVectorize(VecTestHelper):
         i186 = int_lt(i5, 100) 
         guard_true(i186) []
         jump(p0,p1,p2,i1,i5)
-        """
-        opt = """
+        """)
+        trace_opt = self.parse_loop("""
         [p0, p1, p2, i0, i4]
         i5 = int_add(i4, 4)
-        i1 = int_add(i0, 4)
         i186 = int_lt(i5, 100)
         i500 = int_add(i4, 16)
         i501 = int_lt(i500, 100)
         guard_true(i501) [p0, p1, p2, i0, i4]
-        i189 = int_add(i0, 8)
+        i189 = int_add(i0, 4)
         i187 = int_add(i4, 8)
-        i198 = int_add(i0, 12)
         i188 = int_lt(i187, 100)
-        i207 = int_add(i0, 16)
+        i207 = int_add(i0, 8)
         i196 = int_add(i4, 12)
         i197 = int_lt(i196, 100)
-        i205 = int_add(i4, 16)
-        i206 = int_lt(i205, 100)
-        v228 = vec_raw_load_i(p0, i0, 4, descr=float32arraydescr)
-        v229 = vec_cast_singlefloat_to_float(v228)
-        v230 = vec_int_unpack(v228, 2, 2)
+        i205 = int_add(i0, 12)
+        i400 = int_add(i4, 16)
+        i401= int_lt(i400, 100)
+        i402 = int_add(i0, 16)
+        v228[4xi32] = vec_raw_load_i(p0, i0, descr=float32arraydescr)
+        v229[2xf64] = vec_cast_singlefloat_to_float(v228)
+        v230 = vec_unpack_i(v228, 2, 2)
         v231 = vec_cast_singlefloat_to_float(v230)
-        v232 = vec_raw_load_i(p1, i1, 4, descr=float32arraydescr)
+        v232 = vec_raw_load_i(p1, i189, descr=float32arraydescr)
         v233 = vec_cast_singlefloat_to_float(v232)
-        v234 = vec_int_unpack(v232, 2, 2)
+        v236 = vec_float_add(v229, v233)
+        v238 = vec_cast_float_to_singlefloat(v236)
+        v234 = vec_unpack_i(v232, 2, 2)
         v235 = vec_cast_singlefloat_to_float(v234)
         v237 = vec_float_add(v231, v235)
         v239 = vec_cast_float_to_singlefloat(v237)
-        v236 = vec_float_add(v229, v233)
-        v238 = vec_cast_float_to_singlefloat(v236)
-        v240 = vec_pack_f(v238, v239, 2, 2)
+        v240 = vec_pack_i(v238, v239, 2, 2)
         vec_raw_store(p2, i4, v240, descr=float32arraydescr)
         jump(p0, p1, p2, i207, i500)
-        """
-        vopt = self.vectorize(self.parse_loop(ops))
-        self.assert_equal(vopt.loop, self.parse_loop(opt))
-
-    def test_truediv_abs_neg_float(self):
-        ops = """
-        [f9,p10,i11,p4,i12,p2,p5,p13,i14,p7,i15,p8,i16,f17,i18,i19]
-        f20 = raw_load(i16, i12, descr=floatarraydescr)
-        guard_not_invalidated() [p8, p7, p5, p4, p2, f20, None, i12, i11, p10, i15, i14, p13]
-        i23 = int_add(i12, 8)
-        f24 = float_truediv(f20, f17)
-        f25 = float_abs(f20)
-        f26 = float_neg(f20)
-        raw_store(i18, i15, f24, descr=floatarraydescr)
-        i26 = int_add(i14, 1)
-        i28 = int_add(i15, 8)
-        i29 = int_ge(i26, i19)
-        guard_false(i29) [p8, p7, p5, p4, p2, f20, i23, i28, None, p13]
-        jump(f20, p10, i11, p4, i23, p2, p5, p13, i26, p7, i28, p8, i16, f17, i18, i19)
-        """
-        opt = self.vectorize(self.parse_loop(ops))
-        self.debug_print_operations(opt.loop)
+        """)
+        vopt = self.vectorize(trace)
+        self.assert_equal(trace, trace_opt)
 
     def test_axis_sum(self):
         trace = """
         [i1, p10, i11, p8, i12, p3, p4, p13, i14, i15, p6, p9, i16, i17, i18, i19, i20, i21, i22, i23]
-        f24 = raw_load(i16, i12, descr=floatarraydescr)
+        f24 = raw_load_f(i16, i12, descr=floatarraydescr)
         guard_not_invalidated() [i1, p9, p8, p6, p4, p3, f24, i11, i15, p13, i12, i14, p10]
         i26 = int_add(i12, 8)
-        i27 = getarrayitem_gc(p13, i1, descr=floatarraydescr)
+        i27 = getarrayitem_gc_f(p13, i1, descr=floatarraydescr)
         i28 = int_is_zero(i27)
         guard_false(i28) [i1, p9, p8, p6, p4, p3, f24, i26, i11, i15, p13, None, i14, p10]
-        f30 = raw_load(i17, i15, descr=floatarraydescr)
+        f30 = raw_load_f(i17, i15, descr=floatarraydescr)
         f31 = float_add(f30, f24)
         raw_store(i18, i15, f31, descr=floatarraydescr)
         i33 = int_add(i14, 1)
-        i34 = getarrayitem_gc(p13, i19, descr=floatarraydescr)
+        i34 = getarrayitem_gc_f(p13, i19, descr=floatarraydescr)
         i35 = int_lt(i34, i20)
         guard_true(i35) [i1, p9, p8, p6, p4, p3, i21, i34, i15, i33, i19, p13, f31, None, i26, i11, None, None, None, i14, p10]
         i37 = int_add(i34, 1)
@@ -1287,7 +1270,8 @@ class BaseTestVectorize(VecTestHelper):
             pass
 
     def test_cast_1(self):
-        trace = """
+        # TODO
+        trace = self.parse_loop("""
         [i9, i10, p2, p11, i12, i13, p4, p5, p14, i15, p8, i16, p17, i18, i19, i20, i21, i22, i23]
         i24 = raw_load_i(i20, i16, descr=float32arraydescr)
         guard_not_invalidated() [p8, p5, p4, p2, i24, p17, i13, i12, i10, i19, p14, p11, i18, i15, i16, None]
@@ -1304,11 +1288,33 @@ class BaseTestVectorize(VecTestHelper):
         i39 = int_ge(i36, i23)
         guard_false(i39) [p8, p5, p4, p2, i27, i28, i30, i24, i38, i36, p17, None, None, None, None, p14, p11, i18, i15, None, None]
         jump(i24, i28, p2, p11, i36, i38, p4, p5, p14, i15, p8, i27, p17, i18, i30, i20, i21, i22, i23)
-        """
-        opt = self.vectorize(self.parse_loop(trace))
-        self.debug_print_operations(opt.loop)
+        """)
+        opt = self.vectorize(trace)
+        self.debug_print_operations(trace)
+
+    def test_truediv_abs_neg_float(self):
+        # TODO
+        trace = self.parse_loop("""
+        [f9,p10,i11,p4,i12,p2,p5,p13,i14,p7,i15,p8,i16,f17,i18,i19]
+        f20 = raw_load_f(i16, i12, descr=floatarraydescr)
+        guard_not_invalidated() [p8, p7, p5, p4, p2, f20, None, i12, i11, p10, i15, i14, p13]
+        i23 = int_add(i12, 8)
+        f24 = float_truediv(f20, f17)
+        f25 = float_abs(f20)
+        f26 = float_neg(f20)
+        raw_store(i18, i15, f24, descr=floatarraydescr)
+        i26 = int_add(i14, 1)
+        i28 = int_add(i15, 8)
+        i29 = int_ge(i26, i19)
+        guard_false(i29) [p8, p7, p5, p4, p2, f20, i23, i28, None, p13]
+        jump(f20, p10, i11, p4, i23, p2, p5, p13, i26, p7, i28, p8, i16, f17, i18, i19)
+        """)
+        opt = self.vectorize(trace)
+        self.debug_print_operations(trace)
+
 
     def test_all_guard(self):
+        # TODO
         trace = """
         [p0, p3, i4, i5, i6, i7]
         f8 = raw_load_f(i6, i5, descr=floatarraydescr)
@@ -1327,6 +1333,7 @@ class BaseTestVectorize(VecTestHelper):
         self.debug_print_operations(loop)
 
     def test_max(self):
+        # TODO
         trace = """
         [p3, i4, p2, i5, f6, i7, i8]
         f9 = raw_load_f(i7, i5, descr=floatarraydescr)

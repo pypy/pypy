@@ -5,6 +5,7 @@ from rpython.jit.metainterp.resoperation import (rop, ResOperation,
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.optimizeopt.renamer import Renamer
+from rpython.jit.metainterp.resume import AccumInfo
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.jitexc import NotAProfitableLoop
 from rpython.rlib.objectmodel import specialize, always_inline
@@ -23,14 +24,16 @@ class SchedulerState(object):
     def post_schedule(self):
         loop = self.graph.loop
         self.renamer.rename(loop.jump)
+        self.ensure_args_unpacked(loop.jump)
         loop.operations = self.oplist
         loop.prefix = self.invariant_oplist
-        if len(self.invariant_vector_vars) > 0:
-            # TODO, accum?
+        if len(self.invariant_vector_vars) + len(self.invariant_oplist) > 0:
             args = loop.label.getarglist_copy() + self.invariant_vector_vars
             opnum = loop.label.getopnum()
             # TODO descr?
-            loop.prefix_label = loop.label.copy_and_change(opnum, args)
+            op = loop.label.copy_and_change(opnum, args)
+            self.renamer.rename(op)
+            loop.prefix_label = op
 
     def profitable(self):
         return True
@@ -172,25 +175,22 @@ class TypeRestrict(object):
     def any_size(self):
         return self.bytesize == TypeRestrict.ANY_SIZE
 
+    @always_inline
+    def any_count(self):
+        return self.count == TypeRestrict.ANY_COUNT
+
     def check(self, value):
         assert value.datatype != '\x00'
         if self.type != TypeRestrict.ANY_TYPE:
-            if self.type != value.datatype:
-                assert 0, "type mismatch"
-
+            assert self.type == value.datatype
         assert value.bytesize > 0
         if not self.any_size():
-            if self.bytesize != value.bytesize:
-                assert 0, "size mismatch"
-
+            assert self.bytesize == value.bytesize
         assert value.count > 0
         if self.count != TypeRestrict.ANY_COUNT:
-            if self.count != value.count:
-                assert 0, "count mismatch"
-
+            assert value.count >= self.count
         if self.sign != TypeRestrict.ANY_SIGN:
-            if bool(self.sign) != value.sign:
-                assert 0, "sign mismatch"
+            assert bool(self.sign) == value.sign
 
     def max_input_count(self, count):
         """ How many """
@@ -205,8 +205,7 @@ class trans(object):
     TR_ANY_INTEGER = TypeRestrict(INT)
     TR_FLOAT_2 = TypeRestrict(FLOAT, 4, 2)
     TR_DOUBLE_2 = TypeRestrict(FLOAT, 8, 2)
-    TR_LONG = TypeRestrict(INT, 8, 2)
-    TR_INT_2 = TypeRestrict(INT, 4, 2)
+    TR_INT32_2 = TypeRestrict(INT, 4, 2)
 
     # note that the following definition is x86 arch specific
     MAPPING = {
@@ -237,9 +236,10 @@ class trans(object):
         rop.VEC_INT_SIGNEXT:        [TR_ANY_INTEGER],
 
         rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT:  [TR_DOUBLE_2],
-        rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT:  [TR_FLOAT_2],
+        # weird but the trace will store single floats in int boxes
+        rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT:  [TR_INT32_2],
         rop.VEC_CAST_FLOAT_TO_INT:          [TR_DOUBLE_2],
-        rop.VEC_CAST_INT_TO_FLOAT:          [TR_INT_2],
+        rop.VEC_CAST_INT_TO_FLOAT:          [TR_INT32_2],
 
         rop.VEC_FLOAT_EQ:           [TR_ANY_FLOAT,TR_ANY_FLOAT],
         rop.VEC_FLOAT_NE:           [TR_ANY_FLOAT,TR_ANY_FLOAT],
@@ -264,11 +264,6 @@ def turn_into_vector(state, pack):
         assert isinstance(vecop, GuardResOp)
         vecop.setfailargs(op.getfailargs())
         vecop.rd_snapshot = op.rd_snapshot
-    if pack.is_accumulating():
-        for i,node in enumerate(pack.operations):
-            op = node.getoperation()
-            state.accumulation[op] = pack
-
 
 def prepare_arguments(state, pack, args):
     # Transforming one argument to a vector box argument
@@ -344,6 +339,12 @@ def gather(state, vectors, count): # packed < packable and packed < stride:
 
 @always_inline
 def position_values(state, restrict, pack, args, index, position):
+    arg = args[index]
+    newcount, count = restrict.count, arg.count
+    if not restrict.any_count() and newcount != count:
+        if position == 0:
+            pass
+        pass
     if position != 0:
         # The vector box is at a position != 0 but it
         # is required to be at position 0. Unpack it!
@@ -527,18 +528,17 @@ class VecScheduleState(SchedulerState):
             #self.appendedvar_pos_arg_count = len(sched_data.invariant_vector_vars)
             failargs = op.getfailargs()
             descr = op.getdescr()
+            # note: stitching a guard must resemble the order of the label
+            # otherwise a wrong mapping is handed to the register allocator
             for i,arg in enumerate(failargs):
                 if arg is None:
                     continue
                 accum = self.accumulation.get(arg, None)
                 if accum:
                     assert isinstance(accum, AccumPack)
-                    accum.attach_accum_info(descr.rd_accum_list, i)
-
-    def post_schedule(self):
-        loop = self.graph.loop
-        self.ensure_args_unpacked(loop.jump)
-        SchedulerState.post_schedule(self)
+                    accum.attach_accum_info(descr, i, arg)
+                    seed = accum.getseed()
+                    failargs[i] = self.renamer.rename_map.get(seed, seed)
 
     def profitable(self):
         return self.costmodel.profitable()
@@ -602,6 +602,8 @@ class VecScheduleState(SchedulerState):
         if var:
             if var in self.invariant_vector_vars:
                 return arg
+            if arg in self.accumulation:
+                return var
             args = [var, ConstInt(pos), ConstInt(1)]
             vecop = OpHelpers.create_vec_unpack(var.type, args, var.bytesize,
                                                 var.signed, 1)
@@ -757,12 +759,12 @@ class Pack(object):
             vector register.
         """
         before_count = len(packlist)
-        #print "splitting pack", self
+        print "splitting pack", self
         pack = self
         while pack.pack_load(vec_reg_size) > Pack.FULL:
             pack.clear()
             oplist, newoplist = pack.slice_operations(vec_reg_size)
-            #print "  split of %dx, left: %d" % (len(oplist), len(newoplist))
+            print "  split of %dx, left: %d" % (len(oplist), len(newoplist))
             pack.operations = oplist
             pack.update_pack_of_nodes()
             if not pack.leftmost().is_typecast():
@@ -778,7 +780,7 @@ class Pack(object):
                 newpack.clear()
                 newpack.operations = []
                 break
-        #print "  => %dx packs out of %d operations" % (-before_count + len(packlist) + 1, sum([pack.numops() for pack in packlist[before_count:]]))
+        print "  => %dx packs out of %d operations" % (-before_count + len(packlist) + 1, sum([pack.numops() for pack in packlist[before_count:]]))
         pack.update_pack_of_nodes()
 
     def slice_operations(self, vec_reg_size):
@@ -864,9 +866,8 @@ class AccumPack(Pack):
         return 0
 
     def attach_accum_info(self, descr, position, scalar):
-        descr.rd_accum_list = AccumInfo(descr.rd_accum_list,
-                                        position, self.operator,
-                                        self.scalar, None)
+        descr.rd_accum_list = AccumInfo(descr.rd_accum_list, position, self.operator,
+                                        scalar, None)
 
     def is_accumulating(self):
         return True

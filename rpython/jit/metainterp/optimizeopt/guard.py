@@ -91,7 +91,7 @@ class Guard(object):
         guard.setdescr(descr.clone())
         guard.setarg(0, box_result)
         label = loop.find_first(rop.LABEL)
-        guard.setfailargs(label.getarglist())
+        guard.setfailargs(label.getarglist()[:])
         opt.emit_operation(guard)
 
         return guard
@@ -120,7 +120,7 @@ class Guard(object):
         descr = myop.getdescr()
         descr.copy_all_attributes_from(other.op.getdescr())
         myop.rd_frame_info_list = otherop.rd_frame_info_list
-        myop.setfailargs(otherop.getfailargs())
+        myop.setfailargs(otherop.getfailargs()[:])
         myop.rd_snapshot = otherop.rd_snapshot
 
     def emit_varops(self, opt, var, old_arg):
@@ -140,6 +140,7 @@ class Guard(object):
         opt.emit_operation(cmp_op)
         # emit that actual guard
         guard = ResOperation(self.op.getopnum(), [cmp_op], self.op.getdescr())
+        guard.setfailargs(self.op.getfailargs()[:])
         opt.emit_operation(guard)
         self.setindex(opt.operation_position()-1)
         self.setoperation(guard)
@@ -173,6 +174,7 @@ class GuardStrengthenOpt(object):
         self.strength_reduced = 0 # how many guards could be removed?
         self.strongest_guards = {}
         self.guards = {}
+        self.delayed = {}
 
     def collect_guard_information(self, loop):
         operations = loop.operations
@@ -271,7 +273,29 @@ class GuardStrengthenOpt(object):
 
     def emit_operation(self, op):
         self.renamer.rename(op)
+        #if op.is_always_pure():
+        #    self.delay(op)
+        #    return
+        #self.emit_delayed_for(op)
+        #if not op.is_always_pure():
         self._newoperations.append(op)
+
+    def delay(self, op):
+        self.delayed[op] = None
+        print "delayed", op
+
+    def emit_delayed_for(self, op):
+        if op.is_inputarg():
+            return
+        additional = []
+        if op.is_guard():
+            additional = op.getfailargs()
+        for arg in op.getarglist() + additional:
+            if arg in self.delayed:
+                del self.delayed[arg]
+                self.emit_delayed_for(arg)
+                self._newoperations.append(op)
+
 
     def operation_position(self):
         return len(self._newoperations)

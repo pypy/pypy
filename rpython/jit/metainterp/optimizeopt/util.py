@@ -148,6 +148,7 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
             x = op1.getarg(i)
             y = op2.getarg(i)
             assert x.same_box(remap.get(y, y))
+            assert x.same_shape(remap.get(y, y))
         if op2 in remap:
             assert op1.same_box(remap[op2])
         else:

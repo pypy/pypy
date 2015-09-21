@@ -37,7 +37,7 @@ class AbstractValue(object):
         return self is other
 
     def same_shape(self, other):
-        return self is other
+        return True
 
     def repr_short(self, memo):
         return self.repr(memo)

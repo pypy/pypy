@@ -28,9 +28,6 @@ class LoopVersionInfo(BasicLoopInfo):
         else:
             self.descrs.append(descr)
         self.leads_to[descr] = version
-        # note: stitching a guard must resemble the order of the label
-        # otherwise a wrong mapping is handed to the register allocator
-        op.setfailargs(version.renamed_inputargs)
         assert version.renamed_inputargs is not None
 
     def remove(self, descr):
