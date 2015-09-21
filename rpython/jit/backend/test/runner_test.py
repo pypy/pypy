@@ -3852,17 +3852,19 @@ class LLtypeBackendTest(BaseBackendTest):
         finish_descr2 = loop2.operations[-1].getdescr()
 
         # check the jitframeinfo
-        num1 = looptoken.compiled_loop_token.frame_info.jfi_frame_depth
-        num2 = looptoken2.compiled_loop_token.frame_info.jfi_frame_depth
-        assert num1 < num2
+        if isinstance(self.cpu, AbstractLLCPU):
+            num1 = looptoken.compiled_loop_token.frame_info.jfi_frame_depth
+            num2 = looptoken2.compiled_loop_token.frame_info.jfi_frame_depth
+            assert num1 < num2
 
         # install it
         self.cpu.redirect_call_assembler(looptoken, looptoken2)
 
         # check that the jitframeinfo was updated
-        num1 = looptoken.compiled_loop_token.frame_info.jfi_frame_depth
-        num2 = looptoken2.compiled_loop_token.frame_info.jfi_frame_depth
-        assert num1 == num2
+        if isinstance(self.cpu, AbstractLLCPU):
+            num1 = looptoken.compiled_loop_token.frame_info.jfi_frame_depth
+            num2 = looptoken2.compiled_loop_token.frame_info.jfi_frame_depth
+            assert num1 == num2
 
         # now, our call_assembler should go to looptoken2
         args = [longlong.getfloatstorage(6.0),
