@@ -15,7 +15,7 @@ except ImportError:
         for prod in result:
             yield tuple(prod)
 
-from rpython.flowspace.model import FunctionGraph, Block, Link
+from rpython.flowspace.model import FunctionGraph, Block, Link, c_last_exception
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
 from rpython.rtyper import rclass
@@ -287,7 +287,7 @@ def test_symmetric_int_add_ovf():
         for v2 in [varoftype(lltype.Signed), const(43)]:
             op = SpaceOperation('int_add_nonneg_ovf', [v1, v2], v3)
             oplist = Transformer(FakeCPU()).rewrite_operation(op)
-            op0, op1 = oplist
+            op1, op0 = oplist
             assert op0.opname == 'int_add_ovf'
             if isinstance(v1, Constant) and isinstance(v2, Variable):
                 assert op0.args == [v2, v1]

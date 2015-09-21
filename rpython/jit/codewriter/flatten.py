@@ -1,4 +1,4 @@
-from rpython.flowspace.model import Variable, Constant
+from rpython.flowspace.model import Variable, Constant, c_last_exception
 from rpython.jit.metainterp.history import AbstractDescr, getkind
 from rpython.rtyper.lltypesystem import lltype
 
@@ -114,6 +114,12 @@ class GraphFlattener(object):
         #
         operations = block.operations
         for i, op in enumerate(operations):
+            if '_ovf' in op.opname:
+                if (len(block.exits) != 2 or
+                    block.exitswitch is not c_last_exception):
+                    raise Exception("detected a block containing ovfcheck()"
+                                    " but no OverflowError is caught, this"
+                                    " is not legal in jitted blocks")
             self.serialize_op(op)
         #
         self.insert_exits(block)
@@ -171,11 +177,24 @@ class GraphFlattener(object):
             # An exception block. See test_exc_exitswitch in test_flatten.py
             # for an example of what kind of code this makes.
             index = -1
-            while True:
-                lastopname = block.operations[index].opname
-                if lastopname != '-live-':
-                    break
-                index -= 1
+            opname = block.operations[index].opname
+            if '_ovf' in opname:
+                # ovf checking operation as a lat thing, -live- should be
+                # one before it
+                line = self.popline()
+                self.emitline(opname[:7] + '_jump_if_ovf',
+                              TLabel(block.exits[1]), *line[1:])
+                assert len(block.exits) == 2
+                self.make_link(block.exits[0])
+                self.emitline(Label(block.exits[1]))
+                self.make_exception_link(block.exits[1])
+                return
+            else:
+                while True:
+                    lastopname = block.operations[index].opname
+                    if lastopname != '-live-':
+                        break
+                    index -= 1
             assert block.exits[0].exitcase is None # is this always True?
             #
             if not self._include_all_exc_links:
@@ -189,10 +208,7 @@ class GraphFlattener(object):
             self.make_link(block.exits[0])
             self.emitline(Label(block.exits[0]))
             for link in block.exits[1:]:
-                if (link.exitcase is Exception or
-                    (link.exitcase is OverflowError and
-                     lastopname.startswith('int_') and
-                     lastopname.endswith('_ovf'))):
+                if link.exitcase is Exception:
                     # this link captures all exceptions
                     self.make_exception_link(link)
                     break
@@ -319,6 +335,9 @@ class GraphFlattener(object):
 
     def emitline(self, *line):
         self.ssarepr.insns.append(line)
+
+    def popline(self):
+        return self.ssarepr.insns.pop()
 
     def flatten_list(self, arglist):
         args = []

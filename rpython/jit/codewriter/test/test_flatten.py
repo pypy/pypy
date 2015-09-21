@@ -538,14 +538,43 @@ class TestFlatten:
             except OverflowError:
                 return 42
         self.encoding_test(f, [7, 2], """
-            int_add_ovf %i0, %i1 -> %i2
-            -live- %i2
-            catch_exception L1
+            -live- %i0, %i1
+            int_add_jump_if_ovf L1, %i0, %i1 -> %i2
             int_return %i2
             ---
             L1:
             int_return $42
         """, transform=True, liveness=True)
+
+    def test_multiple_int_add_ovf(self):
+        def f(i, j):
+            try:
+                ovfcheck(j + i)
+                return ovfcheck(i + j)
+            except OverflowError:
+                return 42
+        self.encoding_test(f, [7, 2], """
+            -live- %i0, %i1
+            int_add_jump_if_ovf L1, %i1, %i0 -> %i2
+            int_copy %i1 -> %i3
+            int_copy %i0 -> %i4
+            -live- %i3, %i4
+            int_add_jump_if_ovf L2, %i4, %i3 -> %i5
+            int_return %i5
+            ---
+            L2:
+            int_return $42
+            ---
+            L1:
+            int_return $42
+        """, transform=True, liveness=True)
+
+    def test_ovfcheck_no_catch(self):
+        def f(i, j):
+            return ovfcheck(i + j)
+        err = py.test.raises(Exception, "self.encoding_test(f, [7, 2], '',"
+                             "transform=True, liveness=True)")
+        assert "ovfcheck()" in str(err)
 
     def test_residual_call_raising(self):
         @dont_look_inside
