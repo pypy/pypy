@@ -143,7 +143,7 @@ class VecTestHelper(DependencyBaseTest):
 
     def schedule(self, loop, unroll_factor = -1, with_guard_opt=False):
         info = FakeLoopInfo(loop)
-        info.snapshot(loop.operations + [loop.jump], loop.label)
+        info.snapshot(loop)
         opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
@@ -158,7 +158,7 @@ class VecTestHelper(DependencyBaseTest):
 
     def vectorize(self, loop, unroll_factor = -1):
         info = FakeLoopInfo(loop)
-        info.snapshot(loop.operations + [loop.jump], loop.label)
+        info.snapshot(loop)
         opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()
@@ -671,7 +671,7 @@ class BaseTestVectorize(VecTestHelper):
         """
         loop = self.parse_loop(ops)
         vopt, graph = self.init_packset(loop,1)
-        self.assert_independent(4,8)
+        self.assert_independent(graph, 4,8)
         assert vopt.packset is not None
         assert len(graph.memory_refs) == 2
         assert len(vopt.packset.packs) == 1
@@ -699,7 +699,7 @@ class BaseTestVectorize(VecTestHelper):
         for i in range(3):
             x = (i+1)*2
             y = x + 2
-            self.assert_independent(x,y)
+            self.assert_independent(graph, x,y)
             self.assert_packset_contains_pair(vopt.packset, x,y)
 
     def test_packset_init_2(self):
@@ -732,7 +732,7 @@ class BaseTestVectorize(VecTestHelper):
         for i in range(15):
             x = (i+1)*4
             y = x + 4
-            self.assert_independent(x,y)
+            self.assert_independent(graph, x,y)
             self.assert_packset_contains_pair(vopt.packset, x, y)
 
     def test_isomorphic_operations(self):
@@ -766,7 +766,7 @@ class BaseTestVectorize(VecTestHelper):
         loop = self.parse_loop(ops)
         vopt, graph = self.extend_packset(loop,1)
         assert len(graph.memory_refs) == 2
-        self.assert_independent(5,10)
+        self.assert_independent(graph, 5,10)
         assert len(vopt.packset.packs) == 2
         self.assert_packset_empty(vopt.packset,
                                   len(loop.operations),
@@ -786,9 +786,9 @@ class BaseTestVectorize(VecTestHelper):
         loop = self.parse_loop(ops)
         vopt, graph = self.extend_packset(loop,1)
         assert len(graph.memory_refs) == 4
-        self.assert_independent(4,10)
-        self.assert_independent(5,11)
-        self.assert_independent(6,12)
+        self.assert_independent(graph, 4,10)
+        self.assert_independent(graph, 5,11)
+        self.assert_independent(graph, 6,12)
         assert len(vopt.packset.packs) == 3
         self.assert_packset_empty(vopt.packset, len(loop.operations),
                                   [(6,12), (5,11), (4,10)])

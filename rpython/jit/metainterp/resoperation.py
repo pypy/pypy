@@ -133,7 +133,10 @@ class Typed(object):
         elif self.opnum == rop.INT_SIGNEXT:
             arg0 = self.getarg(0)
             arg1 = self.getarg(1)
-            self.setdatatype('i', arg1.value, arg0.signed)
+            signed = True
+            if not arg0.is_constant():
+                signed = arg0.signed
+            self.setdatatype('i', arg1.value, True)
         elif self.is_typecast():
             ft,tt = self.cast_types()
             self.setdatatype(tt, self.cast_to_bytesize(), tt == 'i')

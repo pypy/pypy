@@ -120,7 +120,7 @@ class SizeDescr(AbstractDescr):
         return self.all_fielddescrs
 
     def is_object(self):
-        self.S = S
+        return self._is_object
 
     def get_vtable(self):
         assert self._vtable is not None
