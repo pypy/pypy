@@ -30,3 +30,6 @@ before returning. This number of steps depends on the size of the
 allocated object. It is controlled by tracking the general progress
 of these major collection steps and the size of old objects that
 keep adding up between them.
+
+.. branch: remember-tracing-counts
+Reenable jithooks
