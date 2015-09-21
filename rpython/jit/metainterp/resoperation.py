@@ -699,7 +699,7 @@ class VectorOp(object):
 
     def same_shape(self, other):
         """ NOT_RPYTHON """
-        if not other.is_vector():
+        if other.is_vector() != self.is_vector():
             return False
         if self.datatype != other.datatype:
             return False

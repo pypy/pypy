@@ -82,16 +82,14 @@ class Guard(object):
         opnum = self.transitive_cmpop(self.cmp_op.getopnum())
         box_rhs = self.emit_varops(opt, self.rhs, self.cmp_op.getarg(1))
         other_rhs = self.emit_varops(opt, other.rhs, other.cmp_op.getarg(1))
-        box_result = self.cmp_op.result.clonebox()
-        opt.emit_operation(ResOperation(opnum, [box_rhs, other_rhs], box_result))
+        compare = ResOperation(opnum, [box_rhs, other_rhs])
+        opt.emit_operation(compare)
         # guard
-        guard = self.op.clone()
-        descr = guard.getdescr()
+        descr = CompileLoopVersionDescr()
+        descr.copy_all_attributes_from(self.op.getdescr())
         assert isinstance(descr, ResumeGuardDescr)
-        guard.setdescr(descr.clone())
-        guard.setarg(0, box_result)
-        label = loop.find_first(rop.LABEL)
-        guard.setfailargs(label.getarglist()[:])
+        guard = ResOperation(self.op.getopnum(), [compare], descr=descr)
+        guard.setfailargs(loop.label.getarglist_copy())
         opt.emit_operation(guard)
 
         return guard
@@ -146,12 +144,12 @@ class Guard(object):
         self.setoperation(guard)
         self.setcmp(cmp_op)
 
-    def set_to_none(self, loop):
+    def set_to_none(self, info, loop):
         operations = loop.operations
         assert operations[self.index] is self.op
         operations[self.index] = None
         descr = self.op.getdescr()
-        loop.version_info.remove(descr)
+        # TODO loop.version_info.remove(descr)
         #if descr and descr.loop_version():
         #    assert isinstance(descr, CompileLoopVersionDescr)
         #    descr.version = None
@@ -280,21 +278,22 @@ class GuardStrengthenOpt(object):
         #if not op.is_always_pure():
         self._newoperations.append(op)
 
-    def delay(self, op):
-        self.delayed[op] = None
-        print "delayed", op
+    # delay the pure ops
+    #def delay(self, op):
+    #    self.delayed[op] = None
+    #    print "delayed", op
 
-    def emit_delayed_for(self, op):
-        if op.is_inputarg():
-            return
-        additional = []
-        if op.is_guard():
-            additional = op.getfailargs()
-        for arg in op.getarglist() + additional:
-            if arg in self.delayed:
-                del self.delayed[arg]
-                self.emit_delayed_for(arg)
-                self._newoperations.append(op)
+    #def emit_delayed_for(self, op):
+    #    if op.is_inputarg():
+    #        return
+    #    additional = []
+    #    if op.is_guard():
+    #        additional = op.getfailargs()
+    #    for arg in op.getarglist() + additional:
+    #        if arg in self.delayed:
+    #            del self.delayed[arg]
+    #            self.emit_delayed_for(arg)
+    #            self._newoperations.append(op)
 
 
     def operation_position(self):
@@ -315,18 +314,21 @@ class GuardStrengthenOpt(object):
                 transitive_guard = one.transitive_imply(other, self, loop)
                 if transitive_guard:
                     if version is None:
-                        version = loop.snapshot()
-                    other.set_to_none(loop)
+                        version = info.snapshot(loop)
+                    other.set_to_none(info, loop)
                     descr = transitive_guard.getdescr()
                     assert isinstance(descr, ResumeGuardDescr)
                     info.track(transitive_guard, descr, version)
         info.clear()
 
-        if self.has_two_labels:
-            oplist = [loop.operations[0]] + self._newoperations + \
-                     [op for op in loop.operations[1:] if op]
-            loop.operations = oplist
-        else:
-            loop.operations = self._newoperations + \
-                    [op for op in loop.operations if op]
+        loop.prefix += self._newoperations
+        loop.operations = [op for op in loop.operations if op]
+
+        # TODO if self.has_two_labels:
+        # TODO     oplist = [loop.operations[0]] + self._newoperations + \
+        # TODO              [op for op in loop.operations[1:] if op]
+        # TODO     loop.operations = oplist
+        # TODO else:
+        # TODO     loop.operations = self._newoperations + \
+        # TODO             [op for op in loop.operations if op]
 

@@ -47,6 +47,14 @@ class VectorLoop(object):
     def operation_list(self):
         return [self.label] + self.operations + [self.jump]
 
+    def finaloplist(self):
+        oplist = []
+        if self.prefix_label:
+            oplist = [self.prefix_label] + self.prefix
+        elif self.prefix:
+            oplist = self.prefix
+        return oplist + self.operations + [self.jump]
+
     def assemble_oplist(self):
         oplist = self.prefix + [self.prefix_label] + \
                  loop.operations + [loop.jump]

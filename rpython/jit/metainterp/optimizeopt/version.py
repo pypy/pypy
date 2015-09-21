@@ -39,7 +39,9 @@ class LoopVersionInfo(BasicLoopInfo):
     def get(self, descr):
         return self.leads_to.get(descr, None)
 
-    def snapshot(self, operations, label):
+    def snapshot(self, loop):
+        operations = loop.finaloplist()
+        label = loop.label
         oplist = []
         ignore = (rop.DEBUG_MERGE_POINT,)
         for op in operations:

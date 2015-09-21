@@ -36,11 +36,12 @@ class DependencyBaseTest(BaseTest):
 
     def build_dependency(self, ops):
         loop = self.parse_loop(ops)
-        self.last_graph = DependencyGraph(loop)
-        self.show_dot_graph(self.last_graph, self.test_name)
-        for node in self.last_graph.nodes:
+        graph = DependencyGraph(loop)
+        self.show_dot_graph(graph, self.test_name)
+        for node in graph.nodes:
             assert node.independent(node)
-        return self.last_graph
+        graph.parsestr = ops
+        return graph
 
     def parse_loop(self, ops, add_label=True):
         loop = self.parse(ops, postprocess=self.postprocess)
@@ -116,12 +117,11 @@ class DependencyBaseTest(BaseTest):
                     "dependencies unexpected %s.\n%s" \
                     % (dependencies,graph)
 
-    def assert_dependencies(self, ops, full_check=True):
-        graph = self.build_dependency(ops)
+    def assert_dependencies(self, graph, full_check=True):
         import re
         deps = {}
         exceptions = {}
-        for i,line in enumerate(ops.splitlines()):
+        for i,line in enumerate(graph.parsestr.splitlines()):
             dep_pattern = re.compile("#\s*(\d+):")
             dep_match = dep_pattern.search(line)
             if dep_match:
@@ -142,18 +142,18 @@ class DependencyBaseTest(BaseTest):
             self.assert_edges(graph, edges, exceptions)
         return graph
 
-    def assert_independent(self, a, b):
+    def assert_independent(self, graph, a, b):
         a -= 1
         b -= 1
-        a = self.last_graph.getnode(a)
-        b = self.last_graph.getnode(b)
+        a = graph.getnode(a)
+        b = graph.getnode(b)
         assert a.independent(b), "{a} and {b} are dependent!".format(a=a,b=b)
 
-    def assert_dependent(self, a, b):
+    def assert_dependent(self, graph, a, b):
         a -= 1
         b -= 1
-        a = self.last_graph.getnode(a)
-        b = self.last_graph.getnode(b)
+        a = graph.getnode(a)
+        b = graph.getnode(b)
         assert not a.independent(b), "{a} and {b} are independent!".format(a=a,b=b)
 
     def show_dot_graph(self, graph, name):
@@ -237,82 +237,82 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         assert m1.alias(m2) == alias
 
     def test_dependency_empty(self):
-        ops = """
+        graph = self.build_dependency("""
         [] # 0: 1
         jump() # 1:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_dependency_of_constant_not_used(self):
-        ops = """
+        graph = self.build_dependency("""
         [] # 0: 2
         i1 = int_add(1,1) # 1: 2
         jump() # 2:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_dependency_simple(self):
-        ops = """
+        graph = self.build_dependency("""
         [] # 0: 4
         i1 = int_add(1,1) # 1: 2
         i2 = int_add(i1,1) # 2: 3
         guard_value(i2,3) [] # 3: 4
         jump() # 4:
-        """
-        graph = self.assert_dependencies(ops, full_check=True)
+        """)
+        graph = self.assert_dependencies(graph, full_check=True)
         self.assert_dependent(graph, 1,2)
         self.assert_dependent(graph, 2,3)
         self.assert_dependent(graph, 1,3)
 
     def test_def_use_jump_use_def(self):
-        ops = """
+        graph = self.build_dependency("""
         [i3] # 0: 1
         i1 = int_add(i3,1) # 1: 2, 3
         guard_value(i1,0) [] # 2: 3
         jump(i1) # 3:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_dependency_guard(self):
-        ops = """
+        graph = self.build_dependency("""
         [i3] # 0: 2,3
         i1 = int_add(1,1) # 1: 2
         guard_value(i1,0) [i3] # 2: 3
         jump(i3) # 3:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_dependency_guard_2(self):
-        ops = """
+        graph = self.build_dependency("""
         [i1] # 0: 1,2?,3
         i2 = int_le(i1, 10) # 1: 2
         guard_true(i2) [i1] # 2:
         i3 = int_add(i1,1) # 3: 4
         jump(i3) # 4:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_no_edge_duplication(self):
-        ops = """
+        graph = self.build_dependency("""
         [i1] # 0: 1,2?,3
         i2 = int_lt(i1,10) # 1: 2
         guard_false(i2) [i1] # 2:
         i3 = int_add(i1,i1) # 3: 4
         jump(i3) # 4:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_no_edge_duplication_in_guard_failargs(self):
-        ops = """
+        graph = self.build_dependency("""
         [i1] # 0: 1,2?,3?
         i2 = int_lt(i1,10) # 1: 2
         guard_false(i2) [i1,i1,i2,i1,i2,i1] # 2: 3
         jump(i1) # 3:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_dependencies_1(self):
-        ops="""
+        graph = self.build_dependency("""
         [i0, i1, i2] # 0: 1,3,6,7,11?
         i4 = int_gt(i1, 0) # 1: 2
         guard_true(i4) [] # 2: 5, 11?
@@ -325,62 +325,62 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         i16 = int_gt(i12, 0) # 9: 10
         guard_true(i16) [] # 10: 11
         jump(i12, i1, i14) # 11:
-        """
-        self.assert_dependencies(ops, full_check=True)
-        self.assert_independent(6, 2)
-        self.assert_independent(6, 1)
+        """)
+        self.assert_dependencies(graph, full_check=True)
+        self.assert_independent(graph, 6, 2)
+        self.assert_independent(graph, 6, 1)
 
     def test_prevent_double_arg(self):
-        ops="""
+        graph = self.build_dependency("""
         [i0, i1, i2] # 0: 1,3
         i4 = int_gt(i1, i0) # 1: 2
         guard_true(i4) [] # 2: 3
         jump(i0, i1, i2) # 3:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_ovf_dep(self):
-        ops="""
+        graph = self.build_dependency("""
         [i0, i1, i2] # 0: 2,3
         i4 = int_sub_ovf(1, 0) # 1: 2
         guard_overflow() [i2] # 2: 3
         jump(i0, i1, i2) # 3:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_exception_dep(self):
-        ops="""
+        graph = self.build_dependency("""
         [p0, i1, i2] # 0: 1,3?
         i4 = call_i(p0, 1, descr=nonwritedescr) # 1: 2,3
         guard_no_exception() [] # 2: 3
         jump(p0, i1, i2) # 3:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_call_dependency_on_ptr_but_not_index_value(self):
-        ops="""
+        graph = self.build_dependency("""
         [p0, p1, i2] # 0: 1,2?,3?,4?,5?
         i3 = int_add(i2,1) # 1: 2
         i4 = call_i(p0, i3, descr=nonwritedescr) # 2: 3,4,5?
         guard_no_exception() [i2] # 3:
         p2 = getarrayitem_gc_r(p1, i3, descr=arraydescr) # 4: 5
         jump(p2, p1, i3) # 5:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_call_dependency(self):
-        ops="""
+        graph = self.build_dependency("""
         [p0, p1, i2, i5] # 0: 1,2?,3?,4?,5?
         i3 = int_add(i2,1) # 1: 2
         i4 = call_i(i5, i3, descr=nonwritedescr) # 2: 3,4,5?
         guard_no_exception() [i2] # 3: 5?
         p2 = getarrayitem_gc_r(p1,i3,descr=chararraydescr) # 4: 5
         jump(p2, p1, i3, i5) # 5:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_call_not_forced_exception(self):
-        ops="""
+        graph = self.build_dependency("""
         [p0, p1, i2, i5] # 0: 1,2,4?,5,6
         i4 = call_i(i5, i2, descr=nonwritedescr) # 1: 2,4,6
         guard_not_forced() [i2] # 2: 3
@@ -388,47 +388,47 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         i3 = int_add(i2,1) # 4: 5
         p2 = getarrayitem_gc_r(p1,i3,descr=chararraydescr) # 5: 6
         jump(p2, p1, i2, i5) # 6:
-        """
-        self.assert_dependencies(ops, full_check=True)
-        assert self.last_graph.nodes[1].priority == 100
-        assert self.last_graph.nodes[2].priority == 100
+        """)
+        self.assert_dependencies(graph, full_check=True)
+        assert graph.nodes[1].priority == 100
+        assert graph.nodes[2].priority == 100
 
     def test_setarrayitem_dependency(self):
-        ops="""
+        graph = self.build_dependency("""
         [p0, i1] # 0: 1,2?,3?,4?
         setarrayitem_raw(p0, i1, 1, descr=floatarraydescr) # 1: 2,3
         i2 = getarrayitem_raw_i(p0, i1, descr=floatarraydescr) # 2: 4
         setarrayitem_raw(p0, i1, 2, descr=floatarraydescr) # 3: 4
         jump(p0, i2) # 4:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_setarrayitem_alias_dependency(self):
         # #1 depends on #2, i1 and i2 might alias, reordering would destroy
         # coorectness
-        ops="""
+        graph = self.build_dependency("""
         [p0, i1, i2] # 0: 1,2?,3?
         setarrayitem_raw(p0, i1, 1, descr=floatarraydescr) # 1: 2
         setarrayitem_raw(p0, i2, 2, descr=floatarraydescr) # 2: 3
         jump(p0, i1, i2) # 3:
-        """
-        self.assert_dependencies(ops, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
         self.assert_dependent(graph, 1,2)
 
     def test_setarrayitem_dont_depend_with_memref_info(self):
-        ops="""
+        graph = self.build_dependency("""
         [p0, i1] # 0: 1,2,3?,4?
         setarrayitem_raw(p0, i1, 1, descr=chararraydescr) # 1: 4
         i2 = int_add(i1,1) # 2: 3
         setarrayitem_raw(p0, i2, 2, descr=chararraydescr) # 3: 4
         jump(p0, i1) # 4:
-        """
-        self.assert_dependencies(ops, full_check=True)
-        self.assert_independent(1,2)
-        self.assert_independent(1,3) # they modify 2 different cells
+        """)
+        self.assert_dependencies(graph, full_check=True)
+        self.assert_independent(graph, 1,2)
+        self.assert_independent(graph, 1,3) # they modify 2 different cells
 
     def test_dependency_complex_trace(self):
-        ops = """
+        graph = self.build_dependency("""
         [i0, i1, i2, i3, i4, i5, i6, i7] # 0: 1,2,3,4,6,7,8,9,10,12,14,17,19,20,21
         i9 = int_mul(i0, 8) # 1: 2
         i10 = raw_load_i(i3, i9, descr=arraydescr) # 2: 5, 10
@@ -451,33 +451,32 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         i25 = int_lt(i24, i7) # 19:
         guard_true(i25) [i7, i22, i5, i4, i3, i21, i19, i24] # 20:
         jump(i24, i19, i21, i3, i4, i5, i22, i7) # 21:
-        """
-        self.assert_dependencies(ops, full_check=False)
+        """)
+        self.assert_dependencies(graph, full_check=False)
         self.assert_dependent(graph, 2,12)
 
     def test_getfield(self):
-        trace = """
+        graph = self.build_dependency("""
         [p0, p1] # 0: 1,2,5
         p2 = getfield_gc_r(p0) # 1: 3,5
         p3 = getfield_gc_r(p0) # 2: 4
         guard_nonnull(p2) [p2] # 3: 4,5
         guard_nonnull(p3) [p3] # 4: 5
         jump(p0,p2) # 5:
-        """
-        self.assert_dependencies(trace, full_check=True)
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
     def test_cyclic(self):
-        trace = """
+        graph = self.build_dependency("""
         [p0, p1, p5, p6, p7, p9, p11, p12] # 0: 1,6
-        guard_early_exit() [] # 1:
-        p13 = getfield_gc_r(p9) # 2: 3,5,6
-        guard_nonnull(p13) [] # 3: 5,6
-        i14 = getfield_gc_i(p9) # 4: 6
-        p15 = getfield_gc_r(p13) # 5: 6
-        guard_class(p15, 140737326900656) [p1, p0, p9, i14, p15, p13, p5, p6, p7] # 6: 7
-        jump(p0,p1,p5,p6,p7,p9,p11,p12) # 7:
-        """
-        self.assert_dependencies(trace, full_check=True)
+        p13 = getfield_gc_r(p9) # 1: 2,4,5
+        guard_nonnull(p13) [] # 2: 4,5
+        i14 = getfield_gc_i(p9) # 3: 5
+        p15 = getfield_gc_r(p13) # 4: 5
+        guard_class(p15, 140737326900656) [p1, p0, p9, i14, p15, p13, p5, p6, p7] # 5: 6
+        jump(p0,p1,p5,p6,p7,p9,p11,p12) # 6:
+        """)
+        self.assert_dependencies(graph, full_check=True)
 
 
     def test_iterate(self):

@@ -13,8 +13,9 @@ from rpython.jit.metainterp.optimizeopt.guard import (GuardStrengthenOpt,
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_schedule import SchedulerBaseTest
 from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpStaticData,
-        FakeJitDriverStaticData)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+        FakeJitDriverStaticData, FakeLoopInfo)
+from rpython.jit.metainterp.resoperation import (rop,
+        ResOperation, InputArgInt)
 from rpython.jit.tool.oparser_model import get_model
 
 class FakeMemoryRef(object):
@@ -36,7 +37,7 @@ class FakeMemoryRef(object):
 
 class FakeOp(object):
     def __init__(self, cmpop):
-        self.boolinverse = ResOperation(cmpop, [None, None], None).boolinverse
+        self.boolinverse = ResOperation(cmpop, [box(0), box(0)], None).boolinverse
         self.cmpop = cmpop
 
     def getopnum(self):
@@ -80,19 +81,19 @@ del guard
 
 class GuardBaseTest(SchedulerBaseTest):
     def optguards(self, loop, user_code=False):
-        #loop.snapshot()
+        info = FakeLoopInfo(loop)
+        info.snapshot(loop)
         for op in loop.operations:
             if op.is_guard():
                 op.setdescr(compile.CompileLoopVersionDescr())
         dep = DependencyGraph(loop)
-        opt = GuardStrengthenOpt(dep.index_vars, False)
-        xxx
-        opt.propagate_all_forward(loop, user_code)
+        opt = GuardStrengthenOpt(dep.index_vars)
+        opt.propagate_all_forward(info, loop, user_code)
         return opt
 
     def assert_guard_count(self, loop, count):
         guard = 0
-        for op in loop.operations:
+        for op in loop.operations + loop.prefix:
             if op.is_guard():
                 guard += 1
         if guard != count:
@@ -106,7 +107,8 @@ class GuardBaseTest(SchedulerBaseTest):
             def __repr__(self):
                 return '*'
         from rpython.jit.tool.oparser import OpParser, default_fail_descr
-        parser = OpParser(instr, self.cpu, self.namespace(), 'lltype', None, default_fail_descr, True, None)
+        parser = OpParser(instr, self.cpu, self.namespace, 'lltype', None, default_fail_descr, False, None)
+        parser.vars = { arg.repr_short(arg._repr_memo) : arg for arg in loop.inputargs}
         operations = []
         last_glob = None
         prev_op = None
@@ -125,8 +127,6 @@ class GuardBaseTest(SchedulerBaseTest):
                 last_glob.next = op
                 last_glob = None
             operations.append(op)
-            prev_op = op
-
         def check(op, candidate, rename):
             m = 0
             if isinstance(candidate, Glob):
@@ -144,14 +144,15 @@ class GuardBaseTest(SchedulerBaseTest):
                     else:
                         rename[arg] = oarg
 
-                if op.result:
-                    rename[op.result] = candidate.result
+                if not op.returns_void():
+                    rename[op] = candidate
                 m += 1
                 return m
             return 0
         j = 0
         rename = {}
-        for i, op in enumerate(loop.operations):
+        ops = loop.finaloplist()
+        for i, op in enumerate(ops):
             candidate = operations[j]
             j += check(op, candidate, rename)
         if isinstance(operations[-1], Glob):
@@ -322,10 +323,10 @@ class GuardBaseTest(SchedulerBaseTest):
         self.assert_guard_count(loop1, 2)
         self.assert_contains_sequence(loop1, """
         ...
-        i10 = int_gt(i1, 42)
+        i10 = int_ge(42, i2)
         guard_true(i10) []
         ...
-        i40 = int_gt(i11, i2)
+        i40 = int_gt(i1, 42)
         guard_true(i40) []
         ...
         """)
