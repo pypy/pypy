@@ -187,7 +187,7 @@ def test_optimize_goto_if_not():
     res = Transformer().optimize_goto_if_not(block)
     assert res == True
     assert block.operations == [sp1, sp2]
-    assert block.exitswitch == ('int_gt', v1, v2)
+    assert block.exitswitch == ('int_gt', v1, v2, '-live-before')
     assert block.exits == exits
 
 def test_optimize_goto_if_not__incoming():
@@ -211,7 +211,7 @@ def test_optimize_goto_if_not__exit():
     res = Transformer().optimize_goto_if_not(block)
     assert res == True
     assert block.operations == []
-    assert block.exitswitch == ('int_gt', v1, v2)
+    assert block.exitswitch == ('int_gt', v1, v2, '-live-before')
     assert block.exits == exits
     assert exits[1].args == [const(True)]
 
@@ -235,7 +235,7 @@ def test_optimize_goto_if_not__ptr_eq():
         res = Transformer().optimize_goto_if_not(block)
         assert res == True
         assert block.operations == []
-        assert block.exitswitch == (opname, v1, v2)
+        assert block.exitswitch == (opname, v1, v2, '-live-before')
         assert block.exits == exits
 
 def test_optimize_goto_if_not__ptr_iszero():

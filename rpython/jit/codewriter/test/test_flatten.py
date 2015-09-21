@@ -169,8 +169,8 @@ class TestFlatten:
             return n + 1
         self.encoding_test(f, [10], """
             int_gt %i0, $0 -> %i1
+            -live-
             goto_if_not %i1, L1
-            -live- L1
             int_copy %i0 -> %i2
             int_sub %i2, $3 -> %i3
             int_copy %i3 -> %i4
@@ -194,8 +194,8 @@ class TestFlatten:
             int_copy %i1 -> %i3
             L1:
             int_gt %i2, $0 -> %i4
+            -live-
             goto_if_not %i4, L2
-            -live- L2
             int_copy %i2 -> %i5
             int_copy %i3 -> %i6
             int_add %i6, %i5 -> %i7
@@ -218,8 +218,8 @@ class TestFlatten:
             int_copy %i0 -> %i2
             int_copy %i1 -> %i3
             L1:
+            -live-
             goto_if_not_int_gt %i2, $0, L2
-            -live- L2
             int_copy %i2 -> %i4
             int_copy %i3 -> %i5
             int_add %i5, %i4 -> %i6
@@ -457,8 +457,8 @@ class TestFlatten:
         # note that 'goto_if_not_int_is_true' is not the same thing
         # as just 'goto_if_not', because the last one expects a boolean
         self.encoding_test(f, [7], """
+            -live-
             goto_if_not_int_is_true %i0, L1
-            -live- L1
             int_return $False
             ---
             L1:
@@ -523,8 +523,8 @@ class TestFlatten:
             else:
                 return m2
         self.encoding_test(f, [4, 5, 6], """
+            -live- %i0, %i1, %i2
             goto_if_not_int_is_true %i0, L1
-            -live- %i1, %i2, L1
             int_return %i1
             ---
             L1:
