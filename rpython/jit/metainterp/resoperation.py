@@ -378,12 +378,6 @@ class GuardResOp(ResOpWithDescr):
         newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
 
-    def same_guard_position(self, other):
-        assert isinstance(other, GuardResOp)
-        frame_info1 = self.rd_frame_info_list
-        frame_info2 = other.rd_frame_info_list
-        return (frame_info1.jitcode is frame_info2.jitcode and
-                frame_info1.pc == frame_info2.pc)
 
 # ===========
 # type mixins

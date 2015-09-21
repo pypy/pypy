@@ -230,13 +230,13 @@ class MIFrame(object):
 
     for _opimpl in ['int_add_ovf', 'int_sub_ovf', 'int_mul_ovf']:
         exec py.code.Source('''
-            @arguments("box", "box")
-            def opimpl_%s(self, b1, b2):
+            @arguments("box", "box", "orgpc")
+            def opimpl_%s(self, b1, b2, orgpc):
                 self.metainterp.clear_exception()
                 resbox = self.execute(rop.%s, b1, b2)
                 self.make_result_of_lastop(resbox)  # same as execute_varargs()
                 if not isinstance(resbox, Const):
-                    self.metainterp.handle_possible_overflow_error()
+                    self.metainterp.handle_possible_overflow_error(orgpc)
                 return resbox
         ''' % (_opimpl, _opimpl.upper())).compile()
 
@@ -418,7 +418,7 @@ class MIFrame(object):
                 assert box.getint() == 0
                 target = switchdict.dict[const1.getint()]
                 self.metainterp.generate_guard(rop.GUARD_FALSE, box,
-                                               resumepc=target)
+                                               resumepc=orgpc)
         else:
             # found one of the cases
             self.implement_guard_value(valuebox, orgpc)
@@ -2480,11 +2480,12 @@ class MetaInterp(object):
             pass # XXX we want to do something special in resume descr,
                  # but not now
         elif opnum == rop.GUARD_NO_OVERFLOW:   # an overflow now detected
-            self.execute_raised(OverflowError(), constant=True)
-            try:
-                self.finishframe_exception()
-            except ChangeFrame:
-                pass
+            pass
+            #self.execute_raised(OverflowError(), constant=True)
+            #try:
+            #    self.finishframe_exception()
+            #except ChangeFrame:
+            #    pass
         elif opnum == rop.GUARD_OVERFLOW:      # no longer overflowing
             self.clear_exception()
         else:
@@ -2772,9 +2773,9 @@ class MetaInterp(object):
         else:
             self.generate_guard(rop.GUARD_NO_EXCEPTION, None, [])
 
-    def handle_possible_overflow_error(self):
+    def handle_possible_overflow_error(self, orgpc):
         if self.last_exc_value:
-            op = self.generate_guard(rop.GUARD_OVERFLOW, None)
+            op = self.generate_guard(rop.GUARD_OVERFLOW, None, resumepc=orgpc)
             op.setref_base(lltype.cast_opaque_ptr(llmemory.GCREF,
                                                   self.last_exc_value))
             assert self.class_of_last_exc_is_const
@@ -2782,7 +2783,7 @@ class MetaInterp(object):
                 lltype.cast_opaque_ptr(llmemory.GCREF, self.last_exc_value))
             self.finishframe_exception()
         else:
-            self.generate_guard(rop.GUARD_NO_OVERFLOW, None)
+            self.generate_guard(rop.GUARD_NO_OVERFLOW, None, resumepc=orgpc)
 
     def assert_no_exception(self):
         assert not self.last_exc_value

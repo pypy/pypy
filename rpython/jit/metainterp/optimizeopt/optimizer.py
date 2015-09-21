@@ -567,13 +567,15 @@ class Optimizer(Optimization):
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
         if op.is_guard():
             assert isinstance(op, GuardResOp)
-            if self.origin_jitcode is not None:
-                if (self.origin_jitcode is op.rd_frame_info_list.jitcode and
-                    self.origin_pc is op.rd_frame_info_list.pc):
-                    self.origin_jitcode = None
-                    self.origin_pc = 0
-                else:
-                    return # we optimize the guard
+            #if self.origin_jitcode is not None:
+            #    if (self.origin_jitcode is op.rd_frame_info_list.jitcode and
+            #        self.origin_pc is op.rd_frame_info_list.pc):
+            #        self.origin_jitcode = None
+            #        self.origin_pc = 0
+            #    else:
+            #        import pdb
+            #        pdb.set_trace()
+            #        return # we optimize the guard
             self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
             pendingfields = self.pendingfields
             self.pendingfields = None
@@ -595,14 +597,13 @@ class Optimizer(Optimization):
     def emit_guard_operation(self, op, pendingfields):
         guard_op = self.replace_op_with(op, op.getopnum())
         if (self._last_guard_op and guard_op.getdescr() is None and
-            guard_op.getopnum() != rop.GUARD_VALUE and
-            not guard_op.same_guard_position(self._last_guard_op)):
+            guard_op.getopnum() != rop.GUARD_VALUE):
             op = self._copy_resume_data_from(guard_op,
                                              self._last_guard_op)
         else:
             op = self.store_final_boxes_in_guard(guard_op, pendingfields)
-            if op.getopnum() not in (rop.GUARD_EXCEPTION, rop.GUARD_OVERFLOW):
-                self._last_guard_op = op
+            #if op.getopnum() not in (rop.GUARD_EXCEPTION, rop.GUARD_OVERFLOW):
+            self._last_guard_op = op
             # for unrolling
             for farg in op.getfailargs():
                 if farg:

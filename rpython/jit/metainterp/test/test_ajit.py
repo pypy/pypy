@@ -723,6 +723,7 @@ class BasicTests:
                 elif n == 7: a = 3
                 else:        a = 2
                 x = intmask(x * 10 + a)
+                #print "XXXXXXXXXXXXXXXX", x
                 i += 1
             return x
         res = self.meta_interp(f, [0], backendopt=True)
@@ -1866,7 +1867,8 @@ class BasicTests:
         res = self.meta_interp(g, [6, 20])
         assert res == g(6, 20)
         self.check_trace_count(8)
-        self.check_resops(getarrayitem_gc_i=10)
+        # 6 extra from sharing guard data
+        self.check_resops(getarrayitem_gc_i=10 + 6)
 
     def test_multiple_specialied_versions_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
@@ -2055,8 +2057,8 @@ class BasicTests:
         res = self.meta_interp(g, [3, 23])
         assert res == 7068153
         self.check_trace_count(6)
-        self.check_resops(guard_true=6, guard_class=2, int_mul=3,
-                          int_add=3, guard_false=3)
+        self.check_resops(guard_true=8, guard_class=2, int_mul=3,
+                          int_add=3, guard_false=4)
 
     def test_dont_trace_every_iteration(self):
         myjitdriver = JitDriver(greens = [], reds = ['a', 'b', 'i', 'sa'])
@@ -2079,7 +2081,7 @@ class BasicTests:
         self.check_enter_count(2)
 
     def test_current_trace_length(self):
-        myjitdriver = JitDriver(greens = ['g'], reds = ['x'])
+        myjitdriver = JitDriver(greens = ['g'], reds = ['x', 'l'])
         @dont_look_inside
         def residual():
             print "hi there"
@@ -2090,14 +2092,15 @@ class BasicTests:
                 residual()
                 y += 1
         def f(x, g):
+            l = []
             n = 0
             while x > 0:
-                myjitdriver.can_enter_jit(x=x, g=g)
-                myjitdriver.jit_merge_point(x=x, g=g)
+                myjitdriver.can_enter_jit(x=x, g=g, l=l)
+                myjitdriver.jit_merge_point(x=x, g=g, l=l)
                 loop(g)
                 x -= 1
-                n = current_trace_length()
-            return n
+                l.append(current_trace_length())
+            return l[-2] # not the blackholed version
         res = self.meta_interp(f, [5, 8])
         assert 14 < res < 42
         res = self.meta_interp(f, [5, 2])
@@ -2638,7 +2641,7 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20]) == f(20)
-        self.check_resops(int_lt=4, int_le=0, int_ge=0, int_gt=2)
+        self.check_resops(int_lt=4, int_le=0, int_ge=0, int_gt=4)
 
     def test_intbounds_not_generalized1(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa'])
@@ -2655,7 +2658,7 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20]) == f(20)
-        self.check_resops(int_lt=6, int_le=2, int_ge=4, int_gt=3)
+        self.check_resops(int_lt=6, int_le=2, int_ge=4, int_gt=5)
 
 
     def test_intbounds_not_generalized2(self):
@@ -2676,7 +2679,7 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20]) == f(20)
-        self.check_resops(int_lt=4, int_le=3, int_ge=3, int_gt=2)
+        self.check_resops(int_lt=4, int_le=3, int_ge=3, int_gt=4)
 
     def test_retrace_limit1(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
