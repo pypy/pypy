@@ -2905,6 +2905,8 @@ class MetaInterp(object):
         start_stack = []
         max_size = 0
         max_key = None
+        warmstate = self.jitdriver_sd.warmstate
+        r = ''
         debug_start("jit-abort-longest-function")
         for pair in self.portal_trace_positions:
             key, pos = pair
@@ -2914,7 +2916,8 @@ class MetaInterp(object):
                 greenkey, startpos = start_stack.pop()
                 size = pos - startpos
                 if size > max_size:
-                    r = self.jitdriver_sd.warmstate.get_location_str(greenkey)
+                    if warmstate is not None:
+                        r = warmstate.get_location_str(greenkey)
                     debug_print("found new longest: %s %d" % (r, size))
                     max_size = size
                     max_key = greenkey
@@ -2922,11 +2925,13 @@ class MetaInterp(object):
             key, pos = start_stack[0]
             size = len(self.history.operations) - pos
             if size > max_size:
-                r = self.jitdriver_sd.warmstate.get_location_str(key)
+                if warmstate is not None:
+                    r = self.jitdriver_sd.warmstate.get_location_str(key)
                 debug_print("found new longest: %s %d" % (r, size))
                 max_size = size
                 max_key = key
-        self.staticdata.logger_ops.log_abort_loop(self.history.inputargs,
+        if warmstate is not None: # tests
+            self.staticdata.logger_ops.log_abort_loop(self.history.inputargs,
                                        self.history.operations,
                                        self.box_names_memo)
         debug_stop("jit-abort-longest-function")
