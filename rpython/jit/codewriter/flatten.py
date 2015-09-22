@@ -118,7 +118,7 @@ class GraphFlattener(object):
         operations = block.operations
         for i, op in enumerate(operations):
             if '_ovf' in op.opname:
-                if (len(block.exits) != 2 or
+                if (len(block.exits) not in (2, 3) or
                     block.exitswitch is not c_last_exception):
                     raise Exception("detected a block containing ovfcheck()"
                                     " but no OverflowError is caught, this"
@@ -194,10 +194,13 @@ class GraphFlattener(object):
                 line = self.popline()
                 self.emitline(opname[:7] + '_jump_if_ovf',
                               TLabel(block.exits[1]), *line[1:])
-                assert len(block.exits) == 2
+                assert len(block.exits) in (2, 3)
                 self.make_link(block.exits[0], False)
                 self.emitline(Label(block.exits[1]))
                 self.make_exception_link(block.exits[1], True)
+                if len(block.exits) == 3:
+                    assert block.exits[2].exitcase is Exception
+                    self.make_exception_link(block.exits[2], False)
                 return
             else:
                 while True:
