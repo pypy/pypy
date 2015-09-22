@@ -2322,7 +2322,7 @@ class MetaInterp(object):
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
         try:
-            self.prepare_resume_from_failure(deadframe)
+            self.prepare_resume_from_failure(deadframe, key)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
             self.interpret()
@@ -2465,17 +2465,20 @@ class MetaInterp(object):
             else: assert 0
         self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
 
-    def prepare_resume_from_failure(self, deadframe):
+    def prepare_resume_from_failure(self, deadframe, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)
-        if exception:
-            self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
-                                                          exception))
-        #else:
-        #    self.clear_exception()
-        #try:
-        #    self.handle_possible_exception()
-        #except ChangeFrame:
-        #    pass
+        if isinstance(resumedescr, compile.ResumeGuardExcDescr):
+            if exception:
+                self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
+                                                              exception))
+            else:
+                self.clear_exception()
+            try:
+                self.handle_possible_exception()
+            except ChangeFrame:
+                pass
+        else:
+            assert not exception
 
     def get_procedure_token(self, greenkey, with_compiled_targets=False):
         JitCell = self.jitdriver_sd.warmstate.JitCell

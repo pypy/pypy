@@ -847,6 +847,9 @@ class ResumeGuardDescr(ResumeDescr):
                 assert 0, box.type
             self.status = ty | (r_uint(i) << self.ST_SHIFT)
 
+class ResumeGuardExcDescr(ResumeGuardDescr):
+    pass
+
 class ResumeAtPositionDescr(ResumeGuardDescr):
     pass
 
@@ -934,6 +937,8 @@ def invent_fail_descr_for_op(opnum, optimizer):
     elif opnum in (rop.GUARD_IS_OBJECT, rop.GUARD_SUBCLASS, rop.GUARD_GC_TYPE):
         # note - this only happens in tests
         resumedescr = ResumeAtPositionDescr()
+    elif opnum in (rop.GUARD_EXCEPTION, rop.GUARD_NO_EXCEPTION):
+        resumedescr = ResumeGuardExcDescr()
     else:
         resumedescr = ResumeGuardDescr()
     return resumedescr

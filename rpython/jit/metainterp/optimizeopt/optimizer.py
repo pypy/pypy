@@ -603,7 +603,8 @@ class Optimizer(Optimization):
                                              self._last_guard_op)
         else:
             op = self.store_final_boxes_in_guard(guard_op, pendingfields)
-            self._last_guard_op = op
+            if op.getopnum() != rop.GUARD_EXCEPTION:
+                self._last_guard_op = op
             # for unrolling
             for farg in op.getfailargs():
                 if farg:
@@ -612,6 +613,8 @@ class Optimizer(Optimization):
 
 
     def _copy_resume_data_from(self, guard_op, last_guard_op):
+        if guard_op.getopnum() in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION):
+            assert last_guard_op.getopnum() == rop.GUARD_NOT_FORCED
         descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self)
         descr.copy_all_attributes_from(last_guard_op.getdescr())
         guard_op.setdescr(descr)
