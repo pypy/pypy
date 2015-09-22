@@ -238,7 +238,8 @@ class MIFrame(object):
                 resbox = self.execute(rop.%s, b1, b2)
                 self.make_result_of_lastop(resbox)  # same as execute_varargs()
                 if not isinstance(resbox, Const):
-                    self.metainterp.handle_possible_overflow_error(lbl, orgpc)
+                    return self.handle_possible_overflow_error(lbl, orgpc,
+                                                               resbox)
                 return resbox
         ''' % (_opimpl, resop)).compile()
 
@@ -1459,6 +1460,17 @@ class MIFrame(object):
     def setup_resume_at_op(self, pc):
         self.pc = pc
 
+    def handle_possible_overflow_error(self, label, orgpc, resbox):
+        if self.metainterp.ovf_flag:
+            self.metainterp.generate_guard(rop.GUARD_OVERFLOW, None,
+                                           resumepc=orgpc)
+            self.pc = label
+            return None
+        else:
+            self.metainterp.generate_guard(rop.GUARD_NO_OVERFLOW, None,
+                                           resumepc=orgpc)
+            return resbox
+
     def run_one_step(self):
         # Execute the frame forward.  This method contains a loop that leaves
         # whenever the 'opcode_implementations' (which is one of the 'opimpl_'
@@ -2024,8 +2036,7 @@ class MetaInterp(object):
         else:
             moreargs = list(extraargs)
         if opnum == rop.GUARD_EXCEPTION:
-            guard_op = self.history.record(opnum, moreargs,
-                                           lltype.nullptr(llmemory.GCREF.TO))
+            guard_op = self.history.record(opnum, moreargs, None)
         else:
             guard_op = self.history.record(opnum, moreargs, None)            
         assert isinstance(guard_op, GuardResOp)
@@ -2746,13 +2757,6 @@ class MetaInterp(object):
         else:
             self.generate_guard(rop.GUARD_NO_EXCEPTION, None, [])
 
-    def handle_possible_overflow_error(self, label, orgpc):
-        if self.ovf_flag:
-            self.generate_guard(rop.GUARD_OVERFLOW, None, resumepc=orgpc)
-            self.pc = label
-        else:
-            self.generate_guard(rop.GUARD_NO_OVERFLOW, None, resumepc=orgpc)
-
     def assert_no_exception(self):
         assert not self.last_exc_value
 
@@ -3202,16 +3206,17 @@ def _get_opimpl_method(name, argcodes):
                     print '-> %r' % (resultbox,)
                 assert argcodes[next_argcode] == '>'
                 result_argcode = argcodes[next_argcode + 1]
-                assert resultbox.type == {'i': history.INT,
-                                          'r': history.REF,
-                                          'f': history.FLOAT}[result_argcode]
+                if 'ovf' not in name:
+                    assert resultbox.type == {'i': history.INT,
+                                              'r': history.REF,
+                                              'f': history.FLOAT}[result_argcode]
         else:
             resultbox = unboundmethod(self, *args)
         #
         if resultbox is not None:
             self.make_result_of_lastop(resultbox)
         elif not we_are_translated():
-            assert self._result_argcode in 'v?'
+            assert self._result_argcode in 'v?' or 'ovf' in name
     #
     unboundmethod = getattr(MIFrame, 'opimpl_' + name).im_func
     argtypes = unrolling_iterable(unboundmethod.argtypes)
