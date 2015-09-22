@@ -36,11 +36,9 @@ from rpython.rlib.rarithmetic import r_uint
 
 class ArmGuardToken(GuardToken):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
-                 offset, exc, frame_depth, is_guard_not_invalidated=False,
-                 is_guard_not_forced=False, fcond=c.AL):
+                 offset, guard_opnum, frame_depth, fcond=c.AL):
         GuardToken.__init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
-                            exc, frame_depth, is_guard_not_invalidated,
-                            is_guard_not_forced)
+                            guard_opnum, frame_depth)
         self.fcond = fcond
         self.offset = offset
 
@@ -175,10 +173,7 @@ class ResOpAssembler(BaseAssembler):
         self.mc.RSB_ri(resloc.value, l0.value, imm=0)
         return fcond
 
-    def build_guard_token(self, op, frame_depth, arglocs, offset, fcond, save_exc,
-                                    is_guard_not_invalidated=False,
-                                    is_guard_not_forced=False):
-        assert isinstance(save_exc, bool)
+    def build_guard_token(self, op, frame_depth, arglocs, offset, fcond):
         assert isinstance(fcond, int)
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
@@ -189,16 +184,12 @@ class ResOpAssembler(BaseAssembler):
                                     failargs=op.getfailargs(),
                                     fail_locs=arglocs,
                                     offset=offset,
-                                    exc=save_exc,
+                                    guard_opnum=op.getopnum(),
                                     frame_depth=frame_depth,
-                                    is_guard_not_invalidated=is_guard_not_invalidated,
-                                    is_guard_not_forced=is_guard_not_forced,
                                     fcond=fcond)
         return token
 
-    def _emit_guard(self, op, arglocs, save_exc,
-                                    is_guard_not_invalidated=False,
-                                    is_guard_not_forced=False):
+    def _emit_guard(self, op, arglocs, is_guard_not_invalidated=False):
         if is_guard_not_invalidated:
             fcond = c.cond_none
         else:
@@ -206,10 +197,9 @@ class ResOpAssembler(BaseAssembler):
             self.guard_success_cc = c.cond_none
             assert fcond != c.cond_none
         pos = self.mc.currpos()
-        token = self.build_guard_token(op, arglocs[0].value, arglocs[1:], pos, fcond, save_exc,
-                                        is_guard_not_invalidated,
-                                        is_guard_not_forced)
+        token = self.build_guard_token(op, arglocs[0].value, arglocs[1:], pos, fcond)
         self.pending_guards.append(token)
+        assert token.guard_not_invalidated() == is_guard_not_invalidated
         # For all guards that are not GUARD_NOT_INVALIDATED we emit a
         # breakpoint to ensure the location is patched correctly. In the case
         # of GUARD_NOT_INVALIDATED we use just a NOP, because it is only
@@ -221,12 +211,12 @@ class ResOpAssembler(BaseAssembler):
         return c.AL
 
     def emit_op_guard_true(self, op, arglocs, regalloc, fcond):
-        fcond = self._emit_guard(op, arglocs, save_exc=False)
+        fcond = self._emit_guard(op, arglocs)
         return fcond
 
     def emit_op_guard_false(self, op, arglocs, regalloc, fcond):
         self.guard_success_cc = c.get_opposite_of(self.guard_success_cc)
-        fcond = self._emit_guard(op, arglocs, save_exc=False)
+        fcond = self._emit_guard(op, arglocs)
         return fcond
 
     def emit_op_guard_value(self, op, arglocs, regalloc, fcond):
@@ -244,7 +234,7 @@ class ResOpAssembler(BaseAssembler):
             self.mc.VCMP(l0.value, l1.value)
             self.mc.VMRS(cond=fcond)
         self.guard_success_cc = c.EQ
-        fcond = self._emit_guard(op, failargs, save_exc=False)
+        fcond = self._emit_guard(op, failargs)
         return fcond
 
     emit_op_guard_nonnull = emit_op_guard_true
@@ -256,14 +246,14 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_guard_class(self, op, arglocs, regalloc, fcond):
         self._cmp_guard_class(op, arglocs, regalloc, fcond)
         self.guard_success_cc = c.EQ
-        self._emit_guard(op, arglocs[2:], save_exc=False)
+        self._emit_guard(op, arglocs[2:])
         return fcond
 
     def emit_op_guard_nonnull_class(self, op, arglocs, regalloc, fcond):
         self.mc.CMP_ri(arglocs[0].value, 1)
         self._cmp_guard_class(op, arglocs, regalloc, c.HS)
         self.guard_success_cc = c.EQ
-        self._emit_guard(op, arglocs[2:], save_exc=False)
+        self._emit_guard(op, arglocs[2:])
         return fcond
 
     def _cmp_guard_class(self, op, locs, regalloc, fcond):
@@ -288,7 +278,7 @@ class ResOpAssembler(BaseAssembler):
     def emit_op_guard_gc_type(self, op, arglocs, regalloc, fcond):
         self._cmp_guard_gc_type(arglocs[0], arglocs[1].value, fcond)
         self.guard_success_cc = c.EQ
-        self._emit_guard(op, arglocs[2:], save_exc=False)
+        self._emit_guard(op, arglocs[2:])
         return fcond
 
     def emit_op_guard_is_object(self, op, arglocs, regalloc, fcond):
@@ -309,7 +299,7 @@ class ResOpAssembler(BaseAssembler):
         self.mc.LDRB_rr(r.ip.value, r.ip.value, r.lr.value)
         self.mc.TST_ri(r.ip.value, imm=(IS_OBJECT_FLAG & 0xff))
         self.guard_success_cc = c.NE
-        self._emit_guard(op, arglocs[1:], save_exc=False)
+        self._emit_guard(op, arglocs[1:])
         return fcond
 
     def emit_op_guard_subclass(self, op, arglocs, regalloc, fcond):
@@ -353,12 +343,11 @@ class ResOpAssembler(BaseAssembler):
             self.mc.CMP_rr(r.ip.value, r.lr.value)
         # the guard passes if we get a result of "below or equal"
         self.guard_success_cc = c.LS
-        self._emit_guard(op, arglocs[2:], save_exc=False)
+        self._emit_guard(op, arglocs[2:])
         return fcond
 
     def emit_op_guard_not_invalidated(self, op, locs, regalloc, fcond):
-        return self._emit_guard(op, locs, save_exc=False,
-                                            is_guard_not_invalidated=True)
+        return self._emit_guard(op, locs, is_guard_not_invalidated=True)
 
     def emit_op_label(self, op, arglocs, regalloc, fcond):
         self._check_frame_depth_debug(self.mc)
@@ -498,7 +487,7 @@ class ResOpAssembler(BaseAssembler):
         self.mc.LDR_ri(loc.value, loc.value)
         self.mc.CMP_ri(loc.value, 0)
         self.guard_success_cc = c.EQ
-        fcond = self._emit_guard(op, failargs, save_exc=True)
+        fcond = self._emit_guard(op, failargs)
         # If the previous operation was a COND_CALL, overwrite its conditional
         # jump to jump over this GUARD_NO_EXCEPTION as well, if we can
         if self._find_nearby_operation(-1).getopnum() == rop.COND_CALL:
@@ -515,7 +504,7 @@ class ResOpAssembler(BaseAssembler):
 
         self.mc.CMP_rr(r.ip.value, loc.value)
         self.guard_success_cc = c.EQ
-        self._emit_guard(op, failargs, save_exc=True)
+        self._emit_guard(op, failargs)
         self._store_and_reset_exception(self.mc, resloc)
         return fcond
 
@@ -1047,7 +1036,8 @@ class ResOpAssembler(BaseAssembler):
 
     def store_force_descr(self, op, fail_locs, frame_depth):
         pos = self.mc.currpos()
-        guard_token = self.build_guard_token(op, frame_depth, fail_locs, pos, c.AL, True, False, True)
+        guard_token = self.build_guard_token(op, frame_depth, fail_locs, pos, c.AL)
+        assert guard_token.must_save_exception()
         #self.pending_guards.append(guard_token)
         self._finish_gcmap = guard_token.gcmap
         self._store_force_index(op)
@@ -1152,7 +1142,7 @@ class ResOpAssembler(BaseAssembler):
         self.mc.LDR_ri(r.ip.value, r.fp.value, imm=ofs)
         self.mc.CMP_ri(r.ip.value, 0)
         self.guard_success_cc = c.EQ
-        self._emit_guard(op, arglocs, save_exc=True, is_guard_not_forced=True)
+        self._emit_guard(op, arglocs)
         return fcond
 
     def _genop_call_may_force(self, op, arglocs, regalloc, fcond):
