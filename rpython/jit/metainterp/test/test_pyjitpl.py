@@ -17,6 +17,7 @@ def test_portal_trace_positions():
     portal.setup(None)
     class FakeStaticData:
         cpu = None
+        warmstate = None
         warmrunnerdesc = None
         mainjitcode = portal
 

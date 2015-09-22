@@ -415,8 +415,10 @@ class FloatOp(object):
         return self._resfloat
 
     getvalue = getfloatstorage
-    getfloat = getfloatstorage
-    
+
+    def getfloat(self):
+        return longlong.getrealfloat(self.getfloatstorage())
+
     def setfloatstorage(self, floatval):
         assert lltype.typeOf(floatval) is longlong.FLOATSTORAGE
         self._resfloat = floatval

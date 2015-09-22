@@ -567,7 +567,6 @@ class RegAlloc(BaseRegalloc):
             pass
         else:
             arglocs[0] = self.rm.make_sure_var_in_reg(vx)
-        self.possibly_free_vars(args)
         loc = self.force_allocate_reg_or_cc(op)
         self.perform(op, arglocs, loc)
 
@@ -605,7 +604,6 @@ class RegAlloc(BaseRegalloc):
                 arglocs[1] = self.xrm.make_sure_var_in_reg(vy)
             else:
                 arglocs[0] = self.xrm.make_sure_var_in_reg(vx)
-        self.possibly_free_vars(op.getarglist())
         loc = self.force_allocate_reg_or_cc(op)
         self.perform(op, arglocs, loc)
 
@@ -1154,7 +1152,6 @@ class RegAlloc(BaseRegalloc):
     def consider_int_is_true(self, op):
         # doesn't need arg to be in a register
         argloc = self.loc(op.getarg(0))
-        self.rm.possibly_free_var(op.getarg(0))
         resloc = self.force_allocate_reg_or_cc(op)
         self.perform(op, [argloc], resloc)
 

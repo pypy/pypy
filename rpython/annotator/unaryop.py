@@ -574,7 +574,9 @@ class __extend__(SomeString,
         return self.basecharclass()
 
     def method_split(self, patt, max=-1):
-        if max == -1 and patt.is_constant() and patt.const == "\0":
+        # special-case for .split( '\x00') or .split(u'\x00')
+        if max == -1 and patt.is_constant() and (
+               len(patt.const) == 1 and ord(patt.const) == 0):
             no_nul = True
         else:
             no_nul = self.no_nul

@@ -80,8 +80,8 @@ class BaseAssembler(object):
             self.gc_size_of_header = gc_ll_descr.gcheaderbuilder.size_gc_header
         else:
             self.gc_size_of_header = WORD # for tests
-        self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
-        self.memset_addr = self.cpu.cast_ptr_to_int(memset_fn)
+        self.memcpy_addr = rffi.cast(lltype.Signed, memcpy_fn)
+        self.memset_addr = rffi.cast(lltype.Signed, memset_fn)
         self._build_failure_recovery(False, withfloats=False)
         self._build_failure_recovery(True, withfloats=False)
         self._build_wb_slowpath(False)

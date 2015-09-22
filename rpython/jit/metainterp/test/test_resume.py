@@ -1465,10 +1465,12 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     assert rffi.cast(lltype.Signed, pf[1].fieldnum) == 1062
     assert rffi.cast(lltype.Signed, pf[1].itemindex) == 2147483647
     #
-    py.test.raises(TagOverflow, modifier._add_pending_fields, FakeOptimizer(),
-                   [ResOperation(rop.SETARRAYITEM_GC,
-                                 [a42, ConstInt(2147483648), a63],
-                       descr=array_a)])
+    if sys.maxint >= 2147483648:
+        py.test.raises(TagOverflow, modifier._add_pending_fields,
+                       FakeOptimizer(),
+                       [ResOperation(rop.SETARRAYITEM_GC,
+                                     [a42, ConstInt(2147483648), a63],
+                                     descr=array_a)])
 
 def test_resume_reader_fields_and_arrayitems():
     class ResumeReader(AbstractResumeDataReader):
