@@ -2628,7 +2628,10 @@ class BasicTests:
                 node2.val = 7
                 if a >= 100:
                     sa += 1
-                sa += ovfcheck(i + i)
+                try:
+                    sa += ovfcheck(i + i)
+                except OverflowError:
+                    assert 0
                 node1 = A(i)
                 i += 1
         assert self.meta_interp(f, [20, 7]) == f(20, 7)
@@ -3897,7 +3900,6 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
             def dec(self):
                 return Int(self.a - 1)
-
 
         class Float(Base):
             def __init__(self, a):
