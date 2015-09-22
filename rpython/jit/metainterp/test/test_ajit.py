@@ -889,6 +889,24 @@ class BasicTests:
         res = self.interp_operations(f, [1, sys.maxint])
         assert res == -42
 
+    def test_ovf_raise(self):
+        def g(x, y):
+            try:
+                return ovfcheck(x * y)
+            except OverflowError:
+                raise            
+        
+        def f(x, y):
+            try:
+                return g(x, y)
+            except OverflowError:
+                return 3
+
+        res = self.interp_operations(f, [sys.maxint, 2])
+        assert res == 3
+        res = self.interp_operations(f, [3, 2])
+        assert res == 6
+
     def test_int_sub_ovf(self):
         def f(x, y):
             try:
@@ -3888,7 +3906,6 @@ class BaseLLtypeTests(BasicTests):
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     def test_tagged(self):
-        py.test.skip("I don't want to care right now")
         from rpython.rlib.objectmodel import UnboxedValue
         class Base(object):
             __slots__ = ()
@@ -3900,7 +3917,10 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                 return self.a > 0
 
             def dec(self):
-                return Int(self.a - 1)
+                try:
+                    return Int(self.a - 1)
+                except OverflowError:
+                    raise
 
         class Float(Base):
             def __init__(self, a):
