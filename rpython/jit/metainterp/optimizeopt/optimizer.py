@@ -567,15 +567,13 @@ class Optimizer(Optimization):
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
         if op.is_guard():
             assert isinstance(op, GuardResOp)
-            #if self.origin_jitcode is not None:
-            #    if (self.origin_jitcode is op.rd_frame_info_list.jitcode and
-            #        self.origin_pc is op.rd_frame_info_list.pc):
-            #        self.origin_jitcode = None
-            #        self.origin_pc = 0
-            #    else:
-            #        import pdb
-            #        pdb.set_trace()
-            #        return # we optimize the guard
+            if self.origin_jitcode is not None:
+                if (self.origin_jitcode is op.rd_frame_info_list.jitcode and
+                    self.origin_pc == op.rd_frame_info_list.pc):
+                    self.origin_jitcode = None
+                    self.origin_pc = 0
+                else:
+                    return # we optimize the guard
             self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
             pendingfields = self.pendingfields
             self.pendingfields = None
@@ -587,10 +585,12 @@ class Optimizer(Optimization):
                 op = self.emit_guard_operation(op, pendingfields)
         elif op.can_raise():
             self.exception_might_have_happened = True
-        if (op.has_no_side_effect() or op.is_guard() or op.is_jit_debug() and
+        if ((op.has_no_side_effect() or op.is_guard() or op.is_jit_debug() or
+             op.is_ovf()) and
             not self.is_call_pure_pure_canraise(op)):
             pass
         else:
+            assert self.origin_jitcode is None
             self._last_guard_op = None
         self._really_emitted_operation = op
         self._newoperations.append(op)
