@@ -408,13 +408,19 @@ class BlackholeInterpreter(object):
     def bhimpl_int_mul(a, b):
         return intmask(a * b)
 
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_add_ovf(a, b):
-        return ovfcheck(a + b)
+    @arguments("L", "i", "i", returns="iL")
+    def bhimpl_int_add_jump_if_ovf(label, a, b):
+        try:
+            return ovfcheck(a + b), -1
+        except OverflowError:
+            return 0, label
 
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_sub_ovf(a, b):
-        return ovfcheck(a - b)
+    @arguments("L", "i", "i", returns="iL")
+    def bhimpl_int_sub_jump_if_ovf(label, a, b):
+        try:
+            return ovfcheck(a - b), -1
+        except OverflowError:
+            return 0, label
 
     @arguments("L", "i", "i", returns="iL")
     def bhimpl_int_mul_jump_if_ovf(label, a, b):
