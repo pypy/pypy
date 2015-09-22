@@ -83,6 +83,8 @@ def get_size_descr(gccache, STRUCT, vtable=lltype.nullptr(rclass.OBJECT_VTABLE))
                               immutable_flag=immutable_flag)
         gccache.init_size_descr(STRUCT, sizedescr)
         cache[STRUCT] = sizedescr
+        # XXX do we really need gc_fielddescrs if we also have
+        # all_fielddescrs and can ask is_pointer_field() on them?
         gc_fielddescrs = heaptracker.gc_fielddescrs(gccache, STRUCT)
         sizedescr.gc_fielddescrs = gc_fielddescrs
         all_fielddescrs = heaptracker.all_fielddescrs(gccache, STRUCT)
