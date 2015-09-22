@@ -2502,7 +2502,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         if values is not None:
             fail_args = values
         fdescr = guard_op.getdescr()
-        assert fdescr.guard_opnum == guard_opnum
         reader = ResumeDataFakeReader(fdescr, fail_args,
                                       MyMetaInterp(self.cpu))
         boxes = reader.consume_boxes()
