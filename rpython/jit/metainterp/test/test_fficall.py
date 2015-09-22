@@ -181,7 +181,7 @@ class FfiCallTests(object):
         kwds.setdefault('supports_singlefloats', True)
         self._run([types.float] * 2, types.double,
                   [r_singlefloat(10.5), r_singlefloat(31.5)],
-                  -4.5)
+                  -4.5, **kwds)
 
     def test_simple_call_singlefloat(self, **kwds):
         kwds.setdefault('supports_singlefloats', True)
