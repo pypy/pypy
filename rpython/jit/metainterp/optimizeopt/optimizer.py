@@ -603,12 +603,13 @@ class Optimizer(Optimization):
                                              self._last_guard_op)
         else:
             op = self.store_final_boxes_in_guard(guard_op, pendingfields)
-            if op.getopnum() != rop.GUARD_EXCEPTION:
-                self._last_guard_op = op
+            self._last_guard_op = op
             # for unrolling
             for farg in op.getfailargs():
                 if farg:
                     self.force_box(farg)
+        if op.getopnum() == rop.GUARD_EXCEPTION:
+            self._last_guard_op = None
         return op
 
 
