@@ -246,6 +246,7 @@ class GuardStrengthenOpt(object):
                         self.renamer.start_renaming(op, var)
                         continue
             self.emit_operation(op)
+        self.renamer.rename(loop.jump)
         #
         loop.operations = self._newoperations[:]
 

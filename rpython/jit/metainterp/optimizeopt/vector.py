@@ -44,21 +44,39 @@ class VectorLoop(object):
         self.jump = jump
         assert self.jump.getopnum() == rop.JUMP
 
-    def operation_list(self):
-        return [self.label] + self.operations + [self.jump]
-
-    def finaloplist(self):
+    def finaloplist(self, jitcell_token=None, label=False):
         oplist = []
+        if jitcell_token:
+            token = TargetToken(jitcell_token)
+            token.original_jitcell_token = jitcell_token
+            jitcell_token.target_tokens.append(token)
+            self.label.setdescr(token)
+            if self.prefix_label:
+                token = TargetToken(jitcell_token)
+                token.original_jitcell_token = jitcell_token
+                jitcell_token.target_tokens.append(token)
+                self.prefix_label.setdescr(token)
+            self.jump.setdescr(token)
         if self.prefix_label:
-            oplist = [self.prefix_label] + self.prefix
+            oplist = self.prefix + [self.prefix_label]
         elif self.prefix:
             oplist = self.prefix
+        if label:
+            oplist = [self.label] + oplist
         return oplist + self.operations + [self.jump]
 
-    def assemble_oplist(self):
-        oplist = self.prefix + [self.prefix_label] + \
-                 loop.operations + [loop.jump]
-        return oplist
+    def clone(self):
+        oplist = []
+        renamer = Renamer()
+        for op in self.operations:
+            newop = op.copy()
+            renamer.rename(newop)
+            if not newop.returns_void():
+                renamer.start_renaming(op, newop)
+            oplist.append(newop)
+        jump = self.jump.copy()
+        renamer.rename(jump)
+        return VectorLoop(self.label.copy(), oplist, jump)
 
 def optimize_vector(metainterp_sd, jitdriver_sd, warmstate, loop_info, loop_ops):
     """ Enter the world of SIMD. Bails if it cannot transform the trace. """
@@ -67,38 +85,37 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate, loop_info, loop_ops)
         return
     # the original loop (output of optimize_unroll)
     info = LoopVersionInfo(loop_info)
-    version = info.snapshot(loop_ops, info.label_op)
     loop = VectorLoop(loop_info.label_op, loop_ops[1:-1], loop_ops[-1])
+    version = info.snapshot(loop)
     try:
         debug_start("vec-opt-loop")
-        metainterp_sd.logger_noopt.log_loop([], loop.operation_list(), -2, None, None, "pre vectorize")
+        metainterp_sd.logger_noopt.log_loop([], loop.finaloplist(label=True), -2, None, None, "pre vectorize")
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZE_TRY)
         #
         start = time.clock()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, warmstate.vec_cost)
-        opt.propagate_all_forward(info, loop)
-        #
-        gso = GuardStrengthenOpt(opt.dependency_graph.index_vars, opt.has_two_labels)
+        index_vars = opt.propagate_all_forward(info, loop)
+        gso = GuardStrengthenOpt(index_vars)
         gso.propagate_all_forward(info, loop, user_code)
         end = time.clock()
         #
         metainterp_sd.profiler.count(Counters.OPT_VECTORIZED)
-        metainterp_sd.logger_noopt.log_loop([], loop.operation_list(), -2, None, None, "post vectorize")
-        #
+        metainterp_sd.logger_noopt.log_loop([], loop.finaloplist(label=True), -2, None, None, "post vectorize")
         nano = int((end-start)*10.0**9)
         debug_print("# vecopt factor: %d opcount: (%d -> %d) took %dns" % \
-                      (opt.unroll_count+1, len(version.operations), len(loop.operations), nano))
+                      (opt.unroll_count+1, len(version.loop.operations), len(loop.operations), nano))
         debug_stop("vec-opt-loop")
         #
-        return info, loop.assemble_oplist()
+        info.label_op = loop.label
+        return info, loop.finaloplist()
     except NotAVectorizeableLoop:
         debug_stop("vec-opt-loop")
         # vectorization is not possible
-        return loop_info, version.operations
+        return loop_info, version.loop.finaloplist()
     except NotAProfitableLoop:
         debug_stop("vec-opt-loop")
         # cost model says to skip this loop
-        return loop_info, version.operations
+        return loop_info, version.loop.finaloplist()
     except Exception as e:
         debug_stop("vec-opt-loop")
         debug_print("failed to vectorize loop. THIS IS A FATAL ERROR!")
@@ -162,10 +179,7 @@ class VectorizingOptimizer(Optimizer):
         self.packset = None
         self.unroll_count = 0
         self.smallest_type_bytes = 0
-        self.sched_data = None
-        self.appended_arg_count = 0
         self.orig_label_args = None
-        self.has_two_labels = False
 
     def propagate_all_forward(self, info, loop):
         self.orig_label_args = loop.label.getarglist_copy()
@@ -198,10 +212,7 @@ class VectorizingOptimizer(Optimizer):
         self.schedule(state)
         if not state.profitable():
             raise NotAProfitableLoop()
-
-    def emit_unrolled_operation(self, op):
-        self._last_emitted_op = op
-        self._newoperations.append(op)
+        return graph.index_vars
 
     def unroll_loop_iterations(self, loop, unroll_count):
         """ Unroll the loop X times. unroll_count + 1 = unroll_factor """
@@ -264,7 +275,6 @@ class VectorizingOptimizer(Optimizer):
             value = renamer.rename_box(arg)
             loop.jump.setarg(i, value)
         #
-        #self.emit_unrolled_operation(jump_op)
         loop.operations = operations + unrolled
 
     def linear_find_smallest_type(self, loop):
@@ -304,15 +314,12 @@ class VectorizingOptimizer(Optimizer):
             for node_b,memref_b in memory_refs:
                 if memref_a is memref_b:
                     continue
-                #print "???", memref_a.index_var, memref_b.index_var
                 # instead of compare every possible combination and
                 # exclue a_opidx == b_opidx only consider the ones
                 # that point forward:
                 if memref_a.is_adjacent_after(memref_b):
-                    print node_a.getindex(), "is after", node_b.getindex()
                     pair = self.packset.can_be_packed(node_a, node_b, None, False)
                     if pair:
-                        print "creating mem pair", pair
                         self.packset.add_pack(pair)
 
     def extend_packset(self):
@@ -357,13 +364,10 @@ class VectorizingOptimizer(Optimizer):
 
     def follow_def_uses(self, pack):
         assert pack.numops() == 2
-        print "lprov", pack.leftmost(node=True).provides_count(),
-        print "rprov", pack.rightmost(node=True).provides_count()
         for ldep in pack.leftmost(node=True).provides():
             for rdep in pack.rightmost(node=True).provides():
                 lnode = ldep.to
                 rnode = rdep.to
-                print "trying", lnode.getindex(), rnode.getindex(), lnode, rnode
                 left = pack.leftmost()
                 args = lnode.getoperation().getarglist()
                 if left is None or left not in args:
@@ -372,10 +376,7 @@ class VectorizingOptimizer(Optimizer):
                 if isomorph and lnode.is_before(rnode):
                     pair = self.packset.can_be_packed(lnode, rnode, pack, True)
                     if pair:
-                        print "creating pair" , pair, pair.operations[0].op, pair.operations[1].op
                         self.packset.add_pack(pair)
-                    else:
-                        print "!!!creating pair" , lnode, rnode
 
     def combine_packset(self):
         """ Combination is done iterating the packs that have
@@ -439,38 +440,38 @@ class VectorizingOptimizer(Optimizer):
             return
         state.post_schedule()
 
-    def prepend_invariant_operations(self, sched_data):
-        """ Add invariant operations to the trace loop. returns the operation list
-            as first argument and a second a boolean value.
-        """
-        oplist = self._newoperations
+    #def prepend_invariant_operations(self, sched_data):
+    #    """ Add invariant operations to the trace loop. returns the operation list
+    #        as first argument and a second a boolean value.
+    #    """
+    #    oplist = self._newoperations
 
-        if len(sched_data.invariant_oplist) > 0:
-            label = oplist[0]
-            assert label.getopnum() == rop.LABEL
-            #
-            jump = oplist[-1]
-            assert jump.getopnum() == rop.JUMP
-            #
-            label_args = label.getarglist()[:]
-            jump_args = jump.getarglist()
-            for var in sched_data.invariant_vector_vars:
-                label_args.append(var)
-                jump_args.append(var)
-            #
-            # in case of any invariant_vector_vars, the label is restored
-            # and the invariant operations are added between the original label
-            # and the new label
-            descr = label.getdescr()
-            assert isinstance(descr, TargetToken)
-            token = TargetToken(descr.targeting_jitcell_token)
-            oplist[0] = label.copy_and_change(label.getopnum(), args=label_args, descr=token)
-            oplist[-1] = jump.copy_and_change(jump.getopnum(), args=jump_args, descr=token)
-            #
-            return [ResOperation(rop.LABEL, self.orig_label_args, None, descr)] + \
-                   sched_data.invariant_oplist + oplist
-        #
-        return oplist
+    #    if len(sched_data.invariant_oplist) > 0:
+    #        label = oplist[0]
+    #        assert label.getopnum() == rop.LABEL
+    #        #
+    #        jump = oplist[-1]
+    #        assert jump.getopnum() == rop.JUMP
+    #        #
+    #        label_args = label.getarglist()[:]
+    #        jump_args = jump.getarglist()
+    #        for var in sched_data.invariant_vector_vars:
+    #            label_args.append(var)
+    #            jump_args.append(var)
+    #        #
+    #        # in case of any invariant_vector_vars, the label is restored
+    #        # and the invariant operations are added between the original label
+    #        # and the new label
+    #        descr = label.getdescr()
+    #        assert isinstance(descr, TargetToken)
+    #        token = TargetToken(descr.targeting_jitcell_token)
+    #        oplist[0] = label.copy_and_change(label.getopnum(), args=label_args, descr=token)
+    #        oplist[-1] = jump.copy_and_change(jump.getopnum(), args=jump_args, descr=token)
+    #        #
+    #        return [ResOperation(rop.LABEL, self.orig_label_args, None, descr)] + \
+    #               sched_data.invariant_oplist + oplist
+    #    #
+    #    return oplist
 
     def analyse_index_calculations(self, loop):
         """ Tries to move guarding instructions an all the instructions that
@@ -586,7 +587,6 @@ class X86_CostModel(CostModel):
             cost, benefit_factor = self.cb_signext(pack)
         #
         self.savings += benefit_factor * times - cost
-        print "$$$ recording", benefit_factor, "*", times, "-", cost, "now:", self.savings
 
     def cb_signext(self, pack):
         left = pack.leftmost()
@@ -606,10 +606,8 @@ class X86_CostModel(CostModel):
         if src.datatype == FLOAT:
             if index == 1 and count == 1:
                 self.savings -= 2
-                print "$$$ vector pack -2 now:", self.savings
                 return
         self.savings -= count
-        print "$$$ vector pack ", count, "now", self.savings
 
     def record_vector_unpack(self, src, index, count):
         self.record_vector_pack(src, index, count)
@@ -799,16 +797,13 @@ class PackSet(object):
         for i,pack in enumerate(self.packs):
             load = pack.pack_load(self.vec_reg_size)
             if load > Pack.FULL:
-                print "overloaded pack", pack
                 pack.split(newpacks, self.vec_reg_size)
                 continue
             if load < Pack.FULL:
-                print "underloaded pack", pack
                 for op in pack.operations:
                     op.priority = -100
                 pack.clear()
                 self.packs[i] = None
                 continue
-            print "fully packed", pack
         self.packs = [pack for pack in self.packs + newpacks if pack]
 

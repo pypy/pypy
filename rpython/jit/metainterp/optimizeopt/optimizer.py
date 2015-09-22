@@ -33,6 +33,9 @@ class BasicLoopInfo(LoopInfo):
     def final(self):
         return True
 
+    def post_loop_compilation(self, loop, jitdriver_sd, metainterp, jitcell_token):
+        pass
+
 
 class Optimization(object):
     next_optimization = None

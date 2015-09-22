@@ -18,7 +18,6 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP, ResumeDataDirectReader
 from rpython.jit.codewriter import heaptracker, longlong
 
-
 def giveup():
     from rpython.jit.metainterp.pyjitpl import SwitchToBlackhole
     raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
@@ -148,7 +147,6 @@ def create_empty_loop(metainterp, name_prefix=''):
     name = metainterp.staticdata.stats.name_for_new_loop()
     loop = TreeLoop(name_prefix + name)
     return loop
-
 
 def make_jitcell_token(jitdriver_sd):
     jitcell_token = JitCellToken()
@@ -324,54 +322,13 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
             label_token.short_preamble, metainterp.box_names_memo)
     loop.operations = ([start_label] + preamble_ops + loop_info.extra_same_as +
                        [loop_info.label_op] + loop_ops)
-    if loop.versions is not None:
-        # every different loop version must update their target tokens
-        for version in loop.versions:
-            version.update_token(jitcell_token, all_target_tokens)
     if not we_are_translated():
         loop.check_consistency()
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
                          inputargs, metainterp.box_names_memo)
-
     record_loop_or_bridge(metainterp_sd, loop)
-    generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token)
+    loop_info.post_loop_compilation(loop, jitdriver_sd, metainterp, jitcell_token)
     return start_descr
-
-def generate_pending_loop_versions(loop, jitdriver_sd, metainterp, jitcell_token):
-    """ if a loop version is created for a guard instruction (e.g. they are known
-        to fail frequently) then a version can be created that is immediatly compiled
-        and stitched to the guard.
-    """
-    metainterp_sd = metainterp.staticdata
-    cpu = metainterp_sd.cpu
-    if loop.versions:
-        # compile each version once for the first fail descr!
-        # this assumes that the root trace (= loop) is already compiled
-        compiled = {}
-        info = loop.version_info
-        for descr in info.descrs:
-            version = info.get(descr)
-            if not version:
-                # the guard might have been removed from the trace
-                continue
-            if version not in compiled:
-                assert isinstance(descr, ResumeGuardDescr)
-                vl = create_empty_loop(metainterp)
-                vl.inputargs = version.inputargs
-                vl.operations = version.operations
-                vl.original_jitcell_token = jitcell_token
-                asminfo = send_bridge_to_backend(jitdriver_sd, metainterp_sd,
-                                                 descr, version.inputargs,
-                                                 version.operations, jitcell_token)
-                record_loop_or_bridge(metainterp_sd, vl)
-                assert asminfo is not None
-                compiled[version] = (asminfo, descr, version, jitcell_token)
-            else:
-                param = compiled[version]
-                cpu.stitch_bridge(descr, param)
-
-    loop.versions = None
-    loop.version_info = None
 
 def compile_retrace(metainterp, greenkey, start,
                     inputargs, jumpargs,

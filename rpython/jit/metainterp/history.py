@@ -501,7 +501,6 @@ class TreeLoop(object):
 
     def __init__(self, name):
         self.name = name
-        self.versions = []
         # self.operations = list of ResOperations
         #   ops of the kind 'guard_xxx' contain a further list of operations,
         #   which may itself contain 'guard_xxx' and so on, making a tree.
@@ -519,31 +518,6 @@ class TreeLoop(object):
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         return insns
-
-    # XXX VECdef append_loop(self, loop, all_target_tokens):
-    # XXX VEC    # append e.g. the peeled loop to this loop!
-    # XXX VEC    jump = loop.operations[-1]
-    # XXX VEC    assert jump.getdescr() is not None
-    # XXX VEC    target_token = None
-    # XXX VEC    i = 0
-    # XXX VEC    # adds all target token until the one is found that jumps from the 
-    # XXX VEC    # last instruction to the label
-    # XXX VEC    while i < len(loop.operations) and target_token is not jump.getdescr():
-    # XXX VEC        # there is another label
-    # XXX VEC        op = loop.operations[i]
-    # XXX VEC        if op.getopnum() == rop.LABEL:
-    # XXX VEC            target_token = op.getdescr()
-    # XXX VEC            assert isinstance(target_token, TargetToken)
-    # XXX VEC            all_target_tokens.append(target_token)
-    # XXX VEC        i += 1
-    # XXX VEC    #
-    # XXX VEC    self.operations = self.operations[:-1] + loop.operations
-    # XXX VEC    self.versions = loop.versions
-    # XXX VEC    loop.versions = None
-    # XXX VEC    self.version_info = loop.version_info
-    # XXX VEC    loop.version_info = None
-    # XXX VEC    if loop.quasi_immutable_deps:
-    # XXX VEC        self.quasi_immutable_deps.update(loop.quasi_immutable_deps)
 
     def get_operations(self):
         return self.operations

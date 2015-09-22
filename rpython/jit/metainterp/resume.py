@@ -57,6 +57,12 @@ class AccumInfo(object):
         self.scalar_box = box
         self.vector_loc = loc
 
+    def getpos_in_failargs(self):
+        return self.scalar_position
+
+    def next(self):
+        return self.prev
+
     def __repr__(self):
         return 'AccumInfo(%s,%s,%s,%s,%s)' % (self.prev is None,
                                               self.accum_operation,

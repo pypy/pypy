@@ -861,27 +861,35 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_int_signext(self, vx, ext):
         return [heaptracker.int_signext(_vx, ext) for _vx in vx]
 
-    def bh_vec_getarrayitem_raw(self, struct, offset, count, descr):
-        values = []
-        for i in range(count):
-            val = self.bh_getarrayitem_raw(struct, offset + i, descr)
-            values.append(val)
-        return values
+    def build_getarrayitem(func):
+        def method(self, struct, offset, descr):
+            values = []
+            count = self.vector_register_size // descr.get_item_size_in_bytes()
+            assert count > 0
+            for i in range(count):
+                val = func(self, struct, offset + i, descr)
+                values.append(val)
+            return values
+        return method
 
-    def bh_vec_getarrayitem_gc(self, struct, offset, count, descr):
-        values = []
-        for i in range(count):
-            val = self.bh_getarrayitem_gc(struct, offset + i, descr)
-            values.append(val)
-        return values
+    bh_vec_getarrayitem_gc_i = build_getarrayitem(bh_getarrayitem_gc)
+    bh_vec_getarrayitem_gc_f = build_getarrayitem(bh_getarrayitem_gc)
+    bh_vec_getarrayitem_raw_i = build_getarrayitem(bh_getarrayitem_raw)
+    bh_vec_getarrayitem_raw_f = build_getarrayitem(bh_getarrayitem_raw)
+    del build_getarrayitem
 
-    def bh_vec_raw_load(self, struct, offset, count, descr):
+    def _bh_vec_raw_load(self, struct, offset, descr):
         values = []
         stride = descr.get_item_size_in_bytes()
+        count = self.vector_register_size // descr.get_item_size_in_bytes()
+        assert count > 0
         for i in range(count):
             val = self.bh_raw_load(struct, offset + i*stride, descr)
             values.append(val)
         return values
+
+    bh_vec_raw_load_i = _bh_vec_raw_load
+    bh_vec_raw_load_f = _bh_vec_raw_load
 
     def bh_vec_raw_store(self, struct, offset, newvalues, descr):
         stride = descr.get_item_size_in_bytes()
@@ -944,7 +952,17 @@ class LLFrame(object):
         return hash(self)
 
     def setenv(self, box, arg):
-        if box.type == INT:
+        if box.is_vector():
+            if box.datatype == INT:
+                _type = lltype.Signed
+                for i,a in enumerate(arg):
+                    if isinstance(a, bool):
+                        arg[i] = int(a) 
+            elif box.datatype == FLOAT:
+                _type = longlong.FLOATSTORAGE
+            else:
+                raise AssertionError(box)
+        elif box.type == INT:
             # typecheck the result
             if isinstance(arg, bool):
                 arg = int(arg)
@@ -953,16 +971,6 @@ class LLFrame(object):
             assert lltype.typeOf(arg) == llmemory.GCREF
         elif box.type == FLOAT:
             assert lltype.typeOf(arg) == longlong.FLOATSTORAGE
-        elif box.type == VECTOR:
-            if box.item_type == INT:
-                _type = lltype.Signed
-                for i,a in enumerate(arg):
-                    if isinstance(a, bool):
-                        arg[i] = int(a) 
-            elif box.item_type == FLOAT:
-                _type = longlong.FLOATSTORAGE
-            else:
-                raise AssertionError(box)
         else:
             raise AssertionError(box)
         #
@@ -1013,12 +1021,9 @@ class LLFrame(object):
     # -----------------------------------------------------
 
     def _accumulate(self, descr, failargs, values):
-        for i,box in enumerate(self.current_op.getfailargs()):
-            if box is None:
-                continue
-            accum = box.getaccum()
-            if not accum:
-                continue
+        accuminfo = descr.rd_accum_list
+        while accuminfo:
+            i = accuminfo.getpos_in_failargs()
             value = values[i]
             assert isinstance(value, list)
             if accum.operator == '+':
@@ -1029,6 +1034,7 @@ class LLFrame(object):
             else:
                 raise NotImplementedError("accum operator in fail guard")
             values[i] = value
+            accuminfo = accuminfo.next()
 
     def fail_guard(self, descr, saved_data=None):
         values = []

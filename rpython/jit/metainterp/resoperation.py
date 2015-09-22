@@ -27,8 +27,11 @@ class CountingDict(object):
 class AbstractValue(object):
     _repr_memo = CountingDict()
     is_info_class = False
-    _attrs_ = ()
     namespace = None
+    _attrs_ = ('datatype', 'bytesize', 'signed')
+    datatype = '\x00'
+    bytesize = -1 # -1 means the biggest size known to the machine
+    signed = True
 
     def _get_hash_(self):
         return compute_identity_hash(self)
@@ -110,11 +113,6 @@ def VecOperationNew(opnum, args, datateyp, bytesize, signed, count, descr=None):
 
 class Typed(object):
     _mixin_ = True
-    _attrs_ = ('datatype', 'bytesize', 'signed')
-
-    datatype = '\x00'
-    bytesize = -1 # -1 means the biggest size known to the machine
-    signed = True
 
     def inittype(self):
         if self.returns_void():
@@ -124,6 +122,9 @@ class Typed(object):
 
         if self.is_primitive_array_access():
             descr = self.getdescr()
+            if not we_are_translated():
+                from rpython.jit.backend.llgraph.runner import _getdescr
+                descr = _getdescr(self)
             type = self.type
             if descr.is_array_of_floats() or descr.concrete_type == 'f':
                 type = 'f'
@@ -131,8 +132,10 @@ class Typed(object):
             self.sign = descr.is_item_signed()
             self.datatype = type
         elif self.opnum == rop.INT_SIGNEXT:
+            from rpython.jit.metainterp import history
             arg0 = self.getarg(0)
             arg1 = self.getarg(1)
+            assert isinstance(arg1, history.ConstInt)
             signed = True
             if not arg0.is_constant():
                 signed = arg0.signed
@@ -181,6 +184,7 @@ class Typed(object):
 class AbstractResOpOrInputArg(AbstractValue, Typed):
     _attrs_ = ('_forwarded',)
     _forwarded = None # either another resop or OptInfo  
+
 
     def get_forwarded(self):
         return self._forwarded
@@ -435,6 +439,9 @@ class AbstractResOp(AbstractResOpOrInputArg):
         primitive type (int,float) """
         if self.is_primitive_load() or self.is_primitive_store():
             descr = self.getdescr()
+            if not we_are_translated():
+                from rpython.jit.backend.llgraph.runner import _getdescr
+                descr = _getdescr(self)
             if descr and descr.is_array_of_primitives():
                 return True
         return False

@@ -65,7 +65,7 @@ class VectorizeTests:
         res = self.meta_interp(f, [i])
         assert res == f(i)
 
-    @py.test.mark.parametrize('i',[1,2,3,8,17,128,130,500,501,502,1300])
+    @py.test.mark.parametrize('i',[1,2,3,8,17,128,130,131,142,143])
     def test_vectorize_array_get_set(self,i):
         myjitdriver = JitDriver(greens = [],
                                 reds = 'auto',
