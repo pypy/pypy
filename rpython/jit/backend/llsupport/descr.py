@@ -75,15 +75,16 @@ def get_size_descr(gccache, STRUCT, vtable=lltype.nullptr(rclass.OBJECT_VTABLE))
     except KeyError:
         size = symbolic.get_size(STRUCT, gccache.translate_support_code)
         immutable_flag = heaptracker.is_immutable_struct(STRUCT)
-        gc_fielddescrs = heaptracker.gc_fielddescrs(gccache, STRUCT)
         if vtable:
             assert heaptracker.has_gcstruct_a_vtable(STRUCT)
         else:
             assert not heaptracker.has_gcstruct_a_vtable(STRUCT)
-        sizedescr = SizeDescr(size, gc_fielddescrs, vtable=vtable,
+        sizedescr = SizeDescr(size, vtable=vtable,
                               immutable_flag=immutable_flag)
         gccache.init_size_descr(STRUCT, sizedescr)
         cache[STRUCT] = sizedescr
+        gc_fielddescrs = heaptracker.gc_fielddescrs(gccache, STRUCT)
+        sizedescr.gc_fielddescrs = gc_fielddescrs
         all_fielddescrs = heaptracker.all_fielddescrs(gccache, STRUCT)
         sizedescr.all_fielddescrs = all_fielddescrs
         return sizedescr

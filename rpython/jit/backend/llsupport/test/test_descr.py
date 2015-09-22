@@ -460,3 +460,12 @@ def test_descr_get_integer_bounds():
     descr = FieldDescr('descr', 0, 1, FLAG_SIGNED)
     assert descr.get_integer_min() == -128
     assert descr.get_integer_max() == 127
+
+
+def test_size_descr_stack_overflow_bug():
+    c0 = GcCache(False)
+    S = lltype.GcForwardReference()
+    P = lltype.Ptr(S)
+    fields = [('x%d' % i, P) for i in range(1500)]
+    S.become(lltype.GcStruct('S', *fields))
+    get_size_descr(c0, S)
