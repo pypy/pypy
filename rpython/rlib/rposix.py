@@ -21,7 +21,7 @@ UNDERSCORE_ON_WIN32 = '_' if _WIN32 else ''
 _MACRO_ON_POSIX = True if not _WIN32 else None
 
 if _WIN32:
-    from rpython.rlib import rwin32 
+    from rpython.rlib import rwin32
     from rpython.rlib.rwin32file import make_win32_traits
 
 class CConstantErrno(CConstant):
@@ -360,7 +360,7 @@ else:
     @specialize.argtype(0)
     def _preferred_traits(path):
         return string_traits
-    
+
 @specialize.argtype(0, 1)
 def putenv(name, value):
     os.environ[_as_bytes(name)] = _as_bytes(value)
@@ -453,7 +453,7 @@ def lseek(fd, pos, how):
     if SEEK_SET is not None:
         if how == 0:
             how = SEEK_SET
-        elif how == 1: 
+        elif how == 1:
             how = SEEK_CUR
         elif how == 2:
             how = SEEK_END
@@ -875,7 +875,7 @@ for name in WAIT_MACROS:
 
 c_getlogin = external('getlogin', [], rffi.CCHARP,
                       releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
-c_getloadavg = external('getloadavg', 
+c_getloadavg = external('getloadavg',
                         [rffi.CArrayPtr(lltype.Float), rffi.INT], rffi.INT)
 
 @replace_os_function('getlogin')
@@ -1595,7 +1595,7 @@ def setresgid(rgid, egid, sgid):
 
 #___________________________________________________________________
 
-c_chroot = external('chroot', [rffi.CCHARP], rffi.INT, 
+c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
                     save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('chroot')
@@ -1636,19 +1636,23 @@ def uname():
     finally:
         lltype.free(l_utsbuf, flavor='raw')
 
+# These are actually macros on some/most systems
 c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT)
 c_major = external('major', [rffi.INT], rffi.INT)
 c_minor = external('minor', [rffi.INT], rffi.INT)
 
 @replace_os_function('makedev')
+@jit.dont_look_inside
 def makedev(maj, min):
     return c_makedev(maj, min)
 
 @replace_os_function('major')
+@jit.dont_look_inside
 def major(dev):
     return c_major(dev)
 
 @replace_os_function('minor')
+@jit.dont_look_inside
 def minor(dev):
     return c_minor(dev)
 
