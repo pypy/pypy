@@ -166,7 +166,7 @@ class GraphFlattener(object):
                 exc_data = self.cpu.rtyper.exceptiondata
                 ll_ovf = exc_data.get_standard_ll_exc_instance_by_class(
                     OverflowError)
-                c = Constant(ll_ovf, concretetype=lltype.Void)
+                c = Constant(ll_ovf, concretetype=lltype.typeOf(ll_ovf))
                 self.emitline("raise", c)
             else:
                 self.emitline("reraise")
