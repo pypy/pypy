@@ -2036,7 +2036,8 @@ class MetaInterp(object):
         else:
             moreargs = list(extraargs)
         if opnum == rop.GUARD_EXCEPTION:
-            guard_op = self.history.record(opnum, moreargs, None)
+            guard_op = self.history.record(opnum, moreargs,
+                                           lltype.nullptr(llmemory.GCREF.TO))
         else:
             guard_op = self.history.record(opnum, moreargs, None)            
         assert isinstance(guard_op, GuardResOp)
