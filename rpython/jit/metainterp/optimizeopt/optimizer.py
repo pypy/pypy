@@ -590,7 +590,7 @@ class Optimizer(Optimization):
             not self.is_call_pure_pure_canraise(op)):
             pass
         else:
-            assert self.origin_jitcode is None
+            #assert self.origin_jitcode is None
             self._last_guard_op = None
         self._really_emitted_operation = op
         self._newoperations.append(op)
