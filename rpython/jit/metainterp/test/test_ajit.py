@@ -3906,6 +3906,7 @@ class BaseLLtypeTests(BasicTests):
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     def test_tagged(self):
+        py.test.skip("tagged unsupported")
         from rpython.rlib.objectmodel import UnboxedValue
         class Base(object):
             __slots__ = ()
