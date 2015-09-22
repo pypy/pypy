@@ -1037,7 +1037,6 @@ class ResOpAssembler(BaseAssembler):
     def store_force_descr(self, op, fail_locs, frame_depth):
         pos = self.mc.currpos()
         guard_token = self.build_guard_token(op, frame_depth, fail_locs, pos, c.AL)
-        assert guard_token.must_save_exception()
         #self.pending_guards.append(guard_token)
         self._finish_gcmap = guard_token.gcmap
         self._store_force_index(op)
