@@ -1479,7 +1479,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_resops(guard_class=0, guard_value=6)
+        self.check_resops(guard_class=4, guard_value=6)
         #
         # The original 'guard_class' is rewritten to be directly 'guard_value'.
         # Check that this rewrite does not interfere with the descr, which
@@ -1544,7 +1544,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_resops(guard_value=4, guard_class=0, guard_nonnull=4,
+        self.check_resops(guard_value=4, guard_class=0, guard_nonnull=6,
                           guard_nonnull_class=0, guard_isnull=2)
 
 
@@ -1572,7 +1572,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_resops(guard_value=4, guard_class=0, guard_nonnull=4,
+        self.check_resops(guard_value=4, guard_class=0, guard_nonnull=6,
                           guard_nonnull_class=0, guard_isnull=2)
 
 
@@ -1604,7 +1604,7 @@ class BasicTests:
         res = self.meta_interp(f, [399], listops=True)
         assert res == f(399)
         self.check_resops(guard_class=0, guard_nonnull=6, guard_value=6,
-                          guard_nonnull_class=0, guard_isnull=2)
+                          guard_nonnull_class=4, guard_isnull=2)
 
 
     def test_residual_call_doesnt_lose_info(self):
@@ -2082,7 +2082,7 @@ class BasicTests:
         assert res == 7068153
         self.check_trace_count(6)
         self.check_resops(guard_true=8, guard_class=2, int_mul=3,
-                          int_add=3, guard_false=4)
+                          int_add=3, guard_false=3)
 
     def test_dont_trace_every_iteration(self):
         myjitdriver = JitDriver(greens = [], reds = ['a', 'b', 'i', 'sa'])
