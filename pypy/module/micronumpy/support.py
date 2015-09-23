@@ -32,7 +32,10 @@ def index_w(space, w_obj):
 def product(s):
     i = 1
     for x in s:
-        i = ovfcheck(i * x)
+        try:
+            i = ovfcheck(i * x)
+        except OverflowError:
+            raise
     return i
 
 
