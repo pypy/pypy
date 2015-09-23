@@ -572,7 +572,7 @@ class Optimizer(Optimization):
                     self.origin_pc == op.rd_frame_info_list.pc):
                     self.origin_jitcode = None
                     self.origin_pc = 0
-                else:
+                elif op.getopnum() != rop.GUARD_OVERFLOW:
                     self.potentially_change_ovf_op_to_no_ovf(op)
                     return # we optimize the guard
             self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
