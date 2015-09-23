@@ -573,6 +573,7 @@ class Optimizer(Optimization):
                     self.origin_jitcode = None
                     self.origin_pc = 0
                 else:
+                    self.potentially_change_ovf_op_to_no_ovf(op)
                     return # we optimize the guard
             self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
             pendingfields = self.pendingfields
@@ -612,6 +613,23 @@ class Optimizer(Optimization):
             self._last_guard_op = None
         return op
 
+    def potentially_change_ovf_op_to_no_ovf(self, op):
+        # if last emitted operations was int_xxx_ovf and we are not emitting
+        # a guard_no_overflow change to int_add
+        if op.getopnum() != rop.GUARD_NO_OVERFLOW:
+            return
+        op = self._newoperations[-1]
+        if not op.is_ovf():
+            return
+        if op.getopnum() == rop.INT_MUL_OVF:
+            newop = self.replace_op_with(op, rop.INT_MUL)
+        elif op.getopnum() == rop.INT_ADD_OVF:
+            newop = self.replace_op_with(op, rop.INT_ADD)
+        elif op.getopnum() == rop.INT_SUB_OVF:
+            newop = self.replace_op_with(op, rop.INT_SUB)
+        else:
+            assert False
+        self._newoperations[-1] = newop
 
     def _copy_resume_data_from(self, guard_op, last_guard_op):
         if guard_op.getopnum() in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION):
