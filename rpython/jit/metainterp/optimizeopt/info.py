@@ -156,6 +156,7 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
         raise NotImplementedError("abstract")
 
     def visitor_walk_recursive(self, instbox, visitor, optimizer):
+        instbox = instbox.get_box_replacement()
         if visitor.already_seen_virtual(instbox):
             return
         return self._visitor_walk_recursive(instbox, visitor, optimizer)
@@ -238,7 +239,6 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         for i in range(len(lst)):
             op = self._fields[i]
             if op:
-                op = op.get_box_replacement()
                 fieldinfo = optimizer.getptrinfo(op)
                 if fieldinfo and fieldinfo.is_virtual():
                     fieldinfo.visitor_walk_recursive(op, visitor, optimizer)
