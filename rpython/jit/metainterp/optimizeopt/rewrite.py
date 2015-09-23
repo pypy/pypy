@@ -380,8 +380,10 @@ class OptRewrite(Optimization):
                     raise InvalidLoop("promote of a virtual")
                 old_guard_op = info.get_last_guard(self.optimizer)
                 if old_guard_op is not None:
-                    op = self.replace_guard_class_with_guard_value(op, info,
-                                                              old_guard_op)
+                    pass
+                    # disable it for now because of sharing
+                    #op = self.replace_guard_class_with_guard_value(op, info,
+                    #                                          old_guard_op)
         elif arg0.type == 'f':
             arg0 = self.get_box_replacement(arg0)
             if arg0.is_constant():
