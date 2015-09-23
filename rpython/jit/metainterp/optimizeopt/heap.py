@@ -298,9 +298,18 @@ class OptHeap(Optimization):
                     origin_pc == op.rd_frame_info_list.pc):
                     self.optimizer.origin_jitcode = None
                     self.optimizer.origin_pc = 0
-                elif op.getopnum() != rop.GUARD_OVERFLOW:
-                    self.optimizer.potentially_change_ovf_op_to_no_ovf(op)
+                elif op.getopnum() == rop.GUARD_NO_OVERFLOW:
+                    if self.postponed_op:
+                        # XXX is this always the case?
+                        assert self.postponed_op.is_ovf()
+                        newop = self.optimizer.replace_op_with_no_ovf(
+                            self.postponed_op)
+                        self.postponed_op = newop
+                    else:
+                        self.optimizer.potentially_change_ovf_op_to_no_ovf(op)
                     return # we optimize the guard
+                elif op.getopnum() != rop.GUARD_OVERFLOW:
+                    return
         
         self.emitting_operation(op)
         self.emit_postponed_op()

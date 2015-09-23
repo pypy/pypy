@@ -406,7 +406,7 @@ class BasicTests:
             return externfn(n, n+1)
         res = self.interp_operations(f, [6])
         assert res == 42
-        self.check_operations_history(int_add=1, int_mul=0, call=1, guard_no_exception=0)
+        self.check_operations_history(int_add=1, int_mul=0, call_i=1, guard_no_exception=0)
 
     def test_residual_call_elidable(self):
         def externfn(x, y):
@@ -419,7 +419,7 @@ class BasicTests:
         assert res == 42
         # CALL_PURE is not recorded in the history if all-constant args
         self.check_operations_history(int_add=0, int_mul=0,
-                                      call=0, call_pure_i=0)
+                                      call_i=0, call_pure_i=0)
 
     def test_residual_call_elidable_1(self):
         @elidable
@@ -431,7 +431,7 @@ class BasicTests:
         assert res == 42
         # CALL_PURE is recorded in the history if not-all-constant args
         self.check_operations_history(int_add=1, int_mul=0,
-                                      call=0, call_pure_i=1)
+                                      call_i=0, call_pure_i=1)
 
     def test_residual_call_elidable_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
@@ -659,11 +659,11 @@ class BasicTests:
         #
         res = self.meta_interp(f, [3, 6], repeat=7, function_threshold=0)
         assert res == 6 - 4 - 5
-        self.check_history(call=0)   # because the trace starts in the middle
+        self.check_history(call_n=0)   # because the trace starts in the middle
         #
         res = self.meta_interp(f, [60, 84], repeat=7)
         assert res == 84 - 61 - 62
-        self.check_history(call=1)   # because the trace starts immediately
+        self.check_history(call_n=1)   # because the trace starts immediately
 
     def test_unroll_one_loop_iteration(self):
         def unroll(code):
@@ -685,11 +685,11 @@ class BasicTests:
 
         res = self.meta_interp(f, [1, 4, 1], enable_opts="", inline=True)
         assert res == f(1, 4, 1)
-        self.check_history(call_assembler=0)
+        self.check_history(call_assembler_i=0)
 
         res = self.meta_interp(f, [1, 4, 2], enable_opts="", inline=True)
         assert res == f(1, 4, 2)
-        self.check_history(call_assembler=1)
+        self.check_history(call_assembler_i=1)
 
     def test_format(self):
         def f(n):

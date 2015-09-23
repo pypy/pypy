@@ -616,15 +616,19 @@ class Optimizer(Optimization):
         op = self._newoperations[-1]
         if not op.is_ovf():
             return
+        newop = self.replace_op_with_no_ovf(op)
+        self._newoperations[-1] = newop
+
+    def replace_op_with_no_ovf(self, op):
         if op.getopnum() == rop.INT_MUL_OVF:
-            newop = self.replace_op_with(op, rop.INT_MUL)
+            return self.replace_op_with(op, rop.INT_MUL)
         elif op.getopnum() == rop.INT_ADD_OVF:
-            newop = self.replace_op_with(op, rop.INT_ADD)
+            return self.replace_op_with(op, rop.INT_ADD)
         elif op.getopnum() == rop.INT_SUB_OVF:
-            newop = self.replace_op_with(op, rop.INT_SUB)
+            return self.replace_op_with(op, rop.INT_SUB)
         else:
             assert False
-        self._newoperations[-1] = newop
+
 
     def _copy_resume_data_from(self, guard_op, last_guard_op):
         if guard_op.getopnum() in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION):
