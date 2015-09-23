@@ -499,7 +499,7 @@ class Optimizer(Optimization):
     def propagate_all_forward(self, inputargs, ops, call_pure_results=None,
                               rename_inputargs=True, flush=True,
                               origin_jitcode=None, origin_pc=0):
-        self.origin_jitcode = origin_jitcode
+        self.origin_jitcode = None # origin_jitcode
         self.origin_pc = origin_pc
         if rename_inputargs:
             newargs = []
