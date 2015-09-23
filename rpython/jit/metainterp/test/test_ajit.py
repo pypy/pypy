@@ -841,7 +841,7 @@ class BasicTests:
             return a.foo * x
         res = self.interp_operations(f, [42])
         assert res == 210
-        self.check_operations_history(getfield_gc=1)
+        self.check_operations_history(getfield_gc_i=1)
 
     def test_getfield_immutable(self):
         class A:
@@ -858,7 +858,7 @@ class BasicTests:
             return a.foo * x
         res = self.interp_operations(f, [42])
         assert res == 210
-        self.check_operations_history(getfield_gc=0)
+        self.check_operations_history(getfield_gc_i=0)
 
     def test_setfield_bool(self):
         class A:
@@ -1381,7 +1381,7 @@ class BasicTests:
             return g(a, b)
         res = self.interp_operations(f, [3, 5])
         assert res == 8
-        self.check_operations_history(int_add=0, call=1)
+        self.check_operations_history(int_add=0, call_i=1)
 
     def test_listcomp(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'lst'])
@@ -1405,7 +1405,7 @@ class BasicTests:
             return tup[1]
         res = self.interp_operations(f, [3, 5])
         assert res == 5
-        self.check_operations_history(setfield_gc=2, getfield_gc_pure=0)
+        self.check_operations_history(setfield_gc=2, getfield_gc_pure_i=0)
 
     def test_oosend_look_inside_only_one(self):
         class A:
@@ -4030,7 +4030,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             rgc.ll_arraycopy(a, b, c, d, e)
             return 42
         self.interp_operations(f, [1, 2, 3])
-        self.check_operations_history(call=1, guard_no_exception=0)
+        self.check_operations_history(call_n=1, guard_no_exception=0)
 
     def test_weakref(self):
         import weakref
