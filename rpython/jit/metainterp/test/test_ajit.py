@@ -2082,7 +2082,7 @@ class BasicTests:
         assert res == 7068153
         self.check_trace_count(6)
         self.check_resops(guard_true=8, guard_class=2, int_mul=3,
-                          int_add=3, guard_false=3)
+                          int_add=3, guard_false=4)
 
     def test_dont_trace_every_iteration(self):
         myjitdriver = JitDriver(greens = [], reds = ['a', 'b', 'i', 'sa'])
