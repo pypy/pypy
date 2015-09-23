@@ -567,14 +567,6 @@ class Optimizer(Optimization):
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
         if op.is_guard():
             assert isinstance(op, GuardResOp)
-            if self.origin_jitcode is not None:
-                if (self.origin_jitcode is op.rd_frame_info_list.jitcode and
-                    self.origin_pc == op.rd_frame_info_list.pc):
-                    self.origin_jitcode = None
-                    self.origin_pc = 0
-                elif op.getopnum() != rop.GUARD_OVERFLOW:
-                    self.potentially_change_ovf_op_to_no_ovf(op)
-                    return # we optimize the guard
             self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
             pendingfields = self.pendingfields
             self.pendingfields = None
@@ -617,6 +609,9 @@ class Optimizer(Optimization):
         # if last emitted operations was int_xxx_ovf and we are not emitting
         # a guard_no_overflow change to int_add
         if op.getopnum() != rop.GUARD_NO_OVERFLOW:
+            return
+        if not self._newoperations:
+            # got optimized otherwise
             return
         op = self._newoperations[-1]
         if not op.is_ovf():
