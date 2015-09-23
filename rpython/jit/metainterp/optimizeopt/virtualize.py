@@ -256,12 +256,9 @@ class OptVirtualize(optimizer.Optimization):
             offset = offsetbox.getint()
             # the following check is constant-folded to False if the
             # translation occurs without any VRawXxxValue instance around
-            if isinstance(opinfo, info.RawBufferPtrInfo):
+            if (isinstance(opinfo, info.RawBufferPtrInfo) or
+                isinstance(opinfo, info.RawSlicePtrInfo)):
                 self.make_virtual_raw_slice(offset, opinfo, op)
-                return
-            elif isinstance(opinfo, info.RawSlicePtrInfo):
-                offset = offset + opinfo.offset
-                self.make_virtual_raw_slice(offset, opinfo.parent, op)
                 return
         self.emit_operation(op)
 
