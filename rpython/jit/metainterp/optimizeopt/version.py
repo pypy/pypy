@@ -30,6 +30,7 @@ class LoopVersionInfo(BasicLoopInfo):
             self.descrs.insert(i, descr)
         else:
             self.descrs.append(descr)
+        assert descr not in self.leads_to
         self.leads_to[descr] = version
         assert version.renamed_inputargs is not None
 

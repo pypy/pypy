@@ -18,9 +18,13 @@ class TestBasic(test_basic.Jit386Mixin, test_vector.VectorizeTests):
         clazz = self.CPUClass
         def init(*args, **kwargs):
             cpu = clazz(*args, **kwargs)
+            # > 95% can be executed, thus let's cheat here a little
             cpu.supports_guard_gc_type = True
             return cpu
         self.CPUClass = init
+
+    def test_list_vectorize(self):
+        pass # needs support_guard_gc_type, disable for now
 
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
 

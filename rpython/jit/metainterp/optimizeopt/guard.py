@@ -313,6 +313,7 @@ class GuardStrengthenOpt(object):
                 if transitive_guard:
                     if version is None:
                         version = info.snapshot(loop)
+                    info.remove(other.op.getdescr())
                     other.set_to_none(info, loop)
                     descr = transitive_guard.getdescr()
                     assert isinstance(descr, ResumeGuardDescr)

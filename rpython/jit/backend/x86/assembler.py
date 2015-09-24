@@ -1750,7 +1750,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_guard_guard_no_overflow = genop_guard_guard_true
     genop_guard_guard_overflow    = genop_guard_guard_false
 
-    def genop_guard_guard_value(self, ign_1, guard_op, guard_token, locs, ign_2):
+    def genop_guard_guard_value(self, guard_op, guard_token, locs, ign):
         if guard_op.getarg(0).type == FLOAT:
             assert guard_op.getarg(1).type == FLOAT
             self.mc.UCOMISD(locs[0], locs[1])
