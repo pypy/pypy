@@ -87,6 +87,7 @@ class Guard(object):
         # guard
         descr = CompileLoopVersionDescr()
         descr.copy_all_attributes_from(self.op.getdescr())
+        descr.rd_accum_list = None # do not copy the accum list
         assert isinstance(descr, ResumeGuardDescr)
         guard = ResOperation(self.op.getopnum(), [compare], descr=descr)
         guard.setfailargs(loop.label.getarglist_copy())
@@ -318,14 +319,5 @@ class GuardStrengthenOpt(object):
                     info.track(transitive_guard, descr, version)
         info.clear()
 
-        loop.prefix += self._newoperations
+        loop.prefix = self._newoperations + loop.prefix
         loop.operations = [op for op in loop.operations if op]
-
-        # TODO if self.has_two_labels:
-        # TODO     oplist = [loop.operations[0]] + self._newoperations + \
-        # TODO              [op for op in loop.operations[1:] if op]
-        # TODO     loop.operations = oplist
-        # TODO else:
-        # TODO     loop.operations = self._newoperations + \
-        # TODO             [op for op in loop.operations if op]
-

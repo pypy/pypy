@@ -270,6 +270,10 @@ class AbstractResOp(AbstractResOpOrInputArg):
     # --------------
 
     def copy(self):
+        if self.is_guard():
+            op = self.copy_and_change(self.opnum)
+            op.setfailargs(self.getfailargs()[:])
+            return op
         return self.copy_and_change(self.opnum)
 
     def copy_and_change(self, opnum, args=None, descr=None):

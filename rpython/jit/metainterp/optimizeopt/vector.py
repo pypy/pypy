@@ -66,8 +66,20 @@ class VectorLoop(object):
         return oplist + self.operations + [self.jump]
 
     def clone(self):
-        oplist = []
         renamer = Renamer()
+        label = self.label.copy()
+        prefix = []
+        for op in self.prefix:
+            newop = op.copy()
+            renamer.rename(newop)
+            if not newop.returns_void():
+                renamer.start_renaming(op, newop)
+            prefix.append(newop)
+        prefix_label = None
+        if self.prefix_label:
+            prefix_label = self.prefix_label.copy()
+            renamer.rename(prefix_label)
+        oplist = []
         for op in self.operations:
             newop = op.copy()
             renamer.rename(newop)
@@ -76,7 +88,10 @@ class VectorLoop(object):
             oplist.append(newop)
         jump = self.jump.copy()
         renamer.rename(jump)
-        return VectorLoop(self.label.copy(), oplist, jump)
+        loop = VectorLoop(self.label.copy(), oplist, jump)
+        loop.prefix = prefix
+        loop.prefix_label = prefix_label
+        return loop
 
 def optimize_vector(metainterp_sd, jitdriver_sd, warmstate, loop_info, loop_ops):
     """ Enter the world of SIMD. Bails if it cannot transform the trace. """

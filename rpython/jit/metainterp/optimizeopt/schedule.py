@@ -555,7 +555,9 @@ class VecScheduleState(SchedulerState):
                     descr.rd_accum_list = AccumInfo(descr.rd_accum_list, i,
                                                     accum.operator, arg, None)
                     seed = accum.getleftmostseed()
+                    print "pre", failargs[i], "=>",
                     failargs[i] = self.renamer.rename_map.get(seed, seed)
+                    print failargs[i]
 
     def profitable(self):
         return self.costmodel.profitable()
