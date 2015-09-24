@@ -63,8 +63,7 @@ class X86_64_RegisterManager(X86RegisterManager):
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
 
 class X86XMMRegisterManager(RegisterManager):
-
-    box_types = [FLOAT, VECTOR]
+    box_types = [FLOAT, INT] # yes INT!
     all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
     # we never need lower byte I hope
     save_around_call_regs = all_regs
@@ -203,7 +202,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         return self.fm.get_frame_depth()
 
     def possibly_free_var(self, var):
-        if var.type == FLOAT or var.type == VECTOR:
+        if var.type == FLOAT or var.is_vector():
             self.xrm.possibly_free_var(var)
         else:
             self.rm.possibly_free_var(var)
@@ -223,7 +222,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     def make_sure_var_in_reg(self, var, forbidden_vars=[],
                              selected_reg=None, need_lower_byte=False):
-        if var.type == FLOAT or var.type == VECTOR:
+        if var.type == FLOAT or var.is_vector():
             if isinstance(var, ConstFloat):
                 return FloatImmedLoc(var.getfloatstorage())
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars,
@@ -234,7 +233,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None,
                            need_lower_byte=False):
-        if var.type == FLOAT or var.type == VECTOR:
+        if var.type == FLOAT or var.is_vector():
             return self.xrm.force_allocate_reg(var, forbidden_vars,
                                                selected_reg, need_lower_byte)
         else:
@@ -317,26 +316,15 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.assembler.regalloc_perform_math(op, arglocs, result_loc)
 
     def locs_for_fail(self, guard_op):
-        faillocs = []
+        faillocs = [self.loc(arg) for arg in guard_op.getfailargs()]
         descr = guard_op.getdescr()
-        for i,arg in enumerate(guard_op.getfailargs()):
-            if arg is None:
-                faillocs.append(None)
-                continue
-            if arg.is_vector() and arg.getaccum():
-                # for an accumulator store the position of the original
-                # box and in llsupport/assembler save restore information
-                # on the descriptor
-                loc = self.loc(accum.getoriginalbox())
-                faillocs.append(loc)
-                assert isinstance(descr, ResumeGuardDescr)
-                descr.rd_accum_list = AccumInfo(descr.rd_accum_list,
-                                                i, accum.operator,
-                                                accum.getoriginalbox(),
-                                                self.loc(arg))
-            else:
-                faillocs.append(self.loc(arg))
-
+        if descr and descr.rd_accum_list:
+            accuminfo = descr.rd_accum_list
+            while accuminfo:
+                accuminfo.vector_loc = faillocs[accuminfo.getpos_in_failargs()]
+                loc = self.loc(accuminfo.getoriginal())
+                faillocs[accuminfo.getpos_in_failargs()] = loc
+                accuminfo = accuminfo.next()
         return faillocs
 
     def perform_guard(self, guard_op, arglocs, result_loc):
@@ -406,7 +394,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def loc(self, v):
         if v is None: # xxx kludgy
             return None
-        if v.type == FLOAT or v.type == VECTOR:
+        if v.type == FLOAT or v.is_vector():
             return self.xrm.loc(v)
         return self.rm.loc(v)
 
@@ -1392,7 +1380,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             box = op.getarg(i)
             src_loc = self.loc(box)
             dst_loc = arglocs[i]
-            if box.type != FLOAT and box.type != VECTOR:
+            if box.type != FLOAT and not box.is_vector():
                 src_locations1.append(src_loc)
                 dst_locations1.append(dst_loc)
             else:

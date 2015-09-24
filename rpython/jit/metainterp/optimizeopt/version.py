@@ -112,62 +112,10 @@ class LoopVersion(object):
                 else:
                     assert 0, "olddescr must be found"
 
-    def update_token(self, jitcell_token, all_target_tokens):
-        # this is only invoked for versioned loops!
-        # TODO
-        label_index = index_of_first(rop.LABEL, self.operations, 0)
-        label = self.operations[label_index]
-        jump = self.operations[-1]
-        #
-        assert jump.getopnum() == rop.JUMP
-        #
-        token = TargetToken(jitcell_token)
-        token.original_jitcell_token = jitcell_token
-        all_target_tokens.append(token)
-        if label.getdescr() is None or label.getdescr() is not jump.getdescr():
-            label_index = index_of_first(rop.LABEL, self.operations, 1)
-            if label_index > 0:
-                second_label = self.operations[label_index]
-                # set the inner loop
-                second_label.setdescr(token)
-                jump.setdescr(token)
-                # set the first label
-                token = TargetToken(jitcell_token)
-                token.original_jitcell_token = jitcell_token
-                all_target_tokens.append(token)
-                label.setdescr(token)
-                return
-        label.setdescr(token)
-        jump.setdescr(token)
-
     def create_backend_loop(self, metainterp, jitcell_token):
         vl = create_empty_loop(metainterp)
-        vl.operations = self.loop.finaloplist(jitcell_token,True)
+        vl.operations = self.loop.finaloplist(jitcell_token,True,True)
         vl.inputargs = self.loop.label.getarglist_copy()
         vl.original_jitcell_token = jitcell_token
         return vl
-
-
-#def index_of_first(opnum, operations, pass_by=0):
-#    """ returns the position of the first operation matching the opnum.
-#    Or -1 if non is found
-#    """
-#    for i,op in enumerate(operations):
-#        if op.getopnum() == opnum:
-#            if pass_by == 0:
-#                return i
-#            else:
-#                pass_by -= 1
-#    return -1
-#
-#def find_first_index(self, opnum, pass_by=0):
-#    """ return the first index of the operation having the same opnum or -1 """
-#    return index_of_first(opnum, self.operations, pass_by)
-#
-#def find_first(self, opnum, pass_by=0):
-#    index = self.find_first_index(opnum, pass_by)
-#    if index != -1:
-#        return self.operations[index]
-#    return None
-
 

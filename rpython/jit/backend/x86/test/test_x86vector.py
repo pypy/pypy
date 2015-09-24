@@ -14,9 +14,18 @@ from rpython.rtyper.lltypesystem import lltype
 class TestBasic(test_basic.Jit386Mixin, test_vector.VectorizeTests):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
+    def setup_method(self, method):
+        clazz = self.CPUClass
+        def init(*args, **kwargs):
+            cpu = clazz(*args, **kwargs)
+            cpu.supports_guard_gc_type = True
+            return cpu
+        self.CPUClass = init
+
     enable_opts = 'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll'
 
 class TestAssembler(BaseTestAssembler):
+
     def imm_4_int32(self, a, b, c, d):
         adr = self.xrm.assembler.datablockwrapper.malloc_aligned(16, 16)
         ptr = rffi.cast(rffi.CArrayPtr(rffi.INT), adr)

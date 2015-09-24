@@ -301,7 +301,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         from rpython.jit.metainterp.optimizeopt.vector import optimize_vector
         loop_info, loop_ops = optimize_vector(metainterp_sd,
                                               jitdriver_sd, warmstate,
-                                              loop_info, loop_ops)
+                                              loop_info, loop_ops,
+                                              jitcell_token)
     #
     loop = create_empty_loop(metainterp)
     loop.original_jitcell_token = jitcell_token

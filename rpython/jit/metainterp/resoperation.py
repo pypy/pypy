@@ -1185,12 +1185,15 @@ _oplist = [
 
 _cast_ops = {
     'CAST_FLOAT_TO_INT': ('f', 8, 'i', 4, 2),
+    'VEC_CAST_FLOAT_TO_INT': ('f', 8, 'i', 4, 2),
     'CAST_INT_TO_FLOAT': ('i', 4, 'f', 8, 2),
+    'VEC_CAST_INT_TO_FLOAT': ('i', 4, 'f', 8, 2),
     'CAST_FLOAT_TO_SINGLEFLOAT': ('f', 8, 'f', 4, 2),
+    'VEC_CAST_FLOAT_TO_SINGLEFLOAT': ('f', 8, 'f', 4, 2),
     'CAST_SINGLEFLOAT_TO_FLOAT': ('f', 4, 'f', 8, 2),
+    'VEC_CAST_SINGLEFLOAT_TO_FLOAT': ('f', 4, 'f', 8, 2),
     'INT_SIGNEXT': ('i', 0, 'i', 0, 0),
-    #'CAST_PTR_TO_INT': ('r', 0, 'i', 4),
-    #'CAST_INT_TO_PTR': ('i', 4, 'r', 0),
+    'VEC_INT_SIGNEXT': ('i', 0, 'i', 0, 0),
 }
 
 # ____________________________________________________________
@@ -1292,7 +1295,7 @@ def create_class_for_op(name, opnum, arity, withdescr, result_type):
     else:
         assert result_type == 'n'
     if name in _cast_ops:
-        if name == "INT_SIGNEXT":
+        if "INT_SIGNEXT" in name:
             mixins.append(SignExtOp)
         mixins.append(CastOp)
 
@@ -1302,7 +1305,6 @@ def create_class_for_op(name, opnum, arity, withdescr, result_type):
     return type(cls_name, bases, dic)
 
 setup(__name__ == '__main__')   # print out the table when run directly
-del _oplist
 
 _opboolinverse = {
     rop.INT_EQ: rop.INT_NE,

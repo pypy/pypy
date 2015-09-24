@@ -44,19 +44,22 @@ class VectorLoop(object):
         self.jump = jump
         assert self.jump.getopnum() == rop.JUMP
 
-    def finaloplist(self, jitcell_token=None, label=False):
+    def finaloplist(self, jitcell_token=None, reset_label_token=True, label=False):
         oplist = []
         if jitcell_token:
-            token = TargetToken(jitcell_token)
-            token.original_jitcell_token = jitcell_token
-            jitcell_token.target_tokens.append(token)
-            self.label.setdescr(token)
+            if reset_label_token:
+                token = TargetToken(jitcell_token)
+                token.original_jitcell_token = jitcell_token
+                jitcell_token.target_tokens.append(token)
+                self.label.setdescr(token)
             if self.prefix_label:
                 token = TargetToken(jitcell_token)
                 token.original_jitcell_token = jitcell_token
                 jitcell_token.target_tokens.append(token)
                 self.prefix_label.setdescr(token)
-            self.jump.setdescr(token)
+                self.jump.setdescr(token)
+            if reset_label_token:
+                self.jump.setdescr(token)
         if self.prefix_label:
             oplist = self.prefix + [self.prefix_label]
         elif self.prefix:
@@ -93,7 +96,8 @@ class VectorLoop(object):
         loop.prefix_label = prefix_label
         return loop
 
-def optimize_vector(metainterp_sd, jitdriver_sd, warmstate, loop_info, loop_ops):
+def optimize_vector(metainterp_sd, jitdriver_sd, warmstate,
+                    loop_info, loop_ops, jitcell_token=None):
     """ Enter the world of SIMD. Bails if it cannot transform the trace. """
     user_code = not jitdriver_sd.vec and warmstate.vec_all
     loop = VectorLoop(loop_info.label_op, loop_ops[1:-1], loop_ops[-1])
@@ -122,7 +126,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate, loop_info, loop_ops)
         debug_stop("vec-opt-loop")
         #
         info.label_op = loop.label
-        return info, loop.finaloplist()
+        return info, loop.finaloplist(jitcell_token=jitcell_token, reset_label_token=False)
     except NotAVectorizeableLoop:
         debug_stop("vec-opt-loop")
         # vectorization is not possible

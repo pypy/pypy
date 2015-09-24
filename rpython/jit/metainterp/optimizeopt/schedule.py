@@ -122,7 +122,6 @@ class Scheduler(object):
                             break
                     i -= 1
                 else:
-                    print "insert at 0", target
                     worklist.insert(0, target)
         node.clear_dependencies()
         node.emitted = True
@@ -379,7 +378,6 @@ def check_if_pack_supported(state, pack):
 
 def unpack_from_vector(state, arg, index, count):
     """ Extract parts of the vector box into another vector box """
-    #print "unpack i", index, "c", count, "v", arg
     assert count > 0
     assert index + count <= arg.count
     args = [arg, ConstInt(index), ConstInt(count)]
@@ -555,9 +553,7 @@ class VecScheduleState(SchedulerState):
                     descr.rd_accum_list = AccumInfo(descr.rd_accum_list, i,
                                                     accum.operator, arg, None)
                     seed = accum.getleftmostseed()
-                    print "pre", failargs[i], "=>",
                     failargs[i] = self.renamer.rename_map.get(seed, seed)
-                    print failargs[i]
 
     def profitable(self):
         return self.costmodel.profitable()
@@ -613,7 +609,6 @@ class VecScheduleState(SchedulerState):
                 if argument and not argument.is_constant():
                     arg = self.ensure_unpacked(i, argument)
                     if argument is not arg:
-                        print "exchange at", i, fail_args[i], "=", arg
                         fail_args[i] = arg
 
     def ensure_unpacked(self, index, arg):
@@ -780,12 +775,10 @@ class Pack(object):
             vector register.
         """
         before_count = len(packlist)
-        print "splitting pack", self
         pack = self
         while pack.pack_load(vec_reg_size) > Pack.FULL:
             pack.clear()
             oplist, newoplist = pack.slice_operations(vec_reg_size)
-            print "  split of %dx, left: %d" % (len(oplist), len(newoplist))
             pack.operations = oplist
             pack.update_pack_of_nodes()
             if not pack.leftmost().is_typecast():
@@ -801,7 +794,6 @@ class Pack(object):
                 newpack.clear()
                 newpack.operations = []
                 break
-        print "  => %dx packs out of %d operations" % (-before_count + len(packlist) + 1, sum([pack.numops() for pack in packlist[before_count:]]))
         pack.update_pack_of_nodes()
 
     def slice_operations(self, vec_reg_size):

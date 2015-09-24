@@ -1787,8 +1787,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
 
-    def genop_guard_guard_nonnull_class(self, ign_1, guard_op,
-                                        guard_token, locs, ign_2):
+    def genop_guard_guard_nonnull_class(self, guard_op, guard_token, locs, ign):
         self.mc.CMP(locs[0], imm1)
         # Patched below
         self.mc.J_il8(rx86.Conditions['B'], 0)

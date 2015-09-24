@@ -568,7 +568,7 @@ class VectorRegallocMixin(object):
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        result_loc = self.force_allocate_reg(op.result)
+        result_loc = self.force_allocate_reg(op)
         self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
                           imm(integer), imm(aligned)], result_loc)
 
@@ -601,11 +601,10 @@ class VectorRegallocMixin(object):
 
     def consider_vec_arith(self, op):
         lhs = op.getarg(0)
-        assert isinstance(lhs, BoxVector)
-        size = lhs.item_size
+        size = lhs.bytesize
         args = op.getarglist()
         loc1 = self.make_sure_var_in_reg(op.getarg(1), args)
-        loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        loc0 = self.xrm.force_result_in_reg(op, op.getarg(0), args)
         self.perform(op, [loc0, loc1, imm(size)], loc0)
 
     consider_vec_int_add = consider_vec_arith
@@ -622,7 +621,7 @@ class VectorRegallocMixin(object):
         assert isinstance(lhs, BoxVector)
         size = lhs.item_size
         args = op.getarglist()
-        res = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        res = self.xrm.force_result_in_reg(op, op.getarg(0), args)
         self.perform(op, [res, imm(size)], res)
 
     consider_vec_float_neg = consider_vec_arith_unary
@@ -631,19 +630,17 @@ class VectorRegallocMixin(object):
 
     def consider_vec_logic(self, op):
         lhs = op.getarg(0)
-        assert isinstance(lhs, BoxVector)
-        size = lhs.item_size
         args = op.getarglist()
         source = self.make_sure_var_in_reg(op.getarg(1), args)
-        result = self.force_result_in_reg(op.result, op.getarg(0), args)
-        self.perform(op, [source, imm(size)], result)
+        result = self.xrm.force_result_in_reg(op, op.getarg(0), args)
+        self.perform(op, [source, imm(lhs.bytesize)], result)
 
     def consider_vec_float_eq(self, op, guard_op):
         lhs = op.getarg(0)
         assert isinstance(lhs, BoxVector)
         size = lhs.item_size
         args = op.getarglist()
-        lhsloc = self.force_result_in_reg(op.result, op.getarg(0), args)
+        lhsloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
         rhsloc = self.make_sure_var_in_reg(op.getarg(1), args)
         if guard_op:
             self.perform_with_guard(op, guard_op, [lhsloc, rhsloc, imm(size)], None)
@@ -668,12 +665,11 @@ class VectorRegallocMixin(object):
         assert isinstance(count, ConstInt)
         args = op.getarglist()
         srcloc = self.make_sure_var_in_reg(arg, args)
-        resloc =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        resloc =  self.xrm.force_result_in_reg(op, op.getarg(0), args)
         residx = index.value # where to put it in result?
         srcidx = 0
-        assert isinstance(op.result, BoxVector)
-        size = op.result.getsize()
-        arglocs = [resloc, srcloc, imm(residx), imm(srcidx), imm(count.value), imm(size)]
+        arglocs = [resloc, srcloc, imm(residx), imm(srcidx),
+                   imm(count.value), imm(op.bytesize)]
         self.perform(op, arglocs, resloc)
 
     consider_vec_pack_f = consider_vec_pack_i
@@ -703,19 +699,15 @@ class VectorRegallocMixin(object):
     consider_vec_unpack_f = consider_vec_unpack_i
 
     def consider_vec_expand_f(self, op):
-        result = op.result
-        assert isinstance(result, BoxVector)
         arg = op.getarg(0)
         args = op.getarglist()
         if arg.is_constant():
-            resloc = self.xrm.force_allocate_reg(result)
-            srcloc = self.xrm.expand_float(result.getsize(), arg)
+            resloc = self.xrm.force_allocate_reg(op)
+            srcloc = self.xrm.expand_float(op.bytesize, arg)
         else:
-            resloc = self.xrm.force_result_in_reg(op.result, arg, args)
+            resloc = self.xrm.force_result_in_reg(op, arg, args)
             srcloc = resloc
-
-        size = op.result.getsize()
-        self.perform(op, [srcloc, imm(size)], resloc)
+        self.perform(op, [srcloc, imm(op.bytesize)], resloc)
 
     def consider_vec_expand_i(self, op):
         arg = op.getarg(0)
@@ -724,21 +716,15 @@ class VectorRegallocMixin(object):
             srcloc = self.rm.convert_to_imm(arg)
         else:
             srcloc = self.make_sure_var_in_reg(arg, args)
-        resloc = self.xrm.force_allocate_reg(op.result, args)
-        assert isinstance(op.result, BoxVector)
-        size = op.result.getsize()
-        self.perform(op, [srcloc, imm(size)], resloc)
+        resloc = self.xrm.force_allocate_reg(op, args)
+        self.perform(op, [srcloc, imm(op.bytesize)], resloc)
 
     def consider_vec_int_signext(self, op):
         args = op.getarglist()
-        resloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        sizearg = op.getarg(0)
-        result = op.result
-        assert isinstance(sizearg, BoxVector)
-        assert isinstance(result, BoxVector)
-        size = sizearg.getsize()
-        tosize = result.getsize()
-        self.perform(op, [resloc, imm(size), imm(tosize)], resloc)
+        resloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
+        size = op.cast_from_bytesize()
+        assert size > 0
+        self.perform(op, [resloc, imm(size), imm(op.bytesize)], resloc)
 
     def consider_vec_int_is_true(self, op, guard_op):
         args = op.getarglist()
@@ -753,8 +739,8 @@ class VectorRegallocMixin(object):
 
     def _consider_vec(self, op):
         # pseudo instruction, needed to create a new variable
-        self.xrm.force_allocate_reg(op.result)
-    
+        self.xrm.force_allocate_reg(op)
+
     consider_vec_i = _consider_vec
     consider_vec_f = _consider_vec
 
@@ -764,7 +750,7 @@ class VectorRegallocMixin(object):
     def consider_vec_cast_float_to_int(self, op):
         args = op.getarglist()
         srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
-        resloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+        resloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
         self.perform(op, [srcloc], resloc)
 
     consider_vec_cast_int_to_float = consider_vec_cast_float_to_int
