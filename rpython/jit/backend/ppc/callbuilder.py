@@ -111,10 +111,23 @@ class CallBuilder(AbstractCallBuilder):
 
 
     def push_gcmap(self):
-        pass  # XXX
+        # we push *now* the gcmap, describing the status of GC registers
+        # after the rearrangements done just before, ignoring the return
+        # value r3, if necessary
+        assert not self.is_call_release_gil
+        noregs = self.asm.cpu.gc_ll_descr.is_shadow_stack()
+        gcmap = self.asm._regalloc.get_gcmap([r.r3], noregs=noregs)
+        self.asm.push_gcmap(self.mc, gcmap, store=True)
 
     def pop_gcmap(self):
-        pass  # XXX
+        ssreg = None
+        gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            if gcrootmap.is_shadow_stack and self.is_call_release_gil:
+                # in this mode, 'ebx' happens to contain the shadowstack
+                # top at this point, so reuse it instead of loading it again
+                ssreg = ebx
+        self.asm._reload_frame_if_necessary(self.mc)
 
     def emit_raw_call(self):
         self.mc.raw_call()

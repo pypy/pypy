@@ -18,6 +18,7 @@ class PPC_CPU(AbstractLLCPU):
     # missing: supports_singlefloats
 
     IS_64_BIT = True
+    backend_name = 'ppc64'
 
     from rpython.jit.backend.ppc.register import JITFRAME_FIXED_SIZE
     frame_reg = r.SP

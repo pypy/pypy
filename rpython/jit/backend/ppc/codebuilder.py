@@ -1049,20 +1049,26 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
     else:
         RAW_CALL_REG = r.r12
 
-    def raw_call(self):
-        """Emit a call to the address stored in the register RAW_CALL_REG."""
+    def raw_call(self, call_reg=RAW_CALL_REG):
+        """Emit a call to the address stored in the register 'call_reg',
+        which must be either RAW_CALL_REG or r12.  This is a regular C
+        function pointer, which means on big-endian that it is actually
+        the address of a three-words descriptor.
+        """
         if IS_BIG_ENDIAN:
             # Load the function descriptor (currently in r2) from memory:
             #  [r2 + 0]  -> ctr
             #  [r2 + 16] -> r11
             #  [r2 + 8]  -> r2  (= TOC)
             assert self.RAW_CALL_REG is r.r2
-            self.ld(r.SCRATCH.value, r.r2.value, 0)
-            self.ld(r.r11.value, r.r2.value, 16)
+            assert call_reg is r.r2 or call_reg is r.r12
+            self.ld(r.SCRATCH.value, call_reg.value, 0)
+            self.ld(r.r11.value, call_reg.value, 16)
             self.mtctr(r.SCRATCH.value)
-            self.ld(r.TOC.value, r.r2.value, 8)   # must be last: TOC is r2
+            self.ld(r.TOC.value, call_reg.value, 8)  # must be last: TOC is r2
         elif IS_LITTLE_ENDIAN:
             assert self.RAW_CALL_REG is r.r12     # 'r12' is fixed by this ABI
+            assert call_reg is r.r12
             self.mtctr(r.r12.value)
         # Call the function
         self.bctrl()

@@ -11,14 +11,15 @@ from rpython.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                           IS_BIG_ENDIAN)
 
 from rpython.jit.metainterp.history import (JitCellToken, TargetToken, Box,
-                                            AbstractFailDescr, FLOAT, INT, REF)
+                                            AbstractFailDescr, FLOAT, INT, REF,
+                                            ConstInt)
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.backend.ppc.helper.assembler import (Saved_Volatiles)
 from rpython.jit.backend.ppc.jump import remap_frame_layout
 from rpython.jit.backend.ppc.codebuilder import (OverwritingBuilder, scratch_reg,
                                                  PPCBuilder, PPCGuardToken)
 from rpython.jit.backend.ppc.regalloc import TempPtr, TempInt
-from rpython.jit.backend.llsupport import symbolic
+from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.descr import InteriorFieldDescr, CallDescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype
@@ -26,6 +27,7 @@ from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.backend.ppc import callbuilder
+from rpython.rlib.rarithmetic import r_uint
 
 class IntOpAssembler(object):
         
@@ -391,30 +393,31 @@ class MiscOpAssembler(object):
             [fail_descr_loc] = arglocs
 
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-        self.mc.load_imm(r.r5, fail_descr_loc.getint())
-        self.mc.std(r.r5.value, r.SPP.value, ofs)
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
 
-        ## XXX: gcmap logic here:
-        ## arglist = op.getarglist()
-        ## if arglist and arglist[0].type == REF:
-        ##     if self._finish_gcmap:
-        ##         # we're returning with a guard_not_forced_2, and
-        ##         # additionally we need to say that eax/rax contains
-        ##         # a reference too:
-        ##         self._finish_gcmap[0] |= r_uint(1)
-        ##         gcmap = self._finish_gcmap
-        ##     else:
-        ##         gcmap = self.gcmap_for_finish
-        ##     self.push_gcmap(self.mc, gcmap, store=True)
-        ## elif self._finish_gcmap:
-        ##     # we're returning with a guard_not_forced_2
-        ##     gcmap = self._finish_gcmap
-        ##     self.push_gcmap(self.mc, gcmap, store=True)
-        ## else:
-        ##     # note that the 0 here is redundant, but I would rather
-        ##     # keep that one and kill all the others
-        ##     ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        ##     self.mc.MOV_bi(ofs, 0)
+        self.mc.load_imm(r.r5, fail_descr_loc.getint())
+
+        # gcmap logic here:
+        arglist = op.getarglist()
+        if arglist and arglist[0].type == REF:
+            if self._finish_gcmap:
+                # we're returning with a guard_not_forced_2, and
+                # additionally we need to say that the result contains
+                # a reference too:
+                self._finish_gcmap[0] |= r_uint(1)
+                gcmap = self._finish_gcmap
+            else:
+                gcmap = self.gcmap_for_finish
+        elif self._finish_gcmap:
+            # we're returning with a guard_not_forced_2
+            gcmap = self._finish_gcmap
+        else:
+            gcmap = lltype.nullptr(jitframe.GCMAP)
+        self.load_gcmap(self.mc, r.r2, gcmap)
+
+        self.mc.std(r.r5.value, r.SPP.value, ofs)
+        self.mc.store(r.r2.value, r.SPP.value, ofs2)
+
         # exit function
         self._call_footer()
 
@@ -527,6 +530,8 @@ class CallOpAssembler(object):
     def _find_nearby_operation(self, regalloc, delta):
         return regalloc.operations[regalloc.rm.position + delta]
 
+    _COND_CALL_SAVE_REGS = [r.r3, r.r4, r.r5, r.r6, r.r12]
+
     def emit_cond_call(self, op, arglocs, regalloc):
         fcond = self.guard_success_cc
         self.guard_success_cc = c.cond_none
@@ -536,16 +541,13 @@ class CallOpAssembler(object):
         jmp_adr = self.mc.get_relative_pos()
         self.mc.trap()        # patched later to a 'bc'
 
-        # XXX load_gcmap XXX -> r2
+        self.load_gcmap(self.mc, r.r2, regalloc.get_gcmap())
 
         # save away r3, r4, r5, r6, r12 into the jitframe
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
-        should_be_saved = self._regalloc.rm.reg_bindings.values()
-        for gpr in [r.r3, r.r4, r.r5, r.r6, r.r12]:
-            if gpr not in should_be_saved:
-                continue
-            v = self.cpu.all_reg_indexes[gpr.value]
-            self.mc.std(gpr.value, r.SPP.value, v * WORD + base_ofs)
+        should_be_saved = [
+            reg for reg in self._regalloc.rm.reg_bindings.itervalues()
+                if reg in self._COND_CALL_SAVE_REGS]
+        self._push_core_regs_to_jitframe(self.mc, should_be_saved)
         #
         # load the 0-to-4 arguments into these registers, with the address of
         # the function to call into r12
@@ -676,6 +678,7 @@ class FieldOpAssembler(object):
     SIZE2SCALE = dict([(1<<_i, _i) for _i in range(32)])
 
     def _multiply_by_constant(self, loc, multiply_by, scratch_loc):
+        assert loc.is_reg()
         if multiply_by == 1:
             return loc
         try:
@@ -910,9 +913,8 @@ class StrOpAssembler(object):
         self.mc.addi(r.r4.value, r.r4.value, basesize)
         self.mc.addi(r.r3.value, r.r2.value, basesize)
 
-        cb = callbuilder.CallBuilder(self, imm(self.memcpy_addr),
-                                     [r.r3, r.r4, r.r5], None)
-        cb.emit()
+        self.mc.load_imm(self.mc.RAW_CALL_REG, self.memcpy_addr)
+        self.mc.raw_call()
 
 
 class UnicodeOpAssembler(object):
@@ -933,15 +935,40 @@ class AllocOpAssembler(object):
         self.propagate_memoryerror_if_r3_is_null()
 
     def emit_call_malloc_nursery(self, op, arglocs, regalloc):
-        # registers r3 and r4 are allocated for this call
-        assert len(arglocs) == 1
-        size = arglocs[0].value
+        # registers r.RES and r.RSZ are allocated for this call
+        size_box = op.getarg(0)
+        assert isinstance(size_box, ConstInt)
+        size = size_box.getint()
         gc_ll_descr = self.cpu.gc_ll_descr
+        gcmap = regalloc.get_gcmap([r.RES, r.RSZ])
         self.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
-            size
-            )
+            size, gcmap)
+
+    def emit_call_malloc_nursery_varsize_frame(self, op, arglocs, regalloc):
+        # registers r.RES and r.RSZ are allocated for this call
+        [sizeloc] = arglocs
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gcmap = regalloc.get_gcmap([r.RES, r.RSZ])
+        self.malloc_cond_varsize_frame(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc, gcmap)
+
+    def emit_call_malloc_nursery_varsize(self, op, arglocs, regalloc):
+        # registers r.RES and r.RSZ are allocated for this call
+        [lengthloc] = arglocs
+        arraydescr = op.getdescr()
+        itemsize = op.getarg(1).getint()
+        gc_ll_descr = self.cpu.gc_ll_descr
+        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
+        gcmap = regalloc.get_gcmap([r.RES, r.RSZ])
+        self.malloc_cond_varsize(
+            op.getarg(0).getint(),
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            lengthloc, itemsize, maxlength, gcmap, arraydescr)
 
     def emit_debug_merge_point(self, op, arglocs, regalloc):
         pass
@@ -950,7 +977,7 @@ class AllocOpAssembler(object):
     emit_keepalive = emit_debug_merge_point
 
     def _write_barrier_fastpath(self, mc, descr, arglocs, regalloc, array=False,
-                                is_frame=False, align_stack=False):
+                                is_frame=False):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls a
         # helper piece of assembler.  The latter saves registers as needed
@@ -999,6 +1026,7 @@ class AllocOpAssembler(object):
             helper_num += 2
         if self.wb_slowpath[helper_num] == 0:    # tests only
             assert not we_are_translated()
+            assert not is_frame
             self.cpu.gc_ll_descr.write_barrier_descr = descr
             self._build_wb_slowpath(card_marking_mask != 0,
                                     bool(regalloc.fprm.reg_bindings))
@@ -1006,15 +1034,9 @@ class AllocOpAssembler(object):
         #
         if not is_frame:
             mc.mr(r.r0.value, loc_base.value)    # unusual argument location
-        if is_frame and align_stack:
-            XXXX
-            mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
         mc.load_imm(r.SCRATCH2, self.wb_slowpath[helper_num])
         mc.mtctr(r.SCRATCH2.value)
         mc.bctrl()
-        if is_frame and align_stack:
-            XXXX
-            mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
 
         if card_marking_mask:
             # The helper ends again with a check of the flag in the object.

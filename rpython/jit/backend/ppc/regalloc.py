@@ -24,9 +24,11 @@ import rpython.jit.backend.ppc.condition as c
 from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib import rgc
+from rpython.rlib.rarithmetic import r_uint
 
 LIMIT_LOOP_BREAK = 15000      # should be much smaller than 32 KB
 
@@ -56,7 +58,8 @@ class TempFloat(TempBox):
 class FPRegisterManager(RegisterManager):
     all_regs              = r.MANAGED_FP_REGS
     box_types             = [FLOAT]
-    save_around_call_regs = [_r for _r in all_regs if _r in r.VOLATILES_FLOAT]
+    save_around_call_regs = r.VOLATILES_FLOAT
+    assert set(save_around_call_regs).issubset(all_regs)
 
     def convert_to_imm(self, c):
         assert isinstance(c, ConstFloat)
@@ -93,8 +96,9 @@ class PPCRegisterManager(RegisterManager):
     all_regs              = r.MANAGED_REGS
     box_types             = None       # or a list of acceptable types
     no_lower_byte_regs    = all_regs
-    save_around_call_regs = [_r for _r in all_regs if _r in r.VOLATILES]
+    save_around_call_regs = r.VOLATILES
     frame_reg             = r.SPP
+    assert set(save_around_call_regs).issubset(all_regs)
 
     REGLOC_TO_COPY_AREA_OFS = {
         r.r5:   MY_COPY_OF_REGS + 0 * WORD,
@@ -349,9 +353,24 @@ class Regalloc(BaseRegalloc):
         while self.min_bytes_before_label > mc.get_relative_pos():
             mc.nop()
 
-    def get_gcmap(self, noregs=False):
-        #xxxxxx
-        return '???'
+    def get_gcmap(self, forbidden_regs=[], noregs=False):
+        frame_depth = self.fm.get_frame_depth()
+        gcmap = allocate_gcmap(self.assembler, frame_depth,
+                               r.JITFRAME_FIXED_SIZE)
+        for box, loc in self.rm.reg_bindings.iteritems():
+            if loc in forbidden_regs:
+                continue
+            if box.type == REF and self.rm.is_still_alive(box):
+                assert not noregs
+                assert loc.is_reg()
+                val = self.assembler.cpu.all_reg_indexes[loc.value]
+                gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
+        for box, loc in self.fm.bindings.iteritems():
+            if box.type == REF and self.rm.is_still_alive(box):
+                assert isinstance(loc, locations.StackLocation)
+                val = loc.get_position() + r.JITFRAME_FIXED_SIZE
+                gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
+        return gcmap
 
     def loc(self, var):
         if var.type == FLOAT:
@@ -921,36 +940,46 @@ class Regalloc(BaseRegalloc):
         return args
 
     def prepare_call_malloc_nursery(self, op):
-        size_box = op.getarg(0)
-        assert isinstance(size_box, ConstInt)
-        size = size_box.getint()
+        self.rm.force_allocate_reg(op.result, selected_reg=r.RES)
+        self.rm.temp_boxes.append(op.result)
+        tmp_box = TempInt()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=r.RSZ)
+        self.rm.temp_boxes.append(tmp_box)
+        return []
 
-        self.rm.force_allocate_reg(op.result, selected_reg=r.r3)
-        t = TempInt()
-        self.rm.force_allocate_reg(t, selected_reg=r.r4)
-        self.possibly_free_var(op.result)
-        self.possibly_free_var(t)
-        return [imm(size)]
+    def prepare_call_malloc_nursery_varsize_frame(self, op):
+        sizeloc = self.ensure_reg(op.getarg(0))
+        # sizeloc must be in a register, but we can free it now
+        # (we take care explicitly of conflicts with r.RES or r.RSZ)
+        self.free_op_vars()
+        # the result will be in r.RES
+        self.rm.force_allocate_reg(op.result, selected_reg=r.RES)
+        self.rm.temp_boxes.append(op.result)
+        # we need r.RSZ as a temporary
+        tmp_box = TempInt()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=r.RSZ)
+        self.rm.temp_boxes.append(tmp_box)
+        return [sizeloc]
 
-    def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
-        shape = gcrootmap.get_basic_shape()
-        for v, val in self.frame_manager.bindings.items():
-            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                assert val.is_stack()
-                gcrootmap.add_frame_offset(shape, val.value)
-        for v, reg in self.rm.reg_bindings.items():
-            gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
-            assert gcrootmap is not None and gcrootmap.is_shadow_stack
-            if reg is r.r3:
-                continue
-            if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                assert use_copy_area
-                xxxxxxxxxx   # check REGLOC_TO_COPY_AREA_OFS
-                assert reg in self.rm.REGLOC_TO_COPY_AREA_OFS
-                area_offset = self.rm.REGLOC_TO_COPY_AREA_OFS[reg]
-                gcrootmap.add_frame_offset(shape, area_offset)
-        return gcrootmap.compress_callshape(shape,
-                                            self.assembler.datablockwrapper)
+    def prepare_call_malloc_nursery_varsize(self, op):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+            raise Exception("unreachable code")
+            # for boehm, this function should never be called
+        # the result will be in r.RES
+        self.rm.force_allocate_reg(op.result, selected_reg=r.RES)
+        self.rm.temp_boxes.append(op.result)
+        # we need r.RSZ as a temporary
+        tmp_box = TempInt()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=r.RSZ)
+        self.rm.temp_boxes.append(tmp_box)
+        # length_box always survives: it's typically also present in the
+        # next operation that will copy it inside the new array.  Make
+        # sure it is in a register different from r.RES and r.RSZ.  (It
+        # should not be a ConstInt at all.)
+        length_box = op.getarg(2)
+        lengthloc = self.ensure_reg(length_box)
+        return [lengthloc]
 
     prepare_debug_merge_point = void
     prepare_jit_debug = void

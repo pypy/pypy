@@ -47,7 +47,6 @@ class Runner(object):
 
     add_loop_instructions = ['overload for a specific cpu']
     bridge_loop_instructions = ['overload for a specific cpu']
-    bridge_loop_instructions_alternative = None   # or another possible answer
 
     def execute_operation(self, opname, valueboxes, result_type, descr=None):
         inputargs, operations = self._get_single_operation_list(opname,
@@ -4380,14 +4379,11 @@ class LLtypeBackendTest(BaseBackendTest):
         # XXX we have to check the precise assembler, otherwise
         # we don't quite know if borders are correct
 
-        def checkops(mc, ops, alt_ops=None):
-            if len(mc) != len(ops) and alt_ops is not None:
-                ops = alt_ops
-            assert len(mc) == len(ops)
-            for i in range(len(mc)):
-                if ops[i] == '*':
-                    continue # ingore ops marked as '*', i.e. inline constants
-                assert mc[i].split("\t")[2].startswith(ops[i])
+        def checkops(mc, ops_regexp):
+            import re
+            words = [line.split("\t")[2].split()[0] + ';' for line in mc]
+            text = ' '.join(words)
+            assert re.compile(ops_regexp).match(text)
 
         data = ctypes.string_at(info.asmaddr, info.asmlen)
         try:
@@ -4397,8 +4393,7 @@ class LLtypeBackendTest(BaseBackendTest):
             data = ctypes.string_at(bridge_info.asmaddr, bridge_info.asmlen)
             mc = list(machine_code_dump(data, bridge_info.asmaddr, cpuname))
             lines = [line for line in mc if line.count('\t') >= 2]
-            checkops(lines, self.bridge_loop_instructions,
-                            self.bridge_loop_instructions_alternative)
+            checkops(lines, self.bridge_loop_instructions)
         except ObjdumpNotFound:
             py.test.skip("requires (g)objdump")
 
