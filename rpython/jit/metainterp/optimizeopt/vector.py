@@ -81,11 +81,11 @@ class VectorLoop(object):
 def optimize_vector(metainterp_sd, jitdriver_sd, warmstate, loop_info, loop_ops):
     """ Enter the world of SIMD. Bails if it cannot transform the trace. """
     user_code = not jitdriver_sd.vec and warmstate.vec_all
+    loop = VectorLoop(loop_info.label_op, loop_ops[1:-1], loop_ops[-1])
     if user_code and user_loop_bail_fast_path(loop, warmstate):
         return
     # the original loop (output of optimize_unroll)
     info = LoopVersionInfo(loop_info)
-    loop = VectorLoop(loop_info.label_op, loop_ops[1:-1], loop_ops[-1])
     version = info.snapshot(loop)
     try:
         debug_start("vec-opt-loop")
@@ -134,7 +134,6 @@ def user_loop_bail_fast_path(loop, warmstate):
     resop_count = 0 # the count of operations minus debug_merge_points
     vector_instr = 0
     guard_count = 0
-    blacklist = (rop.CALL, rop.CALL_ASSEMBLER)
     at_least_one_array_access = True
     for i,op in enumerate(loop.operations):
         if op.getopnum() == rop.DEBUG_MERGE_POINT:
@@ -149,7 +148,8 @@ def user_loop_bail_fast_path(loop, warmstate):
             at_least_one_array_access = True
 
         if warmstate.vec_ratio > 0.0:
-            if op.getopnum() in blacklist:
+            # blacklist
+            if op.is_call() or op.is_call_assembler():
                 return True
 
         if op.is_guard():
@@ -744,7 +744,7 @@ class PackSet(object):
                 # considered. => tree pattern matching problem.
                 return None
             operator = AccumPack.SUPPORTED[opnum]
-            return AccumPack([lnode, rnode], operator, scalar, index)
+            return AccumPack([lnode, rnode], operator, index)
 
         return None
 
@@ -770,7 +770,7 @@ class PackSet(object):
             oplist = state.invariant_oplist
             # reset the box to zeros or ones
             if pack.reduce_init() == 0:
-                vecop = OpHelpers.create_vec(datatype, bytesize, signed)
+                vecop = OpHelpers.create_vec(datatype, bytesize, signed, count)
                 oplist.append(vecop)
                 vecop = VecOperation(rop.VEC_INT_XOR, [vecop, vecop],
                                      vecop, count)
@@ -783,14 +783,15 @@ class PackSet(object):
             else:
                 raise NotImplementedError("cannot handle %s" % pack.operator)
             # pack the scalar value
-            args = [vecop, pack.getseed(), ConstInt(0), ConstInt(1)]
+            args = [vecop, pack.getleftmostseed(), ConstInt(0), ConstInt(1)]
             vecop = OpHelpers.create_vec_pack(datatype, args, bytesize,
                                               signed, count)
             oplist.append(vecop)
+            seed = pack.getleftmostseed()
+            state.accumulation[seed] = pack
             # rename the variable with the box
-            state.setvector_of_box(pack.getseed(), 0, vecop) # prevent it from expansion
-            state.renamer.start_renaming(pack.getseed(), vecop)
-
+            state.setvector_of_box(seed, 0, vecop) # prevent it from expansion
+            state.renamer.start_renaming(seed, vecop)
 
     def split_overloaded_packs(self):
         newpacks = []

@@ -799,8 +799,8 @@ class LLGraphCPU(model.AbstractCPU):
 
     # vector operations
     vector_arith_code = """
-    def bh_vec_{0}_{1}(self, vx, vy):
-        assert len(vx) == len(vy)
+    def bh_vec_{0}_{1}(self, vx, vy, count):
+        assert len(vx) == len(vy) == count
         return [_vx {2} _vy for _vx,_vy in zip(vx,vy)]
     """
     exec py.code.Source(vector_arith_code.format('int','add','+')).compile()
@@ -812,59 +812,66 @@ class LLGraphCPU(model.AbstractCPU):
     exec py.code.Source(vector_arith_code.format('float','truediv','/')).compile()
     exec py.code.Source(vector_arith_code.format('float','eq','==')).compile()
 
-    def bh_vec_float_neg(self, vx):
+    def bh_vec_float_neg(self, vx, count):
         return [e * -1 for e in vx]
 
-    def bh_vec_float_abs(self, vx):
+    def bh_vec_float_abs(self, vx, count):
         return [abs(e) for e in vx]
 
-    def bh_vec_float_eq(self, vx, vy):
-        assert len(vx) == len(vy)
+    def bh_vec_float_eq(self, vx, vy, count):
+        assert len(vx) == len(vy) == count
         return [_vx == _vy for _vx,_vy in zip(vx,vy)]
 
-    def bh_vec_float_ne(self, vx, vy):
-        assert len(vx) == len(vy)
+    def bh_vec_float_ne(self, vx, vy, count):
+        assert len(vx) == len(vy) == count
         return [_vx != _vy for _vx,_vy in zip(vx,vy)]
 
     bh_vec_int_eq = bh_vec_float_eq
     bh_vec_int_ne = bh_vec_float_ne
 
-    def bh_vec_int_xor(self, vx, vy):
+    def bh_vec_int_xor(self, vx, vy, count):
         return [int(x) ^ int(y) for x,y in zip(vx,vy)]
 
-    def bh_vec_float_pack(self, vector, value, index, count):
-        if isinstance(value, list):
-            for i in range(count):
-                vector[index + i] = value[i]
-        else:
-            vector[index] = value
-        return vector
-
-    def bh_vec_cast_float_to_singlefloat(self, vx):
+    def bh_vec_cast_float_to_singlefloat(self, vx, count):
         return vx
 
-    def bh_vec_box(self, size):
-        return [0] * size
+    def bh_vec_f(self, count):
+        return [0.0] * count
 
-    def bh_vec_box_pack(self, vx, index, y):
-        vx[index] = y
+    def bh_vec_i(self, count):
+        return [0] * count
 
-    def bh_vec_box_unpack(self, vx, index):
-        return vx[index]
+    def _bh_vec_pack(self, tv, sv, index, count, _):
+        if not isinstance(sv, list):
+            tv[index] = sv
+            return tv
+        for i in range(count):
+            tv[index+i] = sv[i]
+        return tv
 
-    def bh_vec_float_expand(self, x, count):
+    bh_vec_pack_f = _bh_vec_pack
+    bh_vec_pack_i = _bh_vec_pack
+
+    def _bh_vec_unpack(self, vx, index, count):
+        return vx[index:index+count]
+
+    bh_vec_unpack_f = _bh_vec_unpack
+    bh_vec_unpack_i = _bh_vec_unpack
+
+    def _bh_vec_expand(self, x, count):
         return [x] * count
 
-    def bh_vec_int_expand(self, x, count):
-        return [x] * count
+    bh_vec_expand_f = _bh_vec_expand
+    bh_vec_expand_i = _bh_vec_expand
 
-    def bh_vec_int_signext(self, vx, ext):
+    def bh_vec_int_signext(self, vx, ext, count):
         return [heaptracker.int_signext(_vx, ext) for _vx in vx]
 
     def build_getarrayitem(func):
-        def method(self, struct, offset, descr):
+        def method(self, struct, offset, descr, _count):
             values = []
             count = self.vector_register_size // descr.get_item_size_in_bytes()
+            assert _count == count
             assert count > 0
             for i in range(count):
                 val = func(self, struct, offset + i, descr)
@@ -878,10 +885,11 @@ class LLGraphCPU(model.AbstractCPU):
     bh_vec_getarrayitem_raw_f = build_getarrayitem(bh_getarrayitem_raw)
     del build_getarrayitem
 
-    def _bh_vec_raw_load(self, struct, offset, descr):
+    def _bh_vec_raw_load(self, struct, offset, descr, _count):
         values = []
         stride = descr.get_item_size_in_bytes()
         count = self.vector_register_size // descr.get_item_size_in_bytes()
+        assert _count == count
         assert count > 0
         for i in range(count):
             val = self.bh_raw_load(struct, offset + i*stride, descr)
@@ -891,16 +899,16 @@ class LLGraphCPU(model.AbstractCPU):
     bh_vec_raw_load_i = _bh_vec_raw_load
     bh_vec_raw_load_f = _bh_vec_raw_load
 
-    def bh_vec_raw_store(self, struct, offset, newvalues, descr):
+    def bh_vec_raw_store(self, struct, offset, newvalues, descr, count):
         stride = descr.get_item_size_in_bytes()
         for i,n in enumerate(newvalues):
             self.bh_raw_store(struct, offset + i*stride, n, descr)
 
-    def bh_vec_setarrayitem_raw(self, struct, offset, newvalues, descr):
+    def bh_vec_setarrayitem_raw(self, struct, offset, newvalues, descr, count):
         for i,n in enumerate(newvalues):
             self.bh_setarrayitem_raw(struct, offset + i, n, descr)
 
-    def bh_vec_setarrayitem_gc(self, struct, offset, newvalues, descr):
+    def bh_vec_setarrayitem_gc(self, struct, offset, newvalues, descr, count):
         for i,n in enumerate(newvalues):
             self.bh_setarrayitem_gc(struct, offset + i, n, descr)
 
@@ -1026,9 +1034,9 @@ class LLFrame(object):
             i = accuminfo.getpos_in_failargs()
             value = values[i]
             assert isinstance(value, list)
-            if accum.operator == '+':
+            if accuminfo.accum_operation == '+':
                 value = sum(value)
-            elif accum.operator == '*':
+            elif accuminfo.accum_operation == '*':
                 def prod(acc, x): return acc * x
                 value = reduce(prod, value, 1)
             else:
@@ -1404,6 +1412,10 @@ def _setup():
                 new_args = args + (descr,)
             else:
                 new_args = args
+            if opname.startswith('vec_'):
+                count = self.current_op.count
+                assert count > 1
+                new_args = new_args + (count,)
             return getattr(self.cpu, 'bh_' + opname)(*new_args)
         execute.func_name = 'execute_' + opname
         return execute

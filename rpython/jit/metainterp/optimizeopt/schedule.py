@@ -28,12 +28,18 @@ class SchedulerState(object):
         loop.operations = self.oplist
         loop.prefix = self.invariant_oplist
         if len(self.invariant_vector_vars) + len(self.invariant_oplist) > 0:
+            # label
             args = loop.label.getarglist_copy() + self.invariant_vector_vars
             opnum = loop.label.getopnum()
-            # TODO descr?
             op = loop.label.copy_and_change(opnum, args)
             self.renamer.rename(op)
             loop.prefix_label = op
+            # jump
+            args = loop.jump.getarglist_copy() + self.invariant_vector_vars
+            opnum = loop.jump.getopnum()
+            op = loop.jump.copy_and_change(opnum, args)
+            self.renamer.rename(op)
+            loop.jump = op
 
     def profitable(self):
         return True
@@ -56,9 +62,11 @@ class SchedulerState(object):
     def ensure_args_unpacked(self, op):
         pass
 
-    def post_emit(self, op):
+    def post_emit(self, node):
         pass
 
+    def pre_emit(self, node):
+        pass
 
 class Scheduler(object):
     """ Create an instance of this class to (re)schedule a vector trace. """
@@ -123,7 +131,7 @@ class Scheduler(object):
             state.renamer.rename(op)
             if unpack:
                 state.ensure_args_unpacked(op)
-            state.post_emit(node.getoperation())
+            state.post_emit(node)
 
     def walk_and_emit(self, state):
         """ Emit all the operations into the oplist parameter.
@@ -134,6 +142,7 @@ class Scheduler(object):
             if node:
                 if not state.emit(node, self):
                     if not node.emitted:
+                        state.pre_emit(node)
                         self.mark_emitted(node, state)
                         if not node.is_imaginary():
                             op = node.getoperation()
@@ -259,6 +268,8 @@ def turn_into_vector(state, pack):
     for i,node in enumerate(pack.operations):
         op = node.getoperation()
         state.setvector_of_box(op,i,vecop)
+        if pack.is_accumulating():
+            state.renamer.start_renaming(op, vecop)
     if op.is_guard():
         assert isinstance(op, GuardResOp)
         assert isinstance(vecop, GuardResOp)
@@ -452,7 +463,8 @@ def expand(state, pack, args, arg, index):
         args[index] = vecop
         return vecop
 
-    vecop = OpHelpers.create_vec(arg.type, arg.bytesize, arg.signed)
+    
+    vecop = OpHelpers.create_vec(arg.type, arg.bytesize, arg.signed, pack.opnum())
     ops.append(vecop)
     for i,node in enumerate(pack.operations):
         op = node.getoperation()
@@ -519,7 +531,11 @@ class VecScheduleState(SchedulerState):
                 return vecop
         return None
 
-    def post_emit(self, op):
+    def post_emit(self, node):
+        pass
+
+    def pre_emit(self, node):
+        op = node.getoperation()
         if op.is_guard():
             # add accumulation info to the descriptor
             # TODO for version in self.loop.versions:
@@ -536,8 +552,9 @@ class VecScheduleState(SchedulerState):
                 accum = self.accumulation.get(arg, None)
                 if accum:
                     assert isinstance(accum, AccumPack)
-                    accum.attach_accum_info(descr, i, arg)
-                    seed = accum.getseed()
+                    descr.rd_accum_list = AccumInfo(descr.rd_accum_list, i,
+                                                    accum.operator, arg, None)
+                    seed = accum.getleftmostseed()
                     failargs[i] = self.renamer.rename_map.get(seed, seed)
 
     def profitable(self):
@@ -556,6 +573,7 @@ class VecScheduleState(SchedulerState):
         if node.pack:
             assert node.pack.numops() > 1
             for node in node.pack.operations:
+                self.pre_emit(node)
                 scheduler.mark_emitted(node, self, unpack=False)
             turn_into_vector(self, node.pack)
             return True
@@ -593,6 +611,7 @@ class VecScheduleState(SchedulerState):
                 if argument and not argument.is_constant():
                     arg = self.ensure_unpacked(i, argument)
                     if argument is not arg:
+                        print "exchange at", i, fail_args[i], "=", arg
                         fail_args[i] = arg
 
     def ensure_unpacked(self, index, arg):
@@ -603,7 +622,7 @@ class VecScheduleState(SchedulerState):
             if var in self.invariant_vector_vars:
                 return arg
             if arg in self.accumulation:
-                return var
+                return arg
             args = [var, ConstInt(pos), ConstInt(1)]
             vecop = OpHelpers.create_vec_unpack(var.type, args, var.bytesize,
                                                 var.signed, 1)
@@ -844,35 +863,34 @@ class AccumPack(Pack):
                   rop.FLOAT_MUL: '*',
                 }
 
-    def __init__(self, nodes, operator, accum, position):
+    def __init__(self, nodes, operator, position):
         Pack.__init__(self, nodes)
-        self.accumulator = accum
         self.operator = operator
         self.position = position
 
     def getdatatype(self):
-        return self.accumulator.datatype
+        accum = self.leftmost().getarg(self.position)
+        return accum.datatype
 
     def getbytesize(self):
-        return self.accumulator.bytesize
+        accum = self.leftmost().getarg(self.position)
+        return accum.bytesize
 
-    def getseed(self):
+    def getleftmostseed(self):
+        return self.leftmost().getarg(self.position)
+
+    def getseeds(self):
         """ The accumulatoriable holding the seed value """
-        return self.accumulator
+        return [op.getoperation().getarg(self.position) for op in self.operations]
 
     def reduce_init(self):
         if self.operator == '*':
             return 1
         return 0
 
-    def attach_accum_info(self, descr, position, scalar):
-        descr.rd_accum_list = AccumInfo(descr.rd_accum_list, position, self.operator,
-                                        scalar, None)
-
     def is_accumulating(self):
         return True
 
     def clone(self):
-        return AccumPack(operations, self.operator,
-                         self.accumulator, self.position)
+        return AccumPack(operations, self.operator, self.position)
 

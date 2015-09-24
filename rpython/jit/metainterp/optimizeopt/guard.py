@@ -149,10 +149,6 @@ class Guard(object):
         assert operations[self.index] is self.op
         operations[self.index] = None
         descr = self.op.getdescr()
-        # TODO loop.version_info.remove(descr)
-        #if descr and descr.loop_version():
-        #    assert isinstance(descr, CompileLoopVersionDescr)
-        #    descr.version = None
         if operations[self.index-1] is self.cmp_op:
             operations[self.index-1] = None
 

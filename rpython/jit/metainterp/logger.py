@@ -134,6 +134,9 @@ class LogOperations(object):
             return str(arg.getfloatstorage())
         elif arg is None:
             return 'None'
+        elif arg.is_vector():
+            suffix = '[%dx%s%d]' % (arg.count, arg.datatype, arg.bytesize * 8)
+            return 'v' + str(mv) + suffix
         elif arg.type == 'i':
             return 'i' + str(mv)
         elif arg.type == 'r':

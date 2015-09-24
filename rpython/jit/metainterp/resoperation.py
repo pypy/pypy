@@ -146,6 +146,10 @@ class Typed(object):
         else:
             # pass through the type of the first input argument
             if self.numargs() == 0:
+                if self.type == 'i':
+                    self.setdatatype('i', INT_WORD, True)
+                elif self.type == 'f':
+                    self.setdatatype('f', FLOAT_WORD, False)
                 return
             i = 0
             arg = self.getarg(i)
@@ -280,6 +284,9 @@ class AbstractResOp(AbstractResOpOrInputArg):
         if descr is DONT_CHANGE:
             descr = None
         newop = ResOperation(opnum, args, descr)
+        newop.count = self.count
+        newop.bytesize = self.bytesize
+        newop.signed = self.signed
         if self.type != 'v':
             newop.copy_value_from(self)
         return newop
@@ -1602,13 +1609,13 @@ class OpHelpers(object):
         return VecOperationNew(opnum, [arg], arg.type, bytesize, signed, count)
 
     @staticmethod
-    def create_vec(datatype, bytesize, signed):
+    def create_vec(datatype, bytesize, signed, count):
         if datatype == 'i':
             opnum = rop.VEC_I
         else:
             assert datatype == 'f'
             opnum = rop.VEC_F
-        return VecOperationNew(opnum, [], datatype, bytesize, signed, 0)
+        return VecOperationNew(opnum, [], datatype, bytesize, signed, count)
 
     @staticmethod
     def create_vec_pack(datatype, args, bytesize, signed, count):
