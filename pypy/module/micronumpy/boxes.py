@@ -147,7 +147,7 @@ class W_GenericBox(W_NumpyObject):
 
     def get_flags(self):
         return (NPY.ARRAY_C_CONTIGUOUS | NPY.ARRAY_F_CONTIGUOUS |
-                NPY.ARRAY_WRITEABLE | NPY.ARRAY_OWNDATA)
+                NPY.ARRAY_ALIGNED | NPY.ARRAY_OWNDATA)
 
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
