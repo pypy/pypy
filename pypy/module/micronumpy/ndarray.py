@@ -747,10 +747,10 @@ class __extend__(W_NDimArray):
         return out
 
     def descr_get_ctypes(self, space):
-        w_result = space.appexec([self], """(w_array):
+        w_result = space.appexec([self], """(arr):
             from numpy.core import _internal
-            p_data = self.__array_interface__['data'][0]
-            return _internal.ctypes(self, p_data)
+            p_data = arr.__array_interface__['data'][0]
+            return _internal.ctypes(arr, p_data)
         """)
         return w_result
 
