@@ -219,52 +219,8 @@ class ShadowStackRootWalker(BaseRootWalker):
                                            minimal_transform=False)
 
     def need_stacklet_support(self, gctransformer, getfn):
-        shadow_stack_pool = self.shadow_stack_pool
-        SHADOWSTACKREF = get_shadowstackref(self, gctransformer)
-
-        def gc_shadowstackref_new():
-            ssref = shadow_stack_pool.allocate(SHADOWSTACKREF)
-            return lltype.cast_opaque_ptr(llmemory.GCREF, ssref)
-
-        def gc_shadowstackref_context(gcref):
-            ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
-            return ssref.context
-
-        def gc_save_current_state_away(gcref, ncontext):
-            ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
-            shadow_stack_pool.save_current_state_away(ssref, ncontext)
-
-        def gc_forget_current_state():
-            shadow_stack_pool.forget_current_state()
-
-        def gc_restore_state_from(gcref):
-            ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
-            shadow_stack_pool.restore_state_from(ssref)
-
-        def gc_start_fresh_new_state():
-            shadow_stack_pool.start_fresh_new_state()
-
-        s_gcref = SomePtr(llmemory.GCREF)
-        s_addr = SomeAddress()
-        self.gc_shadowstackref_new_ptr = getfn(gc_shadowstackref_new,
-                                               [], s_gcref,
-                                               minimal_transform=False)
-        self.gc_shadowstackref_context_ptr = getfn(gc_shadowstackref_context,
-                                                   [s_gcref], s_addr,
-                                                   inline=True)
-        self.gc_save_current_state_away_ptr = getfn(gc_save_current_state_away,
-                                                    [s_gcref, s_addr],
-                                                    annmodel.s_None,
-                                                    inline=True)
-        self.gc_forget_current_state_ptr = getfn(gc_forget_current_state,
-                                                 [], annmodel.s_None,
-                                                 inline=True)
-        self.gc_restore_state_from_ptr = getfn(gc_restore_state_from,
-                                               [s_gcref], annmodel.s_None,
-                                               inline=True)
-        self.gc_start_fresh_new_state_ptr = getfn(gc_start_fresh_new_state,
-                                                  [], annmodel.s_None,
-                                                  inline=True)
+        from rpython.rlib import _stacklet_shadowstack
+        _stacklet_shadowstack.complete_destrptr(gctransformer)
 
 # ____________________________________________________________
 
