@@ -18,6 +18,7 @@ def get_profiler():
     return pyjitpl._warmrunnerdesc.metainterp_sd.profiler
 
 class TestNumpyJit(Jit386Mixin):
+    enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
     graph = None
     interp = None
 
@@ -97,6 +98,11 @@ class TestNumpyJit(Jit386Mixin):
                                              backendopt=True,
                                              graph_and_interp_only=True,
                                              ProfilerClass=Profiler,
+                                             translate_support_code=True,
+                                             translationoptions={'gc':'minimark',
+                                                                 'gcrootfinder': 'asmgcc',
+                                                                 'gcremovetypeptr': False
+                                                                },
                                              vec=True)
             self.__class__.interp = interp
             self.__class__.graph = graph

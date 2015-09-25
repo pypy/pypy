@@ -99,7 +99,7 @@ class VectorAssemblerMixin(object):
             else:
                 not_implemented("accum operator %s not implemented" %
                                             (accum_info.accum_operation)) 
-            accum_info = accum_info.prev
+            accum_info = accum_info.next()
 
     def _accum_reduce_mul(self, arg, accumloc, targetloc):
         scratchloc = X86_64_XMM_SCRATCH_REG

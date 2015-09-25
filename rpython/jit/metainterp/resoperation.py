@@ -198,6 +198,12 @@ class AbstractResOpOrInputArg(AbstractValue, Typed):
     def get_forwarded(self):
         return self._forwarded
 
+def vector_repr(self, num):
+    if self.opnum in (rop.VEC_UNPACK_I, rop.VEC_UNPACK_F):
+        return self.type + str(num)
+    return 'v%d[%dx%s%d]' % (num, self.count, self.datatype,
+                             self.bytesize * 8)
+
 
 class AbstractResOp(AbstractResOpOrInputArg):
     """The central ResOperation class, representing one operation."""
@@ -308,8 +314,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
                 num = len(memo)
                 memo[self] = num
             if self.is_vector():
-                assert isinstance(self, VectorOp)
-                sres = self.vector_repr(num) + ' = '
+                sres = vector_repr(self, num) + ' = '
             else:
                 sres = self.type + str(num) + ' = '
         #if self.result is not None:
@@ -339,8 +344,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
             num = len(memo)
             memo[self] = num
         if self.is_vector():
-            assert isinstance(self, VectorOp)
-            return self.vector_repr(num)
+            return vector_repr(self, num)
         return self.type + str(num)
 
     def __repr__(self):
@@ -713,12 +717,6 @@ class SignExtOp(object):
 
 class VectorOp(object):
     _mixin_ = True
-
-    def vector_repr(self, num):
-        if self.opnum in (rop.VEC_UNPACK_I, rop.VEC_UNPACK_F):
-            return self.type + str(num)
-        return 'v%d[%dx%s%d]' % (num, self.count, self.datatype,
-                                 self.bytesize * 8)
 
     def vector_bytesize(self):
         assert self.count > 0

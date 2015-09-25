@@ -52,6 +52,9 @@ class VectorLoop(object):
                 token.original_jitcell_token = jitcell_token
                 jitcell_token.target_tokens.append(token)
                 self.label.setdescr(token)
+            else:
+                token = self.jump.getdescr()
+                assert isinstance(token, TargetToken)
             if self.prefix_label:
                 token = TargetToken(jitcell_token)
                 token.original_jitcell_token = jitcell_token
@@ -102,7 +105,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate,
     user_code = not jitdriver_sd.vec and warmstate.vec_all
     loop = VectorLoop(loop_info.label_op, loop_ops[1:-1], loop_ops[-1])
     if user_code and user_loop_bail_fast_path(loop, warmstate):
-        return
+        return loop_info, loop_ops
     # the original loop (output of optimize_unroll)
     info = LoopVersionInfo(loop_info)
     version = info.snapshot(loop)
@@ -113,7 +116,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate,
         #
         start = time.clock()
         opt = VectorizingOptimizer(metainterp_sd, jitdriver_sd, warmstate.vec_cost)
-        index_vars = opt.propagate_all_forward(info, loop)
+        index_vars = opt.run_optimization(info, loop)
         gso = GuardStrengthenOpt(index_vars)
         gso.propagate_all_forward(info, loop, user_code)
         end = time.clock()
@@ -144,6 +147,7 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate,
             llop.debug_print_traceback(lltype.Void)
         else:
             raise
+    return loop_info, loop_ops
 
 def user_loop_bail_fast_path(loop, warmstate):
     """ In a fast path over the trace loop: try to prevent vecopt
@@ -200,7 +204,7 @@ class VectorizingOptimizer(Optimizer):
         self.smallest_type_bytes = 0
         self.orig_label_args = None
 
-    def propagate_all_forward(self, info, loop):
+    def run_optimization(self, info, loop):
         self.orig_label_args = loop.label.getarglist_copy()
         self.linear_find_smallest_type(loop)
         byte_count = self.smallest_type_bytes
