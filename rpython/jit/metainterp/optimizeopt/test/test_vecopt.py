@@ -97,12 +97,6 @@ class VecTestHelper(DependencyBaseTest):
             unroll_factor = opt.get_unroll_count(ARCH_VEC_REG_SIZE)
             print ""
             print "unroll factor: ", unroll_factor, opt.smallest_type_bytes
-        # TODO if opt.loop.find_first_index(rop.GUARD_EARLY_EXIT) == -1:
-        #    idx = loop.find_first_index(rop.LABEL)
-        #    guard = ResOperation(rop.GUARD_EARLY_EXIT, [], None)
-        #    guard.setfailargs([])
-        #    guard.setdescr(compile.ResumeAtLoopHeaderDescr())
-        #    loop.operations.insert(idx+1, guard)
         self.show_dot_graph(DependencyGraph(loop), "original_" + self.test_name)
         graph = opt.analyse_index_calculations(loop)
         if graph is not None:

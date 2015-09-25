@@ -7,7 +7,8 @@ from rpython.jit.metainterp.compile import (send_bridge_to_backend, record_loop_
 
 class LoopVersionInfo(BasicLoopInfo):
     def __init__(self, info):
-        self.target_token = info.target_token
+        assert isinstance(info, BasicLoopInfo)
+        #self.target_token = info.target_token
         self.label_op = info.label_op
         self.extra_same_as = info.extra_same_as
         self.quasi_immutable_deps = info.quasi_immutable_deps
@@ -81,7 +82,7 @@ class LoopVersionInfo(BasicLoopInfo):
                 param = compiled[version]
                 cpu.stitch_bridge(descr, param)
 
-        self.versions = None # dismiss versions
+        self.versions = [] # dismiss versions
 
 
 class LoopVersion(object):

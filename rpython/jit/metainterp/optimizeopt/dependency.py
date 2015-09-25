@@ -189,8 +189,7 @@ class Node(object):
     def exits_early(self):
         if self.op.is_guard():
             descr = self.op.getdescr()
-            return isinstance(descr, compile.ResumeAtLoopHeaderDescr) or \
-                   isinstance(descr, compile.CompileLoopVersionDescr)
+            return isinstance(descr, compile.CompileLoopVersionDescr)
         return False
 
     def loads_from_complex_object(self):
@@ -724,8 +723,7 @@ class DependencyGraph(object):
         self.guard_argument_protection(guard_node, tracker)
         #
         descr = guard_op.getdescr()
-        if isinstance(descr, compile.ResumeAtLoopHeaderDescr) or \
-           isinstance(descr, compile.CompileLoopVersionDescr):
+        if isinstance(descr, compile.CompileLoopVersionDescr):
             return
         # handle fail args
         if guard_op.getfailargs():

@@ -6,7 +6,6 @@ from rpython.jit.metainterp.optimizeopt.test.test_util import (
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, Dependency,
         IndexVar, MemoryRef, Node)
-from rpython.jit.metainterp.compile import ResumeAtLoopHeaderDescr
 from rpython.jit.metainterp.optimizeopt.vector import VectorLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.llgraph.runner import ArrayDescr
@@ -55,10 +54,6 @@ class DependencyBaseTest(BaseTest):
         jump = loop.operations[-1]
         loop = VectorLoop(label, loop.operations[0:-1], jump)
         loop.jump.setdescr(token)
-        # TODO
-        for op in loop.operations:
-            if op.getopnum() == rop.GUARD_EARLY_EXIT and op.getdescr() is None:
-                op.setdescr(ResumeAtLoopHeaderDescr())
         return loop
 
     def parse_trace(self, source, inc_label_jump=True, pargs=2, iargs=10,

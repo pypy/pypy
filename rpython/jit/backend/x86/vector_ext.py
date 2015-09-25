@@ -67,7 +67,7 @@ class VectorAssemblerMixin(object):
 
     def _blend_unused_slots(self, loc, arg, temp):
         select = 0
-        bits_used = (arg.item_count * arg.item_size * 8)
+        bits_used = (arg.count * arg.bytesize * 8)
         index = bits_used // 16
         while index < 8:
             select |= (1 << index)
@@ -637,11 +637,11 @@ class VectorRegallocMixin(object):
         args = op.getarglist()
         srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
         if op.is_vector():
-            resloc =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
+            resloc =  self.xrm.force_result_in_reg(op, op.getarg(0), args)
             size = op.bytesize
         else:
             # unpack into iX box
-            resloc =  self.force_allocate_reg(op.result, args)
+            resloc =  self.force_allocate_reg(op, args)
             arg = op.getarg(0)
             size = arg.bytesize
         residx = 0
