@@ -9,6 +9,7 @@ from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp,\
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.debug import debug_print
 
 
 
@@ -499,6 +500,8 @@ class Optimizer(Optimization):
     def propagate_all_forward(self, inputargs, ops, call_pure_results=None,
                               rename_inputargs=True, flush=True,
                               origin_jitcode=None, origin_pc=0):
+        if origin_jitcode is not None:
+            debug_print("looking for guard at %s %d" % (origin_jitcode.name, origin_pc))
         self.origin_jitcode = origin_jitcode
         self.origin_pc = origin_pc
         if rename_inputargs:

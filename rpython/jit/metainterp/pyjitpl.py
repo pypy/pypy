@@ -2471,6 +2471,10 @@ class MetaInterp(object):
 
     def prepare_resume_from_failure(self, deadframe, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)
+        if isinstance(resumedescr, compile.ResumeGuardDescr):
+            name = resumedescr.rd_frame_info_list.jitcode.name
+            pc = resumedescr.rd_frame_info_list.pc
+            debug_print("resuming at %s %d" % (name, pc))
         if isinstance(resumedescr, compile.ResumeGuardExcDescr):
             if exception:
                 self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
