@@ -400,7 +400,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     def load_condition_into_cc(self, box):
         if self.assembler.guard_success_cc == rx86.cond_none:
-            self.assembler.test_location(self.loc(box))
+            if not box.is_vector():
+                self.assembler.test_location(self.loc(box))
             self.assembler.guard_success_cc = rx86.Conditions['NZ']
 
     def _consider_guard_cc(self, op):

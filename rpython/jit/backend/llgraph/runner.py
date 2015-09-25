@@ -829,6 +829,12 @@ class LLGraphCPU(model.AbstractCPU):
     bh_vec_int_eq = bh_vec_float_eq
     bh_vec_int_ne = bh_vec_float_ne
 
+    def bh_vec_int_is_true(self, vx, count):
+        return map(lambda x: bool(x), vx)
+
+    def bh_vec_int_is_false(self, vx, count):
+        return map(lambda x: not bool(x), vx)
+
     def bh_vec_int_xor(self, vx, vy, count):
         return [int(x) ^ int(y) for x,y in zip(vx,vy)]
 
@@ -1075,22 +1081,22 @@ class LLFrame(object):
     def execute_guard_early_exit(self, descr):
         pass
 
-    def _check_true(self, arg):
+    def _test_true(self, arg):
         if isinstance(arg, list):
             return all(arg)
         return arg
 
-    def _check_false(self, arg):
+    def _test_false(self, arg):
         if isinstance(arg, list):
             return any(arg)
         return arg
 
     def execute_guard_true(self, descr, arg):
-        if not self._check_true(arg):
+        if not self._test_true(arg):
             self.fail_guard(descr)
 
     def execute_guard_false(self, descr, arg):
-        if self._check_false(arg):
+        if self._test_false(arg):
             self.fail_guard(descr)
 
     def execute_guard_value(self, descr, arg1, arg2):

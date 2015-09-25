@@ -584,7 +584,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             name = "Bridge # %s" % (descr_number,)
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, fullsize)
-        print "bridge pos", hex(startpos+rawstart), hex(rawstart+bridgestartpos), startpos
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos, rawstart+bridgestartpos)
 
     def stitch_bridge(self, faildescr, target):
@@ -639,7 +638,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         rawstart = self.materialize_loop(looptoken)
         # update the jump to the real trace
         self._patch_jump_for_descr(rawstart + offset, asminfo.rawstart)
-        print faildescr, "=>", hex(asminfo.rawstart)
         # update the guard to jump right to this custom piece of assembler
         self.patch_jump_for_descr(faildescr, rawstart)
 
@@ -1069,6 +1067,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if result_loc is ebp:
             self.guard_success_cc = cond
         else:
+            if result_loc.is_xmm:
+                return
             rl = result_loc.lowest8bits()
             self.mc.SET_ir(cond, rl.value)
             self.mc.MOVZX8_rr(result_loc.value, rl.value)
@@ -1663,14 +1663,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def genop_guard_guard_false(self, guard_op, guard_token, locs, resloc):
         self.guard_success_cc = rx86.invert_condition(self.guard_success_cc)
-        # TODO loc = locs[0]
-        #if isinstance(loc, RegLoc):
-        #    if loc.is_xmm:
-        #        self._guard_vector_false(guard_op, loc)
-        #        # XXX
-        #        self.implement_guard(guard_token, 'NZ')
-        #        return
-        #self.mc.TEST(loc, loc)
         self.implement_guard(guard_token)
     genop_guard_guard_isnull = genop_guard_guard_false
 

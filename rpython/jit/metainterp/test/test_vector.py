@@ -157,20 +157,31 @@ class VectorizeTests:
         res = self.meta_interp(f, [30])
         assert res == f(30) == 128
 
-    @py.test.mark.parametrize('func,init,insert,at,count,breaks',
+    @py.test.mark.parametrize('type,func,init,insert,at,count,breaks',
             # all
-           [(lambda x: not bool(x), 1.0, None, -1,32, False),
-            (lambda x: x == 0.0,    1.0, None, -1,33, False),
-            (lambda x: x == 0.0,    1.0, 0.0,  33,34, True),
+           [(rffi.DOUBLE, lambda x: not bool(x), 1.0, None, -1,32, False),
+            (rffi.DOUBLE, lambda x: x == 0.0,    1.0, None, -1,33, False),
+            (rffi.DOUBLE, lambda x: x == 0.0,    1.0, 0.0,  33,34, True),
+            (lltype.Signed, lambda x: not bool(x), 1, None, -1,32, False),
+            (lltype.Signed, lambda x: x == 0,      1, None, -1,33, False),
+            (lltype.Signed, lambda x: x == 0,      1, 0,  33,34, True),
             # any
-            (lambda x: x != 0.0,    0.0, 1.0,  33,35, True),
-            (lambda x: x != 0.0,    0.0, 1.0,  -1,36, False),
-            (lambda x: bool(x),     0.0, 1.0,  33,37, True),
-            (lambda x: bool(x),     0.0, 1.0,  -1,38, False),
+            (rffi.DOUBLE, lambda x: x != 0.0,    0.0, 1.0,  33,35, True),
+            (rffi.DOUBLE, lambda x: x != 0.0,    0.0, 1.0,  -1,36, False),
+            (rffi.DOUBLE, lambda x: bool(x),     0.0, 1.0,  33,37, True),
+            (rffi.DOUBLE, lambda x: bool(x),     0.0, 1.0,  -1,38, False),
+            (lltype.Signed, lambda x: x != 0,    0, 1,  33,35, True),
+            (lltype.Signed, lambda x: x != 0,    0, 1,  -1,36, False),
+            (lltype.Signed, lambda x: bool(x),   0, 1,  33,37, True),
+            (lltype.Signed, lambda x: bool(x),   0, 1,  -1,38, False),
+            (rffi.INT, lambda x: intmask(x) != 0,    rffi.r_int(0), rffi.r_int(1),  33,35, True),
+            (rffi.INT, lambda x: intmask(x) != 0,    rffi.r_int(0), rffi.r_int(1),  -1,36, False),
+            (rffi.INT, lambda x: bool(intmask(x)),   rffi.r_int(0), rffi.r_int(1),  33,37, True),
+            (rffi.INT, lambda x: bool(intmask(x)),   rffi.r_int(0), rffi.r_int(1),  -1,38, False),
            ])
-    def test_bool_reduction(self, func, init, insert, at, count, breaks):
+    def test_bool_reduction(self, type, func, init, insert, at, count, breaks):
         myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
-        T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
+        T = lltype.Array(type, hints={'nolength': True})
         def f(d):
             va = lltype.malloc(T, d, flavor='raw', zero=True)
             for i in range(d): va[i] = init

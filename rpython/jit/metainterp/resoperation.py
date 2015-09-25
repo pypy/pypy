@@ -195,7 +195,6 @@ class AbstractResOpOrInputArg(AbstractValue, Typed):
     _attrs_ = ('_forwarded',)
     _forwarded = None # either another resop or OptInfo  
 
-
     def get_forwarded(self):
         return self._forwarded
 
@@ -1031,8 +1030,8 @@ _oplist = [
     'VEC_FLOAT_NEG/1/f',
     'VEC_FLOAT_ABS/1/f',
     '_VEC_ARITHMETIC_LAST',
-    'VEC_FLOAT_EQ/2b/f',
-    'VEC_FLOAT_NE/2b/f',
+    'VEC_FLOAT_EQ/2b/i',
+    'VEC_FLOAT_NE/2b/i',
     'VEC_INT_IS_TRUE/1b/i',
     'VEC_INT_NE/2b/i',
     'VEC_INT_EQ/2b/i',
