@@ -618,8 +618,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                     # the mapping might be wrong!
                     if bridge_accum_info.vector_loc is not guard_accum_info.vector_loc:
                         self.mov(guard_accum_info.vector_loc, bridge_accum_info.vector_loc)
-                bridge_accum_info = bridge_accum_info.prev
-            guard_accum_info = guard_accum_info.prev
+                bridge_accum_info = bridge_accum_info.next()
+            guard_accum_info = guard_accum_info.next()
 
         # register mapping is most likely NOT valid, thus remap it in this
         # short piece of assembler

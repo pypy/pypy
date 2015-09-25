@@ -446,7 +446,8 @@ def expand(state, pack, args, arg, index):
         if vecop:
             args[index] = vecop
             return vecop
-        vecop = OpHelpers.create_vec_expand(arg, op.bytesize, op.signed, pack.numops())
+        left = pack.leftmost()
+        vecop = OpHelpers.create_vec_expand(arg, left.bytesize, left.signed, pack.numops())
         ops.append(vecop)
         if variables is not None:
             variables.append(vecop)
@@ -549,9 +550,10 @@ class VecScheduleState(SchedulerState):
                     continue
                 accum = self.accumulation.get(arg, None)
                 if accum:
+                    from rpython.jit.metainterp.compile import ResumeGuardDescr
                     assert isinstance(accum, AccumPack)
-                    descr.rd_accum_list = AccumInfo(descr.rd_accum_list, i,
-                                                    accum.operator, arg, None)
+                    assert isinstance(descr, ResumeGuardDescr)
+                    descr.attach_accum_info(i, accum.operator, arg, None)
                     seed = accum.getleftmostseed()
                     failargs[i] = self.renamer.rename_map.get(seed, seed)
 

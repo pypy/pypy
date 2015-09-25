@@ -148,6 +148,8 @@ class AbstractFailDescr(AbstractDescr):
 
     _attrs_ = ('adr_jump_offset', 'rd_locs', 'rd_loop_token', 'rd_accum_list')
 
+    rd_accum_list = None
+
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop, orig_inputargs):

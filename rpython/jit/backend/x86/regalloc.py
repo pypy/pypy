@@ -318,6 +318,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def locs_for_fail(self, guard_op):
         faillocs = [self.loc(arg) for arg in guard_op.getfailargs()]
         descr = guard_op.getdescr()
+        assert isinstance(descr, ResumeGuardDescr)
         if descr and descr.rd_accum_list:
             accuminfo = descr.rd_accum_list
             while accuminfo:

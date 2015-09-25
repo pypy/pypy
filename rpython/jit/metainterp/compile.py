@@ -15,7 +15,8 @@ from rpython.jit.metainterp.history import (TreeLoop, Const, JitCellToken,
     TargetToken, AbstractFailDescr, ConstInt)
 from rpython.jit.metainterp import history, jitexc
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP, ResumeDataDirectReader
+from rpython.jit.metainterp.resume import (NUMBERING, PENDINGFIELDSP,
+        ResumeDataDirectReader, AccumInfo)
 from rpython.jit.codewriter import heaptracker, longlong
 
 def giveup():
@@ -679,8 +680,7 @@ class ResumeDescr(AbstractFailDescr):
 
 class ResumeGuardDescr(ResumeDescr):
     _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
-               'rd_frame_info_list', 'rd_pendingfields', 'rd_accum_list',
-               'status')
+               'rd_frame_info_list', 'rd_pendingfields', 'status')
 
     rd_numb = lltype.nullptr(NUMBERING)
     rd_count = 0
@@ -688,7 +688,6 @@ class ResumeGuardDescr(ResumeDescr):
     rd_virtuals = None
     rd_frame_info_list = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
-    rd_accum_list = None
 
     status = r_uint(0)
 
@@ -702,6 +701,8 @@ class ResumeGuardDescr(ResumeDescr):
         self.rd_numb = other.rd_numb
         if other.rd_accum_list:
             self.rd_accum_list = other.rd_accum_list.clone()
+        else:
+            other.rd_accum_list = None
         # we don't copy status
 
     ST_BUSY_FLAG    = 0x01     # if set, busy tracing from the guard
@@ -849,6 +850,10 @@ class ResumeGuardDescr(ResumeDescr):
 
     def exits_early(self):
         return True
+
+    def attach_accum_info(self, pos, operator, arg, loc):
+        self.rd_accum_list = \
+                AccumInfo(self.rd_accum_list, pos, operator, arg, loc)
 
 class ResumeGuardNonnullDescr(ResumeGuardDescr):
     guard_opnum = rop.GUARD_NONNULL
