@@ -118,20 +118,6 @@ class TestNumpyJit(Jit386Mixin):
         retval = self.interp.eval_graph(self.graph, [i])
         return retval
 
-    def define_dot_matrix():
-        return """
-        mat = |16|
-        m = reshape(mat, [4,4])
-        vec = [0,1,2,3]
-        a = dot(m, vec)
-        a -> 3
-        """
-
-    def test_dot_matrix(self):
-        result = self.run("dot_matrix")
-        assert int(result) == 86
-        self.check_vectorized(2, 1)
-
     def define_float32_copy():
         return """
         a = astype(|30|, float32)
@@ -915,6 +901,21 @@ class TestNumpyJit(Jit386Mixin):
         # ::2 creates a view object -> needs an inner loop
         # that iterates continous chunks of the matrix
         self.check_vectorized(1,1) 
+
+    def define_dot_matrix():
+        return """
+        mat = |16|
+        m = reshape(mat, [4,4])
+        vec = [0,1,2,3]
+        a = dot(m, vec)
+        a -> 3
+        """
+
+    def test_dot_matrix(self):
+        result = self.run("dot_matrix")
+        assert int(result) == 86
+        self.check_vectorized(2, 1)
+
 
     # NOT WORKING
 

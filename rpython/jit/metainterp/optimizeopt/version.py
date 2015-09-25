@@ -32,7 +32,6 @@ class LoopVersionInfo(BasicLoopInfo):
             self.descrs.append(descr)
         assert descr not in self.leads_to
         self.leads_to[descr] = version
-        assert version.renamed_inputargs is not None
 
     def remove(self, descr):
         if descr in self.leads_to:
@@ -90,12 +89,11 @@ class LoopVersion(object):
         create one instance and attach it to a guard descr.
         If not attached to a descriptor, it will not be compiled.
     """
-    _attrs_ = ('label', 'operations', 'inputargs', 'renamed_inputargs')
+    _attrs_ = ('label', 'loop', 'inputargs')
 
     def __init__(self, loop):
         self.loop = loop
         self.inputargs = loop.label.getarglist()
-        self.renamed_inputargs = loop.label.getarglist()
 
     def setup_once(self, info):
         for op in self.loop.operations:

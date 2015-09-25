@@ -248,7 +248,7 @@ class ArrayDescr(ArrayOrFieldDescr):
     all_interiorfielddescrs = None
     concrete_type = '\x00'
 
-    def __init__(self, basesize, itemsize, lendescr, flag, concrete_type='\x00', is_pure=False):
+    def __init__(self, basesize, itemsize, lendescr, flag, is_pure=False, concrete_type='\x00'):
         self.basesize = basesize
         self.itemsize = itemsize
         self.lendescr = lendescr    # or None, if no length
@@ -339,13 +339,13 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
             descrs = heaptracker.all_interiorfielddescrs(gccache,
                 ARRAY_INSIDE, get_field_descr=get_interiorfield_descr)
             arraydescr.all_interiorfielddescrs = descrs
-        concreate_type = '\x00'
+        concrete_type = '\x00'
         if ARRAY_INSIDE.OF is lltype.SingleFloat or \
            ARRAY_INSIDE.OF is lltype.Float:
             # it would be better to set the flag as FLOAT_TYPE
             # for single float -> leads to problems
-            concrete_type = FLOAT
-        arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag, concreate_type)
+            concrete_type = 'f'
+        arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag, is_pure, concrete_type=concrete_type)
         if ARRAY_OR_STRUCT._gckind == 'gc':
             gccache.init_array_descr(ARRAY_OR_STRUCT, arraydescr)
         return arraydescr

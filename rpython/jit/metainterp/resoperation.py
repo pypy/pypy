@@ -28,10 +28,11 @@ class AbstractValue(object):
     _repr_memo = CountingDict()
     is_info_class = False
     namespace = None
-    _attrs_ = ('datatype', 'bytesize', 'signed')
+    _attrs_ = ('datatype', 'bytesize', 'signed', 'count')
     datatype = '\x00'
     bytesize = -1 # -1 means the biggest size known to the machine
     signed = True
+    count = -1
 
     def _get_hash_(self):
         return compute_identity_hash(self)
@@ -121,15 +122,18 @@ class Typed(object):
             return
 
         if self.is_primitive_array_access():
+            from rpython.jit.backend.llsupport.descr import ArrayDescr
             descr = self.getdescr()
             if not we_are_translated():
                 from rpython.jit.backend.llgraph.runner import _getdescr
                 descr = _getdescr(self)
             type = self.type
-            if descr.is_array_of_floats() or descr.concrete_type == 'f':
+            if descr.is_array_of_floats():
+                type = 'f'
+            if isinstance(descr, ArrayDescr) and descr.getconcrete_type() == 'f':
                 type = 'f'
             self.bytesize = descr.get_item_size_in_bytes()
-            self.sign = descr.is_item_signed()
+            self.signed = descr.is_item_signed()
             self.datatype = type
         elif self.opnum == rop.INT_SIGNEXT:
             from rpython.jit.metainterp import history
@@ -166,6 +170,8 @@ class Typed(object):
                     self.setdatatype('r', INT_WORD, False)
                 return
             self.setdatatype(arg.datatype, arg.bytesize, arg.signed)
+            if self.returns_bool_result():
+                self.datatype = 'i'
         assert self.datatype != '\x00'
         #assert self.bytesize > 0
 
@@ -209,7 +215,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
     boolinverse = -1
     vector = -1 # -1 means, no vector equivalent, -2 it is a vector statement
     casts = ('\x00', -1, '\x00', -1, -1)
-    count = -1 
 
     def getopnum(self):
         return self.opnum

@@ -1658,14 +1658,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.mc.PUNPCKLDQ_xx(resloc.value, loc1.value)
 
     def genop_guard_guard_true(self, guard_op, guard_token, locs, resloc):
-        #loc = locs[0]
-        #if isinstance(loc, RegLoc):
-        #    if loc.is_xmm:
-        #        self._guard_vector_true(guard_op, loc)
-        #        # XXX
-        #        self.implement_guard(guard_token, 'NZ')
-        #        return
-        #self.mc.TEST(loc, loc)
         self.implement_guard(guard_token)
     genop_guard_guard_nonnull = genop_guard_guard_true
 

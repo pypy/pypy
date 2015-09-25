@@ -157,6 +157,38 @@ class VectorizeTests:
         res = self.meta_interp(f, [30])
         assert res == f(30) == 128
 
+    @py.test.mark.parametrize('func,init,insert,at,count,breaks',
+            # all
+           [(lambda x: not bool(x), 1.0, None, -1,32, False),
+            (lambda x: x == 0.0,    1.0, None, -1,33, False),
+            (lambda x: x == 0.0,    1.0, 0.0,  33,34, True),
+            # any
+            (lambda x: x != 0.0,    0.0, 1.0,  33,35, True),
+            (lambda x: x != 0.0,    0.0, 1.0,  -1,36, False),
+            (lambda x: bool(x),     0.0, 1.0,  33,37, True),
+            (lambda x: bool(x),     0.0, 1.0,  -1,38, False),
+           ])
+    def test_bool_reduction(self, func, init, insert, at, count, breaks):
+        myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
+        T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
+        def f(d):
+            va = lltype.malloc(T, d, flavor='raw', zero=True)
+            for i in range(d): va[i] = init
+            if at != -1:
+                va[at] = insert
+            i = 0 ; nobreak = False
+            while i < d:
+                myjitdriver.jit_merge_point()
+                if func(va[i]):
+                    break
+                i += 1
+            else:
+                nobreak = True
+            lltype.free(va, flavor='raw')
+            return not nobreak
+        res = self.meta_interp(f, [count])
+        assert res == f(count) == breaks
+
     def test_sum(self):
         myjitdriver = JitDriver(greens = [], reds = 'auto', vectorize=True)
         T = lltype.Array(rffi.DOUBLE, hints={'nolength': True})

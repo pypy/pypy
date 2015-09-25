@@ -43,9 +43,9 @@ class VectorAssemblerMixin(object):
         self.mc.PBLENDW_xxi(loc.value, temp.value, select)
 
     def _guard_vector_true(self, guard_op, loc, zero=False):
+        return
         arg = guard_op.getarg(0)
-        assert isinstance(arg, BoxVector)
-        size = arg.item_size
+        size = arg.bytesize
         temp = X86_64_XMM_SCRATCH_REG
         #
         self.mc.PXOR(temp, temp)
@@ -65,7 +65,6 @@ class VectorAssemblerMixin(object):
 
     def _guard_vector_false(self, guard_op, loc):
         arg = guard_op.getarg(0)
-        assert isinstance(arg, BoxVector)
         #
         # if the vector is not fully packed blend 1s
         if not arg.fully_packed(self.cpu.vector_register_size):
@@ -204,6 +203,17 @@ class VectorAssemblerMixin(object):
         # a second time -> every zero entry (corresponding to non zero
         # entries before) become ones
         self.mc.PCMPEQ(loc, temp, sizeloc.value)
+        # TODO
+        #self.flush_cc(rx86.Conditions['NZ'], resloc)
+        #loc = locs[0]
+        #if isinstance(loc, RegLoc):
+        #    if loc.is_xmm:
+        #        self._guard_vector_true(guard_op, loc)
+        #        # XXX
+        #        self.implement_guard(guard_token, 'NZ')
+        #        return
+        #self.mc.TEST(loc, loc)
+
 
     def genop_guard_vec_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):
         guard_opnum = guard_op.getopnum()
@@ -618,11 +628,9 @@ class VectorRegallocMixin(object):
 
     def consider_vec_arith_unary(self, op):
         lhs = op.getarg(0)
-        assert isinstance(lhs, BoxVector)
-        size = lhs.item_size
         args = op.getarglist()
         res = self.xrm.force_result_in_reg(op, op.getarg(0), args)
-        self.perform(op, [res, imm(size)], res)
+        self.perform(op, [res, imm(lhs.bytesize)], res)
 
     consider_vec_float_neg = consider_vec_arith_unary
     consider_vec_float_abs = consider_vec_arith_unary
@@ -637,15 +645,13 @@ class VectorRegallocMixin(object):
 
     def consider_vec_float_eq(self, op, guard_op):
         lhs = op.getarg(0)
-        assert isinstance(lhs, BoxVector)
-        size = lhs.item_size
         args = op.getarglist()
         lhsloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
         rhsloc = self.make_sure_var_in_reg(op.getarg(1), args)
         if guard_op:
-            self.perform_with_guard(op, guard_op, [lhsloc, rhsloc, imm(size)], None)
+            self.perform_with_guard(op, guard_op, [lhsloc, rhsloc, imm(lhs.bytesize)], None)
         else:
-            self.perform(op, [lhsloc, rhsloc, imm(size)], lhsloc)
+            self.perform(op, [lhsloc, rhsloc, imm(lhs.bytesize)], lhsloc)
 
     consider_vec_float_ne = consider_vec_float_eq
     consider_vec_int_eq = consider_vec_float_eq
@@ -681,16 +687,14 @@ class VectorRegallocMixin(object):
         assert isinstance(count, ConstInt)
         args = op.getarglist()
         srcloc = self.make_sure_var_in_reg(op.getarg(0), args)
-        if isinstance(op.result, BoxVector):
+        if op.is_vector():
             resloc =  self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-            assert isinstance(op.result, BoxVector)
-            size = op.result.getsize()
+            size = op.bytesize
         else:
             # unpack into iX box
             resloc =  self.force_allocate_reg(op.result, args)
             arg = op.getarg(0)
-            assert isinstance(arg, BoxVector)
-            size = arg.getsize()
+            size = arg.bytesize
         residx = 0
         args = op.getarglist()
         arglocs = [resloc, srcloc, imm(residx), imm(index.value), imm(count.value), imm(size)]
@@ -726,16 +730,13 @@ class VectorRegallocMixin(object):
         assert size > 0
         self.perform(op, [resloc, imm(size), imm(op.bytesize)], resloc)
 
-    def consider_vec_int_is_true(self, op, guard_op):
+    def consider_vec_int_is_true(self, op):
         args = op.getarglist()
-        resloc = self.xrm.force_result_in_reg(op.result, op.getarg(0), args)
-        sizearg = op.getarg(0)
-        assert isinstance(sizearg, BoxVector)
-        size = sizearg.getsize()
-        if guard_op is not None:
-            self.perform_with_guard(op, guard_op, [resloc,imm(size)], None)
-        else:
-            self.perform(op, [resloc,imm(size)], None)
+        #resloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
+        arg = op.getarg(0)
+        argloc = self.loc(arg)
+        resloc = self.force_allocate_reg_or_cc(op)
+        self.perform(op, [resloc,imm(size)], None)
 
     def _consider_vec(self, op):
         # pseudo instruction, needed to create a new variable

@@ -1075,12 +1075,22 @@ class LLFrame(object):
     def execute_guard_early_exit(self, descr):
         pass
 
+    def _check_true(self, arg):
+        if isinstance(arg, list):
+            return all(arg)
+        return arg
+
+    def _check_false(self, arg):
+        if isinstance(arg, list):
+            return any(arg)
+        return arg
+
     def execute_guard_true(self, descr, arg):
-        if not arg:
+        if not self._check_true(arg):
             self.fail_guard(descr)
 
     def execute_guard_false(self, descr, arg):
-        if arg:
+        if self._check_false(arg):
             self.fail_guard(descr)
 
     def execute_guard_value(self, descr, arg1, arg2):
