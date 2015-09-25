@@ -55,6 +55,7 @@ class VectorAssemblerMixin(object):
             self.mc.PCMPEQQ(temp, temp)
             # test if all slots are zero
             self.mc.PTEST(loc, temp)
+            self.guard_success_cc = rx86.Conditions['Z']
         else:
             # if the vector is not fully packed blend 1s
             if load < 0:
@@ -62,6 +63,7 @@ class VectorAssemblerMixin(object):
                 self.mc.PXOR(temp, temp)
                 self._blend_unused_slots(loc, arg, temp)
             self.mc.PTEST(loc, loc)
+            self.guard_success_cc = rx86.Conditions['NZ']
 
     def _blend_unused_slots(self, loc, arg, temp):
         select = 0
@@ -201,16 +203,6 @@ class VectorAssemblerMixin(object):
         # a second time -> every zero entry (corresponding to non zero
         # entries before) become ones
         self.mc.PCMPEQ(loc, temp, sizeloc.value)
-        self.flush_cc(rx86.Conditions['NZ'], resloc)
-
-    #def genop_guard_vec_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):
-    #    guard_opnum = guard_op.getopnum()
-    #    if guard_opnum == rop.GUARD_TRUE:
-    #        self._guard_vector_true(op, arglocs[0])
-    #        self.implement_guard(guard_token, 'NZ')
-    #    else:
-    #        self._guard_vector_false(op, arglocs[0])
-    #        self.implement_guard(guard_token, 'NZ')
 
     def genop_vec_int_mul(self, op, arglocs, resloc):
         loc0, loc1, itemsize_loc = arglocs
@@ -297,7 +289,6 @@ class VectorAssemblerMixin(object):
             self.mc.XORPS(src, heap(self.single_float_const_neg_addr))
         elif size == 8:
             self.mc.XORPD(src, heap(self.float_const_neg_addr))
-        self.flush_cc(rx86.Conditions['NZ'], resloc)
 
     def genop_vec_float_eq(self, op, arglocs, resloc):
         _, rhsloc, sizeloc = arglocs
@@ -306,7 +297,6 @@ class VectorAssemblerMixin(object):
             self.mc.CMPPS_xxi(resloc.value, rhsloc.value, 0) # 0 means equal
         else:
             self.mc.CMPPD_xxi(resloc.value, rhsloc.value, 0)
-        self.flush_cc(rx86.Conditions['NZ'], resloc)
 
     def genop_vec_float_ne(self, op, arglocs, resloc):
         _, rhsloc, sizeloc = arglocs
@@ -316,13 +306,11 @@ class VectorAssemblerMixin(object):
             self.mc.CMPPS_xxi(resloc.value, rhsloc.value, 1 << 2)
         else:
             self.mc.CMPPD_xxi(resloc.value, rhsloc.value, 1 << 2)
-        self.flush_cc(rx86.Conditions['NZ'], resloc)
 
     def genop_vec_int_eq(self, op, arglocs, resloc):
         _, rhsloc, sizeloc = arglocs
         size = sizeloc.value
         self.mc.PCMPEQ(resloc, rhsloc, size)
-        self.flush_cc(rx86.Conditions['NZ'], resloc)
 
     def genop_vec_int_ne(self, op, arglocs, resloc):
         _, rhsloc, sizeloc = arglocs
@@ -336,7 +324,6 @@ class VectorAssemblerMixin(object):
         # 11 11 11 11
         # ----------- pxor
         # 00 11 00 00
-        self.flush_cc(rx86.Conditions['NZ'], resloc)
 
     def gen_cmp(func):
         """ The requirement for func is that it must return one bits for each
@@ -720,11 +707,10 @@ class VectorRegallocMixin(object):
 
     def consider_vec_int_is_true(self, op):
         args = op.getarglist()
-        #resloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
         arg = op.getarg(0)
         argloc = self.loc(arg)
-        resloc = self.force_allocate_reg_or_cc(op)
-        self.perform(op, [resloc,imm(size)], None)
+        resloc = self.xrm.force_result_in_reg(op, arg, args)
+        self.perform(op, [resloc,imm(arg.bytesize)], None)
 
     def _consider_vec(self, op):
         # pseudo instruction, needed to create a new variable

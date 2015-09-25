@@ -400,18 +400,25 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     def load_condition_into_cc(self, box):
         if self.assembler.guard_success_cc == rx86.cond_none:
-            if not box.is_vector():
-                self.assembler.test_location(self.loc(box))
+            self.assembler.test_location(self.loc(box))
             self.assembler.guard_success_cc = rx86.Conditions['NZ']
 
-    def _consider_guard_cc(self, op):
-        self.load_condition_into_cc(op.getarg(0))
-        self.perform_guard(op, [], None)
 
-    consider_guard_true = _consider_guard_cc
-    consider_guard_false = _consider_guard_cc
-    consider_guard_nonnull = _consider_guard_cc
-    consider_guard_isnull = _consider_guard_cc
+    def _consider_guard_cc(true):
+        def function(self, op):
+            arg = op.getarg(0)
+            if arg.is_vector():
+                loc = self.loc(arg)
+                self.assembler.guard_vector(op, self.loc(arg), true)
+            else:
+                self.load_condition_into_cc(arg)
+            self.perform_guard(op, [], None)
+        return function
+
+    consider_guard_true = _consider_guard_cc(True)
+    consider_guard_false = _consider_guard_cc(False)
+    consider_guard_nonnull = _consider_guard_cc(True)
+    consider_guard_isnull = _consider_guard_cc(False)
 
     def consider_finish(self, op):
         # the frame is in ebp, but we have to point where in the frame is
