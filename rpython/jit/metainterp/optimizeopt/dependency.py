@@ -999,7 +999,6 @@ class IndexVar(AbstractValue):
         # saves the next modification that uses a variable
         self.next_nonconst = None
         self.current_end = None
-        self.opnum = 0
 
     def stride_const(self):
         return self.next_nonconst is None

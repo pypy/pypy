@@ -269,11 +269,11 @@ def turn_into_vector(state, pack):
         state.setvector_of_box(op,i,vecop)
         if pack.is_accumulating():
             state.renamer.start_renaming(op, vecop)
-    if op.is_guard():
-        assert isinstance(op, GuardResOp)
+    if left.is_guard():
+        assert isinstance(left, GuardResOp)
         assert isinstance(vecop, GuardResOp)
-        vecop.setfailargs(op.getfailargs())
-        vecop.rd_snapshot = op.rd_snapshot
+        vecop.setfailargs(left.getfailargs())
+        vecop.rd_snapshot = left.rd_snapshot
 
 def prepare_arguments(state, pack, args):
     # Transforming one argument to a vector box argument
@@ -885,6 +885,6 @@ class AccumPack(Pack):
     def is_accumulating(self):
         return True
 
-    def clone(self):
-        return AccumPack(operations, self.operator, self.position)
+    def clone(self, oplist):
+        return AccumPack(oplist, self.operator, self.position)
 
