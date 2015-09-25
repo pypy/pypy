@@ -556,6 +556,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
+        bridgestartpos = self.mc.get_relative_pos()
         self._accum_update_at_exit(arglocs, inputargs, faildescr, regalloc)
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
@@ -583,7 +584,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             name = "Bridge # %s" % (descr_number,)
             self.cpu.profile_agent.native_code_written(name,
                                                        rawstart, fullsize)
-        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos, rawstart)
+        print "bridge pos", hex(startpos+rawstart), hex(rawstart+bridgestartpos), startpos
+        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos, rawstart+bridgestartpos)
 
     def stitch_bridge(self, faildescr, target):
         """ Stitching means that one can enter a bridge with a complete different register
@@ -607,6 +609,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # if accumulation is saved at the guard, we need to update it here!
         guard_locs = self.rebuild_faillocs_from_descr(faildescr, version.inputargs)
         bridge_locs = self.rebuild_faillocs_from_descr(bridge_faildescr, version.inputargs)
+        #import pdb; pdb.set_trace()
         guard_accum_info = faildescr.rd_accum_list
         # O(n^2), but usually you only have at most 1 fail argument
         while guard_accum_info:
@@ -636,6 +639,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         rawstart = self.materialize_loop(looptoken)
         # update the jump to the real trace
         self._patch_jump_for_descr(rawstart + offset, asminfo.rawstart)
+        print faildescr, "=>", hex(asminfo.rawstart)
         # update the guard to jump right to this custom piece of assembler
         self.patch_jump_for_descr(faildescr, rawstart)
 

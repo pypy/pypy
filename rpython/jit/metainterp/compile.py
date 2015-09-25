@@ -701,7 +701,8 @@ class ResumeGuardDescr(ResumeDescr):
         self.rd_pendingfields = other.rd_pendingfields
         self.rd_virtuals = other.rd_virtuals
         self.rd_numb = other.rd_numb
-        self.rd_accum_list = other.rd_accum_list
+        if other.rd_accum_list:
+            self.rd_accum_list = other.rd_accum_list.clone()
         # we don't copy status
 
     ST_BUSY_FLAG    = 0x01     # if set, busy tracing from the guard

@@ -66,6 +66,13 @@ class AccumInfo(object):
     def next(self):
         return self.prev
 
+    def clone(self):
+        prev = None
+        if self.prev:
+            prev = self.prev.clone()
+        return AccumInfo(prev, self.scalar_position, self.accum_operation,
+                         self.scalar_box, None)
+
     def __repr__(self):
         return 'AccumInfo(%s,%s,%s,%s,%s)' % (self.prev is None,
                                               self.accum_operation,
