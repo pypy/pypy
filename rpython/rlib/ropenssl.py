@@ -29,7 +29,8 @@ includes += [
     'openssl/rand.h',
     'openssl/evp.h',
     'openssl/ossl_typ.h',
-    'openssl/x509v3.h']
+    'openssl/x509v3.h',
+    'openssl/comp.h']
 
 eci = ExternalCompilationInfo(
     libraries = libraries,
@@ -263,6 +264,9 @@ if OPENSSL_VERSION_NUMBER < 0x0090800f and not OPENSSL_NO_ECDH:
     OPENSSL_NO_ECDH = True
 HAS_ALPN = OPENSSL_VERSION_NUMBER >= 0x1000200fL and not OPENSSL_NO_TLSEXT
 
+HAVE_OPENSSL_RAND_EGD = rffi_platform.has('RAND_egd("/")',
+                                          '#include <openssl/rand.h>',
+                                          libraries=['ssl', 'crypto'])
 
 def external(name, argtypes, restype, **kw):
     kw['compilation_info'] = eci
@@ -287,7 +291,8 @@ ssl_external('CRYPTO_set_id_callback',
 if HAVE_OPENSSL_RAND:
     ssl_external('RAND_add', [rffi.CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
     ssl_external('RAND_status', [], rffi.INT)
-    ssl_external('RAND_egd', [rffi.CCHARP], rffi.INT)
+    if HAVE_OPENSSL_RAND_EGD:
+        ssl_external('RAND_egd', [rffi.CCHARP], rffi.INT)
 ssl_external('SSL_CTX_new', [SSL_METHOD], SSL_CTX)
 ssl_external('SSL_get_SSL_CTX', [SSL], SSL_CTX)
 ssl_external('SSL_set_SSL_CTX', [SSL, SSL_CTX], SSL_CTX)

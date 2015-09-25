@@ -38,12 +38,6 @@ class AbstractARMCPU(AbstractLLCPU):
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
 
-    def get_failargs_limit(self):
-        if self.opts is not None:
-            return self.opts.failargs_limit
-        else:
-            return 1000
-
     def setup(self):
         self.assembler = AssemblerARM(self, self.translate_support_code)
 
@@ -63,12 +57,6 @@ class AbstractARMCPU(AbstractLLCPU):
         return self.assembler.assemble_bridge(logger, faildescr, inputargs,
                                               operations,
                                               original_loop_token, log=log)
-
-    def clear_latest_values(self, count):
-        setitem = self.assembler.fail_boxes_ptr.setitem
-        null = lltype.nullptr(llmemory.GCREF.TO)
-        for index in range(count):
-            setitem(index, null)
 
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)

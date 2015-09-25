@@ -536,7 +536,7 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 ENABLE_ALL_OPTS = (
-    'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll')
+    'intbounds:rewrite:virtualize:string:pure:earlyforce:heap:unroll')
 
 PARAMETER_DOCS = {
     'threshold': 'number of times a loop has to run for it to become hot',
@@ -562,7 +562,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'trace_limit': 6000,
               'inlining': 1,
               'loop_longevity': 1000,
-              'retrace_limit': 5,
+              'retrace_limit': 0,
               'max_retrace_guards': 15,
               'max_unroll_loops': 0,
               'disable_unrolling': 200,
@@ -1087,6 +1087,16 @@ def record_exact_class(value, cls):
     """
     assert type(value) is cls
 
+def ll_record_exact_class(ll_value, ll_cls):
+    from rpython.rlib.debug import ll_assert
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.rclass import ll_type
+    ll_assert(ll_value == lltype.nullptr(lltype.typeOf(ll_value).TO), "record_exact_class called with None argument")
+    ll_assert(ll_type(ll_value) is ll_cls, "record_exact_class called with invalid arguments")
+    llop.jit_record_exact_class(lltype.Void, ll_value, ll_cls)
+
+
 class Entry(ExtRegistryEntry):
     _about_ = record_exact_class
 
@@ -1100,12 +1110,10 @@ class Entry(ExtRegistryEntry):
         from rpython.rtyper import rclass
 
         classrepr = rclass.get_type_repr(hop.rtyper)
-
-        hop.exception_cannot_occur()
         v_inst = hop.inputarg(hop.args_r[0], arg=0)
         v_cls = hop.inputarg(classrepr, arg=1)
-        return hop.genop('jit_record_exact_class', [v_inst, v_cls],
-                         resulttype=lltype.Void)
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_record_exact_class, v_inst, v_cls)
 
 def _jit_conditional_call(condition, function, *args):
     pass

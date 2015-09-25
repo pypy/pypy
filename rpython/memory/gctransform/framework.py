@@ -350,6 +350,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 [s_gc, annmodel.SomeInteger(knowntype=llgroup.r_halfword)],
                 annmodel.SomeInteger())
 
+        self.gc_gettypeid_ptr = getfn(GCClass.get_type_id_cast,
+                                       [s_gc, SomeAddress()],
+                                       annmodel.SomeInteger())
+
         if hasattr(GCClass, 'writebarrier_before_copy'):
             self.wb_before_copy_ptr = \
                     getfn(GCClass.writebarrier_before_copy.im_func,
@@ -816,6 +820,16 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                   v_addr, v_length],
                   resultvar=op.result)
 
+    def gct_gc_gettypeid(self, hop):
+        op = hop.spaceop
+        v_addr = op.args[0]
+        if v_addr.concretetype != llmemory.Address:
+            v_addr = hop.genop("cast_ptr_to_adr", [v_addr],
+                               resulttype=llmemory.Address)
+        hop.genop("direct_call", [self.gc_gettypeid_ptr, self.c_const_gc,
+                                  v_addr],
+                         resultvar=op.result)
+
     def gct_gc_writebarrier(self, hop):
         if self.write_barrier_ptr is None:
             return
@@ -887,39 +901,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   [self.root_walker.gc_reattach_callback_pieces_ptr,
                    op.args[0]],
                   resultvar=op.result)
-
-    def gct_gc_shadowstackref_new(self, hop):
-        op = hop.spaceop
-        livevars = self.push_roots(hop)
-        hop.genop("direct_call", [self.root_walker.gc_shadowstackref_new_ptr],
-                  resultvar=op.result)
-        self.pop_roots(hop, livevars)
-
-    def gct_gc_shadowstackref_context(self, hop):
-        op = hop.spaceop
-        hop.genop("direct_call",
-                  [self.root_walker.gc_shadowstackref_context_ptr, op.args[0]],
-                  resultvar=op.result)
-
-    def gct_gc_save_current_state_away(self, hop):
-        op = hop.spaceop
-        hop.genop("direct_call",
-                  [self.root_walker.gc_save_current_state_away_ptr,
-                   op.args[0], op.args[1]])
-
-    def gct_gc_forget_current_state(self, hop):
-        hop.genop("direct_call",
-                  [self.root_walker.gc_forget_current_state_ptr])
-
-    def gct_gc_restore_state_from(self, hop):
-        op = hop.spaceop
-        hop.genop("direct_call",
-                  [self.root_walker.gc_restore_state_from_ptr,
-                   op.args[0]])
-
-    def gct_gc_start_fresh_new_state(self, hop):
-        hop.genop("direct_call",
-                  [self.root_walker.gc_start_fresh_new_state_ptr])
 
     def gct_do_malloc_fixedsize(self, hop):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)

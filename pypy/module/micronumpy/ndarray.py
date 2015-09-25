@@ -6,6 +6,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty, \
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
+from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import descriptor, ufuncs, boxes, arrayops, loop, \
@@ -611,6 +612,7 @@ class __extend__(W_NDimArray):
                 "__array__(dtype) not implemented"))
         if type(self) is W_NDimArray:
             return self
+        # sz cannot overflow since self is valid
         sz = support.product(self.get_shape()) * self.get_dtype().elsize
         return W_NDimArray.from_shape_and_storage(
             space, self.get_shape(), self.implementation.storage,
@@ -1405,9 +1407,9 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         return W_NDimArray.from_shape(space, shape, dtype, order)
     strides, backstrides = calc_strides(shape, dtype.base, order)
     try:
-        totalsize = support.product(shape) * dtype.base.elsize
+        totalsize = ovfcheck(support.product_check(shape) * dtype.base.elsize)
     except OverflowError as e:
-        raise oefmt(space.w_ValueError, "array is too big")
+        raise oefmt(space.w_ValueError, "array is too big.")
     impl = ConcreteArray(shape, dtype.base, order, strides, backstrides)
     w_ret = space.allocate_instance(W_NDimArray, w_subtype)
     W_NDimArray.__init__(w_ret, impl)

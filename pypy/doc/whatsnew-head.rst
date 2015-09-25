@@ -2,68 +2,40 @@
 What's new in PyPy 2.6+
 =======================
 
-.. this is a revision shortly after release-2.6.0
-.. startrev: 91904d5c5188
+.. this is a revision shortly after release-2.6.1
+.. startrev: 07769be4057b
 
-.. branch: use_min_scalar
-Correctly resolve the output dtype of ufunc(array, scalar) calls.
+.. branch: keys_with_hash
+Improve the performance of dict.update() and a bunch of methods from
+sets, by reusing the hash value stored in one dict when inspecting
+or changing another dict with that key.
 
-.. branch: stdlib-2.7.10
+.. branch: optresult-unroll 
+A major refactoring of the ResOperations that kills Box. Also rewrote
+unrolling to enable future enhancements.  Should improve warmup time
+by 20% or so.
 
-Update stdlib to version 2.7.10
+.. branch: optimize-cond-call
+Optimize common sequences of operations like
+``int_lt/cond_call`` in the JIT backends
 
-.. branch: issue2062
+.. branch: missing_openssl_include
+Fix for missing headers in OpenBSD, already applied in downstream ports
 
-.. branch: disable-unroll-for-short-loops
-The JIT no longer performs loop unrolling if the loop compiles to too much code.
+.. branch: gc-more-incremental
+Remove a source of non-incremental-ness in the GC: now
+external_malloc() no longer runs gc_step_until() any more. If there
+is a currently-running major collection, we do only so many steps
+before returning. This number of steps depends on the size of the
+allocated object. It is controlled by tracking the general progress
+of these major collection steps and the size of old objects that
+keep adding up between them.
 
-.. branch: run-create_cffi_imports
+.. branch: remember-tracing-counts
+Reenable jithooks
 
-Build cffi import libraries as part of translation by monkey-patching an 
-additional task into translation
+.. branch: detect_egd2
 
-.. branch: int-float-list-strategy
-
-Use a compact strategy for Python lists that mix integers and floats,
-at least if the integers fit inside 32 bits.  These lists are now
-stored as an array of floats, like lists that contain only floats; the
-difference is that integers are stored as tagged NaNs.  (This should
-have no visible effect!  After ``lst = [42, 42.5]``, the value of
-``lst[0]`` is still *not* the float ``42.0`` but the integer ``42``.)
-
-.. branch: cffi-callback-onerror
-.. branch: cffi-new-allocator
-
-.. branch: unicode-dtype
-
-Partial implementation of unicode dtype and unicode scalars.
-
-.. branch: dtypes-compatability
-
-Improve compatibility with numpy dtypes; handle offsets to create unions,
-fix str() and repr(), allow specifying itemsize, metadata and titles, add flags,
-allow subclassing dtype
-
-.. branch: indexing
-
-Refactor array indexing to support ellipses.
-
-.. branch: numpy-docstrings
-
-Allow the docstrings of built-in numpy objects to be set at run-time.
-
-.. branch: nditer-revisited
-
-Implement nditer 'buffered' flag and fix some edge cases
-
-.. branch: ufunc-reduce
-
-Allow multiple axes in ufunc.reduce()
-
-.. branch: fix-tinylang-goals
-
-Update tinylang goals to match current rpython
-
-.. branch: vmprof-review
-
-Clean up of vmprof, notably to handle correctly multiple threads
+.. branch: shadowstack-no-move-2
+Issue #2141: fix a crash on Windows and OS/X and ARM when running
+at least 20 threads.

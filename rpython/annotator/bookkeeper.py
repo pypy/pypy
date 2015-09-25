@@ -233,10 +233,11 @@ class Bookkeeper(object):
             else:
                 result = SomeString(no_nul=no_nul)
         elif tp is unicode:
+            no_nul = not u'\x00' in x
             if len(x) == 1:
-                result = SomeUnicodeCodePoint()
+                result = SomeUnicodeCodePoint(no_nul=no_nul)
             else:
-                result = SomeUnicodeString()
+                result = SomeUnicodeString(no_nul=no_nul)
         elif tp is bytearray:
             result = SomeByteArray()
         elif tp is tuple:

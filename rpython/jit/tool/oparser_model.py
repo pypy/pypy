@@ -4,7 +4,6 @@ class Boxes(object):
 def get_real_model():
     class LoopModel(object):
         from rpython.jit.metainterp.history import TreeLoop, JitCellToken
-        from rpython.jit.metainterp.history import Box, BoxInt, BoxFloat
         from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
         from rpython.jit.metainterp.history import BasicFailDescr, BasicFinalDescr, TargetToken
         from rpython.jit.metainterp.typesystem import llhelper

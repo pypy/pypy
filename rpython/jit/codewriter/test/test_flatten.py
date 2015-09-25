@@ -39,8 +39,6 @@ class FakeDescr(AbstractDescr):
         self.oopspecindex = oopspecindex
     def __repr__(self):
         return '<Descr>'
-    def as_vtable_size_descr(self):
-        return self
 
 class FakeDict(object):
     def __getitem__(self, key):
@@ -60,7 +58,7 @@ class FakeCPU:
         return FakeDescr()
     def fielddescrof(self, STRUCT, name):
         return FakeDescr()
-    def sizeof(self, STRUCT):
+    def sizeof(self, STRUCT, vtable=None):
         return FakeDescr()
     def arraydescrof(self, ARRAY):
         return FakeDescr()

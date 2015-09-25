@@ -303,7 +303,7 @@ testmap = [
     RegrTest('test_memoryio.py'),
     RegrTest('test_memoryview.py'),
     RegrTest('test_md5.py'),
-    RegrTest('test_mhlib.py'),
+    RegrTest('test_mhlib.py', usemodules='binascii struct'),
     RegrTest('test_mimetools.py'),
     RegrTest('test_mimetypes.py'),
     RegrTest('test_MimeWriter.py', core=False, usemodules='binascii'),
