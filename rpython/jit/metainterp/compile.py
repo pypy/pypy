@@ -24,7 +24,7 @@ def giveup():
 
 class CompileData(object):
     memo = None
-    
+
     def forget_optimization_info(self):
         for arg in self.start_label.getarglist():
             arg.set_forwarded(None)
@@ -261,7 +261,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         del enable_opts['unroll']
 
     ops = history.operations[start:]
-    if 'unroll' not in enable_opts:
+    if 'unroll' not in enable_opts or not metainterp.cpu.supports_guard_gc_type:
         return compile_simple_loop(metainterp, greenkey, start, inputargs, ops,
                                    jumpargs, enable_opts)
     jitcell_token = make_jitcell_token(jitdriver_sd)
@@ -358,8 +358,7 @@ def compile_retrace(metainterp, greenkey, start,
                                  enable_opts=enable_opts)
     try:
         loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                             loop_data,
-                                             metainterp.box_names_memo)
+                                             loop_data)
     except InvalidLoop:
         # Fall back on jumping directly to preamble
         jump_op = ResOperation(rop.JUMP, inputargs[:], descr=loop_jitcell_token)
@@ -682,7 +681,7 @@ class ResumeGuardDescr(ResumeDescr):
     _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
                'rd_frame_info_list', 'rd_pendingfields', 'rd_accum_list',
                'status')
-    
+
     rd_numb = lltype.nullptr(NUMBERING)
     rd_count = 0
     rd_consts = None
@@ -890,12 +889,6 @@ class ResumeGuardNotInvalidated(ResumeGuardDescr):
 class ResumeAtPositionDescr(ResumeGuardDescr):
     guard_opnum = rop.GUARD_FUTURE_CONDITION
 
-class ResumeAtLoopHeaderDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_EARLY_EXIT
-
-    def exits_early(self):
-        return True
-
 class CompileLoopVersionDescr(ResumeGuardDescr):
     guard_opnum = rop.GUARD_EARLY_EXIT
 
@@ -1002,8 +995,6 @@ def invent_fail_descr_for_op(opnum, optimizer):
         resumedescr = ResumeGuardNotInvalidated()
     elif opnum == rop.GUARD_FUTURE_CONDITION:
         resumedescr = ResumeAtPositionDescr()
-    elif opnum == rop.GUARD_EARLY_EXIT:
-        resumedescr = ResumeAtLoopHeaderDescr()
     elif opnum == rop.GUARD_VALUE:
         resumedescr = ResumeGuardValueDescr()
     elif opnum == rop.GUARD_NONNULL:
@@ -1067,7 +1058,6 @@ def compile_trace(metainterp, resumekey):
     #
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
-
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     if isinstance(resumekey, ResumeAtPositionDescr):
@@ -1095,6 +1085,7 @@ def compile_trace(metainterp, resumekey):
         info, newops = optimize_trace(metainterp_sd, jitdriver_sd,
                                       data, metainterp.box_names_memo)
     except InvalidLoop:
+        #pdb.post_mortem(sys.exc_info()[2])
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop

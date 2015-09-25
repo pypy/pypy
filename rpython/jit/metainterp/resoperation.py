@@ -1011,7 +1011,7 @@ _oplist = [
     'CAST_INT_TO_FLOAT/1/f',          # need some messy code in the backend
     'CAST_FLOAT_TO_SINGLEFLOAT/1/i',
     'CAST_SINGLEFLOAT_TO_FLOAT/1/f',
-    'CONVERT_FLOAT_BYTES_TO_LONGLONG/1/i',
+    'CONVERT_FLOAT_BYTES_TO_LONGLONG/1/' + ('i' if longlong.is_64_bit else 'f'),
     'CONVERT_LONGLONG_BYTES_TO_FLOAT/1/f',
     #
     # vector operations

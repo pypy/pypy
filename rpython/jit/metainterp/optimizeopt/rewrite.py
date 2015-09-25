@@ -273,7 +273,7 @@ class OptRewrite(Optimization):
                     r = self.optimizer.metainterp_sd.logger_ops.repr_of_resop(
                         op)
                     raise InvalidLoop('A GUARD_VALUE (%s) '
-                                      'to always fail' % r)
+                                      'was proven to always fail' % r)
                 return
                     
         if emit_operation:

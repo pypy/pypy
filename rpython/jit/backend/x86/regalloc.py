@@ -725,7 +725,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         args = [op.getarg(1), op.getarg(2)]
         loc1 = self.load_xmm_aligned_16_bytes(args[0])
         loc2 = self.load_xmm_aligned_16_bytes(args[1], args)
-        tmpxvar = TempBox()
+        tmpxvar = TempVar()
         loc3 = self.xrm.force_allocate_reg(tmpxvar, args)
         self.xrm.possibly_free_var(tmpxvar)
         loc0 = self.rm.force_allocate_reg(op, need_lower_byte=True)
@@ -822,7 +822,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 resloc = self.rm.after_call(op)
         else:
             resloc = None
-            self.perform(op, arglocs, resloc)
+        self.perform(op, arglocs, resloc)
 
     def _consider_call(self, op, guard_not_forced=False, first_arg_index=1):
         calldescr = op.getdescr()

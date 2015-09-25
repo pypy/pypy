@@ -650,7 +650,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 startpos = self.mc.get_relative_pos()
                 self.store_info_on_descr(startpos, tok)
             else:
-                # TODO regalloc.position = tok.position
                 tok.pos_recovery_stub = self.generate_quick_failure(tok, regalloc)
         if WORD == 8 and len(self.pending_memoryerror_trampoline_from) > 0:
             self.error_trampoline_64 = self.generate_propagate_error_64()
@@ -1067,8 +1066,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if result_loc is ebp:
             self.guard_success_cc = cond
         else:
-            if result_loc.is_xmm:
-                return
             rl = result_loc.lowest8bits()
             self.mc.SET_ir(cond, rl.value)
             self.mc.MOVZX8_rr(result_loc.value, rl.value)
@@ -1789,13 +1786,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
 
-    def genop_guard_guard_gc_type(self, ign_1, guard_op,
-                                  guard_token, locs, ign_2):
+    def genop_guard_guard_gc_type(self, guard_op, guard_token, locs, ign):
         self._cmp_guard_gc_type(locs[0], locs[1])
-        self.implement_guard(guard_token, 'NE')
+        self.guard_success_cc = rx86.Conditions['E']
+        self.implement_guard(guard_token)
 
-    def genop_guard_guard_is_object(self, ign_1, guard_op,
-                                    guard_token, locs, ign_2):
+    def genop_guard_guard_is_object(self, guard_op, guard_token, locs, ign):
         assert self.cpu.supports_guard_gc_type
         [loc_object, loc_typeid] = locs
         # idea: read the typeid, fetch the field 'infobits' from the big
@@ -1811,12 +1807,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.cpu.gc_ll_descr.get_translated_info_for_guard_is_object())
         loc_infobits = addr_add(imm(base_type_info), loc_typeid,
                                 scale=shift_by, offset=infobits_offset)
-        self.mc.TEST(loc_infobits, imm(IS_OBJECT_FLAG))
+        self.mc.TEST8(loc_infobits, imm(IS_OBJECT_FLAG))
         #
-        self.implement_guard(guard_token, 'Z')
+        self.guard_success_cc = rx86.Conditions['NZ']
+        self.implement_guard(guard_token)
 
-    def genop_guard_guard_subclass(self, op, guard_op,
-                                   guard_token, locs, ign_2):
+    def genop_guard_guard_subclass(self, guard_op, guard_token, locs, ign):
         assert self.cpu.supports_guard_gc_type
         [loc_object, loc_check_against_class, loc_tmp] = locs
         assert isinstance(loc_object, RegLoc)
@@ -1849,8 +1845,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # check by doing the unsigned comparison (tmp - min) < (max - min)
         self.mc.SUB_ri(loc_tmp.value, check_min)
         self.mc.CMP_ri(loc_tmp.value, check_max - check_min)
-        # the guard fails if we get a "not below" result
-        self.implement_guard(guard_token, 'NB')
+        # the guard passes if we get a result of "below"
+        self.guard_success_cc = rx86.Conditions['B']
+        self.implement_guard(guard_token)
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
                                  fail_locs, frame_depth):
@@ -2078,9 +2075,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.guard_success_cc = rx86.Conditions['E']
         self.implement_guard(guard_token)
 
-    def _genop_call_may_force(self, op, guard_op, guard_token,
-                                   arglocs, result_loc):
-        self._store_force_index(guard_op)
+    def _genop_call_may_force(self, op, arglocs, result_loc):
+        self._store_force_index(self._find_nearby_operation(+1))
         self._genop_call(op, arglocs, result_loc)
     genop_call_may_force_i = _genop_call_may_force
     genop_call_may_force_r = _genop_call_may_force
@@ -2332,6 +2328,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.J_il8(rx86.invert_condition(self.guard_success_cc), 0)
                                                             # patched later
         jmp_adr = self.mc.get_relative_pos()
+        self.guard_success_cc = rx86.cond_none
         #
         self.push_gcmap(self.mc, gcmap, store=True)
         #

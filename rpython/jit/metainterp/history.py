@@ -187,7 +187,7 @@ def newconst(value):
     else:
         assert lltype.typeOf(value) == llmemory.GCREF
         return ConstPtr(value)
-        
+
 class MissingValue(object):
     "NOT_RPYTHON"
 
@@ -808,14 +808,12 @@ class Stats(object):
             check['getfield_gc_pure_i'] = check['getfield_gc_pure_r'] = check['getfield_gc_pure_f'] = 0
         if 'getarrayitem_gc_pure' in check:
             assert check.pop('getarrayitem_gc_pure') == 0
-            check['getarrayitem_gc_pure_i'] = check['getarrayitem_gc_pure_r'] = check['getarrayitem_gc_pure_f'] = 0            
+            check['getarrayitem_gc_pure_i'] = check['getarrayitem_gc_pure_r'] = check['getarrayitem_gc_pure_f'] = 0
         if 'getarrayitem_gc' in check:
             assert check.pop('getarrayitem_gc') == 0
             check['getarrayitem_gc_i'] = check['getarrayitem_gc_r'] = check['getarrayitem_gc_f'] = 0
         for loop in self.get_all_loops():
             insns = loop.summary(adding_insns=insns, omit_finish=omit_finish)
-        if 'guard_early_exit' in insns:
-            del insns['guard_early_exit']
         return self._check_insns(insns, expected, check)
 
     def _check_insns(self, insns, expected, check):

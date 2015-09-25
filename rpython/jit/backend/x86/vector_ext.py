@@ -325,32 +325,6 @@ class VectorAssemblerMixin(object):
         # ----------- pxor
         # 00 11 00 00
 
-    def gen_cmp(func):
-        """ The requirement for func is that it must return one bits for each
-        entry that matches the query, zero otherwise.
-        """
-        def generate_assembler(self, op, guard_op, guard_token, arglocs, resloc):
-            lhsloc, rhsloc, sizeloc = arglocs
-            size = sizeloc.value
-            func(self, op, arglocs, lhsloc)
-            guard_opnum = guard_op.getopnum()
-            if guard_opnum == rop.GUARD_TRUE:
-                temp = X86_64_XMM_SCRATCH_REG
-                self.mc.PXOR(temp, temp) # set all to zero
-                self.mc.PCMPEQ(lhsloc, temp, size) # compare
-                self.mc.PCMPEQQ(temp, temp) # set all bits to 1
-                self.mc.PTEST(lhsloc, temp)
-            else:
-                self.mc.PTEST(lhsloc, lhsloc)
-            self.flush_cc(x86.Conditions['NZ'], lhsloc)
-        return generate_assembler
-
-    genop_guard_vec_float_eq = gen_cmp(genop_vec_float_eq)
-    genop_guard_vec_float_ne = gen_cmp(genop_vec_float_ne)
-    genop_guard_vec_int_eq = gen_cmp(genop_vec_int_eq)
-    genop_guard_vec_int_ne = gen_cmp(genop_vec_int_ne)
-    del gen_cmp
-
     def genop_vec_int_signext(self, op, arglocs, resloc):
         srcloc, sizeloc, tosizeloc = arglocs
         size = sizeloc.value
