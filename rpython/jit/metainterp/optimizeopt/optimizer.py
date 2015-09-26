@@ -583,10 +583,13 @@ class Optimizer(Optimization):
             self.exception_might_have_happened = True
         if ((op.has_no_side_effect() or op.is_guard() or op.is_jit_debug() or
              op.is_ovf()) and
-            not self.is_call_pure_pure_canraise(op)):
+            not self.is_call_pure_pure_canraise(op) and
+            not op.getopnum() == rop.ENTER_PORTAL_FRAME):
+            # we can't share across ENTER_PORTAL_FRAME because if we later
+            # change the decision of inlining into that portal frame, we
+            # won't follow the same path through blackhole
             pass
         else:
-            #assert self.origin_jitcode is None
             self._last_guard_op = None
         self._really_emitted_operation = op
         self._newoperations.append(op)
