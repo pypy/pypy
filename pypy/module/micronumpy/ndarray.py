@@ -750,7 +750,7 @@ class __extend__(W_NDimArray):
         w_result = space.appexec([self], """(arr):
             from numpy.core import _internal
             p_data = arr.__array_interface__['data'][0]
-            return _internal.ctypes(arr, p_data)
+            return _internal._ctypes(arr, p_data)
         """)
         return w_result
 
