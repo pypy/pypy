@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit, rgc
 from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
@@ -354,12 +355,17 @@ class BaseConcreteArray(object):
         elif order != self.order:
             t_strides, backstrides = calc_strides(shape, dtype, order)
         else:
-            mins = strides[0]
+            def arg_lt(a, b):
+                return strides[a] < strides[b]
+            ArgSort=make_timsort_class(lt=arg_lt)
+            indx_array = range(len(strides))
+            ArgSort(indx_array).sort()
             t_elsize = dtype.elsize
-            for s in strides:
-                if s < mins:
-                    mins = s
-            t_strides = [s * t_elsize / mins for s in strides]
+            t_strides = strides[:]
+            base = dtype.elsize
+            for i in indx_array:
+                t_strides[i] = base
+                base *= shape[i]
             backstrides = calc_backstrides(t_strides, shape)
         impl = ConcreteArray(shape, dtype, order, t_strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)
