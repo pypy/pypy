@@ -1150,6 +1150,7 @@ class Counters(object):
     OPS
     RECORDED_OPS
     GUARDS
+    GUARDS_SHARED
     OPT_OPS
     OPT_GUARDS
     OPT_FORCINGS
