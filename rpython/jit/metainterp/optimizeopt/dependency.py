@@ -62,6 +62,9 @@ class Path(object):
             return None
         return self.path[-1]
 
+    def first(self):
+        return self.path[0]
+
     def is_always_pure(self, exclude_first=False, exclude_last=False):
         last = len(self.path)-1
         count = len(self.path)
@@ -595,19 +598,6 @@ class DependencyGraph(object):
                 node.setpriority(2)
             # the label operation defines all operations at the
             # beginning of the loop
-
-            # TODO if op.getopnum() == rop.LABEL and i != jump_pos:
-            #    node.setpriority(100)
-            #    label_pos = i
-            #    for arg in op.getarglist():
-            #        tracker.define(arg, node)
-            #    continue # prevent adding edge to the label itself
-            #elif node.is_guard_early_exit():
-            #    label_node = self.nodes[label_pos]
-            #    label_node.edge_to(node,None,label='L->EE')
-            #    for arg in label_node.getoperation().getarglist():
-            #        tracker.define(arg, node)
-            #    continue
 
             intformod.inspect_operation(op,node)
             # definition of a new variable

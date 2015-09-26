@@ -103,7 +103,9 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate,
                     loop_info, loop_ops, jitcell_token=None):
     """ Enter the world of SIMD. Bails if it cannot transform the trace. """
     user_code = not jitdriver_sd.vec and warmstate.vec_all
-    loop = VectorLoop(loop_info.label_op, loop_ops[1:-1], loop_ops[-1])
+    e = len(loop_ops)-1
+    assert e > 0
+    loop = VectorLoop(loop_info.label_op, loop_ops[1:e], loop_ops[-1])
     if user_code and user_loop_bail_fast_path(loop, warmstate):
         return loop_info, loop_ops
     # the original loop (output of optimize_unroll)
@@ -515,6 +517,8 @@ class VectorizingOptimizer(Optimizer):
             modify_later = []
             last_prev_node = None
             valid = True
+            if guard_node in zero_deps:
+                del zero_deps[guard_node]
             for prev_dep in guard_node.depends():
                 prev_node = prev_dep.to
                 if prev_dep.is_failarg():
@@ -551,6 +555,7 @@ class VectorizingOptimizer(Optimizer):
                 self.mark_guard(guard_node, loop)
         for node in zero_deps.keys():
             assert not node.is_imaginary()
+            print "edge to", node
             earlyexit.edge_to(node)
         if one_valid:
             return graph

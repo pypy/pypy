@@ -1235,6 +1235,7 @@ class BaseTestVectorize(VecTestHelper):
         self.assert_equal(trace, trace_opt)
 
     def test_axis_sum(self):
+        # TODO
         trace = """
         [i1, p10, i11, p8, i12, p3, p4, p13, i14, i15, p6, p9, i16, i17, i18, i19, i20, i21, i22, i23]
         f24 = raw_load_f(i16, i12, descr=floatarraydescr)
@@ -1257,11 +1258,8 @@ class BaseTestVectorize(VecTestHelper):
         guard_false(i39) [i1, p9, p8, p6, p4, p3, i33, i38, None, None, i26, i11, None, p13, None, None, p10]
         jump(i1, p10, i11, p8, i26, p3, p4, p13, i33, i38, p6, p9, i16, i17, i18, i19, i20, i21, i22, i23)
         """
-        try:
-            self.vectorize(self.parse_loop(trace))
-            py.test.fail("axis sum is not profitable")
-        except NotAProfitableLoop:
-            pass
+        loop = self.parse_loop(trace)
+        self.vectorize(loop)
 
     def test_cast_1(self):
         # TODO
