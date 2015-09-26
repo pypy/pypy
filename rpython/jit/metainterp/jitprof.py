@@ -141,9 +141,9 @@ class Profiler(BaseProfiler):
         self._print_intline("recorded ops", cnt[Counters.RECORDED_OPS])
         self._print_intline("  calls", calls)
         self._print_intline("guards", cnt[Counters.GUARDS])
-        self._print_intline("guards_shared", cnt[Counters.GUARDS_SHARED])
         self._print_intline("opt ops", cnt[Counters.OPT_OPS])
         self._print_intline("opt guards", cnt[Counters.OPT_GUARDS])
+        self._print_intline("opt guards shared", cnt[Counters.OPT_GUARDS_SHARED])
         self._print_intline("forcings", cnt[Counters.OPT_FORCINGS])
         self._print_intline("abort: trace too long",
                             cnt[Counters.ABORT_TOO_LONG])

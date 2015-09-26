@@ -600,7 +600,7 @@ class Optimizer(Optimization):
         if (self._last_guard_op and guard_op.getdescr() is None and
             opnum != rop.GUARD_VALUE):
             self.metainterp_sd.profiler.count_ops(opnum,
-                                              jitprof.Counters.GUARDS_SHARED)
+                                            jitprof.Counters.OPT_GUARDS_SHARED)
             op = self._copy_resume_data_from(guard_op,
                                              self._last_guard_op)
         else:
@@ -722,8 +722,6 @@ class Optimizer(Optimization):
                     raise AssertionError("uh?")
                 newop = self.replace_op_with(op, opnum, [op.getarg(0)], descr)
                 return newop
-        # a real GUARD_VALUE.  Make it use one counter per value.
-        descr.make_a_counter_per_value(op)
         return op
 
     def optimize_default(self, op):
