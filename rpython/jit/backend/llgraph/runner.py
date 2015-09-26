@@ -40,6 +40,10 @@ class LLTrace(object):
         self.inputargs = map(mapping, inputargs)
         self.operations = []
         for op in operations:
+            if op.getopnum() == rop.GUARD_VALUE:
+                # we don't care about the value 13 here, because we gonna
+                # fish it from the extra slot on frame anyway
+                op.getdescr().make_a_counter_per_value(op, 13)
             if op.getdescr() is not None:
                 if op.is_guard() or op.getopnum() == rop.FINISH:
                     newdescr = op.getdescr()
@@ -371,6 +375,18 @@ class LLGraphCPU(model.AbstractCPU):
             assert False
         except ExecutionFinished, e:
             return e.deadframe
+
+    def get_value_direct(self, deadframe, tp, index):
+        v = deadframe._extra_value
+        if tp == 'i':
+            assert lltype.typeOf(v) == lltype.Signed
+        elif tp == 'r':
+            assert lltype.typeOf(v) == llmemory.GCREF
+        elif tp == 'f':
+            assert lltype.typeOf(v) == longlong.FLOATSTORAGE
+        else:
+            assert False
+        return v
 
     def get_int_value(self, deadframe, index):
         v = deadframe._values[index]
@@ -775,11 +791,13 @@ class LLDeadFrame(object):
     _TYPE = llmemory.GCREF
 
     def __init__(self, latest_descr, values,
-                 last_exception=None, saved_data=None):
+                 last_exception=None, saved_data=None,
+                 extra_value=None):
         self._latest_descr = latest_descr
         self._values = values
         self._last_exception = last_exception
         self._saved_data = saved_data
+        self._extra_value = extra_value
 
 
 class LLFrame(object):
@@ -872,7 +890,7 @@ class LLFrame(object):
 
     # -----------------------------------------------------
 
-    def fail_guard(self, descr, saved_data=None):
+    def fail_guard(self, descr, saved_data=None, extra_value=None):
         values = []
         for box in self.current_op.getfailargs():
             if box is not None:
@@ -887,7 +905,7 @@ class LLFrame(object):
         else:
             raise ExecutionFinished(LLDeadFrame(descr, values,
                                                 self.last_exception,
-                                                saved_data))
+                                                saved_data, extra_value))
 
     def execute_force_spill(self, _, arg):
         pass
@@ -909,7 +927,7 @@ class LLFrame(object):
 
     def execute_guard_value(self, descr, arg1, arg2):
         if arg1 != arg2:
-            self.fail_guard(descr)
+            self.fail_guard(descr, extra_value=arg1)
 
     def execute_guard_nonnull(self, descr, arg):
         if not arg:

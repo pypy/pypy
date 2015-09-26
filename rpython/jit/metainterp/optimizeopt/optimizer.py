@@ -597,8 +597,7 @@ class Optimizer(Optimization):
     def emit_guard_operation(self, op, pendingfields):
         guard_op = self.replace_op_with(op, op.getopnum())
         opnum = guard_op.getopnum()
-        if (self._last_guard_op and guard_op.getdescr() is None and
-            opnum != rop.GUARD_VALUE):
+        if (self._last_guard_op and guard_op.getdescr() is None):
             self.metainterp_sd.profiler.count_ops(opnum,
                                             jitprof.Counters.OPT_GUARDS_SHARED)
             op = self._copy_resume_data_from(guard_op,

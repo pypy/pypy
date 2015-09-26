@@ -389,20 +389,40 @@ class AbstractLLCPU(AbstractCPU):
         descr = self.get_latest_descr(deadframe)
         return rffi.cast(lltype.Signed, descr.rd_locs[index]) * WORD
 
+    @specialize.arg(2)
+    def get_value_direct(self, deadframe, tp, index):
+        if tp == 'i':
+            return self.get_int_value_direct(deadframe, index * WORD)
+        elif tp == 'r':
+            return self.get_ref_value_direct(deadframe, index * WORD)
+        elif tp == 'f':
+            return self.get_float_value_direct(deadframe, index * WORD)
+        else:
+            assert False
+
     def get_int_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
+        return self.get_int_value_direct(deadframe, pos)
+
+    def get_int_value_direct(self, deadframe, pos):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
         return self.read_int_at_mem(deadframe, pos + ofs, WORD, 1)
 
     def get_ref_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
+        return self.get_ref_value_direct(deadframe, pos)
+
+    def get_ref_value_direct(self, deadframe, pos):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
         return self.read_ref_at_mem(deadframe, pos + ofs)
 
     def get_float_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
+        return self.get_float_value_direct(deadframe, pos)
+
+    def get_float_value_direct(self, deadframe, pos):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
         return self.read_float_at_mem(deadframe, pos + ofs)

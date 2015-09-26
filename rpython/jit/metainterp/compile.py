@@ -777,12 +777,15 @@ class ResumeGuardDescr(ResumeDescr):
             # fetch the actual value of the guard_value, possibly turning
             # it to an integer
             if typetag == self.TY_INT:
-                intval = metainterp_sd.cpu.get_int_value(deadframe, index)
+                intval = metainterp_sd.cpu.get_value_direct(deadframe, 'i',
+                                                            index)
             elif typetag == self.TY_REF:
-                refval = metainterp_sd.cpu.get_ref_value(deadframe, index)
+                refval = metainterp_sd.cpu.get_value_direct(deadframe, 'r',
+                                                            index)
                 intval = lltype.cast_ptr_to_int(refval)
             elif typetag == self.TY_FLOAT:
-                floatval = metainterp_sd.cpu.get_float_value(deadframe, index)
+                floatval = metainterp_sd.cpu.get_value_direct(deadframe, 'f',
+                                                              index)
                 intval = longlong.gethash_fast(floatval)
             else:
                 assert 0, typetag
@@ -797,11 +800,6 @@ class ResumeGuardDescr(ResumeDescr):
         #
         increment = jitdriver_sd.warmstate.increment_trace_eagerness
         return jitcounter.tick(hash, increment)
-
-    def get_index_of_guard_value(self):
-        if (self.status & self.ST_TYPE_MASK) == 0:
-            return -1
-        return intmask(self.status >> self.ST_SHIFT)
 
     def start_compiling(self):
         # start tracing and compiling from this guard.
@@ -829,23 +827,18 @@ class ResumeGuardDescr(ResumeDescr):
                                new_loop.original_jitcell_token,
                                metainterp.box_names_memo)
 
-    def make_a_counter_per_value(self, guard_value_op):
+    def make_a_counter_per_value(self, guard_value_op, index):
         assert guard_value_op.getopnum() == rop.GUARD_VALUE
         box = guard_value_op.getarg(0)
-        try:
-            i = guard_value_op.getfailargs().index(box)
-        except ValueError:
-            return     # xxx probably very rare
+        if box.type == history.INT:
+            ty = self.TY_INT
+        elif box.type == history.REF:
+            ty = self.TY_REF
+        elif box.type == history.FLOAT:
+            ty = self.TY_FLOAT
         else:
-            if box.type == history.INT:
-                ty = self.TY_INT
-            elif box.type == history.REF:
-                ty = self.TY_REF
-            elif box.type == history.FLOAT:
-                ty = self.TY_FLOAT
-            else:
-                assert 0, box.type
-            self.status = ty | (r_uint(i) << self.ST_SHIFT)
+            assert 0, box.type
+        self.status = ty | (r_uint(index) << self.ST_SHIFT)
 
 class ResumeGuardExcDescr(ResumeGuardDescr):
     pass
