@@ -529,6 +529,10 @@ class Optimizer(Optimization):
         if extra_jump:
             self.first_optimization.propagate_forward(ops[-1])
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
+
+        if self.origin_jitcode is not None:
+            raise Exception("Was looking for guard never foudnd it")
+        
         return (BasicLoopInfo(newargs, self.quasi_immutable_deps),
                 self._newoperations)
 
