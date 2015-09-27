@@ -4319,3 +4319,15 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
  
         
         self.meta_interp(allfuncs, [9, 2000])
+
+    def test_unichar_might_be_signed(self):
+        py.test.skip("wchar_t is sometimes a signed 32-bit integer type, "
+                     "but RPython inteprets it as unsigned (but still "
+                     "translates to wchar_t, so can create confusion)")
+        def f(x):
+            return rffi.cast(lltype.Signed, rffi.cast(lltype.UniChar, x))
+        res = self.interp_operations(f, [-1])
+        if rffi.r_wchar_t.SIGN:
+            assert res == -1
+        else:
+            assert res == 2 ** 16 - 1 or res == 2 ** 32 - 1
