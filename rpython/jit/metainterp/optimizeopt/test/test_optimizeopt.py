@@ -8902,5 +8902,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_raw_buffer_ptr_info_intbounds(self):
+        ops = """
+        [i1]
+        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
+        guard_value(i2, 12345) []
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
