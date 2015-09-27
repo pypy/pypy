@@ -18,6 +18,19 @@ from pypy.module.micronumpy.strides import (
     is_f_contiguous)
 from rpython.rlib.objectmodel import keepalive_until_here
 
+TimSort = make_timsort_class()
+class StrideSort(TimSort):
+    ''' 
+    argsort (return the indices to sort) a list of strides
+    '''
+    def __init__(self, rangelist, strides):
+        self.strides = strides
+        TimSort.__init__(self, rangelist)
+
+    def lt(self, a, b):
+        return self.strides[a] < self.strides[b]
+
+
 class BaseConcreteArray(object):
     _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
                           'strides[*]', 'backstrides[*]', 'order', 'gcstruct',
@@ -355,11 +368,9 @@ class BaseConcreteArray(object):
         elif order != self.order:
             t_strides, backstrides = calc_strides(shape, dtype, order)
         else:
-            def arg_lt(a, b):
-                return strides[a] < strides[b]
-            ArgSort=make_timsort_class(lt=arg_lt)
             indx_array = range(len(strides))
-            ArgSort(indx_array).sort()
+            list_sorter = StrideSort(indx_array, strides)
+            list_sorter.sort()
             t_elsize = dtype.elsize
             t_strides = strides[:]
             base = dtype.elsize
