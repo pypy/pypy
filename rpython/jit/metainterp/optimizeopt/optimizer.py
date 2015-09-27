@@ -502,7 +502,7 @@ class Optimizer(Optimization):
                               origin_jitcode=None, origin_pc=0):
         if origin_jitcode is not None:
             debug_print("looking for guard at %s %d" % (origin_jitcode.name, origin_pc))
-        self.origin_jitcode = origin_jitcode
+        self.origin_jitcode = None # origin_jitcode
         self.origin_pc = origin_pc
         if rename_inputargs:
             newargs = []
