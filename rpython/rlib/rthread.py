@@ -280,7 +280,11 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 class ThreadLocalField(object):
     def __init__(self, FIELDTYPE, fieldname, loop_invariant=False):
         "NOT_RPYTHON: must be prebuilt"
-        from thread import _local
+        try:
+            from thread import _local
+        except ImportError:
+            class _local(object):
+                pass
         self.FIELDTYPE = FIELDTYPE
         self.fieldname = fieldname
         self.local = _local()      # <- NOT_RPYTHON

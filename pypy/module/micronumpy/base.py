@@ -1,6 +1,7 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.tool.pairtype import extendabletype
+from rpython.rlib.rarithmetic import ovfcheck
 from pypy.module.micronumpy import support
 from pypy.module.micronumpy import constants as NPY
 
@@ -44,9 +45,9 @@ class W_NDimArray(W_NumpyObject):
             raise oefmt(space.w_ValueError,
                 "sequence too large; must be smaller than %d", NPY.MAXDIMS)
         try:
-            support.product(shape) * dtype.elsize
+            ovfcheck(support.product_check(shape) * dtype.elsize)
         except OverflowError as e:
-            raise oefmt(space.w_ValueError, "array is too big")
+            raise oefmt(space.w_ValueError, "array is too big.")
         strides, backstrides = calc_strides(shape, dtype.base, order)
         impl = concrete.ConcreteArray(shape, dtype.base, order, strides,
                                       backstrides, zero=zero)
@@ -68,9 +69,9 @@ class W_NDimArray(W_NumpyObject):
             raise oefmt(space.w_ValueError,
                 "sequence too large; must be smaller than %d", NPY.MAXDIMS)
         try:
-            totalsize = support.product(shape) * isize
+            totalsize = ovfcheck(support.product_check(shape) * isize)
         except OverflowError as e:
-            raise oefmt(space.w_ValueError, "array is too big")
+            raise oefmt(space.w_ValueError, "array is too big.")
         if storage_bytes > 0 :
             if totalsize > storage_bytes:
                 raise OperationError(space.w_TypeError, space.wrap(

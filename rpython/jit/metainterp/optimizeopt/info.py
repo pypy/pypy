@@ -48,9 +48,6 @@ class PtrInfo(AbstractInfo):
     def is_null(self):
         return False
 
-    def is_virtual(self):
-        return False
-
     def force_at_the_end_of_preamble(self, op, optforce, rec):
         if not self.is_virtual():
             return optforce.get_box_replacement(op)
@@ -115,11 +112,6 @@ class NonNullPtrInfo(PtrInfo):
         self.last_guard_pos = len(optimizer._newoperations) - 1
         assert self.get_last_guard(optimizer).is_guard()
 
-    def visitor_walk_recursive(self, instbox, visitor, optimizer):
-        if visitor.already_seen_virtual(instbox):
-            return
-        return self._visitor_walk_recursive(instbox, visitor, optimizer)
-
     def make_guards(self, op, short, optimizer):
         op = ResOperation(rop.GUARD_NONNULL, [op], None)
         short.append(op)
@@ -164,6 +156,16 @@ class AbstractVirtualPtrInfo(NonNullPtrInfo):
 
     def is_virtual(self):
         return self._is_virtual
+
+    def _visitor_walk_recursive(self, op, visitor, optimizer):
+        raise NotImplementedError("abstract")
+
+    def visitor_walk_recursive(self, instbox, visitor, optimizer):
+        instbox = instbox.get_box_replacement()
+        if visitor.already_seen_virtual(instbox):
+            return
+        return self._visitor_walk_recursive(instbox, visitor, optimizer)
+
 
 class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('_fields',)
@@ -242,7 +244,6 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         for i in range(len(lst)):
             op = self._fields[i]
             if op:
-                op = op.get_box_replacement()
                 fieldinfo = optimizer.getptrinfo(op)
                 if fieldinfo and fieldinfo.is_virtual():
                     fieldinfo.visitor_walk_recursive(op, visitor, optimizer)
@@ -358,9 +359,6 @@ class StructPtrInfo(AbstractStructPtrInfo):
         return visitor.visit_vstruct(self.descr, fielddescrs)
 
 class AbstractRawPtrInfo(AbstractVirtualPtrInfo):
-    def _visitor_walk_recursive(self, op, visitor, optimizer):
-        raise NotImplementedError("abstract")
-
     @specialize.argtype(1)
     def visitor_dispatch_virtual_type(self, visitor):
         raise NotImplementedError("abstract")

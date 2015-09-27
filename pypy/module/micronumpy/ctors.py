@@ -153,7 +153,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             dtype = descriptor.variable_dtype(space, dtype.char + '1')
 
     w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
-    if support.product(shape) == 1:
+    if support.product(shape) == 1: # safe from overflow since from_shape checks
         w_arr.set_scalar_value(dtype.coerce(space, elems_w[0]))
     else:
         loop.assign(space, w_arr, elems_w)
@@ -213,10 +213,9 @@ def _zeros_or_empty(space, w_shape, w_dtype, w_order, zero):
             raise OperationError(space.w_ValueError, space.wrap(
                 "negative dimensions are not allowed"))
     try:
-        support.product(shape)
+        support.product_check(shape)
     except OverflowError:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "array is too big."))
+        raise oefmt(space.w_ValueError, "array is too big.")
     return W_NDimArray.from_shape(space, shape, dtype=dtype, zero=zero)
 
 def empty(space, w_shape, w_dtype=None, w_order=None):

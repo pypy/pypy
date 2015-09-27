@@ -1089,6 +1089,7 @@ class LoopTest(object):
 
         self.meta_interp(f, [30])
         self.check_trace_count(3)
+<<<<<<< local
 
     def test_sharing_guards(self):
         driver = JitDriver(greens = [], reds = 'auto')
@@ -1107,6 +1108,8 @@ class LoopTest(object):
         self.meta_interp(f, [15])
         # one guard_false got removed
         self.check_resops(guard_false=4, guard_true=5)
+=======
+>>>>>>> other
 
 class TestLLtype(LoopTest, LLJitMixin):
     pass

@@ -8885,5 +8885,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_pending_setfield_delayed_malloc(self):
+        ops = """
+        [i0, p0]
+        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, 13, descr=rawarraydescr)
+        setfield_gc(p0, i2, descr=valuedescr)
+        i1 = int_add(i0, 1)
+        i3 = int_lt(i1, 10)
+        guard_true(i3) []
+        setfield_gc(p0, 0, descr=valuedescr)
+        jump(i1, p0)
+        """
+        expected = """
+        [i0, p0]
+        i1 = int_add(i0, 1)
+        i3 = int_lt(i1, 10)
+        guard_true(i3) [p0]
+        jump(i1, p0)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

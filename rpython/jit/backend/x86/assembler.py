@@ -590,7 +590,7 @@ class Assembler386(BaseAssembler):
             relative_target = tok.pos_recovery_stub - (tok.pos_jump_offset + 4)
             assert rx86.fits_in_32bits(relative_target)
             #
-            if not tok.is_guard_not_invalidated:
+            if not tok.guard_not_invalidated():
                 mc = codebuf.MachineCodeBlockWrapper()
                 mc.writeimm32(relative_target)
                 mc.copy_to_raw_memory(addr)
@@ -1762,15 +1762,9 @@ class Assembler386(BaseAssembler):
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
                                  fail_locs, frame_depth):
-        exc = (guard_opnum == rop.GUARD_EXCEPTION or
-               guard_opnum == rop.GUARD_NO_EXCEPTION or
-               guard_opnum == rop.GUARD_NOT_FORCED)
-        is_guard_not_invalidated = guard_opnum == rop.GUARD_NOT_INVALIDATED
-        is_guard_not_forced = guard_opnum == rop.GUARD_NOT_FORCED
         gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
-        return GuardToken(self.cpu, gcmap, faildescr, failargs,
-                          fail_locs, exc, frame_depth,
-                          is_guard_not_invalidated, is_guard_not_forced)
+        return GuardToken(self.cpu, gcmap, faildescr, failargs, fail_locs,
+                          guard_opnum, frame_depth)
 
     def generate_propagate_error_64(self):
         assert WORD == 8

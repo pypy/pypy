@@ -32,12 +32,18 @@ def index_w(space, w_obj):
 def product(s):
     i = 1
     for x in s:
+        i *= x
+    return i
+
+@jit.unroll_safe
+def product_check(s):
+    i = 1
+    for x in s:
         try:
             i = ovfcheck(i * x)
         except OverflowError:
             raise
     return i
-
 
 def check_and_adjust_index(space, index, size, axis):
     if index < -size or index >= size:

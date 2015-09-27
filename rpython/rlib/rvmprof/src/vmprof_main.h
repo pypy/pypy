@@ -328,7 +328,7 @@ static int remove_sigprof_handler(void)
 
 static int install_sigprof_timer(void)
 {
-    static struct itimerval timer;
+    struct itimerval timer;
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = profile_interval_usec;
     timer.it_value = timer.it_interval;
@@ -338,7 +338,7 @@ static int install_sigprof_timer(void)
 }
 
 static int remove_sigprof_timer(void) {
-    static struct itimerval timer;
+    struct itimerval timer;
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = 0;
     timer.it_value.tv_sec = 0;
