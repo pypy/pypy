@@ -747,8 +747,12 @@ class __extend__(W_NDimArray):
         return out
 
     def descr_get_ctypes(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "ctypes not implemented yet"))
+        w_result = space.appexec([self], """(arr):
+            from numpy.core import _internal
+            p_data = arr.__array_interface__['data'][0]
+            return _internal._ctypes(arr, p_data)
+        """)
+        return w_result
 
     def buffer_w(self, space, flags):
         return self.implementation.get_buffer(space, True)
