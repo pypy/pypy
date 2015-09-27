@@ -39,3 +39,7 @@ Reenable jithooks
 .. branch: shadowstack-no-move-2
 Issue #2141: fix a crash on Windows and OS/X and ARM when running
 at least 20 threads.
+
+.. branch: numpy-ctypes
+
+Add support for ndarray.ctypes property.
