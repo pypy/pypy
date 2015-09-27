@@ -2218,7 +2218,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert _weakref.ref(a)
 
     def test_astype(self):
-        from numpy import array, arange
+        from numpy import array, arange, empty
         b = array(1).astype(float)
         assert b == 1
         assert b.dtype == float
@@ -2273,13 +2273,35 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a.astype('f4', order='C', copy=False)
         assert a is b
 
+        a = empty([3, 3, 3, 3], 'uint8')
+        a[:] = 0
+        b = a[2]
+        c = b[:, :2, :]
+        d = c.swapaxes(1, -1)
+        e = d.astype('complex128')
+        assert e.shape == (3, 3, 2)
+        assert e.strides == (96, 16, 48)
+        assert (e.real == d).all()
+
     def test_base(self):
-        from numpy import array
+        from numpy import array, empty
         assert array(1).base is None
         assert array([1, 2]).base is None
         a = array([1, 2, 3, 4])
         b = a[::2]
         assert b.base is a
+
+        a = empty([3, 3, 3, 3], 'uint8')
+        a[:] = 0
+        b = a[2]
+        assert b.base.base is None
+        c = b[:, :2, :]
+        d = c.swapaxes(1, -1)
+        assert c.base.base is None
+        assert d.base.base is None
+        assert d.shape == (3, 3, 2)
+        assert d.__array_interface__['data'][0] == \
+               a.__array_interface__['data'][0] + a.strides[0] * 2
 
     def test_byteswap(self):
         from numpy import array

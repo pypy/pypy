@@ -902,39 +902,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                    op.args[0]],
                   resultvar=op.result)
 
-    def gct_gc_shadowstackref_new(self, hop):
-        op = hop.spaceop
-        livevars = self.push_roots(hop)
-        hop.genop("direct_call", [self.root_walker.gc_shadowstackref_new_ptr],
-                  resultvar=op.result)
-        self.pop_roots(hop, livevars)
-
-    def gct_gc_shadowstackref_context(self, hop):
-        op = hop.spaceop
-        hop.genop("direct_call",
-                  [self.root_walker.gc_shadowstackref_context_ptr, op.args[0]],
-                  resultvar=op.result)
-
-    def gct_gc_save_current_state_away(self, hop):
-        op = hop.spaceop
-        hop.genop("direct_call",
-                  [self.root_walker.gc_save_current_state_away_ptr,
-                   op.args[0], op.args[1]])
-
-    def gct_gc_forget_current_state(self, hop):
-        hop.genop("direct_call",
-                  [self.root_walker.gc_forget_current_state_ptr])
-
-    def gct_gc_restore_state_from(self, hop):
-        op = hop.spaceop
-        hop.genop("direct_call",
-                  [self.root_walker.gc_restore_state_from_ptr,
-                   op.args[0]])
-
-    def gct_gc_start_fresh_new_state(self, hop):
-        hop.genop("direct_call",
-                  [self.root_walker.gc_start_fresh_new_state_ptr])
-
     def gct_do_malloc_fixedsize(self, hop):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)
         op = hop.spaceop

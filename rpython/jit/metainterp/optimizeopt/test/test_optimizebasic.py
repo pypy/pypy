@@ -5995,5 +5995,22 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_remove_multiple_setarrayitems(self):
+        ops = """
+        [p0, i1]
+        setarrayitem_gc(p0, 2, NULL, descr=gcarraydescr)
+        guard_value(i1, 42) []
+        setarrayitem_gc(p0, 2, NULL, descr=gcarraydescr)   # remove this
+        finish()
+        """
+        expected = """
+        [p0, i1]
+        setarrayitem_gc(p0, 2, NULL, descr=gcarraydescr)
+        guard_value(i1, 42) []
+        finish()
+        """
+        self.optimize_loop(ops, expected)
+
+
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

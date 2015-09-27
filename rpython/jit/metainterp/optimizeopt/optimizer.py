@@ -2,7 +2,7 @@ from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.history import Const, ConstInt, ConstPtr
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
-     ConstIntBound, MININT, MAXINT
+     ConstIntBound, MININT, MAXINT, IntUnbounded
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp,\
      OpHelpers, ResOperation
@@ -57,9 +57,11 @@ class Optimization(object):
         if isinstance(op, ConstInt):
             return ConstIntBound(op.getint())
         fw = op.get_forwarded()
-        if isinstance(fw, IntBound):
-            return fw
-        assert fw is None
+        if fw is not None:
+            if isinstance(fw, IntBound):
+                return fw
+            # rare case: fw might be a RawBufferPtrInfo
+            return IntUnbounded()
         assert op.type == 'i'
         intbound = IntBound(MININT, MAXINT)
         op.set_forwarded(intbound)
@@ -72,7 +74,8 @@ class Optimization(object):
             return
         cur = op.get_forwarded()
         if cur is not None:
-            cur.intersect(bound)
+            if isinstance(cur, IntBound):
+                cur.intersect(bound)
         else:
             op.set_forwarded(bound)
 
@@ -406,7 +409,8 @@ class Optimizer(Optimization):
         box = self.get_box_replacement(box)
         if not we_are_translated():    # safety-check
             if (box.get_forwarded() is not None and
-                isinstance(constbox, ConstInt)):
+                isinstance(constbox, ConstInt) and
+                not isinstance(box.get_forwarded(), info.AbstractRawPtrInfo)):
                 assert box.get_forwarded().contains(constbox.getint())
         if box.is_constant():
             return

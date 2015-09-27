@@ -890,19 +890,6 @@ class LLFrame(object):
     def op_gc_reattach_callback_pieces(self):
         raise NotImplementedError("gc_reattach_callback_pieces")
 
-    def op_gc_shadowstackref_new(self):   # stacklet+shadowstack
-        raise NotImplementedError("gc_shadowstackref_new")
-    def op_gc_shadowstackref_context(self):
-        raise NotImplementedError("gc_shadowstackref_context")
-    def op_gc_save_current_state_away(self):
-        raise NotImplementedError("gc_save_current_state_away")
-    def op_gc_forget_current_state(self):
-        raise NotImplementedError("gc_forget_current_state")
-    def op_gc_restore_state_from(self):
-        raise NotImplementedError("gc_restore_state_from")
-    def op_gc_start_fresh_new_state(self):
-        raise NotImplementedError("gc_start_fresh_new_state")
-
     def op_gc_get_type_info_group(self):
         raise NotImplementedError("gc_get_type_info_group")
 
