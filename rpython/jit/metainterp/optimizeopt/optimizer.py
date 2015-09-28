@@ -504,10 +504,6 @@ class Optimizer(Optimization):
     def propagate_all_forward(self, inputargs, ops, call_pure_results=None,
                               rename_inputargs=True, flush=True,
                               origin_jitcode=None, origin_pc=0):
-        #if origin_jitcode is not None:
-        #    debug_print("looking for guard at %s %d" % (origin_jitcode.name, origin_pc))
-        self.origin_jitcode = None # origin_jitcode
-        self.origin_pc = origin_pc
         if rename_inputargs:
             newargs = []
             for inparg in inputargs:
@@ -533,9 +529,6 @@ class Optimizer(Optimization):
         if extra_jump:
             self.first_optimization.propagate_forward(ops[-1])
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
-
-        if self.origin_jitcode is not None:
-            raise Exception("Was looking for guard never foudnd it")
         
         return (BasicLoopInfo(newargs, self.quasi_immutable_deps),
                 self._newoperations)

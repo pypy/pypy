@@ -288,29 +288,7 @@ class OptHeap(Optimization):
             cf = submap[index] = ArrayCachedField(index)
         return cf
 
-    def emit_operation(self, op):
-        if op.is_guard():
-            assert isinstance(op, GuardResOp)
-            origin_jitcode = self.optimizer.origin_jitcode
-            origin_pc = self.optimizer.origin_pc
-            if origin_jitcode is not None:
-                if (origin_jitcode is op.rd_frame_info_list.jitcode and
-                    origin_pc == op.rd_frame_info_list.pc):
-                    self.optimizer.origin_jitcode = None
-                    self.optimizer.origin_pc = 0
-                elif op.getopnum() == rop.GUARD_NO_OVERFLOW:
-                    if self.postponed_op:
-                        # XXX is this always the case?
-                        assert self.postponed_op.is_ovf()
-                        newop = self.optimizer.replace_op_with_no_ovf(
-                            self.postponed_op)
-                        self.postponed_op = newop
-                    else:
-                        self.optimizer.potentially_change_ovf_op_to_no_ovf(op)
-                    return # we optimize the guard
-                elif op.getopnum() != rop.GUARD_OVERFLOW:
-                    return
-        
+    def emit_operation(self, op):        
         self.emitting_operation(op)
         self.emit_postponed_op()
         if (op.is_comparison() or op.is_call_may_force()
