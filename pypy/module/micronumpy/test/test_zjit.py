@@ -104,7 +104,6 @@ class TestNumpyJit(Jit386Mixin):
                                                                  'gcrootfinder': 'asmgcc',
                                                                  'gcremovetypeptr': False
                                                                 },
-                                             deterministic_jit_counter=True,
                                              vec=True)
             self.__class__.interp = interp
             self.__class__.graph = graph
