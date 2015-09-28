@@ -1073,7 +1073,6 @@ class Assembler386(BaseAssembler):
     genop_nursery_ptr_increment = _binaryop_or_lea('ADD', is_add=True)
     genop_int_sub = _binaryop_or_lea("SUB", is_add=False)
     genop_int_mul = _binaryop("IMUL")
-    genop_int_and = _binaryop("AND")
     genop_int_or  = _binaryop("OR")
     genop_int_xor = _binaryop("XOR")
     genop_int_lshift = _binaryop("SHL")
@@ -1083,6 +1082,15 @@ class Assembler386(BaseAssembler):
     genop_float_sub = _binaryop('SUBSD')
     genop_float_mul = _binaryop('MULSD')
     genop_float_truediv = _binaryop('DIVSD')
+
+    def genop_int_and(self, op, arglocs, result_loc):
+        arg1 = arglocs[1]
+        if IS_X86_64 and (isinstance(arg1, ImmedLoc) and
+                          arg1.value == (1 << 32) - 1):
+            # special case
+            self.mc.MOV32(arglocs[0], arglocs[0])
+        else:
+            self.mc.AND(arglocs[0], arg1)
 
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
