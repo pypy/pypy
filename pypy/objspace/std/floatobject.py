@@ -123,7 +123,7 @@ def make_compare_func(opname):
             f1 = self.floatval
             i2 = space.int_w(w_other)
             # (double-)floats have always at least 48 bits of precision
-            if LONG_BIT > 32 and not int_between((-1)<<48, i2, 1<<48):
+            if LONG_BIT > 32 and not int_between(-1, i2 >> 48, 1):
                 res = do_compare_bigint(f1, rbigint.fromint(i2))
             else:
                 f2 = float(i2)
