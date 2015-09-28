@@ -568,11 +568,6 @@ class SliceArray(BaseConcreteArray):
             self.size = ovfcheck(support.product_check(shape) * self.dtype.elsize)
         except OverflowError:
             raise oefmt(dtype.itemtype.space.w_ValueError, "array is too big.")
-        while orig_arr is not None:
-            assert isinstance(orig_arr, W_NDimArray)
-            if orig_arr.implementation.base() is None:
-                break
-            orig_arr = orig_arr.implementation.base()
         self.start = start
         self.orig_arr = orig_arr
         flags = parent.flags & NPY.ARRAY_ALIGNED

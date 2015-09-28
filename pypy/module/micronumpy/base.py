@@ -117,12 +117,14 @@ class W_NDimArray(W_NumpyObject):
         return W_NDimArray(impl)
 
     @staticmethod
-    def new_slice(space, offset, strides, backstrides, shape, parent, orig_arr, dtype=None):
+    def new_slice(space, offset, strides, backstrides, shape, parent, w_arr, dtype=None):
         from pypy.module.micronumpy import concrete
-
+        w_base = w_arr
+        if w_arr.implementation.base() is not None:
+            w_base = w_arr.implementation.base()
         impl = concrete.SliceArray(offset, strides, backstrides, shape, parent,
-                                   orig_arr, dtype)
-        return wrap_impl(space, space.type(orig_arr), orig_arr, impl)
+                                   w_base, dtype)
+        return wrap_impl(space, space.type(w_arr), w_arr, impl)
 
     @staticmethod
     def new_scalar(space, dtype, w_val=None):
