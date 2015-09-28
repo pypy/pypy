@@ -68,13 +68,11 @@ class SimpleCompileData(CompileData):
     the label
     """
     def __init__(self, start_label, operations, call_pure_results=None,
-                 enable_opts=None, origin_jitcode=None, origin_pc=0):
+                 enable_opts=None):
         self.start_label = start_label
         self.operations = operations
         self.call_pure_results = call_pure_results
         self.enable_opts = enable_opts
-        self.origin_jitcode = origin_jitcode
-        self.origin_pc = origin_pc
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
@@ -82,23 +80,19 @@ class SimpleCompileData(CompileData):
         #assert not unroll
         opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.propagate_all_forward(self.start_label.getarglist(),
-            self.operations, self.call_pure_results,
-            origin_jitcode=self.origin_jitcode, origin_pc=self.origin_pc)
+            self.operations, self.call_pure_results)
 
 class BridgeCompileData(CompileData):
     """ This represents ops() with a jump at the end that goes to some
     loop, we need to deal with virtual state and inlining of short preamble
     """
     def __init__(self, start_label, operations, call_pure_results=None,
-                 enable_opts=None, inline_short_preamble=False,
-                 origin_jitcode=None, origin_pc=0):
+                 enable_opts=None, inline_short_preamble=False):
         self.start_label = start_label
         self.operations = operations
         self.call_pure_results = call_pure_results
         self.enable_opts = enable_opts
         self.inline_short_preamble = inline_short_preamble
-        self.origin_jitcode = origin_jitcode
-        self.origin_pc = origin_pc
 
     def optimize(self, metainterp_sd, jitdriver_sd, optimizations, unroll):
         from rpython.jit.metainterp.optimizeopt.unroll import UnrollOptimizer
@@ -107,8 +101,7 @@ class BridgeCompileData(CompileData):
         return opt.optimize_bridge(self.start_label, self.operations,
                                    self.call_pure_results,
                                    self.inline_short_preamble,
-                                   self.box_names_memo,
-                                   self.origin_jitcode, self.origin_pc)
+                                   self.box_names_memo)
 
 class UnrolledLoopData(CompileData):
     """ This represents label() ops jump with extra info that's from the
@@ -682,22 +675,16 @@ class ResumeDescr(AbstractFailDescr):
 
 class ResumeGuardDescr(ResumeDescr):
     _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
-               'rd_frame_info_list', 'rd_pendingfields', 'status',
-               'rd_origin_jitcode', 'rd_origin_pc')
+               'rd_frame_info_list', 'rd_pendingfields', 'status')
     
     rd_numb = lltype.nullptr(NUMBERING)
     rd_count = 0
-    rd_origin_pc = 0
-    rd_origin_jitcode = None
     rd_consts = None
     rd_virtuals = None
     rd_frame_info_list = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
     status = r_uint(0)
-
-    def get_origin_data(self):
-        return self.rd_origin_jitcode, self.rd_origin_pc
 
     def copy_all_attributes_from(self, other):
         assert isinstance(other, ResumeGuardDescr)
@@ -943,9 +930,6 @@ class ResumeFromInterpDescr(ResumeDescr):
     def __init__(self, original_greenkey):
         self.original_greenkey = original_greenkey
 
-    def get_origin_data(self):
-        return None, 0
-
     def compile_and_attach(self, metainterp, new_loop, orig_inputargs):
         # We managed to create a bridge going from the interpreter
         # to previously-compiled code.  We keep 'new_loop', which is not
@@ -991,20 +975,15 @@ def compile_trace(metainterp, resumekey):
 
     call_pure_results = metainterp.call_pure_results
 
-    origin_jitcode, origin_pc = resumekey.get_origin_data()
     if operations[-1].getopnum() == rop.JUMP:
         data = BridgeCompileData(label, operations[:],
                                  call_pure_results=call_pure_results,
                                  enable_opts=enable_opts,
-                                 inline_short_preamble=inline_short_preamble,
-                                 origin_jitcode=origin_jitcode,
-                                 origin_pc=origin_pc)
+                                 inline_short_preamble=inline_short_preamble)
     else:
         data = SimpleCompileData(label, operations[:],
                                  call_pure_results=call_pure_results,
-                                 enable_opts=enable_opts,
-                                 origin_jitcode=origin_jitcode,
-                                 origin_pc=origin_pc)
+                                 enable_opts=enable_opts)
     try:
         info, newops = optimize_trace(metainterp_sd, jitdriver_sd,
                                       data, metainterp.box_names_memo)

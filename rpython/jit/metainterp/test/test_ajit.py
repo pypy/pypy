@@ -1479,7 +1479,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_resops(guard_class=4, guard_value=6)
+        self.check_resops(guard_class=6, guard_value=6)
 
     def test_merge_guardnonnull_guardclass(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])

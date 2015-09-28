@@ -502,8 +502,7 @@ class Optimizer(Optimization):
             return CONST_0
 
     def propagate_all_forward(self, inputargs, ops, call_pure_results=None,
-                              rename_inputargs=True, flush=True,
-                              origin_jitcode=None, origin_pc=0):
+                              rename_inputargs=True, flush=True):
         if rename_inputargs:
             newargs = []
             for inparg in inputargs:
@@ -648,8 +647,6 @@ class Optimizer(Optimization):
         descr.store_final_boxes(guard_op, last_guard_op.getfailargs(),
                                 self.metainterp_sd)
         assert isinstance(guard_op, GuardResOp)
-        descr.rd_origin_jitcode = guard_op.rd_frame_info_list.jitcode
-        descr.rd_origin_pc = guard_op.rd_frame_info_list.pc
         if guard_op.getopnum() == rop.GUARD_VALUE:
             guard_op = self._maybe_replace_guard_value(guard_op, descr)
         return guard_op
