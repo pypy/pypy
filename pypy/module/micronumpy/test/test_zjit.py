@@ -18,13 +18,7 @@ def get_profiler():
     from rpython.jit.metainterp import pyjitpl
     return pyjitpl._warmrunnerdesc.metainterp_sd.profiler
 
-class TestNumPyLL(LLJitMixin):
-    llgraph = True
-
-class TestNumPyX86(Jit386Mixin):
-    llgraph = False
-
-class TestNumpyJit(LLJitMixin):
+class TestNumpyJit(Jit386Mixin):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
     graph = None
     interp = None
@@ -105,11 +99,12 @@ class TestNumpyJit(LLJitMixin):
                                              backendopt=True,
                                              graph_and_interp_only=True,
                                              ProfilerClass=Profiler,
-                                             #translate_support_code=True,
-                                             #translationoptions={'gc':'minimark',
-                                             #                    'gcrootfinder': 'asmgcc',
-                                             #                    'gcremovetypeptr': False
-                                             #                   },
+                                             translate_support_code=True,
+                                             translationoptions={'gc':'minimark',
+                                                                 'gcrootfinder': 'asmgcc',
+                                                                 'gcremovetypeptr': False
+                                                                },
+                                             deterministic_jit_counter=True,
                                              vec=True)
             self.__class__.interp = interp
             self.__class__.graph = graph
