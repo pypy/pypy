@@ -411,7 +411,6 @@ class OptRewrite(Optimization):
         # not put in short preambles guard_xxx and guard_value
         # on the same box.
         self.optimizer.replace_guard(op, info)
-        descr.make_a_counter_per_value(op)
         # to be safe
         info.reset_last_guard_pos()
         return op
