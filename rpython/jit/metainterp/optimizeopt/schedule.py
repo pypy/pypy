@@ -9,6 +9,7 @@ from rpython.jit.metainterp.resume import AccumInfo
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.jitexc import NotAProfitableLoop
 from rpython.rlib.objectmodel import specialize, always_inline
+from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
 
 
 class SchedulerState(object):
@@ -206,6 +207,25 @@ class TypeRestrict(object):
             return self.count
         return count
 
+class OpRestrict(object):
+    def __init__(self, argument_restris):
+        self.argument_restrictions = argument_restris
+
+    def check_operation(self, state, pack, op):
+        pass
+
+class OpMatchSizeTypeFirst(OpRestrict):
+    def check_operation(self, state, pack, op):
+        arg0 = op.getarg(0)
+        bytesize = arg0.bytesize
+        datatype = arg0.datatype
+
+        for arg in op.getarglist():
+            if arg.bytesize != bytesize:
+                raise NotAVectorizeableLoop()
+            if arg.datatype != datatype:
+                raise NotAVectorizeableLoop()
+
 class trans(object):
 
     TR_ANY = TypeRestrict()
@@ -215,43 +235,46 @@ class trans(object):
     TR_DOUBLE_2 = TypeRestrict(FLOAT, 8, 2)
     TR_INT32_2 = TypeRestrict(INT, 4, 2)
 
+    OR_MSTF_I = OpMatchSizeTypeFirst([TR_ANY_INTEGER, TR_ANY_INTEGER])
+    OR_MSTF_F = OpMatchSizeTypeFirst([TR_ANY_FLOAT, TR_ANY_FLOAT])
+
     # note that the following definition is x86 arch specific
     MAPPING = {
-        rop.VEC_INT_ADD:            [TR_ANY_INTEGER, TR_ANY_INTEGER],
-        rop.VEC_INT_SUB:            [TR_ANY_INTEGER, TR_ANY_INTEGER],
-        rop.VEC_INT_MUL:            [TR_ANY_INTEGER, TR_ANY_INTEGER],
-        rop.VEC_INT_AND:            [TR_ANY_INTEGER, TR_ANY_INTEGER],
-        rop.VEC_INT_OR:             [TR_ANY_INTEGER, TR_ANY_INTEGER],
-        rop.VEC_INT_XOR:            [TR_ANY_INTEGER, TR_ANY_INTEGER],
-        rop.VEC_INT_EQ:             [TR_ANY_INTEGER, TR_ANY_INTEGER],
-        rop.VEC_INT_NE:             [TR_ANY_INTEGER, TR_ANY_INTEGER],
+        rop.VEC_INT_ADD:            OR_MSTF_I,
+        rop.VEC_INT_SUB:            OR_MSTF_I,
+        rop.VEC_INT_MUL:            OR_MSTF_I,
+        rop.VEC_INT_AND:            OR_MSTF_I,
+        rop.VEC_INT_OR:             OR_MSTF_I,
+        rop.VEC_INT_XOR:            OR_MSTF_I,
+        rop.VEC_INT_EQ:             OR_MSTF_I,
+        rop.VEC_INT_NE:             OR_MSTF_I,
 
-        rop.VEC_FLOAT_ADD:          [TR_ANY_FLOAT, TR_ANY_FLOAT],
-        rop.VEC_FLOAT_SUB:          [TR_ANY_FLOAT, TR_ANY_FLOAT],
-        rop.VEC_FLOAT_MUL:          [TR_ANY_FLOAT, TR_ANY_FLOAT],
-        rop.VEC_FLOAT_TRUEDIV:      [TR_ANY_FLOAT, TR_ANY_FLOAT],
-        rop.VEC_FLOAT_ABS:          [TR_ANY_FLOAT],
-        rop.VEC_FLOAT_NEG:          [TR_ANY_FLOAT],
+        rop.VEC_FLOAT_ADD:          OR_MSTF_F,
+        rop.VEC_FLOAT_SUB:          OR_MSTF_F,
+        rop.VEC_FLOAT_MUL:          OR_MSTF_F,
+        rop.VEC_FLOAT_TRUEDIV:      OR_MSTF_F,
+        rop.VEC_FLOAT_ABS:          OpRestrict([TR_ANY_FLOAT]),
+        rop.VEC_FLOAT_NEG:          OpRestrict([TR_ANY_FLOAT]),
 
-        rop.VEC_RAW_STORE:          [None, None, TR_ANY],
-        rop.VEC_SETARRAYITEM_RAW:   [None, None, TR_ANY],
-        rop.VEC_SETARRAYITEM_GC:    [None, None, TR_ANY],
+        rop.VEC_RAW_STORE:          OpRestrict([None, None, TR_ANY]),
+        rop.VEC_SETARRAYITEM_RAW:   OpRestrict([None, None, TR_ANY]),
+        rop.VEC_SETARRAYITEM_GC:    OpRestrict([None, None, TR_ANY]),
 
-        rop.GUARD_TRUE:             [TR_ANY_INTEGER],
-        rop.GUARD_FALSE:            [TR_ANY_INTEGER],
+        rop.GUARD_TRUE:             OpRestrict([TR_ANY_INTEGER]),
+        rop.GUARD_FALSE:            OpRestrict([TR_ANY_INTEGER]),
 
         ## irregular
-        rop.VEC_INT_SIGNEXT:        [TR_ANY_INTEGER],
+        rop.VEC_INT_SIGNEXT:        OpRestrict([TR_ANY_INTEGER]),
 
-        rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT:  [TR_DOUBLE_2],
+        rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT:  OpRestrict([TR_DOUBLE_2]),
         # weird but the trace will store single floats in int boxes
-        rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT:  [TR_INT32_2],
-        rop.VEC_CAST_FLOAT_TO_INT:          [TR_DOUBLE_2],
-        rop.VEC_CAST_INT_TO_FLOAT:          [TR_INT32_2],
+        rop.VEC_CAST_SINGLEFLOAT_TO_FLOAT:  OpRestrict([TR_INT32_2]),
+        rop.VEC_CAST_FLOAT_TO_INT:          OpRestrict([TR_DOUBLE_2]),
+        rop.VEC_CAST_INT_TO_FLOAT:          OpRestrict([TR_INT32_2]),
 
-        rop.VEC_FLOAT_EQ:           [TR_ANY_FLOAT,TR_ANY_FLOAT],
-        rop.VEC_FLOAT_NE:           [TR_ANY_FLOAT,TR_ANY_FLOAT],
-        rop.VEC_INT_IS_TRUE:        [TR_ANY_INTEGER,TR_ANY_INTEGER],
+        rop.VEC_FLOAT_EQ:           OpRestrict([TR_ANY_FLOAT,TR_ANY_FLOAT]),
+        rop.VEC_FLOAT_NE:           OpRestrict([TR_ANY_FLOAT,TR_ANY_FLOAT]),
+        rop.VEC_INT_IS_TRUE:        OpRestrict([TR_ANY_INTEGER,TR_ANY_INTEGER]),
     }
 
 def turn_into_vector(state, pack):
@@ -259,6 +282,9 @@ def turn_into_vector(state, pack):
     check_if_pack_supported(state, pack)
     state.costmodel.record_pack_savings(pack, pack.numops())
     left = pack.leftmost()
+    oprestrict = trans.MAPPING.get(pack.leftmost().vector, None)
+    if oprestrict is not None:
+        oprestrict.check_operation(state, pack, left)
     args = left.getarglist_copy()
     prepare_arguments(state, pack, args)
     vecop = VecOperation(left.vector, args, left,
@@ -287,9 +313,10 @@ def prepare_arguments(state, pack, args):
     #    a) expand vars/consts before the label and add as argument
     #    b) expand vars created in the loop body
     #
-    restrictions = trans.MAPPING.get(pack.leftmost().vector, [])
-    if not restrictions:
+    oprestrict = trans.MAPPING.get(pack.leftmost().vector, None)
+    if not oprestrict:
         return
+    restrictions = oprestrict.argument_restrictions
     for i,arg in enumerate(args):
         if i >= len(restrictions) or restrictions[i] is None:
             # ignore this argument

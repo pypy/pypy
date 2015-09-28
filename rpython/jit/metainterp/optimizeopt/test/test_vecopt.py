@@ -1234,6 +1234,23 @@ class BaseTestVectorize(VecTestHelper):
         vopt = self.vectorize(trace)
         self.assert_equal(trace, trace_opt)
 
+    def test_sum_int16_prevent(self):
+        trace = self.parse_loop("""
+        [i0, p1, i2, p3, i4, i5, i6]
+        i7 = raw_load_i(i5, i4, descr=int16arraydescr)
+        i8 = int_add(i0, i7)
+        i10 = int_add(i2, 1)
+        i12 = int_add(i4, 2)
+        i13 = int_ge(i10, i6)
+        guard_false(i13, descr=<rpython.jit.metainterp.compile.ResumeGuardFalseDescr object at 0x7fe5a1848150>) [p3, i10, i8, i12, None, p1, None, None]
+        jump(i8, p1, i10, p3, i12, i5, i6)
+        """)
+        try:
+            vopt = self.vectorize(trace)
+            py.test.fail()
+        except NotAVectorizeableLoop:
+            pass
+
     def test_axis_sum(self):
         # TODO
         trace = """
