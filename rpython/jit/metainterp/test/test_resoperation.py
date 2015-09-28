@@ -3,6 +3,8 @@ import re
 from rpython.jit.metainterp import resoperation as rop
 from rpython.jit.metainterp.history import AbstractDescr, AbstractFailDescr
 from rpython.jit.metainterp.history import ConstInt
+from rpython.jit.backend.llsupport.symbolic import (WORD as INT_WORD,
+        SIZEOF_FLOAT as FLOAT_WORD)
 
 def test_arity_mixins():
     cases = [
@@ -91,3 +93,13 @@ def test_cast_ops():
     op = rop.ResOperation(rop.rop.CAST_FLOAT_TO_INT, ['a'], 'c')
     assert op.casts_box()
     assert isinstance(op, rop.CastResOp)
+
+def test_types():
+    op = rop.ResOperation(rop.rop.INT_ADD, [ConstInt(0),ConstInt(1)])
+    assert op.type == 'i'
+    assert op.datatype == 'i'
+    assert op.bytesize == INT_WORD
+    op = rop.ResOperation(rop.rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT, [op])
+    assert op.type == 'i'
+    assert op.datatype == 'i'
+    assert op.bytesize == 4

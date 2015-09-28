@@ -177,7 +177,6 @@ def reset_stats():
 
 def reset_jit():
     """Helper for some tests (see micronumpy/test/test_zjit.py)"""
-    from rpython.jit.metainterp import counter
     reset_stats()
     pyjitpl._warmrunnerdesc.memory_manager.alive_loops.clear()
     pyjitpl._warmrunnerdesc.jitcounter._clear_all()

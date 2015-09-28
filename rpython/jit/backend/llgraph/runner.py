@@ -839,7 +839,22 @@ class LLGraphCPU(model.AbstractCPU):
         return [int(x) ^ int(y) for x,y in zip(vx,vy)]
 
     def bh_vec_cast_float_to_singlefloat(self, vx, count):
-        return vx
+        from rpython.rlib.rarithmetic import r_singlefloat
+        return [longlong.singlefloat2int(r_singlefloat(longlong.getrealfloat(v)))
+                for v in vx]
+
+    def bh_vec_cast_singlefloat_to_float(self, vx, count):
+        return [longlong.getfloatstorage(float(longlong.int2singlefloat(v)))
+                for v in vx]
+
+        a = float(a)
+        return longlong.getfloatstorage(a)
+
+    def bh_vec_cast_float_to_int(self, vx, count):
+        return [int(x) for x in vx]
+
+    def bh_vec_cast_int_to_float(self, vx, count):
+        return [float(x) for x in vx]
 
     def bh_vec_f(self, count):
         return [0.0] * count
@@ -847,7 +862,8 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_vec_i(self, count):
         return [0] * count
 
-    def _bh_vec_pack(self, tv, sv, index, count, _):
+    def _bh_vec_pack(self, tv, sv, index, count, newcount):
+        while len(tv) < newcount: tv.append(None)
         if not isinstance(sv, list):
             tv[index] = sv
             return tv
@@ -858,7 +874,7 @@ class LLGraphCPU(model.AbstractCPU):
     bh_vec_pack_f = _bh_vec_pack
     bh_vec_pack_i = _bh_vec_pack
 
-    def _bh_vec_unpack(self, vx, index, count):
+    def _bh_vec_unpack(self, vx, index, count, newcount):
         return vx[index:index+count]
 
     bh_vec_unpack_f = _bh_vec_unpack
@@ -966,14 +982,15 @@ class LLFrame(object):
         return hash(self)
 
     def setenv(self, box, arg):
-        if box.is_vector():
+        if box.is_vector() and box.count > 1:
             if box.datatype == INT:
-                _type = lltype.Signed
                 for i,a in enumerate(arg):
                     if isinstance(a, bool):
                         arg[i] = int(a) 
+                assert all([lltype.typeOf(a) == lltype.Signed for a in arg])
             elif box.datatype == FLOAT:
-                _type = longlong.FLOATSTORAGE
+                assert all([lltype.typeOf(a) == longlong.FLOATSTORAGE or \
+                            lltype.typeOf(a) == lltype.Signed for a in arg])
             else:
                 raise AssertionError(box)
         elif box.type == INT:
@@ -1429,10 +1446,20 @@ def _setup():
             else:
                 new_args = args
             if opname.startswith('vec_'):
+                # pre vector op
                 count = self.current_op.count
-                assert count > 1
+                assert count >= 1
                 new_args = new_args + (count,)
-            return getattr(self.cpu, 'bh_' + opname)(*new_args)
+            result = getattr(self.cpu, 'bh_' + opname)(*new_args)
+            if isinstance(result, list):
+                # post vector op
+                count = self.current_op.count
+                if len(result) > count:
+                    assert count > 0
+                    result = result[:count]
+                if count == 1:
+                    result = result[0]
+            return result
         execute.func_name = 'execute_' + opname
         return execute
 

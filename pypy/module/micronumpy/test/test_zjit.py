@@ -7,6 +7,7 @@ from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.backend.x86.test.test_basic import Jit386Mixin
 from rpython.jit.metainterp.warmspot import reset_jit, get_stats
 from rpython.jit.metainterp.jitprof import Profiler
+from rpython.jit.metainterp import counter
 from rpython.rlib.jit import Counters
 from rpython.rlib.rarithmetic import intmask
 from pypy.module.micronumpy import boxes
@@ -17,7 +18,13 @@ def get_profiler():
     from rpython.jit.metainterp import pyjitpl
     return pyjitpl._warmrunnerdesc.metainterp_sd.profiler
 
-class TestNumpyJit(Jit386Mixin):
+class TestNumPyLL(LLJitMixin):
+    llgraph = True
+
+class TestNumPyX86(Jit386Mixin):
+    llgraph = False
+
+class TestNumpyJit(LLJitMixin):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
     graph = None
     interp = None
@@ -98,11 +105,11 @@ class TestNumpyJit(Jit386Mixin):
                                              backendopt=True,
                                              graph_and_interp_only=True,
                                              ProfilerClass=Profiler,
-                                             translate_support_code=True,
-                                             translationoptions={'gc':'minimark',
-                                                                 'gcrootfinder': 'asmgcc',
-                                                                 'gcremovetypeptr': False
-                                                                },
+                                             #translate_support_code=True,
+                                             #translationoptions={'gc':'minimark',
+                                             #                    'gcrootfinder': 'asmgcc',
+                                             #                    'gcremovetypeptr': False
+                                             #                   },
                                              vec=True)
             self.__class__.interp = interp
             self.__class__.graph = graph
@@ -119,6 +126,8 @@ class TestNumpyJit(Jit386Mixin):
         self.compile_graph()
         profiler = get_profiler()
         profiler.start()
+        from rpython.jit.metainterp import pyjitpl
+        pyjitpl._warmrunnerdesc.jitcounter = counter.DeterministicJitCounter()
         reset_jit()
         i = self.code_mapping[name]
         retval = self.interp.eval_graph(self.graph, [i])
@@ -162,7 +171,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_float32_add(self):
         result = self.run("float32_add")
         self.assert_float_equal(result, 15.0 + 15.0)
-        self.check_vectorized(2, 2)
+        self.check_vectorized(1, 1)
 
     def define_float_add():
         return """
@@ -195,7 +204,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_float32_add_const(self):
         result = self.run("float32_add_const")
         self.assert_float_equal(result, 29.0 + 77.345)
-        self.check_vectorized(2, 2)
+        self.check_vectorized(1, 1)
 
     def define_float_add_const():
         return """
@@ -237,7 +246,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_int_expand(self):
         result = self.run("int_expand")
         assert int(result) == 7+16+8+16
-        self.check_vectorized(2, 2)
+        self.check_vectorized(1, 1)
 
     def define_int32_expand():
         return """
@@ -303,7 +312,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_int32_add_const(self):
         result = self.run("int32_add_const")
         assert int(result) == 7+1+8+1+11+2+12+2
-        self.check_vectorized(2, 2)
+        self.check_vectorized(1, 1)
 
     def define_float_mul_array():
         return """
@@ -335,7 +344,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_int32_mul_array(self):
         result = self.run("int32_mul_array")
         assert int(result) == 7*7+8*8+11*11+12*12
-        self.check_vectorized(2, 2)
+        self.check_vectorized(1, 1)
 
     def define_float32_mul_array():
         return """
@@ -363,7 +372,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_conversion(self):
         result = self.run("conversion")
         assert result == sum(range(30)) + sum(range(30))
-        self.check_vectorized(4, 2) # only sum and astype(int) succeed
+        self.check_vectorized(2, 2) # only sum and astype(int) succeed
 
     def define_sum():
         return """
@@ -393,7 +402,7 @@ class TestNumpyJit(Jit386Mixin):
     def test_sum_int(self):
         result = self.run("sum_int")
         assert result == sum(range(65))
-        self.check_vectorized(2, 2) # 1 sum, 1 for type conversion
+        self.check_vectorized(1, 1)
 
     def define_sum_multi():
         return """
@@ -501,7 +510,7 @@ class TestNumpyJit(Jit386Mixin):
         retval = self.interp.eval_graph(self.graph, [i])
         # check that we got only one loop
         assert len(get_stats().loops) == 1
-        self.check_vectorized(3, 1)
+        self.check_vectorized(2, 1)
 
     def define_prod():
         return """

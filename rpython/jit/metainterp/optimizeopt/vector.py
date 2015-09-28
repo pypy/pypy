@@ -555,7 +555,6 @@ class VectorizingOptimizer(Optimizer):
                 self.mark_guard(guard_node, loop)
         for node in zero_deps.keys():
             assert not node.is_imaginary()
-            print "edge to", node
             earlyexit.edge_to(node)
         if one_valid:
             return graph

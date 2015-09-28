@@ -116,11 +116,6 @@ class Typed(object):
     _mixin_ = True
 
     def inittype(self):
-        if self.returns_void():
-            self.bytesize = 0
-            self.datatype = 'v'
-            return
-
         if self.is_primitive_array_access():
             from rpython.jit.backend.llsupport.descr import ArrayDescr
             descr = self.getdescr()
@@ -149,31 +144,24 @@ class Typed(object):
             self.setdatatype(tt, self.cast_to_bytesize(), tt == 'i')
         else:
             # pass through the type of the first input argument
-            if self.numargs() == 0:
-                if self.type == 'i':
-                    self.setdatatype('i', INT_WORD, True)
-                elif self.type == 'f':
-                    self.setdatatype('f', FLOAT_WORD, False)
-                return
-            i = 0
-            arg = self.getarg(i)
-            while arg.is_constant() and i+1 < self.numargs():
-                i += 1
+            type = self.type
+            signed = type == 'i'
+            bytesize = -1
+            if self.numargs() > 0:
+                i = 0
                 arg = self.getarg(i)
-            if arg.is_constant() or arg.datatype == '\x00':
-                if arg.type == 'i':
-                    self.setdatatype('i', INT_WORD, True)
-                elif arg.type == 'f':
-                    self.setdatatype('f', FLOAT_WORD, False)
-                else:
-                    assert arg.type == 'r'
-                    self.setdatatype('r', INT_WORD, False)
-                return
-            self.setdatatype(arg.datatype, arg.bytesize, arg.signed)
+                while arg.is_constant() and i+1 < self.numargs():
+                    i += 1
+                    arg = self.getarg(i)
+                if arg.datatype != '\x00' and \
+                   arg.bytesize != -1:
+                    type = arg.datatype
+                    signed = arg.signed
+                    bytesize = arg.bytesize
             if self.returns_bool_result():
-                self.datatype = 'i'
+                type = 'i'
+            self.setdatatype(type, bytesize, signed)
         assert self.datatype != '\x00'
-        #assert self.bytesize > 0
 
     def setdatatype(self, data_type, bytesize, signed):
         self.datatype = data_type
@@ -182,6 +170,8 @@ class Typed(object):
                 bytesize = INT_WORD
             elif data_type == 'f':
                 bytesize = FLOAT_WORD
+            elif data_type == 'v':
+                bytesize = 0
         self.bytesize = bytesize
         self.signed = signed
 
@@ -1190,10 +1180,10 @@ _cast_ops = {
     'VEC_CAST_FLOAT_TO_INT': ('f', 8, 'i', 4, 2),
     'CAST_INT_TO_FLOAT': ('i', 4, 'f', 8, 2),
     'VEC_CAST_INT_TO_FLOAT': ('i', 4, 'f', 8, 2),
-    'CAST_FLOAT_TO_SINGLEFLOAT': ('f', 8, 'f', 4, 2),
-    'VEC_CAST_FLOAT_TO_SINGLEFLOAT': ('f', 8, 'f', 4, 2),
-    'CAST_SINGLEFLOAT_TO_FLOAT': ('f', 4, 'f', 8, 2),
-    'VEC_CAST_SINGLEFLOAT_TO_FLOAT': ('f', 4, 'f', 8, 2),
+    'CAST_FLOAT_TO_SINGLEFLOAT': ('f', 8, 'i', 4, 2),
+    'VEC_CAST_FLOAT_TO_SINGLEFLOAT': ('f', 8, 'i', 4, 2),
+    'CAST_SINGLEFLOAT_TO_FLOAT': ('i', 4, 'f', 8, 2),
+    'VEC_CAST_SINGLEFLOAT_TO_FLOAT': ('i', 4, 'f', 8, 2),
     'INT_SIGNEXT': ('i', 0, 'i', 0, 0),
     'VEC_INT_SIGNEXT': ('i', 0, 'i', 0, 0),
 }

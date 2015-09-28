@@ -12,6 +12,7 @@ from rpython.jit.backend.llgraph.runner import ArrayDescr
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from rpython.conftest import option
+from rpython.jit.metainterp.compile import invent_fail_descr_for_op
 
 class FakeDependencyGraph(DependencyGraph):
     """ A dependency graph that is able to emit every instruction
@@ -45,6 +46,9 @@ class DependencyBaseTest(BaseTest):
     def parse_loop(self, ops, add_label=True):
         loop = self.parse(ops, postprocess=self.postprocess)
         loop.operations = filter(lambda op: op.getopnum() != rop.DEBUG_MERGE_POINT, loop.operations)
+        #for op in loop.operations:
+        #    if op.is_guard() and op.getdescr() is None:
+        #        op.setdescr(invent_fail_descr_for_op(op.opnum, None))
         token = JitCellToken()
         if add_label:
             label = ResOperation(rop.LABEL, loop.inputargs, descr=TargetToken(token))
