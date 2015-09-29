@@ -120,8 +120,8 @@ class AppTestNDIter(BaseNumpyAppTest):
             skip('Fortran order not implemented')
 
         it = nditer([a, b])
-
-        assert list(it) == zip(range(1, 5), range(1, 5))
+        r = list(it)
+        assert r == zip(range(1, 5), range(1, 5))
 
     def test_interface(self):
         from numpy import arange, nditer, zeros

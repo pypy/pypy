@@ -140,7 +140,7 @@ def concatenate(space, w_args, w_axis=None):
 
     dtype = find_result_type(space, args_w, [])
     # concatenate does not handle ndarray subtypes, it always returns a ndarray
-    res = W_NDimArray.from_shape(space, shape, dtype, 'C')
+    res = W_NDimArray.from_shape(space, shape, dtype, NPY.CORDER)
     chunks = [Chunk(0, i, 1, i) for i in shape]
     axis_start = 0
     for arr in args_w:

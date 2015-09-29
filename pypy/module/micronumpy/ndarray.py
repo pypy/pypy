@@ -97,7 +97,10 @@ class __extend__(W_NDimArray):
         self.fill(space, self.get_dtype().coerce(space, w_value))
 
     def descr_tostring(self, space, w_order=None):
-        order = order_converter(space, w_order, NPY.CORDER)
+        try:
+            order = order_converter(space, w_order, NPY.CORDER)
+        except OperationError as e:
+            raise oefmt(space.w_TypeError, "order not understood") 
         if order == NPY.FORTRANORDER:
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "unsupported value for order"))
@@ -365,7 +368,12 @@ class __extend__(W_NDimArray):
         return self.implementation.getitem(self.implementation.start)
 
     def descr_copy(self, space, w_order=None):
-        order = order_converter(space, w_order, NPY.KEEPORDER)
+        if w_order is None:
+            order = NPY.KEEPORDER
+        elif space.isinstance_w(w_order, space.w_int):
+            order = space.int_w(w_order)
+        else:
+            order = order_converter(space, w_order, NPY.KEEPORDER)
         if order == NPY.FORTRANORDER:
             raise OperationError(space.w_NotImplementedError, space.wrap(
                 "unsupported value for order"))
@@ -631,7 +639,7 @@ class __extend__(W_NDimArray):
                               space.newtuple([space.wrap(addr), space.w_False]))
             space.setitem_str(w_d, 'shape', self.descr_get_shape(space))
             space.setitem_str(w_d, 'typestr', self.get_dtype().descr_get_str(space))
-            if self.implementation.order == 'C':
+            if self.implementation.order == NPY.CORDER:
                 # Array is contiguous, no strides in the interface.
                 strides = space.w_None
             else:
@@ -690,8 +698,9 @@ class __extend__(W_NDimArray):
                         "according to the rule %s",
                         space.str_w(self.get_dtype().descr_repr(space)),
                         space.str_w(new_dtype.descr_repr(space)), casting)
-        order  = support.get_order_as_CF(self.get_order(), order)
-        if (not copy and new_dtype == self.get_dtype() and order == self.get_order()
+        order  = order_converter(space, space.wrap(order), self.get_order())
+        if (not copy and new_dtype == self.get_dtype() 
+                and (order in (NPY.KEEPORDER, NPY.ANYORDER) or order == self.get_order())
                 and (subok or type(self) is W_NDimArray)):
             return self
         impl = self.implementation
@@ -970,7 +979,7 @@ class __extend__(W_NDimArray):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "new type not compatible with array."))
                 # Adapt the smallest dim to the new itemsize
-                if self.get_order() == 'F':
+                if self.get_order() == NPY.FORTRANORDER:
                     minstride = strides[0]
                     mini = 0
                 else:
@@ -1134,7 +1143,7 @@ class __extend__(W_NDimArray):
             matches = True
             if dtype != out.get_dtype():
                 matches = False
-            elif not out.implementation.order == "C":
+            elif not out.implementation.order == NPY.CORDER:
                 matches = False
             elif out.ndims() != len(out_shape):
                 matches = False
@@ -1403,10 +1412,6 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                                                   strides=strides)
 
     order = order_converter(space, w_order, NPY.CORDER)
-    if order == NPY.CORDER:
-        order = 'C'
-    else:
-        order = 'F'
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
         return W_NDimArray.from_shape(space, shape, dtype, order)
     strides, backstrides = calc_strides(shape, dtype.base, order)
@@ -1443,7 +1448,7 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype,
             raise OperationError(space.w_ValueError, space.wrap(
                 "subtype must be a subtype of ndarray, not a class instance"))
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
-                                                  buf_len, 'C', False, w_subtype,
+                                                  buf_len, NPY.CORDER, False, w_subtype,
                                                   strides=strides)
     else:
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,

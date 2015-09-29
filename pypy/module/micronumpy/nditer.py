@@ -11,6 +11,8 @@ from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                             shape_agreement, shape_agreement_multiple)
 from pypy.module.micronumpy.casting import (find_binop_result_dtype, 
                     can_cast_array, can_cast_type)
+import pypy.module.micronumpy.constants as NPY
+from pypy.module.micronumpy.converters import order_converter
 
 
 def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
@@ -144,9 +146,9 @@ def parse_func_flags(space, nditer, w_flags):
 
 
 def is_backward(imp, order):
-    if order == 'K' or (order == 'C' and imp.order == 'C'):
+    if order == NPY.KEEPORDER or (order == NPY.CORDER and imp.order == NPY.CORDER):
         return False
-    elif order == 'F' and imp.order == 'C':
+    elif order == NPY.FORTRANORDER and imp.order == NPY.CORDER:
         return True
     else:
         raise NotImplementedError('not implemented yet')
@@ -234,7 +236,7 @@ def coalesce_axes(it, space):
                 continue
             assert isinstance(op_it, ArrayIter)
             indx = len(op_it.strides)
-            if it.order == 'F':
+            if it.order == NPY.FORTRANORDER:
                 indx = len(op_it.array.strides) - indx
                 assert indx >=0
                 astrides = op_it.array.strides[indx:]
@@ -250,7 +252,7 @@ def coalesce_axes(it, space):
                                          it.order)
                 it.iters[i] = (new_iter, new_iter.reset())
             if len(it.shape) > 1:
-                if it.order == 'F':
+                if it.order == NPY.FORTRANORDER:
                     it.shape = it.shape[1:]
                 else:
                     it.shape = it.shape[:-1]
@@ -261,10 +263,10 @@ def coalesce_axes(it, space):
             break
     # Always coalesce at least one
     for i in range(len(it.iters)):
-        new_iter = coalesce_iter(it.iters[i][0], it.op_flags[i], it, 'C')
+        new_iter = coalesce_iter(it.iters[i][0], it.op_flags[i], it, NPY.CORDER)
         it.iters[i] = (new_iter, new_iter.reset())
     if len(it.shape) > 1:
-        if it.order == 'F':
+        if it.order == NPY.FORTRANORDER:
             it.shape = it.shape[1:]
         else:
             it.shape = it.shape[:-1]
@@ -287,7 +289,7 @@ def coalesce_iter(old_iter, op_flags, it, order, flat=True):
         return old_iter
     strides = old_iter.strides
     backstrides = old_iter.backstrides
-    if order == 'F':
+    if order == NPY.FORTRANORDER:
         new_shape = shape[1:]
         new_strides = strides[1:]
         new_backstrides = backstrides[1:]
@@ -346,7 +348,8 @@ class IndexIterator(object):
 class W_NDIter(W_NumpyObject):
     _immutable_fields_ = ['ndim', ]
     def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes,
-                 w_casting, w_op_axes, w_itershape, buffersize=0, order='K'):
+                 w_casting, w_op_axes, w_itershape, buffersize=0,
+                 order=NPY.KEEPORDER):
         self.order = order
         self.external_loop = False
         self.buffered = False
@@ -439,12 +442,15 @@ class W_NDIter(W_NumpyObject):
                                 str(self.shape)) 
 
         if self.tracked_index != "":
-            if self.order == "K":
-                self.order = self.seq[0].implementation.order
+            order = self.order
+            if order == NPY.KEEPORDER:
+                order = self.seq[0].implementation.order
             if self.tracked_index == "multi":
                 backward = False
             else:
-                backward = self.order != self.tracked_index
+                backward = ((
+                    order == NPY.CORDER and self.tracked_index != 'C') or (
+                    order == NPY.FORTRANORDER and self.tracked_index != 'F'))
             self.index_iter = IndexIterator(self.shape, backward=backward)
 
         # handle w_op_dtypes part 2: copy where needed if possible
@@ -456,7 +462,6 @@ class W_NDIter(W_NumpyObject):
                     self.dtypes[i] = seq_d
                 elif self_d != seq_d:
                         impl = self.seq[i].implementation
-                        order = support.get_order_as_CF(impl.order, self.order)
                         if self.buffered or 'r' in self.op_flags[i].tmp_copy:
                             if not can_cast_array(
                                     space, self.seq[i], self_d, self.casting):
@@ -466,7 +471,7 @@ class W_NDIter(W_NumpyObject):
                                     space.str_w(seq_d.descr_repr(space)),
                                     space.str_w(self_d.descr_repr(space)),
                                     self.casting)
- 
+                            order = support.get_order_as_CF(impl.order, self.order)
                             new_impl = impl.astype(space, self_d, order).copy(space)
                             self.seq[i] = W_NDimArray(new_impl)
                         else:
@@ -704,13 +709,15 @@ class W_NDIter(W_NumpyObject):
 
 
 @unwrap_spec(w_flags=WrappedDefault(None), w_op_flags=WrappedDefault(None),
-             w_op_dtypes=WrappedDefault(None), order=str,
+             w_op_dtypes=WrappedDefault(None), w_order=WrappedDefault(None),
              w_casting=WrappedDefault(None), w_op_axes=WrappedDefault(None),
-             w_itershape=WrappedDefault(None), buffersize=int)
+             w_itershape=WrappedDefault(None), w_buffersize=WrappedDefault(0))
 def descr_new_nditer(space, w_subtype, w_seq, w_flags, w_op_flags, w_op_dtypes,
-                 w_casting, w_op_axes, w_itershape, buffersize=0, order='K'):
+                 w_casting, w_op_axes, w_itershape, w_buffersize, w_order):
+    npy_order = order_converter(space, w_order, NPY.KEEPORDER)
+    buffersize = space.int_w(w_buffersize) 
     return W_NDIter(space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting, w_op_axes,
-                    w_itershape, buffersize, order)
+                    w_itershape, buffersize, npy_order)
 
 W_NDIter.typedef = TypeDef('numpy.nditer',
     __new__ = interp2app(descr_new_nditer),

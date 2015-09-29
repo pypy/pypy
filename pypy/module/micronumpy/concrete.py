@@ -56,6 +56,9 @@ class BaseConcreteArray(object):
         jit.hint(len(backstrides), promote=True)
         return backstrides
 
+    def get_flags(self):
+        return self.flags
+
     def getitem(self, index):
         return self.dtype.read(self, index, 0)
 
@@ -360,12 +363,12 @@ class BaseConcreteArray(object):
         # but make the array storage contiguous in memory
         shape = self.get_shape()
         strides = self.get_strides()
-        if order not in ('C', 'F'):
-            raise oefmt(space.w_ValueError, "Unknown order %s in astype", order)
+        if order not in (NPY.KEEPORDER, NPY.FORTRANORDER, NPY.CORDER):
+            raise oefmt(space.w_ValueError, "Unknown order %d in astype", order)
         if len(strides) == 0:
             t_strides = []
             backstrides = []
-        elif order != self.order:
+        elif order in (NPY.FORTRANORDER, NPY.CORDER):
             t_strides, backstrides = calc_strides(shape, dtype, order)
         else:
             indx_array = range(len(strides))
@@ -602,13 +605,13 @@ class SliceArray(BaseConcreteArray):
                 s = self.get_strides()[0] // dtype.elsize
             except IndexError:
                 s = 1
-            if self.order == 'C':
+            if self.order != NPY.FORTRANORDER:
                 new_shape.reverse()
             for sh in new_shape:
                 strides.append(s * dtype.elsize)
                 backstrides.append(s * (sh - 1) * dtype.elsize)
                 s *= max(1, sh)
-            if self.order == 'C':
+            if self.order != NPY.FORTRANORDER:
                 strides.reverse()
                 backstrides.reverse()
                 new_shape.reverse()

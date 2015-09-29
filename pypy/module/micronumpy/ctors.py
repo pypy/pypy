@@ -4,9 +4,10 @@ from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstring import strip_spaces
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import descriptor, loop, support
-from pypy.module.micronumpy.base import (
+from pypy.module.micronumpy.base import (wrap_impl,
     W_NDimArray, convert_to_array, W_NumpyObject)
-from pypy.module.micronumpy.converters import shape_converter
+from pypy.module.micronumpy.converters import shape_converter, order_converter
+import pypy.module.micronumpy.constants as NPY
 
 
 def build_scalar(space, w_dtype, w_state):
@@ -99,13 +100,8 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
     dtype = descriptor.decode_w_dtype(space, w_dtype)
 
     if space.is_none(w_order):
-        order = 'C'
-    else:
-        order = space.str_w(w_order)
-        if order == 'K':
-            order = 'C'
-        if order != 'C':  # or order != 'F':
-            raise oefmt(space.w_ValueError, "Unknown order: %s", order)
+        w_order = space.wrap('C')
+    npy_order = order_converter(space, w_order, NPY.CORDER)
 
     if isinstance(w_object, W_NDimArray):
         if (dtype is None or w_object.get_dtype() is dtype):
@@ -124,7 +120,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             copy = True
         if copy:
             shape = w_object.get_shape()
-            w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
+            w_arr = W_NDimArray.from_shape(space, shape, dtype, order=npy_order)
             if support.product(shape) == 1:
                 w_arr.set_scalar_value(dtype.coerce(space,
                         w_object.implementation.getitem(0)))
@@ -154,7 +150,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             # promote S0 -> S1, U0 -> U1
             dtype = descriptor.variable_dtype(space, dtype.char + '1')
 
-    w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
+    w_arr = W_NDimArray.from_shape(space, shape, dtype, order=npy_order)
     if support.product(shape) == 1: # safe from overflow since from_shape checks
         w_arr.set_scalar_value(dtype.coerce(space, elems_w[0]))
     else:
@@ -230,6 +226,7 @@ def zeros(space, w_shape, w_dtype=None, w_order=None):
 @unwrap_spec(subok=bool)
 def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
     w_a = convert_to_array(space, w_a)
+    npy_order = order_converter(space, w_order, w_a.get_order())
     if space.is_none(w_dtype):
         dtype = w_a.get_dtype()
     else:
@@ -237,7 +234,16 @@ def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
             space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))
         if dtype.is_str_or_unicode() and dtype.elsize < 1:
             dtype = descriptor.variable_dtype(space, dtype.char + '1')
+    if npy_order == NPY.KEEPORDER:
+        # Try to copy the stride pattern
+        impl = w_a.implementation.astype(space, dtype, npy_order)
+        if subok:
+            w_type = space.type(w_a)
+        else:
+            w_type = None
+        return wrap_impl(space, w_type, w_a, impl)
     return W_NDimArray.from_shape(space, w_a.get_shape(), dtype=dtype,
+                                  order=npy_order,
                                   w_instance=w_a if subok else None,
                                   zero=False)
 
