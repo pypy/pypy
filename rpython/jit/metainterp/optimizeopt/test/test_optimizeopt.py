@@ -5035,10 +5035,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p0]
         p20 = getfield_gc_r(p0, descr=nextdescr)
-        guard_nonnull_class(p20, ConstClass(node_vtable)) []
+        guard_value(p20, ConstPtr(myptr)) []
         p23 = getfield_gc_r(p20, descr=valuedescr)
         guard_isnull(p23) []
-        guard_value(p20, ConstPtr(myptr)) []
         p64 = call_may_force_r(NULL, NULL, descr=plaincalldescr)
         jump(p0)
         """

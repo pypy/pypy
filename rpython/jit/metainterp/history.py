@@ -157,6 +157,9 @@ class BasicFailDescr(AbstractFailDescr):
     def __init__(self, identifier=None):
         self.identifier = identifier      # for testing
 
+    def make_a_counter_per_value(self, op, index):
+        pass # for testing
+
 
 @specialize.argtype(0)
 def newconst(value):
