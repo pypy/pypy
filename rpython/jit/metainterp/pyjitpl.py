@@ -238,7 +238,6 @@ class MIFrame(object):
             def opimpl_%s(self, lbl, b1, b2, orgpc):
                 self.metainterp.ovf_flag = False
                 resbox = self.execute(rop.%s, b1, b2)
-                self.make_result_of_lastop(resbox)  # same as execute_varargs()
                 if not isinstance(resbox, Const):
                     return self.handle_possible_overflow_error(lbl, orgpc,
                                                                resbox)
