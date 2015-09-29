@@ -1,5 +1,6 @@
 """Slice object"""
 
+import sys
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
