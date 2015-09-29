@@ -418,7 +418,7 @@ class ShortPreambleBuilder(AbstractShortPreambleBuilder):
             if isinstance(op, Const):
                 info = optimizer.getinfo(op)
             else:
-                info = exported_infos[op]
+                info = exported_infos.get(op, None)
                 if info is None:
                     info = empty_info
             preamble_op.set_forwarded(info)

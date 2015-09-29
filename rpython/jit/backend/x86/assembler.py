@@ -191,12 +191,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             for i in range(4):
                 mc.MOV_sr(i * WORD, cond_call_register_arguments[i].value)
         mc.CALL(eax)
+        self._reload_frame_if_necessary(mc)
         if IS_X86_64:
             mc.ADD(esp, imm(WORD))
         else:
             mc.ADD(esp, imm(WORD * 7))
         self.set_extra_stack_depth(mc, 0)
-        self._reload_frame_if_necessary(mc, align_stack=True)
         self.pop_gcmap(mc)   # cancel the push_gcmap(store=True) in the caller
         self._pop_all_regs_from_frame(mc, [], supports_floats, callee_only)
         mc.RET()
@@ -260,14 +260,15 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 mc.MOV_rs(edi.value, WORD * 3)  # load the itemsize
         self.set_extra_stack_depth(mc, 16)
         mc.CALL(imm(follow_jump(addr)))
+        self._reload_frame_if_necessary(mc)
         mc.ADD_ri(esp.value, 16 - WORD)
+        self.set_extra_stack_depth(mc, 0)
+        #
         mc.TEST_rr(eax.value, eax.value)
         mc.J_il(rx86.Conditions['Z'], 0xfffff) # patched later
         jz_location = mc.get_relative_pos()
         #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
-        self._reload_frame_if_necessary(mc, align_stack=True)
-        self.set_extra_stack_depth(mc, 0)
         self._pop_all_regs_from_frame(mc, [eax, edi], self.cpu.supports_floats)
         mc.MOV(edi, heap(nursery_free_adr))   # load this in EDI
         self.pop_gcmap(mc)   # push_gcmap(store=True) done by the caller
@@ -669,7 +670,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             relative_target = tok.pos_recovery_stub - (tok.pos_jump_offset + 4)
             assert rx86.fits_in_32bits(relative_target)
             #
-            if not tok.is_guard_not_invalidated:
+            if not tok.guard_not_invalidated():
                 mc = codebuf.MachineCodeBlockWrapper()
                 mc.writeimm32(relative_target)
                 mc.copy_to_raw_memory(addr)
@@ -1139,8 +1140,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         cb = callbuilder.CallBuilder(self, fnloc, arglocs)
         cb.emit_no_collect()
 
-    def _reload_frame_if_necessary(self, mc, align_stack=False,
-                                   shadowstack_reg=None):
+    def _reload_frame_if_necessary(self, mc, shadowstack_reg=None):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
@@ -1154,7 +1154,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # frame never uses card marking, so we enforce this is not
             # an array
             self._write_barrier_fastpath(mc, wbdescr, [ebp], array=False,
-                                         is_frame=True, align_stack=align_stack)
+                                         is_frame=True)
 
     genop_int_neg = _unaryop("NEG")
     genop_int_invert = _unaryop("NOT")
@@ -1162,7 +1162,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_nursery_ptr_increment = _binaryop_or_lea('ADD', is_add=True)
     genop_int_sub = _binaryop_or_lea("SUB", is_add=False)
     genop_int_mul = _binaryop("IMUL")
-    genop_int_and = _binaryop("AND")
     genop_int_or  = _binaryop("OR")
     genop_int_xor = _binaryop("XOR")
     genop_int_lshift = _binaryop("SHL")
@@ -1172,6 +1171,15 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_float_sub = _binaryop('SUBSD')
     genop_float_mul = _binaryop('MULSD')
     genop_float_truediv = _binaryop('DIVSD')
+
+    def genop_int_and(self, op, arglocs, result_loc):
+        arg1 = arglocs[1]
+        if IS_X86_64 and (isinstance(arg1, ImmedLoc) and
+                          arg1.value == (1 << 32) - 1):
+            # special case
+            self.mc.MOV32(arglocs[0], arglocs[0])
+        else:
+            self.mc.AND(arglocs[0], arg1)
 
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
@@ -1851,15 +1859,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
                                  fail_locs, frame_depth):
-        exc = (guard_opnum == rop.GUARD_EXCEPTION or
-               guard_opnum == rop.GUARD_NO_EXCEPTION or
-               guard_opnum == rop.GUARD_NOT_FORCED)
-        is_guard_not_invalidated = guard_opnum == rop.GUARD_NOT_INVALIDATED
-        is_guard_not_forced = guard_opnum == rop.GUARD_NOT_FORCED
         gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
-        return GuardToken(self.cpu, gcmap, faildescr, failargs,
-                          fail_locs, exc, frame_depth,
-                          is_guard_not_invalidated, is_guard_not_forced)
+        return GuardToken(self.cpu, gcmap, faildescr, failargs, fail_locs,
+                          guard_opnum, frame_depth)
 
     def generate_propagate_error_64(self):
         assert WORD == 8
@@ -2176,7 +2178,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     # ------------------- END CALL ASSEMBLER -----------------------
 
     def _write_barrier_fastpath(self, mc, descr, arglocs, array=False,
-                                is_frame=False, align_stack=False):
+                                is_frame=False):
         # Write code equivalent to write_barrier() in the GC: it checks
         # a flag in the object at arglocs[0], and if set, it calls a
         # helper piece of assembler.  The latter saves registers as needed
@@ -2232,13 +2234,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         #
         if not is_frame:
             mc.PUSH(loc_base)
-        if is_frame and align_stack:
-            mc.SUB_ri(esp.value, 16 - WORD) # erase the return address
         mc.CALL(imm(self.wb_slowpath[helper_num]))
         if not is_frame:
             mc.stack_frame_size_delta(-WORD)
-        if is_frame and align_stack:
-            mc.ADD_ri(esp.value, 16 - WORD) # erase the return address
 
         if card_marking:
             # The helper ends again with a check of the flag in the object.

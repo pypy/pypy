@@ -602,8 +602,10 @@ class FloatOp(object):
         return self._resfloat
 
     getvalue = getfloatstorage
-    getfloat = getfloatstorage
-    
+
+    def getfloat(self):
+        return longlong.getrealfloat(self.getfloatstorage())
+
     def setfloatstorage(self, floatval):
         assert lltype.typeOf(floatval) is longlong.FLOATSTORAGE
         self._resfloat = floatval
@@ -1105,7 +1107,7 @@ _oplist = [
     'NEWSTR/1/r',         #-> STR, the hash field is zeroed
     'NEWUNICODE/1/r',     #-> UNICODE, the hash field is zeroed
     '_MALLOC_LAST',
-    'FORCE_TOKEN/0/r',
+    'FORCE_TOKEN/0/r',    # historical name; nowadays, returns the jitframe
     'VIRTUAL_REF/2/r',    # removed before it's passed to the backend
     # this one has no *visible* side effect, since the virtualizable
     # must be forced, however we need to execute it anyway

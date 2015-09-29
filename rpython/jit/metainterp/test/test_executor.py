@@ -109,7 +109,7 @@ def test_execute_nonspec():
     box2 = boxfloat(222.2)
     fielddescr = FakeFieldDescr()
     _execute_arglist(cpu, None, rop.SETFIELD_GC, [box1, box2], fielddescr)
-    assert cpu.fakesetfield == (box1.getref_base(), box2.getfloat(),
+    assert cpu.fakesetfield == (box1.getref_base(), box2.getfloatstorage(),
                                 fielddescr)
     # arity == 3
     box3 = InputArgInt(33)
@@ -117,7 +117,7 @@ def test_execute_nonspec():
     _execute_arglist(cpu, None, rop.SETARRAYITEM_GC, [box1, box3, box2],
                     arraydescr)
     assert cpu.fakesetarrayitem == (box1.getref_base(), box3.getint(),
-                                    box2.getfloat(), arraydescr)
+                                    box2.getfloatstorage(), arraydescr)
     # cases without descr
     # arity == 1
     box = _execute_arglist(cpu, None, rop.INT_INVERT, [box3])

@@ -1582,8 +1582,9 @@ class MIFrame(object):
                 resbox = self.metainterp.execute_and_record_varargs(
                     rop.CALL_MAY_FORCE_F, allboxes, descr=descr)
             elif tp == 'v':
-                resbox = self.metainterp.execute_and_record_varargs(
+                self.metainterp.execute_and_record_varargs(
                     rop.CALL_MAY_FORCE_N, allboxes, descr=descr)
+                resbox = None
             else:
                 assert False
             self.metainterp.vrefs_after_residual_call()
@@ -2904,6 +2905,9 @@ class MetaInterp(object):
         start_stack = []
         max_size = 0
         max_key = None
+        warmstate = self.jitdriver_sd.warmstate
+        r = ''
+        debug_start("jit-abort-longest-function")
         for pair in self.portal_trace_positions:
             key, pos = pair
             if key is not None:
@@ -2912,14 +2916,25 @@ class MetaInterp(object):
                 greenkey, startpos = start_stack.pop()
                 size = pos - startpos
                 if size > max_size:
+                    if warmstate is not None:
+                        r = warmstate.get_location_str(greenkey)
+                    debug_print("found new longest: %s %d" % (r, size))
                     max_size = size
                     max_key = greenkey
         if start_stack:
             key, pos = start_stack[0]
             size = len(self.history.operations) - pos
             if size > max_size:
+                if warmstate is not None:
+                    r = self.jitdriver_sd.warmstate.get_location_str(key)
+                debug_print("found new longest: %s %d" % (r, size))
                 max_size = size
                 max_key = key
+        if warmstate is not None: # tests
+            self.staticdata.logger_ops.log_abort_loop(self.history.inputargs,
+                                       self.history.operations,
+                                       self.box_names_memo)
+        debug_stop("jit-abort-longest-function")
         return max_key
 
     def record_result_of_call_pure(self, op):
@@ -2961,6 +2976,8 @@ class MetaInterp(object):
         opnum = OpHelpers.call_assembler_for_descr(op.getdescr())
         op = op.copy_and_change(opnum, args=args, descr=token)
         self.history.operations.append(op)
+        if opnum == rop.CALL_ASSEMBLER_N:
+            op = None
         #
         # To fix an obscure issue, make sure the vable stays alive
         # longer than the CALL_ASSEMBLER operation.  We do it by

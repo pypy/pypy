@@ -521,14 +521,6 @@ LL_OPERATIONS = {
     'gc_detach_callback_pieces': LLOp(),
     'gc_reattach_callback_pieces': LLOp(),
 
-    # for stacklet+shadowstack support
-    'gc_shadowstackref_new':      LLOp(canmallocgc=True),
-    'gc_shadowstackref_context':  LLOp(),
-    'gc_save_current_state_away': LLOp(),
-    'gc_forget_current_state':    LLOp(),
-    'gc_restore_state_from':      LLOp(),
-    'gc_start_fresh_new_state':   LLOp(),
-
     # NOTE NOTE NOTE! don't forget *** canmallocgc=True *** for anything that
     # can malloc a GC object.
 

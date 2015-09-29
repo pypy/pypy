@@ -2,7 +2,7 @@ import weakref
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.debug import debug_start, debug_stop, debug_print
+from rpython.rlib.debug import debug_start, debug_stop, debug_print, have_debug_prints
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib import rstack
 from rpython.rlib.jit import JitDebugInfo, Counters, dont_look_inside
@@ -537,6 +537,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
                                   loop.inputargs,
                                   operations, original_jitcell_token,
                                   name=loopname,
+                                  log=have_debug_prints(),
                                   memo=memo)
     finally:
         debug_stop("jit-backend")
@@ -583,7 +584,8 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     try:
         asminfo = do_compile_bridge(metainterp_sd, faildescr, inputargs,
                                     operations,
-                                    original_loop_token, memo)
+                                    original_loop_token, have_debug_prints(),
+                                    memo)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
@@ -748,6 +750,9 @@ class ResumeGuardDescr(ResumeDescr):
         metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
         metainterp.handle_guard_failure(self, deadframe)
     _trace_and_compile_from_bridge._dont_inline_ = True
+
+    def get_jitcounter_hash(self):
+        return self.status & self.ST_SHIFT_MASK
 
     def must_compile(self, deadframe, metainterp_sd, jitdriver_sd):
         jitcounter = metainterp_sd.warmrunnerdesc.jitcounter

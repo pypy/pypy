@@ -22,8 +22,8 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
 )
 
 class GuardToken(object):
-    def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs, exc,
-                 frame_depth, is_guard_not_invalidated, is_guard_not_forced):
+    def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
+                 guard_opnum, frame_depth):
         assert isinstance(faildescr, AbstractFailDescr)
         self.cpu = cpu
         self.faildescr = faildescr
@@ -31,9 +31,16 @@ class GuardToken(object):
         self.fail_locs = fail_locs
         self.gcmap = self.compute_gcmap(gcmap, failargs,
                                         fail_locs, frame_depth)
-        self.exc = exc
-        self.is_guard_not_invalidated = is_guard_not_invalidated
-        self.is_guard_not_forced = is_guard_not_forced
+        self.guard_opnum = guard_opnum
+
+    def guard_not_invalidated(self):
+        return self.guard_opnum == rop.GUARD_NOT_INVALIDATED
+
+    def must_save_exception(self):
+        guard_opnum = self.guard_opnum
+        return (guard_opnum == rop.GUARD_EXCEPTION or
+                guard_opnum == rop.GUARD_NO_EXCEPTION or
+                guard_opnum == rop.GUARD_NOT_FORCED)
 
     def compute_gcmap(self, gcmap, failargs, fail_locs, frame_depth):
         # note that regalloc has a very similar compute, but
@@ -82,8 +89,8 @@ class BaseAssembler(object):
             self.gc_size_of_header = gc_ll_descr.gcheaderbuilder.size_gc_header
         else:
             self.gc_size_of_header = WORD # for tests
-        self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
-        self.memset_addr = self.cpu.cast_ptr_to_int(memset_fn)
+        self.memcpy_addr = rffi.cast(lltype.Signed, memcpy_fn)
+        self.memset_addr = rffi.cast(lltype.Signed, memset_fn)
         self._build_failure_recovery(False, withfloats=False)
         self._build_failure_recovery(True, withfloats=False)
         self._build_wb_slowpath(False)
@@ -175,7 +182,7 @@ class BaseAssembler(object):
                (box.type == FLOAT or box.type == VECTOR):
                 withfloats = True
                 break
-        exc = guardtok.exc
+        exc = guardtok.must_save_exception()
         target = self.failure_recovery_code[exc + 2 * withfloats]
         fail_descr = cast_instance_to_gcref(guardtok.faildescr)
         fail_descr = rffi.cast(lltype.Signed, fail_descr)

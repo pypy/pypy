@@ -82,6 +82,13 @@ class Logger(object):
         debug_stop("jit-log-short-preamble")
         return logops
 
+    def log_abort_loop(self, inputargs, operations, memo=None):
+        debug_start("jit-abort-log")
+        logops = self._log_operations(inputargs, operations, ops_offset=None,
+                                      memo=memo)
+        debug_stop("jit-abort-log")
+        return logops
+
     def _log_operations(self, inputargs, operations, ops_offset, memo=None):
         if not have_debug_prints():
             return None

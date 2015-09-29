@@ -270,11 +270,33 @@ def test_array():
                                        [("d_name", lltype.FixedSizeArray(rffi.CHAR, 1))])
     assert dirent.c_d_name.length == 32
 
-def test_has():
+def test_has_0001():
     assert rffi_platform.has("x", "int x = 3;")
     assert not rffi_platform.has("x", "")
     # has() should also not crash if it is given an invalid #include
     assert not rffi_platform.has("x", "#include <some/path/which/cannot/exist>")
+
+def test_has_0002():
+    assert rffi_platform.has("pow", "#include <math.h>", libraries=["m"])
+
+def test_has_0003():
+    """multiple libraries"""
+    assert rffi_platform.has("pow", "#include <math.h>", libraries=["m", "c"])
+
+def test_has_0004():
+    """bogus symbol name"""
+    assert not rffi_platform.has("pow", "#include <math.h>",
+                                 libraries=["boguslibname"])
+
+def test_has_0005():
+    """bogus symbol name and lib name"""
+    assert not rffi_platform.has("bogus_symbol_name", "#include <math.h>",
+                                 libraries=["boguslibname"])
+
+def test_has_0006():
+    """missing include"""
+    assert not rffi_platform.has("pow", "", libraries=["m"])
+
 
 def test_verify_eci():
     eci = ExternalCompilationInfo()

@@ -152,6 +152,7 @@ class CallingConvTests(Runner):
             res = self.execute_operation(rop.CALL_F,
                                          [funcbox] + argslist,
                                          'float', descr=calldescr)
+            res = longlong.getrealfloat(res)
             assert abs(res - result) < 0.0001
 
     def test_call_aligned_with_args_on_the_stack(self):
@@ -194,6 +195,7 @@ class CallingConvTests(Runner):
             res = self.execute_operation(rop.CALL_F,
                                          [funcbox] + argslist,
                                          'float', descr=calldescr)
+            res = longlong.getrealfloat(res)
             assert abs(res - result) < 0.0001
 
     def test_call_alignment_call_assembler(self):

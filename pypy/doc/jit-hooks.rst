@@ -5,19 +5,8 @@ There are several hooks in the ``pypyjit`` module that may help you with
 understanding what's pypy's JIT doing while running your program. There
 are three functions related to that coming from the ``pypyjit`` module:
 
-.. function:: set_optimize_hook(callable)
 
-    Set a compiling hook that will be called each time a loop is optimized,
-    but before assembler compilation. This allows adding additional
-    optimizations on Python level.
-
-    The callable will be called with the ``pypyjit.JitLoopInfo`` object.
-    Refer to it's documentation for details.
-
-    Result value will be the resulting list of operations, or None
-
-
-.. function:: set_compile_hook(callable)
+.. function:: set_compile_hook(callable, operations=True)
 
     Set a compiling hook that will be called each time a loop is compiled.
 
@@ -27,6 +16,9 @@ are three functions related to that coming from the ``pypyjit`` module:
     Note that jit hook is not reentrant. It means that if the code
     inside the jit hook is itself jitted, it will get compiled, but the
     jit hook won't be called for that.
+
+    if operations=False, no list of operations will be available. Useful
+    if the hook is supposed to be very lighweight.
 
 .. function:: set_abort_hook(hook)
 
@@ -66,3 +58,25 @@ are three functions related to that coming from the ``pypyjit`` module:
 
     * ``loop_run_times`` - counters for number of times loops are run, only
       works when ``enable_debug`` is called.
+
+.. class:: JitLoopInfo
+
+   A class containing information about the compiled loop. Usable attributes:
+
+   * ``operations`` - list of operations, if requested
+
+   * ``jitdriver_name`` - the name of jitdriver associated with this loop
+
+   * ``greenkey`` - a key at which the loop got compiled (e.g. code position,
+     is_being_profiled, pycode tuple for python jitdriver)
+
+   * ``loop_no`` - loop cardinal number
+
+   * ``bridge_no`` - id of the fail descr
+
+   * ``type`` - "entry bridge", "loop" or "bridge"
+
+   * ``asmaddr`` - an address in raw memory where assembler resides
+
+   * ``asmlen`` - length of raw memory with assembler associated
+

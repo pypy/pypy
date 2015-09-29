@@ -30,6 +30,7 @@ class AppTestFlagsObj(BaseNumpyAppTest):
         assert a.flags.forc == True
         assert a.flags['FNC'] == False
         assert a.flags['FORC'] == True
+        assert a.flags.num == 1287
         raises(KeyError, "a.flags['blah']")
         raises(KeyError, "a.flags['C_CONTIGUOUS'] = False")
         raises((TypeError, AttributeError), "a.flags.c_contiguous = False")
@@ -38,6 +39,7 @@ class AppTestFlagsObj(BaseNumpyAppTest):
         import numpy as np
         a = np.int32(2)
         assert a.flags.c_contiguous == True
+        assert a.flags.num == 263
 
     def test_compare(self):
         import numpy as np

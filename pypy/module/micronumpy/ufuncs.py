@@ -1006,7 +1006,6 @@ class W_UfuncGeneric(W_Ufunc):
             assert isinstance(curarg, W_NDimArray)
             if len(arg_shapes[i]) != curarg.ndims():
                 # reshape
-
                 sz = product(curarg.get_shape()) * curarg.get_dtype().elsize
                 with curarg.implementation as storage:
                     inargs[i] = W_NDimArray.from_shape_and_storage(

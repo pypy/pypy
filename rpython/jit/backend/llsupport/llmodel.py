@@ -612,16 +612,22 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def bh_getfield_gc_i(self, struct, fielddescr):
         ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
+        if isinstance(lltype.typeOf(struct), lltype.Ptr):
+            fielddescr.check_correct_type(struct)
         return self.read_int_at_mem(struct, ofs, size, sign)
 
     @specialize.argtype(1)
     def bh_getfield_gc_r(self, struct, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
+        if isinstance(lltype.typeOf(struct), lltype.Ptr):
+            fielddescr.check_correct_type(struct)
         return self.read_ref_at_mem(struct, ofs)
 
     @specialize.argtype(1)
     def bh_getfield_gc_f(self, struct, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
+        if isinstance(lltype.typeOf(struct), lltype.Ptr):
+            fielddescr.check_correct_type(struct)
         return self.read_float_at_mem(struct, ofs)
 
     bh_getfield_raw_i = bh_getfield_gc_i

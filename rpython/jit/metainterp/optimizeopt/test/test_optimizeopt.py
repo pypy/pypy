@@ -8805,5 +8805,116 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_resume_forced_raw_ptr(self):
+        ops = """
+        [i0]
+        i = call_i('malloc', 10, descr=raw_malloc_descr)
+        is = int_add(i, 8)
+        escape_n(i)
+        i1 = int_add(i0, 1)
+        i2 = int_lt(i1, 100)
+        guard_true(i2) [is]
+        call_n('free', i, descr=raw_free_descr)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        i = call_i('malloc', 10, descr=raw_malloc_descr)
+        escape_n(i)
+        i1 = int_add(i0, 1)
+        i2 = int_lt(i1, 100)
+        guard_true(i2) [i]
+        call_n('free', i, descr=raw_free_descr)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_with_floats(self):
+        ops = """
+        [p1, i1]
+        p0 = new_with_vtable(descr=nodesize)
+        i2 = int_add(i1, 1)
+        setfield_gc(p0, 0.0000, descr=floatdescr)
+        setfield_gc(p0, i2, descr=valuedescr)
+        jump(p0, i2)
+        """
+        expected = """
+        [i1]
+        i2 = int_add(i1, 1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_same_as_preserves_info_in_the_preamble(self):
+        ops = """
+        [p0, p1, i1]
+        i2 = int_add(i1, 1)
+        setfield_gc(p0, i2, descr=valuedescr)
+        i = int_le(i2, 13)
+        guard_true(i) []
+        if00 = getfield_gc_i(p0, descr=valuedescr)
+        icheck = int_le(if00, 13)
+        guard_true(icheck) []
+        jump(p0, p1, i1)
+        """
+        expected = """
+        [p0, p1, i1, i2]
+        setfield_gc(p0, i2, descr=valuedescr)
+        jump(p0, p1, i1, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_same_as_preserves_info_in_the_preamble_2(self):
+        ops = """
+        [i0, p0]
+        ifoo = getfield_gc_i(p0, descr=valuedescr)
+        icheck = int_lt(ifoo, 13)
+        guard_true(icheck) []
+        i1 = int_add(i0, 1)
+        i2 = int_lt(i1, 13)
+        guard_true(i2) []
+        setfield_gc(p0, i1, descr=valuedescr)
+        jump(i0, p0)
+        """
+        expected = """
+        [i0, p0, i4]
+        setfield_gc(p0, i4, descr=valuedescr)
+        jump(i0, p0, i4)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_pending_setfield_delayed_malloc(self):
+        ops = """
+        [i0, p0]
+        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
+        setarrayitem_raw(i2, 0, 13, descr=rawarraydescr)
+        setfield_gc(p0, i2, descr=valuedescr)
+        i1 = int_add(i0, 1)
+        i3 = int_lt(i1, 10)
+        guard_true(i3) []
+        setfield_gc(p0, 0, descr=valuedescr)
+        jump(i1, p0)
+        """
+        expected = """
+        [i0, p0]
+        i1 = int_add(i0, 1)
+        i3 = int_lt(i1, 10)
+        guard_true(i3) [p0]
+        jump(i1, p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_raw_buffer_ptr_info_intbounds_bug(self):
+        ops = """
+        []
+        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
+        guard_value(i2, 12345) []
+        jump()
+        """
+        # getting InvalidLoop would be a good idea, too.
+        # (this test was written to show it would previously crash)
+        self.optimize_loop(ops, ops)
+
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

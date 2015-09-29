@@ -909,7 +909,7 @@ class AssemblerARM(ResOpAssembler):
             descr.adr_jump_offset = failure_recovery_pos
             relative_offset = tok.pos_recovery_stub - tok.offset
             guard_pos = block_start + tok.offset
-            if not tok.is_guard_not_invalidated:
+            if not tok.guard_not_invalidated():
                 # patch the guard jump to the stub
                 # overwrite the generate NOP with a B_offs to the pos of the
                 # stub

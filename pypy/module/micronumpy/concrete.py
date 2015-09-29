@@ -1,5 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit, rgc
+from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
@@ -15,6 +17,19 @@ from pypy.module.micronumpy.strides import (
     calculate_broadcast_strides, calc_backstrides, calc_start, is_c_contiguous,
     is_f_contiguous)
 from rpython.rlib.objectmodel import keepalive_until_here
+
+TimSort = make_timsort_class()
+class StrideSort(TimSort):
+    ''' 
+    argsort (return the indices to sort) a list of strides
+    '''
+    def __init__(self, rangelist, strides):
+        self.strides = strides
+        TimSort.__init__(self, rangelist)
+
+    def lt(self, a, b):
+        return self.strides[a] < self.strides[b]
+
 
 class BaseConcreteArray(object):
     _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
@@ -353,12 +368,15 @@ class BaseConcreteArray(object):
         elif order != self.order:
             t_strides, backstrides = calc_strides(shape, dtype, order)
         else:
-            mins = strides[0]
+            indx_array = range(len(strides))
+            list_sorter = StrideSort(indx_array, strides)
+            list_sorter.sort()
             t_elsize = dtype.elsize
-            for s in strides:
-                if s < mins:
-                    mins = s
-            t_strides = [s * t_elsize / mins for s in strides]
+            t_strides = strides[:]
+            base = dtype.elsize
+            for i in indx_array:
+                t_strides[i] = base
+                base *= shape[i]
             backstrides = calc_backstrides(t_strides, shape)
         impl = ConcreteArray(shape, dtype, order, t_strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)
@@ -409,6 +427,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         make_sure_not_resized(strides)
         make_sure_not_resized(backstrides)
         self.shape = shape
+        # already tested for overflow in from_shape_and_storage
         self.size = support.product(shape) * dtype.elsize
         self.order = order
         self.dtype = dtype
@@ -428,9 +447,9 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
             raise oefmt(space.w_ValueError,
                 "sequence too large; must be smaller than %d", NPY.MAXDIMS)
         try:
-            support.product(new_shape) * self.dtype.elsize
+            ovfcheck(support.product_check(new_shape) * self.dtype.elsize)
         except OverflowError as e:
-            raise oefmt(space.w_ValueError, "array is too big")
+            raise oefmt(space.w_ValueError, "array is too big.")
         strides, backstrides = calc_strides(new_shape, self.dtype,
                                                     self.order)
         return SliceArray(self.start, strides, backstrides, new_shape, self,
@@ -457,8 +476,11 @@ class ConcreteArray(ConcreteArrayNotOwning):
                  storage=lltype.nullptr(RAW_STORAGE), zero=True):
         gcstruct = V_OBJECTSTORE
         flags = NPY.ARRAY_ALIGNED | NPY.ARRAY_WRITEABLE
-        length = support.product(shape)
-        self.size = length * dtype.elsize
+        try:
+            length = support.product_check(shape)
+            self.size = ovfcheck(length * dtype.elsize)
+        except OverflowError: 
+            raise oefmt(dtype.itemtype.space.w_ValueError, "array is too big.")
         if storage == lltype.nullptr(RAW_STORAGE):
             if dtype.num == NPY.OBJECT:
                 storage = dtype.itemtype.malloc(length * dtype.elsize, zero=True)
@@ -542,7 +564,10 @@ class SliceArray(BaseConcreteArray):
         self.gcstruct = parent.gcstruct
         self.order = parent.order
         self.dtype = dtype
-        self.size = support.product(shape) * self.dtype.elsize
+        try:
+            self.size = ovfcheck(support.product_check(shape) * self.dtype.elsize)
+        except OverflowError:
+            raise oefmt(dtype.itemtype.space.w_ValueError, "array is too big.")
         self.start = start
         self.orig_arr = orig_arr
         flags = parent.flags & NPY.ARRAY_ALIGNED
@@ -564,9 +589,9 @@ class SliceArray(BaseConcreteArray):
             raise oefmt(space.w_ValueError,
                 "sequence too large; must be smaller than %d", NPY.MAXDIMS)
         try:
-            support.product(new_shape) * self.dtype.elsize
+            ovfcheck(support.product_check(new_shape) * self.dtype.elsize)
         except OverflowError as e:
-            raise oefmt(space.w_ValueError, "array is too big")
+            raise oefmt(space.w_ValueError, "array is too big.")
         if len(self.get_shape()) < 2 or self.size == 0:
             # TODO: this code could be refactored into calc_strides
             # but then calc_strides would have to accept a stepping factor

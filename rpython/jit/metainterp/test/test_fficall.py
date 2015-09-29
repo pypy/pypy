@@ -70,6 +70,7 @@ class FfiCallTests(object):
         cif_description.exchange_result = (len(avalues)+1) * 16
 
         unroll_avalues = unrolling_iterable(avalues)
+        BIG_ENDIAN = (sys.byteorder == 'big')
 
         def fake_call_impl_any(cif_description, func_addr, exchange_buffer):
             ofs = 16
@@ -86,13 +87,19 @@ class FfiCallTests(object):
                     avalue = intmask(avalue)
                 assert got == avalue
                 ofs += 16
+            write_to_ofs = 0
             if rvalue is not None:
                 write_rvalue = rvalue
+                if BIG_ENDIAN:
+                    if (lltype.typeOf(write_rvalue) is rffi.SIGNEDCHAR or
+                        lltype.typeOf(write_rvalue) is rffi.UCHAR):
+                        # 'write_rvalue' is an int type smaller than Signed
+                        write_to_ofs = rffi.sizeof(rffi.LONG) - 1
             else:
                 write_rvalue = 12923  # ignored
             TYPE = rffi.CArray(lltype.typeOf(write_rvalue))
             data = rffi.ptradd(exchange_buffer, ofs)
-            rffi.cast(lltype.Ptr(TYPE), data)[0] = write_rvalue
+            rffi.cast(lltype.Ptr(TYPE), data)[write_to_ofs] = write_rvalue
 
         def f(i):
             exbuf = lltype.malloc(rffi.CCHARP.TO, (len(avalues)+2) * 16,
@@ -181,7 +188,7 @@ class FfiCallTests(object):
         kwds.setdefault('supports_singlefloats', True)
         self._run([types.float] * 2, types.double,
                   [r_singlefloat(10.5), r_singlefloat(31.5)],
-                  -4.5)
+                  -4.5, **kwds)
 
     def test_simple_call_singlefloat(self, **kwds):
         kwds.setdefault('supports_singlefloats', True)

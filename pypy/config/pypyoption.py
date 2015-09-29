@@ -92,6 +92,8 @@ module_suggests = {
 if sys.platform == "win32":
     module_suggests["cpyext"].append(("translation.shared", True))
 
+
+# NOTE: this dictionary is not used any more
 module_import_dependencies = {
     # no _rawffi if importing rpython.rlib.clibffi raises ImportError
     # or CompilationError or py.test.skip.Exception
@@ -108,6 +110,7 @@ module_import_dependencies = {
     }
 
 def get_module_validator(modname):
+    # NOTE: this function is not used any more
     if modname in module_import_dependencies:
         modlist = module_import_dependencies[modname]
         def validator(config):

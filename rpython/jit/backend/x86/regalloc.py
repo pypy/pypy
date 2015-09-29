@@ -159,6 +159,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.final_jump_op = None
 
     def _prepare(self, inputargs, operations, allgcrefs):
+        for box in inputargs:
+            assert box.get_forwarded() is None
         cpu = self.assembler.cpu
         self.fm = X86FrameManager(cpu.get_baseofs_of_frame_field())
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
@@ -611,7 +613,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             pass
         else:
             arglocs[0] = self.rm.make_sure_var_in_reg(vx)
-        self.possibly_free_vars(args)
         loc = self.force_allocate_reg_or_cc(op)
         self.perform(op, arglocs, loc)
 
@@ -649,7 +650,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 arglocs[1] = self.xrm.make_sure_var_in_reg(vy)
             else:
                 arglocs[0] = self.xrm.make_sure_var_in_reg(vx)
-        self.possibly_free_vars(op.getarglist())
         loc = self.force_allocate_reg_or_cc(op)
         self.perform(op, arglocs, loc)
 
@@ -1198,7 +1198,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def consider_int_is_true(self, op):
         # doesn't need arg to be in a register
         argloc = self.loc(op.getarg(0))
-        self.rm.possibly_free_var(op.getarg(0))
         resloc = self.force_allocate_reg_or_cc(op)
         self.perform(op, [argloc], resloc)
 
