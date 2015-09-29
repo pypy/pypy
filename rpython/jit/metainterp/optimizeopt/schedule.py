@@ -216,11 +216,17 @@ class OpRestrict(object):
 
 class OpMatchSizeTypeFirst(OpRestrict):
     def check_operation(self, state, pack, op):
-        arg0 = op.getarg(0)
+        i = 0
+        arg0 = op.getarg(i)
+        while arg0.is_constant() and i < op.numargs():
+            i += 1
+            arg0 = op.getarg(i)
         bytesize = arg0.bytesize
         datatype = arg0.datatype
 
         for arg in op.getarglist():
+            if arg.is_constant():
+                continue
             if arg.bytesize != bytesize:
                 raise NotAVectorizeableLoop()
             if arg.datatype != datatype:
