@@ -366,7 +366,7 @@ class OpParser(object):
             Internally you will see the same variable names as
             in the trace as string.
         """
-        regex = re.compile("[prif](\d+)")
+        regex = re.compile("[prifv](\d+)")
         match = regex.match(name)
         if match:
             counter = int(match.group(1))
