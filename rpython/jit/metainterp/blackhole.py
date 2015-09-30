@@ -1465,13 +1465,11 @@ class BlackholeInterpreter(object):
             assert kind == 'v'
         return lltype.nullptr(rclass.OBJECTPTR.TO)
 
-    def _prepare_resume_from_failure(self, opnum, deadframe, resumedescr):
+    def _prepare_resume_from_failure(self, opnum, deadframe):
         from rpython.jit.metainterp.resoperation import rop
         #
         if opnum == rop.GUARD_FUTURE_CONDITION:
             pass
-        elif opnum == rop.GUARD_EARLY_EXIT:
-            self.position = resumedescr.rd_frame_info_list.pc
         elif opnum == rop.GUARD_TRUE:
             # Produced directly by some goto_if_not_xxx() opcode that did not
             # jump, but which must now jump.  The pc is just after the opcode.
@@ -1644,7 +1642,7 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr, deadframe,
         all_virtuals)
 
     current_exc = blackholeinterp._prepare_resume_from_failure(
-        resumedescr.guard_opnum, deadframe, resumedescr)
+        resumedescr.guard_opnum, deadframe)
 
     _run_forever(blackholeinterp, current_exc)
 resume_in_blackhole._dont_inline_ = True

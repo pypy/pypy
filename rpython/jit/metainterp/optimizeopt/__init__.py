@@ -11,6 +11,7 @@ from rpython.rlib.jit import PARAMETERS, ENABLE_ALL_OPTS
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 
+
 ALL_OPTS = [('intbounds', OptIntBounds),
             ('rewrite', OptRewrite),
             ('virtualize', OptVirtualize),
@@ -52,9 +53,9 @@ def optimize_trace(metainterp_sd, jitdriver_sd, compile_data, memo=None):
     """
     debug_start("jit-optimize")
     inputargs = compile_data.start_label.getarglist()
-
     try:
-        metainterp_sd.logger_noopt.log_loop(inputargs, compile_data.operations,
+        metainterp_sd.logger_noopt.log_loop(inputargs,
+                                            compile_data.operations,
                                             memo=memo)
         if memo is None:
             memo = {}

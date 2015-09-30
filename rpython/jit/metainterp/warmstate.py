@@ -381,7 +381,7 @@ class WarmEnterState(object):
             if vinfo is not None:
                 virtualizable = args[index_of_virtualizable]
                 vinfo.clear_vable_token(virtualizable)
-            #
+            
             deadframe = func_execute_token(loop_token, *args)
             #
             # Record in the memmgr that we just ran this loop,

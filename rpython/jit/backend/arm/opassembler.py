@@ -180,13 +180,13 @@ class ResOpAssembler(BaseAssembler):
 
         gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
         token = ArmGuardToken(self.cpu, gcmap,
-                              descr,
-                              failargs=op.getfailargs(),
-                              fail_locs=arglocs,
-                              offset=offset,
-                              guard_opnum=op.getopnum(),
-                              frame_depth=frame_depth,
-                              fcond=fcond)
+                                    descr,
+                                    failargs=op.getfailargs(),
+                                    fail_locs=arglocs,
+                                    offset=offset,
+                                    guard_opnum=op.getopnum(),
+                                    frame_depth=frame_depth,
+                                    fcond=fcond)
         return token
 
     def _emit_guard(self, op, arglocs, is_guard_not_invalidated=False):
@@ -199,6 +199,7 @@ class ResOpAssembler(BaseAssembler):
         pos = self.mc.currpos()
         token = self.build_guard_token(op, arglocs[0].value, arglocs[1:], pos, fcond)
         self.pending_guards.append(token)
+        assert token.guard_not_invalidated() == is_guard_not_invalidated
         # For all guards that are not GUARD_NOT_INVALIDATED we emit a
         # breakpoint to ensure the location is patched correctly. In the case
         # of GUARD_NOT_INVALIDATED we use just a NOP, because it is only

@@ -19,13 +19,14 @@ from rpython.jit.metainterp.resume import (NUMBERING, PENDINGFIELDSP,
         ResumeDataDirectReader, AccumInfo)
 from rpython.jit.codewriter import heaptracker, longlong
 
+
 def giveup():
     from rpython.jit.metainterp.pyjitpl import SwitchToBlackhole
     raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
 
 class CompileData(object):
     memo = None
-
+    
     def forget_optimization_info(self):
         for arg in self.start_label.getarglist():
             arg.set_forwarded(None)
@@ -148,6 +149,7 @@ def create_empty_loop(metainterp, name_prefix=''):
     name = metainterp.staticdata.stats.name_for_new_loop()
     loop = TreeLoop(name_prefix + name)
     return loop
+
 
 def make_jitcell_token(jitdriver_sd):
     jitcell_token = JitCellToken()
@@ -359,7 +361,8 @@ def compile_retrace(metainterp, greenkey, start,
                                  enable_opts=enable_opts)
     try:
         loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                             loop_data)
+                                             loop_data,
+                                             metainterp.box_names_memo)
     except InvalidLoop:
         # Fall back on jumping directly to preamble
         jump_op = ResOperation(rop.JUMP, inputargs[:], descr=loop_jitcell_token)
@@ -369,7 +372,8 @@ def compile_retrace(metainterp, greenkey, start,
                                      inline_short_preamble=False)
         try:
             loop_info, loop_ops = optimize_trace(metainterp_sd, jitdriver_sd,
-                                                 loop_data)
+                                                 loop_data,
+                                                 metainterp.box_names_memo)
         except InvalidLoop:
             return None
 
@@ -854,7 +858,7 @@ class ResumeGuardDescr(ResumeDescr):
         return cloned
 
     def exits_early(self):
-        return True
+        return False
 
     def attach_accum_info(self, pos, operator, arg, loc):
         self.rd_accum_list = \

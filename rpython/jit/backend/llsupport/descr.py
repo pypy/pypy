@@ -285,9 +285,6 @@ class ArrayDescr(ArrayOrFieldDescr):
     def get_item_size_in_bytes(self):
         return self.itemsize
 
-    def get_flag(self):
-        return self.flag
-
     def is_array_of_structs(self):
         return self.flag == FLAG_STRUCT
 
@@ -337,18 +334,16 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
         flag = get_type_flag(ARRAY_INSIDE.OF)
         is_pure = bool(ARRAY_INSIDE._immutable_field(None))
         arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag, is_pure)
+        if ARRAY_INSIDE.OF is lltype.SingleFloat or \
+           ARRAY_INSIDE.OF is lltype.Float:
+            # it would be better to set the flag as FLOAT_TYPE
+            # for single float -> leads to problems
+            arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag, is_pure, concrete_type='f')
         cache[ARRAY_OR_STRUCT] = arraydescr
         if isinstance(ARRAY_INSIDE.OF, lltype.Struct):
             descrs = heaptracker.all_interiorfielddescrs(gccache,
                 ARRAY_INSIDE, get_field_descr=get_interiorfield_descr)
             arraydescr.all_interiorfielddescrs = descrs
-        concrete_type = '\x00'
-        if ARRAY_INSIDE.OF is lltype.SingleFloat or \
-           ARRAY_INSIDE.OF is lltype.Float:
-            # it would be better to set the flag as FLOAT_TYPE
-            # for single float -> leads to problems
-            concrete_type = 'f'
-        arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag, is_pure, concrete_type=concrete_type)
         if ARRAY_OR_STRUCT._gckind == 'gc':
             gccache.init_array_descr(ARRAY_OR_STRUCT, arraydescr)
         return arraydescr

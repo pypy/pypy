@@ -33,4 +33,3 @@ class JitDriverStaticData(object):
 
     def _freeze_(self):
         return True
-

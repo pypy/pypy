@@ -209,17 +209,10 @@ class ArrayDescr(AbstractDescr):
     def is_array_of_primitives(self):
         kind = getkind(self.A.OF)
         return kind == 'float' or \
-               kind == 'int' or \
-               kind == ''
+               kind == 'int'
 
     def is_always_pure(self):
         return self._is_pure
-
-    def get_all_fielddescrs(self):
-        return self.all_interiorfielddescrs
-
-    def __repr__(self):
-        return 'ArrayDescr(%r)' % (self.OUTERA,)
 
     def get_all_fielddescrs(self):
         return self.all_interiorfielddescrs
@@ -1069,7 +1062,7 @@ class LLFrame(object):
 
     def fail_guard(self, descr, saved_data=None):
         values = []
-        for i,box in enumerate(self.current_op.getfailargs()):
+        for box in self.current_op.getfailargs():
             if box is not None:
                 value = self.env[box]
             else:
@@ -1094,9 +1087,6 @@ class LLFrame(object):
     def execute_label(self, descr, *args):
         argboxes = self.current_op.getarglist()
         self.do_renaming(argboxes, args)
-
-    def execute_guard_early_exit(self, descr):
-        pass
 
     def _test_true(self, arg):
         if isinstance(arg, list):

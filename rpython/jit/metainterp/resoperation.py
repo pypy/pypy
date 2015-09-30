@@ -515,6 +515,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
 class PlainResOp(AbstractResOp):
     pass
 
+
 class ResOpWithDescr(AbstractResOp):
 
     _descr = None
@@ -1113,13 +1114,6 @@ _oplist = [
     # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
-    '_DEBUG_FIRST',
-    'DEBUG_MERGE_POINT/*/n',      # debugging only
-    'ENTER_PORTAL_FRAME/2/n',     # debugging only
-    'LEAVE_PORTAL_FRAME/1/n',     # debugging only
-    'JIT_DEBUG/*/n',              # debugging only
-    '_DEBUG_LAST',
-
     'INCREMENT_DEBUG_COUNTER/1/n',
     '_RAW_STORE_FIRST',
     'SETARRAYITEM_GC/3d/n',
@@ -1141,6 +1135,12 @@ _oplist = [
     'UNICODESETITEM/3/n',
     'COND_CALL_GC_WB/1d/n',       # [objptr] (for the write barrier)
     'COND_CALL_GC_WB_ARRAY/2d/n', # [objptr, arrayindex] (write barr. for array)
+    '_DEBUG_FIRST',
+    'DEBUG_MERGE_POINT/*/n',      # debugging only
+    'ENTER_PORTAL_FRAME/2/n',     # debugging only
+    'LEAVE_PORTAL_FRAME/1/n',     # debugging only
+    'JIT_DEBUG/*/n',              # debugging only
+    '_DEBUG_LAST',
     'VIRTUAL_REF_FINISH/2/n',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5/n',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5/n',
@@ -1299,6 +1299,7 @@ def create_class_for_op(name, opnum, arity, withdescr, result_type):
     return type(cls_name, bases, dic)
 
 setup(__name__ == '__main__')   # print out the table when run directly
+del _oplist
 
 _opboolinverse = {
     rop.INT_EQ: rop.INT_NE,

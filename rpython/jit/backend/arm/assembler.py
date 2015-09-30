@@ -932,7 +932,6 @@ class AssemblerARM(ResOpAssembler):
         while regalloc.position() < len(operations) - 1:
             regalloc.next_instruction()
             i = regalloc.position()
-            self.position = i
             op = operations[i]
             self.mc.mark_op(op)
             opnum = op.getopnum()

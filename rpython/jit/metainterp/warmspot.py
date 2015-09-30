@@ -70,6 +70,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     backendopt=False, trace_limit=sys.maxint, inline=False,
                     loop_longevity=0, retrace_limit=5, function_threshold=4,
+                    disable_unrolling=sys.maxint,
                     enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, 
                     max_unroll_recursion=7, vec=1, vec_all=0, vec_cost=0,
                     vec_length=60, vec_ratio=2, vec_guard_ratio=3, **kwds):
@@ -95,6 +96,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         jd.warmstate.set_param_max_retrace_guards(max_retrace_guards)
         jd.warmstate.set_param_enable_opts(enable_opts)
         jd.warmstate.set_param_max_unroll_recursion(max_unroll_recursion)
+        jd.warmstate.set_param_disable_unrolling(disable_unrolling)
         jd.warmstate.set_param_vec(vec)
         jd.warmstate.set_param_vec_all(vec_all)
         jd.warmstate.set_param_vec_cost(vec_cost)
