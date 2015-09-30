@@ -144,14 +144,13 @@ def parse_func_flags(space, nditer, w_flags):
             'Iterator flag EXTERNAL_LOOP cannot be used if an index or '
             'multi-index is being tracked')
 
-
-def is_backward(imp, order):
-    if order == NPY.KEEPORDER or (order == NPY.CORDER and imp.order == NPY.CORDER):
+def is_backward(imp_order, order):
+    if imp_order == order:
         return False
-    elif order == NPY.FORTRANORDER and imp.order == NPY.CORDER:
-        return True
+    if order == NPY.KEEPORDER:
+        return False
     else:
-        raise NotImplementedError('not implemented yet')
+        return True
 
 
 class OperandIter(ArrayIter):
@@ -514,7 +513,7 @@ class W_NDIter(W_NumpyObject):
         dtype = self.dtypes[i]
         shape = self.shape
         imp = arr.implementation
-        backward = is_backward(imp, self.order)
+        backward = is_backward(imp.order, self.order)
         if arr.is_scalar():
             return ConcreteIter(imp, 1, [], [], [], self.op_flags[i], self)
         if (abs(imp.strides[0]) < abs(imp.strides[-1]) and not backward) or \

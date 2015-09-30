@@ -92,17 +92,18 @@ class BaseConcreteArray(object):
     def get_storage_size(self):
         return self.size
 
-    def reshape(self, orig_array, new_shape):
+    def reshape(self, orig_array, new_shape, order=NPY.ANYORDER):
         # Since we got to here, prod(new_shape) == self.size
+        order = support.get_order_as_CF(self.order, order)
         new_strides = None
         if self.size == 0:
-            new_strides, _ = calc_strides(new_shape, self.dtype, self.order)
+            new_strides, _ = calc_strides(new_shape, self.dtype, order)
         else:
             if len(self.get_shape()) == 0:
                 new_strides = [self.dtype.elsize] * len(new_shape)
             else:
                 new_strides = calc_new_strides(new_shape, self.get_shape(),
-                                               self.get_strides(), self.order)
+                                               self.get_strides(), order)
                 if new_strides is None or len(new_strides) != len(new_shape):
                     return None
         if new_strides is not None:
@@ -306,10 +307,11 @@ class BaseConcreteArray(object):
         return SliceArray(self.start, strides,
                           backstrides, shape, self, orig_array)
 
-    def copy(self, space):
+    def copy(self, space, order=NPY.ANYORDER):
+        order = support.get_order_as_CF(self.order, order)
         strides, backstrides = calc_strides(self.get_shape(), self.dtype,
-                                                    self.order)
-        impl = ConcreteArray(self.get_shape(), self.dtype, self.order, strides,
+                                                    order)
+        impl = ConcreteArray(self.get_shape(), self.dtype, order, strides,
                              backstrides)
         return loop.setslice(space, self.get_shape(), impl, self)
 

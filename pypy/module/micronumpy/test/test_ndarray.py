@@ -921,6 +921,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(ValueError, a.reshape, (0,), order="K")
         b = a.reshape((0,), order='F')
         assert b.shape == (0,)
+        a = array(range(24), 'uint8')
+        assert a.reshape([2, 3, 4], order=True).strides ==(1, 2, 6)
+        assert a.reshape([2, 3, 4], order=False).strides ==(12, 4, 1)
 
     def test_slice_reshape(self):
         from numpy import zeros, arange

@@ -108,7 +108,8 @@ def concatenate(space, w_args, w_axis=None):
         w_axis = space.wrap(0)
     if space.is_none(w_axis):
         args_w = [w_arg.reshape(space,
-                                space.newlist([w_arg.descr_get_size(space)]))
+                                space.newlist([w_arg.descr_get_size(space)]),
+                                w_arg.get_order())
                   for w_arg in args_w]
         w_axis = space.wrap(0)
     dtype = args_w[0].get_dtype()
