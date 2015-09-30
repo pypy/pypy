@@ -535,10 +535,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == a).all()
         b = a.copy(order='A')
         assert (b == a).all()
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, a.copy, order='F')
-            raises(NotImplementedError, a.copy, order=True)
+        b = a.copy(order='F')
+        assert (b == a).all()
+        b = a.copy(order=True)
+        assert (b == a).all()
 
     def test_iterator_init(self):
         from numpy import array
@@ -919,9 +919,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.reshape((0,), order='A').shape == (0,)
         raises(TypeError, a.reshape, (0,), badarg="C")
         raises(ValueError, a.reshape, (0,), order="K")
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, a.reshape, (0,), order='F')
+        b = a.reshape((0,), order='F')
+        assert b.shape == (0,)
 
     def test_slice_reshape(self):
         from numpy import zeros, arange
@@ -2665,11 +2664,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a[1][2][1] == 15
 
     def test_create_order(self):
-        import sys, numpy as np
+        import numpy as np
         for order in [False, True, 'C', 'F']:
             a = np.empty((2, 3), float, order=order)
             assert a.shape == (2, 3)
-            if order in [True, 'F'] and '__pypy__' not in sys.builtin_module_names:
+            if order in [True, 'F']:
                 assert a.flags['F']
                 assert not a.flags['C']
             else:
@@ -3566,10 +3565,7 @@ class AppTestSupport(BaseNumpyAppTest):
             assert a.tostring(order) == '\x01\x02\x03\x04'
         import sys
         for order in (True, 'F'):
-            if '__pypy__' in sys.builtin_module_names:
-                raises(NotImplementedError, a.tostring, order)
-            else:
-                assert a.tostring(order) == '\x01\x03\x02\x04'
+            assert a.tostring(order) == '\x01\x03\x02\x04'
         assert array(2.2-1.1j, dtype='>c16').tostring() == \
             '@\x01\x99\x99\x99\x99\x99\x9a\xbf\xf1\x99\x99\x99\x99\x99\x9a'
         assert array(2.2-1.1j, dtype='<c16').tostring() == \

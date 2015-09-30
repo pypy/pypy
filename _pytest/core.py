@@ -175,7 +175,7 @@ class PluginManager(object):
                 continue
             try:
                 plugin = ep.load()
-            except DistributionNotFound:
+            except (DistributionNotFound, ImportError):
                 continue
             self._plugin_distinfo.append((ep.dist, plugin))
             self.register(plugin, name=name)
