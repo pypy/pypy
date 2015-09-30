@@ -40,7 +40,7 @@ class AppTestVMProf(object):
                     count += 1
                     i += 2 * WORD + size
                 else:
-                    raise AssertionError(ord(s[i]))
+                    raise AssertionError(s[i])
             return count
         
         import _vmprof
