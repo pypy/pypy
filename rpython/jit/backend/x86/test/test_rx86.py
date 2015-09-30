@@ -14,9 +14,6 @@ class CodeBuilderMixin(object):
     def getvalue(self):
         return ''.join(self.buffer)
 
-    def clear(self):
-        self.buffer = []
-
     def force_frame_size(self, frame_size):
         pass
 

@@ -575,7 +575,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         if logger:
-            logger.log_bridge(inputargs, operations, "rewritten",
+            logger.log_bridge(inputargs, operations, "rewritten", faildescr,
                               ops_offset=ops_offset)
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
@@ -1020,7 +1020,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                                     faildescr, failargs,
                                                     faillocs, frame_depth)
         genop_guard_list[guard_opnum](self, guard_op, guard_token,
-                                         arglocs, resloc)
+                                      arglocs, resloc)
         if not we_are_translated():
             # must be added by the genop_guard_list[]()
             assert guard_token is self.pending_guard_tokens[-1]
