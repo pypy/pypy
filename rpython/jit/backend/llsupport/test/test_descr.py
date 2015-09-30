@@ -144,6 +144,7 @@ def test_get_array_descr():
     descr4 = get_array_descr(c0, A4)
     descr5 = get_array_descr(c0, A5)
     descr6 = get_array_descr(c0, A6)
+    import pdb; pdb.set_trace()
     assert isinstance(descr1, ArrayDescr)
     assert descr1 == get_array_descr(c0, lltype.GcArray(lltype.Char))
     assert descr1.flag == FLAG_UNSIGNED

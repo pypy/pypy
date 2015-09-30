@@ -23,9 +23,8 @@ from rpython.jit.backend.x86.vector_ext import VectorRegallocMixin
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
-    ConstFloat, INT, REF, FLOAT, VECTOR, TargetToken)
+    ConstFloat, INT, REF, FLOAT, VECTOR, TargetToken, AbstractFailDescr)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
-from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.jit.metainterp.resume import AccumInfo
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
@@ -320,8 +319,10 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def locs_for_fail(self, guard_op):
         faillocs = [self.loc(arg) for arg in guard_op.getfailargs()]
         descr = guard_op.getdescr()
-        assert isinstance(descr, ResumeGuardDescr)
-        if descr and descr.rd_accum_list:
+        if not descr:
+            return faillocs
+        assert isinstance(descr, AbstractFailDescr)
+        if descr.rd_accum_list:
             accuminfo = descr.rd_accum_list
             while accuminfo:
                 accuminfo.vector_loc = faillocs[accuminfo.getpos_in_failargs()]

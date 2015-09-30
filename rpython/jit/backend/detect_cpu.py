@@ -135,6 +135,7 @@ def getcpufeatures(backend_name="auto"):
         MODEL_X86: ['floats', 'singlefloats', 'longlong'],
         MODEL_X86_NO_SSE2: ['longlong'],
         MODEL_X86_64: ['floats', 'singlefloats'],
+        MODEL_X86_64_SSE4: ['floats', 'singlefloats'],
         MODEL_ARM: ['floats', 'singlefloats', 'longlong'],
         MODEL_PPC_64: [], # we don't even have PPC directory, so no
     }[backend_name]
