@@ -239,13 +239,16 @@ def normalize_simple_slice(space, length, w_start, w_stop):
     # hack for the JIT, for slices with no end specified:
     # this avoids the two comparisons that follow
     if jit.isconstant(stop) and stop == sys.maxint:
-        return start, length
-    if stop < start:
-        stop = start
-    if stop > length:
-        stop = length
-        if jit.isconstant(start) and start == 0:
-            pass    # no need to do the following check here
-        elif start > length:
-            start = length
+        pass
+    else:
+        if stop < start:
+            stop = start
+        if stop <= length:
+            return start, stop
+    # here is the case where 'stop' is larger than the list
+    stop = length
+    if jit.isconstant(start) and start == 0:
+        pass    # no need to do the following check here
+    elif start > stop:
+        start = stop
     return start, stop
