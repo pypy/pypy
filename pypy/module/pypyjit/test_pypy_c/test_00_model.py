@@ -72,7 +72,7 @@ class BaseTestPyPyC(object):
             stderr = ''
         assert not stderr
         #
-        if discard_stdout_before_last_line or True:
+        if discard_stdout_before_last_line:
             stdout = stdout.splitlines(True)[-1]
         #
         # parse the JIT log

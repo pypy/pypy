@@ -276,7 +276,7 @@ class W_Ufunc(W_Root):
                 loop.accumulate_flat(
                     space, self.func, obj, dtype, out, self.identity)
             if call__array_wrap__:
-                out = space.call_method(obj, '__array_wrap__', out, None)
+                out = space.call_method(obj, '__array_wrap__', out, space.w_None)
             return out
 
         axis_flags = [False] * shapelen
