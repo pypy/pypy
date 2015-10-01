@@ -1308,6 +1308,9 @@ class __extend__(W_NDimArray):
             [space.wrap(0)]), space.wrap("b")])
 
         builder = StringBuilder()
+        if self.get_dtype().is_object():
+            raise oefmt(space.w_NotImplementedError,
+                    "reduce for 'object' dtype not supported yet")
         if isinstance(self.implementation, SliceArray):
             iter, state = self.implementation.create_iter()
             while not iter.done(state):
