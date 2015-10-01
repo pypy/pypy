@@ -35,14 +35,17 @@ class __extend__(annmodel.SomePBC):
     def rtyper_makerepr(self, rtyper):
         kind = self.getKind()
         if issubclass(kind, FunctionDesc):
-            sample = self.any_description()
-            callfamily = sample.querycallfamily()
-            if callfamily and callfamily.total_calltable_size > 0:
-                getRepr = FunctionsPBCRepr
-                if small_cand(rtyper, self):
-                    getRepr = SmallFunctionSetPBCRepr
+            if len(self.descriptions) == 1 and not self.can_be_None:
+                getRepr = FunctionRepr
             else:
-                getRepr = getFrozenPBCRepr
+                sample = self.any_description()
+                callfamily = sample.querycallfamily()
+                if callfamily and callfamily.total_calltable_size > 0:
+                    getRepr = FunctionsPBCRepr
+                    if small_cand(rtyper, self):
+                        getRepr = SmallFunctionSetPBCRepr
+                else:
+                    getRepr = getFrozenPBCRepr
         elif issubclass(kind, ClassDesc):
             # user classes
             getRepr = ClassesPBCRepr
@@ -356,6 +359,9 @@ class FunctionsPBCRepr(CanBeNull, Repr):
             return None      # see test_always_raising_methods
         else:
             return hop.llops.convertvar(v, rresult, hop.r_result)
+
+class FunctionRepr(FunctionsPBCRepr):
+    pass
 
 class __extend__(pairtype(FunctionsPBCRepr, FunctionsPBCRepr)):
     def convert_from_to((r_fpbc1, r_fpbc2), v, llops):
