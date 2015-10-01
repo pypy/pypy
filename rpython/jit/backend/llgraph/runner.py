@@ -799,6 +799,8 @@ class LLGraphCPU(model.AbstractCPU):
     exec py.code.Source(vector_arith_code.format('int','add','+')).compile()
     exec py.code.Source(vector_arith_code.format('int','sub','-')).compile()
     exec py.code.Source(vector_arith_code.format('int','mul','*')).compile()
+    exec py.code.Source(vector_arith_code.format('int','and','&')).compile()
+    exec py.code.Source(vector_arith_code.format('int','or','|')).compile()
     exec py.code.Source(vector_arith_code.format('float','add','+')).compile()
     exec py.code.Source(vector_arith_code.format('float','sub','-')).compile()
     exec py.code.Source(vector_arith_code.format('float','mul','*')).compile()

@@ -386,5 +386,28 @@ class VectorizeTests:
         res = self.meta_interp(f, [size], vec_all=True)
         assert res == f(size)
 
+    def test_max_byte(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        T = lltype.Array(rffi.SIGNEDCHAR, hints={'nolength': True})
+        def f(size):
+            vector_a = malloc(T, size)
+            for i in range(size):
+                vector_a[i] = rffi.r_signedchar(1)
+            for i in range(size/2,size):
+                vector_a[i] = rffi.r_signedchar(i)
+            i = 0
+            max = -127
+            while i < size:
+                myjitdriver.jit_merge_point()
+                a = intmask(vector_a[i])
+                a = a & 255
+                if a > max:
+                    max = a
+                i += 1
+            free(vector_a)
+            return max
+        res = self.meta_interp(f, [128], vec_all=True)
+        assert res == f(128)
+
 class TestLLtype(LLJitMixin, VectorizeTests):
     pass
