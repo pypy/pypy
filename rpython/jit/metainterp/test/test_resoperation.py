@@ -107,6 +107,12 @@ def test_cast_ops(opnum, args, kwargs):
     if 'cast_to' in kwargs:
         assert op.cast_to() == kwargs['cast_to']
 
+def test_unpack_1():
+    op = rop.ResOperation(rop.rop.VEC_UNPACK_I, [rop.InputArgVector(), ConstInt(0), ConstInt(1)])
+    assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('i', 'i', 8, False)
+    op = rop.ResOperation(rop.rop.VEC_UNPACK_I, [rop.InputArgVector(), ConstInt(0), ConstInt(2)])
+    assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('i', 'i', 8, True)
+
 def test_types():
     op = rop.ResOperation(rop.rop.INT_ADD, [ConstInt(0),ConstInt(1)])
     assert op.type == 'i'
