@@ -248,8 +248,6 @@ class AppTestLockSignals(GenericTestThread):
             signal.signal(signal.SIGALRM, oldalrm)
 
     def test_rlock_acquire_interruption(self):
-        if self.using_pthread_cond:
-            skip('POSIX condition variables cannot be interrupted')
         import _thread, signal, time
         # Mimic receiving a SIGINT (KeyboardInterrupt) with SIGALRM while stuck
         # in a deadlock.
