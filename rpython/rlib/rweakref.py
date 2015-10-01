@@ -25,6 +25,9 @@ class RWeakValueDictionary(object):
     """A dictionary containing weak values."""
 
     def __init__(self, keyclass, valueclass):
+        """'keyclass' can be an RPython class or a type like 'int' or 'str'.
+        On the other hand, 'valueclass' must be an RPython class.
+        """
         self._dict = weakref.WeakValueDictionary()
         self._keyclass = keyclass
         self._valueclass = valueclass
@@ -98,6 +101,12 @@ class SomeWeakValueDict(annmodel.SomeObject):
     def __init__(self, s_key, valueclassdef):
         self.s_key = s_key
         self.valueclassdef = valueclassdef
+
+    def can_be_none(self):
+        return True
+
+    def noneify(self):
+        return self
 
     def rtyper_makerepr(self, rtyper):
         from rpython.rlib import _rweakvaldict

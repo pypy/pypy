@@ -146,6 +146,25 @@ def test_rpython_merge_RWeakValueDictionary2():
     py.test.raises(Exception, interpret, g, [1])
 
 
+def test_rpython_RWeakValueDictionary_or_None():
+    def g(d, key):
+        if d is None:
+            return None
+        return d.get(key)
+    def f(n):
+        x = X()
+        if n:
+            d = None
+        else:
+            d = RWeakValueDictionary(str, X)
+            d.set("a", x)
+        return g(d, "a") is x
+    assert f(0)
+    assert interpret(f, [0])
+    assert not f(1)
+    assert not interpret(f, [1])
+
+
 def test_bogus_makekey():
     class X: pass
     class Y: pass
