@@ -30,6 +30,32 @@ def test_ffi_cache_type():
     assert ffi.typeof("int[][10]") is ffi.typeof("int[][10]")
     assert ffi.typeof("int(*)()") is ffi.typeof("int(*)()")
 
+def test_ffi_type_not_immortal():
+    import weakref, gc
+    ffi = _cffi1_backend.FFI()
+    t1 = ffi.typeof("int **")
+    t2 = ffi.typeof("int *")
+    w1 = weakref.ref(t1)
+    w2 = weakref.ref(t2)
+    del t1, ffi
+    gc.collect()
+    assert w1() is None
+    assert w2() is t2
+    ffi = _cffi1_backend.FFI()
+    assert ffi.typeof(ffi.new("int **")[0]) is t2
+    #
+    ffi = _cffi1_backend.FFI()
+    t1 = ffi.typeof("int ***")
+    t2 = ffi.typeof("int **")
+    w1 = weakref.ref(t1)
+    w2 = weakref.ref(t2)
+    del t2, ffi
+    gc.collect()
+    assert w1() is t1
+    assert w2() is not None   # kept alive by t1
+    ffi = _cffi1_backend.FFI()
+    assert ffi.typeof("int * *") is t1.item
+
 def test_ffi_cache_type_globally():
     ffi1 = _cffi1_backend.FFI()
     ffi2 = _cffi1_backend.FFI()
