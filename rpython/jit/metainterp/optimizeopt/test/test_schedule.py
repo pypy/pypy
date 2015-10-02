@@ -11,15 +11,10 @@ from rpython.jit.metainterp.optimizeopt.schedule import Scheduler
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import (DependencyBaseTest)
 from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpStaticData,
-        FakeJitDriverStaticData)
+        FakeJitDriverStaticData, FakePackSet)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.tool.oparser import parse as opparse
 from rpython.jit.tool.oparser_model import get_model
-
-class FakePackSet(PackSet):
-    def __init__(self, packs):
-        self.packs = packs
-        self.vec_reg_size = 16
 
 class FakeVecScheduleState(VecScheduleState):
     def __init__(self):

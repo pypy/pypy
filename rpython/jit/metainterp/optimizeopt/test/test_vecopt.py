@@ -13,16 +13,25 @@ import rpython.jit.metainterp.optimizeopt.virtualize as virtualize
 from rpython.jit.metainterp.optimizeopt.dependency import DependencyGraph
 from rpython.jit.metainterp.optimizeopt.vector import (VectorizingOptimizer,
         MemoryRef, isomorphic, Pair, NotAVectorizeableLoop, VectorLoop,
-        NotAProfitableLoop, GuardStrengthenOpt, CostModel, X86_CostModel)
+        NotAProfitableLoop, GuardStrengthenOpt, CostModel, X86_CostModel,
+        PackSet)
 from rpython.jit.metainterp.optimizeopt.schedule import (Scheduler,
-        SchedulerState, VecScheduleState)
+        SchedulerState, VecScheduleState, Pack)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
+from rpython.jit.backend.llsupport.descr import ArrayDescr
+from rpython.jit.metainterp.optimizeopt.schedule import opcount_filling_vector_register
+from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
 
 class FakeJitDriverStaticData(object):
     vec=True
+
+class FakePackSet(PackSet):
+    def __init__(self, packs):
+        self.packs = packs
+        self.vec_reg_size = 16
 
 class FakeLoopInfo(LoopVersionInfo):
     def __init__(self, loop):
@@ -225,7 +234,23 @@ class VecTestHelper(DependencyBaseTest):
             "operation %s at pos %d has no memory ref!" % \
                 (node.getoperation(), node.getindex())
 
+class FakeInput(object):
+    def __init__(self, type='f', datatype='f', size=8, signed=False):
+        self.type = type
+        self.datatype = datatype
+        self.bytesize = size
+        self.signed = signed
+
+def arg(type='f', size=8, signed=False, datatype='f'):
+    return  FakeInput(type, datatype, size, signed)
 class BaseTestVectorize(VecTestHelper):
+
+    def test_opcount_filling(self):
+        descr = ArrayDescr(0,8, None, 'F', concrete_type='f')
+        pack = Pack([Node(ResOperation(rop.VEC_RAW_STORE, [0,0,arg('f',4)], descr), 0),
+                     Node(ResOperation(rop.VEC_RAW_STORE, [0,0,arg('f',4)], descr), 0),
+                    ])
+        assert opcount_filling_vector_register(pack, 16) == 2
 
     def test_move_guard_first(self):
         trace = self.parse_trace("""

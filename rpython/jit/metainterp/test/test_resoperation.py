@@ -124,7 +124,14 @@ def test_load_singlefloat():
                           [rop.InputArgInt(), ConstInt(0)],
                           descr=descr)
     assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('i', 'i', 4, True)
-    
+
+def test_store():
+    descr = ArrayDescr(0,8, None, 'F', concrete_type='f')
+    vec = rop.InputArgVector()
+    op = rop.ResOperation(rop.rop.VEC_RAW_STORE,
+                          [rop.InputArgRef(), ConstInt(0), vec],
+                          descr=descr)
+    assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('v', 'v', 8, True)
 
 def test_types():
     op = rop.ResOperation(rop.rop.INT_ADD, [ConstInt(0),ConstInt(1)])

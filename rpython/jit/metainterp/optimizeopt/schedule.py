@@ -235,6 +235,34 @@ class OpRestrict(object):
     def check_operation(self, state, pack, op):
         pass
 
+    def crop_vector(self, op, newsize, size):
+        return newsize, size
+
+    def must_crop_vector(self, op, index):
+        restrict = self.argument_restrictions[index]
+        size = op.getarg(index).bytesize
+        newsize = self.crop_to_size(op, index)
+        return not restrict.any_size() and newsize != size
+
+    @always_inline
+    def crop_to_size(self, op, index):
+        restrict = self.argument_restrictions[index]
+        return restrict.bytesize
+
+class StoreRestrict(OpRestrict):
+    def __init__(self, argument_restris):
+        self.argument_restrictions = argument_restris
+
+    def must_crop_vector(self, op, index):
+        size = op.getarg(index).bytesize
+        return self.crop_to_size(op, index) != size
+
+    @always_inline
+    def crop_to_size(self, op, index):
+        # there is only one parameter that needs to be transformed!
+        descr = op.getdescr()
+        return descr.get_item_size_in_bytes()
+
 class OpMatchSizeTypeFirst(OpRestrict):
     def check_operation(self, state, pack, op):
         i = 0
@@ -283,9 +311,9 @@ class trans(object):
         rop.VEC_FLOAT_ABS:          OpRestrict([TR_ANY_FLOAT]),
         rop.VEC_FLOAT_NEG:          OpRestrict([TR_ANY_FLOAT]),
 
-        rop.VEC_RAW_STORE:          OpRestrict([None, None, TR_ANY]),
-        rop.VEC_SETARRAYITEM_RAW:   OpRestrict([None, None, TR_ANY]),
-        rop.VEC_SETARRAYITEM_GC:    OpRestrict([None, None, TR_ANY]),
+        rop.VEC_RAW_STORE:          StoreRestrict([None, None, TR_ANY]),
+        rop.VEC_SETARRAYITEM_RAW:   StoreRestrict([None, None, TR_ANY]),
+        rop.VEC_SETARRAYITEM_GC:    StoreRestrict([None, None, TR_ANY]),
 
         rop.GUARD_TRUE:             OpRestrict([TR_ANY_INTEGER]),
         rop.GUARD_FALSE:            OpRestrict([TR_ANY_INTEGER]),
@@ -361,16 +389,18 @@ def prepare_arguments(state, pack, args):
         # 1)
         args[i] = vecop # a)
         assemble_scattered_values(state, pack, args, i) # c)
-        crop_vector(state, restrict, pack, args, i) # b)
+        crop_vector(state, oprestrict, restrict, pack, args, i) # b)
         position_values(state, restrict, pack, args, i, pos) # d)
         restrict.check(args[i])
 
 @always_inline
-def crop_vector(state, restrict, pack, args, i):
+def crop_vector(state, oprestrict, restrict, pack, args, i):
     # convert size i64 -> i32, i32 -> i64, ...
     arg = args[i]
-    newsize, size = restrict.bytesize, arg.bytesize
-    if not restrict.any_size() and newsize != size:
+    size = arg.bytesize
+    left = pack.leftmost()
+    if oprestrict.must_crop_vector(left, i):
+        newsize = oprestrict.crop_to_size(left, i)
         assert arg.type == 'i'
         state._prevent_signext(newsize, size)
         count = arg.count
@@ -713,8 +743,8 @@ def opcount_filling_vector_register(pack, vec_reg_size):
     op = pack.leftmost()
     if op.returns_void():
         assert op.is_primitive_store()
-        arg = op.getarg(2)
-        return vec_reg_size // arg.bytesize
+        descr = op.getdescr()
+        return vec_reg_size // descr.get_item_size_in_bytes()
 
     if op.is_typecast():
         if op.casts_down():
@@ -788,8 +818,9 @@ class Pack(object):
             if left.is_primitive_store():
                 # make this case more general if it turns out this is
                 # not the only case where packs need to be trashed
-                indexarg = left.getarg(2)
-                return indexarg.bytesize * self.numops() - vec_reg_size
+                descr = left.getdescr()
+                bytesize = descr.get_item_size_in_bytes()
+                return bytesize * self.numops() - vec_reg_size
             return 0
         if self.numops() == 0:
             return -1
