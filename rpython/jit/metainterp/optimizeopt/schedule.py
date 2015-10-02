@@ -11,6 +11,7 @@ from rpython.jit.metainterp.jitexc import NotAProfitableLoop
 from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.lltypesystem import lltype
 
 
 class SchedulerState(object):
