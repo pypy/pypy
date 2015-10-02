@@ -5,6 +5,7 @@ from rpython.jit.metainterp.history import AbstractDescr, AbstractFailDescr
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.backend.llsupport.symbolic import (WORD as INT_WORD,
         SIZEOF_FLOAT as FLOAT_WORD)
+from rpython.jit.backend.llsupport.descr import ArrayDescr
 
 def test_arity_mixins():
     cases = [
@@ -108,10 +109,22 @@ def test_cast_ops(opnum, args, kwargs):
         assert op.cast_to() == kwargs['cast_to']
 
 def test_unpack_1():
-    op = rop.ResOperation(rop.rop.VEC_UNPACK_I, [rop.InputArgVector(), ConstInt(0), ConstInt(1)])
-    assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('i', 'i', 8, False)
-    op = rop.ResOperation(rop.rop.VEC_UNPACK_I, [rop.InputArgVector(), ConstInt(0), ConstInt(2)])
-    assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('i', 'i', 8, True)
+    op = rop.ResOperation(rop.rop.VEC_UNPACK_I,
+            [rop.InputArgVector(), ConstInt(0), ConstInt(1)])
+    assert (op.type, op.datatype, op.bytesize, op.is_vector()) == \
+           ('i', 'i', 8, False)
+    op = rop.ResOperation(rop.rop.VEC_UNPACK_I,
+            [rop.InputArgVector(), ConstInt(0), ConstInt(2)])
+    assert (op.type, op.datatype, op.bytesize, op.is_vector()) == \
+           ('i', 'i', 8, True)
+
+def test_load_singlefloat():
+    descr = ArrayDescr(8,4, None, 'S', concrete_type='f')
+    op = rop.ResOperation(rop.rop.VEC_RAW_LOAD_I,
+                          [rop.InputArgInt(), ConstInt(0)],
+                          descr=descr)
+    assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('i', 'i', 4, True)
+    
 
 def test_types():
     op = rop.ResOperation(rop.rop.INT_ADD, [ConstInt(0),ConstInt(1)])

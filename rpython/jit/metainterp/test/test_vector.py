@@ -12,7 +12,9 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                      free_raw_storage, raw_storage_getitem)
+from rpython.rlib.objectmodel import specialize, is_annotation_constant
 
+@specialize.argtype(0,1)
 def malloc(T,n):
     return lltype.malloc(T, n, flavor='raw', zero=True)
 def free(mem):
@@ -408,6 +410,107 @@ class VectorizeTests:
             return max
         res = self.meta_interp(f, [128], vec_all=True)
         assert res == f(128)
+
+
+    def combinations(types, operators):
+        import itertools
+        size = 22
+
+        class Typ(object):
+            def __init__(self, type, storecast, loadcast):
+                self.type = type
+                self.storecast = storecast
+                self.loadcast = loadcast
+            def __repr__(self):
+                return self.type.replace(".","_")
+
+        sizes = [22]
+        for t1, t2, t3, op, size in itertools.product(types, types, types, operators, sizes):
+            yield (size, Typ(*t1), Typ(*t2), Typ(*t3), op[0], op[1])
+    types = [('rffi.DOUBLE', 'float', 'float'),
+             ('rffi.SIGNED', 'int', 'int'),
+             ('rffi.FLOAT', 'rffi.r_singlefloat', 'float'),
+            ]
+    operators = [('add', '+'),
+                ]
+    for size, typ1, typ2, typ3, opname, op in combinations(types, operators):
+        _source = """
+        def test_binary_operations_{name}(self):
+            myjitdriver = JitDriver(greens = [], reds = 'auto')
+            T1 = lltype.Array({type_a}, hints={{'nolength': True}})
+            T2 = lltype.Array({type_b}, hints={{'nolength': True}})
+            T3 = lltype.Array({type_c}, hints={{'nolength': True}})
+            def f(size):
+                vector_a = lltype.malloc(T1, size, flavor='raw')
+                vector_b = lltype.malloc(T2, size, flavor='raw')
+                vector_c = lltype.malloc(T3, size, flavor='raw')
+                for i in range(size):
+                    vector_a[i] = {type_a_storecast}(i+1)
+                for i in range(size):
+                    vector_b[i] = {type_b_storecast}(i+1)
+                for i in range(size):
+                    vector_c[i] = {type_c_storecast}(i+1)
+                i = 0
+                while i < size:
+                    myjitdriver.jit_merge_point()
+                    a = {type_a_loadcast}(vector_a[i])
+                    b = {type_b_loadcast}(vector_b[i])
+                    c = (a {op} b)
+                    vector_c[i] = {type_c_storecast}(c)
+                    i += 1
+                lltype.free(vector_a, flavor='raw')
+                lltype.free(vector_b, flavor='raw')
+                c = {type_c_loadcast}(0.0)
+                for i in range(size):
+                    c += {type_c_loadcast}(vector_c[i])
+                lltype.free(vector_c, flavor='raw')
+                return c
+            res = self.meta_interp(f, [{size}], vec_all=True)
+            assert res == f({size})
+        """
+        env = {
+          'type_a': typ1.type,
+          'type_b': typ2.type,
+          'type_c': typ3.type,
+          'type_a_loadcast': typ1.loadcast,
+          'type_b_loadcast': typ2.loadcast,
+          'type_c_loadcast': typ3.loadcast,
+          'type_a_storecast': typ1.storecast,
+          'type_b_storecast': typ2.storecast,
+          'type_c_storecast': typ3.storecast,
+          'size': size,
+          'name': str(typ1) + '__' + str(typ2) + '__' + str(typ3) + \
+                  '__' + str(size) + '__' + opname,
+          'op': op,
+        }
+        formatted = _source.format(**env)
+        exec py.code.Source(formatted).compile()
+
+    def test_binary_operations_aa(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        T1 = lltype.Array(rffi.DOUBLE, hints={'nolength': True})
+        T3 = lltype.Array(rffi.SIGNED, hints={'nolength': True})
+        def f(size):
+            vector_a = lltype.malloc(T1, size, flavor='raw', zero=True)
+            vector_b = lltype.malloc(T1, size, flavor='raw', zero=True)
+            vector_c = lltype.malloc(T3, size, flavor='raw', zero=True)
+            i = 0
+            while i < size:
+                myjitdriver.jit_merge_point()
+                a = (vector_a[i])
+                b = (vector_b[i])
+                c = (a + b)
+                vector_c[i] = int(c)
+                i += 1
+            free(vector_a)
+            free(vector_b)
+            #c = 0.0
+            #for i in range(size):
+            #    c += vector_c[i]
+            lltype.free(vector_c, flavor='raw')
+            return 0
+        res = self.meta_interp(f, [22], vec_all=True)
+        assert res == f(22)
 
 class TestLLtype(LLJitMixin, VectorizeTests):
     pass

@@ -895,7 +895,8 @@ class TestNumpyJit(LLJitMixin):
         a = [[1, 2, 3, 4], [3, 4, 5, 6], [5, 6, 7, 8], [7, 8, 9, 10], [9, 10, 11, 12], [11, 12, 13, 14], [13, 14, 15, 16], [16, 17, 18, 19]]
         b = a -> ::2
         c = b + b
-        c -> 1 -> 1
+        d = c -> 1
+        d -> 1
         """
 
     def test_multidim_slice(self):
@@ -904,7 +905,7 @@ class TestNumpyJit(LLJitMixin):
         self.check_trace_count(3)
         # ::2 creates a view object -> needs an inner loop
         # that iterates continous chunks of the matrix
-        self.check_vectorized(1,1) 
+        self.check_vectorized(1,0) 
 
     def define_dot_matrix():
         return """
@@ -930,7 +931,6 @@ class TestNumpyJit(LLJitMixin):
         """
 
     def test_pow(self):
-        py.test.skip("Not implemented CDefinedIntSymbolic('RPY_TLOFS_rpy_errno')")
         result = self.run("pow")
         assert result == 29 ** 2
         self.check_trace_count(1)
@@ -944,20 +944,6 @@ class TestNumpyJit(LLJitMixin):
         """
 
     def test_pow_int(self):
-        py.test.skip("Not implemented CDefinedIntSymbolic('RPY_TLOFS_rpy_errno')")
         result = self.run("pow_int")
         assert result == 15 ** 2
         self.check_trace_count(4)  # extra one for the astype
-
-
-    def define_take():
-        return """
-        a = |10|
-        b = take(a, [1, 1, 3, 2])
-        b -> 2
-        """
-
-    def test_take(self):
-        py.test.skip("key error get item?")
-        result = self.run("take")
-        assert result == 3

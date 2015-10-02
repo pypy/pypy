@@ -84,7 +84,9 @@ class IterState(object):
         self.offset = offset
 
     def same(self, other):
-        if self.offset == other.offset:
+        if self.offset == other.offset and \
+           self.index == other.index and \
+           self._indices == other._indices:
             return self.iterator.same_shape(other.iterator)
         return False
 
@@ -119,9 +121,9 @@ class ArrayIter(object):
         self.factors = factors
 
     def same_shape(self, other):
-        """ if two iterators share the same shape,
-        next() only needs to be called on one!
-        """
+        """ Iterating over the same element """
+        if not self.contiguous or not other.contiguous:
+            return False
         return (self.contiguous == other.contiguous and
                 self.array.dtype is self.array.dtype and
                 self.shape_m1 == other.shape_m1 and

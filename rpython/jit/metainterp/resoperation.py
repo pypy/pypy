@@ -125,8 +125,8 @@ class Typed(object):
             type = self.type
             if descr.is_array_of_floats():
                 type = 'f'
-            if isinstance(descr, ArrayDescr) and descr.getconcrete_type() == 'f':
-                type = 'f'
+            #if isinstance(descr, ArrayDescr) and descr.getconcrete_type() == 'f':
+            #    type = 'f'
             self.bytesize = descr.get_item_size_in_bytes()
             self.signed = descr.is_item_signed()
             self.datatype = type

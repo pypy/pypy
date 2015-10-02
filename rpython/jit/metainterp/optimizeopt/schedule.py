@@ -10,6 +10,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.jitexc import NotAProfitableLoop
 from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 
 class SchedulerState(object):
@@ -162,6 +163,14 @@ class Scheduler(object):
             for node in state.graph.nodes:
                 assert node.emitted
 
+def failnbail_transformation(msg):
+    msg = '%s\n' % msg
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
+    else:
+        import pdb; pdb.set_trace()
+    raise NotImplementedError(msg)
+
 class TypeRestrict(object):
     ANY_TYPE = '\x00'
     ANY_SIZE = -1
@@ -191,15 +200,27 @@ class TypeRestrict(object):
     def check(self, value):
         assert value.datatype != '\x00'
         if self.type != TypeRestrict.ANY_TYPE:
-            assert self.type == value.datatype
+            if self.type != value.datatype:
+                msg = "type mismatch %s != %s" % \
+                        (self.type, value.datatype)
+                failnbail_transformation(msg)
         assert value.bytesize > 0
         if not self.any_size():
-            assert self.bytesize == value.bytesize
+            if self.bytesize != value.bytesize:
+                msg = "bytesize mismatch %s != %s" % \
+                        (self.bytesize, value.bytesize)
+                failnbail_transformation(msg)
         assert value.count > 0
         if self.count != TypeRestrict.ANY_COUNT:
-            assert value.count >= self.count
+            if value.count < self.count:
+                msg = "count mismatch %s < %s" % \
+                        (self.count, value.count)
+                failnbail_transformation(msg)
         if self.sign != TypeRestrict.ANY_SIGN:
-            assert bool(self.sign) == value.sign
+            if bool(self.sign) == value.sign:
+                msg = "sign mismatch %s < %s" % \
+                        (self.sign, value.sign)
+                failnbail_transformation(msg)
 
     def max_input_count(self, count):
         """ How many """
