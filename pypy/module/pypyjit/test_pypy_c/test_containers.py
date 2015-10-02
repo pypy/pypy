@@ -61,9 +61,9 @@ class TestDicts(BaseTestPyPyC):
         assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i8 = int_lt(i5, i7)
             guard_true(i8, descr=...)
-            guard_not_invalidated(descr=...)
             p10 = call_r(ConstClass(ll_str__IntegerR_SignedConst_Signed), i5, descr=<Callr . i EF=3>)
             guard_no_exception(descr=...)
             i12 = call_i(ConstClass(ll_strhash), p10, descr=<Calli . r EF=0>)
@@ -119,9 +119,9 @@ class TestOtherContainers(BaseTestPyPyC):
         assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i7 = int_lt(i5, i6)
             guard_true(i7, descr=...)
-            guard_not_invalidated(descr=...)
             i9 = int_add(i5, 1)
             --TICK--
             jump(..., descr=...)

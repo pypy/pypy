@@ -18,7 +18,6 @@ class TestGlobals(BaseTestPyPyC):
         assert loop.match_by_id("loadglobal", """
             p12 = getfield_gc_r(p10, descr=<FieldP .*W_DictMultiObject.inst_strategy .*>)
             guard_value(p12, ConstPtr(ptr13), descr=...)
-            guard_not_invalidated(descr=...)
             p19 = getfield_gc_r(ConstPtr(p17), descr=<FieldP .*W_DictMultiObject.inst_strategy .*>)
             guard_value(p19, ConstPtr(ptr20), descr=...)
         """)

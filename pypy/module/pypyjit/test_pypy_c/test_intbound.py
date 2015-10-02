@@ -89,6 +89,7 @@ class TestIntbound(BaseTestPyPyC):
         assert log.result == (300, 300)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i10 = int_lt(i8, i9)
             guard_true(i10, descr=...)
             i12 = int_add_ovf(i7, 1)
@@ -113,6 +114,7 @@ class TestIntbound(BaseTestPyPyC):
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i7 = int_lt(i5, 300)
             guard_true(i7, descr=...)
             i9 = int_sub_ovf(i5, 10)
@@ -139,6 +141,7 @@ class TestIntbound(BaseTestPyPyC):
         assert log.result == (300, 300)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i10 = int_lt(i8, i9)
             guard_true(i10, descr=...)
             i12 = int_add_ovf(i8, 5)
@@ -168,6 +171,7 @@ class TestIntbound(BaseTestPyPyC):
         assert log.result == (300, 300)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i10 = int_lt(i8, 300)
             guard_true(i10, descr=...)
             i12 = int_add(i8, 5)
@@ -202,6 +206,7 @@ class TestIntbound(BaseTestPyPyC):
         assert log.result == main(42, 300)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i10 = int_lt(i8, 300)
             guard_true(i10, descr=...)
             i12 = int_eq(i8, 10)
@@ -229,9 +234,9 @@ class TestIntbound(BaseTestPyPyC):
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i8 = int_lt(i6, 300)
             guard_true(i8, descr=...)
-            guard_not_invalidated?
             i10 = int_lshift(i6, 1)
             i12 = int_add_ovf(i5, 1)
             guard_no_overflow(descr=...)
@@ -252,9 +257,9 @@ class TestIntbound(BaseTestPyPyC):
         assert log.result == 300*8
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i8 = int_lt(i6, 300)
             guard_true(i8, descr=...)
-            guard_not_invalidated?
             i10 = int_add_ovf(i5, 8)
             guard_no_overflow(descr=...)
             i12 = int_add(i6, 1)

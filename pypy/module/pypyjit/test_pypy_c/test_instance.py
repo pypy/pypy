@@ -21,9 +21,9 @@ class TestInstance(BaseTestPyPyC):
         assert log.result == 1000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i7 = int_lt(i5, i6)
             guard_true(i7, descr=...)
-            guard_not_invalidated(descr=...)
             i9 = int_add_ovf(i5, 2)
             guard_no_overflow(descr=...)
             --TICK--
@@ -46,9 +46,9 @@ class TestInstance(BaseTestPyPyC):
         assert log.result == 1000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i9 = int_lt(i5, i6)
             guard_true(i9, descr=...)
-            guard_not_invalidated(descr=...)
             i10 = int_add(i5, 1)
             --TICK--
             jump(..., descr=...)
@@ -105,8 +105,7 @@ class TestInstance(BaseTestPyPyC):
         # -------------------------------
         entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         ops = entry_bridge.ops_by_id('mutate', opcode='LOAD_ATTR')
-        assert log.opnames(ops) == ['guard_value', 'guard_not_invalidated',
-                                    'getfield_gc_i']
+        assert log.opnames(ops) == ['guard_value', 'getfield_gc_i']
         # the STORE_ATTR is folded away
         assert list(entry_bridge.ops_by_id('meth1', opcode='STORE_ATTR')) == []
         #
@@ -114,9 +113,9 @@ class TestInstance(BaseTestPyPyC):
         # ----------------------
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i58 = int_lt(i38, i31)
             guard_true(i58, descr=...)
-            guard_not_invalidated(descr=...)
             i59 = int_add_ovf(i57, 1)
             guard_no_overflow(descr=...)
             p60 = force_token()
@@ -153,7 +152,7 @@ class TestInstance(BaseTestPyPyC):
         # -------------------------------
         entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         ops = entry_bridge.ops_by_id('mutate', opcode='LOAD_ATTR')
-        assert log.opnames(ops) == ['guard_value', 'guard_not_invalidated',
+        assert log.opnames(ops) == ['guard_value',
                                     'getfield_gc_r', 'guard_nonnull_class',
                                     'getfield_gc_r', 'guard_value', # type check on the attribute
                                     ]
@@ -164,9 +163,9 @@ class TestInstance(BaseTestPyPyC):
         # ----------------------
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i70 = int_lt(i58, i33)
             guard_true(i70, descr=...)
-            guard_not_invalidated(descr=...)
             p71 = getfield_gc_r(p64, descr=...)
             guard_value(p71, ConstPtr(ptr42), descr=...)
             p72 = force_token()
@@ -208,7 +207,6 @@ class TestInstance(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('loadattr1',
         '''
-        guard_not_invalidated(descr=...)
         i19 = call_i(ConstClass(ll_call_lookup_function), _, _, _, 0, descr=...)
         guard_no_exception(descr=...)
         i22 = int_lt(i19, 0)
@@ -235,7 +233,6 @@ class TestInstance(BaseTestPyPyC):
         log = self.run(main, [], threshold=80)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("contains", """
-            guard_not_invalidated(descr=...)
             i11 = force_token()
             i12 = int_add(i5, 1)
         """)
@@ -274,9 +271,9 @@ class TestInstance(BaseTestPyPyC):
         log = self.run(main, [])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i78 = int_lt(i72, 300)
             guard_true(i78, descr=...)
-            guard_not_invalidated(descr=...)
             i79 = force_token()
             i80 = force_token()
             i81 = int_add(i72, 1)
