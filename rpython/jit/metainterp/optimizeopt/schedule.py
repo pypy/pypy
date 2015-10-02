@@ -621,10 +621,6 @@ class VecScheduleState(SchedulerState):
         op = node.getoperation()
         if op.is_guard():
             # add accumulation info to the descriptor
-            # TODO for version in self.loop.versions:
-            #    # this needs to be done for renamed (accum arguments)
-            #    version.renamed_inputargs = [ renamer.rename_map.get(arg,arg) for arg in version.inputargs ]
-            #self.appendedvar_pos_arg_count = len(sched_data.invariant_vector_vars)
             failargs = op.getfailargs()
             descr = op.getdescr()
             # note: stitching a guard must resemble the order of the label

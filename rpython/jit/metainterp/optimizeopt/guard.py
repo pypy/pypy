@@ -269,30 +269,7 @@ class GuardStrengthenOpt(object):
 
     def emit_operation(self, op):
         self.renamer.rename(op)
-        #if op.is_always_pure():
-        #    self.delay(op)
-        #    return
-        #self.emit_delayed_for(op)
-        #if not op.is_always_pure():
         self._newoperations.append(op)
-
-    # delay the pure ops
-    #def delay(self, op):
-    #    self.delayed[op] = None
-    #    print "delayed", op
-
-    #def emit_delayed_for(self, op):
-    #    if op.is_inputarg():
-    #        return
-    #    additional = []
-    #    if op.is_guard():
-    #        additional = op.getfailargs()
-    #    for arg in op.getarglist() + additional:
-    #        if arg in self.delayed:
-    #            del self.delayed[arg]
-    #            self.emit_delayed_for(arg)
-    #            self._newoperations.append(op)
-
 
     def operation_position(self):
         return len(self._newoperations)
