@@ -373,6 +373,10 @@ class Assembler386(BaseAssembler):
             else:
                 mc.MOV_rs(edi.value, WORD)
         else:
+            # NOTE: don't save registers on the jitframe here!
+            # It might override already-saved values that will be
+            # restored later...
+            #
             # This 'for_frame' version is called after a CALL.  It does not
             # need to save many registers: the registers that are anyway
             # destroyed by the call can be ignored (volatiles), and the

@@ -4,269 +4,163 @@ from rpython.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.ppc.arch import WORD
+from rpython.jit.tool.oparser import parse
 CPU = getcpuclass()
 
-def test_bug_rshift():
-    v1 = BoxInt()
-    v2 = BoxInt()
-    v3 = BoxInt()
-    v4 = BoxInt()
-    inputargs = [v1]
-    operations = [
-        ResOperation(rop.INT_ADD, [v1, v1], v2),
-        ResOperation(rop.INT_INVERT, [v2], v3),
-        ResOperation(rop.UINT_RSHIFT, [v1, ConstInt(3)], v4),
-        ResOperation(rop.FINISH, [v4, v3], None, descr=BasicFailDescr()),
-        ]
+def run(inputargs, ops):
     cpu = CPU(None, None)
     cpu.setup_once()
+    loop = parse(ops, cpu, namespace=locals())
     looptoken = JitCellToken()
-    cpu.compile_loop(inputargs, operations, looptoken)
-    cpu.execute_token(looptoken, 9)
-    assert cpu.get_latest_value_int(0) == (9 >> 3)
-    assert cpu.get_latest_value_int(1) == (~18)
+    cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+    deadframe = cpu.execute_token(looptoken, *inputargs)
+    return cpu, deadframe
+
+def test_bug_rshift():
+    cpu, deadframe = run([9], '''
+    [i1]
+    i2 = int_add(i1, i1)
+    i3 = int_invert(i2)
+    i4 = uint_rshift(i1, 3)
+    i5 = int_add(i4, i3)
+    finish(i5)
+    ''')
+    assert cpu.get_int_value(deadframe, 0) == (9 >> 3) + (~18)
 
 def test_bug_int_is_true_1():
-    v1 = BoxInt()
-    v2 = BoxInt()
-    v3 = BoxInt()
-    v4 = BoxInt()
-    tmp5 = BoxInt()
-    inputargs = [v1]
-    operations = [
-        ResOperation(rop.INT_MUL, [v1, v1], v2),
-        ResOperation(rop.INT_MUL, [v2, v1], v3),
-        ResOperation(rop.INT_IS_TRUE, [v2], tmp5),
-        ResOperation(rop.INT_IS_ZERO, [tmp5], v4),
-        ResOperation(rop.FINISH, [v4, v3, tmp5], None, descr=BasicFailDescr()),
-            ]
-    cpu = CPU(None, None)
-    cpu.setup_once()
-    looptoken = JitCellToken()
-    cpu.compile_loop(inputargs, operations, looptoken)
-    cpu.execute_token(looptoken, -10)
-    assert cpu.get_latest_value_int(0) == 0
-    assert cpu.get_latest_value_int(1) == -1000
-    assert cpu.get_latest_value_int(2) == 1
+    cpu, deadframe = run([-10], '''
+    [i1]
+    i2 = int_mul(i1, i1)
+    i3 = int_mul(i2, i1)
+    i5 = int_is_true(i2)
+    i4 = int_is_zero(i5)
+    guard_false(i5) [i4, i3]
+    finish(42)
+    ''')
+    assert cpu.get_int_value(deadframe, 0) == 0
+    assert cpu.get_int_value(deadframe, 1) == -1000
 
 def test_bug_0():
-    v1 = BoxInt()
-    v2 = BoxInt()
-    v3 = BoxInt()
-    v4 = BoxInt()
-    v5 = BoxInt()
-    v6 = BoxInt()
-    v7 = BoxInt()
-    v8 = BoxInt()
-    v9 = BoxInt()
-    v10 = BoxInt()
-    v11 = BoxInt()
-    v12 = BoxInt()
-    v13 = BoxInt()
-    v14 = BoxInt()
-    v15 = BoxInt()
-    v16 = BoxInt()
-    v17 = BoxInt()
-    v18 = BoxInt()
-    v19 = BoxInt()
-    v20 = BoxInt()
-    v21 = BoxInt()
-    v22 = BoxInt()
-    v23 = BoxInt()
-    v24 = BoxInt()
-    v25 = BoxInt()
-    v26 = BoxInt()
-    v27 = BoxInt()
-    v28 = BoxInt()
-    v29 = BoxInt()
-    v30 = BoxInt()
-    v31 = BoxInt()
-    v32 = BoxInt()
-    v33 = BoxInt()
-    v34 = BoxInt()
-    v35 = BoxInt()
-    v36 = BoxInt()
-    v37 = BoxInt()
-    v38 = BoxInt()
-    v39 = BoxInt()
-    v40 = BoxInt()
-    tmp41 = BoxInt()
-    tmp42 = BoxInt()
-    tmp43 = BoxInt()
-    tmp44 = BoxInt()
-    tmp45 = BoxInt()
-    tmp46 = BoxInt()
-    inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
-    operations = [
-        ResOperation(rop.UINT_GT, [v3, ConstInt(-48)], v11),
-        ResOperation(rop.INT_XOR, [v8, v1], v12),
-        ResOperation(rop.INT_GT, [v6, ConstInt(-9)], v13),
-        ResOperation(rop.INT_LE, [v13, v2], v14),
-        ResOperation(rop.INT_LE, [v11, v5], v15),
-        ResOperation(rop.UINT_GE, [v13, v13], v16),
-        ResOperation(rop.INT_OR, [v9, ConstInt(-23)], v17),
-        ResOperation(rop.INT_LT, [v10, v13], v18),
-        ResOperation(rop.INT_OR, [v15, v5], v19),
-        ResOperation(rop.INT_XOR, [v17, ConstInt(54)], v20),
-        ResOperation(rop.INT_MUL, [v8, v10], v21),
-        ResOperation(rop.INT_OR, [v3, v9], v22),
-        ResOperation(rop.INT_AND, [v11, ConstInt(-4)], tmp41),
-        ResOperation(rop.INT_OR, [tmp41, ConstInt(1)], tmp42),
-        ResOperation(rop.INT_MOD, [v12, tmp42], v23),
-        ResOperation(rop.INT_IS_TRUE, [v6], v24),
-        ResOperation(rop.UINT_RSHIFT, [v15, ConstInt(6)], v25),
-        ResOperation(rop.INT_OR, [ConstInt(-4), v25], v26),
-        ResOperation(rop.INT_INVERT, [v8], v27),
-        ResOperation(rop.INT_SUB, [ConstInt(-113), v11], v28),
-        ResOperation(rop.INT_NEG, [v7], v29),
-        ResOperation(rop.INT_NEG, [v24], v30),
-        ResOperation(rop.INT_FLOORDIV, [v3, ConstInt(53)], v31),
-        ResOperation(rop.INT_MUL, [v28, v27], v32),
-        ResOperation(rop.INT_AND, [v18, ConstInt(-4)], tmp43),
-        ResOperation(rop.INT_OR, [tmp43, ConstInt(1)], tmp44),
-        ResOperation(rop.INT_MOD, [v26, tmp44], v33),
-        ResOperation(rop.INT_OR, [v27, v19], v34),
-        ResOperation(rop.UINT_LT, [v13, ConstInt(1)], v35),
-        ResOperation(rop.INT_AND, [v21, ConstInt(31)], tmp45),
-        ResOperation(rop.INT_RSHIFT, [v21, tmp45], v36),
-        ResOperation(rop.INT_AND, [v20, ConstInt(31)], tmp46),
-        ResOperation(rop.UINT_RSHIFT, [v4, tmp46], v37),
-        ResOperation(rop.UINT_GT, [v33, ConstInt(-11)], v38),
-        ResOperation(rop.INT_NEG, [v7], v39),
-        ResOperation(rop.INT_GT, [v24, v32], v40),
-        ResOperation(rop.FINISH, [v40, v36, v37, v31, v16, v34, v35, v23, v22, v29, v14, v39, v30, v38], None, descr=BasicFailDescr()),
-            ]
-    cpu = CPU(None, None)
-    cpu.setup_once()
-    looptoken = JitCellToken()
-    cpu.compile_loop(inputargs, operations, looptoken)
-    cpu.execute_token(looptoken, -13, 10, 10, 8, -8, -16, -18, 46, -12, 26)
-    assert cpu.get_latest_value_int(0) == 0
-    assert cpu.get_latest_value_int(1) == 0
-    assert cpu.get_latest_value_int(2) == 0
-    assert cpu.get_latest_value_int(3) == 0
-    assert cpu.get_latest_value_int(4) == 1
-    assert cpu.get_latest_value_int(5) == -7
-    assert cpu.get_latest_value_int(6) == 1
-    assert cpu.get_latest_value_int(7) == 0
-    assert cpu.get_latest_value_int(8) == -2
-    assert cpu.get_latest_value_int(9) == 18
-    assert cpu.get_latest_value_int(10) == 1
-    assert cpu.get_latest_value_int(11) == 18
-    assert cpu.get_latest_value_int(12) == -1
-    assert cpu.get_latest_value_int(13) == 0
+    cpu, deadframe = run([-13, 10, 10, 8, -8, -16, -18, 46, -12, 26], '''
+    [i1, i2, i3, i4, i5, i6, i7, i8, i9, i10]
+    i11 = uint_gt(i3, -48)
+    i12 = int_xor(i8, i1)
+    i13 = int_gt(i6, -9)
+    i14 = int_le(i13, i2)
+    i15 = int_le(i11, i5)
+    i16 = uint_ge(i13, i13)
+    i17 = int_or(i9, -23)
+    i18 = int_lt(i10, i13)
+    i19 = int_or(i15, i5)
+    i20 = int_xor(i17, 54)
+    i21 = int_mul(i8, i10)
+    i22 = int_or(i3, i9)
+    i41 = int_and(i11, -4)
+    i42 = int_or(i41, 1)
+    i23 = int_mod(i12, i42)
+    i24 = int_is_true(i6)
+    i25 = uint_rshift(i15, 6)
+    i26 = int_or(-4, i25)
+    i27 = int_invert(i8)
+    i28 = int_sub(-113, i11)
+    i29 = int_neg(i7)
+    i30 = int_neg(i24)
+    i31 = int_floordiv(i3, 53)
+    i32 = int_mul(i28, i27)
+    i43 = int_and(i18, -4)
+    i44 = int_or(i43, 1)
+    i33 = int_mod(i26, i44)
+    i34 = int_or(i27, i19)
+    i35 = uint_lt(i13, 1)
+    i45 = int_and(i21, 31)
+    i36 = int_rshift(i21, i45)
+    i46 = int_and(i20, 31)
+    i37 = uint_rshift(i4, i46)
+    i38 = uint_gt(i33, -11)
+    i39 = int_neg(i7)
+    i40 = int_gt(i24, i32)
+    i99 = same_as(0)
+    guard_true(i99) [i40, i36, i37, i31, i16, i34, i35, i23, i22, i29, i14, i39, i30, i38]
+    finish(42)
+    ''')
+    assert cpu.get_int_value(deadframe, 0) == 0
+    assert cpu.get_int_value(deadframe, 1) == 0
+    assert cpu.get_int_value(deadframe, 2) == 0
+    assert cpu.get_int_value(deadframe, 3) == 0
+    assert cpu.get_int_value(deadframe, 4) == 1
+    assert cpu.get_int_value(deadframe, 5) == -7
+    assert cpu.get_int_value(deadframe, 6) == 1
+    assert cpu.get_int_value(deadframe, 7) == 0
+    assert cpu.get_int_value(deadframe, 8) == -2
+    assert cpu.get_int_value(deadframe, 9) == 18
+    assert cpu.get_int_value(deadframe, 10) == 1
+    assert cpu.get_int_value(deadframe, 11) == 18
+    assert cpu.get_int_value(deadframe, 12) == -1
+    assert cpu.get_int_value(deadframe, 13) == 0
 
 def test_bug_1():
-    v1 = BoxInt()
-    v2 = BoxInt()
-    v3 = BoxInt()
-    v4 = BoxInt()
-    v5 = BoxInt()
-    v6 = BoxInt()
-    v7 = BoxInt()
-    v8 = BoxInt()
-    v9 = BoxInt()
-    v10 = BoxInt()
-    v11 = BoxInt()
-    v12 = BoxInt()
-    v13 = BoxInt()
-    v14 = BoxInt()
-    v15 = BoxInt()
-    v16 = BoxInt()
-    v17 = BoxInt()
-    v18 = BoxInt()
-    v19 = BoxInt()
-    v20 = BoxInt()
-    v21 = BoxInt()
-    v22 = BoxInt()
-    v23 = BoxInt()
-    v24 = BoxInt()
-    v25 = BoxInt()
-    v26 = BoxInt()
-    v27 = BoxInt()
-    v28 = BoxInt()
-    v29 = BoxInt()
-    v30 = BoxInt()
-    v31 = BoxInt()
-    v32 = BoxInt()
-    v33 = BoxInt()
-    v34 = BoxInt()
-    v35 = BoxInt()
-    v36 = BoxInt()
-    v37 = BoxInt()
-    v38 = BoxInt()
-    v39 = BoxInt()
-    v40 = BoxInt()
-    tmp41 = BoxInt()
-    tmp42 = BoxInt()
-    tmp43 = BoxInt()
-    tmp44 = BoxInt()
-    tmp45 = BoxInt()
-    inputargs = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10]
-    operations = [
-        ResOperation(rop.UINT_LT, [v6, ConstInt(0)], v11),
-        ResOperation(rop.INT_AND, [v3, ConstInt(31)], tmp41),
-        ResOperation(rop.INT_RSHIFT, [v3, tmp41], v12),
-        ResOperation(rop.INT_NEG, [v2], v13),
-        ResOperation(rop.INT_ADD, [v11, v7], v14),
-        ResOperation(rop.INT_OR, [v3, v2], v15),
-        ResOperation(rop.INT_OR, [v12, v12], v16),
-        ResOperation(rop.INT_NE, [v2, v5], v17),
-        ResOperation(rop.INT_AND, [v5, ConstInt(31)], tmp42),
-        ResOperation(rop.UINT_RSHIFT, [v14, tmp42], v18),
-        ResOperation(rop.INT_AND, [v14, ConstInt(31)], tmp43),
-        ResOperation(rop.INT_LSHIFT, [ConstInt(7), tmp43], v19),
-        ResOperation(rop.INT_NEG, [v19], v20),
-        ResOperation(rop.INT_MOD, [v3, ConstInt(1)], v21),
-        ResOperation(rop.UINT_GE, [v15, v1], v22),
-        ResOperation(rop.INT_AND, [v16, ConstInt(31)], tmp44),
-        ResOperation(rop.INT_LSHIFT, [v8, tmp44], v23),
-        ResOperation(rop.INT_IS_TRUE, [v17], v24),
-        ResOperation(rop.INT_AND, [v5, ConstInt(31)], tmp45),
-        ResOperation(rop.INT_LSHIFT, [v14, tmp45], v25),
-        ResOperation(rop.INT_LSHIFT, [v5, ConstInt(17)], v26),
-        ResOperation(rop.INT_EQ, [v9, v15], v27),
-        ResOperation(rop.INT_GE, [ConstInt(0), v6], v28),
-        ResOperation(rop.INT_NEG, [v15], v29),
-        ResOperation(rop.INT_NEG, [v22], v30),
-        ResOperation(rop.INT_ADD, [v7, v16], v31),
-        ResOperation(rop.UINT_LT, [v19, v19], v32),
-        ResOperation(rop.INT_ADD, [v2, ConstInt(1)], v33),
-        ResOperation(rop.INT_NEG, [v5], v34),
-        ResOperation(rop.INT_ADD, [v17, v24], v35),
-        ResOperation(rop.UINT_LT, [ConstInt(2), v16], v36),
-        ResOperation(rop.INT_NEG, [v9], v37),
-        ResOperation(rop.INT_GT, [v4, v11], v38),
-        ResOperation(rop.INT_LT, [v27, v22], v39),
-        ResOperation(rop.INT_NEG, [v27], v40),
-        ResOperation(rop.FINISH, [v40, v10, v36, v26, v13, v30, v21, v33, v18, v25, v31, v32, v28, v29, v35, v38, v20, v39, v34, v23, v37], None, descr=BasicFailDescr()),
-            ]
-    cpu = CPU(None, None)
-    cpu.setup_once()
-    looptoken = JitCellToken()
-    cpu.compile_loop(inputargs, operations, looptoken)
-    cpu.execute_token(looptoken, 17, -20, -6, 6, 1, 13, 13, 9, 49, 8)
-    assert cpu.get_latest_value_int(0) == 0
-    assert cpu.get_latest_value_int(1) == 8
-    assert cpu.get_latest_value_int(2) == 1
-    assert cpu.get_latest_value_int(3) == 131072
-    assert cpu.get_latest_value_int(4) == 20
-    assert cpu.get_latest_value_int(5) == -1
-    assert cpu.get_latest_value_int(6) == 0
-    assert cpu.get_latest_value_int(7) == -19
-    assert cpu.get_latest_value_int(8) == 6
-    assert cpu.get_latest_value_int(9) == 26
-    assert cpu.get_latest_value_int(10) == 12
-    assert cpu.get_latest_value_int(11) == 0
-    assert cpu.get_latest_value_int(12) == 0
-    assert cpu.get_latest_value_int(13) == 2
-    assert cpu.get_latest_value_int(14) == 2
-    assert cpu.get_latest_value_int(15) == 1
-    assert cpu.get_latest_value_int(16) == -57344
-    assert cpu.get_latest_value_int(17) == 1
-    assert cpu.get_latest_value_int(18) == -1
+    cpu, deadframe = run([17, -20, -6, 6, 1, 13, 13, 9, 49, 8], '''
+    [i1, i2, i3, i4, i5, i6, i7, i8, i9, i10]
+    i11 = uint_lt(i6, 0)
+    i41 = int_and(i3, 31)
+    i12 = int_rshift(i3, i41)
+    i13 = int_neg(i2)
+    i14 = int_add(i11, i7)
+    i15 = int_or(i3, i2)
+    i16 = int_or(i12, i12)
+    i17 = int_ne(i2, i5)
+    i42 = int_and(i5, 31)
+    i18 = uint_rshift(i14, i42)
+    i43 = int_and(i14, 31)
+    i19 = int_lshift(7, i43)
+    i20 = int_neg(i19)
+    i21 = int_mod(i3, 1)
+    i22 = uint_ge(i15, i1)
+    i44 = int_and(i16, 31)
+    i23 = int_lshift(i8, i44)
+    i24 = int_is_true(i17)
+    i45 = int_and(i5, 31)
+    i25 = int_lshift(i14, i45)
+    i26 = int_lshift(i5, 17)
+    i27 = int_eq(i9, i15)
+    i28 = int_ge(0, i6)
+    i29 = int_neg(i15)
+    i30 = int_neg(i22)
+    i31 = int_add(i7, i16)
+    i32 = uint_lt(i19, i19)
+    i33 = int_add(i2, 1)
+    i34 = int_neg(i5)
+    i35 = int_add(i17, i24)
+    i36 = uint_lt(2, i16)
+    i37 = int_neg(i9)
+    i38 = int_gt(i4, i11)
+    i39 = int_lt(i27, i22)
+    i40 = int_neg(i27)
+    i99 = same_as(0)
+    guard_true(i99) [i40, i10, i36, i26, i13, i30, i21, i33, i18, i25, i31, i32, i28, i29, i35, i38, i20, i39, i34, i23, i37]
+    finish(-42)
+    ''')
+    assert cpu.get_int_value(deadframe, 0) == 0
+    assert cpu.get_int_value(deadframe, 1) == 8
+    assert cpu.get_int_value(deadframe, 2) == 1
+    assert cpu.get_int_value(deadframe, 3) == 131072
+    assert cpu.get_int_value(deadframe, 4) == 20
+    assert cpu.get_int_value(deadframe, 5) == -1
+    assert cpu.get_int_value(deadframe, 6) == 0
+    assert cpu.get_int_value(deadframe, 7) == -19
+    assert cpu.get_int_value(deadframe, 8) == 6
+    assert cpu.get_int_value(deadframe, 9) == 26
+    assert cpu.get_int_value(deadframe, 10) == 12
+    assert cpu.get_int_value(deadframe, 11) == 0
+    assert cpu.get_int_value(deadframe, 12) == 0
+    assert cpu.get_int_value(deadframe, 13) == 2
+    assert cpu.get_int_value(deadframe, 14) == 2
+    assert cpu.get_int_value(deadframe, 15) == 1
+    assert cpu.get_int_value(deadframe, 16) == -57344
+    assert cpu.get_int_value(deadframe, 17) == 1
+    assert cpu.get_int_value(deadframe, 18) == -1
     if WORD == 4:
-        assert cpu.get_latest_value_int(19) == -2147483648
+        assert cpu.get_int_value(deadframe, 19) == -2147483648
     elif WORD == 8:
-        assert cpu.get_latest_value_int(19) == 19327352832
-    assert cpu.get_latest_value_int(20) == -49
+        assert cpu.get_int_value(deadframe, 19) == 19327352832
+    assert cpu.get_int_value(deadframe, 20) == -49

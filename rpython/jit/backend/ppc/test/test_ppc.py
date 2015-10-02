@@ -6,7 +6,8 @@ from rpython.jit.backend.ppc.regname import *
 from rpython.jit.backend.ppc.register import *
 from rpython.jit.backend.ppc import form
 from rpython.jit.backend import detect_cpu
-from rpython.jit.backend.ppc.arch import IS_PPC_32, IS_PPC_64, WORD
+from rpython.jit.backend.ppc.arch import IS_PPC_32, IS_PPC_64, IS_BIG_ENDIAN
+from rpython.jit.backend.ppc.arch import WORD
 
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.annlowlevel import llhelper
@@ -15,7 +16,8 @@ cpu = detect_cpu.autodetect()
 
 class TestDisassemble(object):
     def test_match(self):
-        A = BasicPPCAssembler
+        class A(BasicPPCAssembler):
+            insts = []
         a = A()
         a.add(1, 2, 3)
         inst = a.insts[-1]
@@ -29,12 +31,11 @@ Creates the boilerplate code for the tests.
 - Create a function and call it
 - Compare the return value with the expected result
 """
-def asmtest(expected=-1):
+def asmtest(expected):
     def testmaker(test):
         def newtest(self):
             a = PPCBuilder()
             test(self, a)
-            #f = a.assemble()
             f = a.get_assembler_function()
             assert f() == expected
         return newtest
@@ -196,10 +197,16 @@ class TestAssemble(object):
         a.li(3, 50)
         if IS_PPC_32:
             a.load_imm(r10, call_addr)
-        else:
+        elif IS_BIG_ENDIAN:
+            # load the 3-words descriptor
             a.load_from_addr(r10, call_addr)
             a.load_from_addr(r2, call_addr+WORD)
             a.load_from_addr(r11, call_addr+2*WORD)
+        else:
+            # no descriptor on little-endian, but the ABI says r12 must
+            # contain the function pointer
+            a.load_imm(r10, call_addr)
+            a.mr(12, 10)
         a.mtctr(10)
         a.bctr()
         a.blr()
@@ -304,21 +311,6 @@ class TestAssemble(object):
         p[0] = rffi.cast(rffi.LONG, 300)
         assert f() == 300
         lltype.free(p, flavor="raw")
-
-
-class AsmCode(object):
-    def __init__(self, size):
-        self.code = MachineCodeBlockWrapper()
-
-    def emit(self, insn):
-        bytes = struct.pack("i", insn)
-        for byte in bytes:
-            self.code.writechar(byte)
-
-    def get_function(self):
-        i = self.code.materialize(AsmMemoryManager(), [])
-        t = lltype.FuncType([], lltype.Signed)
-        return rffi.cast(lltype.Ptr(t), i)
 
 
 def func(arg):

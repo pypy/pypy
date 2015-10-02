@@ -59,23 +59,23 @@ class IntOpAssembler(object):
         else:
             self.mc.mulld(res.value, l0.value, l1.value)
 
-    def do_emit_int_binary_ovf(self, op, arglocs, emit):
+    def do_emit_int_binary_ovf(self, op, arglocs):
         l0, l1, res = arglocs[0], arglocs[1], arglocs[2]
         self.mc.load_imm(r.SCRATCH, 0)
         self.mc.mtxer(r.SCRATCH.value)
-        emit(res.value, l0.value, l1.value)
+        return (res.value, l0.value, l1.value)
 
     def emit_int_add_ovf(self, op, arglocs, regalloc):
-        self.do_emit_int_binary_ovf(op, arglocs, self.mc.addox)
+        self.mc.addox(*self.do_emit_int_binary_ovf(op, arglocs))
 
     def emit_int_sub_ovf(self, op, arglocs, regalloc):
-        self.do_emit_int_binary_ovf(op, arglocs, self.mc.subox)
+        self.mc.subox(*self.do_emit_int_binary_ovf(op, arglocs))
 
     def emit_int_mul_ovf(self, op, arglocs, regalloc):
         if IS_PPC_32:
-            self.do_emit_int_binary_ovf(op, arglocs, self.mc.mullwox)
+            self.mc.mullwox(*self.do_emit_int_binary_ovf(op, arglocs))
         else:
-            self.do_emit_int_binary_ovf(op, arglocs, self.mc.mulldox)
+            self.mc.mulldox(*self.do_emit_int_binary_ovf(op, arglocs))
 
     def emit_int_floordiv(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
@@ -343,12 +343,11 @@ class GuardOpAssembler(object):
             # this half-word is at offset 0 on a little-endian machine;
             # but it is at offset 2 (32 bit) or 4 (64 bit) on a
             # big-endian machine.
-            with scratch_reg(self.mc):
-                if IS_PPC_32:
-                    self.mc.lhz(r.SCRATCH.value, locs[0].value, 2)
-                else:
-                    self.mc.lwz(r.SCRATCH.value, locs[0].value, 4)
-                self.mc.cmp_op(0, r.SCRATCH.value, typeid.value, imm=typeid.is_imm())
+            if IS_PPC_32:
+                self.mc.lhz(r.SCRATCH.value, locs[0].value, 2 * IS_BIG_ENDIAN)
+            else:
+                self.mc.lwz(r.SCRATCH.value, locs[0].value, 4 * IS_BIG_ENDIAN)
+            self.mc.cmp_op(0, r.SCRATCH.value, typeid.value, imm=typeid.is_imm())
 
     def emit_guard_not_invalidated(self, op, arglocs, regalloc):
         self._emit_guard(op, arglocs, is_guard_not_invalidated=True)
@@ -461,23 +460,24 @@ class MiscOpAssembler(object):
             pmc.overwrite()
 
     def emit_guard_exception(self, op, arglocs, regalloc):
-        # XXX FIXME
-        # XXX pos_exc_value and pos_exception are 8 bytes apart, don't need both
-        loc, loc1, resloc, pos_exc_value, pos_exception = arglocs[:5]
-        failargs = arglocs[5:]
-        self.mc.load_imm(loc1, pos_exception.value)
-        self.mc.load(r.SCRATCH.value, loc1.value, 0)
-        self.mc.cmp_op(0, r.SCRATCH.value, loc.value)
+        loc, resloc = arglocs[:2]
+        failargs = arglocs[2:]
+
+        mc = self.mc
+        mc.load_imm(r.SCRATCH2, self.cpu.pos_exc_value())
+        diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
+        assert _check_imm_arg(diff)
+
+        mc.load(r.SCRATCH.value, r.SCRATCH2.value, diff)
+        mc.cmp_op(0, r.SCRATCH.value, loc.value)
         self.guard_success_cc = c.EQ
         self._emit_guard(op, failargs, save_exc=True)
-        self.mc.load_imm(loc, pos_exc_value.value)
 
         if resloc:
-            self.mc.load(resloc.value, loc.value, 0)
-
-        self.mc.load_imm(r.SCRATCH, 0)
-        self.mc.store(r.SCRATCH.value, loc.value, 0)
-        self.mc.store(r.SCRATCH.value, loc1.value, 0)
+            mc.load(resloc.value, r.SCRATCH2.value, 0)
+        mc.load_imm(r.SCRATCH, 0)
+        mc.store(r.SCRATCH.value, r.SCRATCH2.value, 0)
+        mc.store(r.SCRATCH.value, r.SCRATCH2.value, diff)
 
 
 class CallOpAssembler(object):
@@ -687,7 +687,7 @@ class FieldOpAssembler(object):
             if _check_imm_arg(multiply_by):
                 self.mc.mulli(scratch_loc.value, loc.value, multiply_by)
             else:
-                self.mc.load_imm(scratch_loc.value, multiply_by)
+                self.mc.load_imm(scratch_loc, multiply_by)
                 if IS_PPC_32:
                     self.mc.mullw(scratch_loc.value, loc.value,
                                   scratch_loc.value)
@@ -766,6 +766,23 @@ class FieldOpAssembler(object):
             self.mc.mr(r.SCRATCH2.value, loc.value)
         return r.SCRATCH2
 
+    # RPythonic workaround for emit_zero_array()
+    def eza_stXux(self, a, b, c, itemsize):
+        if itemsize & 1:                  self.mc.stbux(a, b, c)
+        elif itemsize & 2:                self.mc.sthux(a, b, c)
+        elif (itemsize & 4) or IS_PPC_32: self.mc.stwux(a, b, c)
+        else:                             self.mc.stdux(a, b, c)
+    def eza_stXu(self, a, b, c, itemsize):
+        if itemsize & 1:                  self.mc.stbu(a, b, c)
+        elif itemsize & 2:                self.mc.sthu(a, b, c)
+        elif (itemsize & 4) or IS_PPC_32: self.mc.stwu(a, b, c)
+        else:                             self.mc.stdu(a, b, c)
+    def eza_stX(self, a, b, c, itemsize):
+        if itemsize & 1:                  self.mc.stb(a, b, c)
+        elif itemsize & 2:                self.mc.sth(a, b, c)
+        elif (itemsize & 4) or IS_PPC_32: self.mc.stw(a, b, c)
+        else:                             self.mc.std(a, b, c)
+
     def emit_zero_array(self, op, arglocs, regalloc):
         base_loc, startindex_loc, length_loc, ofs_loc, itemsize_loc = arglocs
 
@@ -774,26 +791,10 @@ class FieldOpAssembler(object):
         # * if N % 4 == 0, then all items are aligned to a multiple of 4
         # * if N % 8 == 0, then all items are aligned to a multiple of 8
         itemsize = itemsize_loc.getint()
-        if itemsize & 1:
-            stepsize = 1
-            stXux = self.mc.stbux
-            stXu = self.mc.stbu
-            stX  = self.mc.stb
-        elif itemsize & 2:
-            stepsize = 2
-            stXux = self.mc.sthux
-            stXu = self.mc.sthu
-            stX  = self.mc.sth
-        elif (itemsize & 4) or IS_PPC_32:
-            stepsize = 4
-            stXux = self.mc.stwux
-            stXu = self.mc.stwu
-            stX  = self.mc.stw
-        else:
-            stepsize = WORD
-            stXux = self.mc.stdux
-            stXu = self.mc.stdu
-            stX  = self.mc.std
+        if itemsize & 1:                  stepsize = 1
+        elif itemsize & 2:                stepsize = 2
+        elif (itemsize & 4) or IS_PPC_32: stepsize = 4
+        else:                             stepsize = WORD
 
         repeat_factor = itemsize // stepsize
         if repeat_factor != 1:
@@ -816,9 +817,11 @@ class FieldOpAssembler(object):
         if unroll > 0:
             assert repeat_factor == 1
             self.mc.li(r.SCRATCH.value, 0)
-            stXux(r.SCRATCH.value, ofs_loc.value, base_loc.value)
+            self.eza_stXux(r.SCRATCH.value, ofs_loc.value, base_loc.value,
+                           itemsize)
             for i in range(1, unroll):
-                stX(r.SCRATCH.value, ofs_loc.value, i * stepsize)
+                self.eza_stX(r.SCRATCH.value, ofs_loc.value, i * stepsize,
+                             itemsize)
 
         else:
             if length_loc.is_imm():
@@ -836,12 +839,14 @@ class FieldOpAssembler(object):
             self.mc.mtctr(length_loc.value)
             self.mc.li(r.SCRATCH.value, 0)
 
-            stXux(r.SCRATCH.value, ofs_loc.value, base_loc.value)
+            self.eza_stXux(r.SCRATCH.value, ofs_loc.value, base_loc.value,
+                           itemsize)
             bdz_location = self.mc.currpos()
             self.mc.trap()
 
             loop_location = self.mc.currpos()
-            stXu(r.SCRATCH.value, ofs_loc.value, stepsize)
+            self.eza_stXu(r.SCRATCH.value, ofs_loc.value, stepsize,
+                          itemsize)
             self.mc.bdnz(loop_location - self.mc.currpos())
 
             pmc = OverwritingBuilder(self.mc, bdz_location, 1)
@@ -958,10 +963,13 @@ class AllocOpAssembler(object):
 
     def emit_call_malloc_nursery_varsize(self, op, arglocs, regalloc):
         # registers r.RES and r.RSZ are allocated for this call
+        gc_ll_descr = self.cpu.gc_ll_descr
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+            raise Exception("unreachable code")
+            # for boehm, this function should never be called
         [lengthloc] = arglocs
         arraydescr = op.getdescr()
         itemsize = op.getarg(1).getint()
-        gc_ll_descr = self.cpu.gc_ll_descr
         maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
         gcmap = regalloc.get_gcmap([r.RES, r.RSZ])
         self.malloc_cond_varsize(
@@ -975,6 +983,12 @@ class AllocOpAssembler(object):
 
     emit_jit_debug = emit_debug_merge_point
     emit_keepalive = emit_debug_merge_point
+
+    def emit_enter_portal_frame(self, op, arglocs, regalloc):
+        self.enter_portal_frame(op)
+
+    def emit_leave_portal_frame(self, op, arglocs, regalloc):
+        self.leave_portal_frame(op)
 
     def _write_barrier_fastpath(self, mc, descr, arglocs, regalloc, array=False,
                                 is_frame=False):
@@ -1212,6 +1226,7 @@ class OpAssembler(IntOpAssembler, GuardOpAssembler,
                   StrOpAssembler, CallOpAssembler,
                   UnicodeOpAssembler, ForceOpAssembler,
                   AllocOpAssembler, FloatOpAssembler):
+    _mixin_ = True
 
     def nop(self):
         self.mc.ori(0, 0, 0)

@@ -61,11 +61,15 @@ class FPRegisterManager(RegisterManager):
     save_around_call_regs = r.VOLATILES_FLOAT
     assert set(save_around_call_regs).issubset(all_regs)
 
-    def convert_to_imm(self, c):
+    def convert_to_adr(self, c):
         assert isinstance(c, ConstFloat)
         adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
         x = c.getfloatstorage()
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
+        return adr
+
+    def convert_to_imm(self, c):
+        adr = self.convert_to_adr(c)
         return locations.ConstFloatLoc(adr)
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
@@ -77,8 +81,10 @@ class FPRegisterManager(RegisterManager):
     def ensure_reg(self, box):
         if isinstance(box, Const):
             loc = self.get_scratch_reg()
-            immvalue = self.convert_to_imm(box)
-            self.assembler.load(loc, immvalue)
+            immadrvalue = self.convert_to_adr(box)
+            mc = self.assembler.mc
+            mc.load_imm(r.SCRATCH, immadrvalue)
+            mc.lfdx(loc.value, 0, r.SCRATCH.value)
         else:
             assert box in self.temp_boxes
             loc = self.make_sure_var_in_reg(box,
@@ -134,19 +140,22 @@ class PPCRegisterManager(RegisterManager):
     def call_result_location(self, v):
         return r.r3
 
-    def convert_to_imm(self, c):
+    def convert_to_int(self, c):
         if isinstance(c, ConstInt):
-            val = rffi.cast(lltype.Signed, c.value)
-            return locations.ImmLocation(val)
+            return rffi.cast(lltype.Signed, c.value)
         else:
             assert isinstance(c, ConstPtr)
-            return locations.ImmLocation(rffi.cast(lltype.Signed, c.value))
+            return rffi.cast(lltype.Signed, c.value)
+
+    def convert_to_imm(self, c):
+        val = self.convert_to_int(c)
+        return locations.ImmLocation(val)
 
     def ensure_reg(self, box):
         if isinstance(box, Const):
             loc = self.get_scratch_reg()
-            immvalue = self.convert_to_imm(box)
-            self.assembler.load(loc, immvalue)
+            immvalue = self.convert_to_int(box)
+            self.assembler.mc.load_imm(loc, immvalue)
         else:
             assert box in self.temp_boxes
             loc = self.make_sure_var_in_reg(box,
@@ -593,15 +602,11 @@ class Regalloc(BaseRegalloc):
 
     def prepare_guard_exception(self, op):
         loc = self.ensure_reg(op.getarg(0))
-        loc1 = r.SCRATCH2
         if op.result in self.longevity:
             resloc = self.force_allocate_reg(op.result)
         else:
             resloc = None
-        pos_exc_value = imm(self.cpu.pos_exc_value())
-        pos_exception = imm(self.cpu.pos_exception())
-        arglocs = self._prepare_guard(op,
-                    [loc, loc1, resloc, pos_exc_value, pos_exception])
+        arglocs = self._prepare_guard(op, [loc, resloc])
         return arglocs
 
     def prepare_guard_no_exception(self, op):
@@ -644,7 +649,7 @@ class Regalloc(BaseRegalloc):
             #     offset in type_info_group
             #   - add 16/32 bytes, to go past the TYPE_INFO structure
             classptr = y_val
-            from pypy.rpython.memory.gctypelayout import GCData
+            from rpython.memory.gctypelayout import GCData
             sizeof_ti = rffi.sizeof(GCData.TYPE_INFO)
             type_info_group = llop.gc_get_type_info_group(llmemory.Address)
             type_info_group = rffi.cast(lltype.Signed, type_info_group)
@@ -962,10 +967,6 @@ class Regalloc(BaseRegalloc):
         return [sizeloc]
 
     def prepare_call_malloc_nursery_varsize(self, op):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
-            raise Exception("unreachable code")
-            # for boehm, this function should never be called
         # the result will be in r.RES
         self.rm.force_allocate_reg(op.result, selected_reg=r.RES)
         self.rm.temp_boxes.append(op.result)
@@ -984,6 +985,8 @@ class Regalloc(BaseRegalloc):
     prepare_debug_merge_point = void
     prepare_jit_debug = void
     prepare_keepalive = void
+    prepare_enter_portal_frame = void
+    prepare_leave_portal_frame = void
 
     def prepare_cond_call_gc_wb(self, op):
         arglocs = [self.ensure_reg(op.getarg(0))]
@@ -1019,9 +1022,8 @@ class Regalloc(BaseRegalloc):
         #
         # we need to make sure that no variable is stored in spp (=r31)
         for arg in inputargs:
-            if self.loc(arg) is r.SPP:
-                loc2 = self.fm.loc(arg)
-                self.assembler.mc.store(r.SPP, loc2)
+            assert self.loc(arg) is not r.SPP, (
+                "variable stored in spp in prepare_label")
         self.rm.bindings_to_frame_reg.clear()
         #
         for i in range(len(inputargs)):
@@ -1061,18 +1063,6 @@ class Regalloc(BaseRegalloc):
         self._spill_before_call(save_all_regs=True)
         resloc = self.after_call(op.result)
         return [resloc] + locs
-
-    def _prepare_args_for_new_op(self, new_args):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        args = gc_ll_descr.args_for_new(new_args)
-        arglocs = []
-        for i in range(len(args)):
-            arg = args[i]
-            t = TempInt()
-            l = self.force_allocate_reg(t, selected_reg=r.MANAGED_REGS[i])
-            self.assembler.load(l, imm(arg))
-            arglocs.append(t)
-        return arglocs
 
     def prepare_force_spill(self, op):
         self.force_spill_var(op.getarg(0))

@@ -2,6 +2,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rlib import rgc
+from rpython.rlib.jit_hooks import LOOP_RUN_CONTAINER
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.ppc.ppc_assembler import AssemblerPPC
 from rpython.jit.backend.ppc.arch import WORD
@@ -79,3 +80,7 @@ class PPC_CPU(AbstractLLCPU):
             mc.copy_to_raw_memory(jmp)
         # positions invalidated
         looptoken.compiled_loop_token.invalidate_positions = []
+
+    def get_all_loop_runs(self):
+        # not implemented
+        return lltype.malloc(LOOP_RUN_CONTAINER, 0)

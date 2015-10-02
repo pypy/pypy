@@ -1259,18 +1259,6 @@ class Regalloc(BaseRegalloc):
         self.possibly_free_vars(guard_op.getfailargs())
         return locs + [resloc, tmploc]
 
-    def _prepare_args_for_new_op(self, new_args):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        args = gc_ll_descr.args_for_new(new_args)
-        arglocs = []
-        for i in range(len(args)):
-            arg = args[i]
-            t = TempInt()
-            l = self.force_allocate_reg(t, selected_reg=r.all_regs[i])
-            self.assembler.load(l, imm(arg))
-            arglocs.append(t)
-        return arglocs
-
     prepare_op_float_add = prepare_float_op(name='prepare_op_float_add')
     prepare_op_float_sub = prepare_float_op(name='prepare_op_float_sub')
     prepare_op_float_mul = prepare_float_op(name='prepare_op_float_mul')

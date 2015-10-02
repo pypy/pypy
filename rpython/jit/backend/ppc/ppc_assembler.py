@@ -127,20 +127,20 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
     def _call_header_shadowstack(self, gcrootmap):
         # we need to put one word into the shadowstack: the jitframe (SPP)
         mc = self.mc
-        mc.load_imm(r.RCS1, gcrootmap.get_root_stack_top_addr())
-        mc.load(r.RCS2.value, r.RCS1.value, 0)    # ld RCS2, [rootstacktop]
+        diff = mc.load_imm_plus(r.RCS1, gcrootmap.get_root_stack_top_addr())
+        mc.load(r.RCS2.value, r.RCS1.value, diff) # ld RCS2, [rootstacktop]
         #
         mc.addi(r.RCS3.value, r.RCS2.value, WORD) # add RCS3, RCS2, WORD
         mc.store(r.SPP.value, r.RCS2.value, 0)    # std SPP, RCS2
         #
-        mc.store(r.RCS3.value, r.RCS1.value, 0)   # std RCS3, [rootstacktop]
+        mc.store(r.RCS3.value, r.RCS1.value, diff)# std RCS3, [rootstacktop]
 
     def _call_footer_shadowstack(self, gcrootmap):
         mc = self.mc
-        mc.load_imm(r.RCS1, gcrootmap.get_root_stack_top_addr())
-        mc.load(r.RCS2.value, r.RCS1.value, 0)     # ld RCS2, [rootstacktop]
-        mc.addi(r.RCS2.value, r.RCS2.value, WORD)  # sub RCS2, RCS2, WORD
-        mc.store(r.RCS2.value, r.RCS1.value, 0)    # std RCS2, [rootstacktop]
+        diff = mc.load_imm_plus(r.RCS1, gcrootmap.get_root_stack_top_addr())
+        mc.load(r.RCS2.value, r.RCS1.value, diff)  # ld RCS2, [rootstacktop]
+        mc.subi(r.RCS2.value, r.RCS2.value, WORD)  # sub RCS2, RCS2, WORD
+        mc.store(r.RCS2.value, r.RCS1.value, diff) # std RCS2, [rootstacktop]
 
     def new_stack_loc(self, i, tp):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
@@ -248,8 +248,8 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            mc.load_imm(r.r5, gcrootmap.get_root_stack_top_addr())
-            mc.load(r.r5.value, r.r5.value, 0)
+            diff = mc.load_imm_plus(r.r5, gcrootmap.get_root_stack_top_addr())
+            mc.load(r.r5.value, r.r5.value, diff)
             mc.store(r.r3.value, r.r5.value, -WORD)
 
         mc.mtlr(r.RCS1.value)     # restore LR
@@ -283,13 +283,16 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         mc.store(excvalloc.value, r.r2.value, 0)
         mc.store(exctploc.value, r.r2.value, diff)
 
-    def _reload_frame_if_necessary(self, mc):
+    def _reload_frame_if_necessary(self, mc, shadowstack_reg=None):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
-                mc.load_imm(r.SPP, gcrootmap.get_root_stack_top_addr())
-                mc.load(r.SPP.value, r.SPP.value, 0)
-                mc.load(r.SPP.value, r.SPP.value, -WORD)
+                if shadowstack_reg is None:
+                    diff = mc.load_imm_plus(r.SPP,
+                                            gcrootmap.get_root_stack_top_addr())
+                    mc.load(r.SPP.value, r.SPP.value, diff)
+                    shadowstack_reg = r.SPP
+                mc.load(r.SPP.value, shadowstack_reg.value, -WORD)
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
@@ -430,100 +433,38 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
             return      # no stack check (for tests, or non-translated)
         #
-        # make a "function" that is called immediately at the start of
-        # an assembler function.  In particular, the stack looks like:
-        #
-        # |                             |
-        # |        OLD BACKCHAIN        |
-        # |                             |
-        # =============================== -
-        # |                             |  | 
-        # |          BACKCHAIN          |  | > MINI FRAME (BACHCHAIN SIZE * WORD)
-        # |                             |  |
-        # =============================== - 
-        # |                             |
-        # |       SAVED PARAM REGS      |
-        # |                             |
-        # -------------------------------
-        # |                             |
-        # |          BACKCHAIN          |
-        # |                             |
-        # =============================== <- SP
-        #
+        # make a regular function that is called from a point near the start
+        # of an assembler function (after it adjusts the stack and saves
+        # registers).
         mc = PPCBuilder()
-        
-        # make small frame to store data (parameter regs + LR + SCRATCH) in
-        # there.  Allocate additional fixed save area for PPC64.
-        PARAM_AREA = len(r.PARAM_REGS)
-        FIXED_AREA = BACKCHAIN_SIZE
-        if IS_PPC_64:
-            FIXED_AREA += MAX_REG_PARAMS
-        frame_size = (FIXED_AREA + PARAM_AREA) * WORD
-
-        # align the SP
-        MINIFRAME_SIZE = BACKCHAIN_SIZE * WORD
-        while (frame_size + MINIFRAME_SIZE) % (4 * WORD) != 0:
-            frame_size += WORD
-
-        # write function descriptor
-        if IS_PPC_64 and IS_BIG_ENDIAN:
-            for _ in range(3):
-                mc.write64(0)
-
-        # build frame
-        mc.make_function_prologue(frame_size)
-
-        # save parameter registers
-        for i, reg in enumerate(r.PARAM_REGS):
-            mc.store(reg.value, r.SP.value, (i + FIXED_AREA) * WORD)
-
+        #
+        # Save away the LR inside r30
+        mc.mflr(r.RCS1.value)
+        #
+        # Do the call
         # use SP as single parameter for the call
         mc.mr(r.r3.value, r.SP.value)
-
-        # stack still aligned
-        mc.call(slowpathaddr)
-
-        with scratch_reg(mc):
-            mc.load_imm(r.SCRATCH, self.cpu.pos_exception())
-            mc.loadx(r.SCRATCH.value, 0, r.SCRATCH.value)
-            # if this comparison is true, then everything is ok,
-            # else we have an exception
-            mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
-
-        jnz_location = mc.currpos()
-        mc.trap()
-
-        # restore parameter registers
-        for i, reg in enumerate(r.PARAM_REGS):
-            mc.load(reg.value, r.SP.value, (i + FIXED_AREA) * WORD)
-
-        # restore LR
-        mc.restore_LR_from_caller_frame(frame_size)
-
-        # reset SP
-        mc.addi(r.SP.value, r.SP.value, frame_size)
-        #mc.blr()
-        mc.b(self.propagate_exception_path)
-
-        pmc = OverwritingBuilder(mc, jnz_location, 1)
-        pmc.bne(mc.currpos() - jnz_location)
-        pmc.overwrite()
-
-        # restore link register out of preprevious frame
-        offset_LR = frame_size + MINIFRAME_SIZE + LR_BC_OFFSET
-
-        with scratch_reg(mc):
-            mc.load(r.SCRATCH.value, r.SP.value, offset_LR)
-            mc.mtlr(r.SCRATCH.value)
-
-        # remove this frame and the miniframe
-        both_framesizes = frame_size + MINIFRAME_SIZE
-        mc.addi(r.SP.value, r.SP.value, both_framesizes)
-        mc.blr()
-
+        mc.load_imm(mc.RAW_CALL_REG, slowpathaddr)
+        mc.raw_call()
+        #
+        # Restore LR
+        mc.mtlr(r.RCS1.value)
+        #
+        # Check if it raised StackOverflow
+        mc.load_imm(r.SCRATCH, self.cpu.pos_exception())
+        mc.loadx(r.SCRATCH.value, 0, r.SCRATCH.value)
+        # if this comparison is true, then everything is ok,
+        # else we have an exception
+        mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
+        #
+        # So we return to LR back to our caller, conditionally if "EQ"
+        mc.beqlr()
+        #
+        # Else, jump to propagate_exception_path
+        assert self.propagate_exception_path
+        mc.b_abs(self.propagate_exception_path)
+        #
         rawstart = mc.materialize(self.cpu, [])
-        if IS_PPC_64:
-            self.write_64_bit_func_descr(rawstart, rawstart+3*WORD)
         self.stack_check_slowpath = rawstart
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
@@ -553,6 +494,10 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self.mc = mc
 
         if for_frame:
+            # NOTE: don't save registers on the jitframe here!  It might
+            # override already-saved values that will be restored
+            # later...
+            #
             # This 'for_frame' version is called after a CALL.  It does not
             # need to save many registers: the registers that are anyway
             # destroyed by the call can be ignored (VOLATILES), and the
@@ -560,8 +505,19 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             # to save r.RCS1 (used below), r3 and f1 (possible results of
             # the call), and two more non-volatile registers (used to store
             # the RPython exception that occurred in the CALL, if any).
-            saved_regs = [r.r3, r.RCS1, r.RCS2, r.RCS3]
-            saved_fp_regs = [r.f1]
+            #
+            # We need to increase our stack frame size a bit to store them.
+            #
+            self.mc.load(r.SCRATCH.value, r.SP.value, 0)    # SP back chain
+            self.mc.store_update(r.SCRATCH.value, r.SP.value, -6 * WORD)
+            self.mc.std(r.RCS1.value, r.SP.value, 1 * WORD)
+            self.mc.std(r.RCS2.value, r.SP.value, 2 * WORD)
+            self.mc.std(r.RCS3.value, r.SP.value, 3 * WORD)
+            self.mc.std(r.r3.value, r.SP.value, 4 * WORD)
+            self.mc.stfd(r.f1.value, r.SP.value, 5 * WORD)
+            saved_regs = None
+            saved_fp_regs = None
+
         else:
             # push all volatile registers, push RCS1, and sometimes push RCS2
             if withcards:
@@ -573,8 +529,8 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             else:
                 saved_fp_regs = []
 
-        self._push_core_regs_to_jitframe(mc, saved_regs)
-        self._push_fp_regs_to_jitframe(mc, saved_fp_regs)
+            self._push_core_regs_to_jitframe(mc, saved_regs)
+            self._push_fp_regs_to_jitframe(mc, saved_fp_regs)
 
         if for_frame:
             # note that it's safe to store the exception in register,
@@ -608,8 +564,18 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             mc.lbz(r.RCS2.value, r.RCS2.value, descr.jit_wb_if_flag_byteofs)
             mc.andix(r.RCS2.value, r.RCS2.value, card_marking_mask & 0xFF)
 
-        self._pop_core_regs_from_jitframe(mc, saved_regs)
-        self._pop_fp_regs_from_jitframe(mc, saved_fp_regs)
+        if for_frame:
+            self.mc.ld(r.RCS1.value, r.SP.value, 1 * WORD)
+            self.mc.ld(r.RCS2.value, r.SP.value, 2 * WORD)
+            self.mc.ld(r.RCS3.value, r.SP.value, 3 * WORD)
+            self.mc.ld(r.r3.value, r.SP.value, 4 * WORD)
+            self.mc.lfd(r.f1.value, r.SP.value, 5 * WORD)
+            self.mc.addi(r.SP.value, r.SP.value, 6 * WORD)
+
+        else:
+            self._pop_core_regs_from_jitframe(mc, saved_regs)
+            self._pop_fp_regs_from_jitframe(mc, saved_fp_regs)
+
         mc.blr()
 
         self.mc = old_mc
@@ -675,54 +641,19 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         if self.stack_check_slowpath == 0:
             pass            # not translated
         else:
-            XXXX
-            # this is the size for the miniframe
-            frame_size = BACKCHAIN_SIZE * WORD
-
             endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
+            diff = lengthaddr - endaddr
+            assert _check_imm_arg(diff)
 
-            # save r16
-            self.mc.mtctr(r.r16.value)
-
-            with scratch_reg(self.mc):
-                self.mc.load_imm(r.SCRATCH, endaddr)        # load SCRATCH, [start]
-                self.mc.loadx(r.SCRATCH.value, 0, r.SCRATCH.value)
-                self.mc.subf(r.SCRATCH.value, r.SP.value, r.SCRATCH.value)
-                self.mc.load_imm(r.r16, lengthaddr)
-                self.mc.load(r.r16.value, r.r16.value, 0)
-                self.mc.cmp_op(0, r.SCRATCH.value, r.r16.value, signed=False)
-
-            # restore r16
-            self.mc.mfctr(r.r16.value)
-
-            patch_loc = self.mc.currpos()
-            self.mc.trap()
-
-            # make minimal frame which contains the LR
-            #
-            # |         OLD    FRAME       |
-            # ==============================
-            # |                            |
-            # |         BACKCHAIN          | > BACKCHAIN_SIZE * WORD
-            # |                            |
-            # ============================== <- SP
-
-            self.mc.make_function_prologue(frame_size)
-
-            # make check
-            self.mc.call(self.stack_check_slowpath)
-
-            # restore LR
-            self.mc.restore_LR_from_caller_frame(frame_size)
-
-            # remove minimal frame
-            self.mc.addi(r.SP.value, r.SP.value, frame_size)
-
-            offset = self.mc.currpos() - patch_loc
-            #
-            pmc = OverwritingBuilder(self.mc, patch_loc, 1)
-            pmc.ble(offset) # jump if SCRATCH <= r16, i. e. not(SCRATCH > r16)
-            pmc.overwrite()
+            mc = self.mc
+            mc.load_imm(r.SCRATCH, self.stack_check_slowpath)
+            mc.load_imm(r.SCRATCH2, endaddr)                 # li r2, endaddr
+            mc.mtctr(r.SCRATCH.value)
+            mc.load(r.SCRATCH.value, r.SCRATCH2.value, 0)    # ld r0, [end]
+            mc.load(r.SCRATCH2.value, r.SCRATCH2.value, diff)# ld r2, [length]
+            mc.subf(r.SCRATCH.value, r.SP.value, r.SCRATCH.value)  # sub r0, SP
+            mc.cmp_op(0, r.SCRATCH.value, r.SCRATCH2.value, signed=False)
+            mc.bgtctrl()
 
     def _call_footer(self):
         # the return value is the jitframe
@@ -1012,8 +943,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             addr = rawstart + tok.pos_jump_offset
             #
             # XXX see patch_jump_for_descr()
-            #tok.faildescr.adr_jump_offset = addr
-            tok.faildescr.adr_recovery_stub = rawstart + tok.pos_recovery_stub
+            tok.faildescr.adr_jump_offset = rawstart + tok.pos_recovery_stub
             #
             relative_target = tok.pos_recovery_stub - tok.pos_jump_offset
             #
@@ -1039,7 +969,9 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         # --- XXX for now we always use the second solution ---
         mc = PPCBuilder()
         mc.b_abs(adr_new_target)
-        mc.copy_to_raw_memory(faildescr.adr_recovery_stub)
+        mc.copy_to_raw_memory(faildescr.adr_jump_offset)
+        assert faildescr.adr_jump_offset != 0
+        faildescr.adr_jump_offset = 0    # means "patched"
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -1390,16 +1322,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         with scratch_reg(self.mc):
             self.mc.load_imm(r.SCRATCH, fail_index)
             self.mc.store(r.SCRATCH.value, r.SPP.value, FORCE_INDEX_OFS)
-            
-    def load(self, loc, value):
-        assert (loc.is_reg() and value.is_imm()
-                or loc.is_fp_reg() and value.is_imm_float())
-        if value.is_imm():
-            self.mc.load_imm(loc, value.getint())
-        elif value.is_imm_float():
-            with scratch_reg(self.mc):
-                self.mc.load_imm(r.SCRATCH, value.getint())
-                self.mc.lfdx(loc.value, 0, r.SCRATCH.value)
+
 
 def notimplemented_op(self, op, arglocs, regalloc):
     print "[PPC/asm] %s not implemented" % op.getopname()

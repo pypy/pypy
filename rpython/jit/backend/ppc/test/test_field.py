@@ -1,5 +1,3 @@
-import autopath
-
 from rpython.jit.backend.ppc.field import Field
 from py.test import raises
 

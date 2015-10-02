@@ -126,8 +126,8 @@ class CallBuilder(AbstractCallBuilder):
             if gcrootmap.is_shadow_stack and self.is_call_release_gil:
                 # in this mode, 'ebx' happens to contain the shadowstack
                 # top at this point, so reuse it instead of loading it again
-                ssreg = ebx
-        self.asm._reload_frame_if_necessary(self.mc)
+                ssreg = self.RSHADOWPTR
+        self.asm._reload_frame_if_necessary(self.mc, shadowstack_reg=ssreg)
 
     def emit_raw_call(self):
         self.mc.raw_call()
@@ -151,9 +151,10 @@ class CallBuilder(AbstractCallBuilder):
         # Save this thread's shadowstack pointer into r29, for later comparison
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
-            rst = gcrootmap.get_root_stack_top_addr()
-            self.mc.load_imm(RSHADOWPTR, rst)
-            self.mc.load(RSHADOWOLD.value, RSHADOWPTR.value, 0)
+            if gcrootmap.is_shadow_stack:
+                rst = gcrootmap.get_root_stack_top_addr()
+                self.mc.load_imm(RSHADOWPTR, rst)
+                self.mc.load(RSHADOWOLD.value, RSHADOWPTR.value, 0)
         #
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
         self.mc.load_imm(RFASTGILPTR, fastgil)
@@ -184,7 +185,8 @@ class CallBuilder(AbstractCallBuilder):
 
         self.mc.cmpdi(0, r.r10.value, 0)
         b1_location = self.mc.currpos()
-        self.mc.trap()       # patched with a BEQ: jump if r10 is zero
+        self.mc.trap()       # boehm: patched with a BEQ: jump if r10 is zero
+                             # shadowstack: patched with BNE instead
 
         if self.asm.cpu.gc_ll_descr.gcrootmap:
             # When doing a call_release_gil with shadowstack, there
@@ -192,20 +194,23 @@ class CallBuilder(AbstractCallBuilder):
             # current shadowstack can be the one of a different
             # thread.  So here we check if the shadowstack pointer
             # is still the same as before we released the GIL (saved
-            # in 'r7'), and if not, we fall back to 'reacqgil_addr'.
-            XXXXXXXXXXXXXXXXXXX
-            self.mc.LDR_ri(r.ip.value, r.r5.value, cond=c.EQ)
-            self.mc.CMP_rr(r.ip.value, r.r7.value, cond=c.EQ)
+            # in RSHADOWOLD), and if not, we fall back to 'reacqgil_addr'.
+            self.mc.load(r.r9.value, RSHADOWPTR.value, 0)
+            self.mc.cmpdi(0, r.r9.value, RSHADOWOLD.value)
+            bne_location = b1_location
             b1_location = self.mc.currpos()
-            self.mc.BKPT()                       # BEQ below
-            # there are two cases here: either EQ was false from
-            # the beginning, or EQ was true at first but the CMP
-            # made it false.  In the second case we need to
-            # release the fastgil here.  We know which case it is
-            # by checking again r3.
-            self.mc.CMP_ri(r.r3.value, 0)
-            self.mc.STR_ri(r.r3.value, r.r6.value, cond=c.EQ)
+            self.mc.trap()
+
+            # revert the rpy_fastgil acquired above, so that the
+            # general 'reacqgil_addr' below can acquire it again...
+            # (here, r10 is conveniently zero)
+            self.mc.std(r.r10.value, RFASTGILPTR.value, 0)
+
+            pmc = OverwritingBuilder(self.mc, bne_location, 1)
+            pmc.bne(self.mc.currpos() - bne_location)
+            pmc.overwrite()
         #
+        # Yes, we need to call the reacqgil() function.
         # save the result we just got
         RSAVEDRES = RFASTGILPTR     # can reuse this reg here
         reg = self.resloc
@@ -225,9 +230,8 @@ class CallBuilder(AbstractCallBuilder):
                             PARAM_SAVE_AREA_OFFSET + 7 * WORD)
 
         # replace b1_location with BEQ(here)
-        jmp_target = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, b1_location, 1)
-        pmc.beq(jmp_target - b1_location)
+        pmc.beq(self.mc.currpos() - b1_location)
         pmc.overwrite()
 
         if not we_are_translated():        # for testing: now we can access

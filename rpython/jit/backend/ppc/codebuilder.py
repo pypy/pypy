@@ -17,11 +17,15 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.backend.ppc.rassemblermaker import make_rassembler
 
 
-# these are the *forbidden* encodings that don't accept register r0:
-#    addi rX, r0, immed
-#    subi rX, r0, immed
-#    addis rX, r0, immed
-#    subis rX, r0, immed
+# the following instructions can't accept "r0" as the second argument
+# (i.e. the base address): it is recognized as "0" instead, or is
+# even invalid (load-with-update, store-with-update).
+#
+#    any load or store instruction
+#    addi rD, r0, immed
+#    subi rD, r0, immed
+#    addis rD, r0, immed
+#    subis rD, r0, immed
 
 
 A = Form("frD", "frA", "frB", "XO3", "Rc")
@@ -1000,12 +1004,23 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             if word & 0xFFFF != 0:
                 self.ori(rD, rD, lo(word))
 
+    def load_imm_plus(self, dest_reg, word):
+        """Like load_imm(), but with one instruction less, and
+        leaves the loaded value off by some signed 16-bit difference.
+        Returns that difference."""
+        diff = rffi.cast(lltype.Signed, rffi.cast(rffi.SHORT, word))
+        word -= diff
+        assert word & 0xFFFF == 0
+        self.load_imm(dest_reg, word)
+        return diff
+
     def load_from_addr(self, rD, addr):
-        self.load_imm(rD, addr)
+        assert rD is not r.r0
+        diff = self.load_imm_plus(rD, addr)
         if IS_PPC_32:
-            self.lwzx(rD.value, 0, rD.value)
+            self.lwz(rD.value, rD.value, diff)
         else:
-            self.ldx(rD.value, 0, rD.value)
+            self.ld(rD.value, rD.value, diff)
 
     def b_offset(self, target):
         curpos = self.currpos()
@@ -1073,60 +1088,6 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         # Call the function
         self.bctrl()
 
-    ## def call(self, address):
-    ##     """ do a call to an absolute address
-    ##     """
-    ##     with scratch_reg(self):
-    ##         if IS_PPC_32:
-    ##             self.load_imm(r.SCRATCH, address)
-    ##         else:
-    ##             self.store(r.TOC.value, r.SP.value, 5 * WORD)
-    ##             self.load_imm(r.r11, address)
-    ##             self.load(r.SCRATCH.value, r.r11.value, 0)
-    ##             self.load(r.TOC.value, r.r11.value, WORD)
-    ##             self.load(r.r11.value, r.r11.value, 2 * WORD)
-    ##         self.mtctr(r.SCRATCH.value)
-    ##     self.bctrl()
-
-    ##     if IS_PPC_64:
-    ##         self.load(r.TOC.value, r.SP.value, 5 * WORD)
-
-    ## def call_register(self, call_reg):
-    ##     """ do a call to an address given in a register
-    ##     """
-    ##     assert isinstance(call_reg, RegisterLocation)
-    ##     with scratch_reg(self):
-    ##         if IS_PPC_32:
-    ##             self.mr(r.SCRATCH.value, call_reg.value)
-    ##         else:
-    ##             self.store(r.TOC.value, r.SP.value, 5 * WORD)
-    ##             self.mr(r.r11.value, call_reg.value)
-    ##             self.load(r.SCRATCH.value, r.r11.value, 0)
-    ##             self.load(r.TOC.value, r.r11.value, WORD)
-    ##             self.load(r.r11.value, r.r11.value, 2 * WORD)
-    ##         self.mtctr(r.SCRATCH.value)
-    ##     self.bctrl()
-
-    ##     if IS_PPC_64:
-    ##         self.load(r.TOC.value, r.SP.value, 5 * WORD)
-
-    ## def make_function_prologue(self, frame_size):
-    ##     """ Build a new stackframe of size frame_size 
-    ##         and store the LR in the previous frame.
-    ##     """
-    ##     with scratch_reg(self):
-    ##         self.store_update(r.SP.value, r.SP.value, -frame_size)
-    ##         self.mflr(r.SCRATCH.value)
-    ##         self.store(r.SCRATCH.value, r.SP.value, frame_size + LR_BC_OFFSET) 
-
-    def restore_LR_from_caller_frame(self, frame_size):
-        """ Restore the LR from the calling frame.
-            frame_size is the size of the current frame.
-        """
-        with scratch_reg(self):
-            lr_offset = frame_size + LR_BC_OFFSET
-            self.load(r.SCRATCH.value, r.SP.value, lr_offset)
-            self.mtlr(r.SCRATCH.value)
 
     def load(self, target_reg, base_reg, offset):
         if IS_PPC_32:
@@ -1265,6 +1226,22 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         pass
         #assert self.r0_in_use
         #self.r0_in_use = False
+
+    def get_assembler_function(self):
+        "NOT_RPYTHON: tests only"
+        from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
+        class FakeCPU:
+            HAS_CODEMAP = False
+            asmmemmgr = AsmMemoryManager()
+        addr = self.materialize(FakeCPU(), [])
+        if IS_BIG_ENDIAN:
+            mc = PPCBuilder()
+            mc.write64(addr)     # the 3-words descriptor
+            mc.write64(0)
+            mc.write64(0)
+            addr = mc.materialize(FakeCPU(), [])
+        return rffi.cast(lltype.Ptr(lltype.FuncType([], lltype.Signed)), addr)
+
 
 class scratch_reg(object):
     def __init__(self, mc):

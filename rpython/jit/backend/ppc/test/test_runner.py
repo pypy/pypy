@@ -25,7 +25,7 @@ class TestPPC(LLtypeBackendTest):
     assert not IS_PPC_32
     load_imm_instructions = (
         "(li|lis(; ori)?)(; rldicr(; oris)?(; ori)?)?")
-    add_loop_instructions = "ld; add; cmpdi; beq; b;$"
+    add_loop_instructions = "ld; add; cmpdi; beq-?; b;$"
     bridge_loop_instructions = (
         "ld; cmpdi; bge.; "
         "li; %s; mtctr; %s; bctrl; "
@@ -260,3 +260,17 @@ class TestPPC(LLtypeBackendTest):
                                      'int', descr=calldescr)
         assert res.value == -42
         assert seen == [argvals]
+
+    def test_subi_range(self):
+        for i in [-32769, -32768, -32767, 32767, 32768, 32769]:
+            ops = '''
+            [i0]
+            i1 = int_sub(i0, %d)
+            i2 = int_sub_ovf(i1, %d)
+            finish(i2)
+            ''' % (i, i)
+            loop = parse(ops, self.cpu, namespace=locals())
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            deadframe = self.cpu.execute_token(looptoken, 10000000)
+            assert self.cpu.get_int_value(deadframe, 0) == 10000000 - 2 * i
