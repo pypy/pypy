@@ -1,4 +1,4 @@
-from rpython.jit.metainterp.history import ConstInt, Box, FLOAT
+from rpython.jit.metainterp.history import ConstInt, FLOAT
 from rpython.jit.backend.ppc.locations import imm
 
 def check_imm_box(arg, lower_bound=-2**15, upper_bound=2**15-1):
@@ -21,7 +21,7 @@ def _prepare_cmp_op(signed):
         else:
             l1 = self.ensure_reg(a1)
         self.free_op_vars()
-        res = self.force_allocate_reg_or_cc(op.result)
+        res = self.force_allocate_reg_or_cc(op)
         return [l0, l1, res]
     return f
 prepare_cmp_op          = _prepare_cmp_op(signed=True)
@@ -31,27 +31,27 @@ def prepare_unary_cmp(self, op):
     l0 = self.ensure_reg(op.getarg(0))
     l1 = imm(0)
     self.free_op_vars()
-    res = self.force_allocate_reg_or_cc(op.result)
+    res = self.force_allocate_reg_or_cc(op)
     return [l0, l1, res]
 
 def prepare_float_cmp(self, op):
     l0 = self.ensure_reg(op.getarg(0))
     l1 = self.ensure_reg(op.getarg(1))
     self.free_op_vars()
-    res = self.force_allocate_reg_or_cc(op.result)
+    res = self.force_allocate_reg_or_cc(op)
     return [l0, l1, res]
 
 def prepare_unary_op(self, op):
     l0 = self.ensure_reg(op.getarg(0))
     self.free_op_vars()
-    res = self.force_allocate_reg(op.result)
+    res = self.force_allocate_reg(op)
     return [l0, res]
 
 def prepare_binary_op(self, op):
     reg1 = self.ensure_reg(op.getarg(0))
     reg2 = self.ensure_reg(op.getarg(1))
     self.free_op_vars()
-    res = self.force_allocate_reg(op.result)
+    res = self.force_allocate_reg(op)
     return [reg1, reg2, res]
 
 def prepare_int_add_or_mul(self, op):
@@ -65,7 +65,7 @@ def prepare_int_add_or_mul(self, op):
     else:
         l1 = self.ensure_reg(a1)
     self.free_op_vars()
-    res = self.force_allocate_reg(op.result)
+    res = self.force_allocate_reg(op)
     return [l0, l1, res]
 
 def prepare_int_sub(self, op):
@@ -76,5 +76,5 @@ def prepare_int_sub(self, op):
     else:
         l1 = self.ensure_reg(a1)
     self.free_op_vars()
-    res = self.force_allocate_reg(op.result)
+    res = self.force_allocate_reg(op)
     return [l0, l1, res]

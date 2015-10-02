@@ -1,7 +1,5 @@
 import py
-from rpython.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
-     BoxPtr, ConstPtr, BasicFailDescr, JitCellToken
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.ppc.arch import WORD
 from rpython.jit.tool.oparser import parse
@@ -79,7 +77,7 @@ def test_bug_0():
     i38 = uint_gt(i33, -11)
     i39 = int_neg(i7)
     i40 = int_gt(i24, i32)
-    i99 = same_as(0)
+    i99 = same_as_i(0)
     guard_true(i99) [i40, i36, i37, i31, i16, i34, i35, i23, i22, i29, i14, i39, i30, i38]
     finish(42)
     ''')
@@ -136,7 +134,7 @@ def test_bug_1():
     i38 = int_gt(i4, i11)
     i39 = int_lt(i27, i22)
     i40 = int_neg(i27)
-    i99 = same_as(0)
+    i99 = same_as_i(0)
     guard_true(i99) [i40, i10, i36, i26, i13, i30, i21, i33, i18, i25, i31, i32, i28, i29, i35, i38, i20, i39, i34, i23, i37]
     finish(-42)
     ''')

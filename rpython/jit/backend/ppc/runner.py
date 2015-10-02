@@ -84,3 +84,9 @@ class PPC_CPU(AbstractLLCPU):
     def get_all_loop_runs(self):
         # not implemented
         return lltype.malloc(LOOP_RUN_CONTAINER, 0)
+
+    def build_regalloc(self):
+        ''' for tests'''
+        from rpython.jit.backend.ppc.regalloc import Regalloc
+        assert self.assembler is not None
+        return Regalloc(self.assembler)

@@ -10,9 +10,9 @@ from rpython.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                           THREADLOCAL_ADDR_OFFSET,
                                           IS_BIG_ENDIAN)
 
-from rpython.jit.metainterp.history import (JitCellToken, TargetToken, Box,
+from rpython.jit.metainterp.history import (JitCellToken, TargetToken,
                                             AbstractFailDescr, FLOAT, INT, REF,
-                                            ConstInt)
+                                            ConstInt, VOID)
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.backend.ppc.helper.assembler import (Saved_Volatiles)
 from rpython.jit.backend.ppc.jump import remap_frame_layout
@@ -24,6 +24,7 @@ from rpython.jit.backend.llsupport.descr import InteriorFieldDescr, CallDescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rtyper import rclass
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.backend.ppc import callbuilder
@@ -40,6 +41,8 @@ class IntOpAssembler(object):
             self.mc.addi(res.value, l0.value, l1.value)
         else:
             self.mc.add(res.value, l0.value, l1.value)
+
+    emit_nursery_ptr_increment = emit_int_add
 
     def emit_int_sub(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
@@ -317,7 +320,7 @@ class GuardOpAssembler(object):
     def emit_guard_class(self, op, arglocs, regalloc):
         self._cmp_guard_class(op, arglocs, regalloc)
         self.guard_success_cc = c.EQ
-        self._emit_guard(op, arglocs[3:])
+        self._emit_guard(op, arglocs[2:])
 
     def emit_guard_nonnull_class(self, op, arglocs, regalloc):
         self.mc.cmp_op(0, arglocs[0].value, 1, imm=True, signed=False)
@@ -328,26 +331,102 @@ class GuardOpAssembler(object):
         pmc.blt(self.mc.currpos() - patch_pos)
         pmc.overwrite()
         self.guard_success_cc = c.EQ
-        self._emit_guard(op, arglocs[3:])
+        self._emit_guard(op, arglocs[2:])
 
     def _cmp_guard_class(self, op, locs, regalloc):
-        offset = locs[2]
+        offset = self.cpu.vtable_offset
         if offset is not None:
-            with scratch_reg(self.mc):
-                self.mc.load(r.SCRATCH.value, locs[0].value, offset.value)
-                self.mc.cmp_op(0, r.SCRATCH.value, locs[1].value)
+            # could be one instruction shorter, but don't care because
+            # it's not this case that is commonly translated
+            self.mc.load(r.SCRATCH.value, locs[0].value, offset)
+            self.mc.load_imm(r.SCRATCH2, locs[1].value)
+            self.mc.cmp_op(0, r.SCRATCH.value, r.SCRATCH2.value)
         else:
-            typeid = locs[1]
-            # here, we have to go back from 'classptr' to the value expected
-            # from reading the half-word in the object header.  Note that
-            # this half-word is at offset 0 on a little-endian machine;
-            # but it is at offset 2 (32 bit) or 4 (64 bit) on a
-            # big-endian machine.
-            if IS_PPC_32:
-                self.mc.lhz(r.SCRATCH.value, locs[0].value, 2 * IS_BIG_ENDIAN)
-            else:
-                self.mc.lwz(r.SCRATCH.value, locs[0].value, 4 * IS_BIG_ENDIAN)
-            self.mc.cmp_op(0, r.SCRATCH.value, typeid.value, imm=typeid.is_imm())
+            expected_typeid = (self.cpu.gc_ll_descr
+                    .get_typeid_from_classptr_if_gcremovetypeptr(locs[1].value))
+            self._cmp_guard_gc_type(locs[0], expected_typeid)
+
+    def _read_typeid(self, targetreg, loc_ptr):
+        # Note that the typeid half-word is at offset 0 on a little-endian
+        # machine; it is at offset 2 or 4 on a big-endian machine.
+        assert self.cpu.supports_guard_gc_type
+        if IS_PPC_32:
+            self.mc.lhz(targetreg.value, loc_ptr.value, 2 * IS_BIG_ENDIAN)
+        else:
+            self.mc.lwz(targetreg.value, loc_ptr.value, 4 * IS_BIG_ENDIAN)
+
+    def _cmp_guard_gc_type(self, loc_ptr, expected_typeid):
+        self._read_typeid(r.SCRATCH2, loc_ptr)
+        assert 0 <= expected_typeid <= 0x7fffffff   # 4 bytes are always enough
+        if expected_typeid > 0xffff:     # if 2 bytes are not enough
+            self.mc.subis(r.SCRATCH2.value, r.SCRATCH2.value,
+                          expected_typeid >> 16)
+            expected_typeid = expected_typeid & 0xffff
+        self.mc.cmp_op(0, r.SCRATCH2.value, expected_typeid,
+                       imm=True, signed=False)
+
+    def emit_guard_gc_type(self, op, arglocs, regalloc):
+        self._cmp_guard_gc_type(arglocs[0], arglocs[1].value)
+        self.guard_success_cc = c.EQ
+        self._emit_guard(op, arglocs[2:])
+
+    def emit_guard_is_object(self, op, arglocs, regalloc):
+        assert self.cpu.supports_guard_gc_type
+        loc_object = arglocs[0]
+        # idea: read the typeid, fetch one byte of the field 'infobits' from
+        # the big typeinfo table, and check the flag 'T_IS_RPYTHON_INSTANCE'.
+        base_type_info, shift_by, sizeof_ti = (
+            self.cpu.gc_ll_descr.get_translated_info_for_typeinfo())
+        infobits_offset, IS_OBJECT_FLAG = (
+            self.cpu.gc_ll_descr.get_translated_info_for_guard_is_object())
+
+        self._read_typeid(r.SCRATCH2, loc_object)
+        self.mc.load_imm(r.SCRATCH, base_type_info + infobits_offset)
+        assert shift_by == 0     # on PPC64; fixme for PPC32
+        self.mc.lbzx(r.SCRATCH2.value, r.SCRATCH2.value, r.SCRATCH.value)
+        self.mc.andix(r.SCRATCH2.value, r.SCRATCH2.value, IS_OBJECT_FLAG & 0xff)
+        self.guard_success_cc = c.NE
+        self._emit_guard(op, arglocs[1:])
+
+    def emit_guard_subclass(self, op, arglocs, regalloc):
+        assert self.cpu.supports_guard_gc_type
+        loc_object = arglocs[0]
+        loc_check_against_class = arglocs[1]
+        offset = self.cpu.vtable_offset
+        offset2 = self.cpu.subclassrange_min_offset
+        if offset is not None:
+            # read this field to get the vtable pointer
+            self.mc.load(r.SCRATCH2.value, loc_object.value, offset)
+            # read the vtable's subclassrange_min field
+            assert _check_imm_arg(offset2)
+            self.mc.ld(r.SCRATCH2.value, r.SCRATCH2.value, offset2)
+        else:
+            # read the typeid
+            self._read_typeid(r.SCRATCH, loc_object)
+            # read the vtable's subclassrange_min field, as a single
+            # step with the correct offset
+            base_type_info, shift_by, sizeof_ti = (
+                self.cpu.gc_ll_descr.get_translated_info_for_typeinfo())
+            self.mc.load_imm(r.SCRATCH2, base_type_info + sizeof_ti + offset2)
+            assert shift_by == 0     # on PPC64; fixme for PPC32
+            self.mc.ldx(r.SCRATCH2.value, r.SCRATCH2.value, r.SCRATCH.value)
+        # get the two bounds to check against
+        vtable_ptr = loc_check_against_class.getint()
+        vtable_ptr = rffi.cast(rclass.CLASSTYPE, vtable_ptr)
+        check_min = vtable_ptr.subclassrange_min
+        check_max = vtable_ptr.subclassrange_max
+        assert check_max > check_min
+        check_diff = check_max - check_min - 1
+        # right now, a full PyPy uses less than 6000 numbers,
+        # so we'll assert here that it always fit inside 15 bits
+        assert 0 <= check_min <= 0x7fff
+        assert 0 <= check_diff <= 0xffff
+        # check by doing the unsigned comparison (tmp - min) < (max - min)
+        self.mc.subi(r.SCRATCH2.value, r.SCRATCH2.value, check_min)
+        self.mc.cmp_op(0, r.SCRATCH2.value, check_diff, imm=True, signed=False)
+        # the guard passes if we get a result of "below or equal"
+        self.guard_success_cc = c.LE
+        self._emit_guard(op, arglocs[2:])
 
     def emit_guard_not_invalidated(self, op, arglocs, regalloc):
         self._emit_guard(op, arglocs, is_guard_not_invalidated=True)
@@ -433,17 +512,20 @@ class MiscOpAssembler(object):
         assert my_nbargs == target_nbargs
 
         if descr in self.target_tokens_currently_compiling:
-            self.mc.b_offset(descr._ppc_loop_code)
+            self.mc.b_offset(descr._ll_loop_code)
         else:
-            self.mc.b_abs(descr._ppc_loop_code)
+            self.mc.b_abs(descr._ll_loop_code)
 
-    def emit_same_as(self, op, arglocs, regalloc):
+    def _genop_same_as(self, op, arglocs, regalloc):
         argloc, resloc = arglocs
         if argloc is not resloc:
             self.regalloc_mov(argloc, resloc)
 
-    emit_cast_ptr_to_int = emit_same_as
-    emit_cast_int_to_ptr = emit_same_as
+    emit_same_as_i = _genop_same_as
+    emit_same_as_r = _genop_same_as
+    emit_same_as_f = _genop_same_as
+    emit_cast_ptr_to_int = _genop_same_as
+    emit_cast_int_to_ptr = _genop_same_as
 
     def emit_guard_no_exception(self, op, arglocs, regalloc):
         self.mc.load_from_addr(r.SCRATCH2, self.cpu.pos_exception())
@@ -504,19 +586,34 @@ class CallOpAssembler(object):
         else:
             cb.emit()
 
-    def emit_call(self, op, arglocs, regalloc):
+    def _genop_call(self, op, arglocs, regalloc):
         oopspecindex = regalloc.get_oopspecindex(op)
         if oopspecindex == EffectInfo.OS_MATH_SQRT:
             return self._emit_math_sqrt(op, arglocs, regalloc)
         self._emit_call(op, arglocs)
 
-    def emit_call_may_force(self, op, arglocs, regalloc):
+    emit_call_i = _genop_call
+    emit_call_r = _genop_call
+    emit_call_f = _genop_call
+    emit_call_n = _genop_call
+
+    def _genop_call_may_force(self, op, arglocs, regalloc):
         self._store_force_index(self._find_nearby_operation(regalloc, +1))
         self._emit_call(op, arglocs)
 
-    def emit_call_release_gil(self, op, arglocs, regalloc):
+    emit_call_may_force_i = _genop_call_may_force
+    emit_call_may_force_r = _genop_call_may_force
+    emit_call_may_force_f = _genop_call_may_force
+    emit_call_may_force_n = _genop_call_may_force
+
+    def _genop_call_release_gil(self, op, arglocs, regalloc):
         self._store_force_index(self._find_nearby_operation(regalloc, +1))
         self._emit_call(op, arglocs, is_call_release_gil=True)
+
+    emit_call_release_gil_i = _genop_call_release_gil
+    emit_call_release_gil_r = _genop_call_release_gil
+    emit_call_release_gil_f = _genop_call_release_gil
+    emit_call_release_gil_n = _genop_call_release_gil
 
     def _store_force_index(self, guard_op):
         assert (guard_op.getopnum() == rop.GUARD_NOT_FORCED or
@@ -667,13 +764,20 @@ class FieldOpAssembler(object):
         else:
             assert 0, "size not supported"
 
-    def emit_getfield_gc(self, op, arglocs, regalloc):
+    def _genop_getfield(self, op, arglocs, regalloc):
         base_loc, ofs, res, size, sign = arglocs
         self._load_from_mem(res, base_loc, ofs, size, sign)
 
-    emit_getfield_raw = emit_getfield_gc
-    emit_getfield_raw_pure = emit_getfield_gc
-    emit_getfield_gc_pure = emit_getfield_gc
+    emit_getfield_gc_i = _genop_getfield
+    emit_getfield_gc_r = _genop_getfield
+    emit_getfield_gc_f = _genop_getfield
+    emit_getfield_gc_pure_i = _genop_getfield
+    emit_getfield_gc_pure_r = _genop_getfield
+    emit_getfield_gc_pure_f = _genop_getfield
+    emit_getfield_raw_i = _genop_getfield
+    emit_getfield_raw_f = _genop_getfield
+    emit_getfield_raw_pure_i = _genop_getfield
+    emit_getfield_raw_pure_f = _genop_getfield
 
     SIZE2SCALE = dict([(1<<_i, _i) for _i in range(32)])
 
@@ -729,13 +833,15 @@ class FieldOpAssembler(object):
                 index_loc = r.SCRATCH2
             return index_loc
 
-    def emit_getinteriorfield_gc(self, op, arglocs, regalloc):
+    def _genop_getarray_or_interiorfield(self, op, arglocs, regalloc):
         (base_loc, index_loc, res_loc, ofs_loc,
             itemsize, fieldsize, fieldsign) = arglocs
         ofs_loc = self._apply_scale(ofs_loc, index_loc, itemsize)
         self._load_from_mem(res_loc, base_loc, ofs_loc, fieldsize, fieldsign)
 
-    emit_getinteriorfield_raw = emit_getinteriorfield_gc
+    emit_getinteriorfield_gc_i = _genop_getarray_or_interiorfield
+    emit_getinteriorfield_gc_r = _genop_getarray_or_interiorfield
+    emit_getinteriorfield_gc_f = _genop_getarray_or_interiorfield
 
     def emit_setinteriorfield_gc(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc, ofs_loc,
@@ -752,12 +858,20 @@ class FieldOpAssembler(object):
     emit_setarrayitem_gc = emit_setinteriorfield_gc
     emit_setarrayitem_raw = emit_setarrayitem_gc
 
-    emit_getarrayitem_gc = emit_getinteriorfield_gc
-    emit_getarrayitem_raw = emit_getarrayitem_gc
-    emit_getarrayitem_gc_pure = emit_getarrayitem_gc
+    emit_getarrayitem_gc_i = _genop_getarray_or_interiorfield
+    emit_getarrayitem_gc_r = _genop_getarray_or_interiorfield
+    emit_getarrayitem_gc_f = _genop_getarray_or_interiorfield
+    emit_getarrayitem_gc_pure_i = _genop_getarray_or_interiorfield
+    emit_getarrayitem_gc_pure_r = _genop_getarray_or_interiorfield
+    emit_getarrayitem_gc_pure_f = _genop_getarray_or_interiorfield
+    emit_getarrayitem_raw_i = _genop_getarray_or_interiorfield
+    emit_getarrayitem_raw_f = _genop_getarray_or_interiorfield
+    emit_getarrayitem_raw_pure_i = _genop_getarray_or_interiorfield
+    emit_getarrayitem_raw_pure_f = _genop_getarray_or_interiorfield
 
     emit_raw_store = emit_setarrayitem_gc
-    emit_raw_load = emit_getarrayitem_gc
+    emit_raw_load_i = _genop_getarray_or_interiorfield
+    emit_raw_load_f = _genop_getarray_or_interiorfield
 
     def _copy_in_scratch2(self, loc):
         if loc.is_imm():
@@ -862,8 +976,8 @@ class StrOpAssembler(object):
 
     _mixin_ = True
 
-    emit_strlen = FieldOpAssembler.emit_getfield_gc
-    emit_strgetitem = FieldOpAssembler.emit_getarrayitem_gc
+    emit_strlen = FieldOpAssembler._genop_getfield
+    emit_strgetitem = FieldOpAssembler._genop_getarray_or_interiorfield
     emit_strsetitem = FieldOpAssembler.emit_setarrayitem_gc
 
     def emit_copystrcontent(self, op, arglocs, regalloc):
@@ -926,8 +1040,8 @@ class UnicodeOpAssembler(object):
 
     _mixin_ = True
 
-    emit_unicodelen = FieldOpAssembler.emit_getfield_gc
-    emit_unicodegetitem = FieldOpAssembler.emit_getarrayitem_gc
+    emit_unicodelen = FieldOpAssembler._genop_getfield
+    emit_unicodegetitem = FieldOpAssembler._genop_getarray_or_interiorfield
     emit_unicodesetitem = FieldOpAssembler.emit_setarrayitem_gc
 
 
@@ -936,7 +1050,7 @@ class AllocOpAssembler(object):
     _mixin_ = True
 
     def emit_call_malloc_gc(self, op, arglocs, regalloc):
-        self.emit_call(op, arglocs, regalloc)
+        self._emit_call(op, arglocs)
         self.propagate_memoryerror_if_r3_is_null()
 
     def emit_call_malloc_nursery(self, op, arglocs, regalloc):
@@ -1130,15 +1244,20 @@ class ForceOpAssembler(object):
         res_loc = arglocs[0]
         self.mc.mr(res_loc.value, r.SPP.value)
 
-    def emit_call_assembler(self, op, arglocs, regalloc):
+    def _genop_call_assembler(self, op, arglocs, regalloc):
         if len(arglocs) == 3:
             [result_loc, argloc, vloc] = arglocs
         else:
             [result_loc, argloc] = arglocs
             vloc = imm(0)
         self._store_force_index(self._find_nearby_operation(regalloc, +1))
-        # 'result_loc' is either r3 or f1
+        # 'result_loc' is either r3 or f1, or None
         self.call_assembler(op, argloc, vloc, result_loc, r.r3)
+
+    emit_call_assembler_i = _genop_call_assembler
+    emit_call_assembler_r = _genop_call_assembler
+    emit_call_assembler_f = _genop_call_assembler
+    emit_call_assembler_n = _genop_call_assembler
 
     imm = staticmethod(imm)   # for call_assembler()
 
@@ -1177,9 +1296,9 @@ class ForceOpAssembler(object):
         return jump_to_done
 
     def _call_assembler_load_result(self, op, result_loc):
-        if op.result is not None:
+        if op.type != VOID:
             # load the return value from the dead frame's value index 0
-            kind = op.result.type
+            kind = op.type
             descr = self.cpu.getarraydescr_for_frame(kind)
             ofs = self.cpu.unpack_arraydescr(descr)
             if kind == FLOAT:
@@ -1202,6 +1321,10 @@ class ForceOpAssembler(object):
         assert old_nbargs == new_nbargs
         oldadr = oldlooptoken._ll_function_addr
         target = newlooptoken._ll_function_addr
+        # copy frame-info data
+        baseofs = self.cpu.get_baseofs_of_frame_field()
+        newlooptoken.compiled_loop_token.update_frame_info(
+            oldlooptoken.compiled_loop_token, baseofs)
         if IS_PPC_32 or not IS_BIG_ENDIAN:
             # we overwrite the instructions at the old _ll_function_addr
             # to start with a JMP to the new _ll_function_addr.

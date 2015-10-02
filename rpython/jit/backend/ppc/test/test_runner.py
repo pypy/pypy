@@ -4,11 +4,10 @@ from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.history import (AbstractFailDescr,
                                             AbstractDescr,
                                             BasicFailDescr, BasicFinalDescr,
-                                            BoxInt, Box, BoxPtr,
                                             JitCellToken, TargetToken,
                                             ConstInt, ConstPtr,
-                                            Const,
-                                            BoxFloat, ConstFloat)
+                                            Const, ConstFloat)
+from rpython.jit.metainterp.resoperation import InputArgInt, InputArgFloat
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.jit.backend.ppc.arch import IS_PPC_32
@@ -105,51 +104,28 @@ class TestPPC(LLtypeBackendTest):
     def test_unicodesetitem_really_needs_temploc(self):
         u_box = self.alloc_unicode(u"abcdsdasdsaddefg")
 
-        i0 = BoxInt()
-        i1 = BoxInt()
-        i2 = BoxInt()
-        i3 = BoxInt()
-        i4 = BoxInt()
-        i5 = BoxInt()
-        i6 = BoxInt()
-        i7 = BoxInt()
-        i8 = BoxInt()
-        i9 = BoxInt()
-        p10 = BoxPtr()
-
-        inputargs = [i0,i1,i2,i3,i4,i5,i6,i7,i8,i9,p10]
-        looptoken = JitCellToken()
         targettoken = TargetToken()
         finaldescr = BasicFinalDescr(1)
+        loop = parse('''
+        [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, p10]
+        label(i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, p10, descr=targettoken)
+        unicodesetitem(p10, i6, 123)
+        i11 = int_add(i0,  i1)
+        i12 = int_add(i11, i2)
+        i13 = int_add(i12, i3)
+        i14 = int_add(i13, i4)
+        i15 = int_add(i14, i5)
+        i16 = int_add(i15, i6)
+        i17 = int_add(i16, i7)
+        i18 = int_add(i17, i8)
+        i19 = int_add(i18, i9)
+        finish(i19, descr=finaldescr)
+        ''', namespace={'targettoken': targettoken,
+                        'finaldescr': finaldescr})
 
-        i11 = BoxInt()
-        i12 = BoxInt()
-        i13 = BoxInt()
-        i14 = BoxInt()
-        i15 = BoxInt()
-        i16 = BoxInt()
-        i17 = BoxInt()
-        i18 = BoxInt()
-        i19 = BoxInt()
-
-        operations = [
-            ResOperation(rop.LABEL, inputargs, None, descr=targettoken),
-            ResOperation(rop.UNICODESETITEM, 
-                         [p10, i6, ConstInt(123)], None),
-            ResOperation(rop.INT_ADD, [i0,  i1], i11),
-            ResOperation(rop.INT_ADD, [i11, i2], i12),
-            ResOperation(rop.INT_ADD, [i12, i3], i13),
-            ResOperation(rop.INT_ADD, [i13, i4], i14),
-            ResOperation(rop.INT_ADD, [i14, i5], i15),
-            ResOperation(rop.INT_ADD, [i15, i6], i16),
-            ResOperation(rop.INT_ADD, [i16, i7], i17),
-            ResOperation(rop.INT_ADD, [i17, i8], i18),
-            ResOperation(rop.INT_ADD, [i18, i9], i19),
-            ResOperation(rop.FINISH, [i19], None, descr=finaldescr)
-            ]
-
+        looptoken = JitCellToken()
         args = [(i + 1) for i in range(10)] + [u_box.getref_base()]
-        self.cpu.compile_loop(inputargs, operations, looptoken)
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, *args)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 1
@@ -200,27 +176,26 @@ class TestPPC(LLtypeBackendTest):
 
     def test_compile_more_than_32k(self):
         # the guard_true needs a "b.cond" jumping forward more than 32 kb
-        i0 = BoxInt()
-        i1 = BoxInt()
         looptoken = JitCellToken()
         targettoken = TargetToken()
-        operations = [
-            ResOperation(rop.LABEL, [i0], None, descr=targettoken),
-            ResOperation(rop.INT_LE, [i0, ConstInt(9)], i1),
-            ResOperation(rop.GUARD_TRUE, [i1], None, descr=BasicFailDescr(5)),
+        ops = [
+            '[i0]',
+            'label(i0, descr=targettoken)',
+            'i1 = int_le(i0, 9)',
+            'guard_true(i1, descr=faildescr) [i0]',
             ]
-        operations[2].setfailargs([i0])
-        inputargs = [i0]
         NUM = 8193
+        iprevious = 'i0'
         for i in range(NUM):
-            i2 = BoxInt()
-            operations.append(
-                ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i2))
-            i0 = i2
-        operations.append(
-            ResOperation(rop.JUMP, [i0], None, descr=targettoken))
+            inext = 'i%d' % (i + 2,)
+            ops.append('%s = int_add(%s, 1)' % (inext, iprevious))
+            iprevious = inext
+        ops.append('jump(%s, descr=targettoken)' % (iprevious,))
 
-        self.cpu.compile_loop(inputargs, operations, looptoken)
+        loop = parse('\n'.join(ops), namespace={'targettoken': targettoken,
+                                                'faildescr': BasicFailDescr(5)})
+
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, -42)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 5
@@ -252,13 +227,13 @@ class TestPPC(LLtypeBackendTest):
         argboxes = []
         for x in argvals:
             if isinstance(x, float):
-                argboxes.append(BoxFloat(x))
+                argboxes.append(InputArgFloat(x))
             else:
-                argboxes.append(BoxInt(x))
-        res = self.execute_operation(rop.CALL,
+                argboxes.append(InputArgInt(x))
+        res = self.execute_operation(rop.CALL_I,
                                      [funcbox] + argboxes,
                                      'int', descr=calldescr)
-        assert res.value == -42
+        assert res == -42
         assert seen == [argvals]
 
     def test_subi_range(self):

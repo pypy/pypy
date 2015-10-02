@@ -438,6 +438,9 @@ class JitCellToken(AbstractDescr):
         self.compiled_loop_token.cpu.dump_loop_token(self)
 
 class TargetToken(AbstractDescr):
+    _ll_loop_code = 0     # for the backend.  If 0, we know that it is
+                          # a LABEL that was not compiled yet.
+
     def __init__(self, targeting_jitcell_token=None,
                  original_jitcell_token=None):
         # Warning, two different jitcell_tokens here!

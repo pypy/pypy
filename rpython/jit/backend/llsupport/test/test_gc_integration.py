@@ -3,7 +3,7 @@
 """
 
 import py
-import re
+import re, sys, struct
 from rpython.jit.metainterp.history import TargetToken, BasicFinalDescr,\
      JitCellToken, BasicFailDescr, AbstractDescr
 from rpython.jit.backend.llsupport.gc import GcLLDescription, GcLLDescr_boehm,\
@@ -613,7 +613,10 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu = CPU(None, None)
         cpu.gc_ll_descr = GCDescrShadowstackDirect()
         wbd = cpu.gc_ll_descr.write_barrier_descr
-        wbd.jit_wb_if_flag_byteofs = 0 # directly into 'hdr' field
+        if sys.byteorder == 'little':
+            wbd.jit_wb_if_flag_byteofs = 0 # directly into 'hdr' field
+        else:
+            wbd.jit_wb_if_flag_byteofs = struct.calcsize("l") - 1
         S = lltype.GcForwardReference()
         S.become(lltype.GcStruct('S',
                                  ('hdr', lltype.Signed),

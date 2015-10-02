@@ -41,11 +41,7 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.jit.backend.llsupport.descr import CallDescr
 
 
-# xxx hack: set a default value for TargetToken._ll_loop_code.  If 0, we know
-# that it is a LABEL that was not compiled yet.
-TargetToken._ll_loop_code = 0
-
-class TempInt(TempVar):
+class TempInt(TempBox):
     type = INT
 
     def __repr__(self):

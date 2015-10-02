@@ -15,7 +15,6 @@ import rpython.jit.backend.ppc.register as r
 import rpython.jit.backend.ppc.condition as c
 from rpython.jit.backend.ppc.register import JITFRAME_FIXED_SIZE
 from rpython.jit.metainterp.history import AbstractFailDescr
-from rpython.jit.metainterp.history import ConstInt, BoxInt
 from rpython.jit.backend.llsupport import jitframe, rewrite
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.assembler import (DEBUG_COUNTER, debug_bridge,
@@ -770,7 +769,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         if IS_PPC_64 and IS_BIG_ENDIAN:  # fix the function descriptor (3 words)
             rffi.cast(rffi.LONGP, rawstart)[0] = rawstart + 3 * WORD
         #
-        looptoken._ppc_loop_code = looppos + rawstart
+        looptoken._ll_loop_code = looppos + rawstart
         debug_start("jit-backend-addr")
         debug_print("Loop %d (%s) has address 0x%x to 0x%x (bootstrap 0x%x)" % (
             looptoken.number, loopname,
@@ -870,7 +869,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
-            targettoken._ppc_loop_code += rawstart
+            targettoken._ll_loop_code += rawstart
         self.target_tokens_currently_compiling = None
 
     def target_arglocs(self, looptoken):
