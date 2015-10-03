@@ -250,6 +250,29 @@ class OpRestrict(object):
         restrict = self.argument_restrictions[index]
         return restrict.bytesize
 
+    def opcount_filling_vector_register(self, op, vec_reg_size):
+        """ How many operations of that kind can one execute
+            with a machine instruction of register size X?
+        """
+        if op.is_typecast():
+            if op.casts_down():
+                size = op.cast_input_bytesize(vec_reg_size)
+                return size // op.cast_from_bytesize()
+            else:
+                return vec_reg_size // op.cast_to_bytesize()
+        return  vec_reg_size // op.bytesize
+
+class GuardRestrict(OpRestrict):
+    def opcount_filling_vector_register(self, op, vec_reg_size):
+        arg = op.getarg(0)
+        return vec_reg_size // arg.bytesize
+
+class LoadRestrict(OpRestrict):
+    def opcount_filling_vector_register(self, op, vec_reg_size):
+        assert op.is_primitive_load()
+        descr = op.getdescr()
+        return vec_reg_size // descr.get_item_size_in_bytes()
+
 class StoreRestrict(OpRestrict):
     def __init__(self, argument_restris):
         self.argument_restrictions = argument_restris
@@ -263,6 +286,11 @@ class StoreRestrict(OpRestrict):
         # there is only one parameter that needs to be transformed!
         descr = op.getdescr()
         return descr.get_item_size_in_bytes()
+
+    def opcount_filling_vector_register(self, op, vec_reg_size):
+        assert op.is_primitive_store()
+        descr = op.getdescr()
+        return vec_reg_size // descr.get_item_size_in_bytes()
 
 class OpMatchSizeTypeFirst(OpRestrict):
     def check_operation(self, state, pack, op):
@@ -293,6 +321,9 @@ class trans(object):
 
     OR_MSTF_I = OpMatchSizeTypeFirst([TR_ANY_INTEGER, TR_ANY_INTEGER])
     OR_MSTF_F = OpMatchSizeTypeFirst([TR_ANY_FLOAT, TR_ANY_FLOAT])
+    STORE_RESTRICT = StoreRestrict([None, None, TR_ANY])
+    LOAD_RESTRICT = LoadRestrict([])
+    GUARD_RESTRICT = GuardRestrict([TR_ANY_INTEGER])
 
     # note that the following definition is x86 arch specific
     MAPPING = {
@@ -312,12 +343,19 @@ class trans(object):
         rop.VEC_FLOAT_ABS:          OpRestrict([TR_ANY_FLOAT]),
         rop.VEC_FLOAT_NEG:          OpRestrict([TR_ANY_FLOAT]),
 
-        rop.VEC_RAW_STORE:          StoreRestrict([None, None, TR_ANY]),
-        rop.VEC_SETARRAYITEM_RAW:   StoreRestrict([None, None, TR_ANY]),
-        rop.VEC_SETARRAYITEM_GC:    StoreRestrict([None, None, TR_ANY]),
+        rop.VEC_RAW_STORE:          STORE_RESTRICT,
+        rop.VEC_SETARRAYITEM_RAW:   STORE_RESTRICT,
+        rop.VEC_SETARRAYITEM_GC:    STORE_RESTRICT,
 
-        rop.GUARD_TRUE:             OpRestrict([TR_ANY_INTEGER]),
-        rop.GUARD_FALSE:            OpRestrict([TR_ANY_INTEGER]),
+        rop.VEC_RAW_LOAD_I:         LOAD_RESTRICT,
+        rop.VEC_RAW_LOAD_F:         LOAD_RESTRICT,
+        rop.VEC_GETARRAYITEM_RAW_I: LOAD_RESTRICT,
+        rop.VEC_GETARRAYITEM_RAW_F: LOAD_RESTRICT,
+        rop.VEC_GETARRAYITEM_GC_I:  LOAD_RESTRICT,
+        rop.VEC_GETARRAYITEM_GC_F:  LOAD_RESTRICT,
+
+        rop.GUARD_TRUE:             GUARD_RESTRICT,
+        rop.GUARD_FALSE:            GUARD_RESTRICT,
 
         ## irregular
         rop.VEC_INT_SIGNEXT:        OpRestrict([TR_ANY_INTEGER]),
@@ -333,12 +371,19 @@ class trans(object):
         rop.VEC_INT_IS_TRUE:        OpRestrict([TR_ANY_INTEGER,TR_ANY_INTEGER]),
     }
 
+    @staticmethod
+    def get(op):
+        res = trans.MAPPING.get(op.vector, None)
+        if not res:
+            failnbail_transformation("could not get OpRestrict for " + str(op))
+        return res
+
 def turn_into_vector(state, pack):
     """ Turn a pack into a vector instruction """
     check_if_pack_supported(state, pack)
     state.costmodel.record_pack_savings(pack, pack.numops())
     left = pack.leftmost()
-    oprestrict = trans.MAPPING.get(pack.leftmost().vector, None)
+    oprestrict = trans.get(left)
     if oprestrict is not None:
         oprestrict.check_operation(state, pack, left)
     args = left.getarglist_copy()
@@ -733,24 +778,6 @@ class VecScheduleState(SchedulerState):
                 break
             self.setvector_of_box(arg, i, box)
 
-def opcount_filling_vector_register(pack, vec_reg_size):
-    """ How many operations of that kind can one execute
-        with a machine instruction of register size X?
-    """
-    op = pack.leftmost()
-    if op.returns_void():
-        assert op.is_primitive_store()
-        descr = op.getdescr()
-        return vec_reg_size // descr.get_item_size_in_bytes()
-
-    if op.is_typecast():
-        if op.casts_down():
-            size = op.cast_input_bytesize(vec_reg_size)
-            return size // op.cast_from_bytesize()
-        else:
-            return vec_reg_size // op.cast_to_bytesize()
-    return  vec_reg_size // op.bytesize
-
 class Pack(object):
     """ A pack is a set of n statements that are:
         * isomorphic
@@ -880,8 +907,13 @@ class Pack(object):
                 break
         pack.update_pack_of_nodes()
 
+    def opcount_filling_vector_register(self, vec_reg_size):
+        left = self.leftmost()
+        oprestrict = trans.get(left)
+        return oprestrict.opcount_filling_vector_register(left, vec_reg_size)
+
     def slice_operations(self, vec_reg_size):
-        count = opcount_filling_vector_register(self, vec_reg_size)
+        count = self.opcount_filling_vector_register(vec_reg_size)
         assert count > 0
         newoplist = self.operations[count:]
         oplist = self.operations[:count]

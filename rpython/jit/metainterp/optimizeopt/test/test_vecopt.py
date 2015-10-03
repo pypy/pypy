@@ -22,7 +22,6 @@ from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 from rpython.jit.backend.llsupport.descr import ArrayDescr
-from rpython.jit.metainterp.optimizeopt.schedule import opcount_filling_vector_register
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
 
 class FakeJitDriverStaticData(object):
@@ -245,12 +244,32 @@ def arg(type='f', size=8, signed=False, datatype='f'):
     return  FakeInput(type, datatype, size, signed)
 class BaseTestVectorize(VecTestHelper):
 
-    def test_opcount_filling(self):
+    def test_opcount_filling_store(self):
         descr = ArrayDescr(0,8, None, 'F', concrete_type='f')
-        pack = Pack([Node(ResOperation(rop.VEC_RAW_STORE, [0,0,arg('f',4)], descr), 0),
-                     Node(ResOperation(rop.VEC_RAW_STORE, [0,0,arg('f',4)], descr), 0),
+        pack = Pack([Node(ResOperation(rop.RAW_STORE, [0,0,arg('f',4)], descr), 0),
+                     Node(ResOperation(rop.RAW_STORE, [0,0,arg('f',4)], descr), 0),
                     ])
-        assert opcount_filling_vector_register(pack, 16) == 2
+        assert pack.opcount_filling_vector_register(16) == 2
+
+    def test_opcount_filling_guard(self):
+        descr = ArrayDescr(0,4, None, 'S')
+        vec = ResOperation(rop.VEC_RAW_LOAD_I, ['a','i'], descr=descr)
+        vec.count = 4
+        pack = Pack([Node(ResOperation(rop.GUARD_TRUE, [vec]), 0),
+                     Node(ResOperation(rop.GUARD_TRUE, [vec]), 1),
+                     Node(ResOperation(rop.GUARD_TRUE, [vec]), 2),
+                     Node(ResOperation(rop.GUARD_TRUE, [vec]), 3),
+                     Node(ResOperation(rop.GUARD_TRUE, [vec]), 4),
+                     Node(ResOperation(rop.GUARD_TRUE, [vec]), 5),
+                    ])
+        assert pack.opcount_filling_vector_register(16) == 4
+        ops, newops = pack.slice_operations(16)
+        assert len(ops) == 4
+        assert len(newops) == 2
+        assert pack.opcount_filling_vector_register(8) == 2
+        ops, newops = pack.slice_operations(8)
+        assert len(ops) == 2
+        assert len(newops) == 4
 
     def test_move_guard_first(self):
         trace = self.parse_trace("""
