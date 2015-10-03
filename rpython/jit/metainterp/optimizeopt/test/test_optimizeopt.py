@@ -8912,6 +8912,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_value(i2, 12345) []
         jump()
         """
+        # getting InvalidLoop would be a good idea, too.
+        # (this test was written to show it would previously crash)
         self.optimize_loop(ops, ops)
 
 

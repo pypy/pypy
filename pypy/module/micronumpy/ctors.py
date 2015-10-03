@@ -133,7 +133,9 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             return w_arr
         else:
             imp = w_object.implementation
-            w_base = imp.base() or w_object
+            w_base = w_object
+            if imp.base() is not None:
+                w_base = imp.base()
             with imp as storage:
                 sz = support.product(w_object.get_shape()) * dtype.elsize
                 return W_NDimArray.from_shape_and_storage(space,

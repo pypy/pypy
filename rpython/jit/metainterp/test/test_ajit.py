@@ -4343,14 +4343,14 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         
         self.meta_interp(allfuncs, [9, 2000])
 
-    def test_unichar_might_be_signed(self):
-        py.test.skip("wchar_t is sometimes a signed 32-bit integer type, "
-                     "but RPython inteprets it as unsigned (but still "
-                     "translates to wchar_t, so can create confusion)")
+    def test_unichar_ord_is_never_signed_on_64bit(self):
+        import sys
+        if sys.maxunicode == 0xffff:
+            py.test.skip("test for 32-bit unicodes")
         def f(x):
-            return rffi.cast(lltype.Signed, rffi.cast(lltype.UniChar, x))
+            return ord(rffi.cast(lltype.UniChar, x))
         res = self.interp_operations(f, [-1])
-        if rffi.r_wchar_t.SIGN:
+        if sys.maxint == 2147483647:
             assert res == -1
         else:
-            assert res == 2 ** 16 - 1 or res == 2 ** 32 - 1
+            assert res == 4294967295

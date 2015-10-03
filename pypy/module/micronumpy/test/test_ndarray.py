@@ -2519,10 +2519,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.shape == b[...].shape
         assert (b == b[...]).all()
 
-        a = np.arange(6).reshape(2, 3)
+        a = np.arange(6)
         if '__pypy__' in sys.builtin_module_names:
             raises(ValueError, "a[..., ...]")
-        b = a [..., 0]
+        b = a.reshape(2, 3)[..., 0]
         assert (b == [0, 3]).all()
         assert b.base is a
 
