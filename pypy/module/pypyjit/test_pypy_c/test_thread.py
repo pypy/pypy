@@ -20,6 +20,7 @@ class TestThread(BaseTestPyPyC):
         assert round(log.result, 6) == round(main(500), 6)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i2 = int_lt(i0, i1)
             guard_true(i2, descr=...)
             i3 = int_add(i0, 1)
@@ -40,12 +41,11 @@ class TestThread(BaseTestPyPyC):
         assert round(log.result, 6) == round(main(500), 6)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i53 = int_lt(i48, i27)
             guard_true(i53, descr=...)
-            i54 = int_add_ovf(i48, i47)
-            guard_no_overflow(descr=...)
+            i54 = int_add(i48, 1)
             --TICK--
-            i58 = arraylen_gc(p43, descr=...)
             jump(..., descr=...)
         """)
 
@@ -60,6 +60,7 @@ class TestThread(BaseTestPyPyC):
         assert log.result == main(500)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+        guard_not_invalidated(descr=...)
         i56 = int_gt(i44, 0)
         guard_true(i56, descr=...)
         p57 = force_token()
@@ -67,11 +68,11 @@ class TestThread(BaseTestPyPyC):
         i58 = call_release_gil_i(0, _, i37, 1, descr=<Calli 4 ii EF=7>)
         guard_not_forced(descr=...)
         guard_no_exception(descr=...)
+        guard_not_invalidated(descr=...)
         i58 = int_sub(i44, 1)
         i59 = call_i(ConstClass(RPyThreadReleaseLock), i37, descr=<Calli . i EF=2>)
         i60 = int_is_true(i59)
         guard_false(i60, descr=...)
-        guard_not_invalidated(descr=...)
         --TICK--
         jump(..., descr=...)
         """)

@@ -24,9 +24,9 @@ class TestString(BaseTestPyPyC):
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i14 = int_lt(i6, i9)
             guard_true(i14, descr=...)
-            guard_not_invalidated(descr=...)
             i16 = int_eq(i6, %d)
             guard_false(i16, descr=...)
             i15 = int_mod(i6, i10)
@@ -64,9 +64,9 @@ class TestString(BaseTestPyPyC):
         assert log.result == main(1100)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
-            guard_not_invalidated(descr=...)
             i13 = int_eq(i6, %d)         # value provided below
             guard_false(i13, descr=...)
             i15 = int_mod(i6, 10)
@@ -105,9 +105,9 @@ class TestString(BaseTestPyPyC):
         assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i79 = int_gt(i74, 0)
             guard_true(i79, descr=...)
-            guard_not_invalidated(descr=...)
             p80 = call_r(ConstClass(ll_int2dec__Signed), i74, descr=<Callr . i EF=3>)
             guard_no_exception(descr=...)
             i85 = strlen(p80)

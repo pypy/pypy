@@ -111,20 +111,16 @@ class TestMisc(BaseTestPyPyC):
             return sa
         #
         log = self.run(main, [1000])
-        assert log.result == 4000
+        assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             guard_not_invalidated(descr=...)
             i12 = int_is_true(i4)
             guard_true(i12, descr=...)
-            i10p = getfield_gc_pure_i(p10, descr=...)
-            i10 = int_mul_ovf(2, i10p)
+            i14 = int_add_ovf(i13, 2)
             guard_no_overflow(descr=...)
-            i14 = int_add_ovf(i13, i10)
+            i13 = int_add_ovf(i14, 2)
             guard_no_overflow(descr=...)
-            i13 = int_add_ovf(i14, i9)
-            guard_no_overflow(descr=...)
-            setfield_gc(p17, p10, descr=...)
             i17 = int_sub_ovf(i4, 1)
             guard_no_overflow(descr=...)
             --TICK--
@@ -146,12 +142,12 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-        guard_not_invalidated(descr=...)
         i15 = int_lt(i10, i11)
         guard_true(i15, descr=...)
         i17 = int_add(i10, 1)
-        i18 = force_token()
         setfield_gc(p9, i17, descr=<.* .*W_XRangeIterator.inst_current .*>)
+        guard_not_invalidated(descr=...)
+        i18 = force_token()
         i21 = int_lt(i10, 0)
         guard_false(i21, descr=...)
         i22 = int_lt(i10, i14)
@@ -181,9 +177,9 @@ class TestMisc(BaseTestPyPyC):
             i16 = int_ge(i11, i12)
             guard_false(i16, descr=...)
             i20 = int_add(i11, 1)
-            i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated?
+            i21 = force_token()
             i88 = int_sub(i9, 1)
             i25 = int_ge(i11, i9)
             guard_false(i25, descr=...)
@@ -214,9 +210,9 @@ class TestMisc(BaseTestPyPyC):
             i17 = int_mul(i11, i14)
             i18 = int_add(i15, i17)
             i20 = int_add(i11, 1)
-            i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated?
+            i19 = force_token()
             i95 = int_sub(i9, 1)
             i23 = int_lt(i18, 0)
             guard_false(i23, descr=...)
@@ -270,16 +266,15 @@ class TestMisc(BaseTestPyPyC):
             guard_false(i16, descr=...)
             p17 = getarrayitem_gc_r(p16, i12, descr=<ArrayP .>)
             i19 = int_add(i12, 1)
-            setfield_gc(p9, i19, descr=<FieldS .*W_AbstractSeqIterObject.inst_index .*>)
-            guard_nonnull_class(p17, ..., descr=...)
-            guard_not_invalidated?
             i21 = getfield_gc_i(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
+            setfield_gc(p9, i19, descr=<FieldS .*W_AbstractSeqIterObject.inst_index .*>)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
             i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayTypei.inst_buffer .*>)
             i25 = getarrayitem_raw_i(i24, 0, descr=<.*>)
             i27 = int_lt(1, i21)
             guard_false(i27, descr=...)
+            guard_not_invalidated?
             i28 = int_add_ovf(i10, i25)
             guard_no_overflow(descr=...)
             --TICK--
@@ -304,6 +299,7 @@ class TestMisc(BaseTestPyPyC):
         assert log.jit_summary.tracing_no == 1
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i11 = int_lt(i7, 300)
             guard_true(i11, descr=...)
             i12 = int_add_ovf(i8, i9)

@@ -30,7 +30,7 @@ class TestStruct(BaseTestPyPyC):
         # This could, of course stand some improvement, to remove all these
         # arithmatic ops, but we've removed all the core overhead.
         assert loop.match_by_id("struct", """
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             # struct.pack
             %s
             i11 = int_and(i4, 255)
@@ -67,7 +67,7 @@ class TestStruct(BaseTestPyPyC):
 
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('struct', """
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             # struct.pack
             %s
             i11 = int_and(i4, 255)
