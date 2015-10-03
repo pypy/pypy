@@ -72,7 +72,7 @@ class CachedField(object):
     def do_setfield(self, optheap, op):
         # Update the state with the SETFIELD_GC/SETARRAYITEM_GC operation 'op'.
         structinfo = optheap.ensure_ptr_info_arg0(op)
-        arg1 = optheap.get_box_replacement(op.getarg(1))
+        arg1 = optheap.get_box_replacement(self._getvalue(op))
         if self.possible_aliasing(optheap, structinfo):
             self.force_lazy_setfield(optheap, op.getdescr())
             assert not self.possible_aliasing(optheap, structinfo)

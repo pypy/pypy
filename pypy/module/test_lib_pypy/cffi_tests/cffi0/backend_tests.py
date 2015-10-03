@@ -2,7 +2,7 @@
 import py
 import platform
 import sys, ctypes
-from cffi import FFI, CDefError, FFIError
+from cffi import FFI, CDefError, FFIError, VerificationMissing
 from pypy.module.test_lib_pypy.cffi_tests.support import *
 
 SIZE_OF_INT   = ctypes.sizeof(ctypes.c_int)
@@ -926,6 +926,14 @@ class BackendTests:
         assert ffi.string(ffi.cast("enum foo", 8)) == "D"
         assert ffi.string(ffi.cast("enum foo", -16)) == "E"
         assert ffi.string(ffi.cast("enum foo", -8)) == "F"
+
+    def test_enum_partial(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef(r"enum foo {A, ...}; enum bar { B, C };")
+        lib = ffi.dlopen(None)
+        assert lib.B == 0
+        py.test.raises(VerificationMissing, getattr, lib, "A")
+        assert lib.C == 1
 
     def test_array_of_struct(self):
         ffi = FFI(backend=self.Backend())

@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit, rgc
 from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.buffer import Buffer
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage, \
@@ -16,6 +17,19 @@ from pypy.module.micronumpy.strides import (
     calculate_broadcast_strides, calc_backstrides, calc_start, is_c_contiguous,
     is_f_contiguous)
 from rpython.rlib.objectmodel import keepalive_until_here
+
+TimSort = make_timsort_class()
+class StrideSort(TimSort):
+    ''' 
+    argsort (return the indices to sort) a list of strides
+    '''
+    def __init__(self, rangelist, strides):
+        self.strides = strides
+        TimSort.__init__(self, rangelist)
+
+    def lt(self, a, b):
+        return self.strides[a] < self.strides[b]
+
 
 class BaseConcreteArray(object):
     _immutable_fields_ = ['dtype?', 'storage', 'start', 'size', 'shape[*]',
@@ -354,12 +368,15 @@ class BaseConcreteArray(object):
         elif order != self.order:
             t_strides, backstrides = calc_strides(shape, dtype, order)
         else:
-            mins = strides[0]
+            indx_array = range(len(strides))
+            list_sorter = StrideSort(indx_array, strides)
+            list_sorter.sort()
             t_elsize = dtype.elsize
-            for s in strides:
-                if s < mins:
-                    mins = s
-            t_strides = [s * t_elsize / mins for s in strides]
+            t_strides = strides[:]
+            base = dtype.elsize
+            for i in indx_array:
+                t_strides[i] = base
+                base *= shape[i]
             backstrides = calc_backstrides(t_strides, shape)
         impl = ConcreteArray(shape, dtype, order, t_strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)

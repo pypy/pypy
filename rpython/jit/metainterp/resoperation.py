@@ -784,7 +784,7 @@ _oplist = [
     'NEWSTR/1/r',         #-> STR, the hash field is zeroed
     'NEWUNICODE/1/r',     #-> UNICODE, the hash field is zeroed
     '_MALLOC_LAST',
-    'FORCE_TOKEN/0/r',
+    'FORCE_TOKEN/0/r',    # historical name; nowadays, returns the jitframe
     'VIRTUAL_REF/2/r',    # removed before it's passed to the backend
     # this one has no *visible* side effect, since the virtualizable
     # must be forced, however we need to execute it anyway

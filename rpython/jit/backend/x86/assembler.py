@@ -590,7 +590,7 @@ class Assembler386(BaseAssembler):
             relative_target = tok.pos_recovery_stub - (tok.pos_jump_offset + 4)
             assert rx86.fits_in_32bits(relative_target)
             #
-            if not tok.is_guard_not_invalidated:
+            if not tok.guard_not_invalidated():
                 mc = codebuf.MachineCodeBlockWrapper()
                 mc.writeimm32(relative_target)
                 mc.copy_to_raw_memory(addr)
@@ -1073,7 +1073,6 @@ class Assembler386(BaseAssembler):
     genop_nursery_ptr_increment = _binaryop_or_lea('ADD', is_add=True)
     genop_int_sub = _binaryop_or_lea("SUB", is_add=False)
     genop_int_mul = _binaryop("IMUL")
-    genop_int_and = _binaryop("AND")
     genop_int_or  = _binaryop("OR")
     genop_int_xor = _binaryop("XOR")
     genop_int_lshift = _binaryop("SHL")
@@ -1083,6 +1082,15 @@ class Assembler386(BaseAssembler):
     genop_float_sub = _binaryop('SUBSD')
     genop_float_mul = _binaryop('MULSD')
     genop_float_truediv = _binaryop('DIVSD')
+
+    def genop_int_and(self, op, arglocs, result_loc):
+        arg1 = arglocs[1]
+        if IS_X86_64 and (isinstance(arg1, ImmedLoc) and
+                          arg1.value == (1 << 32) - 1):
+            # special case
+            self.mc.MOV32(arglocs[0], arglocs[0])
+        else:
+            self.mc.AND(arglocs[0], arg1)
 
     genop_int_lt = _cmpop("L", "G")
     genop_int_le = _cmpop("LE", "GE")
@@ -1762,15 +1770,9 @@ class Assembler386(BaseAssembler):
 
     def implement_guard_recovery(self, guard_opnum, faildescr, failargs,
                                  fail_locs, frame_depth):
-        exc = (guard_opnum == rop.GUARD_EXCEPTION or
-               guard_opnum == rop.GUARD_NO_EXCEPTION or
-               guard_opnum == rop.GUARD_NOT_FORCED)
-        is_guard_not_invalidated = guard_opnum == rop.GUARD_NOT_INVALIDATED
-        is_guard_not_forced = guard_opnum == rop.GUARD_NOT_FORCED
         gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
-        return GuardToken(self.cpu, gcmap, faildescr, failargs,
-                          fail_locs, exc, frame_depth,
-                          is_guard_not_invalidated, is_guard_not_forced)
+        return GuardToken(self.cpu, gcmap, faildescr, failargs, fail_locs,
+                          guard_opnum, frame_depth)
 
     def generate_propagate_error_64(self):
         assert WORD == 8

@@ -315,11 +315,12 @@ def get_stats_snapshot(space):
     """
     ll_times = jit_hooks.stats_get_loop_run_times(None)
     w_times = space.newdict()
-    for i in range(len(ll_times)):
-        w_key = space.newtuple([space.wrap(ll_times[i].type),
-                                space.wrap(ll_times[i].number)])
-        space.setitem(w_times, w_key,
-                      space.wrap(ll_times[i].counter))
+    if ll_times:
+        for i in range(len(ll_times)):
+            w_key = space.newtuple([space.wrap(ll_times[i].type),
+                                    space.wrap(ll_times[i].number)])
+            space.setitem(w_times, w_key,
+                          space.wrap(ll_times[i].counter))
     w_counters = space.newdict()
     for i, counter_name in enumerate(Counters.counter_names):
         v = jit_hooks.stats_get_counter_value(None, i)

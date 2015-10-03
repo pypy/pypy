@@ -5,8 +5,8 @@ This document tries to explain how to interface the PyPy python interpreter
 with any external library.
 
 Right now, there are the following possibilities of providing
-third-party modules for the PyPy python interpreter (in order of
-usefulness):
+third-party modules for the PyPy python interpreter (in order, from most
+directly useful to most messy to use with PyPy):
 
 * Write them in pure Python and use CFFI_.
 
