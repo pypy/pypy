@@ -367,6 +367,7 @@ class AbstractOvfOperation(AbstractOperation):
     def produce_into(self, builder, r):
         fail_subset = builder.subset_of_intvars(r)
         original_intvars = builder.intvars[:]
+        builder.fakemetainterp.ovf_flag = False
         super(AbstractOvfOperation, self).produce_into(builder, r)
         if builder.fakemetainterp.ovf_flag:   # overflow detected
             op = ResOperation(rop.GUARD_OVERFLOW, [])
