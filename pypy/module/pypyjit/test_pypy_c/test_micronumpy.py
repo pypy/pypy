@@ -105,6 +105,7 @@ class TestMicroNumPy(BaseTestPyPyC):
                 guard_true(i94, descr=...)
             """
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i76 = int_lt(i71, 300)
             guard_true(i76, descr=...)
             i77 = int_ge(i71, i59)
@@ -142,6 +143,7 @@ class TestMicroNumPy(BaseTestPyPyC):
                 guard_true(i98, descr=...)
             """
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i81 = int_lt(i76, 300)
             guard_true(i81, descr=...)
             i82 = int_ge(i76, i62)
@@ -150,7 +152,6 @@ class TestMicroNumPy(BaseTestPyPyC):
             i84 = int_add(i58, i83)
             """ + alignment_check + """
             f85 = raw_load_f(i70, i84, descr=<ArrayF 8>)
-            guard_not_invalidated(descr=...)
             f86 = float_add(f74, f85)
             i87 = int_add(i76, 1)
             --TICK--
@@ -171,9 +172,9 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert log.result == 42.0
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i86 = int_lt(i79, i45)
             guard_true(i86, descr=...)
-            guard_not_invalidated(descr=...)
             i88 = int_ge(i87, i59)
             guard_false(i88, descr=...)
             f90 = raw_load_f(i67, i89, descr=<ArrayF 8>)
@@ -202,6 +203,7 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert log.result == 42.0
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i125 = int_lt(i117, i44)
             guard_true(i125, descr=...)
             i126 = int_lt(i117, i50)
@@ -231,13 +233,13 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert log.result == 42.0
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i128 = int_lt(i120, i42)
             guard_true(i128, descr=...)
             i129 = int_lt(i120, i48)
             guard_true(i129, descr=...)
             i131 = int_mul(i120, i57)
             i132 = int_add(i53, i131)
-            guard_not_invalidated(descr=...)
             raw_store(i103, i132, 42.000000, descr=<ArrayF 8>)
             i153 = int_add(i120, 1)
             i154 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value 0>)

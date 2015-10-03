@@ -17,7 +17,6 @@ class TestBuffers(BaseTestPyPyC):
         assert log.result == 1000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('match', """
-            guard_not_invalidated(descr=...)
             i65 = getfield_gc_i(p18, descr=...)
             i67 = int_gt(0, i65)
             guard_false(i67, descr=...)
@@ -40,7 +39,6 @@ class TestBuffers(BaseTestPyPyC):
         assert log.result == 1000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('unpack', """
-            guard_not_invalidated(descr=...)
             p90 = newstr(4)
             call_n(ConstClass(copy_raw_to_string), i55, p90, 0, 4, descr=<Callv 0 irii EF=5>)
             guard_no_exception(descr=...)

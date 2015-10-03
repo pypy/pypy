@@ -17,9 +17,9 @@ class TestMath(BaseTestPyPyC):
         assert round(log.result, 6) == round(main(500), 6)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i2 = int_lt(i0, i1)
             guard_true(i2, descr=...)
-            guard_not_invalidated(descr=...)
             f1 = cast_int_to_float(i0)
             i3 = float_le(f1, 0.0)
             guard_false(i3, descr=...)
@@ -46,9 +46,9 @@ class TestMath(BaseTestPyPyC):
         assert round(log.result, 6) == round(main(500), 6)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i2 = int_lt(i0, i1)
             guard_true(i2, descr=...)
-            guard_not_invalidated(descr=...)
             f1 = cast_int_to_float(i0)
             i6 = --ISINF--(f1)
             guard_false(i6, descr=...)
@@ -75,9 +75,9 @@ class TestMath(BaseTestPyPyC):
         assert log.result == main(500)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i1 = int_gt(i0, 0)
             guard_true(i1, descr=...)
-            guard_not_invalidated(descr=...)
             f1 = cast_int_to_float(i0)
             i2 = float_eq(f1, inf)
             i3 = float_eq(f1, -inf)
@@ -102,7 +102,6 @@ class TestMath(BaseTestPyPyC):
         assert abs(log.result - main(500)) < 1e-9
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("pow", """
-            guard_not_invalidated(descr=...)
             f38 = float_mul(f30, f30)
             f39 = float_sub(f30, f38)
         """)

@@ -18,6 +18,7 @@ class TestArray(BaseTestPyPyC):
         assert log.result == 500
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i7 = int_lt(i5, i6)
             guard_true(i7, descr=...)
             i9 = int_add(i5, 1)
@@ -89,9 +90,9 @@ class TestArray(BaseTestPyPyC):
             """)
         elif sys.maxint == 2 ** 63 - 1:
             assert loop.match("""
+                guard_not_invalidated(descr=...)
                 i13 = int_lt(i8, 307200)
                 guard_true(i13, descr=...)
-                guard_not_invalidated(descr=...)
             # the bound check guard on img has been killed (thanks to the asserts)
                 i14 = getarrayitem_raw_i(i10, i8, descr=<ArrayS .>)
             # advanced: the following int_add cannot overflow, because:

@@ -23,6 +23,7 @@ class TestMisc(BaseTestPyPyC):
         # to contain the very same operations
         loop0, loop1 = log.loops_by_filename(self.filepath)
         expected = """
+            guard_not_invalidated(descr=...)
             i9 = int_le(i7, i8)
             guard_true(i9, descr=...)
             i11 = int_add_ovf(i7, 1)
@@ -50,6 +51,7 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 5040
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i7 = int_gt(i4, 1)
             guard_true(i7, descr=...)
             i8 = int_mul_ovf(i5, i4)
@@ -63,6 +65,7 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 15511210043330985984000000L
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i7 = int_gt(i4, 1)
             guard_true(i7, descr=...)
             p11 = call_r(ConstClass(rbigint.int_mul), p5, i4, descr=...)
@@ -84,6 +87,7 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 1000.0
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i9 = float_lt(f5, f7)
             guard_true(i9, descr=...)
             f10 = float_add(f8, f5)
@@ -110,9 +114,9 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 4000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i12 = int_is_true(i4)
             guard_true(i12, descr=...)
-            guard_not_invalidated(descr=...)
             i10p = getfield_gc_pure_i(p10, descr=...)
             i10 = int_mul_ovf(2, i10p)
             guard_no_overflow(descr=...)
@@ -142,13 +146,12 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+        guard_not_invalidated(descr=...)
         i15 = int_lt(i10, i11)
         guard_true(i15, descr=...)
         i17 = int_add(i10, 1)
         i18 = force_token()
         setfield_gc(p9, i17, descr=<.* .*W_XRangeIterator.inst_current .*>)
-        guard_not_invalidated(descr=...)
-        i84 = int_sub(i14, 1)
         i21 = int_lt(i10, 0)
         guard_false(i21, descr=...)
         i22 = int_lt(i10, i14)
