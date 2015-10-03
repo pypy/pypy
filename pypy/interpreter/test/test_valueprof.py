@@ -124,3 +124,37 @@ def test_known_class():
     v.see_write(OtherValue())
     assert v._vprof_status == SEEN_TOO_MUCH
 
+def test_write_not_necessary_int():
+    v = ValueProf()
+    assert v._vprof_status == SEEN_NOTHING
+    res = v.see_write(ValueInt(1))
+    assert not res
+    res = v.see_write(ValueInt(1))
+    assert res
+    res = v.see_write(ValueInt(1))
+    assert res
+    res = v.see_write(ValueInt(2))
+    assert not res
+    res = v.see_write(ValueInt(2))
+    assert not res
+    res = v.see_write(Value())
+    assert not res
+
+def test_write_not_necessary_obj():
+    v = ValueProf()
+    assert v._vprof_status == SEEN_NOTHING
+    val = Value()
+    res = v.see_write(val)
+    assert not res
+    res = v.see_write(val)
+    assert res
+    res = v.see_write(val)
+    assert res
+    res = v.see_write(ValueInt(1))
+    assert not res
+    res = v.see_write(ValueInt(2))
+    assert not res
+    res = v.see_write(ValueInt(2))
+    assert not res
+    res = v.see_write(Value())
+    assert not res

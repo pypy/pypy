@@ -397,6 +397,25 @@ def test_value_profiling_known_cls(monkeypatch):
     assert obj.getdictvalue(space, "a") == a
     assert seen == [(a, Value), (a, Value)]
 
+
+def test_value_profiling_elide_write(monkeypatch):
+    monkeypatch.setattr(jit, "we_are_jitted", lambda : True)
+    class Value(object):
+        pass
+    a = Value()
+    cls = Class()
+    obj = cls.instantiate()
+    a1 = Value()
+    obj.setdictvalue(space, "a", a1)
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", a1)
+    storage = obj.storage
+    # replace storage, both reads and writes of a1 should still work
+    obj.storage = None
+    assert obj.getdictvalue(space, "a") is a1
+    obj.setdictvalue(space, "a", a1)
+    assert obj.getdictvalue(space, "a") is a1
+
 # ___________________________________________________________
 # dict tests
 

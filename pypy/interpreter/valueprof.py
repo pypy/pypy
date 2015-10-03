@@ -29,13 +29,17 @@ class ValueProf(object):
         raise NotImplementedError("abstract base")
 
     def see_write(self, w_value):
+        """ inform the value profiler of a write. returns False, unless the
+        value is known to be a constant, and w_value that constant (in that
+        case the caller can elide the write to the actual object, if that
+        object already stores a value). """
         status = self._vprof_status
         if status == SEEN_TOO_MUCH:
-            return
+            return False
 
         if w_value is None:
             self._vprof_status = SEEN_TOO_MUCH
-            return
+            return False
 
         if status == SEEN_NOTHING:
             if self.is_int(w_value):
@@ -55,6 +59,8 @@ class ValueProf(object):
                 if self.read_constant_int() != self.get_int_val(w_value):
                     self._vprof_status = SEEN_CONSTANT_CLASS
                     self._vprof_const_cls = w_value.__class__
+                else:
+                    return True
             else:
                 self._vprof_status = SEEN_TOO_MUCH
         elif status == SEEN_CONSTANT_OBJ:
@@ -66,10 +72,13 @@ class ValueProf(object):
                     self._vprof_status = SEEN_CONSTANT_CLASS
                 else:
                     self._vprof_status = SEEN_TOO_MUCH
+            else:
+                return True
         elif status == SEEN_CONSTANT_CLASS:
             cls = self.read_constant_cls()
             if cls is not w_value.__class__:
                 self._vprof_status = SEEN_TOO_MUCH
+        return False
 
     def can_fold_read_int(self):
         return self._vprof_status == SEEN_CONSTANT_INT
