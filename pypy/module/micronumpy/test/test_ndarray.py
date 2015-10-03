@@ -2475,6 +2475,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         a.fill(12)
         assert (a == u'1').all()
 
+    def test_unicode_record_array(self) :
+        from numpy import dtype, array
+        t = dtype([('a', 'S3'), ('b', 'U2')])
+        x = array([('a', u'b')], dtype=t)
+        assert str(x) ==  "[('a', u'b')]"
+
+        t = dtype([('a', 'U3'), ('b', 'S2')])
+        x = array([(u'a', 'b')], dtype=t)
+        x['a'] = u'1'
+        assert str(x) ==  "[(u'1', 'b')]"
+        
+
     def test_boolean_indexing(self):
         import numpy as np
         a = np.zeros((1, 3))
