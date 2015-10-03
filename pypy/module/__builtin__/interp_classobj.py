@@ -272,11 +272,9 @@ def make_binary_instance_method(name):
                 return space.w_NotImplemented
             return space.call_function(w_meth, w_b)
         else:
-            # here, if coerce returns a non-W_Instance object as first
-            # argument, then give up.  The idea is that this strange
-            # case should already have been handled by the binaryop()
-            # called from descroperation first.
-            return space.w_NotImplemented
+            # fall back to space.xxx() if coerce returns a non-W_Instance
+            # object as first argument
+            return getattr(space, objspacename)(w_b, w_a)
     rbinaryop.func_name = "r" + name
     return binaryop, rbinaryop
 
@@ -658,7 +656,7 @@ class W_InstanceObject(W_Root):
                     return space.w_NotImplemented
                 return space.call_function(w_func, w_other)
             else:
-                return space.w_NotImplemented
+                return space.pow(w_b, w_a, space.w_None)
         else:
             # CPython also doesn't try coercion in this case
             w_func = self.getattr(space, '__rpow__', False)
