@@ -69,12 +69,15 @@ class OptVirtualize(optimizer.Optimization):
         if self._last_guard_not_forced_2 is not None:
             guard_op = self._last_guard_not_forced_2
             self.emit_operation(op)
-            guard_op = self.optimizer.store_final_boxes_in_guard(guard_op, [])
-            i = len(self.optimizer._newoperations) - 1
-            assert i >= 0
-            self.optimizer._newoperations.insert(i, guard_op)
+            self.optimize_FINISH_callback(op, guard_op)
         else:
             self.emit_operation(op)
+
+    def optimize_FINISH_callback(self, op, guard_op):
+        guard_op = self.optimizer.store_final_boxes_in_guard(guard_op, [])
+        i = len(self.optimizer._newoperations) - 1
+        assert i >= 0
+        self.optimizer._newoperations.insert(i, guard_op)
 
     def optimize_CALL_MAY_FORCE_I(self, op):
         effectinfo = op.getdescr().get_extra_info()
@@ -101,8 +104,6 @@ class OptVirtualize(optimizer.Optimization):
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
         c_cls = vrefinfo.jit_virtual_ref_const_class
         vref_descr = vrefinfo.descr
-        descr_virtual_token = vrefinfo.descr_virtual_token
-        descr_forced = vrefinfo.descr_forced
         #
         # Replace the VIRTUAL_REF operation with a virtual structure of type
         # 'jit_virtual_ref'.  The jit_virtual_ref structure may be forced soon,
@@ -113,6 +114,12 @@ class OptVirtualize(optimizer.Optimization):
         newop.set_forwarded(vrefvalue)
         token = ResOperation(rop.FORCE_TOKEN, [])
         self.emit_operation(token)
+        self.optimize_VIRTUAL_REF_callback(op, vrefvalue, newop, token)
+
+    def optimize_VIRTUAL_REF_callback(self, op, vrefvalue, newop, token):
+        vrefinfo = self.optimizer.metainterp_sd.virtualref_info
+        descr_virtual_token = vrefinfo.descr_virtual_token
+        descr_forced = vrefinfo.descr_forced
         vrefvalue.setfield(descr_virtual_token, newop, token)
         vrefvalue.setfield(descr_forced, newop,
                            self.optimizer.cpu.ts.CONST_NULLREF)

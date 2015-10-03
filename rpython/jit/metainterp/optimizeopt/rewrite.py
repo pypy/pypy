@@ -123,7 +123,10 @@ class OptRewrite(Optimization):
             self.make_constant_int(op, 0)
         else:
             self.emit_operation(op)
-            self.optimizer.pure_reverse(op)
+            self.optimize_INT_SUB_callback(op)
+
+    def optimize_INT_SUB_callback(self, op):
+        self.optimizer.pure_reverse(op)
 
     def optimize_INT_ADD(self, op):
         if self.is_raw_ptr(op.getarg(0)) or self.is_raw_ptr(op.getarg(1)):
@@ -141,7 +144,10 @@ class OptRewrite(Optimization):
             self.make_equal_to(op, arg1)
         else:
             self.emit_operation(op)
-            self.optimizer.pure_reverse(op)
+            self.optimize_INT_ADD_callback(op)
+
+    def optimize_INT_ADD_callback(self, op):
+        self.optimizer.pure_reverse(op)
 
     def optimize_INT_MUL(self, op):
         arg1 = self.get_box_replacement(op.getarg(0))
@@ -228,6 +234,9 @@ class OptRewrite(Optimization):
                     self.emit_operation(newop)
                     return
         self.emit_operation(op)
+        self.optimize_FLOAT_MUL_callback(op)
+
+    def optimize_FLOAT_MUL_callback(self, op):
         self.optimizer.pure_reverse(op)
 
     def optimize_FLOAT_TRUEDIV(self, op):
@@ -253,6 +262,9 @@ class OptRewrite(Optimization):
 
     def optimize_FLOAT_NEG(self, op):
         self.emit_operation(op)
+        self.optimize_FLOAT_NEG_callback(op)
+
+    def optimize_FLOAT_NEG_callback(self, op):
         self.optimizer.pure_reverse(op)
 
     def optimize_guard(self, op, constbox, emit_operation=True):
@@ -275,12 +287,15 @@ class OptRewrite(Optimization):
                     raise InvalidLoop('A GUARD_VALUE (%s) '
                                       'was proven to always fail' % r)
                 return
-                    
+
         if emit_operation:
             self.emit_operation(op)
+            self.optimize_guard_callback(op, box, constbox)
+        else:
+            self.optimize_guard_callback(op, box, constbox)
+
+    def optimize_guard_callback(self, op, box, constbox):
         self.make_constant(box, constbox)
-        #if self.optimizer.optheap:  XXX
-        #    self.optimizer.optheap.value_updated(value, self.getvalue(constbox))
 
     def optimize_GUARD_ISNULL(self, op):
         info = self.getptrinfo(op.getarg(0))
@@ -292,6 +307,9 @@ class OptRewrite(Optimization):
                 raise InvalidLoop('A GUARD_ISNULL (%s) was proven to always '
                                   'fail' % r)
         self.emit_operation(op)
+        self.optimize_GUARD_ISNULL_callback(op)
+
+    def optimize_GUARD_ISNULL_callback(self, op):
         self.make_constant(op.getarg(0), self.optimizer.cpu.ts.CONST_NULL)
 
     def optimize_GUARD_IS_OBJECT(self, op):
@@ -368,6 +386,9 @@ class OptRewrite(Optimization):
                 raise InvalidLoop('A GUARD_NONNULL (%s) was proven to always '
                                   'fail' % r)
         self.emit_operation(op)
+        self.optimize_GUARD_NONNULL_callback(op)
+
+    def optimize_GUARD_NONNULL_callback(self, op):
         self.make_nonnull(op.getarg(0))
         self.getptrinfo(op.getarg(0)).mark_last_guard(self.optimizer)
 
@@ -463,9 +484,15 @@ class OptRewrite(Optimization):
                 # on the same box.
                 self.optimizer.replace_guard(op, info)
                 self.emit_operation(op)
-                self.make_constant_class(op.getarg(0), expectedclassbox, False)
+                self.optimize_GUARD_CLASS_callback_1(op, expectedclassbox)
                 return
         self.emit_operation(op)
+        self.optimize_GUARD_CLASS_callback_2(op, expectedclassbox)
+
+    def optimize_GUARD_CLASS_callback_1(self, op, expectedclassbox):
+        self.make_constant_class(op.getarg(0), expectedclassbox, False)
+
+    def optimize_GUARD_CLASS_callback_2(self, op, expectedclassbox):
         self.make_constant_class(op.getarg(0), expectedclassbox)
 
     def optimize_GUARD_NONNULL_CLASS(self, op):
@@ -495,6 +522,9 @@ class OptRewrite(Optimization):
         newop = self.replace_op_with(op,
                                      OpHelpers.call_for_descr(op.getdescr()))
         self.emit_operation(newop)
+        self.optimize_CALL_LOOPINVARIANT_I_callback(newop, op, key)
+
+    def optimize_CALL_LOOPINVARIANT_I_callback(self, newop, op, key):
         self.loop_invariant_producer[key] = self.optimizer.getlastop()
         self.loop_invariant_results[key] = op
     optimize_CALL_LOOPINVARIANT_R = optimize_CALL_LOOPINVARIANT_I

@@ -272,7 +272,7 @@ class Optimizer(Optimization):
 
     def set_optimizations(self, optimizations):
         if optimizations:
-            self.first_optimization = optimizations[0]
+            self.first_optimization = optimizations[1]
             for i in range(1, len(optimizations)):
                 optimizations[i - 1].next_optimization = optimizations[i]
             optimizations[-1].next_optimization = self
@@ -521,14 +521,14 @@ class Optimizer(Optimization):
             last = len(ops)
         for i in range(last):
             self._really_emitted_operation = None
-            self.first_optimization.propagate_forward(ops[i])
+            self.send_extra_operation(ops[i])
         # accumulate counters
         if flush:
             self.flush()
         if extra_jump:
-            self.first_optimization.propagate_forward(ops[-1])
+            self.send_extra_operation(ops[-1])
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
-        
+
         return (BasicLoopInfo(newargs, self.quasi_immutable_deps),
                 self._newoperations)
 
@@ -538,7 +538,12 @@ class Optimizer(Optimization):
                 op.set_forwarded(None)
 
     def send_extra_operation(self, op):
-        self.first_optimization.propagate_forward(op)
+        callback_args = self.optimizations[0].propagate_forward(op)
+        if callback_args is None:
+            return
+        self.optimizations[0].last_emitted_operation = callback_args.op
+        self.first_optimization.propagate_forward(callback_args.op)
+        callback_args.callback()
 
     def propagate_forward(self, op):
         dispatch_opt(self, op)

@@ -453,7 +453,10 @@ class OptString(optimizer.Optimization):
         else:
             self.make_nonnull_str(op, mode)
             self.emit_operation(op)
-            self.pure_from_args(mode.STRLEN, [op], op.getarg(0))
+            self._optimize_NEWSTR_callback(op, mode)
+
+    def _optimize_NEWSTR_callback(self, op, mode):
+        self.pure_from_args(mode.STRLEN, [op], op.getarg(0))
 
     def optimize_STRSETITEM(self, op):
         opinfo = self.getptrinfo(op.getarg(0))

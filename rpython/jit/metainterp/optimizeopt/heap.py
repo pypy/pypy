@@ -500,6 +500,9 @@ class OptHeap(Optimization):
         # default case: produce the operation
         self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
+        self.optimize_GETFIELD_GC_I_callback(op, structinfo, cf)
+
+    def optimize_GETFIELD_GC_I_callback(self, op, structinfo, cf):
         # then remember the result of reading the field
         structinfo.setfield(op.getdescr(), op.getarg(0), op, self, cf)
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
@@ -552,6 +555,9 @@ class OptHeap(Optimization):
         # default case: produce the operation
         self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
+        self.optimize_GETARRAYITEM_GC_I_callback(op, cf, arrayinfo, indexb)
+
+    def optimize_GETARRAYITEM_GC_I_callback(self, op, cf, arrayinfo, indexb):
         # the remember the result of reading the array item
         if cf is not None:
             arrayinfo.setitem(op.getdescr(), indexb.getint(),

@@ -109,6 +109,9 @@ class OptPure(Optimization):
 
         # otherwise, the operation remains
         self.emit_operation(op)
+        self.optimize_default_callback(op, save, nextop)
+
+    def optimize_default_callback(self, op, save, nextop):
         if op.returns_bool_result():
             self.getintbound(op).make_bool()
         if save:
@@ -159,6 +162,9 @@ class OptPure(Optimization):
         opnum = OpHelpers.call_for_descr(op.getdescr())
         newop = self.optimizer.replace_op_with(op, opnum)
         self.emit_operation(newop)
+        self.optimize_CALL_PURE_I_callback(op)
+
+    def optimize_CALL_PURE_I_callback(self, op):
         self.call_pure_positions.append(
             len(self.optimizer._newoperations) - 1)
 
