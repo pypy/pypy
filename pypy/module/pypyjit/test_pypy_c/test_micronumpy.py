@@ -84,8 +84,8 @@ class TestMicroNumPy(BaseTestPyPyC):
             return a.{method}()
         """.format(method=op, dtype=dtype, count=count, a=a)
         exec py.code.Source(source).compile()
-        vlog = self.run(main, [], vectorize=1)
-        log = self.run(main, [], vectorize=0)
+        vlog = self.run(main, [], vec=1)
+        log = self.run(main, [], vec=0)
         assert log.result == vlog.result
         assert log.result == result
 

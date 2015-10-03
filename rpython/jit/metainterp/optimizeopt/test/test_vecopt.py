@@ -1366,21 +1366,24 @@ class BaseTestVectorize(VecTestHelper):
         opt = self.vectorize(loop)
         self.debug_print_operations(loop)
 
-    def test_max(self):
-        # TODO
+    def test_111(self):
         trace = """
-        [p3, i4, p2, i5, f6, i7, i8]
-        f9 = raw_load_f(i7, i5, descr=floatarraydescr)
-        guard_not_invalidated() [p2, f9, f6, i4, i5, p3]
-        i10 = float_ge(f6, f9)
-        guard_false(i10) [p2, f9, f6, None, i4, i5, p3]
-        i12 = float_ne(f6, f6)
-        guard_false(i12) [p2, f9, f6, None, i4, i5, p3]
-        i14 = int_add(i4, 1)
-        i16 = int_add(i5, 8)
-        i17 = int_ge(i14, i8)
-        guard_false(i17) [p2, i16, f9, i14, None, None, None, p3]
-        jump(p3, i14, p2, i16, f9, i7, i8)
+        [p0, p1, p2, p3, i4, p5, p6, p7, i8, p9, i10, p11]
+        guard_not_invalidated(descr=<ResumeGuardNotInvalidated object at 0x7f4dec0129f8>) [p1, p0, p2, p3, p5, p6, i4]
+        i12 = int_lt(i4, i8)
+        guard_true(i12, descr=<ResumeGuardTrueDescr object at 0x7f4dec012a70>) [p1, p0, p2, p3, p5, p6, i8, i4]
+        i13 = uint_ge(i4, i10)
+        guard_false(i13, descr=<ResumeGuardFalseDescr object at 0x7f4dec012ae8>) [p1, p0, i10, i4, p9, p2, p3, p5, p6, None, None]
+        i15 = getarrayitem_gc_i(p11, i4, descr=arraydescr)
+        i17 = int_add_ovf(i15, 1)
+        guard_no_overflow(descr=<ResumeGuardNoOverflowDescr object at 0x7f4dec012b60>) [p1, p0, i17, p2, p3, p5, p6, i15, None, i4]
+        setarrayitem_gc(p11, i4, i17, descr=arraydescr)
+        i19 = int_add(i4, 1)
+        i21 = getfield_raw_i(139972894828928, descr=<FieldS pypysig_long_struct.c_value 0>)
+        i23 = int_lt(i21, 0)
+        guard_false(i23, descr=<ResumeGuardFalseDescr object at 0x7f4dec012bd8>) [p1, p0, p2, p3, p5, p6, i19, None, None, None]
+        i24 = arraylen_gc(p11, descr=arraydescr)
+        jump(p0, p1, p2, p3, i19, p5, p6, p7, i8, p9, i10, p11)
         """
         loop = self.parse_loop(trace)
         opt = self.schedule(loop, with_guard_opt=True)
