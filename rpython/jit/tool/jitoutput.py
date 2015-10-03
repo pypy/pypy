@@ -17,6 +17,7 @@ REGEXES = [
     (('guards',), '^guards:\s+(\d+)$'),
     (('opt_ops',), '^opt ops:\s+(\d+)$'),
     (('opt_guards',), '^opt guards:\s+(\d+)$'),
+    (('opt_guards_shared',), '^opt guards shared:\s+(\d+)$'),
     (('forcings',), '^forcings:\s+(\d+)$'),
     (('abort.trace_too_long',), '^abort: trace too long:\s+(\d+)$'),
     (('abort.compiling',), '^abort: compiling:\s+(\d+)$'),

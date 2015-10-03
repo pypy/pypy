@@ -212,6 +212,20 @@ class BlackholeInterpBuilder(object):
                 assert lltype.typeOf(result) is longlong.FLOATSTORAGE
                 self.registers_f[ord(code[position])] = result
                 position += 1
+            elif resulttype == "iL":
+                result, new_position = result
+                if new_position != -1:
+                    position = new_position
+                    next_argcode = next_argcode + 2
+                else:
+                    assert argcodes[next_argcode] == '>'
+                    assert argcodes[next_argcode + 1] == 'i'
+                    next_argcode = next_argcode + 2
+                    if lltype.typeOf(result) is lltype.Bool:
+                        result = int(result)
+                    assert lltype.typeOf(result) is lltype.Signed
+                    self.registers_i[ord(code[position])] = result
+                    position += 1
             elif resulttype == 'L':
                 assert result >= 0
                 position = result
@@ -394,17 +408,26 @@ class BlackholeInterpreter(object):
     def bhimpl_int_mul(a, b):
         return intmask(a * b)
 
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_add_ovf(a, b):
-        return ovfcheck(a + b)
+    @arguments("L", "i", "i", returns="iL")
+    def bhimpl_int_add_jump_if_ovf(label, a, b):
+        try:
+            return ovfcheck(a + b), -1
+        except OverflowError:
+            return 0, label
 
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_sub_ovf(a, b):
-        return ovfcheck(a - b)
+    @arguments("L", "i", "i", returns="iL")
+    def bhimpl_int_sub_jump_if_ovf(label, a, b):
+        try:
+            return ovfcheck(a - b), -1
+        except OverflowError:
+            return 0, label
 
-    @arguments("i", "i", returns="i")
-    def bhimpl_int_mul_ovf(a, b):
-        return ovfcheck(a * b)
+    @arguments("L", "i", "i", returns="iL")
+    def bhimpl_int_mul_jump_if_ovf(label, a, b):
+        try:
+            return ovfcheck(a * b), -1
+        except OverflowError:
+            return 0, label
 
     @arguments("i", "i", returns="i")
     def bhimpl_int_floordiv(a, b):
@@ -1465,57 +1488,9 @@ class BlackholeInterpreter(object):
             assert kind == 'v'
         return lltype.nullptr(rclass.OBJECTPTR.TO)
 
-    def _prepare_resume_from_failure(self, opnum, deadframe):
-        from rpython.jit.metainterp.resoperation import rop
-        #
-        if opnum == rop.GUARD_FUTURE_CONDITION:
-            pass
-        elif opnum == rop.GUARD_TRUE:
-            # Produced directly by some goto_if_not_xxx() opcode that did not
-            # jump, but which must now jump.  The pc is just after the opcode.
-            self.position = self.jitcode.follow_jump(self.position)
-        #
-        elif opnum == rop.GUARD_FALSE:
-            # Produced directly by some goto_if_not_xxx() opcode that jumped,
-            # but which must no longer jump.  The pc is just after the opcode.
-            pass
-        #
-        elif opnum == rop.GUARD_VALUE or opnum == rop.GUARD_CLASS:
-            # Produced by guard_class(), xxx_guard_value(), or a few other
-            # opcodes like switch().  The pc is at the start of the opcode
-            # (so it will be redone).
-            pass
-        #
-        elif (opnum == rop.GUARD_NONNULL or
-              opnum == rop.GUARD_ISNULL or
-              opnum == rop.GUARD_NONNULL_CLASS):
-            # Produced by goto_if_not_ptr_{non,is}zero().  The pc is at the
-            # start of the opcode (so it will be redone); this is needed
-            # because of GUARD_NONNULL_CLASS.
-            pass
-        #
-        elif (opnum == rop.GUARD_NO_EXCEPTION or
-              opnum == rop.GUARD_EXCEPTION or
-              opnum == rop.GUARD_NOT_FORCED):
-            return lltype.cast_opaque_ptr(rclass.OBJECTPTR,
-                                          self.cpu.grab_exc_value(deadframe))
-        #
-        elif opnum == rop.GUARD_NO_OVERFLOW:
-            # Produced by int_xxx_ovf().  The pc is just after the opcode.
-            # We get here because it did not used to overflow, but now it does.
-            return get_llexception(self.cpu, OverflowError())
-        #
-        elif opnum == rop.GUARD_OVERFLOW:
-            # Produced by int_xxx_ovf().  The pc is just after the opcode.
-            # We get here because it used to overflow, but now it no longer
-            # does.
-            pass
-        elif opnum == rop.GUARD_NOT_INVALIDATED:
-            pass
-        else:
-            from rpython.jit.metainterp.resoperation import opname
-            raise NotImplementedError(opname[opnum])
-        return lltype.nullptr(rclass.OBJECTPTR.TO)
+    def _prepare_resume_from_failure(self, deadframe):
+        return lltype.cast_opaque_ptr(rclass.OBJECTPTR,
+                                        self.cpu.grab_exc_value(deadframe))
 
     # connect the return of values from the called frame to the
     # 'xxx_call_yyy' instructions from the caller frame
@@ -1641,8 +1616,7 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr, deadframe,
         deadframe,
         all_virtuals)
 
-    current_exc = blackholeinterp._prepare_resume_from_failure(
-        resumedescr.guard_opnum, deadframe)
+    current_exc = blackholeinterp._prepare_resume_from_failure(deadframe)
 
     _run_forever(blackholeinterp, current_exc)
 resume_in_blackhole._dont_inline_ = True
