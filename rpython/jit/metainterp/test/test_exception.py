@@ -554,7 +554,10 @@ class ExceptionTests:
 
     def test_overflowerror_escapes(self):
         def g(x):
-            return ovfcheck(x + 1)
+            try:
+                return ovfcheck(x + 1)
+            except OverflowError:
+                raise
         def f(x):
             try:
                 return g(x)

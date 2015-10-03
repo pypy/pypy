@@ -236,6 +236,9 @@ class AbstractResOp(AbstractResOpOrInputArg):
         return (self.getopnum() == rop.GUARD_OVERFLOW or
                 self.getopnum() == rop.GUARD_NO_OVERFLOW)
 
+    def is_jit_debug(self):
+        return rop._JIT_DEBUG_FIRST <= self.getopnum() <= rop._JIT_DEBUG_LAST
+
     def is_always_pure(self):
         return rop._ALWAYS_PURE_FIRST <= self.getopnum() <= rop._ALWAYS_PURE_LAST
 
@@ -374,6 +377,7 @@ class GuardResOp(ResOpWithDescr):
         newop.rd_snapshot = self.rd_snapshot
         newop.rd_frame_info_list = self.rd_frame_info_list
         return newop
+
 
 # ===========
 # type mixins
@@ -689,7 +693,7 @@ _oplist = [
     'GUARD_NO_EXCEPTION/0d/n',   # may be called with an exception currently set
     'GUARD_EXCEPTION/1d/r',     # may be called with an exception currently set
     'GUARD_NO_OVERFLOW/0d/n',
-    'GUARD_OVERFLOW/0d/r',
+    'GUARD_OVERFLOW/0d/n',
     'GUARD_NOT_FORCED/0d/n',      # may be called with an exception currently set
     'GUARD_NOT_FORCED_2/0d/n',    # same as GUARD_NOT_FORCED, but for finish()
     'GUARD_NOT_INVALIDATED/0d/n',
@@ -806,10 +810,12 @@ _oplist = [
     'UNICODESETITEM/3/n',
     'COND_CALL_GC_WB/1d/n',       # [objptr] (for the write barrier)
     'COND_CALL_GC_WB_ARRAY/2d/n', # [objptr, arrayindex] (write barr. for array)
+    '_JIT_DEBUG_FIRST',
     'DEBUG_MERGE_POINT/*/n',      # debugging only
     'ENTER_PORTAL_FRAME/2/n',     # debugging only
     'LEAVE_PORTAL_FRAME/1/n',     # debugging only
     'JIT_DEBUG/*/n',              # debugging only
+    '_JIT_DEBUG_LAST',
     'VIRTUAL_REF_FINISH/2/n',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5/n',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5/n',

@@ -671,6 +671,8 @@ class Regalloc(BaseRegalloc):
         a0, a1 = boxes
         imm_a1 = check_imm_box(a1)
         l0 = self.make_sure_var_in_reg(a0, boxes)
+        op.getdescr().make_a_counter_per_value(op,
+            self.cpu.all_reg_indexes[l0.value])
         if not imm_a1:
             l1 = self.make_sure_var_in_reg(a1, boxes)
         else:

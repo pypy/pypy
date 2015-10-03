@@ -425,6 +425,14 @@ class AppTestOldstyle(object):
                 return 42
         assert B() + B() == 42
 
+    def test_coerce_reverse(self):
+        class CoerceNumber:
+            def __coerce__(self, other):
+                assert isinstance(other, int)
+                return (6, other)
+        assert 5 + CoerceNumber() == 11
+        assert 2 ** CoerceNumber() == 64
+
     def test_binaryop(self):
         class A:
             def __add__(self, other):

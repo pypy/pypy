@@ -8,7 +8,8 @@ from rpython.jit.metainterp import quasiimmut
 from rpython.jit.metainterp.history import getkind
 from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
-from rpython.flowspace.model import SpaceOperation, Variable, Constant
+from rpython.flowspace.model import SpaceOperation, Variable, Constant,\
+     c_last_exception
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
@@ -211,8 +212,8 @@ class Transformer(object):
                 # ok! optimize this case
                 block.operations.remove(op)
                 block.exitswitch = (op.opname,) + tuple(op.args)
-                if op.opname in ('ptr_iszero', 'ptr_nonzero'):
-                    block.exitswitch += ('-live-before',)
+                #if op.opname in ('ptr_iszero', 'ptr_nonzero'):
+                block.exitswitch += ('-live-before',)
                 # if the variable escape to the next block along a link,
                 # replace it with a constant, because we know its value
                 for link in block.exits:
@@ -333,13 +334,13 @@ class Transformer(object):
     def rewrite_op_int_add_ovf(self, op):
         op0 = self._rewrite_symmetric(op)
         op1 = SpaceOperation('-live-', [], None)
-        return [op0, op1]
+        return [op1, op0]
 
     rewrite_op_int_mul_ovf = rewrite_op_int_add_ovf
 
     def rewrite_op_int_sub_ovf(self, op):
         op1 = SpaceOperation('-live-', [], None)
-        return [op, op1]
+        return [op1, op]
 
     def _noop_rewrite(self, op):
         return op

@@ -39,7 +39,10 @@ def product(s):
 def product_check(s):
     i = 1
     for x in s:
-        i = ovfcheck(i * x)
+        try:
+            i = ovfcheck(i * x)
+        except OverflowError:
+            raise
     return i
 
 def check_and_adjust_index(space, index, size, axis):

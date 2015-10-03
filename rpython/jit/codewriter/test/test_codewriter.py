@@ -76,11 +76,11 @@ def test_loop():
     assert jitcode.num_regs_i() == 2
     assert jitcode.num_regs_r() == 0
     assert jitcode.num_regs_f() == 0
-    assert jitcode._live_vars(5) == '%i0 %i1'
+    assert jitcode._live_vars(0) == '%i0 %i1'
     #
     from rpython.jit.codewriter.jitcode import MissingLiveness
     for i in range(len(jitcode.code)+1):
-        if i != 5:
+        if i != 0:
             py.test.raises(MissingLiveness, jitcode._live_vars, i)
 
 def test_call():
