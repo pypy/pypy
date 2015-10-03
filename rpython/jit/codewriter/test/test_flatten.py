@@ -590,7 +590,7 @@ class TestFlatten:
             void_return
             ---
             L1:
-            raise $<* struct object { typeptr=... }>
+            raise $<* struct object>
         """, transform=True, liveness=True)
 
     def test_residual_call_raising(self):
