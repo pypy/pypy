@@ -63,10 +63,14 @@ class AbstractAttribute(object):
         attr = self.find_map_attr(selector)
         if attr is None:
             return self.terminator._write_terminator(obj, selector, w_value)
-        attr.see_write(w_value)
+        write_unnecessary = attr.see_write(w_value)
         if not attr.ever_mutated:
             attr.ever_mutated = True
-        obj._mapdict_write_storage(attr.storageindex, w_value)
+        # if this path is taken, the storage is already filled from the time we
+        # did the map transition. Therefore, if the value profiler says so, we
+        # can not do the write
+        if not write_unnecessary:
+            obj._mapdict_write_storage(attr.storageindex, w_value)
         return True
 
     def delete(self, obj, selector):
