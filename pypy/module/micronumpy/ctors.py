@@ -9,6 +9,7 @@ from pypy.module.micronumpy.base import (
     W_NDimArray, convert_to_array, W_NumpyObject)
 from pypy.module.micronumpy.converters import shape_converter
 from . import constants as NPY
+from .casting import scalar2dtype
 
 
 def build_scalar(space, w_dtype, w_state):
@@ -173,8 +174,12 @@ def numpify(space, w_object):
     if w_array is not None:
         return w_array
 
-    shape, elems_w = find_shape_and_elems(space, w_object, None)
-    dtype = find_dtype_for_seq(space, elems_w, None)
+    if is_scalar_like(space, w_object, dtype=None):
+        shape, elems_w = [], [w_object]
+        dtype = scalar2dtype(space, w_object)
+    else:
+        shape, elems_w = _find_shape_and_elems(space, w_object)
+        dtype = find_dtype_for_seq(space, elems_w, None)
     if dtype is None:
         dtype = descriptor.get_dtype_cache(space).w_float64dtype
     elif dtype.is_str_or_unicode() and dtype.elsize < 1:
@@ -206,7 +211,7 @@ def is_scalar_like(space, w_obj, dtype):
         return True
     return False
 
-def _find_shape_and_elems(space, w_iterable, is_rec_type):
+def _find_shape_and_elems(space, w_iterable, is_rec_type=False):
     from pypy.objspace.std.bufferobject import W_Buffer
     shape = [space.len_w(w_iterable)]
     if space.isinstance_w(w_iterable, space.w_buffer):
