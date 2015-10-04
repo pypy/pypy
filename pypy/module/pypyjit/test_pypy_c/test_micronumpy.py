@@ -248,3 +248,19 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_false(i157, descr=...)
             jump(..., descr=...)
         """)
+
+    def test_mixed_div(self):
+        N = 1500
+        def main():
+            N = 1500
+            import _numpypy.multiarray as np
+            arr = np.zeros(N)
+            l = [arr[i]/2. for i in range(N)]
+            return l
+        log = self.run(main, [])
+        assert log.result == [0.] * N
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            f3 = float_truediv(f1, f2)
+            jump(..., descr=...)
+        """)
