@@ -39,15 +39,13 @@ def next_pow2_m1(n):
 
 
 class IntBoundsCallbackArgs(object):
-    def __init__(self, op, callback_func=None, b1=None, b2=None):
+    def __init__(self, op, callback_func=None):
         self.op = op
         self.callback_func = callback_func
-        self.b1 = b1
-        self.b2 = b2
 
     def callback(self):
         if self.callback_func is not None:
-            self.callback_func(self.op, self.b1, self.b2)
+            self.callback_func(self.op)
 
 
 class OptIntBounds(Optimization):
@@ -74,7 +72,7 @@ class OptIntBounds(Optimization):
     def _optimize_guard_true_false_value(self, op):
         return IntBoundsCallbackArgs(op, self._optimize_guard_true_false_value_callback)
 
-    def _optimize_guard_true_false_value_callback(self, op, bn1, bn2):
+    def _optimize_guard_true_false_value_callback(self, op):
         if op.getarg(0).type == 'i':
             self.propagate_bounds_backward(op.getarg(0))
 
@@ -84,18 +82,20 @@ class OptIntBounds(Optimization):
 
     def optimize_INT_OR_or_XOR(self, op):
         v1 = self.get_box_replacement(op.getarg(0))
-        b1 = self.getintbound(v1)
         v2 = self.get_box_replacement(op.getarg(1))
-        b2 = self.getintbound(v2)
         if v1 is v2:
             if op.getopnum() == rop.INT_OR:
                 self.make_equal_to(op, v1)
             else:
                 self.make_constant_int(op, 0)
             return None
-        return IntBoundsCallbackArgs(op, self.optimize_INT_OR_or_XOR_callback, b1, b2)
+        return IntBoundsCallbackArgs(op, self.optimize_INT_OR_or_XOR_callback)
 
-    def optimize_INT_OR_or_XOR_callback(self, op, b1, b2):
+    def optimize_INT_OR_or_XOR_callback(self, op):
+        v1 = self.get_box_replacement(op.getarg(0))
+        b1 = self.getintbound(v1)
+        v2 = self.get_box_replacement(op.getarg(1))
+        b2 = self.getintbound(v2)
         if b1.known_ge(IntBound(0, 0)) and \
            b2.known_ge(IntBound(0, 0)):
             r = self.getintbound(op)
@@ -106,11 +106,11 @@ class OptIntBounds(Optimization):
     optimize_INT_XOR = optimize_INT_OR_or_XOR
 
     def optimize_INT_AND(self, op):
+        return IntBoundsCallbackArgs(op, self.optimize_INT_AND_callback)
+
+    def optimize_INT_AND_callback(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        return IntBoundsCallbackArgs(op, self.optimize_INT_AND_callback, b1, b2)
-
-    def optimize_INT_AND_callback(self, op, b1, b2):
         r = self.getintbound(op)
         if b2.is_constant():
             val = b2.lower
@@ -127,7 +127,7 @@ class OptIntBounds(Optimization):
     def optimize_INT_SUB(self, op):
         return IntBoundsCallbackArgs(op, self.optimize_INT_SUB_callback)
 
-    def optimize_INT_SUB_callback(self, op, bn1, bn2):
+    def optimize_INT_SUB_callback(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         b = b1.sub_bound(b2)
@@ -174,7 +174,7 @@ class OptIntBounds(Optimization):
 
         return IntBoundsCallbackArgs(op, self.optimize_INT_ADD_callback)
 
-    def optimize_INT_ADD_callback(self, op, bn1, bn2):
+    def optimize_INT_ADD_callback(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
@@ -183,22 +183,22 @@ class OptIntBounds(Optimization):
             r.intersect(b)
 
     def optimize_INT_MUL(self, op):
+        return IntBoundsCallbackArgs(op, self.optimize_INT_MUL_callback)
+
+    def optimize_INT_MUL_callback(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        return IntBoundsCallbackArgs(op, self.optimize_INT_MUL_callback, b1, b2)
-
-    def optimize_INT_MUL_callback(self, op, b1, b2):
         r = self.getintbound(op)
         b = b1.mul_bound(b2)
         if b.bounded():
             r.intersect(b)
 
     def optimize_INT_FLOORDIV(self, op):
+        return IntBoundsCallbackArgs(op, self.optimize_INT_FLOORDIV_callback)
+
+    def optimize_INT_FLOORDIV_callback(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        return IntBoundsCallbackArgs(op, self.optimize_INT_FLOORDIV_callback, b1, b2)
-
-    def optimize_INT_FLOORDIV_callback(self, op, b1, b2):
         r = self.getintbound(op)
         r.intersect(b1.div_bound(b2))
 
@@ -215,9 +215,13 @@ class OptIntBounds(Optimization):
                 arg2 = ConstInt(val-1)
                 op = self.replace_op_with(op, rop.INT_AND,
                                           args=[arg1, arg2])
-        return IntBoundsCallbackArgs(op, self.optimize_INT_MOD_callback, b2, known_nonneg)
+        return IntBoundsCallbackArgs(op, self.optimize_INT_MOD_callback)
 
-    def optimize_INT_MOD_callback(self, op, b2, known_nonneg):
+    def optimize_INT_MOD_callback(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        known_nonneg = (b1.known_ge(IntBound(0, 0)) and
+                        b2.known_ge(IntBound(0, 0)))
         if b2.is_constant():
             val = b2.getint()
             r = self.getintbound(op)
@@ -232,15 +236,13 @@ class OptIntBounds(Optimization):
             r.make_lt(IntBound(val, val))
 
     def optimize_INT_LSHIFT(self, op):
+        return IntBoundsCallbackArgs(op, self.optimize_INT_LSHIFT_callback)
+
+    def optimize_INT_LSHIFT_callback(self, op):
         arg0 = self.get_box_replacement(op.getarg(0))
         b1 = self.getintbound(arg0)
         arg1 = self.get_box_replacement(op.getarg(1))
         b2 = self.getintbound(arg1)
-        return IntBoundsCallbackArgs(op, self.optimize_INT_LSHIFT_callback, b1, b2)
-
-    def optimize_INT_LSHIFT_callback(self, op, b1, b2):
-        arg0 = self.get_box_replacement(op.getarg(0))
-        arg1 = self.get_box_replacement(op.getarg(1))
         r = self.getintbound(op)
         b = b1.lshift_bound(b2)
         r.intersect(b)
@@ -260,9 +262,12 @@ class OptIntBounds(Optimization):
             # constant result (likely 0, for rshifts that kill all bits)
             self.make_constant_int(op, b.lower)
             return None
-        return IntBoundsCallbackArgs(op, self.optimize_INT_RSHIFT_callback, b)
+        return IntBoundsCallbackArgs(op, self.optimize_INT_RSHIFT_callback)
 
-    def optimize_INT_RSHIFT_callback(self, op, b, bn):
+    def optimize_INT_RSHIFT_callback(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        b = b1.rshift_bound(b2)
         r = self.getintbound(op)
         r.intersect(b)
 
@@ -314,9 +319,12 @@ class OptIntBounds(Optimization):
             # by optimize_GUARD_NO_OVERFLOW; if we see instead an
             # optimize_GUARD_OVERFLOW, then InvalidLoop.
             op = self.replace_op_with(op, rop.INT_ADD)
-        return IntBoundsCallbackArgs(op, self.optimize_INT_ADD_OVF_callback, resbound)
+        return IntBoundsCallbackArgs(op, self.optimize_INT_ADD_OVF_callback)
 
-    def optimize_INT_ADD_OVF_callback(self, op, resbound, bn):
+    def optimize_INT_ADD_OVF_callback(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        resbound = b1.add_bound(b2)
         r = self.getintbound(op)
         r.intersect(resbound)
 
@@ -331,9 +339,14 @@ class OptIntBounds(Optimization):
         resbound = b0.sub_bound(b1)
         if resbound.bounded():
             op = self.replace_op_with(op, rop.INT_SUB)
-        return IntBoundsCallbackArgs(op, self.optimize_INT_SUB_OVF_callback, resbound)
+        return IntBoundsCallbackArgs(op, self.optimize_INT_SUB_OVF_callback)
 
-    def optimize_INT_SUB_OVF_callback(self, op, resbound, bn):
+    def optimize_INT_SUB_OVF_callback(self, op):
+        arg0 = self.get_box_replacement(op.getarg(0))
+        arg1 = self.get_box_replacement(op.getarg(1))
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+        resbound = b0.sub_bound(b1)
         r = self.getintbound(op)
         r.intersect(resbound)
 
@@ -343,9 +356,12 @@ class OptIntBounds(Optimization):
         resbound = b1.mul_bound(b2)
         if resbound.bounded():
             op = self.replace_op_with(op, rop.INT_MUL)
-        return IntBoundsCallbackArgs(op, self.optimize_INT_MUL_OVF_callback, resbound)
+        return IntBoundsCallbackArgs(op, self.optimize_INT_MUL_OVF_callback)
 
-    def optimize_INT_MUL_OVF_callback(self, op, resbound, bn):
+    def optimize_INT_MUL_OVF_callback(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        resbound = b1.mul_bound(b2)
         r = self.getintbound(op)
         r.intersect(resbound)
 
@@ -441,23 +457,27 @@ class OptIntBounds(Optimization):
         if bounds.contains_bound(b):
             self.make_equal_to(op, op.getarg(0))
         else:
-            return IntBoundsCallbackArgs(op, self.optimize_INT_SIGNEXT_callback, bounds)
+            return IntBoundsCallbackArgs(op, self.optimize_INT_SIGNEXT_callback)
 
-    def optimize_INT_SIGNEXT_callback(self, op, bounds, bn):
+    def optimize_INT_SIGNEXT_callback(self, op):
+        numbits = op.getarg(1).getint() * 8
+        start = -(1 << (numbits - 1))
+        stop = 1 << (numbits - 1)
+        bounds = IntBound(start, stop - 1)
         bres = self.getintbound(op)
         bres.intersect(bounds)
 
     def optimize_ARRAYLEN_GC(self, op):
-        array = self.ensure_ptr_info_arg0(op)
-        return IntBoundsCallbackArgs(op, self.optimize_ARRAYLEN_GC_callback, array)
+        return IntBoundsCallbackArgs(op, self.optimize_ARRAYLEN_GC_callback)
 
-    def optimize_ARRAYLEN_GC_callback(self, op, array, bn):
+    def optimize_ARRAYLEN_GC_callback(self, op):
+        array = self.ensure_ptr_info_arg0(op)
         self.optimizer.setintbound(op, array.getlenbound(None))
 
     def optimize_STRLEN(self, op):
         return IntBoundsCallbackArgs(op, self.optimize_STRLEN_callback)
 
-    def optimize_STRLEN_callback(self, op, bn1, bn2):
+    def optimize_STRLEN_callback(self, op):
         self.make_nonnull_str(op.getarg(0), vstring.mode_string)
         array = self.getptrinfo(op.getarg(0))
         self.optimizer.setintbound(op, array.getlenbound(vstring.mode_string))
@@ -465,7 +485,7 @@ class OptIntBounds(Optimization):
     def optimize_UNICODELEN(self, op):
         return IntBoundsCallbackArgs(op, self.optimize_UNICODELEN_callback)
 
-    def optimize_UNICODELEN_callback(self, op, bn1, bn2):
+    def optimize_UNICODELEN_callback(self, op):
         self.make_nonnull_str(op.getarg(0), vstring.mode_unicode)
         array = self.getptrinfo(op.getarg(0))
         self.optimizer.setintbound(op, array.getlenbound(vstring.mode_unicode))
@@ -473,7 +493,7 @@ class OptIntBounds(Optimization):
     def optimize_STRGETITEM(self, op):
         return IntBoundsCallbackArgs(op, self.optimize_STRGETITEM_callback)
 
-    def optimize_STRGETITEM_callback(self, op, bn1, bn2):
+    def optimize_STRGETITEM_callback(self, op):
         v1 = self.getintbound(op)
         v2 = self.getptrinfo(op.getarg(0))
         intbound = self.getintbound(op.getarg(1))
@@ -487,7 +507,7 @@ class OptIntBounds(Optimization):
     def optimize_GETFIELD_RAW_I(self, op):
         return IntBoundsCallbackArgs(op, self.optimize_GETFIELD_RAW_I_callback)
 
-    def optimize_GETFIELD_RAW_I_callback(self, op, bn1, bn2):
+    def optimize_GETFIELD_RAW_I_callback(self, op):
         descr = op.getdescr()
         if descr.is_integer_bounded():
             b1 = self.getintbound(op)
@@ -507,7 +527,7 @@ class OptIntBounds(Optimization):
     def optimize_GETARRAYITEM_RAW_I(self, op):
         return IntBoundsCallbackArgs(op, self.optimize_GETARRAYITEM_RAW_I_callback)
 
-    def optimize_GETARRAYITEM_RAW_I_callback(self, op, bn1, bn2):
+    def optimize_GETARRAYITEM_RAW_I_callback(self, op):
         descr = op.getdescr()
         if descr and descr.is_item_integer_bounded():
             intbound = self.getintbound(op)
@@ -522,7 +542,7 @@ class OptIntBounds(Optimization):
     def optimize_UNICODEGETITEM(self, op):
         return IntBoundsCallbackArgs(op, self.optimize_UNICODEGETITEM_callback)
 
-    def optimize_UNICODEGETITEM_callback(self, op, bn1, bn2):
+    def optimize_UNICODEGETITEM_callback(self, op):
         b1 = self.getintbound(op)
         b1.make_ge(IntLowerBound(0))
         v2 = self.getptrinfo(op.getarg(0))
