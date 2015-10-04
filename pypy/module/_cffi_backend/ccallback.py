@@ -178,7 +178,8 @@ STDERR = 2
 
 
 @jit.dont_look_inside
-def _handle_applevel_exception(space, callback, e, ll_res, extra_line):
+def _handle_applevel_exception(callback, e, ll_res, extra_line):
+    space = callback.space
     callback.write_error_return_value(ll_res)
     if callback.w_onerror is None:
         callback.print_error(e, extra_line)
@@ -199,8 +200,16 @@ def _handle_applevel_exception(space, callback, e, ll_res, extra_line):
                                 extra_line="\nDuring the call to 'onerror', "
                                            "another exception occurred:\n\n")
 
-
 @jit.jit_callback("CFFI")
+def py_invoke_callback(callback, ll_res, ll_args):
+    extra_line = ''
+    try:
+        w_res = callback.invoke(ll_args)
+        extra_line = "Trying to convert the result back to C:\n"
+        callback.convert_result(ll_res, w_res)
+    except OperationError, e:
+        _handle_applevel_exception(callback, e, ll_res, extra_line)
+
 def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care
@@ -228,13 +237,7 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     space = callback.space
     try:
         must_leave = space.threadlocals.try_enter_thread(space)
-        extra_line = ''
-        try:
-            w_res = callback.invoke(ll_args)
-            extra_line = "Trying to convert the result back to C:\n"
-            callback.convert_result(ll_res, w_res)
-        except OperationError, e:
-            _handle_applevel_exception(space, callback, e, ll_res, extra_line)
+        py_invoke_callback(callback, ll_res, ll_args)
         #
     except Exception, e:
         # oups! last-level attempt to recover.
