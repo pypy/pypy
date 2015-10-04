@@ -2312,7 +2312,7 @@ class MetaInterp(object):
         assert isinstance(key, compile.ResumeGuardDescr)
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp
-        self.resumekey_original_loop_token = key.rd_loop_token.loop_token_wref()
+        self.resumekey_original_loop_token = resumedescr.rd_loop_token.loop_token_wref()
         if self.resumekey_original_loop_token is None:
             raise compile.giveup() # should be rare
         self.staticdata.try_to_free_some_loops()
