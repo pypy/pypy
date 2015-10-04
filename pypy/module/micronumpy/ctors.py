@@ -150,11 +150,6 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
         dtype = descriptor.get_dtype_cache(space).w_uint8dtype
     if dtype is None or (dtype.is_str_or_unicode() and dtype.elsize < 1):
         dtype = find_dtype_for_seq(space, elems_w, dtype)
-        if dtype is None:
-            dtype = descriptor.get_dtype_cache(space).w_float64dtype
-        elif dtype.is_str_or_unicode() and dtype.elsize < 1:
-            # promote S0 -> S1, U0 -> U1
-            dtype = descriptor.variable_dtype(space, dtype.char + '1')
 
     w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
     if support.product(shape) == 1: # safe from overflow since from_shape checks
@@ -175,23 +170,18 @@ def numpify(space, w_object):
         return w_array
 
     if is_scalar_like(space, w_object, dtype=None):
-        shape, elems_w = [], [w_object]
         dtype = scalar2dtype(space, w_object)
-    else:
-        shape, elems_w = _find_shape_and_elems(space, w_object)
-        dtype = find_dtype_for_seq(space, elems_w, None)
-    if dtype is None:
-        dtype = descriptor.get_dtype_cache(space).w_float64dtype
-    elif dtype.is_str_or_unicode() and dtype.elsize < 1:
-        # promote S0 -> S1, U0 -> U1
-        dtype = descriptor.variable_dtype(space, dtype.char + '1')
+        if dtype.is_str_or_unicode() and dtype.elsize < 1:
+            # promote S0 -> S1, U0 -> U1
+            dtype = descriptor.variable_dtype(space, dtype.char + '1')
+        return dtype.coerce(space, w_object)
 
-    if len(elems_w) == 1:
-        return dtype.coerce(space, elems_w[0])
-    else:
-        w_arr = W_NDimArray.from_shape(space, shape, dtype)
-        loop.assign(space, w_arr, elems_w)
-        return w_arr
+    shape, elems_w = _find_shape_and_elems(space, w_object)
+    dtype = find_dtype_for_seq(space, elems_w, None)
+    w_arr = W_NDimArray.from_shape(space, shape, dtype)
+    loop.assign(space, w_arr, elems_w)
+    return w_arr
+
 
 def find_shape_and_elems(space, w_iterable, dtype):
     if is_scalar_like(space, w_iterable, dtype):
@@ -269,6 +259,11 @@ def find_dtype_for_seq(space, elems_w, dtype):
         return _dtype_guess(space, dtype, w_elem)
     for w_elem in elems_w:
         dtype = _dtype_guess(space, dtype, w_elem)
+    if dtype is None:
+        dtype = descriptor.get_dtype_cache(space).w_float64dtype
+    elif dtype.is_str_or_unicode() and dtype.elsize < 1:
+        # promote S0 -> S1, U0 -> U1
+        dtype = descriptor.variable_dtype(space, dtype.char + '1')
     return dtype
 
 
