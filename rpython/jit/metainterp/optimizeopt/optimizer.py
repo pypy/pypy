@@ -636,11 +636,14 @@ class Optimizer(Optimization):
     def _copy_resume_data_from(self, guard_op, last_guard_op):
         if guard_op.getopnum() in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION):
             assert last_guard_op.getopnum() == rop.GUARD_NOT_FORCED
-        descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self)
-        descr.copy_all_attributes_from(last_guard_op.getdescr())
+        descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self, True)
+        assert isinstance(descr, compile.ResumeGuardCopiedDescr)
+        last_descr = last_guard_op.getdescr()
+        assert isinstance(descr, compile.ResumeGuardDescr)
+        descr.prev = last_descr
         guard_op.setdescr(descr)
-        descr.store_final_boxes(guard_op, last_guard_op.getfailargs(),
-                                self.metainterp_sd)
+        guard_op.setfailargs(last_guard_op.getfailargs())
+        descr.store_hash(self.metainterp_sd)
         assert isinstance(guard_op, GuardResOp)
         if guard_op.getopnum() == rop.GUARD_VALUE:
             guard_op = self._maybe_replace_guard_value(guard_op, descr)

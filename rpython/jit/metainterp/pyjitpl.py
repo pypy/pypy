@@ -2302,9 +2302,13 @@ class MetaInterp(object):
             self.run_blackhole_interp_to_cancel_tracing(stb)
         assert False, "should always raise"
 
-    def handle_guard_failure(self, key, deadframe):
+    def handle_guard_failure(self, resumedescr, deadframe):
         debug_start('jit-tracing')
         self.staticdata.profiler.start_tracing()
+        if isinstance(resumedescr, compile.ResumeGuardCopiedDescr):
+            key = resumedescr.prev
+        else:
+            key = resumedescr
         assert isinstance(key, compile.ResumeGuardDescr)
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp
@@ -2314,15 +2318,15 @@ class MetaInterp(object):
         self.staticdata.try_to_free_some_loops()
         self.initialize_state_from_guard_failure(key, deadframe)
         try:
-            return self._handle_guard_failure(key, deadframe)
+            return self._handle_guard_failure(resumedescr, key, deadframe)
         finally:
             self.resumekey_original_loop_token = None
             self.staticdata.profiler.end_tracing()
             debug_stop('jit-tracing')
 
-    def _handle_guard_failure(self, key, deadframe):
+    def _handle_guard_failure(self, resumedescr, key, deadframe):
         self.current_merge_points = []
-        self.resumekey = key
+        self.resumekey = resumedescr
         self.seen_loop_header_for_jdindex = -1
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
