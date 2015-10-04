@@ -191,6 +191,7 @@ class FfiCallTests(object):
             kwds['expected_call_release_gil_i'] = kwds.pop('expected_call_release_gil', 1)
         else:
             kwds['expected_call_release_gil_f'] = kwds.pop('expected_call_release_gil', 1)
+            kwds['expected_call_release_gil_i'] = 0
         maxint32 = 2147483647
         a = r_longlong(maxint32) + 1
         b = r_longlong(maxint32) + 2
