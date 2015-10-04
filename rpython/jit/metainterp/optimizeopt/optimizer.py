@@ -538,12 +538,12 @@ class Optimizer(Optimization):
                 op.set_forwarded(None)
 
     def send_extra_operation(self, op):
-        callback_args = self.optimizations[0].propagate_forward(op)
-        if callback_args is None:
+        newop = self.optimizations[0].propagate_forward(op)
+        if newop is None:
             return
-        self.optimizations[0].last_emitted_operation = callback_args.op
-        self.first_optimization.propagate_forward(callback_args.op)
-        callback_args.callback()
+        self.optimizations[0].last_emitted_operation = newop
+        self.first_optimization.propagate_forward(newop)
+        self.optimizations[0].propagate_postprocess(newop)
 
     def propagate_forward(self, op):
         dispatch_opt(self, op)
