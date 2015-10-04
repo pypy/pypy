@@ -639,7 +639,7 @@ class Optimizer(Optimization):
         descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self, True)
         assert isinstance(descr, compile.ResumeGuardCopiedDescr)
         last_descr = last_guard_op.getdescr()
-        assert isinstance(descr, compile.ResumeGuardDescr)
+        assert isinstance(last_descr, compile.ResumeGuardDescr)
         descr.prev = last_descr
         guard_op.setdescr(descr)
         guard_op.setfailargs(last_guard_op.getfailargs())
