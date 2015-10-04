@@ -862,6 +862,8 @@ class __extend__(W_NDimArray):
         v = convert_to_array(space, w_v)
         ret = W_NDimArray.from_shape(
             space, v.get_shape(), get_dtype_cache(space).w_longdtype)
+        if ret.get_size() < 1:
+            return ret
         if side == NPY.SEARCHLEFT:
             binsearch = loop.binsearch_left
         else:
