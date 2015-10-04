@@ -38,16 +38,6 @@ def next_pow2_m1(n):
     return n
 
 
-class IntBoundsCallbackArgs(object):
-    def __init__(self, op, callback_func=None):
-        self.op = op
-        self.callback_func = callback_func
-
-    def callback(self):
-        if self.callback_func is not None:
-            self.callback_func(self.op)
-
-
 class OptIntBounds(Optimization):
     """Keeps track of the bounds placed on integers by guards and remove
        redundant guards"""
@@ -58,8 +48,8 @@ class OptIntBounds(Optimization):
     def propagate_forward(self, op):
         return dispatch_opt(self, op)
 
-    def propagate_postprocess(self, op):
-        return dispatch_postprocess(self, op)
+    def propagate_postprocess(self, op, oldop):
+        return dispatch_postprocess(self, op, oldop)
 
     def propagate_bounds_backward(self, box):
         # FIXME: This takes care of the instruction where box is the reuslt
@@ -75,7 +65,7 @@ class OptIntBounds(Optimization):
     def _optimize_guard_true_false_value(self, op):
         return op
 
-    def _postprocess_guard_true_false_value(self, op):
+    def _postprocess_guard_true_false_value(self, op, oldop):
         if op.getarg(0).type == 'i':
             self.propagate_bounds_backward(op.getarg(0))
 
@@ -98,7 +88,7 @@ class OptIntBounds(Optimization):
             return None
         return op
 
-    def postprocess_INT_OR_or_XOR(self, op):
+    def postprocess_INT_OR_or_XOR(self, op, oldop):
         v1 = self.get_box_replacement(op.getarg(0))
         b1 = self.getintbound(v1)
         v2 = self.get_box_replacement(op.getarg(1))
@@ -118,7 +108,7 @@ class OptIntBounds(Optimization):
     def optimize_INT_AND(self, op):
         return op
 
-    def postprocess_INT_AND(self, op):
+    def postprocess_INT_AND(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
@@ -137,7 +127,7 @@ class OptIntBounds(Optimization):
     def optimize_INT_SUB(self, op):
         return op
 
-    def postprocess_INT_SUB(self, op):
+    def postprocess_INT_SUB(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         b = b1.sub_bound(b2)
@@ -184,7 +174,7 @@ class OptIntBounds(Optimization):
 
         return op
 
-    def postprocess_INT_ADD(self, op):
+    def postprocess_INT_ADD(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
@@ -195,7 +185,7 @@ class OptIntBounds(Optimization):
     def optimize_INT_MUL(self, op):
         return op
 
-    def postprocess_INT_MUL(self, op):
+    def postprocess_INT_MUL(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
@@ -206,7 +196,7 @@ class OptIntBounds(Optimization):
     def optimize_INT_FLOORDIV(self, op):
         return op
 
-    def postprocess_INT_FLOORDIV(self, op):
+    def postprocess_INT_FLOORDIV(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
@@ -227,7 +217,7 @@ class OptIntBounds(Optimization):
                                           args=[arg1, arg2])
         return op
 
-    def postprocess_INT_MOD(self, op):
+    def postprocess_INT_MOD(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         known_nonneg = (b1.known_ge(IntBound(0, 0)) and
@@ -248,7 +238,7 @@ class OptIntBounds(Optimization):
     def optimize_INT_LSHIFT(self, op):
         return op
 
-    def postprocess_INT_LSHIFT(self, op):
+    def postprocess_INT_LSHIFT(self, op, oldop):
         arg0 = self.get_box_replacement(op.getarg(0))
         b1 = self.getintbound(arg0)
         arg1 = self.get_box_replacement(op.getarg(1))
@@ -274,7 +264,7 @@ class OptIntBounds(Optimization):
             return None
         return op
 
-    def postprocess_INT_RSHIFT(self, op):
+    def postprocess_INT_RSHIFT(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         b = b1.rshift_bound(b2)
@@ -331,7 +321,7 @@ class OptIntBounds(Optimization):
             op = self.replace_op_with(op, rop.INT_ADD)
         return op
 
-    def postprocess_INT_ADD_OVF(self, op):
+    def postprocess_INT_ADD_OVF(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         resbound = b1.add_bound(b2)
@@ -351,7 +341,7 @@ class OptIntBounds(Optimization):
             op = self.replace_op_with(op, rop.INT_SUB)
         return op
 
-    def postprocess_INT_SUB_OVF(self, op):
+    def postprocess_INT_SUB_OVF(self, op, oldop):
         arg0 = self.get_box_replacement(op.getarg(0))
         arg1 = self.get_box_replacement(op.getarg(1))
         b0 = self.getintbound(arg0)
@@ -368,7 +358,7 @@ class OptIntBounds(Optimization):
             op = self.replace_op_with(op, rop.INT_MUL)
         return op
 
-    def postprocess_INT_MUL_OVF(self, op):
+    def postprocess_INT_MUL_OVF(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         resbound = b1.mul_bound(b2)
@@ -469,7 +459,7 @@ class OptIntBounds(Optimization):
         else:
             return op
 
-    def postprocess_INT_SIGNEXT(self, op):
+    def postprocess_INT_SIGNEXT(self, op, oldop):
         numbits = op.getarg(1).getint() * 8
         start = -(1 << (numbits - 1))
         stop = 1 << (numbits - 1)
@@ -480,14 +470,14 @@ class OptIntBounds(Optimization):
     def optimize_ARRAYLEN_GC(self, op):
         return op
 
-    def postprocess_ARRAYLEN_GC(self, op):
+    def postprocess_ARRAYLEN_GC(self, op, oldop):
         array = self.ensure_ptr_info_arg0(op)
         self.optimizer.setintbound(op, array.getlenbound(None))
 
     def optimize_STRLEN(self, op):
         return op
 
-    def postprocess_STRLEN(self, op):
+    def postprocess_STRLEN(self, op, oldop):
         self.make_nonnull_str(op.getarg(0), vstring.mode_string)
         array = self.getptrinfo(op.getarg(0))
         self.optimizer.setintbound(op, array.getlenbound(vstring.mode_string))
@@ -495,7 +485,7 @@ class OptIntBounds(Optimization):
     def optimize_UNICODELEN(self, op):
         return op
 
-    def postprocess_UNICODELEN(self, op):
+    def postprocess_UNICODELEN(self, op, oldop):
         self.make_nonnull_str(op.getarg(0), vstring.mode_unicode)
         array = self.getptrinfo(op.getarg(0))
         self.optimizer.setintbound(op, array.getlenbound(vstring.mode_unicode))
@@ -503,7 +493,7 @@ class OptIntBounds(Optimization):
     def optimize_STRGETITEM(self, op):
         return op
 
-    def postprocess_STRGETITEM(self, op):
+    def postprocess_STRGETITEM(self, op, oldop):
         v1 = self.getintbound(op)
         v2 = self.getptrinfo(op.getarg(0))
         intbound = self.getintbound(op.getarg(1))
@@ -517,7 +507,7 @@ class OptIntBounds(Optimization):
     def optimize_GETFIELD_RAW_I(self, op):
         return op
 
-    def postprocess_GETFIELD_RAW_I(self, op):
+    def postprocess_GETFIELD_RAW_I(self, op, oldop):
         descr = op.getdescr()
         if descr.is_integer_bounded():
             b1 = self.getintbound(op)
@@ -547,7 +537,7 @@ class OptIntBounds(Optimization):
     def optimize_GETARRAYITEM_RAW_I(self, op):
         return op
 
-    def postprocess_GETARRAYITEM_RAW_I(self, op):
+    def postprocess_GETARRAYITEM_RAW_I(self, op, oldop):
         descr = op.getdescr()
         if descr and descr.is_item_integer_bounded():
             intbound = self.getintbound(op)
@@ -567,7 +557,7 @@ class OptIntBounds(Optimization):
     def optimize_UNICODEGETITEM(self, op):
         return op
 
-    def postprocess_UNICODEGETITEM(self, op):
+    def postprocess_UNICODEGETITEM(self, op, oldop):
         b1 = self.getintbound(op)
         b1.make_ge(IntLowerBound(0))
         v2 = self.getptrinfo(op.getarg(0))
