@@ -191,6 +191,7 @@ def numpify(space, w_object):
 def find_shape_and_elems(space, w_iterable, dtype):
     if is_scalar_like(space, w_iterable, dtype):
         return [], [w_iterable]
+    is_rec_type = dtype is not None and dtype.is_record()
     return _find_shape_and_elems(space, w_iterable, is_rec_type)
 
 def is_scalar_like(space, w_obj, dtype):
