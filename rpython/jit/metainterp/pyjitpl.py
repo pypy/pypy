@@ -2476,7 +2476,8 @@ class MetaInterp(object):
 
     def prepare_resume_from_failure(self, deadframe, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)
-        if isinstance(resumedescr, compile.ResumeGuardExcDescr):
+        if (isinstance(resumedescr, compile.ResumeGuardExcDescr) or
+            isinstance(resumedescr, compile.ResumeGuardCopiedExcDescr)):
             if exception:
                 self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
                                                               exception))
