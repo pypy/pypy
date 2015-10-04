@@ -43,3 +43,8 @@ at least 20 threads.
 .. branch: numpy-ctypes
 
 Add support for ndarray.ctypes property.
+
+.. branch: share-guard-info
+
+Share guard resume data between consecutive guards that have only
+pure operations and guards in between.

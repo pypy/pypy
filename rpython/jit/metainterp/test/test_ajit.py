@@ -4075,7 +4075,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         assert res == 2
         res = self.interp_operations(f, [], supports_longlong=True)
         assert res == 2
-        self.check_operations_history(call_release_gil=1, call_may_force=0)
+        self.check_operations_history(call_release_gil_i=1, call_may_force_i=0)
 
     def test_unescaped_write_zero(self):
         class A:
