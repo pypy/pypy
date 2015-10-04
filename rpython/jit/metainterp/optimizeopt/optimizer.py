@@ -272,7 +272,7 @@ class Optimizer(Optimization):
 
     def set_optimizations(self, optimizations):
         if optimizations:
-            self.first_optimization = optimizations[2]
+            self.first_optimization = optimizations[3]
             for i in range(1, len(optimizations)):
                 optimizations[i - 1].next_optimization = optimizations[i]
             optimizations[-1].next_optimization = self
@@ -539,13 +539,13 @@ class Optimizer(Optimization):
 
     def send_extra_operation(self, op):
         oldop = op
-        for optimization in self.optimizations[:2]:
+        for optimization in self.optimizations[:3]:
             op = optimization.propagate_forward(op)
             if op is None:
                 return
             optimization.last_emitted_operation = op
         self.first_optimization.propagate_forward(op)
-        for optimization in reversed(self.optimizations[:2]):
+        for optimization in reversed(self.optimizations[:3]):
             optimization.propagate_postprocess(op, oldop)
 
     def propagate_forward(self, op):
