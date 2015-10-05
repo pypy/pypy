@@ -27,7 +27,6 @@ def init_traceback(space):
                    basestruct=PyTracebackObject.TO,
                    attach=traceback_attach,
                    dealloc=traceback_dealloc)
-    # TODO: decref tb_frame properly!
 
 
 def traceback_attach(space, py_obj, w_obj):
