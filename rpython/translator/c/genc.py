@@ -763,8 +763,7 @@ def gen_preimpl(f, database):
 
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
-    print >> f, 'char *RPython_StartupCode(void) {'
-    print >> f, '\tchar *error = NULL;'
+    print >> f, 'void RPython_StartupCode(void) {'
 
     bk = database.translator.annotator.bookkeeper
     if bk.thread_local_fields:
@@ -778,18 +777,12 @@ def gen_startupcode(f, database):
     for dest, value in database.late_initializations:
         print >> f, "\t%s = %s;" % (dest, value)
 
-    firsttime = True
     for node in database.containerlist:
         lines = list(node.startupcode())
         if lines:
-            if firsttime:
-                firsttime = False
-            else:
-                print >> f, '\tif (error) return error;'
             for line in lines:
                 print >> f, '\t'+line
 
-    print >> f, '\treturn error;'
     print >> f, '}'
 
 def commondefs(defines):
