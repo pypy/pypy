@@ -592,6 +592,17 @@ class Optimizer(Optimization):
     def emit_guard_operation(self, op, pendingfields):
         guard_op = self.replace_op_with(op, op.getopnum())
         opnum = guard_op.getopnum()
+        # If guard_(no)_exception is merged with another previous guard, then
+        # it *should* be is "some_call;guard_not_forced;guard_(no)_exception".
+        # The guard_(no)_exception can also occur at different places,
+        # but these should not be preceeded immediately by another guard.
+        # Sadly, asserting this seems to fail in rare cases.  So instead,
+        # we simply give up sharing.
+        if (opnum in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION) and
+                self._last_guard_op is not None and
+                self._last_guard_op.getopnum() != rop.GUARD_NOT_FORCED):
+            self._last_guard_op = None
+        #
         if (self._last_guard_op and guard_op.getdescr() is None):
             self.metainterp_sd.profiler.count_ops(opnum,
                                             jitprof.Counters.OPT_GUARDS_SHARED)
@@ -634,8 +645,6 @@ class Optimizer(Optimization):
 
 
     def _copy_resume_data_from(self, guard_op, last_guard_op):
-        if guard_op.getopnum() in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION):
-            assert last_guard_op.getopnum() == rop.GUARD_NOT_FORCED
         descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self, True)
         assert isinstance(descr, compile.ResumeGuardCopiedDescr)
         last_descr = last_guard_op.getdescr()
