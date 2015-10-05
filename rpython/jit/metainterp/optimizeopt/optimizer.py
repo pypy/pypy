@@ -593,7 +593,7 @@ class Optimizer(Optimization):
         guard_op = self.replace_op_with(op, op.getopnum())
         opnum = guard_op.getopnum()
         # If guard_(no)_exception is merged with another previous guard, then
-        # it *should* be is "some_call;guard_not_forced;guard_(no)_exception".
+        # it *should* be in "some_call;guard_not_forced;guard_(no)_exception".
         # The guard_(no)_exception can also occur at different places,
         # but these should not be preceeded immediately by another guard.
         # Sadly, asserting this seems to fail in rare cases.  So instead,
