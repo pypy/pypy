@@ -209,6 +209,9 @@ def test_longdouble_precision():
         # Check the particular results on Intel
         import platform
         if (platform.machine().startswith('i386') or
+            platform.machine().startswith('i486') or
+            platform.machine().startswith('i586') or
+            platform.machine().startswith('i686') or
             platform.machine().startswith('x86')):
             assert abs(more_precise - 0.656769) < 0.001
             assert abs(less_precise - 3.99091) < 0.001
