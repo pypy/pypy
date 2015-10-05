@@ -214,7 +214,7 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care
     ll_args - rffi.VOIDPP - pointer to array of pointers to args
-    ll_restype - rffi.VOIDP - pointer to result
+    ll_res - rffi.VOIDP - pointer to result
     ll_userdata - a special structure which holds necessary information
                   (what the real callback is for example), casted to VOIDP
     """
