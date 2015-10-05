@@ -146,8 +146,8 @@ class Optimization(object):
             return fw
         return None
 
-    def get_box_replacement(self, op, not_const=False):
-        return self.optimizer.get_box_replacement(op, not_const=not_const)
+    def get_box_replacement(self, op):
+        return self.optimizer.get_box_replacement(op)
 
     def getlastop(self):
         return self.optimizer.getlastop()
@@ -336,10 +336,10 @@ class Optimizer(Optimization):
             if self.get_box_replacement(op).is_constant():
                 return info.FloatConstInfo(self.get_box_replacement(op))
 
-    def get_box_replacement(self, op, not_const=False):
+    def get_box_replacement(self, op):
         if op is None:
             return op
-        return op.get_box_replacement(not_const)
+        return op.get_box_replacement()
 
     def force_box(self, op, optforce=None):
         op = self.get_box_replacement(op)
