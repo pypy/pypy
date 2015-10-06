@@ -48,3 +48,8 @@ Add support for ndarray.ctypes property.
 
 Share guard resume data between consecutive guards that have only
 pure operations and guards in between.
+
+.. branch: issue-2148
+
+Fix performance regression on operations mixing numpy scalars and Python 
+floats, cf. issue #2148.
