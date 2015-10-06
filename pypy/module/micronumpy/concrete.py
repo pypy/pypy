@@ -383,6 +383,7 @@ class BaseConcreteArray(object):
                 t_strides[i] = base
                 base *= shape[i]
             backstrides = calc_backstrides(t_strides, shape)
+        order = support.get_order_as_CF(self.order, order)
         impl = ConcreteArray(shape, dtype, order, t_strides, backstrides)
         loop.setslice(space, impl.get_shape(), impl, self)
         return impl
@@ -434,6 +435,8 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.shape = shape
         # already tested for overflow in from_shape_and_storage
         self.size = support.product(shape) * dtype.elsize
+        if order not in (NPY.CORDER, NPY.FORTRANORDER):
+            raise oefmt(dtype.itemtype.space.w_ValueError, "ConcreteArrayNotOwning but order is not 0,1 rather %d", order)
         self.order = order
         self.dtype = dtype
         self.strides = strides
@@ -567,6 +570,8 @@ class SliceArray(BaseConcreteArray):
         self.parent = parent
         self.storage = parent.storage
         self.gcstruct = parent.gcstruct
+        if parent.order not in (NPY.CORDER, NPY.FORTRANORDER):
+            raise oefmt(dtype.itemtype.space.w_ValueError, "SliceArray but parent order is not 0,1 rather %d", parent.order)
         self.order = parent.order
         self.dtype = dtype
         try:
