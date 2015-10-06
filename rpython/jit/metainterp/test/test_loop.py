@@ -1090,5 +1090,24 @@ class LoopTest(object):
         self.meta_interp(f, [30])
         self.check_trace_count(3)
 
+    def test_sharing_guards(self):
+        py.test.skip("unimplemented")
+        driver = JitDriver(greens = [], reds = 'auto')
+        
+        def f(i):
+            s = 0
+            while i > 0:
+                driver.jit_merge_point()
+                if s > 100:
+                    raise Exception
+                if s > 9:
+                    s += 1 # bridge
+                s += 1
+                i -= 1
+
+        self.meta_interp(f, [15])
+        # one guard_false got removed
+        self.check_resops(guard_false=4, guard_true=5)
+
 class TestLLtype(LoopTest, LLJitMixin):
     pass

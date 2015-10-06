@@ -1,7 +1,6 @@
 from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
-from rpython.jit.metainterp.logger import LogOperations
-from rpython.jit.metainterp.history import Const, ConstInt, REF, ConstPtr
+from rpython.jit.metainterp.history import Const, ConstInt, ConstPtr
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
      ConstIntBound, MININT, MAXINT, IntUnbounded
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -10,6 +9,7 @@ from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp,\
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.debug import debug_print
 
 
 
@@ -146,8 +146,8 @@ class Optimization(object):
             return fw
         return None
 
-    def get_box_replacement(self, op, not_const=False):
-        return self.optimizer.get_box_replacement(op, not_const=not_const)
+    def get_box_replacement(self, op):
+        return self.optimizer.get_box_replacement(op)
 
     def getlastop(self):
         return self.optimizer.getlastop()
@@ -260,6 +260,8 @@ class Optimizer(Optimization):
         self.optearlyforce = None
         self.optunroll = None
 
+        self._last_guard_op = None
+
         self.set_optimizations(optimizations)
         self.setup()
 
@@ -334,10 +336,10 @@ class Optimizer(Optimization):
             if self.get_box_replacement(op).is_constant():
                 return info.FloatConstInfo(self.get_box_replacement(op))
 
-    def get_box_replacement(self, op, not_const=False):
+    def get_box_replacement(self, op):
         if op is None:
             return op
-        return op.get_box_replacement(not_const)
+        return op.get_box_replacement()
 
     def force_box(self, op, optforce=None):
         op = self.get_box_replacement(op)
@@ -526,6 +528,7 @@ class Optimizer(Optimization):
         if extra_jump:
             self.first_optimization.propagate_forward(ops[-1])
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
+        
         return (BasicLoopInfo(newargs, self.quasi_immutable_deps),
                 self._newoperations)
 
@@ -566,6 +569,7 @@ class Optimizer(Optimization):
             op.setarg(i, arg)
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
         if op.is_guard():
+            assert isinstance(op, GuardResOp)
             self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
             pendingfields = self.pendingfields
             self.pendingfields = None
@@ -574,19 +578,98 @@ class Optimizer(Optimization):
                 del self.replaces_guard[orig_op]
                 return
             else:
-                guard_op = self.replace_op_with(op, op.getopnum())
-                op = self.store_final_boxes_in_guard(guard_op, pendingfields)
-                # for unrolling
-                for farg in op.getfailargs():
-                    if farg:
-                        self.force_box(farg)
+                op = self.emit_guard_operation(op, pendingfields)
         elif op.can_raise():
             self.exception_might_have_happened = True
+        if ((op.has_no_side_effect() or op.is_guard() or op.is_jit_debug() or
+             op.is_ovf()) and not self.is_call_pure_pure_canraise(op)):
+            pass
+        else:
+            self._last_guard_op = None
         self._really_emitted_operation = op
         self._newoperations.append(op)
 
+    def emit_guard_operation(self, op, pendingfields):
+        guard_op = self.replace_op_with(op, op.getopnum())
+        opnum = guard_op.getopnum()
+        # If guard_(no)_exception is merged with another previous guard, then
+        # it *should* be in "some_call;guard_not_forced;guard_(no)_exception".
+        # The guard_(no)_exception can also occur at different places,
+        # but these should not be preceeded immediately by another guard.
+        # Sadly, asserting this seems to fail in rare cases.  So instead,
+        # we simply give up sharing.
+        if (opnum in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION) and
+                self._last_guard_op is not None and
+                self._last_guard_op.getopnum() != rop.GUARD_NOT_FORCED):
+            self._last_guard_op = None
+        #
+        if (self._last_guard_op and guard_op.getdescr() is None):
+            self.metainterp_sd.profiler.count_ops(opnum,
+                                            jitprof.Counters.OPT_GUARDS_SHARED)
+            op = self._copy_resume_data_from(guard_op,
+                                             self._last_guard_op)
+        else:
+            op = self.store_final_boxes_in_guard(guard_op, pendingfields)
+            self._last_guard_op = op
+            # for unrolling
+            for farg in op.getfailargs():
+                if farg:
+                    self.force_box(farg)
+        if op.getopnum() == rop.GUARD_EXCEPTION:
+            self._last_guard_op = None
+        return op
+
+    def potentially_change_ovf_op_to_no_ovf(self, op):
+        # if last emitted operations was int_xxx_ovf and we are not emitting
+        # a guard_no_overflow change to int_add
+        if op.getopnum() != rop.GUARD_NO_OVERFLOW:
+            return
+        if not self._newoperations:
+            # got optimized otherwise
+            return
+        op = self._newoperations[-1]
+        if not op.is_ovf():
+            return
+        newop = self.replace_op_with_no_ovf(op)
+        self._newoperations[-1] = newop
+
+    def replace_op_with_no_ovf(self, op):
+        if op.getopnum() == rop.INT_MUL_OVF:
+            return self.replace_op_with(op, rop.INT_MUL)
+        elif op.getopnum() == rop.INT_ADD_OVF:
+            return self.replace_op_with(op, rop.INT_ADD)
+        elif op.getopnum() == rop.INT_SUB_OVF:
+            return self.replace_op_with(op, rop.INT_SUB)
+        else:
+            assert False
+
+
+    def _copy_resume_data_from(self, guard_op, last_guard_op):
+        descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self, True)
+        last_descr = last_guard_op.getdescr()
+        assert isinstance(last_descr, compile.ResumeGuardDescr)
+        if isinstance(descr, compile.ResumeGuardCopiedDescr):
+            descr.prev = last_descr
+        else:
+            descr.copy_all_attributes_from(last_descr)
+        guard_op.setdescr(descr)
+        guard_op.setfailargs(last_guard_op.getfailargs())
+        descr.store_hash(self.metainterp_sd)
+        assert isinstance(guard_op, GuardResOp)
+        if guard_op.getopnum() == rop.GUARD_VALUE:
+            guard_op = self._maybe_replace_guard_value(guard_op, descr)
+        return guard_op
+
     def getlastop(self):
         return self._really_emitted_operation
+
+    def is_call_pure_pure_canraise(self, op):
+        if not op.is_call_pure():
+            return False
+        effectinfo = op.getdescr().get_extra_info()
+        if effectinfo.check_can_raise(ignore_memoryerror=True):
+            return True
+        return False
 
     def replace_guard_op(self, old_op_pos, new_op):
         old_op = self._newoperations[old_op_pos]
@@ -625,24 +708,26 @@ class Optimizer(Optimization):
         descr.store_final_boxes(op, newboxes, self.metainterp_sd)
         #
         if op.getopnum() == rop.GUARD_VALUE:
-            if op.getarg(0).type == 'i':
-                b = self.getintbound(op.getarg(0))
-                if b.is_bool():
-                    # Hack: turn guard_value(bool) into guard_true/guard_false.
-                    # This is done after the operation is emitted to let
-                    # store_final_boxes_in_guard set the guard_opnum field of
-                    # the descr to the original rop.GUARD_VALUE.
-                    constvalue = op.getarg(1).getint()
-                    if constvalue == 0:
-                        opnum = rop.GUARD_FALSE
-                    elif constvalue == 1:
-                        opnum = rop.GUARD_TRUE
-                    else:
-                        raise AssertionError("uh?")
-                    newop = self.replace_op_with(op, opnum, [op.getarg(0)], descr)
-                    return newop
-            # a real GUARD_VALUE.  Make it use one counter per value.
-            descr.make_a_counter_per_value(op)
+            op = self._maybe_replace_guard_value(op, descr)
+        return op
+
+    def _maybe_replace_guard_value(self, op, descr):
+        if op.getarg(0).type == 'i':
+            b = self.getintbound(op.getarg(0))
+            if b.is_bool():
+                # Hack: turn guard_value(bool) into guard_true/guard_false.
+                # This is done after the operation is emitted to let
+                # store_final_boxes_in_guard set the guard_opnum field of
+                # the descr to the original rop.GUARD_VALUE.
+                constvalue = op.getarg(1).getint()
+                if constvalue == 0:
+                    opnum = rop.GUARD_FALSE
+                elif constvalue == 1:
+                    opnum = rop.GUARD_TRUE
+                else:
+                    raise AssertionError("uh?")
+                newop = self.replace_op_with(op, opnum, [op.getarg(0)], descr)
+                return newop
         return op
 
     def optimize_default(self, op):

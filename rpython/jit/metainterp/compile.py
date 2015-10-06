@@ -673,28 +673,10 @@ def make_done_loop_tokens():
 class ResumeDescr(AbstractFailDescr):
     _attrs_ = ()
 
-class ResumeGuardDescr(ResumeDescr):
-    _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
-               'rd_frame_info_list', 'rd_pendingfields', 'status')
-    
-    rd_numb = lltype.nullptr(NUMBERING)
-    rd_count = 0
-    rd_consts = None
-    rd_virtuals = None
-    rd_frame_info_list = None
-    rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
+class AbstractResumeGuardDescr(ResumeDescr):
+    _attrs_ = ('status',)
 
     status = r_uint(0)
-
-    def copy_all_attributes_from(self, other):
-        assert isinstance(other, ResumeGuardDescr)
-        self.rd_count = other.rd_count
-        self.rd_consts = other.rd_consts
-        self.rd_frame_info_list = other.rd_frame_info_list
-        self.rd_pendingfields = other.rd_pendingfields
-        self.rd_virtuals = other.rd_virtuals
-        self.rd_numb = other.rd_numb
-        # we don't copy status
 
     ST_BUSY_FLAG    = 0x01     # if set, busy tracing from the guard
     ST_TYPE_MASK    = 0x06     # mask for the type (TY_xxx)
@@ -707,15 +689,6 @@ class ResumeGuardDescr(ResumeDescr):
     TY_REF          = 0x04
     TY_FLOAT        = 0x06
 
-    def store_final_boxes(self, guard_op, boxes, metainterp_sd):
-        guard_op.setfailargs(boxes)
-        self.rd_count = len(boxes)
-        #
-        if metainterp_sd.warmrunnerdesc is not None:   # for tests
-            jitcounter = metainterp_sd.warmrunnerdesc.jitcounter
-            hash = jitcounter.fetch_next_hash()
-            self.status = hash & self.ST_SHIFT_MASK
-
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         if self.must_compile(deadframe, metainterp_sd, jitdriver_sd):
             self.start_compiling()
@@ -726,8 +699,13 @@ class ResumeGuardDescr(ResumeDescr):
                 self.done_compiling()
         else:
             from rpython.jit.metainterp.blackhole import resume_in_blackhole
-            resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
+            if isinstance(self, ResumeGuardCopiedDescr):
+                resume_in_blackhole(metainterp_sd, jitdriver_sd, self.prev, deadframe)    
+            else:
+                assert isinstance(self, ResumeGuardDescr)
+                resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
         assert 0, "unreachable"
+
 
     def _trace_and_compile_from_bridge(self, deadframe, metainterp_sd,
                                        jitdriver_sd):
@@ -767,12 +745,15 @@ class ResumeGuardDescr(ResumeDescr):
             # fetch the actual value of the guard_value, possibly turning
             # it to an integer
             if typetag == self.TY_INT:
-                intval = metainterp_sd.cpu.get_int_value(deadframe, index)
+                intval = metainterp_sd.cpu.get_value_direct(deadframe, 'i',
+                                                            index)
             elif typetag == self.TY_REF:
-                refval = metainterp_sd.cpu.get_ref_value(deadframe, index)
+                refval = metainterp_sd.cpu.get_value_direct(deadframe, 'r',
+                                                            index)
                 intval = lltype.cast_ptr_to_int(refval)
             elif typetag == self.TY_FLOAT:
-                floatval = metainterp_sd.cpu.get_float_value(deadframe, index)
+                floatval = metainterp_sd.cpu.get_value_direct(deadframe, 'f',
+                                                              index)
                 intval = longlong.gethash_fast(floatval)
             else:
                 assert 0, typetag
@@ -787,11 +768,6 @@ class ResumeGuardDescr(ResumeDescr):
         #
         increment = jitdriver_sd.warmstate.increment_trace_eagerness
         return jitcounter.tick(hash, increment)
-
-    def get_index_of_guard_value(self):
-        if (self.status & self.ST_TYPE_MASK) == 0:
-            return -1
-        return intmask(self.status >> self.ST_SHIFT)
 
     def start_compiling(self):
         # start tracing and compiling from this guard.
@@ -819,62 +795,68 @@ class ResumeGuardDescr(ResumeDescr):
                                new_loop.original_jitcell_token,
                                metainterp.box_names_memo)
 
-    def make_a_counter_per_value(self, guard_value_op):
+    def make_a_counter_per_value(self, guard_value_op, index):
         assert guard_value_op.getopnum() == rop.GUARD_VALUE
         box = guard_value_op.getarg(0)
-        try:
-            i = guard_value_op.getfailargs().index(box)
-        except ValueError:
-            return     # xxx probably very rare
+        if box.type == history.INT:
+            ty = self.TY_INT
+        elif box.type == history.REF:
+            ty = self.TY_REF
+        elif box.type == history.FLOAT:
+            ty = self.TY_FLOAT
         else:
-            if box.type == history.INT:
-                ty = self.TY_INT
-            elif box.type == history.REF:
-                ty = self.TY_REF
-            elif box.type == history.FLOAT:
-                ty = self.TY_FLOAT
-            else:
-                assert 0, box.type
-            self.status = ty | (r_uint(i) << self.ST_SHIFT)
+            assert 0, box.type
+        self.status = ty | (r_uint(index) << self.ST_SHIFT)
 
-class ResumeGuardNonnullDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_NONNULL
+    def store_hash(self, metainterp_sd):
+        if metainterp_sd.warmrunnerdesc is not None:   # for tests
+            jitcounter = metainterp_sd.warmrunnerdesc.jitcounter
+            hash = jitcounter.fetch_next_hash()
+            self.status = hash & self.ST_SHIFT_MASK
 
-class ResumeGuardIsnullDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_ISNULL
+class ResumeGuardCopiedDescr(AbstractResumeGuardDescr):
+    _attrs_ = ('status', 'prev')
 
-class ResumeGuardClassDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_CLASS
+    def copy_all_attributes_from(self, other):
+        assert isinstance(other, ResumeGuardCopiedDescr)
+        self.prev = other.prev
 
-class ResumeGuardTrueDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_TRUE
+class ResumeGuardDescr(AbstractResumeGuardDescr):
+    _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
+               'rd_frame_info_list', 'rd_pendingfields', 'status')
+    
+    rd_numb = lltype.nullptr(NUMBERING)
+    rd_count = 0
+    rd_consts = None
+    rd_virtuals = None
+    rd_frame_info_list = None
+    rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
-class ResumeGuardFalseDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_FALSE
+    def copy_all_attributes_from(self, other):
+        if isinstance(other, ResumeGuardCopiedDescr):
+            other = other.prev
+        assert isinstance(other, ResumeGuardDescr)
+        self.rd_count = other.rd_count
+        self.rd_consts = other.rd_consts
+        self.rd_frame_info_list = other.rd_frame_info_list
+        self.rd_pendingfields = other.rd_pendingfields
+        self.rd_virtuals = other.rd_virtuals
+        self.rd_numb = other.rd_numb
+        # we don't copy status
 
-class ResumeGuardNonnullClassDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_NONNULL_CLASS
+    def store_final_boxes(self, guard_op, boxes, metainterp_sd):
+        guard_op.setfailargs(boxes)
+        self.rd_count = len(boxes)
+        self.store_hash(metainterp_sd)
 
-class ResumeGuardExceptionDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_EXCEPTION
+class ResumeGuardExcDescr(ResumeGuardDescr):
+    pass
 
-class ResumeGuardNoExceptionDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_NO_EXCEPTION
-
-class ResumeGuardOverflowDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_OVERFLOW
-
-class ResumeGuardNoOverflowDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_NO_OVERFLOW
-
-class ResumeGuardValueDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_VALUE
-
-class ResumeGuardNotInvalidated(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_NOT_INVALIDATED
+class ResumeGuardCopiedExcDescr(ResumeGuardCopiedDescr):
+    pass
 
 class ResumeAtPositionDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_FUTURE_CONDITION
+    pass
 
 class AllVirtuals:
     llopaque = True
@@ -893,10 +875,27 @@ class AllVirtuals:
         ptr = cpu.ts.cast_to_baseclass(gcref)
         return cast_base_ptr_to_instance(AllVirtuals, ptr)
 
+def invent_fail_descr_for_op(opnum, optimizer, copied_guard=False):
+    if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
+        assert not copied_guard
+        resumedescr = ResumeGuardForcedDescr()
+        resumedescr._init(optimizer.metainterp_sd, optimizer.jitdriver_sd)
+    elif opnum in (rop.GUARD_IS_OBJECT, rop.GUARD_SUBCLASS, rop.GUARD_GC_TYPE):
+        # note - this only happens in tests
+        resumedescr = ResumeAtPositionDescr()
+    elif opnum in (rop.GUARD_EXCEPTION, rop.GUARD_NO_EXCEPTION):
+        if copied_guard:
+            resumedescr = ResumeGuardCopiedExcDescr()
+        else:
+            resumedescr = ResumeGuardExcDescr()
+    else:
+        if copied_guard:
+            resumedescr = ResumeGuardCopiedDescr()
+        else:
+            resumedescr = ResumeGuardDescr()
+    return resumedescr
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):
-    guard_opnum = rop.GUARD_NOT_FORCED
-
     def _init(self, metainterp_sd, jitdriver_sd):
         # to please the annotator
         self.metainterp_sd = metainterp_sd
@@ -931,7 +930,7 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         rstack._stack_criticalcode_start()
         try:
             deadframe = cpu.force(token)
-            # this should set descr to ResumeGuardForceDescr, if it
+            # this should set descr to ResumeGuardForcedDescr, if it
             # was not that already
             faildescr = cpu.get_latest_descr(deadframe)
             assert isinstance(faildescr, ResumeGuardForcedDescr)
@@ -954,43 +953,6 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         obj = AllVirtuals(all_virtuals)
         hidden_all_virtuals = obj.hide(metainterp_sd.cpu)
         metainterp_sd.cpu.set_savedata_ref(deadframe, hidden_all_virtuals)
-
-def invent_fail_descr_for_op(opnum, optimizer):
-    if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
-        resumedescr = ResumeGuardForcedDescr()
-        resumedescr._init(optimizer.metainterp_sd, optimizer.jitdriver_sd)
-    elif opnum == rop.GUARD_NOT_INVALIDATED:
-        resumedescr = ResumeGuardNotInvalidated()
-    elif opnum == rop.GUARD_FUTURE_CONDITION:
-        resumedescr = ResumeAtPositionDescr()
-    elif opnum == rop.GUARD_VALUE:
-        resumedescr = ResumeGuardValueDescr()
-    elif opnum == rop.GUARD_NONNULL:
-        resumedescr = ResumeGuardNonnullDescr()
-    elif opnum == rop.GUARD_ISNULL:
-        resumedescr = ResumeGuardIsnullDescr()
-    elif opnum == rop.GUARD_NONNULL_CLASS:
-        resumedescr = ResumeGuardNonnullClassDescr()
-    elif opnum == rop.GUARD_CLASS:
-        resumedescr = ResumeGuardClassDescr()
-    elif opnum == rop.GUARD_TRUE:
-        resumedescr = ResumeGuardTrueDescr()
-    elif opnum == rop.GUARD_FALSE:
-        resumedescr = ResumeGuardFalseDescr()
-    elif opnum == rop.GUARD_EXCEPTION:
-        resumedescr = ResumeGuardExceptionDescr()
-    elif opnum == rop.GUARD_NO_EXCEPTION:
-        resumedescr = ResumeGuardNoExceptionDescr()
-    elif opnum == rop.GUARD_OVERFLOW:
-        resumedescr = ResumeGuardOverflowDescr()
-    elif opnum == rop.GUARD_NO_OVERFLOW:
-        resumedescr = ResumeGuardNoOverflowDescr()
-    elif opnum in (rop.GUARD_IS_OBJECT, rop.GUARD_SUBCLASS, rop.GUARD_GC_TYPE):
-        # note - this only happens in tests
-        resumedescr = ResumeAtPositionDescr()
-    else:
-        assert False
-    return resumedescr
 
 class ResumeFromInterpDescr(ResumeDescr):
     def __init__(self, original_greenkey):

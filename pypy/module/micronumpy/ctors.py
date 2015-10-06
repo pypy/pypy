@@ -3,11 +3,13 @@ from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstring import strip_spaces
 from rpython.rtyper.lltypesystem import lltype, rffi
+
 from pypy.module.micronumpy import descriptor, loop, support
 from pypy.module.micronumpy.base import (wrap_impl,
     W_NDimArray, convert_to_array, W_NumpyObject)
 from pypy.module.micronumpy.converters import shape_converter, order_converter
 import pypy.module.micronumpy.constants as NPY
+from .casting import scalar2dtype
 
 
 def build_scalar(space, w_dtype, w_state):
@@ -83,7 +85,6 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
     return w_res
 
 def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
-    from pypy.module.micronumpy import strides
 
     # for anything that isn't already an array, try __array__ method first
     if not isinstance(w_object, W_NDimArray):
@@ -139,16 +140,11 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
                     w_base=w_base, start=imp.start)
     else:
         # not an array
-        shape, elems_w = strides.find_shape_and_elems(space, w_object, dtype)
+        shape, elems_w = find_shape_and_elems(space, w_object, dtype)
     if dtype is None and space.isinstance_w(w_object, space.w_buffer):
         dtype = descriptor.get_dtype_cache(space).w_uint8dtype
     if dtype is None or (dtype.is_str_or_unicode() and dtype.elsize < 1):
         dtype = find_dtype_for_seq(space, elems_w, dtype)
-        if dtype is None:
-            dtype = descriptor.get_dtype_cache(space).w_float64dtype
-        elif dtype.is_str_or_unicode() and dtype.elsize < 1:
-            # promote S0 -> S1, U0 -> U1
-            dtype = descriptor.variable_dtype(space, dtype.char + '1')
 
     w_arr = W_NDimArray.from_shape(space, shape, dtype, order=npy_order)
     if support.product(shape) == 1: # safe from overflow since from_shape checks
@@ -161,7 +157,6 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
 def numpify(space, w_object):
     """Convert the object to a W_NumpyObject"""
     # XXX: code duplication with _array()
-    from pypy.module.micronumpy import strides
     if isinstance(w_object, W_NumpyObject):
         return w_object
     # for anything that isn't already an array, try __array__ method first
@@ -169,20 +164,82 @@ def numpify(space, w_object):
     if w_array is not None:
         return w_array
 
-    shape, elems_w = strides.find_shape_and_elems(space, w_object, None)
-    dtype = find_dtype_for_seq(space, elems_w, None)
-    if dtype is None:
-        dtype = descriptor.get_dtype_cache(space).w_float64dtype
-    elif dtype.is_str_or_unicode() and dtype.elsize < 1:
-        # promote S0 -> S1, U0 -> U1
-        dtype = descriptor.variable_dtype(space, dtype.char + '1')
+    if is_scalar_like(space, w_object, dtype=None):
+        dtype = scalar2dtype(space, w_object)
+        if dtype.is_str_or_unicode() and dtype.elsize < 1:
+            # promote S0 -> S1, U0 -> U1
+            dtype = descriptor.variable_dtype(space, dtype.char + '1')
+        return dtype.coerce(space, w_object)
 
-    if len(elems_w) == 1:
-        return dtype.coerce(space, elems_w[0])
+    shape, elems_w = _find_shape_and_elems(space, w_object)
+    dtype = find_dtype_for_seq(space, elems_w, None)
+    w_arr = W_NDimArray.from_shape(space, shape, dtype)
+    loop.assign(space, w_arr, elems_w)
+    return w_arr
+
+
+def find_shape_and_elems(space, w_iterable, dtype):
+    if is_scalar_like(space, w_iterable, dtype):
+        return [], [w_iterable]
+    is_rec_type = dtype is not None and dtype.is_record()
+    return _find_shape_and_elems(space, w_iterable, is_rec_type)
+
+def is_scalar_like(space, w_obj, dtype):
+    isstr = space.isinstance_w(w_obj, space.w_str)
+    if not support.issequence_w(space, w_obj) or isstr:
+        if dtype is None or dtype.char != NPY.CHARLTR:
+            return True
+    is_rec_type = dtype is not None and dtype.is_record()
+    if is_rec_type and is_single_elem(space, w_obj, is_rec_type):
+        return True
+    if isinstance(w_obj, W_NDimArray) and w_obj.is_scalar():
+        return True
+    return False
+
+def _find_shape_and_elems(space, w_iterable, is_rec_type=False):
+    from pypy.objspace.std.bufferobject import W_Buffer
+    shape = [space.len_w(w_iterable)]
+    if space.isinstance_w(w_iterable, space.w_buffer):
+        batch = [space.wrap(0)] * shape[0]
+        for i in range(shape[0]):
+            batch[i] = space.ord(space.getitem(w_iterable, space.wrap(i)))
     else:
-        w_arr = W_NDimArray.from_shape(space, shape, dtype)
-        loop.assign(space, w_arr, elems_w)
-        return w_arr
+        batch = space.listview(w_iterable)
+    while True:
+        if not batch:
+            return shape[:], []
+        if is_single_elem(space, batch[0], is_rec_type):
+            for w_elem in batch:
+                if not is_single_elem(space, w_elem, is_rec_type):
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "setting an array element with a sequence"))
+            return shape[:], batch
+        new_batch = []
+        size = space.len_w(batch[0])
+        for w_elem in batch:
+            if (is_single_elem(space, w_elem, is_rec_type) or
+                    space.len_w(w_elem) != size):
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "setting an array element with a sequence"))
+            w_array = space.lookup(w_elem, '__array__')
+            if w_array is not None:
+                # Make sure we call the array implementation of listview,
+                # since for some ndarray subclasses (matrix, for instance)
+                # listview does not reduce but rather returns the same class
+                w_elem = space.get_and_call_function(w_array, w_elem, space.w_None)
+            new_batch += space.listview(w_elem)
+        shape.append(size)
+        batch = new_batch
+
+def is_single_elem(space, w_elem, is_rec_type):
+    if (is_rec_type and space.isinstance_w(w_elem, space.w_tuple)):
+        return True
+    if (space.isinstance_w(w_elem, space.w_tuple) or
+            space.isinstance_w(w_elem, space.w_list)):
+        return False
+    if isinstance(w_elem, W_NDimArray) and not w_elem.is_scalar():
+        return False
+    return True
 
 def _dtype_guess(space, dtype, w_elem):
     from .casting import scalar2dtype, find_binop_result_dtype
@@ -197,6 +254,11 @@ def find_dtype_for_seq(space, elems_w, dtype):
         return _dtype_guess(space, dtype, w_elem)
     for w_elem in elems_w:
         dtype = _dtype_guess(space, dtype, w_elem)
+    if dtype is None:
+        dtype = descriptor.get_dtype_cache(space).w_float64dtype
+    elif dtype.is_str_or_unicode() and dtype.elsize < 1:
+        # promote S0 -> S1, U0 -> U1
+        dtype = descriptor.variable_dtype(space, dtype.char + '1')
     return dtype
 
 
