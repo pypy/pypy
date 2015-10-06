@@ -22,7 +22,10 @@ class TestPyTracebackObject(BaseApiTest):
         traceback = space.interp_w(PyTraceback, w_traceback)
         assert traceback.lasti == py_traceback.c_tb_lasti
         assert traceback.get_lineno() == py_traceback.c_tb_lineno
-        assert traceback.next is space.interp_w(PyTraceback, from_ref(space, rffi.cast(PyObject, py_traceback.c_tb_next)), can_be_None=True)
-        assert traceback.frame is space.interp_w(PyFrame, from_ref(space, rffi.cast(PyObject, py_traceback.c_tb_frame)), can_be_None=True)
+        assert space.eq_w(space.getattr(w_traceback, space.wrap("tb_lasti")),
+                          space.wrap(py_traceback.c_tb_lasti))
+        assert space.is_w(space.getattr(w_traceback, space.wrap("tb_frame")),
+                          from_ref(space,rffi.cast(PyObject,
+                                                   py_traceback.c_tb_frame)))
 
         api.Py_DecRef(py_obj)
