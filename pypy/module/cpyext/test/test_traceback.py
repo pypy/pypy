@@ -25,7 +25,7 @@ class TestPyTracebackObject(BaseApiTest):
         assert space.eq_w(space.getattr(w_traceback, space.wrap("tb_lasti")),
                           space.wrap(py_traceback.c_tb_lasti))
         assert space.is_w(space.getattr(w_traceback, space.wrap("tb_frame")),
-                          from_ref(space,rffi.cast(PyObject,
-                                                   py_traceback.c_tb_frame)))
+                          from_ref(space, rffi.cast(PyObject,
+                                                    py_traceback.c_tb_frame)))
 
         api.Py_DecRef(py_obj)
