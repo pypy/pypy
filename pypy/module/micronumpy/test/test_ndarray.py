@@ -445,6 +445,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = np.empty_like(A((2, 3)), subok=False)
         assert b.shape == (2, 3)
         assert type(b) is np.ndarray
+        b = np.empty_like(np.array(3.0), order='A')
+        assert type(b) is np.ndarray
 
     def test_size(self):
         from numpy import array,arange,cos

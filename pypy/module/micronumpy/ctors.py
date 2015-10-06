@@ -297,9 +297,9 @@ def empty_like(space, w_a, w_dtype=None, w_order=None, subok=True):
             space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))
         if dtype.is_str_or_unicode() and dtype.elsize < 1:
             dtype = descriptor.variable_dtype(space, dtype.char + '1')
-    if npy_order == NPY.KEEPORDER:
+    if npy_order in (NPY.KEEPORDER, NPY.ANYORDER):
         # Try to copy the stride pattern
-        impl = w_a.implementation.astype(space, dtype, npy_order)
+        impl = w_a.implementation.astype(space, dtype, NPY.KEEPORDER)
         if subok:
             w_type = space.type(w_a)
         else:
