@@ -175,27 +175,23 @@ def get_concrete_calltable(rtyper, callfamily):
 
 
 class FunctionsPBCRepr(CanBeNull, Repr):
-    """Representation selected for a PBC of function(s)."""
+    """Representation selected for a PBC of functions."""
 
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
         self.callfamily = s_pbc.any_description().getcallfamily()
-        if len(s_pbc.descriptions) == 1 and not s_pbc.can_be_None:
-            # a single function
-            self.lowleveltype = Void
+        llct = get_concrete_calltable(self.rtyper, self.callfamily)
+        self.concretetable = llct.table
+        self.uniquerows = llct.uniquerows
+        if len(llct.uniquerows) == 1:
+            row = llct.uniquerows[0]
+            self.lowleveltype = row.fntype
         else:
-            llct = get_concrete_calltable(self.rtyper, self.callfamily)
-            self.concretetable = llct.table
-            self.uniquerows = llct.uniquerows
-            if len(llct.uniquerows) == 1:
-                row = llct.uniquerows[0]
-                self.lowleveltype = row.fntype
-            else:
-                # several functions, each with several specialized variants.
-                # each function becomes a pointer to a Struct containing
-                # pointers to its variants.
-                self.lowleveltype = self.setup_specfunc()
+            # several functions, each with several specialized variants.
+            # each function becomes a pointer to a Struct containing
+            # pointers to its variants.
+            self.lowleveltype = self.setup_specfunc()
         self.funccache = {}
 
     def setup_specfunc(self):
@@ -227,34 +223,31 @@ class FunctionsPBCRepr(CanBeNull, Repr):
             return self.funccache[funcdesc]
         except KeyError:
             pass
-        if self.lowleveltype is Void:
-            result = None
-        else:
-            llfns = {}
-            found_anything = False
-            for row in self.uniquerows:
-                if funcdesc in row:
-                    llfn = row[funcdesc]
-                    found_anything = True
-                else:
-                    # missing entry -- need a 'null' of the type that matches
-                    # this row
-                    llfn = self.rtyper.type_system.null_callable(row.fntype)
-                llfns[row.attrname] = llfn
-            if len(self.uniquerows) == 1:
-                if found_anything:
-                    result = llfn   # from the loop above
-                else:
-                    # extremely rare case, shown only sometimes by
-                    # test_bug_callfamily: don't emit NULL, because that
-                    # would be interpreted as equal to None...  It should
-                    # never be called anyway.
-                    result = rffi.cast(self.lowleveltype, ~len(self.funccache))
+        llfns = {}
+        found_anything = False
+        for row in self.uniquerows:
+            if funcdesc in row:
+                llfn = row[funcdesc]
+                found_anything = True
             else:
-                # build a Struct with all the values collected in 'llfns'
-                result = self.create_specfunc()
-                for attrname, llfn in llfns.items():
-                    setattr(result, attrname, llfn)
+                # missing entry -- need a 'null' of the type that matches
+                # this row
+                llfn = self.rtyper.type_system.null_callable(row.fntype)
+            llfns[row.attrname] = llfn
+        if len(self.uniquerows) == 1:
+            if found_anything:
+                result = llfn   # from the loop above
+            else:
+                # extremely rare case, shown only sometimes by
+                # test_bug_callfamily: don't emit NULL, because that
+                # would be interpreted as equal to None...  It should
+                # never be called anyway.
+                result = rffi.cast(self.lowleveltype, ~len(self.funccache))
+        else:
+            # build a Struct with all the values collected in 'llfns'
+            result = self.create_specfunc()
+            for attrname, llfn in llfns.items():
+                setattr(result, attrname, llfn)
         self.funccache[funcdesc] = result
         return result
 
@@ -263,8 +256,6 @@ class FunctionsPBCRepr(CanBeNull, Repr):
             value = value.im_func  # unbound method -> bare function
         elif isinstance(value, staticmethod):
             value = value.__get__(42)  # hackish, get the function wrapped by staticmethod
-        if self.lowleveltype is Void:
-            return None
         if value is None:
             null = self.rtyper.type_system.null_callable(self.lowleveltype)
             return null
@@ -277,49 +268,13 @@ class FunctionsPBCRepr(CanBeNull, Repr):
         'index' and 'shape' tells which of its items we are interested in.
         """
         assert v.concretetype == self.lowleveltype
-        if self.lowleveltype is Void:
-            assert len(self.s_pbc.descriptions) == 1
-                                      # lowleveltype wouldn't be Void otherwise
-            funcdesc, = self.s_pbc.descriptions
-            row_of_one_graph = self.callfamily.calltables[shape][index]
-            graph = row_of_one_graph[funcdesc]
-            llfn = self.rtyper.getcallable(graph)
-            return inputconst(typeOf(llfn), llfn)
-        elif len(self.uniquerows) == 1:
+        if len(self.uniquerows) == 1:
             return v
         else:
             # 'v' is a Struct pointer, read the corresponding field
             row = self.concretetable[shape, index]
             cname = inputconst(Void, row.attrname)
             return self.get_specfunc_row(llop, v, cname, row.fntype)
-
-    def get_unique_llfn(self):
-        # try to build a unique low-level function.  Avoid to use
-        # whenever possible!  Doesn't work with specialization, multiple
-        # different call sites, etc.
-        if self.lowleveltype is not Void:
-            raise TyperError("cannot pass multiple functions here")
-        assert len(self.s_pbc.descriptions) == 1
-                                  # lowleveltype wouldn't be Void otherwise
-        funcdesc, = self.s_pbc.descriptions
-        tables = []        # find the simple call in the calltable
-        for shape, table in self.callfamily.calltables.items():
-            if not shape[1] and not shape[2]:
-                tables.append(table)
-        if len(tables) != 1:
-            raise TyperError("cannot pass a function with various call shapes")
-        table, = tables
-        graphs = []
-        for row in table:
-            if funcdesc in row:
-                graphs.append(row[funcdesc])
-        if not graphs:
-            raise TyperError("cannot pass here a function that is not called")
-        graph = graphs[0]
-        if graphs != [graph] * len(graphs):
-            raise TyperError("cannot pass a specialized function here")
-        llfn = self.rtyper.getcallable(graph)
-        return inputconst(typeOf(llfn), llfn)
 
     def get_concrete_llfn(self, s_pbc, args_s, op):
         bk = self.rtyper.annotator.bookkeeper
@@ -361,7 +316,55 @@ class FunctionsPBCRepr(CanBeNull, Repr):
             return hop.llops.convertvar(v, rresult, hop.r_result)
 
 class FunctionRepr(FunctionsPBCRepr):
-    pass
+    """Repr for a constant function"""
+    def __init__(self, rtyper, s_pbc):
+        self.rtyper = rtyper
+        self.s_pbc = s_pbc
+        self.callfamily = s_pbc.any_description().getcallfamily()
+        self.lowleveltype = Void
+
+    def convert_desc(self, funcdesc):
+        return None
+
+    def convert_const(self, value):
+        return None
+
+    def convert_to_concrete_llfn(self, v, shape, index, llop):
+        """Convert the variable 'v' to a variable referring to a concrete
+        low-level function.  In case the call table contains multiple rows,
+        'index' and 'shape' tells which of its items we are interested in.
+        """
+        assert v.concretetype == self.lowleveltype
+        funcdesc, = self.s_pbc.descriptions
+        row_of_one_graph = self.callfamily.calltables[shape][index]
+        graph = row_of_one_graph[funcdesc]
+        llfn = self.rtyper.getcallable(graph)
+        return inputconst(typeOf(llfn), llfn)
+
+    def get_unique_llfn(self):
+        # try to build a unique low-level function.  Avoid to use
+        # whenever possible!  Doesn't work with specialization, multiple
+        # different call sites, etc.
+        funcdesc, = self.s_pbc.descriptions
+        tables = []        # find the simple call in the calltable
+        for shape, table in self.callfamily.calltables.items():
+            if not shape[1] and not shape[2]:
+                tables.append(table)
+        if len(tables) != 1:
+            raise TyperError("cannot pass a function with various call shapes")
+        table, = tables
+        graphs = []
+        for row in table:
+            if funcdesc in row:
+                graphs.append(row[funcdesc])
+        if not graphs:
+            raise TyperError("cannot pass here a function that is not called")
+        graph = graphs[0]
+        if graphs != [graph] * len(graphs):
+            raise TyperError("cannot pass a specialized function here")
+        llfn = self.rtyper.getcallable(graph)
+        return inputconst(typeOf(llfn), llfn)
+
 
 class __extend__(pairtype(FunctionsPBCRepr, FunctionsPBCRepr)):
     def convert_from_to((r_fpbc1, r_fpbc2), v, llops):
