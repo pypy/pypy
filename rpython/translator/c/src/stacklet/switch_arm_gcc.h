@@ -5,16 +5,16 @@
 # define call_reg(x) "blx " #x "\n"
 #endif
 
-static void __attribute__((optimize("O3"))) *slp_switch(void *(*save_state)(void*, void*),
+static void *slp_switch(void *(*save_state)(void*, void*),
                         void *(*restore_state)(void*, void*),
                         void *extra)
 {
   void *result;
   __asm__ volatile (
-    "mov r3, %[save_state]\n"
-    /* save values in calee saved registers for later */
-    "mov r4, %[restore_state]\n"
-    "mov r5, %[extra]\n"
+    "ldr r3, %[save_state]\n"
+    /* save values in callee saved registers for later */
+    "ldr r4, %[restore_state]\n"
+    "ldr r5, %[extra]\n"
     "mov r0, sp\n"        	/* arg 1: current (old) stack pointer */
     "mov r1, r5\n"        	/* arg 2: extra                       */
     call_reg(r3)		/* call save_state()                  */
@@ -33,14 +33,16 @@ static void __attribute__((optimize("O3"))) *slp_switch(void *(*save_state)(void
 
     /* The stack's content is now restored. */
     "zero:\n"
-    "mov %[result], r0\n"
+    "str r0, %[result]\n"
 
-    : [result]"=r"(result)	/* output variables */
+    : [result]"=m"(result)	/* output variables */
 	/* input variables  */
-    : [restore_state]"r"(restore_state),
-      [save_state]"r"(save_state),
-      [extra]"r"(extra)
-    : "lr", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r13"
+    : [restore_state]"m"(restore_state),
+      [save_state]"m"(save_state),
+      [extra]"m"(extra)
+    : "lr", "r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9",
+      "r10", "r11", "r12",    /* r13 is sp, r14 is lr, and r15 is pc */
+      "memory", "cc", "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"
   );
   return result;
 }
