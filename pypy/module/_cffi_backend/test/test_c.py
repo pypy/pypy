@@ -22,7 +22,7 @@ if sys.version_info < (2, 6):
 from rpython.tool.udir import udir
 from pypy.interpreter import gateway
 from pypy.module._cffi_backend import Module
-from pypy.module._cffi_backend.newtype import _clean_cache
+from pypy.module._cffi_backend.newtype import _clean_cache, UniqueCache
 from rpython.translator import cdir
 from rpython.translator.platform import host
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -86,8 +86,10 @@ class AppTestC(object):
             _all_test_c.find_and_load_library = func
             _all_test_c._testfunc = testfunc
         """)
+        UniqueCache.for_testing = True
 
     def teardown_method(self, method):
+        UniqueCache.for_testing = False
         _clean_cache(self.space)
 
 

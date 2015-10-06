@@ -479,6 +479,7 @@ class W_Ufunc1(W_Ufunc):
         dt_in, dt_out = self._calc_dtype(space, dtype, out, casting)
         return dt_in, dt_out, self.func
 
+    @jit.unroll_safe
     def _calc_dtype(self, space, arg_dtype, out=None, casting='unsafe'):
         if arg_dtype.is_object():
             return arg_dtype, arg_dtype
@@ -672,6 +673,7 @@ class W_Ufunc2(W_Ufunc):
             "requested type has type code '%s'" % (self.name, dtype.char))
 
 
+    @jit.unroll_safe
     def _calc_dtype(self, space, l_dtype, r_dtype, out, casting,
                     w_arg1, w_arg2):
         if l_dtype.is_object() or r_dtype.is_object():

@@ -862,6 +862,8 @@ class __extend__(W_NDimArray):
         v = convert_to_array(space, w_v)
         ret = W_NDimArray.from_shape(
             space, v.get_shape(), get_dtype_cache(space).w_longdtype)
+        if ret.get_size() < 1:
+            return ret
         if side == NPY.SEARCHLEFT:
             binsearch = loop.binsearch_left
         else:
@@ -1308,6 +1310,9 @@ class __extend__(W_NDimArray):
             [space.wrap(0)]), space.wrap("b")])
 
         builder = StringBuilder()
+        if self.get_dtype().is_object():
+            raise oefmt(space.w_NotImplementedError,
+                    "reduce for 'object' dtype not supported yet")
         if isinstance(self.implementation, SliceArray):
             iter, state = self.implementation.create_iter()
             while not iter.done(state):

@@ -7,6 +7,7 @@ import sys
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rfficache
 
 from pypy.interpreter.error import oefmt
 from pypy.module._cffi_backend import cdataobj, misc
@@ -130,7 +131,8 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
 # though it may be signed when 'wchar_t' is written to C).
 WCHAR_INT = {(2, False): rffi.USHORT,
              (4, False): rffi.UINT,
-             (4, True): rffi.INT}[rffi.sizeof(lltype.UniChar), rffi.r_wchar_t.SIGN]
+             (4, True): rffi.INT}[rffi.sizeof(lltype.UniChar),
+                                  rfficache.signof_c_type('wchar_t')]
 WCHAR_INTP = rffi.CArrayPtr(WCHAR_INT)
 
 class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):

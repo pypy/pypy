@@ -22,6 +22,8 @@ class DummyLoop(object):
         self.operations = subops
 
 class FakeMetaInterp(object):
+    ovf_flag = False
+    
     def execute_raised(self, exc, constant=False):
         self._got_exc = exc
 
@@ -365,9 +367,9 @@ class AbstractOvfOperation(AbstractOperation):
     def produce_into(self, builder, r):
         fail_subset = builder.subset_of_intvars(r)
         original_intvars = builder.intvars[:]
+        builder.fakemetainterp.ovf_flag = False
         super(AbstractOvfOperation, self).produce_into(builder, r)
-        if builder.fakemetainterp._got_exc:   # overflow detected
-            assert isinstance(builder.fakemetainterp._got_exc, OverflowError)
+        if builder.fakemetainterp.ovf_flag:   # overflow detected
             op = ResOperation(rop.GUARD_OVERFLOW, [])
             # the overflowed result should not be used any more, but can
             # be used on the failure path: recompute fail_subset including
