@@ -391,8 +391,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         self.liveboxes = {}
         storage.rd_numb = numb
         self.snapshot_storage.rd_snapshot = None
-        storage.rd_frame_info_list = self.snapshot_storage.rd_frame_info_list
-
+        
         # collect liveboxes and virtuals
         n = len(liveboxes_from_env) - v
         liveboxes = [None] * n
@@ -986,7 +985,7 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
     boxes = resumereader.consume_vref_and_vable_boxes(virtualizable_info,
                                                       greenfield_info)
     virtualizable_boxes, virtualref_boxes = boxes
-    frameinfo = storage.rd_frame_info_list
+    frameinfo = storage.rd_numb.prev
     while True:
         jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
         jitcode = metainterp.staticdata.jitcodes[jitcode_pos]
@@ -995,7 +994,7 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
         resumereader.consume_boxes(f.get_current_position_info(),
                                    f.registers_i, f.registers_r, f.registers_f)
         frameinfo = frameinfo.prev
-        if frameinfo is None:
+        if not frameinfo:
             break
     metainterp.framestack.reverse()
     return resumereader.liveboxes, virtualizable_boxes, virtualref_boxes
@@ -1266,27 +1265,27 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitcodes,
     # the bottom one, i.e. the last one in the chain, in order to make
     # the comment in BlackholeInterpreter.setposition() valid.
     nextbh = None
-    frameinfo = storage.rd_frame_info_list
+    numbering = storage.rd_numb.prev
     while True:
         curbh = blackholeinterpbuilder.acquire_interp()
         curbh.nextblackholeinterp = nextbh
         nextbh = curbh
-        frameinfo = frameinfo.prev
-        if frameinfo is None:
+        numbering = numbering.prev
+        if not numbering:
             break
     firstbh = nextbh
     #
     # Now fill the blackhole interpreters with resume data.
     curbh = firstbh
-    frameinfo = storage.rd_frame_info_list
+    numbering = storage.rd_numb.prev
     while True:
-        jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
+        jitcode_pos, pc = unpack_uint(numbering.packed_jitcode_pc)
         jitcode = jitcodes[jitcode_pos]
         curbh.setposition(jitcode, pc)
         resumereader.consume_one_section(curbh)
         curbh = curbh.nextblackholeinterp
-        frameinfo = frameinfo.prev
-        if frameinfo is None:
+        numbering = numbering.prev
+        if not numbering:
             break
     return firstbh
 
