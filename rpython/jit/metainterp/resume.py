@@ -33,7 +33,7 @@ def combine_uint(index1, index2):
     # we need only 32bit, but 64 is ok for now
 
 def unpack_uint(packed):
-    return packed >> 16, packed & 0xffff
+    return (packed >> 16) & 0xffff, packed & 0xffff
 
 class FrameInfo(object):
     __slots__ = ('prev', 'packed_jitcode_pc')
@@ -94,6 +94,7 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
 NUMBERINGP = lltype.Ptr(lltype.GcForwardReference())
 NUMBERING = lltype.GcStruct('Numbering',
                             ('prev', NUMBERINGP),
+                            ('packed_jitcode_pc', lltype.Signed),
                             ('nums', lltype.Array(rffi.SHORT)))
 NUMBERINGP.TO.become(NUMBERING)
 
@@ -195,18 +196,25 @@ class ResumeDataLoopMemo(object):
 
     # env numbering
 
-    def number(self, optimizer, snapshot):
+    def number(self, optimizer, snapshot, frameinfo, first_iteration=False):
         if snapshot is None:
             return lltype.nullptr(NUMBERING), {}, 0
         if snapshot in self.numberings:
             numb, liveboxes, v = self.numberings[snapshot]
             return numb, liveboxes.copy(), v
 
-        numb1, liveboxes, v = self.number(optimizer, snapshot.prev)
+        if first_iteration:
+            numb1, liveboxes, v = self.number(optimizer, snapshot.prev, frameinfo)
+        else:
+            numb1, liveboxes, v = self.number(optimizer, snapshot.prev, frameinfo.prev)
         n = len(liveboxes) - v
         boxes = snapshot.boxes
         length = len(boxes)
         numb = lltype.malloc(NUMBERING, length)
+        if first_iteration:
+            numb.packed_jitcode_pc = -1
+        else:
+            numb.packed_jitcode_pc = frameinfo.packed_jitcode_pc
         for i in range(length):
             box = boxes[i]
             box = optimizer.get_box_replacement(box)
@@ -377,7 +385,8 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         assert not storage.rd_numb
         snapshot = self.snapshot_storage.rd_snapshot
         assert snapshot is not None # is that true?
-        numb, liveboxes_from_env, v = self.memo.number(optimizer, snapshot)
+        numb, liveboxes_from_env, v = self.memo.number(optimizer, snapshot,
+            self.snapshot_storage.rd_frame_info_list, first_iteration=True)
         self.liveboxes_from_env = liveboxes_from_env
         self.liveboxes = {}
         storage.rd_numb = numb
