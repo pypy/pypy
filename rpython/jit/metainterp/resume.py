@@ -26,13 +26,21 @@ class Snapshot(object):
         self.prev = prev
         self.boxes = boxes
 
+def combine_uint(index1, index2):
+    assert 0 <= index1 < 65536
+    assert 0 <= index2 < 65536
+    return index1 << 16 | index2 # it's ok to return signed here,
+    # we need only 32bit, but 64 is ok for now
+
+def unpack_uint(packed):
+    return packed >> 16, packed & 0xffff
+
 class FrameInfo(object):
-    __slots__ = ('prev', 'jitcode', 'pc')
+    __slots__ = ('prev', 'packed_jitcode_pc')
 
     def __init__(self, prev, jitcode, pc):
         self.prev = prev
-        self.jitcode = jitcode
-        self.pc = pc
+        self.packed_jitcode_pc = combine_uint(jitcode.index, pc)
 
 def _ensure_parent_resumedata(framestack, n):
     target = framestack[n]
@@ -40,7 +48,8 @@ def _ensure_parent_resumedata(framestack, n):
         return
     back = framestack[n - 1]
     if target.parent_resumedata_frame_info_list is not None:
-        assert target.parent_resumedata_frame_info_list.pc == back.pc
+        _, pc = unpack_uint(target.parent_resumedata_frame_info_list.packed_jitcode_pc)
+        assert pc == back.pc
         return
     _ensure_parent_resumedata(framestack, n - 1)
     target.parent_resumedata_frame_info_list = FrameInfo(
@@ -970,8 +979,10 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
     virtualizable_boxes, virtualref_boxes = boxes
     frameinfo = storage.rd_frame_info_list
     while True:
-        f = metainterp.newframe(frameinfo.jitcode)
-        f.setup_resume_at_op(frameinfo.pc)
+        jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
+        jitcode = metainterp.staticdata.jitcodes[jitcode_pos]
+        f = metainterp.newframe(jitcode)
+        f.setup_resume_at_op(pc)
         resumereader.consume_boxes(f.get_current_position_info(),
                                    f.registers_i, f.registers_r, f.registers_f)
         frameinfo = frameinfo.prev
@@ -1225,7 +1236,8 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
 
 # ---------- when resuming for blackholing, get direct values ----------
 
-def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
+def blackhole_from_resumedata(blackholeinterpbuilder, jitcodes,
+                              jitdriver_sd, storage,
                               deadframe, all_virtuals=None):
     # The initialization is stack-critical code: it must not be interrupted by
     # StackOverflow, otherwise the jit_virtual_refs are left in a dangling state.
@@ -1259,7 +1271,9 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
     curbh = firstbh
     frameinfo = storage.rd_frame_info_list
     while True:
-        curbh.setposition(frameinfo.jitcode, frameinfo.pc)
+        jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
+        jitcode = jitcodes[jitcode_pos]
+        curbh.setposition(jitcode, pc)
         resumereader.consume_one_section(curbh)
         curbh = curbh.nextblackholeinterp
         frameinfo = frameinfo.prev
