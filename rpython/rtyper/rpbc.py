@@ -366,15 +366,23 @@ class FunctionRepr(FunctionsPBCRepr):
         return inputconst(typeOf(llfn), llfn)
 
 
+class __extend__(pairtype(FunctionRepr, FunctionRepr)):
+    def convert_from_to((r_fpbc1, r_fpbc2), v, llops):
+        return v
+
+class __extend__(pairtype(FunctionRepr, FunctionsPBCRepr)):
+    def convert_from_to((r_fpbc1, r_fpbc2), v, llops):
+        return inputconst(r_fpbc2, r_fpbc1.s_pbc.const)
+
+class __extend__(pairtype(FunctionsPBCRepr, FunctionRepr)):
+    def convert_from_to((r_fpbc1, r_fpbc2), v, llops):
+        return inputconst(Void, None)
+
 class __extend__(pairtype(FunctionsPBCRepr, FunctionsPBCRepr)):
     def convert_from_to((r_fpbc1, r_fpbc2), v, llops):
         # this check makes sense because both source and dest repr are FunctionsPBCRepr
         if r_fpbc1.lowleveltype == r_fpbc2.lowleveltype:
             return v
-        if r_fpbc1.lowleveltype is Void:
-            return inputconst(r_fpbc2, r_fpbc1.s_pbc.const)
-        if r_fpbc2.lowleveltype is Void:
-            return inputconst(Void, None)
         return NotImplemented
 
 
@@ -505,16 +513,16 @@ class SmallFunctionSetPBCRepr(Repr):
                          resulttype=Bool)
 
 
+class __extend__(pairtype(SmallFunctionSetPBCRepr, FunctionRepr)):
+    def convert_from_to((r_set, r_ptr), v, llops):
+        return inputconst(Void, None)
+
 class __extend__(pairtype(SmallFunctionSetPBCRepr, FunctionsPBCRepr)):
     def convert_from_to((r_set, r_ptr), v, llops):
-        if r_ptr.lowleveltype is Void:
-            return inputconst(Void, None)
-        else:
-            assert v.concretetype is Char
-            v_int = llops.genop('cast_char_to_int', [v],
-                                resulttype=Signed)
-            return llops.genop('getarrayitem', [r_set.c_pointer_table, v_int],
-                               resulttype=r_ptr.lowleveltype)
+        assert v.concretetype is Char
+        v_int = llops.genop('cast_char_to_int', [v], resulttype=Signed)
+        return llops.genop('getarrayitem', [r_set.c_pointer_table, v_int],
+                            resulttype=r_ptr.lowleveltype)
 
 
 def compression_function(r_set):
@@ -536,14 +544,15 @@ def compression_function(r_set):
     return r_set._compression_function
 
 
+class __extend__(pairtype(FunctionRepr, SmallFunctionSetPBCRepr)):
+    def convert_from_to((r_ptr, r_set), v, llops):
+        desc, = r_ptr.s_pbc.descriptions
+        return inputconst(Char, r_set.convert_desc(desc))
+
 class __extend__(pairtype(FunctionsPBCRepr, SmallFunctionSetPBCRepr)):
     def convert_from_to((r_ptr, r_set), v, llops):
-        if r_ptr.lowleveltype is Void:
-            desc, = r_ptr.s_pbc.descriptions
-            return inputconst(Char, r_set.convert_desc(desc))
-        else:
-            ll_compress = compression_function(r_set)
-            return llops.gendirectcall(ll_compress, v)
+        ll_compress = compression_function(r_set)
+        return llops.gendirectcall(ll_compress, v)
 
 
 def conversion_table(r_from, r_to):
