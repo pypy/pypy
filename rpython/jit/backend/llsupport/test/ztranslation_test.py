@@ -213,6 +213,8 @@ class TranslationTestJITStats(CCompiledMixin):
     CPUClass = getcpuclass()
 
     def test_jit_get_stats(self):
+        py.test.skip("disabled feature")
+
         driver = JitDriver(greens = [], reds = ['i'])
 
         def f():

@@ -213,22 +213,6 @@ class AppTestJitHook(object):
         self.on_abort()
         assert l == [('pypyjit', 'ABORT_TOO_LONG', [])]
 
-    def test_on_optimize(self):
-        import pypyjit
-        l = []
-
-        def hook(info):
-            l.append(info.jitdriver_name)
-
-        def optimize_hook(info):
-            return []
-
-        pypyjit.set_compile_hook(hook)
-        pypyjit.set_optimize_hook(optimize_hook)
-        self.on_optimize()
-        self.on_compile()
-        assert l == ['pypyjit']
-
     def test_creation(self):
         from pypyjit import ResOperation
 

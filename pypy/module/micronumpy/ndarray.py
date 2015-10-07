@@ -747,8 +747,12 @@ class __extend__(W_NDimArray):
         return out
 
     def descr_get_ctypes(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "ctypes not implemented yet"))
+        w_result = space.appexec([self], """(arr):
+            from numpy.core import _internal
+            p_data = arr.__array_interface__['data'][0]
+            return _internal._ctypes(arr, p_data)
+        """)
+        return w_result
 
     def buffer_w(self, space, flags):
         return self.implementation.get_buffer(space, True)
@@ -858,6 +862,8 @@ class __extend__(W_NDimArray):
         v = convert_to_array(space, w_v)
         ret = W_NDimArray.from_shape(
             space, v.get_shape(), get_dtype_cache(space).w_longdtype)
+        if ret.get_size() < 1:
+            return ret
         if side == NPY.SEARCHLEFT:
             binsearch = loop.binsearch_left
         else:
@@ -1304,6 +1310,9 @@ class __extend__(W_NDimArray):
             [space.wrap(0)]), space.wrap("b")])
 
         builder = StringBuilder()
+        if self.get_dtype().is_object():
+            raise oefmt(space.w_NotImplementedError,
+                    "reduce for 'object' dtype not supported yet")
         if isinstance(self.implementation, SliceArray):
             iter, state = self.implementation.create_iter()
             while not iter.done(state):

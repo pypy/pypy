@@ -1152,6 +1152,7 @@ class Counters(object):
     GUARDS
     OPT_OPS
     OPT_GUARDS
+    OPT_GUARDS_SHARED
     OPT_FORCINGS
     ABORT_TOO_LONG
     ABORT_BRIDGE

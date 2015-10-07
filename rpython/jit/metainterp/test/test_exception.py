@@ -3,6 +3,7 @@ from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.jit import JitDriver, dont_look_inside
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask
 from rpython.jit.codewriter.policy import StopAtXPolicy
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 class ExceptionTests:
@@ -43,6 +44,33 @@ class ExceptionTests:
         def check(n):
             if n % 2:
                 raise ValueError
+
+        def f(n):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n)
+                myjitdriver.jit_merge_point(n=n)
+                try:
+                    check(n)
+                    n -= 1
+                except ValueError:
+                    n -= 3
+            return n
+
+        res = self.meta_interp(f, [20], policy=StopAtXPolicy(check))
+        assert res == f(20)
+        res = self.meta_interp(f, [21], policy=StopAtXPolicy(check))
+        assert res == f(21)
+
+    def test_bridge_from_guard_exception_may_force(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n'])
+
+        c_time = rffi.llexternal("time", [lltype.Signed], lltype.Signed)
+
+        def check(n):
+            if n % 2:
+                raise ValueError
+            if n == 100000:
+                c_time(0)
 
         def f(n):
             while n > 0:
@@ -554,7 +582,10 @@ class ExceptionTests:
 
     def test_overflowerror_escapes(self):
         def g(x):
-            return ovfcheck(x + 1)
+            try:
+                return ovfcheck(x + 1)
+            except OverflowError:
+                raise
         def f(x):
             try:
                 return g(x)

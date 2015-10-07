@@ -21,6 +21,7 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper import rclass
+from rpython.rlib.objectmodel import compute_unique_id
 
 
 
@@ -228,17 +229,23 @@ class MIFrame(object):
         ''' % (_opimpl, FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
         ).compile()
 
-    for _opimpl in ['int_add_ovf', 'int_sub_ovf', 'int_mul_ovf']:
+    for (_opimpl, resop) in [
+            ('int_add_jump_if_ovf', 'INT_ADD_OVF'),
+            ('int_sub_jump_if_ovf', 'INT_SUB_OVF'),
+            ('int_mul_jump_if_ovf', 'INT_MUL_OVF')]:
         exec py.code.Source('''
-            @arguments("box", "box")
-            def opimpl_%s(self, b1, b2):
-                self.metainterp.clear_exception()
+            @arguments("label", "box", "box", "orgpc")
+            def opimpl_%s(self, lbl, b1, b2, orgpc):
+                self.metainterp.ovf_flag = False
                 resbox = self.execute(rop.%s, b1, b2)
-                self.make_result_of_lastop(resbox)  # same as execute_varargs()
                 if not isinstance(resbox, Const):
-                    self.metainterp.handle_possible_overflow_error()
+                    return self.handle_possible_overflow_error(lbl, orgpc,
+                                                               resbox)
+                elif self.metainterp.ovf_flag:
+                    self.pc = lbl
+                    return None # but don't emit GUARD_OVERFLOW
                 return resbox
-        ''' % (_opimpl, _opimpl.upper())).compile()
+        ''' % (_opimpl, resop)).compile()
 
     for _opimpl in ['int_is_true', 'int_is_zero', 'int_neg', 'int_invert',
                     'cast_float_to_int', 'cast_int_to_float',
@@ -329,37 +336,37 @@ class MIFrame(object):
     def opimpl_goto(self, target):
         self.pc = target
 
-    @arguments("box", "label")
-    def opimpl_goto_if_not(self, box, target):
+    @arguments("box", "label", "orgpc")
+    def opimpl_goto_if_not(self, box, target, orgpc):
         switchcase = box.getint()
         if switchcase:
             opnum = rop.GUARD_TRUE
         else:
             opnum = rop.GUARD_FALSE
-        self.metainterp.generate_guard(opnum, box)
+        self.metainterp.generate_guard(opnum, box, resumepc=orgpc)
         if not switchcase:
             self.pc = target
 
-    @arguments("box", "label")
-    def opimpl_goto_if_not_int_is_true(self, box, target):
+    @arguments("box", "label", "orgpc")
+    def opimpl_goto_if_not_int_is_true(self, box, target, orgpc):
         condbox = self.execute(rop.INT_IS_TRUE, box)
-        self.opimpl_goto_if_not(condbox, target)
+        self.opimpl_goto_if_not(condbox, target, orgpc)
 
-    @arguments("box", "label")
-    def opimpl_goto_if_not_int_is_zero(self, box, target):
+    @arguments("box", "label", "orgpc")
+    def opimpl_goto_if_not_int_is_zero(self, box, target, orgpc):
         condbox = self.execute(rop.INT_IS_ZERO, box)
-        self.opimpl_goto_if_not(condbox, target)
+        self.opimpl_goto_if_not(condbox, target, orgpc)
 
     for _opimpl in ['int_lt', 'int_le', 'int_eq', 'int_ne', 'int_gt', 'int_ge',
                     'ptr_eq', 'ptr_ne']:
         exec py.code.Source('''
-            @arguments("box", "box", "label")
-            def opimpl_goto_if_not_%s(self, b1, b2, target):
+            @arguments("box", "box", "label", "orgpc")
+            def opimpl_goto_if_not_%s(self, b1, b2, target, orgpc):
                 if b1 is b2:
                     condbox = %s
                 else:
                     condbox = self.execute(rop.%s, b1, b2)
-                self.opimpl_goto_if_not(condbox, target)
+                self.opimpl_goto_if_not(condbox, target, orgpc)
         ''' % (_opimpl, FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
         ).compile()
 
@@ -418,7 +425,7 @@ class MIFrame(object):
                 assert box.getint() == 0
                 target = switchdict.dict[const1.getint()]
                 self.metainterp.generate_guard(rop.GUARD_FALSE, box,
-                                               resumepc=target)
+                                               resumepc=orgpc)
         else:
             # found one of the cases
             self.implement_guard_value(valuebox, orgpc)
@@ -1457,6 +1464,17 @@ class MIFrame(object):
     def setup_resume_at_op(self, pc):
         self.pc = pc
 
+    def handle_possible_overflow_error(self, label, orgpc, resbox):
+        if self.metainterp.ovf_flag:
+            self.metainterp.generate_guard(rop.GUARD_OVERFLOW, None,
+                                           resumepc=orgpc)
+            self.pc = label
+            return None
+        else:
+            self.metainterp.generate_guard(rop.GUARD_NO_OVERFLOW, None,
+                                           resumepc=orgpc)
+            return resbox
+
     def run_one_step(self):
         # Execute the frame forward.  This method contains a loop that leaves
         # whenever the 'opcode_implementations' (which is one of the 'opimpl_'
@@ -2022,7 +2040,7 @@ class MetaInterp(object):
             moreargs = [box] + extraargs
         else:
             moreargs = list(extraargs)
-        if opnum == rop.GUARD_EXCEPTION or opnum == rop.GUARD_OVERFLOW:
+        if opnum == rop.GUARD_EXCEPTION:
             guard_op = self.history.record(opnum, moreargs,
                                            lltype.nullptr(llmemory.GCREF.TO))
         else:
@@ -2284,32 +2302,36 @@ class MetaInterp(object):
             self.run_blackhole_interp_to_cancel_tracing(stb)
         assert False, "should always raise"
 
-    def handle_guard_failure(self, key, deadframe):
+    def handle_guard_failure(self, resumedescr, deadframe):
         debug_start('jit-tracing')
         self.staticdata.profiler.start_tracing()
+        if isinstance(resumedescr, compile.ResumeGuardCopiedDescr):
+            key = resumedescr.prev
+        else:
+            key = resumedescr
         assert isinstance(key, compile.ResumeGuardDescr)
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp
-        self.resumekey_original_loop_token = key.rd_loop_token.loop_token_wref()
+        self.resumekey_original_loop_token = resumedescr.rd_loop_token.loop_token_wref()
         if self.resumekey_original_loop_token is None:
             raise compile.giveup() # should be rare
         self.staticdata.try_to_free_some_loops()
         self.initialize_state_from_guard_failure(key, deadframe)
         try:
-            return self._handle_guard_failure(key, deadframe)
+            return self._handle_guard_failure(resumedescr, key, deadframe)
         finally:
             self.resumekey_original_loop_token = None
             self.staticdata.profiler.end_tracing()
             debug_stop('jit-tracing')
 
-    def _handle_guard_failure(self, key, deadframe):
+    def _handle_guard_failure(self, resumedescr, key, deadframe):
         self.current_merge_points = []
-        self.resumekey = key
+        self.resumekey = resumedescr
         self.seen_loop_header_for_jdindex = -1
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
         try:
-            self.prepare_resume_from_failure(key.guard_opnum, deadframe)
+            self.prepare_resume_from_failure(deadframe, resumedescr)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
             self.interpret()
@@ -2452,22 +2474,10 @@ class MetaInterp(object):
             else: assert 0
         self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
 
-    def prepare_resume_from_failure(self, opnum, deadframe):
-        frame = self.framestack[-1]
-        if opnum == rop.GUARD_FUTURE_CONDITION:
-            pass
-        elif opnum == rop.GUARD_TRUE:     # a goto_if_not that jumps only now
-            frame.pc = frame.jitcode.follow_jump(frame.pc)
-        elif opnum == rop.GUARD_FALSE:     # a goto_if_not that stops jumping;
-            pass                  # or a switch that was in its "default" case
-        elif opnum == rop.GUARD_VALUE or opnum == rop.GUARD_CLASS:
-            pass        # the pc is already set to the *start* of the opcode
-        elif (opnum == rop.GUARD_NONNULL or
-              opnum == rop.GUARD_ISNULL or
-              opnum == rop.GUARD_NONNULL_CLASS):
-            pass        # the pc is already set to the *start* of the opcode
-        elif opnum == rop.GUARD_NO_EXCEPTION or opnum == rop.GUARD_EXCEPTION:
-            exception = self.cpu.grab_exc_value(deadframe)
+    def prepare_resume_from_failure(self, deadframe, resumedescr):
+        exception = self.cpu.grab_exc_value(deadframe)
+        if (isinstance(resumedescr, compile.ResumeGuardExcDescr) or
+            isinstance(resumedescr, compile.ResumeGuardCopiedExcDescr)):
             if exception:
                 self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
                                                               exception))
@@ -2477,20 +2487,8 @@ class MetaInterp(object):
                 self.handle_possible_exception()
             except ChangeFrame:
                 pass
-        elif opnum == rop.GUARD_NOT_INVALIDATED:
-            pass # XXX we want to do something special in resume descr,
-                 # but not now
-        elif opnum == rop.GUARD_NO_OVERFLOW:   # an overflow now detected
-            self.execute_raised(OverflowError(), constant=True)
-            try:
-                self.finishframe_exception()
-            except ChangeFrame:
-                pass
-        elif opnum == rop.GUARD_OVERFLOW:      # no longer overflowing
-            self.clear_exception()
         else:
-            from rpython.jit.metainterp.resoperation import opname
-            raise NotImplementedError(opname[opnum])
+            assert not exception
 
     def get_procedure_token(self, greenkey, with_compiled_targets=False):
         JitCell = self.jitdriver_sd.warmstate.JitCell
@@ -2772,18 +2770,6 @@ class MetaInterp(object):
             self.finishframe_exception()
         else:
             self.generate_guard(rop.GUARD_NO_EXCEPTION, None, [])
-
-    def handle_possible_overflow_error(self):
-        if self.last_exc_value:
-            op = self.generate_guard(rop.GUARD_OVERFLOW, None)
-            op.setref_base(lltype.cast_opaque_ptr(llmemory.GCREF,
-                                                  self.last_exc_value))
-            assert self.class_of_last_exc_is_const
-            self.last_exc_box = ConstPtr(
-                lltype.cast_opaque_ptr(llmemory.GCREF, self.last_exc_value))
-            self.finishframe_exception()
-        else:
-            self.generate_guard(rop.GUARD_NO_OVERFLOW, None)
 
     def assert_no_exception(self):
         assert not self.last_exc_value
@@ -3250,16 +3236,17 @@ def _get_opimpl_method(name, argcodes):
                     print '-> %r' % (resultbox,)
                 assert argcodes[next_argcode] == '>'
                 result_argcode = argcodes[next_argcode + 1]
-                assert resultbox.type == {'i': history.INT,
-                                          'r': history.REF,
-                                          'f': history.FLOAT}[result_argcode]
+                if 'ovf' not in name:
+                    assert resultbox.type == {'i': history.INT,
+                                              'r': history.REF,
+                                              'f': history.FLOAT}[result_argcode]
         else:
             resultbox = unboundmethod(self, *args)
         #
         if resultbox is not None:
             self.make_result_of_lastop(resultbox)
         elif not we_are_translated():
-            assert self._result_argcode in 'v?'
+            assert self._result_argcode in 'v?' or 'ovf' in name
     #
     unboundmethod = getattr(MIFrame, 'opimpl_' + name).im_func
     argtypes = unrolling_iterable(unboundmethod.argtypes)
