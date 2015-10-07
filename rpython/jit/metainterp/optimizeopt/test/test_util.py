@@ -280,6 +280,8 @@ class LLtypeMixin(object):
     writearraydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                   EffectInfo([], [], [], [adescr], [arraydescr],
                                              []))
+    writevalue3descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                       EffectInfo([], [], [], [valuedescr3], [], []))
     readadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                  EffectInfo([adescr], [], [], [], [], []))
     mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
