@@ -389,11 +389,9 @@ class __extend__(pairtype(FunctionsPBCRepr, FunctionsPBCRepr)):
         return NotImplemented
 
 
-class SmallFunctionSetPBCRepr(Repr):
+class SmallFunctionSetPBCRepr(FunctionReprBase):
     def __init__(self, rtyper, s_pbc):
-        self.rtyper = rtyper
-        self.s_pbc = s_pbc
-        self.callfamily = s_pbc.any_description().getcallfamily()
+        FunctionReprBase.__init__(self, rtyper, s_pbc)
         llct = get_concrete_calltable(self.rtyper, self.callfamily)
         assert len(llct.uniquerows) == 1
         self.lowleveltype = Char
@@ -425,16 +423,6 @@ class SmallFunctionSetPBCRepr(Repr):
                 pointer_table[i] = self.pointer_repr.convert_const(None)
         self.c_pointer_table = inputconst(Ptr(POINTER_TABLE), pointer_table)
 
-    def get_s_callable(self):
-        return self.s_pbc
-
-    def get_r_implfunc(self):
-        return self, 0
-
-    def get_s_signatures(self, shape):
-        funcdesc = self.s_pbc.any_description()
-        return funcdesc.get_s_signatures(shape)
-
     def convert_desc(self, funcdesc):
         return chr(self.descriptions.index(funcdesc))
 
@@ -445,12 +433,6 @@ class SmallFunctionSetPBCRepr(Repr):
             return chr(0)
         funcdesc = self.rtyper.annotator.bookkeeper.getdesc(value)
         return self.convert_desc(funcdesc)
-
-    def rtype_simple_call(self, hop):
-        return self.call(hop)
-
-    def rtype_call_args(self, hop):
-        return self.call(hop)
 
     def dispatcher(self, shape, index, argtypes, resulttype):
         key = shape, index, tuple(argtypes), resulttype
@@ -1166,7 +1148,7 @@ class MethodsPBCRepr(Repr):
     def redispatch_call(self, hop, call_args):
         r_class = self.r_im_self.rclass
         mangled_name, r_func = r_class.clsfields[self.methodname]
-        assert isinstance(r_func, (FunctionReprBase, SmallFunctionSetPBCRepr))
+        assert isinstance(r_func, FunctionReprBase)
         # s_func = r_func.s_pbc -- not precise enough, see
         # test_precise_method_call_1.  Build a more precise one...
         funcdescs = [desc.funcdesc for desc in hop.args_s[0].descriptions]
