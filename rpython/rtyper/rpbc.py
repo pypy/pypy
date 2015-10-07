@@ -173,14 +173,58 @@ def get_concrete_calltable(rtyper, callfamily):
             raise TyperError("call table was unexpectedly extended")
     return llct
 
-
-class FunctionsPBCRepr(CanBeNull, Repr):
-    """Representation selected for a PBC of functions."""
-
+class FunctionReprBase(Repr):
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
         self.s_pbc = s_pbc
         self.callfamily = s_pbc.any_description().getcallfamily()
+
+    def get_s_callable(self):
+        return self.s_pbc
+
+    def get_r_implfunc(self):
+        return self, 0
+
+    def get_s_signatures(self, shape):
+        funcdesc = self.s_pbc.any_description()
+        return funcdesc.get_s_signatures(shape)
+
+    def rtype_simple_call(self, hop):
+        return self.call(hop)
+
+    def rtype_call_args(self, hop):
+        return self.call(hop)
+
+    def call(self, hop):
+        bk = self.rtyper.annotator.bookkeeper
+        args = hop.spaceop.build_args(hop.args_s[1:])
+        s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
+        descs = list(s_pbc.descriptions)
+        shape, index = self.callfamily.find_row(bk, descs, args, hop.spaceop)
+        row_of_graphs = self.callfamily.calltables[shape][index]
+        anygraph = row_of_graphs.itervalues().next()  # pick any witness
+        vfn = hop.inputarg(self, arg=0)
+        vlist = [self.convert_to_concrete_llfn(vfn, shape, index,
+                                               hop.llops)]
+        vlist += callparse.callparse(self.rtyper, anygraph, hop)
+        rresult = callparse.getrresult(self.rtyper, anygraph)
+        hop.exception_is_here()
+        if isinstance(vlist[0], Constant):
+            v = hop.genop('direct_call', vlist, resulttype=rresult)
+        else:
+            vlist.append(hop.inputconst(Void, row_of_graphs.values()))
+            v = hop.genop('indirect_call', vlist, resulttype=rresult)
+        if hop.r_result is impossible_repr:
+            return None      # see test_always_raising_methods
+        else:
+            return hop.llops.convertvar(v, rresult, hop.r_result)
+
+
+class FunctionsPBCRepr(CanBeNull, FunctionReprBase):
+    """Representation selected for a PBC of functions."""
+
+    def __init__(self, rtyper, s_pbc):
+        FunctionReprBase.__init__(self, rtyper, s_pbc)
         llct = get_concrete_calltable(self.rtyper, self.callfamily)
         self.concretetable = llct.table
         self.uniquerows = llct.uniquerows
@@ -206,16 +250,6 @@ class FunctionsPBCRepr(CanBeNull, Repr):
 
     def get_specfunc_row(self, llop, v, c_rowname, resulttype):
         return llop.genop('getfield', [v, c_rowname], resulttype=resulttype)
-
-    def get_s_callable(self):
-        return self.s_pbc
-
-    def get_r_implfunc(self):
-        return self, 0
-
-    def get_s_signatures(self, shape):
-        funcdesc = self.s_pbc.any_description()
-        return funcdesc.get_s_signatures(shape)
 
     def convert_desc(self, funcdesc):
         # get the whole "column" of the call table corresponding to this desc
@@ -276,52 +310,11 @@ class FunctionsPBCRepr(CanBeNull, Repr):
             cname = inputconst(Void, row.attrname)
             return self.get_specfunc_row(llop, v, cname, row.fntype)
 
-    def get_concrete_llfn(self, s_pbc, args_s, op):
-        bk = self.rtyper.annotator.bookkeeper
-        funcdesc, = s_pbc.descriptions
-        args = simple_args(args_s)
-        with bk.at_position(None):
-            graph = funcdesc.get_graph(args, op)
-        llfn = self.rtyper.getcallable(graph)
-        return inputconst(typeOf(llfn), llfn)
 
-    def rtype_simple_call(self, hop):
-        return self.call(hop)
-
-    def rtype_call_args(self, hop):
-        return self.call(hop)
-
-    def call(self, hop):
-        bk = self.rtyper.annotator.bookkeeper
-        args = hop.spaceop.build_args(hop.args_s[1:])
-        s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
-        descs = list(s_pbc.descriptions)
-        shape, index = self.callfamily.find_row(bk, descs, args, hop.spaceop)
-        row_of_graphs = self.callfamily.calltables[shape][index]
-        anygraph = row_of_graphs.itervalues().next()  # pick any witness
-        vfn = hop.inputarg(self, arg=0)
-        vlist = [self.convert_to_concrete_llfn(vfn, shape, index,
-                                               hop.llops)]
-        vlist += callparse.callparse(self.rtyper, anygraph, hop)
-        rresult = callparse.getrresult(self.rtyper, anygraph)
-        hop.exception_is_here()
-        if isinstance(vlist[0], Constant):
-            v = hop.genop('direct_call', vlist, resulttype=rresult)
-        else:
-            vlist.append(hop.inputconst(Void, row_of_graphs.values()))
-            v = hop.genop('indirect_call', vlist, resulttype=rresult)
-        if hop.r_result is impossible_repr:
-            return None      # see test_always_raising_methods
-        else:
-            return hop.llops.convertvar(v, rresult, hop.r_result)
-
-class FunctionRepr(FunctionsPBCRepr):
+class FunctionRepr(FunctionReprBase):
     """Repr for a constant function"""
-    def __init__(self, rtyper, s_pbc):
-        self.rtyper = rtyper
-        self.s_pbc = s_pbc
-        self.callfamily = s_pbc.any_description().getcallfamily()
-        self.lowleveltype = Void
+
+    lowleveltype = Void
 
     def convert_desc(self, funcdesc):
         return None
@@ -334,7 +327,7 @@ class FunctionRepr(FunctionsPBCRepr):
         low-level function.  In case the call table contains multiple rows,
         'index' and 'shape' tells which of its items we are interested in.
         """
-        assert v.concretetype == self.lowleveltype
+        assert v.concretetype == Void
         funcdesc, = self.s_pbc.descriptions
         row_of_one_graph = self.callfamily.calltables[shape][index]
         graph = row_of_one_graph[funcdesc]
@@ -364,6 +357,16 @@ class FunctionRepr(FunctionsPBCRepr):
             raise TyperError("cannot pass a specialized function here")
         llfn = self.rtyper.getcallable(graph)
         return inputconst(typeOf(llfn), llfn)
+
+    def get_concrete_llfn(self, s_pbc, args_s, op):
+        bk = self.rtyper.annotator.bookkeeper
+        funcdesc, = s_pbc.descriptions
+        args = simple_args(args_s)
+        with bk.at_position(None):
+            graph = funcdesc.get_graph(args, op)
+        llfn = self.rtyper.getcallable(graph)
+        return inputconst(typeOf(llfn), llfn)
+
 
 
 class __extend__(pairtype(FunctionRepr, FunctionRepr)):
@@ -1163,8 +1166,7 @@ class MethodsPBCRepr(Repr):
     def redispatch_call(self, hop, call_args):
         r_class = self.r_im_self.rclass
         mangled_name, r_func = r_class.clsfields[self.methodname]
-        assert isinstance(r_func, (FunctionsPBCRepr,
-                                   SmallFunctionSetPBCRepr))
+        assert isinstance(r_func, (FunctionReprBase, SmallFunctionSetPBCRepr))
         # s_func = r_func.s_pbc -- not precise enough, see
         # test_precise_method_call_1.  Build a more precise one...
         funcdescs = [desc.funcdesc for desc in hop.args_s[0].descriptions]
