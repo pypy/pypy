@@ -30,7 +30,8 @@ class W_CTypeFunc(W_CTypePtrBase):
 
     cif_descr = lltype.nullptr(CIF_DESCRIPTION)
 
-    def __init__(self, space, fargs, fresult, ellipsis, abi):
+    def __init__(self, space, fargs, fresult, ellipsis,
+                 abi=_cffi_backend.FFI_DEFAULT_ABI):
         assert isinstance(ellipsis, bool)
         extra, xpos = self._compute_extra_text(fargs, fresult, ellipsis, abi)
         size = rffi.sizeof(rffi.VOIDP)
