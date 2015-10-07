@@ -1281,3 +1281,200 @@ def test_const_via_typedef():
     """)
     assert lib.aaa == 42
     py.test.raises(AttributeError, "lib.aaa = 43")
+
+def test_win32_calling_convention_0():
+    ffi = FFI()
+    ffi.cdef("""
+        int call1(int(__cdecl   *cb)(int));
+        int (*const call2)(int(__stdcall *cb)(int));
+    """)
+    lib = verify(ffi, 'test_win32_calling_convention_0', r"""
+        #ifndef _MSC_VER
+        #  define __stdcall  /* nothing */
+        #endif
+        int call1(int(*cb)(int)) {
+            int i, result = 0;
+            //printf("call1: cb = %p\n", cb);
+            for (i = 0; i < 1000; i++)
+                result += cb(i);
+            //printf("result = %d\n", result);
+            return result;
+        }
+        int call2(int(__stdcall *cb)(int)) {
+            int i, result = 0;
+            //printf("call2: cb = %p\n", cb);
+            for (i = 0; i < 1000; i++)
+                result += cb(-i);
+            //printf("result = %d\n", result);
+            return result;
+        }
+    """)
+    @ffi.callback("int(int)")
+    def cb1(x):
+        return x * 2
+    @ffi.callback("int __stdcall(int)")
+    def cb2(x):
+        return x * 3
+    res = lib.call1(cb1)
+    assert res == 500*999*2
+    assert res == ffi.addressof(lib, 'call1')(cb1)
+    res = lib.call2(cb2)
+    assert res == -500*999*3
+    assert res == ffi.addressof(lib, 'call2')(cb2)
+    if sys.platform == 'win32':
+        assert '__stdcall' in str(ffi.typeof(cb2))
+        assert '__stdcall' not in str(ffi.typeof(cb1))
+        py.test.raises(TypeError, lib.call1, cb2)
+        py.test.raises(TypeError, lib.call2, cb1)
+    else:
+        assert '__stdcall' not in str(ffi.typeof(cb2))
+        assert ffi.typeof(cb2) is ffi.typeof(cb1)
+
+def test_win32_calling_convention_1():
+    ffi = FFI()
+    ffi.cdef("""
+        int __cdecl   call1(int(__cdecl   *cb)(int));
+        int __stdcall call2(int(__stdcall *cb)(int));
+        int (__cdecl   *const cb1)(int);
+        int (__stdcall *const cb2)(int);
+    """)
+    lib = verify(ffi, 'test_win32_calling_convention_1', r"""
+        #ifndef _MSC_VER
+        #  define __cdecl
+        #  define __stdcall
+        #endif
+        int __cdecl   cb1(int x) { return x * 2; }
+        int __stdcall cb2(int x) { return x * 3; }
+
+        int __cdecl call1(int(__cdecl *cb)(int)) {
+            int i, result = 0;
+            //printf("here1\n");
+            //printf("cb = %p, cb1 = %p\n", cb, (void *)cb1);
+            for (i = 0; i < 1000; i++)
+                result += cb(i);
+            //printf("result = %d\n", result);
+            return result;
+        }
+        int __stdcall call2(int(__stdcall *cb)(int)) {
+            int i, result = 0;
+            //printf("here1\n");
+            //printf("cb = %p, cb2 = %p\n", cb, (void *)cb2);
+            for (i = 0; i < 1000; i++)
+                result += cb(-i);
+            //printf("result = %d\n", result);
+            return result;
+        }
+    """)
+    print '<<< cb1 =', ffi.addressof(lib, 'cb1')
+    ptr_call1 = ffi.addressof(lib, 'call1')
+    assert lib.call1(ffi.addressof(lib, 'cb1')) == 500*999*2
+    assert ptr_call1(ffi.addressof(lib, 'cb1')) == 500*999*2
+    print '<<< cb2 =', ffi.addressof(lib, 'cb2')
+    ptr_call2 = ffi.addressof(lib, 'call2')
+    assert lib.call2(ffi.addressof(lib, 'cb2')) == -500*999*3
+    assert ptr_call2(ffi.addressof(lib, 'cb2')) == -500*999*3
+    print '<<< done'
+
+def test_win32_calling_convention_2():
+    # any mistake in the declaration of plain function (including the
+    # precise argument types and, here, the calling convention) are
+    # automatically corrected.  But this does not apply to the 'cb'
+    # function pointer argument.
+    ffi = FFI()
+    ffi.cdef("""
+        int __stdcall call1(int(__cdecl   *cb)(int));
+        int __cdecl   call2(int(__stdcall *cb)(int));
+        int (__cdecl   *const cb1)(int);
+        int (__stdcall *const cb2)(int);
+    """)
+    lib = verify(ffi, 'test_win32_calling_convention_2', """
+        #ifndef _MSC_VER
+        #  define __cdecl
+        #  define __stdcall
+        #endif
+        int __cdecl call1(int(__cdecl *cb)(int)) {
+            int i, result = 0;
+            for (i = 0; i < 1000; i++)
+                result += cb(i);
+            return result;
+        }
+        int __stdcall call2(int(__stdcall *cb)(int)) {
+            int i, result = 0;
+            for (i = 0; i < 1000; i++)
+                result += cb(-i);
+            return result;
+        }
+        int __cdecl   cb1(int x) { return x * 2; }
+        int __stdcall cb2(int x) { return x * 3; }
+    """)
+    ptr_call1 = ffi.addressof(lib, 'call1')
+    ptr_call2 = ffi.addressof(lib, 'call2')
+    if sys.platform == 'win32':
+        py.test.raises(TypeError, lib.call1, ffi.addressof(lib, 'cb2'))
+        py.test.raises(TypeError, ptr_call1, ffi.addressof(lib, 'cb2'))
+        py.test.raises(TypeError, lib.call2, ffi.addressof(lib, 'cb1'))
+        py.test.raises(TypeError, ptr_call2, ffi.addressof(lib, 'cb1'))
+    assert lib.call1(ffi.addressof(lib, 'cb1')) == 500*999*2
+    assert ptr_call1(ffi.addressof(lib, 'cb1')) == 500*999*2
+    assert lib.call2(ffi.addressof(lib, 'cb2')) == -500*999*3
+    assert ptr_call2(ffi.addressof(lib, 'cb2')) == -500*999*3
+
+def test_win32_calling_convention_3():
+    ffi = FFI()
+    ffi.cdef("""
+        struct point { int x, y; };
+
+        int (*const cb1)(struct point);
+        int (__stdcall *const cb2)(struct point);
+
+        struct point __stdcall call1(int(*cb)(struct point));
+        struct point call2(int(__stdcall *cb)(struct point));
+    """)
+    lib = verify(ffi, 'test_win32_calling_convention_3', r"""
+        #ifndef _MSC_VER
+        #  define __cdecl
+        #  define __stdcall
+        #endif
+        struct point { int x, y; };
+        int           cb1(struct point pt) { return pt.x + 10 * pt.y; }
+        int __stdcall cb2(struct point pt) { return pt.x + 100 * pt.y; }
+        struct point __stdcall call1(int(__cdecl *cb)(struct point)) {
+            int i;
+            struct point result = { 0, 0 };
+            //printf("here1\n");
+            //printf("cb = %p, cb1 = %p\n", cb, (void *)cb1);
+            for (i = 0; i < 1000; i++) {
+                struct point p = { i, -i };
+                int r = cb(p);
+                result.x += r;
+                result.y -= r;
+            }
+            return result;
+        }
+        struct point __cdecl call2(int(__stdcall *cb)(struct point)) {
+            int i;
+            struct point result = { 0, 0 };
+            for (i = 0; i < 1000; i++) {
+                struct point p = { -i, i };
+                int r = cb(p);
+                result.x += r;
+                result.y -= r;
+            }
+            return result;
+        }
+    """)
+    ptr_call1 = ffi.addressof(lib, 'call1')
+    ptr_call2 = ffi.addressof(lib, 'call2')
+    if sys.platform == 'win32':
+        py.test.raises(TypeError, lib.call1, ffi.addressof(lib, 'cb2'))
+        py.test.raises(TypeError, ptr_call1, ffi.addressof(lib, 'cb2'))
+        py.test.raises(TypeError, lib.call2, ffi.addressof(lib, 'cb1'))
+        py.test.raises(TypeError, ptr_call2, ffi.addressof(lib, 'cb1'))
+    pt = lib.call1(ffi.addressof(lib, 'cb1'))
+    assert (pt.x, pt.y) == (-9*500*999, 9*500*999)
+    pt = ptr_call1(ffi.addressof(lib, 'cb1'))
+    assert (pt.x, pt.y) == (-9*500*999, 9*500*999)
+    pt = lib.call2(ffi.addressof(lib, 'cb2'))
+    assert (pt.x, pt.y) == (99*500*999, -99*500*999)
+    pt = ptr_call2(ffi.addressof(lib, 'cb2'))
+    assert (pt.x, pt.y) == (99*500*999, -99*500*999)

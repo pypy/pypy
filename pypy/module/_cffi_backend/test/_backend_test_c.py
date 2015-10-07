@@ -2316,9 +2316,6 @@ def test_errno_callback():
     f(); f()
     assert get_errno() == 77
 
-def test_abi():
-    assert isinstance(FFI_DEFAULT_ABI, int)
-
 def test_cast_to_array():
     # not valid in C!  extension to get a non-owning <cdata 'int[3]'>
     BInt = new_primitive_type("int")
@@ -3427,3 +3424,16 @@ def test_mixup():
                             "be 'foo *', but the types are different (check "
                             "that you are not e.g. mixing up different ffi "
                             "instances)")
+
+def test_stdcall_function_type():
+    assert FFI_CDECL == FFI_DEFAULT_ABI
+    try:
+        stdcall = FFI_STDCALL
+    except NameError:
+        stdcall = FFI_DEFAULT_ABI
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BInt, BInt), BInt, False, stdcall)
+    if stdcall != FFI_DEFAULT_ABI:
+        assert repr(BFunc) == "<ctype 'int(__stdcall *)(int, int)'>"
+    else:
+        assert repr(BFunc) == "<ctype 'int(*)(int, int)'>"
