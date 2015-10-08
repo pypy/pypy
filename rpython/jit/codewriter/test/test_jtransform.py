@@ -30,7 +30,6 @@ def const(x):
     return Constant(x, lltype.typeOf(x))
 
 class FakeRTyper:
-    class type_system: name = 'lltypesystem'
     instance_reprs = {}
 
 class FakeCPU:

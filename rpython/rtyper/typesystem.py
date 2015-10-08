@@ -2,20 +2,13 @@
 """typesystem.py -- Typesystem-specific operations for RTyper."""
 
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.error import TyperError
 
-
-class LowLevelTypeSystem(object):
-    name = "lltypesystem"
 
 def _getconcretetype(v):
     return v.concretetype
 
-
-def getfunctionptr(graph, getconcretetype=None):
+def getfunctionptr(graph, getconcretetype=_getconcretetype):
     """Return callable given a Python function."""
-    if getconcretetype is None:
-        getconcretetype = _getconcretetype
     llinputs = [getconcretetype(v) for v in graph.getargs()]
     lloutput = getconcretetype(graph.getreturnvar())
 
