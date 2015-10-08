@@ -10,7 +10,7 @@ from rpython.jit.metainterp.resume import ResumeDataVirtualAdder,\
      VArrayInfoNotClear, VStrPlainInfo, VStrConcatInfo, VStrSliceInfo,\
      VUniPlainInfo, VUniConcatInfo, VUniSliceInfo, Snapshot, FrameInfo,\
      capture_resumedata, ResumeDataLoopMemo, UNASSIGNEDVIRTUAL, INT,\
-     annlowlevel, PENDINGFIELDSP
+     annlowlevel, PENDINGFIELDSP, unpack_uint
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.history import ConstInt, Const, AbstractDescr
 from rpython.jit.metainterp.history import ConstPtr, ConstFloat
@@ -531,18 +531,25 @@ def test_Snapshot_create():
     assert snap1.prev is snap
     assert snap1.boxes is l1
 
+class FakeJitCode(object):
+    def __init__(self, name, index):
+        self.name = name
+        self.index = index
+
 def test_FrameInfo_create():
-    jitcode = "JITCODE"
+    jitcode = FakeJitCode("jitcode", 13)
     fi = FrameInfo(None, jitcode, 1)
     assert fi.prev is None
-    assert fi.jitcode is jitcode
-    assert fi.pc == 1
+    jitcode_pos, pc = unpack_uint(fi.packed_jitcode_pc)
+    assert jitcode_pos == 13
+    assert pc == 1
 
-    jitcode1 = "JITCODE1"
+    jitcode1 = FakeJitCode("JITCODE1", 42)
     fi1 = FrameInfo(fi, jitcode1, 3)
     assert fi1.prev is fi
-    assert fi1.jitcode is jitcode1
-    assert fi1.pc == 3
+    jitcode_pos, pc = unpack_uint(fi1.packed_jitcode_pc)
+    assert jitcode_pos == 42
+    assert pc == 3
 
 def test_Numbering_create():
     l = [rffi.r_short(1), rffi.r_short(2)]
@@ -558,7 +565,7 @@ def test_Numbering_create():
 def test_capture_resumedata():
     b1, b2, b3 = [InputArgInt(), InputArgRef(), InputArgInt()]
     c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
-    fs = [FakeFrame("code0", 0, b1, c1, b2)]
+    fs = [FakeFrame(FakeJitCode("code0", 13), 0, b1, c1, b2)]
 
     storage = Storage()
     capture_resumedata(fs, None, [], storage)
@@ -567,22 +574,21 @@ def test_capture_resumedata():
     assert fs[0].parent_resumedata_frame_info_list is None
 
     assert storage.rd_frame_info_list.prev is None
-    assert storage.rd_frame_info_list.jitcode == 'code0'
+    assert unpack_uint(storage.rd_frame_info_list.packed_jitcode_pc)[0] == 13
     assert storage.rd_snapshot.boxes == []    # for virtualrefs
     snapshot = storage.rd_snapshot.prev
     assert snapshot.prev is None
     assert snapshot.boxes == fs[0]._env
 
     storage = Storage()
-    fs = [FakeFrame("code0", 0, b1, c1, b2),
-          FakeFrame("code1", 3, b3, c2, b1),
-          FakeFrame("code2", 9, c3, b2)]
+    fs = [FakeFrame(FakeJitCode("code0", 0), 0, b1, c1, b2),
+          FakeFrame(FakeJitCode("code1", 1), 3, b3, c2, b1),
+          FakeFrame(FakeJitCode("code2", 2), 9, c3, b2)]
     capture_resumedata(fs, None, [], storage)
 
     frame_info_list = storage.rd_frame_info_list
     assert frame_info_list.prev is fs[2].parent_resumedata_frame_info_list
-    assert frame_info_list.jitcode == 'code2'
-    assert frame_info_list.pc == 9
+    assert unpack_uint(frame_info_list.packed_jitcode_pc) == (2, 9)
 
     assert storage.rd_snapshot.boxes == []    # for virtualrefs
     snapshot = storage.rd_snapshot.prev
@@ -591,14 +597,14 @@ def test_capture_resumedata():
 
     frame_info_list = frame_info_list.prev
     assert frame_info_list.prev is fs[1].parent_resumedata_frame_info_list
-    assert frame_info_list.jitcode == 'code1'
+    assert unpack_uint(frame_info_list.packed_jitcode_pc) == (1, 3)
     snapshot = snapshot.prev
     assert snapshot.prev is fs[1].parent_resumedata_snapshot
     assert snapshot.boxes == fs[1]._env
 
     frame_info_list = frame_info_list.prev
     assert frame_info_list.prev is None
-    assert frame_info_list.jitcode == 'code0'
+    assert unpack_uint(frame_info_list.packed_jitcode_pc) == (0, 0)
     snapshot = snapshot.prev
     assert snapshot.prev is None
     assert snapshot.boxes == fs[0]._env
@@ -611,9 +617,8 @@ def test_capture_resumedata():
 
     frame_info_list = storage.rd_frame_info_list
     assert frame_info_list.prev is fs[2].parent_resumedata_frame_info_list
-    assert frame_info_list.jitcode == 'code2'
-    assert frame_info_list.pc == 15
-
+    assert unpack_uint(frame_info_list.packed_jitcode_pc) == (2, 15)
+    
     snapshot = storage.rd_snapshot
     assert snapshot.boxes == vrs + vbs      # in the same list
 
@@ -914,8 +919,9 @@ def test_ResumeDataLoopMemo_number():
     snap2 = Snapshot(snap, env2)
 
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
+    frameinfo = FrameInfo(None, FakeJitCode("jitcode", 0), 0)
 
-    numb, liveboxes, v = memo.number(FakeOptimizer(), snap1)
+    numb, liveboxes, v = memo.number(FakeOptimizer(), snap1, frameinfo)
     assert v == 0
 
     assert liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
