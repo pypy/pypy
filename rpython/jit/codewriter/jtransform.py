@@ -205,6 +205,8 @@ class Transformer(object):
             if v is op.result:
                 if op.opname not in ('int_lt', 'int_le', 'int_eq', 'int_ne',
                                      'int_gt', 'int_ge',
+                                     'float_lt', 'float_le', 'float_eq',
+                                     'float_ne', 'float_gt', 'float_ge',
                                      'int_is_zero', 'int_is_true',
                                      'ptr_eq', 'ptr_ne',
                                      'ptr_iszero', 'ptr_nonzero'):

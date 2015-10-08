@@ -316,12 +316,17 @@ class AbstractResOp(AbstractResOpOrInputArg):
         args = self.getarglist()
         descr = self.getdescr()
         if descr is None or we_are_translated():
-            return '%s%s%s(%s)' % (prefix, sres, self.getopname(),
-                                   ', '.join([a.repr_short(memo) for a in args]))
+            s = '%s%s%s(%s)' % (prefix, sres, self.getopname(),
+                                ', '.join([a.repr_short(memo) for a in args]))
         else:
-            return '%s%s%s(%s)' % (prefix, sres, self.getopname(),
-                                   ', '.join([a.repr_short(memo) for a in args] +
-                                             ['descr=%r' % descr]))
+            s = '%s%s%s(%s)' % (prefix, sres, self.getopname(),
+                                ', '.join([a.repr_short(memo) for a in args] +
+                                          ['descr=%r' % descr]))
+        # --- enable to display the failargs too:
+        #if isinstance(self, GuardResOp):
+        #    s += ' [%s]' % (', '.join([a.repr_short(memo) for a in
+        #                                self.getfailargs()]),)
+        return s
 
     def repr_short(self, memo):
         try:

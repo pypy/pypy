@@ -10,7 +10,6 @@ class Module(MixedModule):
     repeat(elem [,n]) --> elem, elem, elem, ... endlessly or up to n times
 
     Iterators terminating on the shortest input sequence:
-    izip(p, q, ...) --> (p[0], q[0]), (p[1], q[1]), ... 
     ifilter(pred, seq) --> elements of seq where pred(elem) is True
     ifilterfalse(pred, seq) --> elements of seq where pred(elem) is False
     islice(seq, [start,] stop [, step]) --> elements from
@@ -22,6 +21,14 @@ class Module(MixedModule):
     takewhile(pred, seq) --> seq[0], seq[1], until pred fails
     dropwhile(pred, seq) --> seq[n], seq[n+1], starting when pred fails
     groupby(iterable[, keyfunc]) --> sub-iterators grouped by value of keyfunc(v)
+    izip(p, q, ...) --> (p[0], q[0]), (p[1], q[1]), ...
+    izip_longest(p, q, ...) --> (p[0], q[0]), (p[1], q[1]), ...
+
+    Combinatoric generators:
+    product(p, q, ... [repeat=1]) --> cartesian product
+    permutations(p[, r])
+    combinations(p, r)
+    combinations_with_replacement(p, r)
     """
 
     interpleveldefs = {
