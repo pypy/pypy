@@ -266,7 +266,7 @@ class FunctionsPBCRepr(CanBeNull, FunctionReprBase):
             else:
                 # missing entry -- need a 'null' of the type that matches
                 # this row
-                llfn = self.rtyper.type_system.null_callable(row.fntype)
+                llfn = nullptr(row.fntype.TO)
             llfns[row.attrname] = llfn
         if len(self.uniquerows) == 1:
             if found_anything:
@@ -291,7 +291,7 @@ class FunctionsPBCRepr(CanBeNull, FunctionReprBase):
         elif isinstance(value, staticmethod):
             value = value.__get__(42)  # hackish, get the function wrapped by staticmethod
         if value is None:
-            null = self.rtyper.type_system.null_callable(self.lowleveltype)
+            null = nullptr(self.lowleveltype.TO)
             return null
         funcdesc = self.rtyper.annotator.bookkeeper.getdesc(value)
         return self.convert_desc(funcdesc)
@@ -914,7 +914,7 @@ class ClassesPBCRepr(Repr):
                 return None
             else:
                 T = self.lowleveltype
-                return self.rtyper.type_system.null_callable(T)
+                return nullptr(T.TO)
         bk = self.rtyper.annotator.bookkeeper
         classdesc = bk.getdesc(cls)
         return self.convert_desc(classdesc)

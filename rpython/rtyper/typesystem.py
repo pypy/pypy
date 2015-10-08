@@ -13,9 +13,6 @@ class LowLevelTypeSystem(object):
         vlist = hop.inputargs(repr)
         return hop.genop('ptr_nonzero', vlist, resulttype=lltype.Bool)
 
-    def null_callable(self, T):
-        return lltype.nullptr(T.TO)
-
     def getexternalcallable(self, ll_args, ll_result, name, **kwds):
         FT = lltype.FuncType(ll_args, ll_result)
         return lltype.functionptr(FT, name, **kwds)
