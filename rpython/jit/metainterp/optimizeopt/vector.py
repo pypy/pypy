@@ -11,7 +11,8 @@ import time
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
 #from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
-from rpython.jit.metainterp.compile import (CompileLoopVersionDescr, ResumeGuardDescr)
+from rpython.jit.metainterp.compile import (CompileLoopVersionDescr,
+        ResumeGuardDescr, ResumeGuardCopiedDescr, AbstractResumeGuardDescr)
 from rpython.jit.metainterp.history import (INT, FLOAT, VECTOR, ConstInt, ConstFloat,
         TargetToken, JitCellToken, AbstractFailDescr)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
@@ -279,7 +280,11 @@ class VectorizingOptimizer(Optimizer):
                     assert isinstance(copied_op, GuardResOp)
                     descr = copied_op.getdescr()
                     if descr:
-                        assert isinstance(descr, ResumeGuardDescr)
+                        assert isinstance(descr, AbstractResumeGuardDescr)
+                        if isinstance(descr, ResumeGuardDescr):
+                            descr = descr.prev.clone()
+                        else:
+                            descr = descr.clone()
                         copied_op.setdescr(descr.clone())
                         # copy failargs/snapshot
                         copied_op.rd_snapshot = \
