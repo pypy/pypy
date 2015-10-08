@@ -280,11 +280,11 @@ class VectorizingOptimizer(Optimizer):
                     assert isinstance(copied_op, GuardResOp)
                     descr = copied_op.getdescr()
                     if descr:
-                        assert isinstance(descr, AbstractResumeGuardDescr)
-                        if not isinstance(descr, ResumeGuardDescr):
-                            descr = descr.prev.clone()
+                        if isinstance(descr, ResumeGuardCopiedDescr):
+                            descr = descr.prev
                         else:
-                            descr = descr.clone()
+                            descr = descr
+                        assert isinstance(descr, ResumeGuardDescr)
                         copied_op.setdescr(descr.clone())
                         # copy failargs/snapshot
                         copied_op.rd_snapshot = \
