@@ -507,16 +507,7 @@ class OptHeap(Optimization):
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
 
-    def optimize_GETFIELD_GC_PURE_I(self, op):
-        structinfo = self.ensure_ptr_info_arg0(op)
-        cf = self.field_cache(op.getdescr())
-        field = cf.getfield_from_cache(self, structinfo, op.getdescr())
-        if field is not None:
-            self.make_equal_to(op, field)
-            return
-        # default case: produce the operation
-        self.make_nonnull(op.getarg(0))
-        self.emit_operation(op)
+    optimize_GETFIELD_GC_PURE_I = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_PURE_R = optimize_GETFIELD_GC_PURE_I
     optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_PURE_I
 
