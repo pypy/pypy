@@ -1103,8 +1103,8 @@ class BaseTestBridges(BaseTest):
         jump(p0)
         """
         self.optimize_bridge(loops, bridge, loops[0], 'Loop0', [self.myptr])
-        self.optimize_bridge(loops, bridge, loops[1], 'Loop1', [self.myptr3])
-        self.optimize_bridge(loops[0], bridge, 'RETRACE', [self.myptr3])
+        self.optimize_bridge(loops, bridge, loops[1], 'Loop1', [self.myptr2])
+        self.optimize_bridge(loops[0], bridge, 'RETRACE', [self.myptr2])
         self.optimize_bridge(loops, loops[0], loops[0], 'Loop0', [self.nullptr])
         self.optimize_bridge(loops, loops[1], loops[1], 'Loop1', [self.nullptr])
 

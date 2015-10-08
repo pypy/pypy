@@ -192,6 +192,21 @@ class OptPure(Optimization):
             return
         self.emit_operation(op)
 
+    def optimize_GETFIELD_GC_PURE_I(self, op):
+        from rpython.rlib.objectmodel import we_are_translated
+        # check that the descr is pure
+        # XXX quasi immutable descrs, are they pure or not?
+        if not we_are_translated():
+            descr = op.getdescr()
+            if not descr.is_always_pure():
+                assert "quasiimmut" in str(descr.S._immutable_field(descr.fieldname))
+        return self.optimize_default(op)
+    optimize_GETFIELD_GC_PURE_R = optimize_GETFIELD_GC_PURE_I
+    optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_PURE_I
+    optimize_GETARRAYITEM_GC_PURE_I = optimize_GETFIELD_GC_PURE_I
+    optimize_GETARRAYITEM_GC_PURE_R = optimize_GETFIELD_GC_PURE_I
+    optimize_GETARRAYITEM_GC_PURE_F = optimize_GETFIELD_GC_PURE_I
+
     def flush(self):
         assert self.postponed_op is None
 

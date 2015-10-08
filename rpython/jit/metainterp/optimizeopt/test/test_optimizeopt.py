@@ -8129,14 +8129,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0]
         p10 = getfield_gc_r(ConstPtr(myptr), descr=otherdescr)
-        guard_value(p10, ConstPtr(myptr2)) []
+        guard_value(p10, ConstPtr(myptrb)) []
         call_n(p10, descr=nonwritedescr)
-        setfield_gc(ConstPtr(myptr), ConstPtr(myptr2), descr=otherdescr)
+        setfield_gc(ConstPtr(myptr), ConstPtr(myptrb), descr=otherdescr)
         jump(p0)
         """
         expected = """
         [p0]
-        call_n(ConstPtr(myptr2), descr=nonwritedescr)
+        call_n(ConstPtr(myptrb), descr=nonwritedescr)
         jump(p0)
         """
         self.optimize_loop(ops, expected)
@@ -8160,14 +8160,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0]
         p10 = getfield_gc_r(p0, descr=otherdescr)
-        guard_value(p10, ConstPtr(myptr2)) []
+        guard_value(p10, ConstPtr(myptrb)) []
         call_n(p10, descr=nonwritedescr)
-        setfield_gc(p0, ConstPtr(myptr2), descr=otherdescr)
+        setfield_gc(p0, ConstPtr(myptrb), descr=otherdescr)
         jump(p0)
         """
         expected = """
         [p0]
-        call_n(ConstPtr(myptr2), descr=nonwritedescr)
+        call_n(ConstPtr(myptrb), descr=nonwritedescr)
         jump(p0)
         """
         self.optimize_loop(ops, expected)
@@ -8562,7 +8562,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p106 = new_with_vtable(descr=nodesize)
         p108 = new_array(3, descr=arraydescr)
         p110 = new_with_vtable(descr=nodesize)
-        setfield_gc(p110, ConstPtr(myptr2), descr=otherdescr) # inst_w_function
+        setfield_gc(p110, ConstPtr(myptrb), descr=otherdescr) # inst_w_function
         setarrayitem_gc(p108, 0, p110, descr=arraydescr)
         setfield_gc(p106, p108, descr=nextdescr) # inst_storage
         jump(p106)
