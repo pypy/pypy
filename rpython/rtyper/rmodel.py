@@ -239,7 +239,8 @@ class CanBeNull(object):
         if hop.s_result.is_constant():
             return hop.inputconst(Bool, hop.s_result.const)
         else:
-            return hop.rtyper.type_system.check_null(self, hop)
+            vlist = hop.inputargs(self)
+            return hop.genop('ptr_nonzero', vlist, resulttype=Bool)
 
 
 class IteratorRepr(Repr):

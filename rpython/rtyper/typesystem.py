@@ -8,11 +8,6 @@ from rpython.rtyper.error import TyperError
 class LowLevelTypeSystem(object):
     name = "lltypesystem"
 
-    def check_null(self, repr, hop):
-        # None is a nullptr, which is false; everything else is true.
-        vlist = hop.inputargs(repr)
-        return hop.genop('ptr_nonzero', vlist, resulttype=lltype.Bool)
-
     def generic_is(self, robj1, robj2, hop):
         roriginal1 = robj1
         roriginal2 = robj2
