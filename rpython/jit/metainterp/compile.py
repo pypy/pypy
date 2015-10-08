@@ -1015,6 +1015,12 @@ class ResumeFromInterpDescr(ResumeDescr):
             self.original_greenkey, jitcell_token)
         metainterp_sd.stats.add_jitcell_token(jitcell_token)
 
+    def clone(self):
+        cloned = ResumeFromInterpDescr(self.original_greenkey)
+        cloned.copy_all_attributes_from(self)
+        return cloned
+
+
 
 def compile_trace(metainterp, resumekey):
     """Try to compile a new bridge leading from the beginning of the history
