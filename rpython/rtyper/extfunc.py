@@ -157,7 +157,6 @@ class ExtFuncEntry(ExtRegistryEntry):
         r_result = rtyper.getrepr(s_result)
         ll_result = r_result.lowleveltype
         name = getattr(self, 'name', None) or self.instance.__name__
-        fake_method_name = rtyper.type_system.name[:2] + 'typefakeimpl'
         impl = getattr(self, 'lltypeimpl', None)
         fakeimpl = getattr(self, 'lltypefakeimpl', self.instance)
         if impl:

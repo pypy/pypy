@@ -153,10 +153,7 @@ class TestVirtualizable(BaseRtypingTest):
             if vinst_ll.vable_token:
                 raise ValueError
         annhelper = MixLevelHelperAnnotator(rtyper)
-        if self.type_system == 'lltype':
-            s_vinst = SomePtr(v_inst_ll_type)
-        else:
-            s_vinst = annmodel.SomeOOInstance(v_inst_ll_type)
+        s_vinst = SomePtr(v_inst_ll_type)
         funcptr = annhelper.delayedfunction(mycall, [s_vinst], annmodel.s_None)
         annhelper.finish()
         replace_force_virtualizable_with_call(graphs, v_inst_ll_type, funcptr)

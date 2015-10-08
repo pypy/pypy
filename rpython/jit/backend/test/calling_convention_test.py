@@ -23,7 +23,6 @@ class FakeStats(object):
     pass
 
 class CallingConvTests(Runner):
-    type_system = 'lltype'
     Ptr = lltype.Ptr
     FuncType = lltype.FuncType
 

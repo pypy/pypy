@@ -166,7 +166,7 @@ def _run_with_machine_code(testself, args):
 class JitMixin:
     basic = True
     enable_opts = ENABLE_ALL_OPTS
-    
+
 
     # Basic terminology: the JIT produces "loops" and "bridges".
     # Bridges are always attached to failing guards.  Every loop is
@@ -243,7 +243,6 @@ class JitMixin:
 
     def meta_interp(self, *args, **kwds):
         kwds['CPUClass'] = self.CPUClass
-        kwds['type_system'] = self.type_system
         if "backendopt" not in kwds:
             kwds["backendopt"] = False
         if "enable_opts" not in kwds and hasattr(self, 'enable_opts'):
@@ -286,7 +285,6 @@ class JitMixin:
 
 
 class LLJitMixin(JitMixin):
-    type_system = 'lltype'
     CPUClass = runner.LLGraphCPU
 
     @staticmethod

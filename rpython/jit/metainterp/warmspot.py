@@ -52,7 +52,7 @@ def apply_jit(translator, backend_name="auto", inline=False,
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
-def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
+def ll_meta_interp(function, args, backendopt=False,
                    listcomp=False, translationoptions={}, **kwds):
     if listcomp:
         extraconfigopts = {'translation.list_comprehension_operations': True}
@@ -62,7 +62,6 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
         extraconfigopts['translation.' + key] = value
     interp, graph = get_interpreter(function, args,
                                     backendopt=False,  # will be done below
-                                    type_system=type_system,
                                     **extraconfigopts)
     clear_tcache()
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
@@ -71,7 +70,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     backendopt=False, trace_limit=sys.maxint,
                     inline=False, loop_longevity=0, retrace_limit=5,
                     function_threshold=4, disable_unrolling=sys.maxint,
-                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, 
+                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15,
                     max_unroll_recursion=7, **kwds):
     from rpython.config.config import ConfigError
     translator = interp.typer.annotator.translator
@@ -525,17 +524,13 @@ class WarmRunnerDesc(object):
                 fatalerror('~~~ Crash in JIT! %s' % (e,))
         crash_in_jit._dont_inline_ = True
 
-        if self.translator.rtyper.type_system.name == 'lltypesystem':
-            def maybe_enter_jit(*args):
-                try:
-                    maybe_compile_and_run(state.increment_threshold, *args)
-                except Exception, e:
-                    crash_in_jit(e)
-            maybe_enter_jit._always_inline_ = True
-        else:
-            def maybe_enter_jit(*args):
+        def maybe_enter_jit(*args):
+            try:
                 maybe_compile_and_run(state.increment_threshold, *args)
-            maybe_enter_jit._always_inline_ = True
+            except Exception as e:
+                crash_in_jit(e)
+        maybe_enter_jit._always_inline_ = True
+
         jd._maybe_enter_jit_fn = maybe_enter_jit
         jd._maybe_compile_and_run_fn = maybe_compile_and_run
 
