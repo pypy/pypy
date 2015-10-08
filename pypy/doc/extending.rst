@@ -83,7 +83,7 @@ most cross-language call overhead.
 
 
 RPython Mixed Modules
-=====================
+---------------------
 
 This is the internal way to write built-in extension modules in PyPy.
 It cannot be used by any 3rd-party module: the extension modules are

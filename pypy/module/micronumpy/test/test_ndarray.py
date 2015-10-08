@@ -169,7 +169,7 @@ class TestNumArrayDirect(object):
                                     [1, 1, 1, 105, 105]
 
     def test_find_shape(self):
-        from pypy.module.micronumpy.strides import find_shape_and_elems
+        from pypy.module.micronumpy.ctors import find_shape_and_elems
 
         space = self.space
         shape, elems = find_shape_and_elems(space,
@@ -2475,6 +2475,18 @@ class AppTestNumArray(BaseNumpyAppTest):
         a.fill(12)
         assert (a == u'1').all()
 
+    def test_unicode_record_array(self) :
+        from numpy import dtype, array
+        t = dtype([('a', 'S3'), ('b', 'U2')])
+        x = array([('a', u'b')], dtype=t)
+        assert str(x) ==  "[('a', u'b')]"
+
+        t = dtype([('a', 'U3'), ('b', 'S2')])
+        x = array([(u'a', 'b')], dtype=t)
+        x['a'] = u'1'
+        assert str(x) ==  "[(u'1', 'b')]"
+
+
     def test_boolean_indexing(self):
         import numpy as np
         a = np.zeros((1, 3))
@@ -2697,7 +2709,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
                 "input array from shape (3,1) into shape (3)"
         a[:, 1] = b[:,0] > 0.5
         assert (a == [[0, 1], [0, 1], [0, 1]]).all()
-        
+
 
     def test_ufunc(self):
         from numpy import array
@@ -3856,7 +3868,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
 
         assert a[0]['y'] == 2
         assert a[1]['y'] == 1
-        
+
         a = array([(1, [])], dtype=[('a', int32), ('b', int32, 0)])
         assert a['b'].shape == (1, 0)
         b = loads(dumps(a))

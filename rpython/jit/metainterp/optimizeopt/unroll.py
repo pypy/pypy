@@ -320,6 +320,14 @@ class UnrollOptimizer(Optimization):
             return None # explicit because the return can be non-None
         return virtual_state
 
+    def _map_args(self, mapping, arglist):
+        result = []
+        for box in arglist:
+            if not isinstance(box, Const):
+                box = mapping[box]
+            result.append(box)
+        return result
+
     def inline_short_preamble(self, jump_args, args_no_virtuals, short,
                               patchguardop, target_token, label_op):
         short_inputargs = short[0].getarglist()
@@ -331,33 +339,39 @@ class UnrollOptimizer(Optimization):
             # THIS WILL MODIFY ALL THE LISTS PROVIDED, POTENTIALLY
             self.short_preamble_producer.setup(short_inputargs, short_jump_args,
                                                short, label_op.getarglist())
-        try:
+        if 1:     # (keep indentation)
             self._check_no_forwarding([short_inputargs, short], False)
             assert len(short_inputargs) == len(jump_args)
+            # We need to make a list of fresh new operations corresponding
+            # to the short preamble operations.  We could temporarily forward
+            # the short operations to the fresh ones, but there are obscure
+            # issues: send_extra_operation() below might occasionally invoke
+            # use_box(), which assumes the short operations are not forwarded.
+            # So we avoid such temporary forwarding and just use a dict here.
+            mapping = {}
             for i in range(len(jump_args)):
-                short_inputargs[i].set_forwarded(None)
-                self.make_equal_to(short_inputargs[i], jump_args[i])
+                mapping[short_inputargs[i]] = jump_args[i]
             i = 1
             while i < len(short) - 1:
-                op = short[i]
-                if op.is_guard():
-                    op = self.replace_op_with(op, op.getopnum(),
+                sop = short[i]
+                arglist = self._map_args(mapping, sop.getarglist())
+                if sop.is_guard():
+                    op = sop.copy_and_change(sop.getopnum(), arglist,
                                     descr=compile.ResumeAtPositionDescr())
                     assert isinstance(op, GuardResOp)
                     op.rd_snapshot = patchguardop.rd_snapshot
                     op.rd_frame_info_list = patchguardop.rd_frame_info_list
+                else:
+                    op = sop.copy_and_change(sop.getopnum(), arglist)
+                mapping[sop] = op
                 i += 1
                 self.optimizer.send_extra_operation(op)
             # force all of them except the virtuals
             for arg in args_no_virtuals + short_jump_args:
                 self.optimizer.force_box(self.get_box_replacement(arg))
             self.optimizer.flush()
-            return [self.get_box_replacement(box) for box in short_jump_args]
-        finally:
-            for op in short_inputargs:
-                op.set_forwarded(None)
-            for op in short:
-                op.set_forwarded(None)
+            return [self.get_box_replacement(box)
+                    for box in self._map_args(mapping, short_jump_args)]
 
     def _expand_info(self, arg, infos):
         if isinstance(arg, AbstractResOp) and arg.is_same_as():

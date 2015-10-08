@@ -396,6 +396,18 @@ class LLGraphCPU(model.AbstractCPU):
         except ExecutionFinished, e:
             return e.deadframe
 
+    def get_value_direct(self, deadframe, tp, index):
+        v = deadframe._extra_value
+        if tp == 'i':
+            assert lltype.typeOf(v) == lltype.Signed
+        elif tp == 'r':
+            assert lltype.typeOf(v) == llmemory.GCREF
+        elif tp == 'f':
+            assert lltype.typeOf(v) == longlong.FLOATSTORAGE
+        else:
+            assert False
+        return v
+
     def get_int_value(self, deadframe, index):
         v = deadframe._values[index]
         assert lltype.typeOf(v) == lltype.Signed
@@ -938,11 +950,13 @@ class LLDeadFrame(object):
     _TYPE = llmemory.GCREF
 
     def __init__(self, latest_descr, values,
-                 last_exception=None, saved_data=None):
+                 last_exception=None, saved_data=None,
+                 extra_value=None):
         self._latest_descr = latest_descr
         self._values = values
         self._last_exception = last_exception
         self._saved_data = saved_data
+        self._extra_value = extra_value
 
 
 class LLFrame(object):
@@ -1062,7 +1076,7 @@ class LLFrame(object):
             values[i] = value
             accuminfo = accuminfo.next()
 
-    def fail_guard(self, descr, saved_data=None):
+    def fail_guard(self, descr, saved_data=None, extra_value=None):
         values = []
         for box in self.current_op.getfailargs():
             if box is not None:
@@ -1078,7 +1092,7 @@ class LLFrame(object):
         else:
             raise ExecutionFinished(LLDeadFrame(descr, values,
                                                 self.last_exception,
-                                                saved_data))
+                                                saved_data, extra_value))
 
     def execute_force_spill(self, _, arg):
         pass
@@ -1110,7 +1124,7 @@ class LLFrame(object):
 
     def execute_guard_value(self, descr, arg1, arg2):
         if arg1 != arg2:
-            self.fail_guard(descr)
+            self.fail_guard(descr, extra_value=arg1)
 
     def execute_guard_nonnull(self, descr, arg):
         if not arg:
@@ -1229,7 +1243,6 @@ class LLFrame(object):
     def execute_guard_overflow(self, descr):
         if not self.overflow_flag:
             self.fail_guard(descr)
-        return lltype.nullptr(llmemory.GCREF.TO) # I think it's fine....
 
     def execute_jump(self, descr, *args):
         raise Jump(descr._llgraph_target, args)

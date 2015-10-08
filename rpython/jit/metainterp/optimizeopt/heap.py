@@ -11,7 +11,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop, ResOperation, OpHelpers,\
-     AbstractResOp
+     AbstractResOp, GuardResOp
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.optimizeopt import info
         
@@ -288,7 +288,7 @@ class OptHeap(Optimization):
             cf = submap[index] = ArrayCachedField(index)
         return cf
 
-    def emit_operation(self, op):
+    def emit_operation(self, op):        
         self.emitting_operation(op)
         self.emit_postponed_op()
         if (op.is_comparison() or op.is_call_may_force()
@@ -414,6 +414,8 @@ class OptHeap(Optimization):
         for arraydescr in effectinfo.readonly_descrs_arrays:
             self.force_lazy_setarrayitem(arraydescr)
         for fielddescr in effectinfo.write_descrs_fields:
+            if fielddescr.is_always_pure():
+                continue
             try:
                 del self.cached_dict_reads[fielddescr]
             except KeyError:

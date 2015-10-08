@@ -788,6 +788,8 @@ class WarmRunnerDesc(object):
         if func.func_name.startswith('stats_'):
             # get special treatment since we rewrite it to a call that accepts
             # jit driver
+            assert len(op.args) >= 3, ("%r must have a first argument "
+                                       "(which is None)" % (func,))
             func = func_with_new_name(func, func.func_name + '_compiled')
 
             def new_func(ignored, *args):

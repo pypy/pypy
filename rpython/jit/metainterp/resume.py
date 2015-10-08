@@ -26,19 +26,6 @@ class Snapshot(object):
         self.prev = prev
         self.boxes = boxes
 
-    def copy(self, memo):
-        try:
-            return memo.snapshots[self]
-        except KeyError:
-            if self.prev is not None:
-                prev = self.prev.copy(memo)
-            else:
-                prev = None
-            boxes = [memo.get(box, box) for box in self.boxes]
-            new_snapshot = Snapshot(prev, boxes)
-            memo.snapshots[self] = new_snapshot
-            return new_snapshot
-
 class FrameInfo(object):
     __slots__ = ('prev', 'jitcode', 'pc')
 

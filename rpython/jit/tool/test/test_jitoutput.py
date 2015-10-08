@@ -52,6 +52,7 @@ recorded ops:           6
 guards:                 1
 opt ops:                6
 opt guards:             1
+opt guards shared:      1
 forcings:               1
 abort: trace too long:  10
 abort: compiling:       11

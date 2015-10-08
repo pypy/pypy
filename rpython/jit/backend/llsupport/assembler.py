@@ -175,6 +175,8 @@ class BaseAssembler(object):
             input_i += 1
         return locs
 
+    _previous_rd_locs = []
+
     def store_info_on_descr(self, startspos, guardtok):
         withfloats = False
         for box in guardtok.failargs:
@@ -187,7 +189,17 @@ class BaseAssembler(object):
         fail_descr = cast_instance_to_gcref(guardtok.faildescr)
         fail_descr = rffi.cast(lltype.Signed, fail_descr)
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        positions = [rffi.cast(rffi.USHORT, 0)] * len(guardtok.fail_locs)
+        #
+        # in practice, about 2/3rd of 'positions' lists that we build are
+        # exactly the same as the previous one, so share the lists to
+        # conserve memory
+        if len(self._previous_rd_locs) == len(guardtok.fail_locs):
+            positions = self._previous_rd_locs     # tentatively
+            shared = True
+        else:
+            positions = [rffi.cast(rffi.USHORT, 0)] * len(guardtok.fail_locs)
+            shared = False
+        #
         for i, loc in enumerate(guardtok.fail_locs):
             if loc is None:
                 position = 0xFFFF
@@ -206,7 +218,15 @@ class BaseAssembler(object):
                     position = len(self.cpu.gen_regs) + loc.value * coeff
                 else:
                     position = self.cpu.all_reg_indexes[loc.value]
+
+            if shared:
+                if (rffi.cast(lltype.Signed, self._previous_rd_locs[i]) ==
+                    rffi.cast(lltype.Signed, position)):
+                    continue   # still equal
+                positions = positions[:]
+                shared = False
             positions[i] = rffi.cast(rffi.USHORT, position)
+        self._previous_rd_locs = positions
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
         return fail_descr, target

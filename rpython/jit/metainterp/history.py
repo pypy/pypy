@@ -175,6 +175,9 @@ class BasicFailDescr(AbstractFailDescr):
     def __init__(self, identifier=None):
         self.identifier = identifier      # for testing
 
+    def make_a_counter_per_value(self, op, index):
+        pass # for testing
+
 
 @specialize.argtype(0)
 def newconst(value):
@@ -561,6 +564,9 @@ class TreeLoop(object):
     def check_consistency_of_branch(operations, seen, check_descr=True):
         "NOT_RPYTHON"
         for num, op in enumerate(operations):
+            if op.is_ovf():
+                assert operations[num + 1].getopnum() in (rop.GUARD_NO_OVERFLOW,
+                                                          rop.GUARD_OVERFLOW)
             for i in range(op.numargs()):
                 box = op.getarg(i)
                 if not isinstance(box, Const):
@@ -771,7 +777,6 @@ class Stats(object):
         return tokens
 
     def check_history(self, expected=None, **check):
-        return
         insns = {}
         for op in self.operations:
             opname = op.getopname()
