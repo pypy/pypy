@@ -409,15 +409,16 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
 
     def _consider_guard_cc(true):
-        def function(self, op):
+        def consider_guard_cc(self, op):
             arg = op.getarg(0)
             if arg.is_vector():
                 loc = self.loc(arg)
                 self.assembler.guard_vector(op, self.loc(arg), true)
+                return
             else:
                 self.load_condition_into_cc(arg)
             self.perform_guard(op, [], None)
-        return function
+        return consider_guard_cc
 
     consider_guard_true = _consider_guard_cc(True)
     consider_guard_false = _consider_guard_cc(False)

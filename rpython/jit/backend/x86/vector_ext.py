@@ -599,7 +599,6 @@ class VectorRegallocMixin(object):
         args = op.getarglist()
         rhsloc = self.make_sure_var_in_reg(op.getarg(1), args)
         lhsloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
-        #resloc = self.force_allocate_reg_or_cc(op)
         self.perform(op, [lhsloc, rhsloc, imm(lhs.bytesize)], lhsloc)
 
     consider_vec_float_ne = consider_vec_float_eq
