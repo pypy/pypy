@@ -56,3 +56,7 @@ floats, cf. issue #2148.
 
 .. branch: cffi-stdcall
 Win32: support '__stdcall' in CFFI.
+
+.. branch: callfamily
+
+Refactorings of annotation and rtyping of function calls.
