@@ -874,7 +874,7 @@ class LowLevelOpList(list):
         # build the 'direct_call' operation
         f = self.rtyper.getcallable(graph)
         c = inputconst(typeOf(f), f)
-        fobj = self.rtyper.type_system.deref(f)
+        fobj = f._obj
         return self.genop('direct_call', [c]+newargs_v,
                           resulttype = typeOf(fobj).RESULT)
 

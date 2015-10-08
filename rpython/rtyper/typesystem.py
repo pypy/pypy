@@ -8,10 +8,6 @@ from rpython.rtyper.error import TyperError
 class LowLevelTypeSystem(object):
     name = "lltypesystem"
 
-    def deref(self, obj):
-        assert isinstance(lltype.typeOf(obj), lltype.Ptr)
-        return obj._obj
-
     def check_null(self, repr, hop):
         # None is a nullptr, which is false; everything else is true.
         vlist = hop.inputargs(repr)
@@ -71,8 +67,7 @@ def getfunctionptr(graph, getconcretetype=None):
         # _callable is normally graph.func, but can be overridden:
         # see fakeimpl in extfunc.py
         _callable = fnobjattrs.pop('_callable', graph.func)
-        return lltype.functionptr(FT, name, graph = graph,
-                                  _callable = _callable, **fnobjattrs)
+        return lltype.functionptr(FT, name, graph=graph,
+                                  _callable=_callable, **fnobjattrs)
     else:
-        return lltype.functionptr(FT, name, graph = graph)
-
+        return lltype.functionptr(FT, name, graph=graph)

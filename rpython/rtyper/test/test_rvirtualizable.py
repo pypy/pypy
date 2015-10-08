@@ -337,7 +337,6 @@ class TestVirtualizable(BaseRtypingTest):
             g(a)
 
         t, typer, graph = self.gengraph(f, [])
-        deref = typer.type_system.deref
 
         desc = typer.annotator.bookkeeper.getdesc(g)
         g_graphs = desc._cache.items()
@@ -354,7 +353,7 @@ class TestVirtualizable(BaseRtypingTest):
         def get_direct_call_graph(graph):
             for block, op in graph.iterblockops():
                 if op.opname == 'direct_call':
-                    return deref(op.args[0].value).graph
+                    return op.args[0].value._obj.graph
             return None
 
         assert get_direct_call_graph(f_graph) is g_graph_directly
