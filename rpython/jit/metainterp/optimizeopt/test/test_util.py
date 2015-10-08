@@ -251,7 +251,7 @@ class LLtypeMixin(object):
     tsize = cpu.sizeof(T, None)
     cdescr = cpu.fielddescrof(T, 'c')
     ddescr = cpu.fielddescrof(T, 'd')
-    arraydescr3 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(NODE)))
+    arraydescr3 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(NODE3)))
 
     U = lltype.GcStruct('U',
                         ('parent', OBJECT),

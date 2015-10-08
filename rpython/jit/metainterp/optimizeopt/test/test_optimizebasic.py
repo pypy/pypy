@@ -1531,7 +1531,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1, i1, descr=valuedescr)
         #
         # some operations on which the above setfield_gc cannot have effect
-        i3 = getarrayitem_gc_pure_i(p3, 1, descr=arraydescr)
+        i3 = getarrayitem_gc_i(p3, 1, descr=arraydescr)
         i4 = getarrayitem_gc_i(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
         setarrayitem_gc(p3, 0, i5, descr=arraydescr)
@@ -1543,7 +1543,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [p1, i1, i2, p3]
         #
-        i3 = getarrayitem_gc_pure_i(p3, 1, descr=arraydescr)
+        i3 = getarrayitem_gc_i(p3, 1, descr=arraydescr)
         i4 = getarrayitem_gc_i(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
         #
