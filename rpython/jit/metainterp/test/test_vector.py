@@ -196,7 +196,9 @@ class VectorizeTests:
             i = 0 ; nobreak = False
             while i < d:
                 myjitdriver.jit_merge_point()
-                if func(va[i]):
+                b = func(va[i])
+                if b:
+                    assert b
                     break
                 i += 1
             else:

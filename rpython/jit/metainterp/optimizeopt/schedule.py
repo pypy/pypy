@@ -442,6 +442,10 @@ def prepare_fail_arguments(state, pack, left, vecop):
     args = left.getfailargs()
     for i, arg in enumerate(args):
         pos, newarg = state.getvector_of_box(arg)
+        if newarg in vecop.getarglist():
+            # in this case we do not know which slot
+            # failed. thus we bail!
+            raise NotAVectorizeableLoop()
         if newarg is None:
             newarg = arg
         if newarg.is_vector(): # can be moved to guard exit!

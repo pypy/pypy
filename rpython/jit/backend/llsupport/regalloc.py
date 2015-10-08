@@ -267,6 +267,7 @@ class FrameManager(object):
         raise NotImplementedError("Purely abstract")
 
 class RegisterManager(object):
+
     """ Class that keeps track of register allocations
     """
     box_types             = None       # or a list of acceptable types

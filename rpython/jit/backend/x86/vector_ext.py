@@ -597,9 +597,9 @@ class VectorRegallocMixin(object):
     def consider_vec_float_eq(self, op):
         lhs = op.getarg(0)
         args = op.getarglist()
-        lhsloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
         rhsloc = self.make_sure_var_in_reg(op.getarg(1), args)
-        resloc = self.force_allocate_reg_or_cc(op)
+        lhsloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
+        #resloc = self.force_allocate_reg_or_cc(op)
         self.perform(op, [lhsloc, rhsloc, imm(lhs.bytesize)], lhsloc)
 
     consider_vec_float_ne = consider_vec_float_eq
@@ -692,9 +692,6 @@ class VectorRegallocMixin(object):
 
     consider_vec_i = _consider_vec
     consider_vec_f = _consider_vec
-
-    def consider_guard_early_exit(self, op):
-        pass
 
     def consider_vec_cast_float_to_int(self, op):
         args = op.getarglist()
