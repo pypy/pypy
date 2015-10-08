@@ -517,5 +517,27 @@ class VectorizeTests:
         res = self.meta_interp(f, [22], vec_all=True)
         assert res == f(22)
 
+    def test_guard_test_location_assert(self):
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        T1 = lltype.Array(rffi.SIGNED, hints={'nolength': True})
+        def f(size):
+            vector_a = lltype.malloc(T1, size, flavor='raw', zero=True)
+            for i in range(size):
+                vector_a[i] = 0
+            i = 0
+            breaks = 0
+            while i < size:
+                myjitdriver.jit_merge_point()
+                a = vector_a[i]
+                if a:
+                    breaks = 1
+                    break
+                del a
+                i += 1
+            lltype.free(vector_a, flavor='raw')
+            return breaks
+        res = self.meta_interp(f, [22], vec_all=True, vec_guard_ratio=5)
+        assert res == f(22)
+
 class TestLLtype(LLJitMixin, VectorizeTests):
     pass

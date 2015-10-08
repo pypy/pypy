@@ -89,3 +89,4 @@ class TestAssembler(BaseTestAssembler):
 
         res = self.do_test(callback) & 0xffffffff
         assert res == 22
+

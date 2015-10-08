@@ -414,7 +414,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             if arg.is_vector():
                 loc = self.loc(arg)
                 self.assembler.guard_vector(op, self.loc(arg), true)
-                return
             else:
                 self.load_condition_into_cc(arg)
             self.perform_guard(op, [], None)
