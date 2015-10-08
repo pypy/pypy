@@ -684,6 +684,22 @@ def make_done_loop_tokens():
 class ResumeDescr(AbstractFailDescr):
     _attrs_ = ()
 
+    def clone(self):
+        cloned = self.__class__()
+        cloned.copy_all_attributes_from(self)
+        return cloned
+
+    def exits_early(self):
+        return False
+
+    def attach_accum_info(self, pos, operator, arg, loc):
+        self.rd_accum_list = \
+                AccumInfo(self.rd_accum_list, pos, operator, arg, loc)
+
+    def copy_all_attributes_from(self, other):
+        pass
+
+
 class AbstractResumeGuardDescr(ResumeDescr):
     _attrs_ = ('status',)
 
@@ -823,18 +839,6 @@ class AbstractResumeGuardDescr(ResumeDescr):
             jitcounter = metainterp_sd.warmrunnerdesc.jitcounter
             hash = jitcounter.fetch_next_hash()
             self.status = hash & self.ST_SHIFT_MASK
-
-    def clone(self):
-        cloned = self.__class__()
-        cloned.copy_all_attributes_from(self)
-        return cloned
-
-    def exits_early(self):
-        return False
-
-    def attach_accum_info(self, pos, operator, arg, loc):
-        self.rd_accum_list = \
-                AccumInfo(self.rd_accum_list, pos, operator, arg, loc)
 
 class ResumeGuardCopiedDescr(AbstractResumeGuardDescr):
     _attrs_ = ('status', 'prev')
@@ -989,13 +993,6 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         obj = AllVirtuals(all_virtuals)
         hidden_all_virtuals = obj.hide(metainterp_sd.cpu)
         metainterp_sd.cpu.set_savedata_ref(deadframe, hidden_all_virtuals)
-
-    #def clone(self):
-    #    cloned = self.__class__()
-    #    cloned.metainterp_sd = self.metainterp_sd
-    #    cloned.jitdriver_sd = self.jitdriver_sd
-    #    cloned.copy_all_attributes_from(self)
-    #    return cloned
 
 class ResumeFromInterpDescr(ResumeDescr):
     def __init__(self, original_greenkey):

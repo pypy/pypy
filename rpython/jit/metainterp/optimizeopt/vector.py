@@ -11,8 +11,7 @@ import time
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
 #from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
-from rpython.jit.metainterp.compile import (CompileLoopVersionDescr,
-        ResumeGuardDescr, ResumeGuardCopiedDescr, AbstractResumeGuardDescr)
+from rpython.jit.metainterp.compile import (CompileLoopVersionDescr, ResumeDescr)
 from rpython.jit.metainterp.history import (INT, FLOAT, VECTOR, ConstInt, ConstFloat,
         TargetToken, JitCellToken, AbstractFailDescr)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
@@ -277,21 +276,7 @@ class VectorizingOptimizer(Optimizer):
                 # to be adjusted. rd_snapshot stores the live variables
                 # that are needed to resume.
                 if copied_op.is_guard():
-                    descr = copied_op.getdescr()
-                    if descr:
-                        if isinstance(descr, ResumeGuardCopiedDescr):
-                            descr = descr.prev
-                        else:
-                            descr = descr
-                        assert isinstance(descr, ResumeGuardDescr)
-                        copied_op.setdescr(descr.clone())
-                        # copy failargs/snapshot
-                        copied_op.rd_snapshot = \
-                          renamer.rename_rd_snapshot(copied_op.rd_snapshot,
-                                                     clone=True)
-                        renamed_failargs = \
-                            renamer.rename_failargs(copied_op, clone=True)
-                        copied_op.setfailargs(renamed_failargs)
+                    self.copy_guard_descr(renamer, copied_op)
                 #
                 unrolled.append(copied_op)
 
@@ -304,6 +289,14 @@ class VectorizingOptimizer(Optimizer):
             loop.jump.setarg(i, value)
         #
         loop.operations = operations + unrolled
+
+    def copy_guard_descr(self, renamer, copied_op):
+        descr = copied_op.getdescr()
+        if descr:
+            assert isinstance(descr, ResumeDescr)
+            copied_op.setdescr(descr.clone())
+            failargs = renamer.rename_failargs(copied_op, clone=True)
+            copied_op.setfailargs(failargs)
 
     def linear_find_smallest_type(self, loop):
         # O(#operations)
