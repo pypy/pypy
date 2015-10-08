@@ -11,8 +11,7 @@ import time
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
 #from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
-from rpython.jit.metainterp.compile import (CompileLoopVersionDescr,
-        invent_fail_descr_for_op, ResumeGuardDescr)
+from rpython.jit.metainterp.compile import (CompileLoopVersionDescr, ResumeGuardDescr)
 from rpython.jit.metainterp.history import (INT, FLOAT, VECTOR, ConstInt, ConstFloat,
         TargetToken, JitCellToken, AbstractFailDescr)
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer, Optimization
@@ -161,7 +160,7 @@ def user_loop_bail_fast_path(loop, warmstate):
     guard_count = 0
     at_least_one_array_access = True
     for i,op in enumerate(loop.operations):
-        if op.is_debug():
+        if op.is_jit_debug():
             continue
 
         if op.vector >= 0 and not op.is_guard():

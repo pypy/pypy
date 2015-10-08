@@ -390,17 +390,14 @@ def turn_into_vector(state, pack):
     prepare_arguments(state, pack, args)
     vecop = VecOperation(left.vector, args, left,
                          pack.numops(), left.getdescr())
+    if left.is_guard():
+        prepare_fail_arguments(state, pack, left, vecop)
     state.oplist.append(vecop)
     for i,node in enumerate(pack.operations):
         op = node.getoperation()
         state.setvector_of_box(op,i,vecop)
         if pack.is_accumulating():
             state.renamer.start_renaming(op, vecop)
-    if left.is_guard():
-        assert isinstance(left, GuardResOp)
-        assert isinstance(vecop, GuardResOp)
-        vecop.setfailargs(left.getfailargs())
-        vecop.rd_snapshot = left.rd_snapshot
 
 def prepare_arguments(state, pack, args):
     # Transforming one argument to a vector box argument
@@ -438,6 +435,20 @@ def prepare_arguments(state, pack, args):
         crop_vector(state, oprestrict, restrict, pack, args, i) # b)
         position_values(state, restrict, pack, args, i, pos) # d)
         restrict.check(args[i])
+
+def prepare_fail_arguments(state, pack, left, vecop):
+    assert isinstance(left, GuardResOp)
+    assert isinstance(vecop, GuardResOp)
+    args = left.getfailargs()
+    for i, arg in enumerate(args):
+        pos, newarg = state.getvector_of_box(arg)
+        if newarg is None:
+            newarg = arg
+        if newarg.is_vector(): # can be moved to guard exit!
+            newarg = unpack_from_vector(state, newarg, 0, 1)
+        args[i] = newarg
+    vecop.setfailargs(args)
+    vecop.rd_snapshot = left.rd_snapshot
 
 @always_inline
 def crop_vector(state, oprestrict, restrict, pack, args, i):

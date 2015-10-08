@@ -759,8 +759,7 @@ class AbstractResumeGuardDescr(ResumeDescr):
                                                             index)
             elif typetag == self.TY_REF:
                 refval = metainterp_sd.cpu.get_value_direct(deadframe, 'r',
-            elif typetag == self.TY_REF:
-                refval = metainterp_sd.cpu.get_ref_value(deadframe, index)
+                                                            index)
                 intval = lltype.cast_ptr_to_int(refval)
             elif typetag == self.TY_FLOAT:
                 floatval = metainterp_sd.cpu.get_value_direct(deadframe, 'f',
@@ -912,6 +911,25 @@ class AllVirtuals:
         ptr = cpu.ts.cast_to_baseclass(gcref)
         return cast_base_ptr_to_instance(AllVirtuals, ptr)
 
+def invent_fail_descr_for_op(opnum, optimizer, copied_guard=False):
+    if opnum == rop.GUARD_NOT_FORCED or opnum == rop.GUARD_NOT_FORCED_2:
+        assert not copied_guard
+        resumedescr = ResumeGuardForcedDescr()
+        resumedescr._init(optimizer.metainterp_sd, optimizer.jitdriver_sd)
+    elif opnum in (rop.GUARD_IS_OBJECT, rop.GUARD_SUBCLASS, rop.GUARD_GC_TYPE):
+        # note - this only happens in tests
+        resumedescr = ResumeAtPositionDescr()
+    elif opnum in (rop.GUARD_EXCEPTION, rop.GUARD_NO_EXCEPTION):
+        if copied_guard:
+            resumedescr = ResumeGuardCopiedExcDescr()
+        else:
+            resumedescr = ResumeGuardExcDescr()
+    else:
+        if copied_guard:
+            resumedescr = ResumeGuardCopiedDescr()
+        else:
+            resumedescr = ResumeGuardDescr()
+    return resumedescr
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):
     def _init(self, metainterp_sd, jitdriver_sd):
