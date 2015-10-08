@@ -277,7 +277,6 @@ class VectorizingOptimizer(Optimizer):
                 # to be adjusted. rd_snapshot stores the live variables
                 # that are needed to resume.
                 if copied_op.is_guard():
-                    assert isinstance(copied_op, GuardResOp)
                     descr = copied_op.getdescr()
                     if descr:
                         if isinstance(descr, ResumeGuardCopiedDescr):
