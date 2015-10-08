@@ -363,12 +363,13 @@ class MIFrame(object):
         exec py.code.Source('''
             @arguments("box", "box", "label", "orgpc")
             def opimpl_goto_if_not_%s(self, b1, b2, target, orgpc):
-                if b1 is b2:
+                if %s and b1 is b2:
                     condbox = %s
                 else:
                     condbox = self.execute(rop.%s, b1, b2)
                 self.opimpl_goto_if_not(condbox, target, orgpc)
-        ''' % (_opimpl, FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
+        ''' % (_opimpl, not _opimpl.startswith('float_'),
+               FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
         ).compile()
 
     def _establish_nullity(self, box, orgpc):
