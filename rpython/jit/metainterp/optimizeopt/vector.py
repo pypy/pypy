@@ -161,7 +161,7 @@ def user_loop_bail_fast_path(loop, warmstate):
     guard_count = 0
     at_least_one_array_access = True
     for i,op in enumerate(loop.operations):
-        if op.getopnum() == rop.DEBUG_MERGE_POINT:
+        if op.is_debug():
             continue
 
         if op.vector >= 0 and not op.is_guard():
