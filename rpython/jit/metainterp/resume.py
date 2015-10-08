@@ -12,6 +12,7 @@ from rpython.rtyper import annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.rclass import OBJECTPTR
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
+from rpython.jit.metainterp import resumecode
 
 
 # Logic to encode the chain of frames and the state of the boxes at a
@@ -196,25 +197,9 @@ class ResumeDataLoopMemo(object):
 
     # env numbering
 
-    def number(self, optimizer, snapshot, frameinfo, first_iteration=False):
-        if snapshot is None:
-            return lltype.nullptr(NUMBERING), {}, 0
-        if snapshot in self.numberings:
-            numb, liveboxes, v = self.numberings[snapshot]
-            return numb, liveboxes.copy(), v
-
-        if first_iteration:
-            numb1, liveboxes, v = self.number(optimizer, snapshot.prev, frameinfo)
-        else:
-            numb1, liveboxes, v = self.number(optimizer, snapshot.prev, frameinfo.prev)
-        n = len(liveboxes) - v
-        boxes = snapshot.boxes
+    def _number_boxes(self, boxes, liveboxes, optimizer, v, n):
         length = len(boxes)
-        numb = lltype.malloc(NUMBERING, length)
-        if first_iteration:
-            numb.packed_jitcode_pc = -1
-        else:
-            numb.packed_jitcode_pc = frameinfo.packed_jitcode_pc
+        current = []
         for i in range(length):
             box = boxes[i]
             box = optimizer.get_box_replacement(box)
@@ -238,12 +223,58 @@ class ResumeDataLoopMemo(object):
                     tagged = tag(n, TAGBOX)
                     n += 1
                 liveboxes[box] = tagged
-            numb.nums[i] = tagged
-        #
-        numb.prev = numb1
-        self.numberings[snapshot] = numb, liveboxes, v
-        return numb, liveboxes.copy(), v
+            current.append(tagged)
+        return v, n, current
 
+    def _get_prev_snapshot(self, snapshot):
+        cur_snapshot = snapshot
+        while True:
+            try:
+                return self.numberings[cur_snapshot], cur_snapshot
+            except KeyError:
+                pass
+            cur_snapshot = cur_snapshot.prev
+            if not cur_snapshot:
+                return (lltype.nullptr(resumecode.NUMBERING), 0, {}, 0), None
+
+    def number(self, optimizer, snapshot, frameinfo):
+        # find the parent
+
+        p = self._get_prev_snapshot(snapshot)
+        (prev_numb, prev_numb_index, liveboxes, v), s = p
+        n = len(liveboxes) - v
+        first = True
+        all_lists = []
+        total_lgt = 0
+        cur_snapshot = snapshot
+        liveboxes_to_save = []
+        while cur_snapshot != s:
+            liveboxes_to_save.append((liveboxes.copy(), v))
+            v, n, current = self._number_boxes(cur_snapshot.boxes, liveboxes, optimizer,
+                v, n)
+            cur_snapshot = cur_snapshot.prev
+            if first:
+                first = False
+            else:
+                jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
+                current.append(rffi.cast(rffi.USHORT, jitcode_pos))
+                current.append(rffi.cast(rffi.USHORT, pc))
+            lst = resumecode.create_numbering(current)
+            total_lgt += len(lst)
+            all_lists.append(lst)
+        numb = lltype.malloc(resumecode.NUMBERING, total_lgt)
+        numb.prev = prev_numb
+        numb.prev_index = rffi.cast(rffi.USHORT, prev_numb_index)
+        index = 0
+        for i in range(len(all_lists)):
+            lst = all_lists[i]
+            liveboxes_snapshot, v = liveboxes_to_save[i]
+            self.numberings[snapshot] = (numb, index, liveboxes_snapshot, v)
+            resumecode.copy_from_list_to_numb(lst, numb, index)
+            index += len(lst)
+            snapshot = snapshot.prev
+        return numb, liveboxes, v
+        
     def forget_numberings(self):
         # XXX ideally clear only the affected numberings
         self.numberings.clear()
@@ -385,8 +416,15 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         assert not storage.rd_numb
         snapshot = self.snapshot_storage.rd_snapshot
         assert snapshot is not None # is that true?
+        # count stack depth
+        frame_info_list = self.snapshot_storage.rd_frame_info_list
+        stack_depth = 1
+        while frame_info_list.prev is not None:
+            frame_info_list = frame_info_list.prev
+            stack_depth += 1
+        storage.rd_stack_depth = stack_depth
         numb, liveboxes_from_env, v = self.memo.number(optimizer, snapshot,
-            self.snapshot_storage.rd_frame_info_list, first_iteration=True)
+            self.snapshot_storage.rd_frame_info_list)
         self.liveboxes_from_env = liveboxes_from_env
         self.liveboxes = {}
         storage.rd_numb = numb

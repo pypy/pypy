@@ -823,12 +823,13 @@ class ResumeGuardCopiedDescr(AbstractResumeGuardDescr):
 
 class ResumeGuardDescr(AbstractResumeGuardDescr):
     _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
-               'rd_pendingfields', 'status')
+               'rd_pendingfields', 'rd_stackdepth', 'status')
     
     rd_numb = lltype.nullptr(NUMBERING)
     rd_count = 0
     rd_consts = None
     rd_virtuals = None
+    rd_stackdepth = 0
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
     def copy_all_attributes_from(self, other):
@@ -839,6 +840,7 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
         self.rd_consts = other.rd_consts
         self.rd_pendingfields = other.rd_pendingfields
         self.rd_virtuals = other.rd_virtuals
+        self.rd_stackdepth = other.rd_stackdepth
         self.rd_numb = other.rd_numb
         # we don't copy status
 
