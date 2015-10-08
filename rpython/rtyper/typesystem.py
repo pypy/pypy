@@ -13,10 +13,6 @@ class LowLevelTypeSystem(object):
         vlist = hop.inputargs(repr)
         return hop.genop('ptr_nonzero', vlist, resulttype=lltype.Bool)
 
-    def getexternalcallable(self, ll_args, ll_result, name, **kwds):
-        FT = lltype.FuncType(ll_args, ll_result)
-        return lltype.functionptr(FT, name, **kwds)
-
     def generic_is(self, robj1, robj2, hop):
         roriginal1 = robj1
         roriginal2 = robj2

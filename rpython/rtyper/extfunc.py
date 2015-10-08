@@ -1,6 +1,6 @@
 from rpython.rtyper import extregistry
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.lltypesystem.lltype import typeOf
+from rpython.rtyper.lltypesystem.lltype import typeOf, FuncType, functionptr
 from rpython.annotator import model as annmodel
 from rpython.annotator.signature import annotation
 
@@ -200,13 +200,10 @@ class ExtFuncEntry(ExtRegistryEntry):
             obj = rtyper.getannmixlevel().delayedfunction(
                 impl, signature_args, hop.s_result)
         else:
-            #if not self.safe_not_sandboxed:
-            #    print '>>>>>>>>>>>>>-----------------------------------'
-            #    print name, self.name
-            #    print '<<<<<<<<<<<<<-----------------------------------'
-            obj = rtyper.type_system.getexternalcallable(args_ll, ll_result,
-                                 name, _external_name=self.name, _callable=fakeimpl,
-                                 _safe_not_sandboxed=self.safe_not_sandboxed)
+            FT = FuncType(args_ll, ll_result)
+            obj = functionptr(FT, name, _external_name=self.name,
+                              _callable=fakeimpl,
+                              _safe_not_sandboxed=self.safe_not_sandboxed)
         vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
         hop.exception_is_here()
         return hop.genop('direct_call', vlist, r_result)
