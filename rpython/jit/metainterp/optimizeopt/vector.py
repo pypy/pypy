@@ -281,7 +281,7 @@ class VectorizingOptimizer(Optimizer):
                     descr = copied_op.getdescr()
                     if descr:
                         assert isinstance(descr, AbstractResumeGuardDescr)
-                        if isinstance(descr, ResumeGuardDescr):
+                        if not isinstance(descr, ResumeGuardDescr):
                             descr = descr.prev.clone()
                         else:
                             descr = descr.clone()
