@@ -217,6 +217,7 @@ class LLtypeMixin(object):
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
 
     arrayimmutdescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed, hints={"immutable": True}))
+    immutarray = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(arrayimmutdescr.A, 13, zero=True))
     gcarrayimmutdescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF, hints={"immutable": True}))
     floatarrayimmutdescr = cpu.arraydescrof(lltype.GcArray(lltype.Float, hints={"immutable": True}))
 

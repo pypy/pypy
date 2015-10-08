@@ -2317,7 +2317,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, i1, descr=valuedescr)
         #
         # some operations on which the above setfield_gc cannot have effect
-        i3 = getarrayitem_gc_pure_i(p3, 1, descr=arraydescr)
+        i3 = getarrayitem_gc_i(p3, 1, descr=arraydescr)
         i4 = getarrayitem_gc_i(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
         setarrayitem_gc(p3, 0, i5, descr=arraydescr)
@@ -2330,7 +2330,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         preamble = """
         [p1, i1, i2, p3]
         #
-        i3 = getarrayitem_gc_pure_i(p3, 1, descr=arraydescr)
+        i3 = getarrayitem_gc_i(p3, 1, descr=arraydescr)
         i4 = getarrayitem_gc_i(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
         #
@@ -2338,11 +2338,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, i4, descr=nextdescr)
         setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         escape_n()
-        jump(p1, i1, i2, p3, i3)
+        jump(p1, i1, i2, p3)
         """
         expected = """
-        [p1, i1, i2, p3, i3]
+        [p1, i1, i2, p3]
         #
+        i3 = getarrayitem_gc_i(p3, 1, descr=arraydescr)
         i4 = getarrayitem_gc_i(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
         #
@@ -2350,8 +2351,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p1, i4, descr=nextdescr)
         setarrayitem_gc(p3, 0, i5, descr=arraydescr)
         escape_n()
-        ifoo = arraylen_gc(p3, descr=arraydescr) # killed by the backend
-        jump(p1, i1, i2, p3, i3)
+        jump(p1, i1, i2, p3)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -8780,13 +8780,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_back_and_forth(self):
         ops = """
         [p0]
-        p1 = getfield_gc_pure_r(p0, descr=bdescr)
+        p1 = getfield_gc_pure_r(p0, descr=valuedescr3)
         ptemp = new_with_vtable(descr=nodesize)
         setfield_gc(ptemp, p1, descr=nextdescr)
         p2 = getfield_gc_r(ptemp, descr=nextdescr)
-        ix = getarrayitem_gc_pure_i(p2, 0, descr=arraydescr)
+        ix = getarrayitem_gc_pure_i(p2, 0, descr=arrayimmutdescr)
         pfoo = getfield_gc_r(ptemp, descr=nextdescr)
-        guard_value(pfoo, ConstPtr(myarray)) []
+        guard_value(pfoo, ConstPtr(immutarray)) []
         ifoo = int_add(ix, 13)
         escape_n(ix)
         jump(p0)
