@@ -8,25 +8,6 @@ from rpython.rtyper.error import TyperError
 class LowLevelTypeSystem(object):
     name = "lltypesystem"
 
-    def generic_is(self, robj1, robj2, hop):
-        roriginal1 = robj1
-        roriginal2 = robj2
-        if robj1.lowleveltype is lltype.Void:
-            robj1 = robj2
-        elif robj2.lowleveltype is lltype.Void:
-            robj2 = robj1
-        if (not isinstance(robj1.lowleveltype, lltype.Ptr) or
-            not isinstance(robj2.lowleveltype, lltype.Ptr)):
-            raise TyperError('is of instances of the non-pointers: %r, %r' % (
-                roriginal1, roriginal2))
-        if robj1.lowleveltype != robj2.lowleveltype:
-            raise TyperError('is of instances of different pointer types: %r, %r' % (
-                roriginal1, roriginal2))
-
-        v_list = hop.inputargs(robj1, robj2)
-        return hop.genop('ptr_eq', v_list, resulttype=lltype.Bool)
-
-
 def _getconcretetype(v):
     return v.concretetype
 
