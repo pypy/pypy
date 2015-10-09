@@ -8,7 +8,8 @@ from rpython.jit.backend.ppc.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                           GPR_SAVE_AREA_OFFSET,
                                           THREADLOCAL_ADDR_OFFSET,
                                           STD_FRAME_SIZE_IN_BYTES,
-                                          IS_BIG_ENDIAN)
+                                          IS_BIG_ENDIAN,
+                                          LOCAL_VARS_OFFSET)
 from rpython.jit.backend.ppc.helper.assembler import Saved_Volatiles
 from rpython.jit.backend.ppc.helper.regalloc import _check_imm_arg
 import rpython.jit.backend.ppc.register as r
@@ -233,6 +234,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         # Second argument is the new size, which is still in r0 here
         mc.mr(r.r4.value, r.r0.value)
 
+        # This trashes r0 and r2
         self._store_and_reset_exception(mc, r.RCS2, r.RCS3)
 
         # Do the call
@@ -283,6 +285,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         mc.store(exctploc.value, r.r2.value, diff)
 
     def _reload_frame_if_necessary(self, mc, shadowstack_reg=None):
+        # might trash the VOLATILE registers different from r3 and f1
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
@@ -492,6 +495,8 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         old_mc = self.mc
         self.mc = mc
 
+        extra_stack_size = LOCAL_VARS_OFFSET + 4 * WORD + 8
+        extra_stack_size = (extra_stack_size + 15) & ~15
         if for_frame:
             # NOTE: don't save registers on the jitframe here!  It might
             # override already-saved values that will be restored
@@ -508,12 +513,12 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             # We need to increase our stack frame size a bit to store them.
             #
             self.mc.load(r.SCRATCH.value, r.SP.value, 0)    # SP back chain
-            self.mc.store_update(r.SCRATCH.value, r.SP.value, -6 * WORD)
-            self.mc.std(r.RCS1.value, r.SP.value, 1 * WORD)
-            self.mc.std(r.RCS2.value, r.SP.value, 2 * WORD)
-            self.mc.std(r.RCS3.value, r.SP.value, 3 * WORD)
-            self.mc.std(r.r3.value, r.SP.value, 4 * WORD)
-            self.mc.stfd(r.f1.value, r.SP.value, 5 * WORD)
+            self.mc.store_update(r.SCRATCH.value, r.SP.value, -extra_stack_size)
+            self.mc.std(r.RCS1.value, r.SP.value, LOCAL_VARS_OFFSET + 0 * WORD)
+            self.mc.std(r.RCS2.value, r.SP.value, LOCAL_VARS_OFFSET + 1 * WORD)
+            self.mc.std(r.RCS3.value, r.SP.value, LOCAL_VARS_OFFSET + 2 * WORD)
+            self.mc.std(r.r3.value,   r.SP.value, LOCAL_VARS_OFFSET + 3 * WORD)
+            self.mc.stfd(r.f1.value,  r.SP.value, LOCAL_VARS_OFFSET + 4 * WORD)
             saved_regs = None
             saved_fp_regs = None
 
@@ -536,6 +541,8 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             # since the call to write barrier can't collect
             # (and this is assumed a bit left and right here, like lack
             # of _reload_frame_if_necessary)
+            # This trashes r0 and r2, which is fine in this case
+            assert argument_loc is not r.r0
             self._store_and_reset_exception(mc, r.RCS2, r.RCS3)
 
         if withcards:
@@ -545,6 +552,8 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         mc.mflr(r.RCS1.value)
         #
         func = rffi.cast(lltype.Signed, func)
+        # Note: if not 'for_frame', argument_loc is r0, which must carefully
+        # not be overwritten above
         mc.mr(r.r3.value, argument_loc.value)
         mc.load_imm(mc.RAW_CALL_REG, func)
         mc.raw_call()
@@ -564,12 +573,12 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             mc.andix(r.RCS2.value, r.RCS2.value, card_marking_mask & 0xFF)
 
         if for_frame:
-            self.mc.ld(r.RCS1.value, r.SP.value, 1 * WORD)
-            self.mc.ld(r.RCS2.value, r.SP.value, 2 * WORD)
-            self.mc.ld(r.RCS3.value, r.SP.value, 3 * WORD)
-            self.mc.ld(r.r3.value, r.SP.value, 4 * WORD)
-            self.mc.lfd(r.f1.value, r.SP.value, 5 * WORD)
-            self.mc.addi(r.SP.value, r.SP.value, 6 * WORD)
+            self.mc.ld(r.RCS1.value, r.SP.value, LOCAL_VARS_OFFSET + 0 * WORD)
+            self.mc.ld(r.RCS2.value, r.SP.value, LOCAL_VARS_OFFSET + 1 * WORD)
+            self.mc.ld(r.RCS3.value, r.SP.value, LOCAL_VARS_OFFSET + 2 * WORD)
+            self.mc.ld(r.r3.value,   r.SP.value, LOCAL_VARS_OFFSET + 3 * WORD)
+            self.mc.lfd(r.f1.value,  r.SP.value, LOCAL_VARS_OFFSET + 4 * WORD)
+            self.mc.addi(r.SP.value, r.SP.value, extra_stack_size)
 
         else:
             self._pop_core_regs_from_jitframe(mc, saved_regs)
@@ -875,13 +884,12 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
     def target_arglocs(self, looptoken):
         return looptoken._ppc_arglocs
 
-    def materialize_loop(self, looptoken, show=False):
+    def materialize_loop(self, looptoken):
         self.datablockwrapper.done()
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         start = self.mc.materialize(self.cpu, allblocks,
                                     self.cpu.gc_ll_descr.gcrootmap)
-        #print "=== Loop start is at %s ===" % hex(r_uint(start))
         return start
 
     def load_gcmap(self, mc, reg, gcmap):
@@ -946,7 +954,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
             #
             relative_target = tok.pos_recovery_stub - tok.pos_jump_offset
             #
-            if not tok.is_guard_not_invalidated:
+            if not tok.guard_not_invalidated():
                 mc = PPCBuilder()
                 mc.b_cond_offset(relative_target, tok.fcond)
                 mc.copy_to_raw_memory(addr)
@@ -1219,7 +1227,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         force_realignment = (itemsize % WORD) != 0
         if force_realignment:
             constsize += WORD - 1
-        mc.addi(r.RSZ.value, r.RSZ.value, constsize)
+        mc.addi(r.RSZ.value, varsizeloc.value, constsize)
         if force_realignment:
             # "& ~(WORD-1)"
             bit_limit = 60 if WORD == 8 else 61
@@ -1324,8 +1332,10 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
 
 
 def notimplemented_op(self, op, arglocs, regalloc):
-    print "[PPC/asm] %s not implemented" % op.getopname()
-    raise NotImplementedError(op)
+    msg = '[PPC/asm] %s not implemented\n' % op.getopname()
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
+    raise NotImplementedError(msg)
 
 operations = [notimplemented_op] * (rop._LAST + 1)
 

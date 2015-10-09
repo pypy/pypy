@@ -254,9 +254,7 @@ class GuardOpAssembler(object):
 
     _mixin_ = True
 
-    def _emit_guard(self, op, arglocs, save_exc=False,
-                    is_guard_not_invalidated=False,
-                    is_guard_not_forced=False):
+    def _emit_guard(self, op, arglocs, is_guard_not_invalidated=False):
         if is_guard_not_invalidated:
             fcond = c.cond_none
         else:
@@ -264,22 +262,18 @@ class GuardOpAssembler(object):
             self.guard_success_cc = c.cond_none
             assert fcond != c.cond_none
             fcond = c.negate(fcond)
-        token = self.build_guard_token(op, arglocs[0].value, arglocs[1:],
-                                       fcond, save_exc, is_guard_not_invalidated,
-                                       is_guard_not_forced)
+        token = self.build_guard_token(op, arglocs[0].value, arglocs[1:], fcond)
         token.pos_jump_offset = self.mc.currpos()
+        assert token.guard_not_invalidated() == is_guard_not_invalidated
         if not is_guard_not_invalidated:
             self.mc.trap()     # has to be patched later on
         self.pending_guard_tokens.append(token)
 
-    def build_guard_token(self, op, frame_depth, arglocs, fcond, save_exc,
-                          is_guard_not_invalidated=False,
-                          is_guard_not_forced=False):
+    def build_guard_token(self, op, frame_depth, arglocs, fcond):
         descr = op.getdescr()
         gcmap = allocate_gcmap(self, frame_depth, r.JITFRAME_FIXED_SIZE)
         token = PPCGuardToken(self.cpu, gcmap, descr, op.getfailargs(),
-                              arglocs, save_exc, frame_depth,
-                              is_guard_not_invalidated, is_guard_not_forced,
+                              arglocs, op.getopnum(), frame_depth,
                               fcond)
         return token
 
@@ -440,7 +434,7 @@ class GuardOpAssembler(object):
 
     def emit_guard_not_forced_2(self, op, arglocs, regalloc):
         guard_token = self.build_guard_token(op, arglocs[0].value, arglocs[1:],
-                                             c.cond_none, save_exc=False)
+                                             c.cond_none)
         self._finish_gcmap = guard_token.gcmap
         self._store_force_index(op)
         self.store_info_on_descr(0, guard_token)
@@ -531,7 +525,7 @@ class MiscOpAssembler(object):
         self.mc.load_from_addr(r.SCRATCH2, self.cpu.pos_exception())
         self.mc.cmp_op(0, r.SCRATCH2.value, 0, imm=True)
         self.guard_success_cc = c.EQ
-        self._emit_guard(op, arglocs, save_exc=True)
+        self._emit_guard(op, arglocs)
         # If the previous operation was a COND_CALL, overwrite its conditional
         # jump to jump over this GUARD_NO_EXCEPTION as well, if we can
         if self._find_nearby_operation(regalloc,-1).getopnum() == rop.COND_CALL:
@@ -553,7 +547,7 @@ class MiscOpAssembler(object):
         mc.load(r.SCRATCH.value, r.SCRATCH2.value, diff)
         mc.cmp_op(0, r.SCRATCH.value, loc.value)
         self.guard_success_cc = c.EQ
-        self._emit_guard(op, failargs, save_exc=True)
+        self._emit_guard(op, failargs)
 
         if resloc:
             mc.load(resloc.value, r.SCRATCH2.value, 0)
@@ -1281,12 +1275,12 @@ class ForceOpAssembler(object):
             self.mc.load_imm(r.r4, value)
             self.mc.cmp_op(0, r.r5.value, r.r4.value, imm=False)
         jump_if_eq = self.mc.currpos()
-        self.mc.nop()      # patched later
+        self.mc.trap()      # patched later
         return jump_if_eq
 
     def _call_assembler_patch_je(self, result_loc, je_location):
         jump_to_done = self.mc.currpos()
-        self.mc.nop()      # patched later
+        self.mc.trap()      # patched later
         #
         currpos = self.mc.currpos()
         pmc = OverwritingBuilder(self.mc, je_location, 1)
@@ -1325,23 +1319,26 @@ class ForceOpAssembler(object):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         newlooptoken.compiled_loop_token.update_frame_info(
             oldlooptoken.compiled_loop_token, baseofs)
-        if IS_PPC_32 or not IS_BIG_ENDIAN:
-            # we overwrite the instructions at the old _ll_function_addr
-            # to start with a JMP to the new _ll_function_addr.
-            # Ideally we should rather patch all existing CALLs, but well.
-            mc = PPCBuilder()
-            mc.b_abs(target)
-            mc.copy_to_raw_memory(oldadr)
-        else:
+        if IS_PPC_64 and IS_BIG_ENDIAN:
             # PPC64 big-endian trampolines are data so overwrite the code
             # address in the function descriptor at the old address.
             # Copy the whole 3-word trampoline, even though the other
-            # words are always zero so far.
+            # words are always zero so far.  That's not enough in all
+            # cases: if the "target" trampoline is itself redirected
+            # later, then the "old" trampoline won't be updated; so
+            # we still need the jump below to be safe.
             odata = rffi.cast(rffi.CArrayPtr(lltype.Signed), oldadr)
             tdata = rffi.cast(rffi.CArrayPtr(lltype.Signed), target)
             odata[0] = tdata[0]
             odata[1] = tdata[1]
             odata[2] = tdata[2]
+            oldadr += 3 * WORD
+            target += 3 * WORD
+        # we overwrite the instructions at the old _ll_function_addr
+        # to start with a JMP to the new _ll_function_addr.
+        mc = PPCBuilder()
+        mc.b_abs(target)
+        mc.copy_to_raw_memory(oldadr)
 
 
 class OpAssembler(IntOpAssembler, GuardOpAssembler,

@@ -124,9 +124,9 @@ class CallBuilder(AbstractCallBuilder):
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             if gcrootmap.is_shadow_stack and self.is_call_release_gil:
-                # in this mode, 'ebx' happens to contain the shadowstack
+                # in this mode, RSHADOWOLD happens to contain the shadowstack
                 # top at this point, so reuse it instead of loading it again
-                ssreg = self.RSHADOWPTR
+                ssreg = self.RSHADOWOLD
         self.asm._reload_frame_if_necessary(self.mc, shadowstack_reg=ssreg)
 
     def emit_raw_call(self):

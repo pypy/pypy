@@ -25,6 +25,7 @@ from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.debug import debug_print
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import r_uint
@@ -1115,8 +1116,10 @@ class Regalloc(BaseRegalloc):
         return locs
 
 def notimplemented(self, op):
-    print "[PPC/regalloc] %s not implemented" % op.getopname()
-    raise NotImplementedError(op)
+    msg = '[PPC/regalloc] %s not implemented\n' % op.getopname()
+    if we_are_translated():
+        llop.debug_print(lltype.Void, msg)
+    raise NotImplementedError(msg)
 
 def force_int(intvalue):
     # a hack before transaction: force the intvalue argument through

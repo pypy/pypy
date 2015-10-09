@@ -936,11 +936,9 @@ flush_icache = rffi.llexternal(
 
 class PPCGuardToken(GuardToken):
     def __init__(self, cpu, gcmap, descr, failargs, faillocs,
-                 exc, frame_depth, is_guard_not_invalidated=False,
-                 is_guard_not_forced=False, fcond=c.cond_none):
-        GuardToken.__init__(self, cpu, gcmap, descr, failargs, faillocs, exc,
-                            frame_depth, is_guard_not_invalidated,
-                            is_guard_not_forced)
+                 guard_opnum, frame_depth, fcond=c.cond_none):
+        GuardToken.__init__(self, cpu, gcmap, descr, failargs, faillocs,
+                            guard_opnum, frame_depth)
         self.fcond = fcond
 
 

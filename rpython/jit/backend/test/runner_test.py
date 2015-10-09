@@ -3903,6 +3903,30 @@ class LLtypeBackendTest(BaseBackendTest):
         x = self.cpu.get_float_value(deadframe, 0)
         assert longlong.getrealfloat(x) == 13.5
         assert called == [finish_descr2]
+        del called[:]
+
+        # compile a second replacement
+        ops = '''
+        [f0, f1]
+        f2 = float_mul(f0, f1)
+        finish(f2)'''
+        loop3 = parse(ops)
+        looptoken3 = JitCellToken()
+        looptoken3.outermost_jitdriver_sd = FakeJitDriverSD()
+        self.cpu.compile_loop(loop3.inputargs, loop3.operations, looptoken3)
+        finish_descr3 = loop3.operations[-1].getdescr()
+
+        # install it
+        self.cpu.redirect_call_assembler(looptoken2, looptoken3)
+
+        # now, our call_assembler should go to looptoken3
+        args = [longlong.getfloatstorage(0.5),
+                longlong.getfloatstorage(9.0)]         # 0.5*9.0 == 1.25+3.25
+        deadframe = self.cpu.execute_token(othertoken, *args)
+        x = self.cpu.get_float_value(deadframe, 0)
+        assert longlong.getrealfloat(x) == 13.5
+        assert called == [finish_descr3]
+        del called[:]
 
     def test_short_result_of_getfield_direct(self):
         # Test that a getfield that returns a CHAR, SHORT or INT, signed
