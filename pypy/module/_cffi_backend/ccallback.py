@@ -200,7 +200,10 @@ def _handle_applevel_exception(callback, e, ll_res, extra_line):
                                 extra_line="\nDuring the call to 'onerror', "
                                            "another exception occurred:\n\n")
 
-@jit.jit_callback("CFFI")
+# XXX fix me: with this line, we get a single compiled version, which
+# is good for small examples but gets worse and worse as the number of
+# callbacks grows:
+#   @jit.jit_callback("CFFI")
 def py_invoke_callback(callback, ll_res, ll_args):
     extra_line = ''
     try:
