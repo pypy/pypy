@@ -60,3 +60,7 @@ Win32: support '__stdcall' in CFFI.
 .. branch: callfamily
 
 Refactorings of annotation and rtyping of function calls.
+
+.. branch: fortran-order
+
+Allow creation of fortran-ordered ndarrays
