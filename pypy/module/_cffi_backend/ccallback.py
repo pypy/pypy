@@ -206,10 +206,10 @@ def get_printable_location(key_pycode):
         return 'cffi_callback <?>'
     return 'cffi_callback ' + key_pycode.get_repr()
 
-jitdriver = JitDriver(name='cffi_callback',
-                      greens=['callback.key_pycode'],
-                      reds=['callback', 'll_res', 'll_args'],
-                      get_printable_location=get_printable_location)
+jitdriver = jit.JitDriver(name='cffi_callback',
+                          greens=['callback.key_pycode'],
+                          reds=['ll_res', 'll_args', 'callback'],
+                          get_printable_location=get_printable_location)
 
 def py_invoke_callback(callback, ll_res, ll_args):
     jitdriver.jit_merge_point(callback=callback, ll_res=ll_res, ll_args=ll_args)
