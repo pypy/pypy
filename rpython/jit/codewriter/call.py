@@ -9,7 +9,7 @@ from rpython.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
     QuasiImmutAnalyzer, RandomEffectsAnalyzer, effectinfo_from_writeanalyze,
     EffectInfo, CallInfoCollection)
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rlib import rposix
 from rpython.translator.backendopt.canraise import RaiseAnalyzer
 from rpython.translator.backendopt.writeanalyze import ReadWriteAnalyzer

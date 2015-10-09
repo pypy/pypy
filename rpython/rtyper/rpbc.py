@@ -13,11 +13,11 @@ from rpython.rtyper.rclass import CLASSTYPE, OBJECT_VTABLE, OBJECTPTR
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import llmemory
-from rpython.rtyper.lltypesystem.lltype import (typeOf, Void, ForwardReference,
-    Struct, Bool, Char, Ptr, malloc, nullptr, Array, Signed, cast_pointer)
+from rpython.rtyper.lltypesystem.lltype import (
+    typeOf, Void, ForwardReference, Struct, Bool, Char, Ptr, malloc, nullptr,
+    Array, Signed, cast_pointer, getfunctionptr)
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
     warning, impossible_repr)
-from rpython.rtyper.typesystem import getfunctionptr
 from rpython.tool.pairtype import pair, pairtype
 from rpython.translator.unsimplify import varoftype
 

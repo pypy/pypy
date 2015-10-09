@@ -23,9 +23,8 @@ from rpython.rtyper.error import TyperError
 from rpython.rtyper.exceptiondata import ExceptionData
 from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
     Ptr, ContainerType, FuncType, functionptr, typeOf, RuntimeTypeInfo,
-    attachRuntimeTypeInfo, Primitive)
+    attachRuntimeTypeInfo, Primitive, getfunctionptr)
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
-from rpython.rtyper.typesystem import getfunctionptr
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
