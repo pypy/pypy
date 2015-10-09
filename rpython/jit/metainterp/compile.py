@@ -687,9 +687,6 @@ class ResumeDescr(AbstractFailDescr):
     def clone(self):
         return self
 
-    def copy_all_attributes_from(self, other):
-        pass
-
 class AbstractResumeGuardDescr(ResumeDescr):
     _attrs_ = ('status',)
 
@@ -720,7 +717,7 @@ class AbstractResumeGuardDescr(ResumeDescr):
                 resume_in_blackhole(metainterp_sd, jitdriver_sd, self.prev, deadframe)    
             else:
                 assert isinstance(self, ResumeGuardDescr)
-            resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
+                resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
         assert 0, "unreachable"
 
     def _trace_and_compile_from_bridge(self, deadframe, metainterp_sd,
