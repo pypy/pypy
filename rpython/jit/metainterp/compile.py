@@ -685,9 +685,7 @@ class ResumeDescr(AbstractFailDescr):
     _attrs_ = ()
 
     def clone(self):
-        cloned = self.__class__()
-        cloned.copy_all_attributes_from(self)
-        return cloned
+        return self
 
     def exits_early(self):
         return False
@@ -847,6 +845,12 @@ class ResumeGuardCopiedDescr(AbstractResumeGuardDescr):
         assert isinstance(other, ResumeGuardCopiedDescr)
         self.prev = other.prev
 
+    def clone(self):
+        cloned = ResumeGuardCopiedDescr()
+        cloned.copy_all_attributes_from(self)
+        return cloned
+
+
 class ResumeGuardDescr(AbstractResumeGuardDescr):
     _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
                'rd_frame_info_list', 'rd_pendingfields', 'status')
@@ -878,6 +882,11 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
         guard_op.setfailargs(boxes)
         self.rd_count = len(boxes)
         self.store_hash(metainterp_sd)
+
+    def clone(self):
+        cloned = ResumeGuardDescr()
+        cloned.copy_all_attributes_from(self)
+        return cloned
 
 class ResumeGuardExcDescr(ResumeGuardDescr):
     pass
@@ -1014,12 +1023,6 @@ class ResumeFromInterpDescr(ResumeDescr):
         jitdriver_sd.warmstate.attach_procedure_to_interp(
             self.original_greenkey, jitcell_token)
         metainterp_sd.stats.add_jitcell_token(jitcell_token)
-
-    def clone(self):
-        cloned = ResumeFromInterpDescr(self.original_greenkey)
-        cloned.copy_all_attributes_from(self)
-        return cloned
-
 
 
 def compile_trace(metainterp, resumekey):
