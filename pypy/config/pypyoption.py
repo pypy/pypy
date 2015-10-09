@@ -75,6 +75,11 @@ if sys.platform == "sunos5":
     if "cppyy" in working_modules:
         working_modules.remove("cppyy")  # depends on ctypes
 
+if sys.platform.startswith("linux"):
+    _mach = os.popen('uname -m', 'r').read().strip()
+    if _mach.startswith('ppc'):
+        working_modules.remove("_continuation")
+
 
 module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.time', True),
