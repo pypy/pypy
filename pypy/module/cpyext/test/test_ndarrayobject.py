@@ -4,16 +4,17 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.descriptor import get_dtype_cache
+import pypy.module.micronumpy.constants as NPY 
 
 def scalar(space):
     dtype = get_dtype_cache(space).w_float64dtype
     return W_NDimArray.new_scalar(space, dtype, space.wrap(10.))
 
-def array(space, shape, order='C'):
+def array(space, shape, order=NPY.CORDER):
     dtype = get_dtype_cache(space).w_float64dtype
     return W_NDimArray.from_shape(space, shape, dtype, order=order)
 
-def iarray(space, shape, order='C'):
+def iarray(space, shape, order=NPY.CORDER):
     dtype = get_dtype_cache(space).w_int64dtype
     return W_NDimArray.from_shape(space, shape, dtype, order=order)
 
@@ -32,8 +33,8 @@ class TestNDArrayObject(BaseApiTest):
 
     def test_FLAGS(self, space, api):
         s = array(space, [10])
-        c = array(space, [10, 5, 3], order='C')
-        f = array(space, [10, 5, 3], order='F')
+        c = array(space, [10, 5, 3], order=NPY.CORDER)
+        f = array(space, [10, 5, 3], order=NPY.FORTRANORDER)
         assert api._PyArray_FLAGS(s) & 0x0001
         assert api._PyArray_FLAGS(s) & 0x0002
         assert api._PyArray_FLAGS(c) & 0x0001

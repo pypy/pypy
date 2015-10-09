@@ -680,7 +680,7 @@ def fromstring_loop(space, a, dtype, itemsize, s):
 def tostring(space, arr):
     builder = StringBuilder()
     iter, state = arr.create_iter()
-    w_res_str = W_NDimArray.from_shape(space, [1], arr.get_dtype(), order='C')
+    w_res_str = W_NDimArray.from_shape(space, [1], arr.get_dtype())
     itemsize = arr.get_dtype().elsize
     with w_res_str.implementation as storage:
         res_str_casted = rffi.cast(rffi.CArrayPtr(lltype.Char),
