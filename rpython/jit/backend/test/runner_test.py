@@ -1775,7 +1775,6 @@ class BaseBackendTest(Runner):
 
 class LLtypeBackendTest(BaseBackendTest):
 
-    type_system = 'lltype'
     Ptr = lltype.Ptr
     FuncType = lltype.FuncType
     malloc = staticmethod(lltype.malloc)
@@ -3147,7 +3146,7 @@ class LLtypeBackendTest(BaseBackendTest):
             ops = [
                 ResOperation(rop.CALL_RELEASE_GIL_I,
                              [ConstInt(saveerr), ConstInt(func1_adr)]
-                                 + inputargs, 
+                                 + inputargs,
                              descr=calldescr),
                 ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
             ]

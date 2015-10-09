@@ -894,8 +894,8 @@ class BasicTests:
             try:
                 return ovfcheck(x * y)
             except OverflowError:
-                raise            
-        
+                raise
+
         def f(x, y):
             try:
                 return g(x, y)
@@ -1074,7 +1074,7 @@ class BasicTests:
         from rpython.jit.metainterp.warmspot import WarmRunnerDesc
 
         interp, graph = get_interpreter(f, [0, 0], backendopt=False,
-                                        inline_threshold=0, type_system=self.type_system)
+                                        inline_threshold=0)
         clear_tcache()
         translator = interp.typer.annotator.translator
         translator.config.translation.gc = "boehm"
@@ -4342,8 +4342,8 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         myjitdriver = JitDriver(greens = ['num'],
                                 reds = ['n', 'x', 'x0', 'x1', 'x2', 'x3', 'x4',
                                         'x5', 'x6', 'x7', 'l', 's'])
- 
-        
+
+
         self.meta_interp(allfuncs, [9, 2000])
 
     def test_unichar_ord_is_never_signed_on_64bit(self):
