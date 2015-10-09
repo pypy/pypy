@@ -34,7 +34,7 @@ class Closure(object):
 
 
 class W_CDataCallback(W_CData):
-    #_immutable_fields_ = ...
+    _immutable_fields_ = ['key_pycode']
     w_onerror = None
 
     def __init__(self, space, ctype, w_callable, w_error, w_onerror):
@@ -46,6 +46,7 @@ class W_CDataCallback(W_CData):
             raise oefmt(space.w_TypeError,
                         "expected a callable object, not %T", w_callable)
         self.w_callable = w_callable
+        self.key_pycode = space._try_fetch_pycode(w_callable)
         if not space.is_none(w_onerror):
             if not space.is_true(space.callable(w_onerror)):
                 raise oefmt(space.w_TypeError,
@@ -107,6 +108,7 @@ class W_CDataCallback(W_CData):
     def invoke(self, ll_args):
         space = self.space
         ctype = self.getfunctype()
+        ctype = jit.promote(ctype)
         args_w = []
         for i, farg in enumerate(ctype.fargs):
             ll_arg = rffi.cast(rffi.CCHARP, ll_args[i])
@@ -199,11 +201,18 @@ def _handle_applevel_exception(callback, e, ll_res, extra_line):
                                 extra_line="\nDuring the call to 'onerror', "
                                            "another exception occurred:\n\n")
 
-# XXX fix me: with this line, we get a single compiled version, which
-# is good for small examples but gets worse and worse as the number of
-# callbacks grows:
-#   @jit.jit_callback("CFFI")
+def get_printable_location(key_pycode):
+    if key_pycode is None:
+        return 'cffi_callback <?>'
+    return 'cffi_callback ' + key_pycode.get_repr()
+
+jitdriver = JitDriver(name='cffi_callback',
+                      greens=['callback.key_pycode'],
+                      reds=['callback', 'll_res', 'll_args'],
+                      get_printable_location=get_printable_location)
+
 def py_invoke_callback(callback, ll_res, ll_args):
+    jitdriver.jit_merge_point(callback=callback, ll_res=ll_res, ll_args=ll_args)
     extra_line = ''
     try:
         w_res = callback.invoke(ll_args)
