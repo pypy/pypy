@@ -124,6 +124,14 @@ def from_buffer(space, w_ctype, w_x):
     #
     return cdataobj.W_CDataFromBuffer(space, _cdata, w_ctype, buf, w_x)
 
+
+def unsafe_escaping_ptr_for_ptr_or_array(w_cdata):
+    if not w_cdata.ctype.is_nonfunc_pointer_or_array:
+        raise oefmt(w_cdata.space.w_TypeError,
+                    "expected a pointer or array ctype, got '%s'",
+                    w_cdata.ctype.name)
+    return w_cdata.unsafe_escaping_ptr()
+
 c_memmove = rffi.llexternal('memmove', [rffi.CCHARP, rffi.CCHARP,
                                         rffi.SIZE_T], lltype.Void,
                                 _nowrapper=True)
@@ -137,7 +145,7 @@ def memmove(space, w_dest, w_src, n):
     src_buf = None
     src_data = lltype.nullptr(rffi.CCHARP.TO)
     if isinstance(w_src, cdataobj.W_CData):
-        src_data = w_src.unsafe_escaping_ptr()
+        src_data = unsafe_escaping_ptr_for_ptr_or_array(w_src)
         src_is_ptr = True
     else:
         src_buf = _fetch_as_read_buffer(space, w_src)
@@ -158,7 +166,7 @@ def memmove(space, w_dest, w_src, n):
     dest_buf = None
     dest_data = lltype.nullptr(rffi.CCHARP.TO)
     if isinstance(w_dest, cdataobj.W_CData):
-        dest_data = w_dest.unsafe_escaping_ptr()
+        dest_data = unsafe_escaping_ptr_for_ptr_or_array(w_dest)
         dest_is_ptr = True
     else:
         dest_buf = _fetch_as_write_buffer(space, w_dest)

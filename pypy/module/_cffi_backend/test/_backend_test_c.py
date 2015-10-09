@@ -3459,6 +3459,12 @@ def test_memmove_sign_check():
     p = newp(SignedCharA, 5)
     py.test.raises(ValueError, memmove, p, p + 1, -1)   # not segfault
 
+def test_memmove_bad_cdata():
+    BInt = new_primitive_type("int")
+    p = cast(BInt, 42)
+    py.test.raises(TypeError, memmove, p, bytearray(b'a'), 1)
+    py.test.raises(TypeError, memmove, bytearray(b'a'), p, 1)
+
 def test_dereference_null_ptr():
     BInt = new_primitive_type("int")
     BIntPtr = new_pointer_type(BInt)
