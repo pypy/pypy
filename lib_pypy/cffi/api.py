@@ -310,6 +310,22 @@ class FFI(object):
         """
         return self._backend.from_buffer(self.BCharA, python_buffer)
 
+    def memmove(self, dest, src, n):
+        """ffi.memmove(dest, src, n) copies n bytes of memory from src to dest.
+
+        Like the C function memmove(), the memory areas may overlap;
+        apart from that it behaves like the C function memcpy().
+
+        'src' can be any cdata ptr or array, or any Python buffer object.
+        'dest' can be any cdata ptr or array, or a writable Python buffer
+        object.  The size to copy, 'n', is always measured in bytes.
+
+        Unlike other methods, this one supports all Python buffer including
+        byte strings and bytearrays---but it still does not support
+        non-contiguous buffers.
+        """
+        return self._backend.memmove(dest, src, n)
+
     def callback(self, cdecl, python_callable=None, error=None, onerror=None):
         """Return a callback object or a decorator making such a
         callback object.  'cdecl' must name a C function pointer type.

@@ -2276,16 +2276,16 @@ def test_win32_calling_convention_0():
     @ffi.callback("int __stdcall(int)")
     def cb2(x):
         return x * 3
-    print 'cb1 =', cb1
+    #print 'cb1 =', cb1
     res = lib.call1(cb1)
     assert res == 500*999*2
-    print 'cb2 =', cb2
-    print ffi.typeof(lib.call2)
-    print 'call2 =', lib.call2
+    #print 'cb2 =', cb2
+    #print ffi.typeof(lib.call2)
+    #print 'call2 =', lib.call2
     res = lib.call2(cb2)
-    print '...'
+    #print '...'
     assert res == -500*999*3
-    print 'done'
+    #print 'done'
     if sys.platform == 'win32':
         assert '__stdcall' in str(ffi.typeof(cb2))
         assert '__stdcall' not in str(ffi.typeof(cb1))

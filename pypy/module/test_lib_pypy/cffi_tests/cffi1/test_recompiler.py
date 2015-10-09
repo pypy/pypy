@@ -1365,15 +1365,15 @@ def test_win32_calling_convention_1():
             return result;
         }
     """)
-    print '<<< cb1 =', ffi.addressof(lib, 'cb1')
+    #print '<<< cb1 =', ffi.addressof(lib, 'cb1')
     ptr_call1 = ffi.addressof(lib, 'call1')
     assert lib.call1(ffi.addressof(lib, 'cb1')) == 500*999*2
     assert ptr_call1(ffi.addressof(lib, 'cb1')) == 500*999*2
-    print '<<< cb2 =', ffi.addressof(lib, 'cb2')
+    #print '<<< cb2 =', ffi.addressof(lib, 'cb2')
     ptr_call2 = ffi.addressof(lib, 'call2')
     assert lib.call2(ffi.addressof(lib, 'cb2')) == -500*999*3
     assert ptr_call2(ffi.addressof(lib, 'cb2')) == -500*999*3
-    print '<<< done'
+    #print '<<< done'
 
 def test_win32_calling_convention_2():
     # any mistake in the declaration of plain function (including the
