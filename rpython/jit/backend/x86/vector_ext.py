@@ -74,20 +74,20 @@ class VectorAssemblerMixin(object):
             index += 1
         self.mc.PBLENDW_xxi(loc.value, temp.value, select)
 
-    def _accum_update_at_exit(self, fail_locs, fail_args, faildescr, regalloc):
+    def _update_at_exit(self, fail_locs, fail_args, faildescr, regalloc):
         """ If accumulation is done in this loop, at the guard exit
             some vector registers must be adjusted to yield the correct value
         """
         if not isinstance(faildescr, ResumeGuardDescr):
             return
         assert regalloc is not None
-        accum_info = faildescr.rd_accum_list
+        accum_info = faildescr.rd_vector_info
         while accum_info:
-            pos = accum_info.scalar_position
+            pos = accum_info.getpos_in_failargs()
             scalar_loc = fail_locs[pos]
-            vector_loc = accum_info.vector_loc
+            vector_loc = accum_info.location
             # the upper elements will be lost if saved to the stack!
-            scalar_arg = accum_info.scalar_box
+            scalar_arg = accum_info.getoriginal()
             assert isinstance(vector_loc, RegLoc)
             if not isinstance(scalar_loc, RegLoc):
                 scalar_loc = regalloc.force_allocate_reg(scalar_arg)

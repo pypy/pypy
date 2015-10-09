@@ -1061,20 +1061,20 @@ class LLFrame(object):
     # -----------------------------------------------------
 
     def _accumulate(self, descr, failargs, values):
-        accuminfo = descr.rd_accum_list
-        while accuminfo:
-            i = accuminfo.getpos_in_failargs()
+        info = descr.rd_vector_info
+        while info:
+            i = info.getpos_in_failargs()
             value = values[i]
             assert isinstance(value, list)
-            if accuminfo.accum_operation == '+':
+            if info.accum_operation == '+':
                 value = sum(value)
-            elif accuminfo.accum_operation == '*':
+            elif info.accum_operation == '*':
                 def prod(acc, x): return acc * x
                 value = reduce(prod, value, 1)
             else:
                 raise NotImplementedError("accum operator in fail guard")
             values[i] = value
-            accuminfo = accuminfo.next()
+            info = info.next()
 
     def fail_guard(self, descr, saved_data=None, extra_value=None):
         values = []

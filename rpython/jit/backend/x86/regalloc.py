@@ -322,10 +322,10 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         if not descr:
             return faillocs
         assert isinstance(descr, AbstractFailDescr)
-        if descr.rd_accum_list:
-            accuminfo = descr.rd_accum_list
+        if descr.rd_vector_info:
+            accuminfo = descr.rd_vector_info
             while accuminfo:
-                accuminfo.vector_loc = faillocs[accuminfo.getpos_in_failargs()]
+                accuminfo.location = faillocs[accuminfo.getpos_in_failargs()]
                 loc = self.loc(accuminfo.getoriginal())
                 faillocs[accuminfo.getpos_in_failargs()] = loc
                 accuminfo = accuminfo.next()

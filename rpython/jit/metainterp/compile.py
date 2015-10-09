@@ -687,16 +687,8 @@ class ResumeDescr(AbstractFailDescr):
     def clone(self):
         return self
 
-    def exits_early(self):
-        return False
-
-    def attach_accum_info(self, pos, operator, arg, loc):
-        self.rd_accum_list = \
-                AccumInfo(self.rd_accum_list, pos, operator, arg, loc)
-
     def copy_all_attributes_from(self, other):
         pass
-
 
 class AbstractResumeGuardDescr(ResumeDescr):
     _attrs_ = ('status',)
@@ -873,10 +865,10 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
         self.rd_virtuals = other.rd_virtuals
         self.rd_numb = other.rd_numb
         # we don't copy status
-        if other.rd_accum_list:
-            self.rd_accum_list = other.rd_accum_list.clone()
+        if other.rd_vector_info:
+            self.rd_vector_info = other.rd_vector_info.clone()
         else:
-            other.rd_accum_list = None
+            other.rd_vector_info = None
 
     def store_final_boxes(self, guard_op, boxes, metainterp_sd):
         guard_op.setfailargs(boxes)
@@ -906,6 +898,11 @@ class CompileLoopVersionDescr(ResumeGuardDescr):
 
     def loop_version(self):
         return True
+
+    def clone(self):
+        cloned = CompileLoopVersionDescr()
+        cloned.copy_all_attributes_from(self)
+        return cloned
 
 class AllVirtuals:
     llopaque = True

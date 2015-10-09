@@ -87,7 +87,7 @@ class Guard(object):
         # guard
         descr = CompileLoopVersionDescr()
         descr.copy_all_attributes_from(self.op.getdescr())
-        descr.rd_accum_list = None # do not copy the accum list
+        descr.rd_vector_info = None # do not copy the accum list
         assert isinstance(descr, ResumeGuardDescr)
         guard = ResOperation(self.op.getopnum(), [compare], descr=descr)
         guard.setfailargs(loop.label.getarglist_copy())

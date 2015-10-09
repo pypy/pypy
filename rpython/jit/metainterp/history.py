@@ -146,9 +146,9 @@ class AbstractFailDescr(AbstractDescr):
     index = -1
     final_descr = False
 
-    _attrs_ = ('adr_jump_offset', 'rd_locs', 'rd_loop_token', 'rd_accum_list')
+    _attrs_ = ('adr_jump_offset', 'rd_locs', 'rd_loop_token', 'rd_vector_info')
 
-    rd_accum_list = None
+    rd_vector_info = None
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
@@ -163,6 +163,12 @@ class AbstractFailDescr(AbstractDescr):
     def loop_version(self):
         # compile a loop version out of this guard?
         return False
+
+    def attach_vector_info(self, info):
+        from rpython.jit.metainterp.resume import VectorInfo
+        assert isinstance(info, VectorInfo)
+        info.prev = self.rd_vector_info
+        self.rd_vector_info = info
 
 class BasicFinalDescr(AbstractFailDescr):
     final_descr = True

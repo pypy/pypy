@@ -694,7 +694,8 @@ class VecScheduleState(SchedulerState):
                     from rpython.jit.metainterp.compile import AbstractResumeGuardDescr
                     assert isinstance(accum, AccumPack)
                     assert isinstance(descr, AbstractResumeGuardDescr)
-                    descr.attach_accum_info(i, accum.operator, arg, None)
+                    info = AccumInfo(i, arg, accum.operator)
+                    descr.attach_vector_info(info)
                     seed = accum.getleftmostseed()
                     failargs[i] = self.renamer.rename_map.get(seed, seed)
 

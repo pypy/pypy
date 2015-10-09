@@ -10,7 +10,6 @@ import time
 
 from rpython.jit.metainterp.resume import Snapshot
 from rpython.jit.metainterp.jitexc import NotAVectorizeableLoop, NotAProfitableLoop
-#from rpython.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from rpython.jit.metainterp.compile import (CompileLoopVersionDescr, ResumeDescr)
 from rpython.jit.metainterp.history import (INT, FLOAT, VECTOR, ConstInt, ConstFloat,
         TargetToken, JitCellToken, AbstractFailDescr)

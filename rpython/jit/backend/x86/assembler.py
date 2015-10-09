@@ -558,7 +558,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                              self.current_clt.frame_info)
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
         bridgestartpos = self.mc.get_relative_pos()
-        self._accum_update_at_exit(arglocs, inputargs, faildescr, regalloc)
+        self._update_at_exit(arglocs, inputargs, faildescr, regalloc)
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries(regalloc)
@@ -610,15 +610,15 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         guard_locs = self.rebuild_faillocs_from_descr(faildescr, version.inputargs)
         bridge_locs = self.rebuild_faillocs_from_descr(bridge_faildescr, version.inputargs)
         #import pdb; pdb.set_trace()
-        guard_accum_info = faildescr.rd_accum_list
+        guard_accum_info = faildescr.rd_vector_info
         # O(n^2), but usually you only have at most 1 fail argument
         while guard_accum_info:
-            bridge_accum_info = bridge_faildescr.rd_accum_list
+            bridge_accum_info = bridge_faildescr.rd_vector_info
             while bridge_accum_info:
-                if bridge_accum_info.scalar_position == guard_accum_info.scalar_position:
+                if bridge_accum_info.failargs_pos == guard_accum_info.failargs_pos:
                     # the mapping might be wrong!
-                    if bridge_accum_info.vector_loc is not guard_accum_info.vector_loc:
-                        self.mov(guard_accum_info.vector_loc, bridge_accum_info.vector_loc)
+                    if bridge_accum_info.location is not guard_accum_info.location:
+                        self.mov(guard_accum_info.location, bridge_accum_info.location)
                 bridge_accum_info = bridge_accum_info.next()
             guard_accum_info = guard_accum_info.next()
 
@@ -1876,8 +1876,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.force_frame_size(DEFAULT_FRAME_BYTES)
         startpos = self.mc.get_relative_pos()
         #
-        self._accum_update_at_exit(guardtok.fail_locs, guardtok.failargs,
-                                   guardtok.faildescr, regalloc)
+        self._update_at_exit(guardtok.fail_locs, guardtok.failargs,
+                             guardtok.faildescr, regalloc)
         #
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
         self.mc.PUSH(imm(fail_descr))
