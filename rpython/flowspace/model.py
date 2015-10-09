@@ -337,12 +337,7 @@ class Variable(object):
 
 
 class Constant(Hashable):
-    __slots__ = ["concretetype"]
-
-    def __init__(self, value, concretetype=None):
-        Hashable.__init__(self, value)
-        if concretetype is not None:
-            self.concretetype = concretetype
+    __slots__ = []
 
     def foldable(self):
         to_check = self.value

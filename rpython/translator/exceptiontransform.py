@@ -2,13 +2,13 @@ from rpython.translator.simplify import join_blocks, cleanup_graph
 from rpython.translator.unsimplify import varoftype
 from rpython.translator.unsimplify import insert_empty_block, split_block
 from rpython.translator.backendopt import canraise, inline
-from rpython.flowspace.model import Block, Constant, Variable, Link, \
-    SpaceOperation, FunctionGraph, mkentrymap
+from rpython.flowspace.model import (
+    Block, Variable, Link, SpaceOperation, FunctionGraph, mkentrymap)
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem import lloperation
 from rpython.rtyper.rclass import ll_inst_type
 from rpython.rtyper import rtyper
-from rpython.rtyper.rmodel import inputconst
+from rpython.rtyper.rmodel import inputconst, LLConstant
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
 from rpython.rlib.debug import ll_assert
@@ -41,10 +41,10 @@ def error_value(T):
     assert 0, "not implemented yet"
 
 def error_constant(T):
-    return Constant(error_value(T), T)
+    return LLConstant(error_value(T), T)
 
 def constant_value(llvalue):
-    return Constant(llvalue, lltype.typeOf(llvalue))
+    return LLConstant(llvalue, lltype.typeOf(llvalue))
 
 class ExceptionTransformer(object):
 
@@ -460,16 +460,16 @@ class ExceptionTransformer(object):
         null_value = lltype.nullptr(self.lltype_of_exception_value.TO)
 
         self.exc_data_ptr = exc_data
-        self.cexcdata = Constant(exc_data, lltype.Ptr(self.EXCDATA))
-        self.c_null_etype = Constant(null_type, self.lltype_of_exception_type)
-        self.c_null_evalue = Constant(null_value, self.lltype_of_exception_value)
+        self.cexcdata = LLConstant(exc_data, lltype.Ptr(self.EXCDATA))
+        self.c_null_etype = LLConstant(null_type, self.lltype_of_exception_type)
+        self.c_null_evalue = LLConstant(null_value, self.lltype_of_exception_value)
 
         return exc_data, null_type, null_value
 
     def constant_func(self, name, inputtypes, rettype, graph, **kwds):
         FUNC_TYPE = lltype.FuncType(inputtypes, rettype)
         fn_ptr = lltype.functionptr(FUNC_TYPE, name, graph=graph, **kwds)
-        return Constant(fn_ptr, lltype.Ptr(FUNC_TYPE))
+        return LLConstant(fn_ptr, lltype.Ptr(FUNC_TYPE))
 
     def gen_getfield(self, name, llops):
         c_name = inputconst(lltype.Void, name)

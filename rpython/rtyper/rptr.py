@@ -4,7 +4,7 @@ from rpython.flowspace import model as flowmodel
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.rmodel import Repr
+from rpython.rtyper.rmodel import Repr, inputconst
 from rpython.rtyper.rint import IntegerRepr
 from rpython.tool.pairtype import pairtype
 
@@ -48,7 +48,7 @@ class PtrRepr(Repr):
             pass
         else:
             assert hop.s_result.is_constant()
-            return hop.inputconst(hop.r_result, hop.s_result.const)
+            return inputconst(hop.r_result, hop.s_result.const)
         assert attr in self.lowleveltype.TO._flds # check that the field exists
         FIELD_TYPE = getattr(self.lowleveltype.TO, attr)
         if isinstance(FIELD_TYPE, lltype.ContainerType):
@@ -75,7 +75,7 @@ class PtrRepr(Repr):
     def rtype_len(self, hop):
         ARRAY = hop.args_r[0].lowleveltype.TO
         if isinstance(ARRAY, lltype.FixedSizeArray):
-            return hop.inputconst(lltype.Signed, ARRAY.length)
+            return inputconst(lltype.Signed, ARRAY.length)
         else:
             vlist = hop.inputargs(self)
             return hop.genop('getarraysize', vlist,
@@ -100,7 +100,7 @@ class PtrRepr(Repr):
             opname = 'direct_call'
         else:
             opname = 'indirect_call'
-            vlist.append(hop.inputconst(lltype.Void, None))
+            vlist.append(inputconst(lltype.Void, None))
         hop.exception_is_here()
         return hop.genop(opname, vlist,
                          resulttype = self.lowleveltype.TO.RESULT)
@@ -123,15 +123,14 @@ class __extend__(pairtype(PtrRepr, IntegerRepr)):
             if isinstance(hop.r_result, InteriorPtrRepr):
                 v_array, v_index = hop.inputargs(r_ptr, lltype.Signed)
                 INTERIOR_PTR_TYPE = r_ptr.lowleveltype._interior_ptr_type_with_index(ITEM_TYPE)
-                cflags = hop.inputconst(lltype.Void, {'flavor': 'gc'})
-                args = [flowmodel.Constant(INTERIOR_PTR_TYPE, lltype.Void),
-                        cflags]
+                cflags = inputconst(lltype.Void, {'flavor': 'gc'})
+                args = [inputconst(lltype.Void, INTERIOR_PTR_TYPE), cflags]
                 v_interior_ptr = hop.genop('malloc', args,
                                            resulttype=lltype.Ptr(INTERIOR_PTR_TYPE))
                 hop.genop('setfield',
-                          [v_interior_ptr, flowmodel.Constant('ptr', lltype.Void), v_array])
+                          [v_interior_ptr, inputconst(lltype.Void, 'ptr'), v_array])
                 hop.genop('setfield',
-                          [v_interior_ptr, flowmodel.Constant('index', lltype.Void), v_index])
+                          [v_interior_ptr, inputconst(lltype.Void, 'index'), v_index])
                 return v_interior_ptr
             else:
                 newopname = 'getarraysubstruct'
@@ -220,7 +219,7 @@ class InteriorPtrRepr(Repr):
                 self.v_offsets.append(None)
             else:
                 assert isinstance(offset, str)
-                self.v_offsets.append(flowmodel.Constant(offset, lltype.Void))
+                self.v_offsets.append(inputconst(lltype.Void, offset))
         self.parentptrtype = lltype.Ptr(ptrtype.PARENTTYPE)
         self.resulttype = lltype.Ptr(ptrtype.TO)
         assert numitemoffsets <= 1
@@ -237,7 +236,7 @@ class InteriorPtrRepr(Repr):
             name = nameiter.next()
             vlist.append(
                 hop.genop('getfield',
-                          [v_self, flowmodel.Constant(name, lltype.Void)],
+                          [v_self, inputconst(lltype.Void, name)],
                           resulttype=INTERIOR_TYPE._flds[name]))
         else:
             vlist.append(v_self)
@@ -246,7 +245,7 @@ class InteriorPtrRepr(Repr):
                 name = nameiter.next()
                 vlist.append(
                     hop.genop('getfield',
-                              [v_self, flowmodel.Constant(name, lltype.Void)],
+                              [v_self, inputconst(lltype.Void, name)],
                               resulttype=INTERIOR_TYPE._flds[name]))
             else:
                 vlist.append(v_offset)
@@ -296,14 +295,14 @@ class __extend__(pairtype(InteriorPtrRepr, IntegerRepr)):
         if isinstance(ITEM_TYPE, lltype.ContainerType):
             v_array, v_index = hop.inputargs(r_ptr, lltype.Signed)
             INTERIOR_PTR_TYPE = r_ptr.lowleveltype._interior_ptr_type_with_index(ITEM_TYPE)
-            cflags = hop.inputconst(lltype.Void, {'flavor': 'gc'})
-            args = [flowmodel.Constant(INTERIOR_PTR_TYPE, lltype.Void), cflags]
+            cflags = inputconst(lltype.Void, {'flavor': 'gc'})
+            args = [inputconst(lltype.Void, INTERIOR_PTR_TYPE), cflags]
             v_interior_ptr = hop.genop('malloc', args,
                                        resulttype=lltype.Ptr(INTERIOR_PTR_TYPE))
             hop.genop('setfield',
-                      [v_interior_ptr, flowmodel.Constant('ptr', lltype.Void), v_array])
+                      [v_interior_ptr, inputconst(lltype.Void, 'ptr'), v_array])
             hop.genop('setfield',
-                      [v_interior_ptr, flowmodel.Constant('index', lltype.Void), v_index])
+                      [v_interior_ptr, inputconst(lltype.Void, 'index'), v_index])
             return v_interior_ptr
         else:
             v_self, v_index = hop.inputargs(r_ptr, lltype.Signed)

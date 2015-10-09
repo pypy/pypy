@@ -7,6 +7,7 @@ from rpython.translator.unsimplify import varoftype
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.rmodel import LLConstant
 
 
 def virtualize_mallocs(translator, graphs, verbose=False):
@@ -576,16 +577,15 @@ class GraphBuilder(object):
         v_incoming_value = varoftype(TVAL)
         block = Block([v_ignored_type, v_incoming_value])
         #
-        c_EXCTYPE = Constant(typedesc.MALLOCTYPE, lltype.Void)
+        c_EXCTYPE = LLConstant(typedesc.MALLOCTYPE, lltype.Void)
         v = varoftype(lltype.Ptr(typedesc.MALLOCTYPE))
-        c_flavor = Constant({'flavor': 'gc'}, lltype.Void)
+        c_flavor = LLConstant({'flavor': 'gc'}, lltype.Void)
         op = SpaceOperation('malloc', [c_EXCTYPE, c_flavor], v)
         block.operations.append(op)
         #
         for name, FIELDTYPE in typedesc.names_and_types:
             EXACTPTR = lltype.Ptr(typedesc.name2subtype[name])
-            c_name = Constant(name)
-            c_name.concretetype = lltype.Void
+            c_name = LLConstant(name, lltype.Void)
             #
             v_in = varoftype(EXACTPTR)
             op = SpaceOperation('cast_pointer', [v_incoming_value], v_in)
@@ -608,7 +608,7 @@ class GraphBuilder(object):
         block.operations.append(op)
         #
         exc_type = self.mallocv.EXCTYPE_to_vtable[typedesc.MALLOCTYPE]
-        c_exc_type = Constant(exc_type, TEXC)
+        c_exc_type = LLConstant(exc_type, TEXC)
         block.closeblock(Link([c_exc_type, v_exc_value], exceptblock))
         return block
 
@@ -774,8 +774,7 @@ class BlockSpecializer(object):
         self.setnode(v_result, newrtnode)
         if v_result.concretetype is not lltype.Void:
             assert v_result.concretetype == lltype.typeOf(value)
-        c_value = Constant(value)
-        c_value.concretetype = v_result.concretetype
+        c_value = LLConstant(value, v_result.concretetype)
         self.renamings[newrtnode] = c_value
 
     def handle_default(self, op):
@@ -793,7 +792,7 @@ class BlockSpecializer(object):
         from rpython.rtyper.lltypesystem.rstr import string_repr
         msg = 'unreachable: %s' % (op,)
         ll_msg = string_repr.convert_const(msg)
-        c_msg = Constant(ll_msg, lltype.typeOf(ll_msg))
+        c_msg = LLConstant(ll_msg, lltype.typeOf(ll_msg))
         newresult = self.make_rt_result(op.result)
         return [SpaceOperation('debug_fatalerror', [c_msg], newresult)]
 
@@ -889,8 +888,7 @@ class BlockSpecializer(object):
             for name, FIELDTYPE in typedesc.names_and_types:
                 fieldnode = RuntimeSpecNode(name, FIELDTYPE)
                 virtualnode.fields.append(fieldnode)
-                c = Constant(FIELDTYPE._defl())
-                c.concretetype = FIELDTYPE
+                c = LLConstant(FIELDTYPE._defl(), FIELDTYPE)
                 self.renamings[fieldnode] = c
             self.v_expand_malloc = None      # done
             return []
@@ -939,8 +937,7 @@ class BlockSpecializer(object):
 
     def handle_residual_call(self, op, newgraph, newnodes):
         fspecptr = getfunctionptr(newgraph)
-        newargs = [Constant(fspecptr,
-                            concretetype=lltype.typeOf(fspecptr))]
+        newargs = [LLConstant(fspecptr, concretetype=lltype.typeOf(fspecptr))]
         newargs += self.expand_nodes(newnodes)
         newresult = self.make_rt_result(op.result)
         newop = SpaceOperation('direct_call', newargs, newresult)

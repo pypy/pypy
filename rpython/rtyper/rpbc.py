@@ -17,7 +17,7 @@ from rpython.rtyper.lltypesystem.lltype import (
     typeOf, Void, ForwardReference, Struct, Bool, Char, Ptr, malloc, nullptr,
     Array, Signed, cast_pointer, getfunctionptr)
 from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
-    warning, impossible_repr)
+    warning, impossible_repr, LLConstant)
 from rpython.tool.pairtype import pair, pairtype
 from rpython.translator.unsimplify import varoftype
 
@@ -779,7 +779,7 @@ class __extend__(pairtype(SingleFrozenPBCRepr, MultipleFrozenPBCRepr)):
         if access is r_pbc2.access_set:
             value = r_pbc2.convert_desc(frozendesc1)
             lltype = r_pbc2.lowleveltype
-            return Constant(value, lltype)
+            return LLConstant(value, lltype)
         return NotImplemented
 
 class __extend__(pairtype(MultipleFrozenPBCReprBase,

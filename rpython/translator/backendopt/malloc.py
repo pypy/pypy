@@ -1,6 +1,7 @@
 from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.rmodel import LLConstant
 from rpython.translator import simplify
 from rpython.translator.backendopt import removenoops
 from rpython.translator.backendopt.support import log
@@ -88,7 +89,7 @@ class BaseMallocRemover(object):
                 for key in self.needsubmallocs:
                     v = Variable()
                     v.concretetype = self.newvarstype[key]
-                    c = Constant(v.concretetype.TO, lltype.Void)
+                    c = LLConstant(v.concretetype.TO, lltype.Void)
                     if c.value == op.args[0].value:
                         progress = False   # replacing a malloc with
                                            # the same malloc!
@@ -348,10 +349,8 @@ class LLTypeMallocRemover(BaseMallocRemover):
         return False
 
     def recreate_malloc(self, c, v):
-        return SpaceOperation(self.MALLOC_OP, [c,
-                                               Constant({'flavor': 'gc'},
-                                                        lltype.Void)],
-                              v)
+        return SpaceOperation(
+            self.MALLOC_OP, [c, LLConstant({'flavor': 'gc'}, lltype.Void)], v)
 
     def get_STRUCT(self, TYPE):
         STRUCT = TYPE.TO
@@ -436,8 +435,7 @@ class LLTypeMallocRemover(BaseMallocRemover):
                                                           ('data', FIELDTYPE)))
             elif not isinstance(FIELDTYPE, lltype.ContainerType):
                 example = FIELDTYPE._defl()
-                constant = Constant(example)
-                constant.concretetype = FIELDTYPE
+                constant = LLConstant(example, FIELDTYPE)
                 self.flatconstants[key] = constant
                 self.flatnames.append(key)
                 self.newvarstype[key] = FIELDTYPE
@@ -458,7 +456,7 @@ class LLTypeMallocRemover(BaseMallocRemover):
         from rpython.rtyper.lltypesystem.rstr import string_repr
         msg = "unreachable operation (from malloc.py)"
         ll_msg = string_repr.convert_const(msg)
-        c_msg = Constant(ll_msg, lltype.typeOf(ll_msg))
+        c_msg = LLConstant(ll_msg, lltype.typeOf(ll_msg))
         return SpaceOperation("debug_fatalerror", [c_msg], v_result)
 
     def flowin_op(self, op, vars, newvarsmap):
@@ -469,7 +467,7 @@ class LLTypeMallocRemover(BaseMallocRemover):
             if key not in newvarsmap:
                 newop = self.handle_unreachable(op.result)
             elif key in self.accessed_substructs:
-                c_name = Constant('data', lltype.Void)
+                c_name = LLConstant('data', lltype.Void)
                 newop = SpaceOperation("getfield",
                                        [newvarsmap[key], c_name],
                                        op.result)
@@ -486,7 +484,7 @@ class LLTypeMallocRemover(BaseMallocRemover):
                 newop = self.handle_unreachable(op.result)
                 self.newops.append(newop)
             elif key in self.accessed_substructs:
-                c_name = Constant('data', lltype.Void)
+                c_name = LLConstant('data', lltype.Void)
                 newop = SpaceOperation("setfield",
                                  [newvarsmap[key], c_name, op.args[2]],
                                            op.result)
@@ -522,7 +520,7 @@ class LLTypeMallocRemover(BaseMallocRemover):
                 except KeyError:
                     newop = self.handle_unreachable(op.result)
                 else:
-                    cname = Constant('data', lltype.Void)
+                    cname = LLConstant('data', lltype.Void)
                     newop = SpaceOperation(opname,
                                            [v, cname],
                                            op.result)
@@ -530,7 +528,7 @@ class LLTypeMallocRemover(BaseMallocRemover):
         elif op.opname in ("ptr_iszero", "ptr_nonzero"):
             # we know the pointer is not NULL if it comes from
             # a successful malloc
-            c = Constant(op.opname == "ptr_nonzero", lltype.Bool)
+            c = LLConstant(op.opname == "ptr_nonzero", lltype.Bool)
             newop = SpaceOperation('same_as', [c], op.result)
             self.newops.append(newop)
         else:

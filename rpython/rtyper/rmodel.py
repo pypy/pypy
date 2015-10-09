@@ -355,8 +355,15 @@ class SimplePointerRepr(Repr):
 
 # ____________________________________________________________
 
+class LLConstant(Constant):
+    __slots__ = ["concretetype"]
+    def __init__(self, value, concretetype):
+        Constant.__init__(self, value)
+        self.concretetype = concretetype
+
+
 def inputconst(reqtype, value):
-    """Return a Constant with the given value, of the requested type,
+    """Return a LLConstant with the given value, of the requested type,
     which can be a Repr instance or a low-level type.
     """
     if isinstance(reqtype, Repr):
@@ -369,9 +376,7 @@ def inputconst(reqtype, value):
     if not lltype._contains_value(value):
         raise TyperError("inputconst(): expected a %r, got %r" %
                          (lltype, value))
-    c = Constant(value)
-    c.concretetype = lltype
-    return c
+    return LLConstant(value, lltype)
 
 class BrokenReprTyperError(TyperError):
     """ raised when trying to setup a Repr whose setup

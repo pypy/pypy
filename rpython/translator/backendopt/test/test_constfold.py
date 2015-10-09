@@ -1,9 +1,9 @@
-import py
-from rpython.flowspace.model import checkgraph, Constant, summary
+from rpython.flowspace.model import checkgraph, summary
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.rmodel import LLConstant
 from rpython.rtyper import rclass
 from rpython.rlib import objectmodel
 from rpython.translator.backendopt.constfold import constant_fold_graph
@@ -99,7 +99,7 @@ def test_multiple_incoming_links():
     constant_fold_graph(graph)
     assert summary(graph) == {'int_mul': 1, 'int_eq': 3, 'int_add': 2}
     for link in graph.iterlinks():
-        if Constant(139) in link.args:
+        if LLConstant(139, lltype.Signed) in link.args:
             break
     else:
         raise AssertionError("139 not found in the graph as a constant")
@@ -316,7 +316,7 @@ def test_merge_if_blocks_bug():
         elif n == 4: return -123
         elif n == 5: return 12973
         else: return n
-    
+
     graph, t = get_graph(fn, [int])
     from rpython.translator.backendopt.removenoops import remove_same_as
     from rpython.translator.backendopt import merge_if_blocks
@@ -335,7 +335,7 @@ def test_merge_if_blocks_bug_2():
         elif n == 4: return -123
         elif n == 5: return 12973
         else: return n
-    
+
     graph, t = get_graph(fn, [])
     from rpython.translator.backendopt.removenoops import remove_same_as
     from rpython.translator.backendopt import merge_if_blocks

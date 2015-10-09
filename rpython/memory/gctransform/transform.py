@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.flowspace.model import (
-    SpaceOperation, Variable, Constant, checkgraph)
+    SpaceOperation, Variable, checkgraph)
 from rpython.translator.unsimplify import insert_empty_block
 from rpython.translator.unsimplify import insert_empty_startblock
 from rpython.translator.unsimplify import starts_with_empty_block
@@ -13,6 +13,7 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper import rmodel
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.rtyper import LowLevelOpList
+from rpython.rtyper.rmodel import inputconst
 from rpython.rtyper.rbuiltin import gen_cast
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -273,7 +274,7 @@ class BaseGCTransformer(object):
 
     def inittime_helper(self, ll_helper, ll_args, ll_result, inline=True):
         ptr = self.annotate_helper(ll_helper, ll_args, ll_result, inline=inline)
-        return Constant(ptr, lltype.typeOf(ptr))
+        return inputconst(lltype.typeOf(ptr), ptr)
 
     def annotate_finalizer(self, ll_finalizer, ll_args, ll_result):
         fptr = self.annotate_helper(ll_finalizer, ll_args, ll_result)

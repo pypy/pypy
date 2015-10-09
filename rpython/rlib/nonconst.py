@@ -1,9 +1,8 @@
-
-""" simple non-constant constant. Ie constant which does not get annotated as constant
+""" simple non-constant constant.
+Ie constant which does not get annotated as constant
 """
 
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.flowspace.model import Constant
 from rpython.annotator.model import not_const
 
 class NonConstant(object):
@@ -39,7 +38,6 @@ class EntryNonConstant(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
-        retval = Constant(hop.r_result.convert_const(hop.args_v[0].value))
-        retval.concretetype = hop.r_result.lowleveltype
-        return retval
-
+        value = hop.r_result.convert_const(hop.args_v[0].value)
+        lltype = hop.r_result.lowleveltype
+        return hop.inputconst(lltype, value)

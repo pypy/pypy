@@ -11,10 +11,9 @@ from rpython.rtyper.llannotation import (
     SomePtr, annotation_to_lltype, lltype_to_annotation)
 from rpython.rtyper.normalizecalls import perform_normalizations
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.flowspace.model import Constant
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper import extregistry
-from rpython.rtyper.rmodel import warning
+from rpython.rtyper.rmodel import warning, LLConstant
 
 
 class KeyComp(object):
@@ -162,7 +161,7 @@ class MixLevelHelperAnnotator(object):
 
     def constfunc(self, ll_function, args_s, s_result):
         p = self.delayedfunction(ll_function, args_s, s_result)
-        return Constant(p, lltype.typeOf(p))
+        return LLConstant(p, lltype.typeOf(p))
 
     def graph2delayed(self, graph, FUNCTYPE=None):
         if FUNCTYPE is None:
@@ -177,7 +176,7 @@ class MixLevelHelperAnnotator(object):
 
     def graph2const(self, graph):
         p = self.graph2delayed(graph)
-        return Constant(p, lltype.typeOf(p))
+        return LLConstant(p, lltype.typeOf(p))
 
     def getdelayedrepr(self, s_value, check_never_seen=True):
         """Like rtyper.getrepr(), but the resulting repr will not be setup() at
@@ -309,7 +308,7 @@ class PseudoHighLevelCallableEntry(extregistry.ExtRegistryEntry):
         vlist = hop.inputargs(*args_r)
         p = self.instance.llfnptr
         TYPE = lltype.typeOf(p)
-        c_func = Constant(p, TYPE)
+        c_func = LLConstant(p, TYPE)
         FUNCTYPE = TYPE.TO
         for r_arg, ARGTYPE in zip(args_r, FUNCTYPE.ARGS):
             assert r_arg.lowleveltype == ARGTYPE

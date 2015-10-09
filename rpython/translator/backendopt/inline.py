@@ -2,6 +2,7 @@ import sys
 
 from rpython.flowspace.model import (Variable, Constant, Block, Link,
     SpaceOperation, FunctionGraph, mkentrymap)
+from rpython.rtyper.rmodel import LLConstant, inputconst
 from rpython.rtyper.lltypesystem.lltype import Bool, Signed, typeOf, Void, Ptr, normalizeptr
 from rpython.tool.algo import sparsemat
 from rpython.translator.backendopt import removenoops
@@ -355,9 +356,8 @@ class BaseInliner(object):
     def generic_exception_matching(self, afterblock, copiedexceptblock):
         #XXXXX don't look: insert blocks that do exception matching
         #for the cases where direct matching did not work
-        exc_match = Constant(
-            self.translator.rtyper.exceptiondata.fn_exception_match)
-        exc_match.concretetype = typeOf(exc_match.value)
+        ll_exc_match = self.translator.rtyper.exceptiondata.fn_exception_match
+        exc_match = inputconst(typeOf(ll_exc_match), ll_exc_match)
         blocks = []
         for i, link in enumerate(afterblock.exits[1:]):
             etype = copiedexceptblock.inputargs[0].copy()
@@ -366,8 +366,8 @@ class BaseInliner(object):
             block = Block([etype, evalue] + passon_vars)
             res = Variable()
             res.concretetype = Bool
-            cexitcase = Constant(link.llexitcase)
-            cexitcase.concretetype = typeOf(cexitcase.value)
+            exitcase = link.llexitcase
+            cexitcase = LLConstant(exitcase, typeOf(exitcase))
             args = [exc_match, etype, cexitcase]
             block.operations.append(SpaceOperation("direct_call", args, res))
             block.exitswitch = res
@@ -597,8 +597,8 @@ def instrument_inline_candidates(graphs, threshold):
                                    '_dont_inline_', False):
                             continue
                     if candidate(graph):
-                        tag = Constant('inline', Void)
-                        label = Constant(n, Signed)
+                        tag = LLConstant('inline', Void)
+                        label = LLConstant(n, Signed)
                         dummy = Variable()
                         dummy.concretetype = Void
                         count = SpaceOperation('instrument_count',

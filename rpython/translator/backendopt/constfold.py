@@ -1,5 +1,6 @@
-from rpython.flowspace.model import (Constant, Variable, SpaceOperation,
+from rpython.flowspace.model import (Variable, SpaceOperation,
     mkentrymap)
+from rpython.rtyper.rmodel import LLConstant
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.unsimplify import insert_empty_block, split_block
@@ -13,7 +14,7 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
         vargs = []
         args = []
         for v in spaceop.args:
-            if isinstance(v, Constant):
+            if isinstance(v, LLConstant):
                 args.append(v.value)
             elif v in constants:
                 v = constants[v]
@@ -41,7 +42,7 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
                     # success in folding this space operation
                     if spaceop.opname in fixup_op_result:
                         result = fixup_op_result[spaceop.opname](result)
-                    constants[spaceop.result] = Constant(result, RESTYPE)
+                    constants[spaceop.result] = LLConstant(result, RESTYPE)
                     folded_count += 1
                     continue
         # failed to fold an operation, exit early if requested
@@ -50,7 +51,7 @@ def fold_op_list(operations, constants, exit_early=False, exc_catch=False):
         else:
             if vargsmodif:
                 if (spaceop.opname == 'indirect_call'
-                    and isinstance(vargs[0], Constant)):
+                    and isinstance(vargs[0], LLConstant)):
                     spaceop = SpaceOperation('direct_call', vargs[:-1],
                                              spaceop.result)
                 else:
@@ -216,7 +217,7 @@ def constant_diffuse(graph):
         if isinstance(vexit, Variable):
             for link in block.exits:
                 if vexit in link.args and link.exitcase != 'default':
-                    remap = {vexit: Constant(link.llexitcase,
+                    remap = {vexit: LLConstant(link.llexitcase,
                                              vexit.concretetype)}
                     link.args = [remap.get(v, v) for v in link.args]
                     count += 1
@@ -233,7 +234,7 @@ def constant_diffuse(graph):
         rest = links[1:]
         diffuse = []
         for i, c in enumerate(firstlink.args):
-            if not isinstance(c, Constant):
+            if not isinstance(c, LLConstant):
                 continue
             for lnk in rest:
                 if lnk.args[i] != c:
@@ -268,7 +269,7 @@ def constant_fold_graph(graph):
         for link in list(graph.iterlinks()):
             constants = {}
             for v1, v2 in zip(link.args, link.target.inputargs):
-                if isinstance(v1, Constant):
+                if isinstance(v1, LLConstant):
                     constants[v2] = v1
             if constants:
                 prepare_constant_fold_link(link, constants, splitblocks)

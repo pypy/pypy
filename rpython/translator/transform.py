@@ -9,6 +9,7 @@ from rpython.flowspace.model import (
     SpaceOperation, Variable, Constant, Link, checkgraph)
 from rpython.annotator import model as annmodel
 from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.rmodel import inputconst
 
 def checkgraphs(self, blocks):
     seen = set()
@@ -205,7 +206,8 @@ def insert_ll_stackcheck(translator):
     graph = rtyper.annotate_helper(stack_check, [])
     rtyper.specialize_more_blocks()
     stack_check_ptr = rtyper.getcallable(graph)
-    stack_check_ptr_const = Constant(stack_check_ptr, lltype.typeOf(stack_check_ptr))
+    stack_check_ptr_const = inputconst(lltype.typeOf(stack_check_ptr),
+                                       stack_check_ptr)
     edges = set()
     insert_in = set()
     block2graph = {}

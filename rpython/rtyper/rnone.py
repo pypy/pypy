@@ -1,6 +1,5 @@
-from rpython.flowspace.model import Constant
 from rpython.annotator.model import SomeNone
-from rpython.rtyper.rmodel import Repr, TyperError, inputconst
+from rpython.rtyper.rmodel import Repr, TyperError, inputconst, LLConstant
 from rpython.rtyper.lltypesystem.lltype import Void, Bool, Ptr, Char
 from rpython.rtyper.lltypesystem.llmemory import Address
 from rpython.rtyper.rpbc import SmallFunctionSetPBCRepr
@@ -11,7 +10,7 @@ class NoneRepr(Repr):
     lowleveltype = Void
 
     def rtype_bool(self, hop):
-        return Constant(False, Bool)
+        return LLConstant(False, Bool)
 
     def none_call(self, hop):
         raise TyperError("attempt to call constant None")
