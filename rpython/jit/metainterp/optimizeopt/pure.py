@@ -1,3 +1,4 @@
+from rpython.rtyper.rclass import IR_QUASIIMMUTABLE
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
      ResOperation
@@ -191,6 +192,22 @@ class OptPure(Optimization):
             # following GUARD_NO_EXCEPTION
             return
         self.emit_operation(op)
+
+    def optimize_GETFIELD_GC_PURE_I(self, op):
+        from rpython.rlib.objectmodel import we_are_translated
+        # check that the descr is pure
+        # XXX quasi immutable descrs, are they pure or not?
+        if not we_are_translated():
+            descr = op.getdescr()
+            # Kind of weird that this returns a boolean or one of the IR_*
+            # family
+            assert descr.is_always_pure() in (True, IR_QUASIIMMUTABLE)
+        return self.optimize_default(op)
+    optimize_GETFIELD_GC_PURE_R = optimize_GETFIELD_GC_PURE_I
+    optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_PURE_I
+    optimize_GETARRAYITEM_GC_PURE_I = optimize_GETFIELD_GC_PURE_I
+    optimize_GETARRAYITEM_GC_PURE_R = optimize_GETFIELD_GC_PURE_I
+    optimize_GETARRAYITEM_GC_PURE_F = optimize_GETFIELD_GC_PURE_I
 
     def flush(self):
         assert self.postponed_op is None

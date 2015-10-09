@@ -1089,9 +1089,9 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_getfield_gc_pure_1(self):
         ops = """
         [i]
-        p1 = new_with_vtable(descr=nodesize)
-        setfield_gc(p1, i, descr=valuedescr)
-        i1 = getfield_gc_pure_i(p1, descr=valuedescr)
+        p1 = new_with_vtable(descr=nodesize3)
+        setfield_gc(p1, i, descr=valuedescr3)
+        i1 = getfield_gc_pure_i(p1, descr=valuedescr3)
         jump(i1)
         """
         expected = """
@@ -1103,14 +1103,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_getfield_gc_pure_2(self):
         ops = """
         [i]
-        i1 = getfield_gc_pure_i(ConstPtr(myptr), descr=valuedescr)
+        i1 = getfield_gc_pure_i(ConstPtr(myptr3), descr=valuedescr3)
         jump(i1)
         """
         expected = """
         [i]
-        jump(5)
+        jump(7)
         """
-        self.node.value = 5
         self.optimize_loop(ops, expected)
 
     def test_getfield_gc_nonpure_2(self):
@@ -1532,7 +1531,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setfield_gc(p1, i1, descr=valuedescr)
         #
         # some operations on which the above setfield_gc cannot have effect
-        i3 = getarrayitem_gc_pure_i(p3, 1, descr=arraydescr)
+        i3 = getarrayitem_gc_i(p3, 1, descr=arraydescr)
         i4 = getarrayitem_gc_i(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
         setarrayitem_gc(p3, 0, i5, descr=arraydescr)
@@ -1544,7 +1543,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [p1, i1, i2, p3]
         #
-        i3 = getarrayitem_gc_pure_i(p3, 1, descr=arraydescr)
+        i3 = getarrayitem_gc_i(p3, 1, descr=arraydescr)
         i4 = getarrayitem_gc_i(p3, i3, descr=arraydescr)
         i5 = int_add(i3, i4)
         #
@@ -1786,7 +1785,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1, p2]
         p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
-        i4 = getfield_gc_pure_i(ConstPtr(myptr), descr=valuedescr)
+        i4 = getfield_gc_pure_i(ConstPtr(myptr3), descr=valuedescr3)
         p5 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         escape_n(p3)
         escape_n(i4)
@@ -1797,7 +1796,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         [p1, p2]
         p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         escape_n(p3)
-        escape_n(5)
+        escape_n(7)
         escape_n(p3)
         jump(p1, p2)
         """
@@ -5869,15 +5868,15 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_getarrayitem_gc_pure_not_invalidated(self):
         ops = """
         [p0]
-        i1 = getarrayitem_gc_pure_i(p0, 1, descr=arraydescr)
+        i1 = getarrayitem_gc_pure_i(p0, 1, descr=arrayimmutdescr)
         escape_n(p0)
-        i2 = getarrayitem_gc_pure_i(p0, 1, descr=arraydescr)
+        i2 = getarrayitem_gc_pure_i(p0, 1, descr=arrayimmutdescr)
         escape_n(i2)
         jump(p0)
         """
         expected = """
         [p0]
-        i1 = getarrayitem_gc_pure_i(p0, 1, descr=arraydescr)
+        i1 = getarrayitem_gc_pure_i(p0, 1, descr=arrayimmutdescr)
         escape_n(p0)
         escape_n(i1)
         jump(p0)

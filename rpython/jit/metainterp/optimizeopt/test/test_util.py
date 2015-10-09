@@ -132,13 +132,21 @@ class LLtypeMixin(object):
     node2.parent.parent.typeptr = node_vtable2
     node2addr = lltype.cast_opaque_ptr(llmemory.GCREF, node2)
     myptr = lltype.cast_opaque_ptr(llmemory.GCREF, node)
-    mynode2 = lltype.malloc(NODE)
+    mynodeb = lltype.malloc(NODE)
     myarray = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(lltype.GcArray(lltype.Signed), 13, zero=True))
-    mynode2.parent.typeptr = node_vtable
-    myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode2)
-    mynode3 = lltype.malloc(NODE2)
-    mynode3.parent.parent.typeptr = node_vtable2
+    mynodeb.parent.typeptr = node_vtable
+    myptrb = lltype.cast_opaque_ptr(llmemory.GCREF, mynodeb)
+    myptr2 = lltype.malloc(NODE2)
+    myptr2.parent.parent.typeptr = node_vtable2
+    myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, myptr2)
+    nullptr = lltype.nullptr(llmemory.GCREF.TO)
+
+    mynode3 = lltype.malloc(NODE3)
+    mynode3.parent.typeptr = node_vtable3
+    mynode3.value = 7
+    mynode3.next = mynode3
     myptr3 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode3)
+
     nullptr = lltype.nullptr(llmemory.GCREF.TO)
     #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
     nodesize = cpu.sizeof(NODE, node_vtable)
@@ -197,7 +205,6 @@ class LLtypeMixin(object):
     immut_ptrval = cpu.fielddescrof(PTROBJ_IMMUT, 'ptrval')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
-    floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
     arraydescr_tid = arraydescr.get_type_id()
     array = lltype.malloc(lltype.GcArray(lltype.Signed), 15, zero=True)
     arrayref = lltype.cast_opaque_ptr(llmemory.GCREF, array)
@@ -206,6 +213,11 @@ class LLtypeMixin(object):
     gcarraydescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF))
     gcarraydescr_tid = gcarraydescr.get_type_id()
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
+
+    arrayimmutdescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed, hints={"immutable": True}))
+    immutarray = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(arrayimmutdescr.A, 13, zero=True))
+    gcarrayimmutdescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF, hints={"immutable": True}))
+    floatarrayimmutdescr = cpu.arraydescrof(lltype.GcArray(lltype.Float, hints={"immutable": True}))
 
     # a GcStruct not inheriting from OBJECT
     tpl = lltype.malloc(S, zero=True)
@@ -238,7 +250,7 @@ class LLtypeMixin(object):
     tsize = cpu.sizeof(T, None)
     cdescr = cpu.fielddescrof(T, 'c')
     ddescr = cpu.fielddescrof(T, 'd')
-    arraydescr3 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(NODE)))
+    arraydescr3 = cpu.arraydescrof(lltype.GcArray(lltype.Ptr(NODE3)))
 
     U = lltype.GcStruct('U',
                         ('parent', OBJECT),
