@@ -460,8 +460,7 @@ final_descr = history.BasicFinalDescr()
 class BaseTest(object):
 
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
-        self.oparse = OpParser(s, self.cpu, self.namespace, 'lltype',
-                               boxkinds,
+        self.oparse = OpParser(s, self.cpu, self.namespace, boxkinds,
                                None, False, postprocess)
         return self.oparse.parse()
 
@@ -569,4 +568,3 @@ def convert_old_style_to_targets(loop, jump):
     return newloop
 
 # ____________________________________________________________
-
