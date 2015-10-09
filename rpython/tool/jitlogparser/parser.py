@@ -167,6 +167,7 @@ class SimpleParser(OpParser):
     def update_memo(self, val, name):
         pass
 
+
 class NonCodeError(Exception):
     pass
 
@@ -413,35 +414,16 @@ def parse_addresses(part, callback=None):
 def import_log(logname, ParserCls=SimpleParser):
     log = parse_log_file(logname)
     addrs = parse_addresses(extract_category(log, 'jit-backend-addr'))
-    from rpython.jit.backend.tool.viewcode import CodeRange
-    ranges = {}
-    backend_name = None
+    from rpython.jit.backend.tool.viewcode import World
+    world = World()
     for entry in extract_category(log, 'jit-backend-dump'):
-        for line in entry.splitlines(True):
-            # copied from class World
-            if line.startswith('BACKEND '):
-                backend_name = line.split(' ')[1].strip()
-            if line.startswith('CODE_DUMP '):
-                pieces = line.split()
-                assert pieces[1].startswith('@')
-                assert pieces[2].startswith('+')
-                if len(pieces) == 3:
-                    continue     # empty line
-                baseaddr = long(pieces[1][1:], 16)
-                if baseaddr < 0:
-                    baseaddr += (2 * sys.maxint + 2)
-                offset = int(pieces[2][1:])
-                addr = baseaddr + offset
-                data = pieces[3].replace(':', '').decode('hex')
-                coderange = CodeRange(None, addr, data)
-                ranges[addr] = coderange
+        world.parse(entry.splitlines(True))
     dumps = {}
-    for rang in sorted(ranges.values()):
-        addr = rang.addr
-        if addr in addrs and addrs[addr]:
-            name = addrs[addr].pop(0) # they should come in order
-            data = rang.data.encode('hex') # backward compatibility
-            dumps[name] = (backend_name, addr, data)
+    for r in world.ranges:
+        if r.addr in addrs and addrs[r.addr]:
+            name = addrs[r.addr].pop(0) # they should come in order
+            data = r.data.encode('hex')       # backward compatibility
+            dumps[name] = (world.backend_name, r.addr, data)
     loops = []
     cat = extract_category(log, 'jit-log-opt')
     if not cat:
@@ -468,9 +450,6 @@ def import_log(logname, ParserCls=SimpleParser):
                               parser.postprocess(loop, backend_tp=bname,
                                                  backend_dump=dump,
                                                  dump_start=start_ofs))
-            loop.start_ofs = start_ofs
-        else:
-            loop.start_ofs = -1
         loops += split_trace(loop)
     return log, loops
 
