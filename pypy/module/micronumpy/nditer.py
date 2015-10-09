@@ -349,7 +349,6 @@ class W_NDIter(W_NumpyObject):
     def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes,
                  w_casting, w_op_axes, w_itershape, buffersize=0,
                  order=NPY.KEEPORDER):
-        self.order = order
         self.external_loop = False
         self.buffered = False
         self.tracked_index = ''
@@ -377,7 +376,25 @@ class W_NDIter(W_NumpyObject):
                         for w_elem in w_seq_as_list]
         else:
             self.seq = [convert_to_array(space, w_seq)]
-
+        if order == NPY.ANYORDER:
+            # 'A' means "'F' order if all the arrays are Fortran contiguous,
+            #            'C' order otherwise"
+            order = NPY.CORDER
+            for s in self.seq:
+                if s and not(s.get_flags() & NPY.ARRAY_F_CONTIGUOUS):
+                     break
+                else:
+                    order = NPY.FORTRANORDER
+        elif order == NPY.KEEPORDER:
+            # 'K' means "as close to the order the array elements appear in
+            #     memory as possible", so match self.order to seq.order
+            order = NPY.CORDER
+            for s in self.seq:
+                if s and not(s.get_order() == NPY.FORTRANORDER):
+                     break
+                else:
+                    order = NPY.FORTRANORDER
+        self.order = order
         parse_func_flags(space, self, w_flags)
         self.op_flags = parse_op_arg(space, 'op_flags', w_op_flags,
                                      len(self.seq), parse_op_flag)
@@ -488,7 +505,7 @@ class W_NDIter(W_NumpyObject):
                                     space.str_w(self_d.descr_repr(space)),
                                     space.str_w(seq_d.descr_repr(space)),
                                     i, self.casting)
-        elif self.buffered:
+        elif self.buffered and not (self.external_loop and len(self.seq)<2):
             for i in range(len(self.seq)):
                 if i not in outargs:
                     self.seq[i] = self.seq[i].descr_copy(space,
@@ -510,12 +527,19 @@ class W_NDIter(W_NumpyObject):
 
     def get_iter(self, space, i):
         arr = self.seq[i]
-        dtype = self.dtypes[i]
-        shape = self.shape
         imp = arr.implementation
-        backward = is_backward(imp.order, self.order)
         if arr.is_scalar():
             return ConcreteIter(imp, 1, [], [], [], self.op_flags[i], self)
+        shape = self.shape
+        if (self.external_loop and len(self.seq)<2 and self.buffered):
+            # Special case, always return a memory-ordered iterator
+            stride = imp.dtype.elsize
+            backstride = imp.size * stride - stride
+            return ConcreteIter(imp, imp.get_size(), 
+                [support.product(shape)], [stride], [backstride],
+                            self.op_flags[i], self)
+        backward = imp.order != self.order
+        # XXX cleanup needed
         if (abs(imp.strides[0]) < abs(imp.strides[-1]) and not backward) or \
            (abs(imp.strides[0]) > abs(imp.strides[-1]) and backward):
             # flip the strides. Is this always true for multidimension?

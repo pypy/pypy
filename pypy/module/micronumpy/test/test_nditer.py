@@ -114,10 +114,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         from numpy import nditer, array
 
         a = array([[1, 2], [3, 4]], order="C")
-        try:
-            b = array([[1, 2], [3, 4]], order="F")
-        except (NotImplementedError, ValueError):
-            skip('Fortran order not implemented')
+        b = array([[1, 2], [3, 4]], order="F")
 
         it = nditer([a, b])
         r = list(it)
@@ -161,11 +158,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         assert r[0][0] == 100
 
         r = []
-        try:
-            it = nditer(a, flags=['buffered'], order='F')
-        except NotImplementedError as e:
-            assert 'unsupported value for order' in str(e)
-            skip('buffered with order="F" requires fortran tmp array creation')
+        it = nditer(a, flags=['buffered'], order='F')
         for x in it:
             r.append(x)
         array_r = array(r)
