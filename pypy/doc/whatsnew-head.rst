@@ -53,3 +53,10 @@ pure operations and guards in between.
 
 Fix performance regression on operations mixing numpy scalars and Python 
 floats, cf. issue #2148.
+
+.. branch: cffi-stdcall
+Win32: support '__stdcall' in CFFI.
+
+.. branch: callfamily
+
+Refactorings of annotation and rtyping of function calls.

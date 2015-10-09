@@ -129,6 +129,14 @@ LOOP_RUN_CONTAINER = lltype.GcArray(lltype.Struct('elem',
 def stats_get_loop_run_times(warmrunnerdesc):
     return warmrunnerdesc.metainterp_sd.cpu.get_all_loop_runs()
 
+@register_helper(annmodel.SomeInteger(unsigned=True))
+def stats_asmmemmgr_allocated(warmrunnerdesc):
+    return warmrunnerdesc.metainterp_sd.cpu.asmmemmgr.get_stats()[0]
+
+@register_helper(annmodel.SomeInteger(unsigned=True))
+def stats_asmmemmgr_used(warmrunnerdesc):
+    return warmrunnerdesc.metainterp_sd.cpu.asmmemmgr.get_stats()[1]
+
 # ---------------------- jitcell interface ----------------------
 
 def _new_hook(name, resulttype):

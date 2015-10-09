@@ -365,3 +365,17 @@ def test_enum():
     assert C.TWO == 2
     assert C.NIL == 0
     assert C.NEG == -1
+
+def test_stdcall():
+    ffi = FFI()
+    tp = ffi.typeof("int(*)(int __stdcall x(int),"
+                    "       long (__cdecl*y)(void),"
+                    "       short(WINAPI *z)(short))")
+    if sys.platform == 'win32':
+        stdcall = '__stdcall '
+    else:
+        stdcall = ''
+    assert str(tp) == (
+        "<ctype 'int(*)(int(%s*)(int), "
+                        "long(*)(), "
+                        "short(%s*)(short))'>" % (stdcall, stdcall))

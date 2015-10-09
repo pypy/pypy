@@ -3520,6 +3520,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_residual_call_does_not_invalidate_immutable_caches(self):
+        ops = """
+        [p1]
+        i1 = getfield_gc_pure_i(p1, descr=valuedescr3)
+        i2 = call_i(i1, descr=writevalue3descr)
+        i3 = getfield_gc_pure_i(p1, descr=valuedescr3)
+        jump(p1)
+        """
+        expected_preamble = """
+        [p1]
+        i1 = getfield_gc_pure_i(p1, descr=valuedescr3)
+        i2 = call_i(i1, descr=writevalue3descr)
+        jump(p1, i1)
+        """
+        expected = """
+        [p1, i1]
+        i2 = call_i(i1, descr=writevalue3descr)
+        jump(p1, i1)
+        """
+        self.optimize_loop(ops, expected, expected_preamble=expected_preamble)
+
     def test_residual_call_invalidate_some_caches(self):
         ops = """
         [p1, p2]

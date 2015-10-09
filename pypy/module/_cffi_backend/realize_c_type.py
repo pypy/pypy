@@ -5,6 +5,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.module import _cffi_backend
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend import cffi_opcode, newtype, ctypestruct
 from pypy.module._cffi_backend import parse_c_type
@@ -164,16 +165,28 @@ class W_RawFuncType(W_Root):
         OP_FUNCTION_END = cffi_opcode.OP_FUNCTION_END
         while getop(opcodes[base_index + num_args]) != OP_FUNCTION_END:
             num_args += 1
-        ellipsis = (getarg(opcodes[base_index + num_args]) & 1) != 0
+        #
+        ellipsis = (getarg(opcodes[base_index + num_args]) & 0x01) != 0
+        abi      = (getarg(opcodes[base_index + num_args]) & 0xFE)
+        if abi == 0:
+            abi = _cffi_backend.FFI_DEFAULT_ABI
+        elif abi == 2:
+            if _cffi_backend.has_stdcall:
+                abi = _cffi_backend.FFI_STDCALL
+            else:
+                abi = _cffi_backend.FFI_DEFAULT_ABI
+        else:
+            raise oefmt(ffi.w_FFIError, "abi number %d not supported", abi)
+        #
         fargs = [realize_c_type(ffi, opcodes, base_index + i)
                  for i in range(num_args)]
-        return fargs, fret, ellipsis
+        return fargs, fret, ellipsis, abi
 
     def unwrap_as_fnptr(self, ffi):
         if self._ctfuncptr is None:
-            fargs, fret, ellipsis = self._unpack(ffi)
+            fargs, fret, ellipsis, abi = self._unpack(ffi)
             self._ctfuncptr = newtype._new_function_type(
-                ffi.space, fargs, fret, ellipsis)
+                ffi.space, fargs, fret, ellipsis, abi)
         return self._ctfuncptr
 
     def unwrap_as_fnptr_in_elidable(self):
@@ -190,7 +203,7 @@ class W_RawFuncType(W_Root):
         # type ptr-to-struct.  This is how recompiler.py produces
         # trampoline functions for PyPy.
         if self.nostruct_ctype is None:
-            fargs, fret, ellipsis = self._unpack(ffi)
+            fargs, fret, ellipsis, abi = self._unpack(ffi)
             # 'locs' will be a string of the same length as the final fargs,
             # containing 'A' where a struct argument was detected, and 'R'
             # in first position if a struct return value was detected
@@ -207,7 +220,7 @@ class W_RawFuncType(W_Root):
                 locs = ['R'] + locs
                 fret = newtype.new_void_type(ffi.space)
             ctfuncptr = newtype._new_function_type(
-                ffi.space, fargs, fret, ellipsis)
+                ffi.space, fargs, fret, ellipsis, abi)
             if locs == ['\x00'] * len(locs):
                 locs = None
             else:
@@ -218,7 +231,7 @@ class W_RawFuncType(W_Root):
                                                           locs[0] == 'R')
 
     def unexpected_fn_type(self, ffi):
-        fargs, fret, ellipsis = self._unpack(ffi)
+        fargs, fret, ellipsis, abi = self._unpack(ffi)
         argnames = [farg.name for farg in fargs]
         if ellipsis:
             argnames.append('...')

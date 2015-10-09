@@ -143,7 +143,7 @@ class W_CType(W_Root):
             # obscure hack when untranslated, maybe, approximate, don't use
             if isinstance(align, llmemory.FieldOffset):
                 align = rffi.sizeof(align.TYPE.y)
-                if (1 << (8*align-2)) > sys.maxint:
+                if sys.platform != 'win32' and (1 << (8*align-2)) > sys.maxint:
                     align /= 2
         else:
             # a different hack when translated, to avoid seeing constants

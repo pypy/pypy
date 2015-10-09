@@ -4046,8 +4046,11 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
     def test_external_call(self):
         from rpython.rlib.objectmodel import invoke_around_extcall
 
-        T = rffi.CArrayPtr(rffi.TIME_T)
-        external = rffi.llexternal("time", [T], rffi.TIME_T)
+        TIME_T = lltype.Signed
+        # ^^^ some 32-bit platforms have a 64-bit rffi.TIME_T, but we
+        # don't want that here; we just want always a Signed value
+        T = rffi.CArrayPtr(TIME_T)
+        external = rffi.llexternal("time", [T], TIME_T)
 
         class Oups(Exception):
             pass
@@ -4071,9 +4074,9 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             external(lltype.nullptr(T.TO))
             return len(state.l)
 
-        res = self.interp_operations(f, [], supports_longlong=True)
+        res = self.interp_operations(f, [])
         assert res == 2
-        res = self.interp_operations(f, [], supports_longlong=True)
+        res = self.interp_operations(f, [])
         assert res == 2
         self.check_operations_history(call_release_gil_i=1, call_may_force_i=0)
 

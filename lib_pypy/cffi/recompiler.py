@@ -607,7 +607,11 @@ class Recompiler:
             call_arguments.append('x%d' % i)
         repr_arguments = ', '.join(arguments)
         repr_arguments = repr_arguments or 'void'
-        name_and_arguments = '_cffi_d_%s(%s)' % (name, repr_arguments)
+        if tp.abi:
+            abi = tp.abi + ' '
+        else:
+            abi = ''
+        name_and_arguments = '%s_cffi_d_%s(%s)' % (abi, name, repr_arguments)
         prnt('static %s' % (tp.result.get_c_name(name_and_arguments),))
         prnt('{')
         call_arguments = ', '.join(call_arguments)
@@ -710,7 +714,8 @@ class Recompiler:
         if difference:
             repr_arguments = ', '.join(arguments)
             repr_arguments = repr_arguments or 'void'
-            name_and_arguments = '_cffi_f_%s(%s)' % (name, repr_arguments)
+            name_and_arguments = '%s_cffi_f_%s(%s)' % (abi, name,
+                                                       repr_arguments)
             prnt('static %s' % (tp_result.get_c_name(name_and_arguments),))
             prnt('{')
             if result_decl:
@@ -1135,7 +1140,13 @@ class Recompiler:
                 else:
                     self.cffi_types[index] = CffiOp(OP_NOOP, realindex)
             index += 1
-        self.cffi_types[index] = CffiOp(OP_FUNCTION_END, int(tp.ellipsis))
+        flags = int(tp.ellipsis)
+        if tp.abi is not None:
+            if tp.abi == '__stdcall':
+                flags |= 2
+            else:
+                raise NotImplementedError("abi=%r" % (tp.abi,))
+        self.cffi_types[index] = CffiOp(OP_FUNCTION_END, flags)
 
     def _emit_bytecode_PointerType(self, tp, index):
         self.cffi_types[index] = CffiOp(OP_POINTER, self._typesdict[tp.totype])

@@ -414,6 +414,8 @@ class OptHeap(Optimization):
         for arraydescr in effectinfo.readonly_descrs_arrays:
             self.force_lazy_setarrayitem(arraydescr)
         for fielddescr in effectinfo.write_descrs_fields:
+            if fielddescr.is_always_pure():
+                continue
             try:
                 del self.cached_dict_reads[fielddescr]
             except KeyError:
