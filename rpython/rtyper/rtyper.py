@@ -24,7 +24,8 @@ from rpython.rtyper.exceptiondata import ExceptionData
 from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
     Ptr, ContainerType, FuncType, functionptr, typeOf, RuntimeTypeInfo,
     attachRuntimeTypeInfo, Primitive, getfunctionptr)
-from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
+from rpython.rtyper.rmodel import (
+    Repr, inputconst, BrokenReprTyperError, ll_const)
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
@@ -871,7 +872,7 @@ class LowLevelOpList(list):
 
         # build the 'direct_call' operation
         f = self.rtyper.getcallable(graph)
-        c = inputconst(typeOf(f), f)
+        c = ll_const(f)
         fobj = f._obj
         return self.genop('direct_call', [c]+newargs_v,
                           resulttype = typeOf(fobj).RESULT)
@@ -882,14 +883,14 @@ class LowLevelOpList(list):
         argtypes = [v.concretetype for v in args_v]
         FUNCTYPE = FuncType(argtypes, resulttype or Void)
         f = functionptr(FUNCTYPE, fnname, **flags)
-        cf = inputconst(typeOf(f), f)
+        cf = ll_const(f)
         return self.genop('direct_call', [cf]+list(args_v), resulttype)
 
     def gencapicall(self, cfnname, args_v, resulttype=None, **flags):
         return self.genexternalcall(cfnname, args_v, resulttype=resulttype, external="CPython", **flags)
 
     def genconst(self, ll_value):
-        return inputconst(typeOf(ll_value), ll_value)
+        return ll_const(ll_value)
 
     def genvoidconst(self, placeholder):
         return inputconst(Void, placeholder)

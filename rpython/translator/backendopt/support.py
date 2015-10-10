@@ -1,7 +1,7 @@
 import py
 
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.rmodel import inputconst
+from rpython.rtyper.rmodel import ll_const
 from rpython.tool.ansi_print import ansi_log
 from rpython.translator.simplify import get_graph
 
@@ -22,10 +22,11 @@ def all_operations(graphs):
                 yield op
 
 def annotate(translator, func, result, args):
-    args   = [arg.concretetype for arg in args]
-    graph  = translator.rtyper.annotate_helper(func, args)
-    fptr   = lltype.functionptr(lltype.FuncType(args, result.concretetype), func.func_name, graph=graph)
-    c      = inputconst(lltype.typeOf(fptr), fptr)
+    args = [arg.concretetype for arg in args]
+    graph = translator.rtyper.annotate_helper(func, args)
+    fptr = lltype.functionptr(lltype.FuncType(args, result.concretetype),
+                              func.func_name, graph=graph)
+    c = ll_const(fptr)
     return c
 
 def var_needsgc(var):

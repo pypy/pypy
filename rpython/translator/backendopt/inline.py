@@ -2,7 +2,7 @@ import sys
 
 from rpython.flowspace.model import (Variable, Constant, Block, Link,
     SpaceOperation, FunctionGraph, mkentrymap)
-from rpython.rtyper.rmodel import LLConstant, inputconst
+from rpython.rtyper.rmodel import LLConstant, ll_const
 from rpython.rtyper.lltypesystem.lltype import Bool, Signed, typeOf, Void, Ptr, normalizeptr
 from rpython.tool.algo import sparsemat
 from rpython.translator.backendopt import removenoops
@@ -357,7 +357,7 @@ class BaseInliner(object):
         #XXXXX don't look: insert blocks that do exception matching
         #for the cases where direct matching did not work
         ll_exc_match = self.translator.rtyper.exceptiondata.fn_exception_match
-        exc_match = inputconst(typeOf(ll_exc_match), ll_exc_match)
+        exc_match = ll_const(ll_exc_match)
         blocks = []
         for i, link in enumerate(afterblock.exits[1:]):
             etype = copiedexceptblock.inputargs[0].copy()
@@ -366,8 +366,7 @@ class BaseInliner(object):
             block = Block([etype, evalue] + passon_vars)
             res = Variable()
             res.concretetype = Bool
-            exitcase = link.llexitcase
-            cexitcase = LLConstant(exitcase, typeOf(exitcase))
+            cexitcase = ll_const(link.llexitcase)
             args = [exc_match, etype, cexitcase]
             block.operations.append(SpaceOperation("direct_call", args, res))
             block.exitswitch = res

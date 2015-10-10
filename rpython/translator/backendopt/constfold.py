@@ -1,6 +1,6 @@
 from rpython.flowspace.model import (Variable, SpaceOperation,
     mkentrymap)
-from rpython.rtyper.rmodel import LLConstant
+from rpython.rtyper.rmodel import LLConstant, ll_const
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.unsimplify import insert_empty_block, split_block

@@ -13,7 +13,7 @@ from rpython.rtyper.normalizecalls import perform_normalizations
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper import extregistry
-from rpython.rtyper.rmodel import warning, LLConstant
+from rpython.rtyper.rmodel import warning, LLConstant, ll_const
 
 
 class KeyComp(object):
@@ -161,7 +161,7 @@ class MixLevelHelperAnnotator(object):
 
     def constfunc(self, ll_function, args_s, s_result):
         p = self.delayedfunction(ll_function, args_s, s_result)
-        return LLConstant(p, lltype.typeOf(p))
+        return ll_const(p)
 
     def graph2delayed(self, graph, FUNCTYPE=None):
         if FUNCTYPE is None:
@@ -176,7 +176,7 @@ class MixLevelHelperAnnotator(object):
 
     def graph2const(self, graph):
         p = self.graph2delayed(graph)
-        return LLConstant(p, lltype.typeOf(p))
+        return ll_const(p)
 
     def getdelayedrepr(self, s_value, check_never_seen=True):
         """Like rtyper.getrepr(), but the resulting repr will not be setup() at

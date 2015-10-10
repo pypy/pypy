@@ -12,7 +12,7 @@ from rpython.rtyper.lltypesystem import ll_str, llmemory
 from rpython.rtyper.lltypesystem.lltype import (GcStruct, Signed, Array, Char,
     UniChar, Ptr, malloc, Bool, Void, GcArray, nullptr, cast_primitive,
     typeOf, staticAdtMethod, GcForwardReference)
-from rpython.rtyper.rmodel import inputconst, Repr
+from rpython.rtyper.rmodel import inputconst, Repr, ll_const
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rstr import (AbstractStringRepr, AbstractCharRepr,
     AbstractUniCharRepr, AbstractStringIteratorRepr, AbstractLLHelpers,
@@ -1179,11 +1179,11 @@ class LLHelpers(AbstractLLHelpers):
                 elif code == 'x':
                     assert isinstance(r_arg, IntegerRepr)
                     vchunk = hop.gendirectcall(ll_str.ll_int2hex, vitem,
-                                               inputconst(Bool, False))
+                                               ll_const(False))
                 elif code == 'o':
                     assert isinstance(r_arg, IntegerRepr)
                     vchunk = hop.gendirectcall(ll_str.ll_int2oct, vitem,
-                                               inputconst(Bool, False))
+                                               ll_const(False))
                 else:
                     raise TyperError("%%%s is not RPython" % (code,))
             else:

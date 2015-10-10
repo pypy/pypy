@@ -1,4 +1,4 @@
-from rpython.rtyper.rmodel import inputconst, log
+from rpython.rtyper.rmodel import inputconst, log, ll_const
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.rclass import (FieldListAccessor, InstanceRepr)
 
@@ -55,7 +55,7 @@ class VirtualizableInstanceRepr(InstanceRepr):
 
 def replace_force_virtualizable_with_call(graphs, VTYPEPTR, funcptr):
     # funcptr should be a function pointer with a VTYPEPTR argument
-    c_funcptr = inputconst(lltype.typeOf(funcptr), funcptr)
+    c_funcptr = ll_const(funcptr)
     count = 0
     for graph in graphs:
         for block in graph.iterblocks():

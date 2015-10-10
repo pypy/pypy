@@ -1,7 +1,7 @@
 from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.rmodel import LLConstant
+from rpython.rtyper.rmodel import LLConstant, ll_const
 from rpython.translator import simplify
 from rpython.translator.backendopt import removenoops
 from rpython.translator.backendopt.support import log
@@ -456,7 +456,7 @@ class LLTypeMallocRemover(BaseMallocRemover):
         from rpython.rtyper.lltypesystem.rstr import string_repr
         msg = "unreachable operation (from malloc.py)"
         ll_msg = string_repr.convert_const(msg)
-        c_msg = LLConstant(ll_msg, lltype.typeOf(ll_msg))
+        c_msg = ll_const(ll_msg)
         return SpaceOperation("debug_fatalerror", [c_msg], v_result)
 
     def flowin_op(self, op, vars, newvarsmap):

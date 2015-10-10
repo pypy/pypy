@@ -8,7 +8,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem import lloperation
 from rpython.rtyper.rclass import ll_inst_type
 from rpython.rtyper import rtyper
-from rpython.rtyper.rmodel import inputconst, LLConstant
+from rpython.rtyper.rmodel import inputconst, LLConstant, ll_const
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
 from rpython.rlib.debug import ll_assert
@@ -43,9 +43,6 @@ def error_value(T):
 def error_constant(T):
     return LLConstant(error_value(T), T)
 
-def constant_value(llvalue):
-    return LLConstant(llvalue, lltype.typeOf(llvalue))
-
 class ExceptionTransformer(object):
 
     def __init__(self, translator):
@@ -62,9 +59,9 @@ class ExceptionTransformer(object):
         (n_i_error_ll_exc_type,
          n_i_error_ll_exc) = self.get_builtin_exception(NotImplementedError)
 
-        self.c_assertion_error_ll_exc_type = constant_value(
+        self.c_assertion_error_ll_exc_type = ll_const(
             assertion_error_ll_exc_type)
-        self.c_n_i_error_ll_exc_type = constant_value(n_i_error_ll_exc_type)
+        self.c_n_i_error_ll_exc_type = ll_const(n_i_error_ll_exc_type)
 
         def rpyexc_occured():
             exc_type = exc_data.exc_type
@@ -469,7 +466,7 @@ class ExceptionTransformer(object):
     def constant_func(self, name, inputtypes, rettype, graph, **kwds):
         FUNC_TYPE = lltype.FuncType(inputtypes, rettype)
         fn_ptr = lltype.functionptr(FUNC_TYPE, name, graph=graph, **kwds)
-        return LLConstant(fn_ptr, lltype.Ptr(FUNC_TYPE))
+        return ll_const(fn_ptr)
 
     def gen_getfield(self, name, llops):
         c_name = inputconst(lltype.Void, name)

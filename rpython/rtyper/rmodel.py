@@ -2,7 +2,8 @@ from rpython.annotator import model as annmodel, unaryop, binaryop, description
 from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError, MissingRTypeOperation
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.lltypesystem.lltype import Void, Bool, LowLevelType, Ptr
+from rpython.rtyper.lltypesystem.lltype import (
+    Void, Bool, LowLevelType, Ptr, typeOf)
 from rpython.tool.pairtype import pairtype, extendabletype, pair
 
 
@@ -356,11 +357,15 @@ class SimplePointerRepr(Repr):
 # ____________________________________________________________
 
 class LLConstant(Constant):
+    """Low-level constant"""
     __slots__ = ["concretetype"]
     def __init__(self, value, concretetype):
         Constant.__init__(self, value)
         self.concretetype = concretetype
 
+def ll_const(obj):
+    """Convert an object into a LLConstant"""
+    return LLConstant(obj, typeOf(obj))
 
 def inputconst(reqtype, value):
     """Return a LLConstant with the given value, of the requested type,

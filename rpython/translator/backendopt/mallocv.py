@@ -7,7 +7,7 @@ from rpython.translator.unsimplify import varoftype
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.rmodel import LLConstant
+from rpython.rtyper.rmodel import LLConstant, ll_const
 
 
 def virtualize_mallocs(translator, graphs, verbose=False):
@@ -792,7 +792,7 @@ class BlockSpecializer(object):
         from rpython.rtyper.lltypesystem.rstr import string_repr
         msg = 'unreachable: %s' % (op,)
         ll_msg = string_repr.convert_const(msg)
-        c_msg = LLConstant(ll_msg, lltype.typeOf(ll_msg))
+        c_msg = ll_const(ll_msg)
         newresult = self.make_rt_result(op.result)
         return [SpaceOperation('debug_fatalerror', [c_msg], newresult)]
 
@@ -937,7 +937,7 @@ class BlockSpecializer(object):
 
     def handle_residual_call(self, op, newgraph, newnodes):
         fspecptr = getfunctionptr(newgraph)
-        newargs = [LLConstant(fspecptr, concretetype=lltype.typeOf(fspecptr))]
+        newargs = [ll_const(fspecptr)]
         newargs += self.expand_nodes(newnodes)
         newresult = self.make_rt_result(op.result)
         newop = SpaceOperation('direct_call', newargs, newresult)

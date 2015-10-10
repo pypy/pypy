@@ -1,5 +1,6 @@
 from rpython.annotator.model import SomeNone
-from rpython.rtyper.rmodel import Repr, TyperError, inputconst, LLConstant
+from rpython.rtyper.rmodel import (
+    Repr, TyperError, inputconst, LLConstant, ll_const)
 from rpython.rtyper.lltypesystem.lltype import Void, Bool, Ptr, Char
 from rpython.rtyper.lltypesystem.llmemory import Address
 from rpython.rtyper.rpbc import SmallFunctionSetPBCRepr
@@ -43,7 +44,7 @@ def ll_none_hash(_):
 class __extend__(pairtype(Repr, NoneRepr)):
 
     def convert_from_to((r_from, _), v, llops):
-        return inputconst(Void, None)
+        return ll_const(None)
 
     def rtype_is_((robj1, rnone2), hop):
         if hop.s_result.is_constant():
@@ -69,13 +70,13 @@ def rtype_is_None(robj1, rnone2, hop, pos=0):
         cnull = hop.inputconst(Address, robj1.null_instance())
         return hop.genop('adr_eq', [v1, cnull], resulttype=Bool)
     elif robj1 == none_repr:
-        return hop.inputconst(Bool, True)
+        return ll_const(True)
     elif isinstance(robj1, SmallFunctionSetPBCRepr):
         if robj1.s_pbc.can_be_None:
             v1 = hop.inputarg(robj1, pos)
             return hop.genop('char_eq', [v1, inputconst(Char, '\000')],
                              resulttype=Bool)
         else:
-            return inputconst(Bool, False)
+            return ll_const(False)
     else:
         raise TyperError('rtype_is_None of %r' % (robj1))

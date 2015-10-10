@@ -1,6 +1,7 @@
 from rpython.rtyper import extregistry
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.lltypesystem.lltype import typeOf, FuncType, functionptr
+from rpython.rtyper.lltypesystem.lltype import FuncType, functionptr
+from rpython.rtyper.rmodel import ll_const
 from rpython.annotator import model as annmodel
 from rpython.annotator.signature import annotation
 
@@ -204,7 +205,7 @@ class ExtFuncEntry(ExtRegistryEntry):
             obj = functionptr(FT, name, _external_name=self.name,
                               _callable=fakeimpl,
                               _safe_not_sandboxed=self.safe_not_sandboxed)
-        vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
+        vlist = [ll_const(obj)] + hop.inputargs(*args_r)
         hop.exception_is_here()
         return hop.genop('direct_call', vlist, r_result)
 

@@ -3,6 +3,7 @@ The table of all LL operations.
 """
 
 from rpython.rtyper.extregistry import ExtRegistryEntry
+from rpython.rtyper.rmodel import ll_const
 
 
 class LLOp(object):
@@ -118,7 +119,7 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from rpython.rtyper.lltypesystem import lltype
         hop.exception_cannot_occur()
-        return hop.inputconst(lltype.Void, None)
+        return ll_const(None)
 
 def enum_ops_without_sideeffects(raising_is_ok=False):
     """Enumerate operations that have no side-effects

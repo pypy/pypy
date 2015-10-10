@@ -4,7 +4,7 @@ from rpython.flowspace import model as flowmodel
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.rmodel import Repr, inputconst
+from rpython.rtyper.rmodel import Repr, inputconst, ll_const
 from rpython.rtyper.rint import IntegerRepr
 from rpython.tool.pairtype import pairtype
 
@@ -100,7 +100,7 @@ class PtrRepr(Repr):
             opname = 'direct_call'
         else:
             opname = 'indirect_call'
-            vlist.append(inputconst(lltype.Void, None))
+            vlist.append(ll_const(None))
         hop.exception_is_here()
         return hop.genop(opname, vlist,
                          resulttype = self.lowleveltype.TO.RESULT)

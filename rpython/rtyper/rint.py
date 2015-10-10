@@ -9,7 +9,7 @@ from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned, Bool, Float,
     Char, UniChar, UnsignedLongLong, SignedLongLong, build_number, Number,
     cast_primitive, typeOf, SignedLongLongLong)
 from rpython.rtyper.rfloat import FloatRepr
-from rpython.rtyper.rmodel import inputconst, log
+from rpython.rtyper.rmodel import inputconst, log, ll_const
 from rpython.tool.pairtype import pairtype
 
 class IntegerRepr(FloatRepr):
@@ -158,15 +158,13 @@ class IntegerRepr(FloatRepr):
         from rpython.rtyper.lltypesystem.ll_str import ll_int2hex
         self = self.as_int
         varg = hop.inputarg(self, 0)
-        true = inputconst(Bool, True)
-        return hop.gendirectcall(ll_int2hex, varg, true)
+        return hop.gendirectcall(ll_int2hex, varg, ll_const(True))
 
     def rtype_oct(self, hop):
         from rpython.rtyper.lltypesystem.ll_str import ll_int2oct
         self = self.as_int
         varg = hop.inputarg(self, 0)
-        true = inputconst(Bool, True)
-        return hop.gendirectcall(ll_int2oct, varg, true)
+        return hop.gendirectcall(ll_int2oct, varg, ll_const(True))
 
 
 _integer_reprs = {}

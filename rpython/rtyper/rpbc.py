@@ -16,8 +16,9 @@ from rpython.rtyper.lltypesystem import llmemory
 from rpython.rtyper.lltypesystem.lltype import (
     typeOf, Void, ForwardReference, Struct, Bool, Char, Ptr, malloc, nullptr,
     Array, Signed, cast_pointer, getfunctionptr)
-from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
-    warning, impossible_repr, LLConstant)
+from rpython.rtyper.rmodel import (
+        Repr, inputconst, CanBeNull, mangle, warning, impossible_repr,
+        LLConstant, ll_const)
 from rpython.tool.pairtype import pair, pairtype
 from rpython.translator.unsimplify import varoftype
 
@@ -332,7 +333,7 @@ class FunctionRepr(FunctionReprBase):
         row_of_one_graph = self.callfamily.calltables[shape][index]
         graph = row_of_one_graph[funcdesc]
         llfn = self.rtyper.getcallable(graph)
-        return inputconst(typeOf(llfn), llfn)
+        return ll_const(llfn)
 
     def get_unique_llfn(self):
         # try to build a unique low-level function.  Avoid to use
@@ -356,7 +357,7 @@ class FunctionRepr(FunctionReprBase):
         if graphs != [graph] * len(graphs):
             raise TyperError("cannot pass a specialized function here")
         llfn = self.rtyper.getcallable(graph)
-        return inputconst(typeOf(llfn), llfn)
+        return ll_const(llfn)
 
     def get_concrete_llfn(self, s_pbc, args_s, op):
         bk = self.rtyper.annotator.bookkeeper
@@ -365,8 +366,7 @@ class FunctionRepr(FunctionReprBase):
         with bk.at_position(None):
             graph = funcdesc.get_graph(args, op)
         llfn = self.rtyper.getcallable(graph)
-        return inputconst(typeOf(llfn), llfn)
-
+        return ll_const(llfn)
 
 
 class __extend__(pairtype(FunctionRepr, FunctionRepr)):
@@ -379,7 +379,7 @@ class __extend__(pairtype(FunctionRepr, FunctionsPBCRepr)):
 
 class __extend__(pairtype(FunctionsPBCRepr, FunctionRepr)):
     def convert_from_to((r_fpbc1, r_fpbc2), v, llops):
-        return inputconst(Void, None)
+        return ll_const(None)
 
 class __extend__(pairtype(FunctionsPBCRepr, FunctionsPBCRepr)):
     def convert_from_to((r_fpbc1, r_fpbc2), v, llops):
@@ -421,7 +421,7 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
                 pointer_table[i] = self.pointer_repr.convert_desc(desc)
             else:
                 pointer_table[i] = self.pointer_repr.convert_const(None)
-        self.c_pointer_table = inputconst(Ptr(POINTER_TABLE), pointer_table)
+        self.c_pointer_table = ll_const(pointer_table)
 
     def convert_desc(self, funcdesc):
         return chr(self.descriptions.index(funcdesc))
@@ -441,7 +441,7 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
         graph = self.make_dispatcher(shape, index, argtypes, resulttype)
         self.rtyper.annotator.translator.graphs.append(graph)
         ll_ret = getfunctionptr(graph)
-        c_ret = self._dispatch_cache[key] = inputconst(typeOf(ll_ret), ll_ret)
+        c_ret = self._dispatch_cache[key] = ll_const(ll_ret)
         return c_ret
 
     def make_dispatcher(self, shape, index, argtypes, resulttype):
@@ -460,7 +460,7 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
             args_v = [varoftype(t) for t in argtypes]
             b = Block(args_v)
             llfn = self.rtyper.getcallable(row_of_graphs[desc])
-            v_fn = inputconst(typeOf(llfn), llfn)
+            v_fn = ll_const(llfn)
             v_result = varoftype(resulttype)
             b.operations.append(
                 SpaceOperation("direct_call", [v_fn] + args_v, v_result))
@@ -491,7 +491,7 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
 
     def rtype_bool(self, hop):
         if not self.s_pbc.can_be_None:
-            return inputconst(Bool, True)
+            return ll_const(True)
         else:
             v1, = hop.inputargs(self)
             return hop.genop('char_ne', [v1, inputconst(Char, '\000')],
@@ -500,7 +500,7 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
 
 class __extend__(pairtype(SmallFunctionSetPBCRepr, FunctionRepr)):
     def convert_from_to((r_set, r_ptr), v, llops):
-        return inputconst(Void, None)
+        return ll_const(None)
 
 class __extend__(pairtype(SmallFunctionSetPBCRepr, FunctionsPBCRepr)):
     def convert_from_to((r_set, r_ptr), v, llops):
