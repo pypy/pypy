@@ -9,7 +9,7 @@ from rpython.jit.tool.oparser_model import get_model
 
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
      InputArgInt, InputArgRef, InputArgFloat, InputArgVector, \
-     ResOpWithDescr, N_aryOp, UnaryOp, PlainResOp, optypes
+     ResOpWithDescr, N_aryOp, UnaryOp, PlainResOp, optypes, OpHelpers
 
 class ParseError(Exception):
     pass
@@ -132,42 +132,25 @@ class OpParser(object):
             else:
                 raise
 
-    def box_for_var(self, elem):
-        xxx
+    def inputarg_for_var(self, elem):
         try:
             return self._cache[self.type_system, elem]
         except KeyError:
             pass
-        if elem.startswith('i'):
-            # integer
-            box = self.model.BoxInt()
-            _box_counter_more_than(self.model, elem[1:])
-        elif elem.startswith('f'):
-            box = self.model.BoxFloat()
-            _box_counter_more_than(self.model, elem[1:])
-        elif elem.startswith('p'):
-            # pointer
-            ts = getattr(self.cpu, 'ts', self.model.llhelper)
-            box = ts.BoxRef()
-            _box_counter_more_than(self.model, elem[1:])
-        elif elem.startswith('v'):
-            pattern = re.compile('.*\[(u?)(i|f)(\d+)(#|\|)(\d+)\]')
-            match = pattern.match(elem)
-            if match:
-                item_type = match.group(2)[0]
-                item_size = int(match.group(3)) // 8
-                item_count = int(match.group(5))
-                item_signed = not (match.group(1) == 'u')
-                if item_type == 'f':
-                    item_signed = False
-                box = self.model.BoxVector(item_type, item_count, item_size, item_signed)
-                lbracket = elem.find('[')
-                number = elem[1:lbracket]
-            else:
-                box = self.model.BoxVector('f',-1,-1,False)
-                number = elem[1:]
-            _box_counter_more_than(self.model, number)
+        if elem[0] in 'ifrp':
+            box = OpHelpers.inputarg_from_tp(elem[0])
+            number = elem[1:]
+            if elem.startswith('v'):
+                pattern = re.compile('.*\[(\d+)x(i|f)(\d+)\]')
+                match = pattern.match(elem)
+                if match:
+                    box.datatype = match.group(2)[0]
+                    box.bytesize = int(match.group(3)) // 8
+                    box.count = int(match.group(1))
+                    box.signed == item_type == 'i'
+                    number = elem[1:elem.find('[')]
         else:
+            number = elem[1:]
             for prefix, boxclass in self.boxkinds.iteritems():
                 if elem.startswith(prefix):
                     box = boxclass()
@@ -204,7 +187,7 @@ class OpParser(object):
         return v
 
     def newvar(self, elem):
-        box = self.box_for_var(elem)
+        box = self.inputarg_for_var(elem)
         self.vars[elem] = box
         return box
 
@@ -366,15 +349,16 @@ class OpParser(object):
             Internally you will see the same variable names as
             in the trace as string.
         """
-        regex = re.compile("[prifv](\d+)")
-        match = regex.match(name)
-        if match:
-            counter = int(match.group(1))
-            countdict = val._repr_memo
-            assert val not in countdict._d
-            countdict._d[val] = counter
-            if countdict.counter < counter:
-                countdict.counter = counter
+        pass
+        #regex = re.compile("[prifv](\d+)")
+        #match = regex.match(name)
+        #if match:
+        #    counter = int(match.group(1))
+        #    countdict = val._repr_memo
+        #    assert val not in countdict._d
+        #    countdict._d[val] = counter
+        #    if countdict.counter < counter:
+        #        countdict.counter = counter
 
     def update_vector(self, resop, var):
         pattern = re.compile('.*\[(\d+)x(u?)(i|f)(\d+)\]')
@@ -501,4 +485,4 @@ def pure_parse(*args, **kwds):
 
 def _box_counter_more_than(model, s):
     if s.isdigit():
-        model.Box._counter = max(model.Box._counter, int(s)+1)
+        model._counter = max(model._counter, int(s)+1)

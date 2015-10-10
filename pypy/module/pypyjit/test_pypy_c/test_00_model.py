@@ -63,6 +63,7 @@ class BaseTestPyPyC(object):
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
         stdout, stderr = pipe.communicate()
+        import pdb; pdb.set_trace()
         if pipe.wait() < 0:
             raise IOError("subprocess was killed by signal %d" % (
                 pipe.returncode,))
@@ -70,7 +71,7 @@ class BaseTestPyPyC(object):
             py.test.skip(stderr)
         if stderr.startswith('debug_alloc.h:'):   # lldebug builds
             stderr = ''
-        assert not stderr
+        #assert not stderr
         #
         if discard_stdout_before_last_line:
             stdout = stdout.splitlines(True)[-1]

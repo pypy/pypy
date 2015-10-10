@@ -23,6 +23,7 @@ from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 from rpython.jit.backend.llsupport.descr import ArrayDescr
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
+from rpython.jit.tool.oparser import OpParser
 
 class FakeJitDriverStaticData(object):
     vec=True
@@ -283,6 +284,24 @@ class BaseTestVectorize(VecTestHelper):
         trace = self.earlyexit(trace)
         assert trace.operations[0] is add
         assert trace.operations[1] is guard
+
+    def test_vectorize_guard(self):
+        trace = self.parse_loop("""
+        [p0,p1,i0]
+        i10 = getarrayitem_raw_i(p0,i0,descr=int32arraydescr)
+        i20 = int_is_true(i10)
+        guard_true(i20) [i20]
+        i1 = int_add(i0, 1)
+        jump(p0,p1,i1)
+        """)
+        self.vectorize(trace)
+        self.debug_print_operations(trace)
+        self.ensure_operations([
+            'v10[4xi32] = vec_getarrayitem_raw_i(p0,i0,descr=int32arraydescr)',
+            'v11[4xi32] = vec_int_is_true(v10[4xi32])',
+            'i100 = vec_unpack_i(v11[4xi32], 0, 1)',
+            'guard_true(v11[4xi32]) [i100]',
+        ], trace)
 
     def test_vectorize_skip(self):
         ops = """

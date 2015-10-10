@@ -1,14 +1,16 @@
 import py
 import pytest
 
-from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
+from rpython.jit.metainterp.compile import invent_fail_descr_for_op
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, Dependency,
         IndexVar, MemoryRef, Node)
 from rpython.jit.metainterp.optimizeopt.vector import VectorLoop
+from rpython.jit.metainterp.optimizeopt.test.test_util import (
+    LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.llgraph.runner import ArrayDescr
+from rpython.jit.tool.oparser import OpParser
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from rpython.conftest import option
@@ -42,6 +44,56 @@ class DependencyBaseTest(BaseTest):
         graph.parsestr = ops
         return graph
 
+    def match_op(self, expected, actual, remap):
+        if expected.getopnum() != actual.getopnum():
+            return False
+        expargs = expected.getarglist()
+        actargs = [remap.get(arg, None) for arg in actual.getarglist()]
+        if not all([e == a or a is None for e,a in zip(expargs,actargs)]):
+            return False
+        if expected.getfailargs():
+            expargs = expected.getfailargs()
+            actargs = [remap.get(arg, None) for arg in actual.getfailargs()]
+            if not all([e == a or a is None for e,a in zip(expargs,actargs)]):
+                return False
+        return True
+
+    def ensure_operations(self, opstrlist, trace, inthatorder=True):
+        oparse = OpParser('', self.cpu, self.namespace, 'lltype', None,
+                          None, True, None)
+        oplist = []
+        for op_str in opstrlist:
+            op = oparse.parse_next_op(op_str)
+            if not op.returns_void():
+                var = op_str.split('=')[0].strip()
+                if '[' in var:
+                    var = var[:var.find('[')]
+                elem = op_str[:len(var)]
+                oparse._cache['lltype', elem] = op
+            oplist.append(op)
+        oplist_i = 0
+        match = False
+        remap = {}
+        last_match = 0
+        for i, op in enumerate(trace.operations):
+            if oplist_i >= len(oplist):
+                break
+            curtomatch = oplist[oplist_i]
+            if self.match_op(curtomatch, op, remap):
+                if not op.returns_void():
+                    remap[curtomatch] = op
+                oplist_i += 1
+                last_match = i
+
+        msg =  "could not find all ops in the trace sequence\n\n"
+        if oplist_i != len(oplist):
+            l = [str(o) for o in oplist[oplist_i:]]
+            msg += "sequence\n  " + '\n  '.join(l)
+            msg += "\n\ndoes not match\n  "
+            l = [str(o) for o in trace.operations[last_match+1:]]
+            msg += '\n  '.join(l)
+        assert oplist_i == len(oplist), msg
+
     def parse_loop(self, ops, add_label=True):
         loop = self.parse(ops, postprocess=self.postprocess)
         loop.operations = filter(lambda op: op.getopnum() != rop.DEBUG_MERGE_POINT, loop.operations)
@@ -54,6 +106,10 @@ class DependencyBaseTest(BaseTest):
         jump = loop.operations[-1]
         loop = VectorLoop(label, loop.operations[0:-1], jump)
         loop.jump.setdescr(token)
+        for op in loop.operations:
+            if op.is_guard() and not op.getdescr():
+                descr = invent_fail_descr_for_op(op.getopnum(), None)
+                op.setdescr(descr)
         return loop
 
     def parse_trace(self, source, inc_label_jump=True, pargs=2, iargs=10,

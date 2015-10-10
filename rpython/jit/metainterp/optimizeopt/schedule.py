@@ -390,14 +390,16 @@ def turn_into_vector(state, pack):
     prepare_arguments(state, pack, args)
     vecop = VecOperation(left.vector, args, left,
                          pack.numops(), left.getdescr())
+    for i,node in enumerate(pack.operations):
+        op = node.getoperation()
+        if op.returns_void():
+            continue
+        state.setvector_of_box(op,i,vecop)
+        if pack.is_accumulating() and not op.is_guard():
+            state.renamer.start_renaming(op, vecop)
     if left.is_guard():
         prepare_fail_arguments(state, pack, left, vecop)
     state.oplist.append(vecop)
-    for i,node in enumerate(pack.operations):
-        op = node.getoperation()
-        state.setvector_of_box(op,i,vecop)
-        if pack.is_accumulating():
-            state.renamer.start_renaming(op, vecop)
 
 def prepare_arguments(state, pack, args):
     # Transforming one argument to a vector box argument
@@ -439,13 +441,9 @@ def prepare_arguments(state, pack, args):
 def prepare_fail_arguments(state, pack, left, vecop):
     assert isinstance(left, GuardResOp)
     assert isinstance(vecop, GuardResOp)
-    args = left.getfailargs()
+    args = left.getfailargs()[:]
     for i, arg in enumerate(args):
         pos, newarg = state.getvector_of_box(arg)
-        if newarg in vecop.getarglist():
-            # in this case we do not know which slot
-            # failed. thus we bail!
-            raise NotAVectorizeableLoop()
         if newarg is None:
             newarg = arg
         if newarg.is_vector(): # can be moved to guard exit!
@@ -682,7 +680,7 @@ class VecScheduleState(SchedulerState):
         op = node.getoperation()
         if op.is_guard():
             # add accumulation info to the descriptor
-            failargs = op.getfailargs()
+            failargs = op.getfailargs()[:]
             descr = op.getdescr()
             # note: stitching a guard must resemble the order of the label
             # otherwise a wrong mapping is handed to the register allocator
@@ -698,6 +696,7 @@ class VecScheduleState(SchedulerState):
                     descr.attach_vector_info(info)
                     seed = accum.getleftmostseed()
                     failargs[i] = self.renamer.rename_map.get(seed, seed)
+            op.setfailargs(failargs)
 
     def profitable(self):
         return self.costmodel.profitable()
@@ -783,8 +782,11 @@ class VecScheduleState(SchedulerState):
         return self.box_to_vbox.get(arg, (-1, None))
 
     def setvector_of_box(self, var, off, vector):
+        if var.returns_void():
+            assert 0, "not allowed to rename void resop"
         assert off < vector.count
         assert not var.is_vector()
+        print "rename", var, off, "=>", vector
         self.box_to_vbox[var] = (off, vector)
 
     def remember_args_in_vector(self, pack, index, box):
@@ -963,7 +965,10 @@ class Pack(object):
     def __repr__(self):
         if len(self.operations) == 0:
             return "Pack(empty)"
-        return "Pack(%dx %s)" % (self.numops(), self.operations)
+        packs = self.operations[0].op.getopname() + '[' + ','.join(['%2d' % (o.opidx) for o in self.operations]) + ']'
+        if self.operations[0].op.getdescr():
+            packs += 'descr=' + str(self.operations[0].op.getdescr())
+        return "Pack(%dx %s)" % (self.numops(), packs)
 
     def is_accumulating(self):
         return False

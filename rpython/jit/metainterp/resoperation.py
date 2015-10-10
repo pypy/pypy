@@ -266,10 +266,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
     # --------------
 
     def copy(self):
-        if self.is_guard():
-            op = self.copy_and_change(self.opnum)
-            op.setfailargs(self.getfailargs()[:])
-            return op
         return self.copy_and_change(self.opnum)
 
     def copy_and_change(self, opnum, args=None, descr=None):
@@ -284,6 +280,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
         if descr is DONT_CHANGE:
             descr = None
         newop = ResOperation(opnum, args, descr)
+        newop.datatype = self.datatype
         newop.count = self.count
         newop.bytesize = self.bytesize
         newop.signed = self.signed
@@ -1600,8 +1597,10 @@ class OpHelpers(object):
     def inputarg_from_tp(tp):
         if tp == 'i':
             return InputArgInt()
-        elif tp == 'r':
+        elif tp == 'r' or tp == 'p':
             return InputArgRef()
+        elif tp == 'v':
+            return InputArgVector()
         else:
             assert tp == 'f'
             return InputArgFloat()

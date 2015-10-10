@@ -84,6 +84,8 @@ class VectorLoop(object):
             prefix_label = self.prefix_label.copy()
             renamer.rename(prefix_label)
         oplist = []
+        op1 = self.operations[2]
+        assert op1.getarg(0) is op1.getfailargs()[0]
         for op in self.operations:
             newop = op.copy()
             renamer.rename(newop)
@@ -606,7 +608,7 @@ def isomorphic(l_op, r_op):
         See limintations (vectorization.rst).
     """
     if l_op.getopnum() == r_op.getopnum():
-        return True
+        return l_op.bytesize == r_op.bytesize
     return False
 
 class PackSet(object):
@@ -625,7 +627,10 @@ class PackSet(object):
         """ Check to ensure that two nodes might be packed into a Pair.
         """
         if isomorphic(lnode.getoperation(), rnode.getoperation()):
-            if lnode.independent(rnode):
+            # even if a guard depends on the previous it is able to
+            lop = lnode.getoperation()
+            independent = lnode.independent(rnode)
+            if independent:
                 if forward and origin_pack.is_accumulating():
                     # in this case the splitted accumulator must
                     # be combined. This case is not supported
@@ -734,6 +739,9 @@ class PackSet(object):
                 return None
             operator = AccumPack.SUPPORTED[opnum]
             return AccumPack([lnode, rnode], operator, index)
+        is_guard = left.is_guard() and left.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE)
+        if is_guard:
+            return AccumPack([lnode, rnode], 'g', 0)
 
         return None
 
@@ -747,6 +755,9 @@ class PackSet(object):
         vec_reg_size = state.vec_reg_size
         for pack in self.packs:
             if not pack.is_accumulating():
+                continue
+            if pack.leftmost().is_guard():
+                # guard breaks dependencies, thus it is an accumulation pack
                 continue
             for i,node in enumerate(pack.operations):
                 op = node.getoperation()
