@@ -3,12 +3,13 @@ import sys
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.annotator.policy import AnnotatorPolicy
-from rpython.flowspace.model import Variable, Constant
+from rpython.flowspace.model import Variable
 from rpython.jit.metainterp.typesystem import deref
 from rpython.rlib import rgc
 from rpython.rlib.jit import elidable, oopspec
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rtyper.rmodel import ll_const, LLConstant
 from rpython.rtyper import rlist
 from rpython.rtyper.lltypesystem import rlist as rlist_ll
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
@@ -758,7 +759,7 @@ def normalize_opargs(argtuple, opargs):
         if isinstance(obj, Index):
             result.append(opargs[obj.n])
         else:
-            result.append(Constant(obj, lltype.typeOf(obj)))
+            result.append(ll_const(obj))
     return result
 
 def get_call_oopspec_opargs(fnobj, opargs):
@@ -837,8 +838,8 @@ def builtin_func_for_spec(rtyper, oopspec_name, ll_args, ll_res,
         mixlevelann.finish()
     else:
         # for testing only
-        c_func = Constant(oopspec_name,
-                          lltype.Ptr(lltype.FuncType(ll_args, ll_res)))
+        c_func = LLConstant(oopspec_name,
+                            lltype.Ptr(lltype.FuncType(ll_args, ll_res)))
     #
     if not hasattr(rtyper, '_builtin_func_for_spec_cache'):
         rtyper._builtin_func_for_spec_cache = {}

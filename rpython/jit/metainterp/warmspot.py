@@ -8,8 +8,9 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
-from rpython.flowspace.model import SpaceOperation, Variable, Constant
+from rpython.flowspace.model import SpaceOperation, Variable
 from rpython.flowspace.model import checkgraph, Link, copygraph
+from rpython.rtyper.rmodel import LLConstant
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import fatalerror
@@ -364,7 +365,7 @@ class WarmRunnerDesc(object):
             if not driver.inline_jit_merge_point:
                 continue
             new_driver = driver.clone()
-            c_new_driver = Constant(new_driver, v_driver.concretetype)
+            c_new_driver = LLConstant(new_driver, v_driver.concretetype)
             op.args[1] = c_new_driver
 
     def find_portals(self):
@@ -674,7 +675,7 @@ class WarmRunnerDesc(object):
                                     jitdriver_name, func,
                                     ARGS, argspec)
             v_result = op.result
-            c_accessor = Constant(accessor, concretetype=lltype.Void)
+            c_accessor = LLConstant(accessor, concretetype=lltype.Void)
             newop = SpaceOperation('direct_call', [c_accessor] + op.args[2:],
                                    v_result)
             block.operations[index] = newop
@@ -728,7 +729,7 @@ class WarmRunnerDesc(object):
                     op1.args[0].value == 'jit_merge_point')
             op0 = SpaceOperation(
                 'jit_marker',
-                [Constant('can_enter_jit', lltype.Void)] + op1.args[1:],
+                [LLConstant('can_enter_jit', lltype.Void)] + op1.args[1:],
                 None)
             operations.insert(0, op0)
             can_enter_jits = [(jd.portal_graph, jd.portal_graph.startblock, 0)]
@@ -741,7 +742,7 @@ class WarmRunnerDesc(object):
             greens_v, reds_v = support.decode_hp_hint_args(op)
             args_v = greens_v + reds_v
 
-            vlist = [Constant(jit_enter_fnptr, FUNCPTR)] + args_v
+            vlist = [LLConstant(jit_enter_fnptr, FUNCPTR)] + args_v
 
             v_result = Variable()
             v_result.concretetype = lltype.Void
@@ -789,7 +790,7 @@ class WarmRunnerDesc(object):
         FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
         ptr = self.helper_func(FUNCPTR, new_func)
         op.opname = 'direct_call'
-        op.args = [Constant(ptr, FUNCPTR)] + op.args[2:]
+        op.args = [LLConstant(ptr, FUNCPTR)] + op.args[2:]
 
     def rewrite_jit_merge_points(self, policy):
         for jd in self.jitdrivers_sd:
@@ -993,7 +994,7 @@ class WarmRunnerDesc(object):
         assert op.opname == 'jit_marker'
         assert op.args[0].value == 'jit_merge_point'
         greens_v, reds_v = support.decode_hp_hint_args(op)
-        vlist = [Constant(jd.portal_runner_ptr, jd._PTR_PORTAL_FUNCTYPE)]
+        vlist = [LLConstant(jd.portal_runner_ptr, jd._PTR_PORTAL_FUNCTYPE)]
         vlist += greens_v
         vlist += reds_v
         v_result = Variable()
@@ -1046,7 +1047,7 @@ class WarmRunnerDesc(object):
             else:
                 TP = PTR_SET_PARAM_FUNCTYPE
             funcptr = self.helper_func(TP, closure)
-            return Constant(funcptr, TP)
+            return LLConstant(funcptr, TP)
         #
         for graph, block, i in find_set_param(graphs):
 
@@ -1082,7 +1083,7 @@ class WarmRunnerDesc(object):
             func = quasiimmut.make_invalidation_function(ARG, mutatefieldname)
             FUNC = lltype.Ptr(lltype.FuncType([ARG], lltype.Void))
             llptr = self.helper_func(FUNC, func)
-            cptr = Constant(llptr, FUNC)
+            cptr = LLConstant(llptr, FUNC)
             self._cache_force_quasiimmed_funcs[key] = cptr
         op.opname = 'direct_call'
         op.args = [cptr, op.args[0]]

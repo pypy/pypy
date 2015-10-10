@@ -1,15 +1,13 @@
 import py, sys
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llstr
-from rpython.flowspace.model import Variable, Constant, SpaceOperation
+from rpython.flowspace.model import Variable, SpaceOperation
+from rpython.rtyper.rmodel import ll_const, LLConstant
 from rpython.jit.codewriter.support import decode_builtin_call, LLtypeHelpers
 from rpython.jit.codewriter.support import _ll_1_int_abs
 
-def newconst(x):
-    return Constant(x, lltype.typeOf(x))
-
 def voidconst(x):
-    return Constant(x, lltype.Void)
+    return LLConstant(x, lltype.Void)
 
 # ____________________________________________________________
 
@@ -27,14 +25,14 @@ def test_decode_builtin_call_nomethod():
     vc.concretetype = lltype.Char
     v_result = Variable('result')
     v_result.concretetype = lltype.Signed
-    op = SpaceOperation('direct_call', [newconst(fnobj),
+    op = SpaceOperation('direct_call', [ll_const(fnobj),
                                         vi,
                                         voidconst('mymarker'),
                                         vc],
                         v_result)
     oopspec, opargs = decode_builtin_call(op)
     assert oopspec == 'foobar'
-    assert opargs == [newconst(2), vc, vi]
+    assert opargs == [ll_const(2), vc, vi]
     #impl = runner.get_oopspec_impl('foobar', lltype.Signed)
     #assert impl(2, 'A', 5) == 5 * ord('A')
 
@@ -56,15 +54,15 @@ def test_decode_builtin_call_method():
     v_result.concretetype = lltype.Signed
     myarray = lltype.malloc(A, 10)
     myarray[5] = 42
-    op = SpaceOperation('direct_call', [newconst(fnobj),
-                                        newconst(myarray),
+    op = SpaceOperation('direct_call', [ll_const(fnobj),
+                                        ll_const(myarray),
                                         vi,
                                         voidconst('mymarker'),
                                         vc],
                         v_result)
     oopspec, opargs = decode_builtin_call(op)
     assert oopspec == 'spam.foobar'
-    assert opargs == [newconst(myarray), newconst(2), vc, vi]
+    assert opargs == [ll_const(myarray), ll_const(2), vc, vi]
     #impl = runner.get_oopspec_impl('spam.foobar', lltype.Ptr(A))
     #assert impl(myarray, 2, 'A', 5) == 42 * ord('A')
 

@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import IR_IMMUTABLE, IR_QUASIIMMUTABLE
 from rpython.rtyper.test.test_llinterp import get_interpreter
-from rpython.flowspace.model import Constant
+from rpython.flowspace.model import LLConstant
 
 class FakeGC:
     object_minimal_size = 0
@@ -92,7 +92,7 @@ def test_constfold():
            100000 * gc.is_gcarrayofgcptr(tid2))
     interp, graph = get_interpreter(f, [], backendopt=True)
     assert interp.eval_graph(graph, []) == 11001
-    assert graph.startblock.exits[0].args == [Constant(11001, lltype.Signed)]
+    assert graph.startblock.exits[0].args == [LLConstant(11001, lltype.Signed)]
 
 def test_gc_pointers_inside():
     from rpython.rtyper import rclass

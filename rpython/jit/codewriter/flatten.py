@@ -1,4 +1,5 @@
 from rpython.flowspace.model import Variable, Constant, c_last_exception
+from rpython.rtyper.rmodel import ll_const
 from rpython.jit.metainterp.history import AbstractDescr, getkind
 from rpython.rtyper.lltypesystem import lltype
 
@@ -166,7 +167,7 @@ class GraphFlattener(object):
                 exc_data = self.cpu.rtyper.exceptiondata
                 ll_ovf = exc_data.get_standard_ll_exc_instance_by_class(
                     OverflowError)
-                c = Constant(ll_ovf, concretetype=lltype.typeOf(ll_ovf))
+                c = ll_const(ll_ovf)
                 self.emitline("raise", c)
             else:
                 self.emitline("reraise")
@@ -226,8 +227,7 @@ class GraphFlattener(object):
                     self.make_exception_link(link, False)
                     break
                 self.emitline('goto_if_exception_mismatch',
-                              Constant(link.llexitcase,
-                                       lltype.typeOf(link.llexitcase)),
+                              ll_const(link.llexitcase),
                               TLabel(link))
                 self.make_exception_link(link, False)
                 self.emitline(Label(link))

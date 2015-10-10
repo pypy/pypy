@@ -1,8 +1,10 @@
-from rpython.flowspace.model import (Constant, Variable, Block, Link,
-     copygraph, SpaceOperation, checkgraph)
+import sys
+from rpython.flowspace.model import (
+    Variable, Block, Link, copygraph, SpaceOperation, checkgraph)
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib import rgil
+from rpython.rtyper.rmodel import ll_const, LLConstant
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -12,7 +14,6 @@ from rpython.rtyper.llannotation import SomeAddress
 from rpython.rtyper.rbuiltin import gen_cast
 from rpython.translator.unsimplify import varoftype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-import sys
 
 
 #
@@ -94,7 +95,7 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
                 CONTAINER = lltype.FixedSizeArray(TYPE, 1)
                 p = lltype.malloc(CONTAINER, flavor='raw', zero=True,
                                   immortal=True)
-                sradict[key] = Constant(p, lltype.Ptr(CONTAINER))
+                sradict[key] = ll_const(p)
             sra.append(sradict[key])
         #
         # make a copy of the graph that will reload the values
@@ -103,7 +104,7 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
         #
         # edit the original graph to only store the value of the arguments
         block = Block(graph.startblock.inputargs)
-        c_item0 = Constant('item0', lltype.Void)
+        c_item0 = LLConstant('item0', lltype.Void)
         assert len(block.inputargs) == len(sra)
         for v_arg, c_p in zip(block.inputargs, sra):
             if isinstance(v_arg.concretetype, lltype.Ptr):
@@ -120,7 +121,7 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
         fnptr2 = lltype.functionptr(FUNC2,
                                     fnptr._obj._name + '_reload',
                                     graph=graph2)
-        c_fnptr2 = Constant(fnptr2, lltype.Ptr(FUNC2))
+        c_fnptr2 = ll_const(fnptr2)
         HELPERFUNC = lltype.FuncType([lltype.Ptr(FUNC2),
                                       ASM_FRAMEDATA_HEAD_PTR], FUNC1.RESULT)
         v_asm_stackwalk = varoftype(lltype.Ptr(HELPERFUNC), "asm_stackwalk")
@@ -129,8 +130,7 @@ class AsmGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
         v_result = varoftype(FUNC1.RESULT)
         block.operations.append(
             SpaceOperation("indirect_call", [v_asm_stackwalk, c_fnptr2,
-                                             c_gcrootanchor,
-                                             Constant(None, lltype.Void)],
+                                             c_gcrootanchor, ll_const(None)],
                            v_result))
         block.closeblock(Link([v_result], graph.returnblock))
         graph.startblock = block
@@ -819,7 +819,7 @@ ASM_FRAMEDATA_HEAD_PTR.TO.become(lltype.Struct('ASM_FRAMEDATA_HEAD',
 gcrootanchor = lltype.malloc(ASM_FRAMEDATA_HEAD_PTR.TO, immortal=True)
 gcrootanchor.prev = gcrootanchor
 gcrootanchor.next = gcrootanchor
-c_gcrootanchor = Constant(gcrootanchor, ASM_FRAMEDATA_HEAD_PTR)
+c_gcrootanchor = ll_const(gcrootanchor)
 
 eci = ExternalCompilationInfo(compile_extra=['-DPYPY_USE_ASMGCC'])
 
@@ -831,21 +831,20 @@ pypy_asm_stackwalk = rffi.llexternal('pypy_asm_stackwalk',
                                      _nowrapper=True,
                                      random_effects_on_gcobjs=True,
                                      compilation_info=eci)
-c_asm_stackwalk = Constant(pypy_asm_stackwalk,
-                           lltype.typeOf(pypy_asm_stackwalk))
+c_asm_stackwalk = ll_const(pypy_asm_stackwalk)
 
 pypy_asm_gcroot = rffi.llexternal('pypy_asm_gcroot',
                                   [llmemory.Address],
                                   llmemory.Address,
                                   sandboxsafe=True,
                                   _nowrapper=True)
-c_asm_gcroot = Constant(pypy_asm_gcroot, lltype.typeOf(pypy_asm_gcroot))
+c_asm_gcroot = ll_const(pypy_asm_gcroot)
 
 pypy_asm_nocollect = rffi.llexternal('pypy_asm_gc_nocollect',
                                      [rffi.CCHARP], lltype.Void,
                                      sandboxsafe=True,
                                      _nowrapper=True)
-c_asm_nocollect = Constant(pypy_asm_nocollect, lltype.typeOf(pypy_asm_nocollect))
+c_asm_nocollect = ll_const(pypy_asm_nocollect)
 
 QSORT_CALLBACK_PTR = lltype.Ptr(lltype.FuncType([llmemory.Address,
                                                  llmemory.Address], rffi.INT))

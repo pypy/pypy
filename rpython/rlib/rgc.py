@@ -7,6 +7,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.rmodel import ll_const
 
 # ____________________________________________________________
 # General GC features
@@ -46,7 +47,7 @@ def pin(obj):
     """
     _pinned_objects.append(obj)
     return True
-        
+
 
 class PinEntry(ExtRegistryEntry):
     _about_ = pin
@@ -617,14 +618,13 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         from rpython.rtyper.rclass import getclassrepr, CLASSTYPE
-        from rpython.flowspace.model import Constant
         Class = hop.args_s[0].const
         classdef = hop.rtyper.annotator.bookkeeper.getuniqueclassdef(Class)
         classrepr = getclassrepr(hop.rtyper, classdef)
         vtable = classrepr.getvtable()
         assert lltype.typeOf(vtable) == CLASSTYPE
         hop.exception_cannot_occur()
-        return Constant(vtable, concretetype=CLASSTYPE)
+        return ll_const(vtable)
 
 class Entry(ExtRegistryEntry):
     _about_ = dump_rpy_heap
@@ -774,7 +774,7 @@ def clear_gcflag_extra(fromlist):
             pending.extend(get_rpy_referents(gcref))
 
 all_typeids = {}
-        
+
 def get_typeid(obj):
     raise Exception("does not work untranslated")
 

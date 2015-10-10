@@ -8,11 +8,11 @@ from rpython.jit.metainterp import quasiimmut
 from rpython.jit.metainterp.history import getkind
 from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
-from rpython.flowspace.model import SpaceOperation, Variable, Constant,\
-     c_last_exception
+from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
+from rpython.rtyper.rmodel import ll_const, LLConstant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
 from rpython.rtyper.lltypesystem import rbytearray
 from rpython.rtyper import rclass
@@ -44,7 +44,7 @@ def constant_fold_ll_issubclass(graph, cpu):
                 constant_result = excmatch(*[a.value for a in op.args[1:]])
                 block.operations[i] = SpaceOperation(
                     'same_as',
-                    [Constant(constant_result, lltype.Bool)],
+                    [LLConstant(constant_result, lltype.Bool)],
                     op.result)
                 if block.exitswitch is op.result:
                     block.exitswitch = None
@@ -81,13 +81,13 @@ class Transformer(object):
         #
         def do_rename(var, var_or_const):
             if var.concretetype is lltype.Void:
-                renamings[var] = Constant(None, lltype.Void)
+                renamings[var] = ll_const(None)
                 return
             renamings[var] = var_or_const
             if isinstance(var_or_const, Constant):
                 value = var_or_const.value
                 value = lltype._cast_whatever(var.concretetype, value)
-                renamings_constants[var] = Constant(value, var.concretetype)
+                renamings_constants[var] = LLConstant(value, var.concretetype)
         #
         for op in block.operations:
             if renamings_constants:
@@ -221,7 +221,7 @@ class Transformer(object):
                 for link in block.exits:
                     while v in link.args:
                         index = link.args.index(v)
-                        link.args[index] = Constant(link.llexitcase,
+                        link.args[index] = LLConstant(link.llexitcase,
                                                     lltype.Bool)
                 return True
         return False
@@ -257,7 +257,7 @@ class Transformer(object):
                 vtable = heaptracker.get_vtable_for_gcstruct(self.cpu, TO)
                 if vtable.subclassrange_max - vtable.subclassrange_min == 1:
                     # it's a precise class check
-                    const_vtable = Constant(vtable, lltype.typeOf(vtable))
+                    const_vtable = ll_const(vtable)
                     return [None, # hack, do the right renaming from op.args[0] to op.result
                             SpaceOperation("record_exact_class", [op.args[0], const_vtable], None)]
 
@@ -274,7 +274,7 @@ class Transformer(object):
             # only for untranslated tests: get a real integer estimate
             arg = op.args[0].value
             arg = llmemory.raw_malloc_usage(arg)
-            return [Constant(arg, lltype.Signed)]
+            return [LLConstant(arg, lltype.Signed)]
 
     def rewrite_op_jit_record_exact_class(self, op):
         return SpaceOperation("record_exact_class", [op.args[0], op.args[1]], None)
@@ -471,7 +471,7 @@ class Transformer(object):
         assert jitdriver_sd is not None
         ops = self.promote_greens(op.args[1:], jitdriver_sd.jitdriver)
         num_green_args = len(jitdriver_sd.jitdriver.greens)
-        args = ([Constant(jitdriver_sd.index, lltype.Signed)] +
+        args = ([LLConstant(jitdriver_sd.index, lltype.Signed)] +
                 self.make_three_lists(op.args[1:1+num_green_args]) +
                 self.make_three_lists(op.args[1+num_green_args:]))
         kind = getkind(op.result.concretetype)[0]
@@ -582,7 +582,7 @@ class Transformer(object):
                 EffectInfo.OS_STREQ_NONNULL)
             # XXX this is fairly ugly way of creating a constant,
             #     however, callinfocollection has no better interface
-            c = Constant(p.adr.ptr, lltype.typeOf(p.adr.ptr))
+            c = ll_const(p.adr.ptr)
             op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
                                  op.result)
             return [SpaceOperation('-live-', [], None), op1, None]
@@ -643,8 +643,8 @@ class Transformer(object):
                     # substruct
                     self.zero_contents(ops, v, FIELD)
                 else:
-                    c_name = Constant(name, lltype.Void)
-                    c_null = Constant(FIELD._defl(), FIELD)
+                    c_name = LLConstant(name, lltype.Void)
+                    c_null = LLConstant(FIELD._defl(), FIELD)
                     op = SpaceOperation('setfield', [v, c_name, c_null],
                                         None)
                     self.extend_with(ops, self.rewrite_op_setfield(op,
@@ -851,7 +851,7 @@ class Transformer(object):
             raise Exception("%r: only supported for gckind=raw" % (op,))
         ofs = llmemory.offsetof(STRUCT, op.args[1].value)
         return SpaceOperation('int_add',
-                              [op.args[0], Constant(ofs, lltype.Signed)],
+                              [op.args[0], LLConstant(ofs, lltype.Signed)],
                               op.result)
 
     def is_typeptr_getset(self, op):
@@ -909,7 +909,7 @@ class Transformer(object):
     def handle_getfield_typeptr(self, op):
         if isinstance(op.args[0], Constant):
             cls = op.args[0].value.typeptr
-            return Constant(cls, concretetype=rclass.CLASSTYPE)
+            return LLConstant(cls, rclass.CLASSTYPE)
         op0 = SpaceOperation('-live-', [], None)
         op1 = SpaceOperation('guard_class', [op.args[0]], op.result)
         return [op0, op1]
@@ -1232,7 +1232,7 @@ class Transformer(object):
         elif longlong_arg:
             if v_result.concretetype is lltype.Bool:
                 longlong_zero = rffi.cast(v_arg.concretetype, 0)
-                c_longlong_zero = Constant(longlong_zero, v_arg.concretetype)
+                c_longlong_zero = ll_const(longlong_zero)
                 if unsigned1:
                     name = 'ullong_ne'
                 else:
@@ -1295,11 +1295,11 @@ class Transformer(object):
         if v_result.concretetype is lltype.Bool:
             result.append(SpaceOperation('int_is_true', [v_arg], v_result))
         elif min2:
-            c_bytes = Constant(size2, lltype.Signed)
+            c_bytes = LLConstant(size2, lltype.Signed)
             result.append(SpaceOperation('int_signext', [v_arg, c_bytes],
                                          v_result))
         else:
-            c_mask = Constant(int((1 << (8 * size2)) - 1), lltype.Signed)
+            c_mask = LLConstant(int((1 << (8 * size2)) - 1), lltype.Signed)
             result.append(SpaceOperation('int_and', [v_arg, c_mask], v_result))
         return result
 
@@ -1323,7 +1323,7 @@ class Transformer(object):
         if op.args[0].concretetype != rffi.CCHARP:
             v_prod = varoftype(lltype.Signed)
             by = llmemory.sizeof(op.args[0].concretetype.TO.OF)
-            c_by = Constant(by, lltype.Signed)
+            c_by = LLConstant(by, lltype.Signed)
             ops.append(SpaceOperation('int_mul', [v_shift, c_by], v_prod))
             v_shift = v_prod
         #
@@ -1407,9 +1407,7 @@ class Transformer(object):
 
     def rewrite_op_llong_neg(self, op):
         v = varoftype(lltype.SignedLongLong)
-        op0 = SpaceOperation('cast_int_to_longlong',
-                             [Constant(0, lltype.Signed)],
-                             v)
+        op0 = SpaceOperation('cast_int_to_longlong', [ll_const(0)], v)
         args = [v, op.args[0]]
         op1 = SpaceOperation('llong_sub', args, op.result)
         return (self._normalize(self.rewrite_operation(op0)) +
@@ -1417,9 +1415,7 @@ class Transformer(object):
 
     def rewrite_op_llong_is_true(self, op):
         v = varoftype(op.args[0].concretetype)
-        op0 = SpaceOperation('cast_primitive',
-                             [Constant(0, lltype.Signed)],
-                             v)
+        op0 = SpaceOperation('cast_primitive', [ll_const(0)], v)
         args = [op.args[0], v]
         op1 = SpaceOperation('llong_ne', args, op.result)
         return (self._normalize(self.rewrite_operation(op0)) +
@@ -1471,14 +1467,12 @@ class Transformer(object):
 
     def rewrite_op_int_neg_ovf(self, op):
         op1 = SpaceOperation('int_sub_ovf',
-                             [Constant(0, lltype.Signed), op.args[0]],
-                             op.result)
+                             [ll_const(0), op.args[0]], op.result)
         return self.rewrite_operation(op1)
 
     def rewrite_op_float_is_true(self, op):
         op1 = SpaceOperation('float_ne',
-                             [op.args[0], Constant(0.0, lltype.Float)],
-                             op.result)
+                             [op.args[0], ll_const(0.0)], op.result)
         return self.rewrite_operation(op1)
 
     def rewrite_op_int_is_true(self, op):
@@ -1491,7 +1485,7 @@ class Transformer(object):
             else:
                 raise AssertionError("don't know the truth value of %r"
                                      % (value,))
-            return Constant(value, lltype.Bool)
+            return LLConstant(value, lltype.Bool)
         return op
 
     def promote_greens(self, args, jitdriver):
@@ -1545,7 +1539,7 @@ class Transformer(object):
                     "Constant specified red in jit_merge_point()")
             assert len(dict.fromkeys(redlist)) == len(list(redlist)), (
                 "duplicate red variable on jit_merge_point()")
-        args = ([Constant(self.portal_jd.index, lltype.Signed)] +
+        args = ([LLConstant(self.portal_jd.index, lltype.Signed)] +
                 self.make_three_lists(op.args[2:2+num_green_args]) +
                 redlists)
         op1 = SpaceOperation('jit_merge_point', args, None)
@@ -1558,7 +1552,7 @@ class Transformer(object):
     def handle_jit_marker__loop_header(self, op, jitdriver):
         jd = self.callcontrol.jitdriver_sd_from_jitdriver(jitdriver)
         assert jd is not None
-        c_index = Constant(jd.index, lltype.Signed)
+        c_index = LLConstant(jd.index, lltype.Signed)
         return SpaceOperation('loop_header', [c_index], None)
 
     # a 'can_enter_jit' in the source graph becomes a 'loop_header'
@@ -1683,7 +1677,7 @@ class Transformer(object):
             assert v_length.concretetype is lltype.Signed
             return v_length
         else:
-            return Constant(0, lltype.Signed)     # length: default to 0
+            return ll_const(0)     # length: default to 0
 
     # ---------- fixed lists ----------
 

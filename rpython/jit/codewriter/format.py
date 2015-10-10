@@ -1,5 +1,5 @@
 import py
-from rpython.flowspace.model import Constant
+from rpython.rtyper.rmodel import ll_const, LLConstant
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.codewriter.flatten import SSARepr, Label, TLabel, Register
 from rpython.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
@@ -14,7 +14,7 @@ def format_assembler(ssarepr):
     def repr(x):
         if isinstance(x, Register):
             return '%%%s%d' % (x.kind[0], x.index)    # e.g. %i1 or %r2 or %f3
-        elif isinstance(x, Constant):
+        elif isinstance(x, LLConstant):
             if (isinstance(x.concretetype, lltype.Ptr) and
                 isinstance(x.concretetype.TO, lltype.Struct)):
                 return '$<* struct %s>' % (x.concretetype.TO._name,)
@@ -117,7 +117,7 @@ def unformat_assembler(text, registers=None):
                 return reg
         elif s[0] == '$':
             intvalue = int(s[1:])
-            return Constant(intvalue, lltype.Signed)
+            return ll_const(intvalue)
         elif s[0] == 'L':
             return TLabel(s)
         elif s[0] in 'IRF' and s[1] == '[' and s[-1] == ']':

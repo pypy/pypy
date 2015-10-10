@@ -3,6 +3,7 @@ from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.simplify import (get_graph, transform_dead_op_vars)
 from rpython.flowspace.model import Block, Constant, summary
+from rpython.rtyper.rmodel import ll_const
 from rpython.conftest import option
 
 def translate(func, argtypes, backend_optimize=True):
@@ -204,7 +205,6 @@ def test_huge_func():
 
 def test_join_blocks_cleans_links():
     from rpython.rtyper.lltypesystem import lltype
-    from rpython.flowspace.model import Constant
     from rpython.translator.backendopt.removenoops import remove_same_as
     def f(x):
         return bool(x + 2)
@@ -215,7 +215,7 @@ def test_join_blocks_cleans_links():
             return 2
     graph, t = translate(g, [int], backend_optimize=False)
     fgraph = graphof(t, f)
-    fgraph.startblock.exits[0].args = [Constant(True, lltype.Bool)]
+    fgraph.startblock.exits[0].args = [ll_const(True)]
     # does not crash: previously join_blocks would barf on this
     remove_same_as(graph)
     backend_optimizations(t)

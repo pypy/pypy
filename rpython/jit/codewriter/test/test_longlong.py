@@ -1,13 +1,12 @@
 import py, sys
 
 from rpython.rlib.rarithmetic import r_longlong, intmask, is_valid_int
-from rpython.flowspace.model import SpaceOperation, Variable, Constant
-from rpython.flowspace.model import Block, Link
+from rpython.flowspace.model import SpaceOperation, Variable
+from rpython.rtyper.rmodel import ll_const
 from rpython.translator.unsimplify import varoftype
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.jit.codewriter.jtransform import Transformer, NotSupported
+from rpython.jit.codewriter.jtransform import Transformer
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.jit.codewriter.test.test_jtransform import const
 from rpython.jit.codewriter import longlong
 
 
@@ -79,7 +78,7 @@ class TestLongLong:
             assert len(oplist) == 2
             assert oplist[0].opname == 'residual_call_irf_f'
             assert oplist[0].args[0].value == opname.split('_')[0]+'_from_int'
-            assert list(oplist[0].args[1]) == [const(0)]
+            assert list(oplist[0].args[1]) == [ll_const(0)]
             assert list(oplist[0].args[2]) == []
             assert list(oplist[0].args[3]) == []
             assert oplist[0].args[4] == 'calldescr-84'
@@ -104,7 +103,7 @@ class TestLongLong:
         assert len(oplist) == 2
         assert oplist[0].opname == 'residual_call_irf_f'
         assert oplist[0].args[0].value == 'llong_from_int'
-        assert list(oplist[0].args[1]) == [const(0)]
+        assert list(oplist[0].args[1]) == [ll_const(0)]
         assert list(oplist[0].args[2]) == []
         assert list(oplist[0].args[3]) == []
         assert oplist[0].args[4] == 'calldescr-84'
@@ -224,7 +223,7 @@ class TestLongLong:
     def test_constants(self):
         for TYPE in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
             v_x = varoftype(TYPE)
-            vlist = [v_x, const(rffi.cast(TYPE, 7))]
+            vlist = [v_x, ll_const(rffi.cast(TYPE, 7))]
             v_result = varoftype(TYPE)
             op = SpaceOperation('llong_add', vlist, v_result)
             tr = Transformer(FakeCPU(), FakeBuiltinCallControl())

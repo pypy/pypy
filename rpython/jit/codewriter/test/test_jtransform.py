@@ -1,22 +1,10 @@
-
 import py
 import random
-try:
-    from itertools import product
-except ImportError:
-    # Python 2.5, this is taken from the CPython docs, but simplified.
-    def product(*args):
-        # product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
-        # product(range(2), repeat=3) --> 000 001 010 011 100 101 110 111
-        pools = map(tuple, args)
-        result = [[]]
-        for pool in pools:
-            result = [x+[y] for x in result for y in pool]
-        for prod in result:
-            yield tuple(prod)
+from itertools import product
 
-from rpython.flowspace.model import FunctionGraph, Block, Link, c_last_exception
-from rpython.flowspace.model import SpaceOperation, Variable, Constant
+from rpython.flowspace.model import (
+    Block, Link, SpaceOperation, Variable, Constant)
+from rpython.rtyper.rmodel import ll_const, LLConstant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.module import ll_math
@@ -25,9 +13,6 @@ from rpython.jit.codewriter import heaptracker, effectinfo
 from rpython.jit.codewriter.flatten import ListOfKind
 from rpython.jit.codewriter.jtransform import Transformer, UnsupportedMallocFlags
 from rpython.jit.metainterp.history import getkind
-
-def const(x):
-    return Constant(x, lltype.typeOf(x))
 
 class FakeRTyper:
     instance_reprs = {}
@@ -212,7 +197,7 @@ def test_optimize_goto_if_not__exit():
     assert block.operations == []
     assert block.exitswitch == ('int_gt', v1, v2, '-live-before')
     assert block.exits == exits
-    assert exits[1].args == [const(True)]
+    assert exits[1].args == [ll_const(True)]
 
 def test_optimize_goto_if_not__unknownop():
     v3 = Variable(); v3.concretetype = lltype.Bool
@@ -264,8 +249,8 @@ def test_symmetric():
            'float_gt': ('float_gt', 'float_lt'),
            }
     v3 = varoftype(lltype.Signed)
-    for v1 in [varoftype(lltype.Signed), const(42)]:
-        for v2 in [varoftype(lltype.Signed), const(43)]:
+    for v1 in [varoftype(lltype.Signed), ll_const(42)]:
+        for v2 in [varoftype(lltype.Signed), ll_const(43)]:
             for name1, name2 in ops.items():
                 op = SpaceOperation(name1, [v1, v2], v3)
                 op1 = Transformer(FakeCPU()).rewrite_operation(op)
@@ -282,8 +267,8 @@ def test_symmetric():
 
 def test_symmetric_int_add_ovf():
     v3 = varoftype(lltype.Signed)
-    for v1 in [varoftype(lltype.Signed), const(42)]:
-        for v2 in [varoftype(lltype.Signed), const(43)]:
+    for v1 in [varoftype(lltype.Signed), ll_const(42)]:
+        for v2 in [varoftype(lltype.Signed), ll_const(43)]:
             op = SpaceOperation('int_add_nonneg_ovf', [v1, v2], v3)
             oplist = Transformer(FakeCPU()).rewrite_operation(op)
             op1, op0 = oplist
@@ -332,7 +317,7 @@ def test_calls():
 def get_direct_call_op(argtypes, restype):
     FUNC = lltype.FuncType(argtypes, restype)
     fnptr = lltype.functionptr(FUNC, "g")    # no graph
-    c_fnptr = const(fnptr)
+    c_fnptr = ll_const(fnptr)
     vars = [varoftype(TYPE) for TYPE in argtypes]
     v_result = varoftype(restype)
     op = SpaceOperation('direct_call', [c_fnptr] + vars, v_result)
@@ -386,7 +371,7 @@ def indirect_residual_call_test(argtypes, restype, expectedkind):
     op = get_direct_call_op(argtypes, restype)
     op.opname = 'indirect_call'
     op.args[0] = varoftype(op.args[0].concretetype)
-    op.args.append(Constant(['somegraph1', 'somegraph2'], lltype.Void))
+    op.args.append(LLConstant(['somegraph1', 'somegraph2'], lltype.Void))
     tr = Transformer(FakeCPU(), FakeResidualIndirectCallControl())
     tr.graph = 'someinitialgraph'
     oplist = tr.rewrite_operation(op)
@@ -414,7 +399,7 @@ def indirect_regular_call_test(argtypes, restype, expectedkind):
     op = get_direct_call_op(argtypes, restype)
     op.opname = 'indirect_call'
     op.args[0] = varoftype(op.args[0].concretetype)
-    op.args.append(Constant(['somegraph1', 'somegraph2'], lltype.Void))
+    op.args.append(LLConstant(['somegraph1', 'somegraph2'], lltype.Void))
     tr = Transformer(FakeCPU(), FakeRegularIndirectCallControl())
     tr.graph = 'someinitialgraph'
     oplist = tr.rewrite_operation(op)
@@ -467,7 +452,7 @@ def test_getfield():
                          ('chr', 'i'),
                          ('unc', 'i')]:
         v_parent = varoftype(lltype.Ptr(S))
-        c_name = Constant(name, lltype.Void)
+        c_name = LLConstant(name, lltype.Void)
         v_result = varoftype(getattr(S, name))
         op = SpaceOperation('getfield', [v_parent, c_name], v_result)
         op1 = Transformer(FakeCPU()).rewrite_operation(op)
@@ -478,7 +463,7 @@ def test_getfield():
 
 def test_getfield_typeptr():
     v_parent = varoftype(rclass.OBJECTPTR)
-    c_name = Constant('typeptr', lltype.Void)
+    c_name = LLConstant('typeptr', lltype.Void)
     v_result = varoftype(rclass.OBJECT.typeptr)
     op = SpaceOperation('getfield', [v_parent, c_name], v_result)
     oplist = Transformer(FakeCPU()).rewrite_operation(op)
@@ -508,7 +493,7 @@ def test_setfield():
                          ('chr', 'i'),
                          ('unc', 'i')]:
         v_parent = varoftype(lltype.Ptr(S))
-        c_name = Constant(name, lltype.Void)
+        c_name = LLConstant(name, lltype.Void)
         v_newvalue = varoftype(getattr(S, name))
         op = SpaceOperation('setfield', [v_parent, c_name, v_newvalue],
                             varoftype(lltype.Void))
@@ -521,8 +506,8 @@ def test_setfield():
 def test_malloc_new():
     S = lltype.GcStruct('S')
     v = varoftype(lltype.Ptr(S))
-    op = SpaceOperation('malloc', [Constant(S, lltype.Void),
-                                   Constant({'flavor': 'gc'}, lltype.Void)], v)
+    op = SpaceOperation('malloc', [LLConstant(S, lltype.Void),
+                                   LLConstant({'flavor': 'gc'}, lltype.Void)], v)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'new'
     assert op1.args == [('sizedescr', S)]
@@ -530,8 +515,8 @@ def test_malloc_new():
 def test_malloc_new_zero_2():
     S = lltype.GcStruct('S', ('x', lltype.Signed))
     v = varoftype(lltype.Ptr(S))
-    op = SpaceOperation('malloc', [Constant(S, lltype.Void),
-                                   Constant({'flavor': 'gc',
+    op = SpaceOperation('malloc', [LLConstant(S, lltype.Void),
+                                   LLConstant({'flavor': 'gc',
                                              'zero': True}, lltype.Void)], v)
     op1, op2 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'new'
@@ -545,8 +530,8 @@ def test_malloc_new_zero_nested():
     S2 = lltype.GcStruct('S2', ('parent', S),
                          ('xx', lltype.Ptr(S0)))
     v = varoftype(lltype.Ptr(S2))
-    op = SpaceOperation('malloc', [Constant(S2, lltype.Void),
-                                   Constant({'flavor': 'gc',
+    op = SpaceOperation('malloc', [LLConstant(S2, lltype.Void),
+                                   LLConstant({'flavor': 'gc',
                                              'zero': True}, lltype.Void)], v)
     op1, op2, op3 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'new'
@@ -561,8 +546,8 @@ def test_malloc_new_with_vtable():
     S = lltype.GcStruct('S', ('parent', rclass.OBJECT))
     heaptracker.set_testing_vtable_for_gcstruct(S, vtable, 'S')
     v = varoftype(lltype.Ptr(S))
-    op = SpaceOperation('malloc', [Constant(S, lltype.Void),
-                                   Constant({'flavor': 'gc'}, lltype.Void)], v)
+    op = SpaceOperation('malloc', [LLConstant(S, lltype.Void),
+                                   LLConstant({'flavor': 'gc'}, lltype.Void)], v)
     cpu = FakeCPU()
     op1 = Transformer(cpu).rewrite_operation(op)
     assert op1.opname == 'new_with_vtable'
@@ -576,8 +561,8 @@ def test_malloc_new_with_destructor():
     lltype.attachRuntimeTypeInfo(S, destrptr=destructor)
     heaptracker.set_testing_vtable_for_gcstruct(S, vtable, 'S')
     v = varoftype(lltype.Ptr(S))
-    op = SpaceOperation('malloc', [Constant(S, lltype.Void),
-                                   Constant({'flavor': 'gc'}, lltype.Void)], v)
+    op = SpaceOperation('malloc', [LLConstant(S, lltype.Void),
+                                   LLConstant({'flavor': 'gc'}, lltype.Void)], v)
     tr = Transformer(FakeCPU(), FakeResidualCallControl())
     oplist = tr.rewrite_operation(op)
     op0, op1 = oplist
@@ -591,8 +576,8 @@ def test_raw_malloc():
     S = rffi.CArray(lltype.Char)
     v1 = varoftype(lltype.Signed)
     v = varoftype(lltype.Ptr(S))
-    flags = Constant({'flavor': 'raw'}, lltype.Void)
-    op = SpaceOperation('malloc_varsize', [Constant(S, lltype.Void), flags,
+    flags = LLConstant({'flavor': 'raw'}, lltype.Void)
+    op = SpaceOperation('malloc_varsize', [LLConstant(S, lltype.Void), flags,
                                            v1], v)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     op0, op1 = tr.rewrite_operation(op)
@@ -608,8 +593,8 @@ def test_raw_malloc_zero():
     S = rffi.CArray(lltype.Signed)
     v1 = varoftype(lltype.Signed)
     v = varoftype(lltype.Ptr(S))
-    flags = Constant({'flavor': 'raw', 'zero': True}, lltype.Void)
-    op = SpaceOperation('malloc_varsize', [Constant(S, lltype.Void), flags,
+    flags = LLConstant({'flavor': 'raw', 'zero': True}, lltype.Void)
+    op = SpaceOperation('malloc_varsize', [LLConstant(S, lltype.Void), flags,
                                            v1], v)
     tr = Transformer(FakeCPU(), FakeResidualCallControl())
     op0, op1 = tr.rewrite_operation(op)
@@ -622,8 +607,8 @@ def test_raw_malloc_unsupported_flag():
     S = rffi.CArray(lltype.Signed)
     v1 = varoftype(lltype.Signed)
     v = varoftype(lltype.Ptr(S))
-    flags = Constant({'flavor': 'raw', 'unsupported_flag': True}, lltype.Void)
-    op = SpaceOperation('malloc_varsize', [Constant(S, lltype.Void), flags,
+    flags = LLConstant({'flavor': 'raw', 'unsupported_flag': True}, lltype.Void)
+    op = SpaceOperation('malloc_varsize', [LLConstant(S, lltype.Void), flags,
                                            v1], v)
     tr = Transformer(FakeCPU(), FakeResidualCallControl())
     py.test.raises(UnsupportedMallocFlags, tr.rewrite_operation, op)
@@ -631,8 +616,8 @@ def test_raw_malloc_unsupported_flag():
 def test_raw_malloc_fixedsize():
     S = lltype.Struct('dummy', ('x', lltype.Signed))
     v = varoftype(lltype.Ptr(S))
-    flags = Constant({'flavor': 'raw', 'zero': True}, lltype.Void)
-    op = SpaceOperation('malloc', [Constant(S, lltype.Void), flags], v)
+    flags = LLConstant({'flavor': 'raw', 'zero': True}, lltype.Void)
+    op = SpaceOperation('malloc', [LLConstant(S, lltype.Void), flags], v)
     tr = Transformer(FakeCPU(), FakeResidualCallControl())
     op0, op1 = tr.rewrite_operation(op)
     assert op0.opname == 'residual_call_r_i'
@@ -642,7 +627,7 @@ def test_raw_malloc_fixedsize():
 
 def test_raw_free():
     S = rffi.CArray(lltype.Char)
-    flags = Constant({'flavor': 'raw', 'track_allocation': True},
+    flags = LLConstant({'flavor': 'raw', 'track_allocation': True},
                      lltype.Void)
     op = SpaceOperation('free', [varoftype(lltype.Ptr(S)), flags],
                         varoftype(lltype.Void))
@@ -654,7 +639,7 @@ def test_raw_free():
 
 def test_raw_free_no_track_allocation():
     S = rffi.CArray(lltype.Signed)
-    flags = Constant({'flavor': 'raw', 'track_allocation': False},
+    flags = LLConstant({'flavor': 'raw', 'track_allocation': False},
                      lltype.Void)
     op = SpaceOperation('free', [varoftype(lltype.Ptr(S)), flags],
                         varoftype(lltype.Void))
@@ -689,7 +674,7 @@ def test_int_eq():
     v1 = varoftype(lltype.Signed)
     v2 = varoftype(lltype.Signed)
     v3 = varoftype(lltype.Bool)
-    c0 = const(0)
+    c0 = ll_const(0)
     #
     for opname, reducedname in [('int_eq', 'int_is_zero'),
                                 ('int_ne', 'int_is_true')]:
@@ -712,7 +697,7 @@ def test_ptr_eq():
     v1 = varoftype(lltype.Ptr(rstr.STR))
     v2 = varoftype(lltype.Ptr(rstr.STR))
     v3 = varoftype(lltype.Bool)
-    c0 = const(lltype.nullptr(rstr.STR))
+    c0 = ll_const(lltype.nullptr(rstr.STR))
     #
     for opname, reducedname in [('ptr_eq', 'ptr_iszero'),
                                 ('ptr_ne', 'ptr_nonzero')]:
@@ -735,7 +720,7 @@ def test_instance_ptr_eq():
     v1 = varoftype(rclass.OBJECTPTR)
     v2 = varoftype(rclass.OBJECTPTR)
     v3 = varoftype(lltype.Bool)
-    c0 = const(lltype.nullptr(rclass.OBJECT))
+    c0 = ll_const(lltype.nullptr(rclass.OBJECT))
 
     for opname, newopname, reducedname in [
         ('ptr_eq', 'instance_ptr_eq', 'ptr_iszero'),
@@ -760,7 +745,7 @@ def test_nongc_ptr_eq():
     v1 = varoftype(rclass.NONGCOBJECTPTR)
     v2 = varoftype(rclass.NONGCOBJECTPTR)
     v3 = varoftype(lltype.Bool)
-    c0 = const(lltype.nullptr(rclass.NONGCOBJECT))
+    c0 = ll_const(lltype.nullptr(rclass.NONGCOBJECT))
     #
     for opname, reducedname in [('ptr_eq', 'int_is_zero'),
                                 ('ptr_ne', 'int_is_true')]:
@@ -793,7 +778,7 @@ def test_str_getinteriorarraysize():
     v = varoftype(lltype.Ptr(rstr.STR))
     v_result = varoftype(lltype.Signed)
     op = SpaceOperation('getinteriorarraysize',
-                        [v, Constant('chars', lltype.Void)],
+                        [v, LLConstant('chars', lltype.Void)],
                         v_result)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'strlen'
@@ -804,7 +789,7 @@ def test_unicode_getinteriorarraysize():
     v = varoftype(lltype.Ptr(rstr.UNICODE))
     v_result = varoftype(lltype.Signed)
     op = SpaceOperation('getinteriorarraysize',
-                        [v, Constant('chars', lltype.Void)],
+                        [v, LLConstant('chars', lltype.Void)],
                         v_result)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'unicodelen'
@@ -816,7 +801,7 @@ def test_str_getinteriorfield():
     v_index = varoftype(lltype.Signed)
     v_result = varoftype(lltype.Char)
     op = SpaceOperation('getinteriorfield',
-                        [v, Constant('chars', lltype.Void), v_index],
+                        [v, LLConstant('chars', lltype.Void), v_index],
                         v_result)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'strgetitem'
@@ -828,7 +813,7 @@ def test_unicode_getinteriorfield():
     v_index = varoftype(lltype.Signed)
     v_result = varoftype(lltype.UniChar)
     op = SpaceOperation('getinteriorfield',
-                        [v, Constant('chars', lltype.Void), v_index],
+                        [v, LLConstant('chars', lltype.Void), v_index],
                         v_result)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'unicodegetitem'
@@ -841,13 +826,13 @@ def test_dict_getinteriorfield():
     v = varoftype(lltype.Ptr(DICT))
     i = varoftype(lltype.Signed)
     v_result = varoftype(lltype.Signed)
-    op = SpaceOperation('getinteriorfield', [v, i, Constant('v', lltype.Void)],
+    op = SpaceOperation('getinteriorfield', [v, i, LLConstant('v', lltype.Void)],
                         v_result)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'getinteriorfield_gc_i'
     assert op1.args == [v, i, ('interiorfielddescr', DICT, 'v')]
-    op = SpaceOperation('getinteriorfield', [v, i, Constant('v', lltype.Void)],
-                        Constant(None, lltype.Void))
+    op = SpaceOperation('getinteriorfield', [v, i, LLConstant('v', lltype.Void)],
+                        LLConstant(None, lltype.Void))
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1 is None
 
@@ -857,7 +842,7 @@ def test_str_setinteriorfield():
     v_newchr = varoftype(lltype.Char)
     v_void = varoftype(lltype.Void)
     op = SpaceOperation('setinteriorfield',
-                        [v, Constant('chars', lltype.Void), v_index, v_newchr],
+                        [v, LLConstant('chars', lltype.Void), v_index, v_newchr],
                         v_void)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'strsetitem'
@@ -870,7 +855,7 @@ def test_unicode_setinteriorfield():
     v_newchr = varoftype(lltype.UniChar)
     v_void = varoftype(lltype.Void)
     op = SpaceOperation('setinteriorfield',
-                        [v, Constant('chars', lltype.Void), v_index, v_newchr],
+                        [v, LLConstant('chars', lltype.Void), v_index, v_newchr],
                         v_void)
     op1 = Transformer().rewrite_operation(op)
     assert op1.opname == 'unicodesetitem'
@@ -883,13 +868,13 @@ def test_dict_setinteriorfield():
     v = varoftype(lltype.Ptr(DICT))
     i = varoftype(lltype.Signed)
     v_void = varoftype(lltype.Void)
-    op = SpaceOperation('setinteriorfield', [v, i, Constant('v', lltype.Void),
+    op = SpaceOperation('setinteriorfield', [v, i, LLConstant('v', lltype.Void),
                                              i],
                         v_void)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'setinteriorfield_gc_i'
     assert op1.args == [v, i, i, ('interiorfielddescr', DICT, 'v')]
-    op = SpaceOperation('setinteriorfield', [v, i, Constant('v', lltype.Void),
+    op = SpaceOperation('setinteriorfield', [v, i, LLConstant('v', lltype.Void),
                                              v_void], v_void)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert not op1
@@ -922,7 +907,7 @@ def test_promote_1():
     v1 = varoftype(lltype.Signed)
     v2 = varoftype(lltype.Signed)
     op = SpaceOperation('hint',
-                        [v1, Constant({'promote': True}, lltype.Void)],
+                        [v1, LLConstant({'promote': True}, lltype.Void)],
                         v2)
     oplist = Transformer().rewrite_operation(op)
     op0, op1, op2 = oplist
@@ -937,7 +922,7 @@ def test_promote_2():
     v1 = varoftype(lltype.Signed)
     v2 = varoftype(lltype.Signed)
     op = SpaceOperation('hint',
-                        [v1, Constant({'promote': True}, lltype.Void)],
+                        [v1, LLConstant({'promote': True}, lltype.Void)],
                         v2)
     returnblock = Block([varoftype(lltype.Signed)])
     returnblock.operations = ()
@@ -970,8 +955,8 @@ def test_jit_merge_point_1():
     vvoid2 = varoftype(lltype.Void)
     v5 = varoftype(lltype.Void)
     op = SpaceOperation('jit_marker',
-                        [Constant('jit_merge_point', lltype.Void),
-                         Constant(jd.jitdriver, lltype.Void),
+                        [LLConstant('jit_merge_point', lltype.Void),
+                         LLConstant(jd.jitdriver, lltype.Void),
                          v1, v2, vvoid1, v3, v4, vvoid2], v5)
     tr = Transformer()
     tr.portal_jd = jd
@@ -994,7 +979,7 @@ def test_getfield_gc():
     S = lltype.GcStruct('S', ('x', lltype.Char))
     v1 = varoftype(lltype.Ptr(S))
     v2 = varoftype(lltype.Char)
-    op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
+    op = SpaceOperation('getfield', [v1, LLConstant('x', lltype.Void)], v2)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'getfield_gc_i'
     assert op1.args == [v1, ('fielddescr', S, 'x')]
@@ -1005,7 +990,7 @@ def test_getfield_gc_pure():
                         hints={'immutable': True})
     v1 = varoftype(lltype.Ptr(S))
     v2 = varoftype(lltype.Char)
-    op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
+    op = SpaceOperation('getfield', [v1, LLConstant('x', lltype.Void)], v2)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'getfield_gc_i_pure'
     assert op1.args == [v1, ('fielddescr', S, 'x')]
@@ -1023,7 +1008,7 @@ def test_getfield_gc_greenfield():
                         hints={'immutable': True})
     v1 = varoftype(lltype.Ptr(S))
     v2 = varoftype(lltype.Char)
-    op = SpaceOperation('getfield', [v1, Constant('x', lltype.Void)], v2)
+    op = SpaceOperation('getfield', [v1, LLConstant('x', lltype.Void)], v2)
     op1 = Transformer(FakeCPU(), FakeCC()).rewrite_operation(op)
     assert op1.opname == 'getfield_gc_i_greenfield'
     assert op1.args == [v1, ('fielddescr', S, 'x')]
@@ -1040,8 +1025,8 @@ def test_int_abs():
     assert oplist[0].args[0] == 'somejitcode'
 
 def test_str_newstr():
-    c_STR = Constant(rstr.STR, lltype.Void)
-    c_flavor = Constant({'flavor': 'gc'}, lltype.Void)
+    c_STR = LLConstant(rstr.STR, lltype.Void)
+    c_flavor = LLConstant({'flavor': 'gc'}, lltype.Void)
     v1 = varoftype(lltype.Signed)
     v2 = varoftype(lltype.Ptr(rstr.STR))
     op = SpaceOperation('malloc_varsize', [c_STR, c_flavor, v1], v2)
@@ -1051,10 +1036,10 @@ def test_str_newstr():
     assert op1.result == v2
 
 def test_malloc_varsize_zero():
-    c_A = Constant(lltype.GcArray(lltype.Signed), lltype.Void)
+    c_A = LLConstant(lltype.GcArray(lltype.Signed), lltype.Void)
     v1 = varoftype(lltype.Signed)
     v2 = varoftype(c_A.value)
-    c_flags = Constant({"flavor": "gc", "zero": True}, lltype.Void)
+    c_flags = LLConstant({"flavor": "gc", "zero": True}, lltype.Void)
     op = SpaceOperation('malloc_varsize', [c_A, c_flags, v1], v2)
     op1 = Transformer(FakeCPU()).rewrite_operation(op)
     assert op1.opname == 'new_array_clear'
@@ -1068,7 +1053,7 @@ def test_str_concat():
     v1 = varoftype(PSTR)
     v2 = varoftype(PSTR)
     v3 = varoftype(PSTR)
-    op = SpaceOperation('direct_call', [const(func), v1, v2], v3)
+    op = SpaceOperation('direct_call', [ll_const(func), v1, v2], v3)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_r_r'
@@ -1082,7 +1067,7 @@ def test_str_promote():
     v1 = varoftype(PSTR)
     v2 = varoftype(PSTR)
     op = SpaceOperation('hint',
-                        [v1, Constant({'promote_string': True}, lltype.Void)],
+                        [v1, LLConstant({'promote_string': True}, lltype.Void)],
                         v2)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     op0, op1, _ = tr.rewrite_operation(op)
@@ -1098,10 +1083,10 @@ def test_double_promote_str():
     v2 = varoftype(PSTR)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     op1 = SpaceOperation('hint',
-                         [v1, Constant({'promote_string': True}, lltype.Void)],
+                         [v1, LLConstant({'promote_string': True}, lltype.Void)],
                          v2)
     op2 = SpaceOperation('hint',
-                         [v1, Constant({'promote_string': True,
+                         [v1, LLConstant({'promote_string': True,
                                         'promote': True}, lltype.Void)],
                          v2)
     lst1 = tr.rewrite_operation(op1)
@@ -1113,10 +1098,10 @@ def test_double_promote_nonstr():
     v2 = varoftype(lltype.Signed)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     op1 = SpaceOperation('hint',
-                         [v1, Constant({'promote': True}, lltype.Void)],
+                         [v1, LLConstant({'promote': True}, lltype.Void)],
                          v2)
     op2 = SpaceOperation('hint',
-                         [v1, Constant({'promote_string': True,
+                         [v1, LLConstant({'promote_string': True,
                                         'promote': True}, lltype.Void)],
                          v2)
     lst1 = tr.rewrite_operation(op1)
@@ -1132,7 +1117,7 @@ def test_unicode_concat():
     v1 = varoftype(PSTR)
     v2 = varoftype(PSTR)
     v3 = varoftype(PSTR)
-    op = SpaceOperation('direct_call', [const(func), v1, v2], v3)
+    op = SpaceOperation('direct_call', [ll_const(func), v1, v2], v3)
     cc = FakeBuiltinCallControl()
     tr = Transformer(FakeCPU(), cc)
     op1 = tr.rewrite_operation(op)
@@ -1159,7 +1144,7 @@ def test_str_slice():
     v2 = varoftype(INT)
     v3 = varoftype(INT)
     v4 = varoftype(PSTR)
-    op = SpaceOperation('direct_call', [const(func), v1, v2, v3], v4)
+    op = SpaceOperation('direct_call', [ll_const(func), v1, v2, v3], v4)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_ir_r'
@@ -1180,7 +1165,7 @@ def test_unicode_slice():
     v2 = varoftype(INT)
     v3 = varoftype(INT)
     v4 = varoftype(PUNICODE)
-    op = SpaceOperation('direct_call', [const(func), v1, v2, v3], v4)
+    op = SpaceOperation('direct_call', [ll_const(func), v1, v2, v3], v4)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_ir_r'
@@ -1199,7 +1184,7 @@ def test_str2unicode():
                             _callable=rstr.LLHelpers.ll_str2unicode)
     v1 = varoftype(PSTR)
     v2 = varoftype(PUNICODE)
-    op = SpaceOperation('direct_call', [const(func), v1], v2)
+    op = SpaceOperation('direct_call', [ll_const(func), v1], v2)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_r_r'
@@ -1217,7 +1202,7 @@ def test_unicode_eq_checknull_char():
     v1 = varoftype(PUNICODE)
     v2 = varoftype(PUNICODE)
     v3 = varoftype(lltype.Bool)
-    op = SpaceOperation('direct_call', [const(func), v1, v2], v3)
+    op = SpaceOperation('direct_call', [ll_const(func), v1, v2], v3)
     cc = FakeBuiltinCallControl()
     tr = Transformer(FakeCPU(), cc)
     op1 = tr.rewrite_operation(op)
@@ -1244,7 +1229,7 @@ def test_list_ll_arraycopy():
     v4 = varoftype(INT)
     v5 = varoftype(INT)
     v6 = varoftype(lltype.Void)
-    op = SpaceOperation('direct_call', [const(func), v1, v2, v3, v4, v5], v6)
+    op = SpaceOperation('direct_call', [ll_const(func), v1, v2, v3, v4, v5], v6)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_ir_v'
@@ -1261,7 +1246,7 @@ def test_math_sqrt():
                               _callable=ll_math.sqrt_nonneg)
     v1 = varoftype(FLOAT)
     v2 = varoftype(FLOAT)
-    op = SpaceOperation('direct_call', [const(func), v1], v2)
+    op = SpaceOperation('direct_call', [ll_const(func), v1], v2)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     op1 = tr.rewrite_operation(op)
     assert op1.opname == 'residual_call_irf_f'
@@ -1280,8 +1265,8 @@ def test_quasi_immutable():
     STRUCT = lltype.GcStruct('struct', ('inst_x', lltype.Signed),
                              ('mutate_x', rclass.OBJECTPTR),
                              hints={'immutable_fields': accessor})
-    for v_x in [const(lltype.malloc(STRUCT)), varoftype(lltype.Ptr(STRUCT))]:
-        op = SpaceOperation('getfield', [v_x, Constant('inst_x', lltype.Void)],
+    for v_x in [ll_const(lltype.malloc(STRUCT)), varoftype(lltype.Ptr(STRUCT))]:
+        op = SpaceOperation('getfield', [v_x, LLConstant('inst_x', lltype.Void)],
                             v2)
         tr = Transformer(FakeCPU())
         [_, op1, op2] = tr.rewrite_operation(op)
@@ -1305,9 +1290,9 @@ def test_quasi_immutable_setfield():
     STRUCT = lltype.GcStruct('struct', ('inst_x', lltype.Signed),
                              ('mutate_x', rclass.OBJECTPTR),
                              hints={'immutable_fields': accessor})
-    for v_x in [const(lltype.malloc(STRUCT)), varoftype(lltype.Ptr(STRUCT))]:
+    for v_x in [ll_const(lltype.malloc(STRUCT)), varoftype(lltype.Ptr(STRUCT))]:
         op = SpaceOperation('jit_force_quasi_immutable',
-                            [v_x, Constant('mutate_x', lltype.Void)],
+                            [v_x, LLConstant('mutate_x', lltype.Void)],
                             varoftype(lltype.Void))
         tr = Transformer(FakeCPU(), FakeRegularCallControl())
         tr.graph = 'currentgraph'
@@ -1322,7 +1307,7 @@ def test_no_gcstruct_nesting_outside_of_OBJECT():
     STRUCT = lltype.GcStruct('struct', ('parent', PARENT),
                                        ('x', lltype.Signed))
     v_x = varoftype(lltype.Ptr(STRUCT))
-    op = SpaceOperation('getfield', [v_x, Constant('x', lltype.Void)],
+    op = SpaceOperation('getfield', [v_x, LLConstant('x', lltype.Void)],
                         varoftype(lltype.Signed))
     tr = Transformer(None, None)
     py.test.raises(NotImplementedError, tr.rewrite_operation, op)
@@ -1332,7 +1317,7 @@ def _test_threadlocalref_get(loop_inv):
     tlfield = ThreadLocalField(lltype.Signed, 'foobar_test_',
                                loop_invariant=loop_inv)
     OS_THREADLOCALREF_GET = effectinfo.EffectInfo.OS_THREADLOCALREF_GET
-    c = const(tlfield.offset)
+    c = ll_const(tlfield.offset)
     v = varoftype(lltype.Signed)
     op = SpaceOperation('threadlocalref_get', [c], v)
     cc = FakeBuiltinCallControl()

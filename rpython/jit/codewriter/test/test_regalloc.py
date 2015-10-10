@@ -1,15 +1,14 @@
-import py, sys
 from rpython.jit.codewriter import support
 from rpython.jit.codewriter.regalloc import perform_register_allocation
 from rpython.jit.codewriter.flatten import flatten_graph, ListOfKind
 from rpython.jit.codewriter.format import assert_format
 from rpython.jit.metainterp.history import AbstractDescr
-from rpython.flowspace.model import Variable, Constant, SpaceOperation
+from rpython.flowspace.model import Variable, SpaceOperation
 from rpython.flowspace.model import FunctionGraph, Block, Link
 from rpython.flowspace.model import c_last_exception
+from rpython.rtyper.rmodel import ll_const
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import rclass
-from rpython.rlib.rarithmetic import ovfcheck
 
 
 class TestRegAlloc:
@@ -158,7 +157,7 @@ class TestRegAlloc:
         v4 = Variable(); v4.concretetype = lltype.Signed
         block = Block([v1])
         block.operations = [
-            SpaceOperation('int_add', [v1, Constant(1, lltype.Signed)], v2),
+            SpaceOperation('int_add', [v1, ll_const(1)], v2),
             SpaceOperation('rescall', [ListOfKind('int', [v1, v2])], v3),
             ]
         graph = FunctionGraph('f', block, v4)
@@ -212,7 +211,7 @@ class TestRegAlloc:
         v5 = Variable(); v5.concretetype = lltype.Signed
         block = Block([v1])
         block.operations = [
-            SpaceOperation('int_add', [v1, Constant(1, lltype.Signed)], v2),
+            SpaceOperation('int_add', [v1, ll_const(1)], v2),
             SpaceOperation('rescall', [ListOfKind('int', [v1, v2])], v5),
             SpaceOperation('rescall', [ListOfKind('int', [v1, v2])], v3),
             ]

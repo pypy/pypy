@@ -1,6 +1,7 @@
 import py
 
 from rpython.flowspace.model import SpaceOperation, Constant, Variable
+from rpython.rtyper.rmodel import ll_const, LLConstant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.unsimplify import varoftype
 from rpython.rlib import jit
@@ -19,7 +20,7 @@ def test_graphs_from_direct_call():
     F = lltype.FuncType([], lltype.Signed)
     f = lltype.functionptr(F, 'f', graph='fgraph')
     v = varoftype(lltype.Signed)
-    op = SpaceOperation('direct_call', [Constant(f, lltype.Ptr(F))], v)
+    op = SpaceOperation('direct_call', [ll_const(f)], v)
     #
     lst = cc.graphs_from(op, {}.__contains__)
     assert lst is None     # residual call
@@ -33,7 +34,7 @@ def test_graphs_from_indirect_call():
     v = varoftype(lltype.Signed)
     graphlst = ['f1graph', 'f2graph']
     op = SpaceOperation('indirect_call', [varoftype(lltype.Ptr(F)),
-                                          Constant(graphlst, lltype.Void)], v)
+                                          LLConstant(graphlst, lltype.Void)], v)
     #
     lst = cc.graphs_from(op, {'f1graph': True, 'f2graph': True}.__contains__)
     assert lst == ['f1graph', 'f2graph']     # normal indirect call
@@ -48,8 +49,8 @@ def test_graphs_from_no_target():
     cc = CallControl()
     F = lltype.FuncType([], lltype.Signed)
     v = varoftype(lltype.Signed)
-    op = SpaceOperation('indirect_call', [varoftype(lltype.Ptr(F)),
-                                          Constant(None, lltype.Void)], v)
+    op = SpaceOperation('indirect_call',
+                        [varoftype(lltype.Ptr(F)), ll_const(None)], v)
     lst = cc.graphs_from(op, {}.__contains__)
     assert lst is None
 

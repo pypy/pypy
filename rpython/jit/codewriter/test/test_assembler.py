@@ -5,7 +5,7 @@ from rpython.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from rpython.jit.codewriter.jitcode import MissingLiveness
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.metainterp.history import AbstractDescr
-from rpython.flowspace.model import Constant
+from rpython.rtyper.rmodel import LLConstant
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
 
@@ -30,10 +30,10 @@ def test_assemble_consts():
     ssarepr = SSARepr("test")
     ssarepr.insns = [
         ('int_return', Register('int', 13)),
-        ('int_return', Constant(18, lltype.Signed)),
-        ('int_return', Constant(-4, lltype.Signed)),
-        ('int_return', Constant(128, lltype.Signed)),
-        ('int_return', Constant(-129, lltype.Signed)),
+        ('int_return', LLConstant(18, lltype.Signed)),
+        ('int_return', LLConstant(-4, lltype.Signed)),
+        ('int_return', LLConstant(128, lltype.Signed)),
+        ('int_return', LLConstant(-129, lltype.Signed)),
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
@@ -50,9 +50,9 @@ def test_assemble_float_consts():
     ssarepr = SSARepr("test")
     ssarepr.insns = [
         ('float_return', Register('float', 13)),
-        ('float_return', Constant(18.0, lltype.Float)),
-        ('float_return', Constant(-4.0, lltype.Float)),
-        ('float_return', Constant(128.1, lltype.Float)),
+        ('float_return', LLConstant(18.0, lltype.Float)),
+        ('float_return', LLConstant(-4.0, lltype.Float)),
+        ('float_return', LLConstant(128.1, lltype.Float)),
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
@@ -71,9 +71,9 @@ def test_assemble_llong_consts():
     from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
     ssarepr = SSARepr("test")
     ssarepr.insns = [
-        ('float_return', Constant(r_longlong(-18000000000000000),
+        ('float_return', LLConstant(r_longlong(-18000000000000000),
                                   lltype.SignedLongLong)),
-        ('float_return', Constant(r_ulonglong(9900000000000000000),
+        ('float_return', LLConstant(r_ulonglong(9900000000000000000),
                                   lltype.UnsignedLongLong)),
         ]
     assembler = Assembler()
@@ -91,10 +91,10 @@ def test_assemble_cast_consts():
     F = lltype.FuncType([], lltype.Signed)
     f = lltype.functionptr(F, 'f')
     ssarepr.insns = [
-        ('int_return', Constant('X', lltype.Char)),
-        ('int_return', Constant(unichr(0x1234), lltype.UniChar)),
-        ('int_return', Constant(f, lltype.Ptr(F))),
-        ('ref_return', Constant(s, lltype.Ptr(S))),
+        ('int_return', LLConstant('X', lltype.Char)),
+        ('int_return', LLConstant(unichr(0x1234), lltype.UniChar)),
+        ('int_return', LLConstant(f, lltype.Ptr(F))),
+        ('ref_return', LLConstant(s, lltype.Ptr(S))),
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
@@ -115,9 +115,9 @@ def test_assemble_loop():
     i0, i1 = Register('int', 0x16), Register('int', 0x17)
     ssarepr.insns = [
         (Label('L1'),),
-        ('goto_if_not_int_gt', i0, Constant(4, lltype.Signed), TLabel('L2')),
+        ('goto_if_not_int_gt', i0, LLConstant(4, lltype.Signed), TLabel('L2')),
         ('int_add', i1, i0, '->', i1),
-        ('int_sub', i0, Constant(1, lltype.Signed), '->', i0),
+        ('int_sub', i0, LLConstant(1, lltype.Signed), '->', i0),
         ('goto', TLabel('L1')),
         (Label('L2'),),
         ('int_return', i1),
@@ -139,7 +139,7 @@ def test_assemble_list():
     ssarepr = SSARepr("test")
     i0, i1 = Register('int', 0x16), Register('int', 0x17)
     ssarepr.insns = [
-        ('foobar', ListOfKind('int', [i0, i1, Constant(42, lltype.Signed)]),
+        ('foobar', ListOfKind('int', [i0, i1, LLConstant(42, lltype.Signed)]),
                    ListOfKind('ref', [])),
         ]
     assembler = Assembler()
@@ -154,10 +154,10 @@ def test_assemble_list_semibug():
     # encoded directly.
     ssarepr = SSARepr("test")
     ssarepr.insns = [
-        ('foobar', ListOfKind('int', [Constant(42, lltype.Signed)])),
-        ('foobar', ListOfKind('int', [Constant(42, lltype.Signed)])),
-        ('baz', Constant(42, lltype.Signed)),
-        ('bok', Constant(41, lltype.Signed)),
+        ('foobar', ListOfKind('int', [LLConstant(42, lltype.Signed)])),
+        ('foobar', ListOfKind('int', [LLConstant(42, lltype.Signed)])),
+        ('baz', LLConstant(42, lltype.Signed)),
+        ('bok', LLConstant(41, lltype.Signed)),
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
@@ -214,10 +214,10 @@ def test_liveness():
     ssarepr = SSARepr("test")
     i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
     ssarepr.insns = [
-        ('int_add', i0, Constant(10, lltype.Signed), '->', i1),
+        ('int_add', i0, LLConstant(10, lltype.Signed), '->', i1),
         ('-live-', i0, i1),
         ('-live-', i1, i2),
-        ('int_add', i0, Constant(3, lltype.Signed), '->', i2),
+        ('int_add', i0, LLConstant(3, lltype.Signed), '->', i2),
         ('-live-', i2),
         ]
     assembler = Assembler()
@@ -233,7 +233,7 @@ def test_liveness():
 
 def test_assemble_error_string_constant():
     ssarepr = SSARepr("test")
-    c = Constant('foobar', lltype.Void)
+    c = LLConstant('foobar', lltype.Void)
     ssarepr.insns = [
         ('duh', c),
         ]

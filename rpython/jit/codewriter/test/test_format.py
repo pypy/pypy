@@ -1,5 +1,5 @@
 import py
-from rpython.flowspace.model import Constant
+from rpython.rtyper.rmodel import ll_const
 from rpython.jit.codewriter.format import format_assembler, unformat_assembler
 from rpython.jit.codewriter.flatten import Label, TLabel, SSARepr, Register
 from rpython.jit.codewriter.flatten import ListOfKind
@@ -39,9 +39,7 @@ def test_format_assembler_const_struct():
     s = lltype.malloc(S)
     s.x = 123
     ssarepr = SSARepr("test")
-    ssarepr.insns = [
-        ('foobar', '->', Constant(s, lltype.typeOf(s))),
-        ]
+    ssarepr.insns = [('foobar', '->', ll_const(s))]
     asm = format_assembler(ssarepr)
     expected = """
         foobar -> $<* struct S>
@@ -53,9 +51,9 @@ def test_format_assembler_loop():
     i0, i1 = Register('int', 0), Register('int', 1)
     ssarepr.insns = [
         (Label('L1'),),
-        ('goto_if_not_int_gt', i0, Constant(0, lltype.Signed), TLabel('L2')),
+        ('goto_if_not_int_gt', i0, ll_const(0), TLabel('L2')),
         ('int_add', i1, i0, '->', i1),
-        ('int_sub', i0, Constant(1, lltype.Signed), '->', i0),
+        ('int_sub', i0, ll_const(1), '->', i0),
         ('goto', TLabel('L1')),
         (Label('L2'),),
         ('int_return', i1),
@@ -75,9 +73,7 @@ def test_format_assembler_loop():
 def test_format_assembler_list():
     ssarepr = SSARepr("test")
     i0, i1 = Register('int', 0), Register('int', 1)
-    ssarepr.insns = [
-        ('foobar', ListOfKind('int', [i0, Constant(123, lltype.Signed), i1])),
-        ]
+    ssarepr.insns = [('foobar', ListOfKind('int', [i0, ll_const(123), i1]))]
     asm = format_assembler(ssarepr)
     expected = """
         foobar I[%i0, $123, %i1]
@@ -117,9 +113,7 @@ def test_unformat_assembler_consts():
         foo $123
     """
     ssarepr = unformat_assembler(input)
-    assert ssarepr.insns == [
-        ('foo', Constant(123, lltype.Signed)),
-        ]
+    assert ssarepr.insns == [('foo', ll_const(123))]
 
 def test_unformat_assembler_single_return():
     input = """

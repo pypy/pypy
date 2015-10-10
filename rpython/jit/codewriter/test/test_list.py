@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.unsimplify import varoftype
-from rpython.flowspace.model import Constant, SpaceOperation
+from rpython.flowspace.model import SpaceOperation
+from rpython.rtyper.rmodel import LLConstant
 
 from rpython.jit.codewriter.jtransform import Transformer, NotSupported
 from rpython.jit.codewriter.flatten import GraphFlattener
@@ -63,7 +64,7 @@ def builtin_test(oopspec_name, args, RESTYPE, expected):
             raise ValueError(property)
         tr._get_list_nonneg_canraise_flags = force_flags
     op = SpaceOperation('direct_call',
-                        [Constant("myfunc", lltype.Void)] + args,
+                        [LLConstant("myfunc", lltype.Void)] + args,
                         v_result)
     try:
         oplist = tr._handle_list_call(op, oopspec_name, args)
@@ -85,11 +86,11 @@ def builtin_test(oopspec_name, args, RESTYPE, expected):
 def test_newlist():
     builtin_test('newlist', [], FIXEDLIST,
                  """new_array $0, <ArrayDescr> -> %r0""")
-    builtin_test('newlist', [Constant(5, lltype.Signed)], FIXEDLIST,
+    builtin_test('newlist', [LLConstant(5, lltype.Signed)], FIXEDLIST,
                  """new_array $5, <ArrayDescr> -> %r0""")
     builtin_test('newlist', [varoftype(lltype.Signed)], FIXEDLIST,
                  """new_array %i0, <ArrayDescr> -> %r0""")
-    builtin_test('newlist_clear', [Constant(5, lltype.Signed)], FIXEDLIST,
+    builtin_test('newlist_clear', [LLConstant(5, lltype.Signed)], FIXEDLIST,
                  """new_array_clear $5, <ArrayDescr> -> %r0""")
     builtin_test('newlist', [], FIXEDPTRLIST,
                  """new_array_clear $0, <ArrayDescr> -> %r0""")
@@ -98,8 +99,8 @@ def test_fixed_ll_arraycopy():
     builtin_test('list.ll_arraycopy',
                  [varoftype(FIXEDLIST),
                   varoftype(FIXEDLIST),
-                  varoftype(lltype.Signed), 
-                  varoftype(lltype.Signed), 
+                  varoftype(lltype.Signed),
+                  varoftype(lltype.Signed),
                   varoftype(lltype.Signed)],
                  lltype.Void, """
                      residual_call_ir_v $'myfunc', I[%i0, %i1, %i2], R[%r0, %r1], <CallDescrOS1>
@@ -165,11 +166,11 @@ def test_resizable_newlist():
                  " <FieldDescr items>, <ArrayDescr>")
     builtin_test('newlist', [], VARLIST,
                  """newlist $0, """+alldescrs+""" -> %r0""")
-    builtin_test('newlist', [Constant(5, lltype.Signed)], VARLIST,
+    builtin_test('newlist', [LLConstant(5, lltype.Signed)], VARLIST,
                  """newlist $5, """+alldescrs+""" -> %r0""")
     builtin_test('newlist', [varoftype(lltype.Signed)], VARLIST,
                  """newlist %i0, """+alldescrs+""" -> %r0""")
-    builtin_test('newlist_clear', [Constant(5, lltype.Signed)], VARLIST,
+    builtin_test('newlist_clear', [LLConstant(5, lltype.Signed)], VARLIST,
                  """newlist_clear $5, """+alldescrs+""" -> %r0""")
 
 def test_resizable_getitem():

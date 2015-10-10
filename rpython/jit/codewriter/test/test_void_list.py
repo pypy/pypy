@@ -1,6 +1,6 @@
+from rpython.rtyper.rmodel import ll_const
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.unsimplify import varoftype
-from rpython.flowspace.model import Constant
 from rpython.jit.codewriter.jtransform import NotSupported
 
 from rpython.jit.codewriter.test.test_list import builtin_test
@@ -20,26 +20,23 @@ VARLIST = lltype.Ptr(lltype.GcStruct('VARLIST',
 def test_newlist():
     builtin_test('newlist', [], FIXEDLIST,
                  NotSupported)
-    builtin_test('newlist', [Constant(5, lltype.Signed)], FIXEDLIST,
+    builtin_test('newlist', [ll_const(5)], FIXEDLIST,
                  NotSupported)
     builtin_test('newlist', [varoftype(lltype.Signed)], FIXEDLIST,
                  NotSupported)
-    builtin_test('newlist', [Constant(5, lltype.Signed),
-                             Constant(0, lltype.Signed)], FIXEDLIST,
+    builtin_test('newlist', [ll_const(5), ll_const(0)], FIXEDLIST,
                  NotSupported)
-    builtin_test('newlist', [Constant(5, lltype.Signed),
-                             Constant(1, lltype.Signed)], FIXEDLIST,
+    builtin_test('newlist', [ll_const(5), ll_const(1)], FIXEDLIST,
                  NotSupported)
-    builtin_test('newlist', [Constant(5, lltype.Signed),
-                             varoftype(lltype.Signed)], FIXEDLIST,
+    builtin_test('newlist', [ll_const(5), varoftype(lltype.Signed)], FIXEDLIST,
                  NotSupported)
 
 def test_fixed_ll_arraycopy():
     builtin_test('list.ll_arraycopy',
                  [varoftype(FIXEDLIST),
                   varoftype(FIXEDLIST),
-                  varoftype(lltype.Signed), 
-                  varoftype(lltype.Signed), 
+                  varoftype(lltype.Signed),
+                  varoftype(lltype.Signed),
                   varoftype(lltype.Signed)],
                  lltype.Void,
                  NotSupported)
@@ -82,20 +79,12 @@ def test_fixed_len_foldable():
 # Resizable lists
 
 def test_resizable_newlist():
-    builtin_test('newlist', [], VARLIST,
-                 NotSupported)
-    builtin_test('newlist', [Constant(5, lltype.Signed)], VARLIST,
-                 NotSupported)
-    builtin_test('newlist', [varoftype(lltype.Signed)], VARLIST,
-                 NotSupported)
-    builtin_test('newlist', [Constant(5, lltype.Signed),
-                             Constant(0, lltype.Signed)], VARLIST,
-                 NotSupported)
-    builtin_test('newlist', [Constant(5, lltype.Signed),
-                             Constant(1, lltype.Signed)], VARLIST,
-                 NotSupported)
-    builtin_test('newlist', [Constant(5, lltype.Signed),
-                             varoftype(lltype.Signed)], VARLIST,
+    builtin_test('newlist', [], VARLIST, NotSupported)
+    builtin_test('newlist', [ll_const(5)], VARLIST, NotSupported)
+    builtin_test('newlist', [varoftype(lltype.Signed)], VARLIST, NotSupported)
+    builtin_test('newlist', [ll_const(5), ll_const(0)], VARLIST, NotSupported)
+    builtin_test('newlist', [ll_const(5), ll_const(1)], VARLIST, NotSupported)
+    builtin_test('newlist', [ll_const(5), varoftype(lltype.Signed)], VARLIST,
                  NotSupported)
 
 def test_resizable_getitem():

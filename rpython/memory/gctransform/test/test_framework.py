@@ -1,6 +1,7 @@
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.annotator.model import SomeInteger
-from rpython.flowspace.model import Constant, SpaceOperation, mkentrymap
+from rpython.flowspace.model import SpaceOperation, mkentrymap
+from rpython.rtyper.rmodel import LLConstant
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.gc.semispace import SemiSpaceGC
@@ -69,7 +70,7 @@ def test_cancollect():
         return -x
     t = rtype(g, [int])
     gg = graphof(t, g)
-    assert not CollectAnalyzer(t).analyze_direct_call(gg)    
+    assert not CollectAnalyzer(t).analyze_direct_call(gg)
 
 def test_cancollect_external():
     fext1 = rffi.llexternal('fext1', [], lltype.Void, releasegil=False)
@@ -110,7 +111,7 @@ def test_no_collect():
 
     def entrypoint(argv):
         return g() + 2
-    
+
     t = rtype(entrypoint, [s_list_of_strings])
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
@@ -134,7 +135,7 @@ def test_no_collect_detection():
 
     def entrypoint(argv):
         return g() + 2
-    
+
     t = rtype(entrypoint, [s_list_of_strings])
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
@@ -167,7 +168,7 @@ def test_custom_trace_function_no_collect():
     assert 'can cause the GC to be called' in str(f.value)
     assert 'trace_func' in str(f.value)
     assert 'MyStructure' in str(f.value)
- 
+
 class WriteBarrierTransformer(ShadowStackFrameworkGCTransformer):
     clean_sets = {}
     GC_PARAMS = {}
@@ -198,7 +199,7 @@ def test_write_barrier_support_setfield():
     PTR_TYPE = lltype.Ptr(lltype.GcStruct('S', ('x', PTR_TYPE2)))
     write_barrier_check(SpaceOperation(
         "setfield",
-        [varoftype(PTR_TYPE), Constant('x', lltype.Void),
+        [varoftype(PTR_TYPE), LLConstant('x', lltype.Void),
          varoftype(PTR_TYPE2)],
         varoftype(lltype.Void)))
 
@@ -208,8 +209,8 @@ def test_dont_add_write_barrier_for_constant_new_value():
     PTR_TYPE = lltype.Ptr(lltype.GcStruct('S', ('x', PTR_TYPE2)))
     write_barrier_check(SpaceOperation(
         "setfield",
-        [varoftype(PTR_TYPE), Constant('x', lltype.Void),
-         Constant('foo', varoftype(PTR_TYPE2))],
+        [varoftype(PTR_TYPE), LLConstant('x', lltype.Void),
+         LLConstant('foo', varoftype(PTR_TYPE2))],
         varoftype(lltype.Void)), needs_write_barrier=False)
 
 def test_write_barrier_support_setarrayitem():
@@ -228,7 +229,7 @@ def test_write_barrier_support_setinteriorfield():
     write_barrier_check(SpaceOperation(
         "setinteriorfield",
         [varoftype(ARRAYPTR2), varoftype(lltype.Signed),
-         Constant('b', lltype.Void), varoftype(PTR_TYPE2)],
+         LLConstant('b', lltype.Void), varoftype(PTR_TYPE2)],
         varoftype(lltype.Void)))
 
 def test_remove_duplicate_write_barrier():
@@ -306,7 +307,7 @@ def test_find_initializing_stores_across_blocks():
 def test_find_clean_setarrayitems():
     S = lltype.GcStruct('S')
     A = lltype.GcArray(lltype.Ptr(S))
-    
+
     def f():
         l = lltype.malloc(A, 3)
         l[0] = lltype.malloc(S)
@@ -327,7 +328,7 @@ def test_find_clean_setarrayitems():
 def test_find_clean_setarrayitems_2():
     S = lltype.GcStruct('S')
     A = lltype.GcArray(lltype.Ptr(S))
-    
+
     def f():
         l = lltype.malloc(A, 3)
         l[0] = lltype.malloc(S)
@@ -349,7 +350,7 @@ def test_find_clean_setarrayitems_2():
 def test_find_clean_setarrayitems_3():
     S = lltype.GcStruct('S')
     A = lltype.GcArray(lltype.Ptr(S))
-    
+
     def f():
         l = lltype.malloc(A, 3)
         l[0] = lltype.malloc(S)

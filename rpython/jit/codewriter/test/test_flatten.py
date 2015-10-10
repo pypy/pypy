@@ -1,4 +1,4 @@
-import py, sys
+import py
 from rpython.jit.codewriter import support
 from rpython.jit.codewriter.heaptracker import int_signext
 from rpython.jit.codewriter.flatten import flatten_graph, reorder_renaming_list
@@ -9,7 +9,8 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.rtyper.lltypesystem import lltype, rstr, rffi
 from rpython.rtyper import rclass
-from rpython.flowspace.model import SpaceOperation, Variable, Constant
+from rpython.flowspace.model import SpaceOperation
+from rpython.rtyper.rmodel import LLConstant, ll_const
 from rpython.translator.unsimplify import varoftype
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_longlong, r_ulonglong
 from rpython.rlib.jit import dont_look_inside, _we_are_jitted, JitDriver
@@ -44,7 +45,7 @@ class FakeDict(object):
     def __getitem__(self, key):
         F = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
         f = lltype.functionptr(F, key[0])
-        c_func = Constant(f, lltype.typeOf(f))
+        c_func = ll_const(f)
         return c_func, lltype.Signed
 
 class FakeCPU:
@@ -140,7 +141,7 @@ class TestFlatten:
 
     def encoding_test(self, func, args, expected,
                       transform=False, liveness=False, cc=None, jd=None):
-        
+
         graphs = self.make_graphs(func, args)
         #graphs[0].show()
         if transform:
@@ -252,7 +253,7 @@ class TestFlatten:
         v4 = varoftype(lltype.Ptr(rstr.STR))
         v5 = varoftype(lltype.Float)
         op = SpaceOperation('residual_call_ir_f',
-                            [Constant(12345, lltype.Signed),  # function ptr
+                            [LLConstant(12345, lltype.Signed),  # function ptr
                              ListOfKind('int', [v1, v2]),     # int args
                              ListOfKind('ref', [v3, v4])],    # ref args
                             v5)                    # result

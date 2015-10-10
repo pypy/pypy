@@ -2,7 +2,7 @@ from rpython.memory.gctransform.transform import GCTransformer, mallocHelpers
 from rpython.memory.gctransform.support import (get_rtti,
     _static_deallocator_body_for_type, LLTransformerOp, ll_call_destructor)
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.flowspace.model import Constant
+from rpython.rtyper.rmodel import LLConstant
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper import rmodel
 
@@ -68,13 +68,13 @@ class BoehmGCTransformer(GCTransformer):
                           resulttype=llmemory.Address)
         finalizer_ptr = self.finalizer_funcptr_for_type(TYPE)
         if finalizer_ptr:
-            c_finalizer_ptr = Constant(finalizer_ptr, self.FINALIZER_PTR)
+            c_finalizer_ptr = LLConstant(finalizer_ptr, self.FINALIZER_PTR)
             hop.genop("boehm_register_finalizer", [v_raw, c_finalizer_ptr])
         return v_raw
 
     def gct_fv_gc_malloc_varsize(self, hop, flags, TYPE, v_length, c_const_size, c_item_size,
                                                                    c_offset_to_length):
-        # XXX same behavior for zero=True: in theory that's wrong        
+        # XXX same behavior for zero=True: in theory that's wrong
         if c_offset_to_length is None:
             v_raw = hop.genop("direct_call",
                                [self.malloc_varsize_no_length_ptr, v_length,
