@@ -1,5 +1,6 @@
 from rpython.flowspace.model import (Variable, Constant, Block, Link,
     SpaceOperation, c_last_exception, checkgraph)
+from rpython.rtyper.rmodel import ll_const
 
 
 def varoftype(concretetype, name=None):
@@ -101,7 +102,7 @@ def split_block(block, index, _forcelink=None):
                         " containing an int or str or instance is actually"
                         " known to be constant, e.g. always 42." % (
                         v, v.concretetype))
-                c = Constant(None, lltype.Void)
+                c = ll_const(None)
                 w = varmap[v]
                 newop = SpaceOperation('same_as', [c], w)
                 i = 0
