@@ -918,10 +918,10 @@ class Transformer(object):
         d = op.args[1].value
         if d.get('nonmovable', False):
             raise UnsupportedMallocFlags(d)
-        if d.value['flavor'] == 'raw':
+        if d['flavor'] == 'raw':
             return self._rewrite_raw_malloc(op, 'raw_malloc_fixedsize', [])
         #
-        if d.value.get('zero', False):
+        if d.get('zero', False):
             zero = True
         else:
             zero = False
