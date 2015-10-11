@@ -1253,8 +1253,13 @@ class TestMiniMarkGC(TestHybridGC):
         class A:
             pass
         def fn():
+            a1 = A()
             a = objectmodel.instantiate(A, nonmovable=True)
-            return rgc.can_move(annlowlevel.cast_instance_to_base_ptr(a))
+            a.next = a1  # 'a' is known young here, so no write barrier emitted
+            res = rgc.can_move(annlowlevel.cast_instance_to_base_ptr(a))
+            rgc.collect()
+            objectmodel.keepalive_until_here(a)
+            return res
         return fn
 
     def test_instantiate_nonmovable(self):
