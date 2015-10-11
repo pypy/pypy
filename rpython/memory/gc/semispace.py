@@ -98,7 +98,10 @@ class SemiSpaceGC(MovingGCBase):
     def malloc_fixedsize_clear(self, typeid16, size,
                                has_finalizer=False,
                                is_finalizer_light=False,
-                               contains_weakptr=False):
+                               contains_weakptr=False,
+                               nonmovable=False):
+        if nonmovable:
+            raise MemoryError
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         result = self.free

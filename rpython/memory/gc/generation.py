@@ -170,7 +170,10 @@ class GenerationGC(SemiSpaceGC):
     def malloc_fixedsize_clear(self, typeid, size,
                                has_finalizer=False,
                                is_finalizer_light=False,
-                               contains_weakptr=False):
+                               contains_weakptr=False,
+                               nonmovable=False):
+        if nonmovable:
+            raise MemoryError
         if (has_finalizer or
             (raw_malloc_usage(size) > self.lb_young_fixedsize and
              raw_malloc_usage(size) > self.largest_young_fixedsize)):

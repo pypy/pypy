@@ -915,10 +915,13 @@ class Transformer(object):
         return [op0, op1]
 
     def rewrite_op_malloc(self, op):
-        if op.args[1].value['flavor'] == 'raw':
+        d = op.args[1].value
+        if d.get('nonmovable', False):
+            raise UnsupportedMallocFlags(d)
+        if d.value['flavor'] == 'raw':
             return self._rewrite_raw_malloc(op, 'raw_malloc_fixedsize', [])
         #
-        if op.args[1].value.get('zero', False):
+        if d.value.get('zero', False):
             zero = True
         else:
             zero = False

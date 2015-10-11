@@ -587,7 +587,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def malloc_fixedsize(self, typeid, size,
                                needs_finalizer=False,
                                is_finalizer_light=False,
-                               contains_weakptr=False):
+                               contains_weakptr=False,
+                               nonmovable=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         rawtotalsize = raw_malloc_usage(totalsize)
@@ -603,7 +604,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # If totalsize is greater than nonlarge_max (which should never be
         # the case in practice), ask for a rawmalloc.  The following check
         # should be constant-folded.
-        elif rawtotalsize > self.nonlarge_max:
+        elif rawtotalsize > self.nonlarge_max or nonmovable:
             ll_assert(not contains_weakptr,
                       "'contains_weakptr' specified for a large object")
             obj = self.external_malloc(typeid, 0)

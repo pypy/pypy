@@ -305,6 +305,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 annmodel.SomeInteger(nonneg=True),
                 annmodel.SomeBool(),
                 annmodel.SomeBool(),
+                annmodel.SomeBool(),
                 annmodel.SomeBool()], s_gcref,
                 inline = False)
             self.malloc_varsize_ptr = getfn(
@@ -318,6 +319,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 malloc_fixedsize_meth,
                 [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
+                 annmodel.SomeBool(),
                  annmodel.SomeBool(),
                  annmodel.SomeBool(),
                  annmodel.SomeBool()], s_gcref,
@@ -363,7 +365,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
             raise NotImplementedError("GC needs write barrier, but does not provide writebarrier_before_copy functionality")
 
         # in some GCs we can inline the common case of
-        # malloc_fixedsize(typeid, size, False, False, False)
+        # malloc_fixedsize(typeid, size, False, False, False, False)
         if getattr(GCClass, 'inline_simple_malloc', False):
             # make a copy of this function so that it gets annotated
             # independently and the constants are folded inside
@@ -382,7 +384,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 malloc_fast,
                 [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
-                 s_False, s_False, s_False], s_gcref,
+                 s_False, s_False, s_False, s_False], s_gcref,
                 inline = True)
         else:
             self.malloc_fast_ptr = None
@@ -759,15 +761,19 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         if not op.opname.endswith('_varsize') and not flags.get('varsize'):
             zero = flags.get('zero', False)
+            c_nonmovable = rmodel.inputconst(lltype.Bool,
+                                             flags.get('nonmovable', False))
             if (self.malloc_fast_ptr is not None and
                 not c_has_finalizer.value and
+                not c_nonmovable.value and
                 (self.malloc_fast_is_clearing or not zero)):
                 malloc_ptr = self.malloc_fast_ptr
             else:
                 malloc_ptr = self.malloc_fixedsize_ptr
             args = [self.c_const_gc, c_type_id, c_size,
                     c_has_finalizer, c_has_light_finalizer,
-                    rmodel.inputconst(lltype.Bool, False)]
+                    rmodel.inputconst(lltype.Bool, False),
+                    c_nonmovable]
         else:
             assert not c_has_finalizer.value
             info_varsize = self.layoutbuilder.get_info_varsize(type_id)
@@ -908,11 +914,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
         [v_typeid, v_size,
          v_has_finalizer, v_has_light_finalizer, v_contains_weakptr] = op.args
         livevars = self.push_roots(hop)
+        c_nonmovable = rmodel.inputconst(lltype.Bool, False)
         hop.genop("direct_call",
                   [self.malloc_fixedsize_ptr, self.c_const_gc,
                    v_typeid, v_size,
                    v_has_finalizer, v_has_light_finalizer,
-                   v_contains_weakptr],
+                   v_contains_weakptr, c_nonmovable],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
 
@@ -1018,8 +1025,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
         malloc_ptr = self.malloc_fixedsize_ptr
         c_false = rmodel.inputconst(lltype.Bool, False)
         c_has_weakptr = rmodel.inputconst(lltype.Bool, True)
+        c_nonmovable = rmodel.inputconst(lltype.Bool, False)
         args = [self.c_const_gc, c_type_id, c_size,
-                c_false, c_false, c_has_weakptr]
+                c_false, c_false, c_has_weakptr, c_nonmovable]
 
         # push and pop the current live variables *including* the argument
         # to the weakref_create operation, which must be kept alive and
