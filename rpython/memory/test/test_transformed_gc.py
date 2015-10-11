@@ -741,7 +741,7 @@ class GenericMovingGCTests(GenericGCTests):
 
         def fix_graph_of_g(translator):
             from rpython.translator.translator import graphof
-            from rpython.flowspace.model import LLConstant
+            from rpython.rtyper.rmodel import LLConstant
             from rpython.rtyper.lltypesystem import rffi
             layoutbuilder = cls.ensure_layoutbuilder(translator)
 
@@ -779,7 +779,7 @@ class GenericMovingGCTests(GenericGCTests):
             return 0
         def fix_graph_of_g(translator):
             from rpython.translator.translator import graphof
-            from rpython.flowspace.model import LLConstant
+            from rpython.rtyper.rmodel import LLConstant
             from rpython.rtyper.lltypesystem import rffi
             layoutbuilder = cls.ensure_layoutbuilder(translator)
             type_id = layoutbuilder.get_type_id(P)

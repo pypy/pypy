@@ -5,7 +5,7 @@ from rpython.rtyper.annlowlevel import (cast_instance_to_base_ptr,
     cast_base_ptr_to_instance, llstr)
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import llmemory, lltype
-from rpython.flowspace.model import Constant
+from rpython.rtyper.rmodel import LLConstant
 from rpython.rtyper import rclass
 
 
@@ -152,8 +152,8 @@ def _new_hook(name, resulttype):
             return resulttype
 
         def specialize_call(self, hop):
-            c_jitdriver = Constant(hop.args_s[0].const, concretetype=lltype.Void)
-            c_name = Constant(name, concretetype=lltype.Void)
+            c_jitdriver = LLConstant(hop.args_s[0].const, lltype.Void)
+            c_name = LLConstant(name, lltype.Void)
             hop.exception_cannot_occur()
             args_v = [hop.inputarg(arg, arg=i + 1)
                       for i, arg in enumerate(hop.args_r[1:])]

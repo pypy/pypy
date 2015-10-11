@@ -1,9 +1,9 @@
-import sys
 from rpython.rtyper.lltypesystem.lltype import *
 from rpython.translator.translator import TranslationContext
 from rpython.translator.c.database import LowLevelDatabase
-from rpython.flowspace.model import Constant, Variable, SpaceOperation
-from rpython.flowspace.model import Block, Link, FunctionGraph
+from rpython.flowspace.model import (
+    Variable, SpaceOperation, Block, Link, FunctionGraph)
+from rpython.rtyper.rmodel import ll_const
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem.rffi import VOIDP, INT_real, INT, CArrayPtr
 
@@ -127,8 +127,7 @@ def test_func_simple():
     x.concretetype = Signed
     result = Variable("result")
     result.concretetype = Signed
-    one = Constant(1)
-    one.concretetype = Signed
+    one = ll_const(1)
     op = SpaceOperation("int_add", [x, one], result)
     block = Block([x])
     graph = FunctionGraph("f", block)
