@@ -159,7 +159,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         af2 = ufunc(af)
         assert all(af2 == af * 2)
         ac = arange(10, dtype=complex)
-        skip('casting not implemented yet')
         ac1 = ufunc(ac)
 
     def test_frompyfunc_2d_sig(self):
@@ -1393,7 +1392,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_add_doc(self):
         import sys
         if '__pypy__' not in sys.builtin_module_names:
-            skip('')
+            skip('cpython sets docstrings differently')
         try:
             from numpy import set_docstring
         except ImportError:
