@@ -1,8 +1,10 @@
+import py
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module._cffi_backend import ctypeobj, ctypeptr, cdataobj
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib import rweaklist
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib import rweaklist, objectmodel, jit
+from rpython.rtyper import annlowlevel
 
 
 class CffiHandles(rweaklist.RWeakListMixin):
@@ -14,11 +16,15 @@ def get_handles(space):
 
 # ____________________________________________________________
 
+@jit.dont_look_inside
 def _newp_handle(space, w_ctype, w_x):
-    index = get_handles(space).reserve_next_handle_index()
-    _cdata = rffi.cast(rffi.CCHARP, index + 1)
-    new_cdataobj = cdataobj.W_CDataHandle(space, _cdata, w_ctype, w_x)
-    get_handles(space).store_handle(index, new_cdataobj)
+    if not objectmodel.we_are_translated():
+        py.test.skip("can't test handles untranslated for now")
+    new_cdataobj = objectmodel.instantiate(cdataobj.W_CDataHandle,
+                                           nonmovable=True)
+    gcref = annlowlevel.cast_instance_to_gcref(new_cdataobj)
+    _cdata = rffi.cast(rffi.CCHARP, gcref)
+    cdataobj.W_CDataHandle.__init__(new_cdataobj, space, _cdata, w_ctype, w_x)
     return new_cdataobj
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
@@ -29,6 +35,10 @@ def newp_handle(space, w_ctype, w_x):
                     "needs 'void *', got '%s'", w_ctype.name)
     return _newp_handle(space, w_ctype, w_x)
 
+@jit.dont_look_inside
+def reveal_gcref(ptr):
+    return rffi.cast(llmemory.GCREF, ptr)
+
 @unwrap_spec(w_cdata=cdataobj.W_CData)
 def from_handle(space, w_cdata):
     ctype = w_cdata.ctype
@@ -38,14 +48,10 @@ def from_handle(space, w_cdata):
                     "expected a 'cdata' object with a 'void *' out of "
                     "new_handle(), got '%s'", ctype.name)
     with w_cdata as ptr:
-        index = rffi.cast(lltype.Signed, ptr)
-        original_cdataobj = get_handles(space).fetch_handle(index - 1)
+        gcref = reveal_gcref(ptr)
     #
-    if isinstance(original_cdataobj, cdataobj.W_CDataHandle):
-        return original_cdataobj.w_keepalive
-    else:
-        if index == 0:
-            msg = "cannot use from_handle() on NULL pointer"
-        else:
-            msg = "'void *' value does not correspond to any object"
-        raise OperationError(space.w_RuntimeError, space.wrap(msg))
+    if not gcref:
+        raise oefmt(space.w_RuntimeError,
+                    "cannot use from_handle() on NULL pointer")
+    cd = annlowlevel.cast_gcref_to_instance(cdataobj.W_CDataHandle, gcref)
+    return cd.w_keepalive
