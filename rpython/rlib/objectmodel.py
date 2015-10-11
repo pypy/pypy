@@ -276,7 +276,7 @@ running_on_llinterp = CDefinedIntSymbolic('RUNNING_ON_LLINTERP', default=1)
 
 # ____________________________________________________________
 
-def instantiate(cls):
+def instantiate(cls, nonmovable=False):
     "Create an empty instance of 'cls'."
     if isinstance(cls, type):
         return cls.__new__(cls)
