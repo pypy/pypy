@@ -1,4 +1,5 @@
 from rpython.rlib import rgc
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import llmemory, lltype
 from rpython.jit.metainterp import history
@@ -13,6 +14,9 @@ from rpython.jit.metainterp.history import JitCellToken
 FLAG_ARRAY = 0
 FLAG_STR = 1
 FLAG_UNICODE = 2
+
+class BridgeExceptionNotFirst(Exception):
+    pass
 
 class GcRewriterAssembler(object):
     """ This class performs the following rewrites on the list of operations:
@@ -164,6 +168,9 @@ class GcRewriterAssembler(object):
                 continue
             if op.getopnum() == rop.JUMP or op.getopnum() == rop.FINISH:
                 self.emit_pending_zeros()
+            if op.getopnum() == rop.BRIDGE_EXCEPTION:
+                self.remove_bridge_exception(operations, i)
+                continue
             #
             self.emit_op(op)
         return self._newops
@@ -678,3 +685,14 @@ class GcRewriterAssembler(object):
             # assume that "self.gc_ll_descr.minimal_size_in_nursery" is 2 WORDs
             size = max(size, 2 * WORD)
             return (size + WORD-1) & ~(WORD-1)     # round up
+
+    def remove_bridge_exception(self, operations, i):
+        """Check that the 'bridge_exception' operation occurs at the
+        start of the bridge."""
+        if i == 0:
+            return     # first operation, ok
+        if i == 1 and operations[0].getopnum() == rop.INCREMENT_DEBUG_COUNTER:
+            return     # 2nd operation after INCREMENT_DEBUG_COUNTER, ok
+        # not ok!
+        assert we_are_translated()
+        raise BridgeExceptionNotFirst

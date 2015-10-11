@@ -40,10 +40,13 @@ class LLTrace(object):
         self.inputargs = map(mapping, inputargs)
         self.operations = []
         for op in operations:
-            if op.getopnum() == rop.GUARD_VALUE:
+            opnum = op.getopnum()
+            if opnum == rop.GUARD_VALUE:
                 # we don't care about the value 13 here, because we gonna
                 # fish it from the extra slot on frame anyway
                 op.getdescr().make_a_counter_per_value(op, 13)
+            elif opnum == rop.BRIDGE_EXCEPTION:
+                assert len(self.operations) == 0   # must be first
             if op.getdescr() is not None:
                 if op.is_guard() or op.getopnum() == rop.FINISH:
                     newdescr = op.getdescr()
@@ -890,7 +893,10 @@ class LLFrame(object):
 
     # -----------------------------------------------------
 
-    def fail_guard(self, descr, saved_data=None, extra_value=None):
+    def fail_guard(self, descr, saved_data=None, extra_value=None,
+                   propagate_exception=False):
+        if not propagate_exception:
+            assert self.last_exception is None
         values = []
         for box in self.current_op.getfailargs():
             if box is not None:
@@ -899,6 +905,9 @@ class LLFrame(object):
                 value = None
             values.append(value)
         if hasattr(descr, '_llgraph_bridge'):
+            if propagate_exception:
+                assert (descr._llgraph_bridge.operations[0].opnum ==
+                        rop.BRIDGE_EXCEPTION)
             target = (descr._llgraph_bridge, -1)
             values = [value for value in values if value is not None]
             raise Jump(target, values)
@@ -977,7 +986,7 @@ class LLFrame(object):
 
     def execute_guard_no_exception(self, descr):
         if self.last_exception is not None:
-            self.fail_guard(descr)
+            self.fail_guard(descr, propagate_exception=True)
 
     def execute_guard_exception(self, descr, excklass):
         lle = self.last_exception
@@ -989,7 +998,7 @@ class LLFrame(object):
             llmemory.cast_int_to_adr(excklass),
             rclass.CLASSTYPE)
         if gotklass != excklass:
-            self.fail_guard(descr)
+            self.fail_guard(descr, propagate_exception=True)
         #
         res = lle.args[1]
         self.last_exception = None
@@ -998,7 +1007,7 @@ class LLFrame(object):
     def execute_guard_not_forced(self, descr):
         if self.forced_deadframe is not None:
             saved_data = self.forced_deadframe._saved_data
-            self.fail_guard(descr, saved_data)
+            self.fail_guard(descr, saved_data, propagate_exception=True)
         self.force_guard_op = self.current_op
     execute_guard_not_forced_2 = execute_guard_not_forced
 
@@ -1218,6 +1227,9 @@ class LLFrame(object):
         py.test.skip("cond_call_gc_wb_array not supported")
 
     def execute_keepalive(self, descr, x):
+        pass
+
+    def execute_bridge_exception(self, descr):
         pass
 
 

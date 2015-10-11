@@ -827,6 +827,7 @@ _oplist = [
     'QUASIIMMUT_FIELD/1d/n',    # [objptr], descr=SlowMutateDescr
     'RECORD_EXACT_CLASS/2/n',   # [objptr, clsptr]
     'KEEPALIVE/1/n',
+    'BRIDGE_EXCEPTION/0/n',     # pyjitpl: prepare_resume_from_failure()
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',

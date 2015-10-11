@@ -2480,6 +2480,21 @@ class MetaInterp(object):
         exception = self.cpu.grab_exc_value(deadframe)
         if (isinstance(resumedescr, compile.ResumeGuardExcDescr) or
             isinstance(resumedescr, compile.ResumeGuardCopiedExcDescr)):
+            # Add a GUARD_EXCEPTION or GUARD_NO_EXCEPTION at the start
+            # of the bridge---except it is not really the start, because
+            # the history aleady contains operations from resume.py.
+            # The optimizer should remove these operations.  However,
+            # 'test_guard_no_exception_incorrectly_removed_from_bridge'
+            # shows a corner case in which just putting GuARD_NO_EXCEPTION
+            # here is a bad idea: the optimizer might remove it too.
+            # So we put a pair BRIDGE_EXCEPTION / GUARD_(NO)_EXCEPTION.
+            # The BRIDGE_EXCEPTION is meant to re-raise the exception
+            # caught before the bridge, but in reality it must end up
+            # as the first operation and thus is a no-op for the backends
+            # (it is removed in rewrite.py).  Its real purpose is only to
+            # pass through the optimizer unmodified, so that the following
+            # GUARD_NO_EXCEPTION is not killed.
+            self.history.record(rop.BRIDGE_EXCEPTION, [], None)
             if exception:
                 self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
                                                               exception))
