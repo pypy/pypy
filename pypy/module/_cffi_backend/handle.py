@@ -1,6 +1,7 @@
 import py
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.module._cffi_backend import ctypeobj, ctypeptr, cdataobj
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib import rweaklist, objectmodel, jit
@@ -53,5 +54,10 @@ def from_handle(space, w_cdata):
     if not gcref:
         raise oefmt(space.w_RuntimeError,
                     "cannot use from_handle() on NULL pointer")
-    cd = annlowlevel.cast_gcref_to_instance(cdataobj.W_CDataHandle, gcref)
+    cd = annlowlevel.cast_gcref_to_instance(W_Root, gcref)
+    # force an 'isinstance', to crash clearly if the handle is
+    # dead or bogus
+    if not isinstance(cd, cdataobj.W_CDataHandle):
+        raise oefmt(space.w_SystemError,
+                    "ffi.from_handle(): dead or bogus object handle")
     return cd.w_keepalive
