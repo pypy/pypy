@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import IR_IMMUTABLE, IR_QUASIIMMUTABLE
 from rpython.rtyper.test.test_llinterp import get_interpreter
-from rpython.flowspace.model import LLConstant
+from rpython.rtyper.rmodel import LLConstant
 
 class FakeGC:
     object_minimal_size = 0
