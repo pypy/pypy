@@ -61,7 +61,7 @@ class Optimization(object):
         raise NotImplementedError
 
     def propagate_postprocess(self, op):
-        raise NotImplementedError
+        pass
 
     def emit_operation(self, op):
         assert False, "This should never be called."
@@ -578,9 +578,6 @@ class Optimizer(Optimization):
 
     def propagate_forward(self, op):
         dispatch_opt(self, op)
-
-    def propagate_postprocess(self, op):
-        pass
 
     def emit_extra(self, op):
         # no forwarding, because we're at the end of the chain
