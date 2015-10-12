@@ -140,6 +140,9 @@ class DependencyBaseTest(BaseTest):
         fmt = (indent, joinedargs, source, indent, joinedargs)
         src = "%s[%s]\n%s\n%sjump(%s)" % fmt
         loop = self.parse_loop(src)
+        # needed to assign the right number to the input
+        # arguments
+        [str(arg) for arg in loop.inputargs]
         loop.graph = FakeDependencyGraph(loop)
         return loop
 

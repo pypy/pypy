@@ -753,6 +753,7 @@ class VecScheduleState(SchedulerState):
                     arg = self.ensure_unpacked(i, argument)
                     if argument is not arg:
                         fail_args[i] = arg
+            op.setfailargs(fail_args)
 
     def ensure_unpacked(self, index, arg):
         if arg in self.seen or arg.is_vector():
@@ -786,7 +787,6 @@ class VecScheduleState(SchedulerState):
             assert 0, "not allowed to rename void resop"
         assert off < vector.count
         assert not var.is_vector()
-        print "rename", var, off, "=>", vector
         self.box_to_vbox[var] = (off, vector)
 
     def remember_args_in_vector(self, pack, index, box):

@@ -3,7 +3,7 @@ import py
 from rpython.jit.metainterp.history import TargetToken, JitCellToken, TreeLoop
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.optimizeopt.vector import (Pack, X86_CostModel,
-        NotAProfitableLoop, VectorizingOptimizer)
+        NotAProfitableLoop, VectorizingOptimizer, CostModel)
 from rpython.jit.metainterp.optimizeopt.schedule import VecScheduleState
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
@@ -29,8 +29,59 @@ class FakeMemoryRef(object):
         # i1 and i0 ...
         # but not i0, i2
         # ...
-        print iv, 'is after', ov, "?", val == 1
+        #print iv, 'is after', ov, "?", val == 1
         return val == 1
+
+def prepost_savings(orig_func):
+    def func(self, *args):
+        f = getattr(self.proxy, orig_func.__name__)
+        before_savings = self.proxy.savings
+        r = f(*args)
+        after_savings = self.proxy.savings
+        print " CM %s (%d -> %d, diff: %d) " % (orig_func.__name__,
+              before_savings, after_savings,
+              (after_savings - before_savings),)
+        print " args: ", args
+        return r
+    return func
+
+class FakeCostModel(CostModel):
+    def __init__(self, proxy):
+        self.proxy = proxy
+
+    def getsavings(self):
+        return self.proxy.savings
+
+    @prepost_savings
+    def reset_savings(self):
+        raise NotImplementedError
+
+    @prepost_savings
+    def record_cast_int(self, op):
+        raise NotImplementedError
+
+    @prepost_savings
+    def record_pack_savings(self, pack, times):
+        raise NotImplementedError
+
+    @prepost_savings
+    def record_vector_pack(self, box, index, count):
+        raise NotImplementedError
+
+    @prepost_savings
+    def record_vector_unpack(self, box, index, count):
+        raise NotImplementedError
+
+    @prepost_savings
+    def unpack_cost(self, op, index, count):
+        raise NotImplementedError
+
+    @prepost_savings
+    def savings_for_pack(self, pack, times):
+        raise NotImplementedError
+
+    def profitable(self):
+        return self.proxy.savings >= 0
 
 class CostModelBaseTest(SchedulerBaseTest):
 
@@ -50,10 +101,11 @@ class CostModelBaseTest(SchedulerBaseTest):
             print "pack: \n   ",
             print '\n    '.join([str(op.getoperation()) for op in pack.operations])
             print
-        costmodel = X86_CostModel(self.cpu, 0)
+        costmodel = FakeCostModel(X86_CostModel(self.cpu, 0))
+        costmodel.reset_savings()
         state = VecScheduleState(graph, opt.packset, self.cpu, costmodel)
         opt.schedule(state)
-        return costmodel.savings
+        return costmodel.getsavings()
 
     def assert_operations_match(self, loop_a, loop_b):
         assert equaloplists(loop_a.operations, loop_b.operations)
@@ -91,8 +143,10 @@ class CostModelBaseTest(SchedulerBaseTest):
         f11 = raw_load_f(p0, i1, descr=double)
         guard_true(i0) [f10]
         """)
+        assert loop1.operations[2].getfailargs()[0] is loop1.operations[0]
         savings = self.savings(loop1)
         assert savings == 0
+        assert loop1.operations[2].getfailargs()[0] is loop1.operations[-2]
 
     def test_load_2_unpack_1_index1(self):
         loop1 = self.parse_trace("""

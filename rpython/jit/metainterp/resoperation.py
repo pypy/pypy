@@ -559,6 +559,9 @@ class GuardResOp(ResOpWithDescr):
     def getfailargs(self):
         return self._fail_args
 
+    def getfailargs_copy(self):
+        return self._fail_args[:]
+
     def setfailargs(self, fail_args):
         self._fail_args = fail_args
 
