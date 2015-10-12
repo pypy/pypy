@@ -15,9 +15,6 @@ class OptVirtualize(optimizer.Optimization):
     _last_guard_not_forced_2 = None
     _finish_guard_op = None
 
-    def opt_default(self, op):
-        return op
-
     def make_virtual(self, known_class, source_op, descr):
         opinfo = info.InstancePtrInfo(descr, known_class, is_virtual=True)
         opinfo.init_fields(descr, 0)
@@ -59,19 +56,19 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_GUARD_NO_EXCEPTION(self, op):
         if self.last_emitted_operation is REMOVED:
             return
-        return op
+        return self.emit(op)
 
     def optimize_GUARD_NOT_FORCED(self, op):
         if self.last_emitted_operation is REMOVED:
             return
-        return op
+        return self.emit(op)
 
     def optimize_GUARD_NOT_FORCED_2(self, op):
         self._last_guard_not_forced_2 = op
 
     def optimize_FINISH(self, op):
         self._finish_guard_op = self._last_guard_not_forced_2
-        return op
+        return self.emit(op)
 
     def postprocess_FINISH(self, op, oldop):
         guard_op = self._finish_guard_op
@@ -87,7 +84,7 @@ class OptVirtualize(optimizer.Optimization):
         if oopspecindex == EffectInfo.OS_JIT_FORCE_VIRTUAL:
             if self._optimize_JIT_FORCE_VIRTUAL(op):
                 return
-        return op
+        return self.emit(op)
     optimize_CALL_MAY_FORCE_R = optimize_CALL_MAY_FORCE_I
     optimize_CALL_MAY_FORCE_F = optimize_CALL_MAY_FORCE_I
     optimize_CALL_MAY_FORCE_N = optimize_CALL_MAY_FORCE_I
@@ -99,7 +96,7 @@ class OptVirtualize(optimizer.Optimization):
             opinfo = self.getptrinfo(op.getarg(2))
             if opinfo and opinfo.is_virtual():
                 return
-        return op
+        return self.emit(op)
 
     def optimize_VIRTUAL_REF(self, op):
         # get some constants
@@ -120,7 +117,7 @@ class OptVirtualize(optimizer.Optimization):
         vrefvalue.setfield(descr_virtual_token, newop, token)
         vrefvalue.setfield(descr_forced, newop,
                            self.optimizer.cpu.ts.CONST_NULLREF)
-        return token
+        return self.emit(token)
 
     def optimize_VIRTUAL_REF_FINISH(self, op):
         # This operation is used in two cases.  In normal cases, it
@@ -183,7 +180,7 @@ class OptVirtualize(optimizer.Optimization):
             self.make_equal_to(op, fieldop)
         else:
             self.make_nonnull(op.getarg(0))
-            return op
+            return self.emit(op)
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
 
@@ -201,7 +198,7 @@ class OptVirtualize(optimizer.Optimization):
                             self.get_box_replacement(op.getarg(1)))
         else:
             self.make_nonnull(struct)
-            return op
+            return self.emit(op)
 
     def optimize_NEW_WITH_VTABLE(self, op):
         known_class = ConstInt(op.getdescr().get_vtable())
@@ -215,14 +212,14 @@ class OptVirtualize(optimizer.Optimization):
         if sizebox is not None:
             self.make_varray(op.getdescr(), sizebox.getint(), op)
         else:
-            return op
+            return self.emit(op)
 
     def optimize_NEW_ARRAY_CLEAR(self, op):
         sizebox = self.get_constant_box(op.getarg(0))
         if sizebox is not None:
             self.make_varray(op.getdescr(), sizebox.getint(), op, clear=True)
         else:
-            return op
+            return self.emit(op)
 
     def optimize_CALL_N(self, op):
         effectinfo = op.getdescr().get_extra_info()
@@ -236,14 +233,14 @@ class OptVirtualize(optimizer.Optimization):
             if info and info.is_virtual():
                 return
         else:
-            return op
+            return self.emit(op)
     optimize_CALL_R = optimize_CALL_N
     optimize_CALL_I = optimize_CALL_N
 
     def do_RAW_MALLOC_VARSIZE_CHAR(self, op):
         sizebox = self.get_constant_box(op.getarg(1))
         if sizebox is None:
-            return op
+            return self.emit(op)
         self.make_virtual_raw_memory(sizebox.getint(), op)
         self.last_emitted_operation = REMOVED
 
@@ -251,7 +248,7 @@ class OptVirtualize(optimizer.Optimization):
         opinfo = self.getrawptrinfo(op.getarg(1))
         if opinfo and opinfo.is_virtual():
             return
-        return op
+        return self.emit(op)
 
     def optimize_INT_ADD(self, op):
         opinfo = self.getrawptrinfo(op.getarg(0), create=False)
@@ -264,7 +261,7 @@ class OptVirtualize(optimizer.Optimization):
                 isinstance(opinfo, info.RawSlicePtrInfo)):
                 self.make_virtual_raw_slice(offset, opinfo, op)
                 return
-        return op
+        return self.emit(op)
 
     def optimize_ARRAYLEN_GC(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
@@ -272,7 +269,7 @@ class OptVirtualize(optimizer.Optimization):
             self.make_constant_int(op, opinfo.getlength())
         else:
             self.make_nonnull(op.getarg(0))
-            return op
+            return self.emit(op)
 
     def optimize_GETARRAYITEM_GC_I(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
@@ -286,7 +283,7 @@ class OptVirtualize(optimizer.Optimization):
                 self.make_equal_to(op, item)
                 return
         self.make_nonnull(op.getarg(0))
-        return op
+        return self.emit(op)
     optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_GC_I
     optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I
 
@@ -306,7 +303,7 @@ class OptVirtualize(optimizer.Optimization):
                                self.get_box_replacement(op.getarg(2)))
                 return
         self.make_nonnull(op.getarg(0))
-        return op
+        return self.emit(op)
 
     def _unpack_arrayitem_raw_op(self, op, indexbox):
         index = indexbox.getint()
@@ -331,7 +328,7 @@ class OptVirtualize(optimizer.Optimization):
                     self.make_equal_to(op, itemvalue)
                     return
         self.make_nonnull(op.getarg(0))
-        return op
+        return self.emit(op)
     optimize_GETARRAYITEM_RAW_F = optimize_GETARRAYITEM_RAW_I
 
     def optimize_SETARRAYITEM_RAW(self, op):
@@ -347,7 +344,7 @@ class OptVirtualize(optimizer.Optimization):
                 except InvalidRawOperation:
                     pass
         self.make_nonnull(op.getarg(0))
-        return op
+        return self.emit(op)
 
     def _unpack_raw_load_store_op(self, op, offsetbox):
         offset = offsetbox.getint()
@@ -369,7 +366,7 @@ class OptVirtualize(optimizer.Optimization):
                 else:
                     self.make_equal_to(op, itemop)
                     return
-        return op
+        return self.emit(op)
     optimize_RAW_LOAD_F = optimize_RAW_LOAD_I
 
     def optimize_RAW_STORE(self, op):
@@ -383,7 +380,7 @@ class OptVirtualize(optimizer.Optimization):
                     return
                 except InvalidRawOperation:
                     pass
-        return op
+        return self.emit(op)
 
     def optimize_GETINTERIORFIELD_GC_I(self, op):
         opinfo = self.getptrinfo(op.getarg(0))
@@ -399,7 +396,7 @@ class OptVirtualize(optimizer.Optimization):
                 self.make_equal_to(op, fld)
                 return
         self.make_nonnull(op.getarg(0))
-        return op
+        return self.emit(op)
     optimize_GETINTERIORFIELD_GC_R = optimize_GETINTERIORFIELD_GC_I
     optimize_GETINTERIORFIELD_GC_F = optimize_GETINTERIORFIELD_GC_I
 
@@ -413,11 +410,11 @@ class OptVirtualize(optimizer.Optimization):
                                        self.get_box_replacement(op.getarg(2)))
                 return
         self.make_nonnull(op.getarg(0))
-        return op
+        return self.emit(op)
 
 
 dispatch_opt = make_dispatcher_method(OptVirtualize, 'optimize_',
-        default=OptVirtualize.opt_default)
+                                      default=OptVirtualize.emit)
 
 OptVirtualize.propagate_forward = dispatch_opt
 dispatch_postprocess = make_dispatcher_method(OptVirtualize, 'postprocess_')

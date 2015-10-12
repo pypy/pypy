@@ -34,6 +34,19 @@ class BasicLoopInfo(LoopInfo):
         return True
 
 
+class OptimizationResult(object):
+    def __init__(self, opt, op, callback_func=None, *callback_args):
+        self.opt = opt
+        self.op = op
+        if callback_func is None:
+            callback_func = opt.propagate_postprocess
+        self.callback_func = callback_func
+        self.callback_args = callback_args
+
+    def callback(self, oldop):
+        self.callback_func(self.op, oldop, *self.callback_args)
+
+
 class Optimization(object):
     next_optimization = None
     potential_extra_ops = None
@@ -41,15 +54,26 @@ class Optimization(object):
     def __init__(self):
         pass # make rpython happy
 
-    def send_extra_operation(self, op):
-        self.optimizer.send_extra_operation(op)
+    def send_extra_operation(self, op, opt=None):
+        self.optimizer.send_extra_operation(op, opt)
 
     def propagate_forward(self, op):
         raise NotImplementedError
 
+    def propagate_postprocess(self, op):
+        raise NotImplementedError
+
     def emit_operation(self, op):
+        assert False, "This should never be called."
+
+    def emit(self, op, callback_func=None, *callback_args):
         self.last_emitted_operation = op
-        self.next_optimization.propagate_forward(op)
+        return OptimizationResult(self, op, callback_func, *callback_args)
+
+    def emit_extra(self, op, emit=True):
+        if emit:
+            self.emit(op)
+        self.send_extra_operation(op, self.next_optimization)
 
     def getintbound(self, op):
         assert op.type == 'i'
@@ -272,7 +296,7 @@ class Optimizer(Optimization):
 
     def set_optimizations(self, optimizations):
         if optimizations:
-            self.first_optimization = optimizations[3]
+            self.first_optimization = optimizations[0]
             for i in range(1, len(optimizations)):
                 optimizations[i - 1].next_optimization = optimizations[i]
             optimizations[-1].next_optimization = self
@@ -284,7 +308,7 @@ class Optimizer(Optimization):
             optimizations = []
             self.first_optimization = self
 
-        self.optimizations  = optimizations
+        self.optimizations = optimizations
 
     def force_op_from_preamble(self, op):
         return op
@@ -537,21 +561,34 @@ class Optimizer(Optimization):
             if op.get_forwarded() is not None:
                 op.set_forwarded(None)
 
-    def send_extra_operation(self, op):
+    def send_extra_operation(self, op, opt=None):
+        if opt is None:
+            opt = self.first_optimization
         oldop = op
-        for optimization in self.optimizations[:3]:
-            op = optimization.propagate_forward(op)
-            if op is None:
-                return
-            optimization.last_emitted_operation = op
-        self.first_optimization.propagate_forward(op)
-        for optimization in reversed(self.optimizations[:3]):
-            optimization.propagate_postprocess(op, oldop)
+        opt_results = []
+        while opt is not None:
+            opt_result = opt.propagate_forward(op)
+            if opt_result is None:
+                op = None
+                break
+            opt_results.append(opt_result)
+            op = opt_result.op
+            opt = opt.next_optimization
+        for opt_result in reversed(opt_results):
+            opt_result.callback(oldop)
 
     def propagate_forward(self, op):
         dispatch_opt(self, op)
 
-    def emit_operation(self, op):
+    def propagate_postprocess(self, op):
+        pass
+
+    def emit_extra(self, op):
+        # no forwarding, because we're at the end of the chain
+        self.emit(op)
+
+    def emit(self, op, callback_func=None, *callback_args):
+        # this actually emits the operation instead of forwarding it
         if op.returns_bool_result():
             self.getintbound(op).make_bool()
         self._emit_operation(op)
@@ -725,7 +762,7 @@ class Optimizer(Optimization):
         return op
 
     def optimize_default(self, op):
-        self.emit_operation(op)
+        self.emit(op)
 
     def constant_fold(self, op):
         argboxes = [self.get_constant_box(op.getarg(i))
@@ -803,14 +840,14 @@ class Optimizer(Optimization):
     #def optimize_GUARD_NO_OVERFLOW(self, op):
     #    # otherwise the default optimizer will clear fields, which is unwanted
     #    # in this case
-    #    self.emit_operation(op)
+    #    self.emit(op)
     # FIXME: Is this still needed?
 
     def optimize_DEBUG_MERGE_POINT(self, op):
-        self.emit_operation(op)
+        self.emit(op)
 
     def optimize_JIT_DEBUG(self, op):
-        self.emit_operation(op)
+        self.emit(op)
 
     def optimize_STRGETITEM(self, op):
         indexb = self.getintbound(op.getarg(1))

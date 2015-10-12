@@ -42,9 +42,6 @@ class OptIntBounds(Optimization):
     """Keeps track of the bounds placed on integers by guards and remove
        redundant guards"""
 
-    def opt_default(self, op):
-        return op
-
     def propagate_forward(self, op):
         return dispatch_opt(self, op)
 
@@ -63,7 +60,7 @@ class OptIntBounds(Optimization):
             dispatch_bounds_ops(self, box)
 
     def _optimize_guard_true_false_value(self, op):
-        return op
+        return self.emit(op)
 
     def _postprocess_guard_true_false_value(self, op, oldop):
         if op.getarg(0).type == 'i':
@@ -86,7 +83,7 @@ class OptIntBounds(Optimization):
             else:
                 self.make_constant_int(op, 0)
             return None
-        return op
+        return self.emit(op)
 
     def postprocess_INT_OR_or_XOR(self, op, oldop):
         v1 = self.get_box_replacement(op.getarg(0))
@@ -106,7 +103,7 @@ class OptIntBounds(Optimization):
     postprocess_INT_XOR = postprocess_INT_OR_or_XOR
 
     def optimize_INT_AND(self, op):
-        return op
+        return self.emit(op)
 
     def postprocess_INT_AND(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
@@ -125,7 +122,7 @@ class OptIntBounds(Optimization):
             r.intersect(IntBound(0, next_pow2_m1(lesser)))
 
     def optimize_INT_SUB(self, op):
-        return op
+        return self.emit(op)
 
     def postprocess_INT_SUB(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
@@ -138,7 +135,7 @@ class OptIntBounds(Optimization):
         arg1 = self.get_box_replacement(op.getarg(0))
         arg2 = self.get_box_replacement(op.getarg(1))
         if self.is_raw_ptr(arg1) or self.is_raw_ptr(arg2):
-            return op
+            return self.emit(op)
         v1 = self.getintbound(arg1)
         v2 = self.getintbound(arg2)
 
@@ -172,7 +169,7 @@ class OptIntBounds(Optimization):
                         arg2 = ConstInt(sum)
                         op = self.replace_op_with(op, rop.INT_ADD, args=[arg1, arg2])
 
-        return op
+        return self.emit(op)
 
     def postprocess_INT_ADD(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
@@ -183,7 +180,7 @@ class OptIntBounds(Optimization):
             r.intersect(b)
 
     def optimize_INT_MUL(self, op):
-        return op
+        return self.emit(op)
 
     def postprocess_INT_MUL(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
@@ -194,7 +191,7 @@ class OptIntBounds(Optimization):
             r.intersect(b)
 
     def optimize_INT_FLOORDIV(self, op):
-        return op
+        return self.emit(op)
 
     def postprocess_INT_FLOORDIV(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
@@ -215,7 +212,7 @@ class OptIntBounds(Optimization):
                 arg2 = ConstInt(val-1)
                 op = self.replace_op_with(op, rop.INT_AND,
                                           args=[arg1, arg2])
-        return op
+        return self.emit(op)
 
     def postprocess_INT_MOD(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
@@ -236,7 +233,7 @@ class OptIntBounds(Optimization):
             r.make_lt(IntBound(val, val))
 
     def optimize_INT_LSHIFT(self, op):
-        return op
+        return self.emit(op)
 
     def postprocess_INT_LSHIFT(self, op, oldop):
         arg0 = self.get_box_replacement(op.getarg(0))
@@ -262,7 +259,7 @@ class OptIntBounds(Optimization):
             # constant result (likely 0, for rshifts that kill all bits)
             self.make_constant_int(op, b.lower)
             return None
-        return op
+        return self.emit(op)
 
     def postprocess_INT_RSHIFT(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
@@ -295,7 +292,7 @@ class OptIntBounds(Optimization):
                 self.pure_from_args(rop.INT_SUB, [args[0], result], args[1])
             #elif opnum == rop.INT_MUL_OVF:
             #    self.pure(rop.INT_MUL, args[:], result)
-            return op
+            return self.emit(op)
 
     def optimize_GUARD_OVERFLOW(self, op):
         # If INT_xxx_OVF was replaced by INT_xxx, *but* we still see
@@ -308,7 +305,7 @@ class OptIntBounds(Optimization):
             raise InvalidLoop('An INT_xxx_OVF was proven not to overflow but' +
                               'guarded with GUARD_OVERFLOW')
 
-        return op
+        return self.emit(op)
 
     def optimize_INT_ADD_OVF(self, op):
         b1 = self.getintbound(op.getarg(0))
@@ -319,7 +316,7 @@ class OptIntBounds(Optimization):
             # by optimize_GUARD_NO_OVERFLOW; if we see instead an
             # optimize_GUARD_OVERFLOW, then InvalidLoop.
             op = self.replace_op_with(op, rop.INT_ADD)
-        return op
+        return self.emit(op)
 
     def postprocess_INT_ADD_OVF(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
@@ -339,7 +336,7 @@ class OptIntBounds(Optimization):
         resbound = b0.sub_bound(b1)
         if resbound.bounded():
             op = self.replace_op_with(op, rop.INT_SUB)
-        return op
+        return self.emit(op)
 
     def postprocess_INT_SUB_OVF(self, op, oldop):
         arg0 = self.get_box_replacement(op.getarg(0))
@@ -356,7 +353,7 @@ class OptIntBounds(Optimization):
         resbound = b1.mul_bound(b2)
         if resbound.bounded():
             op = self.replace_op_with(op, rop.INT_MUL)
-        return op
+        return self.emit(op)
 
     def postprocess_INT_MUL_OVF(self, op, oldop):
         b1 = self.getintbound(op.getarg(0))
@@ -375,7 +372,7 @@ class OptIntBounds(Optimization):
         elif b1.known_ge(b2) or arg1 is arg2:
             self.make_constant_int(op, 0)
         else:
-            return op
+            return self.emit(op)
 
     def optimize_INT_GT(self, op):
         arg1 = self.get_box_replacement(op.getarg(0))
@@ -387,7 +384,7 @@ class OptIntBounds(Optimization):
         elif b1.known_le(b2) or arg1 is arg2:
             self.make_constant_int(op, 0)
         else:
-            return op
+            return self.emit(op)
 
     def optimize_INT_LE(self, op):
         arg1 = self.get_box_replacement(op.getarg(0))
@@ -399,7 +396,7 @@ class OptIntBounds(Optimization):
         elif b1.known_gt(b2):
             self.make_constant_int(op, 0)
         else:
-            return op
+            return self.emit(op)
 
     def optimize_INT_GE(self, op):
         arg1 = self.get_box_replacement(op.getarg(0))
@@ -411,7 +408,7 @@ class OptIntBounds(Optimization):
         elif b1.known_lt(b2):
             self.make_constant_int(op, 0)
         else:
-            return op
+            return self.emit(op)
 
     def optimize_INT_EQ(self, op):
         arg0 = self.get_box_replacement(op.getarg(0))
@@ -425,7 +422,7 @@ class OptIntBounds(Optimization):
         elif arg0.same_box(arg1):
             self.make_constant_int(op, 1)
         else:
-            return op
+            return self.emit(op)
 
     def optimize_INT_NE(self, op):
         arg0 = self.get_box_replacement(op.getarg(0))
@@ -439,14 +436,14 @@ class OptIntBounds(Optimization):
         elif arg0 is arg1:
             self.make_constant_int(op, 0)
         else:
-            return op
+            return self.emit(op)
 
     def optimize_INT_FORCE_GE_ZERO(self, op):
         b = self.getintbound(op.getarg(0))
         if b.known_ge(IntBound(0, 0)):
             self.make_equal_to(op, op.getarg(0))
         else:
-            return op
+            return self.emit(op)
 
     def optimize_INT_SIGNEXT(self, op):
         b = self.getintbound(op.getarg(0))
@@ -457,7 +454,7 @@ class OptIntBounds(Optimization):
         if bounds.contains_bound(b):
             self.make_equal_to(op, op.getarg(0))
         else:
-            return op
+            return self.emit(op)
 
     def postprocess_INT_SIGNEXT(self, op, oldop):
         numbits = op.getarg(1).getint() * 8
@@ -468,14 +465,14 @@ class OptIntBounds(Optimization):
         bres.intersect(bounds)
 
     def optimize_ARRAYLEN_GC(self, op):
-        return op
+        return self.emit(op)
 
     def postprocess_ARRAYLEN_GC(self, op, oldop):
         array = self.ensure_ptr_info_arg0(op)
         self.optimizer.setintbound(op, array.getlenbound(None))
 
     def optimize_STRLEN(self, op):
-        return op
+        return self.emit(op)
 
     def postprocess_STRLEN(self, op, oldop):
         self.make_nonnull_str(op.getarg(0), vstring.mode_string)
@@ -483,7 +480,7 @@ class OptIntBounds(Optimization):
         self.optimizer.setintbound(op, array.getlenbound(vstring.mode_string))
 
     def optimize_UNICODELEN(self, op):
-        return op
+        return self.emit(op)
 
     def postprocess_UNICODELEN(self, op, oldop):
         self.make_nonnull_str(op.getarg(0), vstring.mode_unicode)
@@ -491,7 +488,7 @@ class OptIntBounds(Optimization):
         self.optimizer.setintbound(op, array.getlenbound(vstring.mode_unicode))
 
     def optimize_STRGETITEM(self, op):
-        return op
+        return self.emit(op)
 
     def postprocess_STRGETITEM(self, op, oldop):
         v1 = self.getintbound(op)
@@ -505,7 +502,7 @@ class OptIntBounds(Optimization):
         v1.make_lt(IntUpperBound(256))
 
     def optimize_GETFIELD_RAW_I(self, op):
-        return op
+        return self.emit(op)
 
     def postprocess_GETFIELD_RAW_I(self, op, oldop):
         descr = op.getdescr()
@@ -535,7 +532,7 @@ class OptIntBounds(Optimization):
     postprocess_GETINTERIORFIELD_GC_F = postprocess_GETFIELD_RAW_I
 
     def optimize_GETARRAYITEM_RAW_I(self, op):
-        return op
+        return self.emit(op)
 
     def postprocess_GETARRAYITEM_RAW_I(self, op, oldop):
         descr = op.getdescr()
@@ -555,7 +552,7 @@ class OptIntBounds(Optimization):
     postprocess_GETARRAYITEM_GC_R = postprocess_GETARRAYITEM_RAW_I
 
     def optimize_UNICODEGETITEM(self, op):
-        return op
+        return self.emit(op)
 
     def postprocess_UNICODEGETITEM(self, op, oldop):
         b1 = self.getintbound(op)
@@ -722,6 +719,6 @@ class OptIntBounds(Optimization):
 
 
 dispatch_opt = make_dispatcher_method(OptIntBounds, 'optimize_',
-        default=OptIntBounds.opt_default)
+                                      default=OptIntBounds.emit)
 dispatch_bounds_ops = make_dispatcher_method(OptIntBounds, 'propagate_bounds_')
 dispatch_postprocess = make_dispatcher_method(OptIntBounds, 'postprocess_')

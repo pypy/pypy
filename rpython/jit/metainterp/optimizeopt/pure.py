@@ -71,7 +71,10 @@ class OptPure(Optimization):
         self.extra_call_pure = []
 
     def propagate_forward(self, op):
-        dispatch_opt(self, op)
+        return dispatch_opt(self, op)
+
+    def propagate_postprocess(self, op, oldop):
+        dispatch_postprocess(self, op, oldop)
 
     def optimize_default(self, op):
         canfold = op.is_always_pure()
@@ -108,17 +111,17 @@ class OptPure(Optimization):
                 return
 
         # otherwise, the operation remains
-        self.emit_operation(op)
-        self.optimize_default_callback(op, save, nextop)
+        return self.emit(op, self.postprocess_default, save, nextop)
 
-    def optimize_default_callback(self, op, save, nextop):
+    def postprocess_default(self, op, oldop, save, nextop):
+        # postprocessor for optimize_default, not default postprocessor
         if op.returns_bool_result():
             self.getintbound(op).make_bool()
         if save:
             recentops = self.getrecentops(op.getopnum())
             recentops.add(op)
         if nextop:
-            self.emit_operation(nextop)
+            self.emit_extra(nextop)
 
     def getrecentops(self, opnum):
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
@@ -161,10 +164,9 @@ class OptPure(Optimization):
         # replace CALL_PURE with just CALL
         opnum = OpHelpers.call_for_descr(op.getdescr())
         newop = self.optimizer.replace_op_with(op, opnum)
-        self.emit_operation(newop)
-        self.optimize_CALL_PURE_I_callback(op)
+        return self.emit(newop, self.postprocess_call_pure)
 
-    def optimize_CALL_PURE_I_callback(self, op):
+    def postprocess_call_pure(self, op, oldop):
         self.call_pure_positions.append(
             len(self.optimizer._newoperations) - 1)
 
@@ -196,7 +198,7 @@ class OptPure(Optimization):
             # it was a CALL_PURE that was killed; so we also kill the
             # following GUARD_NO_EXCEPTION
             return
-        self.emit_operation(op)
+        return self.emit(op)
 
     def flush(self):
         assert self.postponed_op is None
@@ -242,3 +244,4 @@ class OptPure(Optimization):
 
 dispatch_opt = make_dispatcher_method(OptPure, 'optimize_',
                                       default=OptPure.optimize_default)
+dispatch_postprocess = make_dispatcher_method(OptPure, 'postprocess_')
