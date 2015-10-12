@@ -172,6 +172,7 @@ class W_CTypePointer(W_CTypePtrBase):
     _immutable_fields_ = ['is_file', 'cache_array_type?', 'is_void_ptr']
     kind = "pointer"
     cache_array_type = None
+    is_nonfunc_pointer_or_array = True
 
     def __init__(self, space, ctitem):
         from pypy.module._cffi_backend import ctypearray

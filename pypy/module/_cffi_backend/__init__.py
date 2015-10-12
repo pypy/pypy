@@ -47,6 +47,7 @@ class Module(MixedModule):
 
         'string': 'func.string',
         'buffer': 'cbuffer.buffer',
+        'memmove': 'func.memmove',
 
         'get_errno': 'cerrno.get_errno',
         'set_errno': 'cerrno.set_errno',

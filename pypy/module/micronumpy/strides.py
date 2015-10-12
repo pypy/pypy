@@ -311,14 +311,14 @@ def calc_strides(shape, dtype, order):
     backstrides = []
     s = 1
     shape_rev = shape[:]
-    if order == 'C':
+    if order in [NPY.CORDER, NPY.ANYORDER]:
         shape_rev.reverse()
     for sh in shape_rev:
         slimit = max(sh, 1)
         strides.append(s * dtype.elsize)
         backstrides.append(s * (slimit - 1) * dtype.elsize)
         s *= slimit
-    if order == 'C':
+    if order in [NPY.CORDER, NPY.ANYORDER]:
         strides.reverse()
         backstrides.reverse()
     return strides, backstrides
@@ -346,7 +346,7 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
     last_step = 1
     oldI = 0
     new_strides = []
-    if order == 'F':
+    if order == NPY.FORTRANORDER:
         for i in range(len(old_shape)):
             steps.append(old_strides[i] / last_step)
             last_step *= old_shape[i]
@@ -366,7 +366,7 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                 if oldI < len(old_shape):
                     cur_step = steps[oldI]
                     n_old_elems_to_use *= old_shape[oldI]
-    elif order == 'C':
+    else:
         for i in range(len(old_shape) - 1, -1, -1):
             steps.insert(0, old_strides[i] / last_step)
             last_step *= old_shape[i]

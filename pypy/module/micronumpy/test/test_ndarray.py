@@ -6,6 +6,7 @@ from pypy.conftest import option
 from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.strides import Chunk, new_view, EllipsisChunk
 from pypy.module.micronumpy.ndarray import W_NDimArray
+import pypy.module.micronumpy.constants as NPY
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
@@ -45,20 +46,20 @@ class TestNumArrayDirect(object):
         return self.space.newtuple(args_w)
 
     def test_strides_f(self):
-        a = create_array(self.space, [10, 5, 3], MockDtype(), order='F')
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order=NPY.FORTRANORDER)
         assert a.strides == [1, 10, 50]
         assert a.backstrides == [9, 40, 100]
 
     def test_strides_c(self):
-        a = create_array(self.space, [10, 5, 3], MockDtype(), order='C')
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order=NPY.CORDER)
         assert a.strides == [15, 3, 1]
         assert a.backstrides == [135, 12, 2]
-        a = create_array(self.space, [1, 0, 7], MockDtype(), order='C')
+        a = create_array(self.space, [1, 0, 7], MockDtype(), order=NPY.CORDER)
         assert a.strides == [7, 7, 1]
         assert a.backstrides == [0, 0, 6]
 
     def test_create_slice_f(self):
-        a = create_array(self.space, [10, 5, 3], MockDtype(), order='F')
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order=NPY.FORTRANORDER)
         s = create_slice(self.space, a, [Chunk(3, 0, 0, 1)])
         assert s.start == 3
         assert s.strides == [10, 50]
@@ -77,7 +78,7 @@ class TestNumArrayDirect(object):
         assert s.shape == [10, 3]
 
     def test_create_slice_c(self):
-        a = create_array(self.space, [10, 5, 3], MockDtype(), order='C')
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order=NPY.CORDER)
         s = create_slice(self.space, a, [Chunk(3, 0, 0, 1)])
         assert s.start == 45
         assert s.strides == [3, 1]
@@ -97,7 +98,7 @@ class TestNumArrayDirect(object):
         assert s.shape == [10, 3]
 
     def test_slice_of_slice_f(self):
-        a = create_array(self.space, [10, 5, 3], MockDtype(), order='F')
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order=NPY.FORTRANORDER)
         s = create_slice(self.space, a, [Chunk(5, 0, 0, 1)])
         assert s.start == 5
         s2 = create_slice(self.space, s, [Chunk(3, 0, 0, 1)])
@@ -114,7 +115,7 @@ class TestNumArrayDirect(object):
         assert s2.start == 1 * 15 + 2 * 3
 
     def test_slice_of_slice_c(self):
-        a = create_array(self.space, [10, 5, 3], MockDtype(), order='C')
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order=NPY.CORDER)
         s = create_slice(self.space, a, [Chunk(5, 0, 0, 1)])
         assert s.start == 15 * 5
         s2 = create_slice(self.space, s, [Chunk(3, 0, 0, 1)])
@@ -131,14 +132,14 @@ class TestNumArrayDirect(object):
         assert s2.start == 1 * 15 + 2 * 3
 
     def test_negative_step_f(self):
-        a = create_array(self.space, [10, 5, 3], MockDtype(), order='F')
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order=NPY.FORTRANORDER)
         s = create_slice(self.space, a, [Chunk(9, -1, -2, 5)])
         assert s.start == 9
         assert s.strides == [-2, 10, 50]
         assert s.backstrides == [-8, 40, 100]
 
     def test_negative_step_c(self):
-        a = create_array(self.space, [10, 5, 3], MockDtype(), order='C')
+        a = create_array(self.space, [10, 5, 3], MockDtype(), order=NPY.CORDER)
         s = create_slice(self.space, a, [Chunk(9, -1, -2, 5)])
         assert s.start == 135
         assert s.strides == [-30, 3, 1]
@@ -155,17 +156,17 @@ class TestNumArrayDirect(object):
 
     def test_calc_new_strides(self):
         from pypy.module.micronumpy.strides import calc_new_strides
-        assert calc_new_strides([2, 4], [4, 2], [4, 2], "C") == [8, 2]
-        assert calc_new_strides([2, 4, 3], [8, 3], [1, 16], 'F') == [1, 2, 16]
-        assert calc_new_strides([2, 3, 4], [8, 3], [1, 16], 'F') is None
-        assert calc_new_strides([24], [2, 4, 3], [48, 6, 1], 'C') is None
-        assert calc_new_strides([24], [2, 4, 3], [24, 6, 2], 'C') == [2]
-        assert calc_new_strides([105, 1], [3, 5, 7], [35, 7, 1],'C') == [1, 1]
-        assert calc_new_strides([1, 105], [3, 5, 7], [35, 7, 1],'C') == [105, 1]
-        assert calc_new_strides([1, 105], [3, 5, 7], [35, 7, 1],'F') is None
-        assert calc_new_strides([1, 1, 1, 105, 1], [15, 7], [7, 1],'C') == \
+        assert calc_new_strides([2, 4], [4, 2], [4, 2], NPY.CORDER) == [8, 2]
+        assert calc_new_strides([2, 4, 3], [8, 3], [1, 16], NPY.FORTRANORDER) == [1, 2, 16]
+        assert calc_new_strides([2, 3, 4], [8, 3], [1, 16], NPY.FORTRANORDER) is None
+        assert calc_new_strides([24], [2, 4, 3], [48, 6, 1], NPY.CORDER) is None
+        assert calc_new_strides([24], [2, 4, 3], [24, 6, 2], NPY.CORDER) == [2]
+        assert calc_new_strides([105, 1], [3, 5, 7], [35, 7, 1],NPY.CORDER) == [1, 1]
+        assert calc_new_strides([1, 105], [3, 5, 7], [35, 7, 1],NPY.CORDER) == [105, 1]
+        assert calc_new_strides([1, 105], [3, 5, 7], [35, 7, 1],NPY.FORTRANORDER) is None
+        assert calc_new_strides([1, 1, 1, 105, 1], [15, 7], [7, 1],NPY.CORDER) == \
                                     [105, 105, 105, 1, 1]
-        assert calc_new_strides([1, 1, 105, 1, 1], [7, 15], [1, 7],'F') == \
+        assert calc_new_strides([1, 1, 105, 1, 1], [7, 15], [1, 7],NPY.FORTRANORDER) == \
                                     [1, 1, 1, 105, 105]
 
     def test_find_shape(self):
@@ -444,6 +445,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = np.empty_like(A((2, 3)), subok=False)
         assert b.shape == (2, 3)
         assert type(b) is np.ndarray
+        b = np.empty_like(np.array(3.0), order='A')
+        assert type(b) is np.ndarray
 
     def test_size(self):
         from numpy import array,arange,cos
@@ -534,10 +537,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == a).all()
         b = a.copy(order='A')
         assert (b == a).all()
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, a.copy, order='F')
-            raises(NotImplementedError, a.copy, order=True)
+        b = a.copy(order='F')
+        assert (b == a).all()
+        b = a.copy(order=True)
+        assert (b == a).all()
 
     def test_iterator_init(self):
         from numpy import array
@@ -918,9 +921,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.reshape((0,), order='A').shape == (0,)
         raises(TypeError, a.reshape, (0,), badarg="C")
         raises(ValueError, a.reshape, (0,), order="K")
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplementedError, a.reshape, (0,), order='F')
+        b = a.reshape((0,), order='F')
+        assert b.shape == (0,)
+        a = array(range(24), 'uint8')
+        assert a.reshape([2, 3, 4], order=True).strides ==(1, 2, 6)
+        assert a.reshape([2, 3, 4], order=False).strides ==(12, 4, 1)
 
     def test_slice_reshape(self):
         from numpy import zeros, arange
@@ -2676,11 +2681,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a[1][2][1] == 15
 
     def test_create_order(self):
-        import sys, numpy as np
+        import numpy as np
         for order in [False, True, 'C', 'F']:
             a = np.empty((2, 3), float, order=order)
             assert a.shape == (2, 3)
-            if order in [True, 'F'] and '__pypy__' not in sys.builtin_module_names:
+            if order in [True, 'F']:
                 assert a.flags['F']
                 assert not a.flags['C']
             else:
@@ -3577,10 +3582,7 @@ class AppTestSupport(BaseNumpyAppTest):
             assert a.tostring(order) == '\x01\x02\x03\x04'
         import sys
         for order in (True, 'F'):
-            if '__pypy__' in sys.builtin_module_names:
-                raises(NotImplementedError, a.tostring, order)
-            else:
-                assert a.tostring(order) == '\x01\x03\x02\x04'
+            assert a.tostring(order) == '\x01\x03\x02\x04'
         assert array(2.2-1.1j, dtype='>c16').tostring() == \
             '@\x01\x99\x99\x99\x99\x99\x9a\xbf\xf1\x99\x99\x99\x99\x99\x9a'
         assert array(2.2-1.1j, dtype='<c16').tostring() == \

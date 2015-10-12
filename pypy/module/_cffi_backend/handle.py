@@ -9,16 +9,16 @@ class CffiHandles(rweaklist.RWeakListMixin):
     def __init__(self, space):
         self.initialize()
 
-def get(space):
+def get_handles(space):
     return space.fromcache(CffiHandles)
 
 # ____________________________________________________________
 
 def _newp_handle(space, w_ctype, w_x):
-    index = get(space).reserve_next_handle_index()
+    index = get_handles(space).reserve_next_handle_index()
     _cdata = rffi.cast(rffi.CCHARP, index + 1)
     new_cdataobj = cdataobj.W_CDataHandle(space, _cdata, w_ctype, w_x)
-    get(space).store_handle(index, new_cdataobj)
+    get_handles(space).store_handle(index, new_cdataobj)
     return new_cdataobj
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
@@ -39,7 +39,7 @@ def from_handle(space, w_cdata):
                     "new_handle(), got '%s'", ctype.name)
     with w_cdata as ptr:
         index = rffi.cast(lltype.Signed, ptr)
-        original_cdataobj = get(space).fetch_handle(index - 1)
+        original_cdataobj = get_handles(space).fetch_handle(index - 1)
     #
     if isinstance(original_cdataobj, cdataobj.W_CDataHandle):
         return original_cdataobj.w_keepalive

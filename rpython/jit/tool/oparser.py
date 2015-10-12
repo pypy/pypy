@@ -86,7 +86,7 @@ class OpParser(object):
 
     use_mock_model = False
 
-    def __init__(self, input, cpu, namespace, type_system, boxkinds,
+    def __init__(self, input, cpu, namespace, boxkinds,
                  invent_fail_descr=default_fail_descr,
                  nonstrict=False, postproces=None):
         self.input = input
@@ -94,7 +94,6 @@ class OpParser(object):
         self._postproces = postproces
         self.cpu = cpu
         self._consts = namespace
-        self.type_system = type_system
         self.boxkinds = boxkinds or {}
         if namespace is not None:
             self._cache = namespace.setdefault('_CACHE_', {})
@@ -134,7 +133,7 @@ class OpParser(object):
 
     def inputarg_for_var(self, elem):
         try:
-            return self._cache[self.type_system, elem]
+            return self._cache[elem]
         except KeyError:
             pass
         if elem[0] in 'ifrp':
@@ -157,7 +156,7 @@ class OpParser(object):
                     break
             else:
                 raise ParseError("Unknown variable type: %s" % elem)
-        self._cache[self.type_system, elem] = box
+        self._cache[elem] = box
         box._str = elem
         return box
 
@@ -469,13 +468,13 @@ class OpParser(object):
         inpargs = self.parse_header_line(line[1:-1])
         return base_indent, inpargs, lines
 
-def parse(input, cpu=None, namespace=None, type_system='lltype',
+def parse(input, cpu=None, namespace=None,
           boxkinds=None, invent_fail_descr=default_fail_descr,
           no_namespace=False, nonstrict=False, OpParser=OpParser,
           postprocess=None):
     if namespace is None and not no_namespace:
         namespace = {}
-    return OpParser(input, cpu, namespace, type_system, boxkinds,
+    return OpParser(input, cpu, namespace, boxkinds,
                     invent_fail_descr, nonstrict, postprocess).parse()
 
 def pure_parse(*args, **kwds):

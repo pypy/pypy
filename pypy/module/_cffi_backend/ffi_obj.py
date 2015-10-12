@@ -391,6 +391,25 @@ optional 'code' argument, as a tuple '(code, message)'."""
         return cerrno.getwinerror(self.space, code)
 
 
+    @unwrap_spec(n=int)
+    def descr_memmove(self, w_dest, w_src, n):
+        """\
+ffi.memmove(dest, src, n) copies n bytes of memory from src to dest.
+
+Like the C function memmove(), the memory areas may overlap;
+apart from that it behaves like the C function memcpy().
+
+'src' can be any cdata ptr or array, or any Python buffer object.
+'dest' can be any cdata ptr or array, or a writable Python buffer
+object.  The size to copy, 'n', is always measured in bytes.
+
+Unlike other methods, this one supports all Python buffer including
+byte strings and bytearrays---but it still does not support
+non-contiguous buffers."""
+        #
+        return func.memmove(self.space, w_dest, w_src, n)
+
+
     @unwrap_spec(w_init=WrappedDefault(None))
     def descr_new(self, w_arg, w_init):
         """\
@@ -623,6 +642,7 @@ W_FFIObject.typedef = TypeDef(
         gc          = interp2app(W_FFIObject.descr_gc),
         getctype    = interp2app(W_FFIObject.descr_getctype),
         integer_const = interp2app(W_FFIObject.descr_integer_const),
+        memmove     = interp2app(W_FFIObject.descr_memmove),
         new         = interp2app(W_FFIObject.descr_new),
         new_allocator = interp2app(W_FFIObject.descr_new_allocator),
         new_handle  = interp2app(W_FFIObject.descr_new_handle),

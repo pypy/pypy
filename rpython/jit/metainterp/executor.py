@@ -386,6 +386,7 @@ def _make_execute_list():
                          rop.CALL_MALLOC_NURSERY_VARSIZE_FRAME,
                          rop.NURSERY_PTR_INCREMENT,
                          rop.LABEL,
+                         rop.BRIDGE_EXCEPTION,
                          rop.VEC_RAW_LOAD_I,
                          rop.VEC_RAW_LOAD_F,
                          rop.VEC_RAW_STORE,

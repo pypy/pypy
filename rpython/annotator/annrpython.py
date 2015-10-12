@@ -79,14 +79,11 @@ class RPythonAnnotator(object):
         annmodel.TLS.check_str_without_nul = (
             self.translator.config.translation.check_str_without_nul)
 
-        flowgraph, inputcells = self.get_call_parameters(function, args_s, policy)
-        if not isinstance(flowgraph, FunctionGraph):
-            assert isinstance(flowgraph, annmodel.SomeObject)
-            return flowgraph
+        flowgraph, inputs_s = self.get_call_parameters(function, args_s, policy)
 
         if main_entry_point:
             self.translator.entry_point_graph = flowgraph
-        return self.build_graph_types(flowgraph, inputcells, complete_now=complete_now)
+        return self.build_graph_types(flowgraph, inputs_s, complete_now=complete_now)
 
     def get_call_parameters(self, function, args_s, policy):
         desc = self.bookkeeper.getdesc(function)
@@ -213,8 +210,6 @@ class RPythonAnnotator(object):
             v = graph.getreturnvar()
             if v.annotation is None:
                 self.setbinding(v, annmodel.s_ImpossibleValue)
-        # policy-dependent computation
-        self.bookkeeper.compute_at_fixpoint()
 
     def validate(self):
         """Check that the annotation results are valid"""
@@ -292,6 +287,18 @@ class RPythonAnnotator(object):
         graph, block, index = position_key
         self.reflowpendingblock(graph, block)
 
+    def call_sites(self):
+        newblocks = self.added_blocks
+        if newblocks is None:
+            newblocks = self.annotated  # all of them
+        for block in newblocks:
+            for op in block.operations:
+                if op.opname in ('simple_call', 'call_args'):
+                    yield op
+
+                # some blocks are partially annotated
+                if op.result.annotation is None:
+                    break   # ignore the unannotated part
 
     #___ simplification (should be moved elsewhere?) _______
 
@@ -309,6 +316,7 @@ class RPythonAnnotator(object):
                     graphs[graph] = True
         for graph in graphs:
             simplify.eliminate_empty_blocks(graph)
+        self.bookkeeper.compute_at_fixpoint()
         if block_subset is None:
             perform_normalizations(self)
 
@@ -396,8 +404,7 @@ class RPythonAnnotator(object):
             i = 0
             while i < len(block.operations):
                 op = block.operations[i]
-                self.bookkeeper.enter((graph, block, i))
-                try:
+                with self.bookkeeper.at_position((graph, block, i)):
                     new_ops = op.transform(self)
                     if new_ops is not None:
                         block.operations[i:i+1] = new_ops
@@ -406,8 +413,6 @@ class RPythonAnnotator(object):
                         new_ops[-1].result = op.result
                         op = new_ops[0]
                     self.consider_op(op)
-                finally:
-                    self.bookkeeper.leave()
                 i += 1
 
         except BlockedInference as e:

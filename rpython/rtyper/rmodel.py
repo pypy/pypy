@@ -2,7 +2,7 @@ from rpython.annotator import model as annmodel, unaryop, binaryop, description
 from rpython.flowspace.model import Constant
 from rpython.rtyper.error import TyperError, MissingRTypeOperation
 from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.lltypesystem.lltype import Void, Bool, LowLevelType
+from rpython.rtyper.lltypesystem.lltype import Void, Bool, LowLevelType, Ptr
 from rpython.tool.pairtype import pairtype, extendabletype, pair
 
 
@@ -239,7 +239,8 @@ class CanBeNull(object):
         if hop.s_result.is_constant():
             return hop.inputconst(Bool, hop.s_result.const)
         else:
-            return hop.rtyper.type_system.check_null(self, hop)
+            vlist = hop.inputargs(self)
+            return hop.genop('ptr_nonzero', vlist, resulttype=Bool)
 
 
 class IteratorRepr(Repr):
@@ -282,7 +283,23 @@ class __extend__(pairtype(Repr, Repr)):
     def rtype_is_((robj1, robj2), hop):
         if hop.s_result.is_constant():
             return inputconst(Bool, hop.s_result.const)
-        return hop.rtyper.type_system.generic_is(robj1, robj2, hop)
+        roriginal1 = robj1
+        roriginal2 = robj2
+        if robj1.lowleveltype is Void:
+            robj1 = robj2
+        elif robj2.lowleveltype is Void:
+            robj2 = robj1
+        if (not isinstance(robj1.lowleveltype, Ptr) or
+                not isinstance(robj2.lowleveltype, Ptr)):
+            raise TyperError('is of instances of the non-pointers: %r, %r' % (
+                roriginal1, roriginal2))
+        if robj1.lowleveltype != robj2.lowleveltype:
+            raise TyperError('is of instances of different pointer types: %r, %r' % (
+                roriginal1, roriginal2))
+
+        v_list = hop.inputargs(robj1, robj2)
+        return hop.genop('ptr_eq', v_list, resulttype=Bool)
+
 
     # default implementation for checked getitems
 

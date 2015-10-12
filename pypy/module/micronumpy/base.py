@@ -38,7 +38,8 @@ class W_NDimArray(W_NumpyObject):
         self.implementation = implementation
 
     @staticmethod
-    def from_shape(space, shape, dtype, order='C', w_instance=None, zero=True):
+    def from_shape(space, shape, dtype, order=NPY.CORDER,
+                   w_instance=None, zero=True):
         from pypy.module.micronumpy import concrete, descriptor, boxes
         from pypy.module.micronumpy.strides import calc_strides
         if len(shape) > NPY.MAXDIMS:
@@ -59,8 +60,9 @@ class W_NDimArray(W_NumpyObject):
 
     @staticmethod
     def from_shape_and_storage(space, shape, storage, dtype, storage_bytes=-1,
-                               order='C', owning=False, w_subtype=None,
-                               w_base=None, writable=True, strides=None, start=0):
+                               order=NPY.CORDER, owning=False, w_subtype=None,
+                               w_base=None, writable=True, strides=None,
+                               start=0):
         from pypy.module.micronumpy import concrete
         from pypy.module.micronumpy.strides import (calc_strides,
                                                     calc_backstrides)

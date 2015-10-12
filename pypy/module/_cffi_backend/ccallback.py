@@ -3,12 +3,12 @@ Callbacks.
 """
 import sys, os
 
-from rpython.rlib import clibffi, rweakref, jit, jit_libffi
-from rpython.rlib.objectmodel import compute_unique_id, keepalive_until_here
+from rpython.rlib import clibffi, jit, jit_libffi
+from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.module._cffi_backend import cerrno, misc
+from pypy.module._cffi_backend import cerrno, misc, handle
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, W_CTypeFunc
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
@@ -34,7 +34,7 @@ class Closure(object):
 
 
 class W_CDataCallback(W_CData):
-    #_immutable_fields_ = ...
+    _immutable_fields_ = ['key_pycode']
     w_onerror = None
 
     def __init__(self, space, ctype, w_callable, w_error, w_onerror):
@@ -46,6 +46,7 @@ class W_CDataCallback(W_CData):
             raise oefmt(space.w_TypeError,
                         "expected a callable object, not %T", w_callable)
         self.w_callable = w_callable
+        self.key_pycode = space._try_fetch_pycode(w_callable)
         if not space.is_none(w_onerror):
             if not space.is_true(space.callable(w_onerror)):
                 raise oefmt(space.w_TypeError,
@@ -64,8 +65,14 @@ class W_CDataCallback(W_CData):
             convert_from_object_fficallback(fresult, self._closure.ll_error,
                                             w_error)
         #
-        self.unique_id = compute_unique_id(self)
-        global_callback_mapping.set(self.unique_id, self)
+        # We must setup the GIL here, in case the callback is invoked in
+        # some other non-Pythonic thread.  This is the same as cffi on
+        # CPython.
+        if space.config.translation.thread:
+            from pypy.module.thread.os_thread import setup_threads
+            setup_threads(space)
+        #
+        handle_index = handle.get_handles(space).reserve_next_handle_index()
         #
         cif_descr = self.getfunctype().cif_descr
         if not cif_descr:
@@ -74,7 +81,7 @@ class W_CDataCallback(W_CData):
                         "return type or with '...'", self.getfunctype().name)
         with self as ptr:
             closure_ptr = rffi.cast(clibffi.FFI_CLOSUREP, ptr)
-            unique_id = rffi.cast(rffi.VOIDP, self.unique_id)
+            unique_id = rffi.cast(rffi.VOIDP, handle_index)
             res = clibffi.c_ffi_prep_closure(closure_ptr, cif_descr.cif,
                                              invoke_callback,
                                              unique_id)
@@ -82,12 +89,8 @@ class W_CDataCallback(W_CData):
             raise OperationError(space.w_SystemError,
                 space.wrap("libffi failed to build this callback"))
         #
-        # We must setup the GIL here, in case the callback is invoked in
-        # some other non-Pythonic thread.  This is the same as cffi on
-        # CPython.
-        if space.config.translation.thread:
-            from pypy.module.thread.os_thread import setup_threads
-            setup_threads(space)
+        _current_space.space = space
+        handle.get_handles(space).store_handle(handle_index, self)
 
     def _repr_extra(self):
         space = self.space
@@ -105,6 +108,7 @@ class W_CDataCallback(W_CData):
     def invoke(self, ll_args):
         space = self.space
         ctype = self.getfunctype()
+        ctype = jit.promote(ctype)
         args_w = []
         for i, farg in enumerate(ctype.fargs):
             ll_arg = rffi.cast(rffi.CCHARP, ll_args[i])
@@ -125,9 +129,6 @@ class W_CDataCallback(W_CData):
         if fresult.size > 0:
             misc._raw_memcopy(self._closure.ll_error, ll_res, fresult.size)
             keepalive_until_here(self)   # to keep self._closure.ll_error alive
-
-
-global_callback_mapping = rweakref.RWeakValueDictionary(int, W_CDataCallback)
 
 
 def convert_from_object_fficallback(fresult, ll_res, w_res):
@@ -200,8 +201,18 @@ def _handle_applevel_exception(callback, e, ll_res, extra_line):
                                 extra_line="\nDuring the call to 'onerror', "
                                            "another exception occurred:\n\n")
 
-@jit.jit_callback("CFFI")
+def get_printable_location(key_pycode):
+    if key_pycode is None:
+        return 'cffi_callback <?>'
+    return 'cffi_callback ' + key_pycode.get_repr()
+
+jitdriver = jit.JitDriver(name='cffi_callback',
+                          greens=['callback.key_pycode'],
+                          reds=['ll_res', 'll_args', 'callback'],
+                          get_printable_location=get_printable_location)
+
 def py_invoke_callback(callback, ll_res, ll_args):
+    jitdriver.jit_merge_point(callback=callback, ll_res=ll_res, ll_args=ll_args)
     extra_line = ''
     try:
         w_res = callback.invoke(ll_args)
@@ -209,6 +220,12 @@ def py_invoke_callback(callback, ll_res, ll_args):
         callback.convert_result(ll_res, w_res)
     except OperationError, e:
         _handle_applevel_exception(callback, e, ll_res, extra_line)
+
+class CurrentSpace:
+    def _cleanup_(self):
+        if hasattr(self, 'space'):
+            del self.space
+_current_space = CurrentSpace()
 
 def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
@@ -220,8 +237,9 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """
     ll_res = rffi.cast(rffi.CCHARP, ll_res)
     unique_id = rffi.cast(lltype.Signed, ll_userdata)
-    callback = global_callback_mapping.get(unique_id)
-    if callback is None:
+    space = _current_space.space
+    callback = handle.get_handles(space).fetch_handle(unique_id)
+    if callback is None or not isinstance(callback, W_CDataCallback):
         # oups!
         try:
             os.write(STDERR, "SystemError: invoking a callback "
@@ -234,7 +252,6 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         return
     #
     must_leave = False
-    space = callback.space
     try:
         must_leave = space.threadlocals.try_enter_thread(space)
         py_invoke_callback(callback, ll_res, ll_args)

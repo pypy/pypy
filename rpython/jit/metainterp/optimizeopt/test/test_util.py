@@ -89,8 +89,6 @@ def test_equaloplists_fail_args():
 # ____________________________________________________________
 
 class LLtypeMixin(object):
-    type_system = 'lltype'
-
     def get_class_of_box(self, box):
         base = box.getref_base()
         return lltype.cast_opaque_ptr(rclass.OBJECTPTR, base).typeptr
@@ -475,8 +473,7 @@ class BaseTest(object):
 
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
         AbstractValue._repr_memo.counter = 0
-        self.oparse = OpParser(s, self.cpu, self.namespace, 'lltype',
-                               boxkinds,
+        self.oparse = OpParser(s, self.cpu, self.namespace, boxkinds,
                                None, False, postprocess)
         return self.oparse.parse()
 
@@ -584,4 +581,3 @@ def convert_old_style_to_targets(loop, jump):
     return newloop
 
 # ____________________________________________________________
-
