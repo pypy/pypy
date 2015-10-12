@@ -85,7 +85,6 @@ class VectorLoop(object):
             renamer.rename(prefix_label)
         oplist = []
         op1 = self.operations[2]
-        assert op1.getarg(0) is op1.getfailargs()[0]
         for op in self.operations:
             newop = op.copy()
             renamer.rename(newop)

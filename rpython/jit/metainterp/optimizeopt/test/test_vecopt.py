@@ -288,6 +288,7 @@ class BaseTestVectorize(VecTestHelper):
     def test_vectorize_guard(self):
         trace = self.parse_loop("""
         [p0,p1,i0]
+        i100 = getarrayitem_raw_i(p0,i0,descr=int16arraydescr)
         i10 = getarrayitem_raw_i(p0,i0,descr=int32arraydescr)
         i20 = int_is_true(i10)
         guard_true(i20) [i20]
