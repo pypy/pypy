@@ -19,6 +19,7 @@ BIG_ENDIAN = sys.byteorder == 'big'
 # ____________________________________________________________
 
 
+@jit.dont_look_inside
 def make_callback(space, ctype, w_callable, w_error, w_onerror):
     # Allocate a callback as a nonmovable W_CDataCallback instance, which
     # we can cast to a plain VOIDP.  As long as the object is not freed,

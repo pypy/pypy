@@ -38,9 +38,12 @@ def from_handle(space, w_cdata):
                     "expected a 'cdata' object with a 'void *' out of "
                     "new_handle(), got '%s'", ctype.name)
     with w_cdata as ptr:
-        addr = rffi.cast(llmemory.Address, ptr)
-        gcref = rgc.reveal_gcref(addr)
-    #
+        return _reveal(space, ptr)
+
+@jit.dont_look_inside
+def _reveal(space, ptr):
+    addr = rffi.cast(llmemory.Address, ptr)
+    gcref = rgc.reveal_gcref(addr)
     if not gcref:
         raise oefmt(space.w_RuntimeError,
                     "cannot use from_handle() on NULL pointer")
