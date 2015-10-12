@@ -60,7 +60,7 @@ class DependencyBaseTest(BaseTest):
         return True
 
     def ensure_operations(self, opstrlist, trace, inthatorder=True):
-        oparse = OpParser('', self.cpu, self.namespace, 'lltype', None,
+        oparse = OpParser('', self.cpu, self.namespace, None,
                           None, True, None)
         oplist = []
         for op_str in opstrlist:
