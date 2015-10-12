@@ -1315,31 +1315,29 @@ class BaseTestVectorize(VecTestHelper):
         except NotAVectorizeableLoop:
             pass
 
-    def test_remove_mew(self):
+    def test_pass(self):
         trace = self.parse_loop("""
-        [p0, p1, p2, p3, i4, i5, p6, p7, i8, f9, i10, i11]
-        f12 = raw_load_f(i8, i5, descr=floatarraydescr)
-        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardDescr object at 0x7f0e5c61e990>) [p7, p6, p2, p1, p0, f12, i4, p3, i5]
-        f14 = float_mul(f12, 0.0)
-        i15 = float_eq(f14, f14)
-        guard_true(i15, descr=<rpython.jit.metainterp.compile.ResumeGuardCopiedDescr object at 0x7f0e5c63e610>) [p7, p6, p2, p1, p0, f12, i4, p3, i5]
-        f17 = call_f(1234, f12, f9, descr=writearraydescr)
-        i20 = call_i(1234444, 232, descr=writearraydescr)
-        f21 = float_mul(f17, 0.0)
-        i22 = float_eq(f21, f21)
-        guard_true(i22, descr=<rpython.jit.metainterp.compile.ResumeGuardDescr object at 0x7f0e5c6a47d0>) [p7, p6, p2, p1, p0, f9, f12, i20, f21, f17, i4, p3, i5]
-        i23 = int_is_true(i20)
-        guard_false(i23, descr=<rpython.jit.metainterp.compile.ResumeGuardCopiedDescr object at 0x7f0e5c60b7d0>) [p7, p6, p2, p1, p0, f9, f12, i20, f21, f17, i4, p3, i5]
-        raw_store(i10, i5, f17, descr=floatarraydescr)
-        i25 = int_add(i4, 1)
-        i27 = int_add(i5, 8)
-        i28 = int_ge(i25, i11)
-        guard_false(i28, descr=<rpython.jit.metainterp.compile.ResumeGuardDescr object at 0x7f0e5c75b690>) [i11, i25, p7, p6, p2, p1, p0, i27, None, p3, None]
-        debug_merge_point(0, 0, '(numpy_call2_inc_out_right: no get_printable_location)')
-        jump(p0, p1, p2, p3, i25, i27, p6, p7, i8, f9, i10, i11)
+        [p0,i0]
+        f0 = raw_load_f(p0, i0, descr=floatarraydescr)
+        f1 = float_mul(f0, 0.0)
+        i2 = float_eq(f1, f1)
+        guard_true(i2) [p0, i0]
+        f2 = call_f(0, f0)
+        f21 = float_mul(f2, 0.0)
+        i3 = float_eq(f21, f21)
+        guard_true(i3) [p0, i0]
+        raw_store(p0, i0, f21, descr=floatarraydescr)
+        i4 = int_add(i0, 8)
+        jump(p0, i4)
         """)
         vopt = self.schedule(trace)
-        self.debug_print_operations(trace)
+        self.ensure_operations([
+            'v10[2xf64] = vec_raw_load_f(p0,i0,descr=floatarraydescr)',
+            'v11[2xf64] = vec_float_mul(v10[2xf64], v9[2xf64])',
+            'v12[2xf64] = vec_float_eq(v11[2xf64], v11[2xf64])',
+            'i100 = vec_unpack_f(v12[4xi32], 0, 1)',
+            'guard_true(i100) [p0, i0]',
+        ], trace)
 
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):

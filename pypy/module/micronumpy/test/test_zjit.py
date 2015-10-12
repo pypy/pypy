@@ -844,7 +844,6 @@ class TestNumpyJit(LLJitMixin):
     def test_where(self):
         result = self.run("where")
         assert result == -40
-        self.check_vectorized(1, 0)
 
     def define_searchsorted():
         return """

@@ -722,6 +722,8 @@ class SignExtOp(object):
 class VectorOp(object):
     _mixin_ = True
 
+    type = 'f'
+
     def vector_bytesize(self):
         assert self.count > 0
         return self.byte_size * self.count

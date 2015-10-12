@@ -136,7 +136,7 @@ class OpParser(object):
             return self._cache[elem]
         except KeyError:
             pass
-        if elem[0] in 'ifrp':
+        if elem[0] in 'ifrpv':
             box = OpHelpers.inputarg_from_tp(elem[0])
             number = elem[1:]
             if elem.startswith('v'):
