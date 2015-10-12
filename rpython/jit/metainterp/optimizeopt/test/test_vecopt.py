@@ -1339,6 +1339,23 @@ class BaseTestVectorize(VecTestHelper):
             'guard_true(i100) [p0, i0]',
         ], trace)
 
+    def test_pack_too_much(self):
+        trace = self.parse_loop("""
+        [p0, p1, i2, i3, i4, i5]
+        i6 = raw_load_i(i4, i3, descr=int16arraydescr)
+        guard_not_invalidated() [p0, i6, i3, i2, p1]
+        i7 = int_is_true(i6)
+        guard_true(i7) [p0, i6, i3, i2, p1]
+        i10 = getarrayitem_raw_i(139832330560762, 2, descr=chararraydescr)
+        guard_value(i10, 1) [p0, i6, i3, i2, p1]
+        i16 = int_add(i2, 1)
+        i18 = int_add(i3, 2)
+        i19 = int_ge(i16, i5)
+        guard_false(i19) [p0, i6, i3, i2, p1]
+        jump(p0, p1, i16, i18, i4, i5)""")
+        self.vectorize(trace)
+        self.debug_print_operations(trace)
+
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

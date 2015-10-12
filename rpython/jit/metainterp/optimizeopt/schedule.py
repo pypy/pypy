@@ -891,6 +891,11 @@ class Pack(object):
                 descr = left.getdescr()
                 bytesize = descr.get_item_size_in_bytes()
                 return bytesize * self.numops() - vec_reg_size
+            else:
+                assert left.is_guard() and left.getopnum() in \
+                       (rop.GUARD_TRUE, rop.GUARD_FALSE)
+                bytesize = left.getarg(0).bytesize
+                return bytesize * self.numops() - vec_reg_size
             return 0
         if self.numops() == 0:
             return -1

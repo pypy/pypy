@@ -794,6 +794,8 @@ class PackSet(object):
     def split_overloaded_packs(self):
         newpacks = []
         for i,pack in enumerate(self.packs):
+            if pack.operations[0].op.is_guard():
+                import pdb; pdb.set_trace()
             load = pack.pack_load(self.vec_reg_size)
             if load > Pack.FULL:
                 pack.split(newpacks, self.vec_reg_size)
