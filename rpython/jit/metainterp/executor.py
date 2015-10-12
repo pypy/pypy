@@ -386,7 +386,9 @@ def _make_execute_list():
                          rop.CALL_MALLOC_NURSERY_VARSIZE_FRAME,
                          rop.NURSERY_PTR_INCREMENT,
                          rop.LABEL,
-                         rop.BRIDGE_EXCEPTION,
+                         rop.SAVE_EXC_CLASS,
+                         rop.SAVE_EXCEPTION,
+                         rop.RESTORE_EXCEPTION,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             raise AssertionError("missing %r" % (key,))

@@ -79,14 +79,11 @@ class RPythonAnnotator(object):
         annmodel.TLS.check_str_without_nul = (
             self.translator.config.translation.check_str_without_nul)
 
-        flowgraph, inputcells = self.get_call_parameters(function, args_s, policy)
-        if not isinstance(flowgraph, FunctionGraph):
-            assert isinstance(flowgraph, annmodel.SomeObject)
-            return flowgraph
+        flowgraph, inputs_s = self.get_call_parameters(function, args_s, policy)
 
         if main_entry_point:
             self.translator.entry_point_graph = flowgraph
-        return self.build_graph_types(flowgraph, inputcells, complete_now=complete_now)
+        return self.build_graph_types(flowgraph, inputs_s, complete_now=complete_now)
 
     def get_call_parameters(self, function, args_s, policy):
         desc = self.bookkeeper.getdesc(function)

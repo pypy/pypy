@@ -696,7 +696,7 @@ _oplist = [
     'GUARD_SUBCLASS/2d/n',      # only if supports_guard_gc_type
     '_GUARD_FOLDABLE_LAST',
     'GUARD_NO_EXCEPTION/0d/n',   # may be called with an exception currently set
-    'GUARD_EXCEPTION/1d/r',     # may be called with an exception currently set
+    'GUARD_EXCEPTION/1d/r',     # XXX kill me, use only SAVE_EXCEPTION
     'GUARD_NO_OVERFLOW/0d/n',
     'GUARD_OVERFLOW/0d/n',
     'GUARD_NOT_FORCED/0d/n',      # may be called with an exception currently set
@@ -827,7 +827,9 @@ _oplist = [
     'QUASIIMMUT_FIELD/1d/n',    # [objptr], descr=SlowMutateDescr
     'RECORD_EXACT_CLASS/2/n',   # [objptr, clsptr]
     'KEEPALIVE/1/n',
-    'BRIDGE_EXCEPTION/0/n',     # pyjitpl: prepare_resume_from_failure()
+    'SAVE_EXCEPTION/0/r',
+    'SAVE_EXC_CLASS/0/i',       # XXX kill me
+    'RESTORE_EXCEPTION/2/n',    # XXX kill me
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',

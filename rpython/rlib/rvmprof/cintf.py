@@ -92,12 +92,13 @@ def make_trampoline_function(name, func, token, restok):
         PLT = ""
         size_decl = ""
         type_decl = ""
+        extra_align = ""
     else:
         PLT = "@PLT"
         type_decl = "\t.type\t%s, @function" % (tramp_name,)
         size_decl = "\t.size\t%s, .-%s" % (
             tramp_name, tramp_name)
-
+        extra_align = "\t.cfi_def_cfa_offset 8"
 
     assert detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64), (
         "rvmprof only supports x86-64 CPUs for now")
@@ -124,15 +125,17 @@ def make_trampoline_function(name, func, token, restok):
     #       that don't start with \t are silently ignored (<arigato>: WAT!?)
     target.write("""\
 \t.text
+\t.section\t__TEXT,__text,regular,pure_instructions
 \t.globl\t%(tramp_name)s
+\t.align\t4, 0x90
 %(type_decl)s
 %(tramp_name)s:
 \t.cfi_startproc
 \tpushq\t%(reg)s
 \t.cfi_def_cfa_offset 16
 \tcall %(cont_name)s%(PLT)s
+%(extra_align)s
 \taddq\t$8, %%rsp
-\t.cfi_def_cfa_offset 8
 \tret
 \t.cfi_endproc
 %(size_decl)s
