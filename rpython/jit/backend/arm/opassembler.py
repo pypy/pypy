@@ -508,6 +508,20 @@ class ResOpAssembler(BaseAssembler):
         self._store_and_reset_exception(self.mc, resloc)
         return fcond
 
+    def emit_op_save_exc_class(self, op, arglocs, regalloc, fcond):
+        resloc = arglocs[0]
+        self.mc.gen_load_int(r.ip.value, self.cpu.pos_exception())
+        self.load_reg(self.mc, resloc, r.ip)
+        return fcond
+
+    def emit_op_save_exception(self, op, arglocs, regalloc, fcond):
+        self._store_and_reset_exception(self.mc, resloc)
+        return fcond
+
+    def emit_op_restore_exception(self, op, arglocs, regalloc, fcond):
+        self._restore_exception(self.mc, arglocs[1], arglocs[0])
+        return fcond
+
     def emit_op_debug_merge_point(self, op, arglocs, regalloc, fcond):
         return fcond
     emit_op_jit_debug = emit_op_debug_merge_point

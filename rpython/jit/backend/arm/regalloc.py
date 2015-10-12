@@ -707,6 +707,17 @@ class Regalloc(BaseRegalloc):
                     [loc, loc1, resloc, pos_exc_value, pos_exception])
         return arglocs
 
+    def prepare_op_save_exception(self, op, fcond):
+        resloc = self.force_allocate_reg(op)
+        return [resloc]
+    prepare_op_save_exc_class = prepare_op_save_exception
+
+    def prepare_op_restore_exception(self, op, fcond):
+        boxes = op.getarglist()
+        loc0 = self.make_sure_var_in_reg(op.getarg(0), boxes)  # exc class
+        loc1 = self.make_sure_var_in_reg(op.getarg(1), boxes)  # exc instance
+        return [loc0, loc1]
+
     def prepare_op_guard_no_exception(self, op, fcond):
         loc = self.make_sure_var_in_reg(ConstInt(self.cpu.pos_exception()))
         arglocs = self._prepare_guard(op, [loc])
