@@ -107,7 +107,7 @@ class GuardBaseTest(SchedulerBaseTest):
             def __repr__(self):
                 return '*'
         from rpython.jit.tool.oparser import OpParser, default_fail_descr
-        parser = OpParser(instr, self.cpu, self.namespace, 'lltype', None, default_fail_descr, False, None)
+        parser = OpParser(instr, self.cpu, self.namespace, None, default_fail_descr, True, None)
         parser.vars = { arg.repr_short(arg._repr_memo) : arg for arg in loop.inputargs}
         operations = []
         last_glob = None
@@ -164,16 +164,16 @@ class GuardBaseTest(SchedulerBaseTest):
         loop1 = self.parse_trace("""
         i10 = int_lt(i1, 42)
         guard_true(i10) []
-        i11 = int_add(i1, 1)
-        i12 = int_lt(i11, 42)
-        guard_true(i12) []
+        i101 = int_add(i1, 1)
+        i102 = int_lt(i101, 42)
+        guard_true(i102) []
         """)
         opt = self.optguards(loop1)
         self.assert_guard_count(loop1, 1)
         self.assert_contains_sequence(loop1, """
         ...
-        i11 = int_add(i1, 1)
-        i12 = int_lt(i11, 42)
+        i101 = int_add(i1, 1)
+        i12 = int_lt(i101, 42)
         guard_true(i12) []
         ...
         """)
@@ -182,16 +182,16 @@ class GuardBaseTest(SchedulerBaseTest):
         loop1 = self.parse_trace("""
         i10 = int_gt(i1, 42)
         guard_true(i10) []
-        i11 = int_sub(i1, 1)
-        i12 = int_gt(i11, 42)
+        i101 = int_sub(i1, 1)
+        i12 = int_gt(i101, 42)
         guard_true(i12) []
         """)
         opt = self.optguards(loop1)
         self.assert_guard_count(loop1, 1)
         self.assert_contains_sequence(loop1, """
         ...
-        i11 = int_sub(i1, 1)
-        i12 = int_gt(i11, 42)
+        i101 = int_sub(i1, 1)
+        i12 = int_gt(i101, 42)
         guard_true(i12) []
         ...
         """)
@@ -209,8 +209,8 @@ class GuardBaseTest(SchedulerBaseTest):
         self.assert_guard_count(loop1, 1)
         self.assert_contains_sequence(loop1, """
         ...
-        i11 = int_mul(i1, 4)
-        i12 = int_add(i11, 1)
+        i101 = int_mul(i1, 4)
+        i12 = int_add(i101, 1)
         i13 = int_lt(i12, 42)
         guard_true(i13) []
         ...
@@ -323,8 +323,8 @@ class GuardBaseTest(SchedulerBaseTest):
         self.assert_guard_count(loop1, 2)
         self.assert_contains_sequence(loop1, """
         ...
-        i10 = int_ge(42, i2)
-        guard_true(i10) []
+        i100 = int_ge(42, i2)
+        guard_true(i100) []
         ...
         i40 = int_gt(i1, 42)
         guard_true(i40) []
