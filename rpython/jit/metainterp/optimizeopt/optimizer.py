@@ -43,8 +43,8 @@ class OptimizationResult(object):
         self.callback_func = callback_func
         self.callback_args = callback_args
 
-    def callback(self, oldop):
-        self.callback_func(self.op, oldop, *self.callback_args)
+    def callback(self):
+        self.callback_func(self.op, *self.callback_args)
 
 
 class Optimization(object):
@@ -564,7 +564,6 @@ class Optimizer(Optimization):
     def send_extra_operation(self, op, opt=None):
         if opt is None:
             opt = self.first_optimization
-        oldop = op
         opt_results = []
         while opt is not None:
             opt_result = opt.propagate_forward(op)
@@ -575,7 +574,7 @@ class Optimizer(Optimization):
             op = opt_result.op
             opt = opt.next_optimization
         for opt_result in reversed(opt_results):
-            opt_result.callback(oldop)
+            opt_result.callback()
 
     def propagate_forward(self, op):
         dispatch_opt(self, op)

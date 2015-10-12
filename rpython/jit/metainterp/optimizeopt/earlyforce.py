@@ -28,7 +28,7 @@ class OptEarlyForce(Optimization):
                 self.optimizer.force_box(arg, self)
         return self.emit(op)
 
-    def propagate_postprocess(self, op, oldop):
+    def propagate_postprocess(self, op):
         pass
 
     def setup(self):

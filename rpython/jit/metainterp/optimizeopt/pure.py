@@ -73,8 +73,8 @@ class OptPure(Optimization):
     def propagate_forward(self, op):
         return dispatch_opt(self, op)
 
-    def propagate_postprocess(self, op, oldop):
-        dispatch_postprocess(self, op, oldop)
+    def propagate_postprocess(self, op):
+        dispatch_postprocess(self, op)
 
     def optimize_default(self, op):
         canfold = op.is_always_pure()
@@ -113,7 +113,7 @@ class OptPure(Optimization):
         # otherwise, the operation remains
         return self.emit(op, self.postprocess_default, save, nextop)
 
-    def postprocess_default(self, op, oldop, save, nextop):
+    def postprocess_default(self, op, save, nextop):
         # postprocessor for optimize_default, not default postprocessor
         if op.returns_bool_result():
             self.getintbound(op).make_bool()
@@ -166,7 +166,7 @@ class OptPure(Optimization):
         newop = self.optimizer.replace_op_with(op, opnum)
         return self.emit(newop, self.postprocess_call_pure)
 
-    def postprocess_call_pure(self, op, oldop):
+    def postprocess_call_pure(self, op):
         self.call_pure_positions.append(
             len(self.optimizer._newoperations) - 1)
 

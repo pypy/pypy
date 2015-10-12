@@ -70,7 +70,7 @@ class OptVirtualize(optimizer.Optimization):
         self._finish_guard_op = self._last_guard_not_forced_2
         return self.emit(op)
 
-    def postprocess_FINISH(self, op, oldop):
+    def postprocess_FINISH(self, op):
         guard_op = self._finish_guard_op
         if guard_op is not None:
             guard_op = self.optimizer.store_final_boxes_in_guard(guard_op, [])

@@ -425,8 +425,8 @@ class OptString(optimizer.Optimization):
     def propagate_forward(self, op):
         return dispatch_opt(self, op)
 
-    def propagate_postprocess(self, op, oldop):
-        return dispatch_postprocess(self, op, oldop)
+    def propagate_postprocess(self, op):
+        return dispatch_postprocess(self, op)
 
     def make_vstring_plain(self, op, mode, length):
         vvalue = VStringPlainInfo(mode, True, length)
@@ -460,10 +460,10 @@ class OptString(optimizer.Optimization):
             self.make_nonnull_str(op, mode)
             return self.emit(op)
 
-    def postprocess_NEWSTR(self, op, oldop):
+    def postprocess_NEWSTR(self, op):
         self.pure_from_args(mode_string.STRLEN, [op], op.getarg(0))
 
-    def postprocess_NEWUNICODE(self, op, oldop):
+    def postprocess_NEWUNICODE(self, op):
         self.pure_from_args(mode_unicode.STRLEN, [op], op.getarg(0))
 
     def optimize_STRSETITEM(self, op):

@@ -502,7 +502,7 @@ class OptHeap(Optimization):
         # return self.emit(op)
         return self.emit(op)
 
-    def postprocess_GETFIELD_GC_I(self, op, oldop):
+    def postprocess_GETFIELD_GC_I(self, op):
         # then remember the result of reading the field
         structinfo = self.ensure_ptr_info_arg0(op)
         cf = self.field_cache(op.getdescr())
@@ -562,7 +562,7 @@ class OptHeap(Optimization):
         # return self.emit(op)
         return self.emit(op)
 
-    def postprocess_GETARRAYITEM_GC_I(self, op, oldop):
+    def postprocess_GETARRAYITEM_GC_I(self, op):
         # the remember the result of reading the array item
         arrayinfo = self.ensure_ptr_info_arg0(op)
         indexb = self.getintbound(op.getarg(1))
