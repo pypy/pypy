@@ -722,8 +722,6 @@ class SignExtOp(object):
 class VectorOp(object):
     _mixin_ = True
 
-    type = 'f'
-
     def vector_bytesize(self):
         assert self.count > 0
         return self.byte_size * self.count
@@ -796,6 +794,7 @@ class InputArgRef(RefOp, AbstractInputArg):
         self.setref_base(lltype.nullptr(llmemory.GCREF.TO))
 
 class InputArgVector(VectorOp, AbstractInputArg):
+    type = 'V'
     def __init__(self):
         pass
 
