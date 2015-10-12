@@ -92,6 +92,31 @@ class Scheduler(object):
             visited += 1
         return None
 
+    def try_to_trash_pack(self, state):
+        # one element a pack has several dependencies pointing to
+        # it thus we MUST skip this pack!
+        if len(state.worklist) > 0:
+            # break the first!
+            i = 0
+            node = state.worklist[i]
+            i += 1
+            while i < len(state.worklist) and not node.pack:
+                node = state.worklist[i]
+                i += 1
+
+            if not node.pack:
+                return False
+
+            pack = node.pack
+            for n in node.pack.operations:
+                if n.depends_count() > 0:
+                    pack.clear()
+                    return True
+            else:
+                return False
+
+        return False
+
     def delay(self, node, state):
         """ Delay this operation?
             Only if any dependency has not been resolved """
@@ -157,6 +182,9 @@ class Scheduler(object):
             # be that no next exists even though the list contains elements
             if not state.has_more():
                 break
+
+            if self.try_to_trash_pack(state):
+                continue
 
             raise AssertionError("schedule failed cannot continue. possible reason: cycle")
 

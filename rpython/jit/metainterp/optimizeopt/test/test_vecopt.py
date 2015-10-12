@@ -1315,6 +1315,32 @@ class BaseTestVectorize(VecTestHelper):
         except NotAVectorizeableLoop:
             pass
 
+    def test_remove_mew(self):
+        trace = self.parse_loop("""
+        [p0, p1, p2, p3, i4, i5, p6, p7, i8, f9, i10, i11]
+        f12 = raw_load_f(i8, i5, descr=floatarraydescr)
+        guard_not_invalidated(descr=<rpython.jit.metainterp.compile.ResumeGuardDescr object at 0x7f0e5c61e990>) [p7, p6, p2, p1, p0, f12, i4, p3, i5]
+        f14 = float_mul(f12, 0.0)
+        i15 = float_eq(f14, f14)
+        guard_true(i15, descr=<rpython.jit.metainterp.compile.ResumeGuardCopiedDescr object at 0x7f0e5c63e610>) [p7, p6, p2, p1, p0, f12, i4, p3, i5]
+        f17 = call_f(1234, f12, f9, descr=writearraydescr)
+        i20 = call_i(1234444, 232, descr=writearraydescr)
+        f21 = float_mul(f17, 0.0)
+        i22 = float_eq(f21, f21)
+        guard_true(i22, descr=<rpython.jit.metainterp.compile.ResumeGuardDescr object at 0x7f0e5c6a47d0>) [p7, p6, p2, p1, p0, f9, f12, i20, f21, f17, i4, p3, i5]
+        i23 = int_is_true(i20)
+        guard_false(i23, descr=<rpython.jit.metainterp.compile.ResumeGuardCopiedDescr object at 0x7f0e5c60b7d0>) [p7, p6, p2, p1, p0, f9, f12, i20, f21, f17, i4, p3, i5]
+        raw_store(i10, i5, f17, descr=floatarraydescr)
+        i25 = int_add(i4, 1)
+        i27 = int_add(i5, 8)
+        i28 = int_ge(i25, i11)
+        guard_false(i28, descr=<rpython.jit.metainterp.compile.ResumeGuardDescr object at 0x7f0e5c75b690>) [i11, i25, p7, p6, p2, p1, p0, i27, None, p3, None]
+        debug_merge_point(0, 0, '(numpy_call2_inc_out_right: no get_printable_location)')
+        jump(p0, p1, p2, p3, i25, i27, p6, p7, i8, f9, i10, i11)
+        """)
+        vopt = self.schedule(trace)
+        self.debug_print_operations(trace)
+
 
 class TestLLtype(BaseTestVectorize, LLtypeMixin):
     pass

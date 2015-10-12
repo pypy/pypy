@@ -795,7 +795,7 @@ class InputArgRef(RefOp, AbstractInputArg):
 
 class InputArgVector(VectorOp, AbstractInputArg):
     def __init__(self):
-        self.type = 'v'
+        pass
 
     def returns_vector(self):
         return True

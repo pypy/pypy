@@ -374,7 +374,12 @@ class Node(object):
         """ NOT_RPTYHON """
         op_str = str(self.op)
         if self.op.is_guard():
-            args_str = [str(arg) for arg in self.op.getfailargs()]
+            args_str = []
+            for arg in self.op.getfailargs():
+                name = 'None'
+                if arg:
+                    name = arg.repr_short(arg._repr_memo)
+                args_str.append(name)
             op_str += " " + ','.join(args_str)
         return "[%d] %s" % (self.opidx, op_str)
 
