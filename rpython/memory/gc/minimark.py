@@ -509,8 +509,7 @@ class MiniMarkGC(MovingGCBase):
     def malloc_fixedsize_clear(self, typeid, size,
                                needs_finalizer=False,
                                is_finalizer_light=False,
-                               contains_weakptr=False,
-                               nonmovable=False):
+                               contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         rawtotalsize = raw_malloc_usage(totalsize)
@@ -526,7 +525,7 @@ class MiniMarkGC(MovingGCBase):
         # If totalsize is greater than nonlarge_max (which should never be
         # the case in practice), ask for a rawmalloc.  The following check
         # should be constant-folded.
-        elif rawtotalsize > self.nonlarge_max or nonmovable:
+        elif rawtotalsize > self.nonlarge_max:
             ll_assert(not contains_weakptr,
                       "'contains_weakptr' specified for a large object")
             obj = self.external_malloc(typeid, 0, alloc_young=True)
@@ -612,6 +611,11 @@ class MiniMarkGC(MovingGCBase):
             obj = result + size_gc_header
             (obj + offset_to_length).signed[0] = length
         #
+        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
+
+
+    def malloc_fixedsize_nonmovable(self, typeid):
+        obj = self.external_malloc(typeid, 0, alloc_young=True)
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
 
