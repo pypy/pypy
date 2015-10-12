@@ -47,6 +47,13 @@ class LLTrace(object):
         self.inputargs = map(mapping, inputargs)
         self.operations = []
         for op in operations:
+            opnum = op.getopnum()
+            if opnum == rop.GUARD_VALUE:
+                # we don't care about the value 13 here, because we gonna
+                # fish it from the extra slot on frame anyway
+                op.getdescr().make_a_counter_per_value(op, 13)
+            elif opnum == rop.BRIDGE_EXCEPTION:
+                assert len(self.operations) == 0   # must be first
             if op.getdescr() is not None:
                 if op.is_guard() or op.getopnum() == rop.FINISH:
                     newdescr = op.getdescr()
