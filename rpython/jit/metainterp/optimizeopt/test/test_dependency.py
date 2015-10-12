@@ -7,7 +7,8 @@ from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph, Depe
         IndexVar, MemoryRef, Node)
 from rpython.jit.metainterp.optimizeopt.vector import VectorLoop
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
+    LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets,
+    FakeJitDriverStaticData)
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.llgraph.runner import ArrayDescr
 from rpython.jit.tool.oparser import OpParser
@@ -106,9 +107,14 @@ class DependencyBaseTest(BaseTest):
         jump = loop.operations[-1]
         loop = VectorLoop(label, loop.operations[0:-1], jump)
         loop.jump.setdescr(token)
+        class Optimizer(object):
+            metainterp_sd = FakeMetaInterpStaticData(self.cpu)
+            jitdriver_sd = FakeJitDriverStaticData()
+        opt = Optimizer()
+        opt.jitdriver_sd.vec = True
         for op in loop.operations:
             if op.is_guard() and not op.getdescr():
-                descr = invent_fail_descr_for_op(op.getopnum(), None)
+                descr = invent_fail_descr_for_op(op.getopnum(), opt)
                 op.setdescr(descr)
         return loop
 

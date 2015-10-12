@@ -84,7 +84,6 @@ class VectorLoop(object):
             prefix_label = self.prefix_label.copy()
             renamer.rename(prefix_label)
         oplist = []
-        op1 = self.operations[2]
         for op in self.operations:
             newop = op.copy()
             renamer.rename(newop)

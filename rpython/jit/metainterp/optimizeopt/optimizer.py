@@ -686,7 +686,7 @@ class Optimizer(Optimization):
         assert pendingfields is not None
         if op.getdescr() is not None:
             descr = op.getdescr()
-            assert isinstance(descr, compile.ResumeAtPositionDescr)
+            assert isinstance(descr, compile.ResumeGuardDescr)
         else:
             descr = compile.invent_fail_descr_for_op(op.getopnum(), self)
             op.setdescr(descr)

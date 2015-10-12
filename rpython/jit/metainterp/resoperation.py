@@ -81,6 +81,10 @@ class AbstractValue(object):
     def is_vector(self):
         return False
 
+    def returns_void(self):
+        return False
+
+
 def ResOperation(opnum, args, descr=None):
     cls = opclasses[opnum]
     op = cls()
