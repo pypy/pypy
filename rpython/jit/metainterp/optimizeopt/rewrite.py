@@ -5,8 +5,8 @@ from rpython.jit.metainterp.history import (Const, ConstInt, make_hashable_int,
                                             ConstFloat)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
-from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, REMOVED,
-    CONST_0, CONST_1)
+from rpython.jit.metainterp.optimizeopt.optimizer import (
+    Optimization, OptimizationResult, REMOVED, CONST_0, CONST_1)
 from rpython.jit.metainterp.optimizeopt.info import INFO_NONNULL, INFO_NULL
 from rpython.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, ResOperation, opclasses,\
@@ -15,6 +15,21 @@ from rpython.rlib.rarithmetic import highest_bit
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.rtyper import rclass
 import math
+
+
+class CallLoopinvariantOptimizationResult(OptimizationResult):
+    def __init__(self, opt, op, old_op):
+        OptimizationResult.__init__(self, opt, op)
+        self.old_op = old_op
+
+    def callback(self):
+        self._callback(self.op, self.old_op)
+
+    def _callback(self, op, old_op):
+        key = make_hashable_int(op.getarg(0).getint())
+        self.opt.loop_invariant_producer[key] = self.opt.optimizer.getlastop()
+        self.opt.loop_invariant_results[key] = old_op
+
 
 class OptRewrite(Optimization):
     """Rewrite operations into equivalent, cheaper operations.
@@ -522,20 +537,11 @@ class OptRewrite(Optimization):
         # there is no reason to have a separate operation for this
         newop = self.replace_op_with(op,
                                      OpHelpers.call_for_descr(op.getdescr()))
-        return self.emit(newop, self.postprocess_CALL_LOOPINVARIANT_I, op)
-
-    def postprocess_CALL_LOOPINVARIANT_I(self, op, oldop):
-        key = make_hashable_int(op.getarg(0).getint())
-        self.loop_invariant_producer[key] = self.optimizer.getlastop()
-        self.loop_invariant_results[key] = oldop
+        return self.emit_result(CallLoopinvariantOptimizationResult(self, newop, op))
 
     optimize_CALL_LOOPINVARIANT_R = optimize_CALL_LOOPINVARIANT_I
     optimize_CALL_LOOPINVARIANT_F = optimize_CALL_LOOPINVARIANT_I
     optimize_CALL_LOOPINVARIANT_N = optimize_CALL_LOOPINVARIANT_I
-
-    postprocess_CALL_LOOPINVARIANT_R = postprocess_CALL_LOOPINVARIANT_I
-    postprocess_CALL_LOOPINVARIANT_F = postprocess_CALL_LOOPINVARIANT_I
-    postprocess_CALL_LOOPINVARIANT_N = postprocess_CALL_LOOPINVARIANT_I
 
     def optimize_COND_CALL(self, op):
         arg = op.getarg(0)

@@ -288,14 +288,14 @@ class OptHeap(Optimization):
             cf = submap[index] = ArrayCachedField(index)
         return cf
 
-    def emit(self, op, callback_func=None, *callback_args):
+    def emit(self, op):
         self.emitting_operation(op)
         self.emit_postponed_op()
         if (op.is_comparison() or op.is_call_may_force()
             or op.is_ovf()):
             self.postponed_op = op
         else:
-            return Optimization.emit(self, op, callback_func, *callback_args)
+            return Optimization.emit(self, op)
 
     def emitting_operation(self, op):
         if op.has_no_side_effect():

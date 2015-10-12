@@ -35,16 +35,12 @@ class BasicLoopInfo(LoopInfo):
 
 
 class OptimizationResult(object):
-    def __init__(self, opt, op, callback_func=None, *callback_args):
+    def __init__(self, opt, op):
         self.opt = opt
         self.op = op
-        if callback_func is None:
-            callback_func = opt.propagate_postprocess
-        self.callback_func = callback_func
-        self.callback_args = callback_args
 
     def callback(self):
-        self.callback_func(self.op, *self.callback_args)
+        self.opt.propagate_postprocess(self.op)
 
 
 class Optimization(object):
@@ -66,9 +62,12 @@ class Optimization(object):
     def emit_operation(self, op):
         assert False, "This should never be called."
 
-    def emit(self, op, callback_func=None, *callback_args):
-        self.last_emitted_operation = op
-        return OptimizationResult(self, op, callback_func, *callback_args)
+    def emit(self, op):
+        return self.emit_result(OptimizationResult(self, op))
+
+    def emit_result(self, opt_result):
+        self.last_emitted_operation = opt_result.op
+        return opt_result
 
     def emit_extra(self, op, emit=True):
         if emit:
@@ -579,11 +578,11 @@ class Optimizer(Optimization):
     def propagate_forward(self, op):
         dispatch_opt(self, op)
 
-    def emit_extra(self, op):
+    def emit_extra(self, op, emit=True):
         # no forwarding, because we're at the end of the chain
         self.emit(op)
 
-    def emit(self, op, callback_func=None, *callback_args):
+    def emit(self, op):
         # this actually emits the operation instead of forwarding it
         if op.returns_bool_result():
             self.getintbound(op).make_bool()
