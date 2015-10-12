@@ -829,7 +829,8 @@ class FunctionCall(Node):
             elif self.name == 'reshape':
                 w_arg = self.args[1]
                 assert isinstance(w_arg, ArrayConstant)
-                w_res = arr.reshape(interp.space, w_arg.wrap(interp.space))
+                order = -1 
+                w_res = arr.reshape(interp.space, w_arg.wrap(interp.space), order)
             else:
                 assert False
         else:
