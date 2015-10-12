@@ -515,6 +515,7 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     def emit_op_save_exception(self, op, arglocs, regalloc, fcond):
+        resloc = arglocs[0]
         self._store_and_reset_exception(self.mc, resloc)
         return fcond
 
