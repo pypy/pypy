@@ -905,7 +905,8 @@ class LLFrame(object):
         if hasattr(descr, '_llgraph_bridge'):
             if propagate_exception:
                 assert (descr._llgraph_bridge.operations[0].opnum in
-                        (rop.SAVE_EXC_CLASS, rop.GUARD_EXCEPTION))
+                        (rop.SAVE_EXC_CLASS, rop.GUARD_EXCEPTION,
+                         rop.GUARD_NO_EXCEPTION))
             target = (descr._llgraph_bridge, -1)
             values = [value for value in values if value is not None]
             raise Jump(target, values)
