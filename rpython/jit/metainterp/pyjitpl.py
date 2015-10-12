@@ -2487,17 +2487,28 @@ class MetaInterp(object):
             # 'test_guard_no_exception_incorrectly_removed_from_bridge'
             # shows a corner case in which just putting GuARD_NO_EXCEPTION
             # here is a bad idea: the optimizer might remove it too.
-            # So we put a pair BRIDGE_EXCEPTION / GUARD_(NO)_EXCEPTION.
-            # The BRIDGE_EXCEPTION is meant to re-raise the exception
-            # caught before the bridge, but in reality it must end up
-            # as the first operation and thus is a no-op for the backends
-            # (it is removed in rewrite.py).  Its real purpose is only to
-            # pass through the optimizer unmodified, so that the following
-            # GUARD_NO_EXCEPTION is not killed.
-            self.history.record(rop.BRIDGE_EXCEPTION, [], None)
-            if exception:
-                self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
-                                                              exception))
+            # So we put a SAVE_EXCEPTION at the start, and a
+            # RESTORE_EXCEPTION just before the guard.  (rewrite.py will
+            # remove the two if they end up consecutive.)
+
+            # XXX too much jumps between older and newer models; clean up
+            # by killing SAVE_EXC_CLASS, RESTORE_EXCEPTION and GUARD_EXCEPTION
+
+            exception_obj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, exception)
+            if exception_obj:
+                exc_class = heaptracker.adr2int(
+                    llmemory.cast_ptr_to_adr(exception_obj.typeptr))
+            else:
+                exc_class = 0
+            i = len(self.history.operations)
+            op1 = self.history.record(rop.SAVE_EXC_CLASS, [], exc_class)
+            op2 = self.history.record(rop.SAVE_EXCEPTION, [], exception)
+            assert op1 is self.history.operations[i]
+            assert op2 is self.history.operations[i + 1]
+            self.history.operations = [op1, op2] + self.history.operations[:i]
+            self.history.record(rop.RESTORE_EXCEPTION, [op1, op2], None)
+            if exception_obj:
+                self.execute_ll_raised(exception_obj)
             else:
                 self.clear_exception()
             try:
