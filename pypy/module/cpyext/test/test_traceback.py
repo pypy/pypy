@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref
 from pypy.module.cpyext.pytraceback import PyTracebackObject
@@ -29,12 +29,12 @@ class TestPyTracebackObject(BaseApiTest):
                                                     py_traceback.c_tb_frame)))
 
         while not space.is_w(w_traceback, space.w_None):
-            next_w_traceback = space.getattr(w_traceback, space.wrap("tb_next"))
-            next_py_traceback = py_traceback.c_tb_next
             assert space.is_w(
-                next_w_traceback,
-                from_ref(space, rffi.cast(PyObject, next_py_traceback)))
-            w_traceback = next_w_traceback
-            py_traceback = next_py_traceback
+                w_traceback,
+                from_ref(space, rffi.cast(PyObject, py_traceback)))
+            w_traceback = space.getattr(w_traceback, space.wrap("tb_next"))
+            py_traceback = py_traceback.c_tb_next
+
+        assert lltype.normalizeptr(py_traceback) is None
 
         api.Py_DecRef(py_obj)
