@@ -28,4 +28,13 @@ class TestPyTracebackObject(BaseApiTest):
                           from_ref(space, rffi.cast(PyObject,
                                                     py_traceback.c_tb_frame)))
 
+        while not space.is_w(w_traceback, space.w_None):
+            next_w_traceback = space.getattr(w_traceback, space.wrap("tb_next"))
+            next_py_traceback = py_traceback.c_tb_next
+            assert space.is_w(
+                next_w_traceback,
+                from_ref(space, rffi.cast(PyObject, next_py_traceback)))
+            w_traceback = next_w_traceback
+            py_traceback = next_py_traceback
+
         api.Py_DecRef(py_obj)
