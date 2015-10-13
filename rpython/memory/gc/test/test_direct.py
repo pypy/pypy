@@ -565,8 +565,8 @@ class TestMiniMarkGCSimple(DirectGCTest):
         tid = self.get_type_id(VAR)
         largeobj_size =  self.gc.nonlarge_max + 1
         self.gc.next_major_collection_threshold = 99999.0
-        addr_src = self.gc.external_malloc(tid, largeobj_size)
-        addr_dst = self.gc.external_malloc(tid, largeobj_size)
+        addr_src = self.gc.external_malloc(tid, largeobj_size, alloc_young=True)
+        addr_dst = self.gc.external_malloc(tid, largeobj_size, alloc_young=True)
         hdr_src = self.gc.header(addr_src)
         hdr_dst = self.gc.header(addr_dst)
         #

@@ -69,6 +69,12 @@ Allow creation of fortran-ordered ndarrays
 
 Remove some remnants of the old ootypesystem vs lltypesystem dichotomy.
 
+.. branch: cffi-handle-lifetime
+
+ffi.new_handle() returns handles that work more like CPython's: they
+remain valid as long as the target exists (unlike the previous
+version, where handles become invalid *before* the __del__ is called).
+
 .. branch: vecopt
 .. branch: vecopt-merge
 

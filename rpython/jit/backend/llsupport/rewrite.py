@@ -119,6 +119,7 @@ class GcRewriterAssembler(object):
         # barriers.  We do this on each "basic block" of operations, which in
         # this case means between CALLs or unknown-size mallocs.
         #
+        operations = self.remove_bridge_exception(operations)
         for i in range(len(operations)):
             op = operations[i]
             assert op.get_forwarded() is None
@@ -168,9 +169,6 @@ class GcRewriterAssembler(object):
                 continue
             if op.getopnum() == rop.JUMP or op.getopnum() == rop.FINISH:
                 self.emit_pending_zeros()
-            if op.getopnum() == rop.BRIDGE_EXCEPTION:
-                self.remove_bridge_exception(operations, i)
-                continue
             #
             self.emit_op(op)
         return self._newops
@@ -686,13 +684,17 @@ class GcRewriterAssembler(object):
             size = max(size, 2 * WORD)
             return (size + WORD-1) & ~(WORD-1)     # round up
 
-    def remove_bridge_exception(self, operations, i):
-        """Check that the 'bridge_exception' operation occurs at the
-        start of the bridge."""
-        if i == 0:
-            return     # first operation, ok
-        if i == 1 and operations[0].getopnum() == rop.INCREMENT_DEBUG_COUNTER:
-            return     # 2nd operation after INCREMENT_DEBUG_COUNTER, ok
-        # not ok!
-        assert we_are_translated()
-        raise BridgeExceptionNotFirst
+    def remove_bridge_exception(self, operations):
+        """Check a common case: 'save_exception' immediately followed by
+        'restore_exception' at the start of the bridge."""
+        # XXX should check if the boxes are used later; but we just assume
+        # they aren't for now
+        start = 0
+        if operations[0].getopnum() == rop.INCREMENT_DEBUG_COUNTER:
+            start = 1
+        if len(operations) >= start + 3:
+            if (operations[start+0].getopnum() == rop.SAVE_EXC_CLASS and
+                operations[start+1].getopnum() == rop.SAVE_EXCEPTION and
+                operations[start+2].getopnum() == rop.RESTORE_EXCEPTION):
+                return operations[:start] + operations[start+3:]
+        return operations

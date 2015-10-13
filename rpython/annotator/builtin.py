@@ -290,7 +290,7 @@ def rarith_longlongmask(s_obj):
     return SomeInteger(knowntype=rpython.rlib.rarithmetic.r_longlong)
 
 @analyzer_for(rpython.rlib.objectmodel.instantiate)
-def robjmodel_instantiate(s_clspbc):
+def robjmodel_instantiate(s_clspbc, s_nonmovable=None):
     assert isinstance(s_clspbc, SomePBC)
     clsdef = None
     more_than_one = len(s_clspbc.descriptions) > 1

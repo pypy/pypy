@@ -465,6 +465,17 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.perform_guard(op, [loc, loc1], resloc)
         self.rm.possibly_free_var(box)
 
+    def consider_save_exception(self, op):
+        resloc = self.rm.force_allocate_reg(op)
+        self.perform(op, [], resloc)
+    consider_save_exc_class = consider_save_exception
+
+    def consider_restore_exception(self, op):
+        args = op.getarglist()
+        loc0 = self.rm.make_sure_var_in_reg(op.getarg(0), args)  # exc class
+        loc1 = self.rm.make_sure_var_in_reg(op.getarg(1), args)  # exc instance
+        self.perform_discard(op, [loc0, loc1])
+
     consider_guard_no_overflow = consider_guard_no_exception
     consider_guard_overflow    = consider_guard_no_exception
     consider_guard_not_forced  = consider_guard_no_exception

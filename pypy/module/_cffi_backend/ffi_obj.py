@@ -294,9 +294,9 @@ kept alive for as long as the callback may be invoked from the C code."""
                                          CONSIDER_FN_AS_FNPTR)
         space = self.space
         if not space.is_none(w_python_callable):
-            return ccallback.W_CDataCallback(space, w_ctype,
-                                             w_python_callable, w_error,
-                                             w_onerror)
+            return ccallback.make_callback(space, w_ctype,
+                                           w_python_callable, w_error,
+                                           w_onerror)
         else:
             # decorator mode: returns a single-argument function
             return space.appexec([w_ctype, w_error, w_onerror],

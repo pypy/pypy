@@ -52,8 +52,6 @@ class LLTrace(object):
                 # we don't care about the value 13 here, because we gonna
                 # fish it from the extra slot on frame anyway
                 op.getdescr().make_a_counter_per_value(op, 13)
-            elif opnum == rop.BRIDGE_EXCEPTION:
-                assert len(self.operations) == 0   # must be first
             if op.getdescr() is not None:
                 if op.is_guard() or op.getopnum() == rop.FINISH:
                     newdescr = op.getdescr()
@@ -1097,8 +1095,9 @@ class LLFrame(object):
         self._accumulate(descr, self.current_op.getfailargs(), values)
         if hasattr(descr, '_llgraph_bridge'):
             if propagate_exception:
-                assert (descr._llgraph_bridge.operations[0].opnum ==
-                        rop.BRIDGE_EXCEPTION)
+                assert (descr._llgraph_bridge.operations[0].opnum in
+                        (rop.SAVE_EXC_CLASS, rop.GUARD_EXCEPTION,
+                         rop.GUARD_NO_EXCEPTION))
             target = (descr._llgraph_bridge, -1)
             values = [value for value in values if value is not None]
             raise Jump(target, values)
@@ -1430,8 +1429,32 @@ class LLFrame(object):
     def execute_keepalive(self, descr, x):
         pass
 
-    def execute_bridge_exception(self, descr):
-        pass
+    def execute_save_exc_class(self, descr):
+        lle = self.last_exception
+        if lle is None:
+            return 0
+        else:
+            return support.cast_to_int(lle.args[0])
+
+    def execute_save_exception(self, descr):
+        lle = self.last_exception
+        if lle is None:
+            res = lltype.nullptr(llmemory.GCREF.TO)
+        else:
+            res = lltype.cast_opaque_ptr(llmemory.GCREF, lle.args[1])
+        self.last_exception = None
+        return res
+
+    def execute_restore_exception(self, descr, kls, e):
+        kls = heaptracker.int2adr(kls)
+        if e:
+            value = lltype.cast_opaque_ptr(rclass.OBJECTPTR, e)
+            assert llmemory.cast_ptr_to_adr(value.typeptr) == kls
+            lle = LLException(value.typeptr, e)
+        else:
+            assert kls == llmemory.NULL
+            lle = None
+        self.last_exception = lle
 
 
 def _getdescr(op):
