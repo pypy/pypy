@@ -769,7 +769,8 @@ class TestAnnotateTestCase:
         def f():
             return x
         a = self.RPythonAnnotator(policy=AnnotatorPolicy())
-        py.test.raises(Exception, a.build_types, f, [])
+        with py.test.raises(Exception):
+            a.build_types(f, [])
 
     def test_exception_deduction_with_raise1(self):
         a = self.RPythonAnnotator()
@@ -959,14 +960,16 @@ class TestAnnotateTestCase:
         def f():
             return large_constant
         a = self.RPythonAnnotator()
-        py.test.raises(Exception, a.build_types, f, [])
+        with py.test.raises(Exception):
+            a.build_types(f, [])
         # if you want to get a r_uint, you have to be explicit about it
 
     def test_add_different_ints(self):
         def f(a, b):
             return a + b
         a = self.RPythonAnnotator()
-        py.test.raises(Exception, a.build_types, f, [r_uint, int])
+        with py.test.raises(Exception):
+            a.build_types(f, [r_uint, int])
 
     def test_merge_different_ints(self):
         def f(a, b):
@@ -976,7 +979,8 @@ class TestAnnotateTestCase:
                 c = b
             return c
         a = self.RPythonAnnotator()
-        py.test.raises(Exception, a.build_types, f, [r_uint, int])
+        with py.test.raises(Exception):
+            a.build_types(f, [r_uint, int])
 
     def test_merge_ruint_zero(self):
         def f(a):
@@ -2694,7 +2698,8 @@ class TestAnnotateTestCase:
             return a.x   # should explode here
 
         a = self.RPythonAnnotator()
-        e = py.test.raises(Exception, a.build_types, f, [int])
+        with py.test.raises(Exception) as excinfo:
+            a.build_types(f, [int])
         # this should explode on reading the attribute 'a.x', but it can
         # sometimes explode on 'self.x = x', which does not make much sense.
         # But it looks hard to fix in general: we don't know yet during 'a.x'
@@ -2928,7 +2933,8 @@ class TestAnnotateTestCase:
         s = a.build_types(fun, [s_nonneg, s_nonneg])
         assert isinstance(s, annmodel.SomeInteger)
         assert not s.nonneg
-        py.test.raises(Exception, a.build_types, fun, [int, int])
+        with py.test.raises(Exception):
+            a.build_types(fun, [int, int])
 
     def test_sig_simpler(self):
         def fun(x, y):
@@ -2940,7 +2946,8 @@ class TestAnnotateTestCase:
         s = a.build_types(fun, [s_nonneg, s_nonneg])
         assert isinstance(s, annmodel.SomeInteger)
         assert not s.nonneg
-        py.test.raises(Exception, a.build_types, fun, [int, int])
+        with py.test.raises(Exception):
+            a.build_types(fun, [int, int])
 
     def test_sig_lambda(self):
         def fun(x, y):
@@ -2954,7 +2961,8 @@ class TestAnnotateTestCase:
         s = a.build_types(fun, [int, s_nonneg])
         assert isinstance(s, annmodel.SomeInteger)
         assert not s.nonneg
-        py.test.raises(Exception, a.build_types, fun, [s_nonneg, int])
+        with py.test.raises(Exception):
+            a.build_types(fun, [s_nonneg, int])
 
     def test_sig_bug(self):
         def g(x, y=5):
@@ -3138,7 +3146,8 @@ class TestAnnotateTestCase:
             return a.n()
 
         a = self.RPythonAnnotator()
-        py.test.raises(Exception, a.build_types, fun, [bool])
+        with py.test.raises(Exception):
+            a.build_types(fun, [bool])
 
     def test_float_cmp(self):
         def fun(x, y):
@@ -3243,7 +3252,8 @@ class TestAnnotateTestCase:
             i.x = x
 
         a = self.RPythonAnnotator()
-        py.test.raises(Exception, a.build_types, f, [])
+        with py.test.raises(Exception):
+            a.build_types(f, [])
 
 
         class M:
@@ -3342,7 +3352,8 @@ class TestAnnotateTestCase:
             if g(x, y):
                 g(x, r_uint(y))
         a = self.RPythonAnnotator()
-        py.test.raises(Exception, a.build_types, f, [int, int])
+        with py.test.raises(Exception):
+            a.build_types(f, [int, int])
 
     def test_compare_with_zero(self):
         def g():
@@ -4102,7 +4113,8 @@ class TestAnnotateTestCase:
                 e = cls()
                 e.foo = "bar"
             a = self.RPythonAnnotator()
-            py.test.raises(Exception, a.build_types, fn, [])
+            with py.test.raises(Exception):
+                a.build_types(fn, [])
 
     def test_lower_char(self):
         def fn(c):

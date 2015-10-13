@@ -152,7 +152,8 @@ class TestExtFuncEntry:
         a.translator.config.translation.check_str_without_nul=True
         def g(s):
             return os_open(s)
-        py.test.raises(Exception, a.build_types, g, [str])
+        with py.test.raises(Exception):
+            a.build_types(g, [str])
         a.build_types(g, [str0])  # Does not raise
 
     def test_list_of_str0(self):
@@ -170,7 +171,8 @@ class TestExtFuncEntry:
         a.translator.config.translation.check_str_without_nul=True
         def g(l):
             return os_execve(l)
-        py.test.raises(Exception, a.build_types, g, [[str]])
+        with py.test.raises(Exception):
+            a.build_types(g, [[str]])
         a.build_types(g, [[str0]])  # Does not raise
 
 

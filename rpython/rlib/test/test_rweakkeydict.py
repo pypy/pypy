@@ -126,7 +126,9 @@ def test_rpython_merge_RWeakKeyDictionary2():
         else:
             d = RWeakKeyDictionary(KY, VX)
         d.set(KX(), VX())
-    py.test.raises(Exception, interpret, g, [1])
+
+    with py.test.raises(Exception):
+        interpret(g, [1])
 
     def g(x):
         if x:
@@ -134,7 +136,9 @@ def test_rpython_merge_RWeakKeyDictionary2():
         else:
             d = RWeakKeyDictionary(KX, VY)
         d.set(KX(), VX())
-    py.test.raises(Exception, interpret, g, [1])
+
+    with py.test.raises(Exception):
+        interpret(g, [1])
 
 
 def test_rpython_free_values():
