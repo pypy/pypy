@@ -133,9 +133,6 @@ class Node(object):
         self.emitted = False
         self.schedule_position = -1
         self.priority = 0
-        # save the operation that produces the result for the first argument
-        # only for guard_true/guard_false
-        self.guard_bool_bool_node = None
         self._stack = False
 
     def is_imaginary(self):
@@ -625,11 +622,9 @@ class DependencyGraph(object):
                         nonpure.edge_to(node, failarg=True, label="nonpure")
                     tracker.non_pure = []
                 self.guards.append(node)
+                self.build_guard_dependencies(node, tracker)
             else:
                 self.build_non_pure_dependencies(node, tracker)
-        # pass 2 correct guard dependencies
-        for guard_node in self.guards:
-            self.build_guard_dependencies(guard_node, tracker)
 
     def guard_argument_protection(self, guard_node, tracker):
         """ the parameters the guard protects are an indicator for
@@ -642,27 +637,15 @@ class DependencyGraph(object):
         """
         guard_op = guard_node.getoperation()
         guard_opnum = guard_op.getopnum()
-        if guard_opnum in (rop.GUARD_TRUE, rop.GUARD_FALSE):
-            for dep in guard_node.depends():
-                op = dep.to.getoperation()
-                if op.returns_bool_result() and op is guard_op.getarg(0):
-                    guard_node.guard_bool_bool_node = dep.to
-                    for arg in op.getarglist():
-                        if not arg.is_constant():
-                            self.guard_exit_dependence(guard_node, arg, tracker)
-                    break
-            else:
-                # in this case the guard protects an integer
-                # example:
-                # i = int_and(j, 255)
-                # guard_true(i) [...]
-                pass
-        elif guard_op.is_foldable_guard():
-            # these guards carry their protected variables directly as a parameter
-            for arg in guard_node.getoperation().getarglist():
-                if not arg.is_constant():
-                    self.guard_exit_dependence(guard_node, arg, tracker)
-        elif guard_opnum == rop.GUARD_NOT_FORCED_2:
+        for arg in guard_op.getarglist():
+            if not arg.is_constant() and arg.type not in ('i','f'):
+                # redefine pointers, consider the following example
+                # guard_nonnull(r1)
+                # i1 = getfield(r1, ...)
+                # guard must be emitted before the getfield, thus
+                # redefine r1 at guard_nonnull
+                tracker.define(arg, guard_node)
+        if guard_opnum == rop.GUARD_NOT_FORCED_2:
             # must be emitted before finish, thus delayed the longest
             guard_node.setpriority(-10)
         elif guard_opnum in (rop.GUARD_OVERFLOW, rop.GUARD_NO_OVERFLOW):
@@ -695,7 +678,7 @@ class DependencyGraph(object):
             else:
                 raise AssertionError("(no)exception/not_forced: not op raises for them")
         else:
-            pass # not invalidated, early exit, future condition!
+            pass # not invalidated, future condition!
 
     def guard_exit_dependence(self, guard_node, var, tracker):
         def_node = tracker.definition(var)
@@ -721,7 +704,7 @@ class DependencyGraph(object):
             return
         # handle fail args
         if guard_op.getfailargs():
-            for arg in guard_op.getfailargs():
+            for i,arg in enumerate(guard_op.getfailargs()):
                 if arg is None:
                     continue
                 if not tracker.is_defined(arg):
@@ -748,6 +731,7 @@ class DependencyGraph(object):
                         tracker.depends_on_arg(index_var, node)
                     else:
                         tracker.depends_on_arg(cobj, node)
+                    break
         else:
             for arg, argcell, destroyed in node.side_effect_arguments():
                 if argcell is not None:

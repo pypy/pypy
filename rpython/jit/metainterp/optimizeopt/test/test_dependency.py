@@ -170,7 +170,7 @@ class DependencyBaseTest(BaseTest):
                     assert dependency is not None or node_b.getopnum() == rop.JUMP, \
                        " it is expected that instruction at index" + \
                        " %s depends on instr on index %s but it does not.\n%s" \
-                            % (node_a, node_b, graph)
+                            % (node_a.getindex(), node_b.getindex(), graph)
                 elif dependency is not None:
                     dependencies.remove(dependency)
             assert dependencies == [], \
@@ -489,31 +489,33 @@ class BaseTestDependencyGraph(DependencyBaseTest):
 
     def test_dependency_complex_trace(self):
         graph = self.build_dependency("""
-        [i0, i1, i2, i3, i4, i5, i6, i7] # 0: 1,2,3,4,6,7,8,9,10,12,14,17,19,20,21
+        [i0, i1, i2, i3, i4, i5, i6, i7] # 0:
         i9 = int_mul(i0, 8) # 1: 2
         i10 = raw_load_i(i3, i9, descr=arraydescr) # 2: 5, 10
         i11 = int_mul(i0, 8) # 3: 4
         i12 = raw_load_i(i4, i11, descr=arraydescr) # 4: 5,10
         i13 = int_add(i10, i12) # 5: 7,10
         i14 = int_mul(i0, 8) # 6: 7
-        raw_store(i5, i14, i13, descr=arraydescr) # 7: 21
+        raw_store(i3, i14, i13, descr=arraydescr) # 7: 10,12,20
         i16 = int_add(i0, 1) # 8: 9,10,11,13,16,18
         i17 = int_lt(i16, i7) # 9: 10
-        guard_true(i17) [i7, i13, i5, i4, i3, i12, i10, i16] # 10: 11,13,16,18,19,21
-        i18 = int_mul(i16, 8) # 11:
-        i19 = raw_load_i(i3, i18, descr=arraydescr) # 12:
-        i20 = int_mul(i16, 8) # 13:
-        i21 = raw_load_i(i4, i20, descr=arraydescr) # 14:
-        i22 = int_add(i19, i21) # 15:
-        i23 = int_mul(i16, 8) # 16:
-        raw_store(i5, i23, i22, descr=arraydescr) # 17:
-        i24 = int_add(i16, 1) # 18:
-        i25 = int_lt(i24, i7) # 19:
+        guard_true(i17) [i7, i13, i5, i4, i3, i12, i10, i16] # 10: 17, 20
+        i18 = int_mul(i16, 9) # 11: 12
+        i19 = raw_load_i(i3, i18, descr=arraydescr) # 12: 15, 20
+        i20 = int_mul(i16, 8) # 13: 14
+        i21 = raw_load_i(i4, i20, descr=arraydescr) # 14: 15, 20
+        i22 = int_add(i19, i21) # 15: 17, 20
+        i23 = int_mul(i16, 8) # 16: 17
+        raw_store(i5, i23, i22, descr=arraydescr) # 17: 20
+        i24 = int_add(i16, 1) # 18: 19, 20
+        i25 = int_lt(i24, i7) # 19: 20
         guard_true(i25) [i7, i22, i5, i4, i3, i21, i19, i24] # 20:
         jump(i24, i19, i21, i3, i4, i5, i22, i7) # 21:
         """)
-        self.assert_dependencies(graph, full_check=False)
+        self.assert_dependencies(graph, full_check=True)
         self.assert_dependent(graph, 2,12)
+        self.assert_dependent(graph, 7,12)
+        self.assert_dependent(graph, 4,12)
 
     def test_getfield(self):
         graph = self.build_dependency("""
@@ -529,7 +531,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
     def test_cyclic(self):
         graph = self.build_dependency("""
         [p0, p1, p5, p6, p7, p9, p11, p12] # 0: 1,6
-        p13 = getfield_gc_r(p9) # 1: 2,4,5
+        p13 = getfield_gc_r(p9) # 1: 2,5
         guard_nonnull(p13) [] # 2: 4,5
         i14 = getfield_gc_i(p9) # 3: 5
         p15 = getfield_gc_r(p13) # 4: 5
