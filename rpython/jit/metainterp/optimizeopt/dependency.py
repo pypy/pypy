@@ -140,6 +140,7 @@ class Node(object):
 
     def getoperation(self):
         return self.op
+
     def getindex(self):
         return self.opidx
 
@@ -543,7 +544,9 @@ class DependencyGraph(object):
     def __init__(self, loop):
         self.loop = loop
         self.label = Node(loop.label, 0)
-        self.nodes = [ Node(op,i+1) for i,op in enumerate(loop.operations) if not op.is_jit_debug() ]
+        self.nodes = [ Node(op,0) for op in loop.operations if not op.is_jit_debug() ]
+        for i,node in enumerate(self.nodes):
+            node.opidx = i+1
         self.inodes = [] # imaginary nodes
         self.jump = Node(loop.jump, len(self.nodes)+1)
         self.invariant_vars = {}
