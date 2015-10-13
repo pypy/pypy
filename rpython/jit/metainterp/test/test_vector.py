@@ -13,6 +13,11 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
                                      free_raw_storage, raw_storage_getitem)
 from rpython.rlib.objectmodel import specialize, is_annotation_constant
+from rpython.jit.backend.detect_cpu import getcpuclass
+
+CPU = getcpuclass()
+if not CPU.vector_extension:
+    py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
 @specialize.argtype(0,1)
 def malloc(T,n):

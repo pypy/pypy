@@ -24,6 +24,11 @@ from rpython.jit.metainterp.optimizeopt.version import LoopVersionInfo
 from rpython.jit.backend.llsupport.descr import ArrayDescr
 from rpython.jit.metainterp.optimizeopt.dependency import Node, DependencyGraph
 from rpython.jit.tool.oparser import OpParser
+from rpython.jit.backend.detect_cpu import getcpuclass
+
+CPU = getcpuclass()
+if not CPU.vector_extension:
+    py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
 class FakeJitDriverStaticData(object):
     vec=True
