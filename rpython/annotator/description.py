@@ -433,7 +433,7 @@ class ClassDesc(Desc):
             raise AnnotatorError(
                 "Class specialization has been removed. The "
                 "'_annspecialcase_' class tag is now unsupported.")
-        self._classdefs = {}
+        self.classdef = None
 
         if is_mixin(cls):
             raise AnnotatorError("cannot use directly the class %r because "
@@ -573,17 +573,14 @@ class ClassDesc(Desc):
         for name, value in cls.__dict__.items():
             self.add_source_attribute(name, value)
 
-    def getallclassdefs(self):
-        return self._classdefs.values()
-
     def getclassdef(self, key):
-        try:
-            return self._classdefs[key]
-        except KeyError:
+        if self.classdef is not None:
+            return self.classdef
+        else:
             from rpython.annotator.classdef import ClassDef
             classdef = ClassDef(self.bookkeeper, self)
             self.bookkeeper.classdefs.append(classdef)
-            self._classdefs[key] = classdef
+            self.classdef = classdef
 
             # forced attributes
             cls = self.pyobj

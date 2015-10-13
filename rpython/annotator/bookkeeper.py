@@ -162,9 +162,7 @@ class Bookkeeper(object):
             s_callable.consider_call_site(args, s_result, call_op)
 
     def getuniqueclassdef(self, cls):
-        """Get the ClassDef associated with the given user cls.
-        Avoid using this!  It breaks for classes that must be specialized.
-        """
+        """Get the ClassDef associated with the given user cls."""
         assert cls is not object
         desc = self.getdesc(cls)
         return desc.getuniqueclassdef()
