@@ -358,16 +358,18 @@ class MIFrame(object):
         self.opimpl_goto_if_not(condbox, target, orgpc)
 
     for _opimpl in ['int_lt', 'int_le', 'int_eq', 'int_ne', 'int_gt', 'int_ge',
-                    'ptr_eq', 'ptr_ne']:
+                    'ptr_eq', 'ptr_ne', 'float_lt', 'float_le', 'float_eq',
+                    'float_ne', 'float_gt', 'float_ge']:
         exec py.code.Source('''
             @arguments("box", "box", "label", "orgpc")
             def opimpl_goto_if_not_%s(self, b1, b2, target, orgpc):
-                if b1 is b2:
+                if %s and b1 is b2:
                     condbox = %s
                 else:
                     condbox = self.execute(rop.%s, b1, b2)
                 self.opimpl_goto_if_not(condbox, target, orgpc)
-        ''' % (_opimpl, FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
+        ''' % (_opimpl, not _opimpl.startswith('float_'),
+               FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
         ).compile()
 
     def _establish_nullity(self, box, orgpc):
@@ -2302,32 +2304,36 @@ class MetaInterp(object):
             self.run_blackhole_interp_to_cancel_tracing(stb)
         assert False, "should always raise"
 
-    def handle_guard_failure(self, key, deadframe):
+    def handle_guard_failure(self, resumedescr, deadframe):
         debug_start('jit-tracing')
         self.staticdata.profiler.start_tracing()
+        if isinstance(resumedescr, compile.ResumeGuardCopiedDescr):
+            key = resumedescr.prev
+        else:
+            key = resumedescr
         assert isinstance(key, compile.ResumeGuardDescr)
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp
-        self.resumekey_original_loop_token = key.rd_loop_token.loop_token_wref()
+        self.resumekey_original_loop_token = resumedescr.rd_loop_token.loop_token_wref()
         if self.resumekey_original_loop_token is None:
             raise compile.giveup() # should be rare
         self.staticdata.try_to_free_some_loops()
         self.initialize_state_from_guard_failure(key, deadframe)
         try:
-            return self._handle_guard_failure(key, deadframe)
+            return self._handle_guard_failure(resumedescr, key, deadframe)
         finally:
             self.resumekey_original_loop_token = None
             self.staticdata.profiler.end_tracing()
             debug_stop('jit-tracing')
 
-    def _handle_guard_failure(self, key, deadframe):
+    def _handle_guard_failure(self, resumedescr, key, deadframe):
         self.current_merge_points = []
-        self.resumekey = key
+        self.resumekey = resumedescr
         self.seen_loop_header_for_jdindex = -1
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
         try:
-            self.prepare_resume_from_failure(deadframe, key)
+            self.prepare_resume_from_failure(deadframe, resumedescr)
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
             self.interpret()
@@ -2472,10 +2478,37 @@ class MetaInterp(object):
 
     def prepare_resume_from_failure(self, deadframe, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)
-        if isinstance(resumedescr, compile.ResumeGuardExcDescr):
-            if exception:
-                self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
-                                                              exception))
+        if (isinstance(resumedescr, compile.ResumeGuardExcDescr) or
+            isinstance(resumedescr, compile.ResumeGuardCopiedExcDescr)):
+            # Add a GUARD_EXCEPTION or GUARD_NO_EXCEPTION at the start
+            # of the bridge---except it is not really the start, because
+            # the history aleady contains operations from resume.py.
+            # The optimizer should remove these operations.  However,
+            # 'test_guard_no_exception_incorrectly_removed_from_bridge'
+            # shows a corner case in which just putting GuARD_NO_EXCEPTION
+            # here is a bad idea: the optimizer might remove it too.
+            # So we put a SAVE_EXCEPTION at the start, and a
+            # RESTORE_EXCEPTION just before the guard.  (rewrite.py will
+            # remove the two if they end up consecutive.)
+
+            # XXX too much jumps between older and newer models; clean up
+            # by killing SAVE_EXC_CLASS, RESTORE_EXCEPTION and GUARD_EXCEPTION
+
+            exception_obj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, exception)
+            if exception_obj:
+                exc_class = heaptracker.adr2int(
+                    llmemory.cast_ptr_to_adr(exception_obj.typeptr))
+            else:
+                exc_class = 0
+            i = len(self.history.operations)
+            op1 = self.history.record(rop.SAVE_EXC_CLASS, [], exc_class)
+            op2 = self.history.record(rop.SAVE_EXCEPTION, [], exception)
+            assert op1 is self.history.operations[i]
+            assert op2 is self.history.operations[i + 1]
+            self.history.operations = [op1, op2] + self.history.operations[:i]
+            self.history.record(rop.RESTORE_EXCEPTION, [op1, op2], None)
+            if exception_obj:
+                self.execute_ll_raised(exception_obj)
             else:
                 self.clear_exception()
             try:

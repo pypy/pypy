@@ -1,4 +1,5 @@
 from rpython.rlib import rgc
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import llmemory, lltype
 from rpython.jit.metainterp import history
@@ -13,6 +14,9 @@ from rpython.jit.metainterp.history import JitCellToken
 FLAG_ARRAY = 0
 FLAG_STR = 1
 FLAG_UNICODE = 2
+
+class BridgeExceptionNotFirst(Exception):
+    pass
 
 class GcRewriterAssembler(object):
     """ This class performs the following rewrites on the list of operations:
@@ -115,6 +119,7 @@ class GcRewriterAssembler(object):
         # barriers.  We do this on each "basic block" of operations, which in
         # this case means between CALLs or unknown-size mallocs.
         #
+        operations = self.remove_bridge_exception(operations)
         for i in range(len(operations)):
             op = operations[i]
             assert op.get_forwarded() is None
@@ -678,3 +683,18 @@ class GcRewriterAssembler(object):
             # assume that "self.gc_ll_descr.minimal_size_in_nursery" is 2 WORDs
             size = max(size, 2 * WORD)
             return (size + WORD-1) & ~(WORD-1)     # round up
+
+    def remove_bridge_exception(self, operations):
+        """Check a common case: 'save_exception' immediately followed by
+        'restore_exception' at the start of the bridge."""
+        # XXX should check if the boxes are used later; but we just assume
+        # they aren't for now
+        start = 0
+        if operations[0].getopnum() == rop.INCREMENT_DEBUG_COUNTER:
+            start = 1
+        if len(operations) >= start + 3:
+            if (operations[start+0].getopnum() == rop.SAVE_EXC_CLASS and
+                operations[start+1].getopnum() == rop.SAVE_EXCEPTION and
+                operations[start+2].getopnum() == rop.RESTORE_EXCEPTION):
+                return operations[:start] + operations[start+3:]
+        return operations

@@ -466,7 +466,7 @@ class LLFrame(object):
         raise LLException(etype, evalue, *extraargs)
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
-        obj = self.llinterpreter.typer.type_system.deref(fptr)
+        obj = fptr._obj
         try:
             return obj._callable(*args)
         except LLException, e:
@@ -644,7 +644,7 @@ class LLFrame(object):
             array[index] = item
 
     def perform_call(self, f, ARGS, args):
-        fobj = self.llinterpreter.typer.type_system.deref(f)
+        fobj = f._obj
         has_callable = getattr(fobj, '_callable', None) is not None
         if hasattr(fobj, 'graph'):
             graph = fobj.graph
@@ -669,7 +669,7 @@ class LLFrame(object):
         graphs = args[-1]
         args = args[:-1]
         if graphs is not None:
-            obj = self.llinterpreter.typer.type_system.deref(f)
+            obj = f._obj
             if hasattr(obj, 'graph'):
                 assert obj.graph in graphs
         else:

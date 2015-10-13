@@ -195,12 +195,17 @@ class AbstractResOp(AbstractResOpOrInputArg):
         args = self.getarglist()
         descr = self.getdescr()
         if descr is None or we_are_translated():
-            return '%s%s%s(%s)' % (prefix, sres, self.getopname(),
-                                   ', '.join([a.repr_short(memo) for a in args]))
+            s = '%s%s%s(%s)' % (prefix, sres, self.getopname(),
+                                ', '.join([a.repr_short(memo) for a in args]))
         else:
-            return '%s%s%s(%s)' % (prefix, sres, self.getopname(),
-                                   ', '.join([a.repr_short(memo) for a in args] +
-                                             ['descr=%r' % descr]))
+            s = '%s%s%s(%s)' % (prefix, sres, self.getopname(),
+                                ', '.join([a.repr_short(memo) for a in args] +
+                                          ['descr=%r' % descr]))
+        # --- enable to display the failargs too:
+        #if isinstance(self, GuardResOp):
+        #    s += ' [%s]' % (', '.join([a.repr_short(memo) for a in
+        #                                self.getfailargs()]),)
+        return s
 
     def repr_short(self, memo):
         try:
@@ -691,7 +696,7 @@ _oplist = [
     'GUARD_SUBCLASS/2d/n',      # only if supports_guard_gc_type
     '_GUARD_FOLDABLE_LAST',
     'GUARD_NO_EXCEPTION/0d/n',   # may be called with an exception currently set
-    'GUARD_EXCEPTION/1d/r',     # may be called with an exception currently set
+    'GUARD_EXCEPTION/1d/r',     # XXX kill me, use only SAVE_EXCEPTION
     'GUARD_NO_OVERFLOW/0d/n',
     'GUARD_OVERFLOW/0d/n',
     'GUARD_NOT_FORCED/0d/n',      # may be called with an exception currently set
@@ -822,6 +827,9 @@ _oplist = [
     'QUASIIMMUT_FIELD/1d/n',    # [objptr], descr=SlowMutateDescr
     'RECORD_EXACT_CLASS/2/n',   # [objptr, clsptr]
     'KEEPALIVE/1/n',
+    'SAVE_EXCEPTION/0/r',
+    'SAVE_EXC_CLASS/0/i',       # XXX kill me
+    'RESTORE_EXCEPTION/2/n',    # XXX kill me
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',

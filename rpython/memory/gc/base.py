@@ -172,6 +172,9 @@ class GCBase(object):
     def can_move(self, addr):
         return False
 
+    def malloc_fixedsize_nonmovable(self, typeid):
+        raise MemoryError
+
     def pin(self, addr):
         return False
 

@@ -187,7 +187,11 @@ class FfiCallTests(object):
 
     def test_simple_call_longlong(self, **kwds):
         kwds.setdefault('supports_longlong', True)
-        kwds['expected_call_release_gil_i'] = kwds.pop('expected_call_release_gil', 1)
+        if is_64_bit:
+            kwds['expected_call_release_gil_i'] = kwds.pop('expected_call_release_gil', 1)
+        else:
+            kwds['expected_call_release_gil_f'] = kwds.pop('expected_call_release_gil', 1)
+            kwds['expected_call_release_gil_i'] = 0
         maxint32 = 2147483647
         a = r_longlong(maxint32) + 1
         b = r_longlong(maxint32) + 2

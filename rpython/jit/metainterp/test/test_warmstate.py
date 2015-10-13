@@ -76,7 +76,7 @@ def test_hash_equal_whatever_lltype():
                 hash_whatever(lltype.typeOf(s2), s2))
         assert equal_whatever(lltype.typeOf(s1), s1, s2)
     fn(42)
-    interpret(fn, [42], type_system='lltype')
+    interpret(fn, [42])
 
 
 def test_make_unwrap_greenkey():

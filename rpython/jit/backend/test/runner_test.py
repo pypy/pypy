@@ -1775,7 +1775,6 @@ class BaseBackendTest(Runner):
 
 class LLtypeBackendTest(BaseBackendTest):
 
-    type_system = 'lltype'
     Ptr = lltype.Ptr
     FuncType = lltype.FuncType
     malloc = staticmethod(lltype.malloc)
@@ -2097,6 +2096,60 @@ class LLtypeBackendTest(BaseBackendTest):
         assert excvalue == xptr
         deadframe = self.cpu.execute_token(looptoken, 0)
         assert self.cpu.get_int_value(deadframe, 0) == 0
+        excvalue = self.cpu.grab_exc_value(deadframe)
+        assert not excvalue
+
+    def test_save_restore_exceptions(self):
+        exc_tp = None
+        exc_ptr = None
+        def func(i):
+            if hasattr(self.cpu, '_exception_emulator'):
+                assert not self.cpu._exception_emulator[0]
+                assert not self.cpu._exception_emulator[1]
+            called.append(i)
+            if i:
+                raise LLException(exc_tp, exc_ptr)
+
+        ops = '''
+        [i0]
+        i1 = same_as_i(1)
+        call_n(ConstClass(fptr), i0, descr=calldescr)
+        i2 = save_exc_class()
+        p2 = save_exception()
+        call_n(ConstClass(fptr), 0, descr=calldescr)
+        restore_exception(i2, p2)
+        p0 = guard_exception(ConstClass(xtp)) [i1]
+        finish(p0)
+        '''
+        FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+        fptr = llhelper(FPTR, func)
+        calldescr = self.cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT,
+                                         EffectInfo.MOST_GENERAL)
+
+        xtp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        xtp.subclassrange_min = 1
+        xtp.subclassrange_max = 3
+        X = lltype.GcStruct('X', ('parent', rclass.OBJECT),
+                            hints={'vtable':  xtp._obj})
+        xx = lltype.malloc(X)
+        xx.parent.typeptr = xtp
+        xptr = lltype.cast_opaque_ptr(llmemory.GCREF, xx)
+
+        exc_tp = xtp
+        exc_ptr = xptr
+        loop = parse(ops, self.cpu, namespace=locals())
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        called = []
+        deadframe = self.cpu.execute_token(looptoken, 5)
+        assert called == [5, 0]
+        assert self.cpu.get_ref_value(deadframe, 0) == xptr
+        excvalue = self.cpu.grab_exc_value(deadframe)
+        assert not excvalue
+        called = []
+        deadframe = self.cpu.execute_token(looptoken, 0)
+        assert called == [0, 0]
+        assert self.cpu.get_int_value(deadframe, 0) == 1
         excvalue = self.cpu.grab_exc_value(deadframe)
         assert not excvalue
 
@@ -3147,7 +3200,7 @@ class LLtypeBackendTest(BaseBackendTest):
             ops = [
                 ResOperation(rop.CALL_RELEASE_GIL_I,
                              [ConstInt(saveerr), ConstInt(func1_adr)]
-                                 + inputargs, 
+                                 + inputargs,
                              descr=calldescr),
                 ResOperation(rop.GUARD_NOT_FORCED, [], descr=faildescr),
             ]

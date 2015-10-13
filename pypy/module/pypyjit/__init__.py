@@ -15,8 +15,13 @@ class Module(MixedModule):
         'set_compile_hook': 'interp_resop.set_compile_hook',
         'set_abort_hook': 'interp_resop.set_abort_hook',
         'get_stats_snapshot': 'interp_resop.get_stats_snapshot',
-        'enable_debug': 'interp_resop.enable_debug',
-        'disable_debug': 'interp_resop.disable_debug',
+        'get_stats_asmmemmgr': 'interp_resop.get_stats_asmmemmgr',
+        # those things are disabled because they have bugs, but if
+        # they're found to be useful, fix test_ztranslation_jit_stats
+        # in the backend first. get_stats_snapshot still produces
+        # correct loop_runs if PYPYLOG is correct
+        #'enable_debug': 'interp_resop.enable_debug',
+        #'disable_debug': 'interp_resop.disable_debug',
         'ResOperation': 'interp_resop.WrappedOp',
         'DebugMergePoint': 'interp_resop.DebugMergePoint',
         'JitLoopInfo': 'interp_resop.W_JitLoopInfo',

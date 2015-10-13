@@ -169,8 +169,8 @@ class Optimization(object):
             return fw
         return None
 
-    def get_box_replacement(self, op, not_const=False):
-        return self.optimizer.get_box_replacement(op, not_const=not_const)
+    def get_box_replacement(self, op):
+        return self.optimizer.get_box_replacement(op)
 
     def getlastop(self):
         return self.optimizer.getlastop()
@@ -359,10 +359,10 @@ class Optimizer(Optimization):
             if self.get_box_replacement(op).is_constant():
                 return info.FloatConstInfo(self.get_box_replacement(op))
 
-    def get_box_replacement(self, op, not_const=False):
+    def get_box_replacement(self, op):
         if op is None:
             return op
-        return op.get_box_replacement(not_const)
+        return op.get_box_replacement()
 
     def force_box(self, op, optforce=None):
         op = self.get_box_replacement(op)
@@ -632,6 +632,17 @@ class Optimizer(Optimization):
     def emit_guard_operation(self, op, pendingfields):
         guard_op = self.replace_op_with(op, op.getopnum())
         opnum = guard_op.getopnum()
+        # If guard_(no)_exception is merged with another previous guard, then
+        # it *should* be in "some_call;guard_not_forced;guard_(no)_exception".
+        # The guard_(no)_exception can also occur at different places,
+        # but these should not be preceeded immediately by another guard.
+        # Sadly, asserting this seems to fail in rare cases.  So instead,
+        # we simply give up sharing.
+        if (opnum in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION) and
+                self._last_guard_op is not None and
+                self._last_guard_op.getopnum() != rop.GUARD_NOT_FORCED):
+            self._last_guard_op = None
+        #
         if (self._last_guard_op and guard_op.getdescr() is None):
             self.metainterp_sd.profiler.count_ops(opnum,
                                             jitprof.Counters.OPT_GUARDS_SHARED)
@@ -674,13 +685,16 @@ class Optimizer(Optimization):
 
 
     def _copy_resume_data_from(self, guard_op, last_guard_op):
-        if guard_op.getopnum() in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION):
-            assert last_guard_op.getopnum() == rop.GUARD_NOT_FORCED
-        descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self)
-        descr.copy_all_attributes_from(last_guard_op.getdescr())
+        descr = compile.invent_fail_descr_for_op(guard_op.getopnum(), self, True)
+        last_descr = last_guard_op.getdescr()
+        assert isinstance(last_descr, compile.ResumeGuardDescr)
+        if isinstance(descr, compile.ResumeGuardCopiedDescr):
+            descr.prev = last_descr
+        else:
+            descr.copy_all_attributes_from(last_descr)
         guard_op.setdescr(descr)
-        descr.store_final_boxes(guard_op, last_guard_op.getfailargs(),
-                                self.metainterp_sd)
+        guard_op.setfailargs(last_guard_op.getfailargs())
+        descr.store_hash(self.metainterp_sd)
         assert isinstance(guard_op, GuardResOp)
         if guard_op.getopnum() == rop.GUARD_VALUE:
             guard_op = self._maybe_replace_guard_value(guard_op, descr)

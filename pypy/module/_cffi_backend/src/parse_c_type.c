@@ -51,6 +51,9 @@ enum token_e {
     TOK_UNSIGNED,
     TOK_VOID,
     TOK_VOLATILE,
+
+    TOK_CDECL,
+    TOK_STDCALL,
 };
 
 typedef struct {
@@ -165,6 +168,8 @@ static void next_token(token_t *tok)
     switch (*p) {
     case '_':
         if (tok->size == 5 && !memcmp(p, "_Bool", 5))  tok->kind = TOK__BOOL;
+        if (tok->size == 7 && !memcmp(p,"__cdecl",7))  tok->kind = TOK_CDECL;
+        if (tok->size == 9 && !memcmp(p,"__stdcall",9))tok->kind = TOK_STDCALL;
         break;
     case 'c':
         if (tok->size == 4 && !memcmp(p, "char", 4))   tok->kind = TOK_CHAR;
@@ -236,7 +241,7 @@ static int parse_sequel(token_t *tok, int outer)
        type).  The 'outer' argument is the index of the opcode outside
        this "sequel".
      */
-    int check_for_grouping;
+    int check_for_grouping, abi=0;
     _cffi_opcode_t result, *p_current;
 
  header:
@@ -251,6 +256,12 @@ static int parse_sequel(token_t *tok, int outer)
         goto header;
     case TOK_VOLATILE:
         /* ignored for now */
+        next_token(tok);
+        goto header;
+    case TOK_CDECL:
+    case TOK_STDCALL:
+        /* must be in a function; checked below */
+        abi = tok->kind;
         next_token(tok);
         goto header;
     default:
@@ -269,6 +280,11 @@ static int parse_sequel(token_t *tok, int outer)
     while (tok->kind == TOK_OPEN_PAREN) {
         next_token(tok);
 
+        if (tok->kind == TOK_CDECL || tok->kind == TOK_STDCALL) {
+            abi = tok->kind;
+            next_token(tok);
+        }
+
         if ((check_for_grouping--) == 1 && (tok->kind == TOK_STAR ||
                                             tok->kind == TOK_CONST ||
                                             tok->kind == TOK_VOLATILE ||
@@ -286,7 +302,14 @@ static int parse_sequel(token_t *tok, int outer)
         }
         else {
             /* function type */
-            int arg_total, base_index, arg_next, has_ellipsis=0;
+            int arg_total, base_index, arg_next, flags=0;
+
+            if (abi == TOK_STDCALL) {
+                flags = 2;
+                /* note that an ellipsis below will overwrite this flags,
+                   which is the goal: variadic functions are always cdecl */
+            }
+            abi = 0;
 
             if (tok->kind == TOK_VOID && get_following_char(tok) == ')') {
                 next_token(tok);
@@ -315,7 +338,7 @@ static int parse_sequel(token_t *tok, int outer)
                     _cffi_opcode_t oarg;
 
                     if (tok->kind == TOK_DOTDOTDOT) {
-                        has_ellipsis = 1;
+                        flags = 1;   /* ellipsis */
                         next_token(tok);
                         break;
                     }
@@ -339,14 +362,16 @@ static int parse_sequel(token_t *tok, int outer)
                     next_token(tok);
                 }
             }
-            tok->output[arg_next] = _CFFI_OP(_CFFI_OP_FUNCTION_END,
-                                             has_ellipsis);
+            tok->output[arg_next] = _CFFI_OP(_CFFI_OP_FUNCTION_END, flags);
         }
 
         if (tok->kind != TOK_CLOSE_PAREN)
             return parse_error(tok, "expected ')'");
         next_token(tok);
     }
+
+    if (abi != 0)
+        return parse_error(tok, "expected '('");
 
     while (tok->kind == TOK_OPEN_BRACKET) {
         *p_current = _CFFI_OP(_CFFI_GETOP(*p_current), tok->output_index);

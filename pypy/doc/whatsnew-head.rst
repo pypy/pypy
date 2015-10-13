@@ -43,3 +43,34 @@ at least 20 threads.
 .. branch: numpy-ctypes
 
 Add support for ndarray.ctypes property.
+
+.. branch: share-guard-info
+
+Share guard resume data between consecutive guards that have only
+pure operations and guards in between.
+
+.. branch: issue-2148
+
+Fix performance regression on operations mixing numpy scalars and Python 
+floats, cf. issue #2148.
+
+.. branch: cffi-stdcall
+Win32: support '__stdcall' in CFFI.
+
+.. branch: callfamily
+
+Refactorings of annotation and rtyping of function calls.
+
+.. branch: fortran-order
+
+Allow creation of fortran-ordered ndarrays
+
+.. branch: type_system-cleanup
+
+Remove some remnants of the old ootypesystem vs lltypesystem dichotomy.
+
+.. branch: cffi-handle-lifetime
+
+ffi.new_handle() returns handles that work more like CPython's: they
+remain valid as long as the target exists (unlike the previous
+version, where handles become invalid *before* the __del__ is called).

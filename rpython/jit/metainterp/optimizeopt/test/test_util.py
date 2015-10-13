@@ -88,8 +88,6 @@ def test_equaloplists_fail_args():
 # ____________________________________________________________
 
 class LLtypeMixin(object):
-    type_system = 'lltype'
-
     def get_class_of_box(self, box):
         base = box.getref_base()
         return lltype.cast_opaque_ptr(rclass.OBJECTPTR, base).typeptr
@@ -123,7 +121,7 @@ class LLtypeMixin(object):
                             ('value', lltype.Signed),
                             ('next', lltype.Ptr(NODE3)),
                             hints={'immutable': True}))
-    
+
     node = lltype.malloc(NODE)
     node.value = 5
     node.next = node
@@ -236,7 +234,7 @@ class LLtypeMixin(object):
     inst_step = cpu.fielddescrof(W_ROOT, 'inst_step')
     inst_w_list = cpu.fielddescrof(W_ROOT, 'inst_w_list')
     w_root_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
-    
+
     tsize = cpu.sizeof(T, None)
     cdescr = cpu.fielddescrof(T, 'c')
     ddescr = cpu.fielddescrof(T, 'd')
@@ -280,6 +278,8 @@ class LLtypeMixin(object):
     writearraydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                   EffectInfo([], [], [], [adescr], [arraydescr],
                                              []))
+    writevalue3descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                       EffectInfo([], [], [], [valuedescr3], [], []))
     readadescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                  EffectInfo([adescr], [], [], [], [], []))
     mayforcevirtdescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
@@ -460,8 +460,7 @@ final_descr = history.BasicFinalDescr()
 class BaseTest(object):
 
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
-        self.oparse = OpParser(s, self.cpu, self.namespace, 'lltype',
-                               boxkinds,
+        self.oparse = OpParser(s, self.cpu, self.namespace, boxkinds,
                                None, False, postprocess)
         return self.oparse.parse()
 
@@ -569,4 +568,3 @@ def convert_old_style_to_targets(loop, jump):
     return newloop
 
 # ____________________________________________________________
-
