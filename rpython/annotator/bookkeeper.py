@@ -8,12 +8,12 @@ import sys, types, inspect, weakref
 from contextlib import contextmanager
 
 from rpython.flowspace.model import Constant
-from rpython.annotator.model import (SomeOrderedDict,
-    SomeString, SomeChar, SomeFloat, unionof, SomeInstance, SomeDict,
-    SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
+from rpython.annotator.model import (
+    SomeOrderedDict, SomeString, SomeChar, SomeFloat, unionof, SomeInstance,
+    SomeDict, SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty)
+    SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty, AnnotatorError)
 from rpython.annotator.classdef import InstanceSource, ClassDef
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
@@ -223,7 +223,8 @@ class Bookkeeper(object):
                 x = int(x)
                 result = SomeInteger(nonneg = x>=0)
             else:
-                raise Exception("seeing a prebuilt long (value %s)" % hex(x))
+                # XXX: better error reporting?
+                raise ValueError("seeing a prebuilt long (value %s)" % hex(x))
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
             no_nul = not '\x00' in x
             if len(x) == 1:

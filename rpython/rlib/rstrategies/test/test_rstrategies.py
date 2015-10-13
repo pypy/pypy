@@ -69,7 +69,7 @@ class AbstractStrategy(object):
 
 class Factory(rs.StrategyFactory):
     switching_log = []
-    
+
     def __init__(self, root_class):
         self.decorate_strategies({
             EmptyStrategy: [NilStrategy, IntegerStrategy, IntegerOrNilStrategy, GenericStrategy],
@@ -79,15 +79,15 @@ class Factory(rs.StrategyFactory):
             IntegerOrNilStrategy: [GenericStrategy],
         })
         rs.StrategyFactory.__init__(self, root_class)
-    
+
     def instantiate_strategy(self, strategy_type, w_self=None, size=0):
         return strategy_type(self, w_self, size)
-    
-    def set_strategy(self, w_list, strategy): 
+
+    def set_strategy(self, w_list, strategy):
         old_strategy = self.get_strategy(w_list)
         self.switching_log.append((old_strategy, strategy))
         super(Factory, self).set_strategy(w_list, strategy)
-    
+
     def clear_log(self):
         del self.switching_log[:]
 
@@ -107,7 +107,7 @@ class GenericStrategy(AbstractStrategy):
 class WeakGenericStrategy(AbstractStrategy):
     import_from_mixin(rs.WeakGenericStrategy)
     def default_value(self): return w_nil
-    
+
 class IntegerStrategy(AbstractStrategy):
     import_from_mixin(rs.SingleTypeStrategy)
     contained_type = W_Integer
@@ -123,7 +123,7 @@ class IntegerOrNilStrategy(AbstractStrategy):
     def default_value(self): return w_nil
     def wrapped_tagged_value(self): return w_nil
     def unwrapped_tagged_value(self): import sys; return sys.maxint
-    
+
 @rs.strategy(generalize=[], singleton=False)
 class NonSingletonStrategy(GenericStrategy):
     def __init__(self, factory, w_list=None, size=0):
@@ -214,22 +214,22 @@ def test_init_Empty():
     py.test.raises(IndexError, s.fetch, l, 10)
     py.test.raises(IndexError, s.delete, l, 0, 1)
     py.test.raises(AssertionError, W_List, EmptyStrategy, 2) # Only size 0 possible.
-    
+
 def test_init_Nil():
     do_test_initialization(NilStrategy)
 
 def test_init_Generic():
     do_test_initialization(GenericStrategy, is_safe=False)
-    
+
 def test_init_WeakGeneric():
     do_test_initialization(WeakGenericStrategy)
-    
+
 def test_init_Integer():
     do_test_initialization(IntegerStrategy, default_value=W_Integer(0))
-    
+
 def test_init_IntegerOrNil():
     do_test_initialization(IntegerOrNilStrategy)
-    
+
 # === Test Simple store
 
 def do_test_store(cls, stored_value=W_Object(), is_safe=True, is_varsize=False):
@@ -256,13 +256,13 @@ def test_store_Nil():
 
 def test_store_Generic():
     do_test_store(GenericStrategy, is_safe=False)
-    
+
 def test_store_WeakGeneric():
     do_test_store(WeakGenericStrategy, stored_value=w_nil)
-    
+
 def test_store_Integer():
     do_test_store(IntegerStrategy, stored_value=W_Integer(100))
-    
+
 def test_store_IntegerOrNil():
     do_test_store(IntegerOrNilStrategy, stored_value=W_Integer(100))
     do_test_store(IntegerOrNilStrategy, stored_value=w_nil)
@@ -289,17 +289,17 @@ def test_insert_Nil():
 
 def test_insert_Generic():
     do_test_insert(GenericStrategy, [W_Object() for _ in range(6)])
-    
+
 def test_insert_WeakGeneric():
     do_test_insert(WeakGenericStrategy, [W_Object() for _ in range(6)])
-    
+
 def test_insert_Integer():
     do_test_insert(IntegerStrategy, [W_Integer(x) for x in range(6)])
-    
+
 def test_insert_IntegerOrNil():
     do_test_insert(IntegerOrNilStrategy, [w_nil]+[W_Integer(x) for x in range(4)]+[w_nil])
     do_test_insert(IntegerOrNilStrategy, [w_nil]*6)
-    
+
 # === Test Delete
 
 def do_test_delete(cls, values, indexing_unsafe=False):
@@ -319,13 +319,13 @@ def test_delete_Nil():
 
 def test_delete_Generic():
     do_test_delete(GenericStrategy, [W_Object() for _ in range(6)], indexing_unsafe=True)
-    
+
 def test_delete_WeakGeneric():
     do_test_delete(WeakGenericStrategy, [W_Object() for _ in range(6)])
-    
+
 def test_delete_Integer():
     do_test_delete(IntegerStrategy, [W_Integer(x) for x in range(6)])
-    
+
 def test_delete_IntegerOrNil():
     do_test_delete(IntegerOrNilStrategy, [w_nil]+[W_Integer(x) for x in range(4)]+[w_nil])
     do_test_delete(IntegerOrNilStrategy, [w_nil]*6)
@@ -342,7 +342,7 @@ def test_CheckCanHandle():
     obj = W_Object()
     i = W_Integer(0)
     nil = w_nil
-    
+
     assert_handles(EmptyStrategy, [], [nil, obj, i])
     assert_handles(NilStrategy, [nil], [obj, i])
     assert_handles(GenericStrategy, [nil, obj, i], [])
@@ -392,7 +392,7 @@ def test_insert_StrategySwitch_AllNil():
     o = W_Object()
     l = do_test_insert(NilStrategy, [w_nil, w_nil, o, o, w_nil, w_nil])
     assert isinstance(l.strategy, GenericStrategy)
-    
+
 def test_transition_to_nonSingleton():
     l = W_List(NilStrategy, 5)
     factory.switch_strategy(l, NonSingletonStrategy)
@@ -467,12 +467,12 @@ def test_store_all():
     v3 = [W_Object() for _ in range(l.size()) ]
     assert v2 != v
     assert v3 != v
-    
+
     l.store_all(v2)
     assert l.fetch_all() == v2+v[4:]
     l.store_all(v3)
     assert l.fetch_all() == v3
-    
+
     py.test.raises(IndexError, l.store_all, [W_Object() for _ in range(8) ])
 
 # === Test Weak Strategy
@@ -488,7 +488,7 @@ def test_optimized_strategy_switch(monkeypatch):
         assert False, "The default convert_storage_from() should not be called!"
     def convert_storage_from_special(self, w_self, other):
         s.copied += 1
-    
+
     monkeypatch.setattr(AbstractStrategy, "_convert_storage_from_NilStrategy", convert_storage_from_special)
     monkeypatch.setattr(AbstractStrategy, "_convert_storage_from", convert_storage_from_default)
     try:
@@ -507,7 +507,8 @@ def test_strategy_type_for(monkeypatch):
     assert factory.strategy_type_for([]) == EmptyStrategy
     monkeypatch.setattr(GenericStrategy, '_check_can_handle', lambda self, o: False)
     try:
-        py.test.raises(Exception, factory.strategy_type_for, [W_Object(), W_Object()])
+        with py.test.raises(ValueError):
+            factory.strategy_type_for([W_Object(), W_Object()])
     finally:
         monkeypatch.undo()
 
@@ -549,4 +550,3 @@ def test_aggregating_logger(monkeypatch):
         'Created (EmptyStrategy) size 0 objects 1',
         'Created (IntegerStrategy) size 3 objects 1',
         'Switched (IntegerStrategy -> IntegerOrNilStrategy) size 3 objects 1 elements: W_Object']
-    

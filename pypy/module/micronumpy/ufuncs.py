@@ -709,6 +709,32 @@ class W_Ufunc2(W_Ufunc):
             raise oefmt(space.w_TypeError,
                 "ufunc '%s' not supported for the input types", self.name)
 
+def _match_dtypes(space, indtypes, targetdtypes, i_target, casting):
+    allok = True
+    for i in range(len(indtypes)):
+        origin = indtypes[i]
+        target = targetdtypes[i + i_target]
+        if origin is None:
+            continue
+        if target is None:
+            continue
+        if not can_cast_type(space, origin, target, casting):
+            allok = False
+            break
+    return allok
+
+def _raise_err_msg(self, space, dtypes0, dtypes1):
+    dtypesstr = ''
+    for d in dtypes0:
+        if d is None:
+            dtypesstr += 'None,'
+        else:
+            dtypesstr += '%s%s%s,' % (d.byteorder, d.kind, d.elsize)
+    _dtypesstr = ','.join(['%s%s%s' % (d.byteorder, d.kind, d.elsize) \
+                    for d in dtypes1])
+    raise oefmt(space.w_TypeError,
+         "input dtype [%s] did not match any known dtypes [%s] ",
+         dtypesstr,_dtypesstr)
 
 
 class W_UfuncGeneric(W_Ufunc):
@@ -799,29 +825,36 @@ class W_UfuncGeneric(W_Ufunc):
             outargs0 = outargs[0]
             assert isinstance(inargs0, W_NDimArray)
             assert isinstance(outargs0, W_NDimArray)
+            nin = self.nin
+            assert nin >= 0
             res_dtype = outargs0.get_dtype()
             new_shape = inargs0.get_shape()
             # XXX use _find_array_wrap and wrap outargs using __array_wrap__
+            if self.stack_inputs:
+                loop.call_many_to_many(space, new_shape, func,
+                                         dtypes, [], inargs + outargs, [])
+                if len(outargs) < 2:
+                    return outargs[0]
+                return space.newtuple(outargs)
             if len(outargs) < 2:
                 return loop.call_many_to_one(space, new_shape, func,
-                                             res_dtype, inargs, outargs[0])
+                         dtypes[:nin], dtypes[-1], inargs, outargs[0])
             return loop.call_many_to_many(space, new_shape, func,
-                                             res_dtype, inargs, outargs)
+                         dtypes[:nin], dtypes[nin:], inargs, outargs)
+        w_casting = space.w_None
+        w_op_dtypes = space.w_None
         for tf in need_to_cast:
             if tf:
-                raise oefmt(space.w_NotImplementedError, "casting not supported yet")
+                w_casting = space.wrap('safe')
+                w_op_dtypes = space.newtuple([space.wrap(d) for d in dtypes])
+                
         w_flags = space.w_None # NOT 'external_loop', we do coalescing by core_num_dims
-        w_op_flags = space.newtuple([space.wrap(r) for r in ['readonly'] * len(inargs)] + \
-                                    [space.wrap(r) for r in ['readwrite'] * len(outargs)])
-        w_op_dtypes = space.w_None
-        w_casting = space.w_None
+        w_ro = space.newtuple([space.wrap('readonly'), space.wrap('copy')])
+        w_rw = space.newtuple([space.wrap('readwrite'), space.wrap('updateifcopy')])
+        
+        w_op_flags = space.newtuple([w_ro] * len(inargs) + [w_rw] * len(outargs))
         w_op_axes = space.w_None
 
-        #print '\nsignature', sig
-        #print [(d, getattr(self,d)) for d in dir(self) if 'core' in d or 'broad' in d]
-        #print [(d, locals()[d]) for d in locals() if 'core' in d or 'broad' in d]
-        #print 'shapes',[d.get_shape() for d in inargs + outargs]
-        #print 'steps',[d.implementation.strides for d in inargs + outargs]
         if isinstance(func, W_GenericUFuncCaller):
             # Use GeneralizeUfunc interface with signature
             # Unlike numpy, we will not broadcast dims before
@@ -934,19 +967,32 @@ class W_UfuncGeneric(W_Ufunc):
         # linear_search_type_resolver in numpy ufunc_type_resolutions.c
         # type_tup can be '', a tuple of dtypes, or a string
         # of the form d,t -> D where the letters are dtype specs
-        nop = len(inargs) + len(outargs)
+
+        # XXX why does the next line not pass translation?
+        # dtypes = [i.get_dtype() for i in inargs]
         dtypes = []
+        for i in inargs:
+            if isinstance(i, W_NDimArray):
+                dtypes.append(i.get_dtype())
+            else:
+                dtypes.append(None)
+        for i in outargs:
+            if isinstance(i, W_NDimArray):
+                dtypes.append(i.get_dtype())
+            else:
+                dtypes.append(None)
         if isinstance(type_tup, str) and len(type_tup) > 0:
             try:
                 if len(type_tup) == 1:
-                    dtypes = [get_dtype_cache(space).dtypes_by_name[type_tup]] * self.nargs
+                    s_dtypes = [get_dtype_cache(space).dtypes_by_name[type_tup]] * self.nargs
                 elif len(type_tup) == self.nargs + 2:
+                    s_dtypes = []
                     for i in range(self.nin):
-                        dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[i]])
+                        s_dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[i]])
                     #skip the '->' in the signature
                     for i in range(self.nout):
                         j = i + self.nin + 2
-                        dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[j]])
+                        s_dtypes.append(get_dtype_cache(space).dtypes_by_name[type_tup[j]])
                 else:
                     raise oefmt(space.w_TypeError, "a type-string for %s " \
                         "requires 1 typecode or %d typecode(s) before and %d" \
@@ -955,42 +1001,29 @@ class W_UfuncGeneric(W_Ufunc):
             except KeyError:
                 raise oefmt(space.w_ValueError, "unknown typecode in" \
                         " call to %s with type-string '%s'", self.name, type_tup)
-        else:
-            # XXX why does the next line not pass translation?
-            # dtypes = [i.get_dtype() for i in inargs]
-            for i in inargs:
-                if isinstance(i, W_NDimArray):
-                    dtypes.append(i.get_dtype())
-                else:
-                    dtypes.append(None)
-            for i in outargs:
-                if isinstance(i, W_NDimArray):
-                    dtypes.append(i.get_dtype())
-                else:
-                    dtypes.append(None)
+            # Make sure args can be cast to dtypes
+            if not _match_dtypes(space, dtypes, s_dtypes, 0, "safe"):
+                _raise_err_msg(self, space, dtypes, s_dtypes)
+            dtypes = s_dtypes    
         #Find the first matchup of dtypes with _dtypes
         for i in range(0, len(_dtypes), self.nargs):
-            allok = True
-            for j in range(self.nargs):
-                if dtypes[j] is not None and dtypes[j] != _dtypes[i+j]:
-                    allok = False
+            allok = _match_dtypes(space, dtypes, _dtypes, i, "no")
             if allok:
                 break
         else:
-            if len(self.funcs) > 1:
-
-                dtypesstr = ''
-                for d in dtypes:
-                    if d is None:
-                        dtypesstr += 'None,'
-                    else:
-                        dtypesstr += '%s%s%s,' % (d.byteorder, d.kind, d.elsize)
-                _dtypesstr = ','.join(['%s%s%s' % (d.byteorder, d.kind, d.elsize) \
-                                for d in _dtypes])
-                raise oefmt(space.w_TypeError,
-                     "input dtype [%s] did not match any known dtypes [%s] ",
-                     dtypesstr,_dtypesstr)
-            i = 0
+            # No exact matches, can we cast?
+            for i in range(0, len(_dtypes), self.nargs):
+                allok = _match_dtypes(space, dtypes, _dtypes, i, "safe")
+                if allok:
+                    end = i + self.nargs
+                    assert i >= 0
+                    assert end >=0
+                    dtypes = _dtypes[i:end]
+                    break
+            else:
+                if len(self.funcs) > 1:
+                    _raise_err_msg(self, space, dtypes, _dtypes)
+                i = 0
         # Fill in empty dtypes
         for j in range(self.nargs):
             if dtypes[j] is None:
@@ -1086,7 +1119,7 @@ class W_UfuncGeneric(W_Ufunc):
             for j in range(offset, len(iter_shape)):
                 x = iter_shape[j + offset]
                 y = dims_to_broadcast[j]
-                if (x > y and x % y) or y %x:
+                if y != 0 and x != 0 and ((x > y and x % y) or y %x):
                     raise oefmt(space.w_ValueError, "%s: %s operand %d has a "
                         "mismatch in its broadcast dimension %d "
                         "(size %d is different from %d)",
@@ -1123,7 +1156,7 @@ class W_UfuncGeneric(W_Ufunc):
         # the current op (signalling it can handle ndarray's).
 
         # TODO parse and handle subok
-        # TODO handle flags, op_flags
+        # TODO handle more flags, op_flags
         #print 'iter_shape',iter_shape,'arg_shapes',arg_shapes,'matched_dims',matched_dims
         return iter_shape, arg_shapes, matched_dims
 

@@ -1,8 +1,8 @@
 from rpython.rtyper import extregistry
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem.lltype import typeOf, FuncType, functionptr
-from rpython.annotator import model as annmodel
-from rpython.annotator.signature import annotation
+from rpython.annotator.model import unionof
+from rpython.annotator.signature import annotation, SignatureError
 
 import py, sys
 
@@ -130,7 +130,7 @@ class ExtFuncEntry(ExtRegistryEntry):
                "Argument number mismatch"
 
         for i, expected in enumerate(signature_args):
-            arg = annmodel.unionof(args_s[i], expected)
+            arg = unionof(args_s[i], expected)
             if not expected.contains(arg):
                 name = getattr(self, 'name', None)
                 if not name:
@@ -138,7 +138,7 @@ class ExtFuncEntry(ExtRegistryEntry):
                         name = self.instance.__name__
                     except AttributeError:
                         name = '?'
-                raise Exception("In call to external function %r:\n"
+                raise SignatureError("In call to external function %r:\n"
                                 "arg %d must be %s,\n"
                                 "          got %s" % (
                     name, i+1, expected, args_s[i]))
