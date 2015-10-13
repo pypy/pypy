@@ -531,6 +531,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                              getfn(func,
                                                    [SomeAddress()],
                                                    annmodel.s_None)
+        self.malloc_nonmovable_ptr = getfn(GCClass.malloc_fixedsize_nonmovable,
+                                           [s_gc, s_typeid16],
+                                           s_gcref)
 
     def create_custom_trace_funcs(self, gc, rtyper):
         custom_trace_funcs = tuple(rtyper.custom_trace_funcs)
@@ -757,7 +760,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
         c_has_light_finalizer = rmodel.inputconst(lltype.Bool,
                                                   has_light_finalizer)
 
-        if not op.opname.endswith('_varsize') and not flags.get('varsize'):
+        if flags.get('nonmovable'):
+            assert op.opname == 'malloc'
+            assert not flags.get('varsize')
+            malloc_ptr = self.malloc_nonmovable_ptr
+            args = [self.c_const_gc, c_type_id]
+        elif not op.opname.endswith('_varsize') and not flags.get('varsize'):
             zero = flags.get('zero', False)
             if (self.malloc_fast_ptr is not None and
                 not c_has_finalizer.value and

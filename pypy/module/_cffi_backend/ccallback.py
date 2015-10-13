@@ -1,14 +1,14 @@
 """
 Callbacks.
 """
-import sys, os
+import sys, os, py
 
-from rpython.rlib import clibffi, jit, jit_libffi
+from rpython.rlib import clibffi, jit, jit_libffi, rgc, objectmodel
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.module._cffi_backend import cerrno, misc, handle
+from pypy.module._cffi_backend import cerrno, misc
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, W_CTypeFunc
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
@@ -17,6 +17,23 @@ from pypy.module._cffi_backend.ctypevoid import W_CTypeVoid
 BIG_ENDIAN = sys.byteorder == 'big'
 
 # ____________________________________________________________
+
+
+@jit.dont_look_inside
+def make_callback(space, ctype, w_callable, w_error, w_onerror):
+    # Allocate a callback as a nonmovable W_CDataCallback instance, which
+    # we can cast to a plain VOIDP.  As long as the object is not freed,
+    # we can cast the VOIDP back to a W_CDataCallback in reveal_callback().
+    cdata = objectmodel.instantiate(W_CDataCallback, nonmovable=True)
+    gcref = rgc.cast_instance_to_gcref(cdata)
+    raw_cdata = rgc.hide_nonmovable_gcref(gcref)
+    cdata.__init__(space, ctype, w_callable, w_error, w_onerror, raw_cdata)
+    return cdata
+
+def reveal_callback(raw_ptr):
+    addr = rffi.cast(llmemory.Address, raw_ptr)
+    gcref = rgc.reveal_gcref(addr)
+    return rgc.try_cast_gcref_to_instance(W_CDataCallback, gcref)
 
 
 class Closure(object):
@@ -37,7 +54,8 @@ class W_CDataCallback(W_CData):
     _immutable_fields_ = ['key_pycode']
     w_onerror = None
 
-    def __init__(self, space, ctype, w_callable, w_error, w_onerror):
+    def __init__(self, space, ctype, w_callable, w_error, w_onerror,
+                 raw_cdata):
         raw_closure = rffi.cast(rffi.CCHARP, clibffi.closureHeap.alloc())
         self._closure = Closure(raw_closure)
         W_CData.__init__(self, space, raw_closure, ctype)
@@ -72,8 +90,6 @@ class W_CDataCallback(W_CData):
             from pypy.module.thread.os_thread import setup_threads
             setup_threads(space)
         #
-        handle_index = handle.get_handles(space).reserve_next_handle_index()
-        #
         cif_descr = self.getfunctype().cif_descr
         if not cif_descr:
             raise oefmt(space.w_NotImplementedError,
@@ -81,16 +97,13 @@ class W_CDataCallback(W_CData):
                         "return type or with '...'", self.getfunctype().name)
         with self as ptr:
             closure_ptr = rffi.cast(clibffi.FFI_CLOSUREP, ptr)
-            unique_id = rffi.cast(rffi.VOIDP, handle_index)
+            unique_id = rffi.cast(rffi.VOIDP, raw_cdata)
             res = clibffi.c_ffi_prep_closure(closure_ptr, cif_descr.cif,
                                              invoke_callback,
                                              unique_id)
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
             raise OperationError(space.w_SystemError,
                 space.wrap("libffi failed to build this callback"))
-        #
-        _current_space.space = space
-        handle.get_handles(space).store_handle(handle_index, self)
 
     def _repr_extra(self):
         space = self.space
@@ -221,12 +234,6 @@ def py_invoke_callback(callback, ll_res, ll_args):
     except OperationError, e:
         _handle_applevel_exception(callback, e, ll_res, extra_line)
 
-class CurrentSpace:
-    def _cleanup_(self):
-        if hasattr(self, 'space'):
-            del self.space
-_current_space = CurrentSpace()
-
 def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care
@@ -236,10 +243,8 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
                   (what the real callback is for example), casted to VOIDP
     """
     ll_res = rffi.cast(rffi.CCHARP, ll_res)
-    unique_id = rffi.cast(lltype.Signed, ll_userdata)
-    space = _current_space.space
-    callback = handle.get_handles(space).fetch_handle(unique_id)
-    if callback is None or not isinstance(callback, W_CDataCallback):
+    callback = reveal_callback(ll_userdata)
+    if callback is None:
         # oups!
         try:
             os.write(STDERR, "SystemError: invoking a callback "
@@ -251,6 +256,7 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         misc._raw_memclear(ll_res, SIZE_OF_FFI_ARG)
         return
     #
+    space = callback.space
     must_leave = False
     try:
         must_leave = space.threadlocals.try_enter_thread(space)

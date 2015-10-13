@@ -1609,6 +1609,15 @@ class Assembler386(BaseAssembler):
         self.implement_guard(guard_token)
         self._store_and_reset_exception(self.mc, resloc)
 
+    def genop_save_exc_class(self, op, arglocs, resloc):
+        self.mc.MOV(resloc, heap(self.cpu.pos_exception()))
+
+    def genop_save_exception(self, op, arglocs, resloc):
+        self._store_and_reset_exception(self.mc, resloc)
+
+    def genop_discard_restore_exception(self, op, arglocs):
+        self._restore_exception(self.mc, arglocs[1], arglocs[0])
+
     def _store_and_reset_exception(self, mc, excvalloc=None, exctploc=None,
                                    tmploc=None):
         """ Resest the exception. If excvalloc is None, then store it on the
