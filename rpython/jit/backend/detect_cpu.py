@@ -83,7 +83,7 @@ def detect_model_from_host_platform():
                 result = MODEL_X86
             else:
                 result = MODEL_X86_NO_SSE2
-            if detect_feature.detect_x32_mode():
+            if feature.detect_x32_mode():
                 raise ProcessorAutodetectError(
                     'JITting in x32 mode is not implemented')
 
