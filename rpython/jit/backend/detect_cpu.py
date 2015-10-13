@@ -115,7 +115,7 @@ def getcpuclassname(backend_name="auto"):
     elif backend_name == MODEL_ARM:
         return "rpython.jit.backend.arm.runner", "CPU_ARM"
     elif backend_name == MODEL_S390_64:
-        return "rpython.jit.backend.zarch.runner", "CPU_ZARCH"
+        return "rpython.jit.backend.zarch.runner", "CPU_S390_64"
     else:
         raise ProcessorAutodetectError, (
             "we have no JIT backend for this cpu: '%s'" % backend_name)
