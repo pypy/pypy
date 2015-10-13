@@ -576,33 +576,32 @@ class ClassDesc(Desc):
     def getclassdef(self, key):
         if self.classdef is not None:
             return self.classdef
-        else:
-            from rpython.annotator.classdef import ClassDef
-            classdef = ClassDef(self.bookkeeper, self)
-            self.bookkeeper.classdefs.append(classdef)
-            self.classdef = classdef
+        from rpython.annotator.classdef import ClassDef
+        classdef = ClassDef(self.bookkeeper, self)
+        self.bookkeeper.classdefs.append(classdef)
+        self.classdef = classdef
 
-            # forced attributes
-            cls = self.pyobj
-            if cls in FORCE_ATTRIBUTES_INTO_CLASSES:
-                for name, s_value in FORCE_ATTRIBUTES_INTO_CLASSES[cls].items():
-                    classdef.generalize_attr(name, s_value)
-                    classdef.find_attribute(name).modified(classdef)
+        # forced attributes
+        cls = self.pyobj
+        if cls in FORCE_ATTRIBUTES_INTO_CLASSES:
+            for name, s_value in FORCE_ATTRIBUTES_INTO_CLASSES[cls].items():
+                classdef.generalize_attr(name, s_value)
+                classdef.find_attribute(name).modified(classdef)
 
-            # register all class attributes as coming from this ClassDesc
-            # (as opposed to prebuilt instances)
-            classsources = {}
-            for attr in self.classdict:
-                classsources[attr] = self    # comes from this ClassDesc
-            classdef.setup(classsources)
-            # look for a __del__ method and annotate it if it's there
-            if '__del__' in self.classdict:
-                from rpython.annotator.model import s_None, SomeInstance
-                s_func = self.s_read_attribute('__del__')
-                args_s = [SomeInstance(classdef)]
-                s = self.bookkeeper.emulate_pbc_call(classdef, s_func, args_s)
-                assert s_None.contains(s)
-            return classdef
+        # register all class attributes as coming from this ClassDesc
+        # (as opposed to prebuilt instances)
+        classsources = {}
+        for attr in self.classdict:
+            classsources[attr] = self    # comes from this ClassDesc
+        classdef.setup(classsources)
+        # look for a __del__ method and annotate it if it's there
+        if '__del__' in self.classdict:
+            from rpython.annotator.model import s_None, SomeInstance
+            s_func = self.s_read_attribute('__del__')
+            args_s = [SomeInstance(classdef)]
+            s = self.bookkeeper.emulate_pbc_call(classdef, s_func, args_s)
+            assert s_None.contains(s)
+        return classdef
 
     def getuniqueclassdef(self):
         return self.getclassdef(None)
