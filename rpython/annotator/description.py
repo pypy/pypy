@@ -574,8 +574,9 @@ class ClassDesc(Desc):
             self.add_source_attribute(name, value)
 
     def getclassdef(self, key):
-        if self.classdef is not None:
-            return self.classdef
+        return self.getuniqueclassdef()
+
+    def _init_classdef(self):
         from rpython.annotator.classdef import ClassDef
         classdef = ClassDef(self.bookkeeper, self)
         self.bookkeeper.classdefs.append(classdef)
@@ -604,7 +605,9 @@ class ClassDesc(Desc):
         return classdef
 
     def getuniqueclassdef(self):
-        return self.getclassdef(None)
+        if self.classdef is None:
+            self._init_classdef()
+        return self.classdef
 
     def pycall(self, whence, args, s_previous_result, op=None):
         from rpython.annotator.model import SomeInstance, SomeImpossibleValue
