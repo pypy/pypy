@@ -15,6 +15,7 @@ MODEL_X86_NO_SSE2 = 'x86-without-sse2'
 MODEL_X86_64      = 'x86-64'
 MODEL_ARM         = 'arm'
 MODEL_PPC_64      = 'ppc-64'
+MODEL_S390_64     = 's390x'
 # don't use '_' in the model strings; they are replaced by '-'
 
 
@@ -26,6 +27,7 @@ def detect_model_from_c_compiler():
         MODEL_ARM:    ['__arm__', '__thumb__','_M_ARM_EP'],
         MODEL_X86:    ['i386', '__i386', '__i386__', '__i686__','_M_IX86'],
         MODEL_PPC_64: ['__powerpc64__'],
+        MODEL_S390_64:['__s390x__'],
     }
     for k, v in mapping.iteritems():
         for macro in v:
@@ -64,6 +66,7 @@ def detect_model_from_host_platform():
             'armv7l': MODEL_ARM,
             'armv6l': MODEL_ARM,
             'arm': MODEL_ARM,      # freebsd
+            's390x': MODEL_S390_64
             }.get(mach)
 
     if result is None:
@@ -111,6 +114,8 @@ def getcpuclassname(backend_name="auto"):
         return "rpython.jit.backend.x86.runner", "CPU_X86_64"
     elif backend_name == MODEL_ARM:
         return "rpython.jit.backend.arm.runner", "CPU_ARM"
+    elif backend_name == MODEL_S390_64:
+        return "rpython.jit.backend.zarch.runner", "CPU_ZARCH"
     else:
         raise ProcessorAutodetectError, (
             "we have no JIT backend for this cpu: '%s'" % backend_name)
@@ -130,6 +135,7 @@ def getcpufeatures(backend_name="auto"):
         MODEL_X86_64: ['floats', 'singlefloats'],
         MODEL_ARM: ['floats', 'singlefloats', 'longlong'],
         MODEL_PPC_64: [], # we don't even have PPC directory, so no
+        MODEL_S390_64: [],
     }[backend_name]
 
 if __name__ == '__main__':
