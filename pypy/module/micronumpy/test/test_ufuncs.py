@@ -198,6 +198,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ai2 = ufunc(aiV)
         assert (ai2 == aiV * 2).all()
 
+        ai = arange(0).reshape(0, 1, 1)
+        ao = ufunc(ai)
+        assert ao.shape == (0, 1, 1)
+
     def test_frompyfunc_needs_nditer(self):
         import sys
         from numpy import frompyfunc, dtype, arange
