@@ -79,6 +79,7 @@ def allocate_lock():
 
 @specialize.arg(0)
 def ll_start_new_thread(func):
+    _check_thread_enabled()
     ident = c_thread_start(func)
     if ident == -1:
         raise error("can't start new thread")
@@ -169,6 +170,18 @@ class Lock(object):
 
     def _cleanup_(self):
         raise Exception("seeing a prebuilt rpython.rlib.rthread.Lock instance")
+
+def _check_thread_enabled():
+    pass
+class Entry(ExtRegistryEntry):
+    _about_ = _check_thread_enabled
+    def compute_result_annotation(self):
+        translator = self.bookkeeper.annotator.translator
+        if not translator.config.translation.thread:
+            raise Exception(
+                "this RPython program uses threads: translate with '--thread'")
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
 
 # ____________________________________________________________
 #
