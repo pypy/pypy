@@ -3,6 +3,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt.optimizer import BasicLoopInfo
 from rpython.jit.metainterp.compile import (send_bridge_to_backend, record_loop_or_bridge,
         ResumeGuardDescr, create_empty_loop)
+from rpython.jit.metainterp.history import AbstractFailDescr
 
 
 class LoopVersionInfo(BasicLoopInfo):
@@ -69,7 +70,7 @@ class LoopVersionInfo(BasicLoopInfo):
                 # the guard might have been removed from the trace
                 continue
             if version not in compiled:
-                assert isinstance(descr, ResumeGuardDescr)
+                assert isinstance(descr, AbstractFailDescr)
                 vl = version.create_backend_loop(metainterp, jitcell_token)
                 asminfo = send_bridge_to_backend(jitdriver_sd, metainterp_sd,
                                                  descr, vl.inputargs,

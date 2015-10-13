@@ -8,7 +8,8 @@ from rpython.jit.metainterp.optimizeopt.renamer import Renamer
 from rpython.jit.metainterp.optimizeopt.dependency import (DependencyGraph,
         MemoryRef, Node, IndexVar)
 from rpython.jit.metainterp.resoperation import (rop, ResOperation, GuardResOp)
-from rpython.jit.metainterp.history import (ConstInt, ConstFloat, Const)
+from rpython.jit.metainterp.history import (ConstInt, ConstFloat, Const,
+        AbstractFailDescr)
 from rpython.jit.metainterp.compile import ResumeGuardDescr, CompileLoopVersionDescr
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -88,7 +89,7 @@ class Guard(object):
         descr = CompileLoopVersionDescr()
         descr.copy_all_attributes_from(self.op.getdescr())
         descr.rd_vector_info = None # do not copy the accum list
-        assert isinstance(descr, ResumeGuardDescr)
+        assert isinstance(descr, AbstractFailDescr)
         guard = ResOperation(self.op.getopnum(), [compare], descr=descr)
         guard.setfailargs(loop.label.getarglist_copy())
         opt.emit_operation(guard)
@@ -261,7 +262,7 @@ class GuardStrengthenOpt(object):
                 continue
             descr = op.getdescr()
             if descr and descr.loop_version():
-                assert isinstance(descr, ResumeGuardDescr)
+                assert isinstance(descr, AbstractFailDescr)
                 info.track(op, descr, version)
 
         if user_code:
@@ -293,7 +294,7 @@ class GuardStrengthenOpt(object):
                     info.remove(other.op.getdescr())
                     other.set_to_none(info, loop)
                     descr = transitive_guard.getdescr()
-                    assert isinstance(descr, ResumeGuardDescr)
+                    assert isinstance(descr, AbstractFailDescr)
                     info.track(transitive_guard, descr, version)
         info.clear()
 
