@@ -1,4 +1,5 @@
 import py
+from rpython.annotator.model import UnionError
 from rpython.rlib import rgc
 from rpython.rlib.rweakref import RWeakKeyDictionary
 from rpython.rtyper.test.test_llinterp import interpret
@@ -120,6 +121,9 @@ def test_rpython_merge_RWeakKeyDictionary2():
     f(1)
     interpret(f, [1])
 
+@py.test.mark.xfail(
+    reason="may fail with AssertionError, depending on annotation order")
+def test_rpython_merge_RWeakKeyDictionary3():
     def g(x):
         if x:
             d = RWeakKeyDictionary(KX, VX)
@@ -127,9 +131,12 @@ def test_rpython_merge_RWeakKeyDictionary2():
             d = RWeakKeyDictionary(KY, VX)
         d.set(KX(), VX())
 
-    with py.test.raises(Exception):
+    with py.test.raises(UnionError):
         interpret(g, [1])
 
+@py.test.mark.xfail(
+    reason="may fail with AssertionError, depending on annotation order")
+def test_rpython_merge_RWeakKeyDictionary4():
     def g(x):
         if x:
             d = RWeakKeyDictionary(KX, VX)
@@ -137,12 +144,11 @@ def test_rpython_merge_RWeakKeyDictionary2():
             d = RWeakKeyDictionary(KX, VY)
         d.set(KX(), VX())
 
-    with py.test.raises(Exception):
+    with py.test.raises(UnionError):
         interpret(g, [1])
 
-
+@py.test.mark.xfail(reason="not implemented, messy")
 def test_rpython_free_values():
-    import py; py.test.skip("XXX not implemented, messy")
     class VXDel:
         def __del__(self):
             state.freed.append(1)

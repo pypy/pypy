@@ -1,4 +1,5 @@
 import py
+from rpython.annotator.model import UnionError
 from rpython.rlib import rgc
 from rpython.rlib.rweakref import RWeakValueDictionary
 from rpython.rtyper.test.test_llinterp import interpret
@@ -144,7 +145,7 @@ def test_rpython_merge_RWeakValueDictionary2():
             d = RWeakValueDictionary(str, Y)
         d.set("x", X())
 
-    with py.test.raises(Exception):
+    with py.test.raises(UnionError):
         interpret(g, [1])
 
 
