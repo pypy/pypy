@@ -417,8 +417,7 @@ class ClassDesc(Desc):
     _detect_invalid_attrs = None
 
     def __init__(self, bookkeeper, cls,
-                 name=None, basedesc=None, classdict=None,
-                 specialize=None):
+                 name=None, basedesc=None, classdict=None):
         super(ClassDesc, self).__init__(bookkeeper, cls)
         if '__NOT_RPYTHON__' in cls.__dict__:
             raise AnnotatorError('Bad class')
@@ -430,9 +429,10 @@ class ClassDesc(Desc):
         if classdict is None:
             classdict = {}    # populated below
         self.classdict = classdict     # {attr: Constant-or-Desc}
-        if specialize is None:
-            specialize = cls.__dict__.get('_annspecialcase_', '')
-        self.specialize = specialize
+        if cls.__dict__.get('_annspecialcase_', ''):
+            raise AnnotatorError(
+                "Class specialization has been removed. The "
+                "'_annspecialcase_' class tag is now unsupported.")
         self._classdefs = {}
 
         if is_mixin(cls):
@@ -516,16 +516,6 @@ class ClassDesc(Desc):
             # for debugging
             if not hasattr(value, 'class_'):
                 value.class_ = self.pyobj
-            if self.specialize:
-                # make a custom funcdesc that specializes on its first
-                # argument (i.e. 'self').
-                from rpython.annotator.specialize import specialize_argtype
-                def argtype0(funcdesc, args_s):
-                    return specialize_argtype(funcdesc, args_s, 0)
-                funcdesc = FunctionDesc(self.bookkeeper, value,
-                                        specializer=argtype0)
-                self.classdict[name] = funcdesc
-                return
             if mixin:
                 # make a new copy of the FunctionDesc for this class,
                 # but don't specialize further for all subclasses
@@ -618,26 +608,11 @@ class ClassDesc(Desc):
             return classdef
 
     def getuniqueclassdef(self):
-        if self.specialize:
-            raise Exception("not supported on class %r because it needs "
-                            "specialization" % (self.name,))
         return self.getclassdef(None)
 
     def pycall(self, whence, args, s_previous_result, op=None):
         from rpython.annotator.model import SomeInstance, SomeImpossibleValue
-        if self.specialize:
-            if self.specialize == 'specialize:ctr_location':
-                # We use the SomeInstance annotation returned the last time
-                # to make sure we use the same ClassDef this time.
-                if isinstance(s_previous_result, SomeInstance):
-                    classdef = s_previous_result.classdef
-                else:
-                    classdef = self.getclassdef(object())
-            else:
-                raise Exception("unsupported specialization tag: %r" % (
-                    self.specialize,))
-        else:
-            classdef = self.getuniqueclassdef()
+        classdef = self.getuniqueclassdef()
         s_instance = SomeInstance(classdef)
         # look up __init__ directly on the class, bypassing the normal
         # lookup mechanisms ClassDef (to avoid influencing Attribute placement)

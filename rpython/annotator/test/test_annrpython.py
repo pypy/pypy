@@ -758,19 +758,6 @@ class TestAnnotateTestCase:
         s = a.build_types(snippet.call_star_args_multiple, [int])
         assert s.knowntype == int
 
-    def test_class_spec(self):
-        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
-        s = a.build_types(snippet.class_spec, [])
-        assert s.items[0].knowntype == int
-        assert s.items[1].knowntype == str
-
-    def test_class_spec_confused(self):
-        x = snippet.PolyStk()
-        def f():
-            return x
-        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
-        py.test.raises(Exception, a.build_types, f, [])
-
     def test_exception_deduction_with_raise1(self):
         a = self.RPythonAnnotator()
         s = a.build_types(snippet.exception_deduction_with_raise1, [bool])
@@ -3298,8 +3285,8 @@ class TestAnnotateTestCase:
             b.x = str(n)
             return len(b.x) + a.x
         a = self.RPythonAnnotator()
-        s = a.build_types(f, [int])
-        assert isinstance(s, annmodel.SomeInteger)
+        with py.test.raises(annmodel.AnnotatorError):
+            s = a.build_types(f, [int])
 
     def test_weakref(self):
         import weakref
