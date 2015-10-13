@@ -159,7 +159,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         af2 = ufunc(af)
         assert all(af2 == af * 2)
         ac = arange(10, dtype=complex)
-        ac1 = ufunc(ac)
+        raises(TypeError, ufunc, ac)
 
     def test_frompyfunc_2d_sig(self):
         import sys
@@ -266,6 +266,54 @@ class AppTestUfuncs(BaseNumpyAppTest):
         out0 = times2(in0)
         assert out0.shape == in0.shape
         assert (out0 == in0 * 2).all()
+
+    def test_frompyfunc_casting(self):
+        import sys
+        import numpy as np
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
+
+        def times2_int(in0, out0):
+            assert in0.dtype == int
+            assert out0.dtype == int
+            # hack to assing to a 0-dim array
+            out0.real = in0 * 2
+
+        def times2_complex(in0, out0):
+            assert in0.dtype == complex
+            assert out0.dtype == complex
+            out0.real = in0.real * 2
+            out0.imag = in0.imag
+
+        def times2_complex0(in0):
+            assert in0.dtype == complex
+            return in0 * 2
+
+        def times2_int0(in0):
+            assert in0.dtype == int
+            return in0 * 2
+
+        times2stacked = np.frompyfunc([times2_int, times2_complex], 1, 1,
+                            dtypes=[np.dtype(int), np.dtype(int),
+                                np.dtype(complex), np.dtype(complex)],
+                            stack_inputs=True, signature='()->()',
+                          )
+        times2 = np.frompyfunc([times2_int0, times2_complex0], 1, 1,
+                            dtypes=[np.dtype(int), np.dtype(int),
+                                np.dtype(complex), np.dtype(complex)],
+                            stack_inputs=False,
+                          )
+        for d in [np.dtype(float), np.dtype('uint8'), np.dtype('complex64')]:
+            in0 = np.arange(4, dtype=d)
+            out0 = times2stacked(in0)
+            assert out0.shape == in0.shape
+            assert out0.dtype in (int, complex) 
+            assert (out0 == in0 * 2).all()
+
+            out0 = times2(in0)
+            assert out0.shape == in0.shape
+            assert out0.dtype in (int, complex) 
+            assert (out0 == in0 * 2).all()
 
     def test_ufunc_kwargs(self):
         from numpy import ufunc, frompyfunc, arange, dtype
