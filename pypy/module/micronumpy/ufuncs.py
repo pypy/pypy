@@ -820,12 +820,13 @@ class W_UfuncGeneric(W_Ufunc):
         iter_shape, arg_shapes, matched_dims = self.verify_args(space, inargs, outargs)
         inargs, outargs, need_to_cast = self.alloc_args(space, inargs, outargs, dtypes,
                                           arg_shapes)
-        print 'call', self.external_loop, need_to_cast, dtypes, [a.get_dtype() for a in inargs], [a.get_dtype() for a in outargs]
         if not self.external_loop:
             inargs0 = inargs[0]
             outargs0 = outargs[0]
             assert isinstance(inargs0, W_NDimArray)
             assert isinstance(outargs0, W_NDimArray)
+            nin = self.nin
+            assert nin >= 0
             res_dtype = outargs0.get_dtype()
             new_shape = inargs0.get_shape()
             # XXX use _find_array_wrap and wrap outargs using __array_wrap__
@@ -834,12 +835,12 @@ class W_UfuncGeneric(W_Ufunc):
                                          dtypes, [], inargs + outargs, [])
                 if len(outargs) < 2:
                     return outargs[0]
-                return outargs
+                return space.newtuple(outargs)
             if len(outargs) < 2:
                 return loop.call_many_to_one(space, new_shape, func,
-                         dtypes[:self.nin], dtypes[-1], inargs, outargs[0])
+                         dtypes[:nin], dtypes[-1], inargs, outargs[0])
             return loop.call_many_to_many(space, new_shape, func,
-                         dtypes[:self.nin], dtypes[self.nin:], inargs, outargs)
+                         dtypes[:nin], dtypes[nin:], inargs, outargs)
         w_casting = space.w_None
         w_op_dtypes = space.w_None
         for tf in need_to_cast:
@@ -1014,7 +1015,10 @@ class W_UfuncGeneric(W_Ufunc):
             for i in range(0, len(_dtypes), self.nargs):
                 allok = _match_dtypes(space, dtypes, _dtypes, i, "safe")
                 if allok:
-                    dtypes = _dtypes[i:i+self.nargs]
+                    end = i + self.nargs
+                    assert i >= 0
+                    assert end >=0
+                    dtypes = _dtypes[i:end]
                     break
             else:
                 if len(self.funcs) > 1:
@@ -1152,7 +1156,7 @@ class W_UfuncGeneric(W_Ufunc):
         # the current op (signalling it can handle ndarray's).
 
         # TODO parse and handle subok
-        # TODO handle flags, op_flags
+        # TODO handle more flags, op_flags
         #print 'iter_shape',iter_shape,'arg_shapes',arg_shapes,'matched_dims',matched_dims
         return iter_shape, arg_shapes, matched_dims
 

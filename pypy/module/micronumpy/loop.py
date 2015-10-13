@@ -139,10 +139,10 @@ def call_many_to_many(space, shape, func, in_dtypes, out_dtypes, in_args, out_ar
         test_iter, test_state = out_iters[0], out_states[0]
     while not test_iter.done(test_state):
         call_many_to_many_driver.jit_merge_point(shapelen=shapelen, func=func,
-                             in_dtypes=in_dtypes, out_dtypes=out_dtypes, nin=nin, nout=nout)
+                             in_dtypes=in_dtypes, out_dtypes=out_dtypes,
+                             nin=nin, nout=nout)
         for i in range(nin):
             vals[i] = in_dtypes[i].coerce(space, in_iters[i].getitem(in_states[i]))
-        print 'vals', vals
         w_arglist = space.newlist(vals)
         w_outvals = space.call_args(func, Arguments.frompacked(space, w_arglist))
         # w_outvals should be a tuple, but func can return a single value as well
@@ -156,7 +156,7 @@ def call_many_to_many(space, shape, func, in_dtypes, out_dtypes, in_args, out_ar
             out_states[0] = out_iters[0].next(out_states[0])
         for i in range(nin):
             in_states[i] = in_iters[i].next(in_states[i])
-        test_iter.next(test_state)
+        test_state = test_iter.next(test_state)
     return space.newtuple([convert_to_array(space, o) for o in out_args])
 
 setslice_driver = jit.JitDriver(name='numpy_setslice',
