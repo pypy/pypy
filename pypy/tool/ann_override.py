@@ -2,6 +2,7 @@
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.flowspace.model import Constant
 from rpython.annotator import specialize
+from rpython.annotator.classdesc import InstanceSource, ClassDef
 
 
 
@@ -20,7 +21,6 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
 
     def specialize__wrap(self,  funcdesc, args_s):
         from pypy.interpreter.baseobjspace import W_Root
-        from rpython.annotator.classdef import ClassDef
         W_Root_def = funcdesc.bookkeeper.getuniqueclassdef(W_Root)
         typ = args_s[1].knowntype
         if isinstance(typ, ClassDef):
@@ -73,7 +73,6 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         return False
 
     def consider_lookup(self, bookkeeper, attr):
-        from rpython.annotator.classdef import InstanceSource
         assert attr not in self.lookups
         from pypy.objspace.std import typeobject
         cached = "cached_%s" % attr
@@ -88,7 +87,6 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         self.lookups[attr] = True
 
     def consider_lookup_in_type_where(self, bookkeeper, attr):
-        from rpython.annotator.classdef import InstanceSource
         assert attr not in self.lookups_where
         from pypy.objspace.std import typeobject
         cached = "cached_where_%s" % attr
@@ -135,7 +133,6 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
     def event(self, bookkeeper, what, x):
         from pypy.objspace.std import typeobject
         if isinstance(x, typeobject.W_TypeObject):
-            from rpython.annotator.classdef import InstanceSource
             clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
             self.pypytypes[x] = True
             #print "TYPE", x
