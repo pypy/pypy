@@ -359,7 +359,7 @@ class Bookkeeper(object):
                 if pyobj.__module__ == '__builtin__': # avoid making classdefs for builtin types
                     result = self.getfrozen(pyobj)
                 else:
-                    result = ClassDesc(self, pyobj)
+                    return self._new_classdesc(pyobj)
             elif isinstance(pyobj, types.MethodType):
                 if pyobj.im_self is None:   # unbound
                     return self.getdesc(pyobj.im_func)
@@ -440,6 +440,12 @@ class Bookkeeper(object):
 
     def valueoftype(self, t):
         return annotationoftype(t, self)
+
+    def _new_classdesc(self, pycls):
+        result = ClassDesc(self, pycls)
+        self.descs[pycls] = result
+        result._init_classdef()
+        return result
 
     def get_classpbc_attr_families(self, attrname):
         """Return the UnionFind for the ClassAttrFamilies corresponding to
