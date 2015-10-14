@@ -6,7 +6,7 @@ from rpython.conftest import option
 from rpython.annotator import model as annmodel
 from rpython.annotator.model import AnnotatorError, UnionError
 from rpython.annotator.annrpython import RPythonAnnotator as _RPythonAnnotator
-from rpython.annotator.classdef import NoSuchAttrError
+from rpython.annotator.classdesc import NoSuchAttrError
 from rpython.translator.translator import graphof as tgraphof
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.annotator.signature import Sig, SignatureError
@@ -3049,7 +3049,6 @@ class TestAnnotateTestCase:
             if works:
                 a.build_types(fun, [int])
             else:
-                from rpython.annotator.classdef import NoSuchAttrError
                 py.test.raises(NoSuchAttrError, a.build_types, fun, [int])
 
     def test_attrs_enforce_attrs(self):

@@ -4,13 +4,14 @@ Built-in functions.
 import sys
 
 from rpython.annotator.model import (
-    SomeInteger, SomeObject, SomeChar, SomeBool, SomeString, SomeTuple,
+    SomeInteger, SomeChar, SomeBool, SomeString, SomeTuple,
     SomeUnicodeCodePoint, SomeFloat, unionof, SomeUnicodeString,
     SomePBC, SomeInstance, SomeDict, SomeList, SomeWeakRef, SomeIterator,
     SomeOrderedDict, SomeByteArray, add_knowntypedata, s_ImpossibleValue,)
 from rpython.annotator.bookkeeper import (
     getbookkeeper, immutablevalue, BUILTIN_ANALYZERS, analyzer_for)
 from rpython.annotator import description
+from rpython.annotator.classdesc import ClassDef
 from rpython.flowspace.model import Constant
 import rpython.rlib.rarithmetic
 import rpython.rlib.objectmodel
@@ -123,7 +124,6 @@ def builtin_bytearray(s_str):
 
 def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""
-    from rpython.annotator.classdef import ClassDef
     if cls2 is object:
         return True
     def classify(cls):

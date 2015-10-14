@@ -118,14 +118,10 @@ class Attribute(object):
                         for desc in s_newvalue.descriptions:
                             if desc.selfclassdef is None:
                                 if homedef.classdesc.settled:
-                                    raise Exception("demoting method %s "
-                                                    "to settled class %s not "
-                                                    "allowed" %
-                                                    (self.name, homedef)
-                                                    )
-                                #self.bookkeeper.warning("demoting method %s "
-                                #                        "to base class %s" %
-                                #                        (self.name, homedef))
+                                    raise AnnotatorError(
+                                        "demoting method %s to settled class "
+                                        "%s not allowed" % (self.name, homedef)
+                                    )
                                 break
 
         # check for attributes forbidden by slots or _attrs_
@@ -616,7 +612,6 @@ class ClassDesc(Desc):
         return self.getuniqueclassdef()
 
     def _init_classdef(self):
-        from rpython.annotator.classdef import ClassDef
         classdef = ClassDef(self.bookkeeper, self)
         self.bookkeeper.classdefs.append(classdef)
         self.classdef = classdef
@@ -731,7 +726,6 @@ class ClassDesc(Desc):
             if classdef is not None:
                 s_value = s_value.bind_callables_under(classdef, name)
         elif isinstance(obj, Desc):
-            from rpython.annotator.model import SomePBC
             if classdef is not None:
                 obj = obj.bind_under(classdef, name)
             s_value = SomePBC([obj])
