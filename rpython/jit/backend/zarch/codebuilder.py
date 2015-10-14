@@ -24,13 +24,41 @@ def binary_helper_call(name):
         self.BL(addr, c)
     return f
 
+class Operand(object):
+    pass
 
-codes = {
-    'ADD_rr': 0x1A,
+def build_rr(mnemonic, args):
+    opcode = args[0]
+    assert isinstance(opcode, str)
+    def encode_rr(self, reg1, reg2):
+        self.writechar(opcode)
+        operands = ((reg2 & 0x0f) << 4) | (reg1 & 0xf)
+        self.writechar(chr(operands))
+    return encode_rr
+
+def build_rre(mnemonic, args):
+    opcode1,opcode2 = args[0]
+    assert isinstance(opcode1, str)
+    assert isinstance(opcode2, str)
+    def encode_rr(self, reg1, reg2):
+        self.writechar(opcode1)
+        self.writechar(opcode2)
+        self.writechar('\x00')
+        #self.writechar('\x00')
+        operands = ((reg2 & 0x0f) << 4) | (reg1 & 0xf)
+        self.writechar(chr(operands))
+    return encode_rr
+
+_mnemonic_codes = {
+    'AR': (build_rr, ['\x1A']),
+    'AGR': (build_rre, ['\xB9\x08'])
 }
 
-def encode_rr(reg1, reg2):
-    return chr(((reg2 & 0x0f) << 4) | (reg1 & 0xf))
+def build_instr_codes(clazz):
+    for mnemonic, (builder, args) in _mnemonic_codes.items():
+        func = builder(mnemonic, args)
+        name = mnemonic + "_" + builder.__name__.split("_")[1]
+        setattr(clazz, name, func)
 
 class AbstractZARCHBuilder(object):
     def write32(self, word):
@@ -42,6 +70,9 @@ class AbstractZARCHBuilder(object):
     def AR_rr(self, reg1, reg2):
         self.writechar(chr(0x1A))
         self.writechar(encode_rr(reg1, reg2))
+
+build_instr_codes(AbstractZARCHBuilder)
+
 
 class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 

@@ -4,6 +4,7 @@ import py
 from rpython.jit.backend.zarch import codebuilder
 from rpython.rlib.rarithmetic import intmask
 from rpython.tool.udir import udir
+import itertools
 
 INPUTNAME = 'checkfile_%s.s'
 FILENAME = 'checkfile_%s.o'
@@ -26,8 +27,8 @@ class CodeCheckerMixin(object):
                 and self.index == self.instrindex):
                 return    # ignore the extra character '\x40'
             print self.op
-            print "\x09from codebuilder.py:", hexdump(self.expected[self.instrindex:self.index] + char)+"..."
-            print "\x09from 'as':   ", hexdump(self.expected[self.instrindex:self.index+15])+"..."
+            print "\x09from codebuilder.py: ", hexdump(self.expected[self.instrindex:self.index] + char)+"..."
+            print "\x09from           'as': ", hexdump(self.expected[self.instrindex:self.index+15])+"..."
             raise Exception("Differs")
         self.index += 1
 
@@ -113,6 +114,7 @@ class TestZARCH(object):
     def get_all_tests(self):
         return {
             'r': self.reg_tests,
+            'e': lambda: [],
             }
 
     def assembler_operand_reg(self, regnum):
@@ -207,38 +209,20 @@ class TestZARCH(object):
         return oplist, as_code
 
     def make_all_tests(self, methname, modes, args=[]):
-        if modes:
-            tests = self.get_all_tests()
-            m = modes[0]
-            lst = tests[m]()
-            random.shuffle(lst)
-            if methname == 'PSRAD_xi' and m == 'i':
-                lst = [x for x in lst if 0 <= x <= 31]
-            result = []
-            for v in lst:
-                result += self.make_all_tests(methname, modes[1:], args+[v])
-            return result
-        else:
-            # special cases
-            if methname in ('ADD_ri', 'AND_ri', 'CMP_ri', 'OR_ri',
-                            'SUB_ri', 'XOR_ri', 'SBB_ri'):
-                if args[0] == rx86.R.eax:
-                    return []  # ADD EAX, constant: there is a special encoding
-            if methname in ('CMP8_ri',):
-                if args[0] == rx86.R.al:
-                    return []   # CMP AL, constant: there is a special encoding
-            if methname == 'XCHG_rr' and rx86.R.eax in args:
-                return [] # special encoding
-            if methname == 'MOV_rj' and args[0] == rx86.R.eax:
-                return []   # MOV EAX, [immediate]: there is a special encoding
-            if methname == 'MOV_jr' and args[1] == rx86.R.eax:
-                return []   # MOV [immediate], EAX: there is a special encoding
-            if methname == 'MOV8_rj' and args[0] == rx86.R.al:
-                return []   # MOV AL, [immediate]: there is a special encoding
-            if methname == 'MOV8_jr' and args[1] == rx86.R.al:
-                return []   # MOV [immediate], AL: there is a special encoding
-
-            return [args]
+        tests = {
+            'r': self.REGS,
+            'e': None,
+        }
+        combinations = []
+        for m in modes:
+            if tests[m] is not None:
+                elems = tests[m]
+                random.shuffle(elems)
+                combinations.append(elems)
+        results = []
+        for args in itertools.product(*combinations):
+            results.append(args)
+        return results
 
     def should_skip_instruction(self, instrname, argmodes):
         return False
