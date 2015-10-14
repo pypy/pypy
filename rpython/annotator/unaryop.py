@@ -875,7 +875,7 @@ class __extend__(SomePBC):
     def getattr(self, s_attr):
         assert s_attr.is_constant()
         if s_attr.const == '__name__':
-            from rpython.annotator.description import ClassDesc
+            from rpython.annotator.classdesc import ClassDesc
             if self.getKind() is ClassDesc:
                 return SomeString()
         bookkeeper = getbookkeeper()

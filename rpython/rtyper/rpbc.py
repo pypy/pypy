@@ -3,7 +3,8 @@ import types
 from rpython.flowspace.model import FunctionGraph, Link, Block, SpaceOperation
 from rpython.annotator import model as annmodel
 from rpython.annotator.description import (
-    FunctionDesc, ClassDesc, MethodDesc, FrozenDesc, MethodOfFrozenDesc)
+    FunctionDesc, MethodDesc, FrozenDesc, MethodOfFrozenDesc)
+from rpython.annotator.classdesc import ClassDesc
 from rpython.flowspace.model import Constant
 from rpython.annotator.argument import simple_args
 from rpython.rlib.debug import ll_assert

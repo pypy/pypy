@@ -14,7 +14,7 @@ from rpython.annotator.model import (
     s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
     SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty, AnnotatorError)
-from rpython.annotator.classdef import InstanceSource, ClassDef
+from rpython.annotator.classdesc import InstanceSource, ClassDef, ClassDesc
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
@@ -359,7 +359,7 @@ class Bookkeeper(object):
                 if pyobj.__module__ == '__builtin__': # avoid making classdefs for builtin types
                     result = self.getfrozen(pyobj)
                 else:
-                    result = description.ClassDesc(self, pyobj)
+                    result = ClassDesc(self, pyobj)
             elif isinstance(pyobj, types.MethodType):
                 if pyobj.im_self is None:   # unbound
                     return self.getdesc(pyobj.im_func)

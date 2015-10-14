@@ -1,4 +1,4 @@
-from rpython.annotator.description import ClassDesc, is_mixin
+from rpython.annotator.classdesc import ClassDesc, is_mixin
 
 class FakeBookkeeper:
     def __init__(self):
