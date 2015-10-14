@@ -13,6 +13,11 @@ from rpython.rlib.rarithmetic import intmask
 from pypy.module.micronumpy import boxes
 from pypy.module.micronumpy.compile import FakeSpace, Parser, InterpreterState
 from pypy.module.micronumpy.base import W_NDimArray
+from rpython.jit.backend.detect_cpu import getcpuclass
+
+CPU = getcpuclass()
+if not CPU.vector_extension:
+    py.test.skip("this cpu %s has no implemented vector backend" % CPU)
 
 def get_profiler():
     from rpython.jit.metainterp import pyjitpl
