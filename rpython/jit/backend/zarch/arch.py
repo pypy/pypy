@@ -1,0 +1,5 @@
+
+# TODO
+WORD = 8
+
+JITFRAME_FIXED_SIZE = 48
