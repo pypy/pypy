@@ -110,7 +110,7 @@ if not _WIN32:
 
         parts = err.split(":")
         if len(parts) != 2:
-            return None
+            return lltype.nullptr(rffi.VOIDP.TO)
         fullpath = parts[0]
         actual = ""
         last_five = "     "
@@ -143,7 +143,7 @@ if not _WIN32:
             rffi.free_charp(a)
             return lib
         else:
-            return None
+            return lltype.nullptr(rffi.VOIDP.TO)
 
     def dlopen(name, mode=-1):
         """ Wrapper around C-level dlopen
@@ -161,7 +161,7 @@ if not _WIN32:
                 err = _dlerror_on_dlopen_untranslated(name)
             else:
                 err = dlerror()
-            if 'invalid ELF header' in err:
+            if platform.name == "linux" and 'invalid ELF header' in err:
                 # some linux distros put ld linker scripts in .so files
                 # to load libraries more dynamically. The error contains the
                 # full path to something that is probably a script to load
