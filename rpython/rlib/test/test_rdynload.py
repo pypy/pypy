@@ -21,3 +21,24 @@ class TestDLOperations:
                            lltype.Signed)), dlsym(lib, 'abs'))
         assert 1 == handle(1)
         assert 1 == handle(-1)
+
+    def test_ldscripts(self):
+        fname = os.path.join(os.path.dirname(__file__), "ldscript_working1.so")
+        s = rffi.str2charp(fname)
+        assert "C object" in str(dlopen(s))
+        rffi.free_charp(s)
+
+        fname = os.path.join(os.path.dirname(__file__), "ldscript_working2.so")
+        s = rffi.str2charp(fname)
+        assert "C object" in str(dlopen(s))
+        rffi.free_charp(s)
+
+        fname = os.path.join(os.path.dirname(__file__), "ldscript_broken1.so")
+        s = rffi.str2charp(fname)
+        py.test.raises(DLOpenError, 'dlopen(s)')
+        rffi.free_charp(s)
+
+        fname = os.path.join(os.path.dirname(__file__), "ldscript_broken2.so")
+        s = rffi.str2charp(fname)
+        py.test.raises(DLOpenError, 'dlopen(s)')
+        rffi.free_charp(s)

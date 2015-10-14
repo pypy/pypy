@@ -8,7 +8,7 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
 
-import sys, os
+import sys, os, string
 
 # maaaybe isinstance here would be better. Think
 _MSVC = platform.name == "msvc"
@@ -94,6 +94,7 @@ if not _WIN32:
     def _dlerror_on_dlopen_untranslated(name):
         "NOT_RPYTHON: aaargh"
         import ctypes
+        name = rffi.charp2str(name)
         try:
             ctypes.CDLL(name)
         except OSError, e:
@@ -107,7 +108,10 @@ if not _WIN32:
         is in a form like 'GROUP ( <actual-filepath.so>'. A simple state machine
         can parse that out (avoids regexes)."""
 
-        fullpath = err.split(":")[0]
+        parts = err.split(":")
+        if len(parts) != 2:
+            return None
+        fullpath = parts[0]
         actual = ""
         last_five = "     "
         state = 0
@@ -123,21 +127,23 @@ if not _WIN32:
                 if c == "(":
                     state = 2
             elif state == 2:
-                if c != " ":
+                if c not in string.whitespace:
                     actual += c
                     state = 3
             elif state == 3:
-                if c == " ":
+                if c in string.whitespace or c == ")":
                     break
                 else:
                     actual += c
             c = os.read(ldscript, 1)
         os.close(ldscript)
         if actual != "":
-            res = c_dlopen(actual, rffi.cast(rffi.INT, mode))
-            return res
+            a = rffi.str2charp(actual)
+            lib = c_dlopen(a, rffi.cast(rffi.INT, mode))
+            rffi.free_charp(a)
+            return lib
         else:
-            return lltype.nullptr(rffi.VOIDP.TO)
+            return None
 
     def dlopen(name, mode=-1):
         """ Wrapper around C-level dlopen
@@ -163,6 +169,7 @@ if not _WIN32:
                 res = _retry_as_ldscript(err, mode)
                 if not res:
                     raise DLOpenError(err)
+                return res
             else:
                 raise DLOpenError(err)
         return res
