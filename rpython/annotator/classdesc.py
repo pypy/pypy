@@ -73,10 +73,9 @@ class Attribute(object):
     #      Both writing to the instance attribute and discovering prebuilt
     #      instances that have the attribute set will turn off readonly-ness.
 
-    def __init__(self, name, bookkeeper):
+    def __init__(self, name):
         assert name != '__class__'
         self.name = name
-        self.bookkeeper = bookkeeper
         self.s_value = s_ImpossibleValue
         self.readonly = True
         self.attr_allowed = True
@@ -87,7 +86,7 @@ class Attribute(object):
         if source.instance_level:
             # a prebuilt instance source forces readonly=False, see above
             self.modified(classdef)
-        s_new_value = unionof(self.s_value, s_value)    # XXX "source %r attr %s" % (source, self.name),
+        s_new_value = unionof(self.s_value, s_value)
         self.s_value = s_new_value
 
     def getvalue(self):
@@ -96,18 +95,15 @@ class Attribute(object):
 
     def merge(self, other, classdef='?'):
         assert self.name == other.name
-        s_new_value = unionof(self.s_value, other.s_value)  # XXX "%s attr %s" % (classdef, self.name)
+        s_new_value = unionof(self.s_value, other.s_value)
         self.s_value = s_new_value
         if not other.readonly:
             self.modified(classdef)
         self.read_locations.update(other.read_locations)
 
-    def mutated(self, homedef):  # reflow from attr read positions
-        s_newvalue = self.getvalue()
-
-        for position in self.read_locations:
-            self.bookkeeper.annotator.reflowfromposition(position)
-
+    def validate(self, homedef):
+        s_newvalue = self.s_value
+        homedesc = homedef.classdesc
         # check for method demotion and after-the-fact method additions
         if isinstance(s_newvalue, SomePBC):
             attr = self.name
@@ -187,7 +183,7 @@ class ClassDef(object):
                 # but as an optimization we try to see if the attribute
                 # has really been generalized
                 if attrdef.s_value != s_prev_value:
-                    attrdef.mutated(cdef)  # reflow from all read positions
+                    self.bookkeeper.update_attr(cdef, attrdef)
                 return
         else:
             # remember the source in self.attr_sources
@@ -205,7 +201,7 @@ class ClassDef(object):
                         s_prev_value = attrdef.s_value
                         attrdef.add_constant_source(self, source)
                         if attrdef.s_value != s_prev_value:
-                            attrdef.mutated(subdef)  # reflow from all read positions
+                            self.bookkeeper.update_attr(subdef, attrdef)
 
     def locate_attribute(self, attr):
         while True:
@@ -276,7 +272,7 @@ class ClassDef(object):
                         constant_sources.append((superdef, source))
 
         # create the Attribute and do the generalization asked for
-        newattr = Attribute(attr, self.bookkeeper)
+        newattr = Attribute(attr)
         if s_value:
             #if newattr.name == 'intval' and getattr(s_value, 'unsigned', False):
             #    import pdb; pdb.set_trace()
@@ -296,7 +292,7 @@ class ClassDef(object):
             newattr.add_constant_source(origin_classdef, source)
 
         # reflow from all read positions
-        newattr.mutated(self)
+        self.bookkeeper.update_attr(self, newattr)
 
     def generalize_attr(self, attr, s_value=None):
         # if the attribute exists in a superclass, generalize there,

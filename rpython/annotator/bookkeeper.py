@@ -498,6 +498,11 @@ class Bookkeeper(object):
 
         return s_result
 
+    def update_attr(self, clsdef, attrdef):
+        for position in attrdef.read_locations:
+            self.annotator.reflowfromposition(position)
+        attrdef.validate(homedef=clsdef)
+
     def pbc_call(self, pbc, args, emulated=None):
         """Analyse a call to a SomePBC() with the given args (list of
         annotations).
