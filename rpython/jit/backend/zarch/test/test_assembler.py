@@ -18,7 +18,6 @@ from rpython.rlib.debug import ll_assert
 
 CPU = getcpuclass()
 
-
 class TestRunningAssembler(object):
     def setup_method(self, method):
         cpu = CPU(None, None)

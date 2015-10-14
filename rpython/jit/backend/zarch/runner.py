@@ -9,7 +9,7 @@ class AbstractZARCHCPU(AbstractLLCPU):
 
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
-        return adr
+        return adr # TODO
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
