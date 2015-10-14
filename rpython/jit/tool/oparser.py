@@ -172,7 +172,7 @@ class OpParser(object):
         if elem.startswith('i'):
             v = InputArgInt(0)
         elif elem.startswith('f'):
-            v = InputArgFloat(0.0)
+            v = InputArgFloat.fromfloat(0.0)
         elif elem.startswith('v'):
             v = InputArgVector()
             elem = self.update_vector(v, elem)
