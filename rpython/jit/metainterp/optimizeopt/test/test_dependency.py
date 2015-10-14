@@ -535,7 +535,7 @@ class BaseTestDependencyGraph(DependencyBaseTest):
         guard_nonnull(p13) [] # 2: 4,5
         i14 = getfield_gc_i(p9) # 3: 5
         p15 = getfield_gc_r(p13) # 4: 5
-        guard_class(p15, 140737326900656) [p1, p0, p9, i14, p15, p13, p5, p6, p7] # 5: 6
+        guard_class(p15, 14073732) [p1, p0, p9, i14, p15, p13, p5, p6, p7] # 5: 6
         jump(p0,p1,p5,p6,p7,p9,p11,p12) # 6:
         """)
         self.assert_dependencies(graph, full_check=True)
