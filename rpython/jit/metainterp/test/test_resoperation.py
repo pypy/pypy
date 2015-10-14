@@ -95,7 +95,7 @@ def test_get_deep_immutable_oplist():
 VARI = rop.InputArgInt()
 VARF = rop.InputArgFloat()
 @py.test.mark.parametrize('opnum,args,kwargs', 
-    [ (rop.rop.INT_SIGNEXT, [VARI, ConstInt(2)], {'from': 8, 'to': 2, 'cast_to': ('i', 2) }),
+    [ (rop.rop.INT_SIGNEXT, [VARI, ConstInt(2)], {'from': INT_WORD, 'to': 2, 'cast_to': ('i', 2) }),
       (rop.rop.CAST_FLOAT_TO_INT, [VARF], {'from': 8, 'to': 4}),
       (rop.rop.CAST_SINGLEFLOAT_TO_FLOAT, [VARI], {'from': 4, 'to': 8}),
       (rop.rop.CAST_FLOAT_TO_SINGLEFLOAT, [VARF], {'from': 8, 'to': 4}),
@@ -112,11 +112,11 @@ def test_unpack_1():
     op = rop.ResOperation(rop.rop.VEC_UNPACK_I,
             [rop.InputArgVector(), ConstInt(0), ConstInt(1)])
     assert (op.type, op.datatype, op.bytesize, op.is_vector()) == \
-           ('i', 'i', 8, False)
+           ('i', 'i', INT_WORD, False)
     op = rop.ResOperation(rop.rop.VEC_UNPACK_I,
             [rop.InputArgVector(), ConstInt(0), ConstInt(2)])
     assert (op.type, op.datatype, op.bytesize, op.is_vector()) == \
-           ('i', 'i', 8, True)
+           ('i', 'i', INT_WORD, True)
 
 def test_load_singlefloat():
     descr = ArrayDescr(8,4, None, 'S', concrete_type='f')
