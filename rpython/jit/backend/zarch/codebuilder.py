@@ -28,10 +28,23 @@ class Operand(object):
     pass
 
 def arguments(args_str):
+    """
+    Available names:
+    r      - register
+    i4     - immediate 4 bits (signed)
+    u4     - immediate 4 bits (unsigend)
+    bd     - base displacement
+    l4db    - length base displacement (4 bit)
+    l8db    - length base displacement (8 bit)
+    """
     def impl(func):
         func._arguments_ = args_str.split(',')
         return func
     return impl
+
+BIT_MASK_4 =  0xF
+BIT_MASK_12 = 0xFFF
+BIT_MASK_20 = 0xFFFFF
 
 @always_inline
 def encode_base_displace(mc, base_displace):
@@ -64,7 +77,7 @@ def build_rx(mnemonic, (opcode,)):
         index = idxbasedisp.index
         byte = (reg_or_mask & 0x0f) << 4 | index & 0xf
         self.writechar(chr(byte))
-        displace = idxbasedisp.displace & 0x3ff
+        displace = idxbasedisp.displace & BIT_MASK_12
         base = idxbasedisp.base & 0xf
         byte = displace >> 8 & 0xf | base << 4
         self.writechar(chr(byte))
@@ -77,12 +90,13 @@ def build_rxy(mnemonic, (opcode1,opcode2)):
         index = idxbasedisp.index
         byte = (reg_or_mask & 0x0f) << 4 | index & 0xf
         self.writechar(chr(byte))
-        displace = idxbasedisp.displace & 0x3ff
+        displace = idxbasedisp.displace & 0xfffff
         base = idxbasedisp.base & 0xf
         byte = displace >> 8 & 0xf | base << 4
         self.writechar(chr(byte))
         self.writechar(chr(displace & 0xff))
-        self.writechar(chr(displace >> 12 & 0xff))
+        byte = displace >> 12 & 0xff
+        self.writechar(chr(byte))
         self.writechar(opcode2)
     return encode_rxy
 
@@ -130,7 +144,7 @@ def build_ssb(mnemonic, (opcode1,)):
     return encode_ssb
 
 def build_ssc(mnemonic, (opcode1,)):
-    @arguments('l,l,u4')
+    @arguments('lbp,lbp,u4')
     def encode_ssc(self, len_base_disp1, len_base_disp2, uimm4):
         self.writechar(opcode1)
         byte = (len_base_disp1.length & 0xf) << 4 | uimm4 & 0xf
@@ -138,6 +152,34 @@ def build_ssc(mnemonic, (opcode1,)):
         encode_base_displace(self, len_base_disp1)
         encode_base_displace(self, len_base_disp2)
     return encode_ssc
+
+def build_ssd(mnemonic, (opcode,)):
+    @arguments('rbd,bd,r')
+    def encode_ssd(self, index_base_disp, base_disp, reg):
+        self.writechar(opcode)
+        byte = (index_base_disp.index & 0xf) << 4 | reg & 0xf
+        self.writechar(chr(byte))
+        encode_base_displace(self, index_base_disp)
+        encode_base_displace(self, base_disp)
+    return encode_ssd
+
+def build_sse(mnemonic, (opcode,)):
+    @arguments('r,bd,r,bd')
+    def encode_sse(self, reg1, reg3, base_disp2, base_disp4):
+        self.writechar(opcode)
+        byte = (reg1 & BIT_MASK_4) << 4 | reg3 & BIT_MASK_4
+        self.writechar(chr(byte))
+        encode_base_displace(self, base_disp2)
+        encode_base_displace(self, base_disp4)
+    return encode_sse
+
+def build_ssf(mnemonic, (opcode,)):
+    def encode_ssf(self, base_disp, len_base_disp):
+        self.writechar(opcode)
+        self.writechar(chr(len_base_disp.length & 0xff))
+        encode_base_displace(self, base_disp)
+        encode_base_displace(self, len_base_disp)
+    return encode_ssf
 
 _mnemonic_codes = {
     'AR':      (build_rr,    ['\x1A']),
@@ -153,6 +195,9 @@ _mnemonic_codes = {
     'NC':      (build_ssa,   ['\xD4']),
     'AP':      (build_ssb,   ['\xFA']),
     'SRP':     (build_ssc,   ['\xF0']),
+    'MVCK':    (build_ssd,   ['\xD9']),
+    'LMD':     (build_sse,   ['\xEF']),
+    'PKA':     (build_ssf,   ['\xE9']),
 }
 
 def build_instr_codes(clazz):

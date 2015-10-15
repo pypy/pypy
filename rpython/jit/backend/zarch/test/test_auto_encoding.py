@@ -29,7 +29,8 @@ class CodeCheckerMixin(object):
                 return    # ignore the extra character '\x40'
             print self.op
             post = self.expected[self.index+1:self.index+1+15]
-            generated = "\x09from codebuilder.py: " + hexdump(self.expected[self.instrindex:self.index] + char )+"..."
+            generated = "\x09from codebuilder.py: " + hexdump(self.expected[self.instrindex:self.index]) + "!" + \
+                                                      hexdump([char])+ "!" +hexdump(post)
             print generated
             expected = "\x09from         gnu as: " + hexdump(self.expected[self.instrindex:self.index+15])+"..."
             print expected
@@ -76,6 +77,8 @@ class FakeIndexBaseDisplace(object):
         base = self.base
         return "{disp}(%r{index},%r{base})".format(**locals())
 
+    __repr__ = __str__
+
 class FakeBaseDisplace(object):
     def __init__(self, base, disp):
         self.base = base
@@ -85,6 +88,8 @@ class FakeBaseDisplace(object):
         disp = self.displace
         base = self.base
         return "{disp}(%r{base})".format(**locals())
+
+    __repr__ = __str__
 
 class FakeLengthBaseDisplace(object):
     def __init__(self, len, base, disp):
@@ -98,27 +103,27 @@ class FakeLengthBaseDisplace(object):
         length = self.length + 1
         return "{disp}({length},%r{base})".format(**locals())
 
-def build_base_disp(base_bits, displace_bits):
-    possibilities = itertools.product(range(base_bits), range(displace_bits))
-    results = []
-    for (base,disp) in possibilities:
-        results.append(FakeBaseDisplace(base,disp))
-    return results
+    __repr__ = __str__
 
-def build_idx_base_disp(index_bits, base_bits, displace_bits):
-    possibilities = itertools.product(range(index_bits), range(base_bits),
-                                      range(displace_bits))
-    results = []
-    for (index,base,disp) in possibilities:
-        results.append(FakeIndexBaseDisplace(index,base,disp))
-    return results
+def test_range(bits, signed=False, count=24):
+    if isinstance(bits, tuple):
+        bits, signed = bits
+    if signed:
+        bits -= 1
+        maximum = 2**bits
+        return [-maximum,-1,0,1,maximum-1] + [random.randrange(-maximum,maximum) for i in range(count)]
+    maximum = 2**bits
+    return [0,1,maximum-1] + [random.randrange(0,maximum) for i in range(count)]
 
-def build_len_base_disp(len_bits, base_bits, displace_bits):
-    possibilities = itertools.product(range(len_bits), range(base_bits),
-                                      range(displace_bits))
+def build_fake(clazz, *arg_bits):
+    possibilities = itertools.product(*[test_range(b) for b in arg_bits])
     results = []
-    for (length,base,disp) in possibilities:
-        results.append(FakeLengthBaseDisplace(length,base,disp))
+    i = 0
+    for args in possibilities:
+        results.append(clazz(*args))
+        i+=1
+        if i > 20:
+            break
     return results
 
 class TestZARCH(object):
@@ -128,12 +133,12 @@ class TestZARCH(object):
     REGNAMES = ['%%r%d' % i for i in REGS]
     accept_unnecessary_prefix = None
     methname = '?'
-    BASE_DISPLACE = build_base_disp(8,12)
-    BASE_DISPLACE_LONG = build_base_disp(8,20)
-    INDEX_BASE_DISPLACE = build_idx_base_disp(8,8,12)
-    INDEX_BASE_DISPLACE_LONG = build_idx_base_disp(8,8,20)
-    LENGTH4_BASE_DISPLACE = build_len_base_disp(4,8,12)
-    LENGTH8_BASE_DISPLACE = build_len_base_disp(8,8,12)
+    BASE_DISPLACE = build_fake(FakeBaseDisplace,4,12)
+    BASE_DISPLACE_LONG = build_fake(FakeBaseDisplace,4,(20,True))
+    INDEX_BASE_DISPLACE = build_fake(FakeIndexBaseDisplace,4,4,12)
+    INDEX_BASE_DISPLACE_LONG = build_fake(FakeIndexBaseDisplace,4,4,(20,True))
+    LENGTH4_BASE_DISPLACE = build_fake(FakeLengthBaseDisplace,4,4,12)
+    LENGTH8_BASE_DISPLACE = build_fake(FakeLengthBaseDisplace,8,4,12)
 
     def reg_tests(self):
         return self.REGS
@@ -172,32 +177,12 @@ class TestZARCH(object):
         assert match
         return getattr(self, match.group(1) + "_tests")()
 
-    def uimm16_tests(self):
-        v = ([0,1,65535] +
-             [random.randrange(0,65535) for i in range(COUNT1)])
-        return v
-    def imm16_tests(self):
-        v = ([-32768,-1,0,1,32767] +
-             [random.randrange(-32768, 32767) for i in range(COUNT1)])
-        return v
-
-    def imm8_tests(self):
-        v = ([-128,-1,0,1,127] +
-             [random.randrange(-127, 127) for i in range(COUNT1)])
-        return v
-    def uimm8_tests(self):
-        v = ([0,1,255] +
-             [random.randrange(0,255) for i in range(COUNT1)])
-        return v
-    def uimm4_tests(self):
-        return list(range(0,16))
-
-    def imm32_tests(self):
-        v = ([-0x80000000, 0x7FFFFFFF, 128, 256, -129, -255] +
-             [random.randrange(-32768,32768)<<16 |
-                 random.randrange(0,65536) for i in range(COUNT1)] +
-             [random.randrange(128, 256) for i in range(COUNT1)])
-        return self.imm8_tests() + v
+    def uimm16_tests(self): return test_range(16)
+    def imm16_tests(self): return test_range(16,signed=True)
+    def imm8_tests(self): return test_range(8,signed=True)
+    def uimm8_tests(self): return test_range(8)
+    def uimm4_tests(self): return test_range(4)
+    def imm32_tests(self): return test_range(32, signed=True)
 
     def relative_tests(self):
         py.test.skip("explicit test required for %r" % (self.methname,))
@@ -218,14 +203,15 @@ class TestZARCH(object):
 
     def operand_combinations(self, modes, arguments):
         remap = {
+            'rre': 'rr',
             'rxy': 'rx',
             'siy': 'si',
-            'rre': 'rr',
             'ssa': 'Ls',
             'ssb': 'll',
             'ssc': 'lsi',
             'ssd': 'xsr',
             'sse': 'rrss',
+            'ssf': 'sL',
         }
         mapping = self.get_mapping_asm_to_str()
         modes = remap.get(modes, modes)
@@ -302,6 +288,9 @@ class TestZARCH(object):
             'ssa': (tests['L'], tests['s']),
             'ssb': (tests['l'], tests['l']),
             'ssc': (tests['l'], tests['s'], tests['i']),
+            'ssd': (tests['x'], tests['s'], tests['r']),
+            'sse': (tests['r'], tests['r'], tests['s'], tests['s']),
+            'ssf': (tests['s'], tests['L']),
         }
         if modes in tests_all:
             combinations = [f(i) for i,f in enumerate(tests_all[modes])]
