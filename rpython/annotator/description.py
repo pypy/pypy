@@ -801,8 +801,9 @@ class ClassDesc(Desc):
             s_init = basedesc.s_read_attribute('__init__')
             parent_has_init = isinstance(s_init, SomePBC)
             if has_init and not parent_has_init:
-                raise Exception("some subclasses among %r declare __init__(),"
-                                " but not the common parent class" % (descs,))
+                raise AnnotatorError(
+                    "some subclasses among %r declare __init__(),"
+                    " but not the common parent class" % (descs,))
         # make a PBC of MethodDescs, one for the __init__ of each class
         initdescs = []
         for desc, classdef in zip(descs, classdefs):

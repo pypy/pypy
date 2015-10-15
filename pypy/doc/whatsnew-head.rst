@@ -75,7 +75,13 @@ ffi.new_handle() returns handles that work more like CPython's: they
 remain valid as long as the target exists (unlike the previous
 version, where handles become invalid *before* the __del__ is called).
 
+.. branch: ufunc-casting
+
+allow automatic casting in ufuncs (and frompypyfunc) to cast the
+arguments to the allowed function type declarations, fixes various
+failures in linalg cffi functions
+
 .. branch: vecopt
 .. branch: vecopt-merge
 
-A new optimization pass to use SIMD instructions for trace loop that allow this
+A new optimization pass to use emit vectorized loops

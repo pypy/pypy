@@ -161,10 +161,10 @@ def call1(space, shape, func, calc_dtype, w_obj, w_ret):
 
 call_many_to_one_driver = jit.JitDriver(
     name='numpy_call_many_to_one',
-    greens=['shapelen', 'nin', 'func', 'res_dtype'],
+    greens=['shapelen', 'nin', 'func', 'in_dtypes', 'res_dtype'],
     reds='auto')
 
-def call_many_to_one(space, shape, func, res_dtype, in_args, out):
+def call_many_to_one(space, shape, func, in_dtypes, res_dtype, in_args, out):
     # out must hav been built. func needs no calc_type, is usually an
     # external ufunc
     nin = len(in_args)
@@ -182,9 +182,9 @@ def call_many_to_one(space, shape, func, res_dtype, in_args, out):
     vals = [None] * nin
     while not out_iter.done(out_state):
         call_many_to_one_driver.jit_merge_point(shapelen=shapelen, func=func,
-                                     res_dtype=res_dtype, nin=nin)
+                        in_dtypes=in_dtypes, res_dtype=res_dtype, nin=nin)
         for i in range(nin):
-            vals[i] = in_iters[i].getitem(in_states[i])
+            vals[i] = in_dtypes[i].coerce(space, in_iters[i].getitem(in_states[i]))
         w_arglist = space.newlist(vals)
         w_out_val = space.call_args(func, Arguments.frompacked(space, w_arglist))
         out_iter.setitem(out_state, res_dtype.coerce(space, w_out_val))
@@ -195,10 +195,10 @@ def call_many_to_one(space, shape, func, res_dtype, in_args, out):
 
 call_many_to_many_driver = jit.JitDriver(
     name='numpy_call_many_to_many',
-    greens=['shapelen', 'nin', 'nout', 'func', 'res_dtype'],
+    greens=['shapelen', 'nin', 'nout', 'func', 'in_dtypes', 'out_dtypes'],
     reds='auto')
 
-def call_many_to_many(space, shape, func, res_dtype, in_args, out_args):
+def call_many_to_many(space, shape, func, in_dtypes, out_dtypes, in_args, out_args):
     # out must hav been built. func needs no calc_type, is usually an
     # external ufunc
     nin = len(in_args)
@@ -221,24 +221,29 @@ def call_many_to_many(space, shape, func, res_dtype, in_args, out_args):
         out_states[i] = out_state
     shapelen = len(shape)
     vals = [None] * nin
-    while not out_iters[0].done(out_states[0]):
+    test_iter, test_state = in_iters[-1], in_states[-1]
+    if nout > 0:
+        test_iter, test_state = out_iters[0], out_states[0]
+    while not test_iter.done(test_state):
         call_many_to_many_driver.jit_merge_point(shapelen=shapelen, func=func,
-                                     res_dtype=res_dtype, nin=nin, nout=nout)
+                             in_dtypes=in_dtypes, out_dtypes=out_dtypes,
+                             nin=nin, nout=nout)
         for i in range(nin):
-            vals[i] = in_iters[i].getitem(in_states[i])
+            vals[i] = in_dtypes[i].coerce(space, in_iters[i].getitem(in_states[i]))
         w_arglist = space.newlist(vals)
         w_outvals = space.call_args(func, Arguments.frompacked(space, w_arglist))
         # w_outvals should be a tuple, but func can return a single value as well 
         if space.isinstance_w(w_outvals, space.w_tuple):
             batch = space.listview(w_outvals)
             for i in range(len(batch)):
-                out_iters[i].setitem(out_states[i], res_dtype.coerce(space, batch[i]))
+                out_iters[i].setitem(out_states[i], out_dtypes[i].coerce(space, batch[i]))
                 out_states[i] = out_iters[i].next(out_states[i])
-        else:
-            out_iters[0].setitem(out_states[0], res_dtype.coerce(space, w_outvals))
+        elif nout > 0:
+            out_iters[0].setitem(out_states[0], out_dtypes[0].coerce(space, w_outvals))
             out_states[0] = out_iters[0].next(out_states[0])
         for i in range(nin):
             in_states[i] = in_iters[i].next(in_states[i])
+        test_state = test_iter.next(test_state)
     return space.newtuple([convert_to_array(space, o) for o in out_args])
 
 setslice_driver = jit.JitDriver(name='numpy_setslice',
