@@ -109,6 +109,7 @@ class TestZARCH(object):
     accept_unnecessary_prefix = None
     methname = '?'
     BASE_DISPLACE = build_base_disp(8,12)
+    BASE_DISPLACE_LONG = build_base_disp(8,20)
     INDEX_BASE_DISPLACE = build_idx_base_disp(8,8,12)
     INDEX_BASE_DISPLACE_LONG = build_idx_base_disp(8,8,20)
 
@@ -247,10 +248,6 @@ class TestZARCH(object):
         return oplist, as_code
 
     def modes(self, mode):
-        if mode == "rxy":
-            return "ry"
-        if mode == "rre":
-            return "rr"
         return mode
 
     def make_all_tests(self, methname, modes, args=[]):
@@ -261,11 +258,19 @@ class TestZARCH(object):
             'i': lambda i: self.imm_tests(methname, modes, i),
             's': lambda i: self.BASE_DISPLACE,
         }
-        combinations = []
-        for i,m in enumerate(modes):
-            elems = tests[m](i)
-            random.shuffle(elems)
-            combinations.append(elems)
+        tests_all = {
+            'rxy': (tests['r'], tests['y']),
+            'siy': (lambda i: self.BASE_DISPLACE_LONG, tests['i']),
+            'rre': (tests['r'], tests['r'])
+        }
+        if modes in tests_all:
+            combinations = [f(i) for i,f in enumerate(tests_all[modes])]
+        else:
+            combinations = []
+            for i,m in enumerate(modes):
+                elems = tests[m](i)
+                random.shuffle(elems)
+                combinations.append(elems)
         results = []
         for args in itertools.product(*combinations):
             results.append(args)

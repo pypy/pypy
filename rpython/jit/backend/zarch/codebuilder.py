@@ -96,6 +96,16 @@ def build_si(mnemonic, (opcode,)):
         encode_base_displace(self, base_displace)
     return encode_si
 
+def build_siy(mnemonic, (opcode1,opcode2)):
+    def encode_siy(self, base_displace, uimm8):
+        self.writechar(opcode1)
+        self.writechar(chr(uimm8))
+        encode_base_displace(self, base_displace)
+        displace = base_displace.displace
+        self.writechar(chr(displace >> 12 & 0xff))
+        self.writechar(opcode2)
+    return encode_siy
+
 _mnemonic_codes = {
     'AR':      (build_rr,    ['\x1A']),
     'AGR':     (build_rre,   ['\xB9\x08']),
@@ -106,6 +116,7 @@ _mnemonic_codes = {
     'AGF':     (build_rxy,   ['\xE3','\x18']),
     'AHI':     (build_ri,    ['\xA7','\x0A']),
     'NI':      (build_si,    ['\x94']),
+    'NIY':     (build_siy,   ['\xEB','\x54']),
 }
 
 def build_instr_codes(clazz):
