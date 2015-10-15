@@ -13,7 +13,6 @@ clear_cache = rffi.llexternal(
     _nowrapper=True,
     sandboxsafe=True)
 
-
 def binary_helper_call(name):
     function = getattr(support, 'arm_%s' % name)
 
@@ -29,32 +28,47 @@ class Operand(object):
 
 def build_rr(mnemonic, args):
     opcode = args[0]
-    assert isinstance(opcode, str)
     def encode_rr(self, reg1, reg2):
         self.writechar(opcode)
-        operands = ((reg2 & 0x0f) << 4) | (reg1 & 0xf)
+        operands = ((reg1 & 0x0f) << 4) | (reg2 & 0xf)
         self.writechar(chr(operands))
     return encode_rr
 
 def build_rre(mnemonic, args):
     opcode1,opcode2 = args[0]
-    assert isinstance(opcode1, str)
-    assert isinstance(opcode2, str)
     def encode_rr(self, reg1, reg2):
         self.writechar(opcode1)
         self.writechar(opcode2)
         self.writechar('\x00')
         #self.writechar('\x00')
-        operands = ((reg2 & 0x0f) << 4) | (reg1 & 0xf)
+        operands = ((reg1 & 0x0f) << 4) | (reg2 & 0xf)
         self.writechar(chr(operands))
     return encode_rr
 
-_mnemonic_codes = {
-    'AR': (build_rr, ['\x1A']),
-    'AGR': (build_rre, ['\xB9\x08'])
-}
+def build_rx(mnemonic, args):
+    opcode = args[0]
+    def encode_rx(self, reg_or_mask, idxbasedisp):
+        self.writechar(opcode)
+        index = idxbasedisp.index
+        byte = (reg_or_mask & 0x0f) << 4 | index & 0xf
+        self.writechar(chr(byte))
+        displace = idxbasedisp.displace & 0x3ff
+        base = idxbasedisp.base & 0xf
+        byte = displace >> 8 & 0xf | base << 4
+        self.writechar(chr(byte))
+        self.writechar(chr(displace & 0xff))
+
+    return encode_rx
+
 
 def build_instr_codes(clazz):
+    _mnemonic_codes = {
+        'AR':      (build_rr,    ['\x1A']),
+        'AGR':     (build_rre,   ['\xB9\x08']),
+        'AGFR':    (build_rre,   ['\xB9\x18']),
+        'A':       (build_rx,    ['\x5A']),
+    }
+
     for mnemonic, (builder, args) in _mnemonic_codes.items():
         func = builder(mnemonic, args)
         name = mnemonic + "_" + builder.__name__.split("_")[1]

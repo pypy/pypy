@@ -27,9 +27,11 @@ class CodeCheckerMixin(object):
                 and self.index == self.instrindex):
                 return    # ignore the extra character '\x40'
             print self.op
-            print "\x09from codebuilder.py: ", hexdump(self.expected[self.instrindex:self.index] + char)+"..."
-            print "\x09from           'as': ", hexdump(self.expected[self.instrindex:self.index+15])+"..."
-            raise Exception("Differs")
+            generated = "\x09from codebuilder.py: " + hexdump(self.expected[self.instrindex:self.index] + char)+"..."
+            print generated
+            expected = "\x09from          gnu as: " + hexdump(self.expected[self.instrindex:self.index+15])+"..."
+            print expected
+            raise Exception("Differs:\n" + generated + "\n" + expected)
         self.index += 1
 
     def done(self):
@@ -60,6 +62,26 @@ def reduce_to_32bit(s):
 COUNT1 = 15
 suffixes = {0:'', 1:'b', 2:'w', 4:'l', 8:'q'}
 
+class FakeIndexBaseDisplace(object):
+    def __init__(self, index, base, disp):
+        self.index = index
+        self.base = base
+        self.displace = disp
+
+    def __str__(self):
+        disp = self.displace
+        index = self.index
+        base = self.base
+        return "{disp}(%r{index},%r{base})".format(**locals())
+
+def build_idx_base_disp(index_bits, base_bits, displace_bits):
+
+    possibilities = itertools.product(range(index_bits), range(base_bits),
+                                      range(displace_bits))
+    results = []
+    for (index,base,disp) in possibilities:
+        results.append(FakeIndexBaseDisplace(index,base,disp))
+    return results
 
 class TestZARCH(object):
     WORD = 8
@@ -68,6 +90,7 @@ class TestZARCH(object):
     REGNAMES = ['%%r%d' % i for i in REGS]
     accept_unnecessary_prefix = None
     methname = '?'
+    INDEX_BASE_DISPLACE = build_idx_base_disp(8,8,12)
 
     def reg_tests(self):
         return self.REGS
@@ -111,47 +134,14 @@ class TestZARCH(object):
     def relative_tests(self):
         py.test.skip("explicit test required for %r" % (self.methname,))
 
-    def get_all_tests(self):
-        return {
-            'r': self.reg_tests,
-            'e': lambda: [],
-            }
-
     def assembler_operand_reg(self, regnum):
         return self.REGNAMES[regnum]
-
-    def assembler_operand_reg8(self, regnum):
-        assert regnum & rx86.BYTE_REG_FLAG
-        return self.REGNAMES8[regnum &~ rx86.BYTE_REG_FLAG]
-
-    def assembler_operand_xmm_reg(self, regnum):
-        return self.XMMREGNAMES[regnum]
-
-    def assembler_operand_stack_bp(self, position):
-        return '%d(%s)' % (position, self.REGNAMES[5])
-
-    def assembler_operand_stack_sp(self, position):
-        return '%d(%s)' % (position, self.REGNAMES[4])
-
-    def assembler_operand_memory(self, (reg1, offset)):
-        if not offset: offset = ''
-        return '%s(%s)' % (offset, self.REGNAMES[reg1])
-
-    def assembler_operand_array(self, (reg1, reg2, scaleshift, offset)):
-        if not offset: offset = ''
-        return '%s(%s,%s,%d)' % (offset, self.REGNAMES[reg1],
-                                 self.REGNAMES[reg2], 1<<scaleshift)
-
-    def assembler_operand_imm(self, value):
-        return '$%d' % value
-
-    def assembler_operand_imm_addr(self, value):
-        return '%d' % value
 
     def get_all_assembler_operands(self):
         return {
             'r': self.assembler_operand_reg,
-            }
+            'x': lambda x: str(x),
+        }
 
     def run_test(self, methname, instrname, argmodes, args_lists,
                  instr_suffix=None):
@@ -173,7 +163,6 @@ class TestZARCH(object):
                 ops = []
                 for mode, v in zip(argmodes, args):
                     ops.append(assembler_operand[mode](v))
-                ops.reverse()
                 #
                 op = '\t%s%s %s' % (instrname.lower(), suffix,
                                       ', '.join(ops))
@@ -212,6 +201,7 @@ class TestZARCH(object):
         tests = {
             'r': self.REGS,
             'e': None,
+            'x': self.INDEX_BASE_DISPLACE,
         }
         combinations = []
         for m in modes:
