@@ -80,3 +80,8 @@ version, where handles become invalid *before* the __del__ is called).
 allow automatic casting in ufuncs (and frompypyfunc) to cast the
 arguments to the allowed function type declarations, fixes various
 failures in linalg cffi functions
+
+.. branch: vecopt
+.. branch: vecopt-merge
+
+A new optimization pass to use emit vectorized loops

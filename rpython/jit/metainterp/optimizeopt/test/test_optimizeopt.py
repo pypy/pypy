@@ -158,6 +158,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
                 continue
             if 'FLOAT' in op:
                 continue
+            if 'VEC' in op:
+                continue
             args = []
             for _ in range(oparity[opnum]):
                 args.append(random.randrange(1, 20))

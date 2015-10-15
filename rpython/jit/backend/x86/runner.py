@@ -149,4 +149,9 @@ class CPU_X86_64(AbstractX86CPU):
     IS_64_BIT = True
     HAS_CODEMAP = True
 
+class CPU_X86_64_SSE4(CPU_X86_64):
+    vector_extension = True
+    vector_register_size = 16
+    vector_horizontal_operations = True
+
 CPU = CPU386

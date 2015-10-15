@@ -164,6 +164,8 @@ class SimpleParser(OpParser):
         return self.Op(intern(opname[opnum].lower()), args, None,
                        descr, fail_args)
 
+    def update_memo(self, val, name):
+        pass
 
 
 class NonCodeError(Exception):
