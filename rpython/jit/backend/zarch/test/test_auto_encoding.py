@@ -86,6 +86,18 @@ class FakeBaseDisplace(object):
         base = self.base
         return "{disp}(%r{base})".format(**locals())
 
+class FakeLengthBaseDisplace(object):
+    def __init__(self, len, base, disp):
+        self.length = len
+        self.base = base
+        self.displace = disp
+
+    def __str__(self):
+        disp = self.displace
+        base = self.base
+        length = self.length + 1
+        return "{disp}({length},%r{base})".format(**locals())
+
 def build_base_disp(base_bits, displace_bits):
     possibilities = itertools.product(range(base_bits), range(displace_bits))
     results = []
@@ -101,6 +113,14 @@ def build_idx_base_disp(index_bits, base_bits, displace_bits):
         results.append(FakeIndexBaseDisplace(index,base,disp))
     return results
 
+def build_len_base_disp(len_bits, base_bits, displace_bits):
+    possibilities = itertools.product(range(len_bits), range(base_bits),
+                                      range(displace_bits))
+    results = []
+    for (length,base,disp) in possibilities:
+        results.append(FakeLengthBaseDisplace(length,base,disp))
+    return results
+
 class TestZARCH(object):
     WORD = 8
     TESTDIR = 'zarch'
@@ -112,6 +132,8 @@ class TestZARCH(object):
     BASE_DISPLACE_LONG = build_base_disp(8,20)
     INDEX_BASE_DISPLACE = build_idx_base_disp(8,8,12)
     INDEX_BASE_DISPLACE_LONG = build_idx_base_disp(8,8,20)
+    LENGTH4_BASE_DISPLACE = build_len_base_disp(4,8,12)
+    LENGTH8_BASE_DISPLACE = build_len_base_disp(8,8,12)
 
     def reg_tests(self):
         return self.REGS
@@ -143,8 +165,6 @@ class TestZARCH(object):
     def imm_tests(self, name, modes, index):
         from rpython.jit.backend.zarch.codebuilder import AbstractZARCHBuilder
         import inspect
-        mode = modes[index]
-        assert mode == 'i'
         func = getattr(AbstractZARCHBuilder, name)
         args = inspect.getargspec(func).args
         # 1 off, self is first arg
@@ -169,6 +189,8 @@ class TestZARCH(object):
         v = ([0,1,255] +
              [random.randrange(0,255) for i in range(COUNT1)])
         return v
+    def uimm4_tests(self):
+        return list(range(0,16))
 
     def imm32_tests(self):
         v = ([-0x80000000, 0x7FFFFFFF, 128, 256, -129, -255] +
@@ -189,11 +211,24 @@ class TestZARCH(object):
             's': lambda x: str(x),
             'x': lambda x: str(x),
             'y': lambda x: str(x),
-            'i': lambda x: str(x)
+            'i': lambda x: str(x),
+            'l': lambda x: str(x),
+            'L': lambda x: str(x),
         }
 
     def operand_combinations(self, modes, arguments):
+        remap = {
+            'rxy': 'rx',
+            'siy': 'si',
+            'rre': 'rr',
+            'ssa': 'Ls',
+            'ssb': 'll',
+            'ssc': 'lsi',
+            'ssd': 'xsr',
+            'sse': 'rrss',
+        }
         mapping = self.get_mapping_asm_to_str()
+        modes = remap.get(modes, modes)
         for mode, args in zip(modes, arguments):
             yield mapping[mode](args)
 
@@ -257,11 +292,16 @@ class TestZARCH(object):
             'y': lambda i: self.INDEX_BASE_DISPLACE_LONG,
             'i': lambda i: self.imm_tests(methname, modes, i),
             's': lambda i: self.BASE_DISPLACE,
+            'L': lambda i: self.LENGTH8_BASE_DISPLACE,
+            'l': lambda i: self.LENGTH4_BASE_DISPLACE,
         }
         tests_all = {
             'rxy': (tests['r'], tests['y']),
             'siy': (lambda i: self.BASE_DISPLACE_LONG, tests['i']),
-            'rre': (tests['r'], tests['r'])
+            'rre': (tests['r'], tests['r']),
+            'ssa': (tests['L'], tests['s']),
+            'ssb': (tests['l'], tests['l']),
+            'ssc': (tests['l'], tests['s'], tests['i']),
         }
         if modes in tests_all:
             combinations = [f(i) for i,f in enumerate(tests_all[modes])]

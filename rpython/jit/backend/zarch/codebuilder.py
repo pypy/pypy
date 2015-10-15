@@ -27,6 +27,12 @@ def binary_helper_call(name):
 class Operand(object):
     pass
 
+def arguments(args_str):
+    def impl(func):
+        func._arguments_ = args_str.split(',')
+        return func
+    return impl
+
 @always_inline
 def encode_base_displace(mc, base_displace):
     displace = base_displace.displace # & 0x3ff
@@ -106,6 +112,33 @@ def build_siy(mnemonic, (opcode1,opcode2)):
         self.writechar(opcode2)
     return encode_siy
 
+def build_ssa(mnemonic, (opcode1,)):
+    def encode_ssa(self, len_base_disp, base_displace):
+        self.writechar(opcode1)
+        self.writechar(chr(len_base_disp.length & 0xff))
+        encode_base_displace(self, len_base_disp)
+        encode_base_displace(self, base_displace)
+    return encode_ssa
+
+def build_ssb(mnemonic, (opcode1,)):
+    def encode_ssb(self, len_base_disp1, len_base_disp2):
+        self.writechar(opcode1)
+        byte = (len_base_disp1.length & 0xf) << 4 | len_base_disp2.length & 0xf
+        self.writechar(chr(byte))
+        encode_base_displace(self, len_base_disp1)
+        encode_base_displace(self, len_base_disp2)
+    return encode_ssb
+
+def build_ssc(mnemonic, (opcode1,)):
+    @arguments('l,l,u4')
+    def encode_ssc(self, len_base_disp1, len_base_disp2, uimm4):
+        self.writechar(opcode1)
+        byte = (len_base_disp1.length & 0xf) << 4 | uimm4 & 0xf
+        self.writechar(chr(byte))
+        encode_base_displace(self, len_base_disp1)
+        encode_base_displace(self, len_base_disp2)
+    return encode_ssc
+
 _mnemonic_codes = {
     'AR':      (build_rr,    ['\x1A']),
     'AGR':     (build_rre,   ['\xB9\x08']),
@@ -117,6 +150,9 @@ _mnemonic_codes = {
     'AHI':     (build_ri,    ['\xA7','\x0A']),
     'NI':      (build_si,    ['\x94']),
     'NIY':     (build_siy,   ['\xEB','\x54']),
+    'NC':      (build_ssa,   ['\xD4']),
+    'AP':      (build_ssb,   ['\xFA']),
+    'SRP':     (build_ssc,   ['\xF0']),
 }
 
 def build_instr_codes(clazz):
