@@ -18,7 +18,8 @@ from rpython.jit.metainterp import compile, resume, history
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
-from rpython.jit.metainterp.resoperation import rop, ResOperation, InputArgRef
+from rpython.jit.metainterp.resoperation import (rop, ResOperation,
+        InputArgRef, AbstractValue)
 from rpython.jit.metainterp.optimizeopt.util import args_dict
 
 
@@ -121,7 +122,7 @@ class LLtypeMixin(object):
                             ('value', lltype.Signed),
                             ('next', lltype.Ptr(NODE3)),
                             hints={'immutable': True}))
-
+    
     node = lltype.malloc(NODE)
     node.value = 5
     node.next = node
@@ -197,7 +198,10 @@ class LLtypeMixin(object):
     immut_ptrval = cpu.fielddescrof(PTROBJ_IMMUT, 'ptrval')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
+    int32arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.INT))
+    int16arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.SHORT))
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
+    float32arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.SingleFloat))
     arraydescr_tid = arraydescr.get_type_id()
     array = lltype.malloc(lltype.GcArray(lltype.Signed), 15, zero=True)
     arrayref = lltype.cast_opaque_ptr(llmemory.GCREF, array)
@@ -205,7 +209,6 @@ class LLtypeMixin(object):
     array2ref = lltype.cast_opaque_ptr(llmemory.GCREF, array2)
     gcarraydescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF))
     gcarraydescr_tid = gcarraydescr.get_type_id()
-    floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
 
     # a GcStruct not inheriting from OBJECT
     tpl = lltype.malloc(S, zero=True)
@@ -234,7 +237,7 @@ class LLtypeMixin(object):
     inst_step = cpu.fielddescrof(W_ROOT, 'inst_step')
     inst_w_list = cpu.fielddescrof(W_ROOT, 'inst_w_list')
     w_root_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
-
+    
     tsize = cpu.sizeof(T, None)
     cdescr = cpu.fielddescrof(T, 'c')
     ddescr = cpu.fielddescrof(T, 'd')
@@ -403,6 +406,15 @@ class Fake(object):
     failargs_limit = 1000
     storedebug = None
 
+class FakeWarmState(object):
+    vec = True # default is on
+    vec_all = False
+    vec_cost = 0
+    def __init__(self, enable_opts):
+        self.enable_opts = enable_opts
+
+class FakeJitDriverStaticData(object):
+    vec = False
 
 class FakeMetaInterpStaticData(object):
 
@@ -460,6 +472,7 @@ final_descr = history.BasicFinalDescr()
 class BaseTest(object):
 
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
+        AbstractValue._repr_memo.counter = 0
         self.oparse = OpParser(s, self.cpu, self.namespace, boxkinds,
                                None, False, postprocess)
         return self.oparse.parse()

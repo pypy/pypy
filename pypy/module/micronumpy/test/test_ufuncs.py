@@ -319,6 +319,28 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert out0.dtype in (int, complex) 
             assert (out0 == in0 * 2).all()
 
+    def test_frompyfunc_scalar(self):
+        import sys
+        import numpy as np
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
+
+        def summer(in0):
+            out = np.empty(1, in0.dtype)
+            out[0] = in0.sum()
+            return out
+
+        pysummer = np.frompyfunc([summer, summer], 1, 1,
+                            dtypes=[np.dtype(int), np.dtype(int),
+                                np.dtype(complex), np.dtype(complex)],
+                            stack_inputs=False, signature='(m,m)->()',
+                          )
+        for d in [np.dtype(float), np.dtype('uint8'), np.dtype('complex64')]:
+            in0 = np.arange(4, dtype=d).reshape(1, 2, 2)
+            out0 = pysummer(in0)
+            assert out0 == in0.sum()
+            assert out0.dtype in (int, complex)
+
     def test_ufunc_kwargs(self):
         from numpy import ufunc, frompyfunc, arange, dtype
         def adder(a, b):

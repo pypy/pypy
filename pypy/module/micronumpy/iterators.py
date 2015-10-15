@@ -83,6 +83,12 @@ class IterState(object):
         self._indices = indices
         self.offset = offset
 
+    def same(self, other):
+        if self.offset == other.offset and \
+           self.index == other.index and \
+           self._indices == other._indices:
+            return self.iterator.same_shape(other.iterator)
+        return False
 
 class ArrayIter(object):
     _immutable_fields_ = ['contiguous', 'array', 'size', 'ndim_m1', 'shape_m1[*]',
@@ -100,6 +106,7 @@ class ArrayIter(object):
         self.array = array
         self.size = size
         self.ndim_m1 = len(shape) - 1
+        #
         self.shape_m1 = [s - 1 for s in shape]
         self.strides = strides
         self.backstrides = backstrides
@@ -112,6 +119,17 @@ class ArrayIter(object):
             else:
                 factors[ndim-i-1] = factors[ndim-i] * shape[ndim-i]
         self.factors = factors
+
+    def same_shape(self, other):
+        """ Iterating over the same element """
+        if not self.contiguous or not other.contiguous:
+            return False
+        return (self.contiguous == other.contiguous and
+                self.array.dtype is self.array.dtype and
+                self.shape_m1 == other.shape_m1 and
+                self.strides == other.strides and
+                self.backstrides == other.backstrides and
+                self.factors == other.factors)
 
     @jit.unroll_safe
     def reset(self, state=None, mutate=False):
@@ -138,9 +156,13 @@ class ArrayIter(object):
         indices = state._indices
         offset = state.offset
         if self.contiguous:
-            offset += self.array.dtype.elsize
+            elsize = self.array.dtype.elsize
+            jit.promote(elsize)
+            offset += elsize
         elif self.ndim_m1 == 0:
-            offset += self.strides[0]
+            stride = self.strides[0]
+            jit.promote(stride)
+            offset += stride
         else:
             for i in xrange(self.ndim_m1, -1, -1):
                 idx = indices[i]
@@ -192,7 +214,7 @@ class ArrayIter(object):
         return state.index >= self.size
 
     def getitem(self, state):
-        assert state.iterator is self
+        # assert state.iterator is self
         return self.array.getitem(state.offset)
 
     def getitem_bool(self, state):
@@ -202,7 +224,6 @@ class ArrayIter(object):
     def setitem(self, state, elem):
         assert state.iterator is self
         self.array.setitem(state.offset, elem)
-
 
 def AxisIter(array, shape, axis):
     strides = array.get_strides()

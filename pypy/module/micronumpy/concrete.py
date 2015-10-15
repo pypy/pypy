@@ -70,7 +70,10 @@ class BaseConcreteArray(object):
 
     @jit.unroll_safe
     def setslice(self, space, arr):
-        if len(arr.get_shape()) >  len(self.get_shape()):
+        if arr.get_size() == 1:
+            # we can always set self[:] = scalar
+            pass
+        elif len(arr.get_shape()) >  len(self.get_shape()):
             # record arrays get one extra dimension
             if not self.dtype.is_record() or \
                     len(arr.get_shape()) > len(self.get_shape()) + 1:

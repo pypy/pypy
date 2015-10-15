@@ -2,6 +2,7 @@
 Built-in functions.
 """
 import sys
+from collections import OrderedDict
 
 from rpython.annotator.model import (
     SomeInteger, SomeChar, SomeBool, SomeString, SomeTuple,
@@ -356,7 +357,7 @@ else:
     def unicodedata_decimal(s_uchr):
         raise TypeError("unicodedate.decimal() calls should not happen at interp-level")
 
-@analyzer_for(SomeOrderedDict.knowntype)
+@analyzer_for(OrderedDict)
 def analyze():
     return SomeOrderedDict(getbookkeeper().getdictdef())
 

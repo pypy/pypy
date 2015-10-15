@@ -13,6 +13,7 @@ class ProcessorAutodetectError(Exception):
 MODEL_X86         = 'x86'
 MODEL_X86_NO_SSE2 = 'x86-without-sse2'
 MODEL_X86_64      = 'x86-64'
+MODEL_X86_64_SSE4 = 'x86-64-sse4'
 MODEL_ARM         = 'arm'
 MODEL_PPC_64      = 'ppc-64'
 # don't use '_' in the model strings; they are replaced by '-'
@@ -70,18 +71,22 @@ def detect_model_from_host_platform():
         raise ProcessorAutodetectError, "unknown machine name %s" % mach
     #
     if result.startswith('x86'):
+        from rpython.jit.backend.x86 import detect_feature as feature
         if sys.maxint == 2**63-1:
             result = MODEL_X86_64
+            # has sse 2 at least
+            if feature.detect_sse4_1():
+                result = MODEL_X86_64_SSE4
         else:
             assert sys.maxint == 2**31-1
-            from rpython.jit.backend.x86 import detect_sse2
-            if detect_sse2.detect_sse2():
+            if feature.detect_sse2():
                 result = MODEL_X86
             else:
                 result = MODEL_X86_NO_SSE2
-            if detect_sse2.detect_x32_mode():
+            if feature.detect_x32_mode():
                 raise ProcessorAutodetectError(
                     'JITting in x32 mode is not implemented')
+
     #
     if result.startswith('arm'):
         from rpython.jit.backend.arm.detect import detect_float
@@ -109,6 +114,8 @@ def getcpuclassname(backend_name="auto"):
         return "rpython.jit.backend.x86.runner", "CPU386_NO_SSE2"
     elif backend_name == MODEL_X86_64:
         return "rpython.jit.backend.x86.runner", "CPU_X86_64"
+    elif backend_name == MODEL_X86_64_SSE4:
+        return "rpython.jit.backend.x86.runner", "CPU_X86_64_SSE4"
     elif backend_name == MODEL_ARM:
         return "rpython.jit.backend.arm.runner", "CPU_ARM"
     else:
@@ -128,6 +135,7 @@ def getcpufeatures(backend_name="auto"):
         MODEL_X86: ['floats', 'singlefloats', 'longlong'],
         MODEL_X86_NO_SSE2: ['longlong'],
         MODEL_X86_64: ['floats', 'singlefloats'],
+        MODEL_X86_64_SSE4: ['floats', 'singlefloats'],
         MODEL_ARM: ['floats', 'singlefloats', 'longlong'],
         MODEL_PPC_64: [], # we don't even have PPC directory, so no
     }[backend_name]
