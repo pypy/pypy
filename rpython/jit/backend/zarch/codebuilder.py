@@ -26,16 +26,15 @@ def binary_helper_call(name):
 class Operand(object):
     pass
 
-def build_rr(mnemonic, args):
-    opcode = args[0]
+def build_rr(mnemonic, (opcode,)):
     def encode_rr(self, reg1, reg2):
         self.writechar(opcode)
         operands = ((reg1 & 0x0f) << 4) | (reg2 & 0xf)
         self.writechar(chr(operands))
     return encode_rr
 
-def build_rre(mnemonic, args):
-    opcode1,opcode2 = args[0]
+def build_rre(mnemonic, (opcode,)):
+    opcode1,opcode2 = opcode
     def encode_rr(self, reg1, reg2):
         self.writechar(opcode1)
         self.writechar(opcode2)
@@ -45,8 +44,7 @@ def build_rre(mnemonic, args):
         self.writechar(chr(operands))
     return encode_rr
 
-def build_rx(mnemonic, args):
-    opcode = args[0]
+def build_rx(mnemonic, (opcode,)):
     def encode_rx(self, reg_or_mask, idxbasedisp):
         self.writechar(opcode)
         index = idxbasedisp.index
@@ -60,6 +58,21 @@ def build_rx(mnemonic, args):
 
     return encode_rx
 
+def build_rxy(mnemonic, (opcode1,opcode2)):
+    def encode_rxy(self, reg_or_mask, idxbasedisp):
+        self.writechar(opcode1)
+        index = idxbasedisp.index
+        byte = (reg_or_mask & 0x0f) << 4 | index & 0xf
+        self.writechar(chr(byte))
+        displace = idxbasedisp.displace & 0x3ff
+        base = idxbasedisp.base & 0xf
+        byte = displace >> 8 & 0xf | base << 4
+        self.writechar(chr(byte))
+        self.writechar(chr(displace & 0xff))
+        self.writechar(chr(displace >> 12 & 0xff))
+        self.writechar(opcode2)
+
+    return encode_rxy
 
 def build_instr_codes(clazz):
     _mnemonic_codes = {
@@ -67,6 +80,8 @@ def build_instr_codes(clazz):
         'AGR':     (build_rre,   ['\xB9\x08']),
         'AGFR':    (build_rre,   ['\xB9\x18']),
         'A':       (build_rx,    ['\x5A']),
+        'AY':      (build_rxy,   ['\xE3','\x5A']),
+        'AG':      (build_rxy,   ['\xE3','\x08']),
     }
 
     for mnemonic, (builder, args) in _mnemonic_codes.items():

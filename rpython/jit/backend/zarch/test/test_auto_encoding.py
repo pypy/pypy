@@ -91,6 +91,7 @@ class TestZARCH(object):
     accept_unnecessary_prefix = None
     methname = '?'
     INDEX_BASE_DISPLACE = build_idx_base_disp(8,8,12)
+    INDEX_BASE_DISPLACE_LONG = build_idx_base_disp(8,8,20)
 
     def reg_tests(self):
         return self.REGS
@@ -137,11 +138,17 @@ class TestZARCH(object):
     def assembler_operand_reg(self, regnum):
         return self.REGNAMES[regnum]
 
-    def get_all_assembler_operands(self):
+    def get_mapping_asm_to_str(self):
         return {
             'r': self.assembler_operand_reg,
             'x': lambda x: str(x),
+            'y': lambda x: str(x),
         }
+
+    def operand_combinations(self, modes, arguments):
+        mapping = self.get_mapping_asm_to_str()
+        for mode, args in zip(modes, arguments):
+            yield mapping[mode](args)
 
     def run_test(self, methname, instrname, argmodes, args_lists,
                  instr_suffix=None):
@@ -158,12 +165,8 @@ class TestZARCH(object):
                 suffix = ""
                 if instr_suffix is not None:
                     suffix = instr_suffix    # overwrite
-
-                assembler_operand = self.get_all_assembler_operands()
-                ops = []
-                for mode, v in zip(argmodes, args):
-                    ops.append(assembler_operand[mode](v))
                 #
+                ops = self.operand_combinations(argmodes, args)
                 op = '\t%s%s %s' % (instrname.lower(), suffix,
                                       ', '.join(ops))
                 g.write('%s\n' % op)
@@ -197,11 +200,17 @@ class TestZARCH(object):
             raise Exception("Assembler did not produce output?")
         return oplist, as_code
 
+    def modes(self, mode):
+        if mode == "rxy":
+            return "ry"
+        return mode
+
     def make_all_tests(self, methname, modes, args=[]):
         tests = {
             'r': self.REGS,
             'e': None,
             'x': self.INDEX_BASE_DISPLACE,
+            'y': self.INDEX_BASE_DISPLACE_LONG,
         }
         combinations = []
         for m in modes:
@@ -222,6 +231,7 @@ class TestZARCH(object):
             instrname, argmodes = methname.split('_')
         else:
             instrname, argmodes = methname, ''
+        argmodes = self.modes(argmodes)
 
         if self.should_skip_instruction(instrname, argmodes):
             print "Skipping %s" % methname
