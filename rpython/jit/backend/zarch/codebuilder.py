@@ -39,7 +39,6 @@ def build_rre(mnemonic, (opcode,)):
         self.writechar(opcode1)
         self.writechar(opcode2)
         self.writechar('\x00')
-        #self.writechar('\x00')
         operands = ((reg1 & 0x0f) << 4) | (reg2 & 0xf)
         self.writechar(chr(operands))
     return encode_rr
@@ -55,7 +54,6 @@ def build_rx(mnemonic, (opcode,)):
         byte = displace >> 8 & 0xf | base << 4
         self.writechar(chr(byte))
         self.writechar(chr(displace & 0xff))
-
     return encode_rx
 
 def build_rxy(mnemonic, (opcode1,opcode2)):
@@ -71,8 +69,16 @@ def build_rxy(mnemonic, (opcode1,opcode2)):
         self.writechar(chr(displace & 0xff))
         self.writechar(chr(displace >> 12 & 0xff))
         self.writechar(opcode2)
-
     return encode_rxy
+
+def build_ri(mnemonic, (opcode,halfopcode)):
+    def encode_ri(self, reg_or_mask, imm):
+        self.writechar(opcode)
+        byte = (reg_or_mask & 0xf) << 4 | (ord(halfopcode) & 0xf)
+        self.writechar(chr(byte))
+        self.writechar(chr(imm >> 8 & 0xff))
+        self.writechar(chr(imm & 0xff))
+    return encode_ri
 
 def build_instr_codes(clazz):
     _mnemonic_codes = {
@@ -82,6 +88,8 @@ def build_instr_codes(clazz):
         'A':       (build_rx,    ['\x5A']),
         'AY':      (build_rxy,   ['\xE3','\x5A']),
         'AG':      (build_rxy,   ['\xE3','\x08']),
+        'AGF':     (build_rxy,   ['\xE3','\x18']),
+        'AHI':     (build_ri,    ['\xA7','\x0A']),
     }
 
     for mnemonic, (builder, args) in _mnemonic_codes.items():

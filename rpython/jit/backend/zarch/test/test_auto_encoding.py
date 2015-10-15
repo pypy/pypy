@@ -27,9 +27,10 @@ class CodeCheckerMixin(object):
                 and self.index == self.instrindex):
                 return    # ignore the extra character '\x40'
             print self.op
-            generated = "\x09from codebuilder.py: " + hexdump(self.expected[self.instrindex:self.index] + char)+"..."
+            post = self.expected[self.index+1:self.index+1+15]
+            generated = "\x09from codebuilder.py: " + hexdump(self.expected[self.instrindex:self.index] + "!" + char + "!" + post)+"..."
             print generated
-            expected = "\x09from          gnu as: " + hexdump(self.expected[self.instrindex:self.index+15])+"..."
+            expected = "\x09from         gnu as: " + hexdump(self.expected[self.instrindex:self.index+15])+"..."
             print expected
             raise Exception("Differs:\n" + generated + "\n" + expected)
         self.index += 1
@@ -120,6 +121,11 @@ class TestZARCH(object):
                     for ofs in self.stack_bp_tests(1)
                 ]
 
+    def imm16_tests(self):
+        v = ([-128,-1,0,1,127] +
+             [random.randrange(-32768, 32767) for i in range(COUNT1)])
+        return v
+
     def imm8_tests(self):
         v = ([-128,-1,0,1,127] +
              [random.randrange(-127, 127) for i in range(COUNT1)])
@@ -143,6 +149,7 @@ class TestZARCH(object):
             'r': self.assembler_operand_reg,
             'x': lambda x: str(x),
             'y': lambda x: str(x),
+            'i': lambda x: str(x)
         }
 
     def operand_combinations(self, modes, arguments):
@@ -203,14 +210,16 @@ class TestZARCH(object):
     def modes(self, mode):
         if mode == "rxy":
             return "ry"
+        if mode == "rre":
+            return "rr"
         return mode
 
     def make_all_tests(self, methname, modes, args=[]):
         tests = {
             'r': self.REGS,
-            'e': None,
             'x': self.INDEX_BASE_DISPLACE,
             'y': self.INDEX_BASE_DISPLACE_LONG,
+            'i': self.imm16_tests(),
         }
         combinations = []
         for m in modes:
