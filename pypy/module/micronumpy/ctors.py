@@ -86,6 +86,9 @@ def array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False,
 
 def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
 
+    # numpy testing calls array(type(array([]))) and expects a ValueError
+    if space.isinstance_w(w_object, space.w_type):
+        raise oefmt(space.w_ValueError, "cannot create ndarray from type instance")
     # for anything that isn't already an array, try __array__ method first
     if not isinstance(w_object, W_NDimArray):
         w_array = try_array_method(space, w_object, w_dtype)

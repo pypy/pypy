@@ -292,6 +292,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = np.array('123', dtype='intp')
         assert a == 123
         assert a.dtype == np.intp
+        # required for numpy test suite
+        raises(ValueError, np.array, type(a))
 
     def test_array_copy(self):
         from numpy import array
