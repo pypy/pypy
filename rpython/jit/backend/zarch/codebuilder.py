@@ -5,6 +5,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.tool.udir import udir
 from rpython.jit.backend.detect_cpu import autodetect
+from rpython.rtyper.lltypesystem.rbuilder import always_inline
 
 clear_cache = rffi.llexternal(
     "__clear_cache",
@@ -25,6 +26,14 @@ def binary_helper_call(name):
 
 class Operand(object):
     pass
+
+@always_inline
+def encode_base_displace(mc, base_displace):
+    displace = base_displace.displace # & 0x3ff
+    base = base_displace.base & 0xf
+    byte = (displace >> 8 & 0xf) | base << 4
+    mc.writechar(chr(byte))
+    mc.writechar(chr(displace & 0xff))
 
 def build_rr(mnemonic, (opcode,)):
     def encode_rr(self, reg1, reg2):
@@ -72,25 +81,34 @@ def build_rxy(mnemonic, (opcode1,opcode2)):
     return encode_rxy
 
 def build_ri(mnemonic, (opcode,halfopcode)):
-    def encode_ri(self, reg_or_mask, imm):
+    def encode_ri(self, reg_or_mask, imm16):
         self.writechar(opcode)
         byte = (reg_or_mask & 0xf) << 4 | (ord(halfopcode) & 0xf)
         self.writechar(chr(byte))
-        self.writechar(chr(imm >> 8 & 0xff))
-        self.writechar(chr(imm & 0xff))
+        self.writechar(chr(imm16 >> 8 & 0xff))
+        self.writechar(chr(imm16 & 0xff))
     return encode_ri
 
+def build_si(mnemonic, (opcode,)):
+    def encode_si(self, base_displace, uimm8):
+        self.writechar(opcode)
+        self.writechar(chr(uimm8))
+        encode_base_displace(self, base_displace)
+    return encode_si
+
+_mnemonic_codes = {
+    'AR':      (build_rr,    ['\x1A']),
+    'AGR':     (build_rre,   ['\xB9\x08']),
+    'AGFR':    (build_rre,   ['\xB9\x18']),
+    'A':       (build_rx,    ['\x5A']),
+    'AY':      (build_rxy,   ['\xE3','\x5A']),
+    'AG':      (build_rxy,   ['\xE3','\x08']),
+    'AGF':     (build_rxy,   ['\xE3','\x18']),
+    'AHI':     (build_ri,    ['\xA7','\x0A']),
+    'NI':      (build_si,    ['\x94']),
+}
+
 def build_instr_codes(clazz):
-    _mnemonic_codes = {
-        'AR':      (build_rr,    ['\x1A']),
-        'AGR':     (build_rre,   ['\xB9\x08']),
-        'AGFR':    (build_rre,   ['\xB9\x18']),
-        'A':       (build_rx,    ['\x5A']),
-        'AY':      (build_rxy,   ['\xE3','\x5A']),
-        'AG':      (build_rxy,   ['\xE3','\x08']),
-        'AGF':     (build_rxy,   ['\xE3','\x18']),
-        'AHI':     (build_ri,    ['\xA7','\x0A']),
-    }
 
     for mnemonic, (builder, args) in _mnemonic_codes.items():
         func = builder(mnemonic, args)

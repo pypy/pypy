@@ -5,6 +5,7 @@ from rpython.jit.backend.zarch import codebuilder
 from rpython.rlib.rarithmetic import intmask
 from rpython.tool.udir import udir
 import itertools
+import re
 
 INPUTNAME = 'checkfile_%s.s'
 FILENAME = 'checkfile_%s.o'
@@ -28,7 +29,7 @@ class CodeCheckerMixin(object):
                 return    # ignore the extra character '\x40'
             print self.op
             post = self.expected[self.index+1:self.index+1+15]
-            generated = "\x09from codebuilder.py: " + hexdump(self.expected[self.instrindex:self.index] + "!" + char + "!" + post)+"..."
+            generated = "\x09from codebuilder.py: " + hexdump(self.expected[self.instrindex:self.index] + char )+"..."
             print generated
             expected = "\x09from         gnu as: " + hexdump(self.expected[self.instrindex:self.index+15])+"..."
             print expected
@@ -75,8 +76,24 @@ class FakeIndexBaseDisplace(object):
         base = self.base
         return "{disp}(%r{index},%r{base})".format(**locals())
 
-def build_idx_base_disp(index_bits, base_bits, displace_bits):
+class FakeBaseDisplace(object):
+    def __init__(self, base, disp):
+        self.base = base
+        self.displace = disp
 
+    def __str__(self):
+        disp = self.displace
+        base = self.base
+        return "{disp}(%r{base})".format(**locals())
+
+def build_base_disp(base_bits, displace_bits):
+    possibilities = itertools.product(range(base_bits), range(displace_bits))
+    results = []
+    for (base,disp) in possibilities:
+        results.append(FakeBaseDisplace(base,disp))
+    return results
+
+def build_idx_base_disp(index_bits, base_bits, displace_bits):
     possibilities = itertools.product(range(index_bits), range(base_bits),
                                       range(displace_bits))
     results = []
@@ -91,6 +108,7 @@ class TestZARCH(object):
     REGNAMES = ['%%r%d' % i for i in REGS]
     accept_unnecessary_prefix = None
     methname = '?'
+    BASE_DISPLACE = build_base_disp(8,12)
     INDEX_BASE_DISPLACE = build_idx_base_disp(8,8,12)
     INDEX_BASE_DISPLACE_LONG = build_idx_base_disp(8,8,20)
 
@@ -121,14 +139,34 @@ class TestZARCH(object):
                     for ofs in self.stack_bp_tests(1)
                 ]
 
+    def imm_tests(self, name, modes, index):
+        from rpython.jit.backend.zarch.codebuilder import AbstractZARCHBuilder
+        import inspect
+        mode = modes[index]
+        assert mode == 'i'
+        func = getattr(AbstractZARCHBuilder, name)
+        args = inspect.getargspec(func).args
+        # 1 off, self is first arg
+        match = re.compile("(u?imm\d+)").match(args[index+1])
+        assert match
+        return getattr(self, match.group(1) + "_tests")()
+
+    def uimm16_tests(self):
+        v = ([0,1,65535] +
+             [random.randrange(0,65535) for i in range(COUNT1)])
+        return v
     def imm16_tests(self):
-        v = ([-128,-1,0,1,127] +
+        v = ([-32768,-1,0,1,32767] +
              [random.randrange(-32768, 32767) for i in range(COUNT1)])
         return v
 
     def imm8_tests(self):
         v = ([-128,-1,0,1,127] +
              [random.randrange(-127, 127) for i in range(COUNT1)])
+        return v
+    def uimm8_tests(self):
+        v = ([0,1,255] +
+             [random.randrange(0,255) for i in range(COUNT1)])
         return v
 
     def imm32_tests(self):
@@ -147,6 +185,7 @@ class TestZARCH(object):
     def get_mapping_asm_to_str(self):
         return {
             'r': self.assembler_operand_reg,
+            's': lambda x: str(x),
             'x': lambda x: str(x),
             'y': lambda x: str(x),
             'i': lambda x: str(x)
@@ -216,17 +255,17 @@ class TestZARCH(object):
 
     def make_all_tests(self, methname, modes, args=[]):
         tests = {
-            'r': self.REGS,
-            'x': self.INDEX_BASE_DISPLACE,
-            'y': self.INDEX_BASE_DISPLACE_LONG,
-            'i': self.imm16_tests(),
+            'r': lambda i: self.REGS,
+            'x': lambda i: self.INDEX_BASE_DISPLACE,
+            'y': lambda i: self.INDEX_BASE_DISPLACE_LONG,
+            'i': lambda i: self.imm_tests(methname, modes, i),
+            's': lambda i: self.BASE_DISPLACE,
         }
         combinations = []
-        for m in modes:
-            if tests[m] is not None:
-                elems = tests[m]
-                random.shuffle(elems)
-                combinations.append(elems)
+        for i,m in enumerate(modes):
+            elems = tests[m](i)
+            random.shuffle(elems)
+            combinations.append(elems)
         results = []
         for args in itertools.product(*combinations):
             results.append(args)
