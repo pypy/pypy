@@ -675,9 +675,6 @@ class ResOpAssembler(BaseAssembler):
     emit_op_getfield_gc_i = _genop_getfield
     emit_op_getfield_gc_r = _genop_getfield
     emit_op_getfield_gc_f = _genop_getfield
-    emit_op_getfield_gc_pure_i = _genop_getfield
-    emit_op_getfield_gc_pure_r = _genop_getfield
-    emit_op_getfield_gc_pure_f = _genop_getfield
     emit_op_getfield_raw_i = _genop_getfield
     emit_op_getfield_raw_f = _genop_getfield
     emit_op_getfield_raw_pure_i = _genop_getfield

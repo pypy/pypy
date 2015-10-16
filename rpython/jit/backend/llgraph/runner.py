@@ -578,9 +578,6 @@ class LLGraphCPU(model.AbstractCPU):
         p = support.cast_arg(lltype.Ptr(descr.S), p)
         return support.cast_result(descr.FIELD, getattr(p, descr.fieldname))
 
-    bh_getfield_gc_pure_i = bh_getfield_gc
-    bh_getfield_gc_pure_r = bh_getfield_gc
-    bh_getfield_gc_pure_f = bh_getfield_gc
     bh_getfield_gc_i = bh_getfield_gc
     bh_getfield_gc_r = bh_getfield_gc
     bh_getfield_gc_f = bh_getfield_gc

@@ -1411,7 +1411,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i]
         p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i, descr=valuedescr)
-        i1 = getfield_gc_pure_i(p1, descr=valuedescr)
+        i1 = getfield_gc_i(p1, descr=valuedescr)
         jump(i1)
         """
         expected = """
@@ -1423,7 +1423,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_getfield_gc_pure_2(self):
         ops = """
         [i]
-        i1 = getfield_gc_pure_i(ConstPtr(myptr3), descr=valuedescr3)
+        i1 = getfield_gc_i(ConstPtr(myptr3), descr=valuedescr3)
         jump(i1)
         """
         expected = """
@@ -1437,16 +1437,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         []
         p1 = escape_r()
-        p2 = getfield_gc_pure_r(p1, descr=nextdescr3)
+        p2 = getfield_gc_r(p1, descr=nextdescr3)
         escape_n(p2)
-        p3 = getfield_gc_pure_r(p1, descr=nextdescr3)
+        p3 = getfield_gc_r(p1, descr=nextdescr3)
         escape_n(p3)
         jump()
         """
         expected = """
         []
         p1 = escape_r()
-        p2 = getfield_gc_pure_r(p1, descr=nextdescr3)
+        p2 = getfield_gc_r(p1, descr=nextdescr3)
         escape_n(p2)
         escape_n(p2)
         jump()
@@ -2667,7 +2667,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p1, p2]
         p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
-        i4 = getfield_gc_pure_i(ConstPtr(myptr3), descr=valuedescr3)
+        i4 = getfield_gc_i(ConstPtr(myptr3), descr=valuedescr3)
         p5 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         escape_n(p3)
         escape_n(i4)
@@ -3331,8 +3331,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p26, i24, descr=adescr)
         i28 = int_add(i17, 1)
         setfield_gc(p8, i28, descr=valuedescr)
-        i34 = getfield_gc_pure_i(p11, descr=valuedescr3)
-        i35 = getfield_gc_pure_i(p26, descr=adescr)
+        i34 = getfield_gc_i(p11, descr=valuedescr3)
+        i35 = getfield_gc_i(p26, descr=adescr)
         guard_nonnull(p12) []
         i36 = int_add_ovf(i34, i35)
         guard_no_overflow() []
@@ -3523,14 +3523,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_residual_call_does_not_invalidate_immutable_caches(self):
         ops = """
         [p1]
-        i1 = getfield_gc_pure_i(p1, descr=valuedescr3)
+        i1 = getfield_gc_i(p1, descr=valuedescr3)
         i2 = call_i(i1, descr=writevalue3descr)
-        i3 = getfield_gc_pure_i(p1, descr=valuedescr3)
+        i3 = getfield_gc_i(p1, descr=valuedescr3)
         jump(p1)
         """
         expected_preamble = """
         [p1]
-        i1 = getfield_gc_pure_i(p1, descr=valuedescr3)
+        i1 = getfield_gc_i(p1, descr=valuedescr3)
         i2 = call_i(i1, descr=writevalue3descr)
         jump(p1, i1)
         """
@@ -4974,17 +4974,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p42]
         p53 = getfield_gc_r(ConstPtr(myptr3), descr=nextdescr3)
-        p59 = getfield_gc_pure_r(p53, descr=valuedescr3)
+        p59 = getfield_gc_r(p53, descr=valuedescr3)
         i61 = call_i(1, p59, descr=nonwritedescr)
         jump(p42)
         """
         expected = """
-        [p42, p59]
-        i61 = call_i(1, p59, descr=nonwritedescr)
-        jump(p42, p59)
-
+        [p42]
+        i61 = call_i(1, 7, descr=nonwritedescr)
+        jump(p42)
         """
-        self.node.value = 5
         self.optimize_loop(ops, expected)
 
     def test_complains_getfieldpure_setfield(self):
@@ -4993,7 +4991,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p3]
         p1 = escape_r()
-        p2 = getfield_gc_pure_r(p1, descr=nextdescr)
+        p2 = getfield_gc_r(p1, descr=nextdescr)
         setfield_gc(p1, p3, descr=nextdescr)
         jump(p3)
         """
@@ -5003,7 +5001,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p3]
         p1 = escape_r()
-        p2 = getfield_gc_pure_r(p1, descr=nextdescr3)
+        p2 = getfield_gc_r(p1, descr=nextdescr3)
         setfield_gc(p1, p3, descr=otherdescr)
         escape_n(p2)
         jump(p3)
@@ -5011,7 +5009,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p3]
         p1 = escape_r()
-        p2 = getfield_gc_pure_r(p1, descr=nextdescr3)
+        p2 = getfield_gc_r(p1, descr=nextdescr3)
         setfield_gc(p1, p3, descr=otherdescr)
         escape_n(p2)
         jump(p3)
@@ -6168,14 +6166,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_bug_unroll_with_immutables(self):
         ops = """
         [p0]
-        i2 = getfield_gc_pure_i(p0, descr=immut_intval)
+        i2 = getfield_gc_i(p0, descr=immut_intval)
         p1 = new_with_vtable(descr=immut_descr)
         setfield_gc(p1, 1242, descr=immut_intval)
         jump(p1)
         """
         preamble = """
         [p0]
-        i2 = getfield_gc_pure_i(p0, descr=immut_intval)
+        i2 = getfield_gc_i(p0, descr=immut_intval)
         jump()
         """
         expected = """
@@ -7157,13 +7155,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, p1, i0]
         quasiimmut_field(p0, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc_pure_i(p0, descr=quasifielddescr)
+        i1 = getfield_gc_i(p0, descr=quasifielddescr)
         escape_n(i1)
         jump(p1, p0, i1)
         """
         expected = """
         [p0, p1, i0]
-        i1 = getfield_gc_pure_i(p0, descr=quasifielddescr)
+        i1 = getfield_gc_i(p0, descr=quasifielddescr)
         escape_n(i1)
         jump(p1, p0, i1)
         """
@@ -7174,7 +7172,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         []
         quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc_pure_i(ConstPtr(quasiptr), descr=quasifielddescr)
+        i1 = getfield_gc_i(ConstPtr(quasiptr), descr=quasifielddescr)
         escape_n(i1)
         jump()
         """
@@ -7226,11 +7224,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0a, i0b]
         quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc_pure_i(ConstPtr(quasiptr), descr=quasifielddescr)
+        i1 = getfield_gc_i(ConstPtr(quasiptr), descr=quasifielddescr)
         call_may_force_n(i0b, descr=mayforcevirtdescr)
         quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i2 = getfield_gc_pure_i(ConstPtr(quasiptr), descr=quasifielddescr)
+        i2 = getfield_gc_i(ConstPtr(quasiptr), descr=quasifielddescr)
         i3 = escape_i(i1)
         i4 = escape_i(i2)
         jump(i3, i4)
@@ -7253,11 +7251,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p, 421, descr=quasifielddescr)
         quasiimmut_field(p, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i1 = getfield_gc_pure_i(p, descr=quasifielddescr)
+        i1 = getfield_gc_i(p, descr=quasifielddescr)
         call_may_force_n(i0b, descr=mayforcevirtdescr)
         quasiimmut_field(p, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i2 = getfield_gc_pure_i(p, descr=quasifielddescr)
+        i2 = getfield_gc_i(p, descr=quasifielddescr)
         i3 = escape_i(i1)
         i4 = escape_i(i2)
         jump(i3, i4)
@@ -7496,7 +7494,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_forced_virtual_pure_getfield(self):
         ops = """
         [p0]
-        p1 = getfield_gc_pure_r(p0, descr=valuedescr3)
+        p1 = getfield_gc_r(p0, descr=valuedescr3)
         jump(p1)
         """
         self.optimize_loop(ops, ops)
@@ -7506,7 +7504,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p1 = new_with_vtable(descr=nodesize3)
         setfield_gc(p1, p0, descr=valuedescr3)
         escape_n(p1)
-        p2 = getfield_gc_pure_r(p1, descr=valuedescr3)
+        p2 = getfield_gc_r(p1, descr=valuedescr3)
         escape_n(p2)
         jump(p0)
         """
@@ -7993,7 +7991,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_dont_mixup_equal_boxes(self):
         ops = """
         [p8]
-        i9 = getfield_gc_pure_i(p8, descr=valuedescr3)
+        i9 = getfield_gc_i(p8, descr=valuedescr3)
         i10 = int_gt(i9, 0)
         guard_true(i10) []
         i29 = int_lshift(i9, 1)
@@ -8088,9 +8086,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         py.test.skip("would be fixed by make heap optimizer aware of virtual setfields")
         ops = """
         [p5, p8]
-        i9 = getfield_gc_pure_i(p5, descr=valuedescr)
+        i9 = getfield_gc_i(p5, descr=valuedescr)
         call_n(i9, descr=nonwritedescr)
-        i11 = getfield_gc_pure_i(p8, descr=valuedescr)
+        i11 = getfield_gc_i(p8, descr=valuedescr)
         i13 = int_add_ovf(i11, 1)
         guard_no_overflow() []
         p22 = new_with_vtable(descr=nodesize)
@@ -8556,7 +8554,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
 
         quasiimmut_field(p69, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        p71 = getfield_gc_pure_r(p69, descr=quasifielddescr) # inst_code
+        p71 = getfield_gc_r(p69, descr=quasifielddescr) # inst_code
         guard_value(p71, -4247) []
 
         p106 = new_with_vtable(descr=nodesize)
@@ -8578,7 +8576,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p69]
         quasiimmut_field(p69, descr=quasiimmutdescr)
         guard_not_invalidated() []
-        p71 = getfield_gc_pure_r(p69, descr=quasifielddescr) # inst_code
+        p71 = getfield_gc_r(p69, descr=quasifielddescr) # inst_code
         guard_value(p71, -4247) []
         jump(ConstPtr(myptr))
         """
@@ -8780,7 +8778,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_back_and_forth(self):
         ops = """
         [p0]
-        p1 = getfield_gc_pure_r(p0, descr=valuedescr3)
+        p1 = getfield_gc_r(p0, descr=valuedescr3)
         ptemp = new_with_vtable(descr=nodesize)
         setfield_gc(ptemp, p1, descr=nextdescr)
         p2 = getfield_gc_r(ptemp, descr=nextdescr)

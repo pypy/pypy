@@ -320,7 +320,7 @@ class BasicTests:
         assert res == 252
         self.check_trace_count(1)
         self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
-                           'getfield_gc_pure_i': 1, 'int_mul': 1,
+                           'getfield_gc_i': 1, 'int_mul': 1,
                            'guard_true': 2, 'int_sub': 2})
 
     def test_loops_are_transient(self):
@@ -1405,7 +1405,7 @@ class BasicTests:
             return tup[1]
         res = self.interp_operations(f, [3, 5])
         assert res == 5
-        self.check_operations_history(setfield_gc=2, getfield_gc_pure_i=0)
+        self.check_operations_history(setfield_gc=2, getfield_gc_i=0)
 
     def test_oosend_look_inside_only_one(self):
         class A:
@@ -2522,7 +2522,7 @@ class BasicTests:
                 if counter > 10:
                     return 7
         assert self.meta_interp(build, []) == 7
-        self.check_resops(getfield_gc_pure_r=2)
+        self.check_resops(getfield_gc_r=2)
 
     def test_args_becomming_equal(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a', 'b'])

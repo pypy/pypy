@@ -1096,9 +1096,6 @@ class RegAlloc(BaseRegalloc):
     consider_getfield_raw_f = _consider_getfield
     consider_getfield_raw_pure_i = _consider_getfield
     consider_getfield_raw_pure_f = _consider_getfield
-    consider_getfield_gc_pure_i = _consider_getfield
-    consider_getfield_gc_pure_r = _consider_getfield
-    consider_getfield_gc_pure_f = _consider_getfield
 
     def consider_increment_debug_counter(self, op):
         base_loc = self.loc(op.getarg(0))

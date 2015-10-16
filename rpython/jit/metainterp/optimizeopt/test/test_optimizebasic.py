@@ -1086,12 +1086,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_getfield_gc_pure_1(self):
+    def test_getfield_gc_1(self):
         ops = """
         [i]
         p1 = new_with_vtable(descr=nodesize3)
         setfield_gc(p1, i, descr=valuedescr3)
-        i1 = getfield_gc_pure_i(p1, descr=valuedescr3)
+        i1 = getfield_gc_i(p1, descr=valuedescr3)
         jump(i1)
         """
         expected = """
@@ -1100,10 +1100,10 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_getfield_gc_pure_2(self):
+    def test_getfield_gc_2(self):
         ops = """
         [i]
-        i1 = getfield_gc_pure_i(ConstPtr(myptr3), descr=valuedescr3)
+        i1 = getfield_gc_i(ConstPtr(myptr3), descr=valuedescr3)
         jump(i1)
         """
         expected = """
@@ -1785,7 +1785,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1, p2]
         p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
-        i4 = getfield_gc_pure_i(ConstPtr(myptr3), descr=valuedescr3)
+        i4 = getfield_gc_i(ConstPtr(myptr3), descr=valuedescr3)
         p5 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         escape_n(p3)
         escape_n(i4)
@@ -5482,7 +5482,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         []
         quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
         guard_not_invalidated() []
-        i0 = getfield_gc_pure_i(ConstPtr(quasiptr), descr=quasifielddescr)
+        i0 = getfield_gc_i(ConstPtr(quasiptr), descr=quasifielddescr)
         i1 = call_pure_i(123, i0, descr=nonwritedescr)
         finish(i1)
         """

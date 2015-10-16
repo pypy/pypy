@@ -853,9 +853,6 @@ class Regalloc(BaseRegalloc):
     prepare_op_getfield_raw_f = _prepare_op_getfield
     prepare_op_getfield_raw_pure_i = _prepare_op_getfield
     prepare_op_getfield_raw_pure_f = _prepare_op_getfield
-    prepare_op_getfield_gc_pure_i = _prepare_op_getfield
-    prepare_op_getfield_gc_pure_r = _prepare_op_getfield
-    prepare_op_getfield_gc_pure_f = _prepare_op_getfield
 
     def prepare_op_increment_debug_counter(self, op, fcond):
         boxes = op.getarglist()

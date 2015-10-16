@@ -84,6 +84,10 @@ class AbstractResOpOrInputArg(AbstractValue):
     def get_forwarded(self):
         return self._forwarded
 
+def is_pure_getfield(opnum, descr):
+    if opnum not in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R):
+        return False
+    return descr is not None and descr.is_always_pure() != False
 
 class AbstractResOp(AbstractResOpOrInputArg):
     """The central ResOperation class, representing one operation."""
@@ -267,9 +271,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
         return self.opnum in (rop.SAME_AS_I, rop.SAME_AS_F, rop.SAME_AS_R)
 
     def is_getfield(self):
-        return self.opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
-                              rop.GETFIELD_GC_R, rop.GETFIELD_GC_PURE_I,
-                              rop.GETFIELD_GC_PURE_R, rop.GETFIELD_GC_PURE_F)
+        return self.opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R)
 
     def is_getarrayitem(self):
         return self.opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
@@ -339,6 +341,11 @@ class PlainResOp(AbstractResOp):
 class ResOpWithDescr(AbstractResOp):
 
     _descr = None
+
+    def is_always_pure(self):
+        if self.is_getfield():
+            return self._descr.is_always_pure() != False
+        return AbstractResOp.is_always_pure(self)
 
     def getdescr(self):
         return self._descr
@@ -770,7 +777,6 @@ _oplist = [
     'ARRAYLEN_GC/1d/i',
     'STRLEN/1/i',
     'STRGETITEM/2/i',
-    'GETFIELD_GC_PURE/1d/rfi',
     'GETFIELD_RAW_PURE/1d/rfi',
     'GETARRAYITEM_GC_PURE/2d/rfi',
     'GETARRAYITEM_RAW_PURE/2d/fi',
@@ -1108,14 +1114,6 @@ class OpHelpers(object):
             return rop.CALL_LOOPINVARIANT_F
         assert tp == 'v'
         return rop.CALL_LOOPINVARIANT_N
-
-    @staticmethod
-    def getfield_pure_for_descr(descr):
-        if descr.is_pointer_field():
-            return rop.GETFIELD_GC_PURE_R
-        elif descr.is_float_field():
-            return rop.GETFIELD_GC_PURE_F
-        return rop.GETFIELD_GC_PURE_I
 
     @staticmethod
     def getfield_for_descr(descr):
