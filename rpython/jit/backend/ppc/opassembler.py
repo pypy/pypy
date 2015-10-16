@@ -221,6 +221,25 @@ class FloatOpAssembler(object):
         l0, res = arglocs
         self.mc.fsqrt(res.value, l0.value)
 
+    def _emit_threadlocalref_get(self, op, arglocs, regalloc):
+        [resloc] = arglocs
+        offset = op.getarg(1).getint()   # getarg(0) == 'threadlocalref_get'
+        calldescr = op.getdescr()
+        size = calldescr.get_result_size()
+        sign = calldescr.is_result_signed()
+        #
+        # This loads the stack location THREADLOCAL_OFS into a
+        # register, and then read the word at the given offset.
+        # It is only supported if 'translate_support_code' is
+        # true; otherwise, the execute_token() was done with a
+        # dummy value for the stack location THREADLOCAL_OFS
+        #
+        assert self.cpu.translate_support_code
+        assert resloc.is_reg()
+        assert _check_imm_arg(offset)
+        self.mc.ld(resloc.value, r.SP.value, THREADLOCAL_ADDR_OFFSET)
+        self._load_from_mem(resloc, resloc, imm(offset), imm(size), imm(sign))
+
     emit_float_le = gen_emit_cmp_op(c.LE, fp=True)
     emit_float_lt = gen_emit_cmp_op(c.LT, fp=True)
     emit_float_gt = gen_emit_cmp_op(c.GT, fp=True)
@@ -584,6 +603,8 @@ class CallOpAssembler(object):
         oopspecindex = regalloc.get_oopspecindex(op)
         if oopspecindex == EffectInfo.OS_MATH_SQRT:
             return self._emit_math_sqrt(op, arglocs, regalloc)
+        if oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
+            return self._emit_threadlocalref_get(op, arglocs, regalloc)
         self._emit_call(op, arglocs)
 
     emit_call_i = _genop_call

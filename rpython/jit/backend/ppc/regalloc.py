@@ -522,6 +522,13 @@ class Regalloc(BaseRegalloc):
         res = self.fprm.force_allocate_reg(op)
         return [loc, res]
 
+    def _prepare_threadlocalref_get(self, op):
+        if self.cpu.translate_support_code:
+            res = self.force_allocate_reg(op)
+            return [res]
+        else:
+            return self._prepare_call(op)
+
     def prepare_cast_float_to_int(self, op):
         loc1 = self.ensure_reg(op.getarg(0))
         self.free_op_vars()
@@ -918,6 +925,8 @@ class Regalloc(BaseRegalloc):
         oopspecindex = self.get_oopspecindex(op)
         if oopspecindex == EffectInfo.OS_MATH_SQRT:
             return self._prepare_math_sqrt(op)
+        if oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
+            return self._prepare_threadlocalref_get(op)
         return self._prepare_call(op)
 
     prepare_call_i = _prepare_call
