@@ -39,8 +39,8 @@ def result_type(space, __args__):
     return find_result_type(space, arrays_w, dtypes_w)
 
 @jit.look_inside_iff(lambda space, arrays_w, dtypes_w:
-    jit.loop_unrolling_heuristic(arrays_w) and
-    jit.loop_unrolling_heuristic(dtypes_w))
+    jit.loop_unrolling_heuristic(arrays_w, len(arrays_w)) and
+    jit.loop_unrolling_heuristic(dtypes_w, len(dtypes_w)))
 def find_result_type(space, arrays_w, dtypes_w):
     # equivalent to PyArray_ResultType
     if len(arrays_w) == 1 and not dtypes_w:
