@@ -8,6 +8,20 @@ We have improved `warmup time and memory overhead used for tracing`_, added
 `vectorization`_ for numpy and general loops where possible on x86 hardware,
 refactored rough edges in rpython, and increased functionality of numpy.
 
+You can download the PyPy 15.11 release here:
+
+    http://pypy.org/download.html
+
+We would like to thank our donors for the continued support of the PyPy
+project.
+
+We would also like to thank our contributors (7 new ones since PyPy 2.6.0) and 
+encourage new people to join the project. PyPy has many
+layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
+improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ 
+with making RPython's JIT even better. 
+
+
 Vectorization
 =============
 
@@ -50,19 +64,6 @@ lifetimes, __stdcall on Win32, ffi.memmove(), ...
 .. _`warmup time and memory overhead used for tracing`: http://morepypy.blogspot.com/2015/10
 .. _`vectorization`: http://pypyvecopt.blogspot.co.at/
 .. _`guards`: http://rpython.readthedocs.org/en/latest/glossary.html
-
-You can download the PyPy 15.11 release here:
-
-    http://pypy.org/download.html
-
-We would like to thank our donors for the continued support of the PyPy
-project, and our volunteers and contributors.  
-
-We would also like to thank our contributors (7 new ones since PyPy 2.6.0) and 
-encourage new people to join the project. PyPy has many
-layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
-improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ 
-with making RPython's JIT even better. 
 
 .. _`PyPy`: http://doc.pypy.org 
 .. _`RPython`: https://rpython.readthedocs.org
