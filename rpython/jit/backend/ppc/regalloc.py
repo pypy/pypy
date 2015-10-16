@@ -586,6 +586,16 @@ class Regalloc(BaseRegalloc):
         arglocs = self._prepare_guard(op, [loc, resloc])
         return arglocs
 
+    def prepare_save_exception(self, op):
+        res = self.rm.force_allocate_reg(op)
+        return [res]
+    prepare_save_exc_class = prepare_save_exception
+
+    def prepare_restore_exception(self, op):
+        loc0 = self.ensure_reg(op.getarg(0))
+        loc1 = self.ensure_reg(op.getarg(1))
+        return [loc0, loc1]
+
     def prepare_guard_no_exception(self, op):
         arglocs = self._prepare_guard(op)
         return arglocs

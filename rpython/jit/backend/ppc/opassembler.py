@@ -554,6 +554,18 @@ class MiscOpAssembler(object):
             pmc.bc(BO, BI, relative_target)
             pmc.overwrite()
 
+    def emit_save_exc_class(self, op, arglocs, regalloc):
+        [resloc] = arglocs
+        diff = self.mc.load_imm_plus(r.r2, self.cpu.pos_exception())
+        self.mc.load(resloc.value, r.r2.value, diff)
+
+    def emit_save_exception(self, op, arglocs, regalloc):
+        [resloc] = arglocs
+        self._store_and_reset_exception(self.mc, resloc)
+
+    def emit_restore_exception(self, op, arglocs, regalloc):
+        self._restore_exception(self.mc, arglocs[1], arglocs[0])
+
     def emit_guard_exception(self, op, arglocs, regalloc):
         loc, resloc = arglocs[:2]
         failargs = arglocs[2:]
