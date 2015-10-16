@@ -9,6 +9,8 @@
 /* the current stack is in the interval [end-length:end].  We assume a
    stack that grows downward here. */
 
+/* (stored in a struct to ensure that stack_end and stack_length are
+   close together; used e.g. by the ppc jit backend) */
 rpy_stacktoobig_t rpy_stacktoobig = {
     NULL,             /* stack_end */
     MAX_STACK_SIZE,   /* stack_length */
