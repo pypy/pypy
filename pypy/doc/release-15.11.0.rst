@@ -29,6 +29,16 @@ PyPy to more efficiently use `guards`_ in jitted code. They also rewrote unrolli
 leading to a warmup time improvement of 20% or so at the cost of a minor
 regression in jitted code speed.
 
+Numpy
+=====
+
+Our implementation of numpy continues to improve. ndarray and the numeric dtypes
+are very close to feature-complete; record, string and unicode dtypes are mostly
+supported.  We have reimplemented numpy linalg, random and fft as cffi-1.0
+modules that call out to the same underlying libraries that upstream numpy uses.
+Please try it out, especially using the new vectorization (via --jit vec=1 on the
+command line) and let us know what is missing for your code.
+
 .. _`warmup time and memory overhead used for tracing`: http://morepypy.blogspot.com/2015/10
 .. _`vectorization`: http://pypyvecopt.blogspot.co.at/
 .. _`guards`: http://rpython.readthedocs.org/en/latest/glossary.html
