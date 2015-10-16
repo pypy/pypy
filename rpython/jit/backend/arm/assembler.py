@@ -224,6 +224,10 @@ class AssemblerARM(ResOpAssembler):
         if not for_frame:
             self._push_all_regs_to_jitframe(mc, [], withfloats, callee_only=True)
         else:
+            # NOTE: don't save registers on the jitframe here!  It might
+            # override already-saved values that will be restored
+            # later...
+            #
             # we're possibly called from the slowpath of malloc
             # save the caller saved registers
             # assuming we do not collect here

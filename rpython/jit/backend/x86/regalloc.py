@@ -1592,7 +1592,3 @@ def not_implemented(msg):
     if we_are_translated():
         llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
-
-# xxx hack: set a default value for TargetToken._ll_loop_code.
-# If 0, we know that it is a LABEL that was not compiled yet.
-TargetToken._ll_loop_code = 0
