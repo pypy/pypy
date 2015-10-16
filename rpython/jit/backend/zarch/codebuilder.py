@@ -253,6 +253,17 @@ def build_rsi(mnemonic, (opcode,)):
         self.write_i16(imm16 >> 1 & BIT_MASK_16)
     return encode_ri
 
+def build_rie(mnemonic, (opcode1,opcode2)):
+    @builder.arguments('r,r,i16')
+    def encode_ri(self, reg1, reg2, imm16):
+        self.writechar(opcode1)
+        byte = (reg1 & BIT_MASK_4) << 4 | (reg2 & BIT_MASK_4)
+        self.writechar(chr(byte))
+        self.write_i16(imm16 >> 1 & BIT_MASK_16)
+        self.writechar(chr(0x0))
+        self.writechar(opcode2)
+    return encode_ri
+
 _mnemonic_codes = {
     'AR':      (build_rr,    ['\x1A']),
     'AGR':     (build_rre,   ['\xB9\x08']),
@@ -274,6 +285,7 @@ _mnemonic_codes = {
     'BXH':     (build_rs,    ['\x86']),
     'BXHG':    (build_rsy,   ['\xEB','\x44']),
     'BRXH':    (build_rsi,   ['\x84']),
+    'BRXLG':   (build_rie,   ['\xEC','\x45']),
 }
 
 def build_instr_codes(clazz):
