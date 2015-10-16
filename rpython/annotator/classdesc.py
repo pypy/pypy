@@ -274,8 +274,6 @@ class ClassDef(object):
         # create the Attribute and do the generalization asked for
         newattr = Attribute(attr)
         if s_value:
-            #if newattr.name == 'intval' and getattr(s_value, 'unsigned', False):
-            #    import pdb; pdb.set_trace()
             newattr.s_value = s_value
 
         # keep all subattributes' values
@@ -689,6 +687,18 @@ class ClassDesc(Desc):
                 return None
         else:
             return cdesc
+
+    def get_param(self, name, default=None, inherit=True):
+        if inherit:
+            try:
+                return self.read_attribute(name).value
+            except AttributeError:
+                return default
+        else:
+            try:
+                return self.classdict[name].value
+            except KeyError:
+                return default
 
     def read_attribute(self, name, default=NODEFAULT):
         cdesc = self.lookup(name)

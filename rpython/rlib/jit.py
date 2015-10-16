@@ -299,8 +299,7 @@ class Entry(ExtRegistryEntry):
             if isinstance(s_x, annmodel.SomeInstance):
                 from rpython.flowspace.model import Constant
                 classdesc = s_x.classdef.classdesc
-                virtualizable = classdesc.read_attribute('_virtualizable_',
-                                                         Constant(None)).value
+                virtualizable = classdesc.get_param('_virtualizable_')
                 if virtualizable is not None:
                     flags = s_x.flags.copy()
                     flags['access_directly'] = True
@@ -340,7 +339,7 @@ def _get_virtualizable_token(frame):
     Used by _vmprof
     """
     from rpython.rtyper.lltypesystem import lltype, llmemory
-    
+
     return lltype.nullptr(llmemory.GCREF.TO)
 
 class GetVirtualizableTokenEntry(ExtRegistryEntry):
