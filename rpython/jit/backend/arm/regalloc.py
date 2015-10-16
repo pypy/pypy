@@ -41,7 +41,7 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.jit.backend.llsupport.descr import CallDescr
 
 
-class TempInt(TempBox):
+class TempInt(TempVar):
     type = INT
 
     def __repr__(self):
