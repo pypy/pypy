@@ -769,9 +769,9 @@ class ClassDesc(Desc):
         search2 = '%s?[*]' % (attr,)
         cdesc = self
         while cdesc is not None:
-            if '_immutable_fields_' in cdesc.classdict:
-                if (search1 in cdesc.classdict['_immutable_fields_'].value or
-                        search2 in cdesc.classdict['_immutable_fields_'].value):
+            immutable_fields = cdesc.get_param('_immutable_fields_', inherit=False)
+            if immutable_fields is not None:
+                if (search1 in immutable_fields or search2 in immutable_fields):
                     s_result.listdef.never_resize()
                     s_copy = s_result.listdef.offspring()
                     s_copy.listdef.mark_as_immutable()
