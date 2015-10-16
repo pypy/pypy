@@ -6,7 +6,14 @@
 
 
 #ifndef MAX_STACK_SIZE
+#  if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
+     /* PowerPC seems to consume the stack very quickly.  The default
+      * value of 768 kb is only enough for 406 levels on ppc64, and 792
+      * on ppc64le */
+#    define MAX_STACK_SIZE (11 << 18)    /* 2.8 mb */
+#  else
 #    define MAX_STACK_SIZE (3 << 18)    /* 768 kb */
+#  endif
 #endif
 
 
