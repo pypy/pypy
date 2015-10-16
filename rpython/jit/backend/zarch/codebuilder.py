@@ -53,6 +53,7 @@ class builder(object):
 
 BIT_MASK_4 =  0xF
 BIT_MASK_12 = 0xFFF
+BIT_MASK_16 = 0xFFFF
 BIT_MASK_20 = 0xFFFFF
 BIT_MASK_32 = 0xFFFFFFFF
 
@@ -145,7 +146,7 @@ def build_ril(mnemonic, (opcode,halfopcode)):
         byte = (reg_or_mask & 0xf) << 4 | (ord(halfopcode) & 0xf)
         self.writechar(chr(byte))
         # half word boundary, addressing bytes
-        self.write_s32(imm32 >> 1 & BIT_MASK_32)
+        self.write_i32(imm32 >> 1 & BIT_MASK_32)
     return encode_ri
 
 
@@ -243,6 +244,15 @@ def build_rsy(mnemonic, (opcode1,opcode2)):
         self.writechar(opcode2)
     return encode_ssa
 
+def build_rsi(mnemonic, (opcode,)):
+    @builder.arguments('r,r,i16')
+    def encode_ri(self, reg1, reg2, imm16):
+        self.writechar(opcode)
+        byte = (reg1 & BIT_MASK_4) << 4 | (reg2 & BIT_MASK_4)
+        self.writechar(chr(byte))
+        self.write_i16(imm16 >> 1 & BIT_MASK_16)
+    return encode_ri
+
 _mnemonic_codes = {
     'AR':      (build_rr,    ['\x1A']),
     'AGR':     (build_rre,   ['\xB9\x08']),
@@ -263,6 +273,7 @@ _mnemonic_codes = {
     'BRASL':   (build_ril,   ['\xC0','\x05']),
     'BXH':     (build_rs,    ['\x86']),
     'BXHG':    (build_rsy,   ['\xEB','\x44']),
+    'BRXH':    (build_rsi,   ['\x84']),
 }
 
 def build_instr_codes(clazz):
@@ -272,9 +283,12 @@ def build_instr_codes(clazz):
         setattr(clazz, name, func)
 
 class AbstractZARCHBuilder(object):
-    def write_s32(self, word):
+    def write_i32(self, word):
         self.writechar(chr((word >> 24) & 0xFF))
         self.writechar(chr((word >> 16) & 0xFF))
+        self.writechar(chr((word >> 8) & 0xFF))
+        self.writechar(chr(word & 0xFF))
+    def write_i16(self, word):
         self.writechar(chr((word >> 8) & 0xFF))
         self.writechar(chr(word & 0xFF))
 
