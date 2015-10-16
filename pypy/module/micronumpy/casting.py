@@ -91,6 +91,9 @@ simple_kind_ordering = {
     NPY.STRINGLTR: 3, NPY.STRINGLTR2: 3,
     UnicodeType.kind: 3, VoidType.kind: 3, ObjectType.kind: 3}
 
+# this is safe to unroll since it'll only be seen if we look inside
+# the find_result_type
+@jit.unroll_safe
 def _use_min_scalar(arrays_w, dtypes_w):
     """Helper for find_result_type()"""
     if not arrays_w:
