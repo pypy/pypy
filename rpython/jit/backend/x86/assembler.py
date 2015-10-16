@@ -391,6 +391,18 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             else:
                 mc.MOV_rs(edi.value, WORD)
         else:
+            # NOTE: don't save registers on the jitframe here!
+            # It might override already-saved values that will be
+            # restored later...
+            #
+            # This 'for_frame' version is called after a CALL.  It does not
+            # need to save many registers: the registers that are anyway
+            # destroyed by the call can be ignored (volatiles), and the
+            # non-volatile registers won't be changed here.  It only needs
+            # to save eax, maybe edx, and xmm0 (possible results of the call)
+            # and two more non-volatile registers (used to store the RPython
+            # exception that occurred in the CALL, if any).
+            assert not withcards
             # we have one word to align
             mc.SUB_ri(esp.value, 7 * WORD) # align and reserve some space
             mc.MOV_sr(WORD, eax.value) # save for later
@@ -405,7 +417,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 exc0, exc1 = ebx, r12
             mc.MOV(RawEspLoc(WORD * 5, REF), exc0)
             mc.MOV(RawEspLoc(WORD * 6, INT), exc1)
-            # note that it's save to store the exception in register,
+            # note that it's safe to store the exception in register,
             # since the call to write barrier can't collect
             # (and this is assumed a bit left and right here, like lack
             # of _reload_frame_if_necessary)

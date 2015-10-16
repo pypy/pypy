@@ -59,6 +59,8 @@ def detect_model_from_host_platform():
             'i86pc': MODEL_X86,    # Solaris/Intel
             'x86': MODEL_X86,      # Apple
             'Power Macintosh': MODEL_PPC_64,
+            'ppc64': MODEL_PPC_64,
+            'ppc64le': MODEL_PPC_64,
             'x86_64': MODEL_X86,
             'amd64': MODEL_X86,    # freebsd
             'AMD64': MODEL_X86,    # win64
@@ -118,6 +120,8 @@ def getcpuclassname(backend_name="auto"):
         return "rpython.jit.backend.x86.runner", "CPU_X86_64_SSE4"
     elif backend_name == MODEL_ARM:
         return "rpython.jit.backend.arm.runner", "CPU_ARM"
+    elif backend_name == MODEL_PPC_64:
+        return "rpython.jit.backend.ppc.runner", "PPC_CPU"
     else:
         raise ProcessorAutodetectError, (
             "we have no JIT backend for this cpu: '%s'" % backend_name)
