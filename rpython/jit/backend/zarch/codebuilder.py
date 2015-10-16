@@ -127,7 +127,8 @@ def build_ril(mnemonic, (opcode,halfopcode)):
         self.writechar(opcode)
         byte = (reg_or_mask & 0xf) << 4 | (ord(halfopcode) & 0xf)
         self.writechar(chr(byte))
-        self.write_s32(imm32)
+        # half word boundary, addressing bytes
+        self.write_s32(imm32 >> 1 & BIT_MASK_32)
     return encode_ri
 
 
@@ -170,13 +171,13 @@ def build_ssb(mnemonic, (opcode1,)):
     return encode_ssb
 
 def build_ssc(mnemonic, (opcode1,)):
-    @builder.arguments('u4,l4bd,l4bd')
-    def encode_ssc(self, uimm4, len_base_disp1, len_base_disp2):
+    @builder.arguments('l4bd,bd,u4')
+    def encode_ssc(self, len_base_disp, base_disp, uimm4):
         self.writechar(opcode1)
-        byte = (len_base_disp1.length & 0xf) << 4 | uimm4 & 0xf
+        byte = (len_base_disp.length & 0xf) << 4 | uimm4 & 0xf
         self.writechar(chr(byte))
-        encode_base_displace(self, len_base_disp1)
-        encode_base_displace(self, len_base_disp2)
+        encode_base_displace(self, len_base_disp)
+        encode_base_displace(self, base_disp)
     return encode_ssc
 
 def build_ssd(mnemonic, (opcode,)):

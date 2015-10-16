@@ -108,9 +108,6 @@ def test_range(bits, signed=False, count=24, alignment=0):
     if signed:
         bits -= 1
         maximum = 2**bits
-        if alignment == 16:
-            # TODO
-            return [-32,-16,0,16,32]
         return [-maximum,-1,0,1,maximum-1] + [random.randrange(-maximum,maximum) for i in range(count)]
     maximum = 2**bits
     return [0,1,maximum-1] + [random.randrange(0,maximum) for i in range(count)]
@@ -150,7 +147,7 @@ TEST_CASE_GENERATE = {
 }
 
 class TestZARCH(object):
-    WORD = 8
+    WORD = 4
     TESTDIR = 'zarch'
     accept_unnecessary_prefix = None
     methname = '?'
@@ -195,7 +192,7 @@ class TestZARCH(object):
                 g.write('%s\n' % op)
                 oplist.append(op)
             g.write('\t.string "%s"\n' % END_TAG)
-        proc = subprocess.Popen(['as', '-m' + str(self.WORD*8), '-mzarch',
+        proc = subprocess.Popen(['as', '-m64', '-mzarch',
                                  inputname, '-o', filename],
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE)
@@ -231,7 +228,7 @@ class TestZARCH(object):
         combinations = []
         for i,m in enumerate(arg_types):
             elems = TEST_CASE_GENERATE[m]
-            random.shuffle(elems)
+            #random.shuffle(elems)
             combinations.append(elems)
         results = []
         for args in itertools.product(*combinations):
