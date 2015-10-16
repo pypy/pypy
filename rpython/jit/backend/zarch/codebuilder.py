@@ -27,24 +27,31 @@ def binary_helper_call(name):
 class Operand(object):
     pass
 
-def arguments(args_str):
-    """
-    Available names:
-    r      - register
-    i4     - immediate 4 bits (signed)
-    u4     - immediate 4 bits (unsigend)
-    bd     - base displacement
-    l4db    - length base displacement (4 bit)
-    l8db    - length base displacement (8 bit)
-    """
-    def impl(func):
-        func._arguments_ = args_str.split(',')
-        return func
-    return impl
+class builder(object):
+    """ NOT_RPYTHON """
+    @staticmethod
+    def arguments(args_str):
+        """ NOT_RPYTHON """
+        """
+        Available names:
+        r      - register
+        r/m    - register or mask
+        iX     - immediate X bits (signed)
+        uX     - immediate X bits (unsigend)
+        bd     - base displacement
+        ibd    - index base displacement
+        l4bd    - length base displacement (4 bit)
+        l8bd    - length base displacement (8 bit)
+        """
+        def impl(func):
+            func._arguments_ = args_str.split(',')
+            return func
+        return impl
 
 BIT_MASK_4 =  0xF
 BIT_MASK_12 = 0xFFF
 BIT_MASK_20 = 0xFFFFF
+BIT_MASK_32 = 0xFFFFFFFF
 
 @always_inline
 def encode_base_displace(mc, base_displace):
@@ -55,6 +62,7 @@ def encode_base_displace(mc, base_displace):
     mc.writechar(chr(displace & 0xff))
 
 def build_rr(mnemonic, (opcode,)):
+    @builder.arguments('r,r')
     def encode_rr(self, reg1, reg2):
         self.writechar(opcode)
         operands = ((reg1 & 0x0f) << 4) | (reg2 & 0xf)
@@ -63,6 +71,7 @@ def build_rr(mnemonic, (opcode,)):
 
 def build_rre(mnemonic, (opcode,)):
     opcode1,opcode2 = opcode
+    @builder.arguments('r,r')
     def encode_rr(self, reg1, reg2):
         self.writechar(opcode1)
         self.writechar(opcode2)
@@ -72,6 +81,7 @@ def build_rre(mnemonic, (opcode,)):
     return encode_rr
 
 def build_rx(mnemonic, (opcode,)):
+    @builder.arguments('r/m,ibd')
     def encode_rx(self, reg_or_mask, idxbasedisp):
         self.writechar(opcode)
         index = idxbasedisp.index
@@ -85,6 +95,7 @@ def build_rx(mnemonic, (opcode,)):
     return encode_rx
 
 def build_rxy(mnemonic, (opcode1,opcode2)):
+    @builder.arguments('r/m,ibdl')
     def encode_rxy(self, reg_or_mask, idxbasedisp):
         self.writechar(opcode1)
         index = idxbasedisp.index
@@ -101,6 +112,7 @@ def build_rxy(mnemonic, (opcode1,opcode2)):
     return encode_rxy
 
 def build_ri(mnemonic, (opcode,halfopcode)):
+    @builder.arguments('r/m,i16')
     def encode_ri(self, reg_or_mask, imm16):
         self.writechar(opcode)
         byte = (reg_or_mask & 0xf) << 4 | (ord(halfopcode) & 0xf)
@@ -109,7 +121,18 @@ def build_ri(mnemonic, (opcode,halfopcode)):
         self.writechar(chr(imm16 & 0xff))
     return encode_ri
 
+def build_ril(mnemonic, (opcode,halfopcode)):
+    @builder.arguments('r/m,a32')
+    def encode_ri(self, reg_or_mask, imm32):
+        self.writechar(opcode)
+        byte = (reg_or_mask & 0xf) << 4 | (ord(halfopcode) & 0xf)
+        self.writechar(chr(byte))
+        self.write_s32(imm32)
+    return encode_ri
+
+
 def build_si(mnemonic, (opcode,)):
+    @builder.arguments('bd,u8')
     def encode_si(self, base_displace, uimm8):
         self.writechar(opcode)
         self.writechar(chr(uimm8))
@@ -117,6 +140,7 @@ def build_si(mnemonic, (opcode,)):
     return encode_si
 
 def build_siy(mnemonic, (opcode1,opcode2)):
+    @builder.arguments('bd,u8')
     def encode_siy(self, base_displace, uimm8):
         self.writechar(opcode1)
         self.writechar(chr(uimm8))
@@ -127,6 +151,7 @@ def build_siy(mnemonic, (opcode1,opcode2)):
     return encode_siy
 
 def build_ssa(mnemonic, (opcode1,)):
+    @builder.arguments('l8bd,bd')
     def encode_ssa(self, len_base_disp, base_displace):
         self.writechar(opcode1)
         self.writechar(chr(len_base_disp.length & 0xff))
@@ -135,6 +160,7 @@ def build_ssa(mnemonic, (opcode1,)):
     return encode_ssa
 
 def build_ssb(mnemonic, (opcode1,)):
+    @builder.arguments('l8bd,l8bd')
     def encode_ssb(self, len_base_disp1, len_base_disp2):
         self.writechar(opcode1)
         byte = (len_base_disp1.length & 0xf) << 4 | len_base_disp2.length & 0xf
@@ -144,8 +170,8 @@ def build_ssb(mnemonic, (opcode1,)):
     return encode_ssb
 
 def build_ssc(mnemonic, (opcode1,)):
-    @arguments('lbp,lbp,u4')
-    def encode_ssc(self, len_base_disp1, len_base_disp2, uimm4):
+    @builder.arguments('u4,l4bd,l4bd')
+    def encode_ssc(self, uimm4, len_base_disp1, len_base_disp2):
         self.writechar(opcode1)
         byte = (len_base_disp1.length & 0xf) << 4 | uimm4 & 0xf
         self.writechar(chr(byte))
@@ -154,7 +180,7 @@ def build_ssc(mnemonic, (opcode1,)):
     return encode_ssc
 
 def build_ssd(mnemonic, (opcode,)):
-    @arguments('rbd,bd,r')
+    @builder.arguments('ibd,bd,r')
     def encode_ssd(self, index_base_disp, base_disp, reg):
         self.writechar(opcode)
         byte = (index_base_disp.index & 0xf) << 4 | reg & 0xf
@@ -164,7 +190,7 @@ def build_ssd(mnemonic, (opcode,)):
     return encode_ssd
 
 def build_sse(mnemonic, (opcode,)):
-    @arguments('r,bd,r,bd')
+    @builder.arguments('r,r,bd,bd')
     def encode_sse(self, reg1, reg3, base_disp2, base_disp4):
         self.writechar(opcode)
         byte = (reg1 & BIT_MASK_4) << 4 | reg3 & BIT_MASK_4
@@ -174,6 +200,7 @@ def build_sse(mnemonic, (opcode,)):
     return encode_sse
 
 def build_ssf(mnemonic, (opcode,)):
+    @builder.arguments('bd,l8bd')
     def encode_ssf(self, base_disp, len_base_disp):
         self.writechar(opcode)
         self.writechar(chr(len_base_disp.length & 0xff))
@@ -198,25 +225,21 @@ _mnemonic_codes = {
     'MVCK':    (build_ssd,   ['\xD9']),
     'LMD':     (build_sse,   ['\xEF']),
     'PKA':     (build_ssf,   ['\xE9']),
+    'BRASL':   (build_ril,   ['\xC0','\x05']),
 }
 
 def build_instr_codes(clazz):
-
     for mnemonic, (builder, args) in _mnemonic_codes.items():
         func = builder(mnemonic, args)
         name = mnemonic + "_" + builder.__name__.split("_")[1]
         setattr(clazz, name, func)
 
 class AbstractZARCHBuilder(object):
-    def write32(self, word):
-        self.writechar(chr(word & 0xFF))
-        self.writechar(chr((word >> 8) & 0xFF))
-        self.writechar(chr((word >> 16) & 0xFF))
+    def write_s32(self, word):
         self.writechar(chr((word >> 24) & 0xFF))
-
-    def AR_rr(self, reg1, reg2):
-        self.writechar(chr(0x1A))
-        self.writechar(encode_rr(reg1, reg2))
+        self.writechar(chr((word >> 16) & 0xFF))
+        self.writechar(chr((word >> 8) & 0xFF))
+        self.writechar(chr(word & 0xFF))
 
 build_instr_codes(AbstractZARCHBuilder)
 
@@ -261,8 +284,6 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
     def currpos(self):
         return self.get_relative_pos()
-
-#define_instructions(AbstractARMBuilder)
 
 _classes = (AbstractZARCHBuilder,)
 

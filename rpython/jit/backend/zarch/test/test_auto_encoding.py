@@ -27,14 +27,11 @@ class CodeCheckerMixin(object):
             if (char == self.accept_unnecessary_prefix
                 and self.index == self.instrindex):
                 return    # ignore the extra character '\x40'
-            print self.op
-            post = self.expected[self.index+1:self.index+1+15]
+            post = self.expected[self.index+1:self.index+15]
             generated = "\x09from codebuilder.py: " + hexdump(self.expected[self.instrindex:self.index]) + "!" + \
-                                                      hexdump([char])+ "!" +hexdump(post)
-            print generated
+                                                      hexdump([char])+ "!" +hexdump(post) + "..."
             expected = "\x09from         gnu as: " + hexdump(self.expected[self.instrindex:self.index+15])+"..."
-            print expected
-            raise Exception("Differs:\n" + generated + "\n" + expected)
+            raise Exception("Asm line:" + self.op + "\n" + generated + "\n" + expected)
         self.index += 1
 
     def done(self):
@@ -105,12 +102,15 @@ class FakeLengthBaseDisplace(object):
 
     __repr__ = __str__
 
-def test_range(bits, signed=False, count=24):
+def test_range(bits, signed=False, count=24, alignment=0):
     if isinstance(bits, tuple):
         bits, signed = bits
     if signed:
         bits -= 1
         maximum = 2**bits
+        if alignment == 16:
+            # TODO
+            return [-32,-16,0,16,32]
         return [-maximum,-1,0,1,maximum-1] + [random.randrange(-maximum,maximum) for i in range(count)]
     maximum = 2**bits
     return [0,1,maximum-1] + [random.randrange(0,maximum) for i in range(count)]
@@ -126,97 +126,52 @@ def build_fake(clazz, *arg_bits):
             break
     return results
 
+REGS = range(15+1)
+REGNAMES = ['%%r%d' % i for i in REGS]
+TEST_CASE_GENERATE = {
+    'r':    REGS,
+    'r/m':  REGS,
+    'i4':   test_range(4, signed=True),
+    'i8':   test_range(8, signed=True),
+    'i16':  test_range(16, signed=True),
+    'i32':  test_range(32, signed=True),
+    'a32':  test_range(32, signed=True, alignment=16),
+    'i64':  test_range(64, signed=True),
+    'u4':   test_range(4),
+    'u8':   test_range(8),
+    'u16':  test_range(16),
+    'u32':  test_range(32),
+    'u64':  test_range(64),
+    'bd':   build_fake(FakeBaseDisplace,4,12),
+    'ibd':  build_fake(FakeIndexBaseDisplace,4,4,12),
+    'ibdl': build_fake(FakeIndexBaseDisplace,4,4,(20,True)),
+    'l8bd': build_fake(FakeLengthBaseDisplace,8,4,12),
+    'l4bd': build_fake(FakeLengthBaseDisplace,4,4,12),
+}
+
 class TestZARCH(object):
     WORD = 8
     TESTDIR = 'zarch'
-    REGS = range(15+1)
-    REGNAMES = ['%%r%d' % i for i in REGS]
     accept_unnecessary_prefix = None
     methname = '?'
-    BASE_DISPLACE = build_fake(FakeBaseDisplace,4,12)
-    BASE_DISPLACE_LONG = build_fake(FakeBaseDisplace,4,(20,True))
-    INDEX_BASE_DISPLACE = build_fake(FakeIndexBaseDisplace,4,4,12)
-    INDEX_BASE_DISPLACE_LONG = build_fake(FakeIndexBaseDisplace,4,4,(20,True))
-    LENGTH4_BASE_DISPLACE = build_fake(FakeLengthBaseDisplace,4,4,12)
-    LENGTH8_BASE_DISPLACE = build_fake(FakeLengthBaseDisplace,8,4,12)
 
-    def reg_tests(self):
-        return self.REGS
-
-    def stack_bp_tests(self, count=COUNT1):
-        return ([0, 4, -4, 124, 128, -128, -132] +
-                [random.randrange(-0x20000000, 0x20000000) * 4
-                 for i in range(count)])
-
-    def stack_sp_tests(self, count=COUNT1):
-        return ([0, 4, 124, 128] +
-                [random.randrange(0, 0x20000000) * 4
-                 for i in range(count)])
-
-    def memory_tests(self):
-        return [(reg, ofs)
-                    for reg in self.NONSPECREGS
-                    for ofs in self.stack_bp_tests(5)
-                ]
-
-    def array_tests(self):
-        return [(reg1, reg2, scaleshift, ofs)
-                    for reg1 in self.NONSPECREGS
-                    for reg2 in self.NONSPECREGS
-                    for scaleshift in [0, 1, 2, 3]
-                    for ofs in self.stack_bp_tests(1)
-                ]
-
-    def imm_tests(self, name, modes, index):
+    def get_func_arg_types(self, methodname):
         from rpython.jit.backend.zarch.codebuilder import AbstractZARCHBuilder
         import inspect
-        func = getattr(AbstractZARCHBuilder, name)
-        args = inspect.getargspec(func).args
-        # 1 off, self is first arg
-        match = re.compile("(u?imm\d+)").match(args[index+1])
-        assert match
-        return getattr(self, match.group(1) + "_tests")()
-
-    def uimm16_tests(self): return test_range(16)
-    def imm16_tests(self): return test_range(16,signed=True)
-    def imm8_tests(self): return test_range(8,signed=True)
-    def uimm8_tests(self): return test_range(8)
-    def uimm4_tests(self): return test_range(4)
-    def imm32_tests(self): return test_range(32, signed=True)
-
-    def relative_tests(self):
-        py.test.skip("explicit test required for %r" % (self.methname,))
+        func = getattr(AbstractZARCHBuilder, methodname)
+        return func._arguments_
 
     def assembler_operand_reg(self, regnum):
-        return self.REGNAMES[regnum]
+        return REGNAMES[regnum]
 
-    def get_mapping_asm_to_str(self):
-        return {
+    def operand_combinations(self, methodname, modes, arguments):
+        mapping = {
             'r': self.assembler_operand_reg,
-            's': lambda x: str(x),
-            'x': lambda x: str(x),
-            'y': lambda x: str(x),
-            'i': lambda x: str(x),
-            'l': lambda x: str(x),
-            'L': lambda x: str(x),
+            'r/m': self.assembler_operand_reg,
         }
-
-    def operand_combinations(self, modes, arguments):
-        remap = {
-            'rre': 'rr',
-            'rxy': 'rx',
-            'siy': 'si',
-            'ssa': 'Ls',
-            'ssb': 'll',
-            'ssc': 'lsi',
-            'ssd': 'xsr',
-            'sse': 'rrss',
-            'ssf': 'sL',
-        }
-        mapping = self.get_mapping_asm_to_str()
-        modes = remap.get(modes, modes)
-        for mode, args in zip(modes, arguments):
-            yield mapping[mode](args)
+        arg_types = self.get_func_arg_types(methodname)
+        for mode, args in zip(arg_types, arguments):
+            yield mapping.get(mode, lambda x: str(x))(args)
 
     def run_test(self, methname, instrname, argmodes, args_lists,
                  instr_suffix=None):
@@ -234,7 +189,7 @@ class TestZARCH(object):
                 if instr_suffix is not None:
                     suffix = instr_suffix    # overwrite
                 #
-                ops = self.operand_combinations(argmodes, args)
+                ops = self.operand_combinations(methname, argmodes, args)
                 op = '\t%s%s %s' % (instrname.lower(), suffix,
                                       ', '.join(ops))
                 g.write('%s\n' % op)
@@ -272,34 +227,12 @@ class TestZARCH(object):
         return mode
 
     def make_all_tests(self, methname, modes, args=[]):
-        tests = {
-            'r': lambda i: self.REGS,
-            'x': lambda i: self.INDEX_BASE_DISPLACE,
-            'y': lambda i: self.INDEX_BASE_DISPLACE_LONG,
-            'i': lambda i: self.imm_tests(methname, modes, i),
-            's': lambda i: self.BASE_DISPLACE,
-            'L': lambda i: self.LENGTH8_BASE_DISPLACE,
-            'l': lambda i: self.LENGTH4_BASE_DISPLACE,
-        }
-        tests_all = {
-            'rxy': (tests['r'], tests['y']),
-            'siy': (lambda i: self.BASE_DISPLACE_LONG, tests['i']),
-            'rre': (tests['r'], tests['r']),
-            'ssa': (tests['L'], tests['s']),
-            'ssb': (tests['l'], tests['l']),
-            'ssc': (tests['l'], tests['s'], tests['i']),
-            'ssd': (tests['x'], tests['s'], tests['r']),
-            'sse': (tests['r'], tests['r'], tests['s'], tests['s']),
-            'ssf': (tests['s'], tests['L']),
-        }
-        if modes in tests_all:
-            combinations = [f(i) for i,f in enumerate(tests_all[modes])]
-        else:
-            combinations = []
-            for i,m in enumerate(modes):
-                elems = tests[m](i)
-                random.shuffle(elems)
-                combinations.append(elems)
+        arg_types = self.get_func_arg_types(methname)
+        combinations = []
+        for i,m in enumerate(arg_types):
+            elems = TEST_CASE_GENERATE[m]
+            random.shuffle(elems)
+            combinations.append(elems)
         results = []
         for args in itertools.product(*combinations):
             results.append(args)
