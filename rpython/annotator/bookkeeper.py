@@ -6,6 +6,7 @@ from __future__ import absolute_import
 
 import sys, types, inspect, weakref
 from contextlib import contextmanager
+from collections import OrderedDict
 
 from rpython.flowspace.model import Constant
 from rpython.annotator.model import (
@@ -257,12 +258,12 @@ class Bookkeeper(object):
                 result.const_box = key
                 return result
         elif (tp is dict or tp is r_dict or
-              tp is SomeOrderedDict.knowntype or tp is r_ordereddict):
+              tp is OrderedDict or tp is r_ordereddict):
             key = Constant(x)
             try:
                 return self.immutable_cache[key]
             except KeyError:
-                if tp is SomeOrderedDict.knowntype or tp is r_ordereddict:
+                if tp is OrderedDict or tp is r_ordereddict:
                     cls = SomeOrderedDict
                 else:
                     cls = SomeDict

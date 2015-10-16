@@ -97,7 +97,7 @@ class W_FlatIterator(W_NDimArray):
         finally:
             self.iter.reset(self.state, mutate=True)
 
-    def descr___array_wrap__(self, space, obj):
+    def descr___array_wrap__(self, space, obj, w_context=None):
         return obj
 
 W_FlatIterator.typedef = TypeDef("numpy.flatiter",

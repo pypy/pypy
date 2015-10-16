@@ -1,8 +1,94 @@
+import py
+
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 from rpython.rlib.rawstorage import misaligned_is_fine
 
 
 class TestMicroNumPy(BaseTestPyPyC):
+
+    arith_comb = [('+','float','float', 4*3427,   3427, 1.0,3.0),
+             ('+','float','int',   9*7843,   7843, 4.0,5.0),
+             ('+','int','float',   8*2571,   2571, 9.0,-1.0),
+             ('+','float','int',   -18*2653,   2653, 4.0,-22.0),
+             ('+','int','int',     -1*1499,   1499, 24.0,-25.0),
+             ('-','float','float', -2*5523,  5523, 1.0,3.0),
+             ('*','float','float', 3*2999,   2999, 1.0,3.0),
+             ('/','float','float', 3*7632,   7632, 3.0,1.0),
+             ('/','float','float', 1.5*7632, 7632, 3.0,2.0),
+             ('&','int','int',     0,        1500, 1,0),
+             ('&','int','int',     1500,     1500, 1,1),
+             ('|','int','int',     1500,     1500, 0,1),
+             ('|','int','int',     0,        1500, 0,0),
+            ]
+    type_permuated = []
+    types = { 'int': ['int32','int64','int8','int16'],
+              'float': ['float32', 'float64']
+            }
+    for arith in arith_comb:
+        t1 = arith[1]
+        t2 = arith[2]
+        possible_t1 = types[t1]
+        possible_t2 = types[t2]
+        for ta in possible_t1:
+            for tb in possible_t2:
+                op, _, _, r, c, a, b = arith
+                t = (op, ta, tb, r, c, a, b)
+                type_permuated.append(t)
+
+    @py.test.mark.parametrize("op,adtype,bdtype,result,count,a,b", type_permuated)
+    def test_vector_call2(self, op, adtype, bdtype, result, count, a, b):
+        source = """
+        def main():
+            import _numpypy.multiarray as np
+            a = np.array([{a}]*{count}, dtype='{adtype}')
+            b = np.array([{b}]*{count}, dtype='{bdtype}')
+            for i in range(20):
+                c = a {op} b
+            return c.sum()
+        """.format(op=op, adtype=adtype, bdtype=bdtype, count=count, a=a, b=b)
+        exec py.code.Source(source).compile()
+        vlog = self.run(main, [], vec=1)
+        log = self.run(main, [], vec=0)
+        assert log.result == vlog.result
+        assert log.result == result
+
+
+    arith_comb = [
+        ('sum','int', 1742, 1742, 1),
+        ('sum','float', 2581, 2581, 1),
+        ('prod','float', 1, 3178, 1),
+        ('prod','int', 1, 3178, 1),
+        ('any','int', 1, 1239, 1),
+        ('any','int', 0, 4912, 0),
+        ('all','int', 0, 3420, 0),
+        ('all','int', 1, 6757, 1),
+    ]
+    type_permuated = []
+    types = { 'int': ['int8','int16','int32','int64'],
+              'float': ['float32','float64']
+            }
+    for arith in arith_comb:
+        t1 = arith[1]
+        possible_t1 = types[t1]
+        for ta in possible_t1:
+            op, _, r, c, a = arith
+            t = (op, ta, r, c, a)
+            type_permuated.append(t)
+
+    @py.test.mark.parametrize("op,dtype,result,count,a", type_permuated)
+    def test_reduce_generic(self,op,dtype,result,count,a):
+        source = """
+        def main():
+            import _numpypy.multiarray as np
+            a = np.array([{a}]*{count}, dtype='{dtype}')
+            return a.{method}()
+        """.format(method=op, dtype=dtype, count=count, a=a)
+        exec py.code.Source(source).compile()
+        vlog = self.run(main, [], vec=1)
+        log = self.run(main, [], vec=0)
+        assert log.result == vlog.result
+        assert log.result == result
+
     def test_reduce_logical_xor(self):
         def main():
             import _numpypy.multiarray as np
@@ -43,7 +129,8 @@ class TestMicroNumPy(BaseTestPyPyC):
             i28 = int_is_true(i27)
             guard_true(i28, descr=...)
             i29 = getfield_gc_pure_i(p6, descr=<FieldS pypy.module.micronumpy.descriptor.W_Dtype.inst_elsize \d+>)
-            i30 = int_add(i5, i29)
+            guard_value(i29, 8, descr=...)
+            i30 = int_add(i5, 8)
             i31 = getfield_gc_pure_i(p1, descr=<FieldS pypy.module.micronumpy.iterators.ArrayIter.inst_size \d+>)
             i32 = int_ge(i25, i31)
             guard_false(i32, descr=...)
@@ -76,7 +163,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_value(i34, #, descr=...)                  # XXX don't appear in
             i35 = getarrayitem_raw_i(#, #, descr=<ArrayU 1>)  # XXX equiv test_zjit
             i36 = int_add(i24, 1)
-            i37 = int_add(i29, i28)
+            i37 = int_add(i29, 8)
             i38 = int_ge(i36, i30)
             guard_false(i38, descr=...)
             guard_value(i35, #, descr=...)                  # XXX
@@ -178,7 +265,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_false(i88, descr=...)
             f90 = raw_load_f(i67, i89, descr=<ArrayF 8>)
             i91 = int_add(i87, 1)
-            i93 = int_add(i89, i76)
+            i93 = int_add(i89, 8)
             i94 = int_add(i79, 1)
             i95 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value 0>)
             setfield_gc(p97, i91, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index .+>)
