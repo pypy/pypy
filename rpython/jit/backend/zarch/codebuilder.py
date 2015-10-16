@@ -38,10 +38,13 @@ class builder(object):
         r/m    - register or mask
         iX     - immediate X bits (signed)
         uX     - immediate X bits (unsigend)
-        bd     - base displacement
+        bd     - base displacement (12 bit)
+        bdl    - base displacement long (20 bit)
         ibd    - index base displacement
         l4bd    - length base displacement (4 bit)
         l8bd    - length base displacement (8 bit)
+
+        note that a suffix 'l' means long, and a prefix length
         """
         def impl(func):
             func._arguments_ = args_str.split(',')
@@ -55,11 +58,31 @@ BIT_MASK_32 = 0xFFFFFFFF
 
 @always_inline
 def encode_base_displace(mc, base_displace):
-    displace = base_displace.displace # & 0x3ff
+    """
+        +---------------------------------+
+        | ... | base | length[0:11] | ... |
+        +---------------------------------+
+    """
+    displace = base_displace.displace
     base = base_displace.base & 0xf
     byte = (displace >> 8 & 0xf) | base << 4
     mc.writechar(chr(byte))
     mc.writechar(chr(displace & 0xff))
+
+@always_inline
+def encode_base_displace_long(mc, basedisp):
+    """
+        +-------------------------------------------------+
+        | ... | base | length[0:11] | length[12:20] | ... |
+        +-------------------------------------------------+
+    """
+    displace = basedisp.displace & 0xfffff
+    base = basedisp.base & 0xf
+    byte = displace >> 8 & 0xf | base << 4
+    mc.writechar(chr(byte))
+    mc.writechar(chr(displace & 0xff))
+    byte = displace >> 12 & 0xff
+    mc.writechar(chr(byte))
 
 def build_rr(mnemonic, (opcode,)):
     @builder.arguments('r,r')
@@ -101,13 +124,7 @@ def build_rxy(mnemonic, (opcode1,opcode2)):
         index = idxbasedisp.index
         byte = (reg_or_mask & 0x0f) << 4 | index & 0xf
         self.writechar(chr(byte))
-        displace = idxbasedisp.displace & 0xfffff
-        base = idxbasedisp.base & 0xf
-        byte = displace >> 8 & 0xf | base << 4
-        self.writechar(chr(byte))
-        self.writechar(chr(displace & 0xff))
-        byte = displace >> 12 & 0xff
-        self.writechar(chr(byte))
+        encode_base_displace_long(self, idxbasedisp)
         self.writechar(opcode2)
     return encode_rxy
 
@@ -122,7 +139,7 @@ def build_ri(mnemonic, (opcode,halfopcode)):
     return encode_ri
 
 def build_ril(mnemonic, (opcode,halfopcode)):
-    @builder.arguments('r/m,a32')
+    @builder.arguments('r/m,i32')
     def encode_ri(self, reg_or_mask, imm32):
         self.writechar(opcode)
         byte = (reg_or_mask & 0xf) << 4 | (ord(halfopcode) & 0xf)
@@ -209,6 +226,23 @@ def build_ssf(mnemonic, (opcode,)):
         encode_base_displace(self, len_base_disp)
     return encode_ssf
 
+def build_rs(mnemonic, (opcode,)):
+    @builder.arguments('r,r,bd')
+    def encode_rs(self, reg1, reg3, base_displace):
+        self.writechar(opcode)
+        self.writechar(chr((reg1 & BIT_MASK_4) << 4 | reg3 & BIT_MASK_4))
+        encode_base_displace(self, base_displace)
+    return encode_rs
+
+def build_rsy(mnemonic, (opcode1,opcode2)):
+    @builder.arguments('r,r,bdl')
+    def encode_ssa(self, reg1, reg3, base_displace):
+        self.writechar(opcode1)
+        self.writechar(chr((reg1 & BIT_MASK_4) << 4 | reg3 & BIT_MASK_4))
+        encode_base_displace_long(self, base_displace)
+        self.writechar(opcode2)
+    return encode_ssa
+
 _mnemonic_codes = {
     'AR':      (build_rr,    ['\x1A']),
     'AGR':     (build_rre,   ['\xB9\x08']),
@@ -227,6 +261,8 @@ _mnemonic_codes = {
     'LMD':     (build_sse,   ['\xEF']),
     'PKA':     (build_ssf,   ['\xE9']),
     'BRASL':   (build_ril,   ['\xC0','\x05']),
+    'BXH':     (build_rs,    ['\x86']),
+    'BXHG':    (build_rsy,   ['\xEB','\x44']),
 }
 
 def build_instr_codes(clazz):

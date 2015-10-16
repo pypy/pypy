@@ -102,7 +102,7 @@ class FakeLengthBaseDisplace(object):
 
     __repr__ = __str__
 
-def test_range(bits, signed=False, count=24, alignment=0):
+def test_range(bits, signed=False, count=24):
     if isinstance(bits, tuple):
         bits, signed = bits
     if signed:
@@ -132,7 +132,6 @@ TEST_CASE_GENERATE = {
     'i8':   test_range(8, signed=True),
     'i16':  test_range(16, signed=True),
     'i32':  test_range(32, signed=True),
-    'a32':  test_range(32, signed=True, alignment=16),
     'i64':  test_range(64, signed=True),
     'u4':   test_range(4),
     'u8':   test_range(8),
@@ -140,6 +139,7 @@ TEST_CASE_GENERATE = {
     'u32':  test_range(32),
     'u64':  test_range(64),
     'bd':   build_fake(FakeBaseDisplace,4,12),
+    'bdl':  build_fake(FakeBaseDisplace,4,19),
     'ibd':  build_fake(FakeIndexBaseDisplace,4,4,12),
     'ibdl': build_fake(FakeIndexBaseDisplace,4,4,(20,True)),
     'l8bd': build_fake(FakeLengthBaseDisplace,8,4,12),
