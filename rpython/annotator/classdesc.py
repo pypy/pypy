@@ -689,16 +689,11 @@ class ClassDesc(Desc):
             return cdesc
 
     def get_param(self, name, default=None, inherit=True):
+        cls = self.pyobj
         if inherit:
-            try:
-                return self.read_attribute(name).value
-            except AttributeError:
-                return default
+            return getattr(cls, name, default)
         else:
-            try:
-                return self.classdict[name].value
-            except KeyError:
-                return default
+            return cls.__dict__.get(name, default)
 
     def read_attribute(self, name, default=NODEFAULT):
         cdesc = self.lookup(name)
