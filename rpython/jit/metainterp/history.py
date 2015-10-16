@@ -18,6 +18,7 @@ FLOAT = 'f'
 STRUCT = 's'
 HOLE  = '_'
 VOID  = 'v'
+VECTOR = 'V'
 
 FAILARGS_LIMIT = 1000
 
@@ -112,6 +113,12 @@ class XxxAbstractValue(object):
     def same_box(self, other):
         return self is other
 
+    def same_shape(self, other):
+        # only structured containers can compare their shape (vector box)
+        return True
+
+    def getaccum(self):
+        return None
 
 class AbstractDescr(AbstractValue):
     __slots__ = ()
@@ -139,12 +146,29 @@ class AbstractFailDescr(AbstractDescr):
     index = -1
     final_descr = False
 
-    _attrs_ = ('adr_jump_offset', 'rd_locs', 'rd_loop_token')
+    _attrs_ = ('adr_jump_offset', 'rd_locs', 'rd_loop_token', 'rd_vector_info')
+
+    rd_vector_info = None
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop, orig_inputargs):
         raise NotImplementedError
+
+    def exits_early(self):
+        # is this guard either a guard_early_exit resop,
+        # or it has been moved before an guard_early_exit
+        return False
+
+    def loop_version(self):
+        # compile a loop version out of this guard?
+        return False
+
+    def attach_vector_info(self, info):
+        from rpython.jit.metainterp.resume import VectorInfo
+        assert isinstance(info, VectorInfo)
+        info.prev = self.rd_vector_info
+        self.rd_vector_info = info
 
 class BasicFinalDescr(AbstractFailDescr):
     final_descr = True
@@ -156,6 +180,9 @@ class BasicFinalDescr(AbstractFailDescr):
 class BasicFailDescr(AbstractFailDescr):
     def __init__(self, identifier=None):
         self.identifier = identifier      # for testing
+
+    def make_a_counter_per_value(self, op, index):
+        pass # for testing
 
 
 @specialize.argtype(0)
@@ -171,7 +198,7 @@ def newconst(value):
     else:
         assert lltype.typeOf(value) == llmemory.GCREF
         return ConstPtr(value)
-        
+
 class MissingValue(object):
     "NOT_RPYTHON"
 
@@ -514,6 +541,9 @@ class TreeLoop(object):
             self.name,
             ', '.join([box.repr(memo) for box in self.inputargs]))
 
+    def get_display_text(self):    # for graphpage.py
+        return self.name + '\n' + repr(self.inputargs)
+
     def show(self, errmsg=None):
         "NOT_RPYTHON"
         from rpython.jit.metainterp.graphpage import display_procedures
@@ -543,6 +573,9 @@ class TreeLoop(object):
     def check_consistency_of_branch(operations, seen, check_descr=True):
         "NOT_RPYTHON"
         for num, op in enumerate(operations):
+            if op.is_ovf():
+                assert operations[num + 1].getopnum() in (rop.GUARD_NO_OVERFLOW,
+                                                          rop.GUARD_OVERFLOW)
             for i in range(op.numargs()):
                 box = op.getarg(i)
                 if not isinstance(box, Const):
@@ -639,7 +672,7 @@ class History(object):
         assert op.is_same_as()
         op.copy_value_from(argboxes[0])
         self.operations.append(op)
-        return op        
+        return op
 
     def substitute_operation(self, position, opnum, argboxes, descr=None):
         resbox = self.operations[position].result
@@ -753,7 +786,6 @@ class Stats(object):
         return tokens
 
     def check_history(self, expected=None, **check):
-        return
         insns = {}
         for op in self.operations:
             opname = op.getopname()
@@ -792,7 +824,7 @@ class Stats(object):
             check['getfield_gc_pure_i'] = check['getfield_gc_pure_r'] = check['getfield_gc_pure_f'] = 0
         if 'getarrayitem_gc_pure' in check:
             assert check.pop('getarrayitem_gc_pure') == 0
-            check['getarrayitem_gc_pure_i'] = check['getarrayitem_gc_pure_r'] = check['getarrayitem_gc_pure_f'] = 0            
+            check['getarrayitem_gc_pure_i'] = check['getarrayitem_gc_pure_r'] = check['getarrayitem_gc_pure_f'] = 0
         if 'getarrayitem_gc' in check:
             assert check.pop('getarrayitem_gc') == 0
             check['getarrayitem_gc_i'] = check['getarrayitem_gc_r'] = check['getarrayitem_gc_f'] = 0

@@ -315,11 +315,12 @@ def get_stats_snapshot(space):
     """
     ll_times = jit_hooks.stats_get_loop_run_times(None)
     w_times = space.newdict()
-    for i in range(len(ll_times)):
-        w_key = space.newtuple([space.wrap(ll_times[i].type),
-                                space.wrap(ll_times[i].number)])
-        space.setitem(w_times, w_key,
-                      space.wrap(ll_times[i].counter))
+    if ll_times:
+        for i in range(len(ll_times)):
+            w_key = space.newtuple([space.wrap(ll_times[i].type),
+                                    space.wrap(ll_times[i].number)])
+            space.setitem(w_times, w_key,
+                          space.wrap(ll_times[i].counter))
     w_counters = space.newdict()
     for i, counter_name in enumerate(Counters.counter_names):
         v = jit_hooks.stats_get_counter_value(None, i)
@@ -331,6 +332,13 @@ def get_stats_snapshot(space):
     space.setitem_str(w_counter_times, 'BACKEND', space.wrap(b_time))
     return space.wrap(W_JitInfoSnapshot(space, w_times, w_counters,
                                         w_counter_times))
+
+def get_stats_asmmemmgr(space):
+    """Returns the raw memory currently used by the JIT backend,
+    as a pair (total_memory_allocated, memory_in_use)."""
+    m1 = jit_hooks.stats_asmmemmgr_allocated(None)
+    m2 = jit_hooks.stats_asmmemmgr_used(None)
+    return space.newtuple([space.wrap(m1), space.wrap(m2)])
 
 def enable_debug(space):
     """ Set the jit debugging - completely necessary for some stats to work,

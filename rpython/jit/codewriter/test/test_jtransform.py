@@ -15,7 +15,7 @@ except ImportError:
         for prod in result:
             yield tuple(prod)
 
-from rpython.flowspace.model import FunctionGraph, Block, Link
+from rpython.flowspace.model import FunctionGraph, Block, Link, c_last_exception
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
 from rpython.rtyper import rclass
@@ -30,7 +30,6 @@ def const(x):
     return Constant(x, lltype.typeOf(x))
 
 class FakeRTyper:
-    class type_system: name = 'lltypesystem'
     instance_reprs = {}
 
 class FakeCPU:
@@ -187,7 +186,7 @@ def test_optimize_goto_if_not():
     res = Transformer().optimize_goto_if_not(block)
     assert res == True
     assert block.operations == [sp1, sp2]
-    assert block.exitswitch == ('int_gt', v1, v2)
+    assert block.exitswitch == ('int_gt', v1, v2, '-live-before')
     assert block.exits == exits
 
 def test_optimize_goto_if_not__incoming():
@@ -211,7 +210,7 @@ def test_optimize_goto_if_not__exit():
     res = Transformer().optimize_goto_if_not(block)
     assert res == True
     assert block.operations == []
-    assert block.exitswitch == ('int_gt', v1, v2)
+    assert block.exitswitch == ('int_gt', v1, v2, '-live-before')
     assert block.exits == exits
     assert exits[1].args == [const(True)]
 
@@ -235,7 +234,7 @@ def test_optimize_goto_if_not__ptr_eq():
         res = Transformer().optimize_goto_if_not(block)
         assert res == True
         assert block.operations == []
-        assert block.exitswitch == (opname, v1, v2)
+        assert block.exitswitch == (opname, v1, v2, '-live-before')
         assert block.exits == exits
 
 def test_optimize_goto_if_not__ptr_iszero():
@@ -287,7 +286,7 @@ def test_symmetric_int_add_ovf():
         for v2 in [varoftype(lltype.Signed), const(43)]:
             op = SpaceOperation('int_add_nonneg_ovf', [v1, v2], v3)
             oplist = Transformer(FakeCPU()).rewrite_operation(op)
-            op0, op1 = oplist
+            op1, op0 = oplist
             assert op0.opname == 'int_add_ovf'
             if isinstance(v1, Constant) and isinstance(v2, Variable):
                 assert op0.args == [v2, v1]

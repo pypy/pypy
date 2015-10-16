@@ -61,8 +61,7 @@ int pypy_main_function(int argc, char *argv[])
     }
 #endif
 
-    errmsg = RPython_StartupCode();
-    if (errmsg) goto error;
+    RPython_StartupCode();
 
     list = _RPyListOfString_New(argc);
     if (RPyExceptionOccurred()) goto memory_out;

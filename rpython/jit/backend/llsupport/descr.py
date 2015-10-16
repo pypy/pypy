@@ -2,7 +2,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.llsupport import symbolic, support
-from rpython.jit.metainterp.history import AbstractDescr, getkind
+from rpython.jit.metainterp.history import AbstractDescr, getkind, FLOAT, INT
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.codewriter.longlong import is_longlong
@@ -75,15 +75,18 @@ def get_size_descr(gccache, STRUCT, vtable=lltype.nullptr(rclass.OBJECT_VTABLE))
     except KeyError:
         size = symbolic.get_size(STRUCT, gccache.translate_support_code)
         immutable_flag = heaptracker.is_immutable_struct(STRUCT)
-        gc_fielddescrs = heaptracker.gc_fielddescrs(gccache, STRUCT)
         if vtable:
             assert heaptracker.has_gcstruct_a_vtable(STRUCT)
         else:
             assert not heaptracker.has_gcstruct_a_vtable(STRUCT)
-        sizedescr = SizeDescr(size, gc_fielddescrs, vtable=vtable,
+        sizedescr = SizeDescr(size, vtable=vtable,
                               immutable_flag=immutable_flag)
         gccache.init_size_descr(STRUCT, sizedescr)
         cache[STRUCT] = sizedescr
+        # XXX do we really need gc_fielddescrs if we also have
+        # all_fielddescrs and can ask is_pointer_field() on them?
+        gc_fielddescrs = heaptracker.gc_fielddescrs(gccache, STRUCT)
+        sizedescr.gc_fielddescrs = gc_fielddescrs
         all_fielddescrs = heaptracker.all_fielddescrs(gccache, STRUCT)
         sizedescr.all_fielddescrs = all_fielddescrs
         return sizedescr
@@ -246,19 +249,29 @@ class ArrayDescr(ArrayOrFieldDescr):
     flag = '\x00'
     vinfo = None
     all_interiorfielddescrs = None
+    concrete_type = '\x00'
 
-    def __init__(self, basesize, itemsize, lendescr, flag, is_pure=False):
+    def __init__(self, basesize, itemsize, lendescr, flag, is_pure=False, concrete_type='\x00'):
         self.basesize = basesize
         self.itemsize = itemsize
         self.lendescr = lendescr    # or None, if no length
         self.flag = flag
         self._is_pure = is_pure
+        self.concrete_type = concrete_type
 
     def get_all_fielddescrs(self):
         return self.all_interiorfielddescrs
 
     def is_always_pure(self):
         return self._is_pure
+
+    def getconcrete_type(self):
+        return self.concrete_type
+
+    def is_array_of_primitives(self):
+        return self.flag == FLAG_FLOAT or \
+               self.flag == FLAG_SIGNED or \
+               self.flag == FLAG_UNSIGNED
 
     def is_array_of_pointers(self):
         return self.flag == FLAG_POINTER
@@ -268,6 +281,9 @@ class ArrayDescr(ArrayOrFieldDescr):
 
     def is_item_signed(self):
         return self.flag == FLAG_SIGNED
+
+    def get_item_size_in_bytes(self):
+        return self.itemsize
 
     def is_array_of_structs(self):
         return self.flag == FLAG_STRUCT
@@ -318,6 +334,11 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
         flag = get_type_flag(ARRAY_INSIDE.OF)
         is_pure = bool(ARRAY_INSIDE._immutable_field(None))
         arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag, is_pure)
+        if ARRAY_INSIDE.OF is lltype.SingleFloat or \
+           ARRAY_INSIDE.OF is lltype.Float:
+            # it would be better to set the flag as FLOAT_TYPE
+            # for single float -> leads to problems
+            arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag, is_pure, concrete_type='f')
         cache[ARRAY_OR_STRUCT] = arraydescr
         if isinstance(ARRAY_INSIDE.OF, lltype.Struct):
             descrs = heaptracker.all_interiorfielddescrs(gccache,

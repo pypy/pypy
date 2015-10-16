@@ -265,6 +265,17 @@ class TestX86(LLtypeBackendTest):
                                'void', ofsi)
         assert p.i == 3**33
 
+    def test_and_mask_common_patterns(self):
+        cases = [8, 16, 24]
+        if WORD == 8:
+            cases.append(32)
+        for i in cases:
+            box = InputArgInt(0xAAAAAAAAAAAA)
+            res = self.execute_operation(rop.INT_AND,
+                                         [box, ConstInt(2 ** i - 1)],
+                                         'int')
+            assert res == 0xAAAAAAAAAAAA & (2 ** i - 1)
+
     def test_nullity_with_guard(self):
         allops = [rop.INT_IS_TRUE]
         guards = [rop.GUARD_TRUE, rop.GUARD_FALSE]

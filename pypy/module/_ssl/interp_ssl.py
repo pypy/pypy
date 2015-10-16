@@ -241,20 +241,26 @@ if HAVE_OPENSSL_RAND:
         res = libssl_RAND_status()
         return space.wrap(res)
 
-    @unwrap_spec(path=str)
-    def RAND_egd(space, path):
-        """RAND_egd(path) -> bytes
+    if HAVE_OPENSSL_RAND_EGD:
+        @unwrap_spec(path=str)
+        def RAND_egd(space, path):
+            """RAND_egd(path) -> bytes
 
-        Queries the entropy gather daemon (EGD) on socket path.  Returns number
-        of bytes read.  Raises socket.sslerror if connection to EGD fails or
-        if it does provide enough data to seed PRNG."""
-        with rffi.scoped_str2charp(path) as socket_path:
-            bytes = libssl_RAND_egd(socket_path)
-        if bytes == -1:
-            raise ssl_error(space,
-                            "EGD connection failed or EGD did not return "
-                            "enough data to seed the PRNG")
-        return space.wrap(bytes)
+            Queries the entropy gather daemon (EGD) on socket path.  Returns number
+            of bytes read.  Raises socket.sslerror if connection to EGD fails or
+            if it does provide enough data to seed PRNG."""
+            with rffi.scoped_str2charp(path) as socket_path:
+                bytes = libssl_RAND_egd(socket_path)
+            if bytes == -1:
+                raise ssl_error(space,
+                                "EGD connection failed or EGD did not return "
+                                "enough data to seed the PRNG")
+            return space.wrap(bytes)
+    else:
+        # Dummy func for platforms missing RAND_egd(). Most likely LibreSSL.
+        @unwrap_spec(path=str)
+        def RAND_egd(space, path):
+            raise ssl_error(space, "RAND_egd unavailable")
 
 
 class _SSLSocket(W_Root):

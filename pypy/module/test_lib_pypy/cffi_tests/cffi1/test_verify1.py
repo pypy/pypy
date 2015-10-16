@@ -189,6 +189,9 @@ def test_longdouble_precision():
         # Check the particular results on Intel
         import platform
         if (platform.machine().startswith('i386') or
+            platform.machine().startswith('i486') or
+            platform.machine().startswith('i586') or
+            platform.machine().startswith('i686') or
             platform.machine().startswith('x86')):
             assert abs(more_precise - 0.656769) < 0.001
             assert abs(less_precise - 3.99091) < 0.001
@@ -1198,25 +1201,6 @@ def test_function_typedef():
     lib = ffi.verify('#include <math.h>', libraries=lib_m)
     assert lib.sin(1.23) == math.sin(1.23)
 
-def test_callback_calling_convention():
-    py.test.skip("later")
-    if sys.platform != 'win32':
-        py.test.skip("Windows only")
-    ffi = FFI()
-    ffi.cdef("""
-        int call1(int(*__cdecl cb)(int));
-        int call2(int(*__stdcall cb)(int));
-    """)
-    lib = ffi.verify("""
-        int call1(int(*__cdecl cb)(int)) {
-            return cb(42) + 1;
-        }
-        int call2(int(*__stdcall cb)(int)) {
-            return cb(-42) - 6;
-        }
-    """)
-    xxx
-
 def test_opaque_integer_as_function_result():
     #import platform
     #if platform.machine().startswith('sparc'):
@@ -1623,11 +1607,11 @@ def test_FILE_stored_in_stdout():
 
 def test_FILE_stored_explicitly():
     ffi = FFI()
-    ffi.cdef("int myprintf(const char *, int); FILE *myfile;")
+    ffi.cdef("int myprintf11(const char *, int); FILE *myfile;")
     lib = ffi.verify("""
         #include <stdio.h>
         FILE *myfile;
-        int myprintf(const char *out, int value) {
+        int myprintf11(const char *out, int value) {
             return fprintf(myfile, out, value);
         }
     """)
@@ -1637,7 +1621,7 @@ def test_FILE_stored_explicitly():
     lib.myfile = ffi.cast("FILE *", fw1)
     #
     fw1.write(b"X")
-    r = lib.myprintf(b"hello, %d!\n", ffi.cast("int", 42))
+    r = lib.myprintf11(b"hello, %d!\n", ffi.cast("int", 42))
     fw1.close()
     assert r == len("hello, 42!\n")
     #
@@ -1923,7 +1907,7 @@ def test_bug_const_char_ptr_array_1():
     assert repr(ffi.typeof(lib.a)) == "<ctype 'char *[5]'>"
 
 def test_bug_const_char_ptr_array_2():
-    ffi = FFI_warnings_not_error()    # ignore warnings
+    ffi = FFI()
     ffi.cdef("""const int a[];""")
     lib = ffi.verify("""const int a[5];""")
     assert repr(ffi.typeof(lib.a)) == "<ctype 'int *'>"

@@ -4,7 +4,7 @@ from rpython.translator.translator import TranslationContext
 from rpython.translator.c.database import LowLevelDatabase
 from rpython.flowspace.model import Constant, Variable, SpaceOperation
 from rpython.flowspace.model import Block, Link, FunctionGraph
-from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem.rffi import VOIDP, INT_real, INT, CArrayPtr
 
 
@@ -43,7 +43,7 @@ def test_struct():
 
 def test_inlined_struct():
     db = LowLevelDatabase()
-    pfx = db.namespace.global_prefix + 'g_'    
+    pfx = db.namespace.global_prefix + 'g_'
     S = GcStruct('test', ('x', Struct('subtest', ('y', Signed))))
     s = malloc(S)
     s.x.y = 42
@@ -56,7 +56,7 @@ def test_inlined_struct():
 
 def test_complete():
     db = LowLevelDatabase()
-    pfx = db.namespace.global_prefix + 'g_'    
+    pfx = db.namespace.global_prefix + 'g_'
     T = GcStruct('subtest', ('y', Signed))
     S = GcStruct('test', ('x', Ptr(T)))
     s = malloc(S)
@@ -136,7 +136,7 @@ def test_func_simple():
     block.closeblock(Link([result], graph.returnblock))
     graph.getreturnvar().concretetype = Signed
     # --------------------         end        --------------------
-    
+
     F = FuncType([Signed], Signed)
     f = functionptr(F, "f", graph=graph)
     db = LowLevelDatabase()
@@ -206,7 +206,7 @@ def test_multiple_malloc():
         s.ptr2 = ptr2
         return s.ptr1.x * s.ptr2.x
     t, graph = makegraph(ll_f, [int])
-    
+
     db = LowLevelDatabase(t)
     db.get(getfunctionptr(graph))
     db.complete()

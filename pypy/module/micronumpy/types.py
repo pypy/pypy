@@ -364,8 +364,8 @@ class Bool(BaseType, Primitive):
 
     @specialize.argtype(1)
     def box(self, value):
-        box = Primitive.box(self, value)
-        if box.value:
+        boolean = rffi.cast(self.T, value)
+        if boolean:
             return self._True
         else:
             return self._False
@@ -2231,9 +2231,9 @@ class UnicodeType(FlexibleType):
             index = i + offset + 4*k
             data = rffi.cast(Int32.T, ord(box._value[k]))
             raw_storage_setitem_unaligned(storage, index, data)
-        for k in range(size, width // 4):
-            index = i + offset + 4*k
-            data = rffi.cast(Int32.T, 0)
+        # zero out the remaining memory
+        for index in range(size * 4 + i + offset, width):
+            data = rffi.cast(Int8.T, 0)
             raw_storage_setitem_unaligned(storage, index, data)
 
     def read(self, arr, i, offset, dtype):

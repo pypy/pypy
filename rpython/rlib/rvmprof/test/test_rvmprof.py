@@ -2,6 +2,7 @@ import py, os
 from rpython.tool.udir import udir
 from rpython.rlib import rvmprof
 from rpython.translator.c.test.test_genc import compile
+from rpython.rlib.objectmodel import we_are_translated
 
 
 def test_vmprof_execute_code_1():
@@ -96,7 +97,12 @@ def test_enable():
     @rvmprof.vmprof_execute_code("xcode1", lambda code, num: code)
     def main(code, num):
         print num
-        return 42
+        s = 0
+        for i in range(num):
+            s += (i << 1)
+            if s % 32423423423 == 0:
+                print s
+        return s
 
     tmpfilename = str(udir.join('test_rvmprof'))
 
@@ -104,16 +110,37 @@ def test_enable():
         code = MyCode()
         rvmprof.register_code(code, get_name)
         fd = os.open(tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
-        rvmprof.enable(fd, 0.5)
-        res = main(code, 5)
-        assert res == 42
+        if we_are_translated():
+            num = 100000000
+            period = 0.0001
+        else:
+            num = 10000
+            period = 0.9
+        rvmprof.enable(fd, period)
+        res = main(code, num)
+        #assert res == 499999500000
         rvmprof.disable()
         os.close(fd)
         return 0
 
+    def check_profile(filename):
+        from vmprof import read_profile
+
+        prof = read_profile(filename)
+        assert prof.get_tree().name.startswith("py:")
+        assert prof.get_tree().count
+
     assert f() == 0
     assert os.path.exists(tmpfilename)
     fn = compile(f, [], gcpolicy="minimark")
-    os.unlink(tmpfilename)
     assert fn() == 0
-    assert os.path.exists(tmpfilename)
+    try:
+        import vmprof
+    except ImportError:
+        py.test.skip("vmprof unimportable")
+    else:
+        check_profile(tmpfilename)
+    finally:
+        assert os.path.exists(tmpfilename)
+        os.unlink(tmpfilename)
+       

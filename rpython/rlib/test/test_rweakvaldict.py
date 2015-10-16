@@ -1,4 +1,5 @@
 import py
+from rpython.annotator.model import UnionError
 from rpython.rlib import rgc
 from rpython.rlib.rweakref import RWeakValueDictionary
 from rpython.rtyper.test.test_llinterp import interpret
@@ -143,7 +144,28 @@ def test_rpython_merge_RWeakValueDictionary2():
         else:
             d = RWeakValueDictionary(str, Y)
         d.set("x", X())
-    py.test.raises(Exception, interpret, g, [1])
+
+    with py.test.raises(UnionError):
+        interpret(g, [1])
+
+
+def test_rpython_RWeakValueDictionary_or_None():
+    def g(d, key):
+        if d is None:
+            return None
+        return d.get(key)
+    def f(n):
+        x = X()
+        if n:
+            d = None
+        else:
+            d = RWeakValueDictionary(str, X)
+            d.set("a", x)
+        return g(d, "a") is x
+    assert f(0)
+    assert interpret(f, [0])
+    assert not f(1)
+    assert not interpret(f, [1])
 
 
 def test_bogus_makekey():

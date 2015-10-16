@@ -8,7 +8,8 @@ from rpython.jit.metainterp import quasiimmut
 from rpython.jit.metainterp.history import getkind
 from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
-from rpython.flowspace.model import SpaceOperation, Variable, Constant
+from rpython.flowspace.model import SpaceOperation, Variable, Constant,\
+     c_last_exception
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
@@ -204,6 +205,8 @@ class Transformer(object):
             if v is op.result:
                 if op.opname not in ('int_lt', 'int_le', 'int_eq', 'int_ne',
                                      'int_gt', 'int_ge',
+                                     'float_lt', 'float_le', 'float_eq',
+                                     'float_ne', 'float_gt', 'float_ge',
                                      'int_is_zero', 'int_is_true',
                                      'ptr_eq', 'ptr_ne',
                                      'ptr_iszero', 'ptr_nonzero'):
@@ -211,8 +214,8 @@ class Transformer(object):
                 # ok! optimize this case
                 block.operations.remove(op)
                 block.exitswitch = (op.opname,) + tuple(op.args)
-                if op.opname in ('ptr_iszero', 'ptr_nonzero'):
-                    block.exitswitch += ('-live-before',)
+                #if op.opname in ('ptr_iszero', 'ptr_nonzero'):
+                block.exitswitch += ('-live-before',)
                 # if the variable escape to the next block along a link,
                 # replace it with a constant, because we know its value
                 for link in block.exits:
@@ -333,13 +336,13 @@ class Transformer(object):
     def rewrite_op_int_add_ovf(self, op):
         op0 = self._rewrite_symmetric(op)
         op1 = SpaceOperation('-live-', [], None)
-        return [op0, op1]
+        return [op1, op0]
 
     rewrite_op_int_mul_ovf = rewrite_op_int_add_ovf
 
     def rewrite_op_int_sub_ovf(self, op):
         op1 = SpaceOperation('-live-', [], None)
-        return [op, op1]
+        return [op1, op]
 
     def _noop_rewrite(self, op):
         return op
@@ -912,10 +915,13 @@ class Transformer(object):
         return [op0, op1]
 
     def rewrite_op_malloc(self, op):
-        if op.args[1].value['flavor'] == 'raw':
+        d = op.args[1].value
+        if d.get('nonmovable', False):
+            raise UnsupportedMallocFlags(d)
+        if d['flavor'] == 'raw':
             return self._rewrite_raw_malloc(op, 'raw_malloc_fixedsize', [])
         #
-        if op.args[1].value.get('zero', False):
+        if d.get('zero', False):
             zero = True
         else:
             zero = False

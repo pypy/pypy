@@ -652,10 +652,10 @@ class __extend__(SomeChar, SomeUnicodeCodePoint):
     def len(self):
         return immutablevalue(1)
 
+class __extend__(SomeChar):
+
     def ord(self):
         return SomeInteger(nonneg=True)
-
-class __extend__(SomeChar):
 
     def method_isspace(self):
         return s_Bool
@@ -674,6 +674,13 @@ class __extend__(SomeChar):
 
     def method_upper(self):
         return self
+
+class __extend__(SomeUnicodeCodePoint):
+
+    def ord(self):
+        # warning, on 32-bit with 32-bit unichars, this might return
+        # negative numbers
+        return SomeInteger()
 
 class __extend__(SomeIterator):
 

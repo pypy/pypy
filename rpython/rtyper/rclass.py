@@ -684,10 +684,12 @@ class InstanceRepr(Repr):
             rbase = rbase.rbase
         return False
 
-    def new_instance(self, llops, classcallhop=None):
+    def new_instance(self, llops, classcallhop=None, nonmovable=False):
         """Build a new instance, without calling __init__."""
         flavor = self.gcflavor
         flags = {'flavor': flavor}
+        if nonmovable:
+            flags['nonmovable'] = True
         ctype = inputconst(Void, self.object_type)
         cflags = inputconst(Void, flags)
         vlist = [ctype, cflags]
@@ -1031,9 +1033,10 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
 
 # ____________________________________________________________
 
-def rtype_new_instance(rtyper, classdef, llops, classcallhop=None):
+def rtype_new_instance(rtyper, classdef, llops, classcallhop=None,
+                       nonmovable=False):
     rinstance = getinstancerepr(rtyper, classdef)
-    return rinstance.new_instance(llops, classcallhop)
+    return rinstance.new_instance(llops, classcallhop, nonmovable=nonmovable)
 
 def ll_inst_hash(ins):
     if not ins:

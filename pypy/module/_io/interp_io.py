@@ -118,7 +118,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     if buffering < 0:
         buffering = DEFAULT_BUFFER_SIZE
 
-        if space.config.translation.type_system == 'lltype' and 'st_blksize' in STAT_FIELD_TYPES:
+        if 'st_blksize' in STAT_FIELD_TYPES:
             fileno = space.c_int_w(space.call_method(w_raw, "fileno"))
             try:
                 st = os.fstat(fileno)

@@ -1058,6 +1058,14 @@ class ObjSpace(object):
         args = Arguments.frompacked(self, w_args, w_kwds)
         return self.call_args(w_callable, args)
 
+    def _try_fetch_pycode(self, w_func):
+        from pypy.interpreter.function import Function, Method
+        if isinstance(w_func, Method):
+            w_func = w_func.w_function
+        if isinstance(w_func, Function):
+            return w_func.code
+        return None
+
     def call_function(self, w_func, *args_w):
         nargs = len(args_w) # used for pruning funccall versions
         if not self.config.objspace.disable_call_speedhacks and nargs < 5:

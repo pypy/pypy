@@ -31,6 +31,8 @@ def test_getcpuclass():
 def test_detect_model_from_c_compiler():
     info1 = detect_model_from_host_platform()
     info2 = detect_model_from_c_compiler()
+    if info1.endswith("-sse4"):
+        info1 = info1[:-len("-sse4")]
     assert info1 == info2
 
 def test_getcpufeatures():

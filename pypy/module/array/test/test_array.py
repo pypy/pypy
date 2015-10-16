@@ -844,6 +844,18 @@ class BaseArrayTests:
         b.byteswap()
         assert a != b
 
+    def test_unicode_ord_positive(self):
+        import sys
+        if sys.maxunicode == 0xffff:
+            skip("test for 32-bit unicodes")
+        a = self.array('u', '\xff\xff\xff\xff')
+        assert len(a) == 1
+        assert repr(a[0]) == "u'\Uffffffff'"
+        if sys.maxint == 2147483647:
+            assert ord(a[0]) == -1
+        else:
+            assert ord(a[0]) == 4294967295
+
     def test_weakref(self):
         import weakref
         a = self.array('c', 'Hi!')

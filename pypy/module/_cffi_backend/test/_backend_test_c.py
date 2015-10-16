@@ -2316,9 +2316,6 @@ def test_errno_callback():
     f(); f()
     assert get_errno() == 77
 
-def test_abi():
-    assert isinstance(FFI_DEFAULT_ABI, int)
-
 def test_cast_to_array():
     # not valid in C!  extension to get a non-owning <cdata 'int[3]'>
     BInt = new_primitive_type("int")
@@ -3396,6 +3393,78 @@ def test_from_buffer_more_cases():
     check(4 | 8,  "CHB", "GTB")
     check(4 | 16, "CHB", "ROB")
 
+def test_memmove():
+    Short = new_primitive_type("short")
+    ShortA = new_array_type(new_pointer_type(Short), None)
+    Char = new_primitive_type("char")
+    CharA = new_array_type(new_pointer_type(Char), None)
+    p = newp(ShortA, [-1234, -2345, -3456, -4567, -5678])
+    memmove(p, p + 1, 4)
+    assert list(p) == [-2345, -3456, -3456, -4567, -5678]
+    p[2] = 999
+    memmove(p + 2, p, 6)
+    assert list(p) == [-2345, -3456, -2345, -3456, 999]
+    memmove(p + 4, newp(CharA, b"\x71\x72"), 2)
+    if sys.byteorder == 'little':
+        assert list(p) == [-2345, -3456, -2345, -3456, 0x7271]
+    else:
+        assert list(p) == [-2345, -3456, -2345, -3456, 0x7172]
+
+def test_memmove_buffer():
+    import array
+    Short = new_primitive_type("short")
+    ShortA = new_array_type(new_pointer_type(Short), None)
+    a = array.array('H', [10000, 20000, 30000])
+    p = newp(ShortA, 5)
+    memmove(p, a, 6)
+    assert list(p) == [10000, 20000, 30000, 0, 0]
+    memmove(p + 1, a, 6)
+    assert list(p) == [10000, 10000, 20000, 30000, 0]
+    b = array.array('h', [-1000, -2000, -3000])
+    memmove(b, a, 4)
+    assert b.tolist() == [10000, 20000, -3000]
+    assert a.tolist() == [10000, 20000, 30000]
+    p[0] = 999
+    p[1] = 998
+    p[2] = 997
+    p[3] = 996
+    p[4] = 995
+    memmove(b, p, 2)
+    assert b.tolist() == [999, 20000, -3000]
+    memmove(b, p + 2, 4)
+    assert b.tolist() == [997, 996, -3000]
+    p[2] = -p[2]
+    p[3] = -p[3]
+    memmove(b, p + 2, 6)
+    assert b.tolist() == [-997, -996, 995]
+
+def test_memmove_readonly_readwrite():
+    SignedChar = new_primitive_type("signed char")
+    SignedCharA = new_array_type(new_pointer_type(SignedChar), None)
+    p = newp(SignedCharA, 5)
+    memmove(p, b"abcde", 3)
+    assert list(p) == [ord("a"), ord("b"), ord("c"), 0, 0]
+    memmove(p, bytearray(b"ABCDE"), 2)
+    assert list(p) == [ord("A"), ord("B"), ord("c"), 0, 0]
+    py.test.raises((TypeError, BufferError), memmove, b"abcde", p, 3)
+    ba = bytearray(b"xxxxx")
+    memmove(dest=ba, src=p, n=3)
+    assert ba == bytearray(b"ABcxx")
+    memmove(ba, b"EFGH", 4)
+    assert ba == bytearray(b"EFGHx")
+
+def test_memmove_sign_check():
+    SignedChar = new_primitive_type("signed char")
+    SignedCharA = new_array_type(new_pointer_type(SignedChar), None)
+    p = newp(SignedCharA, 5)
+    py.test.raises(ValueError, memmove, p, p + 1, -1)   # not segfault
+
+def test_memmove_bad_cdata():
+    BInt = new_primitive_type("int")
+    p = cast(BInt, 42)
+    py.test.raises(TypeError, memmove, p, bytearray(b'a'), 1)
+    py.test.raises(TypeError, memmove, bytearray(b'a'), p, 1)
+
 def test_dereference_null_ptr():
     BInt = new_primitive_type("int")
     BIntPtr = new_pointer_type(BInt)
@@ -3427,3 +3496,16 @@ def test_mixup():
                             "be 'foo *', but the types are different (check "
                             "that you are not e.g. mixing up different ffi "
                             "instances)")
+
+def test_stdcall_function_type():
+    assert FFI_CDECL == FFI_DEFAULT_ABI
+    try:
+        stdcall = FFI_STDCALL
+    except NameError:
+        stdcall = FFI_DEFAULT_ABI
+    BInt = new_primitive_type("int")
+    BFunc = new_function_type((BInt, BInt), BInt, False, stdcall)
+    if stdcall != FFI_DEFAULT_ABI:
+        assert repr(BFunc) == "<ctype 'int(__stdcall *)(int, int)'>"
+    else:
+        assert repr(BFunc) == "<ctype 'int(*)(int, int)'>"

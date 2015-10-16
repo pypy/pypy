@@ -191,7 +191,6 @@ class Freezing:
 
 
 class TestRlist(BaseRtypingTest):
-    type_system = 'lltype'
     rlist = ll_rlist
 
     def test_simple(self):

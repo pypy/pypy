@@ -20,7 +20,6 @@ class LoopTest(object):
         return ll_meta_interp(f, args, enable_opts=self.enable_opts,
                               policy=policy,
                               CPUClass=self.CPUClass,
-                              type_system=self.type_system,
                               backendopt=backendopt)
 
     def run_directly(self, f, args):
@@ -1038,7 +1037,7 @@ class LoopTest(object):
 
     def test_unroll_issue_3(self):
         py.test.skip("decide")
-        
+
         from rpython.rlib.rerased import new_erasing_pair
         b_erase, b_unerase = new_erasing_pair("B")    # list of ints
         c_erase, c_unerase = new_erasing_pair("C")    # list of Nones
@@ -1083,12 +1082,31 @@ class LoopTest(object):
                 elif i % 5 == 0:
                     s += 1
                 elif i % 7 == 0:
-                    s += 1            
+                    s += 1
                 i -= 1
             return s
 
         self.meta_interp(f, [30])
         self.check_trace_count(3)
+
+    def test_sharing_guards(self):
+        py.test.skip("unimplemented")
+        driver = JitDriver(greens = [], reds = 'auto')
+
+        def f(i):
+            s = 0
+            while i > 0:
+                driver.jit_merge_point()
+                if s > 100:
+                    raise Exception
+                if s > 9:
+                    s += 1 # bridge
+                s += 1
+                i -= 1
+
+        self.meta_interp(f, [15])
+        # one guard_false got removed
+        self.check_resops(guard_false=4, guard_true=5)
 
 class TestLLtype(LoopTest, LLJitMixin):
     pass

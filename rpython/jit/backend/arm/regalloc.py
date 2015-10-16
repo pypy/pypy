@@ -667,6 +667,8 @@ class Regalloc(BaseRegalloc):
         a0, a1 = boxes
         imm_a1 = check_imm_box(a1)
         l0 = self.make_sure_var_in_reg(a0, boxes)
+        op.getdescr().make_a_counter_per_value(op,
+            self.cpu.all_reg_indexes[l0.value])
         if not imm_a1:
             l1 = self.make_sure_var_in_reg(a1, boxes)
         else:
@@ -700,6 +702,17 @@ class Regalloc(BaseRegalloc):
         arglocs = self._prepare_guard(op,
                     [loc, loc1, resloc, pos_exc_value, pos_exception])
         return arglocs
+
+    def prepare_op_save_exception(self, op, fcond):
+        resloc = self.force_allocate_reg(op)
+        return [resloc]
+    prepare_op_save_exc_class = prepare_op_save_exception
+
+    def prepare_op_restore_exception(self, op, fcond):
+        boxes = op.getarglist()
+        loc0 = self.make_sure_var_in_reg(op.getarg(0), boxes)  # exc class
+        loc1 = self.make_sure_var_in_reg(op.getarg(1), boxes)  # exc instance
+        return [loc0, loc1]
 
     def prepare_op_guard_no_exception(self, op, fcond):
         loc = self.make_sure_var_in_reg(ConstInt(self.cpu.pos_exception()))

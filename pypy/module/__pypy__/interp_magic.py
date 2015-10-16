@@ -147,3 +147,7 @@ def locals_to_fast(space, w_frame):
 @unwrap_spec(w_module=MixedModule)
 def save_module_content_for_future_reload(space, w_module):
     w_module.save_module_content_for_future_reload()
+
+def specialized_zip_2_lists(space, w_list1, w_list2):
+    from pypy.objspace.std.specialisedtupleobject import specialized_zip_2_lists
+    return specialized_zip_2_lists(space, w_list1, w_list2)

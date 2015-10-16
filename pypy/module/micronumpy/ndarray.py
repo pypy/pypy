@@ -6,6 +6,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty, \
 from rpython.rlib import jit
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
+from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.micronumpy import descriptor, ufuncs, boxes, arrayops, loop, \
@@ -96,11 +97,15 @@ class __extend__(W_NDimArray):
         self.fill(space, self.get_dtype().coerce(space, w_value))
 
     def descr_tostring(self, space, w_order=None):
-        order = order_converter(space, w_order, NPY.CORDER)
-        if order == NPY.FORTRANORDER:
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "unsupported value for order"))
-        return space.wrap(loop.tostring(space, self))
+        try:
+            order = order_converter(space, w_order, NPY.CORDER)
+        except:
+            raise oefmt(space.w_TypeError, "order not understood")
+        order = support.get_order_as_CF(self.get_order(), order)
+        arr = self
+        if order != arr.get_order():
+            arr = W_NDimArray(self.implementation.transpose(self, None))
+        return space.wrap(loop.tostring(space, arr))
 
     def getitem_filter(self, space, arr):
         if arr.ndims() > 1 and arr.get_shape() != self.get_shape():
@@ -364,11 +369,13 @@ class __extend__(W_NDimArray):
         return self.implementation.getitem(self.implementation.start)
 
     def descr_copy(self, space, w_order=None):
-        order = order_converter(space, w_order, NPY.KEEPORDER)
-        if order == NPY.FORTRANORDER:
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "unsupported value for order"))
-        copy = self.implementation.copy(space)
+        if w_order is None:
+            order = NPY.KEEPORDER
+        elif space.isinstance_w(w_order, space.w_int):
+            order = space.int_w(w_order)
+        else:
+            order = order_converter(space, w_order, NPY.KEEPORDER)
+        copy = self.implementation.copy(space, order)
         w_subtype = space.type(self)
         return wrap_impl(space, w_subtype, self, copy)
 
@@ -391,15 +398,15 @@ class __extend__(W_NDimArray):
                         'array does not have imaginary part to set')
         self.implementation.set_imag(space, self, w_value)
 
-    def reshape(self, space, w_shape):
+    def reshape(self, space, w_shape, order):
         new_shape = get_shape_from_iterable(space, self.get_size(), w_shape)
-        new_impl = self.implementation.reshape(self, new_shape)
+        new_impl = self.implementation.reshape(self, new_shape, order)
         if new_impl is not None:
             return wrap_impl(space, space.type(self), self, new_impl)
         # Create copy with contiguous data
-        arr = self.descr_copy(space)
+        arr = self.descr_copy(space, space.wrap(order))
         if arr.get_size() > 0:
-            new_implementation = arr.implementation.reshape(self, new_shape)
+            new_implementation = arr.implementation.reshape(self, new_shape, order)
             if new_implementation is None:
                 raise oefmt(space.w_ValueError,
                             'could not reshape array of size %d to shape %s',
@@ -433,16 +440,13 @@ class __extend__(W_NDimArray):
         if order == NPY.KEEPORDER:
             raise OperationError(space.w_ValueError, space.wrap(
                 "order 'K' is not permitted for reshaping"))
-        if order != NPY.CORDER and order != NPY.ANYORDER:
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "unsupported value for order"))
         if len(args_w) == 1:
             if space.is_none(args_w[0]):
                 return self.descr_view(space)
             w_shape = args_w[0]
         else:
             w_shape = space.newtuple(args_w)
-        return self.reshape(space, w_shape)
+        return self.reshape(space, w_shape, order)
 
     def descr_get_transpose(self, space, axes=None):
         return W_NDimArray(self.implementation.transpose(self, axes))
@@ -513,20 +517,8 @@ class __extend__(W_NDimArray):
         return space.newlist(l_w)
 
     def descr_ravel(self, space, w_order=None):
-        if space.is_none(w_order):
-            order = 'C'
-        else:
-            order = space.str_w(w_order)
-        if order == 'K' and is_c_contiguous(self.implementation):
-            for s in  self.implementation.get_strides():
-                if s < 0:
-                    break
-            else:
-                order = 'C'
-        if order != 'C':
-            raise OperationError(space.w_NotImplementedError, space.wrap(
-                "order != 'C' only partially implemented"))
-        return self.reshape(space, space.wrap(-1))
+        order = order_converter(space, w_order, self.get_order())
+        return self.reshape(space, space.wrap(-1), order)
 
     @unwrap_spec(w_axis=WrappedDefault(None),
                  w_out=WrappedDefault(None),
@@ -540,14 +532,15 @@ class __extend__(W_NDimArray):
                                  space.wrap("axis unsupported for compress"))
             arr = self
         else:
-            arr = self.reshape(space, space.wrap(-1))
+            arr = self.reshape(space, space.wrap(-1), self.get_order())
         index = convert_to_array(space, w_obj)
         return arr.getitem_filter(space, index)
 
     def descr_flatten(self, space, w_order=None):
+        order = order_converter(space, w_order, self.get_order())
         if self.is_scalar():
             # scalars have no storage
-            return self.reshape(space, space.wrap(1))
+            return self.reshape(space, space.wrap(1), order)
         w_res = self.descr_ravel(space, w_order)
         if w_res.implementation.storage == self.implementation.storage:
             return w_res.descr_copy(space)
@@ -611,6 +604,7 @@ class __extend__(W_NDimArray):
                 "__array__(dtype) not implemented"))
         if type(self) is W_NDimArray:
             return self
+        # sz cannot overflow since self is valid
         sz = support.product(self.get_shape()) * self.get_dtype().elsize
         return W_NDimArray.from_shape_and_storage(
             space, self.get_shape(), self.implementation.storage,
@@ -629,7 +623,7 @@ class __extend__(W_NDimArray):
                               space.newtuple([space.wrap(addr), space.w_False]))
             space.setitem_str(w_d, 'shape', self.descr_get_shape(space))
             space.setitem_str(w_d, 'typestr', self.get_dtype().descr_get_str(space))
-            if self.implementation.order == 'C':
+            if self.implementation.order == NPY.CORDER:
                 # Array is contiguous, no strides in the interface.
                 strides = space.w_None
             else:
@@ -688,8 +682,9 @@ class __extend__(W_NDimArray):
                         "according to the rule %s",
                         space.str_w(self.get_dtype().descr_repr(space)),
                         space.str_w(new_dtype.descr_repr(space)), casting)
-        order  = support.get_order_as_CF(self.get_order(), order)
-        if (not copy and new_dtype == self.get_dtype() and order == self.get_order()
+        order  = order_converter(space, space.wrap(order), self.get_order())
+        if (not copy and new_dtype == self.get_dtype() 
+                and (order in (NPY.KEEPORDER, NPY.ANYORDER) or order == self.get_order())
                 and (subok or type(self) is W_NDimArray)):
             return self
         impl = self.implementation
@@ -745,8 +740,12 @@ class __extend__(W_NDimArray):
         return out
 
     def descr_get_ctypes(self, space):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "ctypes not implemented yet"))
+        w_result = space.appexec([self], """(arr):
+            from numpy.core import _internal
+            p_data = arr.__array_interface__['data'][0]
+            return _internal._ctypes(arr, p_data)
+        """)
+        return w_result
 
     def buffer_w(self, space, flags):
         return self.implementation.get_buffer(space, True)
@@ -856,6 +855,8 @@ class __extend__(W_NDimArray):
         v = convert_to_array(space, w_v)
         ret = W_NDimArray.from_shape(
             space, v.get_shape(), get_dtype_cache(space).w_longdtype)
+        if ret.get_size() < 1:
+            return ret
         if side == NPY.SEARCHLEFT:
             binsearch = loop.binsearch_left
         else:
@@ -964,7 +965,7 @@ class __extend__(W_NDimArray):
                     raise OperationError(space.w_ValueError, space.wrap(
                         "new type not compatible with array."))
                 # Adapt the smallest dim to the new itemsize
-                if self.get_order() == 'F':
+                if self.get_order() == NPY.FORTRANORDER:
                     minstride = strides[0]
                     mini = 0
                 else:
@@ -1128,7 +1129,7 @@ class __extend__(W_NDimArray):
             matches = True
             if dtype != out.get_dtype():
                 matches = False
-            elif not out.implementation.order == "C":
+            elif not out.implementation.order == NPY.CORDER:
                 matches = False
             elif out.ndims() != len(out_shape):
                 matches = False
@@ -1187,7 +1188,7 @@ class __extend__(W_NDimArray):
             out = out_converter(space, w_out)
             if space.is_none(w_axis):
                 w_axis = space.wrap(0)
-                arr = self.reshape(space, space.wrap(-1))
+                arr = self.reshape(space, space.wrap(-1), self.get_order())
             else:
                 arr = self
             ufunc = getattr(ufuncs.get(space), ufunc_name)
@@ -1302,6 +1303,9 @@ class __extend__(W_NDimArray):
             [space.wrap(0)]), space.wrap("b")])
 
         builder = StringBuilder()
+        if self.get_dtype().is_object():
+            raise oefmt(space.w_NotImplementedError,
+                    "reduce for 'object' dtype not supported yet")
         if isinstance(self.implementation, SliceArray):
             iter, state = self.implementation.create_iter()
             while not iter.done(state):
@@ -1397,17 +1401,13 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
                                                   strides=strides)
 
     order = order_converter(space, w_order, NPY.CORDER)
-    if order == NPY.CORDER:
-        order = 'C'
-    else:
-        order = 'F'
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):
         return W_NDimArray.from_shape(space, shape, dtype, order)
     strides, backstrides = calc_strides(shape, dtype.base, order)
     try:
-        totalsize = support.product(shape) * dtype.base.elsize
+        totalsize = ovfcheck(support.product_check(shape) * dtype.base.elsize)
     except OverflowError as e:
-        raise oefmt(space.w_ValueError, "array is too big")
+        raise oefmt(space.w_ValueError, "array is too big.")
     impl = ConcreteArray(shape, dtype.base, order, strides, backstrides)
     w_ret = space.allocate_instance(W_NDimArray, w_subtype)
     W_NDimArray.__init__(w_ret, impl)
@@ -1437,7 +1437,7 @@ def descr__from_shape_and_storage(space, w_cls, w_shape, addr, w_dtype,
             raise OperationError(space.w_ValueError, space.wrap(
                 "subtype must be a subtype of ndarray, not a class instance"))
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
-                                                  buf_len, 'C', False, w_subtype,
+                                                  buf_len, NPY.CORDER, False, w_subtype,
                                                   strides=strides)
     else:
         return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,

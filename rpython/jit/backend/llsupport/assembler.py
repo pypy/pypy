@@ -3,7 +3,7 @@ from rpython.jit.backend.llsupport.memcpy import memcpy_fn, memset_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.codemap import CodemapBuilder
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
-    ConstInt, AbstractFailDescr)
+    ConstInt, AbstractFailDescr, VECTOR)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib import rgc
 from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints_for,
@@ -20,7 +20,6 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     ('type', lltype.Char),
     ('number', lltype.Signed)
 )
-
 
 class GuardToken(object):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
@@ -74,6 +73,9 @@ class BaseAssembler(object):
         self.memset_addr = 0
         self.rtyper = cpu.rtyper
         self._debug = False
+
+    def stitch_bridge(self, faildescr, target):
+        raise NotImplementedError
 
     def setup_once(self):
         # the address of the function called by 'new'
@@ -173,10 +175,13 @@ class BaseAssembler(object):
             input_i += 1
         return locs
 
+    _previous_rd_locs = []
+
     def store_info_on_descr(self, startspos, guardtok):
         withfloats = False
         for box in guardtok.failargs:
-            if box is not None and box.type == FLOAT:
+            if box is not None and \
+               (box.type == FLOAT or box.type == VECTOR):
                 withfloats = True
                 break
         exc = guardtok.must_save_exception()
@@ -184,7 +189,17 @@ class BaseAssembler(object):
         fail_descr = cast_instance_to_gcref(guardtok.faildescr)
         fail_descr = rffi.cast(lltype.Signed, fail_descr)
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        positions = [rffi.cast(rffi.USHORT, 0)] * len(guardtok.fail_locs)
+        #
+        # in practice, about 2/3rd of 'positions' lists that we build are
+        # exactly the same as the previous one, so share the lists to
+        # conserve memory
+        if len(self._previous_rd_locs) == len(guardtok.fail_locs):
+            positions = self._previous_rd_locs     # tentatively
+            shared = True
+        else:
+            positions = [rffi.cast(rffi.USHORT, 0)] * len(guardtok.fail_locs)
+            shared = False
+        #
         for i, loc in enumerate(guardtok.fail_locs):
             if loc is None:
                 position = 0xFFFF
@@ -203,7 +218,15 @@ class BaseAssembler(object):
                     position = len(self.cpu.gen_regs) + loc.value * coeff
                 else:
                     position = self.cpu.all_reg_indexes[loc.value]
+
+            if shared:
+                if (rffi.cast(lltype.Signed, self._previous_rd_locs[i]) ==
+                    rffi.cast(lltype.Signed, position)):
+                    continue   # still equal
+                positions = positions[:]
+                shared = False
             positions[i] = rffi.cast(rffi.USHORT, position)
+        self._previous_rd_locs = positions
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
         return fail_descr, target

@@ -31,6 +31,11 @@ class AbstractLLCPU(AbstractCPU):
     done_with_this_frame_descr_void     = None
     exit_frame_with_exception_descr_ref = None
 
+    vector_extension = False
+    vector_register_size = 0 # in bytes
+    vector_horizontal_operations = False
+    vector_pack_slots = False
+
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
         assert type(opts) is not bool
@@ -47,6 +52,10 @@ class AbstractLLCPU(AbstractCPU):
         else:
             translator = None
         self.gc_ll_descr = get_ll_description(gcdescr, translator, rtyper)
+        # support_guard_gc_type indicates if a gc type of an object can be read.
+        # In some states (boehm or x86 untranslated) the type is not known just yet,
+        # because there are cases where it is not guarded. The precise place where it's not
+        # is while inlining short preamble.
         self.supports_guard_gc_type = self.gc_ll_descr.supports_guard_gc_type
         if translator and translator.config.translation.gcremovetypeptr:
             self.vtable_offset = None
@@ -101,6 +110,9 @@ class AbstractLLCPU(AbstractCPU):
         return self.assembler.assemble_loop(jd_id, unique_id, logger, name,
                                             inputargs, operations,
                                             looptoken, log=log)
+
+    def stitch_bridge(self, faildescr, target):
+        self.assembler.stitch_bridge(faildescr, target)
 
     def _setup_frame_realloc(self, translate_support_code):
         FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF, lltype.Signed],
@@ -389,20 +401,40 @@ class AbstractLLCPU(AbstractCPU):
         descr = self.get_latest_descr(deadframe)
         return rffi.cast(lltype.Signed, descr.rd_locs[index]) * WORD
 
+    @specialize.arg(2)
+    def get_value_direct(self, deadframe, tp, index):
+        if tp == 'i':
+            return self.get_int_value_direct(deadframe, index * WORD)
+        elif tp == 'r':
+            return self.get_ref_value_direct(deadframe, index * WORD)
+        elif tp == 'f':
+            return self.get_float_value_direct(deadframe, index * WORD)
+        else:
+            assert False
+
     def get_int_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
+        return self.get_int_value_direct(deadframe, pos)
+
+    def get_int_value_direct(self, deadframe, pos):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
         return self.read_int_at_mem(deadframe, pos + ofs, WORD, 1)
 
     def get_ref_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
+        return self.get_ref_value_direct(deadframe, pos)
+
+    def get_ref_value_direct(self, deadframe, pos):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
         return self.read_ref_at_mem(deadframe, pos + ofs)
 
     def get_float_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
+        return self.get_float_value_direct(deadframe, pos)
+
+    def get_float_value_direct(self, deadframe, pos):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
         return self.read_float_at_mem(deadframe, pos + ofs)

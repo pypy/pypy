@@ -311,6 +311,10 @@ def package(*args, **kwds):
         # The import actually creates the udir directory
         from rpython.tool.udir import udir
         options.builddir = udir.ensure("build", dir=True)
+    else:
+        # if a user provides a path it must be converted to a local file system path
+        # otherwise ensure in create_package will fail
+        options.builddir = py.path.local(options.builddir)
     assert '/' not in options.pypy_c
     return create_package(basedir, options, **kwds)
 

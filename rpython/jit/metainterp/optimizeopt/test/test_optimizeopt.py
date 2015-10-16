@@ -158,6 +158,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
                 continue
             if 'FLOAT' in op:
                 continue
+            if 'VEC' in op:
+                continue
             args = []
             for _ in range(oparity[opnum]):
                 args.append(random.randrange(1, 20))
@@ -2967,6 +2969,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
             assert "promote of a virtual" in exc.msg
 
     def test_merge_guard_class_guard_value(self):
+        py.test.skip("disabled")
         ops = """
         [p1, i0, i1, i2, p2]
         guard_class(p1, ConstClass(node_vtable)) [i0]
@@ -3012,6 +3015,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         #self.check_expanded_fail_descr("i0", rop.GUARD_NONNULL_CLASS)
 
     def test_merge_guard_nonnull_guard_value(self):
+        py.test.skip("disabled")
         ops = """
         [p1, i0, i1, i2, p2]
         guard_nonnull(p1) [i0]
@@ -3035,6 +3039,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         #self.check_expanded_fail_descr("i0", rop.GUARD_VALUE)
 
     def test_merge_guard_nonnull_guard_class_guard_value(self):
+        py.test.skip("disabled")
         ops = """
         [p1, i0, i1, i2, p2]
         guard_nonnull(p1) [i0]
@@ -3516,6 +3521,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, p2)
         """
         self.optimize_loop(ops, expected)
+
+    def test_residual_call_does_not_invalidate_immutable_caches(self):
+        ops = """
+        [p1]
+        i1 = getfield_gc_pure_i(p1, descr=valuedescr3)
+        i2 = call_i(i1, descr=writevalue3descr)
+        i3 = getfield_gc_pure_i(p1, descr=valuedescr3)
+        jump(p1)
+        """
+        expected_preamble = """
+        [p1]
+        i1 = getfield_gc_pure_i(p1, descr=valuedescr3)
+        i2 = call_i(i1, descr=writevalue3descr)
+        jump(p1, i1)
+        """
+        expected = """
+        [p1, i1]
+        i2 = call_i(i1, descr=writevalue3descr)
+        jump(p1, i1)
+        """
+        self.optimize_loop(ops, expected, expected_preamble=expected_preamble)
 
     def test_residual_call_invalidate_some_caches(self):
         ops = """
@@ -8901,6 +8927,18 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i1, p0)
         """
         self.optimize_loop(ops, expected)
+
+    def test_raw_buffer_ptr_info_intbounds_bug(self):
+        ops = """
+        []
+        i2 = call_i('malloc', 10, descr=raw_malloc_descr)
+        guard_value(i2, 12345) []
+        jump()
+        """
+        # getting InvalidLoop would be a good idea, too.
+        # (this test was written to show it would previously crash)
+        self.optimize_loop(ops, ops)
+
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
