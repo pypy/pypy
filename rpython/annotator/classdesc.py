@@ -79,7 +79,7 @@ class Attribute(object):
         self.s_value = s_ImpossibleValue
         self.readonly = True
         self.attr_allowed = True
-        self.read_locations = {}
+        self.read_locations = set()
 
     def add_constant_source(self, classdef, source):
         s_value = source.s_get_value(classdef, self.name)
@@ -99,7 +99,7 @@ class Attribute(object):
         self.s_value = s_new_value
         if not other.readonly:
             self.modified(classdef)
-        self.read_locations.update(other.read_locations)
+        self.read_locations |= other.read_locations
 
     def validate(self, homedef):
         s_newvalue = self.s_value

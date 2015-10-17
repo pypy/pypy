@@ -883,7 +883,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 s_instance = kwds_s['s_' + objname]
                 attrdef = s_instance.classdef.find_attribute(fieldname)
                 position = self.bookkeeper.position_key
-                attrdef.read_locations[position] = True
+                attrdef.read_locations.add(position)
                 s_arg = attrdef.getvalue()
                 assert s_arg is not None
             args_s.append(s_arg)
