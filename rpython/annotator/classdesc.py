@@ -93,13 +93,13 @@ class Attribute(object):
         # Same as 'self.s_value' for historical reasons.
         return self.s_value
 
-    def merge(self, other, classdef='?'):
+    def merge(self, other, classdef):
         assert self.name == other.name
         s_new_value = unionof(self.s_value, other.s_value)
         self.s_value = s_new_value
         if not other.readonly:
             self.modified(classdef)
-        self.read_locations |= other.read_locations
+        self.read_locations.update(other.read_locations)
 
     def validate(self, homedef):
         s_newvalue = self.s_value
@@ -132,12 +132,16 @@ class Attribute(object):
     def modified(self, classdef='?'):
         self.readonly = False
         if not self.attr_allowed:
+            from rpython.annotator.bookkeeper import getbookkeeper
+            bk = getbookkeeper()
+            classdesc = classdef.classdesc
+            locations = bk.getattr_locations(classdesc, self.name)
             raise NoSuchAttrError(
                 "Attribute %r on %r should be read-only.\n" % (self.name,
                                                                classdef) +
                 "This error can be caused by another 'getattr' that promoted\n"
                 "the attribute here; the list of read locations is:\n" +
-                '\n'.join([str(loc[0]) for loc in self.read_locations]))
+                '\n'.join([str(loc[0]) for loc in locations]))
 
 class ClassDef(object):
     "Wraps a user class."

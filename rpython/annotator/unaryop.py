@@ -714,8 +714,7 @@ class __extend__(SomeInstance):
         if attr == '__class__':
             return self.classdef.read_attr__class__()
         attrdef = self.classdef.find_attribute(attr)
-        position = getbookkeeper().position_key
-        attrdef.read_locations.add(position)
+        getbookkeeper().record_getattr(self.classdef.classdesc, attr)
         s_result = attrdef.getvalue()
         # hack: if s_result is a set of methods, discard the ones
         #       that can't possibly apply to an instance of self.classdef.

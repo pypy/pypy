@@ -499,8 +499,17 @@ class Bookkeeper(object):
 
         return s_result
 
+    def getattr_locations(self, clsdesc, attrname):
+        attrdef = clsdesc.classdef.find_attribute(attrname)
+        return attrdef.read_locations
+
+    def record_getattr(self, clsdesc, attrname):
+        locations = self.getattr_locations(clsdesc, attrname)
+        locations.add(self.position_key)
+
     def update_attr(self, clsdef, attrdef):
-        for position in attrdef.read_locations:
+        locations = self.getattr_locations(clsdef.classdesc, attrdef.name)
+        for position in locations:
             self.annotator.reflowfromposition(position)
         attrdef.validate(homedef=clsdef)
 
