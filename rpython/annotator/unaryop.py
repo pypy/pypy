@@ -709,18 +709,14 @@ class __extend__(SomeIterator):
 
 
 class __extend__(SomeInstance):
-
-    def _true_getattr(self, attr):
+    def getattr(self, s_attr):
+        if not(s_attr.is_constant() and isinstance(s_attr.const, str)):
+            raise AnnotatorError("A variable argument to getattr is not RPython")
+        attr = s_attr.const
         if attr == '__class__':
             return self.classdef.read_attr__class__()
         getbookkeeper().record_getattr(self.classdef.classdesc, attr)
         return self.classdef.s_getattr(attr, self.flags)
-
-    def getattr(self, s_attr):
-        if s_attr.is_constant() and isinstance(s_attr.const, str):
-            attr = s_attr.const
-            return self._true_getattr(attr)
-        raise AnnotatorError("A variable argument to getattr is not RPython")
     getattr.can_only_throw = []
 
     def setattr(self, s_attr, s_value):
