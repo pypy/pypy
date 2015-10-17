@@ -164,7 +164,7 @@ Highlights (since 2.6.1 release two months ago)
 
   * Recognize patterns of common sequences in the JIT backends and optimize them
 
-  * Make the garbage collecter more intcremental over external_malloc() calls
+  * Make the garbage collecter more incremental over external_malloc() calls
 
   * Share guard resume data where possible which reduces memory usage
 
