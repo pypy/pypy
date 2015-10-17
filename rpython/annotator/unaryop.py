@@ -13,7 +13,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
     SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
     s_Bool, s_None, s_Int, unionof, add_knowntypedata,
-    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
+    SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
@@ -713,27 +713,8 @@ class __extend__(SomeInstance):
     def _true_getattr(self, attr):
         if attr == '__class__':
             return self.classdef.read_attr__class__()
-        attrdef = self.classdef.find_attribute(attr)
         getbookkeeper().record_getattr(self.classdef.classdesc, attr)
-        s_result = attrdef.getvalue()
-        # hack: if s_result is a set of methods, discard the ones
-        #       that can't possibly apply to an instance of self.classdef.
-        # XXX do it more nicely
-        if isinstance(s_result, SomePBC):
-            s_result = self.classdef.lookup_filter(s_result, attr,
-                                                  self.flags)
-        elif isinstance(s_result, SomeImpossibleValue):
-            self.classdef.check_missing_attribute_update(attr)
-            # blocking is harmless if the attribute is explicitly listed
-            # in the class or a parent class.
-            for basedef in self.classdef.getmro():
-                if basedef.classdesc.all_enforced_attrs is not None:
-                    if attr in basedef.classdesc.all_enforced_attrs:
-                        raise HarmlesslyBlocked("get enforced attr")
-        elif isinstance(s_result, SomeList):
-            s_result = self.classdef.classdesc.maybe_return_immutable_list(
-                attr, s_result)
-        return s_result
+        return self.classdef.s_getattr(attr, self.flags)
 
     def getattr(self, s_attr):
         if s_attr.is_constant() and isinstance(s_attr.const, str):

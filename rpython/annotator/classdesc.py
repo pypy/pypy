@@ -7,7 +7,7 @@ from rpython.flowspace.model import Constant
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.annotator.model import (
     SomePBC, s_ImpossibleValue, unionof, s_None, AnnotatorError, SomeInteger,
-    SomeString)
+    SomeString, SomeImpossibleValue, SomeList, HarmlesslyBlocked)
 from rpython.annotator.description import (
     Desc, FunctionDesc, MethodDesc, NODEFAULT)
 
@@ -173,6 +173,27 @@ class ClassDef(object):
             self.add_source_for_attribute(name, source)
         if self.bookkeeper:
             self.bookkeeper.event('classdef_setup', self)
+
+    def s_getattr(self, attrname, flags):
+        attrdef = self.find_attribute(attrname)
+        s_result = attrdef.getvalue()
+        # hack: if s_result is a set of methods, discard the ones
+        #       that can't possibly apply to an instance of self.
+        # XXX do it more nicely
+        if isinstance(s_result, SomePBC):
+            s_result = self.lookup_filter(s_result, attrname, flags)
+        elif isinstance(s_result, SomeImpossibleValue):
+            self.check_missing_attribute_update(attrname)
+            # blocking is harmless if the attribute is explicitly listed
+            # in the class or a parent class.
+            for basedef in self.getmro():
+                if basedef.classdesc.all_enforced_attrs is not None:
+                    if attrname in basedef.classdesc.all_enforced_attrs:
+                        raise HarmlesslyBlocked("get enforced attr")
+        elif isinstance(s_result, SomeList):
+            s_result = self.classdesc.maybe_return_immutable_list(
+                attrname, s_result)
+        return s_result
 
     def add_source_for_attribute(self, attr, source):
         """Adds information about a constant source for an attribute.
