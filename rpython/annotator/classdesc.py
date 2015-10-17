@@ -252,13 +252,18 @@ class ClassDef(object):
                     seen[sub] = True
 
     def _generalize_attr(self, attr, s_value):
-        # first remove the attribute from subclasses -- including us!
+        # create the Attribute and do the generalization asked for
+        newattr = Attribute(attr)
+        if s_value:
+            newattr.s_value = s_value
+
+        # remove the attribute from subclasses -- including us!
         # invariant (I)
-        subclass_attrs = []
         constant_sources = []    # [(classdef-of-origin, source)]
         for subdef in self.getallsubdefs():
             if attr in subdef.attrs:
-                subclass_attrs.append(subdef.attrs[attr])
+                subattr = subdef.attrs[attr]
+                newattr.merge(subattr, classdef=self)
                 del subdef.attrs[attr]
             if attr in subdef.attr_sources:
                 # accumulate attr_sources for this attribute from all subclasses
@@ -275,14 +280,6 @@ class ClassDef(object):
                     if not source.instance_level:
                         constant_sources.append((superdef, source))
 
-        # create the Attribute and do the generalization asked for
-        newattr = Attribute(attr)
-        if s_value:
-            newattr.s_value = s_value
-
-        # keep all subattributes' values
-        for subattr in subclass_attrs:
-            newattr.merge(subattr, classdef=self)
 
         # store this new Attribute, generalizing the previous ones from
         # subclasses -- invariant (A)
