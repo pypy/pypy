@@ -140,8 +140,6 @@ Highlights (since 2.6.1 release two months ago)
 
   * Deal with platforms with no RAND_egd() in OpenSSL
 
-  * Enable building _vmprof in translation on OS/X by default
-
 * Numpy:
 
   * Add support for ndarray.ctypes
