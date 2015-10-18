@@ -103,7 +103,8 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate,
     user_code = not jitdriver_sd.vec and warmstate.vec_all
     e = len(loop_ops)-1
     assert e > 0
-    loop = VectorLoop(loop_info.label_op, loop_ops[1:e], loop_ops[-1])
+    assert loop_ops[e].is_final()
+    loop = VectorLoop(loop_info.label_op, loop_ops[:e], loop_ops[-1])
     if user_code and user_loop_bail_fast_path(loop, warmstate):
         return loop_info, loop_ops
     # the original loop (output of optimize_unroll)
