@@ -68,8 +68,7 @@ def wrap_binaryfunc_l(space, w_self, w_args, func):
 
     if not space.is_true(space.issubtype(space.type(args_w[0]),
                                          space.type(w_self))):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "NotImplemented"))
+        return space.w_NotImplemented
  
     return generic_cpy_call(space, func_binary, w_self, args_w[0])
 
@@ -80,8 +79,7 @@ def wrap_binaryfunc_r(space, w_self, w_args, func):
 
     if not space.is_true(space.issubtype(space.type(args_w[0]),
                                          space.type(w_self))):
-        raise OperationError(space.w_NotImplementedError, space.wrap(
-            "NotImplemented"))
+        return space.w_NotImplemented
 
     return generic_cpy_call(space, func_binary, args_w[0], w_self)
 

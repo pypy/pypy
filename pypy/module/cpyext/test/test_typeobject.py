@@ -629,7 +629,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         b = module.new_obj() 
         c = 3
         assert (a + b) == 42 
-        raises(NotImplementedError, "b + c")
+        raises(TypeError, "b + c")
 
     def test_tp_new_in_subclass_of_type(self):
         skip("BROKEN")
