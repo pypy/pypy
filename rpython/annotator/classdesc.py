@@ -228,14 +228,22 @@ class ClassDef(object):
                         if attrdef.s_value != s_prev_value:
                             self.bookkeeper.update_attr(subdef, attrdef)
 
+    def get_owner(self, attrname):
+        """Return the classdef owning the attribute `attrname`."""
+        for cdef in self.getmro():
+            if attrname in cdef.attrs:
+                return cdef
+        else:
+            return None
+
+
     def locate_attribute(self, attr):
-        while True:
-            for cdef in self.getmro():
-                if attr in cdef.attrs:
-                    return cdef
-            self.generalize_attr(attr)
-            # the return value will likely be 'self' now, but not always -- see
-            # test_annrpython.test_attr_moving_from_subclass_to_class_to_parent
+        cdef = self.get_owner(attr)
+        if cdef:
+            return cdef
+        else:
+            self._generalize_attr(attr, s_value=None)
+            return self
 
     def find_attribute(self, attr):
         return self.locate_attribute(attr).attrs[attr]
@@ -301,7 +309,6 @@ class ClassDef(object):
                     if not source.instance_level:
                         constant_sources.append((superdef, source))
 
-
         # store this new Attribute, generalizing the previous ones from
         # subclasses -- invariant (A)
         self.attrs[attr] = newattr
@@ -317,10 +324,9 @@ class ClassDef(object):
     def generalize_attr(self, attr, s_value=None):
         # if the attribute exists in a superclass, generalize there,
         # as imposed by invariant (I)
-        for clsdef in self.getmro():
-            if attr in clsdef.attrs:
-                clsdef._generalize_attr(attr, s_value)
-                break
+        clsdef = self.get_owner(attr)
+        if clsdef:
+            clsdef._generalize_attr(attr, s_value)
         else:
             self._generalize_attr(attr, s_value)
 
@@ -347,8 +353,7 @@ class ClassDef(object):
         for desc in pbc.descriptions:
             # pick methods but ignore already-bound methods, which can come
             # from an instance attribute
-            if (isinstance(desc, MethodDesc)
-                    and desc.selfclassdef is None):
+            if (isinstance(desc, MethodDesc) and desc.selfclassdef is None):
                 methclassdef = desc.originclassdef
                 if methclassdef is not self and methclassdef.issubclass(self):
                     pass  # subclasses methods are always candidates
