@@ -719,7 +719,7 @@ class __extend__(SomeInstance):
         return self.classdef.s_getattr(attr, self.flags)
     getattr.can_only_throw = []
 
-    def setattr(self, s_attr, s_value):
+    def setattr(self, s_attr, s_obj):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
             # find the (possibly parent) class where this attr is defined
@@ -728,14 +728,13 @@ class __extend__(SomeInstance):
             attrdef.modified(clsdef)
 
             # if the attrdef is new, this must fail
-            if attrdef.getvalue().contains(s_value):
+            if attrdef.s_value.contains(s_obj):
                 return
             # create or update the attribute in clsdef
-            clsdef.generalize_attr(attr, s_value)
+            clsdef.generalize_attr(attr, s_obj)
 
-            if isinstance(s_value, SomeList):
-                clsdef.classdesc.maybe_return_immutable_list(
-                    attr, s_value)
+            if isinstance(s_obj, SomeList):
+                clsdef.classdesc.maybe_return_immutable_list(attr, s_obj)
         else:
             raise AnnotatorError("setattr(instance, variable_attr, value)")
 

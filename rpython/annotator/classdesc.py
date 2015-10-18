@@ -92,10 +92,6 @@ class Attribute(object):
         s_new_value = unionof(self.s_value, s_value)
         self.s_value = s_new_value
 
-    def getvalue(self):
-        # Same as 'self.s_value' for historical reasons.
-        return self.s_value
-
     def merge(self, other, classdef):
         assert self.name == other.name
         s_new_value = unionof(self.s_value, other.s_value)
@@ -180,7 +176,7 @@ class ClassDef(object):
 
     def s_getattr(self, attrname, flags):
         attrdef = self.find_attribute(attrname)
-        s_result = attrdef.getvalue()
+        s_result = attrdef.s_value
         # hack: if s_result is a set of methods, discard the ones
         #       that can't possibly apply to an instance of self.
         # XXX do it more nicely

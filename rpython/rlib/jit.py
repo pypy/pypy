@@ -884,7 +884,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 classdesc = s_instance.classdef.classdesc
                 bk.record_getattr(classdesc, fieldname)
                 attrdef = s_instance.classdef.find_attribute(fieldname)
-                s_arg = attrdef.getvalue()
+                s_arg = attrdef.s_value
                 assert s_arg is not None
             args_s.append(s_arg)
         bk.emulate_pbc_call(uniquekey, s_func, args_s)
