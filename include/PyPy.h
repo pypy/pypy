@@ -55,7 +55,7 @@ int pypy_execute_source_ptr(char *source, void* ptr);
 
 /* Windows hackery */
 #if defined(_MSC_VER)
-#  pragma comment(lib,"python27.lib")
+#  pragma comment(lib,"python33.lib")
 #endif
 
 
