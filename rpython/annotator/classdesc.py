@@ -3,8 +3,11 @@ Type inference for user-defined classes.
 """
 from __future__ import absolute_import
 import types
+
 from rpython.flowspace.model import Constant
+from rpython.tool.flattenrec import FlattenRecursion
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.tool.uid import Hashable
 from rpython.annotator.model import (
     SomePBC, s_ImpossibleValue, unionof, s_None, AnnotatorError, SomeInteger,
     SomeString, SomeImpossibleValue, SomeList, HarmlesslyBlocked)
@@ -157,6 +160,7 @@ class ClassDef(object):
         self.read_locations_of__class__ = {}
         self.repr = None
         self.extra_access_sets = {}
+        self.instances_seen = set()
 
         if classdesc.basedesc:
             self.basedef = classdesc.basedesc.getuniqueclassdef()
@@ -407,6 +411,22 @@ class ClassDef(object):
             return True
         else:
             return False
+
+    _see_instance_flattenrec = FlattenRecursion()
+
+    def see_instance(self, x):
+        assert isinstance(x, self.classdesc.pyobj)
+        key = Hashable(x)
+        if key in self.instances_seen:
+            return
+        self.instances_seen.add(key)
+        self.bookkeeper.event('mutable', x)
+        source = InstanceSource(self.bookkeeper, x)
+        def delayed():
+            for attr in source.all_instance_attributes():
+                self.add_source_for_attribute(attr, source)
+                # ^^^ can trigger reflowing
+        self._see_instance_flattenrec(delayed)
 
     def see_new_subclass(self, classdef):
         for position in self.read_locations_of__class__:

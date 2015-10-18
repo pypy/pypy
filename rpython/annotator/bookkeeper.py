@@ -14,8 +14,8 @@ from rpython.annotator.model import (
     SomeDict, SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
     s_None, s_ImpossibleValue, SomeBool, SomeTuple,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
-    SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty, AnnotatorError)
-from rpython.annotator.classdesc import InstanceSource, ClassDef, ClassDesc
+    SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty)
+from rpython.annotator.classdesc import ClassDef, ClassDesc
 from rpython.annotator.listdef import ListDef, ListItem
 from rpython.annotator.dictdef import DictDef
 from rpython.annotator import description
@@ -23,7 +23,6 @@ from rpython.annotator.signature import annotationoftype
 from rpython.annotator.argument import simple_args
 from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
-from rpython.tool.flattenrec import FlattenRecursion
 from rpython.rtyper import extregistry
 
 
@@ -332,8 +331,9 @@ class Bookkeeper(object):
                  and x.__class__.__module__ != '__builtin__':
             if hasattr(x, '_cleanup_'):
                 x._cleanup_()
-            self.see_mutable(x)
-            result = SomeInstance(self.getuniqueclassdef(x.__class__))
+            classdef = self.getuniqueclassdef(x.__class__)
+            classdef.see_instance(x)
+            result = SomeInstance(classdef)
         elif x is None:
             return s_None
         else:
@@ -373,11 +373,11 @@ class Bookkeeper(object):
                         self.getdesc(pyobj.im_self))            # frozendesc
                 else: # regular method
                     origincls, name = origin_of_meth(pyobj)
-                    self.see_mutable(pyobj.im_self)
+                    classdef = self.getuniqueclassdef(pyobj.im_class)
+                    classdef.see_instance(pyobj.im_self)
                     assert pyobj == getattr(pyobj.im_self, name), (
                         "%r is not %s.%s ??" % (pyobj, pyobj.im_self, name))
                     # emulate a getattr to make sure it's on the classdef
-                    classdef = self.getuniqueclassdef(pyobj.im_class)
                     classdef.find_attribute(name)
                     result = self.getmethoddesc(
                         self.getdesc(pyobj.im_func),            # funcdesc
@@ -398,15 +398,6 @@ class Bookkeeper(object):
             self.descs[pyobj] = result
             return result
 
-    def have_seen(self, x):
-        # this might need to expand some more.
-        if x in self.descs:
-            return True
-        elif (x.__class__, x) in self.seen_mutable:
-            return True
-        else:
-            return False
-
     def getfrozen(self, pyobj):
         return description.FrozenDesc(self, pyobj)
 
@@ -422,22 +413,6 @@ class Bookkeeper(object):
                                             selfclassdef, name, flags)
             self.methoddescs[key] = result
             return result
-
-    _see_mutable_flattenrec = FlattenRecursion()
-
-    def see_mutable(self, x):
-        key = (x.__class__, x)
-        if key in self.seen_mutable:
-            return
-        clsdef = self.getuniqueclassdef(x.__class__)
-        self.seen_mutable[key] = True
-        self.event('mutable', x)
-        source = InstanceSource(self, x)
-        def delayed():
-            for attr in source.all_instance_attributes():
-                clsdef.add_source_for_attribute(attr, source)
-                # ^^^ can trigger reflowing
-        self._see_mutable_flattenrec(delayed)
 
     def valueoftype(self, t):
         return annotationoftype(t, self)
