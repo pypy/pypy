@@ -371,16 +371,16 @@ class LLGraphCPU(model.AbstractCPU):
             trace.invalid = True
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
-        oldtrace = oldlooptoken.compiled_loop_token._llgraph_loop
-        newtrace = newlooptoken.compiled_loop_token._llgraph_loop
+        oldc = oldlooptoken.compiled_loop_token
+        newc = newlooptoken.compiled_loop_token
+        oldtrace = oldc._llgraph_loop
+        newtrace = newc._llgraph_loop
         OLD = [box.type for box in oldtrace.inputargs]
         NEW = [box.type for box in newtrace.inputargs]
         assert OLD == NEW
-        assert not hasattr(oldlooptoken, '_llgraph_redirected')
-        oldlooptoken.compiled_loop_token._llgraph_redirected = True
-        oldlooptoken.compiled_loop_token._llgraph_loop = newtrace
-        alltraces = newlooptoken.compiled_loop_token._llgraph_alltraces
-        oldlooptoken.compiled_loop_token._llgraph_alltraces = alltraces
+        assert not hasattr(oldc, '_llgraph_redirected')
+        oldc._llgraph_redirected = newc
+        oldc._llgraph_alltraces = newc._llgraph_alltraces
 
     def free_loop_and_bridges(self, compiled_loop_token):
         for c in compiled_loop_token._llgraph_alltraces:
@@ -393,7 +393,10 @@ class LLGraphCPU(model.AbstractCPU):
         return self._execute_token
 
     def _execute_token(self, loop_token, *args):
-        lltrace = loop_token.compiled_loop_token._llgraph_loop
+        loopc = loop_token.compiled_loop_token
+        while hasattr(loopc, '_llgraph_redirected'):
+            loopc = loopc._llgraph_redirected
+        lltrace = loopc._llgraph_loop
         frame = LLFrame(self, lltrace.inputargs, args)
         try:
             frame.execute(lltrace)
