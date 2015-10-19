@@ -50,12 +50,11 @@ class AssemblerZARCH(BaseAssembler):
         return clt.asmmemmgr_blocks
 
     def gen_func_prolog(self):
-        self.mc.STMG(reg.r11, reg.r15, loc.addr(reg.sp, -96))
+        self.mc.STMG(reg.r11, reg.r15, loc.addr(-96, reg.sp))
         self.mc.AHI(reg.sp, loc.imm(-96))
-        #self.mc.LAY(reg.r15, loc.addr(reg.sp, -))
 
     def gen_func_epilog(self):
-        self.mc.LMG(reg.r11, reg.r15, loc.addr(reg.sp, 0))
+        self.mc.LMG(reg.r11, reg.r15, loc.addr(0, reg.sp))
         self.jmpto(reg.r14)
 
     def jmpto(self, register):

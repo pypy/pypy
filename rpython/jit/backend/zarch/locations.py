@@ -171,13 +171,16 @@ class AddressLocation(AssemblerLocation):
     _immutable_ = True
 
     def __init__(self, basereg, indexreg, displace):
-        self.base = basereg.value
         self.displace = displace
-        self.index = 0 # designates the absense of an index register!
+        # designates the absense of an index/base register!
+        self.base = 0
+        self.index = 0
+        if basereg:
+            self.base = basereg.value
         if indexreg:
             self.index = indexreg.value
 
-def addr(basereg, displace, indexreg=None):
+def addr(displace, basereg=None, indexreg=None):
     return AddressLocation(basereg, indexreg, displace)
 
 def imm(i):

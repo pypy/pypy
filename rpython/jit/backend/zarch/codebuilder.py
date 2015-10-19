@@ -96,8 +96,7 @@ def build_rr(mnemonic, (opcode,)):
         self.writechar(chr(operands))
     return encode_rr
 
-def build_rre(mnemonic, (opcode,)):
-    opcode1,opcode2 = opcode
+def build_rre(mnemonic, (opcode1,opcode2)):
     @builder.arguments('r,r')
     def encode_rr(self, reg1, reg2):
         self.writechar(opcode1)
@@ -269,8 +268,8 @@ def build_rie(mnemonic, (opcode1,opcode2)):
 
 _mnemonic_codes = {
     'AR':      (build_rr,    ['\x1A']),
-    'AGR':     (build_rre,   ['\xB9\x08']),
-    'AGFR':    (build_rre,   ['\xB9\x18']),
+    'AGR':     (build_rre,   ['\xB9','\x08']),
+    'AGFR':    (build_rre,   ['\xB9','\x18']),
     'A':       (build_rx,    ['\x5A']),
     'AY':      (build_rxy,   ['\xE3','\x5A']),
     'AG':      (build_rxy,   ['\xE3','\x08']),
@@ -283,6 +282,9 @@ _mnemonic_codes = {
     'BRXH':    (build_rsi,   ['\x84']),
     'BRXLG':   (build_rie,   ['\xEC','\x45']),
     'BCR':     (build_rr,    ['\x07']),
+    'BC':      (build_rx,    ['\x47']),
+    'BRC':     (build_ri,    ['\xA7','\x04']),
+    'BRCL':    (build_ril,   ['\xC0','\x04']),
     #
     'NI':      (build_si,    ['\x94']),
     'NIY':     (build_siy,   ['\xEB','\x54']),
@@ -295,9 +297,13 @@ _mnemonic_codes = {
     'LMD':     (build_sse,   ['\xEF']),
     'LMG':     (build_rsy,   ['\xEB','\x04']),
     'LGHI':    (build_ri,    ['\xA7','\x09']),
+    'LR':      (build_rr,    ['\x18']),
+    'LGR':     (build_rre,   ['\xB9','\x04']),
 
     'PKA':     (build_ssf,   ['\xE9']),
     'STMG':    (build_rsy,   ['\xEB','\x24']),
+    'SR':      (build_rr,    ['\x1B']),
+    'SGR':     (build_rre,   ['\xB9','\x09']),
 }
 
 def build_unpack_func(mnemonic, func):

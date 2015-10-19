@@ -48,10 +48,11 @@ class TestRunningAssembler(object):
 
     def test_simple_func(self):
         # enter
-        self.a.mc.STMG(reg.r11, reg.r15, loc.addr(reg.sp, -96))
+        self.a.mc.STMG(reg.r11, reg.r15, loc.addr(-96, reg.sp))
         self.a.mc.AHI(reg.sp, loc.imm(-96))
+        # from the start of BRASL to end of jmpto there are 8+6 bytes
         self.a.mc.BRASL(reg.r14, loc.imm(8+6))
-        self.a.mc.LMG(reg.r11, reg.r15, loc.addr(reg.sp, 0))
+        self.a.mc.LMG(reg.r11, reg.r15, loc.addr(0, reg.sp))
         self.a.jmpto(reg.r14)
 
         addr = self.a.mc.get_relative_pos()
@@ -60,4 +61,15 @@ class TestRunningAssembler(object):
         self.a.mc.LGHI(reg.r2, loc.imm(321))
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 321
+
+    def test_simple_loop(self):
+        self.a.mc.LGHI(reg.r3, loc.imm(2**15-1))
+        self.a.mc.LGHI(reg.r4, loc.imm(1))
+        L1 = self.a.mc.get_relative_pos()
+        self.a.mc.SGR(reg.r3, reg.r4)
+        LJ = self.a.mc.get_relative_pos()
+        self.a.mc.BRCL(loc.imm(0x2), loc.imm(L1-LJ))
+        self.a.mc.LGR(reg.r2, reg.r3)
+        self.a.jmpto(reg.r14)
+        assert run_asm(self.a) == 0
 
