@@ -62,6 +62,15 @@ static void *slp_switch(void *(*save_state)(void*, void*),
       , "d0", "d1", "d2",  "d3",  "d4",  "d5",  "d6",  "d7"
       , "d8", "d9", "d10", "d11", "d12", "d13", "d14", "d15"
 /* messsssssssssssss quite unsure it is the correct way */
+/* Actually it seems there is no way.  These macros are defined by ARM's
+ * own compiler but not by GCC.  On GCC, by looking at its sources it
+ * seems that we'd like to know the internal TARGET_VFPD32 flag, but
+ * there is no way to access it because it's not exported as a macro.
+ * We loose.  If you compile for some architecture with 32 "d"
+ * registers, gcc will likely move the registers to save (d8-d15)
+ * into some of d16-d31, and they will then be clobbered.
+ * I don't see any solution. :-((
+ */
 # if defined(__TARGET_FPU_SOFTVFP_VFPV3) || \
      defined(__TARGET_FPU_SOFTVFP_VFPV3_FP16) || \
      defined(__TARGET_FPU_VFPV3) || \
