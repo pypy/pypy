@@ -173,7 +173,7 @@ class AddressLocation(AssemblerLocation):
     def __init__(self, basereg, indexreg, displace):
         self.base = basereg.value
         self.displace = displace
-        self.index = -1
+        self.index = 0 # designates the absense of an index register!
         if indexreg:
             self.index = indexreg.value
 

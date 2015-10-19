@@ -1,7 +1,7 @@
 from rpython.jit.backend.zarch import conditions as con
 from rpython.jit.backend.zarch import registers as reg
 from rpython.jit.backend.zarch.assembler import AssemblerZARCH
-from rpython.jit.backend.zarch.locations import imm
+from rpython.jit.backend.zarch import locations as loc
 from rpython.jit.backend.zarch.test.support import run_asm
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.metainterp.resoperation import rop
@@ -36,13 +36,28 @@ class TestRunningAssembler(object):
             is AssemblerZARCH.emit_op_int_add.im_func
 
     def test_load_small_int_to_reg(self):
-        self.a.mc.LGHI(reg.r2, imm(123))
+        self.a.mc.LGHI(reg.r2, loc.imm(123))
         self.a.jmpto(reg.r14)
         assert run_asm(self.a) == 123
 
-    #def test_load_small_int_to_reg_func(self):
-    #    self.a.gen_func_prolog()
-    #    self.a.mc.LGHI(r.r2, imm(123))
-    #    self.a.gen_func_epilog()
-    #    assert run_asm(self.a) == 123
+    def test_prolog_epilog(self):
+        self.a.gen_func_prolog()
+        self.a.mc.LGHI(reg.r2, loc.imm(123))
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 123
+
+    def test_simple_func(self):
+        # enter
+        self.a.mc.STMG(reg.r11, reg.r15, loc.addr(reg.sp, -96))
+        self.a.mc.AHI(reg.sp, loc.imm(-96))
+        self.a.mc.BRASL(reg.r14, loc.imm(8+6))
+        self.a.mc.LMG(reg.r11, reg.r15, loc.addr(reg.sp, 0))
+        self.a.jmpto(reg.r14)
+
+        addr = self.a.mc.get_relative_pos()
+        assert addr & 0x1 == 0
+        self.a.gen_func_prolog()
+        self.a.mc.LGHI(reg.r2, loc.imm(321))
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 321
 
