@@ -167,9 +167,23 @@ class RawSPStackLocation(AssemblerLocation):
     def as_key(self):            # a word >= 1000, and < 1000 + size of SP frame
         return self.value + 1000
 
+class AddressLocation(AssemblerLocation):
+    _immutable_ = True
+
+    def __init__(self, basereg, indexreg, displace):
+        self.base = basereg.value
+        self.displace = displace
+        self.index = -1
+        if indexreg:
+            self.index = indexreg.value
+
+def addr(basereg, displace, indexreg=None):
+    return AddressLocation(basereg, indexreg, displace)
 
 def imm(i):
     return ImmLocation(i)
 
 def get_fp_offset(base_ofs, position):
     return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)
+
+

@@ -1,5 +1,5 @@
-from rpython.jit.backend.zarch import conditions as c
-from rpython.jit.backend.zarch import registers as r
+from rpython.jit.backend.zarch import conditions as con
+from rpython.jit.backend.zarch import registers as reg
 from rpython.jit.backend.zarch.assembler import AssemblerZARCH
 from rpython.jit.backend.zarch.locations import imm
 from rpython.jit.backend.zarch.test.support import run_asm
@@ -34,3 +34,15 @@ class TestRunningAssembler(object):
         from rpython.jit.backend.zarch import assembler
         assert assembler.asm_operations[i] \
             is AssemblerZARCH.emit_op_int_add.im_func
+
+    def test_load_small_int_to_reg(self):
+        self.a.mc.LGHI(reg.r2, imm(123))
+        self.a.jmpto(reg.r14)
+        assert run_asm(self.a) == 123
+
+    #def test_load_small_int_to_reg_func(self):
+    #    self.a.gen_func_prolog()
+    #    self.a.mc.LGHI(r.r2, imm(123))
+    #    self.a.gen_func_epilog()
+    #    assert run_asm(self.a) == 123
+

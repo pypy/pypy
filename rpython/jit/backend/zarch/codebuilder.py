@@ -1,7 +1,9 @@
 from rpython.jit.backend.zarch import conditions as cond
 from rpython.jit.backend.zarch import registers as reg
+from rpython.jit.backend.zarch import locations as loc
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.tool.udir import udir
 from rpython.jit.backend.detect_cpu import autodetect
@@ -40,9 +42,10 @@ class builder(object):
         uX     - immediate X bits (unsigend)
         bd     - base displacement (12 bit)
         bdl    - base displacement long (20 bit)
-        ibd    - index base displacement
-        l4bd    - length base displacement (4 bit)
-        l8bd    - length base displacement (8 bit)
+        bid    - index base displacement
+        bidl   - index base displacement (20 bit)
+        l4bd   - length base displacement (4 bit)
+        l8bd   - length base displacement (8 bit)
 
         note that a suffix 'l' means long, and a prefix length
         """
@@ -105,7 +108,7 @@ def build_rre(mnemonic, (opcode,)):
     return encode_rr
 
 def build_rx(mnemonic, (opcode,)):
-    @builder.arguments('r/m,ibd')
+    @builder.arguments('r/m,bid')
     def encode_rx(self, reg_or_mask, idxbasedisp):
         self.writechar(opcode)
         index = idxbasedisp.index
@@ -119,7 +122,7 @@ def build_rx(mnemonic, (opcode,)):
     return encode_rx
 
 def build_rxy(mnemonic, (opcode1,opcode2)):
-    @builder.arguments('r/m,ibdl')
+    @builder.arguments('r/m,bidl')
     def encode_rxy(self, reg_or_mask, idxbasedisp):
         self.writechar(opcode1)
         index = idxbasedisp.index
@@ -199,7 +202,7 @@ def build_ssc(mnemonic, (opcode1,)):
     return encode_ssc
 
 def build_ssd(mnemonic, (opcode,)):
-    @builder.arguments('ibd,bd,r')
+    @builder.arguments('bid,bd,r')
     def encode_ssd(self, index_base_disp, base_disp, reg):
         self.writechar(opcode)
         byte = (index_base_disp.index & 0xf) << 4 | reg & 0xf
@@ -273,26 +276,51 @@ _mnemonic_codes = {
     'AG':      (build_rxy,   ['\xE3','\x08']),
     'AGF':     (build_rxy,   ['\xE3','\x18']),
     'AHI':     (build_ri,    ['\xA7','\x0A']),
+    #
+    'BRASL':   (build_ril,   ['\xC0','\x05']),
+    'BXH':     (build_rs,    ['\x86']),
+    'BXHG':    (build_rsy,   ['\xEB','\x44']),
+    'BRXH':    (build_rsi,   ['\x84']),
+    'BRXLG':   (build_rie,   ['\xEC','\x45']),
+    'BCR':     (build_rr,    ['\x07']),
+    #
     'NI':      (build_si,    ['\x94']),
     'NIY':     (build_siy,   ['\xEB','\x54']),
     'NC':      (build_ssa,   ['\xD4']),
     'AP':      (build_ssb,   ['\xFA']),
     'SRP':     (build_ssc,   ['\xF0']),
     'MVCK':    (build_ssd,   ['\xD9']),
+
+    'LAY':     (build_rxy,   ['\xE3','\x71']),
     'LMD':     (build_sse,   ['\xEF']),
+    'LMG':     (build_rsy,   ['\xEB','\x04']),
+    'LGHI':    (build_ri,    ['\xA7','\x09']),
+
     'PKA':     (build_ssf,   ['\xE9']),
-    'BRASL':   (build_ril,   ['\xC0','\x05']),
-    'BXH':     (build_rs,    ['\x86']),
-    'BXHG':    (build_rsy,   ['\xEB','\x44']),
-    'BRXH':    (build_rsi,   ['\x84']),
-    'BRXLG':   (build_rie,   ['\xEC','\x45']),
+    'STMG':    (build_rsy,   ['\xEB','\x24']),
 }
+
+def build_unpack_func(mnemonic, func):
+    def function(self, *args):
+        newargs = [None] * len(args)
+        for i,arg in enumerate(unrolling_iterable(func._arguments_)):
+            if arg == 'r' or arg == 'r/m':
+                newargs[i] = args[i].value
+            elif arg.startswith('i') or arg.startswith('u'):
+                newargs[i] = args[i].value
+            else:
+                newargs[i] = args[i]
+        return func(self, *newargs)
+    function.__name__ = mnemonic
+    return function
 
 def build_instr_codes(clazz):
     for mnemonic, (builder, args) in _mnemonic_codes.items():
         func = builder(mnemonic, args)
-        name = mnemonic + "_" + builder.__name__.split("_")[1]
+        instrtype = builder.__name__.split("_")[1]
+        name = mnemonic + "_" + instrtype
         setattr(clazz, name, func)
+        setattr(clazz, mnemonic, build_unpack_func(mnemonic, func))
 
 class AbstractZARCHBuilder(object):
     def write_i32(self, word):
@@ -300,12 +328,12 @@ class AbstractZARCHBuilder(object):
         self.writechar(chr((word >> 16) & 0xFF))
         self.writechar(chr((word >> 8) & 0xFF))
         self.writechar(chr(word & 0xFF))
+
     def write_i16(self, word):
         self.writechar(chr((word >> 8) & 0xFF))
         self.writechar(chr(word & 0xFF))
 
 build_instr_codes(AbstractZARCHBuilder)
-
 
 class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 

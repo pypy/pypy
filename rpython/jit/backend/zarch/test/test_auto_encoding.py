@@ -140,8 +140,8 @@ TEST_CASE_GENERATE = {
     'u64':  test_range(64),
     'bd':   build_fake(FakeBaseDisplace,4,12),
     'bdl':  build_fake(FakeBaseDisplace,4,19),
-    'ibd':  build_fake(FakeIndexBaseDisplace,4,4,12),
-    'ibdl': build_fake(FakeIndexBaseDisplace,4,4,(20,True)),
+    'bid':  build_fake(FakeIndexBaseDisplace,4,4,12),
+    'bidl': build_fake(FakeIndexBaseDisplace,4,4,(20,True)),
     'l8bd': build_fake(FakeLengthBaseDisplace,8,4,12),
     'l4bd': build_fake(FakeLengthBaseDisplace,4,4,12),
 }
