@@ -35,12 +35,12 @@ class Darwin(posix.BasePosix):
 
     def _include_dirs_for_libffi(self):
         return self._pkg_config("libffi", "--cflags-only-I",
-                                ['/usr/include/libffi'],
+                                ['/usr/include/ffi'],
                                 check_result_dir=True)
 
     def _library_dirs_for_libffi(self):
         return self._pkg_config("libffi", "--libs-only-L",
-                                ['/usr/lib/libffi'],
+                                ['/usr/lib'],
                                 check_result_dir=True)
 
     def _frameworks(self, frameworks):
