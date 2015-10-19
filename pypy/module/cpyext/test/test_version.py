@@ -3,10 +3,10 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 
 def test_pragma_version():
-    from pypy.module.sys.version import PYPY_VERSION
+    from pypy.module.sys.version import CPYTHON_VERSION
     rootdir = py.path.local(__file__).join('..', '..')
     pyconfig_h = rootdir.join('include', 'pyconfig.h')
-    version = '%d%d' % (PYPY_VERSION[0], PYPY_VERSION[1])
+    version = '%d%d' % (CPYTHON_VERSION[0], CPYTHON_VERSION[1])
     pragma = 'pragma comment(lib,"python%s.lib")' % version
     assert pragma in pyconfig_h.read()
 
