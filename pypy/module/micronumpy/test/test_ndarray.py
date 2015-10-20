@@ -645,6 +645,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in xrange(5):
             assert a[i] == i
 
+    def test_setitem_record(self):
+        from numpy import zeros
+        trie =  zeros(200, dtype= [ ("A","uint32"),("C","uint32"), ])
+        trie[0][0] = 1
+        assert trie[0]['A'] == 1
+
     def test_setitem_array(self):
         import numpy as np
         a = np.array((-1., 0, 1))/0.
