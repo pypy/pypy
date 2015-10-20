@@ -73,3 +73,23 @@ class TestRunningAssembler(object):
         self.a.jmpto(reg.r14)
         assert run_asm(self.a) == 0
 
+    def test_and_imm(self):
+        self.a.mc.NIHH(reg.r2, loc.imm(0))
+        self.a.mc.NIHL(reg.r2, loc.imm(0))
+        self.a.mc.NILL(reg.r2, loc.imm(0))
+        self.a.mc.NILH(reg.r2, loc.imm(0))
+        self.a.jmpto(reg.r14)
+        assert run_asm(self.a) == 0
+
+    def test_or_imm(self):
+        self.a.mc.OIHH(reg.r2, loc.imm(0xffff))
+        self.a.mc.OIHL(reg.r2, loc.imm(0xffff))
+        self.a.mc.OILL(reg.r2, loc.imm(0xffff))
+        self.a.mc.OILH(reg.r2, loc.imm(0xffff))
+        self.a.jmpto(reg.r14)
+        assert run_asm(self.a) == -1
+
+    def test_xor(self):
+        self.a.mc.XGR(reg.r2, reg.r2)
+        self.a.jmpto(reg.r14)
+        assert run_asm(self.a) == 0
