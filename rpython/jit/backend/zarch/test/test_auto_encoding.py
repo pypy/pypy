@@ -102,7 +102,7 @@ class FakeLengthBaseDisplace(object):
 
     __repr__ = __str__
 
-def test_range(bits, signed=False, count=24):
+def range_of_bits(bits, signed=False, count=24):
     if isinstance(bits, tuple):
         bits, signed = bits
     if signed:
@@ -113,7 +113,7 @@ def test_range(bits, signed=False, count=24):
     return [0,1,maximum-1] + [random.randrange(0,maximum) for i in range(count)]
 
 def build_fake(clazz, *arg_bits):
-    possibilities = itertools.product(*[test_range(b) for b in arg_bits])
+    possibilities = itertools.product(*[range_of_bits(b) for b in arg_bits])
     results = []
     i = 0
     for args in possibilities:
@@ -128,16 +128,16 @@ REGNAMES = ['%%r%d' % i for i in REGS]
 TEST_CASE_GENERATE = {
     'r':    REGS,
     'r/m':  REGS,
-    'i4':   test_range(4, signed=True),
-    'i8':   test_range(8, signed=True),
-    'i16':  test_range(16, signed=True),
-    'i32':  test_range(32, signed=True),
-    'i64':  test_range(64, signed=True),
-    'u4':   test_range(4),
-    'u8':   test_range(8),
-    'u16':  test_range(16),
-    'u32':  test_range(32),
-    'u64':  test_range(64),
+    'i4':   range_of_bits(4, signed=True),
+    'i8':   range_of_bits(8, signed=True),
+    'i16':  range_of_bits(16, signed=True),
+    'i32':  range_of_bits(32, signed=True),
+    'i64':  range_of_bits(64, signed=True),
+    'u4':   range_of_bits(4),
+    'u8':   range_of_bits(8),
+    'u16':  range_of_bits(16),
+    'u32':  range_of_bits(32),
+    'u64':  range_of_bits(64),
     'bd':   build_fake(FakeBaseDisplace,4,12),
     'bdl':  build_fake(FakeBaseDisplace,4,19),
     'bid':  build_fake(FakeIndexBaseDisplace,4,4,12),
@@ -154,7 +154,6 @@ class TestZARCH(object):
 
     def get_func_arg_types(self, methodname):
         from rpython.jit.backend.zarch.codebuilder import AbstractZARCHBuilder
-        import inspect
         func = getattr(AbstractZARCHBuilder, methodname)
         return func._arguments_
 

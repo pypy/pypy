@@ -68,7 +68,7 @@ class TestRunningAssembler(object):
         L1 = self.a.mc.get_relative_pos()
         self.a.mc.SGR(reg.r3, reg.r4)
         LJ = self.a.mc.get_relative_pos()
-        self.a.mc.BRCL(loc.imm(0x2), loc.imm(L1-LJ))
+        self.a.mc.BRCL(con.GT, loc.imm(L1-LJ))
         self.a.mc.LGR(reg.r2, reg.r3)
         self.a.jmpto(reg.r14)
         assert run_asm(self.a) == 0
