@@ -3,7 +3,7 @@ What's new in PyPy 4.0.0
 ========================
 
 .. this is a revision shortly after release-2.6.1
-.. startrev: 07769be4057b
+.. startrev: 3a8f5481dab4
 
 .. branch: keys_with_hash
 Improve the performance of dict.update() and a bunch of methods from
@@ -85,3 +85,10 @@ failures in linalg cffi functions
 .. branch: vecopt-merge
 
 A new optimization pass to use emit vectorized loops
+
+.. branch: ppc-updated-backend
+
+The PowerPC JIT backend is merged.
+
+.. branch: osx-libffi
+
