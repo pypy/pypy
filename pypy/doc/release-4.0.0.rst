@@ -1,15 +1,15 @@
 ============
-PyPy 15.11.0
+PyPy 4.0.0
 ============
 
-We're pleased and proud to unleash PyPy 15.11, a major update of the PyPy
+We're pleased and proud to unleash PyPy 4.0.0, a major update of the PyPy
 python2.7.10 compatible interpreter with a Just In Time compiler.
 We have improved `warmup time and memory overhead used for tracing`_, added
 `vectorization`_ for numpy and general loops where possible on x86 hardware
 (disabled by default),
 refactored rough edges in rpython, and increased functionality of numpy.
 
-You can download the PyPy 15.11 release here:
+You can download the PyPy 4.0.0 release here:
 
     http://pypy.org/download.html
 
@@ -22,12 +22,19 @@ layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ 
 with making RPython's JIT even better. 
 
+New Version Numbering
+=====================
+
+Since the past release, PyPy 2.6.1, we decided to update the PyPy 2.x.x
+versioning directly to PyPy 4.x.x, to avoid confusion with CPython 2.7
+and 3.5. Note that this version of PyPy uses the stdlib and implements the
+syntax of CPython 2.7.10. 
 
 Vectorization
 =============
 
 Richard Plangger began work in March and continued over a Google Summer of Code
-to add a vectorization step to the trace optimizer. The step recognizes common
+to add a `vectorization` step to the trace optimizer. The step recognizes common
 constructs and emits SIMD code where possible, much as any modern compiler does.
 This vectorization happens while tracing running code,  so it is actually easier
 at run-time to determine the
@@ -40,6 +47,8 @@ The first version of the vectorization has been merged in this release, since
 it is so new it is off by default. To enable the vectorization in built-in JIT
 drivers (like numpy ufuncs), add `--jit vec=1`, to enable all implemented
 vectorization add `--jit vec_all=1`
+
+Benchmarks and a summary of this work appear `here`_
 
 Internal Refactoring and Warmup Time Improvement
 ================================================
@@ -83,20 +92,25 @@ PyPy is a very compliant Python interpreter, almost a drop-in replacement for
 CPython 2.7. It's fast (`pypy and cpython 2.7.x`_ performance comparison)
 due to its integrated tracing JIT compiler.
 
+We also welcome developers of other
+`dynamic languages`_ to see what RPython can do for them.
+
 This release supports **x86** machines on most common operating systems
 (Linux 32/64, Mac OS X 64, Windows 32, OpenBSD_, freebsd_),
 as well as newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux.
 
-We also welcome developers of other
-`dynamic languages`_ to see what RPython can do for them.
+We also introduce `support for the 64 bit PowerPC`_ hardware, specifically 
+Linux running the big- and little-endian variants of ppc64.
 
 .. _`pypy and cpython 2.7.x`: http://speed.pypy.org
 .. _OpenBSD: http://cvsweb.openbsd.org/cgi-bin/cvsweb/ports/lang/pypy
 .. _freebsd: https://svnweb.freebsd.org/ports/head/lang/pypy/
 .. _`dynamic languages`: http://pypyjs.org
+.. _`support for the 64 bit PowerPC`: http://morepypy.blogspot.com/2015/10/powerpc-backend-for-jit.html
+.. _`here`: http://morepypy.blogspot.com/2015/10/automatic-simd-vectorization-support-in.html
 
-Highlights (since 2.6.1 release two months ago)
-===============================================
+Other Highlights (since 2.6.1 release two months ago)
+=====================================================
 
 * Bug Fixes
 
