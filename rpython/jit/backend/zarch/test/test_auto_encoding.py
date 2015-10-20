@@ -239,7 +239,7 @@ class TestZARCH(object):
 
     def complete_test(self, methname):
         if '_' in methname:
-            instrname, argmodes = methname.split('_')
+            instrname, argmodes = methname.split('_')[:2]
         else:
             instrname, argmodes = methname, ''
         argmodes = self.modes(argmodes)

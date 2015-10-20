@@ -1,5 +1,5 @@
 
-branch_mnemoic_codes = {
+branch_mnemonic_codes = {
     'BRASL':   ('ril',   ['\xC0','\x05']),
     'BCR':     ('rr',    ['\x07']),
     'BC':      ('rx',    ['\x47']),
@@ -7,13 +7,54 @@ branch_mnemoic_codes = {
     'BRCL':    ('ril',   ['\xC0','\x04']),
 }
 
-arith_mnemic_codes = {
+arith_mnemonic_codes = {
     'AR':      ('rr',    ['\x1A']),
     'AGR':     ('rre',   ['\xB9','\x08']),
     'AGFR':    ('rre',   ['\xB9','\x18']),
     'A':       ('rx',    ['\x5A']),
     'SR':      ('rr',    ['\x1B']),
     'SGR':     ('rre',   ['\xB9','\x09']),
+}
+
+logic_mnemonic_codes = {
+    # AND operations
+    'NGR':        ('rre',      ['\xB9','\x80']),
+    'NG':         ('rxy',      ['\xE3','\x80']),
+    # and one byte and store it back at the op2 position
+    'NI':         ('si',       ['\x94']),
+    'NIY':        ('siy',      ['\xEB','\x54']),
+
+    # AND immediate
+    'NIHH':       ('ri_u',     ['\xA5', '\x04']),
+    'NIHL':       ('ri_u',     ['\xA5', '\x05']),
+    'NILH':       ('ri_u',     ['\xA5', '\x06']),
+    'NILL':       ('ri_u',     ['\xA5', '\x07']),
+
+    # OR operations
+    'OGR':        ('rre',      ['\xB9','\x81']),
+    'OG':         ('rxy',      ['\xE3','\x81']),
+    # or one byte and store it back at the op2 position
+    'OI':         ('si',       ['\x96']),
+    'OIY':        ('siy',      ['\xEB','\x56']),
+
+    # OR immediate
+    'OIHH':       ('ri_u',     ['\xA5', '\x08']),
+    'OIHL':       ('ri_u',     ['\xA5', '\x09']),
+    'OILH':       ('ri_u',     ['\xA5', '\x0A']),
+    'OILL':       ('ri_u',     ['\xA5', '\x0B']),
+
+    # XOR operations
+    'XGR':        ('rre',      ['\xB9','\x82']),
+    'XG':         ('rxy',      ['\xE3','\x82']),
+    # or one byte and store it back at the op2 position
+    'XI':         ('si',       ['\x97']),
+    'XIY':        ('siy',      ['\xEB','\x57']),
+
+    # OR immediate
+    'OIHH':       ('ri_u',     ['\xA5', '\x08']),
+    'OIHL':       ('ri_u',     ['\xA5', '\x09']),
+    'OILH':       ('ri_u',     ['\xA5', '\x0A']),
+    'OILL':       ('ri_u',     ['\xA5', '\x0B']),
 }
 
 all_mnemonic_codes = {
@@ -44,6 +85,12 @@ all_mnemonic_codes = {
     'PKA':     ('ssf',   ['\xE9']),
     'STMG':    ('rsy',   ['\xEB','\x24']),
 }
-all_mnemonic_codes.update(arith_mnemic_codes)
-all_mnemonic_codes.update(branch_mnemoic_codes)
+all_mnemonic_codes.update(arith_mnemonic_codes)
+all_mnemonic_codes.update(logic_mnemonic_codes)
+all_mnemonic_codes.update(branch_mnemonic_codes)
 
+
+if __name__ == "__main__":
+    print("%d instructions:" % len(all_mnemonic_codes))
+    for name, (typeinstr, _) in all_mnemonic_codes.items():
+        print(" %s\t(type: %s)" % (name, typeinstr))

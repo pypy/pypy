@@ -8,7 +8,6 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.tool.udir import udir
 from rpython.jit.backend.detect_cpu import autodetect
-from rpython.rtyper.lltypesystem.rbuilder import always_inline
 
 clear_cache = rffi.llexternal(
     "__clear_cache",

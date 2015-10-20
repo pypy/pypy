@@ -1,6 +1,6 @@
-from rpython.jit.backend.zarch.instructions import (all_mnemonic_codes,
-        arith_mnemic_codes, branch_mnemoic_codes)
+from rpython.jit.backend.zarch.instructions import (all_mnemonic_codes,)
 from rpython.rtyper.lltypesystem.rbuilder import always_inline
+from rpython.rlib.unroll import unrolling_iterable
 
 
 class builder(object):
@@ -14,9 +14,9 @@ class builder(object):
         r/m    - register or mask
         iX     - immediate X bits (signed)
         uX     - immediate X bits (unsigend)
-        bd     - base displacement (12 bit)
+        bd     - base displacement (unsigned 12 bit)
         bdl    - base displacement long (20 bit)
-        bid    - index base displacement
+        bid    - index base displacement (unsigned 12 bit)
         bidl   - index base displacement (20 bit)
         l4bd   - length base displacement (4 bit)
         l8bd   - length base displacement (8 bit)
@@ -117,6 +117,12 @@ def build_ri(mnemonic, (opcode,halfopcode)):
         self.writechar(chr(imm16 >> 8 & 0xff))
         self.writechar(chr(imm16 & 0xff))
     return encode_ri
+
+def build_ri_u(mnemonic, (opcode,halfopcode)):
+    # unsigned version of ri
+    func = build_ri(mnemonic, (opcode,halfopcode))
+    func._arguments_[1] = 'u16'
+    return func
 
 def build_ril(mnemonic, (opcode,halfopcode)):
     br = is_branch_relative(mnemonic)
@@ -270,7 +276,12 @@ def is_branch_relative(name):
     return name.startswith('BR')
 
 def build_instr_codes(clazz):
-    for mnemonic, (instrtype, args) in all_mnemonic_codes.items():
+    for mnemonic, params in all_mnemonic_codes.items():
+        options = {}
+        if len(params) == 2:
+            (instrtype, args) = params
+        else:
+            (instrtype, args, options) = params
         builder = globals()['build_' + instrtype]
         func = builder(mnemonic, args)
         name = mnemonic + "_" + instrtype
