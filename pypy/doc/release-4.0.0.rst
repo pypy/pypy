@@ -3,7 +3,7 @@ PyPy 4.0.0
 ============
 
 We're pleased and proud to unleash PyPy 4.0.0, a major update of the PyPy
-python2.7.10 compatible interpreter with a Just In Time compiler.
+python 2.7.10 compatible interpreter with a Just In Time compiler.
 We have improved `warmup time and memory overhead used for tracing`_, added
 `vectorization`_ for numpy and general loops where possible on x86 hardware
 (disabled by default),
@@ -72,16 +72,17 @@ CFFI
 
 While not applicable only to PyPy, `cffi`_ is arguably our most significant
 contribution to the python ecosystem. Armin Rigo continued improving it,
-and PyPy reaps the benefits of cffi-1.3: improved manangement of object
+and PyPy reaps the benefits of `cffi-1.3`_: improved manangement of object
 lifetimes, __stdcall on Win32, ffi.memmove(), and percolate ``const``,
 ``restrict`` keywords from cdef to C code.
 
-.. _`warmup time and memory overhead used for tracing`: http://morepypy.blogspot.com/2015/10
+.. _`warmup time and memory overhead used for tracing`: http://morepypy.blogspot.com/2015/10/pypy-memory-and-warmup-improvements-2.html
 .. _`vectorization`: http://pypyvecopt.blogspot.co.at/
 .. _`guards`: http://rpython.readthedocs.org/en/latest/glossary.html
 .. _`PyPy`: http://doc.pypy.org 
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`cffi`: https://cffi.readthedocs.org
+.. _`cffi-1.3`: http://cffi.readthedocs.org/en/latest/whatsnew.html#v1-3-0
 .. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
 .. _`numpy`: https://bitbucket.org/pypy/numpy
