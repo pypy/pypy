@@ -102,22 +102,13 @@ class Attribute(object):
 
     def validate(self, homedef):
         s_newvalue = self.s_value
-        homedesc = homedef.classdesc
-        # check for method demotion and after-the-fact method additions
+        # check for after-the-fact method additions
         if isinstance(s_newvalue, SomePBC):
             attr = self.name
             if s_newvalue.getKind() == MethodDesc:
                 # is method
                 if homedef.classdesc.read_attribute(attr, None) is None:
-                    if not homedef.check_missing_attribute_update(attr):
-                        for desc in s_newvalue.descriptions:
-                            if desc.selfclassdef is None:
-                                if homedef.classdesc.settled:
-                                    raise AnnotatorError(
-                                        "demoting method %s to settled class "
-                                        "%s not allowed" % (self.name, homedef)
-                                    )
-                                break
+                    homedef.check_missing_attribute_update(attr)
 
         # check for attributes forbidden by slots or _attrs_
         if homedef.classdesc.all_enforced_attrs is not None:
@@ -485,7 +476,6 @@ class ClassDesc(Desc):
     knowntype = type
     instance_level = False
     all_enforced_attrs = None   # or a set
-    settled = False
     _detect_invalid_attrs = None
 
     def __init__(self, bookkeeper, cls,
@@ -546,9 +536,6 @@ class ClassDesc(Desc):
 
         if base is not object:
             self.basedesc = bookkeeper.getdesc(base)
-
-        if '_settled_' in cls.__dict__:
-            self.settled = bool(cls.__dict__['_settled_'])
 
         if '__slots__' in cls.__dict__ or '_attrs_' in cls.__dict__:
             attrs = {}
