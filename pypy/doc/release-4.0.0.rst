@@ -73,7 +73,8 @@ CFFI
 While not applicable only to PyPy, `cffi`_ is arguably our most significant
 contribution to the python ecosystem. Armin Rigo continued improving it,
 and PyPy reaps the benefits of cffi-1.3: improved manangement of object
-lifetimes, __stdcall on Win32, ffi.memmove(), ...
+lifetimes, __stdcall on Win32, ffi.memmove(), and percolate ``const``,
+``restrict`` keywords from cdef to C code.
 
 .. _`warmup time and memory overhead used for tracing`: http://morepypy.blogspot.com/2015/10
 .. _`vectorization`: http://pypyvecopt.blogspot.co.at/
