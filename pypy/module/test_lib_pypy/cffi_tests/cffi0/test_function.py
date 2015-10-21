@@ -434,6 +434,7 @@ class TestFunction(object):
             py.test.skip("Windows-only test")
         if self.Backend is CTypesBackend:
             py.test.skip("not with the ctypes backend")
+        win64 = (sys.maxsize > 2**32)
         #
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""
@@ -457,8 +458,11 @@ class TestFunction(object):
         """)
         m = ffi.dlopen("Kernel32.dll")
         tps = ffi.typeof(m.QueryPerformanceFrequency)
-        assert tps is not tpc
-        assert str(tps) == "<ctype 'int(__stdcall *)(long long *)'>"
+        if win64:
+            assert tps is tpc
+        else:
+            assert tps is not tpc
+            assert str(tps) == "<ctype 'int(__stdcall *)(long long *)'>"
         #
         ffi = FFI(backend=self.Backend())
         ffi.cdef("typedef int (__cdecl *fnc_t)(int);")
@@ -466,21 +470,27 @@ class TestFunction(object):
         tpc = ffi.typeof("fnc_t")
         tps = ffi.typeof("fns_t")
         assert str(tpc) == "<ctype 'int(*)(int)'>"
-        assert str(tps) == "<ctype 'int(__stdcall *)(int)'>"
+        if win64:
+            assert tps is tpc
+        else:
+            assert str(tps) == "<ctype 'int(__stdcall *)(int)'>"
         #
         fnc = ffi.cast("fnc_t", 0)
         fns = ffi.cast("fns_t", 0)
         ffi.new("fnc_t[]", [fnc])
-        py.test.raises(TypeError, ffi.new, "fnc_t[]", [fns])
-        py.test.raises(TypeError, ffi.new, "fns_t[]", [fnc])
+        if not win64:
+            py.test.raises(TypeError, ffi.new, "fnc_t[]", [fns])
+            py.test.raises(TypeError, ffi.new, "fns_t[]", [fnc])
         ffi.new("fns_t[]", [fns])
 
     def test_stdcall_only_on_windows(self):
-        if sys.platform == 'win32':
-            py.test.skip("not-Windows-only test")
         ffi = FFI(backend=self.Backend())
         ffi.cdef("double __stdcall sin(double x);")     # stdcall ignored
         m = ffi.dlopen(lib_m)
-        assert "double(*)(double)" in str(ffi.typeof(m.sin))
+        if (sys.platform == 'win32' and sys.maxint < 2**32 and 
+                self.Backend is not CTypesBackend):
+            assert "double(__stdcall *)(double)" in str(ffi.typeof(m.sin))
+        else:
+            assert "double(*)(double)" in str(ffi.typeof(m.sin))
         x = m.sin(1.23)
         assert x == math.sin(1.23)
