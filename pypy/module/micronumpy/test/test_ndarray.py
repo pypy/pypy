@@ -292,6 +292,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = np.array('123', dtype='intp')
         assert a == 123
         assert a.dtype == np.intp
+        # required for numpy test suite
+        raises(ValueError, np.array, type(a))
 
     def test_array_copy(self):
         from numpy import array
@@ -642,6 +644,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[()] = range(5)
         for i in xrange(5):
             assert a[i] == i
+
+    def test_setitem_record(self):
+        from numpy import zeros
+        trie =  zeros(200, dtype= [ ("A","uint32"),("C","uint32"), ])
+        trie[0][0] = 1
+        assert trie[0]['A'] == 1
 
     def test_setitem_array(self):
         import numpy as np

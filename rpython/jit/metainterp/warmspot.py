@@ -33,7 +33,7 @@ from rpython.rlib.entrypoint import all_jit_entrypoints,\
 # Bootstrapping
 
 def apply_jit(translator, backend_name="auto", inline=False,
-              enable_opts=ALL_OPTS_NAMES, **kwds):
+              vec=False, enable_opts=ALL_OPTS_NAMES, **kwds):
     if 'CPUClass' not in kwds:
         from rpython.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
@@ -48,6 +48,7 @@ def apply_jit(translator, backend_name="auto", inline=False,
                                     **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
+        jd.warmstate.set_param_vec(vec)
         jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
@@ -67,11 +68,12 @@ def ll_meta_interp(function, args, backendopt=False,
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
 def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
-                    backendopt=False, trace_limit=sys.maxint,
-                    inline=False, loop_longevity=0, retrace_limit=5,
-                    function_threshold=4, disable_unrolling=sys.maxint,
-                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15,
-                    max_unroll_recursion=7, **kwds):
+                    backendopt=False, trace_limit=sys.maxint, inline=False,
+                    loop_longevity=0, retrace_limit=5, function_threshold=4,
+                    disable_unrolling=sys.maxint,
+                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, 
+                    max_unroll_recursion=7, vec=1, vec_all=0, vec_cost=0,
+                    vec_length=60, vec_ratio=2, vec_guard_ratio=3, **kwds):
     from rpython.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -95,6 +97,12 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         jd.warmstate.set_param_enable_opts(enable_opts)
         jd.warmstate.set_param_max_unroll_recursion(max_unroll_recursion)
         jd.warmstate.set_param_disable_unrolling(disable_unrolling)
+        jd.warmstate.set_param_vec(vec)
+        jd.warmstate.set_param_vec_all(vec_all)
+        jd.warmstate.set_param_vec_cost(vec_cost)
+        jd.warmstate.set_param_vec_length(vec_length)
+        jd.warmstate.set_param_vec_ratio(vec_ratio)
+        jd.warmstate.set_param_vec_guard_ratio(vec_guard_ratio)
     warmrunnerdesc.finish()
     if graph_and_interp_only:
         return interp, graph
@@ -406,6 +414,7 @@ class WarmRunnerDesc(object):
         graph.func._dont_inline_ = True
         graph.func._jit_unroll_safe_ = True
         jd.jitdriver = block.operations[pos].args[1].value
+        jd.vec = jd.jitdriver.vec
         jd.portal_runner_ptr = "<not set so far>"
         jd.result_type = history.getkind(jd.portal_graph.getreturnvar()
                                          .concretetype)[0]
@@ -530,7 +539,6 @@ class WarmRunnerDesc(object):
             except Exception as e:
                 crash_in_jit(e)
         maybe_enter_jit._always_inline_ = True
-
         jd._maybe_enter_jit_fn = maybe_enter_jit
         jd._maybe_compile_and_run_fn = maybe_compile_and_run
 

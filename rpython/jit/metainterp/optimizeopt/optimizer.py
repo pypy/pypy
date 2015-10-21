@@ -33,6 +33,9 @@ class BasicLoopInfo(LoopInfo):
     def final(self):
         return True
 
+    def post_loop_compilation(self, loop, jitdriver_sd, metainterp, jitcell_token):
+        pass
+
 
 class Optimization(object):
     next_optimization = None
@@ -683,7 +686,7 @@ class Optimizer(Optimization):
         assert pendingfields is not None
         if op.getdescr() is not None:
             descr = op.getdescr()
-            assert isinstance(descr, compile.ResumeAtPositionDescr)
+            assert isinstance(descr, compile.ResumeGuardDescr)
         else:
             descr = compile.invent_fail_descr_for_op(op.getopnum(), self)
             op.setdescr(descr)
@@ -845,3 +848,4 @@ class Optimizer(Optimization):
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)
+

@@ -259,6 +259,12 @@ def test_redefine_common_type():
     assert repr(ffi.cast("FILE", 123)) == "<cdata 'char' %s'{'>" % prefix
     ffi.cdef("typedef char int32_t;")
     assert repr(ffi.cast("int32_t", 123)) == "<cdata 'char' %s'{'>" % prefix
+    ffi = FFI()
+    ffi.cdef("typedef int bool, *FILE;")
+    assert repr(ffi.cast("bool", 123)) == "<cdata 'int' 123>"
+    assert repr(ffi.cast("FILE", 123)) == "<cdata 'int *' 0x7b>"
+    ffi = FFI()
+    ffi.cdef("typedef bool (*fn_t)(bool, bool);")   # "bool," but within "( )"
 
 def test_bool():
     ffi = FFI()
@@ -371,7 +377,7 @@ def test_stdcall():
     tp = ffi.typeof("int(*)(int __stdcall x(int),"
                     "       long (__cdecl*y)(void),"
                     "       short(WINAPI *z)(short))")
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' and sys.maxsize < 2**32:
         stdcall = '__stdcall '
     else:
         stdcall = ''

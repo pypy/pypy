@@ -18,6 +18,11 @@ from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong
 from rpython.rlib.objectmodel import Symbolic
 
+class LLAsmInfo(object):
+    def __init__(self, lltrace):
+        self.ops_offset = None
+        self.lltrace = lltrace
+
 class LLTrace(object):
     has_been_freed = False
     invalid = False
@@ -35,6 +40,8 @@ class LLTrace(object):
                 newbox = _cache[box]
             except KeyError:
                 newbox = _cache[box] = box.__class__()
+            if hasattr(box, 'accum') and box.accum:
+                newbox.accum = box.accum
             return newbox
         #
         self.inputargs = map(mapping, inputargs)
@@ -200,8 +207,14 @@ class ArrayDescr(AbstractDescr):
     def __init__(self, A, runner):
         self.A = self.OUTERA = A
         self._is_pure = A._immutable_field(None)
+        self.concrete_type = '\x00'
         if isinstance(A, lltype.Struct):
             self.A = A._flds[A._arrayfld]
+
+    def is_array_of_primitives(self):
+        kind = getkind(self.A.OF)
+        return kind == 'float' or \
+               kind == 'int'
 
     def is_always_pure(self):
         return self._is_pure
@@ -227,6 +240,9 @@ class ArrayDescr(AbstractDescr):
     def is_item_integer_bounded(self):
         return getkind(self.A.OF) == 'int' \
             and rffi.sizeof(self.A.OF) < symbolic.WORD
+
+    def get_item_size_in_bytes(self):
+        return rffi.sizeof(self.A.OF)
 
     def get_item_integer_min(self):
         if getkind(self.A.OF) != 'int':
@@ -308,6 +324,10 @@ class LLGraphCPU(model.AbstractCPU):
     supports_guard_gc_type = True
     translate_support_code = False
     is_llgraph = True
+    vector_extension = True
+    vector_register_size = 16 # in bytes
+    vector_horizontal_operations = True
+    vector_pack_slots = True
 
     def __init__(self, rtyper, stats=None, *ignored_args, **kwds):
         model.AbstractCPU.__init__(self)
@@ -318,6 +338,9 @@ class LLGraphCPU(model.AbstractCPU):
             pass
         self.stats = stats or MiniStats()
         self.vinfo_for_tests = kwds.get('vinfo_for_tests', None)
+
+    def stitch_bridge(self, faildescr, target):
+        faildescr._llgraph_bridge = target[0].lltrace
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='', logger=None):
@@ -336,6 +359,7 @@ class LLGraphCPU(model.AbstractCPU):
         faildescr._llgraph_bridge = lltrace
         clt._llgraph_alltraces.append(lltrace)
         self._record_labels(lltrace)
+        return LLAsmInfo(lltrace)
 
     def _record_labels(self, lltrace):
         for i, op in enumerate(lltrace.operations):
@@ -347,16 +371,16 @@ class LLGraphCPU(model.AbstractCPU):
             trace.invalid = True
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
-        oldtrace = oldlooptoken.compiled_loop_token._llgraph_loop
-        newtrace = newlooptoken.compiled_loop_token._llgraph_loop
+        oldc = oldlooptoken.compiled_loop_token
+        newc = newlooptoken.compiled_loop_token
+        oldtrace = oldc._llgraph_loop
+        newtrace = newc._llgraph_loop
         OLD = [box.type for box in oldtrace.inputargs]
         NEW = [box.type for box in newtrace.inputargs]
         assert OLD == NEW
-        assert not hasattr(oldlooptoken, '_llgraph_redirected')
-        oldlooptoken.compiled_loop_token._llgraph_redirected = True
-        oldlooptoken.compiled_loop_token._llgraph_loop = newtrace
-        alltraces = newlooptoken.compiled_loop_token._llgraph_alltraces
-        oldlooptoken.compiled_loop_token._llgraph_alltraces = alltraces
+        assert not hasattr(oldc, '_llgraph_redirected')
+        oldc._llgraph_redirected = newc
+        oldc._llgraph_alltraces = newc._llgraph_alltraces
 
     def free_loop_and_bridges(self, compiled_loop_token):
         for c in compiled_loop_token._llgraph_alltraces:
@@ -369,7 +393,10 @@ class LLGraphCPU(model.AbstractCPU):
         return self._execute_token
 
     def _execute_token(self, loop_token, *args):
-        lltrace = loop_token.compiled_loop_token._llgraph_loop
+        loopc = loop_token.compiled_loop_token
+        while hasattr(loopc, '_llgraph_redirected'):
+            loopc = loopc._llgraph_redirected
+        lltrace = loopc._llgraph_loop
         frame = LLFrame(self, lltrace.inputargs, args)
         try:
             frame.execute(lltrace)
@@ -783,6 +810,145 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_new_raw_buffer(self, size):
         return lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
 
+    # vector operations
+    vector_arith_code = """
+    def bh_vec_{0}_{1}(self, vx, vy, count):
+        assert len(vx) == len(vy) == count
+        return [_vx {2} _vy for _vx,_vy in zip(vx,vy)]
+    """
+    exec py.code.Source(vector_arith_code.format('int','add','+')).compile()
+    exec py.code.Source(vector_arith_code.format('int','sub','-')).compile()
+    exec py.code.Source(vector_arith_code.format('int','mul','*')).compile()
+    exec py.code.Source(vector_arith_code.format('int','and','&')).compile()
+    exec py.code.Source(vector_arith_code.format('int','or','|')).compile()
+    exec py.code.Source(vector_arith_code.format('float','add','+')).compile()
+    exec py.code.Source(vector_arith_code.format('float','sub','-')).compile()
+    exec py.code.Source(vector_arith_code.format('float','mul','*')).compile()
+    exec py.code.Source(vector_arith_code.format('float','truediv','/')).compile()
+    exec py.code.Source(vector_arith_code.format('float','eq','==')).compile()
+
+    def bh_vec_float_neg(self, vx, count):
+        return [e * -1 for e in vx]
+
+    def bh_vec_float_abs(self, vx, count):
+        return [abs(e) for e in vx]
+
+    def bh_vec_float_eq(self, vx, vy, count):
+        assert len(vx) == len(vy) == count
+        return [_vx == _vy for _vx,_vy in zip(vx,vy)]
+
+    def bh_vec_float_ne(self, vx, vy, count):
+        assert len(vx) == len(vy) == count
+        return [_vx != _vy for _vx,_vy in zip(vx,vy)]
+
+    bh_vec_int_eq = bh_vec_float_eq
+    bh_vec_int_ne = bh_vec_float_ne
+
+    def bh_vec_int_is_true(self, vx, count):
+        return map(lambda x: bool(x), vx)
+
+    def bh_vec_int_is_false(self, vx, count):
+        return map(lambda x: not bool(x), vx)
+
+    def bh_vec_int_xor(self, vx, vy, count):
+        return [int(x) ^ int(y) for x,y in zip(vx,vy)]
+
+    def bh_vec_cast_float_to_singlefloat(self, vx, count):
+        from rpython.rlib.rarithmetic import r_singlefloat
+        return [longlong.singlefloat2int(r_singlefloat(longlong.getrealfloat(v)))
+                for v in vx]
+
+    def bh_vec_cast_singlefloat_to_float(self, vx, count):
+        return [longlong.getfloatstorage(float(longlong.int2singlefloat(v)))
+                for v in vx]
+
+        a = float(a)
+        return longlong.getfloatstorage(a)
+
+    def bh_vec_cast_float_to_int(self, vx, count):
+        return [int(x) for x in vx]
+
+    def bh_vec_cast_int_to_float(self, vx, count):
+        return [float(x) for x in vx]
+
+    def bh_vec_f(self, count):
+        return [0.0] * count
+
+    def bh_vec_i(self, count):
+        return [0] * count
+
+    def _bh_vec_pack(self, tv, sv, index, count, newcount):
+        while len(tv) < newcount: tv.append(None)
+        if not isinstance(sv, list):
+            tv[index] = sv
+            return tv
+        for i in range(count):
+            tv[index+i] = sv[i]
+        return tv
+
+    bh_vec_pack_f = _bh_vec_pack
+    bh_vec_pack_i = _bh_vec_pack
+
+    def _bh_vec_unpack(self, vx, index, count, newcount):
+        return vx[index:index+count]
+
+    bh_vec_unpack_f = _bh_vec_unpack
+    bh_vec_unpack_i = _bh_vec_unpack
+
+    def _bh_vec_expand(self, x, count):
+        return [x] * count
+
+    bh_vec_expand_f = _bh_vec_expand
+    bh_vec_expand_i = _bh_vec_expand
+
+    def bh_vec_int_signext(self, vx, ext, count):
+        return [heaptracker.int_signext(_vx, ext) for _vx in vx]
+
+    def build_getarrayitem(func):
+        def method(self, struct, offset, descr, _count):
+            values = []
+            count = self.vector_register_size // descr.get_item_size_in_bytes()
+            assert _count == count
+            assert count > 0
+            for i in range(count):
+                val = func(self, struct, offset + i, descr)
+                values.append(val)
+            return values
+        return method
+
+    bh_vec_getarrayitem_gc_i = build_getarrayitem(bh_getarrayitem_gc)
+    bh_vec_getarrayitem_gc_f = build_getarrayitem(bh_getarrayitem_gc)
+    bh_vec_getarrayitem_raw_i = build_getarrayitem(bh_getarrayitem_raw)
+    bh_vec_getarrayitem_raw_f = build_getarrayitem(bh_getarrayitem_raw)
+    del build_getarrayitem
+
+    def _bh_vec_raw_load(self, struct, offset, descr, _count):
+        values = []
+        stride = descr.get_item_size_in_bytes()
+        count = self.vector_register_size // descr.get_item_size_in_bytes()
+        assert _count == count
+        assert count > 0
+        for i in range(count):
+            val = self.bh_raw_load(struct, offset + i*stride, descr)
+            values.append(val)
+        return values
+
+    bh_vec_raw_load_i = _bh_vec_raw_load
+    bh_vec_raw_load_f = _bh_vec_raw_load
+
+    def bh_vec_raw_store(self, struct, offset, newvalues, descr, count):
+        stride = descr.get_item_size_in_bytes()
+        for i,n in enumerate(newvalues):
+            self.bh_raw_store(struct, offset + i*stride, n, descr)
+
+    def bh_vec_setarrayitem_raw(self, struct, offset, newvalues, descr, count):
+        for i,n in enumerate(newvalues):
+            self.bh_setarrayitem_raw(struct, offset + i, n, descr)
+
+    def bh_vec_setarrayitem_gc(self, struct, offset, newvalues, descr, count):
+        for i,n in enumerate(newvalues):
+            self.bh_setarrayitem_gc(struct, offset + i, n, descr)
+
     def store_fail_descr(self, deadframe, descr):
         pass # I *think*
 
@@ -833,7 +999,18 @@ class LLFrame(object):
         return hash(self)
 
     def setenv(self, box, arg):
-        if box.type == INT:
+        if box.is_vector() and box.count > 1:
+            if box.datatype == INT:
+                for i,a in enumerate(arg):
+                    if isinstance(a, bool):
+                        arg[i] = int(a) 
+                assert all([lltype.typeOf(a) == lltype.Signed for a in arg])
+            elif box.datatype == FLOAT:
+                assert all([lltype.typeOf(a) == longlong.FLOATSTORAGE or \
+                            lltype.typeOf(a) == lltype.Signed for a in arg])
+            else:
+                raise AssertionError(box)
+        elif box.type == INT:
             # typecheck the result
             if isinstance(arg, bool):
                 arg = int(arg)
@@ -891,6 +1068,22 @@ class LLFrame(object):
 
     # -----------------------------------------------------
 
+    def _accumulate(self, descr, failargs, values):
+        info = descr.rd_vector_info
+        while info:
+            i = info.getpos_in_failargs()
+            value = values[i]
+            assert isinstance(value, list)
+            if info.accum_operation == '+':
+                value = sum(value)
+            elif info.accum_operation == '*':
+                def prod(acc, x): return acc * x
+                value = reduce(prod, value, 1)
+            else:
+                raise NotImplementedError("accum operator in fail guard")
+            values[i] = value
+            info = info.next()
+
     def fail_guard(self, descr, saved_data=None, extra_value=None,
                    propagate_exception=False):
         if not propagate_exception:
@@ -902,6 +1095,7 @@ class LLFrame(object):
             else:
                 value = None
             values.append(value)
+        self._accumulate(descr, self.current_op.getfailargs(), values)
         if hasattr(descr, '_llgraph_bridge'):
             if propagate_exception:
                 assert (descr._llgraph_bridge.operations[0].opnum in
@@ -925,12 +1119,22 @@ class LLFrame(object):
         argboxes = self.current_op.getarglist()
         self.do_renaming(argboxes, args)
 
+    def _test_true(self, arg):
+        if isinstance(arg, list):
+            return all(arg)
+        return arg
+
+    def _test_false(self, arg):
+        if isinstance(arg, list):
+            return any(arg)
+        return arg
+
     def execute_guard_true(self, descr, arg):
-        if not arg:
+        if not self._test_true(arg):
             self.fail_guard(descr)
 
     def execute_guard_false(self, descr, arg):
-        if arg:
+        if self._test_false(arg):
             self.fail_guard(descr)
 
     def execute_guard_value(self, descr, arg1, arg2):
@@ -1288,7 +1492,21 @@ def _setup():
                 new_args = args + (descr,)
             else:
                 new_args = args
-            return getattr(self.cpu, 'bh_' + opname)(*new_args)
+            if opname.startswith('vec_'):
+                # pre vector op
+                count = self.current_op.count
+                assert count >= 1
+                new_args = new_args + (count,)
+            result = getattr(self.cpu, 'bh_' + opname)(*new_args)
+            if isinstance(result, list):
+                # post vector op
+                count = self.current_op.count
+                if len(result) > count:
+                    assert count > 0
+                    result = result[:count]
+                if count == 1:
+                    result = result[0]
+            return result
         execute.func_name = 'execute_' + opname
         return execute
 
