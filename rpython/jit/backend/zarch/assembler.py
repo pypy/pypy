@@ -50,14 +50,17 @@ class AssemblerZARCH(BaseAssembler):
         return clt.asmmemmgr_blocks
 
     def gen_func_prolog(self):
-        self.mc.STMG(reg.r11, reg.r15, loc.addr(-96, reg.sp))
-        self.mc.AHI(reg.sp, loc.imm(-96))
+        STACK_FRAME_SIZE = 40
+        self.mc.STMG(reg.r11, reg.r15, loc.addr(-STACK_FRAME_SIZE, reg.sp))
+        self.mc.AHI(reg.sp, loc.imm(-STACK_FRAME_SIZE))
 
     def gen_func_epilog(self):
         self.mc.LMG(reg.r11, reg.r15, loc.addr(0, reg.sp))
         self.jmpto(reg.r14)
 
     def jmpto(self, register):
+        # TODO, manual says this is a performance killer, there
+        # might be another operation for unconditional JMP?
         self.mc.BCR_rr(0xf, register.value)
 
     def _build_failure_recovery(self, exc, withfloats=False):

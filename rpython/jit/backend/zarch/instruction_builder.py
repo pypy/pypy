@@ -76,9 +76,9 @@ def encode_base_displace_long(mc, basedisp):
         | ... | base | length[0:11] | length[12:20] | ... |
         +-------------------------------------------------+
     """
-    displace = basedisp.displace & 0xfffff
+    displace = basedisp.displace & BIT_MASK_20
     base = basedisp.base & 0xf
-    byte = displace >> 8 & 0xf | base << 4
+    byte = (displace >> 8) & 0xf | base << 4
     mc.writechar(chr(byte))
     mc.writechar(chr(displace & 0xff))
     byte = displace >> 12 & 0xff

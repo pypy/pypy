@@ -29,7 +29,7 @@ logic_mnemonic_codes = {
     # and one byte and store it back at the op2 position
     'NI':         ('si',       ['\x94']),
     'NIY':        ('siy',      ['\xEB','\x54']),
-    'NC':         ('ssa',   ['\xD4']),
+    'NC':         ('ssa',      ['\xD4']),
 
     # AND immediate
     'NIHH':       ('ri_u',     ['\xA5', '\x04']),

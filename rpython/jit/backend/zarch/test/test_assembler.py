@@ -110,4 +110,65 @@ class TestRunningAssembler(object):
         self.a.gen_func_epilog()
         assert run_asm(self.a) == 0x0807060504030201
 
+    def label(self, name, func=False):
+        self.mc.mark_op(name)
+        class ctxmgr(object):
+            def __enter__(_self):
+                if func:
+                    self.a.gen_func_prolog()
+            def __exit__(_self, a, b, c):
+                if func:
+                    self.a.gen_func_epilog()
+                self.mc.mark_op(name + '.end')
+        return ctxmgr()
+
+    def patch_branch_imm16(self, base, imm):
+        print "branch to", imm, "base", base, self.cur(), self.pos('lit.end'), self.pos('lit')
+        imm = (imm & 0xffff) >> 1
+        self.mc.overwrite(base, chr((imm >> 8) & 0xFF))
+        self.mc.overwrite(base+1, chr(imm & 0xFF))
+
+    def pos(self, name):
+        return self.mc.ops_offset[name]
+    def cur(self):
+        return self.mc.get_relative_pos()
+
+    def jump_here(self, func, name):
+        if func.__name__ == 'BRAS':
+            self.patch_branch_imm16(self.pos(name)+2, self.cur() - self.pos(name))
+        else:
+            raise NotImplementedError
+
+    def jump_to(self, reg, label):
+        val = (self.pos(label) - self.cur())
+        print "val", val
+        self.mc.BRAS(reg, loc.imm(val))
+
+    def test_stmg(self):
+        self.mc.LGR(reg.r2, reg.r15)
+        self.a.jmpto(reg.r14)
+        print hex(run_asm(self.a))
+
+    def test_recursion(self):
+        with self.label('func', func=True):
+            with self.label('lit'):
+                self.mc.BRAS(reg.r13, loc.imm(0))
+            self.mc.write('\x00\x00\x00\x00\x00\x00\x00\x00')
+            self.jump_here(self.mc.BRAS, 'lit')
+            # recurse X times
+            self.mc.XGR(reg.r2, reg.r2)
+            self.mc.LGHI(reg.r9, loc.imm(15))
+            with self.label('L1'):
+                self.mc.BRAS(reg.r14, loc.imm(0))
+            with self.label('rec', func=True):
+                self.mc.AGR(reg.r2, reg.r9)
+                self.mc.AHI(reg.r9, loc.imm(-1))
+                # if not entered recursion, return from activation record
+                # implicitly generated here by with statement
+                self.mc.BRC(con.GT, loc.imm(self.pos('rec') - self.cur()))
+            self.jump_here(self.mc.BRAS, 'L1')
+            # call rec... recursivly
+            self.jump_to(reg.r14, 'rec')
+        self.a.jmpto(reg.r14)
+        assert run_asm(self.a) == 120
 
