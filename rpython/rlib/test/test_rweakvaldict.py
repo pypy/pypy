@@ -138,6 +138,10 @@ def test_rpython_merge_RWeakValueDictionary2():
     f(1)
     interpret(f, [1])
 
+
+@py.test.mark.xfail(
+    reason="may fail with AssertionError, depending on annotation order")
+def test_rpython_merge_RWeakValueDictionary3():
     def g(x):
         if x:
             d = RWeakValueDictionary(str, X)
