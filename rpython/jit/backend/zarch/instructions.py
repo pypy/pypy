@@ -77,6 +77,7 @@ all_mnemonic_codes = {
     'SRP':     ('ssc',   ['\xF0']),
     'MVCK':    ('ssd',   ['\xD9']),
 
+    'LA':      ('rx',    ['\x41']),
     'LAY':     ('rxy',   ['\xE3','\x71']),
     'LMD':     ('sse',   ['\xEF']),
     'LMG':     ('rsy',   ['\xEB','\x04']),
@@ -87,6 +88,8 @@ all_mnemonic_codes = {
 
     'PKA':     ('ssf',   ['\xE9']),
     'STMG':    ('rsy',   ['\xEB','\x24']),
+
+    'SVC':     ('i',     ['\x0A']),
 }
 all_mnemonic_codes.update(arith_mnemonic_codes)
 all_mnemonic_codes.update(logic_mnemonic_codes)

@@ -84,6 +84,13 @@ def encode_base_displace_long(mc, basedisp):
     byte = displace >> 12 & 0xff
     mc.writechar(chr(byte))
 
+def build_i(mnemonic, (opcode,)):
+    @builder.arguments('u8')
+    def encode_i(self, imm):
+        self.writechar(opcode)
+        self.writechar(chr(imm))
+    return encode_i
+
 def build_rr(mnemonic, (opcode,)):
     @builder.arguments('r,r')
     def encode_rr(self, reg1, reg2):

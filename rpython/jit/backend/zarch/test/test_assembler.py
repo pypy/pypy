@@ -123,7 +123,6 @@ class TestRunningAssembler(object):
         return ctxmgr()
 
     def patch_branch_imm16(self, base, imm):
-        print "branch to", imm, "base", base, self.cur(), self.pos('lit.end'), self.pos('lit')
         imm = (imm & 0xffff) >> 1
         self.mc.overwrite(base, chr((imm >> 8) & 0xFF))
         self.mc.overwrite(base+1, chr(imm & 0xFF))
@@ -141,7 +140,6 @@ class TestRunningAssembler(object):
 
     def jump_to(self, reg, label):
         val = (self.pos(label) - self.cur())
-        print "val", val
         self.mc.BRAS(reg, loc.imm(val))
 
     def test_stmg(self):
@@ -172,3 +170,17 @@ class TestRunningAssembler(object):
         self.a.jmpto(reg.r14)
         assert run_asm(self.a) == 120
 
+    def test_printf(self):
+        with self.label('func', func=True):
+            with self.label('lit'):
+                self.mc.BRAS(reg.r13, loc.imm(0))
+            for c in "hello syscall\n":
+                self.mc.writechar(c)
+            self.jump_here(self.mc.BRAS, 'lit')
+            self.mc.LGHI(reg.r2, loc.imm(1)) # stderr
+            self.mc.LA(reg.r3, loc.addr(0, reg.r13)) # char*
+            self.mc.LGHI(reg.r4, loc.imm(14)) # length
+            # write sys call
+            self.mc.SVC(loc.imm(4))
+        self.a.jmpto(reg.r14)
+        assert run_asm(self.a) == 14
