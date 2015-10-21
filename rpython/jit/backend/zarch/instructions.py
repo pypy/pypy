@@ -1,6 +1,7 @@
 
 branch_mnemonic_codes = {
     'BRASL':   ('ril',   ['\xC0','\x05']),
+    'BRAS':    ('ri',    ['\xA7','\x05']),
     'BCR':     ('rr',    ['\x07']),
     'BC':      ('rx',    ['\x47']),
     'BRC':     ('ri',    ['\xA7','\x04']),
@@ -14,6 +15,11 @@ arith_mnemonic_codes = {
     'A':       ('rx',    ['\x5A']),
     'SR':      ('rr',    ['\x1B']),
     'SGR':     ('rre',   ['\xB9','\x09']),
+
+    'AY':      ('rxy',   ['\xE3','\x5A']),
+    'AG':      ('rxy',   ['\xE3','\x08']),
+    'AGF':     ('rxy',   ['\xE3','\x18']),
+    'AHI':     ('ri',    ['\xA7','\x0A']),
 }
 
 logic_mnemonic_codes = {
@@ -23,6 +29,7 @@ logic_mnemonic_codes = {
     # and one byte and store it back at the op2 position
     'NI':         ('si',       ['\x94']),
     'NIY':        ('siy',      ['\xEB','\x54']),
+    'NC':         ('ssa',   ['\xD4']),
 
     # AND immediate
     'NIHH':       ('ri_u',     ['\xA5', '\x04']),
@@ -58,10 +65,6 @@ logic_mnemonic_codes = {
 }
 
 all_mnemonic_codes = {
-    'AY':      ('rxy',   ['\xE3','\x5A']),
-    'AG':      ('rxy',   ['\xE3','\x08']),
-    'AGF':     ('rxy',   ['\xE3','\x18']),
-    'AHI':     ('ri',    ['\xA7','\x0A']),
     #
     'BXH':     ('rs',    ['\x86']),
     'BXHG':    ('rsy',   ['\xEB','\x44']),
@@ -70,7 +73,6 @@ all_mnemonic_codes = {
     #
     'NI':      ('si',    ['\x94']),
     'NIY':     ('siy',   ['\xEB','\x54']),
-    'NC':      ('ssa',   ['\xD4']),
     'AP':      ('ssb',   ['\xFA']),
     'SRP':     ('ssc',   ['\xF0']),
     'MVCK':    ('ssd',   ['\xD9']),
@@ -81,6 +83,7 @@ all_mnemonic_codes = {
     'LGHI':    ('ri',    ['\xA7','\x09']),
     'LR':      ('rr',    ['\x18']),
     'LGR':     ('rre',   ['\xB9','\x04']),
+    'LG':      ('rxy',   ['\xE3','\x04']),
 
     'PKA':     ('ssf',   ['\xE9']),
     'STMG':    ('rsy',   ['\xEB','\x24']),

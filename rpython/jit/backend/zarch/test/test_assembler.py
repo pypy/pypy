@@ -18,6 +18,9 @@ from rpython.rlib.debug import ll_assert
 
 CPU = getcpuclass()
 
+def byte_count(func):
+    return func._byte_count
+
 class TestRunningAssembler(object):
     def setup_method(self, method):
         cpu = CPU(None, None)
@@ -28,12 +31,17 @@ class TestRunningAssembler(object):
         clt.allgcrefs = []
         token.compiled_loop_token = clt
         self.a.setup(token)
+        self.mc = self.a.mc
 
     def test_make_operation_list(self):
         i = rop.INT_ADD
         from rpython.jit.backend.zarch import assembler
         assert assembler.asm_operations[i] \
             is AssemblerZARCH.emit_op_int_add.im_func
+
+    def test_byte_count_instr(self):
+        byte_count(self.mc.BRC) == 4
+        byte_count(self.mc.LG) == 6
 
     def test_load_small_int_to_reg(self):
         self.a.mc.LGHI(reg.r2, loc.imm(123))
@@ -93,3 +101,13 @@ class TestRunningAssembler(object):
         self.a.mc.XGR(reg.r2, reg.r2)
         self.a.jmpto(reg.r14)
         assert run_asm(self.a) == 0
+
+    def test_literal_pool(self):
+        self.a.gen_func_prolog()
+        self.a.mc.BRAS(reg.r13, loc.imm(8 + byte_count(self.mc.BRAS)))
+        self.a.mc.write('\x08\x07\x06\x05\x04\x03\x02\x01')
+        self.a.mc.LG(reg.r2, loc.addr(0, reg.r13))
+        self.a.gen_func_epilog()
+        assert run_asm(self.a) == 0x0807060504030201
+
+

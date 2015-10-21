@@ -40,6 +40,10 @@ class AbstractZARCHBuilder(object):
         self.writechar(chr((word >> 8) & 0xFF))
         self.writechar(chr(word & 0xFF))
 
+    def write(self, bytestr):
+        for char in bytestr:
+            self.writechar(char)
+
 build_instr_codes(AbstractZARCHBuilder)
 
 class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
@@ -78,7 +82,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def copy_to_raw_memory(self, addr):
         self._copy_to_raw_memory(addr)
         self.clear_cache(addr)
-        self._dump(addr, "jit-backend-dump", 'arm')
+        self._dump(addr, "jit-backend-dump", "s390x")
 
     def currpos(self):
         return self.get_relative_pos()

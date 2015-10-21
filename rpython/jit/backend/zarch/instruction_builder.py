@@ -1,7 +1,15 @@
 from rpython.jit.backend.zarch.instructions import (all_mnemonic_codes,)
 from rpython.rtyper.lltypesystem.rbuilder import always_inline
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.jit.backend.zarch import locations as loc
 
+def dummy_argument(arg):
+    """ NOT_RPYTHON """
+    if arg == 'r' or arg == 'r/m':
+        return 0
+    if arg.startswith('i') or arg.startswith('u'):
+        return 0
+    return loc.addr(0)
 
 class builder(object):
     """ NOT_RPYTHON """
@@ -23,8 +31,22 @@ class builder(object):
 
         note that a suffix 'l' means long, and a prefix length
         """
+        class Counter(object):
+            def __init__(self):
+                self.counter = 0
+            def writechar(self, char):
+                self.counter += 1
+            def write_i16(self, _):
+                self.counter += 2
+            def write_i32(self, _):
+                self.counter += 4
         def impl(func):
             func._arguments_ = args_str.split(',')
+            args = [dummy_argument(a) for a in func._arguments_]
+            c = Counter()
+            # invoke it once and get the amount of bytes
+            func(c, *args)
+            func._byte_count = c.counter
             return func
         return impl
 
@@ -270,6 +292,7 @@ def build_unpack_func(mnemonic, func):
                 newargs[i] = args[i]
         return func(self, *newargs)
     function.__name__ = mnemonic
+    function._byte_count = func._byte_count
     return function
 
 def is_branch_relative(name):
@@ -277,11 +300,7 @@ def is_branch_relative(name):
 
 def build_instr_codes(clazz):
     for mnemonic, params in all_mnemonic_codes.items():
-        options = {}
-        if len(params) == 2:
-            (instrtype, args) = params
-        else:
-            (instrtype, args, options) = params
+        (instrtype, args) = params
         builder = globals()['build_' + instrtype]
         func = builder(mnemonic, args)
         name = mnemonic + "_" + instrtype

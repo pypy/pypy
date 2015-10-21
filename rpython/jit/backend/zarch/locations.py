@@ -170,18 +170,21 @@ class RawSPStackLocation(AssemblerLocation):
 class AddressLocation(AssemblerLocation):
     _immutable_ = True
 
-    def __init__(self, basereg, indexreg, displace):
+    def __init__(self, basereg, indexreg, displace, length):
         self.displace = displace
         # designates the absense of an index/base register!
         self.base = 0
         self.index = 0
+        self.length = 0
         if basereg:
             self.base = basereg.value
         if indexreg:
             self.index = indexreg.value
+        if length:
+            self.length = length.value
 
-def addr(displace, basereg=None, indexreg=None):
-    return AddressLocation(basereg, indexreg, displace)
+def addr(displace, basereg=None, indexreg=None, length=None):
+    return AddressLocation(basereg, indexreg, displace, length)
 
 def imm(i):
     return ImmLocation(i)
