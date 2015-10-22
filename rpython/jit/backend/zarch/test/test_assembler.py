@@ -1,5 +1,6 @@
 import py
 import struct
+import math
 from rpython.jit.backend.zarch import conditions as con
 from rpython.jit.backend.zarch import masks as msk
 from rpython.jit.backend.zarch import registers as reg
@@ -37,6 +38,10 @@ def ADDR(value):
     return struct.pack('>Q', addr)
 
 def isclose(a,b, rel_tol=1e-9, abs_tol=0.0):
+    if math.isnan(a) and math.isnan(b):
+        return True
+    if a == b:
+        return True
     # from PEP 485, added in python 3.5
     return abs(a-b) <= max( rel_tol * max(abs(a), abs(b)), abs_tol )
 
@@ -221,6 +226,7 @@ class TestRunningAssembler(object):
         (    1.5,     -3.22,      -1.72),
         (    0.5,       0.0,       0.5),
         (    0.0001,   -0.0002,   -0.0001),
+        (float('nan'), 1.0, float('nan')),
     ])
     def test_float_to_memory(self, v1, v2, res):
         with lltype.scoped_alloc(DOUBLE_ARRAY_PTR.TO, 16) as mem:
