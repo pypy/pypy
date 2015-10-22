@@ -45,3 +45,35 @@ class AppTestFloatObject(AppTestCpythonExtensionBase):
             ])
         assert module.from_string() == 1234.56
         assert type(module.from_string()) is float
+
+class AppTestFloatMacros(AppTestCpythonExtensionBase):
+    def test_return_nan(self):
+        import math
+
+        module = self.import_extension('foo', [
+            ("return_nan", "METH_NOARGS",
+             "Py_RETURN_NAN;"),
+            ])
+        assert math.isnan(module.return_nan())
+
+    def test_return_inf(self):
+        import math
+
+        module = self.import_extension('foo', [
+            ("return_inf", "METH_NOARGS",
+             "Py_RETURN_INF(10);"),
+            ])
+        inf = module.return_inf()
+        assert inf > 0
+        assert math.isinf(inf)
+
+    def test_return_inf_negative(self):
+        import math
+
+        module = self.import_extension('foo', [
+            ("return_neginf", "METH_NOARGS",
+             "Py_RETURN_INF(-10);"),
+            ])
+        neginf = module.return_neginf()
+        assert neginf < 0
+        assert math.isinf(neginf)
