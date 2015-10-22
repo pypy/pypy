@@ -79,6 +79,9 @@ memory_mnemonic_codes = {
     'LGR':     ('rre',   ['\xB9','\x04']),
     'LG':      ('rxy',   ['\xE3','\x04']),
 
+    'STE':     ('rx',    ['\x70']),
+    'STD':     ('rx',    ['\x60']),
+
     # load binary float
     # E -> short (32bit),
     # D -> long (64bit),
@@ -92,11 +95,17 @@ memory_mnemonic_codes = {
 }
 
 floatingpoint_mnemonic_codes = {
-    'FIEBR':   ('rrf',   ['\xB3','\x57']),
-    'FIDBR':   ('rrf',   ['\xB3','\x5F']),
+    'FIEBR':   ('rrf',   ['\xB3','\x57'], 'r,u4,r,-'),
+    'FIDBR':   ('rrf',   ['\xB3','\x5F'], 'r,u4,r,-'),
 
-    'CGEBR':   ('rrf',   ['\xB3','\xA8']),
-    'CGDBR':   ('rrf',   ['\xB3','\xA9']),
+    'CGEBR':   ('rrf',   ['\xB3','\xA8'], 'r,u4,r,-'),
+    'CGDBR':   ('rrf',   ['\xB3','\xA9'], 'r,u4,r,-'),
+
+    # arithmetic
+    'AEBR':    ('rre',   ['\xB3','\x0A']),
+    'ADBR':    ('rre',   ['\xB3','\x1A']),
+    'AEB':     ('rxe',   ['\xED','\x0A'], 'r,bidl,-'),
+    'ADB':     ('rxe',   ['\xED','\x1A'], 'r,bidl,-'),
 }
 
 all_mnemonic_codes = {

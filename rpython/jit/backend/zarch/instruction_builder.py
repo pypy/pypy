@@ -90,6 +90,22 @@ def encode_base_displace_long(mc, basedisp):
     byte = displace >> 12 & 0xff
     mc.writechar(chr(byte))
 
+@always_inline
+def encode_index_base_displace(mc, reg, idxbasedisp):
+    """
+        +----------------------------------------------------+
+        | opcode | reg & index | base & displace[0:11] | ... |
+        +----------------------------------------------------+
+    """
+    index = idxbasedisp.index
+    byte = (reg & 0x0f) << 4 | index & 0xf
+    mc.writechar(chr(byte))
+    displace = idxbasedisp.displace & BIT_MASK_12
+    base = idxbasedisp.base & 0xf
+    byte = displace >> 8 & 0xf | base << 4
+    mc.writechar(chr(byte))
+    mc.writechar(chr(displace & 0xff))
+
 def build_i(mnemonic, (opcode,)):
     @builder.arguments('u8')
     def encode_i(self, imm):
@@ -119,14 +135,7 @@ def build_rx(mnemonic, (opcode,)):
     @builder.arguments('r/m,bid')
     def encode_rx(self, reg_or_mask, idxbasedisp):
         self.writechar(opcode)
-        index = idxbasedisp.index
-        byte = (reg_or_mask & 0x0f) << 4 | index & 0xf
-        self.writechar(chr(byte))
-        displace = idxbasedisp.displace & BIT_MASK_12
-        base = idxbasedisp.base & 0xf
-        byte = displace >> 8 & 0xf | base << 4
-        self.writechar(chr(byte))
-        self.writechar(chr(displace & 0xff))
+        encode_index_base_displace(self, reg_or_mask, idxbasedisp)
     return encode_rx
 
 def build_rxy(mnemonic, (opcode1,opcode2)):
@@ -293,20 +302,37 @@ def build_rie(mnemonic, (opcode1,opcode2)):
         self.writechar(opcode2)
     return encode_ri
 
-def _build_rrf(args):
-    def build_rff(mnemonic, (opcode1,opcode2)):
-        @builder.arguments(args)
-        def encode_rrf(self, r1, rm3, r2, rm4):
-            self.writechar(opcode1)
-            self.writechar(opcode2)
-            byte = (rm3 & BIT_MASK_4) << 4 | (rm4 & BIT_MASK_4)
-            self.writechar(chr(byte))
-            byte = (r1 & BIT_MASK_4) << 4 | (r2 & BIT_MASK_4)
-            self.writechar(chr(byte))
-        return encode_rrf
-    return build_rff
+def build_rrf(mnemonic, (opcode1,opcode2,argtypes)):
+    @builder.arguments(argtypes)
+    def encode_rrf(self, r1, rm3, r2, rm4):
+        self.writechar(opcode1)
+        self.writechar(opcode2)
+        byte = (rm3 & BIT_MASK_4) << 4 | (rm4 & BIT_MASK_4)
+        self.writechar(chr(byte))
+        byte = (r1 & BIT_MASK_4) << 4 | (r2 & BIT_MASK_4)
+        self.writechar(chr(byte))
+    return encode_rrf
 
-build_rrf = _build_rrf('r,u4,r,-')
+def build_rxe(mnemonic, (opcode1,opcode2,argtypes)):
+    @builder.arguments(argtypes)
+    def encode_rxe(self, reg, idxbasedisp, mask):
+        self.writechar(opcode1)
+        encode_index_base_displace(self, reg, idxbasedisp)
+        self.writechar(chr((mask & 0xf) << 4))
+        self.writechar(opcode2)
+    return encode_rxe
+
+def build_rxf(mnemonic, (opcode1,opcode2)):
+    @builder.arguments('r,bidl,r/m')
+    def encode_rxe(self, reg1, idxbasedisp, reg3):
+        self.writechar(opcode1)
+        index = idxbasedisp.index
+        byte = (reg3 & 0x0f) << 4 | index & 0xf
+        self.writechar(chr(byte))
+        encode_base_displace_long(self, reg, idxbasedisp)
+        self.writechar(chr((reg1 & 0xf) << 4))
+        self.writechar(opcode2)
+    return encode_rxe
 
 def build_unpack_func(mnemonic, func):
     def function(self, *args):
@@ -330,7 +356,12 @@ def is_branch_relative(name):
 
 def build_instr_codes(clazz):
     for mnemonic, params in all_mnemonic_codes.items():
-        (instrtype, args) = params
+        argtypes = None
+        if len(params) == 2:
+            (instrtype, args) = params
+        else:
+            (instrtype, args, argtypes) = params
+            args = tuple(list(args) + [argtypes])
         builder = globals()['build_' + instrtype]
         func = builder(mnemonic, args)
         name = mnemonic + "_" + instrtype

@@ -10,14 +10,16 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.codewriter import longlong
 
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi, ll2ctypes
 from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
-from rpython.rlib.longlong2float import float2longlong
+from rpython.rlib.longlong2float import (float2longlong,
+        DOUBLE_ARRAY_PTR)
+import ctypes
 
 CPU = getcpuclass()
 
@@ -25,10 +27,13 @@ def byte_count(func):
     return func._byte_count
 
 def BFL(value):
-    #assert 0x0000000000000000 == float2longlong(0.0)
-    #assert 0x8000000000000000 == abs(float2longlong(-0.0))
-    #assert hex(0xc02e000000000000) == hex(abs(float2longlong(-15.0)))
     return struct.pack('>q', float2longlong(value))
+
+def ADDR(value):
+    ptr = ll2ctypes.lltype2ctypes(value)
+    addr = ctypes.addressof(ptr.contents.items)
+    print hex(addr)
+    return struct.pack('>Q', addr)
 
 class TestRunningAssembler(object):
     def setup_method(self, method):
@@ -204,3 +209,21 @@ class TestRunningAssembler(object):
             self.mc.CGDBR(reg.r2, msk.RND_CURMODE, reg.f0)
         self.a.jmpto(reg.r14)
         assert run_asm(self.a) == -15
+
+    def test_float_to_memory(self):
+        with lltype.scoped_alloc(DOUBLE_ARRAY_PTR.TO, 16) as mem:
+            with self.label('func', func=True):
+                with self.label('lit'):
+                    self.mc.BRAS(reg.r13, loc.imm(0))
+                self.mc.write(BFL(-15.0))
+                self.mc.write(ADDR(mem))
+                self.jump_here(self.mc.BRAS, 'lit')
+                self.mc.LD(reg.f0, loc.addr(0, reg.r13))
+                self.mc.LDR(reg.f1, reg.f0)
+                self.mc.ADBR(reg.f0, reg.f1)
+                self.mc.LG(reg.r11, loc.addr(8, reg.r13))
+                self.mc.STD(reg.f0, loc.addr(0, reg.r11))
+            self.a.jmpto(reg.r14)
+            run_asm(self.a)
+            assert mem[0] == -30.0
+
