@@ -102,14 +102,22 @@ memory_mnemonic_codes = {
 
     'LNEBR':   ('rre',   ['\xB3','\x01']),
     'LNDBR':   ('rre',   ['\xB3','\x11']),
+
+    # load lengthended
+    'LDEBR':   ('rre',   ['\xB3','\x04']),
 }
 
 floatingpoint_mnemonic_codes = {
     'FIEBR':   ('rrf',   ['\xB3','\x57'], 'r,u4,r,-'),
     'FIDBR':   ('rrf',   ['\xB3','\x5F'], 'r,u4,r,-'),
 
+    # convert to fixed
     'CGEBR':   ('rrf',   ['\xB3','\xA8'], 'r,u4,r,-'),
     'CGDBR':   ('rrf',   ['\xB3','\xA9'], 'r,u4,r,-'),
+
+    # convert from fixed
+    'CEGBR':   ('rre',   ['\xB3','\xA4']),
+    'CDGBR':   ('rre',   ['\xB3','\xA5']),
 
     # arithmetic
     # ADDITION
@@ -133,6 +141,11 @@ floatingpoint_mnemonic_codes = {
     'DDBR':    ('rre',   ['\xB3','\x1D']),
     'DEB':     ('rxe',   ['\xED','\x0D'], 'r,bidl,-'),
     'DDB':     ('rxe',   ['\xED','\x1D'], 'r,bidl,-'),
+    
+    # DIVIDE (+mod)
+    'DIEBR':     ('rrf',   ['\xB3','\x53'], 'r,r,r,m'),
+    'DIDBR':     ('rrf',   ['\xB3','\x5B'], 'r,r,r,m'),
+
 }
 
 all_mnemonic_codes = {

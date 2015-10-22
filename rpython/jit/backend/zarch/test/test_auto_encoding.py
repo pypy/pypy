@@ -132,6 +132,7 @@ TEST_CASE_GENERATE = {
     'r':    REGS,
     'f':    FP_REGS,
     'r/m':  REGS,
+    'm':    range_of_bits(4),
     'i4':   range_of_bits(4, signed=True),
     'i8':   range_of_bits(8, signed=True),
     'i16':  range_of_bits(16, signed=True),

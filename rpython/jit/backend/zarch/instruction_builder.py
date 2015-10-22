@@ -5,11 +5,7 @@ from rpython.jit.backend.zarch import locations as loc
 
 def dummy_argument(arg):
     """ NOT_RPYTHON """
-    if arg == 'r' or arg == 'r/m':
-        return 0
-    if arg == 'f':
-        return 0
-    if arg == '-':
+    if arg in ('r', 'r/m', 'm', 'f', '-'):
         return 0
     if arg.startswith('i') or arg.startswith('u'):
         return 0
@@ -25,6 +21,7 @@ class builder(object):
         -      - unused
         f      - floating point register
         r      - register
+        m      - mask
         r/m    - register or mask
         iX     - immediate X bits (signed)
         uX     - immediate X bits (unsigend)

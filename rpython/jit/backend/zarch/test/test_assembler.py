@@ -20,7 +20,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
 from rpython.rlib.longlong2float import (float2longlong,
-        DOUBLE_ARRAY_PTR)
+        DOUBLE_ARRAY_PTR, singlefloat2uint_emulator)
 import ctypes
 
 CPU = getcpuclass()
@@ -28,13 +28,14 @@ CPU = getcpuclass()
 def byte_count(func):
     return func._byte_count
 
-def BFL(value):
+def BFL(value, short=False):
+    if short:
+        return struct.pack('f', value)
     return struct.pack('>q', float2longlong(value))
 
 def ADDR(value):
     ptr = ll2ctypes.lltype2ctypes(value)
     addr = ctypes.addressof(ptr.contents.items)
-    print hex(addr)
     return struct.pack('>Q', addr)
 
 def isclose(a,b, rel_tol=1e-9, abs_tol=0.0):
@@ -64,6 +65,12 @@ class LiteralPoolCtx(object):
 
     def float(self, val):
         self.asm.mc.write(BFL(val))
+
+    def single_float(self, val):
+        self.asm.mc.write(BFL(val, short=True))
+
+    def int64(self, val):
+        self.asm.mc.write(struct.pack('>q', val))
 
 class LabelCtx(object):
     def __init__(self, asm, name):
@@ -315,3 +322,32 @@ class TestRunningAssembler(object):
                 self.mc.STD(reg.f0, loc.addr(0, reg.r11))
             run_asm(self.a)
             assert isclose(mem[0], 0.0)
+
+    def test_cast_single_float_to_float(self):
+        with lltype.scoped_alloc(DOUBLE_ARRAY_PTR.TO, 16) as mem:
+            with ActivationRecordCtx(self):
+                with LiteralPoolCtx(self) as pool:
+                    pool.single_float(6.66)
+                    pool.addr(mem)
+                self.mc.LEY(reg.f1, loc.addr(0, reg.r13))
+                ## cast short to long!
+                self.mc.LDEBR(reg.f0, reg.f1) 
+                self.mc.LG(reg.r11, loc.addr(4, reg.r13))
+                self.mc.STD(reg.f0, loc.addr(0, reg.r11))
+            run_asm(self.a)
+            assert isclose(mem[0], 6.66, abs_tol=0.05)
+
+    def test_cast_int64_to_float(self):
+        with lltype.scoped_alloc(DOUBLE_ARRAY_PTR.TO, 16) as mem:
+            with ActivationRecordCtx(self):
+                with LiteralPoolCtx(self) as pool:
+                    pool.int64(12345)
+                    pool.addr(mem)
+                self.mc.LG(reg.r12, loc.addr(0, reg.r13))
+                # cast int to float!
+                self.mc.CDGBR(reg.f0, reg.r12) 
+                self.mc.LG(reg.r11, loc.addr(8, reg.r13))
+                self.mc.STD(reg.f0, loc.addr(0, reg.r11))
+            run_asm(self.a)
+            assert isclose(mem[0], 12345.0)
+
