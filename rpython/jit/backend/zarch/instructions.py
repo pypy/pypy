@@ -93,8 +93,15 @@ memory_mnemonic_codes = {
     'LD':      ('rx',    ['\x68']),
     'LEY':     ('rxy',   ['\xED', '\x64']),
     'LDY':     ('rxy',   ['\xED', '\x65']),
-    'LZER':    ('rre',   ['\xB3','\x74']),
+    'LZER':    ('rre',   ['\xB3','\x74'], 'r,-'),
     'LZDR':    ('rre',   ['\xB3','\x75'], 'r,-'),
+
+    # load positive, load negative
+    'LPEBR':   ('rre',   ['\xB3','\x00']),
+    'LPDBR':   ('rre',   ['\xB3','\x10']),
+
+    'LNEBR':   ('rre',   ['\xB3','\x01']),
+    'LNDBR':   ('rre',   ['\xB3','\x11']),
 }
 
 floatingpoint_mnemonic_codes = {
