@@ -118,7 +118,7 @@ floatingpoint_mnemonic_codes = {
     'AEB':     ('rxe',   ['\xED','\x0A'], 'r,bidl,-'),
     'ADB':     ('rxe',   ['\xED','\x1A'], 'r,bidl,-'),
 
-    # SUBSTRACT
+    # SUBSTRACTION
     'SEBR':    ('rre',   ['\xB3','\x0B']),
     'SDBR':    ('rre',   ['\xB3','\x1B']),
     'SEB':     ('rxe',   ['\xED','\x0B'], 'r,bidl,-'),
@@ -128,7 +128,11 @@ floatingpoint_mnemonic_codes = {
     'MDBR':    ('rre',   ['\xB3','\x1C']),
     'MDB':     ('rxe',   ['\xED','\x1C'], 'r,bidl,-'),
 
-
+    # DIVISION
+    'DEBR':    ('rre',   ['\xB3','\x0D']),
+    'DDBR':    ('rre',   ['\xB3','\x1D']),
+    'DEB':     ('rxe',   ['\xED','\x0D'], 'r,bidl,-'),
+    'DDB':     ('rxe',   ['\xED','\x1D'], 'r,bidl,-'),
 }
 
 all_mnemonic_codes = {
