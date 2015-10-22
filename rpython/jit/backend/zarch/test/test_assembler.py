@@ -351,3 +351,16 @@ class TestRunningAssembler(object):
             run_asm(self.a)
             assert isclose(mem[0], 12345.0)
 
+    def test_float_cmp(self):
+        with ActivationRecordCtx(self):
+            with LiteralPoolCtx(self) as pool:
+                pool.float(1.0)
+                pool.float(2.0)
+            self.mc.LD(reg.f0, loc.addr(0, reg.r13))
+            self.mc.LD(reg.f1, loc.addr(8, reg.r13))
+            self.mc.CDBR(reg.f0, reg.f1)
+            self.mc.LGHI(reg.r2, loc.imm(0))
+            self.mc.BCR(con.EQ, reg.r14) # must not branch
+            self.mc.LGHI(reg.r2, loc.imm(1))
+        self.a.jmpto(reg.r14)
+        assert run_asm(self.a) == 1

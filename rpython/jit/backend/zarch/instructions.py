@@ -146,6 +146,11 @@ floatingpoint_mnemonic_codes = {
     'DIEBR':     ('rrf',   ['\xB3','\x53'], 'r,r,r,m'),
     'DIDBR':     ('rrf',   ['\xB3','\x5B'], 'r,r,r,m'),
 
+    # COMPARISON
+    'CEBR':    ('rre',   ['\xB3','\x09']),
+    'CDBR':    ('rre',   ['\xB3','\x19']),
+    'CEB':     ('rxe',   ['\xED','\x09'], 'r,bidl,-'),
+    'CDB':     ('rxe',   ['\xED','\x19'], 'r,bidl,-'),
 }
 
 all_mnemonic_codes = {
