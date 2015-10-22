@@ -121,8 +121,8 @@ def build_rr(mnemonic, (opcode,)):
         self.writechar(chr(operands))
     return encode_rr
 
-def build_rre(mnemonic, (opcode1,opcode2)):
-    @builder.arguments('r,r')
+def build_rre(mnemonic, (opcode1,opcode2), argtypes='r,r'):
+    @builder.arguments(argtypes)
     def encode_rr(self, reg1, reg2):
         self.writechar(opcode1)
         self.writechar(opcode2)
@@ -302,7 +302,7 @@ def build_rie(mnemonic, (opcode1,opcode2)):
         self.writechar(opcode2)
     return encode_ri
 
-def build_rrf(mnemonic, (opcode1,opcode2,argtypes)):
+def build_rrf(mnemonic, (opcode1,opcode2), argtypes):
     @builder.arguments(argtypes)
     def encode_rrf(self, r1, rm3, r2, rm4):
         self.writechar(opcode1)
@@ -313,7 +313,7 @@ def build_rrf(mnemonic, (opcode1,opcode2,argtypes)):
         self.writechar(chr(byte))
     return encode_rrf
 
-def build_rxe(mnemonic, (opcode1,opcode2,argtypes)):
+def build_rxe(mnemonic, (opcode1,opcode2), argtypes):
     @builder.arguments(argtypes)
     def encode_rxe(self, reg, idxbasedisp, mask):
         self.writechar(opcode1)
@@ -361,9 +361,11 @@ def build_instr_codes(clazz):
             (instrtype, args) = params
         else:
             (instrtype, args, argtypes) = params
-            args = tuple(list(args) + [argtypes])
         builder = globals()['build_' + instrtype]
-        func = builder(mnemonic, args)
+        if argtypes:
+            func = builder(mnemonic, args, argtypes)
+        else:
+            func = builder(mnemonic, args)
         name = mnemonic + "_" + instrtype
         setattr(clazz, name, func)
         setattr(clazz, mnemonic, build_unpack_func(mnemonic, func))

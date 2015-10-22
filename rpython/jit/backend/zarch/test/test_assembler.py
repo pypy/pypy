@@ -45,6 +45,49 @@ def isclose(a,b, rel_tol=1e-9, abs_tol=0.0):
     # from PEP 485, added in python 3.5
     return abs(a-b) <= max( rel_tol * max(abs(a), abs(b)), abs_tol )
 
+class LiteralPoolCtx(object):
+    def __init__(self, asm):
+        self.asm = asm
+        self.lit_label = LabelCtx(asm, 'lit')
+
+    def __enter__(self):
+        self.lit_label.__enter__()
+        self.asm.mc.BRAS(reg.r13, loc.imm(0))
+        return self
+
+    def __exit__(self, a, b, c):
+        self.lit_label.__exit__(None, None, None)
+        self.asm.jump_here(self.asm.mc.BRAS, 'lit')
+
+    def addr(self, mem):
+        self.asm.mc.write(ADDR(mem))
+
+    def float(self, val):
+        self.asm.mc.write(BFL(val))
+
+class LabelCtx(object):
+    def __init__(self, asm, name):
+        self.asm = asm
+        self.name = name
+    def __enter__(self):
+        self.asm.mc.mark_op(self.name)
+        return self
+    def __exit__(self, a, b, c):
+        self.asm.mc.mark_op(self.name + '.end')
+
+class ActivationRecordCtx(object):
+    def __init__(self, asm, name='func'):
+        self.asm = asm
+        self.name = name
+        self.asm.mc.mark_op(self.name)
+    def __enter__(self):
+        self.asm.a.gen_func_prolog()
+        return self
+    def __exit__(self, a, b, c):
+        self.asm.a.gen_func_epilog()
+        self.asm.mc.mark_op(self.name + '.end')
+
+
 class TestRunningAssembler(object):
     def setup_method(self, method):
         cpu = CPU(None, None)
@@ -135,16 +178,9 @@ class TestRunningAssembler(object):
         assert run_asm(self.a) == 0x0807060504030201
 
     def label(self, name, func=False):
-        self.mc.mark_op(name)
-        class ctxmgr(object):
-            def __enter__(_self):
-                if func:
-                    self.a.gen_func_prolog()
-            def __exit__(_self, a, b, c):
-                if func:
-                    self.a.gen_func_epilog()
-                self.mc.mark_op(name + '.end')
-        return ctxmgr()
+        if not func:
+            return LabelCtx(self, name)
+        return ActivationRecordCtx(self, name)
 
     def patch_branch_imm16(self, base, imm):
         imm = (imm & 0xffff) >> 1
@@ -172,7 +208,7 @@ class TestRunningAssembler(object):
         print hex(run_asm(self.a))
 
     def test_recursion(self):
-        with self.label('func', func=True):
+        with ActivationRecordCtx(self):
             with self.label('lit'):
                 self.mc.BRAS(reg.r13, loc.imm(0))
             self.mc.write('\x00\x00\x00\x00\x00\x00\x00\x00')
@@ -182,7 +218,7 @@ class TestRunningAssembler(object):
             self.mc.LGHI(reg.r9, loc.imm(15))
             with self.label('L1'):
                 self.mc.BRAS(reg.r14, loc.imm(0))
-            with self.label('rec', func=True):
+            with ActivationRecordCtx(self, 'rec'):
                 self.mc.AGR(reg.r2, reg.r9)
                 self.mc.AHI(reg.r9, loc.imm(-1))
                 # if not entered recursion, return from activation record
@@ -195,7 +231,7 @@ class TestRunningAssembler(object):
         assert run_asm(self.a) == 120
 
     def test_printf(self):
-        with self.label('func', func=True):
+        with ActivationRecordCtx(self):
             with self.label('lit'):
                 self.mc.BRAS(reg.r13, loc.imm(0))
             for c in "hello syscall\n":
@@ -210,7 +246,7 @@ class TestRunningAssembler(object):
         assert run_asm(self.a) == 14
 
     def test_float(self):
-        with self.label('func', func=True):
+        with ActivationRecordCtx(self):
             with self.label('lit'):
                 self.mc.BRAS(reg.r13, loc.imm(0))
             self.mc.write(BFL(-15.0))
@@ -230,7 +266,7 @@ class TestRunningAssembler(object):
     ])
     def test_float_to_memory(self, v1, v2, res):
         with lltype.scoped_alloc(DOUBLE_ARRAY_PTR.TO, 16) as mem:
-            with self.label('func', func=True):
+            with ActivationRecordCtx(self):
                 with self.label('lit'):
                     self.mc.BRAS(reg.r13, loc.imm(0))
                 self.mc.write(BFL(v1))
@@ -246,3 +282,36 @@ class TestRunningAssembler(object):
             run_asm(self.a)
             assert isclose(mem[0],res)
 
+    @py.test.mark.parametrize("v1,v2,res", [
+        (    0.0,       0.0,       0.0),
+        (   -15.0,    -15.0,     225.0),
+        (    0.0, 9876543.21,      0.0),
+        (   -0.5,      14.5,      -7.25),
+        (    0.0001,    2.0,       0.0002),
+        (float('nan'), 1.0, float('nan')),
+    ])
+    def test_float_mul_to_memory(self, v1, v2, res):
+        with lltype.scoped_alloc(DOUBLE_ARRAY_PTR.TO, 16) as mem:
+            with ActivationRecordCtx(self):
+                with LiteralPoolCtx(self) as pool:
+                    pool.float(v1)
+                    pool.float(v2)
+                    pool.addr(mem)
+                self.mc.LD(reg.f0, loc.addr(0, reg.r13))
+                self.mc.MDB(reg.f0, loc.addr(8, reg.r13))
+                self.mc.LG(reg.r11, loc.addr(16, reg.r13))
+                self.mc.STD(reg.f0, loc.addr(0, reg.r11))
+            self.a.jmpto(reg.r14)
+            run_asm(self.a)
+            assert isclose(mem[0],res)
+
+    def test_float_load_zero(self):
+        with lltype.scoped_alloc(DOUBLE_ARRAY_PTR.TO, 16) as mem:
+            with ActivationRecordCtx(self):
+                with LiteralPoolCtx(self) as pool:
+                    pool.addr(mem)
+                self.mc.LZDR(reg.f0)
+                self.mc.LG(reg.r11, loc.addr(0, reg.r13))
+                self.mc.STD(reg.f0, loc.addr(0, reg.r11))
+            run_asm(self.a)
+            assert isclose(mem[0], 0.0)

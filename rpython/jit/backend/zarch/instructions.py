@@ -79,6 +79,7 @@ memory_mnemonic_codes = {
     'LGR':     ('rre',   ['\xB9','\x04']),
     'LG':      ('rxy',   ['\xE3','\x04']),
 
+    # store float
     'STE':     ('rx',    ['\x70']),
     'STD':     ('rx',    ['\x60']),
 
@@ -92,6 +93,8 @@ memory_mnemonic_codes = {
     'LD':      ('rx',    ['\x68']),
     'LEY':     ('rxy',   ['\xED', '\x64']),
     'LDY':     ('rxy',   ['\xED', '\x65']),
+    'LZER':    ('rre',   ['\xB3','\x74']),
+    'LZDR':    ('rre',   ['\xB3','\x75'], 'r,-'),
 }
 
 floatingpoint_mnemonic_codes = {
@@ -102,10 +105,17 @@ floatingpoint_mnemonic_codes = {
     'CGDBR':   ('rrf',   ['\xB3','\xA9'], 'r,u4,r,-'),
 
     # arithmetic
+    # ADDITION
     'AEBR':    ('rre',   ['\xB3','\x0A']),
     'ADBR':    ('rre',   ['\xB3','\x1A']),
     'AEB':     ('rxe',   ['\xED','\x0A'], 'r,bidl,-'),
     'ADB':     ('rxe',   ['\xED','\x1A'], 'r,bidl,-'),
+
+    # MULTIPLICATION
+    'MDBR':    ('rre',   ['\xB3','\x1C']),
+    'MDB':     ('rxe',   ['\xED','\x1C'], 'r,bidl,-'),
+
+
 }
 
 all_mnemonic_codes = {
