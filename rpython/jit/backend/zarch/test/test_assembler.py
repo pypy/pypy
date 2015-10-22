@@ -1,3 +1,4 @@
+import py
 import struct
 from rpython.jit.backend.zarch import conditions as con
 from rpython.jit.backend.zarch import masks as msk
@@ -34,6 +35,10 @@ def ADDR(value):
     addr = ctypes.addressof(ptr.contents.items)
     print hex(addr)
     return struct.pack('>Q', addr)
+
+def isclose(a,b, rel_tol=1e-9, abs_tol=0.0):
+    # from PEP 485, added in python 3.5
+    return abs(a-b) <= max( rel_tol * max(abs(a), abs(b)), abs_tol )
 
 class TestRunningAssembler(object):
     def setup_method(self, method):
@@ -210,20 +215,28 @@ class TestRunningAssembler(object):
         self.a.jmpto(reg.r14)
         assert run_asm(self.a) == -15
 
-    def test_float_to_memory(self):
+    @py.test.mark.parametrize("v1,v2,res", [
+        (    0.0,       0.0,       0.0),
+        (   -15.0,    -15.0,     -30.0),
+        (    1.5,     -3.22,      -1.72),
+        (    0.5,       0.0,       0.5),
+        (    0.0001,   -0.0002,   -0.0001),
+    ])
+    def test_float_to_memory(self, v1, v2, res):
         with lltype.scoped_alloc(DOUBLE_ARRAY_PTR.TO, 16) as mem:
             with self.label('func', func=True):
                 with self.label('lit'):
                     self.mc.BRAS(reg.r13, loc.imm(0))
-                self.mc.write(BFL(-15.0))
+                self.mc.write(BFL(v1))
+                self.mc.write(BFL(v2))
                 self.mc.write(ADDR(mem))
                 self.jump_here(self.mc.BRAS, 'lit')
                 self.mc.LD(reg.f0, loc.addr(0, reg.r13))
-                self.mc.LDR(reg.f1, reg.f0)
+                self.mc.LD(reg.f1, loc.addr(8, reg.r13))
                 self.mc.ADBR(reg.f0, reg.f1)
-                self.mc.LG(reg.r11, loc.addr(8, reg.r13))
+                self.mc.LG(reg.r11, loc.addr(16, reg.r13))
                 self.mc.STD(reg.f0, loc.addr(0, reg.r11))
             self.a.jmpto(reg.r14)
             run_asm(self.a)
-            assert mem[0] == -30.0
+            assert isclose(mem[0],res)
 
