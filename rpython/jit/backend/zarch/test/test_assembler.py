@@ -201,7 +201,6 @@ class TestRunningAssembler(object):
             self.mc.write(BFL(-15.0))
             self.jump_here(self.mc.BRAS, 'lit')
             self.mc.LD(reg.f0, loc.addr(0, reg.r13))
-            self.mc.FIDBR(reg.f1, msk.RND_CURMODE, reg.f0, loc.imm(0))
-            self.mc.CGDBR(reg.r2, msk.RND_CURMODE, reg.f1, loc.imm(0))
+            self.mc.CGDBR(reg.r2, msk.RND_CURMODE, reg.f0)
         self.a.jmpto(reg.r14)
         assert run_asm(self.a) == -15

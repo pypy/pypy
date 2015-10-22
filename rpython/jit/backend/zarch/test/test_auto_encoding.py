@@ -128,6 +128,7 @@ REGNAMES = ['%%r%d' % i for i in REGS]
 FP_REGS = range(16)
 FP_REGNAMES = ['%%f%d' % i for i in FP_REGS]
 TEST_CASE_GENERATE = {
+    '-':    [],
     'r':    REGS,
     'f':    FP_REGS,
     'r/m':  REGS,
