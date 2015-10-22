@@ -1,4 +1,6 @@
+import struct
 from rpython.jit.backend.zarch import conditions as con
+from rpython.jit.backend.zarch import masks as msk
 from rpython.jit.backend.zarch import registers as reg
 from rpython.jit.backend.zarch.assembler import AssemblerZARCH
 from rpython.jit.backend.zarch import locations as loc
@@ -15,11 +17,18 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
+from rpython.rlib.longlong2float import float2longlong
 
 CPU = getcpuclass()
 
 def byte_count(func):
     return func._byte_count
+
+def BFL(value):
+    #assert 0x0000000000000000 == float2longlong(0.0)
+    #assert 0x8000000000000000 == abs(float2longlong(-0.0))
+    #assert hex(0xc02e000000000000) == hex(abs(float2longlong(-15.0)))
+    return struct.pack('>q', float2longlong(value))
 
 class TestRunningAssembler(object):
     def setup_method(self, method):
@@ -184,3 +193,15 @@ class TestRunningAssembler(object):
             self.mc.SVC(loc.imm(4))
         self.a.jmpto(reg.r14)
         assert run_asm(self.a) == 14
+
+    def test_float(self):
+        with self.label('func', func=True):
+            with self.label('lit'):
+                self.mc.BRAS(reg.r13, loc.imm(0))
+            self.mc.write(BFL(-15.0))
+            self.jump_here(self.mc.BRAS, 'lit')
+            self.mc.LD(reg.f0, loc.addr(0, reg.r13))
+            self.mc.FIDBR(reg.f1, msk.RND_CURMODE, reg.f0, loc.imm(0))
+            self.mc.CGDBR(reg.r2, msk.RND_CURMODE, reg.f1, loc.imm(0))
+        self.a.jmpto(reg.r14)
+        assert run_asm(self.a) == -15

@@ -7,6 +7,8 @@ def dummy_argument(arg):
     """ NOT_RPYTHON """
     if arg == 'r' or arg == 'r/m':
         return 0
+    if arg == 'f':
+        return 0
     if arg.startswith('i') or arg.startswith('u'):
         return 0
     return loc.addr(0)
@@ -18,6 +20,7 @@ class builder(object):
         """ NOT_RPYTHON """
         """
         Available names:
+        f      - floating point register
         r      - register
         r/m    - register or mask
         iX     - immediate X bits (signed)
@@ -287,11 +290,22 @@ def build_rie(mnemonic, (opcode1,opcode2)):
         self.writechar(opcode2)
     return encode_ri
 
+def build_rrf(mnemonic, (opcode1,opcode2)):
+    @builder.arguments('r,r/m,r,r/m')
+    def encode_rrf(self, r1, rm3, r2, rm4):
+        self.writechar(opcode1)
+        self.writechar(opcode2)
+        byte = (rm3 & BIT_MASK_4) << 4 | (rm4 & BIT_MASK_4)
+        self.writechar(chr(byte))
+        byte = (r1 & BIT_MASK_4) << 4 | (r2 & BIT_MASK_4)
+        self.writechar(chr(byte))
+    return encode_rrf
+
 def build_unpack_func(mnemonic, func):
     def function(self, *args):
         newargs = [None] * len(args)
         for i,arg in enumerate(unrolling_iterable(func._arguments_)):
-            if arg == 'r' or arg == 'r/m':
+            if arg == 'r' or arg == 'r/m' or arg == 'f':
                 newargs[i] = args[i].value
             elif arg.startswith('i') or arg.startswith('u'):
                 newargs[i] = args[i].value

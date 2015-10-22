@@ -123,10 +123,13 @@ def build_fake(clazz, *arg_bits):
             break
     return results
 
-REGS = range(15+1)
+REGS = range(16)
 REGNAMES = ['%%r%d' % i for i in REGS]
+FP_REGS = range(16)
+FP_REGNAMES = ['%%f%d' % i for i in FP_REGS]
 TEST_CASE_GENERATE = {
     'r':    REGS,
+    'f':    FP_REGS,
     'r/m':  REGS,
     'i4':   range_of_bits(4, signed=True),
     'i8':   range_of_bits(8, signed=True),
@@ -157,13 +160,11 @@ class TestZARCH(object):
         func = getattr(AbstractZARCHBuilder, methodname)
         return func._arguments_
 
-    def assembler_operand_reg(self, regnum):
-        return REGNAMES[regnum]
-
     def operand_combinations(self, methodname, modes, arguments):
         mapping = {
-            'r': self.assembler_operand_reg,
-            'r/m': self.assembler_operand_reg,
+            'r': (lambda num: REGNAMES[num]),
+            'r/m': (lambda num: REGNAMES[num]),
+            'f': (lambda num: FP_REGNAMES[num]),
         }
         arg_types = self.get_func_arg_types(methodname)
         for mode, args in zip(arg_types, arguments):

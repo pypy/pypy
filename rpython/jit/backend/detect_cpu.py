@@ -13,6 +13,7 @@ class ProcessorAutodetectError(Exception):
 MODEL_X86         = 'x86'
 MODEL_X86_NO_SSE2 = 'x86-without-sse2'
 MODEL_X86_64      = 'x86-64'
+MODEL_X86_64_SSE4 = 'x86-64-sse4'
 MODEL_ARM         = 'arm'
 MODEL_PPC_64      = 'ppc-64'
 MODEL_S390_64     = 's390x'

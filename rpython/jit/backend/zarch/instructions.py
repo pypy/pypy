@@ -20,6 +20,8 @@ arith_mnemonic_codes = {
     'AG':      ('rxy',   ['\xE3','\x08']),
     'AGF':     ('rxy',   ['\xE3','\x18']),
     'AHI':     ('ri',    ['\xA7','\x0A']),
+
+    # floating point
 }
 
 logic_mnemonic_codes = {
@@ -64,6 +66,39 @@ logic_mnemonic_codes = {
     'OILL':       ('ri_u',     ['\xA5', '\x0B']),
 }
 
+memory_mnemonic_codes = {
+    # load address
+    'LA':      ('rx',    ['\x41']),
+    'LAY':     ('rxy',   ['\xE3','\x71']),
+
+    # load memory
+    'LMD':     ('sse',   ['\xEF']),
+    'LMG':     ('rsy',   ['\xEB','\x04']),
+    'LGHI':    ('ri',    ['\xA7','\x09']),
+    'LR':      ('rr',    ['\x18']),
+    'LGR':     ('rre',   ['\xB9','\x04']),
+    'LG':      ('rxy',   ['\xE3','\x04']),
+
+    # load binary float
+    # E -> short (32bit),
+    # D -> long (64bit),
+    # X -> extended (128bit)
+    'LER':     ('rr',    ['\x38']),
+    'LDR':     ('rr',    ['\x28']),
+    'LE':      ('rx',    ['\x78']),
+    'LD':      ('rx',    ['\x68']),
+    'LEY':     ('rxy',   ['\xED', '\x64']),
+    'LDY':     ('rxy',   ['\xED', '\x65']),
+}
+
+floatingpoint_mnemonic_codes = {
+    'FIEBR':   ('rrf',   ['\xB3','\x57']),
+    'FIDBR':   ('rrf',   ['\xB3','\x5F']),
+
+    'CGEBR':   ('rrf',   ['\xB3','\xA8']),
+    'CGDBR':   ('rrf',   ['\xB3','\xA9']),
+}
+
 all_mnemonic_codes = {
     #
     'BXH':     ('rs',    ['\x86']),
@@ -77,15 +112,6 @@ all_mnemonic_codes = {
     'SRP':     ('ssc',   ['\xF0']),
     'MVCK':    ('ssd',   ['\xD9']),
 
-    'LA':      ('rx',    ['\x41']),
-    'LAY':     ('rxy',   ['\xE3','\x71']),
-    'LMD':     ('sse',   ['\xEF']),
-    'LMG':     ('rsy',   ['\xEB','\x04']),
-    'LGHI':    ('ri',    ['\xA7','\x09']),
-    'LR':      ('rr',    ['\x18']),
-    'LGR':     ('rre',   ['\xB9','\x04']),
-    'LG':      ('rxy',   ['\xE3','\x04']),
-
     'PKA':     ('ssf',   ['\xE9']),
     'STMG':    ('rsy',   ['\xEB','\x24']),
 
@@ -93,6 +119,8 @@ all_mnemonic_codes = {
 }
 all_mnemonic_codes.update(arith_mnemonic_codes)
 all_mnemonic_codes.update(logic_mnemonic_codes)
+all_mnemonic_codes.update(memory_mnemonic_codes)
+all_mnemonic_codes.update(floatingpoint_mnemonic_codes)
 all_mnemonic_codes.update(branch_mnemonic_codes)
 
 
