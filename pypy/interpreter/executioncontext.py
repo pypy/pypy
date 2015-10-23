@@ -327,10 +327,14 @@ class ExecutionContext(object):
                 w_arg = space.newtuple([operr.w_type, w_value,
                                      space.wrap(operr.get_traceback())])
 
-            frame.fast2locals()
+            d = frame.getorcreatedebug()
+            if d.w_locals is not None:
+                # only update the w_locals dict if it exists
+                # if it does not exist yet and the tracer accesses it via
+                # frame.f_locals, it is filled by PyFrame.getdictscope
+                frame.fast2locals()
             self.is_tracing += 1
             try:
-                d = frame.getorcreatedebug()
                 try:
                     w_result = space.call_function(w_callback, space.wrap(frame), space.wrap(event), w_arg)
                     if space.is_w(w_result, space.w_None):
@@ -343,7 +347,8 @@ class ExecutionContext(object):
                     raise
             finally:
                 self.is_tracing -= 1
-                frame.locals2fast()
+                if d.w_locals is not None:
+                    frame.locals2fast()
 
         # Profile cases
         if self.profilefunc is not None:
