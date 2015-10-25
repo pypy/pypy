@@ -202,13 +202,38 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ao = ufunc(ai)
         assert ao.shape == (0, 1, 1)
 
+    def test_frompyfunc_not_contiguous(self):
+        import sys
+        from numpy import frompyfunc, dtype, arange, dot
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
+        def _dot(in0, in1, out):
+            print in0, '\nin1',in1,'\nin1.shape', in1.shape, 'in1.strides', in1.strides
+            out[...] = dot(in0, in1)
+
+        ufunc_dot = frompyfunc(_dot, 2, 1,
+                            signature='(m,m),(m,n)->(m,n)',
+                            dtypes=[dtype(float), dtype(float), dtype(float)],
+                            stack_inputs=True,
+                          )
+        a1 = arange(4, dtype=float).reshape(2,2)
+        # create a non-c-contiguous argument
+        a2 = arange(2, dtype=float).reshape(2,1)
+        a3 = arange(2, dtype=float).reshape(1,2).T
+        b1 = ufunc_dot(a1, a2, sig='dd->d')
+        b2 = dot(a1, a2)
+        assert (b1==b2).all()
+        print 'xxxxxxxxxxxx'
+        b1 = ufunc_dot(a1, a3, sig='dd->d')
+        b2 = dot(a1, a3)
+        assert (b1==b2).all()
+ 
     def test_frompyfunc_needs_nditer(self):
         import sys
         from numpy import frompyfunc, dtype, arange
         if '__pypy__' not in sys.builtin_module_names:
             skip('PyPy only frompyfunc extension')
         def summer(in0):
-            print 'in summer, in0=',in0,'in0.shape=',in0.shape
             return in0.sum()
 
         ufunc = frompyfunc([summer], 1, 1,
@@ -242,11 +267,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
                             stack_inputs=True,
                           )
         ai = arange(18, dtype=int).reshape(3,2,3)
-        aout = ufunc_add(ai, ai[0,:,:])
-        assert aout.shape == (3, 2, 3)
-        aout = ufunc_sum(ai)
-        assert aout.shape == (3, 3)
-
+        aout1 = ufunc_add(ai, ai[0,:,:])
+        assert aout1.shape == (3, 2, 3)
+        aout2 = ufunc_add(ai, ai[0,:,:])
+        aout1 = ufunc_sum(ai)
+        assert aout1.shape == (3, 3)
+        
     def test_frompyfunc_fortran(self):
         import sys
         import numpy as np
@@ -453,7 +479,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     except AttributeError:
                         pass
                     except NotImplementedError:
-                        print s
+                        #print s
                         uncallable.add(s)
                     except TypeError:
                         assert s not in uncallable
@@ -1404,7 +1430,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         # dtype
         a = arange(0, 3, 0.5).reshape(2, 3)
         b = add.accumulate(a, dtype=int, axis=1)
-        print b
         assert (b == [[0, 0, 1], [1, 3, 5]]).all()
         assert b.dtype == int
         assert add.accumulate([True]*200)[-1] == 200

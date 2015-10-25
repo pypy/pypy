@@ -879,7 +879,7 @@ class W_UfuncGeneric(W_Ufunc):
         w_itershape = space.newlist([space.wrap(i) for i in iter_shape])
         nd_it = W_NDIter(space, space.newlist(inargs + outargs), w_flags,
                       w_op_flags, w_op_dtypes, w_casting, w_op_axes,
-                      w_itershape)
+                      w_itershape, allow_backward=False)
         # coalesce each iterators, according to inner_dimensions
         for i in range(len(inargs) + len(outargs)):
             for j in range(self.core_num_dims[i]):
