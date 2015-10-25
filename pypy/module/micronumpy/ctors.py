@@ -134,13 +134,18 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
         else:
             imp = w_object.implementation
             w_base = w_object
+            sz = w_base.get_size() * dtype.elsize
             if imp.base() is not None:
                 w_base = imp.base()
+                if type(w_base) is W_NDimArray:
+                    sz = w_base.get_size() * dtype.elsize
+                else:
+                    # this must succeed (mmap, buffer, ...)
+                    sz = space.int_w(space.call_method(w_base, 'size'))
             with imp as storage:
-                sz = support.product(w_object.get_shape()) * dtype.elsize
                 return W_NDimArray.from_shape_and_storage(space,
                     w_object.get_shape(), storage, dtype, storage_bytes=sz,
-                    w_base=w_base, start=imp.start)
+                    w_base=w_base, strides=imp.strides, start=imp.start)
     else:
         # not an array
         shape, elems_w = find_shape_and_elems(space, w_object, dtype)

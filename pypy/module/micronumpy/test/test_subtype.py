@@ -436,6 +436,16 @@ class AppTestSupport(BaseNumpyAppTest):
         b = N.array(c, copy=True)
         assert (b == a).all()
 
+        d = N.empty([6,2], dtype=float)
+        d.view(int).fill(0xdeadbeef)
+        e = d[0::3,:]
+        e[...] = [[1, 2], [3, 4]]
+        assert e.strides == (48, 8)
+        f = e.view(matrix)
+        assert f.strides == (48, 8)
+        g = N.array(f, copy=False)
+        assert (g == [[1, 2], [3, 4]]).all()
+
     def test_setstate_no_version(self):
         # Some subclasses of ndarray, like MaskedArray, do not use
         # version in __setstate__
