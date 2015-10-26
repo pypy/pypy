@@ -348,7 +348,7 @@ class W_NDIter(W_NumpyObject):
     _immutable_fields_ = ['ndim', ]
     def __init__(self, space, w_seq, w_flags, w_op_flags, w_op_dtypes,
                  w_casting, w_op_axes, w_itershape, buffersize=0,
-                 order=NPY.KEEPORDER):
+                 order=NPY.KEEPORDER, allow_backward=True):
         self.external_loop = False
         self.buffered = False
         self.tracked_index = ''
@@ -363,6 +363,7 @@ class W_NDIter(W_NumpyObject):
         self.done = False
         self.first_next = True
         self.op_axes = []
+        self.allow_backward = allow_backward
         if not space.is_w(w_casting, space.w_None):
             self.casting = space.str_w(w_casting)
         else:
@@ -540,18 +541,18 @@ class W_NDIter(W_NumpyObject):
                             self.op_flags[i], self)
         backward = imp.order != self.order
         # XXX cleanup needed
-        if (abs(imp.strides[0]) < abs(imp.strides[-1]) and not backward) or \
-           (abs(imp.strides[0]) > abs(imp.strides[-1]) and backward):
-            # flip the strides. Is this always true for multidimension?
-            strides = imp.strides[:]
-            backstrides = imp.backstrides[:]
-            shape = imp.shape[:]
-            strides.reverse()
-            backstrides.reverse()
-            shape.reverse()
-        else:
-            strides = imp.strides
-            backstrides = imp.backstrides
+        strides = imp.strides
+        backstrides = imp.backstrides
+        if self.allow_backward:
+            if  ((abs(imp.strides[0]) < abs(imp.strides[-1]) and not backward) or \
+                 (abs(imp.strides[0]) > abs(imp.strides[-1]) and backward)):
+                # flip the strides. Is this always true for multidimension?
+                strides = imp.strides[:]
+                backstrides = imp.backstrides[:]
+                shape = imp.shape[:]
+                strides.reverse()
+                backstrides.reverse()
+                shape.reverse()
         r = calculate_broadcast_strides(strides, backstrides, imp.shape,
                                         shape, backward)
         iter_shape = shape

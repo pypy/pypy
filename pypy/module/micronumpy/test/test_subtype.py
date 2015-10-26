@@ -309,13 +309,13 @@ class AppTestSupport(BaseNumpyAppTest):
         assert c.dtype is dtype(float)
 
     def test_array_of_subtype(self):
-        import numpy as N
+        import numpy as np
         # this part of numpy's matrix class causes an infinite loop
         # on cpython
         import sys
         if '__pypy__' not in sys.builtin_module_names:
             skip('does not pass on cpython')
-        class matrix(N.ndarray):
+        class matrix(np.ndarray):
             def __new__(subtype, data, dtype=None, copy=True):
                 print('matrix __new__')
                 if isinstance(data, matrix):
@@ -326,11 +326,11 @@ class AppTestSupport(BaseNumpyAppTest):
                         return data
                     return data.astype(dtype)
 
-                if isinstance(data, N.ndarray):
+                if isinstance(data, np.ndarray):
                     if dtype is None:
                         intype = data.dtype
                     else:
-                        intype = N.dtype(dtype)
+                        intype = np.dtype(dtype)
                     new = data.view(subtype)
                     if intype != data.dtype:
                         return new.astype(intype)
@@ -341,7 +341,7 @@ class AppTestSupport(BaseNumpyAppTest):
                     data = _convert_from_string(data)
 
                 # now convert data to an array
-                arr = N.array(data, dtype=dtype, copy=copy)
+                arr = np.array(data, dtype=dtype, copy=copy)
                 ndim = arr.ndim
                 shape = arr.shape
                 if (ndim > 2):
@@ -358,7 +358,7 @@ class AppTestSupport(BaseNumpyAppTest):
                 if not (order or arr.flags.contiguous):
                     arr = arr.copy()
 
-                ret = N.ndarray.__new__(subtype, shape, arr.dtype,
+                ret = np.ndarray.__new__(subtype, shape, arr.dtype,
                                         buffer=arr,
                                         order=order)
                 return ret
@@ -391,11 +391,11 @@ class AppTestSupport(BaseNumpyAppTest):
                 self._getitem = True
 
                 try:
-                    out = N.ndarray.__getitem__(self, index)
+                    out = np.ndarray.__getitem__(self, index)
                 finally:
                     self._getitem = False
 
-                if not isinstance(out, N.ndarray):
+                if not isinstance(out, np.ndarray):
                     return out
 
                 if out.ndim == 0:
@@ -414,18 +414,18 @@ class AppTestSupport(BaseNumpyAppTest):
                 return out
 
         a = matrix([[1., 2.], [3., 4.]])
-        b = N.array([a])
+        b = np.array([a])
         assert (b == a).all()
 
-        b = N.array(a)
+        b = np.array(a)
         assert len(b.shape) == 2
         assert (b == a).all()
 
-        b = N.array(a, copy=False)
+        b = np.array(a, copy=False)
         assert len(b.shape) == 2
         assert (b == a).all()
 
-        b = N.array(a, copy=True, dtype=int)
+        b = np.array(a, copy=True, dtype=int)
         assert len(b.shape) == 2
         assert (b == a).all()
 
@@ -433,8 +433,29 @@ class AppTestSupport(BaseNumpyAppTest):
         assert c.base is not None
         c[0, 0] = 100
         assert a[0, 0] == 100
-        b = N.array(c, copy=True)
+        b = np.array(c, copy=True)
         assert (b == a).all()
+
+        d = np.empty([6,2], dtype=float)
+        d.view(int).fill(0xdeadbeef)
+        e = d[0::3,:]
+        e[...] = [[1, 2], [3, 4]]
+        assert e.strides == (48, 8)
+        f = e.view(matrix)
+        assert f.strides == (48, 8)
+        g = np.array(f, copy=False)
+        assert (g == [[1, 2], [3, 4]]).all()
+
+        k = np.empty([2, 8], dtype=float)
+        k.view(int).fill(0xdeadbeef)
+        m = k[:, ::-4]
+        m[...] = [[1, 2], [3, 4]]
+        assert m.strides == (64, -32)
+        n = m.view(matrix)
+        assert n.strides == (64, -32)
+        p = np.array(n, copy=False)
+        assert (p == [[1, 2], [3, 4]]).all()
+
 
     def test_setstate_no_version(self):
         # Some subclasses of ndarray, like MaskedArray, do not use
