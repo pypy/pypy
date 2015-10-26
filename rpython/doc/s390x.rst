@@ -1,0 +1,16 @@
+.. _s390x:
+
+Translation on the IBM Mainframe
+================================
+
+Redhat Linux (rel65)
+--------------------
+
+Unfortunatley there is no ffi development package (yet?), thus
+one needs to install this manually.
+libffi is not installed on the rl65.
+This can be resolved by installing it locally (./configure && make install) and
+adjusting th PKG_CONFIG_PATH to point to the install location.
+In addition the LD_LIBRARY_PATH must be set to the install location the libffi.so
+can be found.
+
