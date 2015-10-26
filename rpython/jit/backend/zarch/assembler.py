@@ -6,10 +6,13 @@ from rpython.jit.backend.zarch import conditions as c
 from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch import locations as loc
 from rpython.jit.backend.zarch.codebuilder import InstrBuilder
-from rpython.jit.backend.zarch.arch import WORD
+from rpython.jit.backend.zarch.arch import (WORD, JITFRAME_FIXED_SIZE)
 from rpython.jit.backend.zarch.opassembler import IntOpAssembler
 from rpython.jit.backend.zarch.regalloc import Regalloc
 from rpython.jit.metainterp.resoperation import rop
+from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
+                                have_debug_prints)
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
@@ -35,7 +38,8 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
             self.debug = False
         self.current_clt = looptoken.compiled_loop_token
         self.mc = InstrBuilder()
-        self.pending_guards = []
+        self.pending_guard_tokens = []
+        self.pending_guard_tokens_recovered = 0
         #assert self.datablockwrapper is None --- but obscure case
         # possible, e.g. getting MemoryError and continuing
         allblocks = self.get_asmmemmgr_blocks(looptoken)
@@ -258,6 +262,67 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
                 return
             assert 0, "not supported location"
         assert 0, "not supported location"
+
+    def update_frame_depth(self, frame_depth):
+        if frame_depth > 0x7fff:
+            raise JitFrameTooDeep
+        baseofs = self.cpu.get_baseofs_of_frame_field()
+        self.current_clt.frame_info.update_frame_depth(baseofs, frame_depth)
+
+    def write_pending_failure_recoveries(self):
+        # for each pending guard, generate the code of the recovery stub
+        # at the end of self.mc.
+        for i in range(self.pending_guard_tokens_recovered,
+                       len(self.pending_guard_tokens)):
+            tok = self.pending_guard_tokens[i]
+            tok.pos_recovery_stub = self.generate_quick_failure(tok)
+        self.pending_guard_tokens_recovered = len(self.pending_guard_tokens)
+
+    def patch_stack_checks(self, frame_depth):
+        if frame_depth > 0x7fff:
+            raise JitFrameTooDeep     # XXX
+        for traps_pos, jmp_target in self.frame_depth_to_patch:
+            pmc = OverwritingBuilder(self.mc, traps_pos, 3)
+            # three traps, so exactly three instructions to patch here
+            #pmc.cmpdi(0, r.r2.value, frame_depth)         # 1
+            #pmc.bc(7, 0, jmp_target - (traps_pos + 4))    # 2   "bge+"
+            #pmc.li(r.r0.value, frame_depth)               # 3
+            #pmc.overwrite()
+
+    def materialize_loop(self, looptoken):
+        self.datablockwrapper.done()
+        self.datablockwrapper = None
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        start = self.mc.materialize(self.cpu, allblocks,
+                                    self.cpu.gc_ll_descr.gcrootmap)
+        return start
+
+    def patch_pending_failure_recoveries(self, rawstart):
+        assert (self.pending_guard_tokens_recovered ==
+                len(self.pending_guard_tokens))
+        clt = self.current_clt
+        for tok in self.pending_guard_tokens:
+            addr = rawstart + tok.pos_jump_offset
+            #
+            # XXX see patch_jump_for_descr()
+            tok.faildescr.adr_jump_offset = rawstart + tok.pos_recovery_stub
+            #
+            relative_target = tok.pos_recovery_stub - tok.pos_jump_offset
+            #
+            if not tok.guard_not_invalidated():
+                mc = InstrBuilder()
+                mc.b_cond_offset(relative_target, tok.fcond)
+                mc.copy_to_raw_memory(addr)
+            else:
+                # GUARD_NOT_INVALIDATED, record an entry in
+                # clt.invalidate_positions of the form:
+                #     (addr-in-the-code-of-the-not-yet-written-jump-target,
+                #      relative-target-to-use)
+                relpos = tok.pos_jump_offset
+                clt.invalidate_positions.append((rawstart + relpos,
+                                                 relative_target))
+
+
 
     # ________________________________________
     # ASSEMBLER EMISSION
