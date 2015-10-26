@@ -306,7 +306,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         def times2_int(in0, out0):
             assert in0.dtype == int
             assert out0.dtype == int
-            # hack to assing to a 0-dim array
+            # hack to assigning to a 0-dim array
             out0.real = in0 * 2
 
         def times2_complex(in0, out0):
@@ -345,6 +345,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert out0.dtype in (int, complex) 
             assert (out0 == in0 * 2).all()
 
+            in0 = np.arange(4, dtype=int)
+            out0 = times2(in0, sig='D->D')
+            assert out0.dtype == complex
+
     def test_frompyfunc_scalar(self):
         import sys
         import numpy as np
@@ -380,7 +384,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert all(res == args[0] + args[1])
         raises(TypeError, adder_ufunc, *args, blah=True)
         raises(TypeError, adder_ufunc, *args, extobj=True)
-        raises(RuntimeError, adder_ufunc, *args, sig='(d,d)->(d)', dtype=int)
+        raises(RuntimeError, adder_ufunc, *args, sig='dd->d', dtype=int)
 
     def test_unary_ufunc_kwargs(self):
         from numpy import array, sin, float16
