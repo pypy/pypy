@@ -7,13 +7,14 @@ from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch import locations as loc
 from rpython.jit.backend.zarch.codebuilder import InstrBuilder
 from rpython.jit.backend.zarch.arch import WORD
+from rpython.jit.backend.zarch.opassembler import IntOpAssembler
 from rpython.jit.backend.zarch.regalloc import Regalloc
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
 from rpython.rlib import rgc
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 
-class AssemblerZARCH(BaseAssembler):
+class AssemblerZARCH(BaseAssembler, IntOpAssembler):
 
     def __init__(self, cpu, translate_support_code=False):
         BaseAssembler.__init__(self, cpu, translate_support_code)
@@ -178,21 +179,107 @@ class AssemblerZARCH(BaseAssembler):
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth
 
+    def regalloc_mov(self, prev_loc, loc):
+        if prev_loc.is_imm():
+            value = prev_loc.getint()
+            # move immediate value to register
+            if loc.is_core_reg():
+                self.mc.load_imm(loc, value)
+                return
+            # move immediate value to memory
+            elif loc.is_stack():
+                with scratch_reg(self.mc):
+                    offset = loc.value
+                    self.mc.load_imm(r.SCRATCH, value)
+                    self.mc.store(r.SCRATCH.value, r.SPP, offset)
+                return
+            assert 0, "not supported location"
+        elif prev_loc.is_stack():
+            offset = prev_loc.value
+            # move from memory to register
+            if loc.is_core_reg():
+                self.mc.load(loc, r.SPP, offset)
+                return
+            # move in memory
+            elif loc.is_stack():
+                target_offset = loc.value
+                with scratch_reg(self.mc):
+                    self.mc.load(r.SCRATCH.value, r.SPP, offset)
+                    self.mc.store(r.SCRATCH.value, r.SPP, target_offset)
+                return
+            # move from memory to fp register
+            elif loc.is_fp_reg():
+                assert prev_loc.type == FLOAT, 'source not float location'
+                self.mc.lfd(loc, r.SPP, offset)
+                return
+            assert 0, "not supported location"
+        elif prev_loc.is_core_reg():
+            reg = prev_loc.value
+            # move to another register
+            if loc.is_core_reg():
+                other_reg = loc.value
+                self.mc.mr(other_reg, reg)
+                return
+            # move to memory
+            elif loc.is_stack():
+                offset = loc.value
+                self.mc.store(reg, r.SPP, offset)
+                return
+            assert 0, "not supported location"
+        elif prev_loc.is_imm_float():
+            value = prev_loc.getint()
+            # move immediate value to fp register
+            if loc.is_fp_reg():
+                with scratch_reg(self.mc):
+                    self.mc.load_imm(r.SCRATCH, value)
+                    self.mc.lfdx(loc.value, 0, r.SCRATCH.value)
+                return
+            # move immediate value to memory
+            elif loc.is_stack():
+                with scratch_reg(self.mc):
+                    offset = loc.value
+                    self.mc.load_imm(r.SCRATCH, value)
+                    self.mc.lfdx(r.FP_SCRATCH.value, 0, r.SCRATCH.value)
+                    self.mc.stfd(r.FP_SCRATCH.value, r.SPP.value, offset)
+                return
+            assert 0, "not supported location"
+        elif prev_loc.is_fp_reg():
+            reg = prev_loc.value
+            # move to another fp register
+            if loc.is_fp_reg():
+                other_reg = loc.value
+                self.mc.fmr(other_reg, reg)
+                return
+            # move from fp register to memory
+            elif loc.is_stack():
+                assert loc.type == FLOAT, "target not float location"
+                offset = loc.value
+                self.mc.stfd(reg, r.SPP.value, offset)
+                return
+            assert 0, "not supported location"
+        assert 0, "not supported location"
+
     # ________________________________________
     # ASSEMBLER EMISSION
 
-    def emit_op_int_add(self, op):
-        pass
+    def emit_increment_debug_counter(self, op, arglocs, regalloc):
+        pass # TODO
 
-def notimplemented_op(self, op, arglocs, regalloc, fcond):
+    def emit_finish(self, op, arglocs, regalloc):
+        pass # TODO
+
+def notimplemented_op(asm, op, arglocs, regalloc):
     print "[ZARCH/asm] %s not implemented" % op.getopname()
     raise NotImplementedError(op)
 
 asm_operations = [notimplemented_op] * (rop._LAST + 1)
 asm_extra_operations = {}
 
-for name, value in AssemblerZARCH.__dict__.iteritems():
-    if name.startswith('emit_op_'):
-        opname = name[len('emit_op_'):]
-        num = getattr(rop, opname.upper())
-        asm_operations[num] = value
+for key, value in rop.__dict__.items():
+    key = key.lower()
+    if key.startswith('_'):
+        continue
+    methname = 'emit_%s' % key
+    if hasattr(AssemblerZARCH, methname):
+        func = getattr(AssemblerZARCH, methname).im_func
+        asm_operations[value] = func

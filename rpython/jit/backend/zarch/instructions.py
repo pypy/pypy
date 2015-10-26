@@ -20,8 +20,7 @@ arith_mnemonic_codes = {
     'AG':      ('rxy',   ['\xE3','\x08']),
     'AGF':     ('rxy',   ['\xE3','\x18']),
     'AHI':     ('ri',    ['\xA7','\x0A']),
-
-    # floating point
+    'AGHI':    ('ri',    ['\xA7','\x0B']),
 }
 
 logic_mnemonic_codes = {

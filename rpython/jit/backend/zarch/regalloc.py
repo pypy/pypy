@@ -16,6 +16,7 @@ from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.descr import ArrayDescr
 import rpython.jit.backend.zarch.registers as r
 import rpython.jit.backend.zarch.conditions as c
+import rpython.jit.backend.zarch.helper.regalloc as regallochelp
 from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
@@ -252,6 +253,14 @@ class Regalloc(BaseRegalloc):
             var = op.getarg(i)
             self.possibly_free_var(var)
 
+    def force_result_in_reg(self, var, loc):
+        if var.type == FLOAT:
+            forbidden_vars = self.fprm.temp_boxes
+            return self.fprm.force_result_in_reg(var, loc, forbidden_vars)
+        else:
+            forbidden_vars = self.rm.temp_boxes
+            return self.rm.force_result_in_reg(var, loc, forbidden_vars)
+
     def force_allocate_reg(self, var):
         if var.type == FLOAT:
             forbidden_vars = self.fprm.temp_boxes
@@ -449,6 +458,14 @@ class Regalloc(BaseRegalloc):
     # ******************************************************
     # *         P R E P A R E  O P E R A T I O N S         * 
     # ******************************************************
+
+    def prepare_increment_debug_counter(self, op):
+        pass # XXX
+
+    prepare_int_add = regallochelp._prepare_binary_arith
+
+    def prepare_finish(self, op):
+        return []
 
 def notimplemented(self, op):
     msg = '[S390X/regalloc] %s not implemented\n' % op.getopname()

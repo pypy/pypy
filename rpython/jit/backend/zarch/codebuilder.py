@@ -84,6 +84,9 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         self.clear_cache(addr)
         self._dump(addr, "jit-backend-dump", "s390x")
 
+    def load(self, treg, sreg, offset):
+        self.LG(treg, loc.addr(offset, sreg))
+
     def currpos(self):
         return self.get_relative_pos()
 
