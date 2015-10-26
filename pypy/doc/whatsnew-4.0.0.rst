@@ -92,3 +92,6 @@ The PowerPC JIT backend is merged.
 
 .. branch: osx-libffi
 
+.. branch: lazy-fast2locals
+improve the performance of simple trace functions by lazily calling
+fast2locals and locals2fast only if f_locals is actually accessed.

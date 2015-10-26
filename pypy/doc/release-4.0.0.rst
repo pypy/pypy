@@ -198,6 +198,9 @@ Other Highlights (since 2.6.1 release two months ago)
 
   * Handle getfield_gc_pure* and getfield_gc_* uniformly in heap.py
 
+  * Improve simple trace function performance by lazily calling fast2locals
+    and locals2fast only if truly necessary
+
 .. _`vmprof`: https://vmprof.readthedocs.org
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-15.11.0.html
 
