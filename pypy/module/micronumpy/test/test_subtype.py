@@ -437,7 +437,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert (b == a).all()
 
         d = np.empty([6,2], dtype=float)
-        d.view(int).fill(0xdeadbeef)
+        d.view('int64').fill(0xdeadbeef)
         e = d[0::3,:]
         e[...] = [[1, 2], [3, 4]]
         assert e.strides == (48, 8)
@@ -447,7 +447,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert (g == [[1, 2], [3, 4]]).all()
 
         k = np.empty([2, 8], dtype=float)
-        k.view(int).fill(0xdeadbeef)
+        k.view('int64').fill(0xdeadbeef)
         m = k[:, ::-4]
         m[...] = [[1, 2], [3, 4]]
         assert m.strides == (64, -32)

@@ -430,5 +430,5 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
         assert (out == arr * 2).all()
 
         times2prime = mod.create_ufunc_signature()
-        out = times2prime(arr, sig='(d)->(d)', extobj=[0, 0, None])
+        out = times2prime(arr, sig='d->d', extobj=[0, 0, None])
         assert (out == arr * 2).all()
