@@ -270,8 +270,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         aout1 = ufunc_add(ai, ai[0,:,:])
         assert aout1.shape == (3, 2, 3)
         aout2 = ufunc_add(ai, ai[0,:,:])
-        aout1 = ufunc_sum(ai)
-        assert aout1.shape == (3, 3)
+        aout3 = ufunc_sum(ai)
+        assert aout3.shape == (3, 3)
+        aout4 = ufunc_add(ai, ai[0,:,:][None, :,:])
+        assert (aout1 == aout4).all()
         
     def test_frompyfunc_fortran(self):
         import sys

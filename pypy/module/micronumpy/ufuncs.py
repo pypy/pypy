@@ -1117,7 +1117,7 @@ class W_UfuncGeneric(W_Ufunc):
             for j in range(offset, len(iter_shape)):
                 x = iter_shape[j + offset]
                 y = dims_to_broadcast[j]
-                if y != 0 and x != 0 and ((x > y and x % y) or y %x):
+                if y > 1 and x != 0 and ((x > y and x % y) or y %x):
                     raise oefmt(space.w_ValueError, "%s: %s operand %d has a "
                         "mismatch in its broadcast dimension %d "
                         "(size %d is different from %d)",
