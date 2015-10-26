@@ -1,5 +1,4 @@
 
-# TODO
-WORD = 8
+WORD = 4
 
 JITFRAME_FIXED_SIZE = 48

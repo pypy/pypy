@@ -37,6 +37,7 @@ RPython.
 
    arm
    logging
+   s390x
 
 
 Writing your own interpreter in RPython

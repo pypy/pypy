@@ -1,5 +1,7 @@
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+from rpython.jit.backend.zarch.assembler import AssemblerZARCH
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rlib import rgc
 
 class AbstractZARCHCPU(AbstractLLCPU):
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
@@ -14,4 +16,13 @@ class AbstractZARCHCPU(AbstractLLCPU):
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
 class CPU_S390_64(AbstractZARCHCPU):
-    pass
+    def setup(self):
+        self.assembler = AssemblerZARCH(self)
+
+    @rgc.no_release_gil
+    def setup_once(self):
+        self.assembler.setup_once()
+
+    @rgc.no_release_gil
+    def finish_once(self):
+        self.assembler.finish_once()
