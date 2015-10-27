@@ -50,12 +50,14 @@ vectorization add `--jit vec_all=1`
 
 Benchmarks and a summary of this work appear `here`_
 
-Internal Refactoring and Warmup Time Improvement
-================================================
+Internal Refactoring: Warmup Time Improvement and Reduced Memory Usage
+======================================================================
 
 Maciej Fijalkowski and Armin Rigo refactored internals of rpython that now allow
-PyPy to more efficiently use `guards`_ in jitted code. They also rewrote unrolling,
-leading to a warmup time improvement of 20% or so.
+PyPy to more efficiently use `guards`_ in jitted code. They also rewrote 
+unrolling, leading to a warmup time improvement of 20% or so. The reduction in
+guards also means a reduction in the use of memory, also a savings of around
+20%.
 
 Numpy
 =====
