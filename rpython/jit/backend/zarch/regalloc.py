@@ -72,13 +72,14 @@ class FPRegisterManager(RegisterManager):
     def call_result_location(self, v):
         return r.f1
 
+    def place_in_pool(self, var):
+        offset = self.assembler.pool.place(var)
+        return locations.pool(offset, r.POOL)
+
     def ensure_reg(self, box):
         if isinstance(box, Const):
-            loc = self.get_scratch_reg()
-            immadrvalue = self.convert_to_adr(box)
-            mc = self.assembler.mc
-            mc.load_imm(r.SCRATCH, immadrvalue)
-            mc.lfdx(loc.value, 0, r.SCRATCH.value)
+            # TODO, allocate in a register or just load it straight from pool?
+            return self.place_in_pool(box)
         else:
             assert box in self.temp_boxes
             loc = self.make_sure_var_in_reg(box,
@@ -462,7 +463,11 @@ class Regalloc(BaseRegalloc):
     def prepare_increment_debug_counter(self, op):
         pass # XXX
 
-    prepare_int_add = regallochelp._prepare_binary_arith
+    prepare_int_add = regallochelp._prepare_int_binary_arith
+    prepare_float_add = regallochelp._prepare_float_binary_arith
+    prepare_float_sub = regallochelp._prepare_float_binary_arith
+    prepare_float_mul = regallochelp._prepare_float_binary_arith
+    prepare_float_div = regallochelp._prepare_float_binary_arith
 
     def prepare_finish(self, op):
         descr = op.getdescr()

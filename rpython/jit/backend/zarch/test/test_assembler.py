@@ -111,7 +111,7 @@ class TestRunningAssembler(object):
         i = rop.INT_ADD
         from rpython.jit.backend.zarch import assembler
         assert assembler.asm_operations[i] \
-            is AssemblerZARCH.emit_op_int_add.im_func
+            is AssemblerZARCH.emit_int_add.im_func
 
     def test_byte_count_instr(self):
         byte_count(self.mc.BRC) == 4
@@ -130,11 +130,11 @@ class TestRunningAssembler(object):
 
     def test_simple_func(self):
         # enter
-        self.a.mc.STMG(reg.r11, reg.r15, loc.addr(-96, reg.sp))
-        self.a.mc.AHI(reg.sp, loc.imm(-96))
+        self.a.mc.STMG(reg.r11, reg.r15, loc.addr(-96, reg.SP))
+        self.a.mc.AHI(reg.SP, loc.imm(-96))
         # from the start of BRASL to end of jmpto there are 8+6 bytes
         self.a.mc.BRASL(reg.r14, loc.imm(8+6))
-        self.a.mc.LMG(reg.r11, reg.r15, loc.addr(0, reg.sp))
+        self.a.mc.LMG(reg.r11, reg.r15, loc.addr(0, reg.SP))
         self.a.jmpto(reg.r14)
 
         addr = self.a.mc.get_relative_pos()

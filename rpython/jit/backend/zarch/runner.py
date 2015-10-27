@@ -16,6 +16,8 @@ class AbstractZARCHCPU(AbstractLLCPU):
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
 class CPU_S390_64(AbstractZARCHCPU):
+    supports_floats = True
+
     def setup(self):
         self.assembler = AssemblerZARCH(self)
 

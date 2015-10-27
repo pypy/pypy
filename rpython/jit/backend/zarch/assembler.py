@@ -4,13 +4,14 @@ from rpython.jit.backend.llsupport import jitframe, rewrite
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.zarch import conditions as c
 from rpython.jit.backend.zarch import registers as r
-from rpython.jit.backend.zarch import locations as loc
+from rpython.jit.backend.zarch import locations as l
 from rpython.jit.backend.zarch.codebuilder import InstrBuilder
 from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.zarch.arch import (WORD,
         STD_FRAME_SIZE_IN_BYTES, GPR_STACK_SAVE_IN_BYTES,
         THREADLOCAL_ADDR_OFFSET)
-from rpython.jit.backend.zarch.opassembler import IntOpAssembler
+from rpython.jit.backend.zarch.opassembler import (IntOpAssembler,
+    FloatOpAssembler)
 from rpython.jit.backend.zarch.regalloc import Regalloc
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
@@ -19,13 +20,97 @@ from rpython.jit.metainterp.history import (INT, REF, FLOAT)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
 from rpython.rlib import rgc
+from rpython.rlib.longlong2float import float2longlong
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 
-class AssemblerZARCH(BaseAssembler, IntOpAssembler):
+class LiteralPool(object):
+    def __init__(self):
+        self.size = 0
+        # the offset to index the pool
+        self.rel_offset = 0
+        self.offset = 0
+        self.places = []
+
+    def place(self, var):
+        assert var.is_constant()
+        self.places.append(var)
+        off = self.rel_offset
+        self.rel_offset += 8
+        return off
+
+    def ensure_can_hold_constants(self, op):
+        for arg in op.getarglist():
+            if arg.is_constant():
+                self.reserve_literal(8)
+
+    def reserve_literal(self, size):
+        self.size += size
+
+    def reset(self):
+        self.size = 0
+        self.offset = 0
+        self.rel_offset = 0
+
+    def walk_operations(self, operations):
+        # O(len(operations)). I do not think there is a way
+        # around this.
+        #
+        # Problem:
+        # constants such as floating point operations, plain pointers,
+        # or integers might serve as parameter to an operation. thus
+        # it must be loaded into a register. You cannot do this with
+        # assembler immediates, because the biggest immediate value
+        # is 32 bit for branch instructions.
+        #
+        # Solution:
+        # the current solution (gcc does the same), use a literal pool
+        # located at register r13. This one can easily offset with 20
+        # bit signed values (should be enough)
+        for op in operations:
+            self.ensure_can_hold_constants(op)
+
+    def pre_assemble(self, mc):
+        if self.size == 0:
+            # no pool needed!
+            return
+        if self.size % 2 == 1:
+            self.size += 1
+        assert self.size < 2**16-1
+        self.offset = mc.get_relative_pos()
+        mc.BRAS(r.POOL, l.imm(self.size))
+        mc.write('\x00' * self.size)
+        print "pool with %d bytes %d // 8" % (self.size, self.size // 8)
+
+    def overwrite_64(self, mc, index, value):
+        mc.overwrite(index,   chr(value >> 56 & 0xff))
+        mc.overwrite(index+1, chr(value >> 48 & 0xff))
+        mc.overwrite(index+2, chr(value >> 40 & 0xff))
+        mc.overwrite(index+3, chr(value >> 32 & 0xff))
+        mc.overwrite(index+4, chr(value >> 24 & 0xff))
+        mc.overwrite(index+5, chr(value >> 16 & 0xff))
+        mc.overwrite(index+6, chr(value >> 8 & 0xff))
+        mc.overwrite(index+7, chr(value & 0xff))
+
+    def post_assemble(self, mc):
+        assert self.offset != 0
+        for var in self.places:
+            if var.type == FLOAT:
+                self.overwrite_64(mc, self.offset, float2longlong(var.value))
+                self.offset += 8
+            elif var.type == INT:
+                self.overwrite(mc, self.offset, var.value)
+                self.offset += 8
+            else:
+                raise NotImplementedError
+        self.places = []
+
+class AssemblerZARCH(BaseAssembler,
+        IntOpAssembler, FloatOpAssembler):
 
     def __init__(self, cpu, translate_support_code=False):
         BaseAssembler.__init__(self, cpu, translate_support_code)
         self.mc = None
+        self.pool = LiteralPool()
         self.pending_guards = None
         self.current_clt = None
         self._regalloc = None
@@ -69,17 +154,16 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
     def gen_func_prolog(self):
         """ NOT_RPYTHON """
         STACK_FRAME_SIZE = 40
-        self.mc.STMG(r.r11, r.r15, loc.addr(-STACK_FRAME_SIZE, r.SP))
-        self.mc.AHI(r.sp, loc.imm(-STACK_FRAME_SIZE))
+        self.mc.STMG(r.r11, r.r15, l.addr(-STACK_FRAME_SIZE, r.SP))
+        self.mc.AHI(r.SP, l.imm(-STACK_FRAME_SIZE))
 
     def gen_func_epilog(self):
         """ NOT_RPYTHON """
-        self.mc.LMG(r.r11, r.r15, loc.addr(0, r.SP))
+        self.mc.LMG(r.r11, r.r15, l.addr(0, r.SP))
         self.jmpto(r.r14)
 
     def jmpto(self, register):
-        # TODO, manual says this is a performance killer, there
-        # might be another operation for unconditional JMP?
+        # unconditional jump
         self.mc.BCR_rr(0xf, register.value)
 
     def _build_failure_recovery(self, exc, withfloats=False):
@@ -90,8 +174,8 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
         # this function is called (see generate_quick_failure()).
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.r2, loc.addr(ofs, r.SPP))
-        mc.STG(r.r3, loc.addr(ofs2, r.SPP))
+        mc.STG(r.r2, l.addr(ofs, r.SPP))
+        mc.STG(r.r3, l.addr(ofs2, r.SPP))
 
         self._push_core_regs_to_jitframe(mc)
         if withfloats:
@@ -193,8 +277,12 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
         operations = regalloc.prepare_loop(inputargs, operations,
                                            looptoken, clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
+        self.pool.reset()
+        self.pool.walk_operations(operations)
+        self.pool.pre_assemble(self.mc)
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
                                                    operations)
+        self.pool.post_assemble(self.mc)
         self.update_frame_depth(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
@@ -272,7 +360,7 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
             # move from memory to fp register
             elif loc.is_fp_reg():
                 assert prev_loc.type == FLOAT, 'source not float location'
-                self.mc.lfd(loc, r.SPP, offset)
+                self.mc.LDY(loc, l.addr(offset, r.SPP))
                 return
             assert 0, "not supported location"
         elif prev_loc.is_core_reg():
@@ -387,11 +475,11 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
         #self.mc.write64(0)
 
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
-        self.mc.STMG(r.r6, r.r15, loc.addr(-GPR_STACK_SAVE_IN_BYTES, r.SP))
-        self.mc.AGHI(r.SP, loc.imm(-STD_FRAME_SIZE_IN_BYTES))
+        self.mc.STMG(r.r6, r.r15, l.addr(-GPR_STACK_SAVE_IN_BYTES, r.SP))
+        self.mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
 
         # save r4, the second argument, to THREADLOCAL_ADDR_OFFSET
-        self.mc.STG(r.r3, loc.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
+        self.mc.STG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
 
         # move the first argument to SPP: the jitframe object
         self.mc.LGR(r.SPP, r.r2)
@@ -410,18 +498,18 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
 
         # restore registers r6-r15
         upoffset = STD_FRAME_SIZE_IN_BYTES-GPR_STACK_SAVE_IN_BYTES
-        self.mc.LMG(r.r6, r.r15, loc.addr(upoffset, r.SP))
+        self.mc.LMG(r.r6, r.r15, l.addr(upoffset, r.SP))
         self.jmpto(r.r14)
 
     def _push_core_regs_to_jitframe(self, mc, includes=r.MANAGED_REGS):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         assert len(includes) == 16
-        mc.STMG(r.r0, r.r15, loc.addr(base_ofs, r.SPP))
+        mc.STMG(r.r0, r.r15, l.addr(base_ofs, r.SPP))
 
     def _push_fp_regs_to_jitframe(self, mc, includes=r.MANAGED_FP_REGS):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         assert len(includes) == 16
-        mc.LMG(r.r0, r.r15, loc.addr(base_ofs, r.SPP))
+        mc.LMG(r.r0, r.r15, l.addr(base_ofs, r.SPP))
 
     # ________________________________________
     # ASSEMBLER EMISSION
@@ -434,10 +522,9 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
         if len(arglocs) > 1:
             [return_val, fail_descr_loc] = arglocs
             if op.getarg(0).type == FLOAT:
-                raise NotImplementedError
-                #self.mc.stfd(return_val, loc.addr(base_ofs, r.SPP))
+                self.mc.STD(return_val, l.addr(base_ofs, r.SPP))
             else:
-                self.mc.STG(return_val, loc.addr(base_ofs, r.SPP))
+                self.mc.STG(return_val, l.addr(base_ofs, r.SPP))
         else:
             [fail_descr_loc] = arglocs
 
@@ -464,9 +551,9 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
 
         assert fail_descr_loc.getint() <= 2**12-1
         self.mc.LGHI(r.r5, fail_descr_loc)
-        self.mc.STG(r.r5, loc.addr(ofs, r.SPP))
+        self.mc.STG(r.r5, l.addr(ofs, r.SPP))
         self.mc.XGR(r.r2, r.r2)
-        self.mc.STG(r.r2, loc.addr(ofs2, r.SPP))
+        self.mc.STG(r.r2, l.addr(ofs2, r.SPP))
 
         # exit function
         self._call_footer()

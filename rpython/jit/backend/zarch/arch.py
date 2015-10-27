@@ -1,4 +1,5 @@
-WORD = 8
+WORD = 8 # well, we only support 64 bit
+DOUBLE_WORD = 8
 
 #
 #                                                 OFFSET

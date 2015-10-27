@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.history import INT, FLOAT
-from rpython.jit.backend.zarch.arch import WORD
+from rpython.jit.backend.zarch.arch import WORD, DOUBLE_WORD
 
 class AssemblerLocation(object):
     _immutable_ = True
@@ -17,13 +17,16 @@ class AssemblerLocation(object):
     def is_core_reg(self):
         return False
 
-    def is_vfp_reg(self):
+    def is_fp_reg(self):
         return False
 
     def is_imm_float(self):
         return False
 
     def is_float(self):
+        return False
+
+    def is_in_pool(self):
         return False
 
     def as_key(self):
@@ -52,7 +55,7 @@ class RegisterLocation(AssemblerLocation):
 class FloatRegisterLocation(RegisterLocation):
     _immutable_ = True
     type = FLOAT
-    width = WORD
+    width = DOUBLE_WORD
 
     def __repr__(self):
         return 'f%d' % self.value
@@ -60,7 +63,7 @@ class FloatRegisterLocation(RegisterLocation):
     def is_core_reg(self):
         return False
 
-    def is_vfp_reg(self):
+    def is_fp_reg(self):
         return True
 
     def as_key(self):            # 20 <= as_key <= 35
@@ -84,7 +87,6 @@ class ImmLocation(AssemblerLocation):
 
     def is_imm(self):
         return True
-
 
 class ConstFloatLoc(AssemblerLocation):
     """This class represents an imm float value which is stored in memory at
@@ -183,11 +185,39 @@ class AddressLocation(AssemblerLocation):
         if length:
             self.length = length.value
 
+class PoolLoc(AddressLocation):
+    _immutable_ = True
+    width = WORD
+
+    def __init__(self, offset, isfloat=False):
+        AddressLocation.__init__(self, None, None, offset, None)
+        self.base = 13
+        self.isfloat = isfloat
+
+    def is_in_pool(self):
+        return True
+
+    def is_imm(self):
+        return True
+
+    def is_imm_float(self):
+        return self.isfloat
+
+    def is_float(self):
+        return self.isfloat
+
+    def __repr__(self):
+        return "pool(i,%d)" %  self.value
+
+
 def addr(displace, basereg=None, indexreg=None, length=None):
     return AddressLocation(basereg, indexreg, displace, length)
 
 def imm(i):
     return ImmLocation(i)
+
+def pool(off, float=False):
+    return PoolLoc(off, float)
 
 def get_fp_offset(base_ofs, position):
     from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
