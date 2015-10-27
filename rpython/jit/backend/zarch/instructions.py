@@ -73,14 +73,22 @@ memory_mnemonic_codes = {
     # load memory
     'LMD':     ('sse',   ['\xEF']),
     'LMG':     ('rsy',   ['\xEB','\x04']),
+    'LHI':     ('ri',    ['\xA7','\x08']),
     'LGHI':    ('ri',    ['\xA7','\x09']),
     'LR':      ('rr',    ['\x18']),
     'LGR':     ('rre',   ['\xB9','\x04']),
     'LG':      ('rxy',   ['\xE3','\x04']),
 
+    # store memory
+    'STMG':    ('rsy',   ['\xEB','\x24']),
+    'ST':      ('rx',    ['\x50']),
+    'STG':     ('rxy',   ['\xE3','\x24']),
+    'STY':     ('rxy',   ['\xE3','\x50']),
+
     # store float
     'STE':     ('rx',    ['\x70']),
     'STD':     ('rx',    ['\x60']),
+
 
     # load binary float
     # E -> short (32bit),
@@ -166,7 +174,6 @@ all_mnemonic_codes = {
     'MVCK':    ('ssd',   ['\xD9']),
 
     'PKA':     ('ssf',   ['\xE9']),
-    'STMG':    ('rsy',   ['\xEB','\x24']),
 
     'SVC':     ('i',     ['\x0A']),
 }

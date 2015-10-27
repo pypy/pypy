@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.history import INT, FLOAT
-from rpython.jit.backend.zarch.arch import WORD, JITFRAME_FIXED_SIZE
+from rpython.jit.backend.zarch.arch import WORD
 
 class AssemblerLocation(object):
     _immutable_ = True
@@ -190,6 +190,7 @@ def imm(i):
     return ImmLocation(i)
 
 def get_fp_offset(base_ofs, position):
+    from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
     return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)
 
 

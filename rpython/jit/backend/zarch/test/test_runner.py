@@ -15,7 +15,7 @@ import py
 class FakeStats(object):
     pass
 
-class TestPPC(LLtypeBackendTest):
+class TestZARCH(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 

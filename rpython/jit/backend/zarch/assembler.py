@@ -6,12 +6,16 @@ from rpython.jit.backend.zarch import conditions as c
 from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch import locations as loc
 from rpython.jit.backend.zarch.codebuilder import InstrBuilder
-from rpython.jit.backend.zarch.arch import (WORD, JITFRAME_FIXED_SIZE)
+from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
+from rpython.jit.backend.zarch.arch import (WORD,
+        STD_FRAME_SIZE_IN_BYTES, GPR_STACK_SAVE_IN_BYTES,
+        THREADLOCAL_ADDR_OFFSET)
 from rpython.jit.backend.zarch.opassembler import IntOpAssembler
 from rpython.jit.backend.zarch.regalloc import Regalloc
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
                                 have_debug_prints)
+from rpython.jit.metainterp.history import (INT, REF, FLOAT)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
 from rpython.rlib import rgc
@@ -30,6 +34,7 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
         self.stack_check_slowpath = 0
         self.loop_run_counters = []
         self.gcrootmap_retaddr_forced = 0
+        self.failure_recovery_code = [0, 0, 0, 0]
 
     def setup(self, looptoken):
         BaseAssembler.setup(self, looptoken)
@@ -62,12 +67,14 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
         return clt.asmmemmgr_blocks
 
     def gen_func_prolog(self):
+        """ NOT_RPYTHON """
         STACK_FRAME_SIZE = 40
-        self.mc.STMG(r.r11, r.r15, loc.addr(-STACK_FRAME_SIZE, r.sp))
+        self.mc.STMG(r.r11, r.r15, loc.addr(-STACK_FRAME_SIZE, r.SP))
         self.mc.AHI(r.sp, loc.imm(-STACK_FRAME_SIZE))
 
     def gen_func_epilog(self):
-        self.mc.LMG(r.r11, r.r15, loc.addr(0, r.SPP))
+        """ NOT_RPYTHON """
+        self.mc.LMG(r.r11, r.r15, loc.addr(0, r.SP))
         self.jmpto(r.r14)
 
     def jmpto(self, register):
@@ -76,7 +83,42 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
         self.mc.BCR_rr(0xf, register.value)
 
     def _build_failure_recovery(self, exc, withfloats=False):
-        pass # TODO
+        mc = InstrBuilder()
+        self.mc = mc
+        # fill in the jf_descr and jf_gcmap fields of the frame according
+        # to which failure we are resuming from.  These are set before
+        # this function is called (see generate_quick_failure()).
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.STG(r.r2, loc.addr(ofs, r.SPP))
+        mc.STG(r.r3, loc.addr(ofs2, r.SPP))
+
+        self._push_core_regs_to_jitframe(mc)
+        if withfloats:
+            self._push_fp_regs_to_jitframe(mc)
+
+        if exc:
+            pass # TODO
+            #xxx
+            ## We might have an exception pending.
+            #mc.load_imm(r.r2, self.cpu.pos_exc_value())
+            ## Copy it into 'jf_guard_exc'
+            #offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            #mc.load(r.r0.value, r.r2.value, 0)
+            #mc.store(r.r0.value, r.SPP.value, offset)
+            ## Zero out the exception fields
+            #diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
+            #assert _check_imm_arg(diff)
+            #mc.li(r.r0.value, 0)
+            #mc.store(r.r0.value, r.r2.value, 0)
+            #mc.store(r.r0.value, r.r2.value, diff)
+
+        # now we return from the complete frame, which starts from
+        # _call_header_with_stack_check().  The _call_footer below does it.
+        self._call_footer()
+        rawstart = mc.materialize(self.cpu, [])
+        self.failure_recovery_code[exc + 2 * withfloats] = rawstart
+        self.mc = None
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         pass # TODO
@@ -106,7 +148,23 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
         pass # TODO
 
     def _call_header_with_stack_check(self):
-        pass # TODO
+        self._call_header()
+        if self.stack_check_slowpath == 0:
+            pass            # not translated
+        else:
+            endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
+            diff = lengthaddr - endaddr
+            assert _check_imm_arg(diff)
+
+            mc = self.mc
+            mc.load_imm(r.SCRATCH, self.stack_check_slowpath)
+            mc.load_imm(r.SCRATCH2, endaddr)                 # li r2, endaddr
+            mc.mtctr(r.SCRATCH.value)
+            mc.load(r.SCRATCH.value, r.SCRATCH2.value, 0)    # ld r0, [end]
+            mc.load(r.SCRATCH2.value, r.SCRATCH2.value, diff)# ld r2, [length]
+            mc.subf(r.SCRATCH.value, r.SP.value, r.SCRATCH.value)  # sub r0, SP
+            mc.cmp_op(0, r.SCRATCH.value, r.SCRATCH2.value, signed=False)
+            mc.bgtctrl()
 
     @rgc.no_release_gil
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
@@ -322,7 +380,48 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
                 clt.invalidate_positions.append((rawstart + relpos,
                                                  relative_target))
 
+    def _call_header(self):
+        # Reserve space for a function descriptor, 3 words
+        #self.mc.write64(0)
+        #self.mc.write64(0)
+        #self.mc.write64(0)
 
+        # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
+        self.mc.STMG(r.r6, r.r15, loc.addr(-GPR_STACK_SAVE_IN_BYTES, r.SP))
+        self.mc.AGHI(r.SP, loc.imm(-STD_FRAME_SIZE_IN_BYTES))
+
+        # save r4, the second argument, to THREADLOCAL_ADDR_OFFSET
+        self.mc.STG(r.r3, loc.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
+
+        # move the first argument to SPP: the jitframe object
+        self.mc.LGR(r.SPP, r.r2)
+
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self._call_header_shadowstack(gcrootmap)
+
+    def _call_footer(self):
+        # the return value is the jitframe
+        self.mc.LGR(r.r2, r.SPP)
+
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self._call_footer_shadowstack(gcrootmap)
+
+        # restore registers r6-r15
+        upoffset = STD_FRAME_SIZE_IN_BYTES-GPR_STACK_SAVE_IN_BYTES
+        self.mc.LMG(r.r6, r.r15, loc.addr(upoffset, r.SP))
+        self.jmpto(r.r14)
+
+    def _push_core_regs_to_jitframe(self, mc, includes=r.MANAGED_REGS):
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        assert len(includes) == 16
+        mc.STMG(r.r0, r.r15, loc.addr(base_ofs, r.SPP))
+
+    def _push_fp_regs_to_jitframe(self, mc, includes=r.MANAGED_FP_REGS):
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        assert len(includes) == 16
+        mc.LMG(r.r0, r.r15, loc.addr(base_ofs, r.SPP))
 
     # ________________________________________
     # ASSEMBLER EMISSION
@@ -331,7 +430,52 @@ class AssemblerZARCH(BaseAssembler, IntOpAssembler):
         pass # TODO
 
     def emit_finish(self, op, arglocs, regalloc):
-        pass # TODO
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        if len(arglocs) > 1:
+            [return_val, fail_descr_loc] = arglocs
+            if op.getarg(0).type == FLOAT:
+                raise NotImplementedError
+                #self.mc.stfd(return_val, loc.addr(base_ofs, r.SPP))
+            else:
+                self.mc.STG(return_val, loc.addr(base_ofs, r.SPP))
+        else:
+            [fail_descr_loc] = arglocs
+
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+
+        # gcmap logic here:
+        arglist = op.getarglist()
+        if arglist and arglist[0].type == REF:
+            if self._finish_gcmap:
+                # we're returning with a guard_not_forced_2, and
+                # additionally we need to say that the result contains
+                # a reference too:
+                self._finish_gcmap[0] |= r_uint(1)
+                gcmap = self._finish_gcmap
+            else:
+                gcmap = self.gcmap_for_finish
+        elif self._finish_gcmap:
+            # we're returning with a guard_not_forced_2
+            gcmap = self._finish_gcmap
+        else:
+            gcmap = lltype.nullptr(jitframe.GCMAP)
+        # TODO self.load_gcmap(self.mc, r.r2, gcmap)
+
+        assert fail_descr_loc.getint() <= 2**12-1
+        self.mc.LGHI(r.r5, fail_descr_loc)
+        self.mc.STG(r.r5, loc.addr(ofs, r.SPP))
+        self.mc.XGR(r.r2, r.r2)
+        self.mc.STG(r.r2, loc.addr(ofs2, r.SPP))
+
+        # exit function
+        self._call_footer()
+
+    def load_gcmap(self, mc, reg, gcmap):
+        # load the current gcmap into register 'reg'
+        ptr = rffi.cast(lltype.Signed, gcmap)
+        #mc.LGHI(mc.pool
+        #mc.load_imm(reg, ptr)
 
 def notimplemented_op(asm, op, arglocs, regalloc):
     print "[ZARCH/asm] %s not implemented" % op.getopname()

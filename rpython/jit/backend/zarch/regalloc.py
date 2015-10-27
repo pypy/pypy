@@ -465,7 +465,17 @@ class Regalloc(BaseRegalloc):
     prepare_int_add = regallochelp._prepare_binary_arith
 
     def prepare_finish(self, op):
-        return []
+        descr = op.getdescr()
+        fail_descr = cast_instance_to_gcref(descr)
+        # we know it does not move, but well
+        rgc._make_sure_does_not_move(fail_descr)
+        fail_descr = rffi.cast(lltype.Signed, fail_descr)
+        if op.numargs() > 0:
+            loc = self.ensure_reg(op.getarg(0))
+            locs = [loc, imm(fail_descr)]
+        else:
+            locs = [imm(fail_descr)]
+        return locs
 
 def notimplemented(self, op):
     msg = '[S390X/regalloc] %s not implemented\n' % op.getopname()
