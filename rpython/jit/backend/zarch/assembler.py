@@ -76,8 +76,8 @@ class LiteralPool(object):
         if self.size % 2 == 1:
             self.size += 1
         assert self.size < 2**16-1
+        mc.BRAS(r.POOL, l.imm(self.size+mc.BRAS._byte_count))
         self.offset = mc.get_relative_pos()
-        mc.BRAS(r.POOL, l.imm(self.size))
         mc.write('\x00' * self.size)
         print "pool with %d bytes %d // 8" % (self.size, self.size // 8)
 
