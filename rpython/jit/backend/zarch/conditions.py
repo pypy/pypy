@@ -6,6 +6,10 @@ LT = loc.imm(0x4)
 GT = loc.imm(0x2)
 LE = loc.imm(EQ.value | LT.value)
 GE = loc.imm(EQ.value | GT.value)
+NE = loc.imm(LT.value | GT.value)
 OVERFLOW = loc.imm(0x1)
 
 cond_none = loc.imm(0x0)
+
+def negate(cond):
+    return cond

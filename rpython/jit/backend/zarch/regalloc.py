@@ -8,7 +8,7 @@ from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPt
                                             INT, REF, FLOAT, VOID)
 from rpython.jit.metainterp.history import JitCellToken, TargetToken
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.backend.zarch import locations
+from rpython.jit.backend.zarch import locations as l
 from rpython.rtyper.lltypesystem import rffi, lltype, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -16,7 +16,7 @@ from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.descr import ArrayDescr
 import rpython.jit.backend.zarch.registers as r
 import rpython.jit.backend.zarch.conditions as c
-import rpython.jit.backend.zarch.helper.regalloc as regallochelp
+import rpython.jit.backend.zarch.helper.regalloc as helper
 from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
@@ -64,7 +64,7 @@ class FPRegisterManager(RegisterManager):
 
     def convert_to_imm(self, c):
         adr = self.convert_to_adr(c)
-        return locations.ConstFloatLoc(adr)
+        return l.ConstFloatLoc(adr)
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
@@ -74,7 +74,7 @@ class FPRegisterManager(RegisterManager):
 
     def place_in_pool(self, var):
         offset = self.assembler.pool.place(var)
-        return locations.pool(offset, r.POOL)
+        return l.pool(offset, r.POOL)
 
     def ensure_reg(self, box):
         if isinstance(box, Const):
@@ -116,7 +116,7 @@ class ZARCHRegisterManager(RegisterManager):
 
     def convert_to_imm(self, c):
         val = self.convert_to_int(c)
-        return locations.ImmLocation(val)
+        return l.ImmLocation(val)
 
     def ensure_reg(self, box):
         if isinstance(box, Const):
@@ -143,8 +143,8 @@ class ZARCHFrameManager(FrameManager):
         self.base_ofs = base_ofs
 
     def frame_pos(self, loc, box_type):
-        #return locations.StackLocation(loc, get_fp_offset(self.base_ofs, loc), box_type)
-        return locations.StackLocation(loc, get_fp_offset(self.base_ofs, loc), box_type)
+        #return l.StackLocation(loc, get_fp_offset(self.base_ofs, loc), box_type)
+        return l.StackLocation(loc, get_fp_offset(self.base_ofs, loc), box_type)
 
     @staticmethod
     def frame_size(type):
@@ -152,7 +152,7 @@ class ZARCHFrameManager(FrameManager):
 
     @staticmethod
     def get_loc_index(loc):
-        assert isinstance(loc, locations.StackLocation)
+        assert isinstance(loc, l.StackLocation)
         return loc.position
 
 
@@ -350,7 +350,7 @@ class Regalloc(BaseRegalloc):
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         for box, loc in self.fm.bindings.iteritems():
             if box.type == REF and self.rm.is_still_alive(box):
-                assert isinstance(loc, locations.StackLocation)
+                assert isinstance(loc, l.StackLocation)
                 val = loc.get_position() + r.JITFRAME_FIXED_SIZE
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         return gcmap
@@ -463,11 +463,103 @@ class Regalloc(BaseRegalloc):
     def prepare_increment_debug_counter(self, op):
         pass # XXX
 
-    prepare_int_add = regallochelp._prepare_int_binary_arith
-    prepare_float_add = regallochelp._prepare_float_binary_arith
-    prepare_float_sub = regallochelp._prepare_float_binary_arith
-    prepare_float_mul = regallochelp._prepare_float_binary_arith
-    prepare_float_div = regallochelp._prepare_float_binary_arith
+    prepare_int_add = helper.prepare_int_add_or_mul
+    prepare_int_sub = helper.prepare_int_sub
+    prepare_int_mul = helper.prepare_int_add_or_mul
+
+    prepare_int_le = helper.prepare_cmp_op
+    prepare_int_lt = helper.prepare_cmp_op
+    prepare_int_ge = helper.prepare_cmp_op
+    prepare_int_gt = helper.prepare_cmp_op
+    prepare_int_eq = helper.prepare_cmp_op
+    prepare_int_ne = helper.prepare_cmp_op
+
+    prepare_float_add = helper.prepare_binary_op
+    prepare_float_sub = helper.prepare_binary_op
+    prepare_float_mul = helper.prepare_binary_op
+    prepare_float_truediv = helper.prepare_binary_op
+
+    def _prepare_guard(self, op, args=None):
+        if args is None:
+            args = []
+        args.append(imm(self.fm.get_frame_depth()))
+        for arg in op.getfailargs():
+            if arg:
+                args.append(self.loc(arg))
+            else:
+                args.append(None)
+        self.possibly_free_vars(op.getfailargs())
+        #
+        # generate_quick_failure() produces up to 14 instructions per guard
+        self.limit_loop_break -= 14 * 4
+        #
+        return args
+
+    def load_condition_into_cc(self, box):
+        if self.assembler.guard_success_cc == c.cond_none:
+            xxx
+            loc = self.ensure_reg(box)
+            mc = self.assembler.mc
+            mc.cmp_op(loc, l.imm(0), imm=True)
+            self.assembler.guard_success_cc = c.NE
+
+    def _prepare_guard_cc(self, op):
+        self.load_condition_into_cc(op.getarg(0))
+        return self._prepare_guard(op)
+
+    prepare_guard_true = _prepare_guard_cc
+    prepare_guard_false = _prepare_guard_cc
+    prepare_guard_nonnull = _prepare_guard_cc
+    prepare_guard_isnull = _prepare_guard_cc
+
+    def prepare_label(self, op):
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        inputargs = op.getarglist()
+        arglocs = [None] * len(inputargs)
+        #
+        # we use force_spill() on the boxes that are not going to be really
+        # used any more in the loop, but that are kept alive anyway
+        # by being in a next LABEL's or a JUMP's argument or fail_args
+        # of some guard
+        position = self.rm.position
+        for arg in inputargs:
+            assert not isinstance(arg, Const)
+            if self.last_real_usage.get(arg, -1) <= position:
+                self.force_spill_var(arg)
+        #
+        # we need to make sure that no variable is stored in spp (=r31)
+        for arg in inputargs:
+            assert self.loc(arg) is not r.SPP, (
+                "variable stored in spp in prepare_label")
+        self.rm.bindings_to_frame_reg.clear()
+        #
+        for i in range(len(inputargs)):
+            arg = inputargs[i]
+            assert not isinstance(arg, Const)
+            loc = self.loc(arg)
+            assert loc is not r.SPP
+            arglocs[i] = loc
+            if loc.is_reg():
+                self.fm.mark_as_free(arg)
+        #
+        # if we are too close to the start of the loop, the label's target may
+        # get overridden by redirect_call_assembler().  (rare case)
+        self.flush_loop()
+        #
+        descr._zarch_arglocs = arglocs
+        descr._ll_loop_code = self.assembler.mc.currpos()
+        descr._zarch_clt = self.assembler.current_clt
+        self.assembler.target_tokens_currently_compiling[descr] = None
+        self.possibly_free_vars_for_op(op)
+        #
+        # if the LABEL's descr is precisely the target of the JUMP at the
+        # end of the same loop, i.e. if what we are compiling is a single
+        # loop that ends up jumping to this LABEL, then we can now provide
+        # the hints about the expected position of the spilled variables.
+        jump_op = self.final_jump_op
+        if jump_op is not None and jump_op.getdescr() is descr:
+            self._compute_hint_frame_locations_from_descr(descr)
 
     def prepare_finish(self, op):
         descr = op.getdescr()

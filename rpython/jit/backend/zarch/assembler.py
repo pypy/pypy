@@ -11,7 +11,7 @@ from rpython.jit.backend.zarch.arch import (WORD,
         STD_FRAME_SIZE_IN_BYTES, GPR_STACK_SAVE_IN_BYTES,
         THREADLOCAL_ADDR_OFFSET)
 from rpython.jit.backend.zarch.opassembler import (IntOpAssembler,
-    FloatOpAssembler)
+    FloatOpAssembler, GuardOpAssembler)
 from rpython.jit.backend.zarch.regalloc import Regalloc
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
@@ -105,7 +105,8 @@ class LiteralPool(object):
         self.places = []
 
 class AssemblerZARCH(BaseAssembler,
-        IntOpAssembler, FloatOpAssembler):
+        IntOpAssembler, FloatOpAssembler,
+        GuardOpAssembler):
 
     def __init__(self, cpu, translate_support_code=False):
         BaseAssembler.__init__(self, cpu, translate_support_code)
@@ -144,6 +145,9 @@ class AssemblerZARCH(BaseAssembler,
         self._regalloc = None
         self.mc = None
         self.pending_guards = None
+
+    def target_arglocs(self, looptoken):
+        return looptoken._zarch_arglocs
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -333,7 +337,7 @@ class AssemblerZARCH(BaseAssembler,
         if prev_loc.is_imm():
             value = prev_loc.getint()
             # move immediate value to register
-            if loc.is_core_reg():
+            if loc.is_reg():
                 self.mc.load_imm(loc, value)
                 return
             # move immediate value to memory
@@ -347,7 +351,7 @@ class AssemblerZARCH(BaseAssembler,
         elif prev_loc.is_stack():
             offset = prev_loc.value
             # move from memory to register
-            if loc.is_core_reg():
+            if loc.is_reg():
                 self.mc.load(loc, r.SPP, offset)
                 return
             # move in memory
@@ -363,17 +367,15 @@ class AssemblerZARCH(BaseAssembler,
                 self.mc.LDY(loc, l.addr(offset, r.SPP))
                 return
             assert 0, "not supported location"
-        elif prev_loc.is_core_reg():
-            reg = prev_loc.value
+        elif prev_loc.is_reg():
             # move to another register
-            if loc.is_core_reg():
-                other_reg = loc.value
-                self.mc.mr(other_reg, reg)
+            if loc.is_reg():
+                self.mc.LGR(loc, prev_loc)
                 return
             # move to memory
             elif loc.is_stack():
                 offset = loc.value
-                self.mc.store(reg, r.SPP, offset)
+                self.mc.store(prev_loc, r.SPP, offset)
                 return
             assert 0, "not supported location"
         elif prev_loc.is_imm_float():
@@ -516,6 +518,9 @@ class AssemblerZARCH(BaseAssembler,
 
     def emit_increment_debug_counter(self, op, arglocs, regalloc):
         pass # TODO
+
+    def emit_label(self, op, arglocs, regalloc):
+        pass
 
     def emit_finish(self, op, arglocs, regalloc):
         base_ofs = self.cpu.get_baseofs_of_frame_field()

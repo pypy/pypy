@@ -21,6 +21,13 @@ arith_mnemonic_codes = {
     'AGF':     ('rxy',   ['\xE3','\x18']),
     'AHI':     ('ri',    ['\xA7','\x0A']),
     'AGHI':    ('ri',    ['\xA7','\x0B']),
+
+
+    # comparision
+    'CGR':     ('rre',    ['\xB9','\x20']),
+    'CG':      ('rxy',    ['\xE3','\x20']),
+    'CLGR':    ('rre',    ['\xB9','\x21']),
+    'CLG':     ('rxy',    ['\xE3','\x20']),
 }
 
 logic_mnemonic_codes = {

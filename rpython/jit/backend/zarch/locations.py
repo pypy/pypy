@@ -14,7 +14,7 @@ class AssemblerLocation(object):
     def is_raw_sp(self):
         return False
 
-    def is_core_reg(self):
+    def is_reg(self):
         return False
 
     def is_fp_reg(self):
@@ -45,7 +45,7 @@ class RegisterLocation(AssemblerLocation):
     def __repr__(self):
         return 'r%d' % self.value
 
-    def is_core_reg(self):
+    def is_reg(self):
         return True
 
     def as_key(self):       # 0 <= as_key <= 15
@@ -60,7 +60,7 @@ class FloatRegisterLocation(RegisterLocation):
     def __repr__(self):
         return 'f%d' % self.value
 
-    def is_core_reg(self):
+    def is_reg(self):
         return False
 
     def is_fp_reg(self):

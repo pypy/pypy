@@ -1,8 +1,9 @@
-from rpython.jit.backend.zarch import conditions as cond
-from rpython.jit.backend.zarch import registers as reg
-from rpython.jit.backend.zarch import locations as loc
+from rpython.jit.backend.zarch import conditions as c
+from rpython.jit.backend.zarch import registers as r
+from rpython.jit.backend.zarch import locations as l
 from rpython.jit.backend.zarch.instruction_builder import build_instr_codes
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
+from rpython.jit.backend.llsupport.assembler import GuardToken
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
@@ -19,15 +20,19 @@ clear_cache = rffi.llexternal(
 def binary_helper_call(name):
     function = getattr(support, 'arm_%s' % name)
 
-    def f(self, c=cond.AL):
+    def f(self, c=c.AL):
         """Generates a call to a helper function, takes its
         arguments in r0 and r1, result is placed in r0"""
         addr = rffi.cast(lltype.Signed, function)
         self.BL(addr, c)
     return f
 
-class Operand(object):
-    pass
+class ZARCHGuardToken(GuardToken):
+    def __init__(self, cpu, gcmap, descr, failargs, faillocs,
+                 guard_opnum, frame_depth, fcond=c.cond_none):
+        GuardToken.__init__(self, cpu, gcmap, descr, failargs, faillocs,
+                            guard_opnum, frame_depth)
+        self.fcond = fcond
 
 class AbstractZARCHBuilder(object):
     def write_i32(self, word):
@@ -85,10 +90,31 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         self._dump(addr, "jit-backend-dump", "s390x")
 
     def load(self, treg, sreg, offset):
-        self.LG(treg, loc.addr(offset, sreg))
+        self.LG(treg, l.addr(offset, sreg))
 
     def currpos(self):
         return self.get_relative_pos()
+
+    def cmp_op(self, a, b, pool=False, signed=True, fp=False):
+        if fp == True:
+            xxx
+            self.fcmpu(a, b)
+        else:
+            if signed:
+                if pool:
+                    # 64 bit immediate signed
+                    self.CLG(a, b)
+                else:
+                    # 64 bit signed
+                    self.CLGR(a, b)
+            else:
+                if pool:
+                    # 64 bit immediate unsigned
+                    self.CG(a, b)
+                else:
+                    # 64 bit unsigned
+                    self.CGR(a, b)
+
 
 _classes = (AbstractZARCHBuilder,)
 
