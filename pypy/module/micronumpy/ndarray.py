@@ -144,7 +144,7 @@ class __extend__(W_NDimArray):
             return [], w_index.get_shape(), w_index.get_shape(), [w_index]
         w_lst = space.listview(w_index)
         for w_item in w_lst:
-            if not space.isinstance_w(w_item, space.w_int):
+            if not (space.isinstance_w(w_item, space.w_int) or space.isinstance_w(w_item, space.w_float)):
                 break
         else:
             arr = convert_to_array(space, w_index)

@@ -676,6 +676,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[self.CustomIntObject(1)] = 100
         assert a[1] == 100
 
+    def test_setitem_list_of_float(self):
+        from numpy import arange
+        a = arange(10)
+        a[[0.9]] = -10
+        assert a[0] == -10
+
     def test_delitem(self):
         import numpy as np
         a = np.arange(10)
