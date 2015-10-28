@@ -69,7 +69,9 @@ class GuardOpAssembler(object):
         token.pos_jump_offset = self.mc.currpos()
         assert token.guard_not_invalidated() == is_guard_not_invalidated
         if not is_guard_not_invalidated:
-            self.mc.trap()     # has to be patched later on
+            pass
+            # TODO
+            #self.mc.trap()     # has to be patched later on
         self.pending_guard_tokens.append(token)
 
     def build_guard_token(self, op, frame_depth, arglocs, fcond):

@@ -1,6 +1,7 @@
 from rpython.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                     TempVar, compute_vars_longevity,
                                                     BaseRegalloc)
+from rpython.jit.backend.llsupport.jump import remap_frame_layout_mixed
 from rpython.jit.backend.zarch.arch import WORD
 from rpython.jit.codewriter import longlong
 from rpython.jit.backend.zarch.locations import imm, get_fp_offset
@@ -560,6 +561,39 @@ class Regalloc(BaseRegalloc):
         jump_op = self.final_jump_op
         if jump_op is not None and jump_op.getdescr() is descr:
             self._compute_hint_frame_locations_from_descr(descr)
+
+    def prepare_jump(self, op):
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        self.jump_target_descr = descr
+        arglocs = self.assembler.target_arglocs(descr)
+
+        # get temporary locs
+        tmploc = r.SCRATCH
+        fptmploc = r.f0
+
+        # Part about non-floats
+        src_locations1 = []
+        dst_locations1 = []
+        src_locations2 = []
+        dst_locations2 = []
+
+        # Build the four lists
+        for i in range(op.numargs()):
+            box = op.getarg(i)
+            src_loc = self.loc(box)
+            dst_loc = arglocs[i]
+            if box.type != FLOAT:
+                src_locations1.append(src_loc)
+                dst_locations1.append(dst_loc)
+            else:
+                src_locations2.append(src_loc)
+                dst_locations2.append(dst_loc)
+
+        remap_frame_layout_mixed(self.assembler,
+                                 src_locations1, dst_locations1, tmploc,
+                                 src_locations2, dst_locations2, fptmploc)
+        return []
 
     def prepare_finish(self, op):
         descr = op.getdescr()

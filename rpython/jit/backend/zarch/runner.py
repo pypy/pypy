@@ -1,7 +1,8 @@
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch.assembler import AssemblerZARCH
-from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rlib import rgc
+from rpython.rtyper.lltypesystem import lltype, llmemory
 
 class AbstractZARCHCPU(AbstractLLCPU):
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
@@ -17,6 +18,15 @@ class AbstractZARCHCPU(AbstractLLCPU):
 
 class CPU_S390_64(AbstractZARCHCPU):
     supports_floats = True
+
+    IS_64_BIT = True
+
+    frame_reg = r.SP
+    all_reg_indexes = [-1] * 32
+    for _i, _r in enumerate(r.MANAGED_REGS):
+        all_reg_indexes[_r.value] = _i
+    gen_regs = r.MANAGED_REGS
+    float_regs = r.MANAGED_FP_REGS
 
     def setup(self):
         self.assembler = AssemblerZARCH(self)

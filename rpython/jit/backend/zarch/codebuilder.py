@@ -95,6 +95,10 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def currpos(self):
         return self.get_relative_pos()
 
+    def b_offset(self, reladdr):
+        offset = reladdr - self.get_relative_pos()
+        self.BRC(l.imm(0xf), l.imm(offset))
+
     def cmp_op(self, a, b, pool=False, signed=True, fp=False):
         if fp == True:
             xxx

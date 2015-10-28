@@ -16,7 +16,8 @@ from rpython.jit.backend.zarch.regalloc import Regalloc
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
                                 have_debug_prints)
-from rpython.jit.metainterp.history import (INT, REF, FLOAT)
+from rpython.jit.metainterp.history import (INT, REF, FLOAT,
+        TargetToken)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
 from rpython.rlib import rgc
@@ -208,6 +209,21 @@ class AssemblerZARCH(BaseAssembler,
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
         self.mc = None
 
+    def generate_quick_failure(self, guardtok):
+        startpos = self.mc.currpos()
+        fail_descr, target = self.store_info_on_descr(startpos, guardtok)
+        assert target != 0
+        self.load_gcmap(self.mc, r.r2, gcmap=guardtok.gcmap)
+        self.mc.write('\x00\x00\x00\x00')
+        #load_imm(r.r0, target)
+        #self.mc.mtctr(r.r0.value)
+        #self.mc.load_imm(r.r0, fail_descr)
+        #self.mc.bctr()
+        # we need to write at least 6 insns here, for patch_jump_for_descr()
+        #while self.mc.currpos() < startpos + 6 * 4:
+        #    self.mc.trap()
+        return startpos
+
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         pass # TODO
 
@@ -309,9 +325,9 @@ class AssemblerZARCH(BaseAssembler,
         ops_offset = self.mc.ops_offset
         if not we_are_translated():
             # used only by looptoken.dump() -- useful in tests
-            looptoken._ppc_rawstart = rawstart
-            looptoken._ppc_fullsize = full_size
-            looptoken._ppc_ops_offset = ops_offset
+            looptoken._zarch_rawstart = rawstart
+            looptoken._zarch_fullsize = full_size
+            looptoken._zarch_ops_offset = ops_offset
         looptoken._ll_function_addr = rawstart
         if logger:
             logger.log_loop(inputargs, operations, 0, "rewritten",
@@ -328,7 +344,7 @@ class AssemblerZARCH(BaseAssembler,
         frame_depth = regalloc.get_final_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
-            tgt_depth = jump_target_descr._ppc_clt.frame_info.jfi_frame_depth
+            tgt_depth = jump_target_descr._zarch_clt.frame_info.jfi_frame_depth
             target_frame_depth = tgt_depth - JITFRAME_FIXED_SIZE
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth
@@ -375,7 +391,7 @@ class AssemblerZARCH(BaseAssembler,
             # move to memory
             elif loc.is_stack():
                 offset = loc.value
-                self.mc.store(prev_loc, r.SPP, offset)
+                self.mc.STG(prev_loc, l.addr(offset, r.SPP))
                 return
             assert 0, "not supported location"
         elif prev_loc.is_imm_float():
@@ -522,6 +538,24 @@ class AssemblerZARCH(BaseAssembler,
     def emit_label(self, op, arglocs, regalloc):
         pass
 
+    def emit_jump(self, op, arglocs, regalloc):
+        # The backend's logic assumes that the target code is in a piece of
+        # assembler that was also called with the same number of arguments,
+        # so that the locations [ebp+8..] of the input arguments are valid
+        # stack locations both before and after the jump.
+        #
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        my_nbargs = self.current_clt._debug_nbargs
+        target_nbargs = descr._zarch_clt._debug_nbargs
+        assert my_nbargs == target_nbargs
+
+        if descr in self.target_tokens_currently_compiling:
+            self.mc.b_offset(descr._ll_loop_code)
+        else:
+            self.mc.b_abs(descr._ll_loop_code)
+
+
     def emit_finish(self, op, arglocs, regalloc):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if len(arglocs) > 1:
@@ -552,7 +586,7 @@ class AssemblerZARCH(BaseAssembler,
             gcmap = self._finish_gcmap
         else:
             gcmap = lltype.nullptr(jitframe.GCMAP)
-        # TODO self.load_gcmap(self.mc, r.r2, gcmap)
+        self.load_gcmap(self.mc, r.r2, gcmap)
 
         assert fail_descr_loc.getint() <= 2**12-1
         self.mc.LGHI(r.r5, fail_descr_loc)
@@ -566,8 +600,8 @@ class AssemblerZARCH(BaseAssembler,
     def load_gcmap(self, mc, reg, gcmap):
         # load the current gcmap into register 'reg'
         ptr = rffi.cast(lltype.Signed, gcmap)
-        #mc.LGHI(mc.pool
-        #mc.load_imm(reg, ptr)
+        assert 0 <= ptr <= 2**15-1
+        mc.LGHI(reg, loc.imm(ptr))
 
 def notimplemented_op(asm, op, arglocs, regalloc):
     print "[ZARCH/asm] %s not implemented" % op.getopname()
