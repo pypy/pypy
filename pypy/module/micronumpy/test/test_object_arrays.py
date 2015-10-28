@@ -172,6 +172,7 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         a = np.array([b'a' * 100], dtype='O')
         assert 'a' * 100 in str(a)
         b = a.astype('S')
+        assert b.dtype == 'S100'
         assert 'a' * 100 in str(b)
         a = np.array([123], dtype='U')
         assert a[0] == u'123'
