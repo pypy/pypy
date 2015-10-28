@@ -31,6 +31,20 @@ class LiteralPool(object):
         self.rel_offset = 0
         self.offset = 0
         self.places = []
+        self.offset_map = {}
+
+    def load_gcmap(self, mc, reg, gcmap):
+        # load the current gcmap into register 'reg'
+        if gcmap == 0x0:
+            mc.XGR(reg, reg)
+            return
+        ptr = rffi.cast(lltype.Signed, gcmap)
+        mc.LG(reg, self.pooled_imm(ptr))
+
+    def pooled_imm(self, ident):
+        if not we_are_translated():
+            assert ident in self.offset_map
+        return l.addr(r.r13, self.offset_map[ident])
 
     def place(self, var):
         assert var.is_constant()
@@ -213,12 +227,13 @@ class AssemblerZARCH(BaseAssembler,
         startpos = self.mc.currpos()
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
         assert target != 0
-        self.load_gcmap(self.mc, r.r2, gcmap=guardtok.gcmap)
-        self.mc.write('\x00\x00\x00\x00')
+        self.pool.load_gcmap(self.mc, r.r2, gcmap=guardtok.gcmap)
         #load_imm(r.r0, target)
-        #self.mc.mtctr(r.r0.value)
+        target_addr, fail_descr_addr = pool.pool_quick_failure(target, fail_descr)
+        self.mc.LG(r.r0, target_addr)
         #self.mc.load_imm(r.r0, fail_descr)
-        #self.mc.bctr()
+        self.mc.LG(r.r2, fail_descr_addr)
+        self.BRC(l.imm(0xf), l.imm(offset))
         # we need to write at least 6 insns here, for patch_jump_for_descr()
         #while self.mc.currpos() < startpos + 6 * 4:
         #    self.mc.trap()
@@ -586,7 +601,7 @@ class AssemblerZARCH(BaseAssembler,
             gcmap = self._finish_gcmap
         else:
             gcmap = lltype.nullptr(jitframe.GCMAP)
-        self.load_gcmap(self.mc, r.r2, gcmap)
+        self.pool.load_gcmap(self.mc, r.r2, gcmap)
 
         assert fail_descr_loc.getint() <= 2**12-1
         self.mc.LGHI(r.r5, fail_descr_loc)
@@ -596,12 +611,6 @@ class AssemblerZARCH(BaseAssembler,
 
         # exit function
         self._call_footer()
-
-    def load_gcmap(self, mc, reg, gcmap):
-        # load the current gcmap into register 'reg'
-        ptr = rffi.cast(lltype.Signed, gcmap)
-        assert 0 <= ptr <= 2**15-1
-        mc.LGHI(reg, loc.imm(ptr))
 
 def notimplemented_op(asm, op, arglocs, regalloc):
     print "[ZARCH/asm] %s not implemented" % op.getopname()
