@@ -103,15 +103,18 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             copy = False
     dtype = descriptor.decode_w_dtype(space, w_dtype)
 
-    if space.is_none(w_order):
-        w_order = space.wrap('C')
-    npy_order = order_converter(space, w_order, NPY.CORDER)
 
     if isinstance(w_object, W_NDimArray):
-        if (dtype is None or w_object.get_dtype() is dtype):
-            if copy and (subok or type(w_object) is W_NDimArray):
-                return w_object.descr_copy(space, w_order)
-            elif not copy and (subok or type(w_object) is W_NDimArray):
+        npy_order = order_converter(space, w_order, NPY.ANYORDER)
+        if (dtype is None or w_object.get_dtype() is dtype) and (subok or
+                type(w_object) is W_NDimArray):
+            flags = w_object.get_flags()
+            must_copy = copy
+            must_copy |= (npy_order == NPY.CORDER and not flags & NPY.ARRAY_C_CONTIGUOUS)
+            must_copy |= (npy_order == NPY.FORTRANORDER and not flags & NPY.ARRAY_F_CONTIGUOUS)
+            if must_copy:
+                return w_object.descr_copy(space, space.wrap(npy_order))
+            else:
                 return w_object
         if subok and not type(w_object) is W_NDimArray:
             raise oefmt(space.w_NotImplementedError,
@@ -124,7 +127,8 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             copy = True
         if copy:
             shape = w_object.get_shape()
-            w_arr = W_NDimArray.from_shape(space, shape, dtype, order=npy_order)
+            order = support.get_order_as_CF(w_object.get_order(), npy_order)
+            w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
             if support.product(shape) == 1:
                 w_arr.set_scalar_value(dtype.coerce(space,
                         w_object.implementation.getitem(0)))
@@ -148,6 +152,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
                     w_base=w_base, strides=imp.strides, start=imp.start)
     else:
         # not an array
+        npy_order = order_converter(space, w_order, NPY.CORDER)
         shape, elems_w = find_shape_and_elems(space, w_object, dtype)
     if dtype is None and space.isinstance_w(w_object, space.w_buffer):
         dtype = descriptor.get_dtype_cache(space).w_uint8dtype
@@ -271,6 +276,7 @@ def find_dtype_for_seq(space, elems_w, dtype):
 
 
 def _zeros_or_empty(space, w_shape, w_dtype, w_order, zero):
+    # w_order can be None, str, or boolean
     order = order_converter(space, w_order, NPY.CORDER)
     dtype = space.interp_w(descriptor.W_Dtype,
         space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))

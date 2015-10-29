@@ -370,11 +370,11 @@ class __extend__(W_NDimArray):
 
     def descr_copy(self, space, w_order=None):
         if w_order is None:
-            order = NPY.KEEPORDER
+            order = NPY.CORDER
         elif space.isinstance_w(w_order, space.w_int):
             order = space.int_w(w_order)
         else:
-            order = order_converter(space, w_order, NPY.KEEPORDER)
+            order = order_converter(space, w_order, NPY.CORDER)
         copy = self.implementation.copy(space, order)
         w_subtype = space.type(self)
         return wrap_impl(space, w_subtype, self, copy)
