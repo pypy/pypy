@@ -5,11 +5,13 @@ from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.zarch import conditions as c
 from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch import locations as l
+from rpython.jit.backend.zarch.pool import LiteralPool
 from rpython.jit.backend.zarch.codebuilder import InstrBuilder
 from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.zarch.arch import (WORD,
         STD_FRAME_SIZE_IN_BYTES, GPR_STACK_SAVE_IN_BYTES,
-        THREADLOCAL_ADDR_OFFSET)
+        THREADLOCAL_ADDR_OFFSET, RECOVERY_GCMAP_POOL_OFFSET,
+        RECOVERY_TARGET_POOL_OFFSET)
 from rpython.jit.backend.zarch.opassembler import (IntOpAssembler,
     FloatOpAssembler, GuardOpAssembler)
 from rpython.jit.backend.zarch.regalloc import Regalloc
@@ -23,101 +25,6 @@ from rpython.rlib.objectmodel import we_are_translated, specialize, compute_uniq
 from rpython.rlib import rgc
 from rpython.rlib.longlong2float import float2longlong
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
-
-class LiteralPool(object):
-    def __init__(self):
-        self.size = 0
-        # the offset to index the pool
-        self.rel_offset = 0
-        self.offset = 0
-        self.places = []
-        self.offset_map = {}
-
-    def load_gcmap(self, mc, reg, gcmap):
-        # load the current gcmap into register 'reg'
-        if gcmap == 0x0:
-            mc.XGR(reg, reg)
-            return
-        ptr = rffi.cast(lltype.Signed, gcmap)
-        mc.LG(reg, self.pooled_imm(ptr))
-
-    def pooled_imm(self, ident):
-        if not we_are_translated():
-            assert ident in self.offset_map
-        return l.addr(r.r13, self.offset_map[ident])
-
-    def place(self, var):
-        assert var.is_constant()
-        self.places.append(var)
-        off = self.rel_offset
-        self.rel_offset += 8
-        return off
-
-    def ensure_can_hold_constants(self, op):
-        for arg in op.getarglist():
-            if arg.is_constant():
-                self.reserve_literal(8)
-
-    def reserve_literal(self, size):
-        self.size += size
-
-    def reset(self):
-        self.size = 0
-        self.offset = 0
-        self.rel_offset = 0
-
-    def walk_operations(self, operations):
-        # O(len(operations)). I do not think there is a way
-        # around this.
-        #
-        # Problem:
-        # constants such as floating point operations, plain pointers,
-        # or integers might serve as parameter to an operation. thus
-        # it must be loaded into a register. You cannot do this with
-        # assembler immediates, because the biggest immediate value
-        # is 32 bit for branch instructions.
-        #
-        # Solution:
-        # the current solution (gcc does the same), use a literal pool
-        # located at register r13. This one can easily offset with 20
-        # bit signed values (should be enough)
-        for op in operations:
-            self.ensure_can_hold_constants(op)
-
-    def pre_assemble(self, mc):
-        if self.size == 0:
-            # no pool needed!
-            return
-        if self.size % 2 == 1:
-            self.size += 1
-        assert self.size < 2**16-1
-        mc.BRAS(r.POOL, l.imm(self.size+mc.BRAS._byte_count))
-        self.offset = mc.get_relative_pos()
-        mc.write('\x00' * self.size)
-        print "pool with %d bytes %d // 8" % (self.size, self.size // 8)
-
-    def overwrite_64(self, mc, index, value):
-        mc.overwrite(index,   chr(value >> 56 & 0xff))
-        mc.overwrite(index+1, chr(value >> 48 & 0xff))
-        mc.overwrite(index+2, chr(value >> 40 & 0xff))
-        mc.overwrite(index+3, chr(value >> 32 & 0xff))
-        mc.overwrite(index+4, chr(value >> 24 & 0xff))
-        mc.overwrite(index+5, chr(value >> 16 & 0xff))
-        mc.overwrite(index+6, chr(value >> 8 & 0xff))
-        mc.overwrite(index+7, chr(value & 0xff))
-
-    def post_assemble(self, mc):
-        assert self.offset != 0
-        for var in self.places:
-            if var.type == FLOAT:
-                self.overwrite_64(mc, self.offset, float2longlong(var.value))
-                self.offset += 8
-            elif var.type == INT:
-                self.overwrite(mc, self.offset, var.value)
-                self.offset += 8
-            else:
-                raise NotImplementedError
-        self.places = []
 
 class AssemblerZARCH(BaseAssembler,
         IntOpAssembler, FloatOpAssembler,
@@ -227,13 +134,23 @@ class AssemblerZARCH(BaseAssembler,
         startpos = self.mc.currpos()
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
         assert target != 0
-        self.pool.load_gcmap(self.mc, r.r2, gcmap=guardtok.gcmap)
-        #load_imm(r.r0, target)
-        target_addr, fail_descr_addr = pool.pool_quick_failure(target, fail_descr)
-        self.mc.LG(r.r0, target_addr)
-        #self.mc.load_imm(r.r0, fail_descr)
-        self.mc.LG(r.r2, fail_descr_addr)
-        self.BRC(l.imm(0xf), l.imm(offset))
+        pool_offset = guardtok._pool_offset
+
+        # overwrite the gcmap in the pool
+        offset = pool_offset + RECOVERY_GCMAP_POOL_OFFSET
+        self.pool.overwrite_64(self.mc, offset, target)
+        self.mc.LG(r.r2, l.pool(offset))
+
+        # overwrite the target in pool
+        offset = pool_offset + RECOVERY_TARGET_POOL_OFFSET
+        self.pool.overwrite_64(self.mc, offset, target)
+        self.mc.LG(r.r0, l.pool(offset))
+
+        # TODO what is the biggest integer an opaque pointer
+        # can have? if not < 2**15-1 then we need to put it on the pool
+        self.mc.LGHI(r.r3, l.imm(fail_descr))
+        self.mc.BCR(l.imm(0xf), r.r0)
+        # TODO do we need to patch this memory region?
         # we need to write at least 6 insns here, for patch_jump_for_descr()
         #while self.mc.currpos() < startpos + 6 * 4:
         #    self.mc.trap()
@@ -312,15 +229,13 @@ class AssemblerZARCH(BaseAssembler,
         operations = regalloc.prepare_loop(inputargs, operations,
                                            looptoken, clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
-        self.pool.reset()
-        self.pool.walk_operations(operations)
-        self.pool.pre_assemble(self.mc)
+        self.pool.pre_assemble(self.mc, operations)
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
                                                    operations)
-        self.pool.post_assemble(self.mc)
         self.update_frame_depth(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
+        self.pool.post_assemble(self.mc, self.pending_guard_tokens)
         self.write_pending_failure_recoveries()
         full_size = self.mc.get_relative_pos()
         #
@@ -491,6 +406,7 @@ class AssemblerZARCH(BaseAssembler,
             if not tok.guard_not_invalidated():
                 mc = InstrBuilder()
                 mc.b_cond_offset(relative_target, tok.fcond)
+                import pdb; pdb.set_trace()
                 mc.copy_to_raw_memory(addr)
             else:
                 # GUARD_NOT_INVALIDATED, record an entry in
@@ -601,12 +517,12 @@ class AssemblerZARCH(BaseAssembler,
             gcmap = self._finish_gcmap
         else:
             gcmap = lltype.nullptr(jitframe.GCMAP)
-        self.pool.load_gcmap(self.mc, r.r2, gcmap)
+        #self.pool.load_gcmap(self.mc, r.r2, gcmap)
 
         assert fail_descr_loc.getint() <= 2**12-1
         self.mc.LGHI(r.r5, fail_descr_loc)
         self.mc.STG(r.r5, l.addr(ofs, r.SPP))
-        self.mc.XGR(r.r2, r.r2)
+        self.mc.XGR(r.r2, r.r2) # TODO
         self.mc.STG(r.r2, l.addr(ofs2, r.SPP))
 
         # exit function

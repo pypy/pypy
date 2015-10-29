@@ -33,6 +33,7 @@ class ZARCHGuardToken(GuardToken):
         GuardToken.__init__(self, cpu, gcmap, descr, failargs, faillocs,
                             guard_opnum, frame_depth)
         self.fcond = fcond
+        self._pool_offset = -1
 
 class AbstractZARCHBuilder(object):
     def write_i32(self, word):
@@ -66,6 +67,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         pos = self.get_relative_pos()
         self.ops_offset[op] = pos
 
+
     def _dump_trace(self, addr, name, formatter=-1):
         if not we_are_translated():
             if formatter != -1:
@@ -95,9 +97,18 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def currpos(self):
         return self.get_relative_pos()
 
+    def b_cond_offset(self, offset, condition):
+        assert condition != c.cond_none
+        # TODO ? BI, BO = c.encoding[condition]
+        self.BRC(condition, l.imm(offset))
+
     def b_offset(self, reladdr):
         offset = reladdr - self.get_relative_pos()
         self.BRC(l.imm(0xf), l.imm(offset))
+
+    def reserve_guard_branch(self):
+        print "reserve!", self.get_relative_pos()
+        self.BRC(l.imm(0x0), l.imm(0))
 
     def cmp_op(self, a, b, pool=False, signed=True, fp=False):
         if fp == True:
