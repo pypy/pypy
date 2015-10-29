@@ -227,7 +227,7 @@ class TestUnroll(BaseTestUnroll):
         jump(p0)
         """
         es, loop, preamble = self.optimize(loop)
-        assert len(es.short_boxes) == 7
+        assert len(es.short_boxes) == 4
         # both getfields are available as
         # well as getfield_gc
         

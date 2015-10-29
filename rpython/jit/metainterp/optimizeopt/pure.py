@@ -74,7 +74,7 @@ class OptPure(Optimization):
         dispatch_opt(self, op)
 
     def optimize_default(self, op):
-        canfold = op.is_always_pure()
+        canfold = op.is_always_pure() and not op.is_getfield()
         if op.is_ovf():
             self.postponed_op = op
             return
@@ -220,7 +220,7 @@ class OptPure(Optimization):
     def produce_potential_short_preamble_ops(self, sb):
         ops = self.optimizer._newoperations
         for i, op in enumerate(ops):
-            if op.is_always_pure():
+            if op.is_always_pure() and not op.is_getfield():
                 sb.add_pure_op(op)
             if op.is_ovf() and ops[i + 1].getopnum() == rop.GUARD_NO_OVERFLOW:
                 sb.add_pure_op(op)

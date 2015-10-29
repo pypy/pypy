@@ -8778,7 +8778,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_virtual_back_and_forth(self):
         ops = """
         [p0]
-        p1 = getfield_gc_r(p0, descr=valuedescr3)
+        p1 = getfield_gc_r(p0, descr=nextdescr3)
         ptemp = new_with_vtable(descr=nodesize)
         setfield_gc(ptemp, p1, descr=nextdescr)
         p2 = getfield_gc_r(ptemp, descr=nextdescr)
