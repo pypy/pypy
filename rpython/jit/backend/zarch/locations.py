@@ -217,6 +217,7 @@ def imm(i):
     return ImmLocation(i)
 
 def pool(off, float=False):
+    print "loading pool", off
     return PoolLoc(off, float)
 
 def get_fp_offset(base_ofs, position):

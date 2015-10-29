@@ -138,18 +138,17 @@ class AssemblerZARCH(BaseAssembler,
 
         # overwrite the gcmap in the pool
         offset = pool_offset + RECOVERY_GCMAP_POOL_OFFSET
-        self.pool.overwrite_64(self.mc, offset, target)
-        self.mc.LG(r.r2, l.pool(offset))
+        self.mc.LG(r.r3, l.pool(offset))
 
         # overwrite the target in pool
         offset = pool_offset + RECOVERY_TARGET_POOL_OFFSET
         self.pool.overwrite_64(self.mc, offset, target)
-        self.mc.LG(r.r0, l.pool(offset))
+        self.mc.LG(r.r14, l.pool(offset))
 
         # TODO what is the biggest integer an opaque pointer
         # can have? if not < 2**15-1 then we need to put it on the pool
-        self.mc.LGHI(r.r3, l.imm(fail_descr))
-        self.mc.BCR(l.imm(0xf), r.r0)
+        self.mc.LGHI(r.r2, l.imm(fail_descr))
+        self.mc.BCR(l.imm(0xf), r.r14)
         # TODO do we need to patch this memory region?
         # we need to write at least 6 insns here, for patch_jump_for_descr()
         #while self.mc.currpos() < startpos + 6 * 4:
@@ -406,7 +405,6 @@ class AssemblerZARCH(BaseAssembler,
             if not tok.guard_not_invalidated():
                 mc = InstrBuilder()
                 mc.b_cond_offset(relative_target, tok.fcond)
-                import pdb; pdb.set_trace()
                 mc.copy_to_raw_memory(addr)
             else:
                 # GUARD_NOT_INVALIDATED, record an entry in

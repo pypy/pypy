@@ -3,6 +3,8 @@ from rpython.jit.backend.zarch import locations as l
 from rpython.jit.metainterp.history import (INT, REF, FLOAT,
         TargetToken)
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
+from rpython.jit.backend.zarch.arch import (WORD,
+        RECOVERY_GCMAP_POOL_OFFSET, RECOVERY_TARGET_POOL_OFFSET)
 
 class LiteralPool(object):
     def __init__(self):
@@ -24,10 +26,12 @@ class LiteralPool(object):
 
     def reserve_literal(self, size):
         self.size += size
+        print "resized to", self.size, "(+",size,")"
 
     def reset(self):
+        self.pool_start = 0
         self.size = 0
-        self.rel_offset = 0
+        self.offset = 0
 
     def walk_operations(self, operations):
         # O(len(operations)). I do not think there is a way
@@ -57,12 +61,13 @@ class LiteralPool(object):
             self.size += 1
         assert self.size < 2**16-1
         mc.BRAS(r.POOL, l.imm(self.size+mc.BRAS._byte_count))
-        self.pool_offset = mc.get_relative_pos()
+        self.pool_start = mc.get_relative_pos()
         mc.write('\x00' * self.size)
-        print "pool with %d bytes %d // 8" % (self.size, self.size // 8)
+        print "pool with %d quad words" % (self.size // 8)
 
     def overwrite_64(self, mc, index, value):
-        print("value", hex(value), "at", index)
+        index += self.pool_start
+        print("value", hex(value), "at", index - self.pool_start)
         mc.overwrite(index,   chr(value >> 56 & 0xff))
         mc.overwrite(index+1, chr(value >> 48 & 0xff))
         mc.overwrite(index+2, chr(value >> 40 & 0xff))
@@ -76,6 +81,7 @@ class LiteralPool(object):
         if self.size == 0:
             return
         for val, offset in self.offset_map.items():
+            print val, offset
             if val.is_constant():
                 if val.type == FLOAT:
                     self.overwrite_64(mc, offset, float2longlong(val.value))
@@ -91,6 +97,6 @@ class LiteralPool(object):
             offset = self.offset_map[descr]
             guard_token._pool_offset = offset
             ptr = rffi.cast(lltype.Signed, guard_token.gcmap)
-            self.overwrite_64(mc, offset + 8, ptr)
+            self.overwrite_64(mc, offset + RECOVERY_GCMAP_POOL_OFFSET, ptr)
         self.offset_map.clear()
 
