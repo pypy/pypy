@@ -5,9 +5,10 @@ from rpython.translator.platform import posix
 #
 # Although Intel 32bit is supported since Apple Mac OS X 10.4, (and PPC since, ever)
 # the @rpath handling used in Darwin._args_for_shared is only availabe
-# since 10.5, so we use that as minimum requirement.
+# since 10.5, so we use that as minimum requirement. Bumped to 10.6
+# because 10.11 does not ship with 10.5 versions of libs
 #
-DARWIN_VERSION_MIN = '-mmacosx-version-min=10.5'
+DARWIN_VERSION_MIN = '-mmacosx-version-min=10.6'
 
 class Darwin(posix.BasePosix):
     name = "darwin"
