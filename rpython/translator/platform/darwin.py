@@ -44,6 +44,28 @@ class Darwin(posix.BasePosix):
                                 ['/usr/lib'],
                                 check_result_dir=True)
 
+    def include_dirs_for_openssl(self):
+        dirs = self._include_dirs_for_openssl()
+        if 'PYPY_LOCALBASE' in os.environ:
+            return [os.environ['PYPY_LOCALBASE'] + '/include'] + dirs
+        return dirs
+
+    def library_dirs_for_openssl(self):
+        dirs = self._library_dirs_for_openssl()
+        if 'PYPY_LOCALBASE' in os.environ:
+            return [os.environ['PYPY_LOCALBASE'] + '/lib'] + dirs
+        return dirs
+
+    def _include_dirs_for_openssl(self):
+        return self._pkg_config("openssl", "--cflags-only-I",
+                                ['/usr/include'],
+                                check_result_dir=True)
+
+    def _library_dirs_for_openssl(self):
+        return self._pkg_config("openssl", "--libs-only-L",
+                                ['/usr/lib'],
+                                check_result_dir=True)
+
     def _frameworks(self, frameworks):
         args = []
         for f in frameworks:
