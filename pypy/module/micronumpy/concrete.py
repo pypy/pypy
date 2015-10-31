@@ -382,11 +382,9 @@ class BaseConcreteArray(object):
             t_elsize = dtype.elsize
             t_strides = strides[:]
             base = dtype.elsize
-            print 'start strides, shape, indx_array', strides, shape, indx_array
             for i in indx_array:
                 t_strides[i] = base
                 base *= shape[i]
-            print 'final strides', t_strides
             backstrides = calc_backstrides(t_strides, shape)
         order = support.get_order_as_CF(self.order, order)
         impl = ConcreteArray(shape, dtype, order, t_strides, backstrides)
