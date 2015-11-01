@@ -19,6 +19,8 @@ class VMProfError(Exception):
 
 class VMProf(object):
 
+    _immutable_fields_ = ['is_enabled?']
+
     def __init__(self):
         "NOT_RPYTHON: use _get_vmprof()"
         self._code_classes = set()

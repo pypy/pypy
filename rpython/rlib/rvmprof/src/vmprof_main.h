@@ -37,6 +37,7 @@
 #include "vmprof_unwind.h"
 #endif
 #include "vmprof_mt.h"
+#include "vmprof_stack.h"
 
 
 /************************************************************/

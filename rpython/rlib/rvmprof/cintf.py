@@ -52,10 +52,22 @@ def setup():
     vmprof_register_virtual_function = rffi.llexternal(
                                            "vmprof_register_virtual_function",
                                            [rffi.CCHARP, rffi.LONG, rffi.INT],
-                                           rffi.INT, compilation_info=eci)
+                                           rffi.INT, compilation_info=eci,
+                                           _nowrapper=True)
     vmprof_ignore_signals = rffi.llexternal("vmprof_ignore_signals",
                                             [rffi.INT], lltype.Void,
-                                            compilation_info=eci)
+                                            compilation_info=eci,
+                                            _nowrapper=True)
+    vmprof_stack_new = rffi.llexternal("vmprof_stack_new",
+        [], rffi.VOIDP, compilation_info=eci, _nowrapper=True)
+    vmprof_stack_append = rffi.llexternal("vmprof_stack_append",
+        [rffi.VOIDP, lltype.Signed], rffi.INT, compilation_info=eci,
+        _nowrapper=True)
+    vmprof_stack_pop = rffi.llexternal("vmprof_stack_pop",
+        [rffi.VOIDP], lltype.Signed, compilation_info=eci,
+        _nowrapper=True)
+    vmprof_stack_free = rffi.llexternal("vmprof_stack_free",
+        [rffi.VOIDP], lltype.Void, compilation_info=eci, _nowrapper=True)
     return CInterface(locals())
 
 
