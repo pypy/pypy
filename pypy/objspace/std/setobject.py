@@ -1646,7 +1646,6 @@ create_set_driver = jit.JitDriver(name='create_set',
                                   reds='auto')
 
 def _create_from_iterable(space, w_set, w_iterable):
-    iterable = space.iteriterable(w_iterable)
     w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
     w_set.sstorage = strategy.get_empty_storage()
 
