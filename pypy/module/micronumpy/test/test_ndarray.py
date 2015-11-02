@@ -3073,6 +3073,18 @@ class AppTestMultiDim(BaseNumpyAppTest):
         c_data = c.__array_interface__['data'][0]
         assert b_data + 3 * b.dtype.itemsize == c_data
 
+        class Dummy(object):
+            def __init__(self, aif=None):
+                if aif:
+                    self.__array_interface__ = aif
+
+        a = array(Dummy())
+        assert a.dtype == object
+        raises(ValueError, array, Dummy({'xxx': 0}))
+        raises(ValueError), array, Dummy({'version': 0}))
+        raises(ValueError, array, Dummy({'version': 'abc'}))
+        raises(ValueError, array, Dummy({'version': 3}))
+
     def test_array_indexing_one_elem(self):
         from numpy import array, arange
         raises(IndexError, 'arange(3)[array([3.5])]')

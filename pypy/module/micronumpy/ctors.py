@@ -44,30 +44,43 @@ def try_array_method(space, w_object, w_dtype=None):
 def try_interface_method(space, w_object):
     try:
         w_interface = space.getattr(w_object, space.wrap("__array_interface__"))
-    except OperationError, e:
+        if w_interface is None:
+            return None
+        version_w = space.finditem(w_interface, space.wrap("version"))
+        if version_w is None:
+            raise oefmt(space.w_ValueError, "__array_interface__ found without"
+                        " 'version' key")
+        if not space.isinstance_w(version_w, space.w_int):
+            raise oefmt(space.w_ValueError, "__array_interface__ found with"
+                        " non-int 'version' key")
+        version = space.int_w(version_w)
+        if version < 3:
+            raise oefmt(space.w_ValueError,
+                    "__array_interface__ version %d not supported", version)
+        # make a view into the data
+        w_shape = space.finditem(w_interface, space.wrap('shape'))
+        w_dtype = space.finditem(w_interface, space.wrap('typestr'))
+        w_descr = space.finditem(w_interface, space.wrap('descr'))
+        w_data = space.finditem(w_interface, space.wrap('data'))
+        w_strides = space.finditem(w_interface, space.wrap('strides'))
+        if w_shape is None or w_dtype is None:
+            raise oefmt(space.w_ValueError,
+                    "__array_interface__ missing one or more required keys: shape, typestr"
+                    )
+        raise oefmt(space.w_NotImplementedError,
+                    "creating array from __array_interface__ not supported yet")
+        '''
+        data_w = space.listview()
+        shape = [space.int_w(i) for i in space.listview(w_shape)]
+        dtype = descriptor.decode_w_dtype(space, w_dtype)
+        rw = space.is_true(data_w[1])
+        '''
+        #print 'create view from shape',shape,'dtype',dtype,'descr',w_descr,'data',data_w[0],'rw',rw
+        return None
+    except OperationError as e:
         if e.match(space, space.w_AttributeError):
             return None
         raise
-    if w_interface is None:
-        # happens from compile.py
-        return None
-    version = space.int_w(space.finditem(w_interface, space.wrap("version")))
-    if version < 3:
-        raise oefmt(space.w_NotImplementedError,
-                "__array_interface__ version %d not supported", version)
-    # make a view into the data
-    w_shape = space.finditem(w_interface, space.wrap('shape'))
-    w_dtype = space.finditem(w_interface, space.wrap('typestr'))
-    w_descr = space.finditem(w_interface, space.wrap('descr'))
-    data_w = space.listview(space.finditem(w_interface, space.wrap('data')))
-    w_strides = space.finditem(w_interface, space.wrap('strides'))
-    shape = [space.int_w(i) for i in space.listview(w_shape)]
-    dtype = descriptor.decode_w_dtype(space, w_dtype)
-    rw = space.is_true(data_w[1])
-    #print 'create view from shape',shape,'dtype',dtype,'descr',w_descr,'data',data_w[0],'rw',rw
-    raise oefmt(space.w_NotImplementedError,
-                "creating array from __array_interface__ not supported yet")
-    return
 
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
