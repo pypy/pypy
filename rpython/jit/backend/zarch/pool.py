@@ -13,12 +13,17 @@ class LiteralPool(object):
         self.pool_start = 0
         self.offset_map = {}
 
-    def ensure_can_hold_constants(self, op):
+    def ensure_can_hold_constants(self, asm, op):
         if op.is_guard():
             # 1x gcmap pointer
             # 1x target address
             self.offset_map[op.getdescr()] = self.size
             self.reserve_literal(2 * 8)
+        if op.getopnum() == rop.JUMP:
+            descr = op.getdescr()
+            if descr not in asm.target_tokens_currently_compiling:
+                # this is a 'long' jump instead of a relative jump
+                self.reserve_literal(8)
         for arg in op.getarglist():
             if arg.is_constant():
                 self.offset_map[arg] = self.size
@@ -33,7 +38,8 @@ class LiteralPool(object):
         self.size = 0
         self.offset = 0
 
-    def walk_operations(self, operations):
+    def pre_assemble(self, asm, operations):
+        self.reset()
         # O(len(operations)). I do not think there is a way
         # around this.
         #
@@ -49,20 +55,16 @@ class LiteralPool(object):
         # located at register r13. This one can easily offset with 20
         # bit signed values (should be enough)
         for op in operations:
-            self.ensure_can_hold_constants(op)
-
-    def pre_assemble(self, mc, operations):
-        self.reset()
-        self.walk_operations(operations)
+            self.ensure_can_hold_constants(asm, op)
         if self.size == 0:
             # no pool needed!
             return
         if self.size % 2 == 1:
             self.size += 1
         assert self.size < 2**16-1
-        mc.BRAS(r.POOL, l.imm(self.size+mc.BRAS._byte_count))
+        asm.mc.BRAS(r.POOL, l.imm(self.size+mc.BRAS._byte_count))
         self.pool_start = mc.get_relative_pos()
-        mc.write('\x00' * self.size)
+        asm.mc.write('\x00' * self.size)
         print "pool with %d quad words" % (self.size // 8)
 
     def overwrite_64(self, mc, index, value):

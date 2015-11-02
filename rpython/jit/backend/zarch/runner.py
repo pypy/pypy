@@ -38,3 +38,11 @@ class CPU_S390_64(AbstractZARCHCPU):
     @rgc.no_release_gil
     def finish_once(self):
         self.assembler.finish_once()
+
+    def compile_bridge(self, faildescr, inputargs, operations,
+                       original_loop_token, log=True, logger=None):
+        clt = original_loop_token.compiled_loop_token
+        clt.compiling_a_bridge()
+        return self.assembler.assemble_bridge(faildescr, inputargs, operations,
+                                              original_loop_token, log, logger)
+

@@ -45,6 +45,8 @@ class builder(object):
                 self.counter += 4
         def impl(func):
             func._arguments_ = args_str.split(',')
+            if args_str == '':
+                func._arguments_ = []
             args = [dummy_argument(a) for a in func._arguments_]
             c = Counter()
             # invoke it once and get the amount of bytes
@@ -102,6 +104,13 @@ def encode_index_base_displace(mc, reg, idxbasedisp):
     byte = displace >> 8 & 0xf | base << 4
     mc.writechar(chr(byte))
     mc.writechar(chr(displace & 0xff))
+
+def build_e(mnemonic, (opcode1,opcode2)):
+    @builder.arguments('')
+    def encode_e(self):
+        self.writechar(opcode1)
+        self.writechar(opcode2)
+    return encode_e
 
 def build_i(mnemonic, (opcode,)):
     @builder.arguments('u8')

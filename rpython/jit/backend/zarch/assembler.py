@@ -25,6 +25,7 @@ from rpython.rlib.objectmodel import we_are_translated, specialize, compute_uniq
 from rpython.rlib import rgc
 from rpython.rlib.longlong2float import float2longlong
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
+from rpython.rlib.jit import AsmInfo
 
 class AssemblerZARCH(BaseAssembler,
         IntOpAssembler, FloatOpAssembler,
@@ -201,6 +202,25 @@ class AssemblerZARCH(BaseAssembler,
             mc.cmp_op(0, r.SCRATCH.value, r.SCRATCH2.value, signed=False)
             mc.bgtctrl()
 
+    def _check_frame_depth(self, mc, gcmap):
+        """ check if the frame is of enough depth to follow this bridge.
+        Otherwise reallocate the frame in a helper.
+        """
+        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+        ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
+        mc.LG(r.r2, l.addr(ofs, r.SPP))
+        patch_pos = mc.currpos()
+        mc.TRAP2()     # placeholder for cmpdi(0, r2, ...)
+        mc.TRAP2()     # placeholder for bge
+        mc.TRAP2()     # placeholder for li(r0, ...)
+        #mc.load_imm(r.SCRATCH2, self._frame_realloc_slowpath)
+        #mc.mtctr(r.SCRATCH2.value)
+        #self.load_gcmap(mc, r.r2, gcmap)
+        #mc.bctrl()
+
+        self.frame_depth_to_patch.append((patch_pos, mc.currpos()))
+
+
     @rgc.no_release_gil
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
                       operations, looptoken, log):
@@ -228,7 +248,7 @@ class AssemblerZARCH(BaseAssembler,
         operations = regalloc.prepare_loop(inputargs, operations,
                                            looptoken, clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
-        self.pool.pre_assemble(self.mc, operations)
+        self.pool.pre_assemble(self, operations)
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
                                                    operations)
         self.update_frame_depth(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
@@ -261,6 +281,64 @@ class AssemblerZARCH(BaseAssembler,
         if logger:
             logger.log_loop(inputargs, operations, 0, "rewritten",
                             name=loopname, ops_offset=ops_offset)
+
+        self.fixup_target_tokens(rawstart)
+        self.teardown()
+        # oprofile support
+        #if self.cpu.profile_agent is not None:
+        #    name = "Loop # %s: %s" % (looptoken.number, loopname)
+        #    self.cpu.profile_agent.native_code_written(name,
+        #                                               rawstart, full_size)
+        return AsmInfo(ops_offset, rawstart + looppos,
+                       size_excluding_failure_stuff - looppos)
+
+    @rgc.no_release_gil
+    def assemble_bridge(self, faildescr, inputargs, operations,
+                        original_loop_token, log, logger):
+        if not we_are_translated():
+            # Arguments should be unique
+            assert len(set(inputargs)) == len(inputargs)
+
+        self.setup(original_loop_token)
+        descr_number = compute_unique_id(faildescr)
+        if log:
+            operations = self._inject_debugging_code(faildescr, operations,
+                                                     'b', descr_number)
+
+        arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
+        regalloc = Regalloc(assembler=self)
+        startpos = self.mc.get_relative_pos()
+        operations = regalloc.prepare_bridge(inputargs, arglocs,
+                                             operations,
+                                             self.current_clt.allgcrefs,
+                                             self.current_clt.frame_info)
+        self._check_frame_depth(self.mc, regalloc.get_gcmap())
+        frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
+        codeendpos = self.mc.get_relative_pos()
+        self.write_pending_failure_recoveries()
+        fullsize = self.mc.get_relative_pos()
+        #
+        self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+        rawstart = self.materialize_loop(original_loop_token)
+        debug_bridge(descr_number, rawstart, codeendpos)
+        self.patch_pending_failure_recoveries(rawstart)
+        # patch the jump from original guard
+        self.patch_jump_for_descr(faildescr, rawstart)
+        ops_offset = self.mc.ops_offset
+        frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
+                          frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+        if logger:
+            logger.log_bridge(inputargs, operations, "rewritten",
+                              ops_offset=ops_offset)
+        self.fixup_target_tokens(rawstart)
+        self.update_frame_depth(frame_depth)
+        self.teardown()
+        return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
+
+    def fixup_target_tokens(self, rawstart):
+        for targettoken in self.target_tokens_currently_compiling:
+            targettoken._ll_loop_code += rawstart
+        self.target_tokens_currently_compiling = None
 
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc

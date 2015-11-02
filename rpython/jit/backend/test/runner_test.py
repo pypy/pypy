@@ -210,6 +210,8 @@ class BaseBackendTest(Runner):
             del looptoken._x86_ops_offset # else it's kept alive
         if hasattr(looptoken, '_ppc_ops_offset'):
             del looptoken._ppc_ops_offset # else it's kept alive
+        if hasattr(looptoken, '_zarch_ops_offset'):
+            del looptoken._ppc_ops_offset # else it's kept alive
         del loop
         gc.collect()
         assert not wr_i1() and not wr_guard()

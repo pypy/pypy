@@ -168,6 +168,7 @@ floatingpoint_mnemonic_codes = {
     'CDB':     ('rxe',   ['\xED','\x19'], 'r,bidl,-'),
 }
 
+# MISC
 all_mnemonic_codes = {
     #
     'BXH':     ('rs',    ['\x86']),
@@ -184,6 +185,7 @@ all_mnemonic_codes = {
     'PKA':     ('ssf',   ['\xE9']),
 
     'SVC':     ('i',     ['\x0A']),
+    'TRAP2':   ('e',     ['\x01','\xFF']),
 }
 all_mnemonic_codes.update(arith_mnemonic_codes)
 all_mnemonic_codes.update(logic_mnemonic_codes)
