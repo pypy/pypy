@@ -39,7 +39,7 @@ def do_emit_cmp_op(self, arglocs, condition, signed, fp):
     l1 = arglocs[1]
     assert not l0.is_imm()
     # do the comparison
-    self.mc.cmp_op(l0, l1, pool=l1.is_in_pool(), signed=signed, fp=fp)
+    self.mc.cmp_op(l0, l1, pool=l1.is_in_pool(), imm=l1.is_imm(), signed=signed, fp=fp)
 
     # CR bits:
     #     0: LT

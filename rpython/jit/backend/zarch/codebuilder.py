@@ -110,7 +110,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         print "reserve!", self.get_relative_pos()
         self.BRC(l.imm(0x0), l.imm(0))
 
-    def cmp_op(self, a, b, pool=False, signed=True, fp=False):
+    def cmp_op(self, a, b, pool=False, imm=False, signed=True, fp=False):
         if fp == True:
             xxx
             self.fcmpu(a, b)
@@ -119,6 +119,8 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
                 if pool:
                     # 64 bit immediate signed
                     self.CLG(a, b)
+                elif imm:
+                    self.CGHI(a, b)
                 else:
                     # 64 bit signed
                     self.CLGR(a, b)
@@ -126,6 +128,8 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
                 if pool:
                     # 64 bit immediate unsigned
                     self.CG(a, b)
+                elif imm:
+                    raise NotImplementedError
                 else:
                     # 64 bit unsigned
                     self.CGR(a, b)

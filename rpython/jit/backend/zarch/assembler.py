@@ -456,7 +456,9 @@ class AssemblerZARCH(BaseAssembler,
     def _push_fp_regs_to_jitframe(self, mc, includes=r.MANAGED_FP_REGS):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         assert len(includes) == 16
-        mc.LMG(r.r0, r.r15, l.addr(base_ofs, r.SPP))
+        v = 16
+        for i,reg in enumerate(includes):
+            mc.STD(reg, l.addr(base_ofs + (v+i) * WORD, r.SPP))
 
     # ________________________________________
     # ASSEMBLER EMISSION
