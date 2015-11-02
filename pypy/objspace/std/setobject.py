@@ -1651,10 +1651,17 @@ def _create_from_iterable(space, w_set, w_iterable):
     w_set.sstorage = strategy.get_empty_storage()
 
     tp = space.type(w_iterable)
-    for w_item in space.iteriterable(w_iterable):
+
+    w_iter = space.iter(w_iterable)
+    while True:
+        try:
+            w_item = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            return
         create_set_driver.jit_merge_point(tp=tp, strategy=w_set.strategy)
         w_set.add(w_item)
-
 
 
 init_signature = Signature(['some_iterable'], None, None)
