@@ -2,6 +2,7 @@ from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch import locations as l
 from rpython.jit.metainterp.history import (INT, REF, FLOAT,
         TargetToken)
+from rpython.jit.metainterp.resoperation import rop
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.jit.backend.zarch.arch import (WORD,
         RECOVERY_GCMAP_POOL_OFFSET, RECOVERY_TARGET_POOL_OFFSET)
@@ -62,8 +63,8 @@ class LiteralPool(object):
         if self.size % 2 == 1:
             self.size += 1
         assert self.size < 2**16-1
-        asm.mc.BRAS(r.POOL, l.imm(self.size+mc.BRAS._byte_count))
-        self.pool_start = mc.get_relative_pos()
+        asm.mc.BRAS(r.POOL, l.imm(self.size+asm.mc.BRAS_byte_count))
+        self.pool_start = asm.mc.get_relative_pos()
         asm.mc.write('\x00' * self.size)
         print "pool with %d quad words" % (self.size // 8)
 

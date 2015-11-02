@@ -354,7 +354,6 @@ def build_unpack_func(mnemonic, func):
                 newargs[i] = args[i]
         return func(self, *newargs)
     function.__name__ = mnemonic
-    function._byte_count = func._byte_count
     return function
 
 def is_branch_relative(name):
@@ -375,3 +374,5 @@ def build_instr_codes(clazz):
         name = mnemonic + "_" + instrtype
         setattr(clazz, name, func)
         setattr(clazz, mnemonic, build_unpack_func(mnemonic, func))
+        setattr(clazz, mnemonic + '_byte_count', func._byte_count)
+        del func._byte_count
