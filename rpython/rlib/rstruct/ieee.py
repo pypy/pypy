@@ -6,6 +6,7 @@ import math
 
 from rpython.rlib import rarithmetic, rfloat, objectmodel, jit
 from rpython.rlib.rarithmetic import r_ulonglong
+from rpython.rtyper.lltypesystem.rffi import DOUBLE, cast
 
 def round_to_nearest(x):
     """Python 3 style round:  round a float x to the nearest int, but
@@ -60,7 +61,10 @@ def float_unpack(Q, size):
 
     if exp == MAX_EXP - MIN_EXP + 2:
         # nan or infinity
-        result = rfloat.NAN if mant else rfloat.INFINITY
+        if mant == 0:
+            result = rfloat.INFINITY
+        else:
+            result = rfloat.NAN #cast(DOUBLE, mant | 
     elif exp == 0:
         # subnormal or zero
         result = math.ldexp(mant, MIN_EXP - MANT_DIG)

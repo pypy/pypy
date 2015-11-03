@@ -1852,6 +1852,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([(1, 2)], dtype=[('a', 'int64'), ('b', 'int64')])
         assert a.view('S16')[0] == '\x01' + '\x00' * 7 + '\x02'
 
+    def test_half_conversions(self):
+        from numpy import array, arange
+        all_f16 = arange(0xff10, 0xff20, dtype='uint16')
+        all_f16.dtype = 'float16'
+        print all_f16.view(dtype='uint16')
+        all_f32 = array(all_f16, dtype='float32')
+        print all_f32.view(dtype='uint32')
+        b = array(all_f32, dtype='float16')
+        print b.view(dtype='uint16')
+        c = b.view(dtype='uint16')
+        d = all_f16.view(dtype='uint16')
+        assert (c == d).all()
+
     def test_ndarray_view_empty(self):
         from numpy import array, dtype
         x = array([], dtype=[('a', 'int8'), ('b', 'int8')])
