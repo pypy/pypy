@@ -480,7 +480,7 @@ NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
 
 class _GcRef(object):
     # implementation-specific: there should not be any after translation
-    __slots__ = ['_x']
+    __slots__ = ['_x', '_handle']
     def __init__(self, x):
         self._x = x
     def __hash__(self):
@@ -528,6 +528,48 @@ def try_cast_gcref_to_instance(Class, gcref):
             return gcref._x
         return None
 try_cast_gcref_to_instance._annspecialcase_ = 'specialize:arg(0)'
+
+_ffi_cache = None
+def _fetch_ffi():
+    global _ffi_cache
+    if _ffi_cache is None:
+        try:
+            import _cffi_backend
+            _ffi_cache = _cffi_backend.FFI()
+        except (ImportError, AttributeError):
+            import py
+            py.test.skip("need CFFI >= 1.0")
+    return _ffi_cache
+
+@jit.dont_look_inside
+def hide_nonmovable_gcref(gcref):
+    from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+    if we_are_translated():
+        assert lltype.typeOf(gcref) == llmemory.GCREF
+        assert not can_move(gcref)
+        return rffi.cast(llmemory.Address, gcref)
+    else:
+        assert isinstance(gcref, _GcRef)
+        x = gcref._x
+        ffi = _fetch_ffi()
+        if not hasattr(x, '__handle'):
+            x.__handle = ffi.new_handle(x)
+        addr = int(ffi.cast("intptr_t", x.__handle))
+        return rffi.cast(llmemory.Address, addr)
+
+@jit.dont_look_inside
+def reveal_gcref(addr):
+    from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+    assert lltype.typeOf(addr) == llmemory.Address
+    if we_are_translated():
+        return rffi.cast(llmemory.GCREF, addr)
+    else:
+        addr = rffi.cast(lltype.Signed, addr)
+        if addr == 0:
+            return lltype.nullptr(llmemory.GCREF.TO)
+        ffi = _fetch_ffi()
+        x = ffi.from_handle(ffi.cast("void *", addr))
+        return _GcRef(x)
 
 # ------------------- implementation -------------------
 
@@ -678,8 +720,22 @@ def register_custom_trace_hook(TP, lambda_func):
     """ This function does not do anything, but called from any annotated
     place, will tell that "func" is used to trace GC roots inside any instance
     of the type TP.  The func must be specified as "lambda: func" in this
-    call, for internal reasons.
+    call, for internal reasons.  Note that the func will be automatically
+    specialized on the 'callback' argument value.  Example:
+
+        def customtrace(gc, obj, callback, arg):
+            gc._trace_callback(callback, arg, obj + offset_of_x)
+        lambda_customtrace = lambda: customtrace
     """
+
+@specialize.ll()
+def ll_writebarrier(gc_obj):
+    """Use together with custom tracers.  When you update some object pointer
+    stored in raw memory, you must call this function on 'gc_obj', which must
+    be the object of type TP with the custom tracer (*not* the value stored!).
+    This makes sure that the custom hook will be called again."""
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.gc_writebarrier(lltype.Void, gc_obj)
 
 class RegisterGcTraceEntry(ExtRegistryEntry):
     _about_ = register_custom_trace_hook
@@ -700,6 +756,41 @@ def register_custom_light_finalizer(TP, lambda_func):
     reasons.
     """
 
+@specialize.arg(0)
+def do_get_objects(callback):
+    """ Get all the objects that satisfy callback(gcref) -> obj
+    """
+    roots = get_rpy_roots()
+    if not roots:      # is always None on translations using Boehm or None GCs
+        return []
+    roots = [gcref for gcref in roots if gcref]
+    result_w = []
+    #
+    if not we_are_translated():   # fast path before translation
+        seen = set()
+        while roots:
+            gcref = roots.pop()
+            if gcref not in seen:
+                seen.add(gcref)
+                w_obj = callback(gcref)
+                if w_obj is not None:
+                    result_w.append(w_obj)
+                roots.extend(get_rpy_referents(gcref))
+        return result_w
+    #
+    pending = roots[:]
+    while pending:
+        gcref = pending.pop()
+        if not get_gcflag_extra(gcref):
+            toggle_gcflag_extra(gcref)
+            w_obj = callback(gcref)
+            if w_obj is not None:
+                result_w.append(w_obj)
+            pending.extend(get_rpy_referents(gcref))
+    clear_gcflag_extra(roots)
+    assert_no_more_gcflags()
+    return result_w
+
 class RegisterCustomLightFinalizer(ExtRegistryEntry):
     _about_ = register_custom_light_finalizer
 
@@ -715,3 +806,27 @@ class RegisterCustomLightFinalizer(ExtRegistryEntry):
         funcptr = hop.rtyper.annotate_helper_fn(ll_func, args_s)
         hop.exception_cannot_occur()
         lltype.attachRuntimeTypeInfo(TP, destrptr=funcptr)
+
+def clear_gcflag_extra(fromlist):
+    pending = fromlist[:]
+    while pending:
+        gcref = pending.pop()
+        if get_gcflag_extra(gcref):
+            toggle_gcflag_extra(gcref)
+            pending.extend(get_rpy_referents(gcref))
+
+all_typeids = {}
+        
+def get_typeid(obj):
+    raise Exception("does not work untranslated")
+
+class GetTypeidEntry(ExtRegistryEntry):
+    _about_ = get_typeid
+
+    def compute_result_annotation(self, s_obj):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeInteger()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_gettypeid', hop.args_v, resulttype=lltype.Signed)

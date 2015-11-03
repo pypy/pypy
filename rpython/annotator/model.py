@@ -32,6 +32,7 @@ from __future__ import absolute_import
 import inspect
 import weakref
 from types import BuiltinFunctionType, MethodType
+from collections import OrderedDict
 
 import rpython
 from rpython.tool import descriptor
@@ -377,11 +378,7 @@ class SomeDict(SomeObject):
         return type(self)(self.dictdef)
 
 class SomeOrderedDict(SomeDict):
-    try:
-        from collections import OrderedDict as knowntype
-    except ImportError:    # Python 2.6
-        class PseudoOrderedDict(dict): pass
-        knowntype = PseudoOrderedDict
+    knowntype = OrderedDict
 
     def method_copy(dct):
         return SomeOrderedDict(dct.dictdef)
@@ -495,6 +492,10 @@ class SomePBC(SomeObject):
         if len(self.descriptions) > 1:
             kind.simplify_desc_set(self.descriptions)
 
+    def consider_call_site(self, args, s_result, call_op):
+        descs = list(self.descriptions)
+        self.getKind().consider_call_site(descs, args, s_result, call_op)
+
     def can_be_none(self):
         return self.can_be_None
 
@@ -588,7 +589,7 @@ class SomeImpossibleValue(SomeObject):
 
 
 class SomeProperty(SomeObject):
-    # used for union error only 
+    # used for union error only
     immutable = True
     knowntype = type(property)
 

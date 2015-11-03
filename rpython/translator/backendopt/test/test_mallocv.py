@@ -17,8 +17,6 @@ class CHECK_RAISES:
 
 
 class TestMallocRemoval(object):
-    type_system = 'lltype'
-
     def check_malloc_removed(cls, graph, expected_mallocs, expected_calls):
         count_mallocs = 0
         count_calls = 0

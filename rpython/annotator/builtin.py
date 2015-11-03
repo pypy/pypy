@@ -2,6 +2,7 @@
 Built-in functions.
 """
 import sys
+from collections import OrderedDict
 
 from rpython.annotator.model import (
     SomeInteger, SomeObject, SomeChar, SomeBool, SomeString, SomeTuple,
@@ -156,7 +157,10 @@ def builtin_isinstance(s_obj, s_type, variables=None):
     if s_type.is_constant():
         typ = s_type.const
         if issubclass(typ, rpython.rlib.rarithmetic.base_int):
-            r.const = issubclass(s_obj.knowntype, typ)
+            try:
+                r.const = issubclass(s_obj.knowntype, typ)
+            except TypeError:    # s_obj.knowntype is not a Python type at all
+                r.const = False
         else:
             if typ == long:
                 getbookkeeper().warning("isinstance(., long) is not RPython")
@@ -287,7 +291,7 @@ def rarith_longlongmask(s_obj):
     return SomeInteger(knowntype=rpython.rlib.rarithmetic.r_longlong)
 
 @analyzer_for(rpython.rlib.objectmodel.instantiate)
-def robjmodel_instantiate(s_clspbc):
+def robjmodel_instantiate(s_clspbc, s_nonmovable=None):
     assert isinstance(s_clspbc, SomePBC)
     clsdef = None
     more_than_one = len(s_clspbc.descriptions) > 1
@@ -353,7 +357,7 @@ else:
     def unicodedata_decimal(s_uchr):
         raise TypeError("unicodedate.decimal() calls should not happen at interp-level")
 
-@analyzer_for(SomeOrderedDict.knowntype)
+@analyzer_for(OrderedDict)
 def analyze():
     return SomeOrderedDict(getbookkeeper().getdictdef())
 

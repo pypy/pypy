@@ -216,10 +216,9 @@ def as_unsigned_long(space, w_ob, strict):
 neg_msg = "can't convert negative number to unsigned"
 ovf_msg = "long too big to convert"
 
-@specialize.arg(1)
 def signext(value, size):
     # 'value' is sign-extended from 'size' bytes to a full integer.
-    # 'size' should be a constant smaller than a full integer size.
+    # 'size' should be smaller than a full integer size.
     if size == rffi.sizeof(rffi.SIGNEDCHAR):
         return rffi.cast(lltype.Signed, rffi.cast(rffi.SIGNEDCHAR, value))
     elif size == rffi.sizeof(rffi.SHORT):

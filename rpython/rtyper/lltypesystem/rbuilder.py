@@ -10,6 +10,8 @@ from rpython.rtyper.lltypesystem.rstr import (STR, UNICODE, char_repr,
     string_repr, unichar_repr, unicode_repr)
 from rpython.rtyper.rbuilder import AbstractStringBuilderRepr
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.rtyper.annlowlevel import llstr, llunicode
+        
 
 
 # ------------------------------------------------------------
@@ -401,18 +403,6 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
     def empty(self):
         return nullptr(self.lowleveltype.TO)
 
-    @classmethod
-    def ll_new(cls, init_size):
-        # Clamp 'init_size' to be a value between 0 and 1280.
-        # Negative values are mapped to 1280.
-        init_size = intmask(min(r_uint(init_size), r_uint(1280)))
-        ll_builder = lltype.malloc(cls.lowleveltype.TO)
-        ll_builder.current_buf = ll_builder.mallocfn(init_size)
-        ll_builder.current_pos = 0
-        ll_builder.current_end = init_size
-        ll_builder.total_size = init_size
-        return ll_builder
-
     ll_append               = staticmethod(ll_append)
     ll_append_char          = staticmethod(ll_append_char)
     ll_append_slice         = staticmethod(ll_append_slice)
@@ -425,20 +415,48 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 class StringBuilderRepr(BaseStringBuilderRepr):
     lowleveltype = lltype.Ptr(STRINGBUILDER)
     basetp = STR
+    convert_to_ll = staticmethod(llstr)
     string_repr = string_repr
     char_repr = char_repr
     raw_ptr_repr = PtrRepr(
         lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
     )
 
+    @staticmethod
+    def ll_new(init_size):
+        # Clamp 'init_size' to be a value between 0 and 1280.
+        # Negative values are mapped to 1280.
+        init_size = intmask(min(r_uint(init_size), r_uint(1280)))
+        ll_builder = lltype.malloc(STRINGBUILDER)
+        ll_builder.current_buf = ll_builder.mallocfn(init_size)
+        ll_builder.current_pos = 0
+        ll_builder.current_end = init_size
+        ll_builder.total_size = init_size
+        return ll_builder
+
+
 class UnicodeBuilderRepr(BaseStringBuilderRepr):
     lowleveltype = lltype.Ptr(UNICODEBUILDER)
     basetp = UNICODE
+    convert_to_ll = staticmethod(llunicode)
     string_repr = unicode_repr
     char_repr = unichar_repr
     raw_ptr_repr = PtrRepr(
         lltype.Ptr(lltype.Array(lltype.UniChar, hints={'nolength': True}))
     )
+
+    @staticmethod
+    def ll_new(init_size):
+        # Clamp 'init_size' to be a value between 0 and 1280.
+        # Negative values are mapped to 1280.
+        init_size = intmask(min(r_uint(init_size), r_uint(1280)))
+        ll_builder = lltype.malloc(UNICODEBUILDER)
+        ll_builder.current_buf = ll_builder.mallocfn(init_size)
+        ll_builder.current_pos = 0
+        ll_builder.current_end = init_size
+        ll_builder.total_size = init_size
+        return ll_builder
+
 
 unicodebuilder_repr = UnicodeBuilderRepr()
 stringbuilder_repr = StringBuilderRepr()

@@ -2,8 +2,7 @@
 Type inference for user-defined classes.
 """
 from rpython.annotator.model import (
-    SomePBC, s_ImpossibleValue, unionof, s_None, SomeInteger,
-    SomeTuple, SomeString, AnnotatorError, SomeUnicodeString)
+    SomePBC, s_ImpossibleValue, unionof, s_None, AnnotatorError)
 from rpython.annotator import description
 
 
@@ -113,14 +112,10 @@ class Attribute(object):
                         for desc in s_newvalue.descriptions:
                             if desc.selfclassdef is None:
                                 if homedef.classdesc.settled:
-                                    raise Exception("demoting method %s "
-                                                    "to settled class %s not "
-                                                    "allowed" %
-                                                    (self.name, homedef)
-                                                    )
-                                #self.bookkeeper.warning("demoting method %s "
-                                #                        "to base class %s" %
-                                #                        (self.name, homedef))
+                                    raise AnnotatorError(
+                                        "demoting method %s to settled class "
+                                        "%s not allowed" % (self.name, homedef)
+                                    )
                                 break
 
         # check for attributes forbidden by slots or _attrs_
@@ -437,18 +432,3 @@ class InstanceSource(object):
 class NoSuchAttrError(AnnotatorError):
     """Raised when an attribute is found on a class where __slots__
      or _attrs_ forbits it."""
-
-# ____________________________________________________________
-
-FORCE_ATTRIBUTES_INTO_CLASSES = {
-    EnvironmentError: {'errno': SomeInteger(),
-                       'strerror': SomeString(can_be_None=True),
-                       'filename': SomeString(can_be_None=True)},
-}
-
-try:
-    WindowsError
-except NameError:
-    pass
-else:
-    FORCE_ATTRIBUTES_INTO_CLASSES[WindowsError] = {'winerror': SomeInteger()}

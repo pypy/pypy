@@ -727,3 +727,23 @@ class AppTestPartialEvaluation:
         _codecs.register_error("test.test_codecs_not_a_string", f)
         raises(TypeError, u'\u1234'.encode, 'ascii',
                'test.test_codecs_not_a_string')
+
+    def test_decode_bytearray(self):
+        import _codecs
+        b = bytearray()
+        assert _codecs.ascii_decode(b) == (u'', 0)
+        assert _codecs.latin_1_decode(b) == (u'', 0)
+        assert _codecs.utf_7_decode(b) == (u'', 0)
+        assert _codecs.utf_8_decode(b) == (u'', 0)
+        assert _codecs.utf_16_be_decode(b) == (u'', 0)
+        assert _codecs.utf_16_decode(b) == (u'', 0)
+        assert _codecs.utf_16_le_decode(b) == (u'', 0)
+        assert _codecs.utf_16_ex_decode(b) == (u'', 0, 0)
+        assert _codecs.utf_32_decode(b) == (u'', 0)
+        assert _codecs.utf_32_be_decode(b) == (u'', 0)
+        assert _codecs.utf_32_le_decode(b) == (u'', 0)
+        assert _codecs.utf_32_ex_decode(b) == (u'', 0, 0)
+        assert _codecs.charmap_decode(b) == (u'', 0)
+        assert _codecs.unicode_escape_decode(b) == (u'', 0)
+        assert _codecs.raw_unicode_escape_decode(b) == (u'', 0)
+        assert _codecs.unicode_internal_decode(b) == (u'', 0)

@@ -4,7 +4,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rmmap
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
 from rpython.rlib.debug import have_debug_prints
-from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 class AsmMemoryManager(object):
@@ -24,6 +24,10 @@ class AsmMemoryManager(object):
         self.free_blocks = {}      # map {start: stop}
         self.free_blocks_end = {}  # map {stop: start}
         self.blocks_by_size = [[] for i in range(self.num_indices)]
+
+    def get_stats(self):
+        """Returns stats for rlib.jit.jit_hooks.stats_asmmemmgr_*()."""
+        return (self.total_memory_allocated, self.total_mallocs)
 
     def malloc(self, minsize, maxsize):
         """Allocate executable memory, between minsize and maxsize bytes,
@@ -212,6 +216,9 @@ class BlockBuilderMixin(object):
 
     gcroot_markers = None
 
+    frame_positions = None
+    frame_assignments = None
+
     def __init__(self, translated=None):
         if translated is None:
             translated = we_are_translated()
@@ -303,11 +310,11 @@ class BlockBuilderMixin(object):
             #
         debug_stop(logname)
 
-    def materialize(self, asmmemmgr, allblocks, gcrootmap=None):
+    def materialize(self, cpu, allblocks, gcrootmap=None):
         size = self.get_relative_pos()
         align = self.ALIGN_MATERIALIZE
         size += align - 1
-        malloced = asmmemmgr.malloc(size, size)
+        malloced = cpu.asmmemmgr.malloc(size, size)
         allblocks.append(malloced)
         rawstart = malloced[0]
         rawstart = (rawstart + align - 1) & (-align)
@@ -316,6 +323,12 @@ class BlockBuilderMixin(object):
             assert gcrootmap is not None
             for pos, mark in self.gcroot_markers:
                 gcrootmap.register_asm_addr(rawstart + pos, mark)
+        if cpu.HAS_CODEMAP:
+            cpu.codemap.register_frame_depth_map(rawstart, rawstart + size,
+                                                 self.frame_positions,
+                                                 self.frame_assignments)
+        self.frame_positions = None
+        self.frame_assignments = None
         return rawstart
 
     def _become_a_plain_block_builder(self):

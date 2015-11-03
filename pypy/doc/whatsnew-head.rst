@@ -1,39 +1,10 @@
-=======================
-What's new in PyPy 2.5+
-=======================
+=========================
+What's new in PyPy 4.0.+
+=========================
 
-.. this is a revision shortly after release-2.5.x
-.. startrev: 397b96217b85
+.. this is a revision shortly after release-4.0.0
+.. startrev: 57c9a47c70f6
 
+.. branch: 2174-fix-osx-10-11-translation
 
-Non-blocking file reads sometimes raised EAGAIN even though they
-had buffered data waiting, fixed in b1c4fcb04a42
-
-
-.. branch: vmprof
-
-.. branch: stackroot-speedup-2
-Avoid tracing all stack roots during repeated minor collections,
-by ignoring the part of the stack that didn't change
-
-.. branch: stdlib-2.7.9
-Update stdlib to version 2.7.9
-
-.. branch: fix-kqueue-error2
-Fix exception being raised by kqueue.control (CPython compatibility)
-
-.. branch: gitignore
-
-.. branch: framestate2
-Refactor rpython.flowspace.framestate.FrameState.
-
-.. branch: alt_errno
-Add an alternative location to save LastError, errno around ctypes,
-cffi external calls so things like pdb will not overwrite it
-
-.. branch: nonquadratic-heapcache
-Speed up the warmup times of the JIT by removing a quadratic algorithm in the
-heapcache.
-
-.. branch: online-transforms-2
-Simplify flow graphs on the fly during annotation phase.
+Use pkg-config to find ssl headers on OS-X

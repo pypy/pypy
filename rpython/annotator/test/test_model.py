@@ -37,6 +37,10 @@ def test_contains():
                                            (s4, s4), (s4, s6),
                                                      (s6, s6)])
 
+def test_signedness():
+    assert not SomeInteger(unsigned=True).contains(SomeInteger())
+    assert SomeInteger(unsigned=True).contains(SomeInteger(nonneg=True))
+
 def test_commonbase_simple():
     class A0:
         pass

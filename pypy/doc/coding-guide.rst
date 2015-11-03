@@ -385,8 +385,9 @@ Only specified names will be exported to a Mixed Module's applevel
 namespace.
 
 Sometimes it is necessary to really write some functions in C (or whatever
-target language). See :ref:`rffi <rpython:rffi>` details.
+target language). See rffi_ details.
 
+.. _rffi: https://rpython.readthedocs.org/en/latest/rffi.html
 
 application level definitions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

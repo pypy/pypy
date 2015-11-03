@@ -23,17 +23,34 @@ else:
     libraries = ['z', 'ssl', 'crypto']
     includes = []
 
+
+include_dirs = []
+library_dirs = []
+
+#
+# Work around the fact that since 10.11, OS X no longer ships
+# openssl system-wide, and Homebrew does not install it system-wide.
+#
+# Make sure your PKG_CONFIG_PATH looks in the right direction, though.
+#
+if sys.platform == 'darwin':
+    include_dirs = platform.include_dirs_for_openssl()
+    library_dirs = platform.library_dirs_for_openssl()
+
 includes += [
     'openssl/ssl.h',
     'openssl/err.h',
     'openssl/rand.h',
     'openssl/evp.h',
     'openssl/ossl_typ.h',
-    'openssl/x509v3.h']
+    'openssl/x509v3.h',
+    'openssl/comp.h']
 
 eci = ExternalCompilationInfo(
     libraries = libraries,
     includes = includes,
+    library_dirs = library_dirs,
+    include_dirs = include_dirs,
     post_include_bits = [
         # Unnamed structures are not supported by rffi_platform.
         # So we replace an attribute access with a macro call.
@@ -77,6 +94,7 @@ if cconfig["OPENSSL_EXPORT_VAR_AS_FUNCTION"]:
 else:
     ASN1_ITEM_EXP = ASN1_ITEM
 OPENSSL_VERSION_NUMBER = cconfig["OPENSSL_VERSION_NUMBER"]
+HAVE_TLSv1_2 = OPENSSL_VERSION_NUMBER >= 0x10001000
 
 class CConfig:
     _compilation_info_ = eci
@@ -93,6 +111,10 @@ class CConfig:
     SSL_OP_NO_SSLv2 = rffi_platform.ConstantInteger("SSL_OP_NO_SSLv2")
     SSL_OP_NO_SSLv3 = rffi_platform.ConstantInteger("SSL_OP_NO_SSLv3")
     SSL_OP_NO_TLSv1 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1")
+    if HAVE_TLSv1_2:
+        SSL_OP_NO_TLSv1_1 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1_1")
+        SSL_OP_NO_TLSv1_2 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1_2")
+    OPENSSL_NO_TLSEXT = rffi_platform.Defined("OPENSSL_NO_TLSEXT")
     SSL_OP_CIPHER_SERVER_PREFERENCE = rffi_platform.ConstantInteger(
         "SSL_OP_CIPHER_SERVER_PREFERENCE")
     SSL_OP_SINGLE_DH_USE = rffi_platform.ConstantInteger(
@@ -129,6 +151,7 @@ class CConfig:
     SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER = rffi_platform.ConstantInteger("SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER")
     SSL_TLSEXT_ERR_OK = rffi_platform.ConstantInteger("SSL_TLSEXT_ERR_OK")
     SSL_TLSEXT_ERR_ALERT_FATAL = rffi_platform.ConstantInteger("SSL_TLSEXT_ERR_ALERT_FATAL")
+    SSL_TLSEXT_ERR_NOACK = rffi_platform.ConstantInteger("SSL_TLSEXT_ERR_NOACK")
 
     SSL_AD_INTERNAL_ERROR = rffi_platform.ConstantInteger("SSL_AD_INTERNAL_ERROR")
     SSL_AD_HANDSHAKE_FAILURE = rffi_platform.ConstantInteger("SSL_AD_HANDSHAKE_FAILURE")
@@ -255,6 +278,11 @@ HAVE_SSL_CTX_CLEAR_OPTIONS = OPENSSL_VERSION_NUMBER >= 0x009080df and \
                              OPENSSL_VERSION_NUMBER != 0x00909000
 if OPENSSL_VERSION_NUMBER < 0x0090800f and not OPENSSL_NO_ECDH:
     OPENSSL_NO_ECDH = True
+HAS_ALPN = OPENSSL_VERSION_NUMBER >= 0x1000200fL and not OPENSSL_NO_TLSEXT
+
+HAVE_OPENSSL_RAND_EGD = rffi_platform.has('RAND_egd("/")',
+                                          '#include <openssl/rand.h>',
+                                          libraries=['ssl', 'crypto'])
 
 def external(name, argtypes, restype, **kw):
     kw['compilation_info'] = eci
@@ -279,11 +307,15 @@ ssl_external('CRYPTO_set_id_callback',
 if HAVE_OPENSSL_RAND:
     ssl_external('RAND_add', [rffi.CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
     ssl_external('RAND_status', [], rffi.INT)
-    ssl_external('RAND_egd', [rffi.CCHARP], rffi.INT)
+    if HAVE_OPENSSL_RAND_EGD:
+        ssl_external('RAND_egd', [rffi.CCHARP], rffi.INT)
 ssl_external('SSL_CTX_new', [SSL_METHOD], SSL_CTX)
 ssl_external('SSL_get_SSL_CTX', [SSL], SSL_CTX)
 ssl_external('SSL_set_SSL_CTX', [SSL, SSL_CTX], SSL_CTX)
 ssl_external('TLSv1_method', [], SSL_METHOD)
+if HAVE_TLSv1_2:
+    ssl_external('TLSv1_1_method', [], SSL_METHOD)
+    ssl_external('TLSv1_2_method', [], SSL_METHOD)
 ssl_external('SSLv2_method', [], SSL_METHOD)
 ssl_external('SSLv3_method', [], SSL_METHOD)
 ssl_external('SSLv23_method', [], SSL_METHOD)
@@ -502,6 +534,17 @@ if HAS_NPN:
                                   rffi.CCHARP, rffi.UINT], rffi.INT)
     ssl_external(
         'SSL_get0_next_proto_negotiated', [
+            SSL, rffi.CCHARPP, rffi.UINTP], lltype.Void)
+if HAS_ALPN:
+    ssl_external('SSL_CTX_set_alpn_protos',
+                 [SSL_CTX, rffi.UCHARP, rffi.UINT], rffi.INT)
+    SSL_ALPN_SEL_CB = lltype.Ptr(lltype.FuncType(
+        [SSL, rffi.CCHARPP, rffi.UCHARP, rffi.CCHARP, rffi.UINT, rffi.VOIDP],
+        rffi.INT))
+    ssl_external('SSL_CTX_set_alpn_select_cb',
+                 [SSL_CTX, SSL_ALPN_SEL_CB, rffi.VOIDP], lltype.Void)
+    ssl_external(
+        'SSL_get0_alpn_selected', [
             SSL, rffi.CCHARPP, rffi.UINTP], lltype.Void)
 
 EVP_MD_CTX = rffi.COpaquePtr('EVP_MD_CTX', compilation_info=eci)

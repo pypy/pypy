@@ -2,8 +2,9 @@ import sys
 import weakref
 
 from rpython.jit.codewriter import support, heaptracker, longlong
-from rpython.jit.metainterp import history
+from rpython.jit.metainterp import resoperation, history
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
+from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
@@ -59,7 +60,8 @@ def unwrap(TYPE, box):
         if TYPE.TO._gckind == "gc":
             return box.getref(TYPE)
         else:
-            return llmemory.cast_adr_to_ptr(box.getaddr(), TYPE)
+            adr = heaptracker.int2adr(box.getint())
+            return llmemory.cast_adr_to_ptr(adr, TYPE)
     if TYPE == lltype.Float:
         return box.getfloat()
     else:
@@ -73,7 +75,7 @@ def wrap(cpu, value, in_const_box=False):
             if in_const_box:
                 return history.ConstPtr(value)
             else:
-                return history.BoxPtr(value)
+                return resoperation.InputArgRef(value)
         else:
             adr = llmemory.cast_ptr_to_adr(value)
             value = heaptracker.adr2int(adr)
@@ -87,7 +89,7 @@ def wrap(cpu, value, in_const_box=False):
         if in_const_box:
             return history.ConstFloat(value)
         else:
-            return history.BoxFloat(value)
+            return resoperation.InputArgFloat(value)
     elif isinstance(value, str) or isinstance(value, unicode):
         assert len(value) == 1     # must be a character
         value = ord(value)
@@ -98,7 +100,7 @@ def wrap(cpu, value, in_const_box=False):
     if in_const_box:
         return history.ConstInt(value)
     else:
-        return history.BoxInt(value)
+        return resoperation.InputArgInt(value)
 
 @specialize.arg(0)
 def equal_whatever(TYPE, x, y):
@@ -255,6 +257,9 @@ class WarmEnterState(object):
     def set_param_inlining(self, value):
         self.inlining = value
 
+    def set_param_disable_unrolling(self, value):
+        self.disable_unrolling_threshold = value
+
     def set_param_enable_opts(self, value):
         from rpython.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES
 
@@ -295,6 +300,24 @@ class WarmEnterState(object):
         if self.warmrunnerdesc:
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.max_unroll_recursion = value
+
+    def set_param_vec(self, value):
+        self.vec = bool(value)
+
+    def set_param_vec_all(self, value):
+        self.vec_all = bool(value)
+
+    def set_param_vec_cost(self, value):
+        self.vec_cost = bool(value)
+
+    def set_param_vec_length(self, value):
+        self.vec_length = int(value)
+
+    def set_param_vec_ratio(self, value):
+        self.vec_ratio = value / 10.0
+
+    def set_param_vec_guard_ratio(self, value):
+        self.vec_guard_ratio = value / 10.0
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
@@ -540,12 +563,24 @@ class WarmEnterState(object):
             @staticmethod
             def trace_next_iteration(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
+                JitCell._trace_next_iteration(*greenargs)
+
+            @staticmethod
+            def _trace_next_iteration(*greenargs):
                 hash = JitCell.get_uhash(*greenargs)
+                jitcounter.change_current_fraction(hash, 0.98)
+
+            @staticmethod
+            def trace_next_iteration_hash(hash):
                 jitcounter.change_current_fraction(hash, 0.98)
 
             @staticmethod
             def ensure_jit_cell_at_key(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
+                return JitCell._ensure_jit_cell_at_key(*greenargs)
+
+            @staticmethod
+            def _ensure_jit_cell_at_key(*greenargs):
                 hash = JitCell.get_uhash(*greenargs)
                 cell = jitcounter.lookup_chain(hash)
                 while cell is not None:
@@ -556,6 +591,11 @@ class WarmEnterState(object):
                 newcell = JitCell(*greenargs)
                 jitcounter.install_new_cell(hash, newcell)
                 return newcell
+
+            @staticmethod
+            def dont_trace_here(*greenargs):
+                cell = JitCell._ensure_jit_cell_at_key(*greenargs)
+                cell.flags |= JC_DONT_TRACE_HERE
         #
         self.JitCell = JitCell
         return JitCell
@@ -571,6 +611,7 @@ class WarmEnterState(object):
         JitCell = self.make_jitcell_subclass()
         jd = self.jitdriver_sd
         cpu = self.cpu
+        rtyper = self.warmrunnerdesc.rtyper
 
         def can_inline_callable(greenkey):
             greenargs = unwrap_greenkey(greenkey)
@@ -596,7 +637,6 @@ class WarmEnterState(object):
             def should_unroll_one_iteration(greenkey):
                 return False
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             inline_ptr = jd._should_unroll_one_iteration_ptr
             def should_unroll_one_iteration(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
@@ -619,21 +659,27 @@ class WarmEnterState(object):
         self.get_assembler_token = get_assembler_token
 
         #
+        jitdriver = self.jitdriver_sd.jitdriver
+        if self.jitdriver_sd.jitdriver:
+            drivername = jitdriver.name
+        else:
+            drivername = '<unknown jitdriver>'
         get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
         if get_location_ptr is None:
-            jitdriver = self.jitdriver_sd.jitdriver
-            if self.jitdriver_sd.jitdriver:
-                drivername = jitdriver.name
-            else:
-                drivername = '<unknown jitdriver>'
             missing = '(%s: no get_printable_location)' % drivername
             def get_location_str(greenkey):
                 return missing
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             unwrap_greenkey = self.make_unwrap_greenkey()
+            # the following missing text should not be seen, as it is
+            # returned only if debug_prints are currently not enabled,
+            # but it may show up anyway (consider it bugs)
+            missing = ('(%s: get_printable_location '
+                       'disabled, no debug_print)' % drivername)
             #
             def get_location_str(greenkey):
+                if not have_debug_prints_for("jit-"):
+                    return missing
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
                 llres = fn(*greenargs)
@@ -647,7 +693,6 @@ class WarmEnterState(object):
             def confirm_enter_jit(*args):
                 return True
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             #
             def confirm_enter_jit(*args):
                 fn = support.maybe_on_top_of_llinterp(rtyper,
@@ -660,10 +705,15 @@ class WarmEnterState(object):
             def can_never_inline(*greenargs):
                 return False
         else:
-            rtyper = self.warmrunnerdesc.rtyper
             #
             def can_never_inline(*greenargs):
                 fn = support.maybe_on_top_of_llinterp(rtyper,
                                                       can_never_inline_ptr)
                 return fn(*greenargs)
         self.can_never_inline = can_never_inline
+        get_unique_id_ptr = self.jitdriver_sd._get_unique_id_ptr
+        def get_unique_id(greenkey):
+            greenargs = unwrap_greenkey(greenkey)
+            fn = support.maybe_on_top_of_llinterp(rtyper, get_unique_id_ptr)
+            return fn(*greenargs)
+        self.get_unique_id = get_unique_id

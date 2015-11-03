@@ -6,7 +6,7 @@
 #define _SRC_SUPPORT_H
 
 #define RUNNING_ON_LLINTERP	0
-#define OP_JIT_RECORD_KNOWN_CLASS(i, c, r)  /* nothing */
+#define OP_JIT_RECORD_EXACT_CLASS(i, c, r)  /* nothing */
 
 #define FAIL_OVF(msg) _RPyRaiseSimpleException(RPyExc_OverflowError)
 #define FAIL_VAL(msg) _RPyRaiseSimpleException(RPyExc_ValueError)

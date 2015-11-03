@@ -2,7 +2,7 @@ import os, sys, py
 from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
 from rpython.rlib.jit import PARAMETERS, dont_look_inside
-from rpython.rlib.jit import promote
+from rpython.rlib.jit import promote, _get_virtualizable_token
 from rpython.rlib import jit_hooks, rposix
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rthread import ThreadLocalReference, ThreadLocalField
@@ -26,13 +26,17 @@ class TranslationTest(CCompiledMixin):
         # - profiler
         # - full optimizer
         # - floats neg and abs
+        # - cast_int_to_float
         # - llexternal with macro=True
 
-        class Frame(object):
+        class BasicFrame(object):
             _virtualizable_ = ['i']
 
             def __init__(self, i):
                 self.i = i
+
+        class Frame(BasicFrame):
+            pass
 
         eci = ExternalCompilationInfo(post_include_bits=['''
 #define pypy_my_fabs(x)  fabs(x)
@@ -59,12 +63,14 @@ class TranslationTest(CCompiledMixin):
             while frame.i > 3:
                 jitdriver.can_enter_jit(frame=frame, total=total, j=j)
                 jitdriver.jit_merge_point(frame=frame, total=total, j=j)
+                _get_virtualizable_token(frame)
                 total += frame.i
                 if frame.i >= 20:
                     frame.i -= 2
                 frame.i -= 1
                 j *= -0.712
                 if j + (-j):    raise ValueError
+                j += frame.i
                 k = myabs1(myabs2(j))
                 if k - abs(j):  raise ValueError
                 if k - abs(-j): raise ValueError
@@ -207,6 +213,8 @@ class TranslationTestJITStats(CCompiledMixin):
     CPUClass = getcpuclass()
 
     def test_jit_get_stats(self):
+        py.test.skip("disabled feature")
+
         driver = JitDriver(greens = [], reds = ['i'])
 
         def f():
@@ -222,8 +230,8 @@ class TranslationTestJITStats(CCompiledMixin):
             return len(ll_times)
 
         res = self.meta_interp(main, [])
-        assert res == 3
-        # one for loop, one for entry point and one for the prologue
+        assert res == 2
+        # one for loop and one for the prologue, no unrolling
 
 
 class TranslationRemoveTypePtrTest(CCompiledMixin):
@@ -299,7 +307,7 @@ class TranslationRemoveTypePtrTest(CCompiledMixin):
         for line in open(str(logfile)):
             if 'guard_class' in line:
                 guard_class += 1
-        # if we get many more guard_classes, it means that we generate
+        # if we get many more guard_classes (~93), it means that we generate
         # guards that always fail (the following assert's original purpose
         # is to catch the following case: each GUARD_CLASS is misgenerated
         # and always fails with "gcremovetypeptr")

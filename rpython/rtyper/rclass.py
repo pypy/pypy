@@ -7,6 +7,7 @@ from rpython.annotator import description, model as annmodel
 from rpython.rlib.objectmodel import UnboxedValue
 from rpython.tool.pairtype import pairtype, pair
 from rpython.tool.identity_dict import identity_dict
+from rpython.tool.flattenrec import FlattenRecursion
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype
@@ -250,9 +251,7 @@ class ClassRepr(Repr):
         allmethods = {}
         # class attributes
         llfields = []
-        attrs = self.classdef.attrs.items()
-        attrs.sort()
-        for name, attrdef in attrs:
+        for name, attrdef in self.classdef.attrs.items():
             if attrdef.readonly:
                 s_value = attrdef.s_value
                 s_unboundmethod = self.prepare_method(s_value)
@@ -270,6 +269,8 @@ class ClassRepr(Repr):
             mangled_name = mangle('pbc%d' % counter, attr)
             pbcfields[access_set, attr] = mangled_name, r
             llfields.append((mangled_name, r.lowleveltype))
+        llfields.sort()
+        llfields.sort(key=attr_reverse_size)
         #
         self.rbase = getclassrepr(self.rtyper, self.classdef.basedef)
         self.rbase.setup()
@@ -491,19 +492,7 @@ class InstanceRepr(Repr):
                     fields[name] = mangled_name, r
                     myllfields.append((mangled_name, r.lowleveltype))
 
-            # Sort the instance attributes by decreasing "likely size",
-            # as reported by rffi.sizeof(), to minimize padding holes in C.
-            # Fields of the same size are sorted by name (by attrs.sort()
-            # above) just to minimize randomness.
-            def keysize((_, T)):
-                if T is lltype.Void:
-                    return None
-                from rpython.rtyper.lltypesystem.rffi import sizeof
-                try:
-                    return -sizeof(T)
-                except StandardError:
-                    return None
-            myllfields.sort(key=keysize)
+            myllfields.sort(key=attr_reverse_size)
             if llfields is None:
                 llfields = myllfields
             else:
@@ -615,26 +604,33 @@ class InstanceRepr(Repr):
                 while rbase.classdef is not None:
                     immutable_fields.update(rbase.immutable_field_set)
                     rbase = rbase.rbase
-                self._parse_field_list(immutable_fields, accessor)
+                self._parse_field_list(immutable_fields, accessor, hints)
 
-    def _parse_field_list(self, fields, accessor):
+    def _parse_field_list(self, fields, accessor, hints):
         ranking = {}
         for name in fields:
+            quasi = False
             if name.endswith('?[*]'):   # a quasi-immutable field pointing to
                 name = name[:-4]        # an immutable array
                 rank = IR_QUASIIMMUTABLE_ARRAY
+                quasi = True
             elif name.endswith('[*]'):    # for virtualizables' lists
                 name = name[:-3]
                 rank = IR_IMMUTABLE_ARRAY
             elif name.endswith('?'):    # a quasi-immutable field
                 name = name[:-1]
                 rank = IR_QUASIIMMUTABLE
+                quasi = True
             else:                       # a regular immutable/green field
                 rank = IR_IMMUTABLE
             try:
                 mangled_name, r = self._get_field(name)
             except KeyError:
                 continue
+            if quasi and hints.get("immutable"):
+                raise TyperError(
+                    "can't have _immutable_ = True and a quasi-immutable field "
+                    "%s in class %s" % (name, self.classdef))
             ranking[mangled_name] = rank
         accessor.initialize(self.object_type, ranking)
         return ranking
@@ -688,10 +684,12 @@ class InstanceRepr(Repr):
             rbase = rbase.rbase
         return False
 
-    def new_instance(self, llops, classcallhop=None):
+    def new_instance(self, llops, classcallhop=None, nonmovable=False):
         """Build a new instance, without calling __init__."""
         flavor = self.gcflavor
         flags = {'flavor': flavor}
+        if nonmovable:
+            flags['nonmovable'] = True
         ctype = inputconst(Void, self.object_type)
         cflags = inputconst(Void, flags)
         vlist = [ctype, cflags]
@@ -767,11 +765,14 @@ class InstanceRepr(Repr):
             self.initialize_prebuilt_data(Ellipsis, self.classdef, result)
             return result
 
+    _initialize_data_flattenrec = FlattenRecursion()
+
     def initialize_prebuilt_instance(self, value, classdef, result):
         # must fill in the hash cache before the other ones
         # (see test_circular_hash_initialization)
         self.initialize_prebuilt_hash(value, result)
-        self.initialize_prebuilt_data(value, classdef, result)
+        self._initialize_data_flattenrec(self.initialize_prebuilt_data,
+                                         value, classdef, result)
 
     def get_ll_hash_function(self):
         return ll_inst_hash
@@ -912,9 +913,9 @@ class InstanceRepr(Repr):
                             name, None)
                         if attrvalue is None:
                             # Ellipsis from get_reusable_prebuilt_instance()
-                            if value is not Ellipsis:
-                                warning("prebuilt instance %r has no "
-                                        "attribute %r" % (value, name))
+                            #if value is not Ellipsis:
+                                #warning("prebuilt instance %r has no "
+                                #        "attribute %r" % (value, name))
                             llattrvalue = r.lowleveltype._defl()
                         else:
                             llattrvalue = r.convert_desc_or_const(attrvalue)
@@ -1032,9 +1033,10 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
 
 # ____________________________________________________________
 
-def rtype_new_instance(rtyper, classdef, llops, classcallhop=None):
+def rtype_new_instance(rtyper, classdef, llops, classcallhop=None,
+                       nonmovable=False):
     rinstance = getinstancerepr(rtyper, classdef)
-    return rinstance.new_instance(llops, classcallhop)
+    return rinstance.new_instance(llops, classcallhop, nonmovable=nonmovable)
 
 def ll_inst_hash(ins):
     if not ins:
@@ -1060,6 +1062,19 @@ def fishllattr(inst, name, default=_missing):
         raise AttributeError("%s has no field %s" %
                              (lltype.typeOf(widest), name))
     return default
+
+def attr_reverse_size((_, T)):
+    # This is used to sort the instance or class attributes by decreasing
+    # "likely size", as reported by rffi.sizeof(), to minimize padding
+    # holes in C.  Fields should first be sorted by name, just to minimize
+    # randomness, and then (stably) sorted by 'attr_reverse_size'.
+    if T is lltype.Void:
+        return None
+    from rpython.rtyper.lltypesystem.rffi import sizeof
+    try:
+        return -sizeof(T)
+    except StandardError:
+        return None
 
 
 # ____________________________________________________________

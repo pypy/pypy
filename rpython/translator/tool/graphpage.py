@@ -12,7 +12,6 @@ from dotviewer.graphpage import GraphPage as BaseGraphPage
 class GraphPage(BaseGraphPage):
     save_tmp_file = str(udir.join('graph.dot'))
 
-
 class VariableHistoryGraphPage(GraphPage):
     """ A GraphPage showing the history of variable bindings. """
 

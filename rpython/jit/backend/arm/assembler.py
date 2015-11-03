@@ -12,8 +12,7 @@ from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.arm.opassembler import ResOpAssembler
 from rpython.jit.backend.arm.regalloc import (Regalloc,
     CoreRegisterManager, check_imm_arg, VFPRegisterManager,
-    operations as regalloc_operations,
-    operations_with_guard as regalloc_operations_with_guard)
+    operations as regalloc_operations)
 from rpython.jit.backend.llsupport import jitframe, rewrite
 from rpython.jit.backend.llsupport.assembler import DEBUG_COUNTER, debug_bridge, BaseAssembler
 from rpython.jit.backend.llsupport.regalloc import get_scale, valid_addressing_size
@@ -57,6 +56,7 @@ class AssemblerARM(ResOpAssembler):
         BaseAssembler.setup_once(self)
 
     def setup(self, looptoken):
+        BaseAssembler.setup(self, looptoken)
         assert self.memcpy_addr != 0, 'setup_once() not called?'
         if we_are_translated():
             self.debug = False
@@ -71,7 +71,6 @@ class AssemblerARM(ResOpAssembler):
         self.mc.datablockwrapper = self.datablockwrapper
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
-        self._finish_gcmap = lltype.nullptr(jitframe.GCMAP)
 
     def teardown(self):
         self.current_clt = None
@@ -102,7 +101,7 @@ class AssemblerARM(ResOpAssembler):
         self.store_reg(mc, r.r0, r.fp, ofs)
         mc.MOV_rr(r.r0.value, r.fp.value)
         self.gen_func_epilog(mc)
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         self.propagate_exception_path = rawstart
 
     def _store_and_reset_exception(self, mc, excvalloc=None, exctploc=None,
@@ -198,7 +197,7 @@ class AssemblerARM(ResOpAssembler):
         mc.ADD_ri(r.sp.value, r.sp.value, (len(r.argument_regs) + 2) * WORD)
         mc.B(self.propagate_exception_path)
         #
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         self.stack_check_slowpath = rawstart
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
@@ -225,6 +224,10 @@ class AssemblerARM(ResOpAssembler):
         if not for_frame:
             self._push_all_regs_to_jitframe(mc, [], withfloats, callee_only=True)
         else:
+            # NOTE: don't save registers on the jitframe here!  It might
+            # override already-saved values that will be restored
+            # later...
+            #
             # we're possibly called from the slowpath of malloc
             # save the caller saved registers
             # assuming we do not collect here
@@ -255,7 +258,7 @@ class AssemblerARM(ResOpAssembler):
         #
         mc.POP([r.ip.value, r.pc.value])
         #
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         if for_frame:
             self.wb_slowpath[4] = rawstart
         else:
@@ -276,7 +279,7 @@ class AssemblerARM(ResOpAssembler):
                                       callee_only)
         # return
         mc.POP([r.ip.value, r.pc.value])
-        return mc.materialize(self.cpu.asmmemmgr, [])
+        return mc.materialize(self.cpu, [])
 
     def _build_malloc_slowpath(self, kind):
         """ While arriving on slowpath, we have a gcpattern on stack 0.
@@ -352,7 +355,7 @@ class AssemblerARM(ResOpAssembler):
         mc.POP([r.ip.value, r.pc.value])
 
         #
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         return rawstart
 
     def _reload_frame_if_necessary(self, mc):
@@ -473,7 +476,7 @@ class AssemblerARM(ResOpAssembler):
         mc.MOV_rr(r.r0.value, r.fp.value)
         #
         self.gen_func_epilog(mc)
-        rawstart = mc.materialize(self.cpu.asmmemmgr, [])
+        rawstart = mc.materialize(self.cpu, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
 
     def generate_quick_failure(self, guardtok):
@@ -575,8 +578,8 @@ class AssemblerARM(ResOpAssembler):
             self.mc.BL(self.stack_check_slowpath, c=c.HI)      # call if ip > lr
 
     # cpu interface
-    def assemble_loop(self, logger, loopname, inputargs, operations, looptoken,
-                      log):
+    def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
+                      operations, looptoken, log):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         looptoken.compiled_loop_token = clt
         clt._debug_nbargs = len(inputargs)
@@ -586,6 +589,9 @@ class AssemblerARM(ResOpAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(looptoken)
+        #self.codemap_builder.enter_portal_frame(jd_id, unique_id,
+        #                                self.mc.get_relative_pos())
+
 
         frame_info = self.datablockwrapper.malloc_aligned(
             jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
@@ -642,8 +648,10 @@ class AssemblerARM(ResOpAssembler):
                        size_excluding_failure_stuff - loop_head)
 
     def _assemble(self, regalloc, inputargs, operations):
+        self.guard_success_cc = c.cond_none
         regalloc.compute_hint_frame_locations(operations)
         self._walk_operations(inputargs, operations, regalloc)
+        assert self.guard_success_cc == c.cond_none
         frame_depth = regalloc.get_final_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
@@ -659,6 +667,7 @@ class AssemblerARM(ResOpAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(original_loop_token)
+        #self.codemap.inherit_code_from_position(faildescr.adr_jump_offset)
         descr_number = compute_unique_id(faildescr)
         if log:
             operations = self._inject_debugging_code(faildescr, operations,
@@ -703,7 +712,7 @@ class AssemblerARM(ResOpAssembler):
         self.fixup_target_tokens(rawstart)
         self.update_frame_depth(frame_depth)
         if logger:
-            logger.log_bridge(inputargs, operations, "rewritten",
+            logger.log_bridge(inputargs, operations, "rewritten", faildescr,
                               ops_offset=ops_offset)
         self.teardown()
 
@@ -850,7 +859,7 @@ class AssemblerARM(ResOpAssembler):
         # restore registers
         self._pop_all_regs_from_jitframe(mc, [], self.cpu.supports_floats)
         mc.POP([r.ip.value, r.pc.value])  # return
-        self._frame_realloc_slowpath = mc.materialize(self.cpu.asmmemmgr, [])
+        self._frame_realloc_slowpath = mc.materialize(self.cpu, [])
 
     def _load_shadowstack_top(self, mc, reg, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
@@ -879,8 +888,12 @@ class AssemblerARM(ResOpAssembler):
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
-        return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
+        size = self.mc.get_relative_pos() 
+        res = self.mc.materialize(self.cpu, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
+        #self.cpu.codemap.register_codemap(
+        #    self.codemap.get_final_bytecode(res, size))
+        return res
 
     def update_frame_depth(self, frame_depth):
         baseofs = self.cpu.get_baseofs_of_frame_field()
@@ -900,7 +913,7 @@ class AssemblerARM(ResOpAssembler):
             descr.adr_jump_offset = failure_recovery_pos
             relative_offset = tok.pos_recovery_stub - tok.offset
             guard_pos = block_start + tok.offset
-            if not tok.is_guard_not_invalidated:
+            if not tok.guard_not_invalidated():
                 # patch the guard jump to the stub
                 # overwrite the generate NOP with a B_offs to the pos of the
                 # stub
@@ -919,26 +932,16 @@ class AssemblerARM(ResOpAssembler):
     def _walk_operations(self, inputargs, operations, regalloc):
         fcond = c.AL
         self._regalloc = regalloc
+        regalloc.operations = operations
         while regalloc.position() < len(operations) - 1:
             regalloc.next_instruction()
             i = regalloc.position()
             op = operations[i]
             self.mc.mark_op(op)
             opnum = op.getopnum()
-            if op.has_no_side_effect() and op.result not in regalloc.longevity:
+            if op.has_no_side_effect() and op not in regalloc.longevity:
                 regalloc.possibly_free_vars_for_op(op)
-            elif self._regalloc.can_merge_with_next_guard(op, i, operations):
-                guard = operations[i + 1]
-                assert guard.is_guard()
-                arglocs = regalloc_operations_with_guard[opnum](regalloc, op,
-                                        guard, fcond)
-                fcond = asm_operations_with_guard[opnum](self, op,
-                                        guard, arglocs, regalloc, fcond)
-                assert fcond is not None
-                regalloc.next_instruction()
-                regalloc.possibly_free_vars_for_op(guard)
-                regalloc.possibly_free_vars(guard.getfailargs())
-            elif not we_are_translated() and op.getopnum() == -124:
+            elif not we_are_translated() and op.getopnum() == -127:
                 regalloc.prepare_force_spill(op, fcond)
             else:
                 arglocs = regalloc_operations[opnum](regalloc, op, fcond)
@@ -948,12 +951,13 @@ class AssemblerARM(ResOpAssembler):
                     assert fcond is not None
             if op.is_guard():
                 regalloc.possibly_free_vars(op.getfailargs())
-            if op.result:
-                regalloc.possibly_free_var(op.result)
+            if op.type != 'v':
+                regalloc.possibly_free_var(op)
             regalloc.possibly_free_vars_for_op(op)
             regalloc.free_temp_vars()
             regalloc._check_invariants()
         self.mc.mark_op(None)  # end of the loop
+        regalloc.operations = None
 
     def regalloc_emit_extra(self, op, arglocs, fcond, regalloc):
         # for calls to a function with a specifically-supported OS_xxx
@@ -1508,21 +1512,11 @@ def notimplemented_op(self, op, arglocs, regalloc, fcond):
     raise NotImplementedError(op)
 
 
-def notimplemented_op_with_guard(self, op, guard_op, arglocs, regalloc, fcond):
-    print "[ARM/asm] %s with guard %s not implemented" % \
-                        (op.getopname(), guard_op.getopname())
-    raise NotImplementedError(op)
-
 asm_operations = [notimplemented_op] * (rop._LAST + 1)
-asm_operations_with_guard = [notimplemented_op_with_guard] * (rop._LAST + 1)
 asm_extra_operations = {}
 
 for name, value in ResOpAssembler.__dict__.iteritems():
-    if name.startswith('emit_guard_'):
-        opname = name[len('emit_guard_'):]
-        num = getattr(rop, opname.upper())
-        asm_operations_with_guard[num] = value
-    elif name.startswith('emit_opx_'):
+    if name.startswith('emit_opx_'):
         opname = name[len('emit_opx_'):]
         num = getattr(EffectInfo, 'OS_' + opname.upper())
         asm_extra_operations[num] = value

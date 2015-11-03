@@ -88,7 +88,7 @@ class PinningGCTest(BaseDirectGCTest):
 
 class TestIncminimark(PinningGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
-    from rpython.memory.gc.incminimark import STATE_SCANNING
+    from rpython.memory.gc.incminimark import STATE_SCANNING, STATE_MARKING
 
     def test_try_pin_gcref_containing_type(self):
         # scenario: incminimark's object pinning can't pin objects that may
@@ -917,3 +917,65 @@ class TestIncminimark(PinningGCTest):
         py.test.raises(Exception, self.malloc, T)
     test_full_pinned_nursery_pin_fail.max_number_of_pinned_objects = 50
 
+
+    def test_pin_bug1(self):
+        #
+        # * the nursery contains a pinned object 'ptr1'
+        #
+        # * outside the nursery is another object 'ptr2' pointing to 'ptr1'
+        #
+        # * during one incremental tracing step, we see 'ptr2' but don't
+        #   trace 'ptr1' right now: it is left behind on the trace-me-later
+        #   list
+        #
+        # * then we run the program, unpin 'ptr1', and remove it from 'ptr2'
+        #
+        # * at the next minor collection, we free 'ptr1' because we don't
+        #   find anything pointing to it (it is removed from 'ptr2'),
+        #   but 'ptr1' is still in the trace-me-later list
+        #
+        # * the trace-me-later list is deep enough that 'ptr1' is not
+        #   seen right now!  it is only seen at some later minor collection
+        #
+        # * at that later point, crash, because 'ptr1' in the nursery was
+        #   overwritten
+        #
+        ptr2 = self.malloc(S)
+        ptr2.someInt = 102
+        self.stackroots.append(ptr2)
+
+        self.gc.collect()
+        ptr2 = self.stackroots[-1]    # now outside the nursery
+        adr2 = llmemory.cast_ptr_to_adr(ptr2)
+
+        ptr1 = self.malloc(T)
+        adr1 = llmemory.cast_ptr_to_adr(ptr1)
+        ptr1.someInt = 101
+        self.write(ptr2, 'data', ptr1)
+        res = self.gc.pin(adr1)
+        assert res
+
+        self.gc.minor_collection()
+        assert self.gc.gc_state == self.STATE_SCANNING
+        self.gc.major_collection_step()
+        assert self.gc.objects_to_trace.tolist() == [adr2]
+        assert self.gc.more_objects_to_trace.tolist() == []
+
+        self.gc.TEST_VISIT_SINGLE_STEP = True
+
+        self.gc.minor_collection()
+        assert self.gc.gc_state == self.STATE_MARKING
+        self.gc.major_collection_step()
+        assert self.gc.objects_to_trace.tolist() == []
+        assert self.gc.more_objects_to_trace.tolist() == [adr2]
+
+        self.write(ptr2, 'data', lltype.nullptr(T))
+        self.gc.unpin(adr1)
+
+        assert ptr1.someInt == 101
+        self.gc.minor_collection()        # should free 'ptr1'
+        py.test.raises(RuntimeError, "ptr1.someInt")
+        assert self.gc.gc_state == self.STATE_MARKING
+        self.gc.major_collection_step()   # should not crash reading 'ptr1'!
+
+        del self.gc.TEST_VISIT_SINGLE_STEP

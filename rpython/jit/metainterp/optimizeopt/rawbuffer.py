@@ -44,10 +44,10 @@ class RawBuffer(object):
         if not we_are_translated() and isinstance(value, str):
             return value # for tests
         if self.logops:
-            s = self.logops.repr_of_arg(value.box)
+            s = self.logops.repr_of_arg(value)
         else:
-            s = str(value.box)
-        s += " at %d" % compute_unique_id(value.box)
+            s = str(value)
+        s += " at %d" % compute_unique_id(value)
         return s
 
     def _dump_to_log(self):

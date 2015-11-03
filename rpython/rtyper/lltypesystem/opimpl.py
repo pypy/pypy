@@ -597,6 +597,9 @@ def op_debug_flush():
 def op_have_debug_prints():
     return debug.have_debug_prints()
 
+def op_have_debug_prints_for(prefix):
+    return True
+
 def op_debug_nonnull_pointer(x):
     assert x
 
@@ -615,7 +618,7 @@ def op_jit_is_virtual(x):
 def op_jit_force_quasi_immutable(*args):
     pass
 
-def op_jit_record_known_class(x, y):
+def op_jit_record_exact_class(x, y):
     pass
 
 def op_jit_ffi_save_result(*args):

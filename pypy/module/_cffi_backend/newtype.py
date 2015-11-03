@@ -2,11 +2,13 @@ import sys
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec
 
-from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.objectmodel import specialize, r_dict, compute_identity_hash
+from rpython.rlib.rarithmetic import ovfcheck, intmask
+from rpython.rlib import jit, rweakref, clibffi
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 
+from pypy.module import _cffi_backend
 from pypy.module._cffi_backend import (ctypeobj, ctypeprim, ctypeptr,
     ctypearray, ctypestruct, ctypevoid, ctypeenum)
 
@@ -17,6 +19,24 @@ def alignment(TYPE):
     return rffi.offsetof(S, 'y')
 
 alignment_of_pointer = alignment(rffi.CCHARP)
+
+# ____________________________________________________________
+
+class UniqueCache:
+    def __init__(self, space):
+        self.ctvoid = None      # Cache for the 'void' type
+        self.ctvoidp = None     # Cache for the 'void *' type
+        self.ctchara = None     # Cache for the 'char[]' type
+        self.primitives = {}    # Cache for {name: primitive_type}
+        self.functions = []     # see _new_function_type()
+        self.for_testing = False
+
+def _clean_cache(space):
+    "NOT_RPYTHON"
+    from pypy.module._cffi_backend.realize_c_type import RealizeCache
+    if hasattr(space, 'fromcache'):   # not with the TinyObjSpace
+        space.fromcache(UniqueCache).__init__(space)
+        space.fromcache(RealizeCache).__init__(space)
 
 # ____________________________________________________________
 
@@ -112,40 +132,81 @@ else:
 
 @unwrap_spec(name=str)
 def new_primitive_type(space, name):
+    return _new_primitive_type(space, name)
+
+@jit.elidable
+def _new_primitive_type(space, name):
+    unique_cache = space.fromcache(UniqueCache)
+    try:
+        return unique_cache.primitives[name]
+    except KeyError:
+        pass
     try:
         ctypecls, size, align = PRIMITIVE_TYPES[name]
     except KeyError:
         raise OperationError(space.w_KeyError, space.wrap(name))
     ctype = ctypecls(space, size, name, len(name), align)
+    unique_cache.primitives[name] = ctype
     return ctype
 
 # ____________________________________________________________
 
+@specialize.memo()
+def _setup_wref(has_weakref_support):
+    assert has_weakref_support, "_cffi_backend requires weakrefs"
+    ctypeobj.W_CType._pointer_type = rweakref.dead_ref
+    ctypeptr.W_CTypePointer._array_types = None
+
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
 def new_pointer_type(space, w_ctype):
-    ctypepointer = ctypeptr.W_CTypePointer(space, w_ctype)
-    return ctypepointer
+    return _new_pointer_type(space, w_ctype)
+
+@jit.elidable
+def _new_pointer_type(space, w_ctype):
+    _setup_wref(rweakref.has_weakref_support())
+    ctptr = w_ctype._pointer_type()
+    if ctptr is None:
+        ctptr = ctypeptr.W_CTypePointer(space, w_ctype)
+        w_ctype._pointer_type = rweakref.ref(ctptr)
+    return ctptr
 
 # ____________________________________________________________
 
 @unwrap_spec(w_ctptr=ctypeobj.W_CType)
 def new_array_type(space, w_ctptr, w_length):
-    if not isinstance(w_ctptr, ctypeptr.W_CTypePointer):
-        raise OperationError(space.w_TypeError,
-                             space.wrap("first arg must be a pointer ctype"))
-    ctitem = w_ctptr.ctitem
-    if ctitem.size < 0:
-        raise oefmt(space.w_ValueError, "array item of unknown size: '%s'",
-                    ctitem.name)
     if space.is_w(w_length, space.w_None):
         length = -1
-        arraysize = -1
-        extra = '[]'
     else:
         length = space.getindex_w(w_length, space.w_OverflowError)
         if length < 0:
             raise OperationError(space.w_ValueError,
                                  space.wrap("negative array length"))
+    return _new_array_type(space, w_ctptr, length)
+
+@jit.elidable
+def _new_array_type(space, w_ctptr, length):
+    _setup_wref(rweakref.has_weakref_support())
+    if not isinstance(w_ctptr, ctypeptr.W_CTypePointer):
+        raise OperationError(space.w_TypeError,
+                             space.wrap("first arg must be a pointer ctype"))
+    arrays = w_ctptr._array_types
+    if arrays is None:
+        arrays = rweakref.RWeakValueDictionary(int, ctypearray.W_CTypeArray)
+        w_ctptr._array_types = arrays
+    else:
+        ctype = arrays.get(length)
+        if ctype is not None:
+            return ctype
+    #
+    ctitem = w_ctptr.ctitem
+    if ctitem.size < 0:
+        raise oefmt(space.w_ValueError, "array item of unknown size: '%s'",
+                    ctitem.name)
+    if length < 0:
+        assert length == -1
+        arraysize = -1
+        extra = '[]'
+    else:
         try:
             arraysize = ovfcheck(length * ctitem.size)
         except OverflowError:
@@ -154,6 +215,7 @@ def new_array_type(space, w_ctptr, w_length):
         extra = '[%d]' % length
     #
     ctype = ctypearray.W_CTypeArray(space, w_ctptr, length, arraysize, extra)
+    arrays.set(length, ctype)
     return ctype
 
 # ____________________________________________________________
@@ -167,6 +229,7 @@ SF_GCC_BIG_ENDIAN     = 0x04
 SF_GCC_LITTLE_ENDIAN  = 0x40
 
 SF_PACKED             = 0x08
+SF_STD_FIELD_POS      = 0x80
 
 
 if sys.platform == 'win32':
@@ -204,6 +267,20 @@ def new_struct_type(space, name):
 def new_union_type(space, name):
     return ctypestruct.W_CTypeUnion(space, name)
 
+def detect_custom_layout(w_ctype, sflags, cdef_value, compiler_value,
+                         msg1, msg2="", msg3=""):
+    if compiler_value != cdef_value:
+        if sflags & SF_STD_FIELD_POS:
+            from pypy.module._cffi_backend.ffi_obj import get_ffi_error
+            w_FFIError = get_ffi_error(w_ctype.space)
+            raise oefmt(w_FFIError,
+                    '%s: %s%s%s (cdef says %d, but C compiler says %d).'
+                    ' fix it or use "...;" in the cdef for %s to '
+                    'make it flexible',
+                    w_ctype.name, msg1, msg2, msg3,
+                    cdef_value, compiler_value, w_ctype.name)
+        w_ctype._custom_field_pos = True
+
 @unwrap_spec(w_ctype=ctypeobj.W_CType, totalsize=int, totalalignment=int,
              sflags=int)
 def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
@@ -224,7 +301,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     fields_w = space.listview(w_fields)
     fields_list = []
     fields_dict = {}
-    custom_field_pos = False
+    w_ctype._custom_field_pos = False
     with_var_array = False
 
     for i in range(len(fields_w)):
@@ -283,16 +360,19 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
             if foffset >= 0:
                 # a forced field position: ignore the offset just computed,
                 # except to know if we must set 'custom_field_pos'
-                custom_field_pos |= (boffset != foffset * 8)
+                detect_custom_layout(w_ctype, sflags, boffset // 8, foffset,
+                                     "wrong offset for field '",
+                                     fname, "'")
                 boffset = foffset * 8
 
             if (fname == '' and
                     isinstance(ftype, ctypestruct.W_CTypeStructOrUnion)):
                 # a nested anonymous struct or union
                 srcfield2names = {}
-                for name, srcfld in ftype.fields_dict.items():
+                ftype.force_lazy_struct()
+                for name, srcfld in ftype._fields_dict.items():
                     srcfield2names[srcfld] = name
-                for srcfld in ftype.fields_list:
+                for srcfld in ftype._fields_list:
                     fld = srcfld.make_shifted(boffset // 8)
                     fields_list.append(fld)
                     try:
@@ -300,7 +380,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                     except KeyError:
                         pass
                 # always forbid such structures from being passed by value
-                custom_field_pos = True
+                w_ctype._custom_field_pos = True
             else:
                 # a regular field
                 fld = ctypestruct.W_CField(ftype, boffset // 8, bs_flag, -1)
@@ -420,29 +500,60 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     # Like C, if the size of this structure would be zero, we compute it
     # as 1 instead.  But for ctypes support, we allow the manually-
     # specified totalsize to be zero in this case.
-    got = (boffsetmax + 7) // 8
+    boffsetmax = (boffsetmax + 7) // 8      # bits -> bytes
+    alignedsize = (boffsetmax + alignment - 1) & ~(alignment - 1)
+    alignedsize = alignedsize or 1
+
     if totalsize < 0:
-        totalsize = (got + alignment - 1) & ~(alignment - 1)
-        totalsize = totalsize or 1
-    elif totalsize < got:
-        raise oefmt(space.w_TypeError,
-                    "%s cannot be of size %d: there are fields at least up to "
-                    "%d", w_ctype.name, totalsize, got)
+        totalsize = alignedsize
+    else:
+        detect_custom_layout(w_ctype, sflags, alignedsize, totalsize,
+                             "wrong total size")
+        if totalsize < boffsetmax:
+            raise oefmt(space.w_TypeError,
+                "%s cannot be of size %d: there are fields at least up to %d",
+                w_ctype.name, totalsize, boffsetmax)
     if totalalignment < 0:
         totalalignment = alignment
+    else:
+        detect_custom_layout(w_ctype, sflags, alignment, totalalignment,
+                             "wrong total alignment")
 
     w_ctype.size = totalsize
     w_ctype.alignment = totalalignment
-    w_ctype.fields_list = fields_list[:]
-    w_ctype.fields_dict = fields_dict
-    w_ctype.custom_field_pos = custom_field_pos
-    w_ctype.with_var_array = with_var_array
+    w_ctype._fields_list = fields_list[:]
+    w_ctype._fields_dict = fields_dict
+    #w_ctype._custom_field_pos = ...set above already
+    w_ctype._with_var_array = with_var_array
 
 # ____________________________________________________________
 
 def new_void_type(space):
-    ctype = ctypevoid.W_CTypeVoid(space)
-    return ctype
+    return _new_void_type(space)
+
+@jit.elidable
+def _new_void_type(space):
+    unique_cache = space.fromcache(UniqueCache)
+    if unique_cache.ctvoid is None:
+        unique_cache.ctvoid = ctypevoid.W_CTypeVoid(space)
+    return unique_cache.ctvoid
+
+@jit.elidable
+def _new_voidp_type(space):
+    unique_cache = space.fromcache(UniqueCache)
+    if unique_cache.ctvoidp is None:
+        unique_cache.ctvoidp = new_pointer_type(space, new_void_type(space))
+    return unique_cache.ctvoidp
+
+@jit.elidable
+def _new_chara_type(space):
+    unique_cache = space.fromcache(UniqueCache)
+    if unique_cache.ctchara is None:
+        ctchar = new_primitive_type(space, "char")
+        ctcharp = new_pointer_type(space, ctchar)
+        ctchara = _new_array_type(space, ctcharp, length=-1)
+        unique_cache.ctchara = ctchara
+    return unique_cache.ctchara
 
 # ____________________________________________________________
 
@@ -482,9 +593,9 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
 
 # ____________________________________________________________
 
-@unwrap_spec(w_fresult=ctypeobj.W_CType, ellipsis=int)
-def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
-    from pypy.module._cffi_backend import ctypefunc
+@unwrap_spec(w_fresult=ctypeobj.W_CType, ellipsis=int, abi=int)
+def new_function_type(space, w_fargs, w_fresult, ellipsis=0,
+                      abi=_cffi_backend.FFI_DEFAULT_ABI):
     fargs = []
     for w_farg in space.fixedview(w_fargs):
         if not isinstance(w_farg, ctypeobj.W_CType):
@@ -493,17 +604,72 @@ def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
         if isinstance(w_farg, ctypearray.W_CTypeArray):
             w_farg = w_farg.ctptr
         fargs.append(w_farg)
+    return _new_function_type(space, fargs, w_fresult, bool(ellipsis), abi)
+
+def _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi):
+    x = compute_identity_hash(fresult)
+    for w_arg in fargs:
+        y = compute_identity_hash(w_arg)
+        x = intmask((1000003 * x) ^ y)
+    x ^= (ellipsis - abi)
+    if unique_cache.for_testing:    # constant-folded to False in translation;
+        x &= 3                      # but for test, keep only 2 bits of hash
+    return x
+
+# can't use @jit.elidable here, because it might call back to random
+# space functions via force_lazy_struct()
+def _new_function_type(space, fargs, fresult, ellipsis, abi):
+    try:
+        return _get_function_type(space, fargs, fresult, ellipsis, abi)
+    except KeyError:
+        return _build_function_type(space, fargs, fresult, ellipsis, abi)
+
+@jit.elidable
+def _get_function_type(space, fargs, fresult, ellipsis, abi):
+    # This function is elidable because if called again with exactly the
+    # same arguments (and if it didn't raise KeyError), it would give
+    # the same result, at least as long as this result is still live.
     #
-    if ((w_fresult.size < 0 and
-         not isinstance(w_fresult, ctypevoid.W_CTypeVoid))
-        or isinstance(w_fresult, ctypearray.W_CTypeArray)):
-        if (isinstance(w_fresult, ctypestruct.W_CTypeStructOrUnion) and
-                w_fresult.size < 0):
+    # 'unique_cache.functions' is a list of weak dicts, each mapping
+    # the func_hash number to a W_CTypeFunc.  There is normally only
+    # one such dict, but in case of hash collision, there might be
+    # more.
+    unique_cache = space.fromcache(UniqueCache)
+    func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
+    for weakdict in unique_cache.functions:
+        ctype = weakdict.get(func_hash)
+        if (ctype is not None and
+            ctype.ctitem is fresult and
+            ctype.fargs == fargs and
+            ctype.ellipsis == ellipsis and
+            ctype.abi == abi):
+            return ctype
+    raise KeyError
+
+@jit.dont_look_inside
+def _build_function_type(space, fargs, fresult, ellipsis, abi):
+    from pypy.module._cffi_backend import ctypefunc
+    #
+    if ((fresult.size < 0 and
+         not isinstance(fresult, ctypevoid.W_CTypeVoid))
+        or isinstance(fresult, ctypearray.W_CTypeArray)):
+        if (isinstance(fresult, ctypestruct.W_CTypeStructOrUnion) and
+                fresult.size < 0):
             raise oefmt(space.w_TypeError,
-                        "result type '%s' is opaque", w_fresult.name)
+                        "result type '%s' is opaque", fresult.name)
         else:
             raise oefmt(space.w_TypeError,
-                        "invalid result type: '%s'", w_fresult.name)
+                        "invalid result type: '%s'", fresult.name)
     #
-    fct = ctypefunc.W_CTypeFunc(space, fargs, w_fresult, ellipsis)
+    fct = ctypefunc.W_CTypeFunc(space, fargs, fresult, ellipsis, abi)
+    unique_cache = space.fromcache(UniqueCache)
+    func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
+    for weakdict in unique_cache.functions:
+        if weakdict.get(func_hash) is None:
+            weakdict.set(func_hash, fct)
+            break
+    else:
+        weakdict = rweakref.RWeakValueDictionary(int, ctypefunc.W_CTypeFunc)
+        unique_cache.functions.append(weakdict)
+        weakdict.set(func_hash, fct)
     return fct

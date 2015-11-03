@@ -83,6 +83,7 @@ class GcHighLevelOp(object):
 
 class BaseGCTransformer(object):
     finished_helpers = False
+    curr_block = None
 
     def __init__(self, translator, inline=False):
         self.translator = translator
@@ -159,7 +160,7 @@ class BaseGCTransformer(object):
 
     def transform_block(self, block, is_borrowed):
         llops = LowLevelOpList()
-        #self.curr_block = block
+        self.curr_block = block
         self.livevars = [var for var in block.inputargs
                     if var_needsgc(var) and not is_borrowed(var)]
         allvars = [var for var in block.getvariables() if var_needsgc(var)]
@@ -205,6 +206,7 @@ class BaseGCTransformer(object):
             block.operations[:] = llops
         self.livevars = None
         self.var_last_needed_in = None
+        self.curr_block = None
 
     def transform_graph(self, graph):
         if graph in self.minimal_transform:

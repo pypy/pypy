@@ -136,7 +136,6 @@ class AppTestJitHook(object):
         assert dmp.call_id == 0
         assert dmp.offset == -1
         assert int_add.name == 'int_add'
-        assert int_add.num == self.int_add_num
         assert int_add.offset == 0
         self.on_compile_bridge()
         expected = ('<JitLoopInfo pypyjit, 4 operations, starting at '
@@ -173,10 +172,7 @@ class AppTestJitHook(object):
         self.on_compile()
         loop = loops[0]
         op = loop.operations[2]
-        # Should not crash the interpreter
-        raises(IndexError, op.getarg, 2)
         assert op.name == 'guard_nonnull'
-        raises(NotImplementedError, op.getarg(0).getint)
 
     def test_non_reentrant(self):
         import pypyjit
@@ -217,52 +213,29 @@ class AppTestJitHook(object):
         self.on_abort()
         assert l == [('pypyjit', 'ABORT_TOO_LONG', [])]
 
-    def test_on_optimize(self):
-        import pypyjit
-        l = []
-
-        def hook(info):
-            l.append(info.jitdriver_name)
-
-        def optimize_hook(info):
-            return []
-
-        pypyjit.set_compile_hook(hook)
-        pypyjit.set_optimize_hook(optimize_hook)
-        self.on_optimize()
-        self.on_compile()
-        assert l == ['pypyjit']
-
     def test_creation(self):
-        from pypyjit import Box, ResOperation
+        from pypyjit import ResOperation
 
-        op = ResOperation(self.int_add_num, [Box(1), Box(3)], Box(4))
-        assert op.num == self.int_add_num
+        op = ResOperation("int_add", -1, "int_add(1, 2)")
         assert op.name == 'int_add'
-        box = op.getarg(0)
-        assert box.getint() == 1
-        box2 = op.result
-        assert box2.getint() == 4
-        op.setarg(0, box2)
-        assert op.getarg(0).getint() == 4
-        op.result = box
-        assert op.result.getint() == 1
+        assert repr(op) == "int_add(1, 2)"
 
     def test_creation_dmp(self):
-        from pypyjit import DebugMergePoint, Box
+        from pypyjit import DebugMergePoint
 
         def f():
             pass
 
-        op = DebugMergePoint([Box(0)], 'repr', 'pypyjit', 2, 3, (f.func_code, 0, 0))
+        op = DebugMergePoint("debug_merge_point", 'repr', 'pypyjit', 2, 3, (f.func_code, 0, 0))
         assert op.bytecode_no == 0
         assert op.pycode is f.func_code
         assert repr(op) == 'repr'
         assert op.jitdriver_name == 'pypyjit'
-        assert op.num == self.dmp_num
+        assert op.name == 'debug_merge_point'
         assert op.call_depth == 2
         assert op.call_id == 3
-        op = DebugMergePoint([Box(0)], 'repr', 'notmain', 5, 4, ('str',))
+        op = DebugMergePoint('debug_merge_point', 'repr', 'notmain',
+                             5, 4, ('str',))
         raises(AttributeError, 'op.pycode')
         assert op.call_depth == 5
 

@@ -607,6 +607,59 @@ class AppTestSysModulePortedFromCPython:
         # be changed.
         assert sys.float_repr_style == "short"
 
+class AppTestSysSettracePortedFromCpython(object):
+    def test_sys_settrace(self):
+        import sys
+        
+        class Tracer:
+            def __init__(self):
+                self.events = []
+            def trace(self, frame, event, arg):
+                self.events.append((frame.f_lineno, event))
+                return self.trace
+            def traceWithGenexp(self, frame, event, arg):
+                (o for o in [1])
+                self.events.append((frame.f_lineno, event))
+                return self.trace
+
+        def compare_events(line_offset, events, expected_events):
+            events = [(l - line_offset, e) for (l, e) in events]
+            assert events == expected_events
+
+        def run_test2(func):
+            tracer = Tracer()
+            func(tracer.trace)
+            sys.settrace(None)
+            compare_events(func.func_code.co_firstlineno,
+                           tracer.events, func.events)
+
+
+        def _settrace_and_return(tracefunc):
+            sys.settrace(tracefunc)
+            sys._getframe().f_back.f_trace = tracefunc
+        def settrace_and_return(tracefunc):
+            _settrace_and_return(tracefunc)
+
+
+        def _settrace_and_raise(tracefunc):
+            sys.settrace(tracefunc)
+            sys._getframe().f_back.f_trace = tracefunc
+            raise RuntimeError
+        def settrace_and_raise(tracefunc):
+            try:
+                _settrace_and_raise(tracefunc)
+            except RuntimeError, exc:
+                pass
+
+        settrace_and_raise.events = [(2, 'exception'),
+                                     (3, 'line'),
+                                     (4, 'line'),
+                                     (4, 'return')]
+
+        settrace_and_return.events = [(1, 'return')]
+        run_test2(settrace_and_return)
+        run_test2(settrace_and_raise)
+
 
 class AppTestCurrentFrames:
     def test_current_frames(self):
@@ -642,7 +695,7 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
 
         thread_id = thread.get_ident()
         def other_thread():
-            print "thread started"
+            #print "thread started"
             lock2.release()
             lock1.acquire()
         lock1 = thread.allocate_lock()

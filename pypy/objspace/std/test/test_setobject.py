@@ -996,3 +996,9 @@ class AppTestAppSetTest:
         s = set([1, 2, 3])
         s.intersection_update(set())
         assert strategy(s) == "EmptySetStrategy"
+
+    def test_weird_exception_from_iterable(self):
+        def f():
+           raise ValueError
+           yield 1
+        raises(ValueError, set, f())

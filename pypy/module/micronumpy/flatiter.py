@@ -16,6 +16,7 @@ class FakeArrayImplementation(BaseConcreteArray):
         self.dtype = base.get_dtype()
         self.shape = [base.get_size()]
         self.storage = self._base.implementation.storage
+        self.order = base.get_order()
 
     def base(self):
         return self._base
@@ -97,6 +98,8 @@ class W_FlatIterator(W_NDimArray):
         finally:
             self.iter.reset(self.state, mutate=True)
 
+    def descr___array_wrap__(self, space, obj, w_context=None):
+        return obj
 
 W_FlatIterator.typedef = TypeDef("numpy.flatiter",
     base = GetSetProperty(W_FlatIterator.descr_base),
@@ -116,4 +119,5 @@ W_FlatIterator.typedef = TypeDef("numpy.flatiter",
     __le__ = interp2app(W_FlatIterator.descr_le),
     __gt__ = interp2app(W_FlatIterator.descr_gt),
     __ge__ = interp2app(W_FlatIterator.descr_ge),
+    __array_wrap__ = interp2app(W_NDimArray.descr___array_wrap__),
 )

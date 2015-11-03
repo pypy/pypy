@@ -30,7 +30,15 @@ PY_FROZEN = 7
 IMP_HOOK = 9
 
 SO = '.pyd' if _WIN32 else '.so'
-DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
+
+# this used to change for every minor version, but no longer does: there
+# is little point any more, as the so's tend to be cross-version-
+# compatible, more so than between various versions of CPython.  Be
+# careful if we need to update it again: it is now used for both cpyext
+# and cffi so's.  If we do have to update it, we'd likely need a way to
+# split the two usages again.
+#DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
+DEFAULT_SOABI = 'pypy-26'
 
 @specialize.memo()
 def get_so_extension(space):
@@ -50,6 +58,10 @@ def get_so_extension(space):
 def file_exists(path):
     """Tests whether the given path is an existing regular file."""
     return os.path.isfile(path) and case_ok(path)
+
+def has_so_extension(space):
+    return (space.config.objspace.usemodules.cpyext or
+            space.config.objspace.usemodules._cffi_backend)
 
 def find_modtype(space, filepart):
     """Check which kind of module to import for the given filepart,
@@ -79,7 +91,7 @@ def find_modtype(space, filepart):
             # existing .pyc file
             return PY_COMPILED, ".pyc", "rb"
 
-    if space.config.objspace.usemodules.cpyext:
+    if has_so_extension(space):
         so_extension = get_so_extension(space)
         pydfile = filepart + so_extension
         if file_exists(pydfile):
@@ -337,6 +349,11 @@ def absolute_import_try(space, modulename, baselevel, fromlist_w):
                 w_all = try_getattr(space, w_mod, space.wrap('__all__'))
                 if w_all is not None:
                     fromlist_w = space.fixedview(w_all)
+                else:
+                    fromlist_w = []
+                    # "from x import *" with x already imported and no x.__all__
+                    # always succeeds without doing more imports.  It will
+                    # just copy everything from x.__dict__ as it is now.
             for w_name in fromlist_w:
                 if try_getattr(space, w_mod, w_name) is None:
                     return None
@@ -377,6 +394,8 @@ def _absolute_import(space, modulename, baselevel, fromlist_w, tentative):
                 w_all = try_getattr(space, w_mod, w('__all__'))
                 if w_all is not None:
                     fromlist_w = space.fixedview(w_all)
+                else:
+                    fromlist_w = []
             for w_name in fromlist_w:
                 if try_getattr(space, w_mod, w_name) is None:
                     load_part(space, w_path, prefix, space.str0_w(w_name),
@@ -565,10 +584,9 @@ def add_module(space, w_name):
     return w_mod
 
 def load_c_extension(space, filename, modulename):
-    # the next line is mandatory to init cpyext
-    space.getbuiltinmodule("cpyext")
     from pypy.module.cpyext.api import load_extension_module
     load_extension_module(space, filename, modulename)
+    # NB. cpyext.api.load_extension_module() can also delegate to _cffi_backend
 
 @jit.dont_look_inside
 def load_module(space, w_modulename, find_info, reuse=False):
@@ -621,11 +639,14 @@ def load_module(space, w_modulename, find_info, reuse=False):
                 try:
                     load_module(space, w_modulename, find_info, reuse=True)
                 finally:
-                    find_info.stream.close()
+                    try:
+                        find_info.stream.close()
+                    except StreamErrors:
+                        pass
                 # fetch the module again, in case of "substitution"
                 w_mod = check_sys_modules(space, w_modulename)
                 return w_mod
-            elif find_info.modtype == C_EXTENSION and space.config.objspace.usemodules.cpyext:
+            elif find_info.modtype == C_EXTENSION and has_so_extension(space):
                 load_c_extension(space, find_info.filename, space.str_w(w_modulename))
                 return check_sys_modules(space, w_modulename)
         except OperationError:
@@ -663,7 +684,10 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
             if find_info:
                 stream = find_info.stream
                 if stream:
-                    stream.close()
+                    try:
+                        stream.close()
+                    except StreamErrors:
+                        pass
 
     if tentative:
         return None
@@ -881,7 +905,10 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
         try:
             code_w = read_compiled_module(space, cpathname, stream.readall())
         finally:
-            stream.close()
+            try:
+                stream.close()
+            except StreamErrors:
+                pass
         space.setattr(w_mod, w('__file__'), w(cpathname))
     else:
         code_w = parse_source_module(space, pathname, source)
@@ -966,7 +993,10 @@ def check_compiled_module(space, pycfilename, expected_mtime):
         return stream
     except StreamErrors:
         if stream:
-            stream.close()
+            try:
+                stream.close()
+            except StreamErrors:
+                pass
         return None    # XXX! must not eat all exceptions, e.g.
                        # Out of file descriptors.
 
