@@ -12,6 +12,8 @@ class LiteralPool(object):
         self.size = 0
         # the offset to index the pool
         self.pool_start = 0
+        self.label_offset = 0
+        self.label_count = 0
         self.offset_map = {}
 
     def ensure_can_hold_constants(self, asm, op):
@@ -20,15 +22,26 @@ class LiteralPool(object):
             # 1x target address
             self.offset_map[op.getdescr()] = self.size
             self.reserve_literal(2 * 8)
-        if op.getopnum() == rop.JUMP:
+        elif op.getopnum() == rop.JUMP:
             descr = op.getdescr()
             if descr not in asm.target_tokens_currently_compiling:
                 # this is a 'long' jump instead of a relative jump
+                self.offset_map[descr] = self.size
                 self.reserve_literal(8)
+        elif op.getopnum() == rop.LABEL:
+            descr = op.getdescr()
+            if descr not in asm.target_tokens_currently_compiling:
+                # this is a 'long' jump instead of a relative jump
+                descr._ll_loop_code = self.pool_start
+                self.offset_map[descr] = self.size
+                self.reserve_literal(asm.BRAS_byte_count)
         for arg in op.getarglist():
             if arg.is_constant():
                 self.offset_map[arg] = self.size
                 self.reserve_literal(8)
+
+    def get_descr_offset(self, descr):
+        return self.offset_map[descr]
 
     def reserve_literal(self, size):
         self.size += size
@@ -36,8 +49,9 @@ class LiteralPool(object):
 
     def reset(self):
         self.pool_start = 0
+        self.label_offset = 0
         self.size = 0
-        self.offset = 0
+        self.offset_map.clear()
 
     def pre_assemble(self, asm, operations):
         self.reset()
@@ -60,8 +74,10 @@ class LiteralPool(object):
         if self.size == 0:
             # no pool needed!
             return
-        if self.size % 2 == 1:
-            self.size += 1
+        self.size += 8
+        assert self.size % 2 == 0
+        #if self.size % 2 == 1:
+        #    self.size += 1
         assert self.size < 2**16-1
         asm.mc.BRAS(r.POOL, l.imm(self.size+asm.mc.BRAS_byte_count))
         self.pool_start = asm.mc.get_relative_pos()
@@ -80,7 +96,9 @@ class LiteralPool(object):
         mc.overwrite(index+6, chr(value >> 8 & 0xff))
         mc.overwrite(index+7, chr(value & 0xff))
 
-    def post_assemble(self, mc, pending_guard_tokens):
+    def post_assemble(self, asm):
+        mc = asm.mc
+        pending_guard_tokens = asm.pending_guard_tokens
         if self.size == 0:
             return
         for val, offset in self.offset_map.items():
@@ -101,5 +119,4 @@ class LiteralPool(object):
             guard_token._pool_offset = offset
             ptr = rffi.cast(lltype.Signed, guard_token.gcmap)
             self.overwrite_64(mc, offset + RECOVERY_GCMAP_POOL_OFFSET, ptr)
-        self.offset_map.clear()
 

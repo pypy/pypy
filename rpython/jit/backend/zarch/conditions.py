@@ -9,6 +9,7 @@ OF = loc.imm(0x1)
 LE = loc.imm(EQ.value | LT.value)
 GE = loc.imm(EQ.value | GT.value)
 NE = loc.imm(LT.value | GT.value)
+ANY = loc.imm(0xf)
 
 cond_none = loc.imm(0x0)
 

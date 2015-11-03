@@ -1,4 +1,5 @@
-from rpython.jit.backend.llsupport.assembler import GuardToken, BaseAssembler
+from rpython.jit.backend.llsupport.assembler import (GuardToken, BaseAssembler,
+        debug_bridge, DEBUG_COUNTER)
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport import jitframe, rewrite
 from rpython.jit.backend.model import CompiledLoopToken
@@ -208,11 +209,11 @@ class AssemblerZARCH(BaseAssembler,
         """
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
-        mc.LG(r.r2, l.addr(ofs, r.SPP))
+        #mc.LG(r.r2, l.addr(ofs, r.SPP))
         patch_pos = mc.currpos()
-        mc.TRAP2()     # placeholder for cmpdi(0, r2, ...)
-        mc.TRAP2()     # placeholder for bge
-        mc.TRAP2()     # placeholder for li(r0, ...)
+        #mc.TRAP2()     # placeholder for cmpdi(0, r2, ...)
+        #mc.TRAP2()     # placeholder for bge
+        #mc.TRAP2()     # placeholder for li(r0, ...)
         #mc.load_imm(r.SCRATCH2, self._frame_realloc_slowpath)
         #mc.mtctr(r.SCRATCH2.value)
         #self.load_gcmap(mc, r.r2, gcmap)
@@ -254,7 +255,7 @@ class AssemblerZARCH(BaseAssembler,
         self.update_frame_depth(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         #
         size_excluding_failure_stuff = self.mc.get_relative_pos()
-        self.pool.post_assemble(self.mc, self.pending_guard_tokens)
+        self.pool.post_assemble(self)
         self.write_pending_failure_recoveries()
         full_size = self.mc.get_relative_pos()
         #
@@ -313,12 +314,14 @@ class AssemblerZARCH(BaseAssembler,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
+        self.pool.pre_assemble(self, operations)
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
+        self.pool.post_assemble(self)
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
         #
-        self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+        # TODO self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         rawstart = self.materialize_loop(original_loop_token)
         debug_bridge(descr_number, rawstart, codeendpos)
         self.patch_pending_failure_recoveries(rawstart)
@@ -334,6 +337,18 @@ class AssemblerZARCH(BaseAssembler,
         self.update_frame_depth(frame_depth)
         self.teardown()
         return AsmInfo(ops_offset, startpos + rawstart, codeendpos - startpos)
+
+    def patch_jump_for_descr(self, faildescr, adr_new_target):
+        # 'faildescr.adr_jump_offset' is the address of an instruction that is a
+        # conditional jump.  We must patch this conditional jump to go
+        # to 'adr_new_target'.
+        # Updates the pool address
+        mc = InstrBuilder()
+        mc.write_i64(adr_new_target)
+        print "addr is", hex(adr_new_target), "writing to", hex(faildescr.adr_jump_offset)
+        mc.copy_to_raw_memory(faildescr.adr_jump_offset)
+        assert faildescr.adr_jump_offset != 0
+        faildescr.adr_jump_offset = 0    # means "patched"
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
@@ -475,9 +490,9 @@ class AssemblerZARCH(BaseAssembler,
         for tok in self.pending_guard_tokens:
             addr = rawstart + tok.pos_jump_offset
             #
-            # XXX see patch_jump_for_descr()
-            tok.faildescr.adr_jump_offset = rawstart + tok.pos_recovery_stub
-            #
+            tok.faildescr.adr_jump_offset = rawstart + \
+                    self.pool.pool_start + tok._pool_offset + \
+                    RECOVERY_TARGET_POOL_OFFSET
             relative_target = tok.pos_recovery_stub - tok.pos_jump_offset
             #
             if not tok.guard_not_invalidated():
@@ -526,12 +541,12 @@ class AssemblerZARCH(BaseAssembler,
         self.mc.LMG(r.r6, r.r15, l.addr(upoffset, r.SP))
         self.jmpto(r.r14)
 
-    def _push_core_regs_to_jitframe(self, mc, includes=r.MANAGED_REGS):
+    def _push_core_regs_to_jitframe(self, mc, includes=r.registers):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         assert len(includes) == 16
         mc.STMG(r.r0, r.r15, l.addr(base_ofs, r.SPP))
 
-    def _push_fp_regs_to_jitframe(self, mc, includes=r.MANAGED_FP_REGS):
+    def _push_fp_regs_to_jitframe(self, mc, includes=r.fpregisters):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         assert len(includes) == 16
         v = 16
@@ -562,7 +577,10 @@ class AssemblerZARCH(BaseAssembler,
         if descr in self.target_tokens_currently_compiling:
             self.mc.b_offset(descr._ll_loop_code)
         else:
-            self.mc.b_abs(descr._ll_loop_code)
+            offset = self.pool.get_descr_offset(descr)
+            self.mc.b_abs(l.pool(offset))
+            print "writing", hex(descr._ll_loop_code)
+            self.pool.overwrite_64(self.mc, offset, descr._ll_loop_code)
 
 
     def emit_finish(self, op, arglocs, regalloc):

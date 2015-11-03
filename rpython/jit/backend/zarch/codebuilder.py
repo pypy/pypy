@@ -36,6 +36,17 @@ class ZARCHGuardToken(GuardToken):
         self._pool_offset = -1
 
 class AbstractZARCHBuilder(object):
+
+    def write_i64(self, word):
+        self.writechar(chr((word >> 56) & 0xFF))
+        self.writechar(chr((word >> 48) & 0xFF))
+        self.writechar(chr((word >> 40) & 0xFF))
+        self.writechar(chr((word >> 32) & 0xFF))
+        self.writechar(chr((word >> 24) & 0xFF))
+        self.writechar(chr((word >> 16) & 0xFF))
+        self.writechar(chr((word >> 8) & 0xFF))
+        self.writechar(chr(word & 0xFF))
+
     def write_i32(self, word):
         self.writechar(chr((word >> 24) & 0xFF))
         self.writechar(chr((word >> 16) & 0xFF))
@@ -104,7 +115,11 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
     def b_offset(self, reladdr):
         offset = reladdr - self.get_relative_pos()
-        self.BRC(l.imm(0xf), l.imm(offset))
+        self.BRC(c.ANY, l.imm(offset))
+
+    def b_abs(self, pooled):
+        self.LG(r.r10, pooled)
+        self.BCR(c.ANY, r.r10)
 
     def reserve_guard_branch(self):
         print "reserve!", self.get_relative_pos()
