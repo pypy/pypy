@@ -155,4 +155,5 @@ _classes = (AbstractZARCHBuilder,)
 
 # Used to build the MachineCodeBlockWrapper
 all_instructions = sorted([name for cls in _classes for name in cls.__dict__ \
-                          if name.split('_')[0].isupper() and '_' in name])
+                          if name.split('_')[0].isupper() and '_' in name and \
+                             not name.endswith('_byte_count')])

@@ -27,7 +27,7 @@ arith_mnemonic_codes = {
     'CGR':     ('rre',    ['\xB9','\x20']),
     'CG':      ('rxy',    ['\xE3','\x20']),
     'CLGR':    ('rre',    ['\xB9','\x21']),
-    'CLG':     ('rxy',    ['\xE3','\x20']),
+    'CLG':     ('rxy',    ['\xE3','\x21']),
     'CGHI':    ('ri',     ['\xA7','\x0F']),
 }
 
