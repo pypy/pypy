@@ -117,8 +117,9 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         offset = reladdr - self.get_relative_pos()
         self.BRC(c.ANY, l.imm(offset))
 
-    def b_abs(self, pooled):
+    def b_abs(self, pooled, restore_pool=False):
         self.LG(r.r10, pooled)
+        self.LG(r.POOL, l.pool(0))
         self.BCR(c.ANY, r.r10)
 
     def reserve_guard_branch(self):

@@ -314,7 +314,7 @@ class AssemblerZARCH(BaseAssembler,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
-        self.pool.pre_assemble(self, operations)
+        self.pool.pre_assemble(self, operations, bridge=True)
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         self.pool.post_assemble(self)
@@ -577,8 +577,9 @@ class AssemblerZARCH(BaseAssembler,
         if descr in self.target_tokens_currently_compiling:
             self.mc.b_offset(descr._ll_loop_code)
         else:
+            # restore the pool address
             offset = self.pool.get_descr_offset(descr)
-            self.mc.b_abs(l.pool(offset))
+            self.mc.b_abs(l.pool(offset), restore_pool=True)
             print "writing", hex(descr._ll_loop_code)
             self.pool.overwrite_64(self.mc, offset, descr._ll_loop_code)
 
