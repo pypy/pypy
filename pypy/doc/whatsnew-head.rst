@@ -11,4 +11,6 @@ Use pkg-config to find ssl headers on OS-X
 
 .. branch: Zearin/minor-whatsnewrst-markup-tweaks-edited-o-1446387512092
 
+.. branch: ppc-stacklet
 
+The PPC machines now support the _continuation module (stackless, greenlets)
