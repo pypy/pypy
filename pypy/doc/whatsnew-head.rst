@@ -8,3 +8,7 @@ What's new in PyPy 4.0.+
 .. branch: 2174-fix-osx-10-11-translation
 
 Use pkg-config to find ssl headers on OS-X
+
+.. branch: Zearin/minor-whatsnewrst-markup-tweaks-edited-o-1446387512092
+
+
