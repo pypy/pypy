@@ -517,9 +517,10 @@ class AssemblerZARCH(BaseAssembler,
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
         self.mc.STMG(r.r6, r.r15, l.addr(-GPR_STACK_SAVE_IN_BYTES, r.SP))
         self.mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
+        self.mc.LGR(r.BSP, r.SP)
 
         # save r4, the second argument, to THREADLOCAL_ADDR_OFFSET
-        self.mc.STG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
+        #self.mc.STG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
 
         # move the first argument to SPP: the jitframe object
         self.mc.LGR(r.SPP, r.r2)
@@ -579,7 +580,10 @@ class AssemblerZARCH(BaseAssembler,
         else:
             # restore the pool address
             offset = self.pool.get_descr_offset(descr)
-            self.mc.b_abs(l.pool(offset), restore_pool=True)
+            self.mc.LG(r.SCRATCH, l.pool(offset))
+            self.mc.LG(r.POOL, l.addr(0, r.BSP))
+            self.mc.AGHI(r.BSP, l.imm(8))
+            self.mc.BCR(c.ANY, r.SCRATCH)
             print "writing", hex(descr._ll_loop_code)
             self.pool.overwrite_64(self.mc, offset, descr._ll_loop_code)
 

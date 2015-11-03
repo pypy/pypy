@@ -52,7 +52,7 @@ class LiteralPool(object):
         self.size = 0
         self.offset_map.clear()
 
-    def pre_assemble(self, asm, operations, bridge=True):
+    def pre_assemble(self, asm, operations, bridge=False):
         self.reset()
         # O(len(operations)). I do not think there is a way
         # around this.
@@ -68,25 +68,24 @@ class LiteralPool(object):
         # the current solution (gcc does the same), use a literal pool
         # located at register r13. This one can easily offset with 20
         # bit signed values (should be enough)
-        if bridge:
-            self.reserve_literal(8)
         for op in operations:
             self.ensure_can_hold_constants(asm, op)
         if self.size == 0:
             # no pool needed!
             return
-        self.size += 8
         assert self.size % 2 == 0
         #if self.size % 2 == 1:
         #    self.size += 1
-        assert self.size < 2**16-1
+        jump_offset = self.size+asm.mc.BRAS_byte_count
+        assert jump_offset < 2**15-1
         if bridge:
-            asm.mc.LGR(r.SCRATCH, r.r13)
-        asm.mc.BRAS(r.POOL, l.imm(self.size+asm.mc.BRAS_byte_count))
+            asm.mc.LGR(r.SCRATCH, r.POOL)
+        asm.mc.BRAS(r.POOL, l.imm(jump_offset))
         self.pool_start = asm.mc.get_relative_pos()
         asm.mc.write('\xFF' * self.size)
         if bridge:
-            asm.mc.STG(r.SCRATCH, l.pool(0))
+            asm.mc.STG(r.SCRATCH, l.addr(-8, r.BSP))
+            asm.mc.AGHI(r.BSP, l.imm(-8))
         print "pool with %d quad words" % (self.size // 8)
 
     def overwrite_64(self, mc, index, value):

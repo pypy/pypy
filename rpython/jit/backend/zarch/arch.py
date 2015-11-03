@@ -5,17 +5,19 @@ DOUBLE_WORD = 8
 #                                                 OFFSET
 #     +------------------------------+            0
 #     |  gpr save are (int+float)    |
-#     +------------------------------+            8
-#     |  local vars                  |
-#     +------------------------------+            0
+#     +------------------------------+            GPR_STACK_SAVE_IN_BYTES | 120
+#     |  last base pointer           |
+#     +------------------------------+            BSP_STACK_OFFSET        | 128
 #     |                              |
 #     +------------------------------+
 #     |                              |
-#     +------------------------------+ <- SP      0         (r15)
+#     +------------------------------+                                    | 140
+#
 #
 
 GPR_STACK_SAVE_IN_BYTES = 120
 STD_FRAME_SIZE_IN_BYTES = 140
+BSP_STACK_OFFSET = 128
 THREADLOCAL_ADDR_OFFSET = 8
 
 assert STD_FRAME_SIZE_IN_BYTES % 2 == 0
