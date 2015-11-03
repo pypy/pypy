@@ -3081,7 +3081,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = array(Dummy())
         assert a.dtype == object
         raises(ValueError, array, Dummy({'xxx': 0}))
-        raises(ValueError), array, Dummy({'version': 0}))
+        raises(ValueError, array, Dummy({'version': 0}))
         raises(ValueError, array, Dummy({'version': 'abc'}))
         raises(ValueError, array, Dummy({'version': 3}))
 
