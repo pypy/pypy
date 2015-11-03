@@ -2221,7 +2221,10 @@ class UnicodeType(FlexibleType):
     def coerce(self, space, dtype, w_item):
         if isinstance(w_item, boxes.W_UnicodeBox):
             return w_item
-        value = space.unicode_w(space.unicode_from_object(w_item))
+        if isinstance(w_item, boxes.W_ObjectBox):
+            value = space.unicode_w(space.unicode_from_object(w_item.w_obj))
+        else:
+            value = space.unicode_w(space.unicode_from_object(w_item))
         return boxes.W_UnicodeBox(value)
 
     def store(self, arr, i, offset, box, native):
