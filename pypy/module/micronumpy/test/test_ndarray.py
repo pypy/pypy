@@ -3075,7 +3075,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
         class Dummy(object):
             def __init__(self, aif=None):
-                if aif:
+                if aif is not None:
                     self.__array_interface__ = aif
 
         a = array(Dummy())
@@ -3084,6 +3084,27 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(ValueError, array, Dummy({'version': 0}))
         raises(ValueError, array, Dummy({'version': 'abc'}))
         raises(ValueError, array, Dummy({'version': 3}))
+        raises(TypeError, array, Dummy({'version': 3, 'typestr': 'f8', 'shape': ('a', 3)}))
+
+        a = array([1, 2, 3])
+        interface_a = a.__array_interface__
+        interface_a.pop('strides')
+        b = array(Dummy(interface_a))
+        b[1] = 200
+        assert a[1] == 2 # upstream compatibility, is this a bug?
+        interface_a = a.__array_interface__
+        interface_b = b.__array_interface__
+        # only the data[0] value should differ
+        assert interface_a['data'][0] != interface_b['data'][0]
+        assert interface_b['data'][1] == interface_a['data'][1]
+        interface_b.pop('data')
+        interface_a.pop('data')
+        assert interface_a == interface_b
+
+        b = array(Dummy({'version':3, 'shape': (50,), 'typestr': 'u1',
+                         'data': 'a'*100}))
+        assert b.dtype == 'uint8'
+        assert b.shape == (50,)
 
     def test_array_indexing_one_elem(self):
         from numpy import array, arange
