@@ -3509,3 +3509,8 @@ def test_stdcall_function_type():
         assert repr(BFunc) == "<ctype 'int(__stdcall *)(int, int)'>"
     else:
         assert repr(BFunc) == "<ctype 'int(*)(int, int)'>"
+
+def test_get_common_types():
+    d = {}
+    _get_common_types(d)
+    assert d['bool'] == '_Bool'

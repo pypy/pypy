@@ -43,6 +43,7 @@ class Module(MixedModule):
         'newp_handle': 'handle.newp_handle',
         'from_handle': 'handle.from_handle',
         '_get_types': 'func._get_types',
+        '_get_common_types': 'func._get_common_types',
         'from_buffer': 'func.from_buffer',
 
         'string': 'func.string',
