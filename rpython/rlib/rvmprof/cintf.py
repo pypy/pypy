@@ -86,6 +86,39 @@ def token2lltype(tok):
         return llmemory.GCREF
     raise NotImplementedError(repr(tok))
 
+def token2ctype(tok):
+    if tok == 'i':
+        return 'long'
+    elif tok == 'r':
+        return 'void*'
+    elif tok == 'f':
+        return 'double'
+    else:
+        raise NotImplementedError(repr(tok))
+
+def make_c_trampoline_function(name, func, token, restok):
+    cont_name = 'rpyvmprof_f_%s_%s' % (name, token)
+    tramp_name = 'rpyvmprof_t_%s_%s' % (name, token)
+
+    func.c_name = cont_name
+    func._dont_inline_ = True
+
+    assert detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64), (
+        "rvmprof only supports x86-64 CPUs for now")
+
+    llargs = ", ".join([token2ctype(x) for x in token])
+    type = token2ctype(restok)
+    target = udir.join('module_cache')
+    target.ensure(dir=1)
+    target = target.join('trampoline_%s_%s.vmprof.c' % (name, token))
+    target.write("""
+#include <vmprof_stack.h>
+
+%(type)s %(tramp_name)s(%(llargs)s)
+{
+}
+""" % locals())
+
 def make_trampoline_function(name, func, token, restok):
     from rpython.jit.backend import detect_cpu
 

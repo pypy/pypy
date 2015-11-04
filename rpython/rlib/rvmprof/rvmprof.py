@@ -4,7 +4,8 @@ from rpython.rlib import jit, rgc, rposix
 from rpython.rlib.rvmprof import cintf
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi, llmemory
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 MAX_FUNC_NAME = 1023
 
@@ -168,13 +169,16 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
             return (ll_arg,) + ll_args, tok + token
 
         @specialize.memo()
-        def get_ll_trampoline(token):
+        def get_ll_trampoline(token, c_version=False):
             """ Used by the trampoline-version only
             """
             if result_class is None:
                 restok = "i"
             else:
                 restok = "r"
+            if c_version:
+                return cintf.make_c_trampoline_function(name, func, token,
+                    restok)
             return cintf.make_trampoline_function(name, func, token, restok)
 
         def decorated_function(*args):
@@ -194,20 +198,21 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
                     ll_args, token = lower(*args)
                     ll_trampoline = get_ll_trampoline(token)
                     ll_result = ll_trampoline(*ll_args + (unique_id,))
-                    if result_class is not None:
-                        return cast_base_ptr_to_instance(result_class, ll_result)
-                    else:
-                        return ll_result
                 else:
                     return func(*args)
             else: # this is the case of the stack
-                unique_id = get_code_fn(*args)._vmprof_unique_id
-                _vmprof.cintf.vmprof_stack_append(_vmprof._stack, unique_id)
-                try:
-                    res = func(*args)
-                finally:
-                    _vmprof.cintf.vmprof_stack_pop(_vmprof._stack)
-                return res
+                if we_are_translated() and not jit.we_are_jitted():
+                    unique_id = get_code_fn(*args)._vmprof_unique_id
+                    shadowstack_0 = llop.gc_adr_of_root_stack_base(llmemory.Address)
+                    ll_args, token = lower(*args)
+                    ll_trampoline = get_ll_trampoline(token, True)
+                    ll_result = ll_trampoline(*ll_args + (unique_id, shadowstack_0))
+                else:
+                    return func(*args)
+            if result_class is not None:
+                return cast_base_ptr_to_instance(result_class, ll_result)
+            else:
+                return ll_result
         decorated_function.__name__ = func.__name__ + '_rvmprof'
         return decorated_function
 

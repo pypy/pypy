@@ -2,6 +2,10 @@
 #define STACK_SIZE 8192
 #include <stdlib.h>
 
+typedef stuct vmprof_stack {
+
+} vmprof_stack;
+
 typedef struct vmprof_stack {
     volatile long stack_depth;
     long stack_items[STACK_SIZE];
