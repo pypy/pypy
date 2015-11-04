@@ -20,8 +20,11 @@ ffi = cffi.FFI()
 ffi.cdef(header)
 
 lib = ffi.verify(
-        open(os.path.join(cffi_dir, '..', 'c', 'parse_c_type.c')).read(),
-        include_dirs=[cffi_dir])
+        open(os.path.join(cffi_dir, '..', 'c', 'parse_c_type.c')).read() + """
+static const char *get_common_type(const char *search, size_t search_len) {
+    return NULL;
+}
+""",    include_dirs=[cffi_dir])
 
 class ParseError(Exception):
     pass

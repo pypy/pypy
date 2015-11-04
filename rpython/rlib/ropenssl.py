@@ -23,6 +23,20 @@ else:
     libraries = ['z', 'ssl', 'crypto']
     includes = []
 
+
+include_dirs = []
+library_dirs = []
+
+#
+# Work around the fact that since 10.11, OS X no longer ships
+# openssl system-wide, and Homebrew does not install it system-wide.
+#
+# Make sure your PKG_CONFIG_PATH looks in the right direction, though.
+#
+if sys.platform == 'darwin':
+    include_dirs = platform.include_dirs_for_openssl()
+    library_dirs = platform.library_dirs_for_openssl()
+
 includes += [
     'openssl/ssl.h',
     'openssl/err.h',
@@ -35,6 +49,8 @@ includes += [
 eci = ExternalCompilationInfo(
     libraries = libraries,
     includes = includes,
+    library_dirs = library_dirs,
+    include_dirs = include_dirs,
     post_include_bits = [
         # Unnamed structures are not supported by rffi_platform.
         # So we replace an attribute access with a macro call.

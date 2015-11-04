@@ -186,12 +186,12 @@ class UnrollOptimizer(Optimization):
         except InvalidLoop:
             # inlining short preamble failed, jump to preamble
             self.jump_to_preamble(celltoken, end_jump, info)
-            return (UnrollInfo(target_token, label_op, [],
+            return (UnrollInfo(target_token, label_op, extra_same_as,
                                self.optimizer.quasi_immutable_deps),
                     self.optimizer._newoperations)            
         if new_virtual_state is not None:
             self.jump_to_preamble(celltoken, end_jump, info)
-            return (UnrollInfo(target_token, label_op, [],
+            return (UnrollInfo(target_token, label_op, extra_same_as,
                                self.optimizer.quasi_immutable_deps),
                     self.optimizer._newoperations)
 

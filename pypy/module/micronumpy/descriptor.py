@@ -834,7 +834,7 @@ def dtype_from_dict(space, w_dict, alignment):
     offsets_w = _get_list_or_none(space, w_dict, 'offsets')
     titles_w = _get_list_or_none(space, w_dict, 'titles')
     metadata_w = _get_val_or_none(space, w_dict, 'metadata')
-    aligned_w = _get_val_or_none(space, w_dict, 'align')
+    aligned_w = _get_val_or_none(space, w_dict, 'aligned')
     itemsize_w = _get_val_or_none(space, w_dict, 'itemsize')
     if names_w is None or formats_w is None:
         if we_are_translated():

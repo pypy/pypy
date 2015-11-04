@@ -140,7 +140,6 @@ def calculate_slice_strides(space, shape, start, strides, backstrides, chunks):
         extra_dims = len(shape) - used_dims
     rstrides = [0] * (size + extra_dims)
     rbackstrides = [0] * (size + extra_dims)
-    rstart = start
     rshape = [0] * (size + extra_dims)
     rstart = start
     i = 0  # index of the current dimension in the input array

@@ -676,6 +676,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[self.CustomIntObject(1)] = 100
         assert a[1] == 100
 
+    def test_setitem_list_of_float(self):
+        from numpy import arange
+        a = arange(10)
+        a[[0.9]] = -10
+        assert a[0] == -10
+
     def test_delitem(self):
         import numpy as np
         a = np.arange(10)
@@ -3066,6 +3072,18 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b_data = b.__array_interface__['data'][0]
         c_data = c.__array_interface__['data'][0]
         assert b_data + 3 * b.dtype.itemsize == c_data
+
+        class Dummy(object):
+            def __init__(self, aif=None):
+                if aif:
+                    self.__array_interface__ = aif
+
+        a = array(Dummy())
+        assert a.dtype == object
+        raises(ValueError, array, Dummy({'xxx': 0}))
+        raises(ValueError, array, Dummy({'version': 0}))
+        raises(ValueError, array, Dummy({'version': 'abc'}))
+        raises(ValueError, array, Dummy({'version': 3}))
 
     def test_array_indexing_one_elem(self):
         from numpy import array, arange

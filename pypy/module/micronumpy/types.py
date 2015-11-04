@@ -1891,6 +1891,12 @@ class ObjectType(Primitive, BaseType):
         return self.BoxType(w_obj)
 
     def str_format(self, box, add_quotes=True):
+        if not add_quotes:
+            as_str = self.space.str_w(self.space.repr(self.unbox(box)))
+            as_strl = len(as_str) - 1
+            if as_strl>1 and as_str[0] == "'" and as_str[as_strl] == "'":
+                as_str = as_str[1:as_strl]
+            return as_str
         return self.space.str_w(self.space.repr(self.unbox(box)))
 
     def runpack_str(self, space, s, native):
@@ -2215,7 +2221,10 @@ class UnicodeType(FlexibleType):
     def coerce(self, space, dtype, w_item):
         if isinstance(w_item, boxes.W_UnicodeBox):
             return w_item
-        value = space.unicode_w(space.unicode_from_object(w_item))
+        if isinstance(w_item, boxes.W_ObjectBox):
+            value = space.unicode_w(space.unicode_from_object(w_item.w_obj))
+        else:
+            value = space.unicode_w(space.unicode_from_object(w_item))
         return boxes.W_UnicodeBox(value)
 
     def store(self, arr, i, offset, box, native):
