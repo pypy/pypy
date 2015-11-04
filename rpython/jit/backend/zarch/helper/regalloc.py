@@ -17,8 +17,8 @@ def prepare_int_add_or_mul(self, op):
         l1 = imm(a1.getint())
     else:
         l1 = self.ensure_reg(a1)
-    self.free_op_vars()
     self.force_result_in_reg(op, a0)
+    self.free_op_vars()
     return [l0, l1]
 
 def prepare_int_sub(self, op):
@@ -28,8 +28,8 @@ def prepare_int_sub(self, op):
         a0, a1 = a1, a0
     l0 = self.ensure_reg(a0)
     l1 = self.ensure_reg(a1)
-    self.free_op_vars()
     self.force_result_in_reg(op, a0)
+    self.free_op_vars()
     return [l0, l1]
 
 def prepare_cmp_op(self, op):
@@ -42,8 +42,8 @@ def prepare_cmp_op(self, op):
         l1 = imm(a1.getint())
     else:
         l1 = self.ensure_reg(a1)
-    self.free_op_vars()
     self.force_result_in_reg(op, a0)
+    self.free_op_vars()
     return [l0, l1]
 
 def prepare_binary_op(self, op):
@@ -51,6 +51,6 @@ def prepare_binary_op(self, op):
     a1 = op.getarg(1)
     l0 = self.ensure_reg(a0)
     l1 = self.ensure_reg(a1)
-    self.free_op_vars()
     self.force_result_in_reg(op, a0)
+    self.free_op_vars()
     return [l0, l1]
