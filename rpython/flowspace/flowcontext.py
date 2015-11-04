@@ -118,7 +118,7 @@ class BlockRecorder(Recorder):
         # block.exits[True] = ifLink.
         raise StopFlowing
 
-    def guessexception(self, ctx, *cases):
+    def guessexception(self, ctx):
         block = self.crnt_block
         links = []
         normal_block = EggBlock([], block, None)
@@ -163,7 +163,7 @@ class Replayer(Recorder):
         ctx.recorder = self.nextreplayer
         return self.booloutcome
 
-    def guessexception(self, ctx, *classes):
+    def guessexception(self, ctx):
         assert self.index == len(self.listtoreplay)
         ctx.recorder = self.nextreplayer
         outcome = self.booloutcome
@@ -354,18 +354,10 @@ class FlowContext(object):
     def do_op(self, op):
         self.maybe_merge()
         self.record(op)
-        self.guessexception(op.canraise)
-        return op.result
-
-    def guessexception(self, exceptions):
-        """
-        Catch possible exceptions implicitly.
-        """
-        if not exceptions:
-            return
         # Implicit exceptions are ignored unless they are caught explicitly
-        if self.has_exc_handler():
-            self.recorder.guessexception(self, *exceptions)
+        if op.canraise and self.has_exc_handler():
+            self.recorder.guessexception(self)
+        return op.result
 
     def has_exc_handler(self):
         return any(isinstance(block, (ExceptBlock, FinallyBlock))
