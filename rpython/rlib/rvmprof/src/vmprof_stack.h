@@ -7,14 +7,14 @@ typedef struct vmprof_stack {
     long stack_items[STACK_SIZE];
 } vmprof_stack;
 
-void *vmprof_stack_new(void)
+RPY_EXTERN void *vmprof_stack_new(void)
 {
     vmprof_stack* stack = (vmprof_stack *)malloc(sizeof(vmprof_stack));
     stack->stack_depth = 0;
     return (void*)stack;
 }
 
-int vmprof_stack_append(void *_stack, long item)
+RPY_EXTERN int vmprof_stack_append(void *_stack, long item)
 {
     vmprof_stack* stack = (vmprof_stack*)_stack;
     if (stack->stack_depth >= STACK_SIZE - 1)
@@ -24,7 +24,7 @@ int vmprof_stack_append(void *_stack, long item)
     return 0;
 }
 
-long vmprof_stack_pop(void *_stack)
+RPY_EXTERN long vmprof_stack_pop(void *_stack)
 {
     vmprof_stack* stack = (vmprof_stack*)_stack;
     long res;
@@ -36,7 +36,7 @@ long vmprof_stack_pop(void *_stack)
     return res;
 }
 
-void vmprof_stack_free(void* stack)
+RPY_EXTERN void vmprof_stack_free(void* stack)
 {
     free(stack);
 }

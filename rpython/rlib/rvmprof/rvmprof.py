@@ -31,6 +31,7 @@ class VMProf(object):
         else:
             self._code_unique_id = 0x7000000000000000
         self.cintf = cintf.setup()
+        self._stack = self.cintf.vmprof_stack_new()
 
     def _cleanup_(self):
         self.is_enabled = False
@@ -129,7 +130,6 @@ class VMProf(object):
         if self.cintf.vmprof_register_virtual_function(name, uid, 500000) < 0:
             raise VMProfError("vmprof buffers full!  disk full or too slow")
 
-
 def vmprof_execute_code(name, get_code_fn, result_class=None):
     """Decorator to be used on the function that interprets a code object.
 
@@ -147,7 +147,7 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
     """
     def decorate(func):
         try:
-            _get_vmprof()
+            _vmprof = _get_vmprof()
         except cintf.VMProfPlatformUnsupported:
             return func
 
@@ -169,6 +169,8 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
 
         @specialize.memo()
         def get_ll_trampoline(token):
+            """ Used by the trampoline-version only
+            """
             if result_class is None:
                 restok = "i"
             else:
@@ -185,18 +187,27 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
             # If we are being JITted, we want to skip the trampoline, else the
             # JIT cannot see through it.
             #
-            if we_are_translated() and not jit.we_are_jitted():
-                # if we are translated, call the trampoline
-                unique_id = get_code_fn(*args)._vmprof_unique_id
-                ll_args, token = lower(*args)
-                ll_trampoline = get_ll_trampoline(token)
-                ll_result = ll_trampoline(*ll_args + (unique_id,))
-                if result_class is not None:
-                    return cast_base_ptr_to_instance(result_class, ll_result)
+            if 0: # this is the trampoline case
+                if we_are_translated() and not jit.we_are_jitted():
+                    # if we are translated, call the trampoline
+                    unique_id = get_code_fn(*args)._vmprof_unique_id
+                    ll_args, token = lower(*args)
+                    ll_trampoline = get_ll_trampoline(token)
+                    ll_result = ll_trampoline(*ll_args + (unique_id,))
+                    if result_class is not None:
+                        return cast_base_ptr_to_instance(result_class, ll_result)
+                    else:
+                        return ll_result
                 else:
-                    return ll_result
-            else:
-                return func(*args)
+                    return func(*args)
+            else: # this is the case of the stack
+                unique_id = get_code_fn(*args)._vmprof_unique_id
+                _vmprof.cintf.vmprof_stack_append(_vmprof._stack, unique_id)
+                try:
+                    res = func(*args)
+                finally:
+                    _vmprof.cintf.vmprof_stack_pop(_vmprof._stack)
+                return res
         decorated_function.__name__ = func.__name__ + '_rvmprof'
         return decorated_function
 
