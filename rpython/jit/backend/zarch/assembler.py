@@ -102,12 +102,11 @@ class AssemblerZARCH(BaseAssembler,
         # this function is called (see generate_quick_failure()).
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.r2, l.addr(ofs, r.SPP))
-        mc.STG(r.r3, l.addr(ofs2, r.SPP))
-
         self._push_core_regs_to_jitframe(mc)
         if withfloats:
             self._push_fp_regs_to_jitframe(mc)
+        mc.STG(r.r2, l.addr(ofs, r.SPP))
+        mc.STG(r.r3, l.addr(ofs2, r.SPP))
 
         if exc:
             pass # TODO

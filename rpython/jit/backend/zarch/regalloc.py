@@ -121,10 +121,8 @@ class ZARCHRegisterManager(RegisterManager):
 
     def ensure_reg(self, box):
         if isinstance(box, Const):
-            xxx
-            loc = self.get_scratch_reg()
-            immvalue = self.convert_to_int(box)
-            self.assembler.mc.load_imm(loc, immvalue)
+            offset = self.assembler.pool.get_descr_offset(box)
+            return l.pool(offset)
         else:
             assert box in self.temp_boxes
             loc = self.make_sure_var_in_reg(box,

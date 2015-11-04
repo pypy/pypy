@@ -14,6 +14,7 @@ arith_mnemonic_codes = {
     'AGFR':    ('rre',   ['\xB9','\x18']),
     'A':       ('rx',    ['\x5A']),
     'SR':      ('rr',    ['\x1B']),
+    'SG':      ('rxy',   ['\xE3','\x09']),
     'SGR':     ('rre',   ['\xB9','\x09']),
 
     'AY':      ('rxy',   ['\xE3','\x5A']),
