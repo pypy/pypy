@@ -160,8 +160,13 @@ class GraphFlattener(object):
         # is jumping directly to the re-raising exception block.
         assert link.last_exception is not None
         assert link.last_exc_value is not None
-        if link.target.operations == () and link.args == [link.last_exception,
-                                                          link.last_exc_value]:
+        def equals(a , b):
+            return (a == b or
+                    isinstance(a, Constant) and isinstance(b, Constant) and
+                    a.value == b.value)
+        if (link.target.operations == () and len(link.args) == 2 and
+                equals(link.args[0] , link.last_exception) and
+                equals(link.args[1], link.last_exc_value)):
             if handling_ovf:
                 exc_data = self.cpu.rtyper.exceptiondata
                 ll_ovf = exc_data.get_standard_ll_exc_instance_by_class(
