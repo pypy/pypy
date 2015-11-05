@@ -28,6 +28,7 @@ class AppTestImpModule:
         f = open('@TEST.pyc', 'wb')
         f.write(imp.get_magic())
         f.write(b'\x00\x00\x00\x00')
+        f.write(b'\x00\x00\x00\x00')
         marshal.dump(co, f)
         f.close()
         return '@TEST.pyc'
