@@ -424,6 +424,8 @@ static bool _stm_validate(void)
                                We choose the approach to reset all our changes
                                to this obj here, so that we can throw away the
                                backup copy completely: */
+                            /* XXX: this browses through the whole list of modified
+                               fragments; this may become a problem... */
                             reset_modified_from_backup_copies(my_segnum, obj);
                             continue;
                         }
