@@ -27,12 +27,12 @@ class LiteralPool(object):
             if descr not in asm.target_tokens_currently_compiling:
                 # this is a 'long' jump instead of a relative jump
                 self.offset_map[descr] = self.size
-                self.reserve_literal(8)
+                self.reserve_literal(16)
         elif op.getopnum() == rop.LABEL:
             descr = op.getdescr()
+            descr._ll_loop_pool = self.pool_start
             if descr not in asm.target_tokens_currently_compiling:
                 # this is a 'long' jump instead of a relative jump
-                descr._ll_loop_code = self.pool_start
                 self.offset_map[descr] = self.size
         for arg in op.getarglist():
             if arg.is_constant():
@@ -68,6 +68,8 @@ class LiteralPool(object):
         # the current solution (gcc does the same), use a literal pool
         # located at register r13. This one can easily offset with 20
         # bit signed values (should be enough)
+        self.pool_start = asm.mc.get_relative_pos() + \
+                          asm.mc.BRAS_byte_count
         for op in operations:
             self.ensure_can_hold_constants(asm, op)
         if self.size == 0:
@@ -78,14 +80,8 @@ class LiteralPool(object):
         #    self.size += 1
         jump_offset = self.size+asm.mc.BRAS_byte_count
         assert jump_offset < 2**15-1
-        if bridge:
-            asm.mc.LGR(r.SCRATCH, r.POOL)
         asm.mc.BRAS(r.POOL, l.imm(jump_offset))
-        self.pool_start = asm.mc.get_relative_pos()
         asm.mc.write('\xFF' * self.size)
-        if bridge:
-            asm.mc.STG(r.SCRATCH, l.addr(-8, r.BSP))
-            asm.mc.AGHI(r.BSP, l.imm(-8))
         print "pool with %d quad words" % (self.size // 8)
 
     def overwrite_64(self, mc, index, value):

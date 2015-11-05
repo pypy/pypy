@@ -12,7 +12,8 @@ from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.zarch.arch import (WORD,
         STD_FRAME_SIZE_IN_BYTES, GPR_STACK_SAVE_IN_BYTES,
         THREADLOCAL_ADDR_OFFSET, RECOVERY_GCMAP_POOL_OFFSET,
-        RECOVERY_TARGET_POOL_OFFSET)
+        RECOVERY_TARGET_POOL_OFFSET, JUMPABS_TARGET_ADDR__POOL_OFFSET,
+        JUMPABS_POOL_ADDR_POOL_OFFSET)
 from rpython.jit.backend.zarch.opassembler import (IntOpAssembler,
     FloatOpAssembler, GuardOpAssembler)
 from rpython.jit.backend.zarch.regalloc import Regalloc
@@ -352,6 +353,7 @@ class AssemblerZARCH(BaseAssembler,
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
             targettoken._ll_loop_code += rawstart
+            targettoken._ll_loop_pool += rawstart
         self.target_tokens_currently_compiling = None
 
     def _assemble(self, regalloc, inputargs, operations):
@@ -516,7 +518,6 @@ class AssemblerZARCH(BaseAssembler,
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
         self.mc.STMG(r.r6, r.r15, l.addr(-GPR_STACK_SAVE_IN_BYTES, r.SP))
         self.mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
-        self.mc.LGR(r.BSP, r.SP)
 
         # save r4, the second argument, to THREADLOCAL_ADDR_OFFSET
         #self.mc.STG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
@@ -578,13 +579,16 @@ class AssemblerZARCH(BaseAssembler,
             self.mc.b_offset(descr._ll_loop_code)
         else:
             # restore the pool address
-            offset = self.pool.get_descr_offset(descr)
+            offset = self.pool.get_descr_offset(descr) + \
+                     JUMPABS_TARGET_ADDR__POOL_OFFSET
+            offset_pool = offset + JUMPABS_POOL_ADDR_POOL_OFFSET
             self.mc.LG(r.SCRATCH, l.pool(offset))
-            self.mc.LG(r.POOL, l.addr(0, r.BSP))
-            self.mc.AGHI(r.BSP, l.imm(8))
+            # the pool address of the target is saved in the bridge's pool
+            self.mc.LG(r.POOL, l.pool(offset_pool))
             self.mc.BCR(c.ANY, r.SCRATCH)
-            print "writing", hex(descr._ll_loop_code)
+
             self.pool.overwrite_64(self.mc, offset, descr._ll_loop_code)
+            self.pool.overwrite_64(self.mc, offset_pool, descr._ll_loop_pool)
 
 
     def emit_finish(self, op, arglocs, regalloc):
