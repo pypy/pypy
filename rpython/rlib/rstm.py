@@ -282,6 +282,7 @@ def _ll_hashtable_iterentries(h):
     hiter.prev = lltype.nullptr(_STM_HASHTABLE_ENTRY_PP.TO)
     return hiter
 
+@dont_look_inside
 def _ll_hashiter_next(hiter):
     entrypp = llop.stm_hashtable_iter_next(_STM_HASHTABLE_ENTRY_PP,
                                            hiter.hashtable,

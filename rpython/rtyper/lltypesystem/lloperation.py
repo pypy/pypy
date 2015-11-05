@@ -486,6 +486,10 @@ LL_OPERATIONS = {
     'stm_hashtable_list'  :   LLOp(),
     'stm_hashtable_tracefn':  LLOp(),
 
+    'stm_hashtable_iter':         LLOp(),
+    'stm_hashtable_iter_next':    LLOp(),
+    'stm_hashtable_iter_tracefn': LLOp(),
+
     'stm_queue_create':       LLOp(),
     'stm_queue_free':         LLOp(),
     'stm_queue_get':          LLOp(canmallocgc=True),   # push roots!
