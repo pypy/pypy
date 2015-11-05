@@ -103,6 +103,8 @@ class ThreadState(object):
         self.cpu_time_paused = 0.0
         self.cpu_time_gc_minor = 0.0
         self.cpu_time_gc_major = 0.0
+        self.count_committed = 0
+        self.count_aborted = 0
         self._prev = (0.0, "stop")
         self._in_major_coll = None
         self.reset_counters()
@@ -133,11 +135,13 @@ class ThreadState(object):
         self.progress(entry.timestamp, "stop")
         self.cpu_time_committed += self._transaction_cpu_time
         self.cpu_time_paused += self._transaction_pause_time
+        self.count_committed += 1
 
     def transaction_abort(self, entry):
         self.progress(entry.timestamp, "stop")
         self.cpu_time_aborted += self._transaction_cpu_time
         self.cpu_time_paused += self._transaction_pause_time
+        self.count_aborted += 1
 
     def become_inevitable(self, entry):
         self.progress(entry.timestamp, "run")
@@ -335,6 +339,14 @@ def dump_summary(stmlog, maxcount=15):
         total_cpu_time_gc_minor,  percent(total_cpu_time_gc_minor,  total_time))
     print '                 and %9.3fs (%4s) major GC collections' % (
         total_cpu_time_gc_major,  percent(total_cpu_time_gc_major,  total_time))
+    total_committed, total_aborted = stmlog.get_transaction_statistics()
+    total_transactions = total_committed + total_aborted
+    transactions_per_second = total_transactions / total_cpu_time_total
+    print 'Total number of transactions: %6.f committed: %4s aborted: %4s' % (
+        total_transactions, percent(total_committed, total_transactions),
+        percent(total_aborted, total_transactions))
+    print '     transactions per second: %6.f' % (
+        transactions_per_second)
     print
     #
     values = stmlog.get_conflicts()
@@ -355,6 +367,11 @@ def dump_summary(stmlog, maxcount=15):
 class StmLog(object):
     def __init__(self, filename):
         summarize_log_entries(parse_log(filename), self)
+
+    def get_transaction_statistics(self):
+        aborted = sum([v.count_aborted for v in self.threads.values()])
+        committed = sum([v.count_committed for v in self.threads.values()])
+        return (committed, aborted)
 
     def get_total_cpu_time_committed(self):
         return sum([v.cpu_time_committed for v in self.threads.values()])
