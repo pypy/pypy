@@ -37,7 +37,6 @@
 #include "vmprof_unwind.h"
 #endif
 #include "vmprof_mt.h"
-#include "vmprof_stack.h"
 
 
 /************************************************************/
@@ -210,7 +209,12 @@ static int vmprof_unw_step(unw_cursor_t *cp, int first_run)
  * *************************************************************
  */
 
-static int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)
+static int get_stack_trace(void **result, int max_depth, ucontext_t *ucontext)
+{
+    return 0;
+}
+
+static int xxx_get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)
 {
     void *ip;
     int n = 0;

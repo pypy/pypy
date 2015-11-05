@@ -25,7 +25,7 @@ def test_vmprof_execute_code_1():
         return 0
 
     assert f() == 0
-    fn = compile(f, [])
+    fn = compile(f, [], gcpolicy="minimark")
     assert fn() == 0
 
 
@@ -53,7 +53,7 @@ def test_vmprof_execute_code_2():
         return 0
 
     assert f() == 0
-    fn = compile(f, [])
+    fn = compile(f, [], gcpolicy="minimark")
     assert fn() == 0
 
 
@@ -79,7 +79,7 @@ def test_register_code():
         return 0
 
     assert f() == 0
-    fn = compile(f, [])
+    fn = compile(f, [], gcpolicy="minimark")
     assert fn() == 0
 
 

@@ -52,22 +52,11 @@ def setup():
     vmprof_register_virtual_function = rffi.llexternal(
                                            "vmprof_register_virtual_function",
                                            [rffi.CCHARP, rffi.LONG, rffi.INT],
-                                           rffi.INT, compilation_info=eci,
-                                           _nowrapper=True)
+                                           rffi.INT, compilation_info=eci)
     vmprof_ignore_signals = rffi.llexternal("vmprof_ignore_signals",
                                             [rffi.INT], lltype.Void,
                                             compilation_info=eci,
                                             _nowrapper=True)
-    vmprof_stack_new = rffi.llexternal("vmprof_stack_new",
-        [], rffi.VOIDP, compilation_info=eci, _nowrapper=True)
-    vmprof_stack_append = rffi.llexternal("vmprof_stack_append",
-        [rffi.VOIDP, lltype.Signed], rffi.INT, compilation_info=eci,
-        _nowrapper=True)
-    vmprof_stack_pop = rffi.llexternal("vmprof_stack_pop",
-        [rffi.VOIDP], lltype.Signed, compilation_info=eci,
-        _nowrapper=True)
-    vmprof_stack_free = rffi.llexternal("vmprof_stack_free",
-        [rffi.VOIDP], lltype.Void, compilation_info=eci, _nowrapper=True)
     return CInterface(locals())
 
 
@@ -106,18 +95,36 @@ def make_c_trampoline_function(name, func, token, restok):
     assert detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64), (
         "rvmprof only supports x86-64 CPUs for now")
 
-    llargs = ", ".join([token2ctype(x) for x in token])
+    llargs = ", ".join(["%s arg%d" % (token2ctype(x), i) for i, x in
+        enumerate(token)])
     type = token2ctype(restok)
     target = udir.join('module_cache')
     target.ensure(dir=1)
+    argnames = ", ".join(["arg%d" % i for i in range(len(token))])
     target = target.join('trampoline_%s_%s.vmprof.c' % (name, token))
     target.write("""
-#include <vmprof_stack.h>
+typedef struct vmprof_stack {
+    struct vmprof_stack* next;
+    long value;
+};
 
-%(type)s %(tramp_name)s(%(llargs)s)
+%(type)s %(cont_name)s(%(llargs)s);
+
+%(type)s %(tramp_name)s(%(llargs)s, long unique_id, void** shadowstack_base)
 {
+    %(type)s result;
+    struct vmprof_stack node;
+
+    node.value = unique_id;
+    node.next = (struct vmprof_stack*)shadowstack_base[0];
+    shadowstack_base[0] = (void*)(&node);
+    result = %(cont_name)s(%(argnames)s);
+    shadowstack_base[0] = node.next;
+    return result;
 }
 """ % locals())
+    return finish_ll_trampoline(tramp_name, tramp_name, target, token,
+                                restok, True)
 
 def make_trampoline_function(name, func, token, restok):
     from rpython.jit.backend import detect_cpu
@@ -183,18 +190,19 @@ def make_trampoline_function(name, func, token, restok):
 \t.cfi_endproc
 %(size_decl)s
 """ % locals())
+    return finish_ll_trampoline(orig_tramp_name, tramp_name, target, token,
+                                restok, False)
 
-    def tok2cname(tok):
-        if tok == 'i':
-            return 'long'
-        if tok == 'r':
-            return 'void *'
-        raise NotImplementedError(repr(tok))
+def finish_ll_trampoline(orig_tramp_name, tramp_name, target, token, restok,
+                         accepts_shadowstack):
 
+    extra_args = ['long']
+    if accepts_shadowstack:
+        extra_args.append("void*")
     header = 'RPY_EXTERN %s %s(%s);\n' % (
-        tok2cname(restok),
+        token2ctype(restok),
         orig_tramp_name,
-        ', '.join([tok2cname(tok) for tok in token] + ['long']))
+        ', '.join([token2ctype(tok) for tok in token] + extra_args))
 
     header += """\
 static int cmp_%s(void *addr) {
@@ -214,9 +222,11 @@ static int cmp_%s(void *addr) {
         separate_module_files = [str(target)],
     )
 
+    ARGS = [token2lltype(tok) for tok in token] + [lltype.Signed]
+    if accepts_shadowstack:
+        ARGS.append(llmemory.Address)
     return rffi.llexternal(
-        orig_tramp_name,
-        [token2lltype(tok) for tok in token] + [lltype.Signed],
+        orig_tramp_name, ARGS,
         token2lltype(restok),
         compilation_info=eci,
         _nowrapper=True, sandboxsafe=True,

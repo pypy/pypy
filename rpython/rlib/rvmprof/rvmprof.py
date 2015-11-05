@@ -32,8 +32,7 @@ class VMProf(object):
         else:
             self._code_unique_id = 0x7000000000000000
         self.cintf = cintf.setup()
-        self._stack = self.cintf.vmprof_stack_new()
-
+        
     def _cleanup_(self):
         self.is_enabled = False
 
@@ -148,7 +147,7 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
     """
     def decorate(func):
         try:
-            _vmprof = _get_vmprof()
+            _get_vmprof()
         except cintf.VMProfPlatformUnsupported:
             return func
 
