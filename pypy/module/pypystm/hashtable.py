@@ -2,6 +2,7 @@
 The class pypystm.hashtable, mapping integers to objects.
 """
 
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -78,6 +79,57 @@ class W_Hashtable(W_Root):
                  for i in range(count)]
         return space.newlist(lst_w)
 
+    def iterkeys_w(self, space):
+        return W_HashtableIterKeys(self.h)
+
+    def itervalues_w(self, space):
+        return W_HashtableIterValues(self.h)
+
+    def iteritems_w(self, space):
+        return W_HashtableIterItems(self.h)
+
+
+class W_BaseHashtableIter(W_Root):
+    _immutable_fields_ = ["hiter"]
+
+    def __init__(self, hobj):
+        self.hiter = hobj.iterentries()
+
+    def descr_iter(self, space):
+        return self
+
+    def descr_length_hint(self, space):
+        # xxx overestimate: doesn't remove the items already yielded,
+        # and uses the faster len_estimate()
+        return space.wrap(self.hiter.hashtable.len_estimate())
+
+    def next_entry(self, space):
+        try:
+            return self.hiter.next()
+        except StopIteration:
+            raise OperationError(space.w_StopIteration, space.w_None)
+
+    def _cleanup_(self):
+        raise Exception("seeing a prebuilt %r object" % (
+            self.__class__,))
+
+class W_HashtableIterKeys(W_BaseHashtableIter):
+    def descr_next(self, space):
+        entry = self.next_entry(space)
+        return space.wrap(intmask(entry.index))
+
+class W_HashtableIterValues(W_BaseHashtableIter):
+    def descr_next(self, space):
+        entry = self.next_entry(space)
+        return cast_gcref_to_instance(W_Root, entry.object)
+
+class W_HashtableIterItems(W_BaseHashtableIter):
+    def descr_next(self, space):
+        entry = self.next_entry(space)
+        return space.newtuple([
+            space.wrap(intmask(entry.index)),
+            cast_gcref_to_instance(W_Root, entry.object)])
+
 
 def W_Hashtable___new__(space, w_subtype):
     r = space.allocate_instance(W_Hashtable, w_subtype)
@@ -98,4 +150,30 @@ W_Hashtable.typedef = TypeDef(
     keys    = interp2app(W_Hashtable.keys_w),
     values  = interp2app(W_Hashtable.values_w),
     items   = interp2app(W_Hashtable.items_w),
+
+    __iter__   = interp2app(W_Hashtable.iterkeys_w),
+    iterkeys   = interp2app(W_Hashtable.iterkeys_w),
+    itervalues = interp2app(W_Hashtable.itervalues_w),
+    iteritems  = interp2app(W_Hashtable.iteritems_w),
 )
+
+W_HashtableIterKeys.typedef = TypeDef(
+    "hashtable_iterkeys",
+    __iter__ = interp2app(W_HashtableIterKeys.descr_iter),
+    next = interp2app(W_HashtableIterKeys.descr_next),
+    __length_hint__ = interp2app(W_HashtableIterKeys.descr_length_hint),
+    )
+
+W_HashtableIterValues.typedef = TypeDef(
+    "hashtable_itervalues",
+    __iter__ = interp2app(W_HashtableIterValues.descr_iter),
+    next = interp2app(W_HashtableIterValues.descr_next),
+    __length_hint__ = interp2app(W_HashtableIterValues.descr_length_hint),
+    )
+
+W_HashtableIterItems.typedef = TypeDef(
+    "hashtable_iteritems",
+    __iter__ = interp2app(W_HashtableIterItems.descr_iter),
+    next = interp2app(W_HashtableIterItems.descr_next),
+    __length_hint__ = interp2app(W_HashtableIterItems.descr_length_hint),
+    )

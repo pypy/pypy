@@ -223,11 +223,13 @@ class _Entry(ExtRegistryEntry):
 # ____________________________________________________________
 
 _STM_HASHTABLE_P = rffi.COpaquePtr('stm_hashtable_t')
+_STM_HASHTABLE_TABLE_P = rffi.COpaquePtr('stm_hashtable_table_t')
 
 _STM_HASHTABLE_ENTRY = lltype.GcStruct('HASHTABLE_ENTRY',
                                        ('index', lltype.Unsigned),
                                        ('object', llmemory.GCREF))
 _STM_HASHTABLE_ENTRY_P = lltype.Ptr(_STM_HASHTABLE_ENTRY)
+_STM_HASHTABLE_ENTRY_PP = rffi.CArrayPtr(_STM_HASHTABLE_ENTRY_P)
 _STM_HASHTABLE_ENTRY_ARRAY = lltype.GcArray(_STM_HASHTABLE_ENTRY_P)
 
 @dont_look_inside
@@ -243,6 +245,11 @@ def _ll_hashtable_set(h, key, value):
 def _ll_hashtable_len(h):
     return llop.stm_hashtable_list(lltype.Signed, h, h.ll_raw_hashtable,
                                    lltype.nullptr(_STM_HASHTABLE_ENTRY_ARRAY))
+
+@dont_look_inside
+def _ll_hashtable_len_estimate(h):
+    return llop.stm_hashtable_length_upper_bound(lltype.Signed,
+                                                 h.ll_raw_hashtable)
 
 @dont_look_inside
 def _ll_hashtable_list(h):
@@ -264,6 +271,27 @@ def _ll_hashtable_lookup(h, key):
 def _ll_hashtable_writeobj(h, entry, value):
     llop.stm_hashtable_write_entry(lltype.Void, h, entry, value)
 
+@dont_look_inside
+def _ll_hashtable_iterentries(h):
+    rgc.register_custom_trace_hook(_HASHTABLE_ITER_OBJ,
+                                   lambda_hashtable_iter_trace)
+    table = llop.stm_hashtable_iter(_STM_HASHTABLE_TABLE_P, h.ll_raw_hashtable)
+    hiter = lltype.malloc(_HASHTABLE_ITER_OBJ)
+    hiter.hashtable = h    # for keepalive
+    hiter.table = table
+    hiter.prev = lltype.nullptr(_STM_HASHTABLE_ENTRY_PP.TO)
+    return hiter
+
+def _ll_hashiter_next(hiter):
+    entrypp = llop.stm_hashtable_iter_next(_STM_HASHTABLE_ENTRY_PP,
+                                           hiter.hashtable,
+                                           hiter.table,
+                                           hiter.prev)
+    if not entrypp:
+        raise StopIteration
+    hiter.prev = entrypp
+    return entrypp[0]
+
 _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                  ('ll_raw_hashtable', _STM_HASHTABLE_P),
                                  hints={'immutable': True},
@@ -271,10 +299,18 @@ _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                  adtmeths={'get': _ll_hashtable_get,
                                            'set': _ll_hashtable_set,
                                            'len': _ll_hashtable_len,
+                                  'len_estimate': _ll_hashtable_len_estimate,
                                           'list': _ll_hashtable_list,
                                         'lookup': _ll_hashtable_lookup,
-                                      'writeobj': _ll_hashtable_writeobj})
+                                      'writeobj': _ll_hashtable_writeobj,
+                                   'iterentries': _ll_hashtable_iterentries})
 NULL_HASHTABLE = lltype.nullptr(_HASHTABLE_OBJ)
+
+_HASHTABLE_ITER_OBJ = lltype.GcStruct('HASHTABLE_ITER_OBJ',
+                                      ('hashtable', lltype.Ptr(_HASHTABLE_OBJ)),
+                                      ('table', _STM_HASHTABLE_TABLE_P),
+                                      ('prev', _STM_HASHTABLE_ENTRY_PP),
+                                      adtmeths={'next': _ll_hashiter_next})
 
 def _ll_hashtable_trace(gc, obj, callback, arg):
     from rpython.memory.gctransform.stmframework import get_visit_function
@@ -287,6 +323,15 @@ def _ll_hashtable_finalizer(h):
     if h.ll_raw_hashtable:
         llop.stm_hashtable_free(lltype.Void, h.ll_raw_hashtable)
 lambda_hashtable_finlz = lambda: _ll_hashtable_finalizer
+
+def _ll_hashtable_iter_trace(gc, obj, callback, arg):
+    from rpython.memory.gctransform.stmframework import get_visit_function
+    addr = obj + llmemory.offsetof(_HASHTABLE_ITER_OBJ, 'hashtable')
+    gc._trace_callback(callback, arg, addr)
+    visit_fn = get_visit_function(callback, arg)
+    addr = obj + llmemory.offsetof(_HASHTABLE_ITER_OBJ, 'table')
+    llop.stm_hashtable_iter_tracefn(lltype.Void, addr.address[0], visit_fn)
+lambda_hashtable_iter_trace = lambda: _ll_hashtable_iter_trace
 
 _false = CDefinedIntSymbolic('0', default=0)    # remains in the C code
 
@@ -344,6 +389,9 @@ class HashtableForTest(object):
         items = [self.lookup(key) for key, v in self._content.items() if v.object != NULL_GCREF]
         return len(items)
 
+    def len_estimate(self):
+        return len(self._content)
+
     def list(self):
         items = [self.lookup(key) for key, v in self._content.items() if v.object != NULL_GCREF]
         count = len(items)
@@ -359,6 +407,9 @@ class HashtableForTest(object):
         assert isinstance(entry, EntryObjectForTest)
         self.set(entry.key, nvalue)
 
+    def iterentries(self):
+        return IterEntriesForTest(self, self._content.itervalues())
+
 class EntryObjectForTest(object):
     def __init__(self, hashtable, key):
         self.hashtable = hashtable
@@ -373,6 +424,14 @@ class EntryObjectForTest(object):
                         " use h.writeobj() instead")
 
     object = property(_getobj, _setobj)
+
+class IterEntriesForTest(object):
+    def __init__(self, hashtable, iterator):
+        self.hashtable = hashtable
+        self.iterator = iterator
+
+    def next(self):
+        return next(self.iterator)
 
 # ____________________________________________________________
 
