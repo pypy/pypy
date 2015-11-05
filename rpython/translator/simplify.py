@@ -311,56 +311,6 @@ def join_blocks(graph):
                 stack.extend(link.target.exits)
                 seen[link.target] = True
 
-def specialize_exceptions(graph):
-    for block in list(graph.iterblocks()):
-        if block.canraise:
-            op = block.raising_op
-            if op.canraise != [Exception]:
-                exc_exits = block.exits[1:]
-                exits = []
-                has_generic_case = False
-                for case in op.canraise:
-                    if case is Exception:
-                        has_generic_case = True
-                        continue
-                    for exit in exc_exits:
-                        if issubclass(case, exit.exitcase):
-                            v_exctype = const(case)
-                            v_excvalue = Variable('last_exc_value')
-                            subs = {
-                                exit.last_exception: v_exctype,
-                                exit.last_exc_value: v_excvalue}
-                            new_link = exit.replace(subs)
-                            new_link.exitcase = case
-                            exits.append(new_link)
-                            break
-                    else:
-                        # ignore the uncaught implicit exception
-                        continue
-                if has_generic_case:
-                    exits += exc_exits
-                exits.insert(0, block.exits[0])
-            else:
-                exits = list(block.exits)
-            if OverflowError in op.canraise:
-                if not any(issubclass(OverflowError, exit.exitcase)
-                           for exit in block.exits[1:]):
-                    v_etype = const(OverflowError)
-                    v_exc = Variable('last_exc_value')
-                    exit = Link([v_etype, v_exc], graph.exceptblock, OverflowError)
-                    exit.extravars(v_etype, v_exc)
-                    exits.append(exit)
-            if Exception in op.canraise:
-                if block.exits[-1].exitcase is not Exception:
-                    v_etype = Variable('last_exception')
-                    v_exc = Variable('last_exc_value')
-                    exit = Link([v_etype, v_exc], graph.exceptblock, Exception)
-                    exit.extravars(v_etype, v_exc)
-                    exits.append(exit)
-            block.recloseblock(*exits)
-            if len(exits) == 1:
-                block.exitswitch = None
-
 
 def remove_assertion_errors(graph):
     """Remove branches that go directly to raising an AssertionError,
@@ -1103,7 +1053,6 @@ all_passes = [
     transform_ovfcheck,
     simplify_exceptions,
     remove_assertion_errors,
-    specialize_exceptions,
     remove_dead_exceptions,
     join_blocks,
     ]
@@ -1112,7 +1061,6 @@ def simplify_graph(graph, passes=True): # can take a list of passes to apply, Tr
     """inplace-apply all the existing optimisations to the graph."""
     if passes is True:
         passes = all_passes
-    #import pdb; pdb.set_trace()
     for pass_ in passes:
         pass_(graph)
     checkgraph(graph)
