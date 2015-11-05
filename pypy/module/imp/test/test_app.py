@@ -74,7 +74,7 @@ class AppTestImpModule:
                 assert type == 'rb'
 
     def test_ext_suffixes(self):
-        for suffix in self.extension_suffixes():
+        for suffix in self.imp.extension_suffixes():
             assert suffix.endswith(('.pyd', '.so'))
 
     def test_obscure_functions(self):
