@@ -166,6 +166,13 @@ class AppTestImpModule:
     def test_path_importer_cache(self):
         import os
         import sys
+        # this is the only way this makes sense. _bootstrap
+        # will eventually load os from lib_pypy and place
+        # a file finder in path_importer_cache.
+        # XXX Why not remove this test? XXX
+        sys.path_importer_cache.clear()
+        import sys # sys is looked up in pypy/module thus
+        # lib_pypy will not end up in sys.path_impoter_cache
 
         lib_pypy = os.path.abspath(
             os.path.join(self.file_module, "..", "..", "..", "..", "..", "lib_pypy")
