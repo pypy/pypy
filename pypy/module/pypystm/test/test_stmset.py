@@ -83,3 +83,19 @@ class AppTestSet:
         assert len(s) == 2
         items = list(s)
         assert items == [42.5, key3] or items == [key3, 42.5]
+
+    def test_iterator(self):
+        import pypystm
+        class A(object):
+            def __hash__(self):
+                return 42
+        class B(object):
+            pass
+        d = pypystm.stmset()
+        a1 = A()
+        a2 = A()
+        b0 = B()
+        d.add(a1)
+        d.add(a2)
+        d.add(b0)
+        assert sorted(d) == sorted([a1, a2, b0])
