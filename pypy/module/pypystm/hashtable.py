@@ -103,29 +103,27 @@ class W_BaseHashtableIter(W_Root):
         # and uses the faster len_estimate()
         return space.wrap(self.hiter.hashtable.len_estimate())
 
-    def next_entry(self, space):
+    def descr_next(self, space):
         try:
-            return self.hiter.next()
+            entry = self.hiter.next()
         except StopIteration:
             raise OperationError(space.w_StopIteration, space.w_None)
+        return self.get_final_value(space, entry)
 
     def _cleanup_(self):
         raise Exception("seeing a prebuilt %r object" % (
             self.__class__,))
 
 class W_HashtableIterKeys(W_BaseHashtableIter):
-    def descr_next(self, space):
-        entry = self.next_entry(space)
+    def get_final_value(self, space, entry):
         return space.wrap(intmask(entry.index))
 
 class W_HashtableIterValues(W_BaseHashtableIter):
-    def descr_next(self, space):
-        entry = self.next_entry(space)
+    def get_final_value(self, space, entry):
         return cast_gcref_to_instance(W_Root, entry.object)
 
 class W_HashtableIterItems(W_BaseHashtableIter):
-    def descr_next(self, space):
-        entry = self.next_entry(space)
+    def get_final_value(self, space, entry):
         return space.newtuple([
             space.wrap(intmask(entry.index)),
             cast_gcref_to_instance(W_Root, entry.object)])
@@ -157,23 +155,9 @@ W_Hashtable.typedef = TypeDef(
     iteritems  = interp2app(W_Hashtable.iteritems_w),
 )
 
-W_HashtableIterKeys.typedef = TypeDef(
-    "hashtable_iterkeys",
-    __iter__ = interp2app(W_HashtableIterKeys.descr_iter),
-    next = interp2app(W_HashtableIterKeys.descr_next),
-    __length_hint__ = interp2app(W_HashtableIterKeys.descr_length_hint),
-    )
-
-W_HashtableIterValues.typedef = TypeDef(
-    "hashtable_itervalues",
-    __iter__ = interp2app(W_HashtableIterValues.descr_iter),
-    next = interp2app(W_HashtableIterValues.descr_next),
-    __length_hint__ = interp2app(W_HashtableIterValues.descr_length_hint),
-    )
-
-W_HashtableIterItems.typedef = TypeDef(
-    "hashtable_iteritems",
-    __iter__ = interp2app(W_HashtableIterItems.descr_iter),
-    next = interp2app(W_HashtableIterItems.descr_next),
-    __length_hint__ = interp2app(W_HashtableIterItems.descr_length_hint),
+W_BaseHashtableIter.typedef = TypeDef(
+    "hashtable_iter",
+    __iter__ = interp2app(W_BaseHashtableIter.descr_iter),
+    next = interp2app(W_BaseHashtableIter.descr_next),
+    __length_hint__ = interp2app(W_BaseHashtableIter.descr_length_hint),
     )
