@@ -1575,7 +1575,19 @@ class AppTestListObject(object):
         L2 = [N, 0.0]         # float strategy
         assert N in L2
         assert L2.index(N) == 0
+        assert L2.index(-0.0) == 1
         assert L2 == [N, -0.0]
+        # same with the int-or-float list strategy
+        L3 = [N, 0.0, -0.0, 0]
+        assert N in L3
+        assert L3.index(N) == 0
+        for i in [1, 2, 3]:
+            assert L3[i] == 0
+            assert L3[i] == 0.0
+            assert L3[i] == -0.0
+            assert L3.index(0, i) == i
+            assert L3.index(0.0, i) == i
+            assert L3.index(-0.0, i) == i
 
 
 class AppTestListObjectWithRangeList(AppTestListObject):

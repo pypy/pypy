@@ -39,6 +39,40 @@ NULL = lltype.nullptr(llmemory.GCREF.TO)
 
 # ____________________________________________________________
 
+from rpython.rlib import rthread#, rstm
+# from rpython.rtyper.annlowlevel import cast_gcref_to_instance
+# from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+
+class BlackholeInterpreterCache(object):
+    # XXX: How to free bhis from dead threads?
+    #      A callback from rthread.gc_thread_die?
+    #      stm_hashtable to avoid conflicts when starting many threads?
+
+    def __init__(self):
+        assert rgc.stm_is_enabled()
+        self.stm_blackholeinterps = {}
+
+    def get_or_create(self, builder):
+        assert rgc.stm_is_enabled()
+        # conflicts with new threads calling put_back
+
+        ident = rthread.get_ident()
+        interps = self.stm_blackholeinterps.get(ident, None)
+        if interps is not None and len(interps) > 0:
+            return interps.pop()
+        return BlackholeInterpreter(builder, 0)
+
+    def put_back(self, interp):
+        assert rgc.stm_is_enabled()
+
+        ident = rthread.get_ident()
+        interps = self.stm_blackholeinterps.get(ident, None)
+        if interps is None:
+            interps = self.stm_blackholeinterps.setdefault(ident, [])
+
+        interp.cleanup_registers()
+        interps.append(interp)
+
 
 class BlackholeInterpBuilder(object):
     verbose = True
@@ -51,6 +85,7 @@ class BlackholeInterpBuilder(object):
         self.metainterp_sd = metainterp_sd
         self.num_interpreters = 0
         self.blackholeinterps = []
+        self.stm_cache = None
 
     def _cleanup_(self):
         # XXX don't assign a different list to blackholeinterp here,
@@ -233,19 +268,25 @@ class BlackholeInterpBuilder(object):
         return handler
 
     def acquire_interp(self):
-        if rgc.stm_is_enabled():   # XXX for now, no caching
-            return BlackholeInterpreter(self, 0)
-        if len(self.blackholeinterps) > 0:
-            return self.blackholeinterps.pop()
+        if rgc.stm_is_enabled():
+            if self.stm_cache is None:
+                self.stm_cache = BlackholeInterpreterCache()
+            return self.stm_cache.get_or_create(self)
         else:
-            self.num_interpreters += 1
-            return BlackholeInterpreter(self, self.num_interpreters)
+            # no STM:
+            if len(self.blackholeinterps) > 0:
+                return self.blackholeinterps.pop()
+            else:
+                self.num_interpreters += 1
+                return BlackholeInterpreter(self, self.num_interpreters)
 
     def release_interp(self, interp):
         if rgc.stm_is_enabled():   # XXX for now, no caching
-            return
-        interp.cleanup_registers()
-        self.blackholeinterps.append(interp)
+            self.stm_cache.put_back(interp)
+        else:
+            # no STM:
+            interp.cleanup_registers()
+            self.blackholeinterps.append(interp)
 
 def check_shift_count(b):
     if not we_are_translated():
@@ -540,7 +581,7 @@ class BlackholeInterpreter(object):
     def bhimpl_mark_opaque_ptr(a):
         pass
     @arguments("r", "i")
-    def bhimpl_record_known_class(a, b):
+    def bhimpl_record_exact_class(a, b):
         pass
 
     @arguments("i", returns="i")

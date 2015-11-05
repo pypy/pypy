@@ -43,6 +43,7 @@ enum /* stm_flags */ {
     GCFLAG_CARDS_SET = _STM_GCFLAG_CARDS_SET,
     GCFLAG_VISITED = 0x10,
     GCFLAG_FINALIZATION_ORDERING = 0x20,
+    GCFLAG_NO_CONFLICT = _STM_GCFLAG_NO_CONFLICT,
     /* All remaining bits of the 32-bit 'stm_flags' field are taken by
        the "overflow number".  This is a number that identifies the
        "overflow objects" from the current transaction among all old
@@ -50,7 +51,7 @@ enum /* stm_flags */ {
        current transaction that have been flushed out of the nursery,
        which occurs if the same transaction allocates too many objects.
     */
-    GCFLAG_OVERFLOW_NUMBER_bit0 = 0x40   /* must be last */
+    GCFLAG_OVERFLOW_NUMBER_bit0 = 0x80   /* must be last */
 };
 
 #define SYNC_QUEUE_SIZE    31
@@ -265,14 +266,6 @@ static inline struct stm_read_marker_s *get_read_marker(char *segment_base, uint
 
 static inline char *get_segment_base(long segment_num) {
     return stm_object_pages + segment_num * (NB_PAGES * 4096UL);
-}
-
-static inline long get_num_segment_containing_address(char *addr)
-{
-    uintptr_t delta = addr - stm_object_pages;
-    uintptr_t result = delta / (NB_PAGES * 4096UL);
-    assert(result < NB_SEGMENTS);
-    return result;
 }
 
 static inline

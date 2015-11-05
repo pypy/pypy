@@ -549,6 +549,7 @@ PARAMETER_DOCS = {
     'retrace_limit': 'how many times we can try retracing before giving up',
     'max_retrace_guards': 'number of extra guards a retrace can cause',
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
+    'disable_unrolling': 'after how many operations we should not unroll',
     'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
     'max_unroll_recursion': 'how many levels deep to unroll a recursive function'
@@ -564,6 +565,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'retrace_limit': 5,
               'max_retrace_guards': 15,
               'max_unroll_loops': 0,
+              'disable_unrolling': 200,
               'enable_opts': 'all',
               'max_unroll_recursion': 7,
               }
@@ -1084,19 +1086,28 @@ class JitHookInterface(object):
         instance, overwrite for custom behavior
         """
 
-def record_known_class(value, cls):
+def record_exact_class(value, cls):
     """
-    Assure the JIT that value is an instance of cls. This is not a precise
-    class check, unlike a guard_class.
+    Assure the JIT that value is an instance of cls. This is a precise
+    class check, like a guard_class.
     """
-    assert isinstance(value, cls)
+    assert type(value) is cls
+
+def ll_record_exact_class(ll_value, ll_cls):
+    from rpython.rlib.debug import ll_assert
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.rclass import ll_type
+    ll_assert(ll_value == lltype.nullptr(lltype.typeOf(ll_value).TO), "record_exact_class called with None argument")
+    ll_assert(ll_type(ll_value) is ll_cls, "record_exact_class called with invalid arguments")
+    llop.jit_record_exact_class(lltype.Void, ll_value, ll_cls)
+
 
 class Entry(ExtRegistryEntry):
-    _about_ = record_known_class
+    _about_ = record_exact_class
 
     def compute_result_annotation(self, s_inst, s_cls):
         from rpython.annotator import model as annmodel
-        assert s_cls.is_constant()
         assert not s_inst.can_be_none()
         assert isinstance(s_inst, annmodel.SomeInstance)
 
@@ -1105,12 +1116,10 @@ class Entry(ExtRegistryEntry):
         from rpython.rtyper import rclass
 
         classrepr = rclass.get_type_repr(hop.rtyper)
-
-        hop.exception_cannot_occur()
         v_inst = hop.inputarg(hop.args_r[0], arg=0)
         v_cls = hop.inputarg(classrepr, arg=1)
-        return hop.genop('jit_record_known_class', [v_inst, v_cls],
-                         resulttype=lltype.Void)
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_record_exact_class, v_inst, v_cls)
 
 def _jit_conditional_call(condition, function, *args):
     pass

@@ -9,7 +9,7 @@ from pypy.objspace.std.dictmultiobject import (
     BaseValueIterator, BaseItemIterator, _never_equal_to_string
 )
 from pypy.objspace.std.typeobject import MutableCell
-
+from rpython.rlib.objectmodel import we_are_translated
 
 # ____________________________________________________________
 # attribute shapes
@@ -548,17 +548,19 @@ def _make_subclass_size_n(supercls, n):
     rangen = unroll.unrolling_iterable(range(n))
     nmin1 = n - 1
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
+    valnmin1 = "_value%s" % nmin1
     class subcls(BaseMapdictObject, supercls):
         def _init_empty(self, map):
-            for i in rangen:
-                setattr(self, "_value%s" % i, erase_item(None))
+            for i in rangenmin1:
+                setattr(self, "_value%s" % i, None)
+            setattr(self, valnmin1, erase_item(None))
             self.map = map
 
         def _has_storage_list(self):
             return self.map.length() > n
 
         def _mapdict_get_storage_list(self):
-            erased = getattr(self, "_value%s" % nmin1)
+            erased = getattr(self, valnmin1)
             return unerase_list(erased)
 
         def _mapdict_read_storage(self, storageindex):
@@ -566,23 +568,21 @@ def _make_subclass_size_n(supercls, n):
             if storageindex < nmin1:
                 for i in rangenmin1:
                     if storageindex == i:
-                        erased = getattr(self, "_value%s" % i)
-                        return unerase_item(erased)
+                        return getattr(self, "_value%s" % i)
             if self._has_storage_list():
                 return self._mapdict_get_storage_list()[storageindex - nmin1]
             erased = getattr(self, "_value%s" % nmin1)
             return unerase_item(erased)
 
         def _mapdict_write_storage(self, storageindex, value):
-            erased = erase_item(value)
             for i in rangenmin1:
                 if storageindex == i:
-                    setattr(self, "_value%s" % i, erased)
+                    setattr(self, "_value%s" % i, value)
                     return
             if self._has_storage_list():
                 self._mapdict_get_storage_list()[storageindex - nmin1] = value
                 return
-            setattr(self, "_value%s" % nmin1, erased)
+            setattr(self, "_value%s" % nmin1, erase_item(value))
 
         def _mapdict_storage_length(self):
             if self._has_storage_list():
@@ -594,9 +594,9 @@ def _make_subclass_size_n(supercls, n):
             len_storage = len(storage)
             for i in rangenmin1:
                 if i < len_storage:
-                    erased = erase_item(storage[i])
+                    erased = storage[i]
                 else:
-                    erased = erase_item(None)
+                    erased = None
                 setattr(self, "_value%s" % i, erased)
             has_storage_list = self._has_storage_list()
             if len_storage < n:
@@ -837,22 +837,55 @@ class CacheEntry(object):
                 return True
         return False
 
-_invalid_cache_entry_map = objectmodel.instantiate(AbstractAttribute)
-_invalid_cache_entry_map.terminator = None
-INVALID_CACHE_ENTRY = CacheEntry()
-INVALID_CACHE_ENTRY.map_wref = weakref.ref(_invalid_cache_entry_map)
+    def _cleanup_(self):
+        raise Exception("cannot translate a prebuilt CacheEntry") # for unknown reasons
+
+# _invalid_cache_entry_map = objectmodel.instantiate(AbstractAttribute)
+# _invalid_cache_entry_map.terminator = None
+# INVALID_CACHE_ENTRY = CacheEntry()
+# INVALID_CACHE_ENTRY.map_wref = weakref.ref(_invalid_cache_entry_map)
                                  # different from any real map ^^^
 
+from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper import annlowlevel
+MAPDICT_CACHE = lltype.GcArray(llmemory.GCREF)
+NULL_MAPDICTCACHE = lltype.nullptr(MAPDICT_CACHE)
+
 def init_mapdict_cache(pycode):
+    # pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
+    pycode._mapdict_caches = NULL_MAPDICTCACHE
+
+def lazy_init_mapdict_cache(pycode):
+    assert we_are_translated()
     num_entries = len(pycode.co_names_w)
-    pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
+    if pycode.space.config.translation.stm:
+        from rpython.rlib.rstm import allocate_noconflict
+        pycode._mapdict_caches = allocate_noconflict(MAPDICT_CACHE, num_entries)
+    else:
+        pycode._mapdict_caches = lltype.malloc(MAPDICT_CACHE, num_entries)
+    #
+    # create invalid entry (should be prebuilt, but then translation fails)
+    _invalid_cache_entry_map = objectmodel.instantiate(AbstractAttribute)
+    _invalid_cache_entry_map.terminator = None
+    pycode._mapdict_cache_invalid = CacheEntry()
+    pycode._mapdict_cache_invalid.map_wref = weakref.ref(_invalid_cache_entry_map)
+    #                                   different from any real map ^^^
+    #
+    for i in range(num_entries):
+        pycode._mapdict_caches[i] = annlowlevel.cast_instance_to_gcref(pycode._mapdict_cache_invalid)
+
 
 @jit.dont_look_inside
 def _fill_cache(pycode, nameindex, map, version_tag, storageindex, w_method=None):
-    entry = pycode._mapdict_caches[nameindex]
-    if entry is INVALID_CACHE_ENTRY:
+    if not we_are_translated():
+        return
+    if pycode._mapdict_caches is NULL_MAPDICTCACHE:
+        lazy_init_mapdict_cache(pycode)
+    #
+    entry = annlowlevel.cast_gcref_to_instance(CacheEntry, pycode._mapdict_caches[nameindex])
+    if entry is pycode._mapdict_cache_invalid:
         entry = CacheEntry()
-        pycode._mapdict_caches[nameindex] = entry
+        pycode._mapdict_caches[nameindex] = annlowlevel.cast_instance_to_gcref(entry)
     entry.map_wref = weakref.ref(map)
     entry.version_tag = version_tag
     entry.storageindex = storageindex
@@ -863,7 +896,12 @@ def _fill_cache(pycode, nameindex, map, version_tag, storageindex, w_method=None
 def LOAD_ATTR_caching(pycode, w_obj, nameindex):
     # this whole mess is to make the interpreter quite a bit faster; it's not
     # used if we_are_jitted().
-    entry = pycode._mapdict_caches[nameindex]
+    if not we_are_translated():
+        return LOAD_ATTR_slowpath(pycode, w_obj, nameindex, w_obj._get_mapdict_map())
+    if pycode._mapdict_caches is NULL_MAPDICTCACHE:
+        lazy_init_mapdict_cache(pycode)
+    #
+    entry = annlowlevel.cast_gcref_to_instance(CacheEntry, pycode._mapdict_caches[nameindex])
     map = w_obj._get_mapdict_map()
     if entry.is_valid_for_map(map) and entry.w_method is None:
         # everything matches, it's incredibly fast
@@ -914,13 +952,18 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                     _fill_cache(pycode, nameindex, map, version_tag, attr.storageindex)
                     return w_obj._mapdict_read_storage(attr.storageindex)
     if space.config.objspace.std.withmethodcachecounter:
-        INVALID_CACHE_ENTRY.failure_counter += 1
+        pycode._mapdict_cache_invalid.failure_counter += 1
     return space.getattr(w_obj, w_name)
 LOAD_ATTR_slowpath._dont_inline_ = True
 
 def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
     pycode = f.getcode()
-    entry = pycode._mapdict_caches[nameindex]
+    if not we_are_translated():
+        return False
+    if pycode._mapdict_caches is NULL_MAPDICTCACHE:
+        lazy_init_mapdict_cache(pycode)
+    #
+    entry = annlowlevel.cast_gcref_to_instance(CacheEntry, pycode._mapdict_caches[nameindex])
     if entry.is_valid_for_obj(w_obj):
         w_method = entry.w_method
         if w_method is not None:

@@ -104,6 +104,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 # ____________________________________________________________
 
+
 def compile_loop(metainterp, greenkey, start,
                  inputargs, jumpargs,
                  full_preamble_needed=True,
@@ -149,27 +150,28 @@ def compile_loop(metainterp, greenkey, start,
     if part.quasi_immutable_deps:
         loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
     if part.operations[-1].getopnum() == rop.LABEL:
-        inliner = Inliner(inputargs, jumpargs)
-        part.quasi_immutable_deps = None
-        part.operations = [part.operations[-1]] + \
-                          [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
-                          [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
-                                        None, descr=jitcell_token)]
-        target_token = part.operations[0].getdescr()
-        assert isinstance(target_token, TargetToken)
-        all_target_tokens.append(target_token)
-        inputargs = jumpargs
-        jumpargs = part.operations[-1].getarglist()
+        if start_state is not None:
+            inliner = Inliner(inputargs, jumpargs)
+            part.quasi_immutable_deps = None
+            part.operations = [part.operations[-1]] + \
+                              [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
+                              [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
+                                            None, descr=jitcell_token)]
+            target_token = part.operations[0].getdescr()
+            assert isinstance(target_token, TargetToken)
+            all_target_tokens.append(target_token)
+            inputargs = jumpargs
+            jumpargs = part.operations[-1].getarglist()
 
-        try:
-            optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
-                           start_state=start_state, export_state=False)
-        except InvalidLoop:
-            return None
+            try:
+                optimize_trace(metainterp_sd, jitdriver_sd, part, enable_opts,
+                               start_state=start_state, export_state=False)
+            except InvalidLoop:
+                return None
 
-        loop.operations = loop.operations[:-1] + part.operations
-        if part.quasi_immutable_deps:
-            loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
+            loop.operations = loop.operations[:-1] + part.operations
+            if part.quasi_immutable_deps:
+                loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
     assert part.operations[-1].getopnum() != rop.LABEL
 
     if not loop.quasi_immutable_deps:
@@ -348,6 +350,12 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
         hooks = None
     operations = get_deep_immutable_oplist(loop.operations)
     metainterp_sd.profiler.start_backend()
+
+    if rgc.stm_is_enabled():
+        # become inevitable to avoid interleaving concurrent "{jit-backend"
+        # (fine bc. we become inevitable in assembler.setup() anyway)
+        rstm.become_inevitable()
+
     debug_start("jit-backend")
     try:
         loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
@@ -395,6 +403,12 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
         debug_info = None
     operations = get_deep_immutable_oplist(operations)
     metainterp_sd.profiler.start_backend()
+
+    if rgc.stm_is_enabled():
+        # become inevitable to avoid interleaving concurrent "{jit-backend"
+        # (fine bc. we become inevitable in assembler.setup() anyway)
+        rstm.become_inevitable()
+
     debug_start("jit-backend")
     try:
         asminfo = do_compile_bridge(metainterp_sd, faildescr, inputargs,
@@ -612,12 +626,12 @@ class ResumeGuardDescr(ResumeDescr):
         increment = jitdriver_sd.warmstate.increment_trace_eagerness
         result = jitcounter.tick(hash, increment)
         if rgc.stm_is_enabled():
-            # The call to guard_already_patched is necessary because it is 
-            # possible that the current transaction didn't see the 
+            # The call to guard_already_patched is necessary because it is
+            # possible that the current transaction didn't see the
             # patched JMP yet, but already sees the ST_BUSY_FLAG as 0 (because
             # the patching is in raw-memory).
             # Thus it may try to compile a trace too and also patch the assembler.
-            # However, this would trigger the assertion in 
+            # However, this would trigger the assertion in
             #     x86.assembler.patch_jump_for_descr.
             result = result and not metainterp_sd.cpu.guard_already_patched(self)
         return result

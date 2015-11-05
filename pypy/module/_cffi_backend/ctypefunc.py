@@ -143,7 +143,7 @@ class W_CTypeFunc(W_CTypePtrBase):
     @jit.unroll_safe
     def _call(self, funcaddr, args_w):
         space = self.space
-        cif_descr = self.cif_descr
+        cif_descr = self.cif_descr   # 'self' should have been promoted here
         size = cif_descr.exchange_size
         mustfree_max_plus_1 = 0
         buffer = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')

@@ -239,12 +239,21 @@ class threadlocalproperty(object):
     def __init__(self, default_factory=None):
         self.tl_default_factory = default_factory
         self.tl_local = thread._local()
+        self.tl_all_threads = []
+
+    def clear(self, obj):
+        for wrefs in self.tl_all_threads:
+            try:
+                del wrefs[obj]
+            except KeyError:
+                pass
 
     def tl_wrefs(self):
         try:
             return self.tl_local.wrefs
         except AttributeError:
             self.tl_local.wrefs = wrefs = weakkeyiddict()
+            self.tl_all_threads.append(wrefs)
             return wrefs
 
     def __get__(self, obj, cls=None):

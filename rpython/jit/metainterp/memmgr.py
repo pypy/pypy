@@ -23,6 +23,12 @@ from rpython.rlib import rstm
 # removed from the set.
 #
 
+from rpython.rtyper.lltypesystem import lltype, llmemory
+TOKENGEN = lltype.GcStruct('TokenGen',
+                           ('token', llmemory.GCREF),
+                           ('generation', lltype.Signed))
+PTOKENGEN = lltype.Ptr(TOKENGEN)
+
 class MemoryManager(object):
 
     def __init__(self):
@@ -47,10 +53,11 @@ class MemoryManager(object):
         self.alive_loops = {}
 
         # For the stm case, we'll use this:
-        # * hash table mapping integers to looptokens
+        # * hash table mapping integers to (looptoken, generation)
         self.stm_alive_loops = rstm.NULL_HASHTABLE
         # * lowest integer key used in stm_alive_loops
         self.stm_lowest_key = 0
+
 
     def set_max_age(self, max_age, check_frequency=0):
         if max_age <= 0:
@@ -72,15 +79,25 @@ class MemoryManager(object):
         if looptoken.generation != self.current_generation:
             # STM: never produce conflicts from this function
             # (except possibly the first time it is called)
-            with stm_ignored:
-                looptoken.generation = self.current_generation
             if not stm_is_enabled():
+                looptoken.generation = self.current_generation
                 self.alive_loops[looptoken] = None
             else:
+                with stm_ignored:
+                    # The next line only updates one segment. the whole point
+                    # of doing it is to reduce the number of entries added
+                    # to the hashtable that belong to the same looptoken.
+                    # Hopefully the above if will prevent a huge number of
+                    # "duplicates" in this way.
+                    looptoken.generation = self.current_generation
                 next_key = rstm.stm_count()
-                gcref = annlowlevel.cast_instance_to_gcref(looptoken)
+                tokgen = lltype.malloc(TOKENGEN)
+                tokgen.token = annlowlevel.cast_instance_to_gcref(looptoken)
+                tokgen.generation = self.current_generation
                 if not self.stm_alive_loops:
                     self.stm_alive_loops = rstm.create_hashtable()
+
+                gcref = lltype.cast_opaque_ptr(llmemory.GCREF, tokgen)
                 self.stm_alive_loops.set(next_key, gcref)
 
     def _kill_old_loops_now(self):
@@ -116,16 +133,25 @@ class MemoryManager(object):
                     # make 'stm_alive_loops' empty, and add the loops that we
                     # must keep in the set 'keep_loops'
                     stm_alive_loops.set(key, rstm.NULL_GCREF)
-                    oldtotal += 1
+
+                    tokgen = lltype.cast_opaque_ptr(PTOKENGEN, gcref)
                     looptoken = annlowlevel.cast_gcref_to_instance(JitCellToken,
-                                                                   gcref)
-                    if self._must_keep_loop(looptoken, max_generation):
-                        keep_loops[looptoken] = None
+                                                                   tokgen.token)
+                    if looptoken not in keep_loops:
+                        oldtotal += 1 # we may have duplicates
+                        #if self._must_keep_loop(looptoken, max_generation):
+                        if not (0 <= tokgen.generation < max_generation or
+                                looptoken.invalidated):
+                            keep_loops[looptoken] = tokgen
+                    elif tokgen.generation > keep_loops[looptoken].generation:
+                        # update with higher generation:
+                        keep_loops[looptoken] = tokgen
+
             newtotal = len(keep_loops)
             #
             # now re-add loops with key numbers that *end* at 'new_count'
-            for looptoken in keep_loops:
-                gcref = annlowlevel.cast_instance_to_gcref(looptoken)
+            for looptoken, tokgen in keep_loops.items():
+                gcref = lltype.cast_opaque_ptr(llmemory.GCREF, tokgen)
                 stm_alive_loops.set(new_count, gcref)
                 new_count -= 1
             self.stm_lowest_key = new_count + 1    # lowest used key number
@@ -142,5 +168,6 @@ class MemoryManager(object):
         debug_stop("jit-mem-collect")
 
     def _must_keep_loop(self, looptoken, max_generation):
+        assert not stm_is_enabled()
         return not (0 <= looptoken.generation < max_generation or
                     looptoken.invalidated)

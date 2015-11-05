@@ -46,6 +46,7 @@ rlock = RLock()
 
 _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
+_FREEBSD = sys.platform.startswith('freebsd')
 _64BIT = "64bit" in host_platform.architecture()[0]
 
 
@@ -1080,8 +1081,11 @@ if ctypes:
             return ctypes.util.find_library('c')
 
     libc_name = get_libc_name()     # Make sure the name is determined during import, not at runtime
+    if _FREEBSD:
+        RTLD_DEFAULT = -2  # see <dlfcn.h>
+        rtld_default_lib = ctypes.CDLL("RTLD_DEFAULT", handle=RTLD_DEFAULT, **load_library_kwargs)
     # XXX is this always correct???
-    standard_c_lib = ctypes.CDLL(get_libc_name(), **load_library_kwargs)
+    standard_c_lib = ctypes.CDLL(libc_name, **load_library_kwargs)
 
 # ____________________________________________
 
@@ -1133,7 +1137,8 @@ def get_ctypes_callable(funcptr, calling_conv):
     try:
         eci = _eci_cache[old_eci]
     except KeyError:
-        eci = old_eci.compile_shared_lib(ignore_a_files=True)
+        eci = old_eci.compile_shared_lib(ignore_a_files=True,
+                                         defines=['RPYTHON_LL2CTYPES'])
         _eci_cache[old_eci] = eci
 
     libraries = eci.testonly_libraries + eci.libraries + eci.frameworks
@@ -1173,7 +1178,10 @@ def get_ctypes_callable(funcptr, calling_conv):
                 not_found.append(libname)
 
     if cfunc is None:
-        cfunc = get_on_lib(standard_c_lib, funcname)
+        if _FREEBSD and funcname in ('dlopen', 'fdlopen', 'dlsym', 'dlfunc', 'dlerror', 'dlclose'):
+            cfunc = get_on_lib(rtld_default_lib, funcname)
+        else:
+            cfunc = get_on_lib(standard_c_lib, funcname)
         # XXX magic: on Windows try to load the function from 'kernel32' too
         if cfunc is None and hasattr(ctypes, 'windll'):
             cfunc = get_on_lib(ctypes.windll.kernel32, funcname)
@@ -1492,18 +1500,17 @@ else:
             _where_is_errno().contents.value = TLS.errno
 
     if ctypes:
-        if sys.platform == 'win32':
+        if _MS_WINDOWS:
             standard_c_lib._errno.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib._errno()
 
-        elif sys.platform.startswith('linux') or sys.platform == 'freebsd6':
+        elif sys.platform.startswith('linux'):
             standard_c_lib.__errno_location.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib.__errno_location()
 
-        elif any(plat in sys.platform
-                 for plat in ('darwin', 'freebsd7', 'freebsd8', 'freebsd9')):
+        elif sys.platform == 'darwin' or _FREEBSD:
             standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib.__error()

@@ -189,6 +189,20 @@ def allocate_preexisting(p):
     size = llmemory.sizeof(TP.TO)
     return llop.stm_allocate_preexisting(TP, size, p)
 
+@dont_look_inside
+@specialize.ll()
+def allocate_noconflict(GCTYPE, n=None):
+    """Return a new instance of GCTYPE that never generates conflicts when
+    reading or writing to it. However, modifications may get lost
+    and are not guaranteed to propagate."""
+    if not we_are_translated(): # for tests
+        return lltype.malloc(GCTYPE, n=n)
+    #
+    if n is None:
+        return llop.stm_malloc_noconflict(lltype.Ptr(GCTYPE))
+    else:
+        return llop.stm_malloc_noconflict_varsize(lltype.Ptr(GCTYPE), n)
+
 @specialize.ll()
 def allocate_nonmovable(GCTYPE):
     return llop.stm_malloc_nonmovable(lltype.Ptr(GCTYPE))
@@ -214,7 +228,7 @@ _STM_HASHTABLE_ENTRY = lltype.GcStruct('HASHTABLE_ENTRY',
                                        ('index', lltype.Unsigned),
                                        ('object', llmemory.GCREF))
 _STM_HASHTABLE_ENTRY_P = lltype.Ptr(_STM_HASHTABLE_ENTRY)
-_STM_HASHTABLE_ENTRY_ARRAY = rffi.CArray(_STM_HASHTABLE_ENTRY_P)
+_STM_HASHTABLE_ENTRY_ARRAY = lltype.GcArray(_STM_HASHTABLE_ENTRY_P)
 
 @dont_look_inside
 def _ll_hashtable_get(h, key):
@@ -234,15 +248,12 @@ def _ll_hashtable_len(h):
 def _ll_hashtable_list(h):
     upper_bound = llop.stm_hashtable_length_upper_bound(lltype.Signed,
                                                         h.ll_raw_hashtable)
-    array = lltype.malloc(_STM_HASHTABLE_ENTRY_ARRAY, upper_bound,
-                          flavor='raw')
+    array = lltype.malloc(_STM_HASHTABLE_ENTRY_ARRAY, upper_bound)
+    # 'array' is newly allocated, thus we don't need to do a manual
+    # write_barrier for stm as requested by stm_hashtable_list
     count = llop.stm_hashtable_list(lltype.Signed, h, h.ll_raw_hashtable,
-                                    array)
+                                    lltype.direct_arrayitems(array))
     return (array, count)
-
-@dont_look_inside
-def _ll_hashtable_freelist(h, array):
-    lltype.free(array, flavor='raw')
 
 @dont_look_inside
 def _ll_hashtable_lookup(h, key):
@@ -261,7 +272,6 @@ _HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
                                            'set': _ll_hashtable_set,
                                            'len': _ll_hashtable_len,
                                           'list': _ll_hashtable_list,
-                                      'freelist': _ll_hashtable_freelist,
                                         'lookup': _ll_hashtable_lookup,
                                       'writeobj': _ll_hashtable_writeobj})
 NULL_HASHTABLE = lltype.nullptr(_HASHTABLE_OBJ)
@@ -302,42 +312,48 @@ NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
 
 class HashtableForTest(object):
     def __init__(self):
-        self._content = {}      # dict {integer: GCREF}
+        self._content = {}      # dict {integer: Entry(obj=GCREF)}
 
     def _cleanup_(self):
         raise Exception("cannot translate a prebuilt rstm.Hashtable object")
 
     def get(self, key):
         assert type(key) is int
-        return self._content.get(key, NULL_GCREF)
+        return self.lookup(key).object
+        # return self._content.get(key, NULL_GCREF)
 
     def set(self, key, value):
         assert type(key) is int
         assert lltype.typeOf(value) == llmemory.GCREF
         if value:
-            self._content[key] = value
+            entry = self.lookup(key)
+            entry._obj = value
+            # self._content[key] = value
         else:
             try:
+                # set entry to value (since somebody may still have
+                # a reference to it), then delete it from the table,
+                # as that may happen *anytime* if _obj==NULL
+                entry = self.lookup(key)
+                entry._obj = value
                 del self._content[key]
             except KeyError:
                 pass
 
     def len(self):
-        return len(self._content)
+        items = [self.lookup(key) for key, v in self._content.items() if v.object != NULL_GCREF]
+        return len(items)
 
     def list(self):
-        items = [self.lookup(key) for key in self._content]
+        items = [self.lookup(key) for key, v in self._content.items() if v.object != NULL_GCREF]
         count = len(items)
         for i in range(3):
             items.append("additional garbage for testing")
         return items, count
 
-    def freelist(self, array):
-        pass
-
     def lookup(self, key):
         assert type(key) is int
-        return EntryObjectForTest(self, key)
+        return self._content.setdefault(key, EntryObjectForTest(self, key))
 
     def writeobj(self, entry, nvalue):
         assert isinstance(entry, EntryObjectForTest)
@@ -348,9 +364,10 @@ class EntryObjectForTest(object):
         self.hashtable = hashtable
         self.key = key
         self.index = r_uint(key)
+        self._obj = NULL_GCREF
 
     def _getobj(self):
-        return self.hashtable.get(self.key)
+        return self._obj
     def _setobj(self, nvalue):
         raise Exception("can't assign to the 'object' attribute:"
                         " use h.writeobj() instead")

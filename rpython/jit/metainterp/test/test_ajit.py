@@ -10,7 +10,7 @@ from rpython.rlib import rerased
 from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
-    isconstant, isvirtual, set_param, record_known_class)
+    isconstant, isvirtual, set_param, record_exact_class)
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -268,6 +268,7 @@ class BasicTests:
                 y -= 1
             return res
         res = self.meta_interp(f, [6, sys.maxint, 48])
+        self.check_trace_count(6)
         assert res == f(6, sys.maxint, 48)
 
     def test_loop_invariant_mul_bridge_ovf2(self):
@@ -3756,19 +3757,19 @@ class BaseLLtypeTests(BasicTests):
         res1 = f(6)
         res2 = self.interp_operations(f, [6])
         assert res1 == res2
-        self.check_operations_history(guard_class=0, record_known_class=1)
+        self.check_operations_history(guard_class=0, record_exact_class=1)
 
         res1 = f(-6)
         res2 = self.interp_operations(f, [-6])
         assert res1 == res2
-        # cannot use record_known_class here, because B has a subclass
+        # cannot use record_exact_class here, because B has a subclass
         self.check_operations_history(guard_class=1)
 
         res1 = f(0)
         res2 = self.interp_operations(f, [0])
         assert res1 == res2
         # here it works again
-        self.check_operations_history(guard_class=0, record_known_class=1)
+        self.check_operations_history(guard_class=0, record_exact_class=1)
 
     def test_give_class_knowledge_to_tracer_explicitly(self):
         from rpython.rtyper.lltypesystem.lloperation import llop
@@ -3808,31 +3809,30 @@ class BaseLLtypeTests(BasicTests):
         def f(x):
             a = make(x)
             if x > 0:
-                record_known_class(a, A)
+                record_exact_class(a, A)
                 z = a.f()
             elif x < 0:
-                record_known_class(a, B)
+                record_exact_class(a, B)
                 z = a.f()
             else:
-                record_known_class(a, C)
+                record_exact_class(a, C)
                 z = a.f()
             return z + a.g()
         res1 = f(6)
         res2 = self.interp_operations(f, [6])
         assert res1 == res2
-        self.check_operations_history(guard_class=0, record_known_class=1)
+        self.check_operations_history(guard_class=0, record_exact_class=1)
 
         res1 = f(-6)
         res2 = self.interp_operations(f, [-6])
         assert res1 == res2
-        # cannot use record_known_class here, because B has a subclass
-        self.check_operations_history(guard_class=1)
+        self.check_operations_history(guard_class=0, record_exact_class=1)
 
         res1 = f(0)
         res2 = self.interp_operations(f, [0])
         assert res1 == res2
         # here it works again
-        self.check_operations_history(guard_class=0, record_known_class=1)
+        self.check_operations_history(guard_class=0, record_exact_class=1)
 
     def test_generator(self):
         def g(n):

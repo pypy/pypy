@@ -52,7 +52,7 @@ struct stm_queue_s {
 
 stm_queue_t *stm_queue_create(void)
 {
-    void *mem;
+    void *mem = NULL;
     int result = posix_memalign(&mem, 64, sizeof(stm_queue_t));
     assert(result == 0);
     (void)result;
@@ -437,7 +437,7 @@ static void mark_visit_from_active_queues(void)
             queue_entry_t *entry = seg->added_in_this_transaction;
 
             while (entry != NULL) {
-                mark_visit_possibly_new_object(entry->object, pseg);
+                mark_visit_possibly_overflow_object(entry->object, pseg);
                 entry = entry->next;
             }
         } TREE_LOOP_END;

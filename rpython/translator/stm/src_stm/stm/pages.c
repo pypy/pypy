@@ -28,7 +28,7 @@ static uint64_t increment_total_allocated(ssize_t add_or_remove)
     uint64_t ta = __sync_add_and_fetch(&pages_ctl.total_allocated,
                                        add_or_remove);
 
-    if (ta >= pages_ctl.total_allocated_bound)
+    if (UNLIKELY(ta >= pages_ctl.total_allocated_bound))
         pages_ctl.major_collection_requested = true;
 
     return ta;

@@ -29,6 +29,9 @@ static void teardown_finalizer(void)
 static void _commit_finalizers(void)
 {
     /* move finalizer lists to g_finalizers for major collections */
+    while (__sync_lock_test_and_set(&g_finalizers.lock, 1) != 0) {
+        spin_loop();
+    }
 
     if (STM_PSEGMENT->finalizers->run_finalizers != NULL) {
         /* copy 'STM_PSEGMENT->finalizers->run_finalizers' into
@@ -60,6 +63,8 @@ static void _commit_finalizers(void)
 
     free(STM_PSEGMENT->finalizers);
     STM_PSEGMENT->finalizers = NULL;
+
+    __sync_lock_release(&g_finalizers.lock);
 }
 
 static void abort_finalizers(struct stm_priv_segment_info_s *pseg)
@@ -309,7 +314,7 @@ static void _recursively_bump_finalization_state_from_1_to_2(
 {
     assert(_finalization_state(obj) == 1);
     /* The call will add GCFLAG_VISITED recursively, thus bump state 1->2 */
-    mark_visit_possibly_new_object(obj, pseg);
+    mark_visit_possibly_overflow_object(obj, pseg);
 }
 
 static struct list_s *mark_finalize_step1(
@@ -389,7 +394,7 @@ static void mark_finalize_step2(
 static void deal_with_objects_with_finalizers(void)
 {
     /* for non-light finalizers */
-
+    assert(_has_mutex());
     /* there is one 'objects_with_finalizers' list per segment.
        Objects that die at a major collection running in the same
        transaction as they were created will be put in the
@@ -431,7 +436,7 @@ static void mark_visit_from_finalizer1(
     if (f != NULL && f->run_finalizers != NULL) {
         LIST_FOREACH_R(f->run_finalizers, object_t * /*item*/,
                        ({
-                           mark_visit_possibly_new_object(item, pseg);
+                           mark_visit_possibly_overflow_object(item, pseg);
                        }));
     }
 }
@@ -481,25 +486,39 @@ static void _execute_finalizers(struct finalizers_s *f)
     LIST_FREE(f->run_finalizers);
 }
 
+/* XXX: according to translator.backendopt.finalizer, getfield_gc
+        for primitive types is a safe op in light finalizers.
+        I don't think that's correct in general (maybe if
+        getfield on *dying obj*).
+*/
+
 static void _invoke_general_finalizers(stm_thread_local_t *tl)
 {
     /* called between transactions */
-    static int lock = 0;
-
-    if (__sync_lock_test_and_set(&lock, 1) != 0) {
-        /* can't acquire the lock: someone else is likely already
-           running this function, so don't wait. */
-        return;
-    }
-
     rewind_jmp_buf rjbuf;
     stm_rewind_jmp_enterframe(tl, &rjbuf);
     _stm_start_transaction(tl);
+    /* XXX: become inevitable, bc. otherwise, we would need to keep
+       around the original g_finalizers.run_finalizers to restore it
+       in case of an abort. */
+    _stm_become_inevitable("finalizer-Tx");
 
-    _execute_finalizers(&g_finalizers);
+    while (__sync_lock_test_and_set(&g_finalizers.lock, 1) != 0) {
+        /* somebody is adding more finalizers (_commit_finalizer()) */
+        spin_loop();
+    }
+    struct finalizers_s copy = g_finalizers;
+    assert(copy.running_next == NULL);
+    g_finalizers.run_finalizers = NULL;
+    /* others may add to g_finalizers again: */
+    __sync_lock_release(&g_finalizers.lock);
+
+    if (copy.run_finalizers != NULL) {
+        _execute_finalizers(&copy);
+    }
 
     _stm_commit_transaction();
     stm_rewind_jmp_leaveframe(tl, &rjbuf);
 
-    __sync_lock_release(&lock);
+    LIST_FREE(copy.run_finalizers);
 }

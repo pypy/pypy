@@ -38,6 +38,7 @@ from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib import rstm, nonconst
+from rpython.jit.backend.x86 import perf_map
 
 
 class Assembler386(BaseAssembler):
@@ -128,15 +129,48 @@ class Assembler386(BaseAssembler):
         self.float_const_neg_addr = float_constants
         self.float_const_abs_addr = float_constants + 16
 
+
+    def _stm_save_regs_and_leave_transactional_zone(self, mc):
+        assert IS_X86_64 and self.cpu.supports_floats
+        # cannot save regs to frame as we are outside a transactional
+        # zone after "leaving". Thus, the frame must not be accessed afterwards.
+        # (there should also be no unsaved references left in registers)
+        gpr_regs = [gpr for gpr in gpr_reg_mgr_cls.save_around_call_regs if gpr != eax]
+        xmm_regs = xmm_reg_mgr_cls.all_regs
+
+        # Push the general purpose registers
+        for gpr in gpr_regs:
+            mc.PUSH(gpr)
+
+        # Push the XMM regs
+        # and align stack
+        pushed = len(gpr_regs) + len(xmm_regs) + 1  # +1 bc we are not aligned initially
+        not_aligned = bool(pushed % 2 == 1) # works for X86_64
+        xmm_space = (len(xmm_regs) + (1 if not_aligned else 0)) * WORD
+        mc.SUB_ri(esp.value, xmm_space)
+        for off, xmm in enumerate(xmm_regs):
+            mc.MOVSD_sx(off * WORD, xmm.value)
+
+        # call
+        mc.CALL(imm(rstm.adr_stm_leave_noninevitable_transactional_zone))
+
+        # Push the XMM regs
+        for off, xmm in enumerate(xmm_regs):
+            mc.MOVSD_xs(xmm.value, off * WORD)
+        mc.ADD_ri(esp.value, xmm_space)
+
+        # POP the general purpose registers
+        for gpr in reversed(gpr_regs):
+            mc.POP(gpr)
+
+
     def _build_stm_enter_leave_transactional_zone_helpers(self):
         assert IS_X86_64 and self.cpu.supports_floats
         # a helper to call _stm_leave_noninevitable_transactional_zone(),
         # preserving all registers that are used to pass arguments.
         # (Push an odd total number of registers, to align the stack.)
         mc = codebuf.MachineCodeBlockWrapper()
-        self._push_all_regs_to_frame(mc, [eax], True, callee_only=True)
-        mc.CALL(imm(rstm.adr_stm_leave_noninevitable_transactional_zone))
-        self._pop_all_regs_from_frame(mc, [eax], True, callee_only=True)
+        self._stm_save_regs_and_leave_transactional_zone(mc)
         mc.RET()
         self._stm_leave_noninevitable_tr_slowpath = mc.materialize(
             self.cpu, [])
@@ -146,12 +180,12 @@ class Assembler386(BaseAssembler):
         mc = codebuf.MachineCodeBlockWrapper()
         mc.SUB_ri(esp.value, 3 * WORD)     # 3 instead of 2 to align the stack
         mc.MOV_sr(0, eax.value)     # not edx, we're not running 32-bit
-        mc.MOVSD_sx(1, xmm0.value)
+        mc.MOVSD_sx(1 * WORD, xmm0.value)
         # load the value of 'tl->self_or_0_if_atomic' into edi as argument
         mc.MOV(edi, self.heap_stm_thread_local_self_or_0_if_atomic())
         mc.CALL(imm(rstm.adr_stm_reattach_transaction))
         # pop
-        mc.MOVSD_xs(xmm0.value, 1)
+        mc.MOVSD_xs(xmm0.value, 1 * WORD)
         mc.MOV_rs(eax.value, 0)
         mc.ADD_ri(esp.value, 3 * WORD)
         mc.RET()
@@ -476,7 +510,8 @@ class Assembler386(BaseAssembler):
             # we have one word to align
             mc.SUB_ri(esp.value, 7 * WORD) # align and reserve some space
             mc.MOV_sr(WORD, eax.value) # save for later
-            mc.MOVSD_sx(2 * WORD, xmm0.value)   # 32-bit: also 3 * WORD
+            if self.cpu.supports_floats:
+                mc.MOVSD_sx(2 * WORD, xmm0.value)   # 32-bit: also 3 * WORD
             if IS_X86_32:
                 mc.MOV_sr(4 * WORD, edx.value)
                 mc.MOV_sr(0, ebp.value)
@@ -526,7 +561,8 @@ class Assembler386(BaseAssembler):
         else:
             if IS_X86_32:
                 mc.MOV_rs(edx.value, 4 * WORD)
-            mc.MOVSD_xs(xmm0.value, 2 * WORD)
+            if self.cpu.supports_floats:
+                mc.MOVSD_xs(xmm0.value, 2 * WORD)
             mc.MOV_rs(eax.value, WORD) # restore
             self._restore_exception(mc, exc0, exc1)
             mc.MOV(exc0, RawEspLoc(WORD * 5, REF))
@@ -596,9 +632,13 @@ class Assembler386(BaseAssembler):
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE,
                                 rawstart)
         looptoken._ll_loop_code = looppos + rawstart
+        #
+        name = "Loop %d (%s)" % (looptoken.number, loopname)
+        perf_map.write_perf_map_entry(
+            name, r_uint(rawstart), r_uint(rawstart + full_size))
         debug_start("jit-backend-addr")
-        debug_print("Loop %d (%s) has address 0x%x to 0x%x (bootstrap 0x%x)" % (
-            looptoken.number, loopname,
+        debug_print("%s has address 0x%x to 0x%x (bootstrap 0x%x)" % (
+            name,
             r_uint(rawstart + looppos),
             r_uint(rawstart + size_excluding_failure_stuff),
             r_uint(rawstart)))
@@ -1565,7 +1605,7 @@ class Assembler386(BaseAssembler):
         loc1, = arglocs
         assert isinstance(resloc, RegLoc)
         assert isinstance(loc1, RegLoc)
-        self.mc.MOVD32_xr(resloc.value, loc1.value)
+        self.mc.MOVD32_xr(resloc.value, loc1.value)   # zero-extending
 
     def genop_llong_eq(self, op, arglocs, resloc):
         loc1, loc2, locxtmp = arglocs
@@ -2972,7 +3012,7 @@ class Assembler386(BaseAssembler):
             addr = addr_add(self.SEGMENT_GC, base_loc, startindex_loc,
                             baseofs + i, scale)
             current = nbytes - i
-            if current >= 16:
+            if current >= 16 and self.cpu.supports_floats:
                 current = 16
                 if not null_reg_cleared:
                     self.mc.XORPS_xx(null_loc.value, null_loc.value)

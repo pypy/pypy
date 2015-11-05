@@ -60,12 +60,12 @@ class W_LibObject(W_Root):
             self.ffi, self.ctx.c_types, getarg(g.c_type_op))
         assert isinstance(rawfunctype, realize_c_type.W_RawFuncType)
         #
-        w_ct, locs = rawfunctype.unwrap_as_nostruct_fnptr(self.ffi)
+        rawfunctype.prepare_nostruct_fnptr(self.ffi)
         #
         ptr = rffi.cast(rffi.CCHARP, g.c_address)
         assert ptr
-        return W_FunctionWrapper(self.space, ptr, g.c_size_or_direct_fn, w_ct,
-                                 locs, rawfunctype, fnname)
+        return W_FunctionWrapper(self.space, ptr, g.c_size_or_direct_fn,
+                                 rawfunctype, fnname, self.libname)
 
     @jit.elidable_promote()
     def _get_attr_elidable(self, attr):
@@ -102,6 +102,8 @@ class W_LibObject(W_Root):
                 #
             elif op == cffi_opcode.OP_GLOBAL_VAR:
                 # A global variable of the exact type specified here
+                # (nowadays, only used by the ABI mode or backend
+                # compatibility; see OP_GLOBAL_F for the API mode
                 w_ct = realize_c_type.realize_c_type(
                     self.ffi, self.ctx.c_types, getarg(g.c_type_op))
                 g_size = rffi.cast(lltype.Signed, g.c_size_or_direct_fn)
@@ -113,7 +115,13 @@ class W_LibObject(W_Root):
                 ptr = rffi.cast(rffi.CCHARP, g.c_address)
                 if not ptr:   # for dlopen() style
                     ptr = self.cdlopen_fetch(attr)
-                w_result = cglob.W_GlobSupport(space, w_ct, ptr)
+                w_result = cglob.W_GlobSupport(space, attr, w_ct, ptr=ptr)
+                #
+            elif op == cffi_opcode.OP_GLOBAL_VAR_F:
+                w_ct = realize_c_type.realize_c_type(
+                    self.ffi, self.ctx.c_types, getarg(g.c_type_op))
+                w_result = cglob.W_GlobSupport(space, attr, w_ct,
+                                               fetch_addr=g.c_address)
                 #
             elif (op == cffi_opcode.OP_CONSTANT_INT or
                   op == cffi_opcode.OP_ENUM):
@@ -131,6 +139,9 @@ class W_LibObject(W_Root):
                     realize_c_type.FUNCPTR_FETCH_CHARP,
                     g.c_address)
                 if w_ct.size <= 0:
+                    raise oefmt(self.ffi.w_FFIError,
+                                "constant '%s' is of type '%s', "
+                                "whose size is not known", attr, w_ct.name)
                     raise oefmt(space.w_SystemError,
                                 "constant has no known size")
                 if not fetch_funcptr:   # for dlopen() style
@@ -164,13 +175,19 @@ class W_LibObject(W_Root):
         self.dict_w[attr] = w_result
         return w_result
 
-    def _get_attr(self, w_attr):
+    def _get_attr(self, w_attr, is_getattr=False):
         attr = self.space.str_w(w_attr)
         try:
             w_value = self._get_attr_elidable(attr)
         except KeyError:
             w_value = self._build_attr(attr)
             if w_value is None:
+                if is_getattr and attr == '__all__':
+                    return self.dir1(ignore_global_vars=True)
+                if is_getattr and attr == '__dict__':
+                    return self.full_dict_copy()
+                if is_getattr and attr == '__name__':
+                    return self.descr_repr()
                 raise oefmt(self.space.w_AttributeError,
                             "cffi library '%s' has no function, constant "
                             "or global variable named '%s'",
@@ -178,7 +195,7 @@ class W_LibObject(W_Root):
         return w_value
 
     def descr_getattribute(self, w_attr):
-        w_value = self._get_attr(w_attr)
+        w_value = self._get_attr(w_attr, is_getattr=True)
         if isinstance(w_value, cglob.W_GlobSupport):
             w_value = w_value.read_global_var()
         return w_value
@@ -198,12 +215,32 @@ class W_LibObject(W_Root):
                     "C attribute cannot be deleted")
 
     def descr_dir(self):
+        return self.dir1()
+
+    def dir1(self, ignore_global_vars=False):
         space = self.space
         total = rffi.getintfield(self.ctx, 'c_num_globals')
         g = self.ctx.c_globals
-        names_w = [space.wrap(rffi.charp2str(g[i].c_name))
-                   for i in range(total)]
+        names_w = []
+        for i in range(total):
+            if ignore_global_vars:
+                op = getop(g[i].c_type_op)
+                if (op == cffi_opcode.OP_GLOBAL_VAR or
+                    op == cffi_opcode.OP_GLOBAL_VAR_F):
+                    continue
+            names_w.append(space.wrap(rffi.charp2str(g[i].c_name)))
         return space.newlist(names_w)
+
+    def full_dict_copy(self):
+        space = self.space
+        total = rffi.getintfield(self.ctx, 'c_num_globals')
+        g = self.ctx.c_globals
+        w_result = space.newdict()
+        for i in range(total):
+            w_attr = space.wrap(rffi.charp2str(g[i].c_name))
+            w_value = self._get_attr(w_attr)
+            space.setitem(w_result, w_attr, w_value)
+        return w_result
 
     def address_of_func_or_global_var(self, varname):
         # rebuild a string object from 'varname', to do typechecks and
@@ -217,7 +254,8 @@ class W_LibObject(W_Root):
         if isinstance(w_value, W_FunctionWrapper):
             # '&func' returns a regular cdata pointer-to-function
             if w_value.directfnptr:
-                return W_CData(space, w_value.directfnptr, w_value.ctype)
+                ctype = w_value.typeof(self.ffi)
+                return W_CData(space, w_value.directfnptr, ctype)
             else:
                 return w_value    # backward compatibility
         #

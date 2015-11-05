@@ -10,11 +10,14 @@
    of modification locks!
 */
 
-typedef struct {
-    pthread_rwlock_t lock;
+typedef union {
+    struct {
+        pthread_rwlock_t lock;
 #ifndef NDEBUG
-    volatile bool write_locked;
+        volatile bool write_locked;
 #endif
+    };
+    char _pad[64];
 } modification_lock_t __attribute__((aligned(64)));
 
 static modification_lock_t _modlocks[NB_SEGMENTS - 1];

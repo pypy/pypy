@@ -477,6 +477,7 @@ static void throw_away_nursery(struct stm_priv_segment_info_s *pseg)
     /* reset the nursery by zeroing it */
     char *realnursery;
     realnursery = REAL_ADDRESS(pseg->pub.segment_base, _stm_nursery_start);
+    (void)realnursery;
 #if _STM_NURSERY_ZEROED
     memset(realnursery, 0, nursery_used);
 
@@ -722,7 +723,7 @@ static void major_do_validation_and_minor_collections(void)
 
     /* including the sharing seg0 */
     for (i = 0; i < NB_SEGMENTS; i++) {
-        set_gs_register(get_segment_base(i));
+        ensure_gs_register(i);
 
         bool ok = _stm_validate();
         assert(get_priv_segment(i)->last_commit_log_entry->next == NULL
@@ -768,7 +769,7 @@ static void major_do_validation_and_minor_collections(void)
         }
     }
 
-    set_gs_register(get_segment_base(original_num));
+    ensure_gs_register(original_num);
 }
 
 
@@ -777,8 +778,16 @@ static object_t *allocate_shadow(object_t *obj)
     char *realobj = REAL_ADDRESS(STM_SEGMENT->segment_base, obj);
     size_t size = stmcb_size_rounded_up((struct object_s *)realobj);
 
-    /* always gets outside as a large object for now (XXX?) */
-    object_t *nobj = (object_t *)allocate_outside_nursery_large(size);
+    /* always gets outside */
+    object_t *nobj;
+    if (size > GC_LAST_SMALL_SIZE) {
+        /* case 1: object is not small enough.
+           Ask gcpage.c for an allocation via largemalloc. */
+        nobj = (object_t *)allocate_outside_nursery_large(size);
+    } else {
+        /* case "small enough" */
+        nobj = (object_t *)allocate_outside_nursery_small(size);
+    }
 
     /* Initialize the shadow enough to be considered a valid gc object.
        If the original object stays alive at the next minor collection,

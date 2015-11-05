@@ -414,7 +414,7 @@ LL_OPERATIONS = {
     # (some ops like stm_commit_transaction don't need it because there
     #  must be no gc-var access afterwards anyway)
     'stm_register_thread_local': LLOp(),
-    'stm_unregister_thread_local': LLOp(),
+    'stm_unregister_thread_local': LLOp(canmallocgc=True),
     'stm_read':               LLOp(),
     'stm_write':              LLOp(),
     'stm_can_move':           LLOp(),
@@ -423,6 +423,10 @@ LL_OPERATIONS = {
     'stm_allocate_finalizer': LLOp(sideeffects=False, canmallocgc=True),
     'stm_allocate_f_light':   LLOp(sideeffects=False, canmallocgc=True),
     'stm_allocate_preexisting':LLOp(sideeffects=False, canmallocgc=True),
+    'stm_allocate_noconflict':LLOp(sideeffects=False, canmallocgc=True),
+    'stm_allocate_noconflict_varsize':LLOp(sideeffects=False, canmallocgc=True),
+    'stm_malloc_noconflict':  LLOp(sideeffects=False, canmallocgc=True),
+    'stm_malloc_noconflict_varsize':  LLOp(sideeffects=False, canmallocgc=True),
     'stm_allocate_nonmovable':LLOp(sideeffects=False, canmallocgc=True),
     'stm_malloc_nonmovable':  LLOp(sideeffects=False, canmallocgc=True),
     'stm_set_into_obj':       LLOp(),
@@ -438,7 +442,7 @@ LL_OPERATIONS = {
     'stm_leave_transactional_zone':       LLOp(canmallocgc=True),
     'stm_abort_and_retry':                LLOp(canmallocgc=True),
     'stm_enter_callback_call':            LLOp(canmallocgc=True),
-    'stm_leave_callback_call':            LLOp(),
+    'stm_leave_callback_call':            LLOp(canmallocgc=True),
     'stm_transaction_break':              LLOp(canmallocgc=True, canrun=True),
     'stm_should_break_transaction':       LLOp(sideeffects=False),
     'stm_rewind_jmp_frame':               LLOp(canrun=True),
@@ -449,7 +453,10 @@ LL_OPERATIONS = {
     # stm_memclearinit(gcref, offset, size) clears the memory in this address space
     'stm_memclearinit': LLOp(),
 
-    'stm_hint_commit_soon':   LLOp(canrun=True),
+    # if it stays that way, should be renamed to something like
+    # try_break_transaction(). (before, it would also work in an
+    # atomic transaction)
+    'stm_hint_commit_soon':   LLOp(canrun=True, canmallocgc=True),
 
     'stm_increment_atomic':   LLOp(),
     'stm_decrement_atomic':   LLOp(),
@@ -471,9 +478,9 @@ LL_OPERATIONS = {
 
     'stm_hashtable_create':   LLOp(),
     'stm_hashtable_free':     LLOp(),
-    'stm_hashtable_read':     LLOp(),
-    'stm_hashtable_write':    LLOp(),
-    'stm_hashtable_lookup':   LLOp(),
+    'stm_hashtable_read':     LLOp(canmallocgc=True),
+    'stm_hashtable_write':    LLOp(canmallocgc=True),
+    'stm_hashtable_lookup':   LLOp(canmallocgc=True),
     'stm_hashtable_write_entry':        LLOp(),
     'stm_hashtable_length_upper_bound': LLOp(),
     'stm_hashtable_list'  :   LLOp(),
@@ -482,7 +489,7 @@ LL_OPERATIONS = {
     'stm_queue_create':       LLOp(),
     'stm_queue_free':         LLOp(),
     'stm_queue_get':          LLOp(canmallocgc=True),   # push roots!
-    'stm_queue_put':          LLOp(),
+    'stm_queue_put':          LLOp(canmallocgc=True),
     'stm_queue_task_done':    LLOp(),
     'stm_queue_join':         LLOp(canmallocgc=True),   # push roots!
     'stm_queue_tracefn':      LLOp(),
@@ -535,7 +542,7 @@ LL_OPERATIONS = {
     'jit_force_virtual':    LLOp(canrun=True),
     'jit_is_virtual':       LLOp(canrun=True),
     'jit_force_quasi_immutable': LLOp(canrun=True),
-    'jit_record_known_class'  : LLOp(canrun=True),
+    'jit_record_exact_class'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
     'jit_conditional_call': LLOp(),
     'get_exception_addr':   LLOp(),

@@ -1,4 +1,5 @@
 import sys
+from rpython.rlib import jit
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -80,6 +81,13 @@ def get_primitive_type(ffi, num):
         if num == cffi_opcode._UNKNOWN_PRIM:
             raise oefmt(ffi.w_FFIError, "primitive integer type with an "
                         "unexpected size (or not an integer type at all)")
+        elif num == cffi_opcode._UNKNOWN_FLOAT_PRIM:
+            raise oefmt(ffi.w_FFIError, "primitive floating-point type with an "
+                        "unexpected size (or not a float type at all)")
+        elif num == cffi_opcode._UNKNOWN_LONG_DOUBLE:
+            raise oefmt(ffi.w_FFIError, "primitive floating-point type is "
+                        "'long double', not supported for now with "
+                        "the syntax 'typedef double... xxx;'")
         else:
             raise oefmt(space.w_NotImplementedError, "prim=%d", num)
     realize_cache = space.fromcache(RealizeCache)
@@ -135,8 +143,12 @@ def realize_global_int(ffi, g, gindex):
 
 class W_RawFuncType(W_Root):
     """Temporary: represents a C function type (not a function pointer)"""
+
+    _immutable_fields_ = ['nostruct_ctype', 'nostruct_locs', 'nostruct_nargs']
     _ctfuncptr = None
-    _nostruct_ctfuncptr = (None, None)
+    nostruct_ctype = None
+    nostruct_locs = None
+    nostruct_nargs = 0
 
     def __init__(self, opcodes, base_index):
         self.opcodes = opcodes
@@ -168,14 +180,16 @@ class W_RawFuncType(W_Root):
         assert self._ctfuncptr is not None
         return self._ctfuncptr
 
-    def unwrap_as_nostruct_fnptr(self, ffi):
-        # tweaked version: instead of returning the ctfuncptr corresponding
-        # exactly to the OP_FUNCTION ... OP_FUNCTION_END opcodes, return
-        # another one in which the struct args are replaced with ptr-to-
-        # struct, and a struct return value is replaced with a hidden first
-        # arg of type ptr-to-struct.  This is how recompiler.py produces
+    @jit.dont_look_inside
+    def prepare_nostruct_fnptr(self, ffi):
+        # tweaked version: instead of returning the ctfuncptr
+        # corresponding exactly to the OP_FUNCTION ... OP_FUNCTION_END
+        # opcodes, this builds in self.nostruct_ctype another one in
+        # which the struct args are replaced with ptr-to- struct, and
+        # a struct return value is replaced with a hidden first arg of
+        # type ptr-to-struct.  This is how recompiler.py produces
         # trampoline functions for PyPy.
-        if self._nostruct_ctfuncptr[0] is None:
+        if self.nostruct_ctype is None:
             fargs, fret, ellipsis = self._unpack(ffi)
             # 'locs' will be a string of the same length as the final fargs,
             # containing 'A' where a struct argument was detected, and 'R'
@@ -198,8 +212,10 @@ class W_RawFuncType(W_Root):
                 locs = None
             else:
                 locs = ''.join(locs)
-            self._nostruct_ctfuncptr = (ctfuncptr, locs)
-        return self._nostruct_ctfuncptr
+            self.nostruct_ctype = ctfuncptr
+            self.nostruct_locs = locs
+            self.nostruct_nargs = len(ctfuncptr.fargs) - (locs is not None and
+                                                          locs[0] == 'R')
 
     def unexpected_fn_type(self, ffi):
         fargs, fret, ellipsis = self._unpack(ffi)

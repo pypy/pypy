@@ -24,6 +24,8 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             return
         # ----------  transaction breaks  ----------
         if opnum == rop.STM_HINT_COMMIT_SOON:
+            self.emitting_an_operation_that_can_collect()
+            self.next_op_may_be_in_new_transaction()
             self._do_stm_call('stm_hint_commit_soon', [], None)
             return
         # ----------  jump, finish, guard_not_forced_2  ----------
@@ -86,7 +88,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                      rop.ENTER_PORTAL_FRAME, rop.LEAVE_PORTAL_FRAME,
                      rop.MARK_OPAQUE_PTR,
                      rop.JIT_DEBUG, rop.KEEPALIVE,
-                     rop.QUASIIMMUT_FIELD, rop.RECORD_KNOWN_CLASS,
+                     rop.QUASIIMMUT_FIELD, rop.RECORD_EXACT_CLASS,
                      ):
             self.newop(op)
             return

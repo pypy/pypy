@@ -557,7 +557,7 @@ class LLFrame(object):
     def op_jit_marker(self, *args):
         pass
 
-    def op_jit_record_known_class(self, *args):
+    def op_jit_record_exact_class(self, *args):
         pass
 
     def op_jit_conditional_call(self, *args):
@@ -992,6 +992,7 @@ class LLFrame(object):
     op_stm_allocate_finalizer = _stm_not_implemented
     op_stm_allocate_nonmovable = _stm_not_implemented
     op_stm_allocate_preexisting = _stm_not_implemented
+    op_stm_malloc_noconflict = _stm_not_implemented
     op_stm_malloc_nonmovable = _stm_not_implemented
     op_stm_can_move = _stm_not_implemented
     op_stm_read = _stm_not_implemented

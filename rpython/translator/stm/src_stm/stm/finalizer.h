@@ -1,5 +1,7 @@
 /* Imported by rpython/translator/stm/import_stmgc.py */
+/* see deal_with_objects_with_finalizers() for explanation of these fields */
 struct finalizers_s {
+    long lock;
     struct list_s *objects_with_finalizers;
     uintptr_t count_non_young;
     struct list_s *run_finalizers;

@@ -1,5 +1,5 @@
 #!/usr/bin/env pypy
-import sys
+import sys, os
 import struct, re, linecache
 
 # ____________________________________________________________
@@ -301,7 +301,7 @@ def summarize_log_entries(logentries, stmlog):
     stmlog.threads = threads
     stmlog.conflicts = conflicts
 
-def dump_summary(stmlog):
+def dump_summary(stmlog, maxcount=15):
     start_time = stmlog.start_time
     total_time = stmlog.total_time
     print
@@ -330,15 +330,17 @@ def dump_summary(stmlog):
     print
     #
     values = stmlog.get_conflicts()
-    for c in values[:15]:
-        intervals = 48
+    for c in values[:maxcount]:
+        intervals = 60
         timeline = [0] * intervals
         for t in c.timestamps:
             idx = int((t - start_time) / total_time * intervals)
             timeline[idx] += 1
 
         print str(c)
-        print "time line:", "".join(['x' if i else '.' for i in timeline])
+        max_events = float(max(timeline))+0.1
+        print "time line:", "|"+"".join(['_xX'[int(i / max_events * 3)]
+                                     if i else ' ' for i in timeline])+"|"
         print
 
 
@@ -373,14 +375,23 @@ class StmLog(object):
             total += c.num_events
         return total
 
-    def dump(self):
-        dump_summary(self)
+    def dump(self, maxcount=15):
+        dump_summary(self, maxcount)
 
 
 def main(argv):
-    assert len(argv) == 1, "expected a filename argument"
-    StmLog(argv[0]).dump()
+    assert len(argv) >= 1, "expected a filename argument"
+    if len(argv) > 1:
+        maxcount = int(argv[1])
+    else:
+        maxcount = 5
+    StmLog(argv[0]).dump(maxcount)
     return 0
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+    if sys.stdout.isatty():
+        sys.stdout = os.popen("less --quit-if-one-screen --no-init", "w")
+    try:
+        sys.exit(main(sys.argv[1:]))
+    finally:
+        sys.stdout.close()

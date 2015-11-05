@@ -1,6 +1,9 @@
 # ____________________________________________________________
 
 import sys
+assert __version__ == "1.3.0", ("This test_c.py file is for testing a version"
+                                " of cffi that differs from the one that we"
+                                " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
     type_or_class = "type"
     mandatory_b_prefix = ''
@@ -1170,6 +1173,14 @@ def test_callback_exception():
     BShort = new_primitive_type("short")
     BFunc = new_function_type((BShort,), BShort, False)
     f = callback(BFunc, Zcb1, -42)
+    #
+    seen = []
+    oops_result = None
+    def oops(*args):
+        seen.append(args)
+        return oops_result
+    ff = callback(BFunc, Zcb1, -42, oops)
+    #
     orig_stderr = sys.stderr
     orig_getline = linecache.getline
     try:
@@ -1194,6 +1205,59 @@ ValueError: 42
 From cffi callback <function$Zcb1 at 0x$>:
 Trying to convert the result back to C:
 OverflowError: integer 60000 does not fit 'short'
+""")
+        sys.stderr = cStringIO.StringIO()
+        bigvalue = 20000
+        assert len(seen) == 0
+        assert ff(bigvalue) == -42
+        assert sys.stderr.getvalue() == ""
+        assert len(seen) == 1
+        exc, val, tb = seen[0]
+        assert exc is OverflowError
+        assert str(val) == "integer 60000 does not fit 'short'"
+        #
+        sys.stderr = cStringIO.StringIO()
+        bigvalue = 20000
+        del seen[:]
+        oops_result = 81
+        assert ff(bigvalue) == 81
+        oops_result = None
+        assert sys.stderr.getvalue() == ""
+        assert len(seen) == 1
+        exc, val, tb = seen[0]
+        assert exc is OverflowError
+        assert str(val) == "integer 60000 does not fit 'short'"
+        #
+        sys.stderr = cStringIO.StringIO()
+        bigvalue = 20000
+        del seen[:]
+        oops_result = "xy"     # not None and not an int!
+        assert ff(bigvalue) == -42
+        oops_result = None
+        assert matches(sys.stderr.getvalue(), """\
+From cffi callback <function$Zcb1 at 0x$>:
+Trying to convert the result back to C:
+OverflowError: integer 60000 does not fit 'short'
+
+During the call to 'onerror', another exception occurred:
+
+TypeError: $integer$
+""")
+        #
+        sys.stderr = cStringIO.StringIO()
+        seen = "not a list"    # this makes the oops() function crash
+        assert ff(bigvalue) == -42
+        assert matches(sys.stderr.getvalue(), """\
+From cffi callback <function$Zcb1 at 0x$>:
+Trying to convert the result back to C:
+OverflowError: integer 60000 does not fit 'short'
+
+During the call to 'onerror', another exception occurred:
+
+Traceback (most recent call last):
+  File "$", line $, in oops
+    $
+AttributeError: 'str' object has no attribute 'append'
 """)
     finally:
         sys.stderr = orig_stderr
@@ -2099,8 +2163,7 @@ def test_cannot_dereference_void():
     p = cast(BVoidP, 123456)
     py.test.raises(TypeError, "p[0]")
     p = cast(BVoidP, 0)
-    if 'PY_DOT_PY' in globals(): py.test.skip("NULL crashes early on py.py")
-    py.test.raises(TypeError, "p[0]")
+    py.test.raises((TypeError, RuntimeError), "p[0]")
 
 def test_iter():
     BInt = new_primitive_type("int")
@@ -3333,6 +3396,34 @@ def test_from_buffer_more_cases():
     check(4 | 8,  "CHB", "GTB")
     check(4 | 16, "CHB", "ROB")
 
-def test_version():
-    # this test is here mostly for PyPy
-    assert __version__ == "1.1.0"
+def test_dereference_null_ptr():
+    BInt = new_primitive_type("int")
+    BIntPtr = new_pointer_type(BInt)
+    p = cast(BIntPtr, 0)
+    py.test.raises(RuntimeError, "p[0]")
+    py.test.raises(RuntimeError, "p[0] = 42")
+    py.test.raises(RuntimeError, "p[42]")
+    py.test.raises(RuntimeError, "p[42] = -1")
+
+def test_mixup():
+    BStruct1 = new_struct_type("foo")
+    BStruct2 = new_struct_type("foo")   # <= same name as BStruct1
+    BStruct3 = new_struct_type("bar")
+    BStruct1Ptr = new_pointer_type(BStruct1)
+    BStruct2Ptr = new_pointer_type(BStruct2)
+    BStruct3Ptr = new_pointer_type(BStruct3)
+    BStruct1PtrPtr = new_pointer_type(BStruct1Ptr)
+    BStruct2PtrPtr = new_pointer_type(BStruct2Ptr)
+    BStruct3PtrPtr = new_pointer_type(BStruct3Ptr)
+    pp1 = newp(BStruct1PtrPtr)
+    pp2 = newp(BStruct2PtrPtr)
+    pp3 = newp(BStruct3PtrPtr)
+    pp1[0] = pp1[0]
+    e = py.test.raises(TypeError, "pp3[0] = pp1[0]")
+    assert str(e.value).startswith("initializer for ctype 'bar *' must be a ")
+    assert str(e.value).endswith(", not cdata 'foo *'")
+    e = py.test.raises(TypeError, "pp2[0] = pp1[0]")
+    assert str(e.value) == ("initializer for ctype 'foo *' appears indeed to "
+                            "be 'foo *', but the types are different (check "
+                            "that you are not e.g. mixing up different ffi "
+                            "instances)")

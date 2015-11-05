@@ -17,13 +17,53 @@ ARRAY = lltype.GcArray(llmemory.GCREF)
 PARRAY = lltype.Ptr(ARRAY)
 
 
-def find_equal_item(space, array, w_key):
+# XXX: should have identity-dict strategy
+def really_find_equal_item(space, h, w_key):
+    hkey = space.hash_w(w_key)
+    entry = h.lookup(hkey)
+    array = lltype.cast_opaque_ptr(PARRAY, entry.object)
+    if not array:
+        return (entry, array, -1)
+    if space.type(w_key).compares_by_identity():
+        # fastpath
+        return (entry, array, _find_equal_item(space, array, w_key))
+    # slowpath
+    return _really_find_equal_item_loop(space, h, w_key, entry, array, hkey)
+
+@jit.dont_look_inside
+def _really_find_equal_item_loop(space, h, w_key, entry, array, hkey):
+    assert not space.type(w_key).compares_by_identity() # assume it stays that way
+    while True:
+        assert array
+        i = _find_equal_item(space, array, w_key)
+        # custom __eq__ may have been called in _find_equal_item()
+        #
+        # Only if entry.object changed during the call to _find_equal_item()
+        # we have to re-lookup the entry. This is ok since entry.object=array!=NULL
+        # when we enter here and therefore, entry can only be thrown out of
+        # the hashtable if it gets NULLed somehow, thus, changing entry.object.
+        array2 = lltype.cast_opaque_ptr(PARRAY, entry.object)
+        if array != array2:
+            # re-get entry (and array)
+            entry = h.lookup(hkey)
+            array = lltype.cast_opaque_ptr(PARRAY, entry.object)
+            if not array:
+                return (entry, array, -1)
+            continue
+
+        return (entry, array, i)
+
+
+def _find_equal_item(space, array, w_key):
+    # result by this function is based on 'array'. If the entry
+    # changes, the result is stale.
     w_item = cast_gcref_to_instance(W_Root, array[0])
     if space.eq_w(w_key, w_item):
         return 0
     if len(array) > 1:
         return _run_next_iterations(space, array, w_key)
     return -1
+
 
 @jit.dont_look_inside
 def _run_next_iterations(space, array, w_key):
@@ -44,19 +84,15 @@ class W_STMSet(W_Root):
         self.h = rstm.create_hashtable()
 
     def contains_w(self, space, w_key):
-        hkey = space.hash_w(w_key)
-        gcref = self.h.get(hkey)
-        array = lltype.cast_opaque_ptr(PARRAY, gcref)
-        if array and find_equal_item(space, array, w_key) >= 0:
+        entry, array, i = really_find_equal_item(space, self.h, w_key)
+        if array and i >= 0:
             return space.w_True
         return space.w_False
 
     def add_w(self, space, w_key):
-        hkey = space.hash_w(w_key)
-        entry = self.h.lookup(hkey)
-        array = lltype.cast_opaque_ptr(PARRAY, entry.object)
+        entry, array, i = really_find_equal_item(space, self.h, w_key)
         if array:
-            if find_equal_item(space, array, w_key) >= 0:
+            if i >= 0:
                 return      # already there
             L = len(array)
             narray = lltype.malloc(ARRAY, L + 1)
@@ -64,17 +100,13 @@ class W_STMSet(W_Root):
         else:
             narray = lltype.malloc(ARRAY, 1)
             L = 0
+
         narray[L] = cast_instance_to_gcref(w_key)
         self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
 
     def try_remove(self, space, w_key):
-        hkey = space.hash_w(w_key)
-        entry = self.h.lookup(hkey)
-        array = lltype.cast_opaque_ptr(PARRAY, entry.object)
-        if not array:
-            return False
-        i = find_equal_item(space, array, w_key)
-        if i < 0:
+        entry, array, i = really_find_equal_item(space, self.h, w_key)
+        if not array or i < 0:
             return False
         # found
         L = len(array) - 1
@@ -96,28 +128,22 @@ class W_STMSet(W_Root):
 
     def get_length(self):
         array, count = self.h.list()
-        try:
-            total_length = 0
-            for i in range(count):
-                subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
-                assert subarray
-                total_length += len(subarray)
-        finally:
-            self.h.freelist(array)
+        total_length = 0
+        for i in range(count):
+            subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+            assert subarray
+            total_length += len(subarray)
         return total_length
 
     def get_items_w(self):
         array, count = self.h.list()
-        try:
-            result_list_w = []
-            for i in range(count):
-                subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
-                assert subarray
-                for j in range(len(subarray)):
-                    w_item = cast_gcref_to_instance(W_Root, subarray[j])
-                    result_list_w.append(w_item)
-        finally:
-            self.h.freelist(array)
+        result_list_w = []
+        for i in range(count):
+            subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+            assert subarray
+            for j in range(len(subarray)):
+                w_item = cast_gcref_to_instance(W_Root, subarray[j])
+                result_list_w.append(w_item)
         return result_list_w
 
     def len_w(self, space):

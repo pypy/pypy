@@ -150,8 +150,9 @@ static void _insert_clean(stm_hashtable_table_t *table,
 
 static void _stm_rehash_hashtable(stm_hashtable_t *hashtable,
                                   uintptr_t biggercount,
-                                  char *segment_base)
+                                  long segnum) /* segnum=-1 if no major GC */
 {
+    char *segment_base = segnum == -1 ? NULL : get_segment_base(segnum);
     dprintf(("rehash %p to size %ld, segment_base=%p\n",
              hashtable, biggercount, segment_base));
 
@@ -175,22 +176,28 @@ static void _stm_rehash_hashtable(stm_hashtable_t *hashtable,
         stm_hashtable_entry_t *entry = table->items[j];
         if (entry == NULL)
             continue;
-        if (segment_base != NULL) {
+
+        char *to_read_from = segment_base;
+        if (segnum != -1) {
             /* -> compaction during major GC */
+            /* it's possible that we just created this entry, and it wasn't
+               touched in this segment yet. Then seg0 is up-to-date.  */
+            to_read_from = get_page_status_in(segnum, (uintptr_t)entry / 4096UL) == PAGE_NO_ACCESS
+                ? stm_object_pages : to_read_from;
             if (((struct stm_hashtable_entry_s *)
-                       REAL_ADDRESS(segment_base, entry))->object == NULL &&
-                   !_stm_was_read_by_anybody((object_t *)entry)) {
-                dprintf(("  removing dead %p\n", entry));
+                 REAL_ADDRESS(to_read_from, entry))->object == NULL &&
+                !_stm_was_read_by_anybody((object_t *)entry)) {
+                dprintf(("  removing dead %p at %ld\n", entry, j));
                 continue;
             }
         }
 
         uintptr_t eindex;
-        if (segment_base == NULL)
+        if (segnum == -1)
             eindex = entry->index;   /* read from STM_SEGMENT */
         else
             eindex = ((struct stm_hashtable_entry_s *)
-                       REAL_ADDRESS(segment_base, entry))->index;
+                       REAL_ADDRESS(to_read_from, entry))->index;
 
         dprintf(("  insert_clean %p at index=%ld\n",
                  entry, eindex));
@@ -222,8 +229,10 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
     i = index & mask;
     entry = VOLATILE_TABLE(table)->items[i];
     if (entry != NULL) {
-        if (entry->index == index)
+        if (entry->index == index) {
+            stm_read((object_t*)entry);
             return entry;           /* found at the first try */
+        }
 
         uintptr_t perturb = index;
         while (1) {
@@ -231,8 +240,10 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
             i &= mask;
             entry = VOLATILE_TABLE(table)->items[i];
             if (entry != NULL) {
-                if (entry->index == index)
+                if (entry->index == index) {
+                    stm_read((object_t*)entry);
                     return entry;    /* found */
+                }
             }
             else
                 break;
@@ -285,7 +296,8 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
     if (rc > 6) {
         /* we can only enter here once!  If we allocate stuff, we may
            run the GC, and so 'hashtableobj' might move afterwards. */
-        if (_is_in_nursery(hashtableobj)) {
+        if (_is_in_nursery(hashtableobj)
+            && will_allocate_in_nursery(sizeof(stm_hashtable_entry_t))) {
             /* this also means that the hashtable is from this
                transaction and not visible to other segments yet, so
                the new entry can be nursery-allocated. */
@@ -329,6 +341,7 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
         table->items[i] = entry;
         write_fence();     /* make sure 'table->items' is written here */
         VOLATILE_TABLE(table)->resize_counter = rc - 6;    /* unlock */
+        stm_read((object_t*)entry);
         return entry;
     }
     else {
@@ -339,7 +352,7 @@ stm_hashtable_entry_t *stm_hashtable_lookup(object_t *hashtableobj,
             biggercount *= 4;
         else
             biggercount *= 2;
-        _stm_rehash_hashtable(hashtable, biggercount, /*segment_base=*/NULL);
+        _stm_rehash_hashtable(hashtable, biggercount, /*segnum=*/-1);
         goto restart;
     }
 }
@@ -348,7 +361,7 @@ object_t *stm_hashtable_read(object_t *hobj, stm_hashtable_t *hashtable,
                              uintptr_t key)
 {
     stm_hashtable_entry_t *e = stm_hashtable_lookup(hobj, hashtable, key);
-    stm_read((object_t *)e);
+    // stm_read((object_t *)e); - done in _lookup()
     return e->object;
 }
 
@@ -358,6 +371,9 @@ void stm_hashtable_write_entry(object_t *hobj, stm_hashtable_entry_t *entry,
     if (_STM_WRITE_CHECK_SLOWPATH((object_t *)entry)) {
 
         stm_write((object_t *)entry);
+
+        /* this restriction may be lifted, see test_new_entry_if_nursery_full: */
+        assert(IMPLY(_is_young((object_t *)entry), _is_young(hobj)));
 
         uintptr_t i = list_count(STM_PSEGMENT->modified_old_objects);
         if (i > 0 && list_item(STM_PSEGMENT->modified_old_objects, i - 3)
@@ -379,11 +395,13 @@ void stm_hashtable_write_entry(object_t *hobj, stm_hashtable_entry_t *entry,
                    will make the other transaction check that it didn't
                    do any stm_hashtable_list() on the complete hashtable.
             */
+            acquire_modification_lock_wr(STM_SEGMENT->segment_num);
             STM_PSEGMENT->modified_old_objects = list_append3(
                 STM_PSEGMENT->modified_old_objects,
                 TYPE_POSITION_MARKER,      /* type1 */
                 TYPE_MODIFIED_HASHTABLE,   /* type2 */
                 (uintptr_t)hobj);          /* modif_hashtable */
+            release_modification_lock_wr(STM_SEGMENT->segment_num);
         }
     }
     entry->object = nvalue;
@@ -420,7 +438,7 @@ long stm_hashtable_length_upper_bound(stm_hashtable_t *hashtable)
 }
 
 long stm_hashtable_list(object_t *hobj, stm_hashtable_t *hashtable,
-                        stm_hashtable_entry_t **results)
+                        stm_hashtable_entry_t * TLPREFIX *results)
 {
     /* Set the read marker.  It will be left as long as we're running
        the same transaction.
@@ -481,7 +499,7 @@ static void _stm_compact_hashtable(struct object_s *hobj,
            objects in the segment of the running transaction.  Otherwise,
            the base case is to read them all from segment zero.
         */
-        long segnum = get_num_segment_containing_address((char *)hobj);
+        long segnum = get_segment_of_linear_address((char *)hobj);
         if (!IS_OVERFLOW_OBJ(get_priv_segment(segnum), hobj))
             segnum = 0;
 
@@ -495,7 +513,7 @@ static void _stm_compact_hashtable(struct object_s *hobj,
         assert(count <= table->mask + 1);
 
         dprintf(("compact with %ld items:\n", num_entries_times_6 / 6));
-        _stm_rehash_hashtable(hashtable, count, get_segment_base(segnum));
+        _stm_rehash_hashtable(hashtable, count, segnum);
     }
 
     table = hashtable->table;

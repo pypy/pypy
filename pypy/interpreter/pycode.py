@@ -15,7 +15,7 @@ from pypy.interpreter.astcompiler.consts import (
     CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask, r_longlong
-from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.objectmodel import compute_hash, we_are_translated
 from rpython.rlib import jit
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 
@@ -57,7 +57,7 @@ class PyCode(eval.Code):
     _immutable_fields_ = ["co_consts_w[*]", "co_names_w[*]", "co_varnames[*]",
                           "co_freevars[*]", "co_cellvars[*]",
                           "_args_as_cellvars[*]"]
-    
+
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, firstlineno, lnotab, freevars, cellvars,
@@ -85,7 +85,7 @@ class PyCode(eval.Code):
         self.magic = magic
         self._signature = cpython_code_signature(self)
         self._initialize()
-        space.register_code_object(self)
+        self._init_ready()
 
     def _initialize(self):
         if self.co_cellvars:
@@ -123,19 +123,13 @@ class PyCode(eval.Code):
 
         self._compute_flatcall()
 
-        if (self.space.config.objspace.std.withmapdict and
-            not self.space.config.translation.stm):
+        if self.space.config.objspace.std.withmapdict:
             from pypy.objspace.std.mapdict import init_mapdict_cache
             init_mapdict_cache(self)
 
-        cui = self.space.code_unique_ids
-        self._unique_id = cui.code_unique_id
-        cui.code_unique_id += 4  # so we have two bits that we can mark stuff
-        # with
 
-    def _get_full_name(self):
-        return "py:%s:%d:%s" % (self.co_name, self.co_firstlineno,
-                                self.co_filename)
+    def _init_ready(self):
+        "This is a hook for the vmprof module, which overrides this method."
 
     def _cleanup_(self):
         if (self.magic == cpython_magic and
@@ -375,6 +369,7 @@ class PyCode(eval.Code):
         code = space.allocate_instance(PyCode, w_subtype)
         PyCode.__init__(code, space, argcount, nlocals, stacksize, flags, codestring, consts_w[:], names,
                       varnames, filename, name, firstlineno, lnotab, freevars, cellvars, magic=magic)
+
         return space.wrap(code)
 
     def descr__reduce__(self, space):

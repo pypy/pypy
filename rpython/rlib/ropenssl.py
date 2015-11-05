@@ -97,6 +97,7 @@ class CConfig:
     if HAVE_TLSv1_2:
         SSL_OP_NO_TLSv1_1 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1_1")
         SSL_OP_NO_TLSv1_2 = rffi_platform.ConstantInteger("SSL_OP_NO_TLSv1_2")
+    OPENSSL_NO_TLSEXT = rffi_platform.Defined("OPENSSL_NO_TLSEXT")
     SSL_OP_CIPHER_SERVER_PREFERENCE = rffi_platform.ConstantInteger(
         "SSL_OP_CIPHER_SERVER_PREFERENCE")
     SSL_OP_SINGLE_DH_USE = rffi_platform.ConstantInteger(
@@ -133,6 +134,7 @@ class CConfig:
     SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER = rffi_platform.ConstantInteger("SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER")
     SSL_TLSEXT_ERR_OK = rffi_platform.ConstantInteger("SSL_TLSEXT_ERR_OK")
     SSL_TLSEXT_ERR_ALERT_FATAL = rffi_platform.ConstantInteger("SSL_TLSEXT_ERR_ALERT_FATAL")
+    SSL_TLSEXT_ERR_NOACK = rffi_platform.ConstantInteger("SSL_TLSEXT_ERR_NOACK")
 
     SSL_AD_INTERNAL_ERROR = rffi_platform.ConstantInteger("SSL_AD_INTERNAL_ERROR")
     SSL_AD_HANDSHAKE_FAILURE = rffi_platform.ConstantInteger("SSL_AD_HANDSHAKE_FAILURE")
@@ -259,6 +261,7 @@ HAVE_SSL_CTX_CLEAR_OPTIONS = OPENSSL_VERSION_NUMBER >= 0x009080df and \
                              OPENSSL_VERSION_NUMBER != 0x00909000
 if OPENSSL_VERSION_NUMBER < 0x0090800f and not OPENSSL_NO_ECDH:
     OPENSSL_NO_ECDH = True
+HAS_ALPN = OPENSSL_VERSION_NUMBER >= 0x1000200fL and not OPENSSL_NO_TLSEXT
 
 
 def external(name, argtypes, restype, **kw):
@@ -510,6 +513,17 @@ if HAS_NPN:
                                   rffi.CCHARP, rffi.UINT], rffi.INT)
     ssl_external(
         'SSL_get0_next_proto_negotiated', [
+            SSL, rffi.CCHARPP, rffi.UINTP], lltype.Void)
+if HAS_ALPN:
+    ssl_external('SSL_CTX_set_alpn_protos',
+                 [SSL_CTX, rffi.UCHARP, rffi.UINT], rffi.INT)
+    SSL_ALPN_SEL_CB = lltype.Ptr(lltype.FuncType(
+        [SSL, rffi.CCHARPP, rffi.UCHARP, rffi.CCHARP, rffi.UINT, rffi.VOIDP],
+        rffi.INT))
+    ssl_external('SSL_CTX_set_alpn_select_cb',
+                 [SSL_CTX, SSL_ALPN_SEL_CB, rffi.VOIDP], lltype.Void)
+    ssl_external(
+        'SSL_get0_alpn_selected', [
             SSL, rffi.CCHARPP, rffi.UINTP], lltype.Void)
 
 EVP_MD_CTX = rffi.COpaquePtr('EVP_MD_CTX', compilation_info=eci)

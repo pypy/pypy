@@ -2,7 +2,9 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 
 class MultiArrayModule(MixedModule):
-    appleveldefs = {'arange': 'app_numpy.arange'}
+    appleveldefs = {
+        'arange': 'app_numpy.arange',
+        'add_docstring': 'app_numpy.add_docstring'}
     interpleveldefs = {
         'ndarray': 'ndarray.W_NDimArray',
         'dtype': 'descriptor.W_Dtype',
@@ -29,6 +31,8 @@ class MultiArrayModule(MixedModule):
         'set_string_function': 'appbridge.set_string_function',
         'typeinfo': 'descriptor.get_dtype_cache(space).w_typeinfo',
         'nditer': 'nditer.W_NDIter',
+
+        'set_docstring': 'support.descr_set_docstring',
     }
     for c in ['MAXDIMS', 'CLIP', 'WRAP', 'RAISE']:
         interpleveldefs[c] = 'space.wrap(constants.%s)' % c

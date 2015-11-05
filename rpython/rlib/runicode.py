@@ -1009,6 +1009,16 @@ def str_decode_ascii(s, size, errors, final=False,
             result.append(r)
     return result.build(), pos
 
+# An elidable version, for a subset of the cases
+@jit.elidable
+def fast_str_decode_ascii(s):
+    result = UnicodeBuilder(len(s))
+    for c in s:
+        if ord(c) >= 128:
+            raise ValueError
+        result.append(unichr(ord(c)))
+    return result.build()
+
 
 # Specialize on the errorhandler when it's a constant
 @specialize.arg_or_var(3)
@@ -1265,16 +1275,9 @@ def str_decode_unicode_escape(s, size, errors, final=False,
                             "unicodeescape", errorhandler, message, errors)
 
         # \N{name}
-        elif ch == 'N':
+        elif ch == 'N' and unicodedata_handler is not None:
             message = "malformed \\N character escape"
             look = pos
-            if unicodedata_handler is None:
-                message = ("\\N escapes not supported "
-                           "(can't load unicodedata module)")
-                res, pos = errorhandler(errors, "unicodeescape",
-                                        message, s, pos-1, size)
-                builder.append(res)
-                continue
 
             if look < size and s[look] == '{':
                 # look for the closing brace

@@ -15,9 +15,11 @@ try:
 except ImportError:
     lock = None
 
-_r_comment = re.compile(r"/\*.*?\*/|//.*?$", re.DOTALL | re.MULTILINE)
-_r_define  = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)\s+(.*?)$",
-                        re.MULTILINE)
+_r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
+                        re.DOTALL | re.MULTILINE)
+_r_define  = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)"
+                        r"\b((?:[^\n\\]|\\.)*?)$",
+                        re.DOTALL | re.MULTILINE)
 _r_partial_enum = re.compile(r"=\s*\.\.\.\s*[,}]|\.\.\.\s*\}")
 _r_enum_dotdotdot = re.compile(r"__dotdotdot\d+__$")
 _r_partial_array = re.compile(r"\[\s*\.\.\.\s*\]")
@@ -39,6 +41,7 @@ def _preprocess(csource):
     macros = {}
     for match in _r_define.finditer(csource):
         macroname, macrovalue = match.groups()
+        macrovalue = macrovalue.replace('\\\n', '').strip()
         macros[macroname] = macrovalue
     csource = _r_define.sub('', csource)
     # Replace "[...]" with "[__dotdotdotarray__]"
@@ -102,6 +105,7 @@ class Parser(object):
         self._packed = False
         self._int_constants = {}
         self._recomplete = []
+        self._uses_new_feature = None
 
     def _parse(self, csource):
         csource, macros = _preprocess(csource)
@@ -337,7 +341,7 @@ class Parser(object):
                 length = self._parse_constant(
                     typenode.dim, partial_length_ok=partial_length_ok)
             tp = self._get_type(typenode.type,
-                                partial_length_ok=(length == '...'))
+                                partial_length_ok=partial_length_ok)
             return model.ArrayType(tp, length)
         #
         if isinstance(typenode, pycparser.c_ast.PtrDecl):
@@ -422,13 +426,10 @@ class Parser(object):
                 raise api.CDefError(
                     "%s: a function with only '(...)' as argument"
                     " is not correct C" % (funcname or 'in expression'))
-        elif (len(params) == 1 and
-            isinstance(params[0].type, pycparser.c_ast.TypeDecl) and
-            isinstance(params[0].type.type, pycparser.c_ast.IdentifierType)
-                and list(params[0].type.type.names) == ['void']):
-            del params[0]
         args = [self._as_func_arg(self._get_type(argdeclnode.type))
                 for argdeclnode in params]
+        if not ellipsis and args == [model.void_type]:
+            args = []
         result = self._get_type(typenode.type)
         return model.RawFunctionType(tuple(args), result, ellipsis)
 
@@ -632,6 +633,8 @@ class Parser(object):
 
     def include(self, other):
         for name, tp in other._declarations.items():
+            if name.startswith('anonymous $enum_$'):
+                continue   # fix for test_anonymous_enum_include
             kind = name.split(' ', 1)[0]
             if kind in ('struct', 'union', 'enum', 'anonymous'):
                 self._declare(name, tp, included=True)
@@ -645,7 +648,21 @@ class Parser(object):
         assert typenames[-1] == '__dotdotdot__'
         if len(typenames) == 1:
             return model.unknown_type(decl.name)
-        for t in typenames[:-1]:
-            if t not in ['int', 'short', 'long', 'signed', 'unsigned', 'char']:
-                raise api.FFIError(':%d: bad usage of "..."' % decl.coord.line)
-        return model.UnknownIntegerType(decl.name)
+
+        if (typenames[:-1] == ['float'] or
+            typenames[:-1] == ['double']):
+            # not for 'long double' so far
+            result = model.UnknownFloatType(decl.name)
+        else:
+            for t in typenames[:-1]:
+                if t not in ['int', 'short', 'long', 'signed',
+                             'unsigned', 'char']:
+                    raise api.FFIError(':%d: bad usage of "..."' %
+                                       decl.coord.line)
+            result = model.UnknownIntegerType(decl.name)
+
+        if self._uses_new_feature is None:
+            self._uses_new_feature = "'typedef %s... %s'" % (
+                ' '.join(typenames[:-1]), decl.name)
+
+        return result

@@ -1,12 +1,12 @@
 # Edit these appropriately before running this script
 maj=2
 min=6
-rev=0
+rev=1
 # This script will download latest builds from the buildmaster, rename the top
 # level directory, and repackage ready to be uploaded to bitbucket. It will also
 # download source, assuming a tag for the release already exists, and repackage them.
 
-for plat in linux linux64 linux-armhf-raspbian linux-armhf-raring linux-armel osx64
+for plat in linux linux64 linux-armhf-raspbian linux-armhf-raring linux-armel osx64 freebsd64
   do
     wget http://buildbot.pypy.org/nightly/release-$maj.$min.x/pypy-c-jit-latest-$plat.tar.bz2
     tar -xf pypy-c-jit-latest-$plat.tar.bz2

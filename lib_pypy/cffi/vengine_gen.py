@@ -402,12 +402,16 @@ class VGenericEngine(object):
         else:
             assert tp is not None
             assert check_value is None
-            prnt(tp.get_c_name(' %s(void)' % funcname, name),)
-            prnt('{')
             if category == 'var':
                 ampersand = '&'
             else:
                 ampersand = ''
+            extra = ''
+            if category == 'const' and isinstance(tp, model.StructOrUnion):
+                extra = 'const *'
+                ampersand = '&'
+            prnt(tp.get_c_name(' %s%s(void)' % (extra, funcname), name))
+            prnt('{')
             prnt('  return (%s%s);' % (ampersand, name))
             prnt('}')
         prnt()
@@ -436,9 +440,14 @@ class VGenericEngine(object):
                 value += (1 << (8*self.ffi.sizeof(BLongLong)))
         else:
             assert check_value is None
-            BFunc = self.ffi._typeof_locked(tp.get_c_name('(*)(void)', name))[0]
+            fntypeextra = '(*)(void)'
+            if isinstance(tp, model.StructOrUnion):
+                fntypeextra = '*' + fntypeextra
+            BFunc = self.ffi._typeof_locked(tp.get_c_name(fntypeextra, name))[0]
             function = module.load_function(BFunc, funcname)
             value = function()
+            if isinstance(tp, model.StructOrUnion):
+                value = value[0]
         return value
 
     def _loaded_gen_constant(self, tp, name, module, library):

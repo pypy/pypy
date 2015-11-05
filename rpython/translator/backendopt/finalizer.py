@@ -47,6 +47,12 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
         ##     if not isinstance(TP, lltype.Ptr) or TP.TO._gckind == 'raw':
         ##         # primitive type
         ##         return self.bottom_result()
+        # XXX: for STM, even primitive type getfield requires stm_read()
+        #      and should therefore not be in light finalizers...
+        #      getfield from 'raw' is fine (otherwise there would be a
+        #      become_inevitable() op somewhere); also maybe getfield_gc
+        #      on dying obj is fine (otherwise light finalizers are pretty
+        #      useless).
         if op.opname == 'getfield':
             TP = op.result.concretetype
             if not isinstance(TP, lltype.Ptr) or TP.TO._gckind == 'raw':

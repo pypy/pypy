@@ -3,7 +3,7 @@
    of PyPy's #defines and #includes prepended. */
 
 __thread
-struct stm_thread_local_s stm_thread_local __attribute__((aligned(64)));
+struct stm_thread_local_s stm_thread_local __attribute__((aligned(64))) = {0};
 
 
 extern Signed pypy_stmcb_size_rounded_up(void*);

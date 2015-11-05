@@ -1458,6 +1458,66 @@ class BackendTests:
         import gc; gc.collect(); gc.collect(); gc.collect()
         assert seen == [1]
 
+    def test_gc_2(self):
+        ffi = FFI(backend=self.Backend())
+        p = ffi.new("int *", 123)
+        seen = []
+        q1 = ffi.gc(p, lambda p: seen.append(1))
+        q2 = ffi.gc(q1, lambda p: seen.append(2))
+        import gc; gc.collect()
+        assert seen == []
+        del q1, q2
+        import gc; gc.collect(); gc.collect(); gc.collect(); gc.collect()
+        assert seen == [2, 1]
+
+    def test_gc_3(self):
+        ffi = FFI(backend=self.Backend())
+        p = ffi.new("int *", 123)
+        r = ffi.new("int *", 123)
+        seen = []
+        seen_r = []
+        q1 = ffi.gc(p, lambda p: seen.append(1))
+        s1 = ffi.gc(r, lambda r: seen_r.append(4))
+        q2 = ffi.gc(q1, lambda p: seen.append(2))
+        s2 = ffi.gc(s1, lambda r: seen_r.append(5))
+        q3 = ffi.gc(q2, lambda p: seen.append(3))
+        import gc; gc.collect()
+        assert seen == []
+        assert seen_r == []
+        del q1, q2, q3, s2, s1
+        import gc; gc.collect(); gc.collect(); gc.collect(); gc.collect()
+        assert seen == [3, 2, 1]
+        assert seen_r == [5, 4]
+
+    def test_gc_4(self):
+        ffi = FFI(backend=self.Backend())
+        p = ffi.new("int *", 123)
+        seen = []
+        q1 = ffi.gc(p, lambda p: seen.append(1))
+        q2 = ffi.gc(q1, lambda p: seen.append(2))
+        q3 = ffi.gc(q2, lambda p: seen.append(3))
+        import gc; gc.collect()
+        assert seen == []
+        del q1, q3     # q2 remains, and has a hard ref to q1
+        import gc; gc.collect(); gc.collect(); gc.collect()
+        assert seen == [3]
+
+    def test_gc_finite_list(self):
+        ffi = FFI(backend=self.Backend())
+        public = not hasattr(ffi._backend, 'gcp')
+        p = ffi.new("int *", 123)
+        keepalive = []
+        for i in range(10):
+            keepalive.append(ffi.gc(p, lambda p: None))
+            if public:
+                assert len(ffi.gc_weakrefs.data) == i + 1
+        del keepalive[:]
+        import gc; gc.collect(); gc.collect()
+        for i in range(10):
+            keepalive.append(ffi.gc(p, lambda p: None))
+        if public:
+            assert len(ffi.gc_weakrefs.data) == 10
+
     def test_CData_CType(self):
         ffi = FFI(backend=self.Backend())
         assert isinstance(ffi.cast("int", 0), ffi.CData)
@@ -1714,3 +1774,18 @@ class BackendTests:
         py.test.raises(TypeError, ffi.new, "struct foo_s *")
         ffi.cdef("struct foo_s { int x; };")
         ffi.new("struct foo_s *")
+
+    def test_ffi_self_include(self):
+        ffi = FFI(backend=self.Backend())
+        py.test.raises(ValueError, ffi.include, ffi)
+
+    def test_anonymous_enum_include(self):
+        ffi1 = FFI()
+        ffi1.cdef("enum { EE1 };")
+        ffi = FFI()
+        ffi.include(ffi1)
+        ffi.cdef("enum { EE2, EE3 };")
+        lib = ffi.dlopen(None)
+        assert lib.EE1 == 0
+        assert lib.EE2 == 0
+        assert lib.EE3 == 1

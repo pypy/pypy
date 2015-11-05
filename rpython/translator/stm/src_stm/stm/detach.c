@@ -122,6 +122,9 @@ void _stm_reattach_transaction(intptr_t self)
         dprintf(("reattach_transaction: commit detached from seg %d\n",
                  remote_seg_num));
 
+        assert(tl != old_tl);
+
+        // XXX: not sure if the next line is a good idea
         tl->last_associated_segment_num = remote_seg_num;
         ensure_gs_register(remote_seg_num);
         commit_external_inevitable_transaction();
@@ -135,6 +138,7 @@ void stm_force_transaction_break(stm_thread_local_t *tl)
 {
     dprintf(("> stm_force_transaction_break()\n"));
     assert(STM_SEGMENT->running_thread == tl);
+    assert(!stm_is_atomic(tl));
     _stm_commit_transaction();
     _stm_start_transaction(tl);
 }
@@ -180,14 +184,9 @@ static void commit_fetched_detached_transaction(intptr_t old)
     dprintf(("commit_fetched_detached_transaction from seg %d\n", segnum));
     assert(segnum > 0);
 
-    if (segnum != mysegnum) {
-        set_gs_register(get_segment_base(segnum));
-    }
+    ensure_gs_register(segnum);
     commit_external_inevitable_transaction();
-
-    if (segnum != mysegnum) {
-        set_gs_register(get_segment_base(mysegnum));
-    }
+    ensure_gs_register(mysegnum);
 }
 
 static void commit_detached_transaction_if_from(stm_thread_local_t *tl)

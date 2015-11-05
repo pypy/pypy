@@ -480,7 +480,6 @@ _cast_to_Signed = {
     }
 _cast_from_Signed = {
     lltype.Signed:         None,
-    lltype.Bool:           'int_is_true',
     lltype.Char:           'cast_int_to_char',
     lltype.UniChar:        'cast_int_to_unichar',
     lltype.Float:          'cast_int_to_float',
@@ -502,6 +501,8 @@ def gen_cast(llops, TGT, v_value):
             if op:
                 v_value = llops.genop(op, [v_value], resulttype=TGT)
             return v_value
+        elif ORIG is lltype.Signed and TGT is lltype.Bool:
+            return llops.genop('int_is_true', [v_value], resulttype=lltype.Bool)
         else:
             # use the generic operation if there is no alternative
             return llops.genop('cast_primitive', [v_value], resulttype=TGT)

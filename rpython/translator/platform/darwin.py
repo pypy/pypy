@@ -2,11 +2,21 @@
 
 from rpython.translator.platform import posix
 
+#
+# Although Intel 32bit is supported since Apple Mac OS X 10.4, (and PPC since, ever)
+# the @rpath handling used in Darwin._args_for_shared is only availabe
+# since 10.5, so we use that as minimum requirement.
+#
+DARWIN_VERSION_MIN = '-mmacosx-version-min=10.5'
+
 class Darwin(posix.BasePosix):
     name = "darwin"
 
     standalone_only = ('-mdynamic-no-pic',)
     shared_only = ()
+
+    link_flags = (DARWIN_VERSION_MIN,)
+    cflags = ('-O3', '-fomit-frame-pointer', DARWIN_VERSION_MIN)
 
     so_ext = 'dylib'
     DEFAULT_CC = 'clang'
@@ -64,20 +74,13 @@ class Darwin(posix.BasePosix):
                                 icon=icon)
         return mk
 
+class Darwin_PowerPC(Darwin):#xxx fixme, mwp
+    name = "darwin_powerpc"
 
 class Darwin_i386(Darwin):
     name = "darwin_i386"
-    link_flags = ('-arch', 'i386', '-mmacosx-version-min=10.4')
-    cflags = ('-arch', 'i386', '-O3', '-fomit-frame-pointer',
-              '-mmacosx-version-min=10.4')
-
-class Darwin_PowerPC(Darwin):#xxx fixme, mwp
-    name = "darwin_powerpc"
-    link_flags = ()
-    cflags = ('-O3', '-fomit-frame-pointer')
+    DEFAULT_CC = 'clang -arch i386'
 
 class Darwin_x86_64(Darwin):
     name = "darwin_x86_64"
-    link_flags = ('-arch', 'x86_64', '-mmacosx-version-min=10.5')
-    cflags = ('-arch', 'x86_64', '-O3', '-fomit-frame-pointer',
-              '-mmacosx-version-min=10.5')
+    DEFAULT_CC = 'clang -arch x86_64'

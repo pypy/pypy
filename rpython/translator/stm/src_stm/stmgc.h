@@ -21,7 +21,15 @@
 #endif
 
 
-#define TLPREFIX __attribute__((address_space(256)))
+#ifdef __SEG_GS     /* on a custom patched gcc */
+#  define TLPREFIX __seg_gs
+#  define _STM_RM_SUFFIX  :8
+#elif defined(__clang__)   /* on a clang, hopefully made bug-free */
+#  define TLPREFIX __attribute__((address_space(256)))
+#  define _STM_RM_SUFFIX  /* nothing */
+#else
+#  error "needs either a GCC with __seg_gs support, or a bug-freed clang"
+#endif
 
 typedef TLPREFIX struct object_s object_t;
 typedef TLPREFIX struct stm_segment_info_s stm_segment_info_t;
@@ -35,18 +43,18 @@ struct stm_read_marker_s {
        'STM_SEGMENT->transaction_read_version' if and only if the
        object was read in the current transaction.  The nurseries
        also have corresponding read markers, but they are never used. */
-    uint8_t rm;
+    unsigned char rm _STM_RM_SUFFIX;
 };
 
 struct stm_segment_info_s {
-    uint8_t transaction_read_version;
-    uint8_t no_safe_point_here;    /* set from outside, triggers an assert */
+    unsigned int transaction_read_version;
     int segment_num;
     char *segment_base;
     stm_char *nursery_current;
     stm_char *nursery_mark;
     uintptr_t nursery_end;
     struct stm_thread_local_s *running_thread;
+    uint8_t no_safe_point_here;    /* set from outside, triggers an assert */
 };
 #define STM_SEGMENT           ((stm_segment_info_t *)4352)
 
@@ -154,6 +162,7 @@ uint64_t _stm_total_allocated(void);
 #endif
 
 #define _STM_GCFLAG_WRITE_BARRIER      0x01
+#define _STM_GCFLAG_NO_CONFLICT        0x40
 #define _STM_FAST_ALLOC           (66*1024)
 #define _STM_NSE_SIGNAL_ABORT             1
 #define _STM_NSE_SIGNAL_MAX               2
@@ -357,6 +366,7 @@ void stm_teardown(void);
 #define STM_PUSH_ROOT(tl, p)   ((tl).shadowstack++->ss = (object_t *)(p))
 #define STM_POP_ROOT(tl, p)    ((p) = (typeof(p))((--(tl).shadowstack)->ss))
 #define STM_POP_ROOT_RET(tl)   ((--(tl).shadowstack)->ss)
+#define STM_POP_ROOT_DROP(tl)  ((void)(--(tl).shadowstack))
 
 /* Every thread needs to have a corresponding stm_thread_local_t
    structure.  It may be a "__thread" global variable or something else.
@@ -370,7 +380,12 @@ void stm_unregister_thread_local(stm_thread_local_t *tl);
 
 /* At some key places, like the entry point of the thread and in the
    function with the interpreter's dispatch loop, you need to declare
-   a local variable of type 'rewind_jmp_buf' and call these macros. */
+   a local variable of type 'rewind_jmp_buf' and call these macros.
+   IMPORTANT: a function in which you call stm_rewind_jmp_enterframe()
+   must never change the value of its own arguments!  If they are
+   passed on the stack, gcc can change the value directly there, but
+   we're missing the logic to save/restore this part!
+*/
 #define stm_rewind_jmp_enterprepframe(tl, rjbuf)                        \
     rewind_jmp_enterprepframe(&(tl)->rjthread, rjbuf, (tl)->shadowstack)
 #define stm_rewind_jmp_enterframe(tl, rjbuf)       \
@@ -657,7 +672,7 @@ int stm_set_timing_log(const char *profiling_file_name, int fork_mode,
 
 #define STM_POP_MARKER(tl)   ({                 \
     object_t *_popped = STM_POP_ROOT_RET(tl);   \
-    STM_POP_ROOT_RET(tl);                       \
+    STM_POP_ROOT_DROP(tl);                      \
     _popped;                                    \
 })
 
@@ -711,6 +726,9 @@ typedef TLPREFIX struct stm_hashtable_entry_s stm_hashtable_entry_t;
 
 stm_hashtable_t *stm_hashtable_create(void);
 void stm_hashtable_free(stm_hashtable_t *);
+/* lookup returns a reference to an entry. This entry is only valid
+   in the current transaction and needs to be looked up again if there
+   may have been a break inbetween. */
 stm_hashtable_entry_t *stm_hashtable_lookup(object_t *, stm_hashtable_t *,
                                             uintptr_t key);
 object_t *stm_hashtable_read(object_t *, stm_hashtable_t *, uintptr_t key);
@@ -719,8 +737,13 @@ void stm_hashtable_write(object_t *, stm_hashtable_t *, uintptr_t key,
 void stm_hashtable_write_entry(object_t *hobj, stm_hashtable_entry_t *entry,
                                object_t *nvalue);
 long stm_hashtable_length_upper_bound(stm_hashtable_t *);
+
+/* WARNING: stm_hashtable_list does not do a stm_write() on the 'results'
+   argument. 'results' may point inside an object. So if 'results' may be
+   a part of an old obj (which may have survived a minor GC), then make
+   sure to call stm_write() on the obj before calling this function. */
 long stm_hashtable_list(object_t *, stm_hashtable_t *,
-                        stm_hashtable_entry_t **results);
+                        stm_hashtable_entry_t * TLPREFIX *results);
 extern uint32_t stm_hashtable_entry_userdata;
 void stm_hashtable_tracefn(struct object_s *, stm_hashtable_t *,
                            void (object_t **));
@@ -758,13 +781,31 @@ long stm_queue_join(object_t *qobj, stm_queue_t *queue, stm_thread_local_t *tl);
 void stm_queue_tracefn(stm_queue_t *queue, void trace(object_t **));
 
 
+
+/* stm_allocate_noconflict() allocates a special kind of object. Validation
+   will never detect conflicts on such an object. However, writes to it can
+   get lost. More precisely: every possible point for validation during a
+   transaction may import a committed version of such objs, thereby resetting
+   it or even contain not-yet-seen values from other (committed) transactions.
+   Hence, changes to such an obj that a transaction commits may or may not
+   propagate to other transactions. */
+__attribute__((always_inline))
+static inline object_t *stm_allocate_noconflict(ssize_t size_rounded_up)
+{
+    object_t *o = stm_allocate(size_rounded_up);
+    o->stm_flags |= _STM_GCFLAG_NO_CONFLICT;
+    return o;
+}
+
+
+
 /* ==================== END ==================== */
 
-static void (*stmcb_expand_marker)(char *segment_base, uintptr_t odd_number,
+extern void (*stmcb_expand_marker)(char *segment_base, uintptr_t odd_number,
                             object_t *following_object,
                             char *outputbuf, size_t outputbufsize);
 
-static void (*stmcb_debug_print)(const char *cause, double time,
+extern void (*stmcb_debug_print)(const char *cause, double time,
                           const char *marker);
 
 #endif

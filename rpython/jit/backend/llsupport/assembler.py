@@ -12,7 +12,7 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import specialize, compute_unique_id
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref, llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype
-
+from rpython.jit.backend.x86 import perf_map
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     # 'b'ridge, 'l'abel or # 'e'ntry point
@@ -118,10 +118,13 @@ class BaseAssembler(object):
                 kind='unicode')
         else:
             self.malloc_slowpath_unicode = None
-        self.cond_call_slowpath = [self._build_cond_call_slowpath(False, False),
-                                   self._build_cond_call_slowpath(False, True),
-                                   self._build_cond_call_slowpath(True, False),
-                                   self._build_cond_call_slowpath(True, True)]
+        lst = [0, 0, 0, 0]
+        lst[0] = self._build_cond_call_slowpath(False, False)
+        lst[1] = self._build_cond_call_slowpath(False, True)
+        if self.cpu.supports_floats:
+            lst[2] = self._build_cond_call_slowpath(True, False)
+            lst[3] = self._build_cond_call_slowpath(True, True)
+        self.cond_call_slowpath = lst
 
         self._build_stack_check_slowpath()
         if not gc_ll_descr.stm:
@@ -407,8 +410,11 @@ class BaseAssembler(object):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         return bool(gcrootmap) and not gcrootmap.is_shadow_stack
 
-
 def debug_bridge(descr_number, rawstart, codeendpos):
+    perf_map.write_perf_map_entry(
+        "bridge out of Guard 0x%x" % r_uint(descr_number),
+        r_uint(rawstart), r_uint(rawstart + codeendpos))
+
     debug_start("jit-backend-addr")
     debug_print("bridge out of Guard 0x%x has address 0x%x to 0x%x" %
                 (r_uint(descr_number), r_uint(rawstart),
