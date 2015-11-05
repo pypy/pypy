@@ -12,26 +12,33 @@ import print_stm_log as psl
 ########## DRAWING STUFF ##########
 
 BOX_HEIGHT = 0.8
-HALF_HEIGHT = 0.1 + BOX_HEIGHT / 2
-QUARTER_HEIGHT = 0.1 + BOX_HEIGHT / 4
+PADDING = 0.1
+HALF_HEIGHT = BOX_HEIGHT / 2
+QUARTER_HEIGHT = HALF_HEIGHT / 2
 
 
 def plot_boxes(boxes, y, ax):
     coords = [(x, w) for x, w, c, i in boxes]
     colors = [c for x, w, c, i in boxes]
-    bars = ax.broken_barh(coords, (y+0.1, BOX_HEIGHT),
+    bars = ax.broken_barh(coords, (y + PADDING, BOX_HEIGHT),
                           facecolors=colors, lw=1, edgecolor=(0, 0, 0),
                           picker=True, antialiased=False, rasterized=True)
 
     bars.boxes = boxes
 
 
+__offset = 0
 def plot_hlines(hlines, y, ax):
-    args = [[[x1, x2], [y+HALF_HEIGHT, y+HALF_HEIGHT], color] for
-            x1, x2, color in hlines]
-    # flatten:
-    args = [item for sublist in args for item in sublist]
-    ax.plot(*args, linewidth=5, antialiased=False, rasterized=True)
+    global __offset
+    args = []
+    for x1, x2, color in hlines:
+        arg = [[x1, x2],
+               2*[y + 2*PADDING + __offset * QUARTER_HEIGHT],
+               color]
+        args.extend(arg)
+        __offset = (__offset + 1) % 4
+
+    ax.plot(*args, linewidth=10, antialiased=False, rasterized=True)
 
 
 ####################################
@@ -45,8 +52,13 @@ def add_hline(hlines, x1, x2, color):
     hlines.append((x1, x2, color))
 
 
-def add_transaction(boxes, hlines, inited, inevitabled,
-                    ended, aborted, pauses, info=""):
+def add_transaction(boxes, hlines, tr):
+    # get the values:
+    inited, inevitabled, ended, aborted, pauses, gcs, info = (
+        tr.start_time, tr.inevitabled,
+        tr.stop_time,
+        tr.aborted, tr.pauses, tr.gcs,
+        "\n".join(tr.info))
     assert inited is not None
 
     if inevitabled is not None:
@@ -58,7 +70,14 @@ def add_transaction(boxes, hlines, inited, inevitabled,
         add_box(boxes, inited, ended, 'r', info)
 
     for start, end in pauses:
-        add_hline(hlines, start, end, 'magenta')
+        if start == end:
+            print "Warning, start and end of pause match"
+        add_hline(hlines, start, end, 'darkred')
+
+    for start, end in gcs:
+        if start == end:
+            print "Warning, start and end of GC match"
+        add_hline(hlines, start, end, 'b-.')
 
 
 class Transaction(object):
@@ -68,7 +87,29 @@ class Transaction(object):
         self.stop_time = 0
         self.aborted = False
         self.pauses = []
+        self.gcs = []
         self.info = []
+        self.inevitabled = None
+
+
+def transaction_start(curr_trs, entry):
+    if entry.threadnum in curr_trs:
+        print "WARNING: Start of transaction while there is one already running"
+    curr_trs[entry.threadnum] = Transaction(entry.threadnum, entry.timestamp)
+
+def transaction_become_inevitable(curr_trs, entry):
+    tr = curr_trs.get(entry.threadnum)
+    if tr is not None:
+        tr.inevitabled = entry.timestamp
+
+def transaction_commit(curr_trs, finished_trs, entry):
+    th_num = entry.threadnum
+    tr = curr_trs.get(th_num)
+    if tr is not None:
+        tr.stop_time = entry.timestamp
+        xs = finished_trs.setdefault(th_num, [])
+        xs.append(curr_trs[th_num])
+        del curr_trs[th_num]
 
 
 def plot_log(logentries, ax):
@@ -78,16 +119,16 @@ def plot_log(logentries, ax):
         th_num = entry.threadnum
 
         if entry.event == psl.STM_TRANSACTION_START:
-            if th_num in curr_trs:
-                print "WARNING: Start of transaction while there is one already running"
-            curr_trs[th_num] = Transaction(th_num, entry.timestamp)
+            transaction_start(curr_trs, entry)
+        elif entry.event == psl.STM_TRANSACTION_REATTACH:
+            transaction_start(curr_trs, entry) # for now
+            transaction_become_inevitable(curr_trs, entry)
+        elif entry.event == psl.STM_TRANSACTION_DETACH:
+            transaction_commit(curr_trs, finished_trs, entry) # for now
         elif entry.event == psl.STM_TRANSACTION_COMMIT:
-            tr = curr_trs.get(th_num)
-            if tr is not None:
-                tr.stop_time = entry.timestamp
-                xs = finished_trs.setdefault(th_num, [])
-                xs.append(curr_trs[th_num])
-                del curr_trs[th_num]
+            transaction_commit(curr_trs, finished_trs, entry)
+        elif entry.event == psl.STM_BECOME_INEVITABLE:
+            transaction_become_inevitable(curr_trs, entry)
         elif entry.event == psl.STM_TRANSACTION_ABORT:
             tr = curr_trs.get(th_num)
             if tr is not None:
@@ -96,8 +137,10 @@ def plot_log(logentries, ax):
                 xs = finished_trs.setdefault(th_num, [])
                 xs.append(curr_trs[th_num])
                 del curr_trs[th_num]
-        elif entry.event in (psl.STM_WAIT_SYNC_PAUSE, psl.STM_WAIT_CONTENTION,
-                             psl.STM_WAIT_FREE_SEGMENT):
+        elif entry.event in (psl.STM_WAIT_FREE_SEGMENT,
+                             psl.STM_WAIT_SYNCING,
+                             psl.STM_WAIT_SYNC_PAUSE,
+                             psl.STM_WAIT_OTHER_INEVITABLE):
             tr = curr_trs.get(th_num)
             if tr is not None:
                 tr.pauses.append((entry.timestamp, entry.timestamp))
@@ -105,7 +148,14 @@ def plot_log(logentries, ax):
             tr = curr_trs.get(th_num)
             if tr is not None:
                 tr.pauses[-1] = (tr.pauses[-1][0], entry.timestamp)
-
+        elif entry.event in (psl.STM_GC_MAJOR_START,): # no minor
+            tr = curr_trs.get(th_num)
+            if tr is not None:
+                tr.gcs.append((entry.timestamp, entry.timestamp))
+        elif entry.event in (psl.STM_GC_MAJOR_DONE,):
+            tr = curr_trs.get(th_num)
+            if tr is not None:
+                tr.gcs[-1] = (tr.gcs[-1][0], entry.timestamp)
 
         # attach logentry as clickable transaction info
         tr = curr_trs.get(th_num)
@@ -115,13 +165,13 @@ def plot_log(logentries, ax):
             tr = finished_trs.get(th_num, [None])[-1]
         if tr is not None:
             tr.info.append(str(entry))
-        # also affects other transaction:
-        if entry.marker2:
-            tr2 = curr_trs.get(entry.otherthreadnum)
-            if tr2 is None:
-                tr2 = finished_trs.get(entry.otherthreadnum, [None])[-1]
-            if tr2 is not None:
-                tr2.info.append(str(entry))
+        # # also affects other transaction:
+        # if entry.marker2:
+        #     tr2 = curr_trs.get(entry.otherthreadnum)
+        #     if tr2 is None:
+        #         tr2 = finished_trs.get(entry.otherthreadnum, [None])[-1]
+        #     if tr2 is not None:
+        #         tr2.info.append(str(entry))
 
 
 
@@ -136,10 +186,8 @@ def plot_log(logentries, ax):
         boxes = []
         hlines = []
         for tr in trs:
-            add_transaction(boxes, hlines,
-                            tr.start_time, None, tr.stop_time,
-                            tr.aborted, tr.pauses,
-                            "\n".join(tr.info))
+            add_transaction(boxes, hlines, tr)
+
         plot_boxes(boxes, th_num, ax)
         plot_hlines(hlines, th_num, ax)
         print "> Pauses:", len(hlines)
@@ -166,7 +214,6 @@ def onpick(event):
 
 def plot(logentries):
     global fig
-
 
     print "Draw..."
     fig = plt.figure()

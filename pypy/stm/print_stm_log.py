@@ -8,32 +8,35 @@ STM_TRANSACTION_START   = 0
 STM_TRANSACTION_COMMIT  = 1
 STM_TRANSACTION_ABORT   = 2
 
+STM_TRANSACTION_DETACH = 3
+STM_TRANSACTION_REATTACH = 4
+
 # inevitable contention: all threads that try to become inevitable
 # have a STM_BECOME_INEVITABLE event with a position marker.  Then,
 # if it waits it gets a STM_WAIT_OTHER_INEVITABLE.  It is possible
 # that a thread gets STM_BECOME_INEVITABLE followed by
 # STM_TRANSACTION_ABORT if it fails to become inevitable.
-STM_BECOME_INEVITABLE      = 3
+STM_BECOME_INEVITABLE      = 5
 
 # write-read contention: a "marker" is included in the PYPYSTM file
 # saying where the write was done.  Followed by STM_TRANSACTION_ABORT.
-STM_CONTENTION_WRITE_READ  = 4
+STM_CONTENTION_WRITE_READ  = 6
 
 # always one STM_WAIT_xxx followed later by STM_WAIT_DONE or
 # possibly STM_TRANSACTION_ABORT
-STM_WAIT_FREE_SEGMENT      = 5
-STM_WAIT_SYNCING           = 6
-STM_WAIT_SYNC_PAUSE        = 7
-STM_WAIT_OTHER_INEVITABLE  = 8
-STM_WAIT_DONE              = 9
+STM_WAIT_FREE_SEGMENT      = 7
+STM_WAIT_SYNCING           = 8
+STM_WAIT_SYNC_PAUSE        = 9
+STM_WAIT_OTHER_INEVITABLE  = 10
+STM_WAIT_DONE              = 11
 
 # start and end of GC cycles
-STM_GC_MINOR_START  = 10
-STM_GC_MINOR_DONE   = 11
-STM_GC_MAJOR_START  = 12
-STM_GC_MAJOR_DONE   = 13
+STM_GC_MINOR_START  = 12
+STM_GC_MINOR_DONE   = 13
+STM_GC_MAJOR_START  = 14
+STM_GC_MAJOR_DONE   = 15
 
-_STM_EVENT_N  = 14
+_STM_EVENT_N  = 16
 
 PAUSE_AFTER_ABORT   = 0.000001      # usleep(1) after every abort
 
@@ -268,6 +271,11 @@ def summarize_log_entries(logentries, stmlog):
         #
         if entry.event == STM_TRANSACTION_START:
             t.transaction_start(entry)
+        elif entry.event == STM_TRANSACTION_DETACH:
+            t.transaction_commit(entry) # for now
+        elif entry.event == STM_TRANSACTION_REATTACH:
+            t.transaction_start(entry) # for now
+            t.become_inevitable(entry)
         elif entry.event == STM_TRANSACTION_COMMIT:
             t.transaction_commit(entry)
         elif entry.event == STM_TRANSACTION_ABORT:
