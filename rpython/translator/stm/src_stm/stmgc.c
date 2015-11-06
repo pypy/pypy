@@ -20,6 +20,7 @@
 #include "stm/finalizer.h"
 #include "stm/locks.h"
 #include "stm/detach.h"
+#include "stm/hashtable.h"
 #include "stm/queue.h"
 #include "stm/misc.c"
 #include "stm/list.c"

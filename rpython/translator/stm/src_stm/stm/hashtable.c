@@ -49,8 +49,12 @@ uint32_t stm_hashtable_entry_userdata;
 #define PERTURB_SHIFT            5
 #define RESIZING_LOCK            0
 
-typedef struct {
-    uintptr_t mask;
+#define TRACE_FLAG_OFF              0
+#define TRACE_FLAG_ONCE             1
+#define TRACE_FLAG_KEEPALIVE        2
+
+struct stm_hashtable_table_s {
+    uintptr_t mask;      /* 'mask' is always immutable. */
 
     /* 'resize_counter' start at an odd value, and is decremented (by
        6) for every new item put in 'items'.  When it crosses 0, we
@@ -63,8 +67,10 @@ typedef struct {
     */
     uintptr_t resize_counter;
 
+    uint8_t trace_flag;
+
     stm_hashtable_entry_t *items[INITIAL_HASHTABLE_SIZE];
-} stm_hashtable_table_t;
+};
 
 #define IS_EVEN(p) (((p) & 1) == 0)
 
@@ -79,6 +85,7 @@ static inline void init_table(stm_hashtable_table_t *table, uintptr_t itemcount)
 {
     table->mask = itemcount - 1;
     table->resize_counter = itemcount * 4 + 1;
+    table->trace_flag = TRACE_FLAG_OFF;
     memset(table->items, 0, itemcount * sizeof(stm_hashtable_entry_t *));
 }
 
@@ -162,6 +169,7 @@ static void _stm_rehash_hashtable(stm_hashtable_t *hashtable,
     assert(biggertable);   // XXX
 
     stm_hashtable_table_t *table = hashtable->table;
+    table->trace_flag = TRACE_FLAG_ONCE;
     table->resize_counter = (uintptr_t)biggertable;
     /* ^^^ this unlocks the table by writing a non-zero value to
        table->resize_counter, but the new value is a pointer to the
@@ -485,6 +493,41 @@ long stm_hashtable_list(object_t *hobj, stm_hashtable_t *hashtable,
 static void _stm_compact_hashtable(struct object_s *hobj,
                                    stm_hashtable_t *hashtable)
 {
+    /* Walk the chained list that starts at 'hashtable->initial_table'
+       and follows the 'resize_counter' fields.  Remove all tables
+       except (1) the initial one, (2) the most recent one, and (3)
+       the ones on which stm_hashtable_iter_tracefn() was called.
+    */
+    stm_hashtable_table_t *most_recent_table = hashtable->table;
+    assert(!IS_EVEN(most_recent_table->resize_counter));
+    /* set the "don't free me" flag on the most recent table */
+    most_recent_table->trace_flag = TRACE_FLAG_KEEPALIVE;
+
+    stm_hashtable_table_t *known_alive = &hashtable->initial_table;
+    known_alive->trace_flag = TRACE_FLAG_OFF;
+    /* a KEEPALIVE flag is ignored on the initial table: it is never
+       individually freed anyway */
+
+    while (known_alive != most_recent_table) {
+        uintptr_t rc = known_alive->resize_counter;
+        assert(IS_EVEN(rc));
+        assert(rc != RESIZING_LOCK);
+
+        stm_hashtable_table_t *next_table = (stm_hashtable_table_t *)rc;
+        if (next_table->trace_flag != TRACE_FLAG_KEEPALIVE) {
+            /* free this next table and relink the chained list to skip it */
+            assert(IS_EVEN(next_table->resize_counter));
+            known_alive->resize_counter = next_table->resize_counter;
+            free(next_table);
+        }
+        else {
+            /* this next table is kept alive */
+            known_alive = next_table;
+            known_alive->trace_flag = TRACE_FLAG_OFF;
+        }
+    }
+    /* done the first part */
+
     stm_hashtable_table_t *table = hashtable->table;
     uintptr_t rc = table->resize_counter;
     assert(!IS_EVEN(rc));
@@ -515,35 +558,24 @@ static void _stm_compact_hashtable(struct object_s *hobj,
         dprintf(("compact with %ld items:\n", num_entries_times_6 / 6));
         _stm_rehash_hashtable(hashtable, count, segnum);
     }
+}
 
-    table = hashtable->table;
-    assert(!IS_EVEN(table->resize_counter));
-
-    if (table != &hashtable->initial_table) {
-        uintptr_t rc = hashtable->initial_table.resize_counter;
-        while (1) {
-            assert(IS_EVEN(rc));
-            assert(rc != RESIZING_LOCK);
-
-            stm_hashtable_table_t *old_table = (stm_hashtable_table_t *)rc;
-            if (old_table == table)
-                break;
-            rc = old_table->resize_counter;
-            free(old_table);
-        }
-        hashtable->initial_table.resize_counter = (uintptr_t)table;
-        assert(IS_EVEN(hashtable->initial_table.resize_counter));
+static void stm_compact_hashtables(void)
+{
+    uintptr_t i = all_hashtables_seen->count;
+    while (i > 0) {
+        i -= 2;
+        _stm_compact_hashtable(
+            (struct object_s *)all_hashtables_seen->items[i],
+            (stm_hashtable_t *)all_hashtables_seen->items[i + 1]);
     }
 }
 
-void stm_hashtable_tracefn(struct object_s *hobj, stm_hashtable_t *hashtable,
-                           void trace(object_t **))
+static void _hashtable_tracefn(stm_hashtable_table_t *table,
+                               void trace(object_t **))
 {
-    if (trace == TRACE_FOR_MAJOR_COLLECTION)
-        _stm_compact_hashtable(hobj, hashtable);
-
-    stm_hashtable_table_t *table;
-    table = VOLATILE_HASHTABLE(hashtable)->table;
+    if (table->trace_flag == TRACE_FLAG_ONCE)
+        table->trace_flag = TRACE_FLAG_OFF;
 
     uintptr_t j, mask = table->mask;
     for (j = 0; j <= mask; j++) {
@@ -552,5 +584,107 @@ void stm_hashtable_tracefn(struct object_s *hobj, stm_hashtable_t *hashtable,
         if (*pentry != NULL) {
             trace((object_t **)pentry);
         }
+    }
+}
+
+void stm_hashtable_tracefn(struct object_s *hobj, stm_hashtable_t *hashtable,
+                           void trace(object_t **))
+{
+    if (all_hashtables_seen != NULL)
+        all_hashtables_seen = list_append2(all_hashtables_seen,
+                                           (uintptr_t)hobj,
+                                           (uintptr_t)hashtable);
+
+    _hashtable_tracefn(VOLATILE_HASHTABLE(hashtable)->table, trace);
+}
+
+
+/* Hashtable iterators */
+
+/* TRACE_FLAG_ONCE: the table must be traced once if it supports an iterator
+   TRACE_FLAG_OFF: the table is the most recent table, or has already been
+       traced once
+   TRACE_FLAG_KEEPALIVE: during major collection only: mark tables that
+       must be kept alive because there are iterators
+*/
+
+struct stm_hashtable_table_s *stm_hashtable_iter(stm_hashtable_t *hashtable)
+{
+    /* Get the table.  No synchronization is needed: we may miss some
+       entries that are being added, but they would contain NULL in
+       this segment anyway. */
+    return VOLATILE_HASHTABLE(hashtable)->table;
+}
+
+stm_hashtable_entry_t **
+stm_hashtable_iter_next(object_t *hobj, stm_hashtable_table_t *table,
+                        stm_hashtable_entry_t **previous)
+{
+    /* Set the read marker on hobj for every item, in case we have
+       transaction breaks in-between.
+    */
+    stm_read(hobj);
+
+    /* Get the bounds of the part of the 'stm_hashtable_entry_t *' array
+       that we have to check */
+    stm_hashtable_entry_t **pp, **last;
+    if (previous == NULL)
+        pp = table->items;
+    else
+        pp = previous + 1;
+    last = table->items + table->mask;
+
+    /* Find the first non-null entry */
+    stm_hashtable_entry_t *entry;
+
+    while (pp <= last) {
+        entry = *(stm_hashtable_entry_t *volatile *)pp;
+        if (entry != NULL) {
+            stm_read((object_t *)entry);
+            if (entry->object != NULL) {
+                //fprintf(stderr, "stm_hashtable_iter_next(%p, %p, %p) = %p\n",
+                //        hobj, table, previous, pp);
+                return pp;
+            }
+        }
+        ++pp;
+    }
+    //fprintf(stderr, "stm_hashtable_iter_next(%p, %p, %p) = %p\n",
+    //        hobj, table, previous, NULL);
+    return NULL;
+}
+
+void stm_hashtable_iter_tracefn(stm_hashtable_table_t *table,
+                                void trace(object_t **))
+{
+    if (all_hashtables_seen == NULL) {   /* for minor collections */
+
+        /* During minor collection, tracing the table is only required
+           the first time: if it contains young objects, they must be
+           kept alive and have their address updated.  We use
+           TRACE_FLAG_ONCE to know that.  We don't need to do it if
+           our 'table' is the latest version, because in that case it
+           will be done by stm_hashtable_tracefn().  That's why
+           TRACE_FLAG_ONCE is only set when a more recent table is
+           attached.
+
+           It is only needed once: non-latest-version tables are
+           immutable.  We mark once all the entries as old, and
+           then these now-old objects stay alive until the next
+           major collection.
+
+           Checking the flag can be done without synchronization: it
+           never wrong to call _hashtable_tracefn() too much, and the
+           only case where it *has to* be called occurs if the
+           hashtable object is still young (and not seen by other
+           threads).
+        */
+        if (table->trace_flag == TRACE_FLAG_ONCE)
+            _hashtable_tracefn(table, trace);
+    }
+    else {       /* for major collections */
+
+        /* Set this flag for _stm_compact_hashtable() */
+        table->trace_flag = TRACE_FLAG_KEEPALIVE;
     }
 }

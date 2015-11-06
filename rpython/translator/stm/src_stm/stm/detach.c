@@ -127,6 +127,7 @@ void _stm_reattach_transaction(intptr_t self)
         // XXX: not sure if the next line is a good idea
         tl->last_associated_segment_num = remote_seg_num;
         ensure_gs_register(remote_seg_num);
+        timing_event(STM_SEGMENT->running_thread, STM_TRANSACTION_REATTACH);
         commit_external_inevitable_transaction();
     }
     dprintf(("reattach_transaction: start a new transaction\n"));
@@ -185,6 +186,7 @@ static void commit_fetched_detached_transaction(intptr_t old)
     assert(segnum > 0);
 
     ensure_gs_register(segnum);
+    timing_event(STM_SEGMENT->running_thread, STM_TRANSACTION_REATTACH);
     commit_external_inevitable_transaction();
     ensure_gs_register(mysegnum);
 }

@@ -501,7 +501,17 @@ static void _invoke_general_finalizers(stm_thread_local_t *tl)
     /* XXX: become inevitable, bc. otherwise, we would need to keep
        around the original g_finalizers.run_finalizers to restore it
        in case of an abort. */
-    _stm_become_inevitable("finalizer-Tx");
+    _stm_become_inevitable(MSG_INEV_DONT_SLEEP);
+    /* did it work? */
+    if (STM_PSEGMENT->transaction_state != TS_INEVITABLE) {   /* no */
+        /* avoid blocking here, waiting for another INEV transaction.
+           If we did that, application code could not proceed (start the
+           next transaction) and it will not be obvious from the profile
+           why we were WAITing. */
+        _stm_commit_transaction();
+        stm_rewind_jmp_leaveframe(tl, &rjbuf);
+        return;
+    }
 
     while (__sync_lock_test_and_set(&g_finalizers.lock, 1) != 0) {
         /* somebody is adding more finalizers (_commit_finalizer()) */

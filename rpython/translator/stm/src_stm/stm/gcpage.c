@@ -224,6 +224,9 @@ static void major_collection_if_requested(void)
    version and thus don't need tracing. */
 static struct list_s *marked_objects_to_trace;
 
+/* a list of hobj/hashtable pairs for all hashtables seen */
+static struct list_s *all_hashtables_seen = NULL;
+
 /* we use the sharing seg0's pages for the GCFLAG_VISITED flag */
 
 static inline struct object_s *mark_loc(object_t *obj)
@@ -300,8 +303,6 @@ static inline void mark_record_trace(object_t **pobj)
     LIST_APPEND(marked_objects_to_trace, obj);
 }
 
-
-#define TRACE_FOR_MAJOR_COLLECTION  (&mark_record_trace)
 
 static void mark_and_trace(
     object_t *obj,
@@ -791,6 +792,7 @@ static void major_collection_now_at_safe_point(void)
 
     /* marking */
     LIST_CREATE(marked_objects_to_trace);
+    LIST_CREATE(all_hashtables_seen);
     mark_visit_from_modified_objects();
     mark_visit_from_markers();
     mark_visit_from_roots();
@@ -814,6 +816,10 @@ static void major_collection_now_at_safe_point(void)
     /* sweeping */
     sweep_large_objects();
     sweep_small_objects();
+
+    /* hashtables */
+    stm_compact_hashtables();
+    LIST_FREE(all_hashtables_seen);
 
     dprintf((" | used after collection:  %ld\n",
              (long)pages_ctl.total_allocated));
