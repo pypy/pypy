@@ -56,6 +56,7 @@ eci = ExternalCompilationInfo(
         # So we replace an attribute access with a macro call.
         '#define pypy_GENERAL_NAME_dirn(name) (name->d.dirn)',
         '#define pypy_GENERAL_NAME_uri(name) (name->d.uniformResourceIdentifier)',
+        '#define pypy_GENERAL_NAME_pop_free(names) (sk_GENERAL_NAME_pop_free(names, GENERAL_NAME_free))',
         '#define pypy_X509_OBJECT_data_x509(obj) (obj->data.x509)',
         '#define pypy_DIST_POINT_fullname(obj) (obj->distpoint->name.fullname)',
     ],
@@ -438,6 +439,8 @@ ssl_external('ASN1_ITEM_ptr', [ASN1_ITEM_EXP], ASN1_ITEM, macro=True)
 ssl_external('sk_GENERAL_NAME_num', [GENERAL_NAMES], rffi.INT,
              macro=True)
 ssl_external('sk_GENERAL_NAME_value', [GENERAL_NAMES, rffi.INT], GENERAL_NAME,
+             macro=True)
+ssl_external('pypy_GENERAL_NAME_pop_free', [GENERAL_NAMES], lltype.Void,
              macro=True)
 ssl_external('sk_X509_OBJECT_num', [stack_st_X509_OBJECT], rffi.INT,
              macro=True)
