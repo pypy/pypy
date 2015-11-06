@@ -412,7 +412,7 @@ def stm_hashtable_iter_next(funcgen, op):
     arg2 = funcgen.expr(op.args[2])
     result = funcgen.expr(op.result)
     return ('%s = stm_hashtable_iter_next(%s, %s, %s);' %
-            (arg0, arg1, arg2, result))
+            (result, arg0, arg1, arg2))
 
 def stm_hashtable_iter_tracefn(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
