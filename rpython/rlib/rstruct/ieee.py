@@ -65,10 +65,10 @@ def float_unpack(Q, size):
             result = rfloat.INFINITY
         else:
             # preserve mant value but pad w/zeros
-            exp = 0x7ff << 52
-            sign = sign << 63
-            mant = mant << (53 - MANT_DIG)
-            uint = r_ulonglong(exp) | r_ulonglong(mant) | r_ulonglong(sign)
+            exp = r_ulonglong(0x7ff) << 52
+            sign = r_ulonglong(sign) << 63
+            mant = r_ulonglong(mant) << (53 - MANT_DIG)
+            uint = exp | mant | sign
             result =  longlong2float(cast(LONGLONG, uint))
             return result
     elif exp == 0:
@@ -113,8 +113,8 @@ def float_unpack80(QQ, size):
         if mant == 0:
             result = rfloat.INFINITY
         else:
-            exp = 0x7ff << 52
-            uint = r_ulonglong(exp) | r_ulonglong(mant) | r_ulonglong(sign)
+            exp = r_ulonglong(0x7ff) << 52
+            uint = exp | r_ulonglong(mant) | r_ulonglong(sign)
             result =  longlong2float(cast(LONGLONG, uint))
             return result
     else:
