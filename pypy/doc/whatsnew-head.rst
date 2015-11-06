@@ -14,3 +14,7 @@ Use pkg-config to find ssl headers on OS-X
 .. branch: ppc-stacklet
 
 The PPC machines now support the _continuation module (stackless, greenlets)
+
+.. branch: int_0/i-need-this-library-to-build-on-ubuntu-1-1446717626227
+
+Document that libgdbm-dev is required for translation/packaging
