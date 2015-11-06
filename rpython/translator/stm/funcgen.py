@@ -417,7 +417,7 @@ def stm_hashtable_iter_next(funcgen, op):
 def stm_hashtable_iter_tracefn(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     arg1 = funcgen.expr(op.args[1])
-    return ('stm_hashtable_tracefn((stm_hashtable_table_t *)%s,'
+    return ('stm_hashtable_iter_tracefn((stm_hashtable_table_t *)%s,'
             ' (void(*)(object_t**))%s);' % (arg0, arg1))
 
 def stm_queue_create(funcgen, op):
