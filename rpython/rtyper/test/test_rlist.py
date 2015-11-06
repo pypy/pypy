@@ -5,7 +5,7 @@ import py
 
 from rpython.rlib.debug import ll_assert
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.llinterp import LLException
+from rpython.rtyper.llinterp import LLException, LLAssertFailure
 from rpython.rtyper.lltypesystem import rlist as ll_rlist
 from rpython.rtyper.lltypesystem.rlist import ListRepr, FixedSizeListRepr, ll_newlist, ll_fixed_newlist
 from rpython.rtyper.rint import signed_repr
@@ -1182,7 +1182,8 @@ class TestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        py.test.raises(AssertionError, self.interpret, f, [1])
+        with py.test.raises(LLAssertFailure):
+            self.interpret(f, [1])
 
         def f(x):
             l = [1]
@@ -1227,7 +1228,8 @@ class TestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        py.test.raises(AssertionError, self.interpret, f, [1])
+        with py.test.raises(LLAssertFailure):
+            self.interpret(f, [1])
 
         def f(x):
             l = [1]
@@ -1264,7 +1266,8 @@ class TestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        py.test.raises(AssertionError, self.interpret, f, [1])
+        with py.test.raises(LLAssertFailure):
+            self.interpret(f, [1])
 
     def test_charlist_extension_1(self):
         def f(n):

@@ -59,6 +59,14 @@ def contains_SomeNone(annotator, obj, element):
     return s_bool
 contains_SomeNone.can_only_throw = []
 
+
+@op.contains.register(SomeInteger)
+@op.contains.register(SomeFloat)
+@op.contains.register(SomeBool)
+def contains_number(annotator, number, element):
+    raise AnnotatorError("number is not iterable")
+
+
 @op.simple_call.register(SomeObject)
 def simple_call_SomeObject(annotator, func, *args):
     return annotator.annotation(func).call(
@@ -214,6 +222,9 @@ class __extend__(SomeFloat):
             return getbookkeeper().immutablevalue(bool(self.const))
         return s_Bool
 
+    def len(self):
+        raise AnnotatorError("'float' has no length")
+
 class __extend__(SomeInteger):
 
     def invert(self):
@@ -239,6 +250,10 @@ class __extend__(SomeInteger):
 
     abs.can_only_throw = []
     abs_ovf = _clone(abs, [OverflowError])
+
+    def len(self):
+        raise AnnotatorError("'int' has no length")
+
 
 class __extend__(SomeBool):
     def bool(self):

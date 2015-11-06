@@ -41,6 +41,10 @@ class LLFatalError(Exception):
     def __str__(self):
         return ': '.join([str(x) for x in self.args])
 
+class LLAssertFailure(Exception):
+    pass
+
+
 def type_name(etype):
     return ''.join(etype.name.chars)
 
@@ -508,7 +512,8 @@ class LLFrame(object):
         track(*ll_objects)
 
     def op_debug_assert(self, x, msg):
-        assert x, msg
+        if not x:
+            raise LLAssertFailure(msg)
 
     def op_debug_fatalerror(self, ll_msg, ll_exc=None):
         msg = ''.join(ll_msg.chars)

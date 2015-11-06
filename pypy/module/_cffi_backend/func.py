@@ -84,6 +84,20 @@ def _get_types(space):
 
 # ____________________________________________________________
 
+def _get_common_types(space, w_dict):
+    from pypy.module._cffi_backend.parse_c_type import ll_enum_common_types
+    index = 0
+    while True:
+        p = ll_enum_common_types(rffi.cast(rffi.INT, index))
+        if not p:
+            break
+        key = rffi.charp2str(p)
+        value = rffi.charp2str(rffi.ptradd(p, len(key) + 1))
+        space.setitem_str(w_dict, key, space.wrap(value))
+        index += 1
+
+# ____________________________________________________________
+
 def _fetch_as_read_buffer(space, w_x):
     # xxx do we really need to implement the same mess as in CPython 2.7
     # w.r.t. buffers and memoryviews??

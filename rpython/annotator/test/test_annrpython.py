@@ -4490,6 +4490,24 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         a.build_types(f, [int])
 
+    def test_numbers_dont_have_len(self):
+        def f(x):
+            return len(x)
+        a = self.RPythonAnnotator()
+        with py.test.raises(AnnotatorError):
+            a.build_types(f, [int])
+        with py.test.raises(AnnotatorError):
+            a.build_types(f, [float])
+
+    def test_numbers_dont_contain(self):
+        def f(x):
+            return 1 in x
+        a = self.RPythonAnnotator()
+        with py.test.raises(AnnotatorError):
+            a.build_types(f, [int])
+        with py.test.raises(AnnotatorError):
+            a.build_types(f, [float])
+
 
 def g(n):
     return [0, 1, 2, n]

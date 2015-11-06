@@ -27,14 +27,11 @@ class TestARM(LLtypeBackendTest):
     # ====> ../../test/runner_test.py
 
     add_loop_instructions = 'ldr; adds; cmp; beq; b;$'
-    bridge_loop_instructions = ('ldr; mov; nop; cmp; bge; '
-                                'push; mov; mov; push; mov; mov; '
-                                'blx; mov; mov; bx;$')
     arch_version = detect_arch_version()
     if arch_version == 7:
-        bridge_loop_instructions = ('ldr; mov; nop; cmp; bge; '
-                                    'push; mov; mov; push; mov; mov; '
-                                    'blx; mov; mov; bx;$')
+        bridge_loop_instructions = ('ldr; movw; nop; cmp; bge; '
+                                    'push; movw; movt; push; movw; movt; '
+                                    'blx; movw; movt; bx;$')
     else:
         bridge_loop_instructions = ('ldr; mov; nop; nop; nop; cmp; bge; '
                                     'push; ldr; mov; '

@@ -199,13 +199,9 @@ class W_BytearrayObject(W_Root):
 
         if w_source is None:
             w_source = space.wrap('')
-        if w_encoding is None:
-            w_encoding = space.w_None
-        if w_errors is None:
-            w_errors = space.w_None
 
         # Unicode argument
-        if not space.is_w(w_encoding, space.w_None):
+        if w_encoding is not None:
             from pypy.objspace.std.unicodeobject import (
                 _get_encoding_and_errors, encode_object
             )

@@ -302,9 +302,13 @@ class W_File(W_AbstractStream):
             data = space.getarg_w('s*', w_data).as_str()
         else:
             if space.isinstance_w(w_data, space.w_unicode):
+                w_errors = w_encoding = None
+                if self.encoding:
+                    w_encoding = space.wrap(self.encoding)
+                if self.errors:
+                    w_errors = space.wrap(self.errors)
                 w_data = space.call_method(w_data, "encode",
-                                           space.wrap(self.encoding),
-                                           space.wrap(self.errors))
+                                           w_encoding, w_errors)
             data = space.charbuf_w(w_data)
         self.do_direct_write(data)
 

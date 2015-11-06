@@ -572,6 +572,17 @@ class AppTestAFewExtra:
         assert len(a) == 10
         assert a.tostring() == 'foobar6789'
 
+    @py.test.mark.skipif("os.name != 'posix'")
+    def test_readinto_error(self):
+        import _socket, posix, array
+        s = _socket.socket()
+        buff = array.array("c", "X" * 65)
+        fh = posix.fdopen(posix.dup(s.fileno()), 'rb')
+        # "Transport endpoint is not connected"
+        raises(IOError, fh.readinto, buff)
+        fh.close()
+        s.close()
+
     def test_weakref(self):
         """Files are weakrefable."""
         import weakref

@@ -5068,7 +5068,9 @@ class LLtypeBackendTest(BaseBackendTest):
                         'faildescr6': BasicFailDescr(6)})
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        deadframe = self.cpu.execute_token(looptoken, 12.25, 123456.01)
+        deadframe = self.cpu.execute_token(looptoken,
+                                           longlong.getfloatstorage(12.25),
+                                           longlong.getfloatstorage(123456.01))
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 2
         res = longlong.getrealfloat(self.cpu.get_float_value(deadframe, 0))
