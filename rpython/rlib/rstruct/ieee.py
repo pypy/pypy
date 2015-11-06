@@ -148,7 +148,7 @@ def float_pack(x, size):
         mant = r_ulonglong(0)
         exp = MAX_EXP - MIN_EXP + 2
     elif rfloat.isnan(x):
-        asint = float2longlong(x)
+        asint = cast(ULONGLONG, float2longlong(x))
         mant = asint & ((r_ulonglong(1) << 52) - 1)
         sign = asint < 0
         # shift off lower bits, perhaps losing data
@@ -212,7 +212,7 @@ def float_pack80(x, size):
         mant = r_ulonglong(0)
         exp = MAX_EXP - MIN_EXP + 2
     elif rfloat.isnan(x):  # rfloat.isnan(x):
-        asint = float2longlong(x)
+        asint = cast(ULONGLONG, float2longlong(x))
         mant = asint & ((r_ulonglong(1) << 52) - 1)
         sign = asint < 0
         exp = MAX_EXP - MIN_EXP + 2
