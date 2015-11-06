@@ -924,8 +924,11 @@ def _create_tuple_for_attribute(space, name, value):
         length = libssl_ASN1_STRING_to_UTF8(buf_ptr, value)
         if length < 0:
             raise _ssl_seterror(space, None, 0)
-        w_value = space.wrap(rffi.charpsize2str(buf_ptr[0], length))
-        w_value = space.call_method(w_value, "decode", space.wrap("utf-8"))
+        try:
+            w_value = space.wrap(rffi.charpsize2str(buf_ptr[0], length))
+            w_value = space.call_method(w_value, "decode", space.wrap("utf-8"))
+        finally:
+            libssl_OPENSSL_free(buf_ptr[0])
 
     return space.newtuple([w_name, w_value])
 
