@@ -5,8 +5,8 @@ Packing and unpacking of floats in the IEEE 32-bit and 64-bit formats.
 import math
 
 from rpython.rlib import rarithmetic, rfloat, objectmodel, jit
-from rpython.rtyper.lltypesystem.rffi import r_ulonglong, ULONGP, DOUBLEP, cast
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem.rffi import r_ulonglong, r_longlong, LONGLONG, ULONGLONG, cast
+from rpython.rlib.longlong2float import longlong2float, float2longlong
 
 def round_to_nearest(x):
     """Python 3 style round:  round a float x to the nearest int, but
@@ -68,11 +68,8 @@ def float_unpack(Q, size):
             exp = 0x7ff << 52
             sign = sign << 63
             mant = mant << (53 - MANT_DIG)
-            b = lltype.malloc(ULONGP.TO, 1, flavor='raw')
-            b[0] = r_ulonglong(exp) | r_ulonglong(mant) | r_ulonglong(sign)
-            #b = cast(ULONGP, r_ulonglong(exp | mant | sign))
-            result = cast(DOUBLEP, b)[0]
-            lltype.free(b, flavor='raw')
+            uint = r_ulonglong(exp) | r_ulonglong(mant) | r_ulonglong(sign)
+            result =  longlong2float(cast(LONGLONG, uint))
             return result
     elif exp == 0:
         # subnormal or zero
@@ -117,11 +114,8 @@ def float_unpack80(QQ, size):
             result = rfloat.INFINITY
         else:
             exp = 0x7ff << 52
-            b = lltype.malloc(ULONGP.TO, 1, flavor='raw')
-            sign = sign << 63
-            b[0] = r_ulonglong(exp) | r_ulonglong(mant) | r_ulonglong(sign)
-            result = cast(DOUBLEP, b)[0]
-            lltype.free(b, flavor='raw')
+            uint = r_ulonglong(exp) | r_ulonglong(mant) | r_ulonglong(sign)
+            result =  longlong2float(cast(LONGLONG, uint))
             return result
     else:
         # normal
@@ -154,12 +148,9 @@ def float_pack(x, size):
         mant = r_ulonglong(0)
         exp = MAX_EXP - MIN_EXP + 2
     elif rfloat.isnan(x):
-        b = lltype.malloc(DOUBLEP.TO, 1, flavor='raw')
-        b[0] = x
-        asint = cast(ULONGP, b)[0]
+        asint = float2longlong(x)
         mant = asint & ((r_ulonglong(1) << 52) - 1)
-        sign = asint >> 63
-        lltype.free(b, flavor='raw')
+        sign = asint < 0
         # shift off lower bits, perhaps losing data
         mant = mant >> (53 - MANT_DIG)
         if mant == 0:
@@ -221,12 +212,9 @@ def float_pack80(x, size):
         mant = r_ulonglong(0)
         exp = MAX_EXP - MIN_EXP + 2
     elif rfloat.isnan(x):  # rfloat.isnan(x):
-        b = lltype.malloc(DOUBLEP.TO, 1, flavor='raw')
-        b[0] = x
-        asint = cast(ULONGP, b)[0]
+        asint = float2longlong(x)
         mant = asint & ((r_ulonglong(1) << 52) - 1)
-        lltype.free(b, flavor='raw')
-        sign = asint >> 63
+        sign = asint < 0
         exp = MAX_EXP - MIN_EXP + 2
     elif x == 0.0:
         mant = r_ulonglong(0)
