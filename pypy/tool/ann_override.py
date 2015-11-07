@@ -50,38 +50,18 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
                 typ = (None, str)
         return funcdesc.cachedgraph(typ)
 
-    def _remember_immutable(self, t, cached):
-        # for jit benefit
-        if cached not in t._immutable_fields_: # accessed this way just
-                                               # for convenience
-            t._immutable_fields_.append(cached)
-
-    def attach_lookup(self, t, attr):
-        cached = "cached_%s" % attr
-        if not t.is_heaptype() and not t.is_cpytype():
-            self._remember_immutable(t, cached)
-            setattr(t, cached, t._lookup(attr))
-            return True
-        return False
-
-    def attach_lookup_in_type_where(self, t, attr):
-        cached = "cached_where_%s" % attr
-        if not t.is_heaptype() and not t.is_cpytype():
-            self._remember_immutable(t, cached)
-            setattr(t, cached, t._lookup_where(attr))
-            return True
-        return False
-
     def consider_lookup(self, bookkeeper, attr):
         assert attr not in self.lookups
         from pypy.objspace.std import typeobject
         cached = "cached_%s" % attr
         clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
         classdesc = clsdef.classdesc
+        classdesc.immutable_fields.add(cached)
         classdesc.classdict[cached] = Constant(None)
         clsdef.add_source_for_attribute(cached, classdesc)
         for t in self.pypytypes:
-            if self.attach_lookup(t, attr):
+            if not (t.is_heaptype() or t.is_cpytype()):
+                setattr(t, cached, t._lookup(attr))
                 source = InstanceSource(bookkeeper, t)
                 clsdef.add_source_for_attribute(cached, source)
         self.lookups[attr] = True
@@ -92,10 +72,12 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         cached = "cached_where_%s" % attr
         clsdef = bookkeeper.getuniqueclassdef(typeobject.W_TypeObject)
         classdesc = clsdef.classdesc
+        classdesc.immutable_fields.add(cached)
         classdesc.classdict[cached] = Constant((None, None))
         clsdef.add_source_for_attribute(cached, classdesc)
         for t in self.pypytypes:
-            if self.attach_lookup_in_type_where(t, attr):
+            if not (t.is_heaptype() or t.is_cpytype()):
+                setattr(t, cached, t._lookup_where(attr))
                 source = InstanceSource(bookkeeper, t)
                 clsdef.add_source_for_attribute(cached, source)
         self.lookups_where[attr] = True
@@ -137,13 +119,15 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
             self.pypytypes[x] = True
             #print "TYPE", x
             for attr in self.lookups:
-                if attr and self.attach_lookup(x, attr):
+                if attr and not (x.is_heaptype() or x.is_cpytype()):
                     cached = "cached_%s" % attr
+                    setattr(x, cached, x._lookup(attr))
                     source = InstanceSource(bookkeeper, x)
                     clsdef.add_source_for_attribute(cached, source)
             for attr in self.lookups_where:
-                if attr and self.attach_lookup_in_type_where(x, attr):
+                if attr and not (x.is_heaptype() or x.is_cpytype()):
                     cached = "cached_where_%s" % attr
+                    setattr(x, cached, x._lookup_where(attr))
                     source = InstanceSource(bookkeeper, x)
                     clsdef.add_source_for_attribute(cached, source)
         return
