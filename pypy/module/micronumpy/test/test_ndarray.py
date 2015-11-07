@@ -1857,7 +1857,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         #     convert_to_float64 -> convert_to_float16 -> uint16
         #  even for float16 various float16 nans
         from numpy import array, arange
-        all_f16 = arange(0xfe00, 0xfe08, dtype='uint16')
+        all_f16 = arange(0xfe00, 0xffff, dtype='uint16')
         all_f16.dtype = 'float16'
         all_f32 = array(all_f16, dtype='float32')
         b = array(all_f32, dtype='float16')

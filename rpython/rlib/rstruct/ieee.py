@@ -64,10 +64,10 @@ def float_unpack(Q, size):
         if mant == 0:
             result = rfloat.INFINITY
         else:
-            # preserve mant value but pad w/zeros
+            # preserve at most 52 bits of mant value, but pad w/zeros
             exp = r_ulonglong(0x7ff) << 52
             sign = r_ulonglong(sign) << 63
-            mant = r_ulonglong(mant) << (53 - MANT_DIG)
+            mant = r_ulonglong(mant) << (52 - MANT_DIG) 
             uint = exp | mant | sign
             result =  longlong2float(cast(LONGLONG, uint))
             return result
@@ -150,9 +150,10 @@ def float_pack(x, size):
     elif rfloat.isnan(x):
         asint = cast(ULONGLONG, float2longlong(x))
         mant = asint & ((r_ulonglong(1) << 52) - 1)
-        sign = asint < 0
+        sign = asint >> 63
         # shift off lower bits, perhaps losing data
-        mant = mant >> (53 - MANT_DIG)
+        if MANT_DIG <= 52:
+            mant = mant >> (52 - MANT_DIG)
         if mant == 0:
             mant = r_ulonglong(1) << (MANT_DIG-2)
         exp = MAX_EXP - MIN_EXP + 2
