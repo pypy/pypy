@@ -4,4 +4,4 @@ typedef struct vmprof_stack {
     long value;
 } vmprof_stack;
 
-extern vmprof_stack* vmprof_global_stack;
+RPY_EXTERN vmprof_stack* vmprof_global_stack;

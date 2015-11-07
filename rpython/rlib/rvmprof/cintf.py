@@ -14,30 +14,31 @@ class VMProfPlatformUnsupported(Exception):
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
 
+if sys.platform.startswith('linux'):
+    _libs = ['dl']
+else:
+    _libs = []
+eci_kwds = dict(
+    include_dirs = [SRC],
+    includes = ['rvmprof.h'],
+    libraries = _libs,
+    separate_module_files = [SRC.join('rvmprof.c')],
+    post_include_bits=['#define RPYTHON_VMPROF\n'],
+    )
+global_eci = ExternalCompilationInfo(**eci_kwds)
+
+
 def setup():
     if not detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64):
         raise VMProfPlatformUnsupported("rvmprof only supports"
                                         " x86-64 CPUs for now")
-
-    if sys.platform.startswith('linux'):
-        libs = ['dl']
-    else:
-        libs = []
-
-    eci_kwds = dict(
-        include_dirs = [SRC],
-        includes = ['rvmprof.h'],
-        libraries = libs,
-        separate_module_files = [SRC.join('rvmprof.c')],
-        post_include_bits=['#define RPYTHON_VMPROF\n'],
-        )
-    eci = ExternalCompilationInfo(**eci_kwds)
 
     platform.verify_eci(ExternalCompilationInfo(
         compile_extra=['-DRPYTHON_LL2CTYPES'],
         **eci_kwds))
 
 
+    eci = global_eci
     vmprof_init = rffi.llexternal("vmprof_init",
                                   [rffi.INT, rffi.DOUBLE, rffi.CCHARP],
                                   rffi.CCHARP, compilation_info=eci)
@@ -102,6 +103,7 @@ def make_c_trampoline_function(name, func, token, restok):
     vmprof_stack_h = SRC.join("vmprof_stack.h").read()
     target = target.join('trampoline_%s_%s.vmprof.c' % (name, token))
     target.write("""
+#include "src/precommondefs.h"
 %(vmprof_stack_h)s
 
 %(type)s %(cont_name)s(%(llargs)s);
@@ -214,6 +216,7 @@ static int cmp_%s(void *addr) {
         post_include_bits = [header],
         separate_module_files = [str(target)],
     )
+    eci = eci.merge(global_eci)
 
     ARGS = [token2lltype(tok) for tok in token] + [lltype.Signed]
     return rffi.llexternal(
