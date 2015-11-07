@@ -3730,7 +3730,7 @@ class TestAnnotateTestCase:
 
     def test_return_immutable_list(self):
         class A:
-            _immutable_fields_ = 'lst[*]'
+            _immutable_fields_ = ['lst[*]']
         def f(n):
             a = A()
             l1 = [n, 0]
@@ -3744,7 +3744,7 @@ class TestAnnotateTestCase:
 
     def test_return_immutable_list_quasiimmut_field(self):
         class A:
-            _immutable_fields_ = 'lst?[*]'
+            _immutable_fields_ = ['lst?[*]']
         def f(n):
             a = A()
             l1 = [n, 0]
@@ -3758,7 +3758,7 @@ class TestAnnotateTestCase:
 
     def test_immutable_list_is_actually_resized(self):
         class A:
-            _immutable_fields_ = 'lst[*]'
+            _immutable_fields_ = ['lst[*]']
         def f(n):
             a = A()
             l1 = [n]
@@ -3771,7 +3771,7 @@ class TestAnnotateTestCase:
 
     def test_immutable_list_is_assigned_a_resizable_list(self):
         class A:
-            _immutable_fields_ = 'lst[*]'
+            _immutable_fields_ = ['lst[*]']
         def f(n):
             a = A()
             foo = []
@@ -3783,7 +3783,7 @@ class TestAnnotateTestCase:
 
     def test_can_merge_immutable_list_with_regular_list(self):
         class A:
-            _immutable_fields_ = 'lst[*]'
+            _immutable_fields_ = ['lst[*]']
         def foo(lst):
             pass
 
@@ -3821,7 +3821,7 @@ class TestAnnotateTestCase:
         class Root:
             pass
         class A(Root):
-            _immutable_fields_ = '_my_lst[*]'
+            _immutable_fields_ = ['_my_lst[*]']
             def __init__(self, lst):
                 self._my_lst = lst
         def foo(x):

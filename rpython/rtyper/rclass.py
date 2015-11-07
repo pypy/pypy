@@ -2,7 +2,6 @@ import sys
 import types
 
 from rpython.flowspace.model import Constant
-from rpython.flowspace.operation import op
 from rpython.annotator import description, model as annmodel
 from rpython.rlib.objectmodel import UnboxedValue
 from rpython.tool.pairtype import pairtype, pair
@@ -543,11 +542,9 @@ class InstanceRepr(Repr):
                     self.classdef,))
         else:
             hints['immutable'] = True
-        self.immutable_field_set = set()  # unless overwritten below
-        if classdesc.get_param('_immutable_fields_'):
-            own_fields = classdesc.get_param('_immutable_fields_', inherit=False)
-            if own_fields is not None:
-                self.immutable_field_set = set(own_fields)
+        self.immutable_field_set = classdesc.immutable_fields
+        if (classdesc.immutable_fields or
+                'immutable_fields' in self.rbase.object_type._hints):
             accessor = FieldListAccessor()
             hints['immutable_fields'] = accessor
         return hints

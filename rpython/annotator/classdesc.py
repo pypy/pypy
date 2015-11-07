@@ -512,6 +512,15 @@ class ClassDesc(Desc):
         elif baselist == [BaseException]:
             baselist = [Exception]
 
+        immutable_fields = cls.__dict__.get('_immutable_fields_', [])
+        # To prevent confusion, we forbid strings. Any other bona fide sequence
+        # of strings is OK.
+        if isinstance(immutable_fields, basestring):
+            raise AnnotatorError(
+                "In class %s, '_immutable_fields_' must be a sequence of "
+                "attribute names, not a string." % cls)
+        self.immutable_fields = set(immutable_fields)
+
         mixins_before = []
         mixins_after = []
         base = object
@@ -627,6 +636,10 @@ class ClassDesc(Desc):
                 if name in skip:
                     continue
                 self.add_source_attribute(name, value, mixin=True)
+            if '_immutable_fields_' in base.__dict__:
+                self.immutable_fields.update(
+                    set(base.__dict__['_immutable_fields_']))
+
 
     def add_sources_for_class(self, cls):
         for name, value in cls.__dict__.items():
@@ -794,8 +807,8 @@ class ClassDesc(Desc):
         search2 = '%s?[*]' % (attr,)
         cdesc = self
         while cdesc is not None:
-            immutable_fields = cdesc.get_param('_immutable_fields_', inherit=False)
-            if immutable_fields is not None:
+            immutable_fields = cdesc.immutable_fields
+            if immutable_fields:
                 if (search1 in immutable_fields or search2 in immutable_fields):
                     s_result.listdef.never_resize()
                     s_copy = s_result.listdef.offspring()
