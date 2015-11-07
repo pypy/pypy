@@ -452,6 +452,8 @@ ssl_external('sk_DIST_POINT_num', [stack_st_DIST_POINT], rffi.INT,
              macro=True)
 ssl_external('sk_DIST_POINT_value', [stack_st_DIST_POINT, rffi.INT], DIST_POINT,
              macro=True)
+ssl_external('sk_DIST_POINT_free', [stack_st_DIST_POINT], lltype.Void,
+             macro=True)
 ssl_external('pypy_DIST_POINT_fullname', [DIST_POINT], GENERAL_NAMES,
              macro=True)
 ssl_external('sk_ACCESS_DESCRIPTION_num', [AUTHORITY_INFO_ACCESS], rffi.INT,

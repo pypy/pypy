@@ -968,20 +968,24 @@ def _get_crl_dp(space, certificate):
     if not dps:
         return None
 
-    cdp_w = []
-    for i in range(libssl_sk_DIST_POINT_num(dps)):
-        dp = libssl_sk_DIST_POINT_value(dps, i)
-        gns = libssl_pypy_DIST_POINT_fullname(dp)
+    try:
+        cdp_w = []
+        for i in range(libssl_sk_DIST_POINT_num(dps)):
+            dp = libssl_sk_DIST_POINT_value(dps, i)
+            gns = libssl_pypy_DIST_POINT_fullname(dp)
 
-        for j in range(libssl_sk_GENERAL_NAME_num(gns)):
-            name = libssl_sk_GENERAL_NAME_value(gns, j)
-            gntype = intmask(name.c_type)
-            if gntype != GEN_URI:
-                continue
-            uri = libssl_pypy_GENERAL_NAME_uri(name)
-            length = intmask(uri.c_length)
-            s_uri = rffi.charpsize2str(uri.c_data, length)
-            cdp_w.append(space.wrap(s_uri))
+            for j in range(libssl_sk_GENERAL_NAME_num(gns)):
+                name = libssl_sk_GENERAL_NAME_value(gns, j)
+                gntype = intmask(name.c_type)
+                if gntype != GEN_URI:
+                    continue
+                uri = libssl_pypy_GENERAL_NAME_uri(name)
+                length = intmask(uri.c_length)
+                s_uri = rffi.charpsize2str(uri.c_data, length)
+                cdp_w.append(space.wrap(s_uri))
+    finally:
+        if OPENSSL_VERSION_NUMBER < 0x10001000:
+            libssl_sk_DIST_POINT_free(dps)
     return space.newtuple(cdp_w[:])
 
 def checkwait(space, w_sock, writing):
