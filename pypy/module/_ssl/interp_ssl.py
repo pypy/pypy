@@ -1306,6 +1306,9 @@ class _SSLContext(W_Root):
 
         return self
 
+    def __del__(self):
+        lbssl_SSL_CTX_free(self.ctx)
+
     @unwrap_spec(server_side=int)
     def descr_wrap_socket(self, space, w_sock, server_side, w_server_hostname=None, w_ssl_sock=None):
         return _SSLSocket.descr_new(space, self, w_sock, server_side, w_server_hostname, w_ssl_sock)
