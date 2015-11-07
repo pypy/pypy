@@ -215,11 +215,13 @@ static int get_stack_trace(void **result, int max_depth, ucontext_t *ucontext)
 {
     // read the first slot of shadowstack
     struct vmprof_stack* stack = vmprof_global_stack;
-    if (!stack) {
-        return 0;
+    int n = 0;
+    while (n < max_depth && stack) {
+        result[n] = (void*)stack->value;
+        stack = stack->next;
+        n++;
     }
-    result[0] = (void*)stack->value;
-    return 1;
+    return n;
 }
 
 static int xxx_get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)

@@ -11,15 +11,13 @@ from rpython.jit.backend import detect_cpu
 class VMProfPlatformUnsupported(Exception):
     pass
 
+ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
+SRC = ROOT.join('src')
+
 def setup():
     if not detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64):
         raise VMProfPlatformUnsupported("rvmprof only supports"
                                         " x86-64 CPUs for now")
-
-
-    ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
-    SRC = ROOT.join('src')
-
 
     if sys.platform.startswith('linux'):
         libs = ['dl']
@@ -101,9 +99,10 @@ def make_c_trampoline_function(name, func, token, restok):
     target = udir.join('module_cache')
     target.ensure(dir=1)
     argnames = ", ".join(["arg%d" % i for i in range(len(token))])
+    vmprof_stack_h = SRC.join("vmprof_stack.h").read()
     target = target.join('trampoline_%s_%s.vmprof.c' % (name, token))
     target.write("""
-#include "vmprof_stack.h"
+%(vmprof_stack_h)s
 
 %(type)s %(cont_name)s(%(llargs)s);
 
