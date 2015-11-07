@@ -936,9 +936,10 @@ def _create_tuple_for_attribute(space, name, value):
 def _get_aia_uri(space, certificate, nid):
     info = rffi.cast(AUTHORITY_INFO_ACCESS, libssl_X509_get_ext_d2i(
         certificate, NID_info_access, None, None))
-    if not info or libssl_sk_ACCESS_DESCRIPTION_num(info) == 0:
-        return
     try:
+        if not info or libssl_sk_ACCESS_DESCRIPTION_num(info) == 0:
+            return
+
         result_w = []
         for i in range(libssl_sk_ACCESS_DESCRIPTION_num(info)):
             ad = libssl_sk_ACCESS_DESCRIPTION_value(info, i)
