@@ -287,7 +287,7 @@ def PyString_AsEncodedObject(space, w_str, encoding, errors):
     if not PyString_Check(space, w_str):
         PyErr_BadArgument(space)
 
-    w_encoding = w_errors = space.w_None
+    w_encoding = w_errors = None
     if encoding:
         w_encoding = space.wrap(rffi.charp2str(encoding))
     if errors:
@@ -307,7 +307,7 @@ def PyString_AsDecodedObject(space, w_str, encoding, errors):
     if not PyString_Check(space, w_str):
         PyErr_BadArgument(space)
 
-    w_encoding = w_errors = space.w_None
+    w_encoding = w_errors = None
     if encoding:
         w_encoding = space.wrap(rffi.charp2str(encoding))
     if errors:

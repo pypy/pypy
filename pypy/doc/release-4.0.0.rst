@@ -50,12 +50,14 @@ vectorization add `--jit vec_all=1`
 
 Benchmarks and a summary of this work appear `here`_
 
-Internal Refactoring and Warmup Time Improvement
-================================================
+Internal Refactoring: Warmup Time Improvement and Reduced Memory Usage
+======================================================================
 
 Maciej Fijalkowski and Armin Rigo refactored internals of rpython that now allow
-PyPy to more efficiently use `guards`_ in jitted code. They also rewrote unrolling,
-leading to a warmup time improvement of 20% or so.
+PyPy to more efficiently use `guards`_ in jitted code. They also rewrote 
+unrolling, leading to a warmup time improvement of 20% or so. The reduction in
+guards also means a reduction in the use of memory, also a savings of around
+20%.
 
 Numpy
 =====
@@ -197,6 +199,9 @@ Other Highlights (since 2.6.1 release two months ago)
   * Remove many class attributes in rpython classes
 
   * Handle getfield_gc_pure* and getfield_gc_* uniformly in heap.py
+
+  * Improve simple trace function performance by lazily calling fast2locals
+    and locals2fast only if truly necessary
 
 .. _`vmprof`: https://vmprof.readthedocs.org
 .. _resolved: http://doc.pypy.org/en/latest/whatsnew-15.11.0.html

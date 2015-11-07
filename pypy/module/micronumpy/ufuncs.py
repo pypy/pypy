@@ -805,8 +805,6 @@ class W_UfuncGeneric(W_Ufunc):
                     raise oefmt(space.w_TypeError,
                          'output arg %d must be an array, not %s', i+self.nin, str(args_w[i+self.nin]))
                 outargs[i] = out
-        if sig is None:
-            sig = space.wrap(self.signature)
         _dtypes = self.dtypes
         if self.match_dtypes:
             _dtypes = [i.get_dtype() for i in inargs if isinstance(i, W_NDimArray)]
@@ -879,7 +877,7 @@ class W_UfuncGeneric(W_Ufunc):
         w_itershape = space.newlist([space.wrap(i) for i in iter_shape])
         nd_it = W_NDIter(space, space.newlist(inargs + outargs), w_flags,
                       w_op_flags, w_op_dtypes, w_casting, w_op_axes,
-                      w_itershape)
+                      w_itershape, allow_backward=False)
         # coalesce each iterators, according to inner_dimensions
         for i in range(len(inargs) + len(outargs)):
             for j in range(self.core_num_dims[i]):
@@ -942,8 +940,8 @@ class W_UfuncGeneric(W_Ufunc):
                 raise oefmt(space.w_RuntimeError,
                         "cannot specify both 'sig' and 'dtype'")
             dtype = decode_w_dtype(space, dtype_w)
-            sig = space.newtuple([dtype])
-        order = kwargs_w.pop('dtype', None)
+            sig = dtype.char
+        order = kwargs_w.pop('order', None)
         if not space.is_w(order, space.w_None) and not order is None:
             raise oefmt(space.w_NotImplementedError, '"order" keyword not implemented')
         parsed_kw = []
@@ -952,7 +950,7 @@ class W_UfuncGeneric(W_Ufunc):
                 if sig:
                     raise oefmt(space.w_RuntimeError,
                             "cannot specify both 'sig' and 'dtype'")
-                sig = kwargs_w[kw]
+                sig = space.str_w(kwargs_w[kw])
                 parsed_kw.append(kw)
             elif kw.startswith('where'):
                 raise oefmt(space.w_NotImplementedError,
@@ -966,7 +964,7 @@ class W_UfuncGeneric(W_Ufunc):
         # Find a match for the inargs.dtype in _dtypes, like
         # linear_search_type_resolver in numpy ufunc_type_resolutions.c
         # type_tup can be '', a tuple of dtypes, or a string
-        # of the form d,t -> D where the letters are dtype specs
+        # of the form 'dt->D' where the letters are dtype specs
 
         # XXX why does the next line not pass translation?
         # dtypes = [i.get_dtype() for i in inargs]
@@ -1119,7 +1117,7 @@ class W_UfuncGeneric(W_Ufunc):
             for j in range(offset, len(iter_shape)):
                 x = iter_shape[j + offset]
                 y = dims_to_broadcast[j]
-                if y != 0 and x != 0 and ((x > y and x % y) or y %x):
+                if y > 1 and x != 0 and ((x > y and x % y) or y %x):
                     raise oefmt(space.w_ValueError, "%s: %s operand %d has a "
                         "mismatch in its broadcast dimension %d "
                         "(size %d is different from %d)",
