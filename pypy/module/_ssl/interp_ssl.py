@@ -1,4 +1,4 @@
-from rpython.rlib import rpoll, rsocket, rthread, rweakref
+from rpython.rlib import rpoll, rsocket, rthread, rweakref, rgc
 from rpython.rlib.rarithmetic import intmask, widen, r_uint
 from rpython.rlib.ropenssl import *
 from pypy.module._socket import interp_socket
@@ -1280,6 +1280,7 @@ class _SSLContext(W_Root):
         if not ctx:
             raise ssl_error(space, "failed to allocate SSL context")
 
+        rgc.add_memory_pressure(10 * 1024 * 1024)
         self = space.allocate_instance(_SSLContext, w_subtype)
         self.ctx = ctx
         self.check_hostname = False
