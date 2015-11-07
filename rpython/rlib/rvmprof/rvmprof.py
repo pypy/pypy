@@ -202,10 +202,9 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
             else: # this is the case of the stack
                 if we_are_translated() and not jit.we_are_jitted():
                     unique_id = get_code_fn(*args)._vmprof_unique_id
-                    shadowstack_0 = llop.gc_adr_of_root_stack_base(llmemory.Address)
                     ll_args, token = lower(*args)
                     ll_trampoline = get_ll_trampoline(token, True)
-                    ll_result = ll_trampoline(*ll_args + (unique_id, shadowstack_0))
+                    ll_result = ll_trampoline(*ll_args + (unique_id,))
                 else:
                     return func(*args)
             if result_class is not None:

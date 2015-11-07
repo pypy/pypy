@@ -74,14 +74,12 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.decr_stack = decr_stack
 
         def walk_stack_root(callback, start, end):
-            # shadowstack[0] contains the vmprof stack
             gc = self.gc
             addr = end
-            addr -= sizeofaddr
             while addr != start:
+                addr -= sizeofaddr
                 if gc.points_to_valid_gc_object(addr):
                     callback(gc, addr)
-                addr -= sizeofaddr
         self.rootstackhook = walk_stack_root
 
         self.shadow_stack_pool = ShadowStackPool(gcdata)
@@ -284,8 +282,7 @@ class ShadowStackPool(object):
 
     def start_fresh_new_state(self):
         self.gcdata.root_stack_base = self.unused_full_stack
-        # shadowstack[0] contains the vmprof stack
-        self.gcdata.root_stack_top  = self.unused_full_stack + sizeofaddr
+        self.gcdata.root_stack_top  = self.unused_full_stack
         self.unused_full_stack = llmemory.NULL
 
     def _cleanup(self, shadowstackref):
@@ -312,14 +309,12 @@ def get_shadowstackref(root_walker, gctransformer):
     SHADOWSTACKREFPTR.TO.become(SHADOWSTACKREF)
 
     def customtrace(gc, obj, callback, arg):
-        # we intentionally don't read shadowstack[0]
         obj = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR)
         addr = obj.top
         start = obj.base
-        addr -= sizeofaddr
         while addr != start:
-            gc._trace_callback(callback, arg, addr)
             addr -= sizeofaddr
+            gc._trace_callback(callback, arg, addr)
             
     gc = gctransformer.gcdata.gc
     assert not hasattr(gc, 'custom_trace_dispatcher')

@@ -103,28 +103,25 @@ def make_c_trampoline_function(name, func, token, restok):
     argnames = ", ".join(["arg%d" % i for i in range(len(token))])
     target = target.join('trampoline_%s_%s.vmprof.c' % (name, token))
     target.write("""
-typedef struct vmprof_stack {
-    struct vmprof_stack* next;
-    long value;
-};
+#include "vmprof_stack.h"
 
 %(type)s %(cont_name)s(%(llargs)s);
 
-%(type)s %(tramp_name)s(%(llargs)s, long unique_id, void** shadowstack_base)
+%(type)s %(tramp_name)s(%(llargs)s, long unique_id)
 {
     %(type)s result;
     struct vmprof_stack node;
 
     node.value = unique_id;
-    node.next = (struct vmprof_stack*)shadowstack_base[0];
-    shadowstack_base[0] = (void*)(&node);
+    node.next = vmprof_global_stack;
+    vmprof_global_stack = &node;
     result = %(cont_name)s(%(argnames)s);
-    shadowstack_base[0] = node.next;
+    vmprof_global_stack = node.next;
     return result;
 }
 """ % locals())
     return finish_ll_trampoline(tramp_name, tramp_name, target, token,
-                                restok, True)
+                                restok)
 
 def make_trampoline_function(name, func, token, restok):
     from rpython.jit.backend import detect_cpu
@@ -191,14 +188,11 @@ def make_trampoline_function(name, func, token, restok):
 %(size_decl)s
 """ % locals())
     return finish_ll_trampoline(orig_tramp_name, tramp_name, target, token,
-                                restok, False)
+                                restok)
 
-def finish_ll_trampoline(orig_tramp_name, tramp_name, target, token, restok,
-                         accepts_shadowstack):
+def finish_ll_trampoline(orig_tramp_name, tramp_name, target, token, restok):
 
     extra_args = ['long']
-    if accepts_shadowstack:
-        extra_args.append("void*")
     header = 'RPY_EXTERN %s %s(%s);\n' % (
         token2ctype(restok),
         orig_tramp_name,
@@ -223,8 +217,6 @@ static int cmp_%s(void *addr) {
     )
 
     ARGS = [token2lltype(tok) for tok in token] + [lltype.Signed]
-    if accepts_shadowstack:
-        ARGS.append(llmemory.Address)
     return rffi.llexternal(
         orig_tramp_name, ARGS,
         token2lltype(restok),

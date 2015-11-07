@@ -37,7 +37,7 @@
 #include "vmprof_unwind.h"
 #endif
 #include "vmprof_mt.h"
-
+#include "vmprof_stack.h"
 
 /************************************************************/
 
@@ -144,6 +144,8 @@ void vmprof_ignore_signals(int ignored)
 #define VERSION_BASE '\x00'
 #define VERSION_THREAD_ID '\x01'
 
+vmprof_stack* vmprof_global_stack = NULL;
+
 struct prof_stacktrace_s {
     char padding[sizeof(long) - 1];
     char marker;
@@ -211,7 +213,13 @@ static int vmprof_unw_step(unw_cursor_t *cp, int first_run)
 
 static int get_stack_trace(void **result, int max_depth, ucontext_t *ucontext)
 {
-    return 0;
+    // read the first slot of shadowstack
+    struct vmprof_stack* stack = vmprof_global_stack;
+    if (!stack) {
+        return 0;
+    }
+    result[0] = (void*)stack->value;
+    return 1;
 }
 
 static int xxx_get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)
