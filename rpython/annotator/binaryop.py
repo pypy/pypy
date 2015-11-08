@@ -145,19 +145,13 @@ class __extend__(pairtype(SomeType, SomeType),
 
     def union((obj1, obj2)):
         result = SomeType()
-        is_type_of1 = getattr(obj1, 'is_type_of', None)
-        is_type_of2 = getattr(obj2, 'is_type_of', None)
+        is_type_of1 = getattr(obj1, 'is_type_of', [])
+        is_type_of2 = getattr(obj2, 'is_type_of', [])
         if obj1.is_immutable_constant() and obj2.is_immutable_constant() and obj1.const == obj2.const:
             result.const = obj1.const
-            is_type_of = {}
-            if is_type_of1:
-                for v in is_type_of1:
-                    is_type_of[v] = True
-            if is_type_of2:
-                for v in is_type_of2:
-                    is_type_of[v] = True
+            is_type_of = set(is_type_of1) | set(is_type_of2)
             if is_type_of:
-                result.is_type_of = is_type_of.keys()
+                result.is_type_of = list(is_type_of)
         else:
             if is_type_of1 and is_type_of1 == is_type_of2:
                 result.is_type_of = is_type_of1
