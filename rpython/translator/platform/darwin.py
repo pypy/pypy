@@ -1,6 +1,7 @@
 """Support for OS X."""
 
 from rpython.translator.platform import posix
+import os
 
 #
 # Although Intel 32bit is supported since Apple Mac OS X 10.4, (and PPC since, ever)
