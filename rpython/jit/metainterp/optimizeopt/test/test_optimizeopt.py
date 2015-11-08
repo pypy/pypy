@@ -8939,6 +8939,94 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # (this test was written to show it would previously crash)
         self.optimize_loop(ops, ops)
 
+    def test_unroll_constant_null_1(self):
+        ops = """
+        [p0, i1]
+        i2 = int_gt(i1, 0)
+        guard_true(i2) []
+        i4 = getfield_gc_i(p0, descr=valuedescr)
+        i3 = int_sub(i1, 1)
+        jump(NULL, i3)
+        """
+        # may either raise InvalidLoop or compile; it's a rare case
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
+
+    def test_unroll_constant_null_2(self):
+        ops = """
+        [p0, i1]
+        i2 = int_gt(i1, 0)
+        guard_true(i2) []
+        setfield_gc(p0, i1, descr=valuedescr)
+        i3 = int_sub(i1, 1)
+        jump(NULL, i3)
+        """
+        # may either raise InvalidLoop or compile; it's a rare case
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
+
+    def test_unroll_constant_null_3(self):
+        ops = """
+        [p0, i1]
+        i2 = int_gt(i1, 0)
+        guard_true(i2) []
+        i4 = getarrayitem_gc_i(p0, 5, descr=arraydescr)
+        i3 = int_sub(i1, 1)
+        jump(NULL, i3)
+        """
+        # may either raise InvalidLoop or compile; it's a rare case
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
+
+    def test_unroll_constant_null_4(self):
+        ops = """
+        [p0, i1]
+        i2 = int_gt(i1, 0)
+        guard_true(i2) []
+        setarrayitem_gc(p0, 5, i1, descr=arraydescr)
+        i3 = int_sub(i1, 1)
+        jump(NULL, i3)
+        """
+        # may either raise InvalidLoop or compile; it's a rare case
+        self.raises(InvalidLoop, self.optimize_loop, ops, ops)
+
+    def test_unroll_constant_null_5(self):
+        ops = """
+        [p0, i1]
+        i2 = int_gt(i1, 0)
+        guard_true(i2) []
+        i4 = getarrayitem_gc_i(p0, i1, descr=arraydescr)
+        i3 = int_sub(i1, 1)
+        jump(NULL, i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_gt(i1, 0)
+        guard_true(i2) []
+        i4 = getarrayitem_gc_i(NULL, i1, descr=arraydescr)
+        i3 = int_sub(i1, 1)
+        jump(i3)
+        """
+        # may either raise InvalidLoop or compile; it's a rare case
+        self.optimize_loop(ops, expected)
+
+    def test_unroll_constant_null_6(self):
+        ops = """
+        [p0, i1]
+        i2 = int_gt(i1, 0)
+        guard_true(i2) []
+        setarrayitem_gc(p0, i1, i1, descr=arraydescr)
+        i3 = int_sub(i1, 1)
+        jump(NULL, i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_gt(i1, 0)
+        guard_true(i2) []
+        setarrayitem_gc(NULL, i1, i1, descr=arraydescr)
+        i3 = int_sub(i1, 1)
+        jump(i3)
+        """
+        # may either raise InvalidLoop or compile; it's a rare case
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
