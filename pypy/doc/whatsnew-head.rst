@@ -25,3 +25,7 @@ Ensure that ndarray conversion from int16->float16->float32->float16->int16
 preserves all int16 values, even across nan conversions. Also fix argmax, argmin
 for nan comparisons
 
+.. branch: array_interface
+
+Support common use-cases for __array_interface__, passes upstream tests
+
