@@ -1853,10 +1853,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.view('S16')[0] == '\x01' + '\x00' * 7 + '\x02'
 
     def test_half_conversions(self):
+        from numpy import array, arange
+        from math import isnan, isinf
+        e = array([0, -1, -float('inf'), float('nan'), 6], dtype='float16')
+        assert map(isnan, e) == [False, False, False, True, False]
+        assert map(isinf, e) == [False, False, True, False, False]
         # numpy preserves value for uint16 -> cast_as_float16 -> 
         #     convert_to_float64 -> convert_to_float16 -> uint16
         #  even for float16 various float16 nans
-        from numpy import array, arange
         all_f16 = arange(0xfe00, 0xffff, dtype='uint16')
         all_f16.dtype = 'float16'
         all_f32 = array(all_f16, dtype='float32')
