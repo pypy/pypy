@@ -409,7 +409,7 @@ def _make_execute_list():
 def make_execute_function(name, func):
     # Make a wrapper for 'func'.  The func is a simple bhimpl_xxx function
     # from the BlackholeInterpreter class.  The wrapper is a new function
-    # that receives and returns boxed values.
+    # that receives boxed values (but returns a non-boxed value).
     for argtype in func.argtypes:
         if argtype not in ('i', 'r', 'f', 'd', 'cpu'):
             return None
