@@ -613,9 +613,6 @@ class LLGraphCPU(model.AbstractCPU):
     bh_getfield_gc_f = bh_getfield_gc
 
     bh_getfield_raw = bh_getfield_gc
-    bh_getfield_raw_pure_i = bh_getfield_raw
-    bh_getfield_raw_pure_r = bh_getfield_raw
-    bh_getfield_raw_pure_f = bh_getfield_raw
     bh_getfield_raw_i = bh_getfield_raw
     bh_getfield_raw_r = bh_getfield_raw
     bh_getfield_raw_f = bh_getfield_raw
@@ -641,6 +638,7 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_getarrayitem_gc(self, a, index, descr):
         a = support.cast_arg(lltype.Ptr(descr.A), a)
         array = a._obj
+        assert index >= 0
         return support.cast_result(descr.A.OF, array.getitem(index))
 
     bh_getarrayitem_gc_pure_i = bh_getarrayitem_gc
@@ -651,9 +649,6 @@ class LLGraphCPU(model.AbstractCPU):
     bh_getarrayitem_gc_f = bh_getarrayitem_gc
 
     bh_getarrayitem_raw = bh_getarrayitem_gc
-    bh_getarrayitem_raw_pure_i = bh_getarrayitem_raw
-    bh_getarrayitem_raw_pure_r = bh_getarrayitem_raw
-    bh_getarrayitem_raw_pure_f = bh_getarrayitem_raw
     bh_getarrayitem_raw_i = bh_getarrayitem_raw
     bh_getarrayitem_raw_r = bh_getarrayitem_raw
     bh_getarrayitem_raw_f = bh_getarrayitem_raw
@@ -749,6 +744,7 @@ class LLGraphCPU(model.AbstractCPU):
         return s._obj.container.chars.getlength()
 
     def bh_strgetitem(self, s, item):
+        assert item >= 0
         return ord(s._obj.container.chars.getitem(item))
 
     def bh_strsetitem(self, s, item, v):
@@ -770,6 +766,7 @@ class LLGraphCPU(model.AbstractCPU):
         return string._obj.container.chars.getlength()
 
     def bh_unicodegetitem(self, string, index):
+        assert index >= 0
         return ord(string._obj.container.chars.getitem(index))
 
     def bh_unicodesetitem(self, string, index, newvalue):

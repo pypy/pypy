@@ -345,6 +345,14 @@ class Primitive(object):
     def min(self, v1, v2):
         return min(v1, v2)
 
+    @raw_binary_op
+    def argmax(self, v1, v2):
+        return v1 >= v2
+
+    @raw_binary_op
+    def argmin(self, v1, v2):
+        return v1 <= v2
+
     @raw_unary_op
     def rint(self, v):
         float64 = Float64(self.space)
@@ -819,6 +827,14 @@ class Float(Primitive):
     @simple_binary_op
     def min(self, v1, v2):
         return v1 if v1 <= v2 or rfloat.isnan(v1) else v2
+
+    @raw_binary_op
+    def argmax(self, v1, v2):
+        return v1 >= v2 or rfloat.isnan(v1)
+
+    @raw_binary_op
+    def argmin(self, v1, v2):
+        return v1 <= v2 or rfloat.isnan(v1)
 
     @simple_binary_op
     def fmax(self, v1, v2):
@@ -1407,6 +1423,16 @@ class ComplexFloating(object):
             return v1
         return v2
 
+    def argmin(self, v1, v2):
+        if self.le(v1, v2) or self.isnan(v1):
+            return True
+        return False
+
+    def argmax(self, v1, v2):
+        if self.ge(v1, v2) or self.isnan(v1):
+            return True
+        return False
+
     @complex_binary_op
     def floordiv(self, v1, v2):
         (r1, i1), (r2, i2) = v1, v2
@@ -1927,6 +1953,18 @@ class ObjectType(Primitive, BaseType):
             return v1
         return v2
 
+    @raw_binary_op
+    def argmax(self, v1, v2):
+        if self.space.is_true(self.space.ge(v1, v2)):
+            return True
+        return False
+
+    @raw_binary_op
+    def argmin(self, v1, v2):
+        if self.space.is_true(self.space.le(v1, v2)):
+            return True
+        return False
+
     @raw_unary_op
     def bool(self,v):
         return self._obool(v)
@@ -2221,7 +2259,10 @@ class UnicodeType(FlexibleType):
     def coerce(self, space, dtype, w_item):
         if isinstance(w_item, boxes.W_UnicodeBox):
             return w_item
-        value = space.unicode_w(space.unicode_from_object(w_item))
+        if isinstance(w_item, boxes.W_ObjectBox):
+            value = space.unicode_w(space.unicode_from_object(w_item.w_obj))
+        else:
+            value = space.unicode_w(space.unicode_from_object(w_item))
         return boxes.W_UnicodeBox(value)
 
     def store(self, arr, i, offset, box, native):
