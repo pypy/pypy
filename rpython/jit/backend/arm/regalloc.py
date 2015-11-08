@@ -847,8 +847,6 @@ class Regalloc(BaseRegalloc):
     prepare_op_getfield_gc_f = _prepare_op_getfield
     prepare_op_getfield_raw_i = _prepare_op_getfield
     prepare_op_getfield_raw_f = _prepare_op_getfield
-    prepare_op_getfield_raw_pure_i = _prepare_op_getfield
-    prepare_op_getfield_raw_pure_f = _prepare_op_getfield
     prepare_op_getfield_gc_pure_i = _prepare_op_getfield
     prepare_op_getfield_gc_pure_r = _prepare_op_getfield
     prepare_op_getfield_gc_pure_f = _prepare_op_getfield
@@ -942,8 +940,6 @@ class Regalloc(BaseRegalloc):
     prepare_op_getarrayitem_gc_f = _prepare_op_getarrayitem
     prepare_op_getarrayitem_raw_i = _prepare_op_getarrayitem
     prepare_op_getarrayitem_raw_f = _prepare_op_getarrayitem
-    prepare_op_getarrayitem_raw_pure_i = _prepare_op_getarrayitem
-    prepare_op_getarrayitem_raw_pure_f = _prepare_op_getarrayitem
     prepare_op_getarrayitem_gc_pure_i = _prepare_op_getarrayitem
     prepare_op_getarrayitem_gc_pure_r = _prepare_op_getarrayitem
     prepare_op_getarrayitem_gc_pure_f = _prepare_op_getarrayitem

@@ -136,15 +136,15 @@ class ImmutableFieldsTests:
         #
         res = self.interp_operations(f, [0], disable_optimizations=True)
         assert res == 42
-        self.check_operations_history(getfield_raw_pure_i=1,
-                                      getarrayitem_raw_pure_i=1,
+        self.check_operations_history(getfield_raw_i=1,
+                                      getarrayitem_raw_i=1,
                                       int_mul=1)
         #
         # second try, in which we get num=0 constant-folded through f()
         res = self.interp_operations(f, [-1], disable_optimizations=True)
         assert res == 42
-        self.check_operations_history(getfield_raw_pure_i=0,
-                                      getarrayitem_raw_pure_i=0,
+        self.check_operations_history(getfield_raw_i=0,
+                                      getarrayitem_raw_i=0,
                                       int_mul=0)
 
     def test_read_on_promoted(self):

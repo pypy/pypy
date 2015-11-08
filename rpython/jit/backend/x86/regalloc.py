@@ -1141,8 +1141,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_getfield_gc_f = _consider_getfield
     consider_getfield_raw_i = _consider_getfield
     consider_getfield_raw_f = _consider_getfield
-    consider_getfield_raw_pure_i = _consider_getfield
-    consider_getfield_raw_pure_f = _consider_getfield
     consider_getfield_gc_pure_i = _consider_getfield
     consider_getfield_gc_pure_r = _consider_getfield
     consider_getfield_gc_pure_f = _consider_getfield
@@ -1172,8 +1170,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_getarrayitem_gc_pure_i = _consider_getarrayitem
     consider_getarrayitem_gc_pure_r = _consider_getarrayitem
     consider_getarrayitem_gc_pure_f = _consider_getarrayitem
-    consider_getarrayitem_raw_pure_i = _consider_getarrayitem
-    consider_getarrayitem_raw_pure_f = _consider_getarrayitem
     consider_raw_load_i = _consider_getarrayitem
     consider_raw_load_f = _consider_getarrayitem
 

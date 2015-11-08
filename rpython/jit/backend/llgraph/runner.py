@@ -613,9 +613,6 @@ class LLGraphCPU(model.AbstractCPU):
     bh_getfield_gc_f = bh_getfield_gc
 
     bh_getfield_raw = bh_getfield_gc
-    bh_getfield_raw_pure_i = bh_getfield_raw
-    bh_getfield_raw_pure_r = bh_getfield_raw
-    bh_getfield_raw_pure_f = bh_getfield_raw
     bh_getfield_raw_i = bh_getfield_raw
     bh_getfield_raw_r = bh_getfield_raw
     bh_getfield_raw_f = bh_getfield_raw
@@ -651,9 +648,6 @@ class LLGraphCPU(model.AbstractCPU):
     bh_getarrayitem_gc_f = bh_getarrayitem_gc
 
     bh_getarrayitem_raw = bh_getarrayitem_gc
-    bh_getarrayitem_raw_pure_i = bh_getarrayitem_raw
-    bh_getarrayitem_raw_pure_r = bh_getarrayitem_raw
-    bh_getarrayitem_raw_pure_f = bh_getarrayitem_raw
     bh_getarrayitem_raw_i = bh_getarrayitem_raw
     bh_getarrayitem_raw_r = bh_getarrayitem_raw
     bh_getarrayitem_raw_f = bh_getarrayitem_raw

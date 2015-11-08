@@ -803,8 +803,6 @@ class FieldOpAssembler(object):
     emit_getfield_gc_pure_f = _genop_getfield
     emit_getfield_raw_i = _genop_getfield
     emit_getfield_raw_f = _genop_getfield
-    emit_getfield_raw_pure_i = _genop_getfield
-    emit_getfield_raw_pure_f = _genop_getfield
 
     SIZE2SCALE = dict([(1<<_i, _i) for _i in range(32)])
 
@@ -893,8 +891,6 @@ class FieldOpAssembler(object):
     emit_getarrayitem_gc_pure_f = _genop_getarray_or_interiorfield
     emit_getarrayitem_raw_i = _genop_getarray_or_interiorfield
     emit_getarrayitem_raw_f = _genop_getarray_or_interiorfield
-    emit_getarrayitem_raw_pure_i = _genop_getarray_or_interiorfield
-    emit_getarrayitem_raw_pure_f = _genop_getarray_or_interiorfield
 
     emit_raw_store = emit_setarrayitem_gc
     emit_raw_load_i = _genop_getarray_or_interiorfield
