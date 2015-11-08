@@ -3070,7 +3070,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (b == zeros(10)).all()
 
     def test_array_interface(self):
-        from numpy import array
+        from numpy import array, ones
         a = array(2.5)
         i = a.__array_interface__
         assert isinstance(i['data'][0], int)
@@ -3105,9 +3105,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(TypeError, array, Dummy({'version': 3, 'typestr': 'f8', 'shape': ('a', 3)}))
 
         a = array([1, 2, 3])
-        interface_a = a.__array_interface__
-        interface_a.pop('strides')
-        b = array(Dummy(interface_a))
+        b = array(Dummy(a.__array_interface__))
         b[1] = 200
         assert a[1] == 2 # upstream compatibility, is this a bug?
         interface_a = a.__array_interface__
@@ -3123,6 +3121,12 @@ class AppTestMultiDim(BaseNumpyAppTest):
                          'data': 'a'*100}))
         assert b.dtype == 'uint8'
         assert b.shape == (50,)
+
+        a = ones((1,), dtype='float16')
+        b = Dummy(a.__array_interface__)
+        c = array(b)
+        assert c.dtype == 'float16'
+        assert (a == c).all()
 
     def test_array_indexing_one_elem(self):
         from numpy import array, arange

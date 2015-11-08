@@ -71,9 +71,10 @@ def try_interface_method(space, w_object):
         if w_descr is not None:
             raise oefmt(space.w_NotImplementedError,
                     "__array_interface__ descr not supported yet")
-        if w_strides is not None:
-            raise oefmt(space.w_NotImplementedError,
-                    "__array_interface__ strides not supported yet")
+        if w_strides is None or space.is_w(w_strides, space.w_None):
+            strides = None
+        else:
+            strides = [space.int_w(i) for i in space.listview(w_strides)]
         shape = [space.int_w(i) for i in space.listview(w_shape)]
         dtype = descriptor.decode_w_dtype(space, w_dtype)
         if dtype is None:
@@ -85,7 +86,8 @@ def try_interface_method(space, w_object):
             data = rffi.cast(RAW_STORAGE_PTR, space.int_w(data_w[0]))
             read_only = True # XXX why not space.is_true(data_w[1])
             offset = 0
-            return W_NDimArray.from_shape_and_storage(space, shape, data, dtype, start=offset), read_only
+            return W_NDimArray.from_shape_and_storage(space, shape, data, 
+                                    dtype, strides=strides, start=offset), read_only
         if w_data is None:
             data = w_object
         else:
@@ -96,6 +98,9 @@ def try_interface_method(space, w_object):
         else:
             offset = space.int_w(w_offset)
         #print 'create view from shape',shape,'dtype',dtype,'data',data
+        if strides is not None:
+            raise oefmt(space.w_NotImplementedError,
+                   "__array_interface__ strides not fully supported yet") 
         arr = frombuffer(space, data, dtype, support.product(shape), offset)
         new_impl = arr.implementation.reshape(arr, shape)
         return W_NDimArray(new_impl), False
