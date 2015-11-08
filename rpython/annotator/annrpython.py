@@ -500,15 +500,14 @@ class RPythonAnnotator(object):
                 issubclass(link.exitcase, BaseException)):
             assert v_last_exc_type and v_last_exc_value
             s_last_exc_value = self.bookkeeper.valueoftype(link.exitcase)
-            s_last_exc_type = annmodel.SomeType()
-            if isinstance(v_last_exc_type, Constant):
-                s_last_exc_type.const = v_last_exc_type.value
-            s_last_exc_type.is_type_of = [v_last_exc_value]
-
-            if isinstance(v_last_exc_type, Variable):
-                self.setbinding(v_last_exc_type, s_last_exc_type)
             if isinstance(v_last_exc_value, Variable):
                 self.setbinding(v_last_exc_value, s_last_exc_value)
+
+
+            if isinstance(v_last_exc_type, Variable):
+                s_etype = annmodel.SomeType()
+                s_etype.is_type_of = [v_last_exc_value]
+                self.setbinding(v_last_exc_type, s_etype)
 
             s_last_exc_type = annmodel.SomeType()
             if isinstance(v_last_exc_type, Constant):
