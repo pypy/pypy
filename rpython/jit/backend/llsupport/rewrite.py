@@ -205,7 +205,7 @@ class GcRewriterAssembler(object):
         # The checked value is also in the failargs.  The front-end
         # tries not to produce it, but doesn't always succeed (and
         # it's hard to test all cases).  Rewrite it away.
-        value = (opnum == rop.GUARD_FALSE)
+        value = int(opnum == rop.GUARD_FALSE)
         op1 = ResOperation(rop.SAME_AS_I, [ConstInt(value)])
         op1.setint(value)
         self.emit_op(op1)
