@@ -9028,7 +9028,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_unroll_pure_on_bogus_object_1(self):
-        py.test.skip("FIXME")
         ops = """
         [p0, i1]
         i2 = int_gt(i1, 0)
@@ -9037,22 +9036,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(NULL, i3)
         """
-        self.optimize_loop(ops, ops)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_2(self):
-        py.test.skip("FIXME")
         ops = """
         [p0, i1]
         i2 = int_gt(i1, 0)
         guard_true(i2) []
         getfield_gc_pure_i(p0, descr=valuedescr)
         i3 = int_sub(i1, 1)
-        jump(ConstPtr(myptr3), i3)
+        jump(ConstPtr(myptr4), i3)
         """
-        self.optimize_loop(ops, ops)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_3(self):
-        py.test.skip("FIXME")
         ops = """
         [p0, i1]
         i2 = int_gt(i1, 0)
@@ -9061,10 +9058,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(NULL, i3)
         """
-        self.optimize_loop(ops, ops)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_4(self):
-        py.test.skip("FIXME")
         ops = """
         [p0, i1]
         i2 = int_gt(i1, 0)
@@ -9073,10 +9069,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(ConstPtr(myptr3), i3)
         """
-        self.optimize_loop(ops, ops)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_5(self):
-        py.test.skip("FIXME")
         ops = """
         [p0, i1]
         i2 = int_gt(i1, 0)
@@ -9085,10 +9080,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(ConstPtr(arrayref), i3)     # too short, length < 126!
         """
-        self.optimize_loop(ops, ops)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_6(self):
-        py.test.skip("FIXME")
         ops = """
         [i0, i1]
         i2 = int_gt(i1, 0)
@@ -9097,10 +9091,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(125, i3)     # arrayref is too short, length < 126!
         """
-        self.optimize_loop(ops, ops)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_7(self):
-        py.test.skip("FIXME")
         ops = """
         [i0, i1]
         i2 = int_gt(i1, 0)
@@ -9109,10 +9102,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(-1, i3)     # cannot access array item -1!
         """
-        self.optimize_loop(ops, ops)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_8(self):
-        py.test.skip("FIXME")
         ops = """
         [p0, i1]
         i2 = int_gt(i1, 0)
@@ -9121,10 +9113,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(NULL, i3)
         """
-        self.optimize_loop(ops, ops)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_9(self):
-        py.test.skip("FIXME")
         ops = """
         [p0, i1]
         i2 = int_gt(i1, 0)
@@ -9133,10 +9124,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(ConstPtr(myptr), i3)    # not a string at all
         """
-        self.optimize_loop(ops, ops)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+
+    def test_unroll_pure_on_bogus_object_9_unicode(self):
+        ops = """
+        [p0, i1]
+        i2 = int_gt(i1, 0)
+        guard_true(i2) []
+        i4 = unicodegetitem(p0, 125)
+        i3 = int_sub(i1, 1)
+        jump(ConstPtr(myptr), i3)    # not a unicode at all
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_10(self):
-        py.test.skip("FIXME")
         ops = """
         [i0, i1]
         i2 = int_gt(i1, 0)
@@ -9145,10 +9146,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(125, i3)    # string is too short!
         """
-        self.optimize_loop(ops, ops)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_11(self):
-        py.test.skip("FIXME")
         ops = """
         [i0, i1]
         i2 = int_gt(i1, 0)
@@ -9157,7 +9157,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(-1, i3)    # cannot access character -1!
         """
-        self.optimize_loop(ops, ops)
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):

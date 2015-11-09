@@ -4,7 +4,7 @@ from rpython.jit.metainterp.history import Const, TargetToken, JitCellToken
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
      ShortPreambleBuilder, ExtendedShortPreambleBuilder, PreambleOp
 from rpython.jit.metainterp.optimizeopt import info, intutils
-from rpython.jit.metainterp.optimize import InvalidLoop
+from rpython.jit.metainterp.optimize import InvalidLoop, SpeculativeError
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
      Optimization, LoopInfo, MININT, MAXINT, BasicLoopInfo
 from rpython.jit.metainterp.optimizeopt.vstring import StrPtrInfo
@@ -144,9 +144,12 @@ class UnrollOptimizer(Optimization):
             raise InvalidLoop("Cannot import state, virtual states don't match")
         self.potential_extra_ops = {}
         self.optimizer.init_inparg_dict_from(label_args)
-        info, _ = self.optimizer.propagate_all_forward(
-            start_label.getarglist()[:], ops, call_pure_results, False,
-            flush=False)
+        try:
+            info, _ = self.optimizer.propagate_all_forward(
+                start_label.getarglist()[:], ops, call_pure_results, False,
+                flush=False)
+        except SpeculativeError:
+            raise InvalidLoop("Speculative heap access would be ill-typed")
         label_op = ResOperation(rop.LABEL, label_args, start_label.getdescr())
         for a in end_jump.getarglist():
             self.optimizer.force_box_for_end_of_preamble(

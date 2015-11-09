@@ -7,6 +7,7 @@ from rpython.jit.metainterp.history import Const, getkind
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import intbounds
+from rpython.jit.metainterp.optimize import SpeculativeError
 from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
@@ -196,6 +197,7 @@ class FieldDescr(AbstractDescr):
 
         return intbounds.get_integer_max(
             not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
 
 def _is_signed_kind(TYPE):
     return (TYPE is not lltype.Bool and isinstance(TYPE, lltype.Number) and
@@ -949,6 +951,35 @@ class LLGraphCPU(model.AbstractCPU):
     def store_fail_descr(self, deadframe, descr):
         pass # I *think*
 
+    def protect_speculative_field(self, p, fielddescr):
+        if not p:
+            raise SpeculativeError
+        p = p._obj.container._as_ptr()
+        try:
+            lltype.cast_pointer(lltype.Ptr(fielddescr.S), p)
+        except lltype.InvalidCast:
+            raise SpeculativeError
+
+    def protect_speculative_array(self, p, arraydescr):
+        if not p:
+            raise SpeculativeError
+        p = p._obj.container
+        if lltype.typeOf(p) != arraydescr.A:
+            raise SpeculativeError
+
+    def protect_speculative_string(self, p):
+        if not p:
+            raise SpeculativeError
+        p = p._obj.container
+        if lltype.typeOf(p) != rstr.STR:
+            raise SpeculativeError
+
+    def protect_speculative_unicode(self, p):
+        if not p:
+            raise SpeculativeError
+        p = p._obj.container
+        if lltype.typeOf(p) != rstr.UNICODE:
+            raise SpeculativeError
 
 
 class LLDeadFrame(object):
