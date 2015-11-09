@@ -6,10 +6,10 @@ from rpython.tool.ansi_print import ansi_log
 from rpython.tool.pairtype import pair
 from rpython.tool.error import (format_blocked_annotation_error,
                              gather_error, source_lines)
-from rpython.flowspace.model import (
-    Variable, Constant, FunctionGraph, checkgraph)
+from rpython.flowspace.model import Variable, Constant, checkgraph
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
+from rpython.annotator.model import SomeTypeOf
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
 
@@ -503,11 +503,8 @@ class RPythonAnnotator(object):
             if isinstance(v_last_exc_value, Variable):
                 self.setbinding(v_last_exc_value, s_last_exc_value)
 
-
             if isinstance(v_last_exc_type, Variable):
-                s_etype = annmodel.SomeType()
-                s_etype.is_type_of = [v_last_exc_value]
-                self.setbinding(v_last_exc_type, s_etype)
+                self.setbinding(v_last_exc_type, SomeTypeOf(v_last_exc_value))
 
             s_last_exc_type = annmodel.SomeType()
             if isinstance(v_last_exc_type, Constant):

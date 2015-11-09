@@ -138,6 +138,11 @@ class SomeType(SomeObject):
     def can_be_none(self):
         return False
 
+class SomeTypeOf(SomeType):
+    """The type of a variable"""
+    def __init__(self, v_arg):
+        self.is_type_of = [v_arg]
+
 
 class SomeFloat(SomeObject):
     "Stands for a float or an integer."

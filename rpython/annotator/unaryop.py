@@ -11,7 +11,7 @@ from rpython.flowspace.argument import CallSpec
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
-    SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
+    SomeFloat, SomeIterator, SomePBC, SomeNone, SomeTypeOf, s_ImpossibleValue,
     s_Bool, s_None, s_Int, unionof, add_knowntypedata,
     SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
@@ -26,11 +26,11 @@ UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
 UNARY_OPERATIONS.remove('contains')
 
+
 @op.type.register(SomeObject)
-def type_SomeObject(annotator, arg):
-    r = SomeType()
-    r.is_type_of = [arg]
-    return r
+def type_SomeObject(annotator, v_arg):
+    return SomeTypeOf(v_arg)
+
 
 @op.bool.register(SomeObject)
 def bool_SomeObject(annotator, obj):
