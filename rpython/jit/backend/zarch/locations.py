@@ -217,8 +217,10 @@ def imm(i):
     return ImmLocation(i)
 
 def pool(off, float=False):
-    print "loading pool", off
     return PoolLoc(off, float)
+
+def halfword(value):
+    return ImmLocation(value//2)
 
 def get_fp_offset(base_ofs, position):
     from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE

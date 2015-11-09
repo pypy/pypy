@@ -245,11 +245,13 @@ class AssemblerZARCH(BaseAssembler,
 
         regalloc = Regalloc(assembler=self)
         #
+        self.pool.pre_assemble(self, operations)
+        entrypos = self.mc.get_relative_pos()
+        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - entrypos))
         self._call_header_with_stack_check()
         operations = regalloc.prepare_loop(inputargs, operations,
                                            looptoken, clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
-        self.pool.pre_assemble(self, operations)
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
                                                    operations)
         self.update_frame_depth(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
@@ -278,7 +280,7 @@ class AssemblerZARCH(BaseAssembler,
             looptoken._zarch_rawstart = rawstart
             looptoken._zarch_fullsize = full_size
             looptoken._zarch_ops_offset = ops_offset
-        looptoken._ll_function_addr = rawstart
+        looptoken._ll_function_addr = rawstart + entrypos
         if logger:
             logger.log_loop(inputargs, operations, 0, "rewritten",
                             name=loopname, ops_offset=ops_offset)
@@ -308,13 +310,14 @@ class AssemblerZARCH(BaseAssembler,
 
         arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
         regalloc = Regalloc(assembler=self)
+        self.pool.pre_assemble(self, operations, bridge=True)
         startpos = self.mc.get_relative_pos()
+        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - startpos))
         operations = regalloc.prepare_bridge(inputargs, arglocs,
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
-        self.pool.pre_assemble(self, operations, bridge=True)
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
         self.pool.post_assemble(self)
@@ -326,7 +329,7 @@ class AssemblerZARCH(BaseAssembler,
         debug_bridge(descr_number, rawstart, codeendpos)
         self.patch_pending_failure_recoveries(rawstart)
         # patch the jump from original guard
-        self.patch_jump_for_descr(faildescr, rawstart)
+        self.patch_jump_for_descr(faildescr, rawstart + startpos)
         ops_offset = self.mc.ops_offset
         frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
                           frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
@@ -345,7 +348,6 @@ class AssemblerZARCH(BaseAssembler,
         # Updates the pool address
         mc = InstrBuilder()
         mc.write_i64(adr_new_target)
-        print "addr is", hex(adr_new_target), "writing to", hex(faildescr.adr_jump_offset)
         mc.copy_to_raw_memory(faildescr.adr_jump_offset)
         assert faildescr.adr_jump_offset != 0
         faildescr.adr_jump_offset = 0    # means "patched"
@@ -353,7 +355,6 @@ class AssemblerZARCH(BaseAssembler,
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
             targettoken._ll_loop_code += rawstart
-            targettoken._ll_loop_pool += rawstart
         self.target_tokens_currently_compiling = None
 
     def _assemble(self, regalloc, inputargs, operations):
@@ -561,7 +562,9 @@ class AssemblerZARCH(BaseAssembler,
         pass # TODO
 
     def emit_label(self, op, arglocs, regalloc):
-        pass
+        offset = self.pool.pool_start - self.mc.get_relative_pos()
+        # load the pool address at each label
+        self.mc.LARL(r.POOL, l.halfword(offset))
 
     def emit_jump(self, op, arglocs, regalloc):
         # The backend's logic assumes that the target code is in a piece of
@@ -576,19 +579,18 @@ class AssemblerZARCH(BaseAssembler,
         assert my_nbargs == target_nbargs
 
         if descr in self.target_tokens_currently_compiling:
-            self.mc.b_offset(descr._ll_loop_code)
+            # a label has a LARL instruction that does not need
+            # to be executed, thus remove the first opcode
+            self.mc.b_offset(descr._ll_loop_code + self.mc.LARL_byte_count)
         else:
             # restore the pool address
             offset = self.pool.get_descr_offset(descr) + \
                      JUMPABS_TARGET_ADDR__POOL_OFFSET
             offset_pool = offset + JUMPABS_POOL_ADDR_POOL_OFFSET
             self.mc.LG(r.SCRATCH, l.pool(offset))
-            # the pool address of the target is saved in the bridge's pool
-            self.mc.LG(r.POOL, l.pool(offset_pool))
             self.mc.BCR(c.ANY, r.SCRATCH)
 
             self.pool.overwrite_64(self.mc, offset, descr._ll_loop_code)
-            self.pool.overwrite_64(self.mc, offset_pool, descr._ll_loop_pool)
 
 
     def emit_finish(self, op, arglocs, regalloc):

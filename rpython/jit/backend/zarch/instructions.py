@@ -87,6 +87,7 @@ memory_mnemonic_codes = {
     'LR':      ('rr',    ['\x18']),
     'LGR':     ('rre',   ['\xB9','\x04']),
     'LG':      ('rxy',   ['\xE3','\x04']),
+    'LARL':    ('ril',   ['\xC0','\x00'], 'r/m,h32'),
 
     # store memory
     'STMG':    ('rsy',   ['\xEB','\x24']),

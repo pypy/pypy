@@ -9,6 +9,8 @@ def dummy_argument(arg):
         return 0
     if arg.startswith('i') or arg.startswith('u'):
         return 0
+    if arg.startswith('h'):
+        return 0
     return loc.addr(0)
 
 class builder(object):
@@ -31,6 +33,7 @@ class builder(object):
         bidl   - index base displacement (20 bit)
         l4bd   - length base displacement (4 bit)
         l8bd   - length base displacement (8 bit)
+        h32    - halfwords 32 bit (e.g. LARL, or other relative instr.)
 
         note that a suffix 'l' means long, and a prefix length
         """
@@ -174,9 +177,9 @@ def build_ri_u(mnemonic, (opcode,halfopcode)):
     func._arguments_[1] = 'u16'
     return func
 
-def build_ril(mnemonic, (opcode,halfopcode)):
+def build_ril(mnemonic, (opcode,halfopcode), args='r/m,i32'):
     br = is_branch_relative(mnemonic)
-    @builder.arguments('r/m,i32')
+    @builder.arguments(args)
     def encode_ri(self, reg_or_mask, imm32):
         self.writechar(opcode)
         byte = (reg_or_mask & 0xf) << 4 | (ord(halfopcode) & 0xf)
@@ -348,7 +351,7 @@ def build_unpack_func(mnemonic, func):
                 newargs[i] = 0
             elif arg == 'r' or arg == 'r/m' or arg == 'f':
                 newargs[i] = args[i].value
-            elif arg.startswith('i') or arg.startswith('u'):
+            elif arg.startswith('i') or arg.startswith('u') or arg.startswith('h'):
                 newargs[i] = args[i].value
             else:
                 newargs[i] = args[i]
