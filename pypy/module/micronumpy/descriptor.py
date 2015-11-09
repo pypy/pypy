@@ -497,6 +497,8 @@ class W_Dtype(W_Root):
                 return self.descr_get_name(space)
 
     def descr_repr(self, space):
+        if isinstance(self.itemtype, types.CharType):
+            return space.wrap("dtype('S1')")
         if self.fields:
             r = self.descr_get_descr(space, style='repr')
         elif self.subdtype is not None:
@@ -1122,7 +1124,7 @@ def variable_dtype(space, name):
             size = int(name[1:])
         except ValueError:
             raise oefmt(space.w_TypeError, "data type not understood")
-    if char == NPY.CHARLTR:
+    if char == NPY.CHARLTR and size == 0:
         return W_Dtype(
             types.CharType(space),
             elsize=1,
@@ -1133,7 +1135,7 @@ def variable_dtype(space, name):
         return new_unicode_dtype(space, size)
     elif char == NPY.VOIDLTR:
         return new_void_dtype(space, size)
-    assert False
+    raise oefmt(space.w_TypeError, 'data type "%s" not understood', name)
 
 
 def new_string_dtype(space, size):

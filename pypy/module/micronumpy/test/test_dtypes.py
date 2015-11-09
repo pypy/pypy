@@ -1056,6 +1056,7 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
         assert d.char == 'c'
         assert d.kind == 'S'
         assert d.str == '|S1'
+        assert repr(d) == "dtype('S1')"
 
 class AppTestRecordDtypes(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
