@@ -143,6 +143,7 @@ void vmprof_ignore_signals(int ignored)
 
 #define VERSION_BASE '\x00'
 #define VERSION_THREAD_ID '\x01'
+#define VERSION_TAG '\x02'
 
 vmprof_stack* vmprof_global_stack = NULL;
 
@@ -216,10 +217,11 @@ static int get_stack_trace(void **result, int max_depth, ucontext_t *ucontext)
     // read the first slot of shadowstack
     struct vmprof_stack* stack = vmprof_global_stack;
     int n = 0;
-    while (n < max_depth && stack) {
-        result[n] = (void*)stack->value;
+    while (n < max_depth - 1 && stack) {
+        result[n] = (void*)stack->kind;
+        result[n + 1] = (void*)stack->value;
         stack = stack->next;
-        n++;
+        n += 2;
     }
     return n;
 }
@@ -311,9 +313,9 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
             struct prof_stacktrace_s *st = (struct prof_stacktrace_s *)p->data;
             st->marker = MARKER_STACKTRACE;
             st->count = 1;
-            st->stack[0] = GetPC((ucontext_t*)ucontext);
-            depth = get_stack_trace(st->stack+1, MAX_STACK_DEPTH-2, ucontext);
-            depth++;  // To account for pc value in stack[0];
+            //st->stack[0] = GetPC((ucontext_t*)ucontext);
+            depth = get_stack_trace(st->stack, MAX_STACK_DEPTH-2, ucontext);
+            //depth++;  // To account for pc value in stack[0];
             st->depth = depth;
             st->stack[depth++] = get_current_thread_id();
             p->data_offset = offsetof(struct prof_stacktrace_s, marker);
@@ -459,7 +461,7 @@ static int opened_profile(char *interp_name)
     header.hdr[4] = 0;
     header.interp_name[0] = MARKER_HEADER;
     header.interp_name[1] = '\x00';
-    header.interp_name[2] = VERSION_THREAD_ID;
+    header.interp_name[2] = VERSION_TAG;
     header.interp_name[3] = namelen;
     memcpy(&header.interp_name[4], interp_name, namelen);
     return _write_all(&header, 5 * sizeof(long) + 4 + namelen);

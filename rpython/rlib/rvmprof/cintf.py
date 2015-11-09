@@ -114,6 +114,7 @@ def make_c_trampoline_function(name, func, token, restok):
     struct vmprof_stack node;
 
     node.value = unique_id;
+    node.kind = VMPROF_CODE_TAG;
     node.next = vmprof_global_stack;
     vmprof_global_stack = &node;
     result = %(cont_name)s(%(argnames)s);
