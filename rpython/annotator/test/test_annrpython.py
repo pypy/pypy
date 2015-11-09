@@ -3244,22 +3244,6 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         py.test.raises(AnnotatorError, a.build_types, f, [])
 
-    def test_ctr_location(self):
-        class A:
-            _annspecialcase_ = 'specialize:ctr_location'
-            def __init__(self, x):
-                self.x = x
-
-        def f(n):
-            a = A(2 * n)
-            a.x = n
-            b = A("")
-            b.x = str(n)
-            return len(b.x) + a.x
-        a = self.RPythonAnnotator()
-        with py.test.raises(annmodel.AnnotatorError):
-            s = a.build_types(f, [int])
-
     def test_weakref(self):
         import weakref
 
