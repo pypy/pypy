@@ -207,6 +207,7 @@ class GcRewriterAssembler(object):
         # it's hard to test all cases).  Rewrite it away.
         value = (opnum == rop.GUARD_FALSE)
         op1 = ResOperation(rop.SAME_AS_I, [ConstInt(value)])
+        op1.setint(value)
         self.emit_op(op1)
         lst = op.getfailargs()[:]
         lst[i] = op1
