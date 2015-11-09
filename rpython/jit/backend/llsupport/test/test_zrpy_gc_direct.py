@@ -34,8 +34,8 @@ def run_guards_translated(gcremovetypeptr):
     rclass = getclassrepr(rtyper, classdef)
     rinstance = getinstancerepr(rtyper, classdef)
     LLB = rinstance.lowleveltype.TO
-    vtable_B = rclass.getvtable()
-    adr_vtable_B = llmemory.cast_ptr_to_adr(vtable_B)
+    ptr_vtable_B = rclass.getvtable()
+    adr_vtable_B = llmemory.cast_ptr_to_adr(ptr_vtable_B)
     vtable_B = llmemory.cast_adr_to_int(adr_vtable_B, mode="symbolic")
 
     CPU = getcpuclass()
@@ -46,7 +46,7 @@ def run_guards_translated(gcremovetypeptr):
     finaldescr = BasicFinalDescr()
     faildescr = BasicFailDescr()
 
-    descr_B = cpu.sizeof(LLB, vtable_B)
+    descr_B = cpu.sizeof(LLB, ptr_vtable_B)
     typeid_B = descr_B.get_type_id()
 
     loop1 = parse("""

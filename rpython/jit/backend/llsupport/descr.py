@@ -41,11 +41,11 @@ class SizeDescr(AbstractDescr):
     def __init__(self, size, gc_fielddescrs=None, all_fielddescrs=None,
                  vtable=lltype.nullptr(rclass.OBJECT_VTABLE),
                  immutable_flag=False):
+        assert lltype.typeOf(vtable) == lltype.Ptr(rclass.OBJECT_VTABLE)
         self.size = size
         self.gc_fielddescrs = gc_fielddescrs
         self.all_fielddescrs = all_fielddescrs
         self.vtable = vtable
-        assert vtable is not None
         self.immutable_flag = immutable_flag
 
     def get_all_fielddescrs(self):
