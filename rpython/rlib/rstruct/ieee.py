@@ -67,9 +67,13 @@ def float_unpack(Q, size):
             # preserve at most 52 bits of mant value, but pad w/zeros
             exp = r_ulonglong(0x7ff) << 52
             sign = r_ulonglong(sign) << 63
-            mant = r_ulonglong(mant) << (52 - MANT_DIG) 
-            uint = exp | mant | sign
-            result =  longlong2float(cast(LONGLONG, uint))
+            if MANT_DIG < 53:
+                mant = r_ulonglong(mant) << (53 - MANT_DIG) 
+            if mant == 0:
+                result = rfloat.NAN
+            else:
+                uint = exp | mant | sign
+                result =  longlong2float(cast(LONGLONG, uint))
             return result
     elif exp == 0:
         # subnormal or zero
@@ -114,8 +118,12 @@ def float_unpack80(QQ, size):
             result = rfloat.INFINITY
         else:
             exp = r_ulonglong(0x7ff) << 52
-            uint = exp | r_ulonglong(mant) | r_ulonglong(sign)
-            result =  longlong2float(cast(LONGLONG, uint))
+            mant = r_ulonglong(mant) >> size + 1
+            if mant == 0:
+                result = rfloat.NAN
+            else:
+                uint = exp | r_ulonglong(mant) | r_ulonglong(sign)
+                result =  longlong2float(cast(LONGLONG, uint))
             return result
     else:
         # normal
@@ -149,13 +157,13 @@ def float_pack(x, size):
         exp = MAX_EXP - MIN_EXP + 2
     elif rfloat.isnan(x):
         asint = cast(ULONGLONG, float2longlong(x))
-        mant = asint & ((r_ulonglong(1) << 51) - 1)
         sign = asint >> 63
         # shift off lower bits, perhaps losing data
-        if MANT_DIG <= 52:
-            mant = mant >> (52 - MANT_DIG)
+        mant = asint & ((r_ulonglong(1) << 52) - 1)
+        if MANT_DIG < 53:
+            mant = mant >> (53 - MANT_DIG)
         if mant == 0:
-            mant = r_ulonglong(1) << (MANT_DIG - 2) - 1
+            mant = r_ulonglong(1) << (MANT_DIG - 1) - 1
         exp = MAX_EXP - MIN_EXP + 2
     elif x == 0.0:
         mant = r_ulonglong(0)
@@ -216,7 +224,7 @@ def float_pack80(x, size):
         asint = cast(ULONGLONG, float2longlong(x))
         mant = asint & ((r_ulonglong(1) << 51) - 1)
         if mant == 0:
-            mant = r_ulonglong(1) << (MANT_DIG-2) - 1
+            mant = r_ulonglong(1) << (MANT_DIG - 1) - 1
         sign = asint < 0
         exp = MAX_EXP - MIN_EXP + 2
     elif x == 0.0:
