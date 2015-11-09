@@ -1150,11 +1150,13 @@ class LLFrame(object):
     def _test_true(self, arg):
         if isinstance(arg, list):
             return all(arg)
+        assert arg in (0, 1)
         return arg
 
     def _test_false(self, arg):
         if isinstance(arg, list):
             return any(arg)
+        assert arg in (0, 1)
         return arg
 
     def execute_guard_true(self, descr, arg):

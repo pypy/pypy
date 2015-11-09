@@ -196,6 +196,8 @@ class GcRewriterAssembler(object):
         opnum = op.getopnum()
         if not (opnum == rop.GUARD_TRUE or opnum == rop.GUARD_FALSE):
             return
+        if op.getarg(0).is_vector:
+            return
         try:
             i = op.getfailargs().index(op.getarg(0))
         except ValueError:
