@@ -1022,7 +1022,7 @@ class RegisterOs(BaseLazyRegistering):
     def register_os_read(self):
         os_read = self.llexternal(UNDERSCORE_ON_WIN32 + 'read',
                                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T],
-                                  rffi.SIZE_T, save_err=rffi.RFFI_SAVE_ERRNO)
+                                  rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO)
 
         def os_read_llimpl(fd, count):
             if count < 0:

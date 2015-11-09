@@ -5,7 +5,7 @@ typedef void *_cffi_opcode_t;
 
 #define _CFFI_OP(opcode, arg)   (_cffi_opcode_t)(opcode | (((uintptr_t)(arg)) << 8))
 #define _CFFI_GETOP(cffi_opcode)    ((unsigned char)(uintptr_t)cffi_opcode)
-#define _CFFI_GETARG(cffi_opcode)   (((uintptr_t)cffi_opcode) >> 8)
+#define _CFFI_GETARG(cffi_opcode)   (((intptr_t)cffi_opcode) >> 8)
 
 #define _CFFI_OP_PRIMITIVE       1
 #define _CFFI_OP_POINTER         3
@@ -82,6 +82,8 @@ typedef void *_cffi_opcode_t;
 #define _CFFI__UNKNOWN_PRIM           (-1)
 #define _CFFI__UNKNOWN_FLOAT_PRIM     (-2)
 #define _CFFI__UNKNOWN_LONG_DOUBLE    (-3)
+
+#define _CFFI__IO_FILE_STRUCT         (-1)
 
 
 struct _cffi_global_s {

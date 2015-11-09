@@ -3,7 +3,6 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.test.test_llinterp import gengraph, interpret, interpret_raises
 
 class BaseRtypingTest(object):
-    type_system = 'lltype'
     FLOAT_PRECISION = 8
 
     def gengraph(self, func, argtypes=[], viewbefore='auto', policy=None,
@@ -12,10 +11,10 @@ class BaseRtypingTest(object):
                         backendopt=backendopt, config=config)
 
     def interpret(self, fn, args, **kwds):
-        return interpret(fn, args, type_system=self.type_system, **kwds)
+        return interpret(fn, args, **kwds)
 
     def interpret_raises(self, exc, fn, args, **kwds):
-        return interpret_raises(exc, fn, args, type_system=self.type_system, **kwds)
+        return interpret_raises(exc, fn, args, **kwds)
 
     def float_eq(self, x, y):
         return x == y

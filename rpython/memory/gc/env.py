@@ -135,7 +135,7 @@ def get_L2cache_linux2():
     arch = os.uname()[4]  # machine
     if arch.endswith('86') or arch == 'x86_64':
         return get_L2cache_linux2_cpuinfo()
-    if arch in ('alpha', 'ppc', 'ppc64'):
+    if arch in ('alpha', 'ppc'):
         return get_L2cache_linux2_cpuinfo(label='L2 cache')
     if arch == 'ia64':
         return get_L2cache_linux2_ia64()

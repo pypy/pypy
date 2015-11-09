@@ -159,8 +159,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         af2 = ufunc(af)
         assert all(af2 == af * 2)
         ac = arange(10, dtype=complex)
-        skip('casting not implemented yet')
-        ac1 = ufunc(ac)
+        raises(TypeError, ufunc, ac)
 
     def test_frompyfunc_2d_sig(self):
         import sys
@@ -199,13 +198,42 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ai2 = ufunc(aiV)
         assert (ai2 == aiV * 2).all()
 
+        ai = arange(0).reshape(0, 1, 1)
+        ao = ufunc(ai)
+        assert ao.shape == (0, 1, 1)
+
+    def test_frompyfunc_not_contiguous(self):
+        import sys
+        from numpy import frompyfunc, dtype, arange, dot
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
+        def _dot(in0, in1, out):
+            print in0, '\nin1',in1,'\nin1.shape', in1.shape, 'in1.strides', in1.strides
+            out[...] = dot(in0, in1)
+
+        ufunc_dot = frompyfunc(_dot, 2, 1,
+                            signature='(m,m),(m,n)->(m,n)',
+                            dtypes=[dtype(float), dtype(float), dtype(float)],
+                            stack_inputs=True,
+                          )
+        a1 = arange(4, dtype=float).reshape(2,2)
+        # create a non-c-contiguous argument
+        a2 = arange(2, dtype=float).reshape(2,1)
+        a3 = arange(2, dtype=float).reshape(1,2).T
+        b1 = ufunc_dot(a1, a2, sig='dd->d')
+        b2 = dot(a1, a2)
+        assert (b1==b2).all()
+        print 'xxxxxxxxxxxx'
+        b1 = ufunc_dot(a1, a3, sig='dd->d')
+        b2 = dot(a1, a3)
+        assert (b1==b2).all()
+ 
     def test_frompyfunc_needs_nditer(self):
         import sys
         from numpy import frompyfunc, dtype, arange
         if '__pypy__' not in sys.builtin_module_names:
             skip('PyPy only frompyfunc extension')
         def summer(in0):
-            print 'in summer, in0=',in0,'in0.shape=',in0.shape
             return in0.sum()
 
         ufunc = frompyfunc([summer], 1, 1,
@@ -239,11 +267,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
                             stack_inputs=True,
                           )
         ai = arange(18, dtype=int).reshape(3,2,3)
-        aout = ufunc_add(ai, ai[0,:,:])
-        assert aout.shape == (3, 2, 3)
-        aout = ufunc_sum(ai)
-        assert aout.shape == (3, 3)
-
+        aout1 = ufunc_add(ai, ai[0,:,:])
+        assert aout1.shape == (3, 2, 3)
+        aout2 = ufunc_add(ai, ai[0,:,:])
+        aout3 = ufunc_sum(ai)
+        assert aout3.shape == (3, 3)
+        aout4 = ufunc_add(ai, ai[0,:,:][None, :,:])
+        assert (aout1 == aout4).all()
+        
     def test_frompyfunc_fortran(self):
         import sys
         import numpy as np
@@ -268,6 +299,80 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert out0.shape == in0.shape
         assert (out0 == in0 * 2).all()
 
+    def test_frompyfunc_casting(self):
+        import sys
+        import numpy as np
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
+
+        def times2_int(in0, out0):
+            assert in0.dtype == int
+            assert out0.dtype == int
+            # hack to assigning to a 0-dim array
+            out0.real = in0 * 2
+
+        def times2_complex(in0, out0):
+            assert in0.dtype == complex
+            assert out0.dtype == complex
+            out0.real = in0.real * 2
+            out0.imag = in0.imag
+
+        def times2_complex0(in0):
+            assert in0.dtype == complex
+            return in0 * 2
+
+        def times2_int0(in0):
+            assert in0.dtype == int
+            return in0 * 2
+
+        times2stacked = np.frompyfunc([times2_int, times2_complex], 1, 1,
+                            dtypes=[np.dtype(int), np.dtype(int),
+                                np.dtype(complex), np.dtype(complex)],
+                            stack_inputs=True, signature='()->()',
+                          )
+        times2 = np.frompyfunc([times2_int0, times2_complex0], 1, 1,
+                            dtypes=[np.dtype(int), np.dtype(int),
+                                np.dtype(complex), np.dtype(complex)],
+                            stack_inputs=False,
+                          )
+        for d in [np.dtype(float), np.dtype('uint8'), np.dtype('complex64')]:
+            in0 = np.arange(4, dtype=d)
+            out0 = times2stacked(in0)
+            assert out0.shape == in0.shape
+            assert out0.dtype in (int, complex) 
+            assert (out0 == in0 * 2).all()
+
+            out0 = times2(in0)
+            assert out0.shape == in0.shape
+            assert out0.dtype in (int, complex) 
+            assert (out0 == in0 * 2).all()
+
+            in0 = np.arange(4, dtype=int)
+            out0 = times2(in0, sig='D->D')
+            assert out0.dtype == complex
+
+    def test_frompyfunc_scalar(self):
+        import sys
+        import numpy as np
+        if '__pypy__' not in sys.builtin_module_names:
+            skip('PyPy only frompyfunc extension')
+
+        def summer(in0):
+            out = np.empty(1, in0.dtype)
+            out[0] = in0.sum()
+            return out
+
+        pysummer = np.frompyfunc([summer, summer], 1, 1,
+                            dtypes=[np.dtype(int), np.dtype(int),
+                                np.dtype(complex), np.dtype(complex)],
+                            stack_inputs=False, signature='(m,m)->()',
+                          )
+        for d in [np.dtype(float), np.dtype('uint8'), np.dtype('complex64')]:
+            in0 = np.arange(4, dtype=d).reshape(1, 2, 2)
+            out0 = pysummer(in0)
+            assert out0 == in0.sum()
+            assert out0.dtype in (int, complex)
+
     def test_ufunc_kwargs(self):
         from numpy import ufunc, frompyfunc, arange, dtype
         def adder(a, b):
@@ -281,7 +386,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert all(res == args[0] + args[1])
         raises(TypeError, adder_ufunc, *args, blah=True)
         raises(TypeError, adder_ufunc, *args, extobj=True)
-        raises(RuntimeError, adder_ufunc, *args, sig='(d,d)->(d)', dtype=int)
+        raises(RuntimeError, adder_ufunc, *args, sig='dd->d', dtype=int)
 
     def test_unary_ufunc_kwargs(self):
         from numpy import array, sin, float16
@@ -380,7 +485,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
                     except AttributeError:
                         pass
                     except NotImplementedError:
-                        print s
+                        #print s
                         uncallable.add(s)
                     except TypeError:
                         assert s not in uncallable
@@ -1331,7 +1436,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
         # dtype
         a = arange(0, 3, 0.5).reshape(2, 3)
         b = add.accumulate(a, dtype=int, axis=1)
-        print b
         assert (b == [[0, 0, 1], [1, 3, 5]]).all()
         assert b.dtype == int
         assert add.accumulate([True]*200)[-1] == 200
@@ -1393,7 +1497,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_add_doc(self):
         import sys
         if '__pypy__' not in sys.builtin_module_names:
-            skip('')
+            skip('cpython sets docstrings differently')
         try:
             from numpy import set_docstring
         except ImportError:

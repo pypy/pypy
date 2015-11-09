@@ -3,7 +3,7 @@
 #
 # C code generator from pycparser AST nodes.
 #
-# Copyright (C) 2008-2012, Eli Bendersky
+# Copyright (C) 2008-2015, Eli Bendersky
 # License: BSD
 #------------------------------------------------------------------------------
 from . import c_ast
@@ -15,8 +15,6 @@ class CGenerator(object):
         generic_visit.
     """
     def __init__(self):
-        self.output = ''
-
         # Statements start with indentation of self.indent_level spaces, using
         # the _make_indent method
         #
@@ -34,7 +32,7 @@ class CGenerator(object):
         if node is None:
             return ''
         else:
-            return ''.join(self.visit(c) for c in node.children())
+            return ''.join(self.visit(c) for c_name, c in node.children())
 
     def visit_Constant(self, n):
         return n.value
@@ -83,19 +81,22 @@ class CGenerator(object):
     def visit_IdentifierType(self, n):
         return ' '.join(n.names)
 
+    def _visit_expr(self, n):
+        if isinstance(n, c_ast.InitList):
+            return '{' + self.visit(n) + '}'
+        elif isinstance(n, c_ast.ExprList):
+            return '(' + self.visit(n) + ')'
+        else:
+            return self.visit(n)
+
     def visit_Decl(self, n, no_type=False):
         # no_type is used when a Decl is part of a DeclList, where the type is
-        # explicitly only for the first delaration in a list.
+        # explicitly only for the first declaration in a list.
         #
         s = n.name if no_type else self._generate_decl(n)
         if n.bitsize: s += ' : ' + self.visit(n.bitsize)
         if n.init:
-            if isinstance(n.init, c_ast.InitList):
-                s += ' = {' + self.visit(n.init) + '}'
-            elif isinstance(n.init, c_ast.ExprList):
-                s += ' = (' + self.visit(n.init) + ')'
-            else:
-                s += ' = ' + self.visit(n.init)
+            s += ' = ' + self._visit_expr(n.init)
         return s
 
     def visit_DeclList(self, n):
@@ -118,21 +119,13 @@ class CGenerator(object):
     def visit_ExprList(self, n):
         visited_subexprs = []
         for expr in n.exprs:
-            if isinstance(expr, c_ast.ExprList):
-                visited_subexprs.append('{' + self.visit(expr) + '}')
-            else:
-                visited_subexprs.append(self.visit(expr))
+            visited_subexprs.append(self._visit_expr(expr))
         return ', '.join(visited_subexprs)
 
     def visit_InitList(self, n):
         visited_subexprs = []
         for expr in n.exprs:
-            if isinstance(expr, c_ast.ExprList):
-                visited_subexprs.append('(' + self.visit(expr) + ')')
-            elif isinstance(expr, c_ast.InitList):
-                visited_subexprs.append('{' + self.visit(expr) + '}')
-            else:
-                visited_subexprs.append(self.visit(expr))
+            visited_subexprs.append(self._visit_expr(expr))
         return ', '.join(visited_subexprs)
 
     def visit_Enum(self, n):
@@ -195,9 +188,9 @@ class CGenerator(object):
         return 'continue;'
 
     def visit_TernaryOp(self, n):
-        s = self.visit(n.cond) + ' ? '
-        s += self.visit(n.iftrue) + ' : '
-        s += self.visit(n.iffalse)
+        s = self._visit_expr(n.cond) + ' ? '
+        s += self._visit_expr(n.iftrue) + ' : '
+        s += self._visit_expr(n.iffalse)
         return s
 
     def visit_If(self, n):
@@ -280,6 +273,9 @@ class CGenerator(object):
                 s += '[' + name.value + ']'
         s += ' = ' + self.visit(n.expr)
         return s
+
+    def visit_FuncDecl(self, n):
+        return self._generate_type(n)
 
     def _generate_struct_union(self, n, name):
         """ Generates code for structs and unions. name should be either
@@ -384,7 +380,7 @@ class CGenerator(object):
         """ Visits 'n' and returns its string representation, parenthesized
             if the condition function applied to the node returns True.
         """
-        s = self.visit(n)
+        s = self._visit_expr(n)
         if condition(n):
             return '(' + s + ')'
         else:
@@ -401,5 +397,3 @@ class CGenerator(object):
         """
         return isinstance(n,(   c_ast.Constant, c_ast.ID, c_ast.ArrayRef,
                                 c_ast.StructRef, c_ast.FuncCall))
-
-

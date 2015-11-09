@@ -3,7 +3,7 @@ import py
 import sys, os
 from rpython.rlib import exports
 from rpython.rlib.entrypoint import entrypoint
-from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool import runsubprocess
 from rpython.tool.nullpath import NullPyPathLocal
@@ -468,7 +468,7 @@ class CStandaloneBuilder(CBuilder):
                 '$(CC) -o $*.o -c $*.vmprof.lbl.s',
                 'mv $*.gctmp $*.gcmap',
                 'rm $*.vmprof.lbl.s'])
-            
+
             # the rule to compute gcmaptable.s
             mk.rule('gcmaptable.s', '$(GCMAPFILES)',
                     [
@@ -759,7 +759,7 @@ def gen_preimpl(f, database):
         database, database.translator.rtyper)
     for line in preimplementationlines:
         print >> f, line
-    f.write('#endif /* _PY_PREIMPL_H */\n')    
+    f.write('#endif /* _PY_PREIMPL_H */\n')
 
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function

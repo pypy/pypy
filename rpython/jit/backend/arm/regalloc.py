@@ -41,10 +41,6 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.jit.backend.llsupport.descr import CallDescr
 
 
-# xxx hack: set a default value for TargetToken._ll_loop_code.  If 0, we know
-# that it is a LABEL that was not compiled yet.
-TargetToken._ll_loop_code = 0
-
 class TempInt(TempVar):
     type = INT
 
@@ -707,6 +703,17 @@ class Regalloc(BaseRegalloc):
                     [loc, loc1, resloc, pos_exc_value, pos_exception])
         return arglocs
 
+    def prepare_op_save_exception(self, op, fcond):
+        resloc = self.force_allocate_reg(op)
+        return [resloc]
+    prepare_op_save_exc_class = prepare_op_save_exception
+
+    def prepare_op_restore_exception(self, op, fcond):
+        boxes = op.getarglist()
+        loc0 = self.make_sure_var_in_reg(op.getarg(0), boxes)  # exc class
+        loc1 = self.make_sure_var_in_reg(op.getarg(1), boxes)  # exc instance
+        return [loc0, loc1]
+
     def prepare_op_guard_no_exception(self, op, fcond):
         loc = self.make_sure_var_in_reg(ConstInt(self.cpu.pos_exception()))
         arglocs = self._prepare_guard(op, [loc])
@@ -1245,18 +1252,6 @@ class Regalloc(BaseRegalloc):
     prepare_op_call_assembler_r = _prepare_op_call_assembler
     prepare_op_call_assembler_f = _prepare_op_call_assembler
     prepare_op_call_assembler_n = _prepare_op_call_assembler
-
-    def _prepare_args_for_new_op(self, new_args):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        args = gc_ll_descr.args_for_new(new_args)
-        arglocs = []
-        for i in range(len(args)):
-            arg = args[i]
-            t = TempInt()
-            l = self.force_allocate_reg(t, selected_reg=r.all_regs[i])
-            self.assembler.load(l, imm(arg))
-            arglocs.append(t)
-        return arglocs
 
     prepare_op_float_add = prepare_two_regs_op
     prepare_op_float_sub = prepare_two_regs_op

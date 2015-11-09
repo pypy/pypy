@@ -53,6 +53,22 @@ class CallFamily(object):
             table.append(row)
             self.total_calltable_size += 1
 
+    def find_row(self, bookkeeper, descs, args, op):
+        shape = rawshape(args)
+        with bookkeeper.at_position(None):
+            row = build_calltable_row(descs, args, op)
+        index = self.calltable_lookup_row(shape, row)
+        return shape, index
+
+def build_calltable_row(descs, args, op):
+    # see comments in CallFamily
+    row = {}
+    for desc in descs:
+        graph = desc.get_graph(args, op)
+        assert isinstance(graph, FunctionGraph)
+        row[desc.rowkey()] = graph
+    return row
+
 
 class FrozenAttrFamily(object):
     """A family of FrozenDesc objects that have any common 'getattr' sites.
@@ -295,22 +311,23 @@ class FunctionDesc(Desc):
         else:
             return self.specializer(self, inputcells)
 
-    def pycall(self, schedule, args, s_previous_result, op=None):
+    def pycall(self, whence, args, s_previous_result, op=None):
         inputcells = self.parse_arguments(args)
         result = self.specialize(inputcells, op)
         if isinstance(result, FunctionGraph):
             graph = result         # common case
+            annotator = self.bookkeeper.annotator
             # if that graph has a different signature, we need to re-parse
             # the arguments.
             # recreate the args object because inputcells may have been changed
             new_args = args.unmatch_signature(self.signature, inputcells)
             inputcells = self.parse_arguments(new_args, graph)
-            result = schedule(graph, inputcells)
+            result = annotator.recursivecall(graph, whence, inputcells)
             signature = getattr(self.pyobj, '_signature_', None)
             if signature:
                 sigresult = enforce_signature_return(self, signature[1], result)
                 if sigresult is not None:
-                    self.bookkeeper.annotator.addpendingblock(
+                    annotator.addpendingblock(
                         graph, graph.returnblock, [sigresult])
                     result = sigresult
         # Some specializations may break the invariant of returning
@@ -319,6 +336,10 @@ class FunctionDesc(Desc):
         from rpython.annotator.model import unionof
         result = unionof(result, s_previous_result)
         return result
+
+    def get_graph(self, args, op):
+        inputs_s = self.parse_arguments(args)
+        return self.specialize(inputs_s, op)
 
     def get_call_parameters(self, args_s):
         args = simple_args(args_s)
@@ -347,36 +368,14 @@ class FunctionDesc(Desc):
 
     @staticmethod
     def consider_call_site(descs, args, s_result, op):
-        shape = rawshape(args)
-        row = FunctionDesc.row_to_consider(descs, args, op)
         family = descs[0].getcallfamily()
-        family.calltable_add_row(shape, row)
-
-    @staticmethod
-    def variant_for_call_site(bookkeeper, family, descs, args, op):
         shape = rawshape(args)
-        bookkeeper.enter(None)
-        try:
-            row = FunctionDesc.row_to_consider(descs, args, op)
-        finally:
-            bookkeeper.leave()
-        index = family.calltable_lookup_row(shape, row)
-        return shape, index
+        row = build_calltable_row(descs, args, op)
+        family.calltable_add_row(shape, row)
+        descs[0].mergecallfamilies(*descs[1:])
 
     def rowkey(self):
         return self
-
-    @staticmethod
-    def row_to_consider(descs, args, op):
-        # see comments in CallFamily
-        row = {}
-        for desc in descs:
-            def enlist(graph, ignore):
-                row[desc.rowkey()] = graph
-                return s_ImpossibleValue   # meaningless
-            desc.pycall(enlist, args, s_ImpossibleValue, op)
-            assert row
-        return row
 
     def get_s_signatures(self, shape):
         family = self.getcallfamily()
@@ -624,7 +623,7 @@ class ClassDesc(Desc):
                             "specialization" % (self.name,))
         return self.getclassdef(None)
 
-    def pycall(self, schedule, args, s_previous_result, op=None):
+    def pycall(self, whence, args, s_previous_result, op=None):
         from rpython.annotator.model import SomeInstance, SomeImpossibleValue
         if self.specialize:
             if self.specialize == 'specialize:ctr_location':
@@ -777,6 +776,8 @@ class ClassDesc(Desc):
 
     @staticmethod
     def consider_call_site(descs, args, s_result, op):
+        descs[0].getcallfamily()
+        descs[0].mergecallfamilies(*descs[1:])
         from rpython.annotator.model import SomeInstance, SomePBC, s_None
         if len(descs) == 1:
             # call to a single class, look at the result annotation
@@ -800,8 +801,9 @@ class ClassDesc(Desc):
             s_init = basedesc.s_read_attribute('__init__')
             parent_has_init = isinstance(s_init, SomePBC)
             if has_init and not parent_has_init:
-                raise Exception("some subclasses among %r declare __init__(),"
-                                " but not the common parent class" % (descs,))
+                raise AnnotatorError(
+                    "some subclasses among %r declare __init__(),"
+                    " but not the common parent class" % (descs,))
         # make a PBC of MethodDescs, one for the __init__ of each class
         initdescs = []
         for desc, classdef in zip(descs, classdefs):
@@ -890,13 +892,20 @@ class MethodDesc(Desc):
     def getuniquegraph(self):
         return self.funcdesc.getuniquegraph()
 
-    def pycall(self, schedule, args, s_previous_result, op=None):
+    def func_args(self, args):
         from rpython.annotator.model import SomeInstance
         if self.selfclassdef is None:
             raise Exception("calling %r" % (self,))
         s_instance = SomeInstance(self.selfclassdef, flags=self.flags)
-        args = args.prepend(s_instance)
-        return self.funcdesc.pycall(schedule, args, s_previous_result, op)
+        return args.prepend(s_instance)
+
+    def pycall(self, whence, args, s_previous_result, op=None):
+        func_args = self.func_args(args)
+        return self.funcdesc.pycall(whence, func_args, s_previous_result, op)
+
+    def get_graph(self, args, op):
+        func_args = self.func_args(args)
+        return self.funcdesc.get_graph(func_args, op)
 
     def bind_under(self, classdef, name):
         self.bookkeeper.warning("rebinding an already bound %r" % (self,))
@@ -913,9 +922,10 @@ class MethodDesc(Desc):
     def consider_call_site(descs, args, s_result, op):
         cnt, keys, star = rawshape(args)
         shape = cnt + 1, keys, star  # account for the extra 'self'
-        row = FunctionDesc.row_to_consider(descs, args, op)
+        row = build_calltable_row(descs, args, op)
         family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
+        descs[0].mergecallfamilies(*descs[1:])
 
     def rowkey(self):
         # we are computing call families and call tables that always contain
@@ -1064,19 +1074,28 @@ class MethodOfFrozenDesc(Desc):
         return '<MethodOfFrozenDesc %r of %r>' % (self.funcdesc,
                                                   self.frozendesc)
 
-    def pycall(self, schedule, args, s_previous_result, op=None):
+    def func_args(self, args):
         from rpython.annotator.model import SomePBC
         s_self = SomePBC([self.frozendesc])
-        args = args.prepend(s_self)
-        return self.funcdesc.pycall(schedule, args, s_previous_result, op)
+        return args.prepend(s_self)
+
+    def pycall(self, whence, args, s_previous_result, op=None):
+        func_args = self.func_args(args)
+        return self.funcdesc.pycall(whence, func_args, s_previous_result, op)
+
+    def get_graph(self, args, op):
+        func_args = self.func_args(args)
+        return self.funcdesc.get_graph(func_args, op)
+
 
     @staticmethod
     def consider_call_site(descs, args, s_result, op):
         cnt, keys, star = rawshape(args)
         shape = cnt + 1, keys, star  # account for the extra 'self'
-        row = FunctionDesc.row_to_consider(descs, args, op)
+        row = build_calltable_row(descs, args, op)
         family = descs[0].getcallfamily()
         family.calltable_add_row(shape, row)
+        descs[0].mergecallfamilies(*descs[1:])
 
     def rowkey(self):
         return self.funcdesc

@@ -112,14 +112,10 @@ class Attribute(object):
                         for desc in s_newvalue.descriptions:
                             if desc.selfclassdef is None:
                                 if homedef.classdesc.settled:
-                                    raise Exception("demoting method %s "
-                                                    "to settled class %s not "
-                                                    "allowed" %
-                                                    (self.name, homedef)
-                                                    )
-                                #self.bookkeeper.warning("demoting method %s "
-                                #                        "to base class %s" %
-                                #                        (self.name, homedef))
+                                    raise AnnotatorError(
+                                        "demoting method %s to settled class "
+                                        "%s not allowed" % (self.name, homedef)
+                                    )
                                 break
 
         # check for attributes forbidden by slots or _attrs_

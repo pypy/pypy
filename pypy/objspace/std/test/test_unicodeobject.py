@@ -992,3 +992,10 @@ class AppTestUnicodeString:
         assert u''.join([s1]) is not s1
         s2 = StrSubclass(u'a')
         assert u''.join([s2]) is not s2
+
+    def test_encoding_and_errors_cant_be_none(self):
+        raises(TypeError, "''.decode(None)")
+        raises(TypeError, "u''.encode(None)")
+        raises(TypeError, "unicode('', encoding=None)")
+        raises(TypeError, 'u"".encode("utf-8", None)')
+

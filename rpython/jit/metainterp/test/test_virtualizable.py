@@ -1114,10 +1114,8 @@ class ImplicitVirtualizableTests(object):
                                        if getattr(graph, 'func', None) is f]
         init_graph = t._graphof(Frame.__init__.im_func)
 
-        deref = t.rtyper.type_system.deref
-
         def direct_calls(graph):
-            return [deref(op.args[0].value)._callable.func_name
+            return [op.args[0].value._obj._callable.func_name
                     for block, op in graph.iterblockops()
                         if op.opname == 'direct_call']
 

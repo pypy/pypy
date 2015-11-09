@@ -2,6 +2,7 @@
 Built-in functions.
 """
 import sys
+from collections import OrderedDict
 
 from rpython.annotator.model import (
     SomeInteger, SomeObject, SomeChar, SomeBool, SomeString, SomeTuple,
@@ -290,7 +291,7 @@ def rarith_longlongmask(s_obj):
     return SomeInteger(knowntype=rpython.rlib.rarithmetic.r_longlong)
 
 @analyzer_for(rpython.rlib.objectmodel.instantiate)
-def robjmodel_instantiate(s_clspbc):
+def robjmodel_instantiate(s_clspbc, s_nonmovable=None):
     assert isinstance(s_clspbc, SomePBC)
     clsdef = None
     more_than_one = len(s_clspbc.descriptions) > 1
@@ -356,7 +357,7 @@ else:
     def unicodedata_decimal(s_uchr):
         raise TypeError("unicodedate.decimal() calls should not happen at interp-level")
 
-@analyzer_for(SomeOrderedDict.knowntype)
+@analyzer_for(OrderedDict)
 def analyze():
     return SomeOrderedDict(getbookkeeper().getdictdef())
 

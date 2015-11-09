@@ -358,16 +358,18 @@ class MIFrame(object):
         self.opimpl_goto_if_not(condbox, target, orgpc)
 
     for _opimpl in ['int_lt', 'int_le', 'int_eq', 'int_ne', 'int_gt', 'int_ge',
-                    'ptr_eq', 'ptr_ne']:
+                    'ptr_eq', 'ptr_ne', 'float_lt', 'float_le', 'float_eq',
+                    'float_ne', 'float_gt', 'float_ge']:
         exec py.code.Source('''
             @arguments("box", "box", "label", "orgpc")
             def opimpl_goto_if_not_%s(self, b1, b2, target, orgpc):
-                if b1 is b2:
+                if %s and b1 is b2:
                     condbox = %s
                 else:
                     condbox = self.execute(rop.%s, b1, b2)
                 self.opimpl_goto_if_not(condbox, target, orgpc)
-        ''' % (_opimpl, FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
+        ''' % (_opimpl, not _opimpl.startswith('float_'),
+               FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
         ).compile()
 
     def _establish_nullity(self, box, orgpc):
@@ -2478,9 +2480,35 @@ class MetaInterp(object):
         exception = self.cpu.grab_exc_value(deadframe)
         if (isinstance(resumedescr, compile.ResumeGuardExcDescr) or
             isinstance(resumedescr, compile.ResumeGuardCopiedExcDescr)):
-            if exception:
-                self.execute_ll_raised(lltype.cast_opaque_ptr(rclass.OBJECTPTR,
-                                                              exception))
+            # Add a GUARD_EXCEPTION or GUARD_NO_EXCEPTION at the start
+            # of the bridge---except it is not really the start, because
+            # the history aleady contains operations from resume.py.
+            # The optimizer should remove these operations.  However,
+            # 'test_guard_no_exception_incorrectly_removed_from_bridge'
+            # shows a corner case in which just putting GuARD_NO_EXCEPTION
+            # here is a bad idea: the optimizer might remove it too.
+            # So we put a SAVE_EXCEPTION at the start, and a
+            # RESTORE_EXCEPTION just before the guard.  (rewrite.py will
+            # remove the two if they end up consecutive.)
+
+            # XXX too much jumps between older and newer models; clean up
+            # by killing SAVE_EXC_CLASS, RESTORE_EXCEPTION and GUARD_EXCEPTION
+
+            exception_obj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, exception)
+            if exception_obj:
+                exc_class = heaptracker.adr2int(
+                    llmemory.cast_ptr_to_adr(exception_obj.typeptr))
+            else:
+                exc_class = 0
+            i = len(self.history.operations)
+            op1 = self.history.record(rop.SAVE_EXC_CLASS, [], exc_class)
+            op2 = self.history.record(rop.SAVE_EXCEPTION, [], exception)
+            assert op1 is self.history.operations[i]
+            assert op2 is self.history.operations[i + 1]
+            self.history.operations = [op1, op2] + self.history.operations[:i]
+            self.history.record(rop.RESTORE_EXCEPTION, [op1, op2], None)
+            if exception_obj:
+                self.execute_ll_raised(exception_obj)
             else:
                 self.clear_exception()
             try:

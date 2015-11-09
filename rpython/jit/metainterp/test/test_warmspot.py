@@ -13,7 +13,8 @@ class Exit(Exception):
         self.result = result
 
 
-class WarmspotTests(object):
+class TestLLWarmspot(LLJitMixin):
+    CPUClass = runner.LLGraphCPU
 
     def test_basic(self):
         mydriver = JitDriver(reds=['a'],
@@ -574,10 +575,6 @@ class WarmspotTests(object):
         assert str(e.value) == ("there are multiple jit_merge_points "
                                 "with the same jitdriver")
 
-
-class TestLLWarmspot(WarmspotTests, LLJitMixin):
-    CPUClass = runner.LLGraphCPU
-    type_system = 'lltype'
 
 class TestWarmspotDirect(object):
     def setup_class(cls):

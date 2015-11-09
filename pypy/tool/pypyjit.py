@@ -93,7 +93,6 @@ def test_run_translation():
     try:
         interp, graph = get_interpreter(entry_point, [], backendopt=False,
                                         config=config,
-                                        type_system=config.translation.type_system,
                                         policy=PyPyAnnotatorPolicy(space))
     except Exception, e:
         print '%s: %s' % (e.__class__, e)

@@ -672,6 +672,55 @@ class BlackholeInterpreter(object):
         b = longlong.getrealfloat(b)
         return a >= b
 
+    @arguments("f", "f", "L", "pc", returns="L")
+    def bhimpl_goto_if_not_float_lt(a, b, target, pc):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        if a < b:
+            return pc
+        else:
+            return target
+    @arguments("f", "f", "L", "pc", returns="L")
+    def bhimpl_goto_if_not_float_le(a, b, target, pc):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        if a <= b:
+            return pc
+        else:
+            return target
+    @arguments("f", "f", "L", "pc", returns="L")
+    def bhimpl_goto_if_not_float_eq(a, b, target, pc):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        if a == b:
+            return pc
+        else:
+            return target
+    @arguments("f", "f", "L", "pc", returns="L")
+    def bhimpl_goto_if_not_float_ne(a, b, target, pc):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        if a != b:
+            return pc
+        else:
+            return target
+    @arguments("f", "f", "L", "pc", returns="L")
+    def bhimpl_goto_if_not_float_gt(a, b, target, pc):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        if a > b:
+            return pc
+        else:
+            return target
+    @arguments("f", "f", "L", "pc", returns="L")
+    def bhimpl_goto_if_not_float_ge(a, b, target, pc):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        if a >= b:
+            return pc
+        else:
+            return target
+
     @arguments("f", returns="i")
     def bhimpl_cast_float_to_int(a):
         a = longlong.getrealfloat(a)

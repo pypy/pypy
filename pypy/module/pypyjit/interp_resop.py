@@ -333,6 +333,13 @@ def get_stats_snapshot(space):
     return space.wrap(W_JitInfoSnapshot(space, w_times, w_counters,
                                         w_counter_times))
 
+def get_stats_asmmemmgr(space):
+    """Returns the raw memory currently used by the JIT backend,
+    as a pair (total_memory_allocated, memory_in_use)."""
+    m1 = jit_hooks.stats_asmmemmgr_allocated(None)
+    m2 = jit_hooks.stats_asmmemmgr_used(None)
+    return space.newtuple([space.wrap(m1), space.wrap(m2)])
+
 def enable_debug(space):
     """ Set the jit debugging - completely necessary for some stats to work,
     most notably assembler counters.

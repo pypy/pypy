@@ -3,7 +3,7 @@ from rpython.jit.backend.llsupport.memcpy import memcpy_fn, memset_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.codemap import CodemapBuilder
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
-    ConstInt, AbstractFailDescr)
+    ConstInt, AbstractFailDescr, VECTOR)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib import rgc
 from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints_for,
@@ -20,7 +20,6 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     ('type', lltype.Char),
     ('number', lltype.Signed)
 )
-
 
 class GuardToken(object):
     def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
@@ -74,6 +73,9 @@ class BaseAssembler(object):
         self.memset_addr = 0
         self.rtyper = cpu.rtyper
         self._debug = False
+
+    def stitch_bridge(self, faildescr, target):
+        raise NotImplementedError
 
     def setup_once(self):
         # the address of the function called by 'new'
@@ -178,7 +180,8 @@ class BaseAssembler(object):
     def store_info_on_descr(self, startspos, guardtok):
         withfloats = False
         for box in guardtok.failargs:
-            if box is not None and box.type == FLOAT:
+            if box is not None and \
+               (box.type == FLOAT or box.type == VECTOR):
                 withfloats = True
                 break
         exc = guardtok.must_save_exception()
@@ -240,6 +243,23 @@ class BaseAssembler(object):
                                                     self.mc.get_relative_pos())
 
     def call_assembler(self, op, argloc, vloc, result_loc, tmploc):
+        """
+            * argloc: location of the frame argument that we're passing to
+                      the called assembler (this is the first return value
+                      of locs_for_call_assembler())
+
+            * vloc:   location of the virtualizable (not in a register;
+                      this is the optional second return value of
+                      locs_for_call_assembler(), or imm(0) if none returned)
+
+            * result_loc: location of op.result (which is not be
+                          confused with the next one)
+
+            * tmploc: location where the actual call to the other piece
+                      of assembler will return its jitframe result
+                      (which is always a REF), before the helper may be
+                      called
+        """
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         #

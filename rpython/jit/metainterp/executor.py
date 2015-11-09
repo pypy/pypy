@@ -386,8 +386,23 @@ def _make_execute_list():
                          rop.CALL_MALLOC_NURSERY_VARSIZE_FRAME,
                          rop.NURSERY_PTR_INCREMENT,
                          rop.LABEL,
+                         rop.SAVE_EXC_CLASS,
+                         rop.SAVE_EXCEPTION,
+                         rop.RESTORE_EXCEPTION,
+                         rop.VEC_RAW_LOAD_I,
+                         rop.VEC_RAW_LOAD_F,
+                         rop.VEC_RAW_STORE,
+                         rop.VEC_GETARRAYITEM_RAW_I,
+                         rop.VEC_GETARRAYITEM_RAW_F,
+                         rop.VEC_SETARRAYITEM_RAW,
+                         rop.VEC_GETARRAYITEM_GC_I,
+                         rop.VEC_GETARRAYITEM_GC_F,
+                         rop.VEC_SETARRAYITEM_GC,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
+            if rop._VEC_PURE_FIRST <= value <= rop._VEC_PURE_LAST:
+                continue
+
             raise AssertionError("missing %r" % (key,))
     return execute_by_num_args
 
