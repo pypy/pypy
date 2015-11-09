@@ -18,3 +18,14 @@ The PPC machines now support the _continuation module (stackless, greenlets)
 .. branch: int_0/i-need-this-library-to-build-on-ubuntu-1-1446717626227
 
 Document that libgdbm-dev is required for translation/packaging
+
+.. branch: propogate-nans
+
+Ensure that ndarray conversion from int16->float16->float32->float16->int16
+preserves all int16 values, even across nan conversions. Also fix argmax, argmin
+for nan comparisons
+
+.. branch: array_interface
+
+Support common use-cases for __array_interface__, passes upstream tests
+

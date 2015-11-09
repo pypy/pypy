@@ -1852,6 +1852,24 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([(1, 2)], dtype=[('a', 'int64'), ('b', 'int64')])
         assert a.view('S16')[0] == '\x01' + '\x00' * 7 + '\x02'
 
+    def test_half_conversions(self):
+        from numpy import array, arange
+        from math import isnan, isinf
+        e = array([0, -1, -float('inf'), float('nan'), 6], dtype='float16')
+        assert map(isnan, e) == [False, False, False, True, False]
+        assert map(isinf, e) == [False, False, True, False, False]
+        assert e.argmax() == 3
+        # numpy preserves value for uint16 -> cast_as_float16 -> 
+        #     convert_to_float64 -> convert_to_float16 -> uint16
+        #  even for float16 various float16 nans
+        all_f16 = arange(0xfe00, 0xffff, dtype='uint16')
+        all_f16.dtype = 'float16'
+        all_f32 = array(all_f16, dtype='float32')
+        b = array(all_f32, dtype='float16')
+        c = b.view(dtype='uint16')
+        d = all_f16.view(dtype='uint16')
+        assert (c == d).all()
+
     def test_ndarray_view_empty(self):
         from numpy import array, dtype
         x = array([], dtype=[('a', 'int8'), ('b', 'int8')])
@@ -3052,7 +3070,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (b == zeros(10)).all()
 
     def test_array_interface(self):
-        from numpy import array
+        from numpy import array, ones
         a = array(2.5)
         i = a.__array_interface__
         assert isinstance(i['data'][0], int)
@@ -3075,7 +3093,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
         class Dummy(object):
             def __init__(self, aif=None):
-                if aif:
+                if aif is not None:
                     self.__array_interface__ = aif
 
         a = array(Dummy())
@@ -3084,6 +3102,31 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(ValueError, array, Dummy({'version': 0}))
         raises(ValueError, array, Dummy({'version': 'abc'}))
         raises(ValueError, array, Dummy({'version': 3}))
+        raises(TypeError, array, Dummy({'version': 3, 'typestr': 'f8', 'shape': ('a', 3)}))
+
+        a = array([1, 2, 3])
+        b = array(Dummy(a.__array_interface__))
+        b[1] = 200
+        assert a[1] == 2 # upstream compatibility, is this a bug?
+        interface_a = a.__array_interface__
+        interface_b = b.__array_interface__
+        # only the data[0] value should differ
+        assert interface_a['data'][0] != interface_b['data'][0]
+        assert interface_b['data'][1] == interface_a['data'][1]
+        interface_b.pop('data')
+        interface_a.pop('data')
+        assert interface_a == interface_b
+
+        b = array(Dummy({'version':3, 'shape': (50,), 'typestr': 'u1',
+                         'data': 'a'*100}))
+        assert b.dtype == 'uint8'
+        assert b.shape == (50,)
+
+        a = ones((1,), dtype='float16')
+        b = Dummy(a.__array_interface__)
+        c = array(b)
+        assert c.dtype == 'float16'
+        assert (a == c).all()
 
     def test_array_indexing_one_elem(self):
         from numpy import array, arange
