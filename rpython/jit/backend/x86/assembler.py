@@ -1079,9 +1079,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if result_loc is ebp:
             self.guard_success_cc = cond
         else:
+            self.mc.MOV_ri(result_loc.value, 0)
             rl = result_loc.lowest8bits()
             self.mc.SET_ir(cond, rl.value)
-            self.mc.MOVZX8_rr(result_loc.value, rl.value)
 
     def _cmpop(cond, rev_cond):
         cond = rx86.Conditions[cond]
