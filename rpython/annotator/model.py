@@ -141,8 +141,11 @@ class SomeType(SomeObject):
 class SomeTypeOf(SomeType):
     """The type of a variable"""
     def __init__(self, v_arg):
-        self.is_type_of = [v_arg]
+        self.v_arg = v_arg
 
+    @property
+    def is_type_of(self):
+        return [self.v_arg]
 
 class SomeFloat(SomeObject):
     "Stands for a float or an integer."

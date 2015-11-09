@@ -9,7 +9,7 @@ from rpython.annotator.model import (
     SomeTuple, SomeImpossibleValue, s_ImpossibleValue, SomeInstance,
     SomeBuiltinMethod, SomeIterator, SomePBC, SomeNone, SomeFloat, s_None,
     SomeByteArray, SomeWeakRef, SomeSingleFloat,
-    SomeLongFloat, SomeType, SomeConstantType, unionof, UnionError,
+    SomeLongFloat, SomeType, SomeTypeOf, SomeConstantType, unionof, UnionError,
     read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
 from rpython.annotator.bookkeeper import immutablevalue
@@ -156,6 +156,17 @@ class __extend__(pairtype(SomeType, SomeType),
             if is_type_of1 and is_type_of1 == is_type_of2:
                 result.is_type_of = is_type_of1
         return result
+
+class __extend__(pairtype(SomeTypeOf, SomeTypeOf)):
+    def union((s_obj1, s_obj2)):
+        if s_obj1 == s_obj2:
+            return s_obj1
+        else:
+            s_1 = SomeType()
+            s_1.is_type_of = s_obj1.is_type_of
+            s_2 = SomeType()
+            s_2.is_type_of = s_obj2.is_type_of
+            return unionof(s_1, s_2)
 
 
 # cloning a function with identical code, for the can_only_throw attribute
