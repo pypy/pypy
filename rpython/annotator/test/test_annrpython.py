@@ -6,7 +6,7 @@ from rpython.conftest import option
 from rpython.annotator import model as annmodel
 from rpython.annotator.model import AnnotatorError, UnionError
 from rpython.annotator.annrpython import RPythonAnnotator as _RPythonAnnotator
-from rpython.annotator.classdef import NoSuchAttrError
+from rpython.annotator.classdesc import NoSuchAttrError
 from rpython.translator.translator import graphof as tgraphof
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.annotator.signature import Sig, SignatureError
@@ -759,20 +759,6 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator(policy=AnnotatorPolicy())
         s = a.build_types(snippet.call_star_args_multiple, [int])
         assert s.knowntype == int
-
-    def test_class_spec(self):
-        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
-        s = a.build_types(snippet.class_spec, [])
-        assert s.items[0].knowntype == int
-        assert s.items[1].knowntype == str
-
-    def test_class_spec_confused(self):
-        x = snippet.PolyStk()
-        def f():
-            return x
-        a = self.RPythonAnnotator(policy=AnnotatorPolicy())
-        with py.test.raises(Exception):
-            a.build_types(f, [])
 
     def test_exception_deduction_with_raise1(self):
         a = self.RPythonAnnotator()
@@ -3063,7 +3049,6 @@ class TestAnnotateTestCase:
             if works:
                 a.build_types(fun, [int])
             else:
-                from rpython.annotator.classdef import NoSuchAttrError
                 py.test.raises(NoSuchAttrError, a.build_types, fun, [int])
 
     def test_attrs_enforce_attrs(self):
@@ -3111,45 +3096,6 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         a.build_types(f, [bool])
-
-    def test_enforce_settled(self):
-        class A(object):
-            _settled_ = True
-
-            def m(self):
-                raise NotImplementedError
-
-        class B(A):
-
-            def m(self):
-                return 1
-
-            def n(self):
-                return 1
-
-        def fun(x):
-            if x:
-                a = A()
-            else:
-                a = B()
-
-            return a.m()
-
-        a = self.RPythonAnnotator()
-        s = a.build_types(fun, [bool])
-        assert s.knowntype == int
-
-        def fun(x):
-            if x:
-                a = A()
-            else:
-                a = B()
-
-            return a.n()
-
-        a = self.RPythonAnnotator()
-        with py.test.raises(AnnotatorError):
-            a.build_types(fun, [bool])
 
     def test_float_cmp(self):
         def fun(x, y):
@@ -3297,22 +3243,6 @@ class TestAnnotateTestCase:
 
         a = self.RPythonAnnotator()
         py.test.raises(AnnotatorError, a.build_types, f, [])
-
-    def test_ctr_location(self):
-        class A:
-            _annspecialcase_ = 'specialize:ctr_location'
-            def __init__(self, x):
-                self.x = x
-
-        def f(n):
-            a = A(2 * n)
-            a.x = n
-            b = A("")
-            b.x = str(n)
-            return len(b.x) + a.x
-        a = self.RPythonAnnotator()
-        s = a.build_types(f, [int])
-        assert isinstance(s, annmodel.SomeInteger)
 
     def test_weakref(self):
         import weakref
@@ -3784,7 +3714,7 @@ class TestAnnotateTestCase:
 
     def test_return_immutable_list(self):
         class A:
-            _immutable_fields_ = 'lst[*]'
+            _immutable_fields_ = ['lst[*]']
         def f(n):
             a = A()
             l1 = [n, 0]
@@ -3798,7 +3728,7 @@ class TestAnnotateTestCase:
 
     def test_return_immutable_list_quasiimmut_field(self):
         class A:
-            _immutable_fields_ = 'lst?[*]'
+            _immutable_fields_ = ['lst?[*]']
         def f(n):
             a = A()
             l1 = [n, 0]
@@ -3812,7 +3742,7 @@ class TestAnnotateTestCase:
 
     def test_immutable_list_is_actually_resized(self):
         class A:
-            _immutable_fields_ = 'lst[*]'
+            _immutable_fields_ = ['lst[*]']
         def f(n):
             a = A()
             l1 = [n]
@@ -3825,7 +3755,7 @@ class TestAnnotateTestCase:
 
     def test_immutable_list_is_assigned_a_resizable_list(self):
         class A:
-            _immutable_fields_ = 'lst[*]'
+            _immutable_fields_ = ['lst[*]']
         def f(n):
             a = A()
             foo = []
@@ -3837,7 +3767,7 @@ class TestAnnotateTestCase:
 
     def test_can_merge_immutable_list_with_regular_list(self):
         class A:
-            _immutable_fields_ = 'lst[*]'
+            _immutable_fields_ = ['lst[*]']
         def foo(lst):
             pass
 
@@ -3875,7 +3805,7 @@ class TestAnnotateTestCase:
         class Root:
             pass
         class A(Root):
-            _immutable_fields_ = '_my_lst[*]'
+            _immutable_fields_ = ['_my_lst[*]']
             def __init__(self, lst):
                 self._my_lst = lst
         def foo(x):
