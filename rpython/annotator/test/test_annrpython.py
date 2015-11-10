@@ -793,8 +793,8 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [B])
         assert s.classdef is a.bookkeeper.getuniqueclassdef(C)
 
+    @py.test.mark.xfail
     def test_union_type_some_pbc(self):
-        py.test.skip("is there a point? f() can return self.__class__ instead")
         class A(object):
             name = "A"
 
@@ -4414,8 +4414,9 @@ class TestAnnotateTestCase:
         with py.test.raises(UnionError) as exc:
             a.build_types(f2, [int])
 
+    @py.test.mark.xfail(reason="May produce garbage annotations instead of "
+            "raising AnnotatorError, depending on annotation order")
     def test_property_union_2(self):
-        py.test.xfail("FIX ME")
         class Base(object):
             pass
 
@@ -4443,8 +4444,9 @@ class TestAnnotateTestCase:
         with py.test.raises(AnnotatorError):
             a.build_types(f, [int])
 
+    @py.test.mark.xfail(reason="May produce garbage annotations instead of "
+            "raising AnnotatorError, depending on annotation order")
     def test_property_union_3(self):
-        py.test.xfail("FIX ME")
         class Base(object):
             pass
         class A(Base):
