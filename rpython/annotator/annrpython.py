@@ -482,7 +482,8 @@ class RPythonAnnotator(object):
             knowntypedata = getattr(block.exitswitch.annotation,
                                     "knowntypedata", {})
         for link in exits:
-            self.follow_link(graph, link, knowntypedata)
+            constraints = knowntypedata.get(link.exitcase, {})
+            self.follow_link(graph, link, constraints)
         if block in self.notify:
             # reflow from certain positions when this block is done
             for callback in self.notify[block]:
@@ -491,7 +492,7 @@ class RPythonAnnotator(object):
                 else:
                     callback()
 
-    def follow_link(self, graph, link, knowntypedata):
+    def follow_link(self, graph, link, constraints):
         in_except_block = False
         v_last_exc_type = link.last_exception  # may be None for non-exception link
         v_last_exc_value = link.last_exc_value  # may be None for non-exception link
@@ -527,9 +528,9 @@ class RPythonAnnotator(object):
                 last_exc_value_vars.append(v_input)
             else:
                 s_out = self.annotation(v_out)
-                if link.exitcase in knowntypedata and v_out in knowntypedata[link.exitcase]:
-                    knownvarvalue = knowntypedata[link.exitcase][v_out]
-                    s_out = pair(s_out, knownvarvalue).improve()
+                if v_out in constraints:
+                    s_constraint = constraints[v_out]
+                    s_out = pair(s_out, s_constraint).improve()
                     # ignore links that try to pass impossible values
                     if s_out == annmodel.s_ImpossibleValue:
                         ignore_link = True
