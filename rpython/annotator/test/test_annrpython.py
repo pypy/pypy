@@ -1,6 +1,8 @@
 from __future__ import with_statement
 import py.test
 import sys
+from collections import OrderedDict
+
 from rpython.conftest import option
 
 from rpython.annotator import model as annmodel
@@ -4265,10 +4267,6 @@ class TestAnnotateTestCase:
         assert ("format() is not RPython" in exc.value.msg)
 
     def test_prebuilt_ordered_dict(self):
-        try:
-            from collections import OrderedDict
-        except ImportError:
-            py.test.skip("Please upgrade to python 2.7")
         d = OrderedDict([("aa", 1)])
 
         def f():
