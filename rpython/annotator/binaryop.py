@@ -1,6 +1,7 @@
 """
 Binary operations between SomeValues.
 """
+from collections import defaultdict
 
 from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import (
@@ -35,7 +36,7 @@ def is__default(annotator, obj1, obj2):
     elif s_obj1.is_constant():
         if s_obj1.const is None and not s_obj2.can_be_none():
             r.const = False
-    knowntypedata = {}
+    knowntypedata = defaultdict(dict)
     bk = annotator.bookkeeper
 
     def bind(src_obj, tgt_obj):
@@ -264,7 +265,7 @@ def _make_cmp_annotator_int(cmp_op):
         if not (rarithmetic.signedtype(s_int1.knowntype) and
                 rarithmetic.signedtype(s_int2.knowntype)):
             return r
-        knowntypedata = {}
+        knowntypedata = defaultdict(dict)
         def tointtype(s_int0):
             if s_int0.knowntype is bool:
                 return int

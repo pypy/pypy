@@ -32,7 +32,7 @@ from __future__ import absolute_import
 import inspect
 import weakref
 from types import BuiltinFunctionType, MethodType
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 import rpython
 from rpython.tool import descriptor
@@ -690,14 +690,15 @@ def unionof(*somevalues):
 
 def add_knowntypedata(ktd, truth, vars, s_obj):
     for v in vars:
-        ktd[(truth, v)] = s_obj
+        ktd[truth][v] = s_obj
 
 
 def merge_knowntypedata(ktd1, ktd2):
-    r = {}
-    for truth_v in ktd1:
-        if truth_v in ktd2:
-            r[truth_v] = unionof(ktd1[truth_v], ktd2[truth_v])
+    r = defaultdict(dict)
+    for truth, constraints in ktd1.items():
+        for v in constraints:
+            if truth in ktd2 and v in ktd2[truth]:
+                r[truth][v] = unionof(ktd1[truth][v], ktd2[truth][v])
     return r
 
 

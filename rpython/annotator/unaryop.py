@@ -1,8 +1,9 @@
 """
 Unary operations on SomeValues.
 """
-
 from __future__ import absolute_import
+
+from collections import defaultdict
 
 from rpython.tool.pairtype import pair
 from rpython.flowspace.operation import op
@@ -39,7 +40,7 @@ def bool_SomeObject(annotator, obj):
     s_nonnone_obj = annotator.annotation(obj)
     if s_nonnone_obj.can_be_none():
         s_nonnone_obj = s_nonnone_obj.nonnoneify()
-    knowntypedata = {}
+    knowntypedata = defaultdict(dict)
     add_knowntypedata(knowntypedata, True, [obj], s_nonnone_obj)
     r.set_knowntypedata(knowntypedata)
     return r
@@ -520,7 +521,7 @@ class __extend__(SomeDict):
 def contains_String(annotator, string, char):
     if annotator.annotation(char).is_constant() and annotator.annotation(char).const == "\0":
         r = SomeBool()
-        knowntypedata = {}
+        knowntypedata = defaultdict(dict)
         add_knowntypedata(knowntypedata, False, [string],
                           annotator.annotation(string).nonnulify())
         r.set_knowntypedata(knowntypedata)

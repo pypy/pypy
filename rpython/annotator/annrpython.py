@@ -479,7 +479,7 @@ class RPythonAnnotator(object):
         # that can be attached to booleans, exitswitches
         knowntypedata = {}
         if isinstance(block.exitswitch, Variable):
-            knowntypedata = getattr(self.binding(block.exitswitch),
+            knowntypedata = getattr(block.exitswitch.annotation,
                                     "knowntypedata", {})
         for link in exits:
             self.follow_link(graph, link, knowntypedata)
@@ -527,14 +527,14 @@ class RPythonAnnotator(object):
                 last_exc_value_vars.append(v_input)
             else:
                 s_out = self.annotation(v_out)
-                if (link.exitcase, v_out) in knowntypedata:
-                    knownvarvalue = knowntypedata[(link.exitcase, v_out)]
+                if link.exitcase in knowntypedata and v_out in knowntypedata[link.exitcase]:
+                    knownvarvalue = knowntypedata[link.exitcase][v_out]
                     s_out = pair(s_out, knownvarvalue).improve()
                     # ignore links that try to pass impossible values
                     if s_out == annmodel.s_ImpossibleValue:
                         ignore_link = True
 
-                if hasattr(s_out,'is_type_of'):
+                if hasattr(s_out, 'is_type_of'):
                     renamed_is_type_of = []
                     for v in s_out.is_type_of:
                         new_vs = renaming.get(v, [])
@@ -548,10 +548,12 @@ class RPythonAnnotator(object):
 
                 if hasattr(s_out, 'knowntypedata'):
                     renamed_knowntypedata = {}
-                    for (value, v), s in s_out.knowntypedata.items():
-                        new_vs = renaming.get(v, [])
-                        for new_v in new_vs:
-                            renamed_knowntypedata[value, new_v] = s
+                    for value, constraints in s_out.knowntypedata.items():
+                        renamed_knowntypedata[value] = {}
+                        for v, s in constraints.items():
+                            new_vs = renaming.get(v, [])
+                            for new_v in new_vs:
+                                renamed_knowntypedata[value][new_v] = s
                     assert isinstance(s_out, annmodel.SomeBool)
                     newcell = annmodel.SomeBool()
                     if s_out.is_constant():
