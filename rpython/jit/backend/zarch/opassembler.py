@@ -10,7 +10,7 @@ class IntOpAssembler(object):
     def emit_int_add(self, op, arglocs, regalloc):
         l0, l1 = arglocs
         if l1.is_imm():
-            self.mc.AGHI(l0, l1)
+            self.mc.AGFI(l0, l1)
         elif l1.is_in_pool():
             self.mc.AG(l0, l1)
         else:
@@ -19,11 +19,37 @@ class IntOpAssembler(object):
     def emit_int_mul(self, op, arglocs, regalloc):
         l0, l1 = arglocs
         if l1.is_imm():
-            self.mc.AGHI(l0, l1)
-        elif l1.is_in_pool():
-            self.mc.AG(l0, l1)
+            self.mc.MSFI(l0, l1)
+        if l1.is_in_pool():
+            self.mc.MSG(l0, l1)
         else:
-            self.mc.AGR(l0, l1)
+            self.mc.MSGR(l0, l1)
+
+    def emit_int_floordiv(self, op, arglocs, regalloc):
+        lr, lq, l1 = arglocs # lr == remainer, lq == quotient
+        # when entering the function lr contains the dividend
+        # after this operation either lr or lq is used further
+        assert not l1.is_imm() , "imm divider not supported"
+        # remainer is always a even register r0, r2, ... , r14
+        assert lr.is_even()
+        assert lq.is_odd()
+        if l1.is_in_pool():
+            self.mc.DSG(lr, l1)
+        else:
+            self.mc.DSGR(lr, l1)
+
+    def emit_int_ufloordiv(self, op, arglocs, regalloc):
+        lr, lq, l1 = arglocs # lr == remainer, lq == quotient
+        # when entering the function lr contains the dividend
+        # after this operation either lr or lq is used further
+        assert not l1.is_imm() , "imm divider not supported"
+        # remainer is always a even register r0, r2, ... , r14
+        assert lr.is_even()
+        assert lq.is_odd()
+        if l1.is_in_pool():
+            self.mc.DLG(lr, l1)
+        else:
+            self.mc.DLGR(lr, l1)
 
     def emit_int_sub(self, op, arglocs, regalloc):
         l0, l1 = arglocs

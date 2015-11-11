@@ -27,6 +27,9 @@ arith_mnemonic_codes = {
     # div/mod
     'DSGR':    ('rre',   ['\xB9','\x0D'], 'eo,r'),
     'DSG':     ('rxy',   ['\xE3','\x0D'], 'eo,bidl'),
+    'DLGR':    ('rre',   ['\xB9','\x97'], 'eo,r'),
+    'DLG':     ('rxy',   ['\xE3','\x87'], 'eo,bidl'),
+
     # there is no immidiate divide
 
 

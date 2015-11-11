@@ -48,6 +48,12 @@ class RegisterLocation(AssemblerLocation):
     def is_reg(self):
         return True
 
+    def is_even(self):
+        return self.value % 2 == 0
+
+    def is_odd(self):
+        return self.value % 2 == 1
+
     def as_key(self):       # 0 <= as_key <= 15
         return self.value
 

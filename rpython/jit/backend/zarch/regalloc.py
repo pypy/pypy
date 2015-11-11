@@ -135,6 +135,30 @@ class ZARCHRegisterManager(RegisterManager):
         self.temp_boxes.append(box)
         return reg
 
+    def ensure_even_odd_pair(self, var):
+        self.rm.ensure__check_type(var)
+        prev_loc = self.loc(var, must_exist=True)
+        if prev_loc is self.frame_reg:
+            return prev_loc
+        if not prev_loc.is_even():
+            # we need to move it ...
+            pass
+        loc = self.force_allocate_reg(v, forbidden_vars, selected_reg,
+                                      need_lower_byte=need_lower_byte)
+        if prev_loc is not loc:
+            self.assembler.regalloc_mov(prev_loc, loc)
+        return loc
+
+
+    def force_result_in_even_reg(self, result_v, loc, forbidden_vars=[]):
+        xxx
+        pass
+
+    def force_result_in_odd_reg(self, result_v, loc, forbidden_vars=[]):
+        xxx
+        pass
+
+
 
 class ZARCHFrameManager(FrameManager):
     def __init__(self, base_ofs):
