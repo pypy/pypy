@@ -24,10 +24,18 @@ class TestZARCH(LLtypeBackendTest):
         cpu.setup_once()
         return cpu
 
-    @py.test.parametrize('input,opcode,result',
-        [30,'i1 = int_mul(i0, 2)',60]
-    )
-    def test_int_arithmetic_and_logic(self, input, opcode, result):
+    @py.test.mark.parametrize('value,opcode,result',
+        [ (30,'i1 = int_mul(i0, 2)',60),
+          (30,'i1 = int_floordiv(i0, 2)',15),
+          (2**31,'i1 = int_floordiv(i0, 15)',2**31//15),
+          (0,'i1 = int_floordiv(i0, 1)', 0),
+          (1,'i1 = int_floordiv(i0, 1)', 1),
+          (0,'i1 = uint_floordiv(i0, 1)', 0),
+          (1,'i1 = uint_floordiv(i0, 1)', 1),
+          (30,'i1 = int_mod(i0, 2)', 0),
+          (1,'i1 = int_mod(i0, 2)', 1),
+        ])
+    def test_int_arithmetic_and_logic(self, value, opcode, result):
         loop = parse("""
         [i0]
         {opcode}
@@ -35,7 +43,7 @@ class TestZARCH(LLtypeBackendTest):
         """.format(opcode=opcode),namespace={"faildescr": BasicFinalDescr(1)})
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        deadframe = self.cpu.execute_token(looptoken, input)
+        deadframe = self.cpu.execute_token(looptoken, value)
         fail = self.cpu.get_latest_descr(deadframe)
         res = self.cpu.get_int_value(deadframe, 0)
         assert res == result

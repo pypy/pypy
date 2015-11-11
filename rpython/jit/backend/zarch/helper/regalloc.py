@@ -41,18 +41,18 @@ def prepare_int_mul(self, op):
 def prepare_int_div(self, op):
     a0 = op.getarg(0)
     a1 = op.getarg(1)
-    lr,lq = self.ensure_even_odd_pair(a0)
+    lr,lq = self.rm.ensure_even_odd_pair(a0, bind_first=False)
     l1 = self.ensure_reg(a1)
-    self.force_result_in_odd_reg(op, a0)
+    self.rm.force_result_in_reg(op, a0)
     self.free_op_vars()
     return [lr, lq, l1]
 
 def prepare_int_mod(self, op):
     a0 = op.getarg(0)
     a1 = op.getarg(1)
-    lr,lq = self.ensure_even_odd_pair(a0)
+    lr,lq = self.rm.ensure_even_odd_pair(a0, bind_first=True)
     l1 = self.ensure_reg(a1)
-    self.force_result_in_even_reg(op, a0)
+    self.rm.force_result_in_reg(op, a0)
     self.free_op_vars()
     return [lr, lq, l1]
 

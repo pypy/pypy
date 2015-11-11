@@ -135,27 +135,73 @@ class ZARCHRegisterManager(RegisterManager):
         self.temp_boxes.append(box)
         return reg
 
-    def ensure_even_odd_pair(self, var):
-        self.rm.ensure__check_type(var)
+    def ensure_even_odd_pair(self, var, bind_first=True):
+        self._check_type(var)
         prev_loc = self.loc(var, must_exist=True)
+        var2 = TempVar()
+        self.temp_boxes.append(var2)
         if prev_loc is self.frame_reg:
             return prev_loc
-        if not prev_loc.is_even():
-            # we need to move it ...
-            pass
-        loc = self.force_allocate_reg(v, forbidden_vars, selected_reg,
-                                      need_lower_byte=need_lower_byte)
-        if prev_loc is not loc:
-            self.assembler.regalloc_mov(prev_loc, loc)
+        if bind_first:
+            loc, loc2 = self.force_allocate_reg_pair(var, var2, self.temp_boxes)
+        else:
+            loc, loc2 = self.force_allocate_reg_pair(var2, var, self.temp_boxes)
+        assert loc.is_even() and loc2.is_odd()
+        if prev_loc is not loc2:
+            # TODO is this true for each op?
+            # works for division -> if not parametrize
+            self.assembler.regalloc_mov(prev_loc, loc2)
+        return loc, loc2
+
+    def force_allocate_reg_pair(self, var, var2, forbidden_vars=[], selected_reg=None):
+        """ Forcibly allocate a register for the new variable v.
+        It must not be used so far.  If we don't have a free register,
+        spill some other variable, according to algorithm described in
+        '_pick_variable_to_spill'.
+
+        Will not spill a variable from 'forbidden_vars'.
+        """
+        self._check_type(var)
+        self._check_type(var2)
+        if isinstance(var, TempVar):
+            self.longevity[var] = (self.position, self.position)
+        if isinstance(var2, TempVar):
+            self.longevity[var2] = (self.position, self.position)
+        even, odd = None, None
+        REGS = r.registers
+        i = len(self.free_regs)-1
+        while i >= 0:
+            even = self.free_regs[i]
+            if even.is_even():
+                odd = REGS[even.value+1]
+                print even, "is even", odd
+                if odd not in self.free_regs:
+                    print odd, "is NOT free"
+                    continue
+                print odd, "is free"
+                self.reg_bindings[var] = even
+                self.reg_bindings[var2] = odd
+                del self.free_regs[i]
+                i = self.free_regs.index(odd)
+                del self.free_regs[i]
+                return even, odd
+            i += 1
+
+        import pdb; pdb.set_trace()
+        xxx
+        loc = self._spill_var(v, forbidden_vars, selected_reg,
+                              need_lower_byte=need_lower_byte)
+        prev_loc = self.reg_bindings.get(v, None)
+        if prev_loc is not None:
+            self.free_regs.append(prev_loc)
+        self.reg_bindings[v] = loc
         return loc
 
 
     def force_result_in_even_reg(self, result_v, loc, forbidden_vars=[]):
-        xxx
         pass
 
     def force_result_in_odd_reg(self, result_v, loc, forbidden_vars=[]):
-        xxx
         pass
 
 
@@ -490,9 +536,9 @@ class Regalloc(BaseRegalloc):
     prepare_int_add = helper.prepare_int_add
     prepare_int_sub = helper.prepare_int_sub
     prepare_int_mul = helper.prepare_int_mul
-    prepare_int_floordiv = helper.prepare_div
-    prepare_uint_floordiv = helper.prepare_div
-    prepare_int_mod = helper.prepare_mod
+    prepare_int_floordiv = helper.prepare_int_div
+    prepare_uint_floordiv = helper.prepare_int_div
+    prepare_int_mod = helper.prepare_int_mod
 
     prepare_int_le = helper.prepare_cmp_op
     prepare_int_lt = helper.prepare_cmp_op

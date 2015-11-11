@@ -185,7 +185,7 @@ def build_ril(mnemonic, (opcode,halfopcode), args='r/m,i32'):
         self.writechar(opcode)
         byte = (reg_or_mask & 0xf) << 4 | (ord(halfopcode) & 0xf)
         self.writechar(chr(byte))
-        if br or mnemonic == 'LARL':
+        if br:
             imm32 = imm32 >> 1
         # half word boundary, addressing bytes
         self.write_i32(imm32 & BIT_MASK_32)
@@ -350,7 +350,7 @@ def build_unpack_func(mnemonic, func):
         for i,arg in enumerate(unrolling_iterable(func._arguments_)):
             if arg == '-':
                 newargs[i] = 0
-            elif arg == 'r' or arg == 'r/m' or arg == 'f':
+            elif arg == 'r' or arg == 'r/m' or arg == 'f' or arg == 'eo':
                 newargs[i] = args[i].value
             elif arg.startswith('i') or arg.startswith('u') or arg.startswith('h'):
                 newargs[i] = args[i].value
