@@ -463,9 +463,12 @@ class Regalloc(BaseRegalloc):
     def prepare_increment_debug_counter(self, op):
         pass # XXX
 
-    prepare_int_add = helper.prepare_int_add_or_mul
+    prepare_int_add = helper.prepare_int_add
     prepare_int_sub = helper.prepare_int_sub
-    prepare_int_mul = helper.prepare_int_add_or_mul
+    prepare_int_mul = helper.prepare_int_mul
+    prepare_int_floordiv = helper.prepare_div
+    prepare_uint_floordiv = helper.prepare_div
+    prepare_int_mod = helper.prepare_mod
 
     prepare_int_le = helper.prepare_cmp_op
     prepare_int_lt = helper.prepare_cmp_op

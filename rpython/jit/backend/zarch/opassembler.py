@@ -16,6 +16,15 @@ class IntOpAssembler(object):
         else:
             self.mc.AGR(l0, l1)
 
+    def emit_int_mul(self, op, arglocs, regalloc):
+        l0, l1 = arglocs
+        if l1.is_imm():
+            self.mc.AGHI(l0, l1)
+        elif l1.is_in_pool():
+            self.mc.AG(l0, l1)
+        else:
+            self.mc.AGR(l0, l1)
+
     def emit_int_sub(self, op, arglocs, regalloc):
         l0, l1 = arglocs
         if l1.is_in_pool():

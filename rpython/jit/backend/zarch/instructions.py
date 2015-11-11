@@ -9,13 +9,28 @@ branch_mnemonic_codes = {
 }
 
 arith_mnemonic_codes = {
+    # add
     'AR':      ('rr',    ['\x1A']),
     'AGR':     ('rre',   ['\xB9','\x08']),
     'AGFR':    ('rre',   ['\xB9','\x18']),
     'A':       ('rx',    ['\x5A']),
+    'AGFI':    ('ril',   ['\xC2','\x08']),
+
+    # sub
     'SR':      ('rr',    ['\x1B']),
     'SG':      ('rxy',   ['\xE3','\x09']),
     'SGR':     ('rre',   ['\xB9','\x09']),
+    # mul
+    'MSGR':    ('rre',   ['\xB9','\x0C']),
+    'MSG':     ('rxy',   ['\xE3','\x0C']),
+    'MSGFI':   ('ril',   ['\xC2','\x00']),
+    # div/mod
+    'DSGR':    ('rre',   ['\xB9','\x0D'], 'eo,r'),
+    'DSG':     ('rxy',   ['\xE3','\x0D'], 'eo,bidl'),
+    # there is no immidiate divide
+
+
+    # div
 
     'AY':      ('rxy',   ['\xE3','\x5A']),
     'AG':      ('rxy',   ['\xE3','\x08']),

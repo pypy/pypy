@@ -112,6 +112,12 @@ def range_of_bits(bits, signed=False, count=24):
     maximum = 2**bits
     return [0,1,maximum-1] + [random.randrange(0,maximum) for i in range(count)]
 
+def range_of_halfword_bits(bits, signed=True, count=24):
+    elems = range_of_bits(bits, signed, count)
+    for i,e in enumerate(elems):
+        elems[i] = (e // 2) >> 1
+    return elems
+
 def build_fake(clazz, *arg_bits):
     possibilities = itertools.product(*[range_of_bits(b) for b in arg_bits])
     results = []
@@ -124,6 +130,7 @@ def build_fake(clazz, *arg_bits):
     return results
 
 REGS = range(16)
+EVEN_REGS = range(0,16,2)
 REGNAMES = ['%%r%d' % i for i in REGS]
 FP_REGS = range(16)
 FP_REGNAMES = ['%%f%d' % i for i in FP_REGS]
@@ -131,6 +138,7 @@ TEST_CASE_GENERATE = {
     '-':    [],
     'r':    REGS,
     'f':    FP_REGS,
+    'eo':   EVEN_REGS,
     'r/m':  REGS,
     'm':    range_of_bits(4),
     'i4':   range_of_bits(4, signed=True),
@@ -138,6 +146,7 @@ TEST_CASE_GENERATE = {
     'i16':  range_of_bits(16, signed=True),
     'i32':  range_of_bits(32, signed=True),
     'i64':  range_of_bits(64, signed=True),
+    'h32':  range_of_halfword_bits(32, signed=True),
     'u4':   range_of_bits(4),
     'u8':   range_of_bits(8),
     'u16':  range_of_bits(16),
@@ -165,6 +174,7 @@ class TestZARCH(object):
     def operand_combinations(self, methodname, modes, arguments):
         mapping = {
             'r': (lambda num: REGNAMES[num]),
+            'eo': (lambda num: REGNAMES[num]),
             'r/m': (lambda num: REGNAMES[num]),
             'f': (lambda num: FP_REGNAMES[num]),
         }

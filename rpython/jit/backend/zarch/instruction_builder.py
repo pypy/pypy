@@ -5,7 +5,7 @@ from rpython.jit.backend.zarch import locations as loc
 
 def dummy_argument(arg):
     """ NOT_RPYTHON """
-    if arg in ('r', 'r/m', 'm', 'f', '-'):
+    if arg in ('r', 'r/m', 'm', 'f', '-', 'eo'):
         return 0
     if arg.startswith('i') or arg.startswith('u'):
         return 0
@@ -24,6 +24,7 @@ class builder(object):
         f      - floating point register
         r      - register
         m      - mask
+        eo     - even odd pair (= the even register)
         r/m    - register or mask
         iX     - immediate X bits (signed)
         uX     - immediate X bits (unsigend)
@@ -147,8 +148,8 @@ def build_rx(mnemonic, (opcode,)):
         encode_index_base_displace(self, reg_or_mask, idxbasedisp)
     return encode_rx
 
-def build_rxy(mnemonic, (opcode1,opcode2)):
-    @builder.arguments('r/m,bidl')
+def build_rxy(mnemonic, (opcode1,opcode2), arguments='r/m,bidl'):
+    @builder.arguments(arguments)
     def encode_rxy(self, reg_or_mask, idxbasedisp):
         self.writechar(opcode1)
         index = idxbasedisp.index
@@ -184,7 +185,7 @@ def build_ril(mnemonic, (opcode,halfopcode), args='r/m,i32'):
         self.writechar(opcode)
         byte = (reg_or_mask & 0xf) << 4 | (ord(halfopcode) & 0xf)
         self.writechar(chr(byte))
-        if br:
+        if br or mnemonic == 'LARL':
             imm32 = imm32 >> 1
         # half word boundary, addressing bytes
         self.write_i32(imm32 & BIT_MASK_32)
