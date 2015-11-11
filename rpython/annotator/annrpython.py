@@ -470,11 +470,14 @@ class RPythonAnnotator(object):
                         continue
                     covered = [c for c in candidates if issubclass(c, case)]
                     if covered:
-                        self.follow_link(graph, link, {})
+                        self.follow_raise_link(graph, link, {})
                         candidates = [c for c in candidates if c not in covered]
             else:
                 for link in exits:
-                    self.follow_link(graph, link, {})
+                    if link.exitcase is None:
+                        self.follow_link(graph, link, {})
+                    else:
+                        self.follow_raise_link(graph, link, {})
         else:
             if isinstance(block.exitswitch, Variable):
                 knowntypedata = getattr(block.exitswitch.annotation,
@@ -494,25 +497,76 @@ class RPythonAnnotator(object):
                     callback()
 
     def follow_link(self, graph, link, constraints):
-        in_except_block = False
-        v_last_exc_type = link.last_exception  # may be None for non-exception link
-        v_last_exc_value = link.last_exc_value  # may be None for non-exception link
+        assert not (isinstance(link.exitcase, (types.ClassType, type)) and
+                issubclass(link.exitcase, BaseException))
 
-        if (isinstance(link.exitcase, (types.ClassType, type)) and
-                issubclass(link.exitcase, BaseException)):
-            assert v_last_exc_type and v_last_exc_value
-            s_last_exc_value = self.bookkeeper.valueoftype(link.exitcase)
-            if isinstance(v_last_exc_value, Variable):
-                self.setbinding(v_last_exc_value, s_last_exc_value)
+        ignore_link = False
+        inputs_s = []
+        renaming = {}
+        for v_out, v_input in zip(link.args, link.target.inputargs):
+            renaming.setdefault(v_out, []).append(v_input)
+        for v_out in link.args:
+            s_out = self.annotation(v_out)
+            if v_out in constraints:
+                s_constraint = constraints[v_out]
+                s_out = pair(s_out, s_constraint).improve()
+                # ignore links that try to pass impossible values
+                if s_out == annmodel.s_ImpossibleValue:
+                    ignore_link = True
 
-            if isinstance(v_last_exc_type, Variable):
-                self.setbinding(v_last_exc_type, SomeTypeOf(v_last_exc_value))
+            if hasattr(s_out, 'is_type_of'):
+                renamed_is_type_of = []
+                for v in s_out.is_type_of:
+                    new_vs = renaming.get(v, [])
+                    renamed_is_type_of += new_vs
+                assert s_out.knowntype is type
+                newcell = annmodel.SomeType()
+                if s_out.is_constant():
+                    newcell.const = s_out.const
+                s_out = newcell
+                s_out.is_type_of = renamed_is_type_of
 
-            s_last_exc_type = annmodel.SomeType()
-            if isinstance(v_last_exc_type, Constant):
-                s_last_exc_type.const = v_last_exc_type.value
-            last_exc_value_vars = []
-            in_except_block = True
+            if hasattr(s_out, 'knowntypedata'):
+                renamed_knowntypedata = {}
+                for value, constraints in s_out.knowntypedata.items():
+                    renamed_knowntypedata[value] = {}
+                    for v, s in constraints.items():
+                        new_vs = renaming.get(v, [])
+                        for new_v in new_vs:
+                            renamed_knowntypedata[value][new_v] = s
+                assert isinstance(s_out, annmodel.SomeBool)
+                newcell = annmodel.SomeBool()
+                if s_out.is_constant():
+                    newcell.const = s_out.const
+                s_out = newcell
+                s_out.set_knowntypedata(renamed_knowntypedata)
+
+            inputs_s.append(s_out)
+        if ignore_link:
+            return
+
+        self.links_followed[link] = True
+        self.addpendingblock(graph, link.target, inputs_s)
+
+    def follow_raise_link(self, graph, link, constraints):
+        v_last_exc_type = link.last_exception
+        v_last_exc_value = link.last_exc_value
+
+        assert (isinstance(link.exitcase, (types.ClassType, type)) and
+                issubclass(link.exitcase, BaseException))
+
+        assert v_last_exc_type and v_last_exc_value
+        s_last_exc_value = self.bookkeeper.valueoftype(link.exitcase)
+        if isinstance(v_last_exc_value, Variable):
+            self.setbinding(v_last_exc_value, s_last_exc_value)
+
+        if isinstance(v_last_exc_type, Variable):
+            self.setbinding(v_last_exc_type, SomeTypeOf(v_last_exc_value))
+
+        s_last_exc_type = annmodel.SomeType()
+        if isinstance(v_last_exc_type, Constant):
+            s_last_exc_type.const = v_last_exc_type.value
+        last_exc_value_vars = []
 
         ignore_link = False
         inputs_s = []
@@ -521,10 +575,8 @@ class RPythonAnnotator(object):
             renaming.setdefault(v_out, []).append(v_input)
         for v_out, v_input in zip(link.args, link.target.inputargs):
             if v_out == v_last_exc_type:
-                assert in_except_block
                 inputs_s.append(s_last_exc_type)
             elif v_out == v_last_exc_value:
-                assert in_except_block
                 inputs_s.append(s_last_exc_value)
                 last_exc_value_vars.append(v_input)
             else:
@@ -566,9 +618,8 @@ class RPythonAnnotator(object):
                 inputs_s.append(s_out)
         if ignore_link:
             return
+        s_last_exc_type.is_type_of = last_exc_value_vars
 
-        if in_except_block:
-            s_last_exc_type.is_type_of = last_exc_value_vars
         self.links_followed[link] = True
         self.addpendingblock(graph, link.target, inputs_s)
 
