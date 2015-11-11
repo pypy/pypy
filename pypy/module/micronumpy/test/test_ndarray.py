@@ -838,13 +838,19 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_build_scalar(self):
         from numpy import dtype
+        import sys
         try:
             from numpy.core.multiarray import scalar
         except ImportError:
             from numpy import scalar
         exc = raises(TypeError, scalar, int, 2)
         assert exc.value[0] == 'argument 1 must be numpy.dtype, not type'
-        a = scalar(dtype('void'), 'abc')
+        if '__pypy__' in sys.builtin_module_names:
+            exc = raises(TypeError, scalar, dtype('void'), 'abc')
+        else:
+            a = scalar(dtype('void'), 'abc')
+            exc = raises(TypeError, str, a)
+        assert exc.value[0] == 'Empty data-type'
         exc = raises(TypeError, scalar, dtype(float), 2.5)
         assert exc.value[0] == 'initializing object must be a string'
         exc = raises(ValueError, scalar, dtype(float), 'abc')
@@ -2398,6 +2404,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_data(self):
         from numpy import array
+        import sys
         a = array([1, 2, 3, 4], dtype='i4')
         assert a.data[0] == '\x01'
         assert a.data[1] == '\x00'

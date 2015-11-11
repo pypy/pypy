@@ -278,7 +278,7 @@ class __extend__(W_NDimArray):
     def getfield(self, space, field):
         dtype = self.get_dtype()
         if field not in dtype.fields:
-            raise oefmt(space.w_ValueError, "field named %s not found", field)
+            raise oefmt(space.w_ValueError, "no field of name %s", field)
         arr = self.implementation
         ofs, subdtype = arr.dtype.fields[field][:2]
         # ofs only changes start
@@ -489,10 +489,8 @@ class __extend__(W_NDimArray):
         numpy.swapaxes : equivalent function
         """
         if axis1 == axis2:
-            return self
+            return self.descr_view(space)
         n = self.ndims()
-        if n <= 1:
-            return self
         if axis1 < 0:
             axis1 += n
         if axis2 < 0:
@@ -501,6 +499,8 @@ class __extend__(W_NDimArray):
             raise oefmt(space.w_ValueError, "bad axis1 argument to swapaxes")
         if axis2 < 0 or axis2 >= n:
             raise oefmt(space.w_ValueError, "bad axis2 argument to swapaxes")
+        if n <= 1:
+            return self
         return self.implementation.swapaxes(space, self, axis1, axis2)
 
     def descr_nonzero(self, space):
@@ -899,7 +899,7 @@ class __extend__(W_NDimArray):
                     if cur_shape[i] != 1:
                         raise OperationError(space.w_ValueError, space.wrap(
                             "cannot select an axis to squeeze out "
-                            "which has size greater than one"))
+                            "which has size not equal to one"))
                 else:
                     new_shape.append(cur_shape[i])
         else:
@@ -1374,7 +1374,7 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
     shape = shape_converter(space, w_shape, dtype)
     if len(shape) > NPY.MAXDIMS:
         raise oefmt(space.w_ValueError,
-            "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+            "sequence too large; cannot be greater than %d", NPY.MAXDIMS)
     if not space.is_none(w_buffer):
         if (not space.is_none(w_strides)):
             strides = [space.int_w(w_i) for w_i in

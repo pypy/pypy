@@ -487,10 +487,6 @@ class AppTestDtypes(BaseAppTestDtypes):
         for o in [object, O]:
             assert np.dtype(o).str == '|O'
         # Issue gh-2798
-        if '__pypy__' in sys.builtin_module_names:
-            a = np.array(['a'], dtype="O")
-            raises(NotImplementedError, a.astype, ("O", [("name", "O")]))
-            skip("(base_dtype, new_dtype) dtype specification discouraged")
         a = np.array(['a'], dtype="O").astype(("O", [("name", "O")]))
         assert a[0] == 'a'
         assert a != 'a'

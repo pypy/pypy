@@ -450,10 +450,12 @@ class Bool(BaseType, Primitive):
 
     @specialize.argtype(1)
     def round(self, v, decimals=0):
-        if decimals != 0:
-            # numpy 1.9.0 compatible
-            return v
-        return Float64(self.space).box(self.unbox(v))
+        if decimals == 0:
+            return Float64(self.space).box(self.unbox(v))
+        # numpy 1.10 compatibility
+        raise oefmt(self.space.w_TypeError, "ufunc casting failure")
+            
+            
 
 class Integer(Primitive):
     _mixin_ = True

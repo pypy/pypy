@@ -18,7 +18,7 @@ def build_scalar(space, w_dtype, w_state):
         raise oefmt(space.w_TypeError,
                     "argument 1 must be numpy.dtype, not %T", w_dtype)
     if w_dtype.elsize == 0:
-        raise oefmt(space.w_ValueError, "itemsize cannot be zero")
+        raise oefmt(space.w_TypeError, "Empty data-type")
     if not space.isinstance_w(w_state, space.w_str):
         raise oefmt(space.w_TypeError, "initializing object must be a string")
     if space.len_w(w_state) != w_dtype.elsize:

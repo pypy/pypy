@@ -44,7 +44,7 @@ class W_NDimArray(W_NumpyObject):
         from pypy.module.micronumpy.strides import calc_strides
         if len(shape) > NPY.MAXDIMS:
             raise oefmt(space.w_ValueError,
-                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+                "sequence too large; cannot be greater than %d", NPY.MAXDIMS)
         try:
             ovfcheck(support.product_check(shape) * dtype.elsize)
         except OverflowError as e:
@@ -69,7 +69,7 @@ class W_NDimArray(W_NumpyObject):
         isize = dtype.elsize
         if len(shape) > NPY.MAXDIMS:
             raise oefmt(space.w_ValueError,
-                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+                "sequence too large; cannot be greater than %d", NPY.MAXDIMS)
         try:
             totalsize = ovfcheck(support.product_check(shape) * isize)
         except OverflowError as e:
