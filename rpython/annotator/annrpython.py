@@ -456,34 +456,35 @@ class RPythonAnnotator(object):
                     exits = [link for link in exits
                                   if link.exitcase == s_exitswitch.const]
 
-        # filter out those exceptions which cannot
-        # occour for this specific, typed operation.
         if block.canraise:
             op = block.raising_op
             can_only_throw = op.get_can_only_throw(self)
             if can_only_throw is not None:
+                # filter out those exceptions which cannot
+                # occur for this specific, typed operation.
                 candidates = can_only_throw
-                candidate_exits = exits
-                exits = []
-                for link in candidate_exits:
+                for link in exits:
                     case = link.exitcase
                     if case is None:
-                        exits.append(link)
+                        self.follow_link(graph, link, {})
                         continue
                     covered = [c for c in candidates if issubclass(c, case)]
                     if covered:
-                        exits.append(link)
+                        self.follow_link(graph, link, {})
                         candidates = [c for c in candidates if c not in covered]
+            else:
+                for link in exits:
+                    self.follow_link(graph, link, {})
+        else:
+            if isinstance(block.exitswitch, Variable):
+                knowntypedata = getattr(block.exitswitch.annotation,
+                                            "knowntypedata", {})
+            else:
+                knowntypedata = {}
+            for link in exits:
+                constraints = knowntypedata.get(link.exitcase, {})
+                self.follow_link(graph, link, constraints)
 
-        # mapping (exitcase, variable) -> s_annotation
-        # that can be attached to booleans, exitswitches
-        knowntypedata = {}
-        if isinstance(block.exitswitch, Variable):
-            knowntypedata = getattr(block.exitswitch.annotation,
-                                    "knowntypedata", {})
-        for link in exits:
-            constraints = knowntypedata.get(link.exitcase, {})
-            self.follow_link(graph, link, constraints)
         if block in self.notify:
             # reflow from certain positions when this block is done
             for callback in self.notify[block]:
