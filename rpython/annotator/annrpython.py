@@ -387,6 +387,36 @@ class RPythonAnnotator(object):
         if unions != oldcells:
             self.bindinputargs(graph, block, unions)
 
+    def apply_renaming(self, s_out, renaming):
+        if hasattr(s_out, 'is_type_of'):
+            renamed_is_type_of = []
+            for v in s_out.is_type_of:
+                new_vs = renaming.get(v, [])
+                renamed_is_type_of += new_vs
+            assert s_out.knowntype is type
+            newcell = annmodel.SomeType()
+            if s_out.is_constant():
+                newcell.const = s_out.const
+            s_out = newcell
+            s_out.is_type_of = renamed_is_type_of
+
+        if hasattr(s_out, 'knowntypedata'):
+            renamed_knowntypedata = {}
+            for value, constraints in s_out.knowntypedata.items():
+                renamed_knowntypedata[value] = {}
+                for v, s in constraints.items():
+                    new_vs = renaming.get(v, [])
+                    for new_v in new_vs:
+                        renamed_knowntypedata[value][new_v] = s
+            assert isinstance(s_out, annmodel.SomeBool)
+            newcell = annmodel.SomeBool()
+            if s_out.is_constant():
+                newcell.const = s_out.const
+            s_out = newcell
+            s_out.set_knowntypedata(renamed_knowntypedata)
+        return s_out
+
+
     def whereami(self, position_key):
         graph, block, i = position_key
         blk = ""
@@ -496,6 +526,7 @@ class RPythonAnnotator(object):
                 else:
                     callback()
 
+
     def follow_link(self, graph, link, constraints):
         assert not (isinstance(link.exitcase, (types.ClassType, type)) and
                 issubclass(link.exitcase, BaseException))
@@ -513,34 +544,7 @@ class RPythonAnnotator(object):
                 # ignore links that try to pass impossible values
                 if s_out == annmodel.s_ImpossibleValue:
                     ignore_link = True
-
-            if hasattr(s_out, 'is_type_of'):
-                renamed_is_type_of = []
-                for v in s_out.is_type_of:
-                    new_vs = renaming.get(v, [])
-                    renamed_is_type_of += new_vs
-                assert s_out.knowntype is type
-                newcell = annmodel.SomeType()
-                if s_out.is_constant():
-                    newcell.const = s_out.const
-                s_out = newcell
-                s_out.is_type_of = renamed_is_type_of
-
-            if hasattr(s_out, 'knowntypedata'):
-                renamed_knowntypedata = {}
-                for value, constraints in s_out.knowntypedata.items():
-                    renamed_knowntypedata[value] = {}
-                    for v, s in constraints.items():
-                        new_vs = renaming.get(v, [])
-                        for new_v in new_vs:
-                            renamed_knowntypedata[value][new_v] = s
-                assert isinstance(s_out, annmodel.SomeBool)
-                newcell = annmodel.SomeBool()
-                if s_out.is_constant():
-                    newcell.const = s_out.const
-                s_out = newcell
-                s_out.set_knowntypedata(renamed_knowntypedata)
-
+            s_out = self.apply_renaming(s_out, renaming)
             inputs_s.append(s_out)
         if ignore_link:
             return
@@ -587,34 +591,7 @@ class RPythonAnnotator(object):
                     # ignore links that try to pass impossible values
                     if s_out == annmodel.s_ImpossibleValue:
                         ignore_link = True
-
-                if hasattr(s_out, 'is_type_of'):
-                    renamed_is_type_of = []
-                    for v in s_out.is_type_of:
-                        new_vs = renaming.get(v, [])
-                        renamed_is_type_of += new_vs
-                    assert s_out.knowntype is type
-                    newcell = annmodel.SomeType()
-                    if s_out.is_constant():
-                        newcell.const = s_out.const
-                    s_out = newcell
-                    s_out.is_type_of = renamed_is_type_of
-
-                if hasattr(s_out, 'knowntypedata'):
-                    renamed_knowntypedata = {}
-                    for value, constraints in s_out.knowntypedata.items():
-                        renamed_knowntypedata[value] = {}
-                        for v, s in constraints.items():
-                            new_vs = renaming.get(v, [])
-                            for new_v in new_vs:
-                                renamed_knowntypedata[value][new_v] = s
-                    assert isinstance(s_out, annmodel.SomeBool)
-                    newcell = annmodel.SomeBool()
-                    if s_out.is_constant():
-                        newcell.const = s_out.const
-                    s_out = newcell
-                    s_out.set_knowntypedata(renamed_knowntypedata)
-
+                s_out = self.apply_renaming(s_out, renaming)
                 inputs_s.append(s_out)
         if ignore_link:
             return
