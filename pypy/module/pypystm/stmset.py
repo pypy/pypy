@@ -2,6 +2,7 @@
 The class pypystm.stmset, giving a part of the regular 'set' interface
 """
 
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
@@ -150,8 +151,48 @@ class W_STMSet(W_Root):
         return space.wrap(self.get_length())
 
     def iter_w(self, space):
-        # not a real lazy iterator!
-        return space.iter(space.newlist(self.get_items_w()))
+        return W_STMSetIter(self.h)
+
+
+class W_STMSetIter(W_Root):
+    _immutable_fields_ = ["hiter"]
+    next_from_same_hash = 0
+
+    def __init__(self, hobj):
+        self.hiter = hobj.iterentries()
+
+    def descr_iter(self, space):
+        return self
+
+    def descr_length_hint(self, space):
+        # xxx estimate: doesn't remove the items already yielded,
+        # and uses the faster len_estimate(); on the other hand,
+        # counts only one for every 64-bit hash value
+        return space.wrap(self.hiter.hashtable.len_estimate())
+
+    def descr_next(self, space):
+        if self.next_from_same_hash == 0:      # common case
+            try:
+                entry = self.hiter.next()
+            except StopIteration:
+                raise OperationError(space.w_StopIteration, space.w_None)
+            index = 0
+            array = lltype.cast_opaque_ptr(PARRAY, entry.object)
+        else:
+            index = self.next_from_same_hash
+            array = self.next_array
+            self.next_from_same_hash = 0
+            self.next_array = lltype.nullptr(ARRAY)
+        #
+        if len(array) > index + 1:      # uncommon case
+            self.next_from_same_hash = index + 1
+            self.next_array = array
+        #
+        return cast_gcref_to_instance(W_Root, array[index])
+
+    def _cleanup_(self):
+        raise Exception("seeing a prebuilt %r object" % (
+            self.__class__,))
 
 
 def W_STMSet___new__(space, w_subtype):
@@ -169,4 +210,11 @@ W_STMSet.typedef = TypeDef(
 
     __len__ = interp2app(W_STMSet.len_w),
     __iter__ = interp2app(W_STMSet.iter_w),
+    )
+
+W_STMSetIter.typedef = TypeDef(
+    "stmset_iter",
+    __iter__ = interp2app(W_STMSetIter.descr_iter),
+    next = interp2app(W_STMSetIter.descr_next),
+    __length_hint__ = interp2app(W_STMSetIter.descr_length_hint),
     )

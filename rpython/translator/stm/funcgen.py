@@ -398,8 +398,27 @@ def stm_hashtable_tracefn(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     arg1 = funcgen.expr(op.args[1])
     arg2 = funcgen.expr(op.args[2])
-    return ('stm_hashtable_tracefn(%s, (stm_hashtable_t *)%s, '
+    return ('stm_hashtable_tracefn(%s, (stm_hashtable_t *)%s,'
             ' (void(*)(object_t**))%s);' % (arg0, arg1, arg2))
+
+def stm_hashtable_iter(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    result = funcgen.expr(op.result)
+    return '%s = stm_hashtable_iter(%s);' % (result, arg0)
+
+def stm_hashtable_iter_next(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    arg2 = funcgen.expr(op.args[2])
+    result = funcgen.expr(op.result)
+    return ('%s = stm_hashtable_iter_next(%s, %s, %s);' %
+            (result, arg0, arg1, arg2))
+
+def stm_hashtable_iter_tracefn(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    return ('stm_hashtable_iter_tracefn((stm_hashtable_table_t *)%s,'
+            ' (void(*)(object_t**))%s);' % (arg0, arg1))
 
 def stm_queue_create(funcgen, op):
     result = funcgen.expr(op.result)

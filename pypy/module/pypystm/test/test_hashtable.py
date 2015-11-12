@@ -55,3 +55,13 @@ class AppTestHashtable:
         assert sorted(h.keys()) == [42, 43]
         assert sorted(h.values()) == ["bar", "foo"]
         assert sorted(h.items()) == [(42, "foo"), (43, "bar")]
+
+    def test_iterator(self):
+        import pypystm
+        h = pypystm.hashtable()
+        h[42] = "foo"
+        h[43] = "bar"
+        assert sorted(h) == [42, 43]
+        assert sorted(h.iterkeys()) == [42, 43]
+        assert sorted(h.itervalues()) == ["bar", "foo"]
+        assert sorted(h.iteritems()) == [(42, "foo"), (43, "bar")]

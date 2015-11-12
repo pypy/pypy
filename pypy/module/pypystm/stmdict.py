@@ -2,6 +2,7 @@
 The class pypystm.stmdict, giving a part of the regular 'dict' interface
 """
 
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -215,10 +216,6 @@ class W_STMDict(W_Root):
     def len_w(self, space):
         return space.wrap(self.get_length())
 
-    def iter_w(self, space):
-        # not a real lazy iterator!
-        return space.iter(self.keys_w(space))
-
     def keys_w(self, space):
         return space.newlist(self.get_keys_values_w(offset=0))
 
@@ -227,6 +224,70 @@ class W_STMDict(W_Root):
 
     def items_w(self, space):
         return space.newlist(self.get_items_w(space))
+
+    def iterkeys_w(self, space):
+        return W_STMDictIterKeys(self.h)
+
+    def itervalues_w(self, space):
+        return W_STMDictIterValues(self.h)
+
+    def iteritems_w(self, space):
+        return W_STMDictIterItems(self.h)
+
+
+class W_BaseSTMDictIter(W_Root):
+    _immutable_fields_ = ["hiter"]
+    next_from_same_hash = 0
+
+    def __init__(self, hobj):
+        self.hiter = hobj.iterentries()
+
+    def descr_iter(self, space):
+        return self
+
+    def descr_length_hint(self, space):
+        # xxx estimate: doesn't remove the items already yielded,
+        # and uses the faster len_estimate(); on the other hand,
+        # counts only one for every 64-bit hash value
+        return space.wrap(self.hiter.hashtable.len_estimate())
+
+    def descr_next(self, space):
+        if self.next_from_same_hash == 0:      # common case
+            try:
+                entry = self.hiter.next()
+            except StopIteration:
+                raise OperationError(space.w_StopIteration, space.w_None)
+            index = 0
+            array = lltype.cast_opaque_ptr(PARRAY, entry.object)
+        else:
+            index = self.next_from_same_hash
+            array = self.next_array
+            self.next_from_same_hash = 0
+            self.next_array = lltype.nullptr(ARRAY)
+        #
+        if len(array) > index + 2:      # uncommon case
+            self.next_from_same_hash = index + 2
+            self.next_array = array
+        #
+        return self.get_final_value(space, array, index)
+
+    def _cleanup_(self):
+        raise Exception("seeing a prebuilt %r object" % (
+            self.__class__,))
+
+class W_STMDictIterKeys(W_BaseSTMDictIter):
+    def get_final_value(self, space, array, index):
+        return cast_gcref_to_instance(W_Root, array[index])
+
+class W_STMDictIterValues(W_BaseSTMDictIter):
+    def get_final_value(self, space, array, index):
+        return cast_gcref_to_instance(W_Root, array[index + 1])
+
+class W_STMDictIterItems(W_BaseSTMDictIter):
+    def get_final_value(self, space, array, index):
+        return space.newtuple([
+            cast_gcref_to_instance(W_Root, array[index]),
+            cast_gcref_to_instance(W_Root, array[index + 1])])
 
 
 def W_STMDict___new__(space, w_subtype):
@@ -246,8 +307,19 @@ W_STMDict.typedef = TypeDef(
     setdefault = interp2app(W_STMDict.setdefault_w),
 
     __len__  = interp2app(W_STMDict.len_w),
-    __iter__ = interp2app(W_STMDict.iter_w),
     keys     = interp2app(W_STMDict.keys_w),
     values   = interp2app(W_STMDict.values_w),
     items    = interp2app(W_STMDict.items_w),
+
+    __iter__   = interp2app(W_STMDict.iterkeys_w),
+    iterkeys   = interp2app(W_STMDict.iterkeys_w),
+    itervalues = interp2app(W_STMDict.itervalues_w),
+    iteritems  = interp2app(W_STMDict.iteritems_w),
+    )
+
+W_BaseSTMDictIter.typedef = TypeDef(
+    "stmdict_iter",
+    __iter__ = interp2app(W_BaseSTMDictIter.descr_iter),
+    next = interp2app(W_BaseSTMDictIter.descr_next),
+    __length_hint__ = interp2app(W_BaseSTMDictIter.descr_length_hint),
     )
