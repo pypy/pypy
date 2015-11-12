@@ -1365,7 +1365,6 @@ class LLFrame(object):
 
     execute_call_release_gil_n = _execute_call_release_gil
     execute_call_release_gil_i = _execute_call_release_gil
-    execute_call_release_gil_r = _execute_call_release_gil
     execute_call_release_gil_f = _execute_call_release_gil
 
     def _new_execute_call_assembler(def_val):
