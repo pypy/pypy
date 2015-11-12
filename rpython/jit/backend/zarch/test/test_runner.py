@@ -42,6 +42,16 @@ class TestZARCH(LLtypeBackendTest):
           (-1,'i1 = int_lshift(i0, 1)', -2),
           (-2**35,'i1 = int_lshift(i0, 1)', (-2**35)*2),
           (2**64-1,'i1 = uint_rshift(i0, 2)', (2**64-1)//4),
+          (-1,'i1 = int_neg(i0)', -1),
+          (1,'i1 = int_neg(i0)', -1),
+          (2**63-1,'i1 = int_neg(i0)', -(2**63-1)),
+          (1,'i1 = int_invert(i0)', ~1),
+          (15,'i1 = int_invert(i0)', ~15),
+          (-1,'i1 = int_invert(i0)', ~(-1)),
+          (0,'i1 = int_is_zero(i0)', 1),
+          (50,'i1 = int_is_zero(i0)', 0),
+          (-1,'i1 = int_is_true(i0)', 1),
+          (0,'i1 = int_is_true(i0)', 0),
         ])
     def test_int_arithmetic_and_logic(self, value, opcode, result):
         loop = parse("""

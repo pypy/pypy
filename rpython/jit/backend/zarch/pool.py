@@ -15,6 +15,8 @@ class LiteralPool(object):
         self.label_offset = 0
         self.label_count = 0
         self.offset_map = {}
+        self.constant_64_zeros = -1
+        self.constant_64_ones = -1
 
     def ensure_can_hold_constants(self, asm, op):
         if op.is_guard():
@@ -34,6 +36,8 @@ class LiteralPool(object):
             if descr not in asm.target_tokens_currently_compiling:
                 # this is a 'long' jump instead of a relative jump
                 self.offset_map[descr] = self.size
+        elif op.getopnum() == rop.INT_INVERT:
+            self.constant_64_ones = 1 # we need constant ones!!!
         for arg in op.getarglist():
             if arg.is_constant():
                 self.offset_map[arg] = self.size
@@ -71,13 +75,23 @@ class LiteralPool(object):
         self.pool_start = asm.mc.get_relative_pos()
         for op in operations:
             self.ensure_can_hold_constants(asm, op)
-        if self.size == 0:
+        if self.size == 0 and written != 0:
             # no pool needed!
             return
         assert self.size % 2 == 0
         #if self.size % 2 == 1:
         #    self.size += 1
         asm.mc.write('\xFF' * self.size)
+        written = 0
+        if self.constant_64_ones:
+            asm.mc.write('\xFF' * 8)
+            self.constant_64_ones = self.size
+            written += 8
+        if self.constant_64_zeros:
+            asm.mc.write('\x00' * 8)
+            self.constant_64_zeros = self.size
+            written += 8
+        self.size += written
         print "pool with %d quad words" % (self.size // 8)
 
     def overwrite_64(self, mc, index, value):

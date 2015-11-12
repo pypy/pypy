@@ -40,6 +40,7 @@ arith_mnemonic_codes = {
     # invert & negative & absolute
     'LPGR':    ('rre',   ['\xB9','\x00']),
     'LNGR':    ('rre',   ['\xB9','\x01']),
+    'LCGR':    ('rre',   ['\xB9','\x03']),
 
 
 
@@ -58,6 +59,7 @@ arith_mnemonic_codes = {
     'CLGR':    ('rre',    ['\xB9','\x21']),
     'CLG':     ('rxy',    ['\xE3','\x21']),
     'CGHI':    ('ri',     ['\xA7','\x0F']),
+    'CGFI':    ('ril',    ['\xC2','\x0E']),
 }
 
 logic_mnemonic_codes = {
