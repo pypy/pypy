@@ -29,8 +29,13 @@ arith_mnemonic_codes = {
     'DSG':     ('rxy',   ['\xE3','\x0D'], 'eo,bidl'),
     'DLGR':    ('rre',   ['\xB9','\x97'], 'eo,r'),
     'DLG':     ('rxy',   ['\xE3','\x87'], 'eo,bidl'),
-
     # there is no immidiate divide
+
+    # shifting
+    'SRAG':    ('rsy',   ['\xEB','\x0A']),
+    'SLAG':    ('rsy',   ['\xEB','\x0B']),
+    'SRLG':    ('rsy',   ['\xEB','\x0C']),
+    'SLLG':    ('rsy',   ['\xEB','\x0D']),
 
 
     # div

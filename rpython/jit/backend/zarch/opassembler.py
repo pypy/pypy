@@ -1,4 +1,5 @@
-from rpython.jit.backend.zarch.helper.assembler import gen_emit_cmp_op
+from rpython.jit.backend.zarch.helper.assembler import (gen_emit_cmp_op,
+        gen_emit_rr_or_rpool, gen_emit_shift)
 from rpython.jit.backend.zarch.codebuilder import ZARCHGuardToken
 import rpython.jit.backend.zarch.conditions as c
 import rpython.jit.backend.zarch.registers as r
@@ -71,6 +72,14 @@ class IntOpAssembler(object):
             self.mc.SG(l0, l1)
         else:
             self.mc.SGR(l0, l1)
+
+    emit_int_and = gen_emit_rr_or_rpool("NGR", "NG")
+    emit_int_or  = gen_emit_rr_or_rpool("OGR", "OG")
+    emit_int_xor = gen_emit_rr_or_rpool("XGR", "XG")
+
+    emit_int_rshift  = gen_emit_shift("SRAG")
+    emit_int_lshift  = gen_emit_shift("SLAG")
+    emit_uint_rshift = gen_emit_shift("SRLG")
 
     emit_int_le = gen_emit_cmp_op(c.LE)
     emit_int_lt = gen_emit_cmp_op(c.LT)

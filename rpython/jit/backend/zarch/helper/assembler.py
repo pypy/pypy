@@ -67,3 +67,25 @@ def gen_emit_cmp_op(condition, signed=True, fp=False):
     def f(self, op, arglocs, regalloc):
         do_emit_cmp_op(self, arglocs, condition, signed, fp)
     return f
+
+def gen_emit_shift(func):
+    def f(self, op, arglocs, regalloc):
+        l0, l1 = arglocs
+        if not l1.is_imm() or l1.is_in_pool():
+            assert "shift imm must NOT reside in pool!"
+        getattr(self.mc, func)(l0, l0, l1)
+    return f
+
+def gen_emit_rr_or_rpool(rr_func, rp_func):
+    """ the parameters can either be both in registers or
+        the first is in the register, second in literal pool.
+    """
+    def f(self, op, arglocs, regalloc):
+        l0, l1 = arglocs
+        if l1.is_imm():
+            assert "logical imm must reside in pool!"
+        elif l1.is_in_pool():
+            getattr(self.mc, rp_func)(l0, l1)
+        else:
+            getattr(self.mc, rr_func)(l0, l1)
+    return f

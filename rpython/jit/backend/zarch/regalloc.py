@@ -540,6 +540,14 @@ class Regalloc(BaseRegalloc):
     prepare_uint_floordiv = helper.prepare_int_div
     prepare_int_mod = helper.prepare_int_mod
 
+    prepare_int_and = helper.prepare_int_logic
+    prepare_int_or  = helper.prepare_int_logic
+    prepare_int_xor = helper.prepare_int_logic
+
+    prepare_int_rshift  = helper.prepare_int_shift
+    prepare_int_lshift  = helper.prepare_int_shift
+    prepare_uint_rshift = helper.prepare_int_shift
+
     prepare_int_le = helper.prepare_cmp_op
     prepare_int_lt = helper.prepare_cmp_op
     prepare_int_ge = helper.prepare_cmp_op
