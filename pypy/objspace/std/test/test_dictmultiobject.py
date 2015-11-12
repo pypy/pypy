@@ -1118,6 +1118,7 @@ class Config:
             withmethodcache = False
             withidentitydict = False
             withmapdict = False
+            withstmdict = False
 
 FakeSpace.config = Config()
 

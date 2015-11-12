@@ -55,13 +55,16 @@ class W_DictMultiObject(W_Root):
         elif space.config.objspace.std.withmapdict and instance:
             from pypy.objspace.std.mapdict import MapDictStrategy
             strategy = space.fromcache(MapDictStrategy)
-        elif instance or strdict or module:
-            assert w_type is None
-            strategy = space.fromcache(BytesDictStrategy)
         elif kwargs:
             assert w_type is None
             from pypy.objspace.std.kwargsdict import EmptyKwargsDictStrategy
             strategy = space.fromcache(EmptyKwargsDictStrategy)
+        elif space.config.objspace.std.withstmdict:
+            from pypy.objspace.std.stmdict import StmDictStrategy
+            strategy = space.fromcache(StmDictStrategy)
+        elif instance or strdict or module:
+            assert w_type is None
+            strategy = space.fromcache(BytesDictStrategy)
         else:
             strategy = space.fromcache(EmptyDictStrategy)
         if w_type is None:
@@ -528,11 +531,29 @@ class DictStrategy(object):
     def prepare_update(self, w_dict, num_extra):
         pass
 
+    @staticmethod
+    def make_empty_with_object_strategy(space, w_dict):
+        if space.config.objspace.std.withstmdict:
+            from pypy.objspace.std.stmdict import StmDictStrategy
+            Cls = StmDictStrategy
+        else:
+            Cls = ObjectDictStrategy
+        strategy = space.fromcache(Cls)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
+        return strategy
+
 
 class EmptyDictStrategy(DictStrategy):
     erase, unerase = rerased.new_erasing_pair("empty")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
+
+    def __init__(self, space):
+        DictStrategy.__init__(self, space)
+        assert not space.config.objspace.std.withstmdict, (
+            "withstmdict: should not use EmptyDictStrategy at all")
 
     def get_empty_storage(self):
         return self.erase(None)
@@ -579,10 +600,7 @@ class EmptyDictStrategy(DictStrategy):
         w_dict.dstorage = storage
 
     def switch_to_object_strategy(self, w_dict):
-        strategy = self.space.fromcache(ObjectDictStrategy)
-        storage = strategy.get_empty_storage()
-        w_dict.strategy = strategy
-        w_dict.dstorage = storage
+        DictStrategy.make_empty_with_object_strategy(self.space, w_dict)
 
     def getitem(self, w_dict, w_key):
         #return w_value or None
@@ -839,6 +857,11 @@ create_iterator_classes(EmptyDictStrategy)
 
 class AbstractTypedStrategy(object):
     _mixin_ = True
+
+    def __init__(self, space):
+        DictStrategy.__init__(self, space)
+        assert not space.config.objspace.std.withstmdict, (
+            "withstmdict: should not use %s at all" % self.__class__.__name__)
 
     @staticmethod
     def erase(storage):

@@ -273,6 +273,11 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    default=False,
                    # weakrefs needed, because of get_subclasses()
                    requires=[("translation.rweakref", True)]),
+
+        BoolOption("withstmdict",
+                   "for stm: make all dicts be conflict-aware",
+                   default=False,
+                   requires=[("translation.stm", True)]),
      ]),
 ])
 
@@ -326,7 +331,7 @@ def set_pypy_opt_level(config, level):
         # it creates many conflicts
         # if config.objspace.std.withmapdict:
         #     config.objspace.std.withmethodcache = True #False
-        pass
+        config.objspace.std.suggest(withstmdict=True)
 
 
 def enable_allworkingmodules(config):

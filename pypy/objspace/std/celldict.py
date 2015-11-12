@@ -149,12 +149,9 @@ class ModuleDictStrategy(DictStrategy):
     def switch_to_object_strategy(self, w_dict):
         space = self.space
         d = self.unerase(w_dict.dstorage)
-        strategy = space.fromcache(ObjectDictStrategy)
-        d_new = strategy.unerase(strategy.get_empty_storage())
+        strategy = DictStrategy.make_empty_with_object_strategy(space, w_dict)
         for key, cell in d.iteritems():
-            d_new[_wrapkey(space, key)] = unwrap_cell(self.space, cell)
-        w_dict.strategy = strategy
-        w_dict.dstorage = strategy.erase(d_new)
+            strategy.setitem_str(w_dict, key, unwrap_cell(space, cell))
 
     def getiterkeys(self, w_dict):
         return self.unerase(w_dict.dstorage).iterkeys()

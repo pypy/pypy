@@ -101,38 +101,50 @@ def pop_from_entry(h, space, w_key):
     return w_value
 
 
+def create():
+    return rstm.create_hashtable()
+
+def getitem(space, h, w_key):
+    entry, array, i = really_find_equal_item(space, h, w_key)
+    if array and i >= 0:
+        return cast_gcref_to_instance(W_Root, array[i + 1])
+    space.raise_key_error(w_key)
+
+def setitem(space, h, w_key, w_value):
+    entry, array, i = really_find_equal_item(space, h, w_key)
+    if array:
+        if i >= 0:
+            # already there, update the value
+            array[i + 1] = cast_instance_to_gcref(w_value)
+            return
+        L = len(array)
+        narray = lltype.malloc(ARRAY, L + 2)
+        ll_arraycopy(array, narray, 0, 0, L)
+    else:
+        narray = lltype.malloc(ARRAY, 2)
+        L = 0
+    narray[L] = cast_instance_to_gcref(w_key)
+    narray[L + 1] = cast_instance_to_gcref(w_value)
+    h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
+
+def delitem(space, h, w_key):
+    if pop_from_entry(h, space, w_key) is None:
+        space.raise_key_error(w_key)
+
 
 class W_STMDict(W_Root):
 
     def __init__(self):
-        self.h = rstm.create_hashtable()
+        self.h = create()
 
     def getitem_w(self, space, w_key):
-        entry, array, i = really_find_equal_item(space, self.h, w_key)
-        if array and i >= 0:
-            return cast_gcref_to_instance(W_Root, array[i + 1])
-        space.raise_key_error(w_key)
+        return getitem(space, self.h, w_key)
 
     def setitem_w(self, space, w_key, w_value):
-        entry, array, i = really_find_equal_item(space, self.h, w_key)
-        if array:
-            if i >= 0:
-                # already there, update the value
-                array[i + 1] = cast_instance_to_gcref(w_value)
-                return
-            L = len(array)
-            narray = lltype.malloc(ARRAY, L + 2)
-            ll_arraycopy(array, narray, 0, 0, L)
-        else:
-            narray = lltype.malloc(ARRAY, 2)
-            L = 0
-        narray[L] = cast_instance_to_gcref(w_key)
-        narray[L + 1] = cast_instance_to_gcref(w_value)
-        self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
+        setitem(space, self.h, w_key, w_value)
 
     def delitem_w(self, space, w_key):
-        if pop_from_entry(self.h, space, w_key) is None:
-            space.raise_key_error(w_key)
+        delitem(space, self.h, w_key)
 
     def contains_w(self, space, w_key):
         entry, array, i = really_find_equal_item(space, self.h, w_key)
