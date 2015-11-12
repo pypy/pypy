@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 import types
+from collections import defaultdict
 
 from rpython.tool.ansi_print import ansi_log
 from rpython.tool.pairtype import pair
@@ -391,8 +392,7 @@ class RPythonAnnotator(object):
         if hasattr(s_out, 'is_type_of'):
             renamed_is_type_of = []
             for v in s_out.is_type_of:
-                new_vs = renaming.get(v, [])
-                renamed_is_type_of += new_vs
+                renamed_is_type_of += renaming[v]
             assert s_out.knowntype is type
             newcell = annmodel.SomeType()
             if s_out.is_constant():
@@ -533,9 +533,10 @@ class RPythonAnnotator(object):
 
         ignore_link = False
         inputs_s = []
-        renaming = {}
+        renaming = defaultdict(list)
         for v_out, v_input in zip(link.args, link.target.inputargs):
-            renaming.setdefault(v_out, []).append(v_input)
+            renaming[v_out].append(v_input)
+
         for v_out in link.args:
             s_out = self.annotation(v_out)
             if v_out in constraints:
@@ -567,22 +568,20 @@ class RPythonAnnotator(object):
         if isinstance(v_last_exc_type, Variable):
             self.setbinding(v_last_exc_type, SomeTypeOf(v_last_exc_value))
 
-        s_last_exc_type = annmodel.SomeType()
-        if isinstance(v_last_exc_type, Constant):
-            s_last_exc_type.const = v_last_exc_type.value
-        last_exc_value_vars = []
 
         ignore_link = False
         inputs_s = []
-        renaming = {}
+        renaming = defaultdict(list)
         for v_out, v_input in zip(link.args, link.target.inputargs):
-            renaming.setdefault(v_out, []).append(v_input)
+            renaming[v_out].append(v_input)
+
         for v_out, v_input in zip(link.args, link.target.inputargs):
             if v_out == v_last_exc_type:
-                inputs_s.append(s_last_exc_type)
-            elif v_out == v_last_exc_value:
-                inputs_s.append(s_last_exc_value)
-                last_exc_value_vars.append(v_input)
+                s_out = annmodel.SomeType()
+                s_out.is_type_of = renaming[v_last_exc_value]
+                if isinstance(v_last_exc_type, Constant):
+                    s_out.const = v_last_exc_type.value
+                inputs_s.append(s_out)
             else:
                 s_out = self.annotation(v_out)
                 if v_out in constraints:
@@ -595,7 +594,6 @@ class RPythonAnnotator(object):
                 inputs_s.append(s_out)
         if ignore_link:
             return
-        s_last_exc_type.is_type_of = last_exc_value_vars
 
         self.links_followed[link] = True
         self.addpendingblock(graph, link.target, inputs_s)
