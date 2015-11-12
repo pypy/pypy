@@ -37,6 +37,11 @@ arith_mnemonic_codes = {
     'SRLG':    ('rsy',   ['\xEB','\x0C']),
     'SLLG':    ('rsy',   ['\xEB','\x0D']),
 
+    # invert & negative & absolute
+    'LPGR':    ('rre',   ['\xB9','\x00']),
+    'LNGR':    ('rre',   ['\xB9','\x01']),
+
+
 
     # div
 

@@ -555,6 +555,12 @@ class Regalloc(BaseRegalloc):
     prepare_int_eq = helper.prepare_cmp_op
     prepare_int_ne = helper.prepare_cmp_op
 
+    prepare_int_is_zero = helper.prepare_unary_op
+    prepare_int_is_true = helper.prepare_unary_op
+    prepare_int_neg     = helper.prepare_unary_op
+    prepare_int_invert  = helper.prepare_unary_op
+    prepare_int_force_ge_zero = helper.prepare_unary_op
+
     prepare_float_add = helper.prepare_binary_op
     prepare_float_sub = helper.prepare_binary_op
     prepare_float_mul = helper.prepare_binary_op
@@ -696,11 +702,29 @@ def notimplemented(self, op):
 
 prepare_oplist = [notimplemented] * (rop._LAST + 1)
 
+implemented_count = 0
+total_count = 0
+missing = []
 for key, value in rop.__dict__.items():
     key = key.lower()
     if key.startswith('_'):
         continue
+    total_count += 1
     methname = 'prepare_%s' % key
     if hasattr(Regalloc, methname):
         func = getattr(Regalloc, methname).im_func
         prepare_oplist[value] = func
+        implemented_count += 1
+    else:
+        missing.append(methname)
+
+if __name__ == '__main__':
+    for m in missing:
+        print(" " * 4 + m)
+    print
+    print("regalloc implements %.2f%% of all resops" % \
+          (100.0 * implemented_count / total_count))
+
+del implemented_count
+del total_count
+del missing

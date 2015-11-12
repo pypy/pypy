@@ -117,3 +117,11 @@ def prepare_binary_op(self, op):
     self.force_result_in_reg(op, a0)
     self.free_op_vars()
     return [l0, l1]
+
+def prepare_unary(self, op):
+    a0 = op.getarg(0)
+    assert not a0.is_imm()
+    l0 = self.ensure_reg(a0)
+    self.force_result_in_reg(op, a0)
+    self.free_op_vars()
+    return [l0]
