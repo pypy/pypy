@@ -37,3 +37,21 @@ class TestRStruct(BaseRtypingTest):
             return runpack(">d", "testtest")
         assert fn() == struct.unpack(">d", "testtest")[0]
         assert self.interpret(fn, []) == struct.unpack(">d", "testtest")[0]
+
+    def test_native_floats(self):
+        """
+        Check the 'd' and 'f' format characters on native packing.
+        """
+        d_data = struct.pack("d", 12.34)
+        f_data = struct.pack("f", 12.34)
+        def fn():
+            d = runpack("@d", d_data)
+            f = runpack("@f", f_data)
+            return d, f
+        #
+        res = self.interpret(fn, [])
+        d = res.item0
+        f = res.item1  # convert from r_singlefloat
+        assert d == 12.34     # no precision lost
+        assert f != 12.34     # precision lost
+        assert abs(f - 12.34) < 1E-6

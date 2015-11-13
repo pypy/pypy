@@ -45,6 +45,7 @@ def free_raw_storage(storage, track_allocation=True):
 
 
 @rgc.no_collect
+@specialize.ll()
 def str_storage_getitem(TP, s, index):
     lls = llstr(s)
     # from here, no GC operations can happen
@@ -56,6 +57,7 @@ def str_storage_getitem(TP, s, index):
     return res
 
 @rgc.no_collect
+@specialize.ll()
 def str_storage_getitem_unaligned(TP, s, index):
     lls = llstr(s)
     # from here, no GC operations can happen

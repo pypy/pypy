@@ -10,6 +10,7 @@ from rpython.rlib.rarithmetic import r_singlefloat, widen
 from rpython.rlib.rstruct import standardfmttable as std
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.rawstorage import str_storage_getitem
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -26,9 +27,6 @@ native_fmttable = {
 
 # ____________________________________________________________
 
-
-double_buf = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw', immortal=True)
-float_buf = lltype.malloc(rffi.FLOATP.TO, 1, flavor='raw', immortal=True)
 
 range_8_unroll = unrolling_iterable(list(reversed(range(8))))
 range_4_unroll = unrolling_iterable(list(reversed(range(4))))
@@ -48,10 +46,7 @@ def pack_double(fmtiter):
 @specialize.argtype(0)
 def unpack_double(fmtiter):
     input = fmtiter.read(sizeof_double)
-    p = rffi.cast(rffi.CCHARP, double_buf)
-    for i in range(sizeof_double):
-        p[i] = input[i]
-    doubleval = double_buf[0]
+    doubleval = str_storage_getitem(rffi.DOUBLE, input, 0)
     fmtiter.appendobj(doubleval)
 
 def pack_float(fmtiter):
@@ -71,11 +66,8 @@ def pack_float(fmtiter):
 @specialize.argtype(0)
 def unpack_float(fmtiter):
     input = fmtiter.read(sizeof_float)
-    p = rffi.cast(rffi.CCHARP, float_buf)
-    for i in range(sizeof_float):
-        p[i] = input[i]
-    floatval = float_buf[0]
-    doubleval = float(floatval)
+    floatval = str_storage_getitem(rffi.FLOAT, input, 0)
+    doubleval = float(floatval) # convert from r_singlefloat to rpython's float
     fmtiter.appendobj(doubleval)
 
 # ____________________________________________________________
