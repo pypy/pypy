@@ -589,6 +589,48 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert bool(module.newInt(-1))
         raises(ValueError, bool, module.newInt(-42))
 
+    def test_binaryfunc(self):
+        module = self.import_extension('foo', [
+            ("new_obj", "METH_NOARGS",
+             """
+                FooObject *fooObj;
+
+                Foo_Type.tp_as_number = &foo_as_number;
+                foo_as_number.nb_add = foo_nb_add_call;
+                if (PyType_Ready(&Foo_Type) < 0) return NULL;
+                fooObj = PyObject_New(FooObject, &Foo_Type);
+                if (!fooObj) {
+                    return NULL;
+                }
+
+                return (PyObject *)fooObj;
+             """)],
+            """
+            typedef struct
+            {
+                PyObject_HEAD
+            } FooObject;
+
+            static PyObject * 
+            foo_nb_add_call(PyObject *self, PyObject *other)
+            {
+                return PyInt_FromLong(42); 
+            }
+
+            PyTypeObject Foo_Type = {
+                PyObject_HEAD_INIT(0)
+                /*ob_size*/             0,
+                /*tp_name*/             "Foo",
+                /*tp_basicsize*/        sizeof(FooObject),
+            };
+            static PyNumberMethods foo_as_number;
+            """)
+        a = module.new_obj()
+        b = module.new_obj() 
+        c = 3
+        assert (a + b) == 42 
+        raises(TypeError, "b + c")
+
     def test_tp_new_in_subclass_of_type(self):
         skip("BROKEN")
         module = self.import_module(name='foo3')

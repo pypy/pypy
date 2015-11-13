@@ -3,7 +3,7 @@ import py
 import sys, os
 from rpython.rlib import exports
 from rpython.rlib.entrypoint import entrypoint
-from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool import runsubprocess
 from rpython.tool.nullpath import NullPyPathLocal
@@ -524,7 +524,7 @@ class CStandaloneBuilder(CBuilder):
                 '$(CC) -o $*.o -c $*.vmprof.lbl.s',
                 'mv $*.gctmp $*.gcmap',
                 'rm $*.vmprof.lbl.s'])
-            
+
             # the rule to compute gcmaptable.s
             mk.rule('gcmaptable.s', '$(GCMAPFILES)',
                     [
@@ -825,8 +825,7 @@ def gen_preimpl(f, database):
 
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
-    print >> f, 'char *RPython_StartupCode(void) {'
-    print >> f, '\tchar *error = NULL;'
+    print >> f, 'void RPython_StartupCode(void) {'
 
     if database.with_stm:
         print >> f, '\t/* XXX temporary workaround for late_initializations */'
@@ -850,18 +849,12 @@ def gen_startupcode(f, database):
     for line in database.gcpolicy.gc_startup_code():
         print >> f,"\t" + line
 
-    firsttime = True
     for node in database.containerlist:
         lines = list(node.startupcode())
         if lines:
-            if firsttime:
-                firsttime = False
-            else:
-                print >> f, '\tif (error) return error;'
             for line in lines:
                 print >> f, '\t'+line
 
-    print >> f, '\treturn error;'
     print >> f, '}'
     print >> f
     # also generate the tear-down code (empty except for stm statistics)

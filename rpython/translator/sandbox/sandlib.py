@@ -10,6 +10,9 @@ from rpython.tool.killsubprocess import killsubprocess
 from rpython.translator.sandbox.vfs import UID, GID
 import py
 
+WIN32 = os.name == "nt"
+
+
 def create_log():
     """Make and return a log for the sandbox to use, if needed."""
     # These imports are local to avoid importing pypy if we don't need to.
@@ -40,14 +43,7 @@ from rpython.translator.sandbox import _marshal as marshal
 RESULTTYPE_STATRESULT = object()
 RESULTTYPE_LONGLONG = object()
 
-def read_message(f, timeout=None):
-    # warning: 'timeout' is not really reliable and should only be used
-    # for testing.  Also, it doesn't work if the file f does any buffering.
-    if timeout is not None:
-        import select
-        iwtd, owtd, ewtd = select.select([f], [], [], timeout)
-        if not iwtd:
-            raise EOFError("timed out waiting for data")
+def read_message(f):
     return marshal.load(f)
 
 def write_message(g, msg, resulttype=None):
@@ -140,7 +136,7 @@ class SandboxedProc(object):
                                       bufsize=-1,
                                       stdin=subprocess.PIPE,
                                       stdout=subprocess.PIPE,
-                                      close_fds=True,
+                                      close_fds=False if WIN32 else True,
                                       env={})
         self.popenlock = None
         self.currenttimeout = None

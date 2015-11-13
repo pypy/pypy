@@ -13,7 +13,8 @@ class Exit(Exception):
         self.result = result
 
 
-class WarmspotTests(object):
+class TestLLWarmspot(LLJitMixin):
+    CPUClass = runner.LLGraphCPU
 
     def test_basic(self):
         mydriver = JitDriver(reds=['a'],
@@ -575,10 +576,6 @@ class WarmspotTests(object):
                                 "with the same jitdriver")
 
 
-class TestLLWarmspot(WarmspotTests, LLJitMixin):
-    CPUClass = runner.LLGraphCPU
-    type_system = 'lltype'
-
 class TestWarmspotDirect(object):
     def setup_class(cls):
         from rpython.jit.metainterp.typesystem import llhelper
@@ -613,8 +610,7 @@ class TestWarmspotDirect(object):
                 self._no = no
 
         class FakeDescr:
-            def as_vtable_size_descr(self):
-                return self
+            pass
 
         class FakeCPU(object):
             supports_floats = False

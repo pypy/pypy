@@ -159,8 +159,6 @@ def test_get_jitcode(monkeypatch):
     class FakeRTyper:
         class annotator:
             translator = None
-        class type_system:
-            name = 'lltypesystem'
 
     def getfunctionptr(graph):
         F = lltype.FuncType([], lltype.Signed)

@@ -189,6 +189,11 @@ def stm_addr_get_tid(funcgen, op):
     result = funcgen.expr(op.result)
     return '%s = ((struct rpyobj_s *)%s)->tid;' % (result, arg0)
 
+def stm_gc_get_tid(funcgen, op):
+    arg0   = funcgen.expr(op.args[0])
+    result = funcgen.expr(op.result)
+    return '%s = ((rpyobj_t *)%s)->tid;' % (result, arg0)
+
 def stm_become_inevitable(funcgen, op):
     try:
         info = op.args[0].value

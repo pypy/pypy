@@ -18,6 +18,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
     _attrs_            = ['ctptr']
     _immutable_fields_ = ['ctptr']
     kind = "array"
+    is_nonfunc_pointer_or_array = True
 
     def __init__(self, space, ctptr, length, arraysize, extra):
         W_CTypePtrOrArray.__init__(self, space, arraysize, extra, 0,

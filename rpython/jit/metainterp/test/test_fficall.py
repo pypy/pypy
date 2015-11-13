@@ -46,7 +46,9 @@ class FakeFFI(object):
 class FfiCallTests(object):
 
     def _run(self, atypes, rtype, avalues, rvalue,
-             expected_call_release_gil=1,
+             expected_call_release_gil_i=1,
+             expected_call_release_gil_f=0,
+             expected_call_release_gil_n=0,
              supports_floats=True,
              supports_longlong=False,
              supports_singlefloats=False):
@@ -70,6 +72,7 @@ class FfiCallTests(object):
         cif_description.exchange_result = (len(avalues)+1) * 16
 
         unroll_avalues = unrolling_iterable(avalues)
+        BIG_ENDIAN = (sys.byteorder == 'big')
 
         def fake_call_impl_any(cif_description, func_addr, exchange_buffer):
             ofs = 16
@@ -86,13 +89,19 @@ class FfiCallTests(object):
                     avalue = intmask(avalue)
                 assert got == avalue
                 ofs += 16
+            write_to_ofs = 0
             if rvalue is not None:
                 write_rvalue = rvalue
+                if BIG_ENDIAN:
+                    if (lltype.typeOf(write_rvalue) is rffi.SIGNEDCHAR or
+                        lltype.typeOf(write_rvalue) is rffi.UCHAR):
+                        # 'write_rvalue' is an int type smaller than Signed
+                        write_to_ofs = rffi.sizeof(rffi.LONG) - 1
             else:
                 write_rvalue = 12923  # ignored
             TYPE = rffi.CArray(lltype.typeOf(write_rvalue))
             data = rffi.ptradd(exchange_buffer, ofs)
-            rffi.cast(lltype.Ptr(TYPE), data)[0] = write_rvalue
+            rffi.cast(lltype.Ptr(TYPE), data)[write_to_ofs] = write_rvalue
 
         def f(i):
             exbuf = lltype.malloc(rffi.CCHARP.TO, (len(avalues)+2) * 16,
@@ -141,8 +150,12 @@ class FfiCallTests(object):
                 # longlong and floats are passed around as longlongs.
                 res = float2longlong(res)
             assert matching_result(res, rvalue)
-            self.check_operations_history(call_may_force=0,
-                                          call_release_gil=expected_call_release_gil)
+            self.check_operations_history(call_may_force_i=0,
+                                          call_may_force_f=0,
+                                          call_may_force_n=0,
+                            call_release_gil_i=expected_call_release_gil_i,
+                            call_release_gil_f=expected_call_release_gil_f,
+                            call_release_gil_n=expected_call_release_gil_n)
 
             ##################################################
             driver = jit.JitDriver(reds=['i'], greens=[])
@@ -168,10 +181,17 @@ class FfiCallTests(object):
 
     def test_simple_call_float(self, **kwds):
         kwds.setdefault('supports_floats', True)
+        kwds['expected_call_release_gil_f'] = kwds.pop('expected_call_release_gil', 1)
+        kwds['expected_call_release_gil_i'] = 0
         self._run([types.double] * 2, types.double, [45.6, 78.9], -4.2, **kwds)
 
     def test_simple_call_longlong(self, **kwds):
         kwds.setdefault('supports_longlong', True)
+        if is_64_bit:
+            kwds['expected_call_release_gil_i'] = kwds.pop('expected_call_release_gil', 1)
+        else:
+            kwds['expected_call_release_gil_f'] = kwds.pop('expected_call_release_gil', 1)
+            kwds['expected_call_release_gil_i'] = 0
         maxint32 = 2147483647
         a = r_longlong(maxint32) + 1
         b = r_longlong(maxint32) + 2
@@ -179,12 +199,15 @@ class FfiCallTests(object):
 
     def test_simple_call_singlefloat_args(self, **kwds):
         kwds.setdefault('supports_singlefloats', True)
+        kwds['expected_call_release_gil_f'] = kwds.pop('expected_call_release_gil', 1)
+        kwds['expected_call_release_gil_i'] = 0
         self._run([types.float] * 2, types.double,
                   [r_singlefloat(10.5), r_singlefloat(31.5)],
-                  -4.5)
+                  -4.5, **kwds)
 
     def test_simple_call_singlefloat(self, **kwds):
         kwds.setdefault('supports_singlefloats', True)
+        kwds['expected_call_release_gil_i'] = kwds.pop('expected_call_release_gil', 1)
         self._run([types.float] * 2, types.float,
                   [r_singlefloat(10.5), r_singlefloat(31.5)],
                   r_singlefloat(-4.5), **kwds)
@@ -192,10 +215,12 @@ class FfiCallTests(object):
     def test_simple_call_longdouble(self):
         # longdouble is not supported, so we expect NOT to generate a call_release_gil
         self._run([types.longdouble] * 2, types.longdouble, [12.3, 45.6], 78.9,
-                  expected_call_release_gil=0)
+                  expected_call_release_gil_i=0, expected_call_release_gil_f=0,
+            )
 
     def test_returns_none(self):
-        self._run([types.signed] * 2, types.void, [456, 789], None)
+        self._run([types.signed] * 2, types.void, [456, 789], None,
+                  expected_call_release_gil_i=0, expected_call_release_gil_n=1)
 
     def test_returns_signedchar(self):
         self._run([types.sint8], types.sint8,

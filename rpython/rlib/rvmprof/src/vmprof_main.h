@@ -31,7 +31,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "vmprof_getpc.h"
+#ifdef __APPLE__
+#include "libunwind.h"
+#else
 #include "vmprof_unwind.h"
+#endif
 #include "vmprof_mt.h"
 
 
@@ -39,10 +43,12 @@
 
 // functions copied from libunwind using dlopen
 
+#ifndef __APPLE__ // should be linux only probably
 static int (*unw_get_reg)(unw_cursor_t*, int, unw_word_t*) = NULL;
 static int (*unw_step)(unw_cursor_t*) = NULL;
 static int (*unw_init_local)(unw_cursor_t *, unw_context_t *) = NULL;
 static int (*unw_get_proc_info)(unw_cursor_t *, unw_proc_info_t *) = NULL;
+#endif
 
 static int profile_file = -1;
 static long prepare_interval_usec;
@@ -67,6 +73,7 @@ char *vmprof_init(int fd, double interval, char *interp_name)
         return "bad value for 'interval'";
     prepare_interval_usec = (int)(interval * 1000000.0);
 
+#ifndef __APPLE__
     if (!unw_get_reg) {
         void *libhandle;
 
@@ -81,6 +88,7 @@ char *vmprof_init(int fd, double interval, char *interp_name)
         if (!(unw_step = dlsym(libhandle, UNW_PREFIX  "_step")))
             goto error;
     }
+#endif
     if (prepare_concurrent_bufs() < 0)
         return "out of memory";
 
@@ -206,7 +214,12 @@ static int get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)
     void *ip;
     int n = 0;
     unw_cursor_t cursor;
+#ifdef __APPLE__
+    unw_context_t uc;
+    unw_getcontext(&uc);
+#else
     unw_context_t uc = *ucontext;
+#endif
 
     int ret = unw_init_local(&cursor, &uc);
     assert(ret >= 0);
@@ -328,7 +341,7 @@ static int remove_sigprof_handler(void)
 
 static int install_sigprof_timer(void)
 {
-    static struct itimerval timer;
+    struct itimerval timer;
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = profile_interval_usec;
     timer.it_value = timer.it_interval;
@@ -338,7 +351,7 @@ static int install_sigprof_timer(void)
 }
 
 static int remove_sigprof_timer(void) {
-    static struct itimerval timer;
+    struct itimerval timer;
     timer.it_interval.tv_sec = 0;
     timer.it_interval.tv_usec = 0;
     timer.it_value.tv_sec = 0;

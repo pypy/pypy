@@ -147,7 +147,7 @@ class W_GenericBox(W_NumpyObject):
 
     def get_flags(self):
         return (NPY.ARRAY_C_CONTIGUOUS | NPY.ARRAY_F_CONTIGUOUS |
-                NPY.ARRAY_WRITEABLE | NPY.ARRAY_OWNDATA)
+                NPY.ARRAY_ALIGNED | NPY.ARRAY_OWNDATA)
 
     def item(self, space):
         return self.get_dtype(space).itemtype.to_builtin_type(space, self)
@@ -591,6 +591,14 @@ class W_VoidBox(W_FlexibleBox):
     def descr_setitem(self, space, w_item, w_value):
         if space.isinstance_w(w_item, space.w_basestring):
             item = space.str_w(w_item)
+        elif space.isinstance_w(w_item, space.w_int):
+            indx = space.int_w(w_item)
+            try:
+                item = self.dtype.names[indx][0]
+            except IndexError:
+                if indx < 0:
+                    indx += len(self.dtype.names)
+                raise oefmt(space.w_IndexError, "invalid index (%d)", indx)
         else:
             raise oefmt(space.w_IndexError, "invalid index")
         try:

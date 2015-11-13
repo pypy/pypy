@@ -27,11 +27,23 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 #  include "forwarddecl.h"
 # endif
 
+#if defined(MS_WINDOWS) && defined(RPY_SANDBOXED)
+#  include <stdio.h>
+#  include <fcntl.h>
+#  include <io.h>
+#endif
+
+
 RPY_EXTERN
 int pypy_main_function(int argc, char *argv[])
 {
     char *errmsg;
     int i, exitcode;
+
+#if defined(MS_WINDOWS) && defined(RPY_SANDBOXED)
+    _setmode(0, _O_BINARY);
+    _setmode(1, _O_BINARY);
+#endif
 
 #ifdef PYPY_USE_ASMGCC
     pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter++;
@@ -48,8 +60,7 @@ int pypy_main_function(int argc, char *argv[])
     }
 #endif
 
-    errmsg = RPython_StartupCode();
-    if (errmsg) goto error;
+    RPython_StartupCode();
 
 #ifdef RPY_STM
     rewind_jmp_buf rjbuf;

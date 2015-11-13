@@ -329,13 +329,13 @@ class OpMatcher(object):
         if not is_stm:
             ticker_check = """
                 guard_not_invalidated?
-                ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker0 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value .*>)
                 ticker_cond0 = int_lt(ticker0, 0)
                 guard_false(ticker_cond0, descr=...)
             """
         else:
             ticker_check = """
-                ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker0 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value .*>)
                 ticker_cond0 = int_lt(ticker0, 0)
                 guard_false(ticker_cond0, descr=...)
                 guard_not_invalidated?
@@ -346,7 +346,7 @@ class OpMatcher(object):
         if not is_stm:
             thread_ticker_check = """
                 guard_not_invalidated?
-                ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker0 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value .*>)
                 ticker1 = int_sub(ticker0, #)
                 setfield_raw(#, ticker1, descr=<FieldS pypysig_long_struct.c_value .*>)
                 ticker_cond0 = int_lt(ticker1, 0)
@@ -354,7 +354,7 @@ class OpMatcher(object):
             """
         else:
             thread_ticker_check = """
-                ticker0 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+                ticker0 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value .*>)
                 ticker_cond0 = int_lt(ticker0, 0)
                 guard_false(ticker_cond0, descr=...)
                 guard_not_invalidated?
@@ -365,7 +365,7 @@ class OpMatcher(object):
         #
         # this is the ticker check generated in PyFrame.handle_operation_error
         exc_ticker_check = """
-            ticker2 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+            ticker2 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value .*>)
             ticker_cond1 = int_lt(ticker2, 0)
             guard_false(ticker_cond1, descr=...)
         """
