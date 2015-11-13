@@ -12,7 +12,11 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.rawstorage import str_storage_getitem
+from rpython.rlib import rarithmetic
+from rpython.rtyper.lltypesystem import rffi
 
+native_is_bigendian = struct.pack("=i", 1) == struct.pack(">i", 1)
 
 def pack_pad(fmtiter, count):
     fmtiter.result.append_multiple_char('\x00', count)
@@ -162,6 +166,15 @@ def make_float_unpacker(size):
 
 # ____________________________________________________________
 
+def get_rffi_int_type(size, signed):
+    for TYPE in rffi.platform.numbertype_to_rclass:
+        if (rffi.sizeof(TYPE) == size and
+            rarithmetic.is_signed_integer_type(TYPE) == signed):
+            return TYPE
+    raise KeyError("Cannot find an int type size=%d, signed=%d" % (size, signed))
+
+UNPACK_ALLOW_RAW_STORAGE = True
+
 def make_int_unpacker(size, signed, _memo={}):
     try:
         return _memo[size, signed]
@@ -180,13 +193,20 @@ def make_int_unpacker(size, signed, _memo={}):
         else:
             inttype = r_ulonglong
     unroll_range_size = unrolling_iterable(range(size))
+    TYPE = get_rffi_int_type(size, signed)
 
     @specialize.argtype(0)
     def unpack_int(fmtiter):
         intvalue = inttype(0)
         s = fmtiter.read(size)
         idx = 0
-        if fmtiter.bigendian:
+        if UNPACK_ALLOW_RAW_STORAGE and fmtiter.bigendian == native_is_bigendian:
+            # fast path, using the native raw_storage
+            intvalue = str_storage_getitem(TYPE, s, 0)
+            if not signed and size < native_int_size:
+                intvalue = rarithmetic.intmask(intvalue)
+            intvalue = inttype(intvalue)
+        elif fmtiter.bigendian:
             for i in unroll_range_size:
                 x = ord(s[idx])
                 if signed and i == 0 and x >= 128:

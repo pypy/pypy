@@ -1,5 +1,6 @@
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.rstruct.runpack import runpack
+from rpython.rlib.rstruct import standardfmttable
 from rpython.rlib.rarithmetic import LONG_BIT
 import struct
 
@@ -55,3 +56,37 @@ class TestRStruct(BaseRtypingTest):
         assert d == 12.34     # no precision lost
         assert f != 12.34     # precision lost
         assert abs(f - 12.34) < 1E-6
+
+    def test_unpack_standard_little(self):
+        def unpack(fmt, data):
+            def fn():
+                return runpack(fmt, data)
+            return self.interpret(fn, [])
+        #
+        assert unpack("<i", 'DCBA') == 0x41424344
+        assert unpack("<i", '\xfd\xff\xff\xff') == -3
+        assert unpack("<i", '\x00\x00\x00\x80') == -2147483648
+        assert unpack("<I", 'DCB\x81') == 0x81424344
+        assert unpack("<q", 'HGFEDCBA') == 0x4142434445464748
+        assert unpack("<q", 'HHIJKLM\xbe') == -0x41B2B3B4B5B6B7B8
+        assert unpack("<Q", 'HGFEDCB\x81') == 0x8142434445464748
+
+    def test_unpack_standard_big(self):
+        def unpack(fmt, data):
+            def fn():
+                return runpack(fmt, data)
+            return self.interpret(fn, [])
+        #
+        assert unpack(">i", 'ABCD') == 0x41424344
+        assert unpack(">i", '\xff\xff\xff\xfd') == -3
+        assert unpack(">i", '\x80\x00\x00\x00') == -2147483648
+        assert unpack(">I", '\x81BCD') == 0x81424344
+        assert unpack(">q", 'ABCDEFGH') == 0x4142434445464748
+        assert unpack(">q", '\xbeMLKJIHH') == -0x41B2B3B4B5B6B7B8
+        assert unpack(">Q", '\x81BCDEFGH') == 0x8142434445464748
+
+    def test_unpack_standard_no_raw_storage(self, monkeypatch):
+        monkeypatch.setattr(standardfmttable, 'UNPACK_ALLOW_RAW_STORAGE', False)
+        self.test_unpack_standard_little()
+        self.test_unpack_standard_big()
+
