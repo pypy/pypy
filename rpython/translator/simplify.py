@@ -311,6 +311,36 @@ def join_blocks(graph):
                 stack.extend(link.target.exits)
                 seen[link.target] = True
 
+def propagate_uncaught_exceptions(graph):
+    """Add the equivalent of:
+        except OverflowError:
+            raise
+        except Exception:
+            raise
+    to any try: except: suite that misses them."""
+    for block in list(graph.iterblocks()):
+        if block.canraise:
+            op = block.raising_op
+            exits = list(block.exits)
+            if OverflowError in op.canraise:
+                if not any(issubclass(OverflowError, exit.exitcase)
+                           for exit in block.exits[1:]):
+                    v_etype = const(OverflowError)
+                    v_exc = Variable('last_exc_value')
+                    exit = Link([v_etype, v_exc], graph.exceptblock, OverflowError)
+                    exit.extravars(v_etype, v_exc)
+                    exits.append(exit)
+            if Exception in op.canraise:
+                if block.exits[-1].exitcase is not Exception:
+                    v_etype = Variable('last_exception')
+                    v_exc = Variable('last_exc_value')
+                    exit = Link([v_etype, v_exc], graph.exceptblock, Exception)
+                    exit.extravars(v_etype, v_exc)
+                    exits.append(exit)
+            block.recloseblock(*exits)
+            if len(exits) == 1:
+                block.exitswitch = None
+
 
 def remove_assertion_errors(graph):
     """Remove branches that go directly to raising an AssertionError,
@@ -1053,6 +1083,7 @@ all_passes = [
     transform_ovfcheck,
     simplify_exceptions,
     remove_assertion_errors,
+    propagate_uncaught_exceptions,
     remove_dead_exceptions,
     join_blocks,
     ]
