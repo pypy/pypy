@@ -120,7 +120,9 @@ class GcRewriterAssembler(object):
         # this case means between CALLs or unknown-size mallocs.
         #
         operations = self.remove_bridge_exception(operations)
+        self._source_operations = operations
         for i in range(len(operations)):
+            self._current_position = i
             op = operations[i]
             assert op.get_forwarded() is None
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
@@ -211,7 +213,11 @@ class GcRewriterAssembler(object):
         self.emit_op(op1)
         lst = op.getfailargs()[:]
         lst[i] = op1
-        op.setfailargs(lst)
+        operations = self._source_operations
+        assert operations[self._current_position + 1] is op
+        newop = op.copy_and_change(opnum)
+        newop.setfailargs(lst)
+        operations[self._current_position + 1] = newop
 
     # ----------
 
