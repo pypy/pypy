@@ -133,13 +133,13 @@ def build_rr(mnemonic, (opcode,)):
 
 def build_rre(mnemonic, (opcode1,opcode2), argtypes='r,r'):
     @builder.arguments(argtypes)
-    def encode_rr(self, reg1, reg2):
+    def encode_rre(self, reg1, reg2):
         self.writechar(opcode1)
         self.writechar(opcode2)
         self.writechar('\x00')
         operands = ((reg1 & 0x0f) << 4) | (reg2 & 0xf)
         self.writechar(chr(operands))
-    return encode_rr
+    return encode_rre
 
 def build_rx(mnemonic, (opcode,)):
     @builder.arguments('r/m,bid')
@@ -277,14 +277,24 @@ def build_rs(mnemonic, (opcode,)):
         encode_base_displace(self, base_displace)
     return encode_rs
 
-def build_rsy(mnemonic, (opcode1,opcode2)):
+@always_inline
+def _encode_rsy(self, opcode1, opcode2, reg1, reg3, base_displace):
+    self.writechar(opcode1)
+    self.writechar(chr((reg1 & BIT_MASK_4) << 4 | reg3 & BIT_MASK_4))
+    encode_base_displace_long(self, base_displace)
+    self.writechar(opcode2)
+
+def build_rsy_a(mnemonic, (opcode1,opcode2)):
     @builder.arguments('r,r,bdl')
-    def encode_ssa(self, reg1, reg3, base_displace):
-        self.writechar(opcode1)
-        self.writechar(chr((reg1 & BIT_MASK_4) << 4 | reg3 & BIT_MASK_4))
-        encode_base_displace_long(self, base_displace)
-        self.writechar(opcode2)
-    return encode_ssa
+    def encode_rsy(self, reg1, reg3, base_displace):
+        _encode_rsy(self, opcode1, opcode2, reg1, reg3, base_displace)
+    return encode_rsy
+
+def build_rsy_b(mnemonic, (opcode1,opcode2)):
+    @builder.arguments('r,bdl,r')
+    def encode_rsy(self, reg1, base_displace, reg3):
+        _encode_rsy(self, opcode1, opcode2, reg1, reg3, base_displace)
+    return encode_rsy
 
 def build_rsi(mnemonic, (opcode,)):
     br = is_branch_relative(mnemonic)
@@ -298,10 +308,10 @@ def build_rsi(mnemonic, (opcode,)):
         self.write_i16(imm16 & BIT_MASK_16)
     return encode_ri
 
-def build_rie(mnemonic, (opcode1,opcode2)):
+def build_rie_e(mnemonic, (opcode1,opcode2)):
     br = is_branch_relative(mnemonic)
     @builder.arguments('r,r,i16')
-    def encode_ri(self, reg1, reg2, imm16):
+    def encode_rie_e(self, reg1, reg2, imm16):
         self.writechar(opcode1)
         byte = (reg1 & BIT_MASK_4) << 4 | (reg2 & BIT_MASK_4)
         self.writechar(chr(byte))
@@ -310,18 +320,45 @@ def build_rie(mnemonic, (opcode1,opcode2)):
         self.write_i16(imm16 & BIT_MASK_16)
         self.writechar(chr(0x0))
         self.writechar(opcode2)
-    return encode_ri
+    return encode_rie_e
 
-def build_rrf(mnemonic, (opcode1,opcode2), argtypes):
-    @builder.arguments(argtypes)
-    def encode_rrf(self, r1, rm3, r2, rm4):
+def build_rie_a(mnemonic, (opcode1,opcode2)):
+    br = is_branch_relative(mnemonic)
+    @builder.arguments('r,i16,r/m')
+    def encode_rie_a(self, reg1, imm16, mask):
         self.writechar(opcode1)
+        byte = (reg1 & BIT_MASK_4) << 4 | (mask & BIT_MASK_4)
+        self.writechar(chr(byte))
+        if br:
+            imm16 = imm16 >> 1
+        self.write_i16(imm16 & BIT_MASK_16)
+        self.writechar(chr(0x0))
         self.writechar(opcode2)
-        byte = (rm3 & BIT_MASK_4) << 4 | (rm4 & BIT_MASK_4)
-        self.writechar(chr(byte))
-        byte = (r1 & BIT_MASK_4) << 4 | (r2 & BIT_MASK_4)
-        self.writechar(chr(byte))
-    return encode_rrf
+    return encode_rie_a
+
+build_rie_g = build_rie_a
+
+@always_inline
+def _encode_rrf(self, opcode1, opcode2, r1, r2, rm3, rm4):
+    self.writechar(opcode1)
+    self.writechar(opcode2)
+    byte = (rm3 & BIT_MASK_4) << 4 | (rm4 & BIT_MASK_4)
+    self.writechar(chr(byte))
+    byte = (r1 & BIT_MASK_4) << 4 | (r2 & BIT_MASK_4)
+    self.writechar(chr(byte))
+
+def build_rrf_c(mnemonic, (opcode1,opcode2), argtypes='r,r,r/m,-'):
+    @builder.arguments(argtypes)
+    def encode_rrf_b(self, r1, r2, rm3, rm4):
+        _encode_rrf(self, opcode1, opcode2, r1, r2, rm3, rm4)
+    return encode_rrf_b
+
+def build_rrf_e(mnemonic, (opcode1,opcode2), argtypes):
+    @builder.arguments(argtypes)
+    def encode_rrf_e(self, r1, rm3, r2, rm4):
+        _encode_rrf(self, opcode1, opcode2, r1, r2, rm3, rm4)
+    return encode_rrf_e
+build_rrf_b = build_rrf_e
 
 def build_rxe(mnemonic, (opcode1,opcode2), argtypes):
     @builder.arguments(argtypes)

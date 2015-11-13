@@ -115,7 +115,7 @@ def range_of_bits(bits, signed=False, count=24):
 def range_of_halfword_bits(bits, signed=True, count=24):
     elems = range_of_bits(bits, signed, count)
     for i,e in enumerate(elems):
-        elems[i] = (e // 2) >> 1
+        elems[i] = e >> 1
     return elems
 
 def build_fake(clazz, *arg_bits):
@@ -177,6 +177,7 @@ class TestZARCH(object):
             'eo': (lambda num: REGNAMES[num]),
             'r/m': (lambda num: REGNAMES[num]),
             'f': (lambda num: FP_REGNAMES[num]),
+            'h32': (lambda num: str(num << 1)),
         }
         arg_types = self.get_func_arg_types(methodname)
         for mode, args in zip(arg_types, arguments):

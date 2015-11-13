@@ -357,6 +357,26 @@ class AssemblerZARCH(BaseAssembler,
             targettoken._ll_loop_code += rawstart
         self.target_tokens_currently_compiling = None
 
+    def flush_cc(self, condition, result_loc):
+        # After emitting an instruction that leaves a boolean result in
+        # a condition code (cc), call this.  In the common case, result_loc
+        # will be set to 'fp' by the regalloc, which in this case means
+        # "propagate it between this operation and the next guard by keeping
+        # it in the cc".  In the uncommon case, result_loc is another
+        # register, and we emit a load from the cc into this register.
+        assert self.guard_success_cc == c.cond_none
+        if result_loc is r.SPP:
+            self.guard_success_cc = condition
+        else:
+            # sadly we cannot use LOCGHI
+            # it is included in some extension that seem to be NOT installed
+            # by default.
+            self.mc.LGHI(r.SCRATCH, l.imm(1))
+            self.mc.LOCGR(result_loc, r.SCRATCH, condition)
+            self.mc.LGHI(r.SCRATCH, l.imm(0))
+            self.mc.LOCGR(result_loc, r.SCRATCH, c.negate(condition))
+
+
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc
         self.guard_success_cc = c.cond_none

@@ -27,15 +27,15 @@ arith_mnemonic_codes = {
     # div/mod
     'DSGR':    ('rre',   ['\xB9','\x0D'], 'eo,r'),
     'DSG':     ('rxy',   ['\xE3','\x0D'], 'eo,bidl'),
-    'DLGR':    ('rre',   ['\xB9','\x97'], 'eo,r'),
+    'DLGR':    ('rre',   ['\xB9','\x87'], 'eo,r'),
     'DLG':     ('rxy',   ['\xE3','\x87'], 'eo,bidl'),
     # there is no immidiate divide
 
     # shifting
-    'SRAG':    ('rsy',   ['\xEB','\x0A']),
-    'SLAG':    ('rsy',   ['\xEB','\x0B']),
-    'SRLG':    ('rsy',   ['\xEB','\x0C']),
-    'SLLG':    ('rsy',   ['\xEB','\x0D']),
+    'SRAG':    ('rsy_a',   ['\xEB','\x0A']),
+    'SLAG':    ('rsy_a',   ['\xEB','\x0B']),
+    'SRLG':    ('rsy_a',   ['\xEB','\x0C']),
+    'SLLG':    ('rsy_a',   ['\xEB','\x0D']),
 
     # invert & negative & absolute
     'LPGR':    ('rre',   ['\xB9','\x00']),
@@ -59,7 +59,7 @@ arith_mnemonic_codes = {
     'CLGR':    ('rre',    ['\xB9','\x21']),
     'CLG':     ('rxy',    ['\xE3','\x21']),
     'CGHI':    ('ri',     ['\xA7','\x0F']),
-    'CGFI':    ('ril',    ['\xC2','\x0E']),
+    'CGFI':    ('ril',    ['\xC2','\x0C']),
 }
 
 logic_mnemonic_codes = {
@@ -111,7 +111,7 @@ memory_mnemonic_codes = {
 
     # load memory
     'LMD':     ('sse',   ['\xEF']),
-    'LMG':     ('rsy',   ['\xEB','\x04']),
+    'LMG':     ('rsy_a',   ['\xEB','\x04']),
     'LHI':     ('ri',    ['\xA7','\x08']),
     'LGHI':    ('ri',    ['\xA7','\x09']),
     'LR':      ('rr',    ['\x18']),
@@ -119,8 +119,12 @@ memory_mnemonic_codes = {
     'LG':      ('rxy',   ['\xE3','\x04']),
     'LARL':    ('ril',   ['\xC0','\x00'], 'r/m,h32'),
 
+    # load on condition
+    'LOCGR':  ('rrf_c',    ['\xB9','\xE2']),
+    'LOCG':   ('rsy_b',    ['\xEB','\xE2']),
+
     # store memory
-    'STMG':    ('rsy',   ['\xEB','\x24']),
+    'STMG':    ('rsy_a',   ['\xEB','\x24']),
     'ST':      ('rx',    ['\x50']),
     'STG':     ('rxy',   ['\xE3','\x24']),
     'STY':     ('rxy',   ['\xE3','\x50']),
@@ -155,12 +159,12 @@ memory_mnemonic_codes = {
 }
 
 floatingpoint_mnemonic_codes = {
-    'FIEBR':   ('rrf',   ['\xB3','\x57'], 'r,u4,r,-'),
-    'FIDBR':   ('rrf',   ['\xB3','\x5F'], 'r,u4,r,-'),
+    'FIEBR':   ('rrf_e',   ['\xB3','\x57'], 'r,u4,r,-'),
+    'FIDBR':   ('rrf_e',   ['\xB3','\x5F'], 'r,u4,r,-'),
 
     # convert to fixed
-    'CGEBR':   ('rrf',   ['\xB3','\xA8'], 'r,u4,r,-'),
-    'CGDBR':   ('rrf',   ['\xB3','\xA9'], 'r,u4,r,-'),
+    'CGEBR':   ('rrf_e',   ['\xB3','\xA8'], 'r,u4,r,-'),
+    'CGDBR':   ('rrf_e',   ['\xB3','\xA9'], 'r,u4,r,-'),
 
     # convert from fixed
     'CEGBR':   ('rre',   ['\xB3','\xA4']),
@@ -190,8 +194,8 @@ floatingpoint_mnemonic_codes = {
     'DDB':     ('rxe',   ['\xED','\x1D'], 'r,bidl,-'),
     
     # DIVIDE (+mod)
-    'DIEBR':     ('rrf',   ['\xB3','\x53'], 'r,r,r,m'),
-    'DIDBR':     ('rrf',   ['\xB3','\x5B'], 'r,r,r,m'),
+    'DIEBR':     ('rrf_b',   ['\xB3','\x53'], 'r,r,r,m'),
+    'DIDBR':     ('rrf_b',   ['\xB3','\x5B'], 'r,r,r,m'),
 
     # COMPARISON
     'CEBR':    ('rre',   ['\xB3','\x09']),
@@ -204,9 +208,9 @@ floatingpoint_mnemonic_codes = {
 all_mnemonic_codes = {
     #
     'BXH':     ('rs',    ['\x86']),
-    'BXHG':    ('rsy',   ['\xEB','\x44']),
+    'BXHG':    ('rsy_a',   ['\xEB','\x44']),
     'BRXH':    ('rsi',   ['\x84']),
-    'BRXLG':   ('rie',   ['\xEC','\x45']),
+    'BRXLG':   ('rie_e',   ['\xEC','\x45']),
     #
     'NI':      ('si',    ['\x94']),
     'NIY':     ('siy',   ['\xEB','\x54']),

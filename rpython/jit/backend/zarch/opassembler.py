@@ -6,21 +6,6 @@ import rpython.jit.backend.zarch.registers as r
 import rpython.jit.backend.zarch.locations as l
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 
-def flush_cc(asm, condition, result_loc):
-    # After emitting an instruction that leaves a boolean result in
-    # a condition code (cc), call this.  In the common case, result_loc
-    # will be set to 'fp' by the regalloc, which in this case means
-    # "propagate it between this operation and the next guard by keeping
-    # it in the cc".  In the uncommon case, result_loc is another
-    # register, and we emit a load from the cc into this register.
-    assert asm.guard_success_cc == c.cond_none
-    if result_loc is r.SPP:
-        asm.guard_success_cc = condition
-    else:
-        xxx
-        #asm.mc.MOV_ri(result_loc.value, 1, condition)
-        #asm.mc.MOV_ri(result_loc.value, 0, c.get_opposite_of(condition))
-
 class IntOpAssembler(object):
     _mixin_ = True
 
@@ -101,12 +86,12 @@ class IntOpAssembler(object):
     def emit_int_is_zero(self, op, arglocs, regalloc):
         l0 = arglocs[0]
         self.mc.CGHI(l0, l.imm(0))
-        flush_cc(self, l0, c.EQ)
+        self.flush_cc(c.EQ, l0)
 
     def emit_int_is_true(self, op, arglocs, regalloc):
         l0 = arglocs[0]
         self.mc.CGHI(l0, l.imm(0))
-        flush_cc(self, l0, c.NE)
+        self.flush_cc(c.NE, l0)
 
 
     emit_int_and = gen_emit_rr_or_rpool("NGR", "NG")
