@@ -46,7 +46,7 @@ def pin(obj):
     """
     _pinned_objects.append(obj)
     return True
-
+        
 
 class PinEntry(ExtRegistryEntry):
     _about_ = pin
@@ -533,8 +533,12 @@ _ffi_cache = None
 def _fetch_ffi():
     global _ffi_cache
     if _ffi_cache is None:
-        import _cffi_backend
-        _ffi_cache = _cffi_backend.FFI()
+        try:
+            import _cffi_backend
+            _ffi_cache = _cffi_backend.FFI()
+        except (ImportError, AttributeError):
+            import py
+            py.test.skip("need CFFI >= 1.0")
     return _ffi_cache
 
 @jit.dont_look_inside
@@ -812,7 +816,7 @@ def clear_gcflag_extra(fromlist):
             pending.extend(get_rpy_referents(gcref))
 
 all_typeids = {}
-
+        
 def get_typeid(obj):
     raise Exception("does not work untranslated")
 
