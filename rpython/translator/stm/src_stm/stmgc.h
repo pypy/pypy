@@ -100,6 +100,8 @@ void _stm_leave_noninevitable_transactional_zone(void);
 #define _stm_detach_inevitable_transaction(tl)  do {                    \
     write_fence();                                                      \
     assert(_stm_detached_inevitable_from_thread == 0);                  \
+    if (stmcb_timing_event != NULL && tl->self_or_0_if_atomic != 0)     \
+        {stmcb_timing_event(tl, STM_TRANSACTION_DETACH, NULL);}         \
     _stm_detached_inevitable_from_thread = tl->self_or_0_if_atomic;     \
 } while (0)
 void _stm_reattach_transaction(intptr_t);
@@ -416,69 +418,6 @@ static inline int stm_is_inevitable(stm_thread_local_t *tl) {
 #endif
 
 
-/* Entering and leaving a "transactional code zone": a (typically very
-   large) section in the code where we are running a transaction.
-   This is the STM equivalent to "acquire the GIL" and "release the
-   GIL", respectively.  stm_read(), stm_write(), stm_allocate(), and
-   other functions should only be called from within a transaction.
-
-   Note that transactions, in the STM sense, cover _at least_ one
-   transactional code zone.  They may be longer; for example, if one
-   thread does a lot of stm_enter_transactional_zone() +
-   stm_become_inevitable() + stm_leave_transactional_zone(), as is
-   typical in a thread that does a lot of C function calls, then we
-   get only a few bigger inevitable transactions that cover the many
-   short transactional zones.  This is done by having
-   stm_leave_transactional_zone() turn the current transaction
-   inevitable and detach it from the running thread (if there is no
-   other inevitable transaction running so far).  Then
-   stm_enter_transactional_zone() will try to reattach to it.  This is
-   far more efficient than constantly starting and committing
-   transactions.
-
-   stm_enter_transactional_zone() and stm_leave_transactional_zone()
-   preserve the value of errno.
-*/
-#ifdef STM_DEBUGPRINT
-#include <stdio.h>
-#endif
-static inline void stm_enter_transactional_zone(stm_thread_local_t *tl) {
-    intptr_t self = tl->self_or_0_if_atomic;
-    if (__sync_bool_compare_and_swap(&_stm_detached_inevitable_from_thread,
-                                     self, 0)) {
-#ifdef STM_DEBUGPRINT
-        fprintf(stderr, "stm_enter_transactional_zone fast path\n");
-#endif
-    }
-    else {
-        _stm_reattach_transaction(self);
-        /* _stm_detached_inevitable_from_thread should be 0 here, but
-           it can already have been changed from a parallel thread
-           (assuming we're not inevitable ourselves) */
-    }
-}
-static inline void stm_leave_transactional_zone(stm_thread_local_t *tl) {
-    assert(STM_SEGMENT->running_thread == tl);
-    if (stm_is_inevitable(tl)) {
-#ifdef STM_DEBUGPRINT
-        fprintf(stderr, "stm_leave_transactional_zone fast path\n");
-#endif
-        _stm_detach_inevitable_transaction(tl);
-    }
-    else {
-        _stm_leave_noninevitable_transactional_zone();
-    }
-}
-
-/* stm_force_transaction_break() is in theory equivalent to
-   stm_leave_transactional_zone() immediately followed by
-   stm_enter_transactional_zone(); however, it is supposed to be
-   called in CPU-heavy threads that had a transaction run for a while,
-   and so it *always* forces a commit and starts the next transaction.
-   The new transaction is never inevitable.  See also
-   stm_should_break_transaction(). */
-void stm_force_transaction_break(stm_thread_local_t *tl);
-
 /* Abort the currently running transaction.  This function never
    returns: it jumps back to the start of the transaction (which must
    not be inevitable). */
@@ -596,6 +535,10 @@ enum stm_event_e {
     STM_TRANSACTION_COMMIT,
     STM_TRANSACTION_ABORT,
 
+    /* DETACH/REATTACH is used for leaving/reentering the transactional */
+    STM_TRANSACTION_DETACH,
+    STM_TRANSACTION_REATTACH,
+
     /* inevitable contention: all threads that try to become inevitable
        have a STM_BECOME_INEVITABLE event with a position marker.  Then,
        if it waits it gets a STM_WAIT_OTHER_INEVITABLE.  It is possible
@@ -688,6 +631,75 @@ int stm_set_timing_log(const char *profiling_file_name, int fork_mode,
 } while (0)
 
 
+
+/* Entering and leaving a "transactional code zone": a (typically very
+   large) section in the code where we are running a transaction.
+   This is the STM equivalent to "acquire the GIL" and "release the
+   GIL", respectively.  stm_read(), stm_write(), stm_allocate(), and
+   other functions should only be called from within a transaction.
+
+   Note that transactions, in the STM sense, cover _at least_ one
+   transactional code zone.  They may be longer; for example, if one
+   thread does a lot of stm_enter_transactional_zone() +
+   stm_become_inevitable() + stm_leave_transactional_zone(), as is
+   typical in a thread that does a lot of C function calls, then we
+   get only a few bigger inevitable transactions that cover the many
+   short transactional zones.  This is done by having
+   stm_leave_transactional_zone() turn the current transaction
+   inevitable and detach it from the running thread (if there is no
+   other inevitable transaction running so far).  Then
+   stm_enter_transactional_zone() will try to reattach to it.  This is
+   far more efficient than constantly starting and committing
+   transactions.
+
+   stm_enter_transactional_zone() and stm_leave_transactional_zone()
+   preserve the value of errno.
+*/
+#ifdef STM_DEBUGPRINT
+#include <stdio.h>
+#endif
+static inline void stm_enter_transactional_zone(stm_thread_local_t *tl) {
+    intptr_t self = tl->self_or_0_if_atomic;
+    if (__sync_bool_compare_and_swap(&_stm_detached_inevitable_from_thread,
+                                     self, 0)) {
+        if (self != 0 && stmcb_timing_event != NULL) {
+            /* for atomic transactions, we don't emit DETACH/REATTACH */
+            stmcb_timing_event(tl, STM_TRANSACTION_REATTACH, NULL);
+        }
+#ifdef STM_DEBUGPRINT
+        fprintf(stderr, "stm_enter_transactional_zone fast path\n");
+#endif
+    }
+    else {
+        _stm_reattach_transaction(self);
+        /* _stm_detached_inevitable_from_thread should be 0 here, but
+           it can already have been changed from a parallel thread
+           (assuming we're not inevitable ourselves) */
+    }
+}
+static inline void stm_leave_transactional_zone(stm_thread_local_t *tl) {
+    assert(STM_SEGMENT->running_thread == tl);
+    if (stm_is_inevitable(tl)) {
+#ifdef STM_DEBUGPRINT
+        fprintf(stderr, "stm_leave_transactional_zone fast path\n");
+#endif
+        _stm_detach_inevitable_transaction(tl);
+    }
+    else {
+        _stm_leave_noninevitable_transactional_zone();
+    }
+}
+
+/* stm_force_transaction_break() is in theory equivalent to
+   stm_leave_transactional_zone() immediately followed by
+   stm_enter_transactional_zone(); however, it is supposed to be
+   called in CPU-heavy threads that had a transaction run for a while,
+   and so it *always* forces a commit and starts the next transaction.
+   The new transaction is never inevitable.  See also
+   stm_should_break_transaction(). */
+void stm_force_transaction_break(stm_thread_local_t *tl);
+
+
 /* Support for light finalizers.  This is a simple version of
    finalizers that guarantees not to do anything fancy, like not
    resurrecting objects. */
@@ -754,6 +766,21 @@ struct stm_hashtable_entry_s {
     uintptr_t index;
     object_t *object;
 };
+
+/* Hashtable iterators.  You get a raw 'table' pointer when you make
+   an iterator, which you pass to stm_hashtable_iter_next().  This may
+   or may not return items added after stm_hashtable_iter() was
+   called; there is no logic so far to detect changes (unlike Python's
+   RuntimeError).  When the GC traces, you must keep the table pointer
+   alive with stm_hashtable_iter_tracefn().  The original hashtable
+   object must also be kept alive. */
+typedef struct stm_hashtable_table_s stm_hashtable_table_t;
+stm_hashtable_table_t *stm_hashtable_iter(stm_hashtable_t *);
+stm_hashtable_entry_t **
+stm_hashtable_iter_next(object_t *hobj, stm_hashtable_table_t *table,
+                        stm_hashtable_entry_t **previous);
+void stm_hashtable_iter_tracefn(stm_hashtable_table_t *table,
+                                void trace(object_t **));
 
 
 /* Queues.  The items you put() and get() back are in random order.

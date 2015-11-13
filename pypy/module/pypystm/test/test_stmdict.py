@@ -158,3 +158,24 @@ class AppTestDict:
         assert a not in d
         assert b not in d
         assert d.keys() == []
+
+
+    def test_iterator(self):
+        import pypystm
+        class A(object):
+            def __hash__(self):
+                return 42
+        class B(object):
+            pass
+        d = pypystm.stmdict()
+        a1 = A()
+        a2 = A()
+        b0 = B()
+        d[a1] = "foo"
+        d[a2] = None
+        d[b0] = "bar"
+        assert sorted(d) == sorted([a1, a2, b0])
+        assert sorted(d.iterkeys()) == sorted([a1, a2, b0])
+        assert sorted(d.itervalues()) == [None, "bar", "foo"]
+        assert sorted(d.iteritems()) == sorted([(a1, "foo"), (a2, None),
+                                                (b0, "bar")])

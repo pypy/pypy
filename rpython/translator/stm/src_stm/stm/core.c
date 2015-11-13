@@ -1374,6 +1374,8 @@ static void _core_commit_transaction(bool external)
            from its segment.  Better do it as soon as possible, because
            other threads might be spin-looping, waiting for the -1 to
            disappear. */
+        /* but first, emit commit-event of this thread: */
+        timing_event(STM_SEGMENT->running_thread, STM_TRANSACTION_COMMIT);
         STM_SEGMENT->running_thread = NULL;
         write_fence();
         assert(_stm_detached_inevitable_from_thread == -1);
