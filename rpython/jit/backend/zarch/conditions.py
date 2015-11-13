@@ -5,10 +5,11 @@ from rpython.rlib.objectmodel import specialize
 EQ = loc.imm(0x8)
 LT = loc.imm(0x4)
 GT = loc.imm(0x2)
-OF = loc.imm(0x1)
+OF = loc.imm(0x1) # overflow
 LE = loc.imm(EQ.value | LT.value)
 GE = loc.imm(EQ.value | GT.value)
 NE = loc.imm(LT.value | GT.value)
+NO = loc.imm(0xe) # NO overflow
 ANY = loc.imm(0xf)
 
 cond_none = loc.imm(0x0)

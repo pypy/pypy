@@ -1,5 +1,6 @@
 from rpython.jit.backend.zarch.helper.assembler import (gen_emit_cmp_op,
-        gen_emit_rr_or_rpool, gen_emit_shift)
+        gen_emit_rr_or_rpool, gen_emit_shift, gen_emit_pool_or_rr_evenodd,
+        gen_emit_imm_pool_rr)
 from rpython.jit.backend.zarch.codebuilder import ZARCHGuardToken
 import rpython.jit.backend.zarch.conditions as c
 import rpython.jit.backend.zarch.registers as r
@@ -9,70 +10,17 @@ from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 class IntOpAssembler(object):
     _mixin_ = True
 
-    def emit_int_add(self, op, arglocs, regalloc):
-        l0, l1 = arglocs
-        if l1.is_imm():
-            self.mc.AGFI(l0, l1)
-        elif l1.is_in_pool():
-            self.mc.AG(l0, l1)
-        else:
-            self.mc.AGR(l0, l1)
+    emit_int_add = gen_emit_imm_pool_rr('AGFI','AG','AGR')
+    emit_int_add_ovf = gen_emit_imm_pool_rr('AGFI','AG','AGR', overflow=True)
+    emit_int_sub = gen_emit_rr_or_rpool('SGR', 'SG')
+    emit_int_sub_ovf = gen_emit_rr_or_rpool('SGR', 'SG', overflow=True)
+    emit_int_mul = gen_emit_imm_pool_rr('MSGFI', 'MSG', 'MSGR')
 
-    def emit_int_mul(self, op, arglocs, regalloc):
-        l0, l1 = arglocs
-        if l1.is_imm():
-            self.mc.MSGFI(l0, l1)
-        elif l1.is_in_pool():
-            self.mc.MSG(l0, l1)
-        else:
-            self.mc.MSGR(l0, l1)
-
-    def emit_int_floordiv(self, op, arglocs, regalloc):
-        lr, lq, l1 = arglocs # lr == remainer, lq == quotient
-        # when entering the function lr contains the dividend
-        # after this operation either lr or lq is used further
-        assert l1.is_in_pool() or not l1.is_imm() , "imm divider not supported"
-        # remainer is always a even register r0, r2, ... , r14
-        assert lr.is_even()
-        assert lq.is_odd()
-        if l1.is_in_pool():
-            self.mc.DSG(lr, l1)
-        else:
-            self.mc.DSGR(lr, l1)
-
-    def emit_uint_floordiv(self, op, arglocs, regalloc):
-        lr, lq, l1 = arglocs # lr == remainer, lq == quotient
-        # when entering the function lr contains the dividend
-        # after this operation either lr or lq is used further
-        assert l1.is_in_pool() or not l1.is_imm() , "imm divider not supported"
-        # remainer is always a even register r0, r2, ... , r14
-        assert lr.is_even()
-        assert lq.is_odd()
-        self.mc.XGR(lr, lr)
-        if l1.is_in_pool():
-            self.mc.DLG(lr, l1)
-        else:
-            self.mc.DLGR(lr, l1)
-
-    def emit_int_mod(self, op, arglocs, regalloc):
-        lr, lq, l1 = arglocs # lr == remainer, lq == quotient
-        # when entering the function lr contains the dividend
-        # after this operation either lr or lq is used further
-        assert l1.is_in_pool() or not l1.is_imm() , "imm divider not supported"
-        # remainer is always a even register r0, r2, ... , r14
-        assert lr.is_even()
-        assert lq.is_odd()
-        if l1.is_in_pool():
-            self.mc.DSG(lr, l1)
-        else:
-            self.mc.DSGR(lr, l1)
-
-    def emit_int_sub(self, op, arglocs, regalloc):
-        l0, l1 = arglocs
-        if l1.is_in_pool():
-            self.mc.SG(l0, l1)
-        else:
-            self.mc.SGR(l0, l1)
+    emit_int_floordiv = gen_emit_pool_or_rr_evenodd('DSG','DSGR')
+    emit_uint_floordiv = gen_emit_pool_or_rr_evenodd('DLG','DLGR')
+    # NOTE division sets one register with the modulo value, thus
+    # the regalloc ensures the right register survives.
+    emit_int_mod = gen_emit_pool_or_rr_evenodd('DSG','DSGR')
 
     def emit_int_invert(self, op, arglocs, regalloc):
         l0 = arglocs[0]
@@ -92,7 +40,6 @@ class IntOpAssembler(object):
         l0 = arglocs[0]
         self.mc.CGHI(l0, l.imm(0))
         self.flush_cc(c.NE, l0)
-
 
     emit_int_and = gen_emit_rr_or_rpool("NGR", "NG")
     emit_int_or  = gen_emit_rr_or_rpool("OGR", "OG")
@@ -174,11 +121,11 @@ class GuardOpAssembler(object):
         self._emit_guard(op, arglocs)
 
     def emit_guard_overflow(self, op, arglocs, regalloc):
-        self.guard_success_cc = c.SO
+        self.guard_success_cc = c.NO
         self._emit_guard(op, arglocs)
 
     def emit_guard_no_overflow(self, op, arglocs, regalloc):
-        self.guard_success_cc = c.NS
+        self.guard_success_cc = c.OF
         self._emit_guard(op, arglocs)
 
     def emit_guard_value(self, op, arglocs, regalloc):

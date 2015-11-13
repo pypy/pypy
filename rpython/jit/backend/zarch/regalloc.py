@@ -534,7 +534,9 @@ class Regalloc(BaseRegalloc):
         pass # XXX
 
     prepare_int_add = helper.prepare_int_add
+    prepare_int_add_ovf = helper.prepare_int_add
     prepare_int_sub = helper.prepare_int_sub
+    prepare_int_sub_ovf = helper.prepare_int_sub
     prepare_int_mul = helper.prepare_int_mul
     prepare_int_floordiv = helper.prepare_int_div
     prepare_uint_floordiv = helper.prepare_int_div
@@ -560,6 +562,7 @@ class Regalloc(BaseRegalloc):
     prepare_int_neg     = helper.prepare_unary_op
     prepare_int_invert  = helper.prepare_unary_op
     prepare_int_force_ge_zero = helper.prepare_unary_op
+
 
     prepare_float_add = helper.prepare_binary_op
     prepare_float_sub = helper.prepare_binary_op
@@ -598,6 +601,15 @@ class Regalloc(BaseRegalloc):
     prepare_guard_false = _prepare_guard_cc
     prepare_guard_nonnull = _prepare_guard_cc
     prepare_guard_isnull = _prepare_guard_cc
+    prepare_guard_overflow = _prepare_guard_cc
+
+    def prepare_guard_no_exception(self, op):
+        arglocs = self._prepare_guard(op)
+        return arglocs
+
+    prepare_guard_no_overflow = prepare_guard_no_exception
+    prepare_guard_overflow = prepare_guard_no_exception
+    prepare_guard_not_forced = prepare_guard_no_exception
 
     def prepare_label(self, op):
         descr = op.getdescr()

@@ -66,3 +66,32 @@ class TestZARCH(LLtypeBackendTest):
         res = self.cpu.get_int_value(deadframe, 0)
         assert res == result
         assert fail.identifier == 1 
+
+    @py.test.mark.parametrize('value,opcode,result,guard',
+        [ (-2**63,  'i1 = int_add_ovf(i0, 1)', -2**63, 'guard_no_overflow'),
+          (-2**63+1,'i1 = int_add_ovf(i0, 1)', -2**63, 'guard_no_overflow'),
+          (-2**63+1,'i1 = int_add_ovf(i0, 1)', -2**63+1, 'guard_overflow'),
+        ])
+    def test_int_arithmetic_overflow(self, value, opcode, result, guard):
+        code = """
+        [i0]
+        {opcode}
+        {guard}() [i0]
+        finish(i1, descr=faildescr)
+        """.format(opcode=opcode,guard=guard)
+        loop = parse(code, namespace={"faildescr": BasicFinalDescr(1)})
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken, value)
+        fail = self.cpu.get_latest_descr(deadframe)
+        res = self.cpu.get_int_value(deadframe, 0)
+        assert res == result
+        #assert fail.identifier == 1 
+
+    def test_double_evenodd_pair(self):
+        # TODO
+        pass
+
+    def test_double_evenodd_pair_spill(self):
+        # TODO
+        pass

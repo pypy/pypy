@@ -76,7 +76,7 @@ def gen_emit_shift(func):
         getattr(self.mc, func)(l0, l0, l1)
     return f
 
-def gen_emit_rr_or_rpool(rr_func, rp_func):
+def gen_emit_rr_or_rpool(rr_func, rp_func, overflow=False):
     """ the parameters can either be both in registers or
         the first is in the register, second in literal pool.
     """
@@ -88,4 +88,34 @@ def gen_emit_rr_or_rpool(rr_func, rp_func):
             getattr(self.mc, rp_func)(l0, l1)
         else:
             getattr(self.mc, rr_func)(l0, l1)
+        if overflow:
+            self.guard_success_cc = c.OF
     return f
+
+def gen_emit_imm_pool_rr(imm_func, pool_func, rr_func, overflow=False):
+    def emit(self, op, arglocs, regalloc):
+        l0, l1 = arglocs
+        if l1.is_in_pool():
+            getattr(self.mc, pool_func)(l0, l1)
+        elif l1.is_imm():
+            getattr(self.mc, imm_func)(l0, l1)
+        else:
+            getattr(self.mc, rr_func)(l0, l1)
+        if overflow:
+            self.guard_success_cc = c.OF
+    return emit
+
+def gen_emit_pool_or_rr_evenodd(pool_func, rr_func):
+    def emit(self, op, arglocs, regalloc):
+        lr, lq, l1 = arglocs # lr == remainer, lq == quotient
+        # when entering the function lr contains the dividend
+        # after this operation either lr or lq is used further
+        assert l1.is_in_pool() or not l1.is_imm() , "imm divider not supported"
+        # remainer is always a even register r0, r2, ... , r14
+        assert lr.is_even()
+        assert lq.is_odd()
+        if l1.is_in_pool():
+            self.mc.DSG(lr, l1)
+        else:
+            self.mc.DSGR(lr, l1)
+    return emit
