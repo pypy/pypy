@@ -5,6 +5,7 @@ from pypy.module.cpyext.pyobject import PyObject
 from rpython.rlib import rdtoa
 from rpython.rlib import rfloat
 from rpython.rlib import rposix, jit
+from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import rffi
 
@@ -112,7 +113,9 @@ def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
     NULL if the conversion failed. The caller is responsible for freeing the
     returned string by calling PyMem_Free().
     """
-    buffer, rtype = rfloat.double_to_string(val, format_code, precision, flags)
+    buffer, rtype = rfloat.double_to_string(val, format_code,
+                                            intmask(precision),
+                                            intmask(flags))
     if ptype != lltype.nullptr(rffi.INTP.TO):
         ptype[0] = rffi.cast(rffi.INT, DOUBLE_TO_STRING_TYPES_MAP[rtype])
     bufp = rffi.str2charp(buffer)
