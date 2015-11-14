@@ -10,6 +10,7 @@ from rpython.jit.metainterp import pyjitpl, history, jitexc
 from rpython.jit.codewriter.policy import JitPolicy
 from rpython.jit.codewriter import codewriter, longlong
 from rpython.rlib.rfloat import isnan
+from rpython.rlib.jit import ENABLE_ALL_OPTS
 from rpython.translator.backendopt.all import backend_optimizations
 
 
@@ -51,6 +52,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
 
         trace_limit = sys.maxint
         enable_opts = ALL_OPTS_DICT
+        vec = True
 
     if kwds.pop('disable_optimizations', False):
         FakeWarmRunnerState.enable_opts = {}
@@ -69,6 +71,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
         greenfield_info = None
         result_type = result_kind
         portal_runner_ptr = "???"
+        vec = False
 
     stats = history.Stats()
     cpu = CPUClass(rtyper, stats, None, False)
@@ -153,17 +156,19 @@ def _run_with_machine_code(testself, args):
     faildescr = cpu.get_latest_descr(deadframe)
     assert faildescr.__class__.__name__.startswith('DoneWithThisFrameDescr')
     if metainterp.jitdriver_sd.result_type == history.INT:
-        return cpu.get_int_value(deadframe, 0)
+        return deadframe, cpu.get_int_value(deadframe, 0)
     elif metainterp.jitdriver_sd.result_type == history.REF:
-        return cpu.get_ref_value(deadframe, 0)
+        return deadframe, cpu.get_ref_value(deadframe, 0)
     elif metainterp.jitdriver_sd.result_type == history.FLOAT:
-        return cpu.get_float_value(deadframe, 0)
+        return deadframe, cpu.get_float_value(deadframe, 0)
     else:
-        return None
+        return deadframe, None
 
 
 class JitMixin:
     basic = True
+    enable_opts = ENABLE_ALL_OPTS
+
 
     # Basic terminology: the JIT produces "loops" and "bridges".
     # Bridges are always attached to failing guards.  Every loop is
@@ -180,7 +185,8 @@ class JitMixin:
         the ones that end in FINISH.  Either pass a dictionary (then
         the check must match exactly), or some keyword arguments (then
         the check is only about the instructions named)."""
-        get_stats().check_resops(expected=expected, **check)
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            get_stats().check_resops(expected=expected, **check)
 
     def check_simple_loop(self, expected=None, **check):
         """Useful in the simplest case when we have only one loop
@@ -188,51 +194,61 @@ class JitMixin:
         Only the operations within the loop formed by that single jump
         will be counted; the bridges are all ignored.  If several loops
         were compiled, complains."""
-        get_stats().check_simple_loop(expected=expected, **check)
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            get_stats().check_simple_loop(expected=expected, **check)
 
     def check_trace_count(self, count): # was check_loop_count
         """Check the number of loops and bridges compiled."""
-        assert get_stats().compiled_count == count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().compiled_count == count
 
     def check_trace_count_at_most(self, count):
         """Check the number of loops and bridges compiled."""
-        assert get_stats().compiled_count <= count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().compiled_count <= count
 
     def check_jitcell_token_count(self, count): # was check_tree_loop_count
         """This should check the number of independent trees of code.
         (xxx it is not 100% clear that the count is correct)"""
-        assert len(get_stats().jitcell_token_wrefs) == count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert len(get_stats().jitcell_token_wrefs) == count
 
     def check_target_token_count(self, count):
         """(xxx unknown)"""
-        tokens = get_stats().get_all_jitcell_tokens()
-        n = sum([len(t.target_tokens) for t in tokens])
-        assert n == count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            tokens = get_stats().get_all_jitcell_tokens()
+            n = sum([len(t.target_tokens) for t in tokens])
+            assert n == count
 
     def check_enter_count(self, count):
         """Check the number of times pyjitpl ran.  (Every time, it
         should have produced either one loop or one bridge, or aborted;
         but it is not 100% clear that this is still correct in the
         presence of unrolling.)"""
-        assert get_stats().enter_count == count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().enter_count == count
 
     def check_enter_count_at_most(self, count):
         """Check the number of times pyjitpl ran."""
-        assert get_stats().enter_count <= count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().enter_count <= count
 
     def check_aborted_count(self, count):
         """Check the number of times pyjitpl was aborted."""
-        assert get_stats().aborted_count == count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().aborted_count == count
 
     def check_aborted_count_at_least(self, count):
         """Check the number of times pyjitpl was aborted."""
-        assert get_stats().aborted_count >= count
+        if self.enable_opts == ENABLE_ALL_OPTS:
+            assert get_stats().aborted_count >= count
 
     def meta_interp(self, *args, **kwds):
         kwds['CPUClass'] = self.CPUClass
-        kwds['type_system'] = self.type_system
         if "backendopt" not in kwds:
             kwds["backendopt"] = False
+        if "enable_opts" not in kwds and hasattr(self, 'enable_opts'):
+            kwds['enable_opts'] = self.enable_opts
         old = codewriter.CodeWriter.debug
         try:
             codewriter.CodeWriter.debug = True
@@ -249,7 +265,8 @@ class JitMixin:
         result2 = _run_with_pyjitpl(self, args)
         assert result1 == result2 or isnan(result1) and isnan(result2)
         # try to run it by running the code compiled just before
-        result3 = _run_with_machine_code(self, args)
+        df, result3 = _run_with_machine_code(self, args)
+        self._lastframe = df
         assert result1 == result3 or result3 == NotImplemented or isnan(result1) and isnan(result3)
         #
         if (longlong.supports_longlong and
@@ -270,7 +287,6 @@ class JitMixin:
 
 
 class LLJitMixin(JitMixin):
-    type_system = 'lltype'
     CPUClass = runner.LLGraphCPU
 
     @staticmethod

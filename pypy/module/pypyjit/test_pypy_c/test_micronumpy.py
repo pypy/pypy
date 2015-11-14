@@ -1,8 +1,94 @@
+import py
+
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 from rpython.rlib.rawstorage import misaligned_is_fine
 
 
 class TestMicroNumPy(BaseTestPyPyC):
+
+    arith_comb = [('+','float','float', 4*3427,   3427, 1.0,3.0),
+             ('+','float','int',   9*7843,   7843, 4.0,5.0),
+             ('+','int','float',   8*2571,   2571, 9.0,-1.0),
+             ('+','float','int',   -18*2653,   2653, 4.0,-22.0),
+             ('+','int','int',     -1*1499,   1499, 24.0,-25.0),
+             ('-','float','float', -2*5523,  5523, 1.0,3.0),
+             ('*','float','float', 3*2999,   2999, 1.0,3.0),
+             ('/','float','float', 3*7632,   7632, 3.0,1.0),
+             ('/','float','float', 1.5*7632, 7632, 3.0,2.0),
+             ('&','int','int',     0,        1500, 1,0),
+             ('&','int','int',     1500,     1500, 1,1),
+             ('|','int','int',     1500,     1500, 0,1),
+             ('|','int','int',     0,        1500, 0,0),
+            ]
+    type_permuated = []
+    types = { 'int': ['int32','int64','int8','int16'],
+              'float': ['float32', 'float64']
+            }
+    for arith in arith_comb:
+        t1 = arith[1]
+        t2 = arith[2]
+        possible_t1 = types[t1]
+        possible_t2 = types[t2]
+        for ta in possible_t1:
+            for tb in possible_t2:
+                op, _, _, r, c, a, b = arith
+                t = (op, ta, tb, r, c, a, b)
+                type_permuated.append(t)
+
+    @py.test.mark.parametrize("op,adtype,bdtype,result,count,a,b", type_permuated)
+    def test_vector_call2(self, op, adtype, bdtype, result, count, a, b):
+        source = """
+        def main():
+            import _numpypy.multiarray as np
+            a = np.array([{a}]*{count}, dtype='{adtype}')
+            b = np.array([{b}]*{count}, dtype='{bdtype}')
+            for i in range(20):
+                c = a {op} b
+            return c.sum()
+        """.format(op=op, adtype=adtype, bdtype=bdtype, count=count, a=a, b=b)
+        exec py.code.Source(source).compile()
+        vlog = self.run(main, [], vec=1)
+        log = self.run(main, [], vec=0)
+        assert log.result == vlog.result
+        assert log.result == result
+
+
+    arith_comb = [
+        ('sum','int', 1742, 1742, 1),
+        ('sum','float', 2581, 2581, 1),
+        ('prod','float', 1, 3178, 1),
+        ('prod','int', 1, 3178, 1),
+        ('any','int', 1, 1239, 1),
+        ('any','int', 0, 4912, 0),
+        ('all','int', 0, 3420, 0),
+        ('all','int', 1, 6757, 1),
+    ]
+    type_permuated = []
+    types = { 'int': ['int8','int16','int32','int64'],
+              'float': ['float32','float64']
+            }
+    for arith in arith_comb:
+        t1 = arith[1]
+        possible_t1 = types[t1]
+        for ta in possible_t1:
+            op, _, r, c, a = arith
+            t = (op, ta, r, c, a)
+            type_permuated.append(t)
+
+    @py.test.mark.parametrize("op,dtype,result,count,a", type_permuated)
+    def test_reduce_generic(self,op,dtype,result,count,a):
+        source = """
+        def main():
+            import _numpypy.multiarray as np
+            a = np.array([{a}]*{count}, dtype='{dtype}')
+            return a.{method}()
+        """.format(method=op, dtype=dtype, count=count, a=a)
+        exec py.code.Source(source).compile()
+        vlog = self.run(main, [], vec=1)
+        log = self.run(main, [], vec=0)
+        assert log.result == vlog.result
+        assert log.result == result
+
     def test_reduce_logical_xor(self):
         def main():
             import _numpypy.multiarray as np
@@ -15,39 +101,40 @@ class TestMicroNumPy(BaseTestPyPyC):
         loop = log._filter(log.loops[0])
         assert loop.match("""
             guard_class(p1, #, descr=...)
-            p4 = getfield_gc_pure(p1, descr=<FieldP pypy.module.micronumpy.iterators.ArrayIter.inst_array \d+>)
-            i5 = getfield_gc(p0, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset \d+>)
-            p6 = getfield_gc_pure(p4, descr=<FieldP pypy.module.micronumpy.concrete.BaseConcreteArray.inst_dtype \d+>)
-            p7 = getfield_gc_pure(p6, descr=<FieldP pypy.module.micronumpy.descriptor.W_Dtype.inst_itemtype \d+>)
+            p4 = getfield_gc_pure_r(p1, descr=<FieldP pypy.module.micronumpy.iterators.ArrayIter.inst_array \d+>)
+            i5 = getfield_gc_i(p0, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset \d+>)
+            p6 = getfield_gc_pure_r(p4, descr=<FieldP pypy.module.micronumpy.concrete.BaseConcreteArray.inst_dtype \d+>)
+            p7 = getfield_gc_pure_r(p6, descr=<FieldP pypy.module.micronumpy.descriptor.W_Dtype.inst_itemtype \d+>)
             guard_class(p7, ConstClass(Float64), descr=...)
-            i9 = getfield_gc_pure(p4, descr=<FieldU pypy.module.micronumpy.concrete.BaseConcreteArray.inst_storage \d+>)
-            i10 = getfield_gc_pure(p6, descr=<FieldU pypy.module.micronumpy.descriptor.W_Dtype.inst_byteorder \d+>)
+            i9 = getfield_gc_pure_i(p4, descr=<FieldU pypy.module.micronumpy.concrete.BaseConcreteArray.inst_storage \d+>)
+            i10 = getfield_gc_pure_i(p6, descr=<FieldU pypy.module.micronumpy.descriptor.W_Dtype.inst_byteorder \d+>)
             i12 = int_eq(i10, 61)
             i14 = int_eq(i10, 60)
             i15 = int_or(i12, i14)
-            f16 = raw_load(i9, i5, descr=<ArrayF \d+>)
+            f16 = raw_load_f(i9, i5, descr=<ArrayF \d+>)
             guard_true(i15, descr=...)
             guard_not_invalidated(descr=...)
             i18 = float_ne(f16, 0.000000)
             guard_true(i18, descr=...)
             guard_nonnull_class(p2, ConstClass(W_BoolBox), descr=...)
-            i20 = getfield_gc_pure(p2, descr=<FieldU pypy.module.micronumpy.boxes.W_BoolBox.inst_value \d+>)
+            i20 = getfield_gc_pure_i(p2, descr=<FieldU pypy.module.micronumpy.boxes.W_BoolBox.inst_value \d+>)
             i21 = int_is_true(i20)
             guard_false(i21, descr=...)
-            i22 = getfield_gc(p0, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index \d+>)
-            i23 = getfield_gc_pure(p1, descr=<FieldU pypy.module.micronumpy.iterators.ArrayIter.inst_track_index \d+>)
+            i22 = getfield_gc_i(p0, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index \d+>)
+            i23 = getfield_gc_pure_i(p1, descr=<FieldU pypy.module.micronumpy.iterators.ArrayIter.inst_track_index \d+>)
             guard_true(i23, descr=...)
             i25 = int_add(i22, 1)
-            p26 = getfield_gc_pure(p0, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst__indices \d+>)
-            i27 = getfield_gc_pure(p1, descr=<FieldS pypy.module.micronumpy.iterators.ArrayIter.inst_contiguous \d+>)
+            p26 = getfield_gc_pure_r(p0, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst__indices \d+>)
+            i27 = getfield_gc_pure_i(p1, descr=<FieldS pypy.module.micronumpy.iterators.ArrayIter.inst_contiguous \d+>)
             i28 = int_is_true(i27)
             guard_true(i28, descr=...)
-            i29 = getfield_gc_pure(p6, descr=<FieldS pypy.module.micronumpy.descriptor.W_Dtype.inst_elsize \d+>)
-            i30 = int_add(i5, i29)
-            i31 = getfield_gc_pure(p1, descr=<FieldS pypy.module.micronumpy.iterators.ArrayIter.inst_size \d+>)
+            i29 = getfield_gc_pure_i(p6, descr=<FieldS pypy.module.micronumpy.descriptor.W_Dtype.inst_elsize \d+>)
+            guard_value(i29, 8, descr=...)
+            i30 = int_add(i5, 8)
+            i31 = getfield_gc_pure_i(p1, descr=<FieldS pypy.module.micronumpy.iterators.ArrayIter.inst_size \d+>)
             i32 = int_ge(i25, i31)
             guard_false(i32, descr=...)
-            p34 = new_with_vtable(#)
+            p34 = new_with_vtable(descr=...)
             {{{
             setfield_gc(p34, p1, descr=<FieldP pypy.module.micronumpy.iterators.IterState.inst_iterator \d+>)
             setfield_gc(p34, i25, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index \d+>)
@@ -68,15 +155,15 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert len(log.loops) == 1
         loop = log._filter(log.loops[0])
         assert loop.match("""
-            f31 = raw_load(i9, i29, descr=<ArrayF 8>)
+            f31 = raw_load_f(i9, i29, descr=<ArrayF 8>)
             guard_not_invalidated(descr=...)
             i32 = float_ne(f31, 0.000000)
             guard_true(i32, descr=...)
-            i34 = getarrayitem_raw(#, #, descr=<ArrayU 1>)  # XXX what are these?
+            i34 = getarrayitem_raw_i(#, #, descr=<ArrayU 1>)  # XXX what are these?
             guard_value(i34, #, descr=...)                  # XXX don't appear in
-            i35 = getarrayitem_raw(#, #, descr=<ArrayU 1>)  # XXX equiv test_zjit
+            i35 = getarrayitem_raw_i(#, #, descr=<ArrayU 1>)  # XXX equiv test_zjit
             i36 = int_add(i24, 1)
-            i37 = int_add(i29, i28)
+            i37 = int_add(i29, 8)
             i38 = int_ge(i36, i30)
             guard_false(i38, descr=...)
             guard_value(i35, #, descr=...)                  # XXX
@@ -112,7 +199,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             i78 = int_mul(i71, i61)
             i79 = int_add(i55, i78)
             """ + alignment_check + """
-            f80 = raw_load(i67, i79, descr=<ArrayF 8>)
+            f80 = raw_load_f(i67, i79, descr=<ArrayF 8>)
             i81 = int_add(i71, 1)
             --TICK--
             jump(..., descr=...)
@@ -149,12 +236,12 @@ class TestMicroNumPy(BaseTestPyPyC):
             i83 = int_mul(i76, i64)
             i84 = int_add(i58, i83)
             """ + alignment_check + """
-            f85 = raw_load(i70, i84, descr=<ArrayF 8>)
+            f85 = raw_load_f(i70, i84, descr=<ArrayF 8>)
             guard_not_invalidated(descr=...)
             f86 = float_add(f74, f85)
             i87 = int_add(i76, 1)
             --TICK--
-            jump(p0, p1, p6, p7, p8, p11, p13, f86, p17, i87, i62, p42, i58, p48, i41, i64, i70, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_array_flatiter_next(self):
@@ -176,11 +263,11 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             i88 = int_ge(i87, i59)
             guard_false(i88, descr=...)
-            f90 = raw_load(i67, i89, descr=<ArrayF 8>)
+            f90 = raw_load_f(i67, i89, descr=<ArrayF 8>)
             i91 = int_add(i87, 1)
-            i93 = int_add(i89, i76)
+            i93 = int_add(i89, 8)
             i94 = int_add(i79, 1)
-            i95 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value 0>)
+            i95 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value 0>)
             setfield_gc(p97, i91, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index .+>)
             setfield_gc(p97, i93, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
             i96 = int_lt(i95, 0)
@@ -208,11 +295,11 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_true(i126, descr=...)
             i128 = int_mul(i117, i59)
             i129 = int_add(i55, i128)
-            f149 = raw_load(i100, i129, descr=<ArrayF 8>)
+            f149 = raw_load_f(i100, i129, descr=<ArrayF 8>)
             i151 = int_add(i117, 1)
+            setfield_gc(p156, i55, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
             setarrayitem_gc(p150, 1, 0, descr=<ArrayS .+>)
             setarrayitem_gc(p150, 0, 0, descr=<ArrayS .+>)
-            setfield_gc(p156, i55, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
             --TICK--
             jump(..., descr=...)
         """)
@@ -240,11 +327,50 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             raw_store(i103, i132, 42.000000, descr=<ArrayF 8>)
             i153 = int_add(i120, 1)
-            i154 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value 0>)
+            i154 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value 0>)
+            setfield_gc(p158, i53, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
             setarrayitem_gc(p152, 1, 0, descr=<ArrayS .+>)
             setarrayitem_gc(p152, 0, 0, descr=<ArrayS .+>)
-            setfield_gc(p158, i53, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
             i157 = int_lt(i154, 0)
             guard_false(i157, descr=...)
+            jump(..., descr=...)
+        """)
+
+    def test_mixed_div(self):
+        N = 1500
+        def main():
+            N = 1500
+            import _numpypy.multiarray as np
+            arr = np.zeros(N)
+            l = [arr[i]/2. for i in range(N)]
+            return l
+        log = self.run(main, [])
+        assert log.result == [0.] * N
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i92 = int_ge(i91, i37)
+            guard_false(i92, descr=...)
+            i93 = int_add(i91, 1)
+            setfield_gc(p23, i93, descr=<FieldS pypy.objspace.std.iterobject.W_AbstractSeqIterObject.inst_index 8>)
+            i94 = int_ge(i91, i56)
+            guard_false(i94, descr=...)
+            i96 = int_mul(i91, i58)
+            i97 = int_add(i51, i96)
+            f98 = raw_load_f(i63, i97, descr=<ArrayF 8>)
+            guard_not_invalidated(descr=...)
+            f100 = float_mul(f98, 0.500000)
+            i101 = int_add(i79, 1)
+            i102 = arraylen_gc(p85, descr=<ArrayP .>)
+            i103 = int_lt(i102, i101)
+            cond_call(i103, ConstClass(_ll_list_resize_hint_really_look_inside_iff__listPtr_Signed_Bool), p76, i101, 1, descr=<Callv 0 rii EF=5>)
+            guard_no_exception(descr=...)
+            p104 = getfield_gc_r(p76, descr=<FieldP list.items .*>)
+            p105 = new_with_vtable(descr=<SizeDescr .*>)
+            setfield_gc(p105, f100, descr=<FieldF pypy.module.micronumpy.boxes.W_Float64Box.inst_value .*>)
+            setarrayitem_gc(p104, i79, p105, descr=<ArrayP .>)
+            i106 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value 0>)
+            setfield_gc(p76, i101, descr=<FieldS list.length .*>)
+            i107 = int_lt(i106, 0)
+            guard_false(i107, descr=...)
             jump(..., descr=...)
         """)

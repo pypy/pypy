@@ -1,9 +1,9 @@
-import sys
+import sys, py
 
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import (llhelper, MixLevelHelperAnnotator,
-    cast_base_ptr_to_instance, hlstr)
+    cast_base_ptr_to_instance, hlstr, cast_instance_to_gcref)
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLException
@@ -33,7 +33,7 @@ from rpython.rlib.entrypoint import all_jit_entrypoints,\
 # Bootstrapping
 
 def apply_jit(translator, backend_name="auto", inline=False,
-              enable_opts=ALL_OPTS_NAMES, **kwds):
+              vec=False, enable_opts=ALL_OPTS_NAMES, **kwds):
     if 'CPUClass' not in kwds:
         from rpython.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
@@ -48,11 +48,12 @@ def apply_jit(translator, backend_name="auto", inline=False,
                                     **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
+        jd.warmstate.set_param_vec(vec)
         jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
-def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
+def ll_meta_interp(function, args, backendopt=False,
                    listcomp=False, translationoptions={}, **kwds):
     if listcomp:
         extraconfigopts = {'translation.list_comprehension_operations': True}
@@ -62,17 +63,17 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
         extraconfigopts['translation.' + key] = value
     interp, graph = get_interpreter(function, args,
                                     backendopt=False,  # will be done below
-                                    type_system=type_system,
                                     **extraconfigopts)
     clear_tcache()
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
 def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
-                    backendopt=False, trace_limit=sys.maxint,
-                    inline=False, loop_longevity=0, retrace_limit=5,
-                    function_threshold=4, disable_unrolling=sys.maxint,
+                    backendopt=False, trace_limit=sys.maxint, inline=False,
+                    loop_longevity=0, retrace_limit=5, function_threshold=4,
+                    disable_unrolling=sys.maxint,
                     enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, 
-                    max_unroll_recursion=7, **kwds):
+                    max_unroll_recursion=7, vec=1, vec_all=0, vec_cost=0,
+                    vec_length=60, vec_ratio=2, vec_guard_ratio=3, **kwds):
     from rpython.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -96,6 +97,12 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         jd.warmstate.set_param_enable_opts(enable_opts)
         jd.warmstate.set_param_max_unroll_recursion(max_unroll_recursion)
         jd.warmstate.set_param_disable_unrolling(disable_unrolling)
+        jd.warmstate.set_param_vec(vec)
+        jd.warmstate.set_param_vec_all(vec_all)
+        jd.warmstate.set_param_vec_cost(vec_cost)
+        jd.warmstate.set_param_vec_length(vec_length)
+        jd.warmstate.set_param_vec_ratio(vec_ratio)
+        jd.warmstate.set_param_vec_guard_ratio(vec_guard_ratio)
     warmrunnerdesc.finish()
     if graph_and_interp_only:
         return interp, graph
@@ -126,6 +133,17 @@ def _find_jit_marker(graphs, marker_name, check_driver=True):
                     op.args[0].value == marker_name and
                     (not check_driver or op.args[1].value is None or
                      op.args[1].value.active)):   # the jitdriver
+                    results.append((graph, block, i))
+    return results
+
+def _find_jit_markers(graphs, marker_names):
+    results = []
+    for graph in graphs:
+        for block in graph.iterblocks():
+            for i in range(len(block.operations)):
+                op = block.operations[i]
+                if (op.opname == 'jit_marker' and
+                    op.args[0].value in marker_names):
                     results.append((graph, block, i))
     return results
 
@@ -236,6 +254,7 @@ class WarmRunnerDesc(object):
         self.rewrite_can_enter_jits()
         self.rewrite_set_param_and_get_stats()
         self.rewrite_force_virtual(vrefinfo)
+        self.rewrite_jitcell_accesses()
         self.rewrite_force_quasi_immutable()
         self.add_finish()
         self.metainterp_sd.finish_setup(self.codewriter)
@@ -395,6 +414,7 @@ class WarmRunnerDesc(object):
         graph.func._dont_inline_ = True
         graph.func._jit_unroll_safe_ = True
         jd.jitdriver = block.operations[pos].args[1].value
+        jd.vec = jd.jitdriver.vec
         jd.portal_runner_ptr = "<not set so far>"
         jd.result_type = history.getkind(jd.portal_graph.getreturnvar()
                                          .concretetype)[0]
@@ -513,17 +533,12 @@ class WarmRunnerDesc(object):
                 fatalerror('~~~ Crash in JIT! %s' % (e,))
         crash_in_jit._dont_inline_ = True
 
-        if self.translator.rtyper.type_system.name == 'lltypesystem':
-            def maybe_enter_jit(*args):
-                try:
-                    maybe_compile_and_run(state.increment_threshold, *args)
-                except Exception, e:
-                    crash_in_jit(e)
-            maybe_enter_jit._always_inline_ = True
-        else:
-            def maybe_enter_jit(*args):
+        def maybe_enter_jit(*args):
+            try:
                 maybe_compile_and_run(state.increment_threshold, *args)
-            maybe_enter_jit._always_inline_ = True
+            except Exception as e:
+                crash_in_jit(e)
+        maybe_enter_jit._always_inline_ = True
         jd._maybe_enter_jit_fn = maybe_enter_jit
         jd._maybe_compile_and_run_fn = maybe_compile_and_run
 
@@ -597,6 +612,80 @@ class WarmRunnerDesc(object):
             assert False
         (_, jd._PTR_ASSEMBLER_HELPER_FUNCTYPE) = self.cpu.ts.get_FuncType(
             [llmemory.GCREF, llmemory.GCREF], ASMRESTYPE)
+
+    def rewrite_jitcell_accesses(self):
+        jitdrivers_by_name = {}
+        for jd in self.jitdrivers_sd:
+            name = jd.jitdriver.name
+            if name != 'jitdriver':
+                jitdrivers_by_name[name] = jd
+        m = _find_jit_markers(self.translator.graphs,
+                              ('get_jitcell_at_key', 'trace_next_iteration',
+                               'dont_trace_here', 'trace_next_iteration_hash'))
+        accessors = {}
+
+        def get_accessor(name, jitdriver_name, function, ARGS, green_arg_spec):
+            a = accessors.get((name, jitdriver_name))
+            if a:
+                return a
+            d = {'function': function,
+                 'cast_instance_to_gcref': cast_instance_to_gcref,
+                 'lltype': lltype}
+            arg_spec = ", ".join([("arg%d" % i) for i in range(len(ARGS))])
+            arg_converters = []
+            for i, spec in enumerate(green_arg_spec):
+                if isinstance(spec, lltype.Ptr):
+                    arg_converters.append("arg%d = lltype.cast_opaque_ptr(type%d, arg%d)" % (i, i, i))
+                    d['type%d' % i] = spec
+            convert = ";".join(arg_converters)
+            if name == 'get_jitcell_at_key':
+                exec py.code.Source("""
+                def accessor(%s):
+                    %s
+                    return cast_instance_to_gcref(function(%s))
+                """ % (arg_spec, convert, arg_spec)).compile() in d
+                FUNC = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
+            elif name == "trace_next_iteration_hash":
+                exec py.code.Source("""
+                def accessor(arg0):
+                    function(arg0)
+                """).compile() in d
+                FUNC = lltype.Ptr(lltype.FuncType([lltype.Unsigned],
+                                                  lltype.Void))
+            else:
+                exec py.code.Source("""
+                def accessor(%s):
+                    %s
+                    function(%s)
+                """ % (arg_spec, convert, arg_spec)).compile() in d
+                FUNC = lltype.Ptr(lltype.FuncType(ARGS, lltype.Void))
+            func = d['accessor']
+            ll_ptr = self.helper_func(FUNC, func)
+            accessors[(name, jitdriver_name)] = ll_ptr
+            return ll_ptr
+
+        for graph, block, index in m:
+            op = block.operations[index]
+            jitdriver_name = op.args[1].value
+            JitCell = jitdrivers_by_name[jitdriver_name].warmstate.JitCell
+            ARGS = [x.concretetype for x in op.args[2:]]
+            if op.args[0].value == 'get_jitcell_at_key':
+                func = JitCell.get_jitcell
+            elif op.args[0].value == 'dont_trace_here':
+                func = JitCell.dont_trace_here
+            elif op.args[0].value == 'trace_next_iteration_hash':
+                func = JitCell.trace_next_iteration_hash
+            else:
+                func = JitCell._trace_next_iteration
+            argspec = jitdrivers_by_name[jitdriver_name]._green_args_spec
+            accessor = get_accessor(op.args[0].value,
+                                    jitdriver_name, func,
+                                    ARGS, argspec)
+            v_result = op.result
+            c_accessor = Constant(accessor, concretetype=lltype.Void)
+            newop = SpaceOperation('direct_call', [c_accessor] + op.args[2:],
+                                   v_result)
+            block.operations[index] = newop
 
     def rewrite_can_enter_jits(self):
         sublists = {}
@@ -694,6 +783,8 @@ class WarmRunnerDesc(object):
         if func.func_name.startswith('stats_'):
             # get special treatment since we rewrite it to a call that accepts
             # jit driver
+            assert len(op.args) >= 3, ("%r must have a first argument "
+                                       "(which is None)" % (func,))
             func = func_with_new_name(func, func.func_name + '_compiled')
 
             def new_func(ignored, *args):

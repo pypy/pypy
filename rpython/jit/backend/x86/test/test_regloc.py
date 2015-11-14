@@ -1,5 +1,5 @@
 import struct, sys
-from rpython.jit.backend.x86.rx86 import R
+from rpython.jit.backend.x86.rx86 import R, fits_in_32bits
 from rpython.jit.backend.x86.regloc import *
 from rpython.jit.backend.x86.test.test_rx86 import CodeBuilder32, CodeBuilder64, assert_encodes_as
 from rpython.jit.backend.x86.assembler import heap
@@ -112,6 +112,9 @@ class Fake32CodeBlockWrapper(codebuf.MachineCodeBlockWrapper):
 def test_follow_jump_instructions_32():
     buf = lltype.malloc(rffi.CCHARP.TO, 80, flavor='raw')
     raw = rffi.cast(lltype.Signed, buf)
+    if not fits_in_32bits(raw):
+        lltype.free(buf, flavor='raw')
+        py.test.skip("not testable")
     mc = Fake32CodeBlockWrapper(); mc.WORD = 4; mc.relocations = []
     mc.RET()
     mc.copy_to_raw_memory(raw)
@@ -238,6 +241,17 @@ class Test64Bits:
         expected_instructions = (
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
+        )
+        assert cb.getvalue() == expected_instructions
+
+    def test_MOV_64bit_constant_into_rax(self):
+        base_constant = 0xFEDCBA9876543210
+        cb = LocationCodeBuilder64()
+        cb.MOV(eax, imm(base_constant))
+
+        expected_instructions = (
+                # mov rax, 0xFEDCBA9876543210
+                '\x48\xB8\x10\x32\x54\x76\x98\xBA\xDC\xFE'
         )
         assert cb.getvalue() == expected_instructions
 

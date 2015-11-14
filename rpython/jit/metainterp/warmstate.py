@@ -2,7 +2,7 @@ import sys
 import weakref
 
 from rpython.jit.codewriter import support, heaptracker, longlong
-from rpython.jit.metainterp import history
+from rpython.jit.metainterp import resoperation, history
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
@@ -60,7 +60,8 @@ def unwrap(TYPE, box):
         if TYPE.TO._gckind == "gc":
             return box.getref(TYPE)
         else:
-            return llmemory.cast_adr_to_ptr(box.getaddr(), TYPE)
+            adr = heaptracker.int2adr(box.getint())
+            return llmemory.cast_adr_to_ptr(adr, TYPE)
     if TYPE == lltype.Float:
         return box.getfloat()
     else:
@@ -74,7 +75,7 @@ def wrap(cpu, value, in_const_box=False):
             if in_const_box:
                 return history.ConstPtr(value)
             else:
-                return history.BoxPtr(value)
+                return resoperation.InputArgRef(value)
         else:
             adr = llmemory.cast_ptr_to_adr(value)
             value = heaptracker.adr2int(adr)
@@ -88,7 +89,7 @@ def wrap(cpu, value, in_const_box=False):
         if in_const_box:
             return history.ConstFloat(value)
         else:
-            return history.BoxFloat(value)
+            return resoperation.InputArgFloat(value)
     elif isinstance(value, str) or isinstance(value, unicode):
         assert len(value) == 1     # must be a character
         value = ord(value)
@@ -99,7 +100,7 @@ def wrap(cpu, value, in_const_box=False):
     if in_const_box:
         return history.ConstInt(value)
     else:
-        return history.BoxInt(value)
+        return resoperation.InputArgInt(value)
 
 @specialize.arg(0)
 def equal_whatever(TYPE, x, y):
@@ -299,6 +300,24 @@ class WarmEnterState(object):
         if self.warmrunnerdesc:
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.max_unroll_recursion = value
+
+    def set_param_vec(self, value):
+        self.vec = bool(value)
+
+    def set_param_vec_all(self, value):
+        self.vec_all = bool(value)
+
+    def set_param_vec_cost(self, value):
+        self.vec_cost = bool(value)
+
+    def set_param_vec_length(self, value):
+        self.vec_length = int(value)
+
+    def set_param_vec_ratio(self, value):
+        self.vec_ratio = value / 10.0
+
+    def set_param_vec_guard_ratio(self, value):
+        self.vec_guard_ratio = value / 10.0
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.JitCell.ensure_jit_cell_at_key(greenkey)
@@ -544,12 +563,24 @@ class WarmEnterState(object):
             @staticmethod
             def trace_next_iteration(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
+                JitCell._trace_next_iteration(*greenargs)
+
+            @staticmethod
+            def _trace_next_iteration(*greenargs):
                 hash = JitCell.get_uhash(*greenargs)
+                jitcounter.change_current_fraction(hash, 0.98)
+
+            @staticmethod
+            def trace_next_iteration_hash(hash):
                 jitcounter.change_current_fraction(hash, 0.98)
 
             @staticmethod
             def ensure_jit_cell_at_key(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
+                return JitCell._ensure_jit_cell_at_key(*greenargs)
+
+            @staticmethod
+            def _ensure_jit_cell_at_key(*greenargs):
                 hash = JitCell.get_uhash(*greenargs)
                 cell = jitcounter.lookup_chain(hash)
                 while cell is not None:
@@ -560,6 +591,11 @@ class WarmEnterState(object):
                 newcell = JitCell(*greenargs)
                 jitcounter.install_new_cell(hash, newcell)
                 return newcell
+
+            @staticmethod
+            def dont_trace_here(*greenargs):
+                cell = JitCell._ensure_jit_cell_at_key(*greenargs)
+                cell.flags |= JC_DONT_TRACE_HERE
         #
         self.JitCell = JitCell
         return JitCell

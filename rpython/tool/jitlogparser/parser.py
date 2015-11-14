@@ -157,8 +157,15 @@ class SimpleParser(OpParser):
         return res
 
     def create_op(self, opnum, args, res, descr, fail_args):
-        return self.Op(intern(opname[opnum].lower()), args, res, descr, fail_args)
+        return self.Op(intern(opname[opnum].lower()), args, res,
+                       descr, fail_args)
 
+    def create_op_no_result(self, opnum, args, descr, fail_args):
+        return self.Op(intern(opname[opnum].lower()), args, None,
+                       descr, fail_args)
+
+    def update_memo(self, val, name):
+        pass
 
 
 class NonCodeError(Exception):

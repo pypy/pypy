@@ -480,7 +480,7 @@ NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
 
 class _GcRef(object):
     # implementation-specific: there should not be any after translation
-    __slots__ = ['_x']
+    __slots__ = ['_x', '_handle']
     def __init__(self, x):
         self._x = x
     def __hash__(self):
@@ -528,6 +528,48 @@ def try_cast_gcref_to_instance(Class, gcref):
             return gcref._x
         return None
 try_cast_gcref_to_instance._annspecialcase_ = 'specialize:arg(0)'
+
+_ffi_cache = None
+def _fetch_ffi():
+    global _ffi_cache
+    if _ffi_cache is None:
+        try:
+            import _cffi_backend
+            _ffi_cache = _cffi_backend.FFI()
+        except (ImportError, AttributeError):
+            import py
+            py.test.skip("need CFFI >= 1.0")
+    return _ffi_cache
+
+@jit.dont_look_inside
+def hide_nonmovable_gcref(gcref):
+    from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+    if we_are_translated():
+        assert lltype.typeOf(gcref) == llmemory.GCREF
+        assert not can_move(gcref)
+        return rffi.cast(llmemory.Address, gcref)
+    else:
+        assert isinstance(gcref, _GcRef)
+        x = gcref._x
+        ffi = _fetch_ffi()
+        if not hasattr(x, '__handle'):
+            x.__handle = ffi.new_handle(x)
+        addr = int(ffi.cast("intptr_t", x.__handle))
+        return rffi.cast(llmemory.Address, addr)
+
+@jit.dont_look_inside
+def reveal_gcref(addr):
+    from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+    assert lltype.typeOf(addr) == llmemory.Address
+    if we_are_translated():
+        return rffi.cast(llmemory.GCREF, addr)
+    else:
+        addr = rffi.cast(lltype.Signed, addr)
+        if addr == 0:
+            return lltype.nullptr(llmemory.GCREF.TO)
+        ffi = _fetch_ffi()
+        x = ffi.from_handle(ffi.cast("void *", addr))
+        return _GcRef(x)
 
 # ------------------- implementation -------------------
 
@@ -772,3 +814,19 @@ def clear_gcflag_extra(fromlist):
         if get_gcflag_extra(gcref):
             toggle_gcflag_extra(gcref)
             pending.extend(get_rpy_referents(gcref))
+
+all_typeids = {}
+        
+def get_typeid(obj):
+    raise Exception("does not work untranslated")
+
+class GetTypeidEntry(ExtRegistryEntry):
+    _about_ = get_typeid
+
+    def compute_result_annotation(self, s_obj):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeInteger()
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.genop('gc_gettypeid', hop.args_v, resulttype=lltype.Signed)

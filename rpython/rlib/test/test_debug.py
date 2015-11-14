@@ -94,40 +94,27 @@ def test_check_list_of_chars():
     py.test.raises(NotAListOfChars, "interpret(g, [3])")
 
 
-class DebugTests(object):
+def test_debug_print_start_stop():
+    def f(x):
+        debug_start("mycat")
+        debug_print("foo", 2, "bar", x)
+        debug_stop("mycat")
+        debug_flush()  # does nothing
+        debug_offset()  # should not explode at least
+        return have_debug_prints()
 
-    def test_debug_print_start_stop(self):
-        def f(x):
-            debug_start("mycat")
-            debug_print("foo", 2, "bar", x)
-            debug_stop("mycat")
-            debug_flush() # does nothing
-            debug_offset() # should not explode at least
-            return have_debug_prints()
+    try:
+        debug._log = dlog = debug.DebugLog()
+        res = f(3)
+        assert res is True
+    finally:
+        debug._log = None
+    assert dlog == [("mycat", [('debug_print', 'foo', 2, 'bar', 3)])]
 
-        try:
-            debug._log = dlog = debug.DebugLog()
-            res = f(3)
-            assert res == True
-        finally:
-            debug._log = None
-        assert dlog == [
-            ("mycat", [
-                ('debug_print', 'foo', 2, 'bar', 3),
-                ]),
-            ]
-
-        try:
-            debug._log = dlog = debug.DebugLog()
-            res = self.interpret(f, [3])
-            assert res == True
-        finally:
-            debug._log = None
-        assert dlog == [
-            ("mycat", [
-                ('debug_print', 'foo', 2, 'bar', 3),
-                ]),
-            ]
-
-    def interpret(self, f, args):
-        return interpret(f, args, type_system='lltype')
+    try:
+        debug._log = dlog = debug.DebugLog()
+        res = interpret(f, [3])
+        assert res is True
+    finally:
+        debug._log = None
+    assert dlog == [("mycat", [('debug_print', 'foo', 2, 'bar', 3)])]

@@ -671,9 +671,13 @@ class AbstractX86CodeBuilder(object):
     CDQ = insn(rex_nw, '\x99')
 
     TEST8_mi = insn(rex_nw, '\xF6', orbyte(0<<3), mem_reg_plus_const(1), immediate(2, 'b'))
+    TEST8_ai = insn(rex_nw, '\xF6', orbyte(0<<3), mem_reg_plus_scaled_reg_plus_const(1), immediate(2, 'b'))
     TEST8_bi = insn(rex_nw, '\xF6', orbyte(0<<3), stack_bp(1), immediate(2, 'b'))
     TEST8_ji = insn(rex_nw, '\xF6', orbyte(0<<3), abs_(1), immediate(2, 'b'))
     TEST_rr = insn(rex_w, '\x85', register(2,8), register(1), '\xC0')
+    TEST_ai = insn(rex_w, '\xF7', orbyte(0<<3), mem_reg_plus_scaled_reg_plus_const(1), immediate(2))
+    TEST_mi = insn(rex_w, '\xF7', orbyte(0<<3), mem_reg_plus_const(1), immediate(2))
+    TEST_ji = insn(rex_w, '\xF7', orbyte(0<<3), abs_(1), immediate(2))
 
     BTS_mr = insn(rex_w, '\x0F\xAB', register(2,8), mem_reg_plus_const(1))
     BTS_jr = insn(rex_w, '\x0F\xAB', register(2,8), abs_(1))
@@ -703,14 +707,15 @@ class AbstractX86CodeBuilder(object):
     CVTTSD2SI_rx = xmminsn('\xF2', rex_w, '\x0F\x2C', register(1, 8), register(2), '\xC0')
     CVTTSD2SI_rb = xmminsn('\xF2', rex_w, '\x0F\x2C', register(1, 8), stack_bp(2))
 
-    CVTSD2SS_xx = xmminsn('\xF2', rex_nw, '\x0F\x5A',
-                          register(1, 8), register(2), '\xC0')
-    CVTSD2SS_xb = xmminsn('\xF2', rex_nw, '\x0F\x5A',
-                          register(1, 8), stack_bp(2))
-    CVTSS2SD_xx = xmminsn('\xF3', rex_nw, '\x0F\x5A',
-                          register(1, 8), register(2), '\xC0')
-    CVTSS2SD_xb = xmminsn('\xF3', rex_nw, '\x0F\x5A',
-                          register(1, 8), stack_bp(2))
+    CVTSD2SS_xx = xmminsn('\xF2', rex_nw, '\x0F\x5A', register(1, 8), register(2), '\xC0')
+    CVTSD2SS_xb = xmminsn('\xF2', rex_nw, '\x0F\x5A', register(1, 8), stack_bp(2))
+    CVTSS2SD_xx = xmminsn('\xF3', rex_nw, '\x0F\x5A', register(1, 8), register(2), '\xC0')
+    CVTSS2SD_xb = xmminsn('\xF3', rex_nw, '\x0F\x5A', register(1, 8), stack_bp(2))
+
+    CVTPD2PS_xx = xmminsn('\x66', rex_nw, '\x0F\x5A', register(1, 8), register(2), '\xC0')
+    CVTPS2PD_xx = xmminsn(rex_nw, '\x0F\x5A', register(1, 8), register(2), '\xC0')
+    CVTDQ2PD_xx = xmminsn('\xF3', rex_nw, '\x0F\xE6', register(1, 8), register(2), '\xC0')
+    CVTPD2DQ_xx = xmminsn('\xF2', rex_nw, '\x0F\xE6', register(1, 8), register(2), '\xC0')
 
     # These work on machine sized registers, so "MOVDQ" is MOVD when running
     # on 32 bits and MOVQ when running on 64 bits.  "MOVD32" is always 32-bit.
@@ -719,6 +724,7 @@ class AbstractX86CodeBuilder(object):
     MOVDQ_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
     MOVDQ_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
     MOVDQ_xb = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), stack_bp(2))
+    MOVDQ_xx = xmminsn('\xF3', rex_nw, '\x0F\x7E', register(1, 8), register(2), '\xC0')
 
     MOVD32_rx = xmminsn('\x66', rex_nw, '\x0F\x7E', register(2, 8), register(1), '\xC0')
     MOVD32_sx = xmminsn('\x66', rex_nw, '\x0F\x7E', register(2, 8), stack_sp(1))
@@ -726,10 +732,48 @@ class AbstractX86CodeBuilder(object):
     MOVD32_xb = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), stack_bp(2))
     MOVD32_xs = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), stack_sp(2))
 
+    MOVSS_xx = xmminsn('\xF3', rex_nw, '\x0F\x10', register(1,8), register(2), '\xC0')
+
     PSRAD_xi = xmminsn('\x66', rex_nw, '\x0F\x72', register(1), '\xE0', immediate(2, 'b'))
-    MOVUPS_mx = xmminsn(rex_nw, '\x0F\x11', register(2, 8), mem_reg_plus_const(1))
-    MOVUPS_jx = xmminsn(rex_nw, '\x0F\x11', register(2, 8), abs_(1))
-    MOVUPS_ax = xmminsn(rex_nw, '\x0F\x11', register(2, 8), mem_reg_plus_scaled_reg_plus_const(1))
+    PSRLDQ_xi = xmminsn('\x66', rex_nw, '\x0F\x73', register(1), 
+                        orbyte(0x3 << 3), '\xC0', immediate(2, 'b'))
+    UNPCKLPD_xx = xmminsn('\x66', rex_nw, '\x0F\x14', register(1, 8), register(2), '\xC0')
+    UNPCKHPD_xx = xmminsn('\x66', rex_nw, '\x0F\x15', register(1, 8), register(2), '\xC0')
+    UNPCKLPS_xx = xmminsn(        rex_nw, '\x0F\x14', register(1, 8), register(2), '\xC0')
+    UNPCKHPS_xx = xmminsn(        rex_nw, '\x0F\x15', register(1, 8), register(2), '\xC0')
+    MOVDDUP_xx = xmminsn('\xF2', rex_nw, '\x0F\x12', register(1, 8), register(2), '\xC0')
+    SHUFPS_xxi = xmminsn(rex_nw, '\x0F\xC6', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    SHUFPD_xxi = xmminsn('\x66', rex_nw, '\x0F\xC6', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+
+    PSHUFD_xxi = xmminsn('\x66', rex_nw, '\x0F\x70', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PSHUFHW_xxi = xmminsn('\xF3', rex_nw, '\x0F\x70', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PSHUFLW_xxi = xmminsn('\xF2', rex_nw, '\x0F\x70', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PSHUFB_xx = xmminsn('\x66', rex_nw, '\x0F\x38\x00', register(1,8), register(2), '\xC0')
+    PSHUFB_xm = xmminsn('\x66', rex_nw, '\x0F\x38\x00', register(1,8), mem_reg_plus_const(2))
+    PSHUFB_xj = xmminsn('\x66', rex_nw, '\x0F\x38\x00', register(1,8), abs_(2))
+
+    # SSE3
+    HADDPD_xx = xmminsn('\x66', rex_nw, '\x0F\x7C', register(1,8), register(2), '\xC0')
+    HADDPS_xx = xmminsn('\xF2', rex_nw, '\x0F\x7C', register(1,8), register(2), '\xC0')
+    PHADDD_xx = xmminsn('\x66', rex_nw, '\x0F\x38\x02', register(1,8), register(2), '\xC0')
+
+    # following require SSE4_1
+    PEXTRQ_rxi = xmminsn('\x66', rex_w, '\x0F\x3A\x16', register(1), register(2,8), '\xC0', immediate(3, 'b'))
+    PEXTRD_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x16', register(1), register(2,8), '\xC0', immediate(3, 'b'))
+    PEXTRW_rxi = xmminsn('\x66', rex_nw, '\x0F\xC5', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PEXTRB_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x14', register(1), register(2,8), '\xC0', immediate(3, 'b'))
+    EXTRACTPS_rxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x17', register(1), register(2,8), '\xC0', immediate(3, 'b'))
+    
+    PINSRQ_xri = xmminsn('\x66', rex_w, '\x0F\x3A\x22', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PINSRD_xri = xmminsn('\x66', rex_nw, '\x0F\x3A\x22', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PINSRW_xri = xmminsn('\x66', rex_nw, '\x0F\xC4', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    PINSRB_xri = xmminsn('\x66', rex_nw, '\x0F\x3A\x20', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    INSERTPS_xxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x21', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+
+    PTEST_xx = xmminsn('\x66', rex_nw, '\x0F\x38\x17', register(1,8), register(2), '\xC0')
+    PBLENDW_xxi = xmminsn('\x66', rex_nw, '\x0F\x3A\x0E', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    CMPPD_xxi = xmminsn('\x66', rex_nw, '\x0F\xC2', register(1,8), register(2), '\xC0', immediate(3, 'b'))
+    CMPPS_xxi = xmminsn(        rex_nw, '\x0F\xC2', register(1,8), register(2), '\xC0', immediate(3, 'b'))
 
     # ------------------------------------------------------------
 
@@ -751,6 +795,7 @@ Conditions = {
                  'LE': 14,    'NG': 14,
                 'NLE': 15,     'G': 15,
 }
+cond_none = -1
 
 def invert_condition(cond_num):
     return cond_num ^ 1
@@ -890,10 +935,21 @@ define_modrm_modes('MOVSX32_r*', [rex_w, '\x63', register(1, 8)])
 
 define_modrm_modes('MOVSD_x*', ['\xF2', rex_nw, '\x0F\x10', register(1,8)], regtype='XMM')
 define_modrm_modes('MOVSD_*x', ['\xF2', rex_nw, '\x0F\x11', register(2,8)], regtype='XMM')
-define_modrm_modes('MOVAPD_x*', ['\x66', rex_nw, '\x0F\x28', register(1,8)],
-                   regtype='XMM')
-define_modrm_modes('MOVAPD_*x', ['\x66', rex_nw, '\x0F\x29', register(2,8)],
-                   regtype='XMM')
+define_modrm_modes('MOVSS_x*', ['\xF3', rex_nw, '\x0F\x10', register(1,8)], regtype='XMM')
+define_modrm_modes('MOVSS_*x', ['\xF3', rex_nw, '\x0F\x11', register(2,8)], regtype='XMM')
+define_modrm_modes('MOVAPD_x*', ['\x66', rex_nw, '\x0F\x28', register(1,8)], regtype='XMM')
+define_modrm_modes('MOVAPD_*x', ['\x66', rex_nw, '\x0F\x29', register(2,8)], regtype='XMM')
+define_modrm_modes('MOVAPS_x*', [        rex_nw, '\x0F\x28', register(1,8)], regtype='XMM')
+define_modrm_modes('MOVAPS_*x', [        rex_nw, '\x0F\x29', register(2,8)], regtype='XMM')
+
+define_modrm_modes('MOVDQA_x*', ['\x66', rex_nw, '\x0F\x6F', register(1, 8)], regtype='XMM')
+define_modrm_modes('MOVDQA_*x', ['\x66', rex_nw, '\x0F\x7F', register(2, 8)], regtype='XMM')
+define_modrm_modes('MOVDQU_x*', ['\xF3', rex_nw, '\x0F\x6F', register(1, 8)], regtype='XMM')
+define_modrm_modes('MOVDQU_*x', ['\xF3', rex_nw, '\x0F\x7F', register(2, 8)], regtype='XMM')
+define_modrm_modes('MOVUPS_x*', [        rex_nw, '\x0F\x10', register(1, 8)], regtype='XMM')
+define_modrm_modes('MOVUPS_*x', [        rex_nw, '\x0F\x11', register(2, 8)], regtype='XMM')
+define_modrm_modes('MOVUPD_x*', ['\x66', rex_nw, '\x0F\x10', register(1, 8)], regtype='XMM')
+define_modrm_modes('MOVUPD_*x', ['\x66', rex_nw, '\x0F\x11', register(2, 8)], regtype='XMM')
 
 define_modrm_modes('SQRTSD_x*', ['\xF2', rex_nw, '\x0F\x51', register(1,8)], regtype='XMM')
 
@@ -906,8 +962,21 @@ define_modrm_modes('MULSD_x*', ['\xF2', rex_nw, '\x0F\x59', register(1, 8)], reg
 define_modrm_modes('DIVSD_x*', ['\xF2', rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
 define_modrm_modes('UCOMISD_x*', ['\x66', rex_nw, '\x0F\x2E', register(1, 8)], regtype='XMM')
 define_modrm_modes('XORPD_x*', ['\x66', rex_nw, '\x0F\x57', register(1, 8)], regtype='XMM')
-define_modrm_modes('XORPS_x*', [rex_nw, '\x0F\x57', register(1, 8)], regtype='XMM')
+define_modrm_modes('XORPS_x*', [        rex_nw, '\x0F\x57', register(1, 8)], regtype='XMM')
 define_modrm_modes('ANDPD_x*', ['\x66', rex_nw, '\x0F\x54', register(1, 8)], regtype='XMM')
+define_modrm_modes('ANDPS_x*', [        rex_nw, '\x0F\x54', register(1, 8)], regtype='XMM')
+
+# floating point operations (single & double)
+define_modrm_modes('ADDPD_x*', ['\x66', rex_nw, '\x0F\x58', register(1, 8)], regtype='XMM')
+define_modrm_modes('ADDPS_x*', [        rex_nw, '\x0F\x58', register(1, 8)], regtype='XMM')
+define_modrm_modes('SUBPD_x*', ['\x66', rex_nw, '\x0F\x5C', register(1, 8)], regtype='XMM')
+define_modrm_modes('SUBPS_x*', [        rex_nw, '\x0F\x5C', register(1, 8)], regtype='XMM')
+define_modrm_modes('MULPD_x*', ['\x66', rex_nw, '\x0F\x59', register(1, 8)], regtype='XMM')
+define_modrm_modes('MULPS_x*', [        rex_nw, '\x0F\x59', register(1, 8)], regtype='XMM')
+define_modrm_modes('DIVPD_x*', ['\x66', rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
+define_modrm_modes('DIVPS_x*', [        rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
+define_modrm_modes('DIVPD_x*', ['\x66', rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
+define_modrm_modes('DIVPS_x*', [        rex_nw, '\x0F\x5E', register(1, 8)], regtype='XMM')
 
 def define_pxmm_insn(insnname_template, insn_char):
     def add_insn(char, *post):
@@ -923,12 +992,30 @@ def define_pxmm_insn(insnname_template, insn_char):
     add_insn('m', mem_reg_plus_const(2))
 
 define_pxmm_insn('PADDQ_x*',     '\xD4')
+define_pxmm_insn('PADDD_x*',     '\xFE')
+define_pxmm_insn('PADDW_x*',     '\xFD')
+define_pxmm_insn('PADDB_x*',     '\xFC')
+
 define_pxmm_insn('PSUBQ_x*',     '\xFB')
+define_pxmm_insn('PSUBD_x*',     '\xFA')
+define_pxmm_insn('PSUBW_x*',     '\xF9')
+define_pxmm_insn('PSUBB_x*',     '\xF8')
+
+define_pxmm_insn('PMULDQ_x*',    '\x38\x28')
+define_pxmm_insn('PMULLD_x*',    '\x38\x40')
+define_pxmm_insn('PMULLW_x*',    '\xD5')
+
 define_pxmm_insn('PAND_x*',      '\xDB')
 define_pxmm_insn('POR_x*',       '\xEB')
 define_pxmm_insn('PXOR_x*',      '\xEF')
 define_pxmm_insn('PUNPCKLDQ_x*', '\x62')
+define_pxmm_insn('PUNPCKHDQ_x*', '\x6A')
+define_pxmm_insn('PUNPCKLQDQ_x*', '\x6C')
+define_pxmm_insn('PUNPCKHQDQ_x*', '\x6D')
+define_pxmm_insn('PCMPEQQ_x*',   '\x38\x29')
 define_pxmm_insn('PCMPEQD_x*',   '\x76')
+define_pxmm_insn('PCMPEQW_x*',   '\x75')
+define_pxmm_insn('PCMPEQB_x*',   '\x74')
 
 # ____________________________________________________________
 

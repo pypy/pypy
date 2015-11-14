@@ -536,7 +536,7 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 ENABLE_ALL_OPTS = (
-    'intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll')
+    'intbounds:rewrite:virtualize:string:pure:earlyforce:heap:unroll')
 
 PARAMETER_DOCS = {
     'threshold': 'number of times a loop has to run for it to become hot',
@@ -552,8 +552,16 @@ PARAMETER_DOCS = {
     'disable_unrolling': 'after how many operations we should not unroll',
     'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
                    'optimizations to enable, or all = %s' % ENABLE_ALL_OPTS,
-    'max_unroll_recursion': 'how many levels deep to unroll a recursive function'
-    }
+    'max_unroll_recursion': 'how many levels deep to unroll a recursive function',
+    'vec': 'turn on the vectorization optimization (vecopt). requires sse4.1',
+    'vec_all': 'try to vectorize trace loops that occur outside of the numpy library.',
+    'vec_cost': 'threshold for which traces to bail. 0 means the costs.',
+    'vec_length': 'the amount of instructions allowed in "all" traces.',
+    'vec_ratio': 'an integer (0-10 transfored into a float by X / 10.0) statements that have vector equivalents '
+                 'divided by the total number of trace instructions.',
+    'vec_guard_ratio': 'an integer (0-10 transfored into a float by X / 10.0) divided by the'
+                       ' total number of trace instructions.',
+}
 
 PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'function_threshold': 1619, # slightly more than one above, also prime
@@ -562,12 +570,18 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'trace_limit': 6000,
               'inlining': 1,
               'loop_longevity': 1000,
-              'retrace_limit': 5,
+              'retrace_limit': 0,
               'max_retrace_guards': 15,
               'max_unroll_loops': 0,
               'disable_unrolling': 200,
               'enable_opts': 'all',
               'max_unroll_recursion': 7,
+              'vec': 0,
+              'vec_all': 0,
+              'vec_cost': 0,
+              'vec_length': 60,
+              'vec_ratio': 2,
+              'vec_guard_ratio': 5,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 
@@ -590,7 +604,7 @@ class JitDriver(object):
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
-                 name='jitdriver', check_untranslated=True,
+                 name='jitdriver', check_untranslated=True, vectorize=False,
                  get_unique_id=None):
         if greens is not None:
             self.greens = greens
@@ -630,6 +644,7 @@ class JitDriver(object):
         self.can_never_inline = can_never_inline
         self.should_unroll_one_iteration = should_unroll_one_iteration
         self.check_untranslated = check_untranslated
+        self.vec = vectorize
 
     def _freeze_(self):
         return True
@@ -992,11 +1007,13 @@ class AsmInfo(object):
     ops_offset - dict of offsets of operations or None
     asmaddr - (int) raw address of assembler block
     asmlen - assembler block length
+    rawstart - address a guard can jump to
     """
-    def __init__(self, ops_offset, asmaddr, asmlen):
+    def __init__(self, ops_offset, asmaddr, asmlen, rawstart=0):
         self.ops_offset = ops_offset
         self.asmaddr = asmaddr
         self.asmlen = asmlen
+        self.rawstart = rawstart
 
 class JitDebugInfo(object):
     """ An object representing debug info. Attributes meanings:
@@ -1152,7 +1169,10 @@ class Counters(object):
     GUARDS
     OPT_OPS
     OPT_GUARDS
+    OPT_GUARDS_SHARED
     OPT_FORCINGS
+    OPT_VECTORIZE_TRY
+    OPT_VECTORIZED
     ABORT_TOO_LONG
     ABORT_BRIDGE
     ABORT_BAD_LOOP

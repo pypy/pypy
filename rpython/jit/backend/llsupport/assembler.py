@@ -3,7 +3,7 @@ from rpython.jit.backend.llsupport.memcpy import memcpy_fn, memset_fn
 from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.codemap import CodemapBuilder
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
-    ConstInt, BoxInt, AbstractFailDescr)
+    ConstInt, AbstractFailDescr, VECTOR)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
 from rpython.rlib import rgc
 from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints_for,
@@ -21,10 +21,9 @@ DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER',
     ('number', lltype.Signed)
 )
 
-
 class GuardToken(object):
-    def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs, exc,
-                 frame_depth, is_guard_not_invalidated, is_guard_not_forced):
+    def __init__(self, cpu, gcmap, faildescr, failargs, fail_locs,
+                 guard_opnum, frame_depth):
         assert isinstance(faildescr, AbstractFailDescr)
         self.cpu = cpu
         self.faildescr = faildescr
@@ -32,9 +31,16 @@ class GuardToken(object):
         self.fail_locs = fail_locs
         self.gcmap = self.compute_gcmap(gcmap, failargs,
                                         fail_locs, frame_depth)
-        self.exc = exc
-        self.is_guard_not_invalidated = is_guard_not_invalidated
-        self.is_guard_not_forced = is_guard_not_forced
+        self.guard_opnum = guard_opnum
+
+    def guard_not_invalidated(self):
+        return self.guard_opnum == rop.GUARD_NOT_INVALIDATED
+
+    def must_save_exception(self):
+        guard_opnum = self.guard_opnum
+        return (guard_opnum == rop.GUARD_EXCEPTION or
+                guard_opnum == rop.GUARD_NO_EXCEPTION or
+                guard_opnum == rop.GUARD_NOT_FORCED)
 
     def compute_gcmap(self, gcmap, failargs, fail_locs, frame_depth):
         # note that regalloc has a very similar compute, but
@@ -68,6 +74,9 @@ class BaseAssembler(object):
         self.rtyper = cpu.rtyper
         self._debug = False
 
+    def stitch_bridge(self, faildescr, target):
+        raise NotImplementedError
+
     def setup_once(self):
         # the address of the function called by 'new'
         gc_ll_descr = self.cpu.gc_ll_descr
@@ -80,8 +89,8 @@ class BaseAssembler(object):
             self.gc_size_of_header = gc_ll_descr.gcheaderbuilder.size_gc_header
         else:
             self.gc_size_of_header = WORD # for tests
-        self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
-        self.memset_addr = self.cpu.cast_ptr_to_int(memset_fn)
+        self.memcpy_addr = rffi.cast(lltype.Signed, memcpy_fn)
+        self.memset_addr = rffi.cast(lltype.Signed, memset_fn)
         self._build_failure_recovery(False, withfloats=False)
         self._build_failure_recovery(True, withfloats=False)
         self._build_wb_slowpath(False)
@@ -166,18 +175,31 @@ class BaseAssembler(object):
             input_i += 1
         return locs
 
+    _previous_rd_locs = []
+
     def store_info_on_descr(self, startspos, guardtok):
         withfloats = False
         for box in guardtok.failargs:
-            if box is not None and box.type == FLOAT:
+            if box is not None and \
+               (box.type == FLOAT or box.type == VECTOR):
                 withfloats = True
                 break
-        exc = guardtok.exc
+        exc = guardtok.must_save_exception()
         target = self.failure_recovery_code[exc + 2 * withfloats]
         fail_descr = cast_instance_to_gcref(guardtok.faildescr)
         fail_descr = rffi.cast(lltype.Signed, fail_descr)
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        positions = [rffi.cast(rffi.USHORT, 0)] * len(guardtok.fail_locs)
+        #
+        # in practice, about 2/3rd of 'positions' lists that we build are
+        # exactly the same as the previous one, so share the lists to
+        # conserve memory
+        if len(self._previous_rd_locs) == len(guardtok.fail_locs):
+            positions = self._previous_rd_locs     # tentatively
+            shared = True
+        else:
+            positions = [rffi.cast(rffi.USHORT, 0)] * len(guardtok.fail_locs)
+            shared = False
+        #
         for i, loc in enumerate(guardtok.fail_locs):
             if loc is None:
                 position = 0xFFFF
@@ -196,7 +218,15 @@ class BaseAssembler(object):
                     position = len(self.cpu.gen_regs) + loc.value * coeff
                 else:
                     position = self.cpu.all_reg_indexes[loc.value]
+
+            if shared:
+                if (rffi.cast(lltype.Signed, self._previous_rd_locs[i]) ==
+                    rffi.cast(lltype.Signed, position)):
+                    continue   # still equal
+                positions = positions[:]
+                shared = False
             positions[i] = rffi.cast(rffi.USHORT, position)
+        self._previous_rd_locs = positions
         # write down the positions of locs
         guardtok.faildescr.rd_locs = positions
         return fail_descr, target
@@ -212,8 +242,24 @@ class BaseAssembler(object):
             self.codemap_builder.leave_portal_frame(op.getarg(0).getint(),
                                                     self.mc.get_relative_pos())
 
-    def call_assembler(self, op, guard_op, argloc, vloc, result_loc, tmploc):
-        self._store_force_index(guard_op)
+    def call_assembler(self, op, argloc, vloc, result_loc, tmploc):
+        """
+            * argloc: location of the frame argument that we're passing to
+                      the called assembler (this is the first return value
+                      of locs_for_call_assembler())
+
+            * vloc:   location of the virtualizable (not in a register;
+                      this is the optional second return value of
+                      locs_for_call_assembler(), or imm(0) if none returned)
+
+            * result_loc: location of op.result (which is not be
+                          confused with the next one)
+
+            * tmploc: location where the actual call to the other piece
+                      of assembler will return its jitframe result
+                      (which is always a REF), before the helper may be
+                      called
+        """
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         #
@@ -224,11 +270,11 @@ class BaseAssembler(object):
         self._call_assembler_emit_call(self.imm(descr._ll_function_addr),
                                         argloc, tmploc)
 
-        if op.result is None:
+        if op.type == 'v':
             assert result_loc is None
             value = self.cpu.done_with_this_frame_descr_void
         else:
-            kind = op.result.type
+            kind = op.type
             if kind == INT:
                 assert result_loc is tmploc
                 value = self.cpu.done_with_this_frame_descr_int
@@ -262,9 +308,6 @@ class BaseAssembler(object):
         #
         # Here we join Path A and Path B again
         self._call_assembler_patch_jmp(jmp_location)
-        # XXX here should be emitted guard_not_forced, but due
-        #     to incompatibilities in how it's done, we leave it for the
-        #     caller to deal with
 
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations, tp, number):

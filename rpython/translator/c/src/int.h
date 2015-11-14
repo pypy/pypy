@@ -231,8 +231,12 @@
 #define OP_TRUNCATE_LONGLONG_TO_INT(x,r) r = (Signed)(x)
 #define OP_TRUNCATE_LONGLONGLONG_TO_INT(x,r) r = (Signed)(x)
 
-#define OP_CAST_UNICHAR_TO_INT(x,r)    r = (Signed)((Unsigned)(x)) /*?*/
-#define OP_CAST_INT_TO_UNICHAR(x,r)    r = (unsigned int)(x)
+/* Casting from UniChar to int goes first via "unsigned int".
+   On 64-bit platforms, this forces a signed 32-bit wchar_t
+   to an unsigned integer, which is also what CPython's ord()
+   does. */
+#define OP_CAST_UNICHAR_TO_INT(x,r)    r = ((unsigned int)(x))
+#define OP_CAST_INT_TO_UNICHAR(x,r)    r = (x)
 
 /* bool operations */
 

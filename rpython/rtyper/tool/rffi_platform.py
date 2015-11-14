@@ -17,12 +17,15 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
 #
 # Helpers for simple cases
 
-def eci_from_header(c_header_source, include_dirs=None):
+def eci_from_header(c_header_source, include_dirs=None, libraries=None):
     if include_dirs is None:
         include_dirs = []
+    if libraries is None:
+        libraries = []
     return ExternalCompilationInfo(
         post_include_bits=[c_header_source],
-        include_dirs=include_dirs
+        include_dirs=include_dirs,
+        libraries=libraries,
     )
 
 def getstruct(name, c_header_source, interesting_fields):
@@ -75,9 +78,10 @@ def getintegerfunctionresult(function, args=None, c_header_source='', includes=[
         CConfig._compilation_info_.includes = includes
     return configure(CConfig)['RESULT']
 
-def has(name, c_header_source, include_dirs=None):
+def has(name, c_header_source, include_dirs=None, libraries=None):
     class CConfig:
-        _compilation_info_ = eci_from_header(c_header_source, include_dirs)
+        _compilation_info_ = \
+            eci_from_header(c_header_source, include_dirs, libraries)
         HAS = Has(name)
     return configure(CConfig)['HAS']
 

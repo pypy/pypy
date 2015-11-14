@@ -1,5 +1,6 @@
 import py
-from rpython.rlib.jit import JitDriver, hint, set_param
+from rpython.rlib.jit import JitDriver, hint, set_param, dont_look_inside,\
+     elidable
 from rpython.rlib.objectmodel import compute_hash
 from rpython.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from rpython.jit.metainterp.test.support import LLJitMixin
@@ -15,11 +16,11 @@ class LoopTest(object):
         'guard_value' : 3
     }
 
-    def meta_interp(self, f, args, policy=None):
+    def meta_interp(self, f, args, policy=None, backendopt=False):
         return ll_meta_interp(f, args, enable_opts=self.enable_opts,
                               policy=policy,
                               CPUClass=self.CPUClass,
-                              type_system=self.type_system)
+                              backendopt=backendopt)
 
     def run_directly(self, f, args):
         return f(*args)
@@ -60,7 +61,7 @@ class LoopTest(object):
         assert res == f(6, 13)
         self.check_trace_count(1)
         if self.enable_opts:
-            self.check_resops(setfield_gc=2, getfield_gc=0)
+            self.check_resops(setfield_gc=2, getfield_gc_i=0)
 
 
     def test_loop_with_two_paths(self):
@@ -191,8 +192,8 @@ class LoopTest(object):
                 if op.getopname() == 'guard_true':
                     liveboxes = op.getfailargs()
                     assert len(liveboxes) == 2     # x, y (in some order)
-                    assert isinstance(liveboxes[0], history.BoxInt)
-                    assert isinstance(liveboxes[1], history.BoxInt)
+                    assert liveboxes[0].type == 'i'
+                    assert liveboxes[1].type == 'i'
                     found += 1
             if 'unroll' in self.enable_opts:
                 assert found == 2
@@ -952,6 +953,160 @@ class LoopTest(object):
             return sa
         res = self.meta_interp(f, [20, 10])
         assert res == f(20, 10)
+
+    def test_unroll_issue_1(self):
+        class A(object):
+            _attrs_ = []
+            def checkcls(self):
+                raise NotImplementedError
+
+        class B(A):
+            def __init__(self, b_value):
+                self.b_value = b_value
+            def get_value(self):
+                return self.b_value
+            def checkcls(self):
+                return self.b_value
+
+        @dont_look_inside
+        def check(a):
+            return isinstance(a, B)
+
+        jitdriver = JitDriver(greens=[], reds='auto')
+
+        def f(a, xx):
+            i = 0
+            total = 0
+            while i < 10:
+                jitdriver.jit_merge_point()
+                if check(a):
+                    if xx & 1:
+                        total *= a.checkcls()
+                    total += a.get_value()
+                i += 1
+            return total
+
+        def run(n):
+            bt = f(B(n), 1)
+            bt = f(B(n), 2)
+            at = f(A(), 3)
+            return at * 100000 + bt
+
+        assert run(42) == 420
+        res = self.meta_interp(run, [42], backendopt=True)
+        assert res == 420
+
+    def test_unroll_issue_2(self):
+        py.test.skip("decide")
+
+        class B(object):
+            def __init__(self, b_value):
+                self.b_value = b_value
+        class C(object):
+            pass
+
+        from rpython.rlib.rerased import new_erasing_pair
+        b_erase, b_unerase = new_erasing_pair("B")
+        c_erase, c_unerase = new_erasing_pair("C")
+
+        @elidable
+        def unpack_b(a):
+            return b_unerase(a)
+
+        jitdriver = JitDriver(greens=[], reds='auto')
+
+        def f(a, flag):
+            i = 0
+            total = 0
+            while i < 10:
+                jitdriver.jit_merge_point()
+                if flag:
+                    total += unpack_b(a).b_value
+                    flag += 1
+                i += 1
+            return total
+
+        def run(n):
+            res = f(b_erase(B(n)), 1)
+            f(c_erase(C()), 0)
+            return res
+
+        assert run(42) == 420
+        res = self.meta_interp(run, [42], backendopt=True)
+        assert res == 420
+
+    def test_unroll_issue_3(self):
+        py.test.skip("decide")
+
+        from rpython.rlib.rerased import new_erasing_pair
+        b_erase, b_unerase = new_erasing_pair("B")    # list of ints
+        c_erase, c_unerase = new_erasing_pair("C")    # list of Nones
+
+        @elidable
+        def unpack_b(a):
+            return b_unerase(a)
+
+        jitdriver = JitDriver(greens=[], reds='auto')
+
+        def f(a, flag):
+            i = 0
+            total = 0
+            while i < 10:
+                jitdriver.jit_merge_point()
+                if flag:
+                    total += unpack_b(a)[0]
+                    flag += 1
+                i += 1
+            return total
+
+        def run(n):
+            res = f(b_erase([n]), 1)
+            f(c_erase([None]), 0)
+            return res
+
+        assert run(42) == 420
+        res = self.meta_interp(run, [42], backendopt=True)
+        assert res == 420
+
+    def test_not_too_many_bridges(self):
+        jitdriver = JitDriver(greens = [], reds = 'auto')
+
+        def f(i):
+            s = 0
+            while i > 0:
+                jitdriver.jit_merge_point()
+                if i % 2 == 0:
+                    s += 1
+                elif i % 3 == 0:
+                    s += 1
+                elif i % 5 == 0:
+                    s += 1
+                elif i % 7 == 0:
+                    s += 1
+                i -= 1
+            return s
+
+        self.meta_interp(f, [30])
+        self.check_trace_count(3)
+
+    def test_sharing_guards(self):
+        py.test.skip("unimplemented")
+        driver = JitDriver(greens = [], reds = 'auto')
+
+        def f(i):
+            s = 0
+            while i > 0:
+                driver.jit_merge_point()
+                if s > 100:
+                    raise Exception
+                if s > 9:
+                    s += 1 # bridge
+                s += 1
+                i -= 1
+
+        self.meta_interp(f, [15])
+        # one guard_false got removed
+        self.check_resops(guard_false=4, guard_true=5)
 
 class TestLLtype(LoopTest, LLJitMixin):
     pass

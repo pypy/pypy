@@ -13,7 +13,7 @@ computation part.
 
 import os
 
-import py
+import py, math
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
 from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
@@ -23,9 +23,8 @@ from rpython.rtyper.error import TyperError
 from rpython.rtyper.exceptiondata import ExceptionData
 from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
     Ptr, ContainerType, FuncType, functionptr, typeOf, RuntimeTypeInfo,
-    attachRuntimeTypeInfo, Primitive)
+    attachRuntimeTypeInfo, Primitive, getfunctionptr)
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
-from rpython.rtyper.typesystem import LowLevelTypeSystem, getfunctionptr
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
@@ -38,7 +37,6 @@ class RPythonTyper(object):
     def __init__(self, annotator):
         self.annotator = annotator
         self.lowlevel_ann_policy = LowLevelAnnotatorPolicy(self)
-        self.type_system = LowLevelTypeSystem()
         self.reprs = {}
         self._reprs_must_call_setup = []
         self._seen_reprs_must_call_setup = {}
@@ -446,7 +444,11 @@ class RPythonTyper(object):
                 if isinstance(resultvar, Constant) and \
                        isinstance(hop.r_result.lowleveltype, Primitive) and \
                        hop.r_result.lowleveltype is not Void:
-                    assert resultvar.value == hop.s_result.const
+                    # assert that they are equal, or both are 'nan'
+                    assert resultvar.value == hop.s_result.const or (
+                        math.isnan(resultvar.value) and
+                        math.isnan(hop.s_result.const))
+
             resulttype = resultvar.concretetype
             op.result.concretetype = hop.r_result.lowleveltype
             if op.result.concretetype != resulttype:
@@ -870,7 +872,7 @@ class LowLevelOpList(list):
         # build the 'direct_call' operation
         f = self.rtyper.getcallable(graph)
         c = inputconst(typeOf(f), f)
-        fobj = self.rtyper.type_system.deref(f)
+        fobj = f._obj
         return self.genop('direct_call', [c]+newargs_v,
                           resulttype = typeOf(fobj).RESULT)
 

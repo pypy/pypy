@@ -7,6 +7,7 @@ import sys
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.tool import rfficache
 
 from pypy.interpreter.error import oefmt
 from pypy.module._cffi_backend import cdataobj, misc
@@ -125,12 +126,25 @@ class W_CTypePrimitiveChar(W_CTypePrimitiveCharOrUniChar):
         cdata[0] = value
 
 
+# XXX explicitly use an integer type instead of lltype.UniChar here,
+# because for now the latter is defined as unsigned by RPython (even
+# though it may be signed when 'wchar_t' is written to C).
+WCHAR_INT = {(2, False): rffi.USHORT,
+             (4, False): rffi.UINT,
+             (4, True): rffi.INT}[rffi.sizeof(lltype.UniChar),
+                                  rfficache.signof_c_type('wchar_t')]
+WCHAR_INTP = rffi.CArrayPtr(WCHAR_INT)
+
 class W_CTypePrimitiveUniChar(W_CTypePrimitiveCharOrUniChar):
     _attrs_ = []
 
+    if rffi.r_wchar_t.SIGN:
+        def write_raw_integer_data(self, w_cdata, value):
+            w_cdata.write_raw_signed_data(value)
+
     def cast_to_int(self, cdata):
-        unichardata = rffi.cast(rffi.CWCHARP, cdata)
-        return self.space.wrap(ord(unichardata[0]))
+        unichardata = rffi.cast(WCHAR_INTP, cdata)
+        return self.space.wrap(unichardata[0])
 
     def convert_to_object(self, cdata):
         unichardata = rffi.cast(rffi.CWCHARP, cdata)

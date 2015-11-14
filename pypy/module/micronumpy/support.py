@@ -7,6 +7,7 @@ from pypy.interpreter.gateway import unwrap_spec, appdef
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objspace import StdObjSpace
+from pypy.module.micronumpy import constants as NPY
 
 def issequence_w(space, w_obj):
     from pypy.module.micronumpy.base import W_NDimArray
@@ -32,9 +33,18 @@ def index_w(space, w_obj):
 def product(s):
     i = 1
     for x in s:
-        i = ovfcheck(i * x)
+        i *= x
     return i
 
+@jit.unroll_safe
+def product_check(s):
+    i = 1
+    for x in s:
+        try:
+            i = ovfcheck(i * x)
+        except OverflowError:
+            raise
+    return i
 
 def check_and_adjust_index(space, index, size, axis):
     if index < -size or index >= size:
@@ -167,15 +177,11 @@ def is_rhs_priority_higher(space, w_lhs, w_rhs):
     return space.is_true(space.gt(w_priority_r, w_priority_l))
 
 def get_order_as_CF(proto_order, req_order):
-    if req_order == 'C':
-        return 'C'
-    elif req_order == 'F':
-        return 'F'
-    elif req_order == 'K':
-        return proto_order
-    elif req_order == 'A':
-        return proto_order
-
+    if req_order == NPY.CORDER:
+        return NPY.CORDER
+    elif req_order == NPY.FORTRANORDER:
+        return NPY.FORTRANORDER
+    return proto_order
 
 def descr_set_docstring(space, w_obj, w_docstring):
     if not isinstance(space, StdObjSpace):

@@ -34,10 +34,14 @@ class Darwin(posix.BasePosix):
                 + args)
 
     def _include_dirs_for_libffi(self):
-        return ['/usr/include/ffi']
+        return self._pkg_config("libffi", "--cflags-only-I",
+                                ['/usr/include/ffi'],
+                                check_result_dir=True)
 
     def _library_dirs_for_libffi(self):
-        return ['/usr/lib']
+        return self._pkg_config("libffi", "--libs-only-L",
+                                ['/usr/lib'],
+                                check_result_dir=True)
 
     def _frameworks(self, frameworks):
         args = []

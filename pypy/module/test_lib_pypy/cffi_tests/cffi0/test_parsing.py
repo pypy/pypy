@@ -259,6 +259,12 @@ def test_redefine_common_type():
     assert repr(ffi.cast("FILE", 123)) == "<cdata 'char' %s'{'>" % prefix
     ffi.cdef("typedef char int32_t;")
     assert repr(ffi.cast("int32_t", 123)) == "<cdata 'char' %s'{'>" % prefix
+    ffi = FFI()
+    ffi.cdef("typedef int bool, *FILE;")
+    assert repr(ffi.cast("bool", 123)) == "<cdata 'int' 123>"
+    assert repr(ffi.cast("FILE", 123)) == "<cdata 'int *' 0x7b>"
+    ffi = FFI()
+    ffi.cdef("typedef bool (*fn_t)(bool, bool);")   # "bool," but within "( )"
 
 def test_bool():
     ffi = FFI()
@@ -308,7 +314,6 @@ def test_WPARAM_on_windows():
     ffi.cdef("void f(WPARAM);")
 
 def test__is_constant_globalvar():
-    from cffi.cparser import Parser, _get_parser
     for input, expected_output in [
         ("int a;",          False),
         ("const int a;",    True),
@@ -325,11 +330,36 @@ def test__is_constant_globalvar():
         ("int a[5][6];",       False),
         ("const int a[5][6];", False),
         ]:
-        p = Parser()
-        ast = _get_parser().parse(input)
-        decl = ast.children()[0][1]
-        node = decl.type
-        assert p._is_constant_globalvar(node) == expected_output
+        ffi = FFI()
+        ffi.cdef(input)
+        declarations = ffi._parser._declarations
+        assert ('constant a' in declarations) == expected_output
+        assert ('variable a' in declarations) == (not expected_output)
+
+def test_restrict():
+    from cffi import model
+    for input, expected_output in [
+        ("int a;",             False),
+        ("restrict int a;",    True),
+        ("int *a;",            False),
+        ]:
+        ffi = FFI()
+        ffi.cdef(input)
+        tp, quals = ffi._parser._declarations['variable a']
+        assert bool(quals & model.Q_RESTRICT) == expected_output
+
+def test_different_const_funcptr_types():
+    lst = []
+    for input in [
+        "int(*)(int *a)",
+        "int(*)(int const *a)",
+        "int(*)(int * const a)",
+        "int(*)(int const a[])"]:
+        ffi = FFI(backend=FakeBackend())
+        lst.append(ffi._parser.parse_type(input))
+    assert lst[0] != lst[1]
+    assert lst[0] == lst[2]
+    assert lst[1] == lst[3]
 
 def test_enum():
     ffi = FFI()
@@ -341,3 +371,17 @@ def test_enum():
     assert C.TWO == 2
     assert C.NIL == 0
     assert C.NEG == -1
+
+def test_stdcall():
+    ffi = FFI()
+    tp = ffi.typeof("int(*)(int __stdcall x(int),"
+                    "       long (__cdecl*y)(void),"
+                    "       short(WINAPI *z)(short))")
+    if sys.platform == 'win32' and sys.maxsize < 2**32:
+        stdcall = '__stdcall '
+    else:
+        stdcall = ''
+    assert str(tp) == (
+        "<ctype 'int(*)(int(%s*)(int), "
+                        "long(*)(), "
+                        "short(%s*)(short))'>" % (stdcall, stdcall))

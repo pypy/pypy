@@ -247,6 +247,63 @@ class AppTestFFIObj:
         ffi.cast("unsigned short *", c)[1] += 500
         assert list(a) == [10000, 20500, 30000]
 
+    def test_memmove(self):
+        import sys
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("short[]", [-1234, -2345, -3456, -4567, -5678])
+        ffi.memmove(p, p + 1, 4)
+        assert list(p) == [-2345, -3456, -3456, -4567, -5678]
+        p[2] = 999
+        ffi.memmove(p + 2, p, 6)
+        assert list(p) == [-2345, -3456, -2345, -3456, 999]
+        ffi.memmove(p + 4, ffi.new("char[]", b"\x71\x72"), 2)
+        if sys.byteorder == 'little':
+            assert list(p) == [-2345, -3456, -2345, -3456, 0x7271]
+        else:
+            assert list(p) == [-2345, -3456, -2345, -3456, 0x7172]
+
+    def test_memmove_buffer(self):
+        import _cffi_backend as _cffi1_backend
+        import array
+        ffi = _cffi1_backend.FFI()
+        a = array.array('H', [10000, 20000, 30000])
+        p = ffi.new("short[]", 5)
+        ffi.memmove(p, a, 6)
+        assert list(p) == [10000, 20000, 30000, 0, 0]
+        ffi.memmove(p + 1, a, 6)
+        assert list(p) == [10000, 10000, 20000, 30000, 0]
+        b = array.array('h', [-1000, -2000, -3000])
+        ffi.memmove(b, a, 4)
+        assert b.tolist() == [10000, 20000, -3000]
+        assert a.tolist() == [10000, 20000, 30000]
+        p[0] = 999
+        p[1] = 998
+        p[2] = 997
+        p[3] = 996
+        p[4] = 995
+        ffi.memmove(b, p, 2)
+        assert b.tolist() == [999, 20000, -3000]
+        ffi.memmove(b, p + 2, 4)
+        assert b.tolist() == [997, 996, -3000]
+        p[2] = -p[2]
+        p[3] = -p[3]
+        ffi.memmove(b, p + 2, 6)
+        assert b.tolist() == [-997, -996, 995]
+
+    def test_memmove_readonly_readwrite(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("signed char[]", 5)
+        ffi.memmove(p, b"abcde", 3)
+        assert list(p) == [ord("a"), ord("b"), ord("c"), 0, 0]
+        ffi.memmove(p, bytearray(b"ABCDE"), 2)
+        assert list(p) == [ord("A"), ord("B"), ord("c"), 0, 0]
+        raises((TypeError, BufferError), ffi.memmove, b"abcde", p, 3)
+        ba = bytearray(b"xxxxx")
+        ffi.memmove(dest=ba, src=p, n=3)
+        assert ba == bytearray(b"ABcxx")
+
     def test_ffi_types(self):
         import _cffi_backend as _cffi1_backend
         CData = _cffi1_backend.FFI.CData

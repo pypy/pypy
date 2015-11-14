@@ -25,6 +25,17 @@ class AbstractLLCPU(AbstractCPU):
 
     HAS_CODEMAP = False
 
+    done_with_this_frame_descr_int      = None   # overridden by pyjitpl.py
+    done_with_this_frame_descr_float    = None
+    done_with_this_frame_descr_ref      = None
+    done_with_this_frame_descr_void     = None
+    exit_frame_with_exception_descr_ref = None
+
+    vector_extension = False
+    vector_register_size = 0 # in bytes
+    vector_horizontal_operations = False
+    vector_pack_slots = False
+
     def __init__(self, rtyper, stats, opts, translate_support_code=False,
                  gcdescr=None):
         assert type(opts) is not bool
@@ -37,15 +48,23 @@ class AbstractLLCPU(AbstractCPU):
         self.translate_support_code = translate_support_code
         if translate_support_code and rtyper is not None:
             translator = rtyper.annotator.translator
+            self.remove_gctypeptr = translator.config.translation.gcremovetypeptr
         else:
             translator = None
         self.gc_ll_descr = get_ll_description(gcdescr, translator, rtyper)
+        # support_guard_gc_type indicates if a gc type of an object can be read.
+        # In some states (boehm or x86 untranslated) the type is not known just yet,
+        # because there are cases where it is not guarded. The precise place where it's not
+        # is while inlining short preamble.
+        self.supports_guard_gc_type = self.gc_ll_descr.supports_guard_gc_type
         if translator and translator.config.translation.gcremovetypeptr:
             self.vtable_offset = None
         else:
             self.vtable_offset, _ = symbolic.get_field_token(rclass.OBJECT,
                                                              'typeptr',
                                                         translate_support_code)
+        self.subclassrange_min_offset, _ = symbolic.get_field_token(
+            rclass.OBJECT_VTABLE, 'subclassrange_min', translate_support_code)
         if translate_support_code:
             self._setup_exception_handling_translated()
         else:
@@ -91,6 +110,9 @@ class AbstractLLCPU(AbstractCPU):
         return self.assembler.assemble_loop(jd_id, unique_id, logger, name,
                                             inputargs, operations,
                                             looptoken, log=log)
+
+    def stitch_bridge(self, faildescr, target):
+        self.assembler.stitch_bridge(faildescr, target)
 
     def _setup_frame_realloc(self, translate_support_code):
         FUNC_TP = lltype.Ptr(lltype.FuncType([llmemory.GCREF, lltype.Signed],
@@ -314,8 +336,8 @@ class AbstractLLCPU(AbstractCPU):
     def cast_int_to_ptr(self, x, TYPE):
         return rffi.cast(TYPE, x)
 
-    def sizeof(self, S):
-        return get_size_descr(self.gc_ll_descr, S)
+    def sizeof(self, S, vtable=lltype.nullptr(rclass.OBJECT_VTABLE)):
+        return get_size_descr(self.gc_ll_descr, S, vtable)
 
     def fielddescrof(self, STRUCT, fieldname):
         return get_field_descr(self.gc_ll_descr, STRUCT, fieldname)
@@ -379,20 +401,40 @@ class AbstractLLCPU(AbstractCPU):
         descr = self.get_latest_descr(deadframe)
         return rffi.cast(lltype.Signed, descr.rd_locs[index]) * WORD
 
+    @specialize.arg(2)
+    def get_value_direct(self, deadframe, tp, index):
+        if tp == 'i':
+            return self.get_int_value_direct(deadframe, index * WORD)
+        elif tp == 'r':
+            return self.get_ref_value_direct(deadframe, index * WORD)
+        elif tp == 'f':
+            return self.get_float_value_direct(deadframe, index * WORD)
+        else:
+            assert False
+
     def get_int_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
+        return self.get_int_value_direct(deadframe, pos)
+
+    def get_int_value_direct(self, deadframe, pos):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
         return self.read_int_at_mem(deadframe, pos + ofs, WORD, 1)
 
     def get_ref_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
+        return self.get_ref_value_direct(deadframe, pos)
+
+    def get_ref_value_direct(self, deadframe, pos):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
         return self.read_ref_at_mem(deadframe, pos + ofs)
 
     def get_float_value(self, deadframe, index):
         pos = self._decode_pos(deadframe, index)
+        return self.get_float_value_direct(deadframe, pos)
+
+    def get_float_value_direct(self, deadframe, pos):
         descr = self.gc_ll_descr.getframedescrs(self).arraydescr
         ofs = self.unpack_arraydescr(descr)
         return self.read_float_at_mem(deadframe, pos + ofs)
@@ -470,8 +512,24 @@ class AbstractLLCPU(AbstractCPU):
         descrs = self.gc_ll_descr.getframedescrs(self)
         base_ofs = self.unpack_arraydescr(descrs.arraydescr)
         return base_ofs
+
     # ____________________________________________________________
 
+    def check_is_object(self, gcptr):
+        """Check if the given, non-null gcptr refers to an rclass.OBJECT
+        or not at all (an unrelated GcStruct or a GcArray).  Only usable
+        in the llgraph backend, or after translation of a real backend."""
+        assert self.supports_guard_gc_type
+        return self.gc_ll_descr.check_is_object(gcptr)
+
+    def get_actual_typeid(self, gcptr):
+        """Fetch the actual typeid of the given gcptr, as an integer.
+        Only usable in the llgraph backend, or after translation of a
+        real backend."""
+        assert self.supports_guard_gc_type
+        return self.gc_ll_descr.get_actual_typeid(gcptr)
+
+    # ____________________________________________________________
 
     def bh_arraylen_gc(self, array, arraydescr):
         assert isinstance(arraydescr, ArrayDescr)
@@ -574,16 +632,22 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def bh_getfield_gc_i(self, struct, fielddescr):
         ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
+        if isinstance(lltype.typeOf(struct), lltype.Ptr):
+            fielddescr.check_correct_type(struct)
         return self.read_int_at_mem(struct, ofs, size, sign)
 
     @specialize.argtype(1)
     def bh_getfield_gc_r(self, struct, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
+        if isinstance(lltype.typeOf(struct), lltype.Ptr):
+            fielddescr.check_correct_type(struct)
         return self.read_ref_at_mem(struct, ofs)
 
     @specialize.argtype(1)
     def bh_getfield_gc_f(self, struct, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
+        if isinstance(lltype.typeOf(struct), lltype.Ptr):
+            fielddescr.check_correct_type(struct)
         return self.read_float_at_mem(struct, ofs)
 
     bh_getfield_raw_i = bh_getfield_gc_i
@@ -593,15 +657,21 @@ class AbstractLLCPU(AbstractCPU):
     @specialize.argtype(1)
     def bh_setfield_gc_i(self, struct, newvalue, fielddescr):
         ofs, size, _ = self.unpack_fielddescr_size(fielddescr)
+        if isinstance(lltype.typeOf(struct), lltype.Ptr):
+            fielddescr.check_correct_type(struct)
         self.write_int_at_mem(struct, ofs, size, newvalue)
 
     def bh_setfield_gc_r(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
+        if isinstance(lltype.typeOf(struct), lltype.Ptr):
+            fielddescr.check_correct_type(struct)
         self.write_ref_at_mem(struct, ofs, newvalue)
 
     @specialize.argtype(1)
     def bh_setfield_gc_f(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
+        if isinstance(lltype.typeOf(struct), lltype.Ptr):
+            fielddescr.check_correct_type(struct)
         self.write_float_at_mem(struct, ofs, newvalue)
 
     bh_setfield_raw_i = bh_setfield_gc_i
@@ -626,10 +696,10 @@ class AbstractLLCPU(AbstractCPU):
     def bh_new(self, sizedescr):
         return self.gc_ll_descr.gc_malloc(sizedescr)
 
-    def bh_new_with_vtable(self, vtable, sizedescr):
+    def bh_new_with_vtable(self, sizedescr):
         res = self.gc_ll_descr.gc_malloc(sizedescr)
         if self.vtable_offset is not None:
-            self.write_int_at_mem(res, self.vtable_offset, WORD, vtable)
+            self.write_int_at_mem(res, self.vtable_offset, WORD, sizedescr.get_vtable())
         return res
 
     def bh_new_raw_buffer(self, size):

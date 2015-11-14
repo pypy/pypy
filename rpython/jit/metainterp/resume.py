@@ -1,13 +1,13 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp import jitprof
-from rpython.jit.metainterp.history import (Box, Const, ConstInt, getkind,
-    BoxInt, BoxPtr, BoxFloat, INT, REF, FLOAT, AbstractDescr)
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.history import (Const, ConstInt, getkind,
+    INT, REF, FLOAT, AbstractDescr)
+from rpython.jit.metainterp.resoperation import rop, InputArgInt,\
+     InputArgFloat, InputArgRef
 from rpython.rlib import rarithmetic, rstack
 from rpython.rlib.objectmodel import (we_are_translated, specialize,
-        compute_unique_id, import_from_mixin)
-from rpython.rlib.debug import (have_debug_prints, ll_assert, debug_start,
-    debug_stop, debug_print)
+        compute_unique_id)
+from rpython.rlib.debug import ll_assert, debug_print
 from rpython.rtyper import annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.rclass import OBJECTPTR
@@ -33,6 +33,68 @@ class FrameInfo(object):
         self.prev = prev
         self.jitcode = jitcode
         self.pc = pc
+
+class VectorInfo(object):
+    """
+        prev: the previous VectorInfo or None
+        failargs_pos: the index where to find it in the fail arguments
+        location: the register location (an integer), specified by the backend
+        variable: the original variable that lived at failargs_pos
+    """
+    _attrs_ = ('prev', 'failargs_pos', 'location', 'variable')
+    prev = None
+    failargs_pos = -1
+    location = None
+    variable = None
+
+    def __init__(self, position, variable):
+        self.failargs_pos = position
+        self.variable = variable
+
+    def getpos_in_failargs(self):
+        return self.failargs_pos
+
+    def next(self):
+        return self.prev
+
+    def getoriginal(self):
+        return self.variable
+
+    def clone(self):
+        prev = None
+        if self.prev:
+            prev = self.prev.clone()
+        return self.instance_clone(prev)
+
+    def instance_clone(self, prev):
+        raise NotImplementedError
+
+class UnpackAtExitInfo(VectorInfo):
+    def instance_clone(self, prev):
+        info = UnpackAtExitInfo(self.failargs_pos, self.variable)
+        info.prev = prev
+        return info
+
+class AccumInfo(VectorInfo):
+    _attrs_ = ('accum_operation', 'scalar')
+
+    def __init__(self, position, variable, operation):
+        VectorInfo.__init__(self, position, variable)
+        self.accum_operation = operation
+
+    def instance_clone(self, prev):
+        info = AccumInfo(self.failargs_pos, self.variable,
+                         self.accum_operation)
+        info.location = self.location
+        info.prev = prev
+        return info
+
+    def __repr__(self):
+        return 'AccumInfo(%s,%s,%s,%s,%s)' % (self.prev is None,
+                                              self.accum_operation,
+                                              self.failargs_pos,
+                                              self.variable,
+                                              self.location)
 
 def _ensure_parent_resumedata(framestack, n):
     target = framestack[n]
@@ -200,15 +262,21 @@ class ResumeDataLoopMemo(object):
         numb = lltype.malloc(NUMBERING, length)
         for i in range(length):
             box = boxes[i]
-            value = optimizer.getvalue(box)
-            box = value.get_key_box()
+            box = optimizer.get_box_replacement(box)
 
             if isinstance(box, Const):
                 tagged = self.getconst(box)
             elif box in liveboxes:
                 tagged = liveboxes[box]
             else:
-                if value is not None and value.is_virtual():
+                is_virtual = False
+                if box.type == 'r':
+                    info = optimizer.getptrinfo(box)
+                    is_virtual = (info is not None and info.is_virtual())
+                if box.type == 'i':
+                    info = optimizer.getrawptrinfo(box, create=False)
+                    is_virtual = (info is not None and info.is_virtual()) 
+                if is_virtual:
                     tagged = tag(v, TAGVIRTUAL)
                     v += 1
                 else:
@@ -221,7 +289,7 @@ class ResumeDataLoopMemo(object):
         self.numberings[snapshot] = numb, liveboxes, v
         return numb, liveboxes.copy(), v
 
-    def forget_numberings(self, virtualbox):
+    def forget_numberings(self):
         # XXX ideally clear only the affected numberings
         self.numberings.clear()
         self.clear_box_virtual_numbers()
@@ -267,28 +335,27 @@ _frame_info_placeholder = (None, 0, 0)
 
 class ResumeDataVirtualAdder(VirtualVisitor):
 
-    def __init__(self, storage, snapshot_storage, memo):
+    def __init__(self, optimizer, storage, snapshot_storage, memo):
+        self.optimizer = optimizer
         self.storage = storage
         self.snapshot_storage = snapshot_storage
         self.memo = memo
 
-    def make_virtual_info(self, value, fieldnums):
-        from rpython.jit.metainterp.optimizeopt.virtualize import AbstractVirtualValue
-        assert isinstance(value, AbstractVirtualValue)
+    def make_virtual_info(self, info, fieldnums):
         assert fieldnums is not None
-        vinfo = value._cached_vinfo
+        vinfo = info._cached_vinfo
         if vinfo is not None and vinfo.equals(fieldnums):
             return vinfo
-        vinfo = value.visitor_dispatch_virtual_type(self)
+        vinfo = info.visitor_dispatch_virtual_type(self)
         vinfo.set_content(fieldnums)
-        value._cached_vinfo = vinfo
+        info._cached_vinfo = vinfo
         return vinfo
 
     def visit_not_virtual(self, value):
         assert 0, "unreachable"
 
-    def visit_virtual(self, known_class, fielddescrs):
-        return VirtualInfo(known_class, fielddescrs)
+    def visit_virtual(self, descr, fielddescrs):
+        return VirtualInfo(descr, fielddescrs)
 
     def visit_vstruct(self, typedescr, fielddescrs):
         return VStructInfo(typedescr, fielddescrs)
@@ -299,8 +366,8 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         else:
             return VArrayInfoNotClear(arraydescr)
 
-    def visit_varraystruct(self, arraydescr, fielddescrs):
-        return VArrayStructInfo(arraydescr, fielddescrs)
+    def visit_varraystruct(self, arraydescr, size, fielddescrs):
+        return VArrayStructInfo(arraydescr, size, fielddescrs)
 
     def visit_vrawbuffer(self, size, offsets, descrs):
         return VRawBufferInfo(size, offsets, descrs)
@@ -326,15 +393,21 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         else:
             return VStrSliceInfo()
 
-    def register_virtual_fields(self, virtualbox, fieldboxes):
+    def register_virtual_fields(self, virtualbox, _fieldboxes):
         tagged = self.liveboxes_from_env.get(virtualbox, UNASSIGNEDVIRTUAL)
         self.liveboxes[virtualbox] = tagged
+        fieldboxes = []
+        for box in _fieldboxes:
+            if box is not None:
+                box = self.optimizer.get_box_replacement(box)
+            fieldboxes.append(box)
         self.vfieldboxes[virtualbox] = fieldboxes
         self._register_boxes(fieldboxes)
 
     def register_box(self, box):
-        if (isinstance(box, Box) and box not in self.liveboxes_from_env
-                                 and box not in self.liveboxes):
+        if (box is not None and not isinstance(box, Const)
+            and box not in self.liveboxes_from_env
+            and box not in self.liveboxes):
             self.liveboxes[box] = UNASSIGNED
 
     def _register_boxes(self, boxes):
@@ -374,22 +447,37 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 liveboxes[i] = box
             else:
                 assert tagbits == TAGVIRTUAL
-                value = optimizer.getvalue(box)
-                value.visitor_walk_recursive(self)
+                if box.type == 'r':
+                    info = optimizer.getptrinfo(box)
+                else:
+                    assert box.type == 'i'
+                    info = optimizer.getrawptrinfo(box)
+                assert info.is_virtual()
+                info.visitor_walk_recursive(box, self, optimizer)
 
-        for _, box, fieldbox, _ in pending_setfields:
+        for setfield_op in pending_setfields:
+            box = setfield_op.getarg(0)
+            box = optimizer.get_box_replacement(box)
+            if setfield_op.getopnum() == rop.SETFIELD_GC:
+                fieldbox = setfield_op.getarg(1)
+            else:
+                fieldbox = setfield_op.getarg(2)
+            fieldbox = optimizer.get_box_replacement(fieldbox)
             self.register_box(box)
             self.register_box(fieldbox)
-            value = optimizer.getvalue(fieldbox)
-            value.visitor_walk_recursive(self)
+            info = optimizer.getptrinfo(fieldbox)
+            assert info is not None and info.is_virtual()
+            info.visitor_walk_recursive(fieldbox, self, optimizer)
 
         self._number_virtuals(liveboxes, optimizer, v)
-        self._add_pending_fields(pending_setfields)
+        self._add_pending_fields(optimizer, pending_setfields)
 
         storage.rd_consts = self.memo.consts
         return liveboxes[:]
 
     def _number_virtuals(self, liveboxes, optimizer, num_env_virtuals):
+        from rpython.jit.metainterp.optimizeopt.info import AbstractVirtualPtrInfo
+        
         # !! 'liveboxes' is a list that is extend()ed in-place !!
         memo = self.memo
         new_liveboxes = [None] * memo.num_cached_boxes()
@@ -429,10 +517,12 @@ class ResumeDataVirtualAdder(VirtualVisitor):
             memo.nvholes += length - len(vfieldboxes)
             for virtualbox, fieldboxes in vfieldboxes.iteritems():
                 num, _ = untag(self.liveboxes[virtualbox])
-                value = optimizer.getvalue(virtualbox)
+                info = optimizer.getptrinfo(virtualbox)
+                assert info.is_virtual()
+                assert isinstance(info, AbstractVirtualPtrInfo)
                 fieldnums = [self._gettagged(box)
                              for box in fieldboxes]
-                vinfo = self.make_virtual_info(value, fieldnums)
+                vinfo = self.make_virtual_info(info, fieldnums)
                 # if a new vinfo instance is made, we get the fieldnums list we
                 # pass in as an attribute. hackish.
                 if vinfo.fieldnums is not fieldnums:
@@ -451,25 +541,34 @@ class ResumeDataVirtualAdder(VirtualVisitor):
                 return True
         return False
 
-    def _add_pending_fields(self, pending_setfields):
+    def _add_pending_fields(self, optimizer, pending_setfields):
         rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
         if pending_setfields:
             n = len(pending_setfields)
             rd_pendingfields = lltype.malloc(PENDINGFIELDSP.TO, n)
             for i in range(n):
-                descr, box, fieldbox, itemindex = pending_setfields[i]
+                op = pending_setfields[i]
+                box = optimizer.get_box_replacement(op.getarg(0))
+                descr = op.getdescr()
+                if op.getopnum() == rop.SETARRAYITEM_GC:
+                    fieldbox = op.getarg(2)
+                    itemindex = op.getarg(1).getint()
+                else:
+                    fieldbox = op.getarg(1)
+                    itemindex = -1
+                fieldbox = optimizer.get_box_replacement(fieldbox)
+                #descr, box, fieldbox, itemindex = pending_setfields[i]
                 lldescr = annlowlevel.cast_instance_to_base_ptr(descr)
                 num = self._gettagged(box)
                 fieldnum = self._gettagged(fieldbox)
                 # the index is limited to 2147483647 (64-bit machines only)
                 if itemindex > 2147483647:
                     raise TagOverflow
-                itemindex = rffi.cast(rffi.INT, itemindex)
                 #
                 rd_pendingfields[i].lldescr = lldescr
                 rd_pendingfields[i].num = num
                 rd_pendingfields[i].fieldnum = fieldnum
-                rd_pendingfields[i].itemindex = itemindex
+                rd_pendingfields[i].itemindex = rffi.cast(rffi.INT, itemindex)
         self.storage.rd_pendingfields = rd_pendingfields
 
     def _gettagged(self, box):
@@ -506,7 +605,9 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def setfields(self, decoder, struct):
         for i in range(len(self.fielddescrs)):
             descr = self.fielddescrs[i]
-            decoder.setfield(struct, self.fieldnums[i], descr)
+            num = self.fieldnums[i]
+            if not tagged_eq(num, UNINITIALIZED):
+                decoder.setfield(struct, num, descr)
         return struct
 
     def debug_prints(self):
@@ -517,13 +618,13 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
                         str(untag(self.fieldnums[i])))
 
 class VirtualInfo(AbstractVirtualStructInfo):
-    def __init__(self, known_class, fielddescrs):
+    def __init__(self, descr, fielddescrs):
         AbstractVirtualStructInfo.__init__(self, fielddescrs)
-        self.known_class = known_class
+        self.descr = descr
 
     @specialize.argtype(1)
     def allocate(self, decoder, index):
-        struct = decoder.allocate_with_vtable(self.known_class)
+        struct = decoder.allocate_with_vtable(descr=self.descr)
         decoder.virtuals_cache.set_ptr(index, struct)
         return self.setfields(decoder, struct)
 
@@ -549,6 +650,7 @@ class VStructInfo(AbstractVirtualStructInfo):
 
 class AbstractVArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr):
+        assert arraydescr is not None
         self.arraydescr = arraydescr
         #self.fieldnums = ...
 
@@ -639,7 +741,8 @@ class VRawSliceInfo(VAbstractRawInfo):
 
 
 class VArrayStructInfo(AbstractVirtualInfo):
-    def __init__(self, arraydescr, fielddescrs):
+    def __init__(self, arraydescr, size, fielddescrs):
+        self.size = size
         self.arraydescr = arraydescr
         self.fielddescrs = fielddescrs
 
@@ -650,14 +753,16 @@ class VArrayStructInfo(AbstractVirtualInfo):
 
     @specialize.argtype(1)
     def allocate(self, decoder, index):
-        array = decoder.allocate_array(len(self.fielddescrs), self.arraydescr,
+        array = decoder.allocate_array(self.size, self.arraydescr,
                                        clear=True)
         decoder.virtuals_cache.set_ptr(index, array)
         p = 0
-        for i in range(len(self.fielddescrs)):
-            for j in range(len(self.fielddescrs[i])):
-                decoder.setinteriorfield(i, array, self.fieldnums[p],
-                                         self.fielddescrs[i][j])
+        for i in range(self.size):
+            for j in range(len(self.fielddescrs)):
+                num = self.fieldnums[p]
+                if not tagged_eq(num, UNINITIALIZED):
+                    decoder.setinteriorfield(i, array, num,
+                                             self.fielddescrs[j])
                 p += 1
         return array
 
@@ -987,8 +1092,8 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         virtualref_boxes = self.consume_virtualref_boxes(numb, end)
         return virtualizable_boxes, virtualref_boxes
 
-    def allocate_with_vtable(self, known_class):
-        return self.metainterp.execute_new_with_vtable(known_class)
+    def allocate_with_vtable(self, descr=None):
+        return self.metainterp.execute_new_with_vtable(descr=descr)
 
     def allocate_struct(self, typedescr):
         return self.metainterp.execute_new(typedescr)
@@ -1004,7 +1109,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         cic = self.metainterp.staticdata.callinfocollection
         calldescr, func = cic.callinfo_for_oopspec(EffectInfo.OS_RAW_MALLOC_VARSIZE_CHAR)
         return self.metainterp.execute_and_record_varargs(
-            rop.CALL, [ConstInt(func), ConstInt(size)], calldescr)
+            rop.CALL_I, [ConstInt(func), ConstInt(size)], calldescr)
 
     def allocate_string(self, length):
         return self.metainterp.execute_and_record(rop.NEWSTR,
@@ -1021,7 +1126,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         str1box = self.decode_box(str1num, REF)
         str2box = self.decode_box(str2num, REF)
         return self.metainterp.execute_and_record_varargs(
-            rop.CALL, [ConstInt(func), str1box, str2box], calldescr)
+            rop.CALL_R, [ConstInt(func), str1box, str2box], calldescr)
 
     def slice_string(self, strnum, startnum, lengthnum):
         cic = self.metainterp.staticdata.callinfocollection
@@ -1032,7 +1137,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         stopbox = self.metainterp.execute_and_record(rop.INT_ADD, None,
                                                      startbox, lengthbox)
         return self.metainterp.execute_and_record_varargs(
-            rop.CALL, [ConstInt(func), strbox, startbox, stopbox], calldescr)
+            rop.CALL_R, [ConstInt(func), strbox, startbox, stopbox], calldescr)
 
     def allocate_unicode(self, length):
         return self.metainterp.execute_and_record(rop.NEWUNICODE,
@@ -1049,7 +1154,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         str1box = self.decode_box(str1num, REF)
         str2box = self.decode_box(str2num, REF)
         return self.metainterp.execute_and_record_varargs(
-            rop.CALL, [ConstInt(func), str1box, str2box], calldescr)
+            rop.CALL_R, [ConstInt(func), str1box, str2box], calldescr)
 
     def slice_unicode(self, strnum, startnum, lengthnum):
         cic = self.metainterp.staticdata.callinfocollection
@@ -1060,7 +1165,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         stopbox = self.metainterp.execute_and_record(rop.INT_ADD, None,
                                                      startbox, lengthbox)
         return self.metainterp.execute_and_record_varargs(
-            rop.CALL, [ConstInt(func), strbox, startbox, stopbox], calldescr)
+            rop.CALL_R, [ConstInt(func), strbox, startbox, stopbox], calldescr)
 
     def setfield(self, structbox, fieldnum, descr):
         if descr.is_pointer_field():
@@ -1144,11 +1249,11 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             num += len(self.liveboxes)
             assert num >= 0
         if kind == INT:
-            box = BoxInt(self.cpu.get_int_value(self.deadframe, num))
+            box = InputArgInt(self.cpu.get_int_value(self.deadframe, num))
         elif kind == REF:
-            box = BoxPtr(self.cpu.get_ref_value(self.deadframe, num))
+            box = InputArgRef(self.cpu.get_ref_value(self.deadframe, num))
         elif kind == FLOAT:
-            box = BoxFloat(self.cpu.get_float_value(self.deadframe, num))
+            box = InputArgFloat(self.cpu.get_float_value(self.deadframe, num))
         else:
             assert 0, "bad kind: %d" % ord(kind)
         self.liveboxes[num] = box
@@ -1312,9 +1417,9 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
                 end_vref -= 1
             self.consume_virtualref_info(vrefinfo, numb, end_vref)
 
-    def allocate_with_vtable(self, known_class):
+    def allocate_with_vtable(self, descr=None):
         from rpython.jit.metainterp.executor import exec_new_with_vtable
-        return exec_new_with_vtable(self.cpu, known_class)
+        return exec_new_with_vtable(self.cpu, descr)
 
     def allocate_struct(self, typedescr):
         return self.cpu.bh_new(typedescr)

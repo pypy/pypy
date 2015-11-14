@@ -276,7 +276,7 @@ running_on_llinterp = CDefinedIntSymbolic('RUNNING_ON_LLINTERP', default=1)
 
 # ____________________________________________________________
 
-def instantiate(cls):
+def instantiate(cls, nonmovable=False):
     "Create an empty instance of 'cls'."
     if isinstance(cls, type):
         return cls.__new__(cls)
@@ -788,6 +788,71 @@ def reversed_dict(d):
         d = d.keys()
     return reversed(d)
 
+def _expected_hash(d, key):
+    if isinstance(d, r_dict):
+        return d.key_hash(key)
+    else:
+        return compute_hash(key)
+
+def _iterkeys_with_hash_untranslated(d):
+    for k in d:
+        yield (k, _expected_hash(d, k))
+
+@specialize.call_location()
+def iterkeys_with_hash(d):
+    """Iterates (key, hash) pairs without recomputing the hash."""
+    if not we_are_translated():
+        return _iterkeys_with_hash_untranslated(d)
+    return d.iterkeys_with_hash()
+
+def _iteritems_with_hash_untranslated(d):
+    for k, v in d.iteritems():
+        yield (k, v, _expected_hash(d, k))
+
+@specialize.call_location()
+def iteritems_with_hash(d):
+    """Iterates (key, value, keyhash) triples without recomputing the hash."""
+    if not we_are_translated():
+        return _iteritems_with_hash_untranslated(d)
+    return d.iteritems_with_hash()
+
+@specialize.call_location()
+def contains_with_hash(d, key, h):
+    """Same as 'key in d'.  The extra argument is the hash.  Use this only
+    if you got the hash just now from some other ..._with_hash() function."""
+    if not we_are_translated():
+        assert _expected_hash(d, key) == h
+        return key in d
+    return d.contains_with_hash(key, h)
+
+@specialize.call_location()
+def setitem_with_hash(d, key, h, value):
+    """Same as 'd[key] = value'.  The extra argument is the hash.  Use this only
+    if you got the hash just now from some other ..._with_hash() function."""
+    if not we_are_translated():
+        assert _expected_hash(d, key) == h
+        d[key] = value
+        return
+    d.setitem_with_hash(key, h, value)
+
+@specialize.call_location()
+def getitem_with_hash(d, key, h):
+    """Same as 'd[key]'.  The extra argument is the hash.  Use this only
+    if you got the hash just now from some other ..._with_hash() function."""
+    if not we_are_translated():
+        assert _expected_hash(d, key) == h
+        return d[key]
+    return d.getitem_with_hash(key, h)
+
+@specialize.call_location()
+def delitem_with_hash(d, key, h):
+    """Same as 'del d[key]'.  The extra argument is the hash.  Use this only
+    if you got the hash just now from some other ..._with_hash() function."""
+    if not we_are_translated():
+        assert _expected_hash(d, key) == h
+        del d[key]
+        return
+    d.delitem_with_hash(key, h)
 
 # ____________________________________________________________
 

@@ -4,7 +4,7 @@ from rpython.flowspace.model import checkgraph
 from rpython.translator.backendopt.support import log
 from rpython.translator.simplify import join_blocks
 from rpython.translator.unsimplify import varoftype
-from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 

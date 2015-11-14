@@ -8,7 +8,8 @@ class ListTests:
 
     def check_all_virtualized(self):
         self.check_resops(setarrayitem_gc=0, new_array=0, arraylen_gc=0,
-                          getarrayitem_gc=0)        
+                          getarrayitem_gc_i=0, getarrayitem_gc_r=0,
+                          getarrayitem_gc_f=0)        
 
     def test_simple_array(self):
         jitdriver = JitDriver(greens = [], reds = ['n'])
@@ -57,7 +58,7 @@ class ListTests:
         res = self.meta_interp(f, [10], listops=True)
         assert res == f(10)
         # one setitem should be gone by now
-        self.check_resops(setarrayitem_gc=4, getarrayitem_gc=2, call=2)
+        self.check_resops(setarrayitem_gc=4, getarrayitem_gc_i=2, call_r=2)
 
 
     def test_ll_fixed_setitem_fast(self):
@@ -95,7 +96,7 @@ class ListTests:
 
         res = self.meta_interp(f, [10], listops=True, backendopt=True)
         assert res == f(10)
-        self.check_resops(setarrayitem_gc=0, call=0, getarrayitem_gc=0)
+        self.check_resops(setarrayitem_gc=0, call=0, getarrayitem_gc_i=0)
 
     def test_arraycopy_simpleoptimize(self):
         def f():
@@ -361,7 +362,7 @@ class TestLLtype(ListTests, LLJitMixin):
         assert res == f(37)
         # There is the one actual field on a, plus several fields on the list
         # itself
-        self.check_resops(getfield_gc=7)
+        self.check_resops(getfield_gc_i=2, getfield_gc_r=5)
 
     def test_conditional_call_append(self):
         jitdriver = JitDriver(greens = [], reds = 'auto')

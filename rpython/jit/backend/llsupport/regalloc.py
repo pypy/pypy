@@ -1,7 +1,7 @@
 import os
-from rpython.jit.metainterp.history import Const, Box, REF, JitCellToken
+from rpython.jit.metainterp.history import Const, REF, JitCellToken
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, AbstractValue
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 
@@ -10,7 +10,7 @@ try:
 except ImportError:
     OrderedDict = dict # too bad
 
-class TempBox(Box):
+class TempVar(AbstractValue):
     def __init__(self):
         pass
 
@@ -267,6 +267,7 @@ class FrameManager(object):
         raise NotImplementedError("Purely abstract")
 
 class RegisterManager(object):
+
     """ Class that keeps track of register allocations
     """
     box_types             = None       # or a list of acceptable types
@@ -304,7 +305,7 @@ class RegisterManager(object):
 
     def _check_type(self, v):
         if not we_are_translated() and self.box_types is not None:
-            assert isinstance(v, TempBox) or v.type in self.box_types
+            assert isinstance(v, TempVar) or v.type in self.box_types
 
     def possibly_free_var(self, v):
         """ If v is stored in a register and v is not used beyond the
@@ -442,7 +443,7 @@ class RegisterManager(object):
         Will not spill a variable from 'forbidden_vars'.
         """
         self._check_type(v)
-        if isinstance(v, TempBox):
+        if isinstance(v, TempVar):
             self.longevity[v] = (self.position, self.position)
         loc = self.try_allocate_reg(v, selected_reg,
                                     need_lower_byte=need_lower_byte)
@@ -633,37 +634,32 @@ class BaseRegalloc(object):
         locs = []
         base_ofs = self.assembler.cpu.get_baseofs_of_frame_field()
         for box in inputargs:
-            assert isinstance(box, Box)
+            assert not isinstance(box, Const)
             loc = self.fm.get_new_loc(box)
             locs.append(loc.value - base_ofs)
         if looptoken.compiled_loop_token is not None:   # <- for tests
             looptoken.compiled_loop_token._ll_initial_locs = locs
 
-    def can_merge_with_next_guard(self, op, i, operations):
-        if (op.getopnum() == rop.CALL_MAY_FORCE or
-            op.getopnum() == rop.CALL_ASSEMBLER or
-            op.getopnum() == rop.CALL_RELEASE_GIL):
-            assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
-            return True
-        if not op.is_comparison():
-            if op.is_ovf():
-                if (operations[i + 1].getopnum() != rop.GUARD_NO_OVERFLOW and
-                    operations[i + 1].getopnum() != rop.GUARD_OVERFLOW):
-                    not_implemented("int_xxx_ovf not followed by "
-                                    "guard_(no)_overflow")
-                return True
+    def next_op_can_accept_cc(self, operations, i):
+        op = operations[i]
+        next_op = operations[i + 1]
+        opnum = next_op.getopnum()
+        if (opnum != rop.GUARD_TRUE and opnum != rop.GUARD_FALSE
+                                    and opnum != rop.COND_CALL):
             return False
-        if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
-            operations[i + 1].getopnum() != rop.GUARD_FALSE):
+        if next_op.getarg(0) is not op:
             return False
-        if operations[i + 1].getarg(0) is not op.result:
+        if self.longevity[op][1] > i + 1:
             return False
-        if (self.longevity[op.result][1] > i + 1 or
-            op.result in operations[i + 1].getfailargs()):
-            return False
+        if opnum != rop.COND_CALL:
+            if op in operations[i + 1].getfailargs():
+                return False
+        else:
+            if op in operations[i + 1].getarglist()[1:]:
+                return False
         return True
 
-    def locs_for_call_assembler(self, op, guard_op):
+    def locs_for_call_assembler(self, op):
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         if op.numargs() == 2:
@@ -681,20 +677,17 @@ def compute_vars_longevity(inputargs, operations):
     # never appear in the assembler or it does not matter if they appear on
     # stack or in registers. Main example is loop arguments that go
     # only to guard operations or to jump or to finish
-    produced = {}
     last_used = {}
     last_real_usage = {}
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
-        if op.result:
-            if op.result not in last_used and op.has_no_side_effect():
+        if op.type != 'v':
+            if op not in last_used and op.has_no_side_effect():
                 continue
-            assert op.result not in produced
-            produced[op.result] = i
         opnum = op.getopnum()
         for j in range(op.numargs()):
             arg = op.getarg(j)
-            if not isinstance(arg, Box):
+            if isinstance(arg, Const):
                 continue
             if arg not in last_used:
                 last_used[arg] = i
@@ -705,25 +698,36 @@ def compute_vars_longevity(inputargs, operations):
             for arg in op.getfailargs():
                 if arg is None: # hole
                     continue
-                assert isinstance(arg, Box)
+                assert not isinstance(arg, Const)
                 if arg not in last_used:
                     last_used[arg] = i
     #
     longevity = {}
-    for arg in produced:
-        if arg in last_used:
-            assert isinstance(arg, Box)
-            assert produced[arg] < last_used[arg]
-            longevity[arg] = (produced[arg], last_used[arg])
+    for i, arg in enumerate(operations):
+        if arg.type != 'v' and arg in last_used:
+            assert not isinstance(arg, Const)
+            assert i < last_used[arg]
+            longevity[arg] = (i, last_used[arg])
             del last_used[arg]
     for arg in inputargs:
-        assert isinstance(arg, Box)
+        assert not isinstance(arg, Const)
         if arg not in last_used:
             longevity[arg] = (-1, -1)
         else:
             longevity[arg] = (0, last_used[arg])
             del last_used[arg]
     assert len(last_used) == 0
+
+    if not we_are_translated():
+        produced = {}
+        for arg in inputargs:
+            produced[arg] = None
+        for op in operations:
+            for arg in op.getarglist():
+                if not isinstance(arg, Const):
+                    assert arg in produced
+            produced[op] = None
+    
     return longevity, last_real_usage
 
 def is_comparison_or_ovf_op(opnum):
@@ -733,7 +737,7 @@ def is_comparison_or_ovf_op(opnum):
     # any instance field, we can use a fake object
     class Fake(cls):
         pass
-    op = Fake(None)
+    op = Fake()
     return op.is_comparison() or op.is_ovf()
 
 def valid_addressing_size(size):

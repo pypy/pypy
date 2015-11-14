@@ -48,7 +48,7 @@ class CodeWriter(object):
         # which means mostly producing a linear list of operations and
         # inserting jumps or conditional jumps.  This is a list of tuples
         # of the shape ("opname", arg1, ..., argN) or (Label(...),).
-        ssarepr = flatten_graph(graph, regallocs)
+        ssarepr = flatten_graph(graph, regallocs, cpu=self.callcontrol.cpu)
         #
         # step 3b: compute the liveness around certain operations
         compute_liveness(ssarepr)
@@ -73,7 +73,6 @@ class CodeWriter(object):
             if not count % 500:
                 log.info("Produced %d jitcodes" % count)
         self.assembler.finished(self.callcontrol.callinfocollection)
-        heaptracker.finish_registering(self.cpu)
         log.info("there are %d JitCode instances." % count)
 
     def setup_vrefinfo(self, vrefinfo):

@@ -1,14 +1,29 @@
-import types
+import types, sys
 import weakref
 
 from .lock import allocate_lock
+
+
+# type qualifiers
+Q_CONST    = 0x01
+Q_RESTRICT = 0x02
+
+def qualify(quals, replace_with):
+    if quals & Q_CONST:
+        replace_with = ' const ' + replace_with.lstrip()
+    if quals & Q_RESTRICT:
+        # It seems that __restrict is supported by gcc and msvc.
+        # If you hit some different compiler, add a #define in
+        # _cffi_include.h for it (and in its copies, documented there)
+        replace_with = ' __restrict ' + replace_with.lstrip()
+    return replace_with
 
 
 class BaseTypeByIdentity(object):
     is_array_type = False
     is_raw_function = False
 
-    def get_c_name(self, replace_with='', context='a C file'):
+    def get_c_name(self, replace_with='', context='a C file', quals=0):
         result = self.c_name_with_marker
         assert result.count('&') == 1
         # some logic duplication with ffi.getctype()... :-(
@@ -18,6 +33,7 @@ class BaseTypeByIdentity(object):
                 replace_with = '(%s)' % replace_with
             elif not replace_with[0] in '[(':
                 replace_with = ' ' + replace_with
+        replace_with = qualify(quals, replace_with)
         result = result.replace('&', replace_with)
         if '$' in result:
             from .ffiplatform import VerificationError
@@ -177,18 +193,21 @@ class UnknownFloatType(BasePrimitiveType):
 
 
 class BaseFunctionType(BaseType):
-    _attrs_ = ('args', 'result', 'ellipsis')
+    _attrs_ = ('args', 'result', 'ellipsis', 'abi')
 
-    def __init__(self, args, result, ellipsis):
+    def __init__(self, args, result, ellipsis, abi=None):
         self.args = args
         self.result = result
         self.ellipsis = ellipsis
+        self.abi = abi
         #
         reprargs = [arg._get_c_name() for arg in self.args]
         if self.ellipsis:
             reprargs.append('...')
         reprargs = reprargs or ['void']
         replace_with = self._base_pattern % (', '.join(reprargs),)
+        if abi is not None:
+            replace_with = replace_with[:1] + abi + ' ' + replace_with[1:]
         self.c_name_with_marker = (
             self.result.c_name_with_marker.replace('&', replace_with))
 
@@ -206,7 +225,7 @@ class RawFunctionType(BaseFunctionType):
                             "type, not a pointer-to-function type" % (self,))
 
     def as_function_pointer(self):
-        return FunctionPtrType(self.args, self.result, self.ellipsis)
+        return FunctionPtrType(self.args, self.result, self.ellipsis, self.abi)
 
 
 class FunctionPtrType(BaseFunctionType):
@@ -217,24 +236,29 @@ class FunctionPtrType(BaseFunctionType):
         args = []
         for tp in self.args:
             args.append(tp.get_cached_btype(ffi, finishlist))
+        abi_args = ()
+        if self.abi == "__stdcall":
+            if not self.ellipsis:    # __stdcall ignored for variadic funcs
+                try:
+                    abi_args = (ffi._backend.FFI_STDCALL,)
+                except AttributeError:
+                    pass
         return global_cache(self, ffi, 'new_function_type',
-                            tuple(args), result, self.ellipsis)
+                            tuple(args), result, self.ellipsis, *abi_args)
 
     def as_raw_function(self):
-        return RawFunctionType(self.args, self.result, self.ellipsis)
+        return RawFunctionType(self.args, self.result, self.ellipsis, self.abi)
 
 
 class PointerType(BaseType):
-    _attrs_ = ('totype',)
-    _base_pattern       = " *&"
-    _base_pattern_array = "(*&)"
+    _attrs_ = ('totype', 'quals')
 
-    def __init__(self, totype):
+    def __init__(self, totype, quals=0):
         self.totype = totype
+        self.quals = quals
+        extra = qualify(quals, " *&")
         if totype.is_array_type:
-            extra = self._base_pattern_array
-        else:
-            extra = self._base_pattern
+            extra = "(%s)" % (extra.lstrip(),)
         self.c_name_with_marker = totype.c_name_with_marker.replace('&', extra)
 
     def build_backend_type(self, ffi, finishlist):
@@ -243,10 +267,8 @@ class PointerType(BaseType):
 
 voidp_type = PointerType(void_type)
 
-
-class ConstPointerType(PointerType):
-    _base_pattern       = " const *&"
-    _base_pattern_array = "(const *&)"
+def ConstPointerType(totype):
+    return PointerType(totype, Q_CONST)
 
 const_voidp_type = ConstPointerType(void_type)
 
@@ -254,8 +276,8 @@ const_voidp_type = ConstPointerType(void_type)
 class NamedPointerType(PointerType):
     _attrs_ = ('totype', 'name')
 
-    def __init__(self, totype, name):
-        PointerType.__init__(self, totype)
+    def __init__(self, totype, name, quals=0):
+        PointerType.__init__(self, totype, quals)
         self.name = name
         self.c_name_with_marker = name + '&'
 
@@ -315,11 +337,12 @@ class StructOrUnion(StructOrUnionOrEnum):
     partial = False
     packed = False
 
-    def __init__(self, name, fldnames, fldtypes, fldbitsize):
+    def __init__(self, name, fldnames, fldtypes, fldbitsize, fldquals=None):
         self.name = name
         self.fldnames = fldnames
         self.fldtypes = fldtypes
         self.fldbitsize = fldbitsize
+        self.fldquals = fldquals
         self.build_c_name_with_marker()
 
     def has_anonymous_struct_fields(self):
@@ -331,14 +354,17 @@ class StructOrUnion(StructOrUnionOrEnum):
         return False
 
     def enumfields(self):
-        for name, type, bitsize in zip(self.fldnames, self.fldtypes,
-                                       self.fldbitsize):
+        fldquals = self.fldquals
+        if fldquals is None:
+            fldquals = (0,) * len(self.fldnames)
+        for name, type, bitsize, quals in zip(self.fldnames, self.fldtypes,
+                                              self.fldbitsize, fldquals):
             if name == '' and isinstance(type, StructOrUnion):
                 # nested anonymous struct/union
                 for result in type.enumfields():
                     yield result
             else:
-                yield (name, type, bitsize)
+                yield (name, type, bitsize, quals)
 
     def force_flatten(self):
         # force the struct or union to have a declaration that lists
@@ -347,13 +373,16 @@ class StructOrUnion(StructOrUnionOrEnum):
         names = []
         types = []
         bitsizes = []
-        for name, type, bitsize in self.enumfields():
+        fldquals = []
+        for name, type, bitsize, quals in self.enumfields():
             names.append(name)
             types.append(type)
             bitsizes.append(bitsize)
+            fldquals.append(quals)
         self.fldnames = tuple(names)
         self.fldtypes = tuple(types)
         self.fldbitsize = tuple(bitsizes)
+        self.fldquals = tuple(fldquals)
 
     def get_cached_btype(self, ffi, finishlist, can_delay=False):
         BType = StructOrUnionOrEnum.get_cached_btype(self, ffi, finishlist,
