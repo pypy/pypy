@@ -182,7 +182,7 @@ class AppTestLockSignals(GenericTestThread):
             self.sig_recvd = True
         old_handler = signal.signal(signal.SIGUSR1, my_handler)
         try:
-            ready = thread.allocate_lock()
+            ready = _thread.allocate_lock()
             ready.acquire()
             def other_thread():
                 # Acquire the lock in a non-main thread, so this test works for
