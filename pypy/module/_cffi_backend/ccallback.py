@@ -48,7 +48,6 @@ class W_CallPython(W_CData):
     """Base class for W_CDataCallback, also used from call_python.py.
     """
     decode_args_from_libffi = False
-    error_string = ''
     w_onerror = None
 
     def __init__(self, space, cdata, ctype, w_callable, w_error, w_onerror):
@@ -67,14 +66,15 @@ class W_CallPython(W_CData):
         #
         fresult = self.getfunctype().ctitem
         size = fresult.size
-        if size > 0:
-            if fresult.is_primitive_integer and size < SIZE_OF_FFI_ARG:
-                size = SIZE_OF_FFI_ARG
-            with lltype.scoped_alloc(rffi.CCHARP.TO, size, zero=True) as ll_err:
-                if not space.is_none(w_error):
-                    convert_from_object_fficallback(fresult, ll_err, w_error,
-                                                 self.decode_args_from_libffi)
-                self.error_string = rffi.charpsize2str(ll_err, size)
+        if size < 0:
+            size = 0
+        elif fresult.is_primitive_integer and size < SIZE_OF_FFI_ARG:
+            size = SIZE_OF_FFI_ARG
+        with lltype.scoped_alloc(rffi.CCHARP.TO, size, zero=True) as ll_error:
+            if not space.is_none(w_error):
+                convert_from_object_fficallback(fresult, ll_error, w_error,
+                                             self.decode_args_from_libffi)
+            self.error_string = rffi.charpsize2str(ll_error, size)
         #
         # We must setup the GIL here, in case the callback is invoked in
         # some other non-Pythonic thread.  This is the same as cffi on
