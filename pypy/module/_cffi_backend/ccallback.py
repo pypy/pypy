@@ -8,7 +8,7 @@ from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.module._cffi_backend import cerrno, misc
+from pypy.module._cffi_backend import cerrno, misc, parse_c_type
 from pypy.module._cffi_backend.cdataobj import W_CData
 from pypy.module._cffi_backend.ctypefunc import SIZE_OF_FFI_ARG, W_CTypeFunc
 from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveSigned
@@ -25,7 +25,8 @@ def make_callback(space, ctype, w_callable, w_error, w_onerror):
     # we can cast to a plain VOIDP.  As long as the object is not freed,
     # we can cast the VOIDP back to a W_CDataCallback in reveal_callback().
     cdata = objectmodel.instantiate(W_CDataCallback, nonmovable=True)
-    cdata.__init__(space, ctype, w_callable, w_error, w_onerror)
+    W_CDataCallback.__init__(cdata, space, ctype,
+                             w_callable, w_error, w_onerror)
     return cdata
 
 def reveal_callback(raw_ptr):
@@ -93,7 +94,8 @@ class W_CallPython(W_CData):
 
     def hide_object(self):
         gcref = rgc.cast_instance_to_gcref(self)
-        return rgc.hide_nonmovable_gcref(gcref)
+        raw = rgc.hide_nonmovable_gcref(gcref)
+        return rffi.cast(rffi.VOIDP, raw)
 
     def _repr_extra(self):
         space = self.space
@@ -103,6 +105,35 @@ class W_CallPython(W_CData):
         error_string = self.error_string
         for i in range(len(error_string)):
             ll_res[i] = error_string[i]
+
+    def invoke(self, ll_res, ll_args):
+        space = self.space
+        must_leave = False
+        try:
+            must_leave = space.threadlocals.try_enter_thread(space)
+            self.py_invoke(ll_res, ll_args)
+            #
+        except Exception, e:
+            # oups! last-level attempt to recover.
+            try:
+                os.write(STDERR, "SystemError: callback raised ")
+                os.write(STDERR, str(e))
+                os.write(STDERR, "\n")
+            except:
+                pass
+            self.write_error_return_value(ll_res)
+        if must_leave:
+            space.threadlocals.leave_thread(space)
+
+    def py_invoke(self, ll_res, ll_args):
+        # For W_CallPython only; overridden in W_CDataCallback.  Note
+        # that the details of the two jitdrivers differ.  For
+        # W_CallPython, it depends on the identity of 'self', which
+        # means every @ffi.call_python() gets its own machine code,
+        # which sounds reasonable here.  Moreover, 'll_res' is ignored
+        # as it is always equal to 'll_args'.
+        jitdriver2.jit_merge_point(callpython=self, ll_args=ll_args)
+        self.do_invoke(ll_args, ll_args)
 
     def do_invoke(self, ll_res, ll_args):
         space = self.space
@@ -124,9 +155,9 @@ class W_CallPython(W_CData):
         decode_args_from_libffi = self.decode_args_from_libffi
         for i, farg in enumerate(ctype.fargs):
             if decode_args_from_libffi:
-                ll_arg = rffi.cast(rffi.CCHARP, ll_args[i])
+                ll_arg = rffi.cast(rffi.CCHARPP, ll_args)[i]
             else:
-                ll_arg = rffi.ptradd(rffi.cast(rffi.CCHARP, ll_args), 8 * i)
+                ll_arg = rffi.ptradd(ll_args, 8 * i)
                 if farg.is_indirect_arg_for_call_python:
                     ll_arg = rffi.cast(rffi.CCHARPP, ll_arg)[0]
             args_w.append(farg.convert_to_object(ll_arg))
@@ -183,13 +214,19 @@ class W_CDataCallback(W_CallPython):
                         "return type or with '...'", self.getfunctype().name)
         with self as ptr:
             closure_ptr = rffi.cast(clibffi.FFI_CLOSUREP, ptr)
-            unique_id = rffi.cast(rffi.VOIDP, self.hide_object())
+            unique_id = self.hide_object()
             res = clibffi.c_ffi_prep_closure(closure_ptr, cif_descr.cif,
                                              invoke_callback,
                                              unique_id)
         if rffi.cast(lltype.Signed, res) != clibffi.FFI_OK:
             raise OperationError(space.w_SystemError,
                 space.wrap("libffi failed to build this callback"))
+
+    def py_invoke(self, ll_res, ll_args):
+        jitdriver1.jit_merge_point(callback=self,
+                                   ll_res=ll_res,
+                                   ll_args=ll_args)
+        self.do_invoke(ll_res, ll_args)
 
 
 def convert_from_object_fficallback(fresult, ll_res, w_res,
@@ -240,21 +277,30 @@ def convert_from_object_fficallback(fresult, ll_res, w_res,
 STDERR = 2
 
 
-def get_printable_location(key_pycode):
+# jitdrivers, for both W_CDataCallback and W_CallPython
+
+def get_printable_location1(key_pycode):
     if key_pycode is None:
         return 'cffi_callback <?>'
     return 'cffi_callback ' + key_pycode.get_repr()
 
-jitdriver = jit.JitDriver(name='cffi_callback',
-                          greens=['callback.key_pycode'],
-                          reds=['ll_res', 'll_args', 'callback'],
-                          get_printable_location=get_printable_location)
+jitdriver1 = jit.JitDriver(name='cffi_callback',
+                           greens=['callback.key_pycode'],
+                           reds=['ll_res', 'll_args', 'callback'],
+                           get_printable_location=get_printable_location1)
 
-def py_invoke_callback(callback, ll_res, ll_args):
-    jitdriver.jit_merge_point(callback=callback, ll_res=ll_res, ll_args=ll_args)
-    callback.do_invoke(ll_res, ll_args)
+def get_printable_location2(callpython):
+    with callpython as ptr:
+        callpy = rffi.cast(parse_c_type.PCALLPY, ptr)
+        return 'cffi_call_python ' + rffi.charp2str(callpy.c_name)
 
-def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
+jitdriver2 = jit.JitDriver(name='cffi_call_python',
+                           greens=['callpython'],
+                           reds=['ll_args'],
+                           get_printable_location=get_printable_location2)
+
+
+def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     """ Callback specification.
     ffi_cif - something ffi specific, don't care
     ll_args - rffi.VOIDPP - pointer to array of pointers to args
@@ -262,6 +308,7 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
     ll_userdata - a special structure which holds necessary information
                   (what the real callback is for example), casted to VOIDP
     """
+    cerrno._errno_after(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
     ll_res = rffi.cast(rffi.CCHARP, ll_res)
     callback = reveal_callback(ll_userdata)
     if callback is None:
@@ -274,27 +321,6 @@ def _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         # In this case, we don't even know how big ll_res is.  Let's assume
         # it is just a 'ffi_arg', and store 0 there.
         misc._raw_memclear(ll_res, SIZE_OF_FFI_ARG)
-        return
-    #
-    space = callback.space
-    must_leave = False
-    try:
-        must_leave = space.threadlocals.try_enter_thread(space)
-        py_invoke_callback(callback, ll_res, ll_args)
-        #
-    except Exception, e:
-        # oups! last-level attempt to recover.
-        try:
-            os.write(STDERR, "SystemError: callback raised ")
-            os.write(STDERR, str(e))
-            os.write(STDERR, "\n")
-        except:
-            pass
-        callback.write_error_return_value(ll_res)
-    if must_leave:
-        space.threadlocals.leave_thread(space)
-
-def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
-    cerrno._errno_after(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
-    _invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata)
+    else:
+        callback.invoke(ll_res, rffi.cast(rffi.CCHARP, ll_args))
     cerrno._errno_before(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)

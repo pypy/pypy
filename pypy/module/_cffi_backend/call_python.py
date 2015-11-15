@@ -19,22 +19,6 @@ CALLPY_FN = lltype.FuncType([parse_c_type.PCALLPY, rffi.CCHARP],
                             lltype.Void)
 
 
-def get_printable_location(callpython):
-    with callpython as ptr:
-        callpy = rffi.cast(parse_c_type.PCALLPY, ptr)
-        return 'cffi_call_python ' + rffi.charp2str(callpy.g_name)
-
-jitdriver = jit.JitDriver(name='cffi_call_python',
-                          greens=['callpython'],
-                          reds=['ll_args'],
-                          get_printable_location=get_printable_location)
-
-def py_invoke_callpython(callpython, ll_args):
-    jitdriver.jit_merge_point(callpython=callpython, ll_args=ll_args)
-    # the same buffer is used both for passing arguments and the result value
-    callpython.do_invoke(ll_args, ll_args)
-
-
 def _cffi_call_python(ll_callpy, ll_args):
     """Invoked by the helpers generated from CFFI_CALL_PYTHON in the cdef.
 
@@ -73,23 +57,9 @@ def _cffi_call_python(ll_callpy, ll_args):
             ll_args[i] = '\x00'
     else:
         callpython = reveal_callback(ll_callpy.c_reserved1)
-        space = callpython.space
-        must_leave = False
-        try:
-            must_leave = space.threadlocals.try_enter_thread(space)
-            py_invoke_callpython(callpython, ll_args)
-            #
-        except Exception, e:
-            # oups! last-level attempt to recover.
-            try:
-                os.write(STDERR, "SystemError: call_python function raised ")
-                os.write(STDERR, str(e))
-                os.write(STDERR, "\n")
-            except:
-                pass
-            callpython.write_error_return_value(ll_res)
-        if must_leave:
-            space.threadlocals.leave_thread(space)
+        # the same buffer is used both for passing arguments and
+        # the result value
+        callpython.invoke(ll_args, ll_args)
 
     cerrno._errno_before(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
 
@@ -131,12 +101,12 @@ def callpy_deco(space, w_ffi, w_python_callable, w_name, w_error, w_onerror):
     # binding.  Note that the W_CallPython is never exposed to the user.
     callpy = rffi.cast(parse_c_type.PCALLPY, g.c_address)
     callpython = instantiate(W_CallPython, nonmovable=True)
-    callpython.__init__(space, rffi.cast(rffi.CCHARP, callpy), w_ct,
-                        w_python_callable, w_error, w_onerror)
+    W_CallPython.__init__(callpython, space, rffi.cast(rffi.CCHARP, callpy),
+                          w_ct, w_python_callable, w_error, w_onerror)
 
     key = rffi.cast(lltype.Signed, callpy)
     space.fromcache(KeepaliveCache).cache_dict[key] = callpython
-    callpy.c_reserved1 = rffi.cast(rffi.CCHARP, callpython.hide_object())
+    callpy.c_reserved1 = callpython.hide_object()
 
     # return a cdata of type function-pointer, equal to the one
     # obtained by reading 'lib.bar' (see lib_obj.py)
