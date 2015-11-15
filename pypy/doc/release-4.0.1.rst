@@ -81,7 +81,9 @@ Other Highlights (since 4.0.0 released three weeks ago)
 
   * Support stackless and greenlets on PPC machines
 
-  * Improve debug logging in subprocesses when using PYPYLOG=..:log.$$
+  * Improve debug logging in subprocesses: use PYPYLOG=jit:log.%d
+    for example to have all subprocesses write the JIT log to a file
+    called 'log.%d', with '%d' replaced with the subprocess' PID.
 
   * Support PyOS_double_to_string in our cpyext capi compatibility layer
 
