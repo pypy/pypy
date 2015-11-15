@@ -10,7 +10,7 @@ from pypy.module._cffi_backend import get_dict_rtld_constants
 from pypy.module._cffi_backend import parse_c_type, realize_c_type
 from pypy.module._cffi_backend import newtype, cerrno, ccallback, ctypearray
 from pypy.module._cffi_backend import ctypestruct, ctypeptr, handle
-from pypy.module._cffi_backend import cbuffer, func, wrapper
+from pypy.module._cffi_backend import cbuffer, func, wrapper, call_python
 from pypy.module._cffi_backend import cffi_opcode, allocator
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.cdataobj import W_CData
@@ -633,6 +633,7 @@ W_FFIObject.typedef = TypeDef(
         addressof   = interp2app(W_FFIObject.descr_addressof),
         alignof     = interp2app(W_FFIObject.descr_alignof),
         buffer      = interp2app(W_FFIObject.descr_buffer),
+        #call_python = interp2app(W_FFIObject.descr_call_python),
         callback    = interp2app(W_FFIObject.descr_callback),
         cast        = interp2app(W_FFIObject.descr_cast),
         dlclose     = interp2app(W_FFIObject.descr_dlclose),

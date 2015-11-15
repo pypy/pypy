@@ -1376,3 +1376,216 @@ class AppTestRecompiler:
                                   'test_share_FILE_b',
                                   "FILE *barize(void) { return NULL; }")
         lib1.do_stuff(lib2.barize())
+
+    def w_StdErrCapture(self, fd=False):
+        if fd:
+            # note: this is for a case where CPython prints to sys.stderr
+            # too, but not PyPy
+            import os
+            class MiniStringIO(object):
+                def __init__(self):
+                    self._rd, self._wr = os.pipe()
+                    self._result = None
+                def getvalue(self):
+                    if self._result is None:
+                        os.close(self._wr)
+                        self._result = os.read(self._rd, 4096)
+                        os.close(self._rd)
+                        # xxx hack away these lines
+                        while self._result.startswith('[platform:execute]'):
+                            self._result = ''.join(
+                                self._result.splitlines(True)[1:])
+                    return self._result
+            class StdErrCapture(object):
+                def __enter__(self):
+                    f = MiniStringIO()
+                    self.old_fd2 = os.dup(2)
+                    os.dup2(f._wr, 2)
+                    return f
+                def __exit__(self, *args):
+                    os.dup2(self.old_fd2, 2)
+                    os.close(self.old_fd2)
+            return StdErrCapture()
+        else:
+            import sys
+            class MiniStringIO(object):
+                def __init__(self):
+                    self._lst = []
+                    self.write = self._lst.append
+                def getvalue(self):
+                    return ''.join(self._lst)
+            class StdErrCapture(object):
+                def __enter__(self):
+                    self.old_stderr = sys.stderr
+                    sys.stderr = f = MiniStringIO()
+                    return f
+                def __exit__(self, *args):
+                    sys.stderr = self.old_stderr
+            return StdErrCapture()
+
+    def test_call_python_1(self):
+        ffi, lib = self.prepare("""
+            CFFI_CALL_PYTHON int bar(int, int);
+            CFFI_CALL_PYTHON void baz(int, int);
+            CFFI_CALL_PYTHON int bok(void);
+            CFFI_CALL_PYTHON void boz(void);
+        """, 'test_call_python_1', "")
+        assert ffi.typeof(lib.bar) == ffi.typeof("int(*)(int, int)")
+        with self.StdErrCapture(fd=True) as f:
+            res = lib.bar(4, 5)
+        assert res == 0
+        assert f.getvalue() == (
+            "CFFI_CALL_PYTHON: function bar() called, but no code was attached "
+            "to it yet with ffi.call_python('bar').  Returning 0.\n")
+
+        @ffi.call_python("bar")
+        def my_bar(x, y):
+            seen.append(("Bar", x, y))
+            return x * y
+        assert my_bar == lib.bar
+        seen = []
+        res = lib.bar(6, 7)
+        assert seen == [("Bar", 6, 7)]
+        assert res == 42
+
+        @ffi.call_python()
+        def baz(x, y):
+            seen.append(("Baz", x, y))
+        seen = []
+        res = baz(50L, 8L)
+        assert res is None
+        assert seen == [("Baz", 50, 8)]
+        assert type(seen[0][1]) is type(seen[0][2]) is int
+        assert baz == lib.baz
+
+        @ffi.call_python()
+        def bok():
+            seen.append("Bok")
+            return 42
+        seen = []
+        assert lib.bok() == bok() == 42
+        assert seen == ["Bok", "Bok"]
+
+        @ffi.call_python()
+        def boz():
+            seen.append("Boz")
+        seen = []
+        assert lib.boz() is boz() is None
+        assert seen == ["Boz", "Boz"]
+
+    def test_call_python_bogus_name():
+        ffi = FFI()
+        ffi.cdef("int abc;")
+        lib = verify(ffi, 'test_call_python_bogus_name', "int abc;")
+        def fn():
+            pass
+        py.test.raises(ffi.error, ffi.call_python("unknown_name"), fn)
+        py.test.raises(ffi.error, ffi.call_python("abc"), fn)
+        assert lib.abc == 0
+        e = py.test.raises(ffi.error, ffi.call_python("abc"), fn)
+        assert str(e.value) == ("ffi.call_python('abc'): name not found as a "
+                                "CFFI_CALL_PYTHON line from the cdef")
+        e = py.test.raises(ffi.error, ffi.call_python(), fn)
+        assert str(e.value) == ("ffi.call_python('fn'): name not found as a "
+                                "CFFI_CALL_PYTHON line from the cdef")
+        #
+        py.test.raises(TypeError, ffi.call_python(42), fn)
+        py.test.raises((TypeError, AttributeError), ffi.call_python(), "foo")
+        class X:
+            pass
+        x = X()
+        x.__name__ = x
+        py.test.raises(TypeError, ffi.call_python(), x)
+
+    def test_call_python_bogus_result_type():
+        ffi = FFI()
+        ffi.cdef("CFFI_CALL_PYTHON void bar(int);")
+        lib = verify(ffi, 'test_call_python_bogus_result_type', "")
+        #
+        def bar(n):
+            return n * 10
+        bar1 = ffi.call_python()(bar)
+        with StdErrCapture() as f:
+            res = bar1(321)
+        assert res is None
+        assert f.getvalue() == (
+            "From cffi callback %r:\n" % (bar,) +
+            "Trying to convert the result back to C:\n"
+            "TypeError: callback with the return type 'void' must return None\n")
+
+    def test_call_python_redefine():
+        ffi = FFI()
+        ffi.cdef("CFFI_CALL_PYTHON int bar(int);")
+        lib = verify(ffi, 'test_call_python_redefine', "")
+        #
+        @ffi.call_python()
+        def bar(n):
+            return n * 10
+        assert lib.bar(42) == 420
+        #
+        @ffi.call_python()
+        def bar(n):
+            return -n
+        assert lib.bar(42) == -42
+
+    def test_call_python_struct():
+        ffi = FFI()
+        ffi.cdef("""
+            struct foo_s { int a, b, c; };
+            CFFI_CALL_PYTHON int bar(int, struct foo_s, int);
+            CFFI_CALL_PYTHON struct foo_s baz(int, int);
+            CFFI_CALL_PYTHON struct foo_s bok(void);
+        """)
+        lib = verify(ffi, 'test_call_python_struct',
+                     "struct foo_s { int a, b, c; };")
+        #
+        @ffi.call_python()
+        def bar(x, s, z):
+            return x + s.a + s.b + s.c + z
+        res = lib.bar(1000, [1001, 1002, 1004], 1008)
+        assert res == 5015
+        #
+        @ffi.call_python()
+        def baz(x, y):
+            return [x + y, x - y, x * y]
+        res = lib.baz(1000, 42)
+        assert res.a == 1042
+        assert res.b == 958
+        assert res.c == 42000
+        #
+        @ffi.call_python()
+        def bok():
+            return [10, 20, 30]
+        res = lib.bok()
+        assert [res.a, res.b, res.c] == [10, 20, 30]
+
+    def test_call_python_long_double():
+        ffi = FFI()
+        ffi.cdef("""
+            CFFI_CALL_PYTHON int bar(int, long double, int);
+            CFFI_CALL_PYTHON long double baz(int, int);
+            CFFI_CALL_PYTHON long double bok(void);
+        """)
+        lib = verify(ffi, 'test_call_python_long_double', "")
+        #
+        @ffi.call_python()
+        def bar(x, l, z):
+            seen.append((x, l, z))
+            return 6
+        seen = []
+        lib.bar(10, 3.5, 20)
+        expected = ffi.cast("long double", 3.5)
+        assert repr(seen) == repr([(10, expected, 20)])
+        #
+        @ffi.call_python()
+        def baz(x, z):
+            assert x == 10 and z == 20
+            return expected
+        res = lib.baz(10, 20)
+        assert repr(res) == repr(expected)
+        #
+        @ffi.call_python()
+        def bok():
+            return expected
+        res = lib.bok()
+        assert repr(res) == repr(expected)
