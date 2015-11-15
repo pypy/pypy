@@ -3,6 +3,7 @@ from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.history import JitCellToken, NoStats
 from rpython.jit.metainterp.history import BasicFinalDescr, BasicFailDescr
 from rpython.jit.metainterp.gc import get_description
+from rpython.jit.metainterp.optimize import SpeculativeError
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.rclass import getclassrepr, getinstancerepr
@@ -19,7 +20,7 @@ def run_guards_translated(gcremovetypeptr):
     class C(B):
         pass
     def main(argv):
-        A(); B(); C()
+        A(); B().foo = len(argv); C()
         return 0
 
     t = TranslationContext()
@@ -34,8 +35,8 @@ def run_guards_translated(gcremovetypeptr):
     rclass = getclassrepr(rtyper, classdef)
     rinstance = getinstancerepr(rtyper, classdef)
     LLB = rinstance.lowleveltype.TO
-    vtable_B = rclass.getvtable()
-    adr_vtable_B = llmemory.cast_ptr_to_adr(vtable_B)
+    ptr_vtable_B = rclass.getvtable()
+    adr_vtable_B = llmemory.cast_ptr_to_adr(ptr_vtable_B)
     vtable_B = llmemory.cast_adr_to_int(adr_vtable_B, mode="symbolic")
 
     CPU = getcpuclass()
@@ -46,8 +47,16 @@ def run_guards_translated(gcremovetypeptr):
     finaldescr = BasicFinalDescr()
     faildescr = BasicFailDescr()
 
-    descr_B = cpu.sizeof(LLB, vtable_B)
+    descr_B = cpu.sizeof(LLB, ptr_vtable_B)
     typeid_B = descr_B.get_type_id()
+    fielddescr_B = cpu.fielddescrof(LLB, 'inst_foo')
+
+    LLD = lltype.GcStruct('D', ('dd', lltype.Signed))
+    descr_D = cpu.sizeof(LLD)
+    fielddescr_D = cpu.fielddescrof(LLD, 'dd')
+
+    ARRAY = lltype.GcArray(lltype.Signed)
+    arraydescr = cpu.arraydescrof(ARRAY)
 
     loop1 = parse("""
     [p0]
@@ -123,6 +132,38 @@ def run_guards_translated(gcremovetypeptr):
             if token is token3:    # guard_is_object
                 print int(cpu.check_is_object(p0))
 
+        for p0 in [lltype.nullptr(llmemory.GCREF.TO),
+                   rffi.cast(llmemory.GCREF, A()),
+                   rffi.cast(llmemory.GCREF, B()),
+                   rffi.cast(llmemory.GCREF, C()),
+                   rffi.cast(llmemory.GCREF, lltype.malloc(LLD)),
+                   rffi.cast(llmemory.GCREF, lltype.malloc(ARRAY, 5)),
+                   rffi.cast(llmemory.GCREF, "foobar"),
+                   rffi.cast(llmemory.GCREF, u"foobaz")]:
+            results = ['B', 'D', 'A', 'S', 'U']
+            try:
+                cpu.protect_speculative_field(p0, fielddescr_B)
+            except SpeculativeError:
+                results[0] = '-'
+            try:
+                cpu.protect_speculative_field(p0, fielddescr_D)
+            except SpeculativeError:
+                results[1] = '-'
+            try:
+                cpu.protect_speculative_array(p0, arraydescr)
+            except SpeculativeError:
+                results[2] = '-'
+            try:
+                cpu.protect_speculative_string(p0)
+            except SpeculativeError:
+                results[3] = '-'
+            try:
+                cpu.protect_speculative_unicode(p0)
+            except SpeculativeError:
+                results[4] = '-'
+            print ''.join(results)
+
+
     call_initial_function(t, g)
 
     cbuilder = genc.CStandaloneBuilder(t, main, t.config)
@@ -145,7 +186,17 @@ def run_guards_translated(gcremovetypeptr):
 
                     'fail\n'
                     'match\n'
-                    'match\n')
+                    'match\n'
+
+                    '-----\n'   # null
+                    '-----\n'   # instance of A
+                    'B----\n'   # instance of B
+                    'B----\n'   # instance of C
+                    '-D---\n'
+                    '--A--\n'
+                    '---S-\n'
+                    '----U\n'
+                    )
 
 
 def test_guards_translated_with_gctypeptr():

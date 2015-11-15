@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstring import strip_spaces
+from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.module.micronumpy import descriptor, loop, support
@@ -44,30 +45,70 @@ def try_array_method(space, w_object, w_dtype=None):
 def try_interface_method(space, w_object):
     try:
         w_interface = space.getattr(w_object, space.wrap("__array_interface__"))
-    except OperationError, e:
+        if w_interface is None:
+            return None, False
+        version_w = space.finditem(w_interface, space.wrap("version"))
+        if version_w is None:
+            raise oefmt(space.w_ValueError, "__array_interface__ found without"
+                        " 'version' key")
+        if not space.isinstance_w(version_w, space.w_int):
+            raise oefmt(space.w_ValueError, "__array_interface__ found with"
+                        " non-int 'version' key")
+        version = space.int_w(version_w)
+        if version < 3:
+            raise oefmt(space.w_ValueError,
+                    "__array_interface__ version %d not supported", version)
+        # make a view into the data
+        w_shape = space.finditem(w_interface, space.wrap('shape'))
+        w_dtype = space.finditem(w_interface, space.wrap('typestr'))
+        w_descr = space.finditem(w_interface, space.wrap('descr'))
+        w_data = space.finditem(w_interface, space.wrap('data'))
+        w_strides = space.finditem(w_interface, space.wrap('strides'))
+        if w_shape is None or w_dtype is None:
+            raise oefmt(space.w_ValueError,
+                    "__array_interface__ missing one or more required keys: shape, typestr"
+                    )
+        if w_descr is not None:
+            raise oefmt(space.w_NotImplementedError,
+                    "__array_interface__ descr not supported yet")
+        if w_strides is None or space.is_w(w_strides, space.w_None):
+            strides = None
+        else:
+            strides = [space.int_w(i) for i in space.listview(w_strides)]
+        shape = [space.int_w(i) for i in space.listview(w_shape)]
+        dtype = descriptor.decode_w_dtype(space, w_dtype)
+        if dtype is None:
+            raise oefmt(space.w_ValueError,
+                    "__array_interface__ could not decode dtype %R", w_dtype
+                    )
+        if w_data is not None and (space.isinstance_w(w_data, space.w_tuple) or space.isinstance_w(w_data, space.w_list)):
+            data_w = space.listview(w_data)
+            data = rffi.cast(RAW_STORAGE_PTR, space.int_w(data_w[0]))
+            read_only = True # XXX why not space.is_true(data_w[1])
+            offset = 0
+            return W_NDimArray.from_shape_and_storage(space, shape, data, 
+                                    dtype, strides=strides, start=offset), read_only
+        if w_data is None:
+            data = w_object
+        else:
+            data = w_data
+        w_offset = space.finditem(w_interface, space.wrap('offset'))
+        if w_offset is None:
+            offset = 0
+        else:
+            offset = space.int_w(w_offset)
+        #print 'create view from shape',shape,'dtype',dtype,'data',data
+        if strides is not None:
+            raise oefmt(space.w_NotImplementedError,
+                   "__array_interface__ strides not fully supported yet") 
+        arr = frombuffer(space, data, dtype, support.product(shape), offset)
+        new_impl = arr.implementation.reshape(arr, shape)
+        return W_NDimArray(new_impl), False
+        
+    except OperationError as e:
         if e.match(space, space.w_AttributeError):
-            return None
+            return None, False
         raise
-    if w_interface is None:
-        # happens from compile.py
-        return None
-    version = space.int_w(space.finditem(w_interface, space.wrap("version")))
-    if version < 3:
-        raise oefmt(space.w_NotImplementedError,
-                "__array_interface__ version %d not supported", version)
-    # make a view into the data
-    w_shape = space.finditem(w_interface, space.wrap('shape'))
-    w_dtype = space.finditem(w_interface, space.wrap('typestr'))
-    w_descr = space.finditem(w_interface, space.wrap('descr'))
-    data_w = space.listview(space.finditem(w_interface, space.wrap('data')))
-    w_strides = space.finditem(w_interface, space.wrap('strides'))
-    shape = [space.int_w(i) for i in space.listview(w_shape)]
-    dtype = descriptor.decode_w_dtype(space, w_dtype)
-    rw = space.is_true(data_w[1])
-    #print 'create view from shape',shape,'dtype',dtype,'descr',w_descr,'data',data_w[0],'rw',rw
-    raise oefmt(space.w_NotImplementedError,
-                "creating array from __array_interface__ not supported yet")
-    return
 
 
 @unwrap_spec(ndmin=int, copy=bool, subok=bool)
@@ -90,28 +131,32 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
     if space.isinstance_w(w_object, space.w_type):
         raise oefmt(space.w_ValueError, "cannot create ndarray from type instance")
     # for anything that isn't already an array, try __array__ method first
+    dtype = descriptor.decode_w_dtype(space, w_dtype)
     if not isinstance(w_object, W_NDimArray):
         w_array = try_array_method(space, w_object, w_dtype)
         if w_array is not None:
             # continue with w_array, but do further operations in place
             w_object = w_array
             copy = False
+            dtype = w_object.get_dtype()
     if not isinstance(w_object, W_NDimArray):
-        w_array = try_interface_method(space, w_object)
+        w_array, _copy = try_interface_method(space, w_object)
         if w_array is not None:
             w_object = w_array
-            copy = False
-    dtype = descriptor.decode_w_dtype(space, w_dtype)
-
-    if space.is_none(w_order):
-        w_order = space.wrap('C')
-    npy_order = order_converter(space, w_order, NPY.CORDER)
+            copy = _copy
+            dtype = w_object.get_dtype()
 
     if isinstance(w_object, W_NDimArray):
-        if (dtype is None or w_object.get_dtype() is dtype):
-            if copy and (subok or type(w_object) is W_NDimArray):
-                return w_object.descr_copy(space, w_order)
-            elif not copy and (subok or type(w_object) is W_NDimArray):
+        npy_order = order_converter(space, w_order, NPY.ANYORDER)
+        if (dtype is None or w_object.get_dtype() is dtype) and (subok or
+                type(w_object) is W_NDimArray):
+            flags = w_object.get_flags()
+            must_copy = copy
+            must_copy |= (npy_order == NPY.CORDER and not flags & NPY.ARRAY_C_CONTIGUOUS)
+            must_copy |= (npy_order == NPY.FORTRANORDER and not flags & NPY.ARRAY_F_CONTIGUOUS)
+            if must_copy:
+                return w_object.descr_copy(space, space.wrap(npy_order))
+            else:
                 return w_object
         if subok and not type(w_object) is W_NDimArray:
             raise oefmt(space.w_NotImplementedError,
@@ -124,7 +169,8 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
             copy = True
         if copy:
             shape = w_object.get_shape()
-            w_arr = W_NDimArray.from_shape(space, shape, dtype, order=npy_order)
+            order = support.get_order_as_CF(w_object.get_order(), npy_order)
+            w_arr = W_NDimArray.from_shape(space, shape, dtype, order=order)
             if support.product(shape) == 1:
                 w_arr.set_scalar_value(dtype.coerce(space,
                         w_object.implementation.getitem(0)))
@@ -148,6 +194,7 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
                     w_base=w_base, strides=imp.strides, start=imp.start)
     else:
         # not an array
+        npy_order = order_converter(space, w_order, NPY.CORDER)
         shape, elems_w = find_shape_and_elems(space, w_object, dtype)
     if dtype is None and space.isinstance_w(w_object, space.w_buffer):
         dtype = descriptor.get_dtype_cache(space).w_uint8dtype
@@ -271,6 +318,7 @@ def find_dtype_for_seq(space, elems_w, dtype):
 
 
 def _zeros_or_empty(space, w_shape, w_dtype, w_order, zero):
+    # w_order can be None, str, or boolean
     order = order_converter(space, w_order, NPY.CORDER)
     dtype = space.interp_w(descriptor.W_Dtype,
         space.call_function(space.gettypefor(descriptor.W_Dtype), w_dtype))

@@ -757,10 +757,11 @@ class BackendTests:
         p = ffi.cast("long long", ffi.cast("wchar_t", -1))
         if SIZE_OF_WCHAR == 2:      # 2 bytes, unsigned
             assert int(p) == 0xffff
-        elif platform.machine().startswith(('arm', 'aarch64')):
-            assert int(p) == 0xffffffff      # 4 bytes, unsigned
-        else:                       # 4 bytes, signed
+        elif (sys.platform.startswith('linux') and
+              platform.machine().startswith('x86')):   # known to be signed
             assert int(p) == -1
+        else:                     # in general, it can be either signed or not
+            assert int(p) in [-1, 0xffffffff]  # e.g. on arm, both cases occur
         p = ffi.cast("int", u+'\u1234')
         assert int(p) == 0x1234
 
@@ -1335,7 +1336,8 @@ class BackendTests:
         # these depend on user-defined data, so should not be shared
         assert ffi1.typeof("struct foo") is not ffi2.typeof("struct foo")
         assert ffi1.typeof("union foo *") is not ffi2.typeof("union foo*")
-        assert ffi1.typeof("enum foo") is not ffi2.typeof("enum foo")
+        # the following test is an opaque enum, which we no longer support
+        #assert ffi1.typeof("enum foo") is not ffi2.typeof("enum foo")
         # sanity check: twice 'ffi1'
         assert ffi1.typeof("struct foo*") is ffi1.typeof("struct foo *")
 
@@ -1346,6 +1348,17 @@ class BackendTests:
         assert ffi.getctype("e*") == 'e *'
         assert ffi.getctype("pe") == 'e *'
         assert ffi.getctype("e1*") == 'e1 *'
+
+    def test_opaque_enum(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("enum foo;")
+        from cffi import __version_info__
+        if __version_info__ < (1, 4):
+            py.test.skip("re-enable me in version 1.4")
+        e = py.test.raises(CDefError, ffi.cast, "enum foo", -1)
+        assert str(e.value) == (
+            "'enum foo' has no values explicitly defined: refusing to guess "
+            "which integer type it is meant to be (unsigned/signed, int/long)")
 
     def test_new_ctype(self):
         ffi = FFI(backend=self.Backend())

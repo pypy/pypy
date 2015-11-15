@@ -91,8 +91,6 @@ def test_getgcflavor():
     class R:
         _alloc_flavor_ = "raw"
 
-    NDF = object()
-
     class DummyClsDescDef:
         def __init__(self, cls):
             self._cls = cls
@@ -102,14 +100,8 @@ def test_getgcflavor():
         def getmro(self):
             return [self]
 
-        def read_attribute(self, attr, default=NDF):
-            try:
-                return Constant(getattr(self._cls, attr))
-            except AttributeError:
-                if default is NDF:
-                    raise
-                else:
-                    return default
+        def get_param(self, name, default=None, inherit=True):
+            return getattr(self._cls, name, default)
 
     assert rmodel.getgcflavor(DummyClsDescDef(A)) == 'gc'
     assert rmodel.getgcflavor(DummyClsDescDef(B)) == 'gc'

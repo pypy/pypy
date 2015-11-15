@@ -800,6 +800,10 @@ class RandomLoop(object):
                   "Got %r, expected %r" % (fail,
                                            self.should_fail_by.getdescr()))
         for i, v in enumerate(self.get_fail_args()):
+            if v not in self.expected:
+                assert v.getopnum() == rop.SAME_AS_I   # special case
+                assert isinstance(v.getarg(0), ConstInt)
+                self.expected[v] = v.getarg(0).getint()
             if v.type == FLOAT:
                 value = cpu.get_float_value(deadframe, i)
             else:

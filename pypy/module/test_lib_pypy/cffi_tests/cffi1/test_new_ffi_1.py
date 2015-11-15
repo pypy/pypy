@@ -782,10 +782,11 @@ class TestNewFFI1:
         p = ffi.cast("long long", ffi.cast("wchar_t", -1))
         if SIZE_OF_WCHAR == 2:      # 2 bytes, unsigned
             assert int(p) == 0xffff
-        elif platform.machine().startswith(('arm', 'aarch64')):
-            assert int(p) == 0xffffffff      # 4 bytes, unsigned
-        else:                       # 4 bytes, signed
+        elif (sys.platform.startswith('linux') and
+              platform.machine().startswith('x86')):   # known to be signed
             assert int(p) == -1
+        else:                     # in general, it can be either signed or not
+            assert int(p) in [-1, 0xffffffff]  # e.g. on arm, both cases occur
         p = ffi.cast("int", u+'\u1234')
         assert int(p) == 0x1234
 

@@ -29,7 +29,7 @@
 #define PY_VERSION		"2.7.10"
 
 /* PyPy version as a string */
-#define PYPY_VERSION "4.0.0"
+#define PYPY_VERSION "4.0.1"
 
 /* Subversion Revision number of this file (not of the repository).
  * Empty since Mercurial migration. */
