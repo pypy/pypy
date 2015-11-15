@@ -116,6 +116,13 @@ class __extend__(W_NDimArray):
                 "index out of range for array"))
         size = loop.count_all_true(arr)
         if arr.ndims() == 1:
+            if self.ndims() > 1 and arr.get_shape()[0] != self.get_shape()[0]:
+                msg = ("boolean index did not match indexed array along"
+                      " dimension 0; dimension is %d but corresponding"
+                      " boolean dimension is %d" % (self.get_shape()[0],
+                      arr.get_shape()[0]))
+                warning = space.gettypefor(support.W_VisibleDeprecationWarning)
+                space.warn(space.wrap(msg), warning)
             res_shape = [size] + self.get_shape()[1:]
         else:
             res_shape = [size]
