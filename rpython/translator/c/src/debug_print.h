@@ -21,6 +21,10 @@
    subsections.
 
    Note that 'fname' can be '-' to send the logging data to stderr.
+   If 'fname' includes the substring '$$', it is replaced with the
+   current process id and you get the log for all subprocesses (and
+   forks) in different files.  If 'fname' does not include '$$', it is
+   removed from the environment and not passed to subprocesses.
 */
 
 /* macros used by the generated code */
