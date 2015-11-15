@@ -1473,51 +1473,50 @@ class AppTestRecompiler:
         assert lib.boz() is boz() is None
         assert seen == ["Boz", "Boz"]
 
-    def test_call_python_bogus_name():
-        ffi = FFI()
-        ffi.cdef("int abc;")
-        lib = verify(ffi, 'test_call_python_bogus_name', "int abc;")
+    def test_call_python_bogus_name(self):
+        ffi, lib = self.prepare("int abc;",
+                                'test_call_python_bogus_name',
+                                "int abc;")
         def fn():
             pass
-        py.test.raises(ffi.error, ffi.call_python("unknown_name"), fn)
-        py.test.raises(ffi.error, ffi.call_python("abc"), fn)
+        raises(ffi.error, ffi.call_python("unknown_name"), fn)
+        raises(ffi.error, ffi.call_python("abc"), fn)
         assert lib.abc == 0
-        e = py.test.raises(ffi.error, ffi.call_python("abc"), fn)
+        e = raises(ffi.error, ffi.call_python("abc"), fn)
         assert str(e.value) == ("ffi.call_python('abc'): name not found as a "
                                 "CFFI_CALL_PYTHON line from the cdef")
-        e = py.test.raises(ffi.error, ffi.call_python(), fn)
+        e = raises(ffi.error, ffi.call_python(), fn)
         assert str(e.value) == ("ffi.call_python('fn'): name not found as a "
                                 "CFFI_CALL_PYTHON line from the cdef")
         #
-        py.test.raises(TypeError, ffi.call_python(42), fn)
-        py.test.raises((TypeError, AttributeError), ffi.call_python(), "foo")
+        raises(TypeError, ffi.call_python(42), fn)
+        raises((TypeError, AttributeError), ffi.call_python(), "foo")
         class X:
             pass
         x = X()
         x.__name__ = x
-        py.test.raises(TypeError, ffi.call_python(), x)
+        raises(TypeError, ffi.call_python(), x)
 
-    def test_call_python_bogus_result_type():
-        ffi = FFI()
-        ffi.cdef("CFFI_CALL_PYTHON void bar(int);")
-        lib = verify(ffi, 'test_call_python_bogus_result_type', "")
-        #
+    def test_call_python_bogus_result_type(self):
+        ffi, lib = self.prepare("CFFI_CALL_PYTHON void bar(int);",
+                                'test_call_python_bogus_result_type',
+                                "")
         def bar(n):
             return n * 10
         bar1 = ffi.call_python()(bar)
-        with StdErrCapture() as f:
+        with self.StdErrCapture() as f:
             res = bar1(321)
         assert res is None
         assert f.getvalue() == (
             "From cffi callback %r:\n" % (bar,) +
             "Trying to convert the result back to C:\n"
-            "TypeError: callback with the return type 'void' must return None\n")
+            "TypeError: callback with the return type 'void' must return None\n"
+            )
 
-    def test_call_python_redefine():
-        ffi = FFI()
-        ffi.cdef("CFFI_CALL_PYTHON int bar(int);")
-        lib = verify(ffi, 'test_call_python_redefine', "")
-        #
+    def test_call_python_redefine(self):
+        ffi, lib = self.prepare("CFFI_CALL_PYTHON int bar(int);",
+                                'test_call_python_redefine',
+                                "")
         @ffi.call_python()
         def bar(n):
             return n * 10
@@ -1528,16 +1527,14 @@ class AppTestRecompiler:
             return -n
         assert lib.bar(42) == -42
 
-    def test_call_python_struct():
-        ffi = FFI()
-        ffi.cdef("""
+    def test_call_python_struct(self):
+        ffi, lib = self.prepare("""
             struct foo_s { int a, b, c; };
             CFFI_CALL_PYTHON int bar(int, struct foo_s, int);
             CFFI_CALL_PYTHON struct foo_s baz(int, int);
             CFFI_CALL_PYTHON struct foo_s bok(void);
-        """)
-        lib = verify(ffi, 'test_call_python_struct',
-                     "struct foo_s { int a, b, c; };")
+        """, 'test_call_python_struct',
+            "struct foo_s { int a, b, c; };")
         #
         @ffi.call_python()
         def bar(x, s, z):
@@ -1559,14 +1556,12 @@ class AppTestRecompiler:
         res = lib.bok()
         assert [res.a, res.b, res.c] == [10, 20, 30]
 
-    def test_call_python_long_double():
-        ffi = FFI()
-        ffi.cdef("""
+    def test_call_python_long_double(self):
+        ffi, lib = self.prepare("""
             CFFI_CALL_PYTHON int bar(int, long double, int);
             CFFI_CALL_PYTHON long double baz(int, int);
             CFFI_CALL_PYTHON long double bok(void);
-        """)
-        lib = verify(ffi, 'test_call_python_long_double', "")
+        """, 'test_call_python_long_double', "")
         #
         @ffi.call_python()
         def bar(x, l, z):

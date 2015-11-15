@@ -98,7 +98,7 @@ def get_ll_cffi_call_python():
     return llhelper(lltype.Ptr(CALLPY_FN), _cffi_call_python)
 
 
-class Cache:
+class KeepaliveCache:
     def __init__(self, space):
         self.cache_dict = {}
 
@@ -110,9 +110,8 @@ def callpy_deco(space, w_ffi, w_python_callable, w_name, w_error, w_onerror):
     ffi = space.interp_w(W_FFIObject, w_ffi)
 
     if space.is_w(w_name, space.w_None):
-        XXX
-    else:
-        name = space.str_w(w_name)
+        w_name = space.getattr(w_python_callable, space.wrap('__name__'))
+    name = space.str_w(w_name)
 
     ctx = ffi.ctxobj.ctx
     index = parse_c_type.search_in_globals(ctx, name)
@@ -136,7 +135,7 @@ def callpy_deco(space, w_ffi, w_python_callable, w_name, w_error, w_onerror):
                         w_python_callable, w_error, w_onerror)
 
     key = rffi.cast(lltype.Signed, callpy)
-    space.fromcache(Cache).cache_dict[key] = callpython
+    space.fromcache(KeepaliveCache).cache_dict[key] = callpython
     callpy.c_reserved1 = rffi.cast(rffi.CCHARP, callpython.hide_object())
 
     # return a cdata of type function-pointer, equal to the one
