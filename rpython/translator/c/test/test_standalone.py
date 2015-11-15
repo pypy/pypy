@@ -544,7 +544,7 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point)
         path = udir.join('test_debug_print_fork.log')
         out, err = cbuilder.cmdexec("", err=True,
-                                    env={'PYPYLOG': ':%s.$$' % path})
+                                    env={'PYPYLOG': ':%s.%%d' % path})
         assert not err
         import time
         time.sleep(0.5)    # time for the forked children to finish
