@@ -1079,9 +1079,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if result_loc is ebp:
             self.guard_success_cc = cond
         else:
+            self.mc.MOV_ri(result_loc.value, 0)
             rl = result_loc.lowest8bits()
             self.mc.SET_ir(cond, rl.value)
-            self.mc.MOVZX8_rr(result_loc.value, rl.value)
 
     def _cmpop(cond, rev_cond):
         cond = rx86.Conditions[cond]
@@ -2106,7 +2106,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self._store_force_index(self._find_nearby_operation(+1))
         self._genop_call(op, arglocs, result_loc, is_call_release_gil=True)
     genop_call_release_gil_i = _genop_call_release_gil
-    genop_call_release_gil_r = _genop_call_release_gil
     genop_call_release_gil_f = _genop_call_release_gil
     genop_call_release_gil_n = _genop_call_release_gil
 

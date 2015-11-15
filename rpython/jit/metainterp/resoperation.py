@@ -1170,7 +1170,7 @@ _oplist = [
     'CALL_ASSEMBLER/*d/rfin',  # call already compiled assembler
     'CALL_MAY_FORCE/*d/rfin',
     'CALL_LOOPINVARIANT/*d/rfin',
-    'CALL_RELEASE_GIL/*d/rfin',
+    'CALL_RELEASE_GIL/*d/fin',
     # release the GIL and "close the stack" for asmgcc
     'CALL_PURE/*d/rfin',             # removed before it's passed to the backend
     'CALL_MALLOC_GC/*d/r',      # like CALL, but NULL => propagate MemoryError
@@ -1597,8 +1597,8 @@ class OpHelpers(object):
 
     @staticmethod
     def is_call_release_gil(opnum):
+        # no R returning call_release_gil
         return (opnum == rop.CALL_RELEASE_GIL_I or
-                opnum == rop.CALL_RELEASE_GIL_R or
                 opnum == rop.CALL_RELEASE_GIL_F or
                 opnum == rop.CALL_RELEASE_GIL_N)
 
