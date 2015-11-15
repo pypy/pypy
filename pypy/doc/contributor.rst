@@ -26,15 +26,15 @@ appropriate measure but it's something)::
   Anders Chrigstrom
   Eric van Riet Paap
   Wim Lavrijsen
+  Richard Plangger
   Richard Emslie
   Alexander Schremmer
   Dan Villiom Podlaski Christiansen
   Lukas Diekmann
   Sven Hager
   Anders Lehmann
-  Richard Plangger
-  Aurelien Campeas
   Remi Meier
+  Aurelien Campeas
   Niklaus Haldimann
   Camillo Bruni
   Laura Creighton
@@ -170,9 +170,12 @@ appropriate measure but it's something)::
   Alex Perry
   Vincent Legoll
   Alan McIntyre
+  Spenser Bauman
   Alexander Sedov
   Attila Gobi
   Christopher Pope
+  Devin Jeanpierre
+  Vaibhav Sood
   Christian Tismer 
   Marc Abramowitz
   Dan Stromberg
@@ -204,6 +207,7 @@ appropriate measure but it's something)::
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
+  Philipp Rustemeuer
   Henrik Vendelbo
   Dan Buch
   Miguel de Val Borro
@@ -214,6 +218,7 @@ appropriate measure but it's something)::
   Martin Blais
   Lene Wagner
   Tomo Cocoa
+  Kim Jin Su
   Toni Mattis
   Lucas Stadler
   Julian Berman
@@ -223,6 +228,7 @@ appropriate measure but it's something)::
   Anna Katrina Dominguez
   William Leslie
   Bobby Impollonia
+  Faye Zhao
   timo@eistee.fritz.box
   Andrew Thompson
   Yusei Tahara
@@ -280,13 +286,16 @@ appropriate measure but it's something)::
   Stefan Marr
   jiaaro
   Mads Kiilerich
+  Richard Lancaster
   opassembler.py
   Antony Lee
+  Yaroslav Fedevych
   Jim Hunziker
   Markus Unterwaditzer
   Even Wiik Thomassen
   jbs
   squeaky
+  Zearin
   soareschen
   Kurt Griffiths
   Mike Bayer
@@ -298,6 +307,7 @@ appropriate measure but it's something)::
   Anna Ravencroft
   Andrey Churin
   Dan Crosta
+  Tobias Diaz
   Julien Phalip
   Roman Podoliaka
   Dan Loewenherz
