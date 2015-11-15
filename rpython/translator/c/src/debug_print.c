@@ -30,7 +30,7 @@ static void pypy_debug_open(void)
 
   if (filename && filename[0])
     {
-      char *newfilename = NULL, *doubledollar;
+      char *newfilename = NULL, *escape;
       char *colon = strchr(filename, ':');
       if (filename[0] == '+')
         {
@@ -52,17 +52,17 @@ static void pypy_debug_open(void)
           debug_prefix[n] = '\0';
           filename = colon + 1;
         }
-      doubledollar = strstr(filename, "$$");
-      if (doubledollar)  /* a "$$" in the filename is replaced with the pid */
+      escape = strstr(filename, "%d");
+      if (escape)  /* a "%d" in the filename is replaced with the pid */
         {
           newfilename = malloc(strlen(filename) + 32);
           if (newfilename != NULL)
             {
               char *p = newfilename;
-              memcpy(p, filename, doubledollar - filename);
-              p += doubledollar - filename;
+              memcpy(p, filename, escape - filename);
+              p += escape - filename;
               sprintf(p, "%ld", (long)getpid());
-              strcat(p, doubledollar + 2);
+              strcat(p, escape + 2);
               filename = newfilename;
             }
         }
@@ -71,7 +71,7 @@ static void pypy_debug_open(void)
           pypy_debug_file = fopen(filename, "w");
         }
 
-      if (doubledollar)
+      if (escape)
         {
           free(newfilename);   /* if not null */
           /* the env var is kept and passed to subprocesses */
@@ -125,7 +125,7 @@ void pypy_debug_forked(long original_offset)
     {
       fclose(pypy_debug_file);
       pypy_debug_file = NULL;
-      /* if PYPYLOG was set to a name with "$$" in it, it is still
+      /* if PYPYLOG was set to a name with "%d" in it, it is still
          alive, and will be reopened with the new subprocess' pid as
          soon as it logs anything */
       debug_ready = 0;
