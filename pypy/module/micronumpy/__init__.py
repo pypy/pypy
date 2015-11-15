@@ -34,6 +34,7 @@ class MultiArrayModule(MixedModule):
         'nditer': 'nditer.W_NDIter',
 
         'set_docstring': 'support.descr_set_docstring',
+        'VisibleDeprecationWarning': 'support.W_VisibleDeprecationWarning',
     }
     for c in ['MAXDIMS', 'CLIP', 'WRAP', 'RAISE']:
         interpleveldefs[c] = 'space.wrap(constants.%s)' % c
