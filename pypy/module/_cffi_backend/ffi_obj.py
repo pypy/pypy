@@ -279,6 +279,30 @@ manipulated with:
         return cbuffer.buffer(self.space, w_cdata, size)
 
 
+    @unwrap_spec(w_name=WrappedDefault(None),
+                 w_error=WrappedDefault(None),
+                 w_onerror=WrappedDefault(None))
+    def descr_call_python(self, w_name, w_error, w_onerror):
+        """\
+A decorator.  Attaches the decorated Python function to the C code
+generated for the CFFI_CALL_PYTHON function of the same name.  Calling
+the C function will then invoke the Python function.
+
+Optional arguments: 'name' is the name of the C function, if
+different from the Python function; and 'error' and 'onerror'
+handle what occurs if the Python function raises an exception
+(see the docs for details)."""
+        #
+        # returns a single-argument function
+        space = self.space
+        w_ffi = space.wrap(self)
+        w_decorator = call_python.get_generic_decorator(space)
+        return space.appexec([w_decorator, w_ffi, w_name, w_error, w_onerror],
+        """(decorator, ffi, name, error, onerror):
+            return lambda python_callable: decorator(ffi, python_callable,
+                                                     name, error, onerror)""")
+
+
     @unwrap_spec(w_python_callable=WrappedDefault(None),
                  w_error=WrappedDefault(None),
                  w_onerror=WrappedDefault(None))
@@ -633,7 +657,7 @@ W_FFIObject.typedef = TypeDef(
         addressof   = interp2app(W_FFIObject.descr_addressof),
         alignof     = interp2app(W_FFIObject.descr_alignof),
         buffer      = interp2app(W_FFIObject.descr_buffer),
-        #call_python = interp2app(W_FFIObject.descr_call_python),
+        call_python = interp2app(W_FFIObject.descr_call_python),
         callback    = interp2app(W_FFIObject.descr_callback),
         cast        = interp2app(W_FFIObject.descr_cast),
         dlclose     = interp2app(W_FFIObject.descr_dlclose),

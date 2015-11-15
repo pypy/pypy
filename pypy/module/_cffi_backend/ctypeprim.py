@@ -424,6 +424,7 @@ class W_CTypePrimitiveFloat(W_CTypePrimitive):
 
 class W_CTypePrimitiveLongDouble(W_CTypePrimitiveFloat):
     _attrs_ = []
+    is_indirect_arg_for_call_python = True
 
     @jit.dont_look_inside
     def extra_repr(self, cdata):

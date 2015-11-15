@@ -17,12 +17,12 @@ initfunctype = lltype.Ptr(lltype.FuncType([rffi.VOIDPP], lltype.Void))
 
 def load_cffi1_module(space, name, path, initptr):
     # This is called from pypy.module.cpyext.api.load_extension_module()
-    from pypy.module._cffi_backend.call_python import get_cffi_call_python
+    from pypy.module._cffi_backend.call_python import get_ll_cffi_call_python
 
     initfunc = rffi.cast(initfunctype, initptr)
     with lltype.scoped_alloc(rffi.VOIDPP.TO, 16, zero=True) as p:
         p[0] = rffi.cast(rffi.VOIDP, VERSION_EXPORT)
-        p[1] = rffi.cast(rffi.VOIDP, get_cffi_call_python())
+        p[1] = rffi.cast(rffi.VOIDP, get_ll_cffi_call_python())
         initfunc(p)
         version = rffi.cast(lltype.Signed, p[0])
         if not (VERSION_MIN <= version <= VERSION_MAX):

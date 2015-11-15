@@ -18,6 +18,7 @@ from pypy.module._cffi_backend.ctypeobj import W_CType
 class W_CTypeStructOrUnion(W_CType):
     _immutable_fields_ = ['alignment?', '_fields_list?[*]', '_fields_dict?',
                           '_custom_field_pos?', '_with_var_array?']
+    is_indirect_arg_for_call_python = True
 
     # three possible states:
     # - "opaque": for opaque C structs; self.size < 0.

@@ -22,6 +22,7 @@ class W_CType(W_Root):
     cast_anything = False
     is_primitive_integer = False
     is_nonfunc_pointer_or_array = False
+    is_indirect_arg_for_call_python = False
     kind = "?"
 
     def __init__(self, space, size, name, name_position):
