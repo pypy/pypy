@@ -68,16 +68,23 @@ class TestZARCH(LLtypeBackendTest):
         assert fail.identifier == 1 
 
     @py.test.mark.parametrize('value,opcode,result,guard',
-        [ (-2**63,  'i1 = int_add_ovf(i0, 1)', -2**63, 'guard_no_overflow'),
-          (-2**63+1,'i1 = int_add_ovf(i0, 1)', -2**63, 'guard_no_overflow'),
-          (-2**63+1,'i1 = int_add_ovf(i0, 1)', -2**63+1, 'guard_overflow'),
+        [ (2**63-1,'i1 = int_add_ovf(i0, 1)',1,'guard_no_overflow'),
+          (2**63-2,'i1 = int_add_ovf(i0, 1)',0,'guard_no_overflow'),
+          (2**63-2,'i1 = int_add_ovf(i0, 1)',1,'guard_overflow'),
+          (2**63-1,'i1 = int_add_ovf(i0, 1)',0,'guard_overflow'),
+          (-2**63,  'i1 = int_sub_ovf(i0, 1)',1,'guard_no_overflow'),
+          (-2**63+1,'i1 = int_sub_ovf(i0, 1)',0,'guard_no_overflow'),
+          (-2**63+1,'i1 = int_sub_ovf(i0, 1)',1,'guard_overflow'),
+          (-2**63,  'i1 = int_sub_ovf(i0, 1)',0,'guard_overflow'),
         ])
     def test_int_arithmetic_overflow(self, value, opcode, result, guard):
+        # result == 1 means branch has been taken of the guard
         code = """
         [i0]
         {opcode}
         {guard}() [i0]
-        finish(i1, descr=faildescr)
+        i2 = int_xor(i1,i1)
+        finish(i2, descr=faildescr)
         """.format(opcode=opcode,guard=guard)
         loop = parse(code, namespace={"faildescr": BasicFinalDescr(1)})
         looptoken = JitCellToken()
@@ -85,8 +92,10 @@ class TestZARCH(LLtypeBackendTest):
         deadframe = self.cpu.execute_token(looptoken, value)
         fail = self.cpu.get_latest_descr(deadframe)
         res = self.cpu.get_int_value(deadframe, 0)
-        assert res == result
-        #assert fail.identifier == 1 
+        if result == 1:
+            assert res == value
+        else:
+            assert res == 0
 
     def test_double_evenodd_pair(self):
         # TODO

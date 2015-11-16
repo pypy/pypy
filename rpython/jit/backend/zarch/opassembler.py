@@ -11,9 +11,9 @@ class IntOpAssembler(object):
     _mixin_ = True
 
     emit_int_add = gen_emit_imm_pool_rr('AGFI','AG','AGR')
-    emit_int_add_ovf = gen_emit_imm_pool_rr('AGFI','AG','AGR', overflow=True)
+    emit_int_add_ovf = emit_int_add
     emit_int_sub = gen_emit_rr_or_rpool('SGR', 'SG')
-    emit_int_sub_ovf = gen_emit_rr_or_rpool('SGR', 'SG', overflow=True)
+    emit_int_sub_ovf = emit_int_sub
     emit_int_mul = gen_emit_imm_pool_rr('MSGFI', 'MSG', 'MSGR')
 
     emit_int_floordiv = gen_emit_pool_or_rr_evenodd('DSG','DSGR')
@@ -121,11 +121,11 @@ class GuardOpAssembler(object):
         self._emit_guard(op, arglocs)
 
     def emit_guard_overflow(self, op, arglocs, regalloc):
-        self.guard_success_cc = c.NO
+        self.guard_success_cc = c.OF
         self._emit_guard(op, arglocs)
 
     def emit_guard_no_overflow(self, op, arglocs, regalloc):
-        self.guard_success_cc = c.OF
+        self.guard_success_cc = c.NO
         self._emit_guard(op, arglocs)
 
     def emit_guard_value(self, op, arglocs, regalloc):
