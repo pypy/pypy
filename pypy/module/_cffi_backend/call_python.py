@@ -3,6 +3,7 @@ from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.annlowlevel import llhelper
 
 from pypy.interpreter.error import oefmt
@@ -39,6 +40,12 @@ def _cffi_call_python(ll_callpy, ll_args):
     """
     from pypy.module._cffi_backend.ccallback import reveal_callback
 
+    after = rffi.aroundstate.after
+    if after:
+        after()
+    rffi.stackcounter.stacks_counter += 1
+    llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
+
     cerrno._errno_after(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
 
     if not ll_callpy.c_reserved1:
@@ -62,6 +69,11 @@ def _cffi_call_python(ll_callpy, ll_args):
         callpython.invoke(ll_args, ll_args)
 
     cerrno._errno_before(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
+
+    rffi.stackcounter.stacks_counter -= 1
+    before = rffi.aroundstate.before
+    if before:
+        before()
 
 
 def get_ll_cffi_call_python():
