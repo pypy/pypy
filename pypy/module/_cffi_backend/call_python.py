@@ -73,6 +73,7 @@ class KeepaliveCache:
         self.cache_dict = {}
 
 
+@jit.dont_look_inside
 def callpy_deco(space, w_ffi, w_python_callable, w_name, w_error, w_onerror):
     from pypy.module._cffi_backend.ffi_obj import W_FFIObject
     from pypy.module._cffi_backend.ccallback import W_CallPython
