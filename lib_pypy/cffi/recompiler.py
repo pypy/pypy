@@ -371,7 +371,8 @@ class Recompiler:
         prnt('_cffi_pypyinit_%s(const void *p[])' % (base_module_name,))
         prnt('{')
         prnt('    if (((intptr_t)p[0]) >= 0x0A03) {')
-        prnt('        _cffi_call_python = p[1];')
+        prnt('        _cffi_call_python = (void(*)(struct _cffi_callpy_s *, '
+                                                  'char *))p[1];')
         prnt('    }')
         prnt('    p[0] = (const void *)%s;' % VERSION)
         prnt('    p[1] = &_cffi_type_context;')
