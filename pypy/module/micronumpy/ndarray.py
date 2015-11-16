@@ -121,8 +121,8 @@ class __extend__(W_NDimArray):
                       " dimension 0; dimension is %d but corresponding"
                       " boolean dimension is %d" % (self.get_shape()[0],
                       arr.get_shape()[0]))
-                warning = space.gettypefor(support.W_VisibleDeprecationWarning)
-                space.warn(space.wrap(msg), warning)
+                #warning = space.gettypefor(support.W_VisibleDeprecationWarning)
+                space.warn(space.wrap(msg), space.w_VisibleDeprecationWarning)
             res_shape = [size] + self.get_shape()[1:]
         else:
             res_shape = [size]
