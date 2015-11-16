@@ -72,10 +72,18 @@ class TestZARCH(LLtypeBackendTest):
           (2**63-2,'i1 = int_add_ovf(i0, 1)',0,'guard_no_overflow'),
           (2**63-2,'i1 = int_add_ovf(i0, 1)',1,'guard_overflow'),
           (2**63-1,'i1 = int_add_ovf(i0, 1)',0,'guard_overflow'),
+
           (-2**63,  'i1 = int_sub_ovf(i0, 1)',1,'guard_no_overflow'),
           (-2**63+1,'i1 = int_sub_ovf(i0, 1)',0,'guard_no_overflow'),
           (-2**63+1,'i1 = int_sub_ovf(i0, 1)',1,'guard_overflow'),
           (-2**63,  'i1 = int_sub_ovf(i0, 1)',0,'guard_overflow'),
+
+          (-2**63,  'i1 = int_mul_ovf(i0, 2)',1,'guard_no_overflow'),
+          #(-2**15,  'i1 = int_mul_ovf(i0, 2)',0,'guard_no_overflow'),
+          #(-2**63,  'i1 = int_mul_ovf(i0, 0)',0,'guard_no_overflow'),
+          #(-2**15,  'i1 = int_mul_ovf(i0, 2)',1,'guard_overflow'),
+          #(-2**63,  'i1 = int_mul_ovf(i0, 2)',0,'guard_overflow'),
+          #(-2**63,  'i1 = int_mul_ovf(i0, 0)',1,'guard_overflow'),
         ])
     def test_int_arithmetic_overflow(self, value, opcode, result, guard):
         # result == 1 means branch has been taken of the guard

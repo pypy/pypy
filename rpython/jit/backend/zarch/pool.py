@@ -17,6 +17,7 @@ class LiteralPool(object):
         self.offset_map = {}
         self.constant_64_zeros = -1
         self.constant_64_ones = -1
+        self.constant_64_sign_bit = -1
 
     def ensure_can_hold_constants(self, asm, op):
         if op.is_guard():
@@ -38,6 +39,8 @@ class LiteralPool(object):
                 self.offset_map[descr] = self.size
         elif op.getopnum() == rop.INT_INVERT:
             self.constant_64_ones = 1 # we need constant ones!!!
+        elif op.getopnum() == rop.INT_MUL_OVF:
+            self.constant_64_sign_bit = 1
         for arg in op.getarglist():
             if arg.is_constant():
                 self.offset_map[arg] = self.size
@@ -90,6 +93,10 @@ class LiteralPool(object):
         if self.constant_64_zeros:
             asm.mc.write('\x00' * 8)
             self.constant_64_zeros = self.size
+            written += 8
+        if self.constant_64_sign_bit:
+            asm.mc.write('\x80' + '\x00' * 7)
+            self.constant_64_sign_bit = self.size
             written += 8
         self.size += written
         print "pool with %d quad words" % (self.size // 8)

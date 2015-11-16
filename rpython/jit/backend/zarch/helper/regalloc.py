@@ -41,6 +41,20 @@ def prepare_int_mul(self, op):
     self.free_op_vars()
     return [l0, l1]
 
+def prepare_int_mul_ovf(self, op):
+    a0 = op.getarg(0)
+    a1 = op.getarg(1)
+    if check_imm32(a0):
+        a0, a1 = a1, a0
+    lr,lq = self.rm.ensure_even_odd_pair(a0, bind_first=False)
+    if check_imm32(a1):
+        l1 = imm(a1.getint())
+    else:
+        l1 = self.ensure_reg(a1)
+    self.force_result_in_reg(op, a0)
+    self.free_op_vars()
+    return [lr, lq, l1]
+
 def prepare_int_div(self, op):
     a0 = op.getarg(0)
     a1 = op.getarg(1)

@@ -123,8 +123,8 @@ def build_i(mnemonic, (opcode,)):
         self.writechar(chr(imm))
     return encode_i
 
-def build_rr(mnemonic, (opcode,)):
-    @builder.arguments('r,r')
+def build_rr(mnemonic, (opcode,), argtypes='r,r'):
+    @builder.arguments(argtypes)
     def encode_rr(self, reg1, reg2):
         self.writechar(opcode)
         operands = ((reg1 & 0x0f) << 4) | (reg2 & 0xf)
@@ -338,6 +338,20 @@ def build_rie_a(mnemonic, (opcode1,opcode2)):
 
 build_rie_g = build_rie_a
 
+def build_rie_c(mnemonic, (opcode1,opcode2)):
+    br = is_branch_relative(mnemonic)
+    @builder.arguments('r,i8,r/m,i16')
+    def encode_rie_c(self, reg1, imm8, mask, imm16):
+        self.writechar(opcode1)
+        byte = (reg1 & BIT_MASK_4) << 4 | (mask & BIT_MASK_4)
+        self.writechar(chr(byte))
+        if br:
+            imm16 = imm16 >> 1
+        self.write_i16(imm16 & BIT_MASK_16)
+        self.writechar(chr(imm8 & 0xff))
+        self.writechar(opcode2)
+    return encode_rie_c
+
 @always_inline
 def _encode_rrf(self, opcode1, opcode2, r1, r2, rm3, rm4):
     self.writechar(opcode1)
@@ -398,7 +412,7 @@ def build_unpack_func(mnemonic, func):
     return function
 
 def is_branch_relative(name):
-    return name.startswith('BR')
+    return name.startswith('BR') or name.endswith('J')
 
 def build_instr_codes(clazz):
     for mnemonic, params in all_mnemonic_codes.items():

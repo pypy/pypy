@@ -24,6 +24,7 @@ arith_mnemonic_codes = {
     'MSGR':    ('rre',   ['\xB9','\x0C']),
     'MSG':     ('rxy',   ['\xE3','\x0C']),
     'MSGFI':   ('ril',   ['\xC2','\x00']),
+    'MLGR':    ('rre',   ['\xB9','\x86']),
     # div/mod
     'DSGR':    ('rre',   ['\xB9','\x0D'], 'eo,r'),
     'DSG':     ('rxy',   ['\xE3','\x0D'], 'eo,bidl'),
@@ -60,6 +61,7 @@ arith_mnemonic_codes = {
     'CLG':     ('rxy',    ['\xE3','\x21']),
     'CGHI':    ('ri',     ['\xA7','\x0F']),
     'CGFI':    ('ril',    ['\xC2','\x0C']),
+    'CGIJ':    ('rie_c',  ['\xEC','\x7E']),
 }
 
 logic_mnemonic_codes = {
@@ -111,9 +113,10 @@ memory_mnemonic_codes = {
 
     # load memory
     'LMD':     ('sse',   ['\xEF']),
-    'LMG':     ('rsy_a',   ['\xEB','\x04']),
+    'LMG':     ('rsy_a', ['\xEB','\x04']),
     'LHI':     ('ri',    ['\xA7','\x08']),
     'LGHI':    ('ri',    ['\xA7','\x09']),
+    'LGFI':    ('ril',   ['\xC0','\x01']),
     'LR':      ('rr',    ['\x18']),
     'LGR':     ('rre',   ['\xB9','\x04']),
     'LG':      ('rxy',   ['\xE3','\x04']),
@@ -132,6 +135,9 @@ memory_mnemonic_codes = {
     # store float
     'STE':     ('rx',    ['\x70']),
     'STD':     ('rx',    ['\x60']),
+
+    'SPM':     ('rr',    ['\x04'], 'r,-'),
+    'IPM':     ('rre',   ['\xB2','\x22'], 'r,-'),
 
 
     # load binary float

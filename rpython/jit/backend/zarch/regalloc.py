@@ -185,7 +185,7 @@ class ZARCHRegisterManager(RegisterManager):
                 i = self.free_regs.index(odd)
                 del self.free_regs[i]
                 return even, odd
-            i += 1
+            i -= 1
 
         import pdb; pdb.set_trace()
         xxx
@@ -538,6 +538,7 @@ class Regalloc(BaseRegalloc):
     prepare_int_sub = helper.prepare_int_sub
     prepare_int_sub_ovf = helper.prepare_int_sub
     prepare_int_mul = helper.prepare_int_mul
+    prepare_int_mul_ovf = helper.prepare_int_mul_ovf
     prepare_int_floordiv = helper.prepare_int_div
     prepare_uint_floordiv = helper.prepare_int_div
     prepare_int_mod = helper.prepare_int_mod
