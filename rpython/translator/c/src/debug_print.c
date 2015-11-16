@@ -102,9 +102,14 @@ long pypy_debug_offset(void)
 {
   if (!debug_ready)
     return -1;
+  /* The following fflush() makes sure everything is written now, which
+     is just before a fork().  So we can fork() and close the file in
+     the subprocess without ending up with the content of the buffer
+     written twice. */
+  fflush(pypy_debug_file);
+
   // note that we deliberately ignore errno, since -1 is fine
   // in case this is not a real file
-  fflush(pypy_debug_file);
   return ftell(pypy_debug_file);
 }
 
@@ -123,7 +128,8 @@ void pypy_debug_forked(long original_offset)
 
   if (pypy_debug_file)
     {
-      fclose(pypy_debug_file);
+      if (pypy_debug_file != stderr)
+        fclose(pypy_debug_file);
       pypy_debug_file = NULL;
       /* if PYPYLOG was set to a name with "%d" in it, it is still
          alive, and will be reopened with the new subprocess' pid as
