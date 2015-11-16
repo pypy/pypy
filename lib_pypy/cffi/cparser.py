@@ -29,6 +29,7 @@ _r_int_literal = re.compile(r"-?0?x?[0-9a-f]+[lu]*$", re.IGNORECASE)
 _r_stdcall1 = re.compile(r"\b(__stdcall|WINAPI)\b")
 _r_stdcall2 = re.compile(r"[(]\s*(__stdcall|WINAPI)\b")
 _r_cdecl = re.compile(r"\b__cdecl\b")
+_r_cffi_call_python = re.compile(r"\bCFFI_CALL_PYTHON\b")
 _r_star_const_space = re.compile(       # matches "* const "
     r"[*]\s*((const|volatile|restrict)\b\s*)+")
 
@@ -62,7 +63,8 @@ def _workaround_for_old_pycparser(csource):
         if csource.startswith('*', endpos):
             parts.append('('); closing += ')'
         level = 0
-        for i in xrange(endpos, len(csource)):
+        i = endpos
+        while i < len(csource):
             c = csource[i]
             if c == '(':
                 level += 1
@@ -73,6 +75,7 @@ def _workaround_for_old_pycparser(csource):
             elif c in ',;=':
                 if level == 0:
                     break
+            i += 1
         csource = csource[endpos:i] + closing + csource[i:]
         #print repr(''.join(parts)+csource)
     parts.append(csource)
@@ -101,8 +104,13 @@ def _preprocess(csource):
     csource = _r_stdcall2.sub(' volatile volatile const(', csource)
     csource = _r_stdcall1.sub(' volatile volatile const ', csource)
     csource = _r_cdecl.sub(' ', csource)
+    #
+    # Replace "CFFI_CALL_PYTHON" with "void CFFI_CALL_PYTHON;"
+    csource = _r_cffi_call_python.sub('void CFFI_CALL_PYTHON;', csource)
+    #
     # Replace "[...]" with "[__dotdotdotarray__]"
     csource = _r_partial_array.sub('[__dotdotdotarray__]', csource)
+    #
     # Replace "...}" with "__dotdotdotNUM__}".  This construction should
     # occur only at the end of enums; at the end of structs we have "...;}"
     # and at the end of vararg functions "...);".  Also replace "=...[,}]"
@@ -255,7 +263,9 @@ class Parser(object):
                 break
         #
         try:
+            self._found_cffi_call_python = False
             for decl in iterator:
+                old_cffi_call_python = self._found_cffi_call_python
                 if isinstance(decl, pycparser.c_ast.Decl):
                     self._parse_decl(decl)
                 elif isinstance(decl, pycparser.c_ast.Typedef):
@@ -278,6 +288,8 @@ class Parser(object):
                     self._declare('typedef ' + decl.name, realtype, quals=quals)
                 else:
                     raise api.CDefError("unrecognized construct", decl)
+                if old_cffi_call_python and self._found_cffi_call_python:
+                    raise api.CDefError("CFFI_CALL_PYTHON misplaced")
         except api.FFIError as e:
             msg = self._convert_pycparser_error(e, csource)
             if msg:
@@ -324,13 +336,20 @@ class Parser(object):
                     '  #define %s %s'
                     % (key, key, key, value))
 
+    def _declare_function(self, tp, quals, decl):
+        tp = self._get_type_pointer(tp, quals)
+        if self._found_cffi_call_python:
+            self._declare('call_python ' + decl.name, tp)
+            self._found_cffi_call_python = False
+        else:
+            self._declare('function ' + decl.name, tp)
+
     def _parse_decl(self, decl):
         node = decl.type
         if isinstance(node, pycparser.c_ast.FuncDecl):
             tp, quals = self._get_type_and_quals(node, name=decl.name)
             assert isinstance(tp, model.RawFunctionType)
-            tp = self._get_type_pointer(tp, quals)
-            self._declare('function ' + decl.name, tp)
+            self._declare_function(tp, quals, decl)
         else:
             if isinstance(node, pycparser.c_ast.Struct):
                 self._get_struct_union_enum_type('struct', node)
@@ -346,8 +365,7 @@ class Parser(object):
                 tp, quals = self._get_type_and_quals(node,
                                                      partial_length_ok=True)
                 if tp.is_raw_function:
-                    tp = self._get_type_pointer(tp, quals)
-                    self._declare('function ' + decl.name, tp)
+                    self._declare_function(tp, quals, decl)
                 elif (tp.is_integer_type() and
                         hasattr(decl, 'init') and
                         hasattr(decl.init, 'value') and
@@ -360,6 +378,11 @@ class Parser(object):
                         _r_int_literal.match(decl.init.expr.value)):
                     self._add_integer_constant(decl.name,
                                                '-' + decl.init.expr.value)
+                elif tp is model.void_type and decl.name == 'CFFI_CALL_PYTHON':
+                    # hack: "CFFI_CALL_PYTHON" in the C source is replaced
+                    # with "void CFFI_CALL_PYTHON;", which when parsed arrives
+                    # at this point and sets this flag:
+                    self._found_cffi_call_python = True
                 elif (quals & model.Q_CONST) and not tp.is_array_type:
                     self._declare('constant ' + decl.name, tp, quals=quals)
                 else:

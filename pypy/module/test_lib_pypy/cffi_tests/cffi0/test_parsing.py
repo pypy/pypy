@@ -406,3 +406,17 @@ def test_stdcall():
         "<ctype 'int(*)(int(%s*)(int), "
                         "long(*)(), "
                         "short(%s*)(short))'>" % (stdcall, stdcall))
+
+def test_CFFI_CALL_PYTHON():
+    ffi = FFI()
+    ffi.cdef("""
+        int baz(int, int);
+        CFFI_CALL_PYTHON int foobar(int, int);
+    """)
+    assert 'variable CFFI_CALL_PYTHON' not in ffi._parser._declarations
+    assert 'function baz' in ffi._parser._declarations
+    assert 'call_python baz' not in ffi._parser._declarations
+    assert 'function foobar' not in ffi._parser._declarations
+    assert 'call_python foobar' in ffi._parser._declarations
+    assert (ffi._parser._declarations['function baz'] ==
+            ffi._parser._declarations['call_python foobar'])
