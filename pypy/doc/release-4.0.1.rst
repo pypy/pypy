@@ -2,10 +2,10 @@
 PyPy 4.0.1
 ==========
 
-We have released PyPy 4.0.1, a bux-fix release for PyPy 4.0.0. We have fixed
-a few critical bugs in the JIT compiled code, reported by users. We encourage
-all users of PyPy to update to this version.
-
+We have released PyPy 4.0.1, three weeks after PyPy 4.0.0. We have fixed
+a few critical bugs in the JIT compiled code, reported by users. We therefore
+encourage all users of PyPy to update to this version. There are a few minor
+enhancements in this version as well.
 
 You can download the PyPy 4.0.1 release here:
 
@@ -85,7 +85,7 @@ Other Highlights (since 4.0.0 released three weeks ago)
 
   * Improve support for __array_interface__
 
-  * Propogate NAN mantissas through float16-float32-float64 conversions
+  * Propagate NAN mantissas through float16-float32-float64 conversions
 
 
 * Performance improvements and refactorings:
