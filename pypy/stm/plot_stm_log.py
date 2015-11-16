@@ -18,12 +18,16 @@ QUARTER_HEIGHT = HALF_HEIGHT / 2
 
 
 def plot_boxes(boxes, y, ax):
-    coords = [(x, w) for x, w, c, i in boxes]
-    colors = [c for x, w, c, i in boxes]
+    coords, colors = [], []
+    for x, w, style, i in boxes:
+        coords.append((x, w))
+        c = STYLES[0][style]
+        colors.append(c)
+    #
     bars = ax.broken_barh(coords, (y + PADDING, BOX_HEIGHT),
                           facecolors=colors, lw=1, edgecolor=(0, 0, 0),
                           picker=True, antialiased=False, rasterized=True)
-
+    #
     bars.boxes = boxes
 
 
@@ -31,14 +35,31 @@ __offset = 0
 def plot_hlines(hlines, y, ax):
     global __offset
     args = []
-    for x1, x2, color in hlines:
+    for x1, x2, style in hlines:
         arg = [[x1, x2],
                2*[y + 2*PADDING + __offset * QUARTER_HEIGHT],
-               color]
+               STYLES[1][style]]
         args.extend(arg)
         __offset = (__offset + 1) % 4
 
-    ax.plot(*args, linewidth=10, antialiased=False, rasterized=True)
+    ax.plot(*args, linewidth=10, antialiased=False, rasterized=True,
+            solid_capstyle='butt')
+
+def make_legend(ax):
+    import matplotlib.patches as mpatch
+    import matplotlib.lines as mlines
+    boxes, hlines = STYLES
+    items, labels = [], []
+    for label, color in boxes.items():
+        items.append(mpatch.Rectangle((0, 0), 1, 1, fc=color))
+        labels.append(label)
+    for label, color in hlines.items():
+        # items.append(mpatch.Rectangle((0, 0), 1, 1, fc=color))
+        if len(color) < 4:
+            color = color[0] # e.g. "m-"
+        items.append(mlines.Line2D((0, 1), (0, 0), linewidth=10, color=color))
+        labels.append(label)
+    ax.legend(items, labels)
 
 
 ####################################
@@ -52,6 +73,12 @@ def add_hline(hlines, x1, x2, color):
     hlines.append((x1, x2, color))
 
 
+STYLES = [{'becoming inevitable':'b',
+           'inevitable':'orange',
+           'normal tx':'g',
+           'aborted tx':'r'},
+          {'paused/waiting':'darkred',
+           'major gc':'m-'}]
 def add_transaction(boxes, hlines, tr):
     # get the values:
     inited, inevitabled, ended, aborted, pauses, gcs, info = (
@@ -62,22 +89,28 @@ def add_transaction(boxes, hlines, tr):
     assert inited is not None
 
     if inevitabled is not None:
-        add_box(boxes, inited, inevitabled, 'b', info)
-        add_box(boxes, inevitabled, ended, 'orange', info)
+        add_box(boxes, inited, inevitabled,
+                'becoming inevitable', info)
+        add_box(boxes, inevitabled, ended,
+                'inevitable', info)
     elif not aborted:
-        add_box(boxes, inited, ended, 'g', info)
+        add_box(boxes, inited, ended,
+                'normal tx', info)
     else:
-        add_box(boxes, inited, ended, 'r', info)
+        add_box(boxes, inited, ended,
+                'aborted tx', info)
 
     for start, end in pauses:
         if start == end:
             print "Warning, start and end of pause match"
-        add_hline(hlines, start, end, 'darkred')
+        add_hline(hlines, start, end,
+                  'paused/waiting')
 
     for start, end in gcs:
         if start == end:
             print "Warning, start and end of GC match"
-        add_hline(hlines, start, end, 'b-.')
+        add_hline(hlines, start, end,
+                  'major gc')
 
 
 class Transaction(object):
@@ -190,6 +223,7 @@ def plot_log(logentries, ax):
 
         plot_boxes(boxes, th_num, ax)
         plot_hlines(hlines, th_num, ax)
+        make_legend(ax)
         print "> Pauses:", len(hlines)
 
     # plt.ioff()
