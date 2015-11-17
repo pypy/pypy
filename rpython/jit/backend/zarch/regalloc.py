@@ -624,6 +624,11 @@ class Regalloc(BaseRegalloc):
     prepare_int_eq = helper.prepare_cmp_op
     prepare_int_ne = helper.prepare_cmp_op
 
+    prepare_uint_le = helper.prepare_cmp_op
+    prepare_uint_lt = helper.prepare_cmp_op
+    prepare_uint_ge = helper.prepare_cmp_op
+    prepare_uint_gt = helper.prepare_cmp_op
+
     prepare_int_is_zero = helper.prepare_unary_op
     prepare_int_is_true = helper.prepare_unary_op
     prepare_int_neg     = helper.prepare_unary_op

@@ -115,12 +115,12 @@ class IntOpAssembler(object):
     def emit_int_is_zero(self, op, arglocs, regalloc):
         l0 = arglocs[0]
         self.mc.CGHI(l0, l.imm(0))
-        self.flush_cc(c.EQ, l0)
+        self.flush_cc(c.EQ, r.SPP)
 
     def emit_int_is_true(self, op, arglocs, regalloc):
         l0 = arglocs[0]
         self.mc.CGHI(l0, l.imm(0))
-        self.flush_cc(c.NE, l0)
+        self.flush_cc(c.NE, r.SPP)
 
     emit_int_and = gen_emit_rr_or_rpool("NGR", "NG")
     emit_int_or  = gen_emit_rr_or_rpool("OGR", "OG")
@@ -136,6 +136,11 @@ class IntOpAssembler(object):
     emit_int_ge = gen_emit_cmp_op(c.GE)
     emit_int_eq = gen_emit_cmp_op(c.EQ)
     emit_int_ne = gen_emit_cmp_op(c.NE)
+
+    emit_uint_le = gen_emit_cmp_op(c.LE, signed=False)
+    emit_uint_lt = gen_emit_cmp_op(c.LT, signed=False)
+    emit_uint_gt = gen_emit_cmp_op(c.GT, signed=False)
+    emit_uint_ge = gen_emit_cmp_op(c.GE, signed=False)
 
 class FloatOpAssembler(object):
     _mixin_ = True
