@@ -565,8 +565,8 @@ class SomeBuiltin(SomeObject):
 
     @property
     def can_only_throw(self):
-        # Unless otherwise specified, builtins don't raise exceptions
-        return getattr(self.analyser, 'can_only_throw', [])
+        # Unless otherwise specified, builtins can raise any exception
+        return getattr(self.analyser, 'can_only_throw', None)
 
 
 class SomeBuiltinMethod(SomeBuiltin):

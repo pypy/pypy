@@ -2192,6 +2192,7 @@ def ann_malloc(s_T, s_n=None, s_flavor=None, s_zero=None,
         # presence of s_extraargs
         r = SomePtr(Ptr(s_T.const))
     return r
+ann_malloc.can_only_throw = [MemoryError]
 
 
 def free(p, flavor, track_allocation=True):
