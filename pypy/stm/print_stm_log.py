@@ -8,6 +8,9 @@ STM_TRANSACTION_START   = 0
 STM_TRANSACTION_COMMIT  = 1
 STM_TRANSACTION_ABORT   = 2
 
+# sometimes there is a DETACH w/o REATTACH and the other way around.
+# This happens because the JIT does not emit DETACH/REATTACH events
+# to the log (XXX).
 STM_TRANSACTION_DETACH = 3
 STM_TRANSACTION_REATTACH = 4
 
@@ -114,7 +117,9 @@ class ThreadState(object):
         self._transaction_pause_time = 0.0
         self._transaction_aborting = False
         self._transaction_inev = None
+        self._transaction_detached_time = 0.0
         self._in_minor_coll = None
+        assert self._prev[1] == "stop"
 
     def transaction_start(self, entry):
         self.reset_counters()
@@ -128,7 +133,23 @@ class ThreadState(object):
             self._transaction_cpu_time += add_time
         elif prev_state == "pause":
             self._transaction_pause_time += add_time
+        elif prev_state == "detached":
+            self._transaction_detached_time += add_time
         self._prev = now, new_state
+
+    def make_sure_not_detached(self, entry):
+        # since some DETACH events are not followed by a REATTACH
+        # (because the JIT does not emit them), approximate by
+        # calling this method where we are sure that we shouldn't
+        # be detached.
+        if self._prev[1] == "detached":
+            self.progress(entry.timestamp, "run")
+
+    def transaction_detach(self, entry):
+        self.progress(entry.timestamp, "detached")
+
+    def transaction_reattach(self, entry):
+        self.progress(entry.timestamp, "run")
 
     def transaction_commit(self, entry):
         assert not self._transaction_aborting
@@ -189,6 +210,7 @@ class ThreadState(object):
         c.paused_time += wait_time
 
     def gc_minor_start(self, event):
+        self.make_sure_not_detached(event)
         self._in_minor_coll = event.timestamp
 
     def gc_minor_done(self, event):
@@ -276,9 +298,9 @@ def summarize_log_entries(logentries, stmlog):
         if entry.event == STM_TRANSACTION_START:
             t.transaction_start(entry)
         elif entry.event == STM_TRANSACTION_DETACH:
-            t.transaction_commit(entry) # for now
+            t.transaction_detach(entry)
         elif entry.event == STM_TRANSACTION_REATTACH:
-            t.transaction_start(entry) # for now
+            t.transaction_reattach(entry)
             t.become_inevitable(entry)
         elif entry.event == STM_TRANSACTION_COMMIT:
             t.transaction_commit(entry)

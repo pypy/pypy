@@ -88,7 +88,9 @@ def add_transaction(boxes, hlines, tr):
         "\n".join(tr.info))
     assert inited is not None
 
-    if inevitabled is not None:
+    if inevitabled is not None and not aborted:
+        # we may still be "aborted" if we aborted when
+        # we tried to become inevitable (XXX)
         add_box(boxes, inited, inevitabled,
                 'becoming inevitable', info)
         add_box(boxes, inevitabled, ended,
@@ -125,6 +127,7 @@ class Transaction(object):
         self.inevitabled = None
 
 
+
 def transaction_start(curr_trs, entry):
     if entry.threadnum in curr_trs:
         print "WARNING: Start of transaction while there is one already running"
@@ -153,11 +156,15 @@ def plot_log(logentries, ax):
 
         if entry.event == psl.STM_TRANSACTION_START:
             transaction_start(curr_trs, entry)
-        elif entry.event == psl.STM_TRANSACTION_REATTACH:
-            transaction_start(curr_trs, entry) # for now
-            transaction_become_inevitable(curr_trs, entry)
         elif entry.event == psl.STM_TRANSACTION_DETACH:
-            transaction_commit(curr_trs, finished_trs, entry) # for now
+            transaction_commit(curr_trs, finished_trs, entry)
+        elif (entry.event == psl.STM_TRANSACTION_REATTACH
+              or (entry.event == psl.STM_GC_MINOR_START
+                  and curr_trs.get(th_num) is None)):
+            # minor GC is approximate fix for JIT not emitting REATTACH
+            # in certain situations:
+            transaction_start(curr_trs, entry)
+            transaction_become_inevitable(curr_trs, entry)
         elif entry.event == psl.STM_TRANSACTION_COMMIT:
             transaction_commit(curr_trs, finished_trs, entry)
         elif entry.event == psl.STM_BECOME_INEVITABLE:
