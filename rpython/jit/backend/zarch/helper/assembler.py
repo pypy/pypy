@@ -71,8 +71,6 @@ def gen_emit_cmp_op(condition, signed=True, fp=False):
 def gen_emit_shift(func):
     def f(self, op, arglocs, regalloc):
         l0, l1 = arglocs
-        if not l1.is_imm() or l1.is_in_pool():
-            assert 0, "shift imm must NOT reside in pool!"
         getattr(self.mc, func)(l0, l0, l1)
     return f
 
@@ -111,7 +109,7 @@ def gen_emit_pool_or_rr_evenodd(pool_func, rr_func):
         assert lr.is_even()
         assert lq.is_odd()
         if l1.is_in_pool():
-            self.mc.DSG(lr, l1)
+            getattr(self.mc,pool_func)(lr, l1)
         else:
-            self.mc.DSGR(lr, l1)
+            getattr(self.mc,rr_func)(lr, l1)
     return emit

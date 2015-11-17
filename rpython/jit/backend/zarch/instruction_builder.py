@@ -338,6 +338,21 @@ def build_rie_a(mnemonic, (opcode1,opcode2)):
 
 build_rie_g = build_rie_a
 
+def build_rie_b(mnemonic, (opcode1,opcode2)):
+    br = is_branch_relative(mnemonic)
+    @builder.arguments('r,r,r/m,i16')
+    def encode_rie_b(self, reg1, reg2, mask, imm16):
+        self.writechar(opcode1)
+        byte = (reg1 & BIT_MASK_4) << 4 | (reg2 & BIT_MASK_4)
+        self.writechar(chr(byte))
+        if br:
+            imm16 = imm16 >> 1
+        self.write_i16(imm16 & BIT_MASK_16)
+        byte = (mask & BIT_MASK_4) << 4
+        self.writechar(chr(byte))
+        self.writechar(opcode2)
+    return encode_rie_b
+
 def build_rie_c(mnemonic, (opcode1,opcode2), argtypes='r,i8,r/m,i16'):
     br = is_branch_relative(mnemonic)
     @builder.arguments(argtypes)
@@ -394,6 +409,19 @@ def build_rxf(mnemonic, (opcode1,opcode2)):
         self.writechar(chr((reg1 & 0xf) << 4))
         self.writechar(opcode2)
     return encode_rxe
+
+def build_ris(mnemonic, (opcode1,opcode2), argtypes='r,i8,r/m,bd'):
+    br = is_branch_relative(mnemonic)
+    @builder.arguments(argtypes)
+    def encode_rie_c(self, reg1, imm8, mask, basedisp):
+        self.writechar(opcode1)
+        byte = (reg1 & BIT_MASK_4) << 4 | (mask & BIT_MASK_4)
+        self.writechar(chr(byte))
+        #
+        encode_base_displace(self, basedisp)
+        self.writechar(chr(imm8 & 0xff))
+        self.writechar(opcode2)
+    return encode_rie_c
 
 def build_unpack_func(mnemonic, func):
     def function(self, *args):

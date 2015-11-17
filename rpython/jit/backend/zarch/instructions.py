@@ -43,8 +43,6 @@ arith_mnemonic_codes = {
     'LNGR':    ('rre',   ['\xB9','\x01']),
     'LCGR':    ('rre',   ['\xB9','\x03']),
 
-
-
     # div
 
     'AY':      ('rxy',   ['\xE3','\x5A']),
@@ -63,6 +61,9 @@ arith_mnemonic_codes = {
     'CGFI':    ('ril',    ['\xC2','\x0C']),
     'CGIJ':    ('rie_c',  ['\xEC','\x7C']),
     'CLGIJ':   ('rie_c',  ['\xEC','\x7D'], 'r,u8,r/m,i16'),
+    'CGIB':    ('ris',    ['\xEC','\xFC']),
+    'CGRJ':    ('rie_b',  ['\xEC','\x64']),
+    'CLGRJ':   ('rie_b',  ['\xEC','\x65']),
 }
 
 logic_mnemonic_codes = {

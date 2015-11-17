@@ -146,6 +146,14 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
                     self.CGR(a, b)
 
 
+    def load_imm(self, dest_reg, word):
+        if word <= 32767 and word >= -32768:
+            self.LGHI(dest_reg, l.imm(word))
+        elif word <= 2**31-1 and word >= -2**31:
+            self.LGFI(dest_reg, l.imm(word))
+        else:
+            xxx
+
 _classes = (AbstractZARCHBuilder,)
 
 # Used to build the MachineCodeBlockWrapper

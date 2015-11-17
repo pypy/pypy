@@ -18,8 +18,10 @@ class LiteralPool(object):
         self.constant_64_zeros = -1
         self.constant_64_ones = -1
         self.constant_64_sign_bit = -1
+        self.constant_max_64_positive = -1
 
     def ensure_can_hold_constants(self, asm, op):
+        opnum = op.getopnum()
         if op.is_guard():
             # 1x gcmap pointer
             # 1x target address
@@ -41,6 +43,10 @@ class LiteralPool(object):
             self.constant_64_ones = 1 # we need constant ones!!!
         elif op.getopnum() == rop.INT_MUL_OVF:
             self.constant_64_sign_bit = 1
+            self.constant_max_64_positive = 1
+        elif opnum == rop.INT_RSHIFT or opnum == rop.INT_LSHIFT or \
+             opnum == rop.UINT_RSHIFT:
+            return
         for arg in op.getarglist():
             if arg.is_constant():
                 self.offset_map[arg] = self.size
@@ -58,6 +64,10 @@ class LiteralPool(object):
         self.label_offset = 0
         self.size = 0
         self.offset_map.clear()
+        self.constant_64_zeros = -1
+        self.constant_64_ones = -1
+        self.constant_64_sign_bit = -1
+        self.constant_max_64_positive -1
 
     def pre_assemble(self, asm, operations, bridge=False):
         self.reset()
@@ -84,19 +94,23 @@ class LiteralPool(object):
         assert self.size % 2 == 0
         #if self.size % 2 == 1:
         #    self.size += 1
-        asm.mc.write('\xFF' * self.size)
+        asm.mc.write('\x00' * self.size)
         written = 0
-        if self.constant_64_ones:
+        if self.constant_64_ones != -1:
             asm.mc.write('\xFF' * 8)
             self.constant_64_ones = self.size
             written += 8
-        if self.constant_64_zeros:
+        if self.constant_64_zeros != -1:
             asm.mc.write('\x00' * 8)
             self.constant_64_zeros = self.size
             written += 8
-        if self.constant_64_sign_bit:
-            asm.mc.write('\x80' + '\x00' * 7)
+        if self.constant_64_sign_bit != -1:
+            asm.mc.write('\x80' + ('\x00' * 7))
             self.constant_64_sign_bit = self.size
+            written += 8
+        if self.constant_max_64_positive != -1:
+            asm.mc.write('\x7F' + ('\xFF' * 7))
+            self.constant_max_64_positive = self.size
             written += 8
         self.size += written
         print "pool with %d quad words" % (self.size // 8)

@@ -25,13 +25,22 @@ class IntOpAssembler(object):
             l1 = r.SCRATCH
 
         mc = self.mc
+        bc_one_decision = mc.CLGRJ_byte_count +\
+                          mc.CLGIJ_byte_count + \
+                          mc.LCGR_byte_count + \
+                          mc.BRC_byte_count + \
+                          mc.SPM_byte_count
         bc_one_signed = mc.LPGR_byte_count * 2 + \
                         mc.MLGR_byte_count + \
-                        mc.XG_byte_count + \
-                        mc.CLGIJ_byte_count * 2 + \
-                        mc.BRC_byte_count
-        bc_none_signed = mc.MLGR_byte_count + mc.CGIJ_byte_count * 2 + mc.BRC_byte_count + mc.LPGR_byte_count * 2
-        bc_set_overflow = mc.IPM_byte_count + mc.OIHL_byte_count + mc.SPM_byte_count
+                        mc.LG_byte_count + \
+                        bc_one_decision
+        bc_none_signed = mc.LPGR_byte_count * 2 + \
+                         mc.MLGR_byte_count + \
+                         mc.LG_byte_count + \
+                         mc.CLGRJ_byte_count + \
+                         mc.CLGIJ_byte_count + \
+                         mc.BRC_byte_count
+        bc_set_overflow = mc.OIHL_byte_count + mc.SPM_byte_count
 
         # check left neg
         mc.CGIJ(lq, l.imm(0), c.LT, l.imm(mc.CGIJ_byte_count*2))
@@ -41,22 +50,27 @@ class IntOpAssembler(object):
         mc.LPGR(lq, lq)
         mc.LPGR(l1, l1)
         mc.MLGR(lr, l1)
-        off = mc.CLGIJ_byte_count * 2 + mc.XG_byte_count + mc.BRC_byte_count + bc_none_signed
-        mc.CLGIJ(lr, l.imm(0), c.GT, l.imm(off)) # jump to overflow
-        mc.CGIJ(lq, l.imm(0), c.LT, l.imm(off - mc.CGIJ_byte_count)) # jump to over overflow
-        mc.XG(lq, l.pool(self.pool.constant_64_sign_bit)) # only one is negative, set the sign bit!
+        mc.LG(r.SCRATCH, l.pool(self.pool.constant_max_64_positive))
+        # is the value greater than 2**63 ? then an overflow occured
+        mc.CLGRJ(lq, r.SCRATCH, c.GT, l.imm(bc_one_decision + bc_none_signed)) # jump to over overflow
+        mc.CLGIJ(lr, l.imm(0), c.GT, l.imm(bc_one_decision - mc.CLGRJ_byte_count + bc_none_signed)) # jump to overflow
+        mc.LCGR(lq, lq)
+        mc.SPM(r.SCRATCH) # 0x80 ... 00 clears the condition code and program mask
         mc.BRC(c.ANY, l.imm(mc.BRC_byte_count + bc_set_overflow + bc_none_signed)) # no overflow happened
 
         # both are positive
         mc.LPGR(lq, lq)
         mc.LPGR(l1, l1)
         mc.MLGR(lr, l1)
-        mc.CGIJ(lq, l.imm(0), c.LT, l.imm(mc.CGIJ_byte_count * 2 + mc.BRC_byte_count)) # jump to over overflow
-        mc.CLGIJ(lr, l.imm(0), c.GT, l.imm(mc.CGIJ_byte_count + mc.BRC_byte_count)) # jump to overflow
+        off = mc.CLGRJ_byte_count + mc.CLGIJ_byte_count + \
+              mc.BRC_byte_count
+        mc.LG(r.SCRATCH, l.pool(self.pool.constant_64_ones))
+        mc.CLGRJ(lq, r.SCRATCH, c.GT, l.imm(off)) # jump to over overflow
+        mc.CLGIJ(lr, l.imm(0), c.GT, l.imm(off - mc.CLGRJ_byte_count)) # jump to overflow
         mc.BRC(c.ANY, l.imm(mc.BRC_byte_count + bc_set_overflow)) # no overflow happened
 
         # set overflow!
-        mc.IPM(r.SCRATCH)
+        #mc.IPM(r.SCRATCH)
         # set bit 34 & 35 -> indicates overflow
         mc.OILH(r.SCRATCH, l.imm(0x3000)) # sets OF
         mc.SPM(r.SCRATCH)
@@ -67,7 +81,27 @@ class IntOpAssembler(object):
     emit_uint_floordiv = gen_emit_pool_or_rr_evenodd('DLG','DLGR')
     # NOTE division sets one register with the modulo value, thus
     # the regalloc ensures the right register survives.
-    emit_int_mod = gen_emit_pool_or_rr_evenodd('DSG','DSGR')
+    #emit_int_mod = gen_emit_pool_or_rr_evenodd('DSG','DSGR')
+    def emit_int_mod(self, op, arglocs, regalloc):
+        lr, lq, l1 = arglocs # lr == remainer, lq == quotient
+        # when entering the function lr contains the dividend
+        # after this operation either lr or lq is used further
+        assert l1.is_in_pool() or not l1.is_imm() , "imm divider not supported"
+        # remainer is always a even register r0, r2, ... , r14
+        assert lr.is_even()
+        assert lq.is_odd()
+        if l1.is_in_pool():
+            self.mc.DSG(lr, l1)
+            # python behavior?
+            #off = self.mc.CGIJ_byte_count+self.mc.AG_byte_count
+            #self.mc.CGIJ(lr, l.imm(0), c.GE, l.imm(off))
+            #self.mc.AG(lr, l1)
+        else:
+            self.mc.DSGR(lr, l1)
+            # python behavior?
+            #off = self.mc.CGIJ_byte_count+self.mc.AGR_byte_count
+            #self.mc.CGIJ(lr, l.imm(0), c.GE, l.imm(off))
+            #self.mc.AGR(lr, l1)
 
     def emit_int_invert(self, op, arglocs, regalloc):
         l0 = arglocs[0]

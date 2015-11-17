@@ -643,16 +643,20 @@ class AssemblerZARCH(BaseAssembler,
             gcmap = self._finish_gcmap
         else:
             gcmap = lltype.nullptr(jitframe.GCMAP)
-        #self.pool.load_gcmap(self.mc, r.r2, gcmap)
+        self.load_gcmap(self.mc, r.r2, gcmap)
 
-        assert fail_descr_loc.getint() <= 2**12-1
-        self.mc.LGHI(r.r5, fail_descr_loc)
-        self.mc.STG(r.r5, l.addr(ofs, r.SPP))
-        self.mc.XGR(r.r2, r.r2) # TODO
+        assert fail_descr_loc.getint() <= 2**32-1
+        self.mc.LGFI(r.r3, fail_descr_loc)
+        self.mc.STG(r.r3, l.addr(ofs, r.SPP))
         self.mc.STG(r.r2, l.addr(ofs2, r.SPP))
 
         # exit function
         self._call_footer()
+
+    def load_gcmap(self, mc, reg, gcmap):
+        # load the current gcmap into register 'reg'
+        ptr = rffi.cast(lltype.Signed, gcmap)
+        mc.load_imm(reg, ptr)
 
 def notimplemented_op(asm, op, arglocs, regalloc):
     print "[ZARCH/asm] %s not implemented" % op.getopname()

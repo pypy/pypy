@@ -100,7 +100,6 @@ def prepare_int_shift(self, op):
     a0 = op.getarg(0)
     a1 = op.getarg(1)
     assert isinstance(a1, ConstInt)
-    l1 = self.ensure_reg(a1)
     assert check_imm20(a1)
     l0 = self.ensure_reg(a0)
     # note that the shift value is stored

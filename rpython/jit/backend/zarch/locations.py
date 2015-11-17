@@ -204,10 +204,10 @@ class PoolLoc(AddressLocation):
         return True
 
     def is_imm(self):
-        return True
+        return False
 
     def is_imm_float(self):
-        return self.isfloat
+        return False
 
     def is_float(self):
         return self.isfloat
