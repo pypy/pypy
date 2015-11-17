@@ -140,7 +140,7 @@ class TestFlatten:
 
     def encoding_test(self, func, args, expected,
                       transform=False, liveness=False, cc=None, jd=None):
-        
+
         graphs = self.make_graphs(func, args)
         #graphs[0].show()
         if transform:
@@ -485,11 +485,11 @@ class TestFlatten:
             ---
             L1:
             goto_if_exception_mismatch $<* struct object_vtable>, L2
-            int_return $-42
+            int_return $42
             ---
             L2:
             goto_if_exception_mismatch $<* struct object_vtable>, L3
-            int_return $42
+            int_return $-42
             ---
             L3:
             reraise
