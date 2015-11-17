@@ -106,18 +106,23 @@ def builtin_int(s_obj, s_base=None):
         args_s = [s_obj]
     nonneg = isinstance(s_obj, SomeInteger) and s_obj.nonneg
     return constpropagate(int, args_s, SomeInteger(nonneg=nonneg))
+builtin_int.can_only_throw = [ValueError]
 
 def builtin_float(s_obj):
     return constpropagate(float, [s_obj], SomeFloat())
+builtin_float.can_only_throw = [ValueError]
 
 def builtin_chr(s_int):
     return constpropagate(chr, [s_int], SomeChar())
+builtin_chr.can_only_throw = [ValueError]
 
 def builtin_unichr(s_int):
     return constpropagate(unichr, [s_int], SomeUnicodeCodePoint())
+builtin_unichr.can_only_throw = [ValueError]
 
 def builtin_unicode(s_unicode):
     return constpropagate(unicode, [s_unicode], SomeUnicodeString())
+builtin_unicode.can_only_throw = [UnicodeDecodeError]
 
 def builtin_bytearray(s_str):
     return SomeByteArray()

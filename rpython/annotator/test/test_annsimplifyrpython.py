@@ -135,3 +135,16 @@ class TestAnnotateAndSimplifyTestCase(parent):
         a = self.RPythonAnnotator()
         with py.test.raises(AnnotatorError):
             a.build_types(f, [int])
+
+    def test_irrelevant_except(self):
+        def f(name):
+            try:
+                number = int(name)
+            except IndexError:
+                return 0
+            return number
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [str])
+        graph = graphof(a, f)
+        return_links = [l for l in graph.iterlinks() if l.target is graph.returnblock]
+        assert len(return_links) == 1

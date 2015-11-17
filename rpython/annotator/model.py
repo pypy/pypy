@@ -563,6 +563,11 @@ class SomeBuiltin(SomeObject):
     def can_be_none(self):
         return False
 
+    @property
+    def can_only_throw(self):
+        # Unless otherwise specified, builtins don't raise exceptions
+        return getattr(self.analyser, 'can_only_throw', [])
+
 
 class SomeBuiltinMethod(SomeBuiltin):
     """ Stands for a built-in method which has got special meaning

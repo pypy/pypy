@@ -863,6 +863,19 @@ class __extend__(SomeBuiltin):
             kwds_s['s_'+key] = s_value
         return self.analyser(*args_s, **kwds_s)
 
+def read_builtins_exc(s_builtin):
+    return getattr(s_builtin, 'can_only_throw', [])
+
+@op.simple_call.register(SomeBuiltin)
+def simple_call_SomeBuiltin(annotator, v_func, *args_v):
+    return simple_call_SomeObject(annotator, v_func, *args_v)
+simple_call_SomeBuiltin.can_only_throw = read_builtins_exc
+
+@op.call_args.register(SomeBuiltin)
+def call_args_SomeBuiltin(annotator, v_func, *args_v):
+    return call_args(annotator, v_func, *args_v)
+call_args_SomeBuiltin.can_only_throw = read_builtins_exc
+
 
 class __extend__(SomeBuiltinMethod):
     def _can_only_throw(self, *args):
