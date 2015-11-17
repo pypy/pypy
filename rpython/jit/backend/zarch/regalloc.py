@@ -1,6 +1,6 @@
 from rpython.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                     TempVar, compute_vars_longevity,
-                                                    BaseRegalloc)
+                                                    BaseRegalloc, NoVariableToSpill)
 from rpython.jit.backend.llsupport.jump import remap_frame_layout_mixed
 from rpython.jit.backend.zarch.arch import WORD
 from rpython.jit.codewriter import longlong
@@ -170,32 +170,88 @@ class ZARCHRegisterManager(RegisterManager):
         even, odd = None, None
         REGS = r.registers
         i = len(self.free_regs)-1
+        candidates = []
         while i >= 0:
             even = self.free_regs[i]
             if even.is_even():
+                # found an even registers that is actually free
                 odd = REGS[even.value+1]
-                print even, "is even", odd
                 if odd not in self.free_regs:
-                    print odd, "is NOT free"
+                    # sadly odd is not free, but for spilling
+                    # we found a candidate
+                    candidates.append(odd)
+                    i -= 1
                     continue
-                print odd, "is free"
                 self.reg_bindings[var] = even
                 self.reg_bindings[var2] = odd
                 del self.free_regs[i]
                 i = self.free_regs.index(odd)
                 del self.free_regs[i]
                 return even, odd
+            else:
+                # an odd free register, maybe the even one is
+                # a candidate?
+                odd = even
+                even = REGS[even.value-1]
+                if even in r.MANAGED_REGS:
+                    # yes even might be a candidate
+                    candidates.append(even)
             i -= 1
 
-        import pdb; pdb.set_trace()
-        xxx
-        loc = self._spill_var(v, forbidden_vars, selected_reg,
-                              need_lower_byte=need_lower_byte)
-        prev_loc = self.reg_bindings.get(v, None)
-        if prev_loc is not None:
-            self.free_regs.append(prev_loc)
-        self.reg_bindings[v] = loc
-        return loc
+        if len(candidates) != 0:
+            cur_max_age = -1
+            candidate = None
+            # pseudo step to find best spilling candidate
+            # similar to _pick_variable_to_spill, but tailored
+            # to take the even/odd register allocation in consideration
+            for next in self.reg_bindings:
+                if next in forbidden_vars:
+                    continue
+                reg = self.reg_bindings[next]
+                if reg in candidates:
+                    pass
+                max_age = self.longevity[next][1]
+                if cur_max_age < max_age:
+                    cur_max_age = max_age
+                    candidate = next
+            if candidate is not None:
+                # well, we got away with a single spill :)
+                reg = self.reg_bindings[candidate]
+                self.force_spill_var(candidate)
+                if reg.is_even():
+                    self.reg_bindings[var] = reg
+                    rmfree = REGS[reg.value+1]
+                    self.reg_bindings[var2] = rmfree
+                    rmidx = self.free_regs.index(rmfree)
+                    del self.free_regs[rmidx]
+                    return reg, rmfree
+                else:
+                    self.reg_bindings[var2] = reg
+                    rmfree = REGS[reg.value-1]
+                    self.reg_bindings[var] = rmfree
+                    rmidx = self.free_regs.index(rmfree)
+                    del self.free_regs[rmidx]
+                    return rmfree, reg
+
+        # there is no candidate pair that only would
+        # require one spill, thus we need to spill two!
+        # always take the first
+        for i, reg in enumerate(r.MANAGED_REGS):
+            if i+1 < len(r.MANAGED_REGS):
+                reg2 = r.MANAGED_REGS[i+1]
+                try:
+                    even = self._spill_var(var, forbidden_vars, reg)
+                    odd = self._spill_var(var2, forbidden_vars, reg2)
+                except NoVariableToSpill:
+                    # woops, this is in efficient
+                    continue
+                self.reg_bindings[var] = even
+                self.reg_bindings[var2] = odd
+                break
+        else:
+            # no break! this is bad. really bad
+            raise NoVariableToSpill()
+        return even, odd
 
 
     def force_result_in_even_reg(self, result_v, loc, forbidden_vars=[]):

@@ -62,6 +62,7 @@ def prepare_int_div(self, op):
     l1 = self.ensure_reg(a1)
     self.rm.force_result_in_reg(op, a0)
     self.free_op_vars()
+    self.rm._check_invariants()
     return [lr, lq, l1]
 
 def prepare_int_mod(self, op):

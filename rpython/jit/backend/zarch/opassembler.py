@@ -56,13 +56,12 @@ class IntOpAssembler(object):
         mc.BRC(c.ANY, l.imm(mc.BRC_byte_count + bc_set_overflow)) # no overflow happened
 
         # set overflow!
-        mc.XGR(r.SCRATCH, r.SCRATCH)
         mc.IPM(r.SCRATCH)
+        # set bit 34 & 35 -> indicates overflow
         mc.OILH(r.SCRATCH, l.imm(0x3000)) # sets OF
         mc.SPM(r.SCRATCH)
 
         # no overflow happended
-        # import pdb; pdb.set_trace()
 
     emit_int_floordiv = gen_emit_pool_or_rr_evenodd('DSG','DSGR')
     emit_uint_floordiv = gen_emit_pool_or_rr_evenodd('DLG','DLGR')

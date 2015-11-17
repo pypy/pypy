@@ -106,7 +106,6 @@ class TestZARCH(LLtypeBackendTest):
         loop = parse(code, namespace={"faildescr": BasicFinalDescr(1)})
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        #import pdb; pdb.set_trace()
         deadframe = self.cpu.execute_token(looptoken, value)
         fail = self.cpu.get_latest_descr(deadframe)
         res = self.cpu.get_int_value(deadframe, 0)
@@ -116,8 +115,28 @@ class TestZARCH(LLtypeBackendTest):
             assert res == 0
 
     def test_double_evenodd_pair(self):
-        # TODO
-        pass
+        code = """
+        [i0]
+        i1 = int_floordiv(i0, 2)
+        i2 = int_floordiv(i0, 3)
+        i3 = int_floordiv(i0, 4)
+        i4 = int_floordiv(i0, 5)
+        i5 = int_floordiv(i0, 6)
+        i6 = int_floordiv(i0, 7)
+        i7 = int_floordiv(i0, 8)
+        i8 = int_le(i1, 0)
+        guard_true(i8) [i1,i2,i3,i4,i5,i6,i7]
+        finish(i0, descr=faildescr)
+        """
+        # the guard forces 3 spills because after 4 divisions
+        # all even slots of the managed registers are full
+        loop = parse(code, namespace={'faildescr': BasicFinalDescr(1)})
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken, 100)
+        fail = self.cpu.get_latest_descr(deadframe)
+        for i in range(2,9):
+            assert self.cpu.get_int_value(deadframe, i-2) == 100//i
 
     def test_double_evenodd_pair_spill(self):
         # TODO
