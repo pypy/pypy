@@ -338,9 +338,9 @@ def build_rie_a(mnemonic, (opcode1,opcode2)):
 
 build_rie_g = build_rie_a
 
-def build_rie_c(mnemonic, (opcode1,opcode2)):
+def build_rie_c(mnemonic, (opcode1,opcode2), argtypes='r,i8,r/m,i16'):
     br = is_branch_relative(mnemonic)
-    @builder.arguments('r,i8,r/m,i16')
+    @builder.arguments(argtypes)
     def encode_rie_c(self, reg1, imm8, mask, imm16):
         self.writechar(opcode1)
         byte = (reg1 & BIT_MASK_4) << 4 | (mask & BIT_MASK_4)

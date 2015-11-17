@@ -1,13 +1,6 @@
 from rpython.jit.backend.zarch import locations as loc
 from rpython.rlib.objectmodel import specialize
 
-# CGIJ for instance has another mask encoding prefixed with J
-J_EQ = loc.imm(0x1)
-J_LT = loc.imm(0x2)
-J_LE = loc.imm(0x2 | 0x1)
-J_GT = loc.imm(0x4)
-J_GE = loc.imm(0x4 | 0x1)
-
 # normal branch instructions
 EQ = loc.imm(0x8)
 LT = loc.imm(0x4)

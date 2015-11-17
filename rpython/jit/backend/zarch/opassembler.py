@@ -18,45 +18,47 @@ class IntOpAssembler(object):
     def emit_int_mul_ovf(self, op, arglocs, regalloc):
         lr, lq, l1 = arglocs
         if l1.is_in_pool():
-            self.mc.LTGR(r.SCRATCH, l1)
+            self.mc.LG(r.SCRATCH, l1)
             l1 = r.SCRATCH
         elif l1.is_imm():
             self.mc.LGFI(r.SCRATCH, l1)
             l1 = r.SCRATCH
 
         mc = self.mc
-        bc_one_signed = mc.CGIJ_byte_count + \
-                         mc.LPGR_byte_count * 2 + \
-                         mc.MLGR_byte_count + \
-                         mc.XG_byte_count + \
-                         mc.CGIJ_byte_count * 2 + \
-                         mc.BRC_byte_count
-        bc_none_signed = mc.MLGR_byte_count + mc.CGIJ_byte_count * 2 + mc.BRC_byte_count
+        bc_one_signed = mc.LPGR_byte_count * 2 + \
+                        mc.MLGR_byte_count + \
+                        mc.XG_byte_count + \
+                        mc.CLGIJ_byte_count * 2 + \
+                        mc.BRC_byte_count
+        bc_none_signed = mc.MLGR_byte_count + mc.CGIJ_byte_count * 2 + mc.BRC_byte_count + mc.LPGR_byte_count * 2
         bc_set_overflow = mc.IPM_byte_count + mc.OIHL_byte_count + mc.SPM_byte_count
 
         # check left neg
-        mc.CGIJ(lq, l.imm(0), c.J_LT, l.imm(mc.CGIJ_byte_count*2))
-        mc.CGIJ(l1, l.imm(0), c.J_GE, l.imm(bc_one_signed))
+        mc.CGIJ(lq, l.imm(0), c.LT, l.imm(mc.CGIJ_byte_count*2))
+        mc.CGIJ(l1, l.imm(0), c.GE, l.imm(mc.CGIJ_byte_count*2 + bc_one_signed))
+        mc.CGIJ(l1, l.imm(0), c.LT, l.imm(mc.CGIJ_byte_count + bc_one_signed)) # jump if both are negative
         # left or right is negative
         mc.LPGR(lq, lq)
         mc.LPGR(l1, l1)
         mc.MLGR(lr, l1)
-        off = mc.CGIJ_byte_count * 2 + mc.XG_byte_count + mc.BRC_byte_count + bc_none_signed
-        mc.CGIJ(lr, l.imm(0), c.J_LT, l.imm(off)) # jump to overflow
-        mc.CGIJ(lq, l.imm(0), c.J_LT, l.imm(off - mc.CGIJ_byte_count)) # jump to over overflow
-        mc.XG(lq, l.pool(self.pool.constant_64_sign_bit))
+        off = mc.CLGIJ_byte_count * 2 + mc.XG_byte_count + mc.BRC_byte_count + bc_none_signed
+        mc.CLGIJ(lr, l.imm(0), c.GT, l.imm(off)) # jump to overflow
+        mc.CGIJ(lq, l.imm(0), c.LT, l.imm(off - mc.CGIJ_byte_count)) # jump to over overflow
+        mc.XG(lq, l.pool(self.pool.constant_64_sign_bit)) # only one is negative, set the sign bit!
         mc.BRC(c.ANY, l.imm(mc.BRC_byte_count + bc_set_overflow + bc_none_signed)) # no overflow happened
 
         # both are positive
+        mc.LPGR(lq, lq)
+        mc.LPGR(l1, l1)
         mc.MLGR(lr, l1)
         mc.CGIJ(lq, l.imm(0), c.LT, l.imm(mc.CGIJ_byte_count * 2 + mc.BRC_byte_count)) # jump to over overflow
-        mc.CGIJ(lr, l.imm(0), c.GT, l.imm(mc.CGIJ_byte_count + mc.BRC_byte_count)) # jump to overflow
+        mc.CLGIJ(lr, l.imm(0), c.GT, l.imm(mc.CGIJ_byte_count + mc.BRC_byte_count)) # jump to overflow
         mc.BRC(c.ANY, l.imm(mc.BRC_byte_count + bc_set_overflow)) # no overflow happened
 
         # set overflow!
-        mc.IPM(r.SCRATCH)
         mc.XGR(r.SCRATCH, r.SCRATCH)
-        mc.OILH(r.SCRATCH, l.imm(0xf000)) # sets OF
+        mc.IPM(r.SCRATCH)
+        mc.OILH(r.SCRATCH, l.imm(0x3000)) # sets OF
         mc.SPM(r.SCRATCH)
 
         # no overflow happended

@@ -79,11 +79,20 @@ class TestZARCH(LLtypeBackendTest):
           (-2**63,  'i1 = int_sub_ovf(i0, 1)',0,'guard_overflow'),
 
           (-2**63,  'i1 = int_mul_ovf(i0, 2)',1,'guard_no_overflow'),
-          #(-2**15,  'i1 = int_mul_ovf(i0, 2)',0,'guard_no_overflow'),
-          #(-2**63,  'i1 = int_mul_ovf(i0, 0)',0,'guard_no_overflow'),
-          #(-2**15,  'i1 = int_mul_ovf(i0, 2)',1,'guard_overflow'),
-          #(-2**63,  'i1 = int_mul_ovf(i0, 2)',0,'guard_overflow'),
-          #(-2**63,  'i1 = int_mul_ovf(i0, 0)',1,'guard_overflow'),
+          (-2**63,  'i1 = int_mul_ovf(i0, -2)',1,'guard_no_overflow'),
+          (-2**15,  'i1 = int_mul_ovf(i0, 2)',0,'guard_no_overflow'),
+          (-2**63,  'i1 = int_mul_ovf(i0, 0)',0,'guard_no_overflow'),
+          (-2**63,  'i1 = int_mul_ovf(i0, 2)',0,'guard_overflow'),
+          (-2**63,  'i1 = int_mul_ovf(i0, -2)',0,'guard_overflow'),
+          (-2**63,  'i1 = int_mul_ovf(i0, 0)',1,'guard_overflow'),
+          # positive!
+          (2**63-1,  'i1 = int_mul_ovf(i0, 33)',1,'guard_no_overflow'),
+          (2**63-1,  'i1 = int_mul_ovf(i0, -2)',1,'guard_no_overflow'),
+          (2**15,  'i1 = int_mul_ovf(i0, 2)',0,'guard_no_overflow'),
+          (2**63-1,  'i1 = int_mul_ovf(i0, 0)',0,'guard_no_overflow'),
+          (2**63-1,  'i1 = int_mul_ovf(i0, 99)',0,'guard_overflow'),
+          (2**63-1,  'i1 = int_mul_ovf(i0, 3323881828381)',0,'guard_overflow'),
+          (2**63-1,  'i1 = int_mul_ovf(i0, 0)',1,'guard_overflow'),
         ])
     def test_int_arithmetic_overflow(self, value, opcode, result, guard):
         # result == 1 means branch has been taken of the guard
@@ -97,6 +106,7 @@ class TestZARCH(LLtypeBackendTest):
         loop = parse(code, namespace={"faildescr": BasicFinalDescr(1)})
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        #import pdb; pdb.set_trace()
         deadframe = self.cpu.execute_token(looptoken, value)
         fail = self.cpu.get_latest_descr(deadframe)
         res = self.cpu.get_int_value(deadframe, 0)
