@@ -138,6 +138,61 @@ class TestZARCH(LLtypeBackendTest):
         for i in range(2,9):
             assert self.cpu.get_int_value(deadframe, i-2) == 100//i
 
-    def test_double_evenodd_pair_spill(self):
-        # TODO
-        pass
+
+
+    @py.test.mark.parametrize('value', [2,3,15,2**16,-2**5])
+    def test_double_evenodd_pair_extensive(self, value):
+        instrs = []
+        failargs = []
+        values = []
+        j = 0
+        mapping = (('int_floordiv',lambda x,y: x // y),
+                   ('int_mod', lambda x,y: x % y),
+                   ('int_mul_ovf', lambda x,y: x * y))
+        for i in range(20):
+            name, func = mapping[j]
+            instrs.append("i{d} = {i}(i0, {d})".format(d=i+1, i=name))
+            values.append((name, func(value, i+1)))
+            failargs.append("i" + str(i+1))
+            j += 1
+            if j >= len(mapping):
+                j = 0
+        code = """
+        [i0]
+        {instrs}
+        i99 = int_add(i0, 1)
+        i100 = int_eq(i0,i99)
+        guard_true(i100) [{failargs}] # will always fail!!
+        finish(i0, descr=faildescr)
+        """.format(instrs=('\n' +' '*8).join(instrs), failargs=','.join(failargs))
+        # the guard forces 3 spills because after 4 divisions
+        # all even slots of the managed registers are full
+        loop = parse(code, namespace={'faildescr': BasicFinalDescr(1)})
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken, value)
+        fail = self.cpu.get_latest_descr(deadframe)
+        for i,(name, v) in enumerate(values):
+            assert self.cpu.get_int_value(deadframe, i) == v
+
+    @py.test.mark.parametrize('v1,v2', [
+        (-32,3),
+    ])
+    def test_int_mul_no_overflow(self, v1, v2):
+        try:
+            result = v1*v2
+        except OverflowError:
+            py.test.skip("this test is not made to check the overflow!")
+        code = """
+        [i0]
+        i1 = int_mul_ovf(i0,{v})
+        finish(i1, descr=faildescr)
+        """.format(v=v2)
+        loop = parse(code, namespace={"faildescr": BasicFinalDescr(1)})
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        import pdb; pdb.set_trace()
+        deadframe = self.cpu.execute_token(looptoken, v1)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert self.cpu.get_int_value(deadframe, 0) == result
+

@@ -193,7 +193,7 @@ class ZARCHRegisterManager(RegisterManager):
                 # a candidate?
                 odd = even
                 even = REGS[even.value-1]
-                if even in r.MANAGED_REGS:
+                if even in r.MANAGED_REGS and even not in self.free_regs:
                     # yes even might be a candidate
                     candidates.append(even)
             i -= 1
@@ -209,11 +209,17 @@ class ZARCHRegisterManager(RegisterManager):
                     continue
                 reg = self.reg_bindings[next]
                 if reg in candidates:
-                    pass
-                max_age = self.longevity[next][1]
-                if cur_max_age < max_age:
-                    cur_max_age = max_age
-                    candidate = next
+                    reg2 = None
+                    if reg.is_even():
+                        reg2 = REGS[reg.value+1]
+                    else:
+                        reg2 = REGS[reg.value-1]
+                    if reg2 not in r.MANAGED_REGS:
+                        continue
+                    max_age = self.longevity[next][1]
+                    if cur_max_age < max_age:
+                        cur_max_age = max_age
+                        candidate = next
             if candidate is not None:
                 # well, we got away with a single spill :)
                 reg = self.reg_bindings[candidate]
@@ -221,12 +227,16 @@ class ZARCHRegisterManager(RegisterManager):
                 if reg.is_even():
                     self.reg_bindings[var] = reg
                     rmfree = REGS[reg.value+1]
+                    rmidx = self.free_regs.index(reg)
+                    del self.free_regs[rmidx]
                     self.reg_bindings[var2] = rmfree
                     rmidx = self.free_regs.index(rmfree)
                     del self.free_regs[rmidx]
                     return reg, rmfree
                 else:
                     self.reg_bindings[var2] = reg
+                    rmidx = self.free_regs.index(reg)
+                    del self.free_regs[rmidx]
                     rmfree = REGS[reg.value-1]
                     self.reg_bindings[var] = rmfree
                     rmidx = self.free_regs.index(rmfree)
