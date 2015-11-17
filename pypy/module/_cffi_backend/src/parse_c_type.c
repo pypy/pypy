@@ -4,6 +4,7 @@
 #include <errno.h>
 
 #if defined(_MSC_VER)
+# include <windows.h>
 typedef size_t uintptr_t;
 #else
 # include <stdint.h>
