@@ -1,9 +1,8 @@
-from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import lltype_to_annotation
-from rpython.rlib import rgc
 from rpython.rlib.rgc import lltype_is_gc
 from rpython.rlib.objectmodel import specialize
 
@@ -40,7 +39,6 @@ def _raw_storage_setitem_unchecked(storage, index, item):
 @specialize.arg(1)
 def free_raw_storage(storage, track_allocation=True):
     lltype.free(storage, flavor='raw', track_allocation=track_allocation)
-
 
 # ____________________________________________________________
 #
