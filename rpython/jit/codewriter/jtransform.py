@@ -1033,6 +1033,8 @@ class Transformer(object):
             return SpaceOperation('getarrayitem_gc_%s' % kind,
                                   [op.args[0], v_index, arraydescr],
                                   op.result)
+        else:
+            assert False, 'not supported'
 
     def rewrite_op_setinteriorfield(self, op):
         assert len(op.args) == 4
