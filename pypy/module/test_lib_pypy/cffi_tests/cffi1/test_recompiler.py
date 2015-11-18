@@ -5,7 +5,7 @@ from cffi import FFI, VerificationError, FFIError
 from cffi import recompiler
 from pypy.module.test_lib_pypy.cffi_tests.udir import udir
 from pypy.module.test_lib_pypy.cffi_tests.support import u
-from StringIO import StringIO
+from pypy.module.test_lib_pypy.cffi_tests.support import FdWriteCapture, StdErrCapture
 
 
 def check_type_table(input, expected_output, included=None):
@@ -1487,14 +1487,6 @@ def test_win32_calling_convention_3():
     pt = ptr_call2(ffi.addressof(lib, 'cb2'))
     assert (pt.x, pt.y) == (99*500*999, -99*500*999)
 
-class StdErrCapture(object):
-    def __enter__(self):
-        self.old_stderr = sys.stderr
-        sys.stderr = f = StringIO()
-        return f
-    def __exit__(self, *args):
-        sys.stderr = self.old_stderr
-
 def test_extern_python_1():
     ffi = FFI()
     ffi.cdef("""
@@ -1507,7 +1499,7 @@ def test_extern_python_1():
     """)
     lib = verify(ffi, 'test_extern_python_1', "")
     assert ffi.typeof(lib.bar) == ffi.typeof("int(*)(int, int)")
-    with StdErrCapture() as f:
+    with FdWriteCapture() as f:
         res = lib.bar(4, 5)
     assert res == 0
     assert f.getvalue() == (

@@ -5,35 +5,13 @@ import math, os, sys
 import ctypes.util
 from cffi.backend_ctypes import CTypesBackend
 from pypy.module.test_lib_pypy.cffi_tests.udir import udir
+from pypy.module.test_lib_pypy.cffi_tests.support import FdWriteCapture
 
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
 
-
-class FdWriteCapture(object):
-    """xxx limited to capture at most 512 bytes of output, according
-    to the Posix manual."""
-
-    def __init__(self, capture_fd):
-        self.capture_fd = capture_fd
-
-    def __enter__(self):
-        self.read_fd, self.write_fd = os.pipe()
-        self.copy_fd = os.dup(self.capture_fd)
-        os.dup2(self.write_fd, self.capture_fd)
-        return self
-
-    def __exit__(self, *args):
-        os.dup2(self.copy_fd, self.capture_fd)
-        os.close(self.copy_fd)
-        os.close(self.write_fd)
-        self._value = os.read(self.read_fd, 512)
-        os.close(self.read_fd)
-
-    def getvalue(self):
-        return self._value
 
 lib_m = 'm'
 if sys.platform == 'win32':
@@ -136,7 +114,7 @@ class TestFunction(object):
         """)
         ffi.C = ffi.dlopen(None)
         ffi.C.fputs   # fetch before capturing, for easier debugging
-        with FdWriteCapture(2) as fd:
+        with FdWriteCapture() as fd:
             ffi.C.fputs(b"hello\n", ffi.C.stderr)
             ffi.C.fputs(b"  world\n", ffi.C.stderr)
         res = fd.getvalue()
@@ -152,7 +130,7 @@ class TestFunction(object):
         """)
         ffi.C = ffi.dlopen(None)
         ffi.C.fputs   # fetch before capturing, for easier debugging
-        with FdWriteCapture(2) as fd:
+        with FdWriteCapture() as fd:
             ffi.C.fputs(b"hello\n", ffi.C.stderr)
             ffi.C.fputs(b"  world\n", ffi.C.stderr)
         res = fd.getvalue()
@@ -167,7 +145,7 @@ class TestFunction(object):
            void *stderr;
         """)
         ffi.C = ffi.dlopen(None)
-        with FdWriteCapture(2) as fd:
+        with FdWriteCapture() as fd:
             ffi.C.fprintf(ffi.C.stderr, b"hello with no arguments\n")
             ffi.C.fprintf(ffi.C.stderr,
                           b"hello, %s!\n", ffi.new("char[]", b"world"))
@@ -229,7 +207,7 @@ class TestFunction(object):
         fptr = ffi.cast("int(*)(const char *txt, void *)", ffi.C.fputs)
         assert fptr == ffi.C.fputs
         assert repr(fptr).startswith("<cdata 'int(*)(char *, void *)' 0x")
-        with FdWriteCapture(2) as fd:
+        with FdWriteCapture() as fd:
             fptr(b"world\n", ffi.C.stderr)
         res = fd.getvalue()
         assert res == b'world\n'
