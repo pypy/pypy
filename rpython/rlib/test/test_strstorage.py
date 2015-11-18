@@ -1,6 +1,6 @@
 import py
 import struct
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.strstorage import str_storage_getitem
 from rpython.rtyper.test.tool import BaseRtypingTest
 
@@ -12,12 +12,19 @@ class BaseStrStorageTest:
         assert self.str_storage_getitem(lltype.Signed, buf, 0) == 42
         assert self.str_storage_getitem(lltype.Signed, buf, size) == 43
 
+    def test_short(self):
+        buf = struct.pack('@hh', 42, 43)
+        size = struct.calcsize('@h')
+        x = self.str_storage_getitem(rffi.SHORT, buf, 0)
+        assert int(x) == 42
+        x = self.str_storage_getitem(rffi.SHORT, buf, size)
+        assert int(x) == 43
+
     def test_float(self):
         buf = struct.pack('@dd', 12.3, 45.6)
         size = struct.calcsize('@d')
         assert self.str_storage_getitem(lltype.Float, buf, 0) == 12.3
         assert self.str_storage_getitem(lltype.Float, buf, size) == 45.6
-
 
 class TestDirect(BaseStrStorageTest):
 
