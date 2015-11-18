@@ -134,6 +134,12 @@ class IntOpAssembler(object):
         else:
             raise AssertionError(extend_from)
 
+    def emit_int_force_ge_zero(self, op, arglocs, resloc):
+        l0, = arglocs
+        off = self.mc.CGIJ_byte_count + self.mc.LGHI_byte_count
+        self.mc.CGIJ(l0, l.imm(0), c.GE, l.imm(off))
+        self.mc.LGHI(l0, l.imm(0))
+
     def emit_int_is_zero(self, op, arglocs, regalloc):
         l0, res = arglocs
         self.mc.CGHI(l0, l.imm(0))
