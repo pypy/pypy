@@ -59,6 +59,7 @@ arith_mnemonic_codes = {
     'CLG':     ('rxy',    ['\xE3','\x21']),
     'CGHI':    ('ri',     ['\xA7','\x0F']),
     'CGFI':    ('ril',    ['\xC2','\x0C']),
+    'CLGFI':   ('ril',    ['\xC2','\x0E']),
     'CGIJ':    ('rie_c',  ['\xEC','\x7C']),
     'CLGIJ':   ('rie_c',  ['\xEC','\x7D'], 'r,u8,r/m,i16'),
     'CGIB':    ('ris',    ['\xEC','\xFC']),

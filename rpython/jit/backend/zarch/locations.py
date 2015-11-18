@@ -213,7 +213,7 @@ class PoolLoc(AddressLocation):
         return self.isfloat
 
     def __repr__(self):
-        return "pool(i,%d)" %  self.value
+        return "pool(i,%d)" %  self.displace
 
 
 def addr(displace, basereg=None, indexreg=None, length=None):

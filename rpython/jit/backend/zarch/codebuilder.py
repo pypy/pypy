@@ -129,21 +129,21 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
             if signed:
                 if pool:
                     # 64 bit immediate signed
-                    self.CLG(a, b)
+                    self.CG(a, b)
                 elif imm:
-                    self.CGHI(a, b)
+                    self.CGFI(a, b)
                 else:
                     # 64 bit signed
-                    self.CLGR(a, b)
+                    self.CGR(a, b)
             else:
                 if pool:
                     # 64 bit immediate unsigned
-                    self.CG(a, b)
+                    self.CLG(a, b)
                 elif imm:
-                    raise NotImplementedError
+                    self.CLGFI(a, b)
                 else:
                     # 64 bit unsigned
-                    self.CGR(a, b)
+                    self.CLGR(a, b)
 
 
     def load_imm(self, dest_reg, word):

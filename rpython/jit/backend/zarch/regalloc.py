@@ -115,7 +115,7 @@ class ZARCHRegisterManager(RegisterManager):
             return rffi.cast(lltype.Signed, c.value)
 
     def convert_to_imm(self, c):
-        val = self.convert_to_int(c)
+        #val = self.convert_to_int(c)
         return l.ImmLocation(val)
 
     def ensure_reg(self, box):
@@ -134,9 +134,9 @@ class ZARCHRegisterManager(RegisterManager):
         self.temp_boxes.append(box)
         return reg
 
-    def ensure_even_odd_pair(self, var, bind_first=True):
+    def ensure_even_odd_pair(self, var, bind_first=True, must_exist=True):
         self._check_type(var)
-        prev_loc = self.loc(var, must_exist=True)
+        prev_loc = self.loc(var, must_exist=must_exist)
         var2 = TempVar()
         self.temp_boxes.append(var2)
         if prev_loc is self.frame_reg:
@@ -262,6 +262,22 @@ class ZARCHRegisterManager(RegisterManager):
             raise NoVariableToSpill()
         return even, odd
 
+    def ensure_in_reg(self, var, reg):
+        """ opposed to ensure_reg, this loads the contents of the variable
+            directly into reg """
+        if isinstance(var, ConstInt):
+            if -2**15 <= var.value and var.value <= 2*15-1:
+                self.assembler.mc.LGHI(reg, l.imm(var.value))
+            elif -2**31 <= var.value and var.value <= 2*31-1:
+                self.assembler.mc.LGFI(reg, l.imm(var.value))
+            else:
+                poolloc = self.ensure_reg(a1)
+                self.assembler.mc.LG(reg, poolloc)
+        else:
+            loc = self.loc(var, must_exist=True)
+            if loc is not reg:
+                self.assembler.regalloc_mov(loc, reg)
+            return reg
 
     def force_result_in_even_reg(self, result_v, loc, forbidden_vars=[]):
         pass
@@ -415,7 +431,7 @@ class Regalloc(BaseRegalloc):
             return r.SPP
         else:
             # else, return a regular register (not SPP).
-            return self.force_allocate_reg(var)
+            return self.rm.force_allocate_reg(var)
 
     def walk_operations(self, inputargs, operations):
         from rpython.jit.backend.zarch.assembler import (
@@ -616,17 +632,17 @@ class Regalloc(BaseRegalloc):
     prepare_int_lshift  = helper.prepare_int_shift
     prepare_uint_rshift = helper.prepare_int_shift
 
-    prepare_int_le = helper.prepare_cmp_op
-    prepare_int_lt = helper.prepare_cmp_op
-    prepare_int_ge = helper.prepare_cmp_op
-    prepare_int_gt = helper.prepare_cmp_op
-    prepare_int_eq = helper.prepare_cmp_op
-    prepare_int_ne = helper.prepare_cmp_op
+    prepare_int_le = helper.generate_cmp_op()
+    prepare_int_lt = helper.generate_cmp_op()
+    prepare_int_ge = helper.generate_cmp_op()
+    prepare_int_gt = helper.generate_cmp_op()
+    prepare_int_eq = helper.generate_cmp_op()
+    prepare_int_ne = helper.generate_cmp_op()
 
-    prepare_uint_le = helper.prepare_cmp_op
-    prepare_uint_lt = helper.prepare_cmp_op
-    prepare_uint_ge = helper.prepare_cmp_op
-    prepare_uint_gt = helper.prepare_cmp_op
+    prepare_uint_le = helper.generate_cmp_op(signed=False)
+    prepare_uint_lt = helper.generate_cmp_op(signed=False)
+    prepare_uint_ge = helper.generate_cmp_op(signed=False)
+    prepare_uint_gt = helper.generate_cmp_op(signed=False)
 
     prepare_int_is_zero = helper.prepare_unary_op
     prepare_int_is_true = helper.prepare_unary_op

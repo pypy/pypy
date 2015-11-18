@@ -47,6 +47,10 @@ class LiteralPool(object):
             self.constant_max_64_positive = 1
         elif opnum == rop.INT_RSHIFT or opnum == rop.INT_LSHIFT or \
              opnum == rop.UINT_RSHIFT:
+            a0 = op.getarg(0)
+            if a0.is_constant():
+                self.offset_map[a0] = self.size
+                self.reserve_literal(8)
             return
         for arg in op.getarglist():
             if arg.is_constant():

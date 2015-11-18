@@ -12,8 +12,18 @@ class IntOpAssembler(object):
 
     emit_int_add = gen_emit_imm_pool_rr('AGFI','AG','AGR')
     emit_int_add_ovf = emit_int_add
-    emit_int_sub = gen_emit_rr_or_rpool('SGR', 'SG')
+
+    def emit_int_sub(self, op, arglocs, regalloc):
+        l0, l1 = arglocs
+        if l1.is_imm() and not l1.is_in_pool():
+            assert 0, "logical imm must reside in pool!"
+        if l1.is_in_pool():
+            self.mc.SG(l0, l1)
+        else:
+            self.mc.SGR(l0, l1)
+
     emit_int_sub_ovf = emit_int_sub
+
     emit_int_mul = gen_emit_imm_pool_rr('MSGFI', 'MSG', 'MSGR')
     def emit_int_mul_ovf(self, op, arglocs, regalloc):
         lr, lq, l1 = arglocs
@@ -104,23 +114,25 @@ class IntOpAssembler(object):
             #self.mc.AGR(lr, l1)
 
     def emit_int_invert(self, op, arglocs, regalloc):
-        l0 = arglocs[0]
+        l0, l1 = arglocs
         assert not l0.is_imm()
-        self.mc.XG(l0, l.pool(self.pool.constant_64_ones))
+        self.mc.XG(l1, l.pool(self.pool.constant_64_ones))
+        if l0 != l1:
+            self.mc.LGR(l0, l1)
 
     def emit_int_neg(self, op, arglocs, regalloc):
-        l0 = arglocs[0]
-        self.mc.LNGR(l0, l0)
+        l0, l1 = arglocs
+        self.mc.LCGR(l0, l1)
 
     def emit_int_is_zero(self, op, arglocs, regalloc):
-        l0 = arglocs[0]
-        self.mc.CGHI(l0, l.imm(0))
-        self.flush_cc(c.EQ, r.SPP)
+        l0, l1 = arglocs
+        self.mc.CGHI(l1, l.imm(0))
+        self.flush_cc(c.EQ, l0)
 
     def emit_int_is_true(self, op, arglocs, regalloc):
-        l0 = arglocs[0]
+        l0, l1 = arglocs
         self.mc.CGHI(l0, l.imm(0))
-        self.flush_cc(c.NE, r.SPP)
+        self.flush_cc(c.NE, l0)
 
     emit_int_and = gen_emit_rr_or_rpool("NGR", "NG")
     emit_int_or  = gen_emit_rr_or_rpool("OGR", "OG")

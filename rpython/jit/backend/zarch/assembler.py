@@ -371,10 +371,10 @@ class AssemblerZARCH(BaseAssembler,
             # sadly we cannot use LOCGHI
             # it is included in some extension that seem to be NOT installed
             # by default.
-            self.mc.LGHI(r.SCRATCH, l.imm(1))
-            self.mc.LOCGR(result_loc, r.SCRATCH, condition)
-            self.mc.LGHI(r.SCRATCH, l.imm(0))
-            self.mc.LOCGR(result_loc, r.SCRATCH, c.negate(condition))
+            self.mc.LGHI(result_loc, l.imm(1))
+            off = self.mc.XGR_byte_count + self.mc.BRC_byte_count
+            self.mc.BRC(condition, l.imm(off)) # branch over LGHI
+            self.mc.XGR(result_loc, result_loc)
 
 
     def _assemble(self, regalloc, inputargs, operations):
@@ -408,6 +408,11 @@ class AssemblerZARCH(BaseAssembler,
                     self.mc.store(r.SCRATCH.value, r.SPP, offset)
                 return
             assert 0, "not supported location"
+        elif prev_loc.is_in_pool():
+            if loc.is_reg():
+                self.mc.LG(loc, prev_loc)
+            else:
+                xxx
         elif prev_loc.is_stack():
             offset = prev_loc.value
             # move from memory to register
