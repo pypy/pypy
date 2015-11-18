@@ -431,6 +431,8 @@ class Regalloc(BaseRegalloc):
             return r.SPP
         else:
             # else, return a regular register (not SPP).
+            if self.rm.reg_bindings.get(var, None) != None:
+                return self.rm.loc(var, must_exist=True)
             return self.rm.force_allocate_reg(var)
 
     def walk_operations(self, inputargs, operations):

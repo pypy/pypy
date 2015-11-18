@@ -114,25 +114,23 @@ class IntOpAssembler(object):
             #self.mc.AGR(lr, l1)
 
     def emit_int_invert(self, op, arglocs, regalloc):
-        l0, l1 = arglocs
+        l0, _ = arglocs
         assert not l0.is_imm()
-        self.mc.XG(l1, l.pool(self.pool.constant_64_ones))
-        if l0 != l1:
-            self.mc.LGR(l0, l1)
+        self.mc.XG(l0, l.pool(self.pool.constant_64_ones))
 
     def emit_int_neg(self, op, arglocs, regalloc):
-        l0, l1 = arglocs
-        self.mc.LCGR(l0, l1)
+        l0, _ = arglocs
+        self.mc.LCGR(l0, l0)
 
     def emit_int_is_zero(self, op, arglocs, regalloc):
-        l0, l1 = arglocs
-        self.mc.CGHI(l1, l.imm(0))
-        self.flush_cc(c.EQ, l0)
+        l0, res = arglocs
+        self.mc.CGHI(l0, l.imm(0))
+        self.flush_cc(c.EQ, res)
 
     def emit_int_is_true(self, op, arglocs, regalloc):
-        l0, l1 = arglocs
+        l0, res = arglocs
         self.mc.CGHI(l0, l.imm(0))
-        self.flush_cc(c.NE, l0)
+        self.flush_cc(c.NE, res)
 
     emit_int_and = gen_emit_rr_or_rpool("NGR", "NG")
     emit_int_or  = gen_emit_rr_or_rpool("OGR", "OG")
