@@ -32,7 +32,7 @@ def make_callback(space, ctype, w_callable, w_error, w_onerror):
 def reveal_callback(raw_ptr):
     addr = rffi.cast(llmemory.Address, raw_ptr)
     gcref = rgc.reveal_gcref(addr)
-    return rgc.try_cast_gcref_to_instance(W_CallPython, gcref)
+    return rgc.try_cast_gcref_to_instance(W_ExternPython, gcref)
 
 
 class Closure(object):
@@ -45,7 +45,7 @@ class Closure(object):
         clibffi.closureHeap.free(rffi.cast(clibffi.FFI_CLOSUREP, self.ptr))
 
 
-class W_CallPython(W_CData):
+class W_ExternPython(W_CData):
     """Base class for W_CDataCallback, also used from call_python.py.
     """
     decode_args_from_libffi = False
@@ -126,13 +126,13 @@ class W_CallPython(W_CData):
             space.threadlocals.leave_thread(space)
 
     def py_invoke(self, ll_res, ll_args):
-        # For W_CallPython only; overridden in W_CDataCallback.  Note
+        # For W_ExternPython only; overridden in W_CDataCallback.  Note
         # that the details of the two jitdrivers differ.  For
-        # W_CallPython, it depends on the identity of 'self', which
-        # means every @ffi.call_python() gets its own machine code,
+        # W_ExternPython, it depends on the identity of 'self', which
+        # means every @ffi.def_extern() gets its own machine code,
         # which sounds reasonable here.  Moreover, 'll_res' is ignored
         # as it is always equal to 'll_args'.
-        jitdriver2.jit_merge_point(callpython=self, ll_args=ll_args)
+        jitdriver2.jit_merge_point(externpython=self, ll_args=ll_args)
         self.do_invoke(ll_args, ll_args)
 
     def do_invoke(self, ll_res, ll_args):
@@ -196,15 +196,15 @@ class W_CallPython(W_CData):
                                        "another exception occurred:\n\n")
 
 
-class W_CDataCallback(W_CallPython):
+class W_CDataCallback(W_ExternPython):
     _immutable_fields_ = ['key_pycode']
     decode_args_from_libffi = True
 
     def __init__(self, space, ctype, w_callable, w_error, w_onerror):
         raw_closure = rffi.cast(rffi.CCHARP, clibffi.closureHeap.alloc())
         self._closure = Closure(raw_closure)
-        W_CallPython.__init__(self, space, raw_closure, ctype,
-                              w_callable, w_error, w_onerror)
+        W_ExternPython.__init__(self, space, raw_closure, ctype,
+                                w_callable, w_error, w_onerror)
         self.key_pycode = space._try_fetch_pycode(w_callable)
         #
         cif_descr = self.getfunctype().cif_descr
@@ -277,7 +277,7 @@ def convert_from_object_fficallback(fresult, ll_res, w_res,
 STDERR = 2
 
 
-# jitdrivers, for both W_CDataCallback and W_CallPython
+# jitdrivers, for both W_CDataCallback and W_ExternPython
 
 def get_printable_location1(key_pycode):
     if key_pycode is None:
@@ -289,13 +289,13 @@ jitdriver1 = jit.JitDriver(name='cffi_callback',
                            reds=['ll_res', 'll_args', 'callback'],
                            get_printable_location=get_printable_location1)
 
-def get_printable_location2(callpython):
-    with callpython as ptr:
-        callpy = rffi.cast(parse_c_type.PCALLPY, ptr)
-        return 'cffi_call_python ' + rffi.charp2str(callpy.c_name)
+def get_printable_location2(externpython):
+    with externpython as ptr:
+        externpy = rffi.cast(parse_c_type.PEXTERNPY, ptr)
+        return 'cffi_call_python ' + rffi.charp2str(externpy.c_name)
 
 jitdriver2 = jit.JitDriver(name='cffi_call_python',
-                           greens=['callpython'],
+                           greens=['externpython'],
                            reds=['ll_args'],
                            get_printable_location=get_printable_location2)
 

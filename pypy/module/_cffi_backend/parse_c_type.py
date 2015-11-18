@@ -71,11 +71,11 @@ PINFO = rffi.CStructPtr('_cffi_parse_info_s',
                         ('error_location', rffi.SIZE_T),
                         ('error_message', rffi.CCHARP))
 
-PCALLPY = rffi.CStructPtr('_cffi_callpy_s',
-                          ('name', rffi.CCHARP),
-                          ('size_of_result', rffi.SIZE_T),
-                          ('reserved1', rffi.VOIDP),
-                          ('reserved2', rffi.VOIDP))
+PEXTERNPY = rffi.CStructPtr('_cffi_externpy_s',
+                            ('name', rffi.CCHARP),
+                            ('size_of_result', rffi.SIZE_T),
+                            ('reserved1', rffi.VOIDP),
+                            ('reserved2', rffi.VOIDP))
 
 GETCONST_S = rffi.CStruct('_cffi_getconst_s',
                           ('value', rffi.ULONGLONG),

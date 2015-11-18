@@ -27,7 +27,7 @@ typedef void *_cffi_opcode_t;
 #define _CFFI_OP_DLOPEN_FUNC    35
 #define _CFFI_OP_DLOPEN_CONST   37
 #define _CFFI_OP_GLOBAL_VAR_F   39
-#define _CFFI_OP_CALL_PYTHON    41
+#define _CFFI_OP_EXTERN_PYTHON  41
 
 #define _CFFI_PRIM_VOID          0
 #define _CFFI_PRIM_BOOL          1
@@ -161,7 +161,7 @@ struct _cffi_parse_info_s {
     const char *error_message;
 };
 
-struct _cffi_callpy_s {
+struct _cffi_externpy_s {
     const char *name;
     size_t size_of_result;
     void *reserved1, *reserved2;

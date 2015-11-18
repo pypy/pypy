@@ -282,11 +282,11 @@ manipulated with:
     @unwrap_spec(w_name=WrappedDefault(None),
                  w_error=WrappedDefault(None),
                  w_onerror=WrappedDefault(None))
-    def descr_call_python(self, w_name, w_error, w_onerror):
+    def descr_def_extern(self, w_name, w_error, w_onerror):
         """\
 A decorator.  Attaches the decorated Python function to the C code
-generated for the CFFI_CALL_PYTHON function of the same name.  Calling
-the C function will then invoke the Python function.
+generated for the 'extern "Python" function of the same name.
+Calling the C function will then invoke the Python function.
 
 Optional arguments: 'name' is the name of the C function, if
 different from the Python function; and 'error' and 'onerror'
@@ -657,9 +657,9 @@ W_FFIObject.typedef = TypeDef(
         addressof   = interp2app(W_FFIObject.descr_addressof),
         alignof     = interp2app(W_FFIObject.descr_alignof),
         buffer      = interp2app(W_FFIObject.descr_buffer),
-        call_python = interp2app(W_FFIObject.descr_call_python),
         callback    = interp2app(W_FFIObject.descr_callback),
         cast        = interp2app(W_FFIObject.descr_cast),
+        def_extern  = interp2app(W_FFIObject.descr_def_extern),
         dlclose     = interp2app(W_FFIObject.descr_dlclose),
         dlopen      = interp2app(W_FFIObject.descr_dlopen),
         from_buffer = interp2app(W_FFIObject.descr_from_buffer),

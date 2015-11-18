@@ -168,9 +168,9 @@ class W_LibObject(W_Root):
                 w_result = W_CData(self.space, ptr, w_ctfnptr)
                 #
                 #
-            elif op == cffi_opcode.OP_CALL_PYTHON:
+            elif op == cffi_opcode.OP_EXTERN_PYTHON:
                 # for reading 'lib.bar' where bar is declared
-                # with CFFI_CALL_PYTHON
+                # as an extern "Python"
                 w_ct = realize_c_type.realize_c_type(
                     self.ffi, self.ctx.c_types, getarg(g.c_type_op))
                 ptr = lltype.direct_fieldptr(g, 'c_size_or_direct_fn')
