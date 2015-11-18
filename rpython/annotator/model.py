@@ -140,12 +140,17 @@ class SomeType(SomeObject):
 
 class SomeTypeOf(SomeType):
     """The type of a variable"""
-    def __init__(self, v_arg):
-        self.v_arg = v_arg
+    def __init__(self, args_v):
+        assert isinstance(args_v, list)
+        assert args_v
+        self.is_type_of = args_v
 
-    @property
-    def is_type_of(self):
-        return [self.v_arg]
+def typeof(args_v):
+    if args_v:
+        return SomeTypeOf(args_v)
+    else:
+        return SomeType()
+
 
 class SomeFloat(SomeObject):
     "Stands for a float or an integer."

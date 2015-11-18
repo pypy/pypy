@@ -146,25 +146,18 @@ class __extend__(pairtype(SomeType, SomeType),
 
     def union((obj1, obj2)):
         result = SomeType()
-        is_type_of1 = getattr(obj1, 'is_type_of', [])
-        is_type_of2 = getattr(obj2, 'is_type_of', [])
         if obj1.is_immutable_constant() and obj2.is_immutable_constant() and obj1.const == obj2.const:
             result.const = obj1.const
-        if is_type_of1 and is_type_of1 == is_type_of2:
-            result.is_type_of = is_type_of1
         return result
 
 class __extend__(pairtype(SomeTypeOf, SomeTypeOf)):
     def union((s_obj1, s_obj2)):
-        if s_obj1 == s_obj2:
-            return s_obj1
-        else:
-            s_1 = SomeType()
-            s_1.is_type_of = s_obj1.is_type_of
-            s_2 = SomeType()
-            s_2.is_type_of = s_obj2.is_type_of
-            return unionof(s_1, s_2)
-
+        vars = list(set(s_obj1.is_type_of) | set(s_obj2.is_type_of))
+        result = SomeTypeOf(vars)
+        if (s_obj1.is_immutable_constant() and s_obj2.is_immutable_constant()
+                and s_obj1.const == s_obj2.const):
+            result.const = obj1.const
+        return result
 
 # cloning a function with identical code, for the can_only_throw attribute
 def _clone(f, can_only_throw = None):

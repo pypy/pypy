@@ -11,7 +11,7 @@ from rpython.flowspace.model import Variable, Constant, checkgraph
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
 from rpython.annotator.model import (
-        SomeTypeOf, SomeException, SomeExceptCase, s_ImpossibleValue)
+        typeof, SomeTypeOf, SomeException, SomeExceptCase, s_ImpossibleValue)
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
 
@@ -395,11 +395,10 @@ class RPythonAnnotator(object):
             for v in s_out.is_type_of:
                 renamed_is_type_of += renaming[v]
             assert s_out.knowntype is type
-            newcell = annmodel.SomeType()
+            newcell = typeof(renamed_is_type_of)
             if s_out.is_constant():
                 newcell.const = s_out.const
             s_out = newcell
-            s_out.is_type_of = renamed_is_type_of
 
         if hasattr(s_out, 'knowntypedata'):
             renamed_knowntypedata = {}
@@ -573,7 +572,7 @@ class RPythonAnnotator(object):
             self.setbinding(v_last_exc_value, s_last_exc_value)
 
         if isinstance(v_last_exc_type, Variable):
-            self.setbinding(v_last_exc_type, SomeTypeOf(v_last_exc_value))
+            self.setbinding(v_last_exc_type, SomeTypeOf([v_last_exc_value]))
 
 
         ignore_link = False
@@ -584,8 +583,7 @@ class RPythonAnnotator(object):
 
         for v_out, v_input in zip(link.args, link.target.inputargs):
             if v_out == v_last_exc_type:
-                s_out = annmodel.SomeType()
-                s_out.is_type_of = renaming[v_last_exc_value]
+                s_out = typeof(renaming[v_last_exc_value])
                 if isinstance(v_last_exc_type, Constant):
                     s_out.const = v_last_exc_type.value
                 inputs_s.append(s_out)

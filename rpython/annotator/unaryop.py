@@ -30,7 +30,7 @@ UNARY_OPERATIONS.remove('contains')
 
 @op.type.register(SomeObject)
 def type_SomeObject(annotator, v_arg):
-    return SomeTypeOf(v_arg)
+    return SomeTypeOf([v_arg])
 
 
 @op.bool.register(SomeObject)
