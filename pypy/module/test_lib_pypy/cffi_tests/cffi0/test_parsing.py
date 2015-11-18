@@ -407,16 +407,30 @@ def test_stdcall():
                         "long(*)(), "
                         "short(%s*)(short))'>" % (stdcall, stdcall))
 
-def test_CFFI_CALL_PYTHON():
+def test_extern_python():
     ffi = FFI()
     ffi.cdef("""
+        int bok(int, int);
+        extern "Python" int foobar(int, int);
         int baz(int, int);
-        CFFI_CALL_PYTHON int foobar(int, int);
     """)
-    assert 'variable CFFI_CALL_PYTHON' not in ffi._parser._declarations
-    assert 'function baz' in ffi._parser._declarations
-    assert 'call_python baz' not in ffi._parser._declarations
-    assert 'function foobar' not in ffi._parser._declarations
-    assert 'call_python foobar' in ffi._parser._declarations
+    assert sorted(ffi._parser._declarations) == [
+        'extern_python foobar', 'function baz', 'function bok']
+    assert (ffi._parser._declarations['function bok'] ==
+            ffi._parser._declarations['extern_python foobar'] ==
+            ffi._parser._declarations['function baz'])
+
+def test_extern_python_group():
+    ffi = FFI()
+    ffi.cdef("""
+        int bok(int);
+        extern "Python" {int foobar(int, int);int bzrrr(int);}
+        int baz(int, int);
+    """)
+    assert sorted(ffi._parser._declarations) == [
+        'extern_python bzrrr', 'extern_python foobar',
+        'function baz', 'function bok']
     assert (ffi._parser._declarations['function baz'] ==
-            ffi._parser._declarations['call_python foobar'])
+            ffi._parser._declarations['extern_python foobar'] !=
+            ffi._parser._declarations['function bok'] ==
+            ffi._parser._declarations['extern_python bzrrr'])

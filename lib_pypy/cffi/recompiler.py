@@ -118,7 +118,7 @@ class TypenameExpr:
 
 
 class Recompiler:
-    _num_callpy = 0
+    _num_externpy = 0
 
     def __init__(self, ffi, module_name, target_is_python=False):
         self.ffi = ffi
@@ -358,8 +358,8 @@ class Recompiler:
             prnt('  NULL,  /* no includes */')
         prnt('  %d,  /* num_types */' % (len(self.cffi_types),))
         flags = 0
-        if self._num_callpy:
-            flags |= 1     # set to mean "uses _cffi_call_python"
+        if self._num_externpy:
+            flags |= 1     # set to mean that we use extern "Python"
         prnt('  %d,  /* flags */' % flags)
         prnt('};')
         prnt()
@@ -370,10 +370,11 @@ class Recompiler:
         prnt('PyMODINIT_FUNC')
         prnt('_cffi_pypyinit_%s(const void *p[])' % (base_module_name,))
         prnt('{')
-        prnt('    if (((intptr_t)p[0]) >= 0x0A03) {')
-        prnt('        _cffi_call_python = (void(*)(struct _cffi_callpy_s *, '
-                                                  'char *))p[1];')
-        prnt('    }')
+        if self._num_externpy:
+            prnt('    if (((intptr_t)p[0]) >= 0x0A03) {')
+            prnt('        _cffi_call_python = '
+                 '(void(*)(struct _cffi_externpy_s *, char *))p[1];')
+            prnt('    }')
         prnt('    p[0] = (const void *)%s;' % VERSION)
         prnt('    p[1] = &_cffi_type_context;')
         prnt('}')
@@ -1116,13 +1117,13 @@ class Recompiler:
             GlobalExpr(name, '_cffi_var_%s' % name, CffiOp(op, type_index)))
 
     # ----------
-    # CFFI_CALL_PYTHON
+    # extern "Python"
 
-    def _generate_cpy_call_python_collecttype(self, tp, name):
+    def _generate_cpy_extern_python_collecttype(self, tp, name):
         assert isinstance(tp, model.FunctionPtrType)
         self._do_collect_type(tp)
 
-    def _generate_cpy_call_python_decl(self, tp, name):
+    def _generate_cpy_extern_python_decl(self, tp, name):
         prnt = self._prnt
         if isinstance(tp.result, model.VoidType):
             size_of_result = '0'
@@ -1130,7 +1131,7 @@ class Recompiler:
             context = 'result of %s' % name
             size_of_result = '(int)sizeof(%s)' % (
                 tp.result.get_c_name('', context),)
-        prnt('static struct _cffi_callpy_s _cffi_callpy__%s =' % name)
+        prnt('static struct _cffi_externpy_s _cffi_externpy__%s =' % name)
         prnt('  { "%s", %s };' % (name, size_of_result))
         prnt()
         #
@@ -1166,23 +1167,23 @@ class Recompiler:
                 arg = '&' + arg
                 type = model.PointerType(type)
             prnt('  *(%s)(p + %d) = %s;' % (type.get_c_name('*'), i*8, arg))
-        prnt('  _cffi_call_python(&_cffi_callpy__%s, p);' % name)
+        prnt('  _cffi_call_python(&_cffi_externpy__%s, p);' % name)
         if not isinstance(tp.result, model.VoidType):
             prnt('  return *(%s)p;' % (tp.result.get_c_name('*'),))
         prnt('}')
         prnt()
-        self._num_callpy += 1
+        self._num_externpy += 1
 
-    def _generate_cpy_call_python_ctx(self, tp, name):
+    def _generate_cpy_extern_python_ctx(self, tp, name):
         if self.target_is_python:
             raise ffiplatform.VerificationError(
-                "cannot use CFFI_CALL_PYTHON in the ABI mode")
+                "cannot use 'extern \"Python\"' in the ABI mode")
         if tp.ellipsis:
-            raise NotImplementedError("CFFI_CALL_PYTHON with a vararg function")
+            raise NotImplementedError("a vararg function is extern \"Python\"")
         type_index = self._typesdict[tp]
-        type_op = CffiOp(OP_CALL_PYTHON, type_index)
+        type_op = CffiOp(OP_EXTERN_PYTHON, type_index)
         self._lsts["global"].append(
-            GlobalExpr(name, '&_cffi_callpy__%s' % name, type_op, name))
+            GlobalExpr(name, '&_cffi_externpy__%s' % name, type_op, name))
 
     # ----------
     # emitting the opcodes for individual types

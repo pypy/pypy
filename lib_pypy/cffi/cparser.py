@@ -29,7 +29,7 @@ _r_int_literal = re.compile(r"-?0?x?[0-9a-f]+[lu]*$", re.IGNORECASE)
 _r_stdcall1 = re.compile(r"\b(__stdcall|WINAPI)\b")
 _r_stdcall2 = re.compile(r"[(]\s*(__stdcall|WINAPI)\b")
 _r_cdecl = re.compile(r"\b__cdecl\b")
-_r_cffi_call_python = re.compile(r"\bCFFI_CALL_PYTHON\b")
+_r_extern_python = re.compile(r'\bextern\s*"Python"\s*.')
 _r_star_const_space = re.compile(       # matches "* const "
     r"[*]\s*((const|volatile|restrict)\b\s*)+")
 
@@ -81,6 +81,47 @@ def _workaround_for_old_pycparser(csource):
     parts.append(csource)
     return ''.join(parts)
 
+def _preprocess_extern_python(csource):
+    # input: `extern "Python" int foo(int);` or
+    #        `extern "Python" { int foo(int); }`
+    # output:
+    #     void __cffi_extern_python_start;
+    #     int foo(int);
+    #     void __cffi_extern_python_stop;
+    parts = []
+    while True:
+        match = _r_extern_python.search(csource)
+        if not match:
+            break
+        endpos = match.end() - 1
+        #print
+        #print ''.join(parts)+csource
+        #print '=>'
+        parts.append(csource[:match.start()])
+        parts.append('void __cffi_extern_python_start; ')
+        if csource[endpos] == '{':
+            # grouping variant
+            closing = csource.find('}', endpos)
+            if closing < 0:
+                raise api.CDefError("'extern \"Python\" {': no '}' found")
+            if csource.find('{', endpos + 1, closing) >= 0:
+                raise NotImplementedError("cannot use { } inside a block "
+                                          "'extern \"Python\" { ... }'")
+            parts.append(csource[endpos+1:closing])
+            csource = csource[closing+1:]
+        else:
+            # non-grouping variant
+            semicolon = csource.find(';', endpos)
+            if semicolon < 0:
+                raise api.CDefError("'extern \"Python\": no ';' found")
+            parts.append(csource[endpos:semicolon+1])
+            csource = csource[semicolon+1:]
+        parts.append(' void __cffi_extern_python_stop;')
+        #print ''.join(parts)+csource
+        #print
+    parts.append(csource)
+    return ''.join(parts)
+
 def _preprocess(csource):
     # Remove comments.  NOTE: this only work because the cdef() section
     # should not contain any string literal!
@@ -105,8 +146,8 @@ def _preprocess(csource):
     csource = _r_stdcall1.sub(' volatile volatile const ', csource)
     csource = _r_cdecl.sub(' ', csource)
     #
-    # Replace "CFFI_CALL_PYTHON" with "void CFFI_CALL_PYTHON;"
-    csource = _r_cffi_call_python.sub('void CFFI_CALL_PYTHON;', csource)
+    # Replace `extern "Python"` with start/end markers
+    csource = _preprocess_extern_python(csource)
     #
     # Replace "[...]" with "[__dotdotdotarray__]"
     csource = _r_partial_array.sub('[__dotdotdotarray__]', csource)
@@ -263,9 +304,8 @@ class Parser(object):
                 break
         #
         try:
-            self._found_cffi_call_python = False
+            self._inside_extern_python = False
             for decl in iterator:
-                old_cffi_call_python = self._found_cffi_call_python
                 if isinstance(decl, pycparser.c_ast.Decl):
                     self._parse_decl(decl)
                 elif isinstance(decl, pycparser.c_ast.Typedef):
@@ -288,8 +328,6 @@ class Parser(object):
                     self._declare('typedef ' + decl.name, realtype, quals=quals)
                 else:
                     raise api.CDefError("unrecognized construct", decl)
-                if old_cffi_call_python and self._found_cffi_call_python:
-                    raise api.CDefError("CFFI_CALL_PYTHON misplaced")
         except api.FFIError as e:
             msg = self._convert_pycparser_error(e, csource)
             if msg:
@@ -338,9 +376,8 @@ class Parser(object):
 
     def _declare_function(self, tp, quals, decl):
         tp = self._get_type_pointer(tp, quals)
-        if self._found_cffi_call_python:
-            self._declare('call_python ' + decl.name, tp)
-            self._found_cffi_call_python = False
+        if self._inside_extern_python:
+            self._declare('extern_python ' + decl.name, tp)
         else:
             self._declare('function ' + decl.name, tp)
 
@@ -378,15 +415,23 @@ class Parser(object):
                         _r_int_literal.match(decl.init.expr.value)):
                     self._add_integer_constant(decl.name,
                                                '-' + decl.init.expr.value)
-                elif tp is model.void_type and decl.name == 'CFFI_CALL_PYTHON':
-                    # hack: "CFFI_CALL_PYTHON" in the C source is replaced
-                    # with "void CFFI_CALL_PYTHON;", which when parsed arrives
-                    # at this point and sets this flag:
-                    self._found_cffi_call_python = True
-                elif (quals & model.Q_CONST) and not tp.is_array_type:
-                    self._declare('constant ' + decl.name, tp, quals=quals)
+                elif (tp is model.void_type and
+                      decl.name.startswith('__cffi_extern_python_')):
+                    # hack: `extern "Python"` in the C source is replaced
+                    # with "void __cffi_extern_python_start;" and
+                    # "void __cffi_extern_python_stop;"
+                    self._inside_extern_python = not self._inside_extern_python
+                    assert self._inside_extern_python == (
+                        decl.name == '__cffi_extern_python_start')
                 else:
-                    self._declare('variable ' + decl.name, tp, quals=quals)
+                    if self._inside_extern_python:
+                        raise api.CDefError(
+                            "cannot declare constants or "
+                            "variables with 'extern \"Python\"'")
+                    if (quals & model.Q_CONST) and not tp.is_array_type:
+                        self._declare('constant ' + decl.name, tp, quals=quals)
+                    else:
+                        self._declare('variable ' + decl.name, tp, quals=quals)
 
     def parse_type(self, cdecl):
         return self.parse_type_and_quals(cdecl)[0]
