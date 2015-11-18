@@ -419,7 +419,6 @@ def _make_execute_list():
                          rop.CALL_PURE_F,
                          rop.CALL_PURE_N,
                          rop.CALL_RELEASE_GIL_I,
-                         rop.CALL_RELEASE_GIL_R,
                          rop.CALL_RELEASE_GIL_F,
                          rop.CALL_RELEASE_GIL_N,
                          rop.QUASIIMMUT_FIELD,

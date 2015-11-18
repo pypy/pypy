@@ -253,7 +253,6 @@ class Optimizer(Optimization):
         self.pendingfields = None # set temporarily to a list, normally by
                                   # heap.py, as we're about to generate a guard
         self.quasi_immutable_deps = None
-        self.opaque_pointers = {}
         self.replaces_guard = {}
         self._newoperations = []
         self.optimizer = self

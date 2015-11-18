@@ -1169,7 +1169,6 @@ class ResOpAssembler(BaseAssembler):
         self._emit_call(op, arglocs, is_call_release_gil=True)
         return fcond
     emit_op_call_release_gil_i = _genop_call_release_gil
-    emit_op_call_release_gil_r = _genop_call_release_gil
     emit_op_call_release_gil_f = _genop_call_release_gil
     emit_op_call_release_gil_n = _genop_call_release_gil
 

@@ -3,7 +3,8 @@ import types
 from rpython.flowspace.model import FunctionGraph, Link, Block, SpaceOperation
 from rpython.annotator import model as annmodel
 from rpython.annotator.description import (
-    FunctionDesc, ClassDesc, MethodDesc, FrozenDesc, MethodOfFrozenDesc)
+    FunctionDesc, MethodDesc, FrozenDesc, MethodOfFrozenDesc)
+from rpython.annotator.classdesc import ClassDesc
 from rpython.flowspace.model import Constant
 from rpython.annotator.argument import simple_args
 from rpython.rlib.debug import ll_assert
@@ -1104,7 +1105,7 @@ class MethodsPBCRepr(Repr):
                                  "classes with no common base: %r" % (mdescs,))
 
         self.methodname = methodname
-        self.classdef = classdef.locate_attribute(methodname)
+        self.classdef = classdef.get_owner(methodname)
         # the low-level representation is just the bound 'self' argument.
         self.s_im_self = annmodel.SomeInstance(self.classdef, flags=flags)
         self.r_im_self = rclass.getinstancerepr(rtyper, self.classdef)
