@@ -1,8 +1,7 @@
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rawstorage import (alloc_raw_storage, raw_storage_setitem,
-                                     free_raw_storage, raw_storage_getitem,
-                                     str_storage_getitem)
+                                     free_raw_storage, raw_storage_getitem)
 
 
 class RawMemTests(object):
@@ -105,20 +104,6 @@ class RawMemTests(object):
 
         res = self.interp_operations(f, [])
         assert res == ord('X')
-
-    def test_str_storage_int(self):
-        import struct
-        data = struct.pack('qq', 42, 100)
-        def f():
-            a = str_storage_getitem(lltype.Signed, data, 0)
-            b = str_storage_getitem(lltype.Signed, data, 8)
-            return a+b
-        res = self.interp_operations(f, [])
-        assert res == 142
-        self.check_operations_history({'getarrayitem_gc_i': 2,
-                                       'int_add': 1,
-                                       'finish': 1})
-
 
 
 class TestRawMem(RawMemTests, LLJitMixin):
