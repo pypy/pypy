@@ -1,8 +1,13 @@
-import py
+import pytest
 
 from rpython.annotator.model import *
 from rpython.annotator.listdef import ListDef
 from rpython.translator.translator import TranslationContext
+
+@pytest.fixture()
+def annotator():
+    t = TranslationContext()
+    return t.buildannotator()
 
 
 listdef1 = ListDef(None, SomeTuple([SomeInteger(nonneg=True), SomeString()]))
@@ -100,19 +105,21 @@ def compile_function(function, annotation=[]):
 class AAA(object):
     pass
 
-def test_blocked_inference1():
+def test_blocked_inference1(annotator):
     def blocked_inference():
         return AAA().m()
 
-    py.test.raises(AnnotatorError, compile_function, blocked_inference)
+    with pytest.raises(AnnotatorError):
+        annotator.build_types(blocked_inference, [])
 
-def test_blocked_inference2():
+def test_blocked_inference2(annotator):
     def blocked_inference():
         a = AAA()
         b = a.x
         return b
 
-    py.test.raises(AnnotatorError, compile_function, blocked_inference)
+    with pytest.raises(AnnotatorError):
+        annotator.build_types(blocked_inference, [])
 
 
 def test_not_const():
