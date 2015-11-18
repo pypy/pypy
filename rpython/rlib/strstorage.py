@@ -31,7 +31,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.lltypesystem.rstr import STR, _get_raw_str_buf
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib import rgc
 
 @specialize.memo()
 def rpy_string_as_type(TP):
@@ -45,7 +44,6 @@ def rpy_string_as_type(TP):
                                 ('chars', lltype.Array(TP, hints={'immutable': True})))
     return STR_AS_TP
 
-@rgc.no_collect
 @specialize.ll()
 def str_storage_getitem(TP, s, index):
     STR_AS_TP = rpy_string_as_type(TP)
