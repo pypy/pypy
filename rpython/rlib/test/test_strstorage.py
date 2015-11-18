@@ -2,6 +2,7 @@ import py
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.strstorage import str_storage_getitem
+from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rtyper.test.tool import BaseRtypingTest
 
 class BaseStrStorageTest:
@@ -25,6 +26,15 @@ class BaseStrStorageTest:
         size = struct.calcsize('@d')
         assert self.str_storage_getitem(lltype.Float, buf, 0) == 12.3
         assert self.str_storage_getitem(lltype.Float, buf, size) == 45.6
+
+    def test_singlefloat(self):
+        buf = struct.pack('@ff', 12.3, 45.6)
+        size = struct.calcsize('@f')
+        x = self.str_storage_getitem(lltype.SingleFloat, buf, 0)
+        assert x == r_singlefloat(12.3)
+        x = self.str_storage_getitem(lltype.SingleFloat, buf, size)
+        assert x == r_singlefloat(45.6)
+
 
 class TestDirect(BaseStrStorageTest):
 
