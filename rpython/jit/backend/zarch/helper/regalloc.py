@@ -152,7 +152,7 @@ def prepare_binary_op(self, op):
     self.free_op_vars()
     return [l0, l1]
 
-def prepare_unary_op(self, op):
+def prepare_unary_cmp(self, op):
     a0 = op.getarg(0)
     assert not isinstance(a0, ConstInt)
     l0 = self.ensure_reg(a0)
@@ -160,3 +160,11 @@ def prepare_unary_op(self, op):
     res = self.force_allocate_reg_or_cc(op)
     self.free_op_vars()
     return [l0, res]
+
+def prepare_unary_op(self, op):
+    a0 = op.getarg(0)
+    assert not isinstance(a0, ConstInt)
+    l0 = self.ensure_reg(a0)
+    self.force_result_in_reg(op, a0)
+    self.free_op_vars()
+    return [l0]

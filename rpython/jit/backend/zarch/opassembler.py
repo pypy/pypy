@@ -114,13 +114,25 @@ class IntOpAssembler(object):
             #self.mc.AGR(lr, l1)
 
     def emit_int_invert(self, op, arglocs, regalloc):
-        l0, _ = arglocs
+        l0 = arglocs
         assert not l0.is_imm()
         self.mc.XG(l0, l.pool(self.pool.constant_64_ones))
 
     def emit_int_neg(self, op, arglocs, regalloc):
-        l0, _ = arglocs
+        l0 = arglocs
         self.mc.LCGR(l0, l0)
+
+    def emit_int_signext(self, op, arglocs, regalloc):
+        l0, = arglocs
+        extend_from = op.getarg(1).getint()
+        if extend_from == 1:
+            self.mc.LGBR(l0, l0)
+        elif extend_from == 2:
+            self.mc.LGHR(l0, l0)
+        elif extend_from == 4:
+            self.mc.LGFR(l0, l0)
+        else:
+            raise AssertionError(extend_from)
 
     def emit_int_is_zero(self, op, arglocs, regalloc):
         l0, res = arglocs
