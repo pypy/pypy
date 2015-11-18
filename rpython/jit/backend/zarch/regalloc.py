@@ -825,8 +825,8 @@ if __name__ == '__main__':
     for m in missing:
         print(" " * 4 + m)
     print
-    print("regalloc implements %.2f%% of all resops" % \
-          (100.0 * implemented_count / total_count))
+    print("regalloc implements %d of %d = %.2f%% of all resops" % \
+          (implemented_count, total_count, (100.0 * implemented_count / total_count)))
 
 del implemented_count
 del total_count
