@@ -535,10 +535,14 @@ class OptHeap(Optimization):
         cf.do_setfield(self, op)
 
     def optimize_GETARRAYITEM_GC_I(self, op):
+        # When using str_storage_getitem we op.getarg(0) is a string, NOT an
+        # array. That's why we need to check for .is_array() before
+        # remembering the reads. There is no point in remembering it, as the
+        # box will be forced anyway by the optimizer
         arrayinfo = self.ensure_ptr_info_arg0(op)
         indexb = self.getintbound(op.getarg(1))
         cf = None
-        if indexb.is_constant():
+        if indexb.is_constant() and arrayinfo.is_array():
             index = indexb.getint()
             arrayinfo.getlenbound(None).make_gt_const(index)
             # use the cache on (arraydescr, index), which is a constant
@@ -555,7 +559,7 @@ class OptHeap(Optimization):
         self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
         # the remember the result of reading the array item
-        if cf is not None:
+        if cf is not None and arrayinfo.is_array():
             arrayinfo.setitem(op.getdescr(), indexb.getint(),
                               self.get_box_replacement(op.getarg(0)),
                               self.get_box_replacement(op), cf,

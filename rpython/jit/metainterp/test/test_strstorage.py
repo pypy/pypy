@@ -1,5 +1,6 @@
 import py
-from rpython.rtyper.lltypesystem import lltype
+import struct
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.strstorage import str_storage_getitem
 from rpython.rlib.test.test_strstorage import BaseStrStorageTest
 from rpython.jit.codewriter import longlong
@@ -26,3 +27,20 @@ class TestStrStorage(BaseStrStorageTest, LLJitMixin):
             # back!
             return longlong.int2singlefloat(res)
         return res
+
+
+    def test_force_virtual_str_storage(self):
+        size = rffi.sizeof(lltype.Signed)
+        def f(val):
+            x = chr(val) + '\x00'*(size-1)
+            return str_storage_getitem(lltype.Signed, x, 0)
+        res = self.interp_operations(f, [42], supports_singlefloats=True)
+        assert res == 42
+        self.check_operations_history({
+            'newstr': 1,              # str forcing
+            'strsetitem': 1,          # str forcing
+            'call_pure_r': 1,         # str forcing (copystrcontent)
+            'guard_no_exception': 1,  # str forcing
+            'getarrayitem_gc_i': 1,   # str_storage_getitem
+            'finish': 1
+            })
