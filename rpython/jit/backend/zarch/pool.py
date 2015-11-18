@@ -6,6 +6,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.jit.backend.zarch.arch import (WORD,
         RECOVERY_GCMAP_POOL_OFFSET, RECOVERY_TARGET_POOL_OFFSET)
+from rpython.rlib.longlong2float import float2longlong
 
 class LiteralPool(object):
     def __init__(self):
@@ -55,22 +56,23 @@ class LiteralPool(object):
     def get_descr_offset(self, descr):
         return self.offset_map[descr]
 
+    def get_offset(self, box):
+        return self.offset_map[box]
+
     def reserve_literal(self, size):
         self.size += size
-        print "resized to", self.size, "(+",size,")"
 
     def reset(self):
         self.pool_start = 0
         self.label_offset = 0
         self.size = 0
-        self.offset_map.clear()
+        self.offset_map = {}
         self.constant_64_zeros = -1
         self.constant_64_ones = -1
         self.constant_64_sign_bit = -1
         self.constant_max_64_positive -1
 
     def pre_assemble(self, asm, operations, bridge=False):
-        self.reset()
         # O(len(operations)). I do not think there is a way
         # around this.
         #
@@ -117,7 +119,6 @@ class LiteralPool(object):
 
     def overwrite_64(self, mc, index, value):
         index += self.pool_start
-        print("value", hex(value), "at", index - self.pool_start)
         mc.overwrite(index,   chr(value >> 56 & 0xff))
         mc.overwrite(index+1, chr(value >> 48 & 0xff))
         mc.overwrite(index+2, chr(value >> 40 & 0xff))
@@ -151,3 +152,4 @@ class LiteralPool(object):
             ptr = rffi.cast(lltype.Signed, guard_token.gcmap)
             self.overwrite_64(mc, offset + RECOVERY_GCMAP_POOL_OFFSET, ptr)
 
+        self.reset()

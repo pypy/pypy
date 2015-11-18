@@ -74,12 +74,11 @@ class FPRegisterManager(RegisterManager):
         return r.f1
 
     def place_in_pool(self, var):
-        offset = self.assembler.pool.place(var)
+        offset = self.assembler.pool.get_offset(var)
         return l.pool(offset, r.POOL)
 
     def ensure_reg(self, box):
         if isinstance(box, Const):
-            # TODO, allocate in a register or just load it straight from pool?
             return self.place_in_pool(box)
         else:
             assert box in self.temp_boxes
@@ -659,7 +658,6 @@ class Regalloc(BaseRegalloc):
 
     def load_condition_into_cc(self, box):
         if self.assembler.guard_success_cc == c.cond_none:
-            xxx
             loc = self.ensure_reg(box)
             mc = self.assembler.mc
             mc.cmp_op(loc, l.imm(0), imm=True)
