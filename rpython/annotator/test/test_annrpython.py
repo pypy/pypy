@@ -698,6 +698,19 @@ class TestAnnotateTestCase:
         s = a.build_types(snippet.exc_deduction_our_excs_plus_others, [])
         assert isinstance(s, annmodel.SomeInteger)
 
+    def test_method_exception_specialization(self):
+        def f(l):
+            try:
+                return l.pop()
+            except Exception:
+                raise
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [[int]])
+        graph = graphof(a, f)
+        etype, evalue = graph.exceptblock.inputargs
+        assert evalue.annotation.classdef.shortname == 'IndexError'
+        #assert etype.const == IndexError
+
     def test_operation_always_raising(self):
         def operation_always_raising(n):
             lst = []

@@ -445,6 +445,29 @@ class SomeInstance(SomeObject):
     def noneify(self):
         return SomeInstance(self.classdef, can_be_None=True)
 
+class SomeException(SomeObject):
+    def __init__(self, classes):
+        self.classes = classes
+
+    def intersection(self, other):
+        classes = {c for c in self.classes
+            if any(issubclass(c, c2) for c2 in other.classes)}
+        if classes:
+            return SomeException(classes)
+        else:
+            return s_ImpossibleValue
+
+    def difference(self, other):
+        classes = {c for c in self.classes
+            if not any(issubclass(c, c2) for c2 in other.classes)}
+        if classes:
+            return SomeException(classes)
+        else:
+            return s_ImpossibleValue
+
+    def as_SomeInstance(self, bk):
+        return unionof(*[bk.valueoftype(cls) for cls in self.classes])
+
 
 class SomePBC(SomeObject):
     """Stands for a global user instance, built prior to the analysis,

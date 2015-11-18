@@ -10,7 +10,8 @@ from rpython.tool.error import (format_blocked_annotation_error,
 from rpython.flowspace.model import Variable, Constant, checkgraph
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
-from rpython.annotator.model import SomeTypeOf
+from rpython.annotator.model import (
+        SomeTypeOf, SomeException, s_ImpossibleValue)
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
 
@@ -210,7 +211,7 @@ class RPythonAnnotator(object):
         for graph in newgraphs:
             v = graph.getreturnvar()
             if v.annotation is None:
-                self.setbinding(v, annmodel.s_ImpossibleValue)
+                self.setbinding(v, s_ImpossibleValue)
 
     def validate(self):
         """Check that the annotation results are valid"""
@@ -282,7 +283,7 @@ class RPythonAnnotator(object):
         except KeyError:
             # the function didn't reach any return statement so far.
             # (some functions actually never do, they always raise exceptions)
-            return annmodel.s_ImpossibleValue
+            return s_ImpossibleValue
 
     def reflowfromposition(self, position_key):
         graph, block, index = position_key
@@ -493,15 +494,21 @@ class RPythonAnnotator(object):
                 # filter out those exceptions which cannot
                 # occur for this specific, typed operation.
                 candidates = can_only_throw
+                s_exception = SomeException(set(can_only_throw))
                 for link in exits:
                     case = link.exitcase
+                    s_case = SomeException({case})
                     if case is None:
                         self.follow_link(graph, link, {})
                         continue
-                    covered = [c for c in candidates if issubclass(c, case)]
-                    if covered:
-                        self.follow_raise_link(graph, link, {})
-                        candidates = [c for c in candidates if c not in covered]
+                    if s_exception == s_ImpossibleValue:
+                        break
+                    s_matching_exc = s_exception.intersection(s_case)
+                    if s_matching_exc != s_ImpossibleValue:
+                        self.follow_raise_link(graph, link,
+                            constraints={link.last_exc_value:
+                                s_matching_exc.as_SomeInstance(self.bookkeeper)})
+                    s_exception = s_exception.difference(s_case)
             else:
                 for link in exits:
                     if link.exitcase is None:
@@ -543,7 +550,7 @@ class RPythonAnnotator(object):
                 s_constraint = constraints[v_out]
                 s_out = pair(s_out, s_constraint).improve()
                 # ignore links that try to pass impossible values
-                if s_out == annmodel.s_ImpossibleValue:
+                if s_out == s_ImpossibleValue:
                     ignore_link = True
             s_out = self.apply_renaming(s_out, renaming)
             inputs_s.append(s_out)
@@ -588,7 +595,7 @@ class RPythonAnnotator(object):
                     s_constraint = constraints[v_out]
                     s_out = pair(s_out, s_constraint).improve()
                     # ignore links that try to pass impossible values
-                    if s_out == annmodel.s_ImpossibleValue:
+                    if s_out == s_ImpossibleValue:
                         ignore_link = True
                 s_out = self.apply_renaming(s_out, renaming)
                 inputs_s.append(s_out)
@@ -612,8 +619,8 @@ class RPythonAnnotator(object):
                 raise BlockedInference(self, op, -1)
         resultcell = op.consider(self)
         if resultcell is None:
-            resultcell = annmodel.s_ImpossibleValue
-        elif resultcell == annmodel.s_ImpossibleValue:
+            resultcell = s_ImpossibleValue
+        elif resultcell == s_ImpossibleValue:
             raise BlockedInference(self, op, -1) # the operation cannot succeed
         assert isinstance(resultcell, annmodel.SomeObject)
         assert isinstance(op.result, Variable)
