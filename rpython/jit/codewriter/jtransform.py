@@ -1028,7 +1028,9 @@ class Transformer(object):
             ARRAY = getattr(STRUCT, c_field.value)
             assert isinstance(ARRAY, lltype.Array)
             arraydescr = self.cpu.arraydescrof(STRUCT)
-            return SpaceOperation('getarrayitem_gc_i',
+            kind = getkind(op.result.concretetype)[0]
+            assert kind in ('i', 'f')
+            return SpaceOperation('getarrayitem_gc_%s' % kind,
                                   [op.args[0], v_index, arraydescr],
                                   op.result)
 
