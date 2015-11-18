@@ -1008,12 +1008,11 @@ class Transformer(object):
             return SpaceOperation('getarrayitem_gc_i',
                                   [op.args[0], v_index, bytearraydescr],
                                   op.result)
-        else:
+        elif op.result.concretetype is lltype.Void:
+            return
+        elif isinstance(op.args[0].concretetype.TO, lltype.GcArray):
+            # special-case 1: GcArray of Struct
             v_inst, v_index, c_field = op.args
-            if op.result.concretetype is lltype.Void:
-                return
-            # only GcArray of Struct supported
-            assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
             STRUCT = v_inst.concretetype.TO.OF
             assert isinstance(STRUCT, lltype.Struct)
             descr = self.cpu.interiorfielddescrof(v_inst.concretetype.TO,
@@ -1021,6 +1020,16 @@ class Transformer(object):
             args = [v_inst, v_index, descr]
             kind = getkind(op.result.concretetype)[0]
             return SpaceOperation('getinteriorfield_gc_%s' % kind, args,
+                                  op.result)
+        elif isinstance(op.args[0].concretetype.TO, lltype.GcStruct):
+            # special-case 2: GcStruct with Array field
+            v_inst, c_field, v_index = op.args
+            STRUCT = v_inst.concretetype.TO
+            ARRAY = getattr(STRUCT, c_field.value)
+            assert isinstance(ARRAY, lltype.Array)
+            arraydescr = self.cpu.arraydescrof(STRUCT)
+            return SpaceOperation('getarrayitem_gc_i',
+                                  [op.args[0], v_index, arraydescr],
                                   op.result)
 
     def rewrite_op_setinteriorfield(self, op):
@@ -1130,10 +1139,13 @@ class Transformer(object):
     def rewrite_op_force_cast(self, op):
         v_arg = op.args[0]
         v_result = op.result
-        assert not self._is_gc(v_arg)
-
         if v_arg.concretetype == v_result.concretetype:
             return
+        elif self._is_gc(v_arg) and self._is_gc(v_result):
+            # cast from GC to GC is always fine
+            return
+        else:
+            assert not self._is_gc(v_arg)
 
         float_arg = v_arg.concretetype in [lltype.Float, lltype.SingleFloat]
         float_res = v_result.concretetype in [lltype.Float, lltype.SingleFloat]

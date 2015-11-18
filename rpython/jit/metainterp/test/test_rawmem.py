@@ -108,18 +108,17 @@ class RawMemTests(object):
 
     def test_str_storage_int(self):
         import struct
-        data = struct.pack('q', 42)
+        data = struct.pack('qq', 42, 100)
         def f():
-            res = str_storage_getitem(lltype.Signed, data, 0)
-            return res
+            a = str_storage_getitem(lltype.Signed, data, 0)
+            b = str_storage_getitem(lltype.Signed, data, 8)
+            return a+b
         res = self.interp_operations(f, [])
-        assert res == 42
-        import pdb;pdb.set_trace()
-        self.check_operations_history({'call_i': 1, 'guard_no_exception': 1,
-                                       'call_n': 1,
-                                       'raw_store': 1, 'raw_load_i': 1,
+        assert res == 142
+        self.check_operations_history({'getarrayitem_gc_i': 2,
+                                       'int_add': 1,
                                        'finish': 1})
-        self.metainterp.staticdata.stats.check_resops({'finish': 1}, omit_finish=False)
+
 
 
 class TestRawMem(RawMemTests, LLJitMixin):

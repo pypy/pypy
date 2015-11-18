@@ -5,7 +5,7 @@ from rpython.rlib import rawstorage
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage,\
      raw_storage_setitem, raw_storage_getitem, AlignmentError,\
      raw_storage_setitem_unaligned, raw_storage_getitem_unaligned,\
-     str_storage_getitem, str_storage_getitem_unaligned
+     str_storage_getitem
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.translator.c.test.test_genc import compile
 
@@ -43,16 +43,6 @@ def test_untranslated_str_storage():
     assert res == 43
     res = str_storage_getitem(lltype.Float, buf, size*2)
     assert res == 123.0
-
-def test_untranslated_str_storage_unaligned(monkeypatch):
-    import struct
-    monkeypatch.setattr(rawstorage, 'misaligned_is_fine', False)
-    buf = 'foo' + struct.pack('@ll', 42, 43)
-    size = struct.calcsize('@l')
-    res = str_storage_getitem_unaligned(lltype.Signed, buf, 3)
-    assert res == 42
-    res = str_storage_getitem_unaligned(lltype.Signed, buf, size+3)
-    assert res == 43
 
 class TestRawStorage(BaseRtypingTest):
 
