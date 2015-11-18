@@ -12,7 +12,7 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rawstorage import str_storage_getitem
+from rpython.rlib.strstorage import str_storage_getitem
 from rpython.rlib import rarithmetic
 from rpython.rtyper.lltypesystem import rffi
 
