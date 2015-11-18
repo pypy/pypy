@@ -11,7 +11,7 @@ from rpython.flowspace.model import Variable, Constant, checkgraph
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
 from rpython.annotator.model import (
-        SomeTypeOf, SomeException, s_ImpossibleValue)
+        SomeTypeOf, SomeException, SomeExceptCase, s_ImpossibleValue)
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
 
@@ -497,7 +497,7 @@ class RPythonAnnotator(object):
                 s_exception = SomeException(set(can_only_throw))
                 for link in exits:
                     case = link.exitcase
-                    s_case = SomeException({case})
+                    s_case = SomeExceptCase(case)
                     if case is None:
                         self.follow_link(graph, link, {})
                         continue

@@ -446,20 +446,21 @@ class SomeInstance(SomeObject):
         return SomeInstance(self.classdef, can_be_None=True)
 
 class SomeException(SomeObject):
+    """The set of exceptions obeying type(exc) in self.classes"""
     def __init__(self, classes):
         self.classes = classes
 
     def intersection(self, other):
-        classes = {c for c in self.classes
-            if any(issubclass(c, c2) for c2 in other.classes)}
+        assert isinstance(other, SomeExceptCase)
+        classes = {c for c in self.classes if issubclass(c, other.case)}
         if classes:
             return SomeException(classes)
         else:
             return s_ImpossibleValue
 
     def difference(self, other):
-        classes = {c for c in self.classes
-            if not any(issubclass(c, c2) for c2 in other.classes)}
+        assert isinstance(other, SomeExceptCase)
+        classes = {c for c in self.classes if not issubclass(c, other.case)}
         if classes:
             return SomeException(classes)
         else:
@@ -467,6 +468,15 @@ class SomeException(SomeObject):
 
     def as_SomeInstance(self, bk):
         return unionof(*[bk.valueoftype(cls) for cls in self.classes])
+
+
+class SomeExceptCase(SomeObject):
+    """The set of exceptions that match a given except clause.
+
+    IOW, the set of exceptions that verify isinstance(exc, self.case).
+    """
+    def __init__(self, case):
+        self.case = case
 
 
 class SomePBC(SomeObject):
