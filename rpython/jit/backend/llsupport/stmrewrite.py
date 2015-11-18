@@ -50,7 +50,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         if op.is_call():
             self.next_op_may_be_in_new_transaction()
             #
-            if opnum in (rop.CALL_RELEASE_GIL_I, rop.CALL_RELEASE_GIL_R,
+            if opnum in (rop.CALL_RELEASE_GIL_I,
                          rop.CALL_RELEASE_GIL_F, rop.CALL_RELEASE_GIL_N):
                 # self.fallback_inevitable(op)
                 # is done by assembler._release_gil_shadowstack()
