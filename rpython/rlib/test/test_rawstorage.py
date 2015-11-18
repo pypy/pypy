@@ -4,8 +4,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib import rawstorage
 from rpython.rlib.rawstorage import alloc_raw_storage, free_raw_storage,\
      raw_storage_setitem, raw_storage_getitem, AlignmentError,\
-     raw_storage_setitem_unaligned, raw_storage_getitem_unaligned,\
-     str_storage_getitem
+     raw_storage_setitem_unaligned, raw_storage_getitem_unaligned
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.translator.c.test.test_genc import compile
 
@@ -33,17 +32,6 @@ def test_untranslated_storage_unaligned(monkeypatch):
     assert res == 3.14
     free_raw_storage(r)
 
-def test_untranslated_str_storage():
-    import struct
-    buf = struct.pack('@lld', 42, 43, 123.0)
-    size = struct.calcsize('@l')
-    res = str_storage_getitem(lltype.Signed, buf, 0)
-    assert res == 42
-    res = str_storage_getitem(lltype.Signed, buf, size)
-    assert res == 43
-    res = str_storage_getitem(lltype.Float, buf, size*2)
-    assert res == 123.0
-
 class TestRawStorage(BaseRtypingTest):
 
     def test_storage_int(self):
@@ -56,21 +44,6 @@ class TestRawStorage(BaseRtypingTest):
 
         x = self.interpret(f, [1<<30])
         assert x == 1 << 30
-
-    def test_str_storage_int(self):
-        import struct
-        buf = struct.pack('@ll', 42, 43)
-        size = struct.calcsize('@l')
-
-        def f(i):
-            res = str_storage_getitem(lltype.Signed, buf, i)
-            return res
-
-        x = self.interpret(f, [0])
-        assert x == 42
-        x = self.interpret(f, [8])
-        assert x == 43
-
 
     def test_storage_float_unaligned(self, monkeypatch):
         def f(v):

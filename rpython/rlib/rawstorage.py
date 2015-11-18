@@ -6,7 +6,6 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib import rgc
 from rpython.rlib.rgc import lltype_is_gc
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.strstorage import str_storage_getitem
 
 RAW_STORAGE = rffi.CCHARP.TO
 RAW_STORAGE_PTR = rffi.CCHARP
