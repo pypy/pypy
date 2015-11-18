@@ -391,8 +391,7 @@ class ObjSpace(object):
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
         self._code_of_sys_exc_info = None
-        self._code_hook = None
-
+        
         # can be overridden to a subclass
         self.initialize()
 
@@ -1241,13 +1240,6 @@ class ObjSpace(object):
         if not self.is_true(self.contains(w_globals, w_key)):
             self.setitem(w_globals, w_key, self.wrap(self.builtin))
         return statement.exec_code(self, w_globals, w_locals)
-
-    def new_code_hook(self, w_code):
-        if self._code_hook is not None:
-            try:
-                self.call_function(self._code_hook, w_code)
-            except OperationError, e:
-                e.write_unraisable(self, "new_code_hook()")
 
     def appexec(self, posargs_w, source):
         """ return value from executing given source at applevel.
