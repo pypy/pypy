@@ -151,3 +151,9 @@ def save_module_content_for_future_reload(space, w_module):
 def specialized_zip_2_lists(space, w_list1, w_list2):
     from pypy.objspace.std.specialisedtupleobject import specialized_zip_2_lists
     return specialized_zip_2_lists(space, w_list1, w_list2)
+
+def set_code_callback(space, w_callable):
+    if space.is_none(w_callable):
+        space._code_hook = None
+    else:
+        space._code_hook = w_callable

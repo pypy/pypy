@@ -86,6 +86,7 @@ class PyCode(eval.Code):
         self._signature = cpython_code_signature(self)
         self._initialize()
         self._init_ready()
+        self.space.new_code_hook(self)
 
     def _initialize(self):
         if self.co_cellvars:
