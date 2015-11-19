@@ -355,6 +355,7 @@ class TestTypes(BaseApiTest):
         assert api.PyErr_Occurred() is None
 
     def test_ndarray_ref(self, space, api):
+        py.test.py3k_skip('Numpy not yet supported on py3k')
         w_obj = space.appexec([], """():
             import _numpypy
             return _numpypy.multiarray.dtype('int64').type(2)""")
