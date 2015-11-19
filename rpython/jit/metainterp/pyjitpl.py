@@ -1903,7 +1903,9 @@ class MetaInterp(object):
         raise ChangeFrame
 
     def is_main_jitcode(self, jitcode):
-        return self.jitdriver_sd is not None and jitcode is self.jitdriver_sd.mainjitcode
+        return (jitcode.jitdriver_sd is not None and
+                jitcode.jitdriver_sd.jitdriver.is_main_jitdriver)
+        #return self.jitdriver_sd is not None and jitcode is self.jitdriver_sd.mainjitcode
 
     def newframe(self, jitcode, greenkey=None):
         if jitcode.jitdriver_sd:
