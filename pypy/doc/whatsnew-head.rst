@@ -1,5 +1,5 @@
 =========================
-What's new in PyPy 4.0.+
+What's new in PyPy 4.1.+
 =========================
 
 .. this is a revision shortly after release-4.0.1
