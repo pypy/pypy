@@ -1920,7 +1920,7 @@ class MetaInterp(object):
             self.current_call_id += 1
         if greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
-                    (greenkey, len(self.history.operations)))
+                    (jitcode.jitdriver_sd, greenkey, len(self.history.operations)))
         if len(self.free_frames_list) > 0:
             f = self.free_frames_list.pop()
         else:
@@ -1947,7 +1947,7 @@ class MetaInterp(object):
             self.call_ids.pop()
         if frame.greenkey is not None and self.is_main_jitcode(jitcode):
             self.portal_trace_positions.append(
-                    (None, len(self.history.operations)))
+                    (jitcode.jitdriver_sd, None, len(self.history.operations)))
         # we save the freed MIFrames to avoid needing to re-create new
         # MIFrame objects all the time; they are a bit big, with their
         # 3*256 register entries.
@@ -2233,11 +2233,11 @@ class MetaInterp(object):
     def blackhole_if_trace_too_long(self):
         warmrunnerstate = self.jitdriver_sd.warmstate
         if len(self.history.operations) > warmrunnerstate.trace_limit:
-            greenkey_of_huge_function = self.find_biggest_function()
+            jd_sd, greenkey_of_huge_function = self.find_biggest_function()
             self.staticdata.stats.record_aborted(greenkey_of_huge_function)
             self.portal_trace_positions = None
             if greenkey_of_huge_function is not None:
-                warmrunnerstate.disable_noninlinable_function(
+                jd_sd.warmstate.disable_noninlinable_function(
                     greenkey_of_huge_function)
                 if self.current_merge_points:
                     jd_sd = self.jitdriver_sd
@@ -2914,37 +2914,41 @@ class MetaInterp(object):
         start_stack = []
         max_size = 0
         max_key = None
-        warmstate = self.jitdriver_sd.warmstate
+        max_jdsd = None
         r = ''
         debug_start("jit-abort-longest-function")
-        for pair in self.portal_trace_positions:
-            key, pos = pair
+        for elem in self.portal_trace_positions:
+            jitdriver_sd, key, pos = elem
             if key is not None:
-                start_stack.append(pair)
+                start_stack.append(elem)
             else:
-                greenkey, startpos = start_stack.pop()
+                jitdriver_sd, greenkey, startpos = start_stack.pop()
+                warmstate = jitdriver_sd.warmstate
                 size = pos - startpos
                 if size > max_size:
                     if warmstate is not None:
                         r = warmstate.get_location_str(greenkey)
                     debug_print("found new longest: %s %d" % (r, size))
                     max_size = size
+                    max_jdsd = jitdriver_sd
                     max_key = greenkey
         if start_stack:
-            key, pos = start_stack[0]
+            jitdriver_sd, key, pos = start_stack[0]
+            warmstate = jitdriver_sd.warmstate
             size = len(self.history.operations) - pos
             if size > max_size:
                 if warmstate is not None:
-                    r = self.jitdriver_sd.warmstate.get_location_str(key)
+                    r = warmstate.get_location_str(key)
                 debug_print("found new longest: %s %d" % (r, size))
                 max_size = size
+                max_jdsd = jitdriver_sd
                 max_key = key
-        if warmstate is not None: # tests
+        if self.portal_trace_positions: # tests
             self.staticdata.logger_ops.log_abort_loop(self.history.inputargs,
                                        self.history.operations,
                                        self.box_names_memo)
         debug_stop("jit-abort-longest-function")
-        return max_key
+        return max_jdsd, max_key
 
     def record_result_of_call_pure(self, op):
         """ Patch a CALL into a CALL_PURE.
