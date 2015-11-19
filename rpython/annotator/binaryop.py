@@ -677,11 +677,15 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
             thistype = pairtype(SomeInstance, SomeInstance)
             return super(thistype, pair(ins1, ins2)).improve()
 
-class __extend__(pairtype(SomeException, SomeInstance)):
+class __extend__(
+        pairtype(SomeException, SomeInstance),
+        pairtype(SomeException, SomeNone)):
     def union((s_exc, s_inst)):
         return unionof(s_exc.as_SomeInstance(), s_inst)
 
-class __extend__(pairtype(SomeInstance, SomeException)):
+class __extend__(
+        pairtype(SomeInstance, SomeException),
+        pairtype(SomeNone, SomeException)):
     def union((s_inst, s_exc)):
         return unionof(s_exc.as_SomeInstance(), s_inst)
 

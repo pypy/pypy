@@ -145,3 +145,6 @@ def test_SomeException_union(annotator):
     s_exc = bk.new_exception([ValueError, IndexError])
     assert unionof(s_exc, s_inst) == s_inst
     assert unionof(s_inst, s_exc) == s_inst
+    s_nullable = unionof(s_None, bk.new_exception([ValueError]))
+    assert isinstance(s_nullable, SomeInstance)
+    assert s_nullable.can_be_None
