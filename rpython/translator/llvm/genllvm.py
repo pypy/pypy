@@ -90,26 +90,34 @@ class Type(object):
         else:
             global_attrs += 'internal '
             name = database.unique_name('@global')
-        if self.varsize:
-            extra_len = self.get_extra_len(obj)
-            ptr_type.refs[obj] = 'bitcast({} {} to {})'.format(
-                    ptr_type.repr_type(extra_len), name,
-                    ptr_type.repr_type(None))
-        else:
-            ptr_type.refs[obj] = name
-        hash_ = database.genllvm.gcpolicy.get_prebuilt_hash(obj)
         if (hasattr(obj._TYPE, '_hints') and
             obj._TYPE._hints.get('immutable', False) and
             obj._TYPE._gckind != 'gc'):
             global_attrs += 'constant'
         else:
             global_attrs += 'global'
-        database.f.write('{} = {} {}\n'.format(
-                name, global_attrs, self.repr_type_and_value(obj)))
-        if hash_ is not None:
-            database.f.write('{}_hash = {} {} {}\n'
-                    .format(name, global_attrs, SIGNED_TYPE, hash_))
-            database.hashes.append(name)
+
+        hash_ = database.genllvm.gcpolicy.get_prebuilt_hash(obj)
+        if hash_ is None:
+            if self.varsize:
+                extra_len = self.get_extra_len(obj)
+                ptr_type.refs[obj] = 'bitcast({} {} to {})'.format(
+                        ptr_type.repr_type(extra_len), name,
+                        ptr_type.repr_type(None))
+            else:
+                ptr_type.refs[obj] = name
+            database.f.write('{} = {} {}\n'.format(
+                    name, global_attrs, self.repr_type_and_value(obj)))
+        else:
+            assert not self.varsize
+            with_hash_type = '{{ {}, {} }}'.format(
+                    self.repr_type(), SIGNED_TYPE)
+            ptr_type.refs[obj] = \
+                'getelementptr({}, {}* {}_with_hash, i64 0, i32 0)'.format(
+                    with_hash_type, with_hash_type, name)
+            database.f.write('{}_with_hash = {} {} {{ {}, {} {} }}\n'.format(
+                    name, global_attrs, with_hash_type,
+                    self.repr_type_and_value(obj), SIGNED_TYPE, hash_))
 
 
 class VoidType(Type):
@@ -765,7 +773,6 @@ class Database(object):
         self.f = f
         self.names_counter = {}
         self.types = PRIMITIVES.copy()
-        self.hashes = []
         self.stack_bottoms = []
         self.tls_getters = set()
         self.tls_addr_wrapper = False
@@ -1875,12 +1882,6 @@ class GenLLVM(object):
             for export in self.entrypoints:
                 get_repr(export._as_ptr()).V
 
-            if database.hashes:
-                items = ('i8* bitcast({}* {}_hash to i8*)'
-                        .format(SIGNED_TYPE, name) for name in database.hashes)
-                f.write('@llvm.used = appending global [{} x i8*] [ {} ], '
-                        'section "llvm.metadata"\n'
-                        .format(len(database.hashes), ', '.join(items)))
             if database.stack_bottoms:
                 items = ('i8* bitcast({} to i8*)'
                         .format(ref) for ref in database.stack_bottoms)
