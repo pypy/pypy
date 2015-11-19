@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.pycode import CodeHookCache
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib.objectmodel import we_are_translated
@@ -151,3 +152,10 @@ def save_module_content_for_future_reload(space, w_module):
 def specialized_zip_2_lists(space, w_list1, w_list2):
     from pypy.objspace.std.specialisedtupleobject import specialized_zip_2_lists
     return specialized_zip_2_lists(space, w_list1, w_list2)
+
+def set_code_callback(space, w_callable):
+    cache = space.fromcache(CodeHookCache)
+    if space.is_none(w_callable):
+        cache._code_hook = None
+    else:
+        cache._code_hook = w_callable

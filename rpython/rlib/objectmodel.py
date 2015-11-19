@@ -9,6 +9,8 @@ import sys
 import types
 import math
 import inspect
+from collections import OrderedDict
+
 from rpython.tool.sourcetools import rpython_wrapper, func_with_new_name
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.flowspace.specialcase import register_flow_sc
@@ -744,8 +746,6 @@ class r_dict(object):
 
 class r_ordereddict(r_dict):
     def _newdict(self):
-        from collections import OrderedDict
-
         return OrderedDict()
 
 class _r_dictkey(object):

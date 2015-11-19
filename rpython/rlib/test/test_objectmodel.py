@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import py
 from rpython.rlib.objectmodel import *
 from rpython.rlib import types
@@ -330,10 +331,6 @@ class TestObjectModel(BaseRtypingTest):
         assert res == 42     # "did not crash"
 
     def test_prepare_dict_update_2(self):
-        try:
-            from collections import OrderedDict
-        except ImportError:     # Python 2.6
-            py.test.skip("requires collections.OrderedDict")
         def g(n):
             d = OrderedDict()
             prepare_dict_update(d, n)

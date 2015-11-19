@@ -902,7 +902,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         # [Const(save_err), func_addr, args...]
         self._consider_call(op, guard_not_forced=True, first_arg_index=2)
     consider_call_release_gil_i = _consider_call_release_gil
-    consider_call_release_gil_r = _consider_call_release_gil
     consider_call_release_gil_f = _consider_call_release_gil
     consider_call_release_gil_n = _consider_call_release_gil
     
@@ -1141,8 +1140,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_getfield_gc_f = _consider_getfield
     consider_getfield_raw_i = _consider_getfield
     consider_getfield_raw_f = _consider_getfield
-    consider_getfield_raw_pure_i = _consider_getfield
-    consider_getfield_raw_pure_f = _consider_getfield
     consider_getfield_gc_pure_i = _consider_getfield
     consider_getfield_gc_pure_r = _consider_getfield
     consider_getfield_gc_pure_f = _consider_getfield
@@ -1172,8 +1169,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_getarrayitem_gc_pure_i = _consider_getarrayitem
     consider_getarrayitem_gc_pure_r = _consider_getarrayitem
     consider_getarrayitem_gc_pure_f = _consider_getarrayitem
-    consider_getarrayitem_raw_pure_i = _consider_getarrayitem
-    consider_getarrayitem_raw_pure_f = _consider_getarrayitem
     consider_raw_load_i = _consider_getarrayitem
     consider_raw_load_f = _consider_getarrayitem
 
