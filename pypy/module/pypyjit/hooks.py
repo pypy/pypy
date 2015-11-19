@@ -35,10 +35,10 @@ class PyPyJitIface(JitHookInterface):
         self._compile_hook(debug_info, is_bridge=True)
 
     def before_compile(self, debug_info):
-        self._optimize_hook(debug_info, is_bridge=False)
+        pass
 
     def before_compile_bridge(self, debug_info):
-        self._optimize_hook(debug_info, is_bridge=True)
+        pass
 
     def _compile_hook(self, debug_info, is_bridge):
         space = self.space
@@ -46,41 +46,13 @@ class PyPyJitIface(JitHookInterface):
         if cache.in_recursion:
             return
         if space.is_true(cache.w_compile_hook):
-            w_debug_info = W_JitLoopInfo(space, debug_info, is_bridge)
+            w_debug_info = W_JitLoopInfo(space, debug_info, is_bridge,
+                                         cache.compile_hook_with_ops)
             cache.in_recursion = True
             try:
                 try:
                     space.call_function(cache.w_compile_hook,
                                         space.wrap(w_debug_info))
-                except OperationError, e:
-                    e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
-            finally:
-                cache.in_recursion = False
-
-    def _optimize_hook(self, debug_info, is_bridge=False):
-        space = self.space
-        cache = space.fromcache(Cache)
-        if cache.in_recursion:
-            return
-        if space.is_true(cache.w_optimize_hook):
-            w_debug_info = W_JitLoopInfo(space, debug_info, is_bridge)
-            cache.in_recursion = True
-            try:
-                try:
-                    w_res = space.call_function(cache.w_optimize_hook,
-                                                space.wrap(w_debug_info))
-                    if space.is_w(w_res, space.w_None):
-                        return
-                    l = []
-                    for w_item in space.listview(w_res):
-                        item = space.interp_w(WrappedOp, w_item)
-                        l.append(jit_hooks._cast_to_resop(item.op))
-                    del debug_info.operations[:] # modifying operations above is
-                    # probably not a great idea since types may not work
-                    # and we'll end up with half-working list and
-                    # a segfault/fatal RPython error
-                    for elem in l:
-                        debug_info.operations.append(elem)
                 except OperationError, e:
                     e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
             finally:

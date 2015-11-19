@@ -11,10 +11,10 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.lltypesystem.ll2ctypes import (get_ctypes_type,
      lltype2ctypes, ctypes2lltype)
 from rpython.rtyper.rtuple import TupleRepr
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem.rstr import StringRepr, UnicodeRepr
 from rpython.rtyper.lltypesystem.test.test_rffi import BaseTestRffi
 from rpython.rtyper.module.support import LLSupport
-from rpython.rtyper.typesystem import getfunctionptr
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.translator.backendopt.raisingop2direct_call import (
      raisingop2direct_call)

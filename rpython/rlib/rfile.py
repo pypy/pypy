@@ -3,7 +3,7 @@ be used directly and instead it's magically appearing each time you call
 python builtin open()
 """
 
-import os, stat, errno
+import os, stat, errno, sys
 from rpython.rlib import rposix
 from rpython.rlib.objectmodel import enforceargs
 from rpython.rlib.rarithmetic import intmask
@@ -220,6 +220,22 @@ def create_stdio():
     stderr = RFile(c_stderr(), close2=close2)
     return stdin, stdout, stderr
 
+
+def write_int(f, l):
+    if sys.maxint == 2147483647:
+        f.write(chr(l & 0xff) +
+                chr((l >> 8) & 0xff) +
+                chr((l >> 16) & 0xff) +
+                chr((l >> 24) & 0xff))
+    else:
+        f.write(chr(l & 0xff) + 
+                chr((l >> 8) & 0xff) +
+                chr((l >> 16) & 0xff) +
+                chr((l >> 24) & 0xff) +
+                chr((l >> 32) & 0xff) +
+                chr((l >> 40) & 0xff) +
+                chr((l >> 48) & 0xff) +
+                chr((l >> 56) & 0xff))
 
 class RFile(object):
     _setbuf = lltype.nullptr(rffi.CCHARP.TO)

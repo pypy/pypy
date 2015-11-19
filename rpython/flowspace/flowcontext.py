@@ -1207,7 +1207,8 @@ class Raise(FlowSignal):
     def nomoreblocks(self, ctx):
         w_exc = self.w_exc
         if w_exc.w_type == const(ImportError):
-            msg = 'import statement always raises %s' % self
+            msg = 'ImportError is raised in RPython: %s' % (
+                getattr(w_exc.w_value, 'value', '<not a constant message>'),)
             raise ImportError(msg)
         link = Link([w_exc.w_type, w_exc.w_value], ctx.graph.exceptblock)
         ctx.recorder.crnt_block.closeblock(link)

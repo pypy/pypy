@@ -1,6 +1,6 @@
 """Support for Windows."""
 
-import py, os, sys, re
+import py, os, sys, re, shutil
 
 from rpython.translator.platform import CompilationError
 from rpython.translator.platform import log, _run_subprocess
@@ -245,7 +245,7 @@ class MsvcPlatform(Platform):
 
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
-                     no_precompile_cfiles = []):
+                     no_precompile_cfiles = [], icon=None):
         cfiles = self._all_cfiles(cfiles, eci)
 
         if path is None:
@@ -261,6 +261,8 @@ class MsvcPlatform(Platform):
         if shared:
             so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,
                                    ext=self.so_ext)
+            wtarget_name = exe_name.new(purebasename=exe_name.purebasename + 'w',
+                                   ext=self.exe_ext)
             target_name = so_name.basename
         else:
             target_name = exe_name.basename
@@ -314,11 +316,13 @@ class MsvcPlatform(Platform):
             ('MAKE', 'nmake.exe'),
             ('_WIN32', '1'),
             ]
+        if shared:
+            definitions.insert(0, ('WTARGET', wtarget_name.basename))
         if self.x64:
             definitions.append(('_WIN64', '1'))
 
         rules = [
-            ('all', '$(DEFAULT_TARGET)', []),
+            ('all', '$(DEFAULT_TARGET) $(WTARGET)', []),
             ('.asm.obj', '', '$(MASM) /nologo /Fo$@ /c $< $(INCLUDEDIRS)'),
             ]
 
@@ -362,6 +366,13 @@ class MsvcPlatform(Platform):
                           '/Fo$@ /c $< $(INCLUDEDIRS)'))
 
 
+        if icon:
+            shutil.copyfile(icon, str(path.join('icon.ico')))
+            rc_file = path.join('icon.rc')
+            rc_file.write('IDI_ICON1 ICON DISCARDABLE "icon.ico"')
+            rules.append(('icon.res', 'icon.rc', 'rc icon.rc'))
+
+
         for args in definitions:
             m.definition(*args)
 
@@ -375,19 +386,23 @@ class MsvcPlatform(Platform):
         else:
             linkobjs = '@<<\n$(OBJECTS)\n<<'
 
+        extra_deps = []
+        if icon and not shared:
+            extra_deps.append('icon.res')
+            linkobjs = 'icon.res ' + linkobjs
         if self.version < 80:
-            m.rule('$(TARGET)', '$(OBJECTS)',
+            m.rule('$(TARGET)', ['$(OBJECTS)'] + extra_deps,
                     [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) /out:$@' +\
                       ' $(LIBDIRS) $(LIBS) ' + linkobjs,
                    ])
         else:
-            m.rule('$(TARGET)', '$(OBJECTS)',
+            m.rule('$(TARGET)', ['$(OBJECTS)'] + extra_deps,
                     [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + \
                       ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST' + \
                       ' /MANIFESTFILE:$*.manifest ' + linkobjs,
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
-        m.rule('debugmode_$(TARGET)', '$(OBJECTS)',
+        m.rule('debugmode_$(TARGET)', ['$(OBJECTS)'] + extra_deps,
                 [ '$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + \
                   ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' + linkobjs,
                 ])
@@ -400,12 +415,38 @@ class MsvcPlatform(Platform):
                    'int $(PYPY_MAIN_FUNCTION)(int, char*[]); '
                    'int main(int argc, char* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
-            m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.obj'],
-                   ['$(CC_LINK) /nologo /debug main.obj $(SHARED_IMPORT_LIB) /out:$@ /MANIFEST /MANIFESTFILE:$*.manifest',
+            deps = ['main.obj']
+            m.rule('wmain.c', '',
+                   ['echo #define WIN32_LEAN_AND_MEAN > $@',
+                   'echo #include "stdlib.h" >> $@',
+                   'echo #include "windows.h" >> $@',
+                   'echo int $(PYPY_MAIN_FUNCTION)(int, char*[]); >> $@',
+                   'echo int WINAPI WinMain( >> $@',
+                   'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@',
+                   'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@',
+                   'echo     LPSTR lpCmdLine,          /* pointer to command line */ >> $@',
+                   'echo     int nCmdShow              /* show state of window */ >> $@',
+                   'echo ) >> $@',
+                   'echo    { return $(PYPY_MAIN_FUNCTION)(__argc, __argv); } >> $@'])
+            wdeps = ['wmain.obj']
+            if icon:
+                deps.append('icon.res')
+                wdeps.append('icon.res')
+            m.rule('$(DEFAULT_TARGET)', ['$(TARGET)'] + deps,
+                   ['$(CC_LINK) /nologo /debug %s ' % (' '.join(deps),) + \
+                    '$(SHARED_IMPORT_LIB) /out:$@ ' + \
+                    '/MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
-            m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)', 'main.obj'],
-                   ['$(CC_LINK) /nologo /DEBUG main.obj debugmode_$(SHARED_IMPORT_LIB) /out:$@'
+            m.rule('$(WTARGET)', ['$(TARGET)'] + wdeps,
+                   ['$(CC_LINK) /nologo /debug /SUBSYSTEM:WINDOWS %s ' % (' '.join(wdeps),) + \
+                    '$(SHARED_IMPORT_LIB) /out:$@ ' + \
+                    '/MANIFEST /MANIFESTFILE:$*.manifest',
+                    'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                    ])
+            m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)']+deps,
+                   ['$(CC_LINK) /nologo /DEBUG %s ' % (' '.join(deps),) + \
+                    'debugmode_$(SHARED_IMPORT_LIB) /out:$@',
                     ])
 
         return m

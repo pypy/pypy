@@ -276,7 +276,11 @@ class CFuncPtr(_CData):
             if argtypes:
                 args = [argtype._CData_retval(argtype.from_address(arg)._buffer)
                         for argtype, arg in zip(argtypes, args)]
-            return to_call(*args)
+            try:
+                return to_call(*args)
+            except SystemExit as e:
+                handle_system_exit(e)
+                raise
         return f
 
     def __call__(self, *args, **kwargs):
@@ -302,10 +306,14 @@ class CFuncPtr(_CData):
 
             try:
                 newargs = self._convert_args_for_callback(argtypes, args)
-            except (UnicodeError, TypeError, ValueError), e:
+            except (UnicodeError, TypeError, ValueError) as e:
                 raise ArgumentError(str(e))
             try:
-                res = self.callable(*newargs)
+                try:
+                    res = self.callable(*newargs)
+                except SystemExit as e:
+                    handle_system_exit(e)
+                    raise
             except:
                 exc_info = sys.exc_info()
                 traceback.print_tb(exc_info[2], file=sys.stderr)
@@ -567,7 +575,7 @@ class CFuncPtr(_CData):
             for i, argtype in enumerate(argtypes):
                 try:
                     keepalive, newarg, newargtype = self._conv_param(argtype, args[i])
-                except (UnicodeError, TypeError, ValueError), e:
+                except (UnicodeError, TypeError, ValueError) as e:
                     raise ArgumentError(str(e))
                 keepalives.append(keepalive)
                 newargs.append(newarg)
@@ -578,7 +586,7 @@ class CFuncPtr(_CData):
             for i, arg in enumerate(extra):
                 try:
                     keepalive, newarg, newargtype = self._conv_param(None, arg)
-                except (UnicodeError, TypeError, ValueError), e:
+                except (UnicodeError, TypeError, ValueError) as e:
                     raise ArgumentError(str(e))
                 keepalives.append(keepalive)
                 newargs.append(newarg)
@@ -715,3 +723,22 @@ def make_fastpath_subclass(CFuncPtr):
     make_fastpath_subclass.memo[CFuncPtr] = CFuncPtrFast
     return CFuncPtrFast
 make_fastpath_subclass.memo = {}
+
+
+def handle_system_exit(e):
+    # issue #1194: if we get SystemExit here, then exit the interpreter.
+    # Highly obscure imho but some people seem to depend on it.
+    if sys.flags.inspect:
+        return   # Don't exit if -i flag was given.
+    else:
+        code = e.code
+        if isinstance(code, int):
+            exitcode = code
+        else:
+            f = getattr(sys, 'stderr', None)
+            if f is None:
+                f = sys.__stderr__
+            print >> f, code
+            exitcode = 1
+
+        _rawffi.exit(exitcode)

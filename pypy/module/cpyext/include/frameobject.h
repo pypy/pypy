@@ -4,7 +4,7 @@
 extern "C" {
 #endif
 
-typedef struct {
+typedef struct _frame {
     PyObject_HEAD
     PyCodeObject *f_code;
     PyObject *f_globals;

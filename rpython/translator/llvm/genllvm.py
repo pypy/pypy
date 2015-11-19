@@ -25,8 +25,8 @@ from rpython.rtyper.lltypesystem import (llarena, llgroup, llmemory, lltype,
 from rpython.rtyper.lltypesystem.ll2ctypes import (_llvm_needs_header,
      _array_mixin)
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.tool.rffi_platform import memory_alignment
-from rpython.rtyper.typesystem import getfunctionptr
 from rpython.translator.backendopt.removenoops import remove_same_as
 from rpython.translator.backendopt.ssa import SSI_to_SSA
 from rpython.translator.gensupp import uniquemodulename

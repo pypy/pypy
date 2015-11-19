@@ -194,3 +194,35 @@ class TestStringBuilder(BaseRtypingTest):
         assert not res
         res = self.interpret(func, [1])
         assert res
+
+    def test_prebuilt_string_builder(self):
+        s = StringBuilder(100)
+        s.append("abc")
+        
+        def f():
+            return len(s.build())
+
+        res = self.interpret(f, [])
+        assert res == 3
+
+    def test_prebuilt_unicode_builder(self):
+        s = UnicodeBuilder(100)
+        s.append(u"abc")
+        
+        def f():
+            return len(s.build())
+
+        res = self.interpret(f, [])
+        assert res == 3
+
+    def test_string_builder_union(self):
+        s = StringBuilder()
+
+        def f(i):
+            if i % 2:
+                s2 = StringBuilder()
+            else:
+                s2 = s
+            return s2.build()
+
+        self.interpret(f, [3])

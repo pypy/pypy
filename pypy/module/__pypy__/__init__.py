@@ -62,6 +62,7 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
+        'attach_gdb'                : 'interp_magic.attach_gdb',
         'internal_repr'             : 'interp_magic.internal_repr',
         'bytebuffer'                : 'bytebuffer.bytebuffer',
         'identity_dict'             : 'interp_identitydict.W_IdentityDict',
@@ -71,6 +72,8 @@ class Module(MixedModule):
         'debug_print_once'          : 'interp_debug.debug_print_once',
         'debug_flush'               : 'interp_debug.debug_flush',
         'builtinify'                : 'interp_magic.builtinify',
+        'hidden_applevel'           : 'interp_magic.hidden_applevel',
+        'get_hidden_tb'             : 'interp_magic.get_hidden_tb',
         'lookup_special'            : 'interp_magic.lookup_special',
         'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
         'validate_fd'               : 'interp_magic.validate_fd',
@@ -80,8 +83,10 @@ class Module(MixedModule):
         'newdict'                   : 'interp_dict.newdict',
         'reversed_dict'             : 'interp_dict.reversed_dict',
         'strategy'                  : 'interp_magic.strategy',  # dict,set,list
+        'specialized_zip_2_lists'   : 'interp_magic.specialized_zip_2_lists',
         'set_debug'                 : 'interp_magic.set_debug',
         'locals_to_fast'            : 'interp_magic.locals_to_fast',
+        'set_code_callback'         : 'interp_magic.set_code_callback',
         'save_module_content_for_future_reload':
                           'interp_magic.save_module_content_for_future_reload',
     }
@@ -98,8 +103,6 @@ class Module(MixedModule):
 
     def setup_after_space_initialization(self):
         """NOT_RPYTHON"""
-        if not self.space.config.translating:
-            self.extra_interpdef('interp_pdb', 'interp_magic.interp_pdb')
         if self.space.config.objspace.std.withmethodcachecounter:
             self.extra_interpdef('method_cache_counter',
                                  'interp_magic.method_cache_counter')
@@ -110,7 +113,6 @@ class Module(MixedModule):
                                      'interp_magic.mapdict_cache_counter')
         PYC_MAGIC = get_pyc_magic(self.space)
         self.extra_interpdef('PYC_MAGIC', 'space.wrap(%d)' % PYC_MAGIC)
-        #
         try:
             from rpython.jit.backend import detect_cpu
             model = detect_cpu.autodetect()
@@ -120,7 +122,7 @@ class Module(MixedModule):
                 raise
             else:
                 pass   # ok fine to ignore in this case
-        #
+        
         if self.space.config.translation.jit:
             features = detect_cpu.getcpufeatures(model)
             self.extra_interpdef('jit_backend_features',

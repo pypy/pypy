@@ -18,6 +18,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
     _attrs_            = ['ctptr']
     _immutable_fields_ = ['ctptr']
     kind = "array"
+    is_nonfunc_pointer_or_array = True
 
     def __init__(self, space, ctptr, length, arraysize, extra):
         W_CTypePtrOrArray.__init__(self, space, arraysize, extra, 0,
@@ -28,7 +29,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
     def _alignof(self):
         return self.ctitem.alignof()
 
-    def newp(self, w_init):
+    def newp(self, w_init, allocator):
         space = self.space
         datasize = self.size
         #
@@ -40,12 +41,10 @@ class W_CTypeArray(W_CTypePtrOrArray):
             except OverflowError:
                 raise OperationError(space.w_OverflowError,
                     space.wrap("array size would overflow a ssize_t"))
-            #
-            cdata = cdataobj.W_CDataNewOwningLength(space, datasize,
-                                                    self, length)
-        #
         else:
-            cdata = cdataobj.W_CDataNewOwning(space, datasize, self)
+            length = self.length
+        #
+        cdata = allocator.allocate(space, datasize, self, length)
         #
         if not space.is_w(w_init, space.w_None):
             with cdata as ptr:

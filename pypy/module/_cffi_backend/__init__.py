@@ -1,8 +1,15 @@
 import sys
 from pypy.interpreter.mixedmodule import MixedModule
-from rpython.rlib import rdynload
+from rpython.rlib import rdynload, clibffi
 
-VERSION = "0.9.2"
+VERSION = "1.3.1"
+
+FFI_DEFAULT_ABI = clibffi.FFI_DEFAULT_ABI
+try:
+    FFI_STDCALL = clibffi.FFI_STDCALL
+    has_stdcall = True
+except AttributeError:
+    has_stdcall = False
 
 
 class Module(MixedModule):
@@ -36,25 +43,38 @@ class Module(MixedModule):
         'newp_handle': 'handle.newp_handle',
         'from_handle': 'handle.from_handle',
         '_get_types': 'func._get_types',
+        '_get_common_types': 'func._get_common_types',
         'from_buffer': 'func.from_buffer',
 
         'string': 'func.string',
         'buffer': 'cbuffer.buffer',
+        'memmove': 'func.memmove',
 
         'get_errno': 'cerrno.get_errno',
         'set_errno': 'cerrno.set_errno',
 
-        'FFI_DEFAULT_ABI': 'ctypefunc._get_abi(space, "FFI_DEFAULT_ABI")',
-        'FFI_CDECL': 'ctypefunc._get_abi(space,"FFI_DEFAULT_ABI")',#win32 name
+        'FFI_DEFAULT_ABI': 'space.wrap(%d)' % FFI_DEFAULT_ABI,
+        'FFI_CDECL':       'space.wrap(%d)' % FFI_DEFAULT_ABI,  # win32 name
+
+        # CFFI 1.0
+        'FFI': 'ffi_obj.W_FFIObject',
         }
     if sys.platform == 'win32':
         interpleveldefs['getwinerror'] = 'cerrno.getwinerror'
 
-for _name in ["RTLD_LAZY", "RTLD_NOW", "RTLD_GLOBAL", "RTLD_LOCAL",
-              "RTLD_NODELETE", "RTLD_NOLOAD", "RTLD_DEEPBIND"]:
-    if getattr(rdynload.cConfig, _name) is not None:
-        Module.interpleveldefs[_name] = 'space.wrap(%d)' % (
-            getattr(rdynload.cConfig, _name),)
+    if has_stdcall:
+        interpleveldefs['FFI_STDCALL'] = 'space.wrap(%d)' % FFI_STDCALL
 
-for _name in ["RTLD_LAZY", "RTLD_NOW", "RTLD_GLOBAL", "RTLD_LOCAL"]:
-    Module.interpleveldefs.setdefault(_name, 'space.wrap(0)')
+
+def get_dict_rtld_constants():
+    found = {}
+    for name in ["RTLD_LAZY", "RTLD_NOW", "RTLD_GLOBAL", "RTLD_LOCAL",
+                 "RTLD_NODELETE", "RTLD_NOLOAD", "RTLD_DEEPBIND"]:
+        if getattr(rdynload.cConfig, name) is not None:
+            found[name] = getattr(rdynload.cConfig, name)
+    for name in ["RTLD_LAZY", "RTLD_NOW", "RTLD_GLOBAL", "RTLD_LOCAL"]:
+        found.setdefault(name, 0)
+    return found
+
+for _name, _value in get_dict_rtld_constants().items():
+    Module.interpleveldefs[_name] = 'space.wrap(%d)' % _value

@@ -2,13 +2,10 @@ import py
 import sys, stat, os
 from rpython.translator.sandbox.vfs import *
 from rpython.tool.udir import udir
-from rpython.translator.sandbox.test.test_sandbox import unsupported_platform
 
 HASLINK = hasattr(os, 'symlink')
 
 def setup_module(mod):
-    if unsupported_platform[0] == 'True':
-        py.test.skip(unsupported_platform[1])
     d = udir.ensure('test_vfs', dir=1)
     d.join('file1').write('somedata1')
     d.join('file2').write('somelongerdata2')
@@ -70,11 +67,12 @@ def test_realdir_realfile():
 
             f = v_test_vfs.join('file2')
             assert f.getsize() == len('somelongerdata2')
-            py.test.raises(OSError, f.open)
+            if os.name != 'nt':     # can't have unreadable files there?
+                py.test.raises(OSError, f.open)
 
             py.test.raises(OSError, v_test_vfs.join, 'does_not_exist')
             py.test.raises(OSError, v_test_vfs.join, 'symlink3')
-            if follow_links:
+            if follow_links and HASLINK:
                 d = v_test_vfs.join('symlink1')
                 assert stat.S_ISDIR(d.stat().st_mode)
                 assert d.keys() == ['subfile1']

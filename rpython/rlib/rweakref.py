@@ -2,10 +2,10 @@
 Weakref support in RPython.  Basic regular weakrefs without callbacks
 are supported.  This file contains the following additions:
 a form of WeakKeyDictionary, and a limited version of WeakValueDictionary.
-LLType only for now!
 """
 
 import weakref
+from rpython.annotator.model import UnionError
 
 ref = weakref.ref    # basic regular weakrefs are supported in RPython
 
@@ -25,6 +25,9 @@ class RWeakValueDictionary(object):
     """A dictionary containing weak values."""
 
     def __init__(self, keyclass, valueclass):
+        """'keyclass' can be an RPython class or a type like 'int' or 'str'.
+        On the other hand, 'valueclass' must be an RPython class.
+        """
         self._dict = weakref.WeakValueDictionary()
         self._keyclass = keyclass
         self._valueclass = valueclass
@@ -98,6 +101,12 @@ class SomeWeakValueDict(annmodel.SomeObject):
     def __init__(self, s_key, valueclassdef):
         self.s_key = s_key
         self.valueclassdef = valueclassdef
+
+    def can_be_none(self):
+        return True
+
+    def noneify(self):
+        return self
 
     def rtyper_makerepr(self, rtyper):
         from rpython.rlib import _rweakvaldict
@@ -182,9 +191,9 @@ class SomeWeakKeyDict(annmodel.SomeObject):
 class __extend__(pairtype(SomeWeakKeyDict, SomeWeakKeyDict)):
     def union((s_wkd1, s_wkd2)):
         if s_wkd1.keyclassdef is not s_wkd2.keyclassdef:
-            raise UnionError(w_wkd1, s_wkd2, "not the same key class!")
+            raise UnionError(s_wkd1, s_wkd2, "not the same key class!")
         if s_wkd1.valueclassdef is not s_wkd2.valueclassdef:
-            raise UnionError(w_wkd1, s_wkd2, "not the same value class!")
+            raise UnionError(s_wkd1, s_wkd2, "not the same value class!")
         return SomeWeakKeyDict(s_wkd1.keyclassdef, s_wkd1.valueclassdef)
 
 class Entry(extregistry.ExtRegistryEntry):

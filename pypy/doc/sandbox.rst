@@ -103,12 +103,15 @@ pretends that the executable is /bin/pypy-c.
 Howto
 -----
 
-In pypy/goal::
+Grab a copy of the pypy repository_.  In the directory pypy/goal, run::
 
    ../../rpython/bin/rpython -O2 --sandbox targetpypystandalone.py
 
 If you don't have a regular PyPy installed, you should, because it's
-faster to translate, but you can also run ``python translate.py`` instead.
+faster to translate; but you can also run the same line with ``python``
+in front.
+
+.. _repository: https://bitbucket.org/pypy/pypy
 
 
 To run it, use the tools in the pypy/sandbox directory::
@@ -136,8 +139,6 @@ using the ``--timeout=N`` option.
 Not all operations are supported; e.g. if you type os.readlink('...'),
 the controller crashes with an exception and the subprocess is killed.
 Other operations make the subprocess die directly with a "Fatal RPython
-error".  None of this is a security hole; it just means that if you try
-to run some random program, it risks getting killed depending on the
-Python built-in functions it tries to call.  This is a matter of the
-sandboxing layer being incomplete so far, but it should not really be
-a problem in practice.
+error".  None of this is a security hole.  More importantly, *most other
+built-in modules are not enabled.  Please read all the warnings in this
+page before complaining about this.  Contributions welcome.*

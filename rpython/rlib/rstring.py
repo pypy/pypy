@@ -494,18 +494,22 @@ class AbstractStringBuilder(object):
     # This is not the real implementation!
 
     def __init__(self, init_size=INIT_SIZE):
+        "NOT_RPYTHON"
         self._l = []
         self._size = 0
 
     def _grow(self, size):
+        "NOT_RPYTHON"
         self._size += size
 
     def append(self, s):
+        "NOT_RPYTHON"
         assert isinstance(s, self._tp)
         self._l.append(s)
         self._grow(len(s))
 
     def append_slice(self, s, start, end):
+        "NOT_RPYTHON"
         assert isinstance(s, self._tp)
         assert 0 <= start <= end <= len(s)
         s = s[start:end]
@@ -513,11 +517,13 @@ class AbstractStringBuilder(object):
         self._grow(len(s))
 
     def append_multiple_char(self, c, times):
+        "NOT_RPYTHON"
         assert isinstance(c, self._tp)
         self._l.append(c * times)
         self._grow(times)
 
     def append_charpsize(self, s, size):
+        "NOT_RPYTHON"
         assert size >= 0
         l = []
         for i in xrange(size):
@@ -526,12 +532,14 @@ class AbstractStringBuilder(object):
         self._grow(size)
 
     def build(self):
+        "NOT_RPYTHON"
         result = self._tp("").join(self._l)
         assert len(result) == self._size
         self._l = [result]
         return result
 
     def getlength(self):
+        "NOT_RPYTHON"
         return self._size
 
 
@@ -672,10 +680,31 @@ class StringBuilderEntry(BaseEntry, ExtRegistryEntry):
     _about_ = StringBuilder
     use_unicode = False
 
-
 class UnicodeBuilderEntry(BaseEntry, ExtRegistryEntry):
     _about_ = UnicodeBuilder
     use_unicode = True
+
+class __extend__(pairtype(SomeStringBuilder, SomeStringBuilder)):
+
+    def union((obj1, obj2)):
+        return obj1
+
+class __extend__(pairtype(SomeUnicodeBuilder, SomeUnicodeBuilder)):
+
+    def union((obj1, obj2)):
+        return obj1
+
+class PrebuiltStringBuilderEntry(ExtRegistryEntry):
+    _type_ = StringBuilder
+
+    def compute_annotation(self):
+        return SomeStringBuilder()
+
+class PrebuiltUnicodeBuilderEntry(ExtRegistryEntry):
+    _type_ = UnicodeBuilder
+
+    def compute_annotation(self):
+        return SomeUnicodeBuilder()
 
 
 #___________________________________________________________________

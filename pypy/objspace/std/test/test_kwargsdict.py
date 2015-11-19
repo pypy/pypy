@@ -159,3 +159,10 @@ class AppTestKwargsDictStrategy(object):
         assert a == 3
         assert "KwargsDictStrategy" in self.get_strategy(d)
 
+    def test_iteritems_bug(self):
+        def f(**args):
+            return args
+
+        d = f(a=2, b=3, c=4)
+        for key, value in d.iteritems():
+            None in d

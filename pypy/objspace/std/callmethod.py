@@ -102,7 +102,7 @@ def CALL_METHOD(f, oparg, *ignored):
         if w_self is None:
             f.popvalue()    # removes w_self, which is None
         w_callable = f.popvalue()
-        if f.is_being_profiled and function.is_builtin_code(w_callable):
+        if f.get_is_being_profiled() and function.is_builtin_code(w_callable):
             w_result = f.space.call_args_and_c_profile(f, w_callable, args)
         else:
             w_result = f.space.call_args(w_callable, args)

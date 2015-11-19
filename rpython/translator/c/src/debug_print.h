@@ -21,6 +21,10 @@
    subsections.
 
    Note that 'fname' can be '-' to send the logging data to stderr.
+   If 'fname' includes the substring '%d' it is replaced with the
+   current process id and you get the log for all subprocesses (and
+   forks) in different files.  If 'fname' does not include '%d', it is
+   removed from the environment and not passed to subprocesses.
 */
 
 /* macros used by the generated code */
@@ -42,6 +46,7 @@ RPY_EXTERN void pypy_debug_start(const char *category);
 RPY_EXTERN void pypy_debug_stop(const char *category);
 RPY_EXTERN long pypy_debug_offset(void);
 RPY_EXTERN void pypy_debug_forked(long original_offset);
+RPY_EXTERN long pypy_have_debug_prints_for(const char *category_prefix);
 
 RPY_EXTERN long pypy_have_debug_prints;
 RPY_EXPORTED FILE *pypy_debug_file;

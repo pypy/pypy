@@ -124,6 +124,9 @@ class GCBase(object):
     def get_size(self, obj):
         return self._get_size_for_typeid(obj, self.get_type_id(obj))
 
+    def get_type_id_cast(self, obj):
+        return rffi.cast(lltype.Signed, self.get_type_id(obj))
+
     def get_size_incl_hash(self, obj):
         return self.get_size(obj)
 
@@ -168,6 +171,9 @@ class GCBase(object):
 
     def can_move(self, addr):
         return False
+
+    def malloc_fixedsize_nonmovable(self, typeid):
+        raise MemoryError
 
     def pin(self, addr):
         return False

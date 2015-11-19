@@ -51,3 +51,6 @@ else:
     THREADLOCAL_OFS = (FRAME_FIXED_SIZE - 1) * WORD
 
 assert PASS_ON_MY_FRAME >= 12       # asmgcc needs at least JIT_USE_WORDS + 3
+
+# return address, followed by FRAME_FIXED_SIZE words
+DEFAULT_FRAME_BYTES = (1 + FRAME_FIXED_SIZE) * WORD

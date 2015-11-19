@@ -427,6 +427,7 @@ SYMBOLS_C = [
     'PyThread_ReInitTLS',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
+    'PyStructSequence_UnnamedField',
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 
@@ -1110,33 +1111,78 @@ def setup_library(space):
     trunk_include = pypydir.dirpath() / 'include'
     copy_header_files(trunk_include)
 
-initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
+def _load_from_cffi(space, name, path, initptr):
+    from pypy.module._cffi_backend import cffi1_module
+    cffi1_module.load_cffi1_module(space, name, path, initptr)
+
 @unwrap_spec(path=str, name=str)
 def load_extension_module(space, path, name):
+    # note: this is used both to load CPython-API-style C extension
+    # modules (cpyext) and to load CFFI-style extension modules
+    # (_cffi_backend).  Any of the two can be disabled at translation
+    # time, though.  For this reason, we need to be careful about the
+    # order of things here.
+    from rpython.rlib import rdynload
+
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
+    basename = name.split('.')[-1]
+    try:
+        ll_libname = rffi.str2charp(path)
+        try:
+            dll = rdynload.dlopen(ll_libname)
+        finally:
+            lltype.free(ll_libname, flavor='raw')
+    except rdynload.DLOpenError, e:
+        raise oefmt(space.w_ImportError,
+                    "unable to load extension module '%s': %s",
+                    path, e.msg)
+    look_for = None
+    #
+    if space.config.objspace.usemodules._cffi_backend:
+        look_for = '_cffi_pypyinit_%s' % (basename,)
+        try:
+            initptr = rdynload.dlsym(dll, look_for)
+        except KeyError:
+            pass
+        else:
+            try:
+                _load_from_cffi(space, name, path, initptr)
+            except:
+                rdynload.dlclose(dll)
+                raise
+            return
+    #
+    if space.config.objspace.usemodules.cpyext:
+        also_look_for = 'init%s' % (basename,)
+        try:
+            initptr = rdynload.dlsym(dll, also_look_for)
+        except KeyError:
+            pass
+        else:
+            load_cpyext_module(space, name, path, dll, initptr)
+            return
+        if look_for is not None:
+            look_for += ' or ' + also_look_for
+        else:
+            look_for = also_look_for
+    #
+    raise oefmt(space.w_ImportError,
+                "function %s not found in library %s", look_for, path)
+
+initfunctype = lltype.Ptr(lltype.FuncType([], lltype.Void))
+
+def load_cpyext_module(space, name, path, dll, initptr):
+    from rpython.rlib import rdynload
+
+    space.getbuiltinmodule("cpyext")    # mandatory to init cpyext
     state = space.fromcache(State)
     if state.find_extension(name, path) is not None:
+        rdynload.dlclose(dll)
         return
     old_context = state.package_context
     state.package_context = name, path
     try:
-        from rpython.rlib import rdynload
-        try:
-            ll_libname = rffi.str2charp(path)
-            try:
-                dll = rdynload.dlopen(ll_libname)
-            finally:
-                lltype.free(ll_libname, flavor='raw')
-        except rdynload.DLOpenError, e:
-            raise oefmt(space.w_ImportError,
-                        "unable to load extension module '%s': %s",
-                        path, e.msg)
-        try:
-            initptr = rdynload.dlsym(dll, 'init%s' % (name.split('.')[-1],))
-        except KeyError:
-            raise oefmt(space.w_ImportError,
-                        "function init%s not found in library %s", name, path)
         initfunc = rffi.cast(initfunctype, initptr)
         generic_cpy_call(space, initfunc)
         state.check_and_raise_exception()

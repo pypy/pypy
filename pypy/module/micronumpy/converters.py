@@ -77,9 +77,8 @@ def order_converter(space, w_order, default):
         elif order.startswith('K') or order.startswith('k'):
             return NPY.KEEPORDER
         else:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "order not understood"))
-
+            raise oefmt(space.w_TypeError, "Unknown order: '%s'", order)
+    return -1
 
 def multi_axis_converter(space, w_axis, ndim):
     if space.is_none(w_axis):
@@ -113,3 +112,12 @@ def shape_converter(space, w_size, dtype):
         shape.append(space.int_w(w_item))
     shape += dtype.shape
     return shape[:]
+
+def out_converter(space, w_out):
+    from .ndarray import W_NDimArray
+    if space.is_none(w_out):
+        return None
+    elif not isinstance(w_out, W_NDimArray):
+        raise oefmt(space.w_TypeError, 'output must be an array')
+    else:
+        return w_out

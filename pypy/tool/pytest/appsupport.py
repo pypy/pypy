@@ -99,6 +99,7 @@ class AppExceptionInfo(py.code.ExceptionInfo):
         debug_excs = getattr(operr, 'debug_excs', [])
         if debug_excs:
             self._excinfo = debug_excs[0]
+        self.value = self.operr.errorstr(self.space)  # XXX
 
     def __repr__(self):
         return "<AppExceptionInfo %s>" % self.operr.errorstr(self.space)
@@ -236,7 +237,8 @@ def pypyraises(space, w_ExpectedException, w_expr, __args__):
         frame = space.getexecutioncontext().gettopframe()
         w_locals = frame.getdictscope()
         pycode = frame.pycode
-        filename = "<%s:%s>" %(pycode.co_filename, frame.f_lineno)
+        filename = "<%s:%s>" %(pycode.co_filename,
+                               space.int_w(frame.fget_f_lineno(space)))
         lines = [x + "\n" for x in expr.split("\n")]
         py.std.linecache.cache[filename] = (1, None, lines, filename)
         w_locals = space.call_method(w_locals, 'copy')

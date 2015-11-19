@@ -38,8 +38,8 @@ copyrighted by one or more of the following people and organizations:
   Armin Rigo
   Maciej Fijalkowski
   Carl Friedrich Bolz
-  Antonio Cuni
   Amaury Forgeot d'Arc
+  Antonio Cuni
   Samuele Pedroni
   Alex Gaynor
   Brian Kearns
@@ -50,21 +50,22 @@ copyrighted by one or more of the following people and organizations:
   Holger Krekel
   Christian Tismer
   Hakan Ardo
-  Benjamin Peterson
   Manuel Jacob
   Ronan Lamy
+  Benjamin Peterson
   Anders Chrigstrom
   Eric van Riet Paap
   Wim Lavrijsen
+  Richard Plangger
   Richard Emslie
   Alexander Schremmer
   Dan Villiom Podlaski Christiansen
   Lukas Diekmann
   Sven Hager
   Anders Lehmann
+  Remi Meier
   Aurelien Campeas
   Niklaus Haldimann
-  Remi Meier
   Camillo Bruni
   Laura Creighton
   Toon Verwaest
@@ -76,10 +77,10 @@ copyrighted by one or more of the following people and organizations:
   David Edelsohn
   Anders Hammarquist
   Jakub Gustak
+  Gregor Wegberg
   Guido Wesdorp
   Lawrence Oluyede
   Bartosz Skowron
-  Gregor Wegberg
   Daniel Roberts
   Niko Matsakis
   Adrien Di Mascio
@@ -89,8 +90,8 @@ copyrighted by one or more of the following people and organizations:
   Jason Creighton
   Alex Martelli
   Michal Bendowski
-  Jan de Mooij
   stian
+  Jan de Mooij
   Tyler Wade
   Michael Foord
   Stephan Diehl
@@ -133,15 +134,15 @@ copyrighted by one or more of the following people and organizations:
   Georg Brandl
   Bert Freudenberg
   Stian Andreassen
+  Edd Barrett
   Wanja Saatkamp
   Gerald Klix
   Mike Blume
+  Tobias Pape
   Oscar Nierstrasz
   Stefan H. Muller
-  Edd Barrett
   Jeremy Thurgood
   Rami Chowdhury
-  Tobias Pape
   Eugene Oden
   Henry Mason
   Vasily Kuznetsov
@@ -172,6 +173,7 @@ copyrighted by one or more of the following people and organizations:
   Jared Grubb
   Karl Bartel
   Wouter van Heyst
+  Sebastian Pawluś
   Brian Dorsey
   Victor Stinner
   Andrews Medina
@@ -188,6 +190,7 @@ copyrighted by one or more of the following people and organizations:
   Neil Shepperd
   Stanislaw Halik
   Mikael Schönenberg
+  Berkin Ilbeyi
   Elmo M?ntynen
   Jonathan David Riehl
   Anders Qvist
@@ -197,9 +200,12 @@ copyrighted by one or more of the following people and organizations:
   Alex Perry
   Vincent Legoll
   Alan McIntyre
+  Spenser Bauman
   Alexander Sedov
   Attila Gobi
   Christopher Pope
+  Devin Jeanpierre
+  Vaibhav Sood
   Christian Tismer 
   Marc Abramowitz
   Dan Stromberg
@@ -211,11 +217,12 @@ copyrighted by one or more of the following people and organizations:
   Carl Meyer
   Karl Ramm
   Pieter Zieschang
-  Sebastian Pawluś
+  Anton Gulenko
   Gabriel
   Lukas Vacek
   Andrew Dalke
   Sylvain Thenault
+  Jakub Stasiak
   Nathan Taylor
   Vladimir Kryachko
   Jacek Generowicz
@@ -230,6 +237,7 @@ copyrighted by one or more of the following people and organizations:
   Lutz Paelike
   Lucio Torre
   Lars Wassermann
+  Philipp Rustemeuer
   Henrik Vendelbo
   Dan Buch
   Miguel de Val Borro
@@ -240,19 +248,25 @@ copyrighted by one or more of the following people and organizations:
   Martin Blais
   Lene Wagner
   Tomo Cocoa
+  Kim Jin Su
   Toni Mattis
   Lucas Stadler
+  Julian Berman
+  Markus Holtermann
   roberto@goyle
   Yury V. Zaytsev
   Anna Katrina Dominguez
   William Leslie
   Bobby Impollonia
+  Faye Zhao
   timo@eistee.fritz.box
   Andrew Thompson
   Yusei Tahara
   Ben Darnell
   Roberto De Ioris
   Juan Francisco Cantero Hurtado
+  Ruochen Huang
+  Jeong YunWon
   Godefroid Chappelle
   Joshua Gilbert
   Dan Colish
@@ -271,9 +285,11 @@ copyrighted by one or more of the following people and organizations:
   Christian Muirhead
   Berker Peksag
   James Lan
+  Volodymyr Vladymyrov
   shoma hosaka
   Daniel Neuhäuser
   Ben Mather
+  Niclas Olofsson
   halgari
   Boglarka Vezer
   Chris Pressey
@@ -300,13 +316,16 @@ copyrighted by one or more of the following people and organizations:
   Stefan Marr
   jiaaro
   Mads Kiilerich
+  Richard Lancaster
   opassembler.py
   Antony Lee
+  Yaroslav Fedevych
   Jim Hunziker
   Markus Unterwaditzer
   Even Wiik Thomassen
   jbs
   squeaky
+  Zearin
   soareschen
   Kurt Griffiths
   Mike Bayer
@@ -316,7 +335,9 @@ copyrighted by one or more of the following people and organizations:
   yasirs
   Michael Chermside
   Anna Ravencroft
+  Andrey Churin
   Dan Crosta
+  Tobias Diaz
   Julien Phalip
   Roman Podoliaka
   Dan Loewenherz
@@ -343,8 +364,7 @@ License for 'lib-python/2.7'
 Except when otherwise stated (look for LICENSE files or copyright/license
 information at the beginning of each file) the files in the 'lib-python/2.7'
 directory are all copyrighted by the Python Software Foundation and licensed
-under the Python Software License of which you can find a copy here:
-http://www.python.org/doc/Copyright.html 
+under the terms that you can find here: https://docs.python.org/2/license.html
 
 License for 'pypy/module/unicodedata/'
 ======================================
@@ -420,3 +440,10 @@ The gdbm module includes code from gdbm.h, which is distributed under
 the terms of the GPL license version 2 or any later version.  Thus the
 gdbm module, provided in the file lib_pypy/gdbm.py, is redistributed
 under the terms of the GPL license as well.
+
+License for 'rpython/rlib/rvmprof/src'
+--------------------------------------
+
+The code is based on gperftools. You may see a copy of the License for it at
+
+    https://github.com/gperftools/gperftools/blob/master/COPYING

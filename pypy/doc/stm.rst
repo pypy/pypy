@@ -564,6 +564,15 @@ elided by the same transaction.
 Miscellaneous functions
 -----------------------
 
+* First, note that the ``transaction`` module is found in the file
+  ``lib_pypy/transaction.py``.  This file can be copied around to
+  execute the same programs on CPython or on non-STM PyPy, with
+  fall-back behavior.  (One case where the behavior differs is
+  ``atomic``, which is in this fall-back case just a regular lock; so
+  ``with atomic`` only prevent other threads from entering other
+  ``with atomic`` sections, but won't prevent other threads from
+  running non-atomic code.)
+
 * ``transaction.getsegmentlimit()``: return the number of "segments" in
   this pypy-stm.  This is the limit above which more threads will not be
   able to execute on more cores.  (Right now it is limited to 4 due to

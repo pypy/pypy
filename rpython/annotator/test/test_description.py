@@ -1,4 +1,4 @@
-from rpython.annotator.description import ClassDesc, is_mixin
+from rpython.annotator.classdesc import ClassDesc, is_mixin
 
 class FakeBookkeeper:
     def __init__(self):
@@ -30,3 +30,14 @@ def test_is_mixin():
 
     assert is_mixin(Mixin1)
     assert not is_mixin(A)
+
+def test_immutable_fields_collection():
+    class Base(object):
+        _immutable_fields_ = ['a']
+    class Mixin(object):
+        _mixin_ = True
+        _immutable_fields_ = ['b']
+    class A(Base, Mixin):
+        _immutable_fields_ = ['c']
+    bk = FakeBookkeeper()
+    assert bk.getdesc(A).immutable_fields == {'b', 'c'}

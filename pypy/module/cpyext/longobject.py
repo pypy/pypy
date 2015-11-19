@@ -186,6 +186,17 @@ def PyLong_FromString(space, str, pend, base):
         pend[0] = rffi.ptradd(str, len(s))
     return space.call_function(space.w_long, w_str, w_base)
 
+@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.INT_real], PyObject)
+def PyLong_FromUnicode(space, u, length, base):
+    """Convert a sequence of Unicode digits to a Python long integer value.
+    The first parameter, u, points to the first character of the Unicode
+    string, length gives the number of characters, and base is the radix
+    for the conversion.  The radix must be in the range [2, 36]; if it is
+    out of range, ValueError will be raised."""
+    w_value = space.wrap(rffi.wcharpsize2unicode(u, length))
+    w_base = space.wrap(rffi.cast(lltype.Signed, base))
+    return space.call_function(space.w_long, w_value, w_base)
+
 @cpython_api([rffi.VOIDP], PyObject)
 def PyLong_FromVoidPtr(space, p):
     """Create a Python integer or long integer from the pointer p. The pointer value

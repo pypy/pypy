@@ -3,7 +3,7 @@
 Based on two lists containing unwrapped key value pairs.
 """
 
-from rpython.rlib import jit, rerased
+from rpython.rlib import jit, rerased, objectmodel
 
 from pypy.objspace.std.dictmultiobject import (
     BytesDictStrategy, DictStrategy, EmptyDictStrategy, ObjectDictStrategy,
@@ -165,20 +165,29 @@ class KwargsDictStrategy(DictStrategy):
     def getitervalues(self, w_dict):
         return iter(self.unerase(w_dict.dstorage)[1])
 
-    def getiteritems(self, w_dict):
-        keys = self.unerase(w_dict.dstorage)[0]
-        return iter(range(len(keys)))
+    def getiteritems_with_hash(self, w_dict):
+        keys, values_w = self.unerase(w_dict.dstorage)
+        return ZipItemsWithHash(keys, values_w)
 
     wrapkey = _wrapkey
 
 
-def next_item(self):
-    strategy = self.strategy
-    assert isinstance(strategy, KwargsDictStrategy)
-    for i in self.iterator:
-        keys, values_w = strategy.unerase(self.dictimplementation.dstorage)
-        return _wrapkey(self.space, keys[i]), values_w[i]
-    else:
-        return None, None
+class ZipItemsWithHash(object):
+    def __init__(self, list1, list2):
+        assert len(list1) == len(list2)
+        self.list1 = list1
+        self.list2 = list2
+        self.i = 0
 
-create_iterator_classes(KwargsDictStrategy, override_next_item=next_item)
+    def __iter__(self):
+        return self
+
+    def next(self):
+        i = self.i
+        if i >= len(self.list1):
+            raise StopIteration
+        self.i = i + 1
+        key = self.list1[i]
+        return (key, self.list2[i], objectmodel.compute_hash(key))
+
+create_iterator_classes(KwargsDictStrategy)

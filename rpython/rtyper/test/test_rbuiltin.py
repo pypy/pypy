@@ -432,6 +432,14 @@ class TestRbuiltin(BaseRtypingTest):
         res = self.interpret(f, [2])
         assert self.class_name(res) == 'B'
 
+    def test_instantiate_nonmovable(self):
+        class A:
+            pass
+        def f():
+            return instantiate(A, nonmovable=True)   # no effect before GC
+        res = self.interpret(f, [])
+        assert self.class_name(res) == 'A'
+
     def test_os_path_join(self):
         def fn(a, b):
             return os.path.join(a, b)
@@ -541,6 +549,14 @@ class TestRbuiltin(BaseRtypingTest):
             return lltype.cast_primitive(lltype.Signed, v)
         res = self.interpret(llf, [rffi.r_short(123)], policy=LowLevelAnnotatorPolicy())
         assert res == 123
+        def llf(v):
+            return lltype.cast_primitive(lltype.Bool, v)
+        res = self.interpret(llf, [2**24], policy=LowLevelAnnotatorPolicy())
+        assert res == True
+        def llf(v):
+            return lltype.cast_primitive(lltype.Bool, v)
+        res = self.interpret(llf, [rffi.r_longlong(2**48)], policy=LowLevelAnnotatorPolicy())
+        assert res == True
 
     def test_force_cast(self):
         def llfn(v):

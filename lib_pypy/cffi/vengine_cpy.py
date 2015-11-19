@@ -141,19 +141,23 @@ class VCPythonEngine(object):
     def load_library(self, flags=None):
         # XXX review all usages of 'self' here!
         # import it as a new extension module
-        if hasattr(sys, "getdlopenflags"):
-            previous_flags = sys.getdlopenflags()
+        imp.acquire_lock()
         try:
-            if hasattr(sys, "setdlopenflags") and flags is not None:
-                sys.setdlopenflags(flags)
-            module = imp.load_dynamic(self.verifier.get_module_name(),
-                                      self.verifier.modulefilename)
-        except ImportError as e:
-            error = "importing %r: %s" % (self.verifier.modulefilename, e)
-            raise ffiplatform.VerificationError(error)
+            if hasattr(sys, "getdlopenflags"):
+                previous_flags = sys.getdlopenflags()
+            try:
+                if hasattr(sys, "setdlopenflags") and flags is not None:
+                    sys.setdlopenflags(flags)
+                module = imp.load_dynamic(self.verifier.get_module_name(),
+                                          self.verifier.modulefilename)
+            except ImportError as e:
+                error = "importing %r: %s" % (self.verifier.modulefilename, e)
+                raise ffiplatform.VerificationError(error)
+            finally:
+                if hasattr(sys, "setdlopenflags"):
+                    sys.setdlopenflags(previous_flags)
         finally:
-            if hasattr(sys, "setdlopenflags"):
-                sys.setdlopenflags(previous_flags)
+            imp.release_lock()
         #
         # call loading_cpy_struct() to get the struct layout inferred by
         # the C compiler
@@ -193,7 +197,10 @@ class VCPythonEngine(object):
         return library
 
     def _get_declarations(self):
-        return sorted(self.ffi._parser._declarations.items())
+        lst = [(key, tp) for (key, (tp, qual)) in
+                                self.ffi._parser._declarations.items()]
+        lst.sort()
+        return lst
 
     def _generate(self, step_name):
         for name, tp in self._get_declarations():
@@ -464,7 +471,7 @@ class VCPythonEngine(object):
         prnt('{')
         prnt('  /* only to generate compile-time warnings or errors */')
         prnt('  (void)p;')
-        for fname, ftype, fbitsize in tp.enumfields():
+        for fname, ftype, fbitsize, fqual in tp.enumfields():
             if (isinstance(ftype, model.PrimitiveType)
                 and ftype.is_integer_type()) or fbitsize >= 0:
                 # accept all integers, but complain on float or double
@@ -473,7 +480,8 @@ class VCPythonEngine(object):
                 # only accept exactly the type declared.
                 try:
                     prnt('  { %s = &p->%s; (void)tmp; }' % (
-                        ftype.get_c_name('*tmp', 'field %r'%fname), fname))
+                        ftype.get_c_name('*tmp', 'field %r'%fname, quals=fqual),
+                        fname))
                 except ffiplatform.VerificationError as e:
                     prnt('  /* %s */' % str(e))   # cannot verify it, ignore
         prnt('}')
@@ -484,7 +492,7 @@ class VCPythonEngine(object):
         prnt('  static Py_ssize_t nums[] = {')
         prnt('    sizeof(%s),' % cname)
         prnt('    offsetof(struct _cffi_aligncheck, y),')
-        for fname, ftype, fbitsize in tp.enumfields():
+        for fname, ftype, fbitsize, fqual in tp.enumfields():
             if fbitsize >= 0:
                 continue      # xxx ignore fbitsize for now
             prnt('    offsetof(%s, %s),' % (cname, fname))
@@ -548,7 +556,7 @@ class VCPythonEngine(object):
             check(layout[0], ffi.sizeof(BStruct), "wrong total size")
             check(layout[1], ffi.alignof(BStruct), "wrong total alignment")
             i = 2
-            for fname, ftype, fbitsize in tp.enumfields():
+            for fname, ftype, fbitsize, fqual in tp.enumfields():
                 if fbitsize >= 0:
                     continue        # xxx ignore fbitsize for now
                 check(layout[i], ffi.offsetof(BStruct, fname),
@@ -882,7 +890,8 @@ cffimod_header = r'''
             PyLong_FromLongLong((long long)x)))
 
 #define _cffi_to_c_int(o, type)                                          \
-    (sizeof(type) == 1 ? (((type)-1) > 0 ? (type)_cffi_to_c_u8(o)        \
+    ((type)(                                                             \
+     sizeof(type) == 1 ? (((type)-1) > 0 ? (type)_cffi_to_c_u8(o)        \
                                          : (type)_cffi_to_c_i8(o)) :     \
      sizeof(type) == 2 ? (((type)-1) > 0 ? (type)_cffi_to_c_u16(o)       \
                                          : (type)_cffi_to_c_i16(o)) :    \
@@ -890,7 +899,7 @@ cffimod_header = r'''
                                          : (type)_cffi_to_c_i32(o)) :    \
      sizeof(type) == 8 ? (((type)-1) > 0 ? (type)_cffi_to_c_u64(o)       \
                                          : (type)_cffi_to_c_i64(o)) :    \
-     (Py_FatalError("unsupported size for type " #type), (type)0))
+     (Py_FatalError("unsupported size for type " #type), (type)0)))
 
 #define _cffi_to_c_i8                                                    \
                  ((int(*)(PyObject *))_cffi_exports[1])

@@ -6,7 +6,8 @@ from rpython.config.translationoption import SUPPORT__THREAD
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.debug import ll_assert, have_debug_prints, debug_flush
-from rpython.rlib.debug import debug_print, debug_start, debug_stop, debug_offset
+from rpython.rlib.debug import debug_print, debug_start, debug_stop
+from rpython.rlib.debug import debug_offset, have_debug_prints_for
 from rpython.rlib.entrypoint import entrypoint, secondary_entrypoints
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.translator import TranslationContext
@@ -22,13 +23,14 @@ def setup_module(module):
         # Do not open dreaded dialog box on segfault
         import ctypes
         SEM_NOGPFAULTERRORBOX = 0x0002 # From MSDN
-        old_err_mode = ctypes.windll.kernel32.GetErrorMode()
-        new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
-        ctypes.windll.kernel32.SetErrorMode(new_err_mode)
-        module.old_err_mode = old_err_mode
+        if hasattr(ctypes.windll.kernel32, 'GetErrorMode'):
+            old_err_mode = ctypes.windll.kernel32.GetErrorMode()
+            new_err_mode = old_err_mode | SEM_NOGPFAULTERRORBOX
+            ctypes.windll.kernel32.SetErrorMode(new_err_mode)
+            module.old_err_mode = old_err_mode
 
 def teardown_module(module):
-    if os.name == 'nt':
+    if os.name == 'nt' and hasattr(module, 'old_err_mode'):
         import ctypes
         ctypes.windll.kernel32.SetErrorMode(module.old_err_mode)
 
@@ -36,7 +38,7 @@ class StandaloneTests(object):
     config = None
 
     def compile(self, entry_point, debug=True, shared=False,
-                stackcheck=False, entrypoints=None):
+                stackcheck=False, entrypoints=None, local_icon=None):
         t = TranslationContext(self.config)
         ann = t.buildannotator()
         ann.build_types(entry_point, [s_list_of_strings])
@@ -53,6 +55,9 @@ class StandaloneTests(object):
             insert_ll_stackcheck(t)
 
         t.config.translation.shared = shared
+        if local_icon:
+            t.config.translation.icon = os.path.join(os.path.dirname(__file__),
+                                                     local_icon)
 
         if entrypoints is not None:
             kwds = {'secondary_entrypoints': [(i, None) for i in entrypoints]}
@@ -110,7 +115,7 @@ class TestStandalone(StandaloneTests):
                 os.write(1, "   '" + str(s) + "'\n")
             return 0
 
-        t, cbuilder = self.compile(entry_point)
+        t, cbuilder = self.compile(entry_point, local_icon='red.ico')
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
 
@@ -346,6 +351,8 @@ class TestStandalone(StandaloneTests):
             tell = -1
         def entry_point(argv):
             x = "got:"
+            if have_debug_prints_for("my"): x += "M"
+            if have_debug_prints_for("myc"): x += "m"
             debug_start  ("mycat")
             if have_debug_prints(): x += "b"
             debug_print    ("foo", r_longlong(2), "bar", 3)
@@ -383,7 +390,7 @@ class TestStandalone(StandaloneTests):
         assert 'bok' not in err
         # check with PYPYLOG=:- (means print to stderr)
         out, err = cbuilder.cmdexec("", err=True, env={'PYPYLOG': ':-'})
-        assert out.strip() == 'got:bcda.%d.' % tell
+        assert out.strip() == 'got:Mmbcda.%d.' % tell
         assert 'toplevel' in err
         assert '{mycat' in err
         assert 'mycat}' in err
@@ -398,7 +405,7 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': ':%s' % path})
         size = os.stat(str(path)).st_size
-        assert out.strip() == 'got:bcda.' + str(size) + '.'
+        assert out.strip() == 'got:Mmbcda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -451,7 +458,7 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': 'myc:%s' % path})
         size = os.stat(str(path)).st_size
-        assert out.strip() == 'got:bda.' + str(size) + '.'
+        assert out.strip() == 'got:Mmbda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -482,7 +489,7 @@ class TestStandalone(StandaloneTests):
         out, err = cbuilder.cmdexec("", err=True,
                                     env={'PYPYLOG': 'myc,cat2:%s' % path})
         size = os.stat(str(path)).st_size
-        assert out.strip() == 'got:bcda.' + str(size) + '.'
+        assert out.strip() == 'got:Mmbcda.' + str(size) + '.'
         assert not err
         assert path.check(file=1)
         data = path.read()
@@ -524,6 +531,7 @@ class TestStandalone(StandaloneTests):
             py.test.skip("requires fork()")
 
         def entry_point(argv):
+            print "parentpid =", os.getpid()
             debug_start("foo")
             debug_print("test line")
             childpid = os.fork()
@@ -536,40 +544,46 @@ class TestStandalone(StandaloneTests):
         t, cbuilder = self.compile(entry_point)
         path = udir.join('test_debug_print_fork.log')
         out, err = cbuilder.cmdexec("", err=True,
-                                    env={'PYPYLOG': ':%s' % path})
+                                    env={'PYPYLOG': ':%s.%%d' % path})
         assert not err
+        import time
+        time.sleep(0.5)    # time for the forked children to finish
         #
-        f = open(str(path), 'r')
+        lines = out.splitlines()
+        assert lines[-1].startswith('parentpid = ')
+        parentpid = int(lines[-1][12:])
+        #
+        f = open('%s.%d' % (path, parentpid), 'r')
         lines = f.readlines()
         f.close()
         assert '{foo' in lines[0]
         assert lines[1] == "test line\n"
-        offset1 = len(lines[0]) + len(lines[1])
+        #offset1 = len(lines[0]) + len(lines[1])
         assert lines[2].startswith('childpid = ')
         childpid = int(lines[2][11:])
         assert childpid != 0
         assert 'foo}' in lines[3]
         assert len(lines) == 4
         #
-        f = open('%s.fork%d' % (path, childpid), 'r')
+        f = open('%s.%d' % (path, childpid), 'r')
         lines = f.readlines()
         f.close()
-        assert lines[0] == 'FORKED: %d %s\n' % (offset1, path)
-        assert lines[1] == 'childpid = 0\n'
-        offset2 = len(lines[0]) + len(lines[1])
-        assert lines[2].startswith('childpid2 = ')
-        childpid2 = int(lines[2][11:])
+        #assert lines[0] == 'FORKED: %d %s\n' % (offset1, path)
+        assert lines[0] == 'childpid = 0\n'
+        #offset2 = len(lines[0]) + len(lines[1])
+        assert lines[1].startswith('childpid2 = ')
+        childpid2 = int(lines[1][11:])
         assert childpid2 != 0
-        assert 'foo}' in lines[3]
-        assert len(lines) == 4
-        #
-        f = open('%s.fork%d' % (path, childpid2), 'r')
-        lines = f.readlines()
-        f.close()
-        assert lines[0] == 'FORKED: %d %s.fork%d\n' % (offset2, path, childpid)
-        assert lines[1] == 'childpid2 = 0\n'
         assert 'foo}' in lines[2]
         assert len(lines) == 3
+        #
+        f = open('%s.%d' % (path, childpid2), 'r')
+        lines = f.readlines()
+        f.close()
+        #assert lines[0] == 'FORKED: %d %s.fork%d\n' % (offset2, path, childpid)
+        assert lines[0] == 'childpid2 = 0\n'
+        assert 'foo}' in lines[1]
+        assert len(lines) == 2
 
     def test_debug_flush_at_exit(self):
         def entry_point(argv):
@@ -841,6 +855,13 @@ class TestStandalone(StandaloneTests):
         #Do not set LD_LIBRARY_PATH, make sure $ORIGIN flag is working
         out, err = cbuilder.cmdexec("a b")
         assert out == "3"
+        if sys.platform == 'win32':
+            # Make sure we have a test_1w.exe
+            # Since stdout, stderr are piped, we will get output
+            exe = cbuilder.executable_name
+            wexe = exe.new(purebasename=exe.purebasename + 'w')
+            out, err = cbuilder.cmdexec("a b", exe = wexe)
+            assert out == "3"
 
     def test_gcc_options(self):
         # check that the env var CC is correctly interpreted, even if
@@ -1407,7 +1428,7 @@ class TestShared(StandaloneTests):
             return 0
 
         t, cbuilder = self.compile(entry_point, shared=True,
-                                   entrypoints=[f])
+                                   entrypoints=[f], local_icon='red.ico')
         ext_suffix = '.so'
         if cbuilder.eci.platform.name == 'msvc':
             ext_suffix = '.dll'

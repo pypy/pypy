@@ -449,7 +449,7 @@ LL_OPERATIONS = {
     'jit_force_virtual':    LLOp(canrun=True),
     'jit_is_virtual':       LLOp(canrun=True),
     'jit_force_quasi_immutable': LLOp(canrun=True),
-    'jit_record_known_class'  : LLOp(canrun=True),
+    'jit_record_exact_class'  : LLOp(canrun=True),
     'jit_ffi_save_result':  LLOp(canrun=True),
     'jit_conditional_call': LLOp(),
     'get_exception_addr':   LLOp(),
@@ -498,6 +498,7 @@ LL_OPERATIONS = {
     'gc_dump_rpy_heap'    : LLOp(),
     'gc_typeids_z'        : LLOp(),
     'gc_typeids_list'     : LLOp(),
+    'gc_gettypeid'        : LLOp(),
     'gc_gcflag_extra'     : LLOp(),
     'gc_add_memory_pressure': LLOp(),
 
@@ -519,14 +520,6 @@ LL_OPERATIONS = {
     # for stacklet+asmgcroot support
     'gc_detach_callback_pieces': LLOp(),
     'gc_reattach_callback_pieces': LLOp(),
-
-    # for stacklet+shadowstack support
-    'gc_shadowstackref_new':      LLOp(canmallocgc=True),
-    'gc_shadowstackref_context':  LLOp(),
-    'gc_save_current_state_away': LLOp(),
-    'gc_forget_current_state':    LLOp(),
-    'gc_restore_state_from':      LLOp(),
-    'gc_start_fresh_new_state':   LLOp(),
 
     # NOTE NOTE NOTE! don't forget *** canmallocgc=True *** for anything that
     # can malloc a GC object.
@@ -560,6 +553,7 @@ LL_OPERATIONS = {
     'debug_start':          LLOp(canrun=True),
     'debug_stop':           LLOp(canrun=True),
     'have_debug_prints':    LLOp(canrun=True),
+    'have_debug_prints_for':LLOp(canrun=True),
     'debug_offset':         LLOp(canrun=True),
     'debug_flush':          LLOp(canrun=True),
     'debug_assert':         LLOp(tryfold=True),
@@ -573,6 +567,7 @@ LL_OPERATIONS = {
     'debug_reraise_traceback': LLOp(),
     'debug_print_traceback':   LLOp(),
     'debug_nonnull_pointer':   LLOp(canrun=True),
+    'debug_forked':            LLOp(),
 
     # __________ instrumentation _________
     'instrument_count':     LLOp(),
