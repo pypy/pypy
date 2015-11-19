@@ -606,7 +606,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             static PyObject * 
             foo_nb_add_call(PyObject *self, PyObject *other)
             {
-                return PyInt_FromLong(42); 
+                return PyLong_FromLong(42); 
             }
 
             PyTypeObject Foo_Type = {
