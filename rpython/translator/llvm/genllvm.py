@@ -174,16 +174,18 @@ class IntegralType(Type):
             to = self.add_offset_indices(indices, value)
             if to is lltype.Void:
                 return '0'
-            return 'ptrtoint({}* getelementptr({}* null, {}) to {})'.format(
+            return 'ptrtoint({}* getelementptr({}, {}* null, {}) to {})'.format(
                     database.get_type(to).repr_type(),
+                    database.get_type(value.TYPE).repr_type(),
                     database.get_type(value.TYPE).repr_type(),
                     ', '.join(indices), SIGNED_TYPE)
         elif isinstance(value, llgroup.GroupMemberOffset):
+            grptype = database.get_type(value.grpptr._T).repr_type()
             grpptr = get_repr(value.grpptr)
             grpptr.type.to.write_group(grpptr.value._obj)
             member = get_repr(value.member)
-            return ('ptrtoint({member.T} getelementptr({grpptr.T} null, '
-                    '{} 0, i32 {value.index}) to {})'
+            return ('ptrtoint({member.T} getelementptr({grptype}, '
+                    '{grpptr.T} null, {} 0, i32 {value.index}) to {})'
                     .format(SIGNED_TYPE, LLVMHalfWord.repr_type(),
                             **locals()))
         elif isinstance(value, llgroup.CombinedSymbolic):
@@ -202,9 +204,10 @@ class IntegralType(Type):
             elif value.expr.startswith('RPY_TLOFS_'):
                 fieldname = value.expr[10:]
                 idx = database.tls_struct.fldnames_wo_voids.index(fieldname)
-                return ('ptrtoint({}* getelementptr({}* null, i64 0, i32 {}) '
-                        'to {})'.format(
+                return ('ptrtoint({}* getelementptr({}, {}* null, i64 0, '
+                        'i32 {}) to {})'.format(
                         database.tls_struct.fldtypes_wo_voids[idx].repr_type(),
+                        database.tls_struct.repr_type(),
                         database.tls_struct.repr_type(), idx, SIGNED_TYPE))
         elif isinstance(value, llmemory.AddressAsInt):
             return 'ptrtoint({.TV} to {})'.format(get_repr(value.adr.ptr),
@@ -421,8 +424,9 @@ class PtrType(BasePtrType):
                 gep = GEP(None, None)
                 to = parent_type.add_indices(gep, child)
                 self.refs[obj] = (
-                        'bitcast({} getelementptr inbounds({}, {}) to {})'
-                        .format(PtrType.tmp(to).repr_type(), parent_ref,
+                        'bitcast({} getelementptr inbounds({}, {}, {}) to {})'
+                        .format(PtrType.tmp(to).repr_type(),
+                                parent_type.repr_type(), parent_ref,
                                 ', '.join(gep.indices), self.repr_type()))
             else:
                 self.to.repr_ref(self, obj)
@@ -655,8 +659,8 @@ class GroupType(Type):
             setattr(group, fldname, member)
             member_ptr_refs = database.get_type(lltype.Ptr(member._TYPE)).refs
             member_ptr_refs[member] = (
-                    'getelementptr inbounds({}* {}, i64 0, i32 {})'
-                    .format(self.typestr, groupname, i))
+                    'getelementptr inbounds({}, {}* {}, i64 0, i32 {})'
+                    .format(self.typestr, self.typestr, groupname, i))
         struct_type = StructType()
         struct_type.setup('group_' + obj.name, fields, False)
         database.f.write('{} = constant {}\n'.format(
@@ -901,8 +905,9 @@ class GEP(object):
         self.indices.append('i32 {}'.format(index))
 
     def assign(self, result):
-        fmt = '{result.V} = getelementptr inbounds {ptr.TV}, {indices}'
+        fmt = '{result.V} = getelementptr inbounds {type}, {ptr.TV}, {indices}'
         self.func_writer.w(fmt.format(result=result, ptr=self.ptr,
+                                      type=self.ptr.type.to.repr_type(),
                                       indices=', '.join(self.indices)))
 
 
@@ -1086,7 +1091,7 @@ class FunctionWriter(object):
                 .format(**locals()))
 
     def op_llvm_load_gcroot(self, result, index):
-        self.w('{result.V} = load {result.T}* %gcroot{index.V}'
+        self.w('{result.V} = load {result.T}, {result.T}* %gcroot{index.V}'
                 .format(**locals()))
 
     def op_llvm_stack_malloc(self, result):
@@ -1188,16 +1193,13 @@ class FunctionWriter(object):
             argtype = next(it)
             if isinstance(argtype, StructType):
                 t = self._tmp(argtype)
-                self.w('{t.V} = load {arg.TV}'.format(**locals()))
+                self.w('{t.V} = load {t.T}, {arg.TV}'.format(**locals()))
                 arg = t
             tmp.append('{arg.TV}'.format(arg=arg))
         args = ', '.join(tmp)
 
         if result.type is LLVMVoid:
             fmt = 'call void {fn.V}({args})'
-        elif (isinstance(result.type, PtrType) and
-              isinstance(result.type.to, FuncType)):
-            fmt = '{result.V} = call {fn.TV}({args})'
         else:
             fmt = '{result.V} = call {result.T} {fn.V}({args})'
         self.w(fmt.format(**locals()))
@@ -1222,7 +1224,8 @@ class FunctionWriter(object):
                 metadata=''
             t = self._tmp(PtrType.tmp(result.type))
             self._get_element_ptr(var, fields, t)
-            self.w('{result.V} = load {t.TV}{metadata}'.format(**locals()))
+            self.w('{result.V} = load {result.T}, {t.TV}{metadata}'
+                    .format(**locals()))
     op_getfield = op_bare_getfield = _get_element
     op_getinteriorfield = op_bare_getinteriorfield = _get_element
     op_getarrayitem = op_bare_getarrayitem = _get_element
@@ -1250,7 +1253,8 @@ class FunctionWriter(object):
 
     def op_direct_ptradd(self, result, var, val):
         t = self._tmp(PtrType.tmp(result.type.to.of))
-        self.w('{t.V} = getelementptr inbounds {var.TV}, i64 0, {val.TV}'
+        vt = var.type.to.repr_type()
+        self.w('{t.V} = getelementptr inbounds {vt}, {var.TV}, i64 0, {val.TV}'
                 .format(**locals()))
         self.w('{result.V} = bitcast {t.TV} to {result.T}'.format(**locals()))
 
@@ -1270,7 +1274,7 @@ class FunctionWriter(object):
                 gep.add_field_index(0)
             t = self._tmp(PtrType.tmp(LLVMSigned))
             gep.assign(t)
-            self.w('{result.V} = load {t.TV}'.format(**locals()))
+            self.w('{result.V} = load {result.T}, {t.TV}'.format(**locals()))
     op_getinteriorarraysize = op_getarraysize
 
     def _is_true(self, result, var):
@@ -1343,14 +1347,14 @@ class FunctionWriter(object):
         self.w('{result.V} = sub {t1.TV}, {t2.V}'.format(**locals()))
 
     def op_adr_add(self, result, addr, offset):
-        self.w('{result.V} = getelementptr {addr.TV}, {offset.TV}'
+        self.w('{result.V} = getelementptr i8, {addr.TV}, {offset.TV}'
                 .format(**locals()))
 
     def op_adr_sub(self, result, addr, offset):
         offset_neg = self._tmp(LLVMSigned)
         self.w('{offset_neg.V} = sub {offset.T} 0, {offset.V}'
                 .format(**locals()))
-        self.w('{result.V} = getelementptr {addr.TV}, {offset_neg.TV}'
+        self.w('{result.V} = getelementptr i8, {addr.TV}, {offset_neg.TV}'
                 .format(**locals()))
 
     def op_float_neg(self, result, var):
@@ -1378,14 +1382,14 @@ class FunctionWriter(object):
         t2 = self._tmp(PtrType.tmp(LLVMChar))
         t3 = self._tmp(PtrType.tmp(ptr_to))
         self._cast(t1, addr)
-        self.w('{t2.V} = getelementptr inbounds {t1.TV}, {offset.TV}'
+        self.w('{t2.V} = getelementptr inbounds i8, {t1.TV}, {offset.TV}'
                 .format(**locals()))
         self.w('{t3.V} = bitcast {t2.TV} to {t3.T}'.format(**locals()))
         return t3
 
     def op_raw_load(self, result, addr, offset):
         addr = self._get_addr(result.type, addr, offset)
-        self.w('{result.V} = load {addr.TV}'.format(**locals()))
+        self.w('{result.V} = load {result.T}, {addr.TV}'.format(**locals()))
 
     def op_raw_store(self, result, addr, offset, value):
         addr = self._get_addr(value.type, addr, offset)

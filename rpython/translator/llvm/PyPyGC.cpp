@@ -29,19 +29,19 @@ namespace {
 
   class LLVM_LIBRARY_VISIBILITY PyPyGCMetadataPrinter : public GCMetadataPrinter {
   public:
-    virtual void finishAssembly(AsmPrinter &AP);
+    void finishAssembly(Module &M, GCModuleInfo &Info, AsmPrinter &AP) override;
   };
   static GCMetadataPrinterRegistry::Add<PyPyGCMetadataPrinter>
       Y("pypy", "PyPy framework GC");
 }
 
-void PyPyGCMetadataPrinter::finishAssembly(AsmPrinter &AP) {
+void PyPyGCMetadataPrinter::finishAssembly(Module &M, GCModuleInfo &Info, AsmPrinter &AP) {
   typedef std::pair<MCSymbol *, MCSymbol *> GCMapEntry;
   std::vector<GCMapEntry> GCMap;
-  unsigned PtrSize = AP.TM.getDataLayout()->getPointerSize();
+  unsigned PtrSize = M.getDataLayout().getPointerSize();
 
   SmallPtrSet<const Function*, 8> GCStackBottoms;
-  const GlobalVariable *GV = getModule().getGlobalVariable("gc_stack_bottoms");
+  const GlobalVariable *GV = M.getGlobalVariable("gc_stack_bottoms");
   const ConstantArray *Inits = dyn_cast<ConstantArray>(GV->getInitializer());
   for (unsigned i = 0, e = Inits->getNumOperands(); i != e; ++i)
     if (const Function *F =
@@ -49,10 +49,10 @@ void PyPyGCMetadataPrinter::finishAssembly(AsmPrinter &AP) {
       GCStackBottoms.insert(F);
 
   //TODO: switch to read only section
-  AP.OutStreamer.SwitchSection(AP.getObjFileLowering().getDataSection());
+  AP.OutStreamer->SwitchSection(AP.getObjFileLowering().getDataSection());
   AP.EmitAlignment(PtrSize == 4 ? 2 : 3);
 
-  for (iterator I = begin(), IE = end(); I != IE; ++I) {
+  for (auto I = Info.funcinfo_begin(), IE = Info.funcinfo_end(); I != IE; ++I) {
     GCFunctionInfo &FI = **I;
     uint64_t FrameSize = FI.getFrameSize();
     if (GCStackBottoms.count(&FI.getFunction())) {
@@ -60,22 +60,22 @@ void PyPyGCMetadataPrinter::finishAssembly(AsmPrinter &AP) {
     }
     for (GCFunctionInfo::iterator J = FI.begin(), JE = FI.end(); J != JE; ++J) {
       GCPoint &P = *J;
-      MCSymbol *ShapeSymbol = AP.OutContext.CreateTempSymbol();
+      MCSymbol *ShapeSymbol = AP.OutContext.createTempSymbol();
       GCMap.push_back(GCMapEntry(P.Label, ShapeSymbol));
-      AP.OutStreamer.EmitLabel(ShapeSymbol);
-      AP.OutStreamer.EmitIntValue(FrameSize, PtrSize);
-      AP.OutStreamer.EmitIntValue(FI.live_size(J), PtrSize);
+      AP.OutStreamer->EmitLabel(ShapeSymbol);
+      AP.OutStreamer->EmitIntValue(FrameSize, PtrSize);
+      AP.OutStreamer->EmitIntValue(FI.live_size(J), PtrSize);
       for (GCFunctionInfo::live_iterator K = FI.live_begin(J), KE = FI.live_end(J); K != KE; ++K) {
-        AP.OutStreamer.EmitIntValue(K->StackOffset, PtrSize);
+        AP.OutStreamer->EmitIntValue(K->StackOffset, PtrSize);
       }
     }
   }
 
 
-  AP.OutStreamer.EmitLabel(AP.OutContext.GetOrCreateSymbol((StringRef) "__gcmap"));
-  AP.OutStreamer.EmitIntValue(GCMap.size(), PtrSize);
+  AP.OutStreamer->EmitLabel(AP.OutContext.getOrCreateSymbol((StringRef) "__gcmap"));
+  AP.OutStreamer->EmitIntValue(GCMap.size(), PtrSize);
   for (std::vector<GCMapEntry>::iterator K = GCMap.begin(), KE = GCMap.end(); K != KE; ++K) {
-    AP.OutStreamer.EmitValue(MCSymbolRefExpr::Create(K->first, AP.OutContext), PtrSize);
-    AP.OutStreamer.EmitValue(MCSymbolRefExpr::Create(K->second, AP.OutContext), PtrSize);
+    AP.OutStreamer->EmitValue(MCSymbolRefExpr::create(K->first, AP.OutContext), PtrSize);
+    AP.OutStreamer->EmitValue(MCSymbolRefExpr::create(K->second, AP.OutContext), PtrSize);
   }
 }
