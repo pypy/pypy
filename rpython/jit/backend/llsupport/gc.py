@@ -1,6 +1,6 @@
 import os
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import we_are_translated, specialize, stm_ignored
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper import rclass
@@ -809,7 +809,12 @@ class GcLLDescr_framework(GcLLDescription):
             self.get_translated_info_for_guard_is_object())
         p = base_type_info + (typeid << shift_by) + infobits_offset
         p = rffi.cast(rffi.CCHARP, p)
-        return (ord(p[0]) & IS_OBJECT_FLAG) != 0
+        if self.stm:
+            with stm_ignored:
+                c = p[0]
+        else:
+            c = p[0]
+        return (ord(c) & IS_OBJECT_FLAG) != 0
 
 # ____________________________________________________________
 

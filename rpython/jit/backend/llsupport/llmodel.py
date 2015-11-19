@@ -690,23 +690,32 @@ class AbstractLLCPU(AbstractCPU):
 
     @specialize.argtype(1)
     def bh_getfield_gc_i(self, struct, fielddescr, pure=False):
+        assert isinstance(fielddescr, FieldDescr)
         ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
         if isinstance(lltype.typeOf(struct), lltype.Ptr):
             fielddescr.assert_correct_type(struct)
+        if not pure:
+            pure = fielddescr.is_immutable() or not fielddescr.stm_should_track_raw_accesses()
         return self.read_int_at_mem(struct, ofs, size, sign, pure)
 
     @specialize.argtype(1)
     def bh_getfield_gc_r(self, struct, fielddescr, pure=False):
+        assert isinstance(fielddescr, FieldDescr)
         ofs = self.unpack_fielddescr(fielddescr)
         if isinstance(lltype.typeOf(struct), lltype.Ptr):
             fielddescr.assert_correct_type(struct)
+        if not pure:
+            pure = fielddescr.is_immutable() or not fielddescr.stm_should_track_raw_accesses()
         return self.read_ref_at_mem(struct, ofs, pure)
 
     @specialize.argtype(1)
     def bh_getfield_gc_f(self, struct, fielddescr, pure=False):
+        assert isinstance(fielddescr, FieldDescr)
         ofs = self.unpack_fielddescr(fielddescr)
         if isinstance(lltype.typeOf(struct), lltype.Ptr):
             fielddescr.assert_correct_type(struct)
+        if not pure:
+            pure = fielddescr.is_immutable() or not fielddescr.stm_should_track_raw_accesses()
         return self.read_float_at_mem(struct, ofs, pure)
 
     bh_getfield_raw_i = bh_getfield_gc_i
