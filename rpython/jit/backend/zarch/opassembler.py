@@ -410,3 +410,10 @@ class MiscOpAssembler(object):
     emit_same_as_f = _genop_same_as
     emit_cast_ptr_to_int = _genop_same_as
     emit_cast_int_to_ptr = _genop_same_as
+
+    def emit_increment_debug_counter(self, op, arglocs, regalloc):
+        addr, scratch = arglocs
+        self.mc.LG(scratch, l.addr(0,addr))
+        self.mc.AGHI(scratch, l.imm(1))
+        self.mc.STG(scratch, l.addr(0,addr))
+

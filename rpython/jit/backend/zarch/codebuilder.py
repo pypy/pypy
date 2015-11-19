@@ -153,7 +153,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
             self.LGFI(dest_reg, l.imm(word))
         else:
             # this is not put into the constant pool, because it
-            # is an immediate value that cannot easily be estimated
+            # is an immediate value that cannot easily be forseen
             self.LGFI(dest_reg, l.imm(word & 0xFFFFffff))
             self.IIHF(dest_reg, l.imm((word >> 32) & 0xFFFFffff))
 

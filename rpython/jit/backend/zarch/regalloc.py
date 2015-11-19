@@ -609,12 +609,24 @@ class Regalloc(BaseRegalloc):
                 if loc is not None and loc.is_stack():
                     self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
 
+    def convert_to_int(self, c):
+        if isinstance(c, ConstInt):
+            return rffi.cast(lltype.Signed, c.value)
+        else:
+            assert isinstance(c, ConstPtr)
+            return rffi.cast(lltype.Signed, c.value)
+
     # ******************************************************
     # *         P R E P A R E  O P E R A T I O N S         * 
     # ******************************************************
 
     def prepare_increment_debug_counter(self, op):
-        pass # XXX
+        #poolloc = self.ensure_reg(op.getarg(0))
+        immvalue = self.convert_to_int(op.getarg(0))
+        base_loc = r.SCRATCH
+        self.assembler.mc.load_imm(base_loc, immvalue)
+        scratch = r.SCRATCH2
+        return [base_loc, scratch]
 
     prepare_int_add = helper.prepare_int_add
     prepare_int_add_ovf = helper.prepare_int_add

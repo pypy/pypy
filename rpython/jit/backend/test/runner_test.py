@@ -4952,6 +4952,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_increment_debug_counter(self):
         foo = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
         foo[0] = 1789200
+        print "addr" , hex(rffi.cast(lltype.Signed, foo))
         self.execute_operation(rop.INCREMENT_DEBUG_COUNTER,
                                [ConstInt(rffi.cast(lltype.Signed, foo))],
                                'void')

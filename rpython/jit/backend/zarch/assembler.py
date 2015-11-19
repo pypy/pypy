@@ -583,9 +583,6 @@ class AssemblerZARCH(BaseAssembler,
     # ________________________________________
     # ASSEMBLER EMISSION
 
-    def emit_increment_debug_counter(self, op, arglocs, regalloc):
-        pass # TODO
-
     def emit_label(self, op, arglocs, regalloc):
         offset = self.pool.pool_start - self.mc.get_relative_pos()
         # load the pool address at each label
