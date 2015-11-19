@@ -272,10 +272,9 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_GETARRAYITEM_GC_I(self, op):
         # When using str_storage_getitem we op.getarg(0) is a string, NOT an
-        # array, hence the check for is_array(). If it's a virtual but not an
-        # array (i.e., if it's a string) it will be forced.
+        # array, hence the check. In that case, it will be forced
         opinfo = self.getptrinfo(op.getarg(0))
-        if opinfo and opinfo.is_virtual() and opinfo.is_array():
+        if opinfo and opinfo.is_virtual() and not opinfo.is_vstring():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 item = opinfo.getitem(op.getdescr(), indexbox.getint())

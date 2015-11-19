@@ -24,6 +24,9 @@ class AbstractInfo(AbstractValue):
     def is_virtual(self):
         return False
 
+    def is_vstring(self):
+        return False
+
     def is_precise(self):
         return False
 
@@ -47,9 +50,6 @@ class PtrInfo(AbstractInfo):
         return None
 
     def is_null(self):
-        return False
-
-    def is_array(self):
         return False
 
     def force_at_the_end_of_preamble(self, op, optforce, rec):
@@ -481,9 +481,6 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             self.lenbound = intutils.ConstIntBound(size)
         self._clear = clear
 
-    def is_array(self):
-        return True
-
     def getlenbound(self, mode):
         from rpython.jit.metainterp.optimizeopt import intutils
 
@@ -721,9 +718,6 @@ class ConstPtrInfo(PtrInfo):
 
     def is_virtual(self):
         return False
-
-    def is_array(self):
-        return True
 
     def get_known_class(self, cpu):
         if not self._const.nonnull():
