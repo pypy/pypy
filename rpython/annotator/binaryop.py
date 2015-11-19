@@ -6,14 +6,14 @@ from collections import defaultdict
 from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import (
     SomeObject, SomeInteger, SomeBool, s_Bool, SomeString, SomeChar, SomeList,
-    SomeDict, SomeUnicodeCodePoint, SomeUnicodeString,
+    SomeDict, SomeUnicodeCodePoint, SomeUnicodeString, SomeException,
     SomeTuple, SomeImpossibleValue, s_ImpossibleValue, SomeInstance,
     SomeBuiltinMethod, SomeIterator, SomePBC, SomeNone, SomeFloat, s_None,
     SomeByteArray, SomeWeakRef, SomeSingleFloat,
     SomeLongFloat, SomeType, SomeTypeOf, SomeConstantType, unionof, UnionError,
     read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
-from rpython.annotator.bookkeeper import immutablevalue
+from rpython.annotator.bookkeeper import immutablevalue, getbookkeeper
 from rpython.flowspace.model import Variable, Constant, const
 from rpython.flowspace.operation import op
 from rpython.rlib import rarithmetic
@@ -676,6 +676,14 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
             # which we should try to preserve.  Fall-back...
             thistype = pairtype(SomeInstance, SomeInstance)
             return super(thistype, pair(ins1, ins2)).improve()
+
+class __extend__(pairtype(SomeException, SomeInstance)):
+    def union((s_exc, s_inst)):
+        return unionof(s_exc.as_SomeInstance(), s_inst)
+
+class __extend__(pairtype(SomeInstance, SomeException)):
+    def union((s_inst, s_exc)):
+        return unionof(s_exc.as_SomeInstance(), s_inst)
 
 
 @op.getitem.register_transform(SomeInstance, SomeObject)

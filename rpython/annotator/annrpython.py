@@ -492,21 +492,21 @@ class RPythonAnnotator(object):
             if can_only_throw is not None:
                 # filter out those exceptions which cannot
                 # occur for this specific, typed operation.
-                candidates = can_only_throw
-                s_exception = SomeException(set(can_only_throw))
+                s_exception = self.bookkeeper.new_exception(can_only_throw)
                 for link in exits:
                     case = link.exitcase
-                    s_case = SomeExceptCase(case)
                     if case is None:
                         self.follow_link(graph, link, {})
                         continue
                     if s_exception == s_ImpossibleValue:
                         break
+                    s_case = SomeExceptCase(
+                            self.bookkeeper.getuniqueclassdef(case))
                     s_matching_exc = s_exception.intersection(s_case)
                     if s_matching_exc != s_ImpossibleValue:
                         self.follow_raise_link(graph, link,
                             constraints={link.last_exc_value:
-                                s_matching_exc.as_SomeInstance(self.bookkeeper)})
+                                s_matching_exc.as_SomeInstance()})
                     s_exception = s_exception.difference(s_case)
             else:
                 for link in exits:

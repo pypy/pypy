@@ -3,6 +3,7 @@ import pytest
 from rpython.annotator.model import *
 from rpython.annotator.listdef import ListDef
 from rpython.translator.translator import TranslationContext
+from rpython.annotator import unaryop, binaryop  # for side-effects
 
 @pytest.fixture()
 def annotator():
@@ -136,3 +137,11 @@ def test_nonnulify():
     assert s.no_nul is True
     s = SomeChar().nonnulify()
     assert s.no_nul is True
+
+def test_SomeException_union(annotator):
+    bk = annotator.bookkeeper
+    someinst = lambda cls, **kw: SomeInstance(bk.getuniqueclassdef(cls), **kw)
+    s_inst = someinst(Exception)
+    s_exc = bk.new_exception([ValueError, IndexError])
+    assert unionof(s_exc, s_inst) == s_inst
+    assert unionof(s_inst, s_exc) == s_inst
