@@ -676,6 +676,10 @@ class Regalloc(BaseRegalloc):
     prepare_cast_ptr_to_int = helper.prepare_same_as
     prepare_cast_int_to_ptr = helper.prepare_same_as
 
+    prepare_same_as_i = helper.prepare_same_as
+    prepare_same_as_r = helper.prepare_same_as
+    prepare_same_as_f = helper.prepare_same_as
+
     def prepare_cast_int_to_float(self, op):
         loc1 = self.ensure_reg(op.getarg(0))
         res = self.fprm.force_allocate_reg(op)

@@ -145,7 +145,9 @@ class LiteralPool(object):
                 elif val.type == INT:
                     self.overwrite_64(mc, offset, val.value)
                 else:
-                    raise NotImplementedError
+                    assert val.type == REF
+                    i64 = rffi.cast(lltype.Signed, val.value)
+                    self.overwrite_64(mc, offset, i64)
             else:
                 pass
 

@@ -411,8 +411,11 @@ class AssemblerZARCH(BaseAssembler,
         elif prev_loc.is_in_pool():
             if loc.is_reg():
                 self.mc.LG(loc, prev_loc)
+            elif loc.is_fp_reg():
+                self.mc.LD(loc, prev_loc)
             else:
                 xxx
+            return
         elif prev_loc.is_stack():
             offset = prev_loc.value
             # move from memory to register
@@ -447,12 +450,14 @@ class AssemblerZARCH(BaseAssembler,
             value = prev_loc.getint()
             # move immediate value to fp register
             if loc.is_fp_reg():
+                xxx
                 with scratch_reg(self.mc):
                     self.mc.load_imm(r.SCRATCH, value)
                     self.mc.lfdx(loc.value, 0, r.SCRATCH.value)
                 return
             # move immediate value to memory
             elif loc.is_stack():
+                xxx
                 with scratch_reg(self.mc):
                     offset = loc.value
                     self.mc.load_imm(r.SCRATCH, value)
@@ -461,17 +466,15 @@ class AssemblerZARCH(BaseAssembler,
                 return
             assert 0, "not supported location"
         elif prev_loc.is_fp_reg():
-            reg = prev_loc.value
             # move to another fp register
             if loc.is_fp_reg():
-                other_reg = loc.value
-                self.mc.fmr(other_reg, reg)
+                self.mc.LDR(loc, prev_loc)
                 return
             # move from fp register to memory
             elif loc.is_stack():
                 assert loc.type == FLOAT, "target not float location"
                 offset = loc.value
-                self.mc.stfd(reg, r.SPP.value, offset)
+                self.mc.STD(prev_loc, l.addr(offset, r.SPP))
                 return
             assert 0, "not supported location"
         assert 0, "not supported location"
