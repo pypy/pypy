@@ -43,10 +43,6 @@ class MultiArrayModule(MixedModule):
         from pypy.module.micronumpy.concrete import _setup
         _setup()
 
-    def setup_after_space_initialization(self):
-        from pypy.module.micronumpy.support import W_VisibleDeprecationWarning
-        for name, w_type in {'VisibleDeprecationWarning': W_VisibleDeprecationWarning}.items():
-            setattr(self.space, 'w_' + name, self.space.gettypefor(w_type))
 
 class UMathModule(MixedModule):
     appleveldefs = {}
@@ -144,3 +140,10 @@ class Module(MixedModule):
         'multiarray': MultiArrayModule,
         'umath': UMathModule,
     }
+
+    def setup_after_space_initialization(self):
+        from pypy.module.micronumpy.support import W_VisibleDeprecationWarning
+        print 'in setup_after_space_initialization', self.space
+        for name, w_type in {'VisibleDeprecationWarning': W_VisibleDeprecationWarning}.items():
+            setattr(self.space, 'w_' + name, self.space.gettypefor(w_type))
+

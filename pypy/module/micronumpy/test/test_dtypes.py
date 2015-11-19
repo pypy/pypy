@@ -345,12 +345,22 @@ class AppTestDtypes(BaseAppTestDtypes):
 
     def test_can_subclass(self):
         import numpy as np
+        import sys
         class xyz(np.void):
             pass
         assert np.dtype(xyz).name == 'xyz'
         # another obscure API, used in numpy record.py
         a = np.dtype((xyz, [('x', 'int32'), ('y', 'float32')]))
-        assert repr(a).endswith("xyz, [('x', '<i4'), ('y', '<f4')]))")
+        assert "[('x', '<i4'), ('y', '<f4')]" in repr(a)
+        assert 'xyz' in repr(a)
+        data = [(1, 'a'), (2, 'bbb')]
+        b = np.dtype((xyz, [('a', int), ('b', object)]))
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplemented, np.array, data, dtype=b)
+        else:
+            arr = np.array(data, dtype=b)
+            assert arr[0][0] == 1
+            assert arr[0][1] == 'a'
 
     def test_index(self):
         import numpy as np

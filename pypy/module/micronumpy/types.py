@@ -2414,6 +2414,9 @@ class VoidType(FlexibleType):
                 ofs += size
 
     def coerce(self, space, dtype, w_items):
+        if dtype.is_record():
+            # the dtype is a union of a void and a record,
+            return record_coerce(self, space, dtype, w_items)
         arr = VoidBoxStorage(dtype.elsize, dtype)
         self._coerce(space, arr, 0, dtype, w_items, dtype.shape)
         return boxes.W_VoidBox(arr, 0, dtype)
@@ -2474,17 +2477,7 @@ class VoidType(FlexibleType):
 class CharType(StringType):
     char = NPY.CHARLTR
 
-class RecordType(FlexibleType):
-    T = lltype.Char
-    num = NPY.VOID
-    kind = NPY.VOIDLTR
-    char = NPY.VOIDLTR
-
-    def read(self, arr, i, offset, dtype):
-        return boxes.W_VoidBox(arr, i + offset, dtype)
-
-    @jit.unroll_safe
-    def coerce(self, space, dtype, w_item):
+def record_coerce(typ, space, dtype, w_item):
         from pypy.module.micronumpy.base import W_NDimArray
         if isinstance(w_item, boxes.W_VoidBox):
             if dtype == w_item.dtype:
@@ -2521,6 +2514,19 @@ class RecordType(FlexibleType):
                 w_box = subdtype.coerce(space, None)
             subdtype.store(arr, 0, ofs, w_box)
         return boxes.W_VoidBox(arr, 0, dtype)
+
+class RecordType(FlexibleType):
+    T = lltype.Char
+    num = NPY.VOID
+    kind = NPY.VOIDLTR
+    char = NPY.VOIDLTR
+
+    def read(self, arr, i, offset, dtype):
+        return boxes.W_VoidBox(arr, i + offset, dtype)
+
+    @jit.unroll_safe
+    def coerce(self, space, dtype, w_item):
+        return record_coerce(self, space, dtype, w_item)
 
     def runpack_str(self, space, s, native):
         raise oefmt(space.w_NotImplementedError,
