@@ -15,6 +15,7 @@ from rpython.memory.gctransform.shadowstack import (
      ShadowStackFrameworkGCTransformer)
 from rpython.memory.gctypelayout import WEAKREF, convert_weakref_to
 from rpython.rlib import exports
+from rpython.rlib.compilerinfo import COMPILER_INFO
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.objectmodel import (Symbolic, ComputedIntSymbolic,
      CDefinedIntSymbolic, malloc_zero_filled, running_on_llinterp)
@@ -412,6 +413,8 @@ class PtrType(BasePtrType):
         return not value
 
     def repr_value(self, value, extra_len=None):
+        if value is COMPILER_INFO:
+            return database.compiler_info
         obj = value._obj
         if isinstance(obj, int):
             return 'inttoptr({} {} to {})'.format(SIGNED_TYPE, obj,
@@ -1600,6 +1603,8 @@ class GCPolicy(object):
             except lltype.DelayedPointer:
                 self.delayed_ptrs = True
                 return
+            except AttributeError:
+                return
             if value is None:
                 return
         if isinstance(type, lltype.ContainerType):
@@ -1832,6 +1837,13 @@ class GenLLVM(object):
         self.gcpolicy.finish()
 
     def _write_special_declarations(self, f):
+        compiler_info_str = "LLVM " + cmdexec('llvm-config --version').strip()
+        cstr_type = '[{} x i8]'.format(len(compiler_info_str) + 1)
+        f.write('@compiler_info = private unnamed_addr constant {} c"{}\\00"\n'
+                .format(cstr_type, compiler_info_str))
+        database.compiler_info = ('bitcast({}* @compiler_info to [0 x i8]*)'
+                .format(cstr_type))
+
         f.write('declare void @abort() noreturn nounwind\n')
         f.write('declare void @llvm.gcroot(i8** %ptrloc, i8* %metadata)\n')
         f.write('@__gcmap = external constant i8\n')
