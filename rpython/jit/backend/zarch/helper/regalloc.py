@@ -165,6 +165,14 @@ def prepare_unary_op(self, op):
     a0 = op.getarg(0)
     assert not isinstance(a0, ConstInt)
     l0 = self.ensure_reg(a0)
-    self.force_result_in_reg(op, a0)
+    res = self.force_result_in_reg(op, a0)
     self.free_op_vars()
-    return [l0]
+    return [l0,]
+
+def prepare_same_as(self, op):
+    a0 = op.getarg(0)
+    assert not isinstance(a0, ConstInt)
+    l0 = self.ensure_reg(a0)
+    res = self.force_allocate_reg(op)
+    self.free_op_vars()
+    return [l0, res]

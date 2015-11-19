@@ -147,12 +147,15 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
 
     def load_imm(self, dest_reg, word):
-        if word <= 32767 and word >= -32768:
+        if -32768 <= word <= 32767:
             self.LGHI(dest_reg, l.imm(word))
-        elif word <= 2**31-1 and word >= -2**31:
+        elif -2**31 <= word <= 2**31-1:
             self.LGFI(dest_reg, l.imm(word))
         else:
-            xxx
+            # this is not put into the constant pool, because it
+            # is an immediate value that cannot easily be estimated
+            self.LGFI(dest_reg, l.imm(word & 0xFFFFffff))
+            self.IIHF(dest_reg, l.imm((word >> 32) & 0xFFFFffff))
 
 _classes = (AbstractZARCHBuilder,)
 

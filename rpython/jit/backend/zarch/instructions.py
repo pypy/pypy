@@ -124,6 +124,7 @@ memory_mnemonic_codes = {
     'LGR':     ('rre',   ['\xB9','\x04']),
     'LG':      ('rxy',   ['\xE3','\x04']),
     'LARL':    ('ril',   ['\xC0','\x00'], 'r/m,h32'),
+    'IIHF':    ('ril',   ['\xC0','\x08']),
 
     # load on condition
     'LOCGR':  ('rrf_c',    ['\xB9','\xE2']),

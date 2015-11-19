@@ -201,6 +201,14 @@ class FloatOpAssembler(object):
         else:
             self.mc.DDBR(l0, l1)
 
+    def emit_cast_float_to_int(self, op, arglocs, regalloc):
+        f0, r0 = arglocs
+        self.mc.CGDBR(r0, f0, c.FP_CUTOFF)
+
+    def emit_cast_int_to_float(self, op, arglocs, regalloc):
+        r0, f0 = arglocs
+        self.mc.CDGBR(f0, r0)
+
 class GuardOpAssembler(object):
     _mixin_ = True
 
@@ -389,3 +397,16 @@ class GuardOpAssembler(object):
         self._store_force_index(op)
         self.store_info_on_descr(0, guard_token)
 
+class MiscOpAssembler(object):
+    _mixin_ = True
+
+    def _genop_same_as(self, op, arglocs, regalloc):
+        argloc, resloc = arglocs
+        if argloc is not resloc:
+            self.regalloc_mov(argloc, resloc)
+
+    emit_same_as_i = _genop_same_as
+    emit_same_as_r = _genop_same_as
+    emit_same_as_f = _genop_same_as
+    emit_cast_ptr_to_int = _genop_same_as
+    emit_cast_int_to_ptr = _genop_same_as
