@@ -65,6 +65,14 @@ class AppTestJitHook(object):
             if i != 1:
                 offset[op] = i
 
+        class FailDescr(BasicFailDescr):
+            def get_jitcounter_hash(self):
+                from rpython.rlib.rarithmetic import r_uint
+                return r_uint(13)
+
+        oplist[-1].setdescr(FailDescr())
+        oplist[-2].setdescr(FailDescr())
+
         token = JitCellToken()
         token.number = 0
         di_loop = JitDebugInfo(MockJitDriverSD, logger, token, oplist, 'loop',
@@ -73,7 +81,7 @@ class AppTestJitHook(object):
                                         oplist, 'loop', greenkey)
         di_loop.asminfo = AsmInfo(offset, 0x42, 12)
         di_bridge = JitDebugInfo(MockJitDriverSD, logger, JitCellToken(),
-                                 oplist, 'bridge', fail_descr=BasicFailDescr())
+                                 oplist, 'bridge', fail_descr=FailDescr())
         di_bridge.asminfo = AsmInfo(offset, 0, 0)
 
         def interp_on_compile():

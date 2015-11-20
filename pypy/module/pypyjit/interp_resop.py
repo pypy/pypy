@@ -10,6 +10,7 @@ from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance, hlstr
 from rpython.rtyper.rclass import OBJECT
 #from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.nonconst import NonConstant
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib import jit_hooks
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import compute_unique_id
@@ -119,6 +120,9 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
                                        op.getarg(1).getint(),
                                        op.getarg(2).getint(),
                                        w_greenkey))
+        elif op.is_guard():
+            l_w.append(GuardOp(name, ofs, logops.repr_of_resop(op),
+                op.getdescr().get_jitcounter_hash()))
         else:
             l_w.append(WrappedOp(name, ofs, logops.repr_of_resop(op)))
     return l_w
@@ -126,6 +130,10 @@ def wrap_oplist(space, logops, operations, ops_offset=None):
 @unwrap_spec(offset=int, repr=str, name=str)
 def descr_new_resop(space, w_tp, name, offset=-1, repr=''):
     return WrappedOp(name, offset, repr)
+
+@unwrap_spec(offset=int, repr=str, name=str, hash=r_uint)
+def descr_new_guardop(space, w_tp, name, offset=-1, repr='', hash=r_uint(0)):
+    return GuardOp(name, offset, repr, hash)
 
 @unwrap_spec(repr=str, name=str, jd_name=str, call_depth=int, call_id=int)
 def descr_new_dmp(space, w_tp, name, repr, jd_name, call_depth, call_id,
@@ -148,6 +156,11 @@ class WrappedOp(W_Root):
 
     def descr_name(self, space):
         return space.wrap(self.name)
+
+class GuardOp(WrappedOp):
+    def __init__(self, name, offset, repr_of_resop, hash):
+        WrappedOp.__init__(self, name, offset, repr_of_resop)
+        self.hash = hash
 
 class DebugMergePoint(WrappedOp):
     """ A class representing Debug Merge Point - the entry point
@@ -185,6 +198,17 @@ WrappedOp.typedef = TypeDef(
     offset = interp_attrproperty("offset", cls=WrappedOp),
 )
 WrappedOp.typedef.acceptable_as_base_class = False
+
+GuardOp.typedef = TypeDef(
+    'GuardOp',
+    __doc__ = GuardOp.__doc__,
+    __new__ = interp2app(descr_new_guardop),
+    __repr__ = interp2app(GuardOp.descr_repr),
+    name = GetSetProperty(GuardOp.descr_name),
+    offset = interp_attrproperty("offset", cls=GuardOp),
+    hash = interp_attrproperty("hash", cls=GuardOp),
+    )
+GuardOp.typedef.acceptable_as_base_class = False
 
 DebugMergePoint.typedef = TypeDef(
     'DebugMergePoint', WrappedOp.typedef,

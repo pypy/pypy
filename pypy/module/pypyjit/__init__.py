@@ -24,6 +24,7 @@ class Module(MixedModule):
         #'enable_debug': 'interp_resop.enable_debug',
         #'disable_debug': 'interp_resop.disable_debug',
         'ResOperation': 'interp_resop.WrappedOp',
+        'GuardOp': 'interp_resop.GuardOp',
         'DebugMergePoint': 'interp_resop.DebugMergePoint',
         'JitLoopInfo': 'interp_resop.W_JitLoopInfo',
         'PARAMETER_DOCS': 'space.wrap(rpython.rlib.jit.PARAMETER_DOCS)',
