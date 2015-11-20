@@ -94,7 +94,7 @@ class TestRStruct(BaseRtypingTest):
 class TestNoFastPath(TestRStruct):
 
     def setup_method(self, meth):
-        standardfmttable.ALLOW_FASTPATH = False
+        standardfmttable.USE_FASTPATH = False
 
     def teardown_method(self, meth):
-        standardfmttable.ALLOW_FASTPATH = True
+        standardfmttable.USE_FASTPATH = True

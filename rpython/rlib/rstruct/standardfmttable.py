@@ -130,7 +130,8 @@ def make_int_packer(size, signed, _memo={}):
 
 # ____________________________________________________________
 
-ALLOW_FASTPATH = True # set to False by TestNoFastPath
+USE_FASTPATH = True    # set to False by some tests
+ALLOW_SLOWPATH = True  # set to False by some tests
 
 class CannotUnpack(Exception):
     pass
@@ -139,7 +140,7 @@ class CannotUnpack(Exception):
 def unpack_fastpath(TYPE, fmtiter):
     size = rffi.sizeof(TYPE)
     strbuf, pos = fmtiter.get_buffer_as_string_maybe()
-    if pos % size != 0 or strbuf is None or not ALLOW_FASTPATH:
+    if strbuf is None or pos % size != 0 or not USE_FASTPATH:
         raise CannotUnpack
     fmtiter.skip(size)
     return str_storage_getitem(TYPE, strbuf, pos)
@@ -226,6 +227,9 @@ def make_int_unpacker(size, signed, _memo={}):
         if unpack_int_fastpath_maybe(fmtiter):
             return
         # slow path
+        if not ALLOW_SLOWPATH:
+            # we enter here only on some tests
+            raise ValueError("fastpath not taken :(")
         intvalue = inttype(0)
         s = fmtiter.read(size)
         idx = 0

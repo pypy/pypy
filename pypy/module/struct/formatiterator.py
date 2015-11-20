@@ -154,9 +154,8 @@ class UnpackFormatIterator(FormatIterator):
         return self.pos
 
     def get_buffer_as_string_maybe(self):
-        # XXX: if self.buf is something different that StringBuffer, this has
-        # the effect to copy the whole string at each unpack!
-        return self.buf.as_str()
+        string, pos = self.buf.as_str_and_offset_maybe()
+        return string, pos+self.pos
 
     def skip(self, size):
         self.read(size) # XXX, could avoid taking the slice
