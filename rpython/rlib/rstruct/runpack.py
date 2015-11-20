@@ -39,16 +39,13 @@ def reader_for_pos(pos):
         def appendobj(self, value):
             self.value = value
 
-        def is_aligned(self, size):
-            return self.mr.inputpos % size == 0
-
-        def get_buffer(self):
-            return self.mr.input
-
         def get_pos(self):
             return self.mr.inputpos
 
-        def advance(self, size):
+        def get_buffer_as_string_maybe(self):
+            return self.mr.input
+
+        def skip(self, size):
             self.read(size) # XXX, could avoid taking the slice
     ReaderForPos.__name__ = 'ReaderForPos%d' % pos
     return ReaderForPos

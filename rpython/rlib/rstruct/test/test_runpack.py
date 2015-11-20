@@ -48,6 +48,13 @@ class TestRStruct(BaseRtypingTest):
             d, f = runpack("@df", d_data)
             return d, f
         #
+        # direct test
+        d, f = fn()
+        assert d == 12.34     # no precision lost
+        assert f != 12.34     # precision lost
+        assert abs(f - 12.34) < 1E-6
+        #
+        # translated test
         res = self.interpret(fn, [])
         d = res.item0
         f = res.item1  # convert from r_singlefloat
@@ -83,8 +90,11 @@ class TestRStruct(BaseRtypingTest):
         assert unpack(">q", '\xbeMLKJIHH') == -0x41B2B3B4B5B6B7B8
         assert unpack(">Q", '\x81BCDEFGH') == 0x8142434445464748
 
-    def test_unpack_standard_no_raw_storage(self, monkeypatch):
-        monkeypatch.setattr(standardfmttable, 'UNPACK_ALLOW_RAW_STORAGE', False)
-        self.test_unpack_standard_little()
-        self.test_unpack_standard_big()
 
+class TestNoFastPath(TestRStruct):
+
+    def setup_method(self, meth):
+        standardfmttable.ALLOW_FASTPATH = False
+
+    def teardown_method(self, meth):
+        standardfmttable.ALLOW_FASTPATH = True

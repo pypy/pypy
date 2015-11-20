@@ -8,7 +8,8 @@ from rpython.rlib import jit, longlong2float
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_singlefloat, widen
 from rpython.rlib.rstruct import standardfmttable as std
-from rpython.rlib.rstruct.standardfmttable import native_is_bigendian
+from rpython.rlib.rstruct.standardfmttable import (native_is_bigendian, unpack_fastpath,
+                                                   CannotUnpack)
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.strstorage import str_storage_getitem
@@ -44,16 +45,13 @@ def pack_double(fmtiter):
 
 @specialize.argtype(0)
 def unpack_double(fmtiter):
-    if fmtiter.is_aligned(sizeof_double):
-        # fast path
-        input = fmtiter.get_buffer()
-        pos = fmtiter.get_pos()
-        doubleval = str_storage_getitem(rffi.DOUBLE, input, pos)
-        fmtiter.advance(sizeof_double)
-    else:
+    try:
+        doubleval = unpack_fastpath(rffi.DOUBLE, fmtiter)
+    except CannotUnpack:
         # slow path, take the slice
         input = fmtiter.read(sizeof_double)
         doubleval = str_storage_getitem(rffi.DOUBLE, input, 0)
+    #
     fmtiter.appendobj(doubleval)
 
 def pack_float(fmtiter):
@@ -72,8 +70,11 @@ def pack_float(fmtiter):
 
 @specialize.argtype(0)
 def unpack_float(fmtiter):
-    input = fmtiter.read(sizeof_float)
-    floatval = str_storage_getitem(rffi.FLOAT, input, 0)
+    try:
+        floatval = unpack_fastpath(rffi.FLOAT, fmtiter)
+    except CannotUnpack:
+        input = fmtiter.read(sizeof_float)
+        floatval = str_storage_getitem(rffi.FLOAT, input, 0)
     doubleval = float(floatval) # convert from r_singlefloat to rpython's float
     fmtiter.appendobj(doubleval)
 

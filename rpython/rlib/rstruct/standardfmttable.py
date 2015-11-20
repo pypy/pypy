@@ -130,6 +130,21 @@ def make_int_packer(size, signed, _memo={}):
 
 # ____________________________________________________________
 
+ALLOW_FASTPATH = True # set to False by TestNoFastPath
+
+class CannotUnpack(Exception):
+    pass
+
+@specialize.arg(0)
+def unpack_fastpath(TYPE, fmtiter):
+    size = rffi.sizeof(TYPE)
+    pos = fmtiter.get_pos()
+    strbuf = fmtiter.get_buffer_as_string_maybe()
+    if pos % size != 0 or strbuf is None or not ALLOW_FASTPATH:
+        raise CannotUnpack
+    fmtiter.skip(size)
+    return str_storage_getitem(TYPE, strbuf, pos)
+
 @specialize.argtype(0)
 def unpack_pad(fmtiter, count):
     fmtiter.read(count)
@@ -173,8 +188,6 @@ def get_rffi_int_type(size, signed):
             return TYPE
     raise KeyError("Cannot find an int type size=%d, signed=%d" % (size, signed))
 
-UNPACK_ALLOW_RAW_STORAGE = True
-
 def make_int_unpacker(size, signed, _memo={}):
     try:
         return _memo[size, signed]
@@ -196,17 +209,28 @@ def make_int_unpacker(size, signed, _memo={}):
     TYPE = get_rffi_int_type(size, signed)
 
     @specialize.argtype(0)
+    def unpack_int_fastpath_maybe(fmtiter):
+        if fmtiter.bigendian != native_is_bigendian:
+            return False
+        try:
+            intvalue = unpack_fastpath(TYPE, fmtiter)
+        except CannotUnpack:
+            return False
+        if not signed and size < native_int_size:
+            intvalue = rarithmetic.intmask(intvalue)
+        intvalue = inttype(intvalue)
+        fmtiter.appendobj(intvalue)
+        return True
+
+    @specialize.argtype(0)
     def unpack_int(fmtiter):
+        if unpack_int_fastpath_maybe(fmtiter):
+            return
+        # slow path
         intvalue = inttype(0)
         s = fmtiter.read(size)
         idx = 0
-        if UNPACK_ALLOW_RAW_STORAGE and fmtiter.bigendian == native_is_bigendian:
-            # fast path, using the native raw_storage
-            intvalue = str_storage_getitem(TYPE, s, 0)
-            if not signed and size < native_int_size:
-                intvalue = rarithmetic.intmask(intvalue)
-            intvalue = inttype(intvalue)
-        elif fmtiter.bigendian:
+        if fmtiter.bigendian:
             for i in unroll_range_size:
                 x = ord(s[idx])
                 if signed and i == 0 and x >= 128:
