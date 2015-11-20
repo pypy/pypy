@@ -141,13 +141,17 @@ class SomeType(SomeObject):
 class SomeTypeOf(SomeType):
     """The type of a variable"""
     def __init__(self, args_v):
-        assert isinstance(args_v, list)
-        assert args_v
         self.is_type_of = args_v
 
 def typeof(args_v):
     if args_v:
-        return SomeTypeOf(args_v)
+        result = SomeTypeOf(args_v)
+        if len(args_v) == 1:
+            s_arg = args_v[0].annotation
+            if isinstance(s_arg, SomeException) and len(s_arg.classdefs) == 1:
+                cdef, = s_arg.classdefs
+                result.const = cdef.classdesc.pyobj
+        return result
     else:
         return SomeType()
 

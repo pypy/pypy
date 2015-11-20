@@ -504,16 +504,15 @@ class RPythonAnnotator(object):
                             self.bookkeeper.getuniqueclassdef(case))
                     s_matching_exc = s_exception.intersection(s_case)
                     if s_matching_exc != s_ImpossibleValue:
-                        self.follow_raise_link(graph, link,
-                            constraints={link.last_exc_value:
-                                s_matching_exc.as_SomeInstance()})
+                        self.follow_raise_link(graph, link, s_matching_exc)
                     s_exception = s_exception.difference(s_case)
             else:
                 for link in exits:
                     if link.exitcase is None:
                         self.follow_link(graph, link, {})
                     else:
-                        self.follow_raise_link(graph, link, {})
+                        s_exception = self.bookkeeper.valueoftype(link.exitcase)
+                        self.follow_raise_link(graph, link, s_exception)
         else:
             if isinstance(block.exitswitch, Variable):
                 knowntypedata = getattr(block.exitswitch.annotation,
@@ -559,7 +558,7 @@ class RPythonAnnotator(object):
         self.links_followed[link] = True
         self.addpendingblock(graph, link.target, inputs_s)
 
-    def follow_raise_link(self, graph, link, constraints):
+    def follow_raise_link(self, graph, link, s_last_exc_value):
         v_last_exc_type = link.last_exception
         v_last_exc_value = link.last_exc_value
 
@@ -567,15 +566,13 @@ class RPythonAnnotator(object):
                 issubclass(link.exitcase, BaseException))
 
         assert v_last_exc_type and v_last_exc_value
-        s_last_exc_value = self.bookkeeper.valueoftype(link.exitcase)
+
         if isinstance(v_last_exc_value, Variable):
             self.setbinding(v_last_exc_value, s_last_exc_value)
 
         if isinstance(v_last_exc_type, Variable):
-            self.setbinding(v_last_exc_type, SomeTypeOf([v_last_exc_value]))
+            self.setbinding(v_last_exc_type, typeof([v_last_exc_value]))
 
-
-        ignore_link = False
         inputs_s = []
         renaming = defaultdict(list)
         for v_out, v_input in zip(link.args, link.target.inputargs):
@@ -586,19 +583,13 @@ class RPythonAnnotator(object):
                 s_out = typeof(renaming[v_last_exc_value])
                 if isinstance(v_last_exc_type, Constant):
                     s_out.const = v_last_exc_type.value
+                elif v_last_exc_type.annotation.is_constant():
+                    s_out.const = v_last_exc_type.annotation.const
                 inputs_s.append(s_out)
             else:
                 s_out = self.annotation(v_out)
-                if v_out in constraints:
-                    s_constraint = constraints[v_out]
-                    s_out = pair(s_out, s_constraint).improve()
-                    # ignore links that try to pass impossible values
-                    if s_out == s_ImpossibleValue:
-                        ignore_link = True
                 s_out = self.apply_renaming(s_out, renaming)
                 inputs_s.append(s_out)
-        if ignore_link:
-            return
 
         self.links_followed[link] = True
         self.addpendingblock(graph, link.target, inputs_s)
