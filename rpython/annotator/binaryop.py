@@ -689,6 +689,10 @@ class __extend__(
     def union((s_inst, s_exc)):
         return unionof(s_exc.as_SomeInstance(), s_inst)
 
+class __extend__(pairtype(SomeException, SomeException)):
+    def union((s_exc1, s_exc2)):
+        return SomeException(s_exc1.classdefs | s_exc2.classdefs)
+
 
 @op.getitem.register_transform(SomeInstance, SomeObject)
 def getitem_SomeInstance(annotator, v_ins, v_idx):
