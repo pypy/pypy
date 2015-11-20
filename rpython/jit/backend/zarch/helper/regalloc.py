@@ -152,6 +152,25 @@ def prepare_binary_op(self, op):
     self.free_op_vars()
     return [l0, l1]
 
+def generate_prepare_float_binary_op(allow_swap=False):
+    def prepare_float_binary_op(self, op):
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        if allow_swap:
+            if isinstance(a0, Const):
+                a0,a1 = a1,a0
+        l0 = self.ensure_reg(a0)
+        l1 = self.ensure_reg(a1)
+        if isinstance(a0, Const):
+            newloc = self.force_allocate_reg(op)
+            self.assembler.regalloc_mov(l0, newloc)
+            l0 = newloc
+        else:
+            self.force_result_in_reg(op, a0)
+        self.free_op_vars()
+        return [l0, l1]
+    return prepare_float_binary_op
+
 def prepare_unary_cmp(self, op):
     a0 = op.getarg(0)
     assert not isinstance(a0, ConstInt)

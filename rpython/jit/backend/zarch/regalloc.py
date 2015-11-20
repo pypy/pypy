@@ -55,6 +55,7 @@ class FPRegisterManager(RegisterManager):
     box_types             = [FLOAT]
     save_around_call_regs = r.VOLATILES_FLOAT
     assert set(save_around_call_regs).issubset(all_regs)
+    pool = None
 
     def convert_to_adr(self, c):
         assert isinstance(c, ConstFloat)
@@ -64,8 +65,8 @@ class FPRegisterManager(RegisterManager):
         return adr
 
     def convert_to_imm(self, c):
-        adr = self.convert_to_adr(c)
-        return l.ConstFloatLoc(adr)
+        off = self.pool.get_offset(c)
+        return l.pool(off)
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
@@ -330,6 +331,7 @@ class Regalloc(BaseRegalloc):
                                      assembler = self.assembler)
         self.fprm = FPRegisterManager(self.longevity, frame_manager = self.fm,
                                       assembler = self.assembler)
+        self.fprm.pool = self.assembler.pool
         return operations
 
     def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
@@ -668,10 +670,11 @@ class Regalloc(BaseRegalloc):
     prepare_int_force_ge_zero = helper.prepare_unary_op
 
 
-    prepare_float_add = helper.prepare_binary_op
-    prepare_float_sub = helper.prepare_binary_op
-    prepare_float_mul = helper.prepare_binary_op
-    prepare_float_truediv = helper.prepare_binary_op
+    prepare_float_add = helper.generate_prepare_float_binary_op(allow_swap=True)
+    prepare_float_sub = helper.generate_prepare_float_binary_op()
+    prepare_float_mul = helper.generate_prepare_float_binary_op(allow_swap=True)
+    prepare_float_truediv = helper.generate_prepare_float_binary_op()
+
 
     prepare_cast_ptr_to_int = helper.prepare_same_as
     prepare_cast_int_to_ptr = helper.prepare_same_as

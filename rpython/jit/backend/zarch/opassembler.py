@@ -173,33 +173,10 @@ class IntOpAssembler(object):
 class FloatOpAssembler(object):
     _mixin_ = True
 
-    def emit_float_add(self, op, arglocs, regalloc):
-        l0, l1 = arglocs
-        if l1.is_in_pool():
-            self.mc.ADB(l0, l1)
-        else:
-            self.mc.ADBR(l0, l1)
-
-    def emit_float_sub(self, op, arglocs, regalloc):
-        l0, l1 = arglocs
-        if l1.is_in_pool():
-            self.mc.SDB(l0, l1)
-        else:
-            self.mc.SDBR(l0, l1)
-
-    def emit_float_mul(self, op, arglocs, regalloc):
-        l0, l1 = arglocs
-        if l1.is_in_pool():
-            self.mc.MDB(l0, l1)
-        else:
-            self.mc.MDBR(l0, l1)
-
-    def emit_float_div(self, op, arglocs, regalloc):
-        l0, l1 = arglocs
-        if l1.is_in_pool():
-            self.mc.DDB(l0, l1)
-        else:
-            self.mc.DDBR(l0, l1)
+    emit_float_add = gen_emit_rr_or_rpool('ADBR','ADB')
+    emit_float_sub = gen_emit_rr_or_rpool('SDBR','SDB')
+    emit_float_mul = gen_emit_rr_or_rpool('MDBR','MDB')
+    emit_float_truediv = gen_emit_rr_or_rpool('DDBR','DDB')
 
     def emit_cast_float_to_int(self, op, arglocs, regalloc):
         f0, r0 = arglocs
