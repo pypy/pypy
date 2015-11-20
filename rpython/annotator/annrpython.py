@@ -11,7 +11,7 @@ from rpython.flowspace.model import Variable, Constant, checkgraph
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
 from rpython.annotator.model import (
-        typeof, SomeTypeOf, SomeException, SomeExceptCase, s_ImpossibleValue)
+        typeof, SomeExceptCase, s_ImpossibleValue)
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
 

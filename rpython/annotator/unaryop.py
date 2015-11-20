@@ -100,17 +100,16 @@ def call_args(annotator, func, *args_v):
     callspec = complex_args([annotator.annotation(v_arg) for v_arg in args_v])
     return annotator.annotation(func).call(callspec)
 
-class __extend__(SomeObject):
+@op.issubtype.register(SomeObject)
+def issubtype(annotator, v_type, v_cls):
+    s_type = v_type.annotation
+    s_cls = annotator.annotation(v_cls)
+    if s_type.is_constant() and s_cls.is_constant():
+        return annotator.bookkeeper.immutablevalue(
+            issubclass(s_type.const, s_cls.const))
+    return s_Bool
 
-    def issubtype(self, s_cls):
-        if hasattr(self, 'is_type_of'):
-            vars = self.is_type_of
-            annotator = getbookkeeper().annotator
-            return builtin.builtin_isinstance(annotator.binding(vars[0]),
-                                              s_cls, vars)
-        if self.is_constant() and s_cls.is_constant():
-            return immutablevalue(issubclass(self.const, s_cls.const))
-        return s_Bool
+class __extend__(SomeObject):
 
     def len(self):
         return SomeInteger(nonneg=True)
@@ -913,6 +912,12 @@ class __extend__(SomeNone):
         # For now, we give the impossible answer (because len(None) would
         # really crash translated code).  It can be generalized later.
         return SomeImpossibleValue()
+
+@op.issubtype.register(SomeTypeOf)
+def issubtype(annotator, v_type, v_cls):
+    args_v = v_type.annotation.is_type_of
+    return builtin.builtin_isinstance(
+        args_v[0].annotation, annotator.annotation(v_cls), args_v)
 
 #_________________________________________
 # weakrefs
