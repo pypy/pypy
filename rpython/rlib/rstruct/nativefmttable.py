@@ -46,7 +46,7 @@ def pack_double(fmtiter):
 @specialize.argtype(0)
 def unpack_double(fmtiter):
     try:
-        doubleval = unpack_fastpath(rffi.DOUBLE, fmtiter)
+        doubleval = unpack_fastpath(rffi.DOUBLE)(fmtiter)
     except CannotUnpack:
         # slow path, take the slice
         input = fmtiter.read(sizeof_double)
@@ -71,7 +71,7 @@ def pack_float(fmtiter):
 @specialize.argtype(0)
 def unpack_float(fmtiter):
     try:
-        floatval = unpack_fastpath(rffi.FLOAT, fmtiter)
+        floatval = unpack_fastpath(rffi.FLOAT)(fmtiter)
     except CannotUnpack:
         input = fmtiter.read(sizeof_float)
         floatval = str_storage_getitem(rffi.FLOAT, input, 0)

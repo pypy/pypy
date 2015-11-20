@@ -136,14 +136,17 @@ ALLOW_SLOWPATH = True  # set to False by some tests
 class CannotUnpack(Exception):
     pass
 
-@specialize.arg(0)
-def unpack_fastpath(TYPE, fmtiter):
-    size = rffi.sizeof(TYPE)
-    strbuf, pos = fmtiter.get_buffer_as_string_maybe()
-    if strbuf is None or pos % size != 0 or not USE_FASTPATH:
-        raise CannotUnpack
-    fmtiter.skip(size)
-    return str_storage_getitem(TYPE, strbuf, pos)
+@specialize.memo()
+def unpack_fastpath(TYPE):
+    @specialize.argtype(0)
+    def do_unpack_fastpath(fmtiter):
+        size = rffi.sizeof(TYPE)
+        strbuf, pos = fmtiter.get_buffer_as_string_maybe()
+        if strbuf is None or pos % size != 0 or not USE_FASTPATH:
+            raise CannotUnpack
+        fmtiter.skip(size)
+        return str_storage_getitem(TYPE, strbuf, pos)
+    return do_unpack_fastpath
 
 @specialize.argtype(0)
 def unpack_pad(fmtiter, count):
@@ -213,7 +216,7 @@ def make_int_unpacker(size, signed, _memo={}):
         if fmtiter.bigendian != native_is_bigendian:
             return False
         try:
-            intvalue = unpack_fastpath(TYPE, fmtiter)
+            intvalue = unpack_fastpath(TYPE)(fmtiter)
         except CannotUnpack:
             return False
         if not signed and size < native_int_size:
