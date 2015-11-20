@@ -1091,9 +1091,9 @@ _oplist = [
     'STRLEN/1/i',
     'STRGETITEM/2/i',
     'GETFIELD_GC_PURE/1d/rfi',
-    'GETFIELD_RAW_PURE/1d/rfi',
     'GETARRAYITEM_GC_PURE/2d/rfi',
-    'GETARRAYITEM_RAW_PURE/2d/fi',
+    #'GETFIELD_RAW_PURE/1d/rfi',     these two operations not useful and
+    #'GETARRAYITEM_RAW_PURE/2d/fi',  dangerous when unrolling speculatively
     'UNICODELEN/1/i',
     'UNICODEGETITEM/2/i',
     #
@@ -1170,7 +1170,7 @@ _oplist = [
     'CALL_ASSEMBLER/*d/rfin',  # call already compiled assembler
     'CALL_MAY_FORCE/*d/rfin',
     'CALL_LOOPINVARIANT/*d/rfin',
-    'CALL_RELEASE_GIL/*d/rfin',
+    'CALL_RELEASE_GIL/*d/fin',
     # release the GIL and "close the stack" for asmgcc
     'CALL_PURE/*d/rfin',             # removed before it's passed to the backend
     'CALL_MALLOC_GC/*d/r',      # like CALL, but NULL => propagate MemoryError
@@ -1371,8 +1371,6 @@ _opvector = {
     rop.GETARRAYITEM_GC_F: rop.VEC_GETARRAYITEM_GC_F,
     # note that there is no _PURE operation for vector operations.
     # reason: currently we do not care if it is pure or not!
-    rop.GETARRAYITEM_RAW_PURE_I: rop.VEC_GETARRAYITEM_RAW_I,
-    rop.GETARRAYITEM_RAW_PURE_F: rop.VEC_GETARRAYITEM_RAW_F,
     rop.GETARRAYITEM_GC_PURE_I: rop.VEC_GETARRAYITEM_GC_I,
     rop.GETARRAYITEM_GC_PURE_F: rop.VEC_GETARRAYITEM_GC_F,
     rop.RAW_STORE:        rop.VEC_RAW_STORE,
@@ -1599,8 +1597,8 @@ class OpHelpers(object):
 
     @staticmethod
     def is_call_release_gil(opnum):
+        # no R returning call_release_gil
         return (opnum == rop.CALL_RELEASE_GIL_I or
-                opnum == rop.CALL_RELEASE_GIL_R or
                 opnum == rop.CALL_RELEASE_GIL_F or
                 opnum == rop.CALL_RELEASE_GIL_N)
 

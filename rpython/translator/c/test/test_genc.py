@@ -1,4 +1,5 @@
 import ctypes
+from collections import OrderedDict
 
 import py
 
@@ -573,11 +574,6 @@ def test_recursive_llhelper():
     assert fn(True)
 
 def test_ordered_dict():
-    try:
-        from collections import OrderedDict
-    except ImportError:
-        py.test.skip("Please update to Python 2.7")
-
     expected = [('ea', 1), ('bb', 2), ('c', 3), ('d', 4), ('e', 5),
                 ('ef', 6)]
     d = OrderedDict(expected)

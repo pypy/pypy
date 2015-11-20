@@ -28,7 +28,6 @@ class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
     in a 'normal' object space like StdObjSpace."""
     __slots__ = ()
-    _settled_ = True
     user_overridden_class = False
 
     def getdict(self, space):
@@ -392,7 +391,7 @@ class ObjSpace(object):
         self.check_signal_action = None   # changed by the signal module
         self.user_del_action = UserDelAction(self)
         self._code_of_sys_exc_info = None
-
+        
         # can be overridden to a subclass
         self.initialize()
 

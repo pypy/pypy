@@ -86,6 +86,7 @@ class Module(MixedModule):
         'specialized_zip_2_lists'   : 'interp_magic.specialized_zip_2_lists',
         'set_debug'                 : 'interp_magic.set_debug',
         'locals_to_fast'            : 'interp_magic.locals_to_fast',
+        'set_code_callback'         : 'interp_magic.set_code_callback',
         'save_module_content_for_future_reload':
                           'interp_magic.save_module_content_for_future_reload',
     }

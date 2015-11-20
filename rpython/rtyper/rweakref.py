@@ -34,9 +34,7 @@ class WeakRefRepr(Repr):
         assert isinstance(value, weakref.ReferenceType)
         instance = value()
         bk = self.rtyper.annotator.bookkeeper
-        # obscure!  if the annotator hasn't seen this object before,
-        # we don't want to look at it now (confusion tends to result).
-        if instance is None or not bk.have_seen(instance):
+        if instance is None:
             return self.dead_wref
         else:
             repr = self.rtyper.bindingrepr(Constant(instance))
