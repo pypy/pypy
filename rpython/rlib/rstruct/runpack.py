@@ -39,11 +39,8 @@ def reader_for_pos(pos):
         def appendobj(self, value):
             self.value = value
 
-        def get_pos(self):
-            return self.mr.inputpos
-
         def get_buffer_as_string_maybe(self):
-            return self.mr.input
+            return self.mr.input, self.mr.inputpos
 
         def skip(self, size):
             self.read(size) # XXX, could avoid taking the slice

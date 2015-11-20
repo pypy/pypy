@@ -138,8 +138,7 @@ class CannotUnpack(Exception):
 @specialize.arg(0)
 def unpack_fastpath(TYPE, fmtiter):
     size = rffi.sizeof(TYPE)
-    pos = fmtiter.get_pos()
-    strbuf = fmtiter.get_buffer_as_string_maybe()
+    strbuf, pos = fmtiter.get_buffer_as_string_maybe()
     if pos % size != 0 or strbuf is None or not ALLOW_FASTPATH:
         raise CannotUnpack
     fmtiter.skip(size)
