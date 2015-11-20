@@ -43,11 +43,9 @@ class TestRStruct(BaseRtypingTest):
         """
         Check the 'd' and 'f' format characters on native packing.
         """
-        d_data = struct.pack("d", 12.34)
-        f_data = struct.pack("f", 12.34)
+        d_data = struct.pack("df", 12.34, 12.34)
         def fn():
-            d = runpack("@d", d_data)
-            f = runpack("@f", f_data)
+            d, f = runpack("@df", d_data)
             return d, f
         #
         res = self.interpret(fn, [])

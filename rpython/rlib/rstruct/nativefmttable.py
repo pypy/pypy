@@ -44,8 +44,16 @@ def pack_double(fmtiter):
 
 @specialize.argtype(0)
 def unpack_double(fmtiter):
-    input = fmtiter.read(sizeof_double)
-    doubleval = str_storage_getitem(rffi.DOUBLE, input, 0)
+    if fmtiter.is_aligned(sizeof_double):
+        # fast path
+        input = fmtiter.get_buffer()
+        pos = fmtiter.get_pos()
+        doubleval = str_storage_getitem(rffi.DOUBLE, input, pos)
+        fmtiter.advance(sizeof_double)
+    else:
+        # slow path, take the slice
+        input = fmtiter.read(sizeof_double)
+        doubleval = str_storage_getitem(rffi.DOUBLE, input, 0)
     fmtiter.appendobj(doubleval)
 
 def pack_float(fmtiter):

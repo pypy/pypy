@@ -149,3 +149,17 @@ class UnpackFormatIterator(FormatIterator):
     @specialize.argtype(1)
     def appendobj(self, value):
         self.result_w.append(self.space.wrap(value))
+
+    def is_aligned(self, size):
+        return self.pos % size == 0
+
+    def get_buffer(self):
+        # XXX: if self.buf is something different that StringBuffer, this has
+        # the effect to copy the whole string at each unpack!
+        return self.buf.as_str()
+
+    def get_pos(self):
+        return self.pos
+
+    def advance(self, size):
+        self.read(size) # XXX, could avoid taking the slice
