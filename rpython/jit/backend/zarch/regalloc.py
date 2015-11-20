@@ -696,6 +696,9 @@ class Regalloc(BaseRegalloc):
     prepare_float_gt = helper.prepare_float_cmp_op
     prepare_float_ge = helper.prepare_float_cmp_op
 
+    prepare_float_neg = helper.prepare_unary_op
+    prepare_float_abs = helper.prepare_unary_op
+
 
     prepare_cast_ptr_to_int = helper.prepare_same_as
     prepare_cast_int_to_ptr = helper.prepare_same_as

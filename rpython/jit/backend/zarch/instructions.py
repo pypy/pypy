@@ -217,6 +217,10 @@ floatingpoint_mnemonic_codes = {
     'CDBR':    ('rre',   ['\xB3','\x19']),
     'CEB':     ('rxe',   ['\xED','\x09'], 'r,bidl,-'),
     'CDB':     ('rxe',   ['\xED','\x19'], 'r,bidl,-'),
+
+    # complement & positive
+    'LPDBR':    ('rre',   ['\xB3','\x10']),
+    'LCDBR':    ('rre',   ['\xB3','\x13']),
 }
 
 # MISC

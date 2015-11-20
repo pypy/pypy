@@ -12,7 +12,8 @@ NE = loc.imm(LT.value | GT.value)
 NO = loc.imm(0xe) # NO overflow
 ANY = loc.imm(0xf)
 
-FP_CUTOFF = loc.imm(0x1) # 4.4 => 4, 4.5 => 4
+FP_ROUND_DEFAULT = loc.imm(0x0)
+FP_TOWARDS_ZERO = loc.imm(0x5)
 
 cond_none = loc.imm(0x0)
 

@@ -419,7 +419,9 @@ class BaseBackendTest(Runner):
 
     def test_float_operations(self):
         from rpython.jit.metainterp.test.test_executor import get_float_tests
+        from rpython.jit.metainterp.resoperation import opname
         for opnum, boxargs, rettype, retvalue in get_float_tests(self.cpu):
+            print("testing", opname[opnum])
             res = self.execute_operation(opnum, boxargs, rettype)
             if rettype == 'float':
                 res = longlong.getrealfloat(res)

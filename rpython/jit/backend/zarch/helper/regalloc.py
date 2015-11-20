@@ -190,7 +190,7 @@ def prepare_unary_cmp(self, op):
 def prepare_unary_op(self, op):
     a0 = op.getarg(0)
     assert not isinstance(a0, ConstInt)
-    l0 = self.ensure_reg(a0)
+    l0 = self.ensure_reg(a0, force_in_reg=True)
     res = self.force_result_in_reg(op, a0)
     self.free_op_vars()
     return [l0,]

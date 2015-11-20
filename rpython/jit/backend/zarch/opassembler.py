@@ -185,9 +185,17 @@ class FloatOpAssembler(object):
     emit_float_gt = gen_emit_cmp_op(c.GT, fp=True)
     emit_float_ge = gen_emit_cmp_op(c.GE, fp=True)
 
+    def emit_float_neg(self, op, arglocs, regalloc):
+        l0, = arglocs
+        self.mc.LCDBR(l0, l0)
+
+    def emit_float_abs(self, op, arglocs, regalloc):
+        l0, = arglocs
+        self.mc.LPDBR(l0, l0)
+
     def emit_cast_float_to_int(self, op, arglocs, regalloc):
         f0, r0 = arglocs
-        self.mc.CGDBR(r0, f0, c.FP_CUTOFF)
+        self.mc.CGDBR(r0, c.FP_TOWARDS_ZERO, f0)
 
     def emit_cast_int_to_float(self, op, arglocs, regalloc):
         r0, f0 = arglocs
