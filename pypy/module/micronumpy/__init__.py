@@ -143,7 +143,6 @@ class Module(MixedModule):
 
     def setup_after_space_initialization(self):
         from pypy.module.micronumpy.support import W_VisibleDeprecationWarning
-        print 'in setup_after_space_initialization', self.space
         for name, w_type in {'VisibleDeprecationWarning': W_VisibleDeprecationWarning}.items():
             setattr(self.space, 'w_' + name, self.space.gettypefor(w_type))
 

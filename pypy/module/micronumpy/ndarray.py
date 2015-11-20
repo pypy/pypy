@@ -75,7 +75,7 @@ class __extend__(W_NDimArray):
         dtype = space.interp_w(descriptor.W_Dtype, space.call_function(
             space.gettypefor(descriptor.W_Dtype), w_dtype))
         if (dtype.elsize != self.get_dtype().elsize or
-                dtype.is_flexible() or self.get_dtype().is_flexible()):
+                (not dtype.is_record() and self.get_dtype().is_flexible())):
             raise OperationError(space.w_ValueError, space.wrap(
                 "new type not compatible with array."))
         self.implementation.set_dtype(space, dtype)

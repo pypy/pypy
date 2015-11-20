@@ -2423,12 +2423,11 @@ class VoidType(FlexibleType):
 
     @jit.unroll_safe
     def store(self, arr, i, offset, box, native):
-        assert i == 0
         assert isinstance(box, boxes.W_VoidBox)
         assert box.dtype is box.arr.dtype
         with arr as arr_storage, box.arr as box_storage:
             for k in range(box.arr.dtype.elsize):
-                arr_storage[k + offset] = box_storage[k + box.ofs]
+                arr_storage[i + k + offset] = box_storage[k + box.ofs]
 
     def readarray(self, arr, i, offset, dtype=None):
         from pypy.module.micronumpy.base import W_NDimArray

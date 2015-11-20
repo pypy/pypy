@@ -3072,7 +3072,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (b == zeros(10)).all()
 
     def test_array_interface(self):
-        from numpy import array, ones
+        from numpy import array
+        import numpy as np
         a = array(2.5)
         i = a.__array_interface__
         assert isinstance(i['data'][0], int)
@@ -3094,9 +3095,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b_data + 3 * b.dtype.itemsize == c_data
 
         class Dummy(object):
-            def __init__(self, aif=None):
+            def __init__(self, aif=None, base=None):
                 if aif is not None:
                     self.__array_interface__ = aif
+                self.base = base
 
         a = array(Dummy())
         assert a.dtype == object
@@ -3124,11 +3126,21 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b.dtype == 'uint8'
         assert b.shape == (50,)
 
-        a = ones((1,), dtype='float16')
+        a = np.ones((1,), dtype='float16')
         b = Dummy(a.__array_interface__)
         c = array(b)
         assert c.dtype == 'float16'
         assert (a == c).all()
+
+        t = np.dtype([("a", np.float64), ("b", np.float64)], align=True)
+        a = np.zeros(10, dtype=t)
+        a['a'] = range(10, 20)
+        a['b'] = range(20, 30)
+        interface = dict(a.__array_interface__)
+        array = np.array(Dummy(interface))
+        assert array.dtype.kind == 'V'
+        array.dtype = a.dtype
+        assert array[5]['b'] == 25
 
     def test_array_indexing_one_elem(self):
         from numpy import array, arange
