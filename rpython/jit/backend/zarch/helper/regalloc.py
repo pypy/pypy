@@ -143,6 +143,13 @@ def generate_cmp_op(signed=True):
         return [l0, l1, res, invert]
     return prepare_cmp_op
 
+def prepare_float_cmp_op(self, op):
+    l0 = self.ensure_reg(op.getarg(0), force_in_reg=True)
+    l1 = self.ensure_reg(op.getarg(1))
+    res = self.force_allocate_reg_or_cc(op)
+    self.free_op_vars()
+    return [l0, l1, res]
+
 def prepare_binary_op(self, op):
     a0 = op.getarg(0)
     a1 = op.getarg(1)

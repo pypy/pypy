@@ -78,9 +78,16 @@ class FPRegisterManager(RegisterManager):
         offset = self.assembler.pool.get_offset(var)
         return l.pool(offset, r.POOL)
 
-    def ensure_reg(self, box):
+    def ensure_reg(self, box, force_in_reg):
         if isinstance(box, Const):
-            return self.place_in_pool(box)
+            poolloc = self.place_in_pool(box)
+            if force_in_reg:
+                tmp = TempVar()
+                self.temp_boxes.append(tmp)
+                reg = self.force_allocate_reg(tmp)
+                self.assembler.mc.LD(reg, poolloc)
+                return reg
+            return poolloc
         else:
             assert box in self.temp_boxes
             loc = self.make_sure_var_in_reg(box,
@@ -119,10 +126,17 @@ class ZARCHRegisterManager(RegisterManager):
         #val = self.convert_to_int(c)
         return l.ImmLocation(val)
 
-    def ensure_reg(self, box):
+    def ensure_reg(self, box, force_in_reg):
         if isinstance(box, Const):
             offset = self.assembler.pool.get_descr_offset(box)
-            return l.pool(offset)
+            poolloc = l.pool(offset)
+            if force_in_reg:
+                tmp = TempVar()
+                self.temp_boxes.append(tmp)
+                reg = self.force_allocate_reg(tmp)
+                self.assembler.mc.LG(reg, poolloc)
+                return reg
+            return poolloc
         else:
             assert box in self.temp_boxes
             loc = self.make_sure_var_in_reg(box,
@@ -546,11 +560,11 @@ class Regalloc(BaseRegalloc):
         else:
             return self.rm.call_result_location(v)
 
-    def ensure_reg(self, box):
+    def ensure_reg(self, box, force_in_reg=False):
         if box.type == FLOAT:
-            return self.fprm.ensure_reg(box)
+            return self.fprm.ensure_reg(box, force_in_reg)
         else:
-            return self.rm.ensure_reg(box)
+            return self.rm.ensure_reg(box, force_in_reg)
 
     def ensure_reg_or_16bit_imm(self, box):
         if box.type == FLOAT:
@@ -674,6 +688,13 @@ class Regalloc(BaseRegalloc):
     prepare_float_sub = helper.generate_prepare_float_binary_op()
     prepare_float_mul = helper.generate_prepare_float_binary_op(allow_swap=True)
     prepare_float_truediv = helper.generate_prepare_float_binary_op()
+
+    prepare_float_lt = helper.prepare_float_cmp_op
+    prepare_float_le = helper.prepare_float_cmp_op
+    prepare_float_eq = helper.prepare_float_cmp_op
+    prepare_float_ne = helper.prepare_float_cmp_op
+    prepare_float_gt = helper.prepare_float_cmp_op
+    prepare_float_ge = helper.prepare_float_cmp_op
 
 
     prepare_cast_ptr_to_int = helper.prepare_same_as

@@ -120,8 +120,10 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
     def cmp_op(self, a, b, pool=False, imm=False, signed=True, fp=False):
         if fp == True:
-            xxx
-            self.fcmpu(a, b)
+            if pool:
+                self.CDB(a, b)
+            else:
+                self.CDBR(a, b)
         else:
             if signed:
                 if pool:

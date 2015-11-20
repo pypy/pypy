@@ -178,6 +178,13 @@ class FloatOpAssembler(object):
     emit_float_mul = gen_emit_rr_or_rpool('MDBR','MDB')
     emit_float_truediv = gen_emit_rr_or_rpool('DDBR','DDB')
 
+    emit_float_lt = gen_emit_cmp_op(c.LT, fp=True)
+    emit_float_le = gen_emit_cmp_op(c.LE, fp=True)
+    emit_float_eq = gen_emit_cmp_op(c.EQ, fp=True)
+    emit_float_ne = gen_emit_cmp_op(c.NE, fp=True)
+    emit_float_gt = gen_emit_cmp_op(c.GT, fp=True)
+    emit_float_ge = gen_emit_cmp_op(c.GE, fp=True)
+
     def emit_cast_float_to_int(self, op, arglocs, regalloc):
         f0, r0 = arglocs
         self.mc.CGDBR(r0, f0, c.FP_CUTOFF)
