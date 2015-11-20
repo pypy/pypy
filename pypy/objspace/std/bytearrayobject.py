@@ -1231,6 +1231,21 @@ class BytearrayBuffer(Buffer):
     def setitem(self, index, char):
         self.data[index] = char
 
+    def getslice(self, start, stop, step, size):
+        if size == 0:
+            return ""
+        if step == 1:
+            assert 0 <= start <= stop
+            if start == 0 and stop == len(self.data):
+                return "".join(self.data)
+            return "".join(self.data[start:stop])
+        return Buffer.getslice(self, start, stop, step, size)
+
+    def setslice(self, start, string):
+        # No bounds checks.
+        for i in range(len(string)):
+            self.data[start + i] = string[i]
+
 
 @specialize.argtype(1)
 def _memcmp(selfvalue, buffer, length):

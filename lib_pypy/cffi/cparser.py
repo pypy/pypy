@@ -62,7 +62,8 @@ def _workaround_for_old_pycparser(csource):
         if csource.startswith('*', endpos):
             parts.append('('); closing += ')'
         level = 0
-        for i in xrange(endpos, len(csource)):
+        i = endpos
+        while i < len(csource):
             c = csource[i]
             if c == '(':
                 level += 1
@@ -73,6 +74,7 @@ def _workaround_for_old_pycparser(csource):
             elif c in ',;=':
                 if level == 0:
                     break
+            i += 1
         csource = csource[endpos:i] + closing + csource[i:]
         #print repr(''.join(parts)+csource)
     parts.append(csource)

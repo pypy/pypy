@@ -1234,7 +1234,6 @@ class Regalloc(BaseRegalloc):
         return self._prepare_call(op, save_all_regs=True, first_arg_index=2)
 
     prepare_op_call_release_gil_i = _prepare_op_call_release_gil
-    prepare_op_call_release_gil_r = _prepare_op_call_release_gil
     prepare_op_call_release_gil_f = _prepare_op_call_release_gil
     prepare_op_call_release_gil_n = _prepare_op_call_release_gil
 

@@ -1050,7 +1050,6 @@ class Regalloc(BaseRegalloc):
     prepare_call_may_force_n = _prepare_call_may_force
 
     prepare_call_release_gil_i = _prepare_call_may_force
-    prepare_call_release_gil_r = _prepare_call_may_force
     prepare_call_release_gil_f = _prepare_call_may_force
     prepare_call_release_gil_n = _prepare_call_may_force
 

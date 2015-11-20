@@ -2106,7 +2106,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self._store_force_index(self._find_nearby_operation(+1))
         self._genop_call(op, arglocs, result_loc, is_call_release_gil=True)
     genop_call_release_gil_i = _genop_call_release_gil
-    genop_call_release_gil_r = _genop_call_release_gil
     genop_call_release_gil_f = _genop_call_release_gil
     genop_call_release_gil_n = _genop_call_release_gil
 
