@@ -59,7 +59,7 @@ arith_mnemonic_codes = {
     'CLG':     ('rxy',    ['\xE3','\x21']),
     'CGHI':    ('ri',     ['\xA7','\x0F']),
     'CGFI':    ('ril',    ['\xC2','\x0C']),
-    'CLGFI':   ('ril',    ['\xC2','\x0E']),
+    'CLGFI':   ('ril',    ['\xC2','\x0E'], 'r,u32'),
     'CGIJ':    ('rie_c',  ['\xEC','\x7C']),
     'CLGIJ':   ('rie_c',  ['\xEC','\x7D'], 'r,u8,r/m,i16'),
     'CGIB':    ('ris',    ['\xEC','\xFC']),
@@ -124,7 +124,7 @@ memory_mnemonic_codes = {
     'LGR':     ('rre',   ['\xB9','\x04']),
     'LG':      ('rxy',   ['\xE3','\x04']),
     'LARL':    ('ril',   ['\xC0','\x00'], 'r/m,h32'),
-    'IIHF':    ('ril',   ['\xC0','\x08']),
+    'IIHF':    ('ril',   ['\xC0','\x08'], 'r,u32'),
 
     # load on condition
     'LOCGR':  ('rrf_c',    ['\xB9','\xE2']),
