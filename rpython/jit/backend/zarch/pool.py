@@ -154,8 +154,7 @@ class LiteralPool(object):
         for guard_token in pending_guard_tokens:
             descr = guard_token.faildescr
             offset = self.offset_map[descr]
+            assert isinstance(offset, int)
             guard_token._pool_offset = offset
             ptr = rffi.cast(lltype.Signed, guard_token.gcmap)
             self.overwrite_64(mc, offset + RECOVERY_GCMAP_POOL_OFFSET, ptr)
-
-        self.reset()

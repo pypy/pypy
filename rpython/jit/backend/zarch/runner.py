@@ -17,6 +17,7 @@ class AbstractZARCHCPU(AbstractLLCPU):
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
 class CPU_S390_64(AbstractZARCHCPU):
+    dont_keepalive_stuff = True
     supports_floats = True
 
     IS_64_BIT = True

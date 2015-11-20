@@ -78,7 +78,6 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         pos = self.get_relative_pos()
         self.ops_offset[op] = pos
 
-
     def _dump_trace(self, addr, name, formatter=-1):
         if not we_are_translated():
             if formatter != -1:
@@ -110,7 +109,6 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
     def b_cond_offset(self, offset, condition):
         assert condition != c.cond_none
-        # TODO ? BI, BO = c.encoding[condition]
         self.BRC(condition, l.imm(offset))
 
     def b_offset(self, reladdr):
@@ -118,7 +116,6 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         self.BRC(c.ANY, l.imm(offset))
 
     def reserve_guard_branch(self):
-        print "reserve!", self.get_relative_pos()
         self.BRC(l.imm(0x0), l.imm(0))
 
     def cmp_op(self, a, b, pool=False, imm=False, signed=True, fp=False):

@@ -36,8 +36,6 @@ class AssemblerZARCH(BaseAssembler,
     def __init__(self, cpu, translate_support_code=False):
         BaseAssembler.__init__(self, cpu, translate_support_code)
         self.mc = None
-        self.pool = LiteralPool()
-        self.pending_guards = None
         self.current_clt = None
         self._regalloc = None
         self.datablockwrapper = None
@@ -64,12 +62,14 @@ class AssemblerZARCH(BaseAssembler,
         self.mc.datablockwrapper = self.datablockwrapper
         self.target_tokens_currently_compiling = {}
         self.frame_depth_to_patch = []
+        self.pool = LiteralPool()
 
     def teardown(self):
+        self.pending_guard_tokens = None
         self.current_clt = None
         self._regalloc = None
         self.mc = None
-        self.pending_guards = None
+        self.pool = None
 
     def target_arglocs(self, looptoken):
         return looptoken._zarch_arglocs
@@ -383,7 +383,7 @@ class AssemblerZARCH(BaseAssembler,
         regalloc.compute_hint_frame_locations(operations)
         regalloc.walk_operations(inputargs, operations)
         assert self.guard_success_cc == c.cond_none
-        if 1: # we_are_translated() or self.cpu.dont_keepalive_stuff:
+        if we_are_translated() or self.cpu.dont_keepalive_stuff:
             self._regalloc = None   # else keep it around for debugging
         frame_depth = regalloc.get_final_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
