@@ -1889,6 +1889,9 @@ class MetaInterp(object):
 
         self.box_names_memo = {}
 
+        self.aborted_tracing_jitdriver = None
+        self.aborted_tracing_greenkey = None
+
     def retrace_needed(self, trace, exported_state):
         self.partial_trace = trace
         self.retracing_from = len(self.history.operations) - 1
@@ -2228,6 +2231,15 @@ class MetaInterp(object):
                     self.staticdata.logger_ops._make_log_operations(
                         self.box_names_memo),
                     self.history.operations)
+            if self.aborted_tracing_jitdriver is not None:
+                jd_sd = self.aborted_tracing_jitdriver
+                greenkey = self.aborted_tracing_greenkey
+                self.staticdata.warmrunnerdesc.hooks.on_trace_too_long(
+                    jd_sd.jitdriver, greenkey,
+                    jd_sd.warmstate.get_location_str(greenkey))
+                # no ops for now
+                self.aborted_tracing_jitdriver = None
+                self.aborted_tracing_greenkey = None
         self.staticdata.stats.aborted()
 
     def blackhole_if_trace_too_long(self):
@@ -2239,6 +2251,8 @@ class MetaInterp(object):
             if greenkey_of_huge_function is not None:
                 jd_sd.warmstate.disable_noninlinable_function(
                     greenkey_of_huge_function)
+                self.aborted_tracing_jitdriver = jd_sd
+                self.aborted_tracing_greenkey = greenkey_of_huge_function
                 if self.current_merge_points:
                     jd_sd = self.jitdriver_sd
                     greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]

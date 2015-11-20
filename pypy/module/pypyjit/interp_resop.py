@@ -22,6 +22,7 @@ class Cache(object):
     def __init__(self, space):
         self.w_compile_hook = space.w_None
         self.w_abort_hook = space.w_None
+        self.w_trace_too_long_hook = space.w_None
 
     def getno(self):
         self.no += 1
@@ -77,6 +78,21 @@ def set_abort_hook(space, w_hook):
     cache = space.fromcache(Cache)
     assert w_hook is not None
     cache.w_abort_hook = w_hook
+    cache.in_recursion = NonConstant(False)
+
+def set_trace_too_long_hook(space, w_hook):
+    """ set_trace_too_long_hook(hook)
+
+    Set a hook (callable) that will be called each time we abort
+    tracing because the trace is too long.
+
+    The hook will be called with the signature:
+
+        hook(jitdriver_name, greenkey)
+    """
+    cache = space.fromcache(Cache)
+    assert w_hook is not None
+    cache.w_trace_too_long_hook = w_hook
     cache.in_recursion = NonConstant(False)
 
 def wrap_oplist(space, logops, operations, ops_offset=None):

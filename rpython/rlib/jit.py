@@ -1062,6 +1062,12 @@ class JitHookInterface(object):
         greenkey where it started, reason is a string why it got aborted
         """
 
+    def on_trace_too_long(self, jitdriver, greenkey, greenkey_repr):
+        """ A hook called each time we abort the trace because it's too
+        long with the greenkey being the one responsible for the
+        disabled function
+        """
+
     #def before_optimize(self, debug_info):
     #    """ A hook called before optimizer is run, called with instance of
     #    JitDebugInfo. Overwrite for custom behavior
