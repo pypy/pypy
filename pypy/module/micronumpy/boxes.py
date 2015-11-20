@@ -444,7 +444,7 @@ class W_GenericBox(W_NumpyObject):
 
     @unwrap_spec(axis1=int, axis2=int)
     def descr_swapaxes(self, space, axis1, axis2):
-        return self
+        raise oefmt(space.w_ValueError, 'bad axis1 argument to swapaxes')
 
     def descr_fill(self, space, w_value):
         self.get_dtype(space).coerce(space, w_value)
@@ -573,7 +573,7 @@ class W_VoidBox(W_FlexibleBox):
         try:
             ofs, dtype = self.dtype.fields[item]
         except KeyError:
-            raise oefmt(space.w_IndexError, "invalid index")
+            raise oefmt(space.w_ValueError, "no field of name %s", item)
 
         from pypy.module.micronumpy.types import VoidType
         if isinstance(dtype.itemtype, VoidType):

@@ -8,6 +8,17 @@ from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objspace import StdObjSpace
 from pypy.module.micronumpy import constants as NPY
+from pypy.module.exceptions.interp_exceptions import _new_exception, W_UserWarning
+
+W_VisibleDeprecationWarning = _new_exception('VisibleDeprecationWarning', W_UserWarning,
+    """Visible deprecation warning.
+
+    By default, python will not show deprecation warnings, so this class
+    can be used when a very visible warning is helpful, for example because
+    the usage is most likely a user bug.
+
+    """)
+
 
 def issequence_w(space, w_obj):
     from pypy.module.micronumpy.base import W_NDimArray

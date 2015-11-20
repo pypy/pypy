@@ -142,7 +142,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert f.round() == 13.
         assert f.round(decimals=-1) == 10.
         assert f.round(decimals=1) == 13.4
-        assert b.round(decimals=5) is b
+        raises(TypeError, b.round, decimals=5)
         assert f.round(decimals=1, out=None) == 13.4
         assert b.round() == 1.0
 
@@ -404,8 +404,8 @@ class AppTestScalar(BaseNumpyAppTest):
         def _do_test(np_type, orig_val, exp_val):
             val = np_type(orig_val)
             assert val == orig_val
-            assert val.swapaxes(10, 20) == exp_val
-            assert type(val.swapaxes(0, 1)) is np_type
+            raises(ValueError, val.swapaxes, 10, 20)
+            raises(ValueError, val.swapaxes, 0, 1)
             raises(TypeError, val.swapaxes, 0, ())
 
         for t in int8, int16, int32, int64:

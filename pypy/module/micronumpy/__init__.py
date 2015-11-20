@@ -34,6 +34,7 @@ class MultiArrayModule(MixedModule):
         'nditer': 'nditer.W_NDIter',
 
         'set_docstring': 'support.descr_set_docstring',
+        'VisibleDeprecationWarning': 'support.W_VisibleDeprecationWarning',
     }
     for c in ['MAXDIMS', 'CLIP', 'WRAP', 'RAISE']:
         interpleveldefs[c] = 'space.wrap(constants.%s)' % c
@@ -41,6 +42,7 @@ class MultiArrayModule(MixedModule):
     def startup(self, space):
         from pypy.module.micronumpy.concrete import _setup
         _setup()
+
 
 class UMathModule(MixedModule):
     appleveldefs = {}
@@ -138,3 +140,9 @@ class Module(MixedModule):
         'multiarray': MultiArrayModule,
         'umath': UMathModule,
     }
+
+    def setup_after_space_initialization(self):
+        from pypy.module.micronumpy.support import W_VisibleDeprecationWarning
+        for name, w_type in {'VisibleDeprecationWarning': W_VisibleDeprecationWarning}.items():
+            setattr(self.space, 'w_' + name, self.space.gettypefor(w_type))
+
