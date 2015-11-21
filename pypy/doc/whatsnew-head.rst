@@ -13,3 +13,6 @@ which is now 1.10.2
 .. branch: osx-flat-namespace
 
 Fix the cpyext tests on OSX by linking with -flat_namespace
+
+.. branch: anntype
+Refactor and improve exception analysis in the annotator.
