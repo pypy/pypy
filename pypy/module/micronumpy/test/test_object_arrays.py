@@ -114,9 +114,6 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
 
     def test_array_interface(self):
         import numpy as np
-        if self.runappdirect:
-            skip('requires numpy.core, test with numpy test suite instead')
-        import sys
         class DummyArray(object):
             def __init__(self, interface, base=None):
                 self.__array_interface__ = interface
