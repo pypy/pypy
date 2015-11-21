@@ -345,7 +345,7 @@ class AppTestDtypes(BaseAppTestDtypes):
 
     def test_can_subclass(self):
         import numpy as np
-        import sys
+        import sys, pickle
         class xyz(np.void):
             pass
         assert np.dtype(xyz).name == 'xyz'
@@ -356,12 +356,18 @@ class AppTestDtypes(BaseAppTestDtypes):
         data = [(1, 'a'), (2, 'bbb')]
         b = np.dtype((xyz, [('a', int), ('b', object)]))
         if '__pypy__' in sys.builtin_module_names:
-            raises(NotImplemented, np.array, data, dtype=b)
+            raises(NotImplementedError, np.array, data, dtype=b)
         else:
             arr = np.array(data, dtype=b)
             assert arr[0][0] == 1
             assert arr[0][1] == 'a'
-
+        b = np.dtype((xyz, [("col1", "<i4"), ("col2", "<i4"), ("col3", "<i4")]))
+        data = [(1, 2,3), (4, 5, 6)]
+        a = np.array(data, dtype=b)
+        x = pickle.loads(pickle.dumps(a))
+        assert (x == a).all()
+        assert x.dtype == a.dtype 
+        
     def test_index(self):
         import numpy as np
         for dtype in [np.int8, np.int16, np.int32, np.int64]:

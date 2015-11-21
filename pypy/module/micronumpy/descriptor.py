@@ -422,6 +422,10 @@ class W_Dtype(W_Root):
         if space.is_w(self, w_other):
             return True
         if isinstance(w_other, W_Dtype):
+            if self.is_object() and w_other.is_object():
+                # ignore possible 'record' unions
+                # created from dtype(('O', spec))
+                return True
             return space.eq_w(self.descr_reduce(space),
                               w_other.descr_reduce(space))
         return False
@@ -1017,7 +1021,8 @@ def make_new_dtype(space, w_subtype, w_dtype, alignment, copy=False, w_shape=Non
                 raise oefmt(space.w_ValueError,
                     'mismatch in size of old and new data-descriptor')
             retval = W_Dtype(w_dtype.itemtype, w_dtype.w_box_type,
-                    names=w_dtype1.names[:], fields=w_dtype1.fields.copy())
+                    names=w_dtype1.names[:], fields=w_dtype1.fields.copy(),
+                    elsize=w_dtype1.elsize)
             return retval
     if space.is_none(w_dtype):
         return cache.w_float64dtype

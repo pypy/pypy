@@ -1002,7 +1002,7 @@ class __extend__(W_NDimArray):
     # --------------------- operations ----------------------------
     # TODO: support all kwargs like numpy ufunc_object.c
     sig = None
-    cast = 'unsafe'
+    cast = 'safe'
     extobj = None
 
 
