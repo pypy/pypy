@@ -12,7 +12,7 @@ from rpython.flowspace.model import Constant
 from rpython.annotator.model import (
     SomeOrderedDict, SomeString, SomeChar, SomeFloat, unionof, SomeInstance,
     SomeDict, SomeBuiltin, SomePBC, SomeInteger, TLS, SomeUnicodeCodePoint,
-    s_None, s_ImpossibleValue, SomeBool, SomeTuple,
+    s_None, s_ImpossibleValue, SomeBool, SomeTuple, SomeException,
     SomeImpossibleValue, SomeUnicodeString, SomeList, HarmlesslyBlocked,
     SomeWeakRef, SomeByteArray, SomeConstantType, SomeProperty)
 from rpython.annotator.classdesc import ClassDef, ClassDesc
@@ -166,6 +166,10 @@ class Bookkeeper(object):
         assert cls is not object
         desc = self.getdesc(cls)
         return desc.getuniqueclassdef()
+
+    def new_exception(self, exc_classes):
+        clsdefs = {self.getuniqueclassdef(cls) for cls in exc_classes}
+        return SomeException(clsdefs)
 
     def getlistdef(self, **flags_if_new):
         """Get the ListDef associated with the current position."""

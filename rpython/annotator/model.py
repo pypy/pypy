@@ -32,7 +32,7 @@ from __future__ import absolute_import
 import inspect
 import weakref
 from types import BuiltinFunctionType, MethodType
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 import rpython
 from rpython.tool import descriptor
@@ -137,6 +137,23 @@ class SomeType(SomeObject):
 
     def can_be_none(self):
         return False
+
+class SomeTypeOf(SomeType):
+    """The type of a variable"""
+    def __init__(self, args_v):
+        self.is_type_of = args_v
+
+def typeof(args_v):
+    if args_v:
+        result = SomeTypeOf(args_v)
+        if len(args_v) == 1:
+            s_arg = args_v[0].annotation
+            if isinstance(s_arg, SomeException) and len(s_arg.classdefs) == 1:
+                cdef, = s_arg.classdefs
+                result.const = cdef.classdesc.pyobj
+        return result
+    else:
+        return SomeType()
 
 
 class SomeFloat(SomeObject):
@@ -437,6 +454,39 @@ class SomeInstance(SomeObject):
     def noneify(self):
         return SomeInstance(self.classdef, can_be_None=True)
 
+class SomeException(SomeObject):
+    """The set of exceptions obeying type(exc) in self.classes"""
+    def __init__(self, classdefs):
+        self.classdefs = classdefs
+
+    def intersection(self, other):
+        assert isinstance(other, SomeExceptCase)
+        classdefs = {c for c in self.classdefs if c.issubclass(other.case)}
+        if classdefs:
+            return SomeException(classdefs)
+        else:
+            return s_ImpossibleValue
+
+    def difference(self, other):
+        assert isinstance(other, SomeExceptCase)
+        classdefs = {c for c in self.classdefs if not c.issubclass(other.case)}
+        if classdefs:
+            return SomeException(classdefs)
+        else:
+            return s_ImpossibleValue
+
+    def as_SomeInstance(self):
+        return unionof(*[SomeInstance(cdef) for cdef in self.classdefs])
+
+
+class SomeExceptCase(SomeObject):
+    """The set of exceptions that match a given except clause.
+
+    IOW, the set of exceptions that verify isinstance(exc, self.case).
+    """
+    def __init__(self, case):
+        self.case = case
+
 
 class SomePBC(SomeObject):
     """Stands for a global user instance, built prior to the analysis,
@@ -682,14 +732,15 @@ def unionof(*somevalues):
 
 def add_knowntypedata(ktd, truth, vars, s_obj):
     for v in vars:
-        ktd[(truth, v)] = s_obj
+        ktd[truth][v] = s_obj
 
 
 def merge_knowntypedata(ktd1, ktd2):
-    r = {}
-    for truth_v in ktd1:
-        if truth_v in ktd2:
-            r[truth_v] = unionof(ktd1[truth_v], ktd2[truth_v])
+    r = defaultdict(dict)
+    for truth, constraints in ktd1.items():
+        for v in constraints:
+            if truth in ktd2 and v in ktd2[truth]:
+                r[truth][v] = unionof(ktd1[truth][v], ktd2[truth][v])
     return r
 
 

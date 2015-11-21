@@ -2,7 +2,7 @@
 Built-in functions.
 """
 import sys
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 
 from rpython.annotator.model import (
     SomeInteger, SomeChar, SomeBool, SomeString, SomeTuple,
@@ -188,7 +188,7 @@ def builtin_isinstance(s_obj, s_type, variables=None):
             variables = [op.args[1]]
         for variable in variables:
             assert bk.annotator.binding(variable) == s_obj
-        knowntypedata = {}
+        knowntypedata = defaultdict(dict)
         if not hasattr(typ, '_freeze_') and isinstance(s_type, SomePBC):
             add_knowntypedata(knowntypedata, True, variables, bk.valueoftype(typ))
         r.set_knowntypedata(knowntypedata)
