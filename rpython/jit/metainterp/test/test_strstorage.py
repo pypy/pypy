@@ -1,4 +1,5 @@
 import py
+import sys
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.strstorage import str_storage_getitem
@@ -30,9 +31,13 @@ class TestStrStorage(BaseStrStorageTest, LLJitMixin):
 
 
     def test_force_virtual_str_storage(self):
+        byteorder = sys.byteorder
         size = rffi.sizeof(lltype.Signed)
         def f(val):
-            x = chr(val) + '\x00'*(size-1)
+            if byteorder == 'little':
+                x = chr(val) + '\x00'*(size-1)
+            else:
+                x = '\x00'*(size-1) + chr(val)
             return str_storage_getitem(lltype.Signed, x, 0)
         res = self.interp_operations(f, [42], supports_singlefloats=True)
         assert res == 42
