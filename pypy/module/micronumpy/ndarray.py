@@ -15,7 +15,7 @@ from pypy.module.micronumpy.appbridge import get_appbridge_cache
 from pypy.module.micronumpy.arrayops import repeat, choose, put
 from pypy.module.micronumpy.base import W_NDimArray, convert_to_array, \
     ArrayArgumentException, wrap_impl
-from pypy.module.micronumpy.concrete import BaseConcreteArray
+from pypy.module.micronumpy.concrete import BaseConcreteArray, V_OBJECTSTORE
 from pypy.module.micronumpy.converters import (
     multi_axis_converter, order_converter, shape_converter,
     searchside_converter, out_converter)
@@ -288,6 +288,9 @@ class __extend__(W_NDimArray):
             raise oefmt(space.w_ValueError, "no field of name %s", field)
         arr = self.implementation
         ofs, subdtype = arr.dtype.fields[field][:2]
+        if subdtype.is_object() and arr.gcstruct is V_OBJECTSTORE:
+            raise oefmt(space.w_NotImplementedError,
+                "cannot read object from array with no gc hook")
         # ofs only changes start
         # create a view of the original array by extending
         # the shape, strides, backstrides of the array
