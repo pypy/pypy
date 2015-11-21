@@ -8,8 +8,7 @@ from rpython.rlib import jit, longlong2float
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_singlefloat, widen
 from rpython.rlib.rstruct import standardfmttable as std
-from rpython.rlib.rstruct.standardfmttable import (native_is_bigendian, unpack_fastpath,
-                                                   CannotUnpack)
+from rpython.rlib.rstruct.standardfmttable import native_is_bigendian
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.strstorage import str_storage_getitem
@@ -43,16 +42,6 @@ def pack_double(fmtiter):
             fmtiter.result.append(chr(value & 0xff))
             value >>= 8
 
-@specialize.argtype(0)
-def unpack_double(fmtiter):
-    try:
-        doubleval = unpack_fastpath(rffi.DOUBLE)(fmtiter)
-    except CannotUnpack:
-        # slow path, take the slice
-        input = fmtiter.read(sizeof_double)
-        doubleval = str_storage_getitem(rffi.DOUBLE, input, 0)
-    #
-    fmtiter.appendobj(doubleval)
 
 def pack_float(fmtiter):
     doubleval = fmtiter.accept_float_arg()
@@ -67,16 +56,6 @@ def pack_float(fmtiter):
         for i in range_4_unroll:
             fmtiter.result.append(chr(value & 0xff))
             value >>= 8
-
-@specialize.argtype(0)
-def unpack_float(fmtiter):
-    try:
-        floatval = unpack_fastpath(rffi.FLOAT)(fmtiter)
-    except CannotUnpack:
-        input = fmtiter.read(sizeof_float)
-        floatval = str_storage_getitem(rffi.FLOAT, input, 0)
-    doubleval = float(floatval) # convert from r_singlefloat to rpython's float
-    fmtiter.appendobj(doubleval)
 
 # ____________________________________________________________
 #
@@ -134,10 +113,10 @@ def setup():
 
         if fmtchar == 'f':
             pack = pack_float
-            unpack = unpack_float
+            unpack = std.unpack_float
         elif fmtchar == 'd':
             pack = pack_double
-            unpack = unpack_double
+            unpack = std.unpack_double
         elif fmtchar == '?':
             pack = std.pack_bool
             unpack = std.unpack_bool

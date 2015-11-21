@@ -17,6 +17,7 @@ from rpython.rlib import rarithmetic
 from rpython.rtyper.lltypesystem import rffi
 
 native_is_bigendian = struct.pack("=i", 1) == struct.pack(">i", 1)
+native_is_ieee754 = float.__getformat__('double').startswith('IEEE')
 
 def pack_pad(fmtiter, count):
     fmtiter.result.append_multiple_char('\x00', count)
@@ -175,12 +176,27 @@ def unpack_pascal(fmtiter, count):
         end = count
     fmtiter.appendobj(data[1:end])
 
-def make_float_unpacker(size):
+def make_ieee_unpacker(TYPE):
     @specialize.argtype(0)
-    def unpacker(fmtiter):
-        data = fmtiter.read(size)
-        fmtiter.appendobj(ieee.unpack_float(data, fmtiter.bigendian))
-    return unpacker
+    def unpack_ieee(fmtiter):
+        size = rffi.sizeof(TYPE)
+        if fmtiter.bigendian != native_is_bigendian or not native_is_ieee754:
+            # fallback to the very slow unpacking code in ieee.py
+            data = fmtiter.read(size)
+            fmtiter.appendobj(ieee.unpack_float(data, fmtiter.bigendian))
+            return
+        try:
+            # fast path
+            val = unpack_fastpath(TYPE)(fmtiter)
+        except CannotUnpack:
+            # slow path, take the slice
+            input = fmtiter.read(size)
+            val = str_storage_getitem(TYPE, input, 0)
+        fmtiter.appendobj(float(val))
+    return unpack_ieee
+
+unpack_double = make_ieee_unpacker(rffi.DOUBLE)
+unpack_float = make_ieee_unpacker(rffi.FLOAT)
 
 # ____________________________________________________________
 
@@ -267,9 +283,9 @@ standard_fmttable = {
     'p':{ 'size' : 1, 'pack' : pack_pascal, 'unpack' : unpack_pascal,
           'needcount' : True },
     'f':{ 'size' : 4, 'pack' : make_float_packer(4),
-                    'unpack' : make_float_unpacker(4)},
+                    'unpack' : unpack_float},
     'd':{ 'size' : 8, 'pack' : make_float_packer(8),
-                    'unpack' : make_float_unpacker(8)},
+                    'unpack' : unpack_double},
     '?':{ 'size' : 1, 'pack' : pack_bool, 'unpack' : unpack_bool},
     }
 
