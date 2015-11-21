@@ -345,6 +345,14 @@ class Primitive(object):
     def min(self, v1, v2):
         return min(v1, v2)
 
+    @raw_binary_op
+    def argmax(self, v1, v2):
+        return v1 >= v2
+
+    @raw_binary_op
+    def argmin(self, v1, v2):
+        return v1 <= v2
+
     @raw_unary_op
     def rint(self, v):
         float64 = Float64(self.space)
@@ -442,10 +450,12 @@ class Bool(BaseType, Primitive):
 
     @specialize.argtype(1)
     def round(self, v, decimals=0):
-        if decimals != 0:
-            # numpy 1.9.0 compatible
-            return v
-        return Float64(self.space).box(self.unbox(v))
+        if decimals == 0:
+            return Float64(self.space).box(self.unbox(v))
+        # numpy 1.10 compatibility
+        raise oefmt(self.space.w_TypeError, "ufunc casting failure")
+            
+            
 
 class Integer(Primitive):
     _mixin_ = True
@@ -819,6 +829,14 @@ class Float(Primitive):
     @simple_binary_op
     def min(self, v1, v2):
         return v1 if v1 <= v2 or rfloat.isnan(v1) else v2
+
+    @raw_binary_op
+    def argmax(self, v1, v2):
+        return v1 >= v2 or rfloat.isnan(v1)
+
+    @raw_binary_op
+    def argmin(self, v1, v2):
+        return v1 <= v2 or rfloat.isnan(v1)
 
     @simple_binary_op
     def fmax(self, v1, v2):
@@ -1407,6 +1425,16 @@ class ComplexFloating(object):
             return v1
         return v2
 
+    def argmin(self, v1, v2):
+        if self.le(v1, v2) or self.isnan(v1):
+            return True
+        return False
+
+    def argmax(self, v1, v2):
+        if self.ge(v1, v2) or self.isnan(v1):
+            return True
+        return False
+
     @complex_binary_op
     def floordiv(self, v1, v2):
         (r1, i1), (r2, i2) = v1, v2
@@ -1927,6 +1955,18 @@ class ObjectType(Primitive, BaseType):
             return v1
         return v2
 
+    @raw_binary_op
+    def argmax(self, v1, v2):
+        if self.space.is_true(self.space.ge(v1, v2)):
+            return True
+        return False
+
+    @raw_binary_op
+    def argmin(self, v1, v2):
+        if self.space.is_true(self.space.le(v1, v2)):
+            return True
+        return False
+
     @raw_unary_op
     def bool(self,v):
         return self._obool(v)
@@ -2374,18 +2414,20 @@ class VoidType(FlexibleType):
                 ofs += size
 
     def coerce(self, space, dtype, w_items):
+        if dtype.is_record():
+            # the dtype is a union of a void and a record,
+            return record_coerce(self, space, dtype, w_items)
         arr = VoidBoxStorage(dtype.elsize, dtype)
         self._coerce(space, arr, 0, dtype, w_items, dtype.shape)
         return boxes.W_VoidBox(arr, 0, dtype)
 
     @jit.unroll_safe
     def store(self, arr, i, offset, box, native):
-        assert i == 0
         assert isinstance(box, boxes.W_VoidBox)
         assert box.dtype is box.arr.dtype
         with arr as arr_storage, box.arr as box_storage:
             for k in range(box.arr.dtype.elsize):
-                arr_storage[k + offset] = box_storage[k + box.ofs]
+                arr_storage[i + k + offset] = box_storage[k + box.ofs]
 
     def readarray(self, arr, i, offset, dtype=None):
         from pypy.module.micronumpy.base import W_NDimArray
@@ -2434,17 +2476,7 @@ class VoidType(FlexibleType):
 class CharType(StringType):
     char = NPY.CHARLTR
 
-class RecordType(FlexibleType):
-    T = lltype.Char
-    num = NPY.VOID
-    kind = NPY.VOIDLTR
-    char = NPY.VOIDLTR
-
-    def read(self, arr, i, offset, dtype):
-        return boxes.W_VoidBox(arr, i + offset, dtype)
-
-    @jit.unroll_safe
-    def coerce(self, space, dtype, w_item):
+def record_coerce(typ, space, dtype, w_item):
         from pypy.module.micronumpy.base import W_NDimArray
         if isinstance(w_item, boxes.W_VoidBox):
             if dtype == w_item.dtype:
@@ -2481,6 +2513,19 @@ class RecordType(FlexibleType):
                 w_box = subdtype.coerce(space, None)
             subdtype.store(arr, 0, ofs, w_box)
         return boxes.W_VoidBox(arr, 0, dtype)
+
+class RecordType(FlexibleType):
+    T = lltype.Char
+    num = NPY.VOID
+    kind = NPY.VOIDLTR
+    char = NPY.VOIDLTR
+
+    def read(self, arr, i, offset, dtype):
+        return boxes.W_VoidBox(arr, i + offset, dtype)
+
+    @jit.unroll_safe
+    def coerce(self, space, dtype, w_item):
+        return record_coerce(self, space, dtype, w_item)
 
     def runpack_str(self, space, s, native):
         raise oefmt(space.w_NotImplementedError,

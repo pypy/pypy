@@ -680,8 +680,6 @@ class ResOpAssembler(BaseAssembler):
     emit_op_getfield_gc_pure_f = _genop_getfield
     emit_op_getfield_raw_i = _genop_getfield
     emit_op_getfield_raw_f = _genop_getfield
-    emit_op_getfield_raw_pure_i = _genop_getfield
-    emit_op_getfield_raw_pure_f = _genop_getfield
 
     def emit_op_increment_debug_counter(self, op, arglocs, regalloc, fcond):
         base_loc, value_loc = arglocs
@@ -825,8 +823,6 @@ class ResOpAssembler(BaseAssembler):
     emit_op_getarrayitem_gc_pure_f = _genop_getarrayitem
     emit_op_getarrayitem_raw_i = _genop_getarrayitem
     emit_op_getarrayitem_raw_f = _genop_getarrayitem
-    emit_op_getarrayitem_raw_pure_i = _genop_getarrayitem
-    emit_op_getarrayitem_raw_pure_f = _genop_getarrayitem
 
     def _load_from_mem(self, res_loc, base_loc, ofs_loc, scale,
                                             signed=False, fcond=c.AL):
@@ -1173,7 +1169,6 @@ class ResOpAssembler(BaseAssembler):
         self._emit_call(op, arglocs, is_call_release_gil=True)
         return fcond
     emit_op_call_release_gil_i = _genop_call_release_gil
-    emit_op_call_release_gil_r = _genop_call_release_gil
     emit_op_call_release_gil_f = _genop_call_release_gil
     emit_op_call_release_gil_n = _genop_call_release_gil
 

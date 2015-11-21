@@ -1,18 +1,19 @@
 """
 Binary operations between SomeValues.
 """
+from collections import defaultdict
 
 from rpython.tool.pairtype import pair, pairtype
 from rpython.annotator.model import (
     SomeObject, SomeInteger, SomeBool, s_Bool, SomeString, SomeChar, SomeList,
-    SomeDict, SomeUnicodeCodePoint, SomeUnicodeString,
+    SomeDict, SomeUnicodeCodePoint, SomeUnicodeString, SomeException,
     SomeTuple, SomeImpossibleValue, s_ImpossibleValue, SomeInstance,
     SomeBuiltinMethod, SomeIterator, SomePBC, SomeNone, SomeFloat, s_None,
     SomeByteArray, SomeWeakRef, SomeSingleFloat,
-    SomeLongFloat, SomeType, SomeConstantType, unionof, UnionError,
+    SomeLongFloat, SomeType, SomeTypeOf, SomeConstantType, unionof, UnionError,
     read_can_only_throw, add_knowntypedata,
     merge_knowntypedata,)
-from rpython.annotator.bookkeeper import immutablevalue
+from rpython.annotator.bookkeeper import immutablevalue, getbookkeeper
 from rpython.flowspace.model import Variable, Constant, const
 from rpython.flowspace.operation import op
 from rpython.rlib import rarithmetic
@@ -35,7 +36,7 @@ def is__default(annotator, obj1, obj2):
     elif s_obj1.is_constant():
         if s_obj1.const is None and not s_obj2.can_be_none():
             r.const = False
-    knowntypedata = {}
+    knowntypedata = defaultdict(dict)
     bk = annotator.bookkeeper
 
     def bind(src_obj, tgt_obj):
@@ -133,24 +134,18 @@ class __extend__(pairtype(SomeType, SomeType),
 
     def union((obj1, obj2)):
         result = SomeType()
-        is_type_of1 = getattr(obj1, 'is_type_of', None)
-        is_type_of2 = getattr(obj2, 'is_type_of', None)
         if obj1.is_immutable_constant() and obj2.is_immutable_constant() and obj1.const == obj2.const:
             result.const = obj1.const
-            is_type_of = {}
-            if is_type_of1:
-                for v in is_type_of1:
-                    is_type_of[v] = True
-            if is_type_of2:
-                for v in is_type_of2:
-                    is_type_of[v] = True
-            if is_type_of:
-                result.is_type_of = is_type_of.keys()
-        else:
-            if is_type_of1 and is_type_of1 == is_type_of2:
-                result.is_type_of = is_type_of1
         return result
 
+class __extend__(pairtype(SomeTypeOf, SomeTypeOf)):
+    def union((s_obj1, s_obj2)):
+        vars = list(set(s_obj1.is_type_of) | set(s_obj2.is_type_of))
+        result = SomeTypeOf(vars)
+        if (s_obj1.is_immutable_constant() and s_obj2.is_immutable_constant()
+                and s_obj1.const == s_obj2.const):
+            result.const = obj1.const
+        return result
 
 # cloning a function with identical code, for the can_only_throw attribute
 def _clone(f, can_only_throw = None):
@@ -251,7 +246,7 @@ def _make_cmp_annotator_int(cmp_op):
         if not (rarithmetic.signedtype(s_int1.knowntype) and
                 rarithmetic.signedtype(s_int2.knowntype)):
             return r
-        knowntypedata = {}
+        knowntypedata = defaultdict(dict)
         def tointtype(s_int0):
             if s_int0.knowntype is bool:
                 return int
@@ -657,6 +652,22 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
             # which we should try to preserve.  Fall-back...
             thistype = pairtype(SomeInstance, SomeInstance)
             return super(thistype, pair(ins1, ins2)).improve()
+
+class __extend__(
+        pairtype(SomeException, SomeInstance),
+        pairtype(SomeException, SomeNone)):
+    def union((s_exc, s_inst)):
+        return unionof(s_exc.as_SomeInstance(), s_inst)
+
+class __extend__(
+        pairtype(SomeInstance, SomeException),
+        pairtype(SomeNone, SomeException)):
+    def union((s_inst, s_exc)):
+        return unionof(s_exc.as_SomeInstance(), s_inst)
+
+class __extend__(pairtype(SomeException, SomeException)):
+    def union((s_exc1, s_exc2)):
+        return SomeException(s_exc1.classdefs | s_exc2.classdefs)
 
 
 @op.getitem.register_transform(SomeInstance, SomeObject)

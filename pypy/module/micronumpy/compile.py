@@ -65,6 +65,7 @@ class FakeSpace(ObjSpace):
     w_KeyError = W_TypeObject("KeyError")
     w_SystemExit = W_TypeObject("SystemExit")
     w_KeyboardInterrupt = W_TypeObject("KeyboardInterrupt")
+    w_VisibleDeprecationWarning = W_TypeObject("VisibleDeprecationWarning")
     w_None = None
 
     w_bool = W_TypeObject("bool")
@@ -371,6 +372,8 @@ class FakeSpace(ObjSpace):
     @specialize.arg(2)
     def call_method(self, w_obj, s, *args):
         # XXX even the hacks have hacks
+        if s == 'size': # used in _array() but never called by tests
+            return IntObject(0)
         return getattr(w_obj, 'descr_' + s)(self, *args)
 
     @specialize.arg(1)
@@ -399,6 +402,9 @@ class FakeSpace(ObjSpace):
         assert isinstance(w_exc_type, W_TypeObject)
         assert isinstance(w_check_class, W_TypeObject)
         return w_exc_type.name == w_check_class.name
+
+    def warn(self, w_msg, w_warn_type):
+        pass
 
 class FloatObject(W_Root):
     tp = FakeSpace.w_float

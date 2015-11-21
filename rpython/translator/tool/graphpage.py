@@ -3,7 +3,7 @@ from rpython.flowspace.model import safe_iterblocks, safe_iterlinks
 from rpython.translator.tool.make_dot import DotGen, make_dot_graphs
 from rpython.annotator.model import SomePBC
 from rpython.annotator.description import MethodDesc
-from rpython.annotator.classdef import ClassDef
+from rpython.annotator.classdesc import ClassDef
 from rpython.tool.uid import uid
 from rpython.tool.udir import udir
 

@@ -729,7 +729,8 @@ class GcLLDescr_framework(GcLLDescription):
         return (infobits_offset, self._T_IS_RPYTHON_INSTANCE_BYTE)
 
     def get_actual_typeid(self, gcptr):
-        # Read the whole GC header word.  The typeid is the lower half-word.
+        # Read the whole GC header word.  Return the typeid from the
+        # lower half-word.
         hdr = rffi.cast(self.HDRPTR, gcptr)
         type_id = llop.extract_ushort(llgroup.HALFWORD, hdr.tid)
         return llop.combine_ushort(lltype.Signed, type_id, 0)

@@ -534,10 +534,10 @@ def _new_argmin_argmax(op_name):
             while not inner_iter.done(inner_state):
                 arg_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
                 w_val = inner_iter.getitem(inner_state)
-                new_best = getattr(dtype.itemtype, op_name)(cur_best, w_val)
-                if dtype.itemtype.ne(new_best, cur_best):
+                old_best = getattr(dtype.itemtype, op_name)(cur_best, w_val)
+                if not old_best:
                     result = idx
-                    cur_best = new_best
+                    cur_best = w_val
                 inner_state = inner_iter.next(inner_state)
                 idx += 1
             result = get_dtype_cache(space).w_longdtype.box(result)
@@ -557,17 +557,17 @@ def _new_argmin_argmax(op_name):
         while not iter.done(state):
             arg_flat_driver.jit_merge_point(shapelen=shapelen, dtype=dtype)
             w_val = iter.getitem(state)
-            new_best = getattr(dtype.itemtype, op_name)(cur_best, w_val)
-            if dtype.itemtype.ne(new_best, cur_best):
+            old_best = getattr(dtype.itemtype, op_name)(cur_best, w_val)
+            if not old_best:
                 result = idx
-                cur_best = new_best
+                cur_best = w_val
             state = iter.next(state)
             idx += 1
         return result
 
     return argmin_argmax, argmin_argmax_flat
-argmin, argmin_flat = _new_argmin_argmax('min')
-argmax, argmax_flat = _new_argmin_argmax('max')
+argmin, argmin_flat = _new_argmin_argmax('argmin')
+argmax, argmax_flat = _new_argmin_argmax('argmax')
 
 dot_driver = jit.JitDriver(name = 'numpy_dot',
                            greens = ['dtype'],
@@ -684,8 +684,9 @@ def getitem_filter(res, arr, index):
     arr_iter, arr_state = arr.create_iter()
     arr_dtype = arr.get_dtype()
     index_dtype = index.get_dtype()
-    # XXX length of shape of index as well?
-    while not index_iter.done(index_state):
+    # support the deprecated form where arr([True]) will return arr[0, ...]
+    # by iterating over res_iter, not index_iter
+    while not res_iter.done(res_state):
         getitem_filter_driver.jit_merge_point(shapelen=shapelen,
                                               index_dtype=index_dtype,
                                               arr_dtype=arr_dtype,

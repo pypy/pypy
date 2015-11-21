@@ -6,6 +6,7 @@ from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.jit.metainterp import history, compile
+from rpython.jit.metainterp.optimize import SpeculativeError
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.backend.model import AbstractCPU
 from rpython.jit.backend.llsupport import symbolic, jitframe
@@ -529,6 +530,34 @@ class AbstractLLCPU(AbstractCPU):
         assert self.supports_guard_gc_type
         return self.gc_ll_descr.get_actual_typeid(gcptr)
 
+    def protect_speculative_field(self, gcptr, fielddescr):
+        if not gcptr:
+            raise SpeculativeError
+        if self.supports_guard_gc_type:
+            assert isinstance(fielddescr, FieldDescr)
+            sizedescr = fielddescr.parent_descr
+            if sizedescr.is_object():
+                if (not self.check_is_object(gcptr) or
+                    not sizedescr.is_valid_class_for(gcptr)):
+                    raise SpeculativeError
+            else:
+                if self.get_actual_typeid(gcptr) != sizedescr.tid:
+                    raise SpeculativeError
+
+    def protect_speculative_array(self, gcptr, arraydescr):
+        if not gcptr:
+            raise SpeculativeError
+        if self.supports_guard_gc_type:
+            assert isinstance(arraydescr, ArrayDescr)
+            if self.get_actual_typeid(gcptr) != arraydescr.tid:
+                raise SpeculativeError
+
+    def protect_speculative_string(self, gcptr):
+        self.protect_speculative_array(gcptr, self.gc_ll_descr.str_descr)
+
+    def protect_speculative_unicode(self, gcptr):
+        self.protect_speculative_array(gcptr, self.gc_ll_descr.unicode_descr)
+
     # ____________________________________________________________
 
     def bh_arraylen_gc(self, array, arraydescr):
@@ -633,21 +662,21 @@ class AbstractLLCPU(AbstractCPU):
     def bh_getfield_gc_i(self, struct, fielddescr):
         ofs, size, sign = self.unpack_fielddescr_size(fielddescr)
         if isinstance(lltype.typeOf(struct), lltype.Ptr):
-            fielddescr.check_correct_type(struct)
+            fielddescr.assert_correct_type(struct)
         return self.read_int_at_mem(struct, ofs, size, sign)
 
     @specialize.argtype(1)
     def bh_getfield_gc_r(self, struct, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
         if isinstance(lltype.typeOf(struct), lltype.Ptr):
-            fielddescr.check_correct_type(struct)
+            fielddescr.assert_correct_type(struct)
         return self.read_ref_at_mem(struct, ofs)
 
     @specialize.argtype(1)
     def bh_getfield_gc_f(self, struct, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
         if isinstance(lltype.typeOf(struct), lltype.Ptr):
-            fielddescr.check_correct_type(struct)
+            fielddescr.assert_correct_type(struct)
         return self.read_float_at_mem(struct, ofs)
 
     bh_getfield_raw_i = bh_getfield_gc_i
@@ -658,20 +687,20 @@ class AbstractLLCPU(AbstractCPU):
     def bh_setfield_gc_i(self, struct, newvalue, fielddescr):
         ofs, size, _ = self.unpack_fielddescr_size(fielddescr)
         if isinstance(lltype.typeOf(struct), lltype.Ptr):
-            fielddescr.check_correct_type(struct)
+            fielddescr.assert_correct_type(struct)
         self.write_int_at_mem(struct, ofs, size, newvalue)
 
     def bh_setfield_gc_r(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
         if isinstance(lltype.typeOf(struct), lltype.Ptr):
-            fielddescr.check_correct_type(struct)
+            fielddescr.assert_correct_type(struct)
         self.write_ref_at_mem(struct, ofs, newvalue)
 
     @specialize.argtype(1)
     def bh_setfield_gc_f(self, struct, newvalue, fielddescr):
         ofs = self.unpack_fielddescr(fielddescr)
         if isinstance(lltype.typeOf(struct), lltype.Ptr):
-            fielddescr.check_correct_type(struct)
+            fielddescr.assert_correct_type(struct)
         self.write_float_at_mem(struct, ofs, newvalue)
 
     bh_setfield_raw_i = bh_setfield_gc_i

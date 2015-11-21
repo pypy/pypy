@@ -41,11 +41,11 @@ class SizeDescr(AbstractDescr):
     def __init__(self, size, gc_fielddescrs=None, all_fielddescrs=None,
                  vtable=lltype.nullptr(rclass.OBJECT_VTABLE),
                  immutable_flag=False):
+        assert lltype.typeOf(vtable) == lltype.Ptr(rclass.OBJECT_VTABLE)
         self.size = size
         self.gc_fielddescrs = gc_fielddescrs
         self.all_fielddescrs = all_fielddescrs
         self.vtable = vtable
-        assert vtable is not None
         self.immutable_flag = immutable_flag
 
     def get_all_fielddescrs(self):
@@ -56,6 +56,16 @@ class SizeDescr(AbstractDescr):
 
     def is_object(self):
         return bool(self.vtable)
+
+    def is_valid_class_for(self, struct):
+        objptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
+        cls = llmemory.cast_adr_to_ptr(
+            heaptracker.int2adr(self.get_vtable()),
+            lltype.Ptr(rclass.OBJECT_VTABLE))
+        # this first comparison is necessary, since we want to make sure
+        # that vtable for JitVirtualRef is the same without actually reading
+        # fields
+        return objptr.typeptr == cls or rclass.ll_isinstance(objptr, cls)
 
     def is_immutable(self):
         return self.immutable_flag
@@ -129,18 +139,11 @@ class FieldDescr(ArrayOrFieldDescr):
     def __repr__(self):
         return 'FieldDescr<%s>' % (self.name,)
 
-    def check_correct_type(self, struct):
+    def assert_correct_type(self, struct):
+        # similar to cpu.protect_speculative_field(), but works also
+        # if supports_guard_gc_type is false (and is allowed to crash).
         if self.parent_descr.is_object():
-            cls = llmemory.cast_adr_to_ptr(
-                heaptracker.int2adr(self.parent_descr.get_vtable()),
-                lltype.Ptr(rclass.OBJECT_VTABLE))
-            tpptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct).typeptr
-            # this comparison is necessary, since we want to make sure
-            # that vtable for JitVirtualRef is the same without actually reading
-            # fields
-            if tpptr != cls:
-                assert rclass.ll_isinstance(lltype.cast_opaque_ptr(
-                    rclass.OBJECTPTR, struct), cls)
+            assert self.parent_descr.is_valid_class_for(struct)
         else:
             pass
 

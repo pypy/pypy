@@ -1,6 +1,7 @@
 """Support for OS X."""
 
 from rpython.translator.platform import posix
+import os
 
 #
 # Although Intel 32bit is supported since Apple Mac OS X 10.4, (and PPC since, ever)
@@ -27,11 +28,11 @@ class Darwin(posix.BasePosix):
         # needed for cross compiling on ARM, needs fixing if relevant for darwin
         if len(rel_libdirs) > 0:
             print 'in get_rpath_flags, rel_libdirs is not fixed up',rel_libdirs
-        return self.rpath_flags 
+        return self.rpath_flags
 
     def _args_for_shared(self, args):
         return (list(self.shared_only)
-                + ['-dynamiclib', '-install_name', '@rpath/$(TARGET)', '-undefined', 'dynamic_lookup']
+                + ['-dynamiclib', '-install_name', '@rpath/$(TARGET)', '-undefined', 'dynamic_lookup', '-flat_namespace']
                 + args)
 
     def _include_dirs_for_libffi(self):

@@ -1205,12 +1205,19 @@ def test_const_fields():
     assert foo_s.fields[1][1].type is ffi.typeof("void *")
 
 def test_restrict_fields():
-    if sys.platform == 'win32':
-        py.test.skip("'__restrict__' probably not recognized")
     ffi = FFI()
     ffi.cdef("""struct foo_s { void * restrict b; };""")
     lib = verify(ffi, 'test_restrict_fields', """
-        struct foo_s { void * __restrict__ b; };""")
+        struct foo_s { void * __restrict b; };""")
+    foo_s = ffi.typeof("struct foo_s")
+    assert foo_s.fields[0][0] == 'b'
+    assert foo_s.fields[0][1].type is ffi.typeof("void *")
+
+def test_volatile_fields():
+    ffi = FFI()
+    ffi.cdef("""struct foo_s { void * volatile b; };""")
+    lib = verify(ffi, 'test_volatile_fields', """
+        struct foo_s { void * volatile b; };""")
     foo_s = ffi.typeof("struct foo_s")
     assert foo_s.fields[0][0] == 'b'
     assert foo_s.fields[0][1].type is ffi.typeof("void *")

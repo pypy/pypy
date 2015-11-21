@@ -1,8 +1,9 @@
 """
 Unary operations on SomeValues.
 """
-
 from __future__ import absolute_import
+
+from collections import defaultdict
 
 from rpython.tool.pairtype import pair
 from rpython.flowspace.operation import op
@@ -11,9 +12,9 @@ from rpython.flowspace.argument import CallSpec
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
-    SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
+    SomeFloat, SomeIterator, SomePBC, SomeNone, SomeTypeOf, s_ImpossibleValue,
     s_Bool, s_None, s_Int, unionof, add_knowntypedata,
-    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
+    SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
@@ -26,11 +27,11 @@ UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
 UNARY_OPERATIONS.remove('contains')
 
+
 @op.type.register(SomeObject)
-def type_SomeObject(annotator, arg):
-    r = SomeType()
-    r.is_type_of = [arg]
-    return r
+def type_SomeObject(annotator, v_arg):
+    return SomeTypeOf([v_arg])
+
 
 @op.bool.register(SomeObject)
 def bool_SomeObject(annotator, obj):
@@ -39,7 +40,7 @@ def bool_SomeObject(annotator, obj):
     s_nonnone_obj = annotator.annotation(obj)
     if s_nonnone_obj.can_be_none():
         s_nonnone_obj = s_nonnone_obj.nonnoneify()
-    knowntypedata = {}
+    knowntypedata = defaultdict(dict)
     add_knowntypedata(knowntypedata, True, [obj], s_nonnone_obj)
     r.set_knowntypedata(knowntypedata)
     return r
@@ -99,17 +100,16 @@ def call_args(annotator, func, *args_v):
     callspec = complex_args([annotator.annotation(v_arg) for v_arg in args_v])
     return annotator.annotation(func).call(callspec)
 
-class __extend__(SomeObject):
+@op.issubtype.register(SomeObject)
+def issubtype(annotator, v_type, v_cls):
+    s_type = v_type.annotation
+    s_cls = annotator.annotation(v_cls)
+    if s_type.is_constant() and s_cls.is_constant():
+        return annotator.bookkeeper.immutablevalue(
+            issubclass(s_type.const, s_cls.const))
+    return s_Bool
 
-    def issubtype(self, s_cls):
-        if hasattr(self, 'is_type_of'):
-            vars = self.is_type_of
-            annotator = getbookkeeper().annotator
-            return builtin.builtin_isinstance(annotator.binding(vars[0]),
-                                              s_cls, vars)
-        if self.is_constant() and s_cls.is_constant():
-            return immutablevalue(issubclass(self.const, s_cls.const))
-        return s_Bool
+class __extend__(SomeObject):
 
     def len(self):
         return SomeInteger(nonneg=True)
@@ -520,7 +520,7 @@ class __extend__(SomeDict):
 def contains_String(annotator, string, char):
     if annotator.annotation(char).is_constant() and annotator.annotation(char).const == "\0":
         r = SomeBool()
-        knowntypedata = {}
+        knowntypedata = defaultdict(dict)
         add_knowntypedata(knowntypedata, False, [string],
                           annotator.annotation(string).nonnulify())
         r.set_knowntypedata(knowntypedata)
@@ -724,41 +724,17 @@ class __extend__(SomeIterator):
 
 
 class __extend__(SomeInstance):
-
-    def _true_getattr(self, attr):
+    def getattr(self, s_attr):
+        if not(s_attr.is_constant() and isinstance(s_attr.const, str)):
+            raise AnnotatorError("A variable argument to getattr is not RPython")
+        attr = s_attr.const
         if attr == '__class__':
             return self.classdef.read_attr__class__()
-        attrdef = self.classdef.find_attribute(attr)
-        position = getbookkeeper().position_key
-        attrdef.read_locations[position] = True
-        s_result = attrdef.getvalue()
-        # hack: if s_result is a set of methods, discard the ones
-        #       that can't possibly apply to an instance of self.classdef.
-        # XXX do it more nicely
-        if isinstance(s_result, SomePBC):
-            s_result = self.classdef.lookup_filter(s_result, attr,
-                                                  self.flags)
-        elif isinstance(s_result, SomeImpossibleValue):
-            self.classdef.check_missing_attribute_update(attr)
-            # blocking is harmless if the attribute is explicitly listed
-            # in the class or a parent class.
-            for basedef in self.classdef.getmro():
-                if basedef.classdesc.all_enforced_attrs is not None:
-                    if attr in basedef.classdesc.all_enforced_attrs:
-                        raise HarmlesslyBlocked("get enforced attr")
-        elif isinstance(s_result, SomeList):
-            s_result = self.classdef.classdesc.maybe_return_immutable_list(
-                attr, s_result)
-        return s_result
-
-    def getattr(self, s_attr):
-        if s_attr.is_constant() and isinstance(s_attr.const, str):
-            attr = s_attr.const
-            return self._true_getattr(attr)
-        raise AnnotatorError("A variable argument to getattr is not RPython")
+        getbookkeeper().record_getattr(self.classdef.classdesc, attr)
+        return self.classdef.s_getattr(attr, self.flags)
     getattr.can_only_throw = []
 
-    def setattr(self, s_attr, s_value):
+    def setattr(self, s_attr, s_obj):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
             # find the (possibly parent) class where this attr is defined
@@ -767,14 +743,13 @@ class __extend__(SomeInstance):
             attrdef.modified(clsdef)
 
             # if the attrdef is new, this must fail
-            if attrdef.getvalue().contains(s_value):
+            if attrdef.s_value.contains(s_obj):
                 return
             # create or update the attribute in clsdef
-            clsdef.generalize_attr(attr, s_value)
+            clsdef.generalize_attr(attr, s_obj)
 
-            if isinstance(s_value, SomeList):
-                clsdef.classdesc.maybe_return_immutable_list(
-                    attr, s_value)
+            if isinstance(s_obj, SomeList):
+                clsdef.classdesc.maybe_return_immutable_list(attr, s_obj)
         else:
             raise AnnotatorError("setattr(instance, variable_attr, value)")
 
@@ -903,7 +878,7 @@ class __extend__(SomePBC):
     def getattr(self, s_attr):
         assert s_attr.is_constant()
         if s_attr.const == '__name__':
-            from rpython.annotator.description import ClassDesc
+            from rpython.annotator.classdesc import ClassDesc
             if self.getKind() is ClassDesc:
                 return SomeString()
         bookkeeper = getbookkeeper()
@@ -950,6 +925,12 @@ class __extend__(SomeNone):
         # For now, we give the impossible answer (because len(None) would
         # really crash translated code).  It can be generalized later.
         return SomeImpossibleValue()
+
+@op.issubtype.register(SomeTypeOf)
+def issubtype(annotator, v_type, v_cls):
+    args_v = v_type.annotation.is_type_of
+    return builtin.builtin_isinstance(
+        args_v[0].annotation, annotator.annotation(v_cls), args_v)
 
 #_________________________________________
 # weakrefs

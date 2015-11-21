@@ -500,16 +500,6 @@ class MIFrame(object):
                                        arraydescr, arraybox, indexbox)
 
     @arguments("box", "box", "descr")
-    def opimpl_getarrayitem_raw_i_pure(self, arraybox, indexbox, arraydescr):
-        return self.execute_with_descr(rop.GETARRAYITEM_RAW_PURE_I,
-                                       arraydescr, arraybox, indexbox)
-
-    @arguments("box", "box", "descr")
-    def opimpl_getarrayitem_raw_f_pure(self, arraybox, indexbox, arraydescr):
-        return self.execute_with_descr(rop.GETARRAYITEM_RAW_PURE_F,
-                                       arraydescr, arraybox, indexbox)
-
-    @arguments("box", "box", "descr")
     def opimpl_getarrayitem_gc_i_pure(self, arraybox, indexbox, arraydescr):
         if isinstance(arraybox, ConstPtr) and isinstance(indexbox, ConstInt):
             # if the arguments are directly constants, bypass the heapcache
@@ -792,18 +782,11 @@ class MIFrame(object):
     def opimpl_getfield_raw_i(self, box, fielddescr):
         return self.execute_with_descr(rop.GETFIELD_RAW_I, fielddescr, box)
     @arguments("box", "descr")
+    def opimpl_getfield_raw_r(self, box, fielddescr):   # for pure only
+        return self.execute_with_descr(rop.GETFIELD_RAW_R, fielddescr, box)
+    @arguments("box", "descr")
     def opimpl_getfield_raw_f(self, box, fielddescr):
         return self.execute_with_descr(rop.GETFIELD_RAW_F, fielddescr, box)
-
-    @arguments("box", "descr")
-    def opimpl_getfield_raw_i_pure(self, box, fielddescr):
-        return self.execute_with_descr(rop.GETFIELD_RAW_PURE_I, fielddescr, box)
-    @arguments("box", "descr")
-    def opimpl_getfield_raw_r_pure(self, box, fielddescr):
-        return self.execute_with_descr(rop.GETFIELD_RAW_PURE_R, fielddescr, box)
-    @arguments("box", "descr")
-    def opimpl_getfield_raw_f_pure(self, box, fielddescr):
-        return self.execute_with_descr(rop.GETFIELD_RAW_PURE_F, fielddescr, box)
 
     @arguments("box", "box", "descr")
     def _opimpl_setfield_raw_any(self, box, valuebox, fielddescr):
@@ -2093,7 +2076,17 @@ class MetaInterp(object):
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum)
         resvalue = executor.execute(self.cpu, self, opnum, descr, *argboxes)
-        if rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST:
+        #
+        is_pure = rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST
+        if not is_pure:
+            if (opnum == rop.GETFIELD_RAW_I or
+                opnum == rop.GETFIELD_RAW_R or
+                opnum == rop.GETFIELD_RAW_F or
+                opnum == rop.GETARRAYITEM_RAW_I or
+                opnum == rop.GETARRAYITEM_RAW_F):
+                is_pure = descr.is_always_pure()
+        #
+        if is_pure:
             return self._record_helper_pure(opnum, resvalue, descr, *argboxes)
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
             return self._record_helper_ovf(opnum, resvalue, descr, *argboxes)

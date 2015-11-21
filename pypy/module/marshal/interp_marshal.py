@@ -156,9 +156,6 @@ class Marshaller(_Base):
     put_tuple_w(TYPE, tuple_w)  puts tuple_w, an unwrapped list of wrapped objects
     """
 
-    # _annspecialcase_ = "specialize:ctr_location" # polymorphic
-    # does not work with subclassing
-
     def __init__(self, space, writer, version):
         self.space = space
         ## self.put = putfunc

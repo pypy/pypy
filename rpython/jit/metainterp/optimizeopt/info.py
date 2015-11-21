@@ -6,6 +6,7 @@ from rpython.jit.metainterp.history import ConstInt, Const
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp.optimizeopt.rawbuffer import RawBuffer, InvalidRawOperation
 from rpython.jit.metainterp.executor import execute
+from rpython.jit.metainterp.optimize import InvalidLoop
 
 
 INFO_NULL = 0
@@ -674,6 +675,7 @@ class ConstPtrInfo(PtrInfo):
 
     def _get_info(self, descr, optheap):
         ref = self._const.getref_base()
+        if not ref: raise InvalidLoop   # null protection
         info = optheap.const_infos.get(ref, None)
         if info is None:
             info = StructPtrInfo(descr)
@@ -682,6 +684,7 @@ class ConstPtrInfo(PtrInfo):
 
     def _get_array_info(self, descr, optheap):
         ref = self._const.getref_base()
+        if not ref: raise InvalidLoop   # null protection
         info = optheap.const_infos.get(ref, None)
         if info is None:
             info = ArrayPtrInfo(descr)

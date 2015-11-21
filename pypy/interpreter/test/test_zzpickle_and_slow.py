@@ -390,15 +390,20 @@ class AppTestInterpObjectPickling:
 
     def test_pickle_enum(self):
         import pickle
-        e      = enumerate(range(10))
+        e = enumerate(range(100, 106))
         e.next()
         e.next()
         pckl   = pickle.dumps(e)
         result = pickle.loads(pckl)
-        e.next()
-        result.next()
+        res = e.next()
+        assert res == (2, 102)
+        res = result.next()
+        assert res == (2, 102)
         assert type(e) is type(result)
-        assert list(e) == list(result)
+        res = list(e)
+        assert res == [(3, 103), (4, 104), (5, 105)]
+        res = list(result)
+        assert res == [(3, 103), (4, 104), (5, 105)]
 
     def test_pickle_xrangeiter(self):
         import pickle

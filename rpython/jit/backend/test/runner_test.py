@@ -4897,7 +4897,8 @@ class LLtypeBackendTest(BaseBackendTest):
             force_spill(i7)
             force_spill(i8)
             force_spill(i9)
-            guard_true(i9) [i3, i4, i5, i6, i7, i8, i9]
+            i10 = int_is_true(i9)
+            guard_true(i10) [i3, i4, i5, i6, i7, i8, i9]
             finish(i9, descr=finaldescr)
             """, namespace={'finaldescr': BasicFinalDescr(42),
                             'faildescr2': BasicFailDescr(1),

@@ -248,3 +248,23 @@ class TestOtherContainers(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         ops = loop.ops_by_id('getitem', include_guard_not_invalidated=False)
         assert log.opnames(ops) == []
+
+    def test_enumerate_list(self):
+        def main(n):
+            for a, b in enumerate([1, 2] * 1000):
+                a + b
+
+        log = self.run(main, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.allops())
+        assert opnames.count('new_with_vtable') == 0
+
+    def test_enumerate(self):
+        def main(n):
+            for a, b in enumerate("abc" * 1000):
+                a + ord(b)
+
+        log = self.run(main, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.allops())
+        assert opnames.count('new_with_vtable') == 0

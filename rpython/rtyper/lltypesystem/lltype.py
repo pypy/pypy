@@ -1469,7 +1469,10 @@ class _ptr(_abstract_ptr):
         result = intmask(obj._getid())
         # assume that id() returns an addressish value which is
         # not zero and aligned to at least a multiple of 4
-        assert result != 0 and (result & 3) == 0
+        # (at least for GC pointers; we can't really assume anything
+        # for raw addresses)
+        if self._T._gckind == 'gc':
+            assert result != 0 and (result & 3) == 0
         return result
 
     def _cast_to_adr(self):

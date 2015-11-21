@@ -3,6 +3,7 @@ from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
      ResOperation
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
+from rpython.jit.metainterp.optimize import SpeculativeError
 
 
 class RecentPureOps(object):
@@ -93,6 +94,7 @@ class OptPure(Optimization):
                     break
             else:
                 # all constant arguments: constant-fold away
+                self.protect_speculative_operation(op)
                 resbox = self.optimizer.constant_fold(op)
                 # note that INT_xxx_OVF is not done from here, and the
                 # overflows in the INT_xxx operations are ignored
@@ -116,6 +118,59 @@ class OptPure(Optimization):
             recentops.add(op)
         if nextop:
             self.emit_operation(nextop)
+
+    def protect_speculative_operation(self, op):
+        """When constant-folding a pure operation that reads memory from
+        a gcref, make sure that the gcref is non-null and of a valid type.
+        Otherwise, raise SpeculativeError.  This should only occur when
+        unrolling and optimizing the unrolled loop.  Note that if
+        cpu.supports_guard_gc_type is false, we can't really do this
+        check at all, but then we don't unroll in that case.
+        """
+        opnum = op.getopnum()
+        cpu = self.optimizer.cpu
+
+        if   (opnum == rop.GETFIELD_GC_PURE_I or
+              opnum == rop.GETFIELD_GC_PURE_R or
+              opnum == rop.GETFIELD_GC_PURE_F):
+            fielddescr = op.getdescr()
+            ref = self.get_constant_box(op.getarg(0)).getref_base()
+            cpu.protect_speculative_field(ref, fielddescr)
+            return
+
+        elif (opnum == rop.GETARRAYITEM_GC_PURE_I or
+              opnum == rop.GETARRAYITEM_GC_PURE_R or
+              opnum == rop.GETARRAYITEM_GC_PURE_F or
+              opnum == rop.ARRAYLEN_GC):
+            arraydescr = op.getdescr()
+            array = self.get_constant_box(op.getarg(0)).getref_base()
+            cpu.protect_speculative_array(array, arraydescr)
+            if opnum == rop.ARRAYLEN_GC:
+                return
+            arraylength = cpu.bh_arraylen_gc(array, arraydescr)
+
+        elif (opnum == rop.STRGETITEM or
+              opnum == rop.STRLEN):
+            string = self.get_constant_box(op.getarg(0)).getref_base()
+            cpu.protect_speculative_string(string)
+            if opnum == rop.STRLEN:
+                return
+            arraylength = cpu.bh_strlen(string)
+
+        elif (opnum == rop.UNICODEGETITEM or
+              opnum == rop.UNICODELEN):
+            unicode = self.get_constant_box(op.getarg(0)).getref_base()
+            cpu.protect_speculative_unicode(unicode)
+            if opnum == rop.UNICODELEN:
+                return
+            arraylength = cpu.bh_unicodelen(unicode)
+
+        else:
+            return
+
+        index = self.get_constant_box(op.getarg(1)).getint()
+        if not (0 <= index < arraylength):
+            raise SpeculativeError
 
     def getrecentops(self, opnum):
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
