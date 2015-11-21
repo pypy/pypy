@@ -2238,6 +2238,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         c = array([True,False,True],bool)
         b = a[c]
         assert (a[c] == [[1, 2, 3], [7, 8, 9]]).all()
+        c = array([True])
+        b = a[c]
+        assert b.shape == (1, 3)
 
     def test_bool_array_index_setitem(self):
         from numpy import arange, array
