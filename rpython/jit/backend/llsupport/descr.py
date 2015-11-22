@@ -1,5 +1,6 @@
 import py
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
+from rpython.rtyper.lltypesystem.llgroup import r_halfword
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.llsupport import symbolic, support
 from rpython.jit.metainterp.history import AbstractDescr, getkind, FLOAT, INT
@@ -34,7 +35,7 @@ class GcCache(object):
 
 class SizeDescr(AbstractDescr):
     size = 0      # help translation
-    tid = llop.combine_ushort(lltype.Signed, 0, 0)
+    tid = llop.combine_ushort(lltype.Signed, r_halfword(0), 0)
     vtable = lltype.nullptr(rclass.OBJECT_VTABLE)
     immutable_flag = False
 
