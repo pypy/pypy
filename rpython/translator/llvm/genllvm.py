@@ -237,9 +237,14 @@ class IntegralType(Type):
             indices.append('i64 0')
         if isinstance(offset, llmemory.FieldOffset):
             type = database.get_type(offset.TYPE)
-            indices.append('i32 {}'.format(
-                    type.fldnames_wo_voids.index(offset.fldname)))
-            return offset.TYPE._flds[offset.fldname]
+            if isinstance(type, BareArrayType):
+                assert offset.fldname.startswith('item')
+                indices.append('i32 {}'.format(int(offset.fldname[4:])))
+                return offset.TYPE.OF
+            else:
+                indices.append('i32 {}'.format(
+                        type.fldnames_wo_voids.index(offset.fldname)))
+                return offset.TYPE._flds[offset.fldname]
         if isinstance(offset, llmemory.ArrayLengthOffset):
             if offset.TYPE._gckind == 'gc':
                 indices.append('i32 1')
