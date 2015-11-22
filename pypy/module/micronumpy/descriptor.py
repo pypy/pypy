@@ -816,8 +816,8 @@ def _get_list_or_none(space, w_dict, key):
 def _usefields(space, w_dict, align):
     # Only for testing, a shortened version of the real _usefields
     allfields = []
-    for fname in w_dict.iterkeys().iterator:
-        obj = _get_list_or_none(space, w_dict, fname)
+    for fname_w in space.unpackiterable(w_dict):
+        obj = _get_list_or_none(space, w_dict, space.str_w(fname_w))
         num = space.int_w(obj[1])
         if align:
             alignment = 0
@@ -828,8 +828,8 @@ def _usefields(space, w_dict, align):
             title = space.wrap(obj[2])
         else:
             title = space.w_None
-        allfields.append((space.wrap(fname), format, num, title))
-    allfields.sort(key=lambda x: x[2])
+        allfields.append((fname_w, format, num, title))
+    #allfields.sort(key=lambda x: x[2])
     names   = [space.newtuple([x[0], x[3]]) for x in allfields]
     formats = [x[1] for x in allfields]
     offsets = [x[2] for x in allfields]
@@ -853,12 +853,14 @@ def dtype_from_dict(space, w_dict, alignment):
     aligned_w = _get_val_or_none(space, w_dict, 'aligned')
     itemsize_w = _get_val_or_none(space, w_dict, 'itemsize')
     if names_w is None or formats_w is None:
-        if we_are_translated():
+        try:
             return get_appbridge_cache(space).call_method(space,
                 'numpy.core._internal', '_usefields', Arguments(space, 
                                 [w_dict, space.wrap(alignment >= 0)]))
-        else:
-            return _usefields(space, w_dict, alignment >= 0)
+        except OperationError as e:
+            if e.match(space, space.w_ImportError):
+                return _usefields(space, w_dict, alignment >= 0)
+            raise
     n = len(names_w)
     if (n != len(formats_w) or 
         (offsets_w is not None and n != len(offsets_w)) or
@@ -898,16 +900,17 @@ def dtype_from_dict(space, w_dict, alignment):
 
 def dtype_from_spec(space, w_spec, alignment):
 
-    if we_are_translated():
+    w_lst = w_spec
+    try:
         w_lst = get_appbridge_cache(space).call_method(space,
             'numpy.core._internal', '_commastring', Arguments(space, [w_spec]))
-    else:
+    except OperationError as e:
+        if not e.match(space, space.w_ImportError):
+            raise
         # handle only simple cases for testing
         if space.isinstance_w(w_spec, space.w_str):
             spec = [s.strip() for s in space.str_w(w_spec).split(',')]
             w_lst = space.newlist([space.wrap(s) for s in spec]) 
-        elif space.isinstance_w(w_spec, space.w_list):
-            w_lst = w_spec
     if not space.isinstance_w(w_lst, space.w_list) or space.len_w(w_lst) < 1:
         raise oefmt(space.w_RuntimeError,
                     "_commastring is not returning a list with len >= 1")
