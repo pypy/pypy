@@ -11,7 +11,7 @@ from rpython.flowspace.model import Variable, Constant, checkgraph
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
 from rpython.annotator.model import (
-        typeof, SomeExceptCase, s_ImpossibleValue)
+        typeof, SomeExceptCase, s_ImpossibleValue, SomeInstance)
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
 
@@ -488,31 +488,20 @@ class RPythonAnnotator(object):
 
         if block.canraise:
             op = block.raising_op
-            can_only_throw = op.get_can_only_throw(self)
-            if can_only_throw is not None:
-                # filter out those exceptions which cannot
-                # occur for this specific, typed operation.
-                s_exception = self.bookkeeper.new_exception(can_only_throw)
-                for link in exits:
-                    case = link.exitcase
-                    if case is None:
-                        self.follow_link(graph, link, {})
-                        continue
-                    if s_exception == s_ImpossibleValue:
-                        break
-                    s_case = SomeExceptCase(
-                            self.bookkeeper.getuniqueclassdef(case))
-                    s_matching_exc = s_exception.intersection(s_case)
-                    if s_matching_exc != s_ImpossibleValue:
-                        self.follow_raise_link(graph, link, s_matching_exc)
-                    s_exception = s_exception.difference(s_case)
-            else:
-                for link in exits:
-                    if link.exitcase is None:
-                        self.follow_link(graph, link, {})
-                    else:
-                        s_exception = self.bookkeeper.valueoftype(link.exitcase)
-                        self.follow_raise_link(graph, link, s_exception)
+            s_exception = self.get_exception(op)
+            for link in exits:
+                case = link.exitcase
+                if case is None:
+                    self.follow_link(graph, link, {})
+                    continue
+                if s_exception == s_ImpossibleValue:
+                    break
+                s_case = SomeExceptCase(
+                        self.bookkeeper.getuniqueclassdef(case))
+                s_matching_exc = s_exception.intersection(s_case)
+                if s_matching_exc != s_ImpossibleValue:
+                    self.follow_raise_link(graph, link, s_matching_exc)
+                s_exception = s_exception.difference(s_case)
         else:
             if isinstance(block.exitswitch, Variable):
                 knowntypedata = getattr(block.exitswitch.annotation,
@@ -614,6 +603,16 @@ class RPythonAnnotator(object):
         assert isinstance(resultcell, annmodel.SomeObject)
         assert isinstance(op.result, Variable)
         self.setbinding(op.result, resultcell)  # bind resultcell to op.result
+
+    def get_exception(self, operation):
+        """
+        Return the annotation for all exceptions that `operation` may raise.
+        """
+        can_only_throw = operation.get_can_only_throw(self)
+        if can_only_throw is None:
+            return SomeInstance(self.bookkeeper.getuniqueclassdef(Exception))
+        else:
+            return self.bookkeeper.new_exception(can_only_throw)
 
 
 class BlockedInference(Exception):

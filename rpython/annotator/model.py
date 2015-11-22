@@ -445,6 +445,22 @@ class SomeInstance(SomeObject):
         else:
             return None
 
+    def intersection(self, other):
+        assert isinstance(other, SomeExceptCase)
+        if self.classdef.issubclass(other.case):
+            return self
+        elif other.case.issubclass(self.classdef):
+            return SomeInstance(other.case)
+        else:
+            return s_ImpossibleValue
+
+    def difference(self, other):
+        assert isinstance(other, SomeExceptCase)
+        if self.classdef.issubclass(other.case):
+            return s_ImpossibleValue
+        else:
+            return self
+
     def can_be_none(self):
         return self.can_be_None
 
