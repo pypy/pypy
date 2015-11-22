@@ -970,3 +970,9 @@ class AppTestUnicodeString:
         assert ''.join([s1]) is not s1
         s2 = BytesSubclass(b'a')
         assert b''.join([s2]) is not s2
+
+    def test_encoding_and_errors_cant_be_none(self):
+        raises(TypeError, "b''.decode(None)")
+        raises(TypeError, "u''.encode(None)")
+        raises(TypeError, "str(b'', encoding=None)")
+        raises(TypeError, 'u"".encode("utf-8", None)')

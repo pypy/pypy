@@ -847,8 +847,6 @@ class Regalloc(BaseRegalloc):
     prepare_op_getfield_gc_f = _prepare_op_getfield
     prepare_op_getfield_raw_i = _prepare_op_getfield
     prepare_op_getfield_raw_f = _prepare_op_getfield
-    prepare_op_getfield_raw_pure_i = _prepare_op_getfield
-    prepare_op_getfield_raw_pure_f = _prepare_op_getfield
     prepare_op_getfield_gc_pure_i = _prepare_op_getfield
     prepare_op_getfield_gc_pure_r = _prepare_op_getfield
     prepare_op_getfield_gc_pure_f = _prepare_op_getfield
@@ -942,8 +940,6 @@ class Regalloc(BaseRegalloc):
     prepare_op_getarrayitem_gc_f = _prepare_op_getarrayitem
     prepare_op_getarrayitem_raw_i = _prepare_op_getarrayitem
     prepare_op_getarrayitem_raw_f = _prepare_op_getarrayitem
-    prepare_op_getarrayitem_raw_pure_i = _prepare_op_getarrayitem
-    prepare_op_getarrayitem_raw_pure_f = _prepare_op_getarrayitem
     prepare_op_getarrayitem_gc_pure_i = _prepare_op_getarrayitem
     prepare_op_getarrayitem_gc_pure_r = _prepare_op_getarrayitem
     prepare_op_getarrayitem_gc_pure_f = _prepare_op_getarrayitem
@@ -1238,7 +1234,6 @@ class Regalloc(BaseRegalloc):
         return self._prepare_call(op, save_all_regs=True, first_arg_index=2)
 
     prepare_op_call_release_gil_i = _prepare_op_call_release_gil
-    prepare_op_call_release_gil_r = _prepare_op_call_release_gil
     prepare_op_call_release_gil_f = _prepare_op_call_release_gil
     prepare_op_call_release_gil_n = _prepare_op_call_release_gil
 

@@ -13,7 +13,7 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
     SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
     s_Bool, s_None, s_Int, unionof, add_knowntypedata,
-    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
+    SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
@@ -58,6 +58,14 @@ def contains_SomeNone(annotator, obj, element):
     s_bool.const = False
     return s_bool
 contains_SomeNone.can_only_throw = []
+
+
+@op.contains.register(SomeInteger)
+@op.contains.register(SomeFloat)
+@op.contains.register(SomeBool)
+def contains_number(annotator, number, element):
+    raise AnnotatorError("number is not iterable")
+
 
 @op.simple_call.register(SomeObject)
 def simple_call_SomeObject(annotator, func, *args):
@@ -214,6 +222,9 @@ class __extend__(SomeFloat):
             return getbookkeeper().immutablevalue(bool(self.const))
         return s_Bool
 
+    def len(self):
+        raise AnnotatorError("'float' has no length")
+
 class __extend__(SomeInteger):
 
     def invert(self):
@@ -239,6 +250,10 @@ class __extend__(SomeInteger):
 
     abs.can_only_throw = []
     abs_ovf = _clone(abs, [OverflowError])
+
+    def len(self):
+        raise AnnotatorError("'int' has no length")
+
 
 class __extend__(SomeBool):
     def bool(self):
@@ -709,41 +724,17 @@ class __extend__(SomeIterator):
 
 
 class __extend__(SomeInstance):
-
-    def _true_getattr(self, attr):
+    def getattr(self, s_attr):
+        if not(s_attr.is_constant() and isinstance(s_attr.const, str)):
+            raise AnnotatorError("A variable argument to getattr is not RPython")
+        attr = s_attr.const
         if attr == '__class__':
             return self.classdef.read_attr__class__()
-        attrdef = self.classdef.find_attribute(attr)
-        position = getbookkeeper().position_key
-        attrdef.read_locations[position] = True
-        s_result = attrdef.getvalue()
-        # hack: if s_result is a set of methods, discard the ones
-        #       that can't possibly apply to an instance of self.classdef.
-        # XXX do it more nicely
-        if isinstance(s_result, SomePBC):
-            s_result = self.classdef.lookup_filter(s_result, attr,
-                                                  self.flags)
-        elif isinstance(s_result, SomeImpossibleValue):
-            self.classdef.check_missing_attribute_update(attr)
-            # blocking is harmless if the attribute is explicitly listed
-            # in the class or a parent class.
-            for basedef in self.classdef.getmro():
-                if basedef.classdesc.all_enforced_attrs is not None:
-                    if attr in basedef.classdesc.all_enforced_attrs:
-                        raise HarmlesslyBlocked("get enforced attr")
-        elif isinstance(s_result, SomeList):
-            s_result = self.classdef.classdesc.maybe_return_immutable_list(
-                attr, s_result)
-        return s_result
-
-    def getattr(self, s_attr):
-        if s_attr.is_constant() and isinstance(s_attr.const, str):
-            attr = s_attr.const
-            return self._true_getattr(attr)
-        raise AnnotatorError("A variable argument to getattr is not RPython")
+        getbookkeeper().record_getattr(self.classdef.classdesc, attr)
+        return self.classdef.s_getattr(attr, self.flags)
     getattr.can_only_throw = []
 
-    def setattr(self, s_attr, s_value):
+    def setattr(self, s_attr, s_obj):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
             # find the (possibly parent) class where this attr is defined
@@ -752,14 +743,13 @@ class __extend__(SomeInstance):
             attrdef.modified(clsdef)
 
             # if the attrdef is new, this must fail
-            if attrdef.getvalue().contains(s_value):
+            if attrdef.s_value.contains(s_obj):
                 return
             # create or update the attribute in clsdef
-            clsdef.generalize_attr(attr, s_value)
+            clsdef.generalize_attr(attr, s_obj)
 
-            if isinstance(s_value, SomeList):
-                clsdef.classdesc.maybe_return_immutable_list(
-                    attr, s_value)
+            if isinstance(s_obj, SomeList):
+                clsdef.classdesc.maybe_return_immutable_list(attr, s_obj)
         else:
             raise AnnotatorError("setattr(instance, variable_attr, value)")
 
@@ -875,7 +865,7 @@ class __extend__(SomePBC):
     def getattr(self, s_attr):
         assert s_attr.is_constant()
         if s_attr.const == '__name__':
-            from rpython.annotator.description import ClassDesc
+            from rpython.annotator.classdesc import ClassDesc
             if self.getKind() is ClassDesc:
                 return SomeString()
         bookkeeper = getbookkeeper()

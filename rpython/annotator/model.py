@@ -463,7 +463,7 @@ class SomePBC(SomeObject):
             if desc.pyobj is not None:
                 self.const = desc.pyobj
         elif len(descriptions) > 1:
-            from rpython.annotator.description import ClassDesc
+            from rpython.annotator.classdesc import ClassDesc
             if self.getKind() is ClassDesc:
                 # a PBC of several classes: enforce them all to be
                 # built, without support for specialization.  See

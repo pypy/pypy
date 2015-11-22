@@ -74,7 +74,15 @@ class RealizeCache:
     assert len(NAMES) == cffi_opcode._NUM_PRIM
 
     def __init__(self, space):
+        self.space = space
         self.all_primitives = [None] * cffi_opcode._NUM_PRIM
+        self.file_struct = None
+
+    def get_file_struct(self):
+        if self.file_struct is None:
+            self.file_struct = ctypestruct.W_CTypeStruct(self.space, "FILE")
+        return self.file_struct
+
 
 def get_primitive_type(ffi, num):
     space = ffi.space
@@ -266,6 +274,10 @@ def _realize_name(prefix, charp_src_name):
 
 
 def _realize_c_struct_or_union(ffi, sindex):
+    if sindex == cffi_opcode._IO_FILE_STRUCT:
+        # returns a single global cached opaque type
+        return ffi.space.fromcache(RealizeCache).get_file_struct()
+
     s = ffi.ctxobj.ctx.c_struct_unions[sindex]
     type_index = rffi.getintfield(s, 'c_type_index')
     if ffi.cached_types[type_index] is not None:
@@ -281,7 +293,10 @@ def _realize_c_struct_or_union(ffi, sindex):
             x = ctypestruct.W_CTypeUnion(space, name)
         else:
             name = _realize_name("struct ", s.c_name)
-            x = ctypestruct.W_CTypeStruct(space, name)
+            if name == "struct _IO_FILE":
+                x = space.fromcache(RealizeCache).get_file_struct()
+            else:
+                x = ctypestruct.W_CTypeStruct(space, name)
         if (c_flags & cffi_opcode.F_OPAQUE) == 0:
             assert c_first_field_index >= 0
             w_ctype = x

@@ -83,6 +83,8 @@ typedef void *_cffi_opcode_t;
 #define _CFFI__UNKNOWN_FLOAT_PRIM     (-2)
 #define _CFFI__UNKNOWN_LONG_DOUBLE    (-3)
 
+#define _CFFI__IO_FILE_STRUCT         (-1)
+
 
 struct _cffi_global_s {
     const char *name;

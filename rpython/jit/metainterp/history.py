@@ -541,9 +541,6 @@ class TreeLoop(object):
             self.name,
             ', '.join([box.repr(memo) for box in self.inputargs]))
 
-    def get_display_text(self):    # for graphpage.py
-        return self.name + '\n' + repr(self.inputargs)
-
     def show(self, errmsg=None):
         "NOT_RPYTHON"
         from rpython.jit.metainterp.graphpage import display_procedures

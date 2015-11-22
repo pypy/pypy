@@ -448,7 +448,7 @@ but uses the provided low-level 'alloc' and 'free' functions.
 
 'alloc' is called with the size as argument.  If it returns NULL, a
 MemoryError is raised.  'free' is called with the result of 'alloc'
-as argument.  Both can be either Python function or directly C
+as argument.  Both can be either Python functions or directly C
 functions.  If 'free' is None, then no free function is called.
 If both 'alloc' and 'free' are None, the default is used.
 

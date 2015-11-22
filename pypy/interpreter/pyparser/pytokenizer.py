@@ -58,6 +58,8 @@ def verify_identifier(token):
     return _isidentifier(u)
 
 
+DUMMY_DFA = automata.DFA([], [])
+
 def generate_tokens(lines, flags):
     """
     This is a rewrite of pypy.module.parser.pytokenize.generate_tokens since
@@ -96,7 +98,7 @@ def generate_tokens(lines, flags):
     parenlevstart = (0, 0, "")
 
     # make the annotator happy
-    endDFA = automata.DFA([], [])
+    endDFA = DUMMY_DFA
     # make the annotator happy
     line = ''
     pos = 0

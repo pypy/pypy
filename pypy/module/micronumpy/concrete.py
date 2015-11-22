@@ -23,11 +23,14 @@ class StrideSort(TimSort):
     ''' 
     argsort (return the indices to sort) a list of strides
     '''
-    def __init__(self, rangelist, strides):
+    def __init__(self, rangelist, strides, order):
         self.strides = strides
+        self.order = order
         TimSort.__init__(self, rangelist)
 
     def lt(self, a, b):
+        if self.order == NPY.CORDER:
+            return self.strides[a] <= self.strides[b]
         return self.strides[a] < self.strides[b]
 
 
@@ -311,12 +314,9 @@ class BaseConcreteArray(object):
                           backstrides, shape, self, orig_array)
 
     def copy(self, space, order=NPY.ANYORDER):
-        order = support.get_order_as_CF(self.order, order)
-        strides, backstrides = calc_strides(self.get_shape(), self.dtype,
-                                                    order)
-        impl = ConcreteArray(self.get_shape(), self.dtype, order, strides,
-                             backstrides)
-        return loop.setslice(space, self.get_shape(), impl, self)
+        if order == NPY.ANYORDER:
+            order = NPY.KEEPORDER
+        return self.astype(space, self.dtype, order, copy=True)
 
     def create_iter(self, shape=None, backward_broadcast=False):
         if shape is not None and \
@@ -363,7 +363,7 @@ class BaseConcreteArray(object):
     def get_buffer(self, space, readonly):
         return ArrayBuffer(self, readonly)
 
-    def astype(self, space, dtype, order):
+    def astype(self, space, dtype, order, copy=True):
         # copy the general pattern of the strides
         # but make the array storage contiguous in memory
         shape = self.get_shape()
@@ -377,7 +377,7 @@ class BaseConcreteArray(object):
             t_strides, backstrides = calc_strides(shape, dtype, order)
         else:
             indx_array = range(len(strides))
-            list_sorter = StrideSort(indx_array, strides)
+            list_sorter = StrideSort(indx_array, strides, self.order)
             list_sorter.sort()
             t_elsize = dtype.elsize
             t_strides = strides[:]
@@ -388,7 +388,8 @@ class BaseConcreteArray(object):
             backstrides = calc_backstrides(t_strides, shape)
         order = support.get_order_as_CF(self.order, order)
         impl = ConcreteArray(shape, dtype, order, t_strides, backstrides)
-        loop.setslice(space, impl.get_shape(), impl, self)
+        if copy:
+            loop.setslice(space, impl.get_shape(), impl, self)
         return impl
 
 OBJECTSTORE = lltype.GcStruct('ObjectStore',

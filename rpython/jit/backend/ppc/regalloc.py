@@ -711,8 +711,6 @@ class Regalloc(BaseRegalloc):
     prepare_getfield_gc_f = _prepare_getfield
     prepare_getfield_raw_i = _prepare_getfield
     prepare_getfield_raw_f = _prepare_getfield
-    prepare_getfield_raw_pure_i = _prepare_getfield
-    prepare_getfield_raw_pure_f = _prepare_getfield
     prepare_getfield_gc_pure_i = _prepare_getfield
     prepare_getfield_gc_pure_r = _prepare_getfield
     prepare_getfield_gc_pure_f = _prepare_getfield
@@ -796,8 +794,6 @@ class Regalloc(BaseRegalloc):
     prepare_getarrayitem_gc_f = _prepare_getarrayitem
     prepare_getarrayitem_raw_i = _prepare_getarrayitem
     prepare_getarrayitem_raw_f = _prepare_getarrayitem
-    prepare_getarrayitem_raw_pure_i = _prepare_getarrayitem
-    prepare_getarrayitem_raw_pure_f = _prepare_getarrayitem
     prepare_getarrayitem_gc_pure_i = _prepare_getarrayitem
     prepare_getarrayitem_gc_pure_r = _prepare_getarrayitem
     prepare_getarrayitem_gc_pure_f = _prepare_getarrayitem
@@ -1054,7 +1050,6 @@ class Regalloc(BaseRegalloc):
     prepare_call_may_force_n = _prepare_call_may_force
 
     prepare_call_release_gil_i = _prepare_call_may_force
-    prepare_call_release_gil_r = _prepare_call_may_force
     prepare_call_release_gil_f = _prepare_call_may_force
     prepare_call_release_gil_n = _prepare_call_may_force
 

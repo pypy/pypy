@@ -210,7 +210,6 @@ class ExecutionContext(object):
 
     def exception_trace(self, frame, operationerr):
         "Trace function called upon OperationError."
-        operationerr.record_interpreter_traceback()
         if self.gettrace() is not None:
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)

@@ -371,6 +371,8 @@ class FakeSpace(ObjSpace):
     @specialize.arg(2)
     def call_method(self, w_obj, s, *args):
         # XXX even the hacks have hacks
+        if s == 'size': # used in _array() but never called by tests
+            return IntObject(0)
         return getattr(w_obj, 'descr_' + s)(self, *args)
 
     @specialize.arg(1)

@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.3.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.3.1", ("This test_c.py file is for testing a version"
                                 " of cffi that differs from the one that we"
                                 " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -3509,3 +3509,8 @@ def test_stdcall_function_type():
         assert repr(BFunc) == "<ctype 'int(__stdcall *)(int, int)'>"
     else:
         assert repr(BFunc) == "<ctype 'int(*)(int, int)'>"
+
+def test_get_common_types():
+    d = {}
+    _get_common_types(d)
+    assert d['bool'] == '_Bool'

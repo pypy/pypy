@@ -120,11 +120,14 @@ class GcRewriterAssembler(object):
         # this case means between CALLs or unknown-size mallocs.
         #
         operations = self.remove_bridge_exception(operations)
+        self._changed_op = None
         for i in range(len(operations)):
             op = operations[i]
             assert op.get_forwarded() is None
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
+            if op is self._changed_op:
+                op = self._changed_op_to
             # ---------- GETFIELD_GC ----------
             if op.getopnum() in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
                                  rop.GETFIELD_GC_R):
@@ -181,12 +184,40 @@ class GcRewriterAssembler(object):
             return op.is_ovf()    # int_xxx_ovf() / guard_no_overflow()
         if i + 1 >= len(operations):
             return False
-        if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
-            operations[i + 1].getopnum() != rop.GUARD_FALSE):
+        next_op = operations[i + 1]
+        opnum = next_op.getopnum()
+        if not (opnum == rop.GUARD_TRUE or
+                opnum == rop.GUARD_FALSE or
+                opnum == rop.COND_CALL):
             return False
-        if operations[i + 1].getarg(0) is not op:
+        if next_op.getarg(0) is not op:
             return False
+        self.remove_tested_failarg(next_op)
         return True
+
+    def remove_tested_failarg(self, op):
+        opnum = op.getopnum()
+        if not (opnum == rop.GUARD_TRUE or opnum == rop.GUARD_FALSE):
+            return
+        if op.getarg(0).is_vector():
+            return
+        try:
+            i = op.getfailargs().index(op.getarg(0))
+        except ValueError:
+            return
+        # The checked value is also in the failargs.  The front-end
+        # tries not to produce it, but doesn't always succeed (and
+        # it's hard to test all cases).  Rewrite it away.
+        value = int(opnum == rop.GUARD_FALSE)
+        op1 = ResOperation(rop.SAME_AS_I, [ConstInt(value)])
+        op1.setint(value)
+        self.emit_op(op1)
+        lst = op.getfailargs()[:]
+        lst[i] = op1
+        newop = op.copy_and_change(opnum)
+        newop.setfailargs(lst)
+        self._changed_op = op
+        self._changed_op_to = newop
 
     # ----------
 

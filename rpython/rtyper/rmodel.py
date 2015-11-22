@@ -390,8 +390,7 @@ def mangle(prefix, name):
 
 def getgcflavor(classdef):
     classdesc = classdef.classdesc
-    alloc_flavor = classdesc.read_attribute('_alloc_flavor_',
-                                            Constant('gc')).value
+    alloc_flavor = classdesc.get_param('_alloc_flavor_', default='gc')
     return alloc_flavor
 
 def externalvsinternal(rtyper, item_repr): # -> external_item_repr, (internal_)item_repr

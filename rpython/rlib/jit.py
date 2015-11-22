@@ -299,8 +299,7 @@ class Entry(ExtRegistryEntry):
             if isinstance(s_x, annmodel.SomeInstance):
                 from rpython.flowspace.model import Constant
                 classdesc = s_x.classdef.classdesc
-                virtualizable = classdesc.read_attribute('_virtualizable_',
-                                                         Constant(None)).value
+                virtualizable = classdesc.get_param('_virtualizable_')
                 if virtualizable is not None:
                     flags = s_x.flags.copy()
                     flags['access_directly'] = True
@@ -340,7 +339,7 @@ def _get_virtualizable_token(frame):
     Used by _vmprof
     """
     from rpython.rtyper.lltypesystem import lltype, llmemory
-    
+
     return lltype.nullptr(llmemory.GCREF.TO)
 
 class GetVirtualizableTokenEntry(ExtRegistryEntry):
@@ -882,10 +881,10 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             else:
                 objname, fieldname = name.split('.')
                 s_instance = kwds_s['s_' + objname]
+                classdesc = s_instance.classdef.classdesc
+                bk.record_getattr(classdesc, fieldname)
                 attrdef = s_instance.classdef.find_attribute(fieldname)
-                position = self.bookkeeper.position_key
-                attrdef.read_locations[position] = True
-                s_arg = attrdef.getvalue()
+                s_arg = attrdef.s_value
                 assert s_arg is not None
             args_s.append(s_arg)
         bk.emulate_pbc_call(uniquekey, s_func, args_s)

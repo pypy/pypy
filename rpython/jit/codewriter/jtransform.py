@@ -703,6 +703,12 @@ class Transformer(object):
             pure = '_pure'
         arraydescr = self.cpu.arraydescrof(ARRAY)
         kind = getkind(op.result.concretetype)
+        if ARRAY._gckind != 'gc':
+            assert ARRAY._gckind == 'raw'
+            if kind == 'r':
+                raise Exception("getarrayitem_raw_r not supported")
+            pure = ''   # always redetected from pyjitpl.py: we don't need
+                        # a '_pure' version of getarrayitem_raw
         return SpaceOperation('getarrayitem_%s_%s%s' % (ARRAY._gckind,
                                                         kind[0], pure),
                               [op.args[0], op.args[1], arraydescr],
@@ -792,12 +798,17 @@ class Transformer(object):
         descr = self.cpu.fielddescrof(v_inst.concretetype.TO,
                                       c_fieldname.value)
         kind = getkind(RESULT)[0]
+        if argname != 'gc':
+            assert argname == 'raw'
+            if (kind, pure) == ('r', ''):
+                # note: a pure 'getfield_raw_r' is used e.g. to load class
+                # attributes that are GC objects, so that one is supported.
+                raise Exception("getfield_raw_r (without _pure) not supported")
+            pure = ''   # always redetected from pyjitpl.py: we don't need
+                        # a '_pure' version of getfield_raw
+        #
         op1 = SpaceOperation('getfield_%s_%s%s' % (argname, kind, pure),
                              [v_inst, descr], op.result)
-        if op1.opname == 'getfield_raw_r':
-            # note: 'getfield_raw_r_pure' is used e.g. to load class
-            # attributes that are GC objects, so that one is supported.
-            raise Exception("getfield_raw_r (without _pure) not supported")
         #
         if immut in (IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY):
             op1.opname += "_pure"

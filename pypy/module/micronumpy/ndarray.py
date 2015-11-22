@@ -144,7 +144,7 @@ class __extend__(W_NDimArray):
             return [], w_index.get_shape(), w_index.get_shape(), [w_index]
         w_lst = space.listview(w_index)
         for w_item in w_lst:
-            if not space.isinstance_w(w_item, space.w_int):
+            if not (space.isinstance_w(w_item, space.w_int) or space.isinstance_w(w_item, space.w_float)):
                 break
         else:
             arr = convert_to_array(space, w_index)
@@ -370,11 +370,11 @@ class __extend__(W_NDimArray):
 
     def descr_copy(self, space, w_order=None):
         if w_order is None:
-            order = NPY.KEEPORDER
+            order = NPY.CORDER
         elif space.isinstance_w(w_order, space.w_int):
             order = space.int_w(w_order)
         else:
-            order = order_converter(space, w_order, NPY.KEEPORDER)
+            order = order_converter(space, w_order, NPY.CORDER)
         copy = self.implementation.copy(space, order)
         w_subtype = space.type(self)
         return wrap_impl(space, w_subtype, self, copy)
@@ -669,14 +669,17 @@ class __extend__(W_NDimArray):
             raise oefmt(space.w_NotImplementedError,
                         "astype(%s) not implemented yet",
                         new_dtype.get_name())
-        if new_dtype.is_str() and new_dtype.elsize == 0:
+        if new_dtype.is_str_or_unicode() and new_dtype.elsize == 0:
             elsize = 0
+            ch = new_dtype.char
             itype = cur_dtype.itemtype
             for i in range(self.get_size()):
-                elsize = max(elsize, len(itype.str_format(self.implementation.getitem(i), add_quotes=False)))
+                elsize = max(elsize, space.len_w(itype.to_builtin_type(space, self.implementation.getitem(i))))
             new_dtype = descriptor.variable_dtype(
-                    space, 'S' + str(elsize))
-
+                    space, ch + str(elsize))
+        if new_dtype.elsize == 0:
+            # XXX Should not happen
+            raise oefmt(space.w_ValueError, "new dtype has elsize of 0")
         if not can_cast_array(space, self, new_dtype, casting):
             raise oefmt(space.w_TypeError, "Cannot cast array from %s to %s"
                         "according to the rule %s",
