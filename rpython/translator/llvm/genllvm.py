@@ -1113,6 +1113,9 @@ class FunctionWriter(object):
     def op_have_debug_prints(self, result):
         self.w('{result.V} = bitcast i1 false to i1'.format(**locals()))
 
+    def op_have_debug_prints_for(self, result, category_prefix):
+        self.w('{result.V} = bitcast i1 false to i1'.format(**locals()))
+
     def op_ll_read_timestamp(self, result):
         self.op_direct_call(result, get_repr(llvm_readcyclecounter))
 
