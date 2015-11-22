@@ -446,17 +446,18 @@ class SomeInstance(SomeObject):
             return None
 
     def intersection(self, other):
-        assert isinstance(other, SomeExceptCase)
-        if self.classdef.issubclass(other.case):
-            return self
-        elif other.case.issubclass(self.classdef):
-            return SomeInstance(other.case)
+        assert isinstance(other, SomeInstance)
+        can_be_None = self.can_be_None and other.can_be_None
+        if self.classdef.issubclass(other.classdef):
+            return SomeInstance(self.classdef, can_be_None=can_be_None)
+        elif other.classdef.issubclass(self.classdef):
+            return SomeInstance(other.classdef, can_be_None=can_be_None)
         else:
             return s_ImpossibleValue
 
     def difference(self, other):
-        assert isinstance(other, SomeExceptCase)
-        if self.classdef.issubclass(other.case):
+        assert isinstance(other, SomeInstance)
+        if self.classdef.issubclass(other.classdef):
             return s_ImpossibleValue
         else:
             return self
@@ -476,16 +477,16 @@ class SomeException(SomeObject):
         self.classdefs = classdefs
 
     def intersection(self, other):
-        assert isinstance(other, SomeExceptCase)
-        classdefs = {c for c in self.classdefs if c.issubclass(other.case)}
+        assert isinstance(other, SomeInstance)
+        classdefs = {c for c in self.classdefs if c.issubclass(other.classdef)}
         if classdefs:
             return SomeException(classdefs)
         else:
             return s_ImpossibleValue
 
     def difference(self, other):
-        assert isinstance(other, SomeExceptCase)
-        classdefs = {c for c in self.classdefs if not c.issubclass(other.case)}
+        assert isinstance(other, SomeInstance)
+        classdefs = {c for c in self.classdefs if not c.issubclass(other.classdef)}
         if classdefs:
             return SomeException(classdefs)
         else:
@@ -493,15 +494,6 @@ class SomeException(SomeObject):
 
     def as_SomeInstance(self):
         return unionof(*[SomeInstance(cdef) for cdef in self.classdefs])
-
-
-class SomeExceptCase(SomeObject):
-    """The set of exceptions that match a given except clause.
-
-    IOW, the set of exceptions that verify isinstance(exc, self.case).
-    """
-    def __init__(self, case):
-        self.case = case
 
 
 class SomePBC(SomeObject):
