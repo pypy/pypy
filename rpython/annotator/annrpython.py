@@ -7,12 +7,12 @@ from rpython.tool.ansi_print import ansi_log
 from rpython.tool.pairtype import pair
 from rpython.tool.error import (format_blocked_annotation_error,
                              gather_error, source_lines)
-from rpython.flowspace.model import Variable, Constant, checkgraph
+from rpython.flowspace.model import Variable, Constant, checkgraph, FunctionGraph
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
 from rpython.annotator.model import (
-        typeof, s_ImpossibleValue, SomeInstance)
-from rpython.annotator.bookkeeper import Bookkeeper
+    unionof, typeof, s_ImpossibleValue, SomeInstance, SomePBC)
+from rpython.annotator.bookkeeper import Bookkeeper, simple_args
 from rpython.rtyper.normalizecalls import perform_normalizations
 
 import py
@@ -265,6 +265,7 @@ class RPythonAnnotator(object):
         # points to this func which triggers a reflow whenever the
         # return block of this graph has been analysed.
         callpositions = self.notify.setdefault(graph.returnblock, {})
+        callpositions2 = self.notify.setdefault(graph.exceptblock, {})
         if whence is not None:
             if callable(whence):
                 def callback():
@@ -272,6 +273,7 @@ class RPythonAnnotator(object):
             else:
                 callback = whence
             callpositions[callback] = True
+            callpositions2[callback] = True
 
         # generalize the function's input arguments
         self.addpendingblock(graph, graph.startblock, inputcells)
@@ -607,6 +609,24 @@ class RPythonAnnotator(object):
         """
         Return the annotation for all exceptions that `operation` may raise.
         """
+        from rpython.flowspace.operation import SimpleCall
+        if isinstance(operation, SimpleCall):
+            s_func = self.annotation(operation.args[0])
+            if (isinstance(s_func, SomePBC) and
+                    hasattr(s_func.getKind(), 'get_graph')):  # exclude ClassDesc
+                args_s = [self.annotation(v) for v in operation.args[1:]]
+                argspec = simple_args(args_s)
+                exceptions_s = []
+                for desc in s_func.descriptions:
+                    with self.bookkeeper.at_position(None):
+                        graph = desc.get_graph(argspec, operation)
+                    if not isinstance(graph, FunctionGraph):
+                        break
+                    s_exc = graph.exceptblock.inputargs[1].annotation
+                    if s_exc is not None:
+                        exceptions_s.append(s_exc)
+                else:
+                    return unionof(*exceptions_s)
         can_only_throw = operation.get_can_only_throw(self)
         if can_only_throw is None:
             return SomeInstance(self.bookkeeper.getuniqueclassdef(Exception))
