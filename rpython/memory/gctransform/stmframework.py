@@ -57,6 +57,13 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                   annmodel.SomeInteger()))
         #
         def pypy_stmcb_trace(obj, visit_fn):
+            typeid = gc.get_type_id(obj)
+            if not gc.has_gcptr(typeid):
+                # fastpath, since in STM we don't distinguish between objs
+                # that have gcptrs and those that don't. It would make only
+                # little sense in STM, since all objs need write barriers, even
+                # those without gcptrs. (still, possible XXX)
+                return
             gc.tracei(obj, invokecallback, visit_fn)
         pypy_stmcb_trace.c_name = "pypy_stmcb_trace"
         self.autoregister_ptrs.append(
