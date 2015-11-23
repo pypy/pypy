@@ -2,7 +2,7 @@ import py
 import pytest
 
 
-class AppTestItertools: 
+class AppTestItertools:
     spaceconfig = dict(usemodules=['itertools'])
 
     def test_count(self):
@@ -298,11 +298,11 @@ class AppTestItertools:
 
     def test_chain(self):
         import itertools
-        
+
         it = itertools.chain()
         raises(StopIteration, next, it)
         raises(StopIteration, next, it)
-        
+
         it = itertools.chain([1, 2, 3])
         for x in [1, 2, 3]:
             assert next(it) == x
@@ -322,7 +322,7 @@ class AppTestItertools:
 
         it = itertools.cycle([])
         raises(StopIteration, next, it)
-        
+
         it = itertools.cycle([1, 2, 3])
         for x in [1, 2, 3, 1, 2, 3, 1, 2, 3]:
             assert next(it) == x
@@ -378,7 +378,7 @@ class AppTestItertools:
 
     def test_tee_wrongargs(self):
         import itertools
-        
+
         raises(TypeError, itertools.tee, 0)
         raises(ValueError, itertools.tee, [], -1)
         raises(TypeError, itertools.tee, [], None)
@@ -416,7 +416,7 @@ class AppTestItertools:
 
     def test_groupby(self):
         import itertools
-        
+
         it = itertools.groupby([])
         raises(StopIteration, next, it)
 
@@ -493,7 +493,7 @@ class AppTestItertools:
             assert next(g) is x
             raises(StopIteration, next, g)
         raises(StopIteration, next, it)
-        
+
         # Grouping is based on key equality
         class AlwaysEqual(object):
             def __eq__(self, other):
@@ -516,7 +516,7 @@ class AppTestItertools:
 
     def test_iterables(self):
         import itertools
-    
+
         iterables = [
             itertools.chain(),
             itertools.count(),
@@ -531,7 +531,7 @@ class AppTestItertools:
             itertools.tee([])[0],
             itertools.tee([])[1],
             ]
-    
+
         for it in iterables:
             assert hasattr(it, '__iter__')
             assert iter(it) is it
@@ -540,7 +540,7 @@ class AppTestItertools:
 
     def test_docstrings(self):
         import itertools
-        
+
         assert itertools.__doc__
         methods = [
             itertools.chain,
@@ -981,7 +981,7 @@ class AppTestItertools32:
         # kw arg
         assert list(accumulate(iterable=range(10))) == expected
         # multiple types
-        for typ in int, complex, Decimal, Fraction:                 
+        for typ in int, complex, Decimal, Fraction:
             assert list(accumulate(map(typ, range(10)))) == list(map(typ, expected))
         assert list(accumulate('abc')) == ['a', 'ab', 'abc']   # works with non-numeric
         assert list(accumulate([])) == []                  # empty iterable
@@ -998,3 +998,9 @@ class AppTestItertools32:
         raises(TypeError, list, accumulate(s, chr))        # unary-operation
         raises(TypeError, list, accumulate(s, lambda x,y,z: None))  # ternary
 
+        it = iter([10, 50, 150])
+        a = accumulate(it)
+        assert a.__reduce__() == (accumulate, (it, None), None)
+        next(a)
+        next(a)
+        assert a.__reduce__() == (accumulate, (it, None), 60)
