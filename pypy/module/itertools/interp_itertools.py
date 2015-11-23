@@ -1225,7 +1225,6 @@ class W_Accumulate(W_Root):
                                    space.newtuple([self.w_iterable, w_func]), w_total])
 
     def setstate_w(self, w_total):
-        space = self.space
         self.w_total = w_total
 
 def W_Accumulate__new__(space, w_subtype, w_iterable, w_func=None):
