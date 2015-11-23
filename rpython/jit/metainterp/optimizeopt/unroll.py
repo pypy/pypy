@@ -180,7 +180,7 @@ class UnrollOptimizer(Optimization):
 
         if not inline_short_preamble:
             self.jump_to_preamble(celltoken, end_jump, info)
-            return (UnrollInfo(target_token, label_op, [],
+            return (UnrollInfo(target_token, label_op, extra_same_as,
                                self.optimizer.quasi_immutable_deps),
                     self.optimizer._newoperations)            
 

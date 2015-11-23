@@ -114,9 +114,6 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
 
     def test_array_interface(self):
         import numpy as np
-        if self.runappdirect:
-            skip('requires numpy.core, test with numpy test suite instead')
-        import sys
         class DummyArray(object):
             def __init__(self, interface, base=None):
                 self.__array_interface__ = interface
@@ -126,8 +123,6 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         interface = dict(a.__array_interface__)
         interface['shape'] = tuple([3])
         interface['strides'] = tuple([0])
-        if '__pypy__' in sys.builtin_module_names:
-            skip('not implemented yet')
         c = np.array(DummyArray(interface, base=a))
         c.dtype = a.dtype
         #print c
@@ -160,6 +155,9 @@ class AppTestObjectDtypes(BaseNumpyAppTest):
         import sys
         ytype = np.object_
         if '__pypy__' in sys.builtin_module_names:
+            dt = np.dtype([('x', int), ('y', ytype)])
+            x = np.empty((4, 0), dtype = dt)
+            raises(NotImplementedError, x.__getitem__, 'y')
             ytype = str
         dt = np.dtype([('x', int), ('y', ytype)])
         # Correct way

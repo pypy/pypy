@@ -698,6 +698,56 @@ class TestAnnotateTestCase:
         s = a.build_types(snippet.exc_deduction_our_excs_plus_others, [])
         assert isinstance(s, annmodel.SomeInteger)
 
+    def test_complex_exception_deduction(self):
+        class InternalError(Exception):
+            def __init__(self, msg):
+                self.msg = msg
+
+        class AppError(Exception):
+            def __init__(self, msg):
+                self.msg = msg
+        def apperror(msg):
+            return AppError(msg)
+
+        def f(string):
+            if not string:
+                raise InternalError('Empty string')
+            return string, None
+        def cleanup():
+            pass
+
+        def g(string):
+            try:
+                try:
+                    string, _ = f(string)
+                except ZeroDivisionError:
+                    raise apperror('ZeroDivisionError')
+                try:
+                    result, _ = f(string)
+                finally:
+                    cleanup()
+            except InternalError as e:
+                raise apperror(e.msg)
+            return result
+
+        a = self.RPythonAnnotator()
+        s_result = a.build_types(g, [str])
+        assert isinstance(s_result, annmodel.SomeString)
+
+    def test_method_exception_specialization(self):
+        def f(l):
+            try:
+                return l.pop()
+            except Exception:
+                raise
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [[int]])
+        graph = graphof(a, f)
+        etype, evalue = graph.exceptblock.inputargs
+        assert evalue.annotation.classdefs == {
+                a.bookkeeper.getuniqueclassdef(IndexError)}
+        assert etype.annotation.const == IndexError
+
     def test_operation_always_raising(self):
         def operation_always_raising(n):
             lst = []
@@ -1376,11 +1426,11 @@ class TestAnnotateTestCase:
         a.build_types(f, [somedict(annmodel.s_Int, annmodel.s_Int)])
         fg = graphof(a, f)
         et, ev = fg.exceptblock.inputargs
-        t = annmodel.SomeType()
+        t = annmodel.SomeTypeOf([ev])
         t.const = KeyError
-        t.is_type_of = [ev]
-        assert a.binding(et) == t
-        assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef == a.bookkeeper.getuniqueclassdef(KeyError)
+        assert et.annotation == t
+        s_ev = ev.annotation
+        assert s_ev == a.bookkeeper.new_exception([KeyError])
 
     def test_reraiseAnything(self):
         def f(dic):
@@ -1392,11 +1442,11 @@ class TestAnnotateTestCase:
         a.build_types(f, [somedict(annmodel.s_Int, annmodel.s_Int)])
         fg = graphof(a, f)
         et, ev = fg.exceptblock.inputargs
-        t = annmodel.SomeType()
-        t.is_type_of = [ev]
-        t.const = KeyError    # IndexError ignored because 'dic' is a dict
-        assert a.binding(et) == t
-        assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef == a.bookkeeper.getuniqueclassdef(KeyError)
+        t = annmodel.SomeTypeOf([ev])
+        t.const = KeyError  # IndexError ignored because 'dic' is a dict
+        assert et.annotation == t
+        s_ev = ev.annotation
+        assert s_ev == a.bookkeeper.new_exception([KeyError])
 
     def test_exception_mixing(self):
         def h():
@@ -1427,10 +1477,11 @@ class TestAnnotateTestCase:
         a.build_types(f, [int, somelist(annmodel.s_Int)])
         fg = graphof(a, f)
         et, ev = fg.exceptblock.inputargs
-        t = annmodel.SomeType()
-        t.is_type_of = [ev]
-        assert a.binding(et) == t
-        assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef == a.bookkeeper.getuniqueclassdef(Exception)
+        t = annmodel.SomeTypeOf([ev])
+        assert et.annotation == t
+        s_ev = ev.annotation
+        assert (isinstance(s_ev, annmodel.SomeInstance) and
+                s_ev.classdef == a.bookkeeper.getuniqueclassdef(Exception))
 
     def test_try_except_raise_finally1(self):
         def h(): pass
@@ -1449,10 +1500,11 @@ class TestAnnotateTestCase:
         a.build_types(f, [])
         fg = graphof(a, f)
         et, ev = fg.exceptblock.inputargs
-        t = annmodel.SomeType()
-        t.is_type_of = [ev]
-        assert a.binding(et) == t
-        assert isinstance(a.binding(ev), annmodel.SomeInstance) and a.binding(ev).classdef == a.bookkeeper.getuniqueclassdef(Exception)
+        t = annmodel.SomeTypeOf([ev])
+        assert et.annotation == t
+        s_ev = ev.annotation
+        assert (isinstance(s_ev, annmodel.SomeInstance) and
+                s_ev.classdef == a.bookkeeper.getuniqueclassdef(Exception))
 
     def test_inplace_div(self):
         def f(n):

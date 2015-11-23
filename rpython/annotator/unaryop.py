@@ -1,8 +1,9 @@
 """
 Unary operations on SomeValues.
 """
-
 from __future__ import absolute_import
+
+from collections import defaultdict
 
 from rpython.tool.pairtype import pair
 from rpython.flowspace.operation import op
@@ -11,7 +12,7 @@ from rpython.flowspace.argument import CallSpec
 from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
-    SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
+    SomeFloat, SomeIterator, SomePBC, SomeNone, SomeTypeOf, s_ImpossibleValue,
     s_Bool, s_None, s_Int, unionof, add_knowntypedata,
     SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
@@ -26,11 +27,11 @@ UNARY_OPERATIONS = set([oper.opname for oper in op.__dict__.values()
                         if oper.dispatch == 1])
 UNARY_OPERATIONS.remove('contains')
 
+
 @op.type.register(SomeObject)
-def type_SomeObject(annotator, arg):
-    r = SomeType()
-    r.is_type_of = [arg]
-    return r
+def type_SomeObject(annotator, v_arg):
+    return SomeTypeOf([v_arg])
+
 
 @op.bool.register(SomeObject)
 def bool_SomeObject(annotator, obj):
@@ -39,7 +40,7 @@ def bool_SomeObject(annotator, obj):
     s_nonnone_obj = annotator.annotation(obj)
     if s_nonnone_obj.can_be_none():
         s_nonnone_obj = s_nonnone_obj.nonnoneify()
-    knowntypedata = {}
+    knowntypedata = defaultdict(dict)
     add_knowntypedata(knowntypedata, True, [obj], s_nonnone_obj)
     r.set_knowntypedata(knowntypedata)
     return r
@@ -99,17 +100,16 @@ def call_args(annotator, func, *args_v):
     callspec = complex_args([annotator.annotation(v_arg) for v_arg in args_v])
     return annotator.annotation(func).call(callspec)
 
-class __extend__(SomeObject):
+@op.issubtype.register(SomeObject)
+def issubtype(annotator, v_type, v_cls):
+    s_type = v_type.annotation
+    s_cls = annotator.annotation(v_cls)
+    if s_type.is_constant() and s_cls.is_constant():
+        return annotator.bookkeeper.immutablevalue(
+            issubclass(s_type.const, s_cls.const))
+    return s_Bool
 
-    def issubtype(self, s_cls):
-        if hasattr(self, 'is_type_of'):
-            vars = self.is_type_of
-            annotator = getbookkeeper().annotator
-            return builtin.builtin_isinstance(annotator.binding(vars[0]),
-                                              s_cls, vars)
-        if self.is_constant() and s_cls.is_constant():
-            return immutablevalue(issubclass(self.const, s_cls.const))
-        return s_Bool
+class __extend__(SomeObject):
 
     def len(self):
         return SomeInteger(nonneg=True)
@@ -520,7 +520,7 @@ class __extend__(SomeDict):
 def contains_String(annotator, string, char):
     if annotator.annotation(char).is_constant() and annotator.annotation(char).const == "\0":
         r = SomeBool()
-        knowntypedata = {}
+        knowntypedata = defaultdict(dict)
         add_knowntypedata(knowntypedata, False, [string],
                           annotator.annotation(string).nonnulify())
         r.set_knowntypedata(knowntypedata)
@@ -912,6 +912,12 @@ class __extend__(SomeNone):
         # For now, we give the impossible answer (because len(None) would
         # really crash translated code).  It can be generalized later.
         return SomeImpossibleValue()
+
+@op.issubtype.register(SomeTypeOf)
+def issubtype(annotator, v_type, v_cls):
+    args_v = v_type.annotation.is_type_of
+    return builtin.builtin_isinstance(
+        args_v[0].annotation, annotator.annotation(v_cls), args_v)
 
 #_________________________________________
 # weakrefs
