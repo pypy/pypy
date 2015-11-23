@@ -168,7 +168,9 @@ class Bookkeeper(object):
         return desc.getuniqueclassdef()
 
     def new_exception(self, exc_classes):
-        clsdefs = {self.getuniqueclassdef(cls) for cls in exc_classes}
+        clsdefs = set()
+        for cls in exc_classes:
+            clsdefs.add(self.getuniqueclassdef(cls))
         return SomeException(clsdefs)
 
     def getlistdef(self, **flags_if_new):
