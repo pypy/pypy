@@ -925,8 +925,7 @@ static void write_slowpath_overflow_obj(object_t *obj, bool mark_card)
 
 static void touch_all_pages_of_obj(object_t *obj, size_t obj_size)
 {
-    /* XXX should it be simpler, just really trying to read a dummy
-       byte in each page? */
+    /* XXX: make this function not needed */
     int my_segnum = STM_SEGMENT->segment_num;
     uintptr_t end_page, first_page = ((uintptr_t)obj) / 4096UL;
 
@@ -942,8 +941,8 @@ static void touch_all_pages_of_obj(object_t *obj, size_t obj_size)
     for (page = first_page; page <= end_page; page++) {
         if (get_page_status_in(my_segnum, page) == PAGE_NO_ACCESS) {
             release_privatization_lock(STM_SEGMENT->segment_num);
-            volatile char *dummy = REAL_ADDRESS(STM_SEGMENT->segment_base, page * 4096UL);
-            *dummy;            /* force segfault */
+            /* emulate pagefault -> PAGE_ACCESSIBLE: */
+            handle_segfault_in_page(page);
             acquire_privatization_lock(STM_SEGMENT->segment_num);
         }
     }
