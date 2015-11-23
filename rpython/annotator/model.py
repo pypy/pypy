@@ -461,7 +461,10 @@ class SomeException(SomeObject):
 
     def intersection(self, other):
         assert isinstance(other, SomeExceptCase)
-        classdefs = {c for c in self.classdefs if c.issubclass(other.case)}
+        classdefs = set()
+        for c in self.classdefs:
+            if c.issubclass(other.case):
+                classdefs.add(c)
         if classdefs:
             return SomeException(classdefs)
         else:
@@ -469,7 +472,10 @@ class SomeException(SomeObject):
 
     def difference(self, other):
         assert isinstance(other, SomeExceptCase)
-        classdefs = {c for c in self.classdefs if not c.issubclass(other.case)}
+        classdefs = set()
+        for c in self.classdefs:
+            if not c.issubclass(other.case):
+                classdefs.add(c)
         if classdefs:
             return SomeException(classdefs)
         else:
