@@ -94,3 +94,40 @@ class DoubleDispatchRegistry(object):
     def __setitem__(self, clspair, value):
         self._registry[clspair] = value
         self._cache = self._registry.copy()
+
+def doubledispatch(func):
+    """
+    Decorator returning a double-dispatch function
+
+    Usage
+    -----
+        >>> @doubledispatch
+        ... def func(x, y):
+        ...     return 0
+        >>> @func.register(basestring, basestring)
+        ... def func_string_string(x, y):
+        ...     return 42
+        >>> func(1, 2)
+        0
+        >>> func('x', u'y')
+        42
+    """
+    return DoubleDispatchFunction(func)
+
+class DoubleDispatchFunction(object):
+    def __init__(self, func):
+        self._registry = DoubleDispatchRegistry()
+        self._default = func
+
+    def __call__(self, arg1, arg2, *args, **kwargs):
+        try:
+            func = self._registry[type(arg1), type(arg2)]
+        except KeyError:
+            func = self._default
+        return func(arg1, arg2, *args, **kwargs)
+
+    def register(self, cls1, cls2):
+        def decorator(func):
+            self._registry[cls1, cls2] = func
+            return func
+        return decorator
