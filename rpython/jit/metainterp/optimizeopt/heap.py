@@ -600,12 +600,12 @@ class OptHeap(Optimization):
 
     def optimize_QUASIIMMUT_FIELD(self, op):
         # Pattern: QUASIIMMUT_FIELD(s, descr=QuasiImmutDescr)
-        #          x = GETFIELD_GC_PURE(s, descr='inst_x')
+        #          x = GETFIELD_GC(s, descr='inst_x') # pure
         # If 's' is a constant (after optimizations) we rely on the rest of the
-        # optimizations to constant-fold the following getfield_gc_pure.
+        # optimizations to constant-fold the following pure getfield_gc.
         # in addition, we record the dependency here to make invalidation work
         # correctly.
-        # NB: emitting the GETFIELD_GC_PURE is only safe because the
+        # NB: emitting the pure GETFIELD_GC is only safe because the
         # QUASIIMMUT_FIELD is also emitted to make sure the dependency is
         # registered.
         structvalue = self.ensure_ptr_info_arg0(op)

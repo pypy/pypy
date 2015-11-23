@@ -1408,7 +1408,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_getfield_gc_pure_1(self):
+    def test_pure_getfield_gc_1(self):
         ops = """
         [i]
         p1 = new_with_vtable(descr=nodesize)
@@ -1422,7 +1422,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_getfield_gc_pure_2(self):
+    def test_pure_getfield_gc_2(self):
         ops = """
         [i]
         i1 = getfield_gc_i(ConstPtr(myptr3), descr=valuedescr3)
@@ -1435,7 +1435,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.node.value = 5
         self.optimize_loop(ops, expected)
 
-    def test_getfield_gc_pure_3(self):
+    def test_pure_getfield_gc_3(self):
         ops = """
         []
         p1 = escape_r()
@@ -9030,7 +9030,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, i1]
         i2 = int_gt(i1, 0)
         guard_true(i2) []
-        getfield_gc_pure_i(p0, descr=valuedescr)
+        getfield_gc_i(p0, descr=valuedescr3)
         i3 = int_sub(i1, 1)
         jump(NULL, i3)
         """
@@ -9041,9 +9041,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [p0, i1]
         i2 = int_gt(i1, 0)
         guard_true(i2) []
-        getfield_gc_pure_i(p0, descr=valuedescr)
+        getfield_gc_i(p0, descr=valuedescr3)
         i3 = int_sub(i1, 1)
-        jump(ConstPtr(myptr4), i3)
+        jump(ConstPtr(myptr2), i3)
         """
         py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
