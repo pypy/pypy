@@ -1561,6 +1561,14 @@ static void abort_data_structures_from_segment_num(int segment_num)
 
     list_clear(pseg->objects_pointing_to_nursery);
     list_clear(pseg->old_objects_with_cards_set);
+    LIST_FOREACH_R(pseg->large_overflow_objects, uintptr_t /*item*/,
+        {
+            if (is_small_uniform((object_t*)item)) {
+                //_stm_small_free()
+            } else {
+                _stm_large_free(stm_object_pages + item);
+            }
+        });
     list_clear(pseg->large_overflow_objects);
     list_clear(pseg->young_weakrefs);
 #pragma pop_macro("STM_SEGMENT")
