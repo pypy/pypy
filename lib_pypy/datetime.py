@@ -272,15 +272,17 @@ def _check_utc_offset(name, offset):
 
 def _check_int_field(value):
     if isinstance(value, int):
-        return value
+        return int(value)
     if not isinstance(value, float):
         try:
             value = value.__int__()
         except AttributeError:
             pass
         else:
-            if isinstance(value, _numbers.Integral):
-                return value
+            if isinstance(value, int):
+                return int(value)
+            elif isinstance(value, long):
+                return int(long(value))
             raise TypeError('__int__ method should return an integer')
         raise TypeError('an integer is required')
     raise TypeError('integer argument expected, got float')
@@ -624,7 +626,7 @@ class timedelta(object):
             return self
 
     def __mul__(self, other):
-        if isinstance(other, _numbers.Integral):
+        if isinstance(other, (int, long)):
             # for CPython compatibility, we cannot use
             # our __class__ here, but need a real timedelta
             return timedelta(self._days * other,
@@ -639,7 +641,7 @@ class timedelta(object):
                 self._microseconds)
 
     def __div__(self, other):
-        if not isinstance(other, _numbers.Integral):
+        if not isinstance(other, (int, long)):
             return NotImplemented
         usec = self._to_microseconds()
         return timedelta(0, 0, usec // other)

@@ -170,14 +170,23 @@ class BaseTestDatetime:
                 self.value = value
             def __int__(self):
                 return self.value
+        class SubInt(int): pass
+        class SubLong(long): pass
 
+        dt10 = datetime.datetime(10, 10, 10, 10, 10, 10, 10)
         for xx in [10L,
                    decimal.Decimal(10),
                    decimal.Decimal('10.9'),
                    Number(10),
-                   Number(10L)]:
-            assert datetime.datetime(10, 10, 10, 10, 10, 10, 10) == \
-                   datetime.datetime(xx, xx, xx, xx, xx, xx, xx)
+                   Number(10L),
+                   SubInt(10),
+                   SubLong(10),
+                   Number(SubInt(10)),
+                   Number(SubLong(10))]:
+            dtxx = datetime.datetime(xx, xx, xx, xx, xx, xx, xx)
+            assert dt10 == dtxx
+            assert type(dtxx.month) is int
+            assert type(dtxx.second) is int
 
         with py.test.raises(TypeError) as e:
             datetime.datetime(10, 10, '10')
