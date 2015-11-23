@@ -377,7 +377,7 @@ class Regalloc(BaseRegalloc):
                 loc = r.SPP
             arg = inputargs[i]
             i += 1
-            if loc.is_reg():
+            if loc.is_core_reg():
                 if loc is r.SPP:
                     self.rm.bindings_to_frame_reg[arg] = None
                 else:
@@ -514,7 +514,7 @@ class Regalloc(BaseRegalloc):
                 continue
             if box.type == REF and self.rm.is_still_alive(box):
                 assert not noregs
-                assert loc.is_reg()
+                assert loc.is_core_reg()
                 val = self.assembler.cpu.all_reg_indexes[loc.value]
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         for box, loc in self.fm.bindings.iteritems():
@@ -787,7 +787,7 @@ class Regalloc(BaseRegalloc):
             loc = self.loc(arg)
             assert loc is not r.SPP
             arglocs[i] = loc
-            if loc.is_reg():
+            if loc.is_core_reg():
                 self.fm.mark_as_free(arg)
         #
         # if we are too close to the start of the loop, the label's target may

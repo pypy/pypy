@@ -376,6 +376,41 @@ class AssemblerZARCH(BaseAssembler,
             self.mc.BRC(condition, l.imm(off)) # branch over LGHI
             self.mc.XGR(result_loc, result_loc)
 
+    def regalloc_push(self, loc, already_pushed):
+        """Pushes the value stored in loc to the stack
+        Can trash the current value of SCRATCH when pushing a stack
+        loc"""
+
+        index = WORD * (~already_pushed)
+
+        if loc.type == FLOAT:
+            if not loc.is_fp_reg():
+                self.regalloc_mov(loc, r.FP_SCRATCH)
+                loc = r.FP_SCRATCH
+            self.mc.STD(loc, l.addr(index, r.SP))
+        else:
+            if not loc.is_core_reg():
+                self.regalloc_mov(loc, r.SCRATCH)
+                loc = r.SCRATCH
+            self.mc.SG(loc, l.addr(index, r.SP))
+
+    def regalloc_pop(self, loc, already_pushed):
+        """Pops the value on top of the stack to loc. Can trash the current
+        value of SCRATCH when popping to a stack loc"""
+        index = WORD * (~already_pushed)
+
+        if loc.type == FLOAT:
+            if loc.is_fp_reg():
+                self.mc.LD(loc, l.addr(index, r.SP))
+            else:
+                self.mc.LD(r.FP_SCRATCH, l.addr(index, r.SP))
+                self.regalloc_mov(r.FP_SCRATCH, loc)
+        else:
+            if loc.is_core_reg():
+                self.mc.LG(loc, l.addr(index, r.SP))
+            else:
+                self.mc.LG(r.SCRATCH, l.addr(index, r.SP))
+                self.regalloc_mov(r.SCRATCH, loc)
 
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc
