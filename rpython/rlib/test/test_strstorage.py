@@ -1,7 +1,7 @@
 import py
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.strstorage import str_storage_getitem
+from rpython.rlib.strstorage import str_storage_getitem, str_storage_supported
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rtyper.test.tool import BaseRtypingTest
 
@@ -22,6 +22,8 @@ class BaseStrStorageTest:
         assert int(x) == 43
 
     def test_float(self):
+        if not str_storage_supported(lltype.Float):
+            py.test.skip('str_storage_getitem(lltype.Float) not supported on this machine')
         buf = struct.pack('@dd', 12.3, 45.6)
         size = struct.calcsize('@d')
         assert self.str_storage_getitem(lltype.Float, buf, 0) == 12.3
