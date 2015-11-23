@@ -58,6 +58,15 @@ def rpy_string_as_type(TP):
     assert compute_offsetof(STR, 'chars') == compute_offsetof(STR_AS_TP, 'chars')
     return STR_AS_TP
 
+@specialize.memo()
+def str_storage_supported(TP):
+    try:
+        rpy_string_as_type(TP)
+    except AssertionError:
+        return False
+    else:
+        return True
+
 @specialize.ll()
 def str_storage_getitem(TP, s, index):
     STR_AS_TP = rpy_string_as_type(TP)

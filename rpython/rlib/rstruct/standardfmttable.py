@@ -12,7 +12,7 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.strstorage import str_storage_getitem
+from rpython.rlib.strstorage import str_storage_getitem, str_storage_supported
 from rpython.rlib import rarithmetic
 from rpython.rtyper.lltypesystem import rffi
 
@@ -229,7 +229,7 @@ def make_int_unpacker(size, signed, _memo={}):
 
     @specialize.argtype(0)
     def unpack_int_fastpath_maybe(fmtiter):
-        if fmtiter.bigendian != native_is_bigendian:
+        if fmtiter.bigendian != native_is_bigendian or not str_storage_supported(TYPE):
             return False
         try:
             intvalue = unpack_fastpath(TYPE)(fmtiter)
