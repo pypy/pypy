@@ -242,6 +242,64 @@ class BaseTestDatetime:
             naive == aware
         assert str(e.value) == "can't compare offset-naive and offset-aware times"
 
+    def test_future_types_newint(self):
+        try:
+            from future.types.newint import newint
+        except ImportError:
+            py.test.skip('requires future')
+
+        dt_from_ints = datetime.datetime(2015, 12, 31, 12, 34, 56)
+        dt_from_newints = datetime.datetime(newint(2015), newint(12), newint(31), newint(12), newint(34), newint(56))
+        dt_from_mixed = datetime.datetime(2015, newint(12), 31, newint(12), 34, newint(56))
+        assert dt_from_ints == dt_from_newints
+        assert dt_from_newints == dt_from_mixed
+        assert dt_from_mixed == dt_from_ints
+
+        d_from_int = datetime.date.fromtimestamp(1431216000)
+        d_from_newint = datetime.date.fromtimestamp(newint(1431216000))
+        assert d_from_int == d_from_newint
+
+        dt_from_int = datetime.datetime.fromtimestamp(1431216000)
+        dt_from_newint = datetime.datetime.fromtimestamp(newint(1431216000))
+        assert dt_from_int == dt_from_newint
+
+        dtu_from_int = datetime.datetime.utcfromtimestamp(1431216000)
+        dtu_from_newint = datetime.datetime.utcfromtimestamp(newint(1431216000))
+        assert dtu_from_int == dtu_from_newint
+
+        td_from_int = datetime.timedelta(16565)
+        tds_from_int = datetime.timedelta(seconds=1431216000)
+        td_from_newint = datetime.timedelta(newint(16565))
+        tds_from_newint = datetime.timedelta(seconds=newint(1431216000))
+        assert td_from_int == tds_from_int
+        assert td_from_int == td_from_newint
+        assert td_from_int == tds_from_newint
+        assert tds_from_int == td_from_newint
+        assert tds_from_int == tds_from_newint
+        assert td_from_newint == tds_from_newint
+
+        td_mul_int_int = td_from_int * 2
+        td_mul_int_newint = td_from_int * newint(2)
+        td_mul_newint_int = td_from_newint * 2
+        td_mul_newint_newint = td_from_newint * newint(2)
+        assert td_mul_int_int == td_mul_int_newint
+        assert td_mul_int_int == td_mul_newint_int
+        assert td_mul_int_int == td_mul_newint_newint
+        assert td_mul_int_newint == td_mul_newint_int
+        assert td_mul_int_newint == td_mul_newint_newint
+        assert td_mul_newint_int == td_mul_newint_newint
+
+        td_div_int_int = td_from_int / 3600
+        td_div_int_newint = td_from_int / newint(3600)
+        td_div_newint_int = td_from_newint / 3600
+        td_div_newint_newint = td_from_newint / newint(3600)
+        assert td_div_int_int == td_div_int_newint
+        assert td_div_int_int == td_div_newint_int
+        assert td_div_int_int == td_div_newint_newint
+        assert td_div_int_newint == td_div_newint_int
+        assert td_div_int_newint == td_div_newint_newint
+        assert td_div_newint_int == td_div_newint_newint
+
 
 class TestDatetimeHost(BaseTestDatetime):
     def setup_class(cls):
