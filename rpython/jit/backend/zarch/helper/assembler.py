@@ -14,20 +14,10 @@ def do_emit_cmp_op(self, arglocs, condition, signed, fp):
     self.mc.cmp_op(l0, l1, pool=l1.is_in_pool(), imm=l1.is_imm(), signed=signed, fp=fp)
 
     if fp:
-        # Support for NaNs: with LE or GE, if one of the operands is a
-        # NaN, we get CR=1,0,0,0 (unordered bit only).  We're about to
-        # check "not GT" or "not LT", but in case of NaN we want to
-        # get the answer False.
-        if condition == c.LE:
-            pass
-            # TODO xxx
-            #self.mc.crnor(1, 1, 3)
-            #condition = c.GT
-        elif condition == c.GE:
-            pass
-            #xxx
-            #self.mc.crnor(0, 0, 3)
-            #condition = c.LT
+        # Support for NaNs: S390X sets condition register to 0x3 (unordered)
+        # as soon as any of the operands is NaN
+        condition = c.prepare_float_condition(condition)
+        print("condition is:", condition)
     self.flush_cc(condition, arglocs[2])
 
 
