@@ -851,9 +851,9 @@ class BaseArrayTests:
         import sys
         if sys.maxunicode == 0xffff:
             skip("test for 32-bit unicodes")
-        a = self.array('u', '\xff\xff\xff\xff')
+        a = self.array('u', b'\xff\xff\xff\xff')
         assert len(a) == 1
-        assert repr(a[0]) == "u'\Uffffffff'"
+        assert repr(a[0]) == r"'\Uffffffff'"
         if sys.maxint == 2147483647:
             assert ord(a[0]) == -1
         else:
