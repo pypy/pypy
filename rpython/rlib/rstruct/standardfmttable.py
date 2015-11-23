@@ -185,6 +185,13 @@ def make_ieee_unpacker(TYPE):
             data = fmtiter.read(size)
             fmtiter.appendobj(ieee.unpack_float(data, fmtiter.bigendian))
             return
+        if not str_storage_supported(TYPE):
+            # this happens e.g. on win32 and ARM32: we cannot read the string
+            # content as an array of doubles because it's not properly
+            # aligned. But we can read a longlong and convert to float
+            assert TYPE == rffi.DOUBLE
+            assert rffi.sizeof(TYPE) == 8
+            return unpack_longlong2float(fmtiter)
         try:
             # fast path
             val = unpack_fastpath(TYPE)(fmtiter)
@@ -194,6 +201,16 @@ def make_ieee_unpacker(TYPE):
             val = str_storage_getitem(TYPE, input, 0)
         fmtiter.appendobj(float(val))
     return unpack_ieee
+
+@specialize.argtype(0)
+def unpack_longlong2float(fmtiter):
+    from rpython.rlib.rstruct.runpack import runpack
+    from rpython.rlib.longlong2float import longlong2float
+    s = fmtiter.read(8)
+    llval = runpack('q', s) # this is a bit recursive, I know
+    doubleval = longlong2float(llval)
+    fmtiter.appendobj(doubleval)
+
 
 unpack_double = make_ieee_unpacker(rffi.DOUBLE)
 unpack_float = make_ieee_unpacker(rffi.FLOAT)
