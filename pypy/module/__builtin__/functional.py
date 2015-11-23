@@ -214,10 +214,12 @@ class W_Enumerate(W_Root):
             start = 0
         else:
             w_start = space.index(w_start)
-            if space.is_w(space.type(w_start), space.w_int):
+            try:
                 start = space.int_w(w_start)
                 w_start = None
-            else:
+            except OperationError as e:
+                if not e.match(space, space.w_OverflowError):
+                    raise
                 start = -1
 
         if start == 0 and type(w_iterable) is W_ListObject:

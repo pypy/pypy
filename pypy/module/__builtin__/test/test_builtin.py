@@ -313,8 +313,8 @@ class AppTestBuiltinApp:
         enum = enumerate(range(2), 2**100)
         assert list(enum) == [(2**100, 0), (2**100+1, 1)]
 
-        enum = enumerate(range(2), sys.maxint)
-        assert list(enum) == [(sys.maxint, 0), (sys.maxint+1, 1)]
+        enum = enumerate(range(2), sys.maxsize)
+        assert list(enum) == [(sys.maxsize, 0), (sys.maxsize+1, 1)]
 
         raises(TypeError, enumerate, range(2), 5.5)
 
