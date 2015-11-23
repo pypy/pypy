@@ -1004,3 +1004,8 @@ class AppTestItertools32:
         next(a)
         next(a)
         assert a.__reduce__() == (accumulate, (it, None), 60)
+
+        it = iter([10, 50, 150])
+        a = accumulate(it)
+        a.__setstate__(20)
+        assert a.__reduce__() == (accumulate, (it, None), 20)

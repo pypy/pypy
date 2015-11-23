@@ -1224,6 +1224,10 @@ class W_Accumulate(W_Root):
             return space.newtuple([space.gettypefor(W_Accumulate),
                                    space.newtuple([self.w_iterable, w_func]), w_total])
 
+    def setstate_w(self, w_total):
+        space = self.space
+        self.w_total = w_total
+
 def W_Accumulate__new__(space, w_subtype, w_iterable, w_func=None):
     r = space.allocate_instance(W_Accumulate, w_subtype)
     r.__init__(space, space.iter(w_iterable), w_func)
@@ -1234,6 +1238,7 @@ W_Accumulate.typedef = TypeDef("itertools.accumulate",
     __iter__ = interp2app(W_Accumulate.iter_w),
     __next__ = interp2app(W_Accumulate.next_w),
     __reduce__ = interp2app(W_Accumulate.reduce_w),
+    __setstate__ = interp2app(W_Accumulate.setstate_w),
     __doc__  = """\
 "accumulate(iterable) --> accumulate object
 
