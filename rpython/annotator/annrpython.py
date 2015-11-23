@@ -11,7 +11,7 @@ from rpython.flowspace.model import Variable, Constant, checkgraph
 from rpython.translator import simplify, transform
 from rpython.annotator import model as annmodel, signature
 from rpython.annotator.model import (
-        typeof, s_ImpossibleValue, SomeInstance)
+    typeof, s_ImpossibleValue, SomeInstance, intersection, difference)
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
 
@@ -497,14 +497,14 @@ class RPythonAnnotator(object):
                 if s_exception == s_ImpossibleValue:
                     break
                 s_case = SomeInstance(self.bookkeeper.getuniqueclassdef(case))
-                s_matching_exc = s_exception.intersection(s_case)
+                s_matching_exc = intersection(s_exception, s_case)
                 if s_matching_exc != s_ImpossibleValue:
                     self.follow_raise_link(graph, link, s_matching_exc)
-                s_exception = s_exception.difference(s_case)
+                s_exception = difference(s_exception, s_case)
         else:
             if isinstance(block.exitswitch, Variable):
-                knowntypedata = getattr(block.exitswitch.annotation,
-                                            "knowntypedata", {})
+                knowntypedata = getattr(
+                    block.exitswitch.annotation, "knowntypedata", {})
             else:
                 knowntypedata = {}
             for link in exits:
