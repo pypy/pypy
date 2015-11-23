@@ -461,7 +461,7 @@ class SomeException(SomeObject):
 
     def intersection(self, other):
         assert isinstance(other, SomeExceptCase)
-        classdefs = {c:None for c in self.classdefs if c.issubclass(other.case)}
+        classdefs = {c for c in self.classdefs if c.issubclass(other.case)}
         if classdefs:
             return SomeException(classdefs)
         else:
