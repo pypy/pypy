@@ -1218,11 +1218,11 @@ class W_Accumulate(W_Root):
         return self.w_total
 
     def reduce_w(self):
-            space = self.space
-            w_total = space.w_None if self.w_total is None else self.w_total
-            w_func = space.w_None if self.w_func is None else self.w_func
-            return space.newtuple([space.gettypefor(W_Accumulate),
-                                   space.newtuple([self.w_iterable, w_func]), w_total])
+        space = self.space
+        w_total = space.w_None if self.w_total is None else self.w_total
+        w_func = space.w_None if self.w_func is None else self.w_func
+        return space.newtuple([space.gettypefor(W_Accumulate),
+                               space.newtuple([self.w_iterable, w_func]), w_total])
 
     def setstate_w(self, w_total):
         self.w_total = w_total
