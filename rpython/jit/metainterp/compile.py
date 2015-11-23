@@ -15,7 +15,8 @@ from rpython.jit.metainterp.history import (TreeLoop, Const, JitCellToken,
     TargetToken, AbstractFailDescr, ConstInt)
 from rpython.jit.metainterp import history, jitexc
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP, ResumeDataDirectReader
+from rpython.jit.metainterp.resume import (NUMBERING, PENDINGFIELDSP,
+        ResumeDataDirectReader, AccumInfo)
 from rpython.jit.codewriter import heaptracker, longlong
 
 
@@ -253,6 +254,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     history = metainterp.history
+    warmstate = jitdriver_sd.warmstate
 
     enable_opts = jitdriver_sd.warmstate.enable_opts
     if try_disabling_unroll:
@@ -298,6 +300,13 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     except InvalidLoop:
         return None
 
+    if ((warmstate.vec and jitdriver_sd.vec) or warmstate.vec_all):
+        from rpython.jit.metainterp.optimizeopt.vector import optimize_vector
+        loop_info, loop_ops = optimize_vector(metainterp_sd,
+                                              jitdriver_sd, warmstate,
+                                              loop_info, loop_ops,
+                                              jitcell_token)
+    #
     loop = create_empty_loop(metainterp)
     loop.original_jitcell_token = jitcell_token
     loop.inputargs = start_state.renamed_inputargs
@@ -322,6 +331,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
                          inputargs, metainterp.box_names_memo)
     record_loop_or_bridge(metainterp_sd, loop)
+    loop_info.post_loop_compilation(loop, jitdriver_sd, metainterp, jitcell_token)
     return start_descr
 
 def compile_retrace(metainterp, greenkey, start,
@@ -600,6 +610,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     #if metainterp_sd.warmrunnerdesc is not None:    # for tests
     #    metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(
     #        original_loop_token)
+    return asminfo
 
 # ____________________________________________________________
 
@@ -673,6 +684,9 @@ def make_done_loop_tokens():
 class ResumeDescr(AbstractFailDescr):
     _attrs_ = ()
 
+    def clone(self):
+        return self
+
 class AbstractResumeGuardDescr(ResumeDescr):
     _attrs_ = ('status',)
 
@@ -705,7 +719,6 @@ class AbstractResumeGuardDescr(ResumeDescr):
                 assert isinstance(self, ResumeGuardDescr)
                 resume_in_blackhole(metainterp_sd, jitdriver_sd, self, deadframe)
         assert 0, "unreachable"
-
 
     def _trace_and_compile_from_bridge(self, deadframe, metainterp_sd,
                                        jitdriver_sd):
@@ -821,10 +834,16 @@ class ResumeGuardCopiedDescr(AbstractResumeGuardDescr):
         assert isinstance(other, ResumeGuardCopiedDescr)
         self.prev = other.prev
 
+    def clone(self):
+        cloned = ResumeGuardCopiedDescr()
+        cloned.copy_all_attributes_from(self)
+        return cloned
+
+
 class ResumeGuardDescr(AbstractResumeGuardDescr):
     _attrs_ = ('rd_numb', 'rd_count', 'rd_consts', 'rd_virtuals',
                'rd_frame_info_list', 'rd_pendingfields', 'status')
-    
+
     rd_numb = lltype.nullptr(NUMBERING)
     rd_count = 0
     rd_consts = None
@@ -843,11 +862,20 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
         self.rd_virtuals = other.rd_virtuals
         self.rd_numb = other.rd_numb
         # we don't copy status
+        if other.rd_vector_info:
+            self.rd_vector_info = other.rd_vector_info.clone()
+        else:
+            other.rd_vector_info = None
 
     def store_final_boxes(self, guard_op, boxes, metainterp_sd):
         guard_op.setfailargs(boxes)
         self.rd_count = len(boxes)
         self.store_hash(metainterp_sd)
+
+    def clone(self):
+        cloned = ResumeGuardDescr()
+        cloned.copy_all_attributes_from(self)
+        return cloned
 
 class ResumeGuardExcDescr(ResumeGuardDescr):
     pass
@@ -857,6 +885,21 @@ class ResumeGuardCopiedExcDescr(ResumeGuardCopiedDescr):
 
 class ResumeAtPositionDescr(ResumeGuardDescr):
     pass
+
+class CompileLoopVersionDescr(ResumeGuardDescr):
+    def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
+        assert 0, "this guard must never fail"
+
+    def exits_early(self):
+        return True
+
+    def loop_version(self):
+        return True
+
+    def clone(self):
+        cloned = CompileLoopVersionDescr()
+        cloned.copy_all_attributes_from(self)
+        return cloned
 
 class AllVirtuals:
     llopaque = True
@@ -988,7 +1031,7 @@ def compile_trace(metainterp, resumekey):
     #
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
-    
+
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     if isinstance(resumekey, ResumeAtPositionDescr):

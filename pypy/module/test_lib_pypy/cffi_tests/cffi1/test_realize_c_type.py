@@ -54,7 +54,7 @@ def check_func(input, expected_output=None):
     ffi = _cffi_backend.FFI()
     ct = ffi.typeof(ffi.callback(input, lambda: None))
     assert isinstance(ct, ffi.CType)
-    if sys.platform != 'win32':
+    if sys.platform != 'win32' or sys.maxsize > 2**32:
         expected_output = expected_output.replace('__stdcall *', '*')
     assert ct.cname == expected_output
 

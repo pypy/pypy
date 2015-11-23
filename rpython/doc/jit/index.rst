@@ -25,6 +25,7 @@ Content
    pyjitpl5
    optimizer
    virtualizable
+   vectorization
 
 - :doc:`Overview <overview>`: motivating our approach
 

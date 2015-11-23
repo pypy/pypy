@@ -4,6 +4,7 @@
 #include <errno.h>
 
 #if defined(_MSC_VER)
+# define MS_WIN32
 typedef size_t uintptr_t;
 #else
 # include <stdint.h>
@@ -231,6 +232,8 @@ static int write_ds(token_t *tok, _cffi_opcode_t ds)
 #define MAX_SSIZE_T  (((size_t)-1) >> 1)
 
 static int parse_complete(token_t *tok);
+static const char *get_common_type(const char *search, size_t search_len);
+static int parse_common_type_replacement(token_t *tok, const char *replacement);
 
 static int parse_sequel(token_t *tok, int outer)
 {
@@ -387,11 +390,18 @@ static int parse_sequel(token_t *tok, int outer)
 
             case TOK_INTEGER:
                 errno = 0;
-#ifndef _MSC_VER
-                if (sizeof(length) > sizeof(unsigned long))
+                if (sizeof(length) > sizeof(unsigned long)) {
+#ifdef MS_WIN32
+# ifdef _WIN64
+                    length = _strtoui64(tok->p, &endptr, 0);
+# else
+                    abort();  /* unreachable */
+# endif
+#else
                     length = strtoull(tok->p, &endptr, 0);
-                else
 #endif
+                }
+                else
                     length = strtoul(tok->p, &endptr, 0);
                 if (endptr != tok->p + tok->size)
                     return parse_error(tok, "invalid number");
@@ -446,26 +456,34 @@ static int parse_sequel(token_t *tok, int outer)
     return _CFFI_GETARG(result);
 }
 
+static int search_sorted(const char *const *base,
+                         size_t item_size, int array_len,
+                         const char *search, size_t search_len)
+{
+    int left = 0, right = array_len;
+    const char *baseptr = (const char *)base;
 
-#define MAKE_SEARCH_FUNC(FIELD)                                 \
-  RPY_EXTERN int                                                \
-  pypy_search_in_##FIELD(const struct _cffi_type_context_s *ctx,\
-                        const char *search, size_t search_len)  \
-  {                                                             \
-      int left = 0, right = ctx->num_##FIELD;                   \
-                                                                \
-      while (left < right) {                                    \
-          int middle = (left + right) / 2;                      \
-          const char *src = ctx->FIELD[middle].name;            \
-          int diff = strncmp(src, search, search_len);          \
-          if (diff == 0 && src[search_len] == '\0')             \
-              return middle;                                    \
-          else if (diff >= 0)                                   \
-              right = middle;                                   \
-          else                                                  \
-              left = middle + 1;                                \
-      }                                                         \
-      return -1;                                                \
+    while (left < right) {
+        int middle = (left + right) / 2;
+        const char *src = *(const char *const *)(baseptr + middle * item_size);
+        int diff = strncmp(src, search, search_len);
+        if (diff == 0 && src[search_len] == '\0')
+            return middle;
+        else if (diff >= 0)
+            right = middle;
+        else
+            left = middle + 1;
+    }
+    return -1;
+}
+
+#define MAKE_SEARCH_FUNC(FIELD)                                         \
+  RPY_EXTERN int                                                        \
+  pypy_search_in_##FIELD(const struct _cffi_type_context_s *ctx,        \
+                        const char *search, size_t search_len)          \
+  {                                                                     \
+      return search_sorted(&ctx->FIELD->name, sizeof(*ctx->FIELD),      \
+                           ctx->num_##FIELD, search, search_len);       \
   }
 
 MAKE_SEARCH_FUNC(globals)
@@ -719,6 +737,7 @@ static int parse_complete(token_t *tok)
             break;
         case TOK_IDENTIFIER:
         {
+            const char *replacement;
             int n = search_in_typenames(tok->info->ctx, tok->p, tok->size);
             if (n >= 0) {
                 t1 = _CFFI_OP(_CFFI_OP_TYPENAME, n);
@@ -727,6 +746,14 @@ static int parse_complete(token_t *tok)
             n = search_standard_typename(tok->p, tok->size);
             if (n >= 0) {
                 t1 = _CFFI_OP(_CFFI_OP_PRIMITIVE, n);
+                break;
+            }
+            replacement = get_common_type(tok->p, tok->size);
+            if (replacement != NULL) {
+                n = parse_common_type_replacement(tok, replacement);
+                if (n < 0)
+                    return parse_error(tok, "internal error, please report!");
+                t1 = _CFFI_OP(_CFFI_OP_NOOP, n);
                 break;
             }
             return parse_error(tok, "undefined type name");
@@ -740,10 +767,15 @@ static int parse_complete(token_t *tok)
                 return parse_error(tok, "struct or union name expected");
 
             n = search_in_struct_unions(tok->info->ctx, tok->p, tok->size);
-            if (n < 0)
-                return parse_error(tok, "undefined struct/union name");
-            if (((tok->info->ctx->struct_unions[n].flags & _CFFI_F_UNION) != 0)
-                ^ (kind == TOK_UNION))
+            if (n < 0) {
+                if (kind == TOK_STRUCT && tok->size == 8 &&
+                        !memcmp(tok->p, "_IO_FILE", 8))
+                    n = _CFFI__IO_FILE_STRUCT;
+                else
+                    return parse_error(tok, "undefined struct/union name");
+            }
+            else if (((tok->info->ctx->struct_unions[n].flags & _CFFI_F_UNION)
+                      != 0) ^ (kind == TOK_UNION))
                 return parse_error(tok, "wrong kind of tag: struct vs union");
 
             t1 = _CFFI_OP(_CFFI_OP_STRUCT_UNION, n);
@@ -773,8 +805,9 @@ static int parse_complete(token_t *tok)
 }
 
 
-RPY_EXTERN
-int pypy_parse_c_type(struct _cffi_parse_info_s *info, const char *input)
+static
+int parse_c_type_from(struct _cffi_parse_info_s *info, size_t *output_index,
+                      const char *input)
 {
     int result;
     token_t token;
@@ -785,15 +818,32 @@ int pypy_parse_c_type(struct _cffi_parse_info_s *info, const char *input)
     token.p = input;
     token.size = 0;
     token.output = info->output;
-    token.output_index = 0;
+    token.output_index = *output_index;
 
     next_token(&token);
     result = parse_complete(&token);
 
+    *output_index = token.output_index;
     if (token.kind != TOK_END)
         return parse_error(&token, "unexpected symbol");
     return result;
 }
+
+RPY_EXTERN
+int pypy_parse_c_type(struct _cffi_parse_info_s *info, const char *input)
+{
+    size_t output_index = 0;
+    return parse_c_type_from(info, &output_index, input);
+}
+
+static
+int parse_common_type_replacement(token_t *tok, const char *replacement)
+{
+    return parse_c_type_from(tok->info, &tok->output_index, replacement);
+}
+
+
+#include "commontypes.c"      /* laziness hack: include this file here */
 
 
 /************************************************************/

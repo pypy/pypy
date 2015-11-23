@@ -19,11 +19,13 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     ebp, r8, r9, r10, r11, r12, r13, r14, r15, xmm0, xmm1, xmm2, xmm3, xmm4,
     xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG)
+from rpython.jit.backend.x86.vector_ext import VectorRegallocMixin
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
-    ConstFloat, INT, REF, FLOAT, TargetToken)
-from rpython.jit.metainterp.resoperation import rop, OpHelpers
+    ConstFloat, INT, REF, FLOAT, VECTOR, TargetToken, AbstractFailDescr)
+from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resume import AccumInfo
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong, r_uint
@@ -60,8 +62,7 @@ class X86_64_RegisterManager(X86RegisterManager):
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
 
 class X86XMMRegisterManager(RegisterManager):
-
-    box_types = [FLOAT]
+    box_types = [FLOAT, INT] # yes INT!
     all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
     # we never need lower byte I hope
     save_around_call_regs = all_regs
@@ -78,6 +79,29 @@ class X86XMMRegisterManager(RegisterManager):
         y = longlong.ZEROF
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
         rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = y
+        return ConstFloatLoc(adr)
+
+    def expand_float(self, size, const):
+        if size == 4:
+            loc = self.expand_single_float(const)
+        else:
+            loc = self.expand_double_float(const)
+        return loc
+
+    def expand_double_float(self, f):
+        adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
+        fs = f.getfloatstorage()
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = fs
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[1] = fs
+        return ConstFloatLoc(adr)
+
+    def expand_single_float(self, f):
+        adr = self.assembler.datablockwrapper.malloc_aligned(16, 16)
+        fs = rffi.cast(lltype.SingleFloat, f.getfloatstorage())
+        rffi.cast(rffi.CArrayPtr(lltype.SingleFloat), adr)[0] = fs
+        rffi.cast(rffi.CArrayPtr(lltype.SingleFloat), adr)[1] = fs
+        rffi.cast(rffi.CArrayPtr(lltype.SingleFloat), adr)[2] = fs
+        rffi.cast(rffi.CArrayPtr(lltype.SingleFloat), adr)[3] = fs
         return ConstFloatLoc(adr)
 
     def call_result_location(self, v):
@@ -122,7 +146,7 @@ for _i, _reg in enumerate(gpr_reg_mgr_cls.all_regs):
     gpr_reg_mgr_cls.all_reg_indexes[_reg.value] = _i
 
 
-class RegAlloc(BaseRegalloc):
+class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     def __init__(self, assembler, translate_support_code=False):
         assert isinstance(translate_support_code, bool)
@@ -179,7 +203,7 @@ class RegAlloc(BaseRegalloc):
         return self.fm.get_frame_depth()
 
     def possibly_free_var(self, var):
-        if var.type == FLOAT:
+        if var.type == FLOAT or var.is_vector():
             self.xrm.possibly_free_var(var)
         else:
             self.rm.possibly_free_var(var)
@@ -199,7 +223,7 @@ class RegAlloc(BaseRegalloc):
 
     def make_sure_var_in_reg(self, var, forbidden_vars=[],
                              selected_reg=None, need_lower_byte=False):
-        if var.type == FLOAT:
+        if var.type == FLOAT or var.is_vector():
             if isinstance(var, ConstFloat):
                 return FloatImmedLoc(var.getfloatstorage())
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars,
@@ -210,7 +234,7 @@ class RegAlloc(BaseRegalloc):
 
     def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None,
                            need_lower_byte=False):
-        if var.type == FLOAT:
+        if var.type == FLOAT or var.is_vector():
             return self.xrm.force_allocate_reg(var, forbidden_vars,
                                                selected_reg, need_lower_byte)
         else:
@@ -292,8 +316,23 @@ class RegAlloc(BaseRegalloc):
             self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
         self.assembler.regalloc_perform_math(op, arglocs, result_loc)
 
+    def locs_for_fail(self, guard_op):
+        faillocs = [self.loc(arg) for arg in guard_op.getfailargs()]
+        descr = guard_op.getdescr()
+        if not descr:
+            return faillocs
+        assert isinstance(descr, AbstractFailDescr)
+        if descr.rd_vector_info:
+            accuminfo = descr.rd_vector_info
+            while accuminfo:
+                accuminfo.location = faillocs[accuminfo.getpos_in_failargs()]
+                loc = self.loc(accuminfo.getoriginal())
+                faillocs[accuminfo.getpos_in_failargs()] = loc
+                accuminfo = accuminfo.next()
+        return faillocs
+
     def perform_guard(self, guard_op, arglocs, result_loc):
-        faillocs = [self.loc(v) for v in guard_op.getfailargs()]
+        faillocs = self.locs_for_fail(guard_op)
         if not we_are_translated():
             if result_loc is not None:
                 self.assembler.dump('%s <- %s(%s)' % (result_loc, guard_op,
@@ -359,7 +398,7 @@ class RegAlloc(BaseRegalloc):
     def loc(self, v):
         if v is None: # xxx kludgy
             return None
-        if v.type == FLOAT:
+        if v.type == FLOAT or v.is_vector():
             return self.xrm.loc(v)
         return self.rm.loc(v)
 
@@ -368,14 +407,22 @@ class RegAlloc(BaseRegalloc):
             self.assembler.test_location(self.loc(box))
             self.assembler.guard_success_cc = rx86.Conditions['NZ']
 
-    def _consider_guard_cc(self, op):
-        self.load_condition_into_cc(op.getarg(0))
-        self.perform_guard(op, [], None)
 
-    consider_guard_true = _consider_guard_cc
-    consider_guard_false = _consider_guard_cc
-    consider_guard_nonnull = _consider_guard_cc
-    consider_guard_isnull = _consider_guard_cc
+    def _consider_guard_cc(true):
+        def consider_guard_cc(self, op):
+            arg = op.getarg(0)
+            if arg.is_vector():
+                loc = self.loc(arg)
+                self.assembler.guard_vector(op, self.loc(arg), true)
+            else:
+                self.load_condition_into_cc(arg)
+            self.perform_guard(op, [], None)
+        return consider_guard_cc
+
+    consider_guard_true = _consider_guard_cc(True)
+    consider_guard_false = _consider_guard_cc(False)
+    consider_guard_nonnull = _consider_guard_cc(True)
+    consider_guard_isnull = _consider_guard_cc(False)
 
     def consider_finish(self, op):
         # the frame is in ebp, but we have to point where in the frame is
@@ -855,7 +902,6 @@ class RegAlloc(BaseRegalloc):
         # [Const(save_err), func_addr, args...]
         self._consider_call(op, guard_not_forced=True, first_arg_index=2)
     consider_call_release_gil_i = _consider_call_release_gil
-    consider_call_release_gil_r = _consider_call_release_gil
     consider_call_release_gil_f = _consider_call_release_gil
     consider_call_release_gil_n = _consider_call_release_gil
     
@@ -1094,8 +1140,6 @@ class RegAlloc(BaseRegalloc):
     consider_getfield_gc_f = _consider_getfield
     consider_getfield_raw_i = _consider_getfield
     consider_getfield_raw_f = _consider_getfield
-    consider_getfield_raw_pure_i = _consider_getfield
-    consider_getfield_raw_pure_f = _consider_getfield
 
     def consider_increment_debug_counter(self, op):
         base_loc = self.loc(op.getarg(0))
@@ -1122,8 +1166,6 @@ class RegAlloc(BaseRegalloc):
     consider_getarrayitem_gc_pure_i = _consider_getarrayitem
     consider_getarrayitem_gc_pure_r = _consider_getarrayitem
     consider_getarrayitem_gc_pure_f = _consider_getarrayitem
-    consider_getarrayitem_raw_pure_i = _consider_getarrayitem
-    consider_getarrayitem_raw_pure_f = _consider_getarrayitem
     consider_raw_load_i = _consider_getarrayitem
     consider_raw_load_f = _consider_getarrayitem
 
@@ -1352,7 +1394,7 @@ class RegAlloc(BaseRegalloc):
             box = op.getarg(i)
             src_loc = self.loc(box)
             dst_loc = arglocs[i]
-            if box.type != FLOAT:
+            if box.type != FLOAT and not box.is_vector():
                 src_locations1.append(src_loc)
                 dst_locations1.append(dst_loc)
             else:
@@ -1520,10 +1562,12 @@ class RegAlloc(BaseRegalloc):
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
 
-
 oplist = [RegAlloc.not_implemented_op] * rop._LAST
 
-for name, value in RegAlloc.__dict__.iteritems():
+import itertools
+iterate = itertools.chain(RegAlloc.__dict__.iteritems(),
+                          VectorRegallocMixin.__dict__.iteritems())
+for name, value in iterate:
     if name.startswith('consider_'):
         name = name[len('consider_'):]
         num = getattr(rop, name.upper())
@@ -1540,7 +1584,3 @@ def not_implemented(msg):
     if we_are_translated():
         llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
-
-# xxx hack: set a default value for TargetToken._ll_loop_code.
-# If 0, we know that it is a LABEL that was not compiled yet.
-TargetToken._ll_loop_code = 0

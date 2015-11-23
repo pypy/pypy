@@ -41,10 +41,6 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.jit.backend.llsupport.descr import CallDescr
 
 
-# xxx hack: set a default value for TargetToken._ll_loop_code.  If 0, we know
-# that it is a LABEL that was not compiled yet.
-TargetToken._ll_loop_code = 0
-
 class TempInt(TempVar):
     type = INT
 
@@ -851,8 +847,6 @@ class Regalloc(BaseRegalloc):
     prepare_op_getfield_gc_f = _prepare_op_getfield
     prepare_op_getfield_raw_i = _prepare_op_getfield
     prepare_op_getfield_raw_f = _prepare_op_getfield
-    prepare_op_getfield_raw_pure_i = _prepare_op_getfield
-    prepare_op_getfield_raw_pure_f = _prepare_op_getfield
 
     def prepare_op_increment_debug_counter(self, op, fcond):
         boxes = op.getarglist()
@@ -943,8 +937,6 @@ class Regalloc(BaseRegalloc):
     prepare_op_getarrayitem_gc_f = _prepare_op_getarrayitem
     prepare_op_getarrayitem_raw_i = _prepare_op_getarrayitem
     prepare_op_getarrayitem_raw_f = _prepare_op_getarrayitem
-    prepare_op_getarrayitem_raw_pure_i = _prepare_op_getarrayitem
-    prepare_op_getarrayitem_raw_pure_f = _prepare_op_getarrayitem
     prepare_op_getarrayitem_gc_pure_i = _prepare_op_getarrayitem
     prepare_op_getarrayitem_gc_pure_r = _prepare_op_getarrayitem
     prepare_op_getarrayitem_gc_pure_f = _prepare_op_getarrayitem
@@ -1239,7 +1231,6 @@ class Regalloc(BaseRegalloc):
         return self._prepare_call(op, save_all_regs=True, first_arg_index=2)
 
     prepare_op_call_release_gil_i = _prepare_op_call_release_gil
-    prepare_op_call_release_gil_r = _prepare_op_call_release_gil
     prepare_op_call_release_gil_f = _prepare_op_call_release_gil
     prepare_op_call_release_gil_n = _prepare_op_call_release_gil
 
@@ -1253,18 +1244,6 @@ class Regalloc(BaseRegalloc):
     prepare_op_call_assembler_r = _prepare_op_call_assembler
     prepare_op_call_assembler_f = _prepare_op_call_assembler
     prepare_op_call_assembler_n = _prepare_op_call_assembler
-
-    def _prepare_args_for_new_op(self, new_args):
-        gc_ll_descr = self.cpu.gc_ll_descr
-        args = gc_ll_descr.args_for_new(new_args)
-        arglocs = []
-        for i in range(len(args)):
-            arg = args[i]
-            t = TempInt()
-            l = self.force_allocate_reg(t, selected_reg=r.all_regs[i])
-            self.assembler.load(l, imm(arg))
-            arglocs.append(t)
-        return arglocs
 
     prepare_op_float_add = prepare_two_regs_op
     prepare_op_float_sub = prepare_two_regs_op

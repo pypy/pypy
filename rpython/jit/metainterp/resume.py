@@ -34,6 +34,68 @@ class FrameInfo(object):
         self.jitcode = jitcode
         self.pc = pc
 
+class VectorInfo(object):
+    """
+        prev: the previous VectorInfo or None
+        failargs_pos: the index where to find it in the fail arguments
+        location: the register location (an integer), specified by the backend
+        variable: the original variable that lived at failargs_pos
+    """
+    _attrs_ = ('prev', 'failargs_pos', 'location', 'variable')
+    prev = None
+    failargs_pos = -1
+    location = None
+    variable = None
+
+    def __init__(self, position, variable):
+        self.failargs_pos = position
+        self.variable = variable
+
+    def getpos_in_failargs(self):
+        return self.failargs_pos
+
+    def next(self):
+        return self.prev
+
+    def getoriginal(self):
+        return self.variable
+
+    def clone(self):
+        prev = None
+        if self.prev:
+            prev = self.prev.clone()
+        return self.instance_clone(prev)
+
+    def instance_clone(self, prev):
+        raise NotImplementedError
+
+class UnpackAtExitInfo(VectorInfo):
+    def instance_clone(self, prev):
+        info = UnpackAtExitInfo(self.failargs_pos, self.variable)
+        info.prev = prev
+        return info
+
+class AccumInfo(VectorInfo):
+    _attrs_ = ('accum_operation', 'scalar')
+
+    def __init__(self, position, variable, operation):
+        VectorInfo.__init__(self, position, variable)
+        self.accum_operation = operation
+
+    def instance_clone(self, prev):
+        info = AccumInfo(self.failargs_pos, self.variable,
+                         self.accum_operation)
+        info.location = self.location
+        info.prev = prev
+        return info
+
+    def __repr__(self):
+        return 'AccumInfo(%s,%s,%s,%s,%s)' % (self.prev is None,
+                                              self.accum_operation,
+                                              self.failargs_pos,
+                                              self.variable,
+                                              self.location)
+
 def _ensure_parent_resumedata(framestack, n):
     target = framestack[n]
     if n == 0:

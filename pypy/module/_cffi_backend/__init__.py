@@ -2,7 +2,7 @@ import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib import rdynload, clibffi
 
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 
 FFI_DEFAULT_ABI = clibffi.FFI_DEFAULT_ABI
 try:
@@ -43,6 +43,7 @@ class Module(MixedModule):
         'newp_handle': 'handle.newp_handle',
         'from_handle': 'handle.from_handle',
         '_get_types': 'func._get_types',
+        '_get_common_types': 'func._get_common_types',
         'from_buffer': 'func.from_buffer',
 
         'string': 'func.string',

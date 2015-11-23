@@ -1055,3 +1055,29 @@ class TestFramework(RewriteTests):
             p1 = getfield_gc_r(p0, descr=tdescr)
             jump(p1)
         """)
+
+    def test_remove_tested_failarg(self):
+        self.check_rewrite("""
+            [i5]
+            i2 = int_ge(i5, 10)
+            guard_true(i2) [i5, i2]
+            jump()
+        """, """
+            [i5]
+            i0 = same_as_i(0)
+            i2 = int_ge(i5, 10)
+            guard_true(i2) [i5, i0]
+            jump()
+        """)
+        self.check_rewrite("""
+            [i5]
+            i2 = int_ge(i5, 10)
+            guard_false(i2) [i5, i2]
+            jump()
+        """, """
+            [i5]
+            i0 = same_as_i(1)
+            i2 = int_ge(i5, 10)
+            guard_false(i2) [i5, i0]
+            jump()
+        """)

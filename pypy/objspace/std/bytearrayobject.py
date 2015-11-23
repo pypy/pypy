@@ -199,13 +199,9 @@ class W_BytearrayObject(W_Root):
 
         if w_source is None:
             w_source = space.wrap('')
-        if w_encoding is None:
-            w_encoding = space.w_None
-        if w_errors is None:
-            w_errors = space.w_None
 
         # Unicode argument
-        if not space.is_w(w_encoding, space.w_None):
+        if w_encoding is not None:
             from pypy.objspace.std.unicodeobject import (
                 _get_encoding_and_errors, encode_object
             )
@@ -1234,6 +1230,21 @@ class BytearrayBuffer(Buffer):
 
     def setitem(self, index, char):
         self.data[index] = char
+
+    def getslice(self, start, stop, step, size):
+        if size == 0:
+            return ""
+        if step == 1:
+            assert 0 <= start <= stop
+            if start == 0 and stop == len(self.data):
+                return "".join(self.data)
+            return "".join(self.data[start:stop])
+        return Buffer.getslice(self, start, stop, step, size)
+
+    def setslice(self, start, string):
+        # No bounds checks.
+        for i in range(len(string)):
+            self.data[start + i] = string[i]
 
 
 @specialize.argtype(1)

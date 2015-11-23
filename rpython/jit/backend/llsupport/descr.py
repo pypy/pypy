@@ -2,7 +2,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.llsupport import symbolic, support
-from rpython.jit.metainterp.history import AbstractDescr, getkind
+from rpython.jit.metainterp.history import AbstractDescr, getkind, FLOAT, INT
 from rpython.jit.metainterp import history
 from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.codewriter.longlong import is_longlong
@@ -41,11 +41,11 @@ class SizeDescr(AbstractDescr):
     def __init__(self, size, gc_fielddescrs=None, all_fielddescrs=None,
                  vtable=lltype.nullptr(rclass.OBJECT_VTABLE),
                  immutable_flag=False):
+        assert lltype.typeOf(vtable) == lltype.Ptr(rclass.OBJECT_VTABLE)
         self.size = size
         self.gc_fielddescrs = gc_fielddescrs
         self.all_fielddescrs = all_fielddescrs
         self.vtable = vtable
-        assert vtable is not None
         self.immutable_flag = immutable_flag
 
     def get_all_fielddescrs(self):
@@ -56,6 +56,16 @@ class SizeDescr(AbstractDescr):
 
     def is_object(self):
         return bool(self.vtable)
+
+    def is_valid_class_for(self, struct):
+        objptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
+        cls = llmemory.cast_adr_to_ptr(
+            heaptracker.int2adr(self.get_vtable()),
+            lltype.Ptr(rclass.OBJECT_VTABLE))
+        # this first comparison is necessary, since we want to make sure
+        # that vtable for JitVirtualRef is the same without actually reading
+        # fields
+        return objptr.typeptr == cls or rclass.ll_isinstance(objptr, cls)
 
     def is_immutable(self):
         return self.immutable_flag
@@ -129,18 +139,11 @@ class FieldDescr(ArrayOrFieldDescr):
     def __repr__(self):
         return 'FieldDescr<%s>' % (self.name,)
 
-    def check_correct_type(self, struct):
+    def assert_correct_type(self, struct):
+        # similar to cpu.protect_speculative_field(), but works also
+        # if supports_guard_gc_type is false (and is allowed to crash).
         if self.parent_descr.is_object():
-            cls = llmemory.cast_adr_to_ptr(
-                heaptracker.int2adr(self.parent_descr.get_vtable()),
-                lltype.Ptr(rclass.OBJECT_VTABLE))
-            tpptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct).typeptr
-            # this comparison is necessary, since we want to make sure
-            # that vtable for JitVirtualRef is the same without actually reading
-            # fields
-            if tpptr != cls:
-                assert rclass.ll_isinstance(lltype.cast_opaque_ptr(
-                    rclass.OBJECTPTR, struct), cls)
+            assert self.parent_descr.is_valid_class_for(struct)
         else:
             pass
 
@@ -249,19 +252,29 @@ class ArrayDescr(ArrayOrFieldDescr):
     flag = '\x00'
     vinfo = None
     all_interiorfielddescrs = None
+    concrete_type = '\x00'
 
-    def __init__(self, basesize, itemsize, lendescr, flag, is_pure=False):
+    def __init__(self, basesize, itemsize, lendescr, flag, is_pure=False, concrete_type='\x00'):
         self.basesize = basesize
         self.itemsize = itemsize
         self.lendescr = lendescr    # or None, if no length
         self.flag = flag
         self._is_pure = is_pure
+        self.concrete_type = concrete_type
 
     def get_all_fielddescrs(self):
         return self.all_interiorfielddescrs
 
     def is_always_pure(self):
         return self._is_pure
+
+    def getconcrete_type(self):
+        return self.concrete_type
+
+    def is_array_of_primitives(self):
+        return self.flag == FLAG_FLOAT or \
+               self.flag == FLAG_SIGNED or \
+               self.flag == FLAG_UNSIGNED
 
     def is_array_of_pointers(self):
         return self.flag == FLAG_POINTER
@@ -271,6 +284,9 @@ class ArrayDescr(ArrayOrFieldDescr):
 
     def is_item_signed(self):
         return self.flag == FLAG_SIGNED
+
+    def get_item_size_in_bytes(self):
+        return self.itemsize
 
     def is_array_of_structs(self):
         return self.flag == FLAG_STRUCT
@@ -321,6 +337,11 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
         flag = get_type_flag(ARRAY_INSIDE.OF)
         is_pure = bool(ARRAY_INSIDE._immutable_field(None))
         arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag, is_pure)
+        if ARRAY_INSIDE.OF is lltype.SingleFloat or \
+           ARRAY_INSIDE.OF is lltype.Float:
+            # it would be better to set the flag as FLOAT_TYPE
+            # for single float -> leads to problems
+            arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag, is_pure, concrete_type='f')
         cache[ARRAY_OR_STRUCT] = arraydescr
         if isinstance(ARRAY_INSIDE.OF, lltype.Struct):
             descrs = heaptracker.all_interiorfielddescrs(gccache,

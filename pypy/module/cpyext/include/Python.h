@@ -126,6 +126,7 @@ typedef long Py_ssize_t;
 #include "fileobject.h"
 #include "pysignals.h"
 #include "pythread.h"
+#include "traceback.h"
 
 /* Missing definitions */
 #include "missing.h"

@@ -1417,7 +1417,8 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     assert not storage.rd_pendingfields
     #
     class FieldDescr(AbstractDescr):
-        pass
+        def is_array_of_primitives(self):
+            return False
     field_a = FieldDescr()
     storage = Storage()
     modifier = ResumeDataVirtualAdder(None, storage, storage, None)

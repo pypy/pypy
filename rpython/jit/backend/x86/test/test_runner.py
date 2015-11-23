@@ -30,23 +30,16 @@ class TestX86(LLtypeBackendTest):
     # ====> ../../test/runner_test.py
 
     if WORD == 4:
-        add_loop_instructions = ['mov',
-                                 'lea',    # a nop, for the label
-                                 'add', 'test', 'je', 'jmp',
-                                 'nop']    # padding
-        bridge_loop_instructions = ['cmp', 'jge', 'mov', 'mov', 'call', 'jmp',
-                                    'lea', 'lea']   # padding
+        add_loop_instructions = ('mov; '
+                                 'lea; '    # a nop, for the label
+                                 'add; test; je; jmp;')   # plus some padding
+        bridge_loop_instructions = 'cmp; jge; mov; mov; call; jmp;'
     else:
-        add_loop_instructions = ['mov',
-                                 'nop',    # for the label
-                                 'add', 'test', 'je', 'jmp',
-                                 'data32']   # padding
-        bridge_loop_instructions = [
-            'cmp', 'jge', 'mov', 'mov', 'mov', 'mov', 'call', 'mov', 'jmp',
-            'nop']      # padding
-        bridge_loop_instructions_alternative = [
-            'cmp', 'jge', 'mov', 'mov', 'mov', 'call', 'mov', 'jmp',
-            'nop']      # padding
+        add_loop_instructions = ('mov; '
+                                 'nop; '    # for the label
+                                 'add; test; je; jmp;')   # plus some padding
+        bridge_loop_instructions = (
+            'cmp; jge; mov;( movabs;)? mov; mov(abs)?; call; mov(abs)?; jmp;')
 
     def get_cpu(self):
         cpu = CPU(rtyper=None, stats=FakeStats())

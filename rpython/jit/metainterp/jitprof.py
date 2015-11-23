@@ -155,6 +155,8 @@ class Profiler(BaseProfiler):
         self._print_intline("nvirtuals", cnt[Counters.NVIRTUALS])
         self._print_intline("nvholes", cnt[Counters.NVHOLES])
         self._print_intline("nvreused", cnt[Counters.NVREUSED])
+        self._print_intline("vecopt tried", cnt[Counters.OPT_VECTORIZE_TRY])
+        self._print_intline("vecopt success", cnt[Counters.OPT_VECTORIZED])
         cpu = self.cpu
         if cpu is not None:   # for some tests
             self._print_intline("Total # of loops",
