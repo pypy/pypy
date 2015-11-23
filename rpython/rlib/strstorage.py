@@ -32,6 +32,18 @@ from rpython.rtyper.lltypesystem.rstr import STR, _get_raw_str_buf
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rlib.objectmodel import specialize
 
+def compute_offsetof(TP, field):
+    """
+    NOT_RPYTHON
+    """
+    obj = lltype.malloc(TP, 0)
+    baseadr = llmemory.cast_ptr_to_adr(obj)
+    offset = llmemory.offsetof(TP, field)
+    interioradr = baseadr + offset
+    return (llmemory.cast_adr_to_int(interioradr, 'forced') -
+            llmemory.cast_adr_to_int(baseadr, 'forced'))
+
+
 @specialize.memo()
 def rpy_string_as_type(TP):
     # sanity check that STR is actually what we think it is
@@ -42,6 +54,8 @@ def rpy_string_as_type(TP):
     STR_AS_TP = lltype.GcStruct('rpy_string_as_%s' % TP,
                                 ('hash',  lltype.Signed),
                                 ('chars', lltype.Array(TP, hints={'immutable': True})))
+    # sanity check
+    assert compute_offsetof(STR, 'chars') == compute_offsetof(STR_AS_TP, 'chars')
     return STR_AS_TP
 
 @specialize.ll()
