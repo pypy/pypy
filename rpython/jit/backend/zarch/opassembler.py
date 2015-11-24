@@ -91,27 +91,7 @@ class IntOpAssembler(object):
     emit_uint_floordiv = gen_emit_pool_or_rr_evenodd('DLG','DLGR')
     # NOTE division sets one register with the modulo value, thus
     # the regalloc ensures the right register survives.
-    #emit_int_mod = gen_emit_pool_or_rr_evenodd('DSG','DSGR')
-    def emit_int_mod(self, op, arglocs, regalloc):
-        lr, lq, l1 = arglocs # lr == remainer, lq == quotient
-        # when entering the function lr contains the dividend
-        # after this operation either lr or lq is used further
-        assert l1.is_in_pool() or not l1.is_imm() , "imm divider not supported"
-        # remainer is always a even register r0, r2, ... , r14
-        assert lr.is_even()
-        assert lq.is_odd()
-        if l1.is_in_pool():
-            self.mc.DSG(lr, l1)
-            # python behavior?
-            #off = self.mc.CGIJ_byte_count+self.mc.AG_byte_count
-            #self.mc.CGIJ(lr, l.imm(0), c.GE, l.imm(off))
-            #self.mc.AG(lr, l1)
-        else:
-            self.mc.DSGR(lr, l1)
-            # python behavior?
-            #off = self.mc.CGIJ_byte_count+self.mc.AGR_byte_count
-            #self.mc.CGIJ(lr, l.imm(0), c.GE, l.imm(off))
-            #self.mc.AGR(lr, l1)
+    emit_int_mod = gen_emit_pool_or_rr_evenodd('DSG','DSGR')
 
     def emit_int_invert(self, op, arglocs, regalloc):
         l0, = arglocs
@@ -164,6 +144,12 @@ class IntOpAssembler(object):
     emit_int_ge = gen_emit_cmp_op(c.GE)
     emit_int_eq = gen_emit_cmp_op(c.EQ)
     emit_int_ne = gen_emit_cmp_op(c.NE)
+
+    emit_ptr_eq = emit_int_eq
+    emit_ptr_ne = emit_int_ne
+
+    emit_instance_ptr_eq = emit_ptr_eq
+    emit_instance_ptr_ne = emit_ptr_ne
 
     emit_uint_le = gen_emit_cmp_op(c.LE, signed=False)
     emit_uint_lt = gen_emit_cmp_op(c.LT, signed=False)

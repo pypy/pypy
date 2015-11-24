@@ -668,6 +668,12 @@ class Regalloc(BaseRegalloc):
     prepare_int_eq = helper.generate_cmp_op()
     prepare_int_ne = helper.generate_cmp_op()
 
+    prepare_ptr_eq = prepare_int_eq
+    prepare_ptr_ne = prepare_int_ne
+
+    prepare_instance_ptr_eq = prepare_ptr_eq
+    prepare_instance_ptr_ne = prepare_ptr_ne
+
     prepare_uint_le = helper.generate_cmp_op(signed=False)
     prepare_uint_lt = helper.generate_cmp_op(signed=False)
     prepare_uint_ge = helper.generate_cmp_op(signed=False)
