@@ -12,6 +12,8 @@ from rpython.rlib.rarithmetic import LONG_BIT, r_uint
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.translator.stm import stmgcintf
 from rpython.rlib import rstm
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rtyper.lltypesystem.llmemory import raw_malloc_usage
 
 WORD = LONG_BIT // 8
 NULL = llmemory.NULL
@@ -74,15 +76,16 @@ class StmGC(MovingGCBase):
                                needs_finalizer=False,
                                is_finalizer_light=False,
                                contains_weakptr=False):
-        if size < 16:
-            size = 16     # minimum size (test usually constant-folded)
+        rawsize = raw_malloc_usage(size) # unwrap for tests
+        if rawsize < 16:
+            rawsize = 16     # minimum size (test usually constant-folded)
         if contains_weakptr:    # check constant-folded
-            return llop.stm_allocate_weakref(llmemory.GCREF, size, typeid16)
+            return llop.stm_allocate_weakref(llmemory.GCREF, rawsize, typeid16)
         if needs_finalizer:
             if is_finalizer_light:
-                return llop.stm_allocate_f_light(llmemory.GCREF, size, typeid16)
-            return llop.stm_allocate_finalizer(llmemory.GCREF, size, typeid16)
-        return llop.stm_allocate_tid(llmemory.GCREF, size, typeid16)
+                return llop.stm_allocate_f_light(llmemory.GCREF, rawsize, typeid16)
+            return llop.stm_allocate_finalizer(llmemory.GCREF, rawsize, typeid16)
+        return llop.stm_allocate_tid(llmemory.GCREF, rawsize, typeid16)
 
     def malloc_varsize(self, typeid16, length, size, itemsize,
                              offset_to_length):

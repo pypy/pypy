@@ -964,8 +964,10 @@ class LLFrame(object):
 
     def _stm_not_implemented(self, *args):
         raise NotImplementedError
-    op_stm_push_root = _stm_not_implemented
-    op_stm_pop_root_into = _stm_not_implemented
+    def _stm_ignore(self, *args):
+        return
+    op_stm_push_root = _stm_ignore
+    op_stm_pop_root_into = _stm_ignore
     op_stm_get_root_stack_top = _stm_not_implemented
     op_stm_enter_transactional_zone = _stm_not_implemented
     op_stm_leave_transactional_zone = _stm_not_implemented

@@ -12,7 +12,7 @@ from rpython.memory.gctransform.test.test_transform import rtype
 from rpython.memory.gctransform.transform import GcHighLevelOp
 from rpython.rtyper.rtyper import LowLevelOpList
 from rpython.translator.backendopt.all import backend_optimizations
-from rpython.translator.c.gc import BasicFrameworkGcPolicy
+from rpython.translator.c.gc import BasicFrameworkGcPolicy, StmFrameworkGcPolicy
 from rpython.translator.exceptiontransform import ExceptionTransformer
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.unsimplify import varoftype
@@ -39,10 +39,13 @@ def test_framework_simple(gc="minimark"):
     t = rtype(entrypoint, [s_list_of_strings])
     if gc == "stmgc":
         t.config.translation.stm = True
+        gcpolicy = StmFrameworkGcPolicy
+    else:
+        gcpolicy = FrameworkGcPolicy2
     t.config.translation.gc = gc
-    
+
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
-                                gcpolicy=FrameworkGcPolicy2)
+                                gcpolicy=gcpolicy)
     db = cbuild.generate_graphs_for_llinterp()
     entrypointptr = cbuild.getentrypointptr()
     entrygraph = entrypointptr._obj.graph
@@ -59,7 +62,7 @@ def test_framework_simple(gc="minimark"):
 
 def test_framework_simple_stm():
     test_framework_simple("stmgc")
-    
+
 def test_cancollect():
     S = lltype.GcStruct('S', ('x', lltype.Signed))
     def g():
@@ -72,7 +75,7 @@ def test_cancollect():
         return -x
     t = rtype(g, [int])
     gg = graphof(t, g)
-    assert not CollectAnalyzer(t).analyze_direct_call(gg)    
+    assert not CollectAnalyzer(t).analyze_direct_call(gg)
 
 def test_cancollect_external():
     fext1 = rffi.llexternal('fext1', [], lltype.Void, releasegil=False)
@@ -99,7 +102,7 @@ def test_cancollect_external():
     t = rtype(g, [])
     gg = graphof(t, g)
     assert CollectAnalyzer(t).analyze_direct_call(gg)
-    
+
 def test_no_collect(gc="minimark"):
     from rpython.rlib import rgc
     from rpython.translator.c.genc import CStandaloneBuilder
@@ -113,13 +116,16 @@ def test_no_collect(gc="minimark"):
 
     def entrypoint(argv):
         return g() + 2
-    
+
     t = rtype(entrypoint, [s_list_of_strings])
     if gc == "stmgc":
         t.config.translation.stm = True
+        gcpolicy = StmFrameworkGcPolicy
+    else:
+        gcpolicy = FrameworkGcPolicy2
     t.config.translation.gc = gc
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
-                                gcpolicy=FrameworkGcPolicy2)
+                                gcpolicy=gcpolicy)
     db = cbuild.generate_graphs_for_llinterp()
 
 def test_no_collect_stm():
@@ -142,20 +148,23 @@ def test_no_collect_detection(gc="minimark"):
 
     def entrypoint(argv):
         return g() + 2
-    
+
     t = rtype(entrypoint, [s_list_of_strings])
     if gc == "stmgc":
         t.config.translation.stm = True
+        gcpolicy = StmFrameworkGcPolicy
+    else:
+        gcpolicy = FrameworkGcPolicy2
     t.config.translation.gc = gc
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
-                                gcpolicy=FrameworkGcPolicy2)
+                                gcpolicy=gcpolicy)
     f = py.test.raises(Exception, cbuild.generate_graphs_for_llinterp)
     expected = "'no_collect' function can trigger collection: <function g at "
     assert str(f.value).startswith(expected)
 
 def test_no_collect_detection_stm():
     test_no_collect_detection("stmgc")
-    
+
 def test_custom_trace_function_no_collect():
     from rpython.rlib import rgc
     from rpython.translator.c.genc import CStandaloneBuilder
@@ -180,7 +189,7 @@ def test_custom_trace_function_no_collect():
     assert 'can cause the GC to be called' in str(f.value)
     assert 'trace_func' in str(f.value)
     assert 'MyStructure' in str(f.value)
- 
+
 class WriteBarrierTransformer(ShadowStackFrameworkGCTransformer):
     clean_sets = {}
     GC_PARAMS = {}
@@ -258,10 +267,11 @@ def test_remove_duplicate_write_barrier():
         a.z = a
         if cond:
             a.y = a
-    def g():
+    def g(argv):
         f(glob_a_1, 5)
         f(glob_a_2, 0)
-    t = rtype(g, [])
+        return 0
+    t = rtype(g, [s_list_of_strings])
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
@@ -288,7 +298,7 @@ def test_find_initializing_stores():
     collect_analyzer = CollectAnalyzer(t)
     init_stores = find_initializing_stores(collect_analyzer, t.graphs[0],
                                            mkentrymap(t.graphs[0]))
-    assert len(init_stores) == 1
+    assert len(init_stores) == 4
 
 def test_find_initializing_stores_across_blocks():
 
@@ -314,12 +324,12 @@ def test_find_initializing_stores_across_blocks():
     collect_analyzer = CollectAnalyzer(t)
     init_stores = find_initializing_stores(collect_analyzer, t.graphs[0],
                                            mkentrymap(t.graphs[0]))
-    assert len(init_stores) == 5
+    assert len(init_stores) == 9
 
 def test_find_clean_setarrayitems():
     S = lltype.GcStruct('S')
     A = lltype.GcArray(lltype.Ptr(S))
-    
+
     def f():
         l = lltype.malloc(A, 3)
         l[0] = lltype.malloc(S)
@@ -340,7 +350,7 @@ def test_find_clean_setarrayitems():
 def test_find_clean_setarrayitems_2():
     S = lltype.GcStruct('S')
     A = lltype.GcArray(lltype.Ptr(S))
-    
+
     def f():
         l = lltype.malloc(A, 3)
         l[0] = lltype.malloc(S)
@@ -362,7 +372,7 @@ def test_find_clean_setarrayitems_2():
 def test_find_clean_setarrayitems_3():
     S = lltype.GcStruct('S')
     A = lltype.GcArray(lltype.Ptr(S))
-    
+
     def f():
         l = lltype.malloc(A, 3)
         l[0] = lltype.malloc(S)
