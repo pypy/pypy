@@ -1,11 +1,28 @@
 import py
+import sys
+import platform
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.strstorage import str_storage_getitem, str_storage_supported
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rtyper.test.tool import BaseRtypingTest
 
+IS_WIN32 = (sys.platform == 'win32')
+IS_ARM = (platform.machine().startswith('arm'))
+IS_32BIT = (sys.maxint == 2147483647)
+
 class BaseStrStorageTest:
+
+    def test_str_getitem_supported(self):
+        # on win32 or ARM32, we expect LONGLONG and DOUBLE to be NOT supported
+        # by str_storage_getitem
+        if IS_WIN32 or (IS_ARM and IS_32BIT):
+            expected = False
+        else:
+            expected = True
+        #
+        assert self.str_storage_supported(rffi.LONGLONG) == expected
+        assert self.str_storage_supported(rffi.DOUBLE) == expected
 
     def test_signed(self):
         buf = struct.pack('@ll', 42, 43)
@@ -40,11 +57,18 @@ class BaseStrStorageTest:
 
 class TestDirect(BaseStrStorageTest):
 
+    def str_storage_supported(self, TYPE):
+        return str_storage_supported(TYPE)
+
     def str_storage_getitem(self, TYPE, buf, offset):
         return str_storage_getitem(TYPE, buf, offset)
 
-
 class TestRTyping(BaseStrStorageTest, BaseRtypingTest):
+
+    def str_storage_supported(self, TYPE):
+        def fn():
+            return str_storage_supported(TYPE)
+        return self.interpret(fn, [])
 
     def str_storage_getitem(self, TYPE, buf, offset):
         def fn(offset):

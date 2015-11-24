@@ -30,22 +30,10 @@
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.lltypesystem.rstr import STR, _get_raw_str_buf
 from rpython.rtyper.annlowlevel import llstr
-from rpython.rlib.objectmodel import specialize
-
-def compute_offsetof(TP, field):
-    """
-    NOT_RPYTHON
-    """
-    obj = lltype.malloc(TP, 0)
-    baseadr = llmemory.cast_ptr_to_adr(obj)
-    offset = llmemory.offsetof(TP, field)
-    interioradr = baseadr + offset
-    return (llmemory.cast_adr_to_int(interioradr, 'forced') -
-            llmemory.cast_adr_to_int(baseadr, 'forced'))
-
+from rpython.rlib.objectmodel import specialize, we_are_translated
 
 @specialize.memo()
-def rpy_string_as_type(TP):
+def _rpy_string_as_type(TP):
     # sanity check that STR is actually what we think it is
     assert STR._flds == {
         'hash': lltype.Signed,
@@ -54,23 +42,32 @@ def rpy_string_as_type(TP):
     STR_AS_TP = lltype.GcStruct('rpy_string_as_%s' % TP,
                                 ('hash',  lltype.Signed),
                                 ('chars', lltype.Array(TP, hints={'immutable': True})))
-    # sanity check
-    assert compute_offsetof(STR, 'chars') == compute_offsetof(STR_AS_TP, 'chars')
     return STR_AS_TP
 
-@specialize.memo()
+@specialize.arg(0)
 def str_storage_supported(TP):
-    try:
-        rpy_string_as_type(TP)
-    except AssertionError:
-        return False
-    else:
-        return True
+    STR_AS_TP = _rpy_string_as_type(TP)
+    return _offsetof_chars(STR) == _offsetof_chars(STR_AS_TP)
 
 @specialize.ll()
 def str_storage_getitem(TP, s, index):
-    STR_AS_TP = rpy_string_as_type(TP)
+    assert str_storage_supported(TP) # sanity check
+    STR_AS_TP = _rpy_string_as_type(TP)
     lls = llstr(s)
     str_as_tp = rffi.cast(lltype.Ptr(STR_AS_TP), lls)
     index = index / rffi.sizeof(TP)
     return str_as_tp.chars[index]
+
+@specialize.arg(0)
+def _offsetof_chars(TP):
+    # we need to be careful in presence of cross-compilation, because we want
+    # to defer the actual check at compile-time on the target machine, NOT at
+    # translation time on the host machine.  However, we still need to support
+    # direct tests, so if we are not translated, we immediately force the
+    # result into an actual int.
+    offset = llmemory.offsetof(TP, 'chars')
+    if we_are_translated():
+        return offset # symbolic
+    else:
+        return offset.force_as_int()
+    return offset

@@ -214,6 +214,20 @@ class FieldOffset(AddressOffset):
         dst = cast_adr_to_ptr(dstadr, PTR)
         _reccopy(src, dst)
 
+    def force_as_int(self):
+        """
+        NOT_RPYTHON
+        Return the actual offset as an integer.
+        """
+        if self.TYPE._arrayfld:
+            obj = lltype.malloc(self.TYPE, 0)
+        else:
+            obj = lltype.malloc(self.TYPE)
+        baseadr = cast_ptr_to_adr(obj)
+        interioradr = baseadr + self
+        return cast_adr_to_int(interioradr, 'forced') - cast_adr_to_int(baseadr, 'forced')
+
+
 
 class CompositeOffset(AddressOffset):
 
