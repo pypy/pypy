@@ -4,8 +4,9 @@ from rpython.flowspace.model import Constant, SpaceOperation, mkentrymap
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.gc.semispace import SemiSpaceGC
-from rpython.memory.gctransform.framework import (CollectAnalyzer,
-     find_initializing_stores, find_clean_setarrayitems)
+from rpython.memory.gctransform.framework import (
+    CollectAnalyzer, WriteBarrierCollector,
+    find_initializing_stores, find_clean_setarrayitems)
 from rpython.memory.gctransform.shadowstack import (
      ShadowStackFrameworkGCTransformer)
 from rpython.memory.gctransform.test.test_transform import rtype
@@ -253,7 +254,7 @@ def test_write_barrier_support_setinteriorfield():
          Constant('b', lltype.Void), varoftype(PTR_TYPE2)],
         varoftype(lltype.Void)))
 
-def test_remove_duplicate_write_barrier():
+def test_remove_duplicate_write_barrier(gc="minimark"):
     from rpython.translator.c.genc import CStandaloneBuilder
     from rpython.flowspace.model import summary
 
@@ -272,17 +273,59 @@ def test_remove_duplicate_write_barrier():
         f(glob_a_2, 0)
         return 0
     t = rtype(g, [s_list_of_strings])
-    t.config.translation.gc = "minimark"
+    if gc == "stmgc":
+        t.config.translation.stm = True
+        gcpolicy = StmFrameworkGcPolicy
+    else:
+        gcpolicy = FrameworkGcPolicy2
+    t.config.translation.gc = gc
     cbuild = CStandaloneBuilder(t, g, t.config,
-                                gcpolicy=FrameworkGcPolicy2)
+                                gcpolicy=gcpolicy)
     db = cbuild.generate_graphs_for_llinterp()
 
     ff = graphof(t, f)
     #ff.show()
-    assert summary(ff)['direct_call'] == 1    # only one remember_young_pointer
+    if gc == "stmgc":
+        assert summary(ff)['stm_write'] == 1
+    else:
+        assert summary(ff)['direct_call'] == 1    # only one remember_young_pointer
 
-def test_find_initializing_stores():
+def test_remove_duplicate_write_barrier_stm():
+    test_remove_duplicate_write_barrier("stmgc")
 
+def test_remove_write_barrier_stm():
+    from rpython.translator.c.genc import CStandaloneBuilder
+    from rpython.flowspace.model import summary
+
+    class A: pass
+    glob = A()
+    glob2 = A()
+    def f(n, g):
+        i = 0
+        g.a = n
+        while i < n:
+            g.a = i
+            i += 1
+    def g(argv):
+        if argv[1]:
+            f(int(argv[1]), glob)
+        else:
+            f(int(argv[1]), glob2)
+        return 0
+
+    t = rtype(g, [s_list_of_strings])
+    t.config.translation.stm = True
+    gcpolicy = StmFrameworkGcPolicy
+    t.config.translation.gc = "stmgc"
+    cbuild = CStandaloneBuilder(t, g, t.config,
+                                gcpolicy=gcpolicy)
+    db = cbuild.generate_graphs_for_llinterp()
+
+    ff = graphof(t, f)
+    ff.show()
+    assert summary(ff)['stm_write'] == 1    # only one remember_young_pointer
+
+def test_write_barrier_collector():
     class A(object):
         pass
     class B(object):
@@ -293,15 +336,19 @@ def test_find_initializing_stores():
         b.a = a
         b.b = 1
     t = rtype(f, [])
+    t.config.translation.stm = True
+    #gcpolicy = StmFrameworkGcPolicy
+    t.config.translation.gc = "stmgc"
     etrafo = ExceptionTransformer(t)
     graphs = etrafo.transform_completely()
     collect_analyzer = CollectAnalyzer(t)
-    init_stores = find_initializing_stores(collect_analyzer, t.graphs[0],
-                                           mkentrymap(t.graphs[0]))
-    assert len(init_stores) == 4
 
-def test_find_initializing_stores_across_blocks():
+    wbc = WriteBarrierCollector(t.graphs[0], collect_analyzer)
+    wbc.collect()
+    print wbc.clean_ops
+    assert len(wbc.clean_ops) == 4
 
+def test_write_barrier_collector_across_blocks():
     class A(object):
         pass
     class B(object):
@@ -319,12 +366,82 @@ def test_find_initializing_stores_across_blocks():
             b.c = a1
             b.b = a2
     t = rtype(f, [int])
+    t.config.translation.stm = True
+    #gcpolicy = StmFrameworkGcPolicy
+    t.config.translation.gc = "stmgc"
     etrafo = ExceptionTransformer(t)
     graphs = etrafo.transform_completely()
     collect_analyzer = CollectAnalyzer(t)
-    init_stores = find_initializing_stores(collect_analyzer, t.graphs[0],
-                                           mkentrymap(t.graphs[0]))
-    assert len(init_stores) == 9
+
+    wbc = WriteBarrierCollector(t.graphs[0], collect_analyzer)
+    wbc.collect()
+    print "\n".join(map(str,wbc.clean_ops))
+    assert len(wbc.clean_ops) == 9
+
+def test_write_barrier_collector_blocks_merging():
+    class A(object):
+        pass
+    class B(object):
+        pass
+    def f(x):
+        a1 = A()
+        a2 = A()
+        a = A()
+        b = B()
+        b.a = a
+        if x:
+            b.b = a1
+            b.c = a2
+        else:
+            b.c = a1
+            b.b = a2
+            a.c = a2 # WB
+        b.c = a1
+        a.c = a1 # WB
+        a.b = a2
+    t = rtype(f, [int])
+    t.config.translation.stm = True
+    #gcpolicy = StmFrameworkGcPolicy
+    t.config.translation.gc = "stmgc"
+    etrafo = ExceptionTransformer(t)
+    graphs = etrafo.transform_completely()
+    collect_analyzer = CollectAnalyzer(t)
+
+    wbc = WriteBarrierCollector(t.graphs[0], collect_analyzer)
+    wbc.collect()
+    print "\n".join(map(str,wbc.clean_ops))
+    assert len(wbc.clean_ops) == 11
+
+def test_write_barrier_collector_loops():
+    class A(object):
+        pass
+    class B(object):
+        pass
+    def f(x):
+        a1 = A()
+        a2 = A()
+        a = A()
+        b = B()
+        b.a = a
+        while x:
+            b.b = a1
+            a.c = a2
+        b.c = a1
+        a.c = a1
+    t = rtype(f, [int])
+    t.config.translation.stm = True
+    #gcpolicy = StmFrameworkGcPolicy
+    t.config.translation.gc = "stmgc"
+    etrafo = ExceptionTransformer(t)
+    graphs = etrafo.transform_completely()
+    collect_analyzer = CollectAnalyzer(t)
+
+    wbc = WriteBarrierCollector(t.graphs[0], collect_analyzer)
+    wbc.collect()
+    print "\n".join(map(str,wbc.clean_ops))
+    assert len(wbc.clean_ops) == 7
+
+
 
 def test_find_clean_setarrayitems():
     S = lltype.GcStruct('S')
