@@ -575,8 +575,6 @@ class timedelta(object):
                                      True)
         return NotImplemented
 
-    __radd__ = __add__
-
     def __sub__(self, other):
         if isinstance(other, timedelta):
             # for CPython compatibility, we cannot use
@@ -585,11 +583,6 @@ class timedelta(object):
                                      self._seconds - other._seconds,
                                      self._microseconds - other._microseconds,
                                      True)
-        return NotImplemented
-
-    def __rsub__(self, other):
-        if isinstance(other, timedelta):
-            return -self + other
         return NotImplemented
 
     def __neg__(self):
