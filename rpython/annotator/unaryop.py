@@ -16,10 +16,10 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     s_Bool, s_None, s_Int, unionof, add_knowntypedata,
     SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
-from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
 from rpython.annotator.binaryop import _dict_can_only_throw_keyerror
 from rpython.annotator.binaryop import _dict_can_only_throw_nothing
+from rpython.annotator.classdesc import ClassDef
 from rpython.annotator.model import AnnotatorError
 from rpython.annotator.argument import simple_args, complex_args
 
@@ -32,11 +32,79 @@ UNARY_OPERATIONS.remove('contains')
 def type_SomeObject(annotator, v_arg):
     return SomeTypeOf([v_arg])
 
+
+def our_issubclass(bk, cls1, cls2):
+    """ we're going to try to be less silly in the face of old-style classes"""
+    if cls2 is object:
+        return True
+    def classify(cls):
+        if isinstance(cls, ClassDef):
+            return 'def'
+        if cls.__module__ == '__builtin__':
+            return 'builtin'
+        else:
+            return 'cls'
+    kind1 = classify(cls1)
+    kind2 = classify(cls2)
+    if kind1 != 'def' and kind2 != 'def':
+        return issubclass(cls1, cls2)
+    if kind1 == 'builtin' and kind2 == 'def':
+        return False
+    elif kind1 == 'def' and kind2 == 'builtin':
+        return issubclass(object, cls2)
+    else:
+        def toclassdef(kind, cls):
+            if kind != 'def':
+                return bk.getuniqueclassdef(cls)
+            else:
+                return cls
+        return toclassdef(kind1, cls1).issubclass(toclassdef(kind2, cls2))
+
+
+def s_isinstance(annotator, s_obj, s_type, variables):
+    from rpython.rlib.rarithmetic import base_int
+    if not s_type.is_constant():
+        return SomeBool()
+    r = SomeBool()
+    typ = s_type.const
+    bk = annotator.bookkeeper
+    if issubclass(typ, base_int):
+        try:
+            r.const = issubclass(s_obj.knowntype, typ)
+        except TypeError:    # s_obj.knowntype is not a Python type at all
+            r.const = False
+    elif typ == long:
+        bk.warning("isinstance(., long) is not RPython")
+        r.const = False
+        return r
+    else:
+        assert not issubclass(typ, (int, long)) or typ in (bool, int, long), (
+            "for integers only isinstance(.,int|r_uint) are supported")
+
+        if s_obj.is_constant():
+            r.const = isinstance(s_obj.const, typ)
+        elif our_issubclass(bk, s_obj.knowntype, typ):
+            if not s_obj.can_be_none():
+                r.const = True
+        elif not our_issubclass(bk, typ, s_obj.knowntype):
+            r.const = False
+        elif s_obj.knowntype == int and typ == bool: # xxx this will explode in case of generalisation
+                                                # from bool to int, notice that isinstance( , bool|int)
+                                                # is quite border case for RPython
+            r.const = False
+    for v in variables:
+        assert v.annotation == s_obj
+    knowntypedata = defaultdict(dict)
+    if not hasattr(typ, '_freeze_') and isinstance(s_type, SomePBC):
+        add_knowntypedata(knowntypedata, True, variables, bk.valueoftype(typ))
+    r.set_knowntypedata(knowntypedata)
+    return r
+
 @op.isinstance.register(SomeObject)
 def isinstance_SomeObject(annotator, v_obj, v_cls):
-    return builtin.builtin_isinstance(annotator.annotation(v_obj),
-                                      annotator.annotation(v_cls),
-                                      variables=[v_obj])
+    s_obj = annotator.annotation(v_obj)
+    s_cls = annotator.annotation(v_cls)
+    return s_isinstance(annotator, s_obj, s_cls, variables=[v_obj])
 
 
 @op.bool.register(SomeObject)
@@ -922,8 +990,8 @@ class __extend__(SomeNone):
 @op.issubtype.register(SomeTypeOf)
 def issubtype(annotator, v_type, v_cls):
     args_v = v_type.annotation.is_type_of
-    return builtin.builtin_isinstance(
-        args_v[0].annotation, annotator.annotation(v_cls), args_v)
+    return s_isinstance(annotator, args_v[0].annotation,
+                        annotator.annotation(v_cls), args_v)
 
 #_________________________________________
 # weakrefs
