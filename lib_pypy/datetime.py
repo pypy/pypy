@@ -17,7 +17,6 @@ Thanks to Tim Peters for suggesting using it.
 """
 
 from __future__ import division
-import numbers as _numbers
 import time as _time
 import math as _math
 import struct as _struct
@@ -1484,13 +1483,10 @@ class datetime(date):
 
     @classmethod
     def _from_timestamp(cls, converter, timestamp, tzinfo):
-        if isinstance(timestamp, _numbers.Integral):
-            us = 0
-        else:
-            t_full = timestamp
-            timestamp = int(_math.floor(timestamp))
-            frac = t_full - timestamp
-            us = _round(frac * 1e6)
+        t_full = timestamp
+        timestamp = int(_math.floor(timestamp))
+        frac = t_full - timestamp
+        us = _round(frac * 1e6)
 
         # If timestamp is less than one microsecond smaller than a
         # full second, us can be rounded up to 1000000.  In this case,
