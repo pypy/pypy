@@ -181,14 +181,10 @@ def builtin_isinstance(s_obj, s_type, variables=None):
                                                    # from bool to int, notice that isinstance( , bool|int)
                                                    # is quite border case for RPython
                 r.const = False
-        bk = getbookkeeper()
-        if variables is None:
-            op = bk._find_current_op("simple_call", 3)
-            assert op.args[0] == Constant(isinstance)
-            variables = [op.args[1]]
-        for variable in variables:
-            assert bk.annotator.binding(variable) == s_obj
+        for v in variables:
+            assert v.annotation == s_obj
         knowntypedata = defaultdict(dict)
+        bk = getbookkeeper()
         if not hasattr(typ, '_freeze_') and isinstance(s_type, SomePBC):
             add_knowntypedata(knowntypedata, True, variables, bk.valueoftype(typ))
         r.set_knowntypedata(knowntypedata)

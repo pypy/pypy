@@ -1173,6 +1173,13 @@ class TestAnnotateTestCase:
         s = a.build_types(g, [int])
         assert s.const == True
 
+    def test_isinstance_basic(self):
+        def f():
+            return isinstance(IndexError(), type)
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [])
+        assert s.const == False
+
     def test_alloc_like(self):
         class Base(object):
             pass

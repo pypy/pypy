@@ -32,6 +32,12 @@ UNARY_OPERATIONS.remove('contains')
 def type_SomeObject(annotator, v_arg):
     return SomeTypeOf([v_arg])
 
+@op.isinstance.register(SomeObject)
+def isinstance_SomeObject(annotator, v_obj, v_cls):
+    return builtin.builtin_isinstance(annotator.annotation(v_obj),
+                                      annotator.annotation(v_cls),
+                                      variables=[v_obj])
+
 
 @op.bool.register(SomeObject)
 def bool_SomeObject(annotator, obj):
