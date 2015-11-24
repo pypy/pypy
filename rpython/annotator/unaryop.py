@@ -34,13 +34,13 @@ def type_SomeObject(annotator, v_arg):
 
 
 def our_issubclass(bk, cls1, cls2):
-    """ we're going to try to be less silly in the face of old-style classes"""
     if cls2 is object:
         return True
     def classify(cls):
+        from rpython.rlib.rarithmetic import base_int
         if isinstance(cls, ClassDef):
             return 'def'
-        if cls.__module__ == '__builtin__':
+        if cls.__module__ == '__builtin__' or issubclass(cls, base_int):
             return 'builtin'
         else:
             return 'cls'
@@ -62,36 +62,22 @@ def our_issubclass(bk, cls1, cls2):
 
 
 def s_isinstance(annotator, s_obj, s_type, variables):
-    from rpython.rlib.rarithmetic import base_int
     if not s_type.is_constant():
         return SomeBool()
     r = SomeBool()
     typ = s_type.const
     bk = annotator.bookkeeper
-    if issubclass(typ, base_int):
-        try:
-            r.const = issubclass(s_obj.knowntype, typ)
-        except TypeError:    # s_obj.knowntype is not a Python type at all
-            r.const = False
-    elif typ == long:
-        bk.warning("isinstance(., long) is not RPython")
+    if s_obj.is_constant():
+        r.const = isinstance(s_obj.const, typ)
+    elif our_issubclass(bk, s_obj.knowntype, typ):
+        if not s_obj.can_be_none():
+            r.const = True
+    elif not our_issubclass(bk, typ, s_obj.knowntype):
         r.const = False
-        return r
-    else:
-        assert not issubclass(typ, (int, long)) or typ in (bool, int, long), (
-            "for integers only isinstance(.,int|r_uint) are supported")
-
-        if s_obj.is_constant():
-            r.const = isinstance(s_obj.const, typ)
-        elif our_issubclass(bk, s_obj.knowntype, typ):
-            if not s_obj.can_be_none():
-                r.const = True
-        elif not our_issubclass(bk, typ, s_obj.knowntype):
-            r.const = False
-        elif s_obj.knowntype == int and typ == bool: # xxx this will explode in case of generalisation
-                                                # from bool to int, notice that isinstance( , bool|int)
-                                                # is quite border case for RPython
-            r.const = False
+    elif s_obj.knowntype == int and typ == bool: # xxx this will explode in case of generalisation
+                                            # from bool to int, notice that isinstance( , bool|int)
+                                            # is quite border case for RPython
+        r.const = False
     for v in variables:
         assert v.annotation == s_obj
     knowntypedata = defaultdict(dict)
