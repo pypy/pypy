@@ -153,22 +153,10 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         v_struct = hop.spaceop.args[0]
         assert opname in ('setfield', 'setarrayitem', 'setinteriorfield',
                           'raw_store')
-        if hop.spaceop.args[-1].concretetype == lltype.Void:
-            pass   # ignore setfields of a Void type
-        elif not var_needsgc(v_struct):
-            if (var_needsgc(hop.spaceop.args[-1]) and
-                'is_excdata' not in hop.spaceop.args[0].concretetype.TO._hints):
-                raise Exception("%s: GC pointer written into a non-GC location"
-                                % (hop.spaceop,))
-        elif hop.spaceop not in self.clean_sets:
-            if self.in_stm_ignored:
-                # detect if we're inside a 'stm_ignored' block and in
-                # that case don't call stm_write().  This only works for
-                # writing non-GC pointers.
-                if var_needsgc(hop.spaceop.args[-1]):
-                    raise Exception("in stm_ignored block: write of a gc "
-                                    "pointer")
-            elif self._set_into_gc_array_part(hop.spaceop) is not None:
+        #
+        # insert write barrier if we must
+        if hop.spaceop not in self.clean_sets:
+            if self._set_into_gc_array_part(hop.spaceop) is not None:
                 self.write_barrier_from_array_calls += 1
                 v_index = self._set_into_gc_array_part(hop.spaceop)
                 assert v_index.concretetype == lltype.Signed
@@ -176,15 +164,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
             else:
                 self.write_barrier_calls += 1
                 hop.genop("stm_write", [v_struct])
-                # we just did a full write barrier here, so we can use
-                # this helper to propagate this knowledge forward and
-                # avoid to repeat the write barrier.
-                if self.curr_block is not None:   # for tests
-                    propagate_no_write_barrier_needed(self.clean_sets,
-                                                      self.curr_block,
-                                                      {v_struct: True},
-                                                      self.collect_analyzer,
-                                                      self._entrymap)
+        #
         hop.rename('bare_' + opname)
 
     def gct_gc_writebarrier(self, hop):
