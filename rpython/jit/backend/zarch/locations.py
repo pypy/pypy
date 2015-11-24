@@ -194,6 +194,9 @@ class AddressLocation(AssemblerLocation):
         if length:
             self.length = length.value
 
+    def as_key(self):
+        return self.displace + 100000
+
 class PoolLoc(AddressLocation):
     _immutable_ = True
     width = WORD
@@ -217,7 +220,6 @@ class PoolLoc(AddressLocation):
 
     def __repr__(self):
         return "pool(i,%d)" %  self.displace
-
 
 def addr(displace, basereg=None, indexreg=None, length=None):
     return AddressLocation(basereg, indexreg, displace, length)

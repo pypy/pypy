@@ -64,18 +64,16 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
             assert pending_dests == 0
 
 def _move(assembler, src, dst, tmpreg):
-    if dst.is_stack() and src.is_stack():
-        assembler.regalloc_mov(src, tmpreg)
-        src = tmpreg
+    # some assembler cannot handle memory to memory moves without
+    # a tmp register, thus prepare src according to the ISA capabilities
+    src = assembler.regalloc_prepare_move(src, dst, tmpreg)
     assembler.regalloc_mov(src, dst)
 
 def remap_frame_layout_mixed(assembler,
                              src_locations1, dst_locations1, tmpreg1,
-                             src_locations2, dst_locations2, tmpreg2):
+                             src_locations2, dst_locations2, tmpreg2, WORD):
     # find and push the fp stack locations from src_locations2 that
     # are going to be overwritten by dst_locations1
-    # TODO
-    from rpython.jit.backend.zarch.arch import WORD
     extrapushes = []
     dst_keys = {}
     for loc in dst_locations1:

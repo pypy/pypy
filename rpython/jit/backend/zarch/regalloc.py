@@ -570,9 +570,9 @@ class Regalloc(BaseRegalloc):
         if box.type == FLOAT:
             return self.fprm.ensure_reg(box)
         else:
-            if check_imm_box(box):
+            if helper.check_imm(box):
                 return imm(box.getint())
-            return self.rm.ensure_reg(box)
+            return self.rm.ensure_reg(box, force_in_reg=True)
 
     def ensure_reg_or_any_imm(self, box):
         if box.type == FLOAT:
@@ -580,7 +580,7 @@ class Regalloc(BaseRegalloc):
         else:
             if isinstance(box, Const):
                 return imm(box.getint())
-            return self.rm.ensure_reg(box)
+            return self.rm.ensure_reg(box, force_in_reg=True)
 
     def get_scratch_reg(self, type):
         if type == FLOAT:
@@ -759,6 +759,12 @@ class Regalloc(BaseRegalloc):
     prepare_guard_overflow = prepare_guard_no_exception
     prepare_guard_not_forced = prepare_guard_no_exception
 
+    def prepare_guard_value(self, op):
+        l0 = self.ensure_reg(op.getarg(0))
+        l1 = self.ensure_reg_or_16bit_imm(op.getarg(1))
+        arglocs = self._prepare_guard(op, [l0, l1])
+        return arglocs
+
     def prepare_label(self, op):
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
@@ -838,7 +844,7 @@ class Regalloc(BaseRegalloc):
 
         remap_frame_layout_mixed(self.assembler,
                                  src_locations1, dst_locations1, tmploc,
-                                 src_locations2, dst_locations2, fptmploc)
+                                 src_locations2, dst_locations2, fptmploc, WORD)
         return []
 
     def prepare_finish(self, op):

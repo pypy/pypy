@@ -251,12 +251,12 @@ class GuardOpAssembler(object):
 
         if l0.is_reg():
             if l1.is_imm():
-                self.mc.cmp_op(0, l0.value, l1.getint(), imm=True)
+                self.mc.cmp_op(l0, l1, imm=True)
             else:
-                self.mc.cmp_op(0, l0.value, l1.value)
+                self.mc.cmp_op(l0, l1)
         elif l0.is_fp_reg():
             assert l1.is_fp_reg()
-            self.mc.cmp_op(0, l0.value, l1.value, fp=True)
+            self.mc.cmp_op(l0, l1, fp=True)
         self.guard_success_cc = c.EQ
         self._emit_guard(op, failargs)
 

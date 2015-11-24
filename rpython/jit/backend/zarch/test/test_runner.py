@@ -23,3 +23,7 @@ class TestZARCH(LLtypeBackendTest):
         cpu = CPU_S390_64(rtyper=None, stats=FakeStats())
         cpu.setup_once()
         return cpu
+
+    # TODO verify: the lgr might be redundant!
+    add_loop_instructions = "lg; lgr; larl; agr; cgfi; je; j;$"
+    bridge_loop_instructions = ("larl; lg; br;")

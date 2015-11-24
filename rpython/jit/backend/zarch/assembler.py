@@ -414,6 +414,15 @@ class AssemblerZARCH(BaseAssembler,
                 self.mc.LG(r.SCRATCH, l.addr(index, r.SP))
                 self.regalloc_mov(r.SCRATCH, loc)
 
+    def regalloc_prepare_move(self, src, dst, tmp):
+        if dst.is_stack() and src.is_stack():
+            self.regalloc_mov(src, tmp)
+            return tmp
+        if dst.is_stack() and src.is_in_pool():
+            self.regalloc_mov(src, tmp)
+            return tmp
+        return src
+
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc
         self.guard_success_cc = c.cond_none
@@ -441,18 +450,18 @@ class AssemblerZARCH(BaseAssembler,
             elif loc.is_stack():
                 with scratch_reg(self.mc):
                     offset = loc.value
-                    self.mc.load_imm(r.SCRATCH, value)
-                    self.mc.store(r.SCRATCH.value, r.SPP, offset)
+                    self.mc.load_imm(r.SCRATCH, prev_loc)
+                    self.mc.STG(r.SCRATCH, l.addr(offset, r.SPP))
                 return
             assert 0, "not supported location"
         elif prev_loc.is_in_pool():
             if loc.is_reg():
                 self.mc.LG(loc, prev_loc)
+                return
             elif loc.is_fp_reg():
                 self.mc.LD(loc, prev_loc)
-            else:
-                xxx
-            return
+                return
+            assert 0, "not supported location (previous is pool loc)"
         elif prev_loc.is_stack():
             offset = prev_loc.value
             # move from memory to register
