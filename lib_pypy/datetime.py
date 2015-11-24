@@ -17,10 +17,11 @@ Thanks to Tim Peters for suggesting using it.
 """
 
 from __future__ import division
-import numbers as _numbers
 import time as _time
 import math as _math
 import struct as _struct
+
+_SENTINEL = object()
 
 def _cmp(x, y):
     return 0 if x == y else 1 if x > y else -1
@@ -31,6 +32,8 @@ def _round(x):
 MINYEAR = 1
 MAXYEAR = 9999
 _MINYEARFMT = 1900
+
+_MAX_DELTA_DAYS = 999999999
 
 # Utility functions, adapted from Python's Demo/classes/Dates.py, which
 # also assumes the current Gregorian calendar indefinitely extended in
@@ -95,6 +98,15 @@ assert _DI400Y == 4 * _DI100Y + 1
 # OTOH, a 100-year cycle has one fewer leap day than we'd get from
 # pasting together 25 4-year cycles.
 assert _DI100Y == 25 * _DI4Y - 1
+
+_US_PER_US = 1
+_US_PER_MS = 1000
+_US_PER_SECOND = 1000000
+_US_PER_MINUTE = 60000000
+_SECONDS_PER_DAY = 24 * 3600
+_US_PER_HOUR = 3600000000
+_US_PER_DAY = 86400000000
+_US_PER_WEEK = 604800000000
 
 def _ord2ymd(n):
     "ordinal -> (year, month, day), considering 01-Jan-0001 as day 1."
@@ -417,6 +429,30 @@ class _tmxxx:
         self.hour, self.minute, self.second = hour, minute, second
         self.microsecond = microsecond
 
+def _accum(tag, sofar, num, factor, leftover):
+    if isinstance(num, (int, long)):
+        prod = num * factor
+        rsum = sofar + prod
+        return rsum, leftover
+    if isinstance(num, float):
+        fracpart, intpart = _math.modf(num)
+        prod = int(intpart) * factor
+        rsum = sofar + prod
+        if fracpart == 0.0:
+            return rsum, leftover
+        assert isinstance(factor, (int, long))
+        fracpart, intpart = _math.modf(factor * fracpart)
+        rsum += int(intpart)
+        return rsum, leftover + fracpart
+    raise TypeError("unsupported type for timedelta %s component: %s" %
+                    (tag, type(num)))
+
+def _normalize_pair(hi, lo, factor):
+    if lo < 0 or lo >= factor:
+        inc, lo = divmod(lo, factor)
+        hi += inc
+    return hi, lo
+
 class timedelta(object):
     """Represent the difference between two datetime objects.
 
@@ -436,100 +472,42 @@ class timedelta(object):
     """
     __slots__ = '_days', '_seconds', '_microseconds', '_hashcode'
 
-    def __new__(cls, days=0, seconds=0, microseconds=0,
-                milliseconds=0, minutes=0, hours=0, weeks=0):
-        # Doing this efficiently and accurately in C is going to be difficult
-        # and error-prone, due to ubiquitous overflow possibilities, and that
-        # C double doesn't have enough bits of precision to represent
-        # microseconds over 10K years faithfully.  The code here tries to make
-        # explicit where go-fast assumptions can be relied on, in order to
-        # guide the C implementation; it's way more convoluted than speed-
-        # ignoring auto-overflow-to-long idiomatic Python could be.
+    def __new__(cls, days=_SENTINEL, seconds=_SENTINEL, microseconds=_SENTINEL,
+                milliseconds=_SENTINEL, minutes=_SENTINEL, hours=_SENTINEL, weeks=_SENTINEL):
+        x = 0
+        leftover = 0.0
+        if microseconds is not _SENTINEL:
+            x, leftover = _accum("microseconds", x, microseconds, _US_PER_US, leftover)
+        if milliseconds is not _SENTINEL:
+            x, leftover = _accum("milliseconds", x, milliseconds, _US_PER_MS, leftover)
+        if seconds is not _SENTINEL:
+            x, leftover = _accum("seconds", x, seconds, _US_PER_SECOND, leftover)
+        if minutes is not _SENTINEL:
+            x, leftover = _accum("minutes", x, minutes, _US_PER_MINUTE, leftover)
+        if hours is not _SENTINEL:
+            x, leftover = _accum("hours", x, hours, _US_PER_HOUR, leftover)
+        if days is not _SENTINEL:
+            x, leftover = _accum("days", x, days, _US_PER_DAY, leftover)
+        if weeks is not _SENTINEL:
+            x, leftover = _accum("weeks", x, weeks, _US_PER_WEEK, leftover)
+        if leftover != 0.0:
+            x += _round(leftover)
+        return cls._from_microseconds(x)
 
-        # XXX Check that all inputs are ints, longs or floats.
+    @classmethod
+    def _from_microseconds(cls, us):
+        s, us = divmod(us, _US_PER_SECOND)
+        d, s = divmod(s, _SECONDS_PER_DAY)
+        return cls._create(d, s, us, False)
 
-        # Final values, all integer.
-        # s and us fit in 32-bit signed ints; d isn't bounded.
-        d = s = us = 0
+    @classmethod
+    def _create(cls, d, s, us, normalize):
+        if normalize:
+            s, us = _normalize_pair(s, us, 1000000)
+            d, s = _normalize_pair(d, s, 24*3600)
 
-        # Normalize everything to days, seconds, microseconds.
-        days += weeks*7
-        seconds += minutes*60 + hours*3600
-        microseconds += milliseconds*1000
-
-        # Get rid of all fractions, and normalize s and us.
-        # Take a deep breath <wink>.
-        if isinstance(days, float):
-            dayfrac, days = _math.modf(days)
-            daysecondsfrac, daysecondswhole = _math.modf(dayfrac * (24.*3600.))
-            assert daysecondswhole == int(daysecondswhole)  # can't overflow
-            s = int(daysecondswhole)
-            assert days == int(days)
-            d = int(days)
-        else:
-            daysecondsfrac = 0.0
-            d = days
-        assert isinstance(daysecondsfrac, float)
-        assert abs(daysecondsfrac) <= 1.0
-        assert isinstance(d, _numbers.Integral)
-        assert abs(s) <= 24 * 3600
-        # days isn't referenced again before redefinition
-
-        if isinstance(seconds, float):
-            secondsfrac, seconds = _math.modf(seconds)
-            assert seconds == int(seconds)
-            seconds = int(seconds)
-            secondsfrac += daysecondsfrac
-            assert abs(secondsfrac) <= 2.0
-        else:
-            secondsfrac = daysecondsfrac
-        # daysecondsfrac isn't referenced again
-        assert isinstance(secondsfrac, float)
-        assert abs(secondsfrac) <= 2.0
-
-        assert isinstance(seconds, _numbers.Integral)
-        days, seconds = divmod(seconds, 24*3600)
-        d += days
-        s += int(seconds)    # can't overflow
-        assert isinstance(s, _numbers.Integral)
-        assert abs(s) <= 2 * 24 * 3600
-        # seconds isn't referenced again before redefinition
-
-        usdouble = secondsfrac * 1e6
-        assert abs(usdouble) < 2.1e6    # exact value not critical
-        # secondsfrac isn't referenced again
-
-        if isinstance(microseconds, float):
-            microseconds = _round(microseconds + usdouble)
-            seconds, microseconds = divmod(microseconds, 1000000)
-            days, seconds = divmod(seconds, 24*3600)
-            d += days
-            s += int(seconds)
-            microseconds = int(microseconds)
-        else:
-            microseconds = int(microseconds)
-            seconds, microseconds = divmod(microseconds, 1000000)
-            days, seconds = divmod(seconds, 24*3600)
-            d += days
-            s += int(seconds)
-            microseconds = _round(microseconds + usdouble)
-        assert isinstance(s, _numbers.Integral)
-        assert isinstance(microseconds, _numbers.Integral)
-        assert abs(s) <= 3 * 24 * 3600
-        assert abs(microseconds) < 3.1e6
-
-        # Just a little bit of carrying possible for microseconds and seconds.
-        seconds, us = divmod(microseconds, 1000000)
-        s += seconds
-        days, s = divmod(s, 24*3600)
-        d += days
-
-        assert isinstance(d, _numbers.Integral)
-        assert isinstance(s, _numbers.Integral) and 0 <= s < 24*3600
-        assert isinstance(us, _numbers.Integral) and 0 <= us < 1000000
-
-        if abs(d) > 999999999:
-            raise OverflowError("timedelta # of days is too large: %d" % d)
+        if not -_MAX_DELTA_DAYS <= d <= _MAX_DELTA_DAYS:
+            raise OverflowError("days=%d; must have magnitude <= %d" % (d, _MAX_DELTA_DAYS))
 
         self = object.__new__(cls)
         self._days = d
@@ -537,6 +515,10 @@ class timedelta(object):
         self._microseconds = us
         self._hashcode = -1
         return self
+
+    def _to_microseconds(self):
+        return ((self._days * _SECONDS_PER_DAY + self._seconds) * _US_PER_SECOND +
+                self._microseconds)
 
     def __repr__(self):
         module = "datetime." if self.__class__ is timedelta else ""
@@ -565,8 +547,7 @@ class timedelta(object):
 
     def total_seconds(self):
         """Total seconds in the duration."""
-        return ((self.days * 86400 + self.seconds) * 10**6 +
-                self.microseconds) / 10**6
+        return self._to_microseconds() / 10**6
 
     # Read-only field accessors
     @property
@@ -588,9 +569,10 @@ class timedelta(object):
         if isinstance(other, timedelta):
             # for CPython compatibility, we cannot use
             # our __class__ here, but need a real timedelta
-            return timedelta(self._days + other._days,
-                             self._seconds + other._seconds,
-                             self._microseconds + other._microseconds)
+            return timedelta._create(self._days + other._days,
+                                     self._seconds + other._seconds,
+                                     self._microseconds + other._microseconds,
+                                     True)
         return NotImplemented
 
     __radd__ = __add__
@@ -599,9 +581,10 @@ class timedelta(object):
         if isinstance(other, timedelta):
             # for CPython compatibility, we cannot use
             # our __class__ here, but need a real timedelta
-            return timedelta(self._days - other._days,
-                             self._seconds - other._seconds,
-                             self._microseconds - other._microseconds)
+            return timedelta._create(self._days - other._days,
+                                     self._seconds - other._seconds,
+                                     self._microseconds - other._microseconds,
+                                     True)
         return NotImplemented
 
     def __rsub__(self, other):
@@ -612,12 +595,18 @@ class timedelta(object):
     def __neg__(self):
         # for CPython compatibility, we cannot use
         # our __class__ here, but need a real timedelta
-        return timedelta(-self._days,
-                         -self._seconds,
-                         -self._microseconds)
+        return timedelta._create(-self._days,
+                                 -self._seconds,
+                                 -self._microseconds,
+                                 True)
 
     def __pos__(self):
-        return self
+        # for CPython compatibility, we cannot use
+        # our __class__ here, but need a real timedelta
+        return timedelta._create(self._days,
+                                 self._seconds,
+                                 self._microseconds,
+                                 False)
 
     def __abs__(self):
         if self._days < 0:
@@ -626,25 +615,18 @@ class timedelta(object):
             return self
 
     def __mul__(self, other):
-        if isinstance(other, (int, long)):
-            # for CPython compatibility, we cannot use
-            # our __class__ here, but need a real timedelta
-            return timedelta(self._days * other,
-                             self._seconds * other,
-                             self._microseconds * other)
-        return NotImplemented
+        if not isinstance(other, (int, long)):
+            return NotImplemented
+        usec = self._to_microseconds()
+        return timedelta._from_microseconds(usec * other)
 
     __rmul__ = __mul__
-
-    def _to_microseconds(self):
-        return ((self._days * (24*3600) + self._seconds) * 1000000 +
-                self._microseconds)
 
     def __div__(self, other):
         if not isinstance(other, (int, long)):
             return NotImplemented
         usec = self._to_microseconds()
-        return timedelta(0, 0, usec // other)
+        return timedelta._from_microseconds(usec // other)
 
     __floordiv__ = __div__
 
@@ -708,9 +690,8 @@ class timedelta(object):
     def __reduce__(self):
         return (self.__class__, self._getstate())
 
-timedelta.min = timedelta(-999999999)
-timedelta.max = timedelta(days=999999999, hours=23, minutes=59, seconds=59,
-                          microseconds=999999)
+timedelta.min = timedelta(-_MAX_DELTA_DAYS)
+timedelta.max = timedelta(_MAX_DELTA_DAYS, 24*3600-1, 1000000-1)
 timedelta.resolution = timedelta(microseconds=1)
 
 class date(object):
@@ -972,11 +953,11 @@ class date(object):
     def __sub__(self, other):
         """Subtract two dates, or a date and a timedelta."""
         if isinstance(other, timedelta):
-            return self + timedelta(-other.days)
+            return self + timedelta._create(-other.days, 0, 0, False)
         if isinstance(other, date):
             days1 = self.toordinal()
             days2 = other.toordinal()
-            return timedelta(days1 - days2)
+            return timedelta._create(days1 - days2, 0, 0, False)
         return NotImplemented
 
     def weekday(self):
@@ -1343,7 +1324,7 @@ class time(object):
         offset = self._tzinfo.utcoffset(None)
         offset = _check_utc_offset("utcoffset", offset)
         if offset is not None:
-            offset = timedelta(minutes=offset)
+            offset = timedelta._create(0, offset * 60, 0, True)
         return offset
 
     # Return an integer (or None) instead of a timedelta (or None).
@@ -1381,7 +1362,7 @@ class time(object):
         offset = self._tzinfo.dst(None)
         offset = _check_utc_offset("dst", offset)
         if offset is not None:
-            offset = timedelta(minutes=offset)
+            offset = timedelta._create(0, offset * 60, 0, True)
         return offset
 
     # Return an integer (or None) instead of a timedelta (or None).
@@ -1508,18 +1489,24 @@ class datetime(date):
 
         A timezone info object may be passed in as well.
         """
-
         _check_tzinfo_arg(tz)
-
         converter = _time.localtime if tz is None else _time.gmtime
+        self = cls._from_timestamp(converter, timestamp, tz)
+        if tz is not None:
+            self = tz.fromutc(self)
+        return self
 
-        if isinstance(timestamp, _numbers.Integral):
-            us = 0
-        else:
-            t_full = timestamp
-            timestamp = int(_math.floor(timestamp))
-            frac = t_full - timestamp
-            us = _round(frac * 1e6)
+    @classmethod
+    def utcfromtimestamp(cls, t):
+        "Construct a UTC datetime from a POSIX timestamp (like time.time())."
+        return cls._from_timestamp(_time.gmtime, t, None)
+
+    @classmethod
+    def _from_timestamp(cls, converter, timestamp, tzinfo):
+        t_full = timestamp
+        timestamp = int(_math.floor(timestamp))
+        frac = t_full - timestamp
+        us = _round(frac * 1e6)
 
         # If timestamp is less than one microsecond smaller than a
         # full second, us can be rounded up to 1000000.  In this case,
@@ -1530,32 +1517,7 @@ class datetime(date):
             us = 0
         y, m, d, hh, mm, ss, weekday, jday, dst = converter(timestamp)
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
-        result = cls(y, m, d, hh, mm, ss, us, tz)
-        if tz is not None:
-            result = tz.fromutc(result)
-        return result
-
-    @classmethod
-    def utcfromtimestamp(cls, t):
-        "Construct a UTC datetime from a POSIX timestamp (like time.time())."
-        if isinstance(t, _numbers.Integral):
-            us = 0
-        else:
-            t_full = t
-            t = int(_math.floor(t))
-            frac = t_full - t
-            us = _round(frac * 1e6)
-
-        # If timestamp is less than one microsecond smaller than a
-        # full second, us can be rounded up to 1000000.  In this case,
-        # roll over to seconds, otherwise, ValueError is raised
-        # by the constructor.
-        if us == 1000000:
-            t += 1
-            us = 0
-        y, m, d, hh, mm, ss, weekday, jday, dst = _time.gmtime(t)
-        ss = min(ss, 59)    # clamp out leap seconds if the platform has them
-        return cls(y, m, d, hh, mm, ss, us)
+        return cls(y, m, d, hh, mm, ss, us, tzinfo)
 
     @classmethod
     def now(cls, tz=None):
@@ -1733,7 +1695,7 @@ class datetime(date):
         offset = self._tzinfo.utcoffset(self)
         offset = _check_utc_offset("utcoffset", offset)
         if offset is not None:
-            offset = timedelta(minutes=offset)
+            offset = timedelta._create(0, offset * 60, 0, True)
         return offset
 
     # Return an integer (or None) instead of a timedelta (or None).
@@ -1771,7 +1733,7 @@ class datetime(date):
         offset = self._tzinfo.dst(self)
         offset = _check_utc_offset("dst", offset)
         if offset is not None:
-            offset = timedelta(minutes=offset)
+            offset = timedelta._create(0, offset * 60, 0, True)
         return offset
 
     # Return an integer (or None) instead of a timedelta (or None).
@@ -1888,13 +1850,12 @@ class datetime(date):
                 return self + -other
             return NotImplemented
 
-        days1 = self.toordinal()
-        days2 = other.toordinal()
-        secs1 = self._second + self._minute * 60 + self._hour * 3600
-        secs2 = other._second + other._minute * 60 + other._hour * 3600
-        base = timedelta(days1 - days2,
-                         secs1 - secs2,
-                         self._microsecond - other._microsecond)
+        delta_d = self.toordinal() - other.toordinal()
+        delta_s = (self._hour - other._hour) * 3600 + \
+                  (self._minute - other._minute) * 60 + \
+                  (self._second - other._second)
+        delta_us = self._microsecond - other._microsecond
+        base = timedelta._create(delta_d, delta_s, delta_us, True)
         if self._tzinfo is other._tzinfo:
             return base
         myoff = self._utcoffset()

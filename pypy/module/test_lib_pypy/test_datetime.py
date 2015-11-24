@@ -309,6 +309,12 @@ class BaseTestDatetime:
         assert td_div_int_newint == td_div_newint_newint
         assert td_div_newint_int == td_div_newint_newint
 
+    def test_return_types(self):
+        td = datetime.timedelta(5)
+        assert type(td.total_seconds()) is float
+        class sub(datetime.timedelta): pass
+        assert type(+sub()) is datetime.timedelta
+
 
 class TestDatetimeHost(BaseTestDatetime):
     def setup_class(cls):

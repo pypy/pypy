@@ -447,3 +447,19 @@ class AppTestFFIObj:
                 assert int(ffi.cast("_Bool", ffi.cast(type, 42))) == 1
                 assert int(ffi.cast("bool", ffi.cast(type, 42))) == 1
                 assert int(ffi.cast("_Bool", ffi.cast(type, 0))) == 0
+
+    def test_init_once(self):
+        import _cffi_backend as _cffi1_backend
+        def do_init():
+            seen.append(1)
+            return 42
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        for i in range(3):
+            res = ffi.init_once(do_init, "tag1")
+            assert res == 42
+            assert seen == [1]
+        for i in range(3):
+            res = ffi.init_once(do_init, "tag2")
+            assert res == 42
+            assert seen == [1, 1]
