@@ -1,22 +1,17 @@
 import py
 import sys
-import platform
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.strstorage import str_storage_getitem, str_storage_supported
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rtyper.test.tool import BaseRtypingTest
 
-IS_WIN32 = (sys.platform == 'win32')
-IS_ARM = (platform.machine().startswith('arm'))
 IS_32BIT = (sys.maxint == 2147483647)
 
 class BaseStrStorageTest:
 
     def test_str_getitem_supported(self):
-        # on win32 or ARM32, we expect LONGLONG and DOUBLE to be NOT supported
-        # by str_storage_getitem
-        if IS_WIN32 or (IS_ARM and IS_32BIT):
+        if IS_32BIT:
             expected = False
         else:
             expected = True
