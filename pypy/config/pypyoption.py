@@ -335,6 +335,8 @@ def set_pypy_opt_level(config, level):
 
 
 def enable_allworkingmodules(config):
+    config.objspace.usemodules.cpyext = False # XXX
+
     modules = working_modules.copy()
     if config.translation.sandbox:
         modules = default_modules
@@ -343,6 +345,7 @@ def enable_allworkingmodules(config):
     modules = [name for name in modules if name not in essential_modules]
 
     config.objspace.usemodules.suggest(**dict.fromkeys(modules, True))
+
 
 def enable_translationmodules(config):
     modules = translation_modules
