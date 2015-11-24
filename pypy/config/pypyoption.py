@@ -39,9 +39,6 @@ working_modules.update([
     "_csv", "cppyy", "_pypyjson"
 ])
 
-working_modules.remove('micronumpy')  # XXX temporary
-working_modules.remove('cpyext')
-
 if ((sys.platform.startswith('linux') or sys.platform == 'darwin')
     and os.uname()[4] == 'x86_64' and sys.maxint > 2**32):
     # it's not enough that we get x86_64
@@ -335,8 +332,6 @@ def set_pypy_opt_level(config, level):
 
 
 def enable_allworkingmodules(config):
-    config.objspace.usemodules.cpyext = False # XXX
-
     modules = working_modules.copy()
     if config.translation.sandbox:
         modules = default_modules
@@ -345,7 +340,6 @@ def enable_allworkingmodules(config):
     modules = [name for name in modules if name not in essential_modules]
 
     config.objspace.usemodules.suggest(**dict.fromkeys(modules, True))
-
 
 def enable_translationmodules(config):
     modules = translation_modules
