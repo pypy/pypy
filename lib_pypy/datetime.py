@@ -1824,22 +1824,24 @@ class datetime(date):
             return -1
         return diff and 1 or 0
 
+    def _add_timedelta(self, other, factor):
+        t = _tmxxx(self._year,
+                   self._month,
+                   self._day + other.days * factor,
+                   self._hour,
+                   self._minute,
+                   self._second + other.seconds * factor,
+                   self._microsecond + other.microseconds * factor)
+        self._checkOverflow(t.year)
+        return datetime(t.year, t.month, t.day,
+                        t.hour, t.minute, t.second,
+                        t.microsecond, tzinfo=self._tzinfo)
+
     def __add__(self, other):
         "Add a datetime and a timedelta."
         if not isinstance(other, timedelta):
             return NotImplemented
-        t = _tmxxx(self._year,
-                  self._month,
-                  self._day + other.days,
-                  self._hour,
-                  self._minute,
-                  self._second + other.seconds,
-                  self._microsecond + other.microseconds)
-        self._checkOverflow(t.year)
-        result = datetime(t.year, t.month, t.day,
-                                t.hour, t.minute, t.second,
-                                t.microsecond, tzinfo=self._tzinfo)
-        return result
+        return self._add_timedelta(other, 1)
 
     __radd__ = __add__
 
@@ -1847,7 +1849,7 @@ class datetime(date):
         "Subtract two datetimes, or a datetime and a timedelta."
         if not isinstance(other, datetime):
             if isinstance(other, timedelta):
-                return self + -other
+                return self._add_timedelta(other, -1)
             return NotImplemented
 
         delta_d = self.toordinal() - other.toordinal()
