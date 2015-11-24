@@ -382,6 +382,7 @@ class AssemblerZARCH(BaseAssembler,
         loc"""
 
         index = WORD * (~already_pushed)
+        print("regalloc push", index)
 
         if loc.type == FLOAT:
             if not loc.is_fp_reg():
@@ -392,12 +393,13 @@ class AssemblerZARCH(BaseAssembler,
             if not loc.is_core_reg():
                 self.regalloc_mov(loc, r.SCRATCH)
                 loc = r.SCRATCH
-            self.mc.SG(loc, l.addr(index, r.SP))
+            self.mc.STG(loc, l.addr(index, r.SP))
 
     def regalloc_pop(self, loc, already_pushed):
         """Pops the value on top of the stack to loc. Can trash the current
         value of SCRATCH when popping to a stack loc"""
         index = WORD * (~already_pushed)
+        print("regalloc pop", index)
 
         if loc.type == FLOAT:
             if loc.is_fp_reg():

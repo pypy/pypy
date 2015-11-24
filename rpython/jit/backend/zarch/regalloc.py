@@ -816,7 +816,7 @@ class Regalloc(BaseRegalloc):
 
         # get temporary locs
         tmploc = r.SCRATCH
-        fptmploc = r.f0
+        fptmploc = r.FP_SCRATCH
 
         # Part about non-floats
         src_locations1 = []

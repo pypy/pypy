@@ -137,7 +137,6 @@ memory_mnemonic_codes = {
 
     # store memory
     'STMG':    ('rsy_a',   ['\xEB','\x24']),
-    'ST':      ('rx',    ['\x50']),
     'STG':     ('rxy',   ['\xE3','\x24']),
     'STY':     ('rxy',   ['\xE3','\x50']),
 
