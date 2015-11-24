@@ -447,6 +447,12 @@ def _accum(tag, sofar, num, factor, leftover):
     raise TypeError("unsupported type for timedelta %s component: %s" %
                     (tag, type(num)))
 
+def _normalize_pair(hi, lo, factor):
+    if lo < 0 or lo >= factor:
+        inc, lo = divmod(lo, factor)
+        hi += inc
+    return hi, lo
+
 class timedelta(object):
     """Represent the difference between two datetime objects.
 
@@ -492,6 +498,13 @@ class timedelta(object):
     def _from_microseconds(cls, us):
         s, us = divmod(us, _US_PER_SECOND)
         d, s = divmod(s, _SECONDS_PER_DAY)
+        return cls._create(d, s, us, False)
+
+    @classmethod
+    def _create(cls, d, s, us, normalize):
+        if normalize:
+            s, us = _normalize_pair(s, us, 1000000)
+            d, s = _normalize_pair(d, s, 24*3600)
 
         if not -_MAX_DELTA_DAYS <= d <= _MAX_DELTA_DAYS:
             raise OverflowError("days=%d; must have magnitude <= %d" % (d, _MAX_DELTA_DAYS))
@@ -556,9 +569,10 @@ class timedelta(object):
         if isinstance(other, timedelta):
             # for CPython compatibility, we cannot use
             # our __class__ here, but need a real timedelta
-            return timedelta(self._days + other._days,
-                             self._seconds + other._seconds,
-                             self._microseconds + other._microseconds)
+            return timedelta._create(self._days + other._days,
+                                     self._seconds + other._seconds,
+                                     self._microseconds + other._microseconds,
+                                     True)
         return NotImplemented
 
     __radd__ = __add__
@@ -567,9 +581,10 @@ class timedelta(object):
         if isinstance(other, timedelta):
             # for CPython compatibility, we cannot use
             # our __class__ here, but need a real timedelta
-            return timedelta(self._days - other._days,
-                             self._seconds - other._seconds,
-                             self._microseconds - other._microseconds)
+            return timedelta._create(self._days - other._days,
+                                     self._seconds - other._seconds,
+                                     self._microseconds - other._microseconds,
+                                     True)
         return NotImplemented
 
     def __rsub__(self, other):
@@ -580,12 +595,18 @@ class timedelta(object):
     def __neg__(self):
         # for CPython compatibility, we cannot use
         # our __class__ here, but need a real timedelta
-        return timedelta(-self._days,
-                         -self._seconds,
-                         -self._microseconds)
+        return timedelta._create(-self._days,
+                                 -self._seconds,
+                                 -self._microseconds,
+                                 True)
 
     def __pos__(self):
-        return self
+        # for CPython compatibility, we cannot use
+        # our __class__ here, but need a real timedelta
+        return timedelta._create(self._days,
+                                 self._seconds,
+                                 self._microseconds,
+                                 False)
 
     def __abs__(self):
         if self._days < 0:
@@ -932,11 +953,11 @@ class date(object):
     def __sub__(self, other):
         """Subtract two dates, or a date and a timedelta."""
         if isinstance(other, timedelta):
-            return self + timedelta(-other.days)
+            return self + timedelta._create(-other.days, 0, 0, False)
         if isinstance(other, date):
             days1 = self.toordinal()
             days2 = other.toordinal()
-            return timedelta(days1 - days2)
+            return timedelta._create(days1 - days2, 0, 0, False)
         return NotImplemented
 
     def weekday(self):
@@ -1303,7 +1324,7 @@ class time(object):
         offset = self._tzinfo.utcoffset(None)
         offset = _check_utc_offset("utcoffset", offset)
         if offset is not None:
-            offset = timedelta(minutes=offset)
+            offset = timedelta._create(0, offset * 60, 0, True)
         return offset
 
     # Return an integer (or None) instead of a timedelta (or None).
@@ -1341,7 +1362,7 @@ class time(object):
         offset = self._tzinfo.dst(None)
         offset = _check_utc_offset("dst", offset)
         if offset is not None:
-            offset = timedelta(minutes=offset)
+            offset = timedelta._create(0, offset * 60, 0, True)
         return offset
 
     # Return an integer (or None) instead of a timedelta (or None).
@@ -1674,7 +1695,7 @@ class datetime(date):
         offset = self._tzinfo.utcoffset(self)
         offset = _check_utc_offset("utcoffset", offset)
         if offset is not None:
-            offset = timedelta(minutes=offset)
+            offset = timedelta._create(0, offset * 60, 0, True)
         return offset
 
     # Return an integer (or None) instead of a timedelta (or None).
@@ -1712,7 +1733,7 @@ class datetime(date):
         offset = self._tzinfo.dst(self)
         offset = _check_utc_offset("dst", offset)
         if offset is not None:
-            offset = timedelta(minutes=offset)
+            offset = timedelta._create(0, offset * 60, 0, True)
         return offset
 
     # Return an integer (or None) instead of a timedelta (or None).
@@ -1829,13 +1850,12 @@ class datetime(date):
                 return self + -other
             return NotImplemented
 
-        days1 = self.toordinal()
-        days2 = other.toordinal()
-        secs1 = self._second + self._minute * 60 + self._hour * 3600
-        secs2 = other._second + other._minute * 60 + other._hour * 3600
-        base = timedelta(days1 - days2,
-                         secs1 - secs2,
-                         self._microsecond - other._microsecond)
+        delta_d = self.toordinal() - other.toordinal()
+        delta_s = (self._hour - other._hour) * 3600 + \
+                  (self._minute - other._minute) * 60 + \
+                  (self._second - other._second)
+        delta_us = self._microsecond - other._microsecond
+        base = timedelta._create(delta_d, delta_s, delta_us, True)
         if self._tzinfo is other._tzinfo:
             return base
         myoff = self._utcoffset()

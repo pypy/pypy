@@ -312,6 +312,8 @@ class BaseTestDatetime:
     def test_return_types(self):
         td = datetime.timedelta(5)
         assert type(td.total_seconds()) is float
+        class sub(datetime.timedelta): pass
+        assert type(+sub()) is datetime.timedelta
 
 
 class TestDatetimeHost(BaseTestDatetime):
