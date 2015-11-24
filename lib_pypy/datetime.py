@@ -1470,11 +1470,20 @@ class datetime(date):
 
         A timezone info object may be passed in as well.
         """
-
         _check_tzinfo_arg(tz)
-
         converter = _time.localtime if tz is None else _time.gmtime
+        self = cls._from_timestamp(converter, timestamp, tz)
+        if tz is not None:
+            self = tz.fromutc(self)
+        return self
 
+    @classmethod
+    def utcfromtimestamp(cls, t):
+        "Construct a UTC datetime from a POSIX timestamp (like time.time())."
+        return cls._from_timestamp(_time.gmtime, t, None)
+
+    @classmethod
+    def _from_timestamp(cls, converter, timestamp, tzinfo):
         if isinstance(timestamp, _numbers.Integral):
             us = 0
         else:
@@ -1492,32 +1501,7 @@ class datetime(date):
             us = 0
         y, m, d, hh, mm, ss, weekday, jday, dst = converter(timestamp)
         ss = min(ss, 59)    # clamp out leap seconds if the platform has them
-        result = cls(y, m, d, hh, mm, ss, us, tz)
-        if tz is not None:
-            result = tz.fromutc(result)
-        return result
-
-    @classmethod
-    def utcfromtimestamp(cls, t):
-        "Construct a UTC datetime from a POSIX timestamp (like time.time())."
-        if isinstance(t, _numbers.Integral):
-            us = 0
-        else:
-            t_full = t
-            t = int(_math.floor(t))
-            frac = t_full - t
-            us = _round(frac * 1e6)
-
-        # If timestamp is less than one microsecond smaller than a
-        # full second, us can be rounded up to 1000000.  In this case,
-        # roll over to seconds, otherwise, ValueError is raised
-        # by the constructor.
-        if us == 1000000:
-            t += 1
-            us = 0
-        y, m, d, hh, mm, ss, weekday, jday, dst = _time.gmtime(t)
-        ss = min(ss, 59)    # clamp out leap seconds if the platform has them
-        return cls(y, m, d, hh, mm, ss, us)
+        return cls(y, m, d, hh, mm, ss, us, tzinfo)
 
     @classmethod
     def now(cls, tz=None):
