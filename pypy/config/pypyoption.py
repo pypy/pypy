@@ -39,6 +39,8 @@ working_modules.update([
     "_csv", "cppyy", "_pypyjson"
 ])
 
+working_modules.remove('micronumpy')  # XXX temporary
+
 if ((sys.platform.startswith('linux') or sys.platform == 'darwin')
     and os.uname()[4] == 'x86_64' and sys.maxint > 2**32):
     # it's not enough that we get x86_64
