@@ -10,7 +10,7 @@ from rpython.jit.metainterp.resume import ResumeDataVirtualAdder,\
      VArrayInfoNotClear, VStrPlainInfo, VStrConcatInfo, VStrSliceInfo,\
      VUniPlainInfo, VUniConcatInfo, VUniSliceInfo, Snapshot, FrameInfo,\
      capture_resumedata, ResumeDataLoopMemo, UNASSIGNEDVIRTUAL, INT,\
-     annlowlevel, PENDINGFIELDSP, unpack_uint
+     annlowlevel, PENDINGFIELDSP, unpack_uint, TAG_CONST_OFFSET
 from rpython.jit.metainterp.resumecode import unpack_numbering,\
      create_numbering, NULL_NUMBER
 
@@ -282,15 +282,18 @@ def Numbering(nums):
     numb = create_numbering(nums, NULL_NUMBER, 0)
     return numb
 
+def tagconst(i):
+    return tag(i + TAG_CONST_OFFSET, TAGCONST)
+
 def test_simple_read():
     #b1, b2, b3 = [BoxInt(), InputArgRef(), BoxInt()]
     c1, c2, c3 = [ConstInt(111), ConstInt(222), ConstInt(333)]
     storage = Storage()
     storage.rd_consts = [c1, c2, c3]
-    numb = Numbering([tag(0, TAGBOX), tag(0, TAGCONST),
+    numb = Numbering([tag(0, TAGBOX), tagconst(0),
                        NULLREF, tag(0, TAGBOX), tag(1, TAGBOX)] +
-                       [tag(1, TAGCONST), tag(2, TAGCONST)] + [0, 0] + 
-                       [tag(0, TAGBOX), tag(1, TAGBOX), tag(2, TAGBOX)] + [0, 0])
+                       [tagconst(1), tagconst(2)] + 
+                       [tag(0, TAGBOX), tag(1, TAGBOX), tag(2, TAGBOX)])
     storage.rd_numb = numb
     storage.rd_count = 3
     #

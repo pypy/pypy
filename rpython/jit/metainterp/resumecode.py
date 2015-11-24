@@ -30,6 +30,7 @@ def create_numbering(lst, prev, prev_index):
 	numb.prev_index = rffi.cast(rffi.USHORT, prev_index)
 	index = 0
 	for item in lst:
+		assert item >= 0
 		if item <= 128:
 			numb.code[index] = rffi.cast(rffi.UCHAR, item)
 			index += 1

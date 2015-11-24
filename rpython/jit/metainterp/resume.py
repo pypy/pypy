@@ -204,9 +204,9 @@ TAGVIRTUAL  = 3
 
 UNASSIGNED = tag(-1 << 13, TAGBOX)
 UNASSIGNEDVIRTUAL = tag(-1 << 13, TAGVIRTUAL)
-NULLREF = tag(-1, TAGCONST)
-UNINITIALIZED = tag(-2, TAGCONST)   # used for uninitialized string characters
-
+NULLREF = tag(0, TAGCONST)
+UNINITIALIZED = tag(1, TAGCONST)   # used for uninitialized string characters
+TAG_CONST_OFFSET = 2
 
 class NumberingState(object):
     def __init__(self):
@@ -260,7 +260,7 @@ class ResumeDataLoopMemo(object):
         return self._newconst(const)
 
     def _newconst(self, const):
-        result = tag(len(self.consts), TAGCONST)
+        result = tag(len(self.consts) + TAG_CONST_OFFSET, TAGCONST)
         self.consts.append(const)
         return result
 
@@ -1143,6 +1143,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         return [self.decode_ref(numb.nums[i]) for i in range(end)]
 
     def consume_vref_and_vable_boxes(self, vinfo, ginfo):
+        xxxx
         numb = self.cur_numb
         self.cur_numb = numb.prev
         if vinfo is not None:
@@ -1294,7 +1295,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             if tagged_eq(tagged, NULLREF):
                 box = self.cpu.ts.CONST_NULL
             else:
-                box = self.consts[num]
+                box = self.consts[num - TAG_CONST_OFFSET]
         elif tag == TAGVIRTUAL:
             if kind == INT:
                 box = self.getvirtual_int(num)
@@ -1604,7 +1605,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def decode_int(self, tagged):
         num, tag = untag(tagged)
         if tag == TAGCONST:
-            return self.consts[num].getint()
+            return self.consts[num - TAG_CONST_OFFSET].getint()
         elif tag == TAGINT:
             return num
         elif tag == TAGVIRTUAL:
@@ -1620,7 +1621,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         if tag == TAGCONST:
             if tagged_eq(tagged, NULLREF):
                 return self.cpu.ts.NULLREF
-            return self.consts[num].getref_base()
+            return self.consts[num - TAG_CONST_OFFSET].getref_base()
         elif tag == TAGVIRTUAL:
             return self.getvirtual_ptr(num)
         else:
@@ -1632,7 +1633,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def decode_float(self, tagged):
         num, tag = untag(tagged)
         if tag == TAGCONST:
-            return self.consts[num].getfloatstorage()
+            return self.consts[num - TAG_CONST_OFFSET].getfloatstorage()
         else:
             assert tag == TAGBOX
             if num < 0:
