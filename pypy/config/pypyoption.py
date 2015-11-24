@@ -40,6 +40,7 @@ working_modules.update([
 ])
 
 working_modules.remove('micronumpy')  # XXX temporary
+working_modules.remove('cpyext')
 
 if ((sys.platform.startswith('linux') or sys.platform == 'darwin')
     and os.uname()[4] == 'x86_64' and sys.maxint > 2**32):
