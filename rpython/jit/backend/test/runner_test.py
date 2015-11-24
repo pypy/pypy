@@ -1222,59 +1222,6 @@ class BaseBackendTest(Runner):
                     got = self.cpu.get_float_value(deadframe, k)
                 assert got == retvalues[k]
 
-    def test_jump_simple(self):
-        # this test generates small loops where the JUMP passes many
-        # arguments of various types, shuffling them around.
-        arg_count = 15
-        inputargs = [InputArgInt() for i in range(arg_count)]
-        #
-        index_counter = len(inputargs)
-        i0 = InputArgInt()
-
-        jumpargs = inputargs[:]
-        remixing = [(0,1),(2,1),(4,7)]
-        for a,b in remixing:
-            jumpargs[a],jumpargs[b] = jumpargs[b],jumpargs[a]
-        #
-        looptoken = JitCellToken()
-        targettoken = TargetToken()
-        faildescr = BasicFailDescr(15)
-        inputargs.append(i0)
-        op0 = ResOperation(rop.LABEL, inputargs, descr=targettoken)
-        op1 = ResOperation(rop.INT_SUB, [i0, ConstInt(1)])
-        op2 = ResOperation(rop.INT_GE, [op1, ConstInt(0)])
-        op3 = ResOperation(rop.GUARD_TRUE, [op2])
-        jumpargs.append(op1)
-        op4 = ResOperation(rop.JUMP, jumpargs, descr=targettoken)
-        operations = [op0, op1, op2, op3, op4]
-        operations[3].setfailargs(inputargs[:])
-        operations[3].setdescr(faildescr)
-        #
-        loop_count = 11
-        self.cpu.compile_loop(inputargs, operations, looptoken)
-        values = [i for i in range(arg_count)]
-        #
-        vals = values + [loop_count]
-        print("args", inputargs)
-        print("jump", jumpargs)
-        print("entering with values", vals)
-        deadframe = self.cpu.execute_token(looptoken, *vals)
-        fail = self.cpu.get_latest_descr(deadframe)
-        assert fail.identifier == 15
-        #
-        dstvalues = values[:]
-        for _ in range(loop_count):
-            for a,b in remixing:
-                dstvalues[a],dstvalues[b] = dstvalues[b],dstvalues[a]
-        #
-        #assert dstvalues[index_counter] == loop_count
-        #dstvalues[index_counter] = 0
-        expected = [self.cpu.get_int_value(deadframe, i) for i in range(arg_count)]
-        for i, (box, val) in enumerate(zip(inputargs[:-1], dstvalues)):
-            got = self.cpu.get_int_value(deadframe, i)
-            assert type(got) == type(val)
-            assert got == val
-
     def test_jump(self):
         # this test generates small loops where the JUMP passes many
         # arguments of various types, shuffling them around.
