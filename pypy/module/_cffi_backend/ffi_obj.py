@@ -50,6 +50,7 @@ class W_FFIObject(W_Root):
 
     w_gc_wref_remove = None
     w_init_once_cache = None
+    jit_init_once_cache = None
 
     @jit.dont_look_inside
     def __init__(self, space, src_ctx):
@@ -589,11 +590,30 @@ where you have an 'ffi' object but not any associated 'lib' object."""
     def descr_init_once(self, w_func, w_tag):
         """XXX document me"""
         #
-        # atomically get or create a new dict (no GIL release)
+        # first, a fast-path for the JIT which only works if the very
+        # same w_tag object is passed; then it turns into no code at all
+        try:
+            return self._init_once_elidable(w_tag)
+        except KeyError:
+            return self._init_once_slowpath(w_func, w_tag)
+
+    @jit.elidable
+    def _init_once_elidable(self, w_tag):
+        jit_cache = self.jit_init_once_cache
+        if jit_cache is not None:
+            return jit_cache[w_tag]
+        else:
+            raise KeyError
+
+    @jit.dont_look_inside
+    def _init_once_slowpath(self, w_func, w_tag):
         space = self.space
         w_cache = self.w_init_once_cache
         if w_cache is None:
-            w_cache = self.w_init_once_cache = space.newdict()
+            w_cache = self.space.newdict()
+            jit_cache = {}
+            self.w_init_once_cache = w_cache
+            self.jit_init_once_cache = jit_cache
         #
         # get the lock or result from cache[tag]
         w_res = space.finditem(w_cache, w_tag)
@@ -606,6 +626,7 @@ where you have an 'ffi' object but not any associated 'lib' object."""
             w_res = space.finditem(w_cache, w_tag)
             if w_res is None or isinstance(w_res, W_InitOnceLock):
                 w_res = space.call_function(w_func)
+                self.jit_init_once_cache[w_tag] = w_res
                 space.setitem(w_cache, w_tag, w_res)
             else:
                 # the real result was put in the dict while we were
