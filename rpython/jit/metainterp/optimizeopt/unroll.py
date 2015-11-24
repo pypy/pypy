@@ -314,9 +314,16 @@ class UnrollOptimizer(Optimization):
             args, virtuals = target_virtual_state.make_inputargs_and_virtuals(
                 args, self.optimizer)
             short_preamble = target_token.short_preamble
-            extra = self.inline_short_preamble(args + virtuals, args,
-                                short_preamble, self.optimizer.patchguardop,
-                                target_token, label_op)
+            try:
+                extra = self.inline_short_preamble(args + virtuals, args,
+                                    short_preamble, self.optimizer.patchguardop,
+                                    target_token, label_op)
+            except KeyError:
+                # SHOULD NOT OCCUR BUT DOES: WHY??  issue #2185
+                self.optimizer.metainterp_sd.logger_ops.log_short_preamble([],
+                    short_preamble, {})
+                raise
+
             self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
                                       args=args + extra,
                                       descr=target_token))
