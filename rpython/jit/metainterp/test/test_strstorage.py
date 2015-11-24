@@ -29,6 +29,8 @@ class TestStrStorage(BaseStrStorageTest, LLJitMixin):
             return longlong.int2singlefloat(res)
         return res
 
+    def str_storage_supported(self, TYPE):
+        py.test.skip('this is not a JIT test')
 
     def test_force_virtual_str_storage(self):
         byteorder = sys.byteorder
