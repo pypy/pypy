@@ -1810,3 +1810,35 @@ class BackendTests:
         assert lib.EE1 == 0
         assert lib.EE2 == 0
         assert lib.EE3 == 1
+
+    def test_init_once(self):
+        def do_init():
+            seen.append(1)
+            return 42
+        ffi = FFI()
+        seen = []
+        for i in range(3):
+            res = ffi.init_once(do_init, "tag1")
+            assert res == 42
+            assert seen == [1]
+        for i in range(3):
+            res = ffi.init_once(do_init, "tag2")
+            assert res == 42
+            assert seen == [1, 1]
+
+    def test_init_once_multithread(self):
+        import thread, time
+        def do_init():
+            seen.append('init!')
+            time.sleep(1)
+            seen.append('init done')
+            return 7
+        ffi = FFI()
+        seen = []
+        for i in range(6):
+            def f():
+                res = ffi.init_once(do_init, "tag")
+                seen.append(res)
+            thread.start_new_thread(f, ())
+        time.sleep(1.5)
+        assert seen == ['init!', 'init done'] + 6 * [7]
