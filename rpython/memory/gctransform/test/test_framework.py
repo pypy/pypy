@@ -325,7 +325,7 @@ def test_remove_write_barrier_stm():
 
     ff = graphof(t, f)
     ff.show()
-    assert summary(ff)['stm_write'] == 1    # only one remember_young_pointer
+    assert summary(ff)['stm_write'] == 2    # only one remember_young_pointer
 
 def test_write_barrier_collector():
     class A(object):
