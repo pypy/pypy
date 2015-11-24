@@ -595,6 +595,7 @@ class AssemblerZARCH(BaseAssembler,
         self.mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
 
         # save r4, the second argument, to THREADLOCAL_ADDR_OFFSET
+        # TODO
         #self.mc.STG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
 
         # move the first argument to SPP: the jitframe object

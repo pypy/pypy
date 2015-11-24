@@ -309,7 +309,6 @@ class ZARCHFrameManager(FrameManager):
         self.base_ofs = base_ofs
 
     def frame_pos(self, loc, box_type):
-        #return l.StackLocation(loc, get_fp_offset(self.base_ofs, loc), box_type)
         return l.StackLocation(loc, get_fp_offset(self.base_ofs, loc), box_type)
 
     @staticmethod

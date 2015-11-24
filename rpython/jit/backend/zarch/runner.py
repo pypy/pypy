@@ -27,7 +27,7 @@ class CPU_S390_64(AbstractZARCHCPU):
     all_reg_indexes = [-1] * 32
     for _i, _r in enumerate(r.registers):
         all_reg_indexes[_r.value] = _i
-    gen_regs = r.MANAGED_REGS
+    gen_regs = r.registers
     float_regs = r.MANAGED_FP_REGS
 
     def setup(self):
