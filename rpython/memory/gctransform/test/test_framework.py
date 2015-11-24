@@ -300,17 +300,19 @@ def test_remove_write_barrier_stm():
     class A: pass
     glob = A()
     glob2 = A()
-    def f(n, g):
+    def f(n, g, g2):
         i = 0
-        g.a = n
+        llop.gc_writebarrier(lltype.Void, g2)
+        g.a = n # WB
         while i < n:
             g.a = i
+            g2.a = i
             i += 1
     def g(argv):
         if argv[1]:
-            f(int(argv[1]), glob)
+            f(int(argv[1]), glob, glob2)
         else:
-            f(int(argv[1]), glob2)
+            f(int(argv[1]), glob2, glob)
         return 0
 
     t = rtype(g, [s_list_of_strings])

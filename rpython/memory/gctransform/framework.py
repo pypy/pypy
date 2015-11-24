@@ -109,6 +109,8 @@ class WriteBarrierCollector(object):
                 self.in_stm_ignored = True
             elif op.opname == "stm_ignored_stop":
                 self.in_stm_ignored = False
+            elif op.opname == "gc_writebarrier":
+                writeable[op.args[0]] = True
             elif op.opname == "malloc":
                 rtti = get_rtti(op.args[0].value)
                 if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
