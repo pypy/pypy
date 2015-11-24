@@ -46,8 +46,11 @@ def _rpy_string_as_type(TP):
 
 @specialize.arg(0)
 def str_storage_supported(TP):
-    STR_AS_TP = _rpy_string_as_type(TP)
-    return _offsetof_chars(STR) == _offsetof_chars(STR_AS_TP)
+    # on some architectures (e.g. win32 and arm32) an array of longlongs needs
+    # to be aligned at 8 bytes boundaries, so we cannot safely cast from STR
+    # to STR_AS_TP. In that case, we str_storage_getitem is simply not
+    # supported
+    return rffi.sizeof(TP) <= rffi.sizeof(lltype.Signed)
 
 @specialize.ll()
 def str_storage_getitem(TP, s, index):
@@ -57,17 +60,3 @@ def str_storage_getitem(TP, s, index):
     str_as_tp = rffi.cast(lltype.Ptr(STR_AS_TP), lls)
     index = index / rffi.sizeof(TP)
     return str_as_tp.chars[index]
-
-@specialize.arg(0)
-def _offsetof_chars(TP):
-    # we need to be careful in presence of cross-compilation, because we want
-    # to defer the actual check at compile-time on the target machine, NOT at
-    # translation time on the host machine.  However, we still need to support
-    # direct tests, so if we are not translated, we immediately force the
-    # result into an actual int.
-    offset = llmemory.offsetof(TP, 'chars')
-    if we_are_translated():
-        return offset # symbolic
-    else:
-        return offset.force_as_int()
-    return offset
