@@ -8,6 +8,7 @@ from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root, ObjSpace
 from pypy.interpreter.error import OperationError
 from rpython.rlib.objectmodel import specialize, instantiate
 from rpython.rlib.nonconst import NonConstant
+from rpython.rlib.rarithmetic import base_int
 from pypy.module.micronumpy import boxes, ufuncs
 from pypy.module.micronumpy.arrayops import where
 from pypy.module.micronumpy.ndarray import W_NDimArray
@@ -178,7 +179,7 @@ class FakeSpace(ObjSpace):
             return BoolObject(obj)
         elif isinstance(obj, int):
             return IntObject(obj)
-        elif isinstance(obj, long):
+        elif isinstance(obj, base_int):
             return LongObject(obj)
         elif isinstance(obj, W_Root):
             return obj
@@ -196,31 +197,31 @@ class FakeSpace(ObjSpace):
         return self.float(f)
 
     def le(self, w_obj1, w_obj2):
-        assert isinstance(w_obj1, boxes.W_GenericBox) 
-        assert isinstance(w_obj2, boxes.W_GenericBox) 
+        assert isinstance(w_obj1, boxes.W_GenericBox)
+        assert isinstance(w_obj2, boxes.W_GenericBox)
         return w_obj1.descr_le(self, w_obj2)
 
     def lt(self, w_obj1, w_obj2):
-        assert isinstance(w_obj1, boxes.W_GenericBox) 
-        assert isinstance(w_obj2, boxes.W_GenericBox) 
+        assert isinstance(w_obj1, boxes.W_GenericBox)
+        assert isinstance(w_obj2, boxes.W_GenericBox)
         return w_obj1.descr_lt(self, w_obj2)
 
     def ge(self, w_obj1, w_obj2):
-        assert isinstance(w_obj1, boxes.W_GenericBox) 
-        assert isinstance(w_obj2, boxes.W_GenericBox) 
+        assert isinstance(w_obj1, boxes.W_GenericBox)
+        assert isinstance(w_obj2, boxes.W_GenericBox)
         return w_obj1.descr_ge(self, w_obj2)
 
     def add(self, w_obj1, w_obj2):
-        assert isinstance(w_obj1, boxes.W_GenericBox) 
-        assert isinstance(w_obj2, boxes.W_GenericBox) 
+        assert isinstance(w_obj1, boxes.W_GenericBox)
+        assert isinstance(w_obj2, boxes.W_GenericBox)
         return w_obj1.descr_add(self, w_obj2)
 
     def sub(self, w_obj1, w_obj2):
         return self.wrap(1)
 
     def mul(self, w_obj1, w_obj2):
-        assert isinstance(w_obj1, boxes.W_GenericBox) 
-        assert isinstance(w_obj2, boxes.W_GenericBox) 
+        assert isinstance(w_obj1, boxes.W_GenericBox)
+        assert isinstance(w_obj2, boxes.W_GenericBox)
         return w_obj1.descr_mul(self, w_obj2)
 
     def pow(self, w_obj1, w_obj2, _):
@@ -836,7 +837,7 @@ class FunctionCall(Node):
             elif self.name == 'reshape':
                 w_arg = self.args[1]
                 assert isinstance(w_arg, ArrayConstant)
-                order = -1 
+                order = -1
                 w_res = arr.reshape(interp.space, w_arg.wrap(interp.space), order)
             else:
                 assert False
