@@ -19,6 +19,7 @@ from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.unsimplify import varoftype
 
 import py
+import pytest
 
 class FrameworkGcPolicy2(BasicFrameworkGcPolicy):
     class transformerclass(ShadowStackFrameworkGCTransformer):
@@ -61,6 +62,7 @@ def test_framework_simple(gc="minimark"):
 
     assert res == 2
 
+@pytest.mark.xfail(reason="llinterp does not implement stm_allocate_tid")
 def test_framework_simple_stm():
     test_framework_simple("stmgc")
 
@@ -324,8 +326,75 @@ def test_remove_write_barrier_stm():
     db = cbuild.generate_graphs_for_llinterp()
 
     ff = graphof(t, f)
-    ff.show()
-    assert summary(ff)['stm_write'] == 2    # only one remember_young_pointer
+    #ff.show()
+    assert summary(ff)['stm_write'] == 2
+
+def test_remove_write_barrier_stm2():
+    from rpython.translator.c.genc import CStandaloneBuilder
+    from rpython.flowspace.model import summary
+    from rpython.rlib.objectmodel import stm_ignored
+
+    class A: pass
+    glob = A()
+    glob2 = A()
+    def f(n, g, g2):
+        i = 1
+        while n:
+            g.a = i # WB
+            with stm_ignored:
+                g2.a = i
+    def g(argv):
+        if argv[1]:
+            f(int(argv[1]), glob, glob2)
+        else:
+            f(int(argv[1]), glob2, glob)
+        return 0
+
+    t = rtype(g, [s_list_of_strings])
+    t.config.translation.stm = True
+    gcpolicy = StmFrameworkGcPolicy
+    t.config.translation.gc = "stmgc"
+    cbuild = CStandaloneBuilder(t, g, t.config,
+                                gcpolicy=gcpolicy)
+    db = cbuild.generate_graphs_for_llinterp()
+
+    ff = graphof(t, f)
+    #ff.show()
+    assert summary(ff)['stm_write'] == 1
+
+def test_remove_write_barrier_stm3():
+    from rpython.translator.c.genc import CStandaloneBuilder
+    from rpython.flowspace.model import summary
+
+    S = lltype.GcStruct('S')
+    A = lltype.GcArray(lltype.Ptr(S))
+    def f(l, l2, i):
+        s = lltype.malloc(S)
+        llop.gc_writebarrier(lltype.Void, l2)
+        while i:
+            l[i] = s # WB card
+            l[i] = s # WB card
+            l2[i] = s # no WB
+    def g(argv):
+        n = int(argv[1])
+        l = lltype.malloc(A, n)
+        l[0] = lltype.malloc(S)
+        l[1] = lltype.malloc(S)
+        l[2] = lltype.malloc(S)
+        f(l, l, n)
+        return 0
+    t = rtype(g, [s_list_of_strings])
+    t.config.translation.stm = True
+    gcpolicy = StmFrameworkGcPolicy
+    t.config.translation.gc = "stmgc"
+    cbuild = CStandaloneBuilder(t, g, t.config,
+                                gcpolicy=gcpolicy)
+    db = cbuild.generate_graphs_for_llinterp()
+
+    ff = graphof(t, f)
+    #ff.show()
+    assert summary(ff)['stm_write'] == 3
+
 
 def test_write_barrier_collector():
     class A(object):

@@ -110,6 +110,7 @@ class WriteBarrierCollector(object):
             elif op.opname == "stm_ignored_stop":
                 self.in_stm_ignored = False
             elif op.opname == "gc_writebarrier":
+                assert not self.in_stm_ignored
                 writeable[op.args[0]] = True
             elif op.opname == "malloc":
                 rtti = get_rtti(op.args[0].value)
@@ -148,13 +149,16 @@ class WriteBarrierCollector(object):
                         # already writeable, this op is also clean
                         self.clean_ops.add(op)
                     elif op in self.clean_ops:
-                        # we require an stm_write
+                        # we changed our opinion in this iteration
                         self.clean_ops.remove(op)
                     # always writeable after this op
                     writeable[op.args[0]] = True
                 else:
                     # things that need partial write barriers (card marking)
-                    assert op not in self.clean_ops
+                    if writeable.get(op.args[0], False):
+                        self.clean_ops.add(op)
+                    elif op in self.clean_ops:
+                        self.clean_ops.remove(op)
         #
         # update in_states of all successors
         updated = set()
