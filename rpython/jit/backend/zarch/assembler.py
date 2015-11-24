@@ -671,8 +671,8 @@ class AssemblerZARCH(BaseAssembler,
             [return_val, fail_descr_loc] = arglocs
             if op.getarg(0).type == FLOAT:
                 if return_val.is_in_pool():
-                    self.mc.LDY(r.FSCRATCH, return_val)
-                    return_val = r.FSCRATCH
+                    self.mc.LDY(r.FP_SCRATCH, return_val)
+                    return_val = r.FP_SCRATCH
                 self.mc.STD(return_val, l.addr(base_ofs, r.SPP))
             else:
                 if return_val.is_in_pool():
