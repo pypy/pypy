@@ -17,6 +17,7 @@ Thanks to Tim Peters for suggesting using it.
 """
 
 from __future__ import division
+import numbers as _numbers
 import time as _time
 import math as _math
 import struct as _struct
@@ -271,15 +272,17 @@ def _check_utc_offset(name, offset):
 
 def _check_int_field(value):
     if isinstance(value, int):
-        return value
+        return int(value)
     if not isinstance(value, float):
         try:
             value = value.__int__()
         except AttributeError:
             pass
         else:
-            if isinstance(value, (int, long)):
-                return value
+            if isinstance(value, int):
+                return int(value)
+            elif isinstance(value, long):
+                return int(long(value))
             raise TypeError('__int__ method should return an integer')
         raise TypeError('an integer is required')
     raise TypeError('integer argument expected, got float')
@@ -468,7 +471,7 @@ class timedelta(object):
             d = days
         assert isinstance(daysecondsfrac, float)
         assert abs(daysecondsfrac) <= 1.0
-        assert isinstance(d, (int, long))
+        assert isinstance(d, _numbers.Integral)
         assert abs(s) <= 24 * 3600
         # days isn't referenced again before redefinition
 
@@ -484,11 +487,11 @@ class timedelta(object):
         assert isinstance(secondsfrac, float)
         assert abs(secondsfrac) <= 2.0
 
-        assert isinstance(seconds, (int, long))
+        assert isinstance(seconds, _numbers.Integral)
         days, seconds = divmod(seconds, 24*3600)
         d += days
         s += int(seconds)    # can't overflow
-        assert isinstance(s, int)
+        assert isinstance(s, _numbers.Integral)
         assert abs(s) <= 2 * 24 * 3600
         # seconds isn't referenced again before redefinition
 
@@ -510,8 +513,8 @@ class timedelta(object):
             d += days
             s += int(seconds)
             microseconds = _round(microseconds + usdouble)
-        assert isinstance(s, int)
-        assert isinstance(microseconds, int)
+        assert isinstance(s, _numbers.Integral)
+        assert isinstance(microseconds, _numbers.Integral)
         assert abs(s) <= 3 * 24 * 3600
         assert abs(microseconds) < 3.1e6
 
@@ -521,9 +524,9 @@ class timedelta(object):
         days, s = divmod(s, 24*3600)
         d += days
 
-        assert isinstance(d, (int, long))
-        assert isinstance(s, int) and 0 <= s < 24*3600
-        assert isinstance(us, int) and 0 <= us < 1000000
+        assert isinstance(d, _numbers.Integral)
+        assert isinstance(s, _numbers.Integral) and 0 <= s < 24*3600
+        assert isinstance(us, _numbers.Integral) and 0 <= us < 1000000
 
         if abs(d) > 999999999:
             raise OverflowError("timedelta # of days is too large: %d" % d)
@@ -1510,7 +1513,7 @@ class datetime(date):
 
         converter = _time.localtime if tz is None else _time.gmtime
 
-        if isinstance(timestamp, int):
+        if isinstance(timestamp, _numbers.Integral):
             us = 0
         else:
             t_full = timestamp
@@ -1535,7 +1538,7 @@ class datetime(date):
     @classmethod
     def utcfromtimestamp(cls, t):
         "Construct a UTC datetime from a POSIX timestamp (like time.time())."
-        if isinstance(t, int):
+        if isinstance(t, _numbers.Integral):
             us = 0
         else:
             t_full = t
