@@ -104,6 +104,11 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def load(self, treg, sreg, offset):
         self.LG(treg, l.addr(offset, sreg))
 
+    def nop(self):
+        # if the mask is zero it act as a NOP
+        # there is no special 'no operation' instruction
+        self.BCR_rr(0x0, 0x0)
+
     def currpos(self):
         return self.get_relative_pos()
 

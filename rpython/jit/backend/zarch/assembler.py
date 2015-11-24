@@ -184,6 +184,10 @@ class AssemblerZARCH(BaseAssembler,
     def _build_stack_check_slowpath(self):
         pass # TODO
 
+    def new_stack_loc(self, i, tp):
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        return l.StackLocation(i, l.get_fp_offset(base_ofs, i), tp)
+
     def _call_header_with_stack_check(self):
         self._call_header()
         if self.stack_check_slowpath == 0:

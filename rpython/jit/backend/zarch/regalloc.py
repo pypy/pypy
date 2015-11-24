@@ -108,6 +108,7 @@ class ZARCHRegisterManager(RegisterManager):
     save_around_call_regs = r.VOLATILES
     frame_reg             = r.SPP
     assert set(save_around_call_regs).issubset(all_regs)
+    pool = None
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
@@ -123,8 +124,8 @@ class ZARCHRegisterManager(RegisterManager):
             return rffi.cast(lltype.Signed, c.value)
 
     def convert_to_imm(self, c):
-        #val = self.convert_to_int(c)
-        return l.ImmLocation(val)
+        off = self.pool.get_offset(c)
+        return l.pool(off)
 
     def ensure_reg(self, box, force_in_reg):
         if isinstance(box, Const):
@@ -342,6 +343,7 @@ class Regalloc(BaseRegalloc):
         self.rm = ZARCHRegisterManager(self.longevity,
                                      frame_manager = self.fm,
                                      assembler = self.assembler)
+        self.rm.pool = self.assembler.pool
         self.fprm = FPRegisterManager(self.longevity, frame_manager = self.fm,
                                       assembler = self.assembler)
         self.fprm.pool = self.assembler.pool
@@ -778,6 +780,12 @@ class Regalloc(BaseRegalloc):
         l1 = self.ensure_reg_or_16bit_imm(op.getarg(1))
         arglocs = self._prepare_guard(op, [l0, l1])
         return arglocs
+
+    def prepare_guard_not_invalidated(self, op):
+        pos = self.assembler.mc.get_relative_pos()
+        self.ensure_next_label_is_at_least_at_position(pos + 4)
+        locs = self._prepare_guard(op)
+        return locs
 
     def prepare_label(self, op):
         descr = op.getdescr()
