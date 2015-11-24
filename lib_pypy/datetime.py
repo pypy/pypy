@@ -534,8 +534,7 @@ class timedelta(object):
 
     def total_seconds(self):
         """Total seconds in the duration."""
-        return ((self.days * 86400 + self.seconds) * 10**6 +
-                self.microseconds) / 10**6
+        return self._to_microseconds() / 10**6
 
     # Read-only field accessors
     @property
