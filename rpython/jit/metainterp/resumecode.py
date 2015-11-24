@@ -17,6 +17,7 @@ NUMBERING = lltype.GcStruct('Numbering',
                             ('prev_index', rffi.USHORT),
                             ('code', lltype.Array(rffi.UCHAR)))
 NUMBERINGP.TO.become(NUMBERING)
+NULL_NUMBER = lltype.nullptr(NUMBERING)
 
 def create_numbering(lst, prev, prev_index):
 	count = 0

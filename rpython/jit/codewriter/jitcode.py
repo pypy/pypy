@@ -142,6 +142,7 @@ class LiveVarsInfo(object):
         return ord(self.live_f[index])
 
     def enumerate_vars(self, callback_i, callback_r, callback_f, spec):
+        xxx
         index = 0
         for i in range(self.get_register_count_i()):
             callback_i(index, self.get_register_index_i(i))

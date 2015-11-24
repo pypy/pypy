@@ -11,7 +11,9 @@ from rpython.jit.metainterp.resume import ResumeDataVirtualAdder,\
      VUniPlainInfo, VUniConcatInfo, VUniSliceInfo, Snapshot, FrameInfo,\
      capture_resumedata, ResumeDataLoopMemo, UNASSIGNEDVIRTUAL, INT,\
      annlowlevel, PENDINGFIELDSP, unpack_uint
-from rpython.jit.metainterp.resumecode import unpack_numbering
+from rpython.jit.metainterp.resumecode import unpack_numbering,\
+     create_numbering, NULL_NUMBER
+
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.history import ConstInt, Const, AbstractDescr
 from rpython.jit.metainterp.history import ConstPtr, ConstFloat
@@ -238,17 +240,18 @@ class MyBlackholeInterp:
     def get_current_position_info(self):
         class MyInfo:
             @staticmethod
-            def enumerate_vars(callback_i, callback_r, callback_f, _):
+            def enumerate_vars(callback_i, callback_r, callback_f, _, index):
                 count_i = count_r = count_f = 0
-                for index, ARG in enumerate(self.ARGS):
+                for ARG in self.ARGS:
                     if ARG == lltype.Signed:
-                        callback_i(index, count_i); count_i += 1
+                        index = callback_i(index, count_i); count_i += 1
                     elif ARG == llmemory.GCREF:
-                        callback_r(index, count_r); count_r += 1
+                        index = callback_r(index, count_r); count_r += 1
                     elif ARG == longlong.FLOATSTORAGE:
-                        callback_f(index, count_f); count_f += 1
+                        index = callback_f(index, count_f); count_f += 1
                     else:
                         assert 0
+                return index
         return MyInfo()
 
     def setarg_i(self, index, value):
@@ -275,11 +278,8 @@ def _next_section(reader, *expected):
     assert bh.written_f == expected_f
 
 
-def Numbering(prev, nums):
-    numb = lltype.malloc(NUMBERING, len(nums))
-    numb.prev = prev or lltype.nullptr(NUMBERING)
-    for i in range(len(nums)):
-        numb.nums[i] = nums[i]
+def Numbering(nums):
+    numb = create_numbering(nums, NULL_NUMBER, 0)
     return numb
 
 def test_simple_read():
@@ -287,13 +287,10 @@ def test_simple_read():
     c1, c2, c3 = [ConstInt(111), ConstInt(222), ConstInt(333)]
     storage = Storage()
     storage.rd_consts = [c1, c2, c3]
-    numb = Numbering(None, [tag(0, TAGBOX), tag(1, TAGBOX), tag(2, TAGBOX)])
-    numb = Numbering(numb, [tag(1, TAGCONST), tag(2, TAGCONST)])
-    numb = Numbering(numb, [tag(0, TAGBOX),
-                            tag(0, TAGCONST),
-                            NULLREF,
-                            tag(0, TAGBOX),
-                            tag(1, TAGBOX)])
+    numb = Numbering([tag(0, TAGBOX), tag(0, TAGCONST),
+                       NULLREF, tag(0, TAGBOX), tag(1, TAGBOX)] +
+                       [tag(1, TAGCONST), tag(2, TAGCONST)] + [0, 0] + 
+                       [tag(0, TAGBOX), tag(1, TAGBOX), tag(2, TAGBOX)] + [0, 0])
     storage.rd_numb = numb
     storage.rd_count = 3
     #
@@ -1072,8 +1069,10 @@ def make_storage(b1, b2, b3):
     snapshot = Snapshot(None, [b1, ConstInt(1), b1, b2])
     snapshot = Snapshot(snapshot, [ConstInt(2), ConstInt(3)])
     snapshot = Snapshot(snapshot, [b1, b2, b3])    
+    frameinfo = FrameInfo(FrameInfo(None, FakeJitCode("code1", 21), 22),
+        FakeJitCode("code2", 31), 32)
     storage.rd_snapshot = snapshot
-    storage.rd_frame_info_list = None
+    storage.rd_frame_info_list = frameinfo
     return storage
 
 def test_virtual_adder_int_constants():

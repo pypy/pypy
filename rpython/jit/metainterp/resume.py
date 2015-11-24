@@ -978,7 +978,8 @@ class AbstractResumeDataReader(object):
 
     def _init(self, cpu, storage):
         self.cpu = cpu
-        self.cur_numb = storage.rd_numb
+        self.numb = storage.rd_numb
+        self.cur_index = 0
         self.count = storage.rd_count
         self.consts = storage.rd_consts
 
@@ -1061,23 +1062,29 @@ class AbstractResumeDataReader(object):
     def _prepare_next_section(self, info):
         # Use info.enumerate_vars(), normally dispatching to
         # rpython.jit.codewriter.jitcode.  Some tests give a different 'info'.
-        info.enumerate_vars(self._callback_i,
-                            self._callback_r,
-                            self._callback_f,
-                            self.unique_id)    # <-- annotation hack
-        self.cur_numb = self.cur_numb.prev
+        self.cur_index = info.enumerate_vars(self._callback_i,
+                                        self._callback_r,
+                                        self._callback_f,
+                                        self.unique_id,  # <-- annotation hack
+                                        self.cur_index)
 
     def _callback_i(self, index, register_index):
-        value = self.decode_int(self.cur_numb.nums[index])
+        item, index = resumecode.numb_next_item(self.numb, index)
+        value = self.decode_int(item)
         self.write_an_int(register_index, value)
+        return index
 
     def _callback_r(self, index, register_index):
-        value = self.decode_ref(self.cur_numb.nums[index])
+        item, index = resumecode.numb_next_item(self.numb, index)
+        value = self.decode_ref(item)
         self.write_a_ref(register_index, value)
+        return index
 
     def _callback_f(self, index, register_index):
-        value = self.decode_float(self.cur_numb.nums[index])
+        item, index = resumecode.numb_next_item(self.numb, index)
+        value = self.decode_float(item)
         self.write_a_float(register_index, value)
+        return index
 
 # ---------- when resuming for pyjitpl.py, make boxes ----------
 
@@ -1379,6 +1386,7 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitcodes,
     #
     # Now fill the blackhole interpreters with resume data.
     curbh = firstbh
+    xxxx
     numbering = storage.rd_numb.prev
     while True:
         jitcode_pos, pc = unpack_uint(numbering.packed_jitcode_pc)
