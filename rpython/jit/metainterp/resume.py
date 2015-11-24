@@ -208,6 +208,13 @@ NULLREF = tag(-1, TAGCONST)
 UNINITIALIZED = tag(-2, TAGCONST)   # used for uninitialized string characters
 
 
+class NumberingState(object):
+    def __init__(self):
+        self.liveboxes = {}
+        self.current = []
+        self.n = 0
+        self.v = 0
+
 class ResumeDataLoopMemo(object):
 
     def __init__(self, metainterp_sd):
@@ -259,9 +266,13 @@ class ResumeDataLoopMemo(object):
 
     # env numbering
 
-    def _number_boxes(self, boxes, liveboxes, optimizer, v, n):
+    def _number_boxes(self, boxes, optimizer, state):
+        """ Number boxes from one snapshot
+        """
+        n = state.n
+        v = state.v
+        liveboxes = state.liveboxes
         length = len(boxes)
-        current = []
         for i in range(length):
             box = boxes[i]
             box = optimizer.get_box_replacement(box)
@@ -285,57 +296,48 @@ class ResumeDataLoopMemo(object):
                     tagged = tag(n, TAGBOX)
                     n += 1
                 liveboxes[box] = tagged
-            current.append(tagged)
-        return v, n, current
+            state.current.append(tagged)
+        state.n = n
+        state.v = v
 
-    def _get_prev_snapshot(self, snapshot):
-        cur_snapshot = snapshot
-        while True:
-            try:
-                return self.numberings[cur_snapshot], cur_snapshot
-            except KeyError:
-                pass
-            cur_snapshot = cur_snapshot.prev
-            if not cur_snapshot:
-                return (lltype.nullptr(resumecode.NUMBERING), 0, {}, 0), None
+#    def _get_prev_snapshot(self, snapshot):
+#        cur_snapshot = snapshot
+#        while True:
+#            try:
+#                return self.numberings[cur_snapshot], cur_snapshot
+#            except KeyError:
+#                pass
+#            cur_snapshot = cur_snapshot.prev
+#            if not cur_snapshot:
+#                return (lltype.nullptr(resumecode.NUMBERING), 0, {}, 0), None
 
     def number(self, optimizer, snapshot, frameinfo):
-        # find the parent
+        # flatten the list
+        cur = snapshot
+        snapshot_list = []
+        framestack_list = []
+        while cur:
+            if cur is not snapshot:
+                framestack_list.append(frameinfo)
+                frameinfo = frameinfo.prev
+            snapshot_list.append(cur)
+            cur = cur.prev
+        snapshot_list.reverse()
+        framestack_list.reverse()
+        state = NumberingState()
 
-        p = self._get_prev_snapshot(snapshot)
-        (prev_numb, prev_numb_index, liveboxes, v), s = p
-        n = len(liveboxes) - v
-        first = True
-        all_lists = []
-        total_lgt = 0
-        cur_snapshot = snapshot
-        liveboxes_to_save = []
-        while cur_snapshot != s:
-            liveboxes_to_save.append((liveboxes.copy(), v))
-            v, n, current = self._number_boxes(cur_snapshot.boxes, liveboxes, optimizer,
-                v, n)
-            cur_snapshot = cur_snapshot.prev
-            if first:
-                first = False
-            else:
+        for i in range(len(snapshot_list)):
+            self._number_boxes(snapshot_list[i].boxes, optimizer, state)
+            if i != 0:
+                frameinfo = framestack_list[i - 1]
                 jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
-                current.append(rffi.cast(rffi.USHORT, jitcode_pos))
-                current.append(rffi.cast(rffi.USHORT, pc))
-            lst = resumecode.create_numbering(current)
-            total_lgt += len(lst)
-            all_lists.append(lst)
-        numb = lltype.malloc(resumecode.NUMBERING, total_lgt)
-        numb.prev = prev_numb
-        numb.prev_index = rffi.cast(rffi.USHORT, prev_numb_index)
-        index = 0
-        for i in range(len(all_lists)):
-            lst = all_lists[i]
-            liveboxes_snapshot, v = liveboxes_to_save[i]
-            self.numberings[snapshot] = (numb, index, liveboxes_snapshot, v)
-            resumecode.copy_from_list_to_numb(lst, numb, index)
-            index += len(lst)
-            snapshot = snapshot.prev
-        return numb, liveboxes, v
+                state.current.append(rffi.cast(rffi.USHORT, jitcode_pos))
+                state.current.append(rffi.cast(rffi.USHORT, pc))
+
+        numb = resumecode.create_numbering(state.current,
+            lltype.nullptr(resumecode.NUMBERING), 0)
+
+        return numb, state.liveboxes, state.v
         
     def forget_numberings(self):
         # XXX ideally clear only the affected numberings

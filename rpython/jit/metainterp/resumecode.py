@@ -18,22 +18,24 @@ NUMBERING = lltype.GcStruct('Numbering',
                             ('code', lltype.Array(rffi.UCHAR)))
 NUMBERINGP.TO.become(NUMBERING)
 
-def create_numbering(lst):
+def create_numbering(lst, prev, prev_index):
 	count = 0
 	for item in lst:
 		if item > 127:
 			count += 1
 		count += 1
-	numb = [rffi.cast(rffi.UCHAR, 0)] * count
+	numb = lltype.malloc(NUMBERING, count)
+	numb.prev = prev
+	numb.prev_index = rffi.cast(rffi.USHORT, prev_index)
 	index = 0
 	for item in lst:
 		if item <= 128:
-			numb[index] = rffi.cast(rffi.UCHAR, item)
+			numb.code[index] = rffi.cast(rffi.UCHAR, item)
 			index += 1
 		else:
 			assert (item >> 8) <= 127
-			numb[index] = rffi.cast(rffi.UCHAR, (item >> 8) | 0x80)
-			numb[index + 1] = rffi.cast(rffi.UCHAR, item & 0xff)
+			numb.code[index] = rffi.cast(rffi.UCHAR, (item >> 8) | 0x80)
+			numb.code[index + 1] = rffi.cast(rffi.UCHAR, item & 0xff)
 			index += 2
 	return numb
 

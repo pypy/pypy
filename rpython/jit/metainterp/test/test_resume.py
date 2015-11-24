@@ -11,6 +11,7 @@ from rpython.jit.metainterp.resume import ResumeDataVirtualAdder,\
      VUniPlainInfo, VUniConcatInfo, VUniSliceInfo, Snapshot, FrameInfo,\
      capture_resumedata, ResumeDataLoopMemo, UNASSIGNEDVIRTUAL, INT,\
      annlowlevel, PENDINGFIELDSP, unpack_uint
+from rpython.jit.metainterp.resumecode import unpack_numbering
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.history import ConstInt, Const, AbstractDescr
 from rpython.jit.metainterp.history import ConstPtr, ConstFloat
@@ -926,21 +927,19 @@ def test_ResumeDataLoopMemo_number():
 
     assert liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                          b3: tag(2, TAGBOX)}
-    assert list(numb.nums) == [tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX),
-                               tag(1, TAGINT)]
-    assert list(numb.prev.nums) == [tag(0, TAGBOX), tag(1, TAGINT),
-                                    tag(1, TAGBOX),
-                                    tag(0, TAGBOX), tag(2, TAGINT)]
-    assert not numb.prev.prev
+    base = [tag(0, TAGBOX), tag(1, TAGINT), tag(1, TAGBOX), tag(0, TAGBOX), tag(2, TAGINT)]
 
-    numb2, liveboxes2, v = memo.number(FakeOptimizer(), snap2)
+    assert unpack_numbering(numb) == base + [
+          tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX), tag(1, TAGINT), 0, 0]
+
+    numb2, liveboxes2, v = memo.number(FakeOptimizer(), snap2, frameinfo)
     assert v == 0
     
     assert liveboxes2 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                          b3: tag(2, TAGBOX)}
     assert liveboxes2 is not liveboxes
-    assert list(numb2.nums) == [tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX),
-                                tag(3, TAGINT)]
+    assert unpack_numbering(numb2) == base + [
+         tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX), tag(3, TAGINT), 0, 0]
     assert numb2.prev == numb.prev
 
     env3 = [c3, b3, b1, c3]
@@ -955,41 +954,39 @@ def test_ResumeDataLoopMemo_number():
 
     # renamed
     b3.set_forwarded(c4)
-    numb3, liveboxes3, v = memo.number(FakeOptimizer(), snap3)
+    numb3, liveboxes3, v = memo.number(FakeOptimizer(), snap3, frameinfo)
     assert v == 0
     
     assert liveboxes3 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX)}
-    assert list(numb3.nums) == [tag(3, TAGINT), tag(4, TAGINT), tag(0, TAGBOX),
-                                tag(3, TAGINT)]
-    assert numb3.prev == numb.prev
+    assert unpack_numbering(numb3) == base + [tag(3, TAGINT), tag(4, TAGINT), tag(0, TAGBOX),
+                                tag(3, TAGINT), 0, 0]
 
     # virtual
     env4 = [c3, b4, b1, c3]
     snap4 = Snapshot(snap, env4)
 
     b4.set_forwarded(FakeVirtualInfo(True))
-    numb4, liveboxes4, v = memo.number(FakeOptimizer(), snap4)
+    numb4, liveboxes4, v = memo.number(FakeOptimizer(), snap4, frameinfo)
     assert v == 1
     
     assert liveboxes4 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                           b4: tag(0, TAGVIRTUAL)}
-    assert list(numb4.nums) == [tag(3, TAGINT), tag(0, TAGVIRTUAL),
-                                tag(0, TAGBOX), tag(3, TAGINT)]
-    assert numb4.prev == numb.prev
+    assert unpack_numbering(numb4) == base + [tag(3, TAGINT), tag(0, TAGVIRTUAL),
+                                tag(0, TAGBOX), tag(3, TAGINT), 0, 0]
 
     env5 = [b1, b4, b5]
     snap5 = Snapshot(snap4, env5)
 
     b4.set_forwarded(FakeVirtualInfo(True))
     b5.set_forwarded(FakeVirtualInfo(True))
-    numb5, liveboxes5, v = memo.number(FakeOptimizer(), snap5)
+    frameinfo = FrameInfo(frameinfo, FakeJitCode("foo", 2), 1)
+    numb5, liveboxes5, v = memo.number(FakeOptimizer(), snap5, frameinfo)
     assert v == 2
     
     assert liveboxes5 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                           b4: tag(0, TAGVIRTUAL), b5: tag(1, TAGVIRTUAL)}
-    assert list(numb5.nums) == [tag(0, TAGBOX), tag(0, TAGVIRTUAL),
-                                                tag(1, TAGVIRTUAL)]
-    assert numb5.prev == numb4
+    assert unpack_numbering(numb5) == unpack_numbering(numb4) + [tag(0, TAGBOX), tag(0, TAGVIRTUAL),
+                                                tag(1, TAGVIRTUAL), 2, 1]
 
 def test_ResumeDataLoopMemo_number_boxes():
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
