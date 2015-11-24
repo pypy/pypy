@@ -707,6 +707,15 @@ class Regalloc(BaseRegalloc):
     prepare_same_as_r = helper.prepare_same_as
     prepare_same_as_f = helper.prepare_same_as
 
+    def void(self, op):
+        return []
+
+    prepare_debug_merge_point = void
+    prepare_jit_debug = void
+    prepare_keepalive = void
+    prepare_enter_portal_frame = void
+    prepare_leave_portal_frame = void
+
     def prepare_cast_int_to_float(self, op):
         loc1 = self.ensure_reg(op.getarg(0))
         res = self.fprm.force_allocate_reg(op)

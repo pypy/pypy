@@ -411,3 +411,14 @@ class MiscOpAssembler(object):
         self.mc.AGHI(scratch, l.imm(1))
         self.mc.STG(scratch, l.addr(0,addr))
 
+    def emit_debug_merge_point(self, op, arglocs, regalloc):
+        pass
+
+    emit_jit_debug = emit_debug_merge_point
+    emit_keepalive = emit_debug_merge_point
+
+    def emit_enter_portal_frame(self, op, arglocs, regalloc):
+        self.enter_portal_frame(op)
+
+    def emit_leave_portal_frame(self, op, arglocs, regalloc):
+        self.leave_portal_frame(op)
