@@ -15,4 +15,10 @@ which is now 1.10.2
 Fix the cpyext tests on OSX by linking with -flat_namespace
 
 .. branch: anntype
+
 Refactor and improve exception analysis in the annotator.
+
+.. branch: posita/2193-datetime-timedelta-integrals
+
+Fix issue #2193. ``isinstance(..., int)`` => ``isinstance(..., numbers.Integral)`` 
+to allow for alternate ``int``-like implementations (e.g., ``future.types.newint``)
