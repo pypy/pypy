@@ -293,7 +293,10 @@ def _ll_hashiter_next(hiter):
     hiter.prev = entrypp
     return entrypp[0]
 
-_HASHTABLE_OBJ = lltype.GcStruct('HASHTABLE_OBJ',
+class GcStmHashtable(lltype.GcStruct):
+    pass
+
+_HASHTABLE_OBJ = GcStmHashtable('HASHTABLE_OBJ',
                                  ('ll_raw_hashtable', _STM_HASHTABLE_P),
                                  hints={'immutable': True},
                                  rtti=True,
@@ -357,11 +360,12 @@ def create_hashtable():
 NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
 
 class HashtableForTest(object):
+    _TYPE = lltype.Ptr(_HASHTABLE_OBJ)
     def __init__(self):
         self._content = {}      # dict {integer: Entry(obj=GCREF)}
 
     def _cleanup_(self):
-        raise Exception("cannot translate a prebuilt rstm.Hashtable object")
+        raise Exception("this class should be special-cased")
 
     def get(self, key):
         assert type(key) is int
@@ -386,15 +390,18 @@ class HashtableForTest(object):
             except KeyError:
                 pass
 
+    def _live_items(self):
+        return [self.lookup(key) for key, v in self._content.items()
+                                 if v.object != NULL_GCREF]
+
     def len(self):
-        items = [self.lookup(key) for key, v in self._content.items() if v.object != NULL_GCREF]
-        return len(items)
+        return len(self._live_items())
 
     def len_estimate(self):
         return len(self._content)
 
     def list(self):
-        items = [self.lookup(key) for key, v in self._content.items() if v.object != NULL_GCREF]
+        items = self._live_items()
         count = len(items)
         for i in range(3):
             items.append("additional garbage for testing")
@@ -418,6 +425,9 @@ class EntryObjectForTest(object):
         self.index = r_uint(key)
         self._obj = NULL_GCREF
 
+    def _cleanup_(self):
+        raise Exception("cannot translate EntryObjectForTest")
+
     def _getobj(self):
         return self._obj
     def _setobj(self, nvalue):
@@ -431,11 +441,21 @@ class IterEntriesForTest(object):
         self.hashtable = hashtable
         self.iterator = iterator
 
+    def _cleanup_(self):
+        raise Exception("cannot translate IterEntriesForTest")
+
     def next(self):
         while 1:
             entry = next(self.iterator)
             if entry._obj:
                 return entry
+
+class _Entry(ExtRegistryEntry):
+    _type_ = HashtableForTest
+
+    def compute_annotation(self):
+        from rpython.translator.stm import hashtable
+        return hashtable.compute_annotation(self.bookkeeper, self.instance)
 
 # ____________________________________________________________
 

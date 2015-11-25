@@ -799,3 +799,34 @@ class TestSTMTranslated(CompiledSTMTests):
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
         assert 'ok!\n' in data
+
+    def test_hashtable_prebuilt(self):
+        FOO = lltype.GcStruct('FOO')
+        h = rstm.create_hashtable()
+        foo = lltype.malloc(FOO)
+        h.set(123, lltype.cast_opaque_ptr(llmemory.GCREF, foo))
+        h.set(345, lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(FOO)))
+
+        def main(argv):
+            assert h.list()[1] == 2
+            assert h.get(123) == lltype.cast_opaque_ptr(llmemory.GCREF, foo)
+            assert h.get(234) == lltype.nullptr(llmemory.GCREF.TO)
+            assert h.get(345) != lltype.nullptr(llmemory.GCREF.TO)
+            hiter = h.iterentries()
+            entry1 = hiter.next()
+            entry2 = hiter.next()
+            try:
+                hiter.next()
+            except StopIteration:
+                pass
+            else:
+                print "hiter.next() should return only twice here"
+                assert 0
+            assert ((entry1.index == 123 and entry2.index == 345) or
+                    (entry1.index == 345 and entry2.index == 123))
+            print "ok!"
+            return 0
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert 'ok!\n' in data

@@ -865,6 +865,7 @@ def gen_startupcode(f, database):
 
 def gen_stm_prebuilt(f, database):
     from rpython.translator.c.primitive import name_signed
+    from rpython.translator.stm.hashtable import gen_prebuilt_hashtables
     #
     print >> f, '#include "common_header.h"'
     print >> f, '#include "structdef.h"'
@@ -894,6 +895,7 @@ def gen_stm_prebuilt(f, database):
             print >> f, '\t%d,' % (i,)
     print >> f, '\t-1'
     print >> f, '};'
+    gen_prebuilt_hashtables(f, database)
     print >> f
     print >> f, '#include "preimpl.h"'
     print >> f, '#include "src/rtyper.h"'

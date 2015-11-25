@@ -62,6 +62,8 @@ void pypy_stm_setup(void)
     stm_enter_transactional_zone(&stm_thread_local);
     stm_become_inevitable(&stm_thread_local, "start-up");
     stm_rewind_jmp_leaveframe(&stm_thread_local, &rjbuf);
+
+    pypy_stm_setup_prebuilt_hashtables();
 }
 
 void pypy_stm_set_transaction_length(double fraction)

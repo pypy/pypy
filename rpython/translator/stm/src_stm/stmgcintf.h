@@ -10,6 +10,7 @@ extern __thread struct stm_thread_local_s stm_thread_local;
 void pypy_stm_setup(void);
 void pypy_stm_teardown(void);
 void pypy_stm_setup_prebuilt(void);        /* generated into stm_prebuilt.c */
+void pypy_stm_setup_prebuilt_hashtables(void);  /*  "     "      "          */
 void pypy_stm_register_thread_local(void); /* generated into stm_prebuilt.c */
 void pypy_stm_unregister_thread_local(void); /* generated into stm_prebuilt.c */
 
