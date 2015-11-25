@@ -53,12 +53,26 @@ class RewriteTests(object):
         A16 = lltype.GcArray(rffi.SHORT)
         a16descr = get_array_descr(self.gc_ll_descr, A16)
         a16descr.tid = 4323
-        a16lendescr = a16descr.lendescr
         #
-        A8 = lltype.GcArray(rffi.CHAR)
+        A8 = lltype.GcArray(rffi.SIGNEDCHAR)
         a8descr = get_array_descr(self.gc_ll_descr, A8)
         a8descr.tid = 4323
-        a8lendescr = a8descr.lendescr
+        #
+        UA = lltype.GcArray(rffi.ULONG)
+        uadescr = get_array_descr(self.gc_ll_descr, UA)
+        uadescr.tid = 4324
+        #
+        UA32 = lltype.GcArray(rffi.UINT)
+        ua32descr = get_array_descr(self.gc_ll_descr, UA32)
+        ua32descr.tid = 4325
+        #
+        UA16 = lltype.GcArray(rffi.USHORT)
+        ua16descr = get_array_descr(self.gc_ll_descr, UA16)
+        ua16descr.tid = 4326
+        #
+        UA8 = lltype.GcArray(rffi.UCHAR)
+        ua8descr = get_array_descr(self.gc_ll_descr, UA8)
+        ua8descr.tid = 4327
         #
         B = lltype.GcArray(lltype.Char)
         bdescr = get_array_descr(self.gc_ll_descr, B)
@@ -1113,6 +1127,15 @@ class TestFramework(RewriteTests):
         [ (1,), 'r', ['i2 = int_mul(i1,8)'], 'i2', 'cdescr', (8,) ],
         [ (1,2), 'indexed_i', [''], 'i1', 'a16descr', (2, 0, -2) ],
         [ (1,2), 'i', ['i2 = int_mul(i1,4)'], 'i2', 'a32descr', (-4,) ],
+        [ (1,2,4), 'indexed_i', [''], 'i1', 'a32descr', (4,0,-4) ],
+        [ (1,2,4,8), 'indexed_i', [''], 'i1', 'adescr', (8,0,-8) ],
+        [ (1,2,4,8), 'i', [''], 'i1', 'a8descr', (-1,) ],
+        # unsigned
+        [ (1,2), 'indexed_i', [''], 'i1', 'ua16descr', (2, 0, 2) ],
+        [ (1,2), 'i', ['i2 = int_mul(i1,4)'], 'i2', 'ua32descr', (4,) ],
+        [ (1,2,4), 'indexed_i', [''], 'i1', 'ua32descr', (4,0,4) ],
+        [ (1,2,4,8), 'indexed_i', [''], 'i1', 'uadescr', (8,0,8) ],
+        [ (1,2,4,8), 'i', [''], 'i1', 'ua8descr', (1,) ],
     ])
     def test_getarrayitem(self, factors, suffix, ops, index, descr, params):
         self.cpu.load_supported_factors = factors
