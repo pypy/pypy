@@ -1481,14 +1481,15 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         # from the CPU stack, and copy them into the virtualizable
         numb = self.numb
         first_snapshot_size = rffi.cast(lltype.Signed, numb.first_snapshot_size)
-        if vinfo is None:
-            return first_snapshot_size
-        xxx
-        index = len(numb.nums) - 1
-        virtualizable = self.decode_ref(numb.nums[index])
+        item, _ = resumecode.numb_next_item(self.numb,
+            first_snapshot_size - 1)
+        virtualizable = self.decode_ref(item)
+        start_index = first_snapshot_size - 1 - vinfo.get_total_size(virtualizable)
         # just reset the token, we'll force it later
         vinfo.reset_token_gcref(virtualizable)
-        return vinfo.write_from_resume_data_partial(virtualizable, self, numb)
+        vinfo.write_from_resume_data_partial(virtualizable, self, start_index,
+            numb)
+        return start_index
 
     def load_value_of_type(self, TYPE, tagged):
         from rpython.jit.metainterp.warmstate import specialize_value
@@ -1506,10 +1507,12 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
 
     def consume_vref_and_vable(self, vrefinfo, vinfo, ginfo):
         if self.resume_after_guard_not_forced != 2:
-            end_vref = self.consume_vable_info(vinfo)
+            end_vref = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
+            if vinfo is not None:
+                end_vref = self.consume_vable_info(vinfo)
             if ginfo is not None:
                 end_vref -= 1
-            self.consume_virtualref_info(vrefinfo, end_vref)
+            self.consume_virtualref_info(vrefinfo, end_vref) 
         self.cur_index = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
 
     def allocate_with_vtable(self, descr=None):
