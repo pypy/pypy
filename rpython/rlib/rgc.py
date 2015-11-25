@@ -53,7 +53,7 @@ def pin(obj):
     """
     _pinned_objects.append(obj)
     return True
-        
+
 
 class PinEntry(ExtRegistryEntry):
     _about_ = pin
@@ -296,6 +296,10 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     slowpath = False
     if stm_is_enabled():
         slowpath = True
+        # seems to be a good idea to do a *full* write barrier on the
+        # items array, as this prevents repeated stm_write_card() inside
+        # the loop below (see logic in stmframework.py).
+        llop.gc_writebarrier(lltype.Void, dest)
         #
     elif _contains_gcptr(TP.OF):
         # perform a write barrier that copies necessary flags from
@@ -864,7 +868,7 @@ def clear_gcflag_extra(fromlist):
             pending.extend(get_rpy_referents(gcref))
 
 all_typeids = {}
-        
+
 def get_typeid(obj):
     raise Exception("does not work untranslated")
 
