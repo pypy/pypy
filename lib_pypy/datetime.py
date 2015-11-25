@@ -429,6 +429,10 @@ class _tmxxx:
         self.hour, self.minute, self.second = hour, minute, second
         self.microsecond = microsecond
 
+    def _check_error(self):
+        if not MINYEAR <= self.year <= MAXYEAR:
+            raise OverflowError("date value out of range")
+
 def _accum(tag, sofar, num, factor, leftover):
     if isinstance(num, (int, long)):
         prod = num * factor
@@ -925,20 +929,14 @@ class date(object):
 
     # Computations
 
-    def _checkOverflow(self, year):
-        if not MINYEAR <= year <= MAXYEAR:
-            raise OverflowError("date +/-: result year %d not in %d..%d" %
-                                (year, MINYEAR, MAXYEAR))
-
     def __add__(self, other):
         "Add a date to a timedelta."
         if isinstance(other, timedelta):
             t = _tmxxx(self._year,
-                      self._month,
-                      self._day + other.days)
-            self._checkOverflow(t.year)
-            result = date(t.year, t.month, t.day)
-            return result
+                       self._month,
+                       self._day + other.days)
+            t._check_error()
+            return date(t.year, t.month, t.day)
         return NotImplemented
 
     __radd__ = __add__
@@ -1825,7 +1823,7 @@ class datetime(date):
                    self._minute,
                    self._second + other.seconds * factor,
                    self._microsecond + other.microseconds * factor)
-        self._checkOverflow(t.year)
+        t._check_error()
         return datetime(t.year, t.month, t.day,
                         t.hour, t.minute, t.second,
                         t.microsecond, tzinfo=self._tzinfo)
