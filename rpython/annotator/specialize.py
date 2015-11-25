@@ -364,12 +364,6 @@ def specialize_arg_or_var(funcdesc, args_s, *argindices):
 
 def specialize_argtype(funcdesc, args_s, *argindices):
     key = tuple([args_s[i].knowntype for i in argindices])
-    for cls in key:
-        try:
-            assert '_must_specialize_' not in cls.classdesc.pyobj.__dict__, (
-                "%s has the tag _must_specialize_" % (cls,))
-        except AttributeError:
-            pass
     return maybe_star_args(funcdesc, key, args_s)
 
 def specialize_arglistitemtype(funcdesc, args_s, i):

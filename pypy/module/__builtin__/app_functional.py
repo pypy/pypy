@@ -5,6 +5,7 @@ functional programming.
 from __future__ import with_statement
 import operator
 from __pypy__ import resizelist_hint, newlist_hint
+from __pypy__ import specialized_zip_2_lists
 
 # ____________________________________________________________
 
@@ -217,11 +218,16 @@ from each of the argument sequences.  The returned list is truncated
 in length to the length of the shortest argument sequence."""
     l = len(sequences)
     if l == 2:
+        # A very fast path if the two sequences are lists
+        seq0 = sequences[0]
+        seq1 = sequences[1]
+        try:
+            return specialized_zip_2_lists(seq0, seq1)
+        except TypeError:
+            pass
         # This is functionally the same as the code below, but more
         # efficient because it unrolls the loops over 'sequences'.
         # Only for two arguments, which is the most common case.
-        seq0 = sequences[0]
-        seq1 = sequences[1]
         iter0 = iter(seq0)
         iter1 = iter(seq1)
         hint = min(100000000,   # max 100M

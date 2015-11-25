@@ -12,6 +12,7 @@ from pypy.module.micronumpy.ctors import array
 from pypy.module.micronumpy.descriptor import get_dtype_cache, W_Dtype
 from pypy.module.micronumpy.concrete import ConcreteArray
 from pypy.module.micronumpy import ufuncs
+import pypy.module.micronumpy.constants as NPY 
 from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import W_Root
@@ -203,12 +204,12 @@ def get_shape_and_dtype(space, nd, dims, typenum):
     return shape, dtype
 
 def simple_new(space, nd, dims, typenum,
-        order='C', owning=False, w_subtype=None):
+        order=NPY.CORDER, owning=False, w_subtype=None):
     shape, dtype = get_shape_and_dtype(space, nd, dims, typenum)
     return W_NDimArray.from_shape(space, shape, dtype)
 
 def simple_new_from_data(space, nd, dims, typenum, data,
-        order='C', owning=False, w_subtype=None):
+        order=NPY.CORDER, owning=False, w_subtype=None):
     shape, dtype = get_shape_and_dtype(space, nd, dims, typenum)
     storage = rffi.cast(RAW_STORAGE_PTR, data)
     return W_NDimArray.from_shape_and_storage(space, shape, storage, dtype,
@@ -238,7 +239,7 @@ def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, fla
         raise OperationError(space.w_NotImplementedError,
                              space.wrap("strides must be NULL"))
 
-    order = 'C' if flags & NPY_C_CONTIGUOUS else 'F'
+    order = NPY.CORDER if flags & NPY_C_CONTIGUOUS else NPY.FORTRANORDER
     owning = True if flags & NPY_OWNDATA else False
     w_subtype = None
 

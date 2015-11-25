@@ -7,6 +7,7 @@ from pypy.module.micronumpy.base import W_NDimArray
 # structures to describe slicing
 
 class BaseChunk(object):
+    _attrs_ = ['step','out_dim']
     pass
 
 
@@ -139,7 +140,6 @@ def calculate_slice_strides(space, shape, start, strides, backstrides, chunks):
         extra_dims = len(shape) - used_dims
     rstrides = [0] * (size + extra_dims)
     rbackstrides = [0] * (size + extra_dims)
-    rstart = start
     rshape = [0] * (size + extra_dims)
     rstart = start
     i = 0  # index of the current dimension in the input array
@@ -187,67 +187,6 @@ def calculate_broadcast_strides(strides, backstrides, orig_shape, res_shape, bac
         rstrides = [0] * (len(res_shape) - len(orig_shape)) + rstrides
         rbackstrides = [0] * (len(res_shape) - len(orig_shape)) + rbackstrides
     return rstrides, rbackstrides
-
-
-def is_single_elem(space, w_elem, is_rec_type):
-    if (is_rec_type and space.isinstance_w(w_elem, space.w_tuple)):
-        return True
-    if (space.isinstance_w(w_elem, space.w_tuple) or
-            space.isinstance_w(w_elem, space.w_list)):
-        return False
-    if isinstance(w_elem, W_NDimArray) and not w_elem.is_scalar():
-        return False
-    return True
-
-
-def find_shape_and_elems(space, w_iterable, dtype):
-    isstr = space.isinstance_w(w_iterable, space.w_str)
-    if not support.issequence_w(space, w_iterable) or isstr:
-        if dtype is None or dtype.char != NPY.CHARLTR:
-            return [], [w_iterable]
-    is_rec_type = dtype is not None and dtype.is_record()
-    if is_rec_type and is_single_elem(space, w_iterable, is_rec_type):
-        return [], [w_iterable]
-    if isinstance(w_iterable, W_NDimArray) and w_iterable.is_scalar():
-        return [], [w_iterable]
-    return _find_shape_and_elems(space, w_iterable, is_rec_type)
-
-
-def _find_shape_and_elems(space, w_iterable, is_rec_type):
-    from pypy.objspace.std.bufferobject import W_Buffer
-    shape = [space.len_w(w_iterable)]
-    if space.isinstance_w(w_iterable, space.w_buffer):
-        batch = [space.wrap(0)] * shape[0]
-        for i in range(shape[0]):
-            batch[i] = space.ord(space.getitem(w_iterable, space.wrap(i)))
-    else:
-        batch = space.listview(w_iterable)
-    while True:
-        if not batch:
-            return shape[:], []
-        if is_single_elem(space, batch[0], is_rec_type):
-            for w_elem in batch:
-                if not is_single_elem(space, w_elem, is_rec_type):
-                    raise OperationError(space.w_ValueError, space.wrap(
-                        "setting an array element with a sequence"))
-            return shape[:], batch
-        new_batch = []
-        size = space.len_w(batch[0])
-        for w_elem in batch:
-            if (is_single_elem(space, w_elem, is_rec_type) or
-                    space.len_w(w_elem) != size):
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "setting an array element with a sequence"))
-            w_array = space.lookup(w_elem, '__array__')
-            if w_array is not None:
-                # Make sure we call the array implementation of listview,
-                # since for some ndarray subclasses (matrix, for instance)
-                # listview does not reduce but rather returns the same class
-                w_elem = space.get_and_call_function(w_array, w_elem, space.w_None)
-            new_batch += space.listview(w_elem)
-        shape.append(size)
-        batch = new_batch
-
 
 
 @jit.unroll_safe
@@ -371,14 +310,14 @@ def calc_strides(shape, dtype, order):
     backstrides = []
     s = 1
     shape_rev = shape[:]
-    if order == 'C':
+    if order in [NPY.CORDER, NPY.ANYORDER]:
         shape_rev.reverse()
     for sh in shape_rev:
         slimit = max(sh, 1)
         strides.append(s * dtype.elsize)
         backstrides.append(s * (slimit - 1) * dtype.elsize)
         s *= slimit
-    if order == 'C':
+    if order in [NPY.CORDER, NPY.ANYORDER]:
         strides.reverse()
         backstrides.reverse()
     return strides, backstrides
@@ -406,7 +345,7 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
     last_step = 1
     oldI = 0
     new_strides = []
-    if order == 'F':
+    if order == NPY.FORTRANORDER:
         for i in range(len(old_shape)):
             steps.append(old_strides[i] / last_step)
             last_step *= old_shape[i]
@@ -426,7 +365,7 @@ def calc_new_strides(new_shape, old_shape, old_strides, order):
                 if oldI < len(old_shape):
                     cur_step = steps[oldI]
                     n_old_elems_to_use *= old_shape[oldI]
-    elif order == 'C':
+    else:
         for i in range(len(old_shape) - 1, -1, -1):
             steps.insert(0, old_strides[i] / last_step)
             last_step *= old_shape[i]

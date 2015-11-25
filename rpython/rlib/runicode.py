@@ -1403,11 +1403,10 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
             result.append(CHR(quote))
         return result.build()
 
+    TABLE = STR('0123456789abcdef')
+
     def char_escape_helper(result, char):
-        num = hex(char)
-        if STR is unicode:
-            num = num.decode('ascii')
-        if char >= 0x10000:
+        if char >= 0x10000 or char < 0:
             result.append(STR("\\U"))
             zeros = 8
         elif char >= 0x100:
@@ -1416,11 +1415,8 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
         else:
             result.append(STR("\\x"))
             zeros = 2
-        lnum = len(num)
-        nb = zeros + 2 - lnum # num starts with '0x'
-        if nb > 0:
-            result.append_multiple_char(STR('0'), nb)
-        result.append_slice(num, 2, lnum)
+        for i in range(zeros-1, -1, -1):
+            result.append(TABLE[(char >> (4 * i)) & 0x0f])
 
     return unicode_escape, char_escape_helper
 

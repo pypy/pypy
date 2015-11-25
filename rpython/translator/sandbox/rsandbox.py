@@ -3,10 +3,6 @@ In place of real calls to any external function, this code builds
 trampolines that marshal their input arguments, dump them to STDOUT,
 and wait for an answer on STDIN.  Enable with 'translate.py --sandbox'.
 """
-import sys
-if sys.platform == 'win32':
-    raise TypeError("sandbox not supported on windows")
-
 import py
 
 from rpython.rlib import rmarshal, types

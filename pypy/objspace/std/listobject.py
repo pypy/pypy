@@ -1396,15 +1396,18 @@ class AbstractUnwrappedStrategy(object):
         else:
             subitems_w = [self._none_value] * length
             l = self.unerase(w_list.lstorage)
-            for i in range(length):
-                try:
-                    subitems_w[i] = l[start]
-                    start += step
-                except IndexError:
-                    raise
+            self._fill_in_with_sliced_items(subitems_w, l, start, step, length)
             storage = self.erase(subitems_w)
             return W_ListObject.from_storage_and_strategy(
                     self.space, storage, self)
+
+    def _fill_in_with_sliced_items(self, subitems_w, l, start, step, length):
+        for i in range(length):
+            try:
+                subitems_w[i] = l[start]
+                start += step
+            except IndexError:
+                raise
 
     def switch_to_next_strategy(self, w_list, w_sample_item):
         w_list.switch_to_object_strategy()

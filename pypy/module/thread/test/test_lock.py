@@ -123,23 +123,26 @@ class AppTestLockSignals(GenericTestThread):
             self.sig_recvd = True
         old_handler = signal.signal(signal.SIGUSR1, my_handler)
         try:
+            ready = thread.allocate_lock()
+            ready.acquire()
             def other_thread():
                 # Acquire the lock in a non-main thread, so this test works for
                 # RLocks.
                 lock.acquire()
-                # Wait until the main thread is blocked in the lock acquire, and
-                # then wake it up with this.
-                time.sleep(0.5)
+                # Notify the main thread that we're ready
+                ready.release()
+                # Wait for 5 seconds here
+                for n in range(50):
+                    time.sleep(0.1)
+                # Send the signal
                 os.kill(os.getpid(), signal.SIGUSR1)
                 # Let the main thread take the interrupt, handle it, and retry
                 # the lock acquisition.  Then we'll let it run.
-                time.sleep(0.5)
+                for n in range(50):
+                    time.sleep(0.1)
                 lock.release()
             thread.start_new_thread(other_thread, ())
-            # Wait until we can't acquire it without blocking...
-            while lock.acquire(blocking=False):
-                lock.release()
-                time.sleep(0.01)
+            ready.acquire()
             result = lock.acquire()  # Block while we receive a signal.
             assert self.sig_recvd
             assert result

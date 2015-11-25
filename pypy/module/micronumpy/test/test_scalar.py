@@ -480,3 +480,9 @@ class AppTestScalar(BaseNumpyAppTest):
         u = unicode_(u'Aÿ')
         # raises(UnicodeEncodeError, "str(u)")  # XXX
         assert repr(u) == repr(u'Aÿ')
+
+    def test_binop_with_sequence(self):
+        import numpy as np
+        c = np.float64(1.) + [1.]
+        assert isinstance(c, np.ndarray)
+        assert (c == [2.]).all()

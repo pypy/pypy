@@ -57,6 +57,9 @@ class W_FlagsObject(W_Root):
             self.flags & NPY.ARRAY_F_CONTIGUOUS or
             self.flags & NPY.ARRAY_C_CONTIGUOUS ))
 
+    def descr_get_num(self, space):
+        return space.wrap(self.flags)
+
     def descr_getitem(self, space, w_item):
         key = space.str_w(w_item)
         if key == "C" or key == "CONTIGUOUS" or key == "C_CONTIGUOUS":
@@ -122,4 +125,5 @@ W_FlagsObject.typedef = TypeDef("numpy.flagsobj",
     aligned = GetSetProperty(W_FlagsObject.descr_get_aligned),
     fnc = GetSetProperty(W_FlagsObject.descr_get_fnc),
     forc = GetSetProperty(W_FlagsObject.descr_get_forc),
+    num = GetSetProperty(W_FlagsObject.descr_get_num),
 )

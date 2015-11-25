@@ -385,7 +385,8 @@ class __extend__(pairtype(SomeChar, SomeUnicodeCodePoint),
 
 class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
     def union((uchr1, uchr2)):
-        return SomeUnicodeCodePoint()
+        no_nul = uchr1.no_nul and uchr2.no_nul
+        return SomeUnicodeCodePoint(no_nul=no_nul)
 
     def add((chr1, chr2)):
         return SomeUnicodeString()
@@ -520,26 +521,32 @@ class __extend__(pairtype(SomeDict, SomeDict)):
         return dic1.__class__(dic1.dictdef.union(dic2.dictdef))
 
 
-class __extend__(pairtype(SomeDict, SomeObject)):
+def _dict_can_only_throw_keyerror(s_dct, *ignore):
+    if s_dct.dictdef.dictkey.custom_eq_hash:
+        return None    # r_dict: can throw anything
+    return [KeyError]
 
-    def _can_only_throw(dic1, *ignore):
-        if dic1.dictdef.dictkey.custom_eq_hash:
-            return None
-        return [KeyError]
+def _dict_can_only_throw_nothing(s_dct, *ignore):
+    if s_dct.dictdef.dictkey.custom_eq_hash:
+        return None    # r_dict: can throw anything
+    return []          # else: no possible exception
+
+
+class __extend__(pairtype(SomeDict, SomeObject)):
 
     def getitem((dic1, obj2)):
         dic1.dictdef.generalize_key(obj2)
         return dic1.dictdef.read_value()
-    getitem.can_only_throw = _can_only_throw
+    getitem.can_only_throw = _dict_can_only_throw_keyerror
 
     def setitem((dic1, obj2), s_value):
         dic1.dictdef.generalize_key(obj2)
         dic1.dictdef.generalize_value(s_value)
-    setitem.can_only_throw = _can_only_throw
+    setitem.can_only_throw = _dict_can_only_throw_nothing
 
     def delitem((dic1, obj2)):
         dic1.dictdef.generalize_key(obj2)
-    delitem.can_only_throw = _can_only_throw
+    delitem.can_only_throw = _dict_can_only_throw_keyerror
 
 
 class __extend__(pairtype(SomeTuple, SomeInteger)):
@@ -592,32 +599,33 @@ class __extend__(pairtype(SomeString, SomeInteger)):
 
 class __extend__(pairtype(SomeUnicodeString, SomeInteger)):
     def getitem((str1, int2)):
-        return SomeUnicodeCodePoint()
+        return SomeUnicodeCodePoint(no_nul=str1.no_nul)
     getitem.can_only_throw = []
 
     def getitem_idx((str1, int2)):
-        return SomeUnicodeCodePoint()
+        return SomeUnicodeCodePoint(no_nul=str1.no_nul)
     getitem_idx.can_only_throw = [IndexError]
 
     def mul((str1, int2)): # xxx do we want to support this
-        return SomeUnicodeString()
+        return SomeUnicodeString(no_nul=str1.no_nul)
 
 class __extend__(pairtype(SomeInteger, SomeString),
                  pairtype(SomeInteger, SomeUnicodeString)):
 
     def mul((int1, str2)): # xxx do we want to support this
-        return str2.basestringclass()
+        return str2.basestringclass(no_nul=str2.no_nul)
 
 class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeString),
                  pairtype(SomeUnicodeString, SomeUnicodeCodePoint),
                  pairtype(SomeUnicodeString, SomeUnicodeString)):
     def union((str1, str2)):
-        return SomeUnicodeString(can_be_None=str1.can_be_none() or
-                                 str2.can_be_none())
+        can_be_None = str1.can_be_None or str2.can_be_None
+        no_nul = str1.no_nul and str2.no_nul
+        return SomeUnicodeString(can_be_None=can_be_None, no_nul=no_nul)
 
     def add((str1, str2)):
         # propagate const-ness to help getattr(obj, 'prefix' + const_name)
-        result = SomeUnicodeString()
+        result = SomeUnicodeString(no_nul=str1.no_nul and str2.no_nul)
         if str1.is_immutable_constant() and str2.is_immutable_constant():
             result.const = str1.const + str2.const
         return result

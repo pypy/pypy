@@ -3,7 +3,7 @@
 Based on two lists containing unwrapped key value pairs.
 """
 
-from rpython.rlib import jit, rerased
+from rpython.rlib import jit, rerased, objectmodel
 
 from pypy.objspace.std.dictmultiobject import (
     BytesDictStrategy, DictStrategy, EmptyDictStrategy, ObjectDictStrategy,
@@ -165,13 +165,14 @@ class KwargsDictStrategy(DictStrategy):
     def getitervalues(self, w_dict):
         return iter(self.unerase(w_dict.dstorage)[1])
 
-    def getiteritems(self, w_dict):
-        return Zip(*self.unerase(w_dict.dstorage))
+    def getiteritems_with_hash(self, w_dict):
+        keys, values_w = self.unerase(w_dict.dstorage)
+        return ZipItemsWithHash(keys, values_w)
 
     wrapkey = _wrapkey
 
 
-class Zip(object):
+class ZipItemsWithHash(object):
     def __init__(self, list1, list2):
         assert len(list1) == len(list2)
         self.list1 = list1
@@ -186,6 +187,7 @@ class Zip(object):
         if i >= len(self.list1):
             raise StopIteration
         self.i = i + 1
-        return (self.list1[i], self.list2[i])
+        key = self.list1[i]
+        return (key, self.list2[i], objectmodel.compute_hash(key))
 
 create_iterator_classes(KwargsDictStrategy)

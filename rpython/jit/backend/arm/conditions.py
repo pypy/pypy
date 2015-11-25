@@ -13,11 +13,13 @@ LT = 0xB
 GT = 0xC
 LE = 0xD
 AL = 0xE
+cond_none = -1
 
 opposites = [NE, EQ, CC, CS, PL, MI, VC, VS, LS, HI, LT, GE, LE, GT, AL]
 
 
 def get_opposite_of(operation):
+    assert operation >= 0
     return opposites[operation]
 
 # see mapping for floating poin according to

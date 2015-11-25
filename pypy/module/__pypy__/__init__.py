@@ -83,6 +83,7 @@ class Module(MixedModule):
         'newdict'                   : 'interp_dict.newdict',
         'reversed_dict'             : 'interp_dict.reversed_dict',
         'strategy'                  : 'interp_magic.strategy',  # dict,set,list
+        'specialized_zip_2_lists'   : 'interp_magic.specialized_zip_2_lists',
         'set_debug'                 : 'interp_magic.set_debug',
         'locals_to_fast'            : 'interp_magic.locals_to_fast',
         'save_module_content_for_future_reload':
@@ -111,7 +112,6 @@ class Module(MixedModule):
                                      'interp_magic.mapdict_cache_counter')
         PYC_MAGIC = get_pyc_magic(self.space)
         self.extra_interpdef('PYC_MAGIC', 'space.wrap(%d)' % PYC_MAGIC)
-        #
         try:
             from rpython.jit.backend import detect_cpu
             model = detect_cpu.autodetect()
@@ -121,7 +121,7 @@ class Module(MixedModule):
                 raise
             else:
                 pass   # ok fine to ignore in this case
-        #
+        
         if self.space.config.translation.jit:
             features = detect_cpu.getcpufeatures(model)
             self.extra_interpdef('jit_backend_features',

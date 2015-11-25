@@ -7,6 +7,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 eci = ExternalCompilationInfo(separate_module_sources = [r"""
 #include <unistd.h>
+#include <stdio.h>
 
 FILE *pypy_perf_map_file = NULL;
 

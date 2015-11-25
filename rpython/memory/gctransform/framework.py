@@ -52,6 +52,153 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
             return (op.opname in LL_OPERATIONS and
                     LL_OPERATIONS[op.opname].canmallocgc)
 
+
+class WriteBarrierCollector(object):
+    """
+    This class implements a forward data flow analysis to find all
+    set/write-operations in the graph that do *not* require a
+    barrier, either because they are freshly allocated or they
+    just had a barrier-requiring operation before them.
+    """
+
+    def __init__(self, graph, collect_analyzer):
+        self.graph = graph
+        self.collect_analyzer = collect_analyzer
+        self.clean_ops = set()
+        self._in_states = {} # block->state of each inputarg
+        self._out_states = {} # block->writable dict
+        self.in_stm_ignored = False
+
+    def _merge_out_states(self, out_states):
+        assert out_states
+        # True: writeable or fresh, otherwise False
+        result = [True] * len(out_states[0])
+        for outset in out_states:
+            for i, state in enumerate(outset):
+                result[i] = result[i] and state
+        return result
+
+    def _set_into_gc_array_part(self, op):
+        if op.opname == 'setarrayitem':
+            return op.args[1]
+        if op.opname == 'setinteriorfield':
+            for v in op.args[1:-1]:
+                if v.concretetype is not lltype.Void:
+                    return v
+        return None
+
+    def _flow_through_block(self, block):
+        # get all out_state of predecessors and recalculate
+        # the in_state of our block (except for startblock)
+        insets = self._in_states
+        #
+        # get input variables and their states:
+        writeable = {}
+        for v, state in zip(block.inputargs, insets[block]):
+            writeable[v] = state
+        #
+        # flow through block and inspect operations that
+        # need a write barrier, and those that create new
+        # objects
+        for i, op in enumerate(block.operations):
+            if self.collect_analyzer.analyze(op): # incl. malloc, obviously
+                # clear all writeable status
+                writeable = {}
+            #
+            if op.opname == "stm_ignored_start":
+                self.in_stm_ignored = True
+            elif op.opname == "stm_ignored_stop":
+                self.in_stm_ignored = False
+            elif op.opname == "gc_writebarrier":
+                assert not self.in_stm_ignored
+                writeable[op.args[0]] = True
+            elif op.opname == "malloc":
+                rtti = get_rtti(op.args[0].value)
+                if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
+                    # XXX: not sure why that matters, copied from
+                    # find_initializing_stores
+                    continue
+                writeable[op.result] = True
+                #
+            elif op.opname in ("cast_pointer", "same_as"):
+                if writeable.get(op.args[0], False):
+                    writeable[op.result] = True
+                #
+            elif op.opname in ('setfield', 'setarrayitem', 'setinteriorfield', 'raw_store'):
+                if op.args[-1].concretetype == lltype.Void:
+                    self.clean_ops.add(op)
+                    continue # ignore setfields of Void type
+                elif not var_needsgc(op.args[0]):
+                    if (var_needsgc(op.args[-1]) and
+                        'is_excdata' not in op.args[0].concretetype.TO._hints):
+                        raise Exception("%s: GC pointer written into a non-GC location"
+                                        % (op,))
+                    self.clean_ops.add(op)
+                    continue
+                elif self.in_stm_ignored:
+                    # detect if we're inside a 'stm_ignored' block and in
+                    # that case don't call stm_write().  This only works for
+                    # writing non-GC pointers.
+                    if var_needsgc(op.args[-1]):
+                        raise Exception("in stm_ignored block: write of a gc pointer")
+                    self.clean_ops.add(op)
+                    continue
+                elif self._set_into_gc_array_part(op) is None:
+                    # full write barrier required
+                    if writeable.get(op.args[0], False):
+                        # already writeable, this op is also clean
+                        self.clean_ops.add(op)
+                    elif op in self.clean_ops:
+                        # we changed our opinion in this iteration
+                        self.clean_ops.remove(op)
+                    # always writeable after this op
+                    writeable[op.args[0]] = True
+                else:
+                    # things that need partial write barriers (card marking)
+                    if writeable.get(op.args[0], False):
+                        self.clean_ops.add(op)
+                    elif op in self.clean_ops:
+                        self.clean_ops.remove(op)
+        #
+        # update in_states of all successors
+        updated = set()
+        for link in block.exits:
+            succ = link.target
+            outset = [writeable.get(v, False) for v in link.args]
+            if succ in insets:
+                to_merge = [insets[succ], outset]
+                new = self._merge_out_states(to_merge)
+                if new != insets[succ]:
+                    updated.add(succ)
+                    insets[succ] = new
+            else:
+                # block not processed yet
+                insets[succ] = outset
+                updated.add(succ)
+        return updated
+
+
+    def collect(self):
+        assert not self.clean_ops
+        assert not self.in_stm_ignored
+        # we implement a forward-flow analysis that determines the
+        # operations that do NOT need a write barrier
+        graph = self.graph
+        #
+        # initialize blocks
+        self._in_states = {}
+        self._in_states[graph.startblock] = [False] * len(graph.startblock.inputargs)
+        #
+        # fixpoint iteration
+        # XXX: reverse postorder traversal
+        pending = {graph.startblock,}
+        while pending:
+            block = pending.pop()
+            pending |= self._flow_through_block(block)
+
+
+
+
 def propagate_no_write_barrier_needed(result, block, mallocvars,
                                       collect_analyzer, entrymap,
                                       startindex=0):
@@ -352,6 +499,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 [s_gc, annmodel.SomeInteger(knowntype=llgroup.r_halfword)],
                 annmodel.SomeInteger())
 
+        self.gc_gettypeid_ptr = getfn(GCClass.get_type_id_cast,
+                                       [s_gc, SomeAddress()],
+                                       annmodel.SomeInteger())
+
         if hasattr(GCClass, 'writebarrier_before_copy'):
             self.wb_before_copy_ptr = \
                     getfn(GCClass.writebarrier_before_copy.im_func,
@@ -531,6 +682,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                              getfn(func,
                                                    [SomeAddress()],
                                                    annmodel.s_None)
+        self.malloc_nonmovable_ptr = getfn(GCClass.malloc_fixedsize_nonmovable,
+                                           [s_gc, s_typeid16],
+                                           s_gcref)
 
     def create_custom_trace_funcs(self, gc, rtyper):
         custom_trace_funcs = tuple(rtyper.custom_trace_funcs)
@@ -723,9 +877,14 @@ class BaseFrameworkGCTransformer(GCTransformer):
         if self.write_barrier_ptr:
             from rpython.flowspace.model import mkentrymap
             self._entrymap = mkentrymap(graph)
-            self.clean_sets = (
-                find_initializing_stores(self.collect_analyzer, graph,
-                                         self._entrymap))
+            if self.translator.config.translation.stm:
+                wbc = WriteBarrierCollector(graph, self.collect_analyzer)
+                wbc.collect()
+                self.clean_sets = wbc.clean_ops
+            else:
+                self.clean_sets = (
+                    find_initializing_stores(self.collect_analyzer, graph,
+                                             self._entrymap))
             if self.gcdata.gc.can_optimize_clean_setarrayitems():
                 self.clean_sets = self.clean_sets.union(
                     find_clean_setarrayitems(self.collect_analyzer, graph))
@@ -771,7 +930,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
         c_has_light_finalizer = rmodel.inputconst(lltype.Bool,
                                                   has_light_finalizer)
 
-        if not op.opname.endswith('_varsize') and not flags.get('varsize'):
+        if flags.get('nonmovable'):
+            assert op.opname == 'malloc'
+            assert not flags.get('varsize')
+            malloc_ptr = self.malloc_nonmovable_ptr
+            args = [self.c_const_gc, c_type_id]
+        elif not op.opname.endswith('_varsize') and not flags.get('varsize'):
             zero = flags.get('zero', False)
             if (self.malloc_fast_ptr is not None and
                 not c_has_finalizer.value and
@@ -835,6 +999,16 @@ class BaseFrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call", [self.shrink_array_ptr, self.c_const_gc,
                                   v_addr, v_length],
                   resultvar=op.result)
+
+    def gct_gc_gettypeid(self, hop):
+        op = hop.spaceop
+        v_addr = op.args[0]
+        if v_addr.concretetype != llmemory.Address:
+            v_addr = hop.genop("cast_ptr_to_adr", [v_addr],
+                               resulttype=llmemory.Address)
+        hop.genop("direct_call", [self.gc_gettypeid_ptr, self.c_const_gc,
+                                  v_addr],
+                         resultvar=op.result)
 
     def gct_gc_writebarrier(self, hop):
         if self.write_barrier_ptr is None:
@@ -909,39 +1083,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   [self.root_walker.gc_reattach_callback_pieces_ptr,
                    op.args[0]],
                   resultvar=op.result)
-
-    def gct_gc_shadowstackref_new(self, hop):
-        op = hop.spaceop
-        livevars = self.push_roots(hop)
-        hop.genop("direct_call", [self.root_walker.gc_shadowstackref_new_ptr],
-                  resultvar=op.result)
-        self.pop_roots(hop, livevars)
-
-    def gct_gc_shadowstackref_context(self, hop):
-        op = hop.spaceop
-        hop.genop("direct_call",
-                  [self.root_walker.gc_shadowstackref_context_ptr, op.args[0]],
-                  resultvar=op.result)
-
-    def gct_gc_save_current_state_away(self, hop):
-        op = hop.spaceop
-        hop.genop("direct_call",
-                  [self.root_walker.gc_save_current_state_away_ptr,
-                   op.args[0], op.args[1]])
-
-    def gct_gc_forget_current_state(self, hop):
-        hop.genop("direct_call",
-                  [self.root_walker.gc_forget_current_state_ptr])
-
-    def gct_gc_restore_state_from(self, hop):
-        op = hop.spaceop
-        hop.genop("direct_call",
-                  [self.root_walker.gc_restore_state_from_ptr,
-                   op.args[0]])
-
-    def gct_gc_start_fresh_new_state(self, hop):
-        hop.genop("direct_call",
-                  [self.root_walker.gc_start_fresh_new_state_ptr])
 
     def gct_do_malloc_fixedsize(self, hop):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)

@@ -15,7 +15,6 @@ class VirtualizableInfo(object):
         self.warmrunnerdesc = warmrunnerdesc
         cpu = warmrunnerdesc.cpu
         self.cpu = cpu
-        self.BoxArray = cpu.ts.BoxRef
         #
         VTYPEPTR1 = VTYPEPTR
         while 'virtualizable_accessor' not in deref(VTYPEPTR)._hints:

@@ -1441,6 +1441,8 @@ class AppTestRecordDtypes(BaseNumpyAppTest):
                      "'offsets':[0,76800], "
                      "'itemsize':80000, "
                      "'aligned':True}")
+        
+        assert dt == np.dtype(eval(str(dt)))
 
         dt = np.dtype({'names': ['r', 'g', 'b'], 'formats': ['u1', 'u1', 'u1'],
                         'offsets': [0, 1, 2],

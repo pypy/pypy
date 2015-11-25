@@ -459,9 +459,9 @@ if _WIN32:
 else:
     def getcwdu(space):
         """Return the current working directory as a unicode string."""
-        filesystemencoding = space.sys.filesystemencoding
+        w_filesystemencoding = getfilesystemencoding(space)
         return space.call_method(getcwd(space), 'decode',
-                                 space.wrap(filesystemencoding))
+                                 w_filesystemencoding)
 
 def chdir(space, w_path):
     """Change the current working directory to the specified path."""

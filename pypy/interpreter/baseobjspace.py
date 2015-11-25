@@ -28,7 +28,6 @@ class W_Root(object):
     """This is the abstract root class of all wrapped objects that live
     in a 'normal' object space like StdObjSpace."""
     __slots__ = ()
-    _settled_ = True
     user_overridden_class = False
 
     def getdict(self, space):
@@ -1067,6 +1066,14 @@ class ObjSpace(object):
     def call(self, w_callable, w_args, w_kwds=None):
         args = Arguments.frompacked(self, w_args, w_kwds)
         return self.call_args(w_callable, args)
+
+    def _try_fetch_pycode(self, w_func):
+        from pypy.interpreter.function import Function, Method
+        if isinstance(w_func, Method):
+            w_func = w_func.w_function
+        if isinstance(w_func, Function):
+            return w_func.code
+        return None
 
     def call_function(self, w_func, *args_w):
         nargs = len(args_w) # used for pruning funccall versions

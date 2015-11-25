@@ -294,9 +294,9 @@ kept alive for as long as the callback may be invoked from the C code."""
                                          CONSIDER_FN_AS_FNPTR)
         space = self.space
         if not space.is_none(w_python_callable):
-            return ccallback.W_CDataCallback(space, w_ctype,
-                                             w_python_callable, w_error,
-                                             w_onerror)
+            return ccallback.make_callback(space, w_ctype,
+                                           w_python_callable, w_error,
+                                           w_onerror)
         else:
             # decorator mode: returns a single-argument function
             return space.appexec([w_ctype, w_error, w_onerror],
@@ -391,6 +391,25 @@ optional 'code' argument, as a tuple '(code, message)'."""
         return cerrno.getwinerror(self.space, code)
 
 
+    @unwrap_spec(n=int)
+    def descr_memmove(self, w_dest, w_src, n):
+        """\
+ffi.memmove(dest, src, n) copies n bytes of memory from src to dest.
+
+Like the C function memmove(), the memory areas may overlap;
+apart from that it behaves like the C function memcpy().
+
+'src' can be any cdata ptr or array, or any Python buffer object.
+'dest' can be any cdata ptr or array, or a writable Python buffer
+object.  The size to copy, 'n', is always measured in bytes.
+
+Unlike other methods, this one supports all Python buffer including
+byte strings and bytearrays---but it still does not support
+non-contiguous buffers."""
+        #
+        return func.memmove(self.space, w_dest, w_src, n)
+
+
     @unwrap_spec(w_init=WrappedDefault(None))
     def descr_new(self, w_arg, w_init):
         """\
@@ -429,7 +448,7 @@ but uses the provided low-level 'alloc' and 'free' functions.
 
 'alloc' is called with the size as argument.  If it returns NULL, a
 MemoryError is raised.  'free' is called with the result of 'alloc'
-as argument.  Both can be either Python function or directly C
+as argument.  Both can be either Python functions or directly C
 functions.  If 'free' is None, then no free function is called.
 If both 'alloc' and 'free' are None, the default is used.
 
@@ -623,6 +642,7 @@ W_FFIObject.typedef = TypeDef(
         gc          = interp2app(W_FFIObject.descr_gc),
         getctype    = interp2app(W_FFIObject.descr_getctype),
         integer_const = interp2app(W_FFIObject.descr_integer_const),
+        memmove     = interp2app(W_FFIObject.descr_memmove),
         new         = interp2app(W_FFIObject.descr_new),
         new_allocator = interp2app(W_FFIObject.descr_new_allocator),
         new_handle  = interp2app(W_FFIObject.descr_new_handle),

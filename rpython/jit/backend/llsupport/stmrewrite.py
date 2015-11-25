@@ -1,7 +1,7 @@
 from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
 from rpython.jit.backend.llsupport.descr import CallDescr, ArrayOrFieldDescr
 from rpython.jit.metainterp.resoperation import ResOperation, rop
-from rpython.jit.metainterp.history import BoxPtr, ConstInt
+from rpython.jit.metainterp.history import ConstInt
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
                                 debug_print)
@@ -20,37 +20,43 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
     def other_operation(self, op):
         opnum = op.getopnum()
         if opnum == rop.INCREMENT_DEBUG_COUNTER:
-            self.newop(op)
+            self.emit_op(op)
             return
         # ----------  transaction breaks  ----------
         if opnum == rop.STM_HINT_COMMIT_SOON:
             self.emitting_an_operation_that_can_collect()
             self.next_op_may_be_in_new_transaction()
-            self._do_stm_call('stm_hint_commit_soon', [], None)
+            self._do_stm_call('stm_hint_commit_soon', [])
             return
         # ----------  jump, finish, guard_not_forced_2  ----------
         if (opnum == rop.JUMP or opnum == rop.FINISH
                 or opnum == rop.GUARD_NOT_FORCED_2):
-            self.add_dummy_allocation()
-            self.newop(op)
+            self.possibly_add_dummy_allocation()
+            self.emit_op(op)
             return
         # ----------  pure operations, guards  ----------
         if op.is_always_pure() or op.is_guard() or op.is_ovf():
-            self.newop(op)
+            self.emit_op(op)
             return
         # ----------  non-pure getfields  ----------
-        if opnum in (rop.GETARRAYITEM_GC, rop.GETINTERIORFIELD_GC):
+        if opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
+                     rop.GETARRAYITEM_GC_R,
+                     rop.VEC_GETARRAYITEM_GC_I, rop.VEC_GETARRAYITEM_GC_F,
+                     rop.GETINTERIORFIELD_GC_I,
+                     rop.GETINTERIORFIELD_GC_F, rop.GETINTERIORFIELD_GC_R):
             self.handle_getfields(op)
             return
         # ----------  calls  ----------
         if op.is_call():
             self.next_op_may_be_in_new_transaction()
             #
-            if opnum == rop.CALL_RELEASE_GIL:
+            if opnum in (rop.CALL_RELEASE_GIL_I,
+                         rop.CALL_RELEASE_GIL_F, rop.CALL_RELEASE_GIL_N):
                 # self.fallback_inevitable(op)
                 # is done by assembler._release_gil_shadowstack()
-                self.newop(op)
-            elif opnum == rop.CALL_ASSEMBLER:
+                self.emit_op(op)
+            elif opnum in (rop.CALL_ASSEMBLER_I, rop.CALL_ASSEMBLER_R,
+                           rop.CALL_ASSEMBLER_F, rop.CALL_ASSEMBLER_N):
                 assert 0   # case handled by the parent class
             else:
                 # only insert become_inevitable if calling a
@@ -62,7 +68,7 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
                       or descr.get_extra_info().call_needs_inevitable():
                     self.fallback_inevitable(op)
                 else:
-                    self.newop(op)
+                    self.emit_op(op)
             return
         # ----------  setters for pure fields  ----------
         if opnum in (rop.STRSETITEM, rop.UNICODESETITEM):
@@ -73,24 +79,28 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
             self.handle_setters_for_pure_fields(op, 1)
             return
         # ----------  raw getfields and setfields and arrays  ----------
-        if opnum in (rop.GETFIELD_RAW, rop.SETFIELD_RAW,
-                     rop.GETARRAYITEM_RAW, rop.SETARRAYITEM_RAW):
+        if opnum in (rop.GETFIELD_RAW_F, rop.GETFIELD_RAW_I,
+                     rop.GETFIELD_RAW_R, rop.SETFIELD_RAW,
+                     rop.VEC_GETARRAYITEM_RAW_F, rop.VEC_GETARRAYITEM_RAW_I,
+                     rop.GETARRAYITEM_RAW_F, rop.GETARRAYITEM_RAW_I,
+                     rop.SETARRAYITEM_RAW,
+                     rop.VEC_SETARRAYITEM_RAW):
             if self.maybe_handle_raw_accesses(op):
                 return
         # ----------  labels  ----------
         if opnum == rop.LABEL:
             # note that the parent class also clears some things on a LABEL
             self.next_op_may_be_in_new_transaction()
-            self.newop(op)
+            self.emit_op(op)
             return
         # ----------  other ignored ops  ----------
         if opnum in (rop.STM_SHOULD_BREAK_TRANSACTION, rop.FORCE_TOKEN,
                      rop.ENTER_PORTAL_FRAME, rop.LEAVE_PORTAL_FRAME,
-                     rop.MARK_OPAQUE_PTR,
                      rop.JIT_DEBUG, rop.KEEPALIVE,
                      rop.QUASIIMMUT_FIELD, rop.RECORD_EXACT_CLASS,
-                     ):
-            self.newop(op)
+                     rop.RESTORE_EXCEPTION, rop.SAVE_EXCEPTION,
+                     rop.SAVE_EXC_CLASS,):
+            self.emit_op(op)
             return
         # ----------  fall-back  ----------
         # Check that none of the ops handled here can collect.
@@ -114,19 +124,19 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         # group together several stm_reads then we can save one
         # instruction; if delayed over a cond_call_gc_wb then we can
         # omit the stm_read completely; ...
-        self.newop(op)
+        self.emit_op(op)
         v_ptr = op.getarg(0)
         if (v_ptr not in self.read_barrier_applied and
-            v_ptr not in self.write_barrier_applied):
+            not self.write_barrier_applied(v_ptr)):
             op1 = ResOperation(rop.STM_READ, [v_ptr], None)
-            self.newop(op1)
+            self.emit_op(op1)
             self.read_barrier_applied[v_ptr] = None
 
     def handle_getfield_gc(self, op):
         self.emit_pending_zeros()
         self.handle_getfields(op)
 
-    def add_dummy_allocation(self):
+    def possibly_add_dummy_allocation(self):
         if not self.does_any_allocation:
             # do a fake allocation since this is needed to check
             # for requested safe-points:
@@ -134,12 +144,13 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
 
             # minimum size for the slowpath of MALLOC_NURSERY:
             size = self.gc_ll_descr.minimal_size_in_nursery
-            v_result = BoxPtr()
+            op = ResOperation(rop.LABEL, []) # temp, will be replaced by gen_malloc_nursery
             assert self._op_malloc_nursery is None # no ongoing allocation
-            self.gen_malloc_nursery(size, v_result)
+            self.gen_malloc_nursery(size, op)
 
-    def must_apply_write_barrier(self, val, v=None):
-        return val not in self.write_barrier_applied
+    def must_apply_write_barrier(self, val, v):
+        # also apply for non-ref values
+        return not self.write_barrier_applied(val)
 
     def gen_initialize_tid(self, v_newgcobj, tid):
         # Also emit a setfield that zeroes the stm_flags field.
@@ -148,37 +159,37 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         assert self.gc_ll_descr.fielddescr_stmflags is not None
 
         op = ResOperation(rop.SETFIELD_GC,
-                          [v_newgcobj, self.c_zero], None,
+                          [v_newgcobj, self.c_zero],
                           descr=self.gc_ll_descr.fielddescr_stmflags)
-        self.newop(op)
+        self.emit_op(op)
         return GcRewriterAssembler.gen_initialize_tid(self, v_newgcobj, tid)
 
     @specialize.arg(1)
-    def _do_stm_call(self, funcname, args, result):
+    def _do_stm_call(self, funcname, args):
         addr = self.gc_ll_descr.get_malloc_fn_addr(funcname)
         descr = getattr(self.gc_ll_descr, funcname + '_descr')
-        op1 = ResOperation(rop.CALL, [ConstInt(addr)] + args,
-                           result, descr=descr)
-        self.newop(op1)
+        op1 = ResOperation(rop.CALL_N, [ConstInt(addr)] + args,
+                           descr=descr)
+        self.emit_op(op1)
 
     def fallback_inevitable(self, op):
         if not self.always_inevitable:
             self.emitting_an_operation_that_can_collect()
-            self._do_stm_call('stm_try_inevitable', [], None)
+            self._do_stm_call('stm_try_inevitable', [])
             self.always_inevitable = True
-        self.newop(op)
-        debug_print("fallback for", op.repr())
+        self.emit_op(op)
+        debug_print("fallback for", op.repr({}))
 
     def maybe_handle_raw_accesses(self, op):
         descr = op.getdescr()
         assert isinstance(descr, ArrayOrFieldDescr)
         if descr.stm_dont_track_raw_accesses:
-            self.newop(op)
+            self.emit_op(op)
             return True
         return False
 
     def handle_setters_for_pure_fields(self, op, targetindex):
         val = op.getarg(targetindex)
-        if self.must_apply_write_barrier(val):
+        if self.must_apply_write_barrier(val, None):
             self.gen_write_barrier(val)
-        self.newop(op)
+        self.emit_op(op)

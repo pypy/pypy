@@ -33,7 +33,7 @@ class ListTests(object):
             return m
         res = self.interp_operations(f, [11], listops=True)
         assert res == 49
-        self.check_operations_history(call=3)
+        self.check_operations_history(call_i=1, call_n=2)
 
     def test_list_of_voids(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'lst'])

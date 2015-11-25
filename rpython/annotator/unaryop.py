@@ -4,6 +4,7 @@ Unary operations on SomeValues.
 
 from __future__ import absolute_import
 
+from rpython.tool.pairtype import pair
 from rpython.flowspace.operation import op
 from rpython.flowspace.model import const, Constant
 from rpython.flowspace.argument import CallSpec
@@ -11,11 +12,13 @@ from rpython.annotator.model import (SomeObject, SomeInteger, SomeBool,
     SomeString, SomeChar, SomeList, SomeDict, SomeTuple, SomeImpossibleValue,
     SomeUnicodeCodePoint, SomeInstance, SomeBuiltin, SomeBuiltinMethod,
     SomeFloat, SomeIterator, SomePBC, SomeNone, SomeType, s_ImpossibleValue,
-    s_Bool, s_None, unionof, add_knowntypedata,
-    HarmlesslyBlocked, SomeWeakRef, SomeUnicodeString, SomeByteArray)
+    s_Bool, s_None, s_Int, unionof, add_knowntypedata,
+    SomeWeakRef, SomeUnicodeString, SomeByteArray)
 from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator import builtin
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
+from rpython.annotator.binaryop import _dict_can_only_throw_keyerror
+from rpython.annotator.binaryop import _dict_can_only_throw_nothing
 from rpython.annotator.model import AnnotatorError
 from rpython.annotator.argument import simple_args, complex_args
 
@@ -45,6 +48,24 @@ def bool_SomeObject(annotator, obj):
 def contains_SomeObject(annotator, obj, element):
     return s_Bool
 contains_SomeObject.can_only_throw = []
+
+@op.contains.register(SomeNone)
+def contains_SomeNone(annotator, obj, element):
+    # return False here for the case "... in None", because it can be later
+    # generalized to "... in d" where d is either None or the empty dict
+    # (which would also return the constant False)
+    s_bool = SomeBool()
+    s_bool.const = False
+    return s_bool
+contains_SomeNone.can_only_throw = []
+
+
+@op.contains.register(SomeInteger)
+@op.contains.register(SomeFloat)
+@op.contains.register(SomeBool)
+def contains_number(annotator, number, element):
+    raise AnnotatorError("number is not iterable")
+
 
 @op.simple_call.register(SomeObject)
 def simple_call_SomeObject(annotator, func, *args):
@@ -201,6 +222,9 @@ class __extend__(SomeFloat):
             return getbookkeeper().immutablevalue(bool(self.const))
         return s_Bool
 
+    def len(self):
+        raise AnnotatorError("'float' has no length")
+
 class __extend__(SomeInteger):
 
     def invert(self):
@@ -226,6 +250,10 @@ class __extend__(SomeInteger):
 
     abs.can_only_throw = []
     abs_ovf = _clone(abs, [OverflowError])
+
+    def len(self):
+        raise AnnotatorError("'int' has no length")
+
 
 class __extend__(SomeBool):
     def bool(self):
@@ -364,20 +392,19 @@ def check_negative_slice(s_start, s_stop, error="slicing"):
         raise AnnotatorError("%s: not proven to have non-negative stop" % error)
 
 
-def _can_only_throw(s_dct, *ignore):
-    if s_dct.dictdef.dictkey.custom_eq_hash:
-        return None    # r_dict: can throw anything
-    return []          # else: no possible exception
-
-@op.contains.register(SomeDict)
-def contains_SomeDict(annotator, dct, element):
-    annotator.annotation(dct).dictdef.generalize_key(annotator.annotation(element))
-    if annotator.annotation(dct)._is_empty():
+def dict_contains(s_dct, s_element):
+    s_dct.dictdef.generalize_key(s_element)
+    if s_dct._is_empty():
         s_bool = SomeBool()
         s_bool.const = False
         return s_bool
     return s_Bool
-contains_SomeDict.can_only_throw = _can_only_throw
+
+@op.contains.register(SomeDict)
+def contains_SomeDict(annotator, dct, element):
+    return dict_contains(annotator.annotation(dct),
+                         annotator.annotation(element))
+contains_SomeDict.can_only_throw = _dict_can_only_throw_nothing
 
 class __extend__(SomeDict):
 
@@ -401,16 +428,22 @@ class __extend__(SomeDict):
             return self.dictdef.read_key()
         elif variant == 'values':
             return self.dictdef.read_value()
-        elif variant == 'items':
+        elif variant == 'items' or variant == 'items_with_hash':
             s_key   = self.dictdef.read_key()
             s_value = self.dictdef.read_value()
             if (isinstance(s_key, SomeImpossibleValue) or
                 isinstance(s_value, SomeImpossibleValue)):
                 return s_ImpossibleValue
-            else:
+            elif variant == 'items':
                 return SomeTuple((s_key, s_value))
-        else:
-            raise ValueError
+            elif variant == 'items_with_hash':
+                return SomeTuple((s_key, s_value, s_Int))
+        elif variant == 'keys_with_hash':
+            s_key = self.dictdef.read_key()
+            if isinstance(s_key, SomeImpossibleValue):
+                return s_ImpossibleValue
+            return SomeTuple((s_key, s_Int))
+        raise ValueError(variant)
 
     def method_get(self, key, dfl):
         self.dictdef.generalize_key(key)
@@ -448,6 +481,12 @@ class __extend__(SomeDict):
     def method_iteritems(self):
         return SomeIterator(self, 'items')
 
+    def method_iterkeys_with_hash(self):
+        return SomeIterator(self, 'keys_with_hash')
+
+    def method_iteritems_with_hash(self):
+        return SomeIterator(self, 'items_with_hash')
+
     def method_clear(self):
         pass
 
@@ -459,6 +498,22 @@ class __extend__(SomeDict):
         if s_dfl is not None:
             self.dictdef.generalize_value(s_dfl)
         return self.dictdef.read_value()
+
+    def method_contains_with_hash(self, s_key, s_hash):
+        return dict_contains(self, s_key)
+    method_contains_with_hash.can_only_throw = _dict_can_only_throw_nothing
+
+    def method_setitem_with_hash(self, s_key, s_hash, s_value):
+        pair(self, s_key).setitem(s_value)
+    method_setitem_with_hash.can_only_throw = _dict_can_only_throw_nothing
+
+    def method_getitem_with_hash(self, s_key, s_hash):
+        return pair(self, s_key).getitem()
+    method_getitem_with_hash.can_only_throw = _dict_can_only_throw_keyerror
+
+    def method_delitem_with_hash(self, s_key, s_hash):
+        pair(self, s_key).delitem()
+    method_delitem_with_hash.can_only_throw = _dict_can_only_throw_keyerror
 
 @op.contains.register(SomeString)
 @op.contains.register(SomeUnicodeString)
@@ -534,7 +589,9 @@ class __extend__(SomeString,
         return self.basecharclass()
 
     def method_split(self, patt, max=-1):
-        if max == -1 and patt.is_constant() and patt.const == "\0":
+        # special-case for .split( '\x00') or .split(u'\x00')
+        if max == -1 and patt.is_constant() and (
+               len(patt.const) == 1 and ord(patt.const) == 0):
             no_nul = True
         else:
             no_nul = self.no_nul
@@ -610,10 +667,10 @@ class __extend__(SomeChar, SomeUnicodeCodePoint):
     def len(self):
         return immutablevalue(1)
 
+class __extend__(SomeChar):
+
     def ord(self):
         return SomeInteger(nonneg=True)
-
-class __extend__(SomeChar):
 
     def method_isspace(self):
         return s_Bool
@@ -632,6 +689,13 @@ class __extend__(SomeChar):
 
     def method_upper(self):
         return self
+
+class __extend__(SomeUnicodeCodePoint):
+
+    def ord(self):
+        # warning, on 32-bit with 32-bit unichars, this might return
+        # negative numbers
+        return SomeInteger()
 
 class __extend__(SomeIterator):
 
@@ -660,41 +724,17 @@ class __extend__(SomeIterator):
 
 
 class __extend__(SomeInstance):
-
-    def _true_getattr(self, attr):
+    def getattr(self, s_attr):
+        if not(s_attr.is_constant() and isinstance(s_attr.const, str)):
+            raise AnnotatorError("A variable argument to getattr is not RPython")
+        attr = s_attr.const
         if attr == '__class__':
             return self.classdef.read_attr__class__()
-        attrdef = self.classdef.find_attribute(attr)
-        position = getbookkeeper().position_key
-        attrdef.read_locations[position] = True
-        s_result = attrdef.getvalue()
-        # hack: if s_result is a set of methods, discard the ones
-        #       that can't possibly apply to an instance of self.classdef.
-        # XXX do it more nicely
-        if isinstance(s_result, SomePBC):
-            s_result = self.classdef.lookup_filter(s_result, attr,
-                                                  self.flags)
-        elif isinstance(s_result, SomeImpossibleValue):
-            self.classdef.check_missing_attribute_update(attr)
-            # blocking is harmless if the attribute is explicitly listed
-            # in the class or a parent class.
-            for basedef in self.classdef.getmro():
-                if basedef.classdesc.all_enforced_attrs is not None:
-                    if attr in basedef.classdesc.all_enforced_attrs:
-                        raise HarmlesslyBlocked("get enforced attr")
-        elif isinstance(s_result, SomeList):
-            s_result = self.classdef.classdesc.maybe_return_immutable_list(
-                attr, s_result)
-        return s_result
-
-    def getattr(self, s_attr):
-        if s_attr.is_constant() and isinstance(s_attr.const, str):
-            attr = s_attr.const
-            return self._true_getattr(attr)
-        raise AnnotatorError("A variable argument to getattr is not RPython")
+        getbookkeeper().record_getattr(self.classdef.classdesc, attr)
+        return self.classdef.s_getattr(attr, self.flags)
     getattr.can_only_throw = []
 
-    def setattr(self, s_attr, s_value):
+    def setattr(self, s_attr, s_obj):
         if s_attr.is_constant() and isinstance(s_attr.const, str):
             attr = s_attr.const
             # find the (possibly parent) class where this attr is defined
@@ -703,14 +743,13 @@ class __extend__(SomeInstance):
             attrdef.modified(clsdef)
 
             # if the attrdef is new, this must fail
-            if attrdef.getvalue().contains(s_value):
+            if attrdef.s_value.contains(s_obj):
                 return
             # create or update the attribute in clsdef
-            clsdef.generalize_attr(attr, s_value)
+            clsdef.generalize_attr(attr, s_obj)
 
-            if isinstance(s_value, SomeList):
-                clsdef.classdesc.maybe_return_immutable_list(
-                    attr, s_value)
+            if isinstance(s_obj, SomeList):
+                clsdef.classdesc.maybe_return_immutable_list(attr, s_obj)
         else:
             raise AnnotatorError("setattr(instance, variable_attr, value)")
 
@@ -826,7 +865,7 @@ class __extend__(SomePBC):
     def getattr(self, s_attr):
         assert s_attr.is_constant()
         if s_attr.const == '__name__':
-            from rpython.annotator.description import ClassDesc
+            from rpython.annotator.classdesc import ClassDesc
             if self.getKind() is ClassDesc:
                 return SomeString()
         bookkeeper = getbookkeeper()

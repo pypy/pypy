@@ -335,6 +335,14 @@ class OrderedDictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()
         return DictIteratorRepr(self, "items").newiter(hop)
 
+    def rtype_method_iterkeys_with_hash(self, hop):
+        hop.exception_cannot_occur()
+        return DictIteratorRepr(self, "keys_with_hash").newiter(hop)
+
+    def rtype_method_iteritems_with_hash(self, hop):
+        hop.exception_cannot_occur()
+        return DictIteratorRepr(self, "items_with_hash").newiter(hop)
+
     def rtype_method_clear(self, hop):
         v_dict, = hop.inputargs(self)
         hop.exception_cannot_occur()
@@ -358,6 +366,41 @@ class OrderedDictRepr(AbstractDictRepr):
         v_res = hop.gendirectcall(target, *v_args)
         return self.recast_value(hop.llops, v_res)
 
+    def rtype_method_contains_with_hash(self, hop):
+        v_dict, v_key, v_hash = hop.inputargs(self, self.key_repr,
+                                              lltype.Signed)
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_dict_contains_with_hash,
+                                 v_dict, v_key, v_hash)
+
+    def rtype_method_setitem_with_hash(self, hop):
+        v_dict, v_key, v_hash, v_value = hop.inputargs(
+            self, self.key_repr, lltype.Signed, self.value_repr)
+        if self.custom_eq_hash:
+            hop.exception_is_here()
+        else:
+            hop.exception_cannot_occur()
+        hop.gendirectcall(ll_dict_setitem_with_hash,
+                          v_dict, v_key, v_hash, v_value)
+
+    def rtype_method_getitem_with_hash(self, hop):
+        v_dict, v_key, v_hash = hop.inputargs(
+            self, self.key_repr, lltype.Signed)
+        if not self.custom_eq_hash:
+            hop.has_implicit_exception(KeyError)  # record that we know about it
+        hop.exception_is_here()
+        v_res = hop.gendirectcall(ll_dict_getitem_with_hash,
+                                  v_dict, v_key, v_hash)
+        return self.recast_value(hop.llops, v_res)
+
+    def rtype_method_delitem_with_hash(self, hop):
+        v_dict, v_key, v_hash = hop.inputargs(
+            self, self.key_repr, lltype.Signed)
+        if not self.custom_eq_hash:
+            hop.has_implicit_exception(KeyError)  # record that we know about it
+        hop.exception_is_here()
+        hop.gendirectcall(ll_dict_delitem_with_hash, v_dict, v_key, v_hash)
+
 class __extend__(pairtype(OrderedDictRepr, rmodel.Repr)):
 
     def rtype_getitem((r_dict, r_key), hop):
@@ -373,7 +416,7 @@ class __extend__(pairtype(OrderedDictRepr, rmodel.Repr)):
         if not r_dict.custom_eq_hash:
             hop.has_implicit_exception(KeyError)   # record that we know about it
         hop.exception_is_here()
-        return hop.gendirectcall(ll_dict_delitem, v_dict, v_key)
+        hop.gendirectcall(ll_dict_delitem, v_dict, v_key)
 
     def rtype_setitem((r_dict, r_key), hop):
         v_dict, v_key, v_value = hop.inputargs(r_dict, r_dict.key_repr, r_dict.value_repr)
@@ -541,16 +584,21 @@ def ll_dict_bool(d):
     return bool(d) and d.num_live_items != 0
 
 def ll_dict_getitem(d, key):
-    index = d.lookup_function(d, key, d.keyhash(key), FLAG_LOOKUP)
+    return ll_dict_getitem_with_hash(d, key, d.keyhash(key))
+
+def ll_dict_getitem_with_hash(d, key, hash):
+    index = d.lookup_function(d, key, hash, FLAG_LOOKUP)
     if index >= 0:
         return d.entries[index].value
     else:
         raise KeyError
 
 def ll_dict_setitem(d, key, value):
-    hash = d.keyhash(key)
+    ll_dict_setitem_with_hash(d, key, d.keyhash(key), value)
+
+def ll_dict_setitem_with_hash(d, key, hash, value):
     index = d.lookup_function(d, key, hash, FLAG_STORE)
-    return _ll_dict_setitem_lookup_done(d, key, value, hash, index)
+    _ll_dict_setitem_lookup_done(d, key, value, hash, index)
 
 # It may be safe to look inside always, it has a few branches though, and their
 # frequencies needs to be investigated.
@@ -731,7 +779,10 @@ def ll_dict_remove_deleted_items(d):
 
 
 def ll_dict_delitem(d, key):
-    index = d.lookup_function(d, key, d.keyhash(key), FLAG_DELETE)
+    ll_dict_delitem_with_hash(d, key, d.keyhash(key))
+
+def ll_dict_delitem_with_hash(d, key, hash):
+    index = d.lookup_function(d, key, hash, FLAG_DELETE)
     if index < 0:
         raise KeyError
     _ll_dict_del(d, index)
@@ -1214,7 +1265,10 @@ ll_dict_values = _make_ll_keys_values_items('values')
 ll_dict_items  = _make_ll_keys_values_items('items')
 
 def ll_dict_contains(d, key):
-    i = d.lookup_function(d, key, d.keyhash(key), FLAG_LOOKUP)
+    return ll_dict_contains_with_hash(d, key, d.keyhash(key))
+
+def ll_dict_contains_with_hash(d, key, hash):
+    i = d.lookup_function(d, key, hash, FLAG_LOOKUP)
     return i >= 0
 
 def _ll_getnextitem(dic):

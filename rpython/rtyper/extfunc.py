@@ -1,8 +1,8 @@
 from rpython.rtyper import extregistry
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rtyper.lltypesystem.lltype import typeOf
-from rpython.annotator import model as annmodel
-from rpython.annotator.signature import annotation
+from rpython.rtyper.lltypesystem.lltype import typeOf, FuncType, functionptr
+from rpython.annotator.model import unionof
+from rpython.annotator.signature import annotation, SignatureError
 
 import py, sys
 
@@ -131,7 +131,7 @@ class ExtFuncEntry(ExtRegistryEntry):
                "Argument number mismatch"
 
         for i, expected in enumerate(signature_args):
-            arg = annmodel.unionof(args_s[i], expected)
+            arg = unionof(args_s[i], expected)
             if not expected.contains(arg):
                 name = getattr(self, 'name', None)
                 if not name:
@@ -139,7 +139,7 @@ class ExtFuncEntry(ExtRegistryEntry):
                         name = self.instance.__name__
                     except AttributeError:
                         name = '?'
-                raise Exception("In call to external function %r:\n"
+                raise SignatureError("In call to external function %r:\n"
                                 "arg %d must be %s,\n"
                                 "          got %s" % (
                     name, i+1, expected, args_s[i]))
@@ -158,7 +158,6 @@ class ExtFuncEntry(ExtRegistryEntry):
         r_result = rtyper.getrepr(s_result)
         ll_result = r_result.lowleveltype
         name = getattr(self, 'name', None) or self.instance.__name__
-        fake_method_name = rtyper.type_system.name[:2] + 'typefakeimpl'
         impl = getattr(self, 'lltypeimpl', None)
         fakeimpl = getattr(self, 'lltypefakeimpl', self.instance)
         if impl:
@@ -203,13 +202,10 @@ class ExtFuncEntry(ExtRegistryEntry):
             obj = rtyper.getannmixlevel().delayedfunction(
                 impl, signature_args, hop.s_result)
         else:
-            #if not self.safe_not_sandboxed:
-            #    print '>>>>>>>>>>>>>-----------------------------------'
-            #    print name, self.name
-            #    print '<<<<<<<<<<<<<-----------------------------------'
-            obj = rtyper.type_system.getexternalcallable(args_ll, ll_result,
-                                 name, _external_name=self.name, _callable=fakeimpl,
-                                 _safe_not_sandboxed=self.safe_not_sandboxed,
+            FT = FuncType(args_ll, ll_result)
+            obj = functionptr(FT, name, _external_name=self.name,
+                              _callable=fakeimpl,
+                              _safe_not_sandboxed=self.safe_not_sandboxed,
                                  transactionsafe=self.transactionsafe)
         vlist = [hop.inputconst(typeOf(obj), obj)] + hop.inputargs(*args_r)
         hop.exception_is_here()

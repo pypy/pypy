@@ -30,6 +30,32 @@ def test_ffi_cache_type():
     assert ffi.typeof("int[][10]") is ffi.typeof("int[][10]")
     assert ffi.typeof("int(*)()") is ffi.typeof("int(*)()")
 
+def test_ffi_type_not_immortal():
+    import weakref, gc
+    ffi = _cffi1_backend.FFI()
+    t1 = ffi.typeof("int **")
+    t2 = ffi.typeof("int *")
+    w1 = weakref.ref(t1)
+    w2 = weakref.ref(t2)
+    del t1, ffi
+    gc.collect()
+    assert w1() is None
+    assert w2() is t2
+    ffi = _cffi1_backend.FFI()
+    assert ffi.typeof(ffi.new("int **")[0]) is t2
+    #
+    ffi = _cffi1_backend.FFI()
+    t1 = ffi.typeof("int ***")
+    t2 = ffi.typeof("int **")
+    w1 = weakref.ref(t1)
+    w2 = weakref.ref(t2)
+    del t2, ffi
+    gc.collect()
+    assert w1() is t1
+    assert w2() is not None   # kept alive by t1
+    ffi = _cffi1_backend.FFI()
+    assert ffi.typeof("int * *") is t1.item
+
 def test_ffi_cache_type_globally():
     ffi1 = _cffi1_backend.FFI()
     ffi2 = _cffi1_backend.FFI()
@@ -211,6 +237,59 @@ def test_ffi_from_buffer():
     ffi.cast("unsigned short *", c)[1] += 500
     assert list(a) == [10000, 20500, 30000]
 
+def test_memmove():
+    ffi = _cffi1_backend.FFI()
+    p = ffi.new("short[]", [-1234, -2345, -3456, -4567, -5678])
+    ffi.memmove(p, p + 1, 4)
+    assert list(p) == [-2345, -3456, -3456, -4567, -5678]
+    p[2] = 999
+    ffi.memmove(p + 2, p, 6)
+    assert list(p) == [-2345, -3456, -2345, -3456, 999]
+    ffi.memmove(p + 4, ffi.new("char[]", b"\x71\x72"), 2)
+    if sys.byteorder == 'little':
+        assert list(p) == [-2345, -3456, -2345, -3456, 0x7271]
+    else:
+        assert list(p) == [-2345, -3456, -2345, -3456, 0x7172]
+
+def test_memmove_buffer():
+    import array
+    ffi = _cffi1_backend.FFI()
+    a = array.array('H', [10000, 20000, 30000])
+    p = ffi.new("short[]", 5)
+    ffi.memmove(p, a, 6)
+    assert list(p) == [10000, 20000, 30000, 0, 0]
+    ffi.memmove(p + 1, a, 6)
+    assert list(p) == [10000, 10000, 20000, 30000, 0]
+    b = array.array('h', [-1000, -2000, -3000])
+    ffi.memmove(b, a, 4)
+    assert b.tolist() == [10000, 20000, -3000]
+    assert a.tolist() == [10000, 20000, 30000]
+    p[0] = 999
+    p[1] = 998
+    p[2] = 997
+    p[3] = 996
+    p[4] = 995
+    ffi.memmove(b, p, 2)
+    assert b.tolist() == [999, 20000, -3000]
+    ffi.memmove(b, p + 2, 4)
+    assert b.tolist() == [997, 996, -3000]
+    p[2] = -p[2]
+    p[3] = -p[3]
+    ffi.memmove(b, p + 2, 6)
+    assert b.tolist() == [-997, -996, 995]
+
+def test_memmove_readonly_readwrite():
+    ffi = _cffi1_backend.FFI()
+    p = ffi.new("signed char[]", 5)
+    ffi.memmove(p, b"abcde", 3)
+    assert list(p) == [ord("a"), ord("b"), ord("c"), 0, 0]
+    ffi.memmove(p, bytearray(b"ABCDE"), 2)
+    assert list(p) == [ord("A"), ord("B"), ord("c"), 0, 0]
+    py.test.raises((TypeError, BufferError), ffi.memmove, b"abcde", p, 3)
+    ba = bytearray(b"xxxxx")
+    ffi.memmove(dest=ba, src=p, n=3)
+    assert ba == bytearray(b"ABcxx")
+
 def test_ffi_types():
     CData = _cffi1_backend.FFI.CData
     CType = _cffi1_backend.FFI.CType
@@ -317,3 +396,23 @@ def test_ffi_new_allocator_4():
         return ffi.NULL
     alloc5 = ffi.new_allocator(myalloc5)
     py.test.raises(MemoryError, alloc5, "int[5]")
+
+def test_bool_issue228():
+    ffi = _cffi1_backend.FFI()
+    fntype = ffi.typeof("int(*callback)(bool is_valid)")
+    assert repr(fntype.args[0]) == "<ctype '_Bool'>"
+
+def test_FILE_issue228():
+    fntype1 = _cffi1_backend.FFI().typeof("FILE *")
+    fntype2 = _cffi1_backend.FFI().typeof("FILE *")
+    assert repr(fntype1) == "<ctype 'FILE *'>"
+    assert fntype1 is fntype2
+
+def test_cast_from_int_type_to_bool():
+    ffi = _cffi1_backend.FFI()
+    for basetype in ['char', 'short', 'int', 'long', 'long long']:
+        for sign in ['signed', 'unsigned']:
+            type = '%s %s' % (sign, basetype)
+            assert int(ffi.cast("_Bool", ffi.cast(type, 42))) == 1
+            assert int(ffi.cast("bool", ffi.cast(type, 42))) == 1
+            assert int(ffi.cast("_Bool", ffi.cast(type, 0))) == 0

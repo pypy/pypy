@@ -16,15 +16,13 @@ DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
 DEFL_GC = "incminimark"   # XXX
 
+DEFL_ROOTFINDER_WITHJIT = "shadowstack"
+ROOTFINDERS = ["n/a", "shadowstack",]
 if sys.platform.startswith("linux"):
-    DEFL_ROOTFINDER_WITHJIT = "asmgcc"
-    ROOTFINDERS = ["n/a", "shadowstack", "asmgcc"]
-elif compiler.name == 'msvc':    
-    DEFL_ROOTFINDER_WITHJIT = "shadowstack"
-    ROOTFINDERS = ["n/a", "shadowstack"]
-else:
-    DEFL_ROOTFINDER_WITHJIT = "shadowstack"
-    ROOTFINDERS = ["n/a", "shadowstack", "asmgcc"]
+    _mach = os.popen('uname -m', 'r').read().strip()
+    if _mach.startswith('x86') or _mach in ['i386', 'i486', 'i586', 'i686']:
+        DEFL_ROOTFINDER_WITHJIT = "asmgcc"   # only for Linux on x86 / x86-64
+        ROOTFINDERS += ["asmgcc"]
 
 IS_64_BITS = sys.maxint > 2147483647
 SUPPORT_STM = IS_64_BITS and sys.platform.startswith("linux")
@@ -104,7 +102,7 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
                  ROOTFINDERS + ["stm"],
-                 "shadowstack",
+                 default="shadowstack",
                  cmdline="--gcrootfinder",
                  requires={
                      "shadowstack": [("translation.gctransformer", "framework")],
@@ -433,4 +431,3 @@ def get_translation_config():
     """ Return the translation config when translating. When running
     un-translated returns None """
     return _GLOBAL_TRANSLATIONCONFIG
-

@@ -434,6 +434,7 @@ LL_OPERATIONS = {
     'stm_id':                 LLOp(sideeffects=False),
     'stm_identityhash':       LLOp(sideeffects=False),
     'stm_addr_get_tid':       LLOp(sideeffects=False),
+    'stm_gc_get_tid':       LLOp(sideeffects=False),
     'stm_get_root_stack_top': LLOp(sideeffects=False),
     'stm_become_inevitable':  LLOp(canmallocgc=True),
     'stm_push_root':          LLOp(),
@@ -598,6 +599,7 @@ LL_OPERATIONS = {
     'gc_dump_rpy_heap'    : LLOp(),
     'gc_typeids_z'        : LLOp(),
     'gc_typeids_list'     : LLOp(),
+    'gc_gettypeid'        : LLOp(),
     'gc_gcflag_extra'     : LLOp(),
     'gc_add_memory_pressure': LLOp(),
 
@@ -619,14 +621,6 @@ LL_OPERATIONS = {
     # for stacklet+asmgcroot support
     'gc_detach_callback_pieces': LLOp(),
     'gc_reattach_callback_pieces': LLOp(),
-
-    # for stacklet+shadowstack support
-    'gc_shadowstackref_new':      LLOp(canmallocgc=True),
-    'gc_shadowstackref_context':  LLOp(),
-    'gc_save_current_state_away': LLOp(),
-    'gc_forget_current_state':    LLOp(),
-    'gc_restore_state_from':      LLOp(),
-    'gc_start_fresh_new_state':   LLOp(),
 
     # NOTE NOTE NOTE! don't forget *** canmallocgc=True *** for anything that
     # can malloc a GC object.

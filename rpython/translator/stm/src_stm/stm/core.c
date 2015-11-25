@@ -925,8 +925,7 @@ static void write_slowpath_overflow_obj(object_t *obj, bool mark_card)
 
 static void touch_all_pages_of_obj(object_t *obj, size_t obj_size)
 {
-    /* XXX should it be simpler, just really trying to read a dummy
-       byte in each page? */
+    /* XXX: make this function not needed */
     int my_segnum = STM_SEGMENT->segment_num;
     uintptr_t end_page, first_page = ((uintptr_t)obj) / 4096UL;
 
@@ -942,8 +941,8 @@ static void touch_all_pages_of_obj(object_t *obj, size_t obj_size)
     for (page = first_page; page <= end_page; page++) {
         if (get_page_status_in(my_segnum, page) == PAGE_NO_ACCESS) {
             release_privatization_lock(STM_SEGMENT->segment_num);
-            volatile char *dummy = REAL_ADDRESS(STM_SEGMENT->segment_base, page * 4096UL);
-            *dummy;            /* force segfault */
+            /* emulate pagefault -> PAGE_ACCESSIBLE: */
+            handle_segfault_in_page(page);
             acquire_privatization_lock(STM_SEGMENT->segment_num);
         }
     }
@@ -1561,6 +1560,14 @@ static void abort_data_structures_from_segment_num(int segment_num)
 
     list_clear(pseg->objects_pointing_to_nursery);
     list_clear(pseg->old_objects_with_cards_set);
+    LIST_FOREACH_R(pseg->large_overflow_objects, uintptr_t /*item*/,
+        {
+            if (is_small_uniform((object_t*)item)) {
+                //_stm_small_free()
+            } else {
+                _stm_large_free(stm_object_pages + item);
+            }
+        });
     list_clear(pseg->large_overflow_objects);
     list_clear(pseg->young_weakrefs);
 #pragma pop_macro("STM_SEGMENT")

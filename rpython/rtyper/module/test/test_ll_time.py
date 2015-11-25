@@ -40,11 +40,11 @@ class TestTime(BaseRtypingTest):
         # we can only subtract two numbers returned by the same function.
         # Moreover they might have different precisions, but it should
         # be at least 0.01 seconds, hence the "sleeps".
-        assert 0.0199 <= t2-t0 <= 9.0
-        assert 0.0199 <= t3-t1 <= t4-t0 <= 9.0
-        assert 0.0199 <= t4-t2 <= t5-t1 <= t6-t0 <= 9.0
-        assert 0.0199 <= t5-t3 <= t6-t2 <= 9.0
-        assert 0.0199 <= t6-t4 <= 9.0
+        assert 0.0099 <= t2-t0 <= 9.0
+        assert 0.0099 <= t3-t1 <= t4-t0 <= 9.0
+        assert 0.0099 <= t4-t2 <= t5-t1 <= t6-t0 <= 9.0
+        assert 0.0099 <= t5-t3 <= t6-t2 <= 9.0
+        assert 0.0099 <= t6-t4 <= 9.0
 
     def test_time_sleep(self):
         def does_nothing():

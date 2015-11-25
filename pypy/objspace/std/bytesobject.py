@@ -16,8 +16,8 @@ from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringmethods import StringMethods
 from pypy.objspace.std.unicodeobject import (
-    _get_encoding_and_errors, decode_object, unicode_from_encoded_object,
-    unicode_from_string)
+    decode_object, unicode_from_encoded_object,
+    unicode_from_string, getdefaultencoding)
 
 
 class W_AbstractBytesObject(W_Root):
@@ -39,13 +39,8 @@ class W_AbstractBytesObject(W_Root):
 
     def unicode_w(self, space):
         # Use the default encoding.
-        w_defaultencoding = space.call_function(space.sys.get(
-                                                'getdefaultencoding'))
-        encoding, errors = _get_encoding_and_errors(space, w_defaultencoding,
-                                                    space.w_None)
-        if encoding is None and errors is None:
-            return space.unicode_w(unicode_from_string(space, self))
-        return space.unicode_w(decode_object(space, self, encoding, errors))
+        encoding = getdefaultencoding(space)
+        return space.unicode_w(decode_object(space, self, encoding, None))
 
     def descr_add(self, space, w_other):
         """x.__add__(y) <==> x+y"""

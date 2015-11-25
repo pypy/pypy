@@ -8,10 +8,6 @@ class CPUTotalTracker(object):
     total_freed_loops = 0
     total_freed_bridges = 0
 
-    # for heaptracker
-    # _all_size_descrs_with_vtable = None
-    _vtable_to_descr_dict = None
-
 class AbstractCPU(object):
     supports_floats = False
     supports_longlong = False
@@ -19,8 +15,11 @@ class AbstractCPU(object):
     # longlongs are supported by the JIT, but stored as doubles.
     # Boxes and Consts are BoxFloats and ConstFloats.
     supports_singlefloats = False
+    supports_guard_gc_type = False
 
     propagate_exception_descr = None
+
+    remove_gctypeptr = False
 
     def __init__(self):
         self.tracker = CPUTotalTracker()

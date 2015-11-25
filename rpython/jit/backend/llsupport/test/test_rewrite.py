@@ -1,13 +1,12 @@
 from rpython.jit.backend.llsupport.descr import get_size_descr,\
      get_field_descr, get_array_descr, ArrayDescr, FieldDescr,\
-     SizeDescrWithVTable, get_interiorfield_descr
+     SizeDescr, get_interiorfield_descr
 from rpython.jit.backend.llsupport.gc import GcLLDescr_boehm,\
      GcLLDescr_framework
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.metainterp.gc import get_description
 from rpython.jit.tool.oparser import parse
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
-from rpython.jit.codewriter.heaptracker import register_known_gctype
 from rpython.jit.metainterp.history import JitCellToken, FLOAT
 from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -23,6 +22,8 @@ class Evaluator(object):
 
 class FakeLoopToken(object):
     pass
+
+o_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
 
 class RewriteTests(object):
     def check_rewrite(self, frm_operations, to_operations, **namespace):
@@ -69,8 +70,8 @@ class RewriteTests(object):
         vtable_descr = self.gc_ll_descr.fielddescr_vtable
         O = lltype.GcStruct('O', ('parent', rclass.OBJECT),
                                  ('x', lltype.Signed))
-        o_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-        register_known_gctype(self.cpu, o_vtable, O)
+        o_descr = self.cpu.sizeof(O, True)
+        o_vtable = globals()['o_vtable']
         #
         tiddescr = self.gc_ll_descr.fielddescr_tid
         if self.gc_ll_descr.stm:
@@ -124,7 +125,10 @@ class RewriteTests(object):
         operations = self.gc_ll_descr.rewrite_assembler(self.cpu,
                                                         ops.operations,
                                                         [])
-        equaloplists(operations, expected.operations,
+        remap = {}
+        for a, b in zip(ops.inputargs, expected.inputargs):
+            remap[b] = a
+        equaloplists(operations, expected.operations, remap=remap,
                      expect_stm_locations_from_right=True)
         lltype.free(frame_info, flavor='raw')
 
@@ -171,8 +175,10 @@ class BaseFakeCPU(object):
 class TestBoehm(RewriteTests):
     def setup_method(self, meth):
         class FakeCPU(BaseFakeCPU):
-            def sizeof(self, STRUCT):
-                return SizeDescrWithVTable(102, gc_fielddescrs=[])
+            def sizeof(self, STRUCT, is_object):
+                assert is_object
+                return SizeDescr(102, gc_fielddescrs=[],
+                                 vtable=o_vtable)
         self.cpu = FakeCPU()
         self.gc_ll_descr = GcLLDescr_boehm(None, None, None)
 
@@ -243,7 +249,7 @@ class TestBoehm(RewriteTests):
     def test_new_with_vtable(self):
         self.check_rewrite("""
             []
-            p0 = new_with_vtable(ConstClass(o_vtable))
+            p0 = new_with_vtable(descr=o_descr)
             jump()
         """, """
             [p1]
@@ -309,8 +315,8 @@ class TestFramework(RewriteTests):
         self.gc_ll_descr.malloc_zero_filled = False
         #
         class FakeCPU(BaseFakeCPU):
-            def sizeof(self, STRUCT):
-                descr = SizeDescrWithVTable(104, gc_fielddescrs=[])
+            def sizeof(self, STRUCT, is_object):
+                descr = SizeDescr(104, gc_fielddescrs=[])
                 descr.tid = 9315
                 return descr
         self.cpu = FakeCPU()
@@ -339,9 +345,9 @@ class TestFramework(RewriteTests):
             p0 = call_malloc_nursery(   \
                                %(sdescr.size + tdescr.size + sdescr.size)d)
             setfield_gc(p0, 1234, descr=tiddescr)
-            p1 = int_add(p0, %(sdescr.size)d)
+            p1 = nursery_ptr_increment(p0, %(sdescr.size)d)
             setfield_gc(p1, 5678, descr=tiddescr)
-            p2 = int_add(p1, %(tdescr.size)d)
+            p2 = nursery_ptr_increment(p1, %(tdescr.size)d)
             setfield_gc(p2, 1234, descr=tiddescr)
             zero_ptr_field(p1, %(tdescr.gc_fielddescrs[0].offset)s)
             jump()
@@ -373,7 +379,7 @@ class TestFramework(RewriteTests):
                                 %(sdescr.size +                        \
                                   adescr.basesize + 10 * adescr.itemsize)d)
             setfield_gc(p0, 1234, descr=tiddescr)
-            p1 = int_add(p0, %(sdescr.size)d)
+            p1 = nursery_ptr_increment(p0, %(sdescr.size)d)
             setfield_gc(p1, 4321, descr=tiddescr)
             setfield_gc(p1, 10, descr=alendescr)
             jump()
@@ -405,13 +411,13 @@ class TestFramework(RewriteTests):
             p0 = call_malloc_nursery(%(4 * (bdescr.basesize + 8))d)
             setfield_gc(p0, 8765, descr=tiddescr)
             setfield_gc(p0, 5, descr=blendescr)
-            p1 = int_add(p0, %(bdescr.basesize + 8)d)
+            p1 = nursery_ptr_increment(p0, %(bdescr.basesize + 8)d)
             setfield_gc(p1, 8765, descr=tiddescr)
             setfield_gc(p1, 5, descr=blendescr)
-            p2 = int_add(p1, %(bdescr.basesize + 8)d)
+            p2 = nursery_ptr_increment(p1, %(bdescr.basesize + 8)d)
             setfield_gc(p2, 8765, descr=tiddescr)
             setfield_gc(p2, 5, descr=blendescr)
-            p3 = int_add(p2, %(bdescr.basesize + 8)d)
+            p3 = nursery_ptr_increment(p2, %(bdescr.basesize + 8)d)
             setfield_gc(p3, 8765, descr=tiddescr)
             setfield_gc(p3, 5, descr=blendescr)
             jump()
@@ -427,7 +433,7 @@ class TestFramework(RewriteTests):
             []
             p0 = call_malloc_nursery(%(4*WORD)d)
             setfield_gc(p0, 9000, descr=tiddescr)
-            p1 = int_add(p0, %(2*WORD)d)
+            p1 = nursery_ptr_increment(p0, %(2*WORD)d)
             setfield_gc(p1, 9000, descr=tiddescr)
             jump()
         """)
@@ -511,7 +517,7 @@ class TestFramework(RewriteTests):
                               %(2 * (bdescr.basesize + 104))d)
             setfield_gc(p0, 8765, descr=tiddescr)
             setfield_gc(p0, 101, descr=blendescr)
-            p1 = int_add(p0, %(bdescr.basesize + 104)d)
+            p1 = nursery_ptr_increment(p0, %(bdescr.basesize + 104)d)
             setfield_gc(p1, 8765, descr=tiddescr)
             setfield_gc(p1, 102, descr=blendescr)
             p2 = call_malloc_nursery(    \
@@ -538,13 +544,13 @@ class TestFramework(RewriteTests):
     def test_new_with_vtable(self):
         self.check_rewrite("""
             []
-            p0 = new_with_vtable(ConstClass(o_vtable))
+            p0 = new_with_vtable(descr=o_descr)
             jump()
         """, """
             [p1]
             p0 = call_malloc_nursery(104)      # rounded up
             setfield_gc(p0, 9315, descr=tiddescr)
-            setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
+            setfield_gc(p0, 0, descr=vtable_descr)
             jump()
         """)
 
@@ -552,13 +558,13 @@ class TestFramework(RewriteTests):
         self.gc_ll_descr.max_size_of_young_obj = 100
         self.check_rewrite("""
             []
-            p0 = new_with_vtable(ConstClass(o_vtable))
+            p0 = new_with_vtable(descr=o_descr)
             jump()
         """, """
             [p1]
             p0 = call_malloc_gc(ConstClass(malloc_big_fixedsize), 104, 9315, \
                                 descr=malloc_big_fixedsize_descr)
-            setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
+            setfield_gc(p0, 0, descr=vtable_descr)
             jump()
         """)
 
@@ -578,7 +584,7 @@ class TestFramework(RewriteTests):
             setfield_gc(p0, %(strdescr.tid)d, descr=tiddescr)
             setfield_gc(p0, 14, descr=strlendescr)
             setfield_gc(p0, 0, descr=strhashdescr)
-            p1 = int_add(p0, %(strdescr.basesize + 16 * strdescr.itemsize)d)
+            p1 = nursery_ptr_increment(p0, %(strdescr.basesize + 16 * strdescr.itemsize)d)
             setfield_gc(p1, %(unicodedescr.tid)d, descr=tiddescr)
             setfield_gc(p1, 10, descr=unicodelendescr)
             setfield_gc(p1, 0, descr=unicodehashdescr)
@@ -624,7 +630,7 @@ class TestFramework(RewriteTests):
         self.check_rewrite("""
             [i2, p3]
             p1 = new_array_clear(129, descr=cdescr)
-            call(123456)
+            call_n(123456)
             setarrayitem_gc(p1, i2, p3, descr=cdescr)
             jump()
         """, """
@@ -634,7 +640,7 @@ class TestFramework(RewriteTests):
             setfield_gc(p1, 8111, descr=tiddescr)
             setfield_gc(p1, 129, descr=clendescr)
             zero_array(p1, 0, 129, descr=cdescr)
-            call(123456)
+            call_n(123456)
             cond_call_gc_wb(p1, descr=wbdescr)
             setarrayitem_gc(p1, i2, p3, descr=cdescr)
             jump()
@@ -646,7 +652,7 @@ class TestFramework(RewriteTests):
         self.check_rewrite("""
             [i2, p3]
             p1 = new_array_clear(130, descr=cdescr)
-            call(123456)
+            call_n(123456)
             setarrayitem_gc(p1, i2, p3, descr=cdescr)
             jump()
         """, """
@@ -656,7 +662,7 @@ class TestFramework(RewriteTests):
             setfield_gc(p1, 8111, descr=tiddescr)
             setfield_gc(p1, 130, descr=clendescr)
             zero_array(p1, 0, 130, descr=cdescr)
-            call(123456)
+            call_n(123456)
             cond_call_gc_wb_array(p1, i2, descr=wbdescr)
             setarrayitem_gc(p1, i2, p3, descr=cdescr)
             jump()
@@ -738,7 +744,7 @@ class TestFramework(RewriteTests):
             []
             p0 = call_malloc_nursery(%(tdescr.size + sdescr.size)d)
             setfield_gc(p0, 5678, descr=tiddescr)
-            p1 = int_add(p0, %(tdescr.size)d)
+            p1 = nursery_ptr_increment(p0, %(tdescr.size)d)
             setfield_gc(p1, 1234, descr=tiddescr)
             # <<<no cond_call_gc_wb here>>>
             setfield_gc(p0, p1, descr=tzdescr)
@@ -851,7 +857,7 @@ class TestFramework(RewriteTests):
             [p1, p2]
             p0 = new_array_clear(5, descr=cdescr)
             setarrayitem_gc(p0, 0, p1, descr=cdescr)
-            call(321321)
+            call_n(321321)
             setarrayitem_gc(p0, 1, p2, descr=cdescr)
             jump()
         """, """
@@ -862,7 +868,7 @@ class TestFramework(RewriteTests):
             setfield_gc(p0, 5, descr=clendescr)
             zero_array(p0, 1, 4, descr=cdescr)
             setarrayitem_gc(p0, 0, p1, descr=cdescr)
-            call(321321)
+            call_n(321321)
             cond_call_gc_wb(p0, descr=wbdescr)
             setarrayitem_gc(p0, 1, p2, descr=cdescr)
             jump()
@@ -993,13 +999,13 @@ class TestFramework(RewriteTests):
     def test_rewrite_call_assembler(self):
         self.check_rewrite("""
         [i0, f0]
-        i2 = call_assembler(i0, f0, descr=casmdescr)
+        i2 = call_assembler_i(i0, f0, descr=casmdescr)
         """, """
         [i0, f0]
-        i1 = getfield_raw(ConstClass(frame_info), descr=jfi_frame_size)
+        i1 = getfield_raw_i(ConstClass(frame_info), descr=jfi_frame_size)
         p1 = call_malloc_nursery_varsize_frame(i1)
         setfield_gc(p1, 0, descr=tiddescr)
-        i2 = getfield_raw(ConstClass(frame_info), descr=jfi_frame_depth)
+        i2 = getfield_raw_i(ConstClass(frame_info), descr=jfi_frame_depth)
         setfield_gc(p1, 0, descr=jf_extra_stack_depth)
         setfield_gc(p1, NULL, descr=jf_savedata)
         setfield_gc(p1, NULL, descr=jf_force_descr)
@@ -1010,7 +1016,7 @@ class TestFramework(RewriteTests):
         setfield_gc(p1, ConstClass(frame_info), descr=jf_frame_info)
         setarrayitem_gc(p1, 0, i0, descr=signedframedescr)
         setarrayitem_gc(p1, 1, f0, descr=floatframedescr)
-        i3 = call_assembler(p1, descr=casmdescr)
+        i3 = call_assembler_i(p1, descr=casmdescr)
         """)
 
     def test_int_add_ovf(self):
@@ -1054,13 +1060,39 @@ class TestFramework(RewriteTests):
         self.check_rewrite("""
             []
             p0 = new(descr=tdescr)
-            p1 = getfield_gc(p0, descr=tdescr)
+            p1 = getfield_gc_r(p0, descr=tdescr)
             jump(p1)
         """, """
             []
             p0 = call_malloc_nursery(%(tdescr.size)d)
             setfield_gc(p0, 5678, descr=tiddescr)
             zero_ptr_field(p0, %(tdescr.gc_fielddescrs[0].offset)s)
-            p1 = getfield_gc(p0, descr=tdescr)
+            p1 = getfield_gc_r(p0, descr=tdescr)
             jump(p1)
+        """)
+
+    def test_remove_tested_failarg(self):
+        self.check_rewrite("""
+            [i5]
+            i2 = int_ge(i5, 10)
+            guard_true(i2) [i5, i2]
+            jump()
+        """, """
+            [i5]
+            i0 = same_as_i(0)
+            i2 = int_ge(i5, 10)
+            guard_true(i2) [i5, i0]
+            jump()
+        """)
+        self.check_rewrite("""
+            [i5]
+            i2 = int_ge(i5, 10)
+            guard_false(i2) [i5, i2]
+            jump()
+        """, """
+            [i5]
+            i0 = same_as_i(1)
+            i2 = int_ge(i5, 10)
+            guard_false(i2) [i5, i0]
+            jump()
         """)

@@ -42,7 +42,7 @@ class SendTests(object):
         assert res == 2
         # 'len' becomes a getfield('num_items') for now in lltype,
         # which is itself encoded as a 'getfield_gc'
-        self.check_resops(call=2, getfield_gc=2)
+        self.check_resops(call_r=2, getfield_gc_i=2)
 
     def test_send_to_single_target_method(self):
         myjitdriver = JitDriver(greens = [], reds = ['i', 'counter'])
@@ -66,9 +66,9 @@ class SendTests(object):
         res = self.meta_interp(f, [1], policy=StopAtXPolicy(externfn),
                                backendopt=True)
         assert res == 43
-        self.check_resops({'int_gt': 2, 'getfield_gc': 2,
+        self.check_resops({'int_gt': 2, 'getfield_gc_i': 2,
                            'guard_true': 2, 'int_sub': 2, 'jump': 1,
-                           'call': 2, 'guard_no_exception': 2,
+                           'call_r': 2, 'guard_no_exception': 2,
                            'int_add': 2})
 
     def test_red_send_to_green_receiver(self):
@@ -557,7 +557,7 @@ class SendTests(object):
         policy = StopAtXPolicy(new, A.foo.im_func, B.foo.im_func)
         res = self.meta_interp(fn, [0, 20], policy=policy)
         assert res == 42
-        self.check_resops(call=2)
+        self.check_resops(call_i=2)
 
 
     def test_residual_oosend_with_void(self):
@@ -585,7 +585,7 @@ class SendTests(object):
         policy = StopAtXPolicy(new, A.foo.im_func)
         res = self.meta_interp(fn, [1, 20], policy=policy)
         assert res == 41
-        self.check_resops(call=2)
+        self.check_resops(call_i=2)
 
     def test_constfold_pure_oosend(self):
         myjitdriver = JitDriver(greens=[], reds = ['i', 'obj'])

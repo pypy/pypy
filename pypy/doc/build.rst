@@ -85,13 +85,16 @@ pyexpat
 _ssl
     libssl
 
+gdbm
+    libgdbm-dev
+
 Make sure to have these libraries (with development headers) installed before
 building PyPy, otherwise the resulting binary will not contain these modules.
 
 On Debian, this is the command to install all build-time dependencies::
 
     apt-get install gcc make libffi-dev pkg-config libz-dev libbz2-dev \
-    libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev
+    libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev libgdbm-dev
 
 For the optional lzma module on PyPy3 you will also need ``liblzma-dev``.
 

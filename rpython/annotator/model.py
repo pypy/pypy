@@ -32,6 +32,7 @@ from __future__ import absolute_import
 import inspect
 import weakref
 from types import BuiltinFunctionType, MethodType
+from collections import OrderedDict
 
 import rpython
 from rpython.tool import descriptor
@@ -385,11 +386,7 @@ class SomeDict(SomeObject):
         return type(self)(self.dictdef)
 
 class SomeOrderedDict(SomeDict):
-    try:
-        from collections import OrderedDict as knowntype
-    except ImportError:    # Python 2.6
-        class PseudoOrderedDict(dict): pass
-        knowntype = PseudoOrderedDict
+    knowntype = OrderedDict
 
     def method_copy(dct):
         return SomeOrderedDict(dct.dictdef)
@@ -474,7 +471,7 @@ class SomePBC(SomeObject):
             if desc.pyobj is not None:
                 self.const = desc.pyobj
         elif len(descriptions) > 1:
-            from rpython.annotator.description import ClassDesc
+            from rpython.annotator.classdesc import ClassDesc
             if self.getKind() is ClassDesc:
                 # a PBC of several classes: enforce them all to be
                 # built, without support for specialization.  See

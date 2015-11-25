@@ -85,10 +85,10 @@ class TestLLtype(LLJitMixin):
             return a.x
         res = self.interp_operations(fn, [7])
         assert res == 7
-        self.check_operations_history(getfield_gc=0)
+        self.check_operations_history(getfield_gc_i=0)
         res = self.interp_operations(fn, [-7])
         assert res == -7
-        self.check_operations_history(getfield_gc=0)
+        self.check_operations_history(getfield_gc_i=0)
 
         def fn(n, ca, cb):
             a1.x = n
@@ -102,10 +102,10 @@ class TestLLtype(LLJitMixin):
             return a.x + b.x
         res = self.interp_operations(fn, [7, 0, 1])
         assert res == 7 * 2
-        self.check_operations_history(getfield_gc=1)
+        self.check_operations_history(getfield_gc_i=1)
         res = self.interp_operations(fn, [-7, 1, 1])
         assert res == -7 * 2
-        self.check_operations_history(getfield_gc=1)
+        self.check_operations_history(getfield_gc_i=1)
 
     def test_heap_caching_nonnull(self):
         class A:
@@ -151,7 +151,7 @@ class TestLLtype(LLJitMixin):
             return a.x + x1 + x2
         res = self.interp_operations(fn, [7])
         assert res == 5 * 2 + 7
-        self.check_operations_history(getfield_gc=1)
+        self.check_operations_history(getfield_gc_i=1)
 
     def test_heap_caching_dont_store_same(self):
         class A:
@@ -168,10 +168,10 @@ class TestLLtype(LLJitMixin):
             return a.x
         res = self.interp_operations(fn, [7])
         assert res == 7
-        self.check_operations_history(getfield_gc=0, setfield_gc=1)
+        self.check_operations_history(getfield_gc_i=0, setfield_gc=1)
         res = self.interp_operations(fn, [-7])
         assert res == -7
-        self.check_operations_history(getfield_gc=0)
+        self.check_operations_history(getfield_gc_i=0)
 
     def test_array_caching(self):
         a1 = [0, 0]
@@ -187,10 +187,10 @@ class TestLLtype(LLJitMixin):
             return a[0] + x1
         res = self.interp_operations(fn, [7])
         assert res == 7 + 7 + 1
-        self.check_operations_history(getarrayitem_gc=1)
+        self.check_operations_history(getarrayitem_gc_i=1)
         res = self.interp_operations(fn, [-7])
         assert res == -7 - 7 + 1
-        self.check_operations_history(getarrayitem_gc=1)
+        self.check_operations_history(getarrayitem_gc_i=1)
 
         def fn(n, ca, cb):
             a1[0] = n
@@ -204,10 +204,10 @@ class TestLLtype(LLJitMixin):
             return a[0] + b[0]
         res = self.interp_operations(fn, [7, 0, 1])
         assert res == 7 * 2
-        self.check_operations_history(getarrayitem_gc=1)
+        self.check_operations_history(getarrayitem_gc_i=1)
         res = self.interp_operations(fn, [-7, 1, 1])
         assert res == -7 * 2
-        self.check_operations_history(getarrayitem_gc=1)
+        self.check_operations_history(getarrayitem_gc_i=1)
 
     def test_array_caching_while_tracing_invalidation(self):
         a1 = [0, 0]
@@ -230,7 +230,7 @@ class TestLLtype(LLJitMixin):
             return a[0] + x1 + x2
         res = self.interp_operations(fn, [7])
         assert res == 5 * 2 + 7
-        self.check_operations_history(getarrayitem_gc=1)
+        self.check_operations_history(getarrayitem_gc_i=1)
 
     def test_array_and_getfield_interaction(self):
         class A: pass
@@ -254,7 +254,7 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [7])
         assert res == 7 * 2 + 1
         self.check_operations_history(setarrayitem_gc=2, setfield_gc=3,
-                                      getarrayitem_gc=0, getfield_gc=1)
+                                      getarrayitem_gc_i=0, getfield_gc_r=1)
 
     def test_promote_changes_heap_cache(self):
         class A: pass
@@ -279,7 +279,8 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [7])
         assert res == 7 * 2 + 1
         self.check_operations_history(setarrayitem_gc=2, setfield_gc=2,
-                                      getarrayitem_gc=0, getfield_gc=2)
+                                      getarrayitem_gc_i=0, getfield_gc_i=1,
+            getfield_gc_r=1)
 
     def test_promote_changes_array_cache(self):
         a1 = [0, 0]
@@ -297,10 +298,10 @@ class TestLLtype(LLJitMixin):
             return a[0] + x1
         res = self.interp_operations(fn, [7])
         assert res == 7 + 7 + 1
-        self.check_operations_history(getarrayitem_gc=0, guard_value=1)
+        self.check_operations_history(getarrayitem_gc_i=0, guard_value=1)
         res = self.interp_operations(fn, [-7])
         assert res == -7 - 7 + 1
-        self.check_operations_history(getarrayitem_gc=0, guard_value=1)
+        self.check_operations_history(getarrayitem_gc_i=0, guard_value=1)
 
 
     def test_list_caching(self):
@@ -319,12 +320,12 @@ class TestLLtype(LLJitMixin):
             return a[0] + x1
         res = self.interp_operations(fn, [7])
         assert res == 7 + 7 + 1
-        self.check_operations_history(getarrayitem_gc=1,
-                getfield_gc=1)
+        self.check_operations_history(getarrayitem_gc_i=1,
+                getfield_gc_r=1)
         res = self.interp_operations(fn, [-7])
         assert res == -7 - 7 + 1
-        self.check_operations_history(getarrayitem_gc=1,
-                getfield_gc=1)
+        self.check_operations_history(getarrayitem_gc_i=1,
+                getfield_gc_r=1)
 
         def fn(n, ca, cb):
             a1[0] = n
@@ -340,12 +341,12 @@ class TestLLtype(LLJitMixin):
             return a[0] + b[0]
         res = self.interp_operations(fn, [7, 0, 1])
         assert res == 7 * 2
-        self.check_operations_history(getarrayitem_gc=1,
-                getfield_gc=3)
+        self.check_operations_history(getarrayitem_gc_i=1,
+                getfield_gc_r=3)
         res = self.interp_operations(fn, [-7, 1, 1])
         assert res == -7 * 2
-        self.check_operations_history(getarrayitem_gc=1,
-                getfield_gc=3)
+        self.check_operations_history(getarrayitem_gc_i=1,
+                getfield_gc_r=3)
 
     def test_list_caching_negative(self):
         def fn(n):
@@ -359,7 +360,7 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [7])
         assert res == 7 + 7 + 1
         self.check_operations_history(setarrayitem_gc=2,
-                setfield_gc=2, call=0)
+                setfield_gc=2, call_n=0, call_i=0, call_r=0)
 
     def test_list_caching_negative_nonzero_init(self):
         def fn(n):
@@ -373,7 +374,7 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [7])
         assert res == 7 + 7 + 1 + 42000
         self.check_operations_history(setarrayitem_gc=2,
-                setfield_gc=0, call=1)
+                setfield_gc=0, call_r=1)
 
     def test_virtualizable_with_array_heap_cache(self):
         myjitdriver = jit.JitDriver(greens = [], reds = ['n', 'x', 'i', 'frame'],
@@ -415,7 +416,8 @@ class TestLLtype(LLJitMixin):
 
         res = self.meta_interp(f, [10, 1, 1], listops=True)
         assert res == f(10, 1, 1)
-        self.check_history(getarrayitem_gc=0, getfield_gc=0)
+        self.check_history(getarrayitem_gc_i=0, getfield_gc_i=0,
+                           getfield_gc_r=0)
 
     def test_heap_caching_array_pure(self):
         class A(object):
@@ -434,10 +436,10 @@ class TestLLtype(LLJitMixin):
             return p.x[0] + p.x[1]
         res = self.interp_operations(fn, [7])
         assert res == 7 + 7 + 1
-        self.check_operations_history(getfield_gc=0, getfield_gc_pure=0)
+        self.check_operations_history(getfield_gc_r=0, getfield_gc_pure_r=0)
         res = self.interp_operations(fn, [-7])
         assert res == -7 - 7 + 1
-        self.check_operations_history(getfield_gc=0, getfield_gc_pure=0)
+        self.check_operations_history(getfield_gc_r=0, getfield_gc_pure_r=0)
 
     def test_heap_caching_and_elidable_function(self):
         class A:
@@ -460,10 +462,10 @@ class TestLLtype(LLJitMixin):
             return z + a.x
         res = self.interp_operations(fn, [7])
         assert res == 7 + 7
-        self.check_operations_history(getfield_gc=0)
+        self.check_operations_history(getfield_gc_i=0)
         res = self.interp_operations(fn, [-7])
         assert res == -7 + 7
-        self.check_operations_history(getfield_gc=0)
+        self.check_operations_history(getfield_gc_i=0)
         return
 
     def test_heap_caching_multiple_objects(self):
@@ -494,10 +496,11 @@ class TestLLtype(LLJitMixin):
             return a1.x + a2.x + gn(a1, a2)
         res = self.interp_operations(fn, [-7])
         assert res == 2 * -7 + 2 * -8
-        self.check_operations_history(setfield_gc=4, getfield_gc=0)
+        self.check_operations_history(setfield_gc=4, getfield_gc_i=0,
+                                      getfield_gc_r=0)
         res = self.interp_operations(fn, [7])
         assert res == 4 * 7
-        self.check_operations_history(getfield_gc=4)
+        self.check_operations_history(getfield_gc_i=2, getfield_gc_r=2)
 
     def test_heap_caching_multiple_tuples(self):
         class Gbl(object):
@@ -514,10 +517,12 @@ class TestLLtype(LLJitMixin):
             return a1[0] + a2[0] + gn(a1, a2)
         res = self.interp_operations(fn, [7])
         assert res == 2 * 7 + 2 * 6
-        self.check_operations_history(getfield_gc_pure=0)
+        self.check_operations_history(getfield_gc_pure_i=0,
+                                      getfield_gc_pure_r=0)
         res = self.interp_operations(fn, [-7])
         assert res == 2 * -7 + 2 * -8
-        self.check_operations_history(getfield_gc_pure=0)
+        self.check_operations_history(getfield_gc_pure_i=0,
+                                      getfield_gc_pure_r=0)
 
     def test_heap_caching_multiple_arrays(self):
         class Gbl(object):
@@ -533,10 +538,10 @@ class TestLLtype(LLJitMixin):
             return a1[0] + a2[0] + a1[0] + a2[0]
         res = self.interp_operations(fn, [7])
         assert res == 2 * 7 + 2 * 6
-        self.check_operations_history(getarrayitem_gc=0)
+        self.check_operations_history(getarrayitem_gc_i=0)
         res = self.interp_operations(fn, [-7])
         assert res == 2 * -7 + 2 * -8
-        self.check_operations_history(getarrayitem_gc=0)
+        self.check_operations_history(getarrayitem_gc_i=0)
 
     def test_heap_caching_multiple_arrays_getarrayitem(self):
         class Gbl(object):
@@ -557,7 +562,7 @@ class TestLLtype(LLJitMixin):
             return a1[i] + a2[i] + a1[i] + a2[i]
         res = self.interp_operations(fn, [0])
         assert res == 2 * 7 + 2 * 8
-        self.check_operations_history(getarrayitem_gc=2)
+        self.check_operations_history(getarrayitem_gc_i=2)
 
 
     def test_heap_caching_multiple_lists(self):
@@ -577,10 +582,12 @@ class TestLLtype(LLJitMixin):
             return a1[0] + a2[0] + a1[0] + a2[0]
         res = self.interp_operations(fn, [7])
         assert res == 2 * 7 + 2 * 6
-        self.check_operations_history(getarrayitem_gc=0, getfield_gc=0)
+        self.check_operations_history(getarrayitem_gc_i=0, getfield_gc_i=0,
+                                      getfield_gc_r=0)
         res = self.interp_operations(fn, [-7])
         assert res == 2 * -7 + 2 * -8
-        self.check_operations_history(getarrayitem_gc=0, getfield_gc=0)
+        self.check_operations_history(getarrayitem_gc_i=0, getfield_gc_i=0,
+                                      getfield_gc_r=0)
 
     def test_length_caching(self):
         class Gbl(object):
@@ -610,7 +617,7 @@ class TestLLtype(LLJitMixin):
             return len(a[:n]) + x[2]
         res = self.interp_operations(fn, [3], backendopt=True)
         assert res == 24
-        self.check_operations_history(getarrayitem_gc=0)
+        self.check_operations_history(getarrayitem_gc_i=0)
 
     def test_fold_int_add_ovf(self):
         def fn(n):
@@ -646,12 +653,12 @@ class TestLLtype(LLJitMixin):
             return unerase(a)[0] + unerase(b)[0]
         res = self.interp_operations(fn, [7, 0, 1])
         assert res == 7 * 2
-        self.check_operations_history(getarrayitem_gc=0,
-                getfield_gc=0)
+        self.check_operations_history(getarrayitem_gc_i=0,
+                getfield_gc_i=0, getfield_gc_r=0)
         res = self.interp_operations(fn, [-7, 1, 1])
         assert res == -7 * 2
-        self.check_operations_history(getarrayitem_gc=0,
-                getfield_gc=0)
+        self.check_operations_history(getarrayitem_gc_i=0,
+                getfield_gc_i=0, getfield_gc_r=0)
 
     def test_copy_str_content(self):
         def fn(n):
@@ -661,7 +668,8 @@ class TestLLtype(LLJitMixin):
             return x[0]
         res = self.interp_operations(fn, [0])
         assert res == 1
-        self.check_operations_history(getarrayitem_gc=0, getarrayitem_gc_pure=0)
+        self.check_operations_history(getarrayitem_gc_i=0,
+                                      getarrayitem_gc_pure_i=0)
 
     def test_raise_known_class_no_guard_class(self):
         def raise_exc(cls):

@@ -1,10 +1,14 @@
 from rpython.tool import udir
 from pypy.conftest import option
+from pypy.interpreter.gateway import interp2app
 
+def check_no_w_locals(space, w_frame):
+    return space.wrap(w_frame.getorcreatedebug().w_locals is None)
 
 class AppTestPyFrame:
 
     def setup_class(cls):
+        space = cls.space
         cls.w_udir = cls.space.wrap(str(udir.udir))
         cls.w_tempfile1 = cls.space.wrap(str(udir.udir.join('tempfile1')))
         if not option.runappdirect:
@@ -16,6 +20,8 @@ class AppTestPyFrame:
             assert not w_call_further.code.hidden_applevel
             w_call_further.code.hidden_applevel = True       # hack
             cls.w_call_further = w_call_further
+
+            cls.w_check_no_w_locals = space.wrap(interp2app(check_no_w_locals))
 
     # test for the presence of the attributes, not functionality
 
@@ -492,6 +498,25 @@ class AppTestPyFrame:
         res = f(1)
         sys.settrace(None)
         assert res == 42
+
+    def test_fast2locals_called_lazily(self):
+        import sys
+        class FrameHolder:
+            pass
+        fh = FrameHolder()
+        def trace(frame, what, arg):
+            # trivial trace function, does not access f_locals
+            fh.frame = frame
+            return trace
+        def f(x):
+            x += 1
+            return x
+        sys.settrace(trace)
+        res = f(1)
+        sys.settrace(None)
+        assert res == 2
+        if hasattr(self, "check_no_w_locals"): # not appdirect
+            assert self.check_no_w_locals(fh.frame)
 
     def test_set_unset_f_trace(self):
         import sys

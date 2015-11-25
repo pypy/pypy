@@ -2,7 +2,6 @@ import sys
 import types
 
 from rpython.flowspace.model import Constant
-from rpython.flowspace.operation import op
 from rpython.annotator import description, model as annmodel
 from rpython.rlib.objectmodel import UnboxedValue
 from rpython.tool.pairtype import pairtype, pair
@@ -101,8 +100,7 @@ def buildinstancerepr(rtyper, classdef, gcflavor='gc'):
         unboxed = [subdef for subdef in classdef.getallsubdefs() if
             subdef.classdesc.pyobj is not None and
             issubclass(subdef.classdesc.pyobj, UnboxedValue)]
-        virtualizable = classdef.classdesc.read_attribute(
-            '_virtualizable_', Constant(False)).value
+        virtualizable = classdef.classdesc.get_param('_virtualizable_', False)
     config = rtyper.annotator.translator.config
     usetagging = len(unboxed) != 0 and config.translation.taggedpointers
 
@@ -255,9 +253,7 @@ class ClassRepr(Repr):
         allmethods = {}
         # class attributes
         llfields = []
-        attrs = self.classdef.attrs.items()
-        attrs.sort()
-        for name, attrdef in attrs:
+        for name, attrdef in self.classdef.attrs.items():
             if attrdef.readonly:
                 s_value = attrdef.s_value
                 s_unboundmethod = self.prepare_method(s_value)
@@ -275,6 +271,8 @@ class ClassRepr(Repr):
             mangled_name = mangle('pbc%d' % counter, attr)
             pbcfields[access_set, attr] = mangled_name, r
             llfields.append((mangled_name, r.lowleveltype))
+        llfields.sort()
+        llfields.sort(key=attr_reverse_size)
         #
         self.rbase = getclassrepr(self.rtyper, self.classdef.basedef)
         self.rbase.setup()
@@ -496,19 +494,7 @@ class InstanceRepr(Repr):
                     fields[name] = mangled_name, r
                     myllfields.append((mangled_name, r.lowleveltype))
 
-            # Sort the instance attributes by decreasing "likely size",
-            # as reported by rffi.sizeof(), to minimize padding holes in C.
-            # Fields of the same size are sorted by name (by attrs.sort()
-            # above) just to minimize randomness.
-            def keysize((_, T)):
-                if T is lltype.Void:
-                    return None
-                from rpython.rtyper.lltypesystem.rffi import sizeof
-                try:
-                    return -sizeof(T)
-                except StandardError:
-                    return None
-            myllfields.sort(key=keysize)
+            myllfields.sort(key=attr_reverse_size)
             if llfields is None:
                 llfields = myllfields
             else:
@@ -546,26 +532,24 @@ class InstanceRepr(Repr):
         self.allinstancefields = allinstancefields
 
     def _check_for_immutable_hints(self, hints):
-        loc = self.classdef.classdesc.lookup('_immutable_')
-        if loc is not None:
-            if loc is not self.classdef.classdesc:
+        hints = hints.copy()
+        classdesc = self.classdef.classdesc
+        immut = classdesc.get_param('_immutable_', inherit=False)
+        if immut is None:
+            if classdesc.get_param('_immutable_', inherit=True):
                 raise ImmutableConflictError(
                     "class %r inherits from its parent _immutable_=True, "
                     "so it should also declare _immutable_=True" % (
                         self.classdef,))
-            if loc.classdict.get('_immutable_').value is not True:
-                raise TyperError(
-                    "class %r: _immutable_ = something else than True" % (
-                        self.classdef,))
-            hints = hints.copy()
+        elif immut is not True:
+            raise TyperError(
+                "class %r: _immutable_ = something else than True" % (
+                    self.classdef,))
+        else:
             hints['immutable'] = True
-        self.immutable_field_set = set()  # unless overwritten below
-        if self.classdef.classdesc.lookup('_immutable_fields_') is not None:
-            hints = hints.copy()
-            immutable_fields = self.classdef.classdesc.classdict.get(
-                '_immutable_fields_')
-            if immutable_fields is not None:
-                self.immutable_field_set = set(immutable_fields.value)
+        self.immutable_field_set = classdesc.immutable_fields
+        if (classdesc.immutable_fields or
+                'immutable_fields' in self.rbase.object_type._hints):
             accessor = FieldListAccessor()
             hints['immutable_fields'] = accessor
         return hints
@@ -721,10 +705,12 @@ class InstanceRepr(Repr):
             rbase = rbase.rbase
         return False
 
-    def new_instance(self, llops, classcallhop=None):
+    def new_instance(self, llops, classcallhop=None, nonmovable=False):
         """Build a new instance, without calling __init__."""
         flavor = self.gcflavor
         flags = {'flavor': flavor}
+        if nonmovable:
+            flags['nonmovable'] = True
         ctype = inputconst(Void, self.object_type)
         cflags = inputconst(Void, flags)
         vlist = [ctype, cflags]
@@ -1068,9 +1054,10 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
 
 # ____________________________________________________________
 
-def rtype_new_instance(rtyper, classdef, llops, classcallhop=None):
+def rtype_new_instance(rtyper, classdef, llops, classcallhop=None,
+                       nonmovable=False):
     rinstance = getinstancerepr(rtyper, classdef)
-    return rinstance.new_instance(llops, classcallhop)
+    return rinstance.new_instance(llops, classcallhop, nonmovable=nonmovable)
 
 def ll_inst_hash(ins):
     if not ins:
@@ -1096,6 +1083,19 @@ def fishllattr(inst, name, default=_missing):
         raise AttributeError("%s has no field %s" %
                              (lltype.typeOf(widest), name))
     return default
+
+def attr_reverse_size((_, T)):
+    # This is used to sort the instance or class attributes by decreasing
+    # "likely size", as reported by rffi.sizeof(), to minimize padding
+    # holes in C.  Fields should first be sorted by name, just to minimize
+    # randomness, and then (stably) sorted by 'attr_reverse_size'.
+    if T is lltype.Void:
+        return None
+    from rpython.rtyper.lltypesystem.rffi import sizeof
+    try:
+        return -sizeof(T)
+    except StandardError:
+        return None
 
 
 # ____________________________________________________________

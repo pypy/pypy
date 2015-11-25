@@ -195,17 +195,15 @@ class Recompiler:
             elif isinstance(tp, model.StructOrUnion):
                 if tp.fldtypes is not None and (
                         tp not in self.ffi._parser._included_declarations):
-                    for name1, tp1, _ in tp.enumfields():
+                    for name1, tp1, _, _ in tp.enumfields():
                         self._do_collect_type(self._field_type(tp, name1, tp1))
             else:
                 for _, x in tp._get_items():
                     self._do_collect_type(x)
 
-    def _get_declarations(self):
-        return sorted(self.ffi._parser._declarations.items())
-
     def _generate(self, step_name):
-        for name, tp in self._get_declarations():
+        lst = self.ffi._parser._declarations.items()
+        for name, (tp, quals) in sorted(lst):
             kind, realname = name.split(' ', 1)
             try:
                 method = getattr(self, '_generate_cpy_%s_%s' % (kind,
@@ -214,6 +212,7 @@ class Recompiler:
                 raise ffiplatform.VerificationError(
                     "not implemented in recompile(): %r" % name)
             try:
+                self._current_quals = quals
                 method(tp, realname)
             except Exception as e:
                 model.attach_exception_info(e, name)
@@ -608,7 +607,11 @@ class Recompiler:
             call_arguments.append('x%d' % i)
         repr_arguments = ', '.join(arguments)
         repr_arguments = repr_arguments or 'void'
-        name_and_arguments = '_cffi_d_%s(%s)' % (name, repr_arguments)
+        if tp.abi:
+            abi = tp.abi + ' '
+        else:
+            abi = ''
+        name_and_arguments = '%s_cffi_d_%s(%s)' % (abi, name, repr_arguments)
         prnt('static %s' % (tp.result.get_c_name(name_and_arguments),))
         prnt('{')
         call_arguments = ', '.join(call_arguments)
@@ -711,7 +714,8 @@ class Recompiler:
         if difference:
             repr_arguments = ', '.join(arguments)
             repr_arguments = repr_arguments or 'void'
-            name_and_arguments = '_cffi_f_%s(%s)' % (name, repr_arguments)
+            name_and_arguments = '%s_cffi_f_%s(%s)' % (abi, name,
+                                                       repr_arguments)
             prnt('static %s' % (tp_result.get_c_name(name_and_arguments),))
             prnt('{')
             if result_decl:
@@ -774,7 +778,7 @@ class Recompiler:
         prnt('{')
         prnt('  /* only to generate compile-time warnings or errors */')
         prnt('  (void)p;')
-        for fname, ftype, fbitsize in tp.enumfields():
+        for fname, ftype, fbitsize, fqual in tp.enumfields():
             try:
                 if ftype.is_integer_type() or fbitsize >= 0:
                     # accept all integers, but complain on float or double
@@ -789,7 +793,8 @@ class Recompiler:
                     ftype = ftype.item
                     fname = fname + '[0]'
                 prnt('  { %s = &p->%s; (void)tmp; }' % (
-                    ftype.get_c_name('*tmp', 'field %r'%fname), fname))
+                    ftype.get_c_name('*tmp', 'field %r'%fname, quals=fqual),
+                    fname))
             except ffiplatform.VerificationError as e:
                 prnt('  /* %s */' % str(e))   # cannot verify it, ignore
         prnt('}')
@@ -823,7 +828,7 @@ class Recompiler:
         c_fields = []
         if reason_for_not_expanding is None:
             enumfields = list(tp.enumfields())
-            for fldname, fldtype, fbitsize in enumfields:
+            for fldname, fldtype, fbitsize, fqual in enumfields:
                 fldtype = self._field_type(tp, fldname, fldtype)
                 # cname is None for _add_missing_struct_unions() only
                 op = OP_NOOP
@@ -879,7 +884,9 @@ class Recompiler:
         # because they don't have any known C name.  Check that they are
         # not partial (we can't complete or verify them!) and emit them
         # anonymously.
-        for tp in list(self._struct_unions):
+        lst = list(self._struct_unions.items())
+        lst.sort(key=lambda tp_order: tp_order[1])
+        for tp, order in lst:
             if tp not in self._seen_struct_unions:
                 if tp.partial:
                     raise NotImplementedError("internal inconsistency: %r is "
@@ -1004,6 +1011,8 @@ class Recompiler:
     def _enum_ctx(self, tp, cname):
         type_index = self._typesdict[tp]
         type_op = CffiOp(OP_ENUM, -1)
+        if self.target_is_python:
+            tp.check_not_partial()
         for enumerator, enumvalue in zip(tp.enumerators, tp.enumvalues):
             self._lsts["global"].append(
                 GlobalExpr(enumerator, '_cffi_const_%s' % enumerator, type_op,
@@ -1081,7 +1090,8 @@ class Recompiler:
         # if 'tp' were a function type, but that is not possible here.
         # (If 'tp' is a function _pointer_ type, then casts from "fn_t
         # **" to "void *" are again no-ops, as far as I can tell.)
-        prnt('static ' + tp.get_c_name('*_cffi_var_%s(void)' % (name,)))
+        decl = '*_cffi_var_%s(void)' % (name,)
+        prnt('static ' + tp.get_c_name(decl, quals=self._current_quals))
         prnt('{')
         prnt('  return %s(%s);' % (ampersand, name))
         prnt('}')
@@ -1130,7 +1140,13 @@ class Recompiler:
                 else:
                     self.cffi_types[index] = CffiOp(OP_NOOP, realindex)
             index += 1
-        self.cffi_types[index] = CffiOp(OP_FUNCTION_END, int(tp.ellipsis))
+        flags = int(tp.ellipsis)
+        if tp.abi is not None:
+            if tp.abi == '__stdcall':
+                flags |= 2
+            else:
+                raise NotImplementedError("abi=%r" % (tp.abi,))
+        self.cffi_types[index] = CffiOp(OP_FUNCTION_END, flags)
 
     def _emit_bytecode_PointerType(self, tp, index):
         self.cffi_types[index] = CffiOp(OP_POINTER, self._typesdict[tp.totype])
