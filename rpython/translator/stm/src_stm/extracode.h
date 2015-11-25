@@ -42,22 +42,26 @@ void pypy_stm_setup_prebuilt_hashtables(void)
 #if STM_PREBUILT_HASHTABLES > 0
     struct _hashtable_descr_s *hdesc = hashtable_descs;
     int i;
-    long count;
+    Unsigned count;
     pypy_HASHTABLE_OBJ0_t *htobj;
     stm_hashtable_t *ht;
 
     stm_hashtable_entry_userdata = STM_HASHTABLE_ENTRY_TYPEID;
     for (i = 0; i < STM_PREBUILT_HASHTABLES; i++) {
-        /* Every hashtable is one header hdesc entry followed by N hdescs.
-           The header abuses 'key' as an index inside rpy_prebuilt and
-           'value' as the number of entries that follow. */
-        htobj = (pypy_HASHTABLE_OBJ0_t *)rpy_prebuilt[hdesc->key];
-        htobj->ha_ll_raw_hashtable = ht = stm_hashtable_create();
-        count = (long)hdesc->value;
+        /* Every hashtable is one header hdesc entry followed by N
+           hdescs.  The header abuses 'key' as the number of entries
+           that follow, and its 'globalnum' is the rpy_prebuilt index
+           of the hashtable itself. */
+        ht = stm_hashtable_create();
+        htobj = (pypy_HASHTABLE_OBJ0_t *)rpy_prebuilt[hdesc->globalnum];
+        stm_write((object_t *)htobj);
+        htobj->ha_ll_raw_hashtable = ht;
+        count = hdesc->key;
         hdesc++;
         while (count > 0) {
             stm_hashtable_write((object_t *)htobj, ht, hdesc->key,
-                                (object_t *)hdesc->value, &stm_thread_local);
+                                rpy_prebuilt[hdesc->globalnum],
+                                &stm_thread_local);
             hdesc++;
             count--;
         }

@@ -36,19 +36,19 @@ def gen_prebuilt_hashtables(f, database):
     print >> f
     print >> f, 'struct _hashtable_descr_s {'
     print >> f, '\tUnsigned key;'
-    print >> f, '\trpygcchar_t *value;'
-    print >> f, '};'
+    print >> f, '\tint globalnum;'
+    print >> f, '} __attribute__((packed));'
     print >> f, 'static struct _hashtable_descr_s hashtable_descs[] = {'
     for node in nodes:
         assert node.globalgcnum >= 0
         items = node.get_hashtable_content()
         items.sort(key=lambda entry: entry.index)
-        print >> f, '\t{ %d, (rpygcchar_t *)%d },' % (node.globalgcnum,
-                                                      len(items))
+        print >> f, '\t{ %d, %d },' % (len(items), node.globalgcnum)
         for entry in items:
-            expr = database.get(entry.object, static=True)
-            print >> f, '\t{ %d, %s },' % (entry.index, expr)
-        print >> f
+            itemcontainer = entry.object._obj.container
+            itemnode = database.getcontainernode(itemcontainer)
+            assert itemnode.globalgcnum >= 0
+            print >> f, '\t\t{ %dL, %d },' % (entry.index, itemnode.globalgcnum)
     print >> f, '};'
 
 
