@@ -103,13 +103,6 @@ def checkadr(adr):
 
 
 def op_int_eq(x, y):
-    # so far we support only == and only for FieldOffset. In theory, we could
-    # generalize support for direct comparisons of AddressOffsets
-    if isinstance(x, llmemory.FieldOffset):
-        x = x.force_as_int()
-    if isinstance(y, llmemory.FieldOffset):
-        y = y.force_as_int()
-    #
     if not isinstance(x, (int, long)):
         from rpython.rtyper.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic), (
