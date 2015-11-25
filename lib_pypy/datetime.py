@@ -905,25 +905,29 @@ class date(object):
 
     # Computations
 
+    def _add_timedelta(self, other, factor):
+        y, m, d = _normalize_date(
+            self._year,
+            self._month,
+            self._day + other.days * factor)
+        return date(y, m, d)
+
     def __add__(self, other):
         "Add a date to a timedelta."
         if isinstance(other, timedelta):
-            year, month, day = _normalize_date(self._year,
-                                               self._month,
-                                               self._day + other.days)
-            return date(year, month, day)
+            return self._add_timedelta(other, 1)
         return NotImplemented
 
     __radd__ = __add__
 
     def __sub__(self, other):
         """Subtract two dates, or a date and a timedelta."""
-        if isinstance(other, timedelta):
-            return self + timedelta._create(-other.days, 0, 0, False)
         if isinstance(other, date):
             days1 = self.toordinal()
             days2 = other.toordinal()
             return timedelta._create(days1 - days2, 0, 0, False)
+        if isinstance(other, timedelta):
+            return self._add_timedelta(other, -1)
         return NotImplemented
 
     def weekday(self):
