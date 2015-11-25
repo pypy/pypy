@@ -396,6 +396,141 @@ def test_remove_write_barrier_stm3():
     assert summary(ff)['stm_write'] == 3
 
 
+def test_remove_write_barrier_stm4():
+    from rpython.translator.c.genc import CStandaloneBuilder
+    from rpython.flowspace.model import summary
+
+    rS = lltype.Struct('rS')
+    S = lltype.GcStruct('S')
+    rA = lltype.Array(lltype.Ptr(rS))
+    A = lltype.GcArray(lltype.Ptr(S))
+    Ar = lltype.GcArray(lltype.Ptr(rS))
+    def f(ra, a, ar, i):
+        s = lltype.malloc(S)
+        rs = lltype.malloc(rS, flavor='raw')
+        ra[0] = rs
+        ra[1] = rs
+        a[0] = s
+        a[1] = s
+        ar[0] = rs
+        ar[1] = rs
+    def g(argv):
+        n = int(argv[1])
+        ra = lltype.malloc(rA, n, flavor='raw')
+        a = lltype.malloc(A, n)
+        ar = lltype.malloc(Ar, n)
+        f(ra, a, ar, n)
+        return 0
+    t = rtype(g, [s_list_of_strings])
+    t.config.translation.stm = True
+    gcpolicy = StmFrameworkGcPolicy
+    t.config.translation.gc = "stmgc"
+    cbuild = CStandaloneBuilder(t, g, t.config,
+                                gcpolicy=gcpolicy)
+    db = cbuild.generate_graphs_for_llinterp()
+
+    ff = graphof(t, f)
+    #ff.show()
+    assert summary(ff)['stm_write'] == 4
+
+def test_remove_write_barrier_stm5():
+    from rpython.translator.c.genc import CStandaloneBuilder
+    from rpython.flowspace.model import summary
+
+    class B(object):
+        def __del__(self):
+            pass
+    class A(object): pass
+    def f():
+        b = B()
+        b.x = 1 # needs WB bc. of finalizer
+        a = A()
+        a.x = 1
+    def g(argv):
+        f()
+        return 0
+    t = rtype(g, [s_list_of_strings])
+    t.config.translation.stm = True
+    gcpolicy = StmFrameworkGcPolicy
+    t.config.translation.gc = "stmgc"
+    cbuild = CStandaloneBuilder(t, g, t.config,
+                                gcpolicy=gcpolicy)
+    db = cbuild.generate_graphs_for_llinterp()
+
+    ff = graphof(t, f)
+    #ff.show()
+    assert summary(ff)['stm_write'] == 1
+
+def test_remove_write_barrier_stm6():
+    from rpython.translator.c.genc import CStandaloneBuilder
+    from rpython.flowspace.model import summary
+    #
+    rSi = lltype.Struct('rSi', ('i', lltype.Signed))
+    rSr = lltype.Struct('rSr', ('s', lltype.Ptr(rSi)))
+    Si = lltype.GcStruct('Si', ('i', lltype.Signed))
+    Ss = lltype.GcStruct('Ss', ('s', lltype.Ptr(Si)))
+    Sr = lltype.GcStruct('Sr', ('r', lltype.Ptr(rSi)))
+    def f(rsi, rsr, si, ss, sr):
+        rsi.i = 0
+        rsr.s = rsi
+        si.i = 0
+        ss.s = si
+        sr.r = rsi
+    def g(argv):
+        rsi = lltype.malloc(rSi, flavor='raw')
+        rsr = lltype.malloc(rSr, flavor='raw')
+        si = lltype.malloc(Si, flavor='gc')
+        ss = lltype.malloc(Ss, flavor='gc')
+        sr = lltype.malloc(Sr, flavor='gc')
+        f(rsi, rsr, si, ss, sr)
+        return 0
+    t = rtype(g, [s_list_of_strings])
+    t.config.translation.stm = True
+    gcpolicy = StmFrameworkGcPolicy
+    t.config.translation.gc = "stmgc"
+    cbuild = CStandaloneBuilder(t, g, t.config,
+                                gcpolicy=gcpolicy)
+    db = cbuild.generate_graphs_for_llinterp()
+
+    ff = graphof(t, f)
+    #ff.show()
+    assert summary(ff)['stm_write'] == 3
+
+def test_remove_write_barrier_stm7():
+    from rpython.translator.c.genc import CStandaloneBuilder
+    from rpython.flowspace.model import summary
+    #
+    rSi = lltype.Struct('rSi', ('i', lltype.Signed))
+    rSr = lltype.Struct('rSr', ('s', rSi))
+    Si = lltype.GcStruct('Si', ('i', lltype.Signed))
+    Ss = lltype.GcStruct('Ss', ('s', Si))
+    Sr = lltype.GcStruct('Sr', ('r', rSi))
+    def f(rsi, rsr, si, ss, sr):
+        rsi.i = 0
+        rsr.s.i = 0
+        si.i = 0
+        ss.s.i = 0
+        sr.r.i = 0
+    def g(argv):
+        rsi = lltype.malloc(rSi, flavor='raw')
+        rsr = lltype.malloc(rSr, flavor='raw')
+        si = lltype.malloc(Si, flavor='gc')
+        ss = lltype.malloc(Ss, flavor='gc')
+        sr = lltype.malloc(Sr, flavor='gc')
+        f(rsi, rsr, si, ss, sr)
+        return 0
+    t = rtype(g, [s_list_of_strings])
+    t.config.translation.stm = True
+    gcpolicy = StmFrameworkGcPolicy
+    t.config.translation.gc = "stmgc"
+    cbuild = CStandaloneBuilder(t, g, t.config,
+                                gcpolicy=gcpolicy)
+    db = cbuild.generate_graphs_for_llinterp()
+
+    ff = graphof(t, f)
+    #ff.show()
+    assert summary(ff)['stm_write'] == 3
+
 def test_write_barrier_collector():
     class A(object):
         pass
