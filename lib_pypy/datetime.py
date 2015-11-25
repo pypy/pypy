@@ -359,78 +359,61 @@ def _cmperror(x, y):
     raise TypeError("can't compare '%s' to '%s'" % (
                     type(x).__name__, type(y).__name__))
 
-# This is a start at a struct tm workalike.  Goals:
-#
-# + Works the same way across platforms.
-# + Handles all the fields datetime needs handled, without 1970-2038 glitches.
-#
-# Note:  I suspect it's best if this flavor of tm does *not* try to
-# second-guess timezones or DST.  Instead fold whatever adjustments you want
-# into the minutes argument (and the constructor will normalize).
+def _normalize_pair(hi, lo, factor):
+    if not 0 <= lo <= factor-1:
+        inc, lo = divmod(lo, factor)
+        hi += inc
+    return hi, lo
 
-class _tmxxx:
+def _normalize_datetime(y, m, d, hh, mm, ss, us, ignore_overflow=False):
+    # Normalize all the inputs, and store the normalized values.
+    ss, us = _normalize_pair(ss, us, 1000000)
+    mm, ss = _normalize_pair(mm, ss, 60)
+    hh, mm = _normalize_pair(hh, mm, 60)
+    d, hh = _normalize_pair(d, hh, 24)
+    y, m, d = _normalize_date(y, m, d, ignore_overflow)
+    return y, m, d, hh, mm, ss, us
 
-    ordinal = None
+def _normalize_date(year, month, day, ignore_overflow=False):
+    # That was easy.  Now it gets muddy:  the proper range for day
+    # can't be determined without knowing the correct month and year,
+    # but if day is, e.g., plus or minus a million, the current month
+    # and year values make no sense (and may also be out of bounds
+    # themselves).
+    # Saying 12 months == 1 year should be non-controversial.
+    if not 1 <= month <= 12:
+        year, month = _normalize_pair(year, month-1, 12)
+        month += 1
+        assert 1 <= month <= 12
 
-    def __init__(self, year, month, day, hour=0, minute=0, second=0,
-                 microsecond=0, ignore_overflow=False):
-        # Normalize all the inputs, and store the normalized values.
-        if not 0 <= microsecond <= 999999:
-            carry, microsecond = divmod(microsecond, 1000000)
-            second += carry
-        if not 0 <= second <= 59:
-            carry, second = divmod(second, 60)
-            minute += carry
-        if not 0 <= minute <= 59:
-            carry, minute = divmod(minute, 60)
-            hour += carry
-        if not 0 <= hour <= 23:
-            carry, hour = divmod(hour, 24)
-            day += carry
-
-        # That was easy.  Now it gets muddy:  the proper range for day
-        # can't be determined without knowing the correct month and year,
-        # but if day is, e.g., plus or minus a million, the current month
-        # and year values make no sense (and may also be out of bounds
-        # themselves).
-        # Saying 12 months == 1 year should be non-controversial.
-        if not 1 <= month <= 12:
-            carry, month = divmod(month-1, 12)
-            year += carry
-            month += 1
-            assert 1 <= month <= 12
-
-        # Now only day can be out of bounds (year may also be out of bounds
-        # for a datetime object, but we don't care about that here).
-        # If day is out of bounds, what to do is arguable, but at least the
-        # method here is principled and explainable.
-        dim = _days_in_month(year, month)
-        if not 1 <= day <= dim:
-            # Move day-1 days from the first of the month.  First try to
-            # get off cheap if we're only one day out of range (adjustments
-            # for timezone alone can't be worse than that).
-            if day == 0:    # move back a day
-                month -= 1
-                if month > 0:
-                    day = _days_in_month(year, month)
-                else:
-                    year, month, day = year-1, 12, 31
-            elif day == dim + 1:    # move forward a day
-                month += 1
-                day = 1
-                if month > 12:
-                    month = 1
-                    year += 1
+    # Now only day can be out of bounds (year may also be out of bounds
+    # for a datetime object, but we don't care about that here).
+    # If day is out of bounds, what to do is arguable, but at least the
+    # method here is principled and explainable.
+    dim = _days_in_month(year, month)
+    if not 1 <= day <= dim:
+        # Move day-1 days from the first of the month.  First try to
+        # get off cheap if we're only one day out of range (adjustments
+        # for timezone alone can't be worse than that).
+        if day == 0:    # move back a day
+            month -= 1
+            if month > 0:
+                day = _days_in_month(year, month)
             else:
-                self.ordinal = _ymd2ord(year, month, 1) + (day - 1)
-                year, month, day = _ord2ymd(self.ordinal)
+                year, month, day = year-1, 12, 31
+        elif day == dim + 1:    # move forward a day
+            month += 1
+            day = 1
+            if month > 12:
+                month = 1
+                year += 1
+        else:
+            ordinal = _ymd2ord(year, month, 1) + (day - 1)
+            year, month, day = _ord2ymd(ordinal)
 
-        if not ignore_overflow and not MINYEAR <= year <= MAXYEAR:
-            raise OverflowError("date value out of range")
-
-        self.year, self.month, self.day = year, month, day
-        self.hour, self.minute, self.second = hour, minute, second
-        self.microsecond = microsecond
+    if not ignore_overflow and not MINYEAR <= year <= MAXYEAR:
+        raise OverflowError("date value out of range")
+    return year, month, day
 
 def _accum(tag, sofar, num, factor, leftover):
     if isinstance(num, (int, long)):
@@ -449,12 +432,6 @@ def _accum(tag, sofar, num, factor, leftover):
         return rsum, leftover + fracpart
     raise TypeError("unsupported type for timedelta %s component: %s" %
                     (tag, type(num)))
-
-def _normalize_pair(hi, lo, factor):
-    if lo < 0 or lo >= factor:
-        inc, lo = divmod(lo, factor)
-        hi += inc
-    return hi, lo
 
 class timedelta(object):
     """Represent the difference between two datetime objects.
@@ -931,10 +908,10 @@ class date(object):
     def __add__(self, other):
         "Add a date to a timedelta."
         if isinstance(other, timedelta):
-            t = _tmxxx(self._year,
-                       self._month,
-                       self._day + other.days)
-            return date(t.year, t.month, t.day)
+            year, month, day = _normalize_date(self._year,
+                                               self._month,
+                                               self._day + other.days)
+            return date(year, month, day)
         return NotImplemented
 
     __radd__ = __add__
@@ -1548,9 +1525,9 @@ class datetime(date):
         hh, mm, ss = self.hour, self.minute, self.second
         offset = self._utcoffset()
         if offset:  # neither None nor 0
-            tm = _tmxxx(y, m, d, hh, mm - offset, ignore_overflow=True)
-            y, m, d = tm.year, tm.month, tm.day
-            hh, mm = tm.hour, tm.minute
+            mm -= offset
+            y, m, d, hh, mm, ss, _ = _normalize_datetime(
+                y, m, d, hh, mm, ss, 0, ignore_overflow=True)
         return _build_struct_time(y, m, d, hh, mm, ss, 0)
 
     def date(self):
@@ -1814,16 +1791,15 @@ class datetime(date):
         return diff and 1 or 0
 
     def _add_timedelta(self, other, factor):
-        t = _tmxxx(self._year,
-                   self._month,
-                   self._day + other.days * factor,
-                   self._hour,
-                   self._minute,
-                   self._second + other.seconds * factor,
-                   self._microsecond + other.microseconds * factor)
-        return datetime(t.year, t.month, t.day,
-                        t.hour, t.minute, t.second,
-                        t.microsecond, tzinfo=self._tzinfo)
+        y, m, d, hh, mm, ss, us = _normalize_datetime(
+            self._year,
+            self._month,
+            self._day + other.days * factor,
+            self._hour,
+            self._minute,
+            self._second + other.seconds * factor,
+            self._microsecond + other.microseconds * factor)
+        return datetime(y, m, d, hh, mm, ss, us, tzinfo=self._tzinfo)
 
     def __add__(self, other):
         "Add a datetime and a timedelta."
