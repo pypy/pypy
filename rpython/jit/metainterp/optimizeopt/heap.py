@@ -535,9 +535,12 @@ class OptHeap(Optimization):
         cf.do_setfield(self, op)
 
     def optimize_GETARRAYITEM_GC_I(self, op):
-        # When using str_storage_getitem we op.getarg(0) is a string, NOT an
-        # array. In that case, we cannot cache the getarrayitem as if it were
-        # an array, obviously
+        # When using str_storage_getitem it might happen that op.getarg(0) is
+        # a virtual string, NOT an array. In that case, we cannot cache the
+        # getarrayitem as if it were an array, obviously. In theory we could
+        # improve by writing special code to interpter the buffer of the
+        # virtual string as if it were an array, but it looks complicate,
+        # fragile and not worth it.
         arrayinfo = self.ensure_ptr_info_arg0(op)
         indexb = self.getintbound(op.getarg(1))
         cf = None
