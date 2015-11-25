@@ -1115,22 +1115,17 @@ class AbstractResumeDataReader(object):
 
 def rebuild_from_resumedata(metainterp, storage, deadframe,
                             virtualizable_info, greenfield_info):
-    xxx
     resumereader = ResumeDataBoxReader(storage, deadframe, metainterp)
     boxes = resumereader.consume_vref_and_vable_boxes(virtualizable_info,
                                                       greenfield_info)
     virtualizable_boxes, virtualref_boxes = boxes
-    frameinfo = storage.rd_numb.prev
-    while True:
-        jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
+    while not resumereader.done_reading():
+        jitcode_pos, pc = resumereader.read_jitcode_pos_pc()
         jitcode = metainterp.staticdata.jitcodes[jitcode_pos]
         f = metainterp.newframe(jitcode)
         f.setup_resume_at_op(pc)
         resumereader.consume_boxes(f.get_current_position_info(),
                                    f.registers_i, f.registers_r, f.registers_f)
-        frameinfo = frameinfo.prev
-        if not frameinfo:
-            break
     metainterp.framestack.reverse()
     return resumereader.liveboxes, virtualizable_boxes, virtualref_boxes
 
@@ -1162,27 +1157,28 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizablebox)
         return vinfo.load_list_of_boxes(virtualizable, self, numb)
 
-    def consume_virtualref_boxes(self, numb, end):
+    def consume_virtualref_boxes(self, end):
         # Returns a list of boxes, assumed to be all BoxPtrs.
         # We leave up to the caller to call vrefinfo.continue_tracing().
         assert (end & 1) == 0
         return [self.decode_ref(numb.nums[i]) for i in range(end)]
 
     def consume_vref_and_vable_boxes(self, vinfo, ginfo):
-        xxxx
-        numb = self.cur_numb
-        self.cur_numb = numb.prev
+        first_snapshot_size = rffi.cast(lltype.Signed,
+                                        self.numb.first_snapshot_size)
         if vinfo is not None:
-            virtualizable_boxes = self.consume_virtualizable_boxes(vinfo, numb)
+            virtualizable_boxes = self.consume_virtualizable_boxes(vinfo)
+            xxxx
             end = len(numb.nums) - len(virtualizable_boxes)
         elif ginfo is not None:
+            xxx
             index = len(numb.nums) - 1
             virtualizable_boxes = [self.decode_ref(numb.nums[index])]
             end = len(numb.nums) - 1
         else:
             virtualizable_boxes = None
-            end = len(numb.nums)
-        virtualref_boxes = self.consume_virtualref_boxes(numb, end)
+            end = first_snapshot_size
+        virtualref_boxes = self.consume_virtualref_boxes(end)
         return virtualizable_boxes, virtualref_boxes
 
     def allocate_with_vtable(self, descr=None):
@@ -1403,7 +1399,7 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitcodes,
     prevbh = None
     firstbh = None
     curbh = None
-    while True:
+    while not resumereader.done_reading():
         curbh = blackholeinterpbuilder.acquire_interp()
         if prevbh is not None:
             prevbh.nextblackholeinterp = curbh
@@ -1414,8 +1410,6 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitcodes,
         jitcode = jitcodes[jitcode_pos]
         curbh.setposition(jitcode, pc)
         resumereader.consume_one_section(curbh)
-        if resumereader.done_reading():
-            break
     curbh.nextblackholeinterp = None
     return firstbh
 
@@ -1467,8 +1461,12 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             return
         assert (end & 1) == 0
         for i in range(0, end, 2):
-            virtual = self.decode_ref(numb.nums[i])
-            vref = self.decode_ref(numb.nums[i + 1])
+            virtual_item, self.cur_index = resumecode.numb_next_item(
+                self.numb, self.cur_index)
+            vref_item, self.cur_index = resumecode.numb_next_item(
+                self.numb, self.cur_index)
+            virtual = self.decode_ref(virtual_item)
+            vref = self.decode_ref(vref_item)
             # For each pair, we store the virtual inside the vref.
             vrefinfo.continue_tracing(vref, virtual)
 
