@@ -1099,8 +1099,8 @@ _oplist = [
     #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
-    'GC_LOAD/3/rfi',
-    'GC_LOAD_INDEX/4/rfi',
+    'GC_LOAD/4/rfi',
+    'GC_LOAD_INDEX/5/rfi',
 
     '_RAW_LOAD_FIRST',
     'GETARRAYITEM_GC/2d/rfi',
@@ -1616,7 +1616,7 @@ class OpHelpers(object):
             return rop.GC_LOAD_R
 
     @staticmethod
-    def get_gc_load_scaled(tp):
+    def get_gc_load_caled(tp):
         if tp == 'i':
             return rop.GC_LOAD_SCALED_I
         elif tp == 'f':

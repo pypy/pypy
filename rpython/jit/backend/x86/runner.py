@@ -27,7 +27,7 @@ class AbstractX86CPU(AbstractLLCPU):
     # can an ISA instruction handle a constant offset?
     load_constant_offset = False
     # can an ISA instruction handle a factor to the offset?
-    load_supported_factors = [1]
+    load_supported_factors = (1,)
 
     from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = gpr_reg_mgr_cls.all_reg_indexes

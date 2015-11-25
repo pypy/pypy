@@ -10,6 +10,7 @@ from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr,\
      FLAG_POINTER
 from rpython.jit.metainterp.history import JitCellToken
+from rpython.jit.backend.llsupport.descr import (unpack_arraydescr,)
 
 FLAG_ARRAY = 0
 FLAG_STR = 1
@@ -114,7 +115,7 @@ class GcRewriterAssembler(object):
 
     def handle_getarrayitem(self, op):
         itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
-        ptr_box, index_box = op.getargs()
+        ptr_box, index_box = op.getarglist()
 
         offset = 0
         factor = 1
@@ -122,22 +123,25 @@ class GcRewriterAssembler(object):
         if itemsize in self.cpu.load_supported_factors:
             factor = itemsize
         else:
-            index_box = ResOperation(rop.INT_MUL, [index_box, Const(factor)])
+            index_box = ResOperation(rop.INT_MUL, [index_box, ConstInt(itemsize)])
             self.emit_op(index_box)
         # adjust the constant offset
         if self.cpu.load_constant_offset:
-            offset = ofs
+            offset = 0
         else:
-            index_box = ResOperation(rop.INT_ADD, [index_box, Const(ofs)])
-            self.emit_op(index_box)
+            offset = 0
+            pass
+            # ofs is NOT the offset!
+            #index_box = ResOperation(rop.INT_ADD, [index_box, ConstInt(ofs)])
+            #self.emit_op(index_box)
         if factor == 1 and offset == 0:
             newload = ResOperation(OpHelpers.get_gc_load(op.type),
-                        [ptr_box, index_box, Const(itemsize), Const(sign)])
-            self.replace_op_with(newload, op)
+                        [ptr_box, index_box, ConstInt(itemsize), ConstInt(sign)])
+            self.replace_op_with(op, newload)
         else:
             newload = ResOperation(OpHelpers.get_gc_load_scaled(op.type),
-                        [ptr_box, index_box, Const(factor), Const(offset), Const(sign)])
-            self.replace_op_with(newload, op)
+                        [ptr_box, index_box, ConstInt(factor), ConstInt(itemsize), ConstInt(sign)])
+            self.replace_op_with(op, newload)
 
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly

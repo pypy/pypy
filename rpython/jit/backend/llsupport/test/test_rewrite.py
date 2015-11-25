@@ -1,3 +1,4 @@
+import py
 from rpython.jit.backend.llsupport.descr import get_size_descr,\
      get_field_descr, get_array_descr, ArrayDescr, FieldDescr,\
      SizeDescr, get_interiorfield_descr
@@ -68,6 +69,11 @@ class RewriteTests(object):
         wbdescr = self.gc_ll_descr.write_barrier_descr
         WORD = globals()['WORD']
         #
+        F = lltype.GcArray(lltype.Float)
+        fdescr = get_array_descr(self.gc_ll_descr, F)
+        SF = lltype.GcArray(lltype.SingleFloat)
+        sfdescr = get_array_descr(self.gc_ll_descr, SF)
+        #
         strdescr     = self.gc_ll_descr.str_descr
         unicodedescr = self.gc_ll_descr.unicode_descr
         strlendescr     = strdescr.lendescr
@@ -123,6 +129,9 @@ class FakeTracker(object):
 
 class BaseFakeCPU(object):
     JITFRAME_FIXED_SIZE = 0
+
+    load_constant_offset = False
+    load_supported_factors = (1,)
 
     def __init__(self):
         self.tracker = FakeTracker()
@@ -1081,3 +1090,23 @@ class TestFramework(RewriteTests):
             guard_false(i2) [i5, i0]
             jump()
         """)
+
+    @py.test.mark.parametrize('factors,suffix,ops,index,descr,off,factor', [
+        [ (1,), 'i', ['i2 = int_mul(i1,8)'], 'i2', 'adescr', 8, 1 ],
+        [ (1,), 'f', ['i2 = int_mul(i1,8)'], 'i2', 'fdescr', 8, 0 ],
+        [ (1,), 'i', ['i2 = int_mul(i1,4)'], 'i2', 'sfdescr', 4, 0 ],
+        [ (1,), 'r', ['i2 = int_mul(i1,8)'], 'i2', 'cdescr', 8, 0 ],
+    ])
+    def test_getarrayitem(self, factors, suffix, ops, index, descr, off, factor):
+        self.cpu.load_supported_factors = factors
+        ops = '\n'.join(ops)
+        self.check_rewrite("""
+            [p0,i1]
+            i2 = getarrayitem_gc_{suffix}(p0,i1,descr={descr})
+            jump()
+        """.format(**locals()), """
+            [p0,i1]
+            {ops}
+            i3 = gc_load_{suffix}(p0,{index},{off},{factor})
+            jump()
+        """.format(**locals()))
