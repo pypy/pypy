@@ -1076,11 +1076,11 @@ def test_virtual_adder_int_constants():
     assert storage.rd_snapshot is None
     cpu = MyCPU([])
     reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage, "deadframe")
-    _next_section(reader, sys.maxint, 1, sys.maxint, 2**16)
+    _next_section(reader, sys.maxint, 2**16, -65)
+    reader.cur_index += 2 # framestack
     _next_section(reader, 2, 3)
     reader.cur_index += 2 # framestack
-    _next_section(reader, sys.maxint, 2**16, -65)
-
+    _next_section(reader, sys.maxint, 1, sys.maxint, 2**16)
 
 def test_virtual_adder_memo_const_sharing():
     b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**16), ConstInt(-65)]
