@@ -471,6 +471,19 @@ class NoSuchAttrError(AnnotatorError):
 def is_mixin(cls):
     return cls.__dict__.get('_mixin_', False)
 
+def is_primitive_type(cls):
+    from rpython.rlib.rarithmetic import base_int
+    return cls.__module__ == '__builtin__' or issubclass(cls, base_int)
+
+
+class BuiltinTypeDesc(object):
+    """Represents a primitive or builtin type object"""
+    def __init__(self, cls):
+        self.pyobj = cls
+
+    def issubclass(self, other):
+        return issubclass(self.pyobj, other.pyobj)
+
 
 class ClassDesc(Desc):
     knowntype = type
