@@ -432,7 +432,10 @@ class IterEntriesForTest(object):
         self.iterator = iterator
 
     def next(self):
-        return next(self.iterator)
+        while 1:
+            entry = next(self.iterator)
+            if entry._obj:
+                return entry
 
 # ____________________________________________________________
 
