@@ -15,4 +15,17 @@ which is now 1.10.2
 Fix the cpyext tests on OSX by linking with -flat_namespace
 
 .. branch: anntype
+
 Refactor and improve exception analysis in the annotator.
+
+.. branch: posita/2193-datetime-timedelta-integrals
+
+Fix issue #2193. ``isinstance(..., int)`` => ``isinstance(..., numbers.Integral)`` 
+to allow for alternate ``int``-like implementations (e.g., ``future.types.newint``)
+
+.. branch: faster-rstruct
+
+Improve the performace of struct.unpack, which now directly reads inside the
+string buffer and directly casts the bytes to the appropriate type, when
+allowed. Unpacking of floats and doubles is about 15 times faster now, while
+for integer types it's up to ~50% faster for 64bit integers.
