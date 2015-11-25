@@ -134,13 +134,17 @@ class GcRewriterAssembler(object):
             # ofs is NOT the offset!
             #index_box = ResOperation(rop.INT_ADD, [index_box, ConstInt(ofs)])
             #self.emit_op(index_box)
+
+        if sign:
+            itemsize = -itemsize
         if factor == 1 and offset == 0:
             newload = ResOperation(OpHelpers.get_gc_load(op.type),
-                        [ptr_box, index_box, ConstInt(itemsize), ConstInt(sign)])
+                        [ptr_box, index_box, ConstInt(itemsize)])
             self.replace_op_with(op, newload)
         else:
-            newload = ResOperation(OpHelpers.get_gc_load_scaled(op.type),
-                        [ptr_box, index_box, ConstInt(factor), ConstInt(itemsize), ConstInt(sign)])
+            newload = ResOperation(OpHelpers.get_gc_load_indexed(op.type),
+                        [ptr_box, index_box, ConstInt(factor),
+                         ConstInt(offset), ConstInt(itemsize)])
             self.replace_op_with(op, newload)
 
     def rewrite(self, operations):

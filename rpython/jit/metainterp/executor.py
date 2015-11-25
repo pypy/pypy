@@ -400,9 +400,9 @@ def _make_execute_list():
                          rop.GC_LOAD_I,
                          rop.GC_LOAD_R,
                          rop.GC_LOAD_F,
-                         rop.GC_LOAD_INDEX_I,
-                         rop.GC_LOAD_INDEX_R,
-                         rop.GC_LOAD_INDEX_F,
+                         rop.GC_LOAD_INDEXED_I,
+                         rop.GC_LOAD_INDEXED_R,
+                         rop.GC_LOAD_INDEXED_F,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             if rop._VEC_PURE_FIRST <= value <= rop._VEC_PURE_LAST:

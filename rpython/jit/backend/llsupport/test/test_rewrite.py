@@ -45,6 +45,21 @@ class RewriteTests(object):
         adescr.tid = 4321
         alendescr = adescr.lendescr
         #
+        A32 = lltype.GcArray(rffi.INT)
+        a32descr = get_array_descr(self.gc_ll_descr, A32)
+        a32descr.tid = 4322
+        a32lendescr = a32descr.lendescr
+        #
+        A16 = lltype.GcArray(rffi.SHORT)
+        a16descr = get_array_descr(self.gc_ll_descr, A16)
+        a16descr.tid = 4323
+        a16lendescr = a16descr.lendescr
+        #
+        A8 = lltype.GcArray(rffi.CHAR)
+        a8descr = get_array_descr(self.gc_ll_descr, A8)
+        a8descr.tid = 4323
+        a8lendescr = a8descr.lendescr
+        #
         B = lltype.GcArray(lltype.Char)
         bdescr = get_array_descr(self.gc_ll_descr, B)
         bdescr.tid = 8765
@@ -1091,22 +1106,28 @@ class TestFramework(RewriteTests):
             jump()
         """)
 
-    @py.test.mark.parametrize('factors,suffix,ops,index,descr,off,factor', [
-        [ (1,), 'i', ['i2 = int_mul(i1,8)'], 'i2', 'adescr', 8, 1 ],
-        [ (1,), 'f', ['i2 = int_mul(i1,8)'], 'i2', 'fdescr', 8, 0 ],
-        [ (1,), 'i', ['i2 = int_mul(i1,4)'], 'i2', 'sfdescr', 4, 0 ],
-        [ (1,), 'r', ['i2 = int_mul(i1,8)'], 'i2', 'cdescr', 8, 0 ],
+    @py.test.mark.parametrize('factors,suffix,ops,index,descr,params', [
+        [ (1,), 'i', ['i2 = int_mul(i1,8)'], 'i2', 'adescr', (-8,) ],
+        [ (1,), 'f', ['i2 = int_mul(i1,8)'], 'i2', 'fdescr', (8,) ],
+        [ (1,), 'i', ['i2 = int_mul(i1,4)'], 'i2', 'sfdescr', (4,) ],
+        [ (1,), 'r', ['i2 = int_mul(i1,8)'], 'i2', 'cdescr', (8,) ],
+        [ (1,2), 'indexed_i', [''], 'i1', 'a16descr', (2, 0, -2) ],
+        [ (1,2), 'i', ['i2 = int_mul(i1,4)'], 'i2', 'a32descr', (-4,) ],
     ])
-    def test_getarrayitem(self, factors, suffix, ops, index, descr, off, factor):
+    def test_getarrayitem(self, factors, suffix, ops, index, descr, params):
         self.cpu.load_supported_factors = factors
         ops = '\n'.join(ops)
+        params = ','.join([str(i) for i in params])
+        getarray_suffix = suffix
+        if suffix.startswith('indexed_'):
+            getarray_suffix = suffix[-1:]
         self.check_rewrite("""
             [p0,i1]
-            i2 = getarrayitem_gc_{suffix}(p0,i1,descr={descr})
+            i2 = getarrayitem_gc_{getarray_suffix}(p0,i1,descr={descr})
             jump()
         """.format(**locals()), """
             [p0,i1]
             {ops}
-            i3 = gc_load_{suffix}(p0,{index},{off},{factor})
+            i3 = gc_load_{suffix}(p0,{index},{params})
             jump()
         """.format(**locals()))

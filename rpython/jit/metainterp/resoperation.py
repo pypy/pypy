@@ -1099,8 +1099,8 @@ _oplist = [
     #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
-    'GC_LOAD/4/rfi',
-    'GC_LOAD_INDEX/5/rfi',
+    'GC_LOAD/3/rfi',
+    'GC_LOAD_INDEXED/4/rfi',
 
     '_RAW_LOAD_FIRST',
     'GETARRAYITEM_GC/2d/rfi',
@@ -1616,14 +1616,14 @@ class OpHelpers(object):
             return rop.GC_LOAD_R
 
     @staticmethod
-    def get_gc_load_caled(tp):
+    def get_gc_load_indexed(tp):
         if tp == 'i':
-            return rop.GC_LOAD_SCALED_I
+            return rop.GC_LOAD_INDEXED_I
         elif tp == 'f':
-            return rop.GC_LOAD_SCALED_F
+            return rop.GC_LOAD_INDEXED_F
         else:
             assert tp == 'r'
-            return rop.GC_LOAD_SCALED_R
+            return rop.GC_LOAD_INDEXED_R
 
     @staticmethod
     def inputarg_from_tp(tp):
