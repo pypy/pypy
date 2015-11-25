@@ -373,7 +373,7 @@ class _tmxxx:
     ordinal = None
 
     def __init__(self, year, month, day, hour=0, minute=0, second=0,
-                 microsecond=0):
+                 microsecond=0, ignore_overflow=False):
         # Normalize all the inputs, and store the normalized values.
         if not 0 <= microsecond <= 999999:
             carry, microsecond = divmod(microsecond, 1000000)
@@ -425,13 +425,12 @@ class _tmxxx:
                 self.ordinal = _ymd2ord(year, month, 1) + (day - 1)
                 year, month, day = _ord2ymd(self.ordinal)
 
+        if not ignore_overflow and not MINYEAR <= year <= MAXYEAR:
+            raise OverflowError("date value out of range")
+
         self.year, self.month, self.day = year, month, day
         self.hour, self.minute, self.second = hour, minute, second
         self.microsecond = microsecond
-
-    def _check_error(self):
-        if not MINYEAR <= self.year <= MAXYEAR:
-            raise OverflowError("date value out of range")
 
 def _accum(tag, sofar, num, factor, leftover):
     if isinstance(num, (int, long)):
@@ -935,7 +934,6 @@ class date(object):
             t = _tmxxx(self._year,
                        self._month,
                        self._day + other.days)
-            t._check_error()
             return date(t.year, t.month, t.day)
         return NotImplemented
 
@@ -1550,7 +1548,7 @@ class datetime(date):
         hh, mm, ss = self.hour, self.minute, self.second
         offset = self._utcoffset()
         if offset:  # neither None nor 0
-            tm = _tmxxx(y, m, d, hh, mm - offset)
+            tm = _tmxxx(y, m, d, hh, mm - offset, ignore_overflow=True)
             y, m, d = tm.year, tm.month, tm.day
             hh, mm = tm.hour, tm.minute
         return _build_struct_time(y, m, d, hh, mm, ss, 0)
@@ -1823,7 +1821,6 @@ class datetime(date):
                    self._minute,
                    self._second + other.seconds * factor,
                    self._microsecond + other.microseconds * factor)
-        t._check_error()
         return datetime(t.year, t.month, t.day,
                         t.hour, t.minute, t.second,
                         t.microsecond, tzinfo=self._tzinfo)
