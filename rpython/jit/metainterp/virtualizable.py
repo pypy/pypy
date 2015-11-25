@@ -145,29 +145,26 @@ class VirtualizableInfo(object):
                     x = reader.load_value_of_type(ARRAYITEMTYPE, numb.nums[i])
                     setarrayitem(lst, j, x)
 
-        def load_list_of_boxes(virtualizable, reader, numb):
-            xxx
+        def load_list_of_boxes(virtualizable, reader, vable_box, numb, index):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             # Uses 'virtualizable' only to know the length of the arrays;
             # does not write anything into it.  The returned list is in
             # the format expected of virtualizable_boxes, so it ends in
             # the virtualizable itself.
-            i = len(numb.nums) - 1
-            assert i >= 0
-            boxes = [reader.decode_box_of_type(self.VTYPEPTR, numb.nums[i])]
+            boxes = []
+            for FIELDTYPE, fieldname in unroll_static_fields:
+                item, index = numb_next_item(numb, index)
+                box = reader.decode_box_of_type(FIELDTYPE, item)
+                boxes.append(box)
             for ARRAYITEMTYPE, fieldname in unroll_array_fields_rev:
+                xxx
                 lst = getattr(virtualizable, fieldname)
                 for j in range(getlength(lst) - 1, -1, -1):
                     i -= 1
                     assert i >= 0
                     box = reader.decode_box_of_type(ARRAYITEMTYPE, numb.nums[i])
                     boxes.append(box)
-            for FIELDTYPE, fieldname in unroll_static_fields_rev:
-                i -= 1
-                assert i >= 0
-                box = reader.decode_box_of_type(FIELDTYPE, numb.nums[i])
-                boxes.append(box)
-            boxes.reverse()
+            boxes.append(vable_box)
             return boxes
 
         def check_boxes(virtualizable, boxes):

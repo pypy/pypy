@@ -1147,15 +1147,19 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.boxes_f = boxes_f
         self._prepare_next_section(info)
 
-    def consume_virtualizable_boxes(self, vinfo, numb):
+    def consume_virtualizable_boxes(self, vinfo):
         # we have to ignore the initial part of 'nums' (containing vrefs),
         # find the virtualizable from nums[-1], and use it to know how many
         # boxes of which type we have to return.  This does not write
         # anything into the virtualizable.
-        index = len(numb.nums) - 1
-        virtualizablebox = self.decode_ref(numb.nums[index])
+        numb = self.numb
+        first_snapshot_size = rffi.cast(lltype.Signed, numb.first_snapshot_size)
+        item, _ = resumecode.numb_next_item(numb, first_snapshot_size - 1)
+        virtualizablebox = self.decode_ref(item)
+        index = first_snapshot_size - vinfo.get_total_size(virtualizablebox.getref_base()) - 1
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizablebox)
-        return vinfo.load_list_of_boxes(virtualizable, self, numb)
+        return vinfo.load_list_of_boxes(virtualizable, self, virtualizablebox,
+            numb, index)
 
     def consume_virtualref_boxes(self, end):
         # Returns a list of boxes, assumed to be all BoxPtrs.
@@ -1171,18 +1175,18 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
     def consume_vref_and_vable_boxes(self, vinfo, ginfo):
         first_snapshot_size = rffi.cast(lltype.Signed,
                                         self.numb.first_snapshot_size)
-        end = first_snapshot_size & (~1) # if it's odd, it's -1
-        virtualref_boxes = self.consume_virtualref_boxes(end)
         if vinfo is not None:
             virtualizable_boxes = self.consume_virtualizable_boxes(vinfo)
-            xxxx
-            end = len(numb.nums) - len(virtualizable_boxes)
+            end = first_snapshot_size - len(virtualizable_boxes)
         elif ginfo is not None:
             item, self.cur_index = resumecode.numb_next_item(self.numb,
-                self.cur_index)
+                first_snapshot_size - 1)
             virtualizable_boxes = [self.decode_ref(item)]
+            end = first_snapshot_size - 1
         else:
+            end = first_snapshot_size
             virtualizable_boxes = None
+        virtualref_boxes = self.consume_virtualref_boxes(end)
         self.cur_index = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
         return virtualizable_boxes, virtualref_boxes
 
