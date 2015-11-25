@@ -144,23 +144,6 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
         snapshot_storage.rd_frame_info_list = None
         snapshot_storage.rd_snapshot = Snapshot(None, boxes)
 
-#
-# The following is equivalent to the RPython-level declaration:
-#
-#     class Numbering: __slots__ = ['prev', 'nums']
-#
-# except that it is more compact in translated programs, because the
-# array 'nums' is inlined in the single NUMBERING object.  This is
-# important because this is often the biggest single consumer of memory
-# in a pypy-c-jit.
-#
-NUMBERINGP = lltype.Ptr(lltype.GcForwardReference())
-NUMBERING = lltype.GcStruct('Numbering',
-                            ('prev', NUMBERINGP),
-                            ('packed_jitcode_pc', lltype.Signed),
-                            ('nums', lltype.Array(rffi.SHORT)))
-NUMBERINGP.TO.become(NUMBERING)
-
 PENDINGFIELDSTRUCT = lltype.Struct('PendingField',
                                    ('lldescr', OBJECTPTR),
                                    ('num', rffi.SHORT),
@@ -345,8 +328,8 @@ class ResumeDataLoopMemo(object):
                 frameinfo = framestack_list[i - 1]
                 jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
                 state.position -= 2
-                state.append(rffi.cast(rffi.USHORT, jitcode_pos))
-                state.append(rffi.cast(rffi.USHORT, pc))
+                state.append(rffi.cast(rffi.SHORT, jitcode_pos))
+                state.append(rffi.cast(rffi.SHORT, pc))
             self._number_boxes(snapshot_list[i].boxes, optimizer, state)
 
         numb = resumecode.create_numbering(state.current,
@@ -496,12 +479,6 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         snapshot = self.snapshot_storage.rd_snapshot
         assert snapshot is not None # is that true?
         # count stack depth
-        frame_info_list = self.snapshot_storage.rd_frame_info_list
-        stack_depth = 0
-        while frame_info_list is not None:
-            frame_info_list = frame_info_list.prev
-            stack_depth += 1
-        storage.rd_stack_depth = stack_depth
         numb, liveboxes_from_env, v = self.memo.number(optimizer, snapshot,
             self.snapshot_storage.rd_frame_info_list)
         self.liveboxes_from_env = liveboxes_from_env
