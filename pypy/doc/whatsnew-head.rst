@@ -22,3 +22,10 @@ Refactor and improve exception analysis in the annotator.
 
 Fix issue #2193. ``isinstance(..., int)`` => ``isinstance(..., numbers.Integral)`` 
 to allow for alternate ``int``-like implementations (e.g., ``future.types.newint``)
+
+.. branch: faster-rstruct
+
+Improve the performace of struct.unpack, which now directly reads inside the
+string buffer and directly casts the bytes to the appropriate type, when
+allowed. Unpacking of floats and doubles is about 15 times faster now, while
+for integer types it's up to ~50% faster for 64bit integers.
