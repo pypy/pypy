@@ -202,18 +202,30 @@ TAGINT      = 1
 TAGBOX      = 2
 TAGVIRTUAL  = 3
 
-UNASSIGNED = tag(-1 << 13, TAGBOX)
-UNASSIGNEDVIRTUAL = tag(-1 << 13, TAGVIRTUAL)
-NULLREF = tag(0, TAGCONST)
-UNINITIALIZED = tag(1, TAGCONST)   # used for uninitialized string characters
-TAG_CONST_OFFSET = 2
+UNASSIGNED = tag(-1, TAGBOX)
+UNASSIGNEDVIRTUAL = tag(-1, TAGVIRTUAL)
+NULLREF = tag(-1, TAGCONST)
+UNINITIALIZED = tag(2, TAGCONST)   # used for uninitialized string characters
+TAG_CONST_OFFSET = 0
 
 class NumberingState(object):
-    def __init__(self):
+    def __init__(self, snapshot_list):
         self.liveboxes = {}
-        self.current = []
+        self.current = [None] * self.count_boxes(snapshot_list)
+        self.position = len(self.current)
         self.n = 0
         self.v = 0
+
+    def count_boxes(self, lst):
+        c = 0
+        for snapshot in lst:
+            c += len(snapshot.boxes)
+        c += 2 * (len(lst) - 1)
+        return c
+
+    def append(self, item):
+        self.current[self.position] = item
+        self.position += 1
 
 class ResumeDataLoopMemo(object):
 
@@ -273,6 +285,7 @@ class ResumeDataLoopMemo(object):
         v = state.v
         liveboxes = state.liveboxes
         length = len(boxes)
+        state.position -= length
         for i in range(length):
             box = boxes[i]
             box = optimizer.get_box_replacement(box)
@@ -296,9 +309,10 @@ class ResumeDataLoopMemo(object):
                     tagged = tag(n, TAGBOX)
                     n += 1
                 liveboxes[box] = tagged
-            state.current.append(tagged)
+            state.append(tagged)
         state.n = n
         state.v = v
+        state.position -= length
 
 #    def _get_prev_snapshot(self, snapshot):
 #        cur_snapshot = snapshot
@@ -313,26 +327,28 @@ class ResumeDataLoopMemo(object):
 
     def number(self, optimizer, snapshot, frameinfo):
         # flatten the list
-        cur = snapshot
-        snapshot_list = []
+        vref_snapshot = snapshot
+        cur = snapshot.prev
+        snapshot_list = [vref_snapshot]
         framestack_list = []
         while cur:
-            if cur is not snapshot:
-                framestack_list.append(frameinfo)
-                frameinfo = frameinfo.prev
+            framestack_list.append(frameinfo)
+            frameinfo = frameinfo.prev
             snapshot_list.append(cur)
             cur = cur.prev
-        snapshot_list.reverse()
-        framestack_list.reverse()
-        state = NumberingState()
+        state = NumberingState(snapshot_list)
 
-        for i in range(len(snapshot_list)):
+        # we want to number snapshots starting from the back, but ending
+        # with a forward list
+        for i in range(len(snapshot_list) - 1, -1, -1):
             self._number_boxes(snapshot_list[i].boxes, optimizer, state)
             if i != 0:
                 frameinfo = framestack_list[i - 1]
                 jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
-                state.current.append(rffi.cast(rffi.USHORT, jitcode_pos))
-                state.current.append(rffi.cast(rffi.USHORT, pc))
+                state.position -= 2
+                state.append(rffi.cast(rffi.USHORT, jitcode_pos))
+                state.append(rffi.cast(rffi.USHORT, pc))
+                state.position -= 2
 
         numb = resumecode.create_numbering(state.current,
             lltype.nullptr(resumecode.NUMBERING), 0)
@@ -1090,6 +1106,7 @@ class AbstractResumeDataReader(object):
 
 def rebuild_from_resumedata(metainterp, storage, deadframe,
                             virtualizable_info, greenfield_info):
+    xxx
     resumereader = ResumeDataBoxReader(storage, deadframe, metainterp)
     boxes = resumereader.consume_vref_and_vable_boxes(virtualizable_info,
                                                       greenfield_info)
@@ -1480,6 +1497,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     load_value_of_type._annspecialcase_ = 'specialize:arg(1)'
 
     def consume_vref_and_vable(self, vrefinfo, vinfo, ginfo):
+        xxx
         numb = self.cur_numb
         self.cur_numb = numb.prev
         if self.resume_after_guard_not_forced != 2:
