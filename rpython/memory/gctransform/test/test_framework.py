@@ -618,6 +618,34 @@ def test_write_barrier_collector_blocks_merging():
     print "\n".join(map(str,wbc.clean_ops))
     assert len(wbc.clean_ops) == 11
 
+def test_write_barrier_collector_stm_inevitable_interaction():
+    from rpython.translator.c.genc import CStandaloneBuilder
+    from rpython.flowspace.model import summary
+    #
+    rS = lltype.Struct('rS', ('i', lltype.Signed))
+    S = lltype.GcStruct('S', ('i', lltype.Signed))
+    def f():
+        rs = lltype.malloc(rS, flavor='raw')
+        s = lltype.malloc(S, flavor='gc')
+        rs.i = 5 # become_inevitable setfield on 'raw'
+        s.i = 6 # become_inevitable canmalloc -> needs WB
+    def g(argv):
+        f()
+        return 0
+    t = rtype(g, [s_list_of_strings])
+    t.config.translation.stm = True
+    gcpolicy = StmFrameworkGcPolicy
+    t.config.translation.gc = "stmgc"
+    cbuild = CStandaloneBuilder(t, g, t.config,
+                                gcpolicy=gcpolicy)
+    db = cbuild.generate_graphs_for_llinterp()
+
+    ff = graphof(t, f)
+    #ff.show()
+    assert summary(ff)['stm_write'] == 1
+
+
+
 def test_write_barrier_collector_loops():
     class A(object):
         pass
