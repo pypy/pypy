@@ -2,7 +2,7 @@
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.flowspace.model import Constant
 from rpython.annotator import specialize
-from rpython.annotator.classdesc import InstanceSource, ClassDef
+from rpython.annotator.classdesc import InstanceSource, ClassDesc
 
 
 
@@ -21,10 +21,10 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
 
     def specialize__wrap(self,  funcdesc, args_s):
         from pypy.interpreter.baseobjspace import W_Root
-        W_Root_def = funcdesc.bookkeeper.getuniqueclassdef(W_Root)
+        W_Root_desc = funcdesc.bookkeeper.getdesc(W_Root)
         typ = args_s[1].knowntype
-        if isinstance(typ, ClassDef):
-            assert typ.issubclass(W_Root_def)
+        if isinstance(typ, ClassDesc):
+            assert typ.issubclass(W_Root_desc)
             typ = W_Root
         else:
             assert not issubclass(typ, W_Root)
