@@ -497,8 +497,8 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         assert snapshot is not None # is that true?
         # count stack depth
         frame_info_list = self.snapshot_storage.rd_frame_info_list
-        stack_depth = 1
-        while frame_info_list.prev is not None:
+        stack_depth = 0
+        while frame_info_list is not None:
             frame_info_list = frame_info_list.prev
             stack_depth += 1
         storage.rd_stack_depth = stack_depth

@@ -137,12 +137,10 @@ class VirtualizableInfo(object):
                 x = reader.load_value_of_type(FIELDTYPE, item)
                 setattr(virtualizable, fieldname, x)
             for ARRAYITEMTYPE, fieldname in unroll_array_fields:
-                yyyy
                 lst = getattr(virtualizable, fieldname)
                 for j in range(getlength(lst)):
-                    i -= 1
-                    assert i >= 0
-                    x = reader.load_value_of_type(ARRAYITEMTYPE, numb.nums[i])
+                    item, index = numb_next_item(numb, index)                    
+                    x = reader.load_value_of_type(ARRAYITEMTYPE, item)
                     setarrayitem(lst, j, x)
 
         def load_list_of_boxes(virtualizable, reader, vable_box, numb, index):
@@ -156,13 +154,11 @@ class VirtualizableInfo(object):
                 item, index = numb_next_item(numb, index)
                 box = reader.decode_box_of_type(FIELDTYPE, item)
                 boxes.append(box)
-            for ARRAYITEMTYPE, fieldname in unroll_array_fields_rev:
-                xxx
+            for ARRAYITEMTYPE, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
-                for j in range(getlength(lst) - 1, -1, -1):
-                    i -= 1
-                    assert i >= 0
-                    box = reader.decode_box_of_type(ARRAYITEMTYPE, numb.nums[i])
+                for j in range(getlength(lst)):
+                    item, index = numb_next_item(numb, index)                    
+                    box = reader.decode_box_of_type(ARRAYITEMTYPE, item)
                     boxes.append(box)
             boxes.append(vable_box)
             return boxes
