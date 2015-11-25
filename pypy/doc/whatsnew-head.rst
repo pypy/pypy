@@ -29,3 +29,7 @@ Improve the performace of struct.unpack, which now directly reads inside the
 string buffer and directly casts the bytes to the appropriate type, when
 allowed. Unpacking of floats and doubles is about 15 times faster now, while
 for integer types it's up to ~50% faster for 64bit integers.
+
+.. branch: wrap-specialisation
+
+Remove unnecessary special handling of space.wrap().
