@@ -19,7 +19,7 @@ from rpython.annotator.bookkeeper import getbookkeeper, immutablevalue
 from rpython.annotator.binaryop import _clone ## XXX where to put this?
 from rpython.annotator.binaryop import _dict_can_only_throw_keyerror
 from rpython.annotator.binaryop import _dict_can_only_throw_nothing
-from rpython.annotator.classdesc import ClassDef
+from rpython.annotator.classdesc import ClassDesc
 from rpython.annotator.model import AnnotatorError
 from rpython.annotator.argument import simple_args, complex_args
 
@@ -38,27 +38,27 @@ def our_issubclass(bk, cls1, cls2):
         return True
     def classify(cls):
         from rpython.rlib.rarithmetic import base_int
-        if isinstance(cls, ClassDef):
-            return 'def'
+        if isinstance(cls, ClassDesc):
+            return 'desc'
         if cls.__module__ == '__builtin__' or issubclass(cls, base_int):
             return 'builtin'
         else:
             return 'cls'
     kind1 = classify(cls1)
     kind2 = classify(cls2)
-    if kind1 != 'def' and kind2 != 'def':
+    if kind1 != 'desc' and kind2 != 'desc':
         return issubclass(cls1, cls2)
-    if kind1 == 'builtin' and kind2 == 'def':
+    if kind1 == 'builtin' and kind2 == 'desc':
         return False
-    elif kind1 == 'def' and kind2 == 'builtin':
+    elif kind1 == 'desc' and kind2 == 'builtin':
         return issubclass(object, cls2)
     else:
-        def toclassdef(kind, cls):
-            if kind != 'def':
-                return bk.getuniqueclassdef(cls)
+        def toclassdesc(kind, cls):
+            if kind != 'desc':
+                return bk.getdesc(cls)
             else:
                 return cls
-        return toclassdef(kind1, cls1).issubclass(toclassdef(kind2, cls2))
+        return toclassdesc(kind1, cls1).issubclass(toclassdesc(kind2, cls2))
 
 
 def s_isinstance(annotator, s_obj, s_type, variables):

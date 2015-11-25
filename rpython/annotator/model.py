@@ -436,7 +436,7 @@ class SomeInstance(SomeObject):
 
     def __init__(self, classdef, can_be_None=False, flags={}):
         self.classdef = classdef
-        self.knowntype = classdef or object
+        self.knowntype = classdef.classdesc if classdef else None
         self.can_be_None = can_be_None
         self.flags = flags
 

@@ -258,8 +258,8 @@ class ClassDef(object):
             yield self
             self = self.basedef
 
-    def issubclass(self, otherclsdef):
-        return otherclsdef in self.parentdefs
+    def issubclass(self, other):
+        return self.classdesc.issubclass(other.classdesc)
 
     def getallsubdefs(self):
         pending = [self]
@@ -721,6 +721,9 @@ class ClassDesc(Desc):
             if issubclass(self.pyobj, AssertionError):
                 return True
         return False
+
+    def issubclass(self, other):
+        return issubclass(self.pyobj, other.pyobj)
 
     def lookup(self, name):
         cdesc = self
