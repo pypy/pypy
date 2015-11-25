@@ -1161,7 +1161,12 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         # Returns a list of boxes, assumed to be all BoxPtrs.
         # We leave up to the caller to call vrefinfo.continue_tracing().
         assert (end & 1) == 0
-        return [self.decode_ref(numb.nums[i]) for i in range(end)]
+        lst = []
+        for i in range(end):
+            item, self.cur_index = resumecode.numb_next_item(self.numb,
+                self.cur_index)
+            lst.append(self.decode_ref(item))
+        return lst
 
     def consume_vref_and_vable_boxes(self, vinfo, ginfo):
         first_snapshot_size = rffi.cast(lltype.Signed,
@@ -1179,6 +1184,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             virtualizable_boxes = None
             end = first_snapshot_size
         virtualref_boxes = self.consume_virtualref_boxes(end)
+        self.cur_index = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
         return virtualizable_boxes, virtualref_boxes
 
     def allocate_with_vtable(self, descr=None):
@@ -1505,6 +1511,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             if ginfo is not None:
                 end_vref -= 1
             self.consume_virtualref_info(vrefinfo, end_vref)
+        self.cur_index = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
 
     def allocate_with_vtable(self, descr=None):
         from rpython.jit.metainterp.executor import exec_new_with_vtable
