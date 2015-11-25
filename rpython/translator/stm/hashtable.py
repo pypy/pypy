@@ -18,7 +18,12 @@ def compute_annotation(bookkeeper, hashtable):
         for entry in hashtable._content.values():
             if entry._obj:
                 bookkeeper.immutablevalue(entry._obj)
-        bookkeeper.immutablevalue(lltype.nullptr(rstm._STM_HASHTABLE_ENTRY))
+        #
+        # When we have a prebuilt hashtable but no calls to create_hashtable()
+        # in the final RPython program, the translation state is incomplete.
+        # Fix it by emulating a call to create_hashtable().
+        s_create_hashtable = bookkeeper.immutablevalue(rstm.create_hashtable)
+        bookkeeper.emulate_pbc_call("create_hashtable", s_create_hashtable, [])
         #
     return lltype_to_annotation(lltype.Ptr(rstm._HASHTABLE_OBJ))
 
