@@ -416,8 +416,10 @@ def stm_hashtable_iter_next(funcgen, op):
     arg1 = funcgen.expr(op.args[1])
     arg2 = funcgen.expr(op.args[2])
     result = funcgen.expr(op.result)
-    return ('%s = stm_hashtable_iter_next(%s, %s, %s);' %
-            (result, arg0, arg1, arg2))
+    typename = cdecl(funcgen.lltypename(op.result), '')
+    return ('%s = (%s)stm_hashtable_iter_next((object_t *)%s, %s,'
+            ' (stm_hashtable_entry_t **)%s);' %
+            (result, typename, arg0, arg1, arg2))
 
 def stm_hashtable_iter_tracefn(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
