@@ -1481,6 +1481,17 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_getfield_gc_pure_r = _genop_getfield
     genop_getfield_gc_pure_f = _genop_getfield
 
+    def _genop_gc_load(self, op, arglocs, resloc):
+        base_loc, ofs_loc, size_loc, sign_loc = arglocs
+        assert isinstance(ofs, ImmedLoc)
+        assert isinstance(size_loc, ImmedLoc)
+        scale = get_scale(size_loc.value)
+        self.load_from_mem(resloc, ofs_loc, size_loc, sign_loc)
+
+    genop_gc_load_i = _genop_gc_load
+    genop_gc_load_r = _genop_gc_load
+    genop_gc_load_f = _genop_gc_load
+
     def _genop_getarrayitem(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
         assert isinstance(ofs, ImmedLoc)

@@ -1172,6 +1172,22 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_raw_load_i = _consider_getarrayitem
     consider_raw_load_f = _consider_getarrayitem
 
+    def _consider_gc_load(self, op):
+        ptr, index, size, sign = op.getarglist()
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+        result_loc = self.force_allocate_reg(op)
+        if sign.value:
+            sign_loc = imm1
+        else:
+            sign_loc = imm0
+        size_loc = imm(size.value)
+        self.perform(op, [base_loc, ofs_loc, size_loc, sign_loc], result_loc)
+
+    consider_gc_load_i = _consider_gc_load
+    consider_gc_load_r = _consider_gc_load
+    consider_gc_load_f = _consider_gc_load
+
     def _consider_getinteriorfield(self, op):
         t = unpack_interiorfielddescr(op.getdescr())
         ofs, itemsize, fieldsize, sign = imm(t[0]), imm(t[1]), imm(t[2]), t[3]

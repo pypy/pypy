@@ -112,6 +112,33 @@ class GcRewriterAssembler(object):
         assert not op.get_forwarded()
         op.set_forwarded(newop)
 
+    def handle_getarrayitem(self, op):
+        itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
+        ptr_box, index_box = op.getargs()
+
+        offset = 0
+        factor = 1
+        # i * f + c
+        if itemsize in self.cpu.load_supported_factors:
+            factor = itemsize
+        else:
+            index_box = ResOperation(rop.INT_MUL, [index_box, Const(factor)])
+            self.emit_op(index_box)
+        # adjust the constant offset
+        if self.cpu.load_constant_offset:
+            offset = ofs
+        else:
+            index_box = ResOperation(rop.INT_ADD, [index_box, Const(ofs)])
+            self.emit_op(index_box)
+        if factor == 1 and offset == 0:
+            newload = ResOperation(OpHelpers.get_gc_load(op.type),
+                        [ptr_box, index_box, Const(itemsize), Const(sign)])
+            self.replace_op_with(newload, op)
+        else:
+            newload = ResOperation(OpHelpers.get_gc_load_scaled(op.type),
+                        [ptr_box, index_box, Const(factor), Const(offset), Const(sign)])
+            self.replace_op_with(newload, op)
+
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly
         # collect; but we can try to collapse several known-size mallocs into
@@ -128,6 +155,10 @@ class GcRewriterAssembler(object):
                 continue
             if op is self._changed_op:
                 op = self._changed_op_to
+            # ---------- GC_LOAD --------------
+            if op.is_getarrayitem(): # TODO
+                self.handle_getarrayitem(op)
+                pass
             # ---------- GETFIELD_GC ----------
             if op.getopnum() in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
                                  rop.GETFIELD_GC_R):
