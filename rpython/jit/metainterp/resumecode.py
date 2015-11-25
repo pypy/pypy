@@ -15,19 +15,21 @@ NUMBERINGP = lltype.Ptr(lltype.GcForwardReference())
 NUMBERING = lltype.GcStruct('Numbering',
                             ('prev', NUMBERINGP),
                             ('prev_index', rffi.USHORT),
+                            ('first_snapshot_size', rffi.USHORT), # ugh, ugly
                             ('code', lltype.Array(rffi.SHORT)))
 NUMBERINGP.TO.become(NUMBERING)
 NULL_NUMBER = lltype.nullptr(NUMBERING)
 
-def create_numbering(lst, prev, prev_index):
+def create_numbering(lst, prev, prev_index, first_snapshot_size):
     numb = lltype.malloc(NUMBERING, len(lst))
     for i in range(len(lst)):
         numb.code[i] = rffi.cast(rffi.SHORT, lst[i])
     numb.prev = prev
     numb.prev_index = rffi.cast(rffi.USHORT, prev_index)
+    numb.first_snapshot_size = rffi.cast(rffi.USHORT, first_snapshot_size)
     return numb
 
-def _create_numbering(lst, prev, prev_index):
+def _create_numbering(lst, prev, prev_index, first_snapshot_size):
     count = 0
     for item in lst:
         if item < 0:
@@ -39,6 +41,7 @@ def _create_numbering(lst, prev, prev_index):
     numb = lltype.malloc(NUMBERING, count)
     numb.prev = prev
     numb.prev_index = rffi.cast(rffi.USHORT, prev_index)
+    numb.first_snapshot_size = rffi.cast(rffi.USHORT, first_snapshot_size)
     index = 0
     for item in lst:
         if 0 <= item <= 128:

@@ -211,7 +211,7 @@ TAG_CONST_OFFSET = 0
 class NumberingState(object):
     def __init__(self, snapshot_list):
         self.liveboxes = {}
-        self.current = [None] * self.count_boxes(snapshot_list)
+        self.current = [rffi.cast(rffi.SHORT, 0)] * self.count_boxes(snapshot_list)
         self.position = len(self.current)
         self.n = 0
         self.v = 0
@@ -285,7 +285,6 @@ class ResumeDataLoopMemo(object):
         v = state.v
         liveboxes = state.liveboxes
         length = len(boxes)
-        state.position -= length
         for i in range(length):
             box = boxes[i]
             box = optimizer.get_box_replacement(box)
@@ -312,7 +311,7 @@ class ResumeDataLoopMemo(object):
             state.append(tagged)
         state.n = n
         state.v = v
-        state.position -= length
+        state.position -= length + 2
 
 #    def _get_prev_snapshot(self, snapshot):
 #        cur_snapshot = snapshot
@@ -341,17 +340,17 @@ class ResumeDataLoopMemo(object):
         # we want to number snapshots starting from the back, but ending
         # with a forward list
         for i in range(len(snapshot_list) - 1, -1, -1):
-            self._number_boxes(snapshot_list[i].boxes, optimizer, state)
+            state.position -= len(snapshot_list[i].boxes)
             if i != 0:
                 frameinfo = framestack_list[i - 1]
                 jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
                 state.position -= 2
                 state.append(rffi.cast(rffi.USHORT, jitcode_pos))
                 state.append(rffi.cast(rffi.USHORT, pc))
-                state.position -= 2
+            self._number_boxes(snapshot_list[i].boxes, optimizer, state)
 
         numb = resumecode.create_numbering(state.current,
-            lltype.nullptr(resumecode.NUMBERING), 0)
+            lltype.nullptr(resumecode.NUMBERING), 0, len(vref_snapshot.boxes))
 
         return numb, state.liveboxes, state.v
         
@@ -1003,6 +1002,16 @@ class AbstractResumeDataReader(object):
         self._prepare_virtuals(storage.rd_virtuals)
         self._prepare_pendingfields(storage.rd_pendingfields)
 
+    def read_jitcode_pos_pc(self):
+        jitcode_pos, self.cur_index = resumecode.numb_next_item(self.numb,
+            self.cur_index)
+        pc, self.cur_index = resumecode.numb_next_item(self.numb,
+            self.cur_index)
+        return jitcode_pos, pc
+
+    def done_reading(self):
+        return self.cur_index >= len(self.numb.code)
+
     def getvirtual_ptr(self, index):
         # Returns the index'th virtual, building it lazily if needed.
         # Note that this may be called recursively; that's why the
@@ -1388,33 +1397,26 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitcodes,
         rstack._stack_criticalcode_stop()
     #
     # First get a chain of blackhole interpreters whose length is given
-    # by the depth of rd_frame_info_list.  The first one we get must be
+    # by the positions in the numbering.  The first one we get must be
     # the bottom one, i.e. the last one in the chain, in order to make
     # the comment in BlackholeInterpreter.setposition() valid.
-    nextbh = None
-    numbering = storage.rd_numb.prev
+    prevbh = None
+    firstbh = None
+    curbh = None
     while True:
         curbh = blackholeinterpbuilder.acquire_interp()
-        curbh.nextblackholeinterp = nextbh
-        nextbh = curbh
-        numbering = numbering.prev
-        if not numbering:
-            break
-    firstbh = nextbh
-    #
-    # Now fill the blackhole interpreters with resume data.
-    curbh = firstbh
-    xxxx
-    numbering = storage.rd_numb.prev
-    while True:
-        jitcode_pos, pc = unpack_uint(numbering.packed_jitcode_pc)
+        if prevbh is not None:
+            prevbh.nextblackholeinterp = curbh
+        else:
+            firstbh = curbh
+        prevbh = curbh
+        jitcode_pos, pc = resumereader.read_jitcode_pos_pc()
         jitcode = jitcodes[jitcode_pos]
         curbh.setposition(jitcode, pc)
         resumereader.consume_one_section(curbh)
-        curbh = curbh.nextblackholeinterp
-        numbering = numbering.prev
-        if not numbering:
+        if resumereader.done_reading():
             break
+    curbh.nextblackholeinterp = None
     return firstbh
 
 def force_from_resumedata(metainterp_sd, storage, deadframe, vinfo, ginfo):
@@ -1457,7 +1459,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         info = blackholeinterp.get_current_position_info()
         self._prepare_next_section(info)
 
-    def consume_virtualref_info(self, vrefinfo, numb, end):
+    def consume_virtualref_info(self, vrefinfo, end):
         # we have to decode a list of references containing pairs
         # [..., virtual, vref, ...]  stopping at 'end'
         if vrefinfo is None:
@@ -1470,12 +1472,15 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             # For each pair, we store the virtual inside the vref.
             vrefinfo.continue_tracing(vref, virtual)
 
-    def consume_vable_info(self, vinfo, numb):
+    def consume_vable_info(self, vinfo):
         # we have to ignore the initial part of 'nums' (containing vrefs),
         # find the virtualizable from nums[-1], load all other values
         # from the CPU stack, and copy them into the virtualizable
+        numb = self.numb
+        first_snapshot_size = rffi.cast(lltype.Signed, numb.first_snapshot_size)
         if vinfo is None:
-            return len(numb.nums)
+            return first_snapshot_size
+        xxx
         index = len(numb.nums) - 1
         virtualizable = self.decode_ref(numb.nums[index])
         # just reset the token, we'll force it later
@@ -1497,14 +1502,11 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     load_value_of_type._annspecialcase_ = 'specialize:arg(1)'
 
     def consume_vref_and_vable(self, vrefinfo, vinfo, ginfo):
-        xxx
-        numb = self.cur_numb
-        self.cur_numb = numb.prev
         if self.resume_after_guard_not_forced != 2:
-            end_vref = self.consume_vable_info(vinfo, numb)
+            end_vref = self.consume_vable_info(vinfo)
             if ginfo is not None:
                 end_vref -= 1
-            self.consume_virtualref_info(vrefinfo, numb, end_vref)
+            self.consume_virtualref_info(vrefinfo, end_vref)
 
     def allocate_with_vtable(self, descr=None):
         from rpython.jit.metainterp.executor import exec_new_with_vtable

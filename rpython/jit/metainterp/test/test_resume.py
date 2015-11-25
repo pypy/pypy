@@ -279,7 +279,7 @@ def _next_section(reader, *expected):
 
 
 def Numbering(nums):
-    numb = create_numbering(nums, NULL_NUMBER, 0)
+    numb = create_numbering(nums, NULL_NUMBER, 0, 0)
     return numb
 
 def tagconst(i):
@@ -947,8 +947,9 @@ def test_ResumeDataLoopMemo_number():
     assert v == 0
     
     assert liveboxes3 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX)}
-    assert unpack_numbering(numb3) == [tag(3, TAGINT), tag(4, TAGINT), tag(0, TAGBOX),
-                                tag(3, TAGINT), 0, 0] + base
+    assert unpack_numbering(numb3) == [tag(3, TAGINT), tag(4, TAGINT),
+                                       tag(0, TAGBOX),
+                                       tag(3, TAGINT), 0, 0] + base
 
     # virtual
     env4 = [c3, b4, b1, c3]
