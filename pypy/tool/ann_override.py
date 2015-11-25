@@ -4,13 +4,6 @@ from rpython.flowspace.model import Constant
 from rpython.annotator.classdesc import InstanceSource
 
 
-def isidentifier(s):
-    if not s:
-        return False
-    s = s.replace('_', 'x')
-    return s[0].isalpha() and s.isalnum()
-
-
 class PyPyAnnotatorPolicy(AnnotatorPolicy):
     def __init__(self):
         self.lookups = {}
