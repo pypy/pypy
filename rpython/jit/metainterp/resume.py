@@ -1171,19 +1171,18 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
     def consume_vref_and_vable_boxes(self, vinfo, ginfo):
         first_snapshot_size = rffi.cast(lltype.Signed,
                                         self.numb.first_snapshot_size)
+        end = first_snapshot_size & (~1) # if it's odd, it's -1
+        virtualref_boxes = self.consume_virtualref_boxes(end)
         if vinfo is not None:
             virtualizable_boxes = self.consume_virtualizable_boxes(vinfo)
             xxxx
             end = len(numb.nums) - len(virtualizable_boxes)
         elif ginfo is not None:
-            xxx
-            index = len(numb.nums) - 1
-            virtualizable_boxes = [self.decode_ref(numb.nums[index])]
-            end = len(numb.nums) - 1
+            item, self.cur_index = resumecode.numb_next_item(self.numb,
+                self.cur_index)
+            virtualizable_boxes = [self.decode_ref(item)]
         else:
             virtualizable_boxes = None
-            end = first_snapshot_size
-        virtualref_boxes = self.consume_virtualref_boxes(end)
         self.cur_index = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
         return virtualizable_boxes, virtualref_boxes
 
