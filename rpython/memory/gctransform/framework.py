@@ -93,6 +93,7 @@ class WriteBarrierCollector(object):
         insets = self._in_states
         #
         # get input variables and their states:
+        assert len(insets[block]) == len(block.inputargs)
         writeable = {}
         for v, state in zip(block.inputargs, insets[block]):
             writeable[v] = state
@@ -106,8 +107,10 @@ class WriteBarrierCollector(object):
                 writeable = {}
             #
             if op.opname == "stm_ignored_start":
+                assert not self.in_stm_ignored
                 self.in_stm_ignored = True
             elif op.opname == "stm_ignored_stop":
+                assert self.in_stm_ignored
                 self.in_stm_ignored = False
             elif op.opname == "gc_writebarrier":
                 assert not self.in_stm_ignored
@@ -115,67 +118,62 @@ class WriteBarrierCollector(object):
             elif op.opname == "malloc":
                 rtti = get_rtti(op.args[0].value)
                 if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
-                    # XXX: not sure why that matters, copied from
-                    # find_initializing_stores
-                    continue
-                writeable[op.result] = True
-                #
-            elif op.opname in ("cast_pointer", "same_as"):
-                if writeable.get(op.args[0], False):
+                    # objs with finalizers are allocated directly as "old", so
+                    # they need write barriers
+                    assert op not in self.clean_ops
+                else:
+                    # freshly allocated object
                     writeable[op.result] = True
                 #
+            elif op.opname in ("cast_pointer", "same_as"):
+                writeable[op.result] = writeable.get(op.args[0], False)
+                #
             elif op.opname in ('setfield', 'setarrayitem', 'setinteriorfield', 'raw_store'):
+                # generic_set case
                 if op.args[-1].concretetype == lltype.Void:
+                    # always ignore setfields of Void type
                     self.clean_ops.add(op)
-                    continue # ignore setfields of Void type
                 elif not var_needsgc(op.args[0]):
+                    # setfields on raw don't need a barrier
                     if (var_needsgc(op.args[-1]) and
                         'is_excdata' not in op.args[0].concretetype.TO._hints):
                         raise Exception("%s: GC pointer written into a non-GC location"
                                         % (op,))
                     self.clean_ops.add(op)
-                    continue
                 elif self.in_stm_ignored:
-                    # detect if we're inside a 'stm_ignored' block and in
-                    # that case don't call stm_write().  This only works for
-                    # writing non-GC pointers.
+                    # within stm_ignored, don't emit stm_write(). This only works
+                    # for writing non-GC pointers.
                     if var_needsgc(op.args[-1]):
                         raise Exception("in stm_ignored block: write of a gc pointer")
                     self.clean_ops.add(op)
-                    continue
-                elif self._set_into_gc_array_part(op) is None:
-                    # full write barrier required
-                    if writeable.get(op.args[0], False):
-                        # already writeable, this op is also clean
-                        self.clean_ops.add(op)
-                    elif op in self.clean_ops:
-                        # we changed our opinion in this iteration
-                        self.clean_ops.remove(op)
-                    # always writeable after this op
-                    writeable[op.args[0]] = True
                 else:
-                    # things that need partial write barriers (card marking)
+                    # we need a (partial) write barrier if arg0 is not writeable
                     if writeable.get(op.args[0], False):
                         self.clean_ops.add(op)
                     elif op in self.clean_ops:
                         self.clean_ops.remove(op)
+                    #
+                    if self._set_into_gc_array_part(op) is None:
+                        # this will do a full write barrier, not card marking
+                        # arg0 is always writeable afterwards
+                        writeable[op.args[0]] = True
         #
         # update in_states of all successors
-        updated = set()
+        to_do = set()
         for link in block.exits:
             succ = link.target
             outset = [writeable.get(v, False) for v in link.args]
             if succ in insets:
-                to_merge = [insets[succ], outset]
-                new = self._merge_out_states(to_merge)
-                if new != insets[succ]:
-                    updated.add(succ)
+                old = insets[succ]
+                new = self._merge_out_states([old, outset])
+                if new != old:
+                    to_do.add(succ)
                     insets[succ] = new
             else:
                 # block not processed yet
                 insets[succ] = outset
-                updated.add(succ)
-        return updated
+                to_do.add(succ)
+        return to_do
 
 
     def collect(self):
@@ -186,8 +184,7 @@ class WriteBarrierCollector(object):
         graph = self.graph
         #
         # initialize blocks
-        self._in_states = {}
-        self._in_states[graph.startblock] = [False] * len(graph.startblock.inputargs)
+        self._in_states = {graph.startblock: [False] * len(graph.startblock.inputargs)}
         #
         # fixpoint iteration
         # XXX: reverse postorder traversal

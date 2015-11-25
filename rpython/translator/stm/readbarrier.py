@@ -146,7 +146,7 @@ class BlockTransformer(object):
                 cat_map[op.result] = 'R'
             #
             if op.opname in ('setfield', 'setarrayitem', 'setinteriorfield',
-                             'raw_store'):
+                             'raw_store', 'gc_writebarrier'):
                 # compare with logic in stmframework.py
                 # ops that need a write barrier also make the var 'R'
                 if (op.args[-1].concretetype is not lltype.Void
