@@ -18,7 +18,7 @@ class AbstractDataFlowAnalysis(object):
 
     def initialize_block(self, block):
         """Return the (default) in_state, out_state for 'block'
-        used to initialize all blocks before starting the analysis"""
+        used to initialize all blocks before starting the analysis."""
         raise NotImplementedError("abstract base class")
 
     def join_operation(self, preds_outs, inputargs, pred_out_args):
@@ -47,24 +47,30 @@ class AbstractForwardDataFlowAnalysis(AbstractDataFlowAnalysis):
             return set()
         out_states[block] = out_state
         #
-        # update all successors
-        to_do = set()
-        for link in block.exits:
-            succ = link.target
-            # collect all out_states of predecessors:
-            preds_outs = []
-            inputargs = succ.inputargs
-            preds_out_args = [[] for _ in inputargs]
-            for link in entrymap[succ]:
-                preds_outs.append(out_states[link.prevblock])
-                for i in range(len(inputargs)):
-                    preds_out_args[i].append(link.args[i])
-            block_in = self.join_operation(preds_outs, inputargs, preds_out_args)
-            if block_in != in_states[succ]:
-                # in_state changed
-                to_do.add(succ)
-                in_states[succ] = block_in
-        return to_do
+        # add all successors
+        return {link.target for link in block.exits}
+
+    def _update_in_state_of(self, block, entrymap, in_states, out_states):
+        # collect all out_states of predecessors:
+        preds_outs = []
+        inputargs = block.inputargs
+        preds_out_args = [[] for _ in inputargs]
+        for link in entrymap[block]:
+            pred = link.prevblock
+            if pred is None:
+                # block == startblock
+                return True
+            preds_outs.append(out_states[pred])
+            for i in range(len(inputargs)):
+                preds_out_args[i].append(link.args[i])
+        # join predecessor out_states for updated in_state:
+        block_in = self.join_operation(preds_outs, inputargs, preds_out_args)
+        if block_in != in_states[block]:
+            # in_state changed
+            in_states[block] = block_in
+            return True
+        return False
+
 
 
     def calculate(self, graph, entrymap=None):
@@ -81,8 +87,10 @@ class AbstractForwardDataFlowAnalysis(AbstractDataFlowAnalysis):
         pending = {graph.startblock,}
         while pending:
             block = pending.pop()
-            block_out = self.transfer_function(block, in_states[block])
-            pending |= self._update_successor_blocks(
-                block, block_out, entrymap, in_states, out_states)
+            if self._update_in_state_of(block, entrymap, in_states, out_states):
+                block_out = self.transfer_function(block, in_states[block])
+                if block_out != out_states[block]:
+                    out_states[block] = block_out
+                    pending |= {link.target for link in block.exits}
         #
         return in_states, out_states

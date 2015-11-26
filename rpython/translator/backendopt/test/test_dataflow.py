@@ -59,7 +59,6 @@ def test_loopy_forward_flow():
     g = t.buildflowgraph(f)
     sfa = SimpleForwardAnalysis()
     ins, outs = sfa.calculate(g)
-    g.show()
     assert len(sfa.seen) == 5
     assert ins[g.startblock] == sfa.entry_state(None)
     assert outs[g.returnblock] == sfa.entry_state(None)
