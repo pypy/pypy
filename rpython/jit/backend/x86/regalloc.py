@@ -1105,11 +1105,12 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     consider_unicodesetitem = consider_strsetitem
 
-    def consider_setarrayitem_gc(self, op):
+    def consider_gc_store(self, op):
         itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        if itemsize == 1:
+        itemsize = abs(size)
+        if size < 0:
             need_lower_byte = True
         else:
             need_lower_byte = False
@@ -1183,7 +1184,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             sign_loc = imm1
         else:
             sign_loc = imm0
-        print("GC_LOAD execute", base_loc, "+", ofs_loc, "scale", scale, "offset", offset)
         self.perform(op, [base_loc, ofs_loc, size_loc, sign_loc], result_loc)
 
     consider_gc_load_i = _consider_gc_load
@@ -1199,7 +1199,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         offset = op.getarg(3).value
         size = op.getarg(4).value
         size_loc = imm(abs(size))
-        print("GC_LOAD_INDEXED execute", base_loc, "+", ofs_loc, "scale", scale, "offset", offset)
         if size < 0:
             sign_loc = imm1
         else:

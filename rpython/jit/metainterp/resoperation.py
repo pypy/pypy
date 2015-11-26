@@ -401,10 +401,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
                               rop.GETARRAYITEM_GC_PURE_F,
                               rop.GETARRAYITEM_GC_PURE_R)
 
-    def is_rawarrayitem(self):
-        return self.opnum in (rop.GETARRAYITEM_RAW_I, rop.GETARRAYITEM_RAW_F,
-                              rop.GETARRAYITEM_RAW_R, rop.GETARRAYITEM_GC_PURE_I,)
-
     def is_real_call(self):
         opnum = self.opnum
         return (opnum == rop.CALL_I or
@@ -1141,6 +1137,10 @@ _oplist = [
     # this one has no *visible* side effect, since the virtualizable
     # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
+
+    # same paramters as GC_LOAD, but one additional for the value to store
+    'GC_STORE/5d/n',
+    'GC_STORE_INDEXED/6d/n',
 
     'INCREMENT_DEBUG_COUNTER/1/n',
     '_RAW_STORE_FIRST',

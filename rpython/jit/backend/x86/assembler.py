@@ -1502,31 +1502,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_gc_load_indexed_r = _genop_gc_load_indexed
     genop_gc_load_indexed_f = _genop_gc_load_indexed
 
-    def _genop_getarrayitem(self, op, arglocs, resloc):
-        base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
-        assert isinstance(ofs, ImmedLoc)
-        assert isinstance(size_loc, ImmedLoc)
-        scale = get_scale(size_loc.value)
-        src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
-        self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
-
-    genop_getarrayitem_gc_i = _genop_getarrayitem
-    genop_getarrayitem_gc_r = _genop_getarrayitem
-    genop_getarrayitem_gc_f = _genop_getarrayitem
-    genop_getarrayitem_gc_pure_i = _genop_getarrayitem
-    genop_getarrayitem_gc_pure_r = _genop_getarrayitem
-    genop_getarrayitem_gc_pure_f = _genop_getarrayitem
-    genop_getarrayitem_raw_i = _genop_getarrayitem
-    genop_getarrayitem_raw_f = _genop_getarrayitem
-
-    def _genop_raw_load(self, op, arglocs, resloc):
-        base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
-        assert isinstance(ofs, ImmedLoc)
-        src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
-        self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
-    genop_raw_load_i = _genop_raw_load
-    genop_raw_load_f = _genop_raw_load
-
     def _imul_const_scaled(self, mc, targetreg, sourcereg, itemsize):
         """Produce one operation to do roughly
                targetreg = sourcereg * itemsize
