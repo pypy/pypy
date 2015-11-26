@@ -387,6 +387,11 @@ def PyObject_Hash(space, w_obj):
     This is the equivalent of the Python expression hash(o)."""
     return space.int_w(space.hash(w_obj))
 
+@cpython_api([rffi.LONG], rffi.DOUBLE, error=-1)
+def _Py_HashDouble(space, w_obj):
+    raise OperationError(space.w_NotImplementedError, 
+                space.wrap("_Py_HashDouble not implemented yet"))
+
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyObject_HashNotImplemented(space, o):
     """Set a TypeError indicating that type(o) is not hashable and return -1.

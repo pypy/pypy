@@ -1056,6 +1056,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "pythread.c",
                                source_dir / "ndarrayobject.c",
                                source_dir / "missing.c",
+                               source_dir / "pymem.c",
                                ],
         separate_module_sources=separate_module_sources,
         compile_extra=compile_extra,

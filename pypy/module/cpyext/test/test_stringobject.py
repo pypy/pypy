@@ -189,6 +189,10 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         # This does not test much, but at least the refcounts are checked.
         assert module.test_intern_inplace('s') == 's'
 
+    def test_hash_and_state(self):
+        # XXX write tests for ob_shash and ob_sstate
+        assert False
+
 class TestString(BaseApiTest):
     def test_string_resize(self, space, api):
         py_str = new_empty_str(space, 10)

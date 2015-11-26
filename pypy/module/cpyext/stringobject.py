@@ -53,7 +53,8 @@ from pypy.module.cpyext.pyobject import (
 PyStringObjectStruct = lltype.ForwardReference()
 PyStringObject = lltype.Ptr(PyStringObjectStruct)
 PyStringObjectFields = PyObjectFields + \
-    (("buffer", rffi.CCHARP), ("size", Py_ssize_t))
+    (("ob_shash", rffi.LONG), ("ob_sstate", rffi.INT), 
+     ("buffer", rffi.CCHARP), ("size", Py_ssize_t))
 cpython_struct("PyStringObject", PyStringObjectFields, PyStringObjectStruct)
 
 @bootstrap_function
@@ -81,6 +82,7 @@ def new_empty_str(space, length):
     py_str.c_size = length
     py_str.c_buffer = lltype.malloc(rffi.CCHARP.TO, buflen,
                                     flavor='raw', zero=True)
+    py_str.c_ob_sstate = 0 # SSTATE_NOT_INTERNED
     return py_str
 
 def string_attach(space, py_obj, w_obj):

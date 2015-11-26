@@ -173,6 +173,9 @@ class TestObject(BaseApiTest):
             api.PyErr_Occurred() is space.w_TypeError)
         api.PyErr_Clear()
 
+    def test_hash_double(self, space, api):
+        assert False
+
     def test_type(self, space, api):
         assert api.PyObject_Type(space.wrap(72)) is space.w_int
 
