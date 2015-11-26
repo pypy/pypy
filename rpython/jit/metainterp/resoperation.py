@@ -401,6 +401,10 @@ class AbstractResOp(AbstractResOpOrInputArg):
                               rop.GETARRAYITEM_GC_PURE_F,
                               rop.GETARRAYITEM_GC_PURE_R)
 
+    def is_rawarrayitem(self):
+        return self.opnum in (rop.GETARRAYITEM_RAW_I, rop.GETARRAYITEM_RAW_F,
+                              rop.GETARRAYITEM_RAW_R, rop.GETARRAYITEM_GC_PURE_I,)
+
     def is_real_call(self):
         opnum = self.opnum
         return (opnum == rop.CALL_I or

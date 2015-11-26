@@ -1154,3 +1154,22 @@ class TestFramework(RewriteTests):
             i3 = gc_load_{suffix}(p0,{index},{params})
             jump()
         """.format(**locals()))
+
+    @py.test.mark.parametrize('fromto', [
+        'raw_load_i(p0,i1,descr=adescr) -> gc_load_i(p0,i1,-8)',
+        'raw_load_f(p0,i1,descr=fdescr) -> gc_load_f(p0,i1,8)',
+        'raw_load_i(p0,i1,descr=sfdescr) -> gc_load_i(p0,i1,4)',
+    ])
+    def test_raw_load_rewrite(self, fromto):
+        for factor in [(1,), (1,2,4,8), (1,2,4), (1,4)]:
+            self.cpu.load_supported_factors = factor
+            f, t = fromto.split(' -> ')
+            self.check_rewrite("""
+                [p0,i1]
+                i2 = {f}
+                jump()
+            """.format(**locals()), """
+                [p0,i1]
+                i2 = {t}
+                jump()
+            """.format(**locals()))
