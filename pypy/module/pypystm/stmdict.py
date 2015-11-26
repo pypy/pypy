@@ -7,14 +7,14 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 
-from rpython.rlib import rstm, jit, rgc
+from rpython.rlib import rstm, jit, rgc, rerased
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rtyper.annlowlevel import cast_gcref_to_instance
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
 ARRAY = lltype.GcArray(llmemory.GCREF)
 PARRAY = lltype.Ptr(ARRAY)
+
+erase, unerase = rerased.new_erasing_pair("stmdictitem")
 
 
 # XXX: should have identity-dict strategy
@@ -57,7 +57,7 @@ def _really_find_equal_item_loop(space, h, w_key, entry, array, hkey):
 def _find_equal_item(space, array, w_key):
     # result by this function is based on 'array'. If the entry
     # changes, the result is stale.
-    w_item = cast_gcref_to_instance(W_Root, array[0])
+    w_item = unerase(array[0])
     if space.eq_w(w_key, w_item):
         return 0
     if len(array) > 2:
@@ -70,7 +70,7 @@ def _run_next_iterations(space, array, w_key):
     i = 2
     limit = len(array) # fixed size
     while True:
-        w_item = cast_gcref_to_instance(W_Root, array[i])
+        w_item = unerase(array[i])
         if space.eq_w(w_key, w_item):
             return i
         i += 2
@@ -89,7 +89,7 @@ def pop_from_entry(h, space, w_key):
     if i < 0: # or not array
         return None
     # found
-    w_value = cast_gcref_to_instance(W_Root, array[i + 1])
+    w_value = unerase(array[i + 1])
     L = len(array) - 2
     if L == 0:
         narray = lltype.nullptr(ARRAY)
@@ -107,7 +107,7 @@ def create():
 def getitem(space, h, w_key):
     entry, array, i = really_find_equal_item(space, h, w_key)
     if array and i >= 0:
-        return cast_gcref_to_instance(W_Root, array[i + 1])
+        return unerase(array[i + 1])
     space.raise_key_error(w_key)
 
 def setitem(space, h, w_key, w_value):
@@ -115,7 +115,7 @@ def setitem(space, h, w_key, w_value):
     if array:
         if i >= 0:
             # already there, update the value
-            array[i + 1] = cast_instance_to_gcref(w_value)
+            array[i + 1] = erase(w_value)
             return
         L = len(array)
         narray = lltype.malloc(ARRAY, L + 2)
@@ -123,8 +123,8 @@ def setitem(space, h, w_key, w_value):
     else:
         narray = lltype.malloc(ARRAY, 2)
         L = 0
-    narray[L] = cast_instance_to_gcref(w_key)
-    narray[L + 1] = cast_instance_to_gcref(w_value)
+    narray[L] = erase(w_key)
+    narray[L + 1] = erase(w_value)
     h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
 
 def delitem(space, h, w_key):
@@ -156,7 +156,7 @@ class W_STMDict(W_Root):
     def get_w(self, space, w_key, w_default):
         entry, array, i = really_find_equal_item(space, self.h, w_key)
         if array and i >= 0:
-            return cast_gcref_to_instance(W_Root, array[i + 1])
+            return unerase(array[i + 1])
         return w_default
 
     def pop_w(self, space, w_key, w_default=None):
@@ -174,15 +174,15 @@ class W_STMDict(W_Root):
         if array:
             if i >= 0:
                 # already there, return the existing value
-                return cast_gcref_to_instance(W_Root, array[i + 1])
+                return unerase(array[i + 1])
             L = len(array)
             narray = lltype.malloc(ARRAY, L + 2)
             ll_arraycopy(array, narray, 0, 0, L)
         else:
             narray = lltype.malloc(ARRAY, 2)
             L = 0
-        narray[L] = cast_instance_to_gcref(w_key)
-        narray[L + 1] = cast_instance_to_gcref(w_default)
+        narray[L] = erase(w_key)
+        narray[L + 1] = erase(w_default)
         self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
         return w_default
 
@@ -205,7 +205,7 @@ class W_STMDict(W_Root):
             j = offset
             limit = len(subarray)
             while j < limit:
-                w_item = cast_gcref_to_instance(W_Root, subarray[j])
+                w_item = unerase(subarray[j])
                 result_list_w.append(w_item)
                 j += 2
         return result_list_w
@@ -219,8 +219,8 @@ class W_STMDict(W_Root):
             j = 0
             limit = len(subarray)
             while j < limit:
-                w_key = cast_gcref_to_instance(W_Root, subarray[j])
-                w_value = cast_gcref_to_instance(W_Root, subarray[j + 1])
+                w_key = unerase(subarray[j])
+                w_value = unerase(subarray[j + 1])
                 result_list_w.append(space.newtuple([w_key, w_value]))
                 j += 2
         return result_list_w
@@ -289,17 +289,17 @@ class W_BaseSTMDictIter(W_Root):
 
 class W_STMDictIterKeys(W_BaseSTMDictIter):
     def get_final_value(self, space, array, index):
-        return cast_gcref_to_instance(W_Root, array[index])
+        return unerase(array[index])
 
 class W_STMDictIterValues(W_BaseSTMDictIter):
     def get_final_value(self, space, array, index):
-        return cast_gcref_to_instance(W_Root, array[index + 1])
+        return unerase(array[index + 1])
 
 class W_STMDictIterItems(W_BaseSTMDictIter):
     def get_final_value(self, space, array, index):
         return space.newtuple([
-            cast_gcref_to_instance(W_Root, array[index]),
-            cast_gcref_to_instance(W_Root, array[index + 1])])
+            unerase(array[index]),
+            unerase(array[index + 1])])
 
 
 def W_STMDict___new__(space, w_subtype):

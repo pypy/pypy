@@ -394,7 +394,7 @@ class HashtableForTest(object):
 
     def _live_items(self):
         return [self.lookup(key) for key, v in self._content.items()
-                                 if v.object != NULL_GCREF]
+                                 if v.object]
 
     def len(self):
         return len(self._live_items())

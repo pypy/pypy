@@ -8,9 +8,9 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.thread.error import wrap_thread_error
 
-from rpython.rlib import rstm
-from rpython.rtyper.annlowlevel import cast_gcref_to_instance
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.rlib import rstm, rerased
+
+erase, unerase = rerased.new_erasing_pair("stmdictitem")
 
 
 class Cache:
@@ -27,7 +27,7 @@ class W_Queue(W_Root):
         """Put an item into the queue.
         This queue does not support a maximum size.
         """
-        self.q.put(cast_instance_to_gcref(w_item))
+        self.q.put(erase(w_item))
 
     @unwrap_spec(block=int)
     def get_w(self, space, block=1, w_timeout=None):
@@ -54,7 +54,7 @@ class W_Queue(W_Root):
         if not gcref:
             raise OperationError(space.fromcache(Cache).w_Empty,
                                  space.w_None)
-        return cast_gcref_to_instance(W_Root, gcref)
+        return unerase(gcref)
 
     def task_done_w(self, space):
         """Indicate that a formerly enqueued task is complete.

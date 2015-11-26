@@ -7,15 +7,15 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 
-from rpython.rlib import rstm, jit
+from rpython.rlib import rstm, jit, rerased
 from rpython.rlib.rgc import ll_arraycopy
 from rpython.rlib.objectmodel import specialize
-from rpython.rtyper.annlowlevel import cast_gcref_to_instance
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
 ARRAY = lltype.GcArray(llmemory.GCREF)
 PARRAY = lltype.Ptr(ARRAY)
+
+erase, unerase = rerased.new_erasing_pair("stmdictitem")
 
 
 # XXX: should have identity-dict strategy
@@ -58,7 +58,7 @@ def _really_find_equal_item_loop(space, h, w_key, entry, array, hkey):
 def _find_equal_item(space, array, w_key):
     # result by this function is based on 'array'. If the entry
     # changes, the result is stale.
-    w_item = cast_gcref_to_instance(W_Root, array[0])
+    w_item = unerase(array[0])
     if space.eq_w(w_key, w_item):
         return 0
     if len(array) > 1:
@@ -71,7 +71,7 @@ def _run_next_iterations(space, array, w_key):
     i = 1
     limit = len(array)
     while True:
-        w_item = cast_gcref_to_instance(W_Root, array[i])
+        w_item = unerase(array[i])
         if space.eq_w(w_key, w_item):
             return i
         i += 1
@@ -102,7 +102,7 @@ class W_STMSet(W_Root):
             narray = lltype.malloc(ARRAY, 1)
             L = 0
 
-        narray[L] = cast_instance_to_gcref(w_key)
+        narray[L] = erase(w_key)
         self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
 
     def try_remove(self, space, w_key):
@@ -143,7 +143,7 @@ class W_STMSet(W_Root):
             subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
             assert subarray
             for j in range(len(subarray)):
-                w_item = cast_gcref_to_instance(W_Root, subarray[j])
+                w_item = unerase(subarray[j])
                 result_list_w.append(w_item)
         return result_list_w
 
@@ -188,7 +188,7 @@ class W_STMSetIter(W_Root):
             self.next_from_same_hash = index + 1
             self.next_array = array
         #
-        return cast_gcref_to_instance(W_Root, array[index])
+        return unerase(array[index])
 
     def _cleanup_(self):
         raise Exception("seeing a prebuilt %r object" % (

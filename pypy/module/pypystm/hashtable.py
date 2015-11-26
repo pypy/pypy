@@ -7,10 +7,10 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 
-from rpython.rlib import rstm
+from rpython.rlib import rstm, rerased
 from rpython.rlib.rarithmetic import intmask
-from rpython.rtyper.annlowlevel import cast_gcref_to_instance
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+
+erase, unerase = rerased.new_erasing_pair("stmdictitem")
 
 
 class W_Hashtable(W_Root):
@@ -23,11 +23,11 @@ class W_Hashtable(W_Root):
         gcref = self.h.get(key)
         if not gcref:
             space.raise_key_error(space.wrap(key))
-        return cast_gcref_to_instance(W_Root, gcref)
+        return unerase(gcref)
 
     @unwrap_spec(key=int)
     def setitem_w(self, key, w_value):
-        self.h.set(key, cast_instance_to_gcref(w_value))
+        self.h.set(key, erase(w_value))
 
     @unwrap_spec(key=int)
     def delitem_w(self, space, key):
@@ -46,16 +46,16 @@ class W_Hashtable(W_Root):
         gcref = self.h.get(key)
         if not gcref:
             return w_default
-        return cast_gcref_to_instance(W_Root, gcref)
+        return unerase(gcref)
 
     @unwrap_spec(key=int, w_default=WrappedDefault(None))
     def setdefault_w(self, space, key, w_default):
         entry = self.h.lookup(key)
         gcref = entry.object
         if not gcref:
-            self.h.writeobj(entry, cast_instance_to_gcref(w_default))
+            self.h.writeobj(entry, erase(w_default))
             return w_default
-        return cast_gcref_to_instance(W_Root, gcref)
+        return unerase(gcref)
 
     def len_w(self, space):
         return space.wrap(self.h.len())
@@ -67,7 +67,7 @@ class W_Hashtable(W_Root):
 
     def values_w(self, space):
         array, count = self.h.list()
-        lst_w = [cast_gcref_to_instance(W_Root, array[i].object)
+        lst_w = [unerase(array[i].object)
                  for i in range(count)]
         return space.newlist(lst_w)
 
@@ -75,7 +75,7 @@ class W_Hashtable(W_Root):
         array, count = self.h.list()
         lst_w = [space.newtuple([
             space.wrap(intmask(array[i].index)),
-            cast_gcref_to_instance(W_Root, array[i].object)])
+            unerase(array[i].object)])
                  for i in range(count)]
         return space.newlist(lst_w)
 
@@ -120,13 +120,13 @@ class W_HashtableIterKeys(W_BaseHashtableIter):
 
 class W_HashtableIterValues(W_BaseHashtableIter):
     def get_final_value(self, space, entry):
-        return cast_gcref_to_instance(W_Root, entry.object)
+        return unerase(entry.object)
 
 class W_HashtableIterItems(W_BaseHashtableIter):
     def get_final_value(self, space, entry):
         return space.newtuple([
             space.wrap(intmask(entry.index)),
-            cast_gcref_to_instance(W_Root, entry.object)])
+            unerase(entry.object)])
 
 
 def W_Hashtable___new__(space, w_subtype):
