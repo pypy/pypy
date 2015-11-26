@@ -12,6 +12,10 @@ class StmDictStrategy(DictStrategy):
     def get_empty_storage(self):
         return self.erase(stmdict.create())
 
+    def length(self, w_dict):
+        h = self.unerase(w_dict.dstorage)
+        return stmdict.get_length(self.space, h)
+
     def setitem(self, w_dict, w_key, w_value):
         h = self.unerase(w_dict.dstorage)
         stmdict.setitem(self.space, h, w_key, w_value)

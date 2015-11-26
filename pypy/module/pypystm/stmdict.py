@@ -131,6 +131,15 @@ def delitem(space, h, w_key):
     if pop_from_entry(h, space, w_key) is None:
         space.raise_key_error(w_key)
 
+def get_length(space, h):
+    array, count = h.list()
+    total_length_times_two = 0
+    for i in range(count):
+        subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+        assert subarray
+        total_length_times_two += len(subarray)
+    return total_length_times_two >> 1
+
 
 class W_STMDict(W_Root):
 
@@ -187,15 +196,6 @@ class W_STMDict(W_Root):
         return w_default
 
 
-    def get_length(self):
-        array, count = self.h.list()
-        total_length_times_two = 0
-        for i in range(count):
-            subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
-            assert subarray
-            total_length_times_two += len(subarray)
-        return total_length_times_two >> 1
-
     def get_keys_values_w(self, offset):
         array, count = self.h.list()
         result_list_w = []
@@ -226,7 +226,7 @@ class W_STMDict(W_Root):
         return result_list_w
 
     def len_w(self, space):
-        return space.wrap(self.get_length())
+        return space.wrap(get_length(space, self.h))
 
     def keys_w(self, space):
         return space.newlist(self.get_keys_values_w(offset=0))
