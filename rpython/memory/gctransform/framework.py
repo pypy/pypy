@@ -13,6 +13,7 @@ from rpython.memory.gctransform.transform import GCTransformer
 from rpython.memory.gctypelayout import ll_weakref_deref, WEAKREF, WEAKREFPTR
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.translator.backendopt import graphanalyze
+from rpython.translator.backendopt.dataflow import AbstractForwardDataFlowAnalysis
 from rpython.translator.backendopt.finalizer import FinalizerAnalyzer
 from rpython.translator.backendopt.support import var_needsgc
 import types
@@ -53,7 +54,8 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
                     LL_OPERATIONS[op.opname].canmallocgc)
 
 
-class WriteBarrierCollector(object):
+
+class WriteBarrierCollector(AbstractForwardDataFlowAnalysis):
     """
     This class implements a forward data flow analysis to find all
     set/write-operations in the graph that do *not* require a
@@ -65,18 +67,38 @@ class WriteBarrierCollector(object):
         self.graph = graph
         self.collect_analyzer = collect_analyzer
         self.clean_ops = set()
-        self._in_states = {} # block->state of each inputarg
-        self._out_states = {} # block->writable dict
         self.in_stm_ignored = False
 
-    def _merge_out_states(self, out_states):
-        assert out_states
-        # True: writeable or fresh, otherwise False
-        result = [True] * len(out_states[0])
-        for outset in out_states:
-            for i, state in enumerate(outset):
-                result[i] = result[i] and state
-        return result
+    def entry_state(self, block):
+        assert block is self.graph.startblock
+        return {} # no variable writeable
+
+    def initialize_block(self, block):
+        # the initial out_state of a block is that
+        # all variables are "writable". This is the
+        # "neutral element" for the join_operation
+        out_state = set()
+        for link in block.exits:
+            for arg in link.args:
+                out_state.add(arg)
+        #
+        # in_state will be newly calculated in forward analysis
+        return out_state
+
+    def join_operation(self, preds_outs, inputargs, pred_out_args):
+        # collect the (renamed) variables / inputargs that are
+        # writeable coming from all predecessors.
+        result = set(inputargs)
+        for i, iarg in enumerate(inputargs):
+            # for input arg, go through all predecessor out_sets
+            # and see if the renamed arg was writable there:
+            for pidx, pouts in enumerate(preds_outs):
+                name_in_pred = pred_out_args[i][pidx]
+                if name_in_pred not in pouts:
+                    # was not writable in pred[pidx]
+                    result.remove(iarg)
+                    break
+        return frozenset(result)
 
     def _set_into_gc_array_part(self, op):
         if op.opname == 'setarrayitem':
@@ -87,24 +109,19 @@ class WriteBarrierCollector(object):
                     return v
         return None
 
-    def _flow_through_block(self, block):
-        # get all out_state of predecessors and recalculate
-        # the in_state of our block (except for startblock)
-        insets = self._in_states
-        #
-        # get input variables and their states:
-        assert len(insets[block]) == len(block.inputargs)
-        writeable = {}
-        for v, state in zip(block.inputargs, insets[block]):
-            writeable[v] = state
+    def transfer_function(self, block, in_state):
+        # the set of variables that are writable at the
+        # start of 'block':
+        writeable = set(in_state)
         #
         # flow through block and inspect operations that
         # need a write barrier, and those that create new
         # objects
-        for i, op in enumerate(block.operations):
+        print writeable, block.operations
+        for op in block.operations:
             if self.collect_analyzer.analyze(op): # incl. malloc, obviously
                 # clear all writeable status
-                writeable = {}
+                writeable = set()
             #
             if op.opname == "stm_ignored_start":
                 assert not self.in_stm_ignored
@@ -114,7 +131,7 @@ class WriteBarrierCollector(object):
                 self.in_stm_ignored = False
             elif op.opname == "gc_writebarrier":
                 assert not self.in_stm_ignored
-                writeable[op.args[0]] = True
+                writeable.add(op.args[0])
             elif op.opname == "malloc":
                 rtti = get_rtti(op.args[0].value)
                 if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
@@ -123,10 +140,11 @@ class WriteBarrierCollector(object):
                     assert op not in self.clean_ops
                 else:
                     # freshly allocated object
-                    writeable[op.result] = True
+                    writeable.add(op.result)
                 #
             elif op.opname in ("cast_pointer", "same_as"):
-                writeable[op.result] = writeable.get(op.args[0], False)
+                if op.args[0] in writeable:
+                    writeable.add(op.result)
                 #
             elif op.opname in ('setfield', 'setarrayitem', 'setinteriorfield', 'raw_store'):
                 # generic_set case
@@ -148,7 +166,7 @@ class WriteBarrierCollector(object):
                     self.clean_ops.add(op)
                 else:
                     # we need a (partial) write barrier if arg0 is not writeable
-                    if writeable.get(op.args[0], False):
+                    if op.args[0] in writeable:
                         self.clean_ops.add(op)
                     elif op in self.clean_ops:
                         self.clean_ops.remove(op)
@@ -156,42 +174,16 @@ class WriteBarrierCollector(object):
                     if self._set_into_gc_array_part(op) is None:
                         # this will do a full write barrier, not card marking
                         # arg0 is always writeable afterwards
-                        writeable[op.args[0]] = True
+                        writeable.add(op.args[0])
         #
-        # update in_states of all successors
-        to_do = set()
-        for link in block.exits:
-            succ = link.target
-            outset = [writeable.get(v, False) for v in link.args]
-            if succ in insets:
-                old = insets[succ]
-                new = self._merge_out_states([old, outset])
-                if new != old:
-                    to_do.add(succ)
-                    insets[succ] = new
-            else:
-                # block not processed yet
-                insets[succ] = outset
-                to_do.add(succ)
-        return to_do
+        return frozenset(writeable)
 
 
     def collect(self):
         assert not self.clean_ops
         assert not self.in_stm_ignored
-        # we implement a forward-flow analysis that determines the
-        # operations that do NOT need a write barrier
-        graph = self.graph
-        #
-        # initialize blocks
-        self._in_states = {graph.startblock: [False] * len(graph.startblock.inputargs)}
-        #
-        # fixpoint iteration
-        # XXX: reverse postorder traversal
-        pending = {graph.startblock,}
-        while pending:
-            block = pending.pop()
-            pending |= self._flow_through_block(block)
+        self.calculate(self.graph)
+
 
 
 
