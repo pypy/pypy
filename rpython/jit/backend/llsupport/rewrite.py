@@ -116,47 +116,36 @@ class GcRewriterAssembler(object):
     def handle_getarrayitem(self, op):
         itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
         ptr_box, index_box = op.getarglist()
-
-        assert itemsize <= ofs
-
-        offset = 0
-        factor = 1
-        # i * f + c
-        if itemsize in self.cpu.load_supported_factors:
-            factor = itemsize
-        else:
-            index_box = ResOperation(rop.INT_MUL, [index_box, ConstInt(itemsize)])
-            self.emit_op(index_box)
-        # adjust the constant offset
-        if self.cpu.load_constant_offset:
-            offset = 0
-        else:
-            offset = 0
-            pass
-            # ofs is NOT the offset!
-            #index_box = ResOperation(rop.INT_ADD, [index_box, ConstInt(ofs)])
-            #self.emit_op(index_box)
-
-        if sign:
-            itemsize = -itemsize
-        if factor == 1 and offset == 0:
-            newload = ResOperation(OpHelpers.get_gc_load(op.type),
-                        [ptr_box, index_box, ConstInt(itemsize)])
-            self.replace_op_with(op, newload)
-        else:
-            newload = ResOperation(OpHelpers.get_gc_load_indexed(op.type),
-                        [ptr_box, index_box, ConstInt(factor),
-                         ConstInt(offset), ConstInt(itemsize)])
-            self.replace_op_with(op, newload)
+        self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, itemsize, ofs, sign)
 
     def handle_rawload(self, op):
         itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
         ptr_box, index_box = op.getarglist()
+        self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, 1, ofs, sign)
 
+    def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize, factor, offset, sign):
+        # factor
+        if factor != 1 and factor not in self.cpu.load_supported_factors:
+            index_box = ResOperation(rop.INT_MUL, [index_box, ConstInt(factor)])
+            self.emit_op(index_box)
+            factor = 0
+        # adjust the constant offset
+        if offset != 0 and not self.cpu.load_constant_offset:
+            index_box = ResOperation(rop.INT_ADD, [index_box, ConstInt(offset)])
+            self.emit_op(index_box)
+            offset = 0
+        #
         if sign:
+            # encode signed into the itemsize value
             itemsize = -itemsize
-        newload = ResOperation(OpHelpers.get_gc_load(op.type),
-                    [ptr_box, index_box, ConstInt(itemsize)])
+        #
+        if factor == 1 and offset == 0:
+            args = [ptr_box, index_box, ConstInt(itemsize)]
+            newload = ResOperation(OpHelpers.get_gc_load(op.type), args)
+        else:
+            args = [ptr_box, index_box, ConstInt(factor),
+                    ConstInt(offset), ConstInt(itemsize)]
+            newload = ResOperation(OpHelpers.get_gc_load_indexed(op.type), args)
         self.replace_op_with(op, newload)
 
     def rewrite(self, operations):

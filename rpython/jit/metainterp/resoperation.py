@@ -1103,8 +1103,18 @@ _oplist = [
     #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
+    # parameters GC_LOAD
+    # 1: pointer to complex object
+    # 2: integer describing the offset
+    # 3: constant integer. byte size of datatype to load (negative if it is signed)
     'GC_LOAD/3/rfi',
-    'GC_LOAD_INDEXED/4/rfi',
+    # parameters GC_LOAD_INDEXED
+    # 1: pointer to complex object
+    # 2: integer describing the offset
+    # 3: constant integer scale factor
+    # 4: constant integer offset
+    # 5: constant integer. byte size of datatype to load (negative if it is signed)
+    'GC_LOAD_INDEXED/5/rfi',
 
     '_RAW_LOAD_FIRST',
     'GETARRAYITEM_GC/2d/rfi',

@@ -1183,11 +1183,34 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             sign_loc = imm1
         else:
             sign_loc = imm0
+        print("GC_LOAD execute", base_loc, "+", ofs_loc, "scale", scale, "offset", offset)
         self.perform(op, [base_loc, ofs_loc, size_loc, sign_loc], result_loc)
 
     consider_gc_load_i = _consider_gc_load
     consider_gc_load_r = _consider_gc_load
     consider_gc_load_f = _consider_gc_load
+
+    def _consider_gc_load_indexed(self, op):
+        args = op.getarglist()
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+        result_loc = self.force_allocate_reg(op)
+        scale = op.getarg(2).value
+        offset = op.getarg(3).value
+        size = op.getarg(4).value
+        size_loc = imm(abs(size))
+        print("GC_LOAD_INDEXED execute", base_loc, "+", ofs_loc, "scale", scale, "offset", offset)
+        if size < 0:
+            sign_loc = imm1
+        else:
+            sign_loc = imm0
+        locs = [base_loc, ofs_loc, imm(scale), imm(offset), size_loc, sign_loc]
+        self.perform(op, locs, result_loc)
+
+    consider_gc_load_indexed_i = _consider_gc_load_indexed
+    consider_gc_load_indexed_r = _consider_gc_load_indexed
+    consider_gc_load_indexed_f = _consider_gc_load_indexed
+
 
     def _consider_getinteriorfield(self, op):
         t = unpack_interiorfielddescr(op.getdescr())
