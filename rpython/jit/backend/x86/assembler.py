@@ -1484,7 +1484,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     def _genop_gc_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, sign_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
-        self.load_from_mem(resloc, ofs_loc, size_loc, sign_loc)
+        src_addr = addr_add(base_loc, ofs_loc, 0, 0)
+        self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
     genop_gc_load_i = _genop_gc_load
     genop_gc_load_r = _genop_gc_load
