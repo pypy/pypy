@@ -782,6 +782,7 @@ class __extend__(pairtype(SomePBC, SomeObject)):
 class __extend__(pairtype(SomeNone, SomeObject)):
     def getitem((none, o)):
         return s_ImpossibleValue
+    getitem.can_only_throw = []
 
     def setitem((none, o), s_value):
         return None
