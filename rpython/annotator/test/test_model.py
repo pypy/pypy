@@ -163,26 +163,36 @@ def contains_s(s_a, s_b):
     else:
         return s_a.contains(s_b)
 
-def test_generalize_getitem(annotator):
-    bk = annotator.bookkeeper
-    v_dict, v_key = Variable(), Variable()
-    v_key.annotation = SomeInteger()
-    v_dict.annotation = s_None
-    hlop = op.getitem(v_dict, v_key)
-    try:
-        annotator.consider_op(hlop)
-    except BlockedInference:
-        # BlockedInference only stops annotation along the normal path,
-        # but not along the exceptional one.
-        pass
-    v_result = hlop.result
-    s_result = v_result.annotation
-    s_result_exc = annotator.get_exception(hlop)
-    with bk.at_position(None):
-        annotator.setbinding(v_dict, bk.newdict())
+def annotate_op(ann, hlop, args_s):
+    for v_arg, s_arg in zip(hlop.args, args_s):
+        ann.setbinding(v_arg, s_arg)
+    with ann.bookkeeper.at_position(None):
         try:
-            annotator.consider_op(hlop)
+            ann.consider_op(hlop)
         except BlockedInference:
+            # BlockedInference only stops annotation along the normal path,
+            # but not along the exceptional one.
             pass
-    assert contains_s(v_result.annotation, s_result)
-    assert contains_s(annotator.get_exception(hlop), s_result_exc)
+    return hlop.result.annotation, ann.get_exception(hlop)
+
+def test_generalize_getitem_dict(annotator):
+    bk = annotator.bookkeeper
+    hlop = op.getitem(Variable(), Variable())
+    s_int = SomeInteger()
+    with bk.at_position(None):
+        s_empty_dict = bk.newdict()
+    s_value, s_exc = annotate_op(annotator, hlop, [s_None, s_int])
+    s_value2, s_exc2 = annotate_op(annotator, hlop, [s_empty_dict, s_int])
+    assert contains_s(s_value2, s_value)
+    assert contains_s(s_exc2, s_exc)
+
+def test_generalize_getitem_list(annotator):
+    bk = annotator.bookkeeper
+    hlop = op.getitem(Variable(), Variable())
+    s_int = SomeInteger()
+    with bk.at_position(None):
+        s_empty_list = bk.newlist()
+    s_value, s_exc = annotate_op(annotator, hlop, [s_None, s_int])
+    s_value2, s_exc2 = annotate_op(annotator, hlop, [s_empty_list, s_int])
+    assert contains_s(s_value2, s_value)
+    assert contains_s(s_exc2, s_exc)
