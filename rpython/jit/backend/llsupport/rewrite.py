@@ -10,7 +10,8 @@ from rpython.jit.backend.llsupport.symbolic import WORD
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr,\
      FLAG_POINTER
 from rpython.jit.metainterp.history import JitCellToken
-from rpython.jit.backend.llsupport.descr import (unpack_arraydescr,)
+from rpython.jit.backend.llsupport.descr import (unpack_arraydescr,
+        unpack_fielddescr, unpack_interiorfielddescr)
 
 FLAG_ARRAY = 0
 FLAG_STR = 1
@@ -184,19 +185,25 @@ class GcRewriterAssembler(object):
            op.getopnum() in (rop.GETARRAYITEM_RAW_I,
                              rop.GETARRAYITEM_RAW_F):
             self.handle_getarrayitem(op)
-        if op.getopnum() in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW):
+        elif op.getopnum() in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW):
             self.handle_setarrayitem(op)
-        if op.getopnum() == rop.RAW_STORE:
+        elif op.getopnum() == rop.RAW_STORE:
             itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
             ptr_box = op.getarg(0)
             index_box = op.getarg(1)
             value_box = op.getarg(2)
             self.emit_gc_store_or_indexed(op, ptr_box, index_box, value_box, itemsize, 1, ofs)
-        if op.getopnum() in (rop.RAW_LOAD_I, rop.RAW_LOAD_F):
+        elif op.getopnum() in (rop.RAW_LOAD_I, rop.RAW_LOAD_F):
             itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
             ptr_box = op.getarg(0)
             index_box = op.getarg(1)
             self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, 1, ofs, sign)
+        elif op.getopnum() in (rop.GETINTERIORFIELD_GC_I, rop.GETINTERIORFIELD_GC_R,
+                               rop.GETINTERIORFIELD_GC_F):
+            ofs, itemsize, fieldsize, sign = unpack_interiorfielddescr(op.getdescr())
+            ptr_box = op.getarg(0)
+            index_box = op.getarg(1)
+            self.emit_gc_load_or_indexed(op, ptr_box, index_box, fieldsize, 1, ofs, sign)
 
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly

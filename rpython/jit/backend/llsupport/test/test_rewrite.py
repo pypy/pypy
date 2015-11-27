@@ -84,6 +84,14 @@ class RewriteTests(object):
         cdescr.tid = 8111
         clendescr = cdescr.lendescr
         #
+        S1 = lltype.GcStruct('S1')
+        S1I = lltype.GcArray(('x', lltype.Ptr(S1)),
+                             ('y', lltype.Ptr(S1)),
+                             ('z', lltype.Ptr(S1)))
+        itzdescr = get_interiorfield_descr(self.gc_ll_descr, S1I, 'z')
+        itydescr = get_interiorfield_descr(self.gc_ll_descr, S1I, 'y')
+        itxdescr = get_interiorfield_descr(self.gc_ll_descr, S1I, 'x')
+        #
         E = lltype.GcStruct('Empty')
         edescr = get_size_descr(self.gc_ll_descr, E)
         edescr.tid = 9000
@@ -1139,10 +1147,15 @@ class TestFramework(RewriteTests):
         [True, (1,2,4,8), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)->gc_store_indexed(p0,i1,i2,1,8,4)'],
         [False, (1,), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)' '->'
                       'i5 = int_add(i1,8);gc_store(p0,i5,i2,4)'],
+        [True, (1,2,4,8), 'i3 = getinteriorfield_gc_i(p0,i1,descr=itzdescr)' '->'
+                          'i3 = gc_load_indexed_i(p0,i1,1,24,8)'],
+        [True, (1,2,4,8), 'i3 = getinteriorfield_gc_r(p0,i1,descr=itxdescr)' '->'
+                          'i3 = gc_load_indexed_r(p0,i1,1,8,8)'],
     ])
     def test_gc_load_store_transform(self, support_offset, factors, fromto):
         self.cpu.load_constant_offset = support_offset
         all_supported_sizes = [factors]
+
         if not factors:
             all_supported_sizes = [(1,), (1,2,), (4,), (1,2,4,8)]
         for factors in all_supported_sizes:
