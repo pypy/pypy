@@ -34,6 +34,10 @@ class StmDictStrategy(DictStrategy):
         h = self.unerase(w_dict.dstorage)
         stmdict.delitem(self.space, h, w_key)
 
+    def setdefault(self, w_dict, w_key, w_default):
+        h = self.unerase(w_dict.dstorage)
+        return stmdict.setdefault(self.space, h, w_key, w_default)
+
     def getiterkeys(self, w_dict):
         h = self.unerase(w_dict.dstorage)
         return StmDictIterKeys(self.space, h)

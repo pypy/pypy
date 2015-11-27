@@ -137,6 +137,23 @@ def delitem(space, h, w_key):
     if pop_from_entry(h, space, w_key) is None:
         space.raise_key_error(w_key)
 
+def setdefault(space, h, w_key, w_default):
+    entry, array, i = really_find_equal_item(space, h, w_key)
+    if array:
+        if i >= 0:
+            # already there, return the existing value
+            return unerase(array[i + 1])
+        L = len(array)
+        narray = lltype.malloc(ARRAY, L + 2)
+        ll_arraycopy(array, narray, 0, 0, L)
+    else:
+        narray = lltype.malloc(ARRAY, 2)
+        L = 0
+    narray[L] = erase(w_key)
+    narray[L + 1] = erase(w_default)
+    h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
+    return w_default
+
 def get_length(space, h):
     array, count = h.list()
     total_length_times_two = 0
@@ -185,22 +202,7 @@ class W_STMDict(W_Root):
 
     @unwrap_spec(w_default=WrappedDefault(None))
     def setdefault_w(self, space, w_key, w_default):
-        entry, array, i = really_find_equal_item(space, self.h, w_key)
-        if array:
-            if i >= 0:
-                # already there, return the existing value
-                return unerase(array[i + 1])
-            L = len(array)
-            narray = lltype.malloc(ARRAY, L + 2)
-            ll_arraycopy(array, narray, 0, 0, L)
-        else:
-            narray = lltype.malloc(ARRAY, 2)
-            L = 0
-        narray[L] = erase(w_key)
-        narray[L + 1] = erase(w_default)
-        self.h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
-        return w_default
-
+        return setdefault(space, self.h, w_key, w_default)
 
     def get_keys_values_w(self, offset):
         array, count = self.h.list()
