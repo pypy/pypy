@@ -305,11 +305,7 @@ class BaseSTMDictIter:
 
     def next(self):
         if self.next_from_same_hash == 0:      # common case
-            try:
-                entry = self.hiter.next()
-            except StopIteration:
-                space = self.space
-                raise OperationError(space.w_StopIteration, space.w_None)
+            entry = self.hiter.next()    # StopIteration propagated from here
             index = 0
             array = lltype.cast_opaque_ptr(PARRAY, entry.object)
             hash = entry.index
@@ -340,7 +336,10 @@ class W_BaseSTMDictIter(W_Root):
         return space.wrap(self.hiter.hashtable.len_estimate())
 
     def descr_next(self, space):
-        return self.next()
+        try:
+            return self.next()
+        except StopIteration:
+            raise OperationError(space.w_StopIteration, space.w_None)
 
     def _cleanup_(self):
         raise Exception("seeing a prebuilt %r object" % (
