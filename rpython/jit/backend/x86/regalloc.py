@@ -1106,9 +1106,9 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_unicodesetitem = consider_strsetitem
 
     def consider_gc_store(self, op):
-        itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        size = op.getarg(3).value
         itemsize = abs(size)
         if size < 0:
             need_lower_byte = True
@@ -1118,10 +1118,24 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                                           need_lower_byte=need_lower_byte)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
-                                 imm(itemsize), imm(ofs)])
+                                 imm(itemsize)])
 
-    consider_setarrayitem_raw = consider_setarrayitem_gc
-    consider_raw_store = consider_setarrayitem_gc
+    def consider_gc_store_indexed(self, op):
+        args = op.getarglist()
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        scale = op.getarg(3).value
+        offset = op.getarg(4).value
+        size = op.getarg(5).value
+        itemsize = abs(size)
+        if size < 0:
+            need_lower_byte = True
+        else:
+            need_lower_byte = False
+        value_loc = self.make_sure_var_in_reg(op.getarg(2), args,
+                                          need_lower_byte=need_lower_byte)
+        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+        self.perform_discard(op, [base_loc, ofs_loc, value_loc,
+                                  imm(scale), imm(itemsize), imm(offset)])
 
     def _consider_getfield(self, op):
         ofs, size, sign = unpack_fielddescr(op.getdescr())

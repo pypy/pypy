@@ -115,46 +115,56 @@ class GcRewriterAssembler(object):
 
     def handle_setarrayitem(self, op):
         itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        if itemsize == 1:
-            need_lower_byte = True
-        else:
-            need_lower_byte = False
-        value_loc = self.make_sure_var_in_reg(op.getarg(2), args,
-                                          need_lower_byte=need_lower_byte)
-        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        self.perform_discard(op, [base_loc, ofs_loc, value_loc,
-                                 imm(itemsize), imm(ofs)])
+        ptr_box = op.getarg(0)
+        index_box = op.getarg(1)
+        value_box = op.getarg(2)
+        self.emit_gc_store_or_indexed(op, ptr_box, index_box, value_box,
+                                      itemsize, itemsize, ofs)
 
-    def emit_gc_store_or_indexed(self, op, ptr_box, index_box, itemsize, factor, offset, sign):
-        self._emit_mul_add_if_factor_offset_not_supported(factor, offset)
+    def emit_gc_store_or_indexed(self, op, ptr_box, index_box, value_box,
+                                 itemsize, factor, offset):
+        factor, offset, index_box = \
+                self._emit_mul_add_if_factor_offset_not_supported(index_box,
+                        factor, offset)
         #
+        if factor == 1 and offset == 0:
+            args = [ptr_box, index_box, value_box, ConstInt(itemsize)]
+            newload = ResOperation(rop.GC_STORE, args)
+        else:
+            args = [ptr_box, index_box, value_box, ConstInt(factor),
+                    ConstInt(offset), ConstInt(itemsize)]
+            newload = ResOperation(rop.GC_STORE_INDEXED, args)
+        self.replace_op_with(op, newload)
 
     def handle_getarrayitem(self, op):
         itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
-        ptr_box, index_box = op.getarglist()
+        ptr_box = op.getarg(0)
+        index_box = op.getarg(1)
         self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, itemsize, ofs, sign)
 
     def handle_rawload(self, op):
         itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
-        ptr_box, index_box = op.getarglist()
+        ptr_box = op.getarg(0)
+        index_box = op.getarg(1)
         self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, 1, ofs, sign)
 
-    def _emit_mul_add_if_factor_offset_not_supported(self, factor, offset):
+    def _emit_mul_add_if_factor_offset_not_supported(self, index_box, factor, offset):
         # factor
         if factor != 1 and factor not in self.cpu.load_supported_factors:
             index_box = ResOperation(rop.INT_MUL, [index_box, ConstInt(factor)])
             self.emit_op(index_box)
-            factor = 0
+            factor = 1
         # adjust the constant offset
         if offset != 0 and not self.cpu.load_constant_offset:
             index_box = ResOperation(rop.INT_ADD, [index_box, ConstInt(offset)])
             self.emit_op(index_box)
             offset = 0
+        return factor, offset, index_box
 
     def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize, factor, offset, sign):
-        self._emit_mul_add_if_factor_offset_not_supported(factor, offset)
+        factor, offset, index_box = \
+                self._emit_mul_add_if_factor_offset_not_supported(index_box,
+                        factor, offset)
         #
         if sign:
             # encode signed into the itemsize value
@@ -188,11 +198,10 @@ class GcRewriterAssembler(object):
             # ---------- GC_LOAD --------------
             if op.is_getarrayitem() or \
                op.getopnum() in (rop.GETARRAYITEM_RAW_I,
-                                 rop.GETARRAYITEM_RAW_F,
-                                 rop.GETARRAYITEM_RAW_R):
+                                 rop.GETARRAYITEM_RAW_F):
                 self.handle_getarrayitem(op)
             if op.getopnum() in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW,
-                                 rop.RAW_STORE_I, rop.RAW_STORE_F):
+                                 rop.RAW_STORE):
                 self.handle_setarrayitem(op)
             if op.getopnum() in (rop.RAW_LOAD_I, rop.RAW_LOAD_F):
                 self.handle_rawload(op)

@@ -159,8 +159,8 @@ class FakeTracker(object):
 class BaseFakeCPU(object):
     JITFRAME_FIXED_SIZE = 0
 
-    load_constant_offset = False
-    load_supported_factors = (1,)
+    load_constant_offset = True
+    load_supported_factors = (1,2,4,8)
 
     def __init__(self):
         self.tracker = FakeTracker()
@@ -495,10 +495,12 @@ class TestFramework(RewriteTests):
         nonstd_descr.basesize = 64      # <= hacked
         nonstd_descr.itemsize = 8
         nonstd_descr_gcref = 123
+        # REVIEW: added descr=nonstd_descr to setarrayitem
+        # is it even valid to have a setarrayitem WITHOUT a descr?
         self.check_rewrite("""
             [i0, p1]
             p0 = new_array(i0, descr=nonstd_descr)
-            setarrayitem_gc(p0, i0, p1)
+            setarrayitem_gc(p0, i0, p1, descr=nonstd_descr)
             jump(i0)
         """, """
             [i0, p1]
@@ -508,7 +510,7 @@ class TestFramework(RewriteTests):
                                 6464, i0,                             \
                                 descr=malloc_array_nonstandard_descr)
             cond_call_gc_wb_array(p0, i0, descr=wbdescr)
-            setarrayitem_gc(p0, i0, p1)
+            gc_store_indexed(p0, i0, p1, 8, 64, 8)
             jump(i0)
         """, nonstd_descr=nonstd_descr)
 
@@ -644,7 +646,7 @@ class TestFramework(RewriteTests):
         """, """
             [p1, i2, p3]
             cond_call_gc_wb(p1, descr=wbdescr)
-            setarrayitem_gc(p1, i2, p3, descr=cdescr)
+            gc_store_indexed(p1, i2, p3, 8, 8, 8)
             jump()
         """)
 
@@ -665,7 +667,7 @@ class TestFramework(RewriteTests):
             zero_array(p1, 0, 129, descr=cdescr)
             call_n(123456)
             cond_call_gc_wb(p1, descr=wbdescr)
-            setarrayitem_gc(p1, i2, p3, descr=cdescr)
+            gc_store_indexed(p1, i2, p3, 8, 8, 8)
             jump()
         """)
 
@@ -687,7 +689,7 @@ class TestFramework(RewriteTests):
             zero_array(p1, 0, 130, descr=cdescr)
             call_n(123456)
             cond_call_gc_wb_array(p1, i2, descr=wbdescr)
-            setarrayitem_gc(p1, i2, p3, descr=cdescr)
+            gc_store_indexed(p1, i2, p3, 8, 8, 8)
             jump()
         """)
 
@@ -699,7 +701,7 @@ class TestFramework(RewriteTests):
         """, """
             [p1, i2, p3]
             cond_call_gc_wb_array(p1, i2, descr=wbdescr)
-            setarrayitem_gc(p1, i2, p3, descr=cdescr)
+            gc_store_indexed(p1, i2, p3, 8, 8, 8)
             jump()
         """)
 
@@ -719,7 +721,7 @@ class TestFramework(RewriteTests):
             zero_array(p1, 0, 5, descr=cdescr)
             label(p1, i2, p3)
             cond_call_gc_wb_array(p1, i2, descr=wbdescr)
-            setarrayitem_gc(p1, i2, p3, descr=cdescr)
+            gc_store_indexed(p1, i2, p3, 8, 8, 8)
             jump()
         """)
 
@@ -787,7 +789,7 @@ class TestFramework(RewriteTests):
             setfield_gc(p0, 8111, descr=tiddescr)
             setfield_gc(p0, 5, descr=clendescr)
             zero_array(p0, 0, 5, descr=cdescr)
-            setarrayitem_gc(p0, i2, p1, descr=cdescr)
+            gc_store_indexed(p0, i2, p1, 8, 8, 8)
             jump()
         """)
 
@@ -805,8 +807,8 @@ class TestFramework(RewriteTests):
             setfield_gc(p0, 8111, descr=tiddescr)
             setfield_gc(p0, 5, descr=clendescr)
             zero_array(p0, 2, 3, descr=cdescr)
-            setarrayitem_gc(p0, 1, p1, descr=cdescr)
-            setarrayitem_gc(p0, 0, p2, descr=cdescr)
+            gc_store_indexed(p0, 1, p1, 8, 8, 8)
+            gc_store_indexed(p0, 0, p2, 8, 8, 8)
             jump()
         """)
 
@@ -824,8 +826,8 @@ class TestFramework(RewriteTests):
             setfield_gc(p0, 8111, descr=tiddescr)
             setfield_gc(p0, 5, descr=clendescr)
             zero_array(p0, 0, 3, descr=cdescr)
-            setarrayitem_gc(p0, 3, p1, descr=cdescr)
-            setarrayitem_gc(p0, 4, p2, descr=cdescr)
+            gc_store_indexed(p0, 3, p1, 8, 8, 8)
+            gc_store_indexed(p0, 4, p2, 8, 8, 8)
             jump()
         """)
 
@@ -844,9 +846,9 @@ class TestFramework(RewriteTests):
             setfield_gc(p0, 8111, descr=tiddescr)
             setfield_gc(p0, 5, descr=clendescr)
             zero_array(p0, 0, 5, descr=cdescr)
-            setarrayitem_gc(p0, 3, p1, descr=cdescr)
-            setarrayitem_gc(p0, 2, p2, descr=cdescr)
-            setarrayitem_gc(p0, 1, p2, descr=cdescr)
+            gc_store_indexed(p0, 3, p1, 8, 8, 8)
+            gc_store_indexed(p0, 2, p2, 8, 8, 8)
+            gc_store_indexed(p0, 1, p2, 8, 8, 8)
             jump()
         """)
 
@@ -867,11 +869,11 @@ class TestFramework(RewriteTests):
             setfield_gc(p0, 8111, descr=tiddescr)
             setfield_gc(p0, 5, descr=clendescr)
             zero_array(p0, 5, 0, descr=cdescr)
-            setarrayitem_gc(p0, 3, p1, descr=cdescr)
-            setarrayitem_gc(p0, 4, p2, descr=cdescr)
-            setarrayitem_gc(p0, 0, p1, descr=cdescr)
-            setarrayitem_gc(p0, 2, p2, descr=cdescr)
-            setarrayitem_gc(p0, 1, p2, descr=cdescr)
+            gc_store_indexed(p0, 3, p1, 8, 8, 8)
+            gc_store_indexed(p0, 4, p2, 8, 8, 8)
+            gc_store_indexed(p0, 0, p1, 8, 8, 8)
+            gc_store_indexed(p0, 2, p2, 8, 8, 8)
+            gc_store_indexed(p0, 1, p2, 8, 8, 8)
             jump()
         """)
 
@@ -1173,3 +1175,30 @@ class TestFramework(RewriteTests):
                 i2 = {t}
                 jump()
             """.format(**locals()))
+
+    @py.test.mark.parametrize('factors,fromto',[
+        [(1,2,4,8), 'setarrayitem_gc(p0,i1,i2,descr=adescr)->'
+                    'i3 = int_add(i1,8);gc_store_indexed(p0,i3,i2,8,0,8)'],
+        [(1,), 'setarrayitem_gc(p0,i1,i2,descr=adescr) ->'
+                    'i3 = int_mul(i1,8);'
+                    'i4 = int_add(i3,8);'
+                    'gc_store(p0,i4,i2,8)'],
+    ])
+    def test_setarrayitem(self, factors, fromto):
+        self.cpu.load_supported_factors = factors
+        f, t = fromto.split('->')
+        t = ('\n' +(' '*12)).join([s for s in t.split(';')])
+        print """
+            [p0,i1,i2]
+            {t}
+            jump()
+        """.format(**locals())
+        self.check_rewrite("""
+            [p0,i1,i2]
+            {f}
+            jump()
+        """.format(**locals()), """
+            [p0,i1,i2]
+            {t}
+            jump()
+        """.format(**locals()))

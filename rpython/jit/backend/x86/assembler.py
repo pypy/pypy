@@ -1484,7 +1484,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     def _genop_gc_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, sign_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
-        src_addr = addr_add(base_loc, ofs_loc, 0, 0)
+        rc_addr = addr_add(base_loc, ofs_loc, 0, 0)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
     genop_gc_load_i = _genop_gc_load
@@ -1584,18 +1584,18 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     genop_discard_setinteriorfield_raw = genop_discard_setinteriorfield_gc
 
-    def genop_discard_setarrayitem_gc(self, op, arglocs):
-        base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
-        assert isinstance(baseofs, ImmedLoc)
+    def genop_discard_gc_store(self, op, arglocs):
+        base_loc, ofs_loc, size_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         scale = get_scale(size_loc.value)
-        dest_addr = AddressLoc(base_loc, ofs_loc, scale, baseofs.value)
+        dest_addr = addr_add(base_loc, ofs_loc, 0, 0)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
-    def genop_discard_raw_store(self, op, arglocs):
-        base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
-        assert isinstance(baseofs, ImmedLoc)
-        dest_addr = AddressLoc(base_loc, ofs_loc, 0, baseofs.value)
+    def genop_discard_gc_store_indexed(self, op, arglocs):
+        base_loc, ofs_loc, value_loc, scale_loc, offset_loc, size_loc = arglocs
+        assert isinstance(size_loc, ImmedLoc)
+        scale = get_scale(scale_loc.value)
+        dest_addr = addr_add(base_loc, ofs_loc, offset_loc.value, scale)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
     def genop_discard_strsetitem(self, op, arglocs):
@@ -1618,7 +1618,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             assert 0, itemsize
 
     genop_discard_setfield_raw = genop_discard_setfield_gc
-    genop_discard_setarrayitem_raw = genop_discard_setarrayitem_gc
 
     def genop_strlen(self, op, arglocs, resloc):
         base_loc = arglocs[0]

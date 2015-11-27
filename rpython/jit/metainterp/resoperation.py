@@ -1139,8 +1139,9 @@ _oplist = [
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     # same paramters as GC_LOAD, but one additional for the value to store
-    'GC_STORE/5d/n',
-    'GC_STORE_INDEXED/6d/n',
+    # note that the itemsize is not signed!
+    'GC_STORE/4d/n',
+    'GC_STORE_INDEXED/5d/n',
 
     'INCREMENT_DEBUG_COUNTER/1/n',
     '_RAW_STORE_FIRST',
