@@ -38,6 +38,11 @@ class StmDictStrategy(DictStrategy):
         h = self.unerase(w_dict.dstorage)
         return stmdict.setdefault(self.space, h, w_key, w_default)
 
+    def popitem(self, w_dict):
+        space = self.space
+        h = self.unerase(w_dict.dstorage)
+        return space.newtuple(stmdict.popitem(space, h))
+
     def getiterkeys(self, w_dict):
         h = self.unerase(w_dict.dstorage)
         return StmDictIterKeys(self.space, h)

@@ -272,6 +272,11 @@ def _ll_hashtable_writeobj(h, entry, value):
     llop.stm_hashtable_write_entry(lltype.Void, h, entry, value)
 
 @dont_look_inside
+def _ll_hashtable_pickitem(h):
+    return llop.stm_hashtable_pickitem(_STM_HASHTABLE_ENTRY_P,
+                                       h, h.ll_raw_hashtable)
+
+@dont_look_inside
 def _ll_hashtable_iterentries(h):
     rgc.register_custom_trace_hook(_HASHTABLE_ITER_OBJ,
                                    lambda_hashtable_iter_trace)
@@ -307,6 +312,7 @@ _HASHTABLE_OBJ = GcStmHashtable('HASHTABLE_OBJ',
                                           'list': _ll_hashtable_list,
                                         'lookup': _ll_hashtable_lookup,
                                       'writeobj': _ll_hashtable_writeobj,
+                                      'pickitem': _ll_hashtable_pickitem,
                                    'iterentries': _ll_hashtable_iterentries})
 NULL_HASHTABLE = lltype.nullptr(_HASHTABLE_OBJ)
 
@@ -416,6 +422,22 @@ class HashtableForTest(object):
     def writeobj(self, entry, nvalue):
         assert isinstance(entry, EntryObjectForTest)
         self.set(entry.key, nvalue)
+
+    def pickitem(self):
+        # xxx not thread-safe, but should be OK for tests: we want
+        # popitem()-like behavior but without actually removing the
+        # entry object
+        removed = []
+        try:
+            while True:
+                key, entry = self._content.popitem()
+                removed.append((key, entry))
+                if entry.object:
+                    return entry
+        except KeyError:
+            return None   # stands approx. for NULL of type EntryObjectForTest
+        finally:
+            self._content.update(removed)
 
     def iterentries(self):
         return IterEntriesForTest(self, self._content.itervalues())

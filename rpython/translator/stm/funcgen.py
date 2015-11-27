@@ -385,6 +385,14 @@ def stm_hashtable_lookup(funcgen, op):
     return '%s = (%s)stm_hashtable_lookup((object_t *)%s, %s, %s);' % (
         result, typename, arg0, arg1, arg2)
 
+def stm_hashtable_pickitem(funcgen, op):
+    arg0 = funcgen.expr(op.args[0])
+    arg1 = funcgen.expr(op.args[1])
+    result = funcgen.expr(op.result)
+    typename = cdecl(funcgen.lltypename(op.result), '')
+    return '%s = (%s)stm_hashtable_pickitem((object_t *)%s, %s);' % (
+        result, typename, arg0, arg1)
+
 def stm_hashtable_length_upper_bound(funcgen, op):
     arg0 = funcgen.expr(op.args[0])
     result = funcgen.expr(op.result)

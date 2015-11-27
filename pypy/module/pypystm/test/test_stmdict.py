@@ -117,6 +117,18 @@ class AppTestDict:
         assert res == "bar"
         raises(KeyError, "d[42.0]")
 
+    def test_popitem(self):
+        import pypystm
+        d = pypystm.stmdict()
+        raises(KeyError, d.popitem)
+        d[42.0] = "bar"
+        assert len(d) == 1
+        res = d.popitem()
+        assert res == (42.0, "bar")
+        raises(KeyError, d.popitem)
+        raises(KeyError, "d[42.0]")
+        assert len(d) == 0
+
 
     def test_custom_evil_eq(self):
         class A(object):

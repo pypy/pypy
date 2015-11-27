@@ -2,7 +2,7 @@
 The class pypystm.stmdict, giving a part of the regular 'dict' interface
 """
 
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -193,6 +193,32 @@ def get_items_w(space, h):
             j += 2
     return result_list_w
 
+@jit.dont_look_inside
+def popitem(space, h):
+    # Raises space.w_KeyError or returns the key/value pair as a list
+    # that can be passed to space.newtuple()
+    entry = h.pickitem()
+    if not entry:
+        raise oefmt(space.w_KeyError, "popitem(): stm dictionary is empty")
+    #
+    # In the common case where there is only one key/value in the
+    # list, we return it and delete the entry.  Assuming the other
+    # case is very rare, we pop one of the multiple pairs, don't
+    # delete the entry, and leave it to the next round through the
+    # dictionary to see the next pair.
+    array = lltype.cast_opaque_ptr(PARRAY, entry.object)
+    assert array      # pickitem() only returns non-NULL entries
+    reslst_w = [unerase(array[0]), unerase(array[1])]
+    if len(array) == 2:
+        narray = lltype.nullptr(ARRAY)
+    else:
+        L = len(array) - 2
+        assert L >= 2
+        narray = lltype.malloc(ARRAY, L)
+        ll_arraycopy(array, narray, 2, 0, L)
+    h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
+    return reslst_w
+
 
 class W_STMDict(W_Root):
 
@@ -233,6 +259,9 @@ class W_STMDict(W_Root):
     @unwrap_spec(w_default=WrappedDefault(None))
     def setdefault_w(self, space, w_key, w_default):
         return setdefault(space, self.h, w_key, w_default)
+
+    def popitem_w(self, space):
+        return space.newtuple(popitem(space, self.h))
 
     def len_w(self, space):
         return space.wrap(get_length(space, self.h))
@@ -337,6 +366,7 @@ W_STMDict.typedef = TypeDef(
     get = interp2app(W_STMDict.get_w),
     pop = interp2app(W_STMDict.pop_w),
     setdefault = interp2app(W_STMDict.setdefault_w),
+    popitem = interp2app(W_STMDict.popitem_w),
 
     __len__  = interp2app(W_STMDict.len_w),
     keys     = interp2app(W_STMDict.keys_w),
