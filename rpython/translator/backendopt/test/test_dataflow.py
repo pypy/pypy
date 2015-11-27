@@ -1,6 +1,7 @@
 import random
 from rpython.tool.algo.unionfind import UnionFind
-from rpython.translator.backendopt.dataflow import AbstractForwardDataFlowAnalysis
+from rpython.translator.backendopt.dataflow import (
+    AbstractForwardDataFlowAnalysis, postorder_block_list)
 
 import pytest
 
@@ -85,3 +86,42 @@ def test_loopy_forward_flow(flow):
     assert len(sfa.seen) == 5
     assert ins[g.startblock] == sfa.entry_state(None)
     assert outs[g.returnblock] == sfa.entry_state(None)
+
+
+def test_postorder_block_list():
+    def f(x):
+        pass
+    t = TranslationContext()
+    g = t.buildflowgraph(f)
+    pobl = postorder_block_list(g)
+    assert len(set(pobl)) == 2 # start & return
+
+    def f2(x):
+        if x:
+            x=x+1
+        else:
+            x=x+2
+        return x
+    t = TranslationContext()
+    g = t.buildflowgraph(f2)
+    pobl = postorder_block_list(g)
+    assert len(pobl[0].exits) == 0
+    assert len(pobl[1].exits) == 1
+    assert len(pobl[2].exits) == 1
+    assert len(pobl[3].exits) == 2
+    assert len(set(pobl)) == 4
+
+
+def test_postorder_block_list2():
+    def f(x):
+        if x < 0:
+            while x:
+                pass
+            return x
+        else:
+            while x:
+                if x-1:
+                    return x
+    t = TranslationContext()
+    g = t.buildflowgraph(f)
+    assert len(set(postorder_block_list(g))) == 5

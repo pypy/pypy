@@ -36,7 +36,17 @@ class AbstractDataFlowAnalysis(object):
         raise NotImplementedError("abstract base class")
 
 
-
+def postorder_block_list(graph):
+    visited = set()
+    blocks = []
+    def dfs_recurse(block):
+        visited.add(block)
+        for link in block.exits:
+            if link.target not in visited:
+                dfs_recurse(link.target)
+        blocks.append(block)
+    dfs_recurse(graph.startblock)
+    return blocks
 
 
 class AbstractForwardDataFlowAnalysis(AbstractDataFlowAnalysis):
@@ -86,18 +96,16 @@ class AbstractForwardDataFlowAnalysis(AbstractDataFlowAnalysis):
 
         #
         # iterate:
-        # todo: ordered set? reverse post-order?
-        blocks.remove(graph.startblock)
-        pending = collections.deque(blocks)
-        pending.append(graph.startblock)
+        # todo: ordered set?
+        pending = collections.deque(reversed(postorder_block_list(graph)))
         while pending:
-            block = pending.pop()
+            block = pending.popleft()
             if self._update_in_state_of(block, entrymap, in_states, out_states):
                 block_out = self.transfer_function(block, in_states[block])
                 if block_out != out_states[block]:
                     out_states[block] = block_out
                     for link in block.exits:
                         if link.target not in pending:
-                            pending.appendleft(link.target)
+                            pending.append(link.target)
         #
         return in_states, out_states
