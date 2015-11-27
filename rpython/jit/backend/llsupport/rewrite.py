@@ -470,9 +470,12 @@ class GcRewriterAssembler(object):
     def gen_malloc_frame(self, frame_info):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
         if self.gc_ll_descr.kind == 'boehm':
-            size = ResOperation(rop.GETFIELD_RAW_I,
-                                    [history.ConstInt(frame_info)],
-                               descr=descrs.jfi_frame_depth)
+            ofs, size, sign = unpack_fielddescr(descrs.jfi_frame_depth)
+            if sign:
+                size = -size
+            args = [ConstInt(frame_info), ConstInt(0), ConstInt(1),
+                    ConstInt(ofs), ConstInt(size)],
+            size = ResOperation(rop.GC_LOAD_INDEXED_I, args)
             self.emit_op(size)
             frame = ResOperation(rop.NEW_ARRAY, [size],
                                descr=descrs.arraydescr)
@@ -480,17 +483,23 @@ class GcRewriterAssembler(object):
             return self.get_box_replacement(frame)
         else:
             # we read size in bytes here, not the length
-            size = ResOperation(rop.GETFIELD_RAW_I,
-                                [history.ConstInt(frame_info)],
-                               descr=descrs.jfi_frame_size)
+            ofs, size, sign = unpack_fielddescr(descrs.jfi_frame_size)
+            if sign:
+                size = -size
+            args = [ConstInt(frame_info), ConstInt(0), ConstInt(1),
+                    ConstInt(ofs), ConstInt(size)],
+            size = ResOperation(rop.GC_LOAD_INDEXED_I, args)
             self.emit_op(size)
             frame = self.gen_malloc_nursery_varsize_frame(size)
             self.gen_initialize_tid(frame, descrs.arraydescr.tid)
             # we need to explicitely zero all the gc fields, because
             # of the unusal malloc pattern
-            length = ResOperation(rop.GETFIELD_RAW_I,
-                                  [history.ConstInt(frame_info)],
-                                  descr=descrs.jfi_frame_depth)
+            ofs, size, sign = unpack_fielddescr(descrs.jfi_frame_depth)
+            if sign:
+                size = -size
+            args = [ConstInt(frame_info), ConstInt(0), ConstInt(1),
+                    ConstInt(ofs), ConstInt(size)],
+            length = ResOperation(rop.GC_LOAD_INDEXED_I, args)
             extra_ops = [
                 length,
                 ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
