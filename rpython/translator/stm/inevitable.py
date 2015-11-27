@@ -206,8 +206,10 @@ class InevitableAnalysis(AbstractForwardDataFlowAnalysis):
             else:
                 assert op not in self.turn_inevitable_ops
             #
-            if self.break_analyzer.analyze(op):
-                # possible TX break in op
+            # check breaking ops here to be safe (e.g. if there
+            # was an op that turns inevitable, but also breaks)
+            if inevitable and self.break_analyzer.analyze(op):
+                # only check if inev, otherwise performance is horrible
                 inevitable = False
         #
         return inevitable
