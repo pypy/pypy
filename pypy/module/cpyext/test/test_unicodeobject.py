@@ -433,6 +433,9 @@ class TestUnicode(BaseApiTest):
     def test_compare(self, space, api):
         assert api.PyUnicode_Compare(space.wrap('a'), space.wrap('b')) == -1
 
+    def test_concat(self, space, api):
+        assert api.PyUnicode_Concat(space.wrap('a'), space.wrap('b')) == u'ab'
+
     def test_copy(self, space, api):
         w_x = space.wrap(u"abcd\u0660")
         count1 = space.int_w(space.len(w_x))

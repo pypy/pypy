@@ -2125,11 +2125,6 @@ def PyUnicode_DecodeMBCSStateful(space, s, size, errors, consumed):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], PyObject)
-def PyUnicode_Concat(space, left, right):
-    """Concat two strings giving a new Unicode string."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, rffi.CCHARP], PyObject)
 def PyUnicode_Translate(space, str, table, errors):
     """Translate a string by applying a character mapping table to it and return the

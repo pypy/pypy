@@ -656,6 +656,12 @@ def PyUnicode_Compare(space, w_left, w_right):
     than, respectively."""
     return space.int_w(space.cmp(w_left, w_right))
 
+@cpython_api([PyObject, PyObject], PyObject, error=lltype.Void)
+def PyUnicode_Concat(space, w_left, w_right):
+    """Concat two strings giving a new Unicode string."""
+    raise OperationError(space.w_NotImplementedError, 
+                space.wrap("PyUnicode_Concat not implemented yet"))
+
 @cpython_api([rffi.CWCHARP, rffi.CWCHARP, Py_ssize_t], lltype.Void)
 def Py_UNICODE_COPY(space, target, source, length):
     """Roughly equivalent to memcpy() only the base size is Py_UNICODE
