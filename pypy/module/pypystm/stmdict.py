@@ -110,11 +110,11 @@ def pop_from_entry(h, space, w_key):
 def create():
     return rstm.create_hashtable()
 
-def getitem(space, h, w_key):
+def finditem(space, h, w_key):
     entry, array, i = really_find_equal_item(space, h, w_key)
     if array and i >= 0:
         return unerase(array[i + 1])
-    space.raise_key_error(w_key)
+    return None
 
 def setitem(space, h, w_key, w_value):
     entry, array, i = really_find_equal_item(space, h, w_key)
@@ -135,7 +135,7 @@ def setitem(space, h, w_key, w_value):
 
 def delitem(space, h, w_key):
     if pop_from_entry(h, space, w_key) is None:
-        space.raise_key_error(w_key)
+        raise KeyError
 
 def setdefault(space, h, w_key, w_default):
     entry, array, i = really_find_equal_item(space, h, w_key)
@@ -195,11 +195,10 @@ def get_items_w(space, h):
 
 @jit.dont_look_inside
 def popitem(space, h):
-    # Raises space.w_KeyError or returns the key/value pair as a list
-    # that can be passed to space.newtuple()
+    # Returns an unwrapped key/value pair or raises an unwrapped KeyError
     entry = h.pickitem()
     if not entry:
-        raise oefmt(space.w_KeyError, "popitem(): stm dictionary is empty")
+        raise KeyError
     #
     # In the common case where there is only one key/value in the
     # list, we return it and delete the entry.  Assuming the other
@@ -208,7 +207,8 @@ def popitem(space, h):
     # dictionary to see the next pair.
     array = lltype.cast_opaque_ptr(PARRAY, entry.object)
     assert array      # pickitem() only returns non-NULL entries
-    reslst_w = [unerase(array[0]), unerase(array[1])]
+    w_key = unerase(array[0])
+    w_value = unerase(array[1])
     if len(array) == 2:
         narray = lltype.nullptr(ARRAY)
     else:
@@ -217,7 +217,7 @@ def popitem(space, h):
         narray = lltype.malloc(ARRAY, L)
         ll_arraycopy(array, narray, 2, 0, L)
     h.writeobj(entry, lltype.cast_opaque_ptr(llmemory.GCREF, narray))
-    return reslst_w
+    return (w_key, w_value)
 
 
 class W_STMDict(W_Root):
@@ -226,13 +226,19 @@ class W_STMDict(W_Root):
         self.h = create()
 
     def getitem_w(self, space, w_key):
-        return getitem(space, self.h, w_key)
+        w_value = finditem(space, self.h, w_key)
+        if w_value is None:
+            space.raise_key_error(w_key)
+        return w_value
 
     def setitem_w(self, space, w_key, w_value):
         setitem(space, self.h, w_key, w_value)
 
     def delitem_w(self, space, w_key):
-        delitem(space, self.h, w_key)
+        try:
+            delitem(space, self.h, w_key)
+        except KeyError:
+            space.raise_key_error(w_key)
 
     def contains_w(self, space, w_key):
         entry, array, i = really_find_equal_item(space, self.h, w_key)
@@ -261,7 +267,11 @@ class W_STMDict(W_Root):
         return setdefault(space, self.h, w_key, w_default)
 
     def popitem_w(self, space):
-        return space.newtuple(popitem(space, self.h))
+        try:
+            w_key, w_value = popitem(space, self.h)
+        except KeyError:
+            raise oefmt(space.w_KeyError, "popitem(): stmdict is empty")
+        return space.newtuple([w_key, w_value])
 
     def len_w(self, space):
         return space.wrap(get_length(space, self.h))

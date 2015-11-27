@@ -17,8 +17,9 @@ class StmDictStrategy(DictStrategy):
         return stmdict.get_length(self.space, h)
 
     def getitem(self, w_dict, w_key):
+        # returns w_value or None --- DOES NOT RAISE KeyError or w_KeyError!
         h = self.unerase(w_dict.dstorage)
-        return stmdict.getitem(self.space, h, w_key)
+        return stmdict.finditem(self.space, h, w_key)
 
     def getitem_str(self, w_dict, key):
         return self.getitem(w_dict, self.space.wrap(key))
@@ -31,6 +32,7 @@ class StmDictStrategy(DictStrategy):
         self.setitem(w_dict, self.space.wrap(key), w_value)
 
     def delitem(self, w_dict, w_key):
+        # returns nothing or raise an unwrapped KeyError
         h = self.unerase(w_dict.dstorage)
         stmdict.delitem(self.space, h, w_key)
 
@@ -39,9 +41,10 @@ class StmDictStrategy(DictStrategy):
         return stmdict.setdefault(self.space, h, w_key, w_default)
 
     def popitem(self, w_dict):
+        # returns a key/value pair or raises an unwrapped KeyError
         space = self.space
         h = self.unerase(w_dict.dstorage)
-        return space.newtuple(stmdict.popitem(space, h))
+        return stmdict.popitem(space, h)
 
     def getiterkeys(self, w_dict):
         h = self.unerase(w_dict.dstorage)

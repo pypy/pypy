@@ -603,6 +603,7 @@ class EmptyDictStrategy(DictStrategy):
         DictStrategy.make_empty_with_object_strategy(self.space, w_dict)
 
     def getitem(self, w_dict, w_key):
+        #WARNING: this is misnomer! it must not raise KeyError or w_KeyError!
         #return w_value or None
         # in case the key is unhashable, try to hash it
         self.space.hash(w_key)
