@@ -123,6 +123,9 @@ class TestLongObject(BaseApiTest):
         assert api._PyLong_NumBits(space.wrap(3)) == 2
         assert api._PyLong_NumBits(space.wrap(-3)) == 2
 
+    def test_strto(self, space, api):
+        assert False # XXX test PyOS_strtol, PyOS_strtoul
+
 class AppTestLongObject(AppTestCpythonExtensionBase):
     def test_fromunsignedlong(self):
         module = self.import_extension('foo', [
