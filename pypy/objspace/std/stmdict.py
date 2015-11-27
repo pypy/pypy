@@ -20,9 +20,15 @@ class StmDictStrategy(DictStrategy):
         h = self.unerase(w_dict.dstorage)
         return stmdict.getitem(self.space, h, w_key)
 
+    def getitem_str(self, w_dict, key):
+        return self.getitem(w_dict, self.space.wrap(key))
+
     def setitem(self, w_dict, w_key, w_value):
         h = self.unerase(w_dict.dstorage)
         stmdict.setitem(self.space, h, w_key, w_value)
+
+    def setitem_str(self, w_dict, key, w_value):
+        self.setitem(w_dict, self.space.wrap(key), w_value)
 
     def delitem(self, w_dict, w_key):
         h = self.unerase(w_dict.dstorage)
@@ -31,6 +37,9 @@ class StmDictStrategy(DictStrategy):
     def getiteritems_with_hash(self, w_dict):
         h = self.unerase(w_dict.dstorage)
         return StmDictItemsWithHash(self.space, h)
+
+    def clear(self, w_dict):
+        XXX
 
 
 class StmDictItemsWithHash(object):
