@@ -15,12 +15,12 @@ import pypy.module.__builtin__.operation as operation
 
 
 @cpython_api([Py_ssize_t], rffi.VOIDP)
-def PyObject_MALLOC(space, size):
+def PyObject_Malloc(space, size):
     return lltype.malloc(rffi.VOIDP.TO, size,
                          flavor='raw', zero=True)
 
 @cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_FREE(space, ptr):
+def PyObject_Free(space, ptr):
     lltype.free(ptr, flavor='raw')
 
 @cpython_api([PyTypeObjectPtr], PyObject)
