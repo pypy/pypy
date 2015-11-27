@@ -4,6 +4,7 @@ from rpython.rtyper.llinterp import LLFrame
 from rpython.rtyper.test import test_llinterp
 from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
 from rpython.translator.stm.inevitable import insert_turn_inevitable
+from rpython.translator.stm.breakfinder import TransactionBreakAnalyzer
 from rpython.translator.stm import inevitable
 from rpython.rlib.rstm import stm_ignored
 from rpython.conftest import option
@@ -61,7 +62,8 @@ class TestTransform:
         interp, self.graph = get_interpreter(fn, args, view=False)
         interp.frame_class = LLSTMInevFrame
         self.translator = interp.typer.annotator.translator
-        insert_turn_inevitable(self.translator, self.graph)
+        self.break_analyzer = TransactionBreakAnalyzer(self.translator)
+        insert_turn_inevitable(self, self.graph)
         if option.view:
             self.translator.view()
         #

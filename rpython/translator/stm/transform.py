@@ -26,17 +26,20 @@ class STMTransformer(object):
 
     def transform_read_barrier(self):
         self.read_barrier_counts = 0
-        self.break_analyzer = TransactionBreakAnalyzer(self.translator)
 
+        self.break_analyzer = TransactionBreakAnalyzer(self.translator)
         for graph in self.translator.graphs:
             insert_stm_read_barrier(self, graph)
-
         del self.break_analyzer
+
         log.info("%d read barriers inserted" % (self.read_barrier_counts,))
 
     def transform_turn_inevitable(self):
+        self.break_analyzer = TransactionBreakAnalyzer(self.translator)
         for graph in self.translator.graphs:
             insert_turn_inevitable(self, graph)
+        del self.break_analyzer
+
 
     def start_log(self, step):
         log.info("Software Transactional Memory transformation, step %d"

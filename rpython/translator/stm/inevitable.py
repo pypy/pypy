@@ -226,8 +226,8 @@ def turn_inevitable_op(info):
     return SpaceOperation('stm_become_inevitable', [c_info],
                           varoftype(lltype.Void))
 
-def insert_turn_inevitable(translator, graph):
-    ia = InevitableAnalysis(TransactionBreakAnalyzer(translator))
+def insert_turn_inevitable(stmtransformer, graph):
+    ia = InevitableAnalysis(stmtransformer.break_analyzer)
     ia.calculate(graph)
     #
     for block in graph.iterblocks():

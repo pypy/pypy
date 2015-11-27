@@ -1,22 +1,23 @@
 from rpython.translator.backendopt import graphanalyze
 from rpython.translator.stm import funcgen
-from rpython.translator.backendopt.gilanalysis import GilAnalyzer
+from rpython.translator.backendopt.gilanalysis import (
+    GilAnalyzer, TRANSACTION_BREAK)
 
-TRANSACTION_BREAK = set([
-    'stm_enter_transactional_zone',
-    'stm_leave_transactional_zone',
-    'stm_hint_commit_soon',
-    'jit_assembler_call',
-    'stm_enter_callback_call',
-    'stm_leave_callback_call',
-    'stm_transaction_break',
-    'stm_queue_get',
-    'stm_queue_join',
-    ])
-
+# simple check if all operations exist in funcgen
 for tb in TRANSACTION_BREAK:
     assert hasattr(funcgen, tb) or tb == "jit_assembler_call"
 
-# XXX: gilanalysis in backendopt/ does the exact same thing:
 
-TransactionBreakAnalyzer = GilAnalyzer
+class TransactionBreakAnalyzer(GilAnalyzer):
+    """adds a cache to GilAnalyzer"""
+
+    def __init__(self, *args, **kwargs):
+        super(TransactionBreakAnalyzer, self).__init__(*args, **kwargs)
+        self._cache = {}
+
+    def analyze(self, op, *args, **kwargs):
+        if op in self._cache:
+            return self._cache[op]
+        res = super(TransactionBreakAnalyzer, self).analyze(op, *args, **kwargs)
+        self._cache[op] = res
+        return res
