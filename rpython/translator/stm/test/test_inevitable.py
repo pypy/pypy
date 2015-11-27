@@ -401,6 +401,21 @@ class TestTransform:
         res = self.interpret_inevitable(f1, [1])
         assert res == ['getfield']
 
+    def test_partially_redundant_inev3(self):
+        X = lltype.Struct('X', ('foo', lltype.Signed))
+        x1 = lltype.malloc(X, immortal=True)
+        x1.foo = 42
+
+        def f1(i):
+            r = 0
+            if i:
+                r += x1.foo
+            r += x1.foo
+            return r
+
+        res = self.interpret_inevitable(f1, [1])
+        assert res == ['getfield', 'getfield']
+
     def test_with_break_inev(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
         x1 = lltype.malloc(X, immortal=True)
@@ -425,9 +440,42 @@ class TestTransform:
 
         def f1(i):
             x1 = lltype.malloc(X, flavor='raw')
-            x1.foo = 42
-            r = x1.foo
+            x1.foo = 42 # ok
+            r = x1.foo # ok
             lltype.free(x1, flavor='raw')
+            return r
+
+        res = self.interpret_inevitable(f1, [1])
+        assert res == []
+
+
+    def test_for_local_raw_with_break(self):
+        py.test.skip("not yet")
+        X = lltype.Struct('X', ('foo', lltype.Signed))
+        import time
+        def f1(i):
+            x1 = lltype.malloc(X, flavor='raw')
+            x1.foo = 42 # ok
+            time.sleep(0) # gil rel
+            r = x1.foo # inev
+            x1.foo = 8 # ok
+            if i:
+                lltype.free(x1, flavor='raw')
+            return r
+
+        res = self.interpret_inevitable(f1, [1])
+        assert res == ['getfield',]
+
+    def test_for_local_raw_no_free(self):
+        py.test.skip("not yet")
+        X = lltype.Struct('X', ('foo', lltype.Signed))
+
+        def f1(i):
+            x1 = lltype.malloc(X, flavor='raw')
+            x1.foo = 42 # ok
+            r = x1.foo # ok
+            if i:
+                lltype.free(x1, flavor='raw')
             return r
 
         res = self.interpret_inevitable(f1, [1])
@@ -438,16 +486,19 @@ class TestTransform:
         py.test.skip("not yet")
         X = lltype.Struct('X', ('foo', lltype.Signed))
 
+        def g(r):
+            r.foo = 28 # inev bc. unknown
         def f1(i):
             x1 = lltype.malloc(X, flavor='raw')
-            x1.foo = 42
-            r = x1.foo
+            x1.foo = 42 # ok
             if i:
-                lltype.free(x1, flavor='raw')
+                g(x1) # no break
+            r = x1.foo # ok
+            lltype.free(x1, flavor='raw')
             return r
 
         res = self.interpret_inevitable(f1, [1])
-        assert res == ['setfield', 'getfield']
+        assert res == ['setfield']
 
 
     def test_local_raw_in_same_transaction(self):
