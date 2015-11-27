@@ -21,12 +21,12 @@ class AbstractDataFlowAnalysis(object):
         initialize all blocks before starting the analysis."""
         raise NotImplementedError("abstract base class")
 
-    def join_operation(self, preds_outs, inputargs, pred_out_args):
+    def join_operation(self, inputargs, preds_outs, links_to_preds):
         """Joins all preds_outs to generate a new in_state for the
         current block.
         'inputargs' is the list of input arguments to the block
-        'pred_out_args' is a list of lists of arguments given to
-            the link by a certain predecessor - one list per inputarg.
+        'preds_outs': is the list of out_state for each preds
+        'links_to_preds': is the list of links to the preds
         """
         raise NotImplementedError("abstract base class")
 
@@ -54,7 +54,7 @@ class AbstractForwardDataFlowAnalysis(AbstractDataFlowAnalysis):
         # collect all out_states of predecessors:
         preds_outs = []
         inputargs = block.inputargs
-        preds_out_args = [[] for _ in inputargs]
+        links_to_preds = []
         for link in entrymap[block]:
             pred = link.prevblock
             if pred is None:
@@ -62,10 +62,9 @@ class AbstractForwardDataFlowAnalysis(AbstractDataFlowAnalysis):
                 in_states[block] = self.entry_state(block)
                 return True
             preds_outs.append(out_states[pred])
-            for i in range(len(inputargs)):
-                preds_out_args[i].append(link.args[i])
+            links_to_preds.append(link)
         # join predecessor out_states for updated in_state:
-        block_in = self.join_operation(preds_outs, inputargs, preds_out_args)
+        block_in = self.join_operation(inputargs, preds_outs, links_to_preds)
         #
         if block not in in_states or block_in != in_states[block]:
             # in_state changed

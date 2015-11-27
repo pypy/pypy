@@ -85,7 +85,7 @@ class WriteBarrierCollector(AbstractForwardDataFlowAnalysis):
         # in_state will be newly calculated in forward analysis
         return out_state
 
-    def join_operation(self, preds_outs, inputargs, pred_out_args):
+    def join_operation(self, inputargs, preds_outs, links_to_preds):
         # collect the (renamed) variables / inputargs that are
         # writeable coming from all predecessors.
         result = set(inputargs)
@@ -93,7 +93,7 @@ class WriteBarrierCollector(AbstractForwardDataFlowAnalysis):
             # for input arg, go through all predecessor out_sets
             # and see if the renamed arg was writable there:
             for pidx, pouts in enumerate(preds_outs):
-                name_in_pred = pred_out_args[i][pidx]
+                name_in_pred = links_to_preds[pidx].args[i]
                 if name_in_pred not in pouts:
                     # was not writable in pred[pidx]
                     result.remove(iarg)

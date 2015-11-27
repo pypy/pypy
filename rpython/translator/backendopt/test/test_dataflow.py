@@ -21,7 +21,9 @@ class SimpleForwardAnalysis(AbstractForwardDataFlowAnalysis):
     def initialize_block(self, block):
         return False
 
-    def join_operation(self, preds_outs, inputargs, pred_out_args):
+    def join_operation(self, inputargs, preds_outs, links_to_preds):
+        assert len(preds_outs) == len(links_to_preds)
+        assert all((len(inputargs) == len(link.args) for link in links_to_preds))
         return any(preds_outs)
 
 class NotSimpleForwardAnalysis(AbstractForwardDataFlowAnalysis):
@@ -38,7 +40,9 @@ class NotSimpleForwardAnalysis(AbstractForwardDataFlowAnalysis):
     def initialize_block(self, block):
         return True
 
-    def join_operation(self, preds_outs, inputargs, pred_out_args):
+    def join_operation(self, inputargs, preds_outs, links_to_preds):
+        assert len(preds_outs) == len(links_to_preds)
+        assert all((len(inputargs) == len(link.args) for link in links_to_preds))
         return all(preds_outs)
 
 
