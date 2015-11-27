@@ -117,7 +117,6 @@ class WriteBarrierCollector(AbstractForwardDataFlowAnalysis):
         # flow through block and inspect operations that
         # need a write barrier, and those that create new
         # objects
-        print writeable, block.operations
         for op in block.operations:
             if self.collect_analyzer.analyze(op): # incl. malloc, obviously
                 # clear all writeable status

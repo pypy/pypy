@@ -61,7 +61,7 @@ class TestTransform:
         interp, self.graph = get_interpreter(fn, args, view=False)
         interp.frame_class = LLSTMInevFrame
         self.translator = interp.typer.annotator.translator
-        insert_turn_inevitable(self.graph)
+        insert_turn_inevitable(self.translator, self.graph)
         if option.view:
             self.translator.view()
         #
@@ -371,7 +371,6 @@ class TestTransform:
 
 
     def test_only_one_inev(self):
-        py.test.skip("not yet")
         X = lltype.Struct('X', ('foo', lltype.Signed))
         x1 = lltype.malloc(X, immortal=True)
         x1.foo = 42
@@ -386,7 +385,6 @@ class TestTransform:
         assert res == ['getfield']
 
     def test_only_one_inev2(self):
-        py.test.skip("not yet")
         X = lltype.Struct('X', ('foo', lltype.Signed))
         x1 = lltype.malloc(X, immortal=True)
         x1.foo = 42
@@ -395,11 +393,30 @@ class TestTransform:
             r = 0
             if i:
                 r += x1.foo
+            else:
+                r += x1.foo
             r += x1.foo
             return r
 
         res = self.interpret_inevitable(f1, [1])
         assert res == ['getfield']
+
+    def test_with_break_inev(self):
+        X = lltype.Struct('X', ('foo', lltype.Signed))
+        x1 = lltype.malloc(X, immortal=True)
+        x1.foo = 42
+        TYPE = lltype.FuncType([], lltype.Void)
+        import time
+        def f1():
+            r = 0
+            r += x1.foo
+            time.sleep(0)
+            r += x1.foo
+            return r
+
+        res = self.interpret_inevitable(f1, [])
+        assert res == ['getfield', 'getfield']
+
 
 
     def test_not_for_local_raw(self):

@@ -36,7 +36,7 @@ class STMTransformer(object):
 
     def transform_turn_inevitable(self):
         for graph in self.translator.graphs:
-            insert_turn_inevitable(graph)
+            insert_turn_inevitable(self, graph)
 
     def start_log(self, step):
         log.info("Software Transactional Memory transformation, step %d"

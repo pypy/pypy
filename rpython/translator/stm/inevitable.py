@@ -3,7 +3,8 @@ from rpython.rtyper import rclass
 from rpython.translator.stm.support import is_immutable
 from rpython.flowspace.model import SpaceOperation, Constant
 from rpython.translator.unsimplify import varoftype
-
+from rpython.translator.backendopt.dataflow import AbstractForwardDataFlowAnalysis
+from rpython.translator.stm.breakfinder import TransactionBreakAnalyzer
 
 ALWAYS_ALLOW_OPERATIONS = set([
     'force_cast', 'keepalive', 'cast_ptr_to_adr',
@@ -132,7 +133,7 @@ def should_turn_inevitable_call(op):
     assert False
 
 
-def should_turn_inevitable(op, block):
+def should_turn_inevitable(op):
     # Always-allowed operations never cause a 'turn inevitable'
     if op.opname in ALWAYS_ALLOW_OPERATIONS:
         return False
@@ -162,30 +163,77 @@ def should_turn_inevitable(op, block):
     return True
 
 
+class InevitableAnalysis(AbstractForwardDataFlowAnalysis):
+    """Determines the exact set of operations that need
+    to turn a transaction inevitable.
+    * Inevitable transactions can only be interrupted by
+      possible transaction breaks. Otherwise, repeated
+      turn_inevitables are superfluous.
+    * Raw-writes to freshly allocated memory are safe,
+      as the memory will be freed on abort. (TODO)"""
+
+    def __init__(self, break_analyzer):
+        self.break_analyzer = break_analyzer
+        self.in_stm_ignored = False
+        self.turn_inevitable_ops = set()
+
+    def entry_state(self, block):
+        return False # not inevitable
+
+    def initialize_block(self, block):
+        return True # neutral element for join_operation
+
+    def join_operation(self, inputargs, preds_outs, links_to_preds):
+        # only if all paths are already inevitable!
+        return all(preds_outs)
+
+    def transfer_function(self, block, in_state):
+        assert not self.in_stm_ignored
+        inevitable = in_state
+        for op in block.operations:
+            if inevitable:
+                if op in self.turn_inevitable_ops:
+                    self.turn_inevitable_ops.remove(op)
+            elif op.opname == "stm_ignored_start":
+                assert not self.in_stm_ignored
+                self.in_stm_ignored = True
+            elif op.opname == "stm_ignored_stop":
+                assert self.in_stm_ignored
+                self.in_stm_ignored = False
+            elif not self.in_stm_ignored and should_turn_inevitable(op):
+                self.turn_inevitable_ops.add(op)
+                inevitable = True
+            else:
+                assert op not in self.turn_inevitable_ops
+            #
+            if self.break_analyzer.analyze(op):
+                # possible TX break in op
+                inevitable = False
+        #
+        return inevitable
+
+
+    def calculate(self, graph, entrymap=None):
+        assert not self.in_stm_ignored
+        assert not self.turn_inevitable_ops
+        return super(InevitableAnalysis, self).calculate(graph, entrymap)
+
+
 def turn_inevitable_op(info):
     c_info = Constant(info, lltype.Void)
     return SpaceOperation('stm_become_inevitable', [c_info],
                           varoftype(lltype.Void))
 
-def insert_turn_inevitable(graph):
+def insert_turn_inevitable(translator, graph):
+    ia = InevitableAnalysis(TransactionBreakAnalyzer(translator))
+    ia.calculate(graph)
+    #
     for block in graph.iterblocks():
-        stm_ignored = False
         for i in range(len(block.operations)-1, -1, -1):
             op = block.operations[i]
-            inev = should_turn_inevitable(op, block)
-            if inev and not stm_ignored:
-                if not isinstance(inev, str):
-                    inev = op.opname
-                inev_op = turn_inevitable_op(inev)
+            if op in ia.turn_inevitable_ops:
+                why = should_turn_inevitable(op)
+                if not isinstance(why, str):
+                    why = op.opname
+                inev_op = turn_inevitable_op(why)
                 block.operations.insert(i, inev_op)
-            if op.opname == 'stm_ignored_stop':
-                assert not stm_ignored, "nested stm_ignored_stop"
-                stm_ignored = True      # backward, so "stop" enables it
-            elif op.opname == 'stm_ignored_start':
-                if not stm_ignored:
-                    raise Exception("%r: 'with stm_ignored: stm_ignored start "
-                                    "without end in the same block" % (graph,))
-                stm_ignored = False     # backward, so "start" disables it
-        if stm_ignored:
-            raise Exception("%r: 'with stm_ignored:' code body too complex"
-                            % (graph,))
