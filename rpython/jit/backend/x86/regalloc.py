@@ -921,8 +921,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         args = op.getarglist()
         N = len(args)
         # we force all arguments in a reg (unless they are Consts),
-        # because it will be needed anyway by the following setfield_gc
-        # or setarrayitem_gc. It avoids loading it twice from the memory.
+        # because it will be needed anyway by the following gc_load
+        # It avoids loading it twice from the memory.
         arglocs = [self.rm.make_sure_var_in_reg(op.getarg(i), args)
                    for i in range(N)]
         self.perform_discard(op, arglocs)
@@ -1162,30 +1162,6 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def consider_increment_debug_counter(self, op):
         base_loc = self.loc(op.getarg(0))
         self.perform_discard(op, [base_loc])
-
-    def _consider_getarrayitem(self, op):
-        itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        result_loc = self.force_allocate_reg(op)
-        if sign:
-            sign_loc = imm1
-        else:
-            sign_loc = imm0
-        self.perform(op, [base_loc, ofs_loc, imm(itemsize), imm(ofs),
-                          sign_loc], result_loc)
-
-    consider_getarrayitem_gc_i = _consider_getarrayitem
-    consider_getarrayitem_gc_r = _consider_getarrayitem
-    consider_getarrayitem_gc_f = _consider_getarrayitem
-    consider_getarrayitem_raw_i = _consider_getarrayitem
-    consider_getarrayitem_raw_f = _consider_getarrayitem
-    consider_getarrayitem_gc_pure_i = _consider_getarrayitem
-    consider_getarrayitem_gc_pure_r = _consider_getarrayitem
-    consider_getarrayitem_gc_pure_f = _consider_getarrayitem
-    consider_raw_load_i = _consider_getarrayitem
-    consider_raw_load_f = _consider_getarrayitem
 
     def _consider_gc_load(self, op):
         args = op.getarglist()

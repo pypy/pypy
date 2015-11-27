@@ -184,11 +184,19 @@ class GcRewriterAssembler(object):
            op.getopnum() in (rop.GETARRAYITEM_RAW_I,
                              rop.GETARRAYITEM_RAW_F):
             self.handle_getarrayitem(op)
-        if op.getopnum() in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW,
-                             rop.RAW_STORE):
+        if op.getopnum() in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW):
             self.handle_setarrayitem(op)
+        if op.getopnum() == rop.RAW_STORE:
+            itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
+            ptr_box = op.getarg(0)
+            index_box = op.getarg(1)
+            value_box = op.getarg(2)
+            self.emit_gc_store_or_indexed(op, ptr_box, index_box, value_box, itemsize, 1, ofs)
         if op.getopnum() in (rop.RAW_LOAD_I, rop.RAW_LOAD_F):
-            self.handle_rawload(op)
+            itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
+            ptr_box = op.getarg(0)
+            index_box = op.getarg(1)
+            self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, 1, ofs, sign)
 
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly

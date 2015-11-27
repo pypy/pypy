@@ -1136,9 +1136,9 @@ class TestFramework(RewriteTests):
         [True, None, 'i3 = raw_load_i(p0,i1,descr=adescr)->gc_load_indexed_i(p0,i1,1,8,-8)'],
         [True, None, 'i3 = raw_load_f(p0,i1,descr=fdescr)->gc_load_indexed_f(p0,i1,1,8,8)'],
         [True, None, 'i3 = raw_load_i(p0,i1,descr=sfdescr)->gc_load_indexed_i(p0,i1,1,8,4)'],
-        [True, (1,2,4,8), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)->gc_store_indexed(p0,i1,i2,4,8,4)'],
+        [True, (1,2,4,8), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)->gc_store_indexed(p0,i1,i2,1,8,4)'],
         [False, (1,), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)' '->'
-                      'i4 = int_mul(i1,4);i5 = int_add(i4,8);gc_store(p0,i5,i2,4)'],
+                      'i5 = int_add(i1,8);gc_store(p0,i5,i2,4)'],
     ])
     def test_gc_load_store_transform(self, support_offset, factors, fromto):
         self.cpu.load_constant_offset = support_offset

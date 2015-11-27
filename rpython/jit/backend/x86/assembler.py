@@ -1484,7 +1484,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     def _genop_gc_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, sign_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
-        rc_addr = addr_add(base_loc, ofs_loc, 0, 0)
+        src_addr = addr_add(base_loc, ofs_loc, 0, 0)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
     genop_gc_load_i = _genop_gc_load
@@ -1585,7 +1585,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_discard_setinteriorfield_raw = genop_discard_setinteriorfield_gc
 
     def genop_discard_gc_store(self, op, arglocs):
-        base_loc, ofs_loc, size_loc = arglocs
+        base_loc, ofs_loc, value_loc, size_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         scale = get_scale(size_loc.value)
         dest_addr = AddressLoc(base_loc, ofs_loc, 0, 0)
