@@ -1166,6 +1166,8 @@ class TestFramework(RewriteTests):
         [True, (1,2,4,8), 'i3 = setfield_gc(p0,p0,descr=zdescr)' '->'
                           'cond_call_gc_wb(p0, descr=wbdescr);'
                           'i3 = gc_store_indexed(p0,0,p0,1,16,8)'],
+        [False, (1,), 'i3 = arraylen_gc(p0, descr=adescr)' '->'
+                      'i3 = gc_load_i(p0,0,8)'],
     ])
     def test_gc_load_store_transform(self, support_offset, factors, fromto):
         self.cpu.load_constant_offset = support_offset

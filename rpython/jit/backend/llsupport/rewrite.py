@@ -227,6 +227,9 @@ class GcRewriterAssembler(object):
             ptr_box = op.getarg(0)
             value_box = op.getarg(1)
             self.emit_gc_store_or_indexed(op, ptr_box, ConstInt(0), value_box, itemsize, 1, ofs)
+        elif op.getopnum() == rop.ARRAYLEN_GC:
+            ofs = op.getdescr().lendescr.offset
+            self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0), WORD, 1, ofs, 0)
         return False
 
 
