@@ -792,6 +792,11 @@ class TestSTMTranslated(CompiledSTMTests):
                 print "hiter.next() should return only once here"
                 assert 0
             assert entry.index == 123
+            for i in range(100):
+                assert h.pickitem() == entry
+            h.writeobj(entry, lltype.nullptr(llmemory.GCREF.TO))
+            for i in range(100):
+                assert not h.pickitem()
             print "ok!"
             return 0
 
