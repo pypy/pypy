@@ -1116,7 +1116,7 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
         class MyInfo:
             @staticmethod
             def enumerate_vars(callback_i, callback_r, callback_f, _, index):
-                for tagged in self.cur_numb.nums:
+                for tagged in self.numb.code:
                     _, tag = untag(tagged)
                     if tag == TAGVIRTUAL:
                         kind = REF
@@ -1131,8 +1131,6 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
                         index = callback_f(index, index)
                     else:
                         assert 0
-        import pdb
-        pdb.set_trace()
         self._prepare_next_section(MyInfo())
         return self.lst
 
