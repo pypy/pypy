@@ -1140,6 +1140,7 @@ class TestDictImplementation:
             assert value == d.descr_getitem(self.space, key)
 
 class BaseTestRDictImplementation:
+    GenericDictStrategy = ObjectDictStrategy
 
     def setup_method(self,method):
         self.fakespace = FakeSpace()
@@ -1247,7 +1248,7 @@ class BaseTestRDictImplementation:
         for x in xrange(100):
             impl.setitem(self.fakespace.str_w(str(x)), x)
             impl.setitem(x, x)
-        assert type(impl.strategy) is ObjectDictStrategy
+        assert type(impl.strategy) is self.GenericDictStrategy
 
     def test_setdefault_fast(self):
         on_pypy = "__pypy__" in sys.builtin_module_names

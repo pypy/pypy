@@ -34,27 +34,45 @@ class StmDictStrategy(DictStrategy):
         h = self.unerase(w_dict.dstorage)
         stmdict.delitem(self.space, h, w_key)
 
+    def getiterkeys(self, w_dict):
+        h = self.unerase(w_dict.dstorage)
+        return StmDictIterKeys(self.space, h)
+
+    def getitervalues(self, w_dict):
+        h = self.unerase(w_dict.dstorage)
+        return StmDictIterValues(self.space, h)
+
     def getiteritems_with_hash(self, w_dict):
         h = self.unerase(w_dict.dstorage)
-        return StmDictItemsWithHash(self.space, h)
+        return StmDictIterItemsWithHash(self.space, h)
 
     def clear(self, w_dict):
-        XXX
+        w_dict.dstorage = self.get_empty_storage()
 
 
-class StmDictItemsWithHash(object):
+class BaseStmDictIter(object):
     objectmodel.import_from_mixin(stmdict.BaseSTMDictIter)
 
     def __iter__(self):
         return self
 
+    def _cleanup_(self):
+        raise Exception("seeing a prebuilt %r object" % (
+            self.__class__,))
+
+class StmDictIterKeys(BaseStmDictIter):
+    def get_final_value(self, hash, array, index):
+        return stmdict.unerase(array[index])
+
+class StmDictIterValues(BaseStmDictIter):
+    def get_final_value(self, hash, array, index):
+        return stmdict.unerase(array[index + 1])
+
+class StmDictIterItemsWithHash(BaseStmDictIter):
     def get_final_value(self, hash, array, index):
         w_key = stmdict.unerase(array[index])
         w_value = stmdict.unerase(array[index + 1])
         return (w_key, w_value, hash)
 
-    def _cleanup_(self):
-        raise Exception("seeing a prebuilt %r object" % (
-            self.__class__,))
 
 create_iterator_classes(StmDictStrategy)

@@ -81,7 +81,6 @@ class Module(MixedModule):
         'newlist_hint'              : 'interp_magic.newlist_hint',
         'add_memory_pressure'       : 'interp_magic.add_memory_pressure',
         'newdict'                   : 'interp_dict.newdict',
-        'reversed_dict'             : 'interp_dict.reversed_dict',
         'strategy'                  : 'interp_magic.strategy',  # dict,set,list
         'specialized_zip_2_lists'   : 'interp_magic.specialized_zip_2_lists',
         'set_debug'                 : 'interp_magic.set_debug',
@@ -110,6 +109,8 @@ class Module(MixedModule):
             if self.space.config.objspace.std.withmapdict:
                 self.extra_interpdef('mapdict_cache_counter',
                                      'interp_magic.mapdict_cache_counter')
+        if not self.space.config.translation.stm:
+            self.extra_interpdef('reversed_dict', 'interp_dict.reversed_dict')
         PYC_MAGIC = get_pyc_magic(self.space)
         self.extra_interpdef('PYC_MAGIC', 'space.wrap(%d)' % PYC_MAGIC)
         try:

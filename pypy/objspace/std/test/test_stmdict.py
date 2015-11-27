@@ -6,3 +6,4 @@ from pypy.objspace.std.test.test_dictmultiobject import (
 
 class TestStmDictImplementation(BaseTestRDictImplementation):
     StrategyClass = StmDictStrategy
+    GenericDictStrategy = StmDictStrategy
