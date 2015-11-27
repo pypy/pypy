@@ -95,21 +95,13 @@ class DictDef(object):
 
     def read_key(self, position_key=None):
         if position_key is None:
-            if self.bookkeeper is None:   # for tests
-                from rpython.annotator.bookkeeper import getbookkeeper
-                position_key = getbookkeeper().position_key
-            else:
-                position_key = self.bookkeeper.position_key
+            position_key = self.bookkeeper.position_key
         self.dictkey.read_locations[position_key] = True
         return self.dictkey.s_value
 
     def read_value(self, position_key=None):
         if position_key is None:
-            if self.bookkeeper is None:   # for tests
-                from rpython.annotator.bookkeeper import getbookkeeper
-                position_key = getbookkeeper().position_key
-            else:
-                position_key = self.bookkeeper.position_key
+            position_key = self.bookkeeper.position_key
         self.dictvalue.read_locations[position_key] = True
         return self.dictvalue.s_value
 

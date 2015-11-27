@@ -41,8 +41,8 @@ def dictvalue(s_dict):
     assert isinstance(s_dict, annmodel.SomeDict)
     return s_dict.dictdef.dictvalue.s_value
 
-def somedict(s_key, s_value):
-    return annmodel.SomeDict(DictDef(None, s_key, s_value))
+def somedict(annotator, s_key, s_value):
+    return annmodel.SomeDict(DictDef(annotator.bookkeeper, s_key, s_value))
 
 
 class TestAnnotateTestCase:
@@ -586,7 +586,7 @@ class TestAnnotateTestCase:
 
     def test_simple_iter_dict(self):
         a = self.RPythonAnnotator()
-        t = somedict(annmodel.SomeInteger(), annmodel.SomeInteger())
+        t = somedict(a, annmodel.SomeInteger(), annmodel.SomeInteger())
         s = a.build_types(snippet.simple_iter, [t])
         assert isinstance(s, annmodel.SomeIterator)
 
@@ -602,7 +602,7 @@ class TestAnnotateTestCase:
 
     def test_dict_copy(self):
         a = self.RPythonAnnotator()
-        t = somedict(annmodel.SomeInteger(), annmodel.SomeInteger())
+        t = somedict(a, annmodel.SomeInteger(), annmodel.SomeInteger())
         s = a.build_types(snippet.dict_copy, [t])
         assert isinstance(dictkey(s), annmodel.SomeInteger)
         assert isinstance(dictvalue(s), annmodel.SomeInteger)
@@ -1430,7 +1430,7 @@ class TestAnnotateTestCase:
             except KeyError:
                 raise
         a = self.RPythonAnnotator()
-        a.build_types(f, [somedict(annmodel.s_Int, annmodel.s_Int)])
+        a.build_types(f, [somedict(a, annmodel.s_Int, annmodel.s_Int)])
         fg = graphof(a, f)
         et, ev = fg.exceptblock.inputargs
         t = annmodel.SomeTypeOf([ev])
@@ -1446,7 +1446,7 @@ class TestAnnotateTestCase:
             except:
                 raise
         a = self.RPythonAnnotator()
-        a.build_types(f, [somedict(annmodel.s_Int, annmodel.s_Int)])
+        a.build_types(f, [somedict(a, annmodel.s_Int, annmodel.s_Int)])
         fg = graphof(a, f)
         et, ev = fg.exceptblock.inputargs
         t = annmodel.SomeTypeOf([ev])
