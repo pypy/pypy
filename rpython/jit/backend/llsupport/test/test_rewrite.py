@@ -91,6 +91,12 @@ class RewriteTests(object):
         itzdescr = get_interiorfield_descr(self.gc_ll_descr, S1I, 'z')
         itydescr = get_interiorfield_descr(self.gc_ll_descr, S1I, 'y')
         itxdescr = get_interiorfield_descr(self.gc_ll_descr, S1I, 'x')
+        R1 = lltype.GcStruct('R', ('x', lltype.Signed),
+                                  ('y', lltype.Float),
+                                  ('z', lltype.Ptr(S1)))
+        xdescr = get_field_descr(self.gc_ll_descr, R1, 'x')
+        ydescr = get_field_descr(self.gc_ll_descr, R1, 'y')
+        zdescr = get_field_descr(self.gc_ll_descr, R1, 'z')
         #
         E = lltype.GcStruct('Empty')
         edescr = get_size_descr(self.gc_ll_descr, E)
@@ -1147,10 +1153,19 @@ class TestFramework(RewriteTests):
         [True, (1,2,4,8), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)->gc_store_indexed(p0,i1,i2,1,8,4)'],
         [False, (1,), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)' '->'
                       'i5 = int_add(i1,8);gc_store(p0,i5,i2,4)'],
-        [True, (1,2,4,8), 'i3 = getinteriorfield_gc_i(p0,i1,descr=itzdescr)' '->'
-                          'i3 = gc_load_indexed_i(p0,i1,1,24,8)'],
-        [True, (1,2,4,8), 'i3 = getinteriorfield_gc_r(p0,i1,descr=itxdescr)' '->'
-                          'i3 = gc_load_indexed_r(p0,i1,1,8,8)'],
+        #[True, (1,2,4,8), 'i3 = getinteriorfield_gc_i(p0,i1,descr=itzdescr)' '->'
+        #                  'i3 = gc_load_indexed_i(p0,i1,1,24,8)'],
+        #[True, (1,2,4,8), 'i3 = getfield_gc_f(p0,descr=ydescr)' '->'
+        #                  'i3 = gc_load_indexed_f(p0,0,1,8,8)'],
+        #[True, (1,2,4,8), 'i3 = getinteriorfield_gc_r(p0,i1,descr=itxdescr)' '->'
+        #                  'i3 = gc_load_indexed_r(p0,i1,1,8,8)'],
+        [True, (1,2,4,8), 'i3 = getfield_gc_f(p0,descr=ydescr)' '->'
+                          'i3 = gc_load_indexed_f(p0,0,1,8,8)'],
+        [True, (1,2,4,8), 'i3 = setfield_raw(p0,i1,descr=ydescr)' '->'
+                          'i3 = gc_store_indexed(p0,0,i1,1,8,8)'],
+        [True, (1,2,4,8), 'i3 = setfield_gc(p0,p0,descr=zdescr)' '->'
+                          'cond_call_gc_wb(p0, descr=wbdescr);'
+                          'i3 = gc_store_indexed(p0,0,p0,1,16,8)'],
     ])
     def test_gc_load_store_transform(self, support_offset, factors, fromto):
         self.cpu.load_constant_offset = support_offset

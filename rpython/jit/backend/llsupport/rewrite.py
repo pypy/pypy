@@ -198,12 +198,37 @@ class GcRewriterAssembler(object):
             ptr_box = op.getarg(0)
             index_box = op.getarg(1)
             self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, 1, ofs, sign)
-        elif op.getopnum() in (rop.GETINTERIORFIELD_GC_I, rop.GETINTERIORFIELD_GC_R,
-                               rop.GETINTERIORFIELD_GC_F):
-            ofs, itemsize, fieldsize, sign = unpack_interiorfielddescr(op.getdescr())
+        #elif op.getopnum() in (rop.GETINTERIORFIELD_GC_I, rop.GETINTERIORFIELD_GC_R,
+        #                       rop.GETINTERIORFIELD_GC_F):
+        #    ofs, itemsize, fieldsize, sign = unpack_interiorfielddescr(op.getdescr())
+        #    ptr_box = op.getarg(0)
+        #    index_box = op.getarg(1)
+        #    self.emit_gc_load_or_indexed(op, ptr_box, index_box, fieldsize, 1, ofs, sign)
+        #    # TODO not working yet
+        elif op.getopnum() in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R,
+                               rop.GETFIELD_GC_PURE_I, rop.GETFIELD_GC_PURE_F, rop.GETFIELD_GC_PURE_R,
+                               rop.GETFIELD_RAW_I, rop.GETFIELD_RAW_F, rop.GETFIELD_RAW_R):
+            ofs, itemsize, sign = unpack_fielddescr(op.getdescr())
             ptr_box = op.getarg(0)
-            index_box = op.getarg(1)
-            self.emit_gc_load_or_indexed(op, ptr_box, index_box, fieldsize, 1, ofs, sign)
+            if op.getopnum() in (rop.GETFIELD_GC_F, rop.GETFIELD_GC_I, rop.GETFIELD_GC_R):
+                # See test_zero_ptr_field_before_getfield().  We hope there is
+                # no getfield_gc in the middle of initialization code, but there
+                # shouldn't be, given that a 'new' is already delayed by previous
+                # optimization steps.  In practice it should immediately be
+                # followed by a bunch of 'setfields', and the 'pending_zeros'
+                # optimization we do here is meant for this case.
+                self.emit_pending_zeros()
+                self.emit_gc_load_or_indexed(op, ptr_box, ConstInt(0), itemsize, 1, ofs, sign)
+                self.emit_op(op)
+                return True
+            self.emit_gc_load_or_indexed(op, ptr_box, ConstInt(0), itemsize, 1, ofs, sign)
+        elif op.getopnum() in (rop.SETFIELD_GC, rop.SETFIELD_RAW):
+            ofs, itemsize, sign = unpack_fielddescr(op.getdescr())
+            ptr_box = op.getarg(0)
+            value_box = op.getarg(1)
+            self.emit_gc_store_or_indexed(op, ptr_box, ConstInt(0), value_box, itemsize, 1, ofs)
+        return False
+
 
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly
@@ -222,12 +247,7 @@ class GcRewriterAssembler(object):
             if op is self._changed_op:
                 op = self._changed_op_to
             # ---------- GC_LOAD --------------
-            self.transform_to_gc_load(op)
-            # TODO
-            # ---------- GETFIELD_GC ----------
-            if op.getopnum() in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
-                                 rop.GETFIELD_GC_R):
-                self.handle_getfield_gc(op)
+            if self.transform_to_gc_load(op):
                 continue
             # ---------- turn NEWxxx into CALL_MALLOC_xxx ----------
             if op.is_malloc():
@@ -314,18 +334,6 @@ class GcRewriterAssembler(object):
         newop.setfailargs(lst)
         self._changed_op = op
         self._changed_op_to = newop
-
-    # ----------
-
-    def handle_getfield_gc(self, op):
-        """See test_zero_ptr_field_before_getfield().  We hope there is
-        no getfield_gc in the middle of initialization code, but there
-        shouldn't be, given that a 'new' is already delayed by previous
-        optimization steps.  In practice it should immediately be
-        followed by a bunch of 'setfields', and the 'pending_zeros'
-        optimization we do here is meant for this case."""
-        self.emit_pending_zeros()
-        self.emit_op(op)
 
     # ----------
 
