@@ -1,8 +1,11 @@
 import pytest
 
-from rpython.annotator.model import *
-from rpython.annotator.listdef import ListDef
+from rpython.flowspace.model import Variable
+from rpython.flowspace.operation import op
 from rpython.translator.translator import TranslationContext
+from rpython.annotator.model import *
+from rpython.annotator.annrpython import BlockedInference
+from rpython.annotator.listdef import ListDef
 from rpython.annotator import unaryop, binaryop  # for side-effects
 
 @pytest.fixture()
@@ -151,3 +154,35 @@ def test_SomeException_union(annotator):
     s_exc1 = bk.new_exception([ValueError])
     s_exc2 = bk.new_exception([IndexError])
     unionof(s_exc1, s_exc2) == unionof(s_exc2, s_exc1)
+
+def contains_s(s_a, s_b):
+    if s_b is None:
+        return True
+    elif s_a is None:
+        return False
+    else:
+        return s_a.contains(s_b)
+
+def test_generalize_getitem(annotator):
+    bk = annotator.bookkeeper
+    v_dict, v_key = Variable(), Variable()
+    v_key.annotation = SomeInteger()
+    v_dict.annotation = s_None
+    hlop = op.getitem(v_dict, v_key)
+    try:
+        annotator.consider_op(hlop)
+    except BlockedInference:
+        # BlockedInference only stops annotation along the normal path,
+        # but not along the exceptional one.
+        pass
+    v_result = hlop.result
+    s_result = v_result.annotation
+    s_result_exc = annotator.get_exception(hlop)
+    with bk.at_position(None):
+        annotator.setbinding(v_dict, bk.newdict())
+        try:
+            annotator.consider_op(hlop)
+        except BlockedInference:
+            pass
+    assert contains_s(v_result.annotation, s_result)
+    assert contains_s(annotator.get_exception(hlop), s_result_exc)
