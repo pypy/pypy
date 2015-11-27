@@ -5,7 +5,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.jit.metainterp.resume import ResumeDataVirtualAdder,\
      AbstractResumeDataReader, get_VirtualCache_class, ResumeDataBoxReader,\
      tag, TagOverflow, untag, tagged_eq, UNASSIGNED, TAGBOX, TAGVIRTUAL,\
-     tagged_list_eq, AbstractVirtualInfo, NUMBERING, TAGCONST, NULLREF,\
+     tagged_list_eq, AbstractVirtualInfo, TAGCONST, NULLREF,\
      ResumeDataDirectReader, TAGINT, REF, VirtualInfo, VStructInfo,\
      VArrayInfoNotClear, VStrPlainInfo, VStrConcatInfo, VStrSliceInfo,\
      VUniPlainInfo, VUniConcatInfo, VUniSliceInfo, Snapshot, FrameInfo,\

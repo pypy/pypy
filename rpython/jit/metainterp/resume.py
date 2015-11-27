@@ -185,10 +185,10 @@ TAGINT      = 1
 TAGBOX      = 2
 TAGVIRTUAL  = 3
 
-UNASSIGNED = tag(-1, TAGBOX)
-UNASSIGNEDVIRTUAL = tag(-1, TAGVIRTUAL)
+UNASSIGNED = tag(-1 << 13, TAGBOX)
+UNASSIGNEDVIRTUAL = tag(-1 << 13, TAGVIRTUAL)
 NULLREF = tag(-1, TAGCONST)
-UNINITIALIZED = tag(2, TAGCONST)   # used for uninitialized string characters
+UNINITIALIZED = tag(-2, TAGCONST)   # used for uninitialized string characters
 TAG_CONST_OFFSET = 0
 
 class NumberingState(object):
@@ -580,7 +580,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
 
         if self._invalidation_needed(len(liveboxes), nholes):
             memo.clear_box_virtual_numbers()
-
+        
     def _invalidation_needed(self, nliveboxes, nholes):
         memo = self.memo
         # xxx heuristic a bit out of thin air
