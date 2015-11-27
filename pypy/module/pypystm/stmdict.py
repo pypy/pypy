@@ -7,7 +7,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 
-from rpython.rlib import rstm, jit, rgc, rerased
+from rpython.rlib import rstm, jit, rgc, rerased, objectmodel
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
@@ -17,6 +17,12 @@ PARRAY = lltype.Ptr(ARRAY)
 erase, unerase = rerased.new_erasing_pair("stmdictitem")
 
 
+def compares_by_identity(space, w_key):
+    try:
+        return space.type(w_key).compares_by_identity()
+    except AttributeError:
+        return False    # for non-translated tests
+
 # XXX: should have identity-dict strategy
 def really_find_equal_item(space, h, w_key):
     hkey = space.hash_w(w_key)
@@ -24,7 +30,7 @@ def really_find_equal_item(space, h, w_key):
     array = lltype.cast_opaque_ptr(PARRAY, entry.object)
     if not array:
         return (entry, array, -1)
-    if space.type(w_key).compares_by_identity():
+    if compares_by_identity(space, w_key):
         # fastpath
         return (entry, array, _find_equal_item(space, array, w_key))
     # slowpath
@@ -32,7 +38,7 @@ def really_find_equal_item(space, h, w_key):
 
 @jit.dont_look_inside
 def _really_find_equal_item_loop(space, h, w_key, entry, array, hkey):
-    assert not space.type(w_key).compares_by_identity() # assume it stays that way
+    assert not compares_by_identity(space, w_key) # assume it stays that way
     while True:
         assert array
         i = _find_equal_item(space, array, w_key)
@@ -238,21 +244,49 @@ class W_STMDict(W_Root):
         return space.newlist(self.get_items_w(space))
 
     def iterkeys_w(self, space):
-        return W_STMDictIterKeys(self.h)
+        return W_STMDictIterKeys(space, self.h)
 
     def itervalues_w(self, space):
-        return W_STMDictIterValues(self.h)
+        return W_STMDictIterValues(space, self.h)
 
     def iteritems_w(self, space):
-        return W_STMDictIterItems(self.h)
+        return W_STMDictIterItems(space, self.h)
 
 
-class W_BaseSTMDictIter(W_Root):
+class BaseSTMDictIter:
     _immutable_fields_ = ["hiter"]
     next_from_same_hash = 0
 
-    def __init__(self, hobj):
+    def __init__(self, space, hobj):
+        self.space = space
         self.hiter = hobj.iterentries()
+
+    def next(self):
+        if self.next_from_same_hash == 0:      # common case
+            try:
+                entry = self.hiter.next()
+            except StopIteration:
+                space = self.space
+                raise OperationError(space.w_StopIteration, space.w_None)
+            index = 0
+            array = lltype.cast_opaque_ptr(PARRAY, entry.object)
+            hash = entry.index
+        else:
+            index = self.next_from_same_hash
+            array = self.next_array
+            hash = self.next_hash
+            self.next_from_same_hash = 0
+            self.next_array = lltype.nullptr(ARRAY)
+        #
+        if len(array) > index + 2:      # uncommon case
+            self.next_from_same_hash = index + 2
+            self.next_array = array
+            self.next_hash = hash
+        #
+        return self.get_final_value(hash, array, index)
+
+class W_BaseSTMDictIter(W_Root):
+    objectmodel.import_from_mixin(BaseSTMDictIter)
 
     def descr_iter(self, space):
         return self
@@ -264,40 +298,23 @@ class W_BaseSTMDictIter(W_Root):
         return space.wrap(self.hiter.hashtable.len_estimate())
 
     def descr_next(self, space):
-        if self.next_from_same_hash == 0:      # common case
-            try:
-                entry = self.hiter.next()
-            except StopIteration:
-                raise OperationError(space.w_StopIteration, space.w_None)
-            index = 0
-            array = lltype.cast_opaque_ptr(PARRAY, entry.object)
-        else:
-            index = self.next_from_same_hash
-            array = self.next_array
-            self.next_from_same_hash = 0
-            self.next_array = lltype.nullptr(ARRAY)
-        #
-        if len(array) > index + 2:      # uncommon case
-            self.next_from_same_hash = index + 2
-            self.next_array = array
-        #
-        return self.get_final_value(space, array, index)
+        return self.next()
 
     def _cleanup_(self):
         raise Exception("seeing a prebuilt %r object" % (
             self.__class__,))
 
 class W_STMDictIterKeys(W_BaseSTMDictIter):
-    def get_final_value(self, space, array, index):
+    def get_final_value(self, hash, array, index):
         return unerase(array[index])
 
 class W_STMDictIterValues(W_BaseSTMDictIter):
-    def get_final_value(self, space, array, index):
+    def get_final_value(self, hash, array, index):
         return unerase(array[index + 1])
 
 class W_STMDictIterItems(W_BaseSTMDictIter):
-    def get_final_value(self, space, array, index):
-        return space.newtuple([
+    def get_final_value(self, hash, array, index):
+        return self.space.newtuple([
             unerase(array[index]),
             unerase(array[index + 1])])
 
