@@ -196,3 +196,21 @@ def test_generalize_getitem_list(annotator):
     s_value2, s_exc2 = annotate_op(annotator, hlop, [s_empty_list, s_int])
     assert contains_s(s_value2, s_value)
     assert contains_s(s_exc2, s_exc)
+
+def test_generalize_getitem_string(annotator):
+    hlop = op.getitem(Variable(), Variable())
+    s_int = SomeInteger()
+    s_str = SomeString(can_be_None=True)
+    s_value, s_exc = annotate_op(annotator, hlop, [s_None, s_int])
+    s_value2, s_exc2 = annotate_op(annotator, hlop, [s_str, s_int])
+    assert contains_s(s_value2, s_value)
+    assert contains_s(s_exc2, s_exc)
+
+def test_generalize_string_concat(annotator):
+    hlop = op.add(Variable(), Variable())
+    s_str = SomeString(can_be_None=True)
+    s_value, s_exc = annotate_op(annotator, hlop, [s_None, s_str])
+    s_value2, s_exc2 = annotate_op(annotator, hlop, [s_str, s_str])
+    assert contains_s(s_value2, s_value)
+    assert contains_s(s_exc2, s_exc)
+
