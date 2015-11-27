@@ -55,13 +55,18 @@ class W_DictMultiObject(W_Root):
         elif space.config.objspace.std.withmapdict and instance:
             from pypy.objspace.std.mapdict import MapDictStrategy
             strategy = space.fromcache(MapDictStrategy)
+        elif space.config.objspace.std.withstmdict:
+            if kwargs:    # xxx don't use EmptyKwargsDictStrategy, but
+                          # using KwargsDictStrategy is fine
+                from pypy.objspace.std.kwargsdict import KwargsDictStrategy
+                strategy = space.fromcache(KwargsDictStrategy)
+            else:
+                from pypy.objspace.std.stmdict import StmDictStrategy
+                strategy = space.fromcache(StmDictStrategy)
         elif kwargs:
             assert w_type is None
             from pypy.objspace.std.kwargsdict import EmptyKwargsDictStrategy
             strategy = space.fromcache(EmptyKwargsDictStrategy)
-        elif space.config.objspace.std.withstmdict:
-            from pypy.objspace.std.stmdict import StmDictStrategy
-            strategy = space.fromcache(StmDictStrategy)
         elif instance or strdict or module:
             assert w_type is None
             strategy = space.fromcache(BytesDictStrategy)

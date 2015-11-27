@@ -9,6 +9,7 @@ class Config:
             withmethodcache = False
             withidentitydict = False
             withmapdict = True
+            withstmdict = False
 
 space = FakeSpace()
 space.config = Config
