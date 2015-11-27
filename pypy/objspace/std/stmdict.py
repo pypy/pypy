@@ -53,6 +53,20 @@ class StmDictStrategy(DictStrategy):
     def clear(self, w_dict):
         w_dict.dstorage = self.get_empty_storage()
 
+    def w_keys(self, w_dict):
+        space = self.space
+        h = self.unerase(w_dict.dstorage)
+        return space.newlist(stmdict.get_keys_values_w(space, h, offset=0))
+
+    def values(self, w_dict):
+        h = self.unerase(w_dict.dstorage)
+        return stmdict.get_keys_values_w(self.space, h, offset=1)
+
+    def items(self, w_dict):
+        space = self.space
+        h = self.unerase(w_dict.dstorage)
+        return space.newlist(stmdict.get_items_w(space, h))
+
 
 class BaseStmDictIter(object):
     objectmodel.import_from_mixin(stmdict.BaseSTMDictIter)

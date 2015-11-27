@@ -163,6 +163,36 @@ def get_length(space, h):
         total_length_times_two += len(subarray)
     return total_length_times_two >> 1
 
+def get_keys_values_w(space, h, offset):
+    # offset is 0 (for keys) or 1 (for values)
+    array, count = h.list()
+    result_list_w = []
+    for i in range(count):
+        subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+        assert subarray
+        j = offset
+        limit = len(subarray)
+        while j < limit:
+            w_item = unerase(subarray[j])
+            result_list_w.append(w_item)
+            j += 2
+    return result_list_w
+
+def get_items_w(space, h):
+    array, count = h.list()
+    result_list_w = []
+    for i in range(count):
+        subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
+        assert subarray
+        j = 0
+        limit = len(subarray)
+        while j < limit:
+            w_key = unerase(subarray[j])
+            w_value = unerase(subarray[j + 1])
+            result_list_w.append(space.newtuple([w_key, w_value]))
+            j += 2
+    return result_list_w
+
 
 class W_STMDict(W_Root):
 
@@ -204,46 +234,17 @@ class W_STMDict(W_Root):
     def setdefault_w(self, space, w_key, w_default):
         return setdefault(space, self.h, w_key, w_default)
 
-    def get_keys_values_w(self, offset):
-        array, count = self.h.list()
-        result_list_w = []
-        for i in range(count):
-            subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
-            assert subarray
-            j = offset
-            limit = len(subarray)
-            while j < limit:
-                w_item = unerase(subarray[j])
-                result_list_w.append(w_item)
-                j += 2
-        return result_list_w
-
-    def get_items_w(self, space):
-        array, count = self.h.list()
-        result_list_w = []
-        for i in range(count):
-            subarray = lltype.cast_opaque_ptr(PARRAY, array[i].object)
-            assert subarray
-            j = 0
-            limit = len(subarray)
-            while j < limit:
-                w_key = unerase(subarray[j])
-                w_value = unerase(subarray[j + 1])
-                result_list_w.append(space.newtuple([w_key, w_value]))
-                j += 2
-        return result_list_w
-
     def len_w(self, space):
         return space.wrap(get_length(space, self.h))
 
     def keys_w(self, space):
-        return space.newlist(self.get_keys_values_w(offset=0))
+        return space.newlist(get_keys_values_w(space, self.h, offset=0))
 
     def values_w(self, space):
-        return space.newlist(self.get_keys_values_w(offset=1))
+        return space.newlist(get_keys_values_w(space, self.h, offset=1))
 
     def items_w(self, space):
-        return space.newlist(self.get_items_w(space))
+        return space.newlist(get_items_w(space, self.h))
 
     def iterkeys_w(self, space):
         return W_STMDictIterKeys(space, self.h)
