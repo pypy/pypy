@@ -1495,6 +1495,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         base_loc, ofs_loc, scale_loc, offset_loc, size_loc, sign_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         scale = get_scale(size_loc.value)
+        print("get", resloc ,"=", base_loc, "[(", ofs_loc, "*", scale_loc,  ") +", offset_loc, "]")
         src_addr = addr_add(base_loc, ofs_loc, offset_loc.value, scale)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
@@ -1588,14 +1589,15 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         base_loc, ofs_loc, size_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         scale = get_scale(size_loc.value)
-        dest_addr = addr_add(base_loc, ofs_loc, 0, 0)
+        dest_addr = AddressLoc(base_loc, ofs_loc, 0, 0)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
     def genop_discard_gc_store_indexed(self, op, arglocs):
-        base_loc, ofs_loc, value_loc, scale_loc, offset_loc, size_loc = arglocs
+        base_loc, ofs_loc, value_loc, factor_loc, offset_loc, size_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
-        scale = get_scale(scale_loc.value)
-        dest_addr = addr_add(base_loc, ofs_loc, offset_loc.value, scale)
+        scale = get_scale(factor_loc.value)
+        print("set", base_loc, "[(", ofs_loc, "*", factor_loc,  ") +", offset_loc, "]", "=",value_loc)
+        dest_addr = AddressLoc(base_loc, ofs_loc, scale, offset_loc.value)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
     def genop_discard_strsetitem(self, op, arglocs):

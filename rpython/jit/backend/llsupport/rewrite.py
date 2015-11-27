@@ -114,12 +114,12 @@ class GcRewriterAssembler(object):
         op.set_forwarded(newop)
 
     def handle_setarrayitem(self, op):
-        itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
+        itemsize, basesize, _ = unpack_arraydescr(op.getdescr())
         ptr_box = op.getarg(0)
         index_box = op.getarg(1)
         value_box = op.getarg(2)
         self.emit_gc_store_or_indexed(op, ptr_box, index_box, value_box,
-                                      itemsize, itemsize, ofs)
+                                      itemsize, itemsize, basesize)
 
     def emit_gc_store_or_indexed(self, op, ptr_box, index_box, value_box,
                                  itemsize, factor, offset):
