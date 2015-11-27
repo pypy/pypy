@@ -1,8 +1,19 @@
 from rpython.translator.backendopt import graphanalyze
-from rpython.translator.stm.breakfinder import TRANSACTION_BREAK
 # This is not an optimization. It checks for possible releases of the
 # GIL in all graphs starting from rgc.no_release_gil.
 
+
+TRANSACTION_BREAK = set([
+    'stm_enter_transactional_zone',
+    'stm_leave_transactional_zone',
+    'stm_hint_commit_soon',
+    'jit_assembler_call',
+    'stm_enter_callback_call',
+    'stm_leave_callback_call',
+    'stm_transaction_break',
+    'stm_queue_get',
+    'stm_queue_join',
+    ])
 
 class GilAnalyzer(graphanalyze.BoolGraphAnalyzer):
 
