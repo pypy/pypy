@@ -179,6 +179,17 @@ class GcRewriterAssembler(object):
             newload = ResOperation(OpHelpers.get_gc_load_indexed(op.type), args)
         self.replace_op_with(op, newload)
 
+    def transform_to_gc_load(self, op):
+        if op.is_getarrayitem() or \
+           op.getopnum() in (rop.GETARRAYITEM_RAW_I,
+                             rop.GETARRAYITEM_RAW_F):
+            self.handle_getarrayitem(op)
+        if op.getopnum() in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW,
+                             rop.RAW_STORE):
+            self.handle_setarrayitem(op)
+        if op.getopnum() in (rop.RAW_LOAD_I, rop.RAW_LOAD_F):
+            self.handle_rawload(op)
+
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly
         # collect; but we can try to collapse several known-size mallocs into
@@ -196,15 +207,7 @@ class GcRewriterAssembler(object):
             if op is self._changed_op:
                 op = self._changed_op_to
             # ---------- GC_LOAD --------------
-            if op.is_getarrayitem() or \
-               op.getopnum() in (rop.GETARRAYITEM_RAW_I,
-                                 rop.GETARRAYITEM_RAW_F):
-                self.handle_getarrayitem(op)
-            if op.getopnum() in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW,
-                                 rop.RAW_STORE):
-                self.handle_setarrayitem(op)
-            if op.getopnum() in (rop.RAW_LOAD_I, rop.RAW_LOAD_F):
-                self.handle_rawload(op)
+            self.transform_to_gc_load(op)
             # TODO
             # ---------- GETFIELD_GC ----------
             if op.getopnum() in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
@@ -503,10 +506,15 @@ class GcRewriterAssembler(object):
             assert self.cpu.JITFRAME_FIXED_SIZE & 1 == 0
             _, itemsize, _ = self.cpu.unpack_arraydescr_size(descr)
             index = index_list[i] // itemsize # index is in bytes
-            self.emit_op(ResOperation(rop.SETARRAYITEM_GC,
-                                            [frame, ConstInt(index),
-                                             arg],
-                                            descr))
+            # emit GC_LOAD_INDEXED
+            itemsize, basesize, _ = unpack_arraydescr(descr)
+            factor, offset, index_box = \
+                    self._emit_mul_add_if_factor_offset_not_supported(ConstInt(index),
+                            itemsize, basesize)
+            args = [frame, index_box, arg, ConstInt(factor),
+                    ConstInt(offset), ConstInt(itemsize)]
+            self.emit_op(ResOperation(rop.GC_STORE_INDEXED, args))
+
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd

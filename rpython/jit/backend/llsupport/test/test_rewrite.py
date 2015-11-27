@@ -892,10 +892,10 @@ class TestFramework(RewriteTests):
             setfield_gc(p0, 8111, descr=tiddescr)
             setfield_gc(p0, 5, descr=clendescr)
             zero_array(p0, 1, 4, descr=cdescr)
-            setarrayitem_gc(p0, 0, p1, descr=cdescr)
+            gc_store_indexed(p0, 0, p1, 8, 8, 8)
             call_n(321321)
             cond_call_gc_wb(p0, descr=wbdescr)
-            setarrayitem_gc(p0, 1, p2, descr=cdescr)
+            gc_store_indexed(p0, 1, p2, 8, 8, 8)
             jump()
         """)
 
@@ -914,10 +914,10 @@ class TestFramework(RewriteTests):
             setfield_gc(p0, 8111, descr=tiddescr)
             setfield_gc(p0, 5, descr=clendescr)
             zero_array(p0, 1, 4, descr=cdescr)
-            setarrayitem_gc(p0, 0, p1, descr=cdescr)
+            gc_store_indexed(p0, 0, p1, 8, 8, 8)
             label(p0, p2)
             cond_call_gc_wb_array(p0, 1, descr=wbdescr)
-            setarrayitem_gc(p0, 1, p2, descr=cdescr)
+            gc_store_indexed(p0, 1, p2, 8, 8, 8)
             jump()
         """)
 
@@ -946,7 +946,7 @@ class TestFramework(RewriteTests):
             setfield_gc(p0, i3, descr=blendescr)
             zero_array(p0, 0, i3, descr=bdescr)
             cond_call_gc_wb_array(p0, 0, descr=wbdescr)
-            setarrayitem_gc(p0, 0, p1, descr=bdescr)
+            gc_store_indexed(p0, 0, p1, 1, 8, 1)
             jump()
         """)
 
@@ -964,7 +964,7 @@ class TestFramework(RewriteTests):
             p0 = call_malloc_nursery_varsize(0, 1, i0, descr=bdescr)
             setfield_gc(p0, i0, descr=blendescr)
             cond_call_gc_wb_array(p0, i2, descr=wbdescr)
-            setarrayitem_gc(p0, i2, p1, descr=bdescr)
+            gc_store_indexed(p0, i2, p1, 1, 8, 1)
             jump()
         """)
 
@@ -1039,8 +1039,8 @@ class TestFramework(RewriteTests):
         setfield_gc(p1, NULL, descr=jf_forward)
         setfield_gc(p1, i2, descr=framelendescr)
         setfield_gc(p1, ConstClass(frame_info), descr=jf_frame_info)
-        setarrayitem_gc(p1, 0, i0, descr=signedframedescr)
-        setarrayitem_gc(p1, 1, f0, descr=floatframedescr)
+        gc_store_indexed(p1, 0, i0, 8, 3, 8)
+        gc_store_indexed(p1, 1, f0, 8, 5, 8)
         i3 = call_assembler_i(p1, descr=casmdescr)
         """)
 
@@ -1122,83 +1122,34 @@ class TestFramework(RewriteTests):
             jump()
         """)
 
-    @py.test.mark.parametrize('factors,suffix,ops,index,descr,params', [
-        [ (1,), 'i', ['i2 = int_mul(i1,8)'], 'i2', 'adescr', (-8,) ],
-        [ (1,), 'f', ['i2 = int_mul(i1,8)'], 'i2', 'fdescr', (8,) ],
-        [ (1,), 'i', ['i2 = int_mul(i1,4)'], 'i2', 'sfdescr', (4,) ],
-        [ (1,), 'r', ['i2 = int_mul(i1,8)'], 'i2', 'cdescr', (8,) ],
-        [ (1,2), 'indexed_i', [''], 'i1', 'a16descr', (2, 0, -2) ],
-        [ (1,2), 'i', ['i2 = int_mul(i1,4)'], 'i2', 'a32descr', (-4,) ],
-        [ (1,2,4), 'indexed_i', [''], 'i1', 'a32descr', (4,0,-4) ],
-        [ (1,2,4,8), 'indexed_i', [''], 'i1', 'adescr', (8,0,-8) ],
-        [ (1,2,4,8), 'i', [''], 'i1', 'a8descr', (-1,) ],
-        # unsigned
-        [ (1,2), 'indexed_i', [''], 'i1', 'ua16descr', (2, 0, 2) ],
-        [ (1,2), 'i', ['i2 = int_mul(i1,4)'], 'i2', 'ua32descr', (4,) ],
-        [ (1,2,4), 'indexed_i', [''], 'i1', 'ua32descr', (4,0,4) ],
-        [ (1,2,4,8), 'indexed_i', [''], 'i1', 'uadescr', (8,0,8) ],
-        [ (1,2,4,8), 'i', [''], 'i1', 'ua8descr', (1,) ],
-    ])
-    def test_getarrayitem(self, factors, suffix, ops, index, descr, params):
-        self.cpu.load_supported_factors = factors
-        ops = '\n'.join(ops)
-        params = ','.join([str(i) for i in params])
-        getarray_suffix = suffix
-        if suffix.startswith('indexed_'):
-            getarray_suffix = suffix[-1:]
-        self.check_rewrite("""
-            [p0,i1]
-            i2 = getarrayitem_gc_{getarray_suffix}(p0,i1,descr={descr})
-            jump()
-        """.format(**locals()), """
-            [p0,i1]
-            {ops}
-            i3 = gc_load_{suffix}(p0,{index},{params})
-            jump()
-        """.format(**locals()))
-
-    @py.test.mark.parametrize('fromto', [
-        'raw_load_i(p0,i1,descr=adescr) -> gc_load_i(p0,i1,-8)',
-        'raw_load_f(p0,i1,descr=fdescr) -> gc_load_f(p0,i1,8)',
-        'raw_load_i(p0,i1,descr=sfdescr) -> gc_load_i(p0,i1,4)',
-    ])
-    def test_raw_load_rewrite(self, fromto):
-        for factor in [(1,), (1,2,4,8), (1,2,4), (1,4)]:
-            self.cpu.load_supported_factors = factor
-            f, t = fromto.split(' -> ')
-            self.check_rewrite("""
-                [p0,i1]
-                i2 = {f}
-                jump()
-            """.format(**locals()), """
-                [p0,i1]
-                i2 = {t}
-                jump()
-            """.format(**locals()))
-
-    @py.test.mark.parametrize('factors,fromto',[
-        [(1,2,4,8), 'setarrayitem_gc(p0,i1,i2,descr=adescr)->'
+    @py.test.mark.parametrize('support_offset,factors,fromto',[
+        [False, (1,2,4,8), 'setarrayitem_gc(p0,i1,i2,descr=adescr)' '->'
                     'i3 = int_add(i1,8);gc_store_indexed(p0,i3,i2,8,0,8)'],
-        [(1,), 'setarrayitem_gc(p0,i1,i2,descr=adescr) ->'
+        [True, (1,2,4,8), 'setarrayitem_gc(p0,i1,i2,descr=adescr)' '->'
+                    'gc_store_indexed(p0,i1,i2,8,8,8)'],
+        [False, (1,), 'setarrayitem_gc(p0,i1,i2,descr=adescr)' '->'
                     'i3 = int_mul(i1,8);'
                     'i4 = int_add(i3,8);'
                     'gc_store(p0,i4,i2,8)'],
+        [True, None, 'i3 = raw_load_i(p0,i1,descr=adescr)->gc_load_indexed_i(p0,i1,1,8,-8)'],
+        [True, None, 'i3 = raw_load_f(p0,i1,descr=fdescr)->gc_load_indexed_f(p0,i1,1,8,8)'],
+        [True, None, 'i3 = raw_load_i(p0,i1,descr=sfdescr)->gc_load_indexed_i(p0,i1,1,8,4)'],
     ])
-    def test_setarrayitem(self, factors, fromto):
-        self.cpu.load_supported_factors = factors
-        f, t = fromto.split('->')
-        t = ('\n' +(' '*12)).join([s for s in t.split(';')])
-        print """
-            [p0,i1,i2]
-            {t}
-            jump()
-        """.format(**locals())
-        self.check_rewrite("""
-            [p0,i1,i2]
-            {f}
-            jump()
-        """.format(**locals()), """
-            [p0,i1,i2]
-            {t}
-            jump()
-        """.format(**locals()))
+    def test_gc_load_store_transform(self, support_offset, factors, fromto):
+        self.cpu.load_constant_offset = support_offset
+        all_supported_sizes = [factors]
+        if not all_supported_sizes:
+            all_supported_sizes = [(1,), (1,2,), (4,), (1,2,4,8)]
+        for factors in all_supported_sizes:
+            self.cpu.load_supported_factors = factors
+            f, t = fromto.split('->')
+            t = ('\n' +(' '*16)).join([s for s in t.split(';')])
+            self.check_rewrite("""
+                [p0,i1,i2]
+                {f}
+                jump()
+            """.format(**locals()), """
+                [p0,i1,i2]
+                {t}
+                jump()
+            """.format(**locals()))
