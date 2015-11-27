@@ -333,7 +333,7 @@ class ResumeDataLoopMemo(object):
             self._number_boxes(snapshot_list[i].boxes, optimizer, state)
 
         numb = resumecode.create_numbering(state.current,
-            lltype.nullptr(resumecode.NUMBERING), 0, len(vref_snapshot.boxes))
+                                           len(vref_snapshot.boxes))
 
         return numb, state.liveboxes, state.v
         

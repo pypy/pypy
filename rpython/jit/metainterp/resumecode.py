@@ -3,31 +3,40 @@
 
 <numb> <numb> <pc> <jitcode> <numb> <numb> <numb> <pc> <jitcode>
 
-until the length of the array, then to the parent at the convinient index.
-numb are encoded in the variable length byte encoding as follows:
-if the first bit is set, then it's the first
-7 bits then the next byte, otherwise it's the next 7 bit.
+until the length of the array.
+
+The interface is only create_numbering/numb_next_item, but! there is a trick
+that uses first_snapshot_size + some knowledge about inside to decode
+virtualref/virtualizable_fields/virtualizable in that order in resume.py.
+
+If the algorithm changes, the part about how to find where virtualizable
+and virtualrefs are to be found
 """
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 NUMBERINGP = lltype.Ptr(lltype.GcForwardReference())
 NUMBERING = lltype.GcStruct('Numbering',
-                            ('prev', NUMBERINGP),
-                            ('prev_index', rffi.USHORT),
+#                            ('prev', NUMBERINGP),
+#                            ('prev_index', rffi.USHORT),
                             ('first_snapshot_size', rffi.USHORT), # ugh, ugly
                             ('code', lltype.Array(rffi.SHORT)))
 NUMBERINGP.TO.become(NUMBERING)
 NULL_NUMBER = lltype.nullptr(NUMBERING)
 
-def create_numbering(lst, prev, prev_index, first_snapshot_size):
+# this is the actually used version
+
+def create_numbering(lst, first_snapshot_size):
     numb = lltype.malloc(NUMBERING, len(lst))
     for i in range(len(lst)):
         numb.code[i] = rffi.cast(rffi.SHORT, lst[i])
-    numb.prev = prev
-    numb.prev_index = rffi.cast(rffi.USHORT, prev_index)
     numb.first_snapshot_size = rffi.cast(rffi.USHORT, first_snapshot_size)
     return numb
+
+def numb_next_item(numb, index):
+    return rffi.cast(lltype.Signed, numb.code[index]), index + 1
+
+# this is the version that can be potentially used
 
 def _create_numbering(lst, prev, prev_index, first_snapshot_size):
     count = 0
@@ -69,9 +78,6 @@ def copy_from_list_to_numb(lst, numb, index):
     while i < len(lst):
         numb.code[i + index] = lst[i]
         i += 1
-
-def numb_next_item(numb, index):
-    return rffi.cast(lltype.Signed, numb.code[index]), index + 1
 
 def _numb_next_item(numb, index):
     one = rffi.cast(lltype.Signed, numb.code[index])

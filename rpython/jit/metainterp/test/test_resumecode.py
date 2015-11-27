@@ -12,5 +12,5 @@ def test_pack_unpack():
         [13000, 12000, 10000, 256, 255, 254, 257, -3, -1000]
     ]
     for l in examples:
-        n = create_numbering(l, NULL_NUMBER, 0)
+        n = create_numbering(l, 0)
         assert unpack_numbering(n) == l
