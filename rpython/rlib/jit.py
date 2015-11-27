@@ -604,7 +604,7 @@ class JitDriver(object):
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
                  name='jitdriver', check_untranslated=True, vectorize=False,
-                 get_unique_id=None, is_main_jitdriver=False):
+                 get_unique_id=None, is_recursive=False):
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -643,7 +643,7 @@ class JitDriver(object):
         self.can_never_inline = can_never_inline
         self.should_unroll_one_iteration = should_unroll_one_iteration
         self.check_untranslated = check_untranslated
-        self.is_main_jitdriver = is_main_jitdriver
+        self.is_recursive = is_recursive
         self.vec = vectorize
 
     def _freeze_(self):

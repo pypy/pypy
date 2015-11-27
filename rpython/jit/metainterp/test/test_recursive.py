@@ -542,7 +542,7 @@ class RecursiveTests:
             return "%s %d %s" % (code, pc, code[pc])
         myjitdriver = JitDriver(greens=['pc', 'code'], reds=['n'],
                                 get_printable_location=p,
-                                is_main_jitdriver=True)
+                                is_recursive=True)
 
         def f(code, n):
             pc = 0

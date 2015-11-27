@@ -1907,7 +1907,7 @@ class MetaInterp(object):
 
     def is_main_jitcode(self, jitcode):
         return (jitcode.jitdriver_sd is not None and
-                jitcode.jitdriver_sd.jitdriver.is_main_jitdriver)
+                jitcode.jitdriver_sd.jitdriver.is_recursive)
         #return self.jitdriver_sd is not None and jitcode is self.jitdriver_sd.mainjitcode
 
     def newframe(self, jitcode, greenkey=None):
