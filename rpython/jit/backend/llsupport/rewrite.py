@@ -477,7 +477,7 @@ class GcRewriterAssembler(object):
             if sign:
                 size = -size
             args = [ConstInt(frame_info), ConstInt(0), ConstInt(1),
-                    ConstInt(ofs), ConstInt(size)],
+                    ConstInt(ofs), ConstInt(size)]
             size = ResOperation(rop.GC_LOAD_INDEXED_I, args)
             self.emit_op(size)
             frame = ResOperation(rop.NEW_ARRAY, [size],
@@ -490,7 +490,7 @@ class GcRewriterAssembler(object):
             if sign:
                 size = -size
             args = [ConstInt(frame_info), ConstInt(0), ConstInt(1),
-                    ConstInt(ofs), ConstInt(size)],
+                    ConstInt(ofs), ConstInt(size)]
             size = ResOperation(rop.GC_LOAD_INDEXED_I, args)
             self.emit_op(size)
             frame = self.gen_malloc_nursery_varsize_frame(size)
@@ -501,7 +501,7 @@ class GcRewriterAssembler(object):
             if sign:
                 size = -size
             args = [ConstInt(frame_info), ConstInt(0), ConstInt(1),
-                    ConstInt(ofs), ConstInt(size)],
+                    ConstInt(ofs), ConstInt(size)]
             length = ResOperation(rop.GC_LOAD_INDEXED_I, args)
             extra_ops = [
                 length,
