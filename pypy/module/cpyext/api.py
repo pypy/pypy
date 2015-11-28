@@ -472,7 +472,7 @@ def build_exported_objects():
         "PyUnicode_Type": "space.w_unicode",
         "PyBaseString_Type": "space.w_basestring",
         "PyDict_Type": "space.w_dict",
-        "PyDictProxy_Type": "space.w_frozendict",
+        "PyDictProxy_Type": "space.type(space.w_NotImplemented)",
         "PyTuple_Type": "space.w_tuple",
         "PyList_Type": "space.w_list",
         "PySet_Type": "space.w_set",

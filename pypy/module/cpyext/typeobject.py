@@ -481,7 +481,7 @@ def type_attach(space, py_obj, w_type):
     """
     Fills a newly allocated PyTypeObject from an existing type.
     """
-    from pypy.module.cpyext.object import PyObject_Del
+    from pypy.module.cpyext.object import PyObject_Free
 
     assert isinstance(w_type, W_TypeObject)
 
@@ -497,8 +497,8 @@ def type_attach(space, py_obj, w_type):
     if space.is_w(w_type, space.w_buffer):
         setup_buffer_buffer_procs(space, pto)
 
-    pto.c_tp_free = llhelper(PyObject_Del.api_func.functype,
-            PyObject_Del.api_func.get_wrapper(space))
+    pto.c_tp_free = llhelper(PyObject_Free.api_func.functype,
+            PyObject_Free.api_func.get_wrapper(space))
     pto.c_tp_alloc = llhelper(PyType_GenericAlloc.api_func.functype,
             PyType_GenericAlloc.api_func.get_wrapper(space))
     if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
