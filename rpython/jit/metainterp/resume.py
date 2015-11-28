@@ -296,17 +296,6 @@ class ResumeDataLoopMemo(object):
         state.v = v
         state.position -= length + 2
 
-#    def _get_prev_snapshot(self, snapshot):
-#        cur_snapshot = snapshot
-#        while True:
-#            try:
-#                return self.numberings[cur_snapshot], cur_snapshot
-#            except KeyError:
-#                pass
-#            cur_snapshot = cur_snapshot.prev
-#            if not cur_snapshot:
-#                return (lltype.nullptr(resumecode.NUMBERING), 0, {}, 0), None
-
     def number(self, optimizer, snapshot, frameinfo):
         # flatten the list
         vref_snapshot = snapshot
