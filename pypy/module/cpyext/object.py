@@ -41,10 +41,6 @@ def _PyObject_NewVar(space, type, itemcount):
         w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
     return py_obj
 
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_Del(space, obj):
-    lltype.free(obj, flavor='raw')
-
 @cpython_api([PyObject], lltype.Void)
 def PyObject_dealloc(space, obj):
     pto = obj.c_ob_type
