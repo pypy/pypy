@@ -504,7 +504,6 @@ manually remove this flag though!
 #define PyType_HasFeature(t,f)  (((t)->tp_flags & (f)) != 0)
 
 /* objimpl.h ----------------------------------------------*/
-#define PyObject_DEL PyObject_Del
 #define PyObject_New(type, typeobj) \
 		( (type *) _PyObject_New(typeobj) )
 #define PyObject_NewVar(type, typeobj, n) \
