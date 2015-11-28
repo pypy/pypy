@@ -29,10 +29,6 @@ PyCompilerFlags = rffi.VOIDP
 _node = rffi.VOIDP
 Py_tracefunc = rffi.VOIDP
 
-@cpython_api([PyObject], lltype.Void)
-def _PyObject_Del(space, op):
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP], Py_ssize_t, error=CANNOT_FAIL)
 def PyBuffer_SizeFromFormat(space, format):
     """Return the implied ~Py_buffer.itemsize from the struct-stype
@@ -438,17 +434,6 @@ def PyDescr_IsData(space, descr):
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyWrapper_New(space, w_d, w_self):
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
-def PyDict_Merge(space, a, b, override):
-    """Iterate over mapping object b adding key-value pairs to dictionary a.
-    b may be a dictionary, or any object supporting PyMapping_Keys()
-    and PyObject_GetItem(). If override is true, existing pairs in a
-    will be replaced if a matching key is found in b, otherwise pairs will
-    only be added if there is not a matching key in a. Return 0 on
-    success or -1 if an exception was raised.
-    """
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
@@ -1563,23 +1548,6 @@ def PyEval_GetFuncDesc(space, func):
     " instance", and " object".  Concatenated with the result of
     PyEval_GetFuncName(), the result will be a description of
     func."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], PyObject)
-def PySequence_InPlaceConcat(space, o1, o2):
-    """Return the concatenation of o1 and o2 on success, and NULL on failure.
-    The operation is done in-place when o1 supports it.  This is the equivalent
-    of the Python expression o1 += o2."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, Py_ssize_t], PyObject)
-def PySequence_InPlaceRepeat(space, o, count):
-    """Return the result of repeating sequence object o count times, or NULL on
-    failure.  The operation is done in-place when o supports it.  This is the
-    equivalent of the Python expression o *= count.
-
-    This function used an int type for count. This might require
-    changes in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)

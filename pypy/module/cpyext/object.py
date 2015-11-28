@@ -228,6 +228,12 @@ def PyObject_Repr(space, w_obj):
         return space.wrap("<NULL>")
     return space.repr(w_obj)
 
+@cpython_api([PyObject, PyObject], PyObject):
+def PyObject_Format(space, w_obj, w_format_spec):
+    if w_format_spec is None:
+        format_spec = space.wrap('')
+    return space.call_method(w_obj, '__format__', format_spec)
+
 @cpython_api([PyObject], PyObject)
 def PyObject_Unicode(space, w_obj):
     """Compute a Unicode string representation of object o.  Returns the Unicode

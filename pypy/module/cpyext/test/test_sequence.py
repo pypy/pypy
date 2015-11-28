@@ -42,6 +42,12 @@ class TestSequence(BaseApiTest):
         w_t2 = space.wrap(range(4, 8))
         assert space.unwrap(api.PySequence_Concat(w_t1, w_t2)) == range(8)
 
+    def test_inplace_concat(self, space, api):
+        assert False # XXX test PySequence_InPlaceContat
+
+    def test_inplace_repeat(self, space, api):
+        assert False # XXX test PySequence_InPlaceRepeat
+
     def test_exception(self, space, api):
         message = rffi.str2charp("message")
         assert not api.PySequence_Fast(space.wrap(3), message)

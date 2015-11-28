@@ -207,6 +207,9 @@ class TestObject(BaseApiTest):
         assert space.isinstance_w(w_dir, space.w_list)
         assert space.is_true(space.contains(w_dir, space.wrap('modules')))
 
+    def test_format(self, space, api):
+        assert False # XXX test PyObject_Format(obj, format)
+
 class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
