@@ -5,7 +5,7 @@ from rpython.rlib.rarithmetic import intmask, r_uint
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import (
-    W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
+    W_DictMultiObject, DictStrategy, BaseKeyIterator,
     BaseValueIterator, BaseItemIterator, _never_equal_to_string
 )
 from pypy.objspace.std.typeobject import MutableCell
@@ -180,7 +180,7 @@ class AbstractAttribute(object):
         obj._set_mapdict_map(attr)
         obj._mapdict_write_storage(attr.storageindex, w_value)
 
-    def materialize_r_dict(self, space, obj, dict_w):
+    def materialize_r_dict(self, space, obj, w_dict):
         raise NotImplementedError("abstract base class")
 
     def remove_dict_entries(self, obj):
@@ -231,7 +231,7 @@ class DictTerminator(Terminator):
         Terminator.__init__(self, space, w_cls)
         self.devolved_dict_terminator = DevolvedDictTerminator(space, w_cls)
 
-    def materialize_r_dict(self, space, obj, dict_w):
+    def materialize_r_dict(self, space, obj, w_dict):
         result = Object()
         result.space = space
         result._init_empty(self.devolved_dict_terminator)
@@ -327,11 +327,11 @@ class PlainAttribute(AbstractAttribute):
             return self
         return self.back.search(attrtype)
 
-    def materialize_r_dict(self, space, obj, dict_w):
-        new_obj = self.back.materialize_r_dict(space, obj, dict_w)
+    def materialize_r_dict(self, space, obj, w_dict):
+        new_obj = self.back.materialize_r_dict(space, obj, w_dict)
         if self.selector[1] == DICT:
-            w_attr = space.wrap(self.selector[0])
-            dict_w[w_attr] = obj._mapdict_read_storage(self.storageindex)
+            w_value = obj._mapdict_read_storage(self.storageindex)
+            w_dict.setitem_str(self.selector[0], w_value)
         else:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -426,7 +426,7 @@ class BaseMapdictObject:
         w_dict = check_new_dictionary(space, w_dict)
         w_olddict = self.getdict(space)
         assert isinstance(w_dict, W_DictMultiObject)
-        if type(w_olddict.strategy) is not ObjectDictStrategy:
+        if type(w_olddict.strategy) is MapDictStrategy:
             w_olddict.strategy.switch_to_object_strategy(w_olddict)
         flag = self._get_mapdict_map().write(self, ("dict", SPECIAL), w_dict)
         assert flag
@@ -643,12 +643,9 @@ class MapDictStrategy(DictStrategy):
 
     def switch_to_object_strategy(self, w_dict):
         w_obj = self.unerase(w_dict.dstorage)
-        strategy = self.space.fromcache(ObjectDictStrategy)
-        dict_w = strategy.unerase(strategy.get_empty_storage())
-        w_dict.strategy = strategy
-        w_dict.dstorage = strategy.erase(dict_w)
+        self.make_empty_with_object_strategy(self.space, w_dict)
         assert w_obj.getdict(self.space) is w_dict or w_obj._get_mapdict_map().terminator.w_cls is None
-        materialize_r_dict(self.space, w_obj, dict_w)
+        materialize_r_dict(self.space, w_obj, w_dict)
 
     def getitem(self, w_dict, w_key):
         space = self.space
@@ -740,9 +737,9 @@ class MapDictStrategy(DictStrategy):
         return MapDictIteratorItems(self.space, self, w_dict)
 
 
-def materialize_r_dict(space, obj, dict_w):
+def materialize_r_dict(space, obj, w_dict):
     map = obj._get_mapdict_map()
-    new_obj = map.materialize_r_dict(space, obj, dict_w)
+    new_obj = map.materialize_r_dict(space, obj, w_dict)
     _become(obj, new_obj)
 
 class MapDictIteratorKeys(BaseKeyIterator):

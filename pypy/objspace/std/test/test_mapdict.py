@@ -317,13 +317,15 @@ def test_materialize_r_dict():
         class strategy:
             def unerase(self, x):
                 return d
+            def setitem_str(self, w_dict, key, w_value):
+                w_dict.dstorage[key] = w_value
         strategy = strategy()
 
     d = {}
     w_d = FakeDict(d)
     flag = obj.map.write(obj, ("dict", SPECIAL), w_d)
     assert flag
-    materialize_r_dict(space, obj, d)
+    materialize_r_dict(space, obj, w_d)
     assert d == {"a": 5, "b": 6, "c": 7}
     assert obj.storage == [50, 60, 70, w_d]
 
