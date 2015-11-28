@@ -25,7 +25,7 @@ class CodeWriter(object):
         rtyper = support.annotate(func, values)
         graph = rtyper.annotator.translator.graphs[0]
         jitcode = JitCode("test")
-        self.transform_graph_to_jitcode(graph, jitcode, True)
+        self.transform_graph_to_jitcode(graph, jitcode, True, 0)
         return jitcode
 
     def transform_graph_to_jitcode(self, graph, jitcode, verbose, index):
