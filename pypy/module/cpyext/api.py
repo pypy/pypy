@@ -151,6 +151,7 @@ def copy_header_files(dstdir):
         headers.append(udir.join(name))
     _copy_header_files(headers, dstdir)
 
+    ''' # conditionally copy only if withmod-micronumpy
     try:
         dstdir.mkdir('numpy')
     except py.error.EEXIST:
@@ -160,7 +161,7 @@ def copy_header_files(dstdir):
     numpy_include_dir = include_dir / 'numpy'
     numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
     _copy_header_files(numpy_headers, numpy_dstdir)
-
+    '''
 
 class NotSpecified(object):
     pass
@@ -482,7 +483,7 @@ def build_exported_objects():
         "PyComplex_Type": "space.w_complex",
         "PyByteArray_Type": "space.w_bytearray",
         "PyMemoryView_Type": "space.w_memoryview",
-        "PyArray_Type": "space.gettypeobject(W_NDimArray.typedef)",
+        #"PyArray_Type": "space.gettypeobject(W_NDimArray.typedef)",
         "PyBaseObject_Type": "space.w_object",
         'PyNone_Type': 'space.type(space.w_None)',
         'PyNotImplemented_Type': 'space.type(space.w_NotImplemented)',
@@ -1054,7 +1055,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "capsule.c",
                                source_dir / "pysignals.c",
                                source_dir / "pythread.c",
-                               source_dir / "ndarrayobject.c",
+                               #source_dir / "ndarrayobject.c", # only if withmod-micronumpy
                                source_dir / "missing.c",
                                source_dir / "pymem.c",
                                ],
