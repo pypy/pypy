@@ -6,7 +6,7 @@ Based on two lists containing unwrapped key value pairs.
 from rpython.rlib import jit, rerased, objectmodel
 
 from pypy.objspace.std.dictmultiobject import (
-    BytesDictStrategy, DictStrategy, EmptyDictStrategy, ObjectDictStrategy,
+    BytesDictStrategy, DictStrategy, EmptyDictStrategy,
     create_iterator_classes)
 
 
@@ -137,15 +137,15 @@ class KwargsDictStrategy(DictStrategy):
         w_dict.dstorage = self.get_empty_storage()
 
     def switch_to_object_strategy(self, w_dict):
-        strategy = self.space.fromcache(ObjectDictStrategy)
         keys, values_w = self.unerase(w_dict.dstorage)
-        d_new = strategy.unerase(strategy.get_empty_storage())
+        strategy = self.make_empty_with_object_strategy(self.space, w_dict)
         for i in range(len(keys)):
-            d_new[self.wrap(keys[i])] = values_w[i]
-        w_dict.strategy = strategy
-        w_dict.dstorage = strategy.erase(d_new)
+            strategy.setitem_str(w_dict, keys[i], values_w[i])
 
     def switch_to_bytes_strategy(self, w_dict):
+        if self.space.config.objspace.std.withstmdict:
+            self.switch_to_object_strategy(w_dict)
+            return
         strategy = self.space.fromcache(BytesDictStrategy)
         keys, values_w = self.unerase(w_dict.dstorage)
         storage = strategy.get_empty_storage()
