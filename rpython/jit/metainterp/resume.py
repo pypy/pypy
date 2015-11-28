@@ -1143,6 +1143,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         # We leave up to the caller to call vrefinfo.continue_tracing().
         assert (end & 1) == 0
         lst = []
+        self.cur_index = 0
         for i in range(end):
             item, self.cur_index = resumecode.numb_next_item(self.numb,
                 self.cur_index)
@@ -1446,6 +1447,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             assert end == 0
             return
         assert (end & 1) == 0
+        self.cur_index = 0
         for i in range(0, end, 2):
             virtual_item, self.cur_index = resumecode.numb_next_item(
                 self.numb, self.cur_index)
