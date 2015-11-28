@@ -1592,17 +1592,6 @@ def PySequence_Count(space, o, value):
     in your code for properly supporting 64-bit systems."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObjectP)
-def PySequence_Fast_ITEMS(space, o):
-    """Return the underlying array of PyObject pointers.  Assumes that o was returned
-    by PySequence_Fast() and o is not NULL.
-
-    Note, if a list gets resized, the reallocation may relocate the items array.
-    So, only use the underlying array pointer in contexts where the sequence
-    cannot change.
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyFrozenSet_Check(space, p):
     """Return true if p is a frozenset object or an instance of a

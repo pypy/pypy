@@ -1,8 +1,8 @@
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t)
-from pypy.module.cpyext.pyobject import PyObject, borrow_from
+    cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t, PyObject, PyObjectP)
+from pypy.module.cpyext.pyobject import borrow_from
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std import listobject, tupleobject
 
@@ -73,6 +73,17 @@ def PySequence_Fast_GET_SIZE(space, w_obj):
         return w_obj.length()
     assert isinstance(w_obj, tupleobject.W_TupleObject)
     return len(w_obj.wrappeditems)
+
+@cpython_api([PyObject], PyObjectP)
+def PySequence_Fast_ITEMS(space, o):
+    """Return the underlying array of PyObject pointers.  Assumes that o was returned
+    by PySequence_Fast() and o is not NULL.
+
+    Note, if a list gets resized, the reallocation may relocate the items array.
+    So, only use the underlying array pointer in contexts where the sequence
+    cannot change.
+    """
+    raise NotImplementedError
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
 def PySequence_GetSlice(space, w_obj, start, end):
