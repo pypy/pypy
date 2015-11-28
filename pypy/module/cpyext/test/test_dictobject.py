@@ -152,3 +152,7 @@ class TestDictObject(BaseApiTest):
         raises(OperationError, space.delitem,
                w_proxy, space.wrap('sys'))
         raises(OperationError, space.call_method, w_proxy, 'clear')
+
+    def test_dictproxytype(self, space, api):
+        # XXX test PyDictProxy_Type, currently space.NotImplemented
+        assert False
