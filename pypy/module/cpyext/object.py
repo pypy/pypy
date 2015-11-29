@@ -55,7 +55,7 @@ def _PyObject_GC_New(space, type):
 
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Del(space, obj):
-    PyObject_Del(space, obj)
+    PyObject_Free(space, obj)
 
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Track(space, op):
