@@ -98,8 +98,19 @@ class StmDictIterValues(BaseStmDictIter):
     def get_final_value(self, hash, array, index):
         return stmdict.unerase(array[index + 1])
 
-class StmDictIterItemsWithHash(BaseStmDictIter):
+class StmDictIterItemsWithHash(object):
+    objectmodel.import_from_mixin(stmdict.BaseSTMDictIter)
+
+    def __iter__(self):
+        return self
+
+    def _cleanup_(self):
+        raise Exception("seeing a prebuilt %r object" % (
+            self.__class__,))
+
     def get_final_value(self, hash, array, index):
+        # different return type than the other get_final_value(),
+        # so this class needs its own import of BaseSTMDictIter
         w_key = stmdict.unerase(array[index])
         w_value = stmdict.unerase(array[index + 1])
         return (w_key, w_value, hash)
