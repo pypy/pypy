@@ -161,14 +161,14 @@ class TestUnicode(BaseApiTest):
         ar[0] = rffi.cast(PyObject, py_uni)
         api.PyUnicode_Resize(ar, 3)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert py_uni.c_size == 3
+        assert py_uni.c_length == 3
         assert py_uni.c_str[1] == u'b'
         assert py_uni.c_str[3] == u'\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_uni)
         api.PyUnicode_Resize(ar, 10)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert py_uni.c_size == 10
+        assert py_uni.c_length == 10
         assert py_uni.c_str[1] == 'b'
         assert py_uni.c_str[10] == '\x00'
         Py_DecRef(space, ar[0])
