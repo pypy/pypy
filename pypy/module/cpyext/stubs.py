@@ -60,19 +60,6 @@ def PyMemoryView_GetContiguous(space, obj, buffertype, order):
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyMemoryView_Check(space, obj):
-    """Return true if the object obj is a memoryview object.  It is not
-    currently allowed to create subclasses of memoryview."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_buffer)
-def PyMemoryView_GET_BUFFER(space, obj):
-    """Return a pointer to the buffer-info structure wrapped by the given
-    object.  The object must be a memoryview instance; this macro doesn't
-    check its type, you must do it yourself or you will risk crashes."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyByteArray_Check(space, o):
     """Return true if the object o is a bytearray object or an instance of a
     subtype of the bytearray type."""
