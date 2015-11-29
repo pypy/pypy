@@ -214,3 +214,12 @@ def test_generalize_string_concat(annotator):
     assert contains_s(s_value2, s_value)
     assert contains_s(s_exc2, s_exc)
 
+def test_getitem_dict(annotator):
+    bk = annotator.bookkeeper
+    hlop = op.getitem(Variable(), Variable())
+    with bk.at_position(None):
+        s_dict = bk.newdict()
+    s_dict.dictdef.generalize_key(SomeString())
+    s_dict.dictdef.generalize_value(SomeInteger())
+    s_result, _ = annotate_op(annotator, hlop, [s_dict, SomeString()])
+    assert s_result == SomeInteger()

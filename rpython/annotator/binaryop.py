@@ -71,6 +71,22 @@ def _make_cmp_annotator_default(cmp_op):
 for cmp_op in [op.lt, op.le, op.eq, op.ne, op.gt, op.ge]:
     _make_cmp_annotator_default(cmp_op)
 
+@op.getitem.register(SomeObject, SomeObject)
+def getitem_default(ann, v_obj, v_index):
+    return s_ImpossibleValue
+
+def _getitem_can_only_throw(s_c1, s_o2):
+    impl = op.getitem.get_specialization(s_c1, s_o2)
+    return read_can_only_throw(impl, s_c1, s_o2)
+
+@op.getitem_idx.register(SomeObject, SomeObject)
+def getitem_idx(ann, v_obj, v_index):
+    s_obj = ann.annotation(v_obj)
+    s_index = ann.annotation(v_index)
+    impl = op.getitem.get_specialization(s_obj, s_index)
+    return impl(ann, v_obj, v_index)
+getitem_idx.can_only_throw = _getitem_can_only_throw
+
 class __extend__(pairtype(SomeObject, SomeObject)):
 
     def union((obj1, obj2)):
@@ -111,10 +127,10 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def coerce((obj1, obj2)):
         return pair(obj1, obj2).union()   # reasonable enough
 
-    def getitem((obj1, obj2)):
+    def add((obj1, obj2)):
         return s_ImpossibleValue
-    add = sub = mul = truediv = floordiv = div = mod = getitem
-    lshift = rshift = and_ = or_ = xor = delitem = getitem
+    sub = mul = truediv = floordiv = div = mod = add
+    lshift = rshift = and_ = or_ = xor = delitem = add
 
     def setitem((obj1, obj2), _):
         return s_ImpossibleValue
@@ -126,17 +142,6 @@ class __extend__(pairtype(SomeObject, SomeObject)):
             return improvement
         else:
             return obj
-
-    # checked getitems
-
-    def _getitem_can_only_throw(s_c1, s_o2):
-        impl = pair(s_c1, s_o2).getitem
-        return read_can_only_throw(impl, s_c1, s_o2)
-
-    def getitem_idx((s_c1, s_o2)):
-        impl = pair(s_c1, s_o2).getitem
-        return impl()
-    getitem_idx.can_only_throw = _getitem_can_only_throw
 
 
 
@@ -526,13 +531,17 @@ def _dict_can_only_throw_nothing(s_dct, *ignore):
         return None    # r_dict: can throw anything
     return []          # else: no possible exception
 
+@op.getitem.register(SomeDict, SomeObject)
+def getitem_SomeDict(annotator, v_dict, v_key):
+    s_dict = annotator.annotation(v_dict)
+    s_key = annotator.annotation(v_key)
+    s_dict.dictdef.generalize_key(s_key)
+    position = annotator.bookkeeper.position_key
+    return s_dict.dictdef.read_value(position)
+getitem_SomeDict.can_only_throw = _dict_can_only_throw_keyerror
+
 
 class __extend__(pairtype(SomeDict, SomeObject)):
-
-    def getitem((dic1, obj2)):
-        dic1.dictdef.generalize_key(obj2)
-        return dic1.dictdef.read_value()
-    getitem.can_only_throw = _dict_can_only_throw_keyerror
 
     def setitem((dic1, obj2), s_value):
         dic1.dictdef.generalize_key(obj2)

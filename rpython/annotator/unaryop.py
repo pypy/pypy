@@ -334,7 +334,7 @@ class __extend__(SomeTuple):
         return SomeIterator(self)
     iter.can_only_throw = []
 
-    def getanyitem(self):
+    def getanyitem(self, position):
         return unionof(*self.items)
 
     def getslice(self, s_start, s_stop):
@@ -393,7 +393,7 @@ class __extend__(SomeList):
         return SomeIterator(self)
     iter.can_only_throw = []
 
-    def getanyitem(self):
+    def getanyitem(self, position):
         return self.listdef.read_item()
 
     def hint(self, *args_s):
@@ -435,30 +435,33 @@ def check_negative_slice(s_start, s_stop, error="slicing"):
         raise AnnotatorError("%s: not proven to have non-negative stop" % error)
 
 
-def dict_contains(s_dct, s_element):
+def dict_contains(s_dct, s_element, position):
     s_dct.dictdef.generalize_key(s_element)
-    if s_dct._is_empty():
-        s_bool = SomeBool()
+    if s_dct._is_empty(position):
+        s_bool =SomeBool()
         s_bool.const = False
         return s_bool
     return s_Bool
 
 @op.contains.register(SomeDict)
 def contains_SomeDict(annotator, dct, element):
+    position = annotator.bookkeeper.position_key
     return dict_contains(annotator.annotation(dct),
-                         annotator.annotation(element))
+                         annotator.annotation(element),
+                         position)
 contains_SomeDict.can_only_throw = _dict_can_only_throw_nothing
 
 class __extend__(SomeDict):
 
-    def _is_empty(self):
-        s_key = self.dictdef.read_key()
-        s_value = self.dictdef.read_value()
+    def _is_empty(self, position):
+        s_key = self.dictdef.read_key(position)
+        s_value = self.dictdef.read_value(position)
         return (isinstance(s_key, SomeImpossibleValue) or
                 isinstance(s_value, SomeImpossibleValue))
 
     def len(self):
-        if self._is_empty():
+        position = getbookkeeper().position_key
+        if self._is_empty(position):
             return immutablevalue(0)
         return SomeObject.len(self)
 
@@ -466,14 +469,14 @@ class __extend__(SomeDict):
         return SomeIterator(self)
     iter.can_only_throw = []
 
-    def getanyitem(self, variant='keys'):
+    def getanyitem(self, position, variant='keys'):
         if variant == 'keys':
-            return self.dictdef.read_key()
+            return self.dictdef.read_key(position)
         elif variant == 'values':
-            return self.dictdef.read_value()
+            return self.dictdef.read_value(position)
         elif variant == 'items' or variant == 'items_with_hash':
-            s_key   = self.dictdef.read_key()
-            s_value = self.dictdef.read_value()
+            s_key   = self.dictdef.read_key(position)
+            s_value = self.dictdef.read_value(position)
             if (isinstance(s_key, SomeImpossibleValue) or
                 isinstance(s_value, SomeImpossibleValue)):
                 return s_ImpossibleValue
@@ -482,16 +485,17 @@ class __extend__(SomeDict):
             elif variant == 'items_with_hash':
                 return SomeTuple((s_key, s_value, s_Int))
         elif variant == 'keys_with_hash':
-            s_key = self.dictdef.read_key()
+            s_key = self.dictdef.read_key(position)
             if isinstance(s_key, SomeImpossibleValue):
                 return s_ImpossibleValue
             return SomeTuple((s_key, s_Int))
         raise ValueError(variant)
 
     def method_get(self, key, dfl):
+        position = getbookkeeper().position_key
         self.dictdef.generalize_key(key)
         self.dictdef.generalize_value(dfl)
-        return self.dictdef.read_value()
+        return self.dictdef.read_value(position)
 
     method_setdefault = method_get
 
@@ -507,13 +511,16 @@ class __extend__(SomeDict):
         pass
 
     def method_keys(self):
-        return getbookkeeper().newlist(self.dictdef.read_key())
+        bk = getbookkeeper()
+        return bk.newlist(self.dictdef.read_key(bk.position_key))
 
     def method_values(self):
-        return getbookkeeper().newlist(self.dictdef.read_value())
+        bk = getbookkeeper()
+        return bk.newlist(self.dictdef.read_value(bk.position_key))
 
     def method_items(self):
-        return getbookkeeper().newlist(self.getanyitem('items'))
+        bk = getbookkeeper()
+        return bk.newlist(self.getanyitem(bk.position_key, variant='items'))
 
     def method_iterkeys(self):
         return SomeIterator(self, 'keys')
@@ -534,16 +541,19 @@ class __extend__(SomeDict):
         pass
 
     def method_popitem(self):
-        return self.getanyitem('items')
+        position = getbookkeeper().position_key
+        return self.getanyitem(position, variant='items')
 
     def method_pop(self, s_key, s_dfl=None):
         self.dictdef.generalize_key(s_key)
         if s_dfl is not None:
             self.dictdef.generalize_value(s_dfl)
-        return self.dictdef.read_value()
+        position = getbookkeeper().position_key
+        return self.dictdef.read_value(position)
 
     def method_contains_with_hash(self, s_key, s_hash):
-        return dict_contains(self, s_key)
+        position = getbookkeeper().position_key
+        return dict_contains(self, s_key, position)
     method_contains_with_hash.can_only_throw = _dict_can_only_throw_nothing
 
     def method_setitem_with_hash(self, s_key, s_hash, s_value):
@@ -628,7 +638,7 @@ class __extend__(SomeString,
         return SomeIterator(self)
     iter.can_only_throw = []
 
-    def getanyitem(self):
+    def getanyitem(self, position):
         return self.basecharclass()
 
     def method_split(self, patt, max=-1):
@@ -753,15 +763,16 @@ class __extend__(SomeIterator):
         return can_throw
 
     def next(self):
+        position = getbookkeeper().position_key
         if s_None.contains(self.s_container):
             return s_ImpossibleValue     # so far
         if self.variant == ("enumerate",):
-            s_item = self.s_container.getanyitem()
+            s_item = self.s_container.getanyitem(position)
             return SomeTuple((SomeInteger(nonneg=True), s_item))
         variant = self.variant
         if variant == ("reversed",):
             variant = ()
-        return self.s_container.getanyitem(*variant)
+        return self.s_container.getanyitem(position, *variant)
     next.can_only_throw = _can_only_throw
     method_next = next
 
