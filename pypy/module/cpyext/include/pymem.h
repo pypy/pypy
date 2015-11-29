@@ -5,7 +5,7 @@
 #define PyMem_REALLOC(p, n)	realloc((p), (n) ? (n) : 1)
 #define PyMem_FREE		free
 
-void * PyMem_Malloc(size_t);
+PyAPI_FUNC(void *) PyMem_Malloc(size_t);
 #define PyMem_Free  PyMem_FREE
 #define PyMem_Realloc  PyMem_REALLOC
 
