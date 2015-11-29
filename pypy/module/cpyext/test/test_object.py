@@ -208,7 +208,9 @@ class TestObject(BaseApiTest):
         assert space.is_true(space.contains(w_dir, space.wrap('modules')))
 
     def test_format(self, space, api):
-        assert False # XXX test PyObject_Format(obj, format)
+        w_int = space.wrap(42)
+        fmt = space.str_w(api.PyObject_Format(w_int, space.wrap('#b')))
+        assert fmt == '0b101010'
 
 class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
