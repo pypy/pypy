@@ -496,7 +496,12 @@ class DictStrategy(object):
         return (w_key, w_value)
 
     def clear(self, w_dict):
-        strategy = self.space.fromcache(EmptyDictStrategy)
+        space = self.space
+        if space.config.objspace.std.withstmdict:
+            from pypy.objspace.std.stmdict import StmDictStrategy
+            strategy = space.fromcache(StmDictStrategy)
+        else:
+            strategy = space.fromcache(EmptyDictStrategy)
         storage = strategy.get_empty_storage()
         w_dict.strategy = strategy
         w_dict.dstorage = storage
