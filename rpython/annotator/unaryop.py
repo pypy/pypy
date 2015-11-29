@@ -359,7 +359,7 @@ class __extend__(SomeList):
     def method_extend(self, s_iterable):
         self.listdef.resize()
         if isinstance(s_iterable, SomeList):   # unify the two lists
-            self.listdef.agree(s_iterable.listdef)
+            self.listdef.agree(getbookkeeper(), s_iterable.listdef)
         else:
             s_iter = s_iterable.iter()
             self.method_append(s_iter.next())
@@ -375,8 +375,9 @@ class __extend__(SomeList):
         self.listdef.generalize(s_value)
 
     def method_pop(self, s_index=None):
+        position = getbookkeeper().position_key
         self.listdef.resize()
-        return self.listdef.read_item()
+        return self.listdef.read_item(position)
     method_pop.can_only_throw = [IndexError]
 
     def method_index(self, s_value):
@@ -384,7 +385,8 @@ class __extend__(SomeList):
         return SomeInteger(nonneg=True)
 
     def len(self):
-        s_item = self.listdef.read_item()
+        position = getbookkeeper().position_key
+        s_item = self.listdef.read_item(position)
         if isinstance(s_item, SomeImpossibleValue):
             return immutablevalue(0)
         return SomeObject.len(self)
@@ -394,7 +396,7 @@ class __extend__(SomeList):
     iter.can_only_throw = []
 
     def getanyitem(self, position):
-        return self.listdef.read_item()
+        return self.listdef.read_item(position)
 
     def hint(self, *args_s):
         hints = args_s[-1].const
@@ -407,19 +409,20 @@ class __extend__(SomeList):
                 self.listdef.resize()
                 self.listdef.listitem.hint_maxlength = True
         elif 'fence' in hints:
-            self = self.listdef.offspring()
+            self = self.listdef.offspring(getbookkeeper())
         return self
 
     def getslice(self, s_start, s_stop):
+        bk = getbookkeeper()
         check_negative_slice(s_start, s_stop)
-        return self.listdef.offspring()
+        return self.listdef.offspring(bk)
 
     def setslice(self, s_start, s_stop, s_iterable):
         check_negative_slice(s_start, s_stop)
         if not isinstance(s_iterable, SomeList):
             raise Exception("list[start:stop] = x: x must be a list")
         self.listdef.mutate()
-        self.listdef.agree(s_iterable.listdef)
+        self.listdef.agree(getbookkeeper(), s_iterable.listdef)
         # note that setslice is not allowed to resize a list in RPython
 
     def delslice(self, s_start, s_stop):
@@ -626,7 +629,8 @@ class __extend__(SomeString,
     def method_join(self, s_list):
         if s_None.contains(s_list):
             return SomeImpossibleValue()
-        s_item = s_list.listdef.read_item()
+        position = getbookkeeper().position_key
+        s_item = s_list.listdef.read_item(position)
         if s_None.contains(s_item):
             if isinstance(self, SomeUnicodeString):
                 return immutablevalue(u"")

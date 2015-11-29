@@ -827,7 +827,7 @@ class ClassDesc(Desc):
             if immutable_fields:
                 if (search1 in immutable_fields or search2 in immutable_fields):
                     s_result.listdef.never_resize()
-                    s_copy = s_result.listdef.offspring()
+                    s_copy = s_result.listdef.offspring(self.bookkeeper)
                     s_copy.listdef.mark_as_immutable()
                     #
                     cdesc = cdesc.basedesc

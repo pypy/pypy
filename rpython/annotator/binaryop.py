@@ -465,10 +465,11 @@ class __extend__(pairtype(SomeList, SomeList)):
         return SomeList(lst1.listdef.union(lst2.listdef))
 
     def add((lst1, lst2)):
-        return lst1.listdef.offspring(lst2.listdef)
+        bk = getbookkeeper()
+        return lst1.listdef.offspring(bk, lst2.listdef)
 
     def eq((lst1, lst2)):
-        lst1.listdef.agree(lst2.listdef)
+        lst1.listdef.agree(getbookkeeper(), lst2.listdef)
         return s_Bool
     ne = eq
 
@@ -569,14 +570,17 @@ class __extend__(pairtype(SomeTuple, SomeInteger)):
 class __extend__(pairtype(SomeList, SomeInteger)):
 
     def mul((lst1, int2)):
-        return lst1.listdef.offspring()
+        bk = getbookkeeper()
+        return lst1.listdef.offspring(bk)
 
     def getitem((lst1, int2)):
-        return lst1.listdef.read_item()
+        position = getbookkeeper().position_key
+        return lst1.listdef.read_item(position)
     getitem.can_only_throw = []
 
     def getitem_idx((lst1, int2)):
-        return lst1.listdef.read_item()
+        position = getbookkeeper().position_key
+        return lst1.listdef.read_item(position)
     getitem_idx.can_only_throw = [IndexError]
 
     def setitem((lst1, int2), s_value):
@@ -637,7 +641,8 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeString),
 class __extend__(pairtype(SomeInteger, SomeList)):
 
     def mul((int1, lst2)):
-        return lst2.listdef.offspring()
+        bk = getbookkeeper()
+        return lst2.listdef.offspring(bk)
 
 
 class __extend__(pairtype(SomeInstance, SomeInstance)):

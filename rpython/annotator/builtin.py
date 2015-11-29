@@ -148,10 +148,11 @@ def builtin_tuple(s_iterable):
     raise AnnotatorError("tuple(): argument must be another tuple")
 
 def builtin_list(s_iterable):
+    bk = getbookkeeper()
     if isinstance(s_iterable, SomeList):
-        return s_iterable.listdef.offspring()
+        return s_iterable.listdef.offspring(bk)
     s_iter = s_iterable.iter()
-    return getbookkeeper().newlist(s_iter.next())
+    return bk.newlist(s_iter.next())
 
 def builtin_zip(s_iterable1, s_iterable2): # xxx not actually implemented
     s_iter1 = s_iterable1.iter()
