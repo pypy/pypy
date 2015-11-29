@@ -73,7 +73,7 @@ class StmDictStrategy(DictStrategy):
     def items(self, w_dict):
         space = self.space
         h = self.unerase(w_dict.dstorage)
-        return space.newlist(stmdict.get_items_w(space, h))
+        return stmdict.get_items_w(space, h)
 
     # XXX these two methods should also be implemented for extra performance
     #def prepare_update(self, w_dict, num_extra):
