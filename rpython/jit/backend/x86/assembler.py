@@ -1617,7 +1617,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         else:
             assert 0, itemsize
 
-    genop_discard_setfield_raw = genop_discard_setfield_gc
+    # genop_discard_setfield_raw = genop_discard_setfield_gc
 
     # GC_LOAD def genop_strlen(self, op, arglocs, resloc):
     # GC_LOAD     base_loc = arglocs[0]

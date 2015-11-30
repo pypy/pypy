@@ -192,7 +192,7 @@ class GcRewriterAssembler(object):
                     ConstInt(offset), ConstInt(itemsize)]
             newload = ResOperation(OpHelpers.get_gc_load_indexed(optype), args)
         if op is None:
-            self.emit(newload)
+            self.emit_op(newload)
         else:
             self.replace_op_with(op, newload)
         return newload
@@ -573,7 +573,6 @@ class GcRewriterAssembler(object):
     def emit_getfield(self, ptr, descr, type='i', raw=False):
         ofs, size, sign = unpack_fielddescr(descr)
         op = self.emit_gc_load_or_indexed(None, ptr, ConstInt(0), size, 1, ofs, sign)
-        self.emit(op)
         return op
 
     def emit_setfield(self, ptr, value, descr):
