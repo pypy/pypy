@@ -196,6 +196,7 @@ class GcRewriterAssembler(object):
 
     def transform_to_gc_load(self, op):
         NOT_SIGNED = 0
+        CINT_ZERO = ConstInt(0)
         if op.is_getarrayitem() or \
            op.getopnum() in (rop.GETARRAYITEM_RAW_I,
                              rop.GETARRAYITEM_RAW_F):
@@ -256,6 +257,17 @@ class GcRewriterAssembler(object):
                                                  self.cpu.translate_support_code)
             self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
                                          WORD, 1, ofs_length, NOT_SIGNED)
+        elif op.getopnum() == rop.STRGETITEM:
+            basesize, itemsize, ofs_length = get_array_token(rstr.STR,
+                                                 self.cpu.translate_support_code)
+            assert itemsize == 1
+            self.emit_gc_load_or_indexed(op, op.getarg(0), op.getarg(1),
+                                         itemsize, itemsize, basesize, NOT_SIGNED)
+        elif op.getopnum() == rop.UNICODEGETITEM:
+            basesize, itemsize, ofs_length = get_array_token(rstr.UNICODE,
+                                                 self.cpu.translate_support_code)
+            self.emit_gc_load_or_indexed(op, op.getarg(0), op.getarg(1),
+                                         itemsize, itemsize, basesize, NOT_SIGNED)
         return False
 
 
