@@ -224,6 +224,14 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
     gct_stm_allocate_preexisting     = _gct_with_roots_pushed
 
 
+
+    def gct_fv_gc_malloc(self, hop, *args):
+        v_result = super(StmFrameworkGCTransformer, self).gct_fv_gc_malloc(hop, *args)
+        hop.genop("stm_read", [v_result])
+        return v_result
+
+    gct_fv_gc_malloc_varsize = gct_fv_gc_malloc
+
     def gct_stm_malloc_nonmovable(self, hop):
         op = hop.spaceop
         PTRTYPE = op.result.concretetype
@@ -240,6 +248,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                              resulttype=llmemory.GCREF)
         self.pop_roots(hop, livevars)
         hop.genop("cast_opaque_ptr", [v_result], resultvar=op.result)
+        hop.genop("stm_read", [op.result]) # hint to readbarrier.py
 
     def gct_stm_malloc_noconflict(self, hop):
         op = hop.spaceop
@@ -257,6 +266,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
                              resulttype=llmemory.GCREF)
         self.pop_roots(hop, livevars)
         hop.genop("cast_opaque_ptr", [v_result], resultvar=op.result)
+        hop.genop("stm_read", [op.result]) # hint to readbarrier.py
 
     def gct_stm_malloc_noconflict_varsize(self, hop):
         op = hop.spaceop
@@ -283,6 +293,7 @@ class StmFrameworkGCTransformer(BaseFrameworkGCTransformer):
         self.pop_roots(hop, livevars)
         hop.genop("cast_opaque_ptr", [v_result], resultvar=op.result)
         hop.genop("stm_set_into_obj", [v_result, c_ofstolength, v_length])
+        hop.genop("stm_read", [op.result]) # hint to readbarrier.py
 
 
 

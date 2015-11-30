@@ -245,6 +245,25 @@ class TestReadBarrier(BaseTestTransform):
         self.interpret(f1, [1])
         assert len(self.read_barriers) == 5
 
+    def test_explicit_read_barrier(self):
+        class X:
+            a = 1
+        def f1(f):
+            x = X()
+            x.a = 7
+            llop.stm_transaction_break(lltype.Void)
+            llop.stm_read(lltype.Void, x)
+            if f:
+                t = x.a # no read barrier
+            else:
+                t = 0
+            return t
+
+        self.interpret(f1, [1])
+        assert len(self.read_barriers) == 1
+
+
+
 
 external_release_gil = rffi.llexternal('external_release_gil', [], lltype.Void,
                                        _callable=lambda: None,

@@ -145,7 +145,10 @@ class BlockTransformer(object):
                 assert op.result not in cat_map
                 cat_map[op.result] = 'R'
             #
-            if op.opname in ('setfield', 'setarrayitem', 'setinteriorfield',
+            if op.opname == 'stm_read':
+                # explicit or inserted by stmframework.py
+                cat_map[op.args[0]] = 'R'
+            elif op.opname in ('setfield', 'setarrayitem', 'setinteriorfield',
                              'raw_store', 'gc_writebarrier'):
                 # compare with logic in stmframework.py
                 # ops that need a write barrier also make the var 'R'
