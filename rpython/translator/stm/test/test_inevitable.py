@@ -422,7 +422,6 @@ class TestTransform:
         X = lltype.Struct('X', ('foo', lltype.Signed))
         x1 = lltype.malloc(X, immortal=True)
         x1.foo = 42
-        TYPE = lltype.FuncType([], lltype.Void)
         import time
         def f1():
             r = 0
@@ -434,10 +433,23 @@ class TestTransform:
         res = self.interpret_inevitable(f1, [])
         assert res == ['getfield', 'getfield']
 
+    def test_with_inev_inev(self):
+        from rpython.rtyper.lltypesystem.lloperation import llop
+        X = lltype.Struct('X', ('foo', lltype.Signed))
+        x1 = lltype.malloc(X, immortal=True)
+        x1.foo = 42
+        def f1():
+            r = 0
+            llop.stm_become_inevitable(lltype.Void, "inev")
+            r += x1.foo
+            return r
+
+        res = self.interpret_inevitable(f1, [])
+        # weird check ahead:
+        assert len(res) == 1 and isinstance(res[0]._T, lltype.GcStruct)
 
 
     def test_not_for_local_raw(self):
-        py.test.skip("not yet")
         X = lltype.Struct('X', ('foo', lltype.Signed))
 
         def f1(i):
@@ -452,7 +464,6 @@ class TestTransform:
 
 
     def test_for_local_raw_with_break(self):
-        py.test.skip("not yet")
         X = lltype.Struct('X', ('foo', lltype.Signed))
         import time
         def f1(i):
@@ -469,7 +480,6 @@ class TestTransform:
         assert res == ['getfield',]
 
     def test_for_local_raw_no_free(self):
-        py.test.skip("not yet")
         X = lltype.Struct('X', ('foo', lltype.Signed))
 
         def f1(i):
@@ -485,7 +495,6 @@ class TestTransform:
 
 
     def test_for_unknown_raw(self):
-        py.test.skip("not yet")
         X = lltype.Struct('X', ('foo', lltype.Signed))
 
         def g(r):
@@ -500,23 +509,33 @@ class TestTransform:
             return r
 
         res = self.interpret_inevitable(f1, [1])
+        assert res == []
+        res = self.interpret_inevitable(g, [lltype.malloc(X, flavor='raw', immortal=True)])
         assert res == ['setfield']
 
 
     def test_local_raw_in_same_transaction(self):
-        py.test.skip("not yet")
         X = lltype.Struct('X', ('foo', lltype.Signed))
+        #
+        for ts in [True, False]:
+            TYPE = lltype.FuncType([], lltype.Void)
+            extfunc = lltype.functionptr(TYPE, 'extfunc',
+                                         external='C',
+                                         transactionsafe=ts,
+                                         _callable=lambda:0)
+            def f1(i):
+                x1 = lltype.malloc(X, flavor='raw')
+                x1.foo = 42
+                extfunc()
+                r = x1.foo
+                lltype.free(x1, flavor='raw')
+                return r
 
-        def f1(i):
-            x1 = lltype.malloc(X, flavor='raw')
-            x1.foo = 42
-            r = x1.foo
-            func() # gil-release, non-gil-release, random-gc-effects????
-            lltype.free(x1, flavor='raw')
-            return r
-
-        res = self.interpret_inevitable(f1, [1])
-        assert res == []
+            res = self.interpret_inevitable(f1, [1])
+            if not ts:
+                assert res == ['extfunc()']
+            else:
+                assert res == []
 
 
     def test_stm_ignored(self):

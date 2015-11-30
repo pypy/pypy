@@ -621,13 +621,12 @@ def test_write_barrier_collector_blocks_merging():
 def test_write_barrier_collector_stm_inevitable_interaction():
     from rpython.translator.c.genc import CStandaloneBuilder
     from rpython.flowspace.model import summary
+    from rpython.rlib import rstm
     #
-    rS = lltype.Struct('rS', ('i', lltype.Signed))
     S = lltype.GcStruct('S', ('i', lltype.Signed))
     def f():
-        rs = lltype.malloc(rS, flavor='raw')
         s = lltype.malloc(S, flavor='gc')
-        rs.i = 5 # become_inevitable setfield on 'raw'
+        rstm.become_inevitable()
         s.i = 6 # become_inevitable canmalloc -> needs WB
     def g(argv):
         f()

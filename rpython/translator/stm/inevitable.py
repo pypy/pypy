@@ -4,7 +4,7 @@ from rpython.translator.stm.support import is_immutable
 from rpython.flowspace.model import SpaceOperation, Constant
 from rpython.translator.unsimplify import varoftype
 from rpython.translator.backendopt.dataflow import AbstractForwardDataFlowAnalysis
-from rpython.translator.stm.breakfinder import TransactionBreakAnalyzer
+from rpython.translator.backendopt.support import var_needsgc
 
 ALWAYS_ALLOW_OPERATIONS = set([
     'force_cast', 'keepalive', 'cast_ptr_to_adr',
@@ -133,7 +133,7 @@ def should_turn_inevitable_call(op):
     assert False
 
 
-def should_turn_inevitable(op):
+def should_turn_inevitable(op, fresh_vars=set()):
     # Always-allowed operations never cause a 'turn inevitable'
     if op.opname in ALWAYS_ALLOW_OPERATIONS:
         return False
@@ -143,9 +143,13 @@ def should_turn_inevitable(op):
     if op.opname in GETTERS:
         if op.result.concretetype is lltype.Void:
             return False
+        elif op.args[0] in fresh_vars:
+            return False
         return should_turn_inevitable_getter_setter(op)
     if op.opname in SETTERS:
         if op.args[-1].concretetype is lltype.Void:
+            return False
+        elif op.args[0] in fresh_vars:
             return False
         return should_turn_inevitable_getter_setter(op)
     #
@@ -170,7 +174,7 @@ class InevitableAnalysis(AbstractForwardDataFlowAnalysis):
       possible transaction breaks. Otherwise, repeated
       turn_inevitables are superfluous.
     * Raw-writes to freshly allocated memory are safe,
-      as the memory will be freed on abort. (TODO)"""
+      as the memory will be freed on abort."""
 
     def __init__(self, break_analyzer):
         self.break_analyzer = break_analyzer
@@ -178,41 +182,72 @@ class InevitableAnalysis(AbstractForwardDataFlowAnalysis):
         self.turn_inevitable_ops = set()
 
     def entry_state(self, block):
-        return False # not inevitable
+        return (False, # not inevitable
+                set()) # no freshly allocated vars
 
     def initialize_block(self, block):
-        return True # neutral element for join_operation
+        # the initial out_state of a block is that
+        # all raw variables are "freshly allocated". This is the
+        # "neutral element" for the join_operation
+        out_state = set()
+        for link in block.exits:
+            for arg in link.args:
+                if not var_needsgc(arg):
+                    out_state.add(arg)
+        return (True, out_state)
 
     def join_operation(self, inputargs, preds_outs, links_to_preds):
-        # only if all paths are already inevitable!
-        return all(preds_outs)
+        fresh_vars = set(inputargs)
+        for i, iarg in enumerate(inputargs):
+            # check in all predecessory if the iarg was
+            # fresh there
+            for pidx, pouts in enumerate(preds_outs):
+                name_in_pred = links_to_preds[pidx].args[i]
+                if name_in_pred not in pouts[1]:
+                    # not fresh in pred[pidx]
+                    fresh_vars.remove(iarg)
+                    break
+        #
+        return (all([p[0] for p in preds_outs]), fresh_vars)
 
     def transfer_function(self, block, in_state):
         assert not self.in_stm_ignored
-        inevitable = in_state
+        inevitable, fresh_vars = in_state[0], set(in_state[1])
+        #
         for op in block.operations:
-            if inevitable:
-                if op in self.turn_inevitable_ops:
-                    self.turn_inevitable_ops.remove(op)
-            elif op.opname == "stm_ignored_start":
+            if op.opname == "stm_ignored_start":
                 assert not self.in_stm_ignored
                 self.in_stm_ignored = True
             elif op.opname == "stm_ignored_stop":
                 assert self.in_stm_ignored
                 self.in_stm_ignored = False
-            elif not self.in_stm_ignored and should_turn_inevitable(op):
+            elif op.opname in ("cast_pointer", "same_as"):
+                if op.args[0] in fresh_vars:
+                    fresh_vars.add(op.result)
+            elif op.opname == "malloc" and not var_needsgc(op.result):
+                fresh_vars.add(op.result)
+            #
+            if inevitable:
+                if op in self.turn_inevitable_ops:
+                    # remove if considered unsafe previously
+                    # (can probably never happen)
+                    self.turn_inevitable_ops.remove(op)
+            elif not self.in_stm_ignored and should_turn_inevitable(op, fresh_vars):
                 self.turn_inevitable_ops.add(op)
+                inevitable = True
+            elif op.opname == 'stm_become_inevitable':
                 inevitable = True
             else:
                 assert op not in self.turn_inevitable_ops
             #
             # check breaking ops here to be safe (e.g. if there
             # was an op that turns inevitable, but also breaks)
-            if inevitable and self.break_analyzer.analyze(op):
-                # only check if inev, otherwise performance is horrible
+            if self.break_analyzer.analyze(op):
                 inevitable = False
+                # breaks also always clear fresh_vars
+                fresh_vars.clear()
         #
-        return inevitable
+        return (inevitable, fresh_vars)
 
 
     def calculate(self, graph, entrymap=None):
