@@ -374,6 +374,7 @@ def ll_shrink_array(p, smallerlength):
 @specialize.ll()
 def ll_arrayclear(p):
     # Equivalent to memset(array, 0).  Only for GcArray(primitive-type) for now.
+    from rpython.rtyper.lltypesystem.lloperation import llop
     from rpython.rlib.objectmodel import keepalive_until_here
 
     length = len(p)
@@ -381,6 +382,8 @@ def ll_arrayclear(p):
     if stm_is_enabled():
         # do the clearing element by element
         from rpython.rtyper.lltypesystem import rffi
+        #llop.gc_writebarrier(lltype.Void, p)
+        # XXX: use stm_memclearinit()
         i = 0
         while i < length:
             p[i] = rffi.cast(ARRAY.OF, 0)
