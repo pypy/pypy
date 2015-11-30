@@ -82,7 +82,7 @@ def new_empty_str(space, length):
     py_str.c_size = length
     py_str.c_buffer = lltype.malloc(rffi.CCHARP.TO, buflen,
                                     flavor='raw', zero=True)
-    py_str.c_ob_sstate = 0 # SSTATE_NOT_INTERNED
+    py_str.c_ob_sstate = rffi.cast(rffi.INT, 0) # SSTATE_NOT_INTERNED
     return py_str
 
 def string_attach(space, py_obj, w_obj):
