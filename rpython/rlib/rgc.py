@@ -376,20 +376,15 @@ def ll_arrayclear(p):
     # Equivalent to memset(array, 0).  Only for GcArray(primitive-type) for now.
     from rpython.rtyper.lltypesystem.lloperation import llop
     from rpython.rlib.objectmodel import keepalive_until_here
-
     length = len(p)
     ARRAY = lltype.typeOf(p).TO
+    offset = llmemory.itemoffsetof(ARRAY, 0)
     if stm_is_enabled():
         # do the clearing element by element
-        from rpython.rtyper.lltypesystem import rffi
-        #llop.gc_writebarrier(lltype.Void, p)
-        # XXX: use stm_memclearinit()
-        i = 0
-        while i < length:
-            p[i] = rffi.cast(ARRAY.OF, 0)
-            i += 1
+        llop.gc_writebarrier(lltype.Void, p)
+        llop.stm_memclearinit(
+            lltype.Void, p, offset, llmemory.sizeof(ARRAY.OF) * length)
         return
-    offset = llmemory.itemoffsetof(ARRAY, 0)
     dest_addr = llmemory.cast_ptr_to_adr(p) + offset
     llmemory.raw_memclear(dest_addr, llmemory.sizeof(ARRAY.OF) * length)
     keepalive_until_here(p)
