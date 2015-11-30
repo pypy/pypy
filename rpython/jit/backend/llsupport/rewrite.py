@@ -250,12 +250,12 @@ class GcRewriterAssembler(object):
             basesize, itemsize, ofs_length = get_array_token(rstr.STR,
                                                  self.cpu.translate_support_code)
             self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
-                                         itemsize, 1, ofs_length, NOT_SIGNED)
+                                         WORD, 1, ofs_length, NOT_SIGNED)
         elif op.getopnum() == rop.UNICODELEN:
-            basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+            basesize, itemsize, ofs_length = get_array_token(rstr.UNICODE,
                                                  self.cpu.translate_support_code)
             self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
-                                         itemsize, 1, ofs_length, NOT_SIGNED)
+                                         WORD, 1, ofs_length, NOT_SIGNED)
         return False
 
 
