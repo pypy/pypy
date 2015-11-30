@@ -631,22 +631,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert (a + b) == 42 
         raises(TypeError, "b + c")
 
-    def test_typeobj_ready(self):
-        module = self.import_extension('foo', [
-            ("test_ready", "METH_NOARGS",
-             """
-                /* taken from numpy's multiarray initmodule() */
-                PyTypeObject PyFooType;
-                PyFooType.tp_hash = PyObject_HashNotImplemented;
-                if (PyType_Ready(&PyFooType) < 0) 
-                    return PyBool_FromLong(0);
-                return PyBool_FromLong(1);
-             """)],
-             )
- 
-        result = module.test_ready()
-        assert result > 0
-
     def test_tp_new_in_subclass_of_type(self):
         skip("BROKEN")
         module = self.import_module(name='foo3')
