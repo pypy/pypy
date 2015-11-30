@@ -1038,72 +1038,72 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
         return gcmap
 
-    def consider_setfield_gc(self, op):
-        ofs, size, _ = unpack_fielddescr(op.getdescr())
-        ofs_loc = imm(ofs)
-        size_loc = imm(size)
-        assert isinstance(size_loc, ImmedLoc)
-        if size_loc.value == 1:
-            need_lower_byte = True
-        else:
-            need_lower_byte = False
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        value_loc = self.make_sure_var_in_reg(op.getarg(1), args,
-                                              need_lower_byte=need_lower_byte)
-        self.perform_discard(op, [base_loc, ofs_loc, size_loc, value_loc])
+    # GC_LOAD def consider_setfield_gc(self, op):
+    # GC_LOAD     ofs, size, _ = unpack_fielddescr(op.getdescr())
+    # GC_LOAD     ofs_loc = imm(ofs)
+    # GC_LOAD     size_loc = imm(size)
+    # GC_LOAD     assert isinstance(size_loc, ImmedLoc)
+    # GC_LOAD     if size_loc.value == 1:
+    # GC_LOAD         need_lower_byte = True
+    # GC_LOAD     else:
+    # GC_LOAD         need_lower_byte = False
+    # GC_LOAD     args = op.getarglist()
+    # GC_LOAD     base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+    # GC_LOAD     value_loc = self.make_sure_var_in_reg(op.getarg(1), args,
+    # GC_LOAD                                           need_lower_byte=need_lower_byte)
+    # GC_LOAD     self.perform_discard(op, [base_loc, ofs_loc, size_loc, value_loc])
 
-    consider_setfield_raw = consider_setfield_gc
+    # GC_LOAD consider_setfield_raw = consider_setfield_gc
 
-    def consider_zero_ptr_field(self, op):
-        ofs_loc = imm(op.getarg(1).getint())
-        size_loc = imm(WORD)
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), [])
-        value_loc = imm(0)
-        self.perform_discard(op, [base_loc, ofs_loc, size_loc, value_loc])
+    # GC_LOAD def consider_zero_ptr_field(self, op):
+    # GC_LOAD     ofs_loc = imm(op.getarg(1).getint())
+    # GC_LOAD     size_loc = imm(WORD)
+    # GC_LOAD     base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), [])
+    # GC_LOAD     value_loc = imm(0)
+    # GC_LOAD     self.perform_discard(op, [base_loc, ofs_loc, size_loc, value_loc])
 
-    def consider_setinteriorfield_gc(self, op):
-        t = unpack_interiorfielddescr(op.getdescr())
-        ofs, itemsize, fieldsize = imm(t[0]), imm(t[1]), imm(t[2])
-        args = op.getarglist()
-        if fieldsize.value == 1:
-            need_lower_byte = True
-        else:
-            need_lower_byte = False
-        box_base, box_index, box_value = args
-        base_loc = self.rm.make_sure_var_in_reg(box_base, args)
-        index_loc = self.rm.make_sure_var_in_reg(box_index, args)
-        value_loc = self.make_sure_var_in_reg(box_value, args,
-                                              need_lower_byte=need_lower_byte)
-        # If 'index_loc' is not an immediate, then we need a 'temp_loc' that
-        # is a register whose value will be destroyed.  It's fine to destroy
-        # the same register as 'index_loc', but not the other ones.
-        if not isinstance(index_loc, ImmedLoc):
-            # ...that is, except in a corner case where 'index_loc' would be
-            # in the same register as 'value_loc'...
-            tempvar = TempVar()
-            temp_loc = self.rm.force_allocate_reg(tempvar, [box_base,
-                                                            box_value])
-            self.rm.possibly_free_var(tempvar)
-        else:
-            temp_loc = None
-        self.rm.possibly_free_var(box_index)
-        self.rm.possibly_free_var(box_base)
-        self.possibly_free_var(box_value)
-        self.perform_discard(op, [base_loc, ofs, itemsize, fieldsize,
-                                 index_loc, temp_loc, value_loc])
+    # GC_LOAD def consider_setinteriorfield_gc(self, op):
+    # GC_LOAD     t = unpack_interiorfielddescr(op.getdescr())
+    # GC_LOAD     ofs, itemsize, fieldsize = imm(t[0]), imm(t[1]), imm(t[2])
+    # GC_LOAD     args = op.getarglist()
+    # GC_LOAD     if fieldsize.value == 1:
+    # GC_LOAD         need_lower_byte = True
+    # GC_LOAD     else:
+    # GC_LOAD         need_lower_byte = False
+    # GC_LOAD     box_base, box_index, box_value = args
+    # GC_LOAD     base_loc = self.rm.make_sure_var_in_reg(box_base, args)
+    # GC_LOAD     index_loc = self.rm.make_sure_var_in_reg(box_index, args)
+    # GC_LOAD     value_loc = self.make_sure_var_in_reg(box_value, args,
+    # GC_LOAD                                           need_lower_byte=need_lower_byte)
+    # GC_LOAD     # If 'index_loc' is not an immediate, then we need a 'temp_loc' that
+    # GC_LOAD     # is a register whose value will be destroyed.  It's fine to destroy
+    # GC_LOAD     # the same register as 'index_loc', but not the other ones.
+    # GC_LOAD     if not isinstance(index_loc, ImmedLoc):
+    # GC_LOAD         # ...that is, except in a corner case where 'index_loc' would be
+    # GC_LOAD         # in the same register as 'value_loc'...
+    # GC_LOAD         tempvar = TempVar()
+    # GC_LOAD         temp_loc = self.rm.force_allocate_reg(tempvar, [box_base,
+    # GC_LOAD                                                         box_value])
+    # GC_LOAD         self.rm.possibly_free_var(tempvar)
+    # GC_LOAD     else:
+    # GC_LOAD         temp_loc = None
+    # GC_LOAD     self.rm.possibly_free_var(box_index)
+    # GC_LOAD     self.rm.possibly_free_var(box_base)
+    # GC_LOAD     self.possibly_free_var(box_value)
+    # GC_LOAD     self.perform_discard(op, [base_loc, ofs, itemsize, fieldsize,
+    # GC_LOAD                              index_loc, temp_loc, value_loc])
 
-    consider_setinteriorfield_raw = consider_setinteriorfield_gc
+    # GC_LOAD consider_setinteriorfield_raw = consider_setinteriorfield_gc
 
-    #def consider_strsetitem(self, op):
-    #    args = op.getarglist()
-    #    base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-    #    ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-    #    value_loc = self.rm.make_sure_var_in_reg(op.getarg(2), args,
-    #                                             need_lower_byte=True)
-    #    self.perform_discard(op, [base_loc, ofs_loc, value_loc])
+    # GC_LOAD def consider_strsetitem(self, op):
+    # GC_LOAD     args = op.getarglist()
+    # GC_LOAD     base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+    # GC_LOAD     ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+    # GC_LOAD     value_loc = self.rm.make_sure_var_in_reg(op.getarg(2), args,
+    # GC_LOAD                                              need_lower_byte=True)
+    # GC_LOAD     self.perform_discard(op, [base_loc, ofs_loc, value_loc])
 
-    #consider_unicodesetitem = consider_strsetitem
+    # GC_LOAD consider_unicodesetitem = consider_strsetitem
 
     def consider_gc_store(self, op):
         args = op.getarglist()

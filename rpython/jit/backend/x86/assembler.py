@@ -1566,23 +1566,23 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         base_loc, = arglocs
         self.mc.INC(mem(base_loc, 0))
 
-    def genop_discard_setfield_gc(self, op, arglocs):
-        base_loc, ofs_loc, size_loc, value_loc = arglocs
-        assert isinstance(size_loc, ImmedLoc)
-        dest_addr = AddressLoc(base_loc, ofs_loc)
-        self.save_into_mem(dest_addr, value_loc, size_loc)
+    # GC_LOAD def genop_discard_setfield_gc(self, op, arglocs):
+    # GC_LOAD     base_loc, ofs_loc, size_loc, value_loc = arglocs
+    # GC_LOAD     assert isinstance(size_loc, ImmedLoc)
+    # GC_LOAD     dest_addr = AddressLoc(base_loc, ofs_loc)
+    # GC_LOAD     self.save_into_mem(dest_addr, value_loc, size_loc)
 
-    genop_discard_zero_ptr_field = genop_discard_setfield_gc
+    # GC_LOAD genop_discard_zero_ptr_field = genop_discard_setfield_gc
 
-    def genop_discard_setinteriorfield_gc(self, op, arglocs):
-        (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
-            index_loc, temp_loc, value_loc) = arglocs
-        dest_addr = self._get_interiorfield_addr(temp_loc, index_loc,
-                                                 itemsize_loc, base_loc,
-                                                 ofs_loc)
-        self.save_into_mem(dest_addr, value_loc, fieldsize_loc)
+    # GC_LOAD def genop_discard_setinteriorfield_gc(self, op, arglocs):
+    # GC_LOAD     (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
+    # GC_LOAD         index_loc, temp_loc, value_loc) = arglocs
+    # GC_LOAD     dest_addr = self._get_interiorfield_addr(temp_loc, index_loc,
+    # GC_LOAD                                              itemsize_loc, base_loc,
+    # GC_LOAD                                              ofs_loc)
+    # GC_LOAD     self.save_into_mem(dest_addr, value_loc, fieldsize_loc)
 
-    genop_discard_setinteriorfield_raw = genop_discard_setinteriorfield_gc
+    # GC_LOAD genop_discard_setinteriorfield_raw = genop_discard_setinteriorfield_gc
 
     def genop_discard_gc_store(self, op, arglocs):
         base_loc, ofs_loc, value_loc, size_loc = arglocs

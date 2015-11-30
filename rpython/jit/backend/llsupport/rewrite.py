@@ -288,6 +288,13 @@ class GcRewriterAssembler(object):
                                                  self.cpu.translate_support_code)
             self.emit_gc_store_or_indexed(op, op.getarg(0), op.getarg(1), op.getarg(2),
                                          itemsize, itemsize, basesize)
+        elif op.getopnum() == rop.ZERO_PTR_FIELD:
+            ofs = op.getarg(1).getint()
+            size = WORD
+            index_box = ConstInt(0)
+            value_box = ConstInt(0)
+            self.emit_gc_store_or_indexed(op, op.getarg(0), index_box, value_box,
+                                          size, 1, ofs)
         return False
 
 
