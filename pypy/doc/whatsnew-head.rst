@@ -29,3 +29,11 @@ Improve the performace of struct.unpack, which now directly reads inside the
 string buffer and directly casts the bytes to the appropriate type, when
 allowed. Unpacking of floats and doubles is about 15 times faster now, while
 for integer types it's up to ~50% faster for 64bit integers.
+
+.. branch: memop-simplify2
+
+Backends implement too many loading instructions, only having a slightly different interface.
+Four new operations (gc_load/gc_load_indexed, gc_store/gc_store_indexed) replace all the
+commonly known loading operations, such as: GETARRAYITEM, RAW_STORE, GETINERIORFIELD, ARRAYLEN,
+STRLEN, STRGETITEM, ...
+Transformation is done before the backend assembles machine code.

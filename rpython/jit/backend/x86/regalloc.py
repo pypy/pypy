@@ -1053,14 +1053,14 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                                               need_lower_byte=need_lower_byte)
         self.perform_discard(op, [base_loc, ofs_loc, size_loc, value_loc])
 
+    consider_setfield_raw = consider_setfield_gc
+
     def consider_zero_ptr_field(self, op):
         ofs_loc = imm(op.getarg(1).getint())
         size_loc = imm(WORD)
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), [])
         value_loc = imm(0)
         self.perform_discard(op, [base_loc, ofs_loc, size_loc, value_loc])
-
-    consider_setfield_raw = consider_setfield_gc
 
     def consider_setinteriorfield_gc(self, op):
         t = unpack_interiorfielddescr(op.getdescr())
@@ -1095,15 +1095,15 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
 
     consider_setinteriorfield_raw = consider_setinteriorfield_gc
 
-    def consider_strsetitem(self, op):
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        value_loc = self.rm.make_sure_var_in_reg(op.getarg(2), args,
-                                                 need_lower_byte=True)
-        self.perform_discard(op, [base_loc, ofs_loc, value_loc])
+    #def consider_strsetitem(self, op):
+    #    args = op.getarglist()
+    #    base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+    #    ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+    #    value_loc = self.rm.make_sure_var_in_reg(op.getarg(2), args,
+    #                                             need_lower_byte=True)
+    #    self.perform_discard(op, [base_loc, ofs_loc, value_loc])
 
-    consider_unicodesetitem = consider_strsetitem
+    #consider_unicodesetitem = consider_strsetitem
 
     def consider_gc_store(self, op):
         args = op.getarglist()
@@ -1137,27 +1137,27 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
                                   imm(factor), imm(offset), imm(itemsize)])
 
-    def _consider_getfield(self, op):
-        ofs, size, sign = unpack_fielddescr(op.getdescr())
-        ofs_loc = imm(ofs)
-        size_loc = imm(size)
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        result_loc = self.force_allocate_reg(op)
-        if sign:
-            sign_loc = imm1
-        else:
-            sign_loc = imm0
-        self.perform(op, [base_loc, ofs_loc, size_loc, sign_loc], result_loc)
+    # GC_LOAD def _consider_getfield(self, op):
+    # GC_LOAD     ofs, size, sign = unpack_fielddescr(op.getdescr())
+    # GC_LOAD     ofs_loc = imm(ofs)
+    # GC_LOAD     size_loc = imm(size)
+    # GC_LOAD     args = op.getarglist()
+    # GC_LOAD     base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+    # GC_LOAD     result_loc = self.force_allocate_reg(op)
+    # GC_LOAD     if sign:
+    # GC_LOAD         sign_loc = imm1
+    # GC_LOAD     else:
+    # GC_LOAD         sign_loc = imm0
+    # GC_LOAD     self.perform(op, [base_loc, ofs_loc, size_loc, sign_loc], result_loc)
 
-    consider_getfield_gc_i = _consider_getfield
-    consider_getfield_gc_r = _consider_getfield
-    consider_getfield_gc_f = _consider_getfield
-    consider_getfield_raw_i = _consider_getfield
-    consider_getfield_raw_f = _consider_getfield
-    consider_getfield_gc_pure_i = _consider_getfield
-    consider_getfield_gc_pure_r = _consider_getfield
-    consider_getfield_gc_pure_f = _consider_getfield
+    # GC_LOAD consider_getfield_gc_i = _consider_getfield
+    # GC_LOAD consider_getfield_gc_r = _consider_getfield
+    # GC_LOAD consider_getfield_gc_f = _consider_getfield
+    # GC_LOAD consider_getfield_raw_i = _consider_getfield
+    # GC_LOAD consider_getfield_raw_f = _consider_getfield
+    # GC_LOAD consider_getfield_gc_pure_i = _consider_getfield
+    # GC_LOAD consider_getfield_gc_pure_r = _consider_getfield
+    # GC_LOAD consider_getfield_gc_pure_f = _consider_getfield
 
     def consider_increment_debug_counter(self, op):
         base_loc = self.loc(op.getarg(0))
@@ -1201,37 +1201,37 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_gc_load_indexed_f = _consider_gc_load_indexed
 
 
-    def _consider_getinteriorfield(self, op):
-        t = unpack_interiorfielddescr(op.getdescr())
-        ofs, itemsize, fieldsize, sign = imm(t[0]), imm(t[1]), imm(t[2]), t[3]
-        if sign:
-            sign_loc = imm1
-        else:
-            sign_loc = imm0
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        index_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        # 'base' and 'index' are put in two registers (or one if 'index'
-        # is an immediate).  'result' can be in the same register as
-        # 'index' but must be in a different register than 'base'.
-        result_loc = self.force_allocate_reg(op, [op.getarg(0)])
-        assert isinstance(result_loc, RegLoc)
-        # two cases: 1) if result_loc is a normal register, use it as temp_loc
-        if not result_loc.is_xmm:
-            temp_loc = result_loc
-        else:
-            # 2) if result_loc is an xmm register, we (likely) need another
-            # temp_loc that is a normal register.  It can be in the same
-            # register as 'index' but not 'base'.
-            tempvar = TempVar()
-            temp_loc = self.rm.force_allocate_reg(tempvar, [op.getarg(0)])
-            self.rm.possibly_free_var(tempvar)
-        self.perform(op, [base_loc, ofs, itemsize, fieldsize,
-                          index_loc, temp_loc, sign_loc], result_loc)
+    # GC_LOAD def _consider_getinteriorfield(self, op):
+    # GC_LOAD     t = unpack_interiorfielddescr(op.getdescr())
+    # GC_LOAD     ofs, itemsize, fieldsize, sign = imm(t[0]), imm(t[1]), imm(t[2]), t[3]
+    # GC_LOAD     if sign:
+    # GC_LOAD         sign_loc = imm1
+    # GC_LOAD     else:
+    # GC_LOAD         sign_loc = imm0
+    # GC_LOAD     args = op.getarglist()
+    # GC_LOAD     base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+    # GC_LOAD     index_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+    # GC_LOAD     # 'base' and 'index' are put in two registers (or one if 'index'
+    # GC_LOAD     # is an immediate).  'result' can be in the same register as
+    # GC_LOAD     # 'index' but must be in a different register than 'base'.
+    # GC_LOAD     result_loc = self.force_allocate_reg(op, [op.getarg(0)])
+    # GC_LOAD     assert isinstance(result_loc, RegLoc)
+    # GC_LOAD     # two cases: 1) if result_loc is a normal register, use it as temp_loc
+    # GC_LOAD     if not result_loc.is_xmm:
+    # GC_LOAD         temp_loc = result_loc
+    # GC_LOAD     else:
+    # GC_LOAD         # 2) if result_loc is an xmm register, we (likely) need another
+    # GC_LOAD         # temp_loc that is a normal register.  It can be in the same
+    # GC_LOAD         # register as 'index' but not 'base'.
+    # GC_LOAD         tempvar = TempVar()
+    # GC_LOAD         temp_loc = self.rm.force_allocate_reg(tempvar, [op.getarg(0)])
+    # GC_LOAD         self.rm.possibly_free_var(tempvar)
+    # GC_LOAD     self.perform(op, [base_loc, ofs, itemsize, fieldsize,
+    # GC_LOAD                       index_loc, temp_loc, sign_loc], result_loc)
 
-    consider_getinteriorfield_gc_i = _consider_getinteriorfield
-    consider_getinteriorfield_gc_r = _consider_getinteriorfield
-    consider_getinteriorfield_gc_f = _consider_getinteriorfield
+    # GC_LOAD consider_getinteriorfield_gc_i = _consider_getinteriorfield
+    # GC_LOAD consider_getinteriorfield_gc_r = _consider_getinteriorfield
+    # GC_LOAD consider_getinteriorfield_gc_f = _consider_getinteriorfield
 
     def consider_int_is_true(self, op):
         # doesn't need arg to be in a register
@@ -1256,31 +1256,31 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         resloc = self.force_allocate_reg(op, [op.getarg(0)])
         self.perform(op, [argloc], resloc)
 
-    def consider_strlen(self, op):
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        result_loc = self.rm.force_allocate_reg(op)
-        self.perform(op, [base_loc], result_loc)
+    # GC_LOAD def consider_strlen(self, op):
+    # GC_LOAD     args = op.getarglist()
+    # GC_LOAD     base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+    # GC_LOAD     result_loc = self.rm.force_allocate_reg(op)
+    # GC_LOAD     self.perform(op, [base_loc], result_loc)
 
-    consider_unicodelen = consider_strlen
+    # GC_LOAD consider_unicodelen = consider_strlen
 
-    def consider_arraylen_gc(self, op):
-        arraydescr = op.getdescr()
-        assert isinstance(arraydescr, ArrayDescr)
-        ofs = arraydescr.lendescr.offset
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        result_loc = self.rm.force_allocate_reg(op)
-        self.perform(op, [base_loc, imm(ofs)], result_loc)
+    # GC_LOAD def consider_arraylen_gc(self, op):
+    # GC_LOAD     arraydescr = op.getdescr()
+    # GC_LOAD     assert isinstance(arraydescr, ArrayDescr)
+    # GC_LOAD     ofs = arraydescr.lendescr.offset
+    # GC_LOAD     args = op.getarglist()
+    # GC_LOAD     base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+    # GC_LOAD     result_loc = self.rm.force_allocate_reg(op)
+    # GC_LOAD     self.perform(op, [base_loc, imm(ofs)], result_loc)
 
-    def consider_strgetitem(self, op):
-        args = op.getarglist()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        result_loc = self.rm.force_allocate_reg(op)
-        self.perform(op, [base_loc, ofs_loc], result_loc)
+    # GC_LOAD def consider_strgetitem(self, op):
+    # GC_LOAD     args = op.getarglist()
+    # GC_LOAD     base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+    # GC_LOAD     ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+    # GC_LOAD     result_loc = self.rm.force_allocate_reg(op)
+    # GC_LOAD     self.perform(op, [base_loc, ofs_loc], result_loc)
 
-    consider_unicodegetitem = consider_strgetitem
+    # GC_LOAD consider_unicodegetitem = consider_strgetitem
 
     def consider_copystrcontent(self, op):
         self._consider_copystrcontent(op, is_unicode=False)

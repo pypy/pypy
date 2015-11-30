@@ -1190,6 +1190,11 @@ class TestFramework(RewriteTests):
         [False, (4,),  'i3 = strgetitem(p0,i1)' '->'
                        'i4 = int_add(i1, 16);'
                        'i3 = gc_load_i(p0,i4,1)'],
+        # setitem str/unicode
+        [True, (4,),  'i3 = strsetitem(p0,i1,0)' '->'
+                      'i3 = gc_store_indexed(p0,i1,0,1,16,1)'],
+        [True, (4,),  'i3 = unicodesetitem(p0,i1,0)' '->'
+                      'i3 = gc_store_indexed(p0,i1,0,4,16,4)'],
     ])
     def test_gc_load_store_transform(self, support_offset, factors, fromto):
         self.cpu.load_constant_offset = support_offset

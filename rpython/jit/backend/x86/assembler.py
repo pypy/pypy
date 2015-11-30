@@ -1619,40 +1619,40 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     genop_discard_setfield_raw = genop_discard_setfield_gc
 
-    def genop_strlen(self, op, arglocs, resloc):
-        base_loc = arglocs[0]
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                             self.cpu.translate_support_code)
-        self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
+    # GC_LOAD def genop_strlen(self, op, arglocs, resloc):
+    # GC_LOAD     base_loc = arglocs[0]
+    # GC_LOAD     basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+    # GC_LOAD                                          self.cpu.translate_support_code)
+    # GC_LOAD     self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
 
-    def genop_unicodelen(self, op, arglocs, resloc):
-        base_loc = arglocs[0]
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                             self.cpu.translate_support_code)
-        self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
+    # GC_LOAD def genop_unicodelen(self, op, arglocs, resloc):
+    # GC_LOAD     base_loc = arglocs[0]
+    # GC_LOAD     basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+    # GC_LOAD                                          self.cpu.translate_support_code)
+    # GC_LOAD     self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
 
-    def genop_arraylen_gc(self, op, arglocs, resloc):
-        base_loc, ofs_loc = arglocs
-        assert isinstance(ofs_loc, ImmedLoc)
-        self.mc.MOV(resloc, addr_add_const(base_loc, ofs_loc.value))
+    # GC_LOAD def genop_arraylen_gc(self, op, arglocs, resloc):
+    # GC_LOAD     base_loc, ofs_loc = arglocs
+    # GC_LOAD     assert isinstance(ofs_loc, ImmedLoc)
+    # GC_LOAD     self.mc.MOV(resloc, addr_add_const(base_loc, ofs_loc.value))
 
-    def genop_strgetitem(self, op, arglocs, resloc):
-        base_loc, ofs_loc = arglocs
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                             self.cpu.translate_support_code)
-        assert itemsize == 1
-        self.mc.MOVZX8(resloc, AddressLoc(base_loc, ofs_loc, 0, basesize))
+    # GC_LOAD def genop_strgetitem(self, op, arglocs, resloc):
+    # GC_LOAD     base_loc, ofs_loc = arglocs
+    # GC_LOAD     basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+    # GC_LOAD                                          self.cpu.translate_support_code)
+    # GC_LOAD     assert itemsize == 1
+    # GC_LOAD     self.mc.MOVZX8(resloc, AddressLoc(base_loc, ofs_loc, 0, basesize))
 
-    def genop_unicodegetitem(self, op, arglocs, resloc):
-        base_loc, ofs_loc = arglocs
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                             self.cpu.translate_support_code)
-        if itemsize == 4:
-            self.mc.MOV32(resloc, AddressLoc(base_loc, ofs_loc, 2, basesize))
-        elif itemsize == 2:
-            self.mc.MOVZX16(resloc, AddressLoc(base_loc, ofs_loc, 1, basesize))
-        else:
-            assert 0, itemsize
+    # GC_LOAD def genop_unicodegetitem(self, op, arglocs, resloc):
+    # GC_LOAD     base_loc, ofs_loc = arglocs
+    # GC_LOAD     basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+    # GC_LOAD                                          self.cpu.translate_support_code)
+    # GC_LOAD     if itemsize == 4:
+    # GC_LOAD         self.mc.MOV32(resloc, AddressLoc(base_loc, ofs_loc, 2, basesize))
+    # GC_LOAD     elif itemsize == 2:
+    # GC_LOAD         self.mc.MOVZX16(resloc, AddressLoc(base_loc, ofs_loc, 1, basesize))
+    # GC_LOAD     else:
+    # GC_LOAD         assert 0, itemsize
 
     def genop_math_read_timestamp(self, op, arglocs, resloc):
         self.mc.RDTSC()
