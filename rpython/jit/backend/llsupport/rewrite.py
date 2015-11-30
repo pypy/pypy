@@ -136,7 +136,10 @@ class GcRewriterAssembler(object):
             args = [ptr_box, index_box, value_box, ConstInt(factor),
                     ConstInt(offset), ConstInt(itemsize)]
             newload = ResOperation(rop.GC_STORE_INDEXED, args)
-        self.replace_op_with(op, newload)
+        if op is not None:
+            self.replace_op_with(op, newload)
+        else:
+            self.emit_op(newload)
 
     def handle_getarrayitem(self, op):
         itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
@@ -220,34 +223,13 @@ class GcRewriterAssembler(object):
             ptr_box = op.getarg(0)
             index_box = op.getarg(1)
             self.emit_gc_load_or_indexed(op, ptr_box, index_box, fieldsize, 1, ofs, sign)
-            # 
-            #t = unpack_interiorfielddescr(op.getdescr())
-            #ofs, itemsize, fieldsize, sign = imm(t[0]), imm(t[1]), imm(t[2]), t[3]
-            #if sign:
-            #    sign_loc = imm1
-            #else:
-            #    sign_loc = imm0
-            #args = op.getarglist()
-            #base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-            #index_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-            ## 'base' and 'index' are put in two registers (or one if 'index'
-            ## is an immediate).  'result' can be in the same register as
-            ## 'index' but must be in a different register than 'base'.
-            #result_loc = self.force_allocate_reg(op, [op.getarg(0)])
-            #assert isinstance(result_loc, RegLoc)
-            ## two cases: 1) if result_loc is a normal register, use it as temp_loc
-            #if not result_loc.is_xmm:
-            #    temp_loc = result_loc
-            #else:
-            #    # 2) if result_loc is an xmm register, we (likely) need another
-            #    # temp_loc that is a normal register.  It can be in the same
-            #    # register as 'index' but not 'base'.
-            #    tempvar = TempVar()
-            #    temp_loc = self.rm.force_allocate_reg(tempvar, [op.getarg(0)])
-            #    self.rm.possibly_free_var(tempvar)
-            #self.perform(op, [base_loc, ofs, itemsize, fieldsize,
-            #                  index_loc, temp_loc, sign_loc], result_loc)
-            # TODO not working yet
+        elif op.getopnum() in (rop.SETINTERIORFIELD_RAW, rop.SETINTERIORFIELD_GC):
+            ofs, itemsize, fieldsize, sign = unpack_interiorfielddescr(op.getdescr())
+            ptr_box = op.getarg(0)
+            index_box = op.getarg(1)
+            value_box = op.getarg(2)
+            self.emit_gc_store_or_indexed(op, ptr_box, index_box, value_box,
+                                          fieldsize, 1, ofs)
         elif op.getopnum() in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R,
                                rop.GETFIELD_GC_PURE_I, rop.GETFIELD_GC_PURE_F, rop.GETFIELD_GC_PURE_R,
                                rop.GETFIELD_RAW_I, rop.GETFIELD_RAW_F, rop.GETFIELD_RAW_R):

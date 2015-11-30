@@ -13,7 +13,7 @@ from rpython.jit.metainterp.history import ConstPtr, AbstractDescr, ConstInt
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.symbolic import WORD
-from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr
+from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr, FieldDescr
 from rpython.jit.backend.llsupport.descr import GcCache, get_field_descr
 from rpython.jit.backend.llsupport.descr import get_array_descr
 from rpython.jit.backend.llsupport.descr import get_call_descr
@@ -460,7 +460,7 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _initialize_for_tests(self):
         self.layoutbuilder = None
-        self.fielddescr_tid = AbstractDescr()
+        self.fielddescr_tid = FieldDescr("test_tid",0,8,0)
         self.max_size_of_young_obj = 1000
         self.GCClass = None
 

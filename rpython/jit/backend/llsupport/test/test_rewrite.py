@@ -109,6 +109,7 @@ class RewriteTests(object):
         o_vtable = globals()['o_vtable']
         #
         tiddescr = self.gc_ll_descr.fielddescr_tid
+        assert isinstance(tiddescr, FieldDescr)
         wbdescr = self.gc_ll_descr.write_barrier_descr
         WORD = globals()['WORD']
         #
@@ -297,7 +298,7 @@ class TestBoehm(RewriteTests):
             [p1]
             p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 102, \
                                 descr=malloc_fixedsize_descr)
-            setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
+            gc_store(p0, 0, ConstClass(o_vtable), 8)
             jump()
         """)
 
@@ -487,7 +488,7 @@ class TestFramework(RewriteTests):
         """, """
             [i0]
             p0 = call_malloc_nursery_varsize(0, 1, i0, descr=bdescr)
-            setfield_gc(p0, i0, descr=blendescr)
+            gc_store(p0, 0, i0, 8)
             jump(i0)
         """)
 
@@ -499,8 +500,8 @@ class TestFramework(RewriteTests):
         """, """
         [i0]
         p0 = call_malloc_nursery_varsize(1, 1, i0, descr=strdescr)
-        setfield_gc(p0, i0, descr=strlendescr)
-        setfield_gc(p0, 0, descr=strhashdescr)
+        gc_store_indexed(p0, 0, i0, 1, 8, 8)
+        gc_store(p0, 0, 0, 8)
         jump(i0)
         """)
 
@@ -1155,12 +1156,8 @@ class TestFramework(RewriteTests):
         [True, (1,2,4,8), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)->gc_store_indexed(p0,i1,i2,1,8,4)'],
         [False, (1,), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)' '->'
                       'i5 = int_add(i1,8);gc_store(p0,i5,i2,4)'],
-        #[True, (1,2,4,8), 'i3 = getinteriorfield_gc_i(p0,i1,descr=itzdescr)' '->'
-        #                  'i3 = gc_load_indexed_i(p0,i1,1,24,8)'],
-        #[True, (1,2,4,8), 'i3 = getfield_gc_f(p0,descr=ydescr)' '->'
-        #                  'i3 = gc_load_indexed_f(p0,0,1,8,8)'],
-        #[True, (1,2,4,8), 'i3 = getinteriorfield_gc_r(p0,i1,descr=itxdescr)' '->'
-        #                  'i3 = gc_load_indexed_r(p0,i1,1,8,8)'],
+        [True, (1,2,4,8), 'i3 = getfield_gc_f(p0,descr=ydescr)' '->'
+                          'i3 = gc_load_indexed_f(p0,0,1,8,8)'],
         [True, (1,2,4,8), 'i3 = getfield_gc_f(p0,descr=ydescr)' '->'
                           'i3 = gc_load_indexed_f(p0,0,1,8,8)'],
         [True, (1,2,4,8), 'i3 = setfield_raw(p0,i1,descr=ydescr)' '->'
@@ -1195,6 +1192,13 @@ class TestFramework(RewriteTests):
                       'i3 = gc_store_indexed(p0,i1,0,1,16,1)'],
         [True, (4,),  'i3 = unicodesetitem(p0,i1,0)' '->'
                       'i3 = gc_store_indexed(p0,i1,0,4,16,4)'],
+        # interior
+        [True, (1,2,4,8), 'i3 = getinteriorfield_gc_i(p0,i1,descr=itzdescr)' '->'
+                          'i3 = gc_load_indexed_i(p0,i1,1,24,8)'],
+        [True, (1,2,4,8), 'i3 = getinteriorfield_gc_r(p0,i1,descr=itxdescr)' '->'
+                          'i3 = gc_load_indexed_r(p0,i1,1,8,8)'],
+        [True, (1,2,4,8), 'i3 = setinteriorfield_gc(p0,i1,i2,descr=itydescr)' '->'
+                          'i3 = gc_store_indexed(p0,i1,i2,1,16,8)'],
     ])
     def test_gc_load_store_transform(self, support_offset, factors, fromto):
         self.cpu.load_constant_offset = support_offset
