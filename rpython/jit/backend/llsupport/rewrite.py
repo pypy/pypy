@@ -222,14 +222,30 @@ class GcRewriterAssembler(object):
             ofs, itemsize, fieldsize, sign = unpack_interiorfielddescr(op.getdescr())
             ptr_box = op.getarg(0)
             index_box = op.getarg(1)
-            self.emit_gc_load_or_indexed(op, ptr_box, index_box, fieldsize, 1, ofs, sign)
+            scale = 1
+            if isinstance(index_box, ConstInt):
+                index_box = ConstInt(index_box.value * itemsize)
+            elif itemsize in self.cpu.load_supported_factors:
+                scale = itemsize
+            else:
+                index_box = ResOperation(rop.INT_MUL, [index_box, ConstInt(itemsize)])
+                self.emit_op(index_box)
+            self.emit_gc_load_or_indexed(op, ptr_box, index_box, fieldsize, scale, ofs, sign)
         elif op.getopnum() in (rop.SETINTERIORFIELD_RAW, rop.SETINTERIORFIELD_GC):
             ofs, itemsize, fieldsize, sign = unpack_interiorfielddescr(op.getdescr())
             ptr_box = op.getarg(0)
             index_box = op.getarg(1)
             value_box = op.getarg(2)
+            scale = 1
+            if isinstance(index_box, ConstInt):
+                index_box = ConstInt(index_box.value * itemsize)
+            elif itemsize in self.cpu.load_supported_factors:
+                scale = itemsize
+            else:
+                index_box = ResOperation(rop.INT_MUL, [index_box, ConstInt(itemsize)])
+                self.emit_op(index_box)
             self.emit_gc_store_or_indexed(op, ptr_box, index_box, value_box,
-                                          fieldsize, 1, ofs)
+                                          fieldsize, scale, ofs)
         elif op.getopnum() in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R,
                                rop.GETFIELD_GC_PURE_I, rop.GETFIELD_GC_PURE_F, rop.GETFIELD_GC_PURE_R,
                                rop.GETFIELD_RAW_I, rop.GETFIELD_RAW_F, rop.GETFIELD_RAW_R):

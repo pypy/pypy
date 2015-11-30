@@ -1493,8 +1493,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def _genop_gc_load_indexed(self, op, arglocs, resloc):
         base_loc, ofs_loc, scale_loc, offset_loc, size_loc, sign_loc = arglocs
-        assert isinstance(size_loc, ImmedLoc)
-        scale = get_scale(size_loc.value)
+        assert isinstance(scale_loc, ImmedLoc)
+        scale = get_scale(scale_loc.value)
         src_addr = addr_add(base_loc, ofs_loc, offset_loc.value, scale)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
@@ -1528,35 +1528,35 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         #
         return shift
 
-    def _get_interiorfield_addr(self, temp_loc, index_loc, itemsize_loc,
-                                base_loc, ofs_loc):
-        assert isinstance(itemsize_loc, ImmedLoc)
-        itemsize = itemsize_loc.value
-        if isinstance(index_loc, ImmedLoc):
-            temp_loc = imm(index_loc.value * itemsize)
-            shift = 0
-        elif valid_addressing_size(itemsize):
-            temp_loc = index_loc
-            shift = get_scale(itemsize)
-        else:
-            assert isinstance(index_loc, RegLoc)
-            assert isinstance(temp_loc, RegLoc)
-            assert not temp_loc.is_xmm
-            shift = self._imul_const_scaled(self.mc, temp_loc.value,
-                                            index_loc.value, itemsize)
-        assert isinstance(ofs_loc, ImmedLoc)
-        return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
+    # GC_LOAD def _get_interiorfield_addr(self, temp_loc, index_loc, itemsize_loc,
+    # GC_LOAD                             base_loc, ofs_loc):
+    # GC_LOAD     assert isinstance(itemsize_loc, ImmedLoc)
+    # GC_LOAD     itemsize = itemsize_loc.value
+    # GC_LOAD     if isinstance(index_loc, ImmedLoc):
+    # GC_LOAD         temp_loc = imm(index_loc.value * itemsize)
+    # GC_LOAD         shift = 0
+    # GC_LOAD     elif valid_addressing_size(itemsize):
+    # GC_LOAD         temp_loc = index_loc
+    # GC_LOAD         shift = get_scale(itemsize)
+    # GC_LOAD     else:
+    # GC_LOAD         assert isinstance(index_loc, RegLoc)
+    # GC_LOAD         assert isinstance(temp_loc, RegLoc)
+    # GC_LOAD         assert not temp_loc.is_xmm
+    # GC_LOAD         shift = self._imul_const_scaled(self.mc, temp_loc.value,
+    # GC_LOAD                                         index_loc.value, itemsize)
+    # GC_LOAD     assert isinstance(ofs_loc, ImmedLoc)
+    # GC_LOAD     return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
 
-    def _genop_getinteriorfield(self, op, arglocs, resloc):
-        (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
-            index_loc, temp_loc, sign_loc) = arglocs
-        src_addr = self._get_interiorfield_addr(temp_loc, index_loc,
-                                                itemsize_loc, base_loc,
-                                                ofs_loc)
-        self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
-    genop_getinteriorfield_gc_i = _genop_getinteriorfield
-    genop_getinteriorfield_gc_r = _genop_getinteriorfield
-    genop_getinteriorfield_gc_f = _genop_getinteriorfield
+    # GC_LOAD def _genop_getinteriorfield(self, op, arglocs, resloc):
+    # GC_LOAD     (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
+    # GC_LOAD         index_loc, temp_loc, sign_loc) = arglocs
+    # GC_LOAD     src_addr = self._get_interiorfield_addr(temp_loc, index_loc,
+    # GC_LOAD                                             itemsize_loc, base_loc,
+    # GC_LOAD                                             ofs_loc)
+    # GC_LOAD     self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
+    # GC_LOAD genop_getinteriorfield_gc_i = _genop_getinteriorfield
+    # GC_LOAD genop_getinteriorfield_gc_r = _genop_getinteriorfield
+    # GC_LOAD genop_getinteriorfield_gc_f = _genop_getinteriorfield
 
     def genop_discard_increment_debug_counter(self, op, arglocs):
         # The argument should be an immediate address.  This should
