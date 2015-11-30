@@ -1,12 +1,13 @@
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rtyper.lltypesystem import llmemory, lltype
+from rpython.rtyper.lltypesystem import llmemory, lltype, rstr
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.jit.metainterp.resoperation import ResOperation, rop, OpHelpers
 from rpython.jit.codewriter import heaptracker
-from rpython.jit.backend.llsupport.symbolic import WORD
+from rpython.jit.backend.llsupport.symbolic import (WORD,
+        get_array_token)
 from rpython.jit.backend.llsupport.descr import SizeDescr, ArrayDescr,\
      FLAG_POINTER
 from rpython.jit.metainterp.history import JitCellToken
@@ -152,17 +153,23 @@ class GcRewriterAssembler(object):
     def _emit_mul_add_if_factor_offset_not_supported(self, index_box, factor, offset):
         # factor
         if factor != 1 and factor not in self.cpu.load_supported_factors:
-            index_box = ResOperation(rop.INT_MUL, [index_box, ConstInt(factor)])
-            self.emit_op(index_box)
+            if index_box.is_constant():
+                index_box = ConstInt(index_box.value * factor)
+            else:
+                index_box = ResOperation(rop.INT_MUL, [index_box, ConstInt(factor)])
+                self.emit_op(index_box)
             factor = 1
         # adjust the constant offset
         if offset != 0 and not self.cpu.load_constant_offset:
-            index_box = ResOperation(rop.INT_ADD, [index_box, ConstInt(offset)])
-            self.emit_op(index_box)
+            if index_box.is_constant():
+                index_box = ConstInt(index_box.value + offset)
+            else:
+                index_box = ResOperation(rop.INT_ADD, [index_box, ConstInt(offset)])
+                self.emit_op(index_box)
             offset = 0
         return factor, offset, index_box
 
-    def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize, factor, offset, sign):
+    def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize, factor, offset, sign, type='i'):
         factor, offset, index_box = \
                 self._emit_mul_add_if_factor_offset_not_supported(index_box,
                         factor, offset)
@@ -171,16 +178,24 @@ class GcRewriterAssembler(object):
             # encode signed into the itemsize value
             itemsize = -itemsize
         #
+        optype = type
+        if op is not None:
+            optype = op.type
         if factor == 1 and offset == 0:
             args = [ptr_box, index_box, ConstInt(itemsize)]
-            newload = ResOperation(OpHelpers.get_gc_load(op.type), args)
+            newload = ResOperation(OpHelpers.get_gc_load(optype), args)
         else:
             args = [ptr_box, index_box, ConstInt(factor),
                     ConstInt(offset), ConstInt(itemsize)]
-            newload = ResOperation(OpHelpers.get_gc_load_indexed(op.type), args)
-        self.replace_op_with(op, newload)
+            newload = ResOperation(OpHelpers.get_gc_load_indexed(optype), args)
+        if op is None:
+            self.emit(newload)
+        else:
+            self.replace_op_with(op, newload)
+        return newload
 
     def transform_to_gc_load(self, op):
+        NOT_SIGNED = 0
         if op.is_getarrayitem() or \
            op.getopnum() in (rop.GETARRAYITEM_RAW_I,
                              rop.GETARRAYITEM_RAW_F):
@@ -229,7 +244,18 @@ class GcRewriterAssembler(object):
             self.emit_gc_store_or_indexed(op, ptr_box, ConstInt(0), value_box, itemsize, 1, ofs)
         elif op.getopnum() == rop.ARRAYLEN_GC:
             ofs = op.getdescr().lendescr.offset
-            self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0), WORD, 1, ofs, 0)
+            self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
+                                         WORD, 1, ofs, NOT_SIGNED)
+        elif op.getopnum() == rop.STRLEN:
+            basesize, itemsize, ofs_length = get_array_token(rstr.STR,
+                                                 self.cpu.translate_support_code)
+            self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
+                                         itemsize, 1, ofs_length, NOT_SIGNED)
+        elif op.getopnum() == rop.UNICODELEN:
+            basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+                                                 self.cpu.translate_support_code)
+            self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
+                                         itemsize, 1, ofs_length, NOT_SIGNED)
         return False
 
 
@@ -348,10 +374,8 @@ class GcRewriterAssembler(object):
             descr = op.getdescr()
             self.handle_new_fixedsize(descr, op)
             if self.gc_ll_descr.fielddescr_vtable is not None:
-                op = ResOperation(rop.SETFIELD_GC,
-                                  [op, ConstInt(descr.get_vtable())],
-                                  descr=self.gc_ll_descr.fielddescr_vtable)
-                self.emit_op(op)
+                self.emit_setfield(op, ConstInt(descr.get_vtable()),
+                                   descr=self.gc_ll_descr.fielddescr_vtable)
         elif opnum == rop.NEW_ARRAY or opnum == rop.NEW_ARRAY_CLEAR:
             descr = op.getdescr()
             assert isinstance(descr, ArrayDescr)
@@ -402,9 +426,7 @@ class GcRewriterAssembler(object):
             hash_descr = self.gc_ll_descr.unicode_hash_descr
         else:
             return
-        op = ResOperation(rop.SETFIELD_GC, [result, self.c_zero],
-                          descr=hash_descr)
-        self.emit_op(op)
+        self.emit_setfield(result, self.c_zero, descr=hash_descr)
 
     def handle_new_fixedsize(self, descr, op):
         assert isinstance(descr, SizeDescr)
@@ -481,7 +503,7 @@ class GcRewriterAssembler(object):
             size = ResOperation(rop.GC_LOAD_INDEXED_I, args)
             self.emit_op(size)
             frame = ResOperation(rop.NEW_ARRAY, [size],
-                               descr=descrs.arraydescr)
+                                 descr=descrs.arraydescr)
             self.handle_new_array(descrs.arraydescr, frame)
             return self.get_box_replacement(frame)
         else:
@@ -497,32 +519,35 @@ class GcRewriterAssembler(object):
             self.gen_initialize_tid(frame, descrs.arraydescr.tid)
             # we need to explicitely zero all the gc fields, because
             # of the unusal malloc pattern
-            ofs, size, sign = unpack_fielddescr(descrs.jfi_frame_depth)
-            if sign:
-                size = -size
-            args = [ConstInt(frame_info), ConstInt(0), ConstInt(1),
-                    ConstInt(ofs), ConstInt(size)]
-            length = ResOperation(rop.GC_LOAD_INDEXED_I, args)
-            extra_ops = [
-                length,
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_zero],
-                             descr=descrs.jf_extra_stack_depth),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_savedata),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_force_descr),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_descr),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_guard_exc),
-                ResOperation(rop.SETFIELD_GC, [frame, self.c_null],
-                             descr=descrs.jf_forward),
-            ]
-            for op in extra_ops:
-                self.emit_op(op)
+
+            length = self.emit_getfield(ConstInt(frame_info),
+                                        descr=descrs.jfi_frame_depth, raw=True)
+            self.emit_setfield(frame, self.c_zero,
+                               descr=descrs.jf_extra_stack_depth)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_savedata)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_force_descr)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_descr)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_guard_exc)
+            self.emit_setfield(frame, self.c_null,
+                               descr=descrs.jf_forward)
             self.gen_initialize_len(frame, length,
                                     descrs.arraydescr.lendescr)
             return self.get_box_replacement(frame)
+
+    def emit_getfield(self, ptr, descr, type='i', raw=False):
+        ofs, size, sign = unpack_fielddescr(descr)
+        op = self.emit_gc_load_or_indexed(None, ptr, ConstInt(0), size, 1, ofs, sign)
+        self.emit(op)
+        return op
+
+    def emit_setfield(self, ptr, value, descr):
+        ofs, size, sign = unpack_fielddescr(descr)
+        self.emit_gc_store_or_indexed(None, ptr, ConstInt(0), value,
+                                      size, 1, ofs)
 
     def handle_call_assembler(self, op):
         descrs = self.gc_ll_descr.getframedescrs(self.cpu)
@@ -531,9 +556,8 @@ class GcRewriterAssembler(object):
         jfi = loop_token.compiled_loop_token.frame_info
         llfi = heaptracker.adr2int(llmemory.cast_ptr_to_adr(jfi))
         frame = self.gen_malloc_frame(llfi)
-        op2 = ResOperation(rop.SETFIELD_GC, [frame, history.ConstInt(llfi)],
+        self.emit_setfield(frame, history.ConstInt(llfi),
                            descr=descrs.jf_frame_info)
-        self.emit_op(op2)
         arglist = op.getarglist()
         index_list = loop_token.compiled_loop_token._ll_initial_locs
         for i, arg in enumerate(arglist):
@@ -559,7 +583,7 @@ class GcRewriterAssembler(object):
         else:
             args = [frame]
         call_asm = ResOperation(op.getopnum(), args,
-                                  op.getdescr())
+                                op.getdescr())
         self.replace_op_with(self.get_box_replacement(op), call_asm)
         self.emit_op(call_asm)
 
@@ -762,15 +786,12 @@ class GcRewriterAssembler(object):
     def gen_initialize_tid(self, v_newgcobj, tid):
         if self.gc_ll_descr.fielddescr_tid is not None:
             # produce a SETFIELD to initialize the GC header
-            op = ResOperation(rop.SETFIELD_GC,
-                              [v_newgcobj, ConstInt(tid)],
-                              descr=self.gc_ll_descr.fielddescr_tid)
-            self.emit_op(op)
+            self.emit_setfield(v_newgcobj, ConstInt(tid),
+                               descr=self.gc_ll_descr.fielddescr_tid)
 
     def gen_initialize_len(self, v_newgcobj, v_length, arraylen_descr):
         # produce a SETFIELD to initialize the array length
-        self.emit_op(ResOperation(rop.SETFIELD_GC, [v_newgcobj, v_length],
-                     descr=arraylen_descr))
+        self.emit_setfield(v_newgcobj, v_length, descr=arraylen_descr)
 
     # ----------
 

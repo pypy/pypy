@@ -178,6 +178,8 @@ class BaseFakeCPU(object):
     load_constant_offset = True
     load_supported_factors = (1,2,4,8)
 
+    translate_support_code = None
+
     def __init__(self):
         self.tracker = FakeTracker()
         self._cache = {}
@@ -1168,6 +1170,14 @@ class TestFramework(RewriteTests):
                           'i3 = gc_store_indexed(p0,0,p0,1,16,8)'],
         [False, (1,), 'i3 = arraylen_gc(p0, descr=adescr)' '->'
                       'i3 = gc_load_i(p0,0,8)'],
+        [False, (1,),  'i3 = strlen(p0)' '->'
+                       'i3 = gc_load_i(p0,8,8)'],
+        [True,  (1,),  'i3 = strlen(p0)' '->'
+                       'i3 = gc_load_indexed_i(p0,0,1,8,8)'],
+        [False, (1,),  'i3 = unicodelen(p0)' '->'
+                       'i3 = gc_load_i(p0,8,8)'],
+        [True,  (1,),  'i3 = unicodelen(p0)' '->'
+                       'i3 = gc_load_indexed_i(p0,0,1,8,8)'],
     ])
     def test_gc_load_store_transform(self, support_offset, factors, fromto):
         self.cpu.load_constant_offset = support_offset
