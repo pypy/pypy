@@ -531,6 +531,36 @@ def test_remove_write_barrier_stm7():
     #ff.show()
     assert summary(ff)['stm_write'] == 3
 
+def test_no_wb_for_varsize_mallocs_stm():
+    # AFAIK removing card barriers is only safe on STM!
+    from rpython.translator.c.genc import CStandaloneBuilder
+    from rpython.flowspace.model import summary
+
+    A = lltype.GcArray(lltype.Signed)
+    def f(i):
+        s = lltype.malloc(A, i+1)
+        s[i] = 4 # no card WB
+        s[i] = 4 # no card WB
+        lltype.malloc(A, 1)
+        s[i] = 4 # card WB
+        llop.gc_writebarrier(lltype.Void, s) # WB
+        s[i] = 4 # no card WB
+    def g(argv):
+        n = int(argv[1])
+        f(n)
+        return 0
+    t = rtype(g, [s_list_of_strings])
+    t.config.translation.stm = True
+    gcpolicy = StmFrameworkGcPolicy
+    t.config.translation.gc = "stmgc"
+    cbuild = CStandaloneBuilder(t, g, t.config,
+                                gcpolicy=gcpolicy)
+    db = cbuild.generate_graphs_for_llinterp()
+
+    ff = graphof(t, f)
+    #ff.show()
+    assert summary(ff)['stm_write'] == 2
+
 def test_write_barrier_collector():
     class A(object):
         pass

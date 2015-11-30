@@ -131,7 +131,9 @@ class WriteBarrierCollector(AbstractForwardDataFlowAnalysis):
             elif op.opname == "gc_writebarrier":
                 assert not self.in_stm_ignored
                 writeable.add(op.args[0])
-            elif op.opname == "malloc":
+            elif op.opname in ("malloc", "malloc_varsize"):
+                # malloc_varsize is OK for STM because card marking works a bit differently
+                # and doesn't require card-barriers on young arrays (there are disadvantages..)
                 rtti = get_rtti(op.args[0].value)
                 if rtti is not None and hasattr(rtti._obj, 'destructor_funcptr'):
                     # objs with finalizers are allocated directly as "old", so
