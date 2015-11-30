@@ -15,12 +15,12 @@ import pypy.module.__builtin__.operation as operation
 
 
 @cpython_api([Py_ssize_t], rffi.VOIDP)
-def PyObject_MALLOC(space, size):
+def PyObject_Malloc(space, size):
     return lltype.malloc(rffi.VOIDP.TO, size,
                          flavor='raw', zero=True)
 
 @cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_FREE(space, ptr):
+def PyObject_Free(space, ptr):
     lltype.free(ptr, flavor='raw')
 
 @cpython_api([PyTypeObjectPtr], PyObject)
@@ -41,10 +41,6 @@ def _PyObject_NewVar(space, type, itemcount):
         w_obj = PyObject_InitVar(space, py_objvar, type, itemcount)
     return py_obj
 
-@cpython_api([rffi.VOIDP], lltype.Void)
-def PyObject_Del(space, obj):
-    lltype.free(obj, flavor='raw')
-
 @cpython_api([PyObject], lltype.Void)
 def PyObject_dealloc(space, obj):
     pto = obj.c_ob_type
@@ -59,7 +55,7 @@ def _PyObject_GC_New(space, type):
 
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Del(space, obj):
-    PyObject_Del(space, obj)
+    PyObject_Free(space, obj)
 
 @cpython_api([rffi.VOIDP], lltype.Void)
 def PyObject_GC_Track(space, op):
@@ -232,6 +228,12 @@ def PyObject_Repr(space, w_obj):
         return space.wrap("<NULL>")
     return space.repr(w_obj)
 
+@cpython_api([PyObject, PyObject], PyObject)
+def PyObject_Format(space, w_obj, w_format_spec):
+    if w_format_spec is None:
+        w_format_spec = space.wrap('')
+    return space.call_method(w_obj, '__format__', w_format_spec)
+
 @cpython_api([PyObject], PyObject)
 def PyObject_Unicode(space, w_obj):
     """Compute a Unicode string representation of object o.  Returns the Unicode
@@ -387,7 +389,7 @@ def PyObject_Hash(space, w_obj):
     This is the equivalent of the Python expression hash(o)."""
     return space.int_w(space.hash(w_obj))
 
-@cpython_api([rffi.LONG], rffi.DOUBLE, error=-1)
+@cpython_api([rffi.DOUBLE], rffi.LONG, error=-1)
 def _Py_HashDouble(space, w_obj):
     raise OperationError(space.w_NotImplementedError, 
                 space.wrap("_Py_HashDouble not implemented yet"))

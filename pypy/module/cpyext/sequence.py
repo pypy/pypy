@@ -1,8 +1,8 @@
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t)
-from pypy.module.cpyext.pyobject import PyObject, borrow_from
+    cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t, PyObject, PyObjectP)
+from pypy.module.cpyext.pyobject import borrow_from
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std import listobject, tupleobject
 
@@ -74,6 +74,17 @@ def PySequence_Fast_GET_SIZE(space, w_obj):
     assert isinstance(w_obj, tupleobject.W_TupleObject)
     return len(w_obj.wrappeditems)
 
+@cpython_api([PyObject], PyObjectP)
+def PySequence_Fast_ITEMS(space, o):
+    """Return the underlying array of PyObject pointers.  Assumes that o was returned
+    by PySequence_Fast() and o is not NULL.
+
+    Note, if a list gets resized, the reallocation may relocate the items array.
+    So, only use the underlying array pointer in contexts where the sequence
+    cannot change.
+    """
+    raise NotImplementedError
+
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
 def PySequence_GetSlice(space, w_obj, start, end):
     """Return the slice of sequence object o between i1 and i2, or NULL on
@@ -130,6 +141,24 @@ def PySequence_Concat(space, w_o1, w_o2):
     """Return the concatenation of o1 and o2 on success, and NULL on failure.
     This is the equivalent of the Python expression o1 + o2."""
     return space.add(w_o1, w_o2)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def PySequence_InPlaceConcat(space, o1, o2):
+    """Return the concatenation of o1 and o2 on success, and NULL on failure.
+    The operation is done in-place when o1 supports it.  This is the equivalent
+    of the Python expression o1 += o2."""
+    raise NotImplementedError
+
+@cpython_api([PyObject, Py_ssize_t], PyObject)
+def PySequence_InPlaceRepeat(space, o, count):
+    """Return the result of repeating sequence object o count times, or NULL on
+    failure.  The operation is done in-place when o supports it.  This is the
+    equivalent of the Python expression o *= count.
+
+    This function used an int type for count. This might require
+    changes in your code for properly supporting 64-bit systems."""
+    raise NotImplementedError
+
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PySequence_Contains(space, w_obj, w_value):

@@ -75,6 +75,9 @@ class TestDictObject(BaseApiTest):
         assert space.eq_w(api.PyDict_Values(w_d), space.wrap(["b"]))
         assert space.eq_w(api.PyDict_Items(w_d), space.wrap([("a", "b")]))
 
+    def test_merge(self, space, api):
+        assert False # XXX test PyDict_Merge
+
     def test_update(self, space, api):
         w_d = space.newdict()
         space.setitem(w_d, space.wrap("a"), space.wrap("b"))
@@ -152,3 +155,7 @@ class TestDictObject(BaseApiTest):
         raises(OperationError, space.delitem,
                w_proxy, space.wrap('sys'))
         raises(OperationError, space.call_method, w_proxy, 'clear')
+
+    def test_dictproxytype(self, space, api):
+        # XXX test PyDictProxy_Type, currently space.NotImplemented
+        assert False

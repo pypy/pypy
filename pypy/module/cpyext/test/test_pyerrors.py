@@ -101,6 +101,9 @@ class TestExceptions(BaseApiTest):
         instance = space.call_function(space.w_ValueError)
         assert api.PyExceptionInstance_Class(instance) is space.w_ValueError
 
+    def test_interrupt_occurred(self, space, api):
+        assert False # XXX test PyOS_InterruptOccurred
+
 class AppTestFetch(AppTestCpythonExtensionBase):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)

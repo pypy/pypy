@@ -10,6 +10,11 @@ from pypy.objspace.std.setobject import W_SetObject, newset
 
 PySet_Check, PySet_CheckExact = build_type_checkers("Set")
 
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyAnySet_CheckExact(space, p):
+    """Return true if p is a set object or a frozenset object but
+    not an instance of a subtype."""
+    raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
 def PySet_New(space, w_iterable):

@@ -11,3 +11,6 @@ class TestMemoryViewObject(BaseApiTest):
         w_view = api.PyMemoryView_FromObject(w_hello)
         w_bytes = space.call_method(w_view, "tobytes")
         assert space.unwrap(w_bytes) == "hello"
+
+    def test_get_base_and_get_buffer(self, space, api):
+        assert False # XXX test PyMemoryView_GET_BASE, PyMemoryView_GET_BUFFER

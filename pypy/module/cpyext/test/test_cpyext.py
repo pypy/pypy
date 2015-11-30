@@ -102,7 +102,9 @@ def freeze_refcnts(self):
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', '_rawffi', 'array',
-                                   'itertools', 'time', 'binascii', 'micronumpy'])
+                                   'itertools', 'time', 'binascii',
+                                   'micronumpy',
+                                   ])
     spaceconfig['std.withmethodcache'] = True
 
     enable_leak_checking = True

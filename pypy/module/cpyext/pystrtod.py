@@ -1,7 +1,6 @@
 import errno
 from pypy.interpreter.error import OperationError
-from pypy.module.cpyext.api import cpython_api
-from pypy.module.cpyext.pyobject import PyObject
+from pypy.module.cpyext.api import cpython_api, PyObject, CONST_STRING
 from rpython.rlib import rdtoa
 from rpython.rlib import rfloat
 from rpython.rlib import rposix, jit
@@ -22,7 +21,7 @@ DOUBLE_TO_STRING_TYPES_MAP = {
     rfloat.DIST_NAN: Py_DTST_NAN
 }
 
-@cpython_api([rffi.CCHARP, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0)
+@cpython_api([CONST_STRING, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0)
 @jit.dont_look_inside       # direct use of _get_errno()
 def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
     """Convert a string s to a double, raising a Python

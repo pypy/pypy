@@ -24,7 +24,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  if(PyUnicode_GetSize(s) == 11) {
                      result = 1;
                  }
-                 if(s->ob_type->tp_basicsize != sizeof(void*)*4)
+                 if(s->ob_type->tp_basicsize != sizeof(void*)*6)
                      result = 0;
                  Py_DECREF(s);
                  return PyBool_FromLong(result);
@@ -155,22 +155,22 @@ class TestUnicode(BaseApiTest):
     def test_unicode_resize(self, space, api):
         py_uni = new_empty_unicode(space, 10)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        py_uni.c_buffer[0] = u'a'
-        py_uni.c_buffer[1] = u'b'
-        py_uni.c_buffer[2] = u'c'
+        py_uni.c_str[0] = u'a'
+        py_uni.c_str[1] = u'b'
+        py_uni.c_str[2] = u'c'
         ar[0] = rffi.cast(PyObject, py_uni)
         api.PyUnicode_Resize(ar, 3)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert py_uni.c_size == 3
-        assert py_uni.c_buffer[1] == u'b'
-        assert py_uni.c_buffer[3] == u'\x00'
+        assert py_uni.c_length == 3
+        assert py_uni.c_str[1] == u'b'
+        assert py_uni.c_str[3] == u'\x00'
         # the same for growing
         ar[0] = rffi.cast(PyObject, py_uni)
         api.PyUnicode_Resize(ar, 10)
         py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert py_uni.c_size == 10
-        assert py_uni.c_buffer[1] == 'b'
-        assert py_uni.c_buffer[10] == '\x00'
+        assert py_uni.c_length == 10
+        assert py_uni.c_str[1] == 'b'
+        assert py_uni.c_str[10] == '\x00'
         Py_DecRef(space, ar[0])
         lltype.free(ar, flavor='raw')
 
@@ -433,6 +433,10 @@ class TestUnicode(BaseApiTest):
     def test_compare(self, space, api):
         assert api.PyUnicode_Compare(space.wrap('a'), space.wrap('b')) == -1
 
+    def test_concat(self, space, api):
+        w_res = api.PyUnicode_Concat(space.wrap(u'a'), space.wrap(u'b'))
+        assert space.unwrap(w_res) == u'ab'
+
     def test_copy(self, space, api):
         w_x = space.wrap(u"abcd\u0660")
         count1 = space.int_w(space.len(w_x))
@@ -571,3 +575,6 @@ class TestUnicode(BaseApiTest):
                 api.PyUnicode_Splitlines(w_str, 0)))
         assert r"[u'a\n', u'b\n', u'c\n', u'd']" == space.unwrap(space.repr(
                 api.PyUnicode_Splitlines(w_str, 1)))
+
+    def test_hash_and_defenc(self, space, api):
+        assert False # XXX test newly added struct members hash and defenc

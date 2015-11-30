@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext import sequence
 import py.test
 
@@ -40,6 +41,12 @@ class TestSequence(BaseApiTest):
         w_t1 = space.wrap(range(4))
         w_t2 = space.wrap(range(4, 8))
         assert space.unwrap(api.PySequence_Concat(w_t1, w_t2)) == range(8)
+
+    def test_inplace_concat(self, space, api):
+        assert False # XXX test PySequence_InPlaceContat
+
+    def test_inplace_repeat(self, space, api):
+        assert False # XXX test PySequence_InPlaceRepeat
 
     def test_exception(self, space, api):
         message = rffi.str2charp("message")
@@ -137,3 +144,19 @@ class TestSequence(BaseApiTest):
         w_tofind = space.wrap(16)
         result = api.PySequence_Index(w_gen, w_tofind)
         assert result == 4
+
+
+class AppTestSequenceObject(AppTestCpythonExtensionBase):
+    def test_sequenceobject(self):
+        module = self.import_extension('foo', [
+            ("test_fast_sequence", "METH_VARARGS",
+             """
+                PyObject * o = PyTuple_GetItem(args, 0);
+                /* XXX assert it is a tuple */
+                PyObject ** res = PySequence_Fast_ITEMS(o);
+                /* XXX do some kind of test on res */
+                /* XXX now what? who manages res's refcount? */
+                return PyBool_FromLong(0);
+             """)])
+        assert module.test_fast_sequence()
+
