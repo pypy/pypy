@@ -76,7 +76,18 @@ class TestDictObject(BaseApiTest):
         assert space.eq_w(api.PyDict_Items(w_d), space.wrap([("a", "b")]))
 
     def test_merge(self, space, api):
-        assert False # XXX test PyDict_Merge
+        w_d = space.newdict()
+        space.setitem(w_d, space.wrap("a"), space.wrap("b"))
+
+        w_d2 = space.newdict()
+        space.setitem(w_d2, space.wrap("a"), space.wrap("c"))
+        space.setitem(w_d2, space.wrap("c"), space.wrap("d"))
+        space.setitem(w_d2, space.wrap("e"), space.wrap("f"))
+
+        api.PyDict_Merge(w_d, w_d2, 0)
+        assert space.unwrap(w_d) == dict(a='b', c='d', e='f')
+        api.PyDict_Merge(w_d, w_d2, 1)
+        assert space.unwrap(w_d) == dict(a='c', c='d', e='f')
 
     def test_update(self, space, api):
         w_d = space.newdict()

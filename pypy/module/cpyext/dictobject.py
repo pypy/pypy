@@ -99,8 +99,18 @@ def PyDict_Copy(space, w_obj):
     """
     return space.call_method(space.w_dict, "copy", w_obj)
 
+def _get_val_or_none(space, w_dict, w_key):
+    try:
+        w_val = space.getitem(w_dict, w_key)
+    except OperationError as e:
+        if e.match(space, space.w_KeyError):
+            return None
+        else:
+            raise
+    return w_val
+
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
-def PyDict_Merge(space, a, b, override):
+def PyDict_Merge(space, w_a, w_b, override):
     """Iterate over mapping object b adding key-value pairs to dictionary a.
     b may be a dictionary, or any object supporting PyMapping_Keys()
     and PyObject_GetItem(). If override is true, existing pairs in a
@@ -108,7 +118,13 @@ def PyDict_Merge(space, a, b, override):
     only be added if there is not a matching key in a. Return 0 on
     success or -1 if an exception was raised.
     """
-    raise NotImplementedError
+    w_keys = space.call_method(w_b, "keys")
+    print override
+    for w_key  in space.iteriterable(w_keys):
+        if _get_val_or_none(space, w_a, w_key) is None or override:
+            print 'setting', w_key
+            space.setitem(w_a, w_key, space.getitem(w_b, w_key))
+    return 0
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyDict_Update(space, w_obj, w_other):
