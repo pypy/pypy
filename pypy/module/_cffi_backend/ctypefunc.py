@@ -63,7 +63,8 @@ class W_CTypeFunc(W_CTypePtrBase):
         space = self.space
         nargs_declared = len(self.fargs)
         fvarargs = [None] * len(args_w)
-        fvarargs[:nargs_declared] = self.fargs
+        for i in range(nargs_declared):
+            fvarargs[i] = self.fargs[i]
         for i in range(nargs_declared, len(args_w)):
             w_obj = args_w[i]
             if isinstance(w_obj, cdataobj.W_CData):

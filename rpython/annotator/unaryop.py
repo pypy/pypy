@@ -377,7 +377,7 @@ class __extend__(SomeList):
             raise Exception("list[start:stop] = x: x must be a list")
         self.listdef.mutate()
         self.listdef.agree(s_iterable.listdef)
-        # note that setslice is not allowed to resize a list in RPython
+        self.listdef.resize()
 
     def delslice(self, s_start, s_stop):
         check_negative_slice(s_start, s_stop)

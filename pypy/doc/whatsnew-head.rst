@@ -30,6 +30,14 @@ string buffer and directly casts the bytes to the appropriate type, when
 allowed. Unpacking of floats and doubles is about 15 times faster now, while
 for integer types it's up to ~50% faster for 64bit integers.
 
+.. branch: wrap-specialisation
+
+Remove unnecessary special handling of space.wrap().
+
+.. branch: compress-numbering
+
+Improve the memory signature of numbering instances in the JIT.
+
 .. branch: memop-simplify2
 
 Backends implement too many loading instructions, only having a slightly different interface.

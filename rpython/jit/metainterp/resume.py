@@ -12,6 +12,7 @@ from rpython.rtyper import annlowlevel
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.rclass import OBJECTPTR
 from rpython.jit.metainterp.walkvirtual import VirtualVisitor
+from rpython.jit.metainterp import resumecode
 
 
 # Logic to encode the chain of frames and the state of the boxes at a
@@ -26,13 +27,21 @@ class Snapshot(object):
         self.prev = prev
         self.boxes = boxes
 
+def combine_uint(index1, index2):
+    assert 0 <= index1 < 65536
+    assert 0 <= index2 < 65536
+    return index1 << 16 | index2 # it's ok to return signed here,
+    # we need only 32bit, but 64 is ok for now
+
+def unpack_uint(packed):
+    return (packed >> 16) & 0xffff, packed & 0xffff
+
 class FrameInfo(object):
-    __slots__ = ('prev', 'jitcode', 'pc')
+    __slots__ = ('prev', 'packed_jitcode_pc')
 
     def __init__(self, prev, jitcode, pc):
         self.prev = prev
-        self.jitcode = jitcode
-        self.pc = pc
+        self.packed_jitcode_pc = combine_uint(jitcode.index, pc)
 
 class VectorInfo(object):
     """
@@ -102,7 +111,8 @@ def _ensure_parent_resumedata(framestack, n):
         return
     back = framestack[n - 1]
     if target.parent_resumedata_frame_info_list is not None:
-        assert target.parent_resumedata_frame_info_list.pc == back.pc
+        _, pc = unpack_uint(target.parent_resumedata_frame_info_list.packed_jitcode_pc)
+        assert pc == back.pc
         return
     _ensure_parent_resumedata(framestack, n - 1)
     target.parent_resumedata_frame_info_list = FrameInfo(
@@ -133,22 +143,6 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes,
     else:
         snapshot_storage.rd_frame_info_list = None
         snapshot_storage.rd_snapshot = Snapshot(None, boxes)
-
-#
-# The following is equivalent to the RPython-level declaration:
-#
-#     class Numbering: __slots__ = ['prev', 'nums']
-#
-# except that it is more compact in translated programs, because the
-# array 'nums' is inlined in the single NUMBERING object.  This is
-# important because this is often the biggest single consumer of memory
-# in a pypy-c-jit.
-#
-NUMBERINGP = lltype.Ptr(lltype.GcForwardReference())
-NUMBERING = lltype.GcStruct('Numbering',
-                            ('prev', NUMBERINGP),
-                            ('nums', lltype.Array(rffi.SHORT)))
-NUMBERINGP.TO.become(NUMBERING)
 
 PENDINGFIELDSTRUCT = lltype.Struct('PendingField',
                                    ('lldescr', OBJECTPTR),
@@ -195,7 +189,26 @@ UNASSIGNED = tag(-1 << 13, TAGBOX)
 UNASSIGNEDVIRTUAL = tag(-1 << 13, TAGVIRTUAL)
 NULLREF = tag(-1, TAGCONST)
 UNINITIALIZED = tag(-2, TAGCONST)   # used for uninitialized string characters
+TAG_CONST_OFFSET = 0
 
+class NumberingState(object):
+    def __init__(self, snapshot_list):
+        self.liveboxes = {}
+        self.current = [rffi.cast(rffi.SHORT, 0)] * self.count_boxes(snapshot_list)
+        self.position = len(self.current)
+        self.n = 0
+        self.v = 0
+
+    def count_boxes(self, lst):
+        c = 0
+        for snapshot in lst:
+            c += len(snapshot.boxes)
+        c += 2 * (len(lst) - 1)
+        return c
+
+    def append(self, item):
+        self.current[self.position] = item
+        self.position += 1
 
 class ResumeDataLoopMemo(object):
 
@@ -242,24 +255,19 @@ class ResumeDataLoopMemo(object):
         return self._newconst(const)
 
     def _newconst(self, const):
-        result = tag(len(self.consts), TAGCONST)
+        result = tag(len(self.consts) + TAG_CONST_OFFSET, TAGCONST)
         self.consts.append(const)
         return result
 
     # env numbering
 
-    def number(self, optimizer, snapshot):
-        if snapshot is None:
-            return lltype.nullptr(NUMBERING), {}, 0
-        if snapshot in self.numberings:
-            numb, liveboxes, v = self.numberings[snapshot]
-            return numb, liveboxes.copy(), v
-
-        numb1, liveboxes, v = self.number(optimizer, snapshot.prev)
-        n = len(liveboxes) - v
-        boxes = snapshot.boxes
+    def _number_boxes(self, boxes, optimizer, state):
+        """ Number boxes from one snapshot
+        """
+        n = state.n
+        v = state.v
+        liveboxes = state.liveboxes
         length = len(boxes)
-        numb = lltype.malloc(NUMBERING, length)
         for i in range(length):
             box = boxes[i]
             box = optimizer.get_box_replacement(box)
@@ -283,12 +291,41 @@ class ResumeDataLoopMemo(object):
                     tagged = tag(n, TAGBOX)
                     n += 1
                 liveboxes[box] = tagged
-            numb.nums[i] = tagged
-        #
-        numb.prev = numb1
-        self.numberings[snapshot] = numb, liveboxes, v
-        return numb, liveboxes.copy(), v
+            state.append(tagged)
+        state.n = n
+        state.v = v
+        state.position -= length + 2
 
+    def number(self, optimizer, snapshot, frameinfo):
+        # flatten the list
+        vref_snapshot = snapshot
+        cur = snapshot.prev
+        snapshot_list = [vref_snapshot]
+        framestack_list = []
+        while cur:
+            framestack_list.append(frameinfo)
+            frameinfo = frameinfo.prev
+            snapshot_list.append(cur)
+            cur = cur.prev
+        state = NumberingState(snapshot_list)
+
+        # we want to number snapshots starting from the back, but ending
+        # with a forward list
+        for i in range(len(snapshot_list) - 1, -1, -1):
+            state.position -= len(snapshot_list[i].boxes)
+            if i != 0:
+                frameinfo = framestack_list[i - 1]
+                jitcode_pos, pc = unpack_uint(frameinfo.packed_jitcode_pc)
+                state.position -= 2
+                state.append(rffi.cast(rffi.SHORT, jitcode_pos))
+                state.append(rffi.cast(rffi.SHORT, pc))
+            self._number_boxes(snapshot_list[i].boxes, optimizer, state)
+
+        numb = resumecode.create_numbering(state.current,
+                                           len(vref_snapshot.boxes))
+
+        return numb, state.liveboxes, state.v
+        
     def forget_numberings(self):
         # XXX ideally clear only the affected numberings
         self.numberings.clear()
@@ -430,13 +467,14 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         assert not storage.rd_numb
         snapshot = self.snapshot_storage.rd_snapshot
         assert snapshot is not None # is that true?
-        numb, liveboxes_from_env, v = self.memo.number(optimizer, snapshot)
+        # count stack depth
+        numb, liveboxes_from_env, v = self.memo.number(optimizer, snapshot,
+            self.snapshot_storage.rd_frame_info_list)
         self.liveboxes_from_env = liveboxes_from_env
         self.liveboxes = {}
         storage.rd_numb = numb
         self.snapshot_storage.rd_snapshot = None
-        storage.rd_frame_info_list = self.snapshot_storage.rd_frame_info_list
-
+        
         # collect liveboxes and virtuals
         n = len(liveboxes_from_env) - v
         liveboxes = [None] * n
@@ -531,7 +569,7 @@ class ResumeDataVirtualAdder(VirtualVisitor):
 
         if self._invalidation_needed(len(liveboxes), nholes):
             memo.clear_box_virtual_numbers()
-
+        
     def _invalidation_needed(self, nliveboxes, nholes):
         memo = self.memo
         # xxx heuristic a bit out of thin air
@@ -921,13 +959,24 @@ class AbstractResumeDataReader(object):
 
     def _init(self, cpu, storage):
         self.cpu = cpu
-        self.cur_numb = storage.rd_numb
+        self.numb = storage.rd_numb
+        self.cur_index = 0
         self.count = storage.rd_count
         self.consts = storage.rd_consts
 
     def _prepare(self, storage):
         self._prepare_virtuals(storage.rd_virtuals)
         self._prepare_pendingfields(storage.rd_pendingfields)
+
+    def read_jitcode_pos_pc(self):
+        jitcode_pos, self.cur_index = resumecode.numb_next_item(self.numb,
+            self.cur_index)
+        pc, self.cur_index = resumecode.numb_next_item(self.numb,
+            self.cur_index)
+        return jitcode_pos, pc
+
+    def done_reading(self):
+        return self.cur_index >= len(self.numb.code)
 
     def getvirtual_ptr(self, index):
         # Returns the index'th virtual, building it lazily if needed.
@@ -1004,23 +1053,29 @@ class AbstractResumeDataReader(object):
     def _prepare_next_section(self, info):
         # Use info.enumerate_vars(), normally dispatching to
         # rpython.jit.codewriter.jitcode.  Some tests give a different 'info'.
-        info.enumerate_vars(self._callback_i,
-                            self._callback_r,
-                            self._callback_f,
-                            self.unique_id)    # <-- annotation hack
-        self.cur_numb = self.cur_numb.prev
+        self.cur_index = info.enumerate_vars(self._callback_i,
+                                        self._callback_r,
+                                        self._callback_f,
+                                        self.unique_id,  # <-- annotation hack
+                                        self.cur_index)
 
     def _callback_i(self, index, register_index):
-        value = self.decode_int(self.cur_numb.nums[index])
+        item, index = resumecode.numb_next_item(self.numb, index)
+        value = self.decode_int(item)
         self.write_an_int(register_index, value)
+        return index
 
     def _callback_r(self, index, register_index):
-        value = self.decode_ref(self.cur_numb.nums[index])
+        item, index = resumecode.numb_next_item(self.numb, index)
+        value = self.decode_ref(item)
         self.write_a_ref(register_index, value)
+        return index
 
     def _callback_f(self, index, register_index):
-        value = self.decode_float(self.cur_numb.nums[index])
+        item, index = resumecode.numb_next_item(self.numb, index)
+        value = self.decode_float(item)
         self.write_a_float(register_index, value)
+        return index
 
 # ---------- when resuming for pyjitpl.py, make boxes ----------
 
@@ -1030,15 +1085,13 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
     boxes = resumereader.consume_vref_and_vable_boxes(virtualizable_info,
                                                       greenfield_info)
     virtualizable_boxes, virtualref_boxes = boxes
-    frameinfo = storage.rd_frame_info_list
-    while True:
-        f = metainterp.newframe(frameinfo.jitcode)
-        f.setup_resume_at_op(frameinfo.pc)
+    while not resumereader.done_reading():
+        jitcode_pos, pc = resumereader.read_jitcode_pos_pc()
+        jitcode = metainterp.staticdata.jitcodes[jitcode_pos]
+        f = metainterp.newframe(jitcode)
+        f.setup_resume_at_op(pc)
         resumereader.consume_boxes(f.get_current_position_info(),
                                    f.registers_i, f.registers_r, f.registers_f)
-        frameinfo = frameinfo.prev
-        if frameinfo is None:
-            break
     metainterp.framestack.reverse()
     return resumereader.liveboxes, virtualizable_boxes, virtualref_boxes
 
@@ -1060,36 +1113,48 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.boxes_f = boxes_f
         self._prepare_next_section(info)
 
-    def consume_virtualizable_boxes(self, vinfo, numb):
+    def consume_virtualizable_boxes(self, vinfo):
         # we have to ignore the initial part of 'nums' (containing vrefs),
         # find the virtualizable from nums[-1], and use it to know how many
         # boxes of which type we have to return.  This does not write
         # anything into the virtualizable.
-        index = len(numb.nums) - 1
-        virtualizablebox = self.decode_ref(numb.nums[index])
+        numb = self.numb
+        first_snapshot_size = rffi.cast(lltype.Signed, numb.first_snapshot_size)
+        item, _ = resumecode.numb_next_item(numb, first_snapshot_size - 1)
+        virtualizablebox = self.decode_ref(item)
+        index = first_snapshot_size - vinfo.get_total_size(virtualizablebox.getref_base()) - 1
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizablebox)
-        return vinfo.load_list_of_boxes(virtualizable, self, numb)
+        return vinfo.load_list_of_boxes(virtualizable, self, virtualizablebox,
+            numb, index)
 
-    def consume_virtualref_boxes(self, numb, end):
+    def consume_virtualref_boxes(self, end):
         # Returns a list of boxes, assumed to be all BoxPtrs.
         # We leave up to the caller to call vrefinfo.continue_tracing().
         assert (end & 1) == 0
-        return [self.decode_ref(numb.nums[i]) for i in range(end)]
+        lst = []
+        self.cur_index = 0
+        for i in range(end):
+            item, self.cur_index = resumecode.numb_next_item(self.numb,
+                self.cur_index)
+            lst.append(self.decode_ref(item))
+        return lst
 
     def consume_vref_and_vable_boxes(self, vinfo, ginfo):
-        numb = self.cur_numb
-        self.cur_numb = numb.prev
+        first_snapshot_size = rffi.cast(lltype.Signed,
+                                        self.numb.first_snapshot_size)
         if vinfo is not None:
-            virtualizable_boxes = self.consume_virtualizable_boxes(vinfo, numb)
-            end = len(numb.nums) - len(virtualizable_boxes)
+            virtualizable_boxes = self.consume_virtualizable_boxes(vinfo)
+            end = first_snapshot_size - len(virtualizable_boxes)
         elif ginfo is not None:
-            index = len(numb.nums) - 1
-            virtualizable_boxes = [self.decode_ref(numb.nums[index])]
-            end = len(numb.nums) - 1
+            item, self.cur_index = resumecode.numb_next_item(self.numb,
+                first_snapshot_size - 1)
+            virtualizable_boxes = [self.decode_ref(item)]
+            end = first_snapshot_size - 1
         else:
+            end = first_snapshot_size
             virtualizable_boxes = None
-            end = len(numb.nums)
-        virtualref_boxes = self.consume_virtualref_boxes(numb, end)
+        virtualref_boxes = self.consume_virtualref_boxes(end)
+        self.cur_index = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
         return virtualizable_boxes, virtualref_boxes
 
     def allocate_with_vtable(self, descr=None):
@@ -1228,7 +1293,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
             if tagged_eq(tagged, NULLREF):
                 box = self.cpu.ts.CONST_NULL
             else:
-                box = self.consts[num]
+                box = self.consts[num - TAG_CONST_OFFSET]
         elif tag == TAGVIRTUAL:
             if kind == INT:
                 box = self.getvirtual_int(num)
@@ -1287,7 +1352,8 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
 
 # ---------- when resuming for blackholing, get direct values ----------
 
-def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
+def blackhole_from_resumedata(blackholeinterpbuilder, jitcodes,
+                              jitdriver_sd, storage,
                               deadframe, all_virtuals=None):
     # The initialization is stack-critical code: it must not be interrupted by
     # StackOverflow, otherwise the jit_virtual_refs are left in a dangling state.
@@ -1303,30 +1369,24 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitdriver_sd, storage,
         rstack._stack_criticalcode_stop()
     #
     # First get a chain of blackhole interpreters whose length is given
-    # by the depth of rd_frame_info_list.  The first one we get must be
+    # by the positions in the numbering.  The first one we get must be
     # the bottom one, i.e. the last one in the chain, in order to make
     # the comment in BlackholeInterpreter.setposition() valid.
-    nextbh = None
-    frameinfo = storage.rd_frame_info_list
-    while True:
+    prevbh = None
+    firstbh = None
+    curbh = None
+    while not resumereader.done_reading():
         curbh = blackholeinterpbuilder.acquire_interp()
-        curbh.nextblackholeinterp = nextbh
-        nextbh = curbh
-        frameinfo = frameinfo.prev
-        if frameinfo is None:
-            break
-    firstbh = nextbh
-    #
-    # Now fill the blackhole interpreters with resume data.
-    curbh = firstbh
-    frameinfo = storage.rd_frame_info_list
-    while True:
-        curbh.setposition(frameinfo.jitcode, frameinfo.pc)
+        if prevbh is not None:
+            prevbh.nextblackholeinterp = curbh
+        else:
+            firstbh = curbh
+        prevbh = curbh
+        jitcode_pos, pc = resumereader.read_jitcode_pos_pc()
+        jitcode = jitcodes[jitcode_pos]
+        curbh.setposition(jitcode, pc)
         resumereader.consume_one_section(curbh)
-        curbh = curbh.nextblackholeinterp
-        frameinfo = frameinfo.prev
-        if frameinfo is None:
-            break
+    curbh.nextblackholeinterp = None
     return firstbh
 
 def force_from_resumedata(metainterp_sd, storage, deadframe, vinfo, ginfo):
@@ -1369,30 +1429,39 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         info = blackholeinterp.get_current_position_info()
         self._prepare_next_section(info)
 
-    def consume_virtualref_info(self, vrefinfo, numb, end):
+    def consume_virtualref_info(self, vrefinfo, end):
         # we have to decode a list of references containing pairs
         # [..., virtual, vref, ...]  stopping at 'end'
         if vrefinfo is None:
             assert end == 0
             return
         assert (end & 1) == 0
+        self.cur_index = 0
         for i in range(0, end, 2):
-            virtual = self.decode_ref(numb.nums[i])
-            vref = self.decode_ref(numb.nums[i + 1])
+            virtual_item, self.cur_index = resumecode.numb_next_item(
+                self.numb, self.cur_index)
+            vref_item, self.cur_index = resumecode.numb_next_item(
+                self.numb, self.cur_index)
+            virtual = self.decode_ref(virtual_item)
+            vref = self.decode_ref(vref_item)
             # For each pair, we store the virtual inside the vref.
             vrefinfo.continue_tracing(vref, virtual)
 
-    def consume_vable_info(self, vinfo, numb):
+    def consume_vable_info(self, vinfo):
         # we have to ignore the initial part of 'nums' (containing vrefs),
         # find the virtualizable from nums[-1], load all other values
         # from the CPU stack, and copy them into the virtualizable
-        if vinfo is None:
-            return len(numb.nums)
-        index = len(numb.nums) - 1
-        virtualizable = self.decode_ref(numb.nums[index])
+        numb = self.numb
+        first_snapshot_size = rffi.cast(lltype.Signed, numb.first_snapshot_size)
+        item, _ = resumecode.numb_next_item(self.numb,
+            first_snapshot_size - 1)
+        virtualizable = self.decode_ref(item)
+        start_index = first_snapshot_size - 1 - vinfo.get_total_size(virtualizable)
         # just reset the token, we'll force it later
         vinfo.reset_token_gcref(virtualizable)
-        return vinfo.write_from_resume_data_partial(virtualizable, self, numb)
+        vinfo.write_from_resume_data_partial(virtualizable, self, start_index,
+            numb)
+        return start_index
 
     def load_value_of_type(self, TYPE, tagged):
         from rpython.jit.metainterp.warmstate import specialize_value
@@ -1409,13 +1478,14 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     load_value_of_type._annspecialcase_ = 'specialize:arg(1)'
 
     def consume_vref_and_vable(self, vrefinfo, vinfo, ginfo):
-        numb = self.cur_numb
-        self.cur_numb = numb.prev
         if self.resume_after_guard_not_forced != 2:
-            end_vref = self.consume_vable_info(vinfo, numb)
+            end_vref = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
+            if vinfo is not None:
+                end_vref = self.consume_vable_info(vinfo)
             if ginfo is not None:
                 end_vref -= 1
-            self.consume_virtualref_info(vrefinfo, numb, end_vref)
+            self.consume_virtualref_info(vrefinfo, end_vref) 
+        self.cur_index = rffi.cast(lltype.Signed, self.numb.first_snapshot_size)
 
     def allocate_with_vtable(self, descr=None):
         from rpython.jit.metainterp.executor import exec_new_with_vtable
@@ -1534,7 +1604,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def decode_int(self, tagged):
         num, tag = untag(tagged)
         if tag == TAGCONST:
-            return self.consts[num].getint()
+            return self.consts[num - TAG_CONST_OFFSET].getint()
         elif tag == TAGINT:
             return num
         elif tag == TAGVIRTUAL:
@@ -1550,7 +1620,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         if tag == TAGCONST:
             if tagged_eq(tagged, NULLREF):
                 return self.cpu.ts.NULLREF
-            return self.consts[num].getref_base()
+            return self.consts[num - TAG_CONST_OFFSET].getref_base()
         elif tag == TAGVIRTUAL:
             return self.getvirtual_ptr(num)
         else:
@@ -1562,7 +1632,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
     def decode_float(self, tagged):
         num, tag = untag(tagged)
         if tag == TAGCONST:
-            return self.consts[num].getfloatstorage()
+            return self.consts[num - TAG_CONST_OFFSET].getfloatstorage()
         else:
             assert tag == TAGBOX
             if num < 0:
