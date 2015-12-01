@@ -384,6 +384,7 @@ def ll_arrayclear(p):
         llop.gc_writebarrier(lltype.Void, p)
         llop.stm_memclearinit(
             lltype.Void, p, offset, llmemory.sizeof(ARRAY.OF) * length)
+        keepalive_until_here(p)
         return
     dest_addr = llmemory.cast_ptr_to_adr(p) + offset
     llmemory.raw_memclear(dest_addr, llmemory.sizeof(ARRAY.OF) * length)
