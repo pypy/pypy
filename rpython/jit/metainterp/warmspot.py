@@ -46,9 +46,9 @@ def apply_jit(translator, backend_name="auto", inline=False,
                                     no_stats=True,
                                     ProfilerClass=ProfilerClass,
                                     **kwds)
-    if len(warmrunnerdesc.jitdriver_sd) == 1:
-        jd = warmrunnerdescr.jitdriver_sd[0]
-        jd.jitdriver.is_recrusive = True
+    if len(warmrunnerdesc.jitdrivers_sd) == 1:
+        jd = warmrunnerdesc.jitdrivers_sd[0]
+        jd.jitdriver.is_recursive = True
     else:
         count_recursive = 0
         for jd in warmrunnerdesc.jitdrivers_sd:
