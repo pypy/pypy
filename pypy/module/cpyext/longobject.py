@@ -251,11 +251,3 @@ def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
 
     return space.newlong_from_rbigint(result)
 
-@cpython_api([rffi.CCHARP, rffi.CCHARPP, rffi.INT], rffi.ULONG, error=CANNOT_FAIL)
-def PyOS_strtoul(space, nptr, endptr, cnt):
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, rffi.CCHARPP, rffi.INT], rffi.LONG, error=CANNOT_FAIL)
-def PyOS_strtol(space, nptr, endptr, cnt):
-    raise NotImplementedError
-

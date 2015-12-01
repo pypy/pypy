@@ -123,9 +123,6 @@ class TestLongObject(BaseApiTest):
         assert api._PyLong_NumBits(space.wrap(3)) == 2
         assert api._PyLong_NumBits(space.wrap(-3)) == 2
 
-    def test_strto(self, space, api):
-        assert False # XXX test PyOS_strtol, PyOS_strtoul
-
 class AppTestLongObject(AppTestCpythonExtensionBase):
     def test_fromunsignedlong(self):
         module = self.import_extension('foo', [
@@ -195,4 +192,23 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
             ])
         # A string with arabic digits. 'BAD' is after the 6th character.
         assert module.from_unicode(u'  1\u0662\u0663\u0664BAD') == (1234, 4660)
+
+    def test_strtol(self):
+        module = self.import_extension('foo', [
+            ("from_str", "METH_NOARGS",
+             """
+                 const char *str ="  400";
+                 char * end;
+                 if (400 != PyOS_strtoul(str, &end, 10))
+                    return PyLong_FromLong(1);
+                 if (str + strlen(str) != end)
+                    return PyLong_FromLong(2);
+                 if (400 != PyOS_strtol(str, &end, 10))
+                    return PyLong_FromLong(3);
+                 if (str + strlen(str) != end)
+                    return PyLong_FromLong(4);
+                 return PyLong_FromLong(0); 
+             """)])
+        assert module.from_str() == 0
+
 

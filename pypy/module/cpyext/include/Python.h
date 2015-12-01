@@ -110,6 +110,7 @@ typedef long Py_ssize_t;
 #include "dictobject.h"
 #include "intobject.h"
 #include "listobject.h"
+#include "longobject.h"
 #include "unicodeobject.h"
 #include "compile.h"
 #include "frameobject.h"
