@@ -156,7 +156,7 @@ class GcRewriterAssembler(object):
     def _emit_mul_add_if_factor_offset_not_supported(self, index_box, factor, offset):
         # factor
         if factor != 1 and factor not in self.cpu.load_supported_factors:
-            if index_box.is_constant():
+            if isinstance(index_box, ConstInt):
                 index_box = ConstInt(index_box.value * factor)
             else:
                 index_box = ResOperation(rop.INT_MUL, [index_box, ConstInt(factor)])
@@ -253,7 +253,9 @@ class GcRewriterAssembler(object):
             value_box = op.getarg(1)
             self.emit_gc_store_or_indexed(op, ptr_box, ConstInt(0), value_box, itemsize, 1, ofs)
         elif op.getopnum() == rop.ARRAYLEN_GC:
-            ofs = op.getdescr().lendescr.offset
+            descr = op.getdescr()
+            assert isinstance(descr, ArrayDescr)
+            ofs = descr.lendescr.offset
             self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
                                          WORD, 1, ofs, NOT_SIGNED)
         elif op.getopnum() == rop.STRLEN:
@@ -314,7 +316,7 @@ class GcRewriterAssembler(object):
                 continue
             if op is self._changed_op:
                 op = self._changed_op_to
-            # ---------- GC_LOAD --------------
+            # ---------- GC_LOAD/STORE transformations --------------
             if self.transform_to_gc_load(op):
                 continue
             # ---------- turn NEWxxx into CALL_MALLOC_xxx ----------
