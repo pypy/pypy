@@ -390,7 +390,7 @@ class TestFramework(RewriteTests):
             gc_store(p1, 0, 5678, 8)
             p2 = nursery_ptr_increment(p1, %(tdescr.size)d)
             gc_store(p2, 0, 1234, 8)
-            zero_ptr_field(p1, %(tdescr.gc_fielddescrs[0].offset)s)
+            gc_store(p1, %(tdescr.gc_fielddescrs[0].offset)s, 0, %(tdescr.gc_fielddescrs[0].offset)s)
             jump()
         """)
 
@@ -758,7 +758,7 @@ class TestFramework(RewriteTests):
         """, """
             [p1, p2]
             cond_call_gc_wb_array(p1, 0, descr=wbdescr)
-            gc_store_indexed(p1, 0, p2, 1, 8, %(interiorzdescr.arraydescr.itemsize)s)
+            gc_store_indexed(p1, 0, p2, 8, 8, %(interiorzdescr.arraydescr.itemsize)s)
             jump(p1, p2)
         """, interiorzdescr=interiorzdescr)
 
@@ -997,7 +997,7 @@ class TestFramework(RewriteTests):
             [i0]
             p0 = call_malloc_nursery(%(tdescr.size)d)
             gc_store(p0, 0,  5678, %(tiddescr.field_size)s)
-            zero_ptr_field(p0, %(tdescr.gc_fielddescrs[0].offset)s)
+            gc_store(p0, %(tdescr.gc_fielddescrs[0].offset)s, 0, %(tdescr.gc_fielddescrs[0].offset)s)
             p1 = call_malloc_nursery_varsize(1, 1, i0, \
                                 descr=strdescr)
             gc_store_indexed(p1, 0,  i0, 1, 8, %(strlendescr.field_size)s)
@@ -1018,7 +1018,7 @@ class TestFramework(RewriteTests):
             [p1]
             p0 = call_malloc_nursery(%(tdescr.size)d)
             gc_store(p0, 0,  5678, %(tiddescr.field_size)s)
-            zero_ptr_field(p0, %(tdescr.gc_fielddescrs[0].offset)s)
+            gc_store(p0, %(tdescr.gc_fielddescrs[0].offset)s, 0, %(tdescr.gc_fielddescrs[0].offset)s)
             label(p0, p1)
             cond_call_gc_wb(p0, descr=wbdescr)
             gc_store_indexed(p0, 0,  p1, 1, 8, %(tzdescr.field_size)s)
@@ -1073,7 +1073,7 @@ class TestFramework(RewriteTests):
             [i0]
             p0 = call_malloc_nursery(%(tdescr.size)d)
             gc_store(p0, 0,  5678, %(tiddescr.field_size)s)
-            zero_ptr_field(p0, %(tdescr.gc_fielddescrs[0].offset)s)
+            gc_store(p0, %(tdescr.gc_fielddescrs[0].offset)s, 0, %(tdescr.gc_fielddescrs[0].offset)s)
             i1 = int_add_ovf(i0, 123)
             guard_overflow(descr=guarddescr) []
             jump()
@@ -1090,7 +1090,7 @@ class TestFramework(RewriteTests):
             [i0]
             p0 = call_malloc_nursery(%(tdescr.size)d)
             gc_store(p0, 0,  5678, %(tiddescr.field_size)s)
-            zero_ptr_field(p0, %(tdescr.gc_fielddescrs[0].offset)s)
+            gc_store(p0, %(tdescr.gc_fielddescrs[0].offset)s, 0, %(tdescr.gc_fielddescrs[0].offset)s)
             i1 = int_gt(i0, 123)
             guard_false(i1, descr=guarddescr) []
             jump()
@@ -1109,7 +1109,7 @@ class TestFramework(RewriteTests):
             []
             p0 = call_malloc_nursery(%(tdescr.size)d)
             gc_store(p0, 0,  5678, %(tiddescr.field_size)s)
-            zero_ptr_field(p0, %(tdescr.gc_fielddescrs[0].offset)s)
+            gc_store(p0, %(tdescr.gc_fielddescrs[0].offset)s, 0, %(tdescr.gc_fielddescrs[0].offset)s)
             p1 = gc_load_indexed_r(p0, 0, 1, 8, %(tzdescr.field_size)s)
             jump(p1)
         """)
@@ -1193,11 +1193,14 @@ class TestFramework(RewriteTests):
                       'i3 = gc_store_indexed(p0,i1,0,4,16,4)'],
         # interior
         [True, (1,2,4,8), 'i3 = getinteriorfield_gc_i(p0,i1,descr=itzdescr)' '->'
-                          'i3 = gc_load_indexed_i(p0,i1,1,24,8)'],
+                          'i4 = int_mul(i1,24);'
+                          'i3 = gc_load_indexed_i(p0,i4,1,24,8)'],
         [True, (1,2,4,8), 'i3 = getinteriorfield_gc_r(p0,i1,descr=itxdescr)' '->'
-                          'i3 = gc_load_indexed_r(p0,i1,1,8,8)'],
+                          'i4 = int_mul(i1,24);'
+                          'i3 = gc_load_indexed_r(p0,i4,1,8,8)'],
         [True, (1,2,4,8), 'i3 = setinteriorfield_gc(p0,i1,i2,descr=itydescr)' '->'
-                          'i3 = gc_store_indexed(p0,i1,i2,1,16,8)'],
+                          'i4 = int_mul(i1,24);'
+                          'i3 = gc_store_indexed(p0,i4,i2,1,16,8)'],
     ])
     def test_gc_load_store_transform(self, support_offset, factors, fromto):
         self.cpu.load_constant_offset = support_offset

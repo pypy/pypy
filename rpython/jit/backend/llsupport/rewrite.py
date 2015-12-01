@@ -674,7 +674,7 @@ class GcRewriterAssembler(object):
         for v, d in self._delayed_zero_setfields.iteritems():
             v = self.get_box_replacement(v)
             for ofs in d.iterkeys():
-                self.emit_gc_store_or_indexed(None, ptr, ConstInt(ofs), ConstInt(0),
+                self.emit_gc_store_or_indexed(None, v, ConstInt(ofs), ConstInt(0),
                                               WORD, 1, 0)
         self._delayed_zero_setfields.clear()
 
