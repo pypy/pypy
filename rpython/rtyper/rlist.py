@@ -1071,9 +1071,25 @@ def ll_mul(RESLIST, l, factor):
     except OverflowError:
         raise MemoryError
     res = RESLIST.ll_newlist(resultlen)
-    j = 0
-    while j < resultlen:
-        ll_arraycopy(l, res, 0, j, length)
-        j += length
+    if length == 1:
+        # the [val]*f case seems important enough:
+        src = l.ll_items()
+        dst = res.ll_items()
+        if rgc.stm_is_enabled() and not jit.we_are_jitted():
+            # stmframework.py is not smart enough to see that ll_items
+            # returns a freshly allocated array -> do a manual WB
+            # outside of the loop to avoid card marking on 'dst'
+            from rpython.rtyper.lltypesystem.lloperation import llop
+            from rpython.rtyper.lltypesystem import lltype
+            llop.gc_writebarrier(lltype.Void, dst) # no jit support
+        j = 0
+        while j < resultlen:
+            rgc.copy_item(src, dst, 0, j)
+            j += 1
+    else:
+        j = 0
+        while j < resultlen:
+            ll_arraycopy(l, res, 0, j, length)
+            j += length
     return res
 # not inlined by the JIT -- contains a loop
