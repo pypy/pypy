@@ -564,7 +564,10 @@ class __extend__(SomeDict):
     method_setitem_with_hash.can_only_throw = _dict_can_only_throw_nothing
 
     def method_getitem_with_hash(self, s_key, s_hash):
-        return pair(self, s_key).getitem()
+        # XXX: copy of binaryop.getitem_SomeDict
+        self.dictdef.generalize_key(s_key)
+        position = getbookkeeper().position_key
+        return self.dictdef.read_value(position)
     method_getitem_with_hash.can_only_throw = _dict_can_only_throw_keyerror
 
     def method_delitem_with_hash(self, s_key, s_hash):
