@@ -723,6 +723,32 @@ class Regalloc(BaseRegalloc):
     prepare_enter_portal_frame = void
     prepare_leave_portal_frame = void
 
+    def _prepare_call(self, op):
+        oopspecindex = self.get_oopspecindex(op)
+        if oopspecindex == EffectInfo.OS_MATH_SQRT:
+            return self._prepare_math_sqrt(op)
+        if oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
+            return self._prepare_threadlocalref_get(op)
+        return self._prepare_call(op)
+
+    prepare_call_i = _prepare_call
+    prepare_call_r = _prepare_call
+    prepare_call_f = _prepare_call
+    prepare_call_n = _prepare_call
+
+    def _prepare_threadlocalref_get(self, op):
+        if self.cpu.translate_support_code:
+            res = self.force_allocate_reg(op)
+            return [res]
+        else:
+            return self._prepare_call(op)
+
+    def _prepare_math_sqrt(self, op):
+        loc = self.ensure_reg(op.getarg(1))
+        self.free_op_vars()
+        res = self.fprm.force_allocate_reg(op)
+        return [loc, res]
+
     def prepare_cast_int_to_float(self, op):
         loc1 = self.ensure_reg(op.getarg(0))
         res = self.fprm.force_allocate_reg(op)
