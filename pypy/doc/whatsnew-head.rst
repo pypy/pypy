@@ -33,3 +33,7 @@ for integer types it's up to ~50% faster for 64bit integers.
 .. branch: wrap-specialisation
 
 Remove unnecessary special handling of space.wrap().
+
+.. branch: compress-numbering
+
+Improve the memory signature of numbering instances in the JIT.

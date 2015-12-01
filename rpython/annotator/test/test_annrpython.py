@@ -3562,7 +3562,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeList)
-        assert not s.listdef.listitem.resized
+        assert s.listdef.listitem.resized
         assert not s.listdef.listitem.immutable
         assert s.listdef.listitem.mutated
 

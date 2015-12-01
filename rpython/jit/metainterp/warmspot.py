@@ -250,7 +250,8 @@ class WarmRunnerDesc(object):
         verbose = False # not self.cpu.translate_support_code
         self.rewrite_access_helpers()
         self.create_jit_entry_points()
-        self.codewriter.make_jitcodes(verbose=verbose)
+        jitcodes = self.codewriter.make_jitcodes(verbose=verbose)
+        self.metainterp_sd.jitcodes = jitcodes
         self.rewrite_can_enter_jits()
         self.rewrite_set_param_and_get_stats()
         self.rewrite_force_virtual(vrefinfo)
