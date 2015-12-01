@@ -674,8 +674,8 @@ class GcRewriterAssembler(object):
         for v, d in self._delayed_zero_setfields.iteritems():
             v = self.get_box_replacement(v)
             for ofs in d.iterkeys():
-                op = ResOperation(rop.ZERO_PTR_FIELD, [v, ConstInt(ofs)], None)
-                self.emit_op(op)
+                self.emit_gc_store_or_indexed(None, ptr, ConstInt(ofs), ConstInt(0),
+                                              WORD, 1, 0)
         self._delayed_zero_setfields.clear()
 
     def _gen_call_malloc_gc(self, args, v_result, descr):
