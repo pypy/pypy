@@ -1547,17 +1547,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         assert isinstance(ofs_loc, ImmedLoc)
         return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
 
-    # GC_LOAD def _genop_getinteriorfield(self, op, arglocs, resloc):
-    # GC_LOAD     (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
-    # GC_LOAD         index_loc, temp_loc, sign_loc) = arglocs
-    # GC_LOAD     src_addr = self._get_interiorfield_addr(temp_loc, index_loc,
-    # GC_LOAD                                             itemsize_loc, base_loc,
-    # GC_LOAD                                             ofs_loc)
-    # GC_LOAD     self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
-    # GC_LOAD genop_getinteriorfield_gc_i = _genop_getinteriorfield
-    # GC_LOAD genop_getinteriorfield_gc_r = _genop_getinteriorfield
-    # GC_LOAD genop_getinteriorfield_gc_f = _genop_getinteriorfield
-
     def genop_discard_increment_debug_counter(self, op, arglocs):
         # The argument should be an immediate address.  This should
         # generate code equivalent to a GETFIELD_RAW, an ADD(1), and a
@@ -1565,24 +1554,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # increment operation of x86.
         base_loc, = arglocs
         self.mc.INC(mem(base_loc, 0))
-
-    # GC_LOAD def genop_discard_setfield_gc(self, op, arglocs):
-    # GC_LOAD     base_loc, ofs_loc, size_loc, value_loc = arglocs
-    # GC_LOAD     assert isinstance(size_loc, ImmedLoc)
-    # GC_LOAD     dest_addr = AddressLoc(base_loc, ofs_loc)
-    # GC_LOAD     self.save_into_mem(dest_addr, value_loc, size_loc)
-
-    # GC_LOAD genop_discard_zero_ptr_field = genop_discard_setfield_gc
-
-    # GC_LOAD def genop_discard_setinteriorfield_gc(self, op, arglocs):
-    # GC_LOAD     (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
-    # GC_LOAD         index_loc, temp_loc, value_loc) = arglocs
-    # GC_LOAD     dest_addr = self._get_interiorfield_addr(temp_loc, index_loc,
-    # GC_LOAD                                              itemsize_loc, base_loc,
-    # GC_LOAD                                              ofs_loc)
-    # GC_LOAD     self.save_into_mem(dest_addr, value_loc, fieldsize_loc)
-
-    # GC_LOAD genop_discard_setinteriorfield_raw = genop_discard_setinteriorfield_gc
 
     def genop_discard_gc_store(self, op, arglocs):
         base_loc, ofs_loc, value_loc, size_loc = arglocs
@@ -1618,41 +1589,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             assert 0, itemsize
 
     # genop_discard_setfield_raw = genop_discard_setfield_gc
-
-    # GC_LOAD def genop_strlen(self, op, arglocs, resloc):
-    # GC_LOAD     base_loc = arglocs[0]
-    # GC_LOAD     basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-    # GC_LOAD                                          self.cpu.translate_support_code)
-    # GC_LOAD     self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
-
-    # GC_LOAD def genop_unicodelen(self, op, arglocs, resloc):
-    # GC_LOAD     base_loc = arglocs[0]
-    # GC_LOAD     basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-    # GC_LOAD                                          self.cpu.translate_support_code)
-    # GC_LOAD     self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
-
-    # GC_LOAD def genop_arraylen_gc(self, op, arglocs, resloc):
-    # GC_LOAD     base_loc, ofs_loc = arglocs
-    # GC_LOAD     assert isinstance(ofs_loc, ImmedLoc)
-    # GC_LOAD     self.mc.MOV(resloc, addr_add_const(base_loc, ofs_loc.value))
-
-    # GC_LOAD def genop_strgetitem(self, op, arglocs, resloc):
-    # GC_LOAD     base_loc, ofs_loc = arglocs
-    # GC_LOAD     basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-    # GC_LOAD                                          self.cpu.translate_support_code)
-    # GC_LOAD     assert itemsize == 1
-    # GC_LOAD     self.mc.MOVZX8(resloc, AddressLoc(base_loc, ofs_loc, 0, basesize))
-
-    # GC_LOAD def genop_unicodegetitem(self, op, arglocs, resloc):
-    # GC_LOAD     base_loc, ofs_loc = arglocs
-    # GC_LOAD     basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-    # GC_LOAD                                          self.cpu.translate_support_code)
-    # GC_LOAD     if itemsize == 4:
-    # GC_LOAD         self.mc.MOV32(resloc, AddressLoc(base_loc, ofs_loc, 2, basesize))
-    # GC_LOAD     elif itemsize == 2:
-    # GC_LOAD         self.mc.MOVZX16(resloc, AddressLoc(base_loc, ofs_loc, 1, basesize))
-    # GC_LOAD     else:
-    # GC_LOAD         assert 0, itemsize
 
     def genop_math_read_timestamp(self, op, arglocs, resloc):
         self.mc.RDTSC()
