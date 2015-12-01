@@ -7,7 +7,7 @@ class JitCode(AbstractDescr):
     _empty_i = []
     _empty_r = []
     _empty_f = []
-
+    
     def __init__(self, name, fnaddr=None, calldescr=None, called_from=None):
         self.name = name
         self.fnaddr = fnaddr
