@@ -187,6 +187,120 @@ class FloatOpAssembler(object):
         r0, f0 = arglocs
         self.mc.CDGBR(f0, r0)
 
+class CallOpAssembler(object):
+
+    _mixin_ = True
+
+    def _emit_call(self, op, arglocs, is_call_release_gil=False):
+        resloc = arglocs[0]
+        func_index = 1 + is_call_release_gil
+        adr = arglocs[func_index]
+        arglist = arglocs[func_index+1:]
+
+        cb = callbuilder.CallBuilder(self, adr, arglist, resloc)
+
+        descr = op.getdescr()
+        assert isinstance(descr, CallDescr)
+        cb.argtypes = descr.get_arg_types()
+        cb.restype  = descr.get_result_type()
+
+        if is_call_release_gil:
+            saveerrloc = arglocs[1]
+            assert saveerrloc.is_imm()
+            cb.emit_call_release_gil(saveerrloc.value)
+        else:
+            cb.emit()
+
+    def _genop_call(self, op, arglocs, regalloc):
+        oopspecindex = regalloc.get_oopspecindex(op)
+        if oopspecindex == EffectInfo.OS_MATH_SQRT:
+            return self._emit_math_sqrt(op, arglocs, regalloc)
+        if oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
+            return self._emit_threadlocalref_get(op, arglocs, regalloc)
+        self._emit_call(op, arglocs)
+
+    emit_call_i = _genop_call
+    emit_call_r = _genop_call
+    emit_call_f = _genop_call
+    emit_call_n = _genop_call
+
+    def _genop_call_may_force(self, op, arglocs, regalloc):
+        self._store_force_index(self._find_nearby_operation(regalloc, +1))
+        self._emit_call(op, arglocs)
+
+    emit_call_may_force_i = _genop_call_may_force
+    emit_call_may_force_r = _genop_call_may_force
+    emit_call_may_force_f = _genop_call_may_force
+    emit_call_may_force_n = _genop_call_may_force
+
+    def _genop_call_release_gil(self, op, arglocs, regalloc):
+        self._store_force_index(self._find_nearby_operation(regalloc, +1))
+        self._emit_call(op, arglocs, is_call_release_gil=True)
+
+    emit_call_release_gil_i = _genop_call_release_gil
+    emit_call_release_gil_f = _genop_call_release_gil
+    emit_call_release_gil_n = _genop_call_release_gil
+
+    def _store_force_index(self, guard_op):
+        assert (guard_op.getopnum() == rop.GUARD_NOT_FORCED or
+                guard_op.getopnum() == rop.GUARD_NOT_FORCED_2)
+        faildescr = guard_op.getdescr()
+        ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
+        self.mc.load_imm(r.SCRATCH, rffi.cast(lltype.Signed,
+                                           cast_instance_to_gcref(faildescr)))
+        self.mc.store(r.SCRATCH.value, r.SPP.value, ofs)
+
+    def _find_nearby_operation(self, regalloc, delta):
+        return regalloc.operations[regalloc.rm.position + delta]
+
+    _COND_CALL_SAVE_REGS = [r.r3, r.r4, r.r5, r.r6, r.r12]
+
+    def emit_cond_call(self, op, arglocs, regalloc):
+        fcond = self.guard_success_cc
+        self.guard_success_cc = c.cond_none
+        assert fcond != c.cond_none
+        fcond = c.negate(fcond)
+
+        jmp_adr = self.mc.get_relative_pos()
+        self.mc.trap()        # patched later to a 'bc'
+
+        self.load_gcmap(self.mc, r.r2, regalloc.get_gcmap())
+
+        # save away r3, r4, r5, r6, r12 into the jitframe
+        should_be_saved = [
+            reg for reg in self._regalloc.rm.reg_bindings.itervalues()
+                if reg in self._COND_CALL_SAVE_REGS]
+        self._push_core_regs_to_jitframe(self.mc, should_be_saved)
+        #
+        # load the 0-to-4 arguments into these registers, with the address of
+        # the function to call into r12
+        remap_frame_layout(self, arglocs,
+                           [r.r12, r.r3, r.r4, r.r5, r.r6][:len(arglocs)],
+                           r.SCRATCH)
+        #
+        # figure out which variant of cond_call_slowpath to call, and call it
+        callee_only = False
+        floats = False
+        for reg in regalloc.rm.reg_bindings.values():
+            if reg not in regalloc.rm.save_around_call_regs:
+                break
+        else:
+            callee_only = True
+        if regalloc.fprm.reg_bindings:
+            floats = True
+        cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
+        self.mc.bl_abs(cond_call_adr)
+        # restoring the registers saved above, and doing pop_gcmap(), is left
+        # to the cond_call_slowpath helper.  We never have any result value.
+        relative_target = self.mc.currpos() - jmp_adr
+        pmc = OverwritingBuilder(self.mc, jmp_adr, 1)
+        BI, BO = c.encoding[fcond]
+        pmc.bc(BO, BI, relative_target)
+        pmc.overwrite()
+        # might be overridden again to skip over the following
+        # guard_no_exception too
+        self.previous_cond_call_jcond = jmp_adr, BI, BO
+
 class GuardOpAssembler(object):
     _mixin_ = True
 

@@ -729,12 +729,40 @@ class Regalloc(BaseRegalloc):
             return self._prepare_math_sqrt(op)
         if oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
             return self._prepare_threadlocalref_get(op)
-        return self._prepare_call(op)
+        return self._prepare_call_default(op)
 
     prepare_call_i = _prepare_call
     prepare_call_r = _prepare_call
     prepare_call_f = _prepare_call
     prepare_call_n = _prepare_call
+
+    def get_oopspecindex(self, op):
+        descr = op.getdescr()
+        assert descr is not None
+        effectinfo = descr.get_extra_info()
+        if effectinfo is not None:
+            return effectinfo.oopspecindex
+        return EffectInfo.OS_NONE
+
+    def _spill_before_call(self, save_all_regs=False):
+        # spill variables that need to be saved around calls
+        self.fprm.before_call(save_all_regs=save_all_regs)
+        if not save_all_regs:
+            gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
+            if gcrootmap and gcrootmap.is_shadow_stack:
+                save_all_regs = 2
+        self.rm.before_call(save_all_regs=save_all_regs)
+
+    def _prepare_call_default(self, op, save_all_regs=False):
+        args = []
+        args.append(None)
+        for i in range(op.numargs()):
+            args.append(self.loc(op.getarg(i)))
+        self._spill_before_call(save_all_regs)
+        if op.type != VOID:
+            resloc = self.after_call(op)
+            args[0] = resloc
+        return args
 
     def _prepare_threadlocalref_get(self, op):
         if self.cpu.translate_support_code:
