@@ -224,7 +224,7 @@ class InevitableAnalysis(AbstractForwardDataFlowAnalysis):
             elif op.opname in ("cast_pointer", "same_as"):
                 if op.args[0] in fresh_vars:
                     fresh_vars.add(op.result)
-            elif op.opname == "malloc" and not var_needsgc(op.result):
+            elif op.opname in MALLOCS and not var_needsgc(op.result):
                 fresh_vars.add(op.result)
             #
             if inevitable:

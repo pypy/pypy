@@ -451,14 +451,18 @@ class TestTransform:
 
     def test_not_for_local_raw(self):
         X = lltype.Struct('X', ('foo', lltype.Signed))
-
+        A = lltype.Array(lltype.Signed)
+        #
         def f1(i):
             x1 = lltype.malloc(X, flavor='raw')
             x1.foo = 42 # ok
             r = x1.foo # ok
+            x = lltype.malloc(A, i, flavor='raw', zero=True)
+            x[i-1] = i # ok
             lltype.free(x1, flavor='raw')
+            lltype.free(x, flavor='raw')
             return r
-
+        #
         res = self.interpret_inevitable(f1, [1])
         assert res == []
 
