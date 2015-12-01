@@ -67,12 +67,22 @@ class Transformer(object):
 
     def transform(self, graph):
         self.graph = graph
-        for block in list(graph.iterblocks()):
-            self.optimize_block(block)
+        #
+        # transform every block at most once, starting from starblock
+        # and flowing through reachable blocks (e.g., determined by we_are_jitted())
+        pending = {graph.startblock,}
+        seen = set()
+        while pending:
+            block = pending.pop()
+            if block not in seen:
+                seen.add(block)
+                pending |= self.optimize_block(block)
+        # for block in list(graph.iterblocks()):
+        #     self.optimize_block(block)
 
     def optimize_block(self, block):
         if block.operations == ():
-            return
+            return {link.target for link in block.exits if link.target is not None}
         self.vable_array_vars = {}
         self.vable_flags = {}
         renamings = {}
@@ -123,6 +133,9 @@ class Transformer(object):
         for link in block.exits:
             self._check_no_vable_array(link.args)
             self._do_renaming_on_link(renamings, link)
+        #
+        # return successors (after optimizing exit-links):
+        return {link.target for link in block.exits if link.target is not None}
 
     def _do_renaming(self, rename, op):
         op = SpaceOperation(op.opname, op.args[:], op.result)
