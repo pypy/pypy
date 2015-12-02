@@ -792,6 +792,7 @@ def fork():
     return childpid
 
 @replace_os_function('openpty')
+@jit.dont_look_inside
 def openpty():
     master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     slave_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
