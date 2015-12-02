@@ -72,6 +72,7 @@ class FFI(object):
         self._cdefsources = []
         self._included_ffis = []
         self._windows_unicode = None
+        self._init_once_cache = {}
         if hasattr(backend, 'set_ffi'):
             backend.set_ffi(self)
         for name in backend.__dict__:
@@ -236,6 +237,30 @@ class FFI(object):
             cdecl = self._typeof(cdecl)
         return self._backend.newp(cdecl, init)
 
+    def new_allocator(self, alloc=None, free=None,
+                      should_clear_after_alloc=True):
+        """Return a new allocator, i.e. a function that behaves like ffi.new()
+        but uses the provided low-level 'alloc' and 'free' functions.
+
+        'alloc' is called with the size as argument.  If it returns NULL, a
+        MemoryError is raised.  'free' is called with the result of 'alloc'
+        as argument.  Both can be either Python function or directly C
+        functions.  If 'free' is None, then no free function is called.
+        If both 'alloc' and 'free' are None, the default is used.
+
+        If 'should_clear_after_alloc' is set to False, then the memory
+        returned by 'alloc' is assumed to be already cleared (or you are
+        fine with garbage); otherwise CFFI will clear it.
+        """
+        compiled_ffi = self._backend.FFI()
+        allocator = compiled_ffi.new_allocator(alloc, free,
+                                               should_clear_after_alloc)
+        def allocate(cdecl, init=None):
+            if isinstance(cdecl, basestring):
+                cdecl = self._typeof(cdecl)
+            return allocator(cdecl, init)
+        return allocate
+
     def cast(self, cdecl, source):
         """Similar to a C cast: returns an instance of the named C
         type initialized with the given 'source'.  The source is
@@ -286,7 +311,23 @@ class FFI(object):
         """
         return self._backend.from_buffer(self.BCharA, python_buffer)
 
-    def callback(self, cdecl, python_callable=None, error=None):
+    def memmove(self, dest, src, n):
+        """ffi.memmove(dest, src, n) copies n bytes of memory from src to dest.
+
+        Like the C function memmove(), the memory areas may overlap;
+        apart from that it behaves like the C function memcpy().
+
+        'src' can be any cdata ptr or array, or any Python buffer object.
+        'dest' can be any cdata ptr or array, or a writable Python buffer
+        object.  The size to copy, 'n', is always measured in bytes.
+
+        Unlike other methods, this one supports all Python buffer including
+        byte strings and bytearrays---but it still does not support
+        non-contiguous buffers.
+        """
+        return self._backend.memmove(dest, src, n)
+
+    def callback(self, cdecl, python_callable=None, error=None, onerror=None):
         """Return a callback object or a decorator making such a
         callback object.  'cdecl' must name a C function pointer type.
         The callback invokes the specified 'python_callable' (which may
@@ -298,7 +339,8 @@ class FFI(object):
             if not callable(python_callable):
                 raise TypeError("the 'python_callable' argument "
                                 "is not callable")
-            return self._backend.callback(cdecl, python_callable, error)
+            return self._backend.callback(cdecl, python_callable,
+                                          error, onerror)
         if isinstance(cdecl, basestring):
             cdecl = self._typeof(cdecl, consider_function_as_funcptr=True)
         if python_callable is None:
@@ -327,6 +369,13 @@ class FFI(object):
         data.  Later, when this new cdata object is garbage-collected,
         'destructor(old_cdata_object)' will be called.
         """
+        try:
+            gcp = self._backend.gcp
+        except AttributeError:
+            pass
+        else:
+            return gcp(cdata, destructor)
+        #
         with self._lock:
             try:
                 gc_weakrefs = self.gc_weakrefs
@@ -428,6 +477,8 @@ class FFI(object):
             raise TypeError("ffi.include() expects an argument that is also of"
                             " type cffi.FFI, not %r" % (
                                 type(ffi_to_include).__name__,))
+        if ffi_to_include is self:
+            raise ValueError("self.include(self)")
         with ffi_to_include._lock:
             with self._lock:
                 self._parser.include(ffi_to_include._parser)
@@ -548,6 +599,30 @@ class FFI(object):
         return recompile(self, module_name, source, tmpdir=tmpdir,
                          source_extension=source_extension, **kwds)
 
+    def init_once(self, func, tag):
+        # Read _init_once_cache[tag], which is either (False, lock) if
+        # we're calling the function now in some thread, or (True, result).
+        # Don't call setdefault() in most cases, to avoid allocating and
+        # immediately freeing a lock; but still use setdefaut() to avoid
+        # races.
+        try:
+            x = self._init_once_cache[tag]
+        except KeyError:
+            x = self._init_once_cache.setdefault(tag, (False, allocate_lock()))
+        # Common case: we got (True, result), so we return the result.
+        if x[0]:
+            return x[1]
+        # Else, it's a lock.  Acquire it to serialize the following tests.
+        with x[1]:
+            # Read again from _init_once_cache the current status.
+            x = self._init_once_cache[tag]
+            if x[0]:
+                return x[1]
+            # Call the function and store the result back.
+            result = func()
+            self._init_once_cache[tag] = (True, result)
+        return result
+
 
 def _load_backend_lib(backend, name, flags):
     if name is None:
@@ -575,7 +650,7 @@ def _make_ffi_library(ffi, libname, flags):
     def make_accessor_locked(name):
         key = 'function ' + name
         if key in ffi._parser._declarations:
-            tp = ffi._parser._declarations[key]
+            tp, _ = ffi._parser._declarations[key]
             BType = ffi._get_cached_btype(tp)
             try:
                 value = backendlib.load_function(BType, name)
@@ -586,7 +661,7 @@ def _make_ffi_library(ffi, libname, flags):
         #
         key = 'variable ' + name
         if key in ffi._parser._declarations:
-            tp = ffi._parser._declarations[key]
+            tp, _ = ffi._parser._declarations[key]
             BType = ffi._get_cached_btype(tp)
             read_variable = backendlib.read_variable
             write_variable = backendlib.write_variable
@@ -597,12 +672,23 @@ def _make_ffi_library(ffi, libname, flags):
         #
         if not copied_enums:
             from . import model
-            for key, tp in ffi._parser._declarations.items():
+            error = None
+            for key, (tp, _) in ffi._parser._declarations.items():
                 if not isinstance(tp, model.EnumType):
+                    continue
+                try:
+                    tp.check_not_partial()
+                except Exception as e:
+                    error = e
                     continue
                 for enumname, enumval in zip(tp.enumerators, tp.enumvalues):
                     if enumname not in library.__dict__:
                         library.__dict__[enumname] = enumval
+            if error is not None:
+                if name in library.__dict__:
+                    return     # ignore error, about a different enum
+                raise error
+
             for key, val in ffi._parser._int_constants.items():
                 if key not in library.__dict__:
                     library.__dict__[key] = val

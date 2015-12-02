@@ -50,6 +50,9 @@ def cpython_code_signature(code):
     kwargname = varnames[argcount] if code.co_flags & CO_VARKEYWORDS else None
     return Signature(argnames, varargname, kwargname)
 
+class CodeHookCache(object):
+    def __init__(self, space):
+        self._code_hook = None
 
 class PyCode(eval.Code):
     "CPython-style code objects."
@@ -85,7 +88,16 @@ class PyCode(eval.Code):
         self.magic = magic
         self._signature = cpython_code_signature(self)
         self._initialize()
-        space.register_code_object(self)
+        self._init_ready()
+        self.new_code_hook()
+
+    def new_code_hook(self):
+        code_hook = self.space.fromcache(CodeHookCache)._code_hook
+        if code_hook is not None:
+            try:
+                self.space.call_function(code_hook, self)
+            except OperationError, e:
+                e.write_unraisable(self.space, "new_code_hook()")
 
     def _initialize(self):
         if self.co_cellvars:
@@ -127,14 +139,8 @@ class PyCode(eval.Code):
             from pypy.objspace.std.mapdict import init_mapdict_cache
             init_mapdict_cache(self)
 
-        cui = self.space.code_unique_ids
-        self._unique_id = cui.code_unique_id
-        cui.code_unique_id += 4  # so we have two bits that we can mark stuff
-        # with
-
-    def _get_full_name(self):
-        return "py:%s:%d:%s" % (self.co_name, self.co_firstlineno,
-                                self.co_filename)
+    def _init_ready(self):
+        "This is a hook for the vmprof module, which overrides this method."
 
     def _cleanup_(self):
         if (self.magic == cpython_magic and

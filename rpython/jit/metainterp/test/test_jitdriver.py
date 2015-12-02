@@ -104,7 +104,7 @@ class MultipleJitDriversTests(object):
         res = self.meta_interp(loop2, [4, 40], repeat=7, inline=True)
         assert res == loop2(4, 40)
         # we expect no int_sub, but a residual call
-        self.check_resops(call=2, int_sub=0)
+        self.check_resops(call_i=2, int_sub=0)
 
     def test_multiple_jits_trace_too_long(self):
         myjitdriver1 = JitDriver(greens=["n"], reds=["i", "box"])

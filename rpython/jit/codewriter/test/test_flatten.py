@@ -39,8 +39,6 @@ class FakeDescr(AbstractDescr):
         self.oopspecindex = oopspecindex
     def __repr__(self):
         return '<Descr>'
-    def as_vtable_size_descr(self):
-        return self
 
 class FakeDict(object):
     def __getitem__(self, key):
@@ -60,7 +58,7 @@ class FakeCPU:
         return FakeDescr()
     def fielddescrof(self, STRUCT, name):
         return FakeDescr()
-    def sizeof(self, STRUCT):
+    def sizeof(self, STRUCT, vtable=None):
         return FakeDescr()
     def arraydescrof(self, ARRAY):
         return FakeDescr()
@@ -142,6 +140,7 @@ class TestFlatten:
 
     def encoding_test(self, func, args, expected,
                       transform=False, liveness=False, cc=None, jd=None):
+        
         graphs = self.make_graphs(func, args)
         #graphs[0].show()
         if transform:
@@ -149,7 +148,8 @@ class TestFlatten:
             cc = cc or FakeCallControl()
             transform_graph(graphs[0], FakeCPU(self.rtyper), cc, jd)
         ssarepr = flatten_graph(graphs[0], fake_regallocs(),
-                                _include_all_exc_links=not transform)
+                                _include_all_exc_links=not transform,
+                                cpu=FakeCPU(self.rtyper))
         if liveness:
             from rpython.jit.codewriter.liveness import compute_liveness
             compute_liveness(ssarepr)
@@ -171,8 +171,8 @@ class TestFlatten:
             return n + 1
         self.encoding_test(f, [10], """
             int_gt %i0, $0 -> %i1
+            -live-
             goto_if_not %i1, L1
-            -live- L1
             int_copy %i0 -> %i2
             int_sub %i2, $3 -> %i3
             int_copy %i3 -> %i4
@@ -196,8 +196,8 @@ class TestFlatten:
             int_copy %i1 -> %i3
             L1:
             int_gt %i2, $0 -> %i4
+            -live-
             goto_if_not %i4, L2
-            -live- L2
             int_copy %i2 -> %i5
             int_copy %i3 -> %i6
             int_add %i6, %i5 -> %i7
@@ -220,8 +220,8 @@ class TestFlatten:
             int_copy %i0 -> %i2
             int_copy %i1 -> %i3
             L1:
+            -live-
             goto_if_not_int_gt %i2, $0, L2
-            -live- L2
             int_copy %i2 -> %i4
             int_copy %i3 -> %i5
             int_add %i5, %i4 -> %i6
@@ -459,8 +459,8 @@ class TestFlatten:
         # note that 'goto_if_not_int_is_true' is not the same thing
         # as just 'goto_if_not', because the last one expects a boolean
         self.encoding_test(f, [7], """
+            -live-
             goto_if_not_int_is_true %i0, L1
-            -live- L1
             int_return $False
             ---
             L1:
@@ -525,8 +525,8 @@ class TestFlatten:
             else:
                 return m2
         self.encoding_test(f, [4, 5, 6], """
+            -live- %i0, %i1, %i2
             goto_if_not_int_is_true %i0, L1
-            -live- %i1, %i2, L1
             int_return %i1
             ---
             L1:
@@ -540,13 +540,57 @@ class TestFlatten:
             except OverflowError:
                 return 42
         self.encoding_test(f, [7, 2], """
-            int_add_ovf %i0, %i1 -> %i2
-            -live- %i2
-            catch_exception L1
+            -live- %i0, %i1
+            int_add_jump_if_ovf L1, %i0, %i1 -> %i2
             int_return %i2
             ---
             L1:
             int_return $42
+        """, transform=True, liveness=True)
+
+    def test_multiple_int_add_ovf(self):
+        def f(i, j):
+            try:
+                ovfcheck(j + i)
+                return ovfcheck(i + j)
+            except OverflowError:
+                return 42
+        self.encoding_test(f, [7, 2], """
+            -live- %i0, %i1
+            int_add_jump_if_ovf L1, %i1, %i0 -> %i2
+            int_copy %i1 -> %i3
+            int_copy %i0 -> %i4
+            -live- %i3, %i4
+            int_add_jump_if_ovf L2, %i4, %i3 -> %i5
+            int_return %i5
+            ---
+            L2:
+            int_return $42
+            ---
+            L1:
+            int_return $42
+        """, transform=True, liveness=True)
+
+    def test_ovfcheck_no_catch(self):
+        def f(i, j):
+            return ovfcheck(i + j)
+        err = py.test.raises(Exception, "self.encoding_test(f, [7, 2], '',"
+                             "transform=True, liveness=True)")
+        assert "ovfcheck()" in str(err.value)
+
+    def test_ovfcheck_reraise(self):
+        def f(i, j):
+            try:
+                ovfcheck(j + i)
+            except OverflowError:
+                raise
+        self.encoding_test(f, [7, 2], """
+            -live- %i0, %i1
+            int_add_jump_if_ovf L1, %i1, %i0 -> %i2
+            void_return
+            ---
+            L1:
+            raise $<* struct object>
         """, transform=True, liveness=True)
 
     def test_residual_call_raising(self):
@@ -783,11 +827,13 @@ class TestFlatten:
             (rffi.USHORT, rffi.USHORT, ""),
             (rffi.USHORT, rffi.LONG, ""),
             (rffi.USHORT, rffi.ULONG, ""),
+            (rffi.USHORT, lltype.Bool, "int_is_true %i0 -> %i1"),
 
             (rffi.LONG, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.LONG, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
             (rffi.LONG, rffi.SHORT, "int_signext %i0, $2 -> %i1"),
             (rffi.LONG, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
+            (rffi.LONG, lltype.Bool, "int_is_true %i0 -> %i1"),
             (rffi.LONG, rffi.LONG, ""),
             (rffi.LONG, rffi.ULONG, ""),
 
@@ -795,6 +841,7 @@ class TestFlatten:
             (rffi.ULONG, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
             (rffi.ULONG, rffi.SHORT, "int_signext %i0, $2 -> %i1"),
             (rffi.ULONG, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
+            (rffi.ULONG, lltype.Bool, "int_is_true %i0 -> %i1"),
             (rffi.ULONG, rffi.LONG, ""),
             (rffi.ULONG, rffi.ULONG, ""),
             ]:
@@ -816,8 +863,15 @@ class TestFlatten:
                         FROM = rffi.LONGLONG
                     else:
                         FROM = rffi.ULONGLONG
-                    expected.insert(0,
-                        "residual_call_irf_i $<* fn llong_to_int>, I[], R[], F[%f0], <Descr> -> %i0")
+                    if TO == lltype.Bool:
+                        prefix = 'u' if FROM == rffi.ULONGLONG else ''
+                        expected = [
+                            "residual_call_irf_i $<* fn %sllong_ne>, I[], R[], F[%%f0, $0L], <Descr> -> %%i0" % prefix,
+                            "int_return %i0",
+                        ]
+                    else:
+                        expected.insert(0,
+                            "residual_call_irf_i $<* fn llong_to_int>, I[], R[], F[%f0], <Descr> -> %i0")
                     expectedstr = '\n'.join(expected)
                     self.encoding_test(f, [rffi.cast(FROM, 42)], expectedstr,
                                        transform=True)
@@ -857,6 +911,17 @@ class TestFlatten:
         self.encoding_test(f, [rffi.cast(rffi.SIGNEDCHAR, 42)], """
             cast_int_to_float %i0 -> %f0
             float_return %f0
+        """, transform=True)
+        def f(n):
+            return rffi.cast(lltype.Bool, n)
+        self.encoding_test(f, [0.1], """
+            float_ne %f0, $0.0 -> %i0
+            int_return %i0
+        """, transform=True)
+        self.encoding_test(f, [rffi.cast(lltype.SingleFloat, 0.5)], """
+            cast_singlefloat_to_float %i0 -> %f0
+            float_ne %f0, $0.0 -> %i1
+            int_return %i1
         """, transform=True)
 
         # Casts to lltype.SingleFloat
@@ -1022,6 +1087,7 @@ def check_force_cast(FROM, TO, operations, value):
     """Check that the test is correctly written..."""
     import re
     r = re.compile('(\w+) \%i\d, \$(-?\d+)')
+    r2 = re.compile('(\w+) \%i\d')
     #
     value = rffi.cast(FROM, value)
     value = rffi.cast(lltype.Signed, value)
@@ -1031,6 +1097,8 @@ def check_force_cast(FROM, TO, operations, value):
     #
     for op in operations:
         match = r.match(op)
+        if match is None:
+            match = r2.match(op)
         assert match, "line %r does not match regexp" % (op,)
         opname = match.group(1)
         if opname == 'int_and':
@@ -1038,6 +1106,8 @@ def check_force_cast(FROM, TO, operations, value):
         elif opname == 'int_signext':
             numbytes = int(match.group(2))
             value = int_signext(value, numbytes)
+        elif opname == 'int_is_true':
+            value = bool(value)
         else:
             assert 0, opname
     #

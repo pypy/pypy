@@ -5,9 +5,9 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.backend.llsupport import jitframe, gc, descr
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.metainterp.gc import get_description
-from rpython.jit.metainterp.history import BoxPtr, BoxInt, ConstPtr
+from rpython.jit.metainterp.history import ConstPtr
 from rpython.jit.metainterp.resoperation import get_deep_immutable_oplist, rop,\
-     ResOperation
+     ResOperation, InputArgRef
 from rpython.rlib.rarithmetic import is_valid_int, r_uint
 
 def test_boehm():
@@ -184,14 +184,13 @@ class TestFramework(object):
         llop1 = self.llop1
         #
         rewriter = gc.GcRewriterAssembler(gc_ll_descr, None)
-        newops = rewriter.newops
-        v_base = BoxPtr()
+        newops = rewriter._newops
+        v_base = InputArgRef()
         rewriter.gen_write_barrier(v_base)
         assert llop1.record == []
         assert len(newops) == 1
         assert newops[0].getopnum() == rop.COND_CALL_GC_WB
         assert newops[0].getarg(0) == v_base
-        assert newops[0].result is None
         wbdescr = newops[0].getdescr()
         assert is_valid_int(wbdescr.jit_wb_if_flag)
         assert is_valid_int(wbdescr.jit_wb_if_flag_byteofs)
@@ -209,11 +208,9 @@ class TestFramework(object):
         S = lltype.GcStruct('S')
         s = lltype.malloc(S)
         s_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
-        v_random_box = BoxPtr()
-        v_result = BoxInt()
+        v_random_box = InputArgRef()
         operations = [
-            ResOperation(rop.PTR_EQ, [v_random_box, ConstPtr(s_gcref)],
-                         v_result),
+            ResOperation(rop.PTR_EQ, [v_random_box, ConstPtr(s_gcref)]),
             ]
         gc_ll_descr = self.gc_ll_descr
         gc_ll_descr.gcrefs = MyFakeGCRefList()

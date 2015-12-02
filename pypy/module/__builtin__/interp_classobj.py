@@ -253,26 +253,27 @@ def make_binary_instance_method(name):
 
     def binaryop(self, space, w_other):
         w_a, w_b = _coerce_helper(space, self, w_other)
-        if w_a is None:
-            w_a = self
-            w_b = w_other
-        if w_a is self:
-            w_meth = self.getattr(space, specialname, False)
+        if isinstance(w_a, W_InstanceObject):
+            w_meth = w_a.getattr(space, specialname, False)
             if w_meth is None:
                 return space.w_NotImplemented
             return space.call_function(w_meth, w_b)
         else:
+            # fall back to space.xxx() if coerce returns a non-W_Instance
+            # object as first argument
             return getattr(space, objspacename)(w_a, w_b)
     binaryop.func_name = name
 
     def rbinaryop(self, space, w_other):
         w_a, w_b = _coerce_helper(space, self, w_other)
-        if w_a is None or w_a is self:
-            w_meth = self.getattr(space, rspecialname, False)
+        if isinstance(w_a, W_InstanceObject):
+            w_meth = w_a.getattr(space, rspecialname, False)
             if w_meth is None:
                 return space.w_NotImplemented
-            return space.call_function(w_meth, w_other)
+            return space.call_function(w_meth, w_b)
         else:
+            # fall back to space.xxx() if coerce returns a non-W_Instance
+            # object as first argument
             return getattr(space, objspacename)(w_b, w_a)
     rbinaryop.func_name = "r" + name
     return binaryop, rbinaryop
@@ -283,7 +284,7 @@ def _coerce_helper(space, w_self, w_other):
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-        return [None, None]
+        return [w_self, w_other]
     return space.fixedview(w_tup, 2)
 
 def descr_instance_new(space, w_type, w_class, w_dict=None):
@@ -523,13 +524,9 @@ class W_InstanceObject(W_Root):
 
     def descr_cmp(self, space, w_other): # do all the work here like CPython
         w_a, w_b = _coerce_helper(space, self, w_other)
-        if w_a is None:
-            w_a = self
-            w_b = w_other
-        else:
-            if (not isinstance(w_a, W_InstanceObject) and
-                not isinstance(w_b, W_InstanceObject)):
-                return space.cmp(w_a, w_b)
+        if (not isinstance(w_a, W_InstanceObject) and
+            not isinstance(w_b, W_InstanceObject)):
+            return space.cmp(w_a, w_b)
         if isinstance(w_a, W_InstanceObject):
             w_func = w_a.getattr(space, '__cmp__', False)
             if w_func is not None:
@@ -636,42 +633,36 @@ class W_InstanceObject(W_Root):
     def descr_pow(self, space, w_other, w_modulo=None):
         if space.is_none(w_modulo):
             w_a, w_b = _coerce_helper(space, self, w_other)
-            if w_a is None:
-                w_a = self
-                w_b = w_other
-            if w_a is self:
-                w_func = self.getattr(space, '__pow__', False)
-                if w_func is not None:
-                    return space.call_function(w_func, w_other)
-                return space.w_NotImplemented
+            if isinstance(w_a, W_InstanceObject):
+                w_func = w_a.getattr(space, '__pow__', False)
+                if w_func is None:
+                    return space.w_NotImplemented
+                return space.call_function(w_func, w_other)
             else:
                 return space.pow(w_a, w_b, space.w_None)
         else:
             # CPython also doesn't try coercion in this case
             w_func = self.getattr(space, '__pow__', False)
-            if w_func is not None:
-                return space.call_function(w_func, w_other, w_modulo)
-            return space.w_NotImplemented
+            if w_func is None:
+                return space.w_NotImplemented
+            return space.call_function(w_func, w_other, w_modulo)
 
     def descr_rpow(self, space, w_other, w_modulo=None):
         if space.is_none(w_modulo):
             w_a, w_b = _coerce_helper(space, self, w_other)
-            if w_a is None:
-                w_a = self
-                w_b = w_other
-            if w_a is self:
-                w_func = self.getattr(space, '__rpow__', False)
-                if w_func is not None:
-                    return space.call_function(w_func, w_other)
-                return space.w_NotImplemented
+            if isinstance(w_a, W_InstanceObject):
+                w_func = w_a.getattr(space, '__rpow__', False)
+                if w_func is None:
+                    return space.w_NotImplemented
+                return space.call_function(w_func, w_other)
             else:
                 return space.pow(w_b, w_a, space.w_None)
         else:
             # CPython also doesn't try coercion in this case
             w_func = self.getattr(space, '__rpow__', False)
-            if w_func is not None:
-                return space.call_function(w_func, w_other, w_modulo)
-            return space.w_NotImplemented
+            if w_func is None:
+                return space.w_NotImplemented
+            return space.call_function(w_func, w_other, w_modulo)
 
     def descr_next(self, space):
         w_func = self.getattr(space, 'next', False)

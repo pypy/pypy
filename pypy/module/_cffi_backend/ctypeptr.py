@@ -168,10 +168,11 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
 
 class W_CTypePointer(W_CTypePtrBase):
-    _attrs_ = ['is_file', 'cache_array_type', 'is_void_ptr']
+    _attrs_ = ['is_file', 'cache_array_type', 'is_void_ptr', '_array_types']
     _immutable_fields_ = ['is_file', 'cache_array_type?', 'is_void_ptr']
     kind = "pointer"
     cache_array_type = None
+    is_nonfunc_pointer_or_array = True
 
     def __init__(self, space, ctitem):
         from pypy.module._cffi_backend import ctypearray
@@ -185,7 +186,7 @@ class W_CTypePointer(W_CTypePtrBase):
         self.is_void_ptr = isinstance(ctitem, ctypevoid.W_CTypeVoid)
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
-    def newp(self, w_init):
+    def newp(self, w_init, allocator):
         from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
         space = self.space
         ctitem = self.ctitem
@@ -205,14 +206,14 @@ class W_CTypePointer(W_CTypePtrBase):
                     datasize = ctitem.convert_struct_from_object(
                         lltype.nullptr(rffi.CCHARP.TO), w_init, datasize)
             #
-            cdatastruct = cdataobj.W_CDataNewOwning(space, datasize, ctitem)
+            cdatastruct = allocator.allocate(space, datasize, ctitem)
             ptr = cdatastruct.unsafe_escaping_ptr()
             cdata = cdataobj.W_CDataPtrToStructOrUnion(space, ptr,
                                                        self, cdatastruct)
         else:
             if self.is_char_or_unichar_ptr_or_array():
                 datasize *= 2       # forcefully add a null character
-            cdata = cdataobj.W_CDataNewOwning(space, datasize, self)
+            cdata = allocator.allocate(space, datasize, self)
         #
         if not space.is_w(w_init, space.w_None):
             with cdata as ptr:
@@ -223,9 +224,13 @@ class W_CTypePointer(W_CTypePtrBase):
         if (isinstance(w_cdata, cdataobj.W_CDataNewOwning) or
             isinstance(w_cdata, cdataobj.W_CDataPtrToStructOrUnion)):
             if i != 0:
-                space = self.space
-                raise oefmt(space.w_IndexError,
+                raise oefmt(self.space.w_IndexError,
                             "cdata '%s' can only be indexed by 0", self.name)
+        else:
+            if not w_cdata.unsafe_escaping_ptr():
+                raise oefmt(self.space.w_RuntimeError,
+                            "cannot dereference null pointer from cdata '%s'",
+                            self.name)
         return self
 
     def _check_slice_index(self, w_cdata, start, stop):

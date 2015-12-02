@@ -1,3 +1,4 @@
+# -*- encoding:utf-8 -*-
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestScalar(BaseNumpyAppTest):
@@ -141,7 +142,7 @@ class AppTestScalar(BaseNumpyAppTest):
         assert f.round() == 13.
         assert f.round(decimals=-1) == 10.
         assert f.round(decimals=1) == 13.4
-        assert b.round(decimals=5) is b
+        raises(TypeError, b.round, decimals=5)
         assert f.round(decimals=1, out=None) == 13.4
         assert b.round() == 1.0
 
@@ -403,8 +404,8 @@ class AppTestScalar(BaseNumpyAppTest):
         def _do_test(np_type, orig_val, exp_val):
             val = np_type(orig_val)
             assert val == orig_val
-            assert val.swapaxes(10, 20) == exp_val
-            assert type(val.swapaxes(0, 1)) is np_type
+            raises(ValueError, val.swapaxes, 10, 20)
+            raises(ValueError, val.swapaxes, 0, 1)
             raises(TypeError, val.swapaxes, 0, ())
 
         for t in int8, int16, int32, int64:
@@ -457,3 +458,31 @@ class AppTestScalar(BaseNumpyAppTest):
 
         for t in complex64, complex128:
             _do_test(t, 17j, -17j)
+
+    def test_string_boxes(self):
+        from numpy import str_
+        assert isinstance(str_(3), str_)
+        assert str_(3) == '3'
+        assert str(str_(3)) == '3'
+        assert repr(str_(3)) == "'3'"
+
+    def test_unicode_boxes(self):
+        from numpy import unicode_
+        u = unicode_(3)
+        assert isinstance(u, unicode)
+        assert u == u'3'
+
+    def test_unicode_repr(self):
+        from numpy import unicode_
+        u = unicode_(3)
+        assert str(u) == '3'
+        assert repr(u) == "u'3'"
+        u = unicode_(u'Aÿ')
+        # raises(UnicodeEncodeError, "str(u)")  # XXX
+        assert repr(u) == repr(u'Aÿ')
+
+    def test_binop_with_sequence(self):
+        import numpy as np
+        c = np.float64(1.) + [1.]
+        assert isinstance(c, np.ndarray)
+        assert (c == [2.]).all()

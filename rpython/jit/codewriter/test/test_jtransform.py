@@ -15,7 +15,7 @@ except ImportError:
         for prod in result:
             yield tuple(prod)
 
-from rpython.flowspace.model import FunctionGraph, Block, Link
+from rpython.flowspace.model import FunctionGraph, Block, Link, c_last_exception
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
 from rpython.rtyper import rclass
@@ -30,7 +30,6 @@ def const(x):
     return Constant(x, lltype.typeOf(x))
 
 class FakeRTyper:
-    class type_system: name = 'lltypesystem'
     instance_reprs = {}
 
 class FakeCPU:
@@ -46,12 +45,11 @@ class FakeCPU:
         return ('interiorfielddescr', ARRAY, name)
     def arraydescrof(self, ARRAY):
         return FakeDescr(('arraydescr', ARRAY))
-    def sizeof(self, STRUCT):
+    def sizeof(self, STRUCT, vtable=None):
         return FakeDescr(('sizedescr', STRUCT))
 
 class FakeDescr(tuple):
-    def as_vtable_size_descr(self):
-        return self
+    pass
 
 class FakeLink:
     args = []
@@ -188,7 +186,7 @@ def test_optimize_goto_if_not():
     res = Transformer().optimize_goto_if_not(block)
     assert res == True
     assert block.operations == [sp1, sp2]
-    assert block.exitswitch == ('int_gt', v1, v2)
+    assert block.exitswitch == ('int_gt', v1, v2, '-live-before')
     assert block.exits == exits
 
 def test_optimize_goto_if_not__incoming():
@@ -212,7 +210,7 @@ def test_optimize_goto_if_not__exit():
     res = Transformer().optimize_goto_if_not(block)
     assert res == True
     assert block.operations == []
-    assert block.exitswitch == ('int_gt', v1, v2)
+    assert block.exitswitch == ('int_gt', v1, v2, '-live-before')
     assert block.exits == exits
     assert exits[1].args == [const(True)]
 
@@ -236,7 +234,7 @@ def test_optimize_goto_if_not__ptr_eq():
         res = Transformer().optimize_goto_if_not(block)
         assert res == True
         assert block.operations == []
-        assert block.exitswitch == (opname, v1, v2)
+        assert block.exitswitch == (opname, v1, v2, '-live-before')
         assert block.exits == exits
 
 def test_optimize_goto_if_not__ptr_iszero():
@@ -288,7 +286,7 @@ def test_symmetric_int_add_ovf():
         for v2 in [varoftype(lltype.Signed), const(43)]:
             op = SpaceOperation('int_add_nonneg_ovf', [v1, v2], v3)
             oplist = Transformer(FakeCPU()).rewrite_operation(op)
-            op0, op1 = oplist
+            op1, op0 = oplist
             assert op0.opname == 'int_add_ovf'
             if isinstance(v1, Constant) and isinstance(v2, Variable):
                 assert op0.args == [v2, v1]
@@ -569,9 +567,6 @@ def test_malloc_new_with_vtable():
     op1 = Transformer(cpu).rewrite_operation(op)
     assert op1.opname == 'new_with_vtable'
     assert op1.args == [('sizedescr', S)]
-    #assert heaptracker.descr2vtable(cpu, op1.args[0]) == vtable [type check]
-    vtable_int = heaptracker.adr2int(llmemory.cast_ptr_to_adr(vtable))
-    assert heaptracker.vtable2descr(cpu, vtable_int) == op1.args[0]
 
 def test_malloc_new_with_destructor():
     vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
@@ -1331,19 +1326,6 @@ def test_no_gcstruct_nesting_outside_of_OBJECT():
                         varoftype(lltype.Signed))
     tr = Transformer(None, None)
     py.test.raises(NotImplementedError, tr.rewrite_operation, op)
-
-def test_cast_opaque_ptr():
-    S = lltype.GcStruct("S", ("x", lltype.Signed))
-    v1 = varoftype(lltype.Ptr(S))
-    v2 = varoftype(lltype.Ptr(rclass.OBJECT))
-
-    op = SpaceOperation('cast_opaque_ptr', [v1], v2)
-    tr = Transformer()
-    [op1, op2] = tr.rewrite_operation(op)
-    assert op1.opname == 'mark_opaque_ptr'
-    assert op1.args == [v1]
-    assert op1.result is None
-    assert op2 is None
 
 def _test_threadlocalref_get(loop_inv):
     from rpython.rlib.rthread import ThreadLocalField

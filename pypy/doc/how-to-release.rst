@@ -15,8 +15,7 @@ the documentation into an up-to-date state!
 Release Steps
 -------------
 
-* At code freeze make a release branch using release-x.x.x in mercurial
-  and add a release-specific tag
+* If needed, make a release branch
 * Bump the
   pypy version number in module/sys/version.py and in
   module/cpyext/include/patchlevel.h and . The branch
@@ -32,15 +31,14 @@ Release Steps
   and add the new file to  pypy/doc/index-of-whatsnew.rst
 * go to pypy/tool/release and run
   ``force-builds.py <release branch>``
-  The following binaries should be built, however, we need more buildbots
- - JIT: windows, linux, os/x, armhf, armel
- - no JIT: windows, linux, os/x
- - sandbox: linux, os/x
+  The following JIT binaries should be built, however, we need more buildbots
+  windows, linux-32, linux-64, osx64, armhf-raring, armhf-raspberrian, armel,
+  freebsd64 
 
 * wait for builds to complete, make sure there are no failures
 * download the builds, repackage binaries. Tag the release version
   and download and repackage source from bitbucket. You may find it
-  convenient to use the ``repackage.sh`` script in pypy/tools to do this. 
+  convenient to use the ``repackage.sh`` script in pypy/tool/release to do this. 
 
   Otherwise repackage and upload source "-src.tar.bz2" to bitbucket
   and to cobra, as some packagers prefer a clearly labeled source package

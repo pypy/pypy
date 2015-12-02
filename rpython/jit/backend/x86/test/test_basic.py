@@ -6,8 +6,10 @@ from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.rlib.jit import JitDriver
 
 class Jit386Mixin(support.LLJitMixin):
-    type_system = 'lltype'
     CPUClass = getcpuclass()
+    # we have to disable unroll
+    enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap"
+    basic = False
 
     def check_jumps(self, maxcount):
         pass
@@ -31,11 +33,6 @@ class TestBasic(Jit386Mixin, test_ajit.BaseLLtypeTests):
             return n
         res = self.meta_interp(f, [31], enable_opts='')
         assert res == -4
-
-    def test_r_dict(self):
-        # a Struct that belongs to the hash table is not seen as being
-        # included in the larger Array
-        py.test.skip("issue with ll2ctypes")
 
     def test_free_object(self):
         py.test.skip("issue of freeing, probably with ll2ctypes")

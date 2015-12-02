@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.history import ConstInt
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, OpHelpers
 
 class HeapCacheValue(object):
     def __init__(self, box):
@@ -9,6 +9,7 @@ class HeapCacheValue(object):
 
     def reset_keep_likely_virtual(self):
         self.known_class = False
+        self.known_nullity = False
         # did we see the allocation during tracing?
         self.seen_allocation = False
         self.is_unescaped = False
@@ -60,6 +61,26 @@ class CacheEntry(object):
             if not value.is_unescaped:
                 del d[value]
 
+
+class FieldUpdater(object):
+    def __init__(self, heapcache, value, cache, fieldvalue):
+        self.heapcache = heapcache
+        self.value = value
+        self.cache = cache
+        if fieldvalue is not None:
+            self.currfieldbox = fieldvalue.box
+        else:
+            self.currfieldbox = None
+
+    def getfield_now_known(self, fieldbox):
+        fieldvalue = self.heapcache.getvalue(fieldbox)
+        self.cache.read_now_known(self.value, fieldvalue)
+
+    def setfield(self, fieldbox):
+        fieldvalue = self.heapcache.getvalue(fieldbox)
+        self.cache.do_write_with_aliasing(self.value, fieldvalue)
+
+
 class HeapCache(object):
     def __init__(self):
         self.reset()
@@ -98,9 +119,9 @@ class HeapCache(object):
         self.heap_cache = {}
         self.heap_array_cache = {}
 
-    def getvalue(self, box):
+    def getvalue(self, box, create=True):
         value = self.values.get(box, None)
-        if not value:
+        if not value and create:
             value = self.values[box] = HeapCacheValue(box)
         return value
 
@@ -111,26 +132,28 @@ class HeapCache(object):
         self.mark_escaped(opnum, descr, argboxes)
         self.clear_caches(opnum, descr, argboxes)
 
+    def _escape_from_write(self, box, fieldbox):
+        value = self.getvalue(box, create=False)
+        fieldvalue = self.getvalue(fieldbox, create=False)
+        if (value is not None and value.is_unescaped and
+                fieldvalue is not None and fieldvalue.is_unescaped):
+            if value.dependencies is None:
+                value.dependencies = []
+            value.dependencies.append(fieldvalue)
+        elif fieldvalue is not None:
+            self._escape(fieldvalue)
+
     def mark_escaped(self, opnum, descr, argboxes):
         if opnum == rop.SETFIELD_GC:
             assert len(argboxes) == 2
-            value, fieldvalue = self.getvalues(argboxes)
-            if value.is_unescaped and fieldvalue.is_unescaped:
-                if value.dependencies is None:
-                    value.dependencies = []
-                value.dependencies.append(fieldvalue)
-            else:
-                self._escape(fieldvalue)
+            box, fieldbox = argboxes
+            self._escape_from_write(box, fieldbox)
         elif opnum == rop.SETARRAYITEM_GC:
             assert len(argboxes) == 3
-            value, indexvalue, fieldvalue = self.getvalues(argboxes)
-            if value.is_unescaped and fieldvalue.is_unescaped:
-                if value.dependencies is None:
-                    value.dependencies = []
-                value.dependencies.append(fieldvalue)
-            else:
-                self._escape(fieldvalue)
-        elif (opnum == rop.CALL and
+            box, indexbox, fieldbox = argboxes
+            self._escape_from_write(box, fieldbox)
+        elif ((opnum == rop.CALL_R or opnum == rop.CALL_I or
+               opnum == rop.CALL_N or opnum == rop.CALL_F) and
               descr.get_extra_info().oopspecindex == descr.get_extra_info().OS_ARRAYCOPY and
               isinstance(argboxes[3], ConstInt) and
               isinstance(argboxes[4], ConstInt) and
@@ -140,11 +163,14 @@ class HeapCache(object):
             # its argument
             # XXX really?
             pass
-        # GETFIELD_GC, MARK_OPAQUE_PTR, PTR_EQ, and PTR_NE don't escape their
+        # GETFIELD_GC, PTR_EQ, and PTR_NE don't escape their
         # arguments
-        elif (opnum != rop.GETFIELD_GC and
-              opnum != rop.GETFIELD_GC_PURE and
-              opnum != rop.MARK_OPAQUE_PTR and
+        elif (opnum != rop.GETFIELD_GC_R and
+              opnum != rop.GETFIELD_GC_I and
+              opnum != rop.GETFIELD_GC_F and
+              opnum != rop.GETFIELD_GC_PURE_R and
+              opnum != rop.GETFIELD_GC_PURE_I and
+              opnum != rop.GETFIELD_GC_PURE_F and
               opnum != rop.PTR_EQ and
               opnum != rop.PTR_NE and
               opnum != rop.INSTANCE_PTR_EQ and
@@ -153,7 +179,7 @@ class HeapCache(object):
                 self._escape_box(box)
 
     def _escape_box(self, box):
-        value = self.values.get(box, None)
+        value = self.getvalue(box, create=False)
         if not value:
             return
         self._escape(value)
@@ -186,7 +212,9 @@ class HeapCache(object):
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
             rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST):
             return
-        if opnum == rop.CALL or opnum == rop.CALL_LOOPINVARIANT or opnum == rop.COND_CALL:
+        if (OpHelpers.is_plain_call(opnum) or
+            OpHelpers.is_call_loopinvariant(opnum) or
+            opnum == rop.COND_CALL):
             effectinfo = descr.get_extra_info()
             ef = effectinfo.extraeffect
             if (ef == effectinfo.EF_LOOPINVARIANT or
@@ -261,7 +289,7 @@ class HeapCache(object):
         self.reset_keep_likely_virtuals()
 
     def is_class_known(self, box):
-        value = self.values.get(box, None)
+        value = self.getvalue(box, create=False)
         if value:
             return value.known_class
         return False
@@ -269,8 +297,17 @@ class HeapCache(object):
     def class_now_known(self, box):
         self.getvalue(box).known_class = True
 
+    def is_nullity_known(self, box):
+        value = self.getvalue(box, create=False)
+        if value:
+            return value.known_nullity
+        return False
+
+    def nullity_now_known(self, box):
+        self.getvalue(box).known_nullity = True
+
     def is_nonstandard_virtualizable(self, box):
-        value = self.values.get(box, None)
+        value = self.getvalue(box, create=False)
         if value:
             return value.nonstandard_virtualizable
         return False
@@ -279,13 +316,13 @@ class HeapCache(object):
         self.getvalue(box).nonstandard_virtualizable = True
 
     def is_unescaped(self, box):
-        value = self.values.get(box, None)
+        value = self.getvalue(box, create=False)
         if value:
             return value.is_unescaped
         return False
 
     def is_likely_virtual(self, box):
-        value = self.values.get(box, None)
+        value = self.getvalue(box, create=False)
         if value:
             return value.likely_virtual
         return False
@@ -301,7 +338,7 @@ class HeapCache(object):
         self.arraylen_now_known(box, lengthbox)
 
     def getfield(self, box, descr):
-        value = self.values.get(box, None)
+        value = self.getvalue(box, create=False)
         if value:
             cache = self.heap_cache.get(descr, None)
             if cache:
@@ -310,26 +347,28 @@ class HeapCache(object):
                     return tovalue.box
         return None
 
-    def getfield_now_known(self, box, descr, fieldbox):
+    def get_field_updater(self, box, descr):
         value = self.getvalue(box)
-        fieldvalue = self.getvalue(fieldbox)
         cache = self.heap_cache.get(descr, None)
         if cache is None:
             cache = self.heap_cache[descr] = CacheEntry()
-        cache.read_now_known(value, fieldvalue)
+            fieldvalue = None
+        else:
+            fieldvalue = cache.read(value)
+        return FieldUpdater(self, value, cache, fieldvalue)
+
+    def getfield_now_known(self, box, descr, fieldbox):
+        upd = self.get_field_updater(box, descr)
+        upd.getfield_now_known(fieldbox)
 
     def setfield(self, box, fieldbox, descr):
-        cache = self.heap_cache.get(descr, None)
-        if cache is None:
-            cache = self.heap_cache[descr] = CacheEntry()
-        value = self.getvalue(box)
-        fieldvalue = self.getvalue(fieldbox)
-        cache.do_write_with_aliasing(value, fieldvalue)
+        upd = self.get_field_updater(box, descr)
+        upd.setfield(fieldbox)
 
     def getarrayitem(self, box, indexbox, descr):
         if not isinstance(indexbox, ConstInt):
             return None
-        value = self.values.get(box, None)
+        value = self.getvalue(box, create=False)
         if value is None:
             return None
         index = indexbox.getint()
@@ -373,7 +412,7 @@ class HeapCache(object):
             indexcache.do_write_with_aliasing(value, fieldvalue)
 
     def arraylen(self, box):
-        value = self.values.get(box, None)
+        value = self.getvalue(box, create=False)
         if value and value.length:
             return value.length.box
         return None
@@ -383,7 +422,7 @@ class HeapCache(object):
         value.length = self.getvalue(lengthbox)
 
     def replace_box(self, oldbox, newbox):
-        value = self.values.get(oldbox, None)
+        value = self.getvalue(oldbox, create=False)
         if value is None:
             return
         value.box = newbox

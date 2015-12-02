@@ -6,9 +6,40 @@ import py
 
 class BaseTestDatetime:
     def test_repr(self):
-        print datetime
-        expected = "datetime.datetime(1, 2, 3, 0, 0)"
-        assert repr(datetime.datetime(1,2,3)) == expected
+        checks = (
+            (datetime.date(2015, 6, 8), "datetime.date(2015, 6, 8)"),
+            (datetime.datetime(2015, 6, 8, 12, 34, 56), "datetime.datetime(2015, 6, 8, 12, 34, 56)"),
+            (datetime.time(12, 34, 56), "datetime.time(12, 34, 56)"),
+            (datetime.timedelta(1), "datetime.timedelta(1)"),
+            (datetime.timedelta(1, 2), "datetime.timedelta(1, 2)"),
+            (datetime.timedelta(1, 2, 3), "datetime.timedelta(1, 2, 3)"),
+        )
+        for obj, expected in checks:
+            assert repr(obj) == expected
+
+    def test_repr_overridden(self):
+        class date_safe(datetime.date):
+            pass
+
+        class datetime_safe(datetime.datetime):
+            pass
+
+        class time_safe(datetime.time):
+            pass
+
+        class timedelta_safe(datetime.timedelta):
+            pass
+
+        checks = (
+            (date_safe(2015, 6, 8), "date_safe(2015, 6, 8)"),
+            (datetime_safe(2015, 6, 8, 12, 34, 56), "datetime_safe(2015, 6, 8, 12, 34, 56)"),
+            (time_safe(12, 34, 56), "time_safe(12, 34, 56)"),
+            (timedelta_safe(1), "timedelta_safe(1)"),
+            (timedelta_safe(1, 2), "timedelta_safe(1, 2)"),
+            (timedelta_safe(1, 2, 3), "timedelta_safe(1, 2, 3)"),
+        )
+        for obj, expected in checks:
+            assert repr(obj) == expected
 
     def test_attributes(self):
         for x in [datetime.date.today(),
@@ -139,14 +170,23 @@ class BaseTestDatetime:
                 self.value = value
             def __int__(self):
                 return self.value
+        class SubInt(int): pass
+        class SubLong(long): pass
 
+        dt10 = datetime.datetime(10, 10, 10, 10, 10, 10, 10)
         for xx in [10L,
                    decimal.Decimal(10),
                    decimal.Decimal('10.9'),
                    Number(10),
-                   Number(10L)]:
-            assert datetime.datetime(10, 10, 10, 10, 10, 10, 10) == \
-                   datetime.datetime(xx, xx, xx, xx, xx, xx, xx)
+                   Number(10L),
+                   SubInt(10),
+                   SubLong(10),
+                   Number(SubInt(10)),
+                   Number(SubLong(10))]:
+            dtxx = datetime.datetime(xx, xx, xx, xx, xx, xx, xx)
+            assert dt10 == dtxx
+            assert type(dtxx.month) is int
+            assert type(dtxx.second) is int
 
         with py.test.raises(TypeError) as e:
             datetime.datetime(10, 10, '10')
@@ -210,6 +250,70 @@ class BaseTestDatetime:
         with py.test.raises(TypeError) as e:
             naive == aware
         assert str(e.value) == "can't compare offset-naive and offset-aware times"
+
+    def test_future_types_newint(self):
+        try:
+            from future.types.newint import newint
+        except ImportError:
+            py.test.skip('requires future')
+
+        dt_from_ints = datetime.datetime(2015, 12, 31, 12, 34, 56)
+        dt_from_newints = datetime.datetime(newint(2015), newint(12), newint(31), newint(12), newint(34), newint(56))
+        dt_from_mixed = datetime.datetime(2015, newint(12), 31, newint(12), 34, newint(56))
+        assert dt_from_ints == dt_from_newints
+        assert dt_from_newints == dt_from_mixed
+        assert dt_from_mixed == dt_from_ints
+
+        d_from_int = datetime.date.fromtimestamp(1431216000)
+        d_from_newint = datetime.date.fromtimestamp(newint(1431216000))
+        assert d_from_int == d_from_newint
+
+        dt_from_int = datetime.datetime.fromtimestamp(1431216000)
+        dt_from_newint = datetime.datetime.fromtimestamp(newint(1431216000))
+        assert dt_from_int == dt_from_newint
+
+        dtu_from_int = datetime.datetime.utcfromtimestamp(1431216000)
+        dtu_from_newint = datetime.datetime.utcfromtimestamp(newint(1431216000))
+        assert dtu_from_int == dtu_from_newint
+
+        td_from_int = datetime.timedelta(16565)
+        tds_from_int = datetime.timedelta(seconds=1431216000)
+        td_from_newint = datetime.timedelta(newint(16565))
+        tds_from_newint = datetime.timedelta(seconds=newint(1431216000))
+        assert td_from_int == tds_from_int
+        assert td_from_int == td_from_newint
+        assert td_from_int == tds_from_newint
+        assert tds_from_int == td_from_newint
+        assert tds_from_int == tds_from_newint
+        assert td_from_newint == tds_from_newint
+
+        td_mul_int_int = td_from_int * 2
+        td_mul_int_newint = td_from_int * newint(2)
+        td_mul_newint_int = td_from_newint * 2
+        td_mul_newint_newint = td_from_newint * newint(2)
+        assert td_mul_int_int == td_mul_int_newint
+        assert td_mul_int_int == td_mul_newint_int
+        assert td_mul_int_int == td_mul_newint_newint
+        assert td_mul_int_newint == td_mul_newint_int
+        assert td_mul_int_newint == td_mul_newint_newint
+        assert td_mul_newint_int == td_mul_newint_newint
+
+        td_div_int_int = td_from_int / 3600
+        td_div_int_newint = td_from_int / newint(3600)
+        td_div_newint_int = td_from_newint / 3600
+        td_div_newint_newint = td_from_newint / newint(3600)
+        assert td_div_int_int == td_div_int_newint
+        assert td_div_int_int == td_div_newint_int
+        assert td_div_int_int == td_div_newint_newint
+        assert td_div_int_newint == td_div_newint_int
+        assert td_div_int_newint == td_div_newint_newint
+        assert td_div_newint_int == td_div_newint_newint
+
+    def test_return_types(self):
+        td = datetime.timedelta(5)
+        assert type(td.total_seconds()) is float
+        class sub(datetime.timedelta): pass
+        assert type(+sub()) is datetime.timedelta
 
 
 class TestDatetimeHost(BaseTestDatetime):

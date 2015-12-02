@@ -2,15 +2,17 @@
 Built-in functions.
 """
 import sys
+from collections import OrderedDict, defaultdict
 
 from rpython.annotator.model import (
-    SomeInteger, SomeObject, SomeChar, SomeBool, SomeString, SomeTuple,
+    SomeInteger, SomeChar, SomeBool, SomeString, SomeTuple,
     SomeUnicodeCodePoint, SomeFloat, unionof, SomeUnicodeString,
     SomePBC, SomeInstance, SomeDict, SomeList, SomeWeakRef, SomeIterator,
     SomeOrderedDict, SomeByteArray, add_knowntypedata, s_ImpossibleValue,)
 from rpython.annotator.bookkeeper import (
     getbookkeeper, immutablevalue, BUILTIN_ANALYZERS, analyzer_for)
 from rpython.annotator import description
+from rpython.annotator.classdesc import ClassDef
 from rpython.flowspace.model import Constant
 import rpython.rlib.rarithmetic
 import rpython.rlib.objectmodel
@@ -123,7 +125,6 @@ def builtin_bytearray(s_str):
 
 def our_issubclass(cls1, cls2):
     """ we're going to try to be less silly in the face of old-style classes"""
-    from rpython.annotator.classdef import ClassDef
     if cls2 is object:
         return True
     def classify(cls):
@@ -156,7 +157,10 @@ def builtin_isinstance(s_obj, s_type, variables=None):
     if s_type.is_constant():
         typ = s_type.const
         if issubclass(typ, rpython.rlib.rarithmetic.base_int):
-            r.const = issubclass(s_obj.knowntype, typ)
+            try:
+                r.const = issubclass(s_obj.knowntype, typ)
+            except TypeError:    # s_obj.knowntype is not a Python type at all
+                r.const = False
         else:
             if typ == long:
                 getbookkeeper().warning("isinstance(., long) is not RPython")
@@ -184,7 +188,7 @@ def builtin_isinstance(s_obj, s_type, variables=None):
             variables = [op.args[1]]
         for variable in variables:
             assert bk.annotator.binding(variable) == s_obj
-        knowntypedata = {}
+        knowntypedata = defaultdict(dict)
         if not hasattr(typ, '_freeze_') and isinstance(s_type, SomePBC):
             add_knowntypedata(knowntypedata, True, variables, bk.valueoftype(typ))
         r.set_knowntypedata(knowntypedata)
@@ -287,7 +291,7 @@ def rarith_longlongmask(s_obj):
     return SomeInteger(knowntype=rpython.rlib.rarithmetic.r_longlong)
 
 @analyzer_for(rpython.rlib.objectmodel.instantiate)
-def robjmodel_instantiate(s_clspbc):
+def robjmodel_instantiate(s_clspbc, s_nonmovable=None):
     assert isinstance(s_clspbc, SomePBC)
     clsdef = None
     more_than_one = len(s_clspbc.descriptions) > 1
@@ -353,7 +357,7 @@ else:
     def unicodedata_decimal(s_uchr):
         raise TypeError("unicodedate.decimal() calls should not happen at interp-level")
 
-@analyzer_for(SomeOrderedDict.knowntype)
+@analyzer_for(OrderedDict)
 def analyze():
     return SomeOrderedDict(getbookkeeper().getdictdef())
 

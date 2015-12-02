@@ -67,14 +67,16 @@ class TranslationDriver(SimpleTaskEngine):
                  disable=[],
                  exe_name=None, extmod_name=None,
                  config=None, overrides=None):
+        from rpython.config import translationoption
         self.timer = Timer()
         SimpleTaskEngine.__init__(self)
 
         self.log = log
 
         if config is None:
-            from rpython.config.translationoption import get_combined_translation_config
-            config = get_combined_translation_config(translating=True)
+            config = translationoption.get_combined_translation_config(translating=True)
+        # XXX patch global variable with translation config
+        translationoption._GLOBAL_TRANSLATIONCONFIG = config
         self.config = config
         if overrides is not None:
             self.config.override(overrides)
@@ -500,7 +502,6 @@ class TranslationDriver(SimpleTaskEngine):
                         shutil.copyfile(str(name), str(newname.new(ext=ext)))
                         self.log.info("copied: %s" % (newname,))
             self.c_entryp = newexename
-        self.log.info('usession directory: %s' % (udir,))
         self.log.info("created: %s" % (self.c_entryp,))
 
     @taskdef(['source_c'], "Compiling c source")
@@ -546,7 +547,9 @@ class TranslationDriver(SimpleTaskEngine):
             goals = [goals]
         goals.extend(self.extra_goals)
         goals = self.backend_select_goals(goals)
-        return self._execute(goals, task_skip = self._maybe_skip())
+        result = self._execute(goals, task_skip = self._maybe_skip())
+        self.log.info('usession directory: %s' % (udir,))
+        return result
 
     @staticmethod
     def from_targetspec(targetspec_dic, config=None, args=None,

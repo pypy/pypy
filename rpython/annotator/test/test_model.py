@@ -1,8 +1,14 @@
-import py
+import pytest
 
 from rpython.annotator.model import *
 from rpython.annotator.listdef import ListDef
 from rpython.translator.translator import TranslationContext
+from rpython.annotator import unaryop, binaryop  # for side-effects
+
+@pytest.fixture()
+def annotator():
+    t = TranslationContext()
+    return t.buildannotator()
 
 
 listdef1 = ListDef(None, SomeTuple([SomeInteger(nonneg=True), SomeString()]))
@@ -100,19 +106,21 @@ def compile_function(function, annotation=[]):
 class AAA(object):
     pass
 
-def test_blocked_inference1():
+def test_blocked_inference1(annotator):
     def blocked_inference():
         return AAA().m()
 
-    py.test.raises(AnnotatorError, compile_function, blocked_inference)
+    with pytest.raises(AnnotatorError):
+        annotator.build_types(blocked_inference, [])
 
-def test_blocked_inference2():
+def test_blocked_inference2(annotator):
     def blocked_inference():
         a = AAA()
         b = a.x
         return b
 
-    py.test.raises(AnnotatorError, compile_function, blocked_inference)
+    with pytest.raises(AnnotatorError):
+        annotator.build_types(blocked_inference, [])
 
 
 def test_not_const():
@@ -129,3 +137,17 @@ def test_nonnulify():
     assert s.no_nul is True
     s = SomeChar().nonnulify()
     assert s.no_nul is True
+
+def test_SomeException_union(annotator):
+    bk = annotator.bookkeeper
+    someinst = lambda cls, **kw: SomeInstance(bk.getuniqueclassdef(cls), **kw)
+    s_inst = someinst(Exception)
+    s_exc = bk.new_exception([ValueError, IndexError])
+    assert unionof(s_exc, s_inst) == s_inst
+    assert unionof(s_inst, s_exc) == s_inst
+    s_nullable = unionof(s_None, bk.new_exception([ValueError]))
+    assert isinstance(s_nullable, SomeInstance)
+    assert s_nullable.can_be_None
+    s_exc1 = bk.new_exception([ValueError])
+    s_exc2 = bk.new_exception([IndexError])
+    unionof(s_exc1, s_exc2) == unionof(s_exc2, s_exc1)

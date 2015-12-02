@@ -4,7 +4,7 @@ import sys
 from rpython.rlib import rposix, rposix_stat
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib.unroll import unrolling_iterable
 
 from pypy.interpreter.gateway import unwrap_spec
@@ -462,9 +462,9 @@ if _WIN32:
 else:
     def getcwdu(space):
         """Return the current working directory as a unicode string."""
-        filesystemencoding = space.sys.filesystemencoding
+        w_filesystemencoding = getfilesystemencoding(space)
         return space.call_method(getcwd(space), 'decode',
-                                 space.wrap(filesystemencoding))
+                                 w_filesystemencoding)
 
 def chdir(space, w_path):
     """Change the current working directory to the specified path."""
@@ -1322,14 +1322,14 @@ def makedev(space, major, minor):
     result = os.makedev(major, minor)
     return space.wrap(result)
 
-@unwrap_spec(device=c_int)
+@unwrap_spec(device="c_uint")
 def major(space, device):
-    result = os.major(device)
+    result = os.major(intmask(device))
     return space.wrap(result)
 
-@unwrap_spec(device=c_int)
+@unwrap_spec(device="c_uint")
 def minor(space, device):
-    result = os.minor(device)
+    result = os.minor(intmask(device))
     return space.wrap(result)
 
 @unwrap_spec(inc=c_int)

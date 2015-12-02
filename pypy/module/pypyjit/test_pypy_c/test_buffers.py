@@ -18,7 +18,7 @@ class TestBuffers(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('match', """
             guard_not_invalidated(descr=...)
-            i65 = getfield_gc(p18, descr=...)
+            i65 = getfield_gc_i(p18, descr=...)
             i67 = int_gt(0, i65)
             guard_false(i67, descr=...)
             i69 = int_gt(#, i65)
@@ -28,7 +28,7 @@ class TestBuffers(BaseTestPyPyC):
 
     def test_struct_unpack(self):
         def main(n):
-            import struct
+            import _struct as struct
             import array
             a = array.array('c', struct.pack('i', 42))
             i = 0
@@ -42,7 +42,7 @@ class TestBuffers(BaseTestPyPyC):
         assert loop.match_by_id('unpack', """
             guard_not_invalidated(descr=...)
             p90 = newstr(4)
-            call(ConstClass(copy_raw_to_string), i55, p90, 0, 4, descr=<Callv 0 irii EF=5>)
+            call_n(ConstClass(copy_raw_to_string), i55, p90, 0, 4, descr=<Callv 0 irii EF=5>)
             guard_no_exception(descr=...)
             i91 = strgetitem(p90, 0)
             i92 = strgetitem(p90, 1)
@@ -56,7 +56,7 @@ class TestBuffers(BaseTestPyPyC):
             guard_false(i99, descr=...)
             i100 = int_lshift(i98, 24)
             i101 = int_or(i97, i100)
-            i102 = getfield_raw(#, descr=<FieldS pypysig_long_struct.c_value 0>)
+            i102 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value 0>)
             i103 = int_lt(i102, 0)
             guard_false(i103, descr=...)
         """)

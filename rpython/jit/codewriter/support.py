@@ -98,8 +98,9 @@ def autodetect_jit_markers_redvars(graph):
             op.args.extend(reds_v)
             if jitdriver.numreds is None:
                 jitdriver.numreds = len(reds_v)
-            else:
-                assert jitdriver.numreds == len(reds_v), 'inconsistent number of reds_v'
+            elif jitdriver.numreds != len(reds_v):
+                raise AssertionError("there are multiple jit_merge_points "
+                                     "with the same jitdriver")
 
 def split_before_jit_merge_point(graph, portalblock, portalopindex):
     """Split the block just before the 'jit_merge_point',

@@ -48,7 +48,7 @@ def check_exceptblocks_qgen(translator):
         s_ev = annotator.annotation(ev)
         if s_et:
             if s_et.knowntype == type:
-                if s_et.__class__ == annmodel.SomeType:
+                if s_et.__class__ == annmodel.SomeTypeOf:
                     if hasattr(s_et, 'is_type_of') and  s_et.is_type_of == [ev]:
                         continue
                 else:

@@ -32,3 +32,16 @@ def test_len_nonneg():
     a = RPythonAnnotator()
     s = a.build_types(func, [int])
     assert s == SomeInteger(nonneg=True)
+
+
+def test_as_str_and_offset_maybe():
+    buf = StringBuffer('hello world')
+    assert buf.as_str_and_offset_maybe() == ('hello world', 0)
+    #
+    sbuf = SubBuffer(buf, 6, 5)
+    assert sbuf.getslice(0, 5, 1, 5) == 'world'
+    assert sbuf.as_str_and_offset_maybe() == ('hello world', 6)
+    #
+    ssbuf = SubBuffer(sbuf, 3, 2)
+    assert ssbuf.getslice(0, 2, 1, 2) == 'ld'
+    assert ssbuf.as_str_and_offset_maybe() == ('hello world', 9)

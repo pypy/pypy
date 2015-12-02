@@ -4,10 +4,11 @@ from pypy.interpreter.gateway import unwrap_spec
 
 from rpython.rlib.objectmodel import specialize, r_dict, compute_identity_hash
 from rpython.rlib.rarithmetic import ovfcheck, intmask
-from rpython.rlib import jit
+from rpython.rlib import jit, rweakref, clibffi
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 
+from pypy.module import _cffi_backend
 from pypy.module._cffi_backend import (ctypeobj, ctypeprim, ctypeptr,
     ctypearray, ctypestruct, ctypevoid, ctypeenum)
 
@@ -23,27 +24,12 @@ alignment_of_pointer = alignment(rffi.CCHARP)
 
 class UniqueCache:
     def __init__(self, space):
-        self.ctvoid = None      # There can be only one
-        self.ctvoidp = None     # Cache for self.pointers[self.ctvoid]
-        self.ctchara = None     # Cache for self.arrays[charp, -1]
-        self.primitives = {}    # Keys: name
-        self.pointers = {}      # Keys: base_ctype
-        self.arrays = {}        # Keys: (ptr_ctype, length_or_-1)
-        self.functions = r_dict(# Keys: (fargs, w_fresult, ellipsis)
-            _func_key_eq, _func_key_hash)
-
-def _func_key_eq((fargs1, w_fresult1, ellipsis1),
-                 (fargs2, w_fresult2, ellipsis2)):
-    return (fargs1 == fargs2 and      # list equality here
-            w_fresult1 is w_fresult2 and
-            ellipsis1 == ellipsis2)
-
-def _func_key_hash((fargs, w_fresult, ellipsis)):
-    x = compute_identity_hash(w_fresult) ^ ellipsis
-    for w_arg in fargs:
-        y = compute_identity_hash(w_arg)
-        x = intmask((1000003 * x) ^ y)
-    return x
+        self.ctvoid = None      # Cache for the 'void' type
+        self.ctvoidp = None     # Cache for the 'void *' type
+        self.ctchara = None     # Cache for the 'char[]' type
+        self.primitives = {}    # Cache for {name: primitive_type}
+        self.functions = []     # see _new_function_type()
+        self.for_testing = False
 
 def _clean_cache(space):
     "NOT_RPYTHON"
@@ -165,20 +151,24 @@ def _new_primitive_type(space, name):
 
 # ____________________________________________________________
 
+@specialize.memo()
+def _setup_wref(has_weakref_support):
+    assert has_weakref_support, "_cffi_backend requires weakrefs"
+    ctypeobj.W_CType._pointer_type = rweakref.dead_ref
+    ctypeptr.W_CTypePointer._array_types = None
+
 @unwrap_spec(w_ctype=ctypeobj.W_CType)
 def new_pointer_type(space, w_ctype):
     return _new_pointer_type(space, w_ctype)
 
 @jit.elidable
 def _new_pointer_type(space, w_ctype):
-    unique_cache = space.fromcache(UniqueCache)
-    try:
-        return unique_cache.pointers[w_ctype]
-    except KeyError:
-        pass
-    ctypepointer = ctypeptr.W_CTypePointer(space, w_ctype)
-    unique_cache.pointers[w_ctype] = ctypepointer
-    return ctypepointer
+    _setup_wref(rweakref.has_weakref_support())
+    ctptr = w_ctype._pointer_type()
+    if ctptr is None:
+        ctptr = ctypeptr.W_CTypePointer(space, w_ctype)
+        w_ctype._pointer_type = rweakref.ref(ctptr)
+    return ctptr
 
 # ____________________________________________________________
 
@@ -195,16 +185,19 @@ def new_array_type(space, w_ctptr, w_length):
 
 @jit.elidable
 def _new_array_type(space, w_ctptr, length):
-    unique_cache = space.fromcache(UniqueCache)
-    unique_key = (w_ctptr, length)
-    try:
-        return unique_cache.arrays[unique_key]
-    except KeyError:
-        pass
-    #
+    _setup_wref(rweakref.has_weakref_support())
     if not isinstance(w_ctptr, ctypeptr.W_CTypePointer):
         raise OperationError(space.w_TypeError,
                              space.wrap("first arg must be a pointer ctype"))
+    arrays = w_ctptr._array_types
+    if arrays is None:
+        arrays = rweakref.RWeakValueDictionary(int, ctypearray.W_CTypeArray)
+        w_ctptr._array_types = arrays
+    else:
+        ctype = arrays.get(length)
+        if ctype is not None:
+            return ctype
+    #
     ctitem = w_ctptr.ctitem
     if ctitem.size < 0:
         raise oefmt(space.w_ValueError, "array item of unknown size: '%s'",
@@ -222,7 +215,7 @@ def _new_array_type(space, w_ctptr, length):
         extra = '[%d]' % length
     #
     ctype = ctypearray.W_CTypeArray(space, w_ctptr, length, arraysize, extra)
-    unique_cache.arrays[unique_key] = ctype
+    arrays.set(length, ctype)
     return ctype
 
 # ____________________________________________________________
@@ -600,8 +593,9 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
 
 # ____________________________________________________________
 
-@unwrap_spec(w_fresult=ctypeobj.W_CType, ellipsis=int)
-def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
+@unwrap_spec(w_fresult=ctypeobj.W_CType, ellipsis=int, abi=int)
+def new_function_type(space, w_fargs, w_fresult, ellipsis=0,
+                      abi=_cffi_backend.FFI_DEFAULT_ABI):
     fargs = []
     for w_farg in space.fixedview(w_fargs):
         if not isinstance(w_farg, ctypeobj.W_CType):
@@ -610,31 +604,72 @@ def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
         if isinstance(w_farg, ctypearray.W_CTypeArray):
             w_farg = w_farg.ctptr
         fargs.append(w_farg)
-    return _new_function_type(space, fargs, w_fresult, bool(ellipsis))
+    return _new_function_type(space, fargs, w_fresult, bool(ellipsis), abi)
+
+def _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi):
+    x = compute_identity_hash(fresult)
+    for w_arg in fargs:
+        y = compute_identity_hash(w_arg)
+        x = intmask((1000003 * x) ^ y)
+    x ^= (ellipsis - abi)
+    if unique_cache.for_testing:    # constant-folded to False in translation;
+        x &= 3                      # but for test, keep only 2 bits of hash
+    return x
 
 # can't use @jit.elidable here, because it might call back to random
 # space functions via force_lazy_struct()
-def _new_function_type(space, fargs, w_fresult, ellipsis=False):
+def _new_function_type(space, fargs, fresult, ellipsis, abi):
+    try:
+        return _get_function_type(space, fargs, fresult, ellipsis, abi)
+    except KeyError:
+        return _build_function_type(space, fargs, fresult, ellipsis, abi)
+
+@jit.elidable
+def _get_function_type(space, fargs, fresult, ellipsis, abi):
+    # This function is elidable because if called again with exactly the
+    # same arguments (and if it didn't raise KeyError), it would give
+    # the same result, at least as long as this result is still live.
+    #
+    # 'unique_cache.functions' is a list of weak dicts, each mapping
+    # the func_hash number to a W_CTypeFunc.  There is normally only
+    # one such dict, but in case of hash collision, there might be
+    # more.
+    unique_cache = space.fromcache(UniqueCache)
+    func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
+    for weakdict in unique_cache.functions:
+        ctype = weakdict.get(func_hash)
+        if (ctype is not None and
+            ctype.ctitem is fresult and
+            ctype.fargs == fargs and
+            ctype.ellipsis == ellipsis and
+            ctype.abi == abi):
+            return ctype
+    raise KeyError
+
+@jit.dont_look_inside
+def _build_function_type(space, fargs, fresult, ellipsis, abi):
     from pypy.module._cffi_backend import ctypefunc
     #
-    unique_cache = space.fromcache(UniqueCache)
-    unique_key = (fargs, w_fresult, ellipsis)
-    try:
-        return unique_cache.functions[unique_key]
-    except KeyError:
-        pass
-    #
-    if ((w_fresult.size < 0 and
-         not isinstance(w_fresult, ctypevoid.W_CTypeVoid))
-        or isinstance(w_fresult, ctypearray.W_CTypeArray)):
-        if (isinstance(w_fresult, ctypestruct.W_CTypeStructOrUnion) and
-                w_fresult.size < 0):
+    if ((fresult.size < 0 and
+         not isinstance(fresult, ctypevoid.W_CTypeVoid))
+        or isinstance(fresult, ctypearray.W_CTypeArray)):
+        if (isinstance(fresult, ctypestruct.W_CTypeStructOrUnion) and
+                fresult.size < 0):
             raise oefmt(space.w_TypeError,
-                        "result type '%s' is opaque", w_fresult.name)
+                        "result type '%s' is opaque", fresult.name)
         else:
             raise oefmt(space.w_TypeError,
-                        "invalid result type: '%s'", w_fresult.name)
+                        "invalid result type: '%s'", fresult.name)
     #
-    fct = ctypefunc.W_CTypeFunc(space, fargs, w_fresult, ellipsis)
-    unique_cache.functions[unique_key] = fct
+    fct = ctypefunc.W_CTypeFunc(space, fargs, fresult, ellipsis, abi)
+    unique_cache = space.fromcache(UniqueCache)
+    func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
+    for weakdict in unique_cache.functions:
+        if weakdict.get(func_hash) is None:
+            weakdict.set(func_hash, fct)
+            break
+    else:
+        weakdict = rweakref.RWeakValueDictionary(int, ctypefunc.W_CTypeFunc)
+        unique_cache.functions.append(weakdict)
+        weakdict.set(func_hash, fct)
     return fct

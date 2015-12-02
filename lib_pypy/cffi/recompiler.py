@@ -4,11 +4,6 @@ from .cffi_opcode import *
 
 VERSION = "0x2601"
 
-try:
-    int_type = (int, long)
-except NameError:    # Python 3
-    int_type = int
-
 
 class GlobalExpr:
     def __init__(self, name, address, type_op, size=0, check_value=0):
@@ -200,17 +195,15 @@ class Recompiler:
             elif isinstance(tp, model.StructOrUnion):
                 if tp.fldtypes is not None and (
                         tp not in self.ffi._parser._included_declarations):
-                    for name1, tp1, _ in tp.enumfields():
+                    for name1, tp1, _, _ in tp.enumfields():
                         self._do_collect_type(self._field_type(tp, name1, tp1))
             else:
                 for _, x in tp._get_items():
                     self._do_collect_type(x)
 
-    def _get_declarations(self):
-        return sorted(self.ffi._parser._declarations.items())
-
     def _generate(self, step_name):
-        for name, tp in self._get_declarations():
+        lst = self.ffi._parser._declarations.items()
+        for name, (tp, quals) in sorted(lst):
             kind, realname = name.split(' ', 1)
             try:
                 method = getattr(self, '_generate_cpy_%s_%s' % (kind,
@@ -219,6 +212,7 @@ class Recompiler:
                 raise ffiplatform.VerificationError(
                     "not implemented in recompile(): %r" % name)
             try:
+                self._current_quals = quals
                 method(tp, realname)
             except Exception as e:
                 model.attach_exception_info(e, name)
@@ -473,6 +467,10 @@ class Recompiler:
             if tp.is_integer_type() and tp.name != '_Bool':
                 converter = '_cffi_to_c_int'
                 extraarg = ', %s' % tp.name
+            elif isinstance(tp, model.UnknownFloatType):
+                # don't check with is_float_type(): it may be a 'long
+                # double' here, and _cffi_to_c_double would loose precision
+                converter = '(%s)_cffi_to_c_double' % (tp.get_c_name(''),)
             else:
                 converter = '(%s)_cffi_to_c_%s' % (tp.get_c_name(''),
                                                    tp.name.replace(' ', '_'))
@@ -527,6 +525,8 @@ class Recompiler:
         if isinstance(tp, model.BasePrimitiveType):
             if tp.is_integer_type():
                 return '_cffi_from_c_int(%s, %s)' % (var, tp.name)
+            elif isinstance(tp, model.UnknownFloatType):
+                return '_cffi_from_c_double(%s)' % (var,)
             elif tp.name != 'long double':
                 return '_cffi_from_c_%s(%s)' % (tp.name.replace(' ', '_'), var)
             else:
@@ -607,7 +607,11 @@ class Recompiler:
             call_arguments.append('x%d' % i)
         repr_arguments = ', '.join(arguments)
         repr_arguments = repr_arguments or 'void'
-        name_and_arguments = '_cffi_d_%s(%s)' % (name, repr_arguments)
+        if tp.abi:
+            abi = tp.abi + ' '
+        else:
+            abi = ''
+        name_and_arguments = '%s_cffi_d_%s(%s)' % (abi, name, repr_arguments)
         prnt('static %s' % (tp.result.get_c_name(name_and_arguments),))
         prnt('{')
         call_arguments = ', '.join(call_arguments)
@@ -710,7 +714,8 @@ class Recompiler:
         if difference:
             repr_arguments = ', '.join(arguments)
             repr_arguments = repr_arguments or 'void'
-            name_and_arguments = '_cffi_f_%s(%s)' % (name, repr_arguments)
+            name_and_arguments = '%s_cffi_f_%s(%s)' % (abi, name,
+                                                       repr_arguments)
             prnt('static %s' % (tp_result.get_c_name(name_and_arguments),))
             prnt('{')
             if result_decl:
@@ -749,10 +754,12 @@ class Recompiler:
     # named structs or unions
 
     def _field_type(self, tp_struct, field_name, tp_field):
-        if isinstance(tp_field, model.ArrayType) and tp_field.length == '...':
-            ptr_struct_name = tp_struct.get_c_name('*')
-            actual_length = '_cffi_array_len(((%s)0)->%s)' % (
-                ptr_struct_name, field_name)
+        if isinstance(tp_field, model.ArrayType):
+            actual_length = tp_field.length
+            if actual_length == '...':
+                ptr_struct_name = tp_struct.get_c_name('*')
+                actual_length = '_cffi_array_len(((%s)0)->%s)' % (
+                    ptr_struct_name, field_name)
             tp_item = self._field_type(tp_struct, '%s[0]' % field_name,
                                        tp_field.item)
             tp_field = model.ArrayType(tp_item, actual_length)
@@ -771,11 +778,12 @@ class Recompiler:
         prnt('{')
         prnt('  /* only to generate compile-time warnings or errors */')
         prnt('  (void)p;')
-        for fname, ftype, fbitsize in tp.enumfields():
+        for fname, ftype, fbitsize, fqual in tp.enumfields():
             try:
                 if ftype.is_integer_type() or fbitsize >= 0:
                     # accept all integers, but complain on float or double
-                    prnt('  (void)((p->%s) << 1);' % fname)
+                    prnt("  (void)((p->%s) << 1);  /* check that '%s.%s' is "
+                         "an integer */" % (fname, cname, fname))
                     continue
                 # only accept exactly the type declared, except that '[]'
                 # is interpreted as a '*' and so will match any array length.
@@ -785,7 +793,8 @@ class Recompiler:
                     ftype = ftype.item
                     fname = fname + '[0]'
                 prnt('  { %s = &p->%s; (void)tmp; }' % (
-                    ftype.get_c_name('*tmp', 'field %r'%fname), fname))
+                    ftype.get_c_name('*tmp', 'field %r'%fname, quals=fqual),
+                    fname))
             except ffiplatform.VerificationError as e:
                 prnt('  /* %s */' % str(e))   # cannot verify it, ignore
         prnt('}')
@@ -819,7 +828,7 @@ class Recompiler:
         c_fields = []
         if reason_for_not_expanding is None:
             enumfields = list(tp.enumfields())
-            for fldname, fldtype, fbitsize in enumfields:
+            for fldname, fldtype, fbitsize, fqual in enumfields:
                 fldtype = self._field_type(tp, fldname, fldtype)
                 # cname is None for _add_missing_struct_unions() only
                 op = OP_NOOP
@@ -875,7 +884,9 @@ class Recompiler:
         # because they don't have any known C name.  Check that they are
         # not partial (we can't complete or verify them!) and emit them
         # anonymously.
-        for tp in list(self._struct_unions):
+        lst = list(self._struct_unions.items())
+        lst.sort(key=lambda tp_order: tp_order[1])
+        for tp, order in lst:
             if tp not in self._seen_struct_unions:
                 if tp.partial:
                     raise NotImplementedError("internal inconsistency: %r is "
@@ -949,7 +960,7 @@ class Recompiler:
             prnt('{')
             prnt('  int n = (%s) <= 0;' % (name,))
             prnt('  *o = (unsigned long long)((%s) << 0);'
-                 '  /* check that we get an integer */' % (name,))
+                 '  /* check that %s is an integer */' % (name, name))
             if check_value is not None:
                 if check_value > 0:
                     check_value = '%dU' % (check_value,)
@@ -978,10 +989,6 @@ class Recompiler:
         if not self.target_is_python and tp.is_integer_type():
             type_op = CffiOp(OP_CONSTANT_INT, -1)
         else:
-            if not tp.sizeof_enabled():
-                raise ffiplatform.VerificationError(
-                    "constant '%s' is of type '%s', whose size is not known"
-                    % (name, tp._get_c_name()))
             if self.target_is_python:
                 const_kind = OP_DLOPEN_CONST
             else:
@@ -1004,6 +1011,8 @@ class Recompiler:
     def _enum_ctx(self, tp, cname):
         type_index = self._typesdict[tp]
         type_op = CffiOp(OP_ENUM, -1)
+        if self.target_is_python:
+            tp.check_not_partial()
         for enumerator, enumvalue in zip(tp.enumerators, tp.enumvalues):
             self._lsts["global"].append(
                 GlobalExpr(enumerator, '_cffi_const_%s' % enumerator, type_op,
@@ -1054,8 +1063,10 @@ class Recompiler:
     # global variables
 
     def _global_type(self, tp, global_name):
-        if isinstance(tp, model.ArrayType) and tp.length == '...':
-            actual_length = '_cffi_array_len(%s)' % (global_name,)
+        if isinstance(tp, model.ArrayType):
+            actual_length = tp.length
+            if actual_length == '...':
+                actual_length = '_cffi_array_len(%s)' % (global_name,)
             tp_item = self._global_type(tp.item, '%s[0]' % global_name)
             tp = model.ArrayType(tp_item, actual_length)
         return tp
@@ -1064,18 +1075,37 @@ class Recompiler:
         self._do_collect_type(self._global_type(tp, name))
 
     def _generate_cpy_variable_decl(self, tp, name):
-        pass
+        prnt = self._prnt
+        tp = self._global_type(tp, name)
+        if isinstance(tp, model.ArrayType) and tp.length is None:
+            tp = tp.item
+            ampersand = ''
+        else:
+            ampersand = '&'
+        # This code assumes that casts from "tp *" to "void *" is a
+        # no-op, i.e. a function that returns a "tp *" can be called
+        # as if it returned a "void *".  This should be generally true
+        # on any modern machine.  The only exception to that rule (on
+        # uncommon architectures, and as far as I can tell) might be
+        # if 'tp' were a function type, but that is not possible here.
+        # (If 'tp' is a function _pointer_ type, then casts from "fn_t
+        # **" to "void *" are again no-ops, as far as I can tell.)
+        decl = '*_cffi_var_%s(void)' % (name,)
+        prnt('static ' + tp.get_c_name(decl, quals=self._current_quals))
+        prnt('{')
+        prnt('  return %s(%s);' % (ampersand, name))
+        prnt('}')
+        prnt()
 
     def _generate_cpy_variable_ctx(self, tp, name):
         tp = self._global_type(tp, name)
         type_index = self._typesdict[tp]
-        type_op = CffiOp(OP_GLOBAL_VAR, type_index)
-        if tp.sizeof_enabled():
-            size = "sizeof(%s)" % (name,)
+        if self.target_is_python:
+            op = OP_GLOBAL_VAR
         else:
-            size = 0
+            op = OP_GLOBAL_VAR_F
         self._lsts["global"].append(
-            GlobalExpr(name, '&%s' % name, type_op, size))
+            GlobalExpr(name, '_cffi_var_%s' % name, CffiOp(op, type_index)))
 
     # ----------
     # emitting the opcodes for individual types
@@ -1088,8 +1118,15 @@ class Recompiler:
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, prim_index)
 
     def _emit_bytecode_UnknownIntegerType(self, tp, index):
-        s = '_cffi_prim_int(sizeof(%s), (((%s)-1) << 0) <= 0)' % (
-            tp.name, tp.name)
+        s = ('_cffi_prim_int(sizeof(%s), (\n'
+             '           ((%s)-1) << 0 /* check that %s is an integer type */\n'
+             '         ) <= 0)' % (tp.name, tp.name, tp.name))
+        self.cffi_types[index] = CffiOp(OP_PRIMITIVE, s)
+
+    def _emit_bytecode_UnknownFloatType(self, tp, index):
+        s = ('_cffi_prim_float(sizeof(%s) *\n'
+             '           (((%s)1) / 2) * 2 /* integer => 0, float => 1 */\n'
+             '         )' % (tp.name, tp.name))
         self.cffi_types[index] = CffiOp(OP_PRIMITIVE, s)
 
     def _emit_bytecode_RawFunctionType(self, tp, index):
@@ -1103,7 +1140,13 @@ class Recompiler:
                 else:
                     self.cffi_types[index] = CffiOp(OP_NOOP, realindex)
             index += 1
-        self.cffi_types[index] = CffiOp(OP_FUNCTION_END, int(tp.ellipsis))
+        flags = int(tp.ellipsis)
+        if tp.abi is not None:
+            if tp.abi == '__stdcall':
+                flags |= 2
+            else:
+                raise NotImplementedError("abi=%r" % (tp.abi,))
+        self.cffi_types[index] = CffiOp(OP_FUNCTION_END, flags)
 
     def _emit_bytecode_PointerType(self, tp, index):
         self.cffi_types[index] = CffiOp(OP_POINTER, self._typesdict[tp.totype])

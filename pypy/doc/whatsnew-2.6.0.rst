@@ -1,6 +1,6 @@
-=======================
-What's new in PyPy 2.5+
-=======================
+========================
+What's new in PyPy 2.6.0
+========================
 
 .. this is a revision shortly after release-2.5.1
 .. startrev: cb01edcb59414d9d93056e54ed060673d24e67c1
@@ -131,3 +131,11 @@ will crash.
 
 branch fold-arith-ops
 remove multiple adds on add chains ("1 + 1 + 1 + ...")
+
+.. branch: fix-result-types
+
+branch fix-result-types:
+* Refactor dtype casting and promotion rules for consistency and compatibility
+with CNumPy.
+* Refactor ufunc creation.
+* Implement np.promote_types().

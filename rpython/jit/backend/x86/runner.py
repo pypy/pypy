@@ -49,12 +49,6 @@ class AbstractX86CPU(AbstractLLCPU):
     def set_debug(self, flag):
         return self.assembler.set_debug(flag)
 
-    def get_failargs_limit(self):
-        if self.opts is not None:
-            return self.opts.failargs_limit
-        else:
-            return 1000
-
     def setup(self):
         self.assembler = Assembler386(self, self.translate_support_code)
 
@@ -99,12 +93,6 @@ class AbstractX86CPU(AbstractLLCPU):
         clt.compiling_a_bridge()
         return self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                               original_loop_token, log, logger)
-
-    def clear_latest_values(self, count):
-        setitem = self.assembler.fail_boxes_ptr.setitem
-        null = lltype.nullptr(llmemory.GCREF.TO)
-        for index in range(count):
-            setitem(index, null)
 
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
@@ -160,5 +148,10 @@ class CPU_X86_64(AbstractX86CPU):
 
     IS_64_BIT = True
     HAS_CODEMAP = True
+
+class CPU_X86_64_SSE4(CPU_X86_64):
+    vector_extension = True
+    vector_register_size = 16
+    vector_horizontal_operations = True
 
 CPU = CPU386

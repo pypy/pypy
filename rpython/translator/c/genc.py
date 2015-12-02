@@ -3,7 +3,7 @@ import py
 import sys, os
 from rpython.rlib import exports
 from rpython.rlib.entrypoint import entrypoint
-from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool import runsubprocess
 from rpython.tool.nullpath import NullPyPathLocal
@@ -439,10 +439,15 @@ class CStandaloneBuilder(CBuilder):
 
             mk.definition('PYTHON', get_recent_cpython_executable())
 
-            mk.definition('GCMAPFILES', '$(subst .asmgcc.s,.gcmap,$(subst .c,.gcmap,$(SOURCES)))')
-            mk.definition('OBJECTS1', '$(subst .asmgcc.s,.o,$(subst .c,.o,$(SOURCES)))')
+            mk.definition('GCMAPFILES', '$(subst .vmprof.s,.gcmap,$(subst .c,.gcmap,$(SOURCES)))')
+            mk.definition('OBJECTS1', '$(subst .vmprof.s,.o,$(subst .c,.o,$(SOURCES)))')
             mk.definition('OBJECTS', '$(OBJECTS1) gcmaptable.s')
 
+            # the CFLAGS passed to gcc when invoked to assembler the .s file
+            # must not contain -g.  This confuses gcc 5.1.  (Note that it
+            # would seem that gcc 5.1 with "-g" does not produce debugging
+            # info in a format that gdb 4.7.1 can read.)
+            mk.definition('CFLAGS_AS', '$(patsubst -g,,$(CFLAGS))')
 
             # the rule that transforms %.c into %.o, by compiling it to
             # %.s, then applying trackgcroot to get %.lbl.s and %.gcmap, and
@@ -452,18 +457,18 @@ class CStandaloneBuilder(CBuilder):
                     '-o $*.s -S $< $(INCLUDEDIRS)',
                 '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
                     '-t $*.s > $*.gctmp',
-                '$(CC) $(CFLAGS) -o $*.o -c $*.lbl.s',
+                '$(CC) $(CFLAGS_AS) -o $*.o -c $*.lbl.s',
                 'mv $*.gctmp $*.gcmap',
                 'rm $*.s $*.lbl.s'])
 
             # this is for manually written assembly files which needs to be parsed by asmgcc
-            mk.rule('%.o %.gcmap', '%.asmgcc.s', [
+            mk.rule('%.o %.gcmap', '%.vmprof.s', [
                 '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
-                    '-t $*.asmgcc.s > $*.gctmp',
-                '$(CC) -o $*.o -c $*.asmgcc.lbl.s',
+                    '-t $*.vmprof.s > $*.gctmp',
+                '$(CC) -o $*.o -c $*.vmprof.lbl.s',
                 'mv $*.gctmp $*.gcmap',
-                'rm $*.asmgcc.lbl.s'])
-            
+                'rm $*.vmprof.lbl.s'])
+
             # the rule to compute gcmaptable.s
             mk.rule('gcmaptable.s', '$(GCMAPFILES)',
                     [
@@ -480,7 +485,7 @@ class CStandaloneBuilder(CBuilder):
                 else:
                     mk.definition('DEBUGFLAGS', '-O1 -g')
         if self.translator.platform.name == 'msvc':
-            mk.rule('debug_target', 'debugmode_$(DEFAULT_TARGET)', 'rem')
+            mk.rule('debug_target', '$(DEFAULT_TARGET)', 'rem')
         else:
             mk.rule('debug_target', '$(DEFAULT_TARGET)', '#')
         mk.write()
@@ -754,12 +759,11 @@ def gen_preimpl(f, database):
         database, database.translator.rtyper)
     for line in preimplementationlines:
         print >> f, line
-    f.write('#endif /* _PY_PREIMPL_H */\n')    
+    f.write('#endif /* _PY_PREIMPL_H */\n')
 
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
-    print >> f, 'char *RPython_StartupCode(void) {'
-    print >> f, '\tchar *error = NULL;'
+    print >> f, 'void RPython_StartupCode(void) {'
 
     bk = database.translator.annotator.bookkeeper
     if bk.thread_local_fields:
@@ -773,18 +777,12 @@ def gen_startupcode(f, database):
     for dest, value in database.late_initializations:
         print >> f, "\t%s = %s;" % (dest, value)
 
-    firsttime = True
     for node in database.containerlist:
         lines = list(node.startupcode())
         if lines:
-            if firsttime:
-                firsttime = False
-            else:
-                print >> f, '\tif (error) return error;'
             for line in lines:
                 print >> f, '\t'+line
 
-    print >> f, '\treturn error;'
     print >> f, '}'
 
 def commondefs(defines):

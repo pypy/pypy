@@ -38,6 +38,12 @@ def reader_for_pos(pos):
 
         def appendobj(self, value):
             self.value = value
+
+        def get_buffer_as_string_maybe(self):
+            return self.mr.input, self.mr.inputpos
+
+        def skip(self, size):
+            self.read(size) # XXX, could avoid taking the slice
     ReaderForPos.__name__ = 'ReaderForPos%d' % pos
     return ReaderForPos
 
@@ -88,13 +94,6 @@ class FrozenUnpackIterator(FormatIterator):
         exec source.compile() in miniglobals
         self.unpack = miniglobals['unpack'] # override not-rpython version
 
-    def unpack(self, s):
-        # NOT_RPYTHON
-        res = unpack(self.fmt, s)
-        if len(res) == 1:
-            return res[0]
-        return res
-
     def _freeze_(self):
         assert self.formats
         self._create_unpacking_func()
@@ -103,6 +102,7 @@ class FrozenUnpackIterator(FormatIterator):
 def create_unpacker(unpack_str):
     fmtiter = FrozenUnpackIterator(unpack_str)
     fmtiter.interpret(unpack_str)
+    assert fmtiter._freeze_()
     return fmtiter
 create_unpacker._annspecialcase_ = 'specialize:memo'
 

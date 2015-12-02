@@ -92,6 +92,21 @@ ARRAY_ENSUREARRAY = 0x0040 # return only ndarray, not subtype
 ARRAY_ELEMENTSTRIDES = 0x0080 # strides  are units of the dtype element size
 ARRAY_NOTSWAPPED  = 0x0200 #native byte order
 
+#dtype flags
+ITEM_REFCOUNT   = 0x01
+ITEM_HASOBJECT  = 0x01
+LIST_PICKLE     = 0x02
+ITEM_IS_POINTER = 0x04
+NEEDS_INIT      = 0x08
+NEEDS_PYAPI     = 0x10
+USE_GETITEM     = 0x20
+USE_SETITEM     = 0x40
+ALIGNED_STRUCT  = 0x80
+FROM_FIELDS     = NEEDS_INIT | LIST_PICKLE | ITEM_REFCOUNT | NEEDS_PYAPI
+OBJECT_DTYPE_FLAGS = (LIST_PICKLE | USE_GETITEM | ITEM_IS_POINTER |
+                        ITEM_REFCOUNT | NEEDS_INIT | NEEDS_PYAPI)
+
+
 LITTLE = '<'
 BIG = '>'
 NATIVE = '='

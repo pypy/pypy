@@ -719,6 +719,9 @@ if _POSIX:
         so the memory has the executable bit set and gets allocated
         internally in case of a sandboxed process.
         """
+        from errno import ENOMEM
+        from rpython.rlib import debug
+
         if _CYGWIN:
             # XXX: JIT memory should be using mmap MAP_PRIVATE with
             #      PROT_EXEC but Cygwin's fork() fails.  mprotect()
@@ -733,6 +736,14 @@ if _POSIX:
             # are passed a non-zero address.  Try again.
             res = alloc_hinted(rffi.cast(PTR, 0), map_size)
             if res == rffi.cast(PTR, -1):
+                # ENOMEM simply raises MemoryError, but other errors are fatal
+                if rposix.get_saved_errno() != ENOMEM:
+                    debug.fatalerror_notb(
+                        "Got an unexpected error trying to allocate some "
+                        "memory for the JIT (tried to do mmap() with "
+                        "PROT_EXEC|PROT_READ|PROT_WRITE).  This can be caused "
+                        "by a system policy like PAX.  You need to find how "
+                        "to work around the policy on your system.")
                 raise MemoryError
         else:
             hint.pos += map_size

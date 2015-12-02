@@ -1,7 +1,23 @@
-from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem import rffi, lltype
+
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.gateway import unwrap_spec, appdef
+from pypy.interpreter.typedef import GetSetProperty
+from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.objspace import StdObjSpace
+from pypy.module.micronumpy import constants as NPY
+from pypy.module.exceptions.interp_exceptions import _new_exception, W_UserWarning
+
+W_VisibleDeprecationWarning = _new_exception('VisibleDeprecationWarning', W_UserWarning,
+    """Visible deprecation warning.
+
+    By default, python will not show deprecation warnings, so this class
+    can be used when a very visible warning is helpful, for example because
+    the usage is most likely a user bug.
+
+    """)
 
 
 def issequence_w(space, w_obj):
@@ -28,9 +44,18 @@ def index_w(space, w_obj):
 def product(s):
     i = 1
     for x in s:
-        i = ovfcheck(i * x)
+        i *= x
     return i
 
+@jit.unroll_safe
+def product_check(s):
+    i = 1
+    for x in s:
+        try:
+            i = ovfcheck(i * x)
+        except OverflowError:
+            raise
+    return i
 
 def check_and_adjust_index(space, index, size, axis):
     if index < -size or index >= size:
@@ -161,3 +186,34 @@ def is_rhs_priority_higher(space, w_lhs, w_rhs):
     w_priority_r = space.findattr(w_rhs, space.wrap('__array_priority__')) or w_zero
     # XXX what is better, unwrapping values or space.gt?
     return space.is_true(space.gt(w_priority_r, w_priority_l))
+
+def get_order_as_CF(proto_order, req_order):
+    if req_order == NPY.CORDER:
+        return NPY.CORDER
+    elif req_order == NPY.FORTRANORDER:
+        return NPY.FORTRANORDER
+    return proto_order
+
+def descr_set_docstring(space, w_obj, w_docstring):
+    if not isinstance(space, StdObjSpace):
+        raise oefmt(space.w_NotImplementedError,
+                    "This only works with the real object space")
+    if isinstance(w_obj, W_TypeObject):
+        w_obj.w_doc = w_docstring
+        return
+    elif isinstance(w_obj, GetSetProperty):
+        if space.is_none(w_docstring):
+            doc = None
+        else:
+            doc = space.str_w(w_docstring)
+        w_obj.doc = doc
+        return
+    app_set_docstring(space, w_obj, w_docstring)
+
+app_set_docstring = appdef("""app_set_docstring_(obj, docstring):
+    import types
+    if isinstance(obj, types.MethodType):
+        obj.im_func.__doc__ = docstring
+    else:
+        obj.__doc__ = docstring
+""")

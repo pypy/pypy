@@ -5,7 +5,7 @@ import py
 
 from rpython.rlib.debug import ll_assert
 from rpython.rtyper.error import TyperError
-from rpython.rtyper.llinterp import LLException
+from rpython.rtyper.llinterp import LLException, LLAssertFailure
 from rpython.rtyper.lltypesystem import rlist as ll_rlist
 from rpython.rtyper.lltypesystem.rlist import ListRepr, FixedSizeListRepr, ll_newlist, ll_fixed_newlist
 from rpython.rtyper.rint import signed_repr
@@ -191,7 +191,6 @@ class Freezing:
 
 
 class TestRlist(BaseRtypingTest):
-    type_system = 'lltype'
     rlist = ll_rlist
 
     def test_simple(self):
@@ -394,6 +393,47 @@ class TestRlist(BaseRtypingTest):
         assert res.item1 == 5
         assert res.item2 == 8
         assert res.item3 == 7
+
+        def dummyfn():
+            l = [10, 9, 8, 7]
+            l[1:3] = [42]
+            return l[0], l[1], l[2]
+        res = self.interpret(dummyfn, ())
+        assert res.item0 == 10
+        assert res.item1 == 42
+        assert res.item2 == 7
+
+        def dummyfn():
+            l = [10, 9, 8, 7]
+            l[1:3] = [6, 5, 0]
+            return l[0], l[1], l[2], l[3], l[4]
+        res = self.interpret(dummyfn, ())
+        assert res.item0 == 10
+        assert res.item1 == 6
+        assert res.item2 == 5
+        assert res.item3 == 0
+        assert res.item4 == 7
+
+        def dummyfn():
+            l = [10, 9, 8, 7]
+            l[1:1] = [6, 5, 0]
+            return l[0], l[1], l[2], l[3], l[4], l[5], l[6]
+        res = self.interpret(dummyfn, ())
+        assert res.item0 == 10
+        assert res.item1 == 6
+        assert res.item2 == 5
+        assert res.item3 == 0
+        assert res.item4 == 9
+        assert res.item5 == 8
+        assert res.item6 == 7
+
+        def dummyfn():
+            l = [10, 9, 8, 7]
+            l[1:3] = []
+            return l[0], l[1]
+        res = self.interpret(dummyfn, ())
+        assert res.item0 == 10
+        assert res.item1 == 7
 
     def test_delslice(self):
         def dummyfn():
@@ -1183,7 +1223,8 @@ class TestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        py.test.raises(AssertionError, self.interpret, f, [1])
+        with py.test.raises(LLAssertFailure):
+            self.interpret(f, [1])
 
         def f(x):
             l = [1]
@@ -1228,7 +1269,8 @@ class TestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        py.test.raises(AssertionError, self.interpret, f, [1])
+        with py.test.raises(LLAssertFailure):
+            self.interpret(f, [1])
 
         def f(x):
             l = [1]
@@ -1265,7 +1307,8 @@ class TestRlist(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 1
-        py.test.raises(AssertionError, self.interpret, f, [1])
+        with py.test.raises(LLAssertFailure):
+            self.interpret(f, [1])
 
     def test_charlist_extension_1(self):
         def f(n):

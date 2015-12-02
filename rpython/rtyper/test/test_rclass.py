@@ -943,6 +943,19 @@ class TestRclass(BaseRtypingTest):
                 found.append(op.args[1].value)
         assert found == ['mutate_a', 'mutate_a', 'mutate_b']
 
+    def test_quasi_immutable_clashes_with_immutable(self):
+        from rpython.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_ = True
+            _immutable_fields_ = ['a?']
+        def f():
+            a = A()
+            a.x = 42
+            a.a = 142
+            return A()
+        with py.test.raises(TyperError):
+            self.gengraph(f, [])
+
     def test_quasi_immutable_array(self):
         from rpython.jit.metainterp.typesystem import deref
         class A(object):
@@ -1279,3 +1292,16 @@ class TestRclass(BaseRtypingTest):
             return cls[k](a, b).b
 
         assert self.interpret(f, [1, 4, 7]) == 7
+
+    def test_flatten_convert_const(self):
+        # check that we can convert_const() a chain of more than 1000
+        # instances
+        class A(object):
+            def __init__(self, next):
+                self.next = next
+        a = None
+        for i in range(1500):
+            a = A(a)
+        def f():
+            return a.next.next.next.next is not None
+        assert self.interpret(f, []) == True

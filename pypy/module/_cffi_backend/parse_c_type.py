@@ -87,6 +87,8 @@ ll_search_in_struct_unions = llexternal('pypy_search_in_struct_unions',
 ll_set_cdl_realize_global_int = llexternal('pypy_set_cdl_realize_global_int',
                                            [lltype.Ptr(GLOBAL_S)],
                                            lltype.Void)
+ll_enum_common_types = llexternal('pypy_enum_common_types',
+                                  [rffi.INT], rffi.CCHARP)
 
 def parse_c_type(info, input):
     p_input = rffi.str2charp(input)

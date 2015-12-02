@@ -1,10 +1,12 @@
 """Slice object"""
 
+import sys
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib import jit
 
 
 class W_SliceObject(W_Root):
@@ -211,26 +213,15 @@ def adapt_lower_bound(space, size, w_index):
     assert index >= 0
     return index
 
-def adapt_bound(space, size, w_index):
-    index = adapt_lower_bound(space, size, w_index)
-    if index > size:
-        index = size
-    assert index >= 0
-    return index
-
-@specialize.arg(4)
-def unwrap_start_stop(space, size, w_start, w_end, upper_bound=False):
+def unwrap_start_stop(space, size, w_start, w_end):
     if space.is_none(w_start):
         start = 0
-    elif upper_bound:
-        start = adapt_bound(space, size, w_start)
     else:
         start = adapt_lower_bound(space, size, w_start)
 
     if space.is_none(w_end):
         end = size
-    elif upper_bound:
-        end = adapt_bound(space, size, w_end)
+        assert end >= 0
     else:
         end = adapt_lower_bound(space, size, w_end)
     return start, end
@@ -245,10 +236,19 @@ def normalize_simple_slice(space, length, w_start, w_stop):
     assert length >= 0
     if start < 0:
         start = 0
-    if stop < start:
-        stop = start
-    if stop > length:
-        stop = length
-        if start > length:
-            start = length
+    # hack for the JIT, for slices with no end specified:
+    # this avoids the two comparisons that follow
+    if jit.isconstant(stop) and stop == sys.maxint:
+        pass
+    else:
+        if stop < start:
+            stop = start
+        if stop <= length:
+            return start, stop
+    # here is the case where 'stop' is larger than the list
+    stop = length
+    if jit.isconstant(start) and start == 0:
+        pass    # no need to do the following check here
+    elif start > stop:
+        start = stop
     return start, stop

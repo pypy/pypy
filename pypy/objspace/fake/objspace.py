@@ -72,6 +72,10 @@ class W_MyType(W_MyObject):
     def get_module(self):
         return w_some_obj()
 
+
+    def getname(self, space):
+        return self.name
+
 def w_some_obj():
     if NonConstant(False):
         return W_Root()
@@ -313,6 +317,9 @@ class FakeObjSpace(ObjSpace):
 
     def unicode_from_object(self, w_obj):
         return w_some_obj()
+
+    def _try_fetch_pycode(self, w_func):
+        return None
 
     # ----------
 

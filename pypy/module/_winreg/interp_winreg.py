@@ -1,5 +1,5 @@
 from __future__ import with_statement
-from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.baseobjspace import W_Root, BufferInterfaceNotFound
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError, wrap_windowserror, oefmt
@@ -335,7 +335,7 @@ def convert_to_regdata(space, w_value, typ):
         else:
             try:
                 value = w_value.readbuf_w(space)
-            except TypeError:
+            except BufferInterfaceNotFound:
                 raise oefmt(space.w_TypeError,
                             "Objects of type '%T' can not be used as binary "
                             "registry values", w_value)
