@@ -43,10 +43,16 @@ class TestSequence(BaseApiTest):
         assert space.unwrap(api.PySequence_Concat(w_t1, w_t2)) == range(8)
 
     def test_inplace_concat(self, space, api):
-        assert False # XXX test PySequence_InPlaceContat
+        w_t1 = space.wrap(range(4))
+        w_t2 = space.wrap(range(4, 8))
+        w_t3 = api.PySequence_InPlaceConcat(w_t1, w_t2)
+        assert space.unwrap(w_t3) == range(8)
+        assert space.unwrap(w_t1) == range(8)
 
     def test_inplace_repeat(self, space, api):
-        assert False # XXX test PySequence_InPlaceRepeat
+        w_t1 = space.wrap(range(2))
+        w_t2 = api.PySequence_InPlaceRepeat(w_t1, 3)
+        assert space.unwrap(w_t2) == [0, 1, 0, 1, 0, 1]
 
     def test_exception(self, space, api):
         message = rffi.str2charp("message")

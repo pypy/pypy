@@ -143,21 +143,21 @@ def PySequence_Concat(space, w_o1, w_o2):
     return space.add(w_o1, w_o2)
 
 @cpython_api([PyObject, PyObject], PyObject)
-def PySequence_InPlaceConcat(space, o1, o2):
+def PySequence_InPlaceConcat(space, w_o1, w_o2):
     """Return the concatenation of o1 and o2 on success, and NULL on failure.
     The operation is done in-place when o1 supports it.  This is the equivalent
     of the Python expression o1 += o2."""
-    raise NotImplementedError
+    return space.inplace_add(w_o1, w_o2)
 
 @cpython_api([PyObject, Py_ssize_t], PyObject)
-def PySequence_InPlaceRepeat(space, o, count):
+def PySequence_InPlaceRepeat(space, w_o, count):
     """Return the result of repeating sequence object o count times, or NULL on
     failure.  The operation is done in-place when o supports it.  This is the
     equivalent of the Python expression o *= count.
 
     This function used an int type for count. This might require
     changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
+    return space.inplace_mul(w_o, space.wrap(count))
 
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)

@@ -41,4 +41,7 @@ class TestTupleObject(BaseApiTest):
         assert space.len_w(w_set) == 0
 
     def test_anyset_checkexact(self, space, api):
-        assert False # XXX should test PyAnySet_CheckExact 
+        w_set = api.PySet_New(space.wrap([1, 2, 3, 4]))
+        w_frozenset = space.newfrozenset([space.wrap(i) for i in [1, 2, 3, 4]])
+        assert api.PyAnySet_CheckExact(w_set)
+        assert api.PyAnySet_CheckExact(w_frozenset)

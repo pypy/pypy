@@ -391,8 +391,7 @@ def PyObject_Hash(space, w_obj):
 
 @cpython_api([rffi.DOUBLE], rffi.LONG, error=-1)
 def _Py_HashDouble(space, w_obj):
-    raise OperationError(space.w_NotImplementedError, 
-                space.wrap("_Py_HashDouble not implemented yet"))
+    return space.int_w(space.hash(w_obj))
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyObject_HashNotImplemented(space, o):

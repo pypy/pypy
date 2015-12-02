@@ -2,5 +2,5 @@
 
 void * PyMem_Malloc(size_t n)
 {
-		malloc((n) ? (n) : 1);
+    return malloc((n) ? (n) : 1);
 }
