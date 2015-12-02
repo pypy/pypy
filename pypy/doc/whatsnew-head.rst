@@ -37,3 +37,9 @@ Remove unnecessary special handling of space.wrap().
 .. branch: compress-numbering
 
 Improve the memory signature of numbering instances in the JIT.
+
+.. branch: fix-trace-too-long-heuristic
+
+Improve the heuristic when disable trace-too-long
+
+.. branch: fix-setslice-can-resize
