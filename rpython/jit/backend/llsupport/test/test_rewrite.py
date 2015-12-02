@@ -28,6 +28,13 @@ o_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
 
 class RewriteTests(object):
     def check_rewrite(self, frm_operations, to_operations, **namespace):
+        def trans_getarray_to_load(descr):
+            size = descr.basesize
+            if descr.is_item_signed():
+                size = -size
+            return ','.join([str(n) for n in [descr.itemsize,
+                                              descr.basesize,
+                                              size]])
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('y', lltype.Signed))
         sdescr = get_size_descr(self.gc_ll_descr, S)
@@ -739,7 +746,7 @@ class TestFramework(RewriteTests):
             zero_array(p1, 0, 5, descr=cdescr)
             label(p1, i2, p3)
             cond_call_gc_wb_array(p1, i2, descr=wbdescr)
-            gc_store_indexed(p1, i2, p3, 8, 8, 8)
+            gc_store_indexed(p1, i2, p3, %(trans_getarray_to_load(cdescr))s)
             jump()
         """)
 
@@ -751,6 +758,10 @@ class TestFramework(RewriteTests):
         interiorlendescr = interiordescr.lendescr
         interiorzdescr = get_interiorfield_descr(self.gc_ll_descr,
                                                  INTERIOR, 'z')
+        scale = interiorzdescr.arraydescr.itemsize
+        offset = interiorzdescr.arraydescr.basesize
+        offset += interiorzdescr.fielddescr.offset
+        size = interiorzdescr.arraydescr.itemsize
         self.check_rewrite("""
             [p1, p2]
             setinteriorfield_gc(p1, 0, p2, descr=interiorzdescr)
@@ -758,9 +769,10 @@ class TestFramework(RewriteTests):
         """, """
             [p1, p2]
             cond_call_gc_wb_array(p1, 0, descr=wbdescr)
-            gc_store_indexed(p1, 0, p2, 8, 8, %(interiorzdescr.arraydescr.itemsize)s)
+            gc_store_indexed(p1, 0, p2, %(scale)s, %(offset)s, %(size)s)
             jump(p1, p2)
-        """, interiorzdescr=interiorzdescr)
+        """, interiorzdescr=interiorzdescr, scale=scale,
+             offset=offset, size=size)
 
     def test_initialization_store(self):
         self.check_rewrite("""
@@ -772,7 +784,7 @@ class TestFramework(RewriteTests):
             [p1]
             p0 = call_malloc_nursery(%(tdescr.size)d)
             gc_store(p0, 0,  5678, %(tiddescr.field_size)s)
-            gc_store_indexed(p0, 0,  p1, 1, 8, %(tzdescr.field_size)s)
+            gc_store_indexed(p0, 0,  p1, 1, %(tzdescr.offset)s, %(tzdescr.field_size)s)
             jump()
         """)
 
@@ -790,7 +802,7 @@ class TestFramework(RewriteTests):
             p1 = nursery_ptr_increment(p0, %(tdescr.size)d)
             gc_store(p1, 0,  1234, %(tiddescr.field_size)s)
             # <<<no cond_call_gc_wb here>>>
-            gc_store_indexed(p0, 0,  p1, 1, 8, %(tzdescr.field_size)s)
+            gc_store_indexed(p0, 0,  p1, 1, %(tzdescr.offset)s, %(tzdescr.field_size)s)
             jump()
         """)
 
@@ -807,7 +819,7 @@ class TestFramework(RewriteTests):
             gc_store(p0, 0,  8111, %(tiddescr.field_size)s)
             gc_store(p0, 0,  5, %(clendescr.field_size)s)
             zero_array(p0, 0, 5, descr=cdescr)
-            gc_store_indexed(p0, i2, p1, 8, 8, 8)
+            gc_store_indexed(p0, i2, p1, %(trans_getarray_to_load(cdescr))s)
             jump()
         """)
 
@@ -825,8 +837,8 @@ class TestFramework(RewriteTests):
             gc_store(p0, 0,  8111, %(tiddescr.field_size)s)
             gc_store(p0, 0,  5, %(clendescr.field_size)s)
             zero_array(p0, 2, 3, descr=cdescr)
-            gc_store_indexed(p0, 1, p1, 8, 8, 8)
-            gc_store_indexed(p0, 0, p2, 8, 8, 8)
+            gc_store_indexed(p0, 1, p1, %(trans_getarray_to_load(cdescr))s)
+            gc_store_indexed(p0, 0, p2, %(trans_getarray_to_load(cdescr))s)
             jump()
         """)
 
@@ -844,8 +856,8 @@ class TestFramework(RewriteTests):
             gc_store(p0, 0,  8111, %(tiddescr.field_size)s)
             gc_store(p0, 0,  5, %(clendescr.field_size)s)
             zero_array(p0, 0, 3, descr=cdescr)
-            gc_store_indexed(p0, 3, p1, 8, 8, 8)
-            gc_store_indexed(p0, 4, p2, 8, 8, 8)
+            gc_store_indexed(p0, 3, p1, %(trans_getarray_to_load(cdescr))s)
+            gc_store_indexed(p0, 4, p2, %(trans_getarray_to_load(cdescr))s)
             jump()
         """)
 
@@ -864,9 +876,9 @@ class TestFramework(RewriteTests):
             gc_store(p0, 0,  8111, %(tiddescr.field_size)s)
             gc_store(p0, 0,  5, %(clendescr.field_size)s)
             zero_array(p0, 0, 5, descr=cdescr)
-            gc_store_indexed(p0, 3, p1, 8, 8, 8)
-            gc_store_indexed(p0, 2, p2, 8, 8, 8)
-            gc_store_indexed(p0, 1, p2, 8, 8, 8)
+            gc_store_indexed(p0, 3, p1, %(trans_getarray_to_load(cdescr))s)
+            gc_store_indexed(p0, 2, p2, %(trans_getarray_to_load(cdescr))s)
+            gc_store_indexed(p0, 1, p2, %(trans_getarray_to_load(cdescr))s)
             jump()
         """)
 
@@ -887,11 +899,11 @@ class TestFramework(RewriteTests):
             gc_store(p0, 0,  8111, %(tiddescr.field_size)s)
             gc_store(p0, 0,  5, %(clendescr.field_size)s)
             zero_array(p0, 5, 0, descr=cdescr)
-            gc_store_indexed(p0, 3, p1, 8, 8, 8)
-            gc_store_indexed(p0, 4, p2, 8, 8, 8)
-            gc_store_indexed(p0, 0, p1, 8, 8, 8)
-            gc_store_indexed(p0, 2, p2, 8, 8, 8)
-            gc_store_indexed(p0, 1, p2, 8, 8, 8)
+            gc_store_indexed(p0, 3, p1, %(trans_getarray_to_load(cdescr))s)
+            gc_store_indexed(p0, 4, p2, %(trans_getarray_to_load(cdescr))s)
+            gc_store_indexed(p0, 0, p1, %(trans_getarray_to_load(cdescr))s)
+            gc_store_indexed(p0, 2, p2, %(trans_getarray_to_load(cdescr))s)
+            gc_store_indexed(p0, 1, p2, %(trans_getarray_to_load(cdescr))s)
             jump()
         """)
 
@@ -910,10 +922,10 @@ class TestFramework(RewriteTests):
             gc_store(p0, 0,  8111, %(tiddescr.field_size)s)
             gc_store(p0, 0,  5, %(clendescr.field_size)s)
             zero_array(p0, 1, 4, descr=cdescr)
-            gc_store_indexed(p0, 0, p1, 8, 8, 8)
+            gc_store_indexed(p0, 0, p1, %(trans_getarray_to_load(cdescr))s)
             call_n(321321)
             cond_call_gc_wb(p0, descr=wbdescr)
-            gc_store_indexed(p0, 1, p2, 8, 8, 8)
+            gc_store_indexed(p0, 1, p2, %(trans_getarray_to_load(cdescr))s)
             jump()
         """)
 
@@ -932,10 +944,10 @@ class TestFramework(RewriteTests):
             gc_store(p0, 0,  8111, %(tiddescr.field_size)s)
             gc_store(p0, 0,  5, %(clendescr.field_size)s)
             zero_array(p0, 1, 4, descr=cdescr)
-            gc_store_indexed(p0, 0, p1, 8, 8, 8)
+            gc_store_indexed(p0, 0, p1, %(trans_getarray_to_load(cdescr))s)
             label(p0, p2)
             cond_call_gc_wb_array(p0, 1, descr=wbdescr)
-            gc_store_indexed(p0, 1, p2, 8, 8, 8)
+            gc_store_indexed(p0, 1, p2, %(trans_getarray_to_load(cdescr))s)
             jump()
         """)
 
@@ -964,7 +976,7 @@ class TestFramework(RewriteTests):
             gc_store(p0, 0,  i3, %(blendescr.field_size)s)
             zero_array(p0, 0, i3, descr=bdescr)
             cond_call_gc_wb_array(p0, 0, descr=wbdescr)
-            gc_store_indexed(p0, 0, p1, 1, 8, 1)
+            gc_store_indexed(p0, 0, p1, 1, %(bdescr.basesize)s, 1)
             jump()
         """)
 
@@ -1110,7 +1122,7 @@ class TestFramework(RewriteTests):
             p0 = call_malloc_nursery(%(tdescr.size)d)
             gc_store(p0, 0,  5678, %(tiddescr.field_size)s)
             gc_store(p0, %(tdescr.gc_fielddescrs[0].offset)s, 0, %(tdescr.gc_fielddescrs[0].offset)s)
-            p1 = gc_load_indexed_r(p0, 0, 1, 8, %(tzdescr.field_size)s)
+            p1 = gc_load_indexed_r(p0, 0, 1, %(tzdescr.field_size)s, %(tzdescr.field_size)s)
             jump(p1)
         """)
 
