@@ -72,7 +72,7 @@ class FPRegisterManager(RegisterManager):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 
     def call_result_location(self, v):
-        return r.f1
+        return r.FPR_RETURN
 
     def place_in_pool(self, var):
         offset = self.assembler.pool.get_offset(var)
@@ -114,7 +114,7 @@ class ZARCHRegisterManager(RegisterManager):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)
 
     def call_result_location(self, v):
-        return r.r2
+        return r.GPR_RETURN
 
     def convert_to_int(self, c):
         if isinstance(c, ConstInt):
@@ -754,8 +754,7 @@ class Regalloc(BaseRegalloc):
         self.rm.before_call(save_all_regs=save_all_regs)
 
     def _prepare_call_default(self, op, save_all_regs=False):
-        args = []
-        args.append(None)
+        args = [None]
         for i in range(op.numargs()):
             args.append(self.loc(op.getarg(i)))
         self._spill_before_call(save_all_regs)

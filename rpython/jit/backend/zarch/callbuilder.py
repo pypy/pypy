@@ -1,21 +1,22 @@
-from rpython.jit.backend.zarch.arch import IS_PPC_64, WORD, PARAM_SAVE_AREA_OFFSET
+from rpython.jit.backend.zarch.arch import WORD, PARAM_SAVE_AREA_OFFSET
 from rpython.jit.backend.zarch.arch import THREADLOCAL_ADDR_OFFSET
-import rpython.jit.backend.zarch.register as r
+import rpython.jit.backend.zarch.locations as l
+import rpython.jit.backend.zarch.registers as r
 from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
-from rpython.jit.backend.zarch.jump import remap_frame_layout
+from rpython.jit.backend.llsupport.jump import remap_frame_layout
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.backend.llsupport import llerrno
 from rpython.rtyper.lltypesystem import rffi
 
 class CallBuilder(AbstractCallBuilder):
-    GPR_ARGS = [r.r3, r.r4, r.r5, r.r6, r.r7, r.r8, r.r9, r.r10]
+    GPR_ARGS = [r.r2, r.r3, r.r4, r.r5, r.r6, r.r7, r.r8, r.r9]
     FPR_ARGS = r.MANAGED_FP_REGS
     assert FPR_ARGS == [r.f1, r.f2, r.f3, r.f4, r.f5, r.f6, r.f7,
                         r.f8, r.f9, r.f10, r.f11, r.f12, r.f13, r.f14, r.f15]
-    RSHADOWPTR  = r.RCS1
-    RFASTGILPTR = r.RCS2
-    RSHADOWOLD  = r.RCS3
+    
+    #RFASTGILPTR = r.RCS2
+    #RSHADOWOLD  = r.RCS3
 
     def __init__(self, assembler, fnloc, arglocs, resloc):
         AbstractCallBuilder.__init__(self, assembler, fnloc, arglocs,
@@ -50,6 +51,7 @@ class CallBuilder(AbstractCallBuilder):
         # locations of the first 8 arguments
 
         if num_args > 8:
+            xxx
             # We need to make a larger PPC stack frame, as shown on the
             # picture in arch.py.  It needs to be 48 bytes + 8 * num_args.
             # The new SP back chain location should point to the top of
@@ -91,7 +93,7 @@ class CallBuilder(AbstractCallBuilder):
 
         # We must also copy fnloc into FNREG
         non_float_locs.append(self.fnloc)
-        non_float_regs.append(self.mc.RAW_CALL_REG)     # r2 or r12
+        non_float_regs.append(r.RETURN)     # r2 or r12
 
         if float_locs:
             assert len(float_locs) <= len(self.FPR_ARGS)
@@ -119,11 +121,15 @@ class CallBuilder(AbstractCallBuilder):
             if gcrootmap.is_shadow_stack and self.is_call_release_gil:
                 # in this mode, RSHADOWOLD happens to contain the shadowstack
                 # top at this point, so reuse it instead of loading it again
+                xxx
                 ssreg = self.RSHADOWOLD
         self.asm._reload_frame_if_necessary(self.mc, shadowstack_reg=ssreg)
 
     def emit_raw_call(self):
         self.mc.raw_call()
+        # restore the pool!
+        offset = self.asm.pool.pool_start - self.mc.get_relative_pos()
+        self.mc.LARL(r.POOL, l.halfword(offset))
 
     def restore_stack_pointer(self):
         if self.subtracted_to_sp != 0:
@@ -131,12 +137,13 @@ class CallBuilder(AbstractCallBuilder):
 
     def load_result(self):
         assert (self.resloc is None or
-                self.resloc is r.r3 or
-                self.resloc is r.f1)
+                self.resloc is r.GPR_RETURN or
+                self.resloc is r.FPR_RETURN)
 
 
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         assert self.is_call_release_gil
+        xxx
         RSHADOWPTR  = self.RSHADOWPTR
         RFASTGILPTR = self.RFASTGILPTR
         RSHADOWOLD  = self.RSHADOWOLD

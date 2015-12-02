@@ -5,7 +5,10 @@ from rpython.jit.backend.zarch.codebuilder import ZARCHGuardToken
 import rpython.jit.backend.zarch.conditions as c
 import rpython.jit.backend.zarch.registers as r
 import rpython.jit.backend.zarch.locations as l
+from rpython.jit.backend.zarch import callbuilder
+from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
+from rpython.jit.codewriter.effectinfo import EffectInfo
 
 class IntOpAssembler(object):
     _mixin_ = True

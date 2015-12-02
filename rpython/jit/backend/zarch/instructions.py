@@ -1,6 +1,7 @@
 
 branch_mnemonic_codes = {
     'BRASL':   ('ril',   ['\xC0','\x05']),
+    'BASR':    ('rr',    ['\x0D']),
     'BRAS':    ('ri',    ['\xA7','\x05']),
     'BCR':     ('rr',    ['\x07']),
     'BC':      ('rx',    ['\x47']),

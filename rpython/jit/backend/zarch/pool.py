@@ -143,7 +143,8 @@ class LiteralPool(object):
                 if val.type == FLOAT:
                     self.overwrite_64(mc, offset, float2longlong(val.value))
                 elif val.type == INT:
-                    self.overwrite_64(mc, offset, val.value)
+                    i64 = rffi.cast(lltype.Signed, val.value)
+                    self.overwrite_64(mc, offset, i64)
                 else:
                     assert val.type == REF
                     i64 = rffi.cast(lltype.Signed, val.value)

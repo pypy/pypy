@@ -10,13 +10,15 @@ from rpython.jit.backend.zarch.pool import LiteralPool
 from rpython.jit.backend.zarch.codebuilder import InstrBuilder
 from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.zarch.arch import (WORD,
-        STD_FRAME_SIZE_IN_BYTES, GPR_STACK_SAVE_IN_BYTES,
+        STD_FRAME_SIZE_IN_BYTES, REGISTER_AREA_OFFSET,
         THREADLOCAL_ADDR_OFFSET, RECOVERY_GCMAP_POOL_OFFSET,
         RECOVERY_TARGET_POOL_OFFSET, JUMPABS_TARGET_ADDR__POOL_OFFSET,
-        JUMPABS_POOL_ADDR_POOL_OFFSET)
+        JUMPABS_POOL_ADDR_POOL_OFFSET, REGISTER_AREA_BYTES)
 from rpython.jit.backend.zarch.opassembler import (IntOpAssembler,
-    FloatOpAssembler, GuardOpAssembler, MiscOpAssembler)
+    FloatOpAssembler, GuardOpAssembler, MiscOpAssembler,
+    CallOpAssembler)
 from rpython.jit.backend.zarch.regalloc import Regalloc
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
                                 have_debug_prints)
@@ -31,7 +33,8 @@ from rpython.rlib.jit import AsmInfo
 
 class AssemblerZARCH(BaseAssembler,
         IntOpAssembler, FloatOpAssembler,
-        GuardOpAssembler, MiscOpAssembler):
+        GuardOpAssembler, CallOpAssembler,
+        MiscOpAssembler):
 
     def __init__(self, cpu, translate_support_code=False):
         BaseAssembler.__init__(self, cpu, translate_support_code)
@@ -101,13 +104,9 @@ class AssemblerZARCH(BaseAssembler,
         # fill in the jf_descr and jf_gcmap fields of the frame according
         # to which failure we are resuming from.  These are set before
         # this function is called (see generate_quick_failure()).
-        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         self._push_core_regs_to_jitframe(mc)
         if withfloats:
             self._push_fp_regs_to_jitframe(mc)
-        mc.STG(r.r2, l.addr(ofs, r.SPP))
-        mc.STG(r.r3, l.addr(ofs2, r.SPP))
 
         if exc:
             pass # TODO
@@ -138,9 +137,13 @@ class AssemblerZARCH(BaseAssembler,
         assert target != 0
         pool_offset = guardtok._pool_offset
 
-        # overwrite the gcmap in the pool
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+
+        # overwrite the gcmap in the jitframe
         offset = pool_offset + RECOVERY_GCMAP_POOL_OFFSET
-        self.mc.LG(r.r3, l.pool(offset))
+        self.mc.LG(r.SCRATCH, l.pool(offset))
+        self.mc.STG(r.SCRATCH, l.addr(ofs2, r.SPP))
 
         # overwrite the target in pool
         offset = pool_offset + RECOVERY_TARGET_POOL_OFFSET
@@ -148,9 +151,12 @@ class AssemblerZARCH(BaseAssembler,
         self.mc.LG(r.r14, l.pool(offset))
 
         # TODO what is the biggest integer an opaque pointer
-        # can have? if not < 2**15-1 then we need to put it on the pool
-        self.mc.LGHI(r.r2, l.imm(fail_descr))
+        # can have? if not < 2**31-1 then we need to put it on the pool
+        # overwrite the fail_descr in the jitframe
+        self.mc.LGFI(r.SCRATCH, l.imm(fail_descr))
+        self.mc.STG(r.SCRATCH, l.addr(ofs, r.SPP))
         self.mc.BCR(l.imm(0xf), r.r14)
+
         # TODO do we need to patch this memory region?
         # we need to write at least 6 insns here, for patch_jump_for_descr()
         #while self.mc.currpos() < startpos + 6 * 4:
@@ -427,6 +433,13 @@ class AssemblerZARCH(BaseAssembler,
             return tmp
         return src
 
+    def push_gcmap(self, mc, gcmap, store=True):
+        # (called from callbuilder.py and ../llsupport/callbuilder.py)
+        assert store is True
+        self.load_gcmap(mc, r.SCRATCH, gcmap)
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.STG(r.SCRATCH, l.addr(ofs, r.SPP))
+
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc
         self.guard_success_cc = c.cond_none
@@ -563,6 +576,24 @@ class AssemblerZARCH(BaseAssembler,
                                     self.cpu.gc_ll_descr.gcrootmap)
         return start
 
+    def _reload_frame_if_necessary(self, mc, shadowstack_reg=None):
+        # might trash the VOLATILE registers different from r3 and f1
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            if gcrootmap.is_shadow_stack:
+                if shadowstack_reg is None:
+                    diff = mc.load_imm_plus(r.SPP,
+                                            gcrootmap.get_root_stack_top_addr())
+                    mc.load(r.SPP.value, r.SPP.value, diff)
+                    shadowstack_reg = r.SPP
+                mc.load(r.SPP.value, shadowstack_reg.value, -WORD)
+        wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
+        if gcrootmap and wbdescr:
+            # frame never uses card marking, so we enforce this is not
+            # an array
+            self._write_barrier_fastpath(mc, wbdescr, [r.SPP], regalloc=None,
+                                         array=False, is_frame=True)
+
     def patch_pending_failure_recoveries(self, rawstart):
         assert (self.pending_guard_tokens_recovered ==
                 len(self.pending_guard_tokens))
@@ -595,12 +626,11 @@ class AssemblerZARCH(BaseAssembler,
         #self.mc.write64(0)
 
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
-        self.mc.STMG(r.r6, r.r15, l.addr(-GPR_STACK_SAVE_IN_BYTES, r.SP))
+        self.mc.STMG(r.r6, r.r15, l.addr(6*WORD, r.SP))
         self.mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
 
         # save r4, the second argument, to THREADLOCAL_ADDR_OFFSET
-        # TODO
-        #self.mc.STG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
+        self.mc.STG(r.r3, l.addr(STD_FRAME_SIZE_IN_BYTES + THREADLOCAL_ADDR_OFFSET, r.SP))
 
         # move the first argument to SPP: the jitframe object
         self.mc.LGR(r.SPP, r.r2)
@@ -618,8 +648,7 @@ class AssemblerZARCH(BaseAssembler,
             self._call_footer_shadowstack(gcrootmap)
 
         # restore registers r6-r15
-        upoffset = STD_FRAME_SIZE_IN_BYTES-GPR_STACK_SAVE_IN_BYTES
-        self.mc.LMG(r.r6, r.r15, l.addr(upoffset, r.SP))
+        self.mc.LMG(r.r6, r.r15, l.addr(STD_FRAME_SIZE_IN_BYTES + 6*WORD + REGISTER_AREA_OFFSET, r.SP))
         self.jmpto(r.r14)
 
     def _push_core_regs_to_jitframe(self, mc, includes=r.registers):

@@ -87,8 +87,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
             data = rffi.cast(rffi.CCHARP, addr)
             for i in range(self.currpos()):
                 f.write(data[i])
-            f.close()
-
+            f.close() 
     def clear_cache(self, addr):
         if we_are_translated():
             startaddr = rffi.cast(llmemory.Address, addr)
@@ -160,6 +159,14 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
             # is an immediate value that cannot easily be forseen
             self.LGFI(dest_reg, l.imm(word & 0xFFFFffff))
             self.IIHF(dest_reg, l.imm((word >> 32) & 0xFFFFffff))
+
+    def raw_call(self, call_reg=r.RETURN):
+        """Emit a call to the address stored in the register 'call_reg',
+        which must be either RAW_CALL_REG or r12.  This is a regular C
+        function pointer, which means on big-endian that it is actually
+        the address of a three-words descriptor.
+        """
+        self.BASR(r.RETURN, call_reg)
 
 _classes = (AbstractZARCHBuilder,)
 

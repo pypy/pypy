@@ -2,22 +2,39 @@ WORD = 8 # well, we only support 64 bit
 DOUBLE_WORD = 8
 
 #
-#                                                 OFFSET
-#     +------------------------------+            0
-#     |  gpr save are (int+float)    |
-#     +------------------------------+            GPR_STACK_SAVE_IN_BYTES | 120
-#     |  last base pointer           |
-#     +------------------------------+            BSP_STACK_OFFSET        | 128
-#     |                              |
-#     +------------------------------+
-#     |                              |
-#     +------------------------------+                                    | 140
+#                                         OFF SP |
+#     +------------------------------+       160 + SP | towards 0xff
+#     |  thread local addr           |                |
+#     +------------------------------+       160 + SP |
+#     |          ....                |                |
+#     |  gpr save area (16x int,     |                |
+#     |  4x float, f0, f2, f4, f6)   |                |
+#     |          ....                |                |
+#     +------------------------------+ <- SP   0 + SP | towards 0x0
 #
 #
 
-GPR_STACK_SAVE_IN_BYTES = 120
-STD_FRAME_SIZE_IN_BYTES = 140
-THREADLOCAL_ADDR_OFFSET = 8
+REGISTER_AREA_BYTES = 160
+THREADLOCAL_BYTES = 8
+SP_BACK_CHAIN_BYTES = 8
+PARAM_SAVE_AREA_BYTES = 64
+
+# in reverse order to SP
+offset = 0
+REGISTER_AREA_OFFSET = offset
+offset += REGISTER_AREA_BYTES
+THREADLOCAL_ADDR_OFFSET = offset
+offset += THREADLOCAL_BYTES
+PARAM_SAVE_AREA_OFFSET = offset
+offset += 0
+
+assert offset == 168
+
+STD_FRAME_SIZE_IN_BYTES = offset
+assert offset >= 160 # at least 160 bytes!
+del offset
+
+
 
 assert STD_FRAME_SIZE_IN_BYTES % 2 == 0
 
