@@ -854,7 +854,7 @@ class BaseArrayTests:
         a = self.array('u', b'\xff\xff\xff\xff')
         assert len(a) == 1
         assert repr(a[0]) == r"'\Uffffffff'"
-        if sys.maxint == 2147483647:
+        if sys.maxsize == 2147483647:
             assert ord(a[0]) == -1
         else:
             assert ord(a[0]) == 4294967295
