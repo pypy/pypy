@@ -99,15 +99,15 @@ def PyDict_Copy(space, w_obj):
     """
     return space.call_method(space.w_dict, "copy", w_obj)
 
-def _get_val_or_none(space, w_dict, w_key):
+def _has_val(space, w_dict, w_key):
     try:
         w_val = space.getitem(w_dict, w_key)
     except OperationError as e:
         if e.match(space, space.w_KeyError):
-            return None
+            return False
         else:
             raise
-    return w_val
+    return True
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
 def PyDict_Merge(space, w_a, w_b, override):
@@ -118,11 +118,10 @@ def PyDict_Merge(space, w_a, w_b, override):
     only be added if there is not a matching key in a. Return 0 on
     success or -1 if an exception was raised.
     """
+    override = rffi.cast(lltype.Signed, override)
     w_keys = space.call_method(w_b, "keys")
-    print override
     for w_key  in space.iteriterable(w_keys):
-        if _get_val_or_none(space, w_a, w_key) is None or override:
-            print 'setting', w_key
+        if not _has_val(space, w_a, w_key) or override != 0:
             space.setitem(w_a, w_key, space.getitem(w_b, w_key))
     return 0
 

@@ -391,7 +391,7 @@ def PyObject_Hash(space, w_obj):
 
 @cpython_api([rffi.DOUBLE], rffi.LONG, error=-1)
 def _Py_HashDouble(space, w_obj):
-    return space.int_w(space.hash(w_obj))
+    return space.int_w(space.hash(space.wrap(w_obj)))
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyObject_HashNotImplemented(space, o):
