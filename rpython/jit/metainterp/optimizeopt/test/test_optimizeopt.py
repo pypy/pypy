@@ -1941,7 +1941,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_virtual_raw_malloc_virtualstate(self):
-        py.test.skip("bogus test maybe?")
         ops = """
         [i0]
         i1 = getarrayitem_raw_i(i0, 0, descr=rawarraydescr)
