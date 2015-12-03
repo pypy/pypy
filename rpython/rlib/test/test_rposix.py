@@ -283,6 +283,8 @@ def ll_to_string(s):
     return ''.join(s.chars)
 
 class UnicodeWithEncoding:
+    is_unicode = True
+
     def __init__(self, unistr):
         self.unistr = unistr
 
