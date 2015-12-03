@@ -1,5 +1,6 @@
 import py, sys
 from rpython.rlib.objectmodel import instantiate
+from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp import compile, resume
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt, TreeLoop
 from rpython.jit.metainterp.optimize import InvalidLoop
@@ -9158,6 +9159,45 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(-1, i3)    # cannot access character -1!
         """
         py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+
+    def test_virtual_array_length_discovered_constant_1(self):
+        ops = """
+        []
+        i1 = escape_i()
+        guard_value(i1, 5) []
+        p1 = new_array_clear(i1, descr=arraydescr3)
+        escape_n(p1)
+        jump()
+        """
+        expected = """
+        []
+        i1 = escape_i()
+        guard_value(i1, 5) []
+        p1 = new_array_clear(5, descr=arraydescr3)   # 'i1' => '5'
+        escape_n(p1)
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_array_length_discovered_constant_2(self):
+        ops = """
+        [p0]
+        escape_n(p0)
+        i1 = escape_i()
+        guard_value(i1, 5) []
+        p1 = new_array_clear(i1, descr=arraydescr3)
+        jump(p1)
+        """
+        expected = """
+        []
+        p1 = new_array_clear(5, descr=arraydescr3)
+        escape_n(p1)
+        i1 = escape_i()
+        guard_value(i1, 5) []
+        jump()
+        """
+        a = lltype.malloc(lltype.GcArray(lltype.Ptr(self.NODE)), 5, zero=True)
+        self.optimize_loop(ops, expected, jump_values=[a])
 
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):

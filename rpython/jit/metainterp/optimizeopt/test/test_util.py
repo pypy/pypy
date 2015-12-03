@@ -565,6 +565,10 @@ class BaseTest(object):
         else:
             for i, box in enumerate(jump_op.getarglist()):
                 if box.type == 'r' and not box.is_constant():
+                    # NOTE: we arbitrarily set the box contents to a NODE2
+                    # object here.  If you need something different, you
+                    # need to pass a 'jump_values' argument to e.g.
+                    # optimize_loop()
                     box.setref_base(self.nodefulladdr)
 
 

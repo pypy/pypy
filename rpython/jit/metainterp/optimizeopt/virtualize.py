@@ -29,7 +29,11 @@ class OptVirtualize(optimizer.Optimization):
             const = self.new_const_item(arraydescr)
             opinfo = info.ArrayPtrInfo(arraydescr, const, size, clear,
                                        is_virtual=True)
-        newop = self.replace_op_with(source_op, source_op.getopnum())
+        # Replace 'source_op' with a version in which the length is
+        # given as directly a Const, without relying on forwarding.
+        # See test_virtual_array_length_discovered_constant_2.
+        newop = self.replace_op_with(source_op, source_op.getopnum(),
+                                     args=[ConstInt(size)])
         newop.set_forwarded(opinfo)
         return opinfo
 
