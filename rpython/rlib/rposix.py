@@ -10,6 +10,9 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for)
+from rpython.rlib.signature import signature
+from rpython.rlib import types
+from rpython.annotator.model import s_Str0
 from rpython.rlib import jit
 from rpython.translator.platform import platform
 from rpython.rlib import rstring
@@ -297,6 +300,7 @@ c_wopen = external(UNDERSCORE_ON_WIN32 + 'wopen',
 # - but rpython.rtyper.module.ll_os.py on Windows will replace these functions
 #   with other wrappers that directly handle unicode strings.
 @specialize.argtype(0)
+@signature(types.any(), returns=s_Str0)
 def _as_bytes(path):
     assert path is not None
     if isinstance(path, str):

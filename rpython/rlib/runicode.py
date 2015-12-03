@@ -1709,7 +1709,9 @@ if sys.platform == 'win32':
                         rffi.cast(lltype.Bool, used_default_p[0])):
                         errorhandler('strict', 'mbcs', "invalid character",
                                      s, 0, 0)
-                    return buf.str(mbcssize)
+                    result = buf.str(mbcssize)
+                    assert result is not None
+                    return result
         finally:
             if used_default_p:
                 lltype.free(used_default_p, flavor='raw')
