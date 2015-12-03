@@ -46,13 +46,15 @@ class OptVirtualize(optimizer.Optimization):
 
     def make_virtual_raw_memory(self, size, source_op):
         opinfo = info.RawBufferPtrInfo(self.optimizer.cpu, size)
-        newop = self.replace_op_with(source_op, source_op.getopnum())
+        newop = self.replace_op_with(source_op, source_op.getopnum(),
+                                     args=[source_op.getarg(0), ConstInt(size)])
         newop.set_forwarded(opinfo)
         return opinfo
 
     def make_virtual_raw_slice(self, offset, parent, source_op):
         opinfo = info.RawSlicePtrInfo(offset, parent)
-        newop = self.replace_op_with(source_op, source_op.getopnum())
+        newop = self.replace_op_with(source_op, source_op.getopnum(),
+                                   args=[source_op.getarg(0), ConstInt(offset)])
         newop.set_forwarded(opinfo)
         return opinfo
 
