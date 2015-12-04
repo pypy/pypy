@@ -342,13 +342,16 @@ class UnrollOptimizer(Optimization):
                               patchguardop, target_token, label_op):
         short_inputargs = short[0].getarglist()
         short_jump_args = short[-1].getarglist()
-        if (self.short_preamble_producer and
-            self.short_preamble_producer.target_token is target_token):
-            # this means we're inlining the short preamble that's being
-            # built. Make sure we modify the correct things in-place
-            # THIS WILL MODIFY ALL THE LISTS PROVIDED, POTENTIALLY
-            self.short_preamble_producer.setup(short_inputargs, short_jump_args,
-                                               short, label_op.getarglist())
+        sb = self.short_preamble_producer
+        if sb is not None:
+            assert isinstance(sb, ExtendedShortPreambleBuilder)
+            if sb.target_token is target_token:
+                # this means we're inlining the short preamble that's being
+                # built. Make sure we modify the correct things in-place
+                self.short_preamble_producer.setup(short_jump_args,
+                                                   short, label_op.getarglist())
+                # after this call, THE REST OF THIS FUNCTION WILL MODIFY ALL
+                # THE LISTS PROVIDED, POTENTIALLY
         if 1:     # (keep indentation)
             self._check_no_forwarding([short_inputargs, short], False)
             assert len(short_inputargs) == len(jump_args)
