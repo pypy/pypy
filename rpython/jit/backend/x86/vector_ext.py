@@ -35,6 +35,13 @@ def not_implemented(msg):
 class VectorAssemblerMixin(object):
     _mixin_ = True
 
+    def genop_guard_vec_guard_true(self, guard_op, guard_token, locs, resloc):
+        self.implement_guard(guard_token)
+
+    def genop_guard_vec_guard_false(self, guard_op, guard_token, locs, resloc):
+        self.guard_success_cc = rx86.invert_condition(self.guard_success_cc)
+        self.implement_guard(guard_token)
+
     def guard_vector(self, guard_op, loc, true):
         assert isinstance(guard_op, VectorGuardOp)
         arg = guard_op.getarg(0)
@@ -652,7 +659,8 @@ class VectorRegallocMixin(object):
             # unpack into iX box
             resloc =  self.force_allocate_reg(op, args)
             arg = op.getarg(0)
-            size = 8 # x86 64 bit dependent!
+            assert isinstance(arg, VectorOp)
+            size = arg.bytesize
         residx = 0
         args = op.getarglist()
         arglocs = [resloc, srcloc, imm(residx), imm(index.value), imm(count.value), imm(size)]
@@ -687,7 +695,9 @@ class VectorRegallocMixin(object):
         assert isinstance(op, VectorOp)
         args = op.getarglist()
         resloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
-        size = op.cast_from_bytesize()
+        arg = op.getarg(0)
+        assert isinstance(arg, VectorOp)
+        size = arg.bytesize
         assert size > 0
         self.perform(op, [resloc, imm(size), imm(op.bytesize)], resloc)
 
@@ -715,3 +725,16 @@ class VectorRegallocMixin(object):
     consider_vec_cast_int_to_float = consider_vec_cast_float_to_int
     consider_vec_cast_float_to_singlefloat = consider_vec_cast_float_to_int
     consider_vec_cast_singlefloat_to_float = consider_vec_cast_float_to_int
+
+    def consider_vec_guard_true(self, op):
+        arg = op.getarg(0)
+        loc = self.loc(arg)
+        self.assembler.guard_vector(op, self.loc(arg), True)
+        self.perform_guard(op, [], None)
+
+    def consider_vec_guard_false(self, op):
+        arg = op.getarg(0)
+        loc = self.loc(arg)
+        self.assembler.guard_vector(op, self.loc(arg), False)
+        self.perform_guard(op, [], None)
+

@@ -53,6 +53,10 @@ class VectorLoop(object):
         for op in self.operations:
             op.set_forwarded(VectorizationInfo(op))
 
+    def teardown_vectorization(self):
+        for op in self.operations:
+            op.set_forwarded(None)
+
     def finaloplist(self, jitcell_token=None, reset_label_token=True, label=False):
         oplist = []
         if jitcell_token:
@@ -160,6 +164,8 @@ def optimize_vector(metainterp_sd, jitdriver_sd, warmstate,
             llop.debug_print_traceback(lltype.Void)
         else:
             raise
+    finally:
+        loop.teardown_vectorization()
     return loop_info, loop_ops
 
 def user_loop_bail_fast_path(loop, warmstate):
