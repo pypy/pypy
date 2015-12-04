@@ -607,8 +607,6 @@ class GuardResOp(ResOpWithDescr):
         return newop
 
 class VectorGuardOp(GuardResOp):
-    _attrs_ = ('datatype', 'bytesize', 'signed', 'count')
-
     bytesize = 0
     datatype = '\x00'
     signed = True
@@ -624,8 +622,6 @@ class VectorGuardOp(GuardResOp):
         return newop
 
 class VectorOp(ResOpWithDescr):
-    _attrs_ = ('datatype', 'bytesize', 'signed', 'count')
-
     bytesize = 0
     datatype = '\x00'
     signed = True
