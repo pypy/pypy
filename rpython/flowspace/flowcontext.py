@@ -597,7 +597,7 @@ class FlowContext(object):
 
         Returns an FSException object whose w_value is an instance of w_type.
         """
-        w_is_type = op.simple_call(const(isinstance), w_arg1, const(type)).eval(self)
+        w_is_type = op.isinstance(w_arg1, const(type)).eval(self)
         if self.guessbool(w_is_type):
             # this is for all cases of the form (Class, something)
             if self.guessbool(op.is_(w_arg2, w_None).eval(self)):
