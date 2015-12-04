@@ -4,11 +4,15 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.stringobject import new_empty_str, PyStringObject
 from pypy.module.cpyext.api import PyObjectP, PyObject, Py_ssize_tP
 from pypy.module.cpyext.pyobject import Py_DecRef, from_ref, make_ref
+from pypy.module.cpyext.typeobjectdefs import PyTypeObjectPtr
 
 import py
 import sys
 
 class AppTestStringObject(AppTestCpythonExtensionBase):
+    def test_foo(self, space, api):
+        xxx
+
     def test_stringobject(self):
         module = self.import_extension('foo', [
             ("get_hello1", "METH_NOARGS",
@@ -327,3 +331,10 @@ class TestString(BaseApiTest):
         w_seq = space.wrap(['a', 'b'])
         w_joined = api._PyString_Join(w_sep, w_seq)
         assert space.unwrap(w_joined) == 'a<sep>b'
+
+    def test_type(self, space, api):
+        py_str = make_ref(space, space.w_str)
+        py_unicode = make_ref(space, space.w_unicode)
+        py_basestr = make_ref(space, space.w_basestring)
+        import pdb
+        pdb.set_trace()

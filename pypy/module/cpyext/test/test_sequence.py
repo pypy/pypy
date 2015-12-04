@@ -7,8 +7,6 @@ import py.test
 
 class TestSequence(BaseApiTest):
     def test_sequence(self, space, api):
-        w_t = space.wrap((1, 2, 3, 4))
-        assert api.PySequence_Fast(w_t, "message") is w_t
         w_l = space.wrap([1, 2, 3, 4])
         assert api.PySequence_Fast(w_l, "message") is w_l
 
@@ -17,7 +15,7 @@ class TestSequence(BaseApiTest):
 
         w_set = space.wrap(set((1, 2, 3, 4)))
         w_seq = api.PySequence_Fast(w_set, "message")
-        assert space.type(w_seq) is space.w_tuple
+        assert space.type(w_seq) is space.w_list
         assert space.len_w(w_seq) == 4
 
         w_seq = api.PySequence_Tuple(w_set)
@@ -159,10 +157,11 @@ class AppTestSequenceObject(AppTestCpythonExtensionBase):
              """
                 PyObject * o = PyTuple_GetItem(args, 0);
                 /* XXX assert it is a tuple */
-                PyObject ** res = PySequence_Fast_ITEMS(o);
+                PyObject *foo = PySequence_Fast(o, "some string");
+                PyObject ** res = PySequence_Fast_ITEMS(foo);
                 /* XXX do some kind of test on res */
                 /* XXX now what? who manages res's refcount? */
-                return PyBool_FromLong(0);
+                return PyBool_FromLong(1);
              """)])
-        assert module.test_fast_sequence()
+        assert module.test_fast_sequence([1, 2, 3, 4])
 

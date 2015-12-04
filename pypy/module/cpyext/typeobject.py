@@ -331,8 +331,6 @@ def init_typeobject(space):
     py_object = create_ref(space, space.w_object)
     py_tuple = create_ref(space, space.w_tuple)
     py_str = create_ref(space, space.w_str)
-    # XXX py_str is not initialized here correctly, because we are
-    #     not tracking it, it gets an empty c_ob_type from py_basestring
 
     # form cycles
     pto_type = rffi.cast(PyTypeObjectPtr, py_type)

@@ -1,8 +1,10 @@
 
+from rpython.rlib import rerased
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.objspace.std.listobject import ListStrategy
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t, PyObject, PyObjectP)
-from pypy.module.cpyext.pyobject import borrow_from
+from pypy.module.cpyext.pyobject import borrow_from, make_ref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.objspace.std import listobject, tupleobject
 
@@ -42,11 +44,12 @@ def PySequence_Fast(space, w_obj, m):
     which case o is returned.  Use PySequence_Fast_GET_ITEM() to access the
     members of the result.  Returns NULL on failure.  If the object is not a
     sequence, raises TypeError with m as the message text."""
-    if (isinstance(w_obj, listobject.W_ListObject) or
-        isinstance(w_obj, tupleobject.W_TupleObject)):
+    
+    if isinstance(w_obj, listobject.W_ListObject):
+        w_obj.convert_to_cpy_strategy(space)
         return w_obj
     try:
-        return tupleobject.W_TupleObject(space.fixedview(w_obj))
+        return listobject.W_ListObject.newlist_cpyext(space, space.listview(w_obj))
     except OperationError:
         raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
 
@@ -75,7 +78,7 @@ def PySequence_Fast_GET_SIZE(space, w_obj):
     return len(w_obj.wrappeditems)
 
 @cpython_api([PyObject], PyObjectP)
-def PySequence_Fast_ITEMS(space, o):
+def PySequence_Fast_ITEMS(space, w_obj):
     """Return the underlying array of PyObject pointers.  Assumes that o was returned
     by PySequence_Fast() and o is not NULL.
 
@@ -83,7 +86,8 @@ def PySequence_Fast_ITEMS(space, o):
     So, only use the underlying array pointer in contexts where the sequence
     cannot change.
     """
-    raise NotImplementedError
+    assert isinstance(w_obj, listobject.W_ListObject)
+    return w_obj.get_raw_items() # asserts it's a cpyext strategy
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
 def PySequence_GetSlice(space, w_obj, start, end):
@@ -217,3 +221,36 @@ def PySequence_Index(space, w_seq, w_obj):
 
     raise OperationError(space.w_ValueError, space.wrap(
         "sequence.index(x): x not in sequence"))
+
+class CPyListStrategy(ListStrategy):
+    erase, unerase = rerased.new_erasing_pair("empty")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def getitem(self, w_list, index):
+        storage = self.unerase(w_list.lstorage)
+        return from_ref(w_list.space, storage._elems[index])
+
+    def length(self, w_list):
+        storage = self.unerase(w_list.lstorage)
+        return storage._length
+
+    def get_raw_items(self, w_list):
+        storage = self.unerase(w_list.lstorage)
+        return storage._elems
+
+PyObjectList = lltype.Ptr(lltype.Array(PyObject, hints={'nolength': True}))
+
+class CPyListStorage(object):
+    def __init__(self, space, lst):
+        self.space = space
+        self._elems = lltype.malloc(PyObjectList.TO, len(lst), flavor='raw')
+        self._length = len(lst)
+        self._allocated = len(lst)
+        for i, item in enumerate(lst):
+            self._elems[i] = make_ref(space, lst[i])
+
+    def __del__(self):
+        for i in range(self._length):
+            Py_DecRef(self.space, self._elems[i])
+        lltype.free(self._elems, flavor='raw')

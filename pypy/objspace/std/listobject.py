@@ -206,6 +206,14 @@ class W_ListObject(W_Root):
         storage = strategy.erase(list_i)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
+    @staticmethod
+    def newlist_cpyext(space, list):
+        from pypy.module.cpyext.sequence import CPyListStrategy, CPyListStorage
+
+        strategy = space.fromcache(CPyListStrategy)
+        storage = strategy.erase(CPyListStorage(space, list))
+        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
+
     def __repr__(self):
         """ representation for debugging purposes """
         return "%s(%s, %s)" % (self.__class__.__name__, self.strategy,
@@ -231,6 +239,21 @@ class W_ListObject(W_Root):
         w_objectlist = W_ListObject.from_storage_and_strategy(
                 self.space, storage, strategy)
         return w_objectlist
+
+    def convert_to_cpy_strategy(self, space):
+        from pypy.module.cpyext.sequence import CPyListStorage, CPyListStrategy
+
+        cpy_strategy = self.space.fromcache(CPyListStrategy)
+        lst = self.getitems()
+        self.strategy = cpy_strategy
+        self.lstorage = self.strategy.erase(CPyListStorage(space, lst))
+
+    def get_raw_items(self):
+        from pypy.module.cpyext.sequence import CPyListStrategy
+
+        cpy_strategy = self.space.fromcache(CPyListStrategy)
+        assert self.strategy is cpy_strategy # should we return an error?
+        return cpy_strategy.get_raw_items(self)
 
     # ___________________________________________________
 
