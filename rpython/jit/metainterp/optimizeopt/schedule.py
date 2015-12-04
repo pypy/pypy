@@ -444,6 +444,7 @@ def turn_into_vector(state, pack):
     if left.is_guard():
         prepare_fail_arguments(state, pack, left, vecop)
     state.oplist.append(vecop)
+    assert vecop.count >= 1
 
 def prepare_arguments(state, pack, args):
     # Transforming one argument to a vector box argument

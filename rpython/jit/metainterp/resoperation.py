@@ -614,6 +614,15 @@ class VectorGuardOp(GuardResOp):
     signed = True
     count = 0
 
+    def copy_and_change(self, opnum, args=None, descr=None):
+        newop = GuardResOp.copy_and_change(self, opnum, args, descr)
+        assert isinstance(newop, VectorGuardOp)
+        newop.datatype = self.datatype
+        newop.bytesize = self.bytesize
+        newop.signed = self.signed
+        newop.count = self.count
+        return newop
+
 class VectorOp(ResOpWithDescr):
     _attrs_ = ('datatype', 'bytesize', 'signed', 'count')
 
@@ -624,6 +633,15 @@ class VectorOp(ResOpWithDescr):
 
     def is_vector(self):
         return True
+
+    def copy_and_change(self, opnum, args=None, descr=None):
+        newop = ResOpWithDescr.copy_and_change(self, opnum, args, descr)
+        assert isinstance(newop, VectorOp)
+        newop.datatype = self.datatype
+        newop.bytesize = self.bytesize
+        newop.signed = self.signed
+        newop.count = self.count
+        return newop
 
     def same_shape(self, other):
         """ NOT_RPYTHON """
