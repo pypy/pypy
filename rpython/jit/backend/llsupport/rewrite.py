@@ -154,8 +154,14 @@ class GcRewriterAssembler(object):
         self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, 1, ofs, sign)
 
     def _emit_mul_add_if_factor_offset_not_supported(self, index_box, factor, offset):
+        orig_factor = factor
         # factor
-        if factor != 1 and factor not in self.cpu.load_supported_factors:
+        must_manually_load_const = offset != 0 and not self.cpu.load_constant_offset
+        if factor != 1 and (factor not in self.cpu.load_supported_factors or \
+                            (not index_box.is_constant() and must_manually_load_const)):
+            # enter here if the factor is supported by the cpu
+            # OR the index is not constant and a new resop must be emitted
+            # to add the offset
             if isinstance(index_box, ConstInt):
                 index_box = ConstInt(index_box.value * factor)
             else:
@@ -163,7 +169,7 @@ class GcRewriterAssembler(object):
                 self.emit_op(index_box)
             factor = 1
         # adjust the constant offset
-        if offset != 0 and not self.cpu.load_constant_offset:
+        if must_manually_load_const:
             if index_box.is_constant():
                 index_box = ConstInt(index_box.value + offset)
             else:

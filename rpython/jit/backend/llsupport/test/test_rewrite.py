@@ -994,7 +994,7 @@ class TestFramework(RewriteTests):
             p0 = call_malloc_nursery_varsize(0, 1, i0, descr=bdescr)
             gc_store(p0, 0,  i0, %(blendescr.field_size)s)
             cond_call_gc_wb_array(p0, i2, descr=wbdescr)
-            gc_store_indexed(p0, i2, p1, 1, 8, 1)
+            gc_store_indexed(p0, i2, p1, 1, %(bdescr.basesize)s, 1)
             jump()
         """)
 
@@ -1015,7 +1015,7 @@ class TestFramework(RewriteTests):
             gc_store_indexed(p1, 0,  i0, 1, 8, %(strlendescr.field_size)s)
             gc_store(p1, 0,  0, %(strhashdescr.field_size)s)
             cond_call_gc_wb(p0, descr=wbdescr)
-            gc_store_indexed(p0, 0,  p1, 1, 8, %(tzdescr.field_size)s)
+            gc_store_indexed(p0, 0,  p1, 1, %(tzdescr.offset)s, %(tzdescr.field_size)s)
             jump()
         """)
 
@@ -1033,7 +1033,7 @@ class TestFramework(RewriteTests):
             gc_store(p0, %(tdescr.gc_fielddescrs[0].offset)s, 0, %(tdescr.gc_fielddescrs[0].offset)s)
             label(p0, p1)
             cond_call_gc_wb(p0, descr=wbdescr)
-            gc_store_indexed(p0, 0,  p1, 1, 8, %(tzdescr.field_size)s)
+            gc_store_indexed(p0, 0,  p1, 1, %(tzdescr.offset)s, %(tzdescr.field_size)s)
             jump()
         """)
 
@@ -1046,8 +1046,8 @@ class TestFramework(RewriteTests):
         """, """
             [p0, p1, p2]
             cond_call_gc_wb(p0, descr=wbdescr)
-            gc_store_indexed(p0, 0,  p1, 1, 8, %(tzdescr.field_size)s)
-            gc_store_indexed(p0, 0,  p2, 1, 8, %(tzdescr.field_size)s)
+            gc_store_indexed(p0, 0,  p1, 1, %(tzdescr.offset)s, %(tzdescr.field_size)s)
+            gc_store_indexed(p0, 0,  p2, 1, %(tzdescr.offset)s, %(tzdescr.field_size)s)
             jump(p1, p2, p0)
         """)
 
@@ -1154,28 +1154,35 @@ class TestFramework(RewriteTests):
 
     @py.test.mark.parametrize('support_offset,factors,fromto',[
         [False, (1,2,4,8), 'setarrayitem_gc(p0,i1,i2,descr=adescr)' '->'
-                    'i3 = int_add(i1,8);gc_store_indexed(p0,i3,i2,8,0,8)'],
+           'i3 = int_mul(i1,%(adescr.itemsize)s);'
+           'i4 = int_add(i3,%(adescr.basesize)s);'
+           'gc_store_indexed(p0,i4,i2,,0,%(adescr.itemsize)s)'],
         [True, (1,2,4,8), 'setarrayitem_gc(p0,i1,i2,descr=adescr)' '->'
-                    'gc_store_indexed(p0,i1,i2,8,8,8)'],
+           'gc_store_indexed(p0,i1,i2,%(adescr.itemsize)s,%(adescr.basesize)s,%(adescr.itemsize)s)'],
         [False, (1,), 'setarrayitem_gc(p0,i1,i2,descr=adescr)' '->'
-                    'i3 = int_mul(i1,8);'
-                    'i4 = int_add(i3,8);'
-                    'gc_store(p0,i4,i2,8)'],
-        [True, None, 'i3 = raw_load_i(p0,i1,descr=adescr)->gc_load_indexed_i(p0,i1,1,8,-8)'],
-        [True, None, 'i3 = raw_load_f(p0,i1,descr=fdescr)->gc_load_indexed_f(p0,i1,1,8,8)'],
-        [True, None, 'i3 = raw_load_i(p0,i1,descr=sfdescr)->gc_load_indexed_i(p0,i1,1,8,4)'],
-        [True, (1,2,4,8), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)->gc_store_indexed(p0,i1,i2,1,8,4)'],
+           'i3 = int_mul(i1,%(adescr.itemsize)s);'
+           'i4 = int_add(i3,%(adescr.basesize)s);'
+           'gc_store(p0,i4,i2,%(adescr.itemsize)s)'],
+        [True, None, 'i3 = raw_load_i(p0,i1,descr=adescr)' '->'
+           'gc_load_indexed_i(p0,i1,1,%(adescr.basesize)s,-%(adescr.itemsize)s)'],
+        [True, None, 'i3 = raw_load_f(p0,i1,descr=fdescr)' '->'
+           'gc_load_indexed_f(p0,i1,1,%(fdescr.basesize)s,%(adescr.itemsize)s)'],
+        [True, None, 'i3 = raw_load_i(p0,i1,descr=sfdescr)' '->'
+           'gc_load_indexed_i(p0,i1,1,%(sfdescr.basesize)s,%(adescr.itemsize)s)'],
+        [True, (1,2,4,8), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)' '->'
+           'gc_store_indexed(p0,i1,i2,1,%(raw_sfdescr.basesize)s,%(raw_sfdescr.itemsize)s)'],
         [False, (1,), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)' '->'
-                      'i5 = int_add(i1,8);gc_store(p0,i5,i2,4)'],
+           'i5 = int_add(i1,%(raw_sfdescr.basesize));'
+           'gc_store(p0,i5,i2,%(raw_sfdescr.itemsize))'],
         [True, (1,2,4,8), 'i3 = getfield_gc_f(p0,descr=ydescr)' '->'
-                          'i3 = gc_load_indexed_f(p0,0,1,8,8)'],
+           'i3 = gc_load_indexed_f(p0,0,1,8,8)'],
         [True, (1,2,4,8), 'i3 = getfield_gc_f(p0,descr=ydescr)' '->'
-                          'i3 = gc_load_indexed_f(p0,0,1,8,8)'],
+           'i3 = gc_load_indexed_f(p0,0,1,8,8)'],
         [True, (1,2,4,8), 'i3 = setfield_raw(p0,i1,descr=ydescr)' '->'
-                          'i3 = gc_store_indexed(p0,0,i1,1,8,8)'],
+           'i3 = gc_store_indexed(p0,0,i1,1,8,8)'],
         [True, (1,2,4,8), 'i3 = setfield_gc(p0,p0,descr=zdescr)' '->'
-                          'cond_call_gc_wb(p0, descr=wbdescr);'
-                          'i3 = gc_store_indexed(p0,0,p0,1,16,8)'],
+           'cond_call_gc_wb(p0, descr=wbdescr);'
+           'i3 = gc_store_indexed(p0,0,p0,1,%(zdescr.offset)s,%(zdescr.field_size)s)'],
         [False, (1,), 'i3 = arraylen_gc(p0, descr=adescr)' '->'
                       'i3 = gc_load_i(p0,0,8)'],
         [False, (1,),  'i3 = strlen(p0)' '->'
@@ -1191,13 +1198,15 @@ class TestFramework(RewriteTests):
         [True,  (4,),  'i3 = unicodegetitem(p0,i1)' '->'
                        'i3 = gc_load_indexed_i(p0,i1,4,16,4)'],
         [False, (4,),  'i3 = unicodegetitem(p0,i1)' '->'
-                       'i4 = int_add(i1, 16);'
-                       'i3 = gc_load_indexed_i(p0,i4,4,0,4)'],
+                       'i4 = int_mul(i1, 4);'
+                       'i5 = int_add(i4, 16);'
+                       'i3 = gc_load_indexed_i(p0,i5,1,0,4)'],
         [True,  (4,),  'i3 = strgetitem(p0,i1)' '->'
                        'i3 = gc_load_indexed_i(p0,i1,1,16,1)'],
         [False, (4,),  'i3 = strgetitem(p0,i1)' '->'
-                       'i4 = int_add(i1, 16);'
-                       'i3 = gc_load_i(p0,i4,1)'],
+                       'i4 = int_mul(i1, 4);'
+                       'i5 = int_add(i4, 16);'
+                       'i3 = gc_load_i(p0,i5,1)'],
         # setitem str/unicode
         [True, (4,),  'i3 = strsetitem(p0,i1,0)' '->'
                       'i3 = gc_store_indexed(p0,i1,0,1,16,1)'],
