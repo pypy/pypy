@@ -642,7 +642,7 @@ class VectorRegallocMixin(object):
             # unpack into iX box
             resloc =  self.force_allocate_reg(op, args)
             arg = op.getarg(0)
-            size = arg.bytesize
+            size = 8 # x86 64 bit dependent!
         residx = 0
         args = op.getarglist()
         arglocs = [resloc, srcloc, imm(residx), imm(index.value), imm(count.value), imm(size)]
