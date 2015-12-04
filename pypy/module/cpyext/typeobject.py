@@ -603,6 +603,7 @@ def _type_realize(space, py_obj):
 
     w_metatype = from_ref(space, rffi.cast(PyObject, py_type.c_ob_type))
 
+    assert w_metatype # XXX in numpy initmultiarray, py_type.c_ob_type is 0
     w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
     track_reference(space, py_obj, w_obj)
     w_obj.__init__(space, py_type)
