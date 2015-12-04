@@ -343,6 +343,7 @@ string_traits = StringTraits()
 if _WIN32:
     @specialize.argtype(0)
     def _prefer_unicode(path):
+        assert path is not None
         if isinstance(path, str):
             return False
         elif isinstance(path, unicode):
