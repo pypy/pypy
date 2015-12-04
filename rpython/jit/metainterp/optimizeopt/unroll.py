@@ -352,19 +352,22 @@ class UnrollOptimizer(Optimization):
                                                    short, label_op.getarglist())
                 # after this call, THE REST OF THIS FUNCTION WILL MODIFY ALL
                 # THE LISTS PROVIDED, POTENTIALLY
-        if 1:     # (keep indentation)
+
+        # We need to make a list of fresh new operations corresponding
+        # to the short preamble operations.  We could temporarily forward
+        # the short operations to the fresh ones, but there are obscure
+        # issues: send_extra_operation() below might occasionally invoke
+        # use_box(), which assumes the short operations are not forwarded.
+        # So we avoid such temporary forwarding and just use a dict here.
+        assert len(short_inputargs) == len(jump_args)
+        mapping = {}
+        for i in range(len(jump_args)):
+            mapping[short_inputargs[i]] = jump_args[i]
+
+        # a fix-point loop, runs only once in almost all cases
+        i = 1
+        while 1:
             self._check_no_forwarding([short_inputargs, short], False)
-            assert len(short_inputargs) == len(jump_args)
-            # We need to make a list of fresh new operations corresponding
-            # to the short preamble operations.  We could temporarily forward
-            # the short operations to the fresh ones, but there are obscure
-            # issues: send_extra_operation() below might occasionally invoke
-            # use_box(), which assumes the short operations are not forwarded.
-            # So we avoid such temporary forwarding and just use a dict here.
-            mapping = {}
-            for i in range(len(jump_args)):
-                mapping[short_inputargs[i]] = jump_args[i]
-            i = 1
             while i < len(short) - 1:
                 sop = short[i]
                 arglist = self._map_args(mapping, sop.getarglist())
@@ -383,8 +386,12 @@ class UnrollOptimizer(Optimization):
             for arg in args_no_virtuals + short_jump_args:
                 self.optimizer.force_box(self.get_box_replacement(arg))
             self.optimizer.flush()
-            return [self.get_box_replacement(box)
-                    for box in self._map_args(mapping, short_jump_args)]
+            # done unless "short" has grown again
+            if i == len(short) - 1:
+                break
+
+        return [self.get_box_replacement(box)
+                for box in self._map_args(mapping, short_jump_args)]
 
     def _expand_info(self, arg, infos):
         if isinstance(arg, AbstractResOp) and arg.is_same_as():
