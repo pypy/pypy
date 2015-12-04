@@ -113,12 +113,18 @@ def VecOperationNew(opnum, args, datatype, bytesize, signed, count, descr=None):
     vecinfo.setinfo(datatype, bytesize, signed)
     vecinfo.count = count
     op.set_forwarded(vecinfo)
-    assert isinstance(op, VectorOp)
-    op.datatype = datatype
-    op.bytesize = bytesize
-    op.signed = signed
-    op.count = count
-
+    if isinstance(op,VectorOp):
+        op.datatype = datatype
+        op.bytesize = bytesize
+        op.signed = signed
+        op.count = count
+    else:
+        assert isinstance(op, VectorGuardOp)
+        op.datatype = datatype
+        op.bytesize = bytesize
+        op.signed = signed
+        op.count = count
+    assert op.count > 0
 
     if not we_are_translated():
         # for the test suite
@@ -576,6 +582,38 @@ class ResOpWithDescr(AbstractResOp):
         from rpython.jit.metainterp.history import check_descr
         check_descr(descr)
 
+class GuardResOp(ResOpWithDescr):
+
+    _fail_args = None
+
+    rd_snapshot = None
+    rd_frame_info_list = None
+
+    def getfailargs(self):
+        return self._fail_args
+
+    def getfailargs_copy(self):
+        return self._fail_args[:]
+
+    def setfailargs(self, fail_args):
+        self._fail_args = fail_args
+
+    def copy_and_change(self, opnum, args=None, descr=None):
+        newop = AbstractResOp.copy_and_change(self, opnum, args, descr)
+        assert isinstance(newop, GuardResOp)
+        newop.setfailargs(self.getfailargs())
+        newop.rd_snapshot = self.rd_snapshot
+        newop.rd_frame_info_list = self.rd_frame_info_list
+        return newop
+
+class VectorGuardOp(GuardResOp):
+    _attrs_ = ('datatype', 'bytesize', 'signed', 'count')
+
+    bytesize = 0
+    datatype = '\x00'
+    signed = True
+    count = 0
+
 class VectorOp(ResOpWithDescr):
     _attrs_ = ('datatype', 'bytesize', 'signed', 'count')
 
@@ -602,30 +640,6 @@ class VectorOp(ResOpWithDescr):
         if myvecinfo.count != othervecinfo.count:
             return False
         return True
-
-class GuardResOp(ResOpWithDescr):
-
-    _fail_args = None
-
-    rd_snapshot = None
-    rd_frame_info_list = None
-
-    def getfailargs(self):
-        return self._fail_args
-
-    def getfailargs_copy(self):
-        return self._fail_args[:]
-
-    def setfailargs(self, fail_args):
-        self._fail_args = fail_args
-
-    def copy_and_change(self, opnum, args=None, descr=None):
-        newop = AbstractResOp.copy_and_change(self, opnum, args, descr)
-        assert isinstance(newop, GuardResOp)
-        newop.setfailargs(self.getfailargs())
-        newop.rd_snapshot = self.rd_snapshot
-        newop.rd_frame_info_list = self.rd_frame_info_list
-        return newop
 
 
 # ===========
@@ -1005,6 +1019,8 @@ _oplist = [
     '_GUARD_FOLDABLE_FIRST',
     'GUARD_TRUE/1d/n',
     'GUARD_FALSE/1d/n',
+    'VEC_GUARD_TRUE/1d/n',
+    'VEC_GUARD_FALSE/1d/n',
     'GUARD_VALUE/2d/n',
     'GUARD_CLASS/2d/n',
     'GUARD_NONNULL/1d/n',
@@ -1321,11 +1337,14 @@ def create_class_for_op(name, opnum, arity, withdescr, result_type):
     }
 
     is_guard = name.startswith('GUARD')
-    if is_guard:
+    if name.startswith('VEC'):
+        if name.startswith('VEC_GUARD'):
+            baseclass = VectorGuardOp
+        else:
+            baseclass = VectorOp
+    elif is_guard:
         assert withdescr
         baseclass = GuardResOp
-    elif name.startswith('VEC'):
-        baseclass = VectorOp
     elif withdescr:
         baseclass = ResOpWithDescr
     else:
@@ -1441,8 +1460,8 @@ _opvector = {
     rop.CAST_FLOAT_TO_INT: rop.VEC_CAST_FLOAT_TO_INT,
 
     # guard
-    rop.GUARD_TRUE: rop.GUARD_TRUE,
-    rop.GUARD_FALSE: rop.GUARD_FALSE,
+    rop.GUARD_TRUE: rop.VEC_GUARD_TRUE,
+    rop.GUARD_FALSE: rop.VEC_GUARD_FALSE,
 }
 
 def setup2():

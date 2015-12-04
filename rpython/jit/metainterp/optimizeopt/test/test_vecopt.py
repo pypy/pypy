@@ -310,7 +310,7 @@ class BaseTestVectorize(VecTestHelper):
             'v10[4xi32] = vec_getarrayitem_raw_i(p0,i0,descr=int32arraydescr)',
             'v11[4xi32] = vec_int_is_true(v10[4xi32])',
             'i100 = vec_unpack_i(v11[4xi32], 0, 1)',
-            'guard_true(v11[4xi32]) [i100]',
+            'vec_guard_true(v11[4xi32]) [i100]',
         ], trace)
 
     def test_vectorize_skip(self):

@@ -338,7 +338,7 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         v9[2xi64] = vec_expand_i(255)
         v10[2xi64] = vec_raw_load_i(p0, i1, descr=long)
         v11[2xi64] = vec_int_and(v10[2xi64], v9[2xi64])
-        guard_true(v11[2xi64]) []
+        vec_guard_true(v11[2xi64]) []
         """, False)
         self.assert_equal(loop2, loop3)
 

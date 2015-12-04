@@ -10,7 +10,8 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG, AddressLoc)
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import (rop, ResOperation,
+        VectorOp, VectorGuardOp)
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
@@ -35,6 +36,7 @@ class VectorAssemblerMixin(object):
     _mixin_ = True
 
     def guard_vector(self, guard_op, loc, true):
+        assert isinstance(guard_op, VectorGuardOp)
         arg = guard_op.getarg(0)
         size = arg.bytesize
         temp = X86_64_XMM_SCRATCH_REG

@@ -398,8 +398,8 @@ class trans(object):
         rop.VEC_GETARRAYITEM_GC_I:  LOAD_RESTRICT,
         rop.VEC_GETARRAYITEM_GC_F:  LOAD_RESTRICT,
 
-        rop.GUARD_TRUE:             GUARD_RESTRICT,
-        rop.GUARD_FALSE:            GUARD_RESTRICT,
+        rop.VEC_GUARD_TRUE:             GUARD_RESTRICT,
+        rop.VEC_GUARD_FALSE:            GUARD_RESTRICT,
 
         ## irregular
         rop.VEC_INT_SIGNEXT:        OpRestrict([TR_ANY_INTEGER]),
