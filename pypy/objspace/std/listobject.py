@@ -244,6 +244,8 @@ class W_ListObject(W_Root):
         from pypy.module.cpyext.sequence import CPyListStorage, CPyListStrategy
 
         cpy_strategy = self.space.fromcache(CPyListStrategy)
+        if self.strategy is cpy_strategy:
+            return
         lst = self.getitems()
         self.strategy = cpy_strategy
         self.lstorage = cpy_strategy.erase(CPyListStorage(space, lst))
