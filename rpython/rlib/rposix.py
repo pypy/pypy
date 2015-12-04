@@ -1314,7 +1314,7 @@ def times():
                 rffi.cast(lltype.Signed, pkernel.c_dwLowDateTime) * 1E-7,
                 rffi.cast(lltype.Signed, puser.c_dwHighDateTime) * 429.4967296 +
                 rffi.cast(lltype.Signed, puser.c_dwLowDateTime) * 1E-7,
-                0, 0, 0)
+                0., 0., 0.)
         finally:
             lltype.free(puser,   flavor='raw')
             lltype.free(pkernel, flavor='raw')
