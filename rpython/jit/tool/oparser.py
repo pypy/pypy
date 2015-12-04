@@ -9,7 +9,8 @@ from rpython.jit.tool.oparser_model import get_model
 
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
      InputArgInt, InputArgRef, InputArgFloat, InputArgVector, \
-     ResOpWithDescr, N_aryOp, UnaryOp, PlainResOp, optypes, OpHelpers
+     ResOpWithDescr, N_aryOp, UnaryOp, PlainResOp, optypes, OpHelpers, \
+     VectorizationInfo
 
 class ParseError(Exception):
     pass
@@ -363,11 +364,17 @@ class OpParser(object):
         pattern = re.compile('.*\[(\d+)x(u?)(i|f)(\d+)\]')
         match = pattern.match(var)
         if match:
-            resop.count = int(match.group(1))
-            resop.signed = not (match.group(2) == 'u')
-            resop.datatype = match.group(3)
-            resop.bytesize = int(match.group(4)) // 8
+            vecinfo = VectorizationInfo(None)
+            vecinfo.count = int(match.group(1))
+            vecinfo.signed = not (match.group(2) == 'u')
+            vecinfo.datatype = match.group(3)
+            vecinfo.bytesize = int(match.group(4)) // 8
+            resop._vec_debug_info = vecinfo
             return var[:var.find('[')]
+
+        vecinfo = VectorizationInfo(resop)
+        vecinfo.count = -1
+        resop._vec_debug_info = vecinfo
         return var
 
     def parse_op_no_result(self, line):

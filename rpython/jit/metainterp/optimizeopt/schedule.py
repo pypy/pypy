@@ -661,15 +661,16 @@ def expand(state, pack, args, arg, index):
         args[index] = vecop
         return vecop
 
-    
-    vecop = OpHelpers.create_vec(arg.type, arg.bytesize, arg.signed, pack.opnum())
+    arg_vecinfo = forwarded_vecinfo(arg)
+    vecop = OpHelpers.create_vec(arg.type, arg_vecinfo.bytesize, arg_vecinfo.signed, pack.opnum())
     ops.append(vecop)
     for i,node in enumerate(pack.operations):
         op = node.getoperation()
         arg = op.getarg(index)
         arguments = [vecop, arg, ConstInt(i), ConstInt(1)]
-        vecop = OpHelpers.create_vec_pack(arg.type, arguments, vecop.bytesize,
-                                          vecop.signed, vecop.count+1)
+        vecinfo = forwarded_vecinfo(vecop)
+        vecop = OpHelpers.create_vec_pack(arg.type, arguments, vecinfo.bytesize,
+                                          vecinfo.signed, vecinfo.count+1)
         ops.append(vecop)
     state.expand(expandargs, vecop)
 

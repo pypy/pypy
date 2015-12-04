@@ -103,9 +103,9 @@ class VecTestHelper(DependencyBaseTest):
         return graph.loop
 
     def vectoroptimizer_unrolled(self, loop, unroll_factor = -1):
-        loop.setup_vectorization()
         opt = self.vectoroptimizer(loop)
         opt.linear_find_smallest_type(loop)
+        loop.setup_vectorization()
         if unroll_factor == -1 and opt.smallest_type_bytes == 0:
             raise NotAVectorizeableLoop()
         if unroll_factor == -1:
@@ -168,7 +168,6 @@ class VecTestHelper(DependencyBaseTest):
     def vectorize(self, loop, unroll_factor = -1):
         info = FakeLoopInfo(loop)
         info.snapshot(loop)
-        loop.setup_vectorization()
         opt, graph = self.vectoroptimizer_unrolled(loop, unroll_factor)
         opt.find_adjacent_memory_refs(graph)
         opt.extend_packset()

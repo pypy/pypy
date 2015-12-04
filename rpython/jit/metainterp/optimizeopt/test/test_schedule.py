@@ -12,7 +12,7 @@ from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.optimizeopt.test.test_dependency import (DependencyBaseTest)
 from rpython.jit.metainterp.optimizeopt.test.test_vecopt import (FakeMetaInterpStaticData,
         FakeJitDriverStaticData, FakePackSet)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import rop, ResOperation, VectorizationInfo
 from rpython.jit.tool.oparser import parse as opparse
 from rpython.jit.tool.oparser_model import get_model
 from rpython.jit.backend.detect_cpu import getcpuclass
@@ -207,6 +207,12 @@ class Test(SchedulerBaseTest, LLtypeMixin):
         """, additional_args=['v10[2xi64]'])
         pack1 = self.pack(loop1, 0, 2)
         var = loop1.inputargs[-1]
+        vi = VectorizationInfo(None)
+        vi.datatype = 'i'
+        vi.bytesize = 8
+        vi.count = 2
+        vi.signed = True
+        var.set_forwarded(vi)
         loop2 = self.schedule(loop1, [pack1], prepend_invariant=True,
                               overwrite_funcs = {
                                 'getvector_of_box': lambda v: (0, var),

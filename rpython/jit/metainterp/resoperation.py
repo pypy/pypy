@@ -113,23 +113,24 @@ def VecOperationNew(opnum, args, datatype, bytesize, signed, count, descr=None):
     vecinfo.setinfo(datatype, bytesize, signed)
     vecinfo.count = count
     op.set_forwarded(vecinfo)
+    if not we_are_translated():
+        # for the test suite
+        op._vec_debug_info = vecinfo
     return op
 
-class AbstractResOpOrInputArg(AbstractValue):
-    _attrs_ = ('_forwarded',)
-    _forwarded = None # either another resop or OptInfo  
-
-    def get_forwarded(self):
-        return self._forwarded
-
 def vector_repr(self, num):
-    vecinfo = self.get_forwarded()
-    assert vecinfo is not None
-    assert isinstance(vecinfo, VectorizationInfo)
+    if we_are_translated():
+        # the set_forwarded solution is volatile, we CANNOT acquire
+        # the information (e.g. count, bytesize) here easily
+        return 'v' + str(num)
+    vecinfo = self._vec_debug_info
+    count = vecinfo.count 
+    datatype = vecinfo.datatype
+    bytesize = vecinfo.bytesize
     if self.opnum in (rop.VEC_UNPACK_I, rop.VEC_UNPACK_F):
         return self.type + str(num)
-    return 'v%d[%dx%s%d]' % (num, vecinfo.count, vecinfo.datatype,
-                             vecinfo.bytesize * 8)
+    return 'v%d[%dx%s%d]' % (num, count, datatype,
+                             bytesize * 8)
 
 class VectorizationInfo(AbstractValue):
     _attrs_ = ('datatype', 'bytesize', 'signed', 'count')
@@ -161,9 +162,6 @@ class VectorizationInfo(AbstractValue):
             arg0 = op.getarg(0)
             arg1 = op.getarg(1)
             assert isinstance(arg1, history.ConstInt)
-            signed = True
-            if not arg0.is_constant():
-                signed = arg0.signed
             self.setinfo('i', arg1.value, True)
         elif op.is_typecast():
             ft,tt = op.cast_types()
@@ -181,8 +179,7 @@ class VectorizationInfo(AbstractValue):
                     i += 1
                     arg = op.getarg(i)
                 vecinfo = arg.get_forwarded()
-                if vecinfo != None:
-                    assert isinstance(vecinfo, VectorizationInfo)
+                if vecinfo is not None and isinstance(vecinfo, VectorizationInfo):
                     if vecinfo.datatype != '\x00' and \
                        vecinfo.bytesize != -1:
                         type = vecinfo.datatype
@@ -203,10 +200,20 @@ class VectorizationInfo(AbstractValue):
                 bytesize = INT_WORD
             elif datatype == 'v':
                 bytesize = 0
+            elif datatype == 'V': # input arg vector
+                bytesize = INT_WORD
             else:
                 assert 0, "unknown datasize"
         self.bytesize = bytesize
         self.signed = signed
+
+
+class AbstractResOpOrInputArg(AbstractValue):
+    _attrs_ = ('_forwarded',)
+    _forwarded = None # either another resop or OptInfo  
+
+    def get_forwarded(self):
+        return self._forwarded
 
 class AbstractResOp(AbstractResOpOrInputArg):
     """The central ResOperation class, representing one operation."""
@@ -722,7 +729,11 @@ class SignExtOp(object):
 
     def cast_from_bytesize(self):
         arg = self.getarg(0)
-        return arg.bytesize
+        vecinfo = arg.get_forwarded()
+        if vecinfo is None:
+            vecinfo = VectorizationInfo(arg)
+        assert isinstance(vecinfo, VectorizationInfo)
+        return vecinfo.bytesize
 
     def cast_input_bytesize(self, vec_reg_size):
         return vec_reg_size # self.cast_from_bytesize() * self.cast_count(vec_reg_size)
@@ -800,7 +811,7 @@ class InputArgRef(RefOp, AbstractInputArg):
     def reset_value(self):
         self.setref_base(lltype.nullptr(llmemory.GCREF.TO))
 
-class InputArgVector(VectorOp, AbstractInputArg):
+class InputArgVector(AbstractInputArg):
     type = 'V'
     def __init__(self):
         pass
