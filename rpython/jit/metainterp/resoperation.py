@@ -28,11 +28,7 @@ class AbstractValue(object):
     _repr_memo = CountingDict()
     is_info_class = False
     namespace = None
-    _attrs_ = ('datatype', 'bytesize', 'signed', 'count')
-    datatype = '\x00'
-    bytesize = -1 # -1 means the biggest size known to the machine
-    signed = True
-    count = -1
+    _attrs_ = ()
 
     def _get_hash_(self):
         return compute_identity_hash(self)
@@ -96,92 +92,30 @@ def ResOperation(opnum, args, descr=None):
         elif op.is_guard():
             assert not descr.final_descr
         op.setdescr(descr)
-    op.inittype()
     return op
 
 def VecOperation(opnum, args, baseop, count, descr=None):
-    datatype = baseop.datatype
-    bytesize = baseop.bytesize
+    vecinfo = baseop.get_forwarded()
+    assert vecinfo is not None
+    assert isinstance(vecinfo, VectorizationInfo)
+    datatype = vecinfo.datatype
+    bytesize = vecinfo.bytesize
+    signed = vecinfo.signed
     if baseop.is_typecast():
         ft,tt = baseop.cast_types()
         datatype = tt
         bytesize = baseop.cast_to_bytesize()
-    return VecOperationNew(opnum, args, datatype, bytesize, baseop.signed, count, descr)
+    return VecOperationNew(opnum, args, datatype, bytesize, signed, count, descr)
 
-def VecOperationNew(opnum, args, datateyp, bytesize, signed, count, descr=None):
+def VecOperationNew(opnum, args, datatype, bytesize, signed, count, descr=None):
     op = ResOperation(opnum, args, descr)
-    op.datatype = datateyp
-    op.bytesize = bytesize
-    op.signed = signed
-    op.count = count
+    vecinfo = VectorizationInfo(None)
+    vecinfo.setinfo(datatype, bytesize, signed)
+    vecinfo.count = count
+    op.set_forwarded(vecinfo)
     return op
 
-class Typed(object):
-    _mixin_ = True
-
-    def inittype(self):
-        if self.is_primitive_array_access():
-            from rpython.jit.backend.llsupport.descr import ArrayDescr
-            descr = self.getdescr()
-            if not we_are_translated():
-                from rpython.jit.backend.llgraph.runner import _getdescr
-                descr = _getdescr(self)
-            type = self.type
-            self.bytesize = descr.get_item_size_in_bytes()
-            self.signed = descr.is_item_signed()
-            self.datatype = type
-        elif self.opnum == rop.INT_SIGNEXT:
-            from rpython.jit.metainterp import history
-            arg0 = self.getarg(0)
-            arg1 = self.getarg(1)
-            assert isinstance(arg1, history.ConstInt)
-            signed = True
-            if not arg0.is_constant():
-                signed = arg0.signed
-            self.setdatatype('i', arg1.value, True)
-        elif self.is_typecast():
-            ft,tt = self.cast_types()
-            self.setdatatype(tt, self.cast_to_bytesize(), tt == 'i')
-        else:
-            # pass through the type of the first input argument
-            type = self.type
-            signed = type == 'i'
-            bytesize = -1
-            if self.numargs() > 0:
-                i = 0
-                arg = self.getarg(i)
-                while arg.is_constant() and i+1 < self.numargs():
-                    i += 1
-                    arg = self.getarg(i)
-                if arg.datatype != '\x00' and \
-                   arg.bytesize != -1:
-                    type = arg.datatype
-                    signed = arg.signed
-                    bytesize = arg.bytesize
-            if self.returns_bool_result():
-                type = 'i'
-            self.setdatatype(type, bytesize, signed)
-        assert self.datatype != '\x00'
-
-    def setdatatype(self, data_type, bytesize, signed):
-        self.datatype = data_type
-        if bytesize == -1:
-            if data_type == 'i':
-                bytesize = INT_WORD
-            elif data_type == 'f':
-                bytesize = FLOAT_WORD
-            elif data_type == 'v':
-                bytesize = 0
-        self.bytesize = bytesize
-        self.signed = signed
-
-    def typestr(self):
-        sign = '-'
-        if not self.signed:
-            sign = '+'
-        return 'Type(%s%s, %d)' % (sign, self.type, self.bytesize)
-
-class AbstractResOpOrInputArg(AbstractValue, Typed):
+class AbstractResOpOrInputArg(AbstractValue):
     _attrs_ = ('_forwarded',)
     _forwarded = None # either another resop or OptInfo  
 
@@ -189,11 +123,90 @@ class AbstractResOpOrInputArg(AbstractValue, Typed):
         return self._forwarded
 
 def vector_repr(self, num):
+    vecinfo = self.get_forwarded()
+    assert vecinfo is not None
+    assert isinstance(vecinfo, VectorizationInfo)
     if self.opnum in (rop.VEC_UNPACK_I, rop.VEC_UNPACK_F):
         return self.type + str(num)
-    return 'v%d[%dx%s%d]' % (num, self.count, self.datatype,
-                             self.bytesize * 8)
+    return 'v%d[%dx%s%d]' % (num, vecinfo.count, vecinfo.datatype,
+                             vecinfo.bytesize * 8)
 
+class VectorizationInfo(AbstractValue):
+    _attrs_ = ('datatype', 'bytesize', 'signed', 'count')
+    datatype = '\x00'
+    bytesize = -1 # -1 means the biggest size known to the machine
+    signed = True
+    count = -1
+
+    def __init__(self, op):
+        if op is None:
+            return
+        if op.is_constant() or isinstance(op, AbstractInputArg):
+            self.setinfo(op.type, -1, op.type == 'i')
+            return
+        assert isinstance(op, AbstractResOp)
+        if op.is_primitive_array_access():
+            from rpython.jit.backend.llsupport.descr import ArrayDescr
+            descr = op.getdescr()
+            if not we_are_translated():
+                from rpython.jit.backend.llgraph.runner import _getdescr
+                descr = _getdescr(op)
+            type = op.type
+            bytesize = descr.get_item_size_in_bytes()
+            signed = descr.is_item_signed()
+            datatype = type
+            self.setinfo(datatype, bytesize, signed)
+        elif op.opnum == rop.INT_SIGNEXT:
+            from rpython.jit.metainterp import history
+            arg0 = op.getarg(0)
+            arg1 = op.getarg(1)
+            assert isinstance(arg1, history.ConstInt)
+            signed = True
+            if not arg0.is_constant():
+                signed = arg0.signed
+            self.setinfo('i', arg1.value, True)
+        elif op.is_typecast():
+            ft,tt = op.cast_types()
+            bytesize = op.cast_to_bytesize()
+            self.setinfo(tt, bytesize, True)
+        else:
+            # pass through the type of the first input argument
+            type = op.type
+            signed = type == 'i'
+            bytesize = -1
+            if op.numargs() > 0:
+                i = 0
+                arg = op.getarg(i)
+                while arg.is_constant() and i+1 < op.numargs():
+                    i += 1
+                    arg = op.getarg(i)
+                vecinfo = arg.get_forwarded()
+                if vecinfo != None:
+                    assert isinstance(vecinfo, VectorizationInfo)
+                    if vecinfo.datatype != '\x00' and \
+                       vecinfo.bytesize != -1:
+                        type = vecinfo.datatype
+                        signed = vecinfo.signed
+                        bytesize = vecinfo.bytesize
+            if op.returns_bool_result():
+                type = 'i'
+            self.setinfo(type, bytesize, signed)
+
+    def setinfo(self, datatype, bytesize, signed):
+        self.datatype = datatype
+        if bytesize == -1:
+            if datatype == 'i':
+                bytesize = INT_WORD
+            elif datatype == 'f':
+                bytesize = FLOAT_WORD
+            elif datatype == 'r':
+                bytesize = INT_WORD
+            elif datatype == 'v':
+                bytesize = 0
+            else:
+                assert 0, "unknown datasize"
+        self.bytesize = bytesize
+        self.signed = signed
 
 class AbstractResOp(AbstractResOpOrInputArg):
     """The central ResOperation class, representing one operation."""
@@ -284,10 +297,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
         if descr is DONT_CHANGE:
             descr = None
         newop = ResOperation(opnum, args, descr)
-        newop.datatype = self.datatype
-        newop.count = self.count
-        newop.bytesize = self.bytesize
-        newop.signed = self.signed
         if self.type != 'v':
             newop.copy_value_from(self)
         return newop
@@ -722,21 +731,19 @@ class SignExtOp(object):
 class VectorOp(object):
     _mixin_ = True
 
-    def vector_bytesize(self):
-        assert self.count > 0
-        return self.byte_size * self.count
-
     def same_shape(self, other):
         """ NOT_RPYTHON """
+        myvecinfo = self.get_forwarded()
+        othervecinfo = other.get_forwarded()
         if other.is_vector() != self.is_vector():
             return False
-        if self.datatype != other.datatype:
+        if myvecinfo.datatype != othervecinfo.datatype:
             return False
-        if self.bytesize != other.bytesize:
+        if myvecinfo.bytesize != othervecinfo.bytesize:
             return False
-        if self.signed != other.signed:
+        if myvecinfo.signed != othervecinfo.signed:
             return False
-        if self.count != other.count:
+        if myvecinfo.count != othervecinfo.count:
             return False
         return True
 
