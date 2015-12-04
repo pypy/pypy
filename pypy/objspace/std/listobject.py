@@ -246,7 +246,7 @@ class W_ListObject(W_Root):
         cpy_strategy = self.space.fromcache(CPyListStrategy)
         lst = self.getitems()
         self.strategy = cpy_strategy
-        self.lstorage = self.strategy.erase(CPyListStorage(space, lst))
+        self.lstorage = cpy_strategy.erase(CPyListStorage(space, lst))
 
     def get_raw_items(self):
         from pypy.module.cpyext.sequence import CPyListStrategy
