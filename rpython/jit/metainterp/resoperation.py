@@ -188,6 +188,16 @@ class AbstractResOpOrInputArg(AbstractValue, Typed):
     def get_forwarded(self):
         return self._forwarded
 
+    def set_forwarded(self, forwarded_to):
+        assert forwarded_to is not self
+        self._forwarded = forwarded_to
+
+    def getdescr(self):
+        return None
+
+    def forget_value(self):
+        pass
+
 def vector_repr(self, num):
     if self.opnum in (rop.VEC_UNPACK_I, rop.VEC_UNPACK_F):
         return self.type + str(num)
@@ -218,10 +228,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
     #    if self.is_same_as():
     #        return self is other or self.getarg(0).same_box(other)
     #    return self is other
-
-    def set_forwarded(self, forwarded_to):
-        assert forwarded_to is not self
-        self._forwarded = forwarded_to
 
     # methods implemented by the arity mixins
     # ---------------------------------------
@@ -257,8 +263,8 @@ class AbstractResOp(AbstractResOpOrInputArg):
     # methods implemented by ResOpWithDescr
     # -------------------------------------
 
-    def getdescr(self):
-        return None
+    #def getdescr(self): -- in the base class, AbstractResOpOrInputArg
+    #    return None
 
     def setdescr(self, descr):
         raise NotImplementedError
@@ -472,8 +478,8 @@ class AbstractResOp(AbstractResOpOrInputArg):
     def returns_bool_result(self):
         return self._cls_has_bool_result
 
-    def forget_value(self):
-        pass
+    #def forget_value(self): -- in the base class, AbstractResOpOrInputArg
+    #    pass
 
     def is_label(self):
         return self.getopnum() == rop.LABEL
@@ -741,9 +747,6 @@ class VectorOp(object):
         return True
 
 class AbstractInputArg(AbstractResOpOrInputArg):
-    def set_forwarded(self, forwarded_to):
-        self._forwarded = forwarded_to
-
     def repr(self, memo):
         try:
             num = memo[self]
@@ -755,17 +758,8 @@ class AbstractInputArg(AbstractResOpOrInputArg):
     def __repr__(self):
         return self.repr(self._repr_memo)
 
-    def getdescr(self):
-        return None
-
-    def forget_value(self):
-        pass
-
     def is_inputarg(self):
         return True
-
-    def initinputtype(self, cpu):
-        pass
 
 class InputArgInt(IntOp, AbstractInputArg):
     def __init__(self, intval=0):

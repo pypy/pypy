@@ -38,6 +38,12 @@ Remove unnecessary special handling of space.wrap().
 
 Improve the memory signature of numbering instances in the JIT.
 
+.. branch: fix-trace-too-long-heuristic
+
+Improve the heuristic when disable trace-too-long
+
+.. branch: fix-setslice-can-resize
+
 .. branch: memop-simplify2
 
 Backends implement too many loading instructions, only having a slightly different interface.
