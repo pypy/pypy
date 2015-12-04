@@ -149,8 +149,21 @@ class TestSequence(BaseApiTest):
         result = api.PySequence_Index(w_gen, w_tofind)
         assert result == 4
 
+class TestCPyListStrategy(BaseApiTest):
+    def test_getitem_setitem(self, space, api):
+        w_l = space.wrap([1, 2, 3, 4])
+        api.PySequence_Fast(w_l, "foo") # converts
+        assert space.int_w(space.len(w_l)) == 4
+        assert space.int_w(space.getitem(w_l, space.wrap(1))) == 2
+        assert space.int_w(space.getitem(w_l, space.wrap(0))) == 1
+        e = py.test.raises(OperationError, space.getitem, w_l, space.wrap(15))
+        assert "list index out of range" in e.exconly()
+        assert space.int_w(space.getitem(w_l, space.wrap(-1))) == 4
+        space.setitem(w_l, space.wrap(1), space.wrap(13))
+        assert space.int_w(space.getitem(w_l, space.wrap(1))) == 13
 
-class AppTestSequenceObject(AppTestCpythonExtensionBase):
+
+class XAppTestSequenceObject(AppTestCpythonExtensionBase):
     def test_sequenceobject(self):
         module = self.import_extension('foo', [
             ("test_fast_sequence", "METH_VARARGS",

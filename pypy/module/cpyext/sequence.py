@@ -227,9 +227,23 @@ class CPyListStrategy(ListStrategy):
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
+    def _check_index(self, index, length):
+        if index < 0:
+            index = length + index
+        if index < 0 or index >= length:
+            raise IndexError
+        return index
+
     def getitem(self, w_list, index):
         storage = self.unerase(w_list.lstorage)
+        index = self._check_index(index, storage._length)
         return from_ref(w_list.space, storage._elems[index])
+
+    def setitem(self, w_list, index, w_obj):
+        storage = self.unerase(w_list.lstorage)
+        index = self._check_index(index, storage._length)
+        Py_DecRef(w_list.space, storage._elems[index])
+        storage._elems[index] = make_ref(w_list.space, w_obj)
 
     def length(self, w_list):
         storage = self.unerase(w_list.lstorage)
