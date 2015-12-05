@@ -36,7 +36,7 @@ from collections import OrderedDict, defaultdict
 
 import rpython
 from rpython.tool import descriptor
-from rpython.tool.pairtype import pair, extendabletype
+from rpython.tool.pairtype import pair, extendabletype, doubledispatch
 from rpython.rlib.rarithmetic import r_uint, base_int, r_singlefloat, r_longfloat
 
 
@@ -128,6 +128,16 @@ class SomeObject(object):
 
     def nonnoneify(self):
         return self
+
+@doubledispatch
+def intersection(s_obj1, s_obj2):
+    """Return the intersection of two annotations, or an over-approximation thereof"""
+    raise NotImplementedError
+
+@doubledispatch
+def difference(s_obj1, s_obj2):
+    """Return the set difference of two annotations, or an over-approximation thereof"""
+    raise NotImplementedError
 
 
 class SomeType(SomeObject):
@@ -426,7 +436,7 @@ class SomeInstance(SomeObject):
 
     def __init__(self, classdef, can_be_None=False, flags={}):
         self.classdef = classdef
-        self.knowntype = classdef or object
+        self.knowntype = classdef.classdesc if classdef else None
         self.can_be_None = can_be_None
         self.flags = flags
 
@@ -454,39 +464,52 @@ class SomeInstance(SomeObject):
     def noneify(self):
         return SomeInstance(self.classdef, can_be_None=True)
 
+@intersection.register(SomeInstance, SomeInstance)
+def intersection_Instance(s_inst1, s_inst2):
+    can_be_None = s_inst1.can_be_None and s_inst2.can_be_None
+    if s_inst1.classdef.issubclass(s_inst2.classdef):
+        return SomeInstance(s_inst1.classdef, can_be_None=can_be_None)
+    elif s_inst2.classdef.issubclass(s_inst1.classdef):
+        return SomeInstance(s_inst2.classdef, can_be_None=can_be_None)
+    else:
+        return s_ImpossibleValue
+
+@difference.register(SomeInstance, SomeInstance)
+def difference_Instance_Instance(s_inst1, s_inst2):
+    if s_inst1.classdef.issubclass(s_inst2.classdef):
+        return s_ImpossibleValue
+    else:
+        return s_inst1
+
+
 class SomeException(SomeObject):
     """The set of exceptions obeying type(exc) in self.classes"""
     def __init__(self, classdefs):
         self.classdefs = classdefs
 
-    def intersection(self, other):
-        assert isinstance(other, SomeExceptCase)
-        classdefs = {c for c in self.classdefs if c.issubclass(other.case)}
-        if classdefs:
-            return SomeException(classdefs)
-        else:
-            return s_ImpossibleValue
-
-    def difference(self, other):
-        assert isinstance(other, SomeExceptCase)
-        classdefs = {c for c in self.classdefs if not c.issubclass(other.case)}
-        if classdefs:
-            return SomeException(classdefs)
-        else:
-            return s_ImpossibleValue
-
     def as_SomeInstance(self):
         return unionof(*[SomeInstance(cdef) for cdef in self.classdefs])
 
+@intersection.register(SomeException, SomeInstance)
+def intersection_Exception_Instance(s_exc, s_inst):
+    classdefs = {c for c in s_exc.classdefs if c.issubclass(s_inst.classdef)}
+    if classdefs:
+        return SomeException(classdefs)
+    else:
+        return s_ImpossibleValue
 
-class SomeExceptCase(SomeObject):
-    """The set of exceptions that match a given except clause.
+@intersection.register(SomeInstance, SomeException)
+def intersection_Exception_Instance(s_inst, s_exc):
+    return intersection(s_exc, s_inst)
 
-    IOW, the set of exceptions that verify isinstance(exc, self.case).
-    """
-    def __init__(self, case):
-        self.case = case
-
+@difference.register(SomeException, SomeInstance)
+def difference_Exception_Instance(s_exc, s_inst):
+    classdefs = {c for c in s_exc.classdefs
+        if not c.issubclass(s_inst.classdef)}
+    if classdefs:
+        return SomeException(classdefs)
+    else:
+        return s_ImpossibleValue
 
 class SomePBC(SomeObject):
     """Stands for a global user instance, built prior to the analysis,

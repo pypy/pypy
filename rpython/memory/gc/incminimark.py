@@ -702,7 +702,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         major (gen>=2) collection."""
         if gen <= 1:
             self.minor_collection()
-            if gen == 1 or self.gc_state != STATE_SCANNING:
+            if gen == 1 or (self.gc_state != STATE_SCANNING and gen != -1):
                 self.major_collection_step()
         else:
             self.minor_and_major_collection()

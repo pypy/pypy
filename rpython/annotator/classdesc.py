@@ -258,8 +258,8 @@ class ClassDef(object):
             yield self
             self = self.basedef
 
-    def issubclass(self, otherclsdef):
-        return otherclsdef in self.parentdefs
+    def issubclass(self, other):
+        return self.classdesc.issubclass(other.classdesc)
 
     def getallsubdefs(self):
         pending = [self]
@@ -470,6 +470,19 @@ class NoSuchAttrError(AnnotatorError):
 
 def is_mixin(cls):
     return cls.__dict__.get('_mixin_', False)
+
+def is_primitive_type(cls):
+    from rpython.rlib.rarithmetic import base_int
+    return cls.__module__ == '__builtin__' or issubclass(cls, base_int)
+
+
+class BuiltinTypeDesc(object):
+    """Represents a primitive or builtin type object"""
+    def __init__(self, cls):
+        self.pyobj = cls
+
+    def issubclass(self, other):
+        return issubclass(self.pyobj, other.pyobj)
 
 
 class ClassDesc(Desc):
@@ -722,6 +735,9 @@ class ClassDesc(Desc):
                 return True
         return False
 
+    def issubclass(self, other):
+        return issubclass(self.pyobj, other.pyobj)
+
     def lookup(self, name):
         cdesc = self
         while name not in cdesc.classdict:
@@ -811,7 +827,7 @@ class ClassDesc(Desc):
             if immutable_fields:
                 if (search1 in immutable_fields or search2 in immutable_fields):
                     s_result.listdef.never_resize()
-                    s_copy = s_result.listdef.offspring()
+                    s_copy = s_result.listdef.offspring(self.bookkeeper)
                     s_copy.listdef.mark_as_immutable()
                     #
                     cdesc = cdesc.basedesc
