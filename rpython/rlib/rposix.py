@@ -576,7 +576,10 @@ def getfullpathname(path):
             buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
         if res == 0:
             raise rwin32.lastSavedWindowsError("_getfullpathname failed")
-        return buf.str(intmask(res))
+        result = buf.str(intmask(res))
+        assert result is not None
+        result = rstring.assert_str0(result)
+        return result
 
 c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
                     [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP,
