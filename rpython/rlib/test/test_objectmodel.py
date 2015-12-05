@@ -118,11 +118,11 @@ def test_annotate_r_dict_bm():
     Strange_def = a.bookkeeper.getuniqueclassdef(Strange)
 
     graph = graphof(t, strange_key_eq)
-    assert a.binding(graph.getargs()[0]).knowntype == Strange_def
+    assert a.binding(graph.getargs()[0]).classdef == Strange_def
     assert a.binding(graph.getargs()[1]).knowntype == str
     assert a.binding(graph.getargs()[2]).knowntype == str
     graph = graphof(t, strange_key_hash)
-    assert a.binding(graph.getargs()[0]).knowntype == Strange_def
+    assert a.binding(graph.getargs()[0]).classdef == Strange_def
     assert a.binding(graph.getargs()[1]).knowntype == str
 
 
