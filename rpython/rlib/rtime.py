@@ -9,6 +9,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import register_replacement_for
+from rpython.rlib import jit
 from rpython.rlib.rarithmetic import intmask, UINT_MAX
 from rpython.rlib import rposix
 
@@ -170,12 +171,13 @@ elif CLOCK_PROCESS_CPUTIME_ID is not None:
 else:
     RUSAGE = RUSAGE
     RUSAGE_SELF = RUSAGE_SELF or 0
-    c_getrusage = external('getrusage', 
+    c_getrusage = external('getrusage',
                            [rffi.INT, lltype.Ptr(RUSAGE)],
                            lltype.Void,
                            releasegil=False)
 
 @replace_time_function('clock')
+@jit.dont_look_inside  # the JIT doesn't like FixedSizeArray
 def clock():
     if _WIN32:
         a = lltype.malloc(A, flavor='raw')
