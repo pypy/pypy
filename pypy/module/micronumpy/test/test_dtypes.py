@@ -345,14 +345,29 @@ class AppTestDtypes(BaseAppTestDtypes):
 
     def test_can_subclass(self):
         import numpy as np
+        import sys, pickle
         class xyz(np.void):
             pass
         assert np.dtype(xyz).name == 'xyz'
         # another obscure API, used in numpy record.py
-        # it seems numpy throws away the subclass type and parses the spec
         a = np.dtype((xyz, [('x', 'int32'), ('y', 'float32')]))
-        assert repr(a) == "dtype([('x', '<i4'), ('y', '<f4')])"
-
+        assert "[('x', '<i4'), ('y', '<f4')]" in repr(a)
+        assert 'xyz' in repr(a)
+        data = [(1, 'a'), (2, 'bbb')]
+        b = np.dtype((xyz, [('a', int), ('b', object)]))
+        if '__pypy__' in sys.builtin_module_names:
+            raises(NotImplementedError, np.array, data, dtype=b)
+        else:
+            arr = np.array(data, dtype=b)
+            assert arr[0][0] == 1
+            assert arr[0][1] == 'a'
+        b = np.dtype((xyz, [("col1", "<i4"), ("col2", "<i4"), ("col3", "<i4")]))
+        data = [(1, 2,3), (4, 5, 6)]
+        a = np.array(data, dtype=b)
+        x = pickle.loads(pickle.dumps(a))
+        assert (x == a).all()
+        assert x.dtype == a.dtype 
+        
     def test_index(self):
         import numpy as np
         for dtype in [np.int8, np.int16, np.int32, np.int64]:
@@ -486,20 +501,11 @@ class AppTestDtypes(BaseAppTestDtypes):
         class O(object):
             pass
         for o in [object, O]:
-            if self.ptr_size == 4:
-                assert np.dtype(o).str == '|O4'
-            elif self.ptr_size == 8:
-                assert np.dtype(o).str == '|O8'
-            else:
-                assert False,'self._ptr_size unknown'
+            assert np.dtype(o).str == '|O'
         # Issue gh-2798
-        if '__pypy__' in sys.builtin_module_names:
-            a = np.array(['a'], dtype="O")
-            raises(NotImplementedError, a.astype, ("O", [("name", "O")]))
-            skip("(base_dtype, new_dtype) dtype specification discouraged")
         a = np.array(['a'], dtype="O").astype(("O", [("name", "O")]))
         assert a[0] == 'a'
-        assert a == 'a'
+        assert a != 'a'
         assert a['name'].dtype == a.dtype
 
 class AppTestTypes(BaseAppTestDtypes):
@@ -1038,13 +1044,7 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
             assert d.name == "string64"
             assert d.num == 18
         for i in [1, 2, 3]:
-            d = dtype('c%d' % i)
-            assert d.itemsize == 1
-            assert d.kind == 'S'
-            assert d.type is str_
-            assert d.name == 'string8'
-            assert d.num == 18
-            assert d.str == '|S1'
+            raises(TypeError, dtype, 'c%d' % i)
 
     def test_unicode_dtype(self):
         from numpy import dtype, unicode_
@@ -1068,6 +1068,7 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
         assert d.char == 'c'
         assert d.kind == 'S'
         assert d.str == '|S1'
+        assert repr(d) == "dtype('S1')"
 
 class AppTestRecordDtypes(BaseNumpyAppTest):
     spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])

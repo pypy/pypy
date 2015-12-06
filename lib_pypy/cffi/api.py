@@ -72,6 +72,7 @@ class FFI(object):
         self._cdefsources = []
         self._included_ffis = []
         self._windows_unicode = None
+        self._init_once_cache = {}
         if hasattr(backend, 'set_ffi'):
             backend.set_ffi(self)
         for name in backend.__dict__:
@@ -597,6 +598,30 @@ class FFI(object):
         module_name, source, source_extension, kwds = self._assigned_source
         return recompile(self, module_name, source, tmpdir=tmpdir,
                          source_extension=source_extension, **kwds)
+
+    def init_once(self, func, tag):
+        # Read _init_once_cache[tag], which is either (False, lock) if
+        # we're calling the function now in some thread, or (True, result).
+        # Don't call setdefault() in most cases, to avoid allocating and
+        # immediately freeing a lock; but still use setdefaut() to avoid
+        # races.
+        try:
+            x = self._init_once_cache[tag]
+        except KeyError:
+            x = self._init_once_cache.setdefault(tag, (False, allocate_lock()))
+        # Common case: we got (True, result), so we return the result.
+        if x[0]:
+            return x[1]
+        # Else, it's a lock.  Acquire it to serialize the following tests.
+        with x[1]:
+            # Read again from _init_once_cache the current status.
+            x = self._init_once_cache[tag]
+            if x[0]:
+                return x[1]
+            # Call the function and store the result back.
+            result = func()
+            self._init_once_cache[tag] = (True, result)
+        return result
 
 
 def _load_backend_lib(backend, name, flags):

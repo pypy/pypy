@@ -1,16 +1,7 @@
 # overrides for annotation specific to PyPy codebase
 from rpython.annotator.policy import AnnotatorPolicy
 from rpython.flowspace.model import Constant
-from rpython.annotator import specialize
-from rpython.annotator.classdesc import InstanceSource, ClassDef
-
-
-
-def isidentifier(s):
-    if not s:
-        return False
-    s = s.replace('_', 'x')
-    return s[0].isalpha() and s.isalnum()
+from rpython.annotator.classdesc import InstanceSource
 
 
 class PyPyAnnotatorPolicy(AnnotatorPolicy):
@@ -18,37 +9,6 @@ class PyPyAnnotatorPolicy(AnnotatorPolicy):
         self.lookups = {}
         self.lookups_where = {}
         self.pypytypes = {}
-
-    def specialize__wrap(self,  funcdesc, args_s):
-        from pypy.interpreter.baseobjspace import W_Root
-        W_Root_def = funcdesc.bookkeeper.getuniqueclassdef(W_Root)
-        typ = args_s[1].knowntype
-        if isinstance(typ, ClassDef):
-            assert typ.issubclass(W_Root_def)
-            typ = W_Root
-        else:
-            assert not issubclass(typ, W_Root)
-            assert typ != tuple, "space.wrap(tuple) forbidden; use newtuple()"
-            assert typ != list, "space.wrap(list) forbidden; use newlist()"
-            assert typ != dict, "space.wrap(dict) forbidden; use newdict()"
-            assert typ != object, "degenerated space.wrap(object)"
-            if args_s[0].is_constant() and args_s[1].is_constant():
-                if typ in (str, bool, int, float):
-                    space = args_s[0].const
-                    x = args_s[1].const
-
-                    def fold():
-                        if typ is str and isidentifier(x):
-                            return space.new_interned_str(x)
-                        else:
-                            return space.wrap(x)
-                    builder = specialize.make_constgraphbuilder(2, factory=fold,
-                                                                srcmodule='<ann_override.wrap>')
-                    return funcdesc.cachedgraph((typ, x), builder=builder)
-        if typ is str:
-            if args_s[1].can_be_None:
-                typ = (None, str)
-        return funcdesc.cachedgraph(typ)
 
     def consider_lookup(self, bookkeeper, attr):
         assert attr not in self.lookups

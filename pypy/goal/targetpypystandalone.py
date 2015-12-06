@@ -194,7 +194,7 @@ class PyPyTarget(object):
     
     def hack_for_cffi_modules(self, driver):
         # HACKHACKHACK
-        # ugly hack to modify target goal from compile_c to build_cffi_imports
+        # ugly hack to modify target goal from compile_* to build_cffi_imports
         # this should probably get cleaned up and merged with driver.create_exe
         from rpython.translator.driver import taskdef
         import types
@@ -208,7 +208,8 @@ class PyPyTarget(object):
                 name = name.new(ext='exe')
             return name
 
-        @taskdef(['compile_c'], "Create cffi bindings for modules")
+        compile_goal, = driver.backend_select_goals(['compile'])
+        @taskdef([compile_goal], "Create cffi bindings for modules")
         def task_build_cffi_imports(self):
             from pypy.tool.build_cffi_imports import create_cffi_import_libraries
             ''' Use cffi to compile cffi interfaces to modules'''
@@ -227,7 +228,7 @@ class PyPyTarget(object):
             # if failures, they were already printed
             print  >> sys.stderr, str(exename),'successfully built, but errors while building the above modules will be ignored'
         driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
-        driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, ['compile_c']
+        driver.tasks['build_cffi_imports'] = driver.task_build_cffi_imports, [compile_goal]
         driver.default_goal = 'build_cffi_imports'
         # HACKHACKHACK end
 

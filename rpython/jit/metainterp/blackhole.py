@@ -1652,6 +1652,7 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr, deadframe,
     #debug_start('jit-blackhole')
     blackholeinterp = blackhole_from_resumedata(
         metainterp_sd.blackholeinterpbuilder,
+        metainterp_sd.jitcodes,
         jitdriver_sd,
         resumedescr,
         deadframe,

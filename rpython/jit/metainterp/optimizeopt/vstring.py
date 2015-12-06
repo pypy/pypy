@@ -62,6 +62,9 @@ class StrPtrInfo(info.AbstractVirtualPtrInfo):
         self.mode = mode
         self.length = length
 
+    def is_vstring(self):
+        return True
+
     def getlenbound(self, mode):
         from rpython.jit.metainterp.optimizeopt import intutils
 
