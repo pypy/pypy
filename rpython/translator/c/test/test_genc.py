@@ -4,7 +4,7 @@ from collections import OrderedDict
 import py
 
 from rpython.rlib.rfloat import NAN, INFINITY
-from rpython.rlib.entrypoint import entrypoint
+from rpython.rlib.entrypoint import entrypoint_highlevel
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 from rpython.rlib.objectmodel import specialize
@@ -495,7 +495,7 @@ def test_entrypoints():
         return 3
 
     key = "test_entrypoints42"
-    @entrypoint(key, [int], "foobar")
+    @entrypoint_highlevel(key, [int], "foobar")
     def g(x):
         return x + 42
 
