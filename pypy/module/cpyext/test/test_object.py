@@ -174,7 +174,7 @@ class TestObject(BaseApiTest):
         api.PyErr_Clear()
 
     def test_hash_double(self, space, api):
-        assert api._Py_HashDouble(space.wrap(72.0)) == 72
+        assert api._Py_HashDouble(72.0) == 72
 
     def test_type(self, space, api):
         assert api.PyObject_Type(space.wrap(72)) is space.w_int
