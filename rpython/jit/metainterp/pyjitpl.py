@@ -1569,27 +1569,29 @@ class MIFrame(object):
                     return resbox
             self.metainterp.vable_and_vrefs_before_residual_call()
             tp = descr.get_normalized_result_type()
+            resbox = NOT_HANDLED
             if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
                 resbox = self.metainterp.direct_libffi_call(allboxes, descr,
                                                             tp)
-            elif effectinfo.is_call_release_gil():
-                resbox = self.metainterp.direct_call_release_gil(allboxes,
-                                                            descr, tp)
-            elif tp == 'i':
-                resbox = self.metainterp.execute_and_record_varargs(
-                    rop.CALL_MAY_FORCE_I, allboxes, descr=descr)
-            elif tp == 'r':
-                resbox = self.metainterp.execute_and_record_varargs(
-                    rop.CALL_MAY_FORCE_R, allboxes, descr=descr)
-            elif tp == 'f':
-                resbox = self.metainterp.execute_and_record_varargs(
-                    rop.CALL_MAY_FORCE_F, allboxes, descr=descr)
-            elif tp == 'v':
-                self.metainterp.execute_and_record_varargs(
-                    rop.CALL_MAY_FORCE_N, allboxes, descr=descr)
-                resbox = None
-            else:
-                assert False
+            if resbox is NOT_HANDLED:
+                if effectinfo.is_call_release_gil():
+                    resbox = self.metainterp.direct_call_release_gil(allboxes,
+                                                                descr, tp)
+                elif tp == 'i':
+                    resbox = self.metainterp.execute_and_record_varargs(
+                        rop.CALL_MAY_FORCE_I, allboxes, descr=descr)
+                elif tp == 'r':
+                    resbox = self.metainterp.execute_and_record_varargs(
+                        rop.CALL_MAY_FORCE_R, allboxes, descr=descr)
+                elif tp == 'f':
+                    resbox = self.metainterp.execute_and_record_varargs(
+                        rop.CALL_MAY_FORCE_F, allboxes, descr=descr)
+                elif tp == 'v':
+                    self.metainterp.execute_and_record_varargs(
+                        rop.CALL_MAY_FORCE_N, allboxes, descr=descr)
+                    resbox = None
+                else:
+                    assert False
             self.metainterp.vrefs_after_residual_call()
             vablebox = None
             if assembler_call:
@@ -3028,7 +3030,7 @@ class MetaInterp(object):
         #
         box_cif_description = argboxes[1]
         if not isinstance(box_cif_description, ConstInt):
-            return
+            return NOT_HANDLED
         cif_description = box_cif_description.getint()
         cif_description = llmemory.cast_int_to_adr(cif_description)
         cif_description = llmemory.cast_adr_to_ptr(cif_description,
@@ -3036,7 +3038,7 @@ class MetaInterp(object):
         extrainfo = orig_calldescr.get_extra_info()
         calldescr = self.cpu.calldescrof_dynamic(cif_description, extrainfo)
         if calldescr is None:
-            return
+            return NOT_HANDLED
         #
         box_exchange_buffer = argboxes[3]
         arg_boxes = []
@@ -3156,6 +3158,8 @@ class SwitchToBlackhole(jitexc.JitException):
         #     point where the exception on metainterp.last_exc_value
         #     is supposed to be raised.  The default False means that it
         #     should just be copied into the blackhole interp, but not raised.
+
+NOT_HANDLED = history.CONST_FALSE
 
 # ____________________________________________________________
 
