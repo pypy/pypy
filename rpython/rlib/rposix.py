@@ -1002,6 +1002,7 @@ def mkdir(path, mode=0o777):
 
 @replace_os_function('rmdir')
 @specialize.argtype(0)
+@jit.dont_look_inside
 def rmdir(path):
     if _prefer_unicode(path):
         handle_posix_error('wrmdir', c_wrmdir(_as_unicode0(path)))
