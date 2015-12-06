@@ -834,6 +834,7 @@ if _WIN32:
     c__cwait = external('_cwait',
                         [rffi.INTP, rffi.PID_T, rffi.INT], rffi.PID_T,
                         save_err=rffi.RFFI_SAVE_ERRNO)
+    @jit.dont_look_inside
     def c_waitpid(pid, status_p, options):
         result = c__cwait(status_p, pid, options)
         # shift the status left a byte so this is more
