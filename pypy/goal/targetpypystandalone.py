@@ -10,8 +10,6 @@ from rpython.config.config import to_optparse, make_dict, SUPPRESS_USAGE
 from rpython.config.config import ConflictConfigError
 from pypy.tool.option import make_objspace
 from pypy.conftest import pypydir
-from rpython.rlib import rthread
-from pypy.module.thread import os_thread
 
 thisdir = py.path.local(__file__).dirpath()
 
@@ -79,7 +77,7 @@ def create_entry_point(space, w_dict):
         return exitcode
 
     from pypy.interpreter import embedding
-    return entry_point, embedding.entrypoints_dict
+    return entry_point, embedding.capture(space, debug)
 
 
 # _____ Define and setup target ___
