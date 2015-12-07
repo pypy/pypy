@@ -58,4 +58,4 @@ A somewhat random bunch of changes and fixes following up on branch 'anntype'. H
 
 .. branch: vecopt-absvalue
 
-- Removed fields from AbstractValue. This inefficently adds unnecessary fields to all ResOperations, Const, .... It is now volatile in the optimization pass using set_forwarded. Vector operations still persit this information in fields.
+- Enhancement. Removed vector fields from AbstractValue.

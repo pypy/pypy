@@ -235,6 +235,16 @@ class AbstractResOpOrInputArg(AbstractValue):
     def get_forwarded(self):
         return self._forwarded
 
+    def set_forwarded(self, forwarded_to):
+        assert forwarded_to is not self
+        self._forwarded = forwarded_to
+
+    def getdescr(self):
+        return None
+
+    def forget_value(self):
+        pass
+
 class AbstractResOp(AbstractResOpOrInputArg):
     def set_forwarded(self, forwarded_to):
         assert forwarded_to is not self
