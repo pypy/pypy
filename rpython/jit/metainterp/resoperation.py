@@ -162,10 +162,10 @@ class VectorizationInfo(AbstractValue):
     def __init__(self, op):
         if op is None:
             return
-        if op.is_constant() or isinstance(op, AbstractInputArg):
+        from rpython.jit.metainterp.history import Const
+        if isinstance(op, Const) or isinstance(op, AbstractInputArg):
             self.setinfo(op.type, -1, op.type == 'i')
             return
-        assert isinstance(op, AbstractResOp)
         if op.is_primitive_array_access():
             from rpython.jit.backend.llsupport.descr import ArrayDescr
             descr = op.getdescr()
@@ -198,13 +198,14 @@ class VectorizationInfo(AbstractValue):
                 while arg.is_constant() and i+1 < op.numargs():
                     i += 1
                     arg = op.getarg(i)
-                vecinfo = arg.get_forwarded()
-                if vecinfo is not None and isinstance(vecinfo, VectorizationInfo):
-                    if vecinfo.datatype != '\x00' and \
-                       vecinfo.bytesize != -1:
-                        type = vecinfo.datatype
-                        signed = vecinfo.signed
-                        bytesize = vecinfo.bytesize
+                if not arg.is_constant():
+                    vecinfo = arg.get_forwarded()
+                    if vecinfo is not None and isinstance(vecinfo, VectorizationInfo):
+                        if vecinfo.datatype != '\x00' and \
+                           vecinfo.bytesize != -1:
+                            type = vecinfo.datatype
+                            signed = vecinfo.signed
+                            bytesize = vecinfo.bytesize
             if op.returns_bool_result():
                 type = 'i'
             self.setinfo(type, bytesize, signed)

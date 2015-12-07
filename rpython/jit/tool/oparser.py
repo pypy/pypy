@@ -339,7 +339,8 @@ class OpParser(object):
         if res in self.vars:
             raise ParseError("Double assign to var %s in line: %s" % (res, line))
         resop = self.create_op(opnum, args, res, descr, fail_args)
-        res = self.update_vector(resop, res)
+        if not self.use_mock_model:
+            res = self.update_vector(resop, res)
         self.update_memo(resop, res)
         self.vars[res] = resop
         return resop
