@@ -194,6 +194,11 @@ def test_handle():
     yp = ffi.new_handle([6, 4, 2])
     assert ffi.from_handle(yp) == [6, 4, 2]
 
+def test_handle_unique():
+    ffi = _cffi1_backend.FFI()
+    assert ffi.new_handle(None) is not ffi.new_handle(None)
+    assert ffi.new_handle(None) != ffi.new_handle(None)
+
 def test_ffi_cast():
     ffi = _cffi1_backend.FFI()
     assert ffi.cast("int(*)(int)", 0) == ffi.NULL
@@ -416,3 +421,37 @@ def test_cast_from_int_type_to_bool():
             assert int(ffi.cast("_Bool", ffi.cast(type, 42))) == 1
             assert int(ffi.cast("bool", ffi.cast(type, 42))) == 1
             assert int(ffi.cast("_Bool", ffi.cast(type, 0))) == 0
+
+def test_init_once():
+    def do_init():
+        seen.append(1)
+        return 42
+    ffi = _cffi1_backend.FFI()
+    seen = []
+    for i in range(3):
+        res = ffi.init_once(do_init, "tag1")
+        assert res == 42
+        assert seen == [1]
+    for i in range(3):
+        res = ffi.init_once(do_init, "tag2")
+        assert res == 42
+        assert seen == [1, 1]
+
+def test_init_once_multithread():
+    import thread, time
+    def do_init():
+        print 'init!'
+        seen.append('init!')
+        time.sleep(1)
+        seen.append('init done')
+        print 'init done'
+        return 7
+    ffi = _cffi1_backend.FFI()
+    seen = []
+    for i in range(6):
+        def f():
+            res = ffi.init_once(do_init, "tag")
+            seen.append(res)
+        thread.start_new_thread(f, ())
+    time.sleep(1.5)
+    assert seen == ['init!', 'init done'] + 6 * [7]

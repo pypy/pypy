@@ -372,6 +372,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             i += 1
         assert not self.rm.reg_bindings
         assert not self.xrm.reg_bindings
+        if not we_are_translated():
+            self.assembler.mc.UD2()
         self.flush_loop()
         self.assembler.mc.mark_op(None) # end of the loop
         self.operations = None

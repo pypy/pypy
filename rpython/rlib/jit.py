@@ -604,7 +604,7 @@ class JitDriver(object):
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
                  name='jitdriver', check_untranslated=True, vectorize=False,
-                 get_unique_id=None):
+                 get_unique_id=None, is_recursive=False):
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -643,6 +643,7 @@ class JitDriver(object):
         self.can_never_inline = can_never_inline
         self.should_unroll_one_iteration = should_unroll_one_iteration
         self.check_untranslated = check_untranslated
+        self.is_recursive = is_recursive
         self.vec = vectorize
 
     def _freeze_(self):
@@ -1059,6 +1060,12 @@ class JitHookInterface(object):
     def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, operations):
         """ A hook called each time a loop is aborted with jitdriver and
         greenkey where it started, reason is a string why it got aborted
+        """
+
+    def on_trace_too_long(self, jitdriver, greenkey, greenkey_repr):
+        """ A hook called each time we abort the trace because it's too
+        long with the greenkey being the one responsible for the
+        disabled function
         """
 
     #def before_optimize(self, debug_info):

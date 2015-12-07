@@ -86,6 +86,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_frompyfunc_innerloop(self):
         from numpy import ufunc, frompyfunc, arange, dtype
+        import sys
         def adder(a, b):
             return a+b
         def sumdiff(a, b):
@@ -123,7 +124,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         res = int_func12(a)
         assert len(res) == 2
         assert isinstance(res, tuple)
-        assert (res[0] == a).all()
+        if '__pypy__' in sys.builtin_module_names:
+            assert (res[0] == a).all()
+        else:
+            assert all([r is None for r in res[0]]) # ??? no warning or error, just a fail?
         res = sumdiff(2 * a, a)
         assert (res[0] == 3 * a).all()
         assert (res[1] == a).all()

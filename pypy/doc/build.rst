@@ -138,8 +138,16 @@ If everything works correctly this will create an executable ``pypy-c`` in the
 current directory. The executable behaves mostly like a normal Python
 interpreter (see :doc:`cpython_differences`).
 
+Build cffi import libraries for the stdlib
+------------------------------------------
 
-.. _translate-pypy:
+Various stdlib modules require a separate build step to create the cffi
+import libraries in the `out-of-line API mode`_. This is done by the following
+command::
+
+   PYTHONPATH=. ./pypy-c pypy/tool/build_cffi_imports.py
+
+.. _`out-of-line API mode`: http://cffi.readthedocs.org/en/latest/overview.html#real-example-api-level-out-of-line
 
 Translating with non-standard options
 -------------------------------------
@@ -199,4 +207,3 @@ However, the ``sys.prefix`` will be unset and some existing libraries assume
 that this is never the case.
 
 
-.. TODO windows

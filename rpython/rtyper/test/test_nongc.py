@@ -40,7 +40,7 @@ def test_alloc_flavor():
     #does not raise:
     s = a.build_types(f, [])
     Adef = a.bookkeeper.getuniqueclassdef(A)
-    assert s.knowntype == Adef
+    assert s.classdef == Adef
     rtyper = RPythonTyper(a)
     rtyper.specialize()
     assert (Adef, 'raw') in rtyper.instance_reprs
@@ -59,7 +59,7 @@ def test_alloc_flavor_subclassing():
     s = a.build_types(f, [])
     Adef = a.bookkeeper.getuniqueclassdef(A)
     Bdef = a.bookkeeper.getuniqueclassdef(B)
-    assert s.knowntype == Bdef
+    assert s.classdef == Bdef
     rtyper = RPythonTyper(a)
     rtyper.specialize()
     assert (Adef, 'raw') in rtyper.instance_reprs

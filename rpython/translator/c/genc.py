@@ -2,7 +2,6 @@ import contextlib
 import py
 import sys, os
 from rpython.rlib import exports
-from rpython.rlib.entrypoint import entrypoint
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool import runsubprocess

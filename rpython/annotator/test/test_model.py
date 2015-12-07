@@ -1,8 +1,17 @@
-import py
+import pytest
 
-from rpython.annotator.model import *
-from rpython.annotator.listdef import ListDef
+from rpython.flowspace.model import Variable
+from rpython.flowspace.operation import op
 from rpython.translator.translator import TranslationContext
+from rpython.annotator.model import *
+from rpython.annotator.annrpython import BlockedInference
+from rpython.annotator.listdef import ListDef
+from rpython.annotator import unaryop, binaryop  # for side-effects
+
+@pytest.fixture()
+def annotator():
+    t = TranslationContext()
+    return t.buildannotator()
 
 
 listdef1 = ListDef(None, SomeTuple([SomeInteger(nonneg=True), SomeString()]))
@@ -100,19 +109,21 @@ def compile_function(function, annotation=[]):
 class AAA(object):
     pass
 
-def test_blocked_inference1():
+def test_blocked_inference1(annotator):
     def blocked_inference():
         return AAA().m()
 
-    py.test.raises(AnnotatorError, compile_function, blocked_inference)
+    with pytest.raises(AnnotatorError):
+        annotator.build_types(blocked_inference, [])
 
-def test_blocked_inference2():
+def test_blocked_inference2(annotator):
     def blocked_inference():
         a = AAA()
         b = a.x
         return b
 
-    py.test.raises(AnnotatorError, compile_function, blocked_inference)
+    with pytest.raises(AnnotatorError):
+        annotator.build_types(blocked_inference, [])
 
 
 def test_not_const():
@@ -129,3 +140,86 @@ def test_nonnulify():
     assert s.no_nul is True
     s = SomeChar().nonnulify()
     assert s.no_nul is True
+
+def test_SomeException_union(annotator):
+    bk = annotator.bookkeeper
+    someinst = lambda cls, **kw: SomeInstance(bk.getuniqueclassdef(cls), **kw)
+    s_inst = someinst(Exception)
+    s_exc = bk.new_exception([ValueError, IndexError])
+    assert unionof(s_exc, s_inst) == s_inst
+    assert unionof(s_inst, s_exc) == s_inst
+    s_nullable = unionof(s_None, bk.new_exception([ValueError]))
+    assert isinstance(s_nullable, SomeInstance)
+    assert s_nullable.can_be_None
+    s_exc1 = bk.new_exception([ValueError])
+    s_exc2 = bk.new_exception([IndexError])
+    unionof(s_exc1, s_exc2) == unionof(s_exc2, s_exc1)
+
+def contains_s(s_a, s_b):
+    if s_b is None:
+        return True
+    elif s_a is None:
+        return False
+    else:
+        return s_a.contains(s_b)
+
+def annotate_op(ann, hlop, args_s):
+    for v_arg, s_arg in zip(hlop.args, args_s):
+        ann.setbinding(v_arg, s_arg)
+    with ann.bookkeeper.at_position(None):
+        try:
+            ann.consider_op(hlop)
+        except BlockedInference:
+            # BlockedInference only stops annotation along the normal path,
+            # but not along the exceptional one.
+            pass
+    return hlop.result.annotation, ann.get_exception(hlop)
+
+def test_generalize_getitem_dict(annotator):
+    bk = annotator.bookkeeper
+    hlop = op.getitem(Variable(), Variable())
+    s_int = SomeInteger()
+    with bk.at_position(None):
+        s_empty_dict = bk.newdict()
+    s_value, s_exc = annotate_op(annotator, hlop, [s_None, s_int])
+    s_value2, s_exc2 = annotate_op(annotator, hlop, [s_empty_dict, s_int])
+    assert contains_s(s_value2, s_value)
+    assert contains_s(s_exc2, s_exc)
+
+def test_generalize_getitem_list(annotator):
+    bk = annotator.bookkeeper
+    hlop = op.getitem(Variable(), Variable())
+    s_int = SomeInteger()
+    with bk.at_position(None):
+        s_empty_list = bk.newlist()
+    s_value, s_exc = annotate_op(annotator, hlop, [s_None, s_int])
+    s_value2, s_exc2 = annotate_op(annotator, hlop, [s_empty_list, s_int])
+    assert contains_s(s_value2, s_value)
+    assert contains_s(s_exc2, s_exc)
+
+def test_generalize_getitem_string(annotator):
+    hlop = op.getitem(Variable(), Variable())
+    s_int = SomeInteger()
+    s_str = SomeString(can_be_None=True)
+    s_value, s_exc = annotate_op(annotator, hlop, [s_None, s_int])
+    s_value2, s_exc2 = annotate_op(annotator, hlop, [s_str, s_int])
+    assert contains_s(s_value2, s_value)
+    assert contains_s(s_exc2, s_exc)
+
+def test_generalize_string_concat(annotator):
+    hlop = op.add(Variable(), Variable())
+    s_str = SomeString(can_be_None=True)
+    s_value, s_exc = annotate_op(annotator, hlop, [s_None, s_str])
+    s_value2, s_exc2 = annotate_op(annotator, hlop, [s_str, s_str])
+    assert contains_s(s_value2, s_value)
+    assert contains_s(s_exc2, s_exc)
+
+def test_getitem_dict(annotator):
+    bk = annotator.bookkeeper
+    hlop = op.getitem(Variable(), Variable())
+    with bk.at_position(None):
+        s_dict = bk.newdict()
+    s_dict.dictdef.generalize_key(SomeString())
+    s_dict.dictdef.generalize_value(SomeInteger())
+    s_result, _ = annotate_op(annotator, hlop, [s_dict, SomeString()])
+    assert s_result == SomeInteger()

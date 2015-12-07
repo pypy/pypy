@@ -49,6 +49,8 @@ class W_FFIObject(W_Root):
     ACCEPT_CDATA  = ACCEPT_CDATA
 
     w_gc_wref_remove = None
+    w_init_once_cache = None
+    jit_init_once_cache = None
 
     @jit.dont_look_inside
     def __init__(self, space, src_ctx):
@@ -609,6 +611,59 @@ where you have an 'ffi' object but not any associated 'lib' object."""
         return w_result
 
 
+    def descr_init_once(self, w_func, w_tag):
+        """XXX document me"""
+        #
+        # first, a fast-path for the JIT which only works if the very
+        # same w_tag object is passed; then it turns into no code at all
+        try:
+            return self._init_once_elidable(w_tag)
+        except KeyError:
+            return self._init_once_slowpath(w_func, w_tag)
+
+    @jit.elidable
+    def _init_once_elidable(self, w_tag):
+        jit_cache = self.jit_init_once_cache
+        if jit_cache is not None:
+            return jit_cache[w_tag]
+        else:
+            raise KeyError
+
+    @jit.dont_look_inside
+    def _init_once_slowpath(self, w_func, w_tag):
+        space = self.space
+        w_cache = self.w_init_once_cache
+        if w_cache is None:
+            w_cache = self.space.newdict()
+            jit_cache = {}
+            self.w_init_once_cache = w_cache
+            self.jit_init_once_cache = jit_cache
+        #
+        # get the lock or result from cache[tag]
+        w_res = space.finditem(w_cache, w_tag)
+        if w_res is None:
+            w_res = W_InitOnceLock(space)
+            w_res = space.call_method(w_cache, 'setdefault', w_tag, w_res)
+        if not isinstance(w_res, W_InitOnceLock):
+            return w_res
+        with w_res.lock:
+            w_res = space.finditem(w_cache, w_tag)
+            if w_res is None or isinstance(w_res, W_InitOnceLock):
+                w_res = space.call_function(w_func)
+                self.jit_init_once_cache[w_tag] = w_res
+                space.setitem(w_cache, w_tag, w_res)
+            else:
+                # the real result was put in the dict while we were
+                # waiting for lock.__enter__() above
+                pass
+        return w_res
+
+
+class W_InitOnceLock(W_Root):
+    def __init__(self, space):
+        self.lock = space.allocate_lock()
+
+
 @jit.dont_look_inside
 def make_plain_ffi_object(space, w_ffitype=None):
     if w_ffitype is None:
@@ -666,6 +721,7 @@ W_FFIObject.typedef = TypeDef(
         from_handle = interp2app(W_FFIObject.descr_from_handle),
         gc          = interp2app(W_FFIObject.descr_gc),
         getctype    = interp2app(W_FFIObject.descr_getctype),
+        init_once   = interp2app(W_FFIObject.descr_init_once),
         integer_const = interp2app(W_FFIObject.descr_integer_const),
         memmove     = interp2app(W_FFIObject.descr_memmove),
         new         = interp2app(W_FFIObject.descr_new),

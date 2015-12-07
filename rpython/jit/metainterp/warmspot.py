@@ -46,6 +46,17 @@ def apply_jit(translator, backend_name="auto", inline=False,
                                     no_stats=True,
                                     ProfilerClass=ProfilerClass,
                                     **kwds)
+    if len(warmrunnerdesc.jitdrivers_sd) == 1:
+        jd = warmrunnerdesc.jitdrivers_sd[0]
+        jd.jitdriver.is_recursive = True
+    else:
+        count_recursive = 0
+        for jd in warmrunnerdesc.jitdrivers_sd:
+            count_recursive += jd.jitdriver.is_recursive
+        if count_recursive == 0:
+            raise Exception("if you have more than one jitdriver, at least"
+                " one of them has to be marked with is_recursive=True,"
+                " none found")
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
         jd.warmstate.set_param_vec(vec)
@@ -250,7 +261,8 @@ class WarmRunnerDesc(object):
         verbose = False # not self.cpu.translate_support_code
         self.rewrite_access_helpers()
         self.create_jit_entry_points()
-        self.codewriter.make_jitcodes(verbose=verbose)
+        jitcodes = self.codewriter.make_jitcodes(verbose=verbose)
+        self.metainterp_sd.jitcodes = jitcodes
         self.rewrite_can_enter_jits()
         self.rewrite_set_param_and_get_stats()
         self.rewrite_force_virtual(vrefinfo)
