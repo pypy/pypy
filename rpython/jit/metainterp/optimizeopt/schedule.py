@@ -17,9 +17,12 @@ from rpython.rtyper.lltypesystem import lltype
 
 def forwarded_vecinfo(op):
     fwd = op.get_forwarded()
-    if fwd is None:
+    if fwd is None or not isinstance(fwd, VectorizationInfo):
+        # the optimizer clears getforwarded AFTER
+        # vectorization, it happens that this is not clean
         fwd = VectorizationInfo(op)
-    assert isinstance(fwd, VectorizationInfo)
+        if not op.is_constant():
+            op.set_forwarded(fwd)
     return fwd
 
 class SchedulerState(object):
