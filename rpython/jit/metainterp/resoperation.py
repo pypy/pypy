@@ -236,6 +236,16 @@ class AbstractResOpOrInputArg(AbstractValue):
         return self._forwarded
 
 class AbstractResOp(AbstractResOpOrInputArg):
+    def set_forwarded(self, forwarded_to):
+        assert forwarded_to is not self
+        self._forwarded = forwarded_to
+
+    def getdescr(self):
+        return None
+
+    def forget_value(self):
+        pass
+
     """The central ResOperation class, representing one operation."""
 
     _attrs_ = ()
@@ -258,10 +268,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
     #    if self.is_same_as():
     #        return self is other or self.getarg(0).same_box(other)
     #    return self is other
-
-    def set_forwarded(self, forwarded_to):
-        assert forwarded_to is not self
-        self._forwarded = forwarded_to
 
     # methods implemented by the arity mixins
     # ---------------------------------------
@@ -508,8 +514,8 @@ class AbstractResOp(AbstractResOpOrInputArg):
     def returns_bool_result(self):
         return self._cls_has_bool_result
 
-    def forget_value(self):
-        pass
+    #def forget_value(self): -- in the base class, AbstractResOpOrInputArg
+    #    pass
 
     def is_label(self):
         return self.getopnum() == rop.LABEL
@@ -559,6 +565,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
 class PlainResOp(AbstractResOp):
     pass
 
+
 class ResOpWithDescr(AbstractResOp):
 
     _descr = None
@@ -583,6 +590,7 @@ class ResOpWithDescr(AbstractResOp):
             return # needed for the mock case in oparser_model
         from rpython.jit.metainterp.history import check_descr
         check_descr(descr)
+
 
 class GuardResOp(ResOpWithDescr):
 
@@ -803,9 +811,8 @@ class SignExtOp(object):
     def cast_from_bytesize(self):
         arg = self.getarg(0)
         vecinfo = arg.get_forwarded()
-        if vecinfo is None:
+        if vecinfo is None or not isinstance(vecinfo, VectorizationInfo):
             vecinfo = VectorizationInfo(arg)
-        assert isinstance(vecinfo, VectorizationInfo)
         return vecinfo.bytesize
 
     def cast_input_bytesize(self, vec_reg_size):
@@ -813,8 +820,6 @@ class SignExtOp(object):
 
 
 class AbstractInputArg(AbstractResOpOrInputArg):
-    def set_forwarded(self, forwarded_to):
-        self._forwarded = forwarded_to
 
     def repr(self, memo):
         try:
@@ -827,17 +832,8 @@ class AbstractInputArg(AbstractResOpOrInputArg):
     def __repr__(self):
         return self.repr(self._repr_memo)
 
-    def getdescr(self):
-        return None
-
-    def forget_value(self):
-        pass
-
     def is_inputarg(self):
         return True
-
-    def initinputtype(self, cpu):
-        pass
 
 class InputArgInt(IntOp, AbstractInputArg):
     def __init__(self, intval=0):

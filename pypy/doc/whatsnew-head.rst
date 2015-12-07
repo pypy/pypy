@@ -43,3 +43,19 @@ Improve the memory signature of numbering instances in the JIT.
 Improve the heuristic when disable trace-too-long
 
 .. branch: fix-setslice-can-resize
+
+.. branch: anntype2
+
+A somewhat random bunch of changes and fixes following up on branch 'anntype'. Highlights:
+
+- Implement @doubledispatch decorator and use it for intersection() and difference().
+
+- Turn isinstance into a SpaceOperation
+
+- Create a few direct tests of the fundamental annotation invariant in test_model.py
+
+- Remove bookkeeper attribute from DictDef and ListDef.
+
+.. branch: vecopt-absvalue
+
+- Removed fields from AbstractValue. This inefficently adds unnecessary fields to all ResOperations, Const, .... It is now volatile in the optimization pass using set_forwarded. Vector operations still persit this information in fields.

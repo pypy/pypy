@@ -479,7 +479,7 @@ class TestRegallocMoreRegisters(CustomBaseTestRegalloc):
         i13 = int_eq(i5, i6)
         i14 = int_gt(i6, i2)
         i15 = int_ne(i2, i6)
-        guard_true(i15) [i10, i11, i12, i13, i14, i15]
+        guard_true(i0) [i10, i11, i12, i13, i14, i15]
 
         '''
         self.interpret(ops, [0, 1, 2, 3, 4, 5, 6])

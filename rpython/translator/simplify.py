@@ -414,7 +414,7 @@ def transform_dead_op_vars(graph, translator=None):
 CanRemove = {}
 for _op in '''
         newtuple newlist newdict bool
-        is_ id type issubtype repr str len hash getattr getitem
+        is_ id type issubtype isinstance repr str len hash getattr getitem
         pos neg abs hex oct ord invert add sub mul
         truediv floordiv div mod divmod pow lshift rshift and_ or_
         xor int float long lt le eq ne gt ge cmp coerce contains
@@ -425,7 +425,6 @@ for _op in enum_ops_without_sideeffects():
     CanRemove[_op] = True
 del _op
 CanRemoveBuiltins = {
-    isinstance: True,
     hasattr: True,
     }
 
