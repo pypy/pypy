@@ -175,7 +175,7 @@ def name_address(value, db):
             return res      # common case
         else:
             # mess with stm address spaces
-            return '((void *)(long)%s)' % (res,)
+            return '((void *)(uintptr_t)%s)' % (res,)
     else:
         return 'NULL'
 
