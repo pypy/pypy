@@ -246,16 +246,6 @@ class AbstractResOpOrInputArg(AbstractValue):
         pass
 
 class AbstractResOp(AbstractResOpOrInputArg):
-    def set_forwarded(self, forwarded_to):
-        assert forwarded_to is not self
-        self._forwarded = forwarded_to
-
-    def getdescr(self):
-        return None
-
-    def forget_value(self):
-        pass
-
     """The central ResOperation class, representing one operation."""
 
     _attrs_ = ()
@@ -313,8 +303,8 @@ class AbstractResOp(AbstractResOpOrInputArg):
     # methods implemented by ResOpWithDescr
     # -------------------------------------
 
-    def getdescr(self):
-        return None
+    #def getdescr(self): -- in the base class, AbstractResOpOrInputArg
+    #    return None
 
     def setdescr(self, descr):
         raise NotImplementedError
@@ -560,13 +550,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
     def casts_down(self):
         # includes the cast as noop
         return self.cast_to_bytesize() <= self.cast_from_bytesize()
-
-    def getbytesize(self):
-        """ only used for vector instructions.
-            the size in bytes for just item in the vector.
-        """
-        return -1
-
 
 # ===================
 # Top of the hierachy
