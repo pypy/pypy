@@ -136,10 +136,17 @@ def vector_repr(self, num):
         # the set_forwarded solution is volatile, we CANNOT acquire
         # the information (e.g. count, bytesize) here easily
         return 'v' + str(num)
-    vecinfo = self._vec_debug_info
-    count = vecinfo.count 
-    datatype = vecinfo.datatype
-    bytesize = vecinfo.bytesize
+    if hasattr(self, '_vec_debug_info'):
+        vecinfo = self._vec_debug_info
+        count = vecinfo.count 
+        datatype = vecinfo.datatype
+        bytesize = vecinfo.bytesize
+    elif self.vector == -2:
+        count = self.count
+        datatype = self.datatype
+        bytesize = self.bytesize
+    else:
+        assert 0, "cannot debug print variable"
     if self.opnum in (rop.VEC_UNPACK_I, rop.VEC_UNPACK_F):
         return self.type + str(num)
     return 'v%d[%dx%s%d]' % (num, count, datatype,
