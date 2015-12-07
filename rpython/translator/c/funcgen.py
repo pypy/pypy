@@ -757,6 +757,17 @@ class FunctionCodeGenerator(object):
         elif ORIG is UniChar:
             val = "(unsigned long)%s" % val
         typename = cdecl(self.db.gettype(TYPE), '')
+        if (self._is_stm() and (ORIG is Address or isinstance(ORIG, Ptr)) and
+                               (TYPE is Address or isinstance(TYPE, Ptr))):
+            gcsrc = isinstance(ORIG, Ptr) and ORIG.TO._gckind == 'gc'
+            gcdst = isinstance(TYPE, Ptr) and TYPE.TO._gckind == 'gc'
+            if gcsrc != gcdst:
+                # With clang, directly casting from a pointer in one address
+                # space to a pointer in another address space is a special
+                # operation which we don't want here.  Instead force bitwise
+                # conversion by casting to uintptr_t first.
+                return "%(result)s = (%(typename)s)(uintptr_t)(%(val)s);" % (
+                    locals())
         return "%(result)s = (%(typename)s)(%(val)s);" % locals()
 
     OP_FORCE_CAST = OP_CAST_PRIMITIVE   # xxx the same logic works
