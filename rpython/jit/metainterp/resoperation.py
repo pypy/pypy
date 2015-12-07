@@ -508,12 +508,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
         return self.getopnum() == rop.LABEL
 
     def is_vector(self):
-        if self.getopnum() in (rop.VEC_UNPACK_I, rop.VEC_UNPACK_F):
-            arg = self.getarg(2)
-            from rpython.jit.metainterp.history import ConstInt
-            assert isinstance(arg, ConstInt)
-            return arg.value > 1
-        return self.vector == -2
+        return False
 
     def returns_void(self):
         return self.type == 'v'
@@ -628,6 +623,11 @@ class VectorOp(ResOpWithDescr):
     count = 0
 
     def is_vector(self):
+        if self.getopnum() in (rop.VEC_UNPACK_I, rop.VEC_UNPACK_F):
+            arg = self.getarg(2)
+            from rpython.jit.metainterp.history import ConstInt
+            assert isinstance(arg, ConstInt)
+            return arg.value > 1
         return True
 
     def copy_and_change(self, opnum, args=None, descr=None):
