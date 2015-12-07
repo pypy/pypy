@@ -4,7 +4,7 @@ import sys, os, py
 from cffi import FFI, VerificationError, FFIError
 from cffi import recompiler
 from pypy.module.test_lib_pypy.cffi_tests.udir import udir
-from pypy.module.test_lib_pypy.cffi_tests.support import u
+from pypy.module.test_lib_pypy.cffi_tests.support import u, long
 from pypy.module.test_lib_pypy.cffi_tests.support import FdWriteCapture, StdErrCapture
 
 
@@ -949,6 +949,19 @@ def test_constant_of_value_unknown_to_the_compiler():
     """, sources=[str(extra_c_source)])
     assert lib.external_foo == 42
 
+def test_dotdot_in_source_file_names():
+    extra_c_source = udir.join(
+        'extra_test_dotdot_in_source_file_names.c')
+    extra_c_source.write('const int external_foo = 42;\n')
+    ffi = FFI()
+    ffi.cdef("const int external_foo;")
+    lib = verify(ffi, 'test_dotdot_in_source_file_names', """
+        extern const int external_foo;
+    """, sources=[os.path.join(os.path.dirname(str(extra_c_source)),
+                               'foobar', '..',
+                               os.path.basename(str(extra_c_source)))])
+    assert lib.external_foo == 42
+
 def test_call_with_incomplete_structs():
     ffi = FFI()
     ffi.cdef("typedef struct {...;} foo_t; "
@@ -1503,43 +1516,45 @@ def test_extern_python_1():
         res = lib.bar(4, 5)
     assert res == 0
     assert f.getvalue() == (
-        "extern \"Python\": function bar() called, but no code was attached "
-        "to it yet with @ffi.def_extern().  Returning 0.\n")
+        b"extern \"Python\": function bar() called, but no code was attached "
+        b"to it yet with @ffi.def_extern().  Returning 0.\n")
 
     @ffi.def_extern("bar")
     def my_bar(x, y):
         seen.append(("Bar", x, y))
         return x * y
-    assert my_bar == lib.bar
+    assert my_bar != lib.bar
     seen = []
     res = lib.bar(6, 7)
     assert seen == [("Bar", 6, 7)]
     assert res == 42
 
-    @ffi.def_extern()
     def baz(x, y):
         seen.append(("Baz", x, y))
+    baz1 = ffi.def_extern()(baz)
+    assert baz1 is baz
     seen = []
-    res = baz(50L, 8L)
+    baz(long(40), long(4))
+    res = lib.baz(long(50), long(8))
     assert res is None
-    assert seen == [("Baz", 50, 8)]
-    assert type(seen[0][1]) is type(seen[0][2]) is int
-    assert baz == lib.baz
+    assert seen == [("Baz", 40, 4), ("Baz", 50, 8)]
+    assert type(seen[0][1]) is type(seen[0][2]) is long
+    assert type(seen[1][1]) is type(seen[1][2]) is int
 
     @ffi.def_extern(name="bok")
     def bokk():
         seen.append("Bok")
         return 42
     seen = []
-    assert lib.bok() == bokk() == 42
-    assert seen == ["Bok", "Bok"]
+    assert lib.bok() == 42
+    assert seen == ["Bok"]
 
     @ffi.def_extern()
     def boz():
         seen.append("Boz")
     seen = []
-    assert lib.boz() is boz() is None
-    assert seen == ["Boz", "Boz"]
+    assert lib.boz() is None
+    assert seen == ["Boz"]
 
 def test_extern_python_bogus_name():
     ffi = FFI()
@@ -1570,11 +1585,11 @@ def test_extern_python_bogus_result_type():
     ffi.cdef("""extern "Python" void bar(int);""")
     lib = verify(ffi, 'test_extern_python_bogus_result_type', "")
     #
+    @ffi.def_extern()
     def bar(n):
         return n * 10
-    bar1 = ffi.def_extern()(bar)
     with StdErrCapture() as f:
-        res = bar1(321)
+        res = lib.bar(321)
     assert res is None
     assert f.getvalue() == (
         "From cffi callback %r:\n" % (bar,) +
@@ -1678,12 +1693,12 @@ def test_extern_python_errors():
     @ffi.def_extern(onerror=oops)
     def bar(x):
         return x + ""
-    assert bar(10) == 0
+    assert lib.bar(10) == 0
 
     @ffi.def_extern(name="bar", onerror=oops, error=-66)
     def bar2(x):
         return x + ""
-    assert bar(10) == -66
+    assert lib.bar(10) == -66
 
     assert len(seen) == 2
     exc, val, tb = seen[0]

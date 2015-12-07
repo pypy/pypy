@@ -590,14 +590,15 @@ class FFI(object):
         recompile(self, module_name, source,
                   c_file=filename, call_c_compiler=False, **kwds)
 
-    def compile(self, tmpdir='.'):
+    def compile(self, tmpdir='.', verbose=0):
         from .recompiler import recompile
         #
         if not hasattr(self, '_assigned_source'):
             raise ValueError("set_source() must be called before compile()")
         module_name, source, source_extension, kwds = self._assigned_source
         return recompile(self, module_name, source, tmpdir=tmpdir,
-                         source_extension=source_extension, **kwds)
+                         source_extension=source_extension,
+                         compiler_verbose=verbose, **kwds)
 
     def init_once(self, func, tag):
         # Read _init_once_cache[tag], which is either (False, lock) if
