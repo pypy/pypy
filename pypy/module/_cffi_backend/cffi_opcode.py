@@ -54,6 +54,7 @@ OP_GLOBAL_VAR      = 33
 OP_DLOPEN_FUNC     = 35
 OP_DLOPEN_CONST    = 37
 OP_GLOBAL_VAR_F    = 39
+OP_EXTERN_PYTHON   = 41
 
 PRIM_VOID          = 0
 PRIM_BOOL          = 1
