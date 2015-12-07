@@ -93,6 +93,7 @@ def string_attach(space, py_obj, w_obj):
     py_str = rffi.cast(PyStringObject, py_obj)
     py_str.c_size = len(space.str_w(w_obj))
     py_str.c_buffer = lltype.nullptr(rffi.CCHARP.TO)
+    py_str.c_ob_shash = space.hash_w(w_obj)
 
 def string_realize(space, py_obj):
     """

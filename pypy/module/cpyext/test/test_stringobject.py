@@ -10,9 +10,6 @@ import py
 import sys
 
 class AppTestStringObject(AppTestCpythonExtensionBase):
-    def test_foo(self, space, api):
-        xxx
-
     def test_stringobject(self):
         module = self.import_extension('foo', [
             ("get_hello1", "METH_NOARGS",
@@ -194,8 +191,19 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         assert module.test_intern_inplace('s') == 's'
 
     def test_hash_and_state(self):
-        # XXX write tests for ob_shash and ob_sstate
-        assert False
+        module = self.import_extension('foo', [
+            ("test_string_attributes", "METH_VARARGS",
+             '''
+                PyObject* obj = (PyTuple_GetItem(args, 0));
+                long hash = ((PyStringObject*)obj)->ob_shash;
+                return PyLong_FromLong(hash);  
+             '''
+             )
+            ])
+        res = module.test_string_attributes("xyz")
+        assert res == hash('xyz')
+        assert False # test sstate, also look at all uses of interned
+
 
 class TestString(BaseApiTest):
     def test_string_resize(self, space, api):
