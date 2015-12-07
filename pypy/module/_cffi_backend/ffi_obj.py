@@ -612,7 +612,15 @@ where you have an 'ffi' object but not any associated 'lib' object."""
 
 
     def descr_init_once(self, w_func, w_tag):
-        """XXX document me"""
+        """\
+init_once(function, tag): run function() once.  More precisely,
+'function()' is called the first time we see a given 'tag'.
+
+The return value of function() is remembered and returned by the current
+and all future init_once() with the same tag.  If init_once() is called
+from multiple threads in parallel, all calls block until the execution
+of function() is done.  If function() raises an exception, it is
+propagated and nothing is cached."""
         #
         # first, a fast-path for the JIT which only works if the very
         # same w_tag object is passed; then it turns into no code at all

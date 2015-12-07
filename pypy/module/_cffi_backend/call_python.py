@@ -50,9 +50,8 @@ def _cffi_call_python(ll_externpy, ll_args):
     cerrno._errno_after(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)
 
     if not ll_externpy.c_reserved1:
-        # Not initialized!  We don't have a space at all, so just
-        # write the error to the file descriptor stderr.  (xxx cpython's
-        # cffi writes it to sys.stderr)
+        # Not initialized!  We don't have a space at all.
+        # Write the error to the file descriptor stderr.
         try:
             funcname = rffi.charp2str(ll_externpy.c_name)
             msg = ("extern \"Python\": function %s() called, but no code was "
@@ -123,10 +122,8 @@ def externpy_deco(space, w_ffi, w_python_callable, w_name, w_error, w_onerror):
     space.fromcache(KeepaliveCache).cache_dict[key] = externpython
     externpy.c_reserved1 = externpython.hide_object()
 
-    # return a cdata of type function-pointer, equal to the one
-    # obtained by reading 'lib.bar' (see lib_obj.py)
-    ptr = lltype.direct_fieldptr(g, 'c_size_or_direct_fn')
-    return w_ct.convert_to_object(rffi.cast(rffi.CCHARP, ptr))
+    # return the function object unmodified
+    return w_python_callable
 
 
 def externpy_not_found(ffi, name):
