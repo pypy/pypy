@@ -419,8 +419,6 @@ class VectorAssemblerMixin(object):
         ri = residx
         k = count
         while k > 0:
-            if resultloc is sourceloc:
-                return
             if size == 8:
                 if resultloc.is_xmm and sourceloc.is_xmm: # both xmm
                     self.mc.PEXTRQ_rxi(X86_64_SCRATCH_REG.value, sourceloc.value, si)
