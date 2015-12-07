@@ -103,6 +103,9 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def load(self, treg, sreg, offset):
         self.LG(treg, l.addr(offset, sreg))
 
+    def store_update(self, valreg, treg, offset):
+        self.STG(valreg, l.addr(offset, treg))
+
     def nop(self):
         # if the mask is zero it act as a NOP
         # there is no special 'no operation' instruction

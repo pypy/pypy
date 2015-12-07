@@ -1,5 +1,6 @@
 from rpython.jit.backend.zarch.arch import WORD, PARAM_SAVE_AREA_OFFSET
-from rpython.jit.backend.zarch.arch import THREADLOCAL_ADDR_OFFSET
+from rpython.jit.backend.zarch.arch import (THREADLOCAL_ADDR_OFFSET,
+        STD_FRAME_SIZE_IN_BYTES)
 import rpython.jit.backend.zarch.locations as l
 import rpython.jit.backend.zarch.registers as r
 from rpython.jit.metainterp.history import INT, FLOAT
@@ -10,10 +11,8 @@ from rpython.jit.backend.llsupport import llerrno
 from rpython.rtyper.lltypesystem import rffi
 
 class CallBuilder(AbstractCallBuilder):
-    GPR_ARGS = [r.r2, r.r3, r.r4, r.r5, r.r6, r.r7, r.r8, r.r9]
-    FPR_ARGS = r.MANAGED_FP_REGS
-    assert FPR_ARGS == [r.f1, r.f2, r.f3, r.f4, r.f5, r.f6, r.f7,
-                        r.f8, r.f9, r.f10, r.f11, r.f12, r.f13, r.f14, r.f15]
+    GPR_ARGS = [r.r2, r.r3, r.r4, r.r5, r.r6]
+    FPR_ARGS =  [r.f0, r.f2, r.f4, r.f6]
     
     #RFASTGILPTR = r.RCS2
     #RSHADOWOLD  = r.RCS3
@@ -38,72 +37,68 @@ class CallBuilder(AbstractCallBuilder):
         arglocs = self.arglocs
         num_args = len(arglocs)
 
+        max_gpr_in_reg = 5
+        max_fpr_in_reg = 4
+
         non_float_locs = []
         non_float_regs = []
         float_locs = []
-        for i in range(min(num_args, 8)):
+
+        # the IBM zarch manual states:
+        # """
+        # A function will be passed a frame on the runtime stack by the function which
+        # called it, and may allocate a new stack frame. A new stack frame is required if the
+        # called function will in turn call further functions (which must be passed the
+        # address of the new frame). This stack grows downwards from high addresses
+        # """
+        self.subtracted_to_sp = STD_FRAME_SIZE_IN_BYTES
+
+        gpr_regs = 0
+        fpr_regs = 0
+        stack_params = []
+        for i in range(num_args):
+            loc = arglocs[i]
             if arglocs[i].type != FLOAT:
-                non_float_locs.append(arglocs[i])
-                non_float_regs.append(self.GPR_ARGS[i])
-            else:
-                float_locs.append(arglocs[i])
-        # now 'non_float_locs' and 'float_locs' together contain the
-        # locations of the first 8 arguments
-
-        if num_args > 8:
-            xxx
-            # We need to make a larger PPC stack frame, as shown on the
-            # picture in arch.py.  It needs to be 48 bytes + 8 * num_args.
-            # The new SP back chain location should point to the top of
-            # the whole stack frame, i.e. jumping over both the existing
-            # fixed-sise part and the new variable-sized part.
-            base = PARAM_SAVE_AREA_OFFSET
-            varsize = base + 8 * num_args
-            varsize = (varsize + 15) & ~15    # align
-            self.mc.load(r.SCRATCH2.value, r.SP.value, 0)    # SP back chain
-            self.mc.store_update(r.SCRATCH2.value, r.SP.value, -varsize)
-            self.subtracted_to_sp = varsize
-
-            # In this variable-sized part, only the arguments from the 8th
-            # one need to be written, starting at SP + 112
-            for n in range(8, num_args):
-                loc = arglocs[n]
-                if loc.type != FLOAT:
-                    # after the 8th argument, a non-float location is
-                    # always stored in the stack
-                    if loc.is_reg():
-                        src = loc
-                    else:
-                        src = r.r2
-                        self.asm.regalloc_mov(loc, src)
-                    self.mc.std(src.value, r.SP.value, base + 8 * n)
+                if gpr_regs < max_gpr_in_reg:
+                    non_float_locs.append(arglocs[i])
+                    non_float_regs.append(self.GPR_ARGS[gpr_regs])
+                    gpr_regs += 1
                 else:
-                    # the first 13 floating-point arguments are all passed
-                    # in the registers f1 to f13, independently on their
-                    # index in the complete list of arguments
-                    if len(float_locs) < len(self.FPR_ARGS):
-                        float_locs.append(loc)
-                    else:
-                        if loc.is_fp_reg():
-                            src = loc
-                        else:
-                            src = r.FP_SCRATCH
-                            self.asm.regalloc_mov(loc, src)
-                        self.mc.stfd(src.value, r.SP.value, base + 8 * n)
+                    stack_params.append(i)
+            else:
+                if fpr_regs < max_fpr_in_reg:
+                    float_locs.append(arglocs[i])
+                    fpr_regs += 1
+                else:
+                    stack_params.append(i)
+
+        self.subtracted_to_sp += len(stack_params) * 8
+        base = -len(stack_params) * 8
+        for idx,i in enumerate(stack_params):
+            loc = arglocs[i]
+            if loc.type == FLOAT:
+                if loc.is_fp_reg():
+                    src = loc
+                else:
+                    src = r.FP_SCRATCH
+                    self.asm.regalloc_mov(loc, src)
+                offset = base + 8 * idx
+                print("storing", i, "at", idx, "that is => SP +", offset)
+                self.mc.STDY(src, l.addr(offset, r.SP))
 
         # We must also copy fnloc into FNREG
         non_float_locs.append(self.fnloc)
-        non_float_regs.append(r.RETURN)     # r2 or r12
+        non_float_regs.append(r.RETURN)
 
         if float_locs:
             assert len(float_locs) <= len(self.FPR_ARGS)
+            import pdb; pdb.set_trace()
             remap_frame_layout(self.asm, float_locs,
                                self.FPR_ARGS[:len(float_locs)],
                                r.FP_SCRATCH)
 
         remap_frame_layout(self.asm, non_float_locs, non_float_regs,
                            r.SCRATCH)
-
 
     def push_gcmap(self):
         # we push *now* the gcmap, describing the status of GC registers
@@ -126,6 +121,11 @@ class CallBuilder(AbstractCallBuilder):
         self.asm._reload_frame_if_necessary(self.mc, shadowstack_reg=ssreg)
 
     def emit_raw_call(self):
+        # always allocate a stack frame for the new function
+        # save the SP back chain
+        self.mc.STG(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
+        # move the frame pointer
+        self.mc.AGHI(r.SP, l.imm(-self.subtracted_to_sp))
         self.mc.raw_call()
         # restore the pool!
         offset = self.asm.pool.pool_start - self.mc.get_relative_pos()
@@ -133,7 +133,7 @@ class CallBuilder(AbstractCallBuilder):
 
     def restore_stack_pointer(self):
         if self.subtracted_to_sp != 0:
-            self.mc.addi(r.SP.value, r.SP.value, self.subtracted_to_sp)
+            self.mc.AGHI(r.SP, l.imm(self.subtracted_to_sp))
 
     def load_result(self):
         assert (self.resloc is None or
@@ -168,6 +168,7 @@ class CallBuilder(AbstractCallBuilder):
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.zarch.codebuilder import InstrBuilder
+        xxx
 
         # try to reacquire the lock.  The following registers are still
         # valid from before the call:

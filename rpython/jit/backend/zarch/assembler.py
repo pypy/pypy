@@ -10,10 +10,9 @@ from rpython.jit.backend.zarch.pool import LiteralPool
 from rpython.jit.backend.zarch.codebuilder import InstrBuilder
 from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.zarch.arch import (WORD,
-        STD_FRAME_SIZE_IN_BYTES, REGISTER_AREA_OFFSET,
-        THREADLOCAL_ADDR_OFFSET, RECOVERY_GCMAP_POOL_OFFSET,
-        RECOVERY_TARGET_POOL_OFFSET, JUMPABS_TARGET_ADDR__POOL_OFFSET,
-        JUMPABS_POOL_ADDR_POOL_OFFSET, REGISTER_AREA_BYTES)
+        STD_FRAME_SIZE_IN_BYTES, THREADLOCAL_ADDR_OFFSET,
+        RECOVERY_GCMAP_POOL_OFFSET, RECOVERY_TARGET_POOL_OFFSET,
+        JUMPABS_TARGET_ADDR__POOL_OFFSET, JUMPABS_POOL_ADDR_POOL_OFFSET)
 from rpython.jit.backend.zarch.opassembler import (IntOpAssembler,
     FloatOpAssembler, GuardOpAssembler, MiscOpAssembler,
     CallOpAssembler)
@@ -627,10 +626,11 @@ class AssemblerZARCH(BaseAssembler,
 
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
         self.mc.STMG(r.r6, r.r15, l.addr(6*WORD, r.SP))
-        self.mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
+        # save the back chain
+        self.mc.STG(r.SP, l.addr(0, r.SP))
 
-        # save r4, the second argument, to THREADLOCAL_ADDR_OFFSET
-        self.mc.STG(r.r3, l.addr(STD_FRAME_SIZE_IN_BYTES + THREADLOCAL_ADDR_OFFSET, r.SP))
+        # save r3, the second argument, to THREADLOCAL_ADDR_OFFSET
+        self.mc.STG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
 
         # move the first argument to SPP: the jitframe object
         self.mc.LGR(r.SPP, r.r2)
@@ -648,7 +648,7 @@ class AssemblerZARCH(BaseAssembler,
             self._call_footer_shadowstack(gcrootmap)
 
         # restore registers r6-r15
-        self.mc.LMG(r.r6, r.r15, l.addr(STD_FRAME_SIZE_IN_BYTES + 6*WORD + REGISTER_AREA_OFFSET, r.SP))
+        self.mc.LMG(r.r6, r.r15, l.addr(6*WORD, r.SP))
         self.jmpto(r.r14)
 
     def _push_core_regs_to_jitframe(self, mc, includes=r.registers):

@@ -60,6 +60,7 @@ class Runner(object):
                                                                 descr)
         looptoken = JitCellToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
+        import pdb; pdb.set_trace()
         args = []
         for box in inputargs:
             if box.type == 'i':
@@ -507,50 +508,50 @@ class BaseBackendTest(Runner):
     def test_call(self):
         from rpython.rlib.jit_libffi import types
 
-        def func_int(a, b):
-            return a + b
-        def func_char(c, c1):
-            return chr(ord(c) + ord(c1))
+        #def func_int(a, b):
+        #    return a + b
+        #def func_char(c, c1):
+        #    return chr(ord(c) + ord(c1))
 
-        functions = [
-            (func_int, lltype.Signed, types.sint, 655360, 655360),
-            (func_int, lltype.Signed, types.sint, 655360, -293999429),
-            (func_int, rffi.SHORT, types.sint16, 1213, 1213),
-            (func_int, rffi.SHORT, types.sint16, 1213, -12020),
-            (func_char, lltype.Char, types.uchar, 12, 12),
-            ]
+        #functions = [
+        #    (func_int, lltype.Signed, types.sint, 655360, 655360),
+        #    (func_int, lltype.Signed, types.sint, 655360, -293999429),
+        #    (func_int, rffi.SHORT, types.sint16, 1213, 1213),
+        #    (func_int, rffi.SHORT, types.sint16, 1213, -12020),
+        #    (func_char, lltype.Char, types.uchar, 12, 12),
+        #    ]
 
         cpu = self.cpu
-        for func, TP, ffi_type, num, num1 in functions:
-            #
-            FPTR = self.Ptr(self.FuncType([TP, TP], TP))
-            func_ptr = llhelper(FPTR, func)
-            FUNC = deref(FPTR)
-            funcbox = self.get_funcbox(cpu, func_ptr)
-            # first, try it with the "normal" calldescr
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                        EffectInfo.MOST_GENERAL)
-            res = self.execute_operation(rop.CALL_I,
-                                         [funcbox, InputArgInt(num),
-                                          InputArgInt(num1)],
-                                         'int', descr=calldescr)
-            assert res == num + num1
-            # then, try it with the dynamic calldescr
-            dyn_calldescr = cpu._calldescr_dynamic_for_tests(
-                [ffi_type, ffi_type], ffi_type)
-            res = self.execute_operation(rop.CALL_I,
-                                         [funcbox, InputArgInt(num),
-                                          InputArgInt(num1)],
-                                         'int', descr=dyn_calldescr)
-            assert res == num + num1
+        #for func, TP, ffi_type, num, num1 in functions:
+        #    #
+        #    FPTR = self.Ptr(self.FuncType([TP, TP], TP))
+        #    func_ptr = llhelper(FPTR, func)
+        #    FUNC = deref(FPTR)
+        #    funcbox = self.get_funcbox(cpu, func_ptr)
+        #    # first, try it with the "normal" calldescr
+        #    calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+        #                                EffectInfo.MOST_GENERAL)
+        #    res = self.execute_operation(rop.CALL_I,
+        #                                 [funcbox, InputArgInt(num),
+        #                                  InputArgInt(num1)],
+        #                                 'int', descr=calldescr)
+        #    assert res == num + num1
+        #    # then, try it with the dynamic calldescr
+        #    dyn_calldescr = cpu._calldescr_dynamic_for_tests(
+        #        [ffi_type, ffi_type], ffi_type)
+        #    res = self.execute_operation(rop.CALL_I,
+        #                                 [funcbox, InputArgInt(num),
+        #                                  InputArgInt(num1)],
+        #                                 'int', descr=dyn_calldescr)
+        #    assert res == num + num1
 
-            # last, try it with one constant argument
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo.MOST_GENERAL)
-            res = self.execute_operation(rop.CALL_I,
-                                         [funcbox, ConstInt(num),
-                                          InputArgInt(num1)],
-                                         'int', descr=calldescr)
-            assert res == num + num1
+        #    # last, try it with one constant argument
+        #    calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo.MOST_GENERAL)
+        #    res = self.execute_operation(rop.CALL_I,
+        #                                 [funcbox, ConstInt(num),
+        #                                  InputArgInt(num1)],
+        #                                 'int', descr=calldescr)
+        #    assert res == num + num1
 
         if cpu.supports_floats:
             def func(f0, f1, f2, f3, f4, f5, f6, i0, f7, i1, f8, f9):

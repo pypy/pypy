@@ -143,7 +143,9 @@ memory_mnemonic_codes = {
 
     # store float
     'STE':     ('rx',    ['\x70']),
+    # note displacement is UNsigned 12 bit
     'STD':     ('rx',    ['\x60']),
+    'STDY':    ('rxy',   ['\xED','\x67']),
 
     'SPM':     ('rr',    ['\x04'], 'r,-'),
     'IPM':     ('rre',   ['\xB2','\x22'], 'r,-'),
