@@ -83,7 +83,6 @@ class CallBuilder(AbstractCallBuilder):
                     src = r.FP_SCRATCH
                     self.asm.regalloc_mov(loc, src)
                 offset = base + 8 * idx
-                print("storing", i, "at", idx, "that is => SP +", offset)
                 self.mc.STDY(src, l.addr(offset, r.SP))
 
         # We must also copy fnloc into FNREG
@@ -92,7 +91,6 @@ class CallBuilder(AbstractCallBuilder):
 
         if float_locs:
             assert len(float_locs) <= len(self.FPR_ARGS)
-            import pdb; pdb.set_trace()
             remap_frame_layout(self.asm, float_locs,
                                self.FPR_ARGS[:len(float_locs)],
                                r.FP_SCRATCH)

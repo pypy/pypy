@@ -20,10 +20,10 @@ GPR_RETURN = r2
 [f0,f1,f2,f3,f4,f5,f6,f7,f8,
  f9,f10,f11,f12,f13,f14,f15] = fpregisters
 
-FPR_RETURN = f1
-FP_SCRATCH = f0
+FPR_RETURN = f0
+FP_SCRATCH = f15
 
-MANAGED_FP_REGS = fpregisters[1:]
+MANAGED_FP_REGS = fpregisters[:1]
 VOLATILES_FLOAT = []
 
 # The JITFRAME_FIXED_SIZE is measured in words, and should be the
