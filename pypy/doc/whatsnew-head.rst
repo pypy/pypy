@@ -57,3 +57,7 @@ A somewhat random bunch of changes and fixes following up on branch 'anntype'. H
 - Remove bookkeeper attribute from DictDef and ListDef.
 
 .. branch: cffi-static-callback
+
+.. branch: vecopt-absvalue
+
+- Enhancement. Removed vector fields from AbstractValue.

@@ -2569,7 +2569,6 @@ class MetaInterp(object):
                 self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, target_token.targeting_jitcell_token)
                 self.staticdata.stats.add_jitcell_token(target_token.targeting_jitcell_token)
 
-
         if target_token is not None: # raise if it *worked* correctly
             assert isinstance(target_token, TargetToken)
             jitcell_token = target_token.targeting_jitcell_token
