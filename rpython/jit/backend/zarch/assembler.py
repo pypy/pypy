@@ -625,9 +625,12 @@ class AssemblerZARCH(BaseAssembler,
         #self.mc.write64(0)
 
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
-        self.mc.STMG(r.r6, r.r15, l.addr(6*WORD, r.SP))
-        # save the back chain
-        self.mc.STG(r.SP, l.addr(0, r.SP))
+        self.mc.STMG(r.r6, r.r15, l.addr(-160 + 6*WORD, r.SP))
+        # back chain is already in
+        # place (called function put it at -160!)
+        self.mc.AGHI(r.SP, l.imm(-160))
+        # save the back chain TODO?
+        #self.mc.STG(r.SP, l.addr(0, r.SP))
 
         # save r3, the second argument, to THREADLOCAL_ADDR_OFFSET
         self.mc.STG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))

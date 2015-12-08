@@ -99,6 +99,7 @@ class CallBuilder(AbstractCallBuilder):
                            r.SCRATCH)
 
     def push_gcmap(self):
+        xxx
         # we push *now* the gcmap, describing the status of GC registers
         # after the rearrangements done just before, ignoring the return
         # value r3, if necessary
@@ -108,6 +109,7 @@ class CallBuilder(AbstractCallBuilder):
         self.asm.push_gcmap(self.mc, gcmap, store=True)
 
     def pop_gcmap(self):
+        xxx
         ssreg = None
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
@@ -239,6 +241,7 @@ class CallBuilder(AbstractCallBuilder):
 
 
     def write_real_errno(self, save_err):
+        xxx
         if save_err & rffi.RFFI_READSAVED_ERRNO:
             # Just before a call, read '*_errno' and write it into the
             # real 'errno'.  A lot of registers are free here, notably

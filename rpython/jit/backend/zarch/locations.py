@@ -187,6 +187,10 @@ class AddressLocation(AssemblerLocation):
         self.base = 0
         self.index = 0
         self.length = 0
+        from rpython.jit.backend.zarch import registers as r
+        # using this register would be pretty wrong!
+        assert basereg is not r.r0
+        assert indexreg is not r.r0
         if basereg:
             self.base = basereg.value
         if indexreg:
