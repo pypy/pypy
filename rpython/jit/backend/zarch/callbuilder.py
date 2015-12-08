@@ -1,4 +1,4 @@
-from rpython.jit.backend.zarch.arch import WORD, PARAM_SAVE_AREA_OFFSET
+from rpython.jit.backend.zarch.arch import WORD
 from rpython.jit.backend.zarch.arch import (THREADLOCAL_ADDR_OFFSET,
         STD_FRAME_SIZE_IN_BYTES)
 import rpython.jit.backend.zarch.locations as l
@@ -99,7 +99,6 @@ class CallBuilder(AbstractCallBuilder):
                            r.SCRATCH)
 
     def push_gcmap(self):
-        xxx
         # we push *now* the gcmap, describing the status of GC registers
         # after the rearrangements done just before, ignoring the return
         # value r3, if necessary
@@ -109,7 +108,6 @@ class CallBuilder(AbstractCallBuilder):
         self.asm.push_gcmap(self.mc, gcmap, store=True)
 
     def pop_gcmap(self):
-        xxx
         ssreg = None
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
@@ -216,6 +214,8 @@ class CallBuilder(AbstractCallBuilder):
         # save the result we just got
         RSAVEDRES = RFASTGILPTR     # can reuse this reg here
         reg = self.resloc
+        xxx
+        PARAM_SAVE_AREA_OFFSET = 0
         if reg is not None:
             if reg.is_core_reg():
                 self.mc.mr(RSAVEDRES.value, reg.value)

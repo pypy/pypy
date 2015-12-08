@@ -331,12 +331,10 @@ class GuardOpAssembler(object):
         return token
 
     def emit_guard_true(self, op, arglocs, regalloc):
-        print("GUARD_TRUE condition to jump is:", self.guard_success_cc)
         self._emit_guard(op, arglocs)
 
     def emit_guard_false(self, op, arglocs, regalloc):
         self.guard_success_cc = c.negate(self.guard_success_cc)
-        print("GUARD_FALSE condition to jump is:", self.guard_success_cc)
         self._emit_guard(op, arglocs)
 
     def emit_guard_overflow(self, op, arglocs, regalloc):

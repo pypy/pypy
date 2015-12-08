@@ -20,6 +20,7 @@ GPR_RETURN = r2
 [f0,f1,f2,f3,f4,f5,f6,f7,f8,
  f9,f10,f11,f12,f13,f14,f15] = fpregisters
 
+# there are 4 float returns, but we only care for the first!
 FPR_RETURN = f0
 FP_SCRATCH = f15
 

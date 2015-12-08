@@ -156,10 +156,6 @@ class AssemblerZARCH(BaseAssembler,
         self.mc.STG(r.SCRATCH, l.addr(ofs, r.SPP))
         self.mc.BCR(l.imm(0xf), r.r14)
 
-        # TODO do we need to patch this memory region?
-        # we need to write at least 6 insns here, for patch_jump_for_descr()
-        #while self.mc.currpos() < startpos + 6 * 4:
-        #    self.mc.trap()
         return startpos
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
@@ -191,7 +187,9 @@ class AssemblerZARCH(BaseAssembler,
 
     def new_stack_loc(self, i, tp):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        return l.StackLocation(i, l.get_fp_offset(base_ofs, i), tp)
+        loc = l.StackLocation(i, l.get_fp_offset(base_ofs, i), tp)
+        print("new stack location", loc)
+        return loc
 
     def _call_header_with_stack_check(self):
         self._call_header()
@@ -391,13 +389,12 @@ class AssemblerZARCH(BaseAssembler,
         loc"""
 
         index = WORD * (~already_pushed)
-        print("regalloc push", index)
 
         if loc.type == FLOAT:
             if not loc.is_fp_reg():
                 self.regalloc_mov(loc, r.FP_SCRATCH)
                 loc = r.FP_SCRATCH
-            self.mc.STD(loc, l.addr(index, r.SP))
+            self.mc.STDY(loc, l.addr(index, r.SP))
         else:
             if not loc.is_core_reg():
                 self.regalloc_mov(loc, r.SCRATCH)
@@ -408,13 +405,12 @@ class AssemblerZARCH(BaseAssembler,
         """Pops the value on top of the stack to loc. Can trash the current
         value of SCRATCH when popping to a stack loc"""
         index = WORD * (~already_pushed)
-        print("regalloc pop", index)
 
         if loc.type == FLOAT:
             if loc.is_fp_reg():
-                self.mc.LD(loc, l.addr(index, r.SP))
+                self.mc.LDY(loc, l.addr(index, r.SP))
             else:
-                self.mc.LD(r.FP_SCRATCH, l.addr(index, r.SP))
+                self.mc.LDY(r.FP_SCRATCH, l.addr(index, r.SP))
                 self.regalloc_mov(r.FP_SCRATCH, loc)
         else:
             if loc.is_core_reg():
@@ -475,7 +471,7 @@ class AssemblerZARCH(BaseAssembler,
                 self.mc.LG(loc, prev_loc)
                 return
             elif loc.is_fp_reg():
-                self.mc.LD(loc, prev_loc)
+                self.mc.LDY(loc, prev_loc)
                 return
             assert 0, "not supported location (previous is pool loc)"
         elif prev_loc.is_stack():
@@ -536,7 +532,7 @@ class AssemblerZARCH(BaseAssembler,
             elif loc.is_stack():
                 assert loc.type == FLOAT, "target not float location"
                 offset = loc.value
-                self.mc.STD(prev_loc, l.addr(offset, r.SPP))
+                self.mc.STDY(prev_loc, l.addr(offset, r.SPP))
                 return
             assert 0, "not supported location"
         assert 0, "not supported location"
@@ -625,12 +621,9 @@ class AssemblerZARCH(BaseAssembler,
         #self.mc.write64(0)
 
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
-        self.mc.STMG(r.r6, r.r15, l.addr(-160 + 6*WORD, r.SP))
-        # back chain is already in
-        # place (called function put it at -160!)
-        self.mc.AGHI(r.SP, l.imm(-160))
-        # save the back chain TODO?
-        #self.mc.STG(r.SP, l.addr(0, r.SP))
+        self.mc.STMG(r.r6, r.r15, l.addr(6*WORD, r.SP))
+        # save the back chain
+        self.mc.STG(r.SP, l.addr(0, r.SP))
 
         # save r3, the second argument, to THREADLOCAL_ADDR_OFFSET
         self.mc.STG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
@@ -664,7 +657,7 @@ class AssemblerZARCH(BaseAssembler,
         assert len(includes) == 16
         v = 16
         for i,reg in enumerate(includes):
-            mc.STD(reg, l.addr(base_ofs + (v+i) * WORD, r.SPP))
+            mc.STDY(reg, l.addr(base_ofs + (v+i) * WORD, r.SPP))
 
     # ________________________________________
     # ASSEMBLER EMISSION
@@ -709,7 +702,7 @@ class AssemblerZARCH(BaseAssembler,
                 if return_val.is_in_pool():
                     self.mc.LDY(r.FP_SCRATCH, return_val)
                     return_val = r.FP_SCRATCH
-                self.mc.STD(return_val, l.addr(base_ofs, r.SPP))
+                self.mc.STDY(return_val, l.addr(base_ofs, r.SPP))
             else:
                 if return_val.is_in_pool():
                     self.mc.LG(r.SCRATCH, return_val)
