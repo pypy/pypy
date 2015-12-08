@@ -24,7 +24,7 @@ GPR_RETURN = r2
 FPR_RETURN = f0
 FP_SCRATCH = f15
 
-MANAGED_FP_REGS = fpregisters[:1]
+MANAGED_FP_REGS = fpregisters[:-1]
 VOLATILES_FLOAT = []
 
 # The JITFRAME_FIXED_SIZE is measured in words, and should be the
@@ -34,8 +34,5 @@ ALL_REG_INDEXES = {}
 for _r in registers:
     ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES)
 for _r in MANAGED_FP_REGS:
-    ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES) + 1
-    #       we leave a never-used hole for f0  ^^^  in the jitframe
-    #       to simplify store_info_on_descr(), which assumes that the
-    #       register number N is at offset N after the non-fp regs
-JITFRAME_FIXED_SIZE = len(ALL_REG_INDEXES) + 1
+    ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES)
+JITFRAME_FIXED_SIZE = len(ALL_REG_INDEXES)
