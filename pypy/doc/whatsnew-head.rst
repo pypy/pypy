@@ -61,3 +61,9 @@ A somewhat random bunch of changes and fixes following up on branch 'anntype'. H
 .. branch: vecopt-absvalue
 
 - Enhancement. Removed vector fields from AbstractValue.
+
+.. branch: memop-simplify2
+
+Simplification. Backends implement too many loading instructions, only having a slightly different interface.
+Four new operations (gc_load/gc_load_indexed, gc_store/gc_store_indexed) replace all the
+commonly known loading operations
