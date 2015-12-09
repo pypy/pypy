@@ -1827,7 +1827,12 @@ class BackendTests:
             assert seen == [1, 1]
 
     def test_init_once_multithread(self):
-        import thread, time
+        import sys, time
+        if sys.version_info < (3,):
+            import thread
+        else:
+            import _thread as thread
+        #
         def do_init():
             seen.append('init!')
             time.sleep(1)

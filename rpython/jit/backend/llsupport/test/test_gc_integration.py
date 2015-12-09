@@ -251,7 +251,7 @@ class TestMallocFastpath(BaseTestRegalloc):
         p0 = call_malloc_nursery_varsize_frame(i0)
         p1 = call_malloc_nursery_varsize_frame(i1)
         p2 = call_malloc_nursery_varsize_frame(i2)
-        guard_true(i0) [p0, p1, p2]
+        guard_false(i0) [p0, p1, p2]
         '''
         self.interpret(ops, [16, 32, 16])
         # check the returned pointers
@@ -720,7 +720,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         [i0, p0]
         p = force_token()
         cond_call(i0, ConstClass(funcptr), i0, p, descr=calldescr)
-        guard_true(i0, descr=faildescr) [p0]
+        guard_false(i0, descr=faildescr) [p0]
         """, namespace={
             'faildescr': BasicFailDescr(),
             'funcptr': checkptr,

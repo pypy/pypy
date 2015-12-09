@@ -463,3 +463,14 @@ class AppTestFFIObj:
             res = ffi.init_once(do_init, "tag2")
             assert res == 42
             assert seen == [1, 1]
+
+    def test_init_once_failure(self):
+        import _cffi_backend as _cffi1_backend
+        def do_init():
+            seen.append(1)
+            raise ValueError
+        ffi = _cffi1_backend.FFI()
+        seen = []
+        for i in range(5):
+            raises(ValueError, ffi.init_once, do_init, "tag")
+            assert seen == [1] * (i + 1)

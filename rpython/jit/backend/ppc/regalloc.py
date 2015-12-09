@@ -318,6 +318,8 @@ class Regalloc(BaseRegalloc):
             i += 1
         assert not self.rm.reg_bindings
         assert not self.fprm.reg_bindings
+        if not we_are_translated():
+            self.assembler.mc.trap()
         self.flush_loop()
         self.assembler.mc.mark_op(None) # end of the loop
         self.operations = None
