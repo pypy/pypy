@@ -2305,7 +2305,7 @@ class MetaInterp(object):
         num_green_args = self.jitdriver_sd.num_green_args
         original_greenkey = original_boxes[:num_green_args]
         self.resumekey = compile.ResumeFromInterpDescr(original_greenkey)
-        self.history.inputargs = original_boxes[num_green_args:]
+        self.history.set_inputargs(original_boxes[num_green_args:])
         self.seen_loop_header_for_jdindex = -1
         try:
             self.interpret()

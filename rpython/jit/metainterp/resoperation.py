@@ -85,10 +85,12 @@ class AbstractValue(object):
         return False
 
 
-def ResOperation(opnum, args, descr=None):
+def ResOperation(opnum, args, position, descr=None):
     cls = opclasses[opnum]
     op = cls()
     op.initarglist(args)
+    assert isinstance(position, int)
+    op.postion = position
     if descr is not None:
         assert isinstance(op, ResOpWithDescr)
         if opnum == rop.FINISH:

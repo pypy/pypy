@@ -6,7 +6,8 @@ from rpython.rlib.rarithmetic import r_int64, is_valid_int
 
 from rpython.conftest import option
 
-from rpython.jit.metainterp.resoperation import ResOperation, rop, AbstractValue
+from rpython.jit.metainterp.resoperation import ResOperation, rop,\
+    AbstractValue, oparity, AbstractResOp, AbstractInputArg
 from rpython.jit.codewriter import heaptracker, longlong
 import weakref
 
@@ -638,14 +639,38 @@ def _list_all_operations(result, operations, omit_finish=True):
 # ____________________________________________________________
 
 
+TAGINT, TAGCONST, TAGBOX = range(3)
+
+def tag(kind, pos):
+    return (pos << 2) | kind
+
 class History(object):
     def __init__(self):
         self.inputargs = None
         self.operations = []
+        self.descr_cache = {}
+        self.descrs = {}
+        self.consts = []
+
+    def encode(self, box):
+        if isinstance(box, Const):
+            xxx
+        elif isinstance(box, AbstractResOp):
+            xxx
+        elif isinstance(box, AbstractInputArg):
+            return tag(TAGBOX, -box.position)
+        else:
+            yyy
+
+    def set_inputargs(self, inpargs):
+        self.inputargs = inpargs
+        for i, arg in enumerate(inpargs):
+            arg.position = i
 
     @specialize.argtype(3)
     def record(self, opnum, argboxes, value, descr=None):
-        op = ResOperation(opnum, argboxes, descr)
+        pos = len(self.operations)
+        op = ResOperation(opnum, argboxes, pos, descr)
         if value is None:
             assert op.type == 'v'
         elif isinstance(value, bool):
@@ -661,7 +686,12 @@ class History(object):
             assert lltype.typeOf(value) == llmemory.GCREF
             assert op.type == 'r'
             op.setref_base(value)
-        self.operations.append(op)
+        self.operations.append(opnum)
+        if oparity[opnum] == -1:
+            self.operations.append(len(argboxes))
+        self.operations.extend([self.encode(box) for box in argboxes])
+        if descr is not None:
+            self.operations.append(self.encode(descr))
         return op
 
     def record_default_val(self, opnum, argboxes, descr=None):
@@ -671,10 +701,40 @@ class History(object):
         self.operations.append(op)
         return op
 
-    def substitute_operation(self, position, opnum, argboxes, descr=None):
-        resbox = self.operations[position].result
-        op = ResOperation(opnum, argboxes, resbox, descr)
-        self.operations[position] = op
+    def get_recorded_history(self):
+        return RecordedHistory(self.operations)
+
+class RecordedOp(AbstractValue):
+    def __init__(self, opnum, args):
+        self.opnum = opnum
+        self.args = args
+
+    def getopnum(self):
+        return self.opnum
+
+    def __hash__(self):
+        raise NotImplementedError
+
+class RecordedHistory(object):
+    def __init__(self, ops):
+        self.ops = ops
+        self.position = 0
+
+    def next(self):
+        res = self.ops[self.position]
+        self.position += 1
+        return res
+
+    def get_next_op(self):
+        opnum = self.next()
+        if oparity[opnum] == -1:
+            argnum = self.next()
+        else:
+            argnum = oparity[opnum]
+        args = []
+        for i in range(argnum):
+            args.append(self.next())
+        return RecordedOp(opnum, args)
 
 # ____________________________________________________________
 
