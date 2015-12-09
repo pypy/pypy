@@ -13,6 +13,8 @@ from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import rclass
 from rpython.jit.backend.x86.arch import WORD
+from rpython.jit.backend.llsupport.symbolic import (WORD,
+        get_array_token)
 
 class Evaluator(object):
     def __init__(self, scope):
@@ -51,35 +53,6 @@ class RewriteTests(object):
         adescr = get_array_descr(self.gc_ll_descr, A)
         adescr.tid = 4321
         alendescr = adescr.lendescr
-        #
-        A32 = lltype.GcArray(rffi.INT)
-        a32descr = get_array_descr(self.gc_ll_descr, A32)
-        a32descr.tid = 4322
-        a32lendescr = a32descr.lendescr
-        #
-        A16 = lltype.GcArray(rffi.SHORT)
-        a16descr = get_array_descr(self.gc_ll_descr, A16)
-        a16descr.tid = 4323
-        #
-        A8 = lltype.GcArray(rffi.SIGNEDCHAR)
-        a8descr = get_array_descr(self.gc_ll_descr, A8)
-        a8descr.tid = 4323
-        #
-        UA = lltype.GcArray(rffi.ULONG)
-        uadescr = get_array_descr(self.gc_ll_descr, UA)
-        uadescr.tid = 4324
-        #
-        UA32 = lltype.GcArray(rffi.UINT)
-        ua32descr = get_array_descr(self.gc_ll_descr, UA32)
-        ua32descr.tid = 4325
-        #
-        UA16 = lltype.GcArray(rffi.USHORT)
-        ua16descr = get_array_descr(self.gc_ll_descr, UA16)
-        ua16descr.tid = 4326
-        #
-        UA8 = lltype.GcArray(rffi.UCHAR)
-        ua8descr = get_array_descr(self.gc_ll_descr, UA8)
-        ua8descr.tid = 4327
         #
         B = lltype.GcArray(lltype.Char)
         bdescr = get_array_descr(self.gc_ll_descr, B)
@@ -304,7 +277,7 @@ class TestBoehm(RewriteTests):
             [p1]
             p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 102, \
                                 descr=malloc_fixedsize_descr)
-            gc_store(p0, 0, ConstClass(o_vtable), 8)
+            gc_store(p0, 0, ConstClass(o_vtable), %(vtable_descr.field_size)s)
             jump()
         """)
 
@@ -1012,7 +985,7 @@ class TestFramework(RewriteTests):
             gc_store(p0, %(tdescr.gc_fielddescrs[0].offset)s, 0, %(tdescr.gc_fielddescrs[0].offset)s)
             p1 = call_malloc_nursery_varsize(1, 1, i0, \
                                 descr=strdescr)
-            gc_store_indexed(p1, 0,  i0, 1, 8, %(strlendescr.field_size)s)
+            gc_store_indexed(p1, 0,  i0, 1, %(strlendescr.offset)s, %(strlendescr.field_size)s)
             gc_store(p1, 0,  0, %(strhashdescr.field_size)s)
             cond_call_gc_wb(p0, descr=wbdescr)
             gc_store_indexed(p0, 0,  p1, 1, %(tzdescr.offset)s, %(tzdescr.field_size)s)
@@ -1158,7 +1131,8 @@ class TestFramework(RewriteTests):
            'i4 = int_add(i3,%(adescr.basesize)s);'
            'gc_store(p0,i4,i2,%(adescr.itemsize)s)'],
         [True, (1,2,4,8), 'setarrayitem_gc(p0,i1,i2,descr=adescr)' '->'
-           'gc_store_indexed(p0,i1,i2,%(adescr.itemsize)s,%(adescr.basesize)s,%(adescr.itemsize)s)'],
+           'gc_store_indexed(p0,i1,i2,%(adescr.itemsize)s,'
+           '%(adescr.basesize)s,%(adescr.itemsize)s)'],
         [False, (1,), 'setarrayitem_gc(p0,i1,i2,descr=adescr)' '->'
            'i3 = int_mul(i1,%(adescr.itemsize)s);'
            'i4 = int_add(i3,%(adescr.basesize)s);'
@@ -1166,7 +1140,7 @@ class TestFramework(RewriteTests):
         [True, None, 'i3 = raw_load_i(p0,i1,descr=adescr)' '->'
            'gc_load_indexed_i(p0,i1,1,%(adescr.basesize)s,-%(adescr.itemsize)s)'],
         [True, None, 'i3 = raw_load_f(p0,i1,descr=fdescr)' '->'
-           'gc_load_indexed_f(p0,i1,1,%(fdescr.basesize)s,%(adescr.itemsize)s)'],
+           'gc_load_indexed_f(p0,i1,1,%(fdescr.basesize)s,%(fdescr.itemsize)s)'],
         [True, None, 'i3 = raw_load_i(p0,i1,descr=sfdescr)' '->'
            'gc_load_indexed_i(p0,i1,1,%(sfdescr.basesize)s,%(sfdescr.itemsize)s)'],
         [True, (1,2,4,8), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)' '->'
@@ -1175,52 +1149,81 @@ class TestFramework(RewriteTests):
            'i5 = int_add(i1,%(raw_sfdescr.basesize)s);'
            'gc_store(p0,i5,i2,%(raw_sfdescr.itemsize)s)'],
         [True, (1,2,4,8), 'i3 = getfield_gc_f(p0,descr=ydescr)' '->'
-           'i3 = gc_load_indexed_f(p0,0,1,8,8)'],
+           'i3 = gc_load_indexed_f(p0,0,1,%(ydescr.offset)s,%(ydescr.field_size)s)'],
         [True, (1,2,4,8), 'i3 = getfield_gc_f(p0,descr=ydescr)' '->'
-           'i3 = gc_load_indexed_f(p0,0,1,8,8)'],
+           'i3 = gc_load_indexed_f(p0,0,1,%(ydescr.offset)s,%(ydescr.field_size)s)'],
         [True, (1,2,4,8), 'i3 = setfield_raw(p0,i1,descr=ydescr)' '->'
-           'i3 = gc_store_indexed(p0,0,i1,1,8,8)'],
+           'i3 = gc_store_indexed(p0,0,i1,1,'
+           '%(ydescr.offset)s,%(ydescr.field_size)s)'],
         [True, (1,2,4,8), 'i3 = setfield_gc(p0,p0,descr=zdescr)' '->'
            'cond_call_gc_wb(p0, descr=wbdescr);'
-           'i3 = gc_store_indexed(p0,0,p0,1,%(zdescr.offset)s,%(zdescr.field_size)s)'],
+           'i3 = gc_store_indexed(p0,0,p0,1,'
+           '%(zdescr.offset)s,%(zdescr.field_size)s)'],
         [False, (1,), 'i3 = arraylen_gc(p0, descr=adescr)' '->'
-                      'i3 = gc_load_i(p0,0,8)'],
+                      'i3 = gc_load_i(p0,0,%(adescr.itemsize)s)'],
         [False, (1,),  'i3 = strlen(p0)' '->'
-                       'i3 = gc_load_i(p0,8,8)'],
+                       'i3 = gc_load_i(p0,'
+                       '%(strlendescr.offset)s,%(strlendescr.field_size)s)'],
         [True,  (1,),  'i3 = strlen(p0)' '->'
-                       'i3 = gc_load_indexed_i(p0,0,1,8,8)'],
+                       'i3 = gc_load_indexed_i(p0,0,1,'
+                                 '%(strlendescr.offset)s,'
+                                 '%(strlendescr.field_size)s)'],
         [False, (1,),  'i3 = unicodelen(p0)' '->'
-                       'i3 = gc_load_i(p0,8,8)'],
+                       'i3 = gc_load_i(p0,'
+                               '%(unicodelendescr.offset)s,'
+                               '%(unicodelendescr.field_size)s)'],
         [True,  (1,),  'i3 = unicodelen(p0)' '->'
-                       'i3 = gc_load_indexed_i(p0,0,1,8,8)'],
+                       'i3 = gc_load_indexed_i(p0,0,1,'
+                               '%(unicodelendescr.offset)s,'
+                               '%(unicodelendescr.field_size)s)'],
 
-        # getitem str/unicode
+        ## getitem str/unicode
         [True,  (4,),  'i3 = unicodegetitem(p0,i1)' '->'
-                       'i3 = gc_load_indexed_i(p0,i1,4,16,4)'],
+                       'i3 = gc_load_indexed_i(p0,i1,'
+                                  '%(unicodedescr.itemsize)d,'
+                                  '%(unicodedescr.basesize)d,'
+                                  '%(unicodedescr.itemsize)d)'],
         [False, (4,),  'i3 = unicodegetitem(p0,i1)' '->'
-                       'i4 = int_mul(i1, 4);'
-                       'i5 = int_add(i4, 16);'
-                       'i3 = gc_load_i(p0,i5,4)'],
+                       'i4 = int_mul(i1, %(unicodedescr.itemsize)d);'
+                       'i5 = int_add(i4, %(unicodedescr.basesize)d);'
+                       'i3 = gc_load_i(p0,i5,%(unicodedescr.itemsize)d)'],
         [True,  (4,),  'i3 = strgetitem(p0,i1)' '->'
-                       'i3 = gc_load_indexed_i(p0,i1,1,16,1)'],
+                       'i3 = gc_load_indexed_i(p0,i1,1,'
+                       '%(strdescr.basesize)d,1)'],
         [False, (4,),  'i3 = strgetitem(p0,i1)' '->'
-                       'i5 = int_add(i1, 16);'
+                       'i5 = int_add(i1, %(strdescr.basesize)d);'
                        'i3 = gc_load_i(p0,i5,1)'],
-        # setitem str/unicode
+        ## setitem str/unicode
         [True, (4,),  'i3 = strsetitem(p0,i1,0)' '->'
-                      'i3 = gc_store_indexed(p0,i1,0,1,16,1)'],
+                      'i3 = gc_store_indexed(p0,i1,0,1,'
+                               '%(strdescr.basesize)d,1)'],
         [True, (4,),  'i3 = unicodesetitem(p0,i1,0)' '->'
-                      'i3 = gc_store_indexed(p0,i1,0,4,16,4)'],
-        # interior
+                      'i3 = gc_store_indexed(p0,i1,0,'
+                                 '%(unicodedescr.itemsize)d,'
+                                 '%(unicodedescr.basesize)d,'
+                                 '%(unicodedescr.itemsize)d)'],
+        ## interior
         [True, (1,2,4,8), 'i3 = getinteriorfield_gc_i(p0,i1,descr=itzdescr)' '->'
-                          'i4 = int_mul(i1,24);'
-                          'i3 = gc_load_indexed_i(p0,i4,1,24,8)'],
+                          'i4 = int_mul(i1,'
+                             '%(itzdescr.arraydescr.itemsize)d);'
+                          'i3 = gc_load_indexed_i(p0,i4,1,'
+                                   '%(itzdescr.arraydescr.basesize'
+                                   '   + itzdescr.fielddescr.offset)d,'
+                                   '%(itzdescr.fielddescr.field_size)d)'],
         [True, (1,2,4,8), 'i3 = getinteriorfield_gc_r(p0,i1,descr=itxdescr)' '->'
-                          'i4 = int_mul(i1,24);'
-                          'i3 = gc_load_indexed_r(p0,i4,1,8,8)'],
+                          'i4 = int_mul(i1,'
+                             '%(itxdescr.arraydescr.itemsize)d);'
+                          'i3 = gc_load_indexed_r(p0,i4,1,'
+                             '%(itxdescr.arraydescr.basesize'
+                             '   + itxdescr.fielddescr.offset)d,'
+                             '%(itxdescr.fielddescr.field_size)d)'],
         [True, (1,2,4,8), 'i3 = setinteriorfield_gc(p0,i1,i2,descr=itydescr)' '->'
-                          'i4 = int_mul(i1,24);'
-                          'i3 = gc_store_indexed(p0,i4,i2,1,16,8)'],
+                          'i4 = int_mul(i1,'
+                             '%(itydescr.arraydescr.itemsize)d);'
+                          'i3 = gc_store_indexed(p0,i4,i2,1,'
+                             '%(itydescr.arraydescr.basesize'
+                             '   + itydescr.fielddescr.offset)d,'
+                             '%(itydescr.fielddescr.field_size)d)'],
     ])
     def test_gc_load_store_transform(self, support_offset, factors, fromto):
         self.cpu.load_constant_offset = support_offset

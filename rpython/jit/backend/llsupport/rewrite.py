@@ -170,7 +170,7 @@ class GcRewriterAssembler(object):
             factor = 1
         # adjust the constant offset
         if must_manually_load_const:
-            if index_box.is_constant():
+            if isinstance(index_box, ConstInt):
                 index_box = ConstInt(index_box.value + offset)
             else:
                 index_box = ResOperation(rop.INT_ADD, [index_box, ConstInt(offset)])
