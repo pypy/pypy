@@ -372,6 +372,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             i += 1
         assert not self.rm.reg_bindings
         assert not self.xrm.reg_bindings
+        if not we_are_translated():
+            self.assembler.mc.UD2()
         self.flush_loop()
         self.assembler.mc.mark_op(None) # end of the loop
         self.operations = None
@@ -408,21 +410,15 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             self.assembler.guard_success_cc = rx86.Conditions['NZ']
 
 
-    def _consider_guard_cc(true):
-        def consider_guard_cc(self, op):
-            arg = op.getarg(0)
-            if arg.is_vector():
-                loc = self.loc(arg)
-                self.assembler.guard_vector(op, self.loc(arg), true)
-            else:
-                self.load_condition_into_cc(arg)
-            self.perform_guard(op, [], None)
-        return consider_guard_cc
+    def _consider_guard_cc(self, op):
+        arg = op.getarg(0)
+        self.load_condition_into_cc(arg)
+        self.perform_guard(op, [], None)
 
-    consider_guard_true = _consider_guard_cc(True)
-    consider_guard_false = _consider_guard_cc(False)
-    consider_guard_nonnull = _consider_guard_cc(True)
-    consider_guard_isnull = _consider_guard_cc(False)
+    consider_guard_true = _consider_guard_cc
+    consider_guard_false = _consider_guard_cc
+    consider_guard_nonnull = _consider_guard_cc
+    consider_guard_isnull = _consider_guard_cc
 
     def consider_finish(self, op):
         # the frame is in ebp, but we have to point where in the frame is

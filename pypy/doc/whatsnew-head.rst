@@ -44,10 +44,26 @@ Improve the heuristic when disable trace-too-long
 
 .. branch: fix-setslice-can-resize
 
+.. branch: anntype2
+
+A somewhat random bunch of changes and fixes following up on branch 'anntype'. Highlights:
+
+- Implement @doubledispatch decorator and use it for intersection() and difference().
+
+- Turn isinstance into a SpaceOperation
+
+- Create a few direct tests of the fundamental annotation invariant in test_model.py
+
+- Remove bookkeeper attribute from DictDef and ListDef.
+
+.. branch: cffi-static-callback
+
+.. branch: vecopt-absvalue
+
+- Enhancement. Removed vector fields from AbstractValue.
+
 .. branch: memop-simplify2
 
-Backends implement too many loading instructions, only having a slightly different interface.
+Simplification. Backends implement too many loading instructions, only having a slightly different interface.
 Four new operations (gc_load/gc_load_indexed, gc_store/gc_store_indexed) replace all the
-commonly known loading operations, such as: GETARRAYITEM, RAW_STORE, GETINERIORFIELD, ARRAYLEN,
-STRLEN, STRGETITEM, ...
-Transformation is done before the backend assembles machine code.
+commonly known loading operations

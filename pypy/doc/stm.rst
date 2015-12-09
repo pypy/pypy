@@ -99,6 +99,7 @@ in the past (without the patches, you get crashes of clang).  Then get
 the branch `stmgc-c7`_ of PyPy and run::
 
    rpython/bin/rpython -Ojit --stm pypy/goal/targetpypystandalone.py
+   PYTHONPATH=. ./pypy-c pypy/tool/build_cffi_imports.py
 
 .. _`stmgc-c7`: https://bitbucket.org/pypy/pypy/src/stmgc-c7/
 .. _`stmgc-c8`: https://bitbucket.org/pypy/pypy/src/stmgc-c8/

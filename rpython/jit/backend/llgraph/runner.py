@@ -1157,16 +1157,22 @@ class LLFrame(object):
         self.do_renaming(argboxes, args)
 
     def _test_true(self, arg):
-        if isinstance(arg, list):
-            return all(arg)
         assert arg in (0, 1)
         return arg
 
     def _test_false(self, arg):
-        if isinstance(arg, list):
-            return any(arg)
         assert arg in (0, 1)
         return arg
+
+    def execute_vec_guard_true(self, descr, arg):
+        assert isinstance(arg, list)
+        if not all(arg):
+            self.fail_guard(descr)
+
+    def execute_vec_guard_false(self, descr, arg):
+        assert isinstance(arg, list)
+        if any(arg):
+            self.fail_guard(descr)
 
     def execute_guard_true(self, descr, arg):
         if not self._test_true(arg):
