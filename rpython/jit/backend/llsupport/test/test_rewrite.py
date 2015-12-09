@@ -1156,7 +1156,7 @@ class TestFramework(RewriteTests):
         [False, (1,2,4,8), 'setarrayitem_gc(p0,i1,i2,descr=adescr)' '->'
            'i3 = int_mul(i1,%(adescr.itemsize)s);'
            'i4 = int_add(i3,%(adescr.basesize)s);'
-           'gc_store_indexed(p0,i4,i2,,0,%(adescr.itemsize)s)'],
+           'gc_store(p0,i4,i2,%(adescr.itemsize)s)'],
         [True, (1,2,4,8), 'setarrayitem_gc(p0,i1,i2,descr=adescr)' '->'
            'gc_store_indexed(p0,i1,i2,%(adescr.itemsize)s,%(adescr.basesize)s,%(adescr.itemsize)s)'],
         [False, (1,), 'setarrayitem_gc(p0,i1,i2,descr=adescr)' '->'
@@ -1168,12 +1168,12 @@ class TestFramework(RewriteTests):
         [True, None, 'i3 = raw_load_f(p0,i1,descr=fdescr)' '->'
            'gc_load_indexed_f(p0,i1,1,%(fdescr.basesize)s,%(adescr.itemsize)s)'],
         [True, None, 'i3 = raw_load_i(p0,i1,descr=sfdescr)' '->'
-           'gc_load_indexed_i(p0,i1,1,%(sfdescr.basesize)s,%(adescr.itemsize)s)'],
+           'gc_load_indexed_i(p0,i1,1,%(sfdescr.basesize)s,%(sfdescr.itemsize)s)'],
         [True, (1,2,4,8), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)' '->'
            'gc_store_indexed(p0,i1,i2,1,%(raw_sfdescr.basesize)s,%(raw_sfdescr.itemsize)s)'],
         [False, (1,), 'i3 = raw_store(p0,i1,i2,descr=raw_sfdescr)' '->'
-           'i5 = int_add(i1,%(raw_sfdescr.basesize));'
-           'gc_store(p0,i5,i2,%(raw_sfdescr.itemsize))'],
+           'i5 = int_add(i1,%(raw_sfdescr.basesize)s);'
+           'gc_store(p0,i5,i2,%(raw_sfdescr.itemsize)s)'],
         [True, (1,2,4,8), 'i3 = getfield_gc_f(p0,descr=ydescr)' '->'
            'i3 = gc_load_indexed_f(p0,0,1,8,8)'],
         [True, (1,2,4,8), 'i3 = getfield_gc_f(p0,descr=ydescr)' '->'
@@ -1200,12 +1200,11 @@ class TestFramework(RewriteTests):
         [False, (4,),  'i3 = unicodegetitem(p0,i1)' '->'
                        'i4 = int_mul(i1, 4);'
                        'i5 = int_add(i4, 16);'
-                       'i3 = gc_load_indexed_i(p0,i5,1,0,4)'],
+                       'i3 = gc_load_i(p0,i5,4)'],
         [True,  (4,),  'i3 = strgetitem(p0,i1)' '->'
                        'i3 = gc_load_indexed_i(p0,i1,1,16,1)'],
         [False, (4,),  'i3 = strgetitem(p0,i1)' '->'
-                       'i4 = int_mul(i1, 4);'
-                       'i5 = int_add(i4, 16);'
+                       'i5 = int_add(i1, 16);'
                        'i3 = gc_load_i(p0,i5,1)'],
         # setitem str/unicode
         [True, (4,),  'i3 = strsetitem(p0,i1,0)' '->'
