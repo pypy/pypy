@@ -34,9 +34,11 @@ class UniqueCache:
 def _clean_cache(space):
     "NOT_RPYTHON"
     from pypy.module._cffi_backend.realize_c_type import RealizeCache
+    from pypy.module._cffi_backend.call_python import KeepaliveCache
     if hasattr(space, 'fromcache'):   # not with the TinyObjSpace
         space.fromcache(UniqueCache).__init__(space)
         space.fromcache(RealizeCache).__init__(space)
+        space.fromcache(KeepaliveCache).__init__(space)
 
 # ____________________________________________________________
 

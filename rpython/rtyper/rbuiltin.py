@@ -676,24 +676,6 @@ def rtype_cast_int_to_adr(hop):
                      resulttype=llmemory.Address)
 
 
-@typer_for(isinstance)
-def rtype_builtin_isinstance(hop):
-    hop.exception_cannot_occur()
-    if hop.s_result.is_constant():
-        return hop.inputconst(lltype.Bool, hop.s_result.const)
-
-    if hop.args_s[1].is_constant() and hop.args_s[1].const in (str, list, unicode):
-        if hop.args_s[0].knowntype not in (str, list, unicode):
-            raise TyperError("isinstance(x, str/list/unicode) expects x to be known"
-                             " statically to be a str/list/unicode or None")
-        rstrlist = hop.args_r[0]
-        vstrlist = hop.inputarg(rstrlist, arg=0)
-        cnone = hop.inputconst(rstrlist, None)
-        return hop.genop('ptr_ne', [vstrlist, cnone], resulttype=lltype.Bool)
-
-    assert isinstance(hop.args_r[0], rclass.InstanceRepr)
-    return hop.args_r[0].rtype_isinstance(hop)
-
 @typer_for(objectmodel.instantiate)
 def rtype_instantiate(hop, i_nonmovable=None):
     hop.exception_cannot_occur()

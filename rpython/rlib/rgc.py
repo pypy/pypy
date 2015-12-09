@@ -172,7 +172,7 @@ def _make_sure_does_not_move(p):
         # although a pinned object can't move we must return 'False'.  A pinned
         # object can be unpinned any time and becomes movable.
         return False
-    i = 0
+    i = -1
     while can_move(p):
         if i > 6:
             raise NotImplementedError("can't make object non-movable!")

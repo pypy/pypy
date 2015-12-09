@@ -82,17 +82,6 @@ class AssemblerZARCH(BaseAssembler,
             clt.asmmemmgr_blocks = []
         return clt.asmmemmgr_blocks
 
-    def gen_func_prolog(self):
-        """ NOT_RPYTHON """
-        STACK_FRAME_SIZE = 40
-        self.mc.STMG(r.r11, r.r15, l.addr(-STACK_FRAME_SIZE, r.SP))
-        self.mc.AHI(r.SP, l.imm(-STACK_FRAME_SIZE))
-
-    def gen_func_epilog(self):
-        """ NOT_RPYTHON """
-        self.mc.LMG(r.r11, r.r15, l.addr(0, r.SP))
-        self.jmpto(r.r14)
-
     def jmpto(self, register):
         # unconditional jump
         self.mc.BCR_rr(0xf, register.value)
@@ -149,10 +138,8 @@ class AssemblerZARCH(BaseAssembler,
         self.pool.overwrite_64(self.mc, offset, target)
         self.mc.LG(r.r14, l.pool(offset))
 
-        # TODO what is the biggest integer an opaque pointer
-        # can have? if not < 2**31-1 then we need to put it on the pool
-        # overwrite the fail_descr in the jitframe
-        self.mc.LGFI(r.SCRATCH, l.imm(fail_descr))
+        self.mc.load_imm(r.SCRATCH, fail_descr)
+        #self.mc.LGFI(r.SCRATCH, l.imm(fail_descr))
         self.mc.STG(r.SCRATCH, l.addr(ofs, r.SPP))
         self.mc.BCR(l.imm(0xf), r.r14)
 
@@ -573,6 +560,7 @@ class AssemblerZARCH(BaseAssembler,
 
     def _reload_frame_if_necessary(self, mc, shadowstack_reg=None):
         # might trash the VOLATILE registers different from r3 and f1
+        xxx
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             if gcrootmap.is_shadow_stack:

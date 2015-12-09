@@ -33,6 +33,7 @@ VOLATILES_FLOAT = []
 ALL_REG_INDEXES = {}
 for _r in registers:
     ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES)
-for _r in MANAGED_FP_REGS:
+for _r in fpregisters:
     ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES)
 JITFRAME_FIXED_SIZE = len(ALL_REG_INDEXES)
+assert JITFRAME_FIXED_SIZE == 32

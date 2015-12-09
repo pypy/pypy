@@ -35,6 +35,15 @@ def ADDR(value):
     addr = ctypes.addressof(ptr.contents.items)
     return struct.pack('>Q', addr)
 
+def gen_func_prolog(mc):
+    STACK_FRAME_SIZE = 40
+    mc.STMG(r.r11, r.r15, l.addr(-STACK_FRAME_SIZE, r.SP))
+    mc.AHI(r.SP, l.imm(-STACK_FRAME_SIZE))
+
+def gen_func_epilog(mc):
+    mc.LMG(r.r11, r.r15, l.addr(0, r.SP))
+    mc.BCR_rr(0xf, r.r14.value) # jmp to
+
 def isclose(a,b, rel_tol=1e-9, abs_tol=0.0):
     if math.isnan(a) and math.isnan(b):
         return True
@@ -85,10 +94,10 @@ class ActivationRecordCtx(object):
         self.name = name
         self.asm.mc.mark_op(self.name)
     def __enter__(self):
-        self.asm.a.gen_func_prolog()
+        gen_func_prolog(self.asm.mc)
         return self
     def __exit__(self, a, b, c):
-        self.asm.a.gen_func_epilog()
+        gen_func_epilog(self.asm.a.mc)
         self.asm.mc.mark_op(self.name + '.end')
 
 
@@ -120,9 +129,9 @@ class TestRunningAssembler(object):
         assert run_asm(self.a) == 123
 
     def test_prolog_epilog(self):
-        self.a.gen_func_prolog()
+        gen_func_prolog(self.a.mc)
         self.a.mc.LGHI(reg.r2, loc.imm(123))
-        self.a.gen_func_epilog()
+        gen_func_epilog(self.a.mc)
         assert run_asm(self.a) == 123
 
     def test_simple_func(self):
@@ -136,9 +145,9 @@ class TestRunningAssembler(object):
 
         addr = self.a.mc.get_relative_pos()
         assert addr & 0x1 == 0
-        self.a.gen_func_prolog()
+        gen_func_prolog(self.a.mc)
         self.a.mc.LGHI(reg.r2, loc.imm(321))
-        self.a.gen_func_epilog()
+        gen_func_epilog(self.a.mc)
         assert run_asm(self.a) == 321
 
     def test_simple_loop(self):
@@ -174,11 +183,11 @@ class TestRunningAssembler(object):
         assert run_asm(self.a) == 0
 
     def test_literal_pool(self):
-        self.a.gen_func_prolog()
+        gen_func_prolog(self.a.mc)
         self.a.mc.BRAS(reg.r13, loc.imm(8 + self.mc.BRAS_byte_count))
         self.a.mc.write('\x08\x07\x06\x05\x04\x03\x02\x01')
         self.a.mc.LG(reg.r2, loc.addr(0, reg.r13))
-        self.a.gen_func_epilog()
+        gen_func_epilog(self.a.mc)
         assert run_asm(self.a) == 0x0807060504030201
 
     def label(self, name, func=False):

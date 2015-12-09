@@ -638,9 +638,18 @@ class LLGraphCPU(model.AbstractCPU):
         return array.getlength()
 
     def bh_getarrayitem_gc(self, a, index, descr):
-        a = support.cast_arg(lltype.Ptr(descr.A), a)
-        array = a._obj
         assert index >= 0
+        if descr.A is descr.OUTERA:
+            a = support.cast_arg(lltype.Ptr(descr.A), a)
+        else:
+            # we use rffi.cast instead of support.cast_arg because the types
+            # might not be "compatible" enough from the lltype point of
+            # view. In particular, this happens when we use
+            # str_storage_getitem, in which an rpy_string is casted to
+            # rpy_string_as_Signed (or similar)
+            a = rffi.cast(lltype.Ptr(descr.OUTERA), a)
+            a = getattr(a, descr.OUTERA._arrayfld)
+        array = a._obj
         return support.cast_result(descr.A.OF, array.getitem(index))
 
     bh_getarrayitem_gc_pure_i = bh_getarrayitem_gc
@@ -1148,16 +1157,22 @@ class LLFrame(object):
         self.do_renaming(argboxes, args)
 
     def _test_true(self, arg):
-        if isinstance(arg, list):
-            return all(arg)
         assert arg in (0, 1)
         return arg
 
     def _test_false(self, arg):
-        if isinstance(arg, list):
-            return any(arg)
         assert arg in (0, 1)
         return arg
+
+    def execute_vec_guard_true(self, descr, arg):
+        assert isinstance(arg, list)
+        if not all(arg):
+            self.fail_guard(descr)
+
+    def execute_vec_guard_false(self, descr, arg):
+        assert isinstance(arg, list)
+        if any(arg):
+            self.fail_guard(descr)
 
     def execute_guard_true(self, descr, arg):
         if not self._test_true(arg):

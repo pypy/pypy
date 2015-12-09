@@ -413,6 +413,7 @@ add_operator('is_', 2, dispatch=2, pure=True)
 add_operator('id', 1, dispatch=1, pyfunc=id)
 add_operator('type', 1, dispatch=1, pyfunc=new_style_type, pure=True)
 add_operator('issubtype', 2, dispatch=1, pyfunc=issubclass, pure=True)  # not for old-style classes
+add_operator('isinstance', 2, dispatch=1, pyfunc=isinstance, pure=True)
 add_operator('repr', 1, dispatch=1, pyfunc=repr, pure=True)
 add_operator('str', 1, dispatch=1, pyfunc=str, pure=True)
 add_operator('format', 2, pyfunc=unsupported)
