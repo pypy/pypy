@@ -91,6 +91,8 @@ means that it will run up to four threads in parallel.
 To build a version from sources, you first need to compile a custom
 version of gcc(!).  See the instructions here:
 https://bitbucket.org/pypy/stmgc/src/default/gcc-seg-gs/
+(Note that these patches are being incorporated into gcc.  It is likely
+that future versions of gcc will not need to be patched any more.)
 
 Then get the branch `stmgc-c8`_ of PyPy and run::
 
@@ -107,6 +109,12 @@ instructions above.
 
 Current status (stmgc-c7)
 -------------------------
+
+.. warning::
+    
+    THIS PAGE IS OLD, THE REST IS ABOUT STMGC-C7 WHEREAS THE CURRENT
+    DEVELOPMENT WORK IS DONE ON STMGC-C8
+
 
 * **NEW:** It seems to work fine, without crashing any more.  Please `report
   any crash`_ you find (or other bugs).
