@@ -736,6 +736,23 @@ class Regalloc(BaseRegalloc):
     prepare_call_f = _prepare_call
     prepare_call_n = _prepare_call
 
+    def _prepare_gc_load(self, op):
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        sign_box = op.getarg(2)
+        sign = abs(sign_box.value)
+        sign_loc = imm(0)
+        if sign_box.value < 0:
+            sign_loc = imm(1)
+        assert isinstance(sign_box, ConstInt)
+        self.free_op_vars()
+        result_loc = self.force_allocate_reg(op)
+        return [result_loc, base_loc, index_loc, imm(sign), sign_loc]
+
+    prepare_gc_load_i = _prepare_gc_load
+    prepare_gc_load_f = _prepare_gc_load
+    prepare_gc_load_r = _prepare_gc_load
+
     def get_oopspecindex(self, op):
         descr = op.getdescr()
         assert descr is not None

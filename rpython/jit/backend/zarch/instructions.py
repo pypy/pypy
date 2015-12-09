@@ -124,6 +124,12 @@ memory_mnemonic_codes = {
     'LR':      ('rr',    ['\x18']),
     'LGR':     ('rre',   ['\xB9','\x04']),
     'LG':      ('rxy',   ['\xE3','\x04']),
+    'LGF':     ('rxy',   ['\xE3','\x14']),
+    'LLGF':    ('rxy',   ['\xE3','\x16']),
+    'LGH':     ('rxy',   ['\xE3','\x15']),
+    'LLGH':    ('rxy',   ['\xE3','\x91']),
+    'LGB':     ('rxy',   ['\xE3','\x77']),
+    'LLGC':     ('rxy',   ['\xE3','\x90']),
     'LARL':    ('ril',   ['\xC0','\x00'], 'r/m,h32'),
     'IIHF':    ('ril',   ['\xC0','\x08'], 'r,u32'),
 

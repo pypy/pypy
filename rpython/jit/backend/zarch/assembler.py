@@ -15,7 +15,7 @@ from rpython.jit.backend.zarch.arch import (WORD,
         JUMPABS_TARGET_ADDR__POOL_OFFSET, JUMPABS_POOL_ADDR_POOL_OFFSET)
 from rpython.jit.backend.zarch.opassembler import (IntOpAssembler,
     FloatOpAssembler, GuardOpAssembler, MiscOpAssembler,
-    CallOpAssembler)
+    CallOpAssembler, MemoryOpAssembler)
 from rpython.jit.backend.zarch.regalloc import Regalloc
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.resoperation import rop
@@ -33,7 +33,7 @@ from rpython.rlib.jit import AsmInfo
 class AssemblerZARCH(BaseAssembler,
         IntOpAssembler, FloatOpAssembler,
         GuardOpAssembler, CallOpAssembler,
-        MiscOpAssembler):
+        MemoryOpAssembler, MiscOpAssembler):
 
     def __init__(self, cpu, translate_support_code=False):
         BaseAssembler.__init__(self, cpu, translate_support_code)

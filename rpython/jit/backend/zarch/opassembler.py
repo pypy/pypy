@@ -492,6 +492,43 @@ class GuardOpAssembler(object):
         self._store_force_index(op)
         self.store_info_on_descr(0, guard_token)
 
+class MemoryOpAssembler(object):
+    _mixin_ = True
+
+    def _memory_read(self, result_loc, source_loc, size, sign):
+        # res, base_loc, ofs, size and signed are all locations
+        if size == 8:
+            if result_loc.is_fp_reg():
+                self.mc.LD(result_loc, source_loc)
+            else:
+                self.mc.LG(result_loc, source_loc)
+        elif size == 4:
+            if sign:
+                self.mc.LGF(result_loc, source_loc)
+            else:
+                self.mc.LLGF(result_loc, source_loc)
+        elif size == 2:
+            if sign:
+                self.mc.LGH(result_loc, source_loc)
+            else:
+                self.mc.LLGH(result_loc, source_loc)
+        elif size == 1:
+            if sign:
+                self.mc.LGB(result_loc, source_loc)
+            else:
+                self.mc.LLGC(result_loc, source_loc)
+        else:
+            assert 0, "size not supported"
+
+    def _emit_gc_load(self, op, arglocs, regalloc):
+        result_loc, base_loc, ofs_loc, size_loc, sign_loc = arglocs
+        src_addr = l.addr(0, base_loc, ofs_loc)
+        self._memory_read(result_loc, src_addr, size_loc.value, sign_loc.value)
+
+    emit_gc_load_i = _emit_gc_load
+    emit_gc_load_f = _emit_gc_load
+    emit_gc_load_r = _emit_gc_load
+
 class MiscOpAssembler(object):
     _mixin_ = True
 
@@ -523,3 +560,5 @@ class MiscOpAssembler(object):
 
     def emit_leave_portal_frame(self, op, arglocs, regalloc):
         self.leave_portal_frame(op)
+
+
