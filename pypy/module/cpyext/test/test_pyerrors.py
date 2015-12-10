@@ -328,6 +328,9 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_PyErr_Display(self):
+        from sys import version_info
+        if self.runappdirect and (version_info.major < 3 or version_info.minor < 3):
+            skip('PyErr_{GS}etExcInfo introduced in python 3.3')
         module = self.import_extension('foo', [
             ("display_error", "METH_VARARGS",
              r'''
@@ -354,6 +357,9 @@ class AppTestFetch(AppTestCpythonExtensionBase):
 
     def test_GetSetExcInfo(self):
         import sys
+        if self.runappdirect and (sys.version_info.major < 3 or 
+                                  sys.version_info.minor < 3):
+            skip('PyErr_{GS}etExcInfo introduced in python 3.3')
         module = self.import_extension('foo', [
             ("getset_exc_info", "METH_VARARGS",
              r'''

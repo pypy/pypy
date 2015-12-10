@@ -1,3 +1,4 @@
+import py
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from rpython.rtyper.lltypesystem.lltype import nullptr
@@ -46,6 +47,8 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         assert module.get() == 3
 
     def test_basic_threadstate_dance(self):
+        if self.runappdirect:
+            py.test.xfail('segfault')
         module = self.import_extension('foo', [
                 ("dance", "METH_NOARGS",
                  """

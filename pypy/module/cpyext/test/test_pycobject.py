@@ -1,7 +1,10 @@
+import py
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class AppTestStringObject(AppTestCpythonExtensionBase):
     def test_pycobject_import(self):
+        if self.runappdirect:
+            py.test.xfail('segfault')
         module = self.import_extension('foo', [
             ("set_ptr", "METH_O",
              """

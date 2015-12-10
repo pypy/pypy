@@ -448,6 +448,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.tp_str(C()) == "text"
 
     def test_mp_ass_subscript(self):
+        if self.runappdirect:
+            py.test.xfail('segfault')
         module = self.import_extension('foo', [
            ("new_obj", "METH_NOARGS",
             '''
@@ -481,6 +483,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert res is None
 
     def test_sq_contains(self):
+        if self.runappdirect:
+            py.test.xfail('segfault')
         module = self.import_extension('foo', [
            ("new_obj", "METH_NOARGS",
             '''
@@ -538,6 +542,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         raises(StopIteration, module.tp_iternext, it)
 
     def test_bool(self):
+        if self.runappdirect:
+            py.test.xfail('segfault')
         module = self.import_extension('foo', [
             ("newInt", "METH_VARARGS",
              """
@@ -590,6 +596,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         raises(ValueError, bool, module.newInt(-42))
 
     def test_binaryfunc(self):
+        if self.runappdirect:
+            py.test.xfail('segfault')
         module = self.import_extension('foo', [
             ("new_obj", "METH_NOARGS",
              """

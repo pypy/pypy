@@ -1,3 +1,4 @@
+import py
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.pyobject import PyObjectP, from_ref, make_ref, Py_DecRef
@@ -107,6 +108,8 @@ class TestIterator(BaseApiTest):
 
 class AppTestCNumber(AppTestCpythonExtensionBase):
     def test_app_coerce(self):
+        if self.runappdirect:
+            py.test.xfail('crashes with TypeError')
         mod = self.import_extension('foo', [
             ("test_fail", "METH_NOARGS",
              '''

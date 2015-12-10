@@ -226,6 +226,11 @@ class TestNDArrayObject(BaseApiTest):
         '''
 
 class AppTestNDArray(AppTestCpythonExtensionBase):
+    if self.runappdirect:
+        try:
+            import numpy
+        except:
+            skip('numpy not importable')
     def test_ndarray_object_c(self):
         mod = self.import_extension('foo', [
                 ("test_simplenew", "METH_NOARGS",
