@@ -32,6 +32,9 @@ class AbstractLLCPU(AbstractCPU):
     done_with_this_frame_descr_void     = None
     exit_frame_with_exception_descr_ref = None
 
+    # can an ISA instruction handle a factor to the offset?
+    load_supported_factors = (1,)
+
     vector_extension = False
     vector_register_size = 0 # in bytes
     vector_horizontal_operations = False
