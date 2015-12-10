@@ -520,6 +520,26 @@ class MemoryOpAssembler(object):
         else:
             assert 0, "size not supported"
 
+    def _memory_store(self, value_loc, base_loc, ofs, size):
+        if ofs.is_imm():
+            addr = l.addr(ofs.value, base_loc)
+        else:
+            addr = l.addr(0, base_loc, ofs)
+        if size.value == 8:
+            if value_loc.is_fp_reg():
+                self.mc.STDY(value_loc, addr)
+            else:
+                self.mc.STG(value_loc, addr)
+        elif size.value == 4:
+            self.mc.STY(value_loc, addr)
+        elif size.value == 2:
+            self.mc.STHY(value_loc, addr)
+        elif size.value == 1:
+            self.mc.STCY(value_loc, addr)
+        else:
+            assert 0, "size not supported"
+
+
     def _emit_gc_load(self, op, arglocs, regalloc):
         result_loc, base_loc, ofs_loc, size_loc, sign_loc = arglocs
         src_addr = l.addr(0, base_loc, ofs_loc)
@@ -528,6 +548,10 @@ class MemoryOpAssembler(object):
     emit_gc_load_i = _emit_gc_load
     emit_gc_load_f = _emit_gc_load
     emit_gc_load_r = _emit_gc_load
+
+    def emit_gc_store(self, op, arglocs, regalloc):
+        (base_loc, index_loc, value_loc, size_loc) = arglocs
+        self._memory_store(value_loc, base_loc, index_loc, size_loc)
 
 class MiscOpAssembler(object):
     _mixin_ = True
