@@ -6,7 +6,7 @@ import py
 
 from pypy.conftest import pypydir
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter import gateway
 from rpython.rtyper.lltypesystem import rffi, lltype, ll2ctypes
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import platform
@@ -90,6 +90,37 @@ def compile_extension_module(space, modname, **kwds):
     pydname = soname.new(purebasename=modname, ext=get_so_extension(space))
     soname.rename(pydname)
     return str(pydname)
+
+def compile_extension_module_applevel(space, modname, **kwds):
+    """
+    Build an extension module and return the filename of the resulting native
+    code file.
+
+    modname is the name of the module, possibly including dots if it is a module
+    inside a package.
+
+    Any extra keyword arguments are passed on to ExternalCompilationInfo to
+    build the module (so specify your source with one of those).
+    """
+    if sys.platform == 'win32':
+        kwds["compile_extra"] = ["/we4013"]
+    elif sys.platform == 'darwin':
+        pass
+    elif sys.platform.startswith('linux'):
+            kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
+
+    modname = modname.split('.')[-1]
+    eci = ExternalCompilationInfo(
+        include_dirs = [space.include_dir],
+        **kwds
+        )
+    eci = eci.convert_sources_to_files()
+    dirname = (udir/uniquemodulename('module')).ensure(dir=1)
+    soname = platform.platform.compile(
+        [], eci,
+        outputfilename=str(dirname/modname),
+        standalone=False)
+    return str(soname)
 
 def freeze_refcnts(self):
     state = self.space.fromcache(RefcountState)
@@ -218,7 +249,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         state.non_heaptypes_w[:] = []
 
     def setup_method(self, func):
-        @unwrap_spec(name=str)
+        @gateway.unwrap_spec(name=str)
         def compile_module(space, name,
                            w_separate_module_files=None,
                            w_separate_module_sources=None):
@@ -237,13 +268,13 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 assert separate_module_sources is not None
             else:
                 separate_module_sources = []
-            pydname = compile_extension_module(
+            pydname = self.compile_extension_module(
                 space, name,
                 separate_module_files=separate_module_files,
                 separate_module_sources=separate_module_sources)
             return space.wrap(pydname)
 
-        @unwrap_spec(name=str, init='str_or_None', body=str,
+        @gateway.unwrap_spec(name=str, init='str_or_None', body=str,
                      load_it=bool, filename='str_or_None',
                      PY_SSIZE_T_CLEAN=bool)
         def import_module(space, name, init=None, body='',
@@ -262,6 +293,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 code = """
                 %(PY_SSIZE_T_CLEAN)s
                 #include <Python.h>
+                /* fix for cpython 2.7 Python.h if running tests with -A 
+                   since pypy compiles with -fvisibility-hidden */
+                #undef PyMODINIT_FUNC
+                #define PyMODINIT_FUNC RPY_EXPORTED void
+
                 %(body)s
 
                 PyMODINIT_FUNC
@@ -280,25 +316,29 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                         / 'cpyext'/ 'test' / (filename + ".c")
                 kwds = dict(separate_module_files=[filename])
 
-            mod = compile_extension_module(space, name, **kwds)
+            mod = self.compile_extension_module(space, name, **kwds)
 
             if load_it:
-                api.load_extension_module(space, mod, name)
-                self.imported_module_names.append(name)
-                return space.getitem(
-                    space.sys.get('modules'),
-                    space.wrap(name))
+                if self.runappdirect:
+                    import imp
+                    return imp.load_dynamic(name, mod)
+                else:
+                    api.load_extension_module(space, mod, name)
+                    self.imported_module_names.append(name)
+                    return space.getitem(
+                        space.sys.get('modules'),
+                        space.wrap(name))
             else:
                 return os.path.dirname(mod)
 
-        @unwrap_spec(mod=str, name=str)
+        @gateway.unwrap_spec(mod=str, name=str)
         def reimport_module(space, mod, name):
             api.load_extension_module(space, mod, name)
             return space.getitem(
                 space.sys.get('modules'),
                 space.wrap(name))
 
-        @unwrap_spec(modname=str, prologue=str, more_init=str, PY_SSIZE_T_CLEAN=bool)
+        @gateway.unwrap_spec(modname=str, prologue=str, more_init=str, PY_SSIZE_T_CLEAN=bool)
         def import_extension(space, modname, w_functions, prologue="",
                              more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
@@ -328,7 +368,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return import_module(space, name=modname, init=init, body=body,
                                  PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
 
-        @unwrap_spec(name=str)
+        @gateway.unwrap_spec(name=str)
         def record_imported_module(name):
             """
             Record a module imported in a test so that it can be cleaned up in
@@ -342,12 +382,30 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         # self.space).  These will be cleaned up automatically in teardown.
         self.imported_module_names = []
 
-        self.w_compile_module = self.space.wrap(interp2app(compile_module))
-        self.w_import_module = self.space.wrap(interp2app(import_module))
-        self.w_reimport_module = self.space.wrap(interp2app(reimport_module))
-        self.w_import_extension = self.space.wrap(interp2app(import_extension))
-        self.w_record_imported_module = self.space.wrap(
-            interp2app(record_imported_module))
+        if self.runappdirect:
+            def interp2app(func):
+                from distutils.sysconfig import get_python_inc
+                class FakeSpace(object):
+                    def unwrap(self, args):
+                        return args
+                fake = FakeSpace()
+                fake.include_dir = get_python_inc()
+                fake.config = self.space.config
+                def run(*args, **kwargs):
+                    return func(fake, *args, **kwargs)
+                return run
+            def wrap(func):
+                return func
+            self.compile_extension_module = compile_extension_module_applevel
+        else:
+            interp2app = gateway.interp2app
+            wrap = self.space.wrap
+            self.compile_extension_module = compile_extension_module
+        self.w_compile_module = wrap(interp2app(compile_module))
+        self.w_import_module = wrap(interp2app(import_module))
+        self.w_reimport_module = wrap(interp2app(reimport_module))
+        self.w_import_extension = wrap(interp2app(import_extension))
+        self.w_record_imported_module = wrap(interp2app(record_imported_module))
         self.w_here = self.space.wrap(
             str(py.path.local(pypydir)) + '/module/cpyext/test/')
 

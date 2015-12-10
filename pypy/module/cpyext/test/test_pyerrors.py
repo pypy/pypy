@@ -105,9 +105,6 @@ class TestExceptions(BaseApiTest):
         assert False # XXX test PyOS_InterruptOccurred
 
 class AppTestFetch(AppTestCpythonExtensionBase):
-    def setup_class(cls):
-        AppTestCpythonExtensionBase.setup_class.im_func(cls)
-        space = cls.space
 
     def test_occurred(self):
         module = self.import_extension('foo', [
