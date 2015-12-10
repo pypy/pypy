@@ -24,8 +24,6 @@ class AbstractX86CPU(AbstractLLCPU):
     with_threads = False
     frame_reg = regloc.ebp
 
-    # can an ISA instruction handle a constant offset?
-    load_constant_offset = True
     # can an ISA instruction handle a factor to the offset?
     load_supported_factors = (1,2,4,8)
 

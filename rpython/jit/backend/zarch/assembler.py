@@ -560,11 +560,11 @@ class AssemblerZARCH(BaseAssembler,
 
     def _reload_frame_if_necessary(self, mc, shadowstack_reg=None):
         # might trash the VOLATILE registers different from r3 and f1
-        xxx
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
                 if shadowstack_reg is None:
+                    xxx
                     diff = mc.load_imm_plus(r.SPP,
                                             gcrootmap.get_root_stack_top_addr())
                     mc.load(r.SPP.value, r.SPP.value, diff)

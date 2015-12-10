@@ -31,6 +31,8 @@ class CPU_S390_64(AbstractZARCHCPU):
     gen_regs = r.registers
     float_regs = r.MANAGED_FP_REGS
 
+    load_supported_factors = (1,)
+
     def setup(self):
         self.assembler = AssemblerZARCH(self)
 
