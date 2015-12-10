@@ -640,6 +640,7 @@ def _list_all_operations(result, operations, omit_finish=True):
 
 
 TAGINT, TAGCONST, TAGBOX = range(3)
+MAXINT = 65536
 
 def tag(kind, pos):
     return (pos << 2) | kind
@@ -654,11 +655,14 @@ class History(object):
 
     def encode(self, box):
         if isinstance(box, Const):
-            xxx
+            if isinstance(box, ConstInt) and box.getint() < MAXINT:
+                return tag(TAGINT, box.getint())
+            else:
+                yyy
         elif isinstance(box, AbstractResOp):
-            xxx
+            return tag(TAGBOX, box.position)
         elif isinstance(box, AbstractInputArg):
-            return tag(TAGBOX, -box.position)
+            return tag(TAGBOX, -box.position - 1)
         else:
             yyy
 

@@ -90,7 +90,7 @@ def ResOperation(opnum, args, position, descr=None):
     op = cls()
     op.initarglist(args)
     assert isinstance(position, int)
-    op.postion = position
+    op.position = position
     if descr is not None:
         assert isinstance(op, ResOpWithDescr)
         if opnum == rop.FINISH:
