@@ -76,14 +76,21 @@ class CallBuilder(AbstractCallBuilder):
         base = -len(stack_params) * 8
         for idx,i in enumerate(stack_params):
             loc = arglocs[i]
+            offset = base + 8 * idx
             if loc.type == FLOAT:
                 if loc.is_fp_reg():
                     src = loc
                 else:
                     src = r.FP_SCRATCH
                     self.asm.regalloc_mov(loc, src)
-                offset = base + 8 * idx
                 self.mc.STDY(src, l.addr(offset, r.SP))
+            else:
+                if loc.is_core_reg():
+                    src = loc
+                else:
+                    src = r.SCRATCH
+                    self.asm.regalloc_mov(loc, src)
+                self.mc.STG(src, l.addr(offset, r.SP))
 
         # We must also copy fnloc into FNREG
         non_float_locs.append(self.fnloc)
