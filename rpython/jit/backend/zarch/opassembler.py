@@ -520,22 +520,18 @@ class MemoryOpAssembler(object):
         else:
             assert 0, "size not supported"
 
-    def _memory_store(self, value_loc, base_loc, ofs, size):
-        if ofs.is_imm():
-            addr = l.addr(ofs.value, base_loc)
-        else:
-            addr = l.addr(0, base_loc, ofs)
+    def _memory_store(self, value_loc, addr_loc, size):
         if size.value == 8:
             if value_loc.is_fp_reg():
-                self.mc.STDY(value_loc, addr)
+                self.mc.STDY(value_loc, addr_loc)
             else:
-                self.mc.STG(value_loc, addr)
+                self.mc.STG(value_loc, addr_loc)
         elif size.value == 4:
-            self.mc.STY(value_loc, addr)
+            self.mc.STY(value_loc, addr_loc)
         elif size.value == 2:
-            self.mc.STHY(value_loc, addr)
+            self.mc.STHY(value_loc, addr_loc)
         elif size.value == 1:
-            self.mc.STCY(value_loc, addr)
+            self.mc.STCY(value_loc, addr_loc)
         else:
             assert 0, "size not supported"
 
@@ -549,9 +545,39 @@ class MemoryOpAssembler(object):
     emit_gc_load_f = _emit_gc_load
     emit_gc_load_r = _emit_gc_load
 
+    def _emit_gc_load_indexed(self, op, arglocs, regalloc):
+        result_loc, base_loc, index_loc, offset_loc, size_loc, sign_loc =arglocs
+        if offset_loc.is_imm() and self._mem_offset_supported(offset_loc.value):
+            addr_loc = l.addr(offset_loc.value, base_loc, index_loc)
+        else:
+            self.mc.LGR(r.SCRATCH, index_loc)
+            slef.mc.AGR(r.SCRATCH, offset_loc)
+            addr_loc = l.addr(0, base_loc, r.SCRATCH)
+        self._memory_read(result_loc, addr_loc, size_loc.value, sign_loc.value)
+
+    emit_gc_load_indexed_i = _emit_gc_load_indexed
+    emit_gc_load_indexed_f = _emit_gc_load_indexed
+    emit_gc_load_indexed_r = _emit_gc_load_indexed
+
     def emit_gc_store(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc, size_loc) = arglocs
-        self._memory_store(value_loc, base_loc, index_loc, size_loc)
+        self._memory_store(value_loc, base_loc, l.addr(0, index_loc), size_loc)
+
+    def emit_gc_store_indexed(self, op, arglocs, regalloc):
+        (base_loc, index_loc, value_loc, offset_loc, size_loc) = arglocs
+        if offset_loc.is_imm() and self._mem_offset_supported(offset_loc.value):
+            addr_loc = l.addr(offset_loc.value, base_loc, index_loc)
+        else:
+            self.mc.LGR(r.SCRATCH, index_loc)
+            slef.mc.AGR(r.SCRATCH, offset_loc)
+            addr_loc = l.addr(0, base_loc, r.SCRATCH)
+        if value_loc.is_in_pool():
+            self.mc.LG(r.SCRATCH2, value_loc)
+            value_loc = r.SCRATCH2
+        self._memory_store(value_loc, addr_loc, size_loc)
+
+    def _mem_offset_supported(self, value):
+        return -2**19 <= value < 2**19
 
 class MiscOpAssembler(object):
     _mixin_ = True

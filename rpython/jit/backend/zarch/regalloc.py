@@ -756,9 +756,9 @@ class Regalloc(BaseRegalloc):
     def _prepare_gc_load_indexed(self, op):
         base_loc = self.ensure_reg(op.getarg(0))
         index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
-        scale_box = op.getarg(3)
-        offset_box = op.getarg(4)
-        size_box = op.getarg(5)
+        scale_box = op.getarg(2)
+        offset_box = op.getarg(3)
+        size_box = op.getarg(4)
         assert isinstance(scale_box, ConstInt)
         assert isinstance(offset_box, ConstInt)
         assert isinstance(size_box, ConstInt)
@@ -773,7 +773,7 @@ class Regalloc(BaseRegalloc):
             sign_loc = imm0
         self.free_op_vars()
         result_loc = self.force_allocate_reg(op)
-        return [result_loc, base_loc, index_loc, imm(scale), imm(offset), size_loc, sign_loc]
+        return [result_loc, base_loc, index_loc, imm(offset), size_loc, sign_loc]
 
     prepare_gc_load_indexed_i = _prepare_gc_load_indexed
     prepare_gc_load_indexed_f = _prepare_gc_load_indexed
@@ -801,10 +801,10 @@ class Regalloc(BaseRegalloc):
         assert isinstance(offset_box, ConstInt)
         assert isinstance(size_box, ConstInt)
         factor = scale_box.value
+        assert factor == 1
         offset = offset_box.value
         size = size_box.value
-        return [base_loc, index_loc, value_loc,
-                imm(factor), imm(offset), imm(abs(size))]
+        return [base_loc, index_loc, value_loc, imm(offset), imm(abs(size))]
 
     def get_oopspecindex(self, op):
         descr = op.getdescr()
