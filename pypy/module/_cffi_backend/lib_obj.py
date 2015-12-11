@@ -194,6 +194,8 @@ class W_LibObject(W_Root):
                     return self.dir1(ignore_global_vars=True)
                 if is_getattr and attr == '__dict__':
                     return self.full_dict_copy()
+                if is_getattr and attr == '__class__':
+                    return self.space.type(self)
                 if is_getattr and attr == '__name__':
                     return self.descr_repr()
                 raise oefmt(self.space.w_AttributeError,

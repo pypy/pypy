@@ -1029,6 +1029,7 @@ class AppTestRecompiler:
         assert hasattr(lib, '__dict__')
         assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
         assert lib.__name__ == repr(lib)
+        assert lib.__class__ is type(lib)
 
     def test_macro_var_callback(self):
         ffi, lib = self.prepare(
