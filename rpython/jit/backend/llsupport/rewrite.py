@@ -156,8 +156,7 @@ class GcRewriterAssembler(object):
         orig_factor = factor
         # factor
         must_manually_load_const = False
-        if factor != 1 and (factor not in self.cpu.load_supported_factors or \
-                            (not index_box.is_constant() and must_manually_load_const)):
+        if factor != 1 and factor not in self.cpu.load_supported_factors:
             # enter here if the factor is supported by the cpu
             if isinstance(index_box, ConstInt):
                 index_box = ConstInt(index_box.value * factor)
@@ -522,8 +521,10 @@ class GcRewriterAssembler(object):
         # SETARRAYITEM_GC we see before the next allocation operation.
         # See emit_pending_zeros().
         scale = arraydescr.itemsize
-        scale, v_length_scaled = \
-                self._emit_mul_if_factor_not_supported(v_length, scale)
+        v_length_scaled = v_length
+        if not isinstance(v_length, ConstInt):
+            scale, v_length_scaled = \
+                    self._emit_mul_if_factor_not_supported(v_length, scale)
         v_scale = ConstInt(scale)
         # there is probably no point in doing _emit_mul_if.. for
         # c_zero!
@@ -650,6 +651,8 @@ class GcRewriterAssembler(object):
         # are also already in 'newops', which is the point.
         for op in self.last_zero_arrays:
             assert op.getopnum() == rop.ZERO_ARRAY
+            descr = op.getdescr()
+            scale = arraydescr.itemsize
             box = op.getarg(0)
             try:
                 intset = self.setarrayitems_occurred(box)
@@ -659,13 +662,14 @@ class GcRewriterAssembler(object):
             start = 0
             while start in intset:
                 start += 1
-            op.setarg(1, ConstInt(start))
+            op.setarg(1, ConstInt(start * scale))
             stop = op.getarg(2).getint()
             assert start <= stop
             while stop > start and (stop - 1) in intset:
                 stop -= 1
-            op.setarg(2, ConstInt(stop - start))
+            op.setarg(2, ConstInt((stop - start) * scale))
             # ^^ may be ConstInt(0); then the operation becomes a no-op
+            op.setarg(3, ConstInt(1)) # set scale to 1
         del self.last_zero_arrays[:]
         self._setarrayitems_occurred.clear()
         #
