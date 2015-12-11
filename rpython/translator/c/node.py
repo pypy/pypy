@@ -399,7 +399,10 @@ class FixedSizeArrayDefNode(NodeWithDependencies):
         self.itemtypename = db.gettype(FIXEDARRAY.OF, who_asks=self)
         self.fulltypename = self.itemtypename.replace('@', '(@)[%d]' %
                                                       FIXEDARRAY.length)
-        self.fullptrtypename = self.itemtypename.replace('@', '*@')
+        if self.db.with_stm and self.LLTYPE._hints.get('inside_gcobj', False):
+            self.fullptrtypename = self.itemtypename.replace('@', ' TLPREFIX *@')
+        else:
+            self.fullptrtypename = self.itemtypename.replace('@', '*@')
 
     def setup(self):
         """Loops are forbidden by ForwardReference.become() because

@@ -2029,7 +2029,11 @@ class _subarray(_parentable):     # only for direct_fieldptr()
             else:
                 # for direct_arrayitems
                 ITEMTYPE = PARENTTYPE.OF
-            ARRAYTYPE = FixedSizeArray(ITEMTYPE, 1)
+            if PARENTTYPE._gckind == 'gc':
+                ARRAYTYPE = FixedSizeArray(ITEMTYPE, 1,
+                                           hints={'inside_gcobj': True})
+            else:
+                ARRAYTYPE = FixedSizeArray(ITEMTYPE, 1)
             subarray = _subarray(ARRAYTYPE, parent, baseoffset_or_fieldname)
             cache[baseoffset_or_fieldname] = subarray
         return _ptr(Ptr(subarray._TYPE), subarray, solid)
