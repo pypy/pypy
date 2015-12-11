@@ -125,9 +125,8 @@ class GcRewriterAssembler(object):
 
     def emit_gc_store_or_indexed(self, op, ptr_box, index_box, value_box,
                                  itemsize, factor, offset):
-        factor, offset, index_box = \
-                self._emit_mul_add_if_factor_offset_not_supported(index_box,
-                        factor, offset)
+        factor, index_box = \
+                self._emit_mul_if_factor_not_supported(index_box, factor)
         #
         if factor == 1 and offset == 0:
             args = [ptr_box, index_box, value_box, ConstInt(itemsize)]
@@ -153,35 +152,24 @@ class GcRewriterAssembler(object):
         index_box = op.getarg(1)
         self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, 1, ofs, sign)
 
-    def _emit_mul_add_if_factor_offset_not_supported(self, index_box, factor, offset):
+    def _emit_mul_if_factor_not_supported(self, index_box, factor):
         orig_factor = factor
         # factor
-        must_manually_load_const = False # offset != 0 and not self.cpu.load_constant_offset
+        must_manually_load_const = False
         if factor != 1 and (factor not in self.cpu.load_supported_factors or \
                             (not index_box.is_constant() and must_manually_load_const)):
             # enter here if the factor is supported by the cpu
-            # OR the index is not constant and a new resop must be emitted
-            # to add the offset
             if isinstance(index_box, ConstInt):
                 index_box = ConstInt(index_box.value * factor)
             else:
                 index_box = ResOperation(rop.INT_MUL, [index_box, ConstInt(factor)])
                 self.emit_op(index_box)
             factor = 1
-        # adjust the constant offset
-        #if must_manually_load_const:
-        #    if isinstance(index_box, ConstInt):
-        #        index_box = ConstInt(index_box.value + offset)
-        #    else:
-        #        index_box = ResOperation(rop.INT_ADD, [index_box, ConstInt(offset)])
-        #        self.emit_op(index_box)
-        #    offset = 0
-        return factor, offset, index_box
+        return factor, index_box
 
     def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize, factor, offset, sign, type='i'):
-        factor, offset, index_box = \
-                self._emit_mul_add_if_factor_offset_not_supported(index_box,
-                        factor, offset)
+        factor, index_box = \
+                self._emit_mul_if_factor_not_supported(index_box, factor)
         #
         if sign:
             # encode signed into the itemsize value
@@ -533,8 +521,14 @@ class GcRewriterAssembler(object):
         # the ZERO_ARRAY operation will be optimized according to what
         # SETARRAYITEM_GC we see before the next allocation operation.
         # See emit_pending_zeros().
-        o = ResOperation(rop.ZERO_ARRAY, [v_arr, self.c_zero, v_length],
-                         descr=arraydescr)
+        scale = arraydescr.itemsize
+        scale, v_length_scaled = \
+                self._emit_mul_if_factor_not_supported(v_length, scale)
+        v_scale = ConstInt(scale)
+        # there is probably no point in doing _emit_mul_if.. for
+        # c_zero!
+        args = [v_arr, self.c_zero, v_length_scaled, v_scale]
+        o = ResOperation(rop.ZERO_ARRAY, args, descr=arraydescr)
         self.emit_op(o)
         if isinstance(v_length, ConstInt):
             self.last_zero_arrays.append(self._newops[-1])
@@ -613,9 +607,8 @@ class GcRewriterAssembler(object):
             index = index_list[i] // itemsize # index is in bytes
             # emit GC_LOAD_INDEXED
             itemsize, basesize, _ = unpack_arraydescr(descr)
-            factor, offset, index_box = \
-                    self._emit_mul_add_if_factor_offset_not_supported(ConstInt(index),
-                            itemsize, basesize)
+            factor, index_box = \
+                    self._emit_mul_if_factor_not_supported(ConstInt(index), itemsize)
             args = [frame, index_box, arg, ConstInt(factor),
                     ConstInt(offset), ConstInt(itemsize)]
             self.emit_op(ResOperation(rop.GC_STORE_INDEXED, args))

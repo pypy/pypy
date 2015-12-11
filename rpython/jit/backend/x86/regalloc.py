@@ -1390,8 +1390,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         pass
 
     def consider_zero_array(self, op):
-        itemsize, baseofs, _ = unpack_arraydescr(op.getdescr())
+        _, baseofs, _ = unpack_arraydescr(op.getdescr())
         length_box = op.getarg(2)
+        scale_box = op.getarg(3)
+        assert isinstance(scale_box, ConstInt)
+        itemsize = scale_box.value
         if isinstance(length_box, ConstInt):
             constbytes = length_box.getint() * itemsize
             if constbytes == 0:
@@ -1401,9 +1404,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         args = op.getarglist()
         base_loc = self.rm.make_sure_var_in_reg(args[0], args)
         startindex_loc = self.rm.make_sure_var_in_reg(args[1], args)
-        if 0 <= constbytes <= 16 * 8 and (
-                valid_addressing_size(itemsize) or
-                isinstance(startindex_loc, ImmedLoc)):
+        if 0 <= constbytes <= 16 * 8:
             if IS_X86_64:
                 null_loc = X86_64_XMM_SCRATCH_REG
             else:
