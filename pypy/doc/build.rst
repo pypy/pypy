@@ -73,28 +73,36 @@ bz2
 lzma (PyPy3 only)
     liblzma
 
-sqlite3
-    libsqlite3
-
-curses
-    libncurses + cffi dependencies from above
-
 pyexpat
     libexpat1
 
 _ssl
     libssl
 
+Make sure to have these libraries (with development headers) installed
+before building PyPy, otherwise the resulting binary will not contain
+these modules.  Furthermore, the following libraries should be present
+after building PyPy, otherwise the corresponding CFFI modules are not
+built (you can run or re-run `pypy/tool/release/package.py` to retry
+to build them; you don't need to re-translate the whole PyPy):
+
+sqlite3
+    libsqlite3
+
+curses
+    libncurses
+
 gdbm
     libgdbm-dev
 
-Make sure to have these libraries (with development headers) installed before
-building PyPy, otherwise the resulting binary will not contain these modules.
+tk
+    tk-dev
 
 On Debian, this is the command to install all build-time dependencies::
 
     apt-get install gcc make libffi-dev pkg-config libz-dev libbz2-dev \
-    libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev libgdbm-dev
+    libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev libgdbm-dev \
+    tk-dev
 
 For the optional lzma module on PyPy3 you will also need ``liblzma-dev``.
 
@@ -102,6 +110,7 @@ On Fedora::
 
     yum install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
     lib-sqlite3-devel ncurses-devel expat-devel openssl-devel
+    (XXX plus the Febora version of libgdbm-dev and tk-dev)
 
 For the optional lzma module on PyPy3 you will also need ``xz-devel``.
 
@@ -110,6 +119,7 @@ On SLES11::
     zypper install gcc make python-devel pkg-config \
     zlib-devel libopenssl-devel libbz2-devel sqlite3-devel \
     libexpat-devel libffi-devel python-curses
+    (XXX plus the SLES11 version of libgdbm-dev and tk-dev)
 
 For the optional lzma module on PyPy3 you will also need ``xz-devel``.
 
