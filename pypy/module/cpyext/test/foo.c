@@ -633,6 +633,11 @@ static PyMethodDef foo_functions[] = {
 
 
 /* Initialize this module. */
+#ifdef __GNUC__
+extern __attribute__((visibility("default")))
+#else
+extern __declspec(dllexport)
+#endif
 
 PyMODINIT_FUNC
 initfoo(void)
