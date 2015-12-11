@@ -125,11 +125,13 @@ Run the translation
 
 Translate with JIT::
 
-    pypy rpython/bin/rpython --opt=jit pypy/goal/targetpypystandalone.py
+    cd pypy/goal
+    pypy ../../rpython/bin/rpython --opt=jit
 
 Translate without JIT::
 
-    pypy rpython/bin/rpython --opt=2 pypy/goal/targetpypystandalone.py
+    cd pypy/goal
+    pypy ../../rpython/bin/rpython --opt=2
 
 (You can use ``python`` instead of ``pypy`` here, which will take longer
 but works too.)
