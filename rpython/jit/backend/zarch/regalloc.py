@@ -4,7 +4,7 @@ from rpython.jit.backend.llsupport.regalloc import (RegisterManager, FrameManage
 from rpython.jit.backend.llsupport.jump import remap_frame_layout_mixed
 from rpython.jit.backend.zarch.arch import WORD
 from rpython.jit.codewriter import longlong
-from rpython.jit.backend.zarch.locations import imm, get_fp_offset
+from rpython.jit.backend.zarch.locations import imm, get_fp_offset, imm0, imm1
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                             INT, REF, FLOAT, VOID)
 from rpython.jit.metainterp.history import JitCellToken, TargetToken
@@ -742,16 +742,42 @@ class Regalloc(BaseRegalloc):
         size_box = op.getarg(2)
         assert isinstance(size_box, ConstInt)
         size = abs(size_box.value)
-        sign = 0
+        sign_loc = imm0
         if size_box.value < 0:
-            sign = 1
+            sign_loc = imm1
         self.free_op_vars()
         result_loc = self.force_allocate_reg(op)
-        return [result_loc, base_loc, index_loc, imm(size), imm(sign)]
+        return [result_loc, base_loc, index_loc, imm(size), sign_loc]
 
     prepare_gc_load_i = _prepare_gc_load
     prepare_gc_load_f = _prepare_gc_load
     prepare_gc_load_r = _prepare_gc_load
+
+    def _prepare_gc_load_indexed(self, op):
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        scale_box = op.getarg(3)
+        offset_box = op.getarg(4)
+        size_box = op.getarg(5)
+        assert isinstance(scale_box, ConstInt)
+        assert isinstance(offset_box, ConstInt)
+        assert isinstance(size_box, ConstInt)
+        scale = scale_box.value
+        assert scale == 1
+        offset = offset_box.value
+        size = size_box.value
+        size_loc = imm(abs(size))
+        if size < 0:
+            sign_loc = imm1
+        else:
+            sign_loc = imm0
+        self.free_op_vars()
+        result_loc = self.force_allocate_reg(op)
+        return [result_loc, base_loc, index_loc, imm(scale), imm(offset), size_loc, sign_loc]
+
+    prepare_gc_load_indexed_i = _prepare_gc_load_indexed
+    prepare_gc_load_indexed_f = _prepare_gc_load_indexed
+    prepare_gc_load_indexed_r = _prepare_gc_load_indexed
 
     def prepare_gc_store(self, op):
         base_loc = self.ensure_reg(op.getarg(0))
@@ -762,6 +788,23 @@ class Regalloc(BaseRegalloc):
         size = abs(size_box.value)
         self.free_op_vars()
         return [base_loc, index_loc, value_loc, imm(size)]
+
+    def prepare_gc_store_indexed(self, op):
+        args = op.getarglist()
+        base_loc = self.ensure_reg(op.getarg(0))
+        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        value_loc = self.ensure_reg(op.getarg(2))
+        scale_box = op.getarg(3)
+        offset_box = op.getarg(4)
+        size_box = op.getarg(5)
+        assert isinstance(scale_box, ConstInt)
+        assert isinstance(offset_box, ConstInt)
+        assert isinstance(size_box, ConstInt)
+        factor = scale_box.value
+        offset = offset_box.value
+        size = size_box.value
+        return [base_loc, index_loc, value_loc,
+                imm(factor), imm(offset), imm(abs(size))]
 
     def get_oopspecindex(self, op):
         descr = op.getdescr()
