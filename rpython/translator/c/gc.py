@@ -109,9 +109,9 @@ class RefcountingInfo:
 
 class RefcountingGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self):
+    def gettransformer(self, translator):
         from rpython.memory.gctransform import refcounting
-        return refcounting.RefcountingGCTransformer(self.db.translator)
+        return refcounting.RefcountingGCTransformer(translator)
 
     def common_gcheader_initdata(self, defnode):
         if defnode.db.gctransformer is not None:
@@ -197,9 +197,9 @@ class BoehmInfo:
 
 class BoehmGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self):
+    def gettransformer(self, translator):
         from rpython.memory.gctransform import boehm
-        return boehm.BoehmGCTransformer(self.db.translator)
+        return boehm.BoehmGCTransformer(translator)
 
     def common_gcheader_initdata(self, defnode):
         if defnode.db.gctransformer is not None:
@@ -313,9 +313,9 @@ class NoneGcPolicy(BoehmGcPolicy):
 
 class BasicFrameworkGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self):
+    def gettransformer(self, translator):
         if hasattr(self, 'transformerclass'):    # for rpython/memory tests
-            return self.transformerclass(self.db.translator)
+            return self.transformerclass(translator)
         raise NotImplementedError
 
     def struct_setup(self, structdefnode, rtti):
@@ -440,15 +440,15 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
 
 class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
-    def gettransformer(self):
+    def gettransformer(self, translator):
         from rpython.memory.gctransform import shadowstack
-        return shadowstack.ShadowStackFrameworkGCTransformer(self.db.translator)
+        return shadowstack.ShadowStackFrameworkGCTransformer(translator)
 
 class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
-    def gettransformer(self):
+    def gettransformer(self, translator):
         from rpython.memory.gctransform import asmgcroot
-        return asmgcroot.AsmGcRootFrameworkGCTransformer(self.db.translator)
+        return asmgcroot.AsmGcRootFrameworkGCTransformer(translator)
 
     def GC_KEEPALIVE(self, funcgen, v):
         return 'pypy_asm_keepalive(%s);' % funcgen.expr(v)

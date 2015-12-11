@@ -58,7 +58,7 @@ class LowLevelDatabase(object):
         else:
             self.exctransformer = translator.getexceptiontransformer()
         if translator is not None:
-            self.gctransformer = self.gcpolicy.gettransformer()
+            self.gctransformer = self.gcpolicy.gettransformer(translator)
         self.completed = False
 
         self.instrument_ncounter = 0
