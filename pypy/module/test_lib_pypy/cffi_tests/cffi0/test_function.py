@@ -465,10 +465,22 @@ class TestFunction(object):
         ffi = FFI(backend=self.Backend())
         ffi.cdef("double __stdcall sin(double x);")     # stdcall ignored
         m = ffi.dlopen(lib_m)
-        if (sys.platform == 'win32' and sys.maxsize < 2**32 and 
+        if (sys.platform == 'win32' and sys.maxsize < 2**32 and
                 self.Backend is not CTypesBackend):
             assert "double(__stdcall *)(double)" in str(ffi.typeof(m.sin))
         else:
             assert "double(*)(double)" in str(ffi.typeof(m.sin))
         x = m.sin(1.23)
         assert x == math.sin(1.23)
+
+    def test_dir_on_dlopen_lib(self):
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            typedef enum { MYE1, MYE2 } myenum_t;
+            double myfunc(double);
+            double myvar;
+            const double myconst;
+            #define MYFOO 42
+        """)
+        m = ffi.dlopen(lib_m)
+        assert dir(m) == ['MYE1', 'MYE2', 'MYFOO', 'myconst', 'myfunc', 'myvar']
