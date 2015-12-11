@@ -126,8 +126,10 @@ class CBuilder(object):
             if not self.standalone:
                 raise NotImplementedError("--gcrootfinder=asmgcc requires standalone")
 
+        exctransformer = translator.getexceptiontransformer()
         db = LowLevelDatabase(translator, standalone=self.standalone,
                               gcpolicyclass=gcpolicyclass,
+                              exctransformer=exctransformer,
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
         self.db = db

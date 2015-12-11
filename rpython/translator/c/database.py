@@ -28,6 +28,7 @@ class LowLevelDatabase(object):
 
     def __init__(self, translator=None, standalone=False,
                  gcpolicyclass=None,
+                 exctransformer=None,
                  thread_enabled=False,
                  sandbox=False):
         self.translator = translator
@@ -36,6 +37,7 @@ class LowLevelDatabase(object):
         if gcpolicyclass is None:
             gcpolicyclass = gc.RefcountingGcPolicy
         self.gcpolicy = gcpolicyclass(self, thread_enabled)
+        self.exctransformer = exctransformer
 
         self.structdefnodes = {}
         self.pendingsetupnodes = []
@@ -53,10 +55,6 @@ class LowLevelDatabase(object):
         self.late_initializations = []
         self.namespace = CNameManager()
 
-        if translator is None or translator.rtyper is None:
-            self.exctransformer = None
-        else:
-            self.exctransformer = translator.getexceptiontransformer()
         if translator is not None:
             self.gctransformer = self.gcpolicy.gettransformer(translator)
         self.completed = False
