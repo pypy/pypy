@@ -1456,6 +1456,7 @@ class AbstractUnwrappedStrategy(object):
 
     def setslice(self, w_list, start, step, slicelength, w_other):
         assert slicelength >= 0
+        assert step != 0
 
         if self is self.space.fromcache(ObjectListStrategy):
             w_other = w_other._temporarily_as_objects()
