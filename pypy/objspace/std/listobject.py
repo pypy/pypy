@@ -1474,10 +1474,7 @@ class AbstractUnwrappedStrategy(object):
         items = self.unerase(w_list.lstorage)
         if step == 1:  # Support list resizing for non-extended slices
             delta = slicelength - len2
-            if delta < 0:
-                items[start:start + slicelength] = self.unerase(w_other.lstorage)
-                return
-            elif delta == 0:
+            if delta <= 0:
                 items[start:start + slicelength] = self.unerase(w_other.lstorage)
                 return
             else:
