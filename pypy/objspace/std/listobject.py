@@ -1480,7 +1480,11 @@ class AbstractUnwrappedStrategy(object):
             else:
                 # start < 0 is only possible with slicelength == 0
                 assert start >= 0
-                del items[start:start + delta]
+                if len2 == 0:
+                    del items[start:start + delta]
+                    return # shortcut, we already did all that was needed
+                items[start:start + slicelength] = self.unerase(w_other.lstorage)
+                return
         elif len2 != slicelength:  # No resize for extended slices
             raise oefmt(self.space.w_ValueError,
                         "attempt to assign sequence of size %d to extended "
