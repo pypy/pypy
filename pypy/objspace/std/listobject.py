@@ -1474,17 +1474,14 @@ class AbstractUnwrappedStrategy(object):
         items = self.unerase(w_list.lstorage)
         if step == 1:  # Support list resizing for non-extended slices
             delta = slicelength - len2
-            if delta <= 0:
-                items[start:start + slicelength] = self.unerase(w_other.lstorage)
-                return
-            else:
+            if delta > 0:
                 # start < 0 is only possible with slicelength == 0
                 assert start >= 0
                 if len2 == 0:
                     del items[start:start + delta]
                     return # shortcut, we already did all that was needed
-                items[start:start + slicelength] = self.unerase(w_other.lstorage)
-                return
+            items[start:start + slicelength] = self.unerase(w_other.lstorage)
+            return
         elif len2 != slicelength:  # No resize for extended slices
             raise oefmt(self.space.w_ValueError,
                         "attempt to assign sequence of size %d to extended "
