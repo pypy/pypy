@@ -1478,7 +1478,8 @@ class AbstractUnwrappedStrategy(object):
                 items[start:start + slicelength] = self.unerase(w_other.lstorage)
                 return
             elif delta == 0:
-                pass
+                items[start:start + slicelength] = self.unerase(w_other.lstorage)
+                return
             else:
                 # start < 0 is only possible with slicelength == 0
                 assert start >= 0
