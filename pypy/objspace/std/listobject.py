@@ -1511,10 +1511,9 @@ class AbstractUnwrappedStrategy(object):
                     items[start] = other_items[i]
                     start -= step
                     i -= 1
-                return
             else:
                 w_list.reverse()
-                return
+            return
         for i in range(len2):
             items[start] = other_items[i]
             start += step
