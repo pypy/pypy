@@ -1504,15 +1504,7 @@ class AbstractUnwrappedStrategy(object):
             other_items = self.unerase(w_other.lstorage)
         if other_items is items:
             if step > 0:
-                # Always copy starting from the right to avoid
-                # having to make a shallow copy in the case where
-                # the source and destination lists are the same list.
-                i = len2 - 1
-                start += i * step
-                while i >= 0:
-                    items[start] = other_items[i]
-                    start -= step
-                    i -= 1
+                items[start:start + slicelength:step] = other_items
             else: # step can only be -1 here, so it's equivalent to :
                 w_list.reverse()
             return
