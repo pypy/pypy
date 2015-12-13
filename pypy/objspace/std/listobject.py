@@ -1513,10 +1513,8 @@ class AbstractUnwrappedStrategy(object):
                     i -= 1
                 return
             else:
-                # Make a shallow copy to more easily handle the reversal case
                 w_list.reverse()
                 return
-                #other_items = list(other_items)
         for i in range(len2):
             items[start] = other_items[i]
             start += step
