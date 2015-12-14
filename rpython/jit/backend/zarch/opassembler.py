@@ -773,16 +773,25 @@ class MemoryOpAssembler(object):
 
     def emit_gc_store_indexed(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc, offset_loc, size_loc) = arglocs
-        if offset_loc.is_imm() and self._mem_offset_supported(offset_loc.value):
-            addr_loc = l.addr(offset_loc.value, base_loc, index_loc)
-        else:
-            self.mc.LGR(r.SCRATCH, index_loc)
-            slef.mc.AGR(r.SCRATCH, offset_loc)
-            addr_loc = l.addr(0, base_loc, r.SCRATCH)
+        addr_loc = self._load_address(base_loc, index_loc, offset_loc, r.SCRATCH)
         if value_loc.is_in_pool():
             self.mc.LG(r.SCRATCH2, value_loc)
             value_loc = r.SCRATCH2
         self._memory_store(value_loc, addr_loc, size_loc)
+
+    def _load_address(self, base_loc, index_loc, offset_loc, helper_reg):
+        if index_loc.is_imm() and offset_loc.is_imm():
+            const = offset_loc.value + index_loc.value
+            assert self._mem_offset_supported(const)
+            addr_loc = l.addr(const, base_loc)
+        elif offset_loc.is_imm() and self._mem_offset_supported(offset_loc.value):
+            assert index_loc.is_core_reg()
+            addr_loc = l.addr(offset_loc.value, base_loc, index_loc)
+        else:
+            self.mc.LGR(helper_reg, index_loc)
+            slef.mc.AGR(helper_reg, offset_loc)
+            addr_loc = l.addr(0, base_loc, helper_reg)
+        return addr_loc
 
     def _mem_offset_supported(self, value):
         return -2**19 <= value < 2**19

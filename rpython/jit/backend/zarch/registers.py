@@ -8,7 +8,7 @@ fpregisters = [FloatRegisterLocation(i) for i in range(16)]
  r9,r10,r11,r12,r13,r14,r15] = registers
 
 MANAGED_REGS = [r2,r3,r4,r5,r6,r7,r8,r9,r10,r12] # keep this list sorted (asc)!
-VOLATILES = [r6,r7,r8,r9,r10,r12]
+VOLATILES = [r2,r3,r4,r5,r6]
 SP = r15
 RETURN = r14
 POOL = r13
@@ -25,7 +25,7 @@ FPR_RETURN = f0
 FP_SCRATCH = f15
 
 MANAGED_FP_REGS = fpregisters[:-1]
-VOLATILES_FLOAT = []
+VOLATILES_FLOAT = [f0,f2,f4,f6]
 
 # The JITFRAME_FIXED_SIZE is measured in words, and should be the
 # number of registers that need to be saved into the jitframe when
