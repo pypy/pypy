@@ -736,8 +736,11 @@ class Regalloc(BaseRegalloc):
     prepare_call_f = _prepare_call
     prepare_call_n = _prepare_call
 
+    def prepare_call_malloc_gc(self, op):
+        return self._prepare_call_default(op)
+
     def _prepare_gc_load(self, op):
-        base_loc = self.ensure_reg(op.getarg(0))
+        base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
         index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
         size_box = op.getarg(2)
         assert isinstance(size_box, ConstInt)
@@ -754,7 +757,7 @@ class Regalloc(BaseRegalloc):
     prepare_gc_load_r = _prepare_gc_load
 
     def _prepare_gc_load_indexed(self, op):
-        base_loc = self.ensure_reg(op.getarg(0))
+        base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
         index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
         scale_box = op.getarg(2)
         offset_box = op.getarg(3)
@@ -833,12 +836,38 @@ class Regalloc(BaseRegalloc):
             args[0] = resloc
         return args
 
+    def _prepare_call_may_force(self, op):
+        return self._prepare_call_default(op, save_all_regs=True)
+
+    prepare_call_may_force_i = _prepare_call_may_force
+    prepare_call_may_force_r = _prepare_call_may_force
+    prepare_call_may_force_f = _prepare_call_may_force
+    prepare_call_may_force_n = _prepare_call_may_force
+
+    prepare_call_release_gil_i = _prepare_call_may_force
+    prepare_call_release_gil_f = _prepare_call_may_force
+    prepare_call_release_gil_n = _prepare_call_may_force
+
+    def _prepare_call_assembler(self, op):
+        locs = self.locs_for_call_assembler(op)
+        self._spill_before_call(save_all_regs=True)
+        if op.type != VOID:
+            resloc = self.after_call(op)
+        else:
+            resloc = None
+        return [resloc] + locs
+
+    prepare_call_assembler_i = _prepare_call_assembler
+    prepare_call_assembler_r = _prepare_call_assembler
+    prepare_call_assembler_f = _prepare_call_assembler
+    prepare_call_assembler_n = _prepare_call_assembler
+
     def _prepare_threadlocalref_get(self, op):
         if self.cpu.translate_support_code:
             res = self.force_allocate_reg(op)
             return [res]
         else:
-            return self._prepare_call(op)
+            return self._prepare_call_default(op)
 
     def _prepare_math_sqrt(self, op):
         loc = self.ensure_reg(op.getarg(1))

@@ -148,10 +148,6 @@ class CallBuilder(AbstractCallBuilder):
 
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         assert self.is_call_release_gil
-        xxx
-        RSHADOWPTR  = self.RSHADOWPTR
-        RFASTGILPTR = self.RFASTGILPTR
-        RSHADOWOLD  = self.RSHADOWOLD
         #
         # Save this thread's shadowstack pointer into r29, for later comparison
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
@@ -168,7 +164,7 @@ class CallBuilder(AbstractCallBuilder):
         self.mc.std(r.r0.value, RFASTGILPTR.value, 0)
         #
         if not we_are_translated():        # for testing: we should not access
-            self.mc.addi(r.SPP.value, r.SPP.value, 1)           # r31 any more
+            self.mc.AGHI(r.SPP, l.imm(1))  # r31 any more
 
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):

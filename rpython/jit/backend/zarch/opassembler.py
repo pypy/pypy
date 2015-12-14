@@ -1,14 +1,22 @@
+from rpython.jit.backend.zarch.arch import THREADLOCAL_ADDR_OFFSET
 from rpython.jit.backend.zarch.helper.assembler import (gen_emit_cmp_op,
         gen_emit_rr_or_rpool, gen_emit_shift, gen_emit_pool_or_rr_evenodd,
         gen_emit_imm_pool_rr)
+from rpython.jit.backend.zarch.helper.regalloc import (check_imm,)
 from rpython.jit.backend.zarch.codebuilder import ZARCHGuardToken
 import rpython.jit.backend.zarch.conditions as c
 import rpython.jit.backend.zarch.registers as r
 import rpython.jit.backend.zarch.locations as l
+from rpython.jit.backend.zarch.locations import imm
 from rpython.jit.backend.zarch import callbuilder
+from rpython.jit.backend.zarch.codebuilder import OverwritingBuilder
 from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.metainterp.history import (FLOAT, INT, REF, VOID)
+from rpython.jit.metainterp.resoperation import rop
+from rpython.rtyper.lltypesystem import rstr, rffi, lltype
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 
 class IntOpAssembler(object):
     _mixin_ = True
@@ -209,8 +217,8 @@ class CallOpAssembler(object):
 
         if is_call_release_gil:
             saveerrloc = arglocs[1]
-            assert saveerrloc.is_imm()
-            cb.emit_call_release_gil(saveerrloc.value)
+            assert saveerrloc.is_in_pool()
+            cb.emit_call_release_gil(saveerrloc)
         else:
             cb.emit()
 
@@ -251,7 +259,7 @@ class CallOpAssembler(object):
         ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
         self.mc.load_imm(r.SCRATCH, rffi.cast(lltype.Signed,
                                            cast_instance_to_gcref(faildescr)))
-        self.mc.store(r.SCRATCH.value, r.SPP.value, ofs)
+        self.mc.STD(r.SCRATCH, l.addr(ofs, r.SPP))
 
     def _find_nearby_operation(self, regalloc, delta):
         return regalloc.operations[regalloc.rm.position + delta]
@@ -303,6 +311,196 @@ class CallOpAssembler(object):
         # might be overridden again to skip over the following
         # guard_no_exception too
         self.previous_cond_call_jcond = jmp_adr, BI, BO
+
+class AllocOpAssembler(object):
+    _mixin_ = True
+
+    def emit_call_malloc_gc(self, op, arglocs, regalloc):
+        self._emit_call(op, arglocs)
+        self.propagate_memoryerror_if_r2_is_null()
+
+    def emit_call_malloc_nursery(self, op, arglocs, regalloc):
+        # registers r.RES and r.RSZ are allocated for this call
+        size_box = op.getarg(0)
+        assert isinstance(size_box, ConstInt)
+        size = size_box.getint()
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gcmap = regalloc.get_gcmap([r.RES, r.RSZ])
+        self.malloc_cond(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            size, gcmap)
+
+    def emit_call_malloc_nursery_varsize_frame(self, op, arglocs, regalloc):
+        # registers r.RES and r.RSZ are allocated for this call
+        [sizeloc] = arglocs
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gcmap = regalloc.get_gcmap([r.RES, r.RSZ])
+        self.malloc_cond_varsize_frame(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            sizeloc, gcmap)
+
+    def emit_call_malloc_nursery_varsize(self, op, arglocs, regalloc):
+        # registers r.RES and r.RSZ are allocated for this call
+        gc_ll_descr = self.cpu.gc_ll_descr
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+            raise Exception("unreachable code")
+            # for boehm, this function should never be called
+        [lengthloc] = arglocs
+        arraydescr = op.getdescr()
+        itemsize = op.getarg(1).getint()
+        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
+        gcmap = regalloc.get_gcmap([r.RES, r.RSZ])
+        self.malloc_cond_varsize(
+            op.getarg(0).getint(),
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(),
+            lengthloc, itemsize, maxlength, gcmap, arraydescr)
+
+    def emit_debug_merge_point(self, op, arglocs, regalloc):
+        pass
+
+    emit_jit_debug = emit_debug_merge_point
+    emit_keepalive = emit_debug_merge_point
+
+    def emit_enter_portal_frame(self, op, arglocs, regalloc):
+        self.enter_portal_frame(op)
+
+    def emit_leave_portal_frame(self, op, arglocs, regalloc):
+        self.leave_portal_frame(op)
+
+    def _write_barrier_fastpath(self, mc, descr, arglocs, regalloc, array=False,
+                                is_frame=False):
+        # Write code equivalent to write_barrier() in the GC: it checks
+        # a flag in the object at arglocs[0], and if set, it calls a
+        # helper piece of assembler.  The latter saves registers as needed
+        # and call the function remember_young_pointer() from the GC.
+        if we_are_translated():
+            cls = self.cpu.gc_ll_descr.has_write_barrier_class()
+            assert cls is not None and isinstance(descr, cls)
+        #
+        card_marking_mask = 0
+        mask = descr.jit_wb_if_flag_singlebyte
+        if array and descr.jit_wb_cards_set != 0:
+            # assumptions the rest of the function depends on:
+            assert (descr.jit_wb_cards_set_byteofs ==
+                    descr.jit_wb_if_flag_byteofs)
+            card_marking_mask = descr.jit_wb_cards_set_singlebyte
+        #
+        loc_base = arglocs[0]
+        assert loc_base.is_reg()
+        if is_frame:
+            assert loc_base is r.SPP
+        assert check_imm(descr.jit_wb_if_flag_byteofs)
+        mc.lbz(r.SCRATCH2.value, loc_base.value, descr.jit_wb_if_flag_byteofs)
+        mc.andix(r.SCRATCH.value, r.SCRATCH2.value, mask & 0xFF)
+
+        jz_location = mc.get_relative_pos()
+        mc.trap()        # patched later with 'beq'
+
+        # for cond_call_gc_wb_array, also add another fast path:
+        # if GCFLAG_CARDS_SET, then we can just set one bit and be done
+        if card_marking_mask:
+            # GCFLAG_CARDS_SET is in the same byte, loaded in r2 already
+            mc.andix(r.SCRATCH.value, r.SCRATCH2.value,
+                     card_marking_mask & 0xFF)
+            js_location = mc.get_relative_pos()
+            mc.trap()        # patched later with 'bne'
+        else:
+            js_location = 0
+
+        # Write only a CALL to the helper prepared in advance, passing it as
+        # argument the address of the structure we are writing into
+        # (the first argument to COND_CALL_GC_WB).
+        helper_num = (card_marking_mask != 0)
+        if is_frame:
+            helper_num = 4
+        elif regalloc.fprm.reg_bindings:
+            helper_num += 2
+        if self.wb_slowpath[helper_num] == 0:    # tests only
+            assert not we_are_translated()
+            assert not is_frame
+            self.cpu.gc_ll_descr.write_barrier_descr = descr
+            self._build_wb_slowpath(card_marking_mask != 0,
+                                    bool(regalloc.fprm.reg_bindings))
+            assert self.wb_slowpath[helper_num] != 0
+        #
+        if not is_frame:
+            mc.mr(r.r0.value, loc_base.value)    # unusual argument location
+        mc.load_imm(r.SCRATCH2, self.wb_slowpath[helper_num])
+        mc.mtctr(r.SCRATCH2.value)
+        mc.bctrl()
+
+        if card_marking_mask:
+            # The helper ends again with a check of the flag in the object.
+            # So here, we can simply write again a beq, which will be
+            # taken if GCFLAG_CARDS_SET is still not set.
+            jns_location = mc.get_relative_pos()
+            mc.trap()
+            #
+            # patch the 'bne' above
+            currpos = mc.currpos()
+            pmc = OverwritingBuilder(mc, js_location, 1)
+            pmc.bne(currpos - js_location)
+            pmc.overwrite()
+            #
+            # case GCFLAG_CARDS_SET: emit a few instructions to do
+            # directly the card flag setting
+            loc_index = arglocs[1]
+            if loc_index.is_reg():
+
+                tmp_loc = arglocs[2]
+                n = descr.jit_wb_card_page_shift
+
+                # compute in tmp_loc the byte offset:
+                #     ~(index >> (card_page_shift + 3))   ('~' is 'not_' below)
+                mc.srli_op(tmp_loc.value, loc_index.value, n + 3)
+
+                # compute in r2 the index of the bit inside the byte:
+                #     (index >> card_page_shift) & 7
+                mc.rldicl(r.SCRATCH2.value, loc_index.value, 64 - n, 61)
+                mc.li(r.SCRATCH.value, 1)
+                mc.not_(tmp_loc.value, tmp_loc.value)
+
+                # set r2 to 1 << r2
+                mc.sl_op(r.SCRATCH2.value, r.SCRATCH.value, r.SCRATCH2.value)
+
+                # set this bit inside the byte of interest
+                mc.lbzx(r.SCRATCH.value, loc_base.value, tmp_loc.value)
+                mc.or_(r.SCRATCH.value, r.SCRATCH.value, r.SCRATCH2.value)
+                mc.stbx(r.SCRATCH.value, loc_base.value, tmp_loc.value)
+                # done
+
+            else:
+                byte_index = loc_index.value >> descr.jit_wb_card_page_shift
+                byte_ofs = ~(byte_index >> 3)
+                byte_val = 1 << (byte_index & 7)
+                assert check_imm(byte_ofs)
+
+                mc.lbz(r.SCRATCH.value, loc_base.value, byte_ofs)
+                mc.ori(r.SCRATCH.value, r.SCRATCH.value, byte_val)
+                mc.stb(r.SCRATCH.value, loc_base.value, byte_ofs)
+            #
+            # patch the beq just above
+            currpos = mc.currpos()
+            pmc = OverwritingBuilder(mc, jns_location, 1)
+            pmc.beq(currpos - jns_location)
+            pmc.overwrite()
+
+        # patch the JZ above
+        currpos = mc.currpos()
+        pmc = OverwritingBuilder(mc, jz_location, 1)
+        pmc.beq(currpos - jz_location)
+        pmc.overwrite()
+
+    def emit_cond_call_gc_wb(self, op, arglocs, regalloc):
+        self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs, regalloc)
+
+    def emit_cond_call_gc_wb_array(self, op, arglocs, regalloc):
+        self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs, regalloc,
+                                     array=True)
+
 
 class GuardOpAssembler(object):
     _mixin_ = True
@@ -445,7 +643,7 @@ class GuardOpAssembler(object):
             # read this field to get the vtable pointer
             self.mc.load(r.SCRATCH2.value, loc_object.value, offset)
             # read the vtable's subclassrange_min field
-            assert _check_imm_arg(offset2)
+            assert check_imm(offset2)
             self.mc.ld(r.SCRATCH2.value, r.SCRATCH2.value, offset2)
         else:
             # read the typeid
@@ -480,8 +678,8 @@ class GuardOpAssembler(object):
 
     def emit_guard_not_forced(self, op, arglocs, regalloc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-        self.mc.ld(r.SCRATCH.value, r.SPP.value, ofs)
-        self.mc.cmp_op(0, r.SCRATCH.value, 0, imm=True)
+        self.mc.LG(r.SCRATCH, l.addr(ofs, r.SPP))
+        self.mc.cmp_op(r.SCRATCH, l.imm(0), imm=True)
         self.guard_success_cc = c.EQ
         self._emit_guard(op, arglocs)
 
@@ -561,7 +759,15 @@ class MemoryOpAssembler(object):
 
     def emit_gc_store(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc, size_loc) = arglocs
-        self._memory_store(value_loc, base_loc, l.addr(0, index_loc), size_loc)
+        if index_loc.is_imm() and self._mem_offset_supported(index_loc.value):
+            addr_loc = l.addr(index_loc.value, base_loc)
+        else:
+            self.mc.LGR(r.SCRATCH, index_loc)
+            addr_loc = l.addr(0, base_loc, r.SCRATCH)
+        if value_loc.is_in_pool():
+            self.mc.LG(r.SCRATCH2, value_loc)
+            value_loc = r.SCRATCH2
+        self._memory_store(value_loc, addr_loc, size_loc)
 
     def emit_gc_store_indexed(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc, offset_loc, size_loc) = arglocs
@@ -578,6 +784,119 @@ class MemoryOpAssembler(object):
 
     def _mem_offset_supported(self, value):
         return -2**19 <= value < 2**19
+
+class ForceOpAssembler(object):
+    _mixin_ = True
+
+    def emit_force_token(self, op, arglocs, regalloc):
+        res_loc = arglocs[0]
+        self.mc.mr(res_loc.value, r.SPP.value)
+
+    def _genop_call_assembler(self, op, arglocs, regalloc):
+        if len(arglocs) == 3:
+            [result_loc, argloc, vloc] = arglocs
+        else:
+            [result_loc, argloc] = arglocs
+            vloc = imm(0)
+        self._store_force_index(self._find_nearby_operation(regalloc, +1))
+        # 'result_loc' is either r2, f0 or None
+        self.call_assembler(op, argloc, vloc, result_loc, r.r2)
+
+    emit_call_assembler_i = _genop_call_assembler
+    emit_call_assembler_r = _genop_call_assembler
+    emit_call_assembler_f = _genop_call_assembler
+    emit_call_assembler_n = _genop_call_assembler
+
+    imm = staticmethod(imm)   # for call_assembler()
+
+    def _call_assembler_emit_call(self, addr, argloc, _):
+        self.regalloc_mov(argloc, r.r2)
+        self.mc.LG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
+
+        cb = callbuilder.CallBuilder(self, addr, [r.r2, r.r3], r.r2)
+        cb.emit()
+
+    def _call_assembler_emit_helper_call(self, addr, arglocs, result_loc):
+        cb = callbuilder.CallBuilder(self, addr, arglocs, result_loc)
+        cb.emit()
+
+    def _call_assembler_check_descr(self, value, tmploc):
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        self.mc.LG(r.SCRATCH, l.addr(ofs, r.r2))
+        if check_imm(value):
+            self.mc.cmp_op(r.SCRATCH, value, imm=True)
+        else:
+            self.mc.load_imm(r.SCRATCH2, value)
+            self.mc.cmp_op(r.SCRATCH, r.SCRATCH2, imm=False)
+        jump_if_eq = self.mc.currpos()
+        self.mc.trap()      # patched later
+        self.mc.write('\x00' * 4) # patched later
+        return jump_if_eq
+
+    def _call_assembler_patch_je(self, result_loc, je_location):
+        jump_to_done = self.mc.currpos()
+        self.mc.trap()      # patched later
+        self.mc.write('\x00' * 4) # patched later
+        #
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, je_location, 1)
+        pmc.BRCL(c.EQ, l.imm(currpos - je_location))
+        pmc.overwrite()
+        #
+        return jump_to_done
+
+    def _call_assembler_load_result(self, op, result_loc):
+        if op.type != VOID:
+            # load the return value from the dead frame's value index 0
+            kind = op.type
+            descr = self.cpu.getarraydescr_for_frame(kind)
+            ofs = self.cpu.unpack_arraydescr(descr)
+            if kind == FLOAT:
+                assert result_loc is r.f0
+                self.mc.LD(r.f0, l.addr(ofs, r.r2))
+            else:
+                assert result_loc is r.r2
+                self.mc.LG(r.r2, l.addr(ofs, r.r2))
+
+    def _call_assembler_patch_jmp(self, jmp_location):
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, jmp_location, 1)
+        pmc.BRCL(c.ANY, l.imm(currpos - jmp_location))
+        pmc.overwrite()
+
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        # some minimal sanity checking
+        old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
+        new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
+        assert old_nbargs == new_nbargs
+        oldadr = oldlooptoken._ll_function_addr
+        target = newlooptoken._ll_function_addr
+        # copy frame-info data
+        baseofs = self.cpu.get_baseofs_of_frame_field()
+        newlooptoken.compiled_loop_token.update_frame_info(
+            oldlooptoken.compiled_loop_token, baseofs)
+        if IS_PPC_64 and IS_BIG_ENDIAN:
+            # PPC64 big-endian trampolines are data so overwrite the code
+            # address in the function descriptor at the old address.
+            # Copy the whole 3-word trampoline, even though the other
+            # words are always zero so far.  That's not enough in all
+            # cases: if the "target" trampoline is itself redirected
+            # later, then the "old" trampoline won't be updated; so
+            # we still need the jump below to be safe.
+            odata = rffi.cast(rffi.CArrayPtr(lltype.Signed), oldadr)
+            tdata = rffi.cast(rffi.CArrayPtr(lltype.Signed), target)
+            odata[0] = tdata[0]
+            odata[1] = tdata[1]
+            odata[2] = tdata[2]
+            oldadr += 3 * WORD
+            target += 3 * WORD
+        # we overwrite the instructions at the old _ll_function_addr
+        # to start with a JMP to the new _ll_function_addr.
+        mc = PPCBuilder()
+        mc.b_abs(target)
+        mc.copy_to_raw_memory(oldadr)
+
+
 
 class MiscOpAssembler(object):
     _mixin_ = True
@@ -611,4 +930,9 @@ class MiscOpAssembler(object):
     def emit_leave_portal_frame(self, op, arglocs, regalloc):
         self.leave_portal_frame(op)
 
+class OpAssembler(IntOpAssembler, FloatOpAssembler,
+                  GuardOpAssembler, CallOpAssembler,
+                  AllocOpAssembler, MemoryOpAssembler,
+                  MiscOpAssembler, ForceOpAssembler):
+    _mixin_ = True
 

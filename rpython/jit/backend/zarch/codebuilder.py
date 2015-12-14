@@ -125,6 +125,9 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def reserve_guard_branch(self):
         self.BRC(l.imm(0x0), l.imm(0))
 
+    def trap(self):
+        self.TRAP2()
+
     def cmp_op(self, a, b, pool=False, imm=False, signed=True, fp=False):
         if fp == True:
             if pool:
@@ -170,6 +173,15 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         the address of a three-words descriptor.
         """
         self.BASR(r.RETURN, call_reg)
+
+class OverwritingBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
+    def __init__(self, mc, start, num_insts=0):
+        AbstractZARCHBuilder.__init__(self)
+        self.init_block_builder()
+        self.mc = mc
+        self.index = start
+    def overwrite(self):
+        pass
 
 _classes = (AbstractZARCHBuilder,)
 

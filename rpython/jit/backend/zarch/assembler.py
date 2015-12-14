@@ -13,9 +13,7 @@ from rpython.jit.backend.zarch.arch import (WORD,
         STD_FRAME_SIZE_IN_BYTES, THREADLOCAL_ADDR_OFFSET,
         RECOVERY_GCMAP_POOL_OFFSET, RECOVERY_TARGET_POOL_OFFSET,
         JUMPABS_TARGET_ADDR__POOL_OFFSET, JUMPABS_POOL_ADDR_POOL_OFFSET)
-from rpython.jit.backend.zarch.opassembler import (IntOpAssembler,
-    FloatOpAssembler, GuardOpAssembler, MiscOpAssembler,
-    CallOpAssembler, MemoryOpAssembler)
+from rpython.jit.backend.zarch.opassembler import OpAssembler
 from rpython.jit.backend.zarch.regalloc import Regalloc
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.resoperation import rop
@@ -30,10 +28,7 @@ from rpython.rlib.longlong2float import float2longlong
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rlib.jit import AsmInfo
 
-class AssemblerZARCH(BaseAssembler,
-        IntOpAssembler, FloatOpAssembler,
-        GuardOpAssembler, CallOpAssembler,
-        MemoryOpAssembler, MiscOpAssembler):
+class AssemblerZARCH(BaseAssembler, OpAssembler):
 
     def __init__(self, cpu, translate_support_code=False):
         BaseAssembler.__init__(self, cpu, translate_support_code)
@@ -239,12 +234,12 @@ class AssemblerZARCH(BaseAssembler,
 
         regalloc = Regalloc(assembler=self)
         #
+        operations = regalloc.prepare_loop(inputargs, operations,
+                                           looptoken, clt.allgcrefs)
         self.pool.pre_assemble(self, operations)
         entrypos = self.mc.get_relative_pos()
         self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - entrypos))
         self._call_header_with_stack_check()
-        operations = regalloc.prepare_loop(inputargs, operations,
-                                           looptoken, clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
                                                    operations)
@@ -369,6 +364,16 @@ class AssemblerZARCH(BaseAssembler,
             off = self.mc.XGR_byte_count + self.mc.BRC_byte_count
             self.mc.BRC(condition, l.imm(off)) # branch over LGHI
             self.mc.XGR(result_loc, result_loc)
+
+    def propagate_memoryerror_if_r2_is_null(self):
+        # if self.propagate_exception_path == 0 (tests), this may jump to 0
+        # and segfaults.  too bad.  the alternative is to continue anyway
+        # with r3==0, but that will segfault too.
+        if False:
+            # TODO !!
+            xxx
+            self.mc.cmp_op(0, r.r3.value, 0, imm=True)
+            self.mc.b_cond_abs(self.propagate_exception_path, c.EQ)
 
     def regalloc_push(self, loc, already_pushed):
         """Pushes the value stored in loc to the stack
