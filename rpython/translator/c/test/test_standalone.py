@@ -1283,6 +1283,11 @@ class TestThread(object):
         if not hasattr(os, 'fork'):
             py.test.skip("requires fork()")
 
+        from rpython.rtyper.lltypesystem import rffi, lltype
+        direct_write = rffi.llexternal(
+            "write", [rffi.INT, rffi.CCHARP, rffi.SIZE_T], lltype.Void,
+            _nowrapper=True)
+
         class State:
             pass
         state = State()
@@ -1294,7 +1299,10 @@ class TestThread(object):
 
         class Stuff:
             def __del__(self):
-                os.write(state.write_end, 'd')
+                p = rffi.str2charp('d')
+                one = rffi.cast(rffi.SIZE_T, 1)
+                direct_write(rffi.cast(rffi.INT, state.write_end), p, one)
+                rffi.free_charp(p)
 
         def allocate_stuff():
             s = Stuff()
