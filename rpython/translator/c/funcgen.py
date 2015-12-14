@@ -1,5 +1,4 @@
 import sys
-from rpython.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from rpython.translator.c.support import cdecl
 from rpython.translator.c.support import llvalue_from_constant, gen_assignments
 from rpython.translator.c.support import c_string_constant, barebonearray
@@ -24,17 +23,6 @@ class FunctionCodeGenerator(object):
     Collects information about a function which we have to generate
     from a flow graph.
     """
-
-    if USESLOTS:
-        __slots__ = """graph db gcpolicy
-                       exception_policy
-                       more_ll_values
-                       vars all_cached_consts
-                       illtypes
-                       functionname
-                       blocknum
-                       innerloops
-                       oldgraph""".split()
 
     def __init__(self, graph, db, exception_policy=None, functionname=None):
         graph._seen_by_the_backend = True
@@ -928,5 +916,3 @@ class FunctionCodeGenerator(object):
                 cdecl(typename, ''),
                 self.expr(op.args[0]),
                 self.expr(op.result))
-
-assert not USESLOTS or '__dict__' not in dir(FunctionCodeGenerator)

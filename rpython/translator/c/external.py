@@ -1,11 +1,7 @@
 from rpython.rtyper.lltypesystem.lltype import typeOf, Void
-from rpython.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from rpython.translator.c.support import cdecl, somelettersfrom
 
 class CExternalFunctionCodeGenerator(object):
-    if USESLOTS:
-        __slots__ = """db fnptr FUNCTYPE argtypenames resulttypename""".split()
-
     def __init__(self, fnptr, db):
         self.fnptr = fnptr
         self.db = db
@@ -50,5 +46,3 @@ class CExternalFunctionCodeGenerator(object):
 
     def implementation_end(self):
         pass
-
-assert not USESLOTS or '__dict__' not in dir(CExternalFunctionCodeGenerator)
