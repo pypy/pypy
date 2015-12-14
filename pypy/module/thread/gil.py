@@ -25,6 +25,8 @@ class GILThreadLocals(OSThreadLocals):
     def setup_threads(self, space):
         """Enable threads in the object space, if they haven't already been."""
         if not self.gil_ready:
+            # Note: this is a quasi-immutable read by module/pypyjit/interp_jit
+            # It must be changed (to True) only if it was really False before
             self.gil_ready = True
             result = True
         else:
