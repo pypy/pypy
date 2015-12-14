@@ -36,7 +36,13 @@
      value of 'rpy_fastgil' to 1.
 */
 
-long rpy_fastgil = 1;
+
+/* The GIL is initially released; see pypy_main_function(), which calls
+   RPyGilAcquire/RPyGilRelease.  The point is that when building
+   RPython libraries, they can be a collection of regular functions that
+   also call RPyGilAcquire/RPyGilRelease; see test_standalone.TestShared.
+*/
+long rpy_fastgil = 0;
 static long rpy_waiting_threads = -42;    /* GIL not initialized */
 static mutex1_t mutex_gil_stealer;
 static mutex2_t mutex_gil;
