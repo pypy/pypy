@@ -6295,6 +6295,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_strunicode_loop(ops, ops, ops)
 
+    def test_str_slice_bug(self):
+        ops = """
+        []
+        p1066 = newstr(8)
+        escape_n(p1066)     # should initialize the string's content
+        p1134 = call_pure_r(0, p1066, 0, 4, descr=strslicedescr)
+        escape_n(p1134)
+        jump()
+        """
+        expected = """
+        []
+        p1 = newstr(8)
+        escape_n(p1)
+        p2 = newstr(4)
+        copystrcontent(p1, p2, 0, 0, 4)
+        escape_n(p2)
+        jump()
+        """
+        self.optimize_strunicode_loop(ops, expected, expected)
+
     # XXX Should some of the call's below now be call_pure?
 
     def test_str_concat_1(self):
