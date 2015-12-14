@@ -191,7 +191,7 @@ class VStringPlainInfo(StrPtrInfo):
 
     def string_copy_parts(self, op, string_optimizer, targetbox, offsetbox,
                           mode):
-        if not self.is_virtual(): # and not self.is_completely_initialized():
+        if not self.is_virtual():
             return StrPtrInfo.string_copy_parts(self, op, string_optimizer,
                                                 targetbox, offsetbox, mode)
         else:
