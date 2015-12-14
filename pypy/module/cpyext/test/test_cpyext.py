@@ -247,6 +247,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         importhook(cls.space, "os") # warm up reference counts
         state = cls.space.fromcache(RefcountState)
         state.non_heaptypes_w[:] = []
+        if not cls.runappdirect:
+            cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def setup_method(self, func):
         @gateway.unwrap_spec(name=str)
