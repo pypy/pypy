@@ -93,7 +93,6 @@ class AbstractThreadTests(AbstractGCTestClass):
 
     def test_gc_locking(self):
         import time
-        from rpython.rlib.objectmodel import invoke_around_extcall
         from rpython.rlib.debug import ll_assert
 
         class State:
@@ -117,17 +116,6 @@ class AbstractThreadTests(AbstractGCTestClass):
                 ll_assert(j == self.j, "2: bad j")
             run._dont_inline_ = True
 
-        def before_extcall():
-            release_NOAUTO(state.gil)
-        before_extcall._gctransformer_hint_cannot_collect_ = True
-        # ^^^ see comments in gil.py about this hint
-
-        def after_extcall():
-            acquire_NOAUTO(state.gil, True)
-            gc_thread_run()
-        after_extcall._gctransformer_hint_cannot_collect_ = True
-        # ^^^ see comments in gil.py about this hint
-
         def bootstrap():
             # after_extcall() is called before we arrive here.
             # We can't just acquire and release the GIL manually here,
@@ -148,14 +136,9 @@ class AbstractThreadTests(AbstractGCTestClass):
             start_new_thread(bootstrap, ())
 
         def f():
-            state.gil = allocate_ll_lock()
-            acquire_NOAUTO(state.gil, True)
             state.bootstrapping = allocate_lock()
             state.answers = []
             state.finished = 0
-            # the next line installs before_extcall() and after_extcall()
-            # to be called automatically around external function calls.
-            invoke_around_extcall(before_extcall, after_extcall)
 
             g(10, 1)
             done = False
@@ -173,10 +156,7 @@ class AbstractThreadTests(AbstractGCTestClass):
             return len(state.answers)
 
         expected = 89
-        try:
-            fn = self.getcompiled(f, [])
-        finally:
-            rffi.aroundstate._cleanup_()
+        fn = self.getcompiled(f, [])
         answers = fn()
         assert answers == expected
 
