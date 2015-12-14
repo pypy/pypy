@@ -65,12 +65,12 @@ static void RPyGilAllocate(void)
     atomic_decrement(&gil_allocating);   /* 1 => 0 */
 }
 
-void RPyGilAcquire(void)
+void RPyGilAcquireSlowPath(long old_fastgil)
 {
-    /* Acquires the GIL.
-     */
-    long old_fastgil = lock_test_and_set(&rpy_fastgil, 1);
+    /* Acquires the GIL.  This assumes that we already did:
 
+          old_fastgil = lock_test_and_set(&rpy_fastgil, 1);
+     */
     if (!RPY_FASTGIL_LOCKED(old_fastgil)) {
         /* The fastgil was not previously locked: success.
            'mutex_gil' should still be locked at this point.
@@ -179,6 +179,13 @@ void RPyGilRelease(void)
        actually very short, and optimize accordingly.
     */
     _RPyGilRelease();
+}
+
+#undef RPyGilAcquire
+RPY_EXTERN
+void RPyGilAcquire(void)
+{
+    _RPyGilAcquire();
 }
 
 #undef RPyFetchFastGil
