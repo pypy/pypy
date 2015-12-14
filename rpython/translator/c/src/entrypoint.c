@@ -33,6 +33,10 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 #  include <io.h>
 #endif
 
+#ifdef RPY_WITH_GIL
+# include <src/thread.h>
+#endif
+
 
 RPY_EXTERN
 int pypy_main_function(int argc, char *argv[])
@@ -46,7 +50,9 @@ int pypy_main_function(int argc, char *argv[])
     _setmode(1, _O_BINARY);
 #endif
 
+#ifdef RPY_WITH_GIL
     RPyGilAcquire();
+#endif
 
 #ifdef PYPY_USE_ASMGCC
     pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter++;
@@ -84,7 +90,9 @@ int pypy_main_function(int argc, char *argv[])
 
     pypy_malloc_counters_results();
 
+#ifdef RPY_WITH_GIL
     RPyGilRelease();
+#endif
 
     return exitcode;
 
