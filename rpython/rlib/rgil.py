@@ -46,11 +46,17 @@ def invoke_after_thread_switch(callback):
     invoke_after_thread_switch() is called has no importance: the
     callback() will be called anyway.
     """
-    raise TypeError("invoke_after_thread_switch() is meant to be translated "
-                    "and not called directly")
+    print "NOTE: invoke_after_thread_switch() is meant to be translated "
+    print "and not called directly.  Using some emulation."
+    global _emulated_after_thread_switch
+    _emulated_after_thread_switch = callback
+
+_emulated_after_thread_switch = None
 
 def _after_thread_switch():
     """NOT_RPYTHON"""
+    if _emulated_after_thread_switch is not None:
+        _emulated_after_thread_switch()
 
 
 class Entry(ExtRegistryEntry):

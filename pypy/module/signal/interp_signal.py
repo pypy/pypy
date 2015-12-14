@@ -64,9 +64,8 @@ class CheckSignalAction(PeriodicAsyncAction):
         self.pending_signal = -1
         self.fire_in_another_thread = False
         if self.space.config.objspace.usemodules.thread:
-            if we_are_translated():
-                from rpython.rlib import rgil
-                rgil.invoke_after_thread_switch(self._after_thread_switch)
+            from rpython.rlib import rgil
+            rgil.invoke_after_thread_switch(self._after_thread_switch)
 
     @rgc.no_collect
     def _after_thread_switch(self):
