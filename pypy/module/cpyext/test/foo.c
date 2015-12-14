@@ -662,6 +662,10 @@ initfoo(void)
         return;
     if (PyType_Ready(&SimplePropertyType) < 0)
         return;
+    
+    SimplePropertyType.tp_new = PyType_GenericNew;
+    InitErrType.tp_new = PyType_GenericNew;
+
     CustomType.ob_type = &MetaType;
     if (PyType_Ready(&CustomType) < 0)
         return;

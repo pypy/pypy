@@ -174,6 +174,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo')
         assert module.MetaType.__mro__ == (module.MetaType, type, object)
         assert type(module.fooType).__mro__ == (type, object)
+        # XXX FIX - must raise since fooType does not have flag Py_TPFLAGS_BASETYPE
+        raises(TypeError, module.MetaType, 'other', (module.fooType,), {})
         y = module.MetaType('other', (module.fooType,), {})
         assert isinstance(y, module.MetaType)
         x = y()
