@@ -51,6 +51,10 @@ int pypy_main_function(int argc, char *argv[])
 #endif
 
 #ifdef RPY_WITH_GIL
+    /* Note that the GIL's mutexes are not automatically made; if the
+       program starts threads, it needs to call rgil.gil_allocate().
+       RPyGilAcquire() still works without that, but crash if it finds
+       that it really needs to wait on a mutex. */
     RPyGilAcquire();
 #endif
 

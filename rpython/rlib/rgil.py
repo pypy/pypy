@@ -1,4 +1,5 @@
 import py
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -16,6 +17,10 @@ eci = ExternalCompilationInfo(
 
 llexternal = rffi.llexternal
 
+
+gil_allocate = llexternal('RPyGilAllocate', [], lltype.Void,
+                          _nowrapper=True, sandboxsafe=True,
+                          compilation_info=eci)
 
 _gil_yield_thread = llexternal('RPyGilYieldThread', [], lltype.Signed,
                                _nowrapper=True, sandboxsafe=True,
@@ -42,10 +47,10 @@ def invoke_after_thread_switch(callback):
     This is a hook used by pypy.module.signal.  Several callbacks should
     be easy to support (but not right now).
 
-    This function can only be called if we_are_translated(), but registers
-    the callback statically.  The exact point at which
-    invoke_after_thread_switch() is called has no importance: the
-    callback() will be called anyway.
+    This function should be called from the translated RPython program
+    (i.e. *not* at module level!), but registers the callback
+    statically.  The exact point at which invoke_after_thread_switch()
+    is called has no importance: the callback() will be called anyway.
     """
     print "NOTE: invoke_after_thread_switch() is meant to be translated "
     print "and not called directly.  Using some emulation."
@@ -102,13 +107,15 @@ class Entry(ExtRegistryEntry):
 def release():
     # this function must not raise, in such a way that the exception
     # transformer knows that it cannot raise!
-    _gil_release()
+    if we_are_translated():
+        _gil_release()
 release._gctransformer_hint_cannot_collect_ = True
 release._dont_reach_me_in_del_ = True
 
 def acquire():
     from rpython.rlib import rthread
-    _gil_acquire()
+    if we_are_translated():
+        _gil_acquire()
     rthread.gc_thread_run()
     _after_thread_switch()
 acquire._gctransformer_hint_cannot_collect_ = True

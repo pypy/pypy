@@ -46,7 +46,6 @@ long rpy_fastgil = 0;
 static long rpy_waiting_threads = -42;    /* GIL not initialized */
 static mutex1_t mutex_gil_stealer;
 static mutex2_t mutex_gil;
-static long gil_allocating = 0;
 
 
 static void rpy_init_mutexes(void)
@@ -56,11 +55,8 @@ static void rpy_init_mutexes(void)
     rpy_waiting_threads = 0;
 }
 
-static void RPyGilAllocate(void)
+void RPyGilAllocate(void)
 {
-    while (!lock_test_and_set(&gil_allocating, 1)) {
-        /* busy-looping here */
-    }
     if (rpy_waiting_threads < 0) {
         assert(rpy_waiting_threads == -42);
         rpy_init_mutexes();
@@ -68,7 +64,6 @@ static void RPyGilAllocate(void)
         pthread_atfork(NULL, NULL, rpy_init_mutexes);
 #endif
     }
-    atomic_decrement(&gil_allocating);   /* 1 => 0 */
 }
 
 void RPyGilAcquireSlowPath(long old_fastgil)
@@ -85,11 +80,22 @@ void RPyGilAcquireSlowPath(long old_fastgil)
     else {
         /* Otherwise, another thread is busy with the GIL. */
 
+        if (rpy_waiting_threads < 0) {
+            /* <arigo> I tried to have RPyGilAllocate() called from
+             * here, but it fails occasionally on an example
+             * (2.7/test/test_threading.py).  I think what occurs is
+             * that if one thread runs RPyGilAllocate(), it still
+             * doesn't have the GIL; then the other thread might fork()
+             * at precisely this moment, killing the first thread.
+             */
+            fprintf(stderr, "Fatal RPython error: a thread is trying to wait "
+                            "for the GIL, but the GIL was not initialized\n");
+            abort();
+        }
+
         /* Register me as one of the threads that is actively waiting
            for the GIL.  The number of such threads is found in
            rpy_waiting_threads. */
-        if (rpy_waiting_threads < 0)
-            RPyGilAllocate();
         atomic_increment(&rpy_waiting_threads);
 
         /* Enter the waiting queue from the end.  Assuming a roughly
