@@ -209,6 +209,10 @@ class PoolLoc(AddressLocation):
         AddressLocation.__init__(self, None, None, offset, None)
         self.base = 13
         self.isfloat = isfloat
+        if self.isfloat:
+            self.type = FLOAT
+        else:
+            self.type = INT
 
     def is_in_pool(self):
         return True

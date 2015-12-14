@@ -66,7 +66,7 @@ class FPRegisterManager(RegisterManager):
 
     def convert_to_imm(self, c):
         off = self.pool.get_offset(c)
-        return l.pool(off)
+        return l.pool(off, float=True)
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         RegisterManager.__init__(self, longevity, frame_manager, assembler)

@@ -58,7 +58,7 @@ class CallBuilder(AbstractCallBuilder):
         stack_params = []
         for i in range(num_args):
             loc = arglocs[i]
-            if arglocs[i].type != FLOAT:
+            if not arglocs[i].is_float():
                 if gpr_regs < max_gpr_in_reg:
                     non_float_locs.append(arglocs[i])
                     non_float_regs.append(self.GPR_ARGS[gpr_regs])
