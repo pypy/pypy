@@ -62,7 +62,7 @@ class ReleaseGILTests(BaseFrameworkTests):
         def f42(n):
             length = len(glob.lst)
             raw = alloc1()
-            wrapper = rffi._make_wrapper_for(CALLBACK, callback, None, False)
+            wrapper = rffi._make_wrapper_for(CALLBACK, callback, None, True)
             fn = llhelper(CALLBACK, wrapper)
             if n & 1:    # to create a loop and a bridge, and also
                 pass     # to run the qsort() call in the blackhole interp
