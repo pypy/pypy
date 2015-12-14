@@ -44,8 +44,13 @@ Improve the heuristic when disable trace-too-long
 
 .. branch: fix-setslice-can-resize
 
-Make rpython setslice able to resize the destination list & use that to
-refactor list use by interp-level code. Fixes #2196 & #2198
+Make rpython setslice able to resize the destination list.
+Fixes issue #2196.
+
+.. branch: fix-2198
+
+Use the new resizing setslice to refactor list use by interp-level code.
+Fixes issue #2198.
 
 .. branch: anntype2
 
