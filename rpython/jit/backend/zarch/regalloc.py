@@ -30,6 +30,10 @@ from rpython.rlib.rarithmetic import r_uint
 
 LIMIT_LOOP_BREAK = 15000      # should be much smaller than 32 KB
 
+def force_int(intvalue):
+    # a hack before transaction: force the intvalue argument through
+    # rffi.cast(), to turn Symbolics into real values
+    return rffi.cast(lltype.Signed, intvalue)
 
 class TempInt(TempVar):
     type = INT
@@ -569,7 +573,7 @@ class Regalloc(BaseRegalloc):
 
     def ensure_reg_or_16bit_imm(self, box):
         if box.type == FLOAT:
-            return self.fprm.ensure_reg(box)
+            return self.fprm.ensure_reg(box, True)
         else:
             if helper.check_imm(box):
                 return imm(box.getint())
@@ -918,6 +922,16 @@ class Regalloc(BaseRegalloc):
     prepare_guard_nonnull = _prepare_guard_cc
     prepare_guard_isnull = _prepare_guard_cc
     prepare_guard_overflow = _prepare_guard_cc
+
+    def prepare_guard_class(self, op):
+        x = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        y_val = force_int(op.getarg(1).getint())
+        arglocs = self._prepare_guard(op, [x, imm(y_val)])
+        return arglocs
+
+    prepare_guard_nonnull_class = prepare_guard_class
+    prepare_guard_gc_type = prepare_guard_class
+    prepare_guard_subclass = prepare_guard_class
 
     def prepare_guard_no_exception(self, op):
         arglocs = self._prepare_guard(op)

@@ -274,6 +274,7 @@ class CallOpAssembler(object):
 
         jmp_adr = self.mc.get_relative_pos()
         self.mc.trap()        # patched later to a 'bc'
+        self.mc.write('\x00' * 4)
 
         self.load_gcmap(self.mc, r.r2, regalloc.get_gcmap())
 
@@ -568,12 +569,13 @@ class GuardOpAssembler(object):
         self._emit_guard(op, arglocs[2:])
 
     def emit_guard_nonnull_class(self, op, arglocs, regalloc):
-        self.mc.cmp_op(0, arglocs[0].value, 1, imm=True, signed=False)
+        self.mc.cmp_op(arglocs[0], l.imm(1), imm=True, signed=False)
         patch_pos = self.mc.currpos()
         self.mc.trap()
+        self.mc.write('\x00' * 4)
         self._cmp_guard_class(op, arglocs, regalloc)
         pmc = OverwritingBuilder(self.mc, patch_pos, 1)
-        pmc.blt(self.mc.currpos() - patch_pos)
+        pmc.BRCL(c.LT, l.imm(self.mc.currpos() - patch_pos))
         pmc.overwrite()
         self.guard_success_cc = c.EQ
         self._emit_guard(op, arglocs[2:])
@@ -583,9 +585,9 @@ class GuardOpAssembler(object):
         if offset is not None:
             # could be one instruction shorter, but don't care because
             # it's not this case that is commonly translated
-            self.mc.load(r.SCRATCH.value, locs[0].value, offset)
+            self.mc.LG(r.SCRATCH, l.addr(offset, locs[0]))
             self.mc.load_imm(r.SCRATCH2, locs[1].value)
-            self.mc.cmp_op(0, r.SCRATCH.value, r.SCRATCH2.value)
+            self.mc.cmp_op(r.SCRATCH, r.SCRATCH2)
         else:
             expected_typeid = (self.cpu.gc_ll_descr
                     .get_typeid_from_classptr_if_gcremovetypeptr(locs[1].value))

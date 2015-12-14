@@ -180,6 +180,11 @@ class OverwritingBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         self.init_block_builder()
         self.mc = mc
         self.index = start
+
+    def writechar(self, c):
+        self.mc.overwrite(self.index, c)
+        self.index += 1
+
     def overwrite(self):
         pass
 
