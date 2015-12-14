@@ -244,15 +244,15 @@ class AppTestThread(GenericTestThread):
 
         def busy_wait():
             waiting.append(None)
-            for x in range(50):
-                print 'tick...', x  # <-force the GIL to be released, as
-                time.sleep(0.1)    #   time.sleep doesn't do non-translated
+            for i in range(500):
+                print '%',
+                time.sleep(0.01)
             waiting.pop()
 
         # This is normally called by app_main.py
         signal.signal(signal.SIGINT, signal.default_int_handler)
 
-        for i in range(100):
+        for i in range(10):
             print
             print "loop", i
             waiting = []
