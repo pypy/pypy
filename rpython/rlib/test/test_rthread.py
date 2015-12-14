@@ -24,6 +24,7 @@ def test_thread_error():
         py.test.fail("Did not raise")
 
 def test_tlref_untranslated():
+    import thread
     class FooBar(object):
         pass
     t = ThreadLocalReference(FooBar)
@@ -36,7 +37,7 @@ def test_tlref_untranslated():
         time.sleep(0.2)
         results.append(t.get() is x)
     for i in range(5):
-        start_new_thread(subthread, ())
+        thread.start_new_thread(subthread, ())
     time.sleep(0.5)
     assert results == [True] * 15
 
