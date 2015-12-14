@@ -94,6 +94,7 @@ def string_attach(space, py_obj, w_obj):
     py_str.c_size = len(space.str_w(w_obj))
     py_str.c_buffer = lltype.nullptr(rffi.CCHARP.TO)
     py_str.c_ob_shash = space.hash_w(w_obj)
+    py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
 
 def string_realize(space, py_obj):
     """
@@ -103,6 +104,8 @@ def string_realize(space, py_obj):
     py_str = rffi.cast(PyStringObject, py_obj)
     s = rffi.charpsize2str(py_str.c_buffer, py_str.c_size)
     w_obj = space.wrap(s)
+    py_str.c_ob_shash = space.hash_w(w_obj)
+    py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
     track_reference(space, py_obj, w_obj)
     return w_obj
 
