@@ -16,10 +16,6 @@ eci = ExternalCompilationInfo(
 llexternal = rffi.llexternal
 
 
-gil_allocate      = llexternal('RPyGilAllocate', [], lltype.Void,
-                               _nowrapper=True, sandboxsafe=True,
-                               compilation_info=eci)
-
 _gil_yield_thread = llexternal('RPyGilYieldThread', [], lltype.Signed,
                                _nowrapper=True, sandboxsafe=True,
                                compilation_info=eci)
@@ -37,10 +33,6 @@ gil_fetch_fastgil = llexternal('RPyFetchFastGil', [], llmemory.Address,
                                compilation_info=eci)
 
 # ____________________________________________________________
-
-
-# NOTE: a multithreaded program should call gil_allocate() once before
-# starting to use threads, and possibly after a fork() too
 
 
 def invoke_after_thread_switch(callback):

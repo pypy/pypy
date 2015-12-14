@@ -40,13 +40,29 @@ long rpy_fastgil = 1;
 long rpy_waiting_threads = -42;    /* GIL not initialized */
 static mutex1_t mutex_gil_stealer;
 static mutex2_t mutex_gil;
+static long gil_allocating = 0;
 
-void RPyGilAllocate(void)
+
+static void rpy_init_mutexes(void)
 {
-    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
     mutex1_init(&mutex_gil_stealer);
     mutex2_init_locked(&mutex_gil);
     rpy_waiting_threads = 0;
+}
+
+static void RPyGilAllocate(void)
+{
+    while (!lock_test_and_set(&gil_allocating, 1)) {
+        /* busy-looping here */
+    }
+    if (rpy_waiting_threads < 0) {
+        assert(rpy_waiting_threads == -42);
+        rpy_init_mutexes();
+#ifdef HAVE_PTHREAD_ATFORK
+        pthread_atfork(NULL, NULL, rpy_init_mutexes);
+#endif
+    }
+    atomic_decrement(&gil_allocating);   /* 1 => 0 */
 }
 
 void RPyGilAcquire(void)
@@ -66,7 +82,8 @@ void RPyGilAcquire(void)
         /* Register me as one of the threads that is actively waiting
            for the GIL.  The number of such threads is found in
            rpy_waiting_threads. */
-        assert(rpy_waiting_threads >= 0);
+        if (rpy_waiting_threads < 0)
+            RPyGilAllocate();
         atomic_increment(&rpy_waiting_threads);
 
         /* Enter the waiting queue from the end.  Assuming a roughly

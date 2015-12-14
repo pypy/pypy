@@ -23,24 +23,18 @@ class GILThreadLocals(OSThreadLocals):
         space.actionflag.register_periodic_action(GILReleaseAction(space),
                                                   use_bytecode_counter=True)
 
-    def _initialize_gil(self, space):
-        rgil.gil_allocate()
-
     def setup_threads(self, space):
         """Enable threads in the object space, if they haven't already been."""
         if not self.gil_ready:
-            self._initialize_gil(space)
             self.gil_ready = True
             result = True
         else:
             result = False      # already set up
         return result
 
-    def reinit_threads(self, space):
-        "Called in the child process after a fork()"
-        OSThreadLocals.reinit_threads(self, space)
-        if self.gil_ready:     # re-initialize the gil if needed
-            self._initialize_gil(space)
+    ## def reinit_threads(self, space):
+    ##     "Called in the child process after a fork()"
+    ##     OSThreadLocals.reinit_threads(self, space)
 
 
 class GILReleaseAction(PeriodicAsyncAction):

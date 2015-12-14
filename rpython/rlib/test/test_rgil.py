@@ -6,7 +6,6 @@ class BaseTestGIL(StandaloneTests):
 
     def test_simple(self):
         def main(argv):
-            rgil.gil_allocate()
             rgil.release()
             # don't have the GIL here
             rgil.acquire()

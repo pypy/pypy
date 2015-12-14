@@ -5,13 +5,6 @@ from rpython.translator.c.test.test_boehm import AbstractGCTestClass
 from rpython.rtyper.lltypesystem import lltype, rffi
 import py
 
-def setup_module(mod):
-    # Hack to avoid a deadlock if the module is run after other test files :-(
-    # In this module, we assume that rthread.start_new_thread() is not
-    # providing us with a GIL equivalent, except in test_gc_locking
-    # which installs its own aroundstate.
-    rffi.aroundstate._cleanup_()
-
 def test_lock():
     l = allocate_lock()
     ok1 = l.acquire(True)

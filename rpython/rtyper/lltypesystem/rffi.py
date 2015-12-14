@@ -271,7 +271,7 @@ def llexternal(name, args, result, _callable=None,
                 use_gil = invoke_around_handlers
                 arg = llhelper(TARGET, _make_wrapper_for(TARGET, arg,
                                                          callbackholder,
-                                                         use_gil=use_gil))
+                                                         use_gil))
             else:
                 SOURCE = lltype.typeOf(arg)
                 if SOURCE != TARGET:

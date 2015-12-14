@@ -26,7 +26,6 @@ typedef enum RPyLockStatus {
 
 #endif /* !_WIN32 */
 
-RPY_EXTERN void RPyGilAllocate(void);
 RPY_EXTERN long RPyGilYieldThread(void);
 RPY_EXTERN void RPyGilAcquire(void);
 #define RPyGilRelease _RPyGilRelease
