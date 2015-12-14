@@ -27,7 +27,7 @@ class GILThreadLocals(OSThreadLocals):
         if not self.gil_ready:
             # Note: this is a quasi-immutable read by module/pypyjit/interp_jit
             # It must be changed (to True) only if it was really False before
-            rgil.gil_allocate()
+            rgil.allocate()
             self.gil_ready = True
             result = True
         else:

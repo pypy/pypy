@@ -81,7 +81,7 @@ def allocate_lock():
 def ll_start_new_thread(func):
     from rpython.rlib import rgil
     _check_thread_enabled()
-    rgil.gil_allocate()    
+    rgil.allocate()
     # ^^^ convenience: any RPython program which uses explicitly
     # rthread.start_new_thread() will initialize the GIL at that
     # point.

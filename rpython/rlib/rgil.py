@@ -18,9 +18,9 @@ eci = ExternalCompilationInfo(
 llexternal = rffi.llexternal
 
 
-gil_allocate = llexternal('RPyGilAllocate', [], lltype.Void,
-                          _nowrapper=True, sandboxsafe=True,
-                          compilation_info=eci)
+_gil_allocate = llexternal('RPyGilAllocate', [], lltype.Void,
+                           _nowrapper=True, sandboxsafe=True,
+                           compilation_info=eci)
 
 _gil_yield_thread = llexternal('RPyGilYieldThread', [], lltype.Signed,
                                _nowrapper=True, sandboxsafe=True,
@@ -103,6 +103,10 @@ class Entry(ExtRegistryEntry):
         else:
             hop.exception_cannot_occur()
 
+
+def allocate():
+    if we_are_translated():
+        _gil_allocate()
 
 def release():
     # this function must not raise, in such a way that the exception
