@@ -52,12 +52,12 @@ def predeclare_utility_functions(db, rtyper):
     for fname, f in locals().items():
         if isinstance(f, types.FunctionType):
             # XXX this is painful :(
-            if (LIST_OF_STR, fname) in db.helper2ptr:
-                yield (fname, db.helper2ptr[LIST_OF_STR, fname])
+            if fname in db.helpers:
+                yield (fname, db.helpers[fname])
             else:
                 # hack: the defaults give the type of the arguments
                 graph = rtyper.annotate_helper(f, f.func_defaults)
-                db.helper2ptr[LIST_OF_STR, fname] = graph
+                db.helpers[fname] = graph
                 yield (fname, graph)
 
 
