@@ -17,7 +17,6 @@ from rpython.rtyper.annlowlevel import llhelper, llhelper_args
 from rpython.jit.backend.llsupport.test.test_regalloc_integration import BaseTestRegalloc
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
-from rpython.rlib.objectmodel import invoke_around_extcall
 
 CPU = getcpuclass()
 
@@ -624,9 +623,6 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         cpu.gc_ll_descr.fielddescr_tid = cpu.fielddescrof(S, 'hdr')
         self.S = S
         self.cpu = cpu
-
-    def teardown_method(self, meth):
-        rffi.aroundstate._cleanup_()
 
     def test_shadowstack_call(self):
         cpu = self.cpu

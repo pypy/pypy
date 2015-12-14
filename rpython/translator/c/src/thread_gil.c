@@ -37,7 +37,7 @@
 */
 
 long rpy_fastgil = 1;
-long rpy_waiting_threads = -42;    /* GIL not initialized */
+static long rpy_waiting_threads = -42;    /* GIL not initialized */
 static mutex1_t mutex_gil_stealer;
 static mutex2_t mutex_gil;
 static long gil_allocating = 0;
