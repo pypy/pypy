@@ -78,7 +78,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         # the actual call is not done here
-        pass
+        hop.exception_cannot_occur()
 
 class Entry(ExtRegistryEntry):
     _about_ = _after_thread_switch
@@ -90,10 +90,9 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         translator = hop.rtyper.annotator.translator
         if hasattr(translator, '_rgil_invoke_after_thread_switch'):
-            import pdb;pdb.set_trace()
             func = translator._rgil_invoke_after_thread_switch
             graph = translator._graphof(func)
-            llfn = self.rtyper.getcallable(graph)
+            llfn = hop.rtyper.getcallable(graph)
             c_callback = hop.inputconst(lltype.typeOf(llfn), llfn)
             hop.exception_is_here()
             hop.genop("direct_call", [c_callback])
