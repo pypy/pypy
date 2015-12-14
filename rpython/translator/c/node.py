@@ -926,11 +926,9 @@ def select_function_code_generators(fnobj, db, functionname):
     elif getattr(fnobj, 'external', None) is not None:
         if sandbox:
             return sandbox_stub(fnobj, db)
-        elif fnobj.external == 'C':
-            return []
         else:
-            assert fnobj.external == 'CPython'
-            return [CExternalFunctionCodeGenerator(fnobj, db)]
+            assert fnobj.external == 'C'
+            return []
     elif hasattr(fnobj._callable, "c_name"):
         return []    # this case should only be used for entrypoints
     else:
