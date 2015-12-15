@@ -1,5 +1,4 @@
 import py
-from rpython.rlib.objectmodel import we_are_translated
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -105,21 +104,18 @@ class Entry(ExtRegistryEntry):
 
 
 def allocate():
-    if we_are_translated():
-        _gil_allocate()
+    _gil_allocate()
 
 def release():
     # this function must not raise, in such a way that the exception
     # transformer knows that it cannot raise!
-    if we_are_translated():
-        _gil_release()
+    _gil_release()
 release._gctransformer_hint_cannot_collect_ = True
 release._dont_reach_me_in_del_ = True
 
 def acquire():
     from rpython.rlib import rthread
-    if we_are_translated():
-        _gil_acquire()
+    _gil_acquire()
     rthread.gc_thread_run()
     _after_thread_switch()
 acquire._gctransformer_hint_cannot_collect_ = True
