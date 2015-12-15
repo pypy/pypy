@@ -8,6 +8,7 @@ def test_ffi_new():
     p = ffi.new("int *")
     p[0] = -42
     assert p[0] == -42
+    assert type(ffi) is ffi.__class__ is _cffi1_backend.FFI
 
 def test_ffi_subclass():
     class FOO(_cffi1_backend.FFI):
@@ -17,6 +18,7 @@ def test_ffi_subclass():
     assert foo.x == 42
     p = foo.new("int *")
     assert p[0] == 0
+    assert type(foo) is foo.__class__ is FOO
 
 def test_ffi_no_argument():
     py.test.raises(TypeError, _cffi1_backend.FFI, 42)
@@ -472,7 +474,11 @@ def test_init_once_failure():
         assert seen == [1] * (i + 1)
 
 def test_init_once_multithread_failure():
-    import thread, time
+    if sys.version_info < (3,):
+        import thread
+    else:
+        import _thread as thread
+    import time
     def do_init():
         seen.append('init!')
         time.sleep(1)

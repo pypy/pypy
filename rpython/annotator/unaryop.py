@@ -686,7 +686,7 @@ class __extend__(SomeUnicodeString):
         enc = s_enc.const
         if enc not in ('ascii', 'latin-1', 'utf-8'):
             raise AnnotatorError("Encoding %s not supported for unicode" % (enc,))
-        return SomeString()
+        return SomeString(no_nul=self.no_nul)
     method_encode.can_only_throw = [UnicodeEncodeError]
 
 
@@ -719,7 +719,7 @@ class __extend__(SomeString):
         enc = s_enc.const
         if enc not in ('ascii', 'latin-1', 'utf-8'):
             raise AnnotatorError("Encoding %s not supported for strings" % (enc,))
-        return SomeUnicodeString()
+        return SomeUnicodeString(no_nul=self.no_nul)
     method_decode.can_only_throw = [UnicodeDecodeError]
 
 class __extend__(SomeChar, SomeUnicodeCodePoint):

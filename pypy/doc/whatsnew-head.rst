@@ -67,3 +67,9 @@ A somewhat random bunch of changes and fixes following up on branch 'anntype'. H
 Simplification. Backends implement too many loading instructions, only having a slightly different interface.
 Four new operations (gc_load/gc_load_indexed, gc_store/gc_store_indexed) replace all the
 commonly known loading operations
+
+.. branch: more-rposix
+
+Move wrappers for OS functions from `rpython/rtyper` to `rpython/rlib` and 
+turn them into regular RPython functions. Most RPython-compatible `os.*` 
+functions are now directly accessible as `rpython.rposix.*`.

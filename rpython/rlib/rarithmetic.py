@@ -536,7 +536,7 @@ if r_longlong is not r_int:
 else:
     r_int64 = int
 
-# needed for ll_os_stat.time_t_to_FILE_TIME in the 64 bit case
+# needed for rposix_stat.time_t_to_FILE_TIME in the 64 bit case
 r_uint32 = build_int('r_uint32', False, 32)
 
 SHRT_MIN = -2**(_get_bitsize('h') - 1)
