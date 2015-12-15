@@ -7,7 +7,9 @@ def app_test_stderrprinter():
     p.close()  # this should be a no-op
     p.flush()  # this should be a no-op
     assert p.fileno() == 2
-    assert p.isatty()
+    #It doesn't make sense to assert this. Stderror could be a tty (the terminal)
+    #or not, depending on how we are running the tests.
+    #assert p.isatty()
     assert p.write('foo') == 3
     raises(TypeError, p.write, b'foo')
 

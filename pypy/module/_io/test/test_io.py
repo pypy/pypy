@@ -390,7 +390,7 @@ class AppTestOpen:
                     raises(TypeError, pickle.dumps, f, protocol)
 
     def test_mod(self):
-        import _io
+        import _io, _frozen_importlib
         typemods = dict((t, t.__module__) for t in vars(_io).values()
                         if isinstance(t, type))
         for t, mod in typemods.items():
@@ -398,6 +398,11 @@ class AppTestOpen:
                 assert mod == 'builtins'
             elif t is _io.UnsupportedOperation:
                 assert mod == 'io'
+            #TODO: Make sure this is a reasonable thing to do. Check if there is
+            #a cleaner way to do these checks or if these checks even make sense
+            #in general. They seem really brittle.
+            elif t is _frozen_importlib.BuiltinImporter:
+                assert mod == "_frozen_importlib"
             else:
                 assert mod == '_io'
 
