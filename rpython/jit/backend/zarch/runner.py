@@ -67,3 +67,7 @@ class CPU_S390_64(AbstractZARCHCPU):
             mc.copy_to_raw_memory(jmp)
         # positions invalidated
         looptoken.compiled_loop_token.invalidate_positions = []
+
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
+

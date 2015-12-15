@@ -202,6 +202,7 @@ floatingpoint_mnemonic_codes = {
     'AEB':     ('rxe',   ['\xED','\x0A'], 'r,bidl,-'),
     'ADB':     ('rxe',   ['\xED','\x1A'], 'r,bidl,-'),
 
+
     # SUBSTRACTION
     'SEBR':    ('rre',   ['\xB3','\x0B']),
     'SDBR':    ('rre',   ['\xB3','\x1B']),
@@ -231,6 +232,9 @@ floatingpoint_mnemonic_codes = {
     # complement & positive
     'LPDBR':    ('rre',   ['\xB3','\x10']),
     'LCDBR':    ('rre',   ['\xB3','\x13']),
+
+    # square root
+    'SQDBR':    ('rre',   ['\xB3','\x15']),
 }
 
 # MISC

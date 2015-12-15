@@ -3,7 +3,7 @@ from rpython.jit.backend.zarch.helper.assembler import (gen_emit_cmp_op,
         gen_emit_rr_or_rpool, gen_emit_shift, gen_emit_pool_or_rr_evenodd,
         gen_emit_imm_pool_rr)
 from rpython.jit.backend.zarch.helper.regalloc import (check_imm,)
-from rpython.jit.backend.zarch.codebuilder import ZARCHGuardToken
+from rpython.jit.backend.zarch.codebuilder import ZARCHGuardToken, InstrBuilder
 import rpython.jit.backend.zarch.conditions as c
 import rpython.jit.backend.zarch.registers as r
 import rpython.jit.backend.zarch.locations as l
@@ -234,6 +234,10 @@ class CallOpAssembler(object):
     emit_call_r = _genop_call
     emit_call_f = _genop_call
     emit_call_n = _genop_call
+
+    def _emit_math_sqrt(self, op, arglocs, regalloc):
+        l0, res = arglocs
+        self.mc.SQDBR(res, l0)
 
     def _genop_call_may_force(self, op, arglocs, regalloc):
         self._store_force_index(self._find_nearby_operation(regalloc, +1))
@@ -886,25 +890,10 @@ class ForceOpAssembler(object):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         newlooptoken.compiled_loop_token.update_frame_info(
             oldlooptoken.compiled_loop_token, baseofs)
-        if IS_PPC_64 and IS_BIG_ENDIAN:
-            # PPC64 big-endian trampolines are data so overwrite the code
-            # address in the function descriptor at the old address.
-            # Copy the whole 3-word trampoline, even though the other
-            # words are always zero so far.  That's not enough in all
-            # cases: if the "target" trampoline is itself redirected
-            # later, then the "old" trampoline won't be updated; so
-            # we still need the jump below to be safe.
-            odata = rffi.cast(rffi.CArrayPtr(lltype.Signed), oldadr)
-            tdata = rffi.cast(rffi.CArrayPtr(lltype.Signed), target)
-            odata[0] = tdata[0]
-            odata[1] = tdata[1]
-            odata[2] = tdata[2]
-            oldadr += 3 * WORD
-            target += 3 * WORD
         # we overwrite the instructions at the old _ll_function_addr
         # to start with a JMP to the new _ll_function_addr.
-        mc = PPCBuilder()
-        mc.b_abs(target)
+        mc = InstrBuilder()
+        mc.BRCL(c.ANY, l.imm(target))
         mc.copy_to_raw_memory(oldadr)
 
 

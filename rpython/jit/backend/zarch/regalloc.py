@@ -787,7 +787,7 @@ class Regalloc(BaseRegalloc):
     prepare_gc_load_indexed_r = _prepare_gc_load_indexed
 
     def prepare_gc_store(self, op):
-        base_loc = self.ensure_reg(op.getarg(0))
+        base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
         index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
         value_loc = self.ensure_reg(op.getarg(2))
         size_box = op.getarg(3)
@@ -874,7 +874,7 @@ class Regalloc(BaseRegalloc):
             return self._prepare_call_default(op)
 
     def _prepare_math_sqrt(self, op):
-        loc = self.ensure_reg(op.getarg(1))
+        loc = self.ensure_reg(op.getarg(1), force_in_reg=True)
         self.free_op_vars()
         res = self.fprm.force_allocate_reg(op)
         return [loc, res]
