@@ -821,6 +821,16 @@ class Regalloc(BaseRegalloc):
             return effectinfo.oopspecindex
         return EffectInfo.OS_NONE
 
+    def prepare_convert_float_bytes_to_longlong(self, op):
+        loc1 = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        res = self.force_allocate_reg(op)
+        return [loc1, res]
+
+    def prepare_convert_longlong_bytes_to_float(self, op):
+        loc1 = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        res = self.force_allocate_reg(op)
+        return [loc1, res]
+
     def _spill_before_call(self, save_all_regs=False):
         # spill variables that need to be saved around calls
         self.fprm.before_call(save_all_regs=save_all_regs)

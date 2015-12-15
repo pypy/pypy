@@ -198,6 +198,14 @@ class FloatOpAssembler(object):
         r0, f0 = arglocs
         self.mc.CDGBR(f0, r0)
 
+    def emit_convert_float_bytes_to_longlong(self, op, arglocs, regalloc):
+        l0, res = arglocs
+        self.mc.LGDR(res, l0)
+
+    def emit_convert_longlong_bytes_to_float(self, op, arglocs, regalloc):
+        l0, res = arglocs
+        self.mc.LDGR(res, l0)
+
 class CallOpAssembler(object):
 
     _mixin_ = True

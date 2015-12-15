@@ -235,6 +235,10 @@ floatingpoint_mnemonic_codes = {
 
     # square root
     'SQDBR':    ('rre',   ['\xB3','\x15']),
+
+    # load f <- r and vice versa
+    'LDGR':     ('rre',   ['\xB3','\xC1']),
+    'LGDR':     ('rre',   ['\xB3','\xCD']),
 }
 
 # MISC
