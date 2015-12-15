@@ -893,7 +893,8 @@ class ForceOpAssembler(object):
         # we overwrite the instructions at the old _ll_function_addr
         # to start with a JMP to the new _ll_function_addr.
         mc = InstrBuilder()
-        mc.BRCL(c.ANY, l.imm(target))
+        mc.load_imm(r.SCRATCH, target)
+        mc.BCR(c.ANY, r.SCRATCH)
         mc.copy_to_raw_memory(oldadr)
 
 
