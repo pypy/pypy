@@ -10,6 +10,8 @@ from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.debug import debug_print
+from rpython.rlib.rarithmetic import r_uint
+from rpython.jit.metainterp import opencoder
 
 
 
@@ -54,23 +56,27 @@ class Optimization(object):
         self.last_emitted_operation = op
         self.next_optimization.propagate_forward(op)
 
-    def getintbound(self, op):
-        assert op.type == 'i'
-        op = self.get_box_replacement(op)
-        if isinstance(op, ConstInt):
-            return ConstIntBound(op.getint())
-        fw = op.get_forwarded()
+    def getintbound(self, tagged):
+        tagged = self.get_box_replacement(tagged)
+        tag, val = opencoder.untag(tagged)
+        if tag == opencoder.TAGINT:
+            return ConstIntBound(val)
+        elif tag == opencoder.TAGCONST:
+            yyy
+        else:
+            assert tag == opencoder.TAGBOX
+        fw = self.optimizer.trace.get_info(self.optimizer.infos, val)
         if fw is not None:
             if isinstance(fw, IntBound):
                 return fw
             # rare case: fw might be a RawBufferPtrInfo
             return IntUnbounded()
-        assert op.type == 'i'
         intbound = IntBound(MININT, MAXINT)
-        op.set_forwarded(intbound)
+        self.optimizer.trace.set_info(self.optimizer.infos, val, intbound)
         return intbound
 
     def setintbound(self, op, bound):
+        xxx
         assert op.type == 'i'
         op = self.get_box_replacement(op)
         if op.is_constant():
@@ -338,12 +344,19 @@ class Optimizer(Optimization):
             if self.get_box_replacement(op).is_constant():
                 return info.FloatConstInfo(self.get_box_replacement(op))
 
-    def get_box_replacement(self, op):
-        if op is None:
-            return op
-        return op.get_box_replacement()
+    def get_box_replacement(self, tagged):
+        # tagged -> tagged
+        while True:
+            tag, v = opencoder.untag(tagged)
+            if tag != opencoder.TAGBOX:
+                return tagged
+            opnum = self.trace._ops[v]
+            if opnum >= 0:
+                return tagged
+            tagged = -opnum - 1
 
     def force_box(self, op, optforce=None):
+        return op
         op = self.get_box_replacement(op)
         if optforce is None:
             optforce = self
@@ -366,6 +379,13 @@ class Optimizer(Optimization):
     def is_inputarg(self, op):
         return True
         return op in self.inparg_dict
+
+    def is_constant(self, tagged):
+        tagged = self.get_box_replacement(tagged)
+        tag, value = opencoder.untag(tagged)
+        if tag == opencoder.TAGINT or tag == opencoder.TAGCONST:
+            return True
+        return False
 
     def get_constant_box(self, box):
         box = self.get_box_replacement(box)
@@ -397,6 +417,10 @@ class Optimizer(Optimization):
             op.set_forwarded(newop)
 
     def replace_op_with(self, op, newopnum, args=None, descr=None):
+        # recorded_op -> tagged
+        newtag = self.trace.record_op_tag(newopnum, args, descr)
+        self.trace.record_forwarding(op, newtag)
+        return newtag
         newop = op.copy_and_change(newopnum, args, descr)
         if newop.type != 'v':
             op = self.get_box_replacement(op)
@@ -503,27 +527,32 @@ class Optimizer(Optimization):
         else:
             return CONST_0
 
-    def propagate_all_forward(self, inputargs, ops, call_pure_results=None,
+    def propagate_all_forward(self, trace, call_pure_results=None,
                               rename_inputargs=True, flush=True):
-        if rename_inputargs:
-            newargs = []
-            for inparg in inputargs:
-                new_arg = OpHelpers.inputarg_from_tp(inparg.type)
-                inparg.set_forwarded(new_arg)
-                newargs.append(new_arg)
-            self.init_inparg_dict_from(newargs)
-        else:
-            newargs = inputargs
+        #self.output = opencoder.Trace() # <- XXXX
+        self.infos = [None] * trace._count
+        self.trace = trace
+        #if rename_inputargs:
+        #    newargs = []
+        #    for inparg in inputargs:
+        #        new_arg = OpHelpers.inputarg_from_tp(inparg.type)
+        #        inparg.set_forwarded(new_arg)
+        #        newargs.append(new_arg)
+        #    self.init_inparg_dict_from(newargs)
+        #else:
+        #    newargs = inputargs
         self.call_pure_results = call_pure_results
-        if ops[-1].getopnum() in (rop.FINISH, rop.JUMP):
-            last = len(ops) - 1
-            extra_jump = True
-        else:
-            extra_jump = False
-            last = len(ops)
-        for i in range(last):
+        #if ops[-1].getopnum() in (rop.FINISH, rop.JUMP):
+        #    last = len(ops) - 1
+        #    extra_jump = True
+        #else:
+        #    extra_jump = False
+        #    last = len(ops)
+        trace_iter = trace.get_iter()
+        while not trace_iter.done():
+            op = trace_iter.next()
             self._really_emitted_operation = None
-            self.first_optimization.propagate_forward(ops[i])
+            self.first_optimization.propagate_forward(op)
         # accumulate counters
         if flush:
             self.flush()
@@ -546,7 +575,7 @@ class Optimizer(Optimization):
         dispatch_opt(self, op)
 
     def emit_operation(self, op):
-        if op.returns_bool_result():
+        if rop.returns_bool_result(op.opnum):
             self.getintbound(op).make_bool()
         self._emit_operation(op)
         op = self.get_box_replacement(op)
@@ -559,12 +588,13 @@ class Optimizer(Optimization):
 
     @specialize.argtype(0)
     def _emit_operation(self, op):
-        assert not op.is_call_pure()
+        assert not rop.is_call_pure(op.opnum)
         orig_op = op
-        op = self.get_box_replacement(op)
-        if op.is_constant():
+        tagged = self.get_box_replacement(op.get_tag())
+        if self.is_constant(tagged):
             return # can happen e.g. if we postpone the operation that becomes
             # constant
+        xxxx
         op = self.replace_op_with(op, op.getopnum())
         for i in range(op.numargs()):
             arg = self.force_box(op.getarg(i))

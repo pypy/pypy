@@ -7,6 +7,7 @@ def get_real_model():
         from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
         from rpython.jit.metainterp.history import BasicFailDescr, BasicFinalDescr, TargetToken
         from rpython.jit.metainterp.typesystem import llhelper
+        from rpython.jit.metainterp.opencoder import Trace
 
         from rpython.jit.metainterp.history import get_const_ptr_for_string
         from rpython.jit.metainterp.history import get_const_ptr_for_unicode

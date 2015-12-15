@@ -79,14 +79,14 @@ class BaseTestBasic(BaseTest):
     def optimize_loop(self, ops, optops, call_pure_results=None):
         loop = self.parse(ops, postprocess=self.postprocess)
         token = JitCellToken()
-        label_op = ResOperation(rop.LABEL, loop.inputargs,
-                                descr=TargetToken(token))
-        if loop.operations[-1].getopnum() == rop.JUMP:
-            loop.operations[-1].setdescr(token)
+        label_op = None # loop.record_op(rop.LABEL, loop.inputargs,
+                         #       descr=TargetToken(token))
+        #if loop.operations[-1].getopnum() == rop.JUMP:
+        #    loop.operations[-1].setdescr(token)
         exp = parse(optops, namespace=self.namespace.copy())
-        expected = convert_old_style_to_targets(exp, jump=True)
+        #expected = convert_old_style_to_targets(exp, jump=True)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        compile_data = compile.SimpleCompileData(label_op, loop.operations,
+        compile_data = compile.SimpleCompileData(label_op, loop,
                                                  call_pure_results)
         info, ops = self._do_optimize_loop(compile_data)
         label_op = ResOperation(rop.LABEL, info.inputargs)

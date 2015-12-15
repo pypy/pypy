@@ -291,14 +291,15 @@ class OptHeap(Optimization):
     def emit_operation(self, op):        
         self.emitting_operation(op)
         self.emit_postponed_op()
-        if (op.is_comparison() or op.is_call_may_force()
-            or op.is_ovf()):
+        opnum = op.opnum
+        if (rop.is_comparison(opnum) or rop.is_call_may_force(opnum)
+            or rop.is_ovf(opnum)):
             self.postponed_op = op
         else:
             Optimization.emit_operation(self, op)
 
     def emitting_operation(self, op):
-        if op.has_no_side_effect():
+        if OpHelpers.has_no_side_effect(op.opnum):
             return
         if op.is_ovf():
             return

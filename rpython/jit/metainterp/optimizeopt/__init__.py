@@ -52,11 +52,8 @@ def optimize_trace(metainterp_sd, jitdriver_sd, compile_data, memo=None):
     """Optimize loop.operations to remove internal overheadish operations.
     """
     debug_start("jit-optimize")
-    inputargs = compile_data.start_label.getarglist()
     try:
-        metainterp_sd.logger_noopt.log_loop(inputargs,
-                                            compile_data.operations,
-                                            memo=memo)
+        metainterp_sd.logger_noopt.log_loop(compile_data.trace, memo=memo)
         if memo is None:
             memo = {}
         compile_data.box_names_memo = memo

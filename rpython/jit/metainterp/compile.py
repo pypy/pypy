@@ -29,6 +29,7 @@ class CompileData(object):
     memo = None
     
     def forget_optimization_info(self):
+        return
         for arg in self.start_label.getarglist():
             arg.set_forwarded(None)
         for op in self.operations:
@@ -69,10 +70,10 @@ class SimpleCompileData(CompileData):
     """ This represents label() ops jump with no extra info associated with
     the label
     """
-    def __init__(self, start_label, operations, call_pure_results=None,
+    def __init__(self, start_label, trace, call_pure_results=None,
                  enable_opts=None):
         self.start_label = start_label
-        self.operations = operations
+        self.trace = trace
         self.call_pure_results = call_pure_results
         self.enable_opts = enable_opts
 
@@ -81,8 +82,7 @@ class SimpleCompileData(CompileData):
 
         #assert not unroll
         opt = Optimizer(metainterp_sd, jitdriver_sd, optimizations)
-        return opt.propagate_all_forward(self.start_label.getarglist(),
-            self.operations, self.call_pure_results)
+        return opt.propagate_all_forward(self.trace, self.call_pure_results)
 
 class BridgeCompileData(CompileData):
     """ This represents ops() with a jump at the end that goes to some
