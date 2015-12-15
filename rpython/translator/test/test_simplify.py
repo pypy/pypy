@@ -1,7 +1,7 @@
 import py
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.backendopt.all import backend_optimizations
-from rpython.translator.simplify import (get_graph, transform_dead_op_vars)
+from rpython.translator.simplify import get_graph, transform_dead_op_vars
 from rpython.flowspace.model import Block, Constant, summary
 from rpython.conftest import option
 
@@ -183,8 +183,10 @@ def test_get_graph():
                     print op
                     subgraph = get_graph(op.args[0], t)
                     if subgraph is None:
-                        # ignore 'get_errno' and 'set_errno'
-                        if 'et_errno' not in repr(op.args[0]):
+                        # ignore 'get_errno' and 'set_errno', and
+                        # 'RPyGilRelease' and 'RPyGilAcquire'
+                        if ('et_errno' not in repr(op.args[0]) and
+                            'RPyGil' not in repr(op.args[0])):
                             found.append(op)
                     else:
                         walkgraph(subgraph)

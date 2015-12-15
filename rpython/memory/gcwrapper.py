@@ -184,6 +184,9 @@ class GCManagedHeap(object):
                 hdr.tid |= self.gc.gcflag_extra
         return (hdr.tid & self.gc.gcflag_extra) != 0
 
+    def thread_run(self):
+        pass
+
 # ____________________________________________________________
 
 class LLInterpRootWalker:
