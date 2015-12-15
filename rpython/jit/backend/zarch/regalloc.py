@@ -858,6 +858,10 @@ class Regalloc(BaseRegalloc):
     prepare_call_may_force_f = _prepare_call_may_force
     prepare_call_may_force_n = _prepare_call_may_force
 
+    def prepare_force_token(self, op):
+        res_loc = self.force_allocate_reg(op)
+        return [res_loc]
+
     prepare_call_release_gil_i = _prepare_call_may_force
     prepare_call_release_gil_f = _prepare_call_may_force
     prepare_call_release_gil_n = _prepare_call_may_force
@@ -882,6 +886,17 @@ class Regalloc(BaseRegalloc):
             return [res]
         else:
             return self._prepare_call_default(op)
+
+    def prepare_cond_call(self, op):
+        self.load_condition_into_cc(op.getarg(0))
+        locs = []
+        # support between 0 and 4 integer arguments
+        assert 2 <= op.numargs() <= 2 + 4
+        for i in range(1, op.numargs()):
+            loc = self.loc(op.getarg(i))
+            assert loc.type != FLOAT
+            locs.append(loc)
+        return locs
 
     def _prepare_math_sqrt(self, op):
         loc = self.ensure_reg(op.getarg(1), force_in_reg=True)
@@ -950,6 +965,11 @@ class Regalloc(BaseRegalloc):
     prepare_guard_no_overflow = prepare_guard_no_exception
     prepare_guard_overflow = prepare_guard_no_exception
     prepare_guard_not_forced = prepare_guard_no_exception
+
+    def prepare_guard_not_forced_2(self, op):
+        self.rm.before_call(op.getfailargs(), save_all_regs=True)
+        arglocs = self._prepare_guard(op)
+        return arglocs
 
     def prepare_guard_value(self, op):
         l0 = self.ensure_reg(op.getarg(0))

@@ -11,12 +11,6 @@ class AbstractZARCHCPU(AbstractLLCPU):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
-    def cast_ptr_to_int(x):
-        adr = llmemory.cast_ptr_to_adr(x)
-        return adr # TODO
-    cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
-    cast_ptr_to_int = staticmethod(cast_ptr_to_int)
-
 class CPU_S390_64(AbstractZARCHCPU):
     dont_keepalive_stuff = True
     supports_floats = True
@@ -70,4 +64,10 @@ class CPU_S390_64(AbstractZARCHCPU):
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
+
+    def cast_ptr_to_int(x):
+        adr = llmemory.cast_ptr_to_adr(x)
+        return CPU_S390_64.cast_adr_to_int(adr)
+    cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
+    cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 

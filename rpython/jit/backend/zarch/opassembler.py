@@ -17,6 +17,7 @@ from rpython.jit.metainterp.history import (FLOAT, INT, REF, VOID)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
+from rpython.jit.backend.llsupport.jump import remap_frame_layout
 
 class IntOpAssembler(object):
     _mixin_ = True
@@ -276,7 +277,7 @@ class CallOpAssembler(object):
     def _find_nearby_operation(self, regalloc, delta):
         return regalloc.operations[regalloc.rm.position + delta]
 
-    _COND_CALL_SAVE_REGS = [r.r3, r.r4, r.r5, r.r6, r.r12]
+    _COND_CALL_SAVE_REGS = [r.r12, r.r3, r.r4, r.r5, r.r6]
 
     def emit_cond_call(self, op, arglocs, regalloc):
         fcond = self.guard_success_cc
@@ -313,17 +314,18 @@ class CallOpAssembler(object):
         if regalloc.fprm.reg_bindings:
             floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
-        self.mc.bl_abs(cond_call_adr)
+        self.mc.load_imm(r.SCRATCH, cond_call_adr)
+        self.mc.BCR(c.ANY, r.SCRATCH)
         # restoring the registers saved above, and doing pop_gcmap(), is left
         # to the cond_call_slowpath helper.  We never have any result value.
         relative_target = self.mc.currpos() - jmp_adr
         pmc = OverwritingBuilder(self.mc, jmp_adr, 1)
-        BI, BO = c.encoding[fcond]
-        pmc.bc(BO, BI, relative_target)
+        #BI, BO = c.encoding[fcond]
+        pmc.BRCL(fcond, l.imm(relative_target))
         pmc.overwrite()
         # might be overridden again to skip over the following
         # guard_no_exception too
-        self.previous_cond_call_jcond = jmp_adr, BI, BO
+        self.previous_cond_call_jcond = jmp_adr, fcond
 
 class AllocOpAssembler(object):
     _mixin_ = True
@@ -648,6 +650,7 @@ class GuardOpAssembler(object):
         self._emit_guard(op, arglocs[1:])
 
     def emit_guard_subclass(self, op, arglocs, regalloc):
+        xxx
         assert self.cpu.supports_guard_gc_type
         loc_object = arglocs[0]
         loc_check_against_class = arglocs[1]
@@ -813,7 +816,7 @@ class ForceOpAssembler(object):
 
     def emit_force_token(self, op, arglocs, regalloc):
         res_loc = arglocs[0]
-        self.mc.mr(res_loc.value, r.SPP.value)
+        self.mc.LGR(res_loc, r.SPP)
 
     def _genop_call_assembler(self, op, arglocs, regalloc):
         if len(arglocs) == 3:

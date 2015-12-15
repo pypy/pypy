@@ -9,6 +9,7 @@ from rpython.jit.backend.zarch import locations as l
 from rpython.jit.backend.zarch.pool import LiteralPool
 from rpython.jit.backend.zarch.codebuilder import InstrBuilder
 from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
+from rpython.jit.backend.zarch.regalloc import ZARCHRegisterManager
 from rpython.jit.backend.zarch.arch import (WORD,
         STD_FRAME_SIZE_IN_BYTES, THREADLOCAL_ADDR_OFFSET,
         RECOVERY_GCMAP_POOL_OFFSET, RECOVERY_TARGET_POOL_OFFSET,
@@ -162,7 +163,51 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         """ This builds a general call slowpath, for whatever call happens to
         come.
         """
-        pass # TODO
+        # signature of these cond_call_slowpath functions:
+        #   * on entry, r12 contains the function to call
+        #   * r3, r4, r5, r6 contain arguments for the call
+        #   * r2 is the gcmap
+        #   * the old value of these regs must already be stored in the jitframe
+        #   * on exit, all registers are restored from the jitframe
+
+        mc = InstrBuilder()
+        self.mc = mc
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.STG(r.r2, l.addr(ofs2,r.SPP))
+
+        # copy registers to the frame, with the exception of r3 to r6 and r12,
+        # because these have already been saved by the caller.  Note that
+        # this is not symmetrical: these 5 registers are saved by the caller
+        # but restored here at the end of this function.
+        if callee_only:
+            saved_regs = ZARCHRegisterManager.save_around_call_regs
+        else:
+            saved_regs = ZARCHRegisterManager.all_regs
+        self._push_core_regs_to_jitframe(mc, [reg for reg in saved_regs
+                                              if reg is not r.r3 and
+                                                 reg is not r.r4 and
+                                                 reg is not r.r5 and
+                                                 reg is not r.r6 and
+                                                 reg is not r.r12])
+        if supports_floats:
+            self._push_fp_regs_to_jitframe(mc)
+
+        # Save away the LR inside r30
+        # TODO ? mc.mflr(r.RCS1.value)
+
+        # Do the call
+        mc.raw_call(r.r12)
+
+        # Finish
+        self._reload_frame_if_necessary(mc)
+
+        # TODO ? mc.mtlr(r.RCS1.value)     # restore LR
+        self._pop_core_regs_from_jitframe(mc, saved_regs)
+        if supports_floats:
+            self._pop_fp_regs_from_jitframe(mc)
+        mc.BCR(c.ANY, r.RETURN)
+        self.mc = None
+        return mc.materialize(self.cpu, [])
 
     def _build_stack_check_slowpath(self):
         pass # TODO
@@ -641,16 +686,42 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.jmpto(r.r14)
 
     def _push_core_regs_to_jitframe(self, mc, includes=r.registers):
+        if len(includes) == 0:
+            return
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        assert len(includes) == 16
-        mc.STMG(r.r0, r.r15, l.addr(base_ofs, r.SPP))
+        base = includes[0].value
+        val = includes[0].value
+        for register in includes:
+            if register.value != val:
+                break
+            val += 1
+        else:
+            mc.STMG(includes[0], includes[-1], l.addr(base_ofs + base * WORD, r.SPP))
+            return
+        # unordered!
+        for register in includes:
+            mc.STG(register, l.addr(base_ofs + register.value * WORD, r.SPP))
 
     def _push_fp_regs_to_jitframe(self, mc, includes=r.fpregisters):
+        if len(includes) == 0:
+            return
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         assert len(includes) == 16
         v = 16
         for i,reg in enumerate(includes):
             mc.STDY(reg, l.addr(base_ofs + (v+i) * WORD, r.SPP))
+
+    def _pop_core_regs_from_jitframe(self, mc, includes=r.MANAGED_REGS):
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        for reg in includes:
+            mc.LG(reg, l.addr(base_ofs + reg.value * WORD, r.SPP))
+
+    def _pop_fp_regs_from_jitframe(self, mc, includes=r.MANAGED_FP_REGS):
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        v = 16
+        for reg in includes:
+            mc.LD(reg, l.addr(base_ofs + (v+reg.value) * WORD, r.SPP))
+
 
     # ________________________________________
     # ASSEMBLER EMISSION
