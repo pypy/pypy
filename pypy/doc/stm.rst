@@ -96,7 +96,8 @@ that future versions of gcc will not need to be patched any more.)
 
 Then get the branch `stmgc-c8`_ of PyPy and run::
 
-   rpython/bin/rpython -Ojit --stm pypy/goal/targetpypystandalone.py
+   cd pypy/goal
+   ../../rpython/bin/rpython -Ojit --stm
 
 At the end, this will try to compile the generated C code by calling
 ``gcc-seg-gs``, which must be the script you installed in the
