@@ -1,7 +1,9 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (PyObjectFields, bootstrap_function,
-    cpython_struct, make_typedescr, from_ref, track_reference, RefcountState,
+    cpython_struct,
     CANNOT_FAIL, cpython_api, PyObject, build_type_checkers, CONST_STRING)
+from pypy.module.cpyext.pyobject import (
+    make_typedescr, track_reference, RefcountState, from_ref)
 from pypy.interpreter.error import OperationError
 from rpython.rlib.rstruct import runpack
 from pypy.objspace.std.floatobject import W_FloatObject
@@ -14,7 +16,7 @@ cpython_struct("PyFloatObject", PyFloatObjectFields, PyFloatObjectStruct)
 
 @bootstrap_function
 def init_floatobject(space):
-    "Type description of PyIntObject"
+    "Type description of PyFloatObject"
     make_typedescr(space.w_float.instancetypedef,
                    basestruct=PyFloatObject.TO,
                    attach=float_attach,
