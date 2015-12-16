@@ -196,21 +196,6 @@ class SingleDispatchMixin(object):
             return cls._dispatch(type(s_arg))
 
     @classmethod
-    def get_specialization(cls, s_arg, *_ignored):
-        try:
-            impl = getattr(s_arg, cls.opname)
-
-            def specialized(annotator, arg, *other_args):
-                return impl(*[annotator.annotation(x) for x in other_args])
-            try:
-                specialized.can_only_throw = impl.can_only_throw
-            except AttributeError:
-                pass
-            return specialized
-        except AttributeError:
-            return cls._dispatch(type(s_arg))
-
-    @classmethod
     def register_transform(cls, Some_cls):
         def decorator(func):
             cls._transform[Some_cls] = func
