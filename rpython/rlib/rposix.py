@@ -236,7 +236,8 @@ if _WIN32:
 else:
     includes = ['unistd.h',  'sys/types.h', 'sys/wait.h',
                 'utime.h', 'sys/time.h', 'sys/times.h',
-                'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h']
+                'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
+                'signal.h']
     libraries = ['util']
 eci = ExternalCompilationInfo(
     includes=includes,
