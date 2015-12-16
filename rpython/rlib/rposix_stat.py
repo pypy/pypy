@@ -169,10 +169,12 @@ s_StatResult = SomeStatResult()
 
 def make_stat_result(tup):
     """Turn a tuple into an os.stat_result object."""
-    positional = tup[:N_INDEXABLE_FIELDS]
+    positional = tuple(
+        lltype.cast_primitive(TYPE, value) for value, (name, TYPE) in
+            zip(tup, STAT_FIELDS)[:N_INDEXABLE_FIELDS])
     kwds = {}
-    for i, name in enumerate(STAT_FIELD_NAMES[N_INDEXABLE_FIELDS:]):
-        kwds[name] = tup[N_INDEXABLE_FIELDS + i]
+    for value, (name, TYPE) in zip(tup, STAT_FIELDS)[N_INDEXABLE_FIELDS:]:
+        kwds[name] = lltype.cast_primitive(TYPE, value)
     return os.stat_result(positional, kwds)
 
 
@@ -221,8 +223,6 @@ s_StatvfsResult = SomeStatvfsResult()
 class StatvfsResultRepr(Repr):
     def __init__(self, rtyper):
         self.rtyper = rtyper
-        self.statvfs_fields = STATVFS_FIELDS
-
         self.statvfs_field_indexes = {}
         for i, (name, TYPE) in enumerate(STATVFS_FIELDS):
             self.statvfs_field_indexes[name] = i
@@ -261,10 +261,11 @@ class __extend__(pairtype(StatvfsResultRepr, IntegerRepr)):
         return r_sta.redispatch_getfield(hop, index)
 
 
-
 def make_statvfs_result(tup):
-    return os.statvfs_result(tup)
-
+    args = tuple(
+        lltype.cast_primitive(TYPE, value) for value, (name, TYPE) in
+            zip(tup, STATVFS_FIELDS))
+    return os.statvfs_result(args)
 
 class MakeStatvfsResultEntry(extregistry.ExtRegistryEntry):
     _about_ = make_statvfs_result
