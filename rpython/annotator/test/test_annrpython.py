@@ -3516,6 +3516,19 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [unicode])
         assert isinstance(s, annmodel.SomeUnicodeString)
 
+    def test_extended_slice(self):
+        def f(start, end, step):
+            return [1, 2, 3][start:end:step]
+
+        a = self.RPythonAnnotator()
+        py.test.raises(AnnotatorError, "a.build_types(f, [int, int, int])")
+        a.build_types(f, [annmodel.SomeInteger(nonneg=True),
+                          annmodel.SomeInteger(nonneg=True),
+                          annmodel.SomeInteger(nonneg=True)])
+        def f(x):
+            return x[:-1]
+
+        a.build_types(f, [str])
 
     def test_negative_slice(self):
         def f(s, e):
