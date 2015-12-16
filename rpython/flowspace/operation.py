@@ -1,5 +1,5 @@
 """
-This module defines all the SpaceOeprations used in rpython.flowspace.
+This module defines all the SpaceOperations used in rpython.flowspace.
 """
 
 import __builtin__
