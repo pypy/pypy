@@ -47,7 +47,7 @@ class TestApi:
         assert 'PyModule_Check' in api.FUNCTIONS
         assert api.FUNCTIONS['PyModule_Check'].argtypes == [api.PyObject]
 
-def compile_extension_module(space, modname, **kwds):
+def compile_extension_module(space, modname, include_dirs=[], **kwds):
     """
     Build an extension module and return the filename of the resulting native
     code file.
@@ -73,11 +73,11 @@ def compile_extension_module(space, modname, **kwds):
     else:
         kwds["link_files"] = [str(api_library + '.so')]
         if sys.platform.startswith('linux'):
-            kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
+            kwds["compile_extra"]=["-g", "-Werror=implicit-function-declaration"]
 
     modname = modname.split('.')[-1]
     eci = ExternalCompilationInfo(
-        include_dirs=api.include_dirs,
+        include_dirs=api.include_dirs + include_dirs,
         **kwds
         )
     eci = eci.convert_sources_to_files()
@@ -91,7 +91,7 @@ def compile_extension_module(space, modname, **kwds):
     soname.rename(pydname)
     return str(pydname)
 
-def compile_extension_module_applevel(space, modname, **kwds):
+def compile_extension_module_applevel(space, modname, include_dirs=[], **kwds):
     """
     Build an extension module and return the filename of the resulting native
     code file.
@@ -107,11 +107,11 @@ def compile_extension_module_applevel(space, modname, **kwds):
     elif sys.platform == 'darwin':
         pass
     elif sys.platform.startswith('linux'):
-            kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
+            kwds["compile_extra"]=["-g","-Werror=implicit-function-declaration"]
 
     modname = modname.split('.')[-1]
     eci = ExternalCompilationInfo(
-        include_dirs = [space.include_dir],
+        include_dirs = [space.include_dir] + include_dirs,
         **kwds
         )
     eci = eci.convert_sources_to_files()
@@ -279,8 +279,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         @gateway.unwrap_spec(name=str, init='str_or_None', body=str,
                      load_it=bool, filename='str_or_None',
                      PY_SSIZE_T_CLEAN=bool)
-        def import_module(space, name, init=None, body='',
-                          load_it=True, filename=None,
+        def import_module(space, name, init=None, body='', load_it=True,
+                          filename=None, include_dirs=[],
                           PY_SSIZE_T_CLEAN=False):
             """
             init specifies the overall template of the module.
@@ -317,7 +317,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 filename = py.path.local(pypydir) / 'module' \
                         / 'cpyext'/ 'test' / (filename + ".c")
                 kwds = dict(separate_module_files=[filename])
-
+            kwds['include_dirs'] = include_dirs
             mod = self.compile_extension_module(space, name, **kwds)
 
             if load_it:
@@ -340,9 +340,11 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 space.sys.get('modules'),
                 space.wrap(name))
 
-        @gateway.unwrap_spec(modname=str, prologue=str, more_init=str, PY_SSIZE_T_CLEAN=bool)
+        @gateway.unwrap_spec(modname=str, prologue=str, include_dirs=list, 
+                             more_init=str, PY_SSIZE_T_CLEAN=bool)
         def import_extension(space, modname, w_functions, prologue="",
-                             more_init="", PY_SSIZE_T_CLEAN=False):
+                             include_dirs=[], more_init="", PY_SSIZE_T_CLEAN=False):
+            include_dirs = [space.unwrap(d) for d in include_dirs]
             functions = space.unwrap(w_functions)
             methods_table = []
             codes = []
@@ -368,6 +370,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             if more_init:
                 init += more_init
             return import_module(space, name=modname, init=init, body=body,
+                                 include_dirs=include_dirs,
                                  PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
 
         @gateway.unwrap_spec(name=str)
@@ -389,7 +392,10 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 from distutils.sysconfig import get_python_inc
                 class FakeSpace(object):
                     def unwrap(self, args):
-                        return args
+                        try:
+                            return args.str_w(None)
+                        except:
+                            return args
                 fake = FakeSpace()
                 fake.include_dir = get_python_inc()
                 fake.config = self.space.config
