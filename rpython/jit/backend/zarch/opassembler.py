@@ -277,7 +277,7 @@ class CallOpAssembler(object):
     def _find_nearby_operation(self, regalloc, delta):
         return regalloc.operations[regalloc.rm.position + delta]
 
-    _COND_CALL_SAVE_REGS = [r.r12, r.r3, r.r4, r.r5, r.r6]
+    _COND_CALL_SAVE_REGS = [r.r12, r.r2, r.r3, r.r4, r.r5, r.r6]
 
     def emit_cond_call(self, op, arglocs, regalloc):
         fcond = self.guard_success_cc
@@ -286,16 +286,16 @@ class CallOpAssembler(object):
         fcond = c.negate(fcond)
 
         jmp_adr = self.mc.get_relative_pos()
-        self.mc.trap()        # patched later to a 'bc'
+        self.mc.trap()        # patched later to a relative branch
         self.mc.write('\x00' * 4)
-
-        self.load_gcmap(self.mc, r.r2, regalloc.get_gcmap())
 
         # save away r3, r4, r5, r6, r12 into the jitframe
         should_be_saved = [
             reg for reg in self._regalloc.rm.reg_bindings.itervalues()
                 if reg in self._COND_CALL_SAVE_REGS]
         self._push_core_regs_to_jitframe(self.mc, should_be_saved)
+
+        self.load_gcmap(self.mc, r.r2, regalloc.get_gcmap())
         #
         # load the 0-to-4 arguments into these registers, with the address of
         # the function to call into r12
@@ -315,7 +315,7 @@ class CallOpAssembler(object):
             floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         self.mc.load_imm(r.SCRATCH, cond_call_adr)
-        self.mc.BCR(c.ANY, r.SCRATCH)
+        self.mc.BASR(r.RETURN, r.SCRATCH)
         # restoring the registers saved above, and doing pop_gcmap(), is left
         # to the cond_call_slowpath helper.  We never have any result value.
         relative_target = self.mc.currpos() - jmp_adr

@@ -183,20 +183,27 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             saved_regs = ZARCHRegisterManager.save_around_call_regs
         else:
             saved_regs = ZARCHRegisterManager.all_regs
-        self._push_core_regs_to_jitframe(mc, [reg for reg in saved_regs
-                                              if reg is not r.r3 and
-                                                 reg is not r.r4 and
-                                                 reg is not r.r5 and
-                                                 reg is not r.r6 and
-                                                 reg is not r.r12])
+        saved_regs.append(r.RETURN) # force the return to be saved
+        regs = [reg for reg in saved_regs
+                    if reg is not r.r3 and
+                       reg is not r.r4 and
+                       reg is not r.r5 and
+                       reg is not r.r6 and
+                       reg is not r.r12]
+        self._push_core_regs_to_jitframe(mc, regs)
         if supports_floats:
             self._push_fp_regs_to_jitframe(mc)
 
         # Save away the LR inside r30
         # TODO ? mc.mflr(r.RCS1.value)
 
+        mc.STG(r.SP, l.addr(-STD_FRAME_SIZE_IN_BYTES, r.SP)) # store the backchain
+        mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
+
         # Do the call
         mc.raw_call(r.r12)
+
+        mc.AGHI(r.SP, l.imm(STD_FRAME_SIZE_IN_BYTES))
 
         # Finish
         self._reload_frame_if_necessary(mc)
