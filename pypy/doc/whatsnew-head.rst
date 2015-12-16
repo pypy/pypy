@@ -79,3 +79,7 @@ functions are now directly accessible as `rpython.rposix.*`.
 Simplify a bit the GIL handling in non-jitted code.  Fixes issue #2205.
 
 .. branch: flowspace-cleanups
+.. branch: fix-2211
+
+Fix the cryptic exception message when attempting to use extended slicing in rpython
+
