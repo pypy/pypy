@@ -512,7 +512,7 @@ class NewSlice(HLOperation):
     opname = 'newslice'
     canraise = [AnnotatorError]
 
-    def get_specialization(self, s_arg1, s_arg2, s_arg3):
+    def consider(self, annotator):
         raise AnnotatorError("Cannot use extended slicing in rpython")
 
 
