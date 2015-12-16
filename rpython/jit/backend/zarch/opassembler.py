@@ -1,8 +1,10 @@
+from rpython.jit.backend.llsupport.jump import remap_frame_layout
 from rpython.jit.backend.zarch.arch import THREADLOCAL_ADDR_OFFSET
 from rpython.jit.backend.zarch.helper.assembler import (gen_emit_cmp_op,
         gen_emit_rr_or_rpool, gen_emit_shift, gen_emit_pool_or_rr_evenodd,
         gen_emit_imm_pool_rr)
-from rpython.jit.backend.zarch.helper.regalloc import (check_imm,)
+from rpython.jit.backend.zarch.helper.regalloc import (check_imm,
+        check_imm_value)
 from rpython.jit.backend.zarch.codebuilder import ZARCHGuardToken, InstrBuilder
 import rpython.jit.backend.zarch.conditions as c
 import rpython.jit.backend.zarch.registers as r
@@ -17,7 +19,7 @@ from rpython.jit.metainterp.history import (FLOAT, INT, REF, VOID)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-from rpython.jit.backend.llsupport.jump import remap_frame_layout
+from rpython.rlib.objectmodel import we_are_translated
 
 class IntOpAssembler(object):
     _mixin_ = True
@@ -407,21 +409,24 @@ class AllocOpAssembler(object):
         assert loc_base.is_reg()
         if is_frame:
             assert loc_base is r.SPP
-        assert check_imm(descr.jit_wb_if_flag_byteofs)
-        mc.lbz(r.SCRATCH2.value, loc_base.value, descr.jit_wb_if_flag_byteofs)
-        mc.andix(r.SCRATCH.value, r.SCRATCH2.value, mask & 0xFF)
+        assert check_imm_value(descr.jit_wb_if_flag_byteofs)
+        mc.LGB(r.SCRATCH2, l.addr(descr.jit_wb_if_flag_byteofs, loc_base))
+        mc.LGR(r.SCRATCH, r.SCRATCH2)
+        mc.NILL(r.SCRATCH, l.imm(mask & 0xFF))
 
         jz_location = mc.get_relative_pos()
         mc.trap()        # patched later with 'beq'
+        mc.write('\x00' * 4)
 
         # for cond_call_gc_wb_array, also add another fast path:
         # if GCFLAG_CARDS_SET, then we can just set one bit and be done
         if card_marking_mask:
             # GCFLAG_CARDS_SET is in the same byte, loaded in r2 already
-            mc.andix(r.SCRATCH.value, r.SCRATCH2.value,
-                     card_marking_mask & 0xFF)
+            mc.LGR(r.SCRATCH, r.SCRATCH2)
+            mc.NILL(r.SCRATCH, l.imm(card_marking_mask & 0xFF))
             js_location = mc.get_relative_pos()
             mc.trap()        # patched later with 'bne'
+            mc.write('\x00' * 4)
         else:
             js_location = 0
 
@@ -491,7 +496,7 @@ class AllocOpAssembler(object):
                 byte_index = loc_index.value >> descr.jit_wb_card_page_shift
                 byte_ofs = ~(byte_index >> 3)
                 byte_val = 1 << (byte_index & 7)
-                assert check_imm(byte_ofs)
+                assert check_imm_value(byte_ofs)
 
                 mc.lbz(r.SCRATCH.value, loc_base.value, byte_ofs)
                 mc.ori(r.SCRATCH.value, r.SCRATCH.value, byte_val)

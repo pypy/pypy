@@ -142,7 +142,129 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         return startpos
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
-        pass # TODO
+        descr = self.cpu.gc_ll_descr.write_barrier_descr
+        if descr is None:
+            return
+        if not withcards:
+            func = descr.get_write_barrier_fn(self.cpu)
+        else:
+            if descr.jit_wb_cards_set == 0:
+                return
+            func = descr.get_write_barrier_from_array_fn(self.cpu)
+            if func == 0:
+                return
+        #
+        # This builds a helper function called from the slow path of
+        # write barriers.  It must save all registers, and optionally
+        # all fp registers.  It takes its single argument in r0
+        # (or in SPP if 'for_frame').
+        if for_frame:
+            argument_loc = r.SPP
+        else:
+            argument_loc = r.r0
+
+        mc = PPCBuilder()
+        old_mc = self.mc
+        self.mc = mc
+
+        extra_stack_size = LOCAL_VARS_OFFSET + 4 * WORD + 8
+        extra_stack_size = (extra_stack_size + 15) & ~15
+        if for_frame:
+            # NOTE: don't save registers on the jitframe here!  It might
+            # override already-saved values that will be restored
+            # later...
+            #
+            # This 'for_frame' version is called after a CALL.  It does not
+            # need to save many registers: the registers that are anyway
+            # destroyed by the call can be ignored (VOLATILES), and the
+            # non-volatile registers won't be changed here.  It only needs
+            # to save r.RCS1 (used below), r3 and f1 (possible results of
+            # the call), and two more non-volatile registers (used to store
+            # the RPython exception that occurred in the CALL, if any).
+            #
+            # We need to increase our stack frame size a bit to store them.
+            #
+            self.mc.load(r.SCRATCH.value, r.SP.value, 0)    # SP back chain
+            self.mc.store_update(r.SCRATCH.value, r.SP.value, -extra_stack_size)
+            self.mc.std(r.RCS1.value, r.SP.value, LOCAL_VARS_OFFSET + 0 * WORD)
+            self.mc.std(r.RCS2.value, r.SP.value, LOCAL_VARS_OFFSET + 1 * WORD)
+            self.mc.std(r.RCS3.value, r.SP.value, LOCAL_VARS_OFFSET + 2 * WORD)
+            self.mc.std(r.r3.value,   r.SP.value, LOCAL_VARS_OFFSET + 3 * WORD)
+            self.mc.stfd(r.f1.value,  r.SP.value, LOCAL_VARS_OFFSET + 4 * WORD)
+            saved_regs = None
+            saved_fp_regs = None
+
+        else:
+            # push all volatile registers, push RCS1, and sometimes push RCS2
+            if withcards:
+                saved_regs = r.VOLATILES + [r.RCS1, r.RCS2]
+            else:
+                saved_regs = r.VOLATILES + [r.RCS1]
+            if withfloats:
+                saved_fp_regs = r.MANAGED_FP_REGS
+            else:
+                saved_fp_regs = []
+
+            self._push_core_regs_to_jitframe(mc, saved_regs)
+            self._push_fp_regs_to_jitframe(mc, saved_fp_regs)
+
+        if for_frame:
+            # note that it's safe to store the exception in register,
+            # since the call to write barrier can't collect
+            # (and this is assumed a bit left and right here, like lack
+            # of _reload_frame_if_necessary)
+            # This trashes r0 and r2, which is fine in this case
+            assert argument_loc is not r.r0
+            self._store_and_reset_exception(mc, r.RCS2, r.RCS3)
+
+        if withcards:
+            mc.mr(r.RCS2.value, argument_loc.value)
+        #
+        # Save the lr into r.RCS1
+        mc.mflr(r.RCS1.value)
+        #
+        func = rffi.cast(lltype.Signed, func)
+        # Note: if not 'for_frame', argument_loc is r0, which must carefully
+        # not be overwritten above
+        mc.mr(r.r3.value, argument_loc.value)
+        mc.load_imm(mc.RAW_CALL_REG, func)
+        mc.raw_call()
+        #
+        # Restore lr
+        mc.mtlr(r.RCS1.value)
+
+        if for_frame:
+            self._restore_exception(mc, r.RCS2, r.RCS3)
+
+        if withcards:
+            # A final andix before the blr, for the caller.  Careful to
+            # not follow this instruction with another one that changes
+            # the status of cr0!
+            card_marking_mask = descr.jit_wb_cards_set_singlebyte
+            mc.lbz(r.RCS2.value, r.RCS2.value, descr.jit_wb_if_flag_byteofs)
+            mc.andix(r.RCS2.value, r.RCS2.value, card_marking_mask & 0xFF)
+
+        if for_frame:
+            self.mc.ld(r.RCS1.value, r.SP.value, LOCAL_VARS_OFFSET + 0 * WORD)
+            self.mc.ld(r.RCS2.value, r.SP.value, LOCAL_VARS_OFFSET + 1 * WORD)
+            self.mc.ld(r.RCS3.value, r.SP.value, LOCAL_VARS_OFFSET + 2 * WORD)
+            self.mc.ld(r.r3.value,   r.SP.value, LOCAL_VARS_OFFSET + 3 * WORD)
+            self.mc.lfd(r.f1.value,  r.SP.value, LOCAL_VARS_OFFSET + 4 * WORD)
+            self.mc.addi(r.SP.value, r.SP.value, extra_stack_size)
+
+        else:
+            self._pop_core_regs_from_jitframe(mc, saved_regs)
+            self._pop_fp_regs_from_jitframe(mc, saved_fp_regs)
+
+        mc.blr()
+
+        self.mc = old_mc
+        rawstart = mc.materialize(self.cpu, [])
+        if for_frame:
+            self.wb_slowpath[4] = rawstart
+        else:
+            self.wb_slowpath[withcards + 2 * withfloats] = rawstart
+
 
     def build_frame_realloc_slowpath(self):
         # this code should do the following steps
@@ -154,10 +276,78 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # f) store the address of the new jitframe in the shadowstack
         # c) set the gcmap field to 0 in the new jitframe
         # g) restore registers and return
-        pass # TODO
+        mc = PPCBuilder()
+        self.mc = mc
+
+        # signature of this _frame_realloc_slowpath function:
+        #   * on entry, r0 is the new size
+        #   * on entry, r2 is the gcmap
+        #   * no managed register must be modified
+
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.store(r.r2.value, r.SPP.value, ofs2)
+
+        self._push_core_regs_to_jitframe(mc)
+        self._push_fp_regs_to_jitframe(mc)
+
+        # Save away the LR inside r30
+        mc.mflr(r.RCS1.value)
+
+        # First argument is SPP (= r31), which is the jitframe
+        mc.mr(r.r3.value, r.SPP.value)
+
+        # Second argument is the new size, which is still in r0 here
+        mc.mr(r.r4.value, r.r0.value)
+
+        # This trashes r0 and r2
+        self._store_and_reset_exception(mc, r.RCS2, r.RCS3)
+
+        # Do the call
+        adr = rffi.cast(lltype.Signed, self.cpu.realloc_frame)
+        mc.load_imm(mc.RAW_CALL_REG, adr)
+        mc.raw_call()
+
+        # The result is stored back into SPP (= r31)
+        mc.mr(r.SPP.value, r.r3.value)
+
+        self._restore_exception(mc, r.RCS2, r.RCS3)
+
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            diff = mc.load_imm_plus(r.r5, gcrootmap.get_root_stack_top_addr())
+            mc.load(r.r5.value, r.r5.value, diff)
+            mc.store(r.r3.value, r.r5.value, -WORD)
+
+        mc.mtlr(r.RCS1.value)     # restore LR
+        self._pop_core_regs_from_jitframe(mc)
+        self._pop_fp_regs_from_jitframe(mc)
+        mc.blr()
+
+        self._frame_realloc_slowpath = mc.materialize(self.cpu, [])
+        self.mc = None
 
     def _build_propagate_exception_path(self):
-        pass # TODO
+        if not self.cpu.propagate_exception_descr:
+            return
+
+        self.mc = PPCBuilder()
+        #
+        # read and reset the current exception
+
+        propagate_exception_descr = rffi.cast(lltype.Signed,
+                  cast_instance_to_gcref(self.cpu.propagate_exception_descr))
+        ofs3 = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+        ofs4 = self.cpu.get_ofs_of_frame_field('jf_descr')
+
+        self._store_and_reset_exception(self.mc, r.r3)
+        self.mc.load_imm(r.r4, propagate_exception_descr)
+        self.mc.std(r.r3.value, r.SPP.value, ofs3)
+        self.mc.std(r.r4.value, r.SPP.value, ofs4)
+        #
+        self._call_footer()
+        rawstart = self.mc.materialize(self.cpu, [])
+        self.propagate_exception_path = rawstart
+        self.mc = None
 
     def _build_cond_call_slowpath(self, supports_floats, callee_only):
         """ This builds a general call slowpath, for whatever call happens to

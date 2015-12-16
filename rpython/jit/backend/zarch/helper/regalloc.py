@@ -3,6 +3,9 @@ from rpython.jit.backend.zarch.locations import imm, addr
 from rpython.jit.backend.llsupport.regalloc import TempVar
 import rpython.jit.backend.zarch.registers as r
 
+def check_imm_value(value, lower_bound=-2**15, upper_bound=2**15-1):
+    return lower_bound <= value <= upper_bound
+
 def check_imm(arg, lower_bound=-2**15, upper_bound=2**15-1):
     if isinstance(arg, ConstInt):
         i = arg.getint()

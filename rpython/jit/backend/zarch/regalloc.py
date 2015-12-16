@@ -10,23 +10,24 @@ from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPt
 from rpython.jit.metainterp.history import JitCellToken, TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.zarch import locations as l
-from rpython.rtyper.lltypesystem import rffi, lltype, rstr, llmemory
-from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.descr import ArrayDescr
-import rpython.jit.backend.zarch.registers as r
-import rpython.jit.backend.zarch.conditions as c
-import rpython.jit.backend.zarch.helper.regalloc as helper
 from rpython.jit.backend.llsupport.descr import unpack_arraydescr
 from rpython.jit.backend.llsupport.descr import unpack_fielddescr
 from rpython.jit.backend.llsupport.descr import unpack_interiorfielddescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
+import rpython.jit.backend.zarch.registers as r
+import rpython.jit.backend.zarch.conditions as c
+import rpython.jit.backend.zarch.helper.regalloc as helper
+from rpython.jit.backend.zarch.helper.regalloc import (check_imm,)
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import debug_print
-from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rtyper.lltypesystem import rffi, lltype, rstr, llmemory
+from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 
 LIMIT_LOOP_BREAK = 15000      # should be much smaller than 32 KB
 
@@ -98,7 +99,7 @@ class FPRegisterManager(RegisterManager):
                     forbidden_vars=self.temp_boxes)
         return loc
 
-    def get_scratch_reg(self):
+    def get_scratch_reg(self,):
         box = TempFloat()
         reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes)
         self.temp_boxes.append(box)
@@ -897,6 +898,18 @@ class Regalloc(BaseRegalloc):
             assert loc.type != FLOAT
             locs.append(loc)
         return locs
+
+    def prepare_cond_call_gc_wb(self, op):
+        arglocs = [self.ensure_reg(op.getarg(0))]
+        return arglocs
+
+    def prepare_cond_call_gc_wb_array(self, op):
+        arglocs = [self.ensure_reg(op.getarg(0)),
+                   self.ensure_reg_or_16bit_imm(op.getarg(1)),
+                   None]
+        if arglocs[1].is_reg():
+            arglocs[2] = self.get_scratch_reg(INT)
+        return arglocs
 
     def _prepare_math_sqrt(self, op):
         loc = self.ensure_reg(op.getarg(1), force_in_reg=True)
