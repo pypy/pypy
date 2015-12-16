@@ -1608,7 +1608,8 @@ def setresgid(rgid, egid, sgid):
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
+                    save_err=rffi.RFFI_SAVE_ERRNO,
+                    macro=_MACRO_ON_POSIX)
 
 @replace_os_function('chroot')
 def chroot(path):
