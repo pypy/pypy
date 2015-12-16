@@ -441,7 +441,7 @@ def check_negative_slice(s_start, s_stop, error="slicing"):
 def dict_contains(s_dct, s_element, position):
     s_dct.dictdef.generalize_key(s_element)
     if s_dct._is_empty(position):
-        s_bool =SomeBool()
+        s_bool = SomeBool()
         s_bool.const = False
         return s_bool
     return s_Bool

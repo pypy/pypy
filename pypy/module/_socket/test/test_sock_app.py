@@ -251,7 +251,7 @@ def test_addr_raw_packet():
     from pypy.module._socket.interp_socket import addr_as_object
     if not hasattr(rsocket._c, 'sockaddr_ll'):
         py.test.skip("posix specific test")
-    # HACK: To get the correct interface numer of lo, which in most cases is 1,
+    # HACK: To get the correct interface number of lo, which in most cases is 1,
     # but can be anything (i.e. 39), we need to call the libc function
     # if_nametoindex to get the correct index
     import ctypes
@@ -513,7 +513,7 @@ class AppTestSocket:
     def test_getsetsockopt(self):
         import _socket as socket
         import struct
-        # A socket sould start with reuse == 0
+        # A socket should start with reuse == 0
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         reuse = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR)
         assert reuse == 0
