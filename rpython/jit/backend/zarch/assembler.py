@@ -142,6 +142,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         return startpos
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
+        return
         descr = self.cpu.gc_ll_descr.write_barrier_descr
         if descr is None:
             return
@@ -276,6 +277,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # f) store the address of the new jitframe in the shadowstack
         # c) set the gcmap field to 0 in the new jitframe
         # g) restore registers and return
+        return
         mc = PPCBuilder()
         self.mc = mc
 
