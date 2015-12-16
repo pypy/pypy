@@ -627,6 +627,26 @@ class AppTestSocket:
         self.foo = _socket.socket()
 
 
+class AppTestNetlink:
+    def setup_class(cls):
+        if not hasattr(os, 'getpid'):
+            py.test.skip("AF_NETLINK needs os.getpid()")
+        w_ok = space.appexec([], "(): import _socket; " +
+                                 "return hasattr(_socket, 'AF_NETLINK')")
+        if not space.is_true(w_ok):
+            py.test.skip("no AF_NETLINK on this platform")
+        cls.space = space
+
+    def test_connect_to_kernel_netlink_routing_socket(self):
+        import _socket, os
+        s = _socket.socket(_socket.AF_NETLINK, _socket.SOCK_DGRAM, _socket.NETLINK_ROUTE)
+        assert s.getsockname() == (0L, 0L)
+        s.bind((0, 0))
+        a, b = s.getsockname()
+        assert a == os.getpid()
+        assert b == 0
+ 
+
 class AppTestPacket:
     def setup_class(cls):
         if not hasattr(os, 'getuid') or os.getuid() != 0:
