@@ -1,8 +1,42 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import (
+from pypy.module.cpyext.api import (PyObjectFields, bootstrap_function,
+    cpython_struct, make_typedescr, from_ref, track_reference, RefcountState,
     CANNOT_FAIL, cpython_api, PyObject, build_type_checkers, CONST_STRING)
 from pypy.interpreter.error import OperationError
 from rpython.rlib.rstruct import runpack
+from pypy.objspace.std.floatobject import W_FloatObject
+
+PyFloatObjectStruct = lltype.ForwardReference()
+PyFloatObject = lltype.Ptr(PyFloatObjectStruct)
+PyFloatObjectFields = PyObjectFields + \
+    (("ob_fval", rffi.DOUBLE),)
+cpython_struct("PyFloatObject", PyFloatObjectFields, PyFloatObjectStruct)
+
+@bootstrap_function
+def init_floatobject(space):
+    "Type description of PyIntObject"
+    make_typedescr(space.w_float.instancetypedef,
+                   basestruct=PyFloatObject.TO,
+                   attach=float_attach,
+                   realize=float_realize)
+
+def float_attach(space, py_obj, w_obj):
+    """
+    Fills a newly allocated PyFloatObject with the given float object. The
+    value must not be modified.
+    """
+    py_float = rffi.cast(PyFloatObject, py_obj)
+    py_float.c_ob_fval = space.float_w(w_obj)
+
+def float_realize(space, obj):
+    floatval = rffi.cast(lltype.Float, rffi.cast(PyFloatObject, obj).c_ob_fval)
+    w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+    w_obj = space.allocate_instance(W_FloatObject, w_type)
+    w_obj.__init__(floatval)
+    track_reference(space, obj, w_obj)
+    state = space.fromcache(RefcountState)
+    state.set_lifeline(w_obj, obj)
+    return w_obj
 
 PyFloat_Check, PyFloat_CheckExact = build_type_checkers("Float")
 
