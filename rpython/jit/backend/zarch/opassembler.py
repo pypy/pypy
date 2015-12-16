@@ -277,12 +277,13 @@ class CallOpAssembler(object):
     def _find_nearby_operation(self, regalloc, delta):
         return regalloc.operations[regalloc.rm.position + delta]
 
-    _COND_CALL_SAVE_REGS = [r.r12, r.r2, r.r3, r.r4, r.r5, r.r6]
+    _COND_CALL_SAVE_REGS = [r.r12, r.r2, r.r3, r.r4, r.r5]
 
     def emit_cond_call(self, op, arglocs, regalloc):
         fcond = self.guard_success_cc
         self.guard_success_cc = c.cond_none
         assert fcond != c.cond_none
+        orig_cond = fcond
         fcond = c.negate(fcond)
 
         jmp_adr = self.mc.get_relative_pos()
@@ -300,7 +301,7 @@ class CallOpAssembler(object):
         # load the 0-to-4 arguments into these registers, with the address of
         # the function to call into r12
         remap_frame_layout(self, arglocs,
-                           [r.r12, r.r3, r.r4, r.r5, r.r6][:len(arglocs)],
+                           [r.r12, r.r2, r.r3, r.r4, r.r5][:len(arglocs)],
                            r.SCRATCH)
         #
         # figure out which variant of cond_call_slowpath to call, and call it
@@ -325,7 +326,7 @@ class CallOpAssembler(object):
         pmc.overwrite()
         # might be overridden again to skip over the following
         # guard_no_exception too
-        self.previous_cond_call_jcond = jmp_adr, fcond
+        self.previous_cond_call_jcond = jmp_adr, orig_cond
 
 class AllocOpAssembler(object):
     _mixin_ = True

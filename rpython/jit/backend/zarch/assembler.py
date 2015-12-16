@@ -183,20 +183,20 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             saved_regs = ZARCHRegisterManager.save_around_call_regs
         else:
             saved_regs = ZARCHRegisterManager.all_regs
-        saved_regs.append(r.RETURN) # force the return to be saved
         regs = [reg for reg in saved_regs
                     if reg is not r.r3 and
                        reg is not r.r4 and
                        reg is not r.r5 and
                        reg is not r.r6 and
                        reg is not r.r12]
-        self._push_core_regs_to_jitframe(mc, regs)
+        self._push_core_regs_to_jitframe(mc, regs + [r.r14])
         if supports_floats:
             self._push_fp_regs_to_jitframe(mc)
 
         # Save away the LR inside r30
         # TODO ? mc.mflr(r.RCS1.value)
 
+        # allocate a stack frame!
         mc.STG(r.SP, l.addr(-STD_FRAME_SIZE_IN_BYTES, r.SP)) # store the backchain
         mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
 
@@ -209,7 +209,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self._reload_frame_if_necessary(mc)
 
         # TODO ? mc.mtlr(r.RCS1.value)     # restore LR
-        self._pop_core_regs_from_jitframe(mc, saved_regs)
+        self._pop_core_regs_from_jitframe(mc, saved_regs + [r.r14])
         if supports_floats:
             self._pop_fp_regs_from_jitframe(mc)
         mc.BCR(c.ANY, r.RETURN)
@@ -303,6 +303,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         full_size = self.mc.get_relative_pos()
         #
         self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+        if not we_are_translated():
+            self.mc.trap() # should be never reached
         rawstart = self.materialize_loop(looptoken)
         #
         looptoken._ll_loop_code = looppos + rawstart
