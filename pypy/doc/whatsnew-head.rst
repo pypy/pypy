@@ -79,5 +79,8 @@ functions are now directly accessible as `rpython.rposix.*`.
 Simplify a bit the GIL handling in non-jitted code.  Fixes issue #2205.
 
 .. branch: flowspace-cleanups
+
+Trivial cleanups in flowspace.operation : fix comment & duplicated method
+
 .. branch: test-AF_NETLINK
 .. branch: small-cleanups-misc
