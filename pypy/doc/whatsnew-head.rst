@@ -79,3 +79,4 @@ functions are now directly accessible as `rpython.rposix.*`.
 Simplify a bit the GIL handling in non-jitted code.  Fixes issue #2205.
 
 .. branch: flowspace-cleanups
+.. branch: small-cleanups-misc
