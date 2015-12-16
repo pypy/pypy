@@ -5,11 +5,16 @@ indexed like a tuple but also exposes the st_xxx attributes.
 
 import os, sys
 
+from rpython.flowspace.model import Constant
+from rpython.flowspace.operation import op
 from rpython.annotator import model as annmodel
 from rpython.rtyper import extregistry
 from rpython.tool.pairtype import pairtype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rtyper.llannotation import lltype_to_annotation
+from rpython.rtyper.rmodel import Repr
+from rpython.rtyper.rint import IntegerRepr
+from rpython.rtyper.error import TyperError
 
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -23,7 +28,7 @@ _WIN32 = sys.platform.startswith('win')
 _LINUX = sys.platform.startswith('linux')
 
 if _WIN32:
-    from rpython.rlib import rwin32 
+    from rpython.rlib import rwin32
     from rpython.rlib.rwin32file import make_win32_traits
 
 # Support for float times is here.
@@ -84,8 +89,7 @@ class SomeStatResult(annmodel.SomeObject):
     knowntype = os.stat_result
 
     def rtyper_makerepr(self, rtyper):
-        from rpython.rlib import _rposix_repr
-        return _rposix_repr.StatResultRepr(rtyper)
+        return StatResultRepr(rtyper)
 
     def rtyper_makekey(self):
         return self.__class__,
@@ -111,25 +115,6 @@ class SomeStatResult(annmodel.SomeObject):
         return s_reduced, stat_result_reduce, stat_result_recreate
 
 
-class SomeStatvfsResult(annmodel.SomeObject):
-    if hasattr(os, 'statvfs_result'):
-        knowntype = os.statvfs_result
-    else:
-        knowntype = None # will not be used
-
-    def rtyper_makerepr(self, rtyper):
-        from rpython.rlib import _rposix_repr
-        return _rposix_repr.StatvfsResultRepr(rtyper)
-
-    def rtyper_makekey(self):
-        return self.__class__,
-
-    def getattr(self, s_attr):
-        assert s_attr.is_constant()
-        TYPE = STATVFS_FIELD_TYPES[s_attr.const]
-        return lltype_to_annotation(TYPE)
-
-
 class __extend__(pairtype(SomeStatResult, annmodel.SomeInteger)):
     def getitem((s_sta, s_int)):
         assert s_int.is_constant(), "os.stat()[index]: index must be constant"
@@ -139,16 +124,48 @@ class __extend__(pairtype(SomeStatResult, annmodel.SomeInteger)):
         return lltype_to_annotation(TYPE)
 
 
-class __extend__(pairtype(SomeStatvfsResult, annmodel.SomeInteger)):
-    def getitem((s_stat, s_int)):
-        assert s_int.is_constant()
-        name, TYPE = STATVFS_FIELDS[s_int.const]
-        return lltype_to_annotation(TYPE)
+class StatResultRepr(Repr):
 
+    def __init__(self, rtyper):
+        self.rtyper = rtyper
+        self.stat_field_indexes = {}
+        for i, (name, TYPE) in enumerate(STAT_FIELDS):
+            self.stat_field_indexes[name] = i
+
+        self.s_tuple = annmodel.SomeTuple(
+            [lltype_to_annotation(TYPE) for name, TYPE in STAT_FIELDS])
+        self.r_tuple = rtyper.getrepr(self.s_tuple)
+        self.lowleveltype = self.r_tuple.lowleveltype
+
+    def redispatch_getfield(self, hop, index):
+        rtyper = self.rtyper
+        s_index = rtyper.annotator.bookkeeper.immutablevalue(index)
+        hop2 = hop.copy()
+        spaceop = op.getitem(hop.args_v[0], Constant(index))
+        spaceop.result = hop.spaceop.result
+        hop2.spaceop = spaceop
+        hop2.args_v = spaceop.args
+        hop2.args_s = [self.s_tuple, s_index]
+        hop2.args_r = [self.r_tuple, rtyper.getrepr(s_index)]
+        return hop2.dispatch()
+
+    def rtype_getattr(self, hop):
+        s_attr = hop.args_s[1]
+        attr = s_attr.const
+        try:
+            index = self.stat_field_indexes[attr]
+        except KeyError:
+            raise TyperError("os.stat().%s: field not available" % (attr,))
+        return self.redispatch_getfield(hop, index)
+
+
+class __extend__(pairtype(StatResultRepr, IntegerRepr)):
+    def rtype_getitem((r_sta, r_int), hop):
+        s_int = hop.args_s[1]
+        index = s_int.const
+        return r_sta.redispatch_getfield(hop, index)
 
 s_StatResult = SomeStatResult()
-s_StatvfsResult = SomeStatvfsResult()
-
 
 def make_stat_result(tup):
     """Turn a tuple into an os.stat_result object."""
@@ -159,10 +176,6 @@ def make_stat_result(tup):
     return os.stat_result(positional, kwds)
 
 
-def make_statvfs_result(tup):
-    return os.statvfs_result(tup)
-
-
 class MakeStatResultEntry(extregistry.ExtRegistryEntry):
     _about_ = make_stat_result
 
@@ -170,8 +183,87 @@ class MakeStatResultEntry(extregistry.ExtRegistryEntry):
         return s_StatResult
 
     def specialize_call(self, hop):
-        from rpython.rlib import _rposix_repr
-        return _rposix_repr.specialize_make_stat_result(hop)
+        r_StatResult = hop.rtyper.getrepr(s_StatResult)
+        [v_result] = hop.inputargs(r_StatResult.r_tuple)
+        # no-op conversion from r_StatResult.r_tuple to r_StatResult
+        hop.exception_cannot_occur()
+        return v_result
+
+
+class SomeStatvfsResult(annmodel.SomeObject):
+    if hasattr(os, 'statvfs_result'):
+        knowntype = os.statvfs_result
+    else:
+        knowntype = None # will not be used
+
+    def rtyper_makerepr(self, rtyper):
+        return StatvfsResultRepr(rtyper)
+
+    def rtyper_makekey(self):
+        return self.__class__,
+
+    def getattr(self, s_attr):
+        assert s_attr.is_constant()
+        TYPE = STATVFS_FIELD_TYPES[s_attr.const]
+        return lltype_to_annotation(TYPE)
+
+
+class __extend__(pairtype(SomeStatvfsResult, annmodel.SomeInteger)):
+    def getitem((s_stat, s_int)):
+        assert s_int.is_constant()
+        name, TYPE = STATVFS_FIELDS[s_int.const]
+        return lltype_to_annotation(TYPE)
+
+
+s_StatvfsResult = SomeStatvfsResult()
+
+
+class StatvfsResultRepr(Repr):
+    def __init__(self, rtyper):
+        self.rtyper = rtyper
+        self.statvfs_fields = STATVFS_FIELDS
+
+        self.statvfs_field_indexes = {}
+        for i, (name, TYPE) in enumerate(STATVFS_FIELDS):
+            self.statvfs_field_indexes[name] = i
+
+        self.s_tuple = annmodel.SomeTuple(
+            [lltype_to_annotation(TYPE) for name, TYPE in STATVFS_FIELDS])
+        self.r_tuple = rtyper.getrepr(self.s_tuple)
+        self.lowleveltype = self.r_tuple.lowleveltype
+
+    def redispatch_getfield(self, hop, index):
+        rtyper = self.rtyper
+        s_index = rtyper.annotator.bookkeeper.immutablevalue(index)
+        hop2 = hop.copy()
+        spaceop = op.getitem(hop.args_v[0], Constant(index))
+        spaceop.result = hop.spaceop.result
+        hop2.spaceop = spaceop
+        hop2.args_v = spaceop.args
+        hop2.args_s = [self.s_tuple, s_index]
+        hop2.args_r = [self.r_tuple, rtyper.getrepr(s_index)]
+        return hop2.dispatch()
+
+    def rtype_getattr(self, hop):
+        s_attr = hop.args_s[1]
+        attr = s_attr.const
+        try:
+            index = self.statvfs_field_indexes[attr]
+        except KeyError:
+            raise TyperError("os.statvfs().%s: field not available" % (attr,))
+        return self.redispatch_getfield(hop, index)
+
+
+class __extend__(pairtype(StatvfsResultRepr, IntegerRepr)):
+    def rtype_getitem((r_sta, r_int), hop):
+        s_int = hop.args_s[1]
+        index = s_int.const
+        return r_sta.redispatch_getfield(hop, index)
+
+
+
+def make_statvfs_result(tup):
+    return os.statvfs_result(tup)
 
 
 class MakeStatvfsResultEntry(extregistry.ExtRegistryEntry):
@@ -181,8 +273,10 @@ class MakeStatvfsResultEntry(extregistry.ExtRegistryEntry):
         return s_StatvfsResult
 
     def specialize_call(self, hop):
-        from rpython.rlib import _rposix_repr
-        return _rposix_repr.specialize_make_statvfs_result(hop)
+        r_StatvfsResult = hop.rtyper.getrepr(s_StatvfsResult)
+        [v_result] = hop.inputargs(r_StatvfsResult.r_tuple)
+        hop.exception_cannot_occur()
+        return v_result
 
 # ____________________________________________________________
 #
