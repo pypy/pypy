@@ -7,6 +7,10 @@
 extern "C" {
 #endif
 
+typedef struct {
+    PyObject_HEAD
+    double ob_fval;
+} PyFloatObject;
 
 #ifdef __cplusplus
 }

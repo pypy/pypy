@@ -20,7 +20,6 @@ FILE = rffi.VOIDP
 PyFileObject = rffi.VOIDP
 PyCodeObject = rffi.VOIDP
 PyFrameObject = rffi.VOIDP
-PyFloatObject = rffi.VOIDP
 _inittab = rffi.VOIDP
 PyThreadState = rffi.VOIDP
 PyInterpreterState = rffi.VOIDP
