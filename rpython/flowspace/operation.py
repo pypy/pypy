@@ -508,6 +508,14 @@ class NewList(HLOperation):
                 *[annotator.annotation(arg) for arg in self.args])
 
 
+class NewSlice(HLOperation):
+    opname = 'newslice'
+    canraise = [AnnotatorError]
+
+    def get_specialization(self, s_arg1, s_arg2, s_arg3):
+        raise AnnotatorError("Cannot use extended slicing in rpython")
+
+
 class Pow(PureOperation):
     opname = 'pow'
     arity = 3
