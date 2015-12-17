@@ -247,9 +247,15 @@ if _WIN32:
     includes = ['io.h', 'sys/utime.h', 'sys/types.h']
     libraries = []
 else:
+    if sys.platform.startswith(('darwin', 'netbsd', 'openbsd')):
+        _ptyh = 'util.h'
+    elif sys.platform.startswith('freebsd'):
+        _ptyh = 'libutil.h'
+    else:
+        _ptyh = 'pty.h'
     includes = ['unistd.h',  'sys/types.h', 'sys/wait.h',
                 'utime.h', 'sys/time.h', 'sys/times.h',
-                'grp.h', 'dirent.h', 'pty.h']
+                'grp.h', 'dirent.h', _ptyh]
     libraries = ['util']
 eci = ExternalCompilationInfo(
     includes=includes,
