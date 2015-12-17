@@ -226,11 +226,19 @@ class TestNDArrayObject(BaseApiTest):
         '''
 
 class AppTestNDArray(AppTestCpythonExtensionBase):
-    if self.runappdirect:
-        try:
-            import numpy
-        except:
-            skip('numpy not importable')
+
+    def setup_class(cls):
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+        if cls.runappdirect:
+            try:
+                import numpy
+                cls.w_numpy_include = [numpy.get_include()]
+            except:
+                skip('numpy not importable')
+        else:
+            cls.w_numpy_include = cls.space.wrap([])
+            
+
     def test_ndarray_object_c(self):
         mod = self.import_extension('foo', [
                 ("test_simplenew", "METH_NOARGS",
@@ -271,8 +279,8 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 '''
                 npy_intp dims[2] ={2, 3};
                 PyObject * obj2, * obj1 = PyArray_SimpleNew(2, dims, 1);
-                PyArray_FILLWBYTE(obj1, 42);
-                obj2 = _PyArray_FromAny(obj1, NULL, 0, 0, 0, NULL);
+                PyArray_FILLWBYTE((PyArrayObject*)obj1, 42);
+                obj2 = PyArray_FromAny(obj1, NULL, 0, 0, 0, NULL);
                 Py_DECREF(obj1);
                 return obj2;
                 '''
@@ -281,8 +289,8 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 '''
                 npy_intp dims[2] ={2, 3};
                 PyObject  * obj2, * obj1 = PyArray_SimpleNew(2, dims, 1);
-                PyArray_FILLWBYTE(obj1, 42);
-                obj2 = _PyArray_FromObject(obj1, 12, 0, 0);
+                PyArray_FILLWBYTE((PyArrayObject*)obj1, 42);
+                obj2 = PyArray_FromObject(obj1, 12, 0, 0);
                 Py_DECREF(obj1);
                 return obj2;
                 '''
@@ -290,7 +298,7 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
                 ("test_DescrFromType", "METH_O",
                 """
                     Signed typenum = PyInt_AsLong(args);
-                    return _PyArray_DescrFromType(typenum);
+                    return PyArray_DescrFromType(typenum);
                 """
                 ),
                 ], include_dirs=self.numpy_include, 
@@ -310,8 +318,7 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
         assert arr.shape == (2, 3)
         assert arr.dtype.num == 1 #int8 dtype
         assert (arr == 42).all()
-        arr = mod.test_copy()
-        assert (arr == 0).all()
+        raises(ValueError, mod.test_copy)
         #Make sure these work without errors
         arr = mod.test_FromAny()
         arr = mod.test_FromObject()
@@ -319,7 +326,10 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
         assert dt.num == 11
 
     def test_pass_ndarray_object_to_c(self):
-        from _numpypy.multiarray import ndarray
+        if self.runappdirect:
+            from numpy import ndarray
+        else:
+            from _numpypy.multiarray import ndarray
         mod = self.import_extension('foo', [
                 ("check_array", "METH_VARARGS",
                 '''
@@ -344,7 +354,10 @@ class AppTestNDArray(AppTestCpythonExtensionBase):
         raises(TypeError, "mod.check_array(42)")
 
     def test_ufunc(self):
-        from _numpypy.multiarray import arange
+        if self.runappdirect:
+            py.test.xfail('why does this segfault on cpython?')
+        else:
+            from _numpypy.multiarray import arange
         mod = self.import_extension('foo', [
                 ("create_ufunc_basic",  "METH_NOARGS",
                 """
