@@ -84,7 +84,9 @@ def init_builtin(space, w_name):
     name = space.str0_w(w_name)
     if name not in space.builtin_modules:
         return
-    return space.getbuiltinmodule(name)
+    #This is needed to make reload actually reload instead of just using the
+    #already-present module in sys.modules.
+    return space.getbuiltinmodule(name, force_init=True)
 
 def init_frozen(space, w_name):
     return None
