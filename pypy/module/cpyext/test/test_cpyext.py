@@ -277,10 +277,10 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return space.wrap(pydname)
 
         @gateway.unwrap_spec(name=str, init='str_or_None', body=str,
-                     load_it=bool, filename='str_or_None',
+                     load_it=bool, filename='str_or_None', 
                      PY_SSIZE_T_CLEAN=bool)
         def import_module(space, name, init=None, body='', load_it=True,
-                          filename=None, include_dirs=[],
+                          filename=None, w_include_dirs=None,
                           PY_SSIZE_T_CLEAN=False):
             """
             init specifies the overall template of the module.
@@ -291,6 +291,10 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             if filename is None, the module name will be used to construct the
             filename.
             """
+            if w_include_dirs is None:
+                include_dirs = []
+            else:
+                include_dirs = [space.str_w(s) for s in space.listview(w_include_dirs)]
             if init is not None:
                 code = """
                 %(PY_SSIZE_T_CLEAN)s
@@ -340,11 +344,10 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 space.sys.get('modules'),
                 space.wrap(name))
 
-        @gateway.unwrap_spec(modname=str, prologue=str, include_dirs=list, 
+        @gateway.unwrap_spec(modname=str, prologue=str,
                              more_init=str, PY_SSIZE_T_CLEAN=bool)
         def import_extension(space, modname, w_functions, prologue="",
-                             include_dirs=[], more_init="", PY_SSIZE_T_CLEAN=False):
-            include_dirs = [space.unwrap(d) for d in include_dirs]
+                             w_include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
             methods_table = []
             codes = []
@@ -370,7 +373,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             if more_init:
                 init += more_init
             return import_module(space, name=modname, init=init, body=body,
-                                 include_dirs=include_dirs,
+                                 w_include_dirs=w_include_dirs,
                                  PY_SSIZE_T_CLEAN=PY_SSIZE_T_CLEAN)
 
         @gateway.unwrap_spec(name=str)
