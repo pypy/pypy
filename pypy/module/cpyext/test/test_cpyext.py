@@ -394,6 +394,10 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             def interp2app(func):
                 from distutils.sysconfig import get_python_inc
                 class FakeSpace(object):
+                    def passthrough(self, arg):
+                        return arg
+                    listview = passthrough
+                    str_w = passthrough
                     def unwrap(self, args):
                         try:
                             return args.str_w(None)
@@ -403,6 +407,10 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                 fake.include_dir = get_python_inc()
                 fake.config = self.space.config
                 def run(*args, **kwargs):
+                    for k in kwargs.keys():
+                        if k not in func.unwrap_spec and not k.startswith('w_'):
+                            v = kwargs.pop(k)
+                            kwargs['w_' + k] = v
                     return func(fake, *args, **kwargs)
                 return run
             def wrap(func):
