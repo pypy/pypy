@@ -322,6 +322,18 @@ def build_rie_e(mnemonic, (opcode1,opcode2)):
         self.writechar(opcode2)
     return encode_rie_e
 
+def build_rie_f(mnemonic, (opcode1,opcode2)):
+    @builder.arguments('r,r,i8,i8,i8')
+    def encode_rie_f(self, reg1, reg2, i1, i2, i3):
+        self.writechar(opcode1)
+        byte = (reg1 & BIT_MASK_4) << 4 | (reg2 & BIT_MASK_4)
+        self.writechar(chr(byte))
+        self.writechar(chr(i1))
+        self.writechar(chr(i2))
+        self.writechar(chr(i3))
+        self.writechar(opcode2)
+    return encode_rie_f
+
 def build_rie_a(mnemonic, (opcode1,opcode2)):
     br = is_branch_relative(mnemonic)
     @builder.arguments('r,i16,r/m')

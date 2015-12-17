@@ -476,27 +476,32 @@ class AllocOpAssembler(object):
             # directly the card flag setting
             loc_index = arglocs[1]
             if loc_index.is_reg():
-                xxx
                 tmp_loc = arglocs[2]
                 n = descr.jit_wb_card_page_shift
 
                 # compute in tmp_loc the byte offset:
                 #     ~(index >> (card_page_shift + 3))   ('~' is 'not_' below)
-                mc.srli_op(tmp_loc.value, loc_index.value, n + 3)
+                mc.SRAG(tmp_loc, loc_index, l.addr(n+3))
+                #mc.srli_op(tmp_loc.value, loc_index.value, n + 3)
+                # invert the bits
+                mc.XIHF(tmp_loc, l.imm(0xffffFFFF))
+                mc.XILF(tmp_loc, l.imm(0xffffFFFF))
 
                 # compute in r2 the index of the bit inside the byte:
                 #     (index >> card_page_shift) & 7
-                mc.rldicl(r.SCRATCH2.value, loc_index.value, 64 - n, 61)
-                mc.li(r.SCRATCH.value, 1)
-                mc.not_(tmp_loc.value, tmp_loc.value)
+                # 0x80 sets zero flag. will store 0 into all selected bits
+                mc.RISBGN(r.SCRATCH2, loc_index, l.imm(3), l.imm(0x80 | 63), l.imm(61))
+                #mc.rldicl(r.SCRATCH2.value, loc_index.value, 64 - n, 61)
 
                 # set r2 to 1 << r2
-                mc.sl_op(r.SCRATCH2.value, r.SCRATCH.value, r.SCRATCH2.value)
+                mc.LGHI(r.SCRATCH, l.imm(1))
+                mc.SLAG(r.SCRATCH2, r.SCRATCH, l.addr(0,r.SCRATCH2))
 
                 # set this bit inside the byte of interest
-                mc.lbzx(r.SCRATCH.value, loc_base.value, tmp_loc.value)
-                mc.or_(r.SCRATCH.value, r.SCRATCH.value, r.SCRATCH2.value)
-                mc.stbx(r.SCRATCH.value, loc_base.value, tmp_loc.value)
+                addr = l.addr(0, loc_base, tmp_loc)
+                mc.LLGC(r.SCRATCH, addr)
+                mc.OGR(r.SCRATCH, r.SCRATCH2)
+                mc.STCY(r.SCRATCH, addr)
                 # done
 
             else:
@@ -505,9 +510,10 @@ class AllocOpAssembler(object):
                 byte_val = 1 << (byte_index & 7)
                 assert check_imm_value(byte_ofs)
 
-                mc.lbz(r.SCRATCH.value, loc_base.value, byte_ofs)
-                mc.ori(r.SCRATCH.value, r.SCRATCH.value, byte_val)
-                mc.stb(r.SCRATCH.value, loc_base.value, byte_ofs)
+                addr = l.addr(byte_ofs, loc_base)
+                mc.LLGC(r.SCRATCH, addr)
+                mc.OILL(r.SCRATCH, l.imm(byte_val))
+                mc.STCY(r.SCRATCH, addr)
             #
             # patch the beq just above
             currpos = mc.currpos()

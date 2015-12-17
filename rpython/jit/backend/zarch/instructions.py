@@ -39,6 +39,10 @@ arith_mnemonic_codes = {
     'SRLG':    ('rsy_a',   ['\xEB','\x0C']),
     'SLLG':    ('rsy_a',   ['\xEB','\x0D']),
 
+    # rotating
+    # rotate, then insert selected bits
+    'RISBGN':  ('rie_f',   ['\xEC','\x59']),
+
     # invert & negative & absolute
     'LPGR':    ('rre',   ['\xB9','\x00']),
     'LNGR':    ('rre',   ['\xB9','\x01']),

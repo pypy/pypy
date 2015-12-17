@@ -169,8 +169,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc = mc
         
         # save the information
-        mc.STG(r.r14, l.addr(14*WORD, r.SP))
-        # no need to store the back chain ? mc.STG(r.SP, l.addr(0, r.SP)) # store the backchain
+        mc.STG(r.r14, l.addr(14*WORD, r.SP)) # save the link
 
         LOCAL_VARS_OFFSET = 0
         extra_stack_size = LOCAL_VARS_OFFSET + 4 * WORD + 8
@@ -222,12 +221,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # of _reload_frame_if_necessary)
             # This trashes r0 and r2, which is fine in this case
             assert argument_loc is not r.r0
-            # XXX TODO
+            xxx
             #self._store_and_reset_exception(mc, r.RCS2, r.RCS3)
 
         if withcards:
-            # XXX TODO
-            pass
+            xxx
             #kmc.mr(r.RCS2.value, argument_loc.value)
         #
         # Save the lr into r.RCS1
@@ -242,11 +240,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.LGR(r.r2, argument_loc)
         mc.raw_call()
         mc.AGHI(r.SP, l.imm(STD_FRAME_SIZE_IN_BYTES))
-        #
-        # Restore lr
-        # TODO mc.mtlr(r.RCS1.value)
 
         if for_frame:
+            xxx
             self._restore_exception(mc, r.RCS2, r.RCS3)
 
         if withcards:
@@ -271,9 +267,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             self._pop_core_regs_from_jitframe(mc, saved_regs)
             self._pop_fp_regs_from_jitframe(mc, saved_fp_regs)
 
-        mc.LG(r.r14, l.addr(14*WORD, r.SP))
+        mc.LG(r.r14, l.addr(14*WORD, r.SP)) # restore the link
         mc.BCR(c.ANY, r.RETURN)
-        #mc.blr()
 
         self.mc = old_mc
         rawstart = mc.materialize(self.cpu, [])
