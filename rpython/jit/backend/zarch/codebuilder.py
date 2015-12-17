@@ -65,6 +65,8 @@ build_instr_codes(AbstractZARCHBuilder)
 
 class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
+    RAW_CALL_REG = r.r14
+
     def __init__(self):
         AbstractZARCHBuilder.__init__(self)
         self.init_block_builder()

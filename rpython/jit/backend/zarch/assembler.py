@@ -42,6 +42,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.loop_run_counters = []
         self.gcrootmap_retaddr_forced = 0
         self.failure_recovery_code = [0, 0, 0, 0]
+        self.wb_slowpath = [0,0,0,0,0]
 
     def setup(self, looptoken):
         BaseAssembler.setup(self, looptoken)
@@ -142,7 +143,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         return startpos
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
-        return
         descr = self.cpu.gc_ll_descr.write_barrier_descr
         if descr is None:
             return
@@ -164,10 +164,15 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         else:
             argument_loc = r.r0
 
-        mc = PPCBuilder()
+        mc = InstrBuilder()
         old_mc = self.mc
         self.mc = mc
+        
+        # save the information
+        mc.STG(r.r14, l.addr(14*WORD, r.SP))
+        # no need to store the back chain ? mc.STG(r.SP, l.addr(0, r.SP)) # store the backchain
 
+        LOCAL_VARS_OFFSET = 0
         extra_stack_size = LOCAL_VARS_OFFSET + 4 * WORD + 8
         extra_stack_size = (extra_stack_size + 15) & ~15
         if for_frame:
@@ -179,28 +184,29 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # need to save many registers: the registers that are anyway
             # destroyed by the call can be ignored (VOLATILES), and the
             # non-volatile registers won't be changed here.  It only needs
-            # to save r.RCS1 (used below), r3 and f1 (possible results of
+            # to save r.RCS1 (used below), r1 and f0 (possible results of
             # the call), and two more non-volatile registers (used to store
             # the RPython exception that occurred in the CALL, if any).
             #
             # We need to increase our stack frame size a bit to store them.
             #
-            self.mc.load(r.SCRATCH.value, r.SP.value, 0)    # SP back chain
-            self.mc.store_update(r.SCRATCH.value, r.SP.value, -extra_stack_size)
-            self.mc.std(r.RCS1.value, r.SP.value, LOCAL_VARS_OFFSET + 0 * WORD)
-            self.mc.std(r.RCS2.value, r.SP.value, LOCAL_VARS_OFFSET + 1 * WORD)
-            self.mc.std(r.RCS3.value, r.SP.value, LOCAL_VARS_OFFSET + 2 * WORD)
-            self.mc.std(r.r3.value,   r.SP.value, LOCAL_VARS_OFFSET + 3 * WORD)
-            self.mc.stfd(r.f1.value,  r.SP.value, LOCAL_VARS_OFFSET + 4 * WORD)
+            self.mc.TRAP2()
+            #self.mc.LGR(r.SCRATCH, l.addr(0,r.SP)) # SP back chain
+            #self.mc.STG(r.SCRATCH, l.addr(-extra_stack_size, r.SP.value))
+            #self.mc.STG(r.RCS1.value, r.SP.value, LOCAL_VARS_OFFSET + 0 * WORD)
+            #self.mc.STG(r.RCS2.value, r.SP.value, LOCAL_VARS_OFFSET + 1 * WORD)
+            #self.mc.STG(r.RCS3.value, r.SP.value, LOCAL_VARS_OFFSET + 2 * WORD)
+            #self.mc.STG(r.r2.value,   r.SP.value, LOCAL_VARS_OFFSET + 3 * WORD)
+            #self.mc.STD(r.f1.value,   r.SP.value, LOCAL_VARS_OFFSET + 4 * WORD)
             saved_regs = None
             saved_fp_regs = None
 
         else:
             # push all volatile registers, push RCS1, and sometimes push RCS2
             if withcards:
-                saved_regs = r.VOLATILES + [r.RCS1, r.RCS2]
+                saved_regs = r.VOLATILES # + [r.RCS1, r.RCS2]
             else:
-                saved_regs = r.VOLATILES + [r.RCS1]
+                saved_regs = r.VOLATILES # + [r.RCS1]
             if withfloats:
                 saved_fp_regs = r.MANAGED_FP_REGS
             else:
@@ -216,23 +222,29 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # of _reload_frame_if_necessary)
             # This trashes r0 and r2, which is fine in this case
             assert argument_loc is not r.r0
-            self._store_and_reset_exception(mc, r.RCS2, r.RCS3)
+            # XXX TODO
+            #self._store_and_reset_exception(mc, r.RCS2, r.RCS3)
 
         if withcards:
-            mc.mr(r.RCS2.value, argument_loc.value)
+            # XXX TODO
+            pass
+            #kmc.mr(r.RCS2.value, argument_loc.value)
         #
         # Save the lr into r.RCS1
-        mc.mflr(r.RCS1.value)
+        #mc.mflr(r.RCS1.value)
         #
         func = rffi.cast(lltype.Signed, func)
         # Note: if not 'for_frame', argument_loc is r0, which must carefully
         # not be overwritten above
-        mc.mr(r.r3.value, argument_loc.value)
+        mc.STG(r.SP, l.addr(0, r.SP)) # store the backchain
+        mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
         mc.load_imm(mc.RAW_CALL_REG, func)
+        mc.LGR(r.r2, argument_loc)
         mc.raw_call()
+        mc.AGHI(r.SP, l.imm(STD_FRAME_SIZE_IN_BYTES))
         #
         # Restore lr
-        mc.mtlr(r.RCS1.value)
+        # TODO mc.mtlr(r.RCS1.value)
 
         if for_frame:
             self._restore_exception(mc, r.RCS2, r.RCS3)
@@ -242,22 +254,26 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # not follow this instruction with another one that changes
             # the status of cr0!
             card_marking_mask = descr.jit_wb_cards_set_singlebyte
-            mc.lbz(r.RCS2.value, r.RCS2.value, descr.jit_wb_if_flag_byteofs)
-            mc.andix(r.RCS2.value, r.RCS2.value, card_marking_mask & 0xFF)
+            mc.trap()
+            #mc.lbz(r.RCS2.value, r.RCS2.value, descr.jit_wb_if_flag_byteofs)
+            #mc.andix(r.RCS2.value, r.RCS2.value, card_marking_mask & 0xFF)
 
         if for_frame:
-            self.mc.ld(r.RCS1.value, r.SP.value, LOCAL_VARS_OFFSET + 0 * WORD)
-            self.mc.ld(r.RCS2.value, r.SP.value, LOCAL_VARS_OFFSET + 1 * WORD)
-            self.mc.ld(r.RCS3.value, r.SP.value, LOCAL_VARS_OFFSET + 2 * WORD)
-            self.mc.ld(r.r3.value,   r.SP.value, LOCAL_VARS_OFFSET + 3 * WORD)
-            self.mc.lfd(r.f1.value,  r.SP.value, LOCAL_VARS_OFFSET + 4 * WORD)
-            self.mc.addi(r.SP.value, r.SP.value, extra_stack_size)
+            self.mc.trap()
+            #self.mc.ld(r.RCS1.value, r.SP.value, LOCAL_VARS_OFFSET + 0 * WORD)
+            #self.mc.ld(r.RCS2.value, r.SP.value, LOCAL_VARS_OFFSET + 1 * WORD)
+            #self.mc.ld(r.RCS3.value, r.SP.value, LOCAL_VARS_OFFSET + 2 * WORD)
+            #self.mc.ld(r.r3.value,   r.SP.value, LOCAL_VARS_OFFSET + 3 * WORD)
+            #self.mc.lfd(r.f1.value,  r.SP.value, LOCAL_VARS_OFFSET + 4 * WORD)
+            #self.mc.addi(r.SP.value, r.SP.value, extra_stack_size)
 
         else:
             self._pop_core_regs_from_jitframe(mc, saved_regs)
             self._pop_fp_regs_from_jitframe(mc, saved_fp_regs)
 
-        mc.blr()
+        mc.LG(r.r14, l.addr(14*WORD, r.SP))
+        mc.BCR(c.ANY, r.RETURN)
+        #mc.blr()
 
         self.mc = old_mc
         rawstart = mc.materialize(self.cpu, [])

@@ -1,4 +1,6 @@
 from rpython.jit.backend.llsupport.jump import remap_frame_layout
+from rpython.jit.backend.zarch.arch import (WORD,
+        STD_FRAME_SIZE_IN_BYTES)
 from rpython.jit.backend.zarch.arch import THREADLOCAL_ADDR_OFFSET
 from rpython.jit.backend.zarch.helper.assembler import (gen_emit_cmp_op,
         gen_emit_rr_or_rpool, gen_emit_shift, gen_emit_pool_or_rr_evenodd,
@@ -410,12 +412,12 @@ class AllocOpAssembler(object):
         if is_frame:
             assert loc_base is r.SPP
         assert check_imm_value(descr.jit_wb_if_flag_byteofs)
-        mc.LGB(r.SCRATCH2, l.addr(descr.jit_wb_if_flag_byteofs, loc_base))
+        mc.LLGC(r.SCRATCH2, l.addr(descr.jit_wb_if_flag_byteofs, loc_base))
         mc.LGR(r.SCRATCH, r.SCRATCH2)
         mc.NILL(r.SCRATCH, l.imm(mask & 0xFF))
 
         jz_location = mc.get_relative_pos()
-        mc.trap()        # patched later with 'beq'
+        mc.trap()        # patched later with 'EQ'
         mc.write('\x00' * 4)
 
         # for cond_call_gc_wb_array, also add another fast path:
@@ -425,7 +427,7 @@ class AllocOpAssembler(object):
             mc.LGR(r.SCRATCH, r.SCRATCH2)
             mc.NILL(r.SCRATCH, l.imm(card_marking_mask & 0xFF))
             js_location = mc.get_relative_pos()
-            mc.trap()        # patched later with 'bne'
+            mc.trap()        # patched later with 'NE'
             mc.write('\x00' * 4)
         else:
             js_location = 0
@@ -447,10 +449,14 @@ class AllocOpAssembler(object):
             assert self.wb_slowpath[helper_num] != 0
         #
         if not is_frame:
-            mc.mr(r.r0.value, loc_base.value)    # unusual argument location
-        mc.load_imm(r.SCRATCH2, self.wb_slowpath[helper_num])
-        mc.mtctr(r.SCRATCH2.value)
-        mc.bctrl()
+            mc.LGR(r.r0, loc_base)    # unusual argument location
+
+        mc.load_imm(r.r14, self.wb_slowpath[helper_num])
+        # alloc a stack frame
+        mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
+        mc.BASR(r.r14, r.r14)
+        # destory the frame
+        mc.AGHI(r.SP, l.imm(STD_FRAME_SIZE_IN_BYTES))
 
         if card_marking_mask:
             # The helper ends again with a check of the flag in the object.
@@ -458,18 +464,19 @@ class AllocOpAssembler(object):
             # taken if GCFLAG_CARDS_SET is still not set.
             jns_location = mc.get_relative_pos()
             mc.trap()
+            mc.write('\x00'*4)
             #
-            # patch the 'bne' above
+            # patch the 'NE' above
             currpos = mc.currpos()
             pmc = OverwritingBuilder(mc, js_location, 1)
-            pmc.bne(currpos - js_location)
+            pmc.BRCL(c.NE, l.imm(currpos - js_location))
             pmc.overwrite()
             #
             # case GCFLAG_CARDS_SET: emit a few instructions to do
             # directly the card flag setting
             loc_index = arglocs[1]
             if loc_index.is_reg():
-
+                xxx
                 tmp_loc = arglocs[2]
                 n = descr.jit_wb_card_page_shift
 
@@ -505,13 +512,13 @@ class AllocOpAssembler(object):
             # patch the beq just above
             currpos = mc.currpos()
             pmc = OverwritingBuilder(mc, jns_location, 1)
-            pmc.beq(currpos - jns_location)
+            pmc.BRCL(c.EQ, l.imm(currpos - jns_location))
             pmc.overwrite()
 
         # patch the JZ above
         currpos = mc.currpos()
         pmc = OverwritingBuilder(mc, jz_location, 1)
-        pmc.beq(currpos - jz_location)
+        pmc.BRCL(c.EQ, l.imm(currpos - jz_location))
         pmc.overwrite()
 
     def emit_cond_call_gc_wb(self, op, arglocs, regalloc):
