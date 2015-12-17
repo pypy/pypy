@@ -1074,8 +1074,7 @@ def setup_micronumpy(space):
     import pypy.module.cpyext.ndarrayobject 
     global GLOBALS, SYMBOLS_C, separate_module_files
     GLOBALS["PyArray_Type#"]= ('PyTypeObject*', "space.gettypeobject(W_NDimArray.typedef)")
-    SYMBOLS_C += ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS',
-                  '_PyArray_CopyInto']
+    SYMBOLS_C += ['PyArray_Type', '_PyArray_FILLWBYTE', '_PyArray_ZEROS']
     separate_module_files.append(source_dir / "ndarrayobject.c")
     return use_micronumpy
 
