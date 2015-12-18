@@ -1276,7 +1276,8 @@ def utime(path, times):
 if not _WIN32:
     TMSP = lltype.Ptr(TMS)
     c_times = external('times', [TMSP], CLOCK_T,
-                        save_err=rffi.RFFI_SAVE_ERRNO)
+                        save_err=rffi.RFFI_SAVE_ERRNO |
+                                 rffi.RFFI_ZERO_ERRNO_BEFORE)
 
     # Here is a random extra platform parameter which is important.
     # Strictly speaking, this should probably be retrieved at runtime, not
@@ -1298,7 +1299,13 @@ def times():
     if not _WIN32:
         l_tmsbuf = lltype.malloc(TMSP.TO, flavor='raw')
         try:
-            result = handle_posix_error('times', c_times(l_tmsbuf))
+            # note: times() can return a negative value (or even -1)
+            # even if there is no error
+            result = widen(c_times(l_tmsbuf))
+            if result == -1:
+                errno = get_saved_errno()
+                if errno != 0:
+                    raise OSError(errno, 'times() failed')
             return (
                 rffi.cast(lltype.Signed, l_tmsbuf.c_tms_utime)
                                                / CLOCK_TICKS_PER_SECOND,
