@@ -33,6 +33,10 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 #  include <io.h>
 #endif
 
+#ifdef RPY_WITH_GIL
+# include <src/thread.h>
+#endif
+
 
 RPY_EXTERN
 int pypy_main_function(int argc, char *argv[])
@@ -44,6 +48,14 @@ int pypy_main_function(int argc, char *argv[])
 #if defined(MS_WINDOWS) && defined(RPY_SANDBOXED)
     _setmode(0, _O_BINARY);
     _setmode(1, _O_BINARY);
+#endif
+
+#ifdef RPY_WITH_GIL
+    /* Note that the GIL's mutexes are not automatically made; if the
+       program starts threads, it needs to call rgil.gil_allocate().
+       RPyGilAcquire() still works without that, but crash if it finds
+       that it really needs to wait on a mutex. */
+    RPyGilAcquire();
 #endif
 
 #ifdef PYPY_USE_ASMGCC
@@ -81,6 +93,10 @@ int pypy_main_function(int argc, char *argv[])
     }
 
     pypy_malloc_counters_results();
+
+#ifdef RPY_WITH_GIL
+    RPyGilRelease();
+#endif
 
     return exitcode;
 
