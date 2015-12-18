@@ -968,22 +968,52 @@ def ll_listsetslice(l1, start, stop, l2):
     len1 = l1.ll_length()
     len2 = l2.ll_length()
     ll_assert(start >= 0, "l[start:x] = l with unexpectedly negative start")
-    ll_assert(start <= len1, "l[start:x] = l with start > len(l)")
     ll_assert(stop <= len1, "stop cannot be past the end of l1")
-    if len2 == stop - start:
+    ll_assert(start <= stop, "l[start:stop] with start > stop")
+    len_replace = stop - start
+    if len2 == len_replace:
         ll_arraycopy(l2, l1, 0, start, len2)
-    elif len2 < stop - start:
+    else:
+        _ll_listsetslice_resize(l1, start, len_replace, l2)
+
+def _ll_listsetslice_resize(l1, start, len_replace, l2):
+    # a separate function, so that ll_listsetslice() can be JITted
+    len1 = l1.ll_length()
+    len2 = l2.ll_length()
+    delta = len2 - len_replace
+    #
+    if delta < 0:      # len2 < len_replace
         ll_arraycopy(l2, l1, 0, start, len2)
-        ll_arraycopy(l1, l1, stop, start + len2, len1 - stop)
-        l1._ll_resize_le(len1 + len2 - (stop - start))
-    else: # len2 > stop - start:
+        # Shift the items left from l1[start+len_replace:] to l1[start+len2:].
+        # Usually the ranges overlap, so can't use ll_arraycopy.  Instead
+        # we will proceed item-by-item from left to right.  'j' is the
+        # source item to copy.
+        j = start + len_replace
+        while j < len1:
+            l1.ll_setitem_fast(j + delta, l1.ll_getitem_fast(j))
+            j += 1
+        l1._ll_resize_le(len1 + delta)   # this is < len1
+    #
+    else: # len2 > len_replace:
         try:
-            newlength = ovfcheck(len1 + len2)
+            newlength = ovfcheck(len1 + delta)
         except OverflowError:
             raise MemoryError
         l1._ll_resize_ge(newlength)
-        ll_arraycopy(l1, l1, stop, start + len2, len1 - stop)
-        ll_arraycopy(l2, l1, 0, start, len2)
+        # Shift the items right from l1[start+len_replace:] to l1[start+len2:].
+        # Usually the ranges overlap, so can't use ll_arraycopy.  Instead
+        # we will proceed item-by-item from right to left.  Here, 'j' is
+        # the target position to fill.
+        j_min = start + len2
+        j = newlength - 1
+        while j >= j_min:
+            l1.ll_setitem_fast(j, l1.ll_getitem_fast(j - delta))
+            j -= 1
+        # We could usually use ll_arraycopy() for the rest, but not if
+        # l1 == l2...  so instead we just continue to copy item-by-item.
+        while j >= start:
+            l1.ll_setitem_fast(j, l2.ll_getitem_fast(j - start))
+            j -= 1
 
 
 # ____________________________________________________________

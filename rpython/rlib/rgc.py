@@ -271,11 +271,16 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
             copy_item(source, dest, source_start, dest_start)
         return
 
-    # supports non-overlapping copies only
+    # supports non-overlapping copies only, or as a very special case,
+    # copies that are identical and so don't need to do anything
+    # (this is needed to make one case of ll_listsetslice() easier)
+    # xxx I suppose that the C function memcpy(p,q,r), in practice, is
+    # always fine and doing nothing if called with p == q...
     if not we_are_translated():
         if source == dest:
             assert (source_start + length <= dest_start or
-                    dest_start + length <= source_start)
+                    dest_start + length <= source_start or
+                    source_start == dest_start)
 
     TP = lltype.typeOf(source).TO
     assert TP == lltype.typeOf(dest).TO

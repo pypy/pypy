@@ -92,14 +92,14 @@ def list_is_clear(lis, idx):
 
 
 class TestListImpl(BaseTestListImpl):
-    def sample_list(self):    # [42, 43, 44, 45]
+    def sample_list(self, factor=1):    # [42, 43, 44, 45]
         rlist = ListRepr(None, signed_repr)
         rlist.setup()
         l = ll_newlist(rlist.lowleveltype.TO, 3)
-        ll_setitem(l, 0, 42)
-        ll_setitem(l, -2, 43)
-        ll_setitem_nonneg(l, 2, 44)
-        ll_append(l, 45)
+        ll_setitem(l, 0, 42 * factor)
+        ll_setitem(l, -2, 43 * factor)
+        ll_setitem_nonneg(l, 2, 44 * factor)
+        ll_append(l, 45 * factor)
         return l
 
     def test_rlist_del(self):
@@ -141,11 +141,11 @@ class TestListImpl(BaseTestListImpl):
             for stop in range(start, 5):
                 for len2 in range(5):
                     l1 = self.sample_list()    # [42, 43, 44, 45]
-                    l2 = self.sample_list()
+                    l2 = self.sample_list(10)  # [420, 430, 440, 450]
                     ll_listdelslice_startonly(l2, len2)   # initial slice
                     ll_listsetslice(l1, start, stop, l2)
                     expected = [42, 43, 44, 45]
-                    expected[start:stop] = [42, 43, 44, 45][:len2]
+                    expected[start:stop] = [420, 430, 440, 450][:len2]
                     self.check_list(l1, expected)
 
     def test_rlist_setslice_overlapping(self):
