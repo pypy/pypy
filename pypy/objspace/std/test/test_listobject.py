@@ -1079,6 +1079,21 @@ class AppTestListObject(object):
             b[i:i+1] = ['y']
         assert b == ['y'] * count
 
+    def test_setslice_corner_case_1(self):
+        lst = [5, 6, 7, 8]
+        lst[2:3] = range(2)
+        assert lst == [5, 6, 0, 1, 8]
+
+    def test_setslice_corner_case_2(self):
+        lst = [5]
+        lst[0:-10:-10] = lst
+        assert lst == [5]
+
+    def test_setslice_corner_case_3(self):
+        lst = [5]
+        lst[0:10:10] = lst
+        assert lst == [5]
+
     def test_recursive_repr(self):
         l = []
         assert repr(l) == '[]'

@@ -1468,47 +1468,47 @@ class AbstractUnwrappedStrategy(object):
             return
 
         len2 = w_other.length()
-        if slicelength == 0 and len2 == 0:
-            return # shortcut, really there's nothing to do
         items = self.unerase(w_list.lstorage)
         if step == 1:  # Support list resizing for non-extended slices
-            len1 = w_list.length()
+            len1 = len(items)
             # Ensure non-negative slicing
-            if start <= -len1:
-                start = 0
-            elif start < 0:
+            if start < 0:
                 start += len1
+                if start < 0:
+                    start = 0
             assert start >= 0
-            if len2 == 0 and slicelength > 0: # shortcut, we already did all that was needed
+            if len2 == 0: # shortcut, we already did all that was needed
+                # (this condition is needed to avoid self.unerase() on
+                # w_other in the next line: if len2 == 0 then it might
+                # be any strategy; only if it is not 0 do we check that
+                # it is the same strategy as 'self')
                 del items[start:start + slicelength]
             else:
                 items[start:start + slicelength] = self.unerase(w_other.lstorage)
             return
-        elif len2 != slicelength:  # No resize for extended slices
+
+        # The rest is the case 'step != 1'
+
+        if len2 != slicelength:  # No resize for extended slices
             raise oefmt(self.space.w_ValueError,
                         "attempt to assign sequence of size %d to extended "
                         "slice of size %d", len2, slicelength)
 
-        if len2 == 0:
-            other_items = []
-        else:
-            # at this point both w_list and w_other have the same type, so
-            # self.unerase is valid for both of them
-            other_items = self.unerase(w_other.lstorage)
+        if len2 == 0:  # == slicelength: shortcut, really there's nothing to do
+            return
+        # at this point both w_list and w_other have the same type, so
+        # self.unerase is valid for both of them
+        other_items = self.unerase(w_other.lstorage)
         if other_items is items:
-            if step > 1:
-                # Always copy starting from the right to avoid
-                # having to make a shallow copy in the case where
-                # the source and destination lists are the same list.
-                i = len2 - 1
-                start += i * step
-                while i >= 0:
-                    items[start] = other_items[i]
-                    start -= step
-                    i -= 1
-            else: # step can only be -1 here, so it's equivalent to :
-                assert step == -1
-                w_list.reverse()
+            # 'l[x:y:step] = l', with step != 1 and len(l) != 0.
+
+            # This is very obscure, but w_list.reverse() is correct
+            # here for all remaining cases, I believe.  It handles the
+            # case 'l[::-1] = l'.  Otherwise, if abs(step) > 1 but still
+            # len(l) == len2 == slicelength, then the only possibility
+            # left is that len(l) == 1, and reverse() has no effect.
+            assert step == -1 or len2 == 1
+            w_list.reverse()
             return
         for i in range(len2):
             items[start] = other_items[i]
