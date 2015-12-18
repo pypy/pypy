@@ -136,6 +136,27 @@ class TestListImpl(BaseTestListImpl):
                 del expected[start:stop]
                 self.check_list(l, expected)
 
+    def test_rlist_setslice_resizing(self):
+        for start in range(5):
+            for stop in range(start, 5):
+                for len2 in range(5):
+                    l1 = self.sample_list()    # [42, 43, 44, 45]
+                    l2 = self.sample_list()
+                    ll_listdelslice_startonly(l2, len2)   # initial slice
+                    ll_listsetslice(l1, start, stop, l2)
+                    expected = [42, 43, 44, 45]
+                    expected[start:stop] = [42, 43, 44, 45][:len2]
+                    self.check_list(l1, expected)
+
+    def test_rlist_setslice_overlapping(self):
+        for start in range(5):
+            for stop in range(start, 5):
+                l1 = self.sample_list()    # [42, 43, 44, 45]
+                ll_listsetslice(l1, start, stop, l1)    # l1 twice!
+                expected = [42, 43, 44, 45]
+                expected[start:stop] = [42, 43, 44, 45]
+                self.check_list(l1, expected)
+
 
 class TestFixedSizeListImpl(BaseTestListImpl):
     def sample_list(self):    # [42, 43, 44, 45]
