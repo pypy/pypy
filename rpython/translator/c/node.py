@@ -4,7 +4,6 @@ from rpython.rtyper.lltypesystem.lltype import (Struct, Array, FixedSizeArray,
     _subarray)
 from rpython.rtyper.lltypesystem import llmemory, llgroup
 from rpython.translator.c.funcgen import FunctionCodeGenerator
-from rpython.translator.c.external import CExternalFunctionCodeGenerator
 from rpython.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from rpython.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from rpython.translator.c.support import c_char_array_constant, barebonearray
