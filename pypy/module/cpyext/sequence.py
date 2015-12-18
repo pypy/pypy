@@ -178,7 +178,8 @@ def PySeqIter_New(space, w_seq):
     iteration ends when the sequence raises IndexError for the subscripting
     operation.
     """
-    return space.iter(w_seq)
+    # XXX check for bad internal call
+    return space.newseqiter(w_seq)
 
 @cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
 def PySequence_SetItem(space, w_o, i, w_v):
