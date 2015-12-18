@@ -170,13 +170,13 @@ def _PyArray_FromAny(space, w_obj, w_dtype, min_depth, max_depth, requirements, 
     return w_array
 
 @cpython_api([Py_ssize_t], PyObject)
-def _PyArray_DescrFromType(space, typenum):
+def PyArray_DescrFromType(space, typenum):
     try:
         dtype = get_dtype_cache(space).dtypes_by_num[typenum]
         return dtype
     except KeyError:
         raise OperationError(space.w_ValueError, space.wrap(
-            '_PyArray_DescrFromType called with invalid dtype %d' % typenum))
+            'PyArray_DescrFromType called with invalid dtype %d' % typenum))
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t, Py_ssize_t], PyObject)
 def _PyArray_FromObject(space, w_obj, typenum, min_depth, max_depth):
@@ -249,6 +249,16 @@ def _PyArray_New(space, subtype, nd, dims, typenum, strides, data, itemsize, fla
     else:
         return simple_new(space, nd, dims, typenum,
             order=order, owning=owning, w_subtype=w_subtype)
+
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+def PyArray_CopyInto(space, w_dest, w_src):
+    assert isinstance(w_dest, W_NDimArray)
+    assert isinstance(w_src, W_NDimArray)
+    space.appexec([w_dest, w_src], """(dest, src):
+        dest[:] = src
+        """ )
+    return 0
+    
 
 gufunctype = lltype.Ptr(ufuncs.GenericUfunc)
 # XXX single rffi.CArrayPtr(gufunctype) does not work, this does, is there
