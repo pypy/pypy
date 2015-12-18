@@ -84,3 +84,4 @@ Trivial cleanups in flowspace.operation : fix comment & duplicated method
 
 .. branch: test-AF_NETLINK
 .. branch: small-cleanups-misc
+.. branch: cpyext-slotdefs
