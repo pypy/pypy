@@ -815,39 +815,38 @@ class FuncNode(ContainerNode):
         return self.name
 
     def make_funcgens(self):
-        self.funcgens = select_function_code_generators(self.obj, self.db, self.name)
-        if self.funcgens:
-            argnames = self.funcgens[0].argnames()  #Assume identical for all funcgens
+        self.funcgen = select_function_code_generators(self.obj, self.db, self.name)
+        if self.funcgen:
+            argnames = self.funcgen.argnames()
             self.implementationtypename = self.db.gettype(self.T, argnames=argnames)
-            self._funccodegen_owner = self.funcgens[0]
-        else:
-            self._funccodegen_owner = None
+
+        self._funccodegen_owner = self.funcgen
 
     def basename(self):
         return self.obj._name
 
     def enum_dependencies(self):
-        if not self.funcgens:
+        if self.funcgen is None:
             return []
-        return self.funcgens[0].allconstantvalues() #Assume identical for all funcgens
+        return self.funcgen.allconstantvalues()
 
     def forward_declaration(self):
         callable = getattr(self.obj, '_callable', None)
         is_exported = getattr(callable, 'exported_symbol', False)
-        for funcgen in self.funcgens:
+        if self.funcgen:
             yield '%s;' % (
                 forward_cdecl(self.implementationtypename,
-                    funcgen.name(self.name), self.db.standalone,
+                    self.funcgen.name(self.name), self.db.standalone,
                     is_exported=is_exported))
 
     def implementation(self):
-        for funcgen in self.funcgens:
-            for s in self.funcgen_implementation(funcgen):
+        if self.funcgen:
+            for s in self.funcgen_implementation(self.funcgen):
                 yield s
 
     def graphs_to_patch(self):
-        for funcgen in self.funcgens:
-            for i in funcgen.graphs_to_patch():
+        if self.funcgen:
+            for i in self.funcgen.graphs_to_patch():
                 yield i
 
     def funcgen_implementation(self, funcgen):
@@ -899,12 +898,11 @@ class FuncNode(ContainerNode):
 
 def sandbox_stub(fnobj, db):
     # unexpected external function for --sandbox translation: replace it
-    # with a "Not Implemented" stub.  To support these functions, port them
-    # to the new style registry (e.g. rpython.module.ll_os.RegisterOs).
+    # with a "Not Implemented" stub.
     from rpython.translator.sandbox import rsandbox
     graph = rsandbox.get_external_function_sandbox_graph(fnobj, db,
                                                       force_stub=True)
-    return [FunctionCodeGenerator(graph, db)]
+    return FunctionCodeGenerator(graph, db)
 
 def sandbox_transform(fnobj, db):
     # for --sandbox: replace a function like os_open_llimpl() with
@@ -912,7 +910,7 @@ def sandbox_transform(fnobj, db):
     # perform the operation.
     from rpython.translator.sandbox import rsandbox
     graph = rsandbox.get_external_function_sandbox_graph(fnobj, db)
-    return [FunctionCodeGenerator(graph, db)]
+    return FunctionCodeGenerator(graph, db)
 
 def select_function_code_generators(fnobj, db, functionname):
     sandbox = db.need_sandboxing(fnobj)
@@ -921,16 +919,16 @@ def select_function_code_generators(fnobj, db, functionname):
             # apply the sandbox transformation
             return sandbox_transform(fnobj, db)
         exception_policy = getattr(fnobj, 'exception_policy', None)
-        return [FunctionCodeGenerator(fnobj.graph, db, exception_policy,
-                                      functionname)]
+        return FunctionCodeGenerator(
+            fnobj.graph, db, exception_policy, functionname)
     elif getattr(fnobj, 'external', None) is not None:
         if sandbox:
             return sandbox_stub(fnobj, db)
         else:
             assert fnobj.external == 'C'
-            return []
+            return None
     elif hasattr(fnobj._callable, "c_name"):
-        return []    # this case should only be used for entrypoints
+        return None    # this case should only be used for entrypoints
     else:
         raise ValueError("don't know how to generate code for %r" % (fnobj,))
 
