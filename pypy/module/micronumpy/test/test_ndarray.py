@@ -3252,6 +3252,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert array(x, copy=True) is not x
 
     def test_issue_1674(self):
+        # Mask indexing does not work with a second dimension
         from numpy import arange
         data = arange(15).reshape(3, 5) * 1.0
         # array([[  0.,   1.,   2.,   3.,   4.],
