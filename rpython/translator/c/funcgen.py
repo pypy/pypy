@@ -18,6 +18,16 @@ LOCALVAR = 'l_%s'
 
 KEEP_INLINED_GRAPHS = False
 
+def make_funcgen(graph, db, exception_policy=None, functionname=None):
+    graph._seen_by_the_backend = True
+    # apply the exception transformation
+    if db.exctransformer:
+        db.exctransformer.create_exception_handling(graph)
+    # apply the gc transformation
+    if db.gctransformer:
+        db.gctransformer.transform_graph(graph)
+    return FunctionCodeGenerator(graph, db, exception_policy, functionname)
+
 class FunctionCodeGenerator(object):
     """
     Collects information about a function which we have to generate
@@ -25,21 +35,13 @@ class FunctionCodeGenerator(object):
     """
 
     def __init__(self, graph, db, exception_policy=None, functionname=None):
-        graph._seen_by_the_backend = True
         self.graph = graph
         self.db = db
         self.gcpolicy = db.gcpolicy
         self.exception_policy = exception_policy
         self.functionname = functionname
-        # apply the exception transformation
-        if self.db.exctransformer:
-            self.db.exctransformer.create_exception_handling(self.graph)
-        # apply the gc transformation
-        if self.db.gctransformer:
-            self.db.gctransformer.transform_graph(self.graph)
-        #self.graph.show()
-        self.collect_var_and_types()
 
+        self.collect_var_and_types()
         for v in self.vars:
             T = v.concretetype
             # obscure: skip forward references and hope for the best

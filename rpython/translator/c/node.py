@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem.lltype import (Struct, Array, FixedSizeArray,
     Void, OpaqueType, Float, RuntimeTypeInfo, getRuntimeTypeInfo, Char,
     _subarray)
 from rpython.rtyper.lltypesystem import llmemory, llgroup
-from rpython.translator.c.funcgen import FunctionCodeGenerator
+from rpython.translator.c.funcgen import make_funcgen
 from rpython.translator.c.support import USESLOTS # set to False if necessary while refactoring
 from rpython.translator.c.support import cdecl, forward_cdecl, somelettersfrom
 from rpython.translator.c.support import c_char_array_constant, barebonearray
@@ -901,7 +901,7 @@ def sandbox_stub(fnobj, db):
     from rpython.translator.sandbox import rsandbox
     graph = rsandbox.get_external_function_sandbox_graph(fnobj, db,
                                                       force_stub=True)
-    return FunctionCodeGenerator(graph, db)
+    return make_funcgen(graph, db)
 
 def sandbox_transform(fnobj, db):
     # for --sandbox: replace a function like os_open_llimpl() with
@@ -909,7 +909,7 @@ def sandbox_transform(fnobj, db):
     # perform the operation.
     from rpython.translator.sandbox import rsandbox
     graph = rsandbox.get_external_function_sandbox_graph(fnobj, db)
-    return FunctionCodeGenerator(graph, db)
+    return make_funcgen(graph, db)
 
 def select_function_code_generators(fnobj, db, functionname):
     sandbox = db.need_sandboxing(fnobj)
@@ -918,8 +918,7 @@ def select_function_code_generators(fnobj, db, functionname):
             # apply the sandbox transformation
             return sandbox_transform(fnobj, db)
         exception_policy = getattr(fnobj, 'exception_policy', None)
-        return FunctionCodeGenerator(
-            fnobj.graph, db, exception_policy, functionname)
+        return make_funcgen(fnobj.graph, db, exception_policy, functionname)
     elif getattr(fnobj, 'external', None) is not None:
         if sandbox:
             return sandbox_stub(fnobj, db)
