@@ -684,7 +684,8 @@ def getitem_filter(res, arr, index):
     arr_iter, arr_state = arr.create_iter()
     arr_dtype = arr.get_dtype()
     index_dtype = index.get_dtype()
-    # support the deprecated form where arr([True]) will return arr[0, ...]
+    # support the deprecated form where
+    # arr[[True, False, True, ...]] will return arr[0, 2, ...]
     # by iterating over res_iter, not index_iter
     while not res_iter.done(res_state):
         getitem_filter_driver.jit_merge_point(shapelen=shapelen,
