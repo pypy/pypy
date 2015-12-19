@@ -3253,7 +3253,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
     def test_issue_1674(self):
         # Mask indexing does not work with a second dimension
-        from numpy import arange
+        from numpy import arange, array
         data = arange(15).reshape(3, 5) * 1.0
         # array([[  0.,   1.,   2.,   3.,   4.],
         #        [  5.,   6.,   7.,   8.,   9.],
