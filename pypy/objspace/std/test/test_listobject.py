@@ -1003,6 +1003,8 @@ class AppTestListObject(object):
         l = l0 = ['a', 'b']
         l[1:1] = ['ae']
         assert l == ['a', 'ae', 'b']
+        l[1:1] = []
+        assert l == ['a', 'ae', 'b']
         l[1:100] = ['B']
         assert l == ['a', 'B']
         l[:] = []
@@ -1010,9 +1012,10 @@ class AppTestListObject(object):
         assert l is l0
 
         l = []
-        l2 = range(3)
-        l.__setslice__(0,3,l2)
-        assert l == [0,1,2]
+        length = 3
+        l2 = range(length)
+        l.__setslice__(0, length, l2)
+        assert l == range(length)
 
     def test_assign_extended_slice(self):
         l = l0 = ['a', 'b', 'c']
@@ -1043,13 +1046,10 @@ class AppTestListObject(object):
         l[:] = l
         assert l == [1,2,3,4]
 
-        l = [1,2,3,4]
+        l = l0 = [1,2,3,4]
         l[0:2] = l
         assert l == [1,2,3,4,3,4]
-
-        l = [1,2,3,4]
-        l[0:2] = l
-        assert l == [1,2,3,4,3,4]
+        assert l0 is l
 
         l = [1,2,3,4,5,6,7,8,9,10]
         raises(ValueError, "l[5::-1] = l")
@@ -1060,6 +1060,11 @@ class AppTestListObject(object):
         l = [1,2,3,4,5,6,7,8,9,10]
         l[5:] = l
         assert l == [1,2,3,4,5,1,2,3,4,5,6,7,8,9,10]
+
+        l = l0 = [1,2,3,4,5,6]
+        raises(ValueError, "l[::-2] = l")
+        assert l == [1,2,3,4,5,6]
+        assert l is l0
 
         l = [1,2,3,4,5,6]
         l[::-1] = l
@@ -1336,6 +1341,10 @@ class AppTestListObject(object):
         l = [1,2,3,4]
         l.__setslice__(0, 2, [5, 6])
         assert l == [5, 6, 3, 4]
+
+        l = [1,2,3,4]
+        l.__setslice__(-2, -1, [5, 6])
+        assert l == [5, 6, 1, 2, 3,4]
 
         l = []
         l.__setslice__(0,0,[3,4,5])
