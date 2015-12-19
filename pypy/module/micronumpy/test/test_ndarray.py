@@ -3251,6 +3251,16 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert array(x, copy=False) is x
         assert array(x, copy=True) is not x
 
+    def test_issue_1674(self):
+        import numpy as np
+        data = np.arange(15).reshape(3, 5) * 1.0
+        # array([[  0.,   1.,   2.,   3.,   4.],
+        #        [  5.,   6.,   7.,   8.,   9.],
+        #        [ 10.,  11.,  12.,  13.,  14.]])
+        m = data[:, 0] % 2 == 0
+        # array([ True, False,  True], dtype=bool)
+        assert data[m, 0] == array([  0.,  10.])
+
     def test_ravel(self):
         from numpy import arange
         assert (arange(3).ravel() == arange(3)).all()
