@@ -805,22 +805,22 @@ def getitem_array_int(space, arr, res, iter_shape, indexes_w, prefix_w):
     prefixlen = len(prefix_w)
     indexlen = len(indexes_w)
     dtype = arr.get_dtype()
-    iter = PureShapeIter(iter_shape, indexes_w)
+    shape_iter = PureShapeIter(iter_shape, indexes_w)
     indexlen = len(indexes_w)
-    while not iter.done():
+    while not shape_iter.done():
         getitem_int_driver.jit_merge_point(shapelen=shapelen, indexlen=indexlen,
                                            dtype=dtype, prefixlen=prefixlen)
         # prepare the index
         index_w = [None] * indexlen
         for i in range(indexlen):
-            if iter.idx_w_i[i] is not None:
-                index_w[i] = iter.idx_w_i[i].getitem(iter.idx_w_s[i])
+            if shape_iter.idx_w_i[i] is not None:
+                index_w[i] = shape_iter.idx_w_i[i].getitem(shape_iter.idx_w_s[i])
             else:
                 index_w[i] = indexes_w[i]
         res.descr_setitem(space, space.newtuple(prefix_w[:prefixlen] +
-                                            iter.get_index(space, shapelen)),
+                                            shape_iter.get_index(space, shapelen)),
                           arr.descr_getitem(space, space.newtuple(index_w)))
-        iter.next()
+        shape_iter.next()
     return res
 
 setitem_int_driver = jit.JitDriver(name = 'numpy_setitem_int',
