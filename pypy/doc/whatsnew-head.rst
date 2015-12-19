@@ -85,3 +85,7 @@ Trivial cleanups in flowspace.operation : fix comment & duplicated method
 .. branch: test-AF_NETLINK
 .. branch: small-cleanups-misc
 .. branch: cpyext-slotdefs
+
+.. branch: fix-2211
+
+Fix the cryptic exception message when attempting to use extended slicing in rpython
