@@ -1221,8 +1221,6 @@ _oplist = [
     'SETINTERIORFIELD_GC/3d/n',
     'SETINTERIORFIELD_RAW/3d/n',    # right now, only used by tests
     'SETFIELD_GC/2d/n',
-    'ZERO_PTR_FIELD/2/n', # only emitted by the rewrite, clears a pointer field
-                        # at a given constant offset, no descr
     'ZERO_ARRAY/3d/n',  # only emitted by the rewrite, clears (part of) an array
                         # [arraygcptr, firstindex, length], descr=ArrayDescr
     'SETFIELD_RAW/2d/n',
