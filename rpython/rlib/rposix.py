@@ -415,6 +415,7 @@ def dup2(fd, newfd):
 
 @replace_os_function('open')
 @specialize.argtype(0)
+@enforceargs(None, int, int, typecheck=False)
 def open(path, flags, mode):
     if _prefer_unicode(path):
         fd = c_wopen(_as_unicode0(path), flags, mode)
