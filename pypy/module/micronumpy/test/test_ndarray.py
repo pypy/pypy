@@ -3255,11 +3255,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         # Mask indexing does not work with a second dimension
         from numpy import arange, array
         data = arange(15).reshape(3, 5) * 1.0
-        # array([[  0.,   1.,   2.,   3.,   4.],
-        #        [  5.,   6.,   7.,   8.,   9.],
-        #        [ 10.,  11.,  12.,  13.,  14.]])
+        assert (data == array([[  0.,   1.,   2.,   3.,   4.],
+                               [  5.,   6.,   7.,   8.,   9.],
+                               [ 10.,  11.,  12.,  13.,  14.]])).all()
         m = data[:, 0] % 2 == 0
-        # array([ True, False,  True], dtype=bool)
+        assert (m == array([ True, False,  True], dtype=bool)).all()
         assert data[m, 0] == array([  0.,  10.])
         # Assume False for missing elements of the bool index array
         assert data[0, m] == array([ 0.,  2.])
