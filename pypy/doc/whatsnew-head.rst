@@ -68,6 +68,10 @@ Simplification. Backends implement too many loading instructions, only having a 
 Four new operations (gc_load/gc_load_indexed, gc_store/gc_store_indexed) replace all the
 commonly known loading operations
 
+.. branch: fix-1674
+
+Fix for broken mask indexing / selection. Was issue #1674.
+
 .. branch: more-rposix
 
 Move wrappers for OS functions from `rpython/rtyper` to `rpython/rlib` and 
