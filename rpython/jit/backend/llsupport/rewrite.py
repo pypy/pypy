@@ -532,7 +532,9 @@ class GcRewriterAssembler(object):
             return
         # the ZERO_ARRAY operation will be optimized according to what
         # SETARRAYITEM_GC we see before the next allocation operation.
-        # See emit_pending_zeros().
+        # See emit_pending_zeros().  (This optimization is done by
+        # hacking the object 'o' in-place: e.g., o.getarg(1) may be
+        # replaced with another constant greater than 0.)
         o = ResOperation(rop.ZERO_ARRAY, [v_arr, self.c_zero, v_length],
                          descr=arraydescr)
         self.emit_op(o)
