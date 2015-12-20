@@ -3264,6 +3264,21 @@ class AppTestMultiDim(BaseNumpyAppTest):
         # Assume False for missing elements of the bool index array
         assert data[0, m] == array([ 0.,  2.])
 
+    def test_dual_indexing_selecting(self):
+        from numpy import arange, array
+        data = arange(15).reshape(5, 3) * 1.0
+        assert (data == array([[  0.,   1.,   2.],
+                               [  3.,   4.,   5.],
+                               [  6.,   7.,   8.],
+                               [  9.,  10.,  11.],
+                               [ 12.,  13.,  14.]])).all()
+        m = array([3, 4, 1])
+        assert (data[m] == array([[  9.,  10.,  11.],
+                                  [ 12.,  13.,  14.],
+                                  [  3.,   4.,   5.]])).all()
+        assert data[m, 0] == array([ 9., 12., 3.])
+        assert data[array([1,3,4,1]), 1] == array([4., 10., 13., 4.])
+
     def test_ravel(self):
         from numpy import arange
         assert (arange(3).ravel() == arange(3)).all()
