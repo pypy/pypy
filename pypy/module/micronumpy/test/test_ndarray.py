@@ -3276,8 +3276,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (data[m] == array([[  9.,  10.,  11.],
                                   [ 12.,  13.,  14.],
                                   [  3.,   4.,   5.]])).all()
-        assert data[m, 0] == array([ 9., 12., 3.])
-        assert data[array([1,3,4,1]), 1] == array([4., 10., 13., 4.])
+        assert (data[m, 0] == array([ 9., 12., 3.])).all()
+        assert (data[array([1, 3, 4, 1]), 1] == array([4., 10., 13., 4.])).all()
 
     def test_ravel(self):
         from numpy import arange
