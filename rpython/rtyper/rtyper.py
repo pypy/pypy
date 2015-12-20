@@ -16,15 +16,15 @@ import os
 import py, math
 
 from rpython.annotator import model as annmodel, unaryop, binaryop
-from rpython.rtyper.llannotation import SomePtr, lltype_to_annotation
+from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.flowspace.model import Variable, Constant, SpaceOperation
 from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.exceptiondata import ExceptionData
 from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
-    Ptr, ContainerType, FuncType, functionptr, typeOf, RuntimeTypeInfo,
-    attachRuntimeTypeInfo, Primitive, getfunctionptr)
-from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
+    ContainerType, FuncType, functionptr, typeOf,
+    Primitive, getfunctionptr)
+from rpython.rtyper.rmodel import Repr, inputconst
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
@@ -589,21 +589,6 @@ class RPythonTyper(object):
         """
         graph = self.annotate_helper(ll_function, argtypes)
         return self.getcallable(graph)
-
-    def attachRuntimeTypeInfoFunc(self, GCSTRUCT, func, ARG_GCSTRUCT=None,
-                                  destrptr=None):
-        self.call_all_setups()  # compute ForwardReferences now
-        if ARG_GCSTRUCT is None:
-            ARG_GCSTRUCT = GCSTRUCT
-        args_s = [SomePtr(Ptr(ARG_GCSTRUCT))]
-        graph = self.annotate_helper(func, args_s)
-        s = self.annotation(graph.getreturnvar())
-        if (not isinstance(s, SomePtr) or
-            s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
-            raise TyperError("runtime type info function %r returns %r, "
-                             "excepted Ptr(RuntimeTypeInfo)" % (func, s))
-        funcptr = self.getcallable(graph)
-        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr)
 
 # register operations from annotation model
 RPythonTyper._registeroperations(unaryop.UNARY_OPERATIONS, binaryop.BINARY_OPERATIONS)
