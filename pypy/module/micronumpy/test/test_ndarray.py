@@ -3261,6 +3261,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         m = data[:, 0] % 2 == 0
         # array([ True, False,  True], dtype=bool)
         assert data[m, 0] == array([  0.,  10.])
+        # Assume False for missing elements of the bool index array
+        assert data[0, m] == array([ 0.,  2.])
 
     def test_ravel(self):
         from numpy import arange
