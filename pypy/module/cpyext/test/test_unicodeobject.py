@@ -66,6 +66,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  c = PyUnicode_AsUnicode(s);
                  c[0] = 'a';
                  c[1] = 0xe9;
+                 c[2] = 0x00;
                  c[3] = 'c';
                  return s;
              """),
@@ -74,6 +75,18 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert len(s) == 4
         assert s == u'aé\x00c'
 
+    def test_hash(self):
+        module = self.import_extension('foo', [
+            ("test_hash", "METH_VARARGS",
+             '''
+                PyObject* obj = (PyTuple_GetItem(args, 0));
+                long hash = ((PyUnicodeObject*)obj)->hash;
+                return PyLong_FromLong(hash);  
+             '''
+             ),
+            ])
+        res = module.test_hash(u"xyz")
+        assert res == hash(u'xyz')
 
 
 class TestUnicode(BaseApiTest):
@@ -575,6 +588,3 @@ class TestUnicode(BaseApiTest):
                 api.PyUnicode_Splitlines(w_str, 0)))
         assert r"[u'a\n', u'b\n', u'c\n', u'd']" == space.unwrap(space.repr(
                 api.PyUnicode_Splitlines(w_str, 1)))
-
-    def test_hash_and_defenc(self, space, api):
-        assert False # XXX test newly added struct members hash and defenc
