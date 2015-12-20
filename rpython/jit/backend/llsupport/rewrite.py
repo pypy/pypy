@@ -1,6 +1,6 @@
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rarithmetic import ovfcheck, highest_bit
 from rpython.rtyper.lltypesystem import llmemory, lltype, rstr
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
@@ -165,7 +165,14 @@ class GcRewriterAssembler(object):
             if isinstance(index_box, ConstInt):
                 index_box = ConstInt(index_box.value * factor)
             else:
-                index_box = ResOperation(rop.INT_MUL, [index_box, ConstInt(factor)])
+                # x & (x - 1) == 0 is a quick test for power of 2
+                assert factor > 0
+                if (factor & (factor - 1)) == 0:
+                    index_box = ResOperation(rop.INT_LSHIFT,
+                            [index_box, ConstInt(highest_bit(factor))])
+                else:
+                    index_box = ResOperation(rop.INT_MUL,
+                            [index_box, ConstInt(factor)])
                 self.emit_op(index_box)
             factor = 1
         # adjust the constant offset
