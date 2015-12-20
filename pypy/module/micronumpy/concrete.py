@@ -256,7 +256,6 @@ class BaseConcreteArray(object):
         elif space.is_w(w_idx, space.w_None):
             return [NewAxisChunk(), EllipsisChunk()]
         result = []
-        i = 0
         has_ellipsis = False
         for w_item in space.fixedview(w_idx):
             if space.is_w(w_item, space.w_Ellipsis):
@@ -271,10 +270,8 @@ class BaseConcreteArray(object):
                 result.append(NewAxisChunk())
             elif space.isinstance_w(w_item, space.w_slice):
                 result.append(SliceChunk(w_item))
-                i += 1
             else:
                 result.append(IntegerChunk(w_item))
-                i += 1
         if not has_ellipsis:
             result.append(EllipsisChunk())
         return result
