@@ -14,6 +14,7 @@ import time as pytime
 
 _POSIX = os.name == "posix"
 _WIN = os.name == "nt"
+_MACOSX = sys.platform == "darwin"
 _CYGWIN = sys.platform == "cygwin"
 
 _time_zones = []
@@ -106,6 +107,8 @@ if _WIN:
 _includes = ["time.h"]
 if _POSIX:
     _includes.append('sys/time.h')
+if _MACOSX:
+    _includes.append('mach/mach_time.h')
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
@@ -147,7 +150,7 @@ elif _WIN:
         ("tm_mon", rffi.INT), ("tm_year", rffi.INT), ("tm_wday", rffi.INT),
         ("tm_yday", rffi.INT), ("tm_isdst", rffi.INT)])
 
-if sys.platform == 'darwin':
+if _MACOSX:
     CConfig.TIMEBASE_INFO = platform.Struct("struct mach_timebase_info", [
         ("numer", rffi.UINT),
         ("denom", rffi.UINT),
@@ -181,6 +184,7 @@ if _POSIX:
     timeval = cConfig.timeval
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
+HAS_CLOCK_GETTIME = cConfig.has_clock_gettime
 clock_t = cConfig.clock_t
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
@@ -194,7 +198,7 @@ c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
 c_mktime = external('mktime', [TM_P], rffi.TIME_T)
 c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
                        save_err=rffi.RFFI_SAVE_ERRNO)
-if cConfig.has_clock_gettime:
+if HAS_CLOCK_GETTIME:
     from rpython.rlib.rtime import TIMESPEC, c_clock_gettime
     c_clock_settime = external('clock_settime',
                                [lltype.Signed, lltype.Ptr(TIMESPEC)], rffi.INT,
@@ -619,7 +623,7 @@ def mktime(space, w_tup):
 
     return space.wrap(float(tt))
 
-if cConfig.has_clock_gettime:
+if HAS_CLOCK_GETTIME:
     def _timespec_to_seconds(timespec):
         return int(timespec.c_tv_sec) + int(timespec.c_tv_nsec) * 1e-9
 
@@ -728,20 +732,22 @@ if _WIN:
     def monotonic(space):
         return space.wrap(_GetTickCount64() * 1e-3)
 
-elif sys.platform == 'darwin':
-    # untested so far
+elif _MACOSX:
     c_mach_timebase_info = external('mach_timebase_info',
-                                    [lltype.Ptr(TIMEBASE_INFO)], lltype.Void)
-    c_mach_absolute_time = external('mach_absolute_time', [], lltype.ULONGLONG)
+                                    [lltype.Ptr(cConfig.TIMEBASE_INFO)],
+                                    lltype.Void)
+    c_mach_absolute_time = external('mach_absolute_time', [], rffi.ULONGLONG)
 
-    timebase_info = lltype.malloc(TIMEBASE_INFO, flavor='raw', zero=True,
-                                  immortal=True)
+    timebase_info = lltype.malloc(cConfig.TIMEBASE_INFO, flavor='raw',
+                                  zero=True, immortal=True)
 
-    def monotonic():
-        if timebase_info.denom == 0:
-            mach_timebase_info(timebase_info)
-        time = mach_absolute_time()
-        nanosecs = time * timebase_info.numer / timebase_info.denom
+    def monotonic(space):
+        if rffi.getintfield(timebase_info, 'c_denom') == 0:
+            c_mach_timebase_info(timebase_info)
+        time = rffi.cast(lltype.Signed, c_mach_absolute_time())
+        numer = rffi.getintfield(timebase_info, 'c_numer')
+        denom = rffi.getintfield(timebase_info, 'c_denom')
+        nanosecs = time * numer / denom
         secs = nanosecs / 10**9
         rest = nanosecs % 10**9
         return space.wrap(float(secs) + float(rest) * 1e-9)
@@ -789,7 +795,7 @@ else:
     have_times = hasattr(rposix, 'c_times')
 
     def process_time(space):
-        if cConfig.has_clock_gettime and (
+        if HAS_CLOCK_GETTIME and (
                 cConfig.CLOCK_PROF is not None or
                 cConfig.CLOCK_PROCESS_CPUTIME_ID is not None):
             if cConfig.CLOCK_PROF is not None:
@@ -811,7 +817,7 @@ else:
         if have_times:
             with lltype.scoped_alloc(rposix.TMS) as tms:
                 ret = rposix.c_times(tms)
-                if ret != -1:
-                    cpu_time = tms.c_tms_utime + tms.c_tms_stime
+                if rffi.cast(lltype.Signed, ret) != -1:
+                    cpu_time = float(tms.c_tms_utime + tms.c_tms_stime)
                     return space.wrap(cpu_time / rposix.CLOCK_TICKS_PER_SECOND)
         return clock(space)

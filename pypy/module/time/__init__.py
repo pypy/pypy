@@ -1,6 +1,6 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
-from .interp_time import CLOCK_CONSTANTS, cConfig
+from .interp_time import CLOCK_CONSTANTS, HAS_CLOCK_GETTIME, cConfig
 import os
 
 _WIN = os.name == "nt"
@@ -24,10 +24,11 @@ class Module(MixedModule):
         'process_time': 'interp_time.process_time',
     }
 
-    if os.name == "posix":
+    if HAS_CLOCK_GETTIME:
         interpleveldefs['clock_gettime'] = 'interp_time.clock_gettime'
         interpleveldefs['clock_settime'] = 'interp_time.clock_settime'
         interpleveldefs['clock_getres'] = 'interp_time.clock_getres'
+    if os.name == "posix":
         interpleveldefs['tzset'] = 'interp_time.tzset'
 
     for constant in CLOCK_CONSTANTS:
