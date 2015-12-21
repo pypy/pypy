@@ -1302,7 +1302,7 @@ def times():
         try:
             # note: times() can return a negative value (or even -1)
             # even if there is no error
-            result = widen(c_times(l_tmsbuf))
+            result = rffi.cast(lltype.Signed, c_times(l_tmsbuf))
             if result == -1:
                 errno = get_saved_errno()
                 if errno != 0:
