@@ -14,8 +14,9 @@ class CallBuilder(AbstractCallBuilder):
     GPR_ARGS = [r.r2, r.r3, r.r4, r.r5, r.r6]
     FPR_ARGS =  [r.f0, r.f2, r.f4, r.f6]
     
-    #RFASTGILPTR = r.RCS2
-    #RSHADOWOLD  = r.RCS3
+    RSHADOWOLD  = r.r9
+    RSHADOWPTR  = r.r10
+    RFASTGILPTR = r.r12
 
     def __init__(self, assembler, fnloc, arglocs, resloc):
         AbstractCallBuilder.__init__(self, assembler, fnloc, arglocs,
@@ -148,6 +149,12 @@ class CallBuilder(AbstractCallBuilder):
 
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         assert self.is_call_release_gil
+        RSHADOWOLD = self.RSHADOWOLD
+        RSHADOWPTR = self.RSHADOWPTR
+        RFASTGILPTR = self.RFASTGILPTR
+        #
+        # assumes RSHADOWOLD to be r9, stores all up to r15
+        self.mc.STMG(RSHADOWOLD, r.r15, l.addr(9 * WORD, r.SP))
         #
         # Save this thread's shadowstack pointer into r29, for later comparison
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
@@ -155,13 +162,13 @@ class CallBuilder(AbstractCallBuilder):
             if gcrootmap.is_shadow_stack:
                 rst = gcrootmap.get_root_stack_top_addr()
                 self.mc.load_imm(RSHADOWPTR, rst)
-                self.mc.load(RSHADOWOLD.value, RSHADOWPTR.value, 0)
+                self.mc.LGR(RSHADOWOLD, RSHADOWPTR)
         #
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
         self.mc.load_imm(RFASTGILPTR, fastgil)
-        self.mc.li(r.r0.value, 0)
-        self.mc.lwsync()
-        self.mc.std(r.r0.value, RFASTGILPTR.value, 0)
+        self.mc.LGHI(r.SCRATCH, l.imm(0))
+        self.mc.STG(r.SCRATCH, l.addr(0, RFASTGILPTR))
+        self.mc.sync() # renders the store visible to other cpus
         #
         if not we_are_translated():        # for testing: we should not access
             self.mc.AGHI(r.SPP, l.imm(1))  # r31 any more
@@ -169,21 +176,22 @@ class CallBuilder(AbstractCallBuilder):
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.zarch.codebuilder import InstrBuilder
-        xxx
 
         # try to reacquire the lock.  The following registers are still
         # valid from before the call:
-        RSHADOWPTR  = self.RSHADOWPTR     # r30: &root_stack_top
-        RFASTGILPTR = self.RFASTGILPTR    # r29: &fastgil
-        RSHADOWOLD  = self.RSHADOWOLD     # r28: previous val of root_stack_top
+        RSHADOWPTR  = self.RSHADOWPTR     # r9: &root_stack_top
+        RFASTGILPTR = self.RFASTGILPTR    # r10: &fastgil
+        RSHADOWOLD  = self.RSHADOWOLD     # r12: previous val of root_stack_top
 
-        # Equivalent of 'r10 = __sync_lock_test_and_set(&rpy_fastgil, 1);'
-        self.mc.li(r.r9.value, 1)
+        # Equivalent of 'r14 = __sync_lock_test_and_set(&rpy_fastgil, 1);'
+        self.mc.LGHI(r.r11, l.imm(1))
+        self.mc.LGHI(r.r14, l.imm(0))
         retry_label = self.mc.currpos()
-        self.mc.ldarx(r.r10.value, 0, RFASTGILPTR.value)  # load the lock value
-        self.mc.stdcxx(r.r9.value, 0, RFASTGILPTR.value)  # try to claim lock
-        self.mc.bc(6, 2, retry_label - self.mc.currpos()) # retry if failed
-        self.mc.isync()
+        # compare and swap, only succeeds if the the contents of the
+        # lock is equal to r14 (= 0)
+        self.mc.CSG(r.r14, r.r11, l.addr(RFASTGILPTR))  # try to claim lock
+        self.mc.BRC(c.EQ, l.imm(retry_label - self.mc.currpos())) # retry if failed
+        #self.mc.sync()
 
         self.mc.cmpdi(0, r.r10.value, 0)
         b1_location = self.mc.currpos()
@@ -244,7 +252,6 @@ class CallBuilder(AbstractCallBuilder):
 
 
     def write_real_errno(self, save_err):
-        xxx
         if save_err & rffi.RFFI_READSAVED_ERRNO:
             # Just before a call, read '*_errno' and write it into the
             # real 'errno'.  A lot of registers are free here, notably
@@ -254,19 +261,19 @@ class CallBuilder(AbstractCallBuilder):
             else:
                 rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
-            self.mc.ld(r.r11.value, r.SP.value,
-                       THREADLOCAL_ADDR_OFFSET + self.subtracted_to_sp)
-            self.mc.lwz(r.r0.value, r.r11.value, rpy_errno)
-            self.mc.ld(r.r11.value, r.r11.value, p_errno)
-            self.mc.stw(r.r0.value, r.r11.value, 0)
+            self.mc.LG(r.r11,
+                       l.addr(THREADLOCAL_ADDR_OFFSET + self.subtracted_to_sp, r.SP))
+            self.mc.LGH(r.SCRATCH2, l.addr(rpy_errno, r.r11))
+            self.mc.LG(r.r11, l.addr(p_errno, r.r11))
+            self.mc.STHY(r.SCRATCH2, l.addr(0,r.r11))
         elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
             # Same, but write zero.
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
-            self.mc.ld(r.r11.value, r.SP.value,
-                       THREADLOCAL_ADDR_OFFSET + self.subtracted_to_sp)
-            self.mc.ld(r.r11.value, r.r11.value, p_errno)
-            self.mc.li(r.r0.value, 0)
-            self.mc.stw(r.r0.value, r.r11.value, 0)
+            self.mc.LG(r.r11,
+                       l.addr(THREADLOCAL_ADDR_OFFSET + self.subtracted_to_sp, r.SP))
+            self.mc.LG(r.r11, l.addr(p_errno, r.r11))
+            self.mc.LGHI(r.SCRATCH, 0)
+            self.mc.STHY(r.SCRATCH, l.addr(0,r.r11))
 
     def read_real_errno(self, save_err):
         if save_err & rffi.RFFI_SAVE_ERRNO:

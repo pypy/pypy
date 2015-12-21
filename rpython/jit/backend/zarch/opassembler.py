@@ -230,8 +230,8 @@ class CallOpAssembler(object):
 
         if is_call_release_gil:
             saveerrloc = arglocs[1]
-            assert saveerrloc.is_in_pool()
-            cb.emit_call_release_gil(saveerrloc)
+            assert saveerrloc.is_imm()
+            cb.emit_call_release_gil(saveerrloc.value)
         else:
             cb.emit()
 
@@ -490,12 +490,15 @@ class AllocOpAssembler(object):
                 # compute in r2 the index of the bit inside the byte:
                 #     (index >> card_page_shift) & 7
                 # 0x80 sets zero flag. will store 0 into all selected bits
-                mc.RISBGN(r.SCRATCH2, loc_index, l.imm(3), l.imm(0x80 | 63), l.imm(61))
+                # cannot be used on the VM
+                # mc.RISBGN(r.SCRATCH, loc_index, l.imm(3), l.imm(0x80 | 63), l.imm(61))
+                mc.SLAG(r.SCRATCH, loc_index, l.addr(3))
+                mc.NILL(r.SCRATCH, l.imm(0xff))
                 #mc.rldicl(r.SCRATCH2.value, loc_index.value, 64 - n, 61)
 
                 # set r2 to 1 << r2
-                mc.LGHI(r.SCRATCH, l.imm(1))
-                mc.SLAG(r.SCRATCH2, r.SCRATCH, l.addr(0,r.SCRATCH2))
+                mc.LGHI(r.SCRATCH2, l.imm(1))
+                mc.SLAG(r.SCRATCH, r.SCRATCH2, l.addr(0,r.SCRATCH))
 
                 # set this bit inside the byte of interest
                 addr = l.addr(0, loc_base, tmp_loc)

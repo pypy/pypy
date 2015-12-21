@@ -171,6 +171,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # save the information
         mc.STG(r.r14, l.addr(14*WORD, r.SP)) # save the link
 
+        RCS2 = r.r10
+        RCS3 = r.r12
+
         LOCAL_VARS_OFFSET = 0
         extra_stack_size = LOCAL_VARS_OFFSET + 4 * WORD + 8
         extra_stack_size = (extra_stack_size + 15) & ~15
@@ -183,29 +186,24 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # need to save many registers: the registers that are anyway
             # destroyed by the call can be ignored (VOLATILES), and the
             # non-volatile registers won't be changed here.  It only needs
-            # to save r.RCS1 (used below), r1 and f0 (possible results of
-            # the call), and two more non-volatile registers (used to store
+            # to save r2 and f0 (possible results of the call),
+            # and two more non-volatile registers (used to store
             # the RPython exception that occurred in the CALL, if any).
             #
             # We need to increase our stack frame size a bit to store them.
             #
-            self.mc.TRAP2()
-            #self.mc.LGR(r.SCRATCH, l.addr(0,r.SP)) # SP back chain
-            #self.mc.STG(r.SCRATCH, l.addr(-extra_stack_size, r.SP.value))
-            #self.mc.STG(r.RCS1.value, r.SP.value, LOCAL_VARS_OFFSET + 0 * WORD)
-            #self.mc.STG(r.RCS2.value, r.SP.value, LOCAL_VARS_OFFSET + 1 * WORD)
-            #self.mc.STG(r.RCS3.value, r.SP.value, LOCAL_VARS_OFFSET + 2 * WORD)
-            #self.mc.STG(r.r2.value,   r.SP.value, LOCAL_VARS_OFFSET + 3 * WORD)
-            #self.mc.STD(r.f1.value,   r.SP.value, LOCAL_VARS_OFFSET + 4 * WORD)
+            self._push_all_regs_to_frame(mc, withfloats, callee_only=True)
+            mc.STMG(r.r10, r.r12, l.addr(10*WORD, r.SP))
+            mc.STG(r.r2, l.addr(2*WORD, r.SP))
+            mc.STD(r.f0, l.addr(3*WORD, r.SP)) # slot of r3 is not used here
             saved_regs = None
             saved_fp_regs = None
-
         else:
             # push all volatile registers, push RCS1, and sometimes push RCS2
             if withcards:
-                saved_regs = r.VOLATILES # + [r.RCS1, r.RCS2]
+                saved_regs = r.VOLATILES + [RCS2]
             else:
-                saved_regs = r.VOLATILES # + [r.RCS1]
+                saved_regs = r.VOLATILES
             if withfloats:
                 saved_fp_regs = r.MANAGED_FP_REGS
             else:
@@ -221,16 +219,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # of _reload_frame_if_necessary)
             # This trashes r0 and r2, which is fine in this case
             assert argument_loc is not r.r0
-            xxx
-            #self._store_and_reset_exception(mc, r.RCS2, r.RCS3)
+            self._store_and_reset_exception(mc, RCS2, RCS3)
 
         if withcards:
-            xxx
-            #kmc.mr(r.RCS2.value, argument_loc.value)
-        #
-        # Save the lr into r.RCS1
-        #mc.mflr(r.RCS1.value)
-        #
+            mc.LGR(RCS2, argument_loc)
         func = rffi.cast(lltype.Signed, func)
         # Note: if not 'for_frame', argument_loc is r0, which must carefully
         # not be overwritten above
@@ -242,32 +234,25 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.AGHI(r.SP, l.imm(STD_FRAME_SIZE_IN_BYTES))
 
         if for_frame:
-            xxx
-            self._restore_exception(mc, r.RCS2, r.RCS3)
+            self._restore_exception(mc, RCS2, RCS3)
 
         if withcards:
             # A final andix before the blr, for the caller.  Careful to
             # not follow this instruction with another one that changes
             # the status of cr0!
             card_marking_mask = descr.jit_wb_cards_set_singlebyte
-            mc.trap()
-            #mc.lbz(r.RCS2.value, r.RCS2.value, descr.jit_wb_if_flag_byteofs)
-            #mc.andix(r.RCS2.value, r.RCS2.value, card_marking_mask & 0xFF)
+            mc.LLGC(RCS2, l.addr(descr.jit_wb_if_flag_byteofs, RCS2))
+            mc.NILL(RCS2, l.imm(card_marking_mask & 0xFF))
 
         if for_frame:
-            self.mc.trap()
-            #self.mc.ld(r.RCS1.value, r.SP.value, LOCAL_VARS_OFFSET + 0 * WORD)
-            #self.mc.ld(r.RCS2.value, r.SP.value, LOCAL_VARS_OFFSET + 1 * WORD)
-            #self.mc.ld(r.RCS3.value, r.SP.value, LOCAL_VARS_OFFSET + 2 * WORD)
-            #self.mc.ld(r.r3.value,   r.SP.value, LOCAL_VARS_OFFSET + 3 * WORD)
-            #self.mc.lfd(r.f1.value,  r.SP.value, LOCAL_VARS_OFFSET + 4 * WORD)
-            #self.mc.addi(r.SP.value, r.SP.value, extra_stack_size)
-
+            mc.LMG(r.r10, r.r12, l.addr(10*WORD, r.SP))
+            mc.LG(r.r2, l.addr(2*WORD, r.SP))
+            mc.LD(r.f0, l.addr(3*WORD, r.SP)) # slot of r3 is not used here
         else:
             self._pop_core_regs_from_jitframe(mc, saved_regs)
             self._pop_fp_regs_from_jitframe(mc, saved_fp_regs)
 
-        mc.LG(r.r14, l.addr(14*WORD, r.SP)) # restore the link
+        mc.LG(r.RETURN, l.addr(14*WORD, r.SP)) # restore the link
         mc.BCR(c.ANY, r.RETURN)
 
         self.mc = old_mc
@@ -896,6 +881,37 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # restore registers r6-r15
         self.mc.LMG(r.r6, r.r15, l.addr(6*WORD, r.SP))
         self.jmpto(r.r14)
+
+    def _push_all_regs_to_stack(self, mc, withfloats, callee_only=False):
+        base_ofs = 2*WORD
+        if callee_only:
+            regs = ZARCHRegisterManager.save_around_call_regs
+        else:
+            regs = r.registers[2:]
+        mc.STMG(regs[0], regs[1], l.addr(base_ofs, r.SP))
+        if withfloats:
+            xxx
+
+    def _push_all_regs_to_frame(self, mc, ignored_regs, withfloats, callee_only=False):
+        # Push all general purpose registers
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        if callee_only:
+            regs = gpr_reg_mgr_cls.save_around_call_regs
+        else:
+            regs = gpr_reg_mgr_cls.all_regs
+        for gpr in regs:
+            if gpr not in ignored_regs:
+                v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
+                mc.MOV_br(v * WORD + base_ofs, gpr.value)
+        if withfloats:
+            if IS_X86_64:
+                coeff = 1
+            else:
+                coeff = 2
+            # Push all XMM regs
+            ofs = len(gpr_reg_mgr_cls.all_regs)
+            for i in range(len(xmm_reg_mgr_cls.all_regs)):
+                mc.MOVSD_bx((ofs + i * coeff) * WORD + base_ofs, i)
 
     def _push_core_regs_to_jitframe(self, mc, includes=r.registers):
         if len(includes) == 0:

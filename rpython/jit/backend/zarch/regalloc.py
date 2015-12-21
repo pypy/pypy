@@ -859,13 +859,26 @@ class Regalloc(BaseRegalloc):
     prepare_call_may_force_f = _prepare_call_may_force
     prepare_call_may_force_n = _prepare_call_may_force
 
+    def _prepare_call_release_gil(self, op):
+        save_all_regs = False
+        errno_box = op.getarg(0)
+        assert isinstance(errno_box, ConstInt)
+        args = [None, l.imm(errno_box.value)]
+        for i in range(1,op.numargs()):
+            args.append(self.loc(op.getarg(i)))
+        self._spill_before_call(save_all_regs)
+        if op.type != VOID:
+            resloc = self.after_call(op)
+            args[0] = resloc
+        return args
+
+    prepare_call_release_gil_i = _prepare_call_release_gil
+    prepare_call_release_gil_f = _prepare_call_release_gil
+    prepare_call_release_gil_n = _prepare_call_release_gil
+
     def prepare_force_token(self, op):
         res_loc = self.force_allocate_reg(op)
         return [res_loc]
-
-    prepare_call_release_gil_i = _prepare_call_may_force
-    prepare_call_release_gil_f = _prepare_call_may_force
-    prepare_call_release_gil_n = _prepare_call_may_force
 
     def _prepare_call_assembler(self, op):
         locs = self.locs_for_call_assembler(op)

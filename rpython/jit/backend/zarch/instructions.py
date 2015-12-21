@@ -41,7 +41,9 @@ arith_mnemonic_codes = {
 
     # rotating
     # rotate, then insert selected bits
-    'RISBGN':  ('rie_f',   ['\xEC','\x59']),
+    # on the VM the miscellaneous-instruction-extensions
+    # does not seem to be installed, sad but true...
+    # 'RISBGN':  ('rie_f',   ['\xEC','\x59']),
 
     # invert & negative & absolute
     'LPGR':    ('rre',   ['\xB9','\x00']),
@@ -106,6 +108,9 @@ logic_mnemonic_codes = {
     # or one byte and store it back at the op2 position
     'XI':         ('si',       ['\x97']),
     'XIY':        ('siy',      ['\xEB','\x57']),
+
+    'XILF':       ('ril',      ['\xC0','\x06']),
+    'XIHF':       ('ril',      ['\xC0','\x07']),
 
     # OR immediate
     'OIHH':       ('ri_u',     ['\xA5', '\x08']),

@@ -174,6 +174,10 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
             self.LGFI(dest_reg, l.imm(word & 0xFFFFffff))
             self.IIHF(dest_reg, l.imm((word >> 32) & 0xFFFFffff))
 
+    def sync(self):
+        # see sync. section of the zarch manual!
+        self.BCR_rr(0xf,0)
+
     def raw_call(self, call_reg=r.RETURN):
         """Emit a call to the address stored in the register 'call_reg',
         which must be either RAW_CALL_REG or r12.  This is a regular C
