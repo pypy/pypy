@@ -42,7 +42,9 @@ arith_mnemonic_codes = {
     # rotating
     # rotate, then insert selected bits
     # on the VM the miscellaneous-instruction-extensions
-    # does not seem to be installed, sad but true...
+    # does not seem to be installed
+    # cpu fails at this instruction, and gnu assembler
+    # does not recognize mnemonic
     # 'RISBGN':  ('rie_f',   ['\xEC','\x59']),
 
     # invert & negative & absolute
@@ -72,6 +74,9 @@ arith_mnemonic_codes = {
     'CGIB':    ('ris',    ['\xEC','\xFC']),
     'CGRJ':    ('rie_b',  ['\xEC','\x64']),
     'CLGRJ':   ('rie_b',  ['\xEC','\x65']),
+    # compare and swap
+    'CSG':     ('rsy_a', ['\xEB','\x30']),
+
 }
 
 logic_mnemonic_codes = {
@@ -232,7 +237,7 @@ floatingpoint_mnemonic_codes = {
     'DIEBR':     ('rrf_b',   ['\xB3','\x53'], 'r,r,r,m'),
     'DIDBR':     ('rrf_b',   ['\xB3','\x5B'], 'r,r,r,m'),
 
-    # COMPARISON
+    # compare
     'CEBR':    ('rre',   ['\xB3','\x09']),
     'CDBR':    ('rre',   ['\xB3','\x19']),
     'CEB':     ('rxe',   ['\xED','\x09'], 'r,bidl,-'),

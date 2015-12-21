@@ -10,6 +10,7 @@ DOUBLE_WORD = 8
 #     +------------------------------+                |
 #     |          ....                |                |
 #     |  spill and local variables   |                |
+#     |  used by call release gil    |                |
 #     |          ....                |                |
 #     +------------------------------+                |
 #     |          ....                |                |
