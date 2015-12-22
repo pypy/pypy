@@ -76,6 +76,9 @@ class CallBuilder(AbstractCallBuilder):
 
         self.subtracted_to_sp += len(stack_params) * 8
         base = -len(stack_params) * 8
+        if self.is_call_release_gil:
+            self.subtracted_to_sp += 8*WORD
+            base -= 8*WORD
         for idx,i in enumerate(stack_params):
             loc = arglocs[i]
             offset = base + 8 * idx
@@ -153,9 +156,9 @@ class CallBuilder(AbstractCallBuilder):
         RSHADOWPTR = self.RSHADOWPTR
         RFASTGILPTR = self.RFASTGILPTR
         #
-        self.mc.STMG(RSHADOWOLD, self.RFASTGILPTR, l.addr(-3*WORD, r.SP))
-        # 3 for the three registers, 1 for a floating point return value!
-        self.subtracted_to_sp += 4*WORD
+        self.mc.STMG(r.r8, r.r13, l.addr(-7*WORD, r.SP))
+        # 6 registers, 1 for a floating point return value!
+        # registered by prepare_arguments!
         #
         # Save this thread's shadowstack pointer into r29, for later comparison
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
@@ -225,16 +228,16 @@ class CallBuilder(AbstractCallBuilder):
         PARAM_SAVE_AREA_OFFSET = 0
         if reg is not None:
             if reg.is_core_reg():
-                self.mc.LGR(RSAVEDRES, reg)
+                self.mc.STG(reg, l.addr(-7*WORD, r.SP))
             elif reg.is_fp_reg():
-                self.mc.STD(reg, l.addr(-4*WORD, r.SP))
+                self.mc.STD(reg, l.addr(-7*WORD, r.SP))
         self.mc.load_imm(self.mc.RAW_CALL_REG, self.asm.reacqgil_addr)
         self.mc.raw_call()
         if reg is not None:
             if reg.is_core_reg():
-                self.mc.LGR(reg, RSAVEDRES)
+                self.mc.LG(reg, l.addr(-7*WORD, r.SP))
             elif reg.is_fp_reg():
-                self.mc.LD(reg, l.addr(-4*WORD, r.SP))
+                self.mc.LD(reg, l.addr(-7*WORD, r.SP))
 
         # replace b1_location with BEQ(here)
         pmc = OverwritingBuilder(self.mc, b1_location, 1)
@@ -242,14 +245,13 @@ class CallBuilder(AbstractCallBuilder):
         pmc.overwrite()
 
         # restore the values that might have been overwritten
-        self.mc.LMG(RSHADOWOLD, RFASTGILPTR, l.addr(-3*WORD, r.SP))
+        self.mc.LMG(r.r8, r.r13, l.addr(-7*WORD, r.SP))
 
 
     def write_real_errno(self, save_err):
         if save_err & rffi.RFFI_READSAVED_ERRNO:
             # Just before a call, read '*_errno' and write it into the
-            # real 'errno'.  A lot of registers are free here, notably
-            # r11 and r0.
+            # real 'errno'.
             if save_err & rffi.RFFI_ALT_ERRNO:
                 rpy_errno = llerrno.get_alt_errno_offset(self.asm.cpu)
             else:
@@ -277,7 +279,7 @@ class CallBuilder(AbstractCallBuilder):
             else:
                 rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
-            self.mc.ld(r.r9.value, r.SP.value, THREADLOCAL_ADDR_OFFSET)
-            self.mc.ld(r.r10.value, r.r9.value, p_errno)
-            self.mc.lwz(r.r10.value, r.r10.value, 0)
-            self.mc.stw(r.r10.value, r.r9.value, rpy_errno)
+            self.mc.LG(r.r12, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
+            self.mc.LG(r.r11, l.addr(p_errno, r.r12))
+            self.mc.LGH(r.r11, l.addr(0, r.r11))
+            self.mc.STG(r.r11, l.addr(p_errno, r.r12))
