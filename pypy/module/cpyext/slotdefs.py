@@ -380,6 +380,17 @@ def build_slot_tp_function(space, typedef, name):
                 space.call_function(delattr_fn, w_self, w_name)
             return 0
         api_func = slot_tp_setattro.api_func
+    elif name == 'tp_getattro':
+        getattr_fn = w_type.getdictvalue(space, '__getattribute__')
+        if getattr_fn is None:
+            return
+
+        @cpython_api([PyObject, PyObject], PyObject,
+                     error=lltype.nullptr(rffi.VOIDP.TO), external=True)
+        @func_renamer("cpyext_tp_getattro_%s" % (typedef.name,))
+        def slot_tp_getattro(space, w_self, w_name):
+            return space.call_function(getattr_fn, w_self, w_name)
+        api_func = slot_tp_getattro.api_func
     else:
         return
 

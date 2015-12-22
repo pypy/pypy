@@ -1,0 +1,3 @@
+{
+  "pypy/module/cpyext/test/test_typeobject.py::AppTestSlots::()::test_binaryfunc": true
+}
