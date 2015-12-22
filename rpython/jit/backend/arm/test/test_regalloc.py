@@ -479,7 +479,7 @@ class TestRegallocMoreRegisters(CustomBaseTestRegalloc):
         i13 = int_eq(i5, i6)
         i14 = int_gt(i6, i2)
         i15 = int_ne(i2, i6)
-        guard_true(i15) [i10, i11, i12, i13, i14, i15]
+        guard_true(i0) [i10, i11, i12, i13, i14, i15]
 
         '''
         self.interpret(ops, [0, 1, 2, 3, 4, 5, 6])
@@ -616,7 +616,7 @@ class TestRegallocFloats(CustomBaseTestRegalloc):
         i7 = float_ne(f7, 0.0)
         i8 = float_ne(f8, 0.0)
         i9 = float_ne(f9, 0.0)
-        guard_true(i9), [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        guard_false(i9), [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
         '''
         self.interpret(ops, [0.0, .1, .2, .3, .4, .5, .6, .7, .8, .9])
         assert self.getints(9) == [0, 1, 1, 1, 1, 1, 1, 1, 1]
@@ -631,7 +631,7 @@ class TestRegAllocCallAndStackDepth(CustomBaseTestRegalloc):
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
         i10 = call_i(ConstClass(f1ptr), i0, descr=f1_calldescr)
-        guard_true(i10), [i10, i1, i2, i3, i4, i5, i6, i7, i8, i9]
+        guard_false(i10), [i10, i1, i2, i3, i4, i5, i6, i7, i8, i9]
         '''
         self.interpret(ops, [4, 7, 9, 9, 9, 9, 9, 9, 9, 9])
         assert self.getints(10) == [5, 7, 9, 9, 9, 9, 9, 9, 9, 9]
@@ -641,7 +641,7 @@ class TestRegAllocCallAndStackDepth(CustomBaseTestRegalloc):
         [i0, i1,  i2, i3, i4, i5, i6, i7, i8, i9]
         i10 = call_i(ConstClass(f1ptr), i0, descr=f1_calldescr)
         i11 = call_i(ConstClass(f2ptr), i10, i1, descr=f2_calldescr)
-        guard_true(i11) [i11, i1,  i2, i3, i4, i5, i6, i7, i8, i9]
+        guard_false(i11) [i11, i1,  i2, i3, i4, i5, i6, i7, i8, i9]
         '''
         self.interpret(ops, [4, 7, 9, 9, 9, 9, 9, 9, 9, 9])
         assert self.getints(10) == [5 * 7, 7, 9, 9, 9, 9, 9, 9, 9, 9]

@@ -1,123 +1,9 @@
-from rpython.rtyper import extregistry
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem.lltype import typeOf, FuncType, functionptr
 from rpython.annotator.model import unionof
 from rpython.annotator.signature import annotation, SignatureError
 
-import py, sys
-
-class extdef(object):
-
-    def __init__(self, *args, **kwds):
-        self.def_args = args
-        self.def_kwds = kwds
-
-def lazy_register(func_or_list, register_func):
-    """ Lazily register external function. Will create a function,
-    which explodes when llinterpd/translated, but does not explode
-    earlier
-    """
-    if isinstance(func_or_list, list):
-        funcs = func_or_list
-    else:
-        funcs = [func_or_list]
-    try:
-        val = register_func()
-        if isinstance(val, extdef):
-            assert len(funcs) == 1
-            register_external(funcs[0], *val.def_args, **val.def_kwds)
-            return
-        return val
-    except (SystemExit, MemoryError, KeyboardInterrupt):
-        raise
-    except:
-        exc, exc_inst, tb = sys.exc_info()
-        for func in funcs:
-            # if the function has already been registered and we got
-            # an exception afterwards, the ExtRaisingEntry would create
-            # a double-registration and crash in an AssertionError that
-            # masks the original problem.  In this case, just re-raise now.
-            if extregistry.is_registered(func):
-                raise exc, exc_inst, tb
-            class ExtRaisingEntry(ExtRegistryEntry):
-                _about_ = func
-                def __getattr__(self, attr):
-                    if attr == '_about_' or attr == '__dict__':
-                        return super(ExtRegistryEntry, self).__getattr__(attr)
-                    raise exc, exc_inst, tb
-
-def registering(func, condition=True):
-    if not condition:
-        return lambda method: None
-
-    def decorator(method):
-        method._registering_func = func
-        return method
-    return decorator
-
-def registering_if(ns, name, condition=True):
-    try:
-        func = getattr(ns, name)
-    except AttributeError:
-        condition = False
-        func = None
-
-    return registering(func, condition=condition)
-
-class LazyRegisteringMeta(type):
-    def __new__(self, _name, _type, _vars):
-        RegisteringClass = type.__new__(self, _name, _type, _vars)
-        allfuncs = []
-        for varname in _vars:
-            attr = getattr(RegisteringClass, varname)
-            f = getattr(attr, '_registering_func', None)
-            if f:
-                allfuncs.append(f)
-        registering_inst = lazy_register(allfuncs, RegisteringClass)
-        if registering_inst is not None:
-            for varname in _vars:
-                attr = getattr(registering_inst, varname)
-                f = getattr(attr, '_registering_func', None)
-                if f:
-                    lazy_register(f, attr)
-        RegisteringClass.instance = registering_inst
-        # override __init__ to avoid confusion
-        def raising(self):
-            raise TypeError("Cannot call __init__ directly, use cls.instance to access singleton")
-        RegisteringClass.__init__ = raising
-        return RegisteringClass
-
-class BaseLazyRegistering(object):
-    __metaclass__ = LazyRegisteringMeta
-    compilation_info = None
-
-    def configure(self, CConfig):
-        classes_seen = self.__dict__.setdefault('__classes_seen', {})
-        if CConfig in classes_seen:
-            return
-        from rpython.rtyper.tool import rffi_platform as platform
-        # copy some stuff
-        if self.compilation_info is None:
-            self.compilation_info = CConfig._compilation_info_
-        else:
-            self.compilation_info = self.compilation_info.merge(
-                CConfig._compilation_info_)
-        self.__dict__.update(platform.configure(CConfig))
-        classes_seen[CConfig] = True
-
-    def llexternal(self, *args, **kwds):
-        kwds = kwds.copy()
-        from rpython.rtyper.lltypesystem import rffi
-
-        if 'compilation_info' in kwds:
-            kwds['compilation_info'] = self.compilation_info.merge(
-                kwds['compilation_info'])
-        else:
-            kwds['compilation_info'] = self.compilation_info
-        return rffi.llexternal(*args, **kwds)
-
-    def _freeze_(self):
-        return True
+import py
 
 class ExtFuncEntry(ExtRegistryEntry):
     safe_not_sandboxed = False
@@ -247,8 +133,6 @@ def register_external(function, args, result=None, export_name=None,
         FunEntry.__name__ = export_name
     else:
         FunEntry.__name__ = function.func_name
-
-BaseLazyRegistering.register = staticmethod(register_external)
 
 def is_external(func):
     if hasattr(func, 'value'):

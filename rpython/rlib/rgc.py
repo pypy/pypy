@@ -172,7 +172,7 @@ def _make_sure_does_not_move(p):
         # although a pinned object can't move we must return 'False'.  A pinned
         # object can be unpinned any time and becomes movable.
         return False
-    i = 0
+    i = -1
     while can_move(p):
         if i > 6:
             raise NotImplementedError("can't make object non-movable!")
@@ -186,7 +186,13 @@ def needs_write_barrier(obj):
     """
     if not obj:
         return False
-    return can_move(obj)
+    # XXX returning can_move() here might acidentally work for the use
+    # cases (see issue #2212), but this is not really safe.  Now we
+    # just return True for any non-NULL pointer, and too bad for the
+    # few extra 'cond_call_gc_wb'.  It could be improved e.g. to return
+    # False if 'obj' is a static prebuilt constant, or if we're not
+    # running incminimark...
+    return True #can_move(obj)
 
 def _heap_stats():
     raise NotImplementedError # can't be run directly

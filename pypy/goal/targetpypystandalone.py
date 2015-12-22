@@ -81,9 +81,8 @@ def create_entry_point(space, w_dict):
     # register the minimal equivalent of running a small piece of code. This
     # should be used as sparsely as possible, just to register callbacks
 
-    from rpython.rlib.entrypoint import entrypoint, RPython_StartupCode
+    from rpython.rlib.entrypoint import entrypoint_highlevel
     from rpython.rtyper.lltypesystem import rffi, lltype
-    from rpython.rtyper.lltypesystem.lloperation import llop
 
     w_pathsetter = space.appexec([], """():
     def f(path):
@@ -92,7 +91,8 @@ def create_entry_point(space, w_dict):
     return f
     """)
 
-    @entrypoint('main', [rffi.CCHARP, rffi.INT], c_name='pypy_setup_home')
+    @entrypoint_highlevel('main', [rffi.CCHARP, rffi.INT],
+                          c_name='pypy_setup_home')
     def pypy_setup_home(ll_home, verbose):
         from pypy.module.sys.initpath import pypy_find_stdlib
         verbose = rffi.cast(lltype.Signed, verbose)
@@ -126,30 +126,24 @@ def create_entry_point(space, w_dict):
                 debug(" operror-value: " + space.str_w(space.str(e.get_w_value(space))))
             return rffi.cast(rffi.INT, -1)
 
-    @entrypoint('main', [rffi.CCHARP], c_name='pypy_execute_source')
+    @entrypoint_highlevel('main', [rffi.CCHARP], c_name='pypy_execute_source')
     def pypy_execute_source(ll_source):
         return pypy_execute_source_ptr(ll_source, 0)
 
-    @entrypoint('main', [rffi.CCHARP, lltype.Signed],
-                c_name='pypy_execute_source_ptr')
+    @entrypoint_highlevel('main', [rffi.CCHARP, lltype.Signed],
+                          c_name='pypy_execute_source_ptr')
     def pypy_execute_source_ptr(ll_source, ll_ptr):
-        after = rffi.aroundstate.after
-        if after: after()
         source = rffi.charp2str(ll_source)
         res = _pypy_execute_source(source, ll_ptr)
-        before = rffi.aroundstate.before
-        if before: before()
         return rffi.cast(rffi.INT, res)
 
-    @entrypoint('main', [], c_name='pypy_init_threads')
+    @entrypoint_highlevel('main', [], c_name='pypy_init_threads')
     def pypy_init_threads():
         if not space.config.objspace.usemodules.thread:
             return
         os_thread.setup_threads(space)
-        before = rffi.aroundstate.before
-        if before: before()
 
-    @entrypoint('main', [], c_name='pypy_thread_attach')
+    @entrypoint_highlevel('main', [], c_name='pypy_thread_attach')
     def pypy_thread_attach():
         if not space.config.objspace.usemodules.thread:
             return
@@ -158,8 +152,6 @@ def create_entry_point(space, w_dict):
         rthread.gc_thread_start()
         os_thread.bootstrapper.nbthreads += 1
         os_thread.bootstrapper.release()
-        before = rffi.aroundstate.before
-        if before: before()
 
     def _pypy_execute_source(source, c_argument):
         try:

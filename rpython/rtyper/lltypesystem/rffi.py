@@ -169,9 +169,9 @@ def llexternal(name, args, result, _callable=None,
 
         argnames = ', '.join(['a%d' % i for i in range(len(args))])
         source = py.code.Source("""
+            from rpython.rlib import rgil
             def call_external_function(%(argnames)s):
-                before = aroundstate.before
-                if before: before()
+                rgil.release()
                 # NB. it is essential that no exception checking occurs here!
                 if %(save_err)d:
                     from rpython.rlib import rposix
@@ -180,12 +180,10 @@ def llexternal(name, args, result, _callable=None,
                 if %(save_err)d:
                     from rpython.rlib import rposix
                     rposix._errno_after(%(save_err)d)
-                after = aroundstate.after
-                if after: after()
+                rgil.acquire()
                 return res
         """ % locals())
-        miniglobals = {'aroundstate': aroundstate,
-                       'funcptr':     funcptr,
+        miniglobals = {'funcptr':     funcptr,
                        '__name__':    __name__, # for module name propagation
                        }
         exec source.compile() in miniglobals
@@ -205,7 +203,7 @@ def llexternal(name, args, result, _callable=None,
         # don't inline, as a hack to guarantee that no GC pointer is alive
         # anywhere in call_external_function
     else:
-        # if we don't have to invoke the aroundstate, we can just call
+        # if we don't have to invoke the GIL handling, we can just call
         # the low-level function pointer carelessly
         if macro is None and save_err == RFFI_ERR_NONE:
             call_external_function = funcptr
@@ -270,13 +268,10 @@ def llexternal(name, args, result, _callable=None,
                     freeme = arg
             elif _isfunctype(TARGET) and not _isllptr(arg):
                 # XXX pass additional arguments
-                if invoke_around_handlers:
-                    arg = llhelper(TARGET, _make_wrapper_for(TARGET, arg,
-                                                             callbackholder,
-                                                             aroundstate))
-                else:
-                    arg = llhelper(TARGET, _make_wrapper_for(TARGET, arg,
-                                                             callbackholder))
+                use_gil = invoke_around_handlers
+                arg = llhelper(TARGET, _make_wrapper_for(TARGET, arg,
+                                                         callbackholder,
+                                                         use_gil))
             else:
                 SOURCE = lltype.typeOf(arg)
                 if SOURCE != TARGET:
@@ -315,7 +310,7 @@ class CallbackHolder:
     def __init__(self):
         self.callbacks = {}
 
-def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
+def _make_wrapper_for(TP, callable, callbackholder, use_gil):
     """ Function creating wrappers for callbacks. Note that this is
     cheating as we assume constant callbacks and we just memoize wrappers
     """
@@ -330,11 +325,13 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
         callbackholder.callbacks[callable] = True
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
+        rgil = None
+        if use_gil:
+            from rpython.rlib import rgil
+
         def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
-            if aroundstate is not None:
-                after = aroundstate.after
-                if after:
-                    after()
+            if rgil is not None:
+                rgil.acquire()
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
@@ -349,13 +346,11 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
                     traceback.print_exc()
                 result = errorcode
             stackcounter.stacks_counter -= 1
-            if aroundstate is not None:
-                before = aroundstate.before
-                if before:
-                    before()
+            if rgil is not None:
+                rgil.release()
             # here we don't hold the GIL any more. As in the wrapper() produced
             # by llexternal, it is essential that no exception checking occurs
-            # after the call to before().
+            # after the call to rgil.release().
             return result
     """ % locals())
     miniglobals = locals().copy()
@@ -368,13 +363,6 @@ def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
-
-class AroundState:
-    def _cleanup_(self):
-        self.before = None        # or a regular RPython function
-        self.after = None         # or a regular RPython function
-aroundstate = AroundState()
-aroundstate._cleanup_()
 
 class StackCounter:
     def _cleanup_(self):
@@ -979,7 +967,7 @@ def liststr2charpp(l):
     array[len(l)] = lltype.nullptr(CCHARP.TO)
     return array
 liststr2charpp._annenforceargs_ = [[annmodel.s_Str0]]  # List of strings
-# Make a copy for the ll_os.py module
+# Make a copy for rposix.py
 ll_liststr2charpp = func_with_new_name(liststr2charpp, 'll_liststr2charpp')
 
 def free_charpp(ref):

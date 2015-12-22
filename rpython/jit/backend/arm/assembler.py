@@ -956,6 +956,8 @@ class AssemblerARM(ResOpAssembler):
             regalloc.possibly_free_vars_for_op(op)
             regalloc.free_temp_vars()
             regalloc._check_invariants()
+        if not we_are_translated():
+            self.mc.BKPT()
         self.mc.mark_op(None)  # end of the loop
         regalloc.operations = None
 

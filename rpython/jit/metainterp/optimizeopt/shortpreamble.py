@@ -455,8 +455,7 @@ class ExtendedShortPreambleBuilder(AbstractShortPreambleBuilder):
         self.extra_same_as = self.sb.extra_same_as
         self.target_token = target_token
 
-    def setup(self, inputargs, jump_args, short, label_args):
-        self.inputargs = inputargs
+    def setup(self, jump_args, short, label_args):
         self.jump_args = jump_args
         self.short = short
         self.label_args = label_args

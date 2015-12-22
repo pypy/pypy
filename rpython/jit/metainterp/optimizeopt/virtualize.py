@@ -29,7 +29,11 @@ class OptVirtualize(optimizer.Optimization):
             const = self.new_const_item(arraydescr)
             opinfo = info.ArrayPtrInfo(arraydescr, const, size, clear,
                                        is_virtual=True)
-        newop = self.replace_op_with(source_op, source_op.getopnum())
+        # Replace 'source_op' with a version in which the length is
+        # given as directly a Const, without relying on forwarding.
+        # See test_virtual_array_length_discovered_constant_2.
+        newop = self.replace_op_with(source_op, source_op.getopnum(),
+                                     args=[ConstInt(size)])
         newop.set_forwarded(opinfo)
         return opinfo
 
@@ -42,13 +46,15 @@ class OptVirtualize(optimizer.Optimization):
 
     def make_virtual_raw_memory(self, size, source_op):
         opinfo = info.RawBufferPtrInfo(self.optimizer.cpu, size)
-        newop = self.replace_op_with(source_op, source_op.getopnum())
+        newop = self.replace_op_with(source_op, source_op.getopnum(),
+                                     args=[source_op.getarg(0), ConstInt(size)])
         newop.set_forwarded(opinfo)
         return opinfo
 
     def make_virtual_raw_slice(self, offset, parent, source_op):
         opinfo = info.RawSlicePtrInfo(offset, parent)
-        newop = self.replace_op_with(source_op, source_op.getopnum())
+        newop = self.replace_op_with(source_op, source_op.getopnum(),
+                                   args=[source_op.getarg(0), ConstInt(offset)])
         newop.set_forwarded(opinfo)
         return opinfo
 
@@ -265,8 +271,10 @@ class OptVirtualize(optimizer.Optimization):
             self.emit_operation(op)
 
     def optimize_GETARRAYITEM_GC_I(self, op):
+        # When using str_storage_getitem we op.getarg(0) is a string, NOT an
+        # array, hence the check. In that case, it will be forced
         opinfo = self.getptrinfo(op.getarg(0))
-        if opinfo and opinfo.is_virtual():
+        if opinfo and opinfo.is_virtual() and not opinfo.is_vstring():
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 item = opinfo.getitem(op.getdescr(), indexbox.getint())

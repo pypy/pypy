@@ -289,6 +289,8 @@ class PythonCodeMaker(ast.ASTVisitor):
             for w_item in space.fixedview(obj):
                 result_w.append(self._make_key(w_item))
             w_key = space.newtuple(result_w[:])
+        elif isinstance(obj, PyCode):
+            w_key = space.newtuple([obj, w_type, space.id(obj)])
         else:
             w_key = space.newtuple([obj, w_type])
         return w_key

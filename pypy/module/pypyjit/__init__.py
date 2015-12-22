@@ -14,6 +14,7 @@ class Module(MixedModule):
         'trace_next_iteration_hash': 'interp_jit.trace_next_iteration_hash',
         'set_compile_hook': 'interp_resop.set_compile_hook',
         'set_abort_hook': 'interp_resop.set_abort_hook',
+        'set_trace_too_long_hook': 'interp_resop.set_trace_too_long_hook',
         'get_stats_snapshot': 'interp_resop.get_stats_snapshot',
         'get_stats_asmmemmgr': 'interp_resop.get_stats_asmmemmgr',
         # those things are disabled because they have bugs, but if
@@ -23,6 +24,7 @@ class Module(MixedModule):
         #'enable_debug': 'interp_resop.enable_debug',
         #'disable_debug': 'interp_resop.disable_debug',
         'ResOperation': 'interp_resop.WrappedOp',
+        'GuardOp': 'interp_resop.GuardOp',
         'DebugMergePoint': 'interp_resop.DebugMergePoint',
         'JitLoopInfo': 'interp_resop.W_JitLoopInfo',
         'PARAMETER_DOCS': 'space.wrap(rpython.rlib.jit.PARAMETER_DOCS)',

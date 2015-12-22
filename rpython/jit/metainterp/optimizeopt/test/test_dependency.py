@@ -144,6 +144,7 @@ class DependencyBaseTest(BaseTest):
         # arguments
         [str(arg) for arg in loop.inputargs]
         loop.graph = FakeDependencyGraph(loop)
+        loop.setup_vectorization()
         return loop
 
 

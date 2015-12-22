@@ -22,6 +22,14 @@ class Buffer(object):
         # May be overridden.
         return self.getslice(0, self.getlength(), 1, self.getlength())
 
+    def as_str_and_offset_maybe(self):
+        """
+        If the buffer is backed by a string, return a pair (string, offset), where
+        offset is the offset inside the string where the buffer start.
+        Else, return (None, 0).
+        """
+        return None, 0
+
     def getitem(self, index):
         "Returns the index'th character in the buffer."
         raise NotImplementedError   # Must be overriden.  No bounds checks.
@@ -66,6 +74,9 @@ class StringBuffer(Buffer):
     def as_str(self):
         return self.value
 
+    def as_str_and_offset_maybe(self):
+        return self.value, 0
+
     def getitem(self, index):
         return self.value[index]
 
@@ -98,6 +109,12 @@ class SubBuffer(Buffer):
             return at_most
         else:
             return 0
+
+    def as_str_and_offset_maybe(self):
+        string, offset = self.buffer.as_str_and_offset_maybe()
+        if string is not None:
+            return string, offset+self.offset
+        return None, 0
 
     def getitem(self, index):
         return self.buffer.getitem(self.offset + index)
