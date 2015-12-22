@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import unittest
 import pickle
 import cPickle
@@ -108,9 +109,37 @@ class C:
     def __cmp__(self, other):
         return cmp(self.__dict__, other.__dict__)
 
+class D(C):
+    def __init__(self, arg):
+        pass
+
+class E(C):
+    def __getinitargs__(self):
+        return ()
+
+class H(object):
+    pass
+
+# Hashable mutable key
+class K(object):
+    def __init__(self, value):
+        self.value = value
+
+    def __reduce__(self):
+        # Shouldn't support the recursion itself
+        return K, (self.value,)
+
 import __main__
 __main__.C = C
 C.__module__ = "__main__"
+__main__.D = D
+D.__module__ = "__main__"
+__main__.E = E
+E.__module__ = "__main__"
+__main__.H = H
+H.__module__ = "__main__"
+__main__.K = K
+K.__module__ = "__main__"
 
 class myint(int):
     def __init__(self, x):
@@ -420,10 +449,196 @@ def create_data():
     x.append(5)
     return x
 
-class AbstractPickleTests(unittest.TestCase):
-    # Subclass must define self.dumps, self.loads, self.error.
+
+class AbstractUnpickleTests(unittest.TestCase):
+    # Subclass must define self.loads, self.error.
 
     _testdata = create_data()
+
+    def assert_is_copy(self, obj, objcopy, msg=None):
+        """Utility method to verify if two objects are copies of each others.
+        """
+        if msg is None:
+            msg = "{!r} is not a copy of {!r}".format(obj, objcopy)
+        self.assertEqual(obj, objcopy, msg=msg)
+        self.assertIs(type(obj), type(objcopy), msg=msg)
+        if hasattr(obj, '__dict__'):
+            self.assertDictEqual(obj.__dict__, objcopy.__dict__, msg=msg)
+            self.assertIsNot(obj.__dict__, objcopy.__dict__, msg=msg)
+        if hasattr(obj, '__slots__'):
+            self.assertListEqual(obj.__slots__, objcopy.__slots__, msg=msg)
+            for slot in obj.__slots__:
+                self.assertEqual(
+                    hasattr(obj, slot), hasattr(objcopy, slot), msg=msg)
+                self.assertEqual(getattr(obj, slot, None),
+                                 getattr(objcopy, slot, None), msg=msg)
+
+    def test_load_from_canned_string(self):
+        expected = self._testdata
+        for canned in DATA0, DATA1, DATA2:
+            got = self.loads(canned)
+            self.assert_is_copy(expected, got)
+
+    def test_garyp(self):
+        self.assertRaises(self.error, self.loads, 'garyp')
+
+    def test_maxint64(self):
+        maxint64 = (1L << 63) - 1
+        data = 'I' + str(maxint64) + '\n.'
+        got = self.loads(data)
+        self.assertEqual(got, maxint64)
+
+        # Try too with a bogus literal.
+        data = 'I' + str(maxint64) + 'JUNK\n.'
+        self.assertRaises(ValueError, self.loads, data)
+
+    def test_insecure_strings(self):
+        insecure = ["abc", "2 + 2", # not quoted
+                    #"'abc' + 'def'", # not a single quoted string
+                    "'abc", # quote is not closed
+                    "'abc\"", # open quote and close quote don't match
+                    "'abc'   ?", # junk after close quote
+                    "'\\'", # trailing backslash
+                    # issue #17710
+                    "'", '"',
+                    "' ", '" ',
+                    '\'"', '"\'',
+                    " ''", ' ""',
+                    ' ',
+                    # some tests of the quoting rules
+                    #"'abc\"\''",
+                    #"'\\\\a\'\'\'\\\'\\\\\''",
+                    ]
+        for s in insecure:
+            buf = "S" + s + "\n."
+            self.assertRaises(ValueError, self.loads, buf)
+
+    def test_correctly_quoted_string(self):
+        goodpickles = [("S''\n.", ''),
+                       ('S""\n.', ''),
+                       ('S"\\n"\n.', '\n'),
+                       ("S'\\n'\n.", '\n')]
+        for p, expected in goodpickles:
+            self.assertEqual(self.loads(p), expected)
+
+    def test_load_classic_instance(self):
+        # See issue5180.  Test loading 2.x pickles that
+        # contain an instance of old style class.
+        for X, args in [(C, ()), (D, ('x',)), (E, ())]:
+            xname = X.__name__.encode('ascii')
+            # Protocol 0 (text mode pickle):
+            """
+             0: (    MARK
+             1: i        INST       '__main__ X' (MARK at 0)
+            13: p    PUT        0
+            16: (    MARK
+            17: d        DICT       (MARK at 16)
+            18: p    PUT        1
+            21: b    BUILD
+            22: .    STOP
+            """
+            pickle0 = ("(i__main__\n"
+                       "X\n"
+                       "p0\n"
+                       "(dp1\nb.").replace('X', xname)
+            self.assert_is_copy(X(*args), self.loads(pickle0))
+
+            # Protocol 1 (binary mode pickle)
+            """
+             0: (    MARK
+             1: c        GLOBAL     '__main__ X'
+            13: q        BINPUT     0
+            15: o        OBJ        (MARK at 0)
+            16: q    BINPUT     1
+            18: }    EMPTY_DICT
+            19: q    BINPUT     2
+            21: b    BUILD
+            22: .    STOP
+            """
+            pickle1 = ('(c__main__\n'
+                       'X\n'
+                       'q\x00oq\x01}q\x02b.').replace('X', xname)
+            self.assert_is_copy(X(*args), self.loads(pickle1))
+
+            # Protocol 2 (pickle2 = '\x80\x02' + pickle1)
+            """
+             0: \x80 PROTO      2
+             2: (    MARK
+             3: c        GLOBAL     '__main__ X'
+            15: q        BINPUT     0
+            17: o        OBJ        (MARK at 2)
+            18: q    BINPUT     1
+            20: }    EMPTY_DICT
+            21: q    BINPUT     2
+            23: b    BUILD
+            24: .    STOP
+            """
+            pickle2 = ('\x80\x02(c__main__\n'
+                       'X\n'
+                       'q\x00oq\x01}q\x02b.').replace('X', xname)
+            self.assert_is_copy(X(*args), self.loads(pickle2))
+
+    def test_pop_empty_stack(self):
+        # Test issue7455
+        s = '0'
+        self.assertRaises((cPickle.UnpicklingError, IndexError), self.loads, s)
+
+    def test_load_str(self):
+        # From Python 2: pickle.dumps('a\x00\xa0', protocol=0)
+        self.assertEqual(self.loads("S'a\\x00\\xa0'\n."), 'a\x00\xa0')
+        # From Python 2: pickle.dumps('a\x00\xa0', protocol=1)
+        self.assertEqual(self.loads('U\x03a\x00\xa0.'), 'a\x00\xa0')
+        # From Python 2: pickle.dumps('a\x00\xa0', protocol=2)
+        self.assertEqual(self.loads('\x80\x02U\x03a\x00\xa0.'), 'a\x00\xa0')
+
+    def test_load_unicode(self):
+        # From Python 2: pickle.dumps(u'π', protocol=0)
+        self.assertEqual(self.loads('V\\u03c0\n.'), u'π')
+        # From Python 2: pickle.dumps(u'π', protocol=1)
+        self.assertEqual(self.loads('X\x02\x00\x00\x00\xcf\x80.'), u'π')
+        # From Python 2: pickle.dumps(u'π', protocol=2)
+        self.assertEqual(self.loads('\x80\x02X\x02\x00\x00\x00\xcf\x80.'), u'π')
+
+    def test_constants(self):
+        self.assertIsNone(self.loads('N.'))
+        self.assertIs(self.loads('\x88.'), True)
+        self.assertIs(self.loads('\x89.'), False)
+        self.assertIs(self.loads('I01\n.'), True)
+        self.assertIs(self.loads('I00\n.'), False)
+
+    def test_misc_get(self):
+        self.assertRaises(self.error, self.loads, 'g0\np0\n')
+        self.assertRaises(self.error, self.loads, 'h\x00q\x00')
+
+    def test_get(self):
+        pickled = '((lp100000\ng100000\nt.'
+        unpickled = self.loads(pickled)
+        self.assertEqual(unpickled, ([],)*2)
+        self.assertIs(unpickled[0], unpickled[1])
+
+    def test_binget(self):
+        pickled = '(]q\xffh\xfft.'
+        unpickled = self.loads(pickled)
+        self.assertEqual(unpickled, ([],)*2)
+        self.assertIs(unpickled[0], unpickled[1])
+
+    def test_long_binget(self):
+        pickled = '(]r\x00\x00\x01\x00j\x00\x00\x01\x00t.'
+        unpickled = self.loads(pickled)
+        self.assertEqual(unpickled, ([],)*2)
+        self.assertIs(unpickled[0], unpickled[1])
+
+    def test_dup(self):
+        pickled = '((l2t.'
+        unpickled = self.loads(pickled)
+        self.assertEqual(unpickled, ([],)*2)
+        self.assertIs(unpickled[0], unpickled[1])
+
+
+class AbstractPickleTests(unittest.TestCase):
+    # Subclass must define self.dumps, self.loads.
+
+    _testdata = AbstractUnpickleTests._testdata
 
     def setUp(self):
         pass
@@ -455,12 +670,6 @@ class AbstractPickleTests(unittest.TestCase):
             got = self.loads(s)
             self.assertEqual(expected, got)
 
-    def test_load_from_canned_string(self):
-        expected = self._testdata
-        for canned in DATA0, DATA1, DATA2:
-            got = self.loads(canned)
-            self.assertEqual(expected, got)
-
     # There are gratuitous differences between pickles produced by
     # pickle and cPickle, largely because cPickle starts PUT indices at
     # 1 and pickle starts them at 0.  See XXX comment in cPickle's put2() --
@@ -483,18 +692,21 @@ class AbstractPickleTests(unittest.TestCase):
         for proto in protocols:
             s = self.dumps(l, proto)
             x = self.loads(s)
+            self.assertIsInstance(x, list)
             self.assertEqual(len(x), 1)
-            self.assertTrue(x is x[0])
+            self.assertIs(x[0], x)
 
-    def test_recursive_tuple(self):
+    def test_recursive_tuple_and_list(self):
         t = ([],)
         t[0].append(t)
         for proto in protocols:
             s = self.dumps(t, proto)
             x = self.loads(s)
+            self.assertIsInstance(x, tuple)
             self.assertEqual(len(x), 1)
+            self.assertIsInstance(x[0], list)
             self.assertEqual(len(x[0]), 1)
-            self.assertTrue(x is x[0][0])
+            self.assertIs(x[0][0], x)
 
     def test_recursive_dict(self):
         d = {}
@@ -502,8 +714,50 @@ class AbstractPickleTests(unittest.TestCase):
         for proto in protocols:
             s = self.dumps(d, proto)
             x = self.loads(s)
+            self.assertIsInstance(x, dict)
             self.assertEqual(x.keys(), [1])
-            self.assertTrue(x[1] is x)
+            self.assertIs(x[1], x)
+
+    def test_recursive_dict_key(self):
+        d = {}
+        k = K(d)
+        d[k] = 1
+        for proto in protocols:
+            s = self.dumps(d, proto)
+            x = self.loads(s)
+            self.assertIsInstance(x, dict)
+            self.assertEqual(len(x.keys()), 1)
+            self.assertIsInstance(x.keys()[0], K)
+            self.assertIs(x.keys()[0].value, x)
+
+    def test_recursive_list_subclass(self):
+        y = MyList()
+        y.append(y)
+        s = self.dumps(y, 2)
+        x = self.loads(s)
+        self.assertIsInstance(x, MyList)
+        self.assertEqual(len(x), 1)
+        self.assertIs(x[0], x)
+
+    def test_recursive_dict_subclass(self):
+        d = MyDict()
+        d[1] = d
+        s = self.dumps(d, 2)
+        x = self.loads(s)
+        self.assertIsInstance(x, MyDict)
+        self.assertEqual(x.keys(), [1])
+        self.assertIs(x[1], x)
+
+    def test_recursive_dict_subclass_key(self):
+        d = MyDict()
+        k = K(d)
+        d[k] = 1
+        s = self.dumps(d, 2)
+        x = self.loads(s)
+        self.assertIsInstance(x, MyDict)
+        self.assertEqual(len(x.keys()), 1)
+        self.assertIsInstance(x.keys()[0], K)
+        self.assertIs(x.keys()[0].value, x)
 
     def test_recursive_inst(self):
         i = C()
@@ -528,25 +782,41 @@ class AbstractPickleTests(unittest.TestCase):
             self.assertEqual(x[0].attr.keys(), [1])
             self.assertTrue(x[0].attr[1] is x)
 
-    def test_garyp(self):
-        self.assertRaises(self.error, self.loads, 'garyp')
+    def check_recursive_collection_and_inst(self, factory):
+        h = H()
+        y = factory([h])
+        h.attr = y
+        for proto in protocols:
+            s = self.dumps(y, proto)
+            x = self.loads(s)
+            self.assertIsInstance(x, type(y))
+            self.assertEqual(len(x), 1)
+            self.assertIsInstance(list(x)[0], H)
+            self.assertIs(list(x)[0].attr, x)
 
-    def test_insecure_strings(self):
-        insecure = ["abc", "2 + 2", # not quoted
-                    #"'abc' + 'def'", # not a single quoted string
-                    "'abc", # quote is not closed
-                    "'abc\"", # open quote and close quote don't match
-                    "'abc'   ?", # junk after close quote
-                    "'\\'", # trailing backslash
-                    "'",    # issue #17710
-                    "' ",   # issue #17710
-                    # some tests of the quoting rules
-                    #"'abc\"\''",
-                    #"'\\\\a\'\'\'\\\'\\\\\''",
-                    ]
-        for s in insecure:
-            buf = "S" + s + "\012p0\012."
-            self.assertRaises(ValueError, self.loads, buf)
+    def test_recursive_list_and_inst(self):
+        self.check_recursive_collection_and_inst(list)
+
+    def test_recursive_tuple_and_inst(self):
+        self.check_recursive_collection_and_inst(tuple)
+
+    def test_recursive_dict_and_inst(self):
+        self.check_recursive_collection_and_inst(dict.fromkeys)
+
+    def test_recursive_set_and_inst(self):
+        self.check_recursive_collection_and_inst(set)
+
+    def test_recursive_frozenset_and_inst(self):
+        self.check_recursive_collection_and_inst(frozenset)
+
+    def test_recursive_list_subclass_and_inst(self):
+        self.check_recursive_collection_and_inst(MyList)
+
+    def test_recursive_tuple_subclass_and_inst(self):
+        self.check_recursive_collection_and_inst(MyTuple)
+
+    def test_recursive_dict_subclass_and_inst(self):
+        self.check_recursive_collection_and_inst(MyDict.fromkeys)
 
     if have_unicode:
         def test_unicode(self):
@@ -575,16 +845,6 @@ class AbstractPickleTests(unittest.TestCase):
                     n2 = self.loads(s)
                     self.assertEqual(expected, n2)
                 n = n >> 1
-
-    def test_maxint64(self):
-        maxint64 = (1L << 63) - 1
-        data = 'I' + str(maxint64) + '\n.'
-        got = self.loads(data)
-        self.assertEqual(got, maxint64)
-
-        # Try too with a bogus literal.
-        data = 'I' + str(maxint64) + 'JUNK\n.'
-        self.assertRaises(ValueError, self.loads, data)
 
     def test_long(self):
         for proto in protocols:

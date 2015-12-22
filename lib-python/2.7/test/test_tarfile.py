@@ -11,6 +11,7 @@ import unittest
 import tarfile
 
 from test import test_support
+from test import test_support as support
 
 # Check for our compression modules.
 try:
@@ -284,6 +285,30 @@ class CommonReadTest(ReadTest):
             self.assertListEqual(tar.getnames(), ["foo"],
                     "ignore_zeros=True should have skipped the %r-blocks" % char)
             tar.close()
+
+    def test_premature_end_of_archive(self):
+        for size in (512, 600, 1024, 1200):
+            with tarfile.open(tmpname, "w:") as tar:
+                t = tarfile.TarInfo("foo")
+                t.size = 1024
+                tar.addfile(t, StringIO.StringIO("a" * 1024))
+
+            with open(tmpname, "r+b") as fobj:
+                fobj.truncate(size)
+
+            with tarfile.open(tmpname) as tar:
+                with self.assertRaisesRegexp(tarfile.ReadError, "unexpected end of data"):
+                    for t in tar:
+                        pass
+
+            with tarfile.open(tmpname) as tar:
+                t = tar.next()
+
+                with self.assertRaisesRegexp(tarfile.ReadError, "unexpected end of data"):
+                    tar.extract(t, TEMPDIR)
+
+                with self.assertRaisesRegexp(tarfile.ReadError, "unexpected end of data"):
+                    tar.extractfile(t).read()
 
 
 class MiscReadTest(CommonReadTest):
@@ -948,9 +973,7 @@ class WriteTest(WriteTestBase):
 
     def test_cwd(self):
         # Test adding the current working directory.
-        cwd = os.getcwd()
-        os.chdir(TEMPDIR)
-        try:
+        with support.change_cwd(TEMPDIR):
             open("foo", "w").close()
 
             tar = tarfile.open(tmpname, self.mode)
@@ -961,8 +984,6 @@ class WriteTest(WriteTestBase):
             for t in tar:
                 self.assertTrue(t.name == "." or t.name.startswith("./"))
             tar.close()
-        finally:
-            os.chdir(cwd)
 
     @unittest.skipUnless(hasattr(os, 'symlink'), "needs os.symlink")
     def test_extractall_symlinks(self):
@@ -1566,6 +1587,14 @@ class LimitsTest(unittest.TestCase):
         tarinfo.tobuf(tarfile.PAX_FORMAT)
 
 
+class MiscTest(unittest.TestCase):
+
+    def test_read_number_fields(self):
+        # Issue 24514: Test if empty number fields are converted to zero.
+        self.assertEqual(tarfile.nti("\0"), 0)
+        self.assertEqual(tarfile.nti("       \0"), 0)
+
+
 class ContextManagerTest(unittest.TestCase):
 
     def test_basic(self):
@@ -1730,6 +1759,7 @@ def test_main():
         PaxUnicodeTest,
         AppendTest,
         LimitsTest,
+        MiscTest,
         ContextManagerTest,
     ]
 

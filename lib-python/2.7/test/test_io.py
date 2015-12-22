@@ -15,7 +15,7 @@
 ################################################################################
 # When writing tests for io, it's important to test both the C and Python
 # implementations. This is usually done by writing a base test that refers to
-# the type it is testing as a attribute. Then it provides custom subclasses to
+# the type it is testing as an attribute. Then it provides custom subclasses to
 # test both implementations. This file has lots of examples.
 ################################################################################
 
@@ -426,7 +426,7 @@ class IOTest(unittest.TestCase):
         with self.open(support.TESTFN, "ab") as f:
             self.assertEqual(f.tell(), 3)
         with self.open(support.TESTFN, "a") as f:
-            self.assertTrue(f.tell() > 0)
+            self.assertGreater(f.tell(), 0)
 
     def test_destructor(self):
         record = []
@@ -544,7 +544,7 @@ class IOTest(unittest.TestCase):
         wr = weakref.ref(f)
         del f
         support.gc_collect()
-        self.assertTrue(wr() is None, wr)
+        self.assertIsNone(wr(), wr)
         with self.open(support.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"abcxxx")
 
@@ -668,7 +668,7 @@ class CIOTest(IOTest):
         del MyIO
         del obj
         support.gc_collect()
-        self.assertTrue(wr() is None, wr)
+        self.assertIsNone(wr(), wr)
 
 class PyIOTest(IOTest):
     test_array_writes = unittest.skip(
@@ -1062,7 +1062,7 @@ class CBufferedReaderTest(BufferedReaderTest, SizeofTest):
         wr = weakref.ref(f)
         del f
         support.gc_collect()
-        self.assertTrue(wr() is None, wr)
+        self.assertIsNone(wr(), wr)
 
     def test_args_error(self):
         # Issue #17275
@@ -1365,7 +1365,7 @@ class CBufferedWriterTest(BufferedWriterTest, SizeofTest):
         wr = weakref.ref(f)
         del f
         support.gc_collect()
-        self.assertTrue(wr() is None, wr)
+        self.assertIsNone(wr(), wr)
         with self.open(support.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"123xxx")
 
@@ -2001,6 +2001,15 @@ class TextIOWrapperTest(unittest.TestCase):
         t.__init__(self.MockRawIO())
         self.assertEqual(t.read(0), u'')
 
+    def test_non_text_encoding_codecs_are_rejected(self):
+        # Ensure the constructor complains if passed a codec that isn't
+        # marked as a text encoding
+        # http://bugs.python.org/issue20404
+        r = self.BytesIO()
+        b = self.BufferedWriter(r)
+        with support.check_py3k_warnings():
+            self.TextIOWrapper(b, encoding="hex_codec")
+
     def test_detach(self):
         r = self.BytesIO()
         b = self.BufferedWriter(r)
@@ -2054,7 +2063,7 @@ class TextIOWrapperTest(unittest.TestCase):
         t = self.TextIOWrapper(b, encoding="utf8")
         self.assertEqual(t.encoding, "utf8")
         t = self.TextIOWrapper(b)
-        self.assertTrue(t.encoding is not None)
+        self.assertIsNotNone(t.encoding)
         codecs.lookup(t.encoding)
 
     def test_encoding_errors_reading(self):
@@ -2617,19 +2626,39 @@ class TextIOWrapperTest(unittest.TestCase):
 
     def test_illegal_decoder(self):
         # Issue #17106
+        # Bypass the early encoding check added in issue 20404
+        def _make_illegal_wrapper():
+            quopri = codecs.lookup("quopri_codec")
+            quopri._is_text_encoding = True
+            try:
+                t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'),
+                                       newline='\n', encoding="quopri_codec")
+            finally:
+                quopri._is_text_encoding = False
+            return t
         # Crash when decoder returns non-string
-        t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
-                               encoding='quopri_codec')
+        with support.check_py3k_warnings():
+            t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
+                                   encoding='quopri_codec')
         with self.maybeRaises(TypeError):
             t.read(1)
-        t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
-                               encoding='quopri_codec')
+        with support.check_py3k_warnings():
+            t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
+                                   encoding='quopri_codec')
         with self.maybeRaises(TypeError):
             t.readline()
-        t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
-                               encoding='quopri_codec')
+        with support.check_py3k_warnings():
+            t = self.TextIOWrapper(self.BytesIO(b'aaaaaa'), newline='\n',
+                                   encoding='quopri_codec')
         with self.maybeRaises(TypeError):
             t.read()
+        #else:
+            #t = _make_illegal_wrapper()
+            #self.assertRaises(TypeError, t.read, 1)
+            #t = _make_illegal_wrapper()
+            #self.assertRaises(TypeError, t.readline)
+            #t = _make_illegal_wrapper()
+            #self.assertRaises(TypeError, t.read)
 
 
 class CTextIOWrapperTest(TextIOWrapperTest):
@@ -2658,7 +2687,7 @@ class CTextIOWrapperTest(TextIOWrapperTest):
         wr = weakref.ref(t)
         del t
         support.gc_collect()
-        self.assertTrue(wr() is None, wr)
+        self.assertIsNone(wr(), wr)
         with self.open(support.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"456def")
 
@@ -2808,7 +2837,7 @@ class MiscIOTest(unittest.TestCase):
     def test___all__(self):
         for name in self.io.__all__:
             obj = getattr(self.io, name, None)
-            self.assertTrue(obj is not None, name)
+            self.assertIsNotNone(obj, name)
             if name == "open":
                 continue
             elif "error" in name.lower() or name == "UnsupportedOperation":
@@ -2903,7 +2932,7 @@ class MiscIOTest(unittest.TestCase):
         wr = weakref.ref(c)
         del c, b
         support.gc_collect()
-        self.assertTrue(wr() is None, wr)
+        self.assertIsNone(wr(), wr)
 
     def test_abcs(self):
         # Test the visible base classes are ABCs.
@@ -2996,15 +3025,17 @@ class MiscIOTest(unittest.TestCase):
             received += iter(rf.read, None)
 
         sent, received = b''.join(sent), b''.join(received)
-        self.assertTrue(sent == received)
+        self.assertEqual(sent, received)
         self.assertTrue(wf.closed)
         self.assertTrue(rf.closed)
 
 class CMiscIOTest(MiscIOTest):
     io = io
+    shutdown_error = "RuntimeError: could not find io module state"
 
 class PyMiscIOTest(MiscIOTest):
     io = pyio
+    shutdown_error = "LookupError: unknown encoding: ascii"
 
 
 @unittest.skipIf(os.name == 'nt', 'POSIX signals required for this test.')
