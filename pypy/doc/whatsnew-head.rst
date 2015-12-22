@@ -44,6 +44,9 @@ Improve the heuristic when disable trace-too-long
 
 .. branch: fix-setslice-can-resize
 
+Make rlist's ll_listsetslice() able to resize the target list to help
+simplify objspace/std/listobject.py. Was issue #2196.
+
 .. branch: anntype2
 
 A somewhat random bunch of changes and fixes following up on branch 'anntype'. Highlights:
@@ -83,10 +86,17 @@ Simplify a bit the GIL handling in non-jitted code.  Fixes issue #2205.
 Trivial cleanups in flowspace.operation : fix comment & duplicated method
 
 .. branch: test-AF_NETLINK
+
+Add a test for pre-existing AF_NETLINK support. Was part of issue #1942.
+
 .. branch: small-cleanups-misc
+
+Trivial misc cleanups: typo, whitespace, obsolete comments
+
 .. branch: cpyext-slotdefs
 .. branch: fix-missing-canraise
 
 .. branch: fix-2211
 
-Fix the cryptic exception message when attempting to use extended slicing in rpython
+Fix the cryptic exception message when attempting to use extended slicing
+in rpython. Was issue #2211.
