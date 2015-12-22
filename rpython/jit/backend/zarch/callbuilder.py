@@ -154,6 +154,7 @@ class CallBuilder(AbstractCallBuilder):
         RFASTGILPTR = self.RFASTGILPTR
         #
         self.mc.STMG(RSHADOWOLD, self.RFASTGILPTR, l.addr(-3*WORD, r.SP))
+        # 3 for the three registers, 1 for a floating point return value!
         self.subtracted_to_sp += 4*WORD
         #
         # Save this thread's shadowstack pointer into r29, for later comparison
@@ -226,18 +227,14 @@ class CallBuilder(AbstractCallBuilder):
             if reg.is_core_reg():
                 self.mc.LGR(RSAVEDRES, reg)
             elif reg.is_fp_reg():
-                xxx
-                self.mc.stfd(reg.value, r.SP.value,
-                             PARAM_SAVE_AREA_OFFSET + 7 * WORD)
+                self.mc.STD(reg, l.addr(-4*WORD, r.SP))
         self.mc.load_imm(self.mc.RAW_CALL_REG, self.asm.reacqgil_addr)
         self.mc.raw_call()
         if reg is not None:
             if reg.is_core_reg():
                 self.mc.LGR(reg, RSAVEDRES)
             elif reg.is_fp_reg():
-                xxx
-                self.mc.lfd(reg.value, r.SP.value,
-                            PARAM_SAVE_AREA_OFFSET + 7 * WORD)
+                self.mc.LD(reg, l.addr(-4*WORD, r.SP))
 
         # replace b1_location with BEQ(here)
         pmc = OverwritingBuilder(self.mc, b1_location, 1)
