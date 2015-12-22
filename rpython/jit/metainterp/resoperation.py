@@ -246,6 +246,11 @@ class AbstractResOpOrInputArg(AbstractValue):
     def forget_value(self):
         pass
 
+def is_pure_getfield(opnum, descr):
+    if opnum not in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R):
+        return False
+    return descr is not None and descr.is_always_pure() != False
+
 class AbstractResOp(AbstractResOpOrInputArg):
     """The central ResOperation class, representing one operation."""
 
@@ -1165,6 +1170,20 @@ _oplist = [
     'UNICODEGETITEM/2/i',
     #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
+
+    # parameters GC_LOAD
+    # 1: pointer to complex object
+    # 2: integer describing the offset
+    # 3: constant integer. byte size of datatype to load (negative if it is signed)
+    'GC_LOAD/3/rfi',
+    # parameters GC_LOAD_INDEXED
+    # 1: pointer to complex object
+    # 2: integer describing the index
+    # 3: constant integer scale factor
+    # 4: constant integer base offset   (final offset is 'base + scale * index')
+    # 5: constant integer. byte size of datatype to load (negative if it is signed)
+    # (GC_LOAD is equivalent to GC_LOAD_INDEXED with arg3==1, arg4==0)
+    'GC_LOAD_INDEXED/5/rfi',
 
     '_RAW_LOAD_FIRST',
     'GETARRAYITEM_GC/2d/rfi',

@@ -9266,7 +9266,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_value(i1, 5) []
         jump()
         """
-        a = lltype.malloc(lltype.GcArray(lltype.Ptr(self.NODE)), 5, zero=True)
+        a = lltype.malloc(lltype.GcArray(lltype.Ptr(self.NODE3)), 5, zero=True)
         self.optimize_loop(ops, expected, jump_values=[a])
 
 
