@@ -380,6 +380,8 @@ class BaseAssembler(object):
         # the call that it is no longer equal to css.  See description
         # in translator/c/src/thread_pthread.c.
 
+        # XXX some duplicated logic here, but note that rgil.acquire()
+        # does more than just RPyGilAcquire()
         if old_rpy_fastgil == 0:
             # this case occurs if some other thread stole the GIL but
             # released it again.  What occurred here is that we changed
@@ -390,9 +392,8 @@ class BaseAssembler(object):
         elif old_rpy_fastgil == 1:
             # 'rpy_fastgil' was (and still is) locked by someone else.
             # We need to wait for the regular mutex.
-            after = rffi.aroundstate.after
-            if after:
-                after()
+            from rpython.rlib import rgil
+            rgil.acquire()
         else:
             # stole the GIL from a different thread that is also
             # currently in an external call from the jit.  Attach
@@ -421,9 +422,8 @@ class BaseAssembler(object):
         # 'rpy_fastgil' contains only zero or non-zero, and this is only
         # called when the old value stored in 'rpy_fastgil' was non-zero
         # (i.e. still locked, must wait with the regular mutex)
-        after = rffi.aroundstate.after
-        if after:
-            after()
+        from rpython.rlib import rgil
+        rgil.acquire()
 
     _REACQGIL0_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
     _REACQGIL2_FUNC = lltype.Ptr(lltype.FuncType([rffi.CCHARP, lltype.Signed],

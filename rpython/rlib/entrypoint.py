@@ -56,10 +56,11 @@ def entrypoint_highlevel(key, argtypes, c_name=None):
     """
     def deco(func):
         source = py.code.Source("""
+        from rpython.rlib import rgil
+
         def wrapper(%(args)s):
             # acquire the GIL
-            after = rffi.aroundstate.after
-            if after: after()
+            rgil.acquire()
             #
             rffi.stackcounter.stacks_counter += 1
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
@@ -78,8 +79,7 @@ def entrypoint_highlevel(key, argtypes, c_name=None):
                     assert 0 # dead code
             rffi.stackcounter.stacks_counter -= 1
             # release the GIL
-            before = rffi.aroundstate.before
-            if before: before()
+            rgil.release()
             #
             return res
         """ % {'args': ', '.join(['arg%d' % i for i in range(len(argtypes))])})

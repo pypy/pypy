@@ -1170,10 +1170,11 @@ _oplist = [
     'GC_LOAD/3/rfi',
     # parameters GC_LOAD_INDEXED
     # 1: pointer to complex object
-    # 2: integer describing the offset
+    # 2: integer describing the index
     # 3: constant integer scale factor
-    # 4: constant integer offset
+    # 4: constant integer base offset   (final offset is 'base + scale * index')
     # 5: constant integer. byte size of datatype to load (negative if it is signed)
+    # (GC_LOAD is equivalent to GC_LOAD_INDEXED with arg3==1, arg4==0)
     'GC_LOAD_INDEXED/5/rfi',
 
     '_RAW_LOAD_FIRST',
@@ -1204,8 +1205,9 @@ _oplist = [
 
     # same paramters as GC_LOAD, but one additional for the value to store
     # note that the itemsize is not signed!
+    # (gcptr, index, value, [scale, base_offset,] itemsize)
     'GC_STORE/4d/n',
-    'GC_STORE_INDEXED/5d/n',
+    'GC_STORE_INDEXED/6d/n',
 
     'INCREMENT_DEBUG_COUNTER/1/n',
     '_RAW_STORE_FIRST',
@@ -1219,8 +1221,6 @@ _oplist = [
     'SETINTERIORFIELD_GC/3d/n',
     'SETINTERIORFIELD_RAW/3d/n',    # right now, only used by tests
     'SETFIELD_GC/2d/n',
-    'ZERO_PTR_FIELD/2/n', # only emitted by the rewrite, clears a pointer field
-                        # at a given constant offset, no descr
     'ZERO_ARRAY/3d/n',  # only emitted by the rewrite, clears (part of) an array
                         # [arraygcptr, firstindex, length], descr=ArrayDescr
     'SETFIELD_RAW/2d/n',

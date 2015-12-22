@@ -37,6 +37,7 @@ class RewriteTests(object):
             return ','.join([str(n) for n in [descr.itemsize,
                                               descr.basesize,
                                               size]])
+        WORD = globals()['WORD']
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('y', lltype.Signed))
         sdescr = get_size_descr(self.gc_ll_descr, S)
@@ -71,6 +72,12 @@ class RewriteTests(object):
         itzdescr = get_interiorfield_descr(self.gc_ll_descr, S1I, 'z')
         itydescr = get_interiorfield_descr(self.gc_ll_descr, S1I, 'y')
         itxdescr = get_interiorfield_descr(self.gc_ll_descr, S1I, 'x')
+        S2I = lltype.GcArray(('x', lltype.Ptr(S1)),
+                             ('y', lltype.Ptr(S1)),
+                             ('z', lltype.Ptr(S1)),
+                             ('t', lltype.Ptr(S1)))   # size is a power of two
+        s2i_item_size_in_bits = (4 if WORD == 4 else 5)
+        ity2descr = get_interiorfield_descr(self.gc_ll_descr, S2I, 'y')
         R1 = lltype.GcStruct('R', ('x', lltype.Signed),
                                   ('y', lltype.Float),
                                   ('z', lltype.Ptr(S1)))
@@ -90,7 +97,6 @@ class RewriteTests(object):
         #
         tiddescr = self.gc_ll_descr.fielddescr_tid
         wbdescr = self.gc_ll_descr.write_barrier_descr
-        WORD = globals()['WORD']
         #
         F = lltype.GcArray(lltype.Float)
         fdescr = get_array_descr(self.gc_ll_descr, F)
@@ -1224,6 +1230,13 @@ class TestFramework(RewriteTests):
                              '%(itydescr.arraydescr.basesize'
                              '   + itydescr.fielddescr.offset)d,'
                              '%(itydescr.fielddescr.field_size)d)'],
+        [True, (1,2,4,8), 'i3 = setinteriorfield_gc(p0,i1,i2,descr=ity2descr)' '->'
+                          'i4 = int_lshift(i1,'
+                             '%(s2i_item_size_in_bits)d);'
+                          'i3 = gc_store_indexed(p0,i4,i2,1,'
+                             '%(ity2descr.arraydescr.basesize'
+                             '   + itydescr.fielddescr.offset)d,'
+                             '%(ity2descr.fielddescr.field_size)d)'],
     ])
     def test_gc_load_store_transform(self, support_offset, factors, fromto):
         self.cpu.load_constant_offset = support_offset

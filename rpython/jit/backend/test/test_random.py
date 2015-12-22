@@ -57,19 +57,11 @@ class OperationBuilder(object):
     def do(self, opnum, argboxes, descr=None):
         self.fakemetainterp._got_exc = None
         op = ResOperation(opnum, argboxes, descr)
-        if opnum != rop.ZERO_PTR_FIELD:
-            result = _execute_arglist(self.cpu, self.fakemetainterp,
-                                      opnum, argboxes, descr)
-            if result is not None:
-                c_result = wrap_constant(result)
-                op.copy_value_from(c_result)
-        else:
-            import ctypes
-            addr = self.cpu.cast_gcref_to_int(argboxes[0].getref_base())
-            offset = argboxes[1].getint()
-            assert (offset % ctypes.sizeof(ctypes.c_long)) == 0
-            ptr = ctypes.cast(addr, ctypes.POINTER(ctypes.c_long))
-            ptr[offset / ctypes.sizeof(ctypes.c_long)] = 0
+        result = _execute_arglist(self.cpu, self.fakemetainterp,
+                                  opnum, argboxes, descr)
+        if result is not None:
+            c_result = wrap_constant(result)
+            op.copy_value_from(c_result)
         self.loop.operations.append(op)
         return op
 

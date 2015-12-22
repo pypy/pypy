@@ -5,13 +5,6 @@ from rpython.translator.c.test.test_boehm import AbstractGCTestClass
 from rpython.rtyper.lltypesystem import lltype, rffi
 import py
 
-def setup_module(mod):
-    # Hack to avoid a deadlock if the module is run after other test files :-(
-    # In this module, we assume that rthread.start_new_thread() is not
-    # providing us with a GIL equivalent, except in test_gc_locking
-    # which installs its own aroundstate.
-    rffi.aroundstate._cleanup_()
-
 def test_lock():
     l = allocate_lock()
     ok1 = l.acquire(True)
@@ -31,6 +24,7 @@ def test_thread_error():
         py.test.fail("Did not raise")
 
 def test_tlref_untranslated():
+    import thread
     class FooBar(object):
         pass
     t = ThreadLocalReference(FooBar)
@@ -43,7 +37,7 @@ def test_tlref_untranslated():
         time.sleep(0.2)
         results.append(t.get() is x)
     for i in range(5):
-        start_new_thread(subthread, ())
+        thread.start_new_thread(subthread, ())
     time.sleep(0.5)
     assert results == [True] * 15
 
@@ -99,7 +93,6 @@ class AbstractThreadTests(AbstractGCTestClass):
 
     def test_gc_locking(self):
         import time
-        from rpython.rlib.objectmodel import invoke_around_extcall
         from rpython.rlib.debug import ll_assert
 
         class State:
@@ -123,17 +116,6 @@ class AbstractThreadTests(AbstractGCTestClass):
                 ll_assert(j == self.j, "2: bad j")
             run._dont_inline_ = True
 
-        def before_extcall():
-            release_NOAUTO(state.gil)
-        before_extcall._gctransformer_hint_cannot_collect_ = True
-        # ^^^ see comments in gil.py about this hint
-
-        def after_extcall():
-            acquire_NOAUTO(state.gil, True)
-            gc_thread_run()
-        after_extcall._gctransformer_hint_cannot_collect_ = True
-        # ^^^ see comments in gil.py about this hint
-
         def bootstrap():
             # after_extcall() is called before we arrive here.
             # We can't just acquire and release the GIL manually here,
@@ -154,14 +136,9 @@ class AbstractThreadTests(AbstractGCTestClass):
             start_new_thread(bootstrap, ())
 
         def f():
-            state.gil = allocate_ll_lock()
-            acquire_NOAUTO(state.gil, True)
             state.bootstrapping = allocate_lock()
             state.answers = []
             state.finished = 0
-            # the next line installs before_extcall() and after_extcall()
-            # to be called automatically around external function calls.
-            invoke_around_extcall(before_extcall, after_extcall)
 
             g(10, 1)
             done = False
@@ -179,10 +156,7 @@ class AbstractThreadTests(AbstractGCTestClass):
             return len(state.answers)
 
         expected = 89
-        try:
-            fn = self.getcompiled(f, [])
-        finally:
-            rffi.aroundstate._cleanup_()
+        fn = self.getcompiled(f, [])
         answers = fn()
         assert answers == expected
 

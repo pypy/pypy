@@ -1,6 +1,6 @@
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rarithmetic import ovfcheck, highest_bit
 from rpython.rtyper.lltypesystem import llmemory, lltype, rstr
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
@@ -165,7 +165,14 @@ class GcRewriterAssembler(object):
             if isinstance(index_box, ConstInt):
                 index_box = ConstInt(index_box.value * factor)
             else:
-                index_box = ResOperation(rop.INT_MUL, [index_box, ConstInt(factor)])
+                # x & (x - 1) == 0 is a quick test for power of 2
+                assert factor > 0
+                if (factor & (factor - 1)) == 0:
+                    index_box = ResOperation(rop.INT_LSHIFT,
+                            [index_box, ConstInt(highest_bit(factor))])
+                else:
+                    index_box = ResOperation(rop.INT_MUL,
+                            [index_box, ConstInt(factor)])
                 self.emit_op(index_box)
             factor = 1
         # adjust the constant offset
@@ -296,13 +303,6 @@ class GcRewriterAssembler(object):
                                                  self.cpu.translate_support_code)
             self.emit_gc_store_or_indexed(op, op.getarg(0), op.getarg(1), op.getarg(2),
                                          itemsize, itemsize, basesize)
-        elif op.getopnum() == rop.ZERO_PTR_FIELD:
-            ofs = op.getarg(1).getint()
-            size = WORD
-            index_box = ConstInt(0)
-            value_box = ConstInt(0)
-            self.emit_gc_store_or_indexed(op, op.getarg(0), index_box, value_box,
-                                          size, 1, ofs)
         return False
 
 
@@ -532,7 +532,9 @@ class GcRewriterAssembler(object):
             return
         # the ZERO_ARRAY operation will be optimized according to what
         # SETARRAYITEM_GC we see before the next allocation operation.
-        # See emit_pending_zeros().
+        # See emit_pending_zeros().  (This optimization is done by
+        # hacking the object 'o' in-place: e.g., o.getarg(1) may be
+        # replaced with another constant greater than 0.)
         o = ResOperation(rop.ZERO_ARRAY, [v_arr, self.c_zero, v_length],
                          descr=arraydescr)
         self.emit_op(o)
@@ -676,7 +678,7 @@ class GcRewriterAssembler(object):
         del self.last_zero_arrays[:]
         self._setarrayitems_occurred.clear()
         #
-        # Then write the ZERO_PTR_FIELDs that are still pending
+        # Then write the NULL-pointer-writing ops that are still pending
         for v, d in self._delayed_zero_setfields.iteritems():
             v = self.get_box_replacement(v)
             for ofs in d.iterkeys():

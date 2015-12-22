@@ -1039,8 +1039,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         size_box = op.getarg(3)
         assert isinstance(size_box, ConstInt)
-        size = size_box.value
-        itemsize = abs(size)
+        size = abs(size_box.value)
         if size == 1:
             need_lower_byte = True
         else:
@@ -1049,7 +1048,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                                           need_lower_byte=need_lower_byte)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
-                                 imm(itemsize)])
+                                 imm(size)])
 
     def consider_gc_store_indexed(self, op):
         args = op.getarglist()
@@ -1062,8 +1061,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         assert isinstance(size_box, ConstInt)
         factor = scale_box.value
         offset = offset_box.value
-        size = size_box.value
-        itemsize = abs(size)
+        size = abs(size_box.value)
         if size == 1:
             need_lower_byte = True
         else:
@@ -1072,7 +1070,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                                           need_lower_byte=need_lower_byte)
         ofs_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
         self.perform_discard(op, [base_loc, ofs_loc, value_loc,
-                                  imm(factor), imm(offset), imm(itemsize)])
+                                  imm(factor), imm(offset), imm(size)])
 
     def consider_increment_debug_counter(self, op):
         base_loc = self.loc(op.getarg(0))

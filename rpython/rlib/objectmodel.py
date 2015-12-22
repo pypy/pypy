@@ -599,22 +599,10 @@ class Entry(ExtRegistryEntry):
 def hlinvoke(repr, llcallable, *args):
     raise TypeError("hlinvoke is meant to be rtyped and not called direclty")
 
-def invoke_around_extcall(before, after):
-    """Call before() before any external function call, and after() after.
-    At the moment only one pair before()/after() can be registered at a time.
-    """
-    # NOTE: the hooks are cleared during translation!  To be effective
-    # in a compiled program they must be set at run-time.
-    from rpython.rtyper.lltypesystem import rffi
-    rffi.aroundstate.before = before
-    rffi.aroundstate.after = after
-    # the 'aroundstate' contains regular function and not ll pointers to them,
-    # but let's call llhelper() anyway to force their annotation
-    from rpython.rtyper.annlowlevel import llhelper
-    llhelper(rffi.AroundFnPtr, before)
-    llhelper(rffi.AroundFnPtr, after)
-
 def is_in_callback():
+    """Returns True if we're currently in a callback *or* if there are
+    multiple threads around.
+    """
     from rpython.rtyper.lltypesystem import rffi
     return rffi.stackcounter.stacks_counter > 1
 

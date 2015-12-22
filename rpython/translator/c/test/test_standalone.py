@@ -1093,22 +1093,10 @@ class TestThread(object):
         import time
         from rpython.rlib import rthread
         from rpython.rtyper.lltypesystem import lltype
-        from rpython.rlib.objectmodel import invoke_around_extcall
 
         class State:
             pass
         state = State()
-
-        def before():
-            debug_print("releasing...")
-            ll_assert(not rthread.acquire_NOAUTO(state.ll_lock, False),
-                      "lock not held!")
-            rthread.release_NOAUTO(state.ll_lock)
-            debug_print("released")
-        def after():
-            debug_print("waiting...")
-            rthread.acquire_NOAUTO(state.ll_lock, True)
-            debug_print("acquired")
 
         def recurse(n):
             if n > 0:
@@ -1145,10 +1133,7 @@ class TestThread(object):
             s1 = State(); s2 = State(); s3 = State()
             s1.x = 0x11111111; s2.x = 0x22222222; s3.x = 0x33333333
             # start 3 new threads
-            state.ll_lock = rthread.allocate_ll_lock()
-            after()
             state.count = 0
-            invoke_around_extcall(before, after)
             ident1 = rthread.start_new_thread(bootstrap, ())
             ident2 = rthread.start_new_thread(bootstrap, ())
             ident3 = rthread.start_new_thread(bootstrap, ())
@@ -1192,19 +1177,10 @@ class TestThread(object):
         import time, gc
         from rpython.rlib import rthread, rposix
         from rpython.rtyper.lltypesystem import lltype
-        from rpython.rlib.objectmodel import invoke_around_extcall
 
         class State:
             pass
         state = State()
-
-        def before():
-            ll_assert(not rthread.acquire_NOAUTO(state.ll_lock, False),
-                      "lock not held!")
-            rthread.release_NOAUTO(state.ll_lock)
-        def after():
-            rthread.acquire_NOAUTO(state.ll_lock, True)
-            rthread.gc_thread_run()
 
         class Cons:
             def __init__(self, head, tail):
@@ -1235,9 +1211,6 @@ class TestThread(object):
             state.xlist = []
             x2 = Cons(51, Cons(62, Cons(74, None)))
             # start 5 new threads
-            state.ll_lock = rthread.allocate_ll_lock()
-            after()
-            invoke_around_extcall(before, after)
             ident1 = new_thread()
             ident2 = new_thread()
             #
@@ -1281,7 +1254,6 @@ class TestThread(object):
 
 
     def test_gc_with_fork_without_threads(self):
-        from rpython.rlib.objectmodel import invoke_around_extcall
         if not hasattr(os, 'fork'):
             py.test.skip("requires fork()")
 
@@ -1308,21 +1280,17 @@ class TestThread(object):
         # alive are really freed.
         import time, gc, os
         from rpython.rlib import rthread
-        from rpython.rlib.objectmodel import invoke_around_extcall
         if not hasattr(os, 'fork'):
             py.test.skip("requires fork()")
+
+        from rpython.rtyper.lltypesystem import rffi, lltype
+        direct_write = rffi.llexternal(
+            "write", [rffi.INT, rffi.CCHARP, rffi.SIZE_T], lltype.Void,
+            _nowrapper=True)
 
         class State:
             pass
         state = State()
-
-        def before():
-            ll_assert(not rthread.acquire_NOAUTO(state.ll_lock, False),
-                      "lock not held!")
-            rthread.release_NOAUTO(state.ll_lock)
-        def after():
-            rthread.acquire_NOAUTO(state.ll_lock, True)
-            rthread.gc_thread_run()
 
         class Cons:
             def __init__(self, head, tail):
@@ -1331,7 +1299,10 @@ class TestThread(object):
 
         class Stuff:
             def __del__(self):
-                os.write(state.write_end, 'd')
+                p = rffi.str2charp('d')
+                one = rffi.cast(rffi.SIZE_T, 1)
+                direct_write(rffi.cast(rffi.INT, state.write_end), p, one)
+                rffi.free_charp(p)
 
         def allocate_stuff():
             s = Stuff()
@@ -1380,9 +1351,6 @@ class TestThread(object):
             state.read_end, state.write_end = os.pipe()
             x2 = Cons(51, Cons(62, Cons(74, None)))
             # start 5 new threads
-            state.ll_lock = rthread.allocate_ll_lock()
-            after()
-            invoke_around_extcall(before, after)
             start_arthreads()
             # force freeing
             gc.collect()
