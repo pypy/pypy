@@ -184,19 +184,19 @@ class CallBuilder(AbstractCallBuilder):
         RFASTGILPTR = self.RFASTGILPTR    # r10: &fastgil
         RSHADOWOLD  = self.RSHADOWOLD     # r12: previous val of root_stack_top
 
-        # Equivalent of 'r14 = __sync_lock_test_and_set(&rpy_fastgil, 1);'
+        # Equivalent of 'r12 = __sync_lock_test_and_set(&rpy_fastgil, 1);'
         self.mc.LGHI(r.SCRATCH, l.imm(1))
         retry_label = self.mc.currpos()
         # compare and swap, only succeeds if the the contents of the
-        # lock is equal to r14 (= 0)
-        self.mc.LG(r.r14, l.addr(0, RFASTGILPTR))
-        self.mc.CSG(r.r14, r.SCRATCH, l.addr(0, RFASTGILPTR))  # try to claim lock
+        # lock is equal to r12 (= 0)
+        self.mc.LG(r.r12, l.addr(0, RFASTGILPTR))
+        self.mc.CSG(r.r12, r.SCRATCH, l.addr(0, RFASTGILPTR))  # try to claim lock
         self.mc.BRC(c.NE, l.imm(retry_label - self.mc.currpos())) # retry if failed
         self.mc.sync()
 
-        self.mc.CGHI(r.r14, l.imm0)
+        self.mc.CGHI(r.r12, l.imm0)
         b1_location = self.mc.currpos()
-        self.mc.trap()          # boehm: patched with a BEQ: jump if r14 is zero
+        self.mc.trap()          # boehm: patched with a BEQ: jump if r12 is zero
         self.mc.write('\x00'*4) # shadowstack: patched with BNE instead
 
         if self.asm.cpu.gc_ll_descr.gcrootmap:
@@ -214,8 +214,8 @@ class CallBuilder(AbstractCallBuilder):
 
             # revert the rpy_fastgil acquired above, so that the
             # general 'reacqgil_addr' below can acquire it again...
-            # (here, r14 is conveniently zero)
-            self.mc.STG(r.r14, l.addr(0,RFASTGILPTR))
+            # (here, r12 is conveniently zero)
+            self.mc.STG(r.r12, l.addr(0,RFASTGILPTR))
 
             pmc = OverwritingBuilder(self.mc, bne_location, 1)
             pmc.BCRL(c.NE, self.mc.currpos() - bne_location)
@@ -258,16 +258,16 @@ class CallBuilder(AbstractCallBuilder):
                 rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             self.mc.LG(r.r11, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
-            self.mc.LGH(r.SCRATCH2, l.addr(rpy_errno, r.r11))
+            self.mc.LGF(r.SCRATCH2, l.addr(rpy_errno, r.r11))
             self.mc.LG(r.r11, l.addr(p_errno, r.r11))
-            self.mc.STHY(r.SCRATCH2, l.addr(0,r.r11))
+            self.mc.STY(r.SCRATCH2, l.addr(0,r.r11))
         elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
             # Same, but write zero.
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             self.mc.LG(r.r11, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
             self.mc.LG(r.r11, l.addr(p_errno, r.r11))
             self.mc.LGHI(r.SCRATCH, 0)
-            self.mc.STHY(r.SCRATCH, l.addr(0,r.r11))
+            self.mc.STY(r.SCRATCH, l.addr(0,r.r11))
 
     def read_real_errno(self, save_err):
         if save_err & rffi.RFFI_SAVE_ERRNO:
@@ -281,5 +281,5 @@ class CallBuilder(AbstractCallBuilder):
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             self.mc.LG(r.r12, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
             self.mc.LG(r.r11, l.addr(p_errno, r.r12))
-            self.mc.LGH(r.r11, l.addr(0, r.r11))
-            self.mc.STG(r.r11, l.addr(p_errno, r.r12))
+            self.mc.LGF(r.r11, l.addr(0, r.r11))
+            self.mc.STY(r.r11, l.addr(rpy_errno, r.r12))
