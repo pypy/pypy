@@ -16,8 +16,8 @@ def prepare(space, cdef, module_name, source, w_includes=None,
         from cffi import ffiplatform
     except ImportError:
         py.test.skip("system cffi module not found or older than 1.0.0")
-    if cffi.__version_info__ < (1, 3, 0):
-        py.test.skip("system cffi module needs to be at least 1.3.0")
+    if cffi.__version_info__ < (1, 4, 0):
+        py.test.skip("system cffi module needs to be at least 1.4.0")
     space.appexec([], """():
         import _cffi_backend     # force it to be initialized
     """)
@@ -1029,6 +1029,7 @@ class AppTestRecompiler:
         assert hasattr(lib, '__dict__')
         assert lib.__all__ == ['MYFOO', 'mybar']   # but not 'myvar'
         assert lib.__name__ == repr(lib)
+        assert lib.__class__ is type(lib)
 
     def test_macro_var_callback(self):
         ffi, lib = self.prepare(

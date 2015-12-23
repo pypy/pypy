@@ -387,11 +387,52 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                      PyErr_SetString(PyExc_ValueError, "recursive tp_setattro");
                      return NULL;
                  }
+                 if (!args->ob_type->tp_getattro)
+                 {
+                     PyErr_SetString(PyExc_ValueError, "missing tp_getattro");
+                     return NULL;
+                 }
+                 if (args->ob_type->tp_getattro ==
+                     args->ob_type->tp_base->tp_getattro)
+                 {
+                     PyErr_SetString(PyExc_ValueError, "recursive tp_getattro");
+                     return NULL;
+                 }
                  Py_RETURN_TRUE;
              '''
              )
             ])
         assert module.test_type(type(None))
+
+    def test_tp_getattro(self):
+        module = self.import_extension('foo', [
+            ("test_tp_getattro", "METH_VARARGS",
+             '''
+                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                 PyIntObject *value = PyTuple_GET_ITEM(args, 1);
+                 if (!obj->ob_type->tp_getattro)
+                 {
+                     PyErr_SetString(PyExc_ValueError, "missing tp_getattro");
+                     return NULL;
+                 }
+                 PyObject *name = PyString_FromString("attr1");
+                 PyIntObject *attr1 = obj->ob_type->tp_getattro(obj, name);
+                 if (attr1->ob_ival != value->ob_ival)
+                 {
+                     PyErr_SetString(PyExc_ValueError,
+                                     "tp_getattro returned wrong value");
+                     return NULL;
+                 }
+                 Py_DECREF(name);
+                 Py_DECREF(attr1);
+                 Py_RETURN_TRUE;
+             '''
+             )
+            ])
+        class C:
+            def __init__(self):
+                self.attr1 = 123
+        assert module.test_tp_getattro(C(), 123)
 
     def test_nb_int(self):
         module = self.import_extension('foo', [
@@ -601,45 +642,92 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         if self.runappdirect:
             py.test.xfail('segfault')
         module = self.import_extension('foo', [
-            ("new_obj", "METH_NOARGS",
+            ("newInt", "METH_VARARGS",
              """
-                FooObject *fooObj;
+                IntLikeObject *intObj;
+                long intval;
 
-                Foo_Type.tp_as_number = &foo_as_number;
-                foo_as_number.nb_add = foo_nb_add_call;
-                if (PyType_Ready(&Foo_Type) < 0) return NULL;
-                fooObj = PyObject_New(FooObject, &Foo_Type);
-                if (!fooObj) {
+                if (!PyArg_ParseTuple(args, "i", &intval))
+                    return NULL;
+
+                IntLike_Type.tp_as_number = &intlike_as_number;
+                IntLike_Type.tp_flags |= Py_TPFLAGS_CHECKTYPES;
+                intlike_as_number.nb_add = intlike_nb_add;
+                if (PyType_Ready(&IntLike_Type) < 0) return NULL;
+                intObj = PyObject_New(IntLikeObject, &IntLike_Type);
+                if (!intObj) {
                     return NULL;
                 }
 
-                return (PyObject *)fooObj;
+                intObj->ival = intval;
+                return (PyObject *)intObj;
+             """),
+             ("newIntNoOp", "METH_VARARGS",
+             """
+                IntLikeObjectNoOp *intObjNoOp;
+                long intval;
+
+                if (!PyArg_ParseTuple(args, "i", &intval))
+                    return NULL;
+
+                IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_CHECKTYPES;
+                if (PyType_Ready(&IntLike_Type_NoOp) < 0) return NULL;
+                intObjNoOp = PyObject_New(IntLikeObjectNoOp, &IntLike_Type_NoOp);
+                if (!intObjNoOp) {
+                    return NULL;
+                }
+
+                intObjNoOp->ival = intval;
+                return (PyObject *)intObjNoOp;
              """)],
             """
             typedef struct
             {
                 PyObject_HEAD
-            } FooObject;
+                long ival;
+            } IntLikeObject;
 
             static PyObject * 
-            foo_nb_add_call(PyObject *self, PyObject *other)
+            intlike_nb_add(PyObject *self, PyObject *other)
             {
-                return PyInt_FromLong(42); 
+                long val1 = ((IntLikeObject *)(self))->ival;
+                if (PyInt_Check(other)) {
+                  long val2 = PyInt_AsLong(other);
+                  return PyInt_FromLong(val1+val2);
+                }
+
+                long val2 = ((IntLikeObject *)(other))->ival;
+                return PyInt_FromLong(val1+val2);
             }
 
-            PyTypeObject Foo_Type = {
+            PyTypeObject IntLike_Type = {
                 PyObject_HEAD_INIT(0)
                 /*ob_size*/             0,
-                /*tp_name*/             "Foo",
-                /*tp_basicsize*/        sizeof(FooObject),
+                /*tp_name*/             "IntLike",
+                /*tp_basicsize*/        sizeof(IntLikeObject),
             };
-            static PyNumberMethods foo_as_number;
+            static PyNumberMethods intlike_as_number;
+
+            typedef struct
+            {
+                PyObject_HEAD
+                long ival;
+            } IntLikeObjectNoOp;
+
+            PyTypeObject IntLike_Type_NoOp = {
+                PyObject_HEAD_INIT(0)
+                /*ob_size*/             0,
+                /*tp_name*/             "IntLikeNoOp",
+                /*tp_basicsize*/        sizeof(IntLikeObjectNoOp),
+            };
             """)
-        a = module.new_obj()
-        b = module.new_obj() 
+        a = module.newInt(1)
+        b = module.newInt(2)
         c = 3
-        assert (a + b) == 42 
-        raises(TypeError, "b + c")
+        d = module.newIntNoOp(4)
+        assert (a + b) == 3
+        assert (b + c) == 5
+        assert (d + a) == 5
 
     def test_tp_new_in_subclass_of_type(self):
         skip("BROKEN")

@@ -353,8 +353,9 @@ class Bookkeeper(object):
         #  * a user-defined bound or unbound method object
         #  * a frozen pre-built constant (with _freeze_() == True)
         #  * a bound method of a frozen pre-built constant
+        obj_key = Constant(pyobj)
         try:
-            return self.descs[pyobj]
+            return self.descs[obj_key]
         except KeyError:
             if isinstance(pyobj, types.FunctionType):
                 result = description.FunctionDesc(self, pyobj)
@@ -399,7 +400,7 @@ class Bookkeeper(object):
                         msg = "unexpected prebuilt constant"
                     raise Exception("%s: %r" % (msg, pyobj))
                 result = self.getfrozen(pyobj)
-            self.descs[pyobj] = result
+            self.descs[obj_key] = result
             return result
 
     def getfrozen(self, pyobj):

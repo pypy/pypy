@@ -1,6 +1,5 @@
 
 from rpython.rtyper.test.tool import BaseRtypingTest
-#from rpython.translator.c.test.test_genc import compile
 
 import time, sys
 

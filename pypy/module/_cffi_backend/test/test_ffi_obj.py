@@ -12,6 +12,7 @@ class AppTestFFIObj:
         p = ffi.new("int *")
         p[0] = -42
         assert p[0] == -42
+        assert type(ffi) is ffi.__class__ is _cffi1_backend.FFI
 
     def test_ffi_subclass(self):
         import _cffi_backend as _cffi1_backend
@@ -22,6 +23,7 @@ class AppTestFFIObj:
         assert foo.x == 42
         p = foo.new("int *")
         assert p[0] == 0
+        assert type(foo) is foo.__class__ is FOO
 
     def test_ffi_no_argument(self):
         import _cffi_backend as _cffi1_backend

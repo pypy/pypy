@@ -582,6 +582,8 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_free = base.c_tp_free
         if not pto.c_tp_setattro:
             pto.c_tp_setattro = base.c_tp_setattro
+        if not pto.c_tp_getattro:
+            pto.c_tp_getattro = base.c_tp_getattro
     finally:
         Py_DecRef(space, base_pyo)
 
@@ -651,6 +653,12 @@ def finish_type_2(space, pto, w_obj):
         pto.c_tp_setattro = llhelper(
             PyObject_GenericSetAttr.api_func.functype,
             PyObject_GenericSetAttr.api_func.get_wrapper(space))
+
+    if not pto.c_tp_getattro:
+        from pypy.module.cpyext.object import PyObject_GenericGetAttr
+        pto.c_tp_getattro = llhelper(
+            PyObject_GenericGetAttr.api_func.functype,
+            PyObject_GenericGetAttr.api_func.get_wrapper(space))
 
     if w_obj.is_cpytype():
         Py_DecRef(space, pto.c_tp_dict)

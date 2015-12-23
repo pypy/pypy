@@ -1163,6 +1163,20 @@ _oplist = [
     #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
+    # parameters GC_LOAD
+    # 1: pointer to complex object
+    # 2: integer describing the offset
+    # 3: constant integer. byte size of datatype to load (negative if it is signed)
+    'GC_LOAD/3/rfi',
+    # parameters GC_LOAD_INDEXED
+    # 1: pointer to complex object
+    # 2: integer describing the index
+    # 3: constant integer scale factor
+    # 4: constant integer base offset   (final offset is 'base + scale * index')
+    # 5: constant integer. byte size of datatype to load (negative if it is signed)
+    # (GC_LOAD is equivalent to GC_LOAD_INDEXED with arg3==1, arg4==0)
+    'GC_LOAD_INDEXED/5/rfi',
+
     '_RAW_LOAD_FIRST',
     'GETARRAYITEM_GC/2d/rfi',
     'VEC_GETARRAYITEM_GC/2d/fi',
@@ -1189,6 +1203,12 @@ _oplist = [
     # must be forced, however we need to execute it anyway
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
+    # same paramters as GC_LOAD, but one additional for the value to store
+    # note that the itemsize is not signed!
+    # (gcptr, index, value, [scale, base_offset,] itemsize)
+    'GC_STORE/4d/n',
+    'GC_STORE_INDEXED/6d/n',
+
     'INCREMENT_DEBUG_COUNTER/1/n',
     '_RAW_STORE_FIRST',
     'SETARRAYITEM_GC/3d/n',
@@ -1201,8 +1221,6 @@ _oplist = [
     'SETINTERIORFIELD_GC/3d/n',
     'SETINTERIORFIELD_RAW/3d/n',    # right now, only used by tests
     'SETFIELD_GC/2d/n',
-    'ZERO_PTR_FIELD/2/n', # only emitted by the rewrite, clears a pointer field
-                        # at a given constant offset, no descr
     'ZERO_ARRAY/3d/n',  # only emitted by the rewrite, clears (part of) an array
                         # [arraygcptr, firstindex, length], descr=ArrayDescr
     'SETFIELD_RAW/2d/n',
@@ -1669,6 +1687,26 @@ class OpHelpers(object):
         return (opnum == rop.CALL_RELEASE_GIL_I or
                 opnum == rop.CALL_RELEASE_GIL_F or
                 opnum == rop.CALL_RELEASE_GIL_N)
+
+    @staticmethod
+    def get_gc_load(tp):
+        if tp == 'i':
+            return rop.GC_LOAD_I
+        elif tp == 'f':
+            return rop.GC_LOAD_F
+        else:
+            assert tp == 'r'
+            return rop.GC_LOAD_R
+
+    @staticmethod
+    def get_gc_load_indexed(tp):
+        if tp == 'i':
+            return rop.GC_LOAD_INDEXED_I
+        elif tp == 'f':
+            return rop.GC_LOAD_INDEXED_F
+        else:
+            assert tp == 'r'
+            return rop.GC_LOAD_INDEXED_R
 
     @staticmethod
     def inputarg_from_tp(tp):
