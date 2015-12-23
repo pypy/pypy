@@ -3263,8 +3263,12 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (data[m] == array([[  0.,   1.,   2.,   3.,   4.],
                                   [ 10.,  11.,  12.,  13.,  14.]])).all()
         assert (data[m, 0] == array([  0.,  10.])).all()
+        assert (data[m, 0:1] == array([[0.],  [10.]])).all()
+        assert (data[m, 0:1] == array([[0.],  [10.]])).all()
+        assert (data[..., m, 0:1] == array([[0.],  [10.]])).all()
         # Assume False for missing elements of the bool index array
         assert (data[0, m] == array([ 0.,  2.])).all()
+        assert (data[0, m, None] == array([[0.], [2.]])).all()
 
     def test_dual_indexing_selecting(self):
         from numpy import arange, array
