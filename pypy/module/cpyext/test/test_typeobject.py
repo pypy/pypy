@@ -417,8 +417,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                  PyIntObject *attr1 = obj->ob_type->tp_getattro(obj, name);
                  if (attr1->ob_ival != value->ob_ival)
                  {
-                     printf("attr1->ob_ival = %ld\\n", attr1->ob_ival);
-                     printf("value->ob_ival = %ld\\n", value->ob_ival);
                      PyErr_SetString(PyExc_ValueError,
                                      "tp_getattro returned wrong value");
                      return NULL;
