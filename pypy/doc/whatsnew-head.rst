@@ -95,6 +95,7 @@ Trivial misc cleanups: typo, whitespace, obsolete comments
 
 .. branch: cpyext-slotdefs
 .. branch: fix-missing-canraise
+.. branch: whatsnew
 
 .. branch: fix-2211
 
