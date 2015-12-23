@@ -3285,6 +3285,40 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (data[m, 0] == array([ 9., 12., 3.])).all()
         assert (data[array([1, 3, 4, 1]), 1] == array([4., 10., 13., 4.])).all()
 
+    def test_multiple_advanced_integer_indexing(self):
+        # Taken from:
+        # http://docs.scipy.org/doc/numpy-1.10.0/reference/arrays.indexing.html#advanced-indexing
+        from numpy import array, intp, arange
+        x = arange(12).reshape(4, 3)
+        assert (x == array([[ 0,  1,  2],
+                            [ 3,  4,  5],
+                            [ 6,  7,  8],
+                            [ 9, 10, 11]])).all()
+        rows = array([[0, 0],
+                      [3, 3]], dtype=intp)
+        columns = array([[0, 2],
+                         [0, 2]], dtype=intp)
+        assert (x[(rows, columns)] == array([[ 0,  2], [ 9, 11]])).all()
+        assert (x[1:2, 1:3] == array([[4, 5]])).all()
+        assert (x[1:2, [1, 2]] == array([[4, 5]])).all()
+
+    def test_multiple_advanced_indexing(self):
+        # Taken from:
+        # http://docs.scipy.org/doc/numpy-1.10.0/reference/arrays.indexing.html#advanced-indexing
+        from numpy import array, newaxis
+        x = array([[ 0,  1,  2],
+                   [ 3,  4,  5],
+                   [ 6,  7,  8],
+                   [ 9, 10, 11]])
+        rows = ((x.sum(-1) % 2) == 0)
+        assert (rows == array([False,  True, False,  True], dtype=bool)).all()
+        rows = rows.nonzero()[0]
+        assert (rows == array([1, 3])).all()
+        columns = [0, 2]
+        assert (x[rows[:, newaxis], columns] == array([[ 3,  5], [ 9, 11]])).all()
+        columns = array([0, 2])
+        assert (x[rows[:, newaxis], columns] == array([[ 3,  5], [ 9, 11]])).all()
+
     def test_ravel(self):
         from numpy import arange
         assert (arange(3).ravel() == arange(3)).all()
