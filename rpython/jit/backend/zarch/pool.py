@@ -53,6 +53,10 @@ class LiteralPool(object):
                 self.reserve_literal(8)
             return
         elif opnum == rop.GC_STORE or opnum == rop.GC_STORE_INDEXED:
+            arg = op.getarg(0)
+            if arg.is_constant():
+                self.offset_map[arg] = self.size
+                self.reserve_literal(8)
             arg = op.getarg(2)
             if arg.is_constant():
                 self.offset_map[arg] = self.size
@@ -64,6 +68,10 @@ class LiteralPool(object):
              or opnum in (rop.GC_LOAD_INDEXED_F,
                           rop.GC_LOAD_INDEXED_R,
                           rop.GC_LOAD_INDEXED_I,):
+            arg = op.getarg(0)
+            if arg.is_constant():
+                self.offset_map[arg] = self.size
+                self.reserve_literal(8)
             return
         elif op.is_call_release_gil():
             for arg in op.getarglist()[1:]:
