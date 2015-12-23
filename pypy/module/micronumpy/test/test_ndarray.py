@@ -3405,8 +3405,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from numpy import array
         assert (array([])[[]] == []).all()
         a = array([[1, 2], [3, 4], [5, 6]])
-        assert (a[slice(0, 3), [0, 0]] == [[1, 1], [3, 3], [5, 5]]).all()
-        assert (a[array([0, 2]), slice(0, 2)] == [[1, 2], [5, 6]]).all()
+
         b = a[array([0, 0])]
         assert (b == [[1, 2], [1, 2]]).all()
         assert (a[[[0, 1], [0, 0]]] == array([1, 3])).all()
@@ -3414,6 +3413,12 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a[array([0, 2]), 1] == [2, 6]).all()
         assert (a[array([0, 2]), array([1])] == [2, 6]).all()
 
+    def test_int_array_index_n_slice(self):
+        from numpy import array
+        a = array([[1, 2], [3, 4], [5, 6]])
+        assert (a[slice(0, 3), [0, 0]] == [[1, 1], [3, 3], [5, 5]]).all()
+        assert (a[array([0, 2]), slice(0, 2)] == [[1, 2], [5, 6]]).all()
+        
     def test_int_array_index_setitem(self):
         from numpy import array
         a = array([[1, 2], [3, 4], [5, 6]])
