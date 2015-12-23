@@ -266,7 +266,7 @@ class CallBuilder(AbstractCallBuilder):
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
             self.mc.LG(r.r11, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
             self.mc.LG(r.r11, l.addr(p_errno, r.r11))
-            self.mc.LGHI(r.SCRATCH, 0)
+            self.mc.LGHI(r.SCRATCH, l.imm(0))
             self.mc.STY(r.SCRATCH, l.addr(0,r.r11))
 
     def read_real_errno(self, save_err):

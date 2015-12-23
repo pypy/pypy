@@ -8,6 +8,7 @@ from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch import locations as l
 from rpython.jit.backend.zarch.pool import LiteralPool
 from rpython.jit.backend.zarch.codebuilder import InstrBuilder
+from rpython.jit.backend.zarch.helper.regalloc import check_imm_value
 from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.zarch.regalloc import ZARCHRegisterManager
 from rpython.jit.backend.zarch.arch import (WORD,
@@ -27,6 +28,7 @@ from rpython.rlib.objectmodel import we_are_translated, specialize, compute_uniq
 from rpython.rlib import rgc
 from rpython.rlib.longlong2float import float2longlong
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
+from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
 
 class AssemblerZARCH(BaseAssembler, OpAssembler):
@@ -94,20 +96,18 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             self._push_fp_regs_to_jitframe(mc)
 
         if exc:
-            pass # TODO
-            #xxx
-            ## We might have an exception pending.
-            #mc.load_imm(r.r2, self.cpu.pos_exc_value())
-            ## Copy it into 'jf_guard_exc'
-            #offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
-            #mc.load(r.r0.value, r.r2.value, 0)
-            #mc.store(r.r0.value, r.SPP.value, offset)
-            ## Zero out the exception fields
-            #diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
-            #assert _check_imm_arg(diff)
-            #mc.li(r.r0.value, 0)
-            #mc.store(r.r0.value, r.r2.value, 0)
-            #mc.store(r.r0.value, r.r2.value, diff)
+            # We might have an exception pending.
+            mc.load_imm(r.SCRATCH, self.cpu.pos_exc_value())
+            # Copy it into 'jf_guard_exc'
+            offset = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            mc.LG(r.SCRATCH2, l.addr(0, r.SCRATCH))
+            mc.STG(r.SCRATCH2, l.addr(offset, r.SPP))
+            # Zero out the exception fields
+            diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
+            assert check_imm_value(diff)
+            mc.LGHI(r.SCRATCH2, l.imm(0))
+            mc.STG(r.SCRATCH2, l.addr(0, r.SCRATCH))
+            mc.STG(r.SCRATCH2, l.addr(diff, r.SCRATCH))
 
         # now we return from the complete frame, which starts from
         # _call_header_with_stack_check().  The _call_footer below does it.
@@ -262,6 +262,28 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         else:
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
+    def _store_and_reset_exception(self, mc, excvalloc, exctploc=None):
+        """Reset the exception, after fetching it inside the two regs.
+        """
+        mc.load_imm(r.SCRATCH, self.cpu.pos_exc_value())
+        diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
+        assert check_imm_value(diff)
+        # Load the exception fields into the two registers
+        mc.LG(excvalloc, l.addr(0,r.SCRATCH))
+        if exctploc is not None:
+            mc.LG(exctploc, l.addr(diff, r.SCRATCH))
+        # Zero out the exception fields
+        mc.LGHI(r.SCRATCH2, l.imm(0))
+        mc.STG(r.SCRATCH2, l.addr(0, r.SCRATCH))
+        mc.STG(r.SCRATCH2, l.addr(diff, r.SCRATCH))
+
+    def _restore_exception(self, mc, excvalloc, exctploc):
+        mc.load_imm(r.SCRATCH, self.cpu.pos_exc_value())
+        diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
+        assert check_imm_value(diff)
+        # Store the exception fields from the two registers
+        mc.STG(excvalloc, l.addr(0, r.SCRATCH))
+        mc.STG(exctploc,  l.addr(diff, r.SCRATCH))
 
     def build_frame_realloc_slowpath(self):
         # this code should do the following steps
@@ -328,7 +350,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if not self.cpu.propagate_exception_descr:
             return
 
-        self.mc = PPCBuilder()
+        self.mc = InstrBuilder()
         #
         # read and reset the current exception
 
@@ -338,9 +360,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         ofs4 = self.cpu.get_ofs_of_frame_field('jf_descr')
 
         self._store_and_reset_exception(self.mc, r.r3)
-        self.mc.load_imm(r.r4, propagate_exception_descr)
-        self.mc.std(r.r3.value, r.SPP.value, ofs3)
-        self.mc.std(r.r4.value, r.SPP.value, ofs4)
+        self.mc.load_imm(r.r3, propagate_exception_descr)
+        self.mc.STG(r.r2, l.addr(ofs3, r.SPP))
+        self.mc.STG(r.r3, l.addr(ofs4, r.SPP))
         #
         self._call_footer()
         rawstart = self.mc.materialize(self.cpu, [])
@@ -381,9 +403,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if supports_floats:
             self._push_fp_regs_to_jitframe(mc)
 
-        # Save away the LR inside r30
-        # TODO ? mc.mflr(r.RCS1.value)
-
         # allocate a stack frame!
         mc.STG(r.SP, l.addr(-STD_FRAME_SIZE_IN_BYTES, r.SP)) # store the backchain
         mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
@@ -396,7 +415,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # Finish
         self._reload_frame_if_necessary(mc)
 
-        # TODO ? mc.mtlr(r.RCS1.value)     # restore LR
         self._pop_core_regs_from_jitframe(mc, saved_regs + [r.r14])
         if supports_floats:
             self._pop_fp_regs_from_jitframe(mc)
@@ -420,7 +438,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         else:
             endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
             diff = lengthaddr - endaddr
-            assert _check_imm_arg(diff)
+            assert check_imm_value(diff)
 
             mc = self.mc
             mc.load_imm(r.SCRATCH, self.stack_check_slowpath)
@@ -611,11 +629,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # if self.propagate_exception_path == 0 (tests), this may jump to 0
         # and segfaults.  too bad.  the alternative is to continue anyway
         # with r3==0, but that will segfault too.
-        if False:
-            # TODO !!
-            xxx
-            self.mc.cmp_op(0, r.r3.value, 0, imm=True)
-            self.mc.b_cond_abs(self.propagate_exception_path, c.EQ)
+        self.mc.cmp_op(r.r2, l.imm(0), imm=True)
+        self.mc.load_imm(r.RETURN, self.propagate_exception_path)
+        self.mc.BCR(c.EQ, r.RETURN)
 
     def regalloc_push(self, loc, already_pushed):
         """Pushes the value stored in loc to the stack
