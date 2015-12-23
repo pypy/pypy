@@ -3406,8 +3406,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (array([])[[]] == []).all()
         a = array([[1, 2], [3, 4], [5, 6]])
 
+        assert (a[[0, 0]] == [[1, 2], [1, 2]]).all()
         assert (a[array([0, 0])] == [[1, 2], [1, 2]]).all()
+        assert (a[array([0, 0]), 0] == [[1, 1]]).all()
+        assert (a[array([0, 0]), [0]] == [[1, 1]]).all()
+        assert (a[array([0, 0]), array([0])] == [[1, 1]]).all()
+
         assert (a[[[0, 1], [0, 0]]] == array([1, 3])).all()
+
         assert (a[array([0, 2])] == [[1, 2], [5, 6]]).all()
         assert (a[array([0, 2]), 1] == [2, 6]).all()
         assert (a[array([0, 2]), array([1])] == [2, 6]).all()
