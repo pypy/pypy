@@ -8,6 +8,7 @@ from rpython.jit.backend.zarch.helper.assembler import (gen_emit_cmp_op,
 from rpython.jit.backend.zarch.helper.regalloc import (check_imm,
         check_imm_value)
 from rpython.jit.backend.zarch.codebuilder import ZARCHGuardToken, InstrBuilder
+from rpython.jit.backend.llsupport import symbolic, jitframe
 import rpython.jit.backend.zarch.conditions as c
 import rpython.jit.backend.zarch.registers as r
 import rpython.jit.backend.zarch.locations as l
@@ -832,6 +833,64 @@ class MemoryOpAssembler(object):
     def _mem_offset_supported(self, value):
         return -2**19 <= value < 2**19
 
+    def emit_copystrcontent(self, op, arglocs, regalloc):
+        self._emit_copycontent(arglocs, is_unicode=False)
+
+    def emit_copyunicodecontent(self, op, arglocs, regalloc):
+        self._emit_copycontent(arglocs, is_unicode=True)
+
+    def _emit_load_for_copycontent(self, dst, src_ptr, src_ofs, scale):
+        if src_ofs.is_imm():
+            value = src_ofs.value << scale
+            if check_imm_value(value):
+                self.mc.LGR(dst, src_ptr)
+                self.mc.AGHI(dst, l.imm(value))
+            else:
+                self.mc.load_imm(dst, value)
+                self.mc.AGR(dst, src_ptr)
+        elif scale == 0:
+            self.mc.AGR(dst, src_ptr)
+            self.mc.AGR(dst, src_ofs)
+        else:
+            self.mc.SLAG(dst, src_ofs, l.add(scale))
+            self.mc.AGR(dst, src_ptr)
+
+    def _emit_copycontent(self, arglocs, is_unicode):
+        [src_ptr_loc, dst_ptr_loc,
+         src_ofs_loc, dst_ofs_loc, length_loc] = arglocs
+
+        if is_unicode:
+            basesize, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
+                                        self.cpu.translate_support_code)
+            if   itemsize == 2: scale = 1
+            elif itemsize == 4: scale = 2
+            else: raise AssertionError
+        else:
+            basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
+                                        self.cpu.translate_support_code)
+            assert itemsize == 1
+            scale = 0
+
+        self._emit_load_for_copycontent(r.r0, src_ptr_loc, src_ofs_loc, scale)
+        self._emit_load_for_copycontent(r.r2, dst_ptr_loc, dst_ofs_loc, scale)
+
+        if length_loc.is_imm():
+            length = length_loc.getint()
+            self.mc.load_imm(r.r4, length << scale)
+        else:
+            if scale > 0:
+                self.mc.sldi(r.r4.value, length_loc.value, scale)
+            elif length_loc is not r.r5:
+                self.mc.LGR(r.r4, length_loc)
+
+        self.mc.LGR(r.r3, r.r0)
+        self.mc.AGHI(r.r3, l.imm(basesize))
+        self.mc.AGHI(r.r2, l.imm(basesize))
+
+        self.mc.load_imm(self.mc.RAW_CALL_REG, self.memcpy_addr)
+        self.mc.raw_call()
+
+
 class ForceOpAssembler(object):
     _mixin_ = True
 
@@ -928,7 +987,6 @@ class ForceOpAssembler(object):
         mc.load_imm(r.SCRATCH, target)
         mc.BCR(c.ANY, r.SCRATCH)
         mc.copy_to_raw_memory(oldadr)
-
 
 
 class MiscOpAssembler(object):

@@ -1009,6 +1009,18 @@ class Regalloc(BaseRegalloc):
         locs = self._prepare_guard(op)
         return locs
 
+    def prepare_copystrcontent(self, op):
+        src_ptr_loc = self.ensure_reg(op.getarg(0))
+        dst_ptr_loc = self.ensure_reg(op.getarg(1))
+        src_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(2))
+        dst_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(3))
+        length_loc  = self.ensure_reg_or_any_imm(op.getarg(4))
+        self._spill_before_call(save_all_regs=False)
+        return [src_ptr_loc, dst_ptr_loc,
+                src_ofs_loc, dst_ofs_loc, length_loc]
+
+    prepare_copyunicodecontent = prepare_copystrcontent
+
     def prepare_label(self, op):
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
