@@ -849,10 +849,10 @@ class MemoryOpAssembler(object):
                 self.mc.load_imm(dst, value)
                 self.mc.AGR(dst, src_ptr)
         elif scale == 0:
-            self.mc.AGR(dst, src_ptr)
+            self.mc.LGR(dst, src_ptr)
             self.mc.AGR(dst, src_ofs)
         else:
-            self.mc.SLAG(dst, src_ofs, l.add(scale))
+            self.mc.SLAG(dst, src_ofs, l.addr(scale))
             self.mc.AGR(dst, src_ptr)
 
     def _emit_copycontent(self, arglocs, is_unicode):
@@ -879,16 +879,18 @@ class MemoryOpAssembler(object):
             self.mc.load_imm(r.r4, length << scale)
         else:
             if scale > 0:
-                self.mc.sldi(r.r4.value, length_loc.value, scale)
-            elif length_loc is not r.r5:
+                self.mc.SLAG(r.r4, length_loc, l.addr(scale))
+            elif length_loc is not r.r4:
                 self.mc.LGR(r.r4, length_loc)
 
         self.mc.LGR(r.r3, r.r0)
         self.mc.AGHI(r.r3, l.imm(basesize))
         self.mc.AGHI(r.r2, l.imm(basesize))
 
+        self.mc.alloc_std_frame()
         self.mc.load_imm(self.mc.RAW_CALL_REG, self.memcpy_addr)
         self.mc.raw_call()
+        self.mc.restore_std_frame()
 
 
 class ForceOpAssembler(object):

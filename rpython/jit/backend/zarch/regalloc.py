@@ -1010,8 +1010,8 @@ class Regalloc(BaseRegalloc):
         return locs
 
     def prepare_copystrcontent(self, op):
-        src_ptr_loc = self.ensure_reg(op.getarg(0))
-        dst_ptr_loc = self.ensure_reg(op.getarg(1))
+        src_ptr_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        dst_ptr_loc = self.ensure_reg(op.getarg(1), force_in_reg=True)
         src_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(2))
         dst_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(3))
         length_loc  = self.ensure_reg_or_any_imm(op.getarg(4))

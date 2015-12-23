@@ -1,6 +1,7 @@
 from rpython.jit.backend.zarch import conditions as c
 from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch import locations as l
+from rpython.jit.backend.zarch.arch import STD_FRAME_SIZE_IN_BYTES
 from rpython.jit.backend.zarch.instruction_builder import build_instr_codes
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.jit.backend.llsupport.assembler import GuardToken
@@ -185,6 +186,13 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         the address of a three-words descriptor.
         """
         self.BASR(r.RETURN, call_reg)
+
+    def alloc_std_frame(self):
+        self.STG(r.SP, l.addr(-STD_FRAME_SIZE_IN_BYTES, r.SP))
+        self.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
+
+    def restore_std_frame(self):
+        self.AGHI(r.SP, l.imm(STD_FRAME_SIZE_IN_BYTES))
 
 class OverwritingBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def __init__(self, mc, start, num_insts=0):
