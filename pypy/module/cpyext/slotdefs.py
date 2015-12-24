@@ -4,7 +4,8 @@ import re
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES)
+    cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES,
+    CANNOT_FAIL)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
@@ -386,7 +387,7 @@ def build_slot_tp_function(space, typedef, name):
             return
 
         @cpython_api([PyObject, PyObject], PyObject,
-                     error=lltype.nullptr(rffi.VOIDP.TO), external=True)
+                     error=CANNOT_FAIL, external=True)
         @func_renamer("cpyext_tp_getattro_%s" % (typedef.name,))
         def slot_tp_getattro(space, w_self, w_name):
             return space.call_function(getattr_fn, w_self, w_name)
