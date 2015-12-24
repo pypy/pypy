@@ -385,11 +385,52 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                      PyErr_SetString(PyExc_ValueError, "recursive tp_setattro");
                      return NULL;
                  }
+                 if (!args->ob_type->tp_getattro)
+                 {
+                     PyErr_SetString(PyExc_ValueError, "missing tp_getattro");
+                     return NULL;
+                 }
+                 if (args->ob_type->tp_getattro ==
+                     args->ob_type->tp_base->tp_getattro)
+                 {
+                     PyErr_SetString(PyExc_ValueError, "recursive tp_getattro");
+                     return NULL;
+                 }
                  Py_RETURN_TRUE;
              '''
              )
             ])
         assert module.test_type(type(None))
+
+    def test_tp_getattro(self):
+        module = self.import_extension('foo', [
+            ("test_tp_getattro", "METH_VARARGS",
+             '''
+                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                 PyIntObject *value = PyTuple_GET_ITEM(args, 1);
+                 if (!obj->ob_type->tp_getattro)
+                 {
+                     PyErr_SetString(PyExc_ValueError, "missing tp_getattro");
+                     return NULL;
+                 }
+                 PyObject *name = PyString_FromString("attr1");
+                 PyIntObject *attr1 = obj->ob_type->tp_getattro(obj, name);
+                 if (attr1->ob_ival != value->ob_ival)
+                 {
+                     PyErr_SetString(PyExc_ValueError,
+                                     "tp_getattro returned wrong value");
+                     return NULL;
+                 }
+                 Py_DECREF(name);
+                 Py_DECREF(attr1);
+                 Py_RETURN_TRUE;
+             '''
+             )
+            ])
+        class C:
+            def __init__(self):
+                self.attr1 = 123
+        assert module.test_tp_getattro(C(), 123)
 
     def test_nb_int(self):
         module = self.import_extension('foo', [
