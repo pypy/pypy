@@ -1039,7 +1039,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
         size_box = op.getarg(3)
         assert isinstance(size_box, ConstInt)
-        size = abs(size_box.value)
+        size = size_box.value
+        assert size >= 1
         if size == 1:
             need_lower_byte = True
         else:
@@ -1061,7 +1062,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         assert isinstance(size_box, ConstInt)
         factor = scale_box.value
         offset = offset_box.value
-        size = abs(size_box.value)
+        size = size_box.value
+        assert size >= 1
         if size == 1:
             need_lower_byte = True
         else:
