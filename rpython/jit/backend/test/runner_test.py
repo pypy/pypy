@@ -4986,67 +4986,21 @@ class LLtypeBackendTest(BaseBackendTest):
                                    [boxfloat(12.5)], 'int')
         assert res == struct.unpack("I", struct.pack("f", 12.5))[0]
 
-    def test_zero_ptr_field(self):
-        if not isinstance(self.cpu, AbstractLLCPU):
-            py.test.skip("llgraph can't do zero_ptr_field")
-        T = lltype.GcStruct('T')
-        S = lltype.GcStruct('S', ('x', lltype.Ptr(T)))
-        tdescr = self.cpu.sizeof(T)
-        sdescr = self.cpu.sizeof(S)
-        fielddescr = self.cpu.fielddescrof(S, 'x')
-        loop = parse("""
-        []
-        p0 = new(descr=tdescr)
-        p1 = new(descr=sdescr)
-        setfield_gc(p1, p0, descr=fielddescr)
-        zero_ptr_field(p1, %d)
-        finish(p1)
-        """ % fielddescr.offset, namespace=locals())
-        looptoken = JitCellToken()
-        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        deadframe = self.cpu.execute_token(looptoken)
-        ref = self.cpu.get_ref_value(deadframe, 0)
-        s = lltype.cast_opaque_ptr(lltype.Ptr(S), ref)
-        assert not s.x
-
-    def test_zero_ptr_field_2(self):
-        if not isinstance(self.cpu, AbstractLLCPU):
-            py.test.skip("llgraph does not do zero_ptr_field")
-
-        from rpython.jit.backend.llsupport import symbolic
-        S = lltype.GcStruct('S', ('x', lltype.Signed),
-                                 ('p', llmemory.GCREF),
-                                 ('y', lltype.Signed))
-        s = lltype.malloc(S)
-        s.x = -1296321
-        s.y = -4398176
-        s_ref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
-        s.p = s_ref
-        ofs_p, _ = symbolic.get_field_token(S, 'p', False)
-        #
-        self.execute_operation(rop.ZERO_PTR_FIELD, [
-            InputArgRef(s_ref), ConstInt(ofs_p)],   # OK for now to assume that the
-            'void')                            # 2nd argument is a constant
-        #
-        assert s.x == -1296321
-        assert s.p == lltype.nullptr(llmemory.GCREF.TO)
-        assert s.y == -4398176
-
     def test_zero_array(self):
         if not isinstance(self.cpu, AbstractLLCPU):
             py.test.skip("llgraph does not do zero_array")
 
         PAIR = lltype.Struct('PAIR', ('a', lltype.Signed), ('b', lltype.Signed))
-        for OF in [lltype.Signed, rffi.INT, rffi.SHORT, rffi.UCHAR, PAIR]:
+        for OF in [rffi.SHORT]: #[lltype.Signed, rffi.INT, rffi.SHORT, rffi.UCHAR, PAIR]:
             A = lltype.GcArray(OF)
             arraydescr = self.cpu.arraydescrof(A)
             a = lltype.malloc(A, 100)
             addr = llmemory.cast_ptr_to_adr(a)
             a_int = heaptracker.adr2int(addr)
             a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
-            for (start, length) in [(0, 100), (49, 49), (1, 98),
-                                    (15, 9), (10, 10), (47, 0),
-                                    (0, 4)]:
+            for (start, length) in [(0,100), (49, 49)]:#, (1, 98),
+                                    #(15, 9), (10, 10), (47, 0),
+                                    #(0, 4)]:
                 for cls1 in [ConstInt, InputArgInt]:
                     for cls2 in [ConstInt, InputArgInt]:
                         print 'a_int:', a_int
@@ -5068,14 +5022,25 @@ class LLtypeBackendTest(BaseBackendTest):
                             ops.append(op)
                         helper = GcRewriterAssembler(None, self.cpu)
                         helper.emit_op = emit
-                        scale_start, v_start = helper._emit_mul_if_factor_not_supported(startbox, scale)
-                        scale_len, v_len = helper._emit_mul_if_factor_not_supported(lengthbox, scale)
-                        assert scale_start == scale_len
-                        args = [InputArgRef(a_ref), v_start, v_len, ConstInt(scale_start)]
-                        ops.append(ResOperation(rop.ZERO_ARRAY, args, descr=arraydescr))
+                        offset = 0
+                        scale_start, s_offset, v_start = \
+                                helper._emit_mul_if_factor_offset_not_supported(
+                                        startbox, scale, offset)
+                        if v_start is None:
+                            v_start = ConstInt(s_offset)
+                        scale_len, e_offset, v_len = \
+                                helper._emit_mul_if_factor_offset_not_supported(
+                                        lengthbox, scale, offset)
+                        if v_len is None:
+                            v_len = ConstInt(e_offset)
+                        import pdb; pdb.set_trace()
+                        args = [InputArgRef(a_ref), v_start, v_len,
+                                ConstInt(scale_start), ConstInt(scale_len)]
+                        ops.append(ResOperation(rop.ZERO_ARRAY, args,
+                                                descr=arraydescr))
 
                         scalebox = ConstInt(arraydescr.itemsize)
-                        inputargs, oplist = self._get_operation_list(ops, 'void')
+                        inputargs, oplist = self._get_operation_list(ops,'void')
                         self.execute_operations(inputargs, oplist, 'void')
                         assert len(a) == 100
                         for i in range(100):

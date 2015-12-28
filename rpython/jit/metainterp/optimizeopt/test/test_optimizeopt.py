@@ -6295,6 +6295,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_strunicode_loop(ops, ops, ops)
 
+    def test_str_slice_bug(self):
+        ops = """
+        []
+        p1066 = newstr(8)
+        escape_n(p1066)     # should initialize the string's content
+        p1134 = call_pure_r(0, p1066, 0, 4, descr=strslicedescr)
+        escape_n(p1134)
+        jump()
+        """
+        expected = """
+        []
+        p1 = newstr(8)
+        escape_n(p1)
+        p2 = newstr(4)
+        copystrcontent(p1, p2, 0, 0, 4)
+        escape_n(p2)
+        jump()
+        """
+        self.optimize_strunicode_loop(ops, expected, expected)
+
     # XXX Should some of the call's below now be call_pure?
 
     def test_str_concat_1(self):
@@ -6431,6 +6451,59 @@ class OptimizeOptTest(BaseTestWithUnroll):
         []
         escape_n(s"abcde")
         jump()
+        """
+        self.optimize_strunicode_loop(ops, expected, expected)
+
+    def test_str_concat_optimize_fully_initialized(self):
+        ops = """
+        [i0, i1]
+        p1 = newstr(2)
+        strsetitem(p1, 0, i0)
+        strsetitem(p1, 1, i1)
+        escape_n(p1)
+        p3 = call_pure_r(0, p1, p1, descr=strconcatdescr)
+        escape_n(p3)
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        p1 = newstr(2)
+        strsetitem(p1, 0, i0)
+        strsetitem(p1, 1, i1)
+        escape_n(p1)
+        p3 = newstr(4)
+        strsetitem(p3, 0, i0)
+        strsetitem(p3, 1, i1)
+        strsetitem(p3, 2, i0)
+        strsetitem(p3, 3, i1)
+        escape_n(p3)
+        jump(i0, i1)
+        """
+        self.optimize_strunicode_loop(ops, expected, expected)
+
+    def test_str_concat_cant_optimize_partialy_uninitialized(self):
+        ops = """
+        [i0]
+        p1 = newstr(2)
+        strsetitem(p1, 0, i0)     # p1[1] is set by the escape below
+        escape_n(p1)
+        p3 = call_pure_r(0, p1, p1, descr=strconcatdescr)
+        escape_n(p3)
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        p1 = newstr(2)
+        strsetitem(p1, 0, i0)
+        escape_n(p1)
+        p3 = newstr(4)
+        strsetitem(p3, 0, i0)
+        i1 = strgetitem(p1, 1)
+        strsetitem(p3, 1, i1)
+        strsetitem(p3, 2, i0)
+        strsetitem(p3, 3, i1)
+        escape_n(p3)
+        jump(i0)
         """
         self.optimize_strunicode_loop(ops, expected, expected)
 

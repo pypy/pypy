@@ -6,8 +6,8 @@ from pypy.objspace.std import StdObjSpace
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.conftest import pypydir
-from rpython.rtyper.module.ll_os import RegisterOs
 from rpython.translator.c.test.test_extfunc import need_sparse_files
+from rpython.rlib import rposix
 import os
 import py
 import sys
@@ -93,6 +93,12 @@ class AppTestPosix:
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
+            if sys.maxsize < 2**32 and not self.runappdirect:
+                # this fails because it uses ll2ctypes to call the posix
+                # functions like 'open' and 'lseek', whereas a real compiled
+                # C program would macro-define them to their longlong versions
+                py.test.skip("emulation of files can't use "
+                             "larger-than-long offsets")
             need_sparse_files()
 
     def test_posix_is_pypy_s(self):
@@ -576,7 +582,7 @@ class AppTestPosix:
         raises(TypeError, "os.utime('xxx', 3)")
         raises(OSError, "os.utime('somefilewhichihopewouldneverappearhere', None)")
 
-    for name in RegisterOs.w_star:
+    for name in rposix.WAIT_MACROS:
         if hasattr(os, name):
             values = [0, 1, 127, 128, 255]
             code = py.code.Source("""

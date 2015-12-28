@@ -1535,16 +1535,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if isinstance(index_loc, ImmedLoc):
             temp_loc = imm(index_loc.value * itemsize)
             shift = 0
-        elif valid_addressing_size(itemsize):
+        else:
+            assert valid_addressing_size(itemsize), "rewrite did not correctly handle shift/mul!"
             temp_loc = index_loc
             shift = get_scale(itemsize)
-        else:
-            assert False, "rewrite did not correctly handle shift mul!"
-            #assert isinstance(index_loc, RegLoc)
-            #assert isinstance(temp_loc, RegLoc)
-            #assert not temp_loc.is_xmm
-            #shift = self._imul_const_scaled(self.mc, temp_loc.value,
-            #                                index_loc.value, itemsize)
         assert isinstance(ofs_loc, ImmedLoc)
         return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
 

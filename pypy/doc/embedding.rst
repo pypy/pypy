@@ -130,8 +130,13 @@ with a command like::
 More complete example
 ---------------------
 
-.. note:: This example depends on pypy_execute_source_ptr which is not available
-          in PyPy <= 2.2.1.
+.. note:: Note that we do not make use of ``extern "Python"``, the new
+   way to do callbacks in CFFI 1.4: this is because these examples use
+   the ABI mode, not the API mode, and with the ABI mode you still have
+   to use ``ffi.callback()``.  It is work in progress to integrate
+   ``extern "Python"`` with the idea of embedding (and it is expected
+   to ultimately lead to a better way to do embedding than the one
+   described here, and that would work equally well on CPython and PyPy).
 
 Typically we need something more to do than simply execute source. The following
 is a fully fledged example, please consult cffi documentation for details.

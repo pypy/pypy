@@ -1,6 +1,6 @@
 from rpython.rlib import rgc
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rarithmetic import ovfcheck, highest_bit
 from rpython.rtyper.lltypesystem import llmemory, lltype, rstr
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
@@ -125,11 +125,12 @@ class GcRewriterAssembler(object):
 
     def emit_gc_store_or_indexed(self, op, ptr_box, index_box, value_box,
                                  itemsize, factor, offset):
-        factor, index_box = \
-                self._emit_mul_if_factor_not_supported(index_box, factor)
+        factor, offset, index_box = \
+                self._emit_mul_if_factor_offset_not_supported(index_box,
+                        factor, offset)
         #
-        if factor == 1 and offset == 0:
-            args = [ptr_box, index_box, value_box, ConstInt(itemsize)]
+        if index_box is None:
+            args = [ptr_box, ConstInt(offset), value_box, ConstInt(itemsize)]
             newload = ResOperation(rop.GC_STORE, args)
         else:
             args = [ptr_box, index_box, value_box, ConstInt(factor),
@@ -152,23 +153,32 @@ class GcRewriterAssembler(object):
         index_box = op.getarg(1)
         self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, 1, ofs, sign)
 
-    def _emit_mul_if_factor_not_supported(self, index_box, factor):
-        orig_factor = factor
-        # factor
-        must_manually_load_const = False
-        if factor != 1 and factor not in self.cpu.load_supported_factors:
-            # enter here if the factor is supported by the cpu
-            if isinstance(index_box, ConstInt):
-                index_box = ConstInt(index_box.value * factor)
-            else:
-                index_box = ResOperation(rop.INT_MUL, [index_box, ConstInt(factor)])
+    def _emit_mul_if_factor_offset_not_supported(self, index_box,
+                                                 factor, offset):
+        # Returns (factor, offset, index_box) where index_box is either
+        # a non-constant BoxInt or None.
+        if isinstance(index_box, ConstInt):
+            return 1, index_box.value * factor + offset, None
+        else:
+            if factor != 1 and factor not in self.cpu.load_supported_factors:
+                # the factor is supported by the cpu
+                # x & (x - 1) == 0 is a quick test for power of 2
+                assert factor > 0
+                if (factor & (factor - 1)) == 0:
+                    index_box = ResOperation(rop.INT_LSHIFT,
+                            [index_box, ConstInt(highest_bit(factor))])
+                else:
+                    index_box = ResOperation(rop.INT_MUL,
+                            [index_box, ConstInt(factor)])
                 self.emit_op(index_box)
-            factor = 1
-        return factor, index_box
+                factor = 1
+            return factor, offset, index_box
 
-    def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize, factor, offset, sign, type='i'):
-        factor, index_box = \
-                self._emit_mul_if_factor_not_supported(index_box, factor)
+    def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize,
+                                factor, offset, sign, type='i'):
+        factor, offset, index_box = \
+                self._emit_mul_if_factor_offset_not_supported(index_box,
+                        factor, offset)
         #
         if sign:
             # encode signed into the itemsize value
@@ -177,8 +187,8 @@ class GcRewriterAssembler(object):
         optype = type
         if op is not None:
             optype = op.type
-        if factor == 1 and offset == 0:
-            args = [ptr_box, index_box, ConstInt(itemsize)]
+        if index_box is None:
+            args = [ptr_box, ConstInt(offset), ConstInt(itemsize)]
             newload = ResOperation(OpHelpers.get_gc_load(optype), args)
         else:
             args = [ptr_box, index_box, ConstInt(factor),
@@ -283,13 +293,6 @@ class GcRewriterAssembler(object):
                                                  self.cpu.translate_support_code)
             self.emit_gc_store_or_indexed(op, op.getarg(0), op.getarg(1), op.getarg(2),
                                          itemsize, itemsize, basesize)
-        elif op.getopnum() == rop.ZERO_PTR_FIELD:
-            ofs = op.getarg(1).getint()
-            size = WORD
-            index_box = ConstInt(0)
-            value_box = ConstInt(0)
-            self.emit_gc_store_or_indexed(op, op.getarg(0), index_box, value_box,
-                                          size, 1, ofs)
         return False
 
 
@@ -519,16 +522,20 @@ class GcRewriterAssembler(object):
             return
         # the ZERO_ARRAY operation will be optimized according to what
         # SETARRAYITEM_GC we see before the next allocation operation.
-        # See emit_pending_zeros().
+        # See emit_pending_zeros().  (This optimization is done by
+        # hacking the object 'o' in-place: e.g., o.getarg(1) may be
+        # replaced with another constant greater than 0.)
+        #o = ResOperation(rop.ZERO_ARRAY, [v_arr, self.c_zero, v_length],
+        #                 descr=arraydescr)
         scale = arraydescr.itemsize
         v_length_scaled = v_length
         if not isinstance(v_length, ConstInt):
-            scale, v_length_scaled = \
-                    self._emit_mul_if_factor_not_supported(v_length, scale)
+            scale, offset, v_length_scaled = \
+                    self._emit_mul_if_factor_offset_not_supported(v_length, scale, 0)
         v_scale = ConstInt(scale)
         # there is probably no point in doing _emit_mul_if.. for
         # c_zero!
-        args = [v_arr, self.c_zero, v_length_scaled, v_scale]
+        args = [v_arr, self.c_zero, v_length_scaled, v_scale, v_scale]
         o = ResOperation(rop.ZERO_ARRAY, args, descr=arraydescr)
         self.emit_op(o)
         if isinstance(v_length, ConstInt):
@@ -540,9 +547,8 @@ class GcRewriterAssembler(object):
             ofs, size, sign = unpack_fielddescr(descrs.jfi_frame_depth)
             if sign:
                 size = -size
-            args = [ConstInt(frame_info), ConstInt(0), ConstInt(1),
-                    ConstInt(ofs), ConstInt(size)]
-            size = ResOperation(rop.GC_LOAD_INDEXED_I, args)
+            args = [ConstInt(frame_info), ConstInt(ofs), ConstInt(size)]
+            size = ResOperation(rop.GC_LOAD_I, args)
             self.emit_op(size)
             frame = ResOperation(rop.NEW_ARRAY, [size],
                                  descr=descrs.arraydescr)
@@ -553,9 +559,8 @@ class GcRewriterAssembler(object):
             ofs, size, sign = unpack_fielddescr(descrs.jfi_frame_size)
             if sign:
                 size = -size
-            args = [ConstInt(frame_info), ConstInt(0), ConstInt(1),
-                    ConstInt(ofs), ConstInt(size)]
-            size = ResOperation(rop.GC_LOAD_INDEXED_I, args)
+            args = [ConstInt(frame_info), ConstInt(ofs), ConstInt(size)]
+            size = ResOperation(rop.GC_LOAD_I, args)
             self.emit_op(size)
             frame = self.gen_malloc_nursery_varsize_frame(size)
             self.gen_initialize_tid(frame, descrs.arraydescr.tid)
@@ -605,14 +610,12 @@ class GcRewriterAssembler(object):
             descr = self.cpu.getarraydescr_for_frame(arg.type)
             assert self.cpu.JITFRAME_FIXED_SIZE & 1 == 0
             _, itemsize, _ = self.cpu.unpack_arraydescr_size(descr)
-            index = index_list[i] // itemsize # index is in bytes
-            # emit GC_LOAD_INDEXED
-            itemsize, basesize, _ = unpack_arraydescr(descr)
-            factor, index_box = \
-                    self._emit_mul_if_factor_not_supported(ConstInt(index), itemsize)
-            args = [frame, index_box, arg, ConstInt(factor),
-                    ConstInt(offset), ConstInt(itemsize)]
-            self.emit_op(ResOperation(rop.GC_STORE_INDEXED, args))
+            array_offset = index_list[i]   # index, already measured in bytes
+            # emit GC_STORE
+            _, basesize, _ = unpack_arraydescr(descr)
+            offset = basesize + array_offset
+            args = [frame, ConstInt(offset), arg, ConstInt(itemsize)]
+            self.emit_op(ResOperation(rop.GC_STORE, args))
 
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
@@ -652,11 +655,16 @@ class GcRewriterAssembler(object):
         for op in self.last_zero_arrays:
             assert op.getopnum() == rop.ZERO_ARRAY
             descr = op.getdescr()
-            scale = arraydescr.itemsize
+            scale = descr.itemsize
             box = op.getarg(0)
             try:
                 intset = self.setarrayitems_occurred(box)
             except KeyError:
+                if isinstance(length_box, ConstInt):
+                    stop = length_box.getint()
+                    scaled_len = stop * scale
+                    op.setarg(2, ConstInt(scaled_len))
+                    op.setarg(3, ConstInt(1))
                 continue
             assert op.getarg(1).getint() == 0   # always 'start=0' initially
             start = 0
@@ -673,7 +681,7 @@ class GcRewriterAssembler(object):
         del self.last_zero_arrays[:]
         self._setarrayitems_occurred.clear()
         #
-        # Then write the ZERO_PTR_FIELDs that are still pending
+        # Then write the NULL-pointer-writing ops that are still pending
         for v, d in self._delayed_zero_setfields.iteritems():
             v = self.get_box_replacement(v)
             for ofs in d.iterkeys():

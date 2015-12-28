@@ -1,6 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.jit import dont_look_inside
-from rpython.rlib.objectmodel import invoke_around_extcall
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib import rposix
@@ -16,20 +15,10 @@ class ReleaseGILTests(BaseFrameworkTests):
     compile_kwds = dict(enable_opts=ALL_OPTS_NAMES, thread=True)
 
     def define_simple(self):
-        class Glob:
-            def __init__(self):
-                self.event = 0
-        glob = Glob()
-        #
-
         c_strchr = rffi.llexternal('strchr', [rffi.CCHARP, lltype.Signed],
                                    rffi.CCHARP)
 
-        def func():
-            glob.event += 1
-
         def before(n, x):
-            invoke_around_extcall(func, func)
             return (n, None, None, None, None, None,
                     None, None, None, None, None, None)
         #
@@ -73,7 +62,8 @@ class ReleaseGILTests(BaseFrameworkTests):
         def f42(n):
             length = len(glob.lst)
             raw = alloc1()
-            fn = llhelper(CALLBACK, rffi._make_wrapper_for(CALLBACK, callback))
+            wrapper = rffi._make_wrapper_for(CALLBACK, callback, None, True)
+            fn = llhelper(CALLBACK, wrapper)
             if n & 1:    # to create a loop and a bridge, and also
                 pass     # to run the qsort() call in the blackhole interp
             c_qsort(rffi.cast(rffi.VOIDP, raw), rffi.cast(rffi.SIZE_T, 2),
