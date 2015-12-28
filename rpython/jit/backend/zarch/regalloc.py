@@ -157,7 +157,9 @@ class ZARCHRegisterManager(RegisterManager):
         self.temp_boxes.append(box)
         return reg
 
-    def ensure_even_odd_pair(self, var, bind_first=True, must_exist=True, load_loc_odd=True):
+    def ensure_even_odd_pair(self, var, bind_first=True,
+                             must_exist=True, load_loc_odd=True,
+                             move_regs=True):
         self._check_type(var)
         prev_loc = self.loc(var, must_exist=must_exist)
         var2 = TempVar()
@@ -169,7 +171,7 @@ class ZARCHRegisterManager(RegisterManager):
         else:
             loc, loc2 = self.force_allocate_reg_pair(var2, var, self.temp_boxes)
         assert loc.is_even() and loc2.is_odd()
-        if prev_loc is not loc2:
+        if move_regs and prev_loc is not loc2:
             if load_loc_odd:
                 self.assembler.regalloc_mov(prev_loc, loc2)
             else:
@@ -910,12 +912,14 @@ class Regalloc(BaseRegalloc):
               bind_first=True, must_exist=False, load_loc_odd=False)
         tempvar = TempInt()
         self.rm.temp_boxes.append(tempvar)
-        pad_byte, _ = self.rm.ensure_even_odd_pair(tempvar, bind_first=True, must_exist=False)
+        pad_byte, _ = self.rm.ensure_even_odd_pair(tempvar,
+                              bind_first=True, must_exist=False, move_regs=False)
         startindex_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
 
         length_box = op.getarg(2)
-        length_loc = self.rm.ensure_reg(length_box, force_in_reg=True,
-                                        selected_reg=length_loc)
+        ll = self.rm.loc(length_box)
+        if length_loc is not ll:
+            self.assembler.regalloc_mov(ll, length_loc)
         ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
         return [base_loc, startindex_loc, length_loc, ofs_loc, imm(itemsize), pad_byte]
 

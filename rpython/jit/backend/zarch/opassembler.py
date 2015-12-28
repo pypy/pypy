@@ -900,7 +900,7 @@ class MemoryOpAssembler(object):
             self.mc.AGHI(base_loc, ofs_loc)
         else:
             self.mc.AGR(base_loc, ofs_loc)
-        if ofs_loc.is_imm():
+        if startindex_loc.is_imm():
             self.mc.AGHI(base_loc, startindex_loc)
         else:
             self.mc.AGR(base_loc, startindex_loc)
