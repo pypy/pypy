@@ -901,6 +901,14 @@ class Regalloc(BaseRegalloc):
         else:
             return self._prepare_call_default(op)
 
+    def prepare_zero_array(self, op):
+        itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
+        base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        startindex_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
+        length_loc = self.ensure_reg_or_16bit_imm(op.getarg(2))
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
+        return [base_loc, startindex_loc, length_loc, ofs_loc, imm(itemsize)]
+
     def prepare_cond_call(self, op):
         self.load_condition_into_cc(op.getarg(0))
         locs = []
