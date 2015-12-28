@@ -3321,6 +3321,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         columns = array([0, 2])
         assert (x[rows[:, newaxis], columns] == array([[ 3,  5], [ 9, 11]])).all()
 
+    def test_issue_1717(self):
+        from numpy import array
+        a = array((1, 5)).reshape(2,1)
+        assert (a == array([[1], [5]])).all()
+        a[0, array([True], dtype=bool)] = 100
+        assert (a == array([[100], [5]])).all()
+
     def test_ravel(self):
         from numpy import arange
         assert (arange(3).ravel() == arange(3)).all()
