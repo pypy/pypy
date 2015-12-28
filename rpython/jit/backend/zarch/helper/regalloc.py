@@ -77,7 +77,7 @@ def generate_div_mod(modulus):
         return [lr, lq, l1]
     return f
 
-prepare_int_div= generate_div_mod(False)
+prepare_int_div = generate_div_mod(False)
 prepare_int_mod = generate_div_mod(True)
 
 def prepare_int_sub(self, op):

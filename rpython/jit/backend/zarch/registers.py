@@ -37,3 +37,7 @@ for _r in fpregisters:
     ALL_REG_INDEXES[_r] = len(ALL_REG_INDEXES)
 JITFRAME_FIXED_SIZE = len(ALL_REG_INDEXES)
 assert JITFRAME_FIXED_SIZE == 32
+
+def odd_reg(r):
+    assert r.value % 2 == 0
+    return registers[r.value+1]

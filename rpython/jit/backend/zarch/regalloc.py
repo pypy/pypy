@@ -132,21 +132,23 @@ class ZARCHRegisterManager(RegisterManager):
         off = self.pool.get_offset(c)
         return l.pool(off)
 
-    def ensure_reg(self, box, force_in_reg):
+    def ensure_reg(self, box, force_in_reg, selected_reg=None):
         if isinstance(box, Const):
             offset = self.assembler.pool.get_descr_offset(box)
             poolloc = l.pool(offset)
             if force_in_reg:
-                tmp = TempVar()
-                self.temp_boxes.append(tmp)
-                reg = self.force_allocate_reg(tmp)
-                self.assembler.mc.LG(reg, poolloc)
-                return reg
+                if selected_reg is None:
+                    tmp = TempVar()
+                    self.temp_boxes.append(tmp)
+                    selected_reg = self.force_allocate_reg(tmp)
+                self.assembler.mc.LG(selected_reg, poolloc)
+                return selected_reg
             return poolloc
         else:
             assert box in self.temp_boxes
             loc = self.make_sure_var_in_reg(box,
-                    forbidden_vars=self.temp_boxes)
+                    forbidden_vars=self.temp_boxes,
+                    selected_reg=selected_reg)
         return loc
 
     def get_scratch_reg(self):
@@ -155,7 +157,7 @@ class ZARCHRegisterManager(RegisterManager):
         self.temp_boxes.append(box)
         return reg
 
-    def ensure_even_odd_pair(self, var, bind_first=True, must_exist=True):
+    def ensure_even_odd_pair(self, var, bind_first=True, must_exist=True, load_loc_odd=True):
         self._check_type(var)
         prev_loc = self.loc(var, must_exist=must_exist)
         var2 = TempVar()
@@ -168,9 +170,10 @@ class ZARCHRegisterManager(RegisterManager):
             loc, loc2 = self.force_allocate_reg_pair(var2, var, self.temp_boxes)
         assert loc.is_even() and loc2.is_odd()
         if prev_loc is not loc2:
-            # TODO is this true for each op?
-            # works for division -> if not parametrize
-            self.assembler.regalloc_mov(prev_loc, loc2)
+            if load_loc_odd:
+                self.assembler.regalloc_mov(prev_loc, loc2)
+            else:
+                self.assembler.regalloc_mov(prev_loc, loc)
         return loc, loc2
 
     def force_allocate_reg_pair(self, var, var2, forbidden_vars=[], selected_reg=None):
@@ -903,11 +906,18 @@ class Regalloc(BaseRegalloc):
 
     def prepare_zero_array(self, op):
         itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
-        base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        base_loc, length_loc = self.rm.ensure_even_odd_pair(op.getarg(0),
+              bind_first=True, must_exist=False, load_loc_odd=False)
+        tempvar = TempInt()
+        self.rm.temp_boxes.append(tempvar)
+        pad_byte, _ = self.rm.ensure_even_odd_pair(tempvar, bind_first=True, must_exist=False)
         startindex_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
-        length_loc = self.ensure_reg_or_16bit_imm(op.getarg(2))
+
+        length_box = op.getarg(2)
+        length_loc = self.rm.ensure_reg(length_box, force_in_reg=True,
+                                        selected_reg=length_loc)
         ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
-        return [base_loc, startindex_loc, length_loc, ofs_loc, imm(itemsize)]
+        return [base_loc, startindex_loc, length_loc, ofs_loc, imm(itemsize), pad_byte]
 
     def prepare_cond_call(self, op):
         self.load_condition_into_cc(op.getarg(0))

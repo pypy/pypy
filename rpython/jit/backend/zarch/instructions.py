@@ -129,6 +129,10 @@ memory_mnemonic_codes = {
     'LA':      ('rx',    ['\x41']),
     'LAY':     ('rxy',   ['\xE3','\x71']),
 
+    # move
+    'MVCLE':   ('rs',    ['\xA8']),
+
+
     # load memory
     'LMD':     ('sse',   ['\xEF']),
     'LMG':     ('rsy_a', ['\xEB','\x04']),

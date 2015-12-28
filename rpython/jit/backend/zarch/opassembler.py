@@ -893,79 +893,31 @@ class MemoryOpAssembler(object):
         self.mc.restore_std_frame()
 
     def emit_zero_array(self, op, arglocs, regalloc):
-        base_loc, startindex_loc, length_loc, ofs_loc, itemsize_loc = arglocs
+        base_loc, startindex_loc, length_loc, \
+            ofs_loc, itemsize_loc, pad_byte_loc = arglocs
 
-        # assume that an array where an item size is N:
-        # * if N is even, then all items are aligned to a multiple of 2
-        # * if N % 4 == 0, then all items are aligned to a multiple of 4
-        # * if N % 8 == 0, then all items are aligned to a multiple of 8
-        itemsize = itemsize_loc.getint()
-        if itemsize & 1:   stepsize = 1
-        elif itemsize & 2: stepsize = 2
-        elif itemsize & 4: stepsize = 4
-        else:              stepsize = WORD
-
-        repeat_factor = itemsize // stepsize
-        if repeat_factor != 1:
-            # This is only for itemsize not in (1, 2, 4, WORD).
-            # Include the repeat_factor inside length_loc if it is a constant
-            if length_loc.is_imm():
-                length_loc = imm(length_loc.value * repeat_factor)
-                repeat_factor = 1     # included
-
-        unroll = -1
-        if length_loc.is_imm():
-            if length_loc.value <= 8:
-                unroll = length_loc.value
-                if unroll <= 0:
-                    return     # nothing to do
-
-        ofs_loc = self._apply_scale(ofs_loc, startindex_loc, itemsize_loc)
-        ofs_loc = self._copy_in_scratch2(ofs_loc)
-
-        if unroll > 0:
-            assert repeat_factor == 1
-            self.mc.li(r.SCRATCH.value, 0)
-            self.eza_stXux(r.SCRATCH.value, ofs_loc.value, base_loc.value,
-                           itemsize)
-            for i in range(1, unroll):
-                self.eza_stX(r.SCRATCH.value, ofs_loc.value, i * stepsize,
-                             itemsize)
-
+        if ofs_loc.is_imm():
+            self.mc.AGHI(base_loc, ofs_loc)
         else:
-            if length_loc.is_imm():
-                self.mc.load_imm(r.SCRATCH, length_loc.value)
-                length_loc = r.SCRATCH
-                jz_location = -1
-                assert repeat_factor == 1
-            else:
-                self.mc.cmp_op(0, length_loc.value, 0, imm=True)
-                jz_location = self.mc.currpos()
-                self.mc.trap()
-                length_loc = self._multiply_by_constant(length_loc,
-                                                        repeat_factor,
-                                                        r.SCRATCH)
-            self.mc.mtctr(length_loc.value)
-            self.mc.li(r.SCRATCH.value, 0)
-
-            self.eza_stXux(r.SCRATCH.value, ofs_loc.value, base_loc.value,
-                           itemsize)
-            bdz_location = self.mc.currpos()
-            self.mc.trap()
-
-            loop_location = self.mc.currpos()
-            self.eza_stXu(r.SCRATCH.value, ofs_loc.value, stepsize,
-                          itemsize)
-            self.mc.bdnz(loop_location - self.mc.currpos())
-
-            pmc = OverwritingBuilder(self.mc, bdz_location, 1)
-            pmc.bdz(self.mc.currpos() - bdz_location)
-            pmc.overwrite()
-
-            if jz_location != -1:
-                pmc = OverwritingBuilder(self.mc, jz_location, 1)
-                pmc.ble(self.mc.currpos() - jz_location)    # !GT
-                pmc.overwrite()
+            self.mc.AGR(base_loc, ofs_loc)
+        if ofs_loc.is_imm():
+            self.mc.AGHI(base_loc, startindex_loc)
+        else:
+            self.mc.AGR(base_loc, startindex_loc)
+        assert not length_loc.is_imm()
+        self.mc.SGR(pad_byte_loc, pad_byte_loc)
+        pad_byte_plus_one = r.odd_reg(pad_byte_loc)
+        self.mc.SGR(pad_byte_plus_one, pad_byte_plus_one)
+        self.mc.XGR(r.SCRATCH, r.SCRATCH)
+        # s390x has memset directly as a hardware instruction!!
+        # it needs 5 registers allocated
+        # dst = rX, length = rX+1 (ensured by the regalloc)
+        # pad_byte is rY to rY+1
+        # scratch register holds the value written to dst
+        assert pad_byte_loc.is_even()
+        assert base_loc.is_even()
+        assert length_loc.value == base_loc.value + 1
+        self.mc.MVCLE(base_loc, pad_byte_loc, l.addr(0, r.SCRATCH))
 
 
 class ForceOpAssembler(object):

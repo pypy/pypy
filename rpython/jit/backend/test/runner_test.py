@@ -5005,11 +5005,12 @@ class LLtypeBackendTest(BaseBackendTest):
             addr = llmemory.cast_ptr_to_adr(a)
             a_int = heaptracker.adr2int(addr)
             a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
-            for (start, length) in [(0,100), (49, 49), (1, 98),
-                                    (15, 9), (10, 10), (47, 0),
-                                    (0, 4)]:
+            for (start, length) in [(0,100)]:#3, (49, 49), (1, 98),
+                                    #(15, 9), (10, 10), (47, 0),
+                                    #(0, 4)]:
                 for cls1 in [ConstInt, InputArgInt]:
-                    for cls2 in [ConstInt, InputArgInt]:
+                    for cls2 in [ConstInt]:#[ConstInt, InputArgInt]:
+                        print 'a_ref:', a_ref
                         print 'a_int:', a_int
                         print 'of:', OF
                         print 'start:', cls1.__name__, start
