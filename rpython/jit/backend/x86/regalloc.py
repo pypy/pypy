@@ -1415,7 +1415,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 null_loc = self.xrm.force_allocate_reg(null_box)
                 self.xrm.possibly_free_var(null_box)
             self.perform_discard(op, [base_loc, startindex_loc,
-                                      imm(constbytes), imm(len_itemsize),
+                                      imm(constbytes), imm(start_itemsize),
                                       imm(baseofs), null_loc])
         else:
             # base_loc and startindex_loc are in two regs here (or they are
@@ -1423,6 +1423,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             # address that we will pass as first argument to memset().
             # It can be in the same register as either one, but not in
             # args[2], because we're still needing the latter.
+            #import pdb; pdb.set_trace()
             dstaddr_box = TempVar()
             dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, [args[2]])
             itemsize_loc = imm(start_itemsize)

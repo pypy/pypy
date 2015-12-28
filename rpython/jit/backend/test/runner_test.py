@@ -4991,16 +4991,16 @@ class LLtypeBackendTest(BaseBackendTest):
             py.test.skip("llgraph does not do zero_array")
 
         PAIR = lltype.Struct('PAIR', ('a', lltype.Signed), ('b', lltype.Signed))
-        for OF in [rffi.SHORT]: #[lltype.Signed, rffi.INT, rffi.SHORT, rffi.UCHAR, PAIR]:
+        for OF in [lltype.Signed, rffi.INT, rffi.SHORT, rffi.UCHAR, PAIR]:
             A = lltype.GcArray(OF)
             arraydescr = self.cpu.arraydescrof(A)
             a = lltype.malloc(A, 100)
             addr = llmemory.cast_ptr_to_adr(a)
             a_int = heaptracker.adr2int(addr)
             a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
-            for (start, length) in [(0,100), (49, 49)]:#, (1, 98),
-                                    #(15, 9), (10, 10), (47, 0),
-                                    #(0, 4)]:
+            for (start, length) in [(0,100), (49, 49), (1, 98),
+                                    (15, 9), (10, 10), (47, 0),
+                                    (0, 4)]:
                 for cls1 in [ConstInt, InputArgInt]:
                     for cls2 in [ConstInt, InputArgInt]:
                         print 'a_int:', a_int
@@ -5033,7 +5033,7 @@ class LLtypeBackendTest(BaseBackendTest):
                                         lengthbox, scale, offset)
                         if v_len is None:
                             v_len = ConstInt(e_offset)
-                        import pdb; pdb.set_trace()
+                        #import pdb; pdb.set_trace()
                         args = [InputArgRef(a_ref), v_start, v_len,
                                 ConstInt(scale_start), ConstInt(scale_len)]
                         ops.append(ResOperation(rop.ZERO_ARRAY, args,
