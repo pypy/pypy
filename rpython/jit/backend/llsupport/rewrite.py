@@ -488,8 +488,8 @@ class GcRewriterAssembler(object):
         elif arraydescr.itemsize == 0:
             total_size = arraydescr.basesize
         elif (self.gc_ll_descr.can_use_nursery_malloc(1) and
-              self.gen_malloc_nursery_varsize(arraydescr.itemsize,
-              v_length, op, arraydescr, kind=kind)):
+              self.gen_malloc_nursery_varsize(arraydescr.itemsize, v_length,
+                                              op, arraydescr, kind=kind)):
             # note that we cannot initialize tid here, because the array
             # might end up being allocated by malloc_external or some
             # stuff that initializes GC header fields differently
@@ -525,8 +525,18 @@ class GcRewriterAssembler(object):
         # See emit_pending_zeros().  (This optimization is done by
         # hacking the object 'o' in-place: e.g., o.getarg(1) may be
         # replaced with another constant greater than 0.)
-        o = ResOperation(rop.ZERO_ARRAY, [v_arr, self.c_zero, v_length],
-                         descr=arraydescr)
+        #o = ResOperation(rop.ZERO_ARRAY, [v_arr, self.c_zero, v_length],
+        #                 descr=arraydescr)
+        scale = arraydescr.itemsize
+        v_length_scaled = v_length
+        if not isinstance(v_length, ConstInt):
+            scale, offset, v_length_scaled = \
+                    self._emit_mul_if_factor_offset_not_supported(v_length, scale, 0)
+        v_scale = ConstInt(scale)
+        # there is probably no point in doing _emit_mul_if.. for
+        # c_zero!
+        args = [v_arr, self.c_zero, v_length_scaled, ConstInt(scale), v_scale]
+        o = ResOperation(rop.ZERO_ARRAY, args, descr=arraydescr)
         self.emit_op(o)
         if isinstance(v_length, ConstInt):
             self.last_zero_arrays.append(self._newops[-1])
@@ -644,22 +654,37 @@ class GcRewriterAssembler(object):
         # are also already in 'newops', which is the point.
         for op in self.last_zero_arrays:
             assert op.getopnum() == rop.ZERO_ARRAY
+            descr = op.getdescr()
+            scale = descr.itemsize
             box = op.getarg(0)
             try:
                 intset = self.setarrayitems_occurred(box)
             except KeyError:
+                start_box = op.getarg(1)
+                length_box = op.getarg(2)
+                if isinstance(start_box, ConstInt):
+                    start = start_box.getint()
+                    op.setarg(1, ConstInt(start * scale))
+                    op.setarg(3, ConstInt(1))
+                if isinstance(length_box, ConstInt):
+                    stop = length_box.getint()
+                    scaled_len = stop * scale
+                    op.setarg(2, ConstInt(scaled_len))
+                    op.setarg(4, ConstInt(1))
                 continue
             assert op.getarg(1).getint() == 0   # always 'start=0' initially
             start = 0
             while start in intset:
                 start += 1
-            op.setarg(1, ConstInt(start))
+            op.setarg(1, ConstInt(start * scale))
             stop = op.getarg(2).getint()
             assert start <= stop
             while stop > start and (stop - 1) in intset:
                 stop -= 1
-            op.setarg(2, ConstInt(stop - start))
+            op.setarg(2, ConstInt((stop - start) * scale))
             # ^^ may be ConstInt(0); then the operation becomes a no-op
+            op.setarg(3, ConstInt(1)) # set scale to 1
+            op.setarg(4, ConstInt(1)) # set scale to 1
         del self.last_zero_arrays[:]
         self._setarrayitems_occurred.clear()
         #

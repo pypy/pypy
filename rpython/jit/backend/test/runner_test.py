@@ -22,6 +22,7 @@ from rpython.rlib.rarithmetic import intmask, is_valid_int
 from rpython.jit.backend.detect_cpu import autodetect
 from rpython.jit.backend.llsupport import jitframe
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+from rpython.jit.backend.llsupport.rewrite import GcRewriterAssembler
 
 
 IS_32_BIT = sys.maxint < 2**32
@@ -53,11 +54,15 @@ class Runner(object):
     add_loop_instructions = ['overload for a specific cpu']
     bridge_loop_instructions = ['overload for a specific cpu']
 
+    
     def execute_operation(self, opname, valueboxes, result_type, descr=None):
         inputargs, operations = self._get_single_operation_list(opname,
                                                                 result_type,
                                                                 valueboxes,
                                                                 descr)
+        return self.execute_operations(inputargs, operations, result_type)
+
+    def execute_operations(self, inputargs, operations, result_type):
         looptoken = JitCellToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
         args = []
@@ -85,6 +90,23 @@ class Runner(object):
             return None
         else:
             assert False
+
+    def _get_operation_list(self, operations, result_type):
+        inputargs = []
+        blacklist = set()
+        for op in operations:
+            for arg in op.getarglist():
+                if not isinstance(arg, Const) and arg not in inputargs and \
+                   arg not in blacklist:
+                    inputargs.append(arg)
+            if op.type != 'v':
+                blacklist.add(op)
+        if result_type == 'void':
+            op1 = ResOperation(rop.FINISH, [], descr=BasicFinalDescr(0))
+        else:
+            op1 = ResOperation(rop.FINISH, [operations[-1]], descr=BasicFinalDescr(0))
+        operations.append(op1)
+        return inputargs, operations
 
     def _get_single_operation_list(self, opnum, result_type, valueboxes,
                                    descr):
@@ -4983,7 +5005,7 @@ class LLtypeBackendTest(BaseBackendTest):
             addr = llmemory.cast_ptr_to_adr(a)
             a_int = heaptracker.adr2int(addr)
             a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
-            for (start, length) in [(0, 100), (49, 49), (1, 98),
+            for (start, length) in [(0,100), (49, 49), (1, 98),
                                     (15, 9), (10, 10), (47, 0),
                                     (0, 4)]:
                 for cls1 in [ConstInt, InputArgInt]:
@@ -5001,11 +5023,31 @@ class LLtypeBackendTest(BaseBackendTest):
                         lengthbox = cls2(length)
                         if cls1 == cls2 and start == length:
                             lengthbox = startbox    # same box!
-                        self.execute_operation(rop.ZERO_ARRAY,
-                                               [InputArgRef(a_ref),
-                                                startbox,
-                                                lengthbox],
-                                           'void', descr=arraydescr)
+                        scale = arraydescr.itemsize
+                        ops = []
+                        def emit(op):
+                            ops.append(op)
+                        helper = GcRewriterAssembler(None, self.cpu)
+                        helper.emit_op = emit
+                        offset = 0
+                        scale_start, s_offset, v_start = \
+                                helper._emit_mul_if_factor_offset_not_supported(
+                                        startbox, scale, offset)
+                        if v_start is None:
+                            v_start = ConstInt(s_offset)
+                        scale_len, e_offset, v_len = \
+                                helper._emit_mul_if_factor_offset_not_supported(
+                                        lengthbox, scale, offset)
+                        if v_len is None:
+                            v_len = ConstInt(e_offset)
+                        args = [InputArgRef(a_ref), v_start, v_len,
+                                ConstInt(scale_start), ConstInt(scale_len)]
+                        ops.append(ResOperation(rop.ZERO_ARRAY, args,
+                                                descr=arraydescr))
+
+                        scalebox = ConstInt(arraydescr.itemsize)
+                        inputargs, oplist = self._get_operation_list(ops,'void')
+                        self.execute_operations(inputargs, oplist, 'void')
                         assert len(a) == 100
                         for i in range(100):
                             val = (0 if start <= i < start + length

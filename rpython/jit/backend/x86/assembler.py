@@ -1528,25 +1528,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         #
         return shift
 
-    def _get_interiorfield_addr(self, temp_loc, index_loc, itemsize_loc,
-                                base_loc, ofs_loc):
-        assert isinstance(itemsize_loc, ImmedLoc)
-        itemsize = itemsize_loc.value
-        if isinstance(index_loc, ImmedLoc):
-            temp_loc = imm(index_loc.value * itemsize)
-            shift = 0
-        elif valid_addressing_size(itemsize):
-            temp_loc = index_loc
-            shift = get_scale(itemsize)
-        else:
-            assert isinstance(index_loc, RegLoc)
-            assert isinstance(temp_loc, RegLoc)
-            assert not temp_loc.is_xmm
-            shift = self._imul_const_scaled(self.mc, temp_loc.value,
-                                            index_loc.value, itemsize)
-        assert isinstance(ofs_loc, ImmedLoc)
-        return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
-
     def genop_discard_increment_debug_counter(self, op, arglocs):
         # The argument should be an immediate address.  This should
         # generate code equivalent to a GETFIELD_RAW, an ADD(1), and a
@@ -2379,6 +2360,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             shift = self._imul_const_scaled(self.mc, edi.value,
                                             varsizeloc.value, itemsize)
             varsizeloc = edi
+
         # now varsizeloc is a register != eax.  The size of
         # the variable part of the array is (varsizeloc << shift)
         assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
@@ -2468,13 +2450,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         assert isinstance(null_loc, RegLoc) and null_loc.is_xmm
         baseofs = baseofs_loc.value
         nbytes = bytes_loc.value
-        if valid_addressing_size(itemsize_loc.value):
-            scale = get_scale(itemsize_loc.value)
-        else:
-            assert isinstance(startindex_loc, ImmedLoc)
-            baseofs += startindex_loc.value * itemsize_loc.value
-            startindex_loc = imm0
-            scale = 0
+        assert valid_addressing_size(itemsize_loc.value)
+        scale = get_scale(itemsize_loc.value)
         null_reg_cleared = False
         i = 0
         while i < nbytes:
