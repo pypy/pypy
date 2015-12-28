@@ -2354,12 +2354,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         jmp_adr0 = self.mc.get_relative_pos()
 
         self.mc.MOV(eax, heap(nursery_free_adr))
-        assert valid_addressing_size(itemsize)
-        shift = get_scale(itemsize)
-        #else:
-        #    shift = self._imul_const_scaled(self.mc, edi.value,
-        #                                    varsizeloc.value, itemsize)
-        #    varsizeloc = edi
+        if valid_addressing_size(itemsize):
+            shift = get_scale(itemsize)
+        else:
+            shift = self._imul_const_scaled(self.mc, edi.value,
+                                            varsizeloc.value, itemsize)
+            varsizeloc = edi
 
         # now varsizeloc is a register != eax.  The size of
         # the variable part of the array is (varsizeloc << shift)

@@ -488,8 +488,8 @@ class GcRewriterAssembler(object):
         elif arraydescr.itemsize == 0:
             total_size = arraydescr.basesize
         elif (self.gc_ll_descr.can_use_nursery_malloc(1) and
-              self.gen_malloc_nursery_varsize(arraydescr.itemsize,
-              v_length, op, arraydescr, kind=kind)):
+              self.gen_malloc_nursery_varsize(arraydescr.itemsize, v_length,
+                                              op, arraydescr, kind=kind)):
             # note that we cannot initialize tid here, because the array
             # might end up being allocated by malloc_external or some
             # stuff that initializes GC header fields differently
