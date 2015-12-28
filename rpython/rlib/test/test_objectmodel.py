@@ -4,7 +4,7 @@ from rpython.rlib.objectmodel import (
     r_dict, UnboxedValue, Symbolic, compute_hash, compute_identity_hash,
     compute_unique_id, current_object_addr_as_int, we_are_translated,
     prepare_dict_update, reversed_dict, specialize, enforceargs, newlist_hint,
-    resizelist_hint, is_annotation_constant, always_inline,
+    resizelist_hint, is_annotation_constant, always_inline, NOT_CONSTANT,
     iterkeys_with_hash, iteritems_with_hash, contains_with_hash,
     setitem_with_hash, getitem_with_hash, delitem_with_hash, import_from_mixin)
 from rpython.translator.translator import TranslationContext, graphof
@@ -528,6 +528,18 @@ def test_enforceargs_translates():
     graph = getgraph(f, [int, int])
     TYPES = [v.concretetype for v in graph.getargs()]
     assert TYPES == [lltype.Signed, lltype.Float]
+
+def test_enforceargs_not_constant():
+    from rpython.translator.translator import TranslationContext, graphof
+    @enforceargs(NOT_CONSTANT)
+    def f(a):
+        return a
+    def f42():
+        return f(42)
+    t = TranslationContext()
+    a = t.buildannotator()
+    s = a.build_types(f42, [])
+    assert not hasattr(s, 'const')
 
 
 def getgraph(f, argtypes):

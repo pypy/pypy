@@ -9,7 +9,7 @@ from rpython.tool.sourcetools import func_renamer
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.objectmodel import (
-    specialize, enforceargs, register_replacement_for)
+    specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
 from rpython.rlib.signature import signature
 from rpython.rlib import types
 from rpython.annotator.model import s_Str0
@@ -415,7 +415,7 @@ def dup2(fd, newfd):
 
 @replace_os_function('open')
 @specialize.argtype(0)
-@enforceargs(None, int, int, typecheck=False)
+@enforceargs(NOT_CONSTANT, int, int, typecheck=False)
 def open(path, flags, mode):
     if _prefer_unicode(path):
         fd = c_wopen(_as_unicode0(path), flags, mode)
