@@ -9,7 +9,7 @@ from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
      RegisterManager, TempVar, compute_vars_longevity, is_comparison_or_ovf_op,
-     valid_addressing_size)
+     valid_addressing_size, get_scale)
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
     IS_X86_64, DEFAULT_FRAME_BYTES)
@@ -32,6 +32,7 @@ from rpython.rlib.rarithmetic import r_longlong, r_uint
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.jit.backend.x86.regloc import AddressLoc
 
 
 class X86RegisterManager(RegisterManager):
@@ -1389,6 +1390,20 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def consider_keepalive(self, op):
         pass
 
+    def _scaled_addr(self, index_loc, itemsize_loc,
+                                base_loc, ofs_loc):
+        assert isinstance(itemsize_loc, ImmedLoc)
+        itemsize = itemsize_loc.value
+        if isinstance(index_loc, ImmedLoc):
+            temp_loc = imm(index_loc.value * itemsize)
+            shift = 0
+        else:
+            assert valid_addressing_size(itemsize), "rewrite did not correctly handle shift/mul!"
+            temp_loc = index_loc
+            shift = get_scale(itemsize)
+        assert isinstance(ofs_loc, ImmedLoc)
+        return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
+
     def consider_zero_array(self, op):
         _, baseofs, _ = unpack_arraydescr(op.getdescr())
         length_box = op.getarg(2)
@@ -1423,13 +1438,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             # address that we will pass as first argument to memset().
             # It can be in the same register as either one, but not in
             # args[2], because we're still needing the latter.
-            #import pdb; pdb.set_trace()
             dstaddr_box = TempVar()
             dstaddr_loc = self.rm.force_allocate_reg(dstaddr_box, [args[2]])
             itemsize_loc = imm(start_itemsize)
-            dst_addr = self.assembler._get_interiorfield_addr(
-                dstaddr_loc, startindex_loc, itemsize_loc,
-                base_loc, imm(baseofs))
+            dst_addr = self._scaled_addr(startindex_loc, itemsize_loc,
+                                         base_loc, imm(baseofs))
             self.assembler.mc.LEA(dstaddr_loc, dst_addr)
             #
             if constbytes >= 0:
@@ -1446,8 +1459,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                     bytes_loc = self.rm.force_allocate_reg(bytes_box,
                                                            [dstaddr_box])
                     len_itemsize_loc = imm(len_itemsize)
-                    b_adr = self.assembler._get_interiorfield_addr(
-                        bytes_loc, length_loc, len_itemsize_loc, imm0, imm0)
+                    b_adr = self._scaled_addr(length_loc, len_itemsize_loc, imm0, imm0)
                     self.assembler.mc.LEA(bytes_loc, b_adr)
                     length_box = bytes_box
                     length_loc = bytes_loc

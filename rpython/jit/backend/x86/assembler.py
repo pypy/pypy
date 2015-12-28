@@ -1528,20 +1528,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         #
         return shift
 
-    def _get_interiorfield_addr(self, temp_loc, index_loc, itemsize_loc,
-                                base_loc, ofs_loc):
-        assert isinstance(itemsize_loc, ImmedLoc)
-        itemsize = itemsize_loc.value
-        if isinstance(index_loc, ImmedLoc):
-            temp_loc = imm(index_loc.value * itemsize)
-            shift = 0
-        else:
-            assert valid_addressing_size(itemsize), "rewrite did not correctly handle shift/mul!"
-            temp_loc = index_loc
-            shift = get_scale(itemsize)
-        assert isinstance(ofs_loc, ImmedLoc)
-        return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
-
     def genop_discard_increment_debug_counter(self, op, arglocs):
         # The argument should be an immediate address.  This should
         # generate code equivalent to a GETFIELD_RAW, an ADD(1), and a
@@ -2368,12 +2354,13 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         jmp_adr0 = self.mc.get_relative_pos()
 
         self.mc.MOV(eax, heap(nursery_free_adr))
-        if valid_addressing_size(itemsize):
-            shift = get_scale(itemsize)
-        else:
-            shift = self._imul_const_scaled(self.mc, edi.value,
-                                            varsizeloc.value, itemsize)
-            varsizeloc = edi
+        assert valid_addressing_size(itemsize)
+        shift = get_scale(itemsize)
+        #else:
+        #    shift = self._imul_const_scaled(self.mc, edi.value,
+        #                                    varsizeloc.value, itemsize)
+        #    varsizeloc = edi
+
         # now varsizeloc is a register != eax.  The size of
         # the variable part of the array is (varsizeloc << shift)
         assert arraydescr.basesize >= self.gc_minimal_size_in_nursery

@@ -5033,7 +5033,6 @@ class LLtypeBackendTest(BaseBackendTest):
                                         lengthbox, scale, offset)
                         if v_len is None:
                             v_len = ConstInt(e_offset)
-                        #import pdb; pdb.set_trace()
                         args = [InputArgRef(a_ref), v_start, v_len,
                                 ConstInt(scale_start), ConstInt(scale_len)]
                         ops.append(ResOperation(rop.ZERO_ARRAY, args,
