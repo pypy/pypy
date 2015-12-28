@@ -535,7 +535,7 @@ class GcRewriterAssembler(object):
         v_scale = ConstInt(scale)
         # there is probably no point in doing _emit_mul_if.. for
         # c_zero!
-        args = [v_arr, self.c_zero, v_length_scaled, v_scale, v_scale]
+        args = [v_arr, self.c_zero, v_length_scaled, ConstInt(scale), v_scale]
         o = ResOperation(rop.ZERO_ARRAY, args, descr=arraydescr)
         self.emit_op(o)
         if isinstance(v_length, ConstInt):
@@ -660,11 +660,17 @@ class GcRewriterAssembler(object):
             try:
                 intset = self.setarrayitems_occurred(box)
             except KeyError:
+                start_box = op.getarg(1)
+                length_box = op.getarg(2)
+                if isinstance(start_box, ConstInt):
+                    start = start_box.getint()
+                    op.setarg(1, ConstInt(start * scale))
+                    op.setarg(3, ConstInt(1))
                 if isinstance(length_box, ConstInt):
                     stop = length_box.getint()
                     scaled_len = stop * scale
                     op.setarg(2, ConstInt(scaled_len))
-                    op.setarg(3, ConstInt(1))
+                    op.setarg(4, ConstInt(1))
                 continue
             assert op.getarg(1).getint() == 0   # always 'start=0' initially
             start = 0
@@ -678,6 +684,7 @@ class GcRewriterAssembler(object):
             op.setarg(2, ConstInt((stop - start) * scale))
             # ^^ may be ConstInt(0); then the operation becomes a no-op
             op.setarg(3, ConstInt(1)) # set scale to 1
+            op.setarg(4, ConstInt(1)) # set scale to 1
         del self.last_zero_arrays[:]
         self._setarrayitems_occurred.clear()
         #
