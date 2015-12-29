@@ -648,7 +648,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 IntLikeObject *intObj;
                 long intval;
 
-                if (!PyArg_ParseTuple(args, "i", &intval))
+                if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
                 IntLike_Type.tp_as_number = &intlike_as_number;
@@ -668,7 +668,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 IntLikeObjectNoOp *intObjNoOp;
                 long intval;
 
-                if (!PyArg_ParseTuple(args, "i", &intval))
+                if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
                 IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_CHECKTYPES;
