@@ -423,7 +423,42 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         return mc.materialize(self.cpu, [])
 
     def _build_stack_check_slowpath(self):
-        pass # TODO
+        _, _, slowpathaddr = self.cpu.insert_stack_check()
+        if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
+            return      # no stack check (for tests, or non-translated)
+        #
+        # make a regular function that is called from a point near the start
+        # of an assembler function (after it adjusts the stack and saves
+        # registers).
+        mc = InstrBuilder()
+        #
+        mc.STG(r.r14, l.addr(14*WORD, r.SP))
+        # Do the call
+        # use SP as single parameter for the call
+        mc.STG(r.SP, l.addr(0, r.SP)) # store the backchain
+        mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
+        mc.LGR(r.r2, r.SP)
+        mc.load_imm(mc.RAW_CALL_REG, slowpathaddr)
+        mc.raw_call()
+        mc.AGHI(r.SP, l.imm(STD_FRAME_SIZE_IN_BYTES))
+        #
+        # Check if it raised StackOverflow
+        mc.load_imm(r.SCRATCH, self.cpu.pos_exception())
+        mc.LG(r.SCRATCH, l.addr(0, r.SCRATCH))
+        # if this comparison is true, then everything is ok,
+        # else we have an exception
+        mc.cmp_op(r.SCRATCH, 0, imm=True)
+        #
+        # So we return to our caller, conditionally if "EQ"
+        mc.LG(r.r14, l.addr(14*WORD, r.SP))
+        mc.BCR(c.EQ, r.r14)
+        #
+        # Else, jump to propagate_exception_path
+        assert self.propagate_exception_path
+        mc.b_abs(self.propagate_exception_path)
+        #
+        rawstart = mc.materialize(self.cpu, [])
+        self.stack_check_slowpath = rawstart
 
     def new_stack_loc(self, i, tp):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
@@ -573,7 +608,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
         #
-        # TODO self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+        self.patch_stack_checks(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
         rawstart = self.materialize_loop(original_loop_token)
         debug_bridge(descr_number, rawstart, codeendpos)
         self.patch_pending_failure_recoveries(rawstart)
@@ -628,7 +663,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
     def propagate_memoryerror_if_r2_is_null(self):
         # if self.propagate_exception_path == 0 (tests), this may jump to 0
         # and segfaults.  too bad.  the alternative is to continue anyway
-        # with r3==0, but that will segfault too.
+        # with r2==0, but that will segfault too.
         self.mc.cmp_op(r.r2, l.imm(0), imm=True)
         self.mc.load_imm(r.RETURN, self.propagate_exception_path)
         self.mc.BCR(c.EQ, r.RETURN)
@@ -1047,6 +1082,29 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # exit function
         self._call_footer()
+
+    def _store_and_reset_exception(self, mc, excvalloc, exctploc=None):
+        """Reset the exception, after fetching it inside the two regs.
+        """
+        mc.load_imm(r.r2, self.cpu.pos_exc_value())
+        diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
+        assert check_imm_value(diff)
+        # Load the exception fields into the two registers
+        mc.load(excvalloc, r.r2, 0)
+        if exctploc is not None:
+            mc.load(exctploc, r.r2, diff)
+        # Zero out the exception fields
+        mc.LGHI(r.r0, l.imm(0))
+        mc.STG(r.r0, l.addr(0, r.r2))
+        mc.STG(r.r0, l.addr(diff, r.r2))
+
+    def _restore_exception(self, mc, excvalloc, exctploc):
+        mc.load_imm(r.r2, self.cpu.pos_exc_value())
+        diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
+        assert check_imm_value(diff)
+        # Store the exception fields from the two registers
+        mc.STG(excvalloc, l.addr(0, r.r2))
+        mc.STG(exctploc, l.addr(diff, r.r2))
 
     def load_gcmap(self, mc, reg, gcmap):
         # load the current gcmap into register 'reg'

@@ -1032,13 +1032,23 @@ class Regalloc(BaseRegalloc):
         return locs
 
     def prepare_guard_exception(self, op):
-        loc = self.ensure_reg(op.getarg(0))
+        loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
         if op in self.longevity:
             resloc = self.force_allocate_reg(op)
         else:
             resloc = None
         arglocs = self._prepare_guard(op, [loc, resloc])
         return arglocs
+
+    def prepare_save_exception(self, op):
+        res = self.rm.force_allocate_reg(op)
+        return [res]
+    prepare_save_exc_class = prepare_save_exception
+
+    def prepare_restore_exception(self, op):
+        loc0 = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        loc1 = self.ensure_reg(op.getarg(1), force_in_reg=True)
+        return [loc0, loc1]
 
     def prepare_copystrcontent(self, op):
         src_ptr_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)

@@ -739,10 +739,7 @@ class GuardOpAssembler(object):
         assert check_imm_value(diff)
 
         mc.LG(r.SCRATCH2, l.addr(diff, r.SCRATCH))
-        if not loc.is_in_pool() and loc.is_imm():
-            mc.cmp_op(r.SCRATCH2, loc, imm=True)
-        else:
-            mc.cmp_op(r.SCRATCH2, loc, pool=loc.is_in_pool())
+        mc.cmp_op(r.SCRATCH2, loc)
         self.guard_success_cc = c.EQ
         self._emit_guard(op, failargs)
 
@@ -752,6 +749,17 @@ class GuardOpAssembler(object):
         mc.SG(r.SCRATCH2, l.addr(0, r.SCRATCH))
         mc.SG(r.SCRATCH2, l.addr(diff, r.SCRATCH))
 
+    def emit_save_exc_class(self, op, arglocs, regalloc):
+        [resloc] = arglocs
+        diff = self.mc.load_imm_plus(r.r2, self.cpu.pos_exception())
+        self.mc.load(resloc, r.r2, diff)
+
+    def emit_save_exception(self, op, arglocs, regalloc):
+        [resloc] = arglocs
+        self._store_and_reset_exception(self.mc, resloc)
+
+    def emit_restore_exception(self, op, arglocs, regalloc):
+        self._restore_exception(self.mc, arglocs[1], arglocs[0])
 
 class MemoryOpAssembler(object):
     _mixin_ = True

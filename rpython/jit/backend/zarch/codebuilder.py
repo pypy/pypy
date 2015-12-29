@@ -175,6 +175,16 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
             self.LGFI(dest_reg, l.imm(word & 0xFFFFffff))
             self.IIHF(dest_reg, l.imm((word >> 32) & 0xFFFFffff))
 
+    def load_imm_plus(self, dest_reg, word):
+        """Like load_imm(), but with one instruction less, and
+        leaves the loaded value off by some signed 16-bit difference.
+        Returns that difference."""
+        diff = rffi.cast(lltype.Signed, rffi.cast(rffi.SHORT, word))
+        word -= diff
+        assert word & 0xFFFF == 0
+        self.load_imm(dest_reg, word)
+        return diff
+
     def sync(self):
         # see sync. section of the zarch manual!
         self.BCR_rr(0xf,0)

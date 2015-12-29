@@ -126,6 +126,7 @@ class CallBuilder(AbstractCallBuilder):
             if gcrootmap.is_shadow_stack and self.is_call_release_gil:
                 # in this mode, RSHADOWOLD happens to contain the shadowstack
                 # top at this point, so reuse it instead of loading it again
+                xxx
                 ssreg = self.RSHADOWOLD
         self.asm._reload_frame_if_necessary(self.mc, shadowstack_reg=ssreg)
 
