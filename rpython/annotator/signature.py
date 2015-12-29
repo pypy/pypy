@@ -100,6 +100,7 @@ class Sig(object):
         self.argtypes = argtypes
 
     def __call__(self, funcdesc, inputcells):
+        from rpython.rlib.objectmodel import NOT_CONSTANT
         from rpython.rtyper.lltypesystem import lltype
         args_s = []
         from rpython.annotator import model as annmodel
@@ -115,6 +116,9 @@ class Sig(object):
                 args_s.append(s_input)
             elif argtype is None:
                 args_s.append(inputcells[i])     # no change
+            elif argtype is NOT_CONSTANT:
+                from rpython.annotator.model import not_const
+                args_s.append(not_const(inputcells[i]))
             else:
                 args_s.append(annotation(argtype, bookkeeper=funcdesc.bookkeeper))
         if len(inputcells) != len(args_s):
