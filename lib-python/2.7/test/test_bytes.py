@@ -727,6 +727,7 @@ class ByteArrayTest(BaseBytesTest):
             if alloc not in seq:
                 seq.append(alloc)
 
+    @test.test_support.impl_detail("undocumented bytes.__alloc__()")
     def test_init_alloc(self):
         b = bytearray()
         def g():
