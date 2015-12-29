@@ -5049,6 +5049,7 @@ class LLtypeBackendTest(BaseBackendTest):
 
                         scalebox = ConstInt(arraydescr.itemsize)
                         inputargs, oplist = self._get_operation_list(ops,'void')
+                        # XXX
                         print("input:", inputargs)
                         for op in oplist:
                             print(op)

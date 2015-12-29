@@ -680,7 +680,7 @@ class GuardOpAssembler(object):
         offset2 = self.cpu.subclassrange_min_offset
         if offset is not None:
             # read this field to get the vtable pointer
-            self.mc.load(r.SCRATCH2.value, loc_object.value, offset)
+            self.mc(r.SCRATCH2, l.addr(offset, loc_object))
             # read the vtable's subclassrange_min field
             assert check_imm(offset2)
             self.mc.ld(r.SCRATCH2.value, r.SCRATCH2.value, offset2)
@@ -728,6 +728,30 @@ class GuardOpAssembler(object):
         self._finish_gcmap = guard_token.gcmap
         self._store_force_index(op)
         self.store_info_on_descr(0, guard_token)
+
+    def emit_guard_exception(self, op, arglocs, regalloc):
+        loc, resloc = arglocs[:2]
+        failargs = arglocs[2:]
+
+        mc = self.mc
+        mc.load_imm(r.SCRATCH, self.cpu.pos_exc_value())
+        diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
+        assert check_imm_value(diff)
+
+        mc.LG(r.SCRATCH2, l.addr(diff, r.SCRATCH))
+        if not loc.is_in_pool() and loc.is_imm():
+            mc.cmp_op(r.SCRATCH2, loc, imm=True)
+        else:
+            mc.cmp_op(r.SCRATCH2, loc, pool=loc.is_in_pool())
+        self.guard_success_cc = c.EQ
+        self._emit_guard(op, failargs)
+
+        if resloc:
+            mc.load(resloc, r.SCRATCH, 0)
+        mc.LGHI(r.SCRATCH2, l.imm(0))
+        mc.SG(r.SCRATCH2, l.addr(0, r.SCRATCH))
+        mc.SG(r.SCRATCH2, l.addr(diff, r.SCRATCH))
+
 
 class MemoryOpAssembler(object):
     _mixin_ = True
