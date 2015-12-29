@@ -70,7 +70,7 @@ commonly known loading operations
 
 .. branch: fix-1674
 
-Fix for broken mask indexing / selection. Was issue #1674.
+Fix for broken mask indexing / selection. Was: issues #1674 & #1717.
 
 .. branch: more-rposix
 
