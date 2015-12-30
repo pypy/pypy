@@ -7,7 +7,8 @@ from rpython.jit.backend.zarch import conditions as c
 from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch import locations as l
 from rpython.jit.backend.zarch.pool import LiteralPool
-from rpython.jit.backend.zarch.codebuilder import InstrBuilder
+from rpython.jit.backend.zarch.codebuilder import (InstrBuilder,
+        OverwritingBuilder)
 from rpython.jit.backend.zarch.helper.regalloc import check_imm_value
 from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.zarch.regalloc import ZARCHRegisterManager
@@ -493,7 +494,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
         #mc.LG(r.r2, l.addr(ofs, r.SPP))
         patch_pos = mc.currpos()
-        self.mc.trap()
+        # XXX TODO
+        #self.mc.trap()
         #mc.TRAP2()     # placeholder for cmpdi(0, r2, ...)
         #mc.TRAP2()     # placeholder for bge
         #mc.TRAP2()     # placeholder for li(r0, ...)
@@ -844,7 +846,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         for traps_pos, jmp_target in self.frame_depth_to_patch:
             pmc = OverwritingBuilder(self.mc, traps_pos, 3)
             # three traps, so exactly three instructions to patch here
-            xxx
             #pmc.cmpdi(0, r.r2.value, frame_depth)         # 1
             #pmc.bc(7, 0, jmp_target - (traps_pos + 4))    # 2   "bge+"
             #pmc.li(r.r0.value, frame_depth)               # 3

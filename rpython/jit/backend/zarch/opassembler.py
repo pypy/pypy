@@ -277,7 +277,7 @@ class CallOpAssembler(object):
         ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
         self.mc.load_imm(r.SCRATCH, rffi.cast(lltype.Signed,
                                            cast_instance_to_gcref(faildescr)))
-        self.mc.STD(r.SCRATCH, l.addr(ofs, r.SPP))
+        self.mc.STG(r.SCRATCH, l.addr(ofs, r.SPP))
 
     def _find_nearby_operation(self, regalloc, delta):
         return regalloc.operations[regalloc.rm.position + delta]
@@ -927,19 +927,22 @@ class MemoryOpAssembler(object):
     def emit_zero_array(self, op, arglocs, regalloc):
         base_loc, startindex_loc, length_loc, \
             ofs_loc, itemsize_loc, pad_byte_loc = arglocs
+        print(op, arglocs)
 
         if ofs_loc.is_imm():
+            assert check_imm_value(ofs_loc.value)
             self.mc.AGHI(base_loc, ofs_loc)
         else:
             self.mc.AGR(base_loc, ofs_loc)
         if startindex_loc.is_imm():
+            assert check_imm_value(startindex_loc.value)
             self.mc.AGHI(base_loc, startindex_loc)
         else:
             self.mc.AGR(base_loc, startindex_loc)
         assert not length_loc.is_imm()
-        self.mc.SGR(pad_byte_loc, pad_byte_loc)
-        pad_byte_plus_one = r.odd_reg(pad_byte_loc)
-        self.mc.SGR(pad_byte_plus_one, pad_byte_plus_one)
+        self.mc.XGR(pad_byte_loc, pad_byte_loc)
+        pad_plus = r.odd_reg(pad_byte_loc)
+        self.mc.XGR(pad_plus, pad_plus)
         self.mc.XGR(r.SCRATCH, r.SCRATCH)
         # s390x has memset directly as a hardware instruction!!
         # it needs 5 registers allocated
@@ -947,9 +950,15 @@ class MemoryOpAssembler(object):
         # pad_byte is rY to rY+1
         # scratch register holds the value written to dst
         assert pad_byte_loc.is_even()
+        assert pad_plus.value == pad_byte_loc.value + 1
         assert base_loc.is_even()
         assert length_loc.value == base_loc.value + 1
+        assert base_loc.value != pad_byte_loc.value
+        # NOTE this instruction can (determined by the cpu), just
+        # quit the movement any time, thus it is looped until all bytes
+        # are copied!
         self.mc.MVCLE(base_loc, pad_byte_loc, l.addr(0, r.SCRATCH))
+        self.mc.BCR(c.OF, l.imm(-self.mc.MVCLE_byte_count))
 
 
 class ForceOpAssembler(object):
