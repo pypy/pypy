@@ -751,8 +751,8 @@ class GuardOpAssembler(object):
 
     def emit_save_exc_class(self, op, arglocs, regalloc):
         [resloc] = arglocs
-        diff = self.mc.load_imm_plus(r.r2, self.cpu.pos_exception())
-        self.mc.load(resloc, r.r2, diff)
+        diff = self.mc.load_imm_plus(r.SCRATCH, self.cpu.pos_exception())
+        self.mc.load(resloc, r.SCRATCH, diff)
 
     def emit_save_exception(self, op, arglocs, regalloc):
         [resloc] = arglocs

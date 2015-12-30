@@ -1088,25 +1088,25 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
     def _store_and_reset_exception(self, mc, excvalloc, exctploc=None):
         """Reset the exception, after fetching it inside the two regs.
         """
-        mc.load_imm(r.r2, self.cpu.pos_exc_value())
+        mc.load_imm(r.SCRATCH, self.cpu.pos_exc_value())
         diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
         assert check_imm_value(diff)
         # Load the exception fields into the two registers
-        mc.load(excvalloc, r.r2, 0)
+        mc.load(excvalloc, r.SCRATCH, 0)
         if exctploc is not None:
-            mc.load(exctploc, r.r2, diff)
+            mc.load(exctploc, r.SCRATCH, diff)
         # Zero out the exception fields
-        mc.LGHI(r.r0, l.imm(0))
-        mc.STG(r.r0, l.addr(0, r.r2))
-        mc.STG(r.r0, l.addr(diff, r.r2))
+        mc.LGHI(r.SCRATCH2, l.imm(0))
+        mc.STG(r.SCRATCH2, l.addr(0, r.SCRATCH))
+        mc.STG(r.SCRATCH2, l.addr(diff, r.SCRATCH))
 
     def _restore_exception(self, mc, excvalloc, exctploc):
-        mc.load_imm(r.r2, self.cpu.pos_exc_value())
+        mc.load_imm(r.SCRATCH, self.cpu.pos_exc_value())
         diff = self.cpu.pos_exception() - self.cpu.pos_exc_value()
         assert check_imm_value(diff)
         # Store the exception fields from the two registers
-        mc.STG(excvalloc, l.addr(0, r.r2))
-        mc.STG(exctploc, l.addr(diff, r.r2))
+        mc.STG(excvalloc, l.addr(0, r.SCRATCH))
+        mc.STG(exctploc, l.addr(diff, r.SCRATCH))
 
     def load_gcmap(self, mc, reg, gcmap):
         # load the current gcmap into register 'reg'
