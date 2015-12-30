@@ -502,12 +502,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.tp_str(C()) == "text"
 
     def test_mp_ass_subscript(self):
-        if self.runappdirect:
-            py.test.xfail('segfault')
         module = self.import_extension('foo', [
            ("new_obj", "METH_NOARGS",
             '''
                 PyObject *obj;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
                 Foo_Type.tp_as_mapping = &tp_as_mapping;
                 tp_as_mapping.mp_ass_subscript = mp_ass_subscript;
                 if (PyType_Ready(&Foo_Type) < 0) return NULL;
@@ -537,12 +536,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert res is None
 
     def test_sq_contains(self):
-        if self.runappdirect:
-            py.test.xfail('segfault')
         module = self.import_extension('foo', [
            ("new_obj", "METH_NOARGS",
             '''
                 PyObject *obj;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
                 Foo_Type.tp_as_sequence = &tp_as_sequence;
                 tp_as_sequence.sq_contains = sq_contains;
                 if (PyType_Ready(&Foo_Type) < 0) return NULL;
@@ -596,18 +594,17 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         raises(StopIteration, module.tp_iternext, it)
 
     def test_bool(self):
-        if self.runappdirect:
-            py.test.xfail('segfault')
         module = self.import_extension('foo', [
             ("newInt", "METH_VARARGS",
              """
                 IntLikeObject *intObj;
-                long intval;
+                int intval;
                 PyObject *name;
 
                 if (!PyArg_ParseTuple(args, "i", &intval))
                     return NULL;
 
+                IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT;
                 IntLike_Type.tp_as_number = &intlike_as_number;
                 intlike_as_number.nb_nonzero = intlike_nb_nonzero;
                 if (PyType_Ready(&IntLike_Type) < 0) return NULL;
@@ -633,6 +630,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     PyErr_SetNone(PyExc_ValueError);
                     return -1;
                 }
+                /* Returning -1 should be for exceptions only! */
                 return v->value;
             }
 
@@ -646,12 +644,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             """)
         assert not bool(module.newInt(0))
         assert bool(module.newInt(1))
-        assert bool(module.newInt(-1))
+        raises(SystemError, bool, module.newInt(-1))
         raises(ValueError, bool, module.newInt(-42))
 
     def test_binaryfunc(self):
-        if self.runappdirect:
-            py.test.xfail('segfault')
         module = self.import_extension('foo', [
             ("newInt", "METH_VARARGS",
              """
@@ -662,7 +658,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     return NULL;
 
                 IntLike_Type.tp_as_number = &intlike_as_number;
-                IntLike_Type.tp_flags |= Py_TPFLAGS_CHECKTYPES;
+                IntLike_Type.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES;
                 intlike_as_number.nb_add = intlike_nb_add;
                 if (PyType_Ready(&IntLike_Type) < 0) return NULL;
                 intObj = PyObject_New(IntLikeObject, &IntLike_Type);
@@ -681,7 +677,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
-                IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_CHECKTYPES;
+                IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES;
                 if (PyType_Ready(&IntLike_Type_NoOp) < 0) return NULL;
                 intObjNoOp = PyObject_New(IntLikeObjectNoOp, &IntLike_Type_NoOp);
                 if (!intObjNoOp) {
