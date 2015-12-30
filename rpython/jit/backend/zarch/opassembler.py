@@ -958,7 +958,7 @@ class MemoryOpAssembler(object):
         # quit the movement any time, thus it is looped until all bytes
         # are copied!
         self.mc.MVCLE(base_loc, pad_byte_loc, l.addr(0, r.SCRATCH))
-        self.mc.BCR(c.OF, l.imm(-self.mc.MVCLE_byte_count))
+        self.mc.BRC(c.OF, l.imm(-self.mc.MVCLE_byte_count))
 
 
 class ForceOpAssembler(object):
