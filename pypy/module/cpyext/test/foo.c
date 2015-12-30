@@ -150,6 +150,7 @@ foo_setattro(fooobject *self, PyObject *name, PyObject *value)
         if (v == -1 && PyErr_Occurred())
             return -1;
         self->foo = v;
+        return 0;
     }
     return PyObject_GenericSetAttr((PyObject *)self, name, value);
 }
