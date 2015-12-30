@@ -378,6 +378,10 @@ class BaseGCTransformer(object):
         return hop.cast_result(rmodel.inputconst(lltype.Ptr(ARRAY_TYPEID_MAP),
                                         lltype.nullptr(ARRAY_TYPEID_MAP)))
 
+    def get_prebuilt_hash(self, obj):
+        return None
+
+
 class MinimalGCTransformer(BaseGCTransformer):
     def __init__(self, parenttransformer):
         BaseGCTransformer.__init__(self, parenttransformer.translator)

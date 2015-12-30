@@ -566,7 +566,11 @@ class StructNode(ContainerNode):
         data = []
 
         if needs_gcheader(T):
-            gc_init = self.db.gcpolicy.struct_gcheader_initdata(self)
+            gct = defnode.db.gctransformer
+            if gct is not None:
+                gc_init = gct.gcheader_initdata(self)
+            else:
+                gc_init = None
             data.append(('gcheader', gc_init))
 
         for name in defnode.fieldnames:
@@ -640,7 +644,7 @@ class GcStructNodeWithHash(StructNode):
 
     def implementation(self):
         hash_typename = self.get_hash_typename()
-        hash = self.db.gcpolicy.get_prebuilt_hash(self.obj)
+        hash = self.db.gctransformer.get_prebuilt_hash(self.obj)
         assert hash is not None
         lines = list(self.initializationexpr())
         lines.insert(0, '%s = { {' % (
@@ -650,7 +654,7 @@ class GcStructNodeWithHash(StructNode):
         return lines
 
 def gcstructnode_factory(db, T, obj):
-    if db.gcpolicy.get_prebuilt_hash(obj) is not None:
+    if db.gctransformer.get_prebuilt_hash(obj) is not None:
         cls = GcStructNodeWithHash
     else:
         cls = StructNode
@@ -680,7 +684,11 @@ class ArrayNode(ContainerNode):
         T = self.getTYPE()
         yield '{'
         if needs_gcheader(T):
-            gc_init = self.db.gcpolicy.array_gcheader_initdata(self)
+            gct = self.db.gctransformer
+            if gct is not None:
+                gc_init = gct.gcheader_initdata(self)
+            else:
+                gc_init = None
             lines = generic_initializationexpr(self.db, gc_init, 'gcheader',
                                                '%sgcheader' % (decoration,))
             for line in lines:
