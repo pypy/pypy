@@ -292,10 +292,15 @@ class _Pickler:
 
         # Check the type dispatch table
         t = type(obj)
-        f = self.dispatch.get(t)
-        if f:
-            f(self, obj) # Call unbound method with explicit self
-            return
+        #Unbound methods no longer exist, but pyframes rely on being
+        #able to pickle unbound methods
+        #This is a pypy-specific requirement, thus the change in the stdlib
+        is_unbound_method = t == FunctionType and "." in obj.__qualname__
+        if not is_unbound_method:
+            f = self.dispatch.get(t)
+            if f:
+                f(self, obj) # Call unbound method with explicit self
+                return
 
         # Check private dispatch table if any, or else copyreg.dispatch_table
         reduce = getattr(self, 'dispatch_table', dispatch_table).get(t)
