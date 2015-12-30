@@ -62,21 +62,29 @@ INITSTRUCTPTR = lltype.Ptr(lltype.Struct('CFFI_INIT',
                                          ('code', rffi.CCHARP)))
 
 def load_embedded_cffi_module(space, version, init_struct):
-    name = rffi.charp2str(init_struct.name)
+    from pypy.module._cffi_backend.embedding import declare_c_function
+    declare_c_function()     # translation-time hint only:
+                             # declare _cffi_carefully_make_gil()
+    #
+    version = rffi.cast(lltype.Signed, version)
     if not (VERSION_MIN <= version <= VERSION_MAX):
         raise oefmt(space.w_ImportError,
-            "cffi *embedded* module '%s' has unknown version %s",
-            name, hex(version))
-    module = load_cffi1_module(space, name, None, init_struct.func)
+            "cffi embedded module has got unknown version tag %s",
+            hex(version))
     #
+    if space.config.objspace.usemodules.thread:
+        from pypy.module.thread import os_thread
+        os_thread.setup_threads(space)
+    #
+    name = rffi.charp2str(init_struct.name)
+    module = load_cffi1_module(space, name, None, init_struct.func)
     code = rffi.charp2str(init_struct.code)
     compiler = space.createcompiler()
-    pycode = compiler.compile(code, "<init code for '%s'>" % name,
-                              'exec', 0)
+    pycode = compiler.compile(code, "<init code for '%s'>" % name, 'exec', 0)
     w_globals = module.getdict(space)
-    space.call_method(w_globals, "setdefault", "__builtins__",
-                      self.get_builtin())
-    pycode.exec_code(self, w_globals, w_globals)
+    space.call_method(w_globals, "setdefault", space.wrap("__builtins__"),
+                      space.wrap(space.builtin))
+    pycode.exec_code(space, w_globals, w_globals)
 
 
 class Global:
@@ -90,13 +98,20 @@ def _pypy_init_embedded_cffi_module(version, init_struct):
     try:
         init_struct = rffi.cast(INITSTRUCTPTR, init_struct)
         name = rffi.charp2str(init_struct.name)
-        version = rffi.cast(lltype.Signed, version)
+        #
+        space = glob.space
         try:
-            load_embedded_cffi_module(glob.space, version, init_struct)
+            load_embedded_cffi_module(space, version, init_struct)
             res = 0
         except OperationError, operr:
-            operr.write_unraisable(glob.space, "initialization of '%s'" % name,
+            operr.write_unraisable(space, "initialization of '%s'" % name,
                                    with_traceback=True)
+            space.appexec([], """():
+                import sys
+                sys.stderr.write('pypy version: %s.%s.%s\n' %
+                                 sys.pypy_version_info[:3])
+                sys.stderr.write('sys.path: %r\n' % (sys.path,))
+            """)
             res = -1
     except Exception, e:
         # oups! last-level attempt to recover.

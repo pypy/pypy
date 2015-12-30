@@ -68,7 +68,6 @@ class Module(MixedModule):
     def startup(self, space):
         from pypy.module._cffi_backend import cffi1_module
         cffi1_module.glob.space = space
-        cffi1_module.declare_c_function()
 
 
 def get_dict_rtld_constants():
