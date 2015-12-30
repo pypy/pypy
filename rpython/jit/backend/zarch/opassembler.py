@@ -746,8 +746,8 @@ class GuardOpAssembler(object):
         if resloc:
             mc.load(resloc, r.SCRATCH, 0)
         mc.LGHI(r.SCRATCH2, l.imm(0))
-        mc.SG(r.SCRATCH2, l.addr(0, r.SCRATCH))
-        mc.SG(r.SCRATCH2, l.addr(diff, r.SCRATCH))
+        mc.STG(r.SCRATCH2, l.addr(0, r.SCRATCH))
+        mc.STG(r.SCRATCH2, l.addr(diff, r.SCRATCH))
 
     def emit_save_exc_class(self, op, arglocs, regalloc):
         [resloc] = arglocs

@@ -295,9 +295,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # f) store the address of the new jitframe in the shadowstack
         # c) set the gcmap field to 0 in the new jitframe
         # g) restore registers and return
-        return
-        mc = PPCBuilder()
+        mc = InstrBuilder()
         self.mc = mc
+        return
 
         # signature of this _frame_realloc_slowpath function:
         #   * on entry, r0 is the new size
@@ -305,13 +305,13 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         #   * no managed register must be modified
 
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.store(r.r2.value, r.SPP.value, ofs2)
+        mc.STG(r.r2, l.addr(ofs2, r.SPP))
 
         self._push_core_regs_to_jitframe(mc)
         self._push_fp_regs_to_jitframe(mc)
 
         # Save away the LR inside r30
-        mc.mflr(r.RCS1.value)
+        #mc.mflr(r.RCS1.value)
 
         # First argument is SPP (= r31), which is the jitframe
         mc.mr(r.r3.value, r.SPP.value)
@@ -493,6 +493,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
         #mc.LG(r.r2, l.addr(ofs, r.SPP))
         patch_pos = mc.currpos()
+        self.mc.trap()
         #mc.TRAP2()     # placeholder for cmpdi(0, r2, ...)
         #mc.TRAP2()     # placeholder for bge
         #mc.TRAP2()     # placeholder for li(r0, ...)
@@ -664,8 +665,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # if self.propagate_exception_path == 0 (tests), this may jump to 0
         # and segfaults.  too bad.  the alternative is to continue anyway
         # with r2==0, but that will segfault too.
-        self.mc.cmp_op(r.r2, l.imm(0), imm=True)
         self.mc.load_imm(r.RETURN, self.propagate_exception_path)
+        self.mc.cmp_op(r.r2, l.imm(0), imm=True)
         self.mc.BCR(c.EQ, r.RETURN)
 
     def regalloc_push(self, loc, already_pushed):
@@ -843,6 +844,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         for traps_pos, jmp_target in self.frame_depth_to_patch:
             pmc = OverwritingBuilder(self.mc, traps_pos, 3)
             # three traps, so exactly three instructions to patch here
+            xxx
             #pmc.cmpdi(0, r.r2.value, frame_depth)         # 1
             #pmc.bc(7, 0, jmp_target - (traps_pos + 4))    # 2   "bge+"
             #pmc.li(r.r0.value, frame_depth)               # 3
@@ -1110,6 +1112,158 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # load the current gcmap into register 'reg'
         ptr = rffi.cast(lltype.Signed, gcmap)
         mc.load_imm(reg, ptr)
+
+    def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
+                                  sizeloc, gcmap):
+        xxx
+        diff = nursery_top_adr - nursery_free_adr
+        assert _check_imm_arg(diff)
+        mc = self.mc
+        mc.load_imm(r.r2, nursery_free_adr)
+
+        if sizeloc is r.RES:
+            mc.mr(r.RSZ.value, r.RES.value)
+            sizeloc = r.RSZ
+
+        mc.load(r.RES.value, r.r2.value, 0)         # load nursery_free
+        mc.load(r.SCRATCH.value, r.r2.value, diff)  # load nursery_top
+
+        mc.add(r.RSZ.value, r.RES.value, sizeloc.value)
+
+        mc.cmp_op(0, r.RSZ.value, r.SCRATCH.value, signed=False)
+
+        fast_jmp_pos = mc.currpos()
+        mc.trap()        # conditional jump, patched later
+
+        # new value of nursery_free_adr in RSZ and the adr of the new object
+        # in RES.
+        self.load_gcmap(mc, r.r2, gcmap)
+        mc.bl_abs(self.malloc_slowpath)
+
+        offset = mc.currpos() - fast_jmp_pos
+        pmc = OverwritingBuilder(mc, fast_jmp_pos, 1)
+        pmc.bc(7, 1, offset)    # jump if LE (not GT), predicted to be true
+        pmc.overwrite()
+
+        mc.store(r.RSZ.value, r.r2.value, 0)    # store into nursery_free
+
+    def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
+                            lengthloc, itemsize, maxlength, gcmap,
+                            arraydescr):
+        xxx
+        from rpython.jit.backend.llsupport.descr import ArrayDescr
+        assert isinstance(arraydescr, ArrayDescr)
+
+        # lengthloc is the length of the array, which we must not modify!
+        assert lengthloc is not r.RES and lengthloc is not r.RSZ
+        assert lengthloc.is_reg()
+
+        if maxlength > 2**16-1:
+            maxlength = 2**16-1      # makes things easier
+        mc = self.mc
+        mc.cmp_op(0, lengthloc.value, maxlength, imm=True, signed=False)
+
+        jmp_adr0 = mc.currpos()
+        mc.trap()       # conditional jump, patched later
+
+        # ------------------------------------------------------------
+        # block of code for the case: the length is <= maxlength
+
+        diff = nursery_top_adr - nursery_free_adr
+        assert _check_imm_arg(diff)
+        mc.load_imm(r.r2, nursery_free_adr)
+
+        varsizeloc = self._multiply_by_constant(lengthloc, itemsize,
+                                                r.RSZ)
+        # varsizeloc is either RSZ here, or equal to lengthloc if
+        # itemsize == 1.  It is the size of the variable part of the
+        # array, in bytes.
+
+        mc.load(r.RES.value, r.r2.value, 0)         # load nursery_free
+        mc.load(r.SCRATCH.value, r.r2.value, diff)  # load nursery_top
+
+        assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
+        constsize = arraydescr.basesize + self.gc_size_of_header
+        force_realignment = (itemsize % WORD) != 0
+        if force_realignment:
+            constsize += WORD - 1
+        mc.addi(r.RSZ.value, varsizeloc.value, constsize)
+        if force_realignment:
+            # "& ~(WORD-1)"
+            bit_limit = 60 if WORD == 8 else 61
+            mc.rldicr(r.RSZ.value, r.RSZ.value, 0, bit_limit)
+
+        mc.add(r.RSZ.value, r.RES.value, r.RSZ.value)
+        # now RSZ contains the total size in bytes, rounded up to a multiple
+        # of WORD, plus nursery_free_adr
+
+        mc.cmp_op(0, r.RSZ.value, r.SCRATCH.value, signed=False)
+
+        jmp_adr1 = mc.currpos()
+        mc.trap()        # conditional jump, patched later
+
+        # ------------------------------------------------------------
+        # block of code for two cases: either the length is > maxlength
+        # (jump from jmp_adr0), or the length is small enough but there
+        # is not enough space in the nursery (fall-through)
+        #
+        offset = mc.currpos() - jmp_adr0
+        pmc = OverwritingBuilder(mc, jmp_adr0, 1)
+        pmc.bgt(offset)    # jump if GT
+        pmc.overwrite()
+        #
+        # save the gcmap
+        self.load_gcmap(mc, r.r2, gcmap)
+        #
+        # load the function to call into CTR
+        if kind == rewrite.FLAG_ARRAY:
+            addr = self.malloc_slowpath_varsize
+        elif kind == rewrite.FLAG_STR:
+            addr = self.malloc_slowpath_str
+        elif kind == rewrite.FLAG_UNICODE:
+            addr = self.malloc_slowpath_unicode
+        else:
+            raise AssertionError(kind)
+        mc.load_imm(r.SCRATCH, addr)
+        mc.mtctr(r.SCRATCH.value)
+        #
+        # load the argument(s)
+        if kind == rewrite.FLAG_ARRAY:
+            mc.mr(r.RSZ.value, lengthloc.value)
+            mc.load_imm(r.RES, itemsize)
+            mc.load_imm(r.SCRATCH, arraydescr.tid)
+        else:
+            mc.mr(r.RES.value, lengthloc.value)
+        #
+        # call!
+        mc.bctrl()
+
+        jmp_location = mc.currpos()
+        mc.trap()      # jump forward, patched later
+
+        # ------------------------------------------------------------
+        # block of code for the common case: the length is <= maxlength
+        # and there is enough space in the nursery
+
+        offset = mc.currpos() - jmp_adr1
+        pmc = OverwritingBuilder(mc, jmp_adr1, 1)
+        pmc.ble(offset)    # jump if LE
+        pmc.overwrite()
+        #
+        # write down the tid, but only in this case (not in other cases
+        # where r.RES is the result of the CALL)
+        mc.load_imm(r.SCRATCH, arraydescr.tid)
+        mc.store(r.SCRATCH.value, r.RES.value, 0)
+        # while we're at it, this line is not needed if we've done the CALL
+        mc.store(r.RSZ.value, r.r2.value, 0)    # store into nursery_free
+
+        # ------------------------------------------------------------
+
+        offset = mc.currpos() - jmp_location
+        pmc = OverwritingBuilder(mc, jmp_location, 1)
+        pmc.b(offset)    # jump always
+        pmc.overwrite()
+
 
 def notimplemented_op(asm, op, arglocs, regalloc):
     print "[ZARCH/asm] %s not implemented" % op.getopname()

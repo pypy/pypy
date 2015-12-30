@@ -65,7 +65,6 @@ class Runner(object):
     def execute_operations(self, inputargs, operations, result_type):
         looptoken = JitCellToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
-        #import pdb; pdb.set_trace()
         args = []
         for box in inputargs:
             if box.type == 'i':
@@ -4980,7 +4979,6 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_increment_debug_counter(self):
         foo = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
         foo[0] = 1789200
-        print "addr" , hex(rffi.cast(lltype.Signed, foo))
         self.execute_operation(rop.INCREMENT_DEBUG_COUNTER,
                                [ConstInt(rffi.cast(lltype.Signed, foo))],
                                'void')
@@ -5006,12 +5004,11 @@ class LLtypeBackendTest(BaseBackendTest):
             addr = llmemory.cast_ptr_to_adr(a)
             a_int = heaptracker.adr2int(addr)
             a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
-            for (start, length) in [(0,100), (49, 49), (1, 98),
+            for (start, length) in [(0, 100), (49, 49), (1, 98),
                                     (15, 9), (10, 10), (47, 0),
                                     (0, 4)]:
                 for cls1 in [ConstInt, InputArgInt]:
                     for cls2 in [ConstInt, InputArgInt]:
-                        print 'ptr:', hex(rffi.cast(lltype.Signed, a_ref))
                         print 'a_int:', a_int
                         print 'of:', OF
                         print 'start:', cls1.__name__, start
@@ -5049,10 +5046,6 @@ class LLtypeBackendTest(BaseBackendTest):
 
                         scalebox = ConstInt(arraydescr.itemsize)
                         inputargs, oplist = self._get_operation_list(ops,'void')
-                        # XXX
-                        print("input:", inputargs)
-                        for op in oplist:
-                            print(op)
                         self.execute_operations(inputargs, oplist, 'void')
                         assert len(a) == 100
                         for i in range(100):
