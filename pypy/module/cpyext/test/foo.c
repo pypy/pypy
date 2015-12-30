@@ -378,7 +378,7 @@ PyTypeObject MetaType = {
     PyObject_HEAD_INIT(NULL)
     0,
     "foo.Meta",
-    sizeof(PyTypeObject),          /*tp_basicsize*/
+    sizeof(PyHeapTypeObject),/*tp_basicsize*/
     0,          /*tp_itemsize*/
     0,          /*tp_dealloc*/
     0,          /*tp_print*/
