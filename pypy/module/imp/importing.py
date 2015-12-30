@@ -75,19 +75,25 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
     w_mod = check_sys_modules_w(space, modulename)
     if w_mod:
         return w_mod
-    if modulename in space.builtin_modules:
-        return space.getbuiltinmodule(modulename)
+    try:
+        lock = getimportlock(space)
+        lock.acquire_lock()
 
-    ec = space.getexecutioncontext()
-    with open(os.path.join(lib_pypy, modulename + '.py')) as fp:
-        source = fp.read()
-    pathname = "<frozen %s>" % modulename
-    code_w = ec.compiler.compile(source, pathname, 'exec', 0)
-    w_mod = add_module(space, space.wrap(modulename))
-    space.setitem(space.sys.get('modules'), w_mod.w_name, w_mod)
-    space.setitem(w_mod.w_dict, space.wrap('__name__'), w_mod.w_name)
-    code_w.exec_code(space, w_mod.w_dict, w_mod.w_dict)
-    assert check_sys_modules_w(space, modulename)
+        if modulename in space.builtin_modules:
+            return space.getbuiltinmodule(modulename)
+
+        ec = space.getexecutioncontext()
+        with open(os.path.join(lib_pypy, modulename + '.py')) as fp:
+            source = fp.read()
+        pathname = "<frozen %s>" % modulename
+        code_w = ec.compiler.compile(source, pathname, 'exec', 0)
+        w_mod = add_module(space, space.wrap(modulename))
+        space.setitem(space.sys.get('modules'), w_mod.w_name, w_mod)
+        space.setitem(w_mod.w_dict, space.wrap('__name__'), w_mod.w_name)
+        code_w.exec_code(space, w_mod.w_dict, w_mod.w_dict)
+        assert check_sys_modules_w(space, modulename)
+    finally:
+        lock.release_lock(silent_after_fork=True)
     return w_mod
 
 
@@ -174,6 +180,7 @@ class ImportRLock:
     def acquire_lock(self):
         # this function runs with the GIL acquired so there is no race
         # condition in the creation of the lock
+        print("calling original")
         if self.lock is None:
             try:
                 self.lock = self.space.allocate_lock()
@@ -224,7 +231,9 @@ class ImportRLock:
             self.lockcounter = 0
 
 def getimportlock(space):
-    return space.fromcache(ImportRLock)
+    me = space.fromcache(ImportRLock)
+    print(id(me), "id of lock")
+    return me
 
 # __________________________________________________________________
 #

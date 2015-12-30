@@ -92,18 +92,31 @@ class TestImportLock:
         importlock = getimportlock(space)
         original_acquire = importlock.acquire_lock
         def acquire_lock():
+            print("calling monkeyed")
             importlock.count += 1
             original_acquire()
         importlock.count = 0
+        print(id(acquire_lock), "acq id")
+        monkeypatch.setattr(importlock.__class__, 'acquire_lock', acquire_lock)
+        print(id(getattr(importlock.__class__, 
+                        "acquire_lock")), 
+                    "getattr id")
         monkeypatch.setattr(importlock, 'acquire_lock', acquire_lock)
+
+        print(id(getattr(importlock.__class__, 
+                        "acquire_lock")), 
+                    "getattr id")
+        print(id(importlock.__class__.acquire_lock), id(importlock.acquire_lock), id(acquire_lock), "alll")
 
         # An already imported module
         importhook(space, 'sys')
         assert importlock.count == 0
         # A new module
-        importhook(space, '__future__')
+        x = "time"
+        importhook(space, x)
         assert importlock.count == 1
+        print("yay")
         # Import it again
         previous_count = importlock.count
-        importhook(space, '__future__')
+        importhook(space, x)
         assert importlock.count == previous_count
