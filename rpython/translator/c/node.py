@@ -539,7 +539,17 @@ assert not USESLOTS or '__dict__' not in dir(ContainerNode)
 class StructNode(ContainerNode):
     nodekind = 'struct'
     if USESLOTS:
-        __slots__ = ()
+        __slots__ = ('gc_init',)
+
+    def __init__(self, db, T, obj):
+        ContainerNode.__init__(self, db, T, obj)
+        if needs_gcheader(T):
+            gct = self.db.gctransformer
+            if gct is not None:
+                self.gc_init = gct.gcheader_initdata(self)
+                db.getcontainernode(self.gc_init)
+            else:
+                self.gc_init = None
 
     def basename(self):
         T = self.getTYPE()
@@ -566,12 +576,7 @@ class StructNode(ContainerNode):
         data = []
 
         if needs_gcheader(T):
-            gct = defnode.db.gctransformer
-            if gct is not None:
-                gc_init = gct.gcheader_initdata(self)
-            else:
-                gc_init = None
-            data.append(('gcheader', gc_init))
+            data.append(('gcheader', self.gc_init))
 
         for name in defnode.fieldnames:
             data.append((name, getattr(self.obj, name)))
@@ -664,7 +669,17 @@ def gcstructnode_factory(db, T, obj):
 class ArrayNode(ContainerNode):
     nodekind = 'array'
     if USESLOTS:
-        __slots__ = ()
+        __slots__ = ('gc_init',)
+
+    def __init__(self, db, T, obj):
+        ContainerNode.__init__(self, db, T, obj)
+        if needs_gcheader(T):
+            gct = self.db.gctransformer
+            if gct is not None:
+                self.gc_init = gct.gcheader_initdata(self)
+                db.getcontainernode(self.gc_init)
+            else:
+                self.gc_init = None
 
     def getptrname(self):
         if barebonearray(self.getTYPE()):
@@ -684,12 +699,7 @@ class ArrayNode(ContainerNode):
         T = self.getTYPE()
         yield '{'
         if needs_gcheader(T):
-            gct = self.db.gctransformer
-            if gct is not None:
-                gc_init = gct.gcheader_initdata(self)
-            else:
-                gc_init = None
-            lines = generic_initializationexpr(self.db, gc_init, 'gcheader',
+            lines = generic_initializationexpr(self.db, self.gc_init, 'gcheader',
                                                '%sgcheader' % (decoration,))
             for line in lines:
                 yield line
