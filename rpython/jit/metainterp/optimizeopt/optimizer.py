@@ -375,6 +375,7 @@ class Optimizer(Optimization):
         if (box.type == 'i' and box.get_forwarded() and
             box.get_forwarded().is_constant()):
             return ConstInt(box.get_forwarded().getint())
+        return None
         #self.ensure_imported(value)
 
     def get_newoperations(self):

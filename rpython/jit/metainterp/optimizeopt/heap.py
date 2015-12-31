@@ -493,7 +493,7 @@ class OptHeap(Optimization):
         return pendingfields
 
     def optimize_GETFIELD_GC_I(self, op):
-        if op.is_always_pure() and self.get_constant_box(op.getarg(0)):
+        if op.is_always_pure() and self.get_constant_box(op.getarg(0)) is not None:
             resbox = self.optimizer.constant_fold(op)
             self.optimizer.make_constant(op, resbox)
             return
