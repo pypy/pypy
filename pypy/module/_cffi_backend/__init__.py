@@ -1,6 +1,7 @@
 import sys
 from pypy.interpreter.mixedmodule import MixedModule
-from rpython.rlib import rdynload, clibffi
+from rpython.rlib import rdynload, clibffi, entrypoint
+from rpython.rtyper.lltypesystem import rffi
 
 VERSION = "1.4.2"
 
@@ -66,8 +67,8 @@ class Module(MixedModule):
         interpleveldefs['FFI_STDCALL'] = 'space.wrap(%d)' % FFI_STDCALL
 
     def startup(self, space):
-        from pypy.module._cffi_backend import cffi1_module
-        cffi1_module.glob.space = space
+        from pypy.module._cffi_backend import embedding
+        embedding.glob.space = space
 
 
 def get_dict_rtld_constants():
@@ -82,3 +83,11 @@ def get_dict_rtld_constants():
 
 for _name, _value in get_dict_rtld_constants().items():
     Module.interpleveldefs[_name] = 'space.wrap(%d)' % _value
+
+
+# write this entrypoint() here, to make sure it is registered early enough
+@entrypoint.entrypoint_highlevel('main', [rffi.INT, rffi.VOIDP],
+                                 c_name='pypy_init_embedded_cffi_module')
+def pypy_init_embedded_cffi_module(version, init_struct):
+    from pypy.module._cffi_backend import embedding
+    return embedding.pypy_init_embedded_cffi_module(version, init_struct)
