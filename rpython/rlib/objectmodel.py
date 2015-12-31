@@ -114,6 +114,8 @@ class _Specialize(object):
 
 specialize = _Specialize()
 
+NOT_CONSTANT = object()      # to use in enforceargs()
+
 def enforceargs(*types_, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.

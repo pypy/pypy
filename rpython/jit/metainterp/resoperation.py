@@ -1212,8 +1212,12 @@ _oplist = [
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     # same paramters as GC_LOAD, but one additional for the value to store
-    # note that the itemsize is not signed!
+    # note that the itemsize is not signed (always > 0)
     # (gcptr, index, value, [scale, base_offset,] itemsize)
+    # invariants for GC_STORE: index is constant, but can be large
+    # invariants for GC_STORE_INDEXED: index is a non-constant box;
+    #                                  scale is a constant;
+    #                                  base_offset is a small constant
     'GC_STORE/4d/n',
     'GC_STORE_INDEXED/6d/n',
 

@@ -804,7 +804,7 @@ class Regalloc(BaseRegalloc):
         base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
         ofs = boxes[1].getint()
         value_loc = self.make_sure_var_in_reg(boxes[2], boxes)
-        size = abs(boxes[3].getint())
+        size = boxes[3].getint()
         ofs_size = default_imm_size if size < 8 else VMEM_imm_size
         if check_imm_arg(ofs, size=ofs_size):
             ofs_loc = imm(ofs)
@@ -849,7 +849,7 @@ class Regalloc(BaseRegalloc):
         index_loc = self.make_sure_var_in_reg(boxes[1], boxes)
         assert boxes[3].getint() == 1    # scale
         ofs = boxes[4].getint()
-        size = abs(boxes[5].getint())
+        size = boxes[5].getint()
         assert check_imm_arg(ofs)
         return [value_loc, base_loc, index_loc, imm(size), imm(ofs)]
 

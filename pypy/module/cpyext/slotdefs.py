@@ -386,7 +386,7 @@ def build_slot_tp_function(space, typedef, name):
             return
 
         @cpython_api([PyObject, PyObject], PyObject,
-                     error=lltype.nullptr(rffi.VOIDP.TO), external=True)
+                     external=True)
         @func_renamer("cpyext_tp_getattro_%s" % (typedef.name,))
         def slot_tp_getattro(space, w_self, w_name):
             return space.call_function(getattr_fn, w_self, w_name)
