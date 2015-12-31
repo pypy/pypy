@@ -919,10 +919,10 @@ class MemoryOpAssembler(object):
         self.mc.AGHI(r.r3, l.imm(basesize))
         self.mc.AGHI(r.r2, l.imm(basesize))
 
-        self.mc.alloc_std_frame()
+        self.mc.push_std_frame()
         self.mc.load_imm(self.mc.RAW_CALL_REG, self.memcpy_addr)
         self.mc.raw_call()
-        self.mc.restore_std_frame()
+        self.mc.pop_std_frame()
 
     def emit_zero_array(self, op, arglocs, regalloc):
         base_loc, startindex_loc, length_loc, \

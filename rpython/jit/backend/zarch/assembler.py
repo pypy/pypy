@@ -298,10 +298,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # g) restore registers and return
         mc = InstrBuilder()
         self.mc = mc
-        return
 
         # signature of this _frame_realloc_slowpath function:
-        #   * on entry, r0 is the new size
+        #   * on entry, r3 is the new size
         #   * on entry, r2 is the gcmap
         #   * no managed register must be modified
 
@@ -311,38 +310,43 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self._push_core_regs_to_jitframe(mc)
         self._push_fp_regs_to_jitframe(mc)
 
-        # Save away the LR inside r30
-        #mc.mflr(r.RCS1.value)
+        self.mc.store_link()
 
         # First argument is SPP (= r31), which is the jitframe
-        mc.mr(r.r3.value, r.SPP.value)
+        mc.LGR(r.r2, r.SPP)
 
-        # Second argument is the new size, which is still in r0 here
-        mc.mr(r.r4.value, r.r0.value)
+        # no need to move second argument (frame_depth),
+        # it is already in register r3!
+
+        RCS2 = r.r10
+        RCS3 = r.r12
 
         # This trashes r0 and r2
-        self._store_and_reset_exception(mc, r.RCS2, r.RCS3)
+        self._store_and_reset_exception(mc, RCS2, RCS3)
 
         # Do the call
         adr = rffi.cast(lltype.Signed, self.cpu.realloc_frame)
+        mc.push_std_frame()
         mc.load_imm(mc.RAW_CALL_REG, adr)
         mc.raw_call()
+        mc.pop_std_frame()
 
         # The result is stored back into SPP (= r31)
-        mc.mr(r.SPP.value, r.r3.value)
+        mc.LGR(r.SPP, r.r2)
 
-        self._restore_exception(mc, r.RCS2, r.RCS3)
+        self._restore_exception(mc, RCS2, RCS3)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
+            xxx
             diff = mc.load_imm_plus(r.r5, gcrootmap.get_root_stack_top_addr())
             mc.load(r.r5.value, r.r5.value, diff)
             mc.store(r.r3.value, r.r5.value, -WORD)
 
-        mc.mtlr(r.RCS1.value)     # restore LR
+        mc.restore_link()
         self._pop_core_regs_from_jitframe(mc)
         self._pop_fp_regs_from_jitframe(mc)
-        mc.blr()
+        mc.BCR(c.ANY, r.RETURN)
 
         self._frame_realloc_slowpath = mc.materialize(self.cpu, [])
         self.mc = None
@@ -492,17 +496,19 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         """
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
-        #mc.LG(r.r2, l.addr(ofs, r.SPP))
+        mc.LG(r.r2, l.addr(ofs, r.SPP))
         patch_pos = mc.currpos()
-        # XXX TODO
-        #self.mc.trap()
-        #mc.TRAP2()     # placeholder for cmpdi(0, r2, ...)
-        #mc.TRAP2()     # placeholder for bge
-        #mc.TRAP2()     # placeholder for li(r0, ...)
-        #mc.load_imm(r.SCRATCH2, self._frame_realloc_slowpath)
-        #mc.mtctr(r.SCRATCH2.value)
-        #self.load_gcmap(mc, r.r2, gcmap)
-        #mc.bctrl()
+        # placeholder for the following instructions
+        # CGRL r2, ... (6  bytes)
+        # BRC  c, ...  (4  bytes)
+        # LGHI r3, ... (4  bytes)
+        #       sum -> (14 bytes)
+        mc.write('\x00'*14)
+        mc.load_imm(r.RETURN, self._frame_realloc_slowpath)
+        self.load_gcmap(mc, r.r2, gcmap)
+        self.mc.push_std_frame()
+        mc.BCR(c.ANY, r.RETURN)
+        self.mc.pop_std_frame()
 
         self.frame_depth_to_patch.append((patch_pos, mc.currpos()))
 
@@ -846,10 +852,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         for traps_pos, jmp_target in self.frame_depth_to_patch:
             pmc = OverwritingBuilder(self.mc, traps_pos, 3)
             # three traps, so exactly three instructions to patch here
-            #pmc.cmpdi(0, r.r2.value, frame_depth)         # 1
-            #pmc.bc(7, 0, jmp_target - (traps_pos + 4))    # 2   "bge+"
-            #pmc.li(r.r0.value, frame_depth)               # 3
-            #pmc.overwrite()
+            pmc.CGRL(r.r2, l.imm(frame_depth))
+            pmc.BRC(c.EQ, jmp_target - (traps_pos + 6))
+            pmc.LGHI(r.r3, frame_depth)
+            pmc.overwrite()
 
     def materialize_loop(self, looptoken):
         self.datablockwrapper.done()

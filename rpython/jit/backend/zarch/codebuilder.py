@@ -10,6 +10,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.tool.udir import udir
 from rpython.jit.backend.detect_cpu import autodetect
+from rpython.jit.backend.zarch.arch import WORD
 
 clear_cache = rffi.llexternal(
     "__clear_cache",
@@ -197,11 +198,17 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         """
         self.BASR(r.RETURN, call_reg)
 
-    def alloc_std_frame(self):
+    def store_link(self):
+        self.STG(r.RETURN, l.addr(14*WORD, r.SP))
+
+    def restore_link(self):
+        self.LG(r.RETURN, l.addr(14*WORD, r.SP))
+
+    def push_std_frame(self):
         self.STG(r.SP, l.addr(-STD_FRAME_SIZE_IN_BYTES, r.SP))
         self.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
 
-    def restore_std_frame(self):
+    def pop_std_frame(self):
         self.AGHI(r.SP, l.imm(STD_FRAME_SIZE_IN_BYTES))
 
 class OverwritingBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
