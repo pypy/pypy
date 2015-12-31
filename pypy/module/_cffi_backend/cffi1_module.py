@@ -1,4 +1,3 @@
-import os
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.error import oefmt
