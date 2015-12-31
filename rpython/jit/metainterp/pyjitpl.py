@@ -810,6 +810,27 @@ class MIFrame(object):
         return self.execute_with_descr(rop.RAW_LOAD_F, arraydescr,
                                        addrbox, offsetbox)
 
+    def _remove_symbolics(self, c):
+        if not we_are_translated():
+            from rpython.rtyper.lltypesystem import ll2ctypes
+            assert isinstance(c, ConstInt)
+            c = ConstInt(ll2ctypes.lltype2ctypes(c.value))
+        return c
+
+    @arguments("box", "box", "box", "box", "box")
+    def opimpl_gc_load_indexed_i(self, addrbox, indexbox,
+                                 scalebox, baseofsbox, bytesbox):
+        return self.execute(rop.GC_LOAD_INDEXED_I, addrbox, indexbox,
+                            self._remove_symbolics(scalebox),
+                            self._remove_symbolics(baseofsbox), bytesbox)
+
+    @arguments("box", "box", "box", "box", "box")
+    def opimpl_gc_load_indexed_f(self, addrbox, indexbox,
+                                 scalebox, baseofsbox, bytesbox):
+        return self.execute(rop.GC_LOAD_INDEXED_F, addrbox, indexbox,
+                            self._remove_symbolics(scalebox),
+                            self._remove_symbolics(baseofsbox), bytesbox)
+
     @arguments("box")
     def opimpl_hint_force_virtualizable(self, box):
         self.metainterp.gen_store_back_in_vable(box)
