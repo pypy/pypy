@@ -1216,10 +1216,17 @@ class FunctionWriter(object):
             tmp.append('{arg.TV}'.format(arg=arg))
         args = ', '.join(tmp)
 
+        tailmarker = ''
+        try:
+            if fn.value._obj.graph.inhibit_tail_call:
+                tailmarker = 'notail '
+        except AttributeError:
+            pass
+
         if result.type is LLVMVoid:
-            fmt = 'call void {fn.V}({args})'
+            fmt = '{tailmarker}call void {fn.V}({args})'
         else:
-            fmt = '{result.V} = call {result.T} {fn.V}({args})'
+            fmt = '{result.V} = {tailmarker}call {result.T} {fn.V}({args})'
         self.w(fmt.format(**locals()))
     op_indirect_call = op_direct_call
 

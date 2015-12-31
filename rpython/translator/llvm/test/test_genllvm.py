@@ -655,6 +655,16 @@ class TestSpecialCases(_LLVMMixin):
         assert not fc(r_longfloat(0.0))
         assert fc(r_longfloat(1.0))
 
+    def test_recursive_notail(self):
+        def f(n):
+            if n <= 0:
+                return 42
+            return f(n+1)
+        def entry_point():
+            return f(1)
+        fc = self.getcompiled(entry_point, [])
+        fc(expected_exception_name='StackOverflow')
+
 
 class TestLowLevelTypeLLVM(_LLVMMixin, test_lltyped.TestLowLevelType):
     def getcompiled(self, func, argtypes):
