@@ -321,7 +321,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         RCS2 = r.r10
         RCS3 = r.r12
 
-        # This trashes r0 and r2
         self._store_and_reset_exception(mc, RCS2, RCS3)
 
         # Do the call
@@ -344,7 +343,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             mc.store(r.r3.value, r.r5.value, -WORD)
 
         mc.restore_link()
-        self._pop_core_regs_from_jitframe(mc)
+        # do not restore r2, thus [1:]
+        self._pop_core_regs_from_jitframe(mc, r.MANAGED_REGS[1:])
         self._pop_fp_regs_from_jitframe(mc)
         mc.BCR(c.ANY, r.RETURN)
 
@@ -409,13 +409,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             self._push_fp_regs_to_jitframe(mc)
 
         # allocate a stack frame!
-        mc.STG(r.SP, l.addr(-STD_FRAME_SIZE_IN_BYTES, r.SP)) # store the backchain
-        mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
-
-        # Do the call
+        mc.push_std_frame()
         mc.raw_call(r.r12)
-
-        mc.AGHI(r.SP, l.imm(STD_FRAME_SIZE_IN_BYTES))
+        mc.pop_std_frame()
 
         # Finish
         self._reload_frame_if_necessary(mc)
@@ -437,15 +433,14 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # registers).
         mc = InstrBuilder()
         #
-        mc.STG(r.r14, l.addr(14*WORD, r.SP))
+        mc.trap()
+        # mc.STG(r.r14, l.addr(14*WORD, r.SP))
         # Do the call
-        # use SP as single parameter for the call
-        mc.STG(r.SP, l.addr(0, r.SP)) # store the backchain
-        mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
+        mc.push_std_frame()
         mc.LGR(r.r2, r.SP)
         mc.load_imm(mc.RAW_CALL_REG, slowpathaddr)
         mc.raw_call()
-        mc.AGHI(r.SP, l.imm(STD_FRAME_SIZE_IN_BYTES))
+        mc.pop_std_frame()
         #
         # Check if it raised StackOverflow
         mc.load_imm(r.SCRATCH, self.cpu.pos_exception())
@@ -455,7 +450,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.cmp_op(r.SCRATCH, 0, imm=True)
         #
         # So we return to our caller, conditionally if "EQ"
-        mc.LG(r.r14, l.addr(14*WORD, r.SP))
+        # mc.LG(r.r14, l.addr(14*WORD, r.SP))
         mc.BCR(c.EQ, r.r14)
         #
         # Else, jump to propagate_exception_path
@@ -479,6 +474,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
             diff = lengthaddr - endaddr
             assert check_imm_value(diff)
+            xxx
 
             mc = self.mc
             mc.load_imm(r.SCRATCH, self.stack_check_slowpath)
@@ -499,15 +495,15 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.LG(r.r2, l.addr(ofs, r.SPP))
         patch_pos = mc.currpos()
         # placeholder for the following instructions
-        # CGRL r2, ... (6  bytes)
+        # CGFI r2, ... (6  bytes)
         # BRC  c, ...  (4  bytes)
         # LGHI r3, ... (4  bytes)
         #       sum -> (14 bytes)
         mc.write('\x00'*14)
+        self.mc.push_std_frame()
         mc.load_imm(r.RETURN, self._frame_realloc_slowpath)
         self.load_gcmap(mc, r.r2, gcmap)
-        self.mc.push_std_frame()
-        mc.BCR(c.ANY, r.RETURN)
+        mc.raw_call()
         self.mc.pop_std_frame()
 
         self.frame_depth_to_patch.append((patch_pos, mc.currpos()))
@@ -852,9 +848,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         for traps_pos, jmp_target in self.frame_depth_to_patch:
             pmc = OverwritingBuilder(self.mc, traps_pos, 3)
             # three traps, so exactly three instructions to patch here
-            pmc.CGRL(r.r2, l.imm(frame_depth))
-            pmc.BRC(c.EQ, jmp_target - (traps_pos + 6))
-            pmc.LGHI(r.r3, frame_depth)
+            pmc.CGFI(r.r2, l.imm(frame_depth))
+            pmc.BRC(c.EQ, l.imm(jmp_target - (traps_pos + 6)))
+            pmc.LGHI(r.r3, l.imm(frame_depth))
             pmc.overwrite()
 
     def materialize_loop(self, looptoken):
@@ -910,11 +906,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                                                  relative_target))
 
     def _call_header(self):
-        # Reserve space for a function descriptor, 3 words
-        #self.mc.write64(0)
-        #self.mc.write64(0)
-        #self.mc.write64(0)
-
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
         self.mc.STMG(r.r6, r.r15, l.addr(6*WORD, r.SP))
         # save the back chain

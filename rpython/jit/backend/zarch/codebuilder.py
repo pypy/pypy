@@ -206,10 +206,10 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
     def push_std_frame(self):
         self.STG(r.SP, l.addr(-STD_FRAME_SIZE_IN_BYTES, r.SP))
-        self.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
+        self.LAY(r.SP, l.addr(-STD_FRAME_SIZE_IN_BYTES, r.SP))
 
     def pop_std_frame(self):
-        self.AGHI(r.SP, l.imm(STD_FRAME_SIZE_IN_BYTES))
+        self.LAY(r.SP, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
 
 class OverwritingBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def __init__(self, mc, start, num_insts=0):
