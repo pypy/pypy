@@ -152,7 +152,7 @@ class FieldDescr(AbstractDescr):
         self.fieldname = fieldname
         self.FIELD = getattr(S, fieldname)
         self.index = heaptracker.get_fielddescr_index_in(S, fieldname)
-        self._is_pure = S._immutable_field(fieldname)
+        self._is_pure = S._immutable_field(fieldname) != False
 
     def is_always_pure(self):
         return self._is_pure
