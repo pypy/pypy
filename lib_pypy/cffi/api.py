@@ -74,6 +74,7 @@ class FFI(object):
         self._windows_unicode = None
         self._init_once_cache = {}
         self._cdef_version = None
+        self._embedding_init_code = None
         if hasattr(backend, 'set_ffi'):
             backend.set_ffi(self)
         for name in backend.__dict__:
@@ -93,7 +94,7 @@ class FFI(object):
             self.NULL = self.cast(self.BVoidP, 0)
             self.CData, self.CType = backend._get_types()
 
-    def cdef(self, csource, override=False, packed=False):
+    def cdef(self, csource, override=False, packed=False, dllexport=False):
         """Parse the given C source.  This registers all declared functions,
         types, and global variables.  The functions and global variables can
         then be accessed via either 'ffi.dlopen()' or 'ffi.verify()'.
@@ -107,7 +108,8 @@ class FFI(object):
             csource = csource.encode('ascii')
         with self._lock:
             self._cdef_version = object()
-            self._parser.parse(csource, override=override, packed=packed)
+            self._parser.parse(csource, override=override, packed=packed,
+                               dllexport=dllexport)
             self._cdefsources.append(csource)
             if override:
                 for cache in self._function_caches:
@@ -625,6 +627,19 @@ class FFI(object):
             result = func()
             self._init_once_cache[tag] = (True, result)
         return result
+
+    def embedding_init_code(self, pysource):
+        if self._embedding_init_code is not None:
+            raise ValueError("embedding_init_code() can only be called once")
+        # check for SyntaxErrors, at least, and automatically add a
+        # "if 1:" line in front of the code if the whole pysource is
+        # indented
+        try:
+            compile(pysource, "cffi_init", "exec")
+        except IndentationError:
+            pysource = 'if 1:\n' + pysource
+            compile(pysource, "cffi_init", "exec")
+        self._embedding_init_code = pysource
 
 
 def _load_backend_lib(backend, name, flags):
