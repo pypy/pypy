@@ -306,6 +306,7 @@ class Function(W_Root):
         tup_base = []
         tup_state = [
             w(self.name),
+            w(self.qualname),
             w_doc,
             w(self.code),
             w_func_globals,
@@ -319,8 +320,8 @@ class Function(W_Root):
     def descr_function__setstate__(self, space, w_args):
         args_w = space.unpackiterable(w_args)
         try:
-            (w_name, w_doc, w_code, w_func_globals, w_closure, w_defs,
-             w_func_dict, w_module) = args_w
+            (w_name, w_qualname, w_doc, w_code, w_func_globals, w_closure,
+             w_defs, w_func_dict, w_module) = args_w
         except ValueError:
             # wrong args
             raise OperationError(space.w_ValueError,
@@ -328,6 +329,7 @@ class Function(W_Root):
 
         self.space = space
         self.name = space.str_w(w_name)
+        self.qualname = space.str_w(w_qualname)
         self.code = space.interp_w(Code, w_code)
         if not space.is_w(w_closure, space.w_None):
             from pypy.interpreter.nestedscope import Cell
