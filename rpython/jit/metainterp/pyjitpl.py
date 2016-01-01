@@ -653,7 +653,7 @@ class MIFrame(object):
 
     @arguments("box", "descr")
     def opimpl_getfield_gc_i(self, box, fielddescr):
-        if fielddescr.is_always_pure() != False and isinstance(box, ConstPtr):
+        if fielddescr.is_always_pure() and isinstance(box, ConstPtr):
             # if 'box' is directly a ConstPtr, bypass the heapcache completely
             resbox = executor.execute(self.metainterp.cpu, self.metainterp,
                                       rop.GETFIELD_GC_I, fielddescr, box)
@@ -663,7 +663,7 @@ class MIFrame(object):
 
     @arguments("box", "descr")
     def opimpl_getfield_gc_f(self, box, fielddescr):
-        if fielddescr.is_always_pure() != False and isinstance(box, ConstPtr):
+        if fielddescr.is_always_pure() and isinstance(box, ConstPtr):
             # if 'box' is directly a ConstPtr, bypass the heapcache completely
             resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
                                         rop.GETFIELD_GC_F, fielddescr, box)
@@ -673,7 +673,7 @@ class MIFrame(object):
 
     @arguments("box", "descr")
     def opimpl_getfield_gc_r(self, box, fielddescr):
-        if fielddescr.is_always_pure() != False and isinstance(box, ConstPtr):
+        if fielddescr.is_always_pure() and isinstance(box, ConstPtr):
             # if 'box' is directly a ConstPtr, bypass the heapcache completely
             val = executor.execute(self.metainterp.cpu, self.metainterp,
                                    rop.GETFIELD_GC_R, fielddescr, box)
@@ -2102,6 +2102,9 @@ class MetaInterp(object):
             if (opnum == rop.GETFIELD_RAW_I or
                 opnum == rop.GETFIELD_RAW_R or
                 opnum == rop.GETFIELD_RAW_F or
+                opnum == rop.GETFIELD_GC_I or
+                opnum == rop.GETFIELD_GC_R or
+                opnum == rop.GETFIELD_GC_F or
                 opnum == rop.GETARRAYITEM_RAW_I or
                 opnum == rop.GETARRAYITEM_RAW_F):
                 is_pure = descr.is_always_pure()
