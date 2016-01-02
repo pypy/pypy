@@ -24,6 +24,6 @@ class TestZARCH(LLtypeBackendTest):
         cpu.setup_once()
         return cpu
 
-    # TODO verify: the lgr might be redundant!
     add_loop_instructions = "lg; lgr; larl; agr; cgfi; je; j;$"
-    bridge_loop_instructions = ("larl; lg; br;")
+    bridge_loop_instructions = "larl; lg; cgfi; je; lghi; stg; " \
+                               "lay; lgfi; lgfi; basr; lay; lg; br;$"
