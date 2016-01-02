@@ -170,7 +170,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc = mc
         
         # save the information
-        mc.STG(r.r14, l.addr(14*WORD, r.SP)) # save the link
+        mc.store_link()
 
         RCS2 = r.r10
         RCS3 = r.r12
@@ -240,7 +240,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if withcards:
             # A final andix before the blr, for the caller.  Careful to
             # not follow this instruction with another one that changes
-            # the status of cr0!
+            # the status of the condition code
             card_marking_mask = descr.jit_wb_cards_set_singlebyte
             mc.LLGC(RCS2, l.addr(descr.jit_wb_if_flag_byteofs, RCS2))
             mc.NILL(RCS2, l.imm(card_marking_mask & 0xFF))
@@ -253,7 +253,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             self._pop_core_regs_from_jitframe(mc, saved_regs)
             self._pop_fp_regs_from_jitframe(mc, saved_fp_regs)
 
-        mc.LG(r.RETURN, l.addr(14*WORD, r.SP)) # restore the link
+        mc.restore_link()
         mc.BCR(c.ANY, r.RETURN)
 
         self.mc = old_mc
@@ -935,7 +935,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
     def _push_all_regs_to_stack(self, mc, withfloats, callee_only=False):
         # not used!!
-        # XXX remove if not needed
+        # TODO remove if not needed
         base_ofs = 2*WORD
         if callee_only:
             regs = ZARCHRegisterManager.save_around_call_regs

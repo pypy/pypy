@@ -454,10 +454,10 @@ class AllocOpAssembler(object):
 
         mc.load_imm(r.r14, self.wb_slowpath[helper_num])
         # alloc a stack frame
-        mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
+        mc.push_std_frame()
         mc.BASR(r.r14, r.r14)
         # destory the frame
-        mc.AGHI(r.SP, l.imm(STD_FRAME_SIZE_IN_BYTES))
+        mc.pop_std_frame()
 
         if card_marking_mask:
             # The helper ends again with a check of the flag in the object.
@@ -480,26 +480,28 @@ class AllocOpAssembler(object):
                 tmp_loc = arglocs[2]
                 n = descr.jit_wb_card_page_shift
 
+                assert tmp_loc is not r.SCRATCH
+                assert tmp_loc is not r.SCRATCH2
+
                 # compute in tmp_loc the byte offset:
-                #     ~(index >> (card_page_shift + 3))   ('~' is 'not_' below)
+                #     ~(index >> (card_page_shift + 3))
                 mc.SRAG(tmp_loc, loc_index, l.addr(n+3))
-                #mc.srli_op(tmp_loc.value, loc_index.value, n + 3)
-                # invert the bits
+
+                # compute in SCRATCH the index of the bit inside the byte:
+                #     (index >> card_page_shift) & 7
+                # not supported on the development s390x :(, extension is not installed
+                # 0x80 sets zero flag. will store 0 into all selected bits
+                # mc.RISBGN(r.SCRATCH, loc_index, l.imm(3), l.imm(0x80 | 63), l.imm(61))
+                mc.SRAG(r.SCRATCH, loc_index, l.addr(n))
+                mc.NILL(r.SCRATCH, l.imm(0x7))
+
+                # invert the bits of tmp_loc
                 mc.XIHF(tmp_loc, l.imm(0xffffFFFF))
                 mc.XILF(tmp_loc, l.imm(0xffffFFFF))
 
-                # compute in r2 the index of the bit inside the byte:
-                #     (index >> card_page_shift) & 7
-                # 0x80 sets zero flag. will store 0 into all selected bits
-                # cannot be used on the VM
-                # mc.RISBGN(r.SCRATCH, loc_index, l.imm(3), l.imm(0x80 | 63), l.imm(61))
-                mc.SLAG(r.SCRATCH, loc_index, l.addr(3))
-                mc.NILL(r.SCRATCH, l.imm(0xff))
-                #mc.rldicl(r.SCRATCH2.value, loc_index.value, 64 - n, 61)
-
-                # set r2 to 1 << r2
+                # set SCRATCH to 1 << r2
                 mc.LGHI(r.SCRATCH2, l.imm(1))
-                mc.SLAG(r.SCRATCH, r.SCRATCH2, l.addr(0,r.SCRATCH))
+                mc.SLAG(r.SCRATCH2, r.SCRATCH2, l.addr(0,r.SCRATCH))
 
                 # set this bit inside the byte of interest
                 addr = l.addr(0, loc_base, tmp_loc)
@@ -507,7 +509,6 @@ class AllocOpAssembler(object):
                 mc.OGR(r.SCRATCH, r.SCRATCH2)
                 mc.STCY(r.SCRATCH, addr)
                 # done
-
             else:
                 byte_index = loc_index.value >> descr.jit_wb_card_page_shift
                 byte_ofs = ~(byte_index >> 3)
