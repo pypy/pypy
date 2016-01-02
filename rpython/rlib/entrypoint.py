@@ -120,9 +120,6 @@ RPython_StartupCode = rffi.llexternal('RPython_StartupCode', [], lltype.Void,
                                       _nowrapper=True,
                                       random_effects_on_gcobjs=True)
 
-@entrypoint_lowlevel('main', [], c_name='rpython_startup_code')
+@entrypoint_highlevel('main', [], c_name='rpython_startup_code')
 def rpython_startup_code():
-    rffi.stackcounter.stacks_counter += 1
-    llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
     RPython_StartupCode()
-    rffi.stackcounter.stacks_counter -= 1
