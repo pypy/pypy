@@ -807,7 +807,11 @@ class MemoryOpAssembler(object):
 
     def _emit_gc_load(self, op, arglocs, regalloc):
         result_loc, base_loc, ofs_loc, size_loc, sign_loc = arglocs
-        src_addr = l.addr(0, base_loc, ofs_loc)
+        if ofs_loc.is_imm():
+            assert self._mem_offset_supported(ofs_loc.value)
+            src_addr = l.addr(ofs_loc.value, base_loc)
+        else:
+            src_addr = l.addr(0, base_loc, ofs_loc)
         self._memory_read(result_loc, src_addr, size_loc.value, sign_loc.value)
 
     emit_gc_load_i = _emit_gc_load

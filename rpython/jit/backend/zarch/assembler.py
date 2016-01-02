@@ -300,14 +300,14 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc = mc
 
         # signature of this _frame_realloc_slowpath function:
-        #   * on entry, r3 is the new size
-        #   * on entry, r2 is the gcmap
+        #   * on entry, r0 is the new size
+        #   * on entry, r1 is the gcmap
         #   * no managed register must be modified
 
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.r2, l.addr(ofs2, r.SPP))
+        mc.STG(r.SCRATCH, l.addr(ofs2, r.SPP))
 
-        self._push_core_regs_to_jitframe(mc)
+        self._push_core_regs_to_jitframe(mc, r.MANAGED_REGS)
         self._push_fp_regs_to_jitframe(mc)
 
         self.mc.store_link()
@@ -317,6 +317,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # no need to move second argument (frame_depth),
         # it is already in register r3!
+        mc.LGR(r.r3, r.SCRATCH2)
 
         RCS2 = r.r10
         RCS3 = r.r12
@@ -343,8 +344,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             mc.store(r.r3.value, r.r5.value, -WORD)
 
         mc.restore_link()
-        # do not restore r2, thus [1:]
-        self._pop_core_regs_from_jitframe(mc, r.MANAGED_REGS[1:])
+        self._pop_core_regs_from_jitframe(mc)
         self._pop_fp_regs_from_jitframe(mc)
         mc.BCR(c.ANY, r.RETURN)
 
@@ -492,17 +492,17 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         """
         descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
         ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
-        mc.LG(r.r2, l.addr(ofs, r.SPP))
+        mc.LG(r.SCRATCH2, l.addr(ofs, r.SPP))
         patch_pos = mc.currpos()
         # placeholder for the following instructions
-        # CGFI r2, ... (6  bytes)
+        # CGFI r1, ... (6  bytes)
         # BRC  c, ...  (4  bytes)
-        # LGHI r3, ... (4  bytes)
+        # LGHI r0, ... (4  bytes)
         #       sum -> (14 bytes)
         mc.write('\x00'*14)
         self.mc.push_std_frame()
         mc.load_imm(r.RETURN, self._frame_realloc_slowpath)
-        self.load_gcmap(mc, r.r2, gcmap)
+        self.load_gcmap(mc, r.SCRATCH, gcmap)
         mc.raw_call()
         self.mc.pop_std_frame()
 
@@ -934,6 +934,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.jmpto(r.r14)
 
     def _push_all_regs_to_stack(self, mc, withfloats, callee_only=False):
+        # not used!!
+        # XXX remove if not needed
         base_ofs = 2*WORD
         if callee_only:
             regs = ZARCHRegisterManager.save_around_call_regs
