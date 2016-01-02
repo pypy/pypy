@@ -54,7 +54,9 @@ def pypy_init_embedded_cffi_module(version, init_struct):
         name = rffi.charp2str(init_struct.name)
         #
         space = glob.space
+        must_leave = False
         try:
+            must_leave = space.threadlocals.try_enter_thread(space)
             load_embedded_cffi_module(space, version, init_struct)
             res = 0
         except OperationError, operr:
@@ -67,6 +69,8 @@ def pypy_init_embedded_cffi_module(version, init_struct):
                 sys.stderr.write('sys.path: %r\n' % (sys.path,))
             """)
             res = -1
+        if must_leave:
+            space.threadlocals.leave_thread(space)
     except Exception, e:
         # oups! last-level attempt to recover.
         try:
@@ -110,7 +114,6 @@ static void _cffi_init(void)
 
     rpython_startup_code();
     RPyGilAllocate();
-    RPyGilRelease();
 
     if (dladdr(&_cffi_init, &info) == 0) {
         _cffi_init_error("dladdr() failed: ", dlerror());
