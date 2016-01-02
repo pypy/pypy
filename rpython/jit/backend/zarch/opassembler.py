@@ -807,6 +807,7 @@ class MemoryOpAssembler(object):
 
     def _emit_gc_load(self, op, arglocs, regalloc):
         result_loc, base_loc, ofs_loc, size_loc, sign_loc = arglocs
+        assert not ofs_loc.is_in_pool()
         if ofs_loc.is_imm():
             assert self._mem_offset_supported(ofs_loc.value)
             src_addr = l.addr(ofs_loc.value, base_loc)
@@ -820,6 +821,7 @@ class MemoryOpAssembler(object):
 
     def _emit_gc_load_indexed(self, op, arglocs, regalloc):
         result_loc, base_loc, index_loc, offset_loc, size_loc, sign_loc =arglocs
+        assert not offset_loc.is_in_pool()
         if offset_loc.is_imm() and self._mem_offset_supported(offset_loc.value):
             addr_loc = l.addr(offset_loc.value, base_loc, index_loc)
         else:
@@ -834,6 +836,7 @@ class MemoryOpAssembler(object):
 
     def emit_gc_store(self, op, arglocs, regalloc):
         (base_loc, index_loc, value_loc, size_loc) = arglocs
+        assert not index_loc.is_in_pool()
         if index_loc.is_imm() and self._mem_offset_supported(index_loc.value):
             addr_loc = l.addr(index_loc.value, base_loc)
         else:
