@@ -175,10 +175,10 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                                               little_endian, is_signed);
              """),
             ])
-        assert module.from_bytearray(True, False) == 0x9ABC
-        assert module.from_bytearray(True, True) == -0x6543
-        assert module.from_bytearray(False, False) == 0xBC9A
-        assert module.from_bytearray(False, True) == -0x4365
+        assert module.from_bytearray(True, False) == 0xBC9A
+        assert module.from_bytearray(True, True) == -0x4366
+        assert module.from_bytearray(False, False) == 0x9ABC
+        assert module.from_bytearray(False, True) == -0x6544
 
     def test_fromunicode(self):
         module = self.import_extension('foo', [
