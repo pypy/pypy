@@ -659,7 +659,8 @@ class GcStructNodeWithHash(StructNode):
         return lines
 
 def gcstructnode_factory(db, T, obj):
-    if db.gctransformer.get_prebuilt_hash(obj) is not None:
+    if (db.gctransformer and
+            db.gctransformer.get_prebuilt_hash(obj) is not None):
         cls = GcStructNodeWithHash
     else:
         cls = StructNode
