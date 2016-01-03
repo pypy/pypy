@@ -231,18 +231,20 @@ def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
 
     # xxx not the most efficient implementation possible, but should work
     result = NULLRBIGINT
-    c = 0
+    most_significant = 0
 
     for i in range(0, n):
         if little_endian:
             c = intmask(bytes[n - i - 1])
         else:
             c = intmask(bytes[i])
+        if i == 0:
+            most_significant = c
 
         result = result.lshift(8)
         result = result.int_add(c)
 
-    if signed and c >= 0x80:
+    if signed and most_significant >= 0x80:
         result = result.sub(ONERBIGINT.lshift(8 * n))
 
     return space.newlong_from_rbigint(result)
