@@ -820,24 +820,22 @@ class FuncNode(ContainerNode):
         if (callable is not None and
             getattr(callable, 'c_name', None) is not None):
             self.name = forcename or obj._callable.c_name
-        elif getattr(obj, 'external', None) == 'C' and not db.need_sandboxing(obj):
+        elif (getattr(obj, 'external', None) == 'C' and
+              not db.need_sandboxing(obj)):
             self.name = forcename or self.basename()
         else:
             self.name = (forcename or
                          db.namespace.uniquename('g_' + self.basename()))
-        self.make_funcgens()
+
+        self.funcgen = select_function_code_generators(obj, db, self.name)
+        if self.funcgen:
+            argnames = self.funcgen.argnames()
+            self.implementationtypename = db.gettype(T, argnames=argnames)
+        self._funccodegen_owner = self.funcgen
         self.typename = db.gettype(T)  #, who_asks=self)
 
     def getptrname(self):
         return self.name
-
-    def make_funcgens(self):
-        self.funcgen = select_function_code_generators(self.obj, self.db, self.name)
-        if self.funcgen:
-            argnames = self.funcgen.argnames()
-            self.implementationtypename = self.db.gettype(self.T, argnames=argnames)
-
-        self._funccodegen_owner = self.funcgen
 
     def basename(self):
         return self.obj._name
