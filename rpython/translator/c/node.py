@@ -10,6 +10,7 @@ from rpython.translator.c.support import c_char_array_constant, barebonearray
 from rpython.translator.c.primitive import PrimitiveType, name_signed
 from rpython.rlib import exports
 from rpython.rlib.rfloat import isfinite, isinf
+from rpython.translator.sandbox import rsandbox
 
 
 def needs_gcheader(T):
@@ -915,7 +916,6 @@ class FuncNode(ContainerNode):
 def sandbox_stub(fnobj, db):
     # unexpected external function for --sandbox translation: replace it
     # with a "Not Implemented" stub.
-    from rpython.translator.sandbox import rsandbox
     graph = rsandbox.get_external_function_sandbox_graph(fnobj, db,
                                                       force_stub=True)
     return make_funcgen(graph, db)
@@ -924,7 +924,6 @@ def sandbox_transform(fnobj, db):
     # for --sandbox: replace a function like os_open_llimpl() with
     # code that communicates with the external process to ask it to
     # perform the operation.
-    from rpython.translator.sandbox import rsandbox
     graph = rsandbox.get_external_function_sandbox_graph(fnobj, db)
     return make_funcgen(graph, db)
 
@@ -939,18 +938,22 @@ def need_sandboxing(fnobj):
 
 def select_function_code_generators(fnobj, db, functionname):
     sandbox = db.sandbox and need_sandboxing(fnobj)
-    if hasattr(fnobj, 'graph'):
-        if sandbox and sandbox != "if_external":
+    if sandbox:
+        if hasattr(fnobj, 'graph') and sandbox != 'if_external':
             # apply the sandbox transformation
             return sandbox_transform(fnobj, db)
+        elif getattr(fnobj, 'external', None) is not None:
+            return sandbox_stub(fnobj, db)
+    if hasattr(fnobj, 'graph'):
+        if db.sandbox:
+            assert getattr(fnobj, '_safe_not_sandboxed', True)
         exception_policy = getattr(fnobj, 'exception_policy', None)
         return make_funcgen(fnobj.graph, db, exception_policy, functionname)
     elif getattr(fnobj, 'external', None) is not None:
-        if sandbox:
-            return sandbox_stub(fnobj, db)
-        else:
-            assert fnobj.external == 'C'
-            return None
+        assert fnobj.external == 'C'
+        if db.sandbox:
+            assert fnobj._safe_not_sandboxed
+        return None
     elif hasattr(fnobj._callable, "c_name"):
         return None    # this case should only be used for entrypoints
     else:
