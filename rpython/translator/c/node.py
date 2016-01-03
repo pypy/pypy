@@ -822,7 +822,7 @@ class FuncNode(ContainerNode):
             getattr(callable, 'c_name', None) is not None):
             self.name = forcename or obj._callable.c_name
         elif (getattr(obj, 'external', None) == 'C' and
-              not db.need_sandboxing(obj)):
+              (not db.sandbox or not need_sandboxing(obj))):
             self.name = forcename or self.basename()
         else:
             self.name = (forcename or
@@ -928,8 +928,17 @@ def sandbox_transform(fnobj, db):
     graph = rsandbox.get_external_function_sandbox_graph(fnobj, db)
     return make_funcgen(graph, db)
 
+def need_sandboxing(fnobj):
+    if hasattr(fnobj, '_safe_not_sandboxed'):
+        return not fnobj._safe_not_sandboxed
+    elif getattr(getattr(fnobj, '_callable', None),
+                    '_sandbox_external_name', None):
+        return True
+    else:
+        return "if_external"
+
 def select_function_code_generators(fnobj, db, functionname):
-    sandbox = db.need_sandboxing(fnobj)
+    sandbox = db.sandbox and need_sandboxing(fnobj)
     if hasattr(fnobj, 'graph'):
         if sandbox and sandbox != "if_external":
             # apply the sandbox transformation

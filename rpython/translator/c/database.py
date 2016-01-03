@@ -378,17 +378,6 @@ class LowLevelDatabase(object):
             produce(node)
         return result
 
-    def need_sandboxing(self, fnobj):
-        if not self.sandbox:
-            return False
-        if hasattr(fnobj, '_safe_not_sandboxed'):
-            return not fnobj._safe_not_sandboxed
-        elif getattr(getattr(fnobj, '_callable', None),
-                     '_sandbox_external_name', None):
-            return True
-        else:
-            return "if_external"
-
     def prepare_inline_helpers(self):
         all_nodes = self.globalcontainers()
         funcnodes = [node for node in all_nodes if node.nodekind == 'func']
