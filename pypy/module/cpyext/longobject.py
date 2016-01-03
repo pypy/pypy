@@ -5,7 +5,7 @@ from pypy.module.cpyext.api import (
 from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
-from rpython.rlib.rbigint import rbigint, NULLRBIGINT, ONERBIGINT
+from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rarithmetic import intmask
 
 
@@ -228,23 +228,11 @@ UCHARP = rffi.CArrayPtr(rffi.UCHAR)
 def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
     little_endian = rffi.cast(lltype.Signed, little_endian)
     signed = rffi.cast(lltype.Signed, signed)
-
-    # xxx not the most efficient implementation possible, but should work
-    result = NULLRBIGINT
-    most_significant = 0
-
-    for i in range(0, n):
-        if little_endian:
-            c = intmask(bytes[n - i - 1])
-        else:
-            c = intmask(bytes[i])
-        if i == 0:
-            most_significant = c
-
-        result = result.lshift(8)
-        result = result.int_add(c)
-
-    if signed and most_significant >= 0x80:
-        result = result.sub(ONERBIGINT.lshift(8 * n))
-
+    s = rffi.charpsize2str(rffi.cast(rffi.CCHARP, bytes),
+                           rffi.cast(lltype.Signed, n))
+    if little_endian:
+        byteorder = 'little'
+    else:
+        byteorder = 'big'
+    result = rbigint.frombytes(s, byteorder, signed != 0)
     return space.newlong_from_rbigint(result)
