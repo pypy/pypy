@@ -45,3 +45,9 @@ def test_as_str_and_offset_maybe():
     ssbuf = SubBuffer(sbuf, 3, 2)
     assert ssbuf.getslice(0, 2, 1, 2) == 'ld'
     assert ssbuf.as_str_and_offset_maybe() == ('hello world', 9)
+
+def test_repeated_subbuffer():
+    buf = StringBuffer('x' * 10000)
+    for i in range(9999, 9, -1):
+        buf = SubBuffer(buf, 1, i)
+    assert buf.getlength() == 10
