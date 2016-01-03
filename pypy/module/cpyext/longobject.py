@@ -238,10 +238,9 @@ def _PyLong_FromByteArray(space, bytes, n, little_endian, signed):
             c = intmask(bytes[n - i - 1])
         else:
             c = intmask(bytes[i])
-        digit = rbigint.fromint(c)
 
         result = result.lshift(8)
-        result = result.add(digit)
+        result = result.int_add(c)
 
     if signed and c >= 0x80:
         result = result.sub(ONERBIGINT.lshift(8 * n))
