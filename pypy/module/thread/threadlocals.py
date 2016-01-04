@@ -1,4 +1,4 @@
-from rpython.rlib import rthread, rweaklist
+from rpython.rlib import rthread, rshrinklist
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_ulonglong
 from pypy.module.thread.error import wrap_thread_error
@@ -13,8 +13,6 @@ class OSThreadLocals:
     For memory management, this version depends on explicit notification when
     a thread finishes.  This works as long as the thread was started by
     os_thread.bootstrap()."""
-
-    _next_generation = r_ulonglong(0)
 
     def __init__(self, space):
         "NOT_RPYTHON"
@@ -86,8 +84,7 @@ class OSThreadLocals:
         # explicitly, so we return False.
         if self._weaklist is None:
             self._weaklist = ListECWrappers()
-            self._weaklist.initialize()
-        self._weaklist.add_handle(AutoFreeECWrapper(self, ec))
+        self._weaklist.append(AutoFreeECWrapper(ec))
         self._set_ec(ec, register_in_valuedict=False)
         return False
 
@@ -150,15 +147,11 @@ class OSThreadLocals:
         # self._valuedict have priority because they are never
         # outdated.
         result = {}
-        generations = {}
-        for h in self._weaklist.get_all_handles():
+        for h in self._weaklist.items():
             wrapper = h()
-            if wrapper is not None:
-                key = wrapper.ident
-                prev = generations.get(key, r_ulonglong(0))
-                if wrapper.generation > prev:   # implies '.generation != 0'
-                    generations[key] = wrapper.generation
-                    result[key] = wrapper.ec
+            if wrapper is not None and not wrapper.deleted:
+                result[wrapper.ident] = wrapper.ec
+                # ^^ this possibly overwrites an older ec
         result.update(self._valuedict)
         return result
 
@@ -177,12 +170,11 @@ class OSThreadLocals:
 
 
 class AutoFreeECWrapper(object):
+    deleted = False
 
-    def __init__(self, threadlocals, ec):
+    def __init__(self, ec):
         # this makes a loop between 'self' and 'ec'.  It should not prevent
         # the __del__ method here from being called.
-        threadlocals._next_generation += 1
-        self.generation = threadlocals._next_generation
         self.ec = ec
         ec._threadlocals_auto_free = self
         self.ident = rthread.get_ident()
@@ -193,8 +185,9 @@ class AutoFreeECWrapper(object):
         # referenced by 'self.ec' has finished at that point, and
         # we're just after the GC which finds no more references to
         # 'ec' (and thus to 'self').
-        self.generation = r_ulonglong(0)
+        self.deleted = True
         thread_is_stopping(self.ec)
 
-class ListECWrappers(rweaklist.RWeakListMixin):
-    pass
+class ListECWrappers(rshrinklist.AbstractShrinkList):
+    def must_keep(self, wref):
+        return wref() is not None
