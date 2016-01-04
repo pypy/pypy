@@ -45,6 +45,19 @@ def test_as_str_and_offset_maybe():
     ssbuf = SubBuffer(sbuf, 3, 2)
     assert ssbuf.getslice(0, 2, 1, 2) == 'ld'
     assert ssbuf.as_str_and_offset_maybe() == ('hello world', 9)
+    #
+    ss2buf = SubBuffer(sbuf, 1, -1)
+    assert ss2buf.as_str() == 'orld'
+    assert ss2buf.getlength() == 4
+    ss3buf = SubBuffer(ss2buf, 1, -1)
+    assert ss3buf.as_str() == 'rld'
+    assert ss3buf.getlength() == 3
+    #
+    ss4buf = SubBuffer(buf, 3, 4)
+    assert ss4buf.as_str() == 'lo w'
+    ss5buf = SubBuffer(ss4buf, 1, -1)
+    assert ss5buf.as_str() == 'o w'
+    assert ss5buf.getlength() == 3
 
 def test_repeated_subbuffer():
     buf = StringBuffer('x' * 10000)
