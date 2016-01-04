@@ -211,6 +211,15 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def pop_std_frame(self):
         self.LAY(r.SP, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
 
+    def get_assembler_function(self):
+        "NOT_RPYTHON: tests only"
+        from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
+        class FakeCPU:
+            HAS_CODEMAP = False
+            asmmemmgr = AsmMemoryManager()
+        addr = self.materialize(FakeCPU(), [])
+        return rffi.cast(lltype.Ptr(lltype.FuncType([], lltype.Signed)), addr)
+
 class OverwritingBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def __init__(self, mc, start, num_insts=0):
         AbstractZARCHBuilder.__init__(self)
