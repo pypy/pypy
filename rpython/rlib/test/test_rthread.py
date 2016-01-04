@@ -290,7 +290,7 @@ class TestUsingFramework(AbstractThreadTests):
             assert wr2() is None         # other thread, not running any more
             return 42
 
-        extra_options = {'no__thread': no__thread}
+        extra_options = {'no__thread': no__thread, 'shared': True}
         fn = self.getcompiled(main, [], extra_options=extra_options)
         res = fn()
         assert res == 42
