@@ -514,7 +514,7 @@ def type_attach(space, py_obj, w_type):
     pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
     pto.c_tp_itemsize = 0
     # uninitialized fields:
-    # c_tp_print, c_tp_getattr, c_tp_setattr
+    # c_tp_print
     # XXX implement
     # c_tp_compare and the following fields (see http://docs.python.org/c-api/typeobj.html )
     w_base = best_base(space, w_type.bases_w)
@@ -605,9 +605,14 @@ def _type_realize(space, py_obj):
 
     finish_type_1(space, py_type)
 
-    w_metatype = from_ref(space, rffi.cast(PyObject, py_type.c_ob_type))
+    if py_type.c_ob_type:
+        w_metatype = from_ref(space, rffi.cast(PyObject, py_type.c_ob_type))
+    else: 
+        # Somehow the tp_base type is created with no ob_type, notably
+        # PyString_Type and PyBaseString_Type
+        # While this is a hack, cpython does it as well.
+        w_metatype = space.w_type
 
-    assert w_metatype # XXX in numpy initmultiarray, py_type.c_ob_type is 0
     w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
     track_reference(space, py_obj, w_obj)
     w_obj.__init__(space, py_type)
