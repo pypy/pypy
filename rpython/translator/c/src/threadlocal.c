@@ -13,8 +13,10 @@ pthread_key_t pypy_threadlocal_key
 ;
 
 static struct pypy_threadlocal_s linkedlist_head = {
-    .prev = &linkedlist_head,
-    .next = &linkedlist_head };
+    -1,                     /* ready     */
+    NULL,                   /* stack_end */
+    &linkedlist_head,       /* prev      */
+    &linkedlist_head };     /* next      */
 
 struct pypy_threadlocal_s *
 _RPython_ThreadLocals_Enum(struct pypy_threadlocal_s *prev)
