@@ -157,19 +157,19 @@ class ZARCHRegisterManager(RegisterManager):
         self.temp_boxes.append(box)
         return reg
 
-    def ensure_even_odd_pair(self, var, bind_first=True,
+    def ensure_even_odd_pair(self, var, bindvar, bind_first=True,
                              must_exist=True, load_loc_odd=True,
                              move_regs=True):
         self._check_type(var)
         prev_loc = self.loc(var, must_exist=must_exist)
         var2 = TempVar()
-        self.temp_boxes.append(var2)
         if prev_loc is self.frame_reg:
             return prev_loc
         if bind_first:
-            loc, loc2 = self.force_allocate_reg_pair(var, var2, self.temp_boxes)
+            loc, loc2 = self.force_allocate_reg_pair(bindvar, var2, self.temp_boxes)
         else:
-            loc, loc2 = self.force_allocate_reg_pair(var2, var, self.temp_boxes)
+            loc, loc2 = self.force_allocate_reg_pair(var2, bindvar, self.temp_boxes)
+        self.temp_boxes.append(var2)
         assert loc.is_even() and loc2.is_odd()
         if move_regs and prev_loc is not loc2:
             if load_loc_odd:
@@ -179,12 +179,8 @@ class ZARCHRegisterManager(RegisterManager):
         return loc, loc2
 
     def force_allocate_reg_pair(self, var, var2, forbidden_vars=[], selected_reg=None):
-        """ Forcibly allocate a register for the new variable v.
-        It must not be used so far.  If we don't have a free register,
-        spill some other variable, according to algorithm described in
-        '_pick_variable_to_spill'.
-
-        Will not spill a variable from 'forbidden_vars'.
+        """ Forcibly allocate a register for the new variable var.
+        var will have an even register (var2 will have an odd register).
         """
         self._check_type(var)
         self._check_type(var2)
@@ -207,6 +203,8 @@ class ZARCHRegisterManager(RegisterManager):
                     candidates.append(odd)
                     i -= 1
                     continue
+                assert var not in self.reg_bindings
+                assert var2 not in self.reg_bindings
                 self.reg_bindings[var] = even
                 self.reg_bindings[var2] = odd
                 del self.free_regs[i]
@@ -490,10 +488,14 @@ class Regalloc(BaseRegalloc):
             if not we_are_translated() and opnum == -127:
                 self._consider_force_spill(op)
             else:
+                print("regalloc before", self.rm.free_regs, self.rm.reg_bindings)
+                print(op)
                 arglocs = prepare_oplist[opnum](self, op)
                 asm_operations[opnum](self.assembler, op, arglocs, self)
             self.free_op_vars()
             self.possibly_free_var(op)
+            print("regalloc after", self.rm.free_regs, self.rm.reg_bindings)
+            print""
             self.rm._check_invariants()
             self.fprm._check_invariants()
             if self.assembler.mc.get_relative_pos() > self.limit_loop_break:
@@ -908,11 +910,11 @@ class Regalloc(BaseRegalloc):
 
     def prepare_zero_array(self, op):
         itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
-        base_loc, length_loc = self.rm.ensure_even_odd_pair(op.getarg(0),
+        base_loc, length_loc = self.rm.ensure_even_odd_pair(op.getarg(0), op,
               bind_first=True, must_exist=False, load_loc_odd=False)
         tempvar = TempInt()
         self.rm.temp_boxes.append(tempvar)
-        pad_byte, _ = self.rm.ensure_even_odd_pair(tempvar,
+        pad_byte, _ = self.rm.ensure_even_odd_pair(tempvar, tempvar,
                               bind_first=True, must_exist=False, move_regs=False)
         startindex_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
 
