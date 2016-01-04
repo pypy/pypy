@@ -407,9 +407,12 @@ class ThreadLocalReference(ThreadLocalField):
     def automatic_keepalive(config):
         """Returns True if translated with a GC that keeps alive
         the set() value until the end of the thread.  Returns False
-        if you need to keep it alive yourself.
+        if you need to keep it alive yourself (but in that case, you
+        should also reset it to None before the thread finishes).
         """
-        return config.translation.gctransformer == "framework"
+        return (config.translation.gctransformer == "framework" and
+                # see translator/c/src/threadlocal.c for the following line
+                (not _win32 or config.translation.shared))
 
 
 tlfield_thread_ident = ThreadLocalField(lltype.Signed, "thread_ident",
@@ -418,7 +421,8 @@ tlfield_p_errno = ThreadLocalField(rffi.CArrayPtr(rffi.INT), "p_errno",
                                    loop_invariant=True)
 tlfield_rpy_errno = ThreadLocalField(rffi.INT, "rpy_errno")
 tlfield_alt_errno = ThreadLocalField(rffi.INT, "alt_errno")
-if sys.platform == "win32":
+_win32 = (sys.platform == "win32")
+if _win32:
     from rpython.rlib import rwin32
     tlfield_rpy_lasterror = ThreadLocalField(rwin32.DWORD, "rpy_lasterror")
     tlfield_alt_lasterror = ThreadLocalField(rwin32.DWORD, "alt_lasterror")

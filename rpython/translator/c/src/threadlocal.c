@@ -77,7 +77,10 @@ static void threadloc_unlink(void *p)
    There are some alternatives known, but they are horrible in other
    ways (e.g. using undocumented behavior).  This seems to be the
    simplest, but feel free to fix if you need that.
- */
+
+   For this reason we have the line 'not _win32 or config.translation.shared'
+   in rpython.rlib.rthread.
+*/
 BOOL WINAPI DllMain(HINSTANCE hinstDLL,
                     DWORD     reason_for_call,
                     LPVOID    reserved)
