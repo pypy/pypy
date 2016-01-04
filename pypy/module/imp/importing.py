@@ -180,7 +180,6 @@ class ImportRLock:
     def acquire_lock(self):
         # this function runs with the GIL acquired so there is no race
         # condition in the creation of the lock
-        print("calling original")
         if self.lock is None:
             try:
                 self.lock = self.space.allocate_lock()
@@ -231,9 +230,7 @@ class ImportRLock:
             self.lockcounter = 0
 
 def getimportlock(space):
-    me = space.fromcache(ImportRLock)
-    print(id(me), "id of lock")
-    return me
+    return space.fromcache(ImportRLock)
 
 # __________________________________________________________________
 #
