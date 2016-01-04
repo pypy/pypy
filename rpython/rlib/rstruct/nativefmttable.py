@@ -11,7 +11,6 @@ from rpython.rlib.rstruct import standardfmttable as std
 from rpython.rlib.rstruct.standardfmttable import native_is_bigendian
 from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.strstorage import str_storage_getitem
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo

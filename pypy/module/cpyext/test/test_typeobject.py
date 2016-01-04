@@ -414,15 +414,26 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                      return NULL;
                  }
                  PyObject *name = PyString_FromString("attr1");
-                 PyIntObject *attr1 = obj->ob_type->tp_getattro(obj, name);
-                 if (attr1->ob_ival != value->ob_ival)
+                 PyIntObject *attr = obj->ob_type->tp_getattro(obj, name);
+                 if (attr->ob_ival != value->ob_ival)
                  {
                      PyErr_SetString(PyExc_ValueError,
                                      "tp_getattro returned wrong value");
                      return NULL;
                  }
                  Py_DECREF(name);
-                 Py_DECREF(attr1);
+                 Py_DECREF(attr);
+                 name = PyString_FromString("attr2");
+                 attr = obj->ob_type->tp_getattro(obj, name);
+                 if (attr == NULL && PyErr_ExceptionMatches(PyExc_AttributeError))
+                 {
+                     PyErr_Clear();
+                 } else {
+                     PyErr_SetString(PyExc_ValueError,
+                                     "tp_getattro should have raised");
+                     return NULL;
+                 }
+                 Py_DECREF(name);
                  Py_RETURN_TRUE;
              '''
              )
@@ -637,7 +648,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 IntLikeObject *intObj;
                 long intval;
 
-                if (!PyArg_ParseTuple(args, "i", &intval))
+                if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
                 IntLike_Type.tp_as_number = &intlike_as_number;
@@ -657,7 +668,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 IntLikeObjectNoOp *intObjNoOp;
                 long intval;
 
-                if (!PyArg_ParseTuple(args, "i", &intval))
+                if (!PyArg_ParseTuple(args, "l", &intval))
                     return NULL;
 
                 IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_CHECKTYPES;

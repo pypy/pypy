@@ -24,9 +24,6 @@ class AbstractInfo(AbstractValue):
     def is_virtual(self):
         return False
 
-    def is_vstring(self):
-        return False
-
     def is_precise(self):
         return False
 

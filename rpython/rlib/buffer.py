@@ -97,6 +97,17 @@ class SubBuffer(Buffer):
 
     def __init__(self, buffer, offset, size):
         self.readonly = buffer.readonly
+        if isinstance(buffer, SubBuffer):     # don't nest them
+            # we want a view (offset, size) over a view
+            # (buffer.offset, buffer.size) over buffer.buffer
+            at_most = buffer.size - offset
+            if size > at_most:
+                if at_most < 0:
+                    at_most = 0
+                size = at_most
+            offset += buffer.offset
+            buffer = buffer.buffer
+        #
         self.buffer = buffer
         self.offset = offset
         self.size = size
