@@ -1,3 +1,4 @@
+import weakref
 from rpython.rlib import rthread, rshrinklist
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_ulonglong
@@ -84,7 +85,7 @@ class OSThreadLocals:
         # explicitly, so we return False.
         if self._weaklist is None:
             self._weaklist = ListECWrappers()
-        self._weaklist.append(AutoFreeECWrapper(ec))
+        self._weaklist.append(weakref.ref(AutoFreeECWrapper(ec)))
         self._set_ec(ec, register_in_valuedict=False)
         return False
 
