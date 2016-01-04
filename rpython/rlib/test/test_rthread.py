@@ -1,6 +1,7 @@
 import gc, time
 from rpython.rlib.rthread import *
 from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib import objectmodel
 from rpython.translator.c.test.test_boehm import AbstractGCTestClass
 from rpython.rtyper.lltypesystem import lltype, rffi
 import py
@@ -251,7 +252,6 @@ class TestUsingFramework(AbstractThreadTests):
         class FooBar(object):
             pass
         t = ThreadLocalReference(FooBar)
-        assert t.automatic_keepalive() is False
 
         def tset():
             x1 = FooBar()
@@ -264,7 +264,8 @@ class TestUsingFramework(AbstractThreadTests):
         wr_from_thread = WrFromThread()
 
         def f():
-            assert t.automatic_keepalive() is True
+            config = objectmodel.fetch_translated_config()
+            assert t.automatic_keepalive(config) is True
             wr = tset()
             import gc; gc.collect()   # 'x1' should not be collected
             x2 = t.get()

@@ -391,7 +391,6 @@ class ThreadLocalReference(ThreadLocalField):
 
         self.get = get
         self.set = set
-        self.automatic_keepalive = _automatic_keepalive
 
         def _trace_tlref(gc, obj, callback, arg):
             p = llmemory.NULL
@@ -404,16 +403,13 @@ class ThreadLocalReference(ThreadLocalField):
         TRACETLREF = lltype.GcStruct('TRACETLREF')
         _tracetlref_obj = lltype.malloc(TRACETLREF, immortal=True)
 
-
-def _automatic_keepalive():
-    """Returns True if translated with a GC that keeps alive
-    the set() value until the end of the thread.  Returns False
-    if you need to keep it alive yourself.
-    """
-    from rpython.rlib import objectmodel
-    config = objectmodel.fetch_translated_config()
-    return (config is not None and
-            config.translation.gctransformer == "framework")
+    @staticmethod
+    def automatic_keepalive(config):
+        """Returns True if translated with a GC that keeps alive
+        the set() value until the end of the thread.  Returns False
+        if you need to keep it alive yourself.
+        """
+        return config.translation.gctransformer == "framework"
 
 
 tlfield_thread_ident = ThreadLocalField(lltype.Signed, "thread_ident",

@@ -1,5 +1,6 @@
-from rpython.rlib import rthread
+from rpython.rlib import rthread, rweaklist
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import r_ulonglong
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.executioncontext import ExecutionContext
 
@@ -13,15 +14,53 @@ class OSThreadLocals:
     a thread finishes.  This works as long as the thread was started by
     os_thread.bootstrap()."""
 
-    def __init__(self):
+    _next_generation = r_ulonglong(0)
+
+    def __init__(self, space):
         "NOT_RPYTHON"
-        self._valuedict = {}   # {thread_ident: ExecutionContext()}
+        #
+        # This object tracks code that enters and leaves threads.
+        # There are two APIs.  For Python-level threads, we know when
+        # the thread starts and ends, and we call enter_thread() and
+        # leave_thread().  In a few other cases, like callbacks, we
+        # might be running in some never-seen-before thread: in this
+        # case, the callback logic needs to call try_enter_thread() at
+        # the start, and if this returns True it needs to call
+        # leave_thread() at the end.
+        #
+        # We implement an optimization for the second case (which only
+        # works if we translate with a framework GC and with
+        # rweakref).  If try_enter_thread() is called in a
+        # never-seen-before thread, it still returns False and
+        # remembers the ExecutionContext with 'self._weaklist'.  The
+        # next time we call try_enter_thread() again in the same
+        # thread, the ExecutionContext is reused.  The optimization is
+        # not completely invisible to the user: 'thread._local()'
+        # values will remain.  We can argue that it is the correct
+        # behavior to do that, and the behavior we get if the
+        # optimization is disabled is buggy (but hard to do better
+        # then).
+        #
+        # 'self._valuedict' is a dict mapping the thread idents to
+        # ExecutionContexts; it does not list the ExecutionContexts
+        # which are in 'self._weaklist'.  (The latter is more precisely
+        # a list of AutoFreeECWrapper objects, defined below, which
+        # each references the ExecutionContext.)
+        #
+        self.space = space
+        self._valuedict = {}
         self._cleanup_()
         self.raw_thread_local = rthread.ThreadLocalReference(ExecutionContext,
                                                             loop_invariant=True)
 
+    def can_optimize_with_weaklist(self):
+        config = self.space.config
+        return (config.translation.rweakref and
+                rthread.ThreadLocalReference.automatic_keepalive(config))
+
     def _cleanup_(self):
         self._valuedict.clear()
+        self._weaklist = None
         self._mainthreadident = 0
 
     def enter_thread(self, space):
@@ -29,19 +68,36 @@ class OSThreadLocals:
         self._set_ec(space.createexecutioncontext())
 
     def try_enter_thread(self, space):
-        if rthread.get_ident() in self._valuedict:
+        # common case: the thread-local has already got a value
+        if self.raw_thread_local.get() is not None:
             return False
-        self.enter_thread(space)
-        return True
 
-    def _set_ec(self, ec):
+        # Else, make and attach a new ExecutionContext
+        ec = space.createexecutioncontext()
+        if not self.can_optimize_with_weaklist():
+            self._set_ec(ec)
+            return True
+
+        # If can_optimize_with_weaklist(), then 'rthread' keeps the
+        # thread-local values alive until the end of the thread.  Use
+        # AutoFreeECWrapper as an object with a __del__; when this
+        # __del__ is called, it means the thread was really finished.
+        # In this case we don't want leave_thread() to be called
+        # explicitly, so we return False.
+        if self._weaklist is None:
+            self._weaklist = ListECWrappers()
+            self._weaklist.initialize()
+        self._weaklist.add_handle(AutoFreeECWrapper(self, ec))
+        self._set_ec(ec, register_in_valuedict=False)
+        return False
+
+    def _set_ec(self, ec, register_in_valuedict=True):
         ident = rthread.get_ident()
         if self._mainthreadident == 0 or self._mainthreadident == ident:
             ec._signals_enabled = 1    # the main thread is enabled
             self._mainthreadident = ident
-        self._valuedict[ident] = ec
-        # This logic relies on hacks and _make_sure_does_not_move().
-        # It only works because we keep the 'ec' alive in '_valuedict' too.
+        if register_in_valuedict:
+            self._valuedict[ident] = ec
         self.raw_thread_local.set(ec)
 
     def leave_thread(self, space):
@@ -84,7 +140,27 @@ class OSThreadLocals:
         ec._signals_enabled = new
 
     def getallvalues(self):
-        return self._valuedict
+        if self._weaklist is None:
+            return self._valuedict
+        # This logic walks the 'self._weaklist' list and adds the
+        # ExecutionContexts to 'result'.  We are careful in case there
+        # are two AutoFreeECWrappers in the list which have the same
+        # 'ident'; in this case we must keep the most recent one (the
+        # older one should be deleted soon).  Moreover, entries in
+        # self._valuedict have priority because they are never
+        # outdated.
+        result = {}
+        generations = {}
+        for h in self._weaklist.get_all_handles():
+            wrapper = h()
+            if wrapper is not None:
+                key = wrapper.ident
+                prev = generations.get(key, r_ulonglong(0))
+                if wrapper.generation > prev:   # implies '.generation != 0'
+                    generations[key] = wrapper.generation
+                    result[key] = wrapper.ec
+        result.update(self._valuedict)
+        return result
 
     def reinit_threads(self, space):
         "Called in the child process after a fork()"
@@ -98,3 +174,27 @@ class OSThreadLocals:
         self._mainthreadident = ident
         self._set_ec(ec)
         ec._signals_enabled = old_sig
+
+
+class AutoFreeECWrapper(object):
+
+    def __init__(self, threadlocals, ec):
+        # this makes a loop between 'self' and 'ec'.  It should not prevent
+        # the __del__ method here from being called.
+        threadlocals._next_generation += 1
+        self.generation = threadlocals._next_generation
+        self.ec = ec
+        ec._threadlocals_auto_free = self
+        self.ident = rthread.get_ident()
+
+    def __del__(self):
+        from pypy.module.thread.os_local import thread_is_stopping
+        # this is always called in another thread: the thread
+        # referenced by 'self.ec' has finished at that point, and
+        # we're just after the GC which finds no more references to
+        # 'ec' (and thus to 'self').
+        self.generation = r_ulonglong(0)
+        thread_is_stopping(self.ec)
+
+class ListECWrappers(rweaklist.RWeakListMixin):
+    pass
