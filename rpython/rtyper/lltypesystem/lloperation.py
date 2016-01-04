@@ -545,8 +545,9 @@ LL_OPERATIONS = {
     'getslice':             LLOp(canraise=(Exception,)),
     'check_and_clear_exc':  LLOp(),
 
-    'threadlocalref_addr':  LLOp(sideeffects=False),  # get (or make) addr of tl
+    'threadlocalref_addr':  LLOp(),                   # get (or make) addr of tl
     'threadlocalref_get':   LLOp(sideeffects=False),  # read field (no check)
+    'threadlocalref_enum':  LLOp(sideeffects=False),  # enum all threadlocalrefs
 
     # __________ debugging __________
     'debug_view':           LLOp(),

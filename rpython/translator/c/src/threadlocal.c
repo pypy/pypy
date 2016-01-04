@@ -9,14 +9,31 @@
 #include "src/threadlocal.h"
 
 
+static struct pypy_threadlocal_s linkedlist_head = {
+    .prev = &linkedlist_head,
+    .next = &linkedlist_head };
+
+struct pypy_threadlocal_s *
+_RPython_ThreadLocals_Enum(struct pypy_threadlocal_s *prev)
+{
+    if (prev == NULL)
+        prev = &linkedlist_head;
+    if (prev->next == &linkedlist_head)
+        return NULL;
+    return prev->next;
+}
+
 static void _RPy_ThreadLocals_Init(void *p)
 {
+    struct pypy_threadlocal_s *tls = (struct pypy_threadlocal_s *)p;
+    struct pypy_threadlocal_s *oldnext;
     memset(p, 0, sizeof(struct pypy_threadlocal_s));
+
 #ifdef RPY_TLOFS_p_errno
-    ((struct pypy_threadlocal_s *)p)->p_errno = &errno;
+    tls->p_errno = &errno;
 #endif
 #ifdef RPY_TLOFS_thread_ident
-    ((struct pypy_threadlocal_s *)p)->thread_ident =
+    tls->thread_ident =
 #    ifdef _WIN32
         GetCurrentThreadId();
 #    else
@@ -26,7 +43,21 @@ static void _RPy_ThreadLocals_Init(void *p)
                   where it is not the case are rather old nowadays. */
 #    endif
 #endif
-    ((struct pypy_threadlocal_s *)p)->ready = 42;
+    oldnext = linkedlist_head.next;
+    tls->prev = &linkedlist_head;
+    tls->next = oldnext;
+    linkedlist_head.next = tls;
+    oldnext->prev = tls;
+    tls->ready = 42;
+}
+
+static void threadloc_unlink(struct pypy_threadlocal_s *tls)
+{
+    assert(tls->ready == 42);
+    tls->next->prev = tls->prev;
+    tls->prev->next = tls->next;
+    memset(tls, 0xDD, sizeof(struct pypy_threadlocal_s));  /* debug */
+    tls->ready = 0;
 }
 
 
@@ -53,9 +84,8 @@ char *_RPython_ThreadLocals_Build(void)
 
 void RPython_ThreadLocals_ThreadDie(void)
 {
-    memset(&pypy_threadlocal, 0xDD,
-           sizeof(struct pypy_threadlocal_s));  /* debug */
-    pypy_threadlocal.ready = 0;
+    if (pypy_threadlocal.ready == 42)
+        threadloc_unlink(&pypy_threadlocal);
 }
 
 
@@ -105,7 +135,7 @@ void RPython_ThreadLocals_ThreadDie(void)
     void *p = _RPy_ThreadLocals_Get();
     if (p != NULL) {
         _RPy_ThreadLocals_Set(NULL);
-        memset(p, 0xDD, sizeof(struct pypy_threadlocal_s));  /* debug */
+        threadloc_unlink((struct pypy_threadlocal_s *)p);
         free(p);
     }
 }

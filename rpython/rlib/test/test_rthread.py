@@ -240,3 +240,35 @@ class TestUsingBoehm(AbstractThreadTests):
 
 class TestUsingFramework(AbstractThreadTests):
     gcpolicy = 'minimark'
+
+    def test_tlref_keepalive(self):
+        import weakref
+        from rpython.config.translationoption import SUPPORT__THREAD
+
+        class FooBar(object):
+            pass
+        t = ThreadLocalReference(FooBar)
+        assert t.automatic_keepalive() is False
+
+        def tset():
+            x1 = FooBar()
+            t.set(x1)
+            return weakref.ref(x1)
+        tset._dont_inline_ = True
+
+        def f():
+            assert t.automatic_keepalive() is True
+            wr = tset()
+            import gc; gc.collect()   # 'x1' should not be collected
+            x2 = t.get()
+            assert x2 is not None
+            assert wr() is not None
+            assert wr() is x2
+            return 42
+
+        for no__thread in (True, False):
+            if SUPPORT__THREAD or no__thread:
+                extra_options = {'no__thread': no__thread}
+                fn = self.getcompiled(f, [], extra_options=extra_options)
+                res = fn()
+                assert res == 42

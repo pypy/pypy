@@ -291,8 +291,6 @@ def gc_thread_after_fork(result_of_fork, opaqueaddr):
 # ____________________________________________________________
 #
 # Thread-locals.
-# KEEP THE REFERENCE ALIVE, THE GC DOES NOT FOLLOW THEM SO FAR!
-# We use _make_sure_does_not_move() to make sure the pointer will not move.
 
 
 class ThreadLocalField(object):
@@ -351,6 +349,9 @@ class ThreadLocalField(object):
 
 
 class ThreadLocalReference(ThreadLocalField):
+    # A thread-local that points to an object.  The object stored in such
+    # a thread-local is kept alive as long as the thread is not finished
+    # (but only with our own GCs!  it seems not to work with Boehm...)
     _COUNT = 1
 
     def __init__(self, Cls, loop_invariant=False):
@@ -378,19 +379,39 @@ class ThreadLocalReference(ThreadLocalField):
             assert isinstance(value, Cls) or value is None
             if we_are_translated():
                 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-                from rpython.rlib.rgc import _make_sure_does_not_move
-                from rpython.rlib.objectmodel import running_on_llinterp
                 gcref = cast_instance_to_gcref(value)
-                if not running_on_llinterp:
-                    if gcref:
-                        _make_sure_does_not_move(gcref)
                 value = lltype.cast_ptr_to_int(gcref)
                 setraw(value)
+                rgc.register_custom_trace_hook(TRACETLREF, _lambda_trace_tlref)
+                rgc.ll_writebarrier(_tracetlref_obj)
             else:
                 self.local.value = value
 
         self.get = get
         self.set = set
+        self.automatic_keepalive = _automatic_keepalive
+
+        def _trace_tlref(gc, obj, callback, arg):
+            p = llmemory.NULL
+            while True:
+                p = llop.threadlocalref_enum(llmemory.Address, p)
+                if not p:
+                    break
+                gc._trace_callback(callback, arg, p + offset)
+        _lambda_trace_tlref = lambda: _trace_tlref
+        TRACETLREF = lltype.GcStruct('TRACETLREF')
+        _tracetlref_obj = lltype.malloc(TRACETLREF, immortal=True)
+
+
+def _automatic_keepalive():
+    """Returns True if translated with a GC that keeps alive
+    the set() value until the end of the thread.  Returns False
+    if you need to keep it alive yourself.
+    """
+    from rpython.rlib import objectmodel
+    config = objectmodel.fetch_translated_config()
+    return (config is not None and
+            config.translation.gctransformer == "framework")
 
 
 tlfield_thread_ident = ThreadLocalField(lltype.Signed, "thread_ident",

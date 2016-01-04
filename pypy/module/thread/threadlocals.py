@@ -94,7 +94,7 @@ class OSThreadLocals:
         old_sig = ec._signals_enabled
         if ident != self._mainthreadident:
             old_sig += 1
-        self._cleanup_()
+        self._cleanup_()      # clears self._valuedict
         self._mainthreadident = ident
         self._set_ec(ec)
         ec._signals_enabled = old_sig
