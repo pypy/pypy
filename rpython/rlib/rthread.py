@@ -352,6 +352,8 @@ class ThreadLocalReference(ThreadLocalField):
     # A thread-local that points to an object.  The object stored in such
     # a thread-local is kept alive as long as the thread is not finished
     # (but only with our own GCs!  it seems not to work with Boehm...)
+    # (also, on Windows, if you're not making a DLL but an EXE, it will
+    # leak the objects when a thread finishes; see threadlocal.c.)
     _COUNT = 1
 
     def __init__(self, Cls, loop_invariant=False):

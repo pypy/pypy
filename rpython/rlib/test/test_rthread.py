@@ -241,9 +241,12 @@ class TestUsingBoehm(AbstractThreadTests):
 class TestUsingFramework(AbstractThreadTests):
     gcpolicy = 'minimark'
 
-    def test_tlref_keepalive(self):
+    def test_tlref_keepalive(self, no__thread=True):
         import weakref
         from rpython.config.translationoption import SUPPORT__THREAD
+
+        if not (SUPPORT__THREAD or no__thread):
+            py.test.skip("no __thread support here")
 
         class FooBar(object):
             pass
@@ -256,6 +259,10 @@ class TestUsingFramework(AbstractThreadTests):
             return weakref.ref(x1)
         tset._dont_inline_ = True
 
+        class WrFromThread:
+            pass
+        wr_from_thread = WrFromThread()
+
         def f():
             assert t.automatic_keepalive() is True
             wr = tset()
@@ -264,11 +271,29 @@ class TestUsingFramework(AbstractThreadTests):
             assert x2 is not None
             assert wr() is not None
             assert wr() is x2
+            return wr
+
+        def thread_entry_point():
+            wr = f()
+            wr_from_thread.wr = wr
+            wr_from_thread.seen = True
+
+        def main():
+            wr_from_thread.seen = False
+            start_new_thread(thread_entry_point, ())
+            wr1 = f()
+            time.sleep(0.5)
+            assert wr_from_thread.seen is True
+            wr2 = wr_from_thread.wr
+            import gc; gc.collect()      # wr2() should be collected here
+            assert wr1() is not None     # this thread, still running
+            assert wr2() is None         # other thread, not running any more
             return 42
 
-        for no__thread in (True, False):
-            if SUPPORT__THREAD or no__thread:
-                extra_options = {'no__thread': no__thread}
-                fn = self.getcompiled(f, [], extra_options=extra_options)
-                res = fn()
-                assert res == 42
+        extra_options = {'no__thread': no__thread}
+        fn = self.getcompiled(main, [], extra_options=extra_options)
+        res = fn()
+        assert res == 42
+
+    def test_tlref_keepalive__thread(self):
+        self.test_tlref_keepalive(no__thread=False)
