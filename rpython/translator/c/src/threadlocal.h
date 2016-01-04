@@ -33,6 +33,8 @@ _RPython_ThreadLocals_Enum(struct pypy_threadlocal_s *prev);
 
 /* Use the '__thread' specifier, so far only on Linux */
 
+#include <pthread.h>
+
 RPY_EXTERN __thread struct pypy_threadlocal_s pypy_threadlocal;
 
 #define OP_THREADLOCALREF_ADDR(r)               \
@@ -68,8 +70,6 @@ typedef DWORD pthread_key_t;
 #  define _RPy_ThreadLocals_Set(x)  pthread_setspecific(pypy_threadlocal_key, x)
 #endif
 
-RPY_EXTERN pthread_key_t pypy_threadlocal_key;
-
 
 #define OP_THREADLOCALREF_ADDR(r)               \
     do {                                        \
@@ -89,6 +89,9 @@ RPY_EXTERN pthread_key_t pypy_threadlocal_key;
 /* ------------------------------------------------------------ */
 #endif
 /* ------------------------------------------------------------ */
+
+
+RPY_EXTERN pthread_key_t pypy_threadlocal_key;
 
 
 /* only for the fall-back path in the JIT */
