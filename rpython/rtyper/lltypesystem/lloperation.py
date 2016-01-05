@@ -574,8 +574,6 @@ LL_OPERATIONS = {
 
     # __________ for llvm.gcroot() support __________
     'llvm_gcmap':           LLOp(sideeffects=False),
-    'llvm_store_gcroot':    LLOp(),
-    'llvm_load_gcroot':     LLOp(sideeffects=False),
     'llvm_stack_malloc':    LLOp(sideeffects=False),
 }
 # ***** Run test_lloperation after changes. *****

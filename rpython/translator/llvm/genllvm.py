@@ -943,7 +943,6 @@ class FunctionWriter(object):
     def write_graph(self, ptr_type, name, graph, export):
         genllvm = database.genllvm
         genllvm.gcpolicy.gctransformer.inline_helpers(graph)
-        gcrootscount = 0
         # the 'gc_reload_possibly_moved' operations make the graph not
         # really SSA.  Fix them now.
         for block in graph.iterblocks():
@@ -960,12 +959,6 @@ class FunctionWriter(object):
                     op.args = [v_newaddr]
                     op.result = v_newptr
                     rename[v_targetvar] = v_newptr
-                elif op.opname == 'llvm_store_gcroot':
-                    index = op.args[0].value
-                    gcrootscount = max(gcrootscount, index+1)
-                elif op.opname == 'gc_stack_bottom':
-                    database.stack_bottoms.append(
-                            '{} {}'.format(ptr_type.repr_type(), name))
             if rename:
                 block.exitswitch = rename.get(block.exitswitch,
                                               block.exitswitch)
@@ -980,6 +973,7 @@ class FunctionWriter(object):
         llvmgcroot = genllvm.translator.config.translation.gcrootfinder == \
                 'llvmgcroot'
         if llvmgcroot:
+            raise NotImplementedError
             try:
                 prevent_inline = graph.func._gctransformer_hint_close_stack_
             except AttributeError:
@@ -1004,13 +998,7 @@ class FunctionWriter(object):
 
         for block in graph.iterblocks():
             self.w(self.block_to_name[block] + ':', '  ')
-            if block is graph.startblock:
-                for i in xrange(gcrootscount):
-                    self.w('%gcroot{} = alloca i8*'.format(i))
-                    self.w('call void @llvm.gcroot(i8** %gcroot{}, i8* null)'
-                            .format(i))
-                    self.w('store i8* null, i8** %gcroot{}'.format(i))
-            else:
+            if block is not graph.startblock:
                 self.write_phi_nodes(block)
             self.write_operations(block)
             self.write_branches(block)
@@ -1099,14 +1087,6 @@ class FunctionWriter(object):
 
     def op_llvm_gcmap(self, result):
         self.w('{result.V} = bitcast i8* @__gcmap to {result.T}'
-                .format(**locals()))
-
-    def op_llvm_store_gcroot(self, result, index, value):
-        self.w('store {value.TV}, {value.T}* %gcroot{index.V}'
-                .format(**locals()))
-
-    def op_llvm_load_gcroot(self, result, index):
-        self.w('{result.V} = load {result.T}, {result.T}* %gcroot{index.V}'
                 .format(**locals()))
 
     def op_llvm_stack_malloc(self, result):

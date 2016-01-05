@@ -31,28 +31,10 @@ LIST_NODE.become(lltype.Struct('ListNode', ('next_', LIST_NODE_PTR),
 
 class LLVMGcRootFrameworkGCTransformer(BaseFrameworkGCTransformer):
     def push_roots(self, hop, keep_current_args=False):
-        livevars = self.get_livevars_for_roots(hop, keep_current_args)
-        self.num_pushs += len(livevars)
-        for k, var in enumerate(livevars):
-            c_k = rmodel.inputconst(lltype.Signed, k)
-            v_adr = gen_cast(hop.llops, llmemory.Address, var)
-            hop.genop("llvm_store_gcroot", [c_k, v_adr])
-        return livevars
+        return
 
     def pop_roots(self, hop, livevars):
-        if not livevars:
-            return
-        if self.gcdata.gc.moving_gc:
-            # for moving collectors, reload the roots into the local variables
-            for k, var in enumerate(livevars):
-                c_k = rmodel.inputconst(lltype.Signed, k)
-                v_newaddr = hop.genop("llvm_load_gcroot", [c_k],
-                                      resulttype=llmemory.Address)
-                hop.genop("gc_reload_possibly_moved", [v_newaddr, var])
-        for k in xrange(len(livevars)):
-            c_k = rmodel.inputconst(lltype.Signed, k)
-            c_null = rmodel.inputconst(llmemory.Address, llmemory.NULL)
-            hop.genop("llvm_store_gcroot", [c_k, c_null])
+        return
 
     def gct_direct_call(self, hop):
         fnptr = hop.spaceop.args[0].value
