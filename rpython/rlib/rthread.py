@@ -394,11 +394,13 @@ class ThreadLocalReference(ThreadLocalField):
 
         def _trace_tlref(gc, obj, callback, arg):
             p = llmemory.NULL
+            llop.threadlocalref_acquire(lltype.Void)
             while True:
                 p = llop.threadlocalref_enum(llmemory.Address, p)
                 if not p:
                     break
                 gc._trace_callback(callback, arg, p + offset)
+            llop.threadlocalref_release(lltype.Void)
         _lambda_trace_tlref = lambda: _trace_tlref
         TRACETLREF = lltype.GcStruct('TRACETLREF')
         _tracetlref_obj = lltype.malloc(TRACETLREF, immortal=True)

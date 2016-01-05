@@ -6,6 +6,20 @@
 #include "src/threadlocal.h"
 
 
+/* this is a spin-lock that must be acquired around each doubly-linked-list
+   manipulation (because such manipulations can occur without the GIL) */
+static long pypy_threadlocal_lock = 0;
+
+void _RPython_ThreadLocals_Acquire(void) {
+    while (!lock_test_and_set(&pypy_threadlocal_lock, 1)) {
+        /* busy loop */
+    }
+}
+void _RPython_ThreadLocals_Release(void) {
+    lock_release(&pypy_threadlocal_lock);
+}
+
+
 pthread_key_t pypy_threadlocal_key
 #ifdef _WIN32
 = TLS_OUT_OF_INDEXES
@@ -48,23 +62,29 @@ static void _RPy_ThreadLocals_Init(void *p)
                   where it is not the case are rather old nowadays. */
 #    endif
 #endif
+    _RPython_ThreadLocals_Acquire();
     oldnext = linkedlist_head.next;
     tls->prev = &linkedlist_head;
     tls->next = oldnext;
     linkedlist_head.next = tls;
     oldnext->prev = tls;
     tls->ready = 42;
+    _RPython_ThreadLocals_Release();
 }
 
 static void threadloc_unlink(void *p)
 {
+    /* warning: this can be called at completely random times without
+       the GIL. */
     struct pypy_threadlocal_s *tls = (struct pypy_threadlocal_s *)p;
+    _RPython_ThreadLocals_Acquire();
     if (tls->ready == 42) {
-        tls->ready = 0;
         tls->next->prev = tls->prev;
         tls->prev->next = tls->next;
         memset(tls, 0xDD, sizeof(struct pypy_threadlocal_s));  /* debug */
+        tls->ready = 0;
     }
+    _RPython_ThreadLocals_Release();
 #ifndef USE___THREAD
     free(p);
 #endif
@@ -110,6 +130,7 @@ void RPython_ThreadLocals_ProgramInit(void)
        a non-null thread-local value).  This is needed even in the
        case where we use '__thread' below, for the destructor.
     */
+    assert(pypy_threadlocal_lock == 0);
 #ifdef _WIN32
     pypy_threadlocal_key = TlsAlloc();
     if (pypy_threadlocal_key == TLS_OUT_OF_INDEXES)
@@ -122,6 +143,12 @@ void RPython_ThreadLocals_ProgramInit(void)
         abort();
     }
     _RPython_ThreadLocals_Build();
+
+#ifndef _WIN32
+    pthread_atfork(_RPython_ThreadLocals_Acquire,
+                   _RPython_ThreadLocals_Release,
+                   _RPython_ThreadLocals_Release);
+#endif
 }
 
 
@@ -136,7 +163,7 @@ __thread struct pypy_threadlocal_s pypy_threadlocal;
 
 char *_RPython_ThreadLocals_Build(void)
 {
-    RPyAssert(pypy_threadlocal.ready == 0, "corrupted thread-local");
+    RPyAssert(pypy_threadlocal.ready == 0, "unclean thread-local");
     _RPy_ThreadLocals_Init(&pypy_threadlocal);
 
     /* we also set up &pypy_threadlocal as a POSIX thread-local variable,
