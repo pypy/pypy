@@ -2,7 +2,7 @@ import sys
 from rpython.translator.c.support import cdecl
 from rpython.translator.c.support import llvalue_from_constant, gen_assignments
 from rpython.translator.c.support import c_string_constant, barebonearray
-from rpython.flowspace.model import Variable, Constant, copygraph
+from rpython.flowspace.model import Variable, Constant
 from rpython.rtyper.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
     SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
     Array, FixedSizeArray, ForwardReference, FuncType)
@@ -99,7 +99,6 @@ class FunctionCodeGenerator(object):
         return graph
 
     def implementation_begin(self):
-        self.patch_graph()
         SSI_to_SSA(self.graph)
         self.collect_var_and_types()
         self.blocknum = {}
