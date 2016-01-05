@@ -972,12 +972,7 @@ class FunctionWriter(object):
     def prepare_graph(self, ptr_type, name, graph):
         genllvm = database.genllvm
         genllvm.gcpolicy.gctransformer.inline_helpers(graph)
-        self.transform_gc_reload_possibly_moved(graph)
-
-        remove_double_links(graph)
-        no_links_to_startblock(graph)
         remove_same_as(graph)
-        SSI_to_SSA(graph)
 
         llvmgcroot = genllvm.translator.config.translation.gcrootfinder == \
                 'llvmgcroot'
@@ -989,7 +984,12 @@ class FunctionWriter(object):
                 prevent_inline = (name == '@rpy_walk_stack_roots' or
                                   name.startswith('@rpy_stack_check'))
         else:
+            self.transform_gc_reload_possibly_moved(graph)
             prevent_inline = False
+
+        remove_double_links(graph)
+        no_links_to_startblock(graph)
+        SSI_to_SSA(graph)
         return prevent_inline, llvmgcroot
 
     def transform_gc_reload_possibly_moved(self, graph):

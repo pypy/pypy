@@ -713,11 +713,13 @@ class TestMiniMarkGCLLVM(test_newgc.TestMiniMarkGC):
     def _set_backend(cls, t):
         t.ensure_backend('llvm')
 
+
 class DisabledTestMiniMarkGCLLVMGCRoot(test_newgc.TestMiniMarkGC):
     @classmethod
     def _set_backend(cls, t):
         t.ensure_backend('llvm')
         t.ensure_opt('gcrootfinder', 'llvmgcroot')
+
 
 class TestMiniMarkGCMostCompactLLVM(test_newgc.TestMiniMarkGCMostCompact):
     @classmethod
