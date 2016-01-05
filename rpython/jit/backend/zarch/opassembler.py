@@ -890,16 +890,19 @@ class MemoryOpAssembler(object):
         if src_ofs.is_imm():
             value = src_ofs.value << scale
             if check_imm_value(value):
-                self.mc.LGR(dst, src_ptr)
-                self.mc.AGHI(dst, l.imm(value))
+                if dst is not src_ptr:
+                    self.mc.LGR(dst, src_ptr)
+                if value != 0:
+                    self.mc.AGHI(dst, l.imm(value))
             else:
                 self.mc.load_imm(dst, value)
                 self.mc.AGR(dst, src_ptr)
         elif scale == 0:
-            self.mc.LGR(dst, src_ptr)
+            if dst is not src_ptr:
+                self.mc.LGR(dst, src_ptr)
             self.mc.AGR(dst, src_ofs)
         else:
-            self.mc.SLAG(dst, src_ofs, l.addr(scale))
+            self.mc.SLLG(dst, src_ofs, l.addr(scale))
             self.mc.AGR(dst, src_ptr)
 
     def _emit_copycontent(self, arglocs, is_unicode):
@@ -918,8 +921,11 @@ class MemoryOpAssembler(object):
             assert itemsize == 1
             scale = 0
 
-        self._emit_load_for_copycontent(r.r0, src_ptr_loc, src_ofs_loc, scale)
-        self._emit_load_for_copycontent(r.r2, dst_ptr_loc, dst_ofs_loc, scale)
+        self._emit_load_for_copycontent(r.SCRATCH, src_ptr_loc, src_ofs_loc, scale)
+        self._emit_load_for_copycontent(r.SCRATCH2, dst_ptr_loc, dst_ofs_loc, scale)
+        #
+        # DO NOT USE r2-r6 before this line!
+        # either of the parameter (e.g. str_ptr_loc, ...) locations might be allocated
 
         if length_loc.is_imm():
             length = length_loc.getint()
@@ -930,9 +936,12 @@ class MemoryOpAssembler(object):
             elif length_loc is not r.r4:
                 self.mc.LGR(r.r4, length_loc)
 
-        self.mc.LGR(r.r3, r.r0)
-        self.mc.AGHI(r.r3, l.imm(basesize))
-        self.mc.AGHI(r.r2, l.imm(basesize))
+        self.mc.LGR(r.r3, r.SCRATCH)
+        self.mc.LGR(r.r2, r.SCRATCH2)
+        if basesize != 0:
+            self.mc.AGHI(r.r3, l.imm(basesize))
+        if basesize != 0:
+            self.mc.AGHI(r.r2, l.imm(basesize))
 
         self.mc.push_std_frame()
         self.mc.load_imm(self.mc.RAW_CALL_REG, self.memcpy_addr)
