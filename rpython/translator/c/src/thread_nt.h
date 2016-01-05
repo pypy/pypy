@@ -38,3 +38,4 @@ long RPyThreadSetStackSize(long);
 #else
 #define lock_test_and_set(ptr, value)  InterlockedExchange(ptr, value)
 #endif
+#define lock_release(ptr)              (*((volatile long *)ptr) = 0)

@@ -96,6 +96,8 @@ class TestStandalone(StandaloneTests):
                     continue
                 if name == 'pypy_debug_file':     # ok to export this one
                     continue
+                if name == 'rpython_startup_code':  # ok for this one too
+                    continue
                 if 'pypy' in name.lower() or 'rpy' in name.lower():
                     raise Exception("Unexpected exported name %r.  "
                         "What is likely missing is RPY_EXTERN before the "
