@@ -329,7 +329,7 @@ class Function(W_Root):
 
         self.space = space
         self.name = space.str_w(w_name)
-        self.qualname = space.str_w(w_qualname)
+        self.qualname = space.str_w(w_qualname).decode("utf-8")
         self.code = space.interp_w(Code, w_code)
         if not space.is_w(w_closure, space.w_None):
             from pypy.interpreter.nestedscope import Cell
