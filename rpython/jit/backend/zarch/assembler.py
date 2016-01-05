@@ -305,7 +305,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         #   * no managed register must be modified
 
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.SCRATCH, l.addr(ofs2, r.SPP))
+        mc.STG(r.SCRATCH2, l.addr(ofs2, r.SPP))
 
         self._push_core_regs_to_jitframe(mc, r.MANAGED_REGS)
         self._push_fp_regs_to_jitframe(mc)
@@ -317,7 +317,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # no need to move second argument (frame_depth),
         # it is already in register r3!
-        mc.LGR(r.r3, r.SCRATCH2)
+        mc.LGR(r.r3, r.SCRATCH)
 
         RCS2 = r.r10
         RCS3 = r.r12
@@ -508,6 +508,16 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         self.frame_depth_to_patch.append((patch_pos, mc.currpos()))
 
+    def patch_stack_checks(self, frame_depth):
+        if frame_depth > 0x7fff:
+            raise JitFrameTooDeep     # XXX
+        for traps_pos, jmp_target in self.frame_depth_to_patch:
+            pmc = OverwritingBuilder(self.mc, traps_pos, 3)
+            # three traps, so exactly three instructions to patch here
+            pmc.CGFI(r.SCRATCH2, l.imm(frame_depth))
+            pmc.BRC(c.EQ, l.imm(jmp_target - (traps_pos + 6)))
+            pmc.LGHI(r.SCRATCH, l.imm(frame_depth))
+            pmc.overwrite()
 
     @rgc.no_release_gil
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
@@ -841,17 +851,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             tok = self.pending_guard_tokens[i]
             tok.pos_recovery_stub = self.generate_quick_failure(tok)
         self.pending_guard_tokens_recovered = len(self.pending_guard_tokens)
-
-    def patch_stack_checks(self, frame_depth):
-        if frame_depth > 0x7fff:
-            raise JitFrameTooDeep     # XXX
-        for traps_pos, jmp_target in self.frame_depth_to_patch:
-            pmc = OverwritingBuilder(self.mc, traps_pos, 3)
-            # three traps, so exactly three instructions to patch here
-            pmc.CGFI(r.r2, l.imm(frame_depth))
-            pmc.BRC(c.EQ, l.imm(jmp_target - (traps_pos + 6)))
-            pmc.LGHI(r.r3, l.imm(frame_depth))
-            pmc.overwrite()
 
     def materialize_loop(self, looptoken):
         self.datablockwrapper.done()
