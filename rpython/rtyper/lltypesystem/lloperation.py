@@ -547,6 +547,8 @@ LL_OPERATIONS = {
 
     'threadlocalref_addr':  LLOp(),                   # get (or make) addr of tl
     'threadlocalref_get':   LLOp(sideeffects=False),  # read field (no check)
+    'threadlocalref_acquire':  LLOp(),                # lock for enum
+    'threadlocalref_release':  LLOp(),                # lock for enum
     'threadlocalref_enum':  LLOp(sideeffects=False),  # enum all threadlocalrefs
 
     # __________ debugging __________
