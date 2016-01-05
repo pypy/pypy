@@ -152,7 +152,7 @@ class IntOpAssembler(object):
     emit_int_xor = gen_emit_rr_or_rpool("XGR", "XG")
 
     emit_int_rshift  = gen_emit_shift("SRAG")
-    emit_int_lshift  = gen_emit_shift("SLAG")
+    emit_int_lshift  = gen_emit_shift("SLLG")
     emit_uint_rshift = gen_emit_shift("SRLG")
 
     emit_int_le = gen_emit_cmp_op(c.LE)
