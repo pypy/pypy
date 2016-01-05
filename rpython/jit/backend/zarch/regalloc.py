@@ -488,14 +488,10 @@ class Regalloc(BaseRegalloc):
             if not we_are_translated() and opnum == -127:
                 self._consider_force_spill(op)
             else:
-                print("regalloc before", self.rm.free_regs, self.rm.reg_bindings)
-                print(op)
                 arglocs = prepare_oplist[opnum](self, op)
                 asm_operations[opnum](self.assembler, op, arglocs, self)
             self.free_op_vars()
             self.possibly_free_var(op)
-            print("regalloc after", self.rm.free_regs, self.rm.reg_bindings)
-            print""
             self.rm._check_invariants()
             self.fprm._check_invariants()
             if self.assembler.mc.get_relative_pos() > self.limit_loop_break:

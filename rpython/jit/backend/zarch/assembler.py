@@ -305,7 +305,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         #   * no managed register must be modified
 
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.SCRATCH2, l.addr(ofs2, r.SPP))
+        mc.STG(r.SCRATCH, l.addr(ofs2, r.SPP))
 
         self._push_core_regs_to_jitframe(mc, r.MANAGED_REGS)
         self._push_fp_regs_to_jitframe(mc)
@@ -317,7 +317,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # no need to move second argument (frame_depth),
         # it is already in register r3!
-        mc.LGR(r.r3, r.SCRATCH)
+        mc.LGR(r.r3, r.SCRATCH2)
 
         RCS2 = r.r10
         RCS3 = r.r12
@@ -463,7 +463,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
     def new_stack_loc(self, i, tp):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         loc = l.StackLocation(i, l.get_fp_offset(base_ofs, i), tp)
-        print("new stack location", loc)
         return loc
 
     def _call_header_with_stack_check(self):
