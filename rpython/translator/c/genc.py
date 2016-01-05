@@ -213,6 +213,7 @@ class CBuilder(object):
 
         if db is None:
             db = self.build_database()
+        db.prepare_inline_helpers()
         pf = self.getentrypointptr()
         if self.modulename is None:
             self.modulename = uniquemodulename('testing')
@@ -848,7 +849,6 @@ def gen_source(database, modulename, targetdir,
     #
     sg = SourceGenerator(database)
     sg.set_strategy(targetdir, split)
-    database.prepare_inline_helpers()
     sg.gen_readable_parts_of_source(f)
     headers_to_precompile = sg.headers_to_precompile[:]
     headers_to_precompile.insert(0, incfilename)
