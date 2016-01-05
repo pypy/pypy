@@ -592,7 +592,6 @@ def _type_realize(space, py_obj):
     Creates an interpreter type from a PyTypeObject structure.
     """
     # missing:
-    # inheriting tp_as_* slots
     # unsupported:
     # tp_mro, tp_subclasses
     py_type = rffi.cast(PyTypeObjectPtr, py_obj)
@@ -619,6 +618,13 @@ def _type_realize(space, py_obj):
     w_obj.ready()
 
     finish_type_2(space, py_type, w_obj)
+    # inheriting tp_as_* slots
+    base = py_type.c_tp_base
+    if base:
+        if not py_type.c_tp_as_number: py_type.c_tp_as_number = base.c_tp_as_number 
+        if not py_type.c_tp_as_sequence: py_type.c_tp_as_sequence = base.c_tp_as_sequence 
+        if not py_type.c_tp_as_mapping: py_type.c_tp_as_mapping = base.c_tp_as_mapping 
+        if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer 
 
     state = space.fromcache(RefcountState)
     state.non_heaptypes_w.append(w_obj)
