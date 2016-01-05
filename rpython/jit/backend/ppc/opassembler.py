@@ -20,7 +20,7 @@ from rpython.jit.backend.ppc.codebuilder import (OverwritingBuilder, scratch_reg
                                                  PPCBuilder, PPCGuardToken)
 from rpython.jit.backend.ppc.regalloc import TempPtr, TempInt
 from rpython.jit.backend.llsupport import symbolic, jitframe
-from rpython.jit.backend.llsupport.descr import InteriorFieldDescr, CallDescr
+from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -706,8 +706,10 @@ class FieldOpAssembler(object):
 
     _mixin_ = True
 
-    def _write_to_mem(self, value_loc, base_loc, ofs, size):
-        if size.value == 8:
+    def _write_to_mem(self, value_loc, base_loc, ofs, size_loc):
+        assert size_loc.is_imm()
+        size = size_loc.value
+        if size == 8:
             if value_loc.is_fp_reg():
                 if ofs.is_imm():
                     self.mc.stfd(value_loc.value, base_loc.value, ofs.value)
@@ -718,17 +720,17 @@ class FieldOpAssembler(object):
                     self.mc.std(value_loc.value, base_loc.value, ofs.value)
                 else:
                     self.mc.stdx(value_loc.value, base_loc.value, ofs.value)
-        elif size.value == 4:
+        elif size == 4:
             if ofs.is_imm():
                 self.mc.stw(value_loc.value, base_loc.value, ofs.value)
             else:
                 self.mc.stwx(value_loc.value, base_loc.value, ofs.value)
-        elif size.value == 2:
+        elif size == 2:
             if ofs.is_imm():
                 self.mc.sth(value_loc.value, base_loc.value, ofs.value)
             else:
                 self.mc.sthx(value_loc.value, base_loc.value, ofs.value)
-        elif size.value == 1:
+        elif size == 1:
             if ofs.is_imm():
                 self.mc.stb(value_loc.value, base_loc.value, ofs.value)
             else:
@@ -736,18 +738,35 @@ class FieldOpAssembler(object):
         else:
             assert 0, "size not supported"
 
-    def emit_setfield_gc(self, op, arglocs, regalloc):
-        value_loc, base_loc, ofs, size = arglocs
-        self._write_to_mem(value_loc, base_loc, ofs, size)
+    def emit_gc_store(self, op, arglocs, regalloc):
+        value_loc, base_loc, ofs_loc, size_loc = arglocs
+        self._write_to_mem(value_loc, base_loc, ofs_loc, size_loc)
 
-    emit_setfield_raw = emit_setfield_gc
-    emit_zero_ptr_field = emit_setfield_gc
+    def _apply_offset(self, index_loc, ofs_loc):
+        # If offset != 0 then we have to add it here.  Note that
+        # mc.addi() would not be valid with operand r0.
+        assert ofs_loc.is_imm()                # must be an immediate...
+        assert _check_imm_arg(ofs_loc.getint())   # ...that fits 16 bits
+        assert index_loc is not r.SCRATCH2
+        # (simplified version of _apply_scale())
+        if ofs_loc.value > 0:
+            self.mc.addi(r.SCRATCH2.value, index_loc.value, ofs_loc.value)
+            index_loc = r.SCRATCH2
+        return index_loc
 
-    def _load_from_mem(self, res, base_loc, ofs, size, signed):
+    def emit_gc_store_indexed(self, op, arglocs, regalloc):
+        base_loc, index_loc, value_loc, ofs_loc, size_loc = arglocs
+        index_loc = self._apply_offset(index_loc, ofs_loc)
+        self._write_to_mem(value_loc, base_loc, index_loc, size_loc)
+
+    def _load_from_mem(self, res, base_loc, ofs, size_loc, sign_loc):
         # res, base_loc, ofs, size and signed are all locations
         assert base_loc is not r.SCRATCH
-        sign = signed.value
-        if size.value == 8:
+        assert size_loc.is_imm()
+        size = size_loc.value
+        assert sign_loc.is_imm()
+        sign = sign_loc.value
+        if size == 8:
             if res.is_fp_reg():
                 if ofs.is_imm():
                     self.mc.lfd(res.value, base_loc.value, ofs.value)
@@ -758,7 +777,7 @@ class FieldOpAssembler(object):
                     self.mc.ld(res.value, base_loc.value, ofs.value)
                 else:
                     self.mc.ldx(res.value, base_loc.value, ofs.value)
-        elif size.value == 4:
+        elif size == 4:
             if IS_PPC_64 and sign:
                 if ofs.is_imm():
                     self.mc.lwa(res.value, base_loc.value, ofs.value)
@@ -769,7 +788,7 @@ class FieldOpAssembler(object):
                     self.mc.lwz(res.value, base_loc.value, ofs.value)
                 else:
                     self.mc.lwzx(res.value, base_loc.value, ofs.value)
-        elif size.value == 2:
+        elif size == 2:
             if sign:
                 if ofs.is_imm():
                     self.mc.lha(res.value, base_loc.value, ofs.value)
@@ -780,7 +799,7 @@ class FieldOpAssembler(object):
                     self.mc.lhz(res.value, base_loc.value, ofs.value)
                 else:
                     self.mc.lhzx(res.value, base_loc.value, ofs.value)
-        elif size.value == 1:
+        elif size == 1:
             if ofs.is_imm():
                 self.mc.lbz(res.value, base_loc.value, ofs.value)
             else:
@@ -790,22 +809,28 @@ class FieldOpAssembler(object):
         else:
             assert 0, "size not supported"
 
-    def _genop_getfield(self, op, arglocs, regalloc):
-        base_loc, ofs, res, size, sign = arglocs
-        self._load_from_mem(res, base_loc, ofs, size, sign)
+    def _genop_gc_load(self, op, arglocs, regalloc):
+        base_loc, ofs_loc, res_loc, size_loc, sign_loc = arglocs
+        self._load_from_mem(res_loc, base_loc, ofs_loc, size_loc, sign_loc)
 
-    emit_getfield_gc_i = _genop_getfield
-    emit_getfield_gc_r = _genop_getfield
-    emit_getfield_gc_f = _genop_getfield
-    emit_getfield_gc_pure_i = _genop_getfield
-    emit_getfield_gc_pure_r = _genop_getfield
-    emit_getfield_gc_pure_f = _genop_getfield
-    emit_getfield_raw_i = _genop_getfield
-    emit_getfield_raw_f = _genop_getfield
+    emit_gc_load_i = _genop_gc_load
+    emit_gc_load_r = _genop_gc_load
+    emit_gc_load_f = _genop_gc_load
+
+    def _genop_gc_load_indexed(self, op, arglocs, regalloc):
+        base_loc, index_loc, res_loc, ofs_loc, size_loc, sign_loc = arglocs
+        index_loc = self._apply_offset(index_loc, ofs_loc)
+        self._load_from_mem(res_loc, base_loc, index_loc, size_loc, sign_loc)
+
+    emit_gc_load_indexed_i = _genop_gc_load_indexed
+    emit_gc_load_indexed_r = _genop_gc_load_indexed
+    emit_gc_load_indexed_f = _genop_gc_load_indexed
 
     SIZE2SCALE = dict([(1<<_i, _i) for _i in range(32)])
 
     def _multiply_by_constant(self, loc, multiply_by, scratch_loc):
+        # XXX should die together with _apply_scale() but can't because
+        # of emit_zero_array() and malloc_cond_varsize() at the moment
         assert loc.is_reg()
         if multiply_by == 1:
             return loc
@@ -827,6 +852,9 @@ class FieldOpAssembler(object):
         return scratch_loc
 
     def _apply_scale(self, ofs, index_loc, itemsize):
+        # XXX should die now that getarrayitem and getinteriorfield are gone
+        # but can't because of emit_zero_array() at the moment
+
         # For arrayitem and interiorfield reads and writes: this returns an
         # offset suitable for use in ld/ldx or similar instructions.
         # The result will be either the register r2 or a 16-bit immediate.
@@ -856,44 +884,6 @@ class FieldOpAssembler(object):
                 self.mc.addi(r.SCRATCH2.value, index_loc.value, offset)
                 index_loc = r.SCRATCH2
             return index_loc
-
-    def _genop_getarray_or_interiorfield(self, op, arglocs, regalloc):
-        (base_loc, index_loc, res_loc, ofs_loc,
-            itemsize, fieldsize, fieldsign) = arglocs
-        ofs_loc = self._apply_scale(ofs_loc, index_loc, itemsize)
-        self._load_from_mem(res_loc, base_loc, ofs_loc, fieldsize, fieldsign)
-
-    emit_getinteriorfield_gc_i = _genop_getarray_or_interiorfield
-    emit_getinteriorfield_gc_r = _genop_getarray_or_interiorfield
-    emit_getinteriorfield_gc_f = _genop_getarray_or_interiorfield
-
-    def emit_setinteriorfield_gc(self, op, arglocs, regalloc):
-        (base_loc, index_loc, value_loc, ofs_loc,
-            itemsize, fieldsize) = arglocs
-        ofs_loc = self._apply_scale(ofs_loc, index_loc, itemsize)
-        self._write_to_mem(value_loc, base_loc, ofs_loc, fieldsize)
-
-    emit_setinteriorfield_raw = emit_setinteriorfield_gc
-
-    def emit_arraylen_gc(self, op, arglocs, regalloc):
-        res, base_loc, ofs = arglocs
-        self.mc.load(res.value, base_loc.value, ofs.value)
-
-    emit_setarrayitem_gc = emit_setinteriorfield_gc
-    emit_setarrayitem_raw = emit_setarrayitem_gc
-
-    emit_getarrayitem_gc_i = _genop_getarray_or_interiorfield
-    emit_getarrayitem_gc_r = _genop_getarray_or_interiorfield
-    emit_getarrayitem_gc_f = _genop_getarray_or_interiorfield
-    emit_getarrayitem_gc_pure_i = _genop_getarray_or_interiorfield
-    emit_getarrayitem_gc_pure_r = _genop_getarray_or_interiorfield
-    emit_getarrayitem_gc_pure_f = _genop_getarray_or_interiorfield
-    emit_getarrayitem_raw_i = _genop_getarray_or_interiorfield
-    emit_getarrayitem_raw_f = _genop_getarray_or_interiorfield
-
-    emit_raw_store = emit_setarrayitem_gc
-    emit_raw_load_i = _genop_getarray_or_interiorfield
-    emit_raw_load_f = _genop_getarray_or_interiorfield
 
     def _copy_in_scratch2(self, loc):
         if loc.is_imm():
@@ -998,10 +988,6 @@ class StrOpAssembler(object):
 
     _mixin_ = True
 
-    emit_strlen = FieldOpAssembler._genop_getfield
-    emit_strgetitem = FieldOpAssembler._genop_getarray_or_interiorfield
-    emit_strsetitem = FieldOpAssembler.emit_setarrayitem_gc
-
     def emit_copystrcontent(self, op, arglocs, regalloc):
         self._emit_copycontent(arglocs, is_unicode=False)
 
@@ -1059,12 +1045,8 @@ class StrOpAssembler(object):
 
 
 class UnicodeOpAssembler(object):
-
     _mixin_ = True
-
-    emit_unicodelen = FieldOpAssembler._genop_getfield
-    emit_unicodegetitem = FieldOpAssembler._genop_getarray_or_interiorfield
-    emit_unicodesetitem = FieldOpAssembler.emit_setarrayitem_gc
+    # empty!
 
 
 class AllocOpAssembler(object):

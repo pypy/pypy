@@ -23,6 +23,7 @@ def setup_module(mod):
 class AbstractGCTestClass(object):
     gcpolicy = "boehm"
     use_threads = False
+    extra_options = {}
 
     # deal with cleanups
     def setup_method(self, meth):
@@ -33,8 +34,10 @@ class AbstractGCTestClass(object):
             #print "CLEANUP"
             self._cleanups.pop()()
 
-    def getcompiled(self, func, argstypelist=[], annotatorpolicy=None):
-        return compile(func, argstypelist, gcpolicy=self.gcpolicy, thread=self.use_threads)
+    def getcompiled(self, func, argstypelist=[], annotatorpolicy=None,
+                    extra_options={}):
+        return compile(func, argstypelist, gcpolicy=self.gcpolicy,
+                       thread=self.use_threads, **extra_options)
 
 
 class TestUsingBoehm(AbstractGCTestClass):

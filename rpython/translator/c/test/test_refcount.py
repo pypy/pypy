@@ -115,7 +115,7 @@ class TestRefcount(object):
                 try:
                     g()
                 except:
-                    os.write(1, "hallo")
+                    pass  #os.write(1, "hallo")
         def f1(i):
             if i:
                 raise TypeError

@@ -1123,8 +1123,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc_thread_run(self, hop):
-        assert self.translator.config.translation.thread
-        if hasattr(self.root_walker, 'thread_run_ptr'):
+        if (self.translator.config.translation.thread and
+                hasattr(self.root_walker, 'thread_run_ptr')):
             livevars = self.push_roots(hop)
             assert not livevars, "live GC var around %s!" % (hop.spaceop,)
             hop.genop("direct_call", [self.root_walker.thread_run_ptr])

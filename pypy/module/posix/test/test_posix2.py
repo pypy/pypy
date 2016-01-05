@@ -93,6 +93,12 @@ class AppTestPosix:
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
+            if sys.maxsize < 2**32 and not self.runappdirect:
+                # this fails because it uses ll2ctypes to call the posix
+                # functions like 'open' and 'lseek', whereas a real compiled
+                # C program would macro-define them to their longlong versions
+                py.test.skip("emulation of files can't use "
+                             "larger-than-long offsets")
             need_sparse_files()
 
     def test_posix_is_pypy_s(self):
