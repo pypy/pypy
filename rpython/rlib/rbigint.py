@@ -2817,6 +2817,8 @@ def parse_digit_string(parser):
 def parse_string_from_binary_base(parser):
     # The point to this routine is that it takes time linear in the number of
     # string characters.
+    from rpython.rlib.rstring import ParseStringError
+
     base = parser.base
     if   base ==  2: bits_per_char = 1
     elif base ==  4: bits_per_char = 2
