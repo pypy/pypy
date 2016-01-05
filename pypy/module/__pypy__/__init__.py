@@ -89,6 +89,7 @@ class Module(MixedModule):
         'set_code_callback'         : 'interp_magic.set_code_callback',
         'save_module_content_for_future_reload':
                           'interp_magic.save_module_content_for_future_reload',
+        'decode_long'               : 'interp_magic.decode_long',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
