@@ -3,7 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include "src/threadlocal.h"
+#include "src/thread.h"
 
 
 /* this is a spin-lock that must be acquired around each doubly-linked-list
