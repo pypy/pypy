@@ -92,17 +92,14 @@ class FunctionCodeGenerator(object):
     def name(self, cname):  #virtual
         return cname
 
-    def patch_graph(self, copy_graph):
+    def patch_graph(self):
         graph = self.graph
         if self.db.gctransformer and self.db.gctransformer.inline:
-            if copy_graph:
-                graph = copygraph(graph, shallow=True)
             self.db.gctransformer.inline_helpers(graph)
         return graph
 
     def implementation_begin(self):
-        self.oldgraph = self.graph
-        self.graph = self.patch_graph(copy_graph=True)
+        self.patch_graph()
         SSI_to_SSA(self.graph)
         self.collect_var_and_types()
         self.blocknum = {}
@@ -128,8 +125,6 @@ class FunctionCodeGenerator(object):
         self.vars = None
         self.blocknum = None
         self.innerloops = None
-        self.graph = self.oldgraph
-        del self.oldgraph
 
     def argnames(self):
         return [LOCALVAR % v.name for v in self.graph.getargs()]

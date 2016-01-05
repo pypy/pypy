@@ -205,7 +205,7 @@ class CBuilder(object):
         for node in db.containerlist:
             if hasattr(node, 'funcgens'):
                 for funcgen in node.funcgens:
-                    funcgen.patch_graph(copy_graph=False)
+                    funcgen.patch_graph()
         return db
 
     def generate_source(self, db=None, defines={}, exe_name=None):
