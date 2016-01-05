@@ -802,7 +802,7 @@ class Regalloc(BaseRegalloc):
 
     def prepare_gc_store_indexed(self, op):
         args = op.getarglist()
-        base_loc = self.ensure_reg(op.getarg(0))
+        base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
         index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
         value_loc = self.ensure_reg(op.getarg(2))
         scale_box = op.getarg(3)
