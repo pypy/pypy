@@ -294,13 +294,13 @@ class CallOpAssembler(object):
         self.mc.trap()        # patched later to a relative branch
         self.mc.write('\x00' * 4)
 
-        # save away r3, r4, r5, r6, r12 into the jitframe
+        # save away r2, r3, r4, r5, r12 into the jitframe
         should_be_saved = [
             reg for reg in self._regalloc.rm.reg_bindings.itervalues()
                 if reg in self._COND_CALL_SAVE_REGS]
         self._push_core_regs_to_jitframe(self.mc, should_be_saved)
 
-        self.load_gcmap(self.mc, r.r2, regalloc.get_gcmap())
+        self.load_gcmap(self.mc, r.SCRATCH2, regalloc.get_gcmap())
         #
         # load the 0-to-4 arguments into these registers, with the address of
         # the function to call into r12
@@ -325,7 +325,6 @@ class CallOpAssembler(object):
         # to the cond_call_slowpath helper.  We never have any result value.
         relative_target = self.mc.currpos() - jmp_adr
         pmc = OverwritingBuilder(self.mc, jmp_adr, 1)
-        #BI, BO = c.encoding[fcond]
         pmc.BRCL(fcond, l.imm(relative_target))
         pmc.overwrite()
         # might be overridden again to skip over the following

@@ -381,14 +381,14 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # signature of these cond_call_slowpath functions:
         #   * on entry, r12 contains the function to call
         #   * r3, r4, r5, r6 contain arguments for the call
-        #   * r2 is the gcmap
+        #   * r0 is the gcmap
         #   * the old value of these regs must already be stored in the jitframe
         #   * on exit, all registers are restored from the jitframe
 
         mc = InstrBuilder()
         self.mc = mc
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.r2, l.addr(ofs2,r.SPP))
+        mc.STG(r.SCRATCH2, l.addr(ofs2,r.SPP))
 
         # copy registers to the frame, with the exception of r3 to r6 and r12,
         # because these have already been saved by the caller.  Note that
@@ -399,10 +399,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         else:
             saved_regs = ZARCHRegisterManager.all_regs
         regs = [reg for reg in saved_regs
-                    if reg is not r.r3 and
+                    if reg is not r.r2 and
+                       reg is not r.r3 and
                        reg is not r.r4 and
                        reg is not r.r5 and
-                       reg is not r.r6 and
                        reg is not r.r12]
         self._push_core_regs_to_jitframe(mc, regs + [r.r14])
         if supports_floats:
