@@ -608,13 +608,13 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
         regalloc = Regalloc(assembler=self)
-        self.pool.pre_assemble(self, operations, bridge=True)
-        startpos = self.mc.get_relative_pos()
-        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - startpos))
         operations = regalloc.prepare_bridge(inputargs, arglocs,
                                              operations,
                                              self.current_clt.allgcrefs,
                                              self.current_clt.frame_info)
+        self.pool.pre_assemble(self, operations, bridge=True)
+        startpos = self.mc.get_relative_pos()
+        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - startpos))
         self._check_frame_depth(self.mc, regalloc.get_gcmap())
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs, operations)
         codeendpos = self.mc.get_relative_pos()
