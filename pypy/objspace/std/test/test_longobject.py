@@ -362,6 +362,6 @@ class AppTestLong:
     def test_linear_long_base_16(self):
         # never finishes if long(_, 16) is not linear-time
         size = 100000
-        n = "5" + "0" * size
-        expected = 5 << (size * 4)
+        n = "a" * size
+        expected = (2 << (size * 4)) // 3
         assert long(n, 16) == expected
