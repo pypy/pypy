@@ -941,26 +941,7 @@ class FunctionWriter(object):
         self.lines.append('{}{}\n'.format(indent, line))
 
     def write_graph(self, ptr_type, name, graph, export):
-        genllvm = database.genllvm
-        genllvm.gcpolicy.gctransformer.inline_helpers(graph)
-        self.transform_gc_reload_possibly_moved(graph)
-
-        remove_double_links(graph)
-        no_links_to_startblock(graph)
-        remove_same_as(graph)
-        SSI_to_SSA(graph)
-
-        llvmgcroot = genllvm.translator.config.translation.gcrootfinder == \
-                'llvmgcroot'
-        if llvmgcroot:
-            raise NotImplementedError
-            try:
-                prevent_inline = graph.func._gctransformer_hint_close_stack_
-            except AttributeError:
-                prevent_inline = (name == '@rpy_walk_stack_roots' or
-                                  name.startswith('@rpy_stack_check'))
-        else:
-            prevent_inline = False
+        prevent_inline, llvmgcroot = self.prepare_graph(ptr_type, name, graph)
         self.w('define {linkage}{retvar.T} {name}({a}){add}{gc} {{'.format(
                        linkage='' if export else 'internal ',
                        retvar=get_repr(graph.getreturnvar()),
@@ -987,6 +968,29 @@ class FunctionWriter(object):
             self.w('call void @abort() noreturn nounwind')
             self.w('unreachable')
         self.w('}', '')
+
+    def prepare_graph(self, ptr_type, name, graph):
+        genllvm = database.genllvm
+        genllvm.gcpolicy.gctransformer.inline_helpers(graph)
+        self.transform_gc_reload_possibly_moved(graph)
+
+        remove_double_links(graph)
+        no_links_to_startblock(graph)
+        remove_same_as(graph)
+        SSI_to_SSA(graph)
+
+        llvmgcroot = genllvm.translator.config.translation.gcrootfinder == \
+                'llvmgcroot'
+        if llvmgcroot:
+            raise NotImplementedError
+            try:
+                prevent_inline = graph.func._gctransformer_hint_close_stack_
+            except AttributeError:
+                prevent_inline = (name == '@rpy_walk_stack_roots' or
+                                  name.startswith('@rpy_stack_check'))
+        else:
+            prevent_inline = False
+        return prevent_inline, llvmgcroot
 
     def transform_gc_reload_possibly_moved(self, graph):
         for block in graph.iterblocks():
