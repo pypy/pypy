@@ -12,12 +12,16 @@
    manipulation (because such manipulations can occur without the GIL) */
 static long pypy_threadlocal_lock = 0;
 
+static int check_valid(void);
+
 void _RPython_ThreadLocals_Acquire(void) {
     while (!lock_test_and_set(&pypy_threadlocal_lock, 1)) {
         /* busy loop */
     }
+    assert(check_valid());
 }
 void _RPython_ThreadLocals_Release(void) {
+    assert(check_valid());
     lock_release(&pypy_threadlocal_lock);
 }
 
@@ -33,6 +37,43 @@ static struct pypy_threadlocal_s linkedlist_head = {
     NULL,                   /* stack_end */
     &linkedlist_head,       /* prev      */
     &linkedlist_head };     /* next      */
+
+static int check_valid(void)
+{
+    struct pypy_threadlocal_s *prev, *cur;
+    prev = &linkedlist_head;
+    while (1) {
+        cur = prev->next;
+        assert(cur->prev == prev);
+        if (cur == &linkedlist_head)
+            break;
+        assert(cur->ready == 42);
+        assert(cur->next != cur);
+        prev = cur;
+    }
+    assert(cur->ready == -1);
+    return 1;
+}
+
+static void cleanup_after_fork(void)
+{
+    /* assume that at most one pypy_threadlocal_s survived, the current one */
+    struct pypy_threadlocal_s *cur;
+#ifdef USE___THREAD
+    cur = &pypy_threadlocal;
+#else
+    cur = (struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get();
+#endif
+    if (cur && cur->ready == 42) {
+        cur->next = cur->prev = &linkedlist_head;
+        linkedlist_head.next = linkedlist_head.prev = cur;
+    }
+    else {
+        linkedlist_head.next = linkedlist_head.prev = &linkedlist_head;
+    }
+    _RPython_ThreadLocals_Release();
+}
+
 
 struct pypy_threadlocal_s *
 _RPython_ThreadLocals_Enum(struct pypy_threadlocal_s *prev)
@@ -149,7 +190,7 @@ void RPython_ThreadLocals_ProgramInit(void)
 #ifndef _WIN32
     pthread_atfork(_RPython_ThreadLocals_Acquire,
                    _RPython_ThreadLocals_Release,
-                   _RPython_ThreadLocals_Release);
+                   cleanup_after_fork);
 #endif
 }
 
