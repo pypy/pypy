@@ -170,7 +170,7 @@ class Unpickler(object):
                 try:
                     meth = self.dispatch[key]
                 except KeyError:
-                    raise UnpicklingError("invalid load key, '%s'." % chr(key))
+                    raise UnpicklingError("invalid load key, %r." % chr(key))
                 meth(self)
                 key = ord(self.read(1))
         except TypeError:
