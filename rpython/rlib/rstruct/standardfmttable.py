@@ -12,7 +12,7 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.strstorage import str_storage_getitem, str_storage_supported
+from rpython.rlib.strstorage import str_storage_getitem
 from rpython.rlib import rarithmetic
 from rpython.rtyper.lltypesystem import rffi
 
@@ -185,13 +185,14 @@ def make_ieee_unpacker(TYPE):
             data = fmtiter.read(size)
             fmtiter.appendobj(ieee.unpack_float(data, fmtiter.bigendian))
             return
-        if not str_storage_supported(TYPE):
-            # this happens e.g. on win32 and ARM32: we cannot read the string
-            # content as an array of doubles because it's not properly
-            # aligned. But we can read a longlong and convert to float
-            assert TYPE == rffi.DOUBLE
-            assert rffi.sizeof(TYPE) == 8
-            return unpack_longlong2float(fmtiter)
+        ## XXX check if the following code is still needed
+        ## if not str_storage_supported(TYPE):
+        ##     # this happens e.g. on win32 and ARM32: we cannot read the string
+        ##     # content as an array of doubles because it's not properly
+        ##     # aligned. But we can read a longlong and convert to float
+        ##     assert TYPE == rffi.DOUBLE
+        ##     assert rffi.sizeof(TYPE) == 8
+        ##     return unpack_longlong2float(fmtiter)
         try:
             # fast path
             val = unpack_fastpath(TYPE)(fmtiter)
@@ -246,7 +247,7 @@ def make_int_unpacker(size, signed, _memo={}):
 
     @specialize.argtype(0)
     def unpack_int_fastpath_maybe(fmtiter):
-        if fmtiter.bigendian != native_is_bigendian or not str_storage_supported(TYPE):
+        if fmtiter.bigendian != native_is_bigendian or not native_is_ieee754: ## or not str_storage_supported(TYPE):
             return False
         try:
             intvalue = unpack_fastpath(TYPE)(fmtiter)

@@ -114,6 +114,8 @@ class _Specialize(object):
 
 specialize = _Specialize()
 
+NOT_CONSTANT = object()      # to use in enforceargs()
+
 def enforceargs(*types_, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
@@ -332,6 +334,25 @@ class Entry(ExtRegistryEntry):
 def int_to_bytearray(i):
     # XXX this can be made more efficient in the future
     return bytearray(str(i))
+
+def fetch_translated_config():
+    """Returns the config that is current when translating.
+    Returns None if not translated.
+    """
+    return None
+
+class Entry(ExtRegistryEntry):
+    _about_ = fetch_translated_config
+
+    def compute_result_annotation(self):
+        config = self.bookkeeper.annotator.translator.config
+        return self.bookkeeper.immutablevalue(config)
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        translator = hop.rtyper.annotator.translator
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Void, translator.config)
 
 # ____________________________________________________________
 

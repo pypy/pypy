@@ -92,6 +92,12 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # fill in the jf_descr and jf_gcmap fields of the frame according
         # to which failure we are resuming from.  These are set before
         # this function is called (see generate_quick_failure()).
+
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        self.mc.STG(r.SCRATCH2, l.addr(ofs2, r.SPP))
+        self.mc.STG(r.SCRATCH, l.addr(ofs, r.SPP))
+
         self._push_core_regs_to_jitframe(mc)
         if withfloats:
             self._push_fp_regs_to_jitframe(mc)
@@ -123,13 +129,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         assert target != 0
         pool_offset = guardtok._pool_offset
 
-        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
 
         # overwrite the gcmap in the jitframe
         offset = pool_offset + RECOVERY_GCMAP_POOL_OFFSET
-        self.mc.LG(r.SCRATCH, l.pool(offset))
-        self.mc.STG(r.SCRATCH, l.addr(ofs2, r.SPP))
+        self.mc.LG(r.SCRATCH2, l.pool(offset))
 
         # overwrite the target in pool
         offset = pool_offset + RECOVERY_TARGET_POOL_OFFSET
@@ -138,7 +141,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         self.mc.load_imm(r.SCRATCH, fail_descr)
         #self.mc.LGFI(r.SCRATCH, l.imm(fail_descr))
-        self.mc.STG(r.SCRATCH, l.addr(ofs, r.SPP))
         self.mc.BCR(l.imm(0xf), r.r14)
 
         return startpos

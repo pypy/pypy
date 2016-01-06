@@ -133,7 +133,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         self.TRAP2()
 
     def trace(self):
-        pass
+        self.SVC(l.imm(142))
         #self.LGHI(r.r2, 17)
         #self.XGR(r.r3, r.r3)
         #self.SVC(l.imm(17))

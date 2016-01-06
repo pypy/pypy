@@ -423,7 +423,9 @@ class CifDescrBuilder(object):
             exchange_offset += rffi.getintfield(self.atypes[i], 'c_size')
 
         # store the exchange data size
-        cif_descr.exchange_size = exchange_offset
+        # we also align it to the next multiple of 8, in an attempt to
+        # work around bugs(?) of libffi (see cffi issue #241)
+        cif_descr.exchange_size = self.align_arg(exchange_offset)
 
     def fb_extra_fields(self, cif_descr):
         cif_descr.abi = self.fabi
