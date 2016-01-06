@@ -40,7 +40,8 @@ def test_framework_simple():
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
-    db = cbuild.generate_graphs()
+    db = cbuild.build_database()
+    cbuild.generate_graphs(db)
     entrypointptr = cbuild.getentrypointptr()
     entrygraph = entrypointptr._obj.graph
 
@@ -115,7 +116,8 @@ def test_no_collect():
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
-    db = cbuild.generate_graphs()
+    db = cbuild.build_database()
+    cbuild.generate_graphs(db)
 
 def test_no_collect_detection():
     from rpython.rlib import rgc
@@ -140,7 +142,7 @@ def test_no_collect_detection():
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     with py.test.raises(Exception) as f:
-        cbuild.generate_graphs()
+        cbuild.build_database()
     expected = "'no_collect' function can trigger collection: <function g at "
     assert str(f.value).startswith(expected)
 
@@ -165,7 +167,7 @@ def test_custom_trace_function_no_collect():
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     with py.test.raises(Exception) as f:
-        cbuild.generate_graphs()
+        cbuild.build_database()
     assert 'can cause the GC to be called' in str(f.value)
     assert 'trace_func' in str(f.value)
     assert 'MyStructure' in str(f.value)
@@ -254,7 +256,8 @@ def test_remove_duplicate_write_barrier():
     t.config.translation.gc = "minimark"
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
-    db = cbuild.generate_graphs()
+    db = cbuild.build_database()
+    cbuild.generate_graphs(db)
 
     ff = graphof(t, f)
     #ff.show()

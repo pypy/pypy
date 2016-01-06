@@ -195,10 +195,8 @@ class CBuilder(object):
     DEBUG_DEFINES = {'RPY_ASSERT': 1,
                      'RPY_LL_ASSERT': 1}
 
-    def generate_graphs(self, db=None):
+    def generate_graphs(self, db):
         """"Prepare the graphs."""
-        if db is None:
-            db = self.build_database()
         db.prepare_inline_helpers()
         for node in db.containerlist:
             if getattr(node, 'funcgen', None):
@@ -207,7 +205,9 @@ class CBuilder(object):
 
     def generate_source(self, db=None, defines={}, exe_name=None):
         assert self.c_source_filename is None
-        db = self.generate_graphs(db)
+        if db is None:
+            db = self.build_database()
+        self.generate_graphs(db)
         pf = self.getentrypointptr()
         if self.modulename is None:
             self.modulename = uniquemodulename('testing')
