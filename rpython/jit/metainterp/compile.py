@@ -948,7 +948,6 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         # the virtualrefs and virtualizable have been forced by
         # handle_async_forcing() just a moment ago.
         from rpython.jit.metainterp.blackhole import resume_in_blackhole
-        import pdb; pdb.set_trace()
         hidden_all_virtuals = metainterp_sd.cpu.get_savedata_ref(deadframe)
         obj = AllVirtuals.show(metainterp_sd.cpu, hidden_all_virtuals)
         all_virtuals = obj.cache

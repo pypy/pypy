@@ -113,10 +113,10 @@ class CallBuilder(AbstractCallBuilder):
     def push_gcmap(self):
         # we push *now* the gcmap, describing the status of GC registers
         # after the rearrangements done just before, ignoring the return
-        # value r3, if necessary
+        # value r2, if necessary
         assert not self.is_call_release_gil
         noregs = self.asm.cpu.gc_ll_descr.is_shadow_stack()
-        gcmap = self.asm._regalloc.get_gcmap([r.r3], noregs=noregs)
+        gcmap = self.asm._regalloc.get_gcmap([r.r2], noregs=noregs)
         self.asm.push_gcmap(self.mc, gcmap, store=True)
 
     def pop_gcmap(self):
