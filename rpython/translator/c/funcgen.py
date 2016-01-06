@@ -92,12 +92,6 @@ class FunctionCodeGenerator(object):
     def name(self, cname):  #virtual
         return cname
 
-    def patch_graph(self):
-        graph = self.graph
-        if self.db.gctransformer and self.db.gctransformer.inline:
-            self.db.gctransformer.inline_helpers(graph)
-        return graph
-
     def implementation_begin(self):
         SSI_to_SSA(self.graph)
         self.collect_var_and_types()

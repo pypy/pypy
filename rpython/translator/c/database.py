@@ -389,9 +389,9 @@ class LowLevelDatabase(object):
             for graph in node.graphs_to_patch():
                 graphs.append(graph)
         self.gctransformer.prepare_inline_helpers(graphs)
-        for node in funcnodes:
-            if getattr(node, 'funcgen', None):
-                node.funcgen.patch_graph()
+        if self.gctransformer.inline:
+            for graph in graphs:
+                self.gctransformer.inline_helpers(graph)
 
     def all_graphs(self):
         graphs = []
