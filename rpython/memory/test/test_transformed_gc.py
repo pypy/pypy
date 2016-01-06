@@ -111,7 +111,6 @@ class GCTest(object):
         cbuild = CStandaloneBuilder(t, entrypoint, config=t.config,
                                     gcpolicy=cls.gcpolicy)
         db = cbuild.build_database()
-        cbuild.generate_graphs(db)
         entrypointptr = cbuild.getentrypointptr()
         entrygraph = entrypointptr._obj.graph
         if option.view:

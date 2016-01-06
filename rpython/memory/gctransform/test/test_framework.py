@@ -41,7 +41,6 @@ def test_framework_simple():
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     db = cbuild.build_database()
-    cbuild.generate_graphs(db)
     entrypointptr = cbuild.getentrypointptr()
     entrygraph = entrypointptr._obj.graph
 
@@ -117,7 +116,6 @@ def test_no_collect():
     cbuild = CStandaloneBuilder(t, entrypoint, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     db = cbuild.build_database()
-    cbuild.generate_graphs(db)
 
 def test_no_collect_detection():
     from rpython.rlib import rgc
@@ -257,7 +255,6 @@ def test_remove_duplicate_write_barrier():
     cbuild = CStandaloneBuilder(t, g, t.config,
                                 gcpolicy=FrameworkGcPolicy2)
     db = cbuild.build_database()
-    cbuild.generate_graphs(db)
 
     ff = graphof(t, f)
     #ff.show()
