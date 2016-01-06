@@ -9,8 +9,6 @@ from rpython.rtyper.lltypesystem.rffi import VOIDP, INT_real, INT, CArrayPtr
 
 
 def dump_on_stdout(database):
-    if database.gctransformer:
-        database.prepare_inline_helpers()
     print '/*********************************/'
     structdeflist = database.getstructdeflist()
     for node in structdeflist:

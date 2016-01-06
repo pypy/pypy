@@ -346,6 +346,7 @@ class LowLevelDatabase(object):
             break     # database is now complete
 
         assert not self.delayedfunctionptrs
+        self.inline_gc_helpers()
         self.completed = True
         if show_progress:
             dump()
@@ -378,7 +379,9 @@ class LowLevelDatabase(object):
             produce(node)
         return result
 
-    def prepare_inline_helpers(self):
+    def inline_gc_helpers(self):
+        if self.gctransformer is None:
+            return
         all_nodes = self.globalcontainers()
         funcnodes = [node for node in all_nodes if node.nodekind == 'func']
         graphs = []
@@ -386,6 +389,9 @@ class LowLevelDatabase(object):
             for graph in node.graphs_to_patch():
                 graphs.append(graph)
         self.gctransformer.prepare_inline_helpers(graphs)
+        for node in funcnodes:
+            if getattr(node, 'funcgen', None):
+                node.funcgen.patch_graph()
 
     def all_graphs(self):
         graphs = []
