@@ -1010,7 +1010,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.rm.possibly_free_var(length_box)
         #
         itemsize = op.getarg(1).getint()
-        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2) / itemsize
+        maxlength = (gc_ll_descr.max_size_of_young_obj - WORD * 2)
         self.assembler.malloc_cond_varsize(
             op.getarg(0).getint(),
             gc_ll_descr.get_nursery_free_addr(),
