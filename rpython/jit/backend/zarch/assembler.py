@@ -1212,7 +1212,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.cmp_op(r.RSZ, r.SCRATCH2, signed=False)
 
         fast_jmp_pos = mc.currpos()
-        mc.reserve_cond_jump() # conditional jump, patched later
+        mc.reserve_cond_jump(short=True) # conditional jump, patched later
 
 
         # new value of nursery_free_adr in RSZ and the adr of the new object
@@ -1225,7 +1225,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         offset = mc.currpos() - fast_jmp_pos
         pmc = OverwritingBuilder(mc, fast_jmp_pos, 1)
-        pmc.BRCL(c.LE, l.imm(offset))    # jump if LE (not GT), predicted to be true
+        pmc.BRC(c.LE, l.imm(offset))    # jump if LE (not GT), predicted to be true
         pmc.overwrite()
 
         mc.STG(r.RSZ, l.addr(0, r.r1))    # store into nursery_free
@@ -1233,37 +1233,38 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
     def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
                                   sizeloc, gcmap):
-        xxx
         diff = nursery_top_adr - nursery_free_adr
-        assert _check_imm_arg(diff)
+        assert check_imm_value(diff)
         mc = self.mc
-        mc.load_imm(r.r2, nursery_free_adr)
+        mc.load_imm(r.r1, nursery_free_adr)
 
         if sizeloc is r.RES:
-            mc.mr(r.RSZ.value, r.RES.value)
+            mc.LGR(r.RSZ, r.RES)
             sizeloc = r.RSZ
 
-        mc.load(r.RES.value, r.r2.value, 0)         # load nursery_free
-        mc.load(r.SCRATCH.value, r.r2.value, diff)  # load nursery_top
+        mc.load(r.RES, l.addr(0, r.r1))          # load nursery_free
+        mc.load(r.SCRATCH2, l.addr(diff, r.r1))  # load nursery_top
 
-        mc.add(r.RSZ.value, r.RES.value, sizeloc.value)
+        mc.LGR(r.SCRATCH, r.RES)
+        mc.AGR(r.SCRATCH, sizeloc) # sizeloc can be RSZ
+        mc.LGR(r.RSZ, SCRATCH)
 
-        mc.cmp_op(0, r.RSZ.value, r.SCRATCH.value, signed=False)
+        mc.cmp_op(r.RSZ, r.SCRATCH2, signed=False)
 
         fast_jmp_pos = mc.currpos()
-        mc.trap()        # conditional jump, patched later
+        mc.reserve_cond_jump(short=True)        # conditional jump, patched later
 
         # new value of nursery_free_adr in RSZ and the adr of the new object
         # in RES.
-        self.load_gcmap(mc, r.r2, gcmap)
-        mc.bl_abs(self.malloc_slowpath)
+        self.load_gcmap(mc, r.r1, gcmap)
+        mc.branch_absolute(self.malloc_slowpath)
 
         offset = mc.currpos() - fast_jmp_pos
         pmc = OverwritingBuilder(mc, fast_jmp_pos, 1)
-        pmc.bc(7, 1, offset)    # jump if LE (not GT), predicted to be true
+        pmc.BRC(l.LE, l.imm(offset))    # jump if LE (not GT), predicted to be true
         pmc.overwrite()
 
-        mc.store(r.RSZ.value, r.r2.value, 0)    # store into nursery_free
+        mc.STG(r.RSZ, l.addr(0, r.r1))    # store into nursery_free
 
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
                             lengthloc, itemsize, maxlength, gcmap,
@@ -1381,7 +1382,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         pmc = OverwritingBuilder(mc, jmp_location, 1)
         pmc.b(offset)    # jump always
         pmc.overwrite()
-
 
 def notimplemented_op(asm, op, arglocs, regalloc):
     print "[ZARCH/asm] %s not implemented" % op.getopname()
