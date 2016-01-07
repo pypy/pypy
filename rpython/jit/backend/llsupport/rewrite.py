@@ -536,6 +536,7 @@ class GcRewriterAssembler(object):
         # replaced with another constant greater than 0.)
         #o = ResOperation(rop.ZERO_ARRAY, [v_arr, self.c_zero, v_length],
         #                 descr=arraydescr)
+        assert isinstance(arraydescr, ArrayDescr)
         scale = arraydescr.itemsize
         v_length_scaled = v_length
         if not isinstance(v_length, ConstInt):
@@ -664,6 +665,7 @@ class GcRewriterAssembler(object):
         for op in self.last_zero_arrays:
             assert op.getopnum() == rop.ZERO_ARRAY
             descr = op.getdescr()
+            assert isinstance(descr, ArrayDescr)
             scale = descr.itemsize
             box = op.getarg(0)
             try:
