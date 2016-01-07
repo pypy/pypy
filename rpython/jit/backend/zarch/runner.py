@@ -16,6 +16,8 @@ class CPU_S390_64(AbstractZARCHCPU):
     supports_floats = True
     from rpython.jit.backend.zarch.registers import JITFRAME_FIXED_SIZE
 
+    backend_name = 'zarch'
+
     IS_64_BIT = True
 
     frame_reg = r.SP

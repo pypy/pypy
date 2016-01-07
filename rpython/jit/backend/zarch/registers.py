@@ -16,6 +16,8 @@ SPP = r11
 SCRATCH = r1
 SCRATCH2 = r0
 GPR_RETURN = r2
+RES = r2
+RSZ = r3
 
 [f0,f1,f2,f3,f4,f5,f6,f7,f8,
  f9,f10,f11,f12,f13,f14,f15] = fpregisters

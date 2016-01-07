@@ -91,6 +91,8 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
             assert nos == [0, 1, 47]
         elif self.cpu.backend_name.startswith('ppc64'):
             assert nos == [0, 1, 33]
+        elif self.cpu.backend_name.startswith('zarch'):
+            assert nos == [0, 1, 35]
         else:
             raise Exception("write the data here")
         assert frame.jf_frame[nos[0]]

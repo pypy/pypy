@@ -425,6 +425,86 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc = None
         return mc.materialize(self.cpu, [])
 
+    def _build_malloc_slowpath(self, kind):
+        """ While arriving on slowpath, we have a gcmap in SCRATCH.
+        The arguments are passed in r.RES and r.RSZ, as follows:
+
+        kind == 'fixed': nursery_head in r.RES and the size in r.RSZ - r.RES.
+
+        kind == 'str/unicode': length of the string to allocate in r.RES.
+
+        kind == 'var': itemsize in r.RES, length to allocate in r.RSZ,
+                       and tid in r.SCRATCH2.
+
+        This function must preserve all registers apart from r.RES and r.RSZ.
+        On return, SCRATCH must contain the address of nursery_free.
+        """
+        assert kind in ['fixed', 'str', 'unicode', 'var']
+        mc = InstrBuilder()
+        self.mc = mc
+        ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.STG(r.SCRATCH, l.addr(ofs2, r.SPP))
+        saved_regs = [reg for reg in r.MANAGED_REGS
+                          if reg is not r.RES and reg is not r.RSZ]
+        self._push_core_regs_to_jitframe(mc, saved_regs)
+        self._push_fp_regs_to_jitframe(mc)
+        #
+        if kind == 'fixed':
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+        elif kind == 'str':
+            addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_str')
+        elif kind == 'unicode':
+            addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_unicode')
+        else:
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_array_addr()
+
+        if kind == 'fixed':
+            # compute the size we want
+            mc.LGR(r.r3, r.RES)
+            mc.SGR(r.r3, r.RSZ)
+            if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
+                # for tests only
+                mc.LGR(r.r4, r.SPP)
+        elif kind == 'str' or kind == 'unicode':
+            pass  # length is already in r3
+        else:
+            # arguments to the called function are [itemsize, tid, length]
+            # itemsize is already in r3
+            mc.LGR(r.r5, r.RSZ)        # length
+            mc.LGR(r.r4, r.SCRATCH2)   # tid
+
+        # Do the call
+        addr = rffi.cast(lltype.Signed, addr)
+        mc.load_imm(mc.RAW_CALL_REG, addr)
+        mc.push_std_frame()
+        mc.store_link()
+        mc.raw_call()
+        mc.restore_link
+        mc.pop_std_frame()
+
+        self._reload_frame_if_necessary(mc)
+
+        # Check that we don't get NULL; if we do, we always interrupt the
+        # current loop, as a "good enough" approximation (same as
+        # emit_call_malloc_gc()).
+        self.propagate_memoryerror_if_r2_is_null()
+
+        self._pop_core_regs_from_jitframe(mc, saved_regs)
+        self._pop_fp_regs_from_jitframe(mc)
+
+        nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
+        self.mc.load_imm(r.SCRATCH, nursery_free_adr)
+
+        # r.SCRATCH is now the address of nursery_free
+        # r.RES is still the result of the call done above
+        # r.RSZ is loaded from [SCRATCH], to make the caller's store a no-op here
+        mc.load(r.RSZ, r.SCRATCH, 0)
+        #
+        mc.BCR(c.ANY, r.r14)
+        self.mc = None
+        return mc.materialize(self.cpu, [])
+
+
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
         if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
