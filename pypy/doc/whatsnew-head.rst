@@ -5,6 +5,8 @@ What's new in PyPy 4.1.+
 .. this is a revision shortly after release-4.0.1
 .. startrev: 4b5c840d0da2
 
+Fixed ``_PyLong_FromByteArray()``, which was buggy.
+
 .. branch: numpy-1.10
 
 Fix tests to run cleanly with -A and start to fix micronumpy for upstream numpy
@@ -101,3 +103,10 @@ Trivial misc cleanups: typo, whitespace, obsolete comments
 
 Fix the cryptic exception message when attempting to use extended slicing
 in rpython. Was issue #2211.
+
+.. branch: ec-keepalive
+
+Optimize the case where, in a new C-created thread, we keep invoking
+short-running Python callbacks.  (CFFI on CPython has a hack to achieve
+the same result.)  This can also be seen as a bug fix: previously,
+thread-local objects would be reset between two such calls.

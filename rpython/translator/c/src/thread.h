@@ -48,7 +48,7 @@ static inline void _RPyGilAcquire(void) {
 }
 static inline void _RPyGilRelease(void) {
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
-    rpy_fastgil = 0;
+    lock_release(&rpy_fastgil);
 }
 static inline long *_RPyFetchFastGil(void) {
     return &rpy_fastgil;

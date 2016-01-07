@@ -4,8 +4,7 @@
 
 import os, sys
 from rpython.jit.backend.llsupport import symbolic
-from rpython.jit.backend.llsupport.descr import (ArrayDescr, CallDescr,
-    unpack_arraydescr, unpack_fielddescr, unpack_interiorfielddescr)
+from rpython.jit.backend.llsupport.descr import CallDescr, unpack_arraydescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
      RegisterManager, TempVar, compute_vars_longevity, is_comparison_or_ovf_op,
@@ -1086,9 +1085,9 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         result_loc = self.force_allocate_reg(op)
         size_box = op.getarg(2)
         assert isinstance(size_box, ConstInt)
-        size = size_box.value
-        size_loc = imm(abs(size))
-        if size < 0:
+        nsize = size_box.value      # negative for "signed"
+        size_loc = imm(abs(nsize))
+        if nsize < 0:
             sign_loc = imm1
         else:
             sign_loc = imm0
@@ -1111,9 +1110,9 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         assert isinstance(size_box, ConstInt)
         scale = scale_box.value
         offset = offset_box.value
-        size = size_box.value
-        size_loc = imm(abs(size))
-        if size < 0:
+        nsize = size_box.value      # negative for "signed"
+        size_loc = imm(abs(nsize))
+        if nsize < 0:
             sign_loc = imm1
         else:
             sign_loc = imm0

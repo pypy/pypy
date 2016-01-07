@@ -1434,6 +1434,13 @@ class BlackholeInterpreter(object):
     def bhimpl_raw_load_f(cpu, addr, offset, arraydescr):
         return cpu.bh_raw_load_f(addr, offset, arraydescr)
 
+    @arguments("cpu", "r", "i", "i", "i", "i", returns="i")
+    def bhimpl_gc_load_indexed_i(cpu, addr, index, scale, base_ofs, bytes):
+        return cpu.bh_gc_load_indexed_i(addr, index,scale,base_ofs, bytes)
+    @arguments("cpu", "r", "i", "i", "i", "i", returns="f")
+    def bhimpl_gc_load_indexed_f(cpu, addr, index, scale, base_ofs, bytes):
+        return cpu.bh_gc_load_indexed_f(addr, index,scale,base_ofs, bytes)
+
     @arguments("r", "d", "d")
     def bhimpl_record_quasiimmut_field(struct, fielddescr, mutatefielddescr):
         pass

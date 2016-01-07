@@ -725,6 +725,16 @@ class AbstractLLCPU(AbstractCPU):
     def bh_raw_load_f(self, addr, offset, descr):
         return self.read_float_at_mem(addr, offset)
 
+    def bh_gc_load_indexed_i(self, addr, index, scale, base_ofs, bytes):
+        offset = base_ofs + scale * index
+        return self.read_int_at_mem(addr, offset, abs(bytes), bytes < 0)
+
+    def bh_gc_load_indexed_f(self, addr, index, scale, base_ofs, bytes):
+        # only for 'double'!
+        assert bytes == rffi.sizeof(lltype.Float)
+        offset = base_ofs + scale * index
+        return self.read_float_at_mem(addr, offset)
+
     def bh_new(self, sizedescr):
         return self.gc_ll_descr.gc_malloc(sizedescr)
 
