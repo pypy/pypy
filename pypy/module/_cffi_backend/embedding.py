@@ -32,13 +32,12 @@ def load_embedded_cffi_module(space, version, init_struct):
         os_thread.setup_threads(space)
     #
     name = rffi.charp2str(init_struct.name)
-    module = load_cffi1_module(space, name, None, init_struct.func)
+    load_cffi1_module(space, name, None, init_struct.func)
     code = rffi.charp2str(init_struct.code)
     compiler = space.createcompiler()
     pycode = compiler.compile(code, "<init code for '%s'>" % name, 'exec', 0)
-    w_globals = module.getdict(space)
-    space.call_method(w_globals, "setdefault", space.wrap("__builtins__"),
-                      space.wrap(space.builtin))
+    w_globals = space.newdict(module=True)
+    space.setitem_str(w_globals, "__builtins__", space.wrap(space.builtin))
     pycode.exec_code(space, w_globals, w_globals)
 
 

@@ -45,4 +45,3 @@ def load_cffi1_module(space, name, path, initptr):
     w_modules_dict = space.sys.get('modules')
     space.setitem(w_modules_dict, w_name, space.wrap(module))
     space.setitem(w_modules_dict, space.wrap(name + '.lib'), space.wrap(lib))
-    return module
