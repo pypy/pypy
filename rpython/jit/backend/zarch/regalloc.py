@@ -905,13 +905,12 @@ class Regalloc(BaseRegalloc):
     prepare_call_may_force_n = _prepare_call_may_force
 
     def _prepare_call_release_gil(self, op):
-        save_all_regs = False
         errno_box = op.getarg(0)
         assert isinstance(errno_box, ConstInt)
         args = [None, l.imm(errno_box.value)]
         for i in range(1,op.numargs()):
             args.append(self.loc(op.getarg(i)))
-        self._spill_before_call(save_all_regs)
+        self._spill_before_call(save_all_regs=True)
         if op.type != VOID:
             resloc = self.after_call(op)
             args[0] = resloc
