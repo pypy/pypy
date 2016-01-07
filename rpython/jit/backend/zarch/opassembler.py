@@ -7,6 +7,7 @@ from rpython.jit.backend.zarch.helper.assembler import (gen_emit_cmp_op,
         gen_emit_imm_pool_rr)
 from rpython.jit.backend.zarch.helper.regalloc import (check_imm,
         check_imm_value)
+from rpython.jit.metainterp.history import (ConstInt)
 from rpython.jit.backend.zarch.codebuilder import ZARCHGuardToken, InstrBuilder
 from rpython.jit.backend.llsupport import symbolic, jitframe
 import rpython.jit.backend.zarch.conditions as c

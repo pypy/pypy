@@ -748,7 +748,6 @@ class Regalloc(BaseRegalloc):
         return self._prepare_call_default(op)
 
     def prepare_call_malloc_nursery(self, op):
-        xxx
         self.rm.force_allocate_reg(op, selected_reg=r.RES)
         self.rm.temp_boxes.append(op)
         tmp_box = TempInt()

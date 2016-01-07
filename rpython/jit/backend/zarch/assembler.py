@@ -942,7 +942,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         return start
 
     def _reload_frame_if_necessary(self, mc, shadowstack_reg=None):
-        # might trash the VOLATILE registers different from r3 and f1
+        # might trash the VOLATILE registers different from r2 and f0
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
@@ -1012,18 +1012,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # restore registers r6-r15
         self.mc.LMG(r.r6, r.r15, l.addr(6*WORD, r.SP))
         self.jmpto(r.r14)
-
-    def _push_all_regs_to_stack(self, mc, withfloats, callee_only=False):
-        # not used!!
-        # TODO remove if not needed
-        base_ofs = 2*WORD
-        if callee_only:
-            regs = ZARCHRegisterManager.save_around_call_regs
-        else:
-            regs = r.registers[2:]
-        mc.STMG(regs[0], regs[1], l.addr(base_ofs, r.SP))
-        if withfloats:
-            xxx
 
     def _push_all_regs_to_frame(self, mc, ignored_regs, withfloats, callee_only=False):
         # Push all general purpose registers
@@ -1192,6 +1180,56 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # load the current gcmap into register 'reg'
         ptr = rffi.cast(lltype.Signed, gcmap)
         mc.load_imm(reg, ptr)
+
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
+        assert size & (WORD-1) == 0     # must be correctly aligned
+
+        # We load into RES the address stored at nursery_free_adr. We
+        # calculate the new value for nursery_free_adr and store it in
+        # RSZ.  Then we load the address stored in nursery_top_adr
+        # into SCRATCH.  In the rare case where the value in RSZ is
+        # (unsigned) bigger than the one in SCRATCH we call
+        # malloc_slowpath.  In the common case where malloc_slowpath
+        # is not called, we must still write RSZ back into
+        # nursery_free_adr (r1); so we do it always, even if we called
+        # malloc_slowpath.
+
+        diff = nursery_top_adr - nursery_free_adr
+        assert check_imm_value(diff)
+        mc = self.mc
+        mc.load_imm(r.r1, nursery_free_adr)
+
+        mc.load(r.RES, r.r1, 0)          # load nursery_free
+        mc.load(r.SCRATCH2, r.r1, diff)  # load nursery_top
+
+        mc.LGR(r.RSZ, r.RES)
+        if check_imm_value(size):
+            mc.AGHI(r.RSZ, l.imm(size))
+        else:
+            mc.load_imm(r.SCRATCH, l.imm(size))
+            mc.AGR(r.RSZ, r.SCRATCH)
+
+        mc.cmp_op(r.RSZ, r.SCRATCH2, signed=False)
+
+        fast_jmp_pos = mc.currpos()
+        mc.reserve_cond_jump() # conditional jump, patched later
+
+
+        # new value of nursery_free_adr in RSZ and the adr of the new object
+        # in RES.
+        self.load_gcmap(mc, r.SCRATCH, gcmap)
+        # We are jumping to malloc_slowpath without a call through a function
+        # descriptor, because it is an internal call and "call" would trash
+        # r2 and r11
+        mc.branch_absolute(self.malloc_slowpath)
+
+        offset = mc.currpos() - fast_jmp_pos
+        pmc = OverwritingBuilder(mc, fast_jmp_pos, 1)
+        pmc.BRCL(c.LE, l.imm(offset))    # jump if LE (not GT), predicted to be true
+        pmc.overwrite()
+
+        mc.STG(r.RSZ, l.addr(0, r.r1))    # store into nursery_free
+
 
     def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
                                   sizeloc, gcmap):

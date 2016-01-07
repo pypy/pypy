@@ -198,6 +198,14 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         """
         self.BASR(r.RETURN, call_reg)
 
+    def reserve_cond_jump(self):
+        self.trap()        # conditional jump, patched later
+        self.write('\x00'*4)
+
+    def branch_absolute(self, addr):
+        self.load_imm(r.r14, addr)
+        self.BASR(r.r14, r.r14)
+
     def store_link(self):
         self.STG(r.RETURN, l.addr(14*WORD, r.SP))
 
