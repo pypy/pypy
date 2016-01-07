@@ -2328,7 +2328,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         jmp_adr0 = self.mc.get_relative_pos()
 
         self.mc.MOV(eax, heap(nursery_free_adr))
-        assert valid_addressing_size(itemsize):
+        assert valid_addressing_size(itemsize)
         shift = get_scale(itemsize)
 
         # now varsizeloc is a register != eax.  The size of

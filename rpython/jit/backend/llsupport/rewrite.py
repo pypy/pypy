@@ -203,39 +203,48 @@ class GcRewriterAssembler(object):
     def transform_to_gc_load(self, op):
         NOT_SIGNED = 0
         CINT_ZERO = ConstInt(0)
-        if op.is_getarrayitem() or \
-           op.getopnum() in (rop.GETARRAYITEM_RAW_I,
-                             rop.GETARRAYITEM_RAW_F):
+        opnum = op.getopnum()
+        if opnum == rop.CALL_MALLOC_NURSERY_VARSIZE:
+            v_length = op.getarg(2)
+            scale = op.getarg(1).getint()
+            if scale not in self.cpu.load_supported_factors:
+                scale, offset, v_length = \
+                        self._emit_mul_if_factor_offset_not_supported(v_length, scale, 0)
+                op.setarg(1, ConstInt(scale))
+                op.setarg(2, v_length)
+        elif op.is_getarrayitem() or \
+           opnum in (rop.GETARRAYITEM_RAW_I,
+                     rop.GETARRAYITEM_RAW_F):
             self.handle_getarrayitem(op)
-        elif op.getopnum() in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW):
+        elif opnum in (rop.SETARRAYITEM_GC, rop.SETARRAYITEM_RAW):
             self.handle_setarrayitem(op)
-        elif op.getopnum() == rop.RAW_STORE:
+        elif opnum == rop.RAW_STORE:
             itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
             ptr_box = op.getarg(0)
             index_box = op.getarg(1)
             value_box = op.getarg(2)
             self.emit_gc_store_or_indexed(op, ptr_box, index_box, value_box, itemsize, 1, ofs)
-        elif op.getopnum() in (rop.RAW_LOAD_I, rop.RAW_LOAD_F):
+        elif opnum in (rop.RAW_LOAD_I, rop.RAW_LOAD_F):
             itemsize, ofs, sign = unpack_arraydescr(op.getdescr())
             ptr_box = op.getarg(0)
             index_box = op.getarg(1)
             self.emit_gc_load_or_indexed(op, ptr_box, index_box, itemsize, 1, ofs, sign)
-        elif op.getopnum() in (rop.GETINTERIORFIELD_GC_I, rop.GETINTERIORFIELD_GC_R,
-                               rop.GETINTERIORFIELD_GC_F):
+        elif opnum in (rop.GETINTERIORFIELD_GC_I, rop.GETINTERIORFIELD_GC_R,
+                       rop.GETINTERIORFIELD_GC_F):
             ofs, itemsize, fieldsize, sign = unpack_interiorfielddescr(op.getdescr())
             ptr_box = op.getarg(0)
             index_box = op.getarg(1)
             self.emit_gc_load_or_indexed(op, ptr_box, index_box, fieldsize, itemsize, ofs, sign)
-        elif op.getopnum() in (rop.SETINTERIORFIELD_RAW, rop.SETINTERIORFIELD_GC):
+        elif opnum in (rop.SETINTERIORFIELD_RAW, rop.SETINTERIORFIELD_GC):
             ofs, itemsize, fieldsize, sign = unpack_interiorfielddescr(op.getdescr())
             ptr_box = op.getarg(0)
             index_box = op.getarg(1)
             value_box = op.getarg(2)
             self.emit_gc_store_or_indexed(op, ptr_box, index_box, value_box,
                                           fieldsize, itemsize, ofs)
-        elif op.getopnum() in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R,
-                               rop.GETFIELD_GC_PURE_I, rop.GETFIELD_GC_PURE_F, rop.GETFIELD_GC_PURE_R,
-                               rop.GETFIELD_RAW_I, rop.GETFIELD_RAW_F, rop.GETFIELD_RAW_R):
+        elif opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R,
+                       rop.GETFIELD_GC_PURE_I, rop.GETFIELD_GC_PURE_F, rop.GETFIELD_GC_PURE_R,
+                       rop.GETFIELD_RAW_I, rop.GETFIELD_RAW_F, rop.GETFIELD_RAW_R):
             ofs, itemsize, sign = unpack_fielddescr(op.getdescr())
             ptr_box = op.getarg(0)
             if op.getopnum() in (rop.GETFIELD_GC_F, rop.GETFIELD_GC_I, rop.GETFIELD_GC_R):
@@ -250,45 +259,45 @@ class GcRewriterAssembler(object):
                 self.emit_op(op)
                 return True
             self.emit_gc_load_or_indexed(op, ptr_box, ConstInt(0), itemsize, 1, ofs, sign)
-        elif op.getopnum() in (rop.SETFIELD_GC, rop.SETFIELD_RAW):
+        elif opnum in (rop.SETFIELD_GC, rop.SETFIELD_RAW):
             ofs, itemsize, sign = unpack_fielddescr(op.getdescr())
             ptr_box = op.getarg(0)
             value_box = op.getarg(1)
             self.emit_gc_store_or_indexed(op, ptr_box, ConstInt(0), value_box, itemsize, 1, ofs)
-        elif op.getopnum() == rop.ARRAYLEN_GC:
+        elif opnum == rop.ARRAYLEN_GC:
             descr = op.getdescr()
             assert isinstance(descr, ArrayDescr)
             ofs = descr.lendescr.offset
             self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
                                          WORD, 1, ofs, NOT_SIGNED)
-        elif op.getopnum() == rop.STRLEN:
+        elif opnum == rop.STRLEN:
             basesize, itemsize, ofs_length = get_array_token(rstr.STR,
                                                  self.cpu.translate_support_code)
             self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
                                          WORD, 1, ofs_length, NOT_SIGNED)
-        elif op.getopnum() == rop.UNICODELEN:
+        elif opnum == rop.UNICODELEN:
             basesize, itemsize, ofs_length = get_array_token(rstr.UNICODE,
                                                  self.cpu.translate_support_code)
             self.emit_gc_load_or_indexed(op, op.getarg(0), ConstInt(0),
                                          WORD, 1, ofs_length, NOT_SIGNED)
-        elif op.getopnum() == rop.STRGETITEM:
+        elif opnum == rop.STRGETITEM:
             basesize, itemsize, ofs_length = get_array_token(rstr.STR,
                                                  self.cpu.translate_support_code)
             assert itemsize == 1
             self.emit_gc_load_or_indexed(op, op.getarg(0), op.getarg(1),
                                          itemsize, itemsize, basesize, NOT_SIGNED)
-        elif op.getopnum() == rop.UNICODEGETITEM:
+        elif opnum == rop.UNICODEGETITEM:
             basesize, itemsize, ofs_length = get_array_token(rstr.UNICODE,
                                                  self.cpu.translate_support_code)
             self.emit_gc_load_or_indexed(op, op.getarg(0), op.getarg(1),
                                          itemsize, itemsize, basesize, NOT_SIGNED)
-        elif op.getopnum() == rop.STRSETITEM:
+        elif opnum == rop.STRSETITEM:
             basesize, itemsize, ofs_length = get_array_token(rstr.STR,
                                                  self.cpu.translate_support_code)
             assert itemsize == 1
             self.emit_gc_store_or_indexed(op, op.getarg(0), op.getarg(1), op.getarg(2),
                                          itemsize, itemsize, basesize)
-        elif op.getopnum() == rop.UNICODESETITEM:
+        elif opnum == rop.UNICODESETITEM:
             basesize, itemsize, ofs_length = get_array_token(rstr.UNICODE,
                                                  self.cpu.translate_support_code)
             self.emit_gc_store_or_indexed(op, op.getarg(0), op.getarg(1), op.getarg(2),
@@ -790,7 +799,7 @@ class GcRewriterAssembler(object):
             scale, offset, v_length = \
                     self._emit_mul_if_factor_offset_not_supported(v_length, scale, 0)
         op = ResOperation(rop.CALL_MALLOC_NURSERY_VARSIZE,
-                          [ConstInt(kind), ConstInt(itemsize), v_length],
+                          [ConstInt(kind), ConstInt(scale), v_length],
                           descr=arraydescr)
         self.replace_op_with(v_result, op)
         self.emit_op(op)
