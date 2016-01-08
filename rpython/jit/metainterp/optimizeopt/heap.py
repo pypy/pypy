@@ -155,11 +155,14 @@ class CachedField(object):
             # back in the cache: the value of this particular structure's
             # field.
             opinfo = optheap.ensure_ptr_info_arg0(op)
-            self._setfield(op, opinfo, optheap)
+            self.put_field_back_to_info(op, opinfo, optheap)
         elif not can_cache:
             self.invalidate(descr)
 
-    def _setfield(self, op, opinfo, optheap):
+    def put_field_back_to_info(self, op, opinfo, optheap):
+        """ this method is called just after a lazy setfield was ommitted. it
+        puts the information of the lazy setfield back into the proper cache in
+        the info. """
         arg = optheap.get_box_replacement(op.getarg(1))
         struct = optheap.get_box_replacement(op.getarg(0))
         opinfo.setfield(op.getdescr(), struct, arg, optheap, self)
@@ -186,7 +189,7 @@ class ArrayCachedField(CachedField):
             opinfo.setitem(descr, index, None, res, optheap=optheap)
         return res
 
-    def _setfield(self, op, opinfo, optheap):
+    def put_field_back_to_info(self, op, opinfo, optheap):
         arg = optheap.get_box_replacement(op.getarg(2))
         struct = optheap.get_box_replacement(op.getarg(0))
         opinfo.setitem(op.getdescr(), self.index, struct, arg, self, optheap)
