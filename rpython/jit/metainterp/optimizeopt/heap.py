@@ -75,7 +75,7 @@ class CachedField(object):
     def do_setfield(self, optheap, op):
         # Update the state with the SETFIELD_GC/SETARRAYITEM_GC operation 'op'.
         structinfo = optheap.ensure_ptr_info_arg0(op)
-        arg1 = optheap.get_box_replacement(self._getvalue(op))
+        arg1 = optheap.get_box_replacement(self._get_rhs_from_set_op(op))
         if self.possible_aliasing(optheap, structinfo):
             self.force_lazy_setfield(optheap, op.getdescr())
             assert not self.possible_aliasing(optheap, structinfo)
@@ -111,14 +111,15 @@ class CachedField(object):
             self.force_lazy_setfield(optheap, descr)
         if self._lazy_setfield is not None:
             op = self._lazy_setfield
-            return optheap.get_box_replacement(self._getvalue(op))
+            return optheap.get_box_replacement(self._get_rhs_from_set_op(op))
         else:
             res = self._getfield(opinfo, descr, optheap)
             if res is not None:
                 return res.get_box_replacement()
             return None
 
-    def _getvalue(self, op):
+    def _get_rhs_from_set_op(self, op):
+        """ given a set(field or arrayitem) op, return the rhs argument """
         return op.getarg(1)
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
@@ -168,7 +169,7 @@ class ArrayCachedField(CachedField):
         self.index = index
         CachedField.__init__(self)
 
-    def _getvalue(self, op):
+    def _get_rhs_from_set_op(self, op):
         return op.getarg(2)
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
