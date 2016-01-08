@@ -361,9 +361,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
 
     # XXX kill all those in favor of ophelpers
 
-    def is_guard(self):
-        return rop._GUARD_FIRST <= self.getopnum() <= rop._GUARD_LAST
-
     def is_foldable_guard(self):
         return rop._GUARD_FOLDABLE_FIRST <= self.getopnum() <= rop._GUARD_FOLDABLE_LAST
 
@@ -383,9 +380,6 @@ class AbstractResOp(AbstractResOpOrInputArg):
 
     def has_no_side_effect(self):
         return rop._NOSIDEEFFECT_FIRST <= self.getopnum() <= rop._NOSIDEEFFECT_LAST
-
-    def can_raise(self):
-        return rop._CANRAISE_FIRST <= self.getopnum() <= rop._CANRAISE_LAST
 
     def is_malloc(self):
         # a slightly different meaning from can_malloc
@@ -1311,8 +1305,9 @@ class rop(object):
             return rop.CALL_F
         return rop.CALL_N
 
-    def is_guard(self):
-        return rop._GUARD_FIRST <= self.getopnum() <= rop._GUARD_LAST
+    @staticmethod
+    def is_guard(opnum):
+        return rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST
 
     @staticmethod
     def is_comparison(opnum):
@@ -1340,8 +1335,9 @@ class rop(object):
     def has_no_side_effect(opnum):
         return rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST
 
-    def can_raise(self):
-        return rop._CANRAISE_FIRST <= self.getopnum() <= rop._CANRAISE_LAST
+    @staticmethod
+    def can_raise(opnum):
+        return rop._CANRAISE_FIRST <= opnum <= rop._CANRAISE_LAST
 
     def is_malloc(self):
         # a slightly different meaning from can_malloc

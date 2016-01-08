@@ -5,7 +5,7 @@ from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,
     ResOperation, oparity, opname, rop
 from rpython.rlib.rarithmetic import intmask
 
-TAGINT, TAGCONST, TAGBOX = range(3)
+TAGINT, TAGCONST, TAGBOX, TAGOUTPUT = range(4)
 TAGMASK = 0x3
 TAGSHIFT = 2
 MAXINT = 65536
@@ -38,16 +38,20 @@ class TraceIterator(object):
         return RecordedOp(pos, opnum, args)
 
 class RecordedOp(AbstractValue):
-    def __init__(self, pos, opnum, args):
+    def __init__(self, pos, opnum, args, descr=None):
         self.opnum = opnum
         self.args = args
         self._pos = pos
+        self.descr = descr
 
     def get_tag(self):
         return tag(TAGBOX, self._pos)
 
     def getarglist(self):
         return self.args
+
+    def getdescr(self):
+        return self.descr
 
     def numargs(self):
         return len(self.args)
@@ -69,7 +73,6 @@ class RecordedOp(AbstractValue):
 
 
 class Trace(object):
-    # XXX eventually merge with history.TreeLoop, maybe
     def __init__(self, inputargs):
         self._ops = [0] * (2 * len(inputargs)) # place for forwarding inputargs
         # plus infos
@@ -92,6 +95,19 @@ class Trace(object):
         self._count += 1
         return pos
 
+    def _record_raw(self, opnum, tagged_args, tagged_descr=-1):
+        operations = self._ops
+        pos = len(operations)
+        operations.append(opnum)
+        operations.append(self._count) # here we keep the index into infos
+        if oparity[opnum] == -1:
+            operations.append(len(tagged_args))
+        operations.extend(tagged_args)
+        if tagged_descr != -1:
+            operations.append(tagged_descr)
+        self._count += 1
+        return pos        
+
     def record_forwarding(self, op, newtag):
         index = op._pos
         self._ops[index] = -newtag - 1
@@ -101,8 +117,11 @@ class Trace(object):
         pos = self._record_op(opnum, argboxes, descr)
         return ResOperation(opnum, argboxes, pos, descr)
 
-    def record_op_tag(self, opnum, argboxes, descr=None):
-        return tag(TAGBOX, self._record_op(opnum, argboxes, descr))
+    def record_op_tag(self, opnum, tagged_args, descr=None):
+        return tag(TAGBOX, self._record_raw(opnum, tagged_args, descr))
+
+    def record_op_output_tag(self, opnum, tagged_args, descr=None):
+        return tag(TAGOUTPUT, self._record_raw(opnum, tagged_args, descr))
 
     def get_info(self, infos, pos):
         index = self._ops[pos + 1]

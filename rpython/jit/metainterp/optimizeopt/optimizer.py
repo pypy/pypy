@@ -356,6 +356,7 @@ class Optimizer(Optimization):
             tagged = -opnum - 1
 
     def force_box(self, op, optforce=None):
+        # XXX
         return op
         op = self.get_box_replacement(op)
         if optforce is None:
@@ -416,11 +417,16 @@ class Optimizer(Optimization):
         else:
             op.set_forwarded(newop)
 
-    def replace_op_with(self, op, newopnum, args=None, descr=None):
+    def replace_op_with(self, op, newopnum, args=None, descr=None, output=False):
         # recorded_op -> tagged
-        newtag = self.trace.record_op_tag(newopnum, args, descr)
+        if not output:
+            newtag = self.trace.record_op_tag(newopnum, args, descr)
+        else:
+            newtag = self.output.record_op_output_tag(newopnum, args, descr)
         self.trace.record_forwarding(op, newtag)
+        # XXX info forwarding
         return newtag
+
         newop = op.copy_and_change(newopnum, args, descr)
         if newop.type != 'v':
             op = self.get_box_replacement(op)
@@ -529,7 +535,7 @@ class Optimizer(Optimization):
 
     def propagate_all_forward(self, trace, call_pure_results=None,
                               rename_inputargs=True, flush=True):
-        #self.output = opencoder.Trace() # <- XXXX
+        self.output = opencoder.Trace([]) # <- XXXX, put inputargs
         self.infos = [None] * trace._count
         self.trace = trace
         #if rename_inputargs:
@@ -577,14 +583,14 @@ class Optimizer(Optimization):
     def emit_operation(self, op):
         if rop.returns_bool_result(op.opnum):
             self.getintbound(op).make_bool()
-        self._emit_operation(op)
-        op = self.get_box_replacement(op)
-        if op.type == 'i':
-            opinfo = op.get_forwarded()
-            if opinfo is not None:
-                assert isinstance(opinfo, IntBound)
-                if opinfo.is_constant():
-                    op.set_forwarded(ConstInt(opinfo.getint()))
+        tagged_op = self._emit_operation(op)
+        # XXX what is this about? looks pretty optional
+        #if op.type == 'i':
+        #    opinfo = op.get_forwarded()
+        #    if opinfo is not None:
+        #        assert isinstance(opinfo, IntBound)
+        #        if opinfo.is_constant():
+        #            op.set_forwarded(ConstInt(opinfo.getint()))
 
     @specialize.argtype(0)
     def _emit_operation(self, op):
@@ -594,13 +600,15 @@ class Optimizer(Optimization):
         if self.is_constant(tagged):
             return # can happen e.g. if we postpone the operation that becomes
             # constant
-        xxxx
-        op = self.replace_op_with(op, op.getopnum())
-        for i in range(op.numargs()):
-            arg = self.force_box(op.getarg(i))
-            op.setarg(i, arg)
+        arglist = op.getarglist()
+        for i in range(len(arglist)):
+            arglist[i] = self.force_box(arglist[i])
+        opnum = op.opnum
+        tagged_op = self.replace_op_with(op, opnum, arglist, op.getdescr(),
+            output=True)
         self.metainterp_sd.profiler.count(jitprof.Counters.OPT_OPS)
-        if op.is_guard():
+        if rop.is_guard(opnum):
+            xxx
             assert isinstance(op, GuardResOp)
             self.metainterp_sd.profiler.count(jitprof.Counters.OPT_GUARDS)
             pendingfields = self.pendingfields
@@ -611,15 +619,16 @@ class Optimizer(Optimization):
                 return
             else:
                 op = self.emit_guard_operation(op, pendingfields)
-        elif op.can_raise():
+        elif rop.can_raise(opnum):
             self.exception_might_have_happened = True
-        if ((op.has_no_side_effect() or op.is_guard() or op.is_jit_debug() or
-             op.is_ovf()) and not self.is_call_pure_pure_canraise(op)):
-            pass
-        else:
-            self._last_guard_op = None
+        #if ((op.has_no_side_effect() or op.is_guard() or op.is_jit_debug() or
+        #     op.is_ovf()) and not self.is_call_pure_pure_canraise(op)):
+        #    pass
+        #else:
+        #    self._last_guard_op = None
         self._really_emitted_operation = op
-        self._newoperations.append(op)
+        #self._newoperations.append(op)
+        return tagged_op
 
     def emit_guard_operation(self, op, pendingfields):
         guard_op = self.replace_op_with(op, op.getopnum())

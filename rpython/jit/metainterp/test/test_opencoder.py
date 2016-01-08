@@ -5,9 +5,17 @@ from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 
 class SimpleOptimizer(Optimizer):
+    class metainterp_sd:
+        class profiler:
+            @staticmethod
+            def count(*args):
+                pass
+
     def __init__(self, trace):
         self.trace = trace
+        self.optimizer = self # uh?
         self.infos = [None] * trace._count
+        self.output = Trace([])
 
 class TestOpencoder(object):
     def unpack(self, t):
@@ -26,10 +34,10 @@ class TestOpencoder(object):
         assert len(l) == 2
         assert l[0].opnum == rop.INT_ADD
         assert l[1].opnum == rop.INT_ADD
-        assert (untag(l[1].args[1]) == TAGINT, 1)
-        assert (untag(l[1].args[0]) == TAGBOX, l[0]._pos)
-        assert (untag(l[0].args[0]) == TAGBOX, 0)
-        assert (untag(l[0].args[1]) == TAGBOX, 1)
+        assert untag(l[1].args[1]) == (TAGINT, 1)
+        assert untag(l[1].args[0]) == (TAGBOX, l[0]._pos)
+        assert untag(l[0].args[0]) == (TAGBOX, 0)
+        assert untag(l[0].args[1]) == (TAGBOX, 1)
 
     def test_forwarding(self):
         i0, i1 = InputArgInt(), InputArgInt()
@@ -51,4 +59,10 @@ class TestOpencoder(object):
         assert opt.getintbound(add.get_tag())
 
     def test_output(self):
-        pass
+        i0 = InputArgInt()
+        t = Trace([i0])
+        t.record_op(rop.INT_ADD, [i0, ConstInt(1)])
+        opt = SimpleOptimizer(t)
+        add, = self.unpack(t)
+        opt.emit_operation(add)
+#        xxx
