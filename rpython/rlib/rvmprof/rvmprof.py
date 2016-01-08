@@ -27,10 +27,7 @@ class VMProf(object):
         self._code_classes = set()
         self._gather_all_code_objs = lambda: None
         self._cleanup_()
-        if sys.maxint == 2147483647:
-            self._code_unique_id = 0 # XXX this is wrong, it won't work on 32bit
-        else:
-            self._code_unique_id = 0x7000000000000000
+        self._code_unique_id = 0
         self.cintf = cintf.setup()
         
     def _cleanup_(self):

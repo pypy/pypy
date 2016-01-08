@@ -104,7 +104,7 @@ def make_c_trampoline_function(name, func, token, restok):
     target = target.join('trampoline_%s_%s.vmprof.c' % (name, token))
     target.write("""
 #include "src/precommondefs.h"
-%(vmprof_stack_h)s
+#include "vmprof_stack.h"
 
 %(type)s %(cont_name)s(%(llargs)s);
 
@@ -122,106 +122,18 @@ def make_c_trampoline_function(name, func, token, restok):
     return result;
 }
 """ % locals())
-    return finish_ll_trampoline(tramp_name, tramp_name, target, token,
-                                restok)
-
-def make_trampoline_function(name, func, token, restok):
-    from rpython.jit.backend import detect_cpu
-
-    cont_name = 'rpyvmprof_f_%s_%s' % (name, token)
-    tramp_name = 'rpyvmprof_t_%s_%s' % (name, token)
-    orig_tramp_name = tramp_name
-
-    func.c_name = cont_name
-    func._dont_inline_ = True
-
-    if sys.platform == 'darwin':
-        # according to internet "At the time UNIX was written in 1974...."
-        # "... all C functions are prefixed with _"
-        cont_name = '_' + cont_name
-        tramp_name = '_' + tramp_name
-        PLT = ""
-        size_decl = ""
-        type_decl = ""
-        extra_align = ""
-    else:
-        PLT = "@PLT"
-        type_decl = "\t.type\t%s, @function" % (tramp_name,)
-        size_decl = "\t.size\t%s, .-%s" % (
-            tramp_name, tramp_name)
-        extra_align = "\t.cfi_def_cfa_offset 8"
-
-    assert detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64), (
-        "rvmprof only supports x86-64 CPUs for now")
-
-    # mapping of argument count (not counting the final uid argument) to
-    # the register that holds this uid argument
-    reg = {0: '%rdi',
-           1: '%rsi',
-           2: '%rdx',
-           3: '%rcx',
-           4: '%r8',
-           5: '%r9',
-           }
-    try:
-        reg = reg[len(token)]
-    except KeyError:
-        raise NotImplementedError(
-            "not supported: %r takes more than 5 arguments" % (func,))
-
-    target = udir.join('module_cache')
-    target.ensure(dir=1)
-    target = target.join('trampoline_%s_%s.vmprof.s' % (name, token))
-    # NOTE! the tabs in this file are absolutely essential, things
-    #       that don't start with \t are silently ignored (<arigato>: WAT!?)
-    target.write("""\
-\t.text
-\t.globl\t%(tramp_name)s
-%(type_decl)s
-%(tramp_name)s:
-\t.cfi_startproc
-\tpushq\t%(reg)s
-\t.cfi_def_cfa_offset 16
-\tcall %(cont_name)s%(PLT)s
-\taddq\t$8, %%rsp
-%(extra_align)s
-\tret
-\t.cfi_endproc
-%(size_decl)s
-""" % locals())
-    return finish_ll_trampoline(orig_tramp_name, tramp_name, target, token,
-                                restok)
-
-def finish_ll_trampoline(orig_tramp_name, tramp_name, target, token, restok):
-
-    extra_args = ['long']
     header = 'RPY_EXTERN %s %s(%s);\n' % (
-        token2ctype(restok),
-        orig_tramp_name,
-        ', '.join([token2ctype(tok) for tok in token] + extra_args))
-
-    header += """\
-static int cmp_%s(void *addr) {
-    if (addr == %s) return 1;
-#ifdef VMPROF_ADDR_OF_TRAMPOLINE
-    return VMPROF_ADDR_OF_TRAMPOLINE(addr);
-#undef VMPROF_ADDR_OF_TRAMPOLINE
-#else
-    return 0;
-#endif
-#define VMPROF_ADDR_OF_TRAMPOLINE cmp_%s
-}
-""" % (tramp_name, orig_tramp_name, tramp_name)
+        token2ctype(restok), tramp_name,
+        ', '.join([token2ctype(tok) for tok in token] + ['long']))
 
     eci = ExternalCompilationInfo(
         post_include_bits = [header],
         separate_module_files = [str(target)],
     )
     eci = eci.merge(global_eci)
-
     ARGS = [token2lltype(tok) for tok in token] + [lltype.Signed]
     return rffi.llexternal(
-        orig_tramp_name, ARGS,
+        tramp_name, ARGS,
         token2lltype(restok),
         compilation_info=eci,
         _nowrapper=True, sandboxsafe=True,

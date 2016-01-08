@@ -25,17 +25,14 @@
 #include <sys/time.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <signal.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include "vmprof_getpc.h"
-#ifdef __APPLE__
-#include "libunwind.h"
-#else
-#include "vmprof_unwind.h"
-#endif
 #include "vmprof_mt.h"
 #include "vmprof_stack.h"
 
@@ -58,14 +55,6 @@ static void *(*mainloop_get_virtual_ip)(char *) = 0;
 static int opened_profile(char *interp_name);
 static void flush_codes(void);
 
-#ifdef __APPLE__
-#define UNWIND_NAME "/usr/lib/system/libunwind.dylib"
-#define UNW_PREFIX "unw"
-#else
-#define UNWIND_NAME "libunwind.so"
-#define UNW_PREFIX "_ULx86_64"
-#endif
-
 RPY_EXTERN
 char *vmprof_init(int fd, double interval, char *interp_name)
 {
@@ -73,22 +62,6 @@ char *vmprof_init(int fd, double interval, char *interp_name)
         return "bad value for 'interval'";
     prepare_interval_usec = (int)(interval * 1000000.0);
 
-#ifndef __APPLE__
-    if (!unw_get_reg) {
-        void *libhandle;
-
-        if (!(libhandle = dlopen(UNWIND_NAME, RTLD_LAZY | RTLD_LOCAL)))
-            goto error;
-        if (!(unw_get_reg = dlsym(libhandle, UNW_PREFIX "_get_reg")))
-            goto error;
-        if (!(unw_get_proc_info = dlsym(libhandle, UNW_PREFIX "_get_proc_info")))
-            goto error;
-        if (!(unw_init_local = dlsym(libhandle, UNW_PREFIX  "_init_local")))
-            goto error;
-        if (!(unw_step = dlsym(libhandle, UNW_PREFIX  "_step")))
-            goto error;
-    }
-#endif
     if (prepare_concurrent_bufs() < 0)
         return "out of memory";
 
@@ -99,9 +72,6 @@ char *vmprof_init(int fd, double interval, char *interp_name)
         return strerror(errno);
     }
     return NULL;
-
- error:
-    return dlerror();
 }
 
 /************************************************************/
@@ -158,54 +128,7 @@ static long profile_interval_usec = 0;
 static char atfork_hook_installed = 0;
 
 
-/* ******************************************************
- * libunwind workaround for process JIT frames correctly
- * ******************************************************
- */
-
 #include "vmprof_get_custom_offset.h"
-
-typedef struct {
-    void* _unused1;
-    void* _unused2;
-    void* sp;
-    void* ip;
-    void* _unused3[sizeof(unw_cursor_t)/sizeof(void*) - 4];
-} vmprof_hacked_unw_cursor_t;
-
-static int vmprof_unw_step(unw_cursor_t *cp, int first_run)
-{
-    void* ip;
-    void* sp;
-    ptrdiff_t sp_offset;
-    unw_get_reg (cp, UNW_REG_IP, (unw_word_t*)&ip);
-    unw_get_reg (cp, UNW_REG_SP, (unw_word_t*)&sp);
-    if (!first_run) {
-        // make sure we're pointing to the CALL and not to the first
-        // instruction after. If the callee adjusts the stack for us
-        // it's not safe to be at the instruction after
-        ip -= 1;
-    }
-    sp_offset = vmprof_unw_get_custom_offset(ip, cp);
-
-    if (sp_offset == -1) {
-        // it means that the ip is NOT in JITted code, so we can use the
-        // stardard unw_step
-        return unw_step(cp);
-    }
-    else {
-        // this is a horrible hack to manually walk the stack frame, by
-        // setting the IP and SP in the cursor
-        vmprof_hacked_unw_cursor_t *cp2 = (vmprof_hacked_unw_cursor_t*)cp;
-        void* bp = (void*)sp + sp_offset;
-        cp2->sp = bp;
-        bp -= sizeof(void*);
-        cp2->ip = ((void**)bp)[0];
-        // the ret is on the top of the stack minus WORD
-        return 1;
-    }
-}
-
 
 /* *************************************************************
  * functions to dump the stack trace
@@ -214,7 +137,6 @@ static int vmprof_unw_step(unw_cursor_t *cp, int first_run)
 
 static int get_stack_trace(void **result, int max_depth, ucontext_t *ucontext)
 {
-    // read the first slot of shadowstack
     struct vmprof_stack* stack = vmprof_global_stack;
     int n = 0;
     while (n < max_depth - 1 && stack) {
@@ -226,6 +148,7 @@ static int get_stack_trace(void **result, int max_depth, ucontext_t *ucontext)
     return n;
 }
 
+#if 0
 static int xxx_get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)
 {
     void *ip;
@@ -271,6 +194,7 @@ static int xxx_get_stack_trace(void** result, int max_depth, ucontext_t *ucontex
     }
     return n;
 }
+#endif
 
 static void *get_current_thread_id(void)
 {
