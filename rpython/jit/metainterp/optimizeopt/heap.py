@@ -39,7 +39,6 @@ class CachedField(object):
         self.cached_infos = []
         self.cached_structs = []
         self._lazy_setfield = None
-        self._lazy_setfield_registered = False
 
     def register_dirty_field(self, structop, info):
         self.cached_structs.append(structop)
@@ -87,11 +86,8 @@ class CachedField(object):
         #    cached_fieldvalue = self._cached_fields.get(structvalue, None)
 
         if not cached_field or not cached_field.same_box(arg1):
-            # common case: store the 'op' as lazy_setfield, and register
-            # myself in the optheap's _lazy_setfields_and_arrayitems list
+            # common case: store the 'op' as lazy_setfield
             self._lazy_setfield = op
-            #if not self._lazy_setfield_registered:
-            #    self._lazy_setfield_registered = True
 
         else:
             # this is the case where the pending setfield ends up
@@ -201,15 +197,11 @@ class OptHeap(Optimization):
 
         self.postponed_op = None
 
-        # XXXX the rest is old
-        # cached array items:  {array descr: {index: CachedField}}
-        #self.cached_arrayitems = {}
         # cached dict items: {dict descr: {(optval, index): box-or-const}}
         self.cached_dict_reads = {}
         # cache of corresponding {array descrs: dict 'entries' field descr}
         self.corresponding_array_descrs = {}
         #
-        self._lazy_setfields_and_arrayitems = []
         self._remove_guard_not_invalidated = False
         self._seen_guard_not_invalidated = False
 
@@ -250,7 +242,6 @@ class OptHeap(Optimization):
                                                        descr, index)
 
     def clean_caches(self):
-        del self._lazy_setfields_and_arrayitems[:]
         items = self.cached_fields.items()
         if not we_are_translated():
             items.sort(key=str, reverse=True)
