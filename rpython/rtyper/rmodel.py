@@ -204,6 +204,21 @@ class Repr(object):
         else:
             return hop.genop('int_is_true', [vlen], resulttype=Bool)
 
+    def rtype_isinstance(self, hop):
+        hop.exception_cannot_occur()
+        if hop.s_result.is_constant():
+            return hop.inputconst(lltype.Bool, hop.s_result.const)
+
+        if hop.args_s[1].is_constant() and hop.args_s[1].const in (str, list, unicode):
+            if hop.args_s[0].knowntype not in (str, list, unicode):
+                raise TyperError("isinstance(x, str/list/unicode) expects x to be known"
+                                " statically to be a str/list/unicode or None")
+            rstrlist = hop.args_r[0]
+            vstrlist = hop.inputarg(rstrlist, arg=0)
+            cnone = hop.inputconst(rstrlist, None)
+            return hop.genop('ptr_ne', [vstrlist, cnone], resulttype=lltype.Bool)
+        raise TyperError
+
     def rtype_hash(self, hop):
         ll_hash = self.get_ll_hash_function()
         v, = hop.inputargs(self)
@@ -390,8 +405,7 @@ def mangle(prefix, name):
 
 def getgcflavor(classdef):
     classdesc = classdef.classdesc
-    alloc_flavor = classdesc.read_attribute('_alloc_flavor_',
-                                            Constant('gc')).value
+    alloc_flavor = classdesc.get_param('_alloc_flavor_', default='gc')
     return alloc_flavor
 
 def externalvsinternal(rtyper, item_repr): # -> external_item_repr, (internal_)item_repr

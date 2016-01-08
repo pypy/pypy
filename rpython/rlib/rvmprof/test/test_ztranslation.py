@@ -5,6 +5,7 @@ import py
 from rpython.tool.udir import udir
 from rpython.rlib import rvmprof
 from rpython.translator.c.test.test_genc import compile
+from rpython.rlib.nonconst import NonConstant
 
 
 class MyCode:
@@ -38,6 +39,9 @@ one_less._dont_inline_ = True
 PROF_FILE = str(udir.join('test_ztranslation.prof'))
 
 def main(argv=[]):
+    if NonConstant(False):
+        # Hack to give os.open() the correct annotation
+        os.open('foo', 1, 1)
     code1 = MyCode(6500)
     fd = os.open(PROF_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0666)
     rvmprof.enable(fd, 0.01)

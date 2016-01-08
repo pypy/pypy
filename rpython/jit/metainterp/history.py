@@ -68,8 +68,8 @@ def repr_object(box):
         return box.value
 
 def repr_rpython(box, typechars):
-    return '%s/%s%d' % (box._get_hash_(), typechars,
-                        compute_unique_id(box))
+    return '%s/%s' % (box._get_hash_(), typechars,
+                        ) #compute_unique_id(box))
 
 
 class XxxAbstractValue(object):
@@ -540,9 +540,6 @@ class TreeLoop(object):
         return '%s\n[%s]' % (
             self.name,
             ', '.join([box.repr(memo) for box in self.inputargs]))
-
-    def get_display_text(self):    # for graphpage.py
-        return self.name + '\n' + repr(self.inputargs)
 
     def show(self, errmsg=None):
         "NOT_RPYTHON"

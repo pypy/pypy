@@ -1,7 +1,7 @@
 import py
 
 from rpython.rtyper.extfunc import ExtFuncEntry, register_external,\
-     is_external, lazy_register
+     is_external
 from rpython.annotator.model import SomeInteger, SomeString, AnnotatorError
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.annotator.policy import AnnotatorPolicy

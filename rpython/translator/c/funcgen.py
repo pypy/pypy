@@ -299,7 +299,7 @@ class FunctionCodeGenerator(object):
     def gen_op(self, op):
         macro = 'OP_%s' % op.opname.upper()
         line = None
-        if op.opname.startswith('gc_'):
+        if op.opname.startswith('gc_') and op.opname != 'gc_load_indexed':
             meth = getattr(self.gcpolicy, macro, None)
             if meth:
                 line = meth(self, op)
@@ -707,6 +707,19 @@ class FunctionCodeGenerator(object):
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
         return (
           "%(result)s = ((%(typename)s) (((char *)%(addr)s) + %(offset)s))[0];"
+          % locals())
+
+    def OP_GC_LOAD_INDEXED(self, op):
+        addr = self.expr(op.args[0])
+        index = self.expr(op.args[1])
+        scale = self.expr(op.args[2])
+        base_ofs = self.expr(op.args[3])
+        result = self.expr(op.result)
+        TYPE = op.result.concretetype
+        typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
+        return (
+          "%(result)s = ((%(typename)s) (((char *)%(addr)s) + "
+          "%(base_ofs)s + %(scale)s * %(index)s))[0];"
           % locals())
 
     def OP_CAST_PRIMITIVE(self, op):

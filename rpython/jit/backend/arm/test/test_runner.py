@@ -26,12 +26,12 @@ class TestARM(LLtypeBackendTest):
     # for the individual tests see
     # ====> ../../test/runner_test.py
 
-    add_loop_instructions = 'ldr; adds; cmp; beq; b;$'
+    add_loop_instructions = 'ldr; adds; cmp; beq; b;'
     arch_version = detect_arch_version()
     if arch_version == 7:
         bridge_loop_instructions = ('ldr; movw; nop; cmp; bge; '
                                     'push; movw; movt; push; movw; movt; '
-                                    'blx; movw; movt; bx;$')
+                                    'blx; movw; movt; bx;')
     else:
         bridge_loop_instructions = ('ldr; mov; nop; nop; nop; cmp; bge; '
                                     'push; ldr; mov; '
@@ -40,7 +40,7 @@ class TestARM(LLtypeBackendTest):
                                     '[^;]+; ' # inline constant
                                     'blx; ldr; mov; '
                                     '[^;]+; ' # inline constant
-                                    'bx;$')
+                                    'bx;')
 
     def get_cpu(self):
         cpu = CPU(rtyper=None, stats=FakeStats())

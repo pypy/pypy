@@ -299,8 +299,7 @@ class Entry(ExtRegistryEntry):
             if isinstance(s_x, annmodel.SomeInstance):
                 from rpython.flowspace.model import Constant
                 classdesc = s_x.classdef.classdesc
-                virtualizable = classdesc.read_attribute('_virtualizable_',
-                                                         Constant(None)).value
+                virtualizable = classdesc.get_param('_virtualizable_')
                 if virtualizable is not None:
                     flags = s_x.flags.copy()
                     flags['access_directly'] = True
@@ -340,7 +339,7 @@ def _get_virtualizable_token(frame):
     Used by _vmprof
     """
     from rpython.rtyper.lltypesystem import lltype, llmemory
-    
+
     return lltype.nullptr(llmemory.GCREF.TO)
 
 class GetVirtualizableTokenEntry(ExtRegistryEntry):
@@ -605,7 +604,7 @@ class JitDriver(object):
                  get_printable_location=None, confirm_enter_jit=None,
                  can_never_inline=None, should_unroll_one_iteration=None,
                  name='jitdriver', check_untranslated=True, vectorize=False,
-                 get_unique_id=None):
+                 get_unique_id=None, is_recursive=False):
         if greens is not None:
             self.greens = greens
         self.name = name
@@ -644,6 +643,7 @@ class JitDriver(object):
         self.can_never_inline = can_never_inline
         self.should_unroll_one_iteration = should_unroll_one_iteration
         self.check_untranslated = check_untranslated
+        self.is_recursive = is_recursive
         self.vec = vectorize
 
     def _freeze_(self):
@@ -882,10 +882,10 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             else:
                 objname, fieldname = name.split('.')
                 s_instance = kwds_s['s_' + objname]
+                classdesc = s_instance.classdef.classdesc
+                bk.record_getattr(classdesc, fieldname)
                 attrdef = s_instance.classdef.find_attribute(fieldname)
-                position = self.bookkeeper.position_key
-                attrdef.read_locations[position] = True
-                s_arg = attrdef.getvalue()
+                s_arg = attrdef.s_value
                 assert s_arg is not None
             args_s.append(s_arg)
         bk.emulate_pbc_call(uniquekey, s_func, args_s)
@@ -1060,6 +1060,12 @@ class JitHookInterface(object):
     def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, operations):
         """ A hook called each time a loop is aborted with jitdriver and
         greenkey where it started, reason is a string why it got aborted
+        """
+
+    def on_trace_too_long(self, jitdriver, greenkey, greenkey_repr):
+        """ A hook called each time we abort the trace because it's too
+        long with the greenkey being the one responsible for the
+        disabled function
         """
 
     #def before_optimize(self, debug_info):

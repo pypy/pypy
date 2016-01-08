@@ -2,7 +2,6 @@ import contextlib
 import py
 import sys, os
 from rpython.rlib import exports
-from rpython.rlib.entrypoint import entrypoint
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool import runsubprocess
@@ -734,6 +733,9 @@ def gen_threadlocal_structdef(f, database):
     print >> f, 'struct pypy_threadlocal_s {'
     print >> f, '\tint ready;'
     print >> f, '\tchar *stack_end;'
+    print >> f, '\tstruct pypy_threadlocal_s *prev, *next;'
+    # note: if the four fixed fields above are changed, you need
+    # to adapt threadlocal.c's linkedlist_head declaration too
     for field in fields:
         typename = database.gettype(field.FIELDTYPE)
         print >> f, '\t%s;' % cdecl(typename, field.fieldname)

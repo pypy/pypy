@@ -111,26 +111,26 @@ def test_cast_ops(opnum, args, kwargs):
 def test_unpack_1():
     op = rop.ResOperation(rop.rop.VEC_UNPACK_I,
             [rop.InputArgVector(), ConstInt(0), ConstInt(1)])
-    assert (op.type, op.datatype, op.bytesize, op.is_vector()) == \
-           ('i', 'i', INT_WORD, False)
+    assert (op.type, op.is_vector()) == ('i', False)
     op = rop.ResOperation(rop.rop.VEC_UNPACK_I,
             [rop.InputArgVector(), ConstInt(0), ConstInt(2)])
-    assert (op.type, op.datatype, op.bytesize, op.is_vector()) == \
-           ('i', 'i', INT_WORD, True)
+    assert (op.type, op.is_vector()) == ('i', True)
 
 def test_load_singlefloat():
     descr = ArrayDescr(8,4, None, 'S', concrete_type='f')
-    op = rop.ResOperation(rop.rop.VEC_RAW_LOAD_I,
-                          [rop.InputArgInt(), ConstInt(0)],
-                          descr=descr)
+    args = [rop.InputArgInt(), ConstInt(0)]
+    baseop = rop.ResOperation(rop.rop.RAW_LOAD_I, args, descr=descr)
+    baseop.set_forwarded(rop.VectorizationInfo(baseop))
+    op = rop.VecOperation(rop.rop.VEC_RAW_LOAD_I, args, baseop, 4, descr=descr)
     assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('i', 'i', 4, True)
 
 def test_vec_store():
     descr = ArrayDescr(0,8, None, 'F', concrete_type='f')
     vec = rop.InputArgVector()
-    op = rop.ResOperation(rop.rop.VEC_RAW_STORE,
-                          [rop.InputArgRef(), ConstInt(0), vec],
-                          descr=descr)
+    args = [rop.InputArgRef(), ConstInt(0), vec]
+    baseop = rop.ResOperation(rop.rop.RAW_STORE,  args, descr=descr)
+    baseop.set_forwarded(rop.VectorizationInfo(baseop))
+    op = rop.VecOperation(rop.rop.VEC_RAW_STORE, args, baseop, 2, descr=descr)
     assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('v', 'v', 8, True)
 
 def test_vec_guard():
@@ -138,15 +138,17 @@ def test_vec_guard():
     vec.bytesize = 4
     vec.type = vec.datatype = 'i'
     vec.sigend = True
-    op = rop.ResOperation(rop.rop.GUARD_TRUE, [vec])
-    assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('v', 'i', 4, False)
+    baseop = rop.ResOperation(rop.rop.GUARD_TRUE, [vec])
+    baseop.set_forwarded(rop.VectorizationInfo(baseop))
+    op = rop.VecOperation(rop.rop.VEC_GUARD_TRUE, [vec], baseop, 4)
+    assert (op.type, op.datatype, op.bytesize, op.is_vector()) == ('v', 'v', 0, False)
 
 def test_types():
     op = rop.ResOperation(rop.rop.INT_ADD, [ConstInt(0),ConstInt(1)])
-    assert op.type == 'i'
-    assert op.datatype == 'i'
-    assert op.bytesize == INT_WORD
-    op = rop.ResOperation(rop.rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT, [op])
+    op.set_forwarded(rop.VectorizationInfo(op))
+    baseop = rop.ResOperation(rop.rop.CAST_FLOAT_TO_SINGLEFLOAT, [op])
+    baseop.set_forwarded(rop.VectorizationInfo(baseop))
+    op = rop.VecOperation(rop.rop.VEC_CAST_FLOAT_TO_SINGLEFLOAT, [op], baseop, 2)
     assert op.type == 'i'
     assert op.datatype == 'i'
     assert op.bytesize == 4

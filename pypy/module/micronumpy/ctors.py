@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.rstring import strip_spaces
+from rpython.rlib.rawstorage import RAW_STORAGE_PTR
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.module.micronumpy import descriptor, loop, support
@@ -17,7 +18,7 @@ def build_scalar(space, w_dtype, w_state):
         raise oefmt(space.w_TypeError,
                     "argument 1 must be numpy.dtype, not %T", w_dtype)
     if w_dtype.elsize == 0:
-        raise oefmt(space.w_ValueError, "itemsize cannot be zero")
+        raise oefmt(space.w_TypeError, "Empty data-type")
     if not space.isinstance_w(w_state, space.w_str):
         raise oefmt(space.w_TypeError, "initializing object must be a string")
     if space.len_w(w_state) != w_dtype.elsize:
@@ -45,7 +46,7 @@ def try_interface_method(space, w_object):
     try:
         w_interface = space.getattr(w_object, space.wrap("__array_interface__"))
         if w_interface is None:
-            return None
+            return None, False
         version_w = space.finditem(w_interface, space.wrap("version"))
         if version_w is None:
             raise oefmt(space.w_ValueError, "__array_interface__ found without"
@@ -67,19 +68,46 @@ def try_interface_method(space, w_object):
             raise oefmt(space.w_ValueError,
                     "__array_interface__ missing one or more required keys: shape, typestr"
                     )
-        raise oefmt(space.w_NotImplementedError,
-                    "creating array from __array_interface__ not supported yet")
-        '''
-        data_w = space.listview()
+        if w_descr is not None:
+            raise oefmt(space.w_NotImplementedError,
+                    "__array_interface__ descr not supported yet")
+        if w_strides is None or space.is_w(w_strides, space.w_None):
+            strides = None
+        else:
+            strides = [space.int_w(i) for i in space.listview(w_strides)]
         shape = [space.int_w(i) for i in space.listview(w_shape)]
         dtype = descriptor.decode_w_dtype(space, w_dtype)
-        rw = space.is_true(data_w[1])
-        '''
-        #print 'create view from shape',shape,'dtype',dtype,'descr',w_descr,'data',data_w[0],'rw',rw
-        return None
+        if dtype is None:
+            raise oefmt(space.w_ValueError,
+                    "__array_interface__ could not decode dtype %R", w_dtype
+                    )
+        if w_data is not None and (space.isinstance_w(w_data, space.w_tuple) or space.isinstance_w(w_data, space.w_list)):
+            data_w = space.listview(w_data)
+            data = rffi.cast(RAW_STORAGE_PTR, space.int_w(data_w[0]))
+            read_only = True # XXX why not space.is_true(data_w[1])
+            offset = 0
+            return W_NDimArray.from_shape_and_storage(space, shape, data, 
+                                    dtype, strides=strides, start=offset), read_only
+        if w_data is None:
+            data = w_object
+        else:
+            data = w_data
+        w_offset = space.finditem(w_interface, space.wrap('offset'))
+        if w_offset is None:
+            offset = 0
+        else:
+            offset = space.int_w(w_offset)
+        #print 'create view from shape',shape,'dtype',dtype,'data',data
+        if strides is not None:
+            raise oefmt(space.w_NotImplementedError,
+                   "__array_interface__ strides not fully supported yet") 
+        arr = frombuffer(space, data, dtype, support.product(shape), offset)
+        new_impl = arr.implementation.reshape(arr, shape)
+        return W_NDimArray(new_impl), False
+        
     except OperationError as e:
         if e.match(space, space.w_AttributeError):
-            return None
+            return None, False
         raise
 
 
@@ -103,19 +131,20 @@ def _array(space, w_object, w_dtype=None, copy=True, w_order=None, subok=False):
     if space.isinstance_w(w_object, space.w_type):
         raise oefmt(space.w_ValueError, "cannot create ndarray from type instance")
     # for anything that isn't already an array, try __array__ method first
+    dtype = descriptor.decode_w_dtype(space, w_dtype)
     if not isinstance(w_object, W_NDimArray):
         w_array = try_array_method(space, w_object, w_dtype)
         if w_array is not None:
             # continue with w_array, but do further operations in place
             w_object = w_array
             copy = False
+            dtype = w_object.get_dtype()
     if not isinstance(w_object, W_NDimArray):
-        w_array = try_interface_method(space, w_object)
+        w_array, _copy = try_interface_method(space, w_object)
         if w_array is not None:
             w_object = w_array
-            copy = False
-    dtype = descriptor.decode_w_dtype(space, w_dtype)
-
+            copy = _copy
+            dtype = w_object.get_dtype()
 
     if isinstance(w_object, W_NDimArray):
         npy_order = order_converter(space, w_order, NPY.ANYORDER)

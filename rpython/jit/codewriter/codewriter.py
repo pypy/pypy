@@ -25,10 +25,10 @@ class CodeWriter(object):
         rtyper = support.annotate(func, values)
         graph = rtyper.annotator.translator.graphs[0]
         jitcode = JitCode("test")
-        self.transform_graph_to_jitcode(graph, jitcode, True)
+        self.transform_graph_to_jitcode(graph, jitcode, True, 0)
         return jitcode
 
-    def transform_graph_to_jitcode(self, graph, jitcode, verbose):
+    def transform_graph_to_jitcode(self, graph, jitcode, verbose, index):
         """Transform a graph into a JitCode containing the same bytecode
         in a different format.
         """
@@ -58,6 +58,7 @@ class CodeWriter(object):
         # constants are cast to their normalized type (Signed, GCREF or
         # Float).
         self.assembler.assemble(ssarepr, jitcode)
+        jitcode.index = index
         #
         # print the resulting assembler
         if self.debug:
@@ -67,13 +68,16 @@ class CodeWriter(object):
         log.info("making JitCodes...")
         self.callcontrol.grab_initial_jitcodes()
         count = 0
+        all_jitcodes = []
         for graph, jitcode in self.callcontrol.enum_pending_graphs():
-            self.transform_graph_to_jitcode(graph, jitcode, verbose)
+            self.transform_graph_to_jitcode(graph, jitcode, verbose, len(all_jitcodes))
+            all_jitcodes.append(jitcode)
             count += 1
             if not count % 500:
                 log.info("Produced %d jitcodes" % count)
         self.assembler.finished(self.callcontrol.callinfocollection)
         log.info("there are %d JitCode instances." % count)
+        return all_jitcodes
 
     def setup_vrefinfo(self, vrefinfo):
         # must be called at most once

@@ -7,11 +7,13 @@ from rpython.jit.metainterp.history import Const, getkind
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import intbounds
+from rpython.jit.metainterp.optimize import SpeculativeError
 from rpython.jit.codewriter import longlong, heaptracker
 from rpython.jit.codewriter.effectinfo import EffectInfo
 
 from rpython.rtyper.llinterp import LLInterpreter, LLException
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper import rclass
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
@@ -196,6 +198,7 @@ class FieldDescr(AbstractDescr):
 
         return intbounds.get_integer_max(
             not _is_signed_kind(self.FIELD), rffi.sizeof(self.FIELD))
+
 
 def _is_signed_kind(TYPE):
     return (TYPE is not lltype.Bool and isinstance(TYPE, lltype.Number) and
@@ -613,9 +616,6 @@ class LLGraphCPU(model.AbstractCPU):
     bh_getfield_gc_f = bh_getfield_gc
 
     bh_getfield_raw = bh_getfield_gc
-    bh_getfield_raw_pure_i = bh_getfield_raw
-    bh_getfield_raw_pure_r = bh_getfield_raw
-    bh_getfield_raw_pure_f = bh_getfield_raw
     bh_getfield_raw_i = bh_getfield_raw
     bh_getfield_raw_r = bh_getfield_raw
     bh_getfield_raw_f = bh_getfield_raw
@@ -641,6 +641,7 @@ class LLGraphCPU(model.AbstractCPU):
     def bh_getarrayitem_gc(self, a, index, descr):
         a = support.cast_arg(lltype.Ptr(descr.A), a)
         array = a._obj
+        assert index >= 0
         return support.cast_result(descr.A.OF, array.getitem(index))
 
     bh_getarrayitem_gc_pure_i = bh_getarrayitem_gc
@@ -651,9 +652,6 @@ class LLGraphCPU(model.AbstractCPU):
     bh_getarrayitem_gc_f = bh_getarrayitem_gc
 
     bh_getarrayitem_raw = bh_getarrayitem_gc
-    bh_getarrayitem_raw_pure_i = bh_getarrayitem_raw
-    bh_getarrayitem_raw_pure_r = bh_getarrayitem_raw
-    bh_getarrayitem_raw_pure_f = bh_getarrayitem_raw
     bh_getarrayitem_raw_i = bh_getarrayitem_raw
     bh_getarrayitem_raw_r = bh_getarrayitem_raw
     bh_getarrayitem_raw_f = bh_getarrayitem_raw
@@ -708,6 +706,25 @@ class LLGraphCPU(model.AbstractCPU):
         else:
             return self.bh_raw_load_i(struct, offset, descr)
 
+    def bh_gc_load_indexed_i(self, struct, index, scale, base_ofs, bytes):
+        if   bytes == 1: T = rffi.UCHAR
+        elif bytes == 2: T = rffi.USHORT
+        elif bytes == 4: T = rffi.UINT
+        elif bytes == 8: T = rffi.ULONGLONG
+        elif bytes == -1: T = rffi.SIGNEDCHAR
+        elif bytes == -2: T = rffi.SHORT
+        elif bytes == -4: T = rffi.INT
+        elif bytes == -8: T = rffi.LONGLONG
+        else: raise NotImplementedError(bytes)
+        x = llop.gc_load_indexed(T, struct, index, scale, base_ofs)
+        return lltype.cast_primitive(lltype.Signed, x)
+
+    def bh_gc_load_indexed_f(self, struct, index, scale, base_ofs, bytes):
+        if bytes != 8:
+            raise Exception("gc_load_indexed_f is only for 'double'!")
+        return llop.gc_load_indexed(longlong.FLOATSTORAGE,
+                                    struct, index, scale, base_ofs)
+
     def bh_increment_debug_counter(self, addr):
         p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)
         p[0] += 1
@@ -749,6 +766,7 @@ class LLGraphCPU(model.AbstractCPU):
         return s._obj.container.chars.getlength()
 
     def bh_strgetitem(self, s, item):
+        assert item >= 0
         return ord(s._obj.container.chars.getitem(item))
 
     def bh_strsetitem(self, s, item, v):
@@ -770,6 +788,7 @@ class LLGraphCPU(model.AbstractCPU):
         return string._obj.container.chars.getlength()
 
     def bh_unicodegetitem(self, string, index):
+        assert index >= 0
         return ord(string._obj.container.chars.getitem(index))
 
     def bh_unicodesetitem(self, string, index, newvalue):
@@ -952,6 +971,35 @@ class LLGraphCPU(model.AbstractCPU):
     def store_fail_descr(self, deadframe, descr):
         pass # I *think*
 
+    def protect_speculative_field(self, p, fielddescr):
+        if not p:
+            raise SpeculativeError
+        p = p._obj.container._as_ptr()
+        try:
+            lltype.cast_pointer(lltype.Ptr(fielddescr.S), p)
+        except lltype.InvalidCast:
+            raise SpeculativeError
+
+    def protect_speculative_array(self, p, arraydescr):
+        if not p:
+            raise SpeculativeError
+        p = p._obj.container
+        if lltype.typeOf(p) != arraydescr.A:
+            raise SpeculativeError
+
+    def protect_speculative_string(self, p):
+        if not p:
+            raise SpeculativeError
+        p = p._obj.container
+        if lltype.typeOf(p) != rstr.STR:
+            raise SpeculativeError
+
+    def protect_speculative_unicode(self, p):
+        if not p:
+            raise SpeculativeError
+        p = p._obj.container
+        if lltype.typeOf(p) != rstr.UNICODE:
+            raise SpeculativeError
 
 
 class LLDeadFrame(object):
@@ -1120,14 +1168,22 @@ class LLFrame(object):
         self.do_renaming(argboxes, args)
 
     def _test_true(self, arg):
-        if isinstance(arg, list):
-            return all(arg)
+        assert arg in (0, 1)
         return arg
 
     def _test_false(self, arg):
-        if isinstance(arg, list):
-            return any(arg)
+        assert arg in (0, 1)
         return arg
+
+    def execute_vec_guard_true(self, descr, arg):
+        assert isinstance(arg, list)
+        if not all(arg):
+            self.fail_guard(descr)
+
+    def execute_vec_guard_false(self, descr, arg):
+        assert isinstance(arg, list)
+        if any(arg):
+            self.fail_guard(descr)
 
     def execute_guard_true(self, descr, arg):
         if not self._test_true(arg):
@@ -1335,7 +1391,6 @@ class LLFrame(object):
 
     execute_call_release_gil_n = _execute_call_release_gil
     execute_call_release_gil_i = _execute_call_release_gil
-    execute_call_release_gil_r = _execute_call_release_gil
     execute_call_release_gil_f = _execute_call_release_gil
 
     def _new_execute_call_assembler(def_val):

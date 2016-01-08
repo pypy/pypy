@@ -10,7 +10,8 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG, AddressLoc)
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
-from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.resoperation import (rop, ResOperation,
+        VectorOp, VectorGuardOp)
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
@@ -34,8 +35,17 @@ def not_implemented(msg):
 class VectorAssemblerMixin(object):
     _mixin_ = True
 
+    def genop_guard_vec_guard_true(self, guard_op, guard_token, locs, resloc):
+        self.implement_guard(guard_token)
+
+    def genop_guard_vec_guard_false(self, guard_op, guard_token, locs, resloc):
+        self.guard_success_cc = rx86.invert_condition(self.guard_success_cc)
+        self.implement_guard(guard_token)
+
     def guard_vector(self, guard_op, loc, true):
+        assert isinstance(guard_op, VectorGuardOp)
         arg = guard_op.getarg(0)
+        assert isinstance(arg, VectorOp)
         size = arg.bytesize
         temp = X86_64_XMM_SCRATCH_REG
         load = arg.bytesize * arg.count - self.cpu.vector_register_size
@@ -562,7 +572,8 @@ class VectorRegallocMixin(object):
 
     def consider_vec_arith(self, op):
         lhs = op.getarg(0)
-        size = lhs.bytesize
+        assert isinstance(op, VectorOp)
+        size = op.bytesize
         args = op.getarglist()
         loc1 = self.make_sure_var_in_reg(op.getarg(1), args)
         loc0 = self.xrm.force_result_in_reg(op, op.getarg(0), args)
@@ -579,6 +590,7 @@ class VectorRegallocMixin(object):
 
     def consider_vec_arith_unary(self, op):
         lhs = op.getarg(0)
+        assert isinstance(lhs, VectorOp)
         args = op.getarglist()
         res = self.xrm.force_result_in_reg(op, op.getarg(0), args)
         self.perform(op, [res, imm(lhs.bytesize)], res)
@@ -589,13 +601,16 @@ class VectorRegallocMixin(object):
 
     def consider_vec_logic(self, op):
         lhs = op.getarg(0)
+        assert isinstance(lhs, VectorOp)
         args = op.getarglist()
         source = self.make_sure_var_in_reg(op.getarg(1), args)
         result = self.xrm.force_result_in_reg(op, op.getarg(0), args)
         self.perform(op, [source, imm(lhs.bytesize)], result)
 
     def consider_vec_float_eq(self, op):
+        assert isinstance(op, VectorOp)
         lhs = op.getarg(0)
+        assert isinstance(lhs, VectorOp)
         args = op.getarglist()
         rhsloc = self.make_sure_var_in_reg(op.getarg(1), args)
         lhsloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
@@ -612,6 +627,7 @@ class VectorRegallocMixin(object):
 
     def consider_vec_pack_i(self, op):
         # new_res = vec_pack_i(res, src, index, count)
+        assert isinstance(op, VectorOp)
         arg = op.getarg(1)
         index = op.getarg(2)
         count = op.getarg(3)
@@ -629,6 +645,7 @@ class VectorRegallocMixin(object):
     consider_vec_pack_f = consider_vec_pack_i
 
     def consider_vec_unpack_i(self, op):
+        assert isinstance(op, VectorOp)
         index = op.getarg(1)
         count = op.getarg(2)
         assert isinstance(index, ConstInt)
@@ -642,6 +659,7 @@ class VectorRegallocMixin(object):
             # unpack into iX box
             resloc =  self.force_allocate_reg(op, args)
             arg = op.getarg(0)
+            assert isinstance(arg, VectorOp)
             size = arg.bytesize
         residx = 0
         args = op.getarglist()
@@ -651,6 +669,7 @@ class VectorRegallocMixin(object):
     consider_vec_unpack_f = consider_vec_unpack_i
 
     def consider_vec_expand_f(self, op):
+        assert isinstance(op, VectorOp)
         arg = op.getarg(0)
         args = op.getarglist()
         if arg.is_constant():
@@ -662,6 +681,7 @@ class VectorRegallocMixin(object):
         self.perform(op, [srcloc, imm(op.bytesize)], resloc)
 
     def consider_vec_expand_i(self, op):
+        assert isinstance(op, VectorOp)
         arg = op.getarg(0)
         args = op.getarglist()
         if arg.is_constant():
@@ -672,15 +692,19 @@ class VectorRegallocMixin(object):
         self.perform(op, [srcloc, imm(op.bytesize)], resloc)
 
     def consider_vec_int_signext(self, op):
+        assert isinstance(op, VectorOp)
         args = op.getarglist()
         resloc = self.xrm.force_result_in_reg(op, op.getarg(0), args)
-        size = op.cast_from_bytesize()
+        arg = op.getarg(0)
+        assert isinstance(arg, VectorOp)
+        size = arg.bytesize
         assert size > 0
         self.perform(op, [resloc, imm(size), imm(op.bytesize)], resloc)
 
     def consider_vec_int_is_true(self, op):
         args = op.getarglist()
         arg = op.getarg(0)
+        assert isinstance(arg, VectorOp)
         argloc = self.loc(arg)
         resloc = self.xrm.force_result_in_reg(op, arg, args)
         self.perform(op, [resloc,imm(arg.bytesize)], None)
@@ -701,3 +725,16 @@ class VectorRegallocMixin(object):
     consider_vec_cast_int_to_float = consider_vec_cast_float_to_int
     consider_vec_cast_float_to_singlefloat = consider_vec_cast_float_to_int
     consider_vec_cast_singlefloat_to_float = consider_vec_cast_float_to_int
+
+    def consider_vec_guard_true(self, op):
+        arg = op.getarg(0)
+        loc = self.loc(arg)
+        self.assembler.guard_vector(op, self.loc(arg), True)
+        self.perform_guard(op, [], None)
+
+    def consider_vec_guard_false(self, op):
+        arg = op.getarg(0)
+        loc = self.loc(arg)
+        self.assembler.guard_vector(op, self.loc(arg), False)
+        self.perform_guard(op, [], None)
+

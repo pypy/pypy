@@ -367,7 +367,6 @@ def _make_execute_list():
                          rop.INCREMENT_DEBUG_COUNTER,
                          rop.COND_CALL_GC_WB,
                          rop.COND_CALL_GC_WB_ARRAY,
-                         rop.ZERO_PTR_FIELD,
                          rop.ZERO_ARRAY,
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
@@ -376,7 +375,6 @@ def _make_execute_list():
                          rop.SETARRAYITEM_RAW,
                          rop.SETINTERIORFIELD_RAW,
                          rop.CALL_RELEASE_GIL_I,
-                         rop.CALL_RELEASE_GIL_R,
                          rop.CALL_RELEASE_GIL_F,
                          rop.CALL_RELEASE_GIL_N,
                          rop.QUASIIMMUT_FIELD,
@@ -398,6 +396,12 @@ def _make_execute_list():
                          rop.VEC_GETARRAYITEM_GC_I,
                          rop.VEC_GETARRAYITEM_GC_F,
                          rop.VEC_SETARRAYITEM_GC,
+                         rop.GC_LOAD_I,
+                         rop.GC_LOAD_R,
+                         rop.GC_LOAD_F,
+                         rop.GC_LOAD_INDEXED_R,
+                         rop.GC_STORE,
+                         rop.GC_STORE_INDEXED,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             if rop._VEC_PURE_FIRST <= value <= rop._VEC_PURE_LAST:
@@ -409,7 +413,7 @@ def _make_execute_list():
 def make_execute_function(name, func):
     # Make a wrapper for 'func'.  The func is a simple bhimpl_xxx function
     # from the BlackholeInterpreter class.  The wrapper is a new function
-    # that receives and returns boxed values.
+    # that receives boxed values (but returns a non-boxed value).
     for argtype in func.argtypes:
         if argtype not in ('i', 'r', 'f', 'd', 'cpu'):
             return None

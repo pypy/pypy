@@ -457,7 +457,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
     def set_shape(self, space, orig_array, new_shape):
         if len(new_shape) > NPY.MAXDIMS:
             raise oefmt(space.w_ValueError,
-                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+                "sequence too large; cannot be greater than %d", NPY.MAXDIMS)
         try:
             ovfcheck(support.product_check(new_shape) * self.dtype.elsize)
         except OverflowError as e:
@@ -601,7 +601,7 @@ class SliceArray(BaseConcreteArray):
     def set_shape(self, space, orig_array, new_shape):
         if len(new_shape) > NPY.MAXDIMS:
             raise oefmt(space.w_ValueError,
-                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+                "sequence too large; cannot be greater than %d", NPY.MAXDIMS)
         try:
             ovfcheck(support.product_check(new_shape) * self.dtype.elsize)
         except OverflowError as e:

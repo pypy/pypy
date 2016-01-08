@@ -1,6 +1,7 @@
 import os
 import sys
 from rpython.annotator import model as annmodel
+from rpython.rlib.objectmodel import enforceargs
 from rpython.rtyper.controllerentry import Controller
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -29,6 +30,7 @@ class OsEnvironController(Controller):
             raise KeyError
         return result
 
+    @enforceargs(None, None, str0, None)
     def setitem(self, obj, key, value):
         # in the RPython program, 'os.environ[key] = value' is
         # redirected here
@@ -77,7 +79,7 @@ elif _WIN32:
         rffi.CCHARPP, '_environ', eci)
     get__wenviron, _set__wenviron = rffi.CExternVariable(
         CWCHARPP, '_wenviron', eci, c_type='wchar_t **')
-    prefix = '_'    
+    prefix = '_'
 else:
     os_get_environ, _os_set_environ = rffi.CExternVariable(
         rffi.CCHARPP, 'environ', ExternalCompilationInfo())

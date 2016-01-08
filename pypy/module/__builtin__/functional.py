@@ -231,28 +231,33 @@ def min(space, __args__):
 
 
 class W_Enumerate(W_Root):
-    def __init__(self, space, w_iterable, w_start):
-        from pypy.objspace.std.listobject import W_ListObject
-        w_iter = space.iter(w_iterable)
-        if space.is_w(space.type(w_start), space.w_int):
-            self.index = space.int_w(w_start)
-            self.w_index = None
-            if self.index == 0 and type(w_iterable) is W_ListObject:
-                w_iter = w_iterable
-        else:
-            self.index = -1
-            self.w_index = w_start
-        self.w_iter_or_list = w_iter
-        if self.w_index is not None:
-            assert not type(self.w_iter_or_list) is W_ListObject
+    def __init__(self, w_iter_or_list, start, w_start):
+        # 'w_index' should never be a wrapped int here; if it would be,
+        # then it is actually None and the unwrapped int is in 'index'.
+        self.w_iter_or_list = w_iter_or_list
+        self.index = start
+        self.w_index = w_start
 
     def descr___new__(space, w_subtype, w_iterable, w_start=None):
-        self = space.allocate_instance(W_Enumerate, w_subtype)
+        from pypy.objspace.std.listobject import W_ListObject
+
         if w_start is None:
-            w_start = space.wrap(0)
+            start = 0
         else:
             w_start = space.index(w_start)
-        self.__init__(space, w_iterable, w_start)
+            if space.is_w(space.type(w_start), space.w_int):
+                start = space.int_w(w_start)
+                w_start = None
+            else:
+                start = -1
+
+        if start == 0 and type(w_iterable) is W_ListObject:
+            w_iter = w_iterable
+        else:
+            w_iter = space.iter(w_iterable)
+
+        self = space.allocate_instance(W_Enumerate, w_subtype)
+        self.__init__(w_iter, start, w_start)
         return space.wrap(self)
 
     def descr___iter__(self, space):
@@ -298,14 +303,17 @@ class W_Enumerate(W_Root):
         w_index = self.w_index
         if w_index is None:
             w_index = space.wrap(self.index)
-        else:
-            w_index = self.w_index
         w_info = space.newtuple([self.w_iter_or_list, w_index])
         return space.newtuple([w_new_inst, w_info])
 
 # exported through _pickle_support
-def _make_enumerate(space, w_iter, w_index):
-    return space.wrap(W_Enumerate(space, w_iter, w_index))
+def _make_enumerate(space, w_iter_or_list, w_index):
+    if space.is_w(space.type(w_index), space.w_int):
+        index = space.int_w(w_index)
+        w_index = None
+    else:
+        index = -1
+    return space.wrap(W_Enumerate(w_iter_or_list, index, w_index))
 
 W_Enumerate.typedef = TypeDef("enumerate",
     __new__=interp2app(W_Enumerate.descr___new__.im_func),

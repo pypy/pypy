@@ -394,6 +394,47 @@ class TestRlist(BaseRtypingTest):
         assert res.item2 == 8
         assert res.item3 == 7
 
+        def dummyfn():
+            l = [10, 9, 8, 7]
+            l[1:3] = [42]
+            return l[0], l[1], l[2]
+        res = self.interpret(dummyfn, ())
+        assert res.item0 == 10
+        assert res.item1 == 42
+        assert res.item2 == 7
+
+        def dummyfn():
+            l = [10, 9, 8, 7]
+            l[1:3] = [6, 5, 0]
+            return l[0], l[1], l[2], l[3], l[4]
+        res = self.interpret(dummyfn, ())
+        assert res.item0 == 10
+        assert res.item1 == 6
+        assert res.item2 == 5
+        assert res.item3 == 0
+        assert res.item4 == 7
+
+        def dummyfn():
+            l = [10, 9, 8, 7]
+            l[1:1] = [6, 5, 0]
+            return l[0], l[1], l[2], l[3], l[4], l[5], l[6]
+        res = self.interpret(dummyfn, ())
+        assert res.item0 == 10
+        assert res.item1 == 6
+        assert res.item2 == 5
+        assert res.item3 == 0
+        assert res.item4 == 9
+        assert res.item5 == 8
+        assert res.item6 == 7
+
+        def dummyfn():
+            l = [10, 9, 8, 7]
+            l[1:3] = []
+            return l[0], l[1]
+        res = self.interpret(dummyfn, ())
+        assert res.item0 == 10
+        assert res.item1 == 7
+
     def test_delslice(self):
         def dummyfn():
             l = [10, 9, 8, 7]

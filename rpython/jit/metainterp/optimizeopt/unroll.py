@@ -4,7 +4,7 @@ from rpython.jit.metainterp.history import Const, TargetToken, JitCellToken
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
      ShortPreambleBuilder, ExtendedShortPreambleBuilder, PreambleOp
 from rpython.jit.metainterp.optimizeopt import info, intutils
-from rpython.jit.metainterp.optimize import InvalidLoop
+from rpython.jit.metainterp.optimize import InvalidLoop, SpeculativeError
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
      Optimization, LoopInfo, MININT, MAXINT, BasicLoopInfo
 from rpython.jit.metainterp.optimizeopt.vstring import StrPtrInfo
@@ -144,9 +144,12 @@ class UnrollOptimizer(Optimization):
             raise InvalidLoop("Cannot import state, virtual states don't match")
         self.potential_extra_ops = {}
         self.optimizer.init_inparg_dict_from(label_args)
-        info, _ = self.optimizer.propagate_all_forward(
-            start_label.getarglist()[:], ops, call_pure_results, False,
-            flush=False)
+        try:
+            info, _ = self.optimizer.propagate_all_forward(
+                start_label.getarglist()[:], ops, call_pure_results, False,
+                flush=False)
+        except SpeculativeError:
+            raise InvalidLoop("Speculative heap access would be ill-typed")
         label_op = ResOperation(rop.LABEL, label_args, start_label.getdescr())
         for a in end_jump.getarglist():
             self.optimizer.force_box_for_end_of_preamble(
@@ -177,7 +180,7 @@ class UnrollOptimizer(Optimization):
 
         if not inline_short_preamble:
             self.jump_to_preamble(celltoken, end_jump, info)
-            return (UnrollInfo(target_token, label_op, [],
+            return (UnrollInfo(target_token, label_op, extra_same_as,
                                self.optimizer.quasi_immutable_deps),
                     self.optimizer._newoperations)            
 
@@ -311,9 +314,16 @@ class UnrollOptimizer(Optimization):
             args, virtuals = target_virtual_state.make_inputargs_and_virtuals(
                 args, self.optimizer)
             short_preamble = target_token.short_preamble
-            extra = self.inline_short_preamble(args + virtuals, args,
-                                short_preamble, self.optimizer.patchguardop,
-                                target_token, label_op)
+            try:
+                extra = self.inline_short_preamble(args + virtuals, args,
+                                    short_preamble, self.optimizer.patchguardop,
+                                    target_token, label_op)
+            except KeyError:
+                # SHOULD NOT OCCUR BUT DOES: WHY??  issue #2185
+                self.optimizer.metainterp_sd.logger_ops.log_short_preamble([],
+                    short_preamble, {})
+                raise
+
             self.send_extra_operation(jump_op.copy_and_change(rop.JUMP,
                                       args=args + extra,
                                       descr=target_token))
@@ -332,26 +342,32 @@ class UnrollOptimizer(Optimization):
                               patchguardop, target_token, label_op):
         short_inputargs = short[0].getarglist()
         short_jump_args = short[-1].getarglist()
-        if (self.short_preamble_producer and
-            self.short_preamble_producer.target_token is target_token):
-            # this means we're inlining the short preamble that's being
-            # built. Make sure we modify the correct things in-place
-            # THIS WILL MODIFY ALL THE LISTS PROVIDED, POTENTIALLY
-            self.short_preamble_producer.setup(short_inputargs, short_jump_args,
-                                               short, label_op.getarglist())
-        if 1:     # (keep indentation)
+        sb = self.short_preamble_producer
+        if sb is not None:
+            assert isinstance(sb, ExtendedShortPreambleBuilder)
+            if sb.target_token is target_token:
+                # this means we're inlining the short preamble that's being
+                # built. Make sure we modify the correct things in-place
+                self.short_preamble_producer.setup(short_jump_args,
+                                                   short, label_op.getarglist())
+                # after this call, THE REST OF THIS FUNCTION WILL MODIFY ALL
+                # THE LISTS PROVIDED, POTENTIALLY
+
+        # We need to make a list of fresh new operations corresponding
+        # to the short preamble operations.  We could temporarily forward
+        # the short operations to the fresh ones, but there are obscure
+        # issues: send_extra_operation() below might occasionally invoke
+        # use_box(), which assumes the short operations are not forwarded.
+        # So we avoid such temporary forwarding and just use a dict here.
+        assert len(short_inputargs) == len(jump_args)
+        mapping = {}
+        for i in range(len(jump_args)):
+            mapping[short_inputargs[i]] = jump_args[i]
+
+        # a fix-point loop, runs only once in almost all cases
+        i = 1
+        while 1:
             self._check_no_forwarding([short_inputargs, short], False)
-            assert len(short_inputargs) == len(jump_args)
-            # We need to make a list of fresh new operations corresponding
-            # to the short preamble operations.  We could temporarily forward
-            # the short operations to the fresh ones, but there are obscure
-            # issues: send_extra_operation() below might occasionally invoke
-            # use_box(), which assumes the short operations are not forwarded.
-            # So we avoid such temporary forwarding and just use a dict here.
-            mapping = {}
-            for i in range(len(jump_args)):
-                mapping[short_inputargs[i]] = jump_args[i]
-            i = 1
             while i < len(short) - 1:
                 sop = short[i]
                 arglist = self._map_args(mapping, sop.getarglist())
@@ -370,8 +386,12 @@ class UnrollOptimizer(Optimization):
             for arg in args_no_virtuals + short_jump_args:
                 self.optimizer.force_box(self.get_box_replacement(arg))
             self.optimizer.flush()
-            return [self.get_box_replacement(box)
-                    for box in self._map_args(mapping, short_jump_args)]
+            # done unless "short" has grown again
+            if i == len(short) - 1:
+                break
+
+        return [self.get_box_replacement(box)
+                for box in self._map_args(mapping, short_jump_args)]
 
     def _expand_info(self, arg, infos):
         if isinstance(arg, AbstractResOp) and arg.is_same_as():

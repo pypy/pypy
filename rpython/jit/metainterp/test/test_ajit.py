@@ -4044,7 +4044,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         self.interp_operations(f, [])
 
     def test_external_call(self):
-        from rpython.rlib.objectmodel import invoke_around_extcall
+        from rpython.rlib import rgil
 
         TIME_T = lltype.Signed
         # ^^^ some 32-bit platforms have a 64-bit rffi.TIME_T, but we
@@ -4058,11 +4058,6 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             pass
         state = State()
 
-        def before():
-            if we_are_jitted():
-                raise Oups
-            state.l.append("before")
-
         def after():
             if we_are_jitted():
                 raise Oups
@@ -4070,14 +4065,14 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         def f():
             state.l = []
-            invoke_around_extcall(before, after)
+            rgil.invoke_after_thread_switch(after)
             external(lltype.nullptr(T.TO))
             return len(state.l)
 
         res = self.interp_operations(f, [])
-        assert res == 2
+        assert res == 1
         res = self.interp_operations(f, [])
-        assert res == 2
+        assert res == 1
         self.check_operations_history(call_release_gil_i=1, call_may_force_i=0)
 
     def test_unescaped_write_zero(self):

@@ -139,7 +139,10 @@ class LLtypeMixin(object):
     myptr2 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode2)
     mynode3 = lltype.malloc(NODE2)
     mynode3.parent.parent.typeptr = node_vtable2
-    myptr3 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode3)
+    myptr3 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode3)   # a NODE2
+    mynode4 = lltype.malloc(NODE3)
+    mynode4.parent.typeptr = node_vtable3
+    myptr4 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode4)   # a NODE3
     nullptr = lltype.nullptr(llmemory.GCREF.TO)
     #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
     nodesize = cpu.sizeof(NODE, node_vtable)
@@ -478,9 +481,12 @@ class BaseTest(object):
         return self.oparse.parse()
 
     def postprocess(self, op):
+        class FakeJitCode(object):
+            index = 0
+
         if op.is_guard():
             op.rd_snapshot = resume.Snapshot(None, op.getfailargs())
-            op.rd_frame_info_list = resume.FrameInfo(None, "code", 11)
+            op.rd_frame_info_list = resume.FrameInfo(None, FakeJitCode(), 11)
 
     def add_guard_future_condition(self, res):
         # invent a GUARD_FUTURE_CONDITION to not have to change all tests
@@ -559,6 +565,10 @@ class BaseTest(object):
         else:
             for i, box in enumerate(jump_op.getarglist()):
                 if box.type == 'r' and not box.is_constant():
+                    # NOTE: we arbitrarily set the box contents to a NODE2
+                    # object here.  If you need something different, you
+                    # need to pass a 'jump_values' argument to e.g.
+                    # optimize_loop()
                     box.setref_base(self.nodefulladdr)
 
 

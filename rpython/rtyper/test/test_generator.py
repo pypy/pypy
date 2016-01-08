@@ -76,8 +76,8 @@ class TestGenerator(BaseRtypingTest):
         res = self.interpret(f, [])
         assert res == 358
 
+    @py.test.mark.xfail
     def test_different_exception(self):
-        py.test.skip("generators broken")
         def h(c):
             if c == 8:
                 raise ValueError
