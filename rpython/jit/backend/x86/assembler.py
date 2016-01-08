@@ -1502,32 +1502,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_gc_load_indexed_r = _genop_gc_load_indexed
     genop_gc_load_indexed_f = _genop_gc_load_indexed
 
-    def _imul_const_scaled(self, mc, targetreg, sourcereg, itemsize):
-        """Produce one operation to do roughly
-               targetreg = sourcereg * itemsize
-           except that the targetreg may still need shifting by 0,1,2,3.
-        """
-        if (itemsize & 7) == 0:
-            shift = 3
-        elif (itemsize & 3) == 0:
-            shift = 2
-        elif (itemsize & 1) == 0:
-            shift = 1
-        else:
-            shift = 0
-        itemsize >>= shift
-        #
-        if valid_addressing_size(itemsize - 1):
-            mc.LEA_ra(targetreg, (sourcereg, sourcereg,
-                                  get_scale(itemsize - 1), 0))
-        elif valid_addressing_size(itemsize):
-            mc.LEA_ra(targetreg, (rx86.NO_BASE_REGISTER, sourcereg,
-                                  get_scale(itemsize), 0))
-        else:
-            mc.IMUL_rri(targetreg, sourcereg, itemsize)
-        #
-        return shift
-
     def genop_discard_increment_debug_counter(self, op, arglocs):
         # The argument should be an immediate address.  This should
         # generate code equivalent to a GETFIELD_RAW, an ADD(1), and a
@@ -2354,12 +2328,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         jmp_adr0 = self.mc.get_relative_pos()
 
         self.mc.MOV(eax, heap(nursery_free_adr))
-        if valid_addressing_size(itemsize):
-            shift = get_scale(itemsize)
-        else:
-            shift = self._imul_const_scaled(self.mc, edi.value,
-                                            varsizeloc.value, itemsize)
-            varsizeloc = edi
+        assert valid_addressing_size(itemsize)
+        shift = get_scale(itemsize)
 
         # now varsizeloc is a register != eax.  The size of
         # the variable part of the array is (varsizeloc << shift)
