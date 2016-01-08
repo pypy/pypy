@@ -696,58 +696,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 
     # ----------
 
-    def test_virtual_1(self):
-        ops = """
-        [i, p0]
-        i0 = getfield_gc(p0, descr=valuedescr)
-        i1 = int_add(i0, i)
-        setfield_gc(p0, i1, descr=valuedescr)
-        jump(i, p0)
-        """
-        expected = """
-        [i, i2]
-        i1 = int_add(i2, i)
-        jump(i, i1)
-        """
-        py.test.skip("XXX")
-        self.optimize_loop(ops, 'Not, Virtual(node_vtable, valuedescr=Not)',
-                           expected)
-
-    def test_virtual_float(self):
-        ops = """
-        [f, p0]
-        f0 = getfield_gc(p0, descr=floatdescr)
-        f1 = float_add(f0, f)
-        setfield_gc(p0, f1, descr=floatdescr)
-        jump(f, p0)
-        """
-        expected = """
-        [f, f2]
-        f1 = float_add(f2, f)
-        jump(f, f1)
-        """
-        py.test.skip("XXX")
-        self.optimize_loop(ops, 'Not, Virtual(node_vtable, floatdescr=Not)',
-                           expected)
-
-    def test_virtual_2(self):
-        py.test.skip("XXX")
-        ops = """
-        [i, p0]
-        i0 = getfield_gc(p0, descr=valuedescr)
-        i1 = int_add(i0, i)
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p1, i1, descr=valuedescr)
-        jump(i, p1)
-        """
-        expected = """
-        [i, i2]
-        i1 = int_add(i2, i)
-        jump(i, i1)
-        """
-        self.optimize_loop(ops, 'Not, Virtual(node_vtable, valuedescr=Not)',
-                           expected)
-
     def test_virtual_oois(self):
         ops = """
         [p0, p1, p2]
@@ -774,20 +722,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_false(i12) []
         jump(p0, p1, p2)
         """
-        expected = """
-        [p2]
-        # all constant-folded :-)
-        jump(p2)
-        """
-        py.test.skip("XXX")
-        self.optimize_loop(ops, '''Virtual(node_vtable),
-                                   Virtual(node_vtable),
-                                   Not''',
-                           expected)
-        #
-        # to be complete, we also check the no-opt case where most comparisons
-        # are not removed.  The exact set of comparisons removed depends on
-        # the details of the algorithm...
         expected2 = """
         [p0, p1, p2]
         guard_nonnull(p0) []
@@ -800,26 +734,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(p0, p1, p2)
         """
         self.optimize_loop(ops, expected2)
-
-    def test_virtual_default_field(self):
-        py.test.skip("XXX")
-        ops = """
-        [p0]
-        i0 = getfield_gc(p0, descr=valuedescr)
-        guard_value(i0, 0) []
-        p1 = new_with_vtable(ConstClass(node_vtable))
-        # the field 'value' has its default value of 0
-        jump(p1)
-        """
-        expected = """
-        [i]
-        guard_value(i, 0) []
-        jump(0)
-        """
-        # the 'expected' is sub-optimal, but it should be done by another later
-        # optimization step.  See test_find_nodes_default_field() for why.
-        self.optimize_loop(ops, 'Virtual(node_vtable, valuedescr=Not)',
-                           expected)
 
     def test_virtual_3(self):
         ops = """
@@ -836,55 +750,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(i1)
         """
         self.optimize_loop(ops, expected)
-
-    def test_virtual_4(self):
-        py.test.skip("XXX")
-        ops = """
-        [i0, p0]
-        guard_class(p0, ConstClass(node_vtable)) []
-        i1 = getfield_gc(p0, descr=valuedescr)
-        i2 = int_sub(i1, 1)
-        i3 = int_add(i0, i1)
-        p1 = new_with_vtable(descr=nodesize)
-        setfield_gc(p1, i2, descr=valuedescr)
-        jump(i3, p1)
-        """
-        expected = """
-        [i0, i1]
-        i2 = int_sub(i1, 1)
-        i3 = int_add(i0, i1)
-        jump(i3, i2)
-        """
-        self.optimize_loop(ops, 'Not, Virtual(node_vtable, valuedescr=Not)',
-                           expected)
-
-    def test_virtual_5(self):
-        py.test.skip("XXX")
-        ops = """
-        [i0, p0]
-        guard_class(p0, ConstClass(node_vtable)) []
-        i1 = getfield_gc(p0, descr=valuedescr)
-        i2 = int_sub(i1, 1)
-        i3 = int_add(i0, i1)
-        p2 = new_with_vtable(descr=nodesize2)
-        setfield_gc(p2, i1, descr=valuedescr)
-        p1 = new_with_vtable(descr=nodesize)
-        setfield_gc(p1, i2, descr=valuedescr)
-        setfield_gc(p1, p2, descr=nextdescr)
-        jump(i3, p1)
-        """
-        expected = """
-        [i0, i1, i1bis]
-        i2 = int_sub(i1, 1)
-        i3 = int_add(i0, i1)
-        jump(i3, i2, i1)
-        """
-        self.optimize_loop(ops,
-            '''Not, Virtual(node_vtable,
-                            valuedescr=Not,
-                            nextdescr=Virtual(node_vtable2,
-                                              valuedescr=Not))''',
-                           expected)
 
     def test_virtual_constant_isnull(self):
         ops = """
@@ -1208,27 +1073,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_varray_2(self):
-        ops = """
-        [i0, p1]
-        i1 = getarrayitem_gc(p1, 0, descr=arraydescr)
-        i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
-        i3 = int_sub(i1, i2)
-        guard_value(i3, 15) []
-        p2 = new_array(2, descr=arraydescr)
-        setarrayitem_gc(p2, 1, i0, descr=arraydescr)
-        setarrayitem_gc(p2, 0, 20, descr=arraydescr)
-        jump(i0, p2)
-        """
-        expected = """
-        [i0, i1, i2]
-        i3 = int_sub(i1, i2)
-        guard_value(i3, 15) []
-        jump(i0, 20, i0)
-        """
-        py.test.skip("XXX")
-        self.optimize_loop(ops, 'Not, VArray(arraydescr, Not, Not)', expected)
-
     def test_p123_array(self):
         ops = """
         [i1, p2, p3]
@@ -1262,23 +1106,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump()
         """
         self.optimize_loop(ops, expected)
-
-    def test_vstruct_1(self):
-        py.test.skip("XXX")
-        ops = """
-        [i1, p2]
-        i2 = getfield_gc(p2, descr=adescr)
-        escape_n(i2)
-        p3 = new(descr=ssize)
-        setfield_gc(p3, i1, descr=adescr)
-        jump(i1, p3)
-        """
-        expected = """
-        [i1, i2]
-        escape_n(i2)
-        jump(i1, i1)
-        """
-        self.optimize_loop(ops, 'Not, VStruct(ssize, adescr=Not)', expected)
 
     def test_p123_vstruct(self):
         ops = """
@@ -1441,26 +1268,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump()
         """
         self.optimize_loop(ops, expected)
-
-    def test_duplicate_getfield_guard_value_const(self):
-        ops = """
-        [p1]
-        guard_value(p1, ConstPtr(myptr)) []
-        i1 = getfield_gc_i(p1, descr=valuedescr)
-        i2 = getfield_gc_i(ConstPtr(myptr), descr=valuedescr)
-        escape_n(i1)
-        escape_n(i2)
-        jump(p1)
-        """
-        expected = """
-        []
-        i1 = getfield_gc_i(ConstPtr(myptr), descr=valuedescr)
-        escape_n(i1)
-        escape_n(i1)
-        jump()
-        """
-        py.test.skip("XXX")
-        self.optimize_loop(ops, 'Constant(myptr)', expected)
 
     def test_duplicate_getfield_sideeffects_1(self):
         ops = """
@@ -1687,12 +1494,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(p1, i1, i2)
         """
         expected = """
-        [i1, i2]
+        [p1, i1, i2]
+        guard_value(p1, ConstPtr(myptr)) []
         setfield_gc(ConstPtr(myptr), i2, descr=valuedescr)
-        jump(i1, i2)
+        jump(ConstPtr(myptr), i1, i2)
         """
-        py.test.skip("XXX")
-        self.optimize_loop(ops, 'Constant(myptr), Not, Not', expected)
+        self.optimize_loop(ops, expected)
 
     def test_duplicate_getarrayitem_1(self):
         ops = """
@@ -1869,163 +1676,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_bug_1(self):
-        ops = """
-        [i0, p1]
-        p4 = getfield_gc_r(p1, descr=nextdescr)
-        guard_nonnull(p4) []
-        escape_n(p4)
-        #
-        p2 = new_with_vtable(descr=nodesize)
-        p3 = escape_r()
-        setfield_gc(p2, p3, descr=nextdescr)
-        jump(i0, p2)
-        """
-        expected = """
-        [i0, p4]
-        guard_nonnull(p4) []
-        escape_n(p4)
-        #
-        p3 = escape_r()
-        jump(i0, p3)
-        """
-        py.test.skip("XXX")
-        self.optimize_loop(ops, 'Not, Virtual(node_vtable, nextdescr=Not)',
-                           expected)
-
-    def test_bug_2(self):
-        ops = """
-        [i0, p1]
-        p4 = getarrayitem_gc(p1, 0, descr=arraydescr2)
-        guard_nonnull(p4) []
-        escape_n(p4)
-        #
-        p2 = new_array(1, descr=arraydescr2)
-        p3 = escape_r()
-        setarrayitem_gc(p2, 0, p3, descr=arraydescr2)
-        jump(i0, p2)
-        """
-        expected = """
-        [i0, p4]
-        guard_nonnull(p4) []
-        escape_n(p4)
-        #
-        p3 = escape_r()
-        jump(i0, p3)
-        """
-        py.test.skip("XXX")
-        self.optimize_loop(ops, 'Not, VArray(arraydescr2, Not)',
-                           expected)
-
-    def test_bug_3(self):
-        ops = """
-        [p1]
-        guard_nonnull(p1) []
-        guard_class(p1, ConstClass(node_vtable2)) []
-        p2 = getfield_gc_r(p1, descr=nextdescr)
-        guard_nonnull(12) []
-        guard_class(p2, ConstClass(node_vtable)) []
-        p3 = getfield_gc_r(p1, descr=otherdescr)
-        guard_nonnull(12) []
-        guard_class(p3, ConstClass(node_vtable)) []
-        setfield_gc(p3, p2, descr=otherdescr)
-        p1a = new_with_vtable(ConstClass(node_vtable2))
-        p2a = new_with_vtable(descr=nodesize)
-        p3a = new_with_vtable(descr=nodesize)
-        escape_n(p3a)
-        setfield_gc(p1a, p2a, descr=nextdescr)
-        setfield_gc(p1a, p3a, descr=otherdescr)
-        jump(p1a)
-        """
-        expected = """
-        [p2, p3]
-        guard_class(p2, ConstClass(node_vtable)) []
-        guard_class(p3, ConstClass(node_vtable)) []
-        setfield_gc(p3, p2, descr=otherdescr)
-        p3a = new_with_vtable(descr=nodesize)
-        escape_n(p3a)
-        p2a = new_with_vtable(descr=nodesize)
-        jump(p2a, p3a)
-        """
-        py.test.skip("XXX")
-        self.optimize_loop(ops, 'Virtual(node_vtable2, nextdescr=Not, otherdescr=Not)', expected)
-
-    def test_bug_3bis(self):
-        ops = """
-        [p1]
-        guard_nonnull(p1) []
-        guard_class(p1, ConstClass(node_vtable2)) []
-        p2 = getfield_gc_r(p1, descr=nextdescr)
-        guard_nonnull(12) []
-        guard_class(p2, ConstClass(node_vtable)) []
-        p3 = getfield_gc_r(p1, descr=otherdescr)
-        guard_nonnull(12) []
-        guard_class(p3, ConstClass(node_vtable)) []
-        p1a = new_with_vtable(ConstClass(node_vtable2))
-        p2a = new_with_vtable(descr=nodesize)
-        setfield_gc(p3, p2a, descr=otherdescr)
-        p3a = new_with_vtable(descr=nodesize)
-        escape_n(p3a)
-        setfield_gc(p1a, p2a, descr=nextdescr)
-        setfield_gc(p1a, p3a, descr=otherdescr)
-        jump(p1a)
-        """
-        expected = """
-        [p2, p3]
-        guard_class(p2, ConstClass(node_vtable)) []
-        guard_class(p3, ConstClass(node_vtable)) []
-        p2a = new_with_vtable(descr=nodesize)
-        setfield_gc(p3, p2a, descr=otherdescr)
-        p3a = new_with_vtable(descr=nodesize)
-        escape_n(p3a)
-        jump(p2a, p3a)
-        """
-        py.test.skip("XXX")
-        self.optimize_loop(ops, 'Virtual(node_vtable2, nextdescr=Not, otherdescr=Not)', expected)
-
-    def test_invalid_loop_1(self):
-        ops = """
-        [p1]
-        guard_isnull(p1) []
-        #
-        p2 = new_with_vtable(descr=nodesize)
-        jump(p2)
-        """
-        py.test.skip("XXX")
-        py.test.raises(InvalidLoop, self.optimize_loop,
-                       ops, 'Virtual(node_vtable)', None)
-
-    def test_invalid_loop_2(self):
-        py.test.skip("this would fail if we had Fixed again in the specnodes")
-        ops = """
-        [p1]
-        guard_class(p1, ConstClass(node_vtable2)) []
-        #
-        p2 = new_with_vtable(descr=nodesize)
-        escape_n(p2)      # prevent it from staying Virtual
-        jump(p2)
-        """
-        py.test.raises(InvalidLoop, self.optimize_loop,
-                       ops, '...', None)
-
-    def test_invalid_loop_3(self):
-        ops = """
-        [p1]
-        p2 = getfield_gc_r(p1, descr=nextdescr)
-        guard_isnull(p2) []
-        #
-        p3 = new_with_vtable(descr=nodesize)
-        p4 = new_with_vtable(descr=nodesize)
-        setfield_gc(p3, p4, descr=nextdescr)
-        jump(p3)
-        """
-        py.test.skip("XXX")
-        py.test.raises(InvalidLoop, self.optimize_loop, ops,
-                       'Virtual(node_vtable, nextdescr=Virtual(node_vtable))',
-                       None)
-
     def test_merge_guard_class_guard_value(self):
-        py.test.skip("disabled")
         ops = """
         [p1, i0, i1, i2, p2]
         guard_class(p1, ConstClass(node_vtable)) [i0]
@@ -2059,7 +1710,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.check_expanded_fail_descr("i0", rop.GUARD_NONNULL_CLASS)
 
     def test_merge_guard_nonnull_guard_value(self):
-        py.test.skip("disabled")
         ops = """
         [p1, i0, i1, i2, p2]
         guard_nonnull(p1) [i0]
@@ -2077,7 +1727,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.check_expanded_fail_descr("i0", rop.GUARD_VALUE)
 
     def test_merge_guard_nonnull_guard_class_guard_value(self):
-        py.test.skip("disabled")        
         ops = """
         [p1, i0, i1, i2, p2]
         guard_nonnull(p1) [i0]
@@ -2624,26 +2273,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
             where p2 is a node_vtable, valuedescr=i2, nextdescr=p1
             ''', rop.GUARD_TRUE)
 
-    def test_expand_fail_6(self):
-        ops = """
-        [p0, i0, i1]
-        guard_true(i0) [p0]
-        p1 = new_with_vtable(descr=nodesize)
-        setfield_gc(p1, i1, descr=valuedescr)
-        jump(p1, i1, i1)
-        """
-        expected = """
-        [i1b, i0, i1]
-        guard_true(i0) [i1b]
-        jump(i1, i1, i1)
-        """
-        py.test.skip("XXX")
-        self.optimize_loop(ops, '''Virtual(node_vtable, valuedescr=Not),
-                                   Not, Not''', expected)
-        self.check_expanded_fail_descr('''p0
-            where p0 is a node_vtable, valuedescr=i1b
-            ''', rop.GUARD_TRUE)
-
     def test_expand_fail_varray(self):
         ops = """
         [i1]
@@ -2683,47 +2312,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
         self.check_expanded_fail_descr('''p2
             where p2 is a vstruct ssize, adescr=i1, bdescr=p1
-            ''', rop.GUARD_TRUE)
-
-    def test_expand_fail_v_all_1(self):
-        ops = """
-        [i1, p1a, i2]
-        p6s = getarrayitem_gc(p1a, 0, descr=arraydescr2)
-        p7v = getfield_gc_r(p6s, descr=bdescr)
-        p5s = new(descr=ssize)
-        setfield_gc(p5s, i2, descr=adescr)
-        setfield_gc(p5s, p7v, descr=bdescr)
-        setarrayitem_gc(p1a, 1, p5s, descr=arraydescr2)
-        guard_true(i1) [p1a]
-        p2s = new(descr=ssize)
-        p3v = new_with_vtable(descr=nodesize)
-        p4a = new_array(2, descr=arraydescr2)
-        setfield_gc(p2s, i1, descr=adescr)
-        setfield_gc(p2s, p3v, descr=bdescr)
-        setfield_gc(p3v, i2, descr=valuedescr)
-        setarrayitem_gc(p4a, 0, p2s, descr=arraydescr2)
-        jump(i1, p4a, i2)
-        """
-        expected = """
-        [i1, ia, iv, pnull, i2]
-        guard_true(i1) [ia, iv, i2]
-        jump(1, 1, i2, NULL, i2)
-        """
-        py.test.skip("XXX")
-        self.optimize_loop(ops, '''
-            Not,
-            VArray(arraydescr2,
-                   VStruct(ssize,
-                           adescr=Not,
-                           bdescr=Virtual(node_vtable,
-                                          valuedescr=Not)),
-                   Not),
-            Not''', expected)
-        self.check_expanded_fail_descr('''p1a
-            where p1a is a varray arraydescr2: p6s, p5s
-            where p6s is a vstruct ssize, adescr=ia, bdescr=p7v
-            where p5s is a vstruct ssize, adescr=i2, bdescr=p7v
-            where p7v is a node_vtable, valuedescr=iv
             ''', rop.GUARD_TRUE)
 
     def test_expand_fail_lazy_setfield_1(self):
@@ -5178,6 +4766,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_intmod_bounds_harder(self):
+        py.test.skip("harder")
         # Of course any 'maybe-negative % power-of-two' can be turned into
         # int_and(), but that's a bit harder to detect here because it turns
         # into several operations, and of course it is wrong to just turn
@@ -5195,7 +4785,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i4 = int_and(i0, 15)
         finish(i4)
         """
-        py.test.skip("harder")
         self.optimize_loop(ops, expected)
 
     def test_intmod_bounds_bug1(self):
@@ -5356,7 +4945,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i5 = int_lt(i2, i1)
         guard_true(i5) []
 
-        i6 = getarrayitem_gc(p0, i2)
+        i6 = getarrayitem_gc_i(p0, i2, descr=chararraydescr)
         finish(i6)
         """
         expected = """
@@ -5367,7 +4956,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i4 = int_lt(i2, i0)
         guard_true(i4) []
 
-        i6 = getarrayitem_gc(p0, i3)
+        i6 = getarrayitem_gc_i(p0, i3, descr=chararraydescr)
         finish(i6)
         """
         self.optimize_loop(ops, expected)
