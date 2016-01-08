@@ -249,12 +249,6 @@ class OptHeap(Optimization):
                 d.produce_potential_short_preamble_ops(self.optimizer, sb,
                                                        descr, index)
 
-    def register_dirty_field(self, descr, op, info):
-        self.field_cache(descr).register_dirty_field(op, info)
-
-    def register_dirty_array_field(self, arraydescr, op, index, info):
-        self.arrayitem_cache(arraydescr, index).register_dirty_field(op, info)
-
     def clean_caches(self):
         del self._lazy_setfields_and_arrayitems[:]
         items = self.cached_fields.items()
