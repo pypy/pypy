@@ -636,7 +636,9 @@ class AppTestImport(BaseImportTest):
     def test_del_from_sys_modules(self):
         try:
             import del_sys_module
-        except ImportError:
+        #This raises a KeyError in cpython,
+        #not an import error
+        except KeyError:
             pass    # ok
         else:
             assert False, 'should not work'
