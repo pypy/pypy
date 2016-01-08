@@ -193,9 +193,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # and two more non-volatile registers (used to store
             # the RPython exception that occurred in the CALL, if any).
             #
-            # We need to increase our stack frame size a bit to store them.
-            #
-            self._push_all_regs_to_frame(mc, withfloats, callee_only=True)
             mc.STMG(r.r10, r.r12, l.addr(10*WORD, r.SP))
             mc.STG(r.r2, l.addr(2*WORD, r.SP))
             mc.STD(r.f0, l.addr(3*WORD, r.SP)) # slot of r3 is not used here
@@ -340,10 +337,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            xxx
             diff = mc.load_imm_plus(r.r5, gcrootmap.get_root_stack_top_addr())
-            mc.load(r.r5.value, r.r5.value, diff)
-            mc.store(r.r3.value, r.r5.value, -WORD)
+            mc.load(r.r5, r.r5, diff)
+            mc.store(r.r2, r.r5, -WORD)
 
         mc.restore_link()
         self._pop_core_regs_from_jitframe(mc)
@@ -948,12 +944,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if gcrootmap:
             if gcrootmap.is_shadow_stack:
                 if shadowstack_reg is None:
-                    xxx
                     diff = mc.load_imm_plus(r.SPP,
                                             gcrootmap.get_root_stack_top_addr())
-                    mc.load(r.SPP.value, r.SPP.value, diff)
+                    mc.load(r.SPP, r.SPP, diff)
                     shadowstack_reg = r.SPP
-                mc.load(r.SPP.value, shadowstack_reg.value, -WORD)
+                mc.load(r.SPP, shadowstack_reg, -WORD)
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
             # frame never uses card marking, so we enforce this is not
@@ -1001,6 +996,33 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self._call_header_shadowstack(gcrootmap)
+
+    def _call_header_shadowstack(self, gcrootmap):
+        # we need to put one word into the shadowstack: the jitframe (SPP)
+        # we saved all registers to the stack
+        RCS1 = r.r2
+        RCS2 = r.r3
+        RCS3 = r.r4
+        mc = self.mc
+        diff = mc.load_imm_plus(RCS1, gcrootmap.get_root_stack_top_addr())
+        mc.load(RCS2, RCS1, diff)  # ld RCS2, [rootstacktop]
+        #
+        mc.LGR(RCS3, RCS2)
+        mc.AGHI(RCS3, l.imm(WORD)) # add RCS3, RCS2, WORD
+        mc.store(r.SPP, RCS2, 0)   # std SPP, RCS2
+        #
+        mc.store(RCS3, RCS1, diff) # std RCS3, [rootstacktop]
+
+    def _call_footer_shadowstack(self, gcrootmap):
+        # r6 -> r15 can be used freely, they will be restored by 
+        # _call_footer after this call
+        RCS1 = r.r9
+        RCS2 = r.r10
+        mc = self.mc
+        diff = mc.load_imm_plus(RCS1, gcrootmap.get_root_stack_top_addr())
+        mc.load(RCS2, RCS1, diff)    # ld RCS2, [rootstacktop]
+        mc.AGHI(RCS2, l.imm(-WORD))  # sub RCS2, RCS2, WORD
+        mc.store(RCS2, RCS1, diff)   # std RCS2, [rootstacktop]
 
     def _call_footer(self):
         # the return value is the jitframe
@@ -1056,7 +1078,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if len(includes) == 0:
             return
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        assert len(includes) == 16
         v = 16
         for i,reg in enumerate(includes):
             mc.STDY(reg, l.addr(base_ofs + (v+i) * WORD, r.SPP))

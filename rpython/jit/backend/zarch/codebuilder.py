@@ -107,6 +107,9 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def load(self, treg, sreg, offset):
         self.LG(treg, l.addr(offset, sreg))
 
+    def store(self, val, dst, off):
+        self.STG(val, l.addr(off, dst))
+
     def store_update(self, valreg, treg, offset):
         self.STG(valreg, l.addr(offset, treg))
 
