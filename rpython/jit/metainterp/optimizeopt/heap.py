@@ -40,7 +40,11 @@ class CachedField(object):
         self.cached_structs = []
         self._lazy_setfield = None
 
-    def register_dirty_field(self, structop, info):
+    def register_info(self, structop, info):
+        # invariant: every struct or array ptr info, that is not virtual and
+        # that has a non-None entry at
+        # info._fields[descr.get_index()]
+        # must be in cache_infos
         self.cached_structs.append(structop)
         self.cached_infos.append(info)
 
@@ -119,6 +123,9 @@ class CachedField(object):
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getfield(descr, optheap)
+        if not we_are_translated() and res:
+            if isinstance(opinfo, info.AbstractStructPtrInfo):
+                assert opinfo in self.cached_infos
         if isinstance(res, PreambleOp):
             if not true_force:
                 return res.op
@@ -166,6 +173,9 @@ class ArrayCachedField(CachedField):
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getitem(descr, self.index, optheap)
+        if not we_are_translated() and res:
+            if isinstance(opinfo, info.ArrayPtrInfo):
+                assert opinfo in self.cached_infos
         if (isinstance(res, PreambleOp) and
             optheap.optimizer.cpu.supports_guard_gc_type):
             if not true_force:

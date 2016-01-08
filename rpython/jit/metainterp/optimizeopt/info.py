@@ -203,7 +203,7 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         if cf is not None:
             assert not self.is_virtual()
             assert struct is not None
-            cf.register_dirty_field(struct, self)
+            cf.register_info(struct, self)
 
     def getfield(self, descr, optheap=None):
         self.init_fields(descr.get_parent_descr(), descr.get_index())
@@ -531,7 +531,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         self._items[index] = op
         if cf is not None:
             assert not self.is_virtual()
-            cf.register_dirty_field(struct, self)
+            cf.register_info(struct, self)
 
     def getitem(self, descr, index, optheap=None):
         if self._items is None or index >= len(self._items):
