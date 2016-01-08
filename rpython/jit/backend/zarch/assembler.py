@@ -1217,7 +1217,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # new value of nursery_free_adr in RSZ and the adr of the new object
         # in RES.
-        self.load_gcmap(mc, r.SCRATCH, gcmap)
+        self.load_gcmap(mc, r.r1, gcmap)
         # We are jumping to malloc_slowpath without a call through a function
         # descriptor, because it is an internal call and "call" would trash
         # r2 and r11
@@ -1269,7 +1269,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
                             lengthloc, itemsize, maxlength, gcmap,
                             arraydescr):
-        xxx
         from rpython.jit.backend.llsupport.descr import ArrayDescr
         assert isinstance(arraydescr, ArrayDescr)
 
@@ -1280,46 +1279,47 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if maxlength > 2**16-1:
             maxlength = 2**16-1      # makes things easier
         mc = self.mc
-        mc.cmp_op(0, lengthloc.value, maxlength, imm=True, signed=False)
+        mc.cmp_op(lengthloc, maxlength, imm=True, signed=False)
 
         jmp_adr0 = mc.currpos()
-        mc.trap()       # conditional jump, patched later
+        mc.reserve_cond_jump(short=True)       # conditional jump, patched later
 
         # ------------------------------------------------------------
         # block of code for the case: the length is <= maxlength
 
         diff = nursery_top_adr - nursery_free_adr
         assert _check_imm_arg(diff)
-        mc.load_imm(r.r2, nursery_free_adr)
+        mc.load_imm(r.r1, nursery_free_adr)
 
-        varsizeloc = self._multiply_by_constant(lengthloc, itemsize,
-                                                r.RSZ)
         # varsizeloc is either RSZ here, or equal to lengthloc if
         # itemsize == 1.  It is the size of the variable part of the
         # array, in bytes.
 
-        mc.load(r.RES.value, r.r2.value, 0)         # load nursery_free
-        mc.load(r.SCRATCH.value, r.r2.value, diff)  # load nursery_top
+        mc.load(r.RES, l.addr(0, r.r1))          # load nursery_free
+        mc.load(r.SCRATCH2, l.addr(diff, r.r1))  # load nursery_top
 
         assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
         constsize = arraydescr.basesize + self.gc_size_of_header
         force_realignment = (itemsize % WORD) != 0
         if force_realignment:
             constsize += WORD - 1
-        mc.addi(r.RSZ.value, varsizeloc.value, constsize)
+        if varsizeloc is not r.RSZ:
+            mc.LGR(r.RSZ, varsizeloc)
+        mc.AGFI(r.RSZ, l.imm(constsize))
         if force_realignment:
             # "& ~(WORD-1)"
+            xxx
             bit_limit = 60 if WORD == 8 else 61
             mc.rldicr(r.RSZ.value, r.RSZ.value, 0, bit_limit)
 
-        mc.add(r.RSZ.value, r.RES.value, r.RSZ.value)
+        mc.AGR(r.RSZ, r.RES)
         # now RSZ contains the total size in bytes, rounded up to a multiple
         # of WORD, plus nursery_free_adr
 
-        mc.cmp_op(0, r.RSZ.value, r.SCRATCH.value, signed=False)
+        mc.cmp_op(r.RSZ, r.SCRATCH, signed=False)
 
         jmp_adr1 = mc.currpos()
-        mc.trap()        # conditional jump, patched later
+        mc.reserve_cond_jump(short=True) # conditional jump, patched later
 
         # ------------------------------------------------------------
         # block of code for two cases: either the length is > maxlength
@@ -1328,13 +1328,21 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         #
         offset = mc.currpos() - jmp_adr0
         pmc = OverwritingBuilder(mc, jmp_adr0, 1)
-        pmc.bgt(offset)    # jump if GT
+        pmc.BRC(c.GT, l.imm(offset))    # jump if GT
         pmc.overwrite()
         #
         # save the gcmap
-        self.load_gcmap(mc, r.r2, gcmap)
+        self.load_gcmap(mc, r.r1, gcmap)
         #
-        # load the function to call into CTR
+        # load the argument(s)
+        if kind == rewrite.FLAG_ARRAY:
+            mc.LGR(r.RSZ, lengthloc)
+            mc.load_imm(r.RES, itemsize)
+            mc.load_imm(r.SCRATCH2, arraydescr.tid)
+        else:
+            mc.LGR(r.RES, lengthloc)
+        #
+        # load the function into r14 and jump
         if kind == rewrite.FLAG_ARRAY:
             addr = self.malloc_slowpath_varsize
         elif kind == rewrite.FLAG_STR:
@@ -1343,22 +1351,12 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             addr = self.malloc_slowpath_unicode
         else:
             raise AssertionError(kind)
-        mc.load_imm(r.SCRATCH, addr)
-        mc.mtctr(r.SCRATCH.value)
-        #
-        # load the argument(s)
-        if kind == rewrite.FLAG_ARRAY:
-            mc.mr(r.RSZ.value, lengthloc.value)
-            mc.load_imm(r.RES, itemsize)
-            mc.load_imm(r.SCRATCH, arraydescr.tid)
-        else:
-            mc.mr(r.RES.value, lengthloc.value)
         #
         # call!
-        mc.bctrl()
+        mc.branch_absolute(addr)
 
         jmp_location = mc.currpos()
-        mc.trap()      # jump forward, patched later
+        mc.reserve_cond_jump(short=True)      # jump forward, patched later
 
         # ------------------------------------------------------------
         # block of code for the common case: the length is <= maxlength
@@ -1366,21 +1364,20 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         offset = mc.currpos() - jmp_adr1
         pmc = OverwritingBuilder(mc, jmp_adr1, 1)
-        pmc.ble(offset)    # jump if LE
+        pmc.BRC(c.LE, l.imm(offset))    # jump if LE
         pmc.overwrite()
         #
         # write down the tid, but only in this case (not in other cases
         # where r.RES is the result of the CALL)
-        mc.load_imm(r.SCRATCH, arraydescr.tid)
-        mc.store(r.SCRATCH.value, r.RES.value, 0)
+        mc.load_imm(r.SCRATCH2, arraydescr.tid)
+        mc.STG(r.SCRATCH2, l.addr(0, r.RES.value))
         # while we're at it, this line is not needed if we've done the CALL
-        mc.store(r.RSZ.value, r.r2.value, 0)    # store into nursery_free
+        mc.store(r.RSZ, l.addr(0, r.r2))    # store into nursery_free
 
         # ------------------------------------------------------------
-
         offset = mc.currpos() - jmp_location
         pmc = OverwritingBuilder(mc, jmp_location, 1)
-        pmc.b(offset)    # jump always
+        pmc.BCR(c.ANY, l.imm(offset))    # jump always
         pmc.overwrite()
 
 def notimplemented_op(asm, op, arglocs, regalloc):
