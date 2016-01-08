@@ -143,30 +143,32 @@ class AbstractCachedEntry(object):
     # abstract methods
 
     def _get_rhs_from_set_op(self, op):
+        """ given a set(field or arrayitem) op, return the rhs argument """
         raise NotImplementedError("abstract method")
 
     def put_field_back_to_info(self, op, opinfo, optheap):
+        """ this method is called just after a lazy setfield was ommitted. it
+        puts the information of the lazy setfield back into the proper cache in
+        the info. """
         raise NotImplementedError("abstract method")
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
         raise NotImplementedError("abstract method")
 
     def invalidate(self, descr):
+        """ clear all the cached knowledge in the infos in self.cached_infos.
+        """
         raise NotImplementedError("abstract method")
 
 
 class CachedField(AbstractCachedEntry):
     def _get_rhs_from_set_op(self, op):
-        """ given a set(field or arrayitem) op, return the rhs argument """
         return op.getarg(1)
 
     def put_field_back_to_info(self, op, opinfo, optheap):
-        """ this method is called just after a lazy setfield was ommitted. it
-        puts the information of the lazy setfield back into the proper cache in
-        the info. """
         arg = optheap.get_box_replacement(op.getarg(1))
         struct = optheap.get_box_replacement(op.getarg(0))
-        opinfo.setfield(op.getdescr(), struct, arg, optheap, self)
+        opinfo.setfield(op.getdescr(), struct, arg, optheap=optheap, cf=self)
 
     def _getfield(self, opinfo, descr, optheap, true_force=True):
         res = opinfo.getfield(descr, optheap)
@@ -177,7 +179,7 @@ class CachedField(AbstractCachedEntry):
             if not true_force:
                 return res.op
             res = optheap.optimizer.force_op_from_preamble(res)
-            opinfo.setfield(descr, None, res, optheap)
+            opinfo.setfield(descr, None, res, optheap=optheap)
         return res
 
     def invalidate(self, descr):
@@ -213,7 +215,7 @@ class ArrayCachedItem(AbstractCachedEntry):
     def put_field_back_to_info(self, op, opinfo, optheap):
         arg = optheap.get_box_replacement(op.getarg(2))
         struct = optheap.get_box_replacement(op.getarg(0))
-        opinfo.setitem(op.getdescr(), self.index, struct, arg, self, optheap)
+        opinfo.setitem(op.getdescr(), self.index, struct, arg, optheap=optheap, cf=self)
 
     def invalidate(self, descr):
         for opinfo in self.cached_infos:
@@ -261,7 +263,7 @@ class OptHeap(Optimization):
         descrkeys = self.cached_fields.keys()
         if not we_are_translated():
             # XXX Pure operation of boxes that are cached in several places will
-            #     only be removed from the peeled loop when red from the first
+            #     only be removed from the peeled loop when read from the first
             #     place discovered here. This is far from ideal, as it makes
             #     the effectiveness of our optimization a bit random. It should
             #     howevere always generate correct results. For tests we dont
@@ -509,7 +511,7 @@ class OptHeap(Optimization):
                 if self.optimizer.is_virtual(op.getarg(2)):
                     pendingfields.append(op)
                 else:
-                    cf.force_lazy_setfield(self, descr)                    
+                    cf.force_lazy_setfield(self, descr)
         return pendingfields
 
     def optimize_GETFIELD_GC_I(self, op):
@@ -523,7 +525,7 @@ class OptHeap(Optimization):
         self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
         # then remember the result of reading the field
-        structinfo.setfield(op.getdescr(), op.getarg(0), op, self, cf)
+        structinfo.setfield(op.getdescr(), op.getarg(0), op, optheap=self, cf=cf)
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
 
@@ -574,12 +576,12 @@ class OptHeap(Optimization):
         # default case: produce the operation
         self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
-        # the remember the result of reading the array item
+        # then remember the result of reading the array item
         if cf is not None:
             arrayinfo.setitem(op.getdescr(), indexb.getint(),
                               self.get_box_replacement(op.getarg(0)),
-                              self.get_box_replacement(op), cf,
-                              self)
+                              self.get_box_replacement(op), optheap=self,
+                              cf=cf)
     optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_GC_I
     optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I
 

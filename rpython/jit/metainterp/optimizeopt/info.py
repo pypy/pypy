@@ -524,7 +524,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             optforce.emit_operation(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
-    def setitem(self, descr, index, struct, op, cf=None, optheap=None):
+    def setitem(self, descr, index, struct, op, optheap=None, cf=None):
         if self._items is None:
             self._items = [None] * (index + 1)
         if index >= len(self._items):
@@ -700,13 +700,13 @@ class ConstPtrInfo(PtrInfo):
         info = self._get_array_info(descr, optheap)
         return info.getitem(descr, index)
 
-    def setitem(self, descr, index, struct, op, cf=None, optheap=None):
+    def setitem(self, descr, index, struct, op, optheap=None, cf=None):
         info = self._get_array_info(descr, optheap)
-        info.setitem(descr, index, struct, op, cf)
+        info.setitem(descr, index, struct, op, optheap=optheap, cf=cf)
 
     def setfield(self, fielddescr, struct, op, optheap=None, cf=None):
         info = self._get_info(fielddescr.get_parent_descr(), optheap)
-        info.setfield(fielddescr, struct, op, optheap, cf)
+        info.setfield(fielddescr, struct, op, optheap=optheap, cf=cf)
 
     def is_null(self):
         return not bool(self._const.getref_base())
