@@ -499,7 +499,7 @@ class AppTestImport(BaseImportTest):
         # Check relative fails when __package__ set to a non-string
         ns = dict(__package__=object())
         check_absolute()
-        raises(ValueError, check_relative)
+        raises(TypeError, check_relative)
 
     def test_import_function(self):
         # More tests for __import__
