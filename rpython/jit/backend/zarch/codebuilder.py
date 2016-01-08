@@ -133,10 +133,9 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         self.TRAP2()
 
     def trace(self):
-        self.SVC(l.imm(142))
-        #self.LGHI(r.r2, 17)
-        #self.XGR(r.r3, r.r3)
-        #self.SVC(l.imm(17))
+        self.LGHI(r.r2, l.imm(17))
+        self.XGR(r.r3, r.r3)
+        self.SVC(l.imm(17))
 
     def cmp_op(self, a, b, pool=False, imm=False, signed=True, fp=False):
         if fp == True:
@@ -200,9 +199,10 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
     def reserve_cond_jump(self, short=False):
         self.trap()        # conditional jump, patched later
-        self.trap()        # conditional jump, patched later
+        self.trap()
         if not short:
-            self.trap()    # conditional jump, patched later
+            # 6 bytes instead of 2
+            self.trap()
 
     def branch_absolute(self, addr):
         self.load_imm(r.r14, addr)

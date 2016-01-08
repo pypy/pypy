@@ -756,7 +756,6 @@ class Regalloc(BaseRegalloc):
         return []
 
     def prepare_call_malloc_nursery_varsize_frame(self, op):
-        xxx
         sizeloc = self.ensure_reg(op.getarg(0))
         # sizeloc must be in a register, but we can free it now
         # (we take care explicitly of conflicts with r.RES or r.RSZ)
@@ -771,7 +770,6 @@ class Regalloc(BaseRegalloc):
         return [sizeloc]
 
     def prepare_call_malloc_nursery_varsize(self, op):
-        xxx
         # the result will be in r.RES
         self.rm.force_allocate_reg(op, selected_reg=r.RES)
         self.rm.temp_boxes.append(op)
@@ -784,7 +782,7 @@ class Regalloc(BaseRegalloc):
         # sure it is in a register different from r.RES and r.RSZ.  (It
         # should not be a ConstInt at all.)
         length_box = op.getarg(2)
-        lengthloc = self.ensure_reg(length_box)
+        lengthloc = self.ensure_reg(length_box, force_in_reg=True)
         return [lengthloc]
 
 

@@ -315,7 +315,11 @@ class TestMallocFastpath(BaseTestRegalloc):
                                   'strdescr': arraydescr})
         # check the returned pointers
         gc_ll_descr = self.cpu.gc_ll_descr
-        assert gc_ll_descr.calls == [(8, 15, 10), (1, 15, 15), ('str', 15)]
+        scale = lambda x: x if x in self.cpu.load_supported_factors else 1
+        byte = lambda f,v: v if scale(f) != 1 else v*f
+        assert gc_ll_descr.calls == [(scale(8), 15, byte(8,10)),
+                                     (scale(5), 15, byte(5,3)),
+                                     ('str', byte(5,3))]
         # one fit, one was too large, one was not fitting
 
     def test_malloc_slowpath(self):
