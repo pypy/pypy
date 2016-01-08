@@ -12,7 +12,7 @@ from rpython.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
 from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper import rclass
 from rpython.rlib.jit import AsmInfo
 from rpython.jit.backend.model import CompiledLoopToken
@@ -40,6 +40,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_unique_id
+from rpython.rlib.rvmprof.rvmprof import _get_vmprof, VMPROF_JITTED_TAG
 
 
 class Assembler386(BaseAssembler, VectorAssemblerMixin):
@@ -837,9 +838,23 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth
 
+    def _call_header_vmprof(self):
+        stack = _get_vmprof().cintf.vmprof_address_of_global_stack()
+        self.mc.MOV_rr(eax.value, esp.value)
+        self.mc.ADD_ri(eax.value, (FRAME_FIXED_SIZE - 4) * WORD) # er makes no sense
+        # next
+        self.mc.MOV(ecx, heap(stack))
+        self.mc.MOV_mr((eax.value, 0), ecx.value)
+        # value
+        self.mc.MOV_mr((eax.value, WORD), esp.value)
+        # kind
+        self.mc.MOV_mi((eax.value, WORD * 2), VMPROF_JITTED_TAG)
+        self.mc.MOV(heap(stack), eax)
+
     def _call_header(self):
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
+        self._call_header_vmprof()
         if IS_X86_64:
             self.mc.MOV_sr(THREADLOCAL_OFS, esi.value)
             self.mc.MOV_rr(ebp.value, edi.value)

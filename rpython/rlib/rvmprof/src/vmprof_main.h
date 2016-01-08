@@ -55,6 +55,15 @@ static void *(*mainloop_get_virtual_ip)(char *) = 0;
 static int opened_profile(char *interp_name);
 static void flush_codes(void);
 
+
+
+RPY_EXTERN vmprof_stack* vmprof_global_stack;
+
+RPY_EXTERN void *vmprof_address_of_global_stack(void)
+{
+    return (void*)&vmprof_global_stack;
+}
+
 RPY_EXTERN
 char *vmprof_init(int fd, double interval, char *interp_name)
 {

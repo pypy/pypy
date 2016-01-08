@@ -11,6 +11,12 @@ MAX_FUNC_NAME = 1023
 
 # ____________________________________________________________
 
+# keep in sync with vmprof_stack.h
+VMPROF_CODE_TAG = 1
+VMPROF_BLACKHOLE_TAG = 2
+VMPROF_JITTED_TAG = 3
+VMPROF_JITTING_TAG = 4
+VMPROF_GC_TAG = 5
 
 class VMProfError(Exception):
     def __init__(self, msg):

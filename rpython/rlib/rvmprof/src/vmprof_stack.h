@@ -16,10 +16,3 @@ typedef struct vmprof_stack {
 // to worry too much. There is a potential for squeezing it with bit
 // patterns into one WORD, but I don't want to care RIGHT NOW, potential
 // for future optimization potential
-
-RPY_EXTERN vmprof_stack* vmprof_global_stack;
-
-RPY_EXTERN void *vmprof_address_of_global_stack(void)
-{
-    return (void*)&vmprof_global_stack;
-}

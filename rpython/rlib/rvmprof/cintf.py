@@ -56,6 +56,9 @@ def setup():
                                             [rffi.INT], lltype.Void,
                                             compilation_info=eci,
                                             _nowrapper=True)
+    vmprof_address_of_global_stack = rffi.llexternal(
+        "vmprof_address_of_global_stack", [], rffi.CArrayPtr(lltype.Signed),
+        compilation_info=eci)
     return CInterface(locals())
 
 
@@ -105,6 +108,8 @@ def make_c_trampoline_function(name, func, token, restok):
     target.write("""
 #include "src/precommondefs.h"
 #include "vmprof_stack.h"
+
+extern vmprof_stack* vmprof_global_stack;
 
 %(type)s %(cont_name)s(%(llargs)s);
 
