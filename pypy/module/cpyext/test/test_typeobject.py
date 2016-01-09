@@ -55,6 +55,9 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(SystemError, "obj.broken_member = 42")
         assert module.fooType.broken_member.__doc__ is None
         assert module.fooType.object_member.__doc__ == "A Python object."
+        module.add_docstring(module.fooType.docless_member, "docstring for docless_member")
+        assert module.fooType.docless_member.__doc__ ==  "docstring for docless_member"
+        assert str(type(module.fooType.int_member)) == "<type 'member_descriptor'>"
 
     def test_typeobject_object_member(self):
         module = self.import_module(name='foo')
