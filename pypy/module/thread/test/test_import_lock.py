@@ -95,9 +95,9 @@ class TestImportLock:
             importlock.count += 1
             original_acquire()
         importlock.count = 0
-        monkeypatch.setattr(importlock.__class__, 'acquire_lock', acquire_lock)
         monkeypatch.setattr(importlock, 'acquire_lock', acquire_lock)
         # An already imported module
+
         importhook(space, 'sys')
         assert importlock.count == 0
         # A new module
