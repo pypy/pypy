@@ -59,7 +59,7 @@ class GraphAnalyzer(object):
         try:
             funcobj = op.args[0].value._obj
         except DelayedPointer:
-            return self.bottom_result()
+            return self.top_result()
         result = self.bottom_result()
         if hasattr(funcobj, '_callbacks'):
             bk = self.translator.annotator.bookkeeper
