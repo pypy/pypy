@@ -74,12 +74,6 @@ class FunctionCodeGenerator(object):
                     self.more_ll_values.append(link.llexitcase)
                 elif link.exitcase is not None:
                     mix.append(Constant(link.exitcase))
-        if self.exception_policy == "CPython":
-            v, exc_cleanup_ops = self.graph.exc_cleanup
-            mix.append(v)
-            for cleanupop in exc_cleanup_ops:
-                mix.extend(cleanupop.args)
-                mix.append(cleanupop.result)
 
         uniquemix = []
         seen = identity_dict()
