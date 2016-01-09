@@ -15,7 +15,8 @@ class BaseRVMProfTest(object):
             if stackp:
                 # not during tracing
                 stack = rffi.cast(rffi.CArrayPtr(lltype.Signed), stackp)
-                visited.append(rffi.cast(rffi.CArrayPtr(lltype.Signed), stack[1] - WORD)[0])
+                item = rffi.cast(rffi.CArrayPtr(lltype.Signed), stack[1] - WORD)[0]
+                visited.append(item)
             else:
                 visited.append(0)
 
