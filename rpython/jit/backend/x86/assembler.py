@@ -851,6 +851,13 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.MOV_mi((eax.value, WORD * 2), VMPROF_JITTED_TAG)
         self.mc.MOV(heap(stack), eax)
 
+    def _call_footer_vmprof(self):
+        stack = _get_vmprof().cintf.vmprof_address_of_global_stack()
+        # *stack = stack->next
+        self.mc.MOV(eax, heap(stack))
+        self.mc.MOV_rm(eax.value, (eax.value, 0))
+        self.mc.MOV(heap(stack), eax)
+
     def _call_header(self):
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
@@ -888,6 +895,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def _call_footer(self):
         # the return value is the jitframe
+        self._call_footer_vmprof()
         self.mc.MOV_rr(eax.value, ebp.value)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap

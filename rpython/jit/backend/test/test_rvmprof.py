@@ -36,9 +36,12 @@ class BaseRVMProfTest(object):
 
         hooks = Hooks()
 
+        stackp = _get_vmprof().cintf.vmprof_address_of_global_stack()
+        stackp[0] = 0 # make it empty
         self.meta_interp(f, [10], policy=JitPolicy(hooks))
         v = set(visited)
         assert 0 in v
         v.remove(0)
         assert len(v) == 1
         assert 0 <= list(v)[0] - hooks.raw_start <= 10*1024
+        assert stackp[0] == 0 # make sure we didn't leave anything dangling
