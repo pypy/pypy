@@ -73,7 +73,7 @@ def compile_extension_module(space, modname, include_dirs=[], **kwds):
     else:
         kwds["link_files"] = [str(api_library + '.so')]
         if sys.platform.startswith('linux'):
-            kwds["compile_extra"]=["-g", "-Werror=implicit-function-declaration"]
+            kwds["compile_extra"]=["-O0", "-g", "-Werror=implicit-function-declaration"]
 
     modname = modname.split('.')[-1]
     eci = ExternalCompilationInfo(
@@ -107,7 +107,7 @@ def compile_extension_module_applevel(space, modname, include_dirs=[], **kwds):
     elif sys.platform == 'darwin':
         pass
     elif sys.platform.startswith('linux'):
-            kwds["compile_extra"]=["-g","-Werror=implicit-function-declaration"]
+            kwds["compile_extra"]=["-O0", "-g","-Werror=implicit-function-declaration"]
 
     modname = modname.split('.')[-1]
     eci = ExternalCompilationInfo(
