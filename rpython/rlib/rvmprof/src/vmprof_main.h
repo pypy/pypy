@@ -38,15 +38,6 @@
 
 /************************************************************/
 
-// functions copied from libunwind using dlopen
-
-#ifndef __APPLE__ // should be linux only probably
-static int (*unw_get_reg)(unw_cursor_t*, int, unw_word_t*) = NULL;
-static int (*unw_step)(unw_cursor_t*) = NULL;
-static int (*unw_init_local)(unw_cursor_t *, unw_context_t *) = NULL;
-static int (*unw_get_proc_info)(unw_cursor_t *, unw_proc_info_t *) = NULL;
-#endif
-
 static int profile_file = -1;
 static long prepare_interval_usec;
 static struct profbuf_s *volatile current_codes;
