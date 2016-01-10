@@ -1,12 +1,19 @@
 
-import os
+import os, py
 from rpython.jit.backend.test.support import CCompiledMixin
 from rpython.rlib.jit import JitDriver
 from rpython.tool.udir import udir
+from rpython.translator.translator import TranslationContext
 from rpython.jit.backend.detect_cpu import getcpuclass
 
 class CompiledVmprofTest(CCompiledMixin):
     CPUClass = getcpuclass()
+
+    def _get_TranslationContext(self):
+        t = TranslationContext()
+        t.config.translation.gc = 'incminimark'
+        t.config.translation.list_comprehension_operations = True
+        return t
 
     def test_vmprof(self):
         from rpython.rlib import rvmprof
@@ -20,7 +27,8 @@ class CompiledVmprofTest(CCompiledMixin):
         except rvmprof.VMProfPlatformUnsupported, e:
             py.test.skip(str(e))
 
-        driver = JitDriver(greens = ['code'], reds = ['i', 's', 'num'])
+        driver = JitDriver(greens = ['code'], reds = ['i', 's', 'num'],
+            is_recursive=True)
 
         @rvmprof.vmprof_execute_code("xcode13", lambda code, num: code)
         def main(code, num):
@@ -55,6 +63,9 @@ class CompiledVmprofTest(CCompiledMixin):
             from vmprof import read_profile
             tmpfile = str(udir.join('test_rvmprof'))
             stats = read_profile(tmpfile)
+            t = stats.get_tree()
+            import pdb
+            pdb.set_trace()
 
         self.meta_interp(f, [100000000])
         try:

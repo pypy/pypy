@@ -155,7 +155,7 @@ static int get_stack_trace(intptr_t *result, int max_depth, intptr_t pc, ucontex
         // the bottom part is jitted, means we can fill up the first part
         // from the JIT
         n = vmprof_write_header_for_jit_addr(result, n, pc, max_depth);
-        bottom_jitted = 1;
+        stack = stack->next; // skip the first item as it contains garbage
     }
     while (n < max_depth - 1 && stack) {
         result[n] = stack->kind;

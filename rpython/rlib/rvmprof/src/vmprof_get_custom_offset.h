@@ -26,7 +26,7 @@ static long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
     result[n] = VMPROF_ASSEMBLER_TAG;
     result[n + 1] = start_addr;
     n += 2;
-    start = n + 2;
+    start = n;
     while (n < max_depth) {
         id = pypy_yield_codemap_at_addr(codemap, addr, &current_pos);
         if (id == -1)

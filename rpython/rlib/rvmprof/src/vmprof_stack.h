@@ -1,4 +1,6 @@
 
+#include <unistd.h>
+
 #define VMPROF_CODE_TAG 1
 #define VMPROF_BLACKHOLE_TAG 2
 #define VMPROF_JITTED_TAG 3
