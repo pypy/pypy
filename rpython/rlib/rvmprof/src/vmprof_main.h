@@ -130,7 +130,7 @@ struct prof_stacktrace_s {
     char padding[sizeof(long) - 1];
     char marker;
     long count, depth;
-    void *stack[];
+    intptr_t stack[];
 };
 
 static long profile_interval_usec = 0;
@@ -144,13 +144,22 @@ static char atfork_hook_installed = 0;
  * *************************************************************
  */
 
-static int get_stack_trace(void **result, int max_depth, ucontext_t *ucontext)
+static int get_stack_trace(intptr_t *result, int max_depth, intptr_t pc, ucontext_t *ucontext)
 {
     struct vmprof_stack* stack = vmprof_global_stack;
     int n = 0;
+    intptr_t addr = 0;
+    int bottom_jitted = 0;
+    // check if the pc is in JIT
+    if (pypy_find_codemap_at_addr((intptr_t)pc, &addr)) {
+        // the bottom part is jitted, means we can fill up the first part
+        // from the JIT
+        n = vmprof_write_header_for_jit_addr(result, n, pc, max_depth);
+        bottom_jitted = 1;
+    }
     while (n < max_depth - 1 && stack) {
-        result[n] = (void*)stack->kind;
-        result[n + 1] = (void*)stack->value;
+        result[n] = stack->kind;
+        result[n + 1] = stack->value;
         stack = stack->next;
         n += 2;
     }
@@ -205,7 +214,7 @@ static int xxx_get_stack_trace(void** result, int max_depth, ucontext_t *ucontex
 }
 #endif
 
-static void *get_current_thread_id(void)
+static intptr_t get_current_thread_id(void)
 {
     /* xxx This function is a hack on two fronts:
 
@@ -219,7 +228,7 @@ static void *get_current_thread_id(void)
        An alternative would be to try to look if the information is
        available in the ucontext_t in the caller.
     */
-    return (void *)pthread_self();
+    return (intptr_t)pthread_self();
 }
 
 
@@ -247,7 +256,8 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
             st->marker = MARKER_STACKTRACE;
             st->count = 1;
             //st->stack[0] = GetPC((ucontext_t*)ucontext);
-            depth = get_stack_trace(st->stack, MAX_STACK_DEPTH-2, ucontext);
+            depth = get_stack_trace(st->stack,
+                MAX_STACK_DEPTH-2, GetPC((ucontext_t*)ucontext), ucontext);
             //depth++;  // To account for pc value in stack[0];
             st->depth = depth;
             st->stack[depth++] = get_current_thread_id();
@@ -402,45 +412,10 @@ static int opened_profile(char *interp_name)
 
 static int close_profile(void)
 {
-    char buf[4096];
-    ssize_t size;
     unsigned char marker = MARKER_TRAILER;
 
     if (_write_all(&marker, 1) < 0)
         return -1;
-
-#ifdef __linux__
-    // copy /proc/self/maps to the end of the profile file
-    int srcfd = open("/proc/self/maps", O_RDONLY);
-    if (srcfd < 0)
-        return -1;
-
-    while ((size = read(srcfd, buf, sizeof buf)) > 0) {
-        if (_write_all(buf, size) < 0) {
-            close(srcfd);
-            return -1;
-        }
-    }
-    close(srcfd);
-#else
-    // freebsd and mac
-#if defined(__APPLE__)
-	sprintf(buf, "vmmap %d", getpid());
-#else
-    sprintf(buf, "procstat -v %d", getpid());
-#endif
-    FILE *srcf = popen(buf, "r");
-    if (!srcf)
-        return -1;
-
-    while ((size = fread(buf, 1, sizeof buf, srcf))) {
-        if (_write_all(buf, size) < 0) {
-            pclose(srcf);
-            return -1;
-        }
-    }
-    pclose(srcf);
-#endif
 
     /* don't close() the file descriptor from here */
     profile_file = -1;

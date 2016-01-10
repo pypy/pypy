@@ -843,23 +843,20 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.MOV_rr(eax.value, esp.value)
         self.mc.ADD_ri(eax.value, (FRAME_FIXED_SIZE - 4) * WORD) # er makes no sense
         # next
-        self.mc.MOV_ri(ecx.value, stack)
-        self.mc.MOV_rm(ecx.value, (ecx.value, 0))
+        self.mc.MOV(ecx, heap(stack))
         self.mc.MOV_mr((eax.value, 0), ecx.value)
         # value
         self.mc.MOV_mr((eax.value, WORD), esp.value)
         # kind
         self.mc.MOV_mi((eax.value, WORD * 2), VMPROF_JITTED_TAG)
-        self.mc.MOV_ri(ecx.value, stack)
-        self.mc.MOV_mr((ecx.value, 0), eax.value)
+        self.mc.MOV(heap(stack), eax)
 
     def _call_footer_vmprof(self):
         stack = rffi.cast(lltype.Signed, _get_vmprof().cintf.vmprof_address_of_global_stack())
         # *stack = stack->next
-        self.mc.MOV_ri(ecx.value, stack)
-        self.mc.MOV_rm(eax.value, (ecx.value, 0))
+        self.mc.MOV(eax, heap(stack))
         self.mc.MOV_rm(eax.value, (eax.value, 0))
-        self.mc.MOV_mr((ecx.value, 0), eax.value)
+        self.mc.MOV(heap(stack), eax)
 
     def _call_header(self):
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)

@@ -32,7 +32,7 @@ class CompiledVmprofTest(CCompiledMixin):
             while i < num:
                 driver.jit_merge_point(code=code, i=i, s=s, num=num)
                 s += (i << 1)
-                if s % 32423423423 and s > 0 == 0:
+                if s % 32423423423 == 0 and s > 0 == 0:
                     print s
                 i += 1
             return s
@@ -51,7 +51,7 @@ class CompiledVmprofTest(CCompiledMixin):
             os.close(fd)
             return 0
         
-        def check_vmprof_output(self):
+        def check_vmprof_output():
             from vmprof import read_profile
             tmpfile = str(udir.join('test_rvmprof'))
             stats = read_profile(tmpfile)
