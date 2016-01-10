@@ -166,54 +166,6 @@ static int get_stack_trace(intptr_t *result, int max_depth, intptr_t pc, ucontex
     return n;
 }
 
-#if 0
-static int xxx_get_stack_trace(void** result, int max_depth, ucontext_t *ucontext)
-{
-    void *ip;
-    int n = 0;
-    unw_cursor_t cursor;
-#ifdef __APPLE__
-    unw_context_t uc;
-    unw_getcontext(&uc);
-#else
-    unw_context_t uc = *ucontext;
-#endif
-
-    int ret = unw_init_local(&cursor, &uc);
-    assert(ret >= 0);
-    (void)ret;
-
-    while (n < max_depth) {
-        if (unw_get_reg(&cursor, UNW_REG_IP, (unw_word_t *) &ip) < 0) {
-            break;
-        }
-
-        unw_proc_info_t pip;
-        unw_get_proc_info(&cursor, &pip);
-
-        /* if n==0, it means that the signal handler interrupted us while we
-           were in the trampoline, so we are not executing (yet) the real main
-           loop function; just skip it */
-        if (VMPROF_ADDR_OF_TRAMPOLINE((void*)pip.start_ip) && n > 0) {
-            // found main loop stack frame
-            void* sp;
-            unw_get_reg(&cursor, UNW_REG_SP, (unw_word_t *) &sp);
-            if (mainloop_get_virtual_ip)
-                ip = mainloop_get_virtual_ip((char *)sp);
-            else
-                ip = *(void **)sp;
-        }
-
-        int first_run = (n == 0);
-        result[n++] = ip;
-        n = vmprof_write_header_for_jit_addr(result, n, ip, max_depth);
-        if (vmprof_unw_step(&cursor, first_run) <= 0)
-            break;
-    }
-    return n;
-}
-#endif
-
 static intptr_t get_current_thread_id(void)
 {
     /* xxx This function is a hack on two fronts:
