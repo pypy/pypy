@@ -21,21 +21,17 @@ class AppTestCodeModule:
 
     def test_cause_tb(self):
         interp = self.get_interp()
-        #(Arbitrarily) Changing to TypeError as IOError is now an alias of OSError, making
-        #testing confusing
+        # (Arbitrarily) Changing to TypeError as IOError is now an alias of
+        # OSError, making testing confusing
         interp.runsource('raise TypeError from OSError')
         result = interp.out.getvalue()
-        #For reasons to me unknown, the code module does not show chained exceptions
-        #It only shows the last exception. Keeping this for now.
-        #The test needs to me moved elsewhere if chained exceptions aren't
-        #already tested elsewhere
         expected_header = """OSError
 
 The above exception was the direct cause of the following exception:
 
 Traceback (most recent call last):
 """
-        #assert expected_header in result
+        assert expected_header in result
         assert result.endswith("TypeError\n")
 
     def test_context_tb(self):
@@ -51,5 +47,5 @@ During handling of the above exception, another exception occurred:
 
 Traceback (most recent call last):
 """
-        #assert expected_header in result
+        assert expected_header in result
         assert result.endswith("NameError: name '_diana_' is not defined\n")
