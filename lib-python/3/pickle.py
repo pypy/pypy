@@ -292,9 +292,6 @@ class _Pickler:
 
         # Check the type dispatch table
         t = type(obj)
-        #Unbound methods no longer exist, but pyframes rely on being
-        #able to pickle unbound methods
-        #This is a pypy-specific requirement, thus the change in the stdlib
         f = self.dispatch.get(t)
         if f:
             f(self, obj) # Call unbound method with explicit self
@@ -720,64 +717,6 @@ class _Pickler:
         write = self.write
         memo = self.memo
 
-        #This logic is stolen from the protocol 4 logic from 3.5
-        #We need it unconditionally as pypy itself relies on it.
-        if name is None:
-            name = getattr(obj, '__qualname__', None)
-        if name is None:
-            name = obj.__name__
-
-        module_name = whichmodule(obj, name, allow_qualname=True)
-        try:
-            __import__(module_name, level=0)
-            module = sys.modules[module_name]
-            obj2 = _getattribute(module, name, allow_qualname=True)
-        except (ImportError, KeyError, AttributeError):
-            raise PicklingError(
-                "Can't pickle %r: it's not found as %s.%s" %
-                (obj, module_name, name))
-        else:
-            if obj2 is not obj:
-                raise PicklingError(
-                    "Can't pickle %r: it's not the same object as %s.%s" %
-                    (obj, module_name, name))
-
-        if self.proto >= 2:
-            code = _extension_registry.get((module_name, name))
-            if code:
-                assert code > 0
-                if code <= 0xff:
-                    write(EXT1 + bytes([code]))
-                elif code <= 0xffff:
-                    write(EXT2 + bytes([code&0xff, code>>8]))
-                else:
-                    write(EXT4 + pack("<i", code))
-                return
-        # Non-ASCII identifiers are supported only with protocols >= 3.
-        if self.proto >= 3:
-            write(GLOBAL + bytes(module_name, "utf-8") + b'\n' +
-                  bytes(name, "utf-8") + b'\n')
-        else:
-            if self.fix_imports:
-                r_name_mapping = _compat_pickle.REVERSE_NAME_MAPPING
-                r_import_mapping = _compat_pickle.REVERSE_IMPORT_MAPPING
-                if (module_name, name) in r_name_mapping:
-                    module_name, name = r_name_mapping[(module_name, name)]
-                if module_name in r_import_mapping:
-                    module_name = r_import_mapping[module_name]
-            try:
-                write(GLOBAL + bytes(module_name, "ascii") + b'\n' +
-                      bytes(name, "ascii") + b'\n')
-            except UnicodeEncodeError:
-                raise PicklingError(
-                    "can't pickle global identifier '%s.%s' using "
-                    "pickle protocol %i" % (module, name, self.proto))
-
-        self.memoize(obj)
-    def save_global(self, obj, name=None, pack=struct.pack):
-        write = self.write
-        memo = self.memo
-
         if name is None:
             name = obj.__name__
 
@@ -839,6 +778,7 @@ class _Pickler:
             return self.save_reduce(type, (...,), obj=obj)
         return self.save_global(obj)
 
+    dispatch[FunctionType] = save_function
     dispatch[BuiltinFunctionType] = save_global
     dispatch[type] = save_type
 
@@ -860,30 +800,13 @@ def _keep_alive(x, memo):
         # aha, this is the first one :-)
         memo[id(memo)]=[x]
 
-def _getattribute(obj, name, allow_qualname=False):
-    dotted_path = name.split(".")
-    if not allow_qualname and len(dotted_path) > 1:
-        raise AttributeError("Can't get qualified attribute {!r} on {!r}; " +
-                             "use protocols >= 4 to enable support"
-                             .format(name, obj))
-    for subpath in dotted_path:
-        if subpath == '<locals>':
-            raise AttributeError("Can't get local attribute {!r} on {!r}"
-                                 .format(name, obj))
-        try:
-            obj = getattr(obj, subpath)
-        except AttributeError:
-            raise AttributeError("Can't get attribute {!r} on {!r}"
-                                 .format(name, obj))
-    return obj
-
 
 # A cache for whichmodule(), mapping a function object to the name of
 # the module in which the function was found.
 
 classmap = {} # called classmap for backwards compatibility
 
-def whichmodule(obj, name, allow_qualname=False):
+def whichmodule(func, funcname):
     """Figure out the module in which a function occurs.
 
     Search sys.modules for the module.
@@ -892,23 +815,22 @@ def whichmodule(obj, name, allow_qualname=False):
     If the function cannot be found, return "__main__".
     """
     # Python functions should always get an __module__ from their globals.
-    mod = getattr(obj, "__module__", None)
+    mod = getattr(func, "__module__", None)
     if mod is not None:
         return mod
-    if obj in classmap:
-        return classmap[obj]
+    if func in classmap:
+        return classmap[func]
 
-    for module_name, module in list(sys.modules.items()):
-        if module_name == '__main__' or module is None:
+    for name, module in list(sys.modules.items()):
+        if module is None:
             continue # skip dummy package entries
-        try:
-            if _getattribute(module, name, allow_qualname) is obj:
-                classmap[obj] = module_name
-                return module_name
-        except AttributeError:
-            pass
-    classmap[obj] = '__main__'
-    return '__main__'
+        if name != '__main__' and getattr(module, funcname, None) is func:
+            break
+    else:
+        name = '__main__'
+    classmap[func] = name
+    return name
+
 
 # Unpickling machinery
 
