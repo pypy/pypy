@@ -142,12 +142,14 @@ static int get_stack_trace(intptr_t *result, int max_depth, intptr_t pc, ucontex
     intptr_t addr = 0;
     int bottom_jitted = 0;
     // check if the pc is in JIT
+#ifdef PYPY_JIT_CODEMAP
     if (pypy_find_codemap_at_addr((intptr_t)pc, &addr)) {
         // the bottom part is jitted, means we can fill up the first part
         // from the JIT
         n = vmprof_write_header_for_jit_addr(result, n, pc, max_depth);
         stack = stack->next; // skip the first item as it contains garbage
     }
+#endif
     while (n < max_depth - 1 && stack) {
         result[n] = stack->kind;
         result[n + 1] = stack->value;

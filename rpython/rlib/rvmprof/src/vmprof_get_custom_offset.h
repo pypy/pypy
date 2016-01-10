@@ -8,6 +8,7 @@ long pypy_jit_stack_depth_at_loc(long loc);
 static long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
                                              intptr_t ip, int max_depth)
 {
+#ifdef PYPY_JIT_CODEMAP
     void *codemap;
     long current_pos = 0;
     intptr_t id;
@@ -44,5 +45,6 @@ static long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
         result[n - k - 1] = tmp;
         k++;
     }
+#endif
     return n;
 }
