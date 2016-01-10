@@ -335,7 +335,7 @@ class RandomEffectsAnalyzer(BoolGraphAnalyzer):
             funcobj = op.args[0].value._obj
             if funcobj.random_effects_on_gcobjs:
                 return True
-        except (AttributeError, lltype.DelayedPointer):
+        except AttributeError:
             return True   # better safe than sorry
         return super(RandomEffectsAnalyzer, self).analyze_external_call(
             op, seen)
