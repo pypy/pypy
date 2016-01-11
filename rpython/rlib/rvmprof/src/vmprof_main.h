@@ -159,7 +159,7 @@ static int get_stack_trace(intptr_t *result, int max_depth, intptr_t pc, ucontex
         }
 #ifdef PYPY_JIT_CODEMAP
         if (stack->kind == VMPROF_JITTED_TAG) {
-            pc = (intptr_t*)(stack->value - sizeof(intptr_t))[0];
+            pc = ((intptr_t*)(stack->value - sizeof(intptr_t)))[0];
             n = vmprof_write_header_for_jit_addr(result, n, pc, max_depth);
             stack = stack->next;
         }
