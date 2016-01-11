@@ -448,7 +448,9 @@ def build_unpack_func(mnemonic, func):
         else:
             return arg
     unpack_arg._annspecialcase_ = 'specialize:arg(1)'
-    argtypes = func._arguments_
+    argtypes = func._arguments_[:]
+    #while len(argtypes) > 0 and argtypes[-1] == '-':
+    #    argtypes.pop()
     at = argtypes[0] if len(argtypes) >= 1 else '-'
     bt = argtypes[1] if len(argtypes) >= 2 else '-'
     ct = argtypes[2] if len(argtypes) >= 3 else '-'
@@ -467,7 +469,7 @@ def build_unpack_func(mnemonic, func):
         f = unpack_arg(b, bt)
         g = unpack_arg(c, ct)
         return func(self, e, f, g)
-    def function4(self, a, b):
+    def function4(self, a, b, c, d):
         e = unpack_arg(a, at)
         f = unpack_arg(b, bt)
         g = unpack_arg(c, ct)

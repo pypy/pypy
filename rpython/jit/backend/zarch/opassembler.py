@@ -21,6 +21,7 @@ from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (FLOAT, INT, REF, VOID)
 from rpython.jit.metainterp.resoperation import rop
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import rstr, rffi, lltype
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib.objectmodel import we_are_translated
@@ -875,7 +876,7 @@ class MemoryOpAssembler(object):
             addr_loc = l.addr(offset_loc.value, base_loc, index_loc)
         else:
             self.mc.LGR(helper_reg, index_loc)
-            slef.mc.AGR(helper_reg, offset_loc)
+            self.mc.AGR(helper_reg, offset_loc)
             addr_loc = l.addr(0, base_loc, helper_reg)
         return addr_loc
 

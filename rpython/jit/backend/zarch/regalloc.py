@@ -81,7 +81,7 @@ class FPRegisterManager(RegisterManager):
 
     def place_in_pool(self, var):
         offset = self.assembler.pool.get_offset(var)
-        return l.pool(offset, r.POOL)
+        return l.pool(offset, float=True)
 
     def ensure_reg(self, box, force_in_reg):
         if isinstance(box, Const):
@@ -566,7 +566,7 @@ class Regalloc(BaseRegalloc):
 
     def ensure_reg_or_any_imm(self, box):
         if box.type == FLOAT:
-            return self.fprm.ensure_reg(box)
+            return self.fprm.ensure_reg(box, True)
         else:
             if isinstance(box, Const):
                 return imm(box.getint())

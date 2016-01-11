@@ -32,6 +32,9 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.rlib.jit import AsmInfo
 
+class JitFrameTooDeep(Exception):
+    pass
+
 class AssemblerZARCH(BaseAssembler, OpAssembler):
 
     def __init__(self, cpu, translate_support_code=False):
@@ -835,10 +838,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                 return
             # move immediate value to memory
             elif loc.is_stack():
-                with scratch_reg(self.mc):
-                    offset = loc.value
-                    self.mc.load_imm(r.SCRATCH, prev_loc)
-                    self.mc.STG(r.SCRATCH, l.addr(offset, r.SPP))
+                offset = loc.value
+                self.mc.load_imm(r.SCRATCH, prev_loc.value)
+                self.mc.STG(r.SCRATCH, l.addr(offset, r.SPP))
                 return
             assert 0, "not supported location"
         elif prev_loc.is_in_pool():
@@ -858,9 +860,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # move in memory
             elif loc.is_stack():
                 target_offset = loc.value
-                with scratch_reg(self.mc):
-                    self.mc.load(r.SCRATCH.value, r.SPP, offset)
-                    self.mc.store(r.SCRATCH.value, r.SPP, target_offset)
+                self.mc.load(r.SCRATCH, r.SPP, offset)
+                self.mc.store(r.SCRATCH, r.SPP, target_offset)
                 return
             # move from memory to fp register
             elif loc.is_fp_reg():
@@ -879,23 +880,16 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                 self.mc.STG(prev_loc, l.addr(offset, r.SPP))
                 return
             assert 0, "not supported location"
-        elif prev_loc.is_imm_float():
-            value = prev_loc.getint()
+        elif prev_loc.is_in_pool():
             # move immediate value to fp register
             if loc.is_fp_reg():
-                xxx
-                with scratch_reg(self.mc):
-                    self.mc.load_imm(r.SCRATCH, value)
-                    self.mc.lfdx(loc.value, 0, r.SCRATCH.value)
+                self.LD(loc, prev_loc)
                 return
             # move immediate value to memory
             elif loc.is_stack():
-                xxx
-                with scratch_reg(self.mc):
-                    offset = loc.value
-                    self.mc.load_imm(r.SCRATCH, value)
-                    self.mc.lfdx(r.FP_SCRATCH.value, 0, r.SCRATCH.value)
-                    self.mc.stfd(r.FP_SCRATCH.value, r.SPP.value, offset)
+                offset = loc.value
+                self.mc.LD(r.FP_SCRATCH, prev_loc)
+                self.mc.STDY(r.FP_SCRATCH, l.addr(offset, r.SPP))
                 return
             assert 0, "not supported location"
         elif prev_loc.is_fp_reg():
