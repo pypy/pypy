@@ -430,12 +430,19 @@ class TestRunningAssembler(object):
         loaded = []
 
         # just one single
-        for r in [r.r14, r.r0, r.r1, r.r15]:
-            self.pushpop_jitframe([r])
-            assert stored == [(r,)]
+        for x in [r.r14, r.r0, r.r1, r.r15]:
+            self.pushpop_jitframe([x])
+            assert stored == [(x,)]
             assert stored == loaded
             stored = []
             loaded = []
+
+        # unordered
+        self.pushpop_jitframe([r.r14, r.r8, r.r4, r.r0])
+        assert stored == [(r.r14,), (r.r8,), (r.r4,), (r.r0,)]
+        assert stored == loaded
+        stored = []
+        loaded = []
 
 
 
