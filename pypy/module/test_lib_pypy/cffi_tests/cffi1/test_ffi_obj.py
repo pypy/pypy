@@ -8,6 +8,7 @@ def test_ffi_new():
     p = ffi.new("int *")
     p[0] = -42
     assert p[0] == -42
+    assert type(ffi) is ffi.__class__ is _cffi1_backend.FFI
 
 def test_ffi_subclass():
     class FOO(_cffi1_backend.FFI):
@@ -17,6 +18,7 @@ def test_ffi_subclass():
     assert foo.x == 42
     p = foo.new("int *")
     assert p[0] == 0
+    assert type(foo) is foo.__class__ is FOO
 
 def test_ffi_no_argument():
     py.test.raises(TypeError, _cffi1_backend.FFI, 42)
@@ -193,6 +195,11 @@ def test_handle():
     assert ffi.from_handle(xp) is x
     yp = ffi.new_handle([6, 4, 2])
     assert ffi.from_handle(yp) == [6, 4, 2]
+
+def test_handle_unique():
+    ffi = _cffi1_backend.FFI()
+    assert ffi.new_handle(None) is not ffi.new_handle(None)
+    assert ffi.new_handle(None) != ffi.new_handle(None)
 
 def test_ffi_cast():
     ffi = _cffi1_backend.FFI()
@@ -416,3 +423,76 @@ def test_cast_from_int_type_to_bool():
             assert int(ffi.cast("_Bool", ffi.cast(type, 42))) == 1
             assert int(ffi.cast("bool", ffi.cast(type, 42))) == 1
             assert int(ffi.cast("_Bool", ffi.cast(type, 0))) == 0
+
+def test_init_once():
+    def do_init():
+        seen.append(1)
+        return 42
+    ffi = _cffi1_backend.FFI()
+    seen = []
+    for i in range(3):
+        res = ffi.init_once(do_init, "tag1")
+        assert res == 42
+        assert seen == [1]
+    for i in range(3):
+        res = ffi.init_once(do_init, "tag2")
+        assert res == 42
+        assert seen == [1, 1]
+
+def test_init_once_multithread():
+    if sys.version_info < (3,):
+        import thread
+    else:
+        import _thread as thread
+    import time
+    #
+    def do_init():
+        print('init!')
+        seen.append('init!')
+        time.sleep(1)
+        seen.append('init done')
+        print('init done')
+        return 7
+    ffi = _cffi1_backend.FFI()
+    seen = []
+    for i in range(6):
+        def f():
+            res = ffi.init_once(do_init, "tag")
+            seen.append(res)
+        thread.start_new_thread(f, ())
+    time.sleep(1.5)
+    assert seen == ['init!', 'init done'] + 6 * [7]
+
+def test_init_once_failure():
+    def do_init():
+        seen.append(1)
+        raise ValueError
+    ffi = _cffi1_backend.FFI()
+    seen = []
+    for i in range(5):
+        py.test.raises(ValueError, ffi.init_once, do_init, "tag")
+        assert seen == [1] * (i + 1)
+
+def test_init_once_multithread_failure():
+    if sys.version_info < (3,):
+        import thread
+    else:
+        import _thread as thread
+    import time
+    def do_init():
+        seen.append('init!')
+        time.sleep(1)
+        seen.append('oops')
+        raise ValueError
+    ffi = _cffi1_backend.FFI()
+    seen = []
+    for i in range(3):
+        def f():
+            py.test.raises(ValueError, ffi.init_once, do_init, "tag")
+        thread.start_new_thread(f, ())
+    i = 0
+    while len(seen) < 6:
+        i += 1
+        assert i < 20
+        time.sleep(0.51)
+    assert seen == ['init!', 'oops'] * 3

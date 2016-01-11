@@ -204,9 +204,8 @@ class TranslationDriver(SimpleTaskEngine):
                 try:
                     points = secondary_entrypoints[key]
                 except KeyError:
-                    raise KeyError(
-                        "Entrypoints not found. I only know the keys %r." %
-                        (", ".join(secondary_entrypoints.keys()), ))
+                    raise KeyError("Entrypoint %r not found (not in %r)" %
+                                   (key, secondary_entrypoints.keys()))
                 self.secondary_entrypoints.extend(points)
 
         self.translator.driver_instrument_result = self.instrument_result

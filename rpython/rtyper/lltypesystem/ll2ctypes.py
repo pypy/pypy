@@ -910,6 +910,14 @@ def lltype2ctypes(llobj, normalize=True):
                 llobj = ctypes.sizeof(get_ctypes_type(llobj.TYPE)) * llobj.repeat
             elif isinstance(llobj, ComputedIntSymbolic):
                 llobj = llobj.compute_fn()
+            elif isinstance(llobj, llmemory.CompositeOffset):
+                llobj = sum([lltype2ctypes(c) for c in llobj.offsets])
+            elif isinstance(llobj, llmemory.FieldOffset):
+                CSTRUCT = get_ctypes_type(llobj.TYPE)
+                llobj = getattr(CSTRUCT, llobj.fldname).offset
+            elif isinstance(llobj, llmemory.ArrayItemsOffset):
+                CARRAY = get_ctypes_type(llobj.TYPE)
+                llobj = CARRAY.items.offset
             else:
                 raise NotImplementedError(llobj)  # don't know about symbolic value
 

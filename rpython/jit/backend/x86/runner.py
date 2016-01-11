@@ -24,6 +24,9 @@ class AbstractX86CPU(AbstractLLCPU):
     with_threads = False
     frame_reg = regloc.ebp
 
+    # can an ISA instruction handle a factor to the offset?
+    load_supported_factors = (1,2,4,8)
+
     from rpython.jit.backend.x86.arch import JITFRAME_FIXED_SIZE
     all_reg_indexes = gpr_reg_mgr_cls.all_reg_indexes
     gen_regs = gpr_reg_mgr_cls.all_regs

@@ -1008,12 +1008,11 @@ class Transformer(object):
             return SpaceOperation('getarrayitem_gc_i',
                                   [op.args[0], v_index, bytearraydescr],
                                   op.result)
-        else:
+        elif op.result.concretetype is lltype.Void:
+            return
+        elif isinstance(op.args[0].concretetype.TO, lltype.GcArray):
+            # special-case 1: GcArray of Struct
             v_inst, v_index, c_field = op.args
-            if op.result.concretetype is lltype.Void:
-                return
-            # only GcArray of Struct supported
-            assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
             STRUCT = v_inst.concretetype.TO.OF
             assert isinstance(STRUCT, lltype.Struct)
             descr = self.cpu.interiorfielddescrof(v_inst.concretetype.TO,
@@ -1022,6 +1021,22 @@ class Transformer(object):
             kind = getkind(op.result.concretetype)[0]
             return SpaceOperation('getinteriorfield_gc_%s' % kind, args,
                                   op.result)
+        #elif isinstance(op.args[0].concretetype.TO, lltype.GcStruct):
+        #    # special-case 2: GcStruct with Array field
+        #    ---was added in the faster-rstruct branch,---
+        #    ---no longer directly supported---
+        #    v_inst, c_field, v_index = op.args
+        #    STRUCT = v_inst.concretetype.TO
+        #    ARRAY = getattr(STRUCT, c_field.value)
+        #    assert isinstance(ARRAY, lltype.Array)
+        #    arraydescr = self.cpu.arraydescrof(STRUCT)
+        #    kind = getkind(op.result.concretetype)[0]
+        #    assert kind in ('i', 'f')
+        #    return SpaceOperation('getarrayitem_gc_%s' % kind,
+        #                          [op.args[0], v_index, arraydescr],
+        #                          op.result)
+        else:
+            assert False, 'not supported'
 
     def rewrite_op_setinteriorfield(self, op):
         assert len(op.args) == 4
@@ -1070,6 +1085,25 @@ class Transformer(object):
         descr = self.cpu.arraydescrof(rffi.CArray(T))
         return SpaceOperation('raw_load_%s' % kind,
                               [op.args[0], op.args[1], descr], op.result)
+
+    def rewrite_op_gc_load_indexed(self, op):
+        T = op.result.concretetype
+        kind = getkind(T)[0]
+        assert kind != 'r'
+        descr = self.cpu.arraydescrof(rffi.CArray(T))
+        if (not isinstance(op.args[2], Constant) or
+            not isinstance(op.args[3], Constant)):
+            raise NotImplementedError("gc_load_indexed: 'scale' and 'base_ofs'"
+                                      " should be constants")
+        # xxx hard-code the size in bytes at translation time, which is
+        # probably fine and avoids lots of issues later
+        bytes = descr.get_item_size_in_bytes()
+        if descr.is_item_signed():
+            bytes = -bytes
+        c_bytes = Constant(bytes, lltype.Signed)
+        return SpaceOperation('gc_load_indexed_%s' % kind,
+                              [op.args[0], op.args[1],
+                               op.args[2], op.args[3], c_bytes], op.result)
 
     def _rewrite_equality(self, op, opname):
         arg0, arg1 = op.args
@@ -1130,10 +1164,13 @@ class Transformer(object):
     def rewrite_op_force_cast(self, op):
         v_arg = op.args[0]
         v_result = op.result
-        assert not self._is_gc(v_arg)
-
         if v_arg.concretetype == v_result.concretetype:
             return
+        elif self._is_gc(v_arg) and self._is_gc(v_result):
+            # cast from GC to GC is always fine
+            return
+        else:
+            assert not self._is_gc(v_arg)
 
         float_arg = v_arg.concretetype in [lltype.Float, lltype.SingleFloat]
         float_res = v_result.concretetype in [lltype.Float, lltype.SingleFloat]

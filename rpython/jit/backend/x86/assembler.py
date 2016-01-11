@@ -1481,30 +1481,26 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_getfield_gc_pure_r = _genop_getfield
     genop_getfield_gc_pure_f = _genop_getfield
 
-    def _genop_getarrayitem(self, op, arglocs, resloc):
-        base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
-        assert isinstance(ofs, ImmedLoc)
+    def _genop_gc_load(self, op, arglocs, resloc):
+        base_loc, ofs_loc, size_loc, sign_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
-        scale = get_scale(size_loc.value)
-        src_addr = addr_add(base_loc, ofs_loc, ofs.value, scale)
+        src_addr = addr_add(base_loc, ofs_loc, 0, 0)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
 
-    genop_getarrayitem_gc_i = _genop_getarrayitem
-    genop_getarrayitem_gc_r = _genop_getarrayitem
-    genop_getarrayitem_gc_f = _genop_getarrayitem
-    genop_getarrayitem_gc_pure_i = _genop_getarrayitem
-    genop_getarrayitem_gc_pure_r = _genop_getarrayitem
-    genop_getarrayitem_gc_pure_f = _genop_getarrayitem
-    genop_getarrayitem_raw_i = _genop_getarrayitem
-    genop_getarrayitem_raw_f = _genop_getarrayitem
+    genop_gc_load_i = _genop_gc_load
+    genop_gc_load_r = _genop_gc_load
+    genop_gc_load_f = _genop_gc_load
 
-    def _genop_raw_load(self, op, arglocs, resloc):
-        base_loc, ofs_loc, size_loc, ofs, sign_loc = arglocs
-        assert isinstance(ofs, ImmedLoc)
-        src_addr = addr_add(base_loc, ofs_loc, ofs.value, 0)
+    def _genop_gc_load_indexed(self, op, arglocs, resloc):
+        base_loc, ofs_loc, scale_loc, offset_loc, size_loc, sign_loc = arglocs
+        assert isinstance(scale_loc, ImmedLoc)
+        scale = get_scale(scale_loc.value)
+        src_addr = addr_add(base_loc, ofs_loc, offset_loc.value, scale)
         self.load_from_mem(resloc, src_addr, size_loc, sign_loc)
-    genop_raw_load_i = _genop_raw_load
-    genop_raw_load_f = _genop_raw_load
+
+    genop_gc_load_indexed_i = _genop_gc_load_indexed
+    genop_gc_load_indexed_r = _genop_gc_load_indexed
+    genop_gc_load_indexed_f = _genop_gc_load_indexed
 
     def _imul_const_scaled(self, mc, targetreg, sourcereg, itemsize):
         """Produce one operation to do roughly
@@ -1551,17 +1547,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         assert isinstance(ofs_loc, ImmedLoc)
         return AddressLoc(base_loc, temp_loc, shift, ofs_loc.value)
 
-    def _genop_getinteriorfield(self, op, arglocs, resloc):
-        (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
-            index_loc, temp_loc, sign_loc) = arglocs
-        src_addr = self._get_interiorfield_addr(temp_loc, index_loc,
-                                                itemsize_loc, base_loc,
-                                                ofs_loc)
-        self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
-    genop_getinteriorfield_gc_i = _genop_getinteriorfield
-    genop_getinteriorfield_gc_r = _genop_getinteriorfield
-    genop_getinteriorfield_gc_f = _genop_getinteriorfield
-
     def genop_discard_increment_debug_counter(self, op, arglocs):
         # The argument should be an immediate address.  This should
         # generate code equivalent to a GETFIELD_RAW, an ADD(1), and a
@@ -1570,36 +1555,18 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         base_loc, = arglocs
         self.mc.INC(mem(base_loc, 0))
 
-    def genop_discard_setfield_gc(self, op, arglocs):
-        base_loc, ofs_loc, size_loc, value_loc = arglocs
-        assert isinstance(size_loc, ImmedLoc)
-        dest_addr = AddressLoc(base_loc, ofs_loc)
-        self.save_into_mem(dest_addr, value_loc, size_loc)
-
-    genop_discard_zero_ptr_field = genop_discard_setfield_gc
-
-    def genop_discard_setinteriorfield_gc(self, op, arglocs):
-        (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
-            index_loc, temp_loc, value_loc) = arglocs
-        dest_addr = self._get_interiorfield_addr(temp_loc, index_loc,
-                                                 itemsize_loc, base_loc,
-                                                 ofs_loc)
-        self.save_into_mem(dest_addr, value_loc, fieldsize_loc)
-
-    genop_discard_setinteriorfield_raw = genop_discard_setinteriorfield_gc
-
-    def genop_discard_setarrayitem_gc(self, op, arglocs):
-        base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
-        assert isinstance(baseofs, ImmedLoc)
+    def genop_discard_gc_store(self, op, arglocs):
+        base_loc, ofs_loc, value_loc, size_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         scale = get_scale(size_loc.value)
-        dest_addr = AddressLoc(base_loc, ofs_loc, scale, baseofs.value)
+        dest_addr = AddressLoc(base_loc, ofs_loc, 0, 0)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
-    def genop_discard_raw_store(self, op, arglocs):
-        base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs
-        assert isinstance(baseofs, ImmedLoc)
-        dest_addr = AddressLoc(base_loc, ofs_loc, 0, baseofs.value)
+    def genop_discard_gc_store_indexed(self, op, arglocs):
+        base_loc, ofs_loc, value_loc, factor_loc, offset_loc, size_loc = arglocs
+        assert isinstance(size_loc, ImmedLoc)
+        scale = get_scale(factor_loc.value)
+        dest_addr = AddressLoc(base_loc, ofs_loc, scale, offset_loc.value)
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
     def genop_discard_strsetitem(self, op, arglocs):
@@ -1621,43 +1588,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         else:
             assert 0, itemsize
 
-    genop_discard_setfield_raw = genop_discard_setfield_gc
-    genop_discard_setarrayitem_raw = genop_discard_setarrayitem_gc
-
-    def genop_strlen(self, op, arglocs, resloc):
-        base_loc = arglocs[0]
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                             self.cpu.translate_support_code)
-        self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
-
-    def genop_unicodelen(self, op, arglocs, resloc):
-        base_loc = arglocs[0]
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                             self.cpu.translate_support_code)
-        self.mc.MOV(resloc, addr_add_const(base_loc, ofs_length))
-
-    def genop_arraylen_gc(self, op, arglocs, resloc):
-        base_loc, ofs_loc = arglocs
-        assert isinstance(ofs_loc, ImmedLoc)
-        self.mc.MOV(resloc, addr_add_const(base_loc, ofs_loc.value))
-
-    def genop_strgetitem(self, op, arglocs, resloc):
-        base_loc, ofs_loc = arglocs
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                             self.cpu.translate_support_code)
-        assert itemsize == 1
-        self.mc.MOVZX8(resloc, AddressLoc(base_loc, ofs_loc, 0, basesize))
-
-    def genop_unicodegetitem(self, op, arglocs, resloc):
-        base_loc, ofs_loc = arglocs
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                             self.cpu.translate_support_code)
-        if itemsize == 4:
-            self.mc.MOV32(resloc, AddressLoc(base_loc, ofs_loc, 2, basesize))
-        elif itemsize == 2:
-            self.mc.MOVZX16(resloc, AddressLoc(base_loc, ofs_loc, 1, basesize))
-        else:
-            assert 0, itemsize
+    # genop_discard_setfield_raw = genop_discard_setfield_gc
 
     def genop_math_read_timestamp(self, op, arglocs, resloc):
         self.mc.RDTSC()

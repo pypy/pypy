@@ -32,6 +32,9 @@ class AbstractLLCPU(AbstractCPU):
     done_with_this_frame_descr_void     = None
     exit_frame_with_exception_descr_ref = None
 
+    # can an ISA instruction handle a factor to the offset?
+    load_supported_factors = (1,)
+
     vector_extension = False
     vector_register_size = 0 # in bytes
     vector_horizontal_operations = False
@@ -720,6 +723,16 @@ class AbstractLLCPU(AbstractCPU):
         return self.read_int_at_mem(addr, offset, size, sign)
 
     def bh_raw_load_f(self, addr, offset, descr):
+        return self.read_float_at_mem(addr, offset)
+
+    def bh_gc_load_indexed_i(self, addr, index, scale, base_ofs, bytes):
+        offset = base_ofs + scale * index
+        return self.read_int_at_mem(addr, offset, abs(bytes), bytes < 0)
+
+    def bh_gc_load_indexed_f(self, addr, index, scale, base_ofs, bytes):
+        # only for 'double'!
+        assert bytes == rffi.sizeof(lltype.Float)
+        offset = base_ofs + scale * index
         return self.read_float_at_mem(addr, offset)
 
     def bh_new(self, sizedescr):

@@ -1,5 +1,6 @@
 import py, sys
 from rpython.rlib.objectmodel import instantiate
+from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.metainterp import compile, resume
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt, TreeLoop
 from rpython.jit.metainterp.optimize import InvalidLoop
@@ -1940,7 +1941,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_virtual_raw_malloc_virtualstate(self):
-        py.test.skip("bogus test maybe?")
         ops = """
         [i0]
         i1 = getarrayitem_raw_i(i0, 0, descr=rawarraydescr)
@@ -2969,7 +2969,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
             assert "promote of a virtual" in exc.msg
 
     def test_merge_guard_class_guard_value(self):
-        py.test.skip("disabled")
         ops = """
         [p1, i0, i1, i2, p2]
         guard_class(p1, ConstClass(node_vtable)) [i0]
@@ -3015,7 +3014,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         #self.check_expanded_fail_descr("i0", rop.GUARD_NONNULL_CLASS)
 
     def test_merge_guard_nonnull_guard_value(self):
-        py.test.skip("disabled")
         ops = """
         [p1, i0, i1, i2, p2]
         guard_nonnull(p1) [i0]
@@ -3039,7 +3037,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         #self.check_expanded_fail_descr("i0", rop.GUARD_VALUE)
 
     def test_merge_guard_nonnull_guard_class_guard_value(self):
-        py.test.skip("disabled")
         ops = """
         [p1, i0, i1, i2, p2]
         guard_nonnull(p1) [i0]
@@ -6295,6 +6292,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_strunicode_loop(ops, ops, ops)
 
+    def test_str_slice_bug(self):
+        ops = """
+        []
+        p1066 = newstr(8)
+        escape_n(p1066)     # should initialize the string's content
+        p1134 = call_pure_r(0, p1066, 0, 4, descr=strslicedescr)
+        escape_n(p1134)
+        jump()
+        """
+        expected = """
+        []
+        p1 = newstr(8)
+        escape_n(p1)
+        p2 = newstr(4)
+        copystrcontent(p1, p2, 0, 0, 4)
+        escape_n(p2)
+        jump()
+        """
+        self.optimize_strunicode_loop(ops, expected, expected)
+
     # XXX Should some of the call's below now be call_pure?
 
     def test_str_concat_1(self):
@@ -6431,6 +6448,59 @@ class OptimizeOptTest(BaseTestWithUnroll):
         []
         escape_n(s"abcde")
         jump()
+        """
+        self.optimize_strunicode_loop(ops, expected, expected)
+
+    def test_str_concat_optimize_fully_initialized(self):
+        ops = """
+        [i0, i1]
+        p1 = newstr(2)
+        strsetitem(p1, 0, i0)
+        strsetitem(p1, 1, i1)
+        escape_n(p1)
+        p3 = call_pure_r(0, p1, p1, descr=strconcatdescr)
+        escape_n(p3)
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        p1 = newstr(2)
+        strsetitem(p1, 0, i0)
+        strsetitem(p1, 1, i1)
+        escape_n(p1)
+        p3 = newstr(4)
+        strsetitem(p3, 0, i0)
+        strsetitem(p3, 1, i1)
+        strsetitem(p3, 2, i0)
+        strsetitem(p3, 3, i1)
+        escape_n(p3)
+        jump(i0, i1)
+        """
+        self.optimize_strunicode_loop(ops, expected, expected)
+
+    def test_str_concat_cant_optimize_partialy_uninitialized(self):
+        ops = """
+        [i0]
+        p1 = newstr(2)
+        strsetitem(p1, 0, i0)     # p1[1] is set by the escape below
+        escape_n(p1)
+        p3 = call_pure_r(0, p1, p1, descr=strconcatdescr)
+        escape_n(p3)
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        p1 = newstr(2)
+        strsetitem(p1, 0, i0)
+        escape_n(p1)
+        p3 = newstr(4)
+        strsetitem(p3, 0, i0)
+        i1 = strgetitem(p1, 1)
+        strsetitem(p3, 1, i1)
+        strsetitem(p3, 2, i0)
+        strsetitem(p3, 3, i1)
+        escape_n(p3)
+        jump(i0)
         """
         self.optimize_strunicode_loop(ops, expected, expected)
 
@@ -9158,6 +9228,45 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(-1, i3)    # cannot access character -1!
         """
         py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+
+    def test_virtual_array_length_discovered_constant_1(self):
+        ops = """
+        []
+        i1 = escape_i()
+        guard_value(i1, 5) []
+        p1 = new_array_clear(i1, descr=arraydescr3)
+        escape_n(p1)
+        jump()
+        """
+        expected = """
+        []
+        i1 = escape_i()
+        guard_value(i1, 5) []
+        p1 = new_array_clear(5, descr=arraydescr3)   # 'i1' => '5'
+        escape_n(p1)
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_array_length_discovered_constant_2(self):
+        ops = """
+        [p0]
+        escape_n(p0)
+        i1 = escape_i()
+        guard_value(i1, 5) []
+        p1 = new_array_clear(i1, descr=arraydescr3)
+        jump(p1)
+        """
+        expected = """
+        []
+        p1 = new_array_clear(5, descr=arraydescr3)
+        escape_n(p1)
+        i1 = escape_i()
+        guard_value(i1, 5) []
+        jump()
+        """
+        a = lltype.malloc(lltype.GcArray(lltype.Ptr(self.NODE)), 5, zero=True)
+        self.optimize_loop(ops, expected, jump_values=[a])
 
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):

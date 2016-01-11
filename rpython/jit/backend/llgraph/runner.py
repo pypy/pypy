@@ -13,6 +13,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 
 from rpython.rtyper.llinterp import LLInterpreter, LLException
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper import rclass
 
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
@@ -705,6 +706,25 @@ class LLGraphCPU(model.AbstractCPU):
         else:
             return self.bh_raw_load_i(struct, offset, descr)
 
+    def bh_gc_load_indexed_i(self, struct, index, scale, base_ofs, bytes):
+        if   bytes == 1: T = rffi.UCHAR
+        elif bytes == 2: T = rffi.USHORT
+        elif bytes == 4: T = rffi.UINT
+        elif bytes == 8: T = rffi.ULONGLONG
+        elif bytes == -1: T = rffi.SIGNEDCHAR
+        elif bytes == -2: T = rffi.SHORT
+        elif bytes == -4: T = rffi.INT
+        elif bytes == -8: T = rffi.LONGLONG
+        else: raise NotImplementedError(bytes)
+        x = llop.gc_load_indexed(T, struct, index, scale, base_ofs)
+        return lltype.cast_primitive(lltype.Signed, x)
+
+    def bh_gc_load_indexed_f(self, struct, index, scale, base_ofs, bytes):
+        if bytes != 8:
+            raise Exception("gc_load_indexed_f is only for 'double'!")
+        return llop.gc_load_indexed(longlong.FLOATSTORAGE,
+                                    struct, index, scale, base_ofs)
+
     def bh_increment_debug_counter(self, addr):
         p = rffi.cast(rffi.CArrayPtr(lltype.Signed), addr)
         p[0] += 1
@@ -1148,16 +1168,22 @@ class LLFrame(object):
         self.do_renaming(argboxes, args)
 
     def _test_true(self, arg):
-        if isinstance(arg, list):
-            return all(arg)
         assert arg in (0, 1)
         return arg
 
     def _test_false(self, arg):
-        if isinstance(arg, list):
-            return any(arg)
         assert arg in (0, 1)
         return arg
+
+    def execute_vec_guard_true(self, descr, arg):
+        assert isinstance(arg, list)
+        if not all(arg):
+            self.fail_guard(descr)
+
+    def execute_vec_guard_false(self, descr, arg):
+        assert isinstance(arg, list)
+        if any(arg):
+            self.fail_guard(descr)
 
     def execute_guard_true(self, descr, arg):
         if not self._test_true(arg):

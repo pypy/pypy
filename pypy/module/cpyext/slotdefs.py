@@ -4,14 +4,14 @@ import re
 
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, generic_cpy_call, PyObject, Py_ssize_t)
+    cpython_api, generic_cpy_call, PyObject, Py_ssize_t, Py_TPFLAGS_CHECKTYPES)
 from pypy.module.cpyext.typeobjectdefs import (
     unaryfunc, wrapperfunc, ternaryfunc, PyTypeObjectPtr, binaryfunc,
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
     readbufferproc)
-from pypy.module.cpyext.pyobject import from_ref
+from pypy.module.cpyext.pyobject import from_ref, make_ref, Py_DecRef
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, oefmt
@@ -65,22 +65,24 @@ def wrap_binaryfunc_l(space, w_self, w_args, func):
     func_binary = rffi.cast(binaryfunc, func)
     check_num_args(space, w_args, 1)
     args_w = space.fixedview(w_args)
-
-    if not space.is_true(space.issubtype(space.type(args_w[0]),
-                                         space.type(w_self))):
+    ref = make_ref(space, w_self)
+    if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+        not space.is_true(space.issubtype(space.type(args_w[0]),
+                                         space.type(w_self)))):
         return space.w_NotImplemented
- 
+    Py_DecRef(space, ref)
     return generic_cpy_call(space, func_binary, w_self, args_w[0])
 
 def wrap_binaryfunc_r(space, w_self, w_args, func):
     func_binary = rffi.cast(binaryfunc, func)
     check_num_args(space, w_args, 1)
     args_w = space.fixedview(w_args)
-
-    if not space.is_true(space.issubtype(space.type(args_w[0]),
-                                         space.type(w_self))):
+    ref = make_ref(space, w_self)
+    if (not ref.c_ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+        not space.is_true(space.issubtype(space.type(args_w[0]),
+                                         space.type(w_self)))):
         return space.w_NotImplemented
-
+    Py_DecRef(space, ref)
     return generic_cpy_call(space, func_binary, args_w[0], w_self)
 
 def wrap_inquirypred(space, w_self, w_args, func):
@@ -378,6 +380,17 @@ def build_slot_tp_function(space, typedef, name):
                 space.call_function(delattr_fn, w_self, w_name)
             return 0
         api_func = slot_tp_setattro.api_func
+    elif name == 'tp_getattro':
+        getattr_fn = w_type.getdictvalue(space, '__getattribute__')
+        if getattr_fn is None:
+            return
+
+        @cpython_api([PyObject, PyObject], PyObject,
+                     external=True)
+        @func_renamer("cpyext_tp_getattro_%s" % (typedef.name,))
+        def slot_tp_getattro(space, w_self, w_name):
+            return space.call_function(getattr_fn, w_self, w_name)
+        api_func = slot_tp_getattro.api_func
     else:
         return
 

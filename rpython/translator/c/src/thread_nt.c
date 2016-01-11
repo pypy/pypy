@@ -231,17 +231,21 @@ static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay)
     return (result != WAIT_TIMEOUT);
 }
 
-#define mutex1_t      mutex2_t
-#define mutex1_init   mutex2_init
-#define mutex1_lock   mutex2_lock
-#define mutex1_unlock mutex2_unlock
+typedef CRITICAL_SECTION mutex1_t;
 
-#ifdef _M_IA64
-/* On Itanium, use 'acquire' memory ordering semantics */
-#define lock_test_and_set(ptr, value)  InterlockedExchangeAcquire(ptr, value)
-#else
-#define lock_test_and_set(ptr, value)  InterlockedExchange(ptr, value)
-#endif
+static inline void mutex1_init(mutex1_t *mutex) {
+    InitializeCriticalSection(mutex);
+}
+
+static inline void mutex1_lock(mutex1_t *mutex) {
+    EnterCriticalSection(mutex);
+}
+
+static inline void mutex1_unlock(mutex1_t *mutex) {
+    LeaveCriticalSection(mutex);
+}
+
+//#define lock_test_and_set(ptr, value)  see thread_nt.h
 #define atomic_increment(ptr)          InterlockedIncrement(ptr)
 #define atomic_decrement(ptr)          InterlockedDecrement(ptr)
 

@@ -367,7 +367,6 @@ def _make_execute_list():
                          rop.INCREMENT_DEBUG_COUNTER,
                          rop.COND_CALL_GC_WB,
                          rop.COND_CALL_GC_WB_ARRAY,
-                         rop.ZERO_PTR_FIELD,
                          rop.ZERO_ARRAY,
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
@@ -397,6 +396,12 @@ def _make_execute_list():
                          rop.VEC_GETARRAYITEM_GC_I,
                          rop.VEC_GETARRAYITEM_GC_F,
                          rop.VEC_SETARRAYITEM_GC,
+                         rop.GC_LOAD_I,
+                         rop.GC_LOAD_R,
+                         rop.GC_LOAD_F,
+                         rop.GC_LOAD_INDEXED_R,
+                         rop.GC_STORE,
+                         rop.GC_STORE_INDEXED,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             if rop._VEC_PURE_FIRST <= value <= rop._VEC_PURE_LAST:
