@@ -77,7 +77,10 @@ class GraphAnalyzer(object):
 
     def analyze(self, op, seen=None, graphinfo=None):
         if op.opname == "direct_call":
-            funcobj = op.args[0].value._obj
+            try:
+                funcobj = op.args[0].value._obj
+            except DelayedPointer:
+                return self.top_result()
             if getattr(funcobj, 'external', None) is not None:
                 x = self.analyze_external_call(op, seen)
                 if self.verbose and x:
