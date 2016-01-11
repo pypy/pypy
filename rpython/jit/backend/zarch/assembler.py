@@ -512,7 +512,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # registers).
         mc = InstrBuilder()
         #
-        mc.trap()
         # mc.STG(r.r14, l.addr(14*WORD, r.SP))
         # Do the call
         mc.push_std_frame()
@@ -526,7 +525,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.LG(r.SCRATCH, l.addr(0, r.SCRATCH))
         # if this comparison is true, then everything is ok,
         # else we have an exception
-        mc.cmp_op(r.SCRATCH, 0, imm=True)
+        mc.cmp_op(r.SCRATCH, l.imm(0), imm=True)
         #
         # So we return to our caller, conditionally if "EQ"
         # mc.LG(r.r14, l.addr(14*WORD, r.SP))

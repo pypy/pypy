@@ -436,18 +436,55 @@ def build_ris(mnemonic, (opcode1,opcode2), argtypes='r,i8,r/m,bd'):
     return encode_rie_c
 
 def build_unpack_func(mnemonic, func):
-    def function(self, *args):
-        newargs = [None] * len(func._arguments_)
-        for i,arg in enumerate(unrolling_iterable(func._arguments_)):
-            if arg == '-':
-                newargs[i] = 0
-            elif arg == 'r' or arg == 'r/m' or arg == 'f' or arg == 'eo':
-                newargs[i] = args[i].value
-            elif arg.startswith('i') or arg.startswith('u') or arg.startswith('h'):
-                newargs[i] = args[i].value
-            else:
-                newargs[i] = args[i]
-        return func(self, *newargs)
+    @always_inline
+    def unpack_arg(arg, argtype):
+        if argtype == '-':
+            return 0
+        elif argtype == 'r' or argtype == 'r/m' or \
+             argtype == 'f' or argtype == 'eo':
+            return arg.value
+        elif argtype.startswith('i') or argtype.startswith('u') or argtype.startswith('h'):
+            return arg.value
+        else:
+            return arg
+    unpack_arg._annspecialcase_ = 'specialize:arg(1)'
+    argtypes = func._arguments_
+    at = argtypes[0] if len(argtypes) >= 1 else '-'
+    bt = argtypes[1] if len(argtypes) >= 2 else '-'
+    ct = argtypes[2] if len(argtypes) >= 3 else '-'
+    dt = argtypes[3] if len(argtypes) >= 4 else '-'
+    def function0(self):
+        return func(self)
+    def function1(self, a):
+        e = unpack_arg(a, at)
+        return func(self, e)
+    def function2(self, a, b):
+        e = unpack_arg(a, at)
+        f = unpack_arg(b, bt)
+        return func(self, e, f)
+    def function3(self, a, b, c):
+        e = unpack_arg(a, at)
+        f = unpack_arg(b, bt)
+        g = unpack_arg(c, ct)
+        return func(self, e, f, g)
+    def function4(self, a, b):
+        e = unpack_arg(a, at)
+        f = unpack_arg(b, bt)
+        g = unpack_arg(c, ct)
+        h = unpack_arg(d, dt)
+        return func(self, e, f, g, h)
+    if len(argtypes) == 0:
+        function = function0
+    elif len(argtypes) == 1:
+        function = function1
+    elif len(argtypes) == 2:
+        function = function2
+    elif len(argtypes) == 3:
+        function = function3
+    elif len(argtypes) == 4:
+        function = function4
+    else:
+        assert 0, "implement function for argtypes %s" % (argtypes,)
     function.__name__ = mnemonic
     return function
 

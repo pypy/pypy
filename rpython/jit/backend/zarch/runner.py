@@ -73,3 +73,8 @@ class CPU_S390_64(AbstractZARCHCPU):
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
+    def build_regalloc(self):
+        ''' NOT_RPYTHON: for tests '''
+        from rpython.jit.backend.zarch.regalloc import Regalloc
+        assert self.assembler is not None
+        return Regalloc(self.assembler)
