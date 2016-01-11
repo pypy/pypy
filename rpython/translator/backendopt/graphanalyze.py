@@ -55,8 +55,7 @@ class GraphAnalyzer(object):
     def analyze_startblock(self, block, seen=None):
         return self.bottom_result()
 
-    def analyze_external_call(self, op, seen=None):
-        funcobj = op.args[0].value._obj
+    def analyze_external_call(self, funcobj, seen=None):
         result = self.bottom_result()
         if hasattr(funcobj, '_callbacks'):
             bk = self.translator.annotator.bookkeeper
@@ -82,7 +81,7 @@ class GraphAnalyzer(object):
             except DelayedPointer:
                 return self.top_result()
             if getattr(funcobj, 'external', None) is not None:
-                x = self.analyze_external_call(op, seen)
+                x = self.analyze_external_call(funcobj, seen)
                 if self.verbose and x:
                     self.dump_info('analyze_external_call %s: %r' % (op, x))
                 return x
