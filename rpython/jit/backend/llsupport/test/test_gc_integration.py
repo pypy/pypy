@@ -92,7 +92,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         elif self.cpu.backend_name.startswith('ppc64'):
             assert nos == [0, 1, 33]
         elif self.cpu.backend_name.startswith('zarch'):
-            assert nos == [0, 1, 35]
+            assert nos == [2, 3, 35]
         else:
             raise Exception("write the data here")
         assert frame.jf_frame[nos[0]]
@@ -647,11 +647,12 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
             gcmap = unpack_gcmap(frame)
             if self.cpu.backend_name.startswith('ppc64'):
                 assert gcmap == [30, 31, 32]
+            elif self.cpu.backend_name.startswith('zarch'):
+                assert gcmap == [32, 33, 34]
             elif self.cpu.IS_64_BIT:
                 assert gcmap == [28, 29, 30]
             elif self.cpu.backend_name.startswith('arm'):
                 assert gcmap == [44, 45, 46]
-                pass
             else:
                 assert gcmap == [22, 23, 24]
             for item, s in zip(gcmap, new_items):
