@@ -633,9 +633,9 @@ static PyObject * add_docstring(PyObject * self, PyObject * args)
     static char *msg = "already has a docstring";
     PyObject *tp_dict = footype.tp_dict;
     PyObject *myobj;
-    static PyTypeObject *PyMemberDescr_TypePtr = NULL;
-    static PyTypeObject *PyGetSetDescr_TypePtr = NULL;
-    static PyTypeObject *PyMethodDescr_TypePtr = NULL;
+    static PyTypeObject *PyMemberDescr_TypePtr = NULL; /* a PyMemberDescr_Type* */
+    static PyTypeObject *PyGetSetDescr_TypePtr = NULL; /* a PyGetSetDescr_Type* */
+    static PyTypeObject *PyMethodDescr_TypePtr = NULL; /* a PyClassMethodDescr_Type* */
 
     /* Don't add docstrings */
     if (Py_OptimizeFlag > 1) {
@@ -661,7 +661,15 @@ static PyObject * add_docstring(PyObject * self, PyObject * args)
             PyMethodDescr_TypePtr = Py_TYPE(myobj);
         }
     }
-
+    if (PyMethodDescr_TypePtr == PyMemberDescr_TypePtr ||
+        PyMethodDescr_TypePtr == PyGetSetDescr_TypePtr ||
+        PyMemberDescr_TypePtr == PyGetSetDescr_TypePtr)
+    {
+        PyErr_Format(PyExc_RuntimeError, 
+            "at least two of the 'Py{Method,Member,GetSet}Descr_Type's are the same\n"
+            "(in add_docstring %s %d)", __FILE__, __LINE__);
+        return NULL;
+    }
     if (!PyArg_ParseTuple(args, "OO!", &obj, &PyString_Type, &str)) {
         return NULL;
     }
@@ -686,6 +694,7 @@ static PyObject * add_docstring(PyObject * self, PyObject * args)
         _ADDDOC(Type, new->tp_doc, new->tp_name);
     }
     else if (_TESTDOC2(MemberDescr)) {
+        /* docless_member ends up here */
         _ADDDOC(MemberDescr, new->d_member->doc, new->d_member->name);
     }
     else if (_TESTDOC2(GetSetDescr)) {
