@@ -35,11 +35,17 @@ from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.util import get_positive_index, negate
 
-__all__ = ['W_ListObject', 'make_range_list', 'make_empty_list_with_size']
+__all__ = ['W_ListObject', "make_repeat_list",  'make_range_list', 'make_empty_list_with_size']
 
 
 UNROLL_CUTOFF = 5
 
+def make_repeat_list(space, w_item, length):
+    if length <= 0:
+        return make_empty_list(space)
+    strategy = space.fromcache(RepeatListStrategy)
+    storage = strategy.erase((w_item, length))
+    return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
 def make_range_list(space, start, step, length):
     if length <= 0:
@@ -961,7 +967,7 @@ class EmptyListStrategy(ListStrategy):
 
     def setslice(self, w_list, start, step, slicelength, w_other):
         strategy = w_other.strategy
-        storage = strategy.getstorage_copy(w_other)
+        storage = strategy.getstorage_copy(w_other) # XXX Why not strategy.copy_into(w_other, w_list) ?
         w_list.strategy = strategy
         w_list.lstorage = storage
 
@@ -1030,6 +1036,224 @@ class SizeListStrategy(EmptyListStrategy):
         assert hint >= 0
         self.sizehint = hint
 
+
+class RepeatListStrategy(ListStrategy):
+    """RepeatListStrategy is used when a list is created using the multiplication
+       operator on iterables. The storage is a two elements tuple, with the
+       repeated item, and a positive integer storing the length."""
+
+    erase, unerase = rerased.new_erasing_pair("repeat")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def unwrap(self, w_obj):
+        return w_obj
+
+    def wrap(self, item):
+        return item
+
+    def clone(self, w_list):
+        storage = w_list.lstorage  # lstorage is tuple, no need to clone
+        w_clone = W_ListObject.from_storage_and_strategy(self.space, storage,
+                                                         self)
+        return w_clone
+
+    def copy_into(self, w_list, w_other):
+        w_other.strategy = self
+        w_other.lstorage = w_list.lstorage
+
+    def _resize_hint(self, w_list, hint):
+        raise NotImplementedError
+
+    def find(self, w_list, w_item, start, stop):
+        w_l_item, length = self.unerase(w_list.lstorage)
+        if length > 0 and start < length and self.space.eq_w(w_l_item, w_item):
+            return 0
+        raise ValueError
+
+    def switch_to_item_strategy(self, w_list, w_item=None):
+        w_l_item, length = self.unerase(w_list.lstorage)
+        w_item_type = type(w_l_item)
+        if w_item is not None and type(w_item) is w_item_type:
+            if w_item_type is W_IntObject:
+                strategy = self.space.fromcache(IntegerListStrategy)
+                item_w = strategy.unwrap(w_l_item)
+                lstorage = [item_w] * length
+                w_list.lstorage = strategy.erase(lstorage)
+                w_list.strategy = strategy
+                return
+            elif w_item_type is W_BytesObject:
+                strategy = self.space.fromcache(BytesListStrategy)
+                item_w = strategy.unwrap(w_l_item)
+                lstorage = [item_w] * length
+                w_list.lstorage = strategy.erase(lstorage)
+                w_list.strategy = strategy
+                return
+            elif w_item_type is W_UnicodeObject:
+                strategy = self.space.fromcache(UnicodeListStrategy)
+                item_w = strategy.unwrap(w_l_item)
+                lstorage = [item_w] * length
+                w_list.lstorage = strategy.erase(lstorage)
+                w_list.strategy = strategy
+                return
+            elif w_item_type is W_FloatObject:
+                strategy = self.space.fromcache(FloatListStrategy)
+                item_w = strategy.unwrap(w_l_item)
+                lstorage = [item_w] * length
+                w_list.lstorage = strategy.erase(lstorage) # XXX: use init_from_list_w too ? or define init_from_list_unw() ?
+                w_list.strategy = strategy
+                return
+        # Fall back to ObjectListStrategy
+        strategy = self.space.fromcache(ObjectListStrategy)
+        w_list.strategy = strategy
+        items = [w_l_item] * length
+        strategy.init_from_list_w(w_list, items)
+
+    def append(self, w_list, w_item):
+        w_l_item, length = self.unerase(w_list.lstorage)
+        if type(w_item) is type(w_l_item):
+            if self.space.eq_w(w_item, w_l_item):
+                w_list.lstorage = self.erase((w_l_item, length + 1))
+                return
+        self.switch_to_item_strategy(w_list, w_item)
+        w_list.strategy.append(w_list, w_item)
+
+    def length(self, w_list):
+        return self.unerase(w_list.lstorage)[1]
+
+    def getslice(self, w_list, start, stop, step, another_length):
+        w_l_item, length = self.unerase(w_list.lstorage)
+        if step > 0 and start < stop:
+            new_length = (stop - start)
+            if step != 1:
+                pad = 0
+                if new_length % step:
+                    pad = 1
+                new_length = pad + new_length / step
+        elif step < 0 and stop < start:
+            new_length = (start - stop)
+            if step != -1:
+                pad = 0
+                if new_length % -step:
+                    pad = 1
+                new_length = pad + new_length / -step
+        elif step == 0:
+            raise NotImplementedError
+        else:
+            return make_empty_list(self.space)
+        storage = self.erase((w_l_item, new_length))
+        return W_ListObject.from_storage_and_strategy(
+                self.space, storage, self)
+
+    def getitem(self, w_list, index):
+        if index < self.length(w_list):
+            return self.unerase(w_list.lstorage)[0]
+        raise IndexError
+
+    def getstorage_copy(self, w_list):
+        # tuple is immutable
+        return w_list.lstorage
+
+    def getitems(self, w_list):
+        return self.getitems_copy(w_list)
+
+    @jit.look_inside_iff(lambda self, w_list:
+            jit.loop_unrolling_heuristic(w_list, w_list.length(),
+                                         UNROLL_CUTOFF))
+    def getitems_copy(self, w_list):
+        w_l_item, length = self.unerase(w_list.lstorage)
+        return [w_l_item] * length
+
+    @jit.unroll_safe
+    def getitems_unroll(self, w_list):
+        w_l_item, length = self.unerase(w_list.lstorage)
+        return [w_l_item] * length
+
+    @jit.look_inside_iff(lambda self, w_list:
+            jit.loop_unrolling_heuristic(w_list, w_list.length(),
+                                         UNROLL_CUTOFF))
+    def getitems_fixedsize(self, w_list):
+        return self.getitems_unroll(w_list)
+
+    def pop_end(self, w_list):
+        w_l_item, length = self.unerase(w_list.lstorage)
+        if length != 0:
+            w_list.lstorage = self.erase((w_l_item, length - 1))
+            return w_l_item
+        raise IndexError
+
+    def pop(self, w_list, index):
+        w_l_item, length = self.unerase(w_list.lstorage)
+        if -length <= index < length:
+            w_list.lstorage = self.erase((w_l_item, length - 1))
+            return w_l_item
+        raise IndexError
+
+    def _extend_from_list(self, w_list, w_other):
+        if w_other.length() == 0:
+            return
+        if w_other.strategy is self.space.fromcache(RepeatListStrategy):
+            w_l_item, l_length = self.unerase(w_list.lstorage)
+            w_o_item, o_length = self.unerase(w_other.lstorage)
+            if self.space.eq_w(w_l_item, w_o_item):
+                w_list.lstorage = self.erase((w_l_item, l_length + o_length))
+                return
+        self.switch_to_item_strategy(w_list)
+        w_list.extend(w_other)
+
+    def inplace_mul(self, w_list, times):
+        if times > 0:
+            w_l_item, length = self.unerase(w_list.lstorage)
+            w_list.lstorage = self.erase((w_l_item, length * times))
+        else:
+            strategy = self.space.fromcache(EmptyListStrategy)
+            w_list.strategy = strategy
+            w_list.lstorage = strategy.erase(None)
+
+    def reverse(self, w_list):
+        return
+
+    def sort(self, w_list, reverse):
+        return
+
+    def insert(self, w_list, index, w_item):
+        w_l_item, length = self.unerase(w_list.lstorage)
+        if index >= length:
+            raise IndexError
+        if self.space.eq_w(w_item, w_l_item):
+            w_list.lstorage = self.erase((w_l_item, length + 1))
+            return
+        self.switch_to_item_strategy(w_list, w_item)
+        w_list.insert(index, w_item)
+
+    def setitem(self, w_list, index, w_item):
+        w_l_item, length = self.unerase(w_list.lstorage)
+        if index >= length:
+            raise IndexError
+        if self.space.eq_w(w_item, w_l_item):
+            return
+        self.switch_to_item_strategy(w_list, w_item)
+        w_list.setitem(index, w_item)
+
+    def setslice(self, w_list, start, step, slicelength, w_other):
+        assert slicelength >= 0
+        if w_other.length() == 0:
+            self.deleteslice(w_list, start, step, slicelength)
+            return
+        if w_other.strategy is self.space.fromcache(RepeatListStrategy):
+            w_l_item, l_length = self.unerase(w_list.lstorage)
+            w_o_item, o_length = self.unerase(w_other.lstorage)
+            if self.space.eq_w(w_l_item, w_o_item):
+                w_list.lstorage = self.erase((w_l_item, l_length + o_length - slicelength))
+                return
+        self.switch_to_item_strategy(w_list)
+        w_list.setslice(start, step, slicelength, w_other)
+
+    def deleteslice(self, w_list, start, step, slicelength):
+        if slicelength == 0:
+            return
+        w_l_item, length = self.unerase(w_list.lstorage)
+        w_list.lstorage = self.erase((w_l_item, length - slicelength))
 
 class BaseRangeListStrategy(ListStrategy):
     def switch_to_integer_strategy(self, w_list):
@@ -1570,11 +1794,80 @@ class AbstractUnwrappedStrategy(object):
         return w_item
 
     def mul(self, w_list, times):
+        assert w_list.strategy is not self.space.fromcache(RepeatListStrategy)
+        if times <= 0:
+            return make_empty_list(self.space)
+        if w_list.length() == 1:
+            w_l_ret = w_list.clone()
+            if self.switch_to_repeat_strategy_inplace(w_l_ret, times):
+                return w_l_ret
         l = self.unerase(w_list.lstorage)
         return W_ListObject.from_storage_and_strategy(
             self.space, self.erase(l * times), self)
 
+    def switch_to_repeat_strategy_inplace(self, w_list, times):
+        if w_list.strategy is self.space.fromcache(ObjectListStrategy):
+            # Already wrapped
+            w_item = w_list.getitem(0)
+            strategy = self.space.fromcache(RepeatListStrategy)
+            w_list.strategy = strategy
+            w_list.lstorage = strategy.erase((w_item, times))
+            return True
+        if w_list.strategy is self.space.fromcache(IntegerListStrategy):
+            w_item = w_list.getitem(0)
+            assert isinstance(w_item, W_IntObject)
+            strategy = self.space.fromcache(RepeatListStrategy)
+            w_list.strategy = strategy
+            w_list.lstorage = strategy.erase((w_item, times))
+            return True
+        if w_list.strategy is self.space.fromcache(FloatListStrategy):
+            w_item = w_list.getitem(0)
+            assert isinstance(w_item, W_FloatObject)
+            strategy = self.space.fromcache(RepeatListStrategy)
+            w_list.strategy = strategy
+            w_list.lstorage = strategy.erase((w_item, times))
+            return True
+        if w_list.strategy is self.space.fromcache(IntOrFloatListStrategy):
+            w_item = w_list.getitem(0)
+            assert isinstance(w_item, W_FloatObject) or isinstance(w_item, W_IntObject)
+            strategy = self.space.fromcache(RepeatListStrategy)
+            w_list.strategy = strategy
+            w_list.lstorage = strategy.erase((w_item, times))
+            return True
+        if w_list.strategy is self.space.fromcache(UnicodeListStrategy):
+            w_item = w_list.getitem(0)
+            assert isinstance(w_item, W_UnicodeObject)
+            strategy = self.space.fromcache(RepeatListStrategy)
+            w_list.strategy = strategy
+            w_list.lstorage = strategy.erase((w_item, times))
+            return True
+        if w_list.strategy is self.space.fromcache(BytesListStrategy):
+            w_item = w_list.getitem(0)
+            assert isinstance(w_item, W_BytesObject)
+            strategy = self.space.fromcache(RepeatListStrategy)
+            w_list.strategy = strategy
+            w_list.lstorage = strategy.erase((w_item, times))
+            return True
+        if w_list.strategy is self.space.fromcache(BaseRangeListStrategy):
+            w_item = w_list.getitem(0)
+            assert isinstance(w_item, W_IntObject)
+            strategy = self.space.fromcache(RepeatListStrategy)
+            w_list.strategy = strategy
+            w_list.lstorage = strategy.erase((w_item, times))
+            return True
+        return False
+
     def inplace_mul(self, w_list, times):
+        assert w_list.strategy is not self.space.fromcache(RepeatListStrategy)
+        if times <= 0:
+            #XXX switch_to_empty() or clear()
+            strategy = self.space.fromcache(EmptyListStrategy)
+            w_list.strategy = strategy
+            w_list.lstorage = strategy.erase(None)
+            return
+        if w_list.length() == 1:
+            if self.switch_to_repeat_strategy_inplace(w_list, times):
+                return
         l = self.unerase(w_list.lstorage)
         l *= times
 

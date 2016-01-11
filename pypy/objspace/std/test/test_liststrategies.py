@@ -4,7 +4,7 @@ from pypy.objspace.std.listobject import (
     W_ListObject, EmptyListStrategy, ObjectListStrategy, IntegerListStrategy,
     FloatListStrategy, BytesListStrategy, RangeListStrategy,
     SimpleRangeListStrategy, make_range_list, UnicodeListStrategy,
-    IntOrFloatListStrategy)
+    IntOrFloatListStrategy, make_repeat_list, RepeatListStrategy)
 from pypy.objspace.std import listobject
 from pypy.objspace.std.test.test_listobject import TestW_ListObject
 
@@ -587,6 +587,397 @@ class TestW_ListStrategies(TestW_ListObject):
         l2 = W_ListObject(self.space, [self.space.wrap(4), self.space.wrap(5)])
         l3 = l1.descr_add(self.space, l2)
         assert self.space.eq_w(l3, W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3), self.space.wrap(4), self.space.wrap(5)]))
+
+    def test_repeatlist_from_other_strategy(self):
+        l1 = W_ListObject(self.space, [self.space.wrap(42)])
+        assert l1.strategy == self.space.fromcache(IntegerListStrategy)
+        l2 = l1.mul(3)
+        assert l1.strategy == self.space.fromcache(IntegerListStrategy)
+        assert l1.length() == 1
+        assert self.space.eq_w(l1.descr_getitem(self.space, self.space.wrap(0)), self.space.wrap(42))
+        assert l2.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l2.length() == 3
+        assert self.space.eq_w(l2.descr_getitem(self.space, self.space.wrap(0)), self.space.wrap(42))
+
+    def test_repeatlist_from_other_strategy_imul(self):
+        l1 = W_ListObject(self.space, [self.space.wrap(42)])
+        assert l1.strategy == self.space.fromcache(IntegerListStrategy)
+        l1.inplace_mul(3)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 3
+        assert self.space.eq_w(l1.descr_getitem(self.space, self.space.wrap(0)), self.space.wrap(42))
+
+    def test_repeatlist_from_other_strategy_imul_neg(self):
+        l1 = W_ListObject(self.space, [self.space.wrap(42)])
+        assert l1.strategy == self.space.fromcache(IntegerListStrategy)
+        l1.inplace_mul(-3)
+        assert l1.strategy == self.space.fromcache(EmptyListStrategy)
+        assert l1.length() == 0
+
+    def test_repeatlist_add(self):
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 2)
+        l2 = make_repeat_list(self.space, self.space.wrap(None), 1)
+        l3 = l1.descr_add(self.space, l2)
+        assert self.space.eq_w(l3, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None), self.space.wrap(None)]))
+        assert l3.strategy == self.space.fromcache(RepeatListStrategy)
+        l2 = W_ListObject(self.space, [self.space.wrap(None)])
+        l3 = l1.descr_add(self.space, l2)
+        assert self.space.eq_w(l3, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None), self.space.wrap(None)]))
+        assert l3.strategy == self.space.fromcache(ObjectListStrategy)
+
+    def test_repeatlist_deleteslice(self):
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 42)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 42
+        assert self.space.eq_w(l1.descr_getitem(self.space, self.space.wrap(0)), self.space.wrap(None))
+        l1.deleteslice(0, 1, 0)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 42
+        assert self.space.eq_w(l1.descr_getitem(self.space, self.space.wrap(0)), self.space.wrap(None))
+        l1.deleteslice(0, 1, 12)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 30
+        assert self.space.eq_w(l1.descr_getitem(self.space, self.space.wrap(0)), self.space.wrap(None))
+        l1.deleteslice(0, 1, 30)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 0
+
+    def test_repeatlist_empty_getitem(self):
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 1)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 1
+        l1.pop_end()
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 0
+        from pypy.interpreter.error import OperationError
+        try:
+            l1.descr_getitem(self.space, self.space.wrap(0))
+        except OperationError as e:
+            if not e.match(self.space, self.space.w_IndexError):
+                raise
+        else:
+            assert False, "Did not raise IndexError"
+
+    def test_repeatlist_setitem(self):
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 3)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 3
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None), self.space.wrap(None)]))
+        l1.setitem(1, self.space.wrap(None))
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 3
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None), self.space.wrap(None)]))
+        l1.setitem(1, self.space.wrap(42))
+        assert l1.strategy == self.space.fromcache(ObjectListStrategy)
+        assert l1.length() == 3
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(42), self.space.wrap(None)]))
+
+        l1 = make_repeat_list(self.space, self.space.wrap(42), 3)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 3
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(42), self.space.wrap(42), self.space.wrap(42)]))
+        l1.setitem(1, self.space.wrap(21))
+        assert l1.strategy == self.space.fromcache(IntegerListStrategy)
+        assert l1.length() == 3
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(42), self.space.wrap(21), self.space.wrap(42)]))
+
+        l1 = make_repeat_list(self.space, self.space.wrap(42), 3)
+        from pypy.interpreter.error import OperationError
+        try:
+            l1.setitem(10, self.space.wrap(42))
+        except IndexError:
+            pass
+        else:
+            assert False, "Did not raise IndexError"
+
+    def test_repeatlist_insert(self):
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 2)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 2
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None)]))
+        l1.insert(0, self.space.wrap(None))
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 3
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None), self.space.wrap(None)]))
+        l1.insert(1, self.space.wrap(42))
+        assert l1.strategy == self.space.fromcache(ObjectListStrategy)
+        assert l1.length() == 4
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(42), self.space.wrap(None), self.space.wrap(None)]))
+
+        l1 = make_repeat_list(self.space, self.space.wrap(42), 2)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 2
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(42), self.space.wrap(42)]))
+        l1.insert(0, self.space.wrap(21))
+        assert l1.strategy == self.space.fromcache(IntegerListStrategy)
+        assert l1.length() == 3
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(21), self.space.wrap(42), self.space.wrap(42)]))
+
+        l1 = make_repeat_list(self.space, self.space.wrap(42), 3)
+        from pypy.interpreter.error import OperationError
+        try:
+            l1.insert(10, self.space.wrap(42))
+        except IndexError:
+            pass
+        else:
+            assert False, "Did not raise IndexError"
+
+    def test_repeatlist_reverse(self):
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 2)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 2
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None)]))
+        l1.reverse()
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 2
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None)]))
+
+    def test_repeatlist_setslice(self):
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 3)
+        l2 = make_repeat_list(self.space, self.space.wrap(None), 2)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 3
+        assert l2.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l2.length() == 2
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None), self.space.wrap(None)]))
+        assert self.space.eq_w(l2, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None)]))
+        l1.setslice(1, 1, 1, l2)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 4
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None), self.space.wrap(None), self.space.wrap(None)]))
+
+        l1 = make_repeat_list(self.space, self.space.wrap(42), 2)
+        l2 = make_range_list(self.space, 1, 3, 3)
+        l1.setslice(1, 1, 1, l2)
+        assert l1.strategy == self.space.fromcache(ObjectListStrategy)
+        assert l1.length() == 4
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(42), self.space.wrap(1), self.space.wrap(4), self.space.wrap(7)]))
+
+    def test_repeatlist_mul(self):
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 2)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 2
+        l2 = l1.mul(3)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l2.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 2
+        assert l2.length() == 6
+        assert self.space.eq_w(l1.descr_getitem(self.space, self.space.wrap(0)), self.space.wrap(None))
+        assert self.space.eq_w(l2.descr_getitem(self.space, self.space.wrap(0)), self.space.wrap(None))
+        assert self.space.eq_w(l2, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None), self.space.wrap(None),
+                                                             self.space.wrap(None), self.space.wrap(None), self.space.wrap(None)]))
+
+    def test_repeatlist_mul_other(self):
+        l1 = W_ListObject(self.space, [self.space.wrap(None)])
+        assert l1.strategy == self.space.fromcache(ObjectListStrategy)
+        assert l1.length() == 1
+        l2 = l1.mul(3)
+        assert l1.strategy == self.space.fromcache(ObjectListStrategy)
+        assert l2.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 1
+        assert l2.length() == 3
+        assert self.space.eq_w(l1.descr_getitem(self.space, self.space.wrap(0)), self.space.wrap(None))
+        assert self.space.eq_w(l2.descr_getitem(self.space, self.space.wrap(0)), self.space.wrap(None))
+        assert self.space.eq_w(l2, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None), self.space.wrap(None)]))
+
+    def test_repeatlist_imul(self):
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 2)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 2
+        l1.inplace_mul(3)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 6
+        assert self.space.eq_w(l1.descr_getitem(self.space, self.space.wrap(0)), self.space.wrap(None))
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None), self.space.wrap(None),
+                                                             self.space.wrap(None), self.space.wrap(None), self.space.wrap(None)]))
+
+    def test_repeatlist_append(self):
+        # Same item
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 2)
+        l1.append(self.space.wrap(None))
+        assert self.space.eq_w(l1, W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(None), self.space.wrap(None)]))
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        # Same type => IntegerListStrategy
+        l2 = make_repeat_list(self.space, self.space.wrap(42), 2)
+        assert l2.strategy == self.space.fromcache(RepeatListStrategy)
+        l2.append(self.space.wrap(21))
+        assert l2.strategy == self.space.fromcache(IntegerListStrategy)
+        assert self.space.eq_w(l2, W_ListObject(self.space, [self.space.wrap(42), self.space.wrap(42), self.space.wrap(21)]))
+        # Different type => ObjectListStrategy
+        l3 = make_repeat_list(self.space, self.space.wrap(42), 2)
+        l3.append(self.space.wrap(21.0))
+        assert self.space.eq_w(l3, W_ListObject(self.space, [self.space.wrap(42), self.space.wrap(42), self.space.wrap(21.0)]))
+        assert l3.strategy == self.space.fromcache(ObjectListStrategy)
+        # Stays at ObjectListStrategy
+        l = make_repeat_list(self.space, self.space.wrap(None), 2)
+        assert isinstance(l.strategy, RepeatListStrategy)
+        l.append(self.space.wrap(None))
+        assert isinstance(l.strategy, RepeatListStrategy)
+        l.append(self.space.wrap("string"))
+        assert isinstance(l.strategy, ObjectListStrategy)
+        l.append(self.space.wrap(None))
+        assert isinstance(l.strategy, ObjectListStrategy)
+        # Other types
+        l = make_repeat_list(self.space, self.space.wrap(b'qwerty'), 2)
+        assert isinstance(l.strategy, RepeatListStrategy)
+        l.append(self.space.wrap(b'azerty'))
+        assert isinstance(l.strategy, BytesListStrategy)
+        l = make_repeat_list(self.space, self.space.wrap(u'azerty'), 2)
+        assert isinstance(l.strategy, RepeatListStrategy)
+        l.append(self.space.wrap(u'qwerty'))
+        assert isinstance(l.strategy, UnicodeListStrategy)
+        l = make_repeat_list(self.space, self.space.wrap(42.0), 2)
+        assert isinstance(l.strategy, RepeatListStrategy)
+        l.append(self.space.wrap(21.0))
+        assert isinstance(l.strategy, FloatListStrategy)
+
+    def test_repeatlist_find(self):
+        # Same item
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 2)
+        idx = l1.find(self.space.wrap(None))
+        assert idx == 0
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        # Same integer
+        l2 = make_repeat_list(self.space, self.space.wrap(42), 2)
+        idx = l2.find(self.space.wrap(42))
+        assert idx == 0
+        # Should still find it
+        idx = l2.find(self.space.wrap(42.0))
+        assert idx == 0
+        # Different integer
+        try:
+            l2.find(self.space.wrap(21))
+        except ValueError:
+            pass
+        else:
+            assert False, "Did not raise ValueError"
+        # Different type
+        try:
+            l2.find(self.space.wrap(21.0))
+        except ValueError:
+            pass
+        else:
+            assert False, "Did not raise ValueError"
+
+    def test_repeatlist_base(self):
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 0)
+        assert l1.strategy == self.space.fromcache(EmptyListStrategy)
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 1000000000)
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 1000000000
+
+    def test_repeatlist_big(self):
+        l1 = make_repeat_list(self.space, self.space.wrap(42), 1)
+        w_forty_two = self.space.wrap(42)
+
+        i = 100000 - 1
+        while i > 0:
+            l1.append(w_forty_two)
+            i -= 1
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 100000
+
+        i = 100000 - 1
+        while i > 0:
+            item = l1.pop(0)
+            assert self.space.eq_w(item, w_forty_two)
+            i -= 1
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+        assert l1.length() == 1
+
+    def test_repeatlist_getitem(self):
+        l1 = make_repeat_list(self.space, self.space.wrap(None), 2)
+        assert self.space.eq_w(l1.descr_getitem(self.space, self.space.wrap(0)), self.space.wrap(None))
+        assert l1.strategy == self.space.fromcache(RepeatListStrategy)
+
+    def test_repeatlist_extend_with_empty(self):
+        l = make_repeat_list(self.space, self.space.wrap(None), 2)
+        assert isinstance(l.strategy, RepeatListStrategy)
+        l.extend(W_ListObject(self.space, []))
+        assert isinstance(l.strategy, RepeatListStrategy)
+
+    def test_repeatlist_pop(self):
+        l = make_repeat_list(self.space, self.space.wrap(None), 42)
+        assert isinstance(l.strategy, RepeatListStrategy)
+        v = l.pop(5)
+        assert self.space.eq_w(v, self.space.wrap(None))
+        assert isinstance(l.strategy, RepeatListStrategy)
+
+        l = make_repeat_list(self.space, self.space.wrap(42), 5)
+        assert isinstance(l.strategy, RepeatListStrategy)
+        assert l.length() == 5
+        v = l.pop(0)
+        assert l.length() == 4
+        assert self.space.eq_w(v, self.space.wrap(42))
+        assert isinstance(l.strategy, RepeatListStrategy)
+        v = l.pop(l.length() - 1)
+        assert l.length() == 3
+        assert self.space.eq_w(v, self.space.wrap(42))
+        assert isinstance(l.strategy, RepeatListStrategy)
+        v = l.pop_end()
+        assert l.length() == 2
+        assert self.space.eq_w(v, self.space.wrap(42))
+        assert isinstance(l.strategy, RepeatListStrategy)
+        l.pop(0)
+        l.pop(0)
+        assert l.length() == 0
+        assert isinstance(l.strategy, RepeatListStrategy)
+        try:
+            l.pop(0)
+        except IndexError:
+            pass
+        else:
+            assert False, "Did not raise IndexError"
+        assert l.length() == 0
+        assert isinstance(l.strategy, RepeatListStrategy)
+        try:
+            l.pop_end()
+        except IndexError:
+            pass
+        else:
+            assert False, "Did not raise IndexError"
+        assert l.length() == 0
+        assert isinstance(l.strategy, RepeatListStrategy)
+
+    def test_repeatlist_getslice(self):
+        l = make_repeat_list(self.space, self.space.wrap(0), 42)
+        assert isinstance(l.strategy, RepeatListStrategy)
+        s = l.getslice(3, 6, 1, 2)
+        assert isinstance(l.strategy, RepeatListStrategy)
+        assert isinstance(s.strategy, RepeatListStrategy)
+        assert self.space.eq_w(s, W_ListObject(self.space, [self.space.wrap(0), self.space.wrap(0), self.space.wrap(0)]))
+        s = l.getslice(3, 6, 2, 2)
+        assert self.space.eq_w(s, W_ListObject(self.space, [self.space.wrap(0), self.space.wrap(0)]))
+        s = l.getslice(3, 7, 2, 2)
+        assert self.space.eq_w(s, W_ListObject(self.space, [self.space.wrap(0), self.space.wrap(0)]))
+        s = l.getslice(3, 8, 2, 2)
+        assert self.space.eq_w(s, W_ListObject(self.space, [self.space.wrap(0), self.space.wrap(0), self.space.wrap(0)]))
+        s = l.getslice(3, 8, 3, 2)
+        assert self.space.eq_w(s, W_ListObject(self.space, [self.space.wrap(0), self.space.wrap(0)]))
+        s = l.getslice(3, 9, 3, 2)
+        assert self.space.eq_w(s, W_ListObject(self.space, [self.space.wrap(0), self.space.wrap(0)]))
+        s = l.getslice(3, 10, 3, 2)
+        assert self.space.eq_w(s, W_ListObject(self.space, [self.space.wrap(0), self.space.wrap(0), self.space.wrap(0)]))
+        s = l.getslice(3, 6, -1, 2)
+        assert isinstance(l.strategy, RepeatListStrategy)
+        assert isinstance(s.strategy, EmptyListStrategy)
+        s = l.getslice(-3, -6, -1, 2)
+        assert self.space.eq_w(s, W_ListObject(self.space, [self.space.wrap(0), self.space.wrap(0), self.space.wrap(0)]))
+        assert isinstance(l.strategy, RepeatListStrategy)
+        assert isinstance(s.strategy, RepeatListStrategy)
+        s = l.getslice(6, 3, -1, 2)
+        assert self.space.eq_w(s, W_ListObject(self.space, [self.space.wrap(0), self.space.wrap(0), self.space.wrap(0)]))
+        assert isinstance(l.strategy, RepeatListStrategy)
+        assert isinstance(s.strategy, RepeatListStrategy)
+
+    def test_repeatlist_recursion(self):
+        rl = make_repeat_list(self.space, self.space.wrap(42), 2)
+        ol = W_ListObject(self.space, [self.space.wrap(None), self.space.wrap(False)])
+        # This should not endlessly recurse into a AULS.append() -> OLS.is_correct_type() loop
+        ol.append(rl)
+        assert ol.length() == 3
+        assert self.space.eq_w(ol, W_ListObject(self.space, [self.space.wrap(None),
+            self.space.wrap(False), W_ListObject(self.space, [self.space.wrap(42), self.space.wrap(42)])]))
 
     def test_unicode(self):
         l1 = W_ListObject(self.space, [self.space.wrap("eins"), self.space.wrap("zwei")])
