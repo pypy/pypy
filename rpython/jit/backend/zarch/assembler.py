@@ -512,7 +512,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # registers).
         mc = InstrBuilder()
         #
-        # mc.STG(r.r14, l.addr(14*WORD, r.SP))
+        mc._push_core_regs_to_jitframe([r.r14]) # store the link on the jit frame
         # Do the call
         mc.push_std_frame()
         mc.LGR(r.r2, r.SP)
@@ -527,6 +527,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # else we have an exception
         mc.cmp_op(r.SCRATCH, l.imm(0), imm=True)
         #
+        mc._pop_core_regs_from_jitframe([r.r14]) # restore the link on the jit frame
         # So we return to our caller, conditionally if "EQ"
         # mc.LG(r.r14, l.addr(14*WORD, r.SP))
         mc.BCR(c.EQ, r.r14)
@@ -551,16 +552,14 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
             diff = lengthaddr - endaddr
             assert check_imm_value(diff)
-            xxx
 
             mc = self.mc
-            mc.load_imm(r.SCRATCH, self.stack_check_slowpath)
-            mc.load_imm(r.SCRATCH2, endaddr)                 # li r2, endaddr
-            mc.mtctr(r.SCRATCH.value)
-            mc.load(r.SCRATCH.value, r.SCRATCH2.value, 0)    # ld r0, [end]
-            mc.load(r.SCRATCH2.value, r.SCRATCH2.value, diff)# ld r2, [length]
-            mc.subf(r.SCRATCH.value, r.SP.value, r.SCRATCH.value)  # sub r0, SP
-            mc.cmp_op(0, r.SCRATCH.value, r.SCRATCH2.value, signed=False)
+            mc.load_imm(r.SCRATCH2, endaddr)     # li r0, endaddr
+            mc.branch_absolute(self.stack_check_slowpath)
+            mc.load(r.SCRATCH, r.SCRATCH2, 0)    # lg r1, [end]
+            mc.load(r.SCRATCH2, r.SCRATCH2, diff)# lg r0, [length]
+            mc.SGR(r.SCRATCH, r.SP)              # sub r1, SP
+            mc.cmp_op(r.SCRATCH, r.SCRATCH2, signed=False)
             mc.bgtctrl()
 
     def _check_frame_depth(self, mc, gcmap):
@@ -1057,21 +1056,71 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                 mc.MOVSD_bx((ofs + i * coeff) * WORD + base_ofs, i)
 
     def _push_core_regs_to_jitframe(self, mc, includes=r.registers):
+        self._multiple_to_or_from_jitframe(mc, includes, store=True)
+
+    @specialize.arg(3)
+    def _multiple_to_or_from_jitframe(self, mc, includes, store):
         if len(includes) == 0:
             return
         base_ofs = self.cpu.get_baseofs_of_frame_field()
-        base = includes[0].value
-        val = includes[0].value
-        for register in includes:
-            if register.value != val:
-                break
-            val += 1
-        else:
-            mc.STMG(includes[0], includes[-1], l.addr(base_ofs + base * WORD, r.SPP))
+        if len(includes) == 1:
+            iv = includes[0]
+            addr = l.addr(base_ofs + iv.value * WORD, r.SPP)
+            if store:
+                mc.STG(iv, addr)
+            else:
+                mc.LG(iv, addr)
             return
-        # unordered!
-        for register in includes:
-            mc.STG(register, l.addr(base_ofs + register.value * WORD, r.SPP))
+
+        val = includes[0].value
+        # includes[i => j]
+        # for each continous sequence in the registers are stored
+        # with STMG instead of STG, in the best case this only leads
+        # to 1 instruction to store r.ri -> r.rj (if it is continuous)
+        i = 0
+        j = 1
+        for register in includes[1:]:
+            if i >= j:
+                j += 1
+                continue
+            regval = register.value
+            if regval != (val+1):
+                iv = includes[i]
+                diff = (val - iv.value)
+                addr = l.addr(base_ofs + iv.value * WORD, r.SPP)
+                if diff > 0:
+                    if store:
+                        mc.STMG(iv, includes[i+diff], addr) 
+                    else:
+                        mc.LMG(iv, includes[i+diff], addr) 
+                    i = j
+                else:
+                    if store:
+                        mc.STG(iv, addr)
+                    else:
+                        mc.LG(iv, addr)
+                    i = j
+            val = regval
+            j += 1
+        if i >= len(includes):
+            # all have been stored
+            return
+        diff = (val - includes[i].value)
+        iv = includes[i]
+        addr = l.addr(base_ofs + iv.value * WORD, r.SPP)
+        if diff > 0:
+            if store:
+                mc.STMG(iv, includes[-1], addr) 
+            else:
+                mc.LMG(iv, includes[-1], addr) 
+        else:
+            if store:
+                mc.STG(iv, addr)
+            else:
+                mc.LG(iv, addr)
+
+    def _pop_core_regs_from_jitframe(self, mc, includes=r.MANAGED_REGS):
+        self._multiple_to_or_from_jitframe(mc, includes, store=False)
 
     def _push_fp_regs_to_jitframe(self, mc, includes=r.fpregisters):
         if len(includes) == 0:
@@ -1080,11 +1129,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         v = 16
         for i,reg in enumerate(includes):
             mc.STDY(reg, l.addr(base_ofs + (v+i) * WORD, r.SPP))
-
-    def _pop_core_regs_from_jitframe(self, mc, includes=r.MANAGED_REGS):
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
-        for reg in includes:
-            mc.LG(reg, l.addr(base_ofs + reg.value * WORD, r.SPP))
 
     def _pop_fp_regs_from_jitframe(self, mc, includes=r.MANAGED_FP_REGS):
         base_ofs = self.cpu.get_baseofs_of_frame_field()

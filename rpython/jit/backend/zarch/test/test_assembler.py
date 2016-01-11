@@ -370,3 +370,72 @@ class TestRunningAssembler(object):
             self.mc.LGHI(reg.r2, loc.imm(1))
         self.a.jmpto(reg.r14)
         assert run_asm(self.a) == 1
+
+    def pushpop_jitframe(self, registers):
+        self.a._push_core_regs_to_jitframe(self.mc, registers)
+        self.a._pop_core_regs_from_jitframe(self.mc, registers)
+
+    def test_pushpop_jitframe_multiple_optimization(self):
+        stored = []
+        loaded = []
+        def STMG(start, end, addr):
+            stored.append((start, end))
+        def STG(reg, addr):
+            stored.append((reg,))
+        def LMG(start, end, addr):
+            loaded.append((start, end)) 
+        def LG(reg, addr):
+            loaded.append((reg,))
+        self.mc.STMG = STMG
+        self.mc.STG = STG
+        self.mc.LMG = LMG
+        self.mc.LG = LG
+
+        r = reg
+
+        # two sequences 10-11, 13-14
+        self.pushpop_jitframe([r.r10, r.r11, r.r13, r.r14])
+        assert stored == [(r.r10, r.r11), (r.r13, r.r14)]
+        assert stored == loaded
+        stored = []
+        loaded = []
+
+        # one sequence and on single
+        self.pushpop_jitframe([r.r0, r.r1, r.r3])
+        assert stored == [(r.r0, r.r1), (r.r3,)]
+        assert stored == loaded
+        stored = []
+        loaded = []
+
+        # single items
+        self.pushpop_jitframe(r.registers[::2])
+        assert stored == [(x,) for x in r.registers[::2]]
+        assert stored == loaded
+        stored = []
+        loaded = []
+
+        # large sequence 0-5 and one hole between
+        self.pushpop_jitframe([r.r0, r.r1, r.r2, r.r3,
+            r.r4, r.r5, r.r12, r.r13])
+        assert stored == [(r.r0, r.r5), (r.r12, r.r13)]
+        assert stored == loaded
+        stored = []
+        loaded = []
+
+        # ensure there is just on instruction for the 'best case'
+        self.pushpop_jitframe(r.registers)
+        assert stored == [(r.r0, r.r15)]
+        assert stored == loaded
+        stored = []
+        loaded = []
+
+        # just one single
+        for r in [r.r14, r.r0, r.r1, r.r15]:
+            self.pushpop_jitframe([r])
+            assert stored == [(r,)]
+            assert stored == loaded
+            stored = []
+            loaded = []
+
+
+

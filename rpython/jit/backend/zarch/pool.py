@@ -2,6 +2,7 @@ from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch import locations as l
 from rpython.jit.metainterp.history import (INT, REF, FLOAT,
         TargetToken)
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.jit.backend.zarch.arch import (WORD,
@@ -36,7 +37,6 @@ class LiteralPool(object):
                 self.reserve_literal(8)
         elif op.getopnum() == rop.LABEL:
             descr = op.getdescr()
-            descr._ll_loop_pool = self.pool_start
             if descr not in asm.target_tokens_currently_compiling:
                 # this is a 'long' jump instead of a relative jump
                 self.offset_map[descr] = self.size
@@ -121,12 +121,10 @@ class LiteralPool(object):
         self.pool_start = asm.mc.get_relative_pos()
         for op in operations:
             self.ensure_can_hold_constants(asm, op)
-        if self.size == 0 and written != 0:
+        if self.size == 0:
             # no pool needed!
             return
-        assert self.size % 2 == 0
-        #if self.size % 2 == 1:
-        #    self.size += 1
+        assert self.size % 2 == 0, "not aligned properly"
         asm.mc.write('\x00' * self.size)
         written = 0
         if self.constant_64_ones != -1:
@@ -146,7 +144,8 @@ class LiteralPool(object):
             self.constant_max_64_positive = self.size
             written += 8
         self.size += written
-        print "pool with %d quad words" % (self.size // 8)
+        if not we_are_translated():
+            print "pool with %d quad words" % (self.size // 8)
 
     def overwrite_64(self, mc, index, value):
         index += self.pool_start
@@ -165,7 +164,8 @@ class LiteralPool(object):
         if self.size == 0:
             return
         for val, offset in self.offset_map.items():
-            print val, offset
+            if not we_are_translated():
+                print('pool: %s at offset: %d' % (val, offset))
             if val.is_constant():
                 if val.type == FLOAT:
                     self.overwrite_64(mc, offset, float2longlong(val.value))

@@ -673,7 +673,6 @@ class GuardOpAssembler(object):
         self._emit_guard(op, arglocs[1:])
 
     def emit_guard_subclass(self, op, arglocs, regalloc):
-        xxx
         assert self.cpu.supports_guard_gc_type
         loc_object = arglocs[0]
         loc_check_against_class = arglocs[1]
@@ -681,10 +680,10 @@ class GuardOpAssembler(object):
         offset2 = self.cpu.subclassrange_min_offset
         if offset is not None:
             # read this field to get the vtable pointer
-            self.mc(r.SCRATCH2, l.addr(offset, loc_object))
+            self.mc.LG(r.SCRATCH2, l.addr(offset, loc_object))
             # read the vtable's subclassrange_min field
             assert check_imm(offset2)
-            self.mc.ld(r.SCRATCH2.value, r.SCRATCH2.value, offset2)
+            self.mc.LG(r.SCRATCH2.value, r.SCRATCH2.value, offset2)
         else:
             # read the typeid
             self._read_typeid(r.SCRATCH, loc_object)
