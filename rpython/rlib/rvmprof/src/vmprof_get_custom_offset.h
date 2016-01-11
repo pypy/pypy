@@ -11,7 +11,7 @@ static long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
 #ifdef PYPY_JIT_CODEMAP
     void *codemap;
     long current_pos = 0;
-    intptr_t id;
+    intptr_t ident;
     long start_addr = 0;
     intptr_t addr = (intptr_t)ip;
     int start, k;
@@ -28,21 +28,22 @@ static long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
     result[n++] = start_addr;
     start = n;
     while (n < max_depth) {
-        id = pypy_yield_codemap_at_addr(codemap, addr, &current_pos);
-        if (id == -1)
+        ident = pypy_yield_codemap_at_addr(codemap, addr, &current_pos);
+        if (ident == -1)
             // finish
             break;
-        if (id == 0)
+        if (ident == 0)
             continue; // not main codemap
         result[n++] = VMPROF_JITTED_TAG;
-        result[n++] = id;
+        result[n++] = ident;
     }
-    k = 0;
+    k = 1;
+
     while (k < (n - start) / 2) {
         tmp = result[start + k];
-        result[start + k] = result[n - k - 1];
-        result[n - k - 1] = tmp;
-        k++;
+        result[start + k] = result[n - k];
+        result[n - k] = tmp;
+        k += 2;
     }
 #endif
     return n;

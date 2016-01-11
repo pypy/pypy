@@ -19,6 +19,7 @@ class CompiledVmprofTest(CCompiledMixin):
         from rpython.rlib import rvmprof
 
         class MyCode:
+            _vmprof_unique_id = 0
             def __init__(self, name):
                 self.name = name
 
@@ -26,14 +27,18 @@ class CompiledVmprofTest(CCompiledMixin):
             return code.name
 
         code2 = MyCode("py:y:foo:4")
+        rvmprof.register_code(code2, get_name)
 
         try:
             rvmprof.register_code_object_class(MyCode, get_name)
         except rvmprof.VMProfPlatformUnsupported, e:
             py.test.skip(str(e))
 
+        def get_unique_id(code):
+            return rvmprof.get_unique_id(code)
+
         driver = JitDriver(greens = ['code'], reds = ['i', 's', 'num'],
-            is_recursive=True)
+            is_recursive=True, get_unique_id=get_unique_id)
 
         @rvmprof.vmprof_execute_code("xcode13", lambda code, num: code)
         def main(code, num):
@@ -45,7 +50,7 @@ class CompiledVmprofTest(CCompiledMixin):
             while i < num:
                 driver.jit_merge_point(code=code, i=i, s=s, num=num)
                 s += (i << 1)
-                if s % 3 == 0 and code is not code2:
+                if i % 3 == 0 and code is not code2:
                     main(code2, 100)
                 i += 1
             return s
@@ -72,7 +77,7 @@ class CompiledVmprofTest(CCompiledMixin):
             import pdb
             pdb.set_trace()
 
-        self.meta_interp(f, [1000000])
+        self.meta_interp(f, [1000000], inline=True)
         try:
             import vmprof
         except ImportError:
