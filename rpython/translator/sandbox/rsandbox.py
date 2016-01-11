@@ -15,7 +15,6 @@ from rpython.rlib.signature import signature
 
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.llannotation import lltype_to_annotation
-from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.ansi_print import ansi_log
 
@@ -100,10 +99,17 @@ def not_implemented_stub(msg):
     STDERR = 2
     with rffi.scoped_str2charp(msg + '\n') as buf:
         writeall_not_sandboxed(STDERR, buf, len(msg) + 1)
-    raise RuntimeError(msg)  # XXX in RPython, the msg is ignored at the moment
+    raise RuntimeError(msg)  # XXX in RPython, the msg is ignored
+
+def make_stub(fnname, msg):
+    log.WARNING(msg)
+    def execute(*args):
+        not_implemented_stub(msg)
+    execute.__name__ = 'sandboxed_%s' % (fnname,)
+    return execute
 
 dump_string = rmarshal.get_marshaller(str)
-load_int    = rmarshal.get_loader(int)
+load_int = rmarshal.get_loader(int)
 
 def get_external_function_sandbox_graph(fnobj, db, force_stub=False):
     """Build the graph of a helper trampoline function to be used
@@ -117,11 +123,9 @@ def get_external_function_sandbox_graph(fnobj, db, force_stub=False):
     else:
         fnname = fnobj._name
     if hasattr(fnobj, 'graph'):
-        # get the annotation of the input arguments and the result
         graph = fnobj.graph
-        annotator = db.translator.annotator
-        args_s = [annotator.binding(v) for v in graph.getargs()]
-        s_result = annotator.binding(graph.getreturnvar())
+        args_s = [v.annotation for v in graph.getargs()]
+        s_result = graph.getreturnvar().annotation
     else:
         # pure external function - fall back to the annotations
         # corresponding to the ll types
@@ -129,37 +133,33 @@ def get_external_function_sandbox_graph(fnobj, db, force_stub=False):
         args_s = [lltype_to_annotation(ARG) for ARG in FUNCTYPE.ARGS]
         s_result = lltype_to_annotation(FUNCTYPE.RESULT)
 
-    try:
-        if force_stub:   # old case - don't try to support suggested_primitive
-            raise NotImplementedError("sandboxing for external function '%s'"
-                                      % (fnname,))
-
-        dump_arguments = rmarshal.get_marshaller(tuple(args_s))
-        load_result = rmarshal.get_loader(s_result)
-
-    except (NotImplementedError,
-            rmarshal.CannotMarshal,
-            rmarshal.CannotUnmarshall), e:
-        msg = 'Not Implemented: %s' % (e,)
-        log.WARNING(msg)
-        def execute(*args):
-            not_implemented_stub(msg)
-
+    if force_stub:   # old case - don't try to support suggested_primitive
+        msg = "Not implemented: sandboxing for external function '%s'" % (fnname,)
+        execute = make_stub(fnname, msg)
     else:
-        def execute(*args):
-            # marshal the function name and input arguments
-            buf = []
-            dump_string(buf, fnname)
-            dump_arguments(buf, args)
-            # send the buffer and wait for the answer
-            loader = sandboxed_io(buf)
-            # decode the answer
-            result = load_result(loader)
-            loader.check_finished()
-            return result
-    execute = func_with_new_name(execute, 'sandboxed_' + fnname)
+        try:
+            dump_arguments = rmarshal.get_marshaller(tuple(args_s))
+            load_result = rmarshal.get_loader(s_result)
+        except (rmarshal.CannotMarshal, rmarshal.CannotUnmarshall) as e:
+            msg = "Cannot sandbox function '%s': %s" % (fnname, e)
+            execute = make_stub(fnname, msg)
+        else:
+            def execute(*args):
+                # marshal the function name and input arguments
+                buf = []
+                dump_string(buf, fnname)
+                dump_arguments(buf, args)
+                # send the buffer and wait for the answer
+                loader = sandboxed_io(buf)
+                # decode the answer
+                result = load_result(loader)
+                loader.check_finished()
+                return result
+            execute.__name__ = 'sandboxed_%s' % (fnname,)
+    return _annotate(db.translator.rtyper, execute, args_s, s_result)
 
-    ann = MixLevelHelperAnnotator(db.translator.rtyper)
-    graph = ann.getgraph(execute, args_s, s_result)
+def _annotate(rtyper, f, args_s, s_result):
+    ann = MixLevelHelperAnnotator(rtyper)
+    graph = ann.getgraph(f, args_s, s_result)
     ann.finish()
     return graph
