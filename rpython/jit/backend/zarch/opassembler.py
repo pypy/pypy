@@ -634,10 +634,7 @@ class GuardOpAssembler(object):
         # Note that the typeid half-word is at offset 0 on a little-endian
         # machine; it is at offset 2 or 4 on a big-endian machine.
         assert self.cpu.supports_guard_gc_type
-        if IS_PPC_32:
-            self.mc.lhz(targetreg.value, loc_ptr.value, 2 * IS_BIG_ENDIAN)
-        else:
-            self.mc.lwz(targetreg.value, loc_ptr.value, 4 * IS_BIG_ENDIAN)
+        self.mc.LGF(targetreg, l.addr(4, loc_ptr))
 
     def _cmp_guard_gc_type(self, loc_ptr, expected_typeid):
         self._read_typeid(r.SCRATCH2, loc_ptr)
@@ -666,9 +663,11 @@ class GuardOpAssembler(object):
 
         self._read_typeid(r.SCRATCH2, loc_object)
         self.mc.load_imm(r.SCRATCH, base_type_info + infobits_offset)
-        assert shift_by == 0     # on PPC64; fixme for PPC32
-        self.mc.lbzx(r.SCRATCH2.value, r.SCRATCH2.value, r.SCRATCH.value)
-        self.mc.andix(r.SCRATCH2.value, r.SCRATCH2.value, IS_OBJECT_FLAG & 0xff)
+        assert shift_by == 0
+        self.mc.AGR(r.SCRATCH, r.SCRATCH2)
+        self.mc.LLGC(r.SCRATCH2, l.addr(0, r.SCRATCH))
+        self.mc.LGHI(r.SCRATCH, l.imm(IS_OBJECT_FLAG & 0xff))
+        self.mc.NGR(r.SCRATCH2, r.SCRATCH)
         self.guard_success_cc = c.NE
         self._emit_guard(op, arglocs[1:])
 
@@ -683,7 +682,7 @@ class GuardOpAssembler(object):
             self.mc.LG(r.SCRATCH2, l.addr(offset, loc_object))
             # read the vtable's subclassrange_min field
             assert check_imm(offset2)
-            self.mc.LG(r.SCRATCH2.value, r.SCRATCH2.value, offset2)
+            self.mc.load(r.SCRATCH2, r.SCRATCH2, offset2)
         else:
             # read the typeid
             self._read_typeid(r.SCRATCH, loc_object)
@@ -692,8 +691,11 @@ class GuardOpAssembler(object):
             base_type_info, shift_by, sizeof_ti = (
                 self.cpu.gc_ll_descr.get_translated_info_for_typeinfo())
             self.mc.load_imm(r.SCRATCH2, base_type_info + sizeof_ti + offset2)
-            assert shift_by == 0     # on PPC64; fixme for PPC32
-            self.mc.ldx(r.SCRATCH2.value, r.SCRATCH2.value, r.SCRATCH.value)
+            assert shift_by == 0
+            # add index manually
+            # we cannot use r0 in l.addr(...)
+            self.mc.AGR(r.SCRATCH, r.SCRATCH2)
+            self.mc.load(r.SCRATCH2, r.SCRATCH, 0)
         # get the two bounds to check against
         vtable_ptr = loc_check_against_class.getint()
         vtable_ptr = rffi.cast(rclass.CLASSTYPE, vtable_ptr)
@@ -706,8 +708,8 @@ class GuardOpAssembler(object):
         assert 0 <= check_min <= 0x7fff
         assert 0 <= check_diff <= 0xffff
         # check by doing the unsigned comparison (tmp - min) < (max - min)
-        self.mc.subi(r.SCRATCH2.value, r.SCRATCH2.value, check_min)
-        self.mc.cmp_op(0, r.SCRATCH2.value, check_diff, imm=True, signed=False)
+        self.mc.AGHI(r.SCRATCH2, l.imm(-check_min))
+        self.mc.cmp_op(r.SCRATCH2, l.imm(check_diff), imm=True, signed=False)
         # the guard passes if we get a result of "below or equal"
         self.guard_success_cc = c.LE
         self._emit_guard(op, arglocs[2:])
@@ -831,7 +833,7 @@ class MemoryOpAssembler(object):
             addr_loc = l.addr(offset_loc.value, base_loc, index_loc)
         else:
             self.mc.LGR(r.SCRATCH, index_loc)
-            slef.mc.AGR(r.SCRATCH, offset_loc)
+            self.mc.AGR(r.SCRATCH, offset_loc)
             addr_loc = l.addr(0, base_loc, r.SCRATCH)
         self._memory_read(result_loc, addr_loc, size_loc.value, sign_loc.value)
 

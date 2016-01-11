@@ -529,12 +529,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         #
         mc._pop_core_regs_from_jitframe([r.r14]) # restore the link on the jit frame
         # So we return to our caller, conditionally if "EQ"
-        # mc.LG(r.r14, l.addr(14*WORD, r.SP))
         mc.BCR(c.EQ, r.r14)
         #
         # Else, jump to propagate_exception_path
         assert self.propagate_exception_path
-        mc.b_abs(self.propagate_exception_path)
+        mc.branch_absolute(self.propagate_exception_path)
         #
         rawstart = mc.materialize(self.cpu, [])
         self.stack_check_slowpath = rawstart

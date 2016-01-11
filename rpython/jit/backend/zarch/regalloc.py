@@ -286,30 +286,11 @@ class ZARCHRegisterManager(RegisterManager):
             raise NoVariableToSpill()
         return even, odd
 
-    def ensure_in_reg(self, var, reg):
-        """ opposed to ensure_reg, this loads the contents of the variable
-            directly into reg """
-        if isinstance(var, ConstInt):
-            if -2**15 <= var.value and var.value <= 2*15-1:
-                self.assembler.mc.LGHI(reg, l.imm(var.value))
-            elif -2**31 <= var.value and var.value <= 2*31-1:
-                self.assembler.mc.LGFI(reg, l.imm(var.value))
-            else:
-                poolloc = self.ensure_reg(a1)
-                self.assembler.mc.LG(reg, poolloc)
-        else:
-            loc = self.loc(var, must_exist=True)
-            if loc is not reg:
-                self.assembler.regalloc_mov(loc, reg)
-            return reg
-
     def force_result_in_even_reg(self, result_v, loc, forbidden_vars=[]):
         pass
 
     def force_result_in_odd_reg(self, result_v, loc, forbidden_vars=[]):
         pass
-
-
 
 class ZARCHFrameManager(FrameManager):
     def __init__(self, base_ofs):
