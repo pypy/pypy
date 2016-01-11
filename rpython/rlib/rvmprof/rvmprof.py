@@ -33,7 +33,7 @@ class VMProf(object):
         self._code_classes = set()
         self._gather_all_code_objs = lambda: None
         self._cleanup_()
-        self._code_unique_id = 0
+        self._code_unique_id = 4
         self.cintf = cintf.setup()
         
     def _cleanup_(self):

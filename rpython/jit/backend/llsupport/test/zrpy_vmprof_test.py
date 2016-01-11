@@ -19,9 +19,14 @@ class CompiledVmprofTest(CCompiledMixin):
         from rpython.rlib import rvmprof
 
         class MyCode:
-            pass
+            def __init__(self, name):
+                self.name = name
+
         def get_name(code):
-            return 'py:code:52:x'
+            return code.name
+
+        code2 = MyCode("py:y:foo:4")
+
         try:
             rvmprof.register_code_object_class(MyCode, get_name)
         except rvmprof.VMProfPlatformUnsupported, e:
@@ -40,15 +45,15 @@ class CompiledVmprofTest(CCompiledMixin):
             while i < num:
                 driver.jit_merge_point(code=code, i=i, s=s, num=num)
                 s += (i << 1)
-                if s % 32423423423 == 0 and s > 0 == 0:
-                    print s
+                if s % 3 == 0 and code is not code2:
+                    main(code2, 100)
                 i += 1
             return s
 
         tmpfilename = str(udir.join('test_rvmprof'))
 
         def f(num):
-            code = MyCode()
+            code = MyCode("py:x:foo:3")
             rvmprof.register_code(code, get_name)
             fd = os.open(tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
             period = 0.0001
@@ -67,7 +72,7 @@ class CompiledVmprofTest(CCompiledMixin):
             import pdb
             pdb.set_trace()
 
-        self.meta_interp(f, [100000000])
+        self.meta_interp(f, [1000000])
         try:
             import vmprof
         except ImportError:
