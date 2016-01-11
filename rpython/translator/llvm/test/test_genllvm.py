@@ -534,14 +534,14 @@ class TestSpecialCases(_LLVMMixin):
         assert fc(1) == 0
 
     def test_entrypoints(self):
-        from rpython.rlib.entrypoint import entrypoint
+        from rpython.rlib.entrypoint import entrypoint_highlevel
         from rpython.translator.interactive import Translation
 
         def f(args):
             return 3
 
         key = 'test_entrypoints42'
-        @entrypoint(key, [int], 'foobar')
+        @entrypoint_highlevel(key, [int], 'foobar')
         def g(x):
             return x + 42
 
