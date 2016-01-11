@@ -24,9 +24,8 @@ static long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
 
     // modify the last entry to point to start address and not the random one
     // in the middle
-    result[n] = VMPROF_ASSEMBLER_TAG;
-    result[n + 1] = start_addr;
-    n += 2;
+    result[n++] = VMPROF_ASSEMBLER_TAG;
+    result[n++] = start_addr;
     start = n;
     while (n < max_depth) {
         id = pypy_yield_codemap_at_addr(codemap, addr, &current_pos);
