@@ -916,15 +916,15 @@ class FuncNode(ContainerNode):
 def sandbox_stub(fnobj, db):
     # unexpected external function for --sandbox translation: replace it
     # with a "Not Implemented" stub.
-    graph = rsandbox.get_external_function_sandbox_graph(fnobj, db,
-                                                      force_stub=True)
+    graph = rsandbox.get_sandbox_stub(fnobj, db.translator.rtyper)
     return make_funcgen(graph, db)
 
 def sandbox_transform(fnobj, db):
     # for --sandbox: replace a function like os_open_llimpl() with
     # code that communicates with the external process to ask it to
     # perform the operation.
-    graph = rsandbox.get_external_function_sandbox_graph(fnobj, db)
+    graph = rsandbox.get_external_function_sandbox_graph(
+        fnobj, db.translator.rtyper)
     return make_funcgen(graph, db)
 
 def need_sandboxing(fnobj):

@@ -108,10 +108,24 @@ def make_stub(fnname, msg):
     execute.__name__ = 'sandboxed_%s' % (fnname,)
     return execute
 
+def sig_ll(fnobj):
+    FUNCTYPE = lltype.typeOf(fnobj)
+    args_s = [lltype_to_annotation(ARG) for ARG in FUNCTYPE.ARGS]
+    s_result = lltype_to_annotation(FUNCTYPE.RESULT)
+    return args_s, s_result
+
 dump_string = rmarshal.get_marshaller(str)
 load_int = rmarshal.get_loader(int)
 
-def get_external_function_sandbox_graph(fnobj, db, force_stub=False):
+def get_sandbox_stub(fnobj, rtyper):
+    """Build always-raising graph for unsupported external function."""
+    fnname = fnobj._name
+    args_s, s_result = sig_ll(fnobj)
+    msg = "Not implemented: sandboxing for external function '%s'" % (fnname,)
+    execute = make_stub(fnname, msg)
+    return _annotate(rtyper, execute, args_s, s_result)
+
+def get_external_function_sandbox_graph(fnobj, rtyper):
     """Build the graph of a helper trampoline function to be used
     in place of real calls to the external function 'fnobj'.  The
     trampoline marshals its input arguments, dumps them to STDOUT,
@@ -129,34 +143,28 @@ def get_external_function_sandbox_graph(fnobj, db, force_stub=False):
     else:
         # pure external function - fall back to the annotations
         # corresponding to the ll types
-        FUNCTYPE = lltype.typeOf(fnobj)
-        args_s = [lltype_to_annotation(ARG) for ARG in FUNCTYPE.ARGS]
-        s_result = lltype_to_annotation(FUNCTYPE.RESULT)
+        args_s, s_result = sig_ll(fnobj)
 
-    if force_stub:   # old case - don't try to support suggested_primitive
-        msg = "Not implemented: sandboxing for external function '%s'" % (fnname,)
+    try:
+        dump_arguments = rmarshal.get_marshaller(tuple(args_s))
+        load_result = rmarshal.get_loader(s_result)
+    except (rmarshal.CannotMarshal, rmarshal.CannotUnmarshall) as e:
+        msg = "Cannot sandbox function '%s': %s" % (fnname, e)
         execute = make_stub(fnname, msg)
     else:
-        try:
-            dump_arguments = rmarshal.get_marshaller(tuple(args_s))
-            load_result = rmarshal.get_loader(s_result)
-        except (rmarshal.CannotMarshal, rmarshal.CannotUnmarshall) as e:
-            msg = "Cannot sandbox function '%s': %s" % (fnname, e)
-            execute = make_stub(fnname, msg)
-        else:
-            def execute(*args):
-                # marshal the function name and input arguments
-                buf = []
-                dump_string(buf, fnname)
-                dump_arguments(buf, args)
-                # send the buffer and wait for the answer
-                loader = sandboxed_io(buf)
-                # decode the answer
-                result = load_result(loader)
-                loader.check_finished()
-                return result
-            execute.__name__ = 'sandboxed_%s' % (fnname,)
-    return _annotate(db.translator.rtyper, execute, args_s, s_result)
+        def execute(*args):
+            # marshal the function name and input arguments
+            buf = []
+            dump_string(buf, fnname)
+            dump_arguments(buf, args)
+            # send the buffer and wait for the answer
+            loader = sandboxed_io(buf)
+            # decode the answer
+            result = load_result(loader)
+            loader.check_finished()
+            return result
+        execute.__name__ = 'sandboxed_%s' % (fnname,)
+    return _annotate(rtyper, execute, args_s, s_result)
 
 def _annotate(rtyper, f, args_s, s_result):
     ann = MixLevelHelperAnnotator(rtyper)
