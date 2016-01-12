@@ -464,27 +464,48 @@ def build_unpack_func(mnemonic, func):
         e = unpack_arg(a, at)
         f = unpack_arg(b, bt)
         return func(self, e, f)
+    def function2_last_default(self, a):
+        e = unpack_arg(a, at)
+        return func(self, e, 0)
     def function3(self, a, b, c):
         e = unpack_arg(a, at)
         f = unpack_arg(b, bt)
         g = unpack_arg(c, ct)
         return func(self, e, f, g)
+    def function3_last_default(self, a, b):
+        e = unpack_arg(a, at)
+        f = unpack_arg(b, bt)
+        return func(self, e, f, 0)
     def function4(self, a, b, c, d):
         e = unpack_arg(a, at)
         f = unpack_arg(b, bt)
         g = unpack_arg(c, ct)
         h = unpack_arg(d, dt)
         return func(self, e, f, g, h)
+    def function4_last_default(self, a, b, c):
+        e = unpack_arg(a, at)
+        f = unpack_arg(b, bt)
+        g = unpack_arg(c, ct)
+        return func(self, e, f, g, 0)
     if len(argtypes) == 0:
         function = function0
     elif len(argtypes) == 1:
         function = function1
     elif len(argtypes) == 2:
         function = function2
+        if argtypes[1] == '-':
+            # e.g. SPM/IPM
+            function = function2_last_default
     elif len(argtypes) == 3:
         function = function3
+        if argtypes[2] == '-':
+            # e.g. FIEBR or CGEBR ignore the last element
+            function = function3_last_default
     elif len(argtypes) == 4:
         function = function4
+        if argtypes[3] == '-':
+            # e.g. FIEBR or CGEBR ignore the last element
+            function = function4_last_default
     else:
         assert 0, "implement function for argtypes %s" % (argtypes,)
     function.__name__ = mnemonic

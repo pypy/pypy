@@ -4,6 +4,7 @@ from rpython.jit.metainterp.history import (INT, REF, FLOAT,
         TargetToken)
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.history import Const
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.jit.backend.zarch.arch import (WORD,
         RECOVERY_GCMAP_POOL_OFFSET, RECOVERY_TARGET_POOL_OFFSET)
@@ -168,16 +169,14 @@ class LiteralPool(object):
                 print('pool: %s at offset: %d' % (val, offset))
             if val.is_constant():
                 if val.type == FLOAT:
-                    self.overwrite_64(mc, offset, float2longlong(val.value))
+                    self.overwrite_64(mc, offset, float2longlong(val.getfloat()))
                 elif val.type == INT:
-                    i64 = rffi.cast(lltype.Signed, val.value)
+                    i64 = rffi.cast(lltype.Signed, val.getint())
                     self.overwrite_64(mc, offset, i64)
                 else:
                     assert val.type == REF
-                    i64 = rffi.cast(lltype.Signed, val.value)
+                    i64 = rffi.cast(lltype.Signed, val.getref_base())
                     self.overwrite_64(mc, offset, i64)
-            else:
-                pass
 
         for guard_token in pending_guard_tokens:
             descr = guard_token.faildescr

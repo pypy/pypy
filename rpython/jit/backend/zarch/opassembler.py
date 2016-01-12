@@ -251,6 +251,25 @@ class CallOpAssembler(object):
     emit_call_f = _genop_call
     emit_call_n = _genop_call
 
+    def _emit_threadlocalref_get(self, op, arglocs, regalloc):
+        [resloc] = arglocs
+        offset = op.getarg(1).getint()   # getarg(0) == 'threadlocalref_get'
+        calldescr = op.getdescr()
+        size = calldescr.get_result_size()
+        sign = calldescr.is_result_signed()
+        #
+        # This loads the stack location THREADLOCAL_OFS into a
+        # register, and then read the word at the given offset.
+        # It is only supported if 'translate_support_code' is
+        # true; otherwise, the execute_token() was done with a
+        # dummy value for the stack location THREADLOCAL_OFS
+        #
+        assert self.cpu.translate_support_code
+        assert resloc.is_reg()
+        assert check_imm_value(offset)
+        self.mc.LG(resloc, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
+        self._memory_read(resloc, l.addr(offset, resloc), size, sign)
+
     def _emit_math_sqrt(self, op, arglocs, regalloc):
         l0, res = arglocs
         self.mc.SQDBR(res, l0)
@@ -641,10 +660,9 @@ class GuardOpAssembler(object):
         self._read_typeid(r.SCRATCH2, loc_ptr)
         assert 0 <= expected_typeid <= 0x7fffffff   # 4 bytes are always enough
         if expected_typeid > 0xffff:     # if 2 bytes are not enough
-            self.mc.subis(r.SCRATCH2.value, r.SCRATCH2.value,
-                          expected_typeid >> 16)
+            self.mc.AGHI(r.SCRATCH2, l.imm(-(expected_typeid >> 16)))
             expected_typeid = expected_typeid & 0xffff
-        self.mc.cmp_op(0, r.SCRATCH2.value, expected_typeid,
+        self.mc.cmp_op(r.SCRATCH2, l.imm(expected_typeid),
                        imm=True, signed=False)
 
     def emit_guard_gc_type(self, op, arglocs, regalloc):
@@ -1026,8 +1044,8 @@ class ForceOpAssembler(object):
     def _call_assembler_check_descr(self, value, tmploc):
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.mc.LG(r.SCRATCH, l.addr(ofs, r.r2))
-        if check_imm(value):
-            self.mc.cmp_op(r.SCRATCH, value, imm=True)
+        if check_imm_value(value):
+            self.mc.cmp_op(r.SCRATCH, l.imm(value), imm=True)
         else:
             self.mc.load_imm(r.SCRATCH2, value)
             self.mc.cmp_op(r.SCRATCH, r.SCRATCH2, imm=False)

@@ -22,8 +22,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import (debug_print, debug_start, debug_stop,
                                 have_debug_prints)
-from rpython.jit.metainterp.history import (INT, REF, FLOAT,
-        TargetToken)
+from rpython.jit.metainterp.history import (INT, REF, FLOAT, TargetToken)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.objectmodel import we_are_translated, specialize, compute_unique_id
 from rpython.rlib import rgc
@@ -515,7 +514,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # registers).
         mc = InstrBuilder()
         #
-        mc._push_core_regs_to_jitframe([r.r14]) # store the link on the jit frame
+        self._push_core_regs_to_jitframe(mc, [r.r14]) # store the link on the jit frame
         # Do the call
         mc.push_std_frame()
         mc.LGR(r.r2, r.SP)
@@ -530,7 +529,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # else we have an exception
         mc.cmp_op(r.SCRATCH, l.imm(0), imm=True)
         #
-        mc._pop_core_regs_from_jitframe([r.r14]) # restore the link on the jit frame
+        self._pop_core_regs_from_jitframe(mc, [r.r14]) # restore the link on the jit frame
         # So we return to our caller, conditionally if "EQ"
         mc.BCR(c.EQ, r.r14)
         #
@@ -556,13 +555,14 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             assert check_imm_value(diff)
 
             mc = self.mc
-            mc.load_imm(r.SCRATCH2, endaddr)     # li r0, endaddr
-            mc.branch_absolute(self.stack_check_slowpath)
-            mc.load(r.SCRATCH, r.SCRATCH2, 0)    # lg r1, [end]
-            mc.load(r.SCRATCH2, r.SCRATCH2, diff)# lg r0, [length]
-            mc.SGR(r.SCRATCH, r.SP)              # sub r1, SP
-            mc.cmp_op(r.SCRATCH, r.SCRATCH2, signed=False)
-            mc.bgtctrl()
+            mc.load_imm(r.SCRATCH, endaddr)     # li r0, endaddr
+            mc.load(r.SCRATCH2, r.SCRATCH, 0)    # lg r1, [end]
+            mc.load(r.SCRATCH, r.SCRATCH, diff)# lg r0, [length]
+            mc.SGR(r.SCRATCH2, r.SP)              # sub r1, SP
+            mc.load_imm(r.r14, self.stack_check_slowpath)
+            off = l.imm(mc.CLGRJ_byte_count + mc.BASR_byte_count)
+            mc.CLGRJ(r.SCRATCH2, r.SCRATCH, c.GT, off)
+            mc.BASR(r.r14, r.r14)
 
     def _check_frame_depth(self, mc, gcmap):
         """ check if the frame is of enough depth to follow this bridge.
@@ -731,6 +731,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
+            assert isinstance(targettoken, TargetToken)
             targettoken._ll_loop_code += rawstart
         self.target_tokens_currently_compiling = None
 
@@ -813,6 +814,21 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.STG(r.SCRATCH, l.addr(ofs, r.SPP))
 
+    def break_long_loop(self):
+        # If the loop is too long, the guards in it will jump forward
+        # more than 32 KB.  We use an approximate hack to know if we
+        # should break the loop here with an unconditional "b" that
+        # jumps over the target code.
+        jmp_pos = self.mc.currpos()
+        self.mc.reserve_cond_jump()
+
+        self.write_pending_failure_recoveries()
+
+        currpos = self.mc.currpos()
+        pmc = OverwritingBuilder(self.mc, jmp_pos, 1)
+        pmc.BRCL(c.ANY, l.imm(currpos - jmp_pos))
+        pmc.overwrite()
+
     def _assemble(self, regalloc, inputargs, operations):
         self._regalloc = regalloc
         self.guard_success_cc = c.cond_none
@@ -883,7 +899,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         elif prev_loc.is_in_pool():
             # move immediate value to fp register
             if loc.is_fp_reg():
-                self.LD(loc, prev_loc)
+                self.mc.LD(loc, prev_loc)
                 return
             # move immediate value to memory
             elif loc.is_stack():
@@ -1263,7 +1279,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if check_imm_value(size):
             mc.AGHI(r.RSZ, l.imm(size))
         else:
-            mc.load_imm(r.SCRATCH2, l.imm(size))
+            mc.load_imm(r.SCRATCH2, size)
             mc.AGR(r.RSZ, r.SCRATCH2)
 
         mc.load(r.SCRATCH2, r.r1, diff)  # load nursery_top

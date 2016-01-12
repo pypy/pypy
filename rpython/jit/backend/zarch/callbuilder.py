@@ -126,8 +126,8 @@ class CallBuilder(AbstractCallBuilder):
             if gcrootmap.is_shadow_stack and self.is_call_release_gil:
                 # in this mode, RSHADOWOLD happens to contain the shadowstack
                 # top at this point, so reuse it instead of loading it again
-                xxx
-                ssreg = self.RSHADOWOLD
+                # RSHADOWOLD is moved to the scratch reg just before restoring r8
+                ssreg = r.SCRATCH
         self.asm._reload_frame_if_necessary(self.mc, shadowstack_reg=ssreg)
 
     def emit_raw_call(self):
@@ -200,7 +200,8 @@ class CallBuilder(AbstractCallBuilder):
         self.mc.trap()          # boehm: patched with a BEQ: jump if r12 is zero
         self.mc.write('\x00'*4) # shadowstack: patched with BNE instead
 
-        if self.asm.cpu.gc_ll_descr.gcrootmap:
+        gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
             # When doing a call_release_gil with shadowstack, there
             # is the risk that the 'rpy_fastgil' was free but the
             # current shadowstack can be the one of a different
@@ -219,7 +220,7 @@ class CallBuilder(AbstractCallBuilder):
             self.mc.STG(r.r12, l.addr(0,RFASTGILPTR))
 
             pmc = OverwritingBuilder(self.mc, bne_location, 1)
-            pmc.BCRL(c.NE, self.mc.currpos() - bne_location)
+            pmc.BRCL(c.NE, l.imm(self.mc.currpos() - bne_location))
             pmc.overwrite()
         #
         # Yes, we need to call the reacqgil() function.
@@ -246,6 +247,9 @@ class CallBuilder(AbstractCallBuilder):
         pmc.overwrite()
 
         # restore the values that might have been overwritten
+        if gcrootmap:
+            if gcrootmap.is_shadow_stack and self.is_call_release_gil:
+                self.mc.LGR(r.SCRATCH, RSHADOWOLD)
         self.mc.LMG(r.r8, r.r13, l.addr(-7*WORD, r.SP))
 
 

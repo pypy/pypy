@@ -163,8 +163,6 @@ class ZARCHRegisterManager(RegisterManager):
         self._check_type(var)
         prev_loc = self.loc(var, must_exist=must_exist)
         var2 = TempVar()
-        if prev_loc is self.frame_reg:
-            return prev_loc
         if bind_first:
             loc, loc2 = self.force_allocate_reg_pair(bindvar, var2, self.temp_boxes)
         else:
@@ -437,7 +435,7 @@ class Regalloc(BaseRegalloc):
             return r.SPP
         else:
             # else, return a regular register (not SPP).
-            if self.rm.reg_bindings.get(var, None) != None:
+            if self.rm.reg_bindings.get(var, None) is not None:
                 return self.rm.loc(var, must_exist=True)
             return self.rm.force_allocate_reg(var)
 
