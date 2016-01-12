@@ -80,12 +80,17 @@ class GraphAnalyzer(object):
                 funcobj = op.args[0].value._obj
             except DelayedPointer:
                 return self.top_result()
+            if funcobj is None:
+                # We encountered a null pointer.  Calling it will crash.
+                # However, the call could be on a dead path, so we return the
+                # bottom result here.
+                return self.bottom_result()
             if getattr(funcobj, 'external', None) is not None:
                 x = self.analyze_external_call(funcobj, seen)
                 if self.verbose and x:
                     self.dump_info('analyze_external_call %s: %r' % (op, x))
                 return x
-            graph = get_graph(op.args[0], self.translator)
+            graph = funcobj.graph
             assert graph is not None
             x = self.analyze_direct_call(graph, seen)
             if self.verbose and x:

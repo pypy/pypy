@@ -65,3 +65,14 @@ def test_delayed_fnptr():
     op = SpaceOperation('direct_call', [c_f], None)
     analyzer = BoolGraphAnalyzer(t)
     assert analyzer.analyze(op)
+
+
+def test_null_fnptr():
+    from rpython.flowspace.model import SpaceOperation, Constant
+    from rpython.rtyper.lltypesystem.lltype import Void, FuncType, nullptr
+    from rpython.translator.translator import TranslationContext
+    t = TranslationContext()
+    fnptr = nullptr(FuncType([], Void))
+    op = SpaceOperation('direct_call', [Constant(fnptr)], None)
+    analyzer = BoolGraphAnalyzer(t)
+    assert not analyzer.analyze(op)
