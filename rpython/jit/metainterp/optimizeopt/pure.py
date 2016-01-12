@@ -75,7 +75,7 @@ class OptPure(Optimization):
         dispatch_opt(self, op)
 
     def optimize_default(self, op):
-        canfold = op.is_always_pure() and not op.is_getfield()
+        canfold = op.is_always_pure()
         if op.is_ovf():
             self.postponed_op = op
             return

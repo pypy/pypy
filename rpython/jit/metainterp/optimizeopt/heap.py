@@ -515,13 +515,14 @@ class OptHeap(Optimization):
         return pendingfields
 
     def optimize_GETFIELD_GC_I(self, op):
-        if op.is_always_pure() and self.get_constant_box(op.getarg(0)) is not None:
+        descr = op.getdescr()
+        if descr.is_always_pure() and self.get_constant_box(op.getarg(0)) is not None:
             resbox = self.optimizer.constant_fold(op)
             self.optimizer.make_constant(op, resbox)
             return
         structinfo = self.ensure_ptr_info_arg0(op)
-        cf = self.field_cache(op.getdescr())
-        field = cf.getfield_from_cache(self, structinfo, op.getdescr())
+        cf = self.field_cache(descr)
+        field = cf.getfield_from_cache(self, structinfo, descr)
         if field is not None:
             self.make_equal_to(op, field)
             return
@@ -529,7 +530,7 @@ class OptHeap(Optimization):
         self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
         # then remember the result of reading the field
-        structinfo.setfield(op.getdescr(), op.getarg(0), op, optheap=self, cf=cf)
+        structinfo.setfield(descr, op.getarg(0), op, optheap=self, cf=cf)
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
 

@@ -249,7 +249,7 @@ class AbstractResOpOrInputArg(AbstractValue):
 def is_pure_getfield(opnum, descr):
     if opnum not in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R):
         return False
-    return descr is not None and descr.is_always_pure() != False
+    return descr is not None and descr.is_always_pure()
 
 class AbstractResOp(AbstractResOpOrInputArg):
     """The central ResOperation class, representing one operation."""
@@ -417,6 +417,8 @@ class AbstractResOp(AbstractResOpOrInputArg):
         return rop._JIT_DEBUG_FIRST <= self.getopnum() <= rop._JIT_DEBUG_LAST
 
     def is_always_pure(self):
+        # Tells whether an operation is pure based solely on the opcode.
+        # Other operations (e.g. getfield ops) may be pure in some cases are well.
         return rop._ALWAYS_PURE_FIRST <= self.getopnum() <= rop._ALWAYS_PURE_LAST
 
     def has_no_side_effect(self):
@@ -566,11 +568,6 @@ class PlainResOp(AbstractResOp):
 class ResOpWithDescr(AbstractResOp):
 
     _descr = None
-
-    def is_always_pure(self):
-        if self.is_getfield():
-            return self._descr.is_always_pure() != False
-        return AbstractResOp.is_always_pure(self)
 
     def getdescr(self):
         return self._descr
