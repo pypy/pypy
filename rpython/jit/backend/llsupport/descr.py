@@ -180,7 +180,8 @@ class FieldDescr(ArrayOrFieldDescr):
         return self.offset
 
     def repr_of_descr(self):
-        return '<Field%s %s %s>' % (self.flag, self.name, self.offset)
+        ispure = " pure" if self._is_pure else ""
+        return '<Field%s %s %s%s>' % (self.flag, self.name, self.offset, ispure)
 
     def get_parent_descr(self):
         return self.parent_descr
