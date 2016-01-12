@@ -1,7 +1,7 @@
 import sys
 from rpython.rlib import _rffi_stacklet as _c
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import fetch_translated_config
 from rpython.rtyper.lltypesystem import lltype, llmemory
 
 DEBUG = False
@@ -10,8 +10,8 @@ DEBUG = False
 class StackletThread(object):
 
     @jit.dont_look_inside
-    def __init__(self, config):
-        self._gcrootfinder = _getgcrootfinder(config, we_are_translated())
+    def __init__(self, _argument_ignored_for_backward_compatibility=None):
+        self._gcrootfinder = _getgcrootfinder(fetch_translated_config())
         self._thrd = _c.newthread()
         if not self._thrd:
             raise MemoryError
@@ -67,11 +67,8 @@ class StackletThreadDeleter(object):
 
 # ____________________________________________________________
 
-def _getgcrootfinder(config, translated):
-    if translated:
-        assert config is not None, ("you have to pass a valid config, "
-                                    "e.g. from 'driver.config'")
-    elif '__pypy__' in sys.builtin_module_names:
+def _getgcrootfinder(config):
+    if config is None and '__pypy__' in sys.builtin_module_names:
         import py
         py.test.skip("cannot run the stacklet tests on top of pypy: "
                      "calling directly the C function stacklet_switch() "
