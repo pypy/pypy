@@ -17,7 +17,6 @@ def do_emit_cmp_op(self, arglocs, condition, signed, fp):
         # Support for NaNs: S390X sets condition register to 0x3 (unordered)
         # as soon as any of the operands is NaN
         condition = c.prepare_float_condition(condition)
-        print("condition is:", condition)
     self.flush_cc(condition, arglocs[2])
 
 
