@@ -188,7 +188,6 @@ class LogOperations(object):
         else:
             res = ""
         is_guard = op.is_guard()
-        is_pure = ""
         if op.getdescr() is not None:
             descr = op.getdescr()
             if is_guard and self.guard_number:
@@ -196,8 +195,6 @@ class LogOperations(object):
                 r = "<Guard0x%x>" % hash
             else:
                 r = self.repr_of_descr(descr)
-            if op.is_getfield() and op.is_always_pure():
-                is_pure = "_pure"
             if args:
                 args += ', descr=' + r
             else:
@@ -207,7 +204,7 @@ class LogOperations(object):
                                           for arg in op.getfailargs()]) + ']'
         else:
             fail_args = ''
-        return s_offset + res + op.getopname() + is_pure + '(' + args + ')' + fail_args
+        return s_offset + res + op.getopname() + '(' + args + ')' + fail_args
 
 
     def _log_operations(self, inputargs, operations, ops_offset=None,
