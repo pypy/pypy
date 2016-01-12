@@ -5,6 +5,8 @@ Tests common to tuple, list and UserList.UserList
 import unittest
 import sys
 
+from test import test_support
+
 # Various iterables
 # This is used for checking the constructor (here and in test_deque.py)
 def iterfunc(seqn):
@@ -305,6 +307,8 @@ class CommonTest(unittest.TestCase):
             self.assertEqual(self.type2test(s)*(-4), self.type2test([]))
             self.assertEqual(id(s), id(s*1))
 
+    @unittest.skipIf(test_support.list_strategy('RepeatListStrategy'),
+                     "This test is obsoleted by RepeatListStrategy")
     def test_bigrepeat(self):
         import sys
         # we chose an N such as 2**16 * N does not fit into a cpu word

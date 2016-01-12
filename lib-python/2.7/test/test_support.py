@@ -1366,6 +1366,32 @@ def check_impl_detail(**guards):
     return guards.get(platform.python_implementation().lower(), default)
 
 # ----------------------------------
+# List strategies can make tests wrong
+# This helper makes it easy to skip those
+
+def list_strategy(st=None):
+    try:
+        import __pypy__
+        # This will return 'object' if pypy is translated without
+        # list strategies enabled
+        if 'list_strategy' in dir(__pypy__):
+            # Python 2.7.3 (2.2.1+dfsg-1ubuntu0.3, Sep 30 2015, 15:18:40)
+            # [PyPy 2.2.1 with GCC 4.8.4]
+            strategy = __pypy__.list_strategy
+            expected = 'empty'
+        elif 'strategy' in dir(__pypy__):
+            # Python 2.7.10 (71b4bf53487c, Jan 05 2016, 23:00:18)
+            # [PyPy 4.1.0-alpha0 with GCC 4.8.4]
+            strategy = __pypy__.strategy
+            expected = 'EmptyListStrategy'
+        if strategy([]) == expected:
+            if st is None or strategy([None] * 2) == st:
+                return True
+    except ImportError:
+        pass
+    return False
+
+# ----------------------------------
 # PyPy extension: you can run::
 #     python ..../test_foo.py --pdb
 # to get a pdb prompt in case of exceptions
