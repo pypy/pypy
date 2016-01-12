@@ -393,6 +393,13 @@ class TestRunningAssembler(object):
 
         r = reg
 
+        # 2-6
+        self.pushpop_jitframe([r.r2, r.r3, r.r4, r.r5, r.r6, r.r8, r.r10])
+        assert stored == [(r.r2, r.r6), (r.r8,), (r.r10,)]
+        assert stored == loaded
+        stored = []
+        loaded = []
+
         # two sequences 10-11, 13-14
         self.pushpop_jitframe([r.r10, r.r11, r.r13, r.r14])
         assert stored == [(r.r10, r.r11), (r.r13, r.r14)]

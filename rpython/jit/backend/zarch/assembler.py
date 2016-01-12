@@ -556,13 +556,20 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
             mc = self.mc
             mc.load_imm(r.SCRATCH, endaddr)     # li r0, endaddr
-            mc.load(r.SCRATCH2, r.SCRATCH, 0)    # lg r1, [end]
-            mc.load(r.SCRATCH, r.SCRATCH, diff)# lg r0, [length]
-            mc.SGR(r.SCRATCH2, r.SP)              # sub r1, SP
+            mc.load(r.r14, r.SCRATCH, 0)        # lg r14, [end]
+            mc.load(r.SCRATCH, r.SCRATCH, diff) # lg r0, [length]
+            mc.LGR(r.SCRATCH2, r.SP)
+            mc.SGR(r.SCRATCH2, r.r14)           # sub r1, (SP - r14)
+            jmp_pos = self.mc.currpos()
+            self.mc.reserve_cond_jump()
+
             mc.load_imm(r.r14, self.stack_check_slowpath)
-            off = l.imm(mc.CLGRJ_byte_count + mc.BASR_byte_count)
-            mc.CLGRJ(r.SCRATCH2, r.SCRATCH, c.GT, off)
             mc.BASR(r.r14, r.r14)
+
+            currpos = self.mc.currpos()
+            pmc = OverwritingBuilder(mc, jmp_pos, 1)
+            pmc.CLGRJ(r.SCRATCH2, r.SCRATCH, c.GT, l.imm(currpos - jmp_pos))
+            pmc.overwrite()
 
     def _check_frame_depth(self, mc, gcmap):
         """ check if the frame is of enough depth to follow this bridge.

@@ -127,7 +127,7 @@ class CallBuilder(AbstractCallBuilder):
                 # in this mode, RSHADOWOLD happens to contain the shadowstack
                 # top at this point, so reuse it instead of loading it again
                 # RSHADOWOLD is moved to the scratch reg just before restoring r8
-                ssreg = r.SCRATCH
+                ssreg = None # r.SCRATCH
         self.asm._reload_frame_if_necessary(self.mc, shadowstack_reg=ssreg)
 
     def emit_raw_call(self):
@@ -135,15 +135,12 @@ class CallBuilder(AbstractCallBuilder):
         # save the SP back chain
         self.mc.STG(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
         # move the frame pointer
-        self.mc.AGHI(r.SP, l.imm(-self.subtracted_to_sp))
+        self.mc.LAY(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
         self.mc.raw_call()
-        # restore the pool!
-        offset = self.asm.pool.pool_start - self.mc.get_relative_pos()
-        self.mc.LARL(r.POOL, l.halfword(offset))
 
     def restore_stack_pointer(self):
         if self.subtracted_to_sp != 0:
-            self.mc.AGHI(r.SP, l.imm(self.subtracted_to_sp))
+            self.mc.LAY(r.SP, l.addr(self.subtracted_to_sp, r.SP))
 
     def load_result(self):
         assert (self.resloc is None or
@@ -246,7 +243,7 @@ class CallBuilder(AbstractCallBuilder):
         pmc.BRCL(c.EQ, l.imm(self.mc.currpos() - b1_location))
         pmc.overwrite()
 
-        # restore the values that might have been overwritten
+        # restore the values that is void after LMG
         if gcrootmap:
             if gcrootmap.is_shadow_stack and self.is_call_release_gil:
                 self.mc.LGR(r.SCRATCH, RSHADOWOLD)
