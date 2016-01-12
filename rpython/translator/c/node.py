@@ -853,8 +853,7 @@ class FuncNode(ContainerNode):
         if self.funcgen:
             yield '%s;' % (
                 forward_cdecl(self.implementationtypename,
-                    self.funcgen.name(self.name), self.db.standalone,
-                    is_exported=is_exported))
+                    self.name, self.db.standalone, is_exported=is_exported))
 
     def implementation(self):
         if self.funcgen:
@@ -871,7 +870,7 @@ class FuncNode(ContainerNode):
         # recompute implementationtypename as the argnames may have changed
         argnames = funcgen.argnames()
         implementationtypename = self.db.gettype(self.T, argnames=argnames)
-        yield '%s {' % cdecl(implementationtypename, funcgen.name(self.name))
+        yield '%s {' % cdecl(implementationtypename, self.name)
         #
         # declare the local variables
         #

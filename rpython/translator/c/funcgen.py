@@ -83,9 +83,6 @@ class FunctionCodeGenerator(object):
                 seen[v] = True
         self.vars = uniquemix
 
-    def name(self, cname):  #virtual
-        return cname
-
     def implementation_begin(self):
         SSI_to_SSA(self.graph)
         self.collect_var_and_types()
@@ -219,8 +216,6 @@ class FunctionCodeGenerator(object):
                         yield '}'
                     link = block.exits[0]
                     assert link.exitcase in (False, True)
-                    #yield 'assert(%s == %s);' % (self.expr(block.exitswitch),
-                    #                       self.genc.nameofvalue(link.exitcase, ct))
                     for op in self.gen_link(link):
                         yield op
                 elif TYPE in (Signed, Unsigned, SignedLongLong,
