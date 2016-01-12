@@ -90,7 +90,10 @@ class GraphAnalyzer(object):
                 if self.verbose and x:
                     self.dump_info('analyze_external_call %s: %r' % (op, x))
                 return x
-            graph = funcobj.graph
+            try:
+                graph = funcobj.graph
+            except AttributeError:
+                return self.top_result()
             assert graph is not None
             x = self.analyze_direct_call(graph, seen)
             if self.verbose and x:
