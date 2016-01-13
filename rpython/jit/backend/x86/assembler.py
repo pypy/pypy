@@ -840,8 +840,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def _call_header_vmprof(self):
         stack = rffi.cast(lltype.Signed, _get_vmprof().cintf.vmprof_address_of_global_stack())
-        self.mc.MOV_rr(eax.value, esp.value)
-        self.mc.ADD_ri(eax.value, (FRAME_FIXED_SIZE - 4) * WORD) # er makes no sense
+        self.mc.LEA_rs(eax.value, (FRAME_FIXED_SIZE - 4) * WORD)
         # next
         self.mc.MOV(ecx, heap(stack))
         self.mc.MOV_mr((eax.value, 0), ecx.value)
