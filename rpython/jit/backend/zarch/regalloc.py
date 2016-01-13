@@ -134,7 +134,7 @@ class ZARCHRegisterManager(RegisterManager):
 
     def ensure_reg(self, box, force_in_reg, selected_reg=None):
         if isinstance(box, Const):
-            offset = self.assembler.pool.get_descr_offset(box)
+            offset = self.assembler.pool.get_offset(box)
             poolloc = l.pool(offset)
             if force_in_reg:
                 if selected_reg is None:

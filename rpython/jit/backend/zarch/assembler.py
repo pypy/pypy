@@ -1179,7 +1179,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             self.mc.b_offset(descr._ll_loop_code + self.mc.LARL_byte_count)
         else:
             # restore the pool address
-            offset = self.pool.get_descr_offset(descr) + \
+            offset = self.pool.get_offset(descr) + \
                      JUMPABS_TARGET_ADDR__POOL_OFFSET
             offset_pool = offset + JUMPABS_POOL_ADDR_POOL_OFFSET
             self.mc.LG(r.SCRATCH, l.pool(offset))
