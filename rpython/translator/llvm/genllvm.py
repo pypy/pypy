@@ -1480,6 +1480,9 @@ class FunctionWriter(object):
         else:
             assert False, "No subop {}".format(subopnum.value)
 
+    def op_gc_thread_run(self, result):
+        self.op_direct_call(result, get_repr(rpy_threadlocalref_ensure))
+
     def op_gc_thread_die(self, result):
         self.op_direct_call(result, get_repr(rpy_tls_thread_die))
 
@@ -1752,6 +1755,8 @@ llvm_readcyclecounter = extfunc('llvm.readcyclecounter', [],
                                 lltype.SignedLongLong, eci)
 rpy_tls_program_init = extfunc('RPython_ThreadLocals_ProgramInit', [],
                                lltype.Void, eci)
+rpy_threadlocalref_ensure = extfunc('RPY_THREADLOCALREF_ENSURE', [],
+                                    lltype.Void, eci)
 rpy_tls_thread_die = extfunc('RPython_ThreadLocals_ThreadDie', [], lltype.Void,
                              eci)
 del eci
