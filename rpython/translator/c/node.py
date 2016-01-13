@@ -818,17 +818,10 @@ class FuncNode(ContainerNode):
         self.globalcontainer = True
         self.T = T
         self.obj = obj
-        callable = getattr(obj, '_callable', None)
-        if (callable is not None and
-            getattr(callable, 'c_name', None) is not None):
-            self.name = forcename or obj._callable.c_name
-        elif (getattr(obj, 'external', None) == 'C' and
-              (not db.sandbox or not need_sandboxing(obj))):
-            self.name = forcename or self.basename()
+        if forcename:
+            self.name = forcename
         else:
-            self.name = (forcename or
-                         db.namespace.uniquename('g_' + self.basename()))
-
+            self.name = _select_name(db, obj)
         self.funcgen = select_function_code_generators(obj, db, self.name)
         if self.funcgen:
             argnames = self.funcgen.argnames()
@@ -957,6 +950,17 @@ def select_function_code_generators(fnobj, db, functionname):
         return None    # this case should only be used for entrypoints
     else:
         raise ValueError("don't know how to generate code for %r" % (fnobj,))
+
+def _select_name(db, obj):
+    try:
+        return obj._callable.c_name
+    except AttributeError:
+        pass
+    if (getattr(obj, 'external', None) == 'C' and
+            (not db.sandbox or not need_sandboxing(obj))):
+        return obj._name
+    return db.namespace.uniquename('g_' + obj._name)
+
 
 class ExtType_OpaqueNode(ContainerNode):
     nodekind = 'rpyopaque'
