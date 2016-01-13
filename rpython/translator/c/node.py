@@ -813,16 +813,13 @@ class FuncNode(ContainerNode):
     # there not so many node of this kind, slots should not
     # be necessary
 
-    def __init__(self, db, T, obj, forcename=None):
+    def __init__(self, db, T, obj, ptrname):
         Node.__init__(self, db)
         self.globalcontainer = True
         self.T = T
         self.obj = obj
-        if forcename:
-            self.name = forcename
-        else:
-            self.name = _select_name(db, obj)
-        self.funcgen = select_function_code_generators(obj, db, self.name)
+        self.name = ptrname
+        self.funcgen = select_function_code_generators(obj, db, ptrname)
         if self.funcgen:
             argnames = self.funcgen.argnames()
             self.implementationtypename = db.gettype(T, argnames=argnames)
@@ -904,6 +901,13 @@ class FuncNode(ContainerNode):
         yield '}'
         del bodyiter
         funcgen.implementation_end()
+
+def new_funcnode(db, T, obj, forcename=None):
+    if forcename:
+        name = forcename
+    else:
+        name = _select_name(db, obj)
+    return FuncNode(db, T, obj, name)
 
 def sandbox_stub(fnobj, db):
     # unexpected external function for --sandbox translation: replace it
@@ -1070,7 +1074,7 @@ ContainerNodeFactory = {
     Array:        ArrayNode,
     GcArray:      ArrayNode,
     FixedSizeArray: FixedSizeArrayNode,
-    FuncType:     FuncNode,
+    FuncType:     new_funcnode,
     OpaqueType:   opaquenode_factory,
     llmemory._WeakRefType: weakrefnode_factory,
     llgroup.GroupType: GroupNode,
