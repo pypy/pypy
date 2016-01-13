@@ -171,17 +171,14 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
             return (ll_arg,) + ll_args, tok + token
 
         @specialize.memo()
-        def get_ll_trampoline(token, c_version=False):
+        def get_ll_trampoline(token):
             """ Used by the trampoline-version only
             """
             if result_class is None:
                 restok = "i"
             else:
                 restok = "r"
-            if c_version:
-                return cintf.make_c_trampoline_function(name, func, token,
-                    restok)
-            return cintf.make_trampoline_function(name, func, token, restok)
+            return cintf.make_c_trampoline_function(name, func, token, restok)
 
         def decorated_function(*args):
             # go through the asm trampoline ONLY if we are translated but not
@@ -193,23 +190,13 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
             # If we are being JITted, we want to skip the trampoline, else the
             # JIT cannot see through it.
             #
-            if 0: # this is the trampoline case
-                if we_are_translated() and not jit.we_are_jitted():
-                    # if we are translated, call the trampoline
-                    unique_id = get_code_fn(*args)._vmprof_unique_id
-                    ll_args, token = lower(*args)
-                    ll_trampoline = get_ll_trampoline(token)
-                    ll_result = ll_trampoline(*ll_args + (unique_id,))
-                else:
-                    return func(*args)
-            else: # this is the case of the stack
-                if we_are_translated() and not jit.we_are_jitted():
-                    unique_id = get_code_fn(*args)._vmprof_unique_id
-                    ll_args, token = lower(*args)
-                    ll_trampoline = get_ll_trampoline(token, True)
-                    ll_result = ll_trampoline(*ll_args + (unique_id,))
-                else:
-                    return func(*args)
+            if we_are_translated() and not jit.we_are_jitted():
+                unique_id = get_code_fn(*args)._vmprof_unique_id
+                ll_args, token = lower(*args)
+                ll_trampoline = get_ll_trampoline(token, True)
+                ll_result = ll_trampoline(*ll_args + (unique_id,))
+            else:
+                return func(*args)
             if result_class is not None:
                 return cast_base_ptr_to_instance(result_class, ll_result)
             else:
