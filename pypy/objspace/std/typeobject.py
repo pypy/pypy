@@ -478,12 +478,12 @@ class W_TypeObject(W_Root):
 
     def getdict(w_self, space): # returning a dict-proxy!
         from pypy.objspace.std.dictproxyobject import DictProxyStrategy
-        from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+        from pypy.objspace.std.dictmultiobject import W_DictObject
         if w_self.lazyloaders:
             w_self._cleanup_()    # force un-lazification
         strategy = space.fromcache(DictProxyStrategy)
         storage = strategy.erase(w_self)
-        return W_DictMultiObject(space, strategy, storage)
+        return W_DictObject(space, strategy, storage)
 
     def is_heaptype(w_self):
         return w_self.flag_heaptype
