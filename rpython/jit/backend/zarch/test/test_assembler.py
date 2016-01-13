@@ -3,7 +3,7 @@ import struct
 import math
 from rpython.jit.backend.zarch import conditions as con
 from rpython.jit.backend.zarch import masks as msk
-from rpython.jit.backend.zarch import registers as reg
+from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch.assembler import AssemblerZARCH
 from rpython.jit.backend.zarch import locations as loc
 from rpython.jit.backend.zarch.test.support import run_asm
@@ -37,11 +37,11 @@ def ADDR(value):
 
 def gen_func_prolog(mc):
     STACK_FRAME_SIZE = 40
-    mc.STMG(r.r11, r.r15, l.addr(-STACK_FRAME_SIZE, r.SP))
-    mc.AHI(r.SP, l.imm(-STACK_FRAME_SIZE))
+    mc.STMG(r.r11, r.r15, loc.addr(-STACK_FRAME_SIZE, r.SP))
+    mc.AHI(r.SP, loc.imm(-STACK_FRAME_SIZE))
 
 def gen_func_epilog(mc):
-    mc.LMG(r.r11, r.r15, l.addr(0, r.SP))
+    mc.LMG(r.r11, r.r15, loc.addr(0, r.SP))
     mc.BCR_rr(0xf, r.r14.value) # jmp to
 
 def isclose(a,b, rel_tol=1e-9, abs_tol=0.0):
@@ -59,7 +59,7 @@ class LiteralPoolCtx(object):
 
     def __enter__(self):
         self.lit_label.__enter__()
-        self.asm.mc.BRAS(reg.r13, loc.imm(0))
+        self.asm.mc.BRAS(r.r13, loc.imm(0))
         return self
 
     def __exit__(self, a, b, c):
@@ -124,69 +124,69 @@ class TestRunningAssembler(object):
         assert self.mc.LG_byte_count == 6
 
     def test_load_small_int_to_reg(self):
-        self.a.mc.LGHI(reg.r2, loc.imm(123))
-        self.a.jmpto(reg.r14)
+        self.a.mc.LGHI(r.r2, loc.imm(123))
+        self.a.jmpto(r.r14)
         assert run_asm(self.a) == 123
 
     def test_prolog_epilog(self):
         gen_func_prolog(self.a.mc)
-        self.a.mc.LGHI(reg.r2, loc.imm(123))
+        self.a.mc.LGHI(r.r2, loc.imm(123))
         gen_func_epilog(self.a.mc)
         assert run_asm(self.a) == 123
 
     def test_simple_func(self):
         # enter
-        self.a.mc.STMG(reg.r11, reg.r15, loc.addr(-96, reg.SP))
-        self.a.mc.AHI(reg.SP, loc.imm(-96))
+        self.a.mc.STMG(r.r11, r.r15, loc.addr(-96, r.SP))
+        self.a.mc.AHI(r.SP, loc.imm(-96))
         # from the start of BRASL to end of jmpto there are 8+6 bytes
-        self.a.mc.BRASL(reg.r14, loc.imm(8+6))
-        self.a.mc.LMG(reg.r11, reg.r15, loc.addr(0, reg.SP))
-        self.a.jmpto(reg.r14)
+        self.a.mc.BRASL(r.r14, loc.imm(8+6))
+        self.a.mc.LMG(r.r11, r.r15, loc.addr(0, r.SP))
+        self.a.jmpto(r.r14)
 
         addr = self.a.mc.get_relative_pos()
         assert addr & 0x1 == 0
         gen_func_prolog(self.a.mc)
-        self.a.mc.LGHI(reg.r2, loc.imm(321))
+        self.a.mc.LGHI(r.r2, loc.imm(321))
         gen_func_epilog(self.a.mc)
         assert run_asm(self.a) == 321
 
     def test_simple_loop(self):
-        self.a.mc.LGHI(reg.r3, loc.imm(2**15-1))
-        self.a.mc.LGHI(reg.r4, loc.imm(1))
+        self.a.mc.LGHI(r.r3, loc.imm(2**15-1))
+        self.a.mc.LGHI(r.r4, loc.imm(1))
         L1 = self.a.mc.get_relative_pos()
-        self.a.mc.SGR(reg.r3, reg.r4)
+        self.a.mc.SGR(r.r3, r.r4)
         LJ = self.a.mc.get_relative_pos()
         self.a.mc.BRCL(con.GT, loc.imm(L1-LJ))
-        self.a.mc.LGR(reg.r2, reg.r3)
-        self.a.jmpto(reg.r14)
+        self.a.mc.LGR(r.r2, r.r3)
+        self.a.jmpto(r.r14)
         assert run_asm(self.a) == 0
 
     def test_and_imm(self):
-        self.a.mc.NIHH(reg.r2, loc.imm(0))
-        self.a.mc.NIHL(reg.r2, loc.imm(0))
-        self.a.mc.NILL(reg.r2, loc.imm(0))
-        self.a.mc.NILH(reg.r2, loc.imm(0))
-        self.a.jmpto(reg.r14)
+        self.a.mc.NIHH(r.r2, loc.imm(0))
+        self.a.mc.NIHL(r.r2, loc.imm(0))
+        self.a.mc.NILL(r.r2, loc.imm(0))
+        self.a.mc.NILH(r.r2, loc.imm(0))
+        self.a.jmpto(r.r14)
         assert run_asm(self.a) == 0
 
     def test_or_imm(self):
-        self.a.mc.OIHH(reg.r2, loc.imm(0xffff))
-        self.a.mc.OIHL(reg.r2, loc.imm(0xffff))
-        self.a.mc.OILL(reg.r2, loc.imm(0xffff))
-        self.a.mc.OILH(reg.r2, loc.imm(0xffff))
-        self.a.jmpto(reg.r14)
+        self.a.mc.OIHH(r.r2, loc.imm(0xffff))
+        self.a.mc.OIHL(r.r2, loc.imm(0xffff))
+        self.a.mc.OILL(r.r2, loc.imm(0xffff))
+        self.a.mc.OILH(r.r2, loc.imm(0xffff))
+        self.a.jmpto(r.r14)
         assert run_asm(self.a) == -1
 
     def test_xor(self):
-        self.a.mc.XGR(reg.r2, reg.r2)
-        self.a.jmpto(reg.r14)
+        self.a.mc.XGR(r.r2, r.r2)
+        self.a.jmpto(r.r14)
         assert run_asm(self.a) == 0
 
     def test_literal_pool(self):
         gen_func_prolog(self.a.mc)
-        self.a.mc.BRAS(reg.r13, loc.imm(8 + self.mc.BRAS_byte_count))
+        self.a.mc.BRAS(r.r13, loc.imm(8 + self.mc.BRAS_byte_count))
         self.a.mc.write('\x08\x07\x06\x05\x04\x03\x02\x01')
-        self.a.mc.LG(reg.r2, loc.addr(0, reg.r13))
+        self.a.mc.LG(r.r2, loc.addr(0, r.r13))
         gen_func_epilog(self.a.mc)
         assert run_asm(self.a) == 0x0807060504030201
 
@@ -216,57 +216,57 @@ class TestRunningAssembler(object):
         self.mc.BRAS(reg, loc.imm(val))
 
     def test_stmg(self):
-        self.mc.LGR(reg.r2, reg.r15)
-        self.a.jmpto(reg.r14)
+        self.mc.LGR(r.r2, r.r15)
+        self.a.jmpto(r.r14)
         print hex(run_asm(self.a))
 
     def test_recursion(self):
         with ActivationRecordCtx(self):
             with self.label('lit'):
-                self.mc.BRAS(reg.r13, loc.imm(0))
+                self.mc.BRAS(r.r13, loc.imm(0))
             self.mc.write('\x00\x00\x00\x00\x00\x00\x00\x00')
             self.jump_here(self.mc.BRAS, 'lit')
             # recurse X times
-            self.mc.XGR(reg.r2, reg.r2)
-            self.mc.LGHI(reg.r9, loc.imm(15))
+            self.mc.XGR(r.r2, r.r2)
+            self.mc.LGHI(r.r9, loc.imm(15))
             with self.label('L1'):
-                self.mc.BRAS(reg.r14, loc.imm(0))
+                self.mc.BRAS(r.r14, loc.imm(0))
             with ActivationRecordCtx(self, 'rec'):
-                self.mc.AGR(reg.r2, reg.r9)
-                self.mc.AHI(reg.r9, loc.imm(-1))
+                self.mc.AGR(r.r2, r.r9)
+                self.mc.AHI(r.r9, loc.imm(-1))
                 # if not entered recursion, return from activation record
                 # implicitly generated here by with statement
                 self.mc.BRC(con.GT, loc.imm(self.pos('rec') - self.cur()))
             self.jump_here(self.mc.BRAS, 'L1')
             # call rec... recursivly
-            self.jump_to(reg.r14, 'rec')
-        self.a.jmpto(reg.r14)
+            self.jump_to(r.r14, 'rec')
+        self.a.jmpto(r.r14)
         assert run_asm(self.a) == 120
 
     def test_printf(self):
         with ActivationRecordCtx(self):
             with self.label('lit'):
-                self.mc.BRAS(reg.r13, loc.imm(0))
+                self.mc.BRAS(r.r13, loc.imm(0))
             for c in "hello syscall\n":
                 self.mc.writechar(c)
             self.jump_here(self.mc.BRAS, 'lit')
-            self.mc.LGHI(reg.r2, loc.imm(1)) # stderr
-            self.mc.LA(reg.r3, loc.addr(0, reg.r13)) # char*
-            self.mc.LGHI(reg.r4, loc.imm(14)) # length
+            self.mc.LGHI(r.r2, loc.imm(1)) # stderr
+            self.mc.LA(r.r3, loc.addr(0, r.r13)) # char*
+            self.mc.LGHI(r.r4, loc.imm(14)) # length
             # write sys call
             self.mc.SVC(loc.imm(4))
-        self.a.jmpto(reg.r14)
+        self.a.jmpto(r.r14)
         assert run_asm(self.a) == 14
 
     def test_float(self):
         with ActivationRecordCtx(self):
             with self.label('lit'):
-                self.mc.BRAS(reg.r13, loc.imm(0))
+                self.mc.BRAS(r.r13, loc.imm(0))
             self.mc.write(BFL(-15.0))
             self.jump_here(self.mc.BRAS, 'lit')
-            self.mc.LD(reg.f0, loc.addr(0, reg.r13))
-            self.mc.CGDBR(reg.r2, msk.RND_CURMODE, reg.f0)
-        self.a.jmpto(reg.r14)
+            self.mc.LD(r.f0, loc.addr(0, r.r13))
+            self.mc.CGDBR(r.r2, msk.RND_CURMODE, r.f0)
+        self.a.jmpto(r.r14)
         assert run_asm(self.a) == -15
 
     @py.test.mark.parametrize("v1,v2,res", [
@@ -281,17 +281,17 @@ class TestRunningAssembler(object):
         with lltype.scoped_alloc(DOUBLE_ARRAY_PTR.TO, 16) as mem:
             with ActivationRecordCtx(self):
                 with self.label('lit'):
-                    self.mc.BRAS(reg.r13, loc.imm(0))
+                    self.mc.BRAS(r.r13, loc.imm(0))
                 self.mc.write(BFL(v1))
                 self.mc.write(BFL(v2))
                 self.mc.write(ADDR(mem))
                 self.jump_here(self.mc.BRAS, 'lit')
-                self.mc.LD(reg.f0, loc.addr(0, reg.r13))
-                self.mc.LD(reg.f1, loc.addr(8, reg.r13))
-                self.mc.ADBR(reg.f0, reg.f1)
-                self.mc.LG(reg.r11, loc.addr(16, reg.r13))
-                self.mc.STD(reg.f0, loc.addr(0, reg.r11))
-            self.a.jmpto(reg.r14)
+                self.mc.LD(r.f0, loc.addr(0, r.r13))
+                self.mc.LD(r.f1, loc.addr(8, r.r13))
+                self.mc.ADBR(r.f0, r.f1)
+                self.mc.LG(r.r11, loc.addr(16, r.r13))
+                self.mc.STD(r.f0, loc.addr(0, r.r11))
+            self.a.jmpto(r.r14)
             run_asm(self.a)
             assert isclose(mem[0],res)
 
@@ -310,11 +310,11 @@ class TestRunningAssembler(object):
                     pool.float(v1)
                     pool.float(v2)
                     pool.addr(mem)
-                self.mc.LD(reg.f0, loc.addr(0, reg.r13))
-                self.mc.MDB(reg.f0, loc.addr(8, reg.r13))
-                self.mc.LG(reg.r11, loc.addr(16, reg.r13))
-                self.mc.STD(reg.f0, loc.addr(0, reg.r11))
-            self.a.jmpto(reg.r14)
+                self.mc.LD(r.f0, loc.addr(0, r.r13))
+                self.mc.MDB(r.f0, loc.addr(8, r.r13))
+                self.mc.LG(r.r11, loc.addr(16, r.r13))
+                self.mc.STD(r.f0, loc.addr(0, r.r11))
+            self.a.jmpto(r.r14)
             run_asm(self.a)
             assert isclose(mem[0],res)
 
@@ -323,9 +323,9 @@ class TestRunningAssembler(object):
             with ActivationRecordCtx(self):
                 with LiteralPoolCtx(self) as pool:
                     pool.addr(mem)
-                self.mc.LZDR(reg.f0)
-                self.mc.LG(reg.r11, loc.addr(0, reg.r13))
-                self.mc.STD(reg.f0, loc.addr(0, reg.r11))
+                self.mc.LZDR(r.f0)
+                self.mc.LG(r.r11, loc.addr(0, r.r13))
+                self.mc.STD(r.f0, loc.addr(0, r.r11))
             run_asm(self.a)
             assert isclose(mem[0], 0.0)
 
@@ -335,11 +335,11 @@ class TestRunningAssembler(object):
                 with LiteralPoolCtx(self) as pool:
                     pool.single_float(6.66)
                     pool.addr(mem)
-                self.mc.LEY(reg.f1, loc.addr(0, reg.r13))
+                self.mc.LEY(r.f1, loc.addr(0, r.r13))
                 ## cast short to long!
-                self.mc.LDEBR(reg.f0, reg.f1) 
-                self.mc.LG(reg.r11, loc.addr(4, reg.r13))
-                self.mc.STD(reg.f0, loc.addr(0, reg.r11))
+                self.mc.LDEBR(r.f0, r.f1) 
+                self.mc.LG(r.r11, loc.addr(4, r.r13))
+                self.mc.STD(r.f0, loc.addr(0, r.r11))
             run_asm(self.a)
             assert isclose(mem[0], 6.66, abs_tol=0.05)
 
@@ -349,11 +349,11 @@ class TestRunningAssembler(object):
                 with LiteralPoolCtx(self) as pool:
                     pool.int64(12345)
                     pool.addr(mem)
-                self.mc.LG(reg.r12, loc.addr(0, reg.r13))
+                self.mc.LG(r.r12, loc.addr(0, r.r13))
                 # cast int to float!
-                self.mc.CDGBR(reg.f0, reg.r12) 
-                self.mc.LG(reg.r11, loc.addr(8, reg.r13))
-                self.mc.STD(reg.f0, loc.addr(0, reg.r11))
+                self.mc.CDGBR(r.f0, r.r12) 
+                self.mc.LG(r.r11, loc.addr(8, r.r13))
+                self.mc.STD(r.f0, loc.addr(0, r.r11))
             run_asm(self.a)
             assert isclose(mem[0], 12345.0)
 
@@ -362,13 +362,13 @@ class TestRunningAssembler(object):
             with LiteralPoolCtx(self) as pool:
                 pool.float(1.0)
                 pool.float(2.0)
-            self.mc.LD(reg.f0, loc.addr(0, reg.r13))
-            self.mc.LD(reg.f1, loc.addr(8, reg.r13))
-            self.mc.CDBR(reg.f0, reg.f1)
-            self.mc.LGHI(reg.r2, loc.imm(0))
-            self.mc.BCR(con.EQ, reg.r14) # must not branch
-            self.mc.LGHI(reg.r2, loc.imm(1))
-        self.a.jmpto(reg.r14)
+            self.mc.LD(r.f0, loc.addr(0, r.r13))
+            self.mc.LD(r.f1, loc.addr(8, r.r13))
+            self.mc.CDBR(r.f0, r.f1)
+            self.mc.LGHI(r.r2, loc.imm(0))
+            self.mc.BCR(con.EQ, r.r14) # must not branch
+            self.mc.LGHI(r.r2, loc.imm(1))
+        self.a.jmpto(r.r14)
         assert run_asm(self.a) == 1
 
     def pushpop_jitframe(self, registers):
@@ -390,8 +390,6 @@ class TestRunningAssembler(object):
         self.mc.STG = STG
         self.mc.LMG = LMG
         self.mc.LG = LG
-
-        r = reg
 
         # 2-6
         self.pushpop_jitframe([r.r2, r.r3, r.r4, r.r5, r.r6, r.r8, r.r10])
