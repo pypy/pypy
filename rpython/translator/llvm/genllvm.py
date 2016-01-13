@@ -1953,7 +1953,9 @@ class GenLLVM(object):
         # optimize this module
         optimized_file = self.work_dir.join('output_optimized.' +
                                             ('ll' if llvm_assembly else 'bc'))
-        opt_args = ['opt', '-O3', linked_file, '-o', optimized_file]
+        opt_args = ['opt', '-load',
+                    self._compile_llvm_plugin('InternalizeHiddenSymbols.cpp'),
+                    '-O3', linked_file, '-o', optimized_file]
         self._execute(opt_args + (['-S'] if llvm_assembly else []))
 
         # compile object file
@@ -1984,14 +1986,14 @@ class GenLLVM(object):
         self._execute(link_args + [object_file, '-o', output_file])
         return output_file
 
-    def _compile_llvmgcroot(self):
+    def _compile_llvm_plugin(self, relative_filename):
         this_file = local(__file__)
-        gc_cpp = this_file.new(basename='PyPyGC.cpp')
-        gc_lib = this_file.new(purebasename='PyPyGC',
-                               ext=self.translator.platform.so_ext)
+        plugin_cpp = this_file.new(basename=relative_filename)
+        plugin_so = plugin_cpp.new(ext=self.translator.platform.so_ext)
         cflags = cmdexec('llvm-config --cxxflags').strip() + ' -fno-rtti'
-        cmdexec('clang {} -shared {} -o {}'.format(cflags, gc_cpp, gc_lib))
-        return gc_lib
+        cmdexec('clang {} -shared {} -o {}'.format(cflags, plugin_cpp,
+                                                   plugin_so))
+        return plugin_so
 
     def compile(self, exe_name):
         return self._compile()

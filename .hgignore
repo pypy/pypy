@@ -95,4 +95,4 @@ syntax: regexp
 ^.git/
 ^release/
 ^rpython/_cache$
-^rpython/translator/llvm/PyPyGC.so$
+^rpython/translator/llvm/.*\.so$
