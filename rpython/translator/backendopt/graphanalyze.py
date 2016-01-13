@@ -1,5 +1,4 @@
 from rpython.rtyper.lltypesystem.lltype import DelayedPointer
-from rpython.translator.simplify import get_graph
 from rpython.tool.algo.unionfind import UnionFind
 
 
@@ -90,8 +89,10 @@ class GraphAnalyzer(object):
                 if self.verbose and x:
                     self.dump_info('analyze_external_call %s: %r' % (op, x))
                 return x
-            graph = funcobj.graph
-            assert graph is not None
+            try:
+                graph = funcobj.graph
+            except AttributeError:
+                return self.top_result()
             x = self.analyze_direct_call(graph, seen)
             if self.verbose and x:
                 self.dump_info('analyze_direct_call(%s): %r' % (graph, x))
