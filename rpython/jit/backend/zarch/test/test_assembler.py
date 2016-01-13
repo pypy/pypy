@@ -177,6 +177,16 @@ class TestRunningAssembler(object):
         self.a.jmpto(r.r14)
         assert run_asm(self.a) == -1
 
+    def test_or_bitpos_0to15(self):
+        self.a.mc.XGR(r.r2, r.r2)
+        self.a.mc.OIHH(r.r2, loc.imm(0x0000))
+        self.a.mc.OIHL(r.r2, loc.imm(0x0000))
+        self.a.mc.OILL(r.r2, loc.imm(0x0000))
+        self.a.mc.OILH(r.r2, loc.imm(0x300c))
+        self.a.jmpto(r.r14)
+        res = run_asm(self.a)
+        assert res == 0x00000000300c0000
+
     def test_uint_rshift(self):
         self.a.mc.XGR(r.r4, r.r4)
         self.a.mc.LGFI(r.r5, loc.imm(63))
@@ -184,6 +194,16 @@ class TestRunningAssembler(object):
         self.a.mc.LGFI(r.r3, loc.imm(18))
         self.a.mc.LGFI(r.r2, loc.imm(0xffffffff))
         self.a.mc.SRLG(r.r2, r.r3, loc.addr(18))
+        self.a.jmpto(r.r14)
+        assert run_asm(self.a) == 0
+
+    def test_ag_overflow(self):
+        self.a.mc.BRC(con.ANY, loc.imm(4+8+8))
+        self.a.mc.write('\x7f' + '\xff' * 7)
+        self.a.mc.write('\x7f' + '\xff' * 7)
+        self.a.mc.LARL(r.r5, loc.imm(-8))
+        self.a.mc.LG(r.r4, loc.addr(8,r.r5))
+        self.a.mc.AG(r.r4, loc.addr(0,r.r5))
         self.a.jmpto(r.r14)
         assert run_asm(self.a) == 0
 

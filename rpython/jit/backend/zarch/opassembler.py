@@ -82,6 +82,7 @@ class IntOpAssembler(object):
         jmp_xor_lr_overflow = mc.get_relative_pos()
         mc.reserve_cond_jump() # CLGIJ lr > 0 -> (label_overflow)
         mc.LCGR(lq, lq) # complement the value
+        mc.XGR(r.SCRATCH, r.SCRATCH)
         mc.SPM(r.SCRATCH) # 0x80 ... 00 clears the condition code and program mask
         jmp_no_overflow_xor_neg = mc.get_relative_pos()
         mc.reserve_cond_jump(short=True)
@@ -102,8 +103,8 @@ class IntOpAssembler(object):
 
         # set overflow!
         label_overflow = mc.get_relative_pos()
-        mc.XGR(r.SCRATCH, r.SCRATCH)
         # set bit 34 & 35 -> indicates overflow
+        mc.XGR(r.SCRATCH, r.SCRATCH)
         mc.OILH(r.SCRATCH, l.imm(0x3000)) # sets OF
         mc.SPM(r.SCRATCH)
 
