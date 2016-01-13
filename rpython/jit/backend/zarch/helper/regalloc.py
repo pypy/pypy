@@ -21,7 +21,7 @@ def check_imm20(arg):
 def prepare_int_add(self, op):
     a0 = op.getarg(0)
     a1 = op.getarg(1)
-    if check_imm32(a0):
+    if a0.is_constant():
         a0, a1 = a1, a0
     l0 = self.ensure_reg(a0)
     if check_imm32(a1):
@@ -35,7 +35,7 @@ def prepare_int_add(self, op):
 def prepare_int_mul(self, op):
     a0 = op.getarg(0)
     a1 = op.getarg(1)
-    if check_imm32(a0):
+    if a0.is_constant():
         a0, a1 = a1, a0
     l0 = self.ensure_reg(a0)
     if check_imm32(a1):
@@ -49,7 +49,7 @@ def prepare_int_mul(self, op):
 def prepare_int_mul_ovf(self, op):
     a0 = op.getarg(0)
     a1 = op.getarg(1)
-    if check_imm32(a0):
+    if a0.is_constant():
         a0, a1 = a1, a0
     lr,lq = self.rm.ensure_even_odd_pair(a0, op, bind_first=False)
     if check_imm32(a1):
@@ -96,7 +96,7 @@ def prepare_int_sub(self, op):
 def prepare_int_logic(self, op):
     a0 = op.getarg(0)
     a1 = op.getarg(1)
-    if isinstance(a0, ConstInt):
+    if a0.is_constant():
         a0, a1 = a1, a0
     l0 = self.ensure_reg(a0)
     l1 = self.ensure_reg(a1)

@@ -116,3 +116,21 @@ class TestIntResOpZARCH(object):
         deadframe = self.cpu.execute_token(looptoken, v1)
         fail = self.cpu.get_latest_descr(deadframe)
         assert self.cpu.get_int_value(deadframe, 0) == result
+
+    @py.test.mark.parametrize('v1,v2', [(-189,2),(189,-2)])
+    def test_int_mul_no_overflow_var_var(self, v1, v2):
+        try:
+            result = v1*v2
+        except OverflowError:
+            py.test.skip("this test is not made to check the overflow!")
+        code = """
+        [i0,i2]
+        i1 = int_mul_ovf(i0,i2)
+        finish(i1, descr=faildescr)
+        """.format()
+        loop = parse(code, namespace={"faildescr": BasicFinalDescr(1)})
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken, v1, v2)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert self.cpu.get_int_value(deadframe, 0) == result

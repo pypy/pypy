@@ -72,8 +72,9 @@ class IntOpAssembler(object):
         bc_set_overflow = mc.OIHL_byte_count + mc.SPM_byte_count
 
         # check left neg
-        mc.CGIJ(lq, l.imm(0), c.LT, l.imm(mc.CGIJ_byte_count*2))
-        mc.CGIJ(l1, l.imm(0), c.GE, l.imm(mc.CGIJ_byte_count*2 + bc_one_signed))
+        mc.CGIJ(lq, l.imm(0), c.LT, l.imm(mc.CGIJ_byte_count*2+mc.BRC_byte_count))
+        mc.CGIJ(l1, l.imm(0), c.GE, l.imm(mc.CGIJ_byte_count*2+mc.BRC_byte_count + bc_one_signed))
+        mc.BRC(c.ANY, l.imm(mc.BRC_byte_count + mc.CGIJ_byte_count)) # right is negative 
         mc.CGIJ(l1, l.imm(0), c.LT, l.imm(mc.CGIJ_byte_count + bc_one_signed)) # jump if both are negative
         # left or right is negative
         mc.LPGR(lq, lq)

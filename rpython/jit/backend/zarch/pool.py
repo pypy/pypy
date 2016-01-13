@@ -85,10 +85,9 @@ class LiteralPool(object):
                 self.offset_map[arg] = self.size
                 self.reserve_literal(8)
 
-    def get_descr_offset(self, descr):
-        return self.offset_map[descr]
-
     def get_offset(self, box):
+        if not we_are_translated():
+            assert self.offset_map[box] >= 0
         return self.offset_map[box]
 
     def reserve_literal(self, size):
