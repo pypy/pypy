@@ -772,7 +772,7 @@ PyFrame.typedef = TypeDef('frame',
     f_restricted = GetSetProperty(PyFrame.fget_f_restricted),
     f_code = GetSetProperty(PyFrame.fget_code),
     f_locals = GetSetProperty(PyFrame.fget_getdictscope),
-    f_globals = interp_attrproperty_w('w_globals', cls=PyFrame),
+    f_globals = GetSetProperty(PyFrame.fget_w_globals, PyFrame.fset_w_globals),
 )
 assert not PyFrame.typedef.acceptable_as_base_class  # no __new__
 

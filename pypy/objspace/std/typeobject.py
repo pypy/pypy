@@ -1139,7 +1139,7 @@ def ensure_module_attr(w_self):
         space = w_self.space
         caller = space.getexecutioncontext().gettopframe_nohidden()
         if caller is not None:
-            w_globals = caller.w_globals
+            w_globals = caller.get_w_globals()
             w_name = space.finditem(w_globals, space.wrap('__name__'))
             if w_name is not None:
                 w_self.dict_w['__module__'] = w_name
