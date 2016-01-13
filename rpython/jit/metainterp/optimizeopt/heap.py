@@ -183,6 +183,8 @@ class CachedField(AbstractCachedEntry):
         return res
 
     def invalidate(self, descr):
+        if descr.is_always_pure():
+            return
         for opinfo in self.cached_infos:
             assert isinstance(opinfo, info.AbstractStructPtrInfo)
             opinfo._fields[descr.get_index()] = None
