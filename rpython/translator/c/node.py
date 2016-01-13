@@ -909,20 +909,6 @@ def new_funcnode(db, T, obj, forcename=None):
         name = _select_name(db, obj)
     return FuncNode(db, T, obj, name)
 
-def sandbox_stub(fnobj, db):
-    # unexpected external function for --sandbox translation: replace it
-    # with a "Not Implemented" stub.
-    graph = rsandbox.get_sandbox_stub(fnobj, db.translator.rtyper)
-    return make_funcgen(graph, db)
-
-def sandbox_transform(fnobj, db):
-    # for --sandbox: replace a function like os_open_llimpl() with
-    # code that communicates with the external process to ask it to
-    # perform the operation.
-    graph = rsandbox.get_external_function_sandbox_graph(
-        fnobj, db.translator.rtyper)
-    return make_funcgen(graph, db)
-
 def need_sandboxing(fnobj):
     if hasattr(fnobj, '_safe_not_sandboxed'):
         return not fnobj._safe_not_sandboxed
@@ -936,13 +922,14 @@ def select_function_code_generators(fnobj, db, functionname):
     sandbox = db.sandbox and need_sandboxing(fnobj)
     if sandbox:
         if hasattr(fnobj, 'graph') and sandbox != 'if_external':
-            # apply the sandbox transformation
-            return sandbox_transform(fnobj, db)
+            graph = rsandbox.get_external_function_sandbox_graph(
+                fnobj, db.translator.rtyper)
+            fnobj.__dict__['graph'] = graph
         elif getattr(fnobj, 'external', None) is not None:
-            return sandbox_stub(fnobj, db)
+            fnobj.__dict__['graph'] = rsandbox.get_sandbox_stub(
+                fnobj, db.translator.rtyper)
+
     if hasattr(fnobj, 'graph'):
-        if db.sandbox:
-            assert getattr(fnobj, '_safe_not_sandboxed', True)
         exception_policy = getattr(fnobj, 'exception_policy', None)
         return make_funcgen(fnobj.graph, db, exception_policy, functionname)
     elif getattr(fnobj, 'external', None) is not None:
