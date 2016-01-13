@@ -704,7 +704,7 @@ class FuncType(Type):
             else:
                 wrapper_name, source = rffi._write_call_wrapper(
                         obj._name, database.unique_name(obj._name, False),
-                        obj._TYPE)
+                        obj._TYPE, 'RPY_EXTERN ')
                 name = '@' + wrapper_name
                 database.genllvm.sources.append(source)
 
