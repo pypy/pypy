@@ -16,6 +16,25 @@ class TestIntResOpZARCH(object):
     cpu = CPU_S390_64(rtyper=None, stats=FakeStats())
     cpu.setup_once()
 
+    def test_uint_rshift(self):
+        code = """
+        [i1]
+        i11 = int_and(i1, 63)
+        i10 = uint_rshift(18, i11)
+        i1402 = int_is_true(i10)
+        guard_false(i1402, descr=faildescr) [] # must NEVER exit with i1 == 0
+        finish(i1402, descr=finishdescr)
+        """
+        finishdescr = BasicFinalDescr(1)
+        faildescr = BasicFailDescr(2)
+        loop = parse(code, namespace={'faildescr': faildescr,
+                                      'finishdescr': finishdescr})
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken, 19)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail == finishdescr # ensures that guard is not taken!
+
     def test_double_evenodd_pair(self):
         code = """
         [i0]

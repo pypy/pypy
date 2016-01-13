@@ -177,6 +177,16 @@ class TestRunningAssembler(object):
         self.a.jmpto(r.r14)
         assert run_asm(self.a) == -1
 
+    def test_uint_rshift(self):
+        self.a.mc.XGR(r.r4, r.r4)
+        self.a.mc.LGFI(r.r5, loc.imm(63))
+        self.a.mc.NGR(r.r4, r.r5)
+        self.a.mc.LGFI(r.r3, loc.imm(18))
+        self.a.mc.LGFI(r.r2, loc.imm(0xffffffff))
+        self.a.mc.SRLG(r.r2, r.r3, loc.addr(18))
+        self.a.jmpto(r.r14)
+        assert run_asm(self.a) == 0
+
     def test_xor(self):
         self.a.mc.XGR(r.r2, r.r2)
         self.a.jmpto(r.r14)

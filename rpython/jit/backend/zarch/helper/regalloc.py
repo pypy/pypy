@@ -115,9 +115,9 @@ def prepare_int_shift(self, op):
         tmp = self.rm.ensure_reg(a1, force_in_reg=True)
         l1 = addr(0, tmp)
     l0 = self.ensure_reg(a0, force_in_reg=True)
-    self.force_result_in_reg(op, a0)
+    lr = self.force_allocate_reg(op)
     self.free_op_vars()
-    return [l0, l1]
+    return [lr, l0, l1]
 
 def generate_cmp_op(signed=True):
     def prepare_cmp_op(self, op):

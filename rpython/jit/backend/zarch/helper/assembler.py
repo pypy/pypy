@@ -27,8 +27,10 @@ def gen_emit_cmp_op(condition, signed=True, fp=False):
 
 def gen_emit_shift(func):
     def f(self, op, arglocs, regalloc):
-        l0, l1 = arglocs
-        getattr(self.mc, func)(l0, l0, l1)
+        lr, l0, l1 = arglocs
+        assert lr is not l0
+        getattr(self.mc, func)(lr, l0, l1)
+    f.name = 'emit_shift_' + func
     return f
 
 def gen_emit_rr_or_rpool(rr_func, rp_func):
