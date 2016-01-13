@@ -52,60 +52,113 @@ class IntOpAssembler(object):
         elif l1.is_imm():
             self.mc.LGFI(r.SCRATCH, l1)
             l1 = r.SCRATCH
+        else:
+            # we are not allowed to modify l1 if it is not a scratch
+            # register, thus copy it here!
+            self.mc.LGR(r.SCRATCH, l1)
+            l1 = r.SCRATCH
 
         mc = self.mc
-        bc_one_decision = mc.CLGRJ_byte_count +\
-                          mc.CLGIJ_byte_count + \
-                          mc.LCGR_byte_count + \
-                          mc.BRC_byte_count + \
-                          mc.SPM_byte_count
-        bc_one_signed = mc.LPGR_byte_count * 2 + \
-                        mc.MLGR_byte_count + \
-                        mc.LG_byte_count + \
-                        bc_one_decision
-        bc_none_signed = mc.LPGR_byte_count * 2 + \
-                         mc.MLGR_byte_count + \
-                         mc.LG_byte_count + \
-                         mc.CLGRJ_byte_count + \
-                         mc.CLGIJ_byte_count + \
-                         mc.BRC_byte_count
-        bc_set_overflow = mc.OIHL_byte_count + mc.SPM_byte_count
 
         # check left neg
-        mc.CGIJ(lq, l.imm(0), c.LT, l.imm(mc.CGIJ_byte_count*2+mc.BRC_byte_count))
-        mc.CGIJ(l1, l.imm(0), c.GE, l.imm(mc.CGIJ_byte_count*2+mc.BRC_byte_count + bc_one_signed))
-        mc.BRC(c.ANY, l.imm(mc.BRC_byte_count + mc.CGIJ_byte_count)) # right is negative 
-        mc.CGIJ(l1, l.imm(0), c.LT, l.imm(mc.CGIJ_byte_count + bc_one_signed)) # jump if both are negative
-        # left or right is negative
+        jmp_lq_lt_0 = mc.get_relative_pos()
+        mc.reserve_cond_jump() # CGIJ lq < 0 +-----------+
+        jmp_l1_ge_0 = mc.get_relative_pos() #            |
+        mc.reserve_cond_jump() # CGIJ l1 >= 0 -----------|-> (both same sign)
+        jmp_lq_pos_l1_neg = mc.get_relative_pos() #      |
+        mc.reserve_cond_jump(short=True) #  BCR any -----|-> (xor negative)
+        jmp_l1_neg_lq_neg = mc.get_relative_pos() #      |
+        mc.reserve_cond_jump() # <-----------------------+
+                               # CGIJ l1 < 0 -> (both same_sign)
+        # (xor negative)
+        label_xor_neg = mc.get_relative_pos()
+        mc.LPGR(lq, lq)
+        mc.LPGR(l1, l1)
+        mc.MLGR(lr, l1)
+        mc.LG(r.SCRATCH, l.pool(self.pool.constant_64_sign_bit))
+        # is the value greater than 2**63 ? then an overflow occured
+        jmp_xor_lq_overflow = mc.get_relative_pos()
+        mc.reserve_cond_jump() # CLGRJ lq > 0x8000 ... 00 -> (label_overflow)
+        jmp_xor_lr_overflow = mc.get_relative_pos()
+        mc.reserve_cond_jump() # CLGIJ lr > 0 -> (label_overflow)
+        mc.LCGR(lq, lq) # complement the value
+        mc.SPM(r.SCRATCH) # 0x80 ... 00 clears the condition code and program mask
+        jmp_no_overflow_xor_neg = mc.get_relative_pos()
+        mc.reserve_cond_jump(short=True)
+
+        # both are positive/negative
+        label_both_same_sign = mc.get_relative_pos()
         mc.LPGR(lq, lq)
         mc.LPGR(l1, l1)
         mc.MLGR(lr, l1)
         mc.LG(r.SCRATCH, l.pool(self.pool.constant_max_64_positive))
-        # is the value greater than 2**63 ? then an overflow occured
-        mc.CLGRJ(lq, r.SCRATCH, c.GT, l.imm(bc_one_decision + bc_none_signed)) # jump to over overflow
-        mc.CLGIJ(lr, l.imm(0), c.GT, l.imm(bc_one_decision - mc.CLGRJ_byte_count + bc_none_signed)) # jump to overflow
-        mc.LCGR(lq, lq)
-        mc.SPM(r.SCRATCH) # 0x80 ... 00 clears the condition code and program mask
-        mc.BRC(c.ANY, l.imm(mc.BRC_byte_count + bc_set_overflow + bc_none_signed)) # no overflow happened
+        jmp_lq_overflow = mc.get_relative_pos()
+        mc.reserve_cond_jump() # CLGRJ lq > 0x7fff ... ff -> (label_overflow)
+        jmp_lr_overflow = mc.get_relative_pos()
+        mc.reserve_cond_jump() # CLGIJ lr > 0 -> (label_overflow)
+        jmp_neither_lqlr_overflow = mc.get_relative_pos()
+        mc.reserve_cond_jump(short=True) # BRC any -> (label_end)
 
-        # both are positive
-        mc.LPGR(lq, lq)
-        mc.LPGR(l1, l1)
-        mc.MLGR(lr, l1)
-        off = mc.CLGRJ_byte_count + mc.CLGIJ_byte_count + \
-              mc.BRC_byte_count
-        mc.LG(r.SCRATCH, l.pool(self.pool.constant_64_ones))
-        mc.CLGRJ(lq, r.SCRATCH, c.GT, l.imm(off)) # jump to over overflow
-        mc.CLGIJ(lr, l.imm(0), c.GT, l.imm(off - mc.CLGRJ_byte_count)) # jump to overflow
-        mc.BRC(c.ANY, l.imm(mc.BRC_byte_count + bc_set_overflow)) # no overflow happened
 
         # set overflow!
-        #mc.IPM(r.SCRATCH)
+        label_overflow = mc.get_relative_pos()
+        mc.XGR(r.SCRATCH, r.SCRATCH)
         # set bit 34 & 35 -> indicates overflow
         mc.OILH(r.SCRATCH, l.imm(0x3000)) # sets OF
         mc.SPM(r.SCRATCH)
 
         # no overflow happended
+        label_end = mc.get_relative_pos()
+
+        # patch patch patch!!!
+
+        # jmp_lq_lt_0
+        pos = jmp_lq_lt_0
+        omc = OverwritingBuilder(self.mc, pos, 1)
+        omc.CGIJ(lq, l.imm(0), c.LT, l.imm(jmp_l1_neg_lq_neg - pos))
+        omc.overwrite()
+        # jmp_l1_ge_0
+        pos = jmp_l1_ge_0
+        omc = OverwritingBuilder(self.mc, pos, 1)
+        omc.CGIJ(l1, l.imm(0), c.GE, l.imm(label_both_same_sign - pos))
+        omc.overwrite()
+        # jmp_lq_pos_l1_neg
+        pos = jmp_lq_pos_l1_neg
+        omc = OverwritingBuilder(self.mc, pos, 1)
+        omc.BRC(c.ANY, l.imm(label_xor_neg - pos))
+        omc.overwrite()
+        # jmp_l1_neg_lq_neg
+        pos = jmp_l1_neg_lq_neg
+        omc = OverwritingBuilder(self.mc, pos, 1)
+        omc.CGIJ(l1, l.imm(0), c.LT, l.imm(label_both_same_sign - pos))
+        omc.overwrite()
+
+        # patch jmp_xor_lq_overflow
+        pos = jmp_xor_lq_overflow
+        omc = OverwritingBuilder(self.mc, pos, 1)
+        omc.CLGRJ(lq, r.SCRATCH, c.GT, l.imm(label_overflow - pos))
+        omc.overwrite()
+        # patch jmp_xor_lr_overflow
+        pos = jmp_xor_lr_overflow
+        omc = OverwritingBuilder(self.mc, pos, 1)
+        omc.CLGIJ(lr, l.imm(0), c.GT, l.imm(label_overflow - pos))
+        omc.overwrite()
+        # patch jmp_no_overflow_xor_neg
+        omc = OverwritingBuilder(self.mc, jmp_no_overflow_xor_neg, 1)
+        omc.BRC(c.ANY, l.imm(label_end - jmp_no_overflow_xor_neg))
+        omc.overwrite()
+        # patch jmp_lq_overflow
+        omc = OverwritingBuilder(self.mc, jmp_lq_overflow, 1)
+        omc.CLGRJ(lq, r.SCRATCH, c.GT, l.imm(label_overflow - jmp_lq_overflow))
+        omc.overwrite()
+        # patch jmp_lr_overflow
+        omc = OverwritingBuilder(self.mc, jmp_lr_overflow, 1)
+        omc.CLGIJ(lr, l.imm(0), c.GT, l.imm(label_overflow - jmp_lr_overflow))
+        omc.overwrite()
+        # patch jmp_neither_lqlr_overflow
+        omc = OverwritingBuilder(self.mc, jmp_neither_lqlr_overflow, 1)
+        omc.BRC(c.ANY, l.imm(label_end - jmp_neither_lqlr_overflow))
+        omc.overwrite()
 
     emit_int_floordiv = gen_emit_pool_or_rr_evenodd('DSG','DSGR')
     emit_uint_floordiv = gen_emit_pool_or_rr_evenodd('DLG','DLGR')

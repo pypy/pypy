@@ -182,6 +182,7 @@ class PoolLoc(AddressLocation):
 
     def __init__(self, offset, isfloat=False):
         AddressLocation.__init__(self, None, None, offset, None)
+        assert offset >= 0
         self.base = 13
         self.isfloat = isfloat
         if self.isfloat:
