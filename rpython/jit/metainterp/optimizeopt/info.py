@@ -528,6 +528,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         if self._items is None:
             self._items = [None] * (index + 1)
         if index >= len(self._items):
+            assert not self.is_virtual()
             self._items = self._items + [None] * (index - len(self._items) + 1)
         self._items[index] = op
         if cf is not None:
