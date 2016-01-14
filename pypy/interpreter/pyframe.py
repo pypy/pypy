@@ -123,9 +123,6 @@ class PyFrame(W_Root):
             return debugdata.w_globals
         return jit.promote(self.pycode).w_globals
 
-    def set_w_globals(self, w_globals):
-        self.getorcreatedebug().w_globals = w_globals
-
     def get_w_f_trace(self):
         d = self.getdebug()
         if d is None:
@@ -673,9 +670,6 @@ class PyFrame(W_Root):
         # bit silly, but GetSetProperty passes a space
         return self.get_w_globals()
 
-    def fset_w_globals(self, space, w_obj):
-        # bit silly, but GetSetProperty passes a space
-        return self.set_w_globals(w_obj)
 
     ### line numbers ###
 
