@@ -587,7 +587,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.write('\x00'*14)
         self.mc.push_std_frame()
         mc.load_imm(r.RETURN, self._frame_realloc_slowpath)
-        self.load_gcmap(mc, r.SCRATCH, gcmap)
+        self.load_gcmap(mc, r.r1, gcmap)
         mc.raw_call()
         self.mc.pop_std_frame()
 
@@ -601,7 +601,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # three traps, so exactly three instructions to patch here
             pmc.CGFI(r.SCRATCH2, l.imm(frame_depth))
             pmc.BRC(c.EQ, l.imm(jmp_target - (traps_pos + 6)))
-            pmc.LGHI(r.SCRATCH, l.imm(frame_depth))
+            pmc.LGHI(r.r0, l.imm(frame_depth))
             pmc.overwrite()
 
     @rgc.no_release_gil

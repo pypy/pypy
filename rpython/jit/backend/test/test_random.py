@@ -786,7 +786,6 @@ class RandomLoop(object):
                 arguments.append(box.getfloatstorage())
             else:
                 assert 0, box.type
-        #import pdb; pdb.set_trace()
         deadframe = cpu.execute_token(self.runjitcelltoken(), *arguments)
         fail = cpu.get_latest_descr(deadframe)
         print("exited at %s" % (fail, ))
@@ -809,7 +808,6 @@ class RandomLoop(object):
                                                        i)
                 )
             values.append(value)
-        #import pdb; pdb.set_trace()
         exc = cpu.grab_exc_value(deadframe)
         if (self.guard_op is not None and
             self.guard_op.is_guard_exception()):
