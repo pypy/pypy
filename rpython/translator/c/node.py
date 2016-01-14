@@ -903,6 +903,20 @@ class FuncNode(ContainerNode):
         funcgen.implementation_end()
 
 def new_funcnode(db, T, obj, forcename=None):
+    sandbox = db.sandbox and need_sandboxing(obj)
+    if sandbox:
+        if hasattr(obj, 'graph') and sandbox != 'if_external':
+            graph = rsandbox.get_external_function_sandbox_graph(
+                obj, db.translator.rtyper)
+            obj.__dict__['graph'] = graph
+            obj.__dict__.pop('_safe_not_sandboxed', None)
+            obj.__dict__.pop('external', None)
+        elif getattr(obj, 'external', None) is not None:
+            obj.__dict__['graph'] = rsandbox.get_sandbox_stub(
+                obj, db.translator.rtyper)
+            obj.__dict__.pop('_safe_not_sandboxed', None)
+            obj.__dict__.pop('external', None)
+
     if forcename:
         name = forcename
     else:
@@ -919,16 +933,6 @@ def need_sandboxing(fnobj):
         return "if_external"
 
 def select_function_code_generators(fnobj, db, functionname):
-    sandbox = db.sandbox and need_sandboxing(fnobj)
-    if sandbox:
-        if hasattr(fnobj, 'graph') and sandbox != 'if_external':
-            graph = rsandbox.get_external_function_sandbox_graph(
-                fnobj, db.translator.rtyper)
-            fnobj.__dict__['graph'] = graph
-        elif getattr(fnobj, 'external', None) is not None:
-            fnobj.__dict__['graph'] = rsandbox.get_sandbox_stub(
-                fnobj, db.translator.rtyper)
-
     if hasattr(fnobj, 'graph'):
         exception_policy = getattr(fnobj, 'exception_policy', None)
         return make_funcgen(fnobj.graph, db, exception_policy, functionname)
@@ -947,8 +951,7 @@ def _select_name(db, obj):
         return obj._callable.c_name
     except AttributeError:
         pass
-    if (getattr(obj, 'external', None) == 'C' and
-            (not db.sandbox or not need_sandboxing(obj))):
+    if getattr(obj, 'external', None) == 'C':
         return obj._name
     return db.namespace.uniquename('g_' + obj._name)
 
