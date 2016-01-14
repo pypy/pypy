@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.module import Module
+from pypy.module import _cffi_backend
 from pypy.module._cffi_backend import parse_c_type
 from pypy.module._cffi_backend.ffi_obj import W_FFIObject
 from pypy.module._cffi_backend.lib_obj import W_LibObject
@@ -27,8 +28,10 @@ def load_cffi1_module(space, name, path, initptr):
         version = rffi.cast(lltype.Signed, p[0])
         if not (VERSION_MIN <= version <= VERSION_MAX):
             raise oefmt(space.w_ImportError,
-                "cffi extension module '%s' has unknown version %s",
-                name, hex(version))
+                "cffi extension module '%s' uses an unknown version tag %s. "
+                "This module might need a more recent version of PyPy. "
+                "The current PyPy provides CFFI %s.",
+                name, hex(version), _cffi_backend.VERSION)
         src_ctx = rffi.cast(parse_c_type.PCTX, p[1])
 
     ffi = W_FFIObject(space, src_ctx)
