@@ -72,8 +72,6 @@ class TestCall(BaseTestPyPyC):
         # LOAD_GLOBAL of OFFSET
         ops = entry_bridge.ops_by_id('cond', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == ["guard_value",
-                                    "guard_value",
-                                    "getfield_gc_r", "guard_value",
                                     "guard_not_invalidated"]
         ops = entry_bridge.ops_by_id('add', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == []
@@ -200,6 +198,7 @@ class TestCall(BaseTestPyPyC):
         assert log.result == 1000
         loop, = log.loops_by_id('call')
         assert loop.match_by_id('call', """
+            guard_not_invalidated?
             i14 = force_token()
             i16 = force_token()
         """)
@@ -222,7 +221,7 @@ class TestCall(BaseTestPyPyC):
         loop, = log.loops_by_id('call')
         ops = log.opnames(loop.ops_by_id('call'))
         guards = [ops for ops in ops if ops.startswith('guard')]
-        assert guards == ["guard_no_overflow"]
+        assert guards == ["guard_not_invalidated", "guard_no_overflow"]
 
     def test_kwargs(self):
         # this is not a very precise test, could be improved
@@ -281,6 +280,7 @@ class TestCall(BaseTestPyPyC):
         assert log.result == 13000
         loop0, = log.loops_by_id('g1')
         assert loop0.match_by_id('g1', """
+            guard_not_invalidated?
             i20 = force_token()
             i22 = int_add_ovf(i8, 3)
             guard_no_overflow(descr=...)
@@ -438,9 +438,6 @@ class TestCall(BaseTestPyPyC):
             i22 = getfield_gc_pure_i(p12, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             i24 = int_lt(i22, 5000)
             guard_true(i24, descr=...)
-            guard_value(p7, ConstPtr(ptr25), descr=...)
-            p26 = getfield_gc_r(p7, descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy .*>)
-            guard_value(p26, ConstPtr(ptr27), descr=...)
             guard_not_invalidated(descr=...)
             p29 = call_r(ConstClass(_ll_1_threadlocalref_get__Ptr_GcStruct_objectLlT_Signed), #, descr=<Callr . i EF=1 OS=5>)
             p30 = getfield_gc_r(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
@@ -472,6 +469,7 @@ class TestCall(BaseTestPyPyC):
             i8 = getfield_gc_pure_i(p6, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             i10 = int_lt(i8, 5000)
             guard_true(i10, descr=...)
+            guard_not_invalidated?
             i11 = force_token()
             i13 = int_add(i8, 1)
             --TICK--
