@@ -124,7 +124,7 @@ class TestInstance(BaseTestPyPyC):
             setfield_gc(ConstPtr(ptr39), i59, descr=...)
             i62 = int_lt(i61, 0)
             guard_false(i62, descr=...)
-            jump(p0, p1, p3, p6, p7, p12, i59, p18, i31, i59, p100, descr=...)
+            jump(..., descr=...)
         """)
 
     def test_mutate_class(self):
@@ -183,7 +183,7 @@ class TestInstance(BaseTestPyPyC):
             setfield_gc(p77, ConstPtr(null), descr=...)
             setfield_gc(p77, ConstPtr(ptr42), descr=...)
             setfield_gc(ConstPtr(ptr69), p77, descr=...)
-            jump(p0, p1, p3, p6, p7, p12, i74, p20, p26, i33, p77, p100, descr=...)
+            jump(..., descr=...)
 
         """)
 
