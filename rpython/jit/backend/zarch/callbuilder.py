@@ -58,7 +58,6 @@ class CallBuilder(AbstractCallBuilder):
         gpr_regs = 0
         fpr_regs = 0
         stack_params = []
-        print("### prepare_arguemtns:")
         for i in range(num_args):
             loc = arglocs[i]
             if not arglocs[i].is_float():
@@ -66,10 +65,8 @@ class CallBuilder(AbstractCallBuilder):
                     non_float_locs.append(arglocs[i])
                     non_float_regs.append(self.GPR_ARGS[gpr_regs])
                     gpr_regs += 1
-                    print("  %d: %s at [%s];" % (i, arglocs[i], self.GPR_ARGS[gpr_regs-1]))
                 else:
                     stack_params.append(i)
-                    print("  %d: %s at stack[%d];" % (i,arglocs[i], len(stack_params)-1))
             else:
                 if fpr_regs < max_fpr_in_reg:
                     float_locs.append(arglocs[i])
