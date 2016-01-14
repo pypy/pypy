@@ -1077,6 +1077,7 @@ class ForceOpAssembler(object):
         self._store_force_index(self._find_nearby_operation(regalloc, +1))
         # 'result_loc' is either r2, f0 or None
         self.call_assembler(op, argloc, vloc, result_loc, r.r2)
+        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
 
     emit_call_assembler_i = _genop_call_assembler
     emit_call_assembler_r = _genop_call_assembler
