@@ -281,8 +281,8 @@ def _float_unary_operations():
     yield (rop.FLOAT_NEG, [15.9], 'float', -15.9)
     yield (rop.FLOAT_ABS, [-5.9], 'float', 5.9)
     yield (rop.FLOAT_ABS, [15.9], 'float', 15.9)
-    yield (rop.CAST_FLOAT_TO_INT, [5.9], 'int', 5)
     yield (rop.CAST_FLOAT_TO_INT, [-5.9], 'int', -5)
+    yield (rop.CAST_FLOAT_TO_INT, [5.9], 'int', 5)
     yield (rop.CAST_INT_TO_FLOAT, [123], 'float', 123.0)
     yield (rop.CAST_INT_TO_FLOAT, [-123], 'float', -123.0)
 

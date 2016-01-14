@@ -820,7 +820,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         frame_depth = regalloc.get_final_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
-            tgt_depth = jump_target_descr._zarch_clt.frame_info.jfi_frame_depth
+            tgt_depth = jump_target_descr._ppc_clt.frame_info.jfi_frame_depth
             target_frame_depth = tgt_depth - JITFRAME_FIXED_SIZE
             frame_depth = max(frame_depth, target_frame_depth)
         return frame_depth

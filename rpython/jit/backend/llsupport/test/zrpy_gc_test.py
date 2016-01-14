@@ -84,7 +84,7 @@ def compile(f, gc, **kwds):
     #
     t = TranslationContext()
     t.config.translation.gc = gc
-    t.config.translation.lldebug = True # XXX debug
+    # t.config.translation.lldebug = True # pretty useful when debugging assembly
     if gc != 'boehm':
         t.config.translation.gcremovetypeptr = True
     for name, value in kwds.items():
