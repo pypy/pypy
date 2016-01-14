@@ -786,11 +786,14 @@ class RandomLoop(object):
                 arguments.append(box.getfloatstorage())
             else:
                 assert 0, box.type
+        #import pdb; pdb.set_trace()
         deadframe = cpu.execute_token(self.runjitcelltoken(), *arguments)
         fail = cpu.get_latest_descr(deadframe)
+        print("exited at %s" % (fail, ))
         do_assert(fail is self.should_fail_by.getdescr(),
                   "Got %r, expected %r" % (fail,
                                            self.should_fail_by.getdescr()))
+        values = []
         for i, v in enumerate(self.get_fail_args()):
             if v not in self.expected:
                 assert v.getopnum() == rop.SAME_AS_I   # special case
@@ -805,6 +808,8 @@ class RandomLoop(object):
                                                        self.expected[v],
                                                        i)
                 )
+            values.append(value)
+        #import pdb; pdb.set_trace()
         exc = cpu.grab_exc_value(deadframe)
         if (self.guard_op is not None and
             self.guard_op.is_guard_exception()):
@@ -839,6 +844,7 @@ class RandomLoop(object):
             _fail_box.set_forwarded(None)
         # generate the branch: a sequence of operations that ends in a FINISH
         subloop = DummyLoop([])
+        subloop.inputargs = op.getfailargs()[:]
         self.subloops.append(subloop)   # keep around for debugging
         if guard_op.is_guard_exception():
             subloop.operations.append(exc_handling(guard_op))

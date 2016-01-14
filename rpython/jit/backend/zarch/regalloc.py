@@ -208,14 +208,16 @@ class ZARCHRegisterManager(RegisterManager):
                 del self.free_regs[i]
                 i = self.free_regs.index(odd)
                 del self.free_regs[i]
+                assert even.is_even() and odd.is_odd()
                 return even, odd
             else:
                 # an odd free register, maybe the even one is
                 # a candidate?
                 odd = even
-                even = REGS[even.value-1]
+                even = REGS[odd.value-1]
                 if even in r.MANAGED_REGS and even not in self.free_regs:
                     # yes even might be a candidate
+                    # this means that odd is free, but not even
                     candidates.append(even)
             i -= 1
 
@@ -244,44 +246,55 @@ class ZARCHRegisterManager(RegisterManager):
             if candidate is not None:
                 # well, we got away with a single spill :)
                 reg = self.reg_bindings[candidate]
-                self.force_spill_var(candidate)
+                self._sync_var(candidate)
+                del self.reg_bindings[candidate]
                 if reg.is_even():
+                    assert var is not candidate
                     self.reg_bindings[var] = reg
                     rmfree = REGS[reg.value+1]
-                    rmidx = self.free_regs.index(reg)
-                    del self.free_regs[rmidx]
                     self.reg_bindings[var2] = rmfree
-                    rmidx = self.free_regs.index(rmfree)
-                    del self.free_regs[rmidx]
+                    self.free_regs = [fr for fr in self.free_regs if fr is not rmfree]
                     return reg, rmfree
                 else:
+                    assert var2 is not candidate
                     self.reg_bindings[var2] = reg
-                    rmidx = self.free_regs.index(reg)
-                    del self.free_regs[rmidx]
                     rmfree = REGS[reg.value-1]
                     self.reg_bindings[var] = rmfree
-                    rmidx = self.free_regs.index(rmfree)
-                    del self.free_regs[rmidx]
+                    self.free_regs = [fr for fr in self.free_regs if fr is not rmfree]
                     return rmfree, reg
 
         # there is no candidate pair that only would
         # require one spill, thus we need to spill two!
+        # this is a rare case!
+        reverse_mapping = { reg : var for var, reg in self.reg_bindings.items() }
         # always take the first
         for i, reg in enumerate(r.MANAGED_REGS):
+            if i % 2 == 1:
+                continue
             if i+1 < len(r.MANAGED_REGS):
                 reg2 = r.MANAGED_REGS[i+1]
-                try:
-                    even = self._spill_var(var, forbidden_vars, reg)
-                    odd = self._spill_var(var2, forbidden_vars, reg2)
-                except NoVariableToSpill:
-                    # woops, this is in efficient
+                assert reg.is_even() and reg2.is_odd()
+                ovar = reverse_mapping[reg]
+                ovar2 = reverse_mapping[reg2]
+                if ovar in forbidden_vars or ovar2 in forbidden_vars:
+                    # blocked, try other register pair
                     continue
+                even = reg
+                odd = reg2
+                self._sync_var(ovar)
+                self._sync_var(ovar2)
+                del self.reg_bindings[ovar]
+                del self.reg_bindings[ovar2]
+                # both are not added to free_regs! no need to do so
                 self.reg_bindings[var] = even
                 self.reg_bindings[var2] = odd
                 break
         else:
             # no break! this is bad. really bad
             raise NoVariableToSpill()
+
+        reverse_mapping = None
+
         return even, odd
 
     def force_result_in_even_reg(self, result_v, loc, forbidden_vars=[]):

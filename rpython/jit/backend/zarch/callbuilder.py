@@ -82,6 +82,11 @@ class CallBuilder(AbstractCallBuilder):
         if self.is_call_release_gil:
             self.subtracted_to_sp += 8*WORD
             base -= 8*WORD
+        # one additional owrd for remap frame layout
+        # regalloc_push will overwrite -8(r.SP) and destroy
+        # a parameter if we would not reserve that space
+        base -= WORD
+        self.subtracted_to_sp += WORD
         for idx,i in enumerate(stack_params):
             loc = arglocs[i]
             offset = base + 8 * idx
@@ -100,6 +105,7 @@ class CallBuilder(AbstractCallBuilder):
                     self.asm.regalloc_mov(loc, src)
                 self.mc.STG(src, l.addr(offset, r.SP))
 
+
         # We must also copy fnloc into FNREG
         non_float_locs.append(self.fnloc)
         non_float_regs.append(r.RETURN)
@@ -112,6 +118,7 @@ class CallBuilder(AbstractCallBuilder):
 
         remap_frame_layout(self.asm, non_float_locs, non_float_regs,
                            r.SCRATCH)
+
 
     def push_gcmap(self):
         # we push *now* the gcmap, describing the status of GC registers
