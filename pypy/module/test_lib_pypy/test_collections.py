@@ -76,12 +76,12 @@ class AppTestDequeExtra:
 
     def test_remove_mutating(self):
         collections = self.collections
-        d = collections.deque([MutatingCmp()])
         class MutatingCmp(object):
             def __eq__(self, other):
                 d.clear()
                 return True
 
+        d = collections.deque([MutatingCmp()])
         raises(IndexError, d.remove, 1)
 
     def test_remove_failing(self):
