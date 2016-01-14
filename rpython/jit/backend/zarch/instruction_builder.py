@@ -269,8 +269,8 @@ def build_ssf(mnemonic, (opcode,)):
         encode_base_displace(self, len_base_disp)
     return encode_ssf
 
-def build_rs(mnemonic, (opcode,)):
-    @builder.arguments('r,r,bd')
+def build_rs(mnemonic, (opcode,), argtypes='r,r,bd'):
+    @builder.arguments(argtypes)
     def encode_rs(self, reg1, reg3, base_displace):
         self.writechar(opcode)
         self.writechar(chr((reg1 & BIT_MASK_4) << 4 | reg3 & BIT_MASK_4))

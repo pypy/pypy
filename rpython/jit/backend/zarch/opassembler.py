@@ -755,7 +755,7 @@ class GuardOpAssembler(object):
             # read this field to get the vtable pointer
             self.mc.LG(r.SCRATCH2, l.addr(offset, loc_object))
             # read the vtable's subclassrange_min field
-            assert check_imm(offset2)
+            assert check_imm_value(offset2)
             self.mc.load(r.SCRATCH2, r.SCRATCH2, offset2)
         else:
             # read the typeid

@@ -1,4 +1,4 @@
-from rpython.jit.metainterp.history import ConstInt, FLOAT, Const
+from rpython.jit.metainterp.history import AbstractValue, ConstInt, FLOAT, Const
 from rpython.jit.backend.zarch.locations import imm, addr
 from rpython.jit.backend.llsupport.regalloc import TempVar
 import rpython.jit.backend.zarch.registers as r

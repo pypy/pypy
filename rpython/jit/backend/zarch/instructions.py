@@ -25,7 +25,7 @@ arith_mnemonic_codes = {
     'MSGR':    ('rre',   ['\xB9','\x0C']),
     'MSG':     ('rxy',   ['\xE3','\x0C']),
     'MSGFI':   ('ril',   ['\xC2','\x00']),
-    'MLGR':    ('rre',   ['\xB9','\x86']),
+    'MLGR':    ('rre',   ['\xB9','\x86'], 'eo,r'),
     # div/mod
     'DSGR':    ('rre',   ['\xB9','\x0D'], 'eo,r'),
     'DSG':     ('rxy',   ['\xE3','\x0D'], 'eo,bidl'),
@@ -114,8 +114,8 @@ logic_mnemonic_codes = {
     'XI':         ('si',       ['\x97']),
     'XIY':        ('siy',      ['\xEB','\x57']),
 
-    'XILF':       ('ril',      ['\xC0','\x06']),
-    'XIHF':       ('ril',      ['\xC0','\x07']),
+    'XILF':       ('ril',      ['\xC0','\x07'], 'r/m,u32'),
+    'XIHF':       ('ril',      ['\xC0','\x06'], 'r/m,u32'),
 
     # OR immediate
     'OIHH':       ('ri_u',     ['\xA5', '\x08']),
@@ -130,7 +130,7 @@ memory_mnemonic_codes = {
     'LAY':     ('rxy',   ['\xE3','\x71']),
 
     # move
-    'MVCLE':   ('rs',    ['\xA8']),
+    'MVCLE':   ('rs',    ['\xA8'], 'eo,eo,bd'),
 
 
     # load memory
