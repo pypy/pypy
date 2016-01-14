@@ -93,7 +93,7 @@ If only globals is given, locals defaults to it.
             if space.is_none(w_locals):
                 w_locals = w_globals
         else:
-            w_globals = caller.w_globals
+            w_globals = caller.get_w_globals()
             if space.is_none(w_locals):
                 w_locals = caller.getdictscope()
     elif space.is_none(w_locals):
