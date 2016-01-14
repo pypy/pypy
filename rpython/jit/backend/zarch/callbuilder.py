@@ -58,6 +58,7 @@ class CallBuilder(AbstractCallBuilder):
         gpr_regs = 0
         fpr_regs = 0
         stack_params = []
+        print("### prepare_arguemtns:")
         for i in range(num_args):
             loc = arglocs[i]
             if not arglocs[i].is_float():
@@ -65,8 +66,10 @@ class CallBuilder(AbstractCallBuilder):
                     non_float_locs.append(arglocs[i])
                     non_float_regs.append(self.GPR_ARGS[gpr_regs])
                     gpr_regs += 1
+                    print("  %d: %s at [%s];" % (i, arglocs[i], self.GPR_ARGS[gpr_regs-1]))
                 else:
                     stack_params.append(i)
+                    print("  %d: %s at stack[%d];" % (i,arglocs[i], len(stack_params)-1))
             else:
                 if fpr_regs < max_fpr_in_reg:
                     float_locs.append(arglocs[i])
@@ -74,8 +77,8 @@ class CallBuilder(AbstractCallBuilder):
                 else:
                     stack_params.append(i)
 
-        self.subtracted_to_sp += len(stack_params) * 8
-        base = -len(stack_params) * 8
+        self.subtracted_to_sp += len(stack_params) * WORD
+        base = -len(stack_params) * WORD
         if self.is_call_release_gil:
             self.subtracted_to_sp += 8*WORD
             base -= 8*WORD
@@ -139,8 +142,8 @@ class CallBuilder(AbstractCallBuilder):
         self.mc.raw_call()
 
     def restore_stack_pointer(self):
-        if self.subtracted_to_sp != 0:
-            self.mc.LAY(r.SP, l.addr(self.subtracted_to_sp, r.SP))
+        # it must at LEAST be 160 bytes
+        self.mc.LAY(r.SP, l.addr(self.subtracted_to_sp, r.SP))
 
     def load_result(self):
         assert (self.resloc is None or
@@ -226,29 +229,27 @@ class CallBuilder(AbstractCallBuilder):
         reg = self.resloc
         PARAM_SAVE_AREA_OFFSET = 0
         if reg is not None:
+            # save 1 word below the stack pointer
             if reg.is_core_reg():
-                self.mc.STG(reg, l.addr(-7*WORD, r.SP))
+                self.mc.STG(reg, l.addr(-1*WORD, r.SP))
             elif reg.is_fp_reg():
-                self.mc.STD(reg, l.addr(-7*WORD, r.SP))
+                self.mc.STD(reg, l.addr(-1*WORD, r.SP))
+        self.mc.push_std_frame(8*WORD)
         self.mc.load_imm(self.mc.RAW_CALL_REG, self.asm.reacqgil_addr)
         self.mc.raw_call()
+        self.mc.pop_std_frame(8*WORD)
         if reg is not None:
             if reg.is_core_reg():
-                self.mc.LG(reg, l.addr(-7*WORD, r.SP))
+                self.mc.LG(reg, l.addr(-1*WORD, r.SP))
             elif reg.is_fp_reg():
-                self.mc.LD(reg, l.addr(-7*WORD, r.SP))
+                self.mc.LD(reg, l.addr(-1*WORD, r.SP))
 
         # replace b1_location with BEQ(here)
         pmc = OverwritingBuilder(self.mc, b1_location, 1)
         pmc.BRCL(c.EQ, l.imm(self.mc.currpos() - b1_location))
         pmc.overwrite()
 
-        # restore the values that is void after LMG
-        if gcrootmap:
-            if gcrootmap.is_shadow_stack and self.is_call_release_gil:
-                self.mc.LGR(r.SCRATCH, RSHADOWOLD)
         self.mc.LMG(r.r8, r.r13, l.addr(-7*WORD, r.SP))
-
 
     def write_real_errno(self, save_err):
         if save_err & rffi.RFFI_READSAVED_ERRNO:

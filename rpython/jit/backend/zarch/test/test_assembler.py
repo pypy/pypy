@@ -204,8 +204,9 @@ class TestRunningAssembler(object):
         self.a.mc.LARL(r.r5, loc.imm(-8))
         self.a.mc.LG(r.r4, loc.addr(8,r.r5))
         self.a.mc.AG(r.r4, loc.addr(0,r.r5))
+        self.a.mc.LGR(r.r2, r.r4)
         self.a.jmpto(r.r14)
-        assert run_asm(self.a) == 0
+        assert run_asm(self.a) == -2
 
     def test_xor(self):
         self.a.mc.XGR(r.r2, r.r2)

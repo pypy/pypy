@@ -217,12 +217,12 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
     def restore_link(self):
         self.LG(r.RETURN, l.addr(14*WORD, r.SP))
 
-    def push_std_frame(self):
-        self.STG(r.SP, l.addr(-STD_FRAME_SIZE_IN_BYTES, r.SP))
-        self.LAY(r.SP, l.addr(-STD_FRAME_SIZE_IN_BYTES, r.SP))
+    def push_std_frame(self, additional_bytes=0):
+        self.STG(r.SP, l.addr(-(STD_FRAME_SIZE_IN_BYTES + additional_bytes), r.SP))
+        self.LAY(r.SP, l.addr(-(STD_FRAME_SIZE_IN_BYTES + additional_bytes), r.SP))
 
-    def pop_std_frame(self):
-        self.LAY(r.SP, l.addr(STD_FRAME_SIZE_IN_BYTES, r.SP))
+    def pop_std_frame(self, additional_bytes=0):
+        self.LAY(r.SP, l.addr(STD_FRAME_SIZE_IN_BYTES + additional_bytes, r.SP))
 
     def get_assembler_function(self):
         "NOT_RPYTHON: tests only"
