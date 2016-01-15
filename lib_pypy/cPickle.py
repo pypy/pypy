@@ -167,7 +167,11 @@ class Unpickler(object):
         try:
             key = ord(self.read(1))
             while key != STOP:
-                self.dispatch[key](self)
+                try:
+                    meth = self.dispatch[key]
+                except KeyError:
+                    raise UnpicklingError("invalid load key, %r." % chr(key))
+                meth(self)
                 key = ord(self.read(1))
         except TypeError:
             if self.read(1) == '':
