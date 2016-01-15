@@ -143,7 +143,7 @@ def test_socketpair_recvinto():
 
 
 def test_simple_tcp():
-    import thread
+    from rpython.rlib import rthread
     sock = RSocket()
     try_ports = [1023] + range(20000, 30000, 437)
     for port in try_ports:
@@ -169,14 +169,14 @@ def test_simple_tcp():
             connected[0] = True
         finally:
             lock.release()
-    lock = thread.allocate_lock()
-    lock.acquire()
-    thread.start_new_thread(connecting, ())
+    lock = rthread.allocate_lock()
+    lock.acquire(True)
+    rthread.start_new_thread(connecting, ())
     print 'waiting for connection'
     fd1, addr2 = sock.accept()
     s1 = RSocket(fd=fd1)
     print 'connection accepted'
-    lock.acquire()
+    lock.acquire(True)
     assert connected[0]
     print 'connecting side knows that the connection was accepted too'
     assert addr.eq(s2.getpeername())
@@ -188,7 +188,9 @@ def test_simple_tcp():
     buf = s2.recv(100)
     assert buf == '?'
     print 'received ok'
-    thread.start_new_thread(s2.sendall, ('x'*50000,))
+    def sendstuff():
+        s2.sendall('x'*50000)
+    rthread.start_new_thread(sendstuff, ())
     buf = ''
     while len(buf) < 50000:
         data = s1.recv(50100)

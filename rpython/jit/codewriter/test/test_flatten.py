@@ -576,7 +576,7 @@ class TestFlatten:
             return ovfcheck(i + j)
         err = py.test.raises(Exception, "self.encoding_test(f, [7, 2], '',"
                              "transform=True, liveness=True)")
-        assert "ovfcheck()" in str(err)
+        assert "ovfcheck()" in str(err.value)
 
     def test_ovfcheck_reraise(self):
         def f(i, j):

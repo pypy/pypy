@@ -2,10 +2,10 @@
 Weakref support in RPython.  Basic regular weakrefs without callbacks
 are supported.  This file contains the following additions:
 a form of WeakKeyDictionary, and a limited version of WeakValueDictionary.
-LLType only for now!
 """
 
 import weakref
+from rpython.annotator.model import UnionError
 
 ref = weakref.ref    # basic regular weakrefs are supported in RPython
 
@@ -191,9 +191,9 @@ class SomeWeakKeyDict(annmodel.SomeObject):
 class __extend__(pairtype(SomeWeakKeyDict, SomeWeakKeyDict)):
     def union((s_wkd1, s_wkd2)):
         if s_wkd1.keyclassdef is not s_wkd2.keyclassdef:
-            raise UnionError(w_wkd1, s_wkd2, "not the same key class!")
+            raise UnionError(s_wkd1, s_wkd2, "not the same key class!")
         if s_wkd1.valueclassdef is not s_wkd2.valueclassdef:
-            raise UnionError(w_wkd1, s_wkd2, "not the same value class!")
+            raise UnionError(s_wkd1, s_wkd2, "not the same value class!")
         return SomeWeakKeyDict(s_wkd1.keyclassdef, s_wkd1.valueclassdef)
 
 class Entry(extregistry.ExtRegistryEntry):

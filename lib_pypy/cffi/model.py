@@ -1,4 +1,4 @@
-import types
+import types, sys
 import weakref
 
 from .lock import allocate_lock
@@ -7,10 +7,13 @@ from .lock import allocate_lock
 # type qualifiers
 Q_CONST    = 0x01
 Q_RESTRICT = 0x02
+Q_VOLATILE = 0x04
 
 def qualify(quals, replace_with):
     if quals & Q_CONST:
         replace_with = ' const ' + replace_with.lstrip()
+    if quals & Q_VOLATILE:
+        replace_with = ' volatile ' + replace_with.lstrip()
     if quals & Q_RESTRICT:
         # It seems that __restrict is supported by gcc and msvc.
         # If you hit some different compiler, add a #define in
@@ -193,18 +196,21 @@ class UnknownFloatType(BasePrimitiveType):
 
 
 class BaseFunctionType(BaseType):
-    _attrs_ = ('args', 'result', 'ellipsis')
+    _attrs_ = ('args', 'result', 'ellipsis', 'abi')
 
-    def __init__(self, args, result, ellipsis):
+    def __init__(self, args, result, ellipsis, abi=None):
         self.args = args
         self.result = result
         self.ellipsis = ellipsis
+        self.abi = abi
         #
         reprargs = [arg._get_c_name() for arg in self.args]
         if self.ellipsis:
             reprargs.append('...')
         reprargs = reprargs or ['void']
         replace_with = self._base_pattern % (', '.join(reprargs),)
+        if abi is not None:
+            replace_with = replace_with[:1] + abi + ' ' + replace_with[1:]
         self.c_name_with_marker = (
             self.result.c_name_with_marker.replace('&', replace_with))
 
@@ -222,7 +228,7 @@ class RawFunctionType(BaseFunctionType):
                             "type, not a pointer-to-function type" % (self,))
 
     def as_function_pointer(self):
-        return FunctionPtrType(self.args, self.result, self.ellipsis)
+        return FunctionPtrType(self.args, self.result, self.ellipsis, self.abi)
 
 
 class FunctionPtrType(BaseFunctionType):
@@ -233,11 +239,18 @@ class FunctionPtrType(BaseFunctionType):
         args = []
         for tp in self.args:
             args.append(tp.get_cached_btype(ffi, finishlist))
+        abi_args = ()
+        if self.abi == "__stdcall":
+            if not self.ellipsis:    # __stdcall ignored for variadic funcs
+                try:
+                    abi_args = (ffi._backend.FFI_STDCALL,)
+                except AttributeError:
+                    pass
         return global_cache(self, ffi, 'new_function_type',
-                            tuple(args), result, self.ellipsis)
+                            tuple(args), result, self.ellipsis, *abi_args)
 
     def as_raw_function(self):
-        return RawFunctionType(self.args, self.result, self.ellipsis)
+        return RawFunctionType(self.args, self.result, self.ellipsis, self.abi)
 
 
 class PointerType(BaseType):
@@ -501,12 +514,17 @@ class EnumType(StructOrUnionOrEnum):
         if self.baseinttype is not None:
             return self.baseinttype.get_cached_btype(ffi, finishlist)
         #
+        from . import api
         if self.enumvalues:
             smallest_value = min(self.enumvalues)
             largest_value = max(self.enumvalues)
         else:
-            smallest_value = 0
-            largest_value = 0
+            import warnings
+            warnings.warn("%r has no values explicitly defined; next version "
+                          "will refuse to guess which integer type it is "
+                          "meant to be (unsigned/signed, int/long)"
+                          % self._get_c_name())
+            smallest_value = largest_value = 0
         if smallest_value < 0:   # needs a signed type
             sign = 1
             candidate1 = PrimitiveType("int")

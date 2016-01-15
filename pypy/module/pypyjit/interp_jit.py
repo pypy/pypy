@@ -54,7 +54,8 @@ pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_unique_id = get_unique_id,
                               should_unroll_one_iteration =
                               should_unroll_one_iteration,
-                              name='pypyjit')
+                              name='pypyjit',
+                              is_recursive=True)
 
 class __extend__(PyFrame):
 

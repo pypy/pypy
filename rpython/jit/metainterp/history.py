@@ -18,6 +18,7 @@ FLOAT = 'f'
 STRUCT = 's'
 HOLE  = '_'
 VOID  = 'v'
+VECTOR = 'V'
 
 FAILARGS_LIMIT = 1000
 
@@ -67,8 +68,8 @@ def repr_object(box):
         return box.value
 
 def repr_rpython(box, typechars):
-    return '%s/%s%d' % (box._get_hash_(), typechars,
-                        compute_unique_id(box))
+    return '%s/%s' % (box._get_hash_(), typechars,
+                        ) #compute_unique_id(box))
 
 
 class XxxAbstractValue(object):
@@ -112,6 +113,12 @@ class XxxAbstractValue(object):
     def same_box(self, other):
         return self is other
 
+    def same_shape(self, other):
+        # only structured containers can compare their shape (vector box)
+        return True
+
+    def getaccum(self):
+        return None
 
 class AbstractDescr(AbstractValue):
     __slots__ = ()
@@ -139,12 +146,29 @@ class AbstractFailDescr(AbstractDescr):
     index = -1
     final_descr = False
 
-    _attrs_ = ('adr_jump_offset', 'rd_locs', 'rd_loop_token')
+    _attrs_ = ('adr_jump_offset', 'rd_locs', 'rd_loop_token', 'rd_vector_info')
+
+    rd_vector_info = None
 
     def handle_fail(self, deadframe, metainterp_sd, jitdriver_sd):
         raise NotImplementedError
     def compile_and_attach(self, metainterp, new_loop, orig_inputargs):
         raise NotImplementedError
+
+    def exits_early(self):
+        # is this guard either a guard_early_exit resop,
+        # or it has been moved before an guard_early_exit
+        return False
+
+    def loop_version(self):
+        # compile a loop version out of this guard?
+        return False
+
+    def attach_vector_info(self, info):
+        from rpython.jit.metainterp.resume import VectorInfo
+        assert isinstance(info, VectorInfo)
+        info.prev = self.rd_vector_info
+        self.rd_vector_info = info
 
 class BasicFinalDescr(AbstractFailDescr):
     final_descr = True
@@ -174,7 +198,7 @@ def newconst(value):
     else:
         assert lltype.typeOf(value) == llmemory.GCREF
         return ConstPtr(value)
-        
+
 class MissingValue(object):
     "NOT_RPYTHON"
 
@@ -441,6 +465,9 @@ class JitCellToken(AbstractDescr):
         self.compiled_loop_token.cpu.dump_loop_token(self)
 
 class TargetToken(AbstractDescr):
+    _ll_loop_code = 0     # for the backend.  If 0, we know that it is
+                          # a LABEL that was not compiled yet.
+
     def __init__(self, targeting_jitcell_token=None,
                  original_jitcell_token=None):
         # Warning, two different jitcell_tokens here!
@@ -642,7 +669,7 @@ class History(object):
         assert op.is_same_as()
         op.copy_value_from(argboxes[0])
         self.operations.append(op)
-        return op        
+        return op
 
     def substitute_operation(self, position, opnum, argboxes, descr=None):
         resbox = self.operations[position].result
@@ -794,7 +821,7 @@ class Stats(object):
             check['getfield_gc_pure_i'] = check['getfield_gc_pure_r'] = check['getfield_gc_pure_f'] = 0
         if 'getarrayitem_gc_pure' in check:
             assert check.pop('getarrayitem_gc_pure') == 0
-            check['getarrayitem_gc_pure_i'] = check['getarrayitem_gc_pure_r'] = check['getarrayitem_gc_pure_f'] = 0            
+            check['getarrayitem_gc_pure_i'] = check['getarrayitem_gc_pure_r'] = check['getarrayitem_gc_pure_f'] = 0
         if 'getarrayitem_gc' in check:
             assert check.pop('getarrayitem_gc') == 0
             check['getarrayitem_gc_i'] = check['getarrayitem_gc_r'] = check['getarrayitem_gc_f'] = 0

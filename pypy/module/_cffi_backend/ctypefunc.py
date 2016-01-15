@@ -12,6 +12,7 @@ from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.module import _cffi_backend
 from pypy.module._cffi_backend import ctypearray, cdataobj, cerrno
 from pypy.module._cffi_backend.ctypeobj import W_CType
 from pypy.module._cffi_backend.ctypeptr import W_CTypePtrBase, W_CTypePointer
@@ -23,20 +24,22 @@ from pypy.module._cffi_backend.ctypeprim import (W_CTypePrimitiveSigned,
 
 
 class W_CTypeFunc(W_CTypePtrBase):
-    _attrs_            = ['fargs', 'ellipsis', 'cif_descr']
-    _immutable_fields_ = ['fargs[*]', 'ellipsis', 'cif_descr']
+    _attrs_            = ['fargs', 'ellipsis', 'abi', 'cif_descr']
+    _immutable_fields_ = ['fargs[*]', 'ellipsis', 'abi', 'cif_descr']
     kind = "function"
 
     cif_descr = lltype.nullptr(CIF_DESCRIPTION)
 
-    def __init__(self, space, fargs, fresult, ellipsis):
+    def __init__(self, space, fargs, fresult, ellipsis,
+                 abi=_cffi_backend.FFI_DEFAULT_ABI):
         assert isinstance(ellipsis, bool)
-        extra = self._compute_extra_text(fargs, fresult, ellipsis)
+        extra, xpos = self._compute_extra_text(fargs, fresult, ellipsis, abi)
         size = rffi.sizeof(rffi.VOIDP)
-        W_CTypePtrBase.__init__(self, space, size, extra, 2, fresult,
+        W_CTypePtrBase.__init__(self, space, size, extra, xpos, fresult,
                                 could_cast_anything=False)
         self.fargs = fargs
         self.ellipsis = ellipsis
+        self.abi = abi
         # fresult is stored in self.ctitem
 
         if not ellipsis:
@@ -44,7 +47,7 @@ class W_CTypeFunc(W_CTypePtrBase):
             # at all.  The cif is computed on every call from the actual
             # types passed in.  For all other functions, the cif_descr
             # is computed here.
-            builder = CifDescrBuilder(fargs, fresult)
+            builder = CifDescrBuilder(fargs, fresult, abi)
             try:
                 builder.rawallocate(self)
             except OperationError, e:
@@ -60,7 +63,8 @@ class W_CTypeFunc(W_CTypePtrBase):
         space = self.space
         nargs_declared = len(self.fargs)
         fvarargs = [None] * len(args_w)
-        fvarargs[:nargs_declared] = self.fargs
+        for i in range(nargs_declared):
+            fvarargs[i] = self.fargs[i]
         for i in range(nargs_declared, len(args_w)):
             w_obj = args_w[i]
             if isinstance(w_obj, cdataobj.W_CData):
@@ -76,7 +80,7 @@ class W_CTypeFunc(W_CTypePtrBase):
         ctypefunc.fargs = fvarargs
         ctypefunc.ctitem = self.ctitem
         #ctypefunc.cif_descr = NULL --- already provided as the default
-        CifDescrBuilder(fvarargs, self.ctitem).rawallocate(ctypefunc)
+        CifDescrBuilder(fvarargs, self.ctitem, self.abi).rawallocate(ctypefunc)
         return ctypefunc
 
     @rgc.must_be_light_finalizer
@@ -84,8 +88,13 @@ class W_CTypeFunc(W_CTypePtrBase):
         if self.cif_descr:
             lltype.free(self.cif_descr, flavor='raw')
 
-    def _compute_extra_text(self, fargs, fresult, ellipsis):
+    def _compute_extra_text(self, fargs, fresult, ellipsis, abi):
+        from pypy.module._cffi_backend import newtype
         argnames = ['(*)(']
+        xpos = 2
+        if _cffi_backend.has_stdcall and abi == _cffi_backend.FFI_STDCALL:
+            argnames[0] = '(__stdcall *)('
+            xpos += len('__stdcall ')
         for i, farg in enumerate(fargs):
             if i > 0:
                 argnames.append(', ')
@@ -95,7 +104,7 @@ class W_CTypeFunc(W_CTypePtrBase):
                 argnames.append(', ')
             argnames.append('...')
         argnames.append(')')
-        return ''.join(argnames)
+        return ''.join(argnames), xpos
 
     def _fget(self, attrchar):
         if attrchar == 'a':    # args
@@ -106,7 +115,7 @@ class W_CTypeFunc(W_CTypePtrBase):
         if attrchar == 'E':    # ellipsis
             return self.space.wrap(self.ellipsis)
         if attrchar == 'A':    # abi
-            return self.space.wrap(clibffi.FFI_DEFAULT_ABI)     # XXX
+            return self.space.wrap(self.abi)
         return W_CTypePtrBase._fget(self, attrchar)
 
     def call(self, funcaddr, args_w):
@@ -180,11 +189,6 @@ def get_mustfree_flag(data):
 
 def set_mustfree_flag(data, flag):
     rffi.ptradd(data, -1)[0] = chr(flag)
-
-def _get_abi(space, name):
-    abi = getattr(clibffi, name)
-    assert isinstance(abi, int)
-    return space.wrap(abi)
 
 # ____________________________________________________________
 
@@ -260,9 +264,10 @@ W_CTypeVoid._get_ffi_type                   = _void_ffi_type
 class CifDescrBuilder(object):
     rawmem = lltype.nullptr(rffi.CCHARP.TO)
 
-    def __init__(self, fargs, fresult):
+    def __init__(self, fargs, fresult, fabi):
         self.fargs = fargs
         self.fresult = fresult
+        self.fabi = fabi
 
     def fb_alloc(self, size):
         size = llmemory.raw_malloc_usage(size)
@@ -418,10 +423,12 @@ class CifDescrBuilder(object):
             exchange_offset += rffi.getintfield(self.atypes[i], 'c_size')
 
         # store the exchange data size
-        cif_descr.exchange_size = exchange_offset
+        # we also align it to the next multiple of 8, in an attempt to
+        # work around bugs(?) of libffi (see cffi issue #241)
+        cif_descr.exchange_size = self.align_arg(exchange_offset)
 
     def fb_extra_fields(self, cif_descr):
-        cif_descr.abi = clibffi.FFI_DEFAULT_ABI    # XXX
+        cif_descr.abi = self.fabi
         cif_descr.nargs = len(self.fargs)
         cif_descr.rtype = self.rtype
         cif_descr.atypes = self.atypes

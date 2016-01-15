@@ -64,8 +64,7 @@ typedef uint64_t unw_word_t;
 typedef struct unw_cursor
   {
     unw_word_t opaque[UNW_TDEP_CURSOR_LEN];
-  }
-unw_cursor_t;
+  } unw_cursor_t;
 
 #define UNW_REG_IP UNW_X86_64_RIP
 #define UNW_REG_SP UNW_X86_64_RSP
@@ -84,7 +83,7 @@ typedef struct unw_proc_info
     int format;			/* unwind-info format (arch-specific) */
     int unwind_info_size;	/* size of the information (if applicable) */
     void *unwind_info;		/* unwind-info (arch-specific) */
-  }
-unw_proc_info_t;
+  } unw_proc_info_t;
 
 // end of copy
+

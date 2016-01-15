@@ -22,10 +22,9 @@ from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotat
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.exceptiondata import ExceptionData
 from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
-    Ptr, ContainerType, FuncType, functionptr, typeOf, RuntimeTypeInfo,
-    attachRuntimeTypeInfo, Primitive)
+    Ptr, ContainerType, FuncType, typeOf, RuntimeTypeInfo,
+    attachRuntimeTypeInfo, Primitive, getfunctionptr)
 from rpython.rtyper.rmodel import Repr, inputconst, BrokenReprTyperError
-from rpython.rtyper.typesystem import LowLevelTypeSystem, getfunctionptr
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
@@ -38,7 +37,6 @@ class RPythonTyper(object):
     def __init__(self, annotator):
         self.annotator = annotator
         self.lowlevel_ann_policy = LowLevelAnnotatorPolicy(self)
-        self.type_system = LowLevelTypeSystem()
         self.reprs = {}
         self._reprs_must_call_setup = []
         self._seen_reprs_must_call_setup = {}
@@ -874,21 +872,9 @@ class LowLevelOpList(list):
         # build the 'direct_call' operation
         f = self.rtyper.getcallable(graph)
         c = inputconst(typeOf(f), f)
-        fobj = self.rtyper.type_system.deref(f)
+        fobj = f._obj
         return self.genop('direct_call', [c]+newargs_v,
                           resulttype = typeOf(fobj).RESULT)
-
-    def genexternalcall(self, fnname, args_v, resulttype=None, **flags):
-        if isinstance(resulttype, Repr):
-            resulttype = resulttype.lowleveltype
-        argtypes = [v.concretetype for v in args_v]
-        FUNCTYPE = FuncType(argtypes, resulttype or Void)
-        f = functionptr(FUNCTYPE, fnname, **flags)
-        cf = inputconst(typeOf(f), f)
-        return self.genop('direct_call', [cf]+list(args_v), resulttype)
-
-    def gencapicall(self, cfnname, args_v, resulttype=None, **flags):
-        return self.genexternalcall(cfnname, args_v, resulttype=resulttype, external="CPython", **flags)
 
     def genconst(self, ll_value):
         return inputconst(typeOf(ll_value), ll_value)

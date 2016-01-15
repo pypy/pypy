@@ -5,12 +5,15 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.jit.metainterp.resume import ResumeDataVirtualAdder,\
      AbstractResumeDataReader, get_VirtualCache_class, ResumeDataBoxReader,\
      tag, TagOverflow, untag, tagged_eq, UNASSIGNED, TAGBOX, TAGVIRTUAL,\
-     tagged_list_eq, AbstractVirtualInfo, NUMBERING, TAGCONST, NULLREF,\
+     tagged_list_eq, AbstractVirtualInfo, TAGCONST, NULLREF,\
      ResumeDataDirectReader, TAGINT, REF, VirtualInfo, VStructInfo,\
      VArrayInfoNotClear, VStrPlainInfo, VStrConcatInfo, VStrSliceInfo,\
      VUniPlainInfo, VUniConcatInfo, VUniSliceInfo, Snapshot, FrameInfo,\
      capture_resumedata, ResumeDataLoopMemo, UNASSIGNEDVIRTUAL, INT,\
-     annlowlevel, PENDINGFIELDSP
+     annlowlevel, PENDINGFIELDSP, unpack_uint, TAG_CONST_OFFSET
+from rpython.jit.metainterp.resumecode import unpack_numbering,\
+     create_numbering, NULL_NUMBER
+
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.history import ConstInt, Const, AbstractDescr
 from rpython.jit.metainterp.history import ConstPtr, ConstFloat
@@ -237,17 +240,18 @@ class MyBlackholeInterp:
     def get_current_position_info(self):
         class MyInfo:
             @staticmethod
-            def enumerate_vars(callback_i, callback_r, callback_f, _):
+            def enumerate_vars(callback_i, callback_r, callback_f, _, index):
                 count_i = count_r = count_f = 0
-                for index, ARG in enumerate(self.ARGS):
+                for ARG in self.ARGS:
                     if ARG == lltype.Signed:
-                        callback_i(index, count_i); count_i += 1
+                        index = callback_i(index, count_i); count_i += 1
                     elif ARG == llmemory.GCREF:
-                        callback_r(index, count_r); count_r += 1
+                        index = callback_r(index, count_r); count_r += 1
                     elif ARG == longlong.FLOATSTORAGE:
-                        callback_f(index, count_f); count_f += 1
+                        index = callback_f(index, count_f); count_f += 1
                     else:
                         assert 0
+                return index
         return MyInfo()
 
     def setarg_i(self, index, value):
@@ -274,25 +278,22 @@ def _next_section(reader, *expected):
     assert bh.written_f == expected_f
 
 
-def Numbering(prev, nums):
-    numb = lltype.malloc(NUMBERING, len(nums))
-    numb.prev = prev or lltype.nullptr(NUMBERING)
-    for i in range(len(nums)):
-        numb.nums[i] = nums[i]
+def Numbering(nums):
+    numb = create_numbering(nums, 0)
     return numb
+
+def tagconst(i):
+    return tag(i + TAG_CONST_OFFSET, TAGCONST)
 
 def test_simple_read():
     #b1, b2, b3 = [BoxInt(), InputArgRef(), BoxInt()]
     c1, c2, c3 = [ConstInt(111), ConstInt(222), ConstInt(333)]
     storage = Storage()
     storage.rd_consts = [c1, c2, c3]
-    numb = Numbering(None, [tag(0, TAGBOX), tag(1, TAGBOX), tag(2, TAGBOX)])
-    numb = Numbering(numb, [tag(1, TAGCONST), tag(2, TAGCONST)])
-    numb = Numbering(numb, [tag(0, TAGBOX),
-                            tag(0, TAGCONST),
-                            NULLREF,
-                            tag(0, TAGBOX),
-                            tag(1, TAGBOX)])
+    numb = Numbering([tag(0, TAGBOX), tagconst(0),
+                       NULLREF, tag(0, TAGBOX), tag(1, TAGBOX)] +
+                       [tagconst(1), tagconst(2)] + 
+                       [tag(0, TAGBOX), tag(1, TAGBOX), tag(2, TAGBOX)])
     storage.rd_numb = numb
     storage.rd_count = 3
     #
@@ -335,7 +336,7 @@ def assert_same(list1, list2):
 def test_simple_read_tagged_ints():
     storage = Storage()
     storage.rd_consts = []
-    numb = Numbering(None, [tag(100, TAGINT)])
+    numb = Numbering([tag(100, TAGINT)])
     storage.rd_numb = numb
     #
     cpu = MyCPU([])
@@ -531,34 +532,30 @@ def test_Snapshot_create():
     assert snap1.prev is snap
     assert snap1.boxes is l1
 
+class FakeJitCode(object):
+    def __init__(self, name, index):
+        self.name = name
+        self.index = index
+
 def test_FrameInfo_create():
-    jitcode = "JITCODE"
+    jitcode = FakeJitCode("jitcode", 13)
     fi = FrameInfo(None, jitcode, 1)
     assert fi.prev is None
-    assert fi.jitcode is jitcode
-    assert fi.pc == 1
+    jitcode_pos, pc = unpack_uint(fi.packed_jitcode_pc)
+    assert jitcode_pos == 13
+    assert pc == 1
 
-    jitcode1 = "JITCODE1"
+    jitcode1 = FakeJitCode("JITCODE1", 42)
     fi1 = FrameInfo(fi, jitcode1, 3)
     assert fi1.prev is fi
-    assert fi1.jitcode is jitcode1
-    assert fi1.pc == 3
-
-def test_Numbering_create():
-    l = [rffi.r_short(1), rffi.r_short(2)]
-    numb = Numbering(None, l)
-    assert not numb.prev
-    assert list(numb.nums) == l
-
-    l1 = [rffi.r_short(3)]
-    numb1 = Numbering(numb, l1)
-    assert numb1.prev == numb
-    assert list(numb1.nums) == l1
+    jitcode_pos, pc = unpack_uint(fi1.packed_jitcode_pc)
+    assert jitcode_pos == 42
+    assert pc == 3
 
 def test_capture_resumedata():
     b1, b2, b3 = [InputArgInt(), InputArgRef(), InputArgInt()]
     c1, c2, c3 = [ConstInt(1), ConstInt(2), ConstInt(3)]
-    fs = [FakeFrame("code0", 0, b1, c1, b2)]
+    fs = [FakeFrame(FakeJitCode("code0", 13), 0, b1, c1, b2)]
 
     storage = Storage()
     capture_resumedata(fs, None, [], storage)
@@ -567,22 +564,21 @@ def test_capture_resumedata():
     assert fs[0].parent_resumedata_frame_info_list is None
 
     assert storage.rd_frame_info_list.prev is None
-    assert storage.rd_frame_info_list.jitcode == 'code0'
+    assert unpack_uint(storage.rd_frame_info_list.packed_jitcode_pc)[0] == 13
     assert storage.rd_snapshot.boxes == []    # for virtualrefs
     snapshot = storage.rd_snapshot.prev
     assert snapshot.prev is None
     assert snapshot.boxes == fs[0]._env
 
     storage = Storage()
-    fs = [FakeFrame("code0", 0, b1, c1, b2),
-          FakeFrame("code1", 3, b3, c2, b1),
-          FakeFrame("code2", 9, c3, b2)]
+    fs = [FakeFrame(FakeJitCode("code0", 0), 0, b1, c1, b2),
+          FakeFrame(FakeJitCode("code1", 1), 3, b3, c2, b1),
+          FakeFrame(FakeJitCode("code2", 2), 9, c3, b2)]
     capture_resumedata(fs, None, [], storage)
 
     frame_info_list = storage.rd_frame_info_list
     assert frame_info_list.prev is fs[2].parent_resumedata_frame_info_list
-    assert frame_info_list.jitcode == 'code2'
-    assert frame_info_list.pc == 9
+    assert unpack_uint(frame_info_list.packed_jitcode_pc) == (2, 9)
 
     assert storage.rd_snapshot.boxes == []    # for virtualrefs
     snapshot = storage.rd_snapshot.prev
@@ -591,14 +587,14 @@ def test_capture_resumedata():
 
     frame_info_list = frame_info_list.prev
     assert frame_info_list.prev is fs[1].parent_resumedata_frame_info_list
-    assert frame_info_list.jitcode == 'code1'
+    assert unpack_uint(frame_info_list.packed_jitcode_pc) == (1, 3)
     snapshot = snapshot.prev
     assert snapshot.prev is fs[1].parent_resumedata_snapshot
     assert snapshot.boxes == fs[1]._env
 
     frame_info_list = frame_info_list.prev
     assert frame_info_list.prev is None
-    assert frame_info_list.jitcode == 'code0'
+    assert unpack_uint(frame_info_list.packed_jitcode_pc) == (0, 0)
     snapshot = snapshot.prev
     assert snapshot.prev is None
     assert snapshot.boxes == fs[0]._env
@@ -611,9 +607,8 @@ def test_capture_resumedata():
 
     frame_info_list = storage.rd_frame_info_list
     assert frame_info_list.prev is fs[2].parent_resumedata_frame_info_list
-    assert frame_info_list.jitcode == 'code2'
-    assert frame_info_list.pc == 15
-
+    assert unpack_uint(frame_info_list.packed_jitcode_pc) == (2, 15)
+    
     snapshot = storage.rd_snapshot
     assert snapshot.boxes == vrs + vbs      # in the same list
 
@@ -863,7 +858,7 @@ def test_ResumeDataLoopMemo_ints():
     tagged = memo.getconst(const)
     index, tagbits = untag(tagged)
     assert tagbits == TAGCONST
-    assert memo.consts[index] is const
+    assert memo.consts[index - TAG_CONST_OFFSET] is const
     tagged = memo.getconst(ConstInt(50000))
     index2, tagbits = untag(tagged)
     assert tagbits == TAGCONST
@@ -881,7 +876,7 @@ def test_ResumeDataLoopMemo_refs():
     tagged = memo.getconst(const)
     index, tagbits = untag(tagged)
     assert tagbits == TAGCONST
-    assert memo.consts[index] is const    
+    assert memo.consts[index - TAG_CONST_OFFSET] is const    
     tagged = memo.getconst(cpu.ts.ConstRef(demo55o))
     index2, tagbits = untag(tagged)
     assert tagbits == TAGCONST
@@ -899,7 +894,7 @@ def test_ResumeDataLoopMemo_other():
     tagged = memo.getconst(const)
     index, tagbits = untag(tagged)
     assert tagbits == TAGCONST
-    assert memo.consts[index] is const
+    assert memo.consts[index - TAG_CONST_OFFSET] is const
 
 def test_ResumeDataLoopMemo_number():
     b1, b2, b3, b4, b5 = [InputArgInt(), InputArgInt(), InputArgInt(),
@@ -914,28 +909,26 @@ def test_ResumeDataLoopMemo_number():
     snap2 = Snapshot(snap, env2)
 
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
+    frameinfo = FrameInfo(None, FakeJitCode("jitcode", 0), 0)
 
-    numb, liveboxes, v = memo.number(FakeOptimizer(), snap1)
+    numb, liveboxes, v = memo.number(FakeOptimizer(), snap1, frameinfo)
     assert v == 0
 
     assert liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                          b3: tag(2, TAGBOX)}
-    assert list(numb.nums) == [tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX),
-                               tag(1, TAGINT)]
-    assert list(numb.prev.nums) == [tag(0, TAGBOX), tag(1, TAGINT),
-                                    tag(1, TAGBOX),
-                                    tag(0, TAGBOX), tag(2, TAGINT)]
-    assert not numb.prev.prev
+    base = [tag(0, TAGBOX), tag(1, TAGINT), tag(1, TAGBOX), tag(0, TAGBOX), tag(2, TAGINT)]
 
-    numb2, liveboxes2, v = memo.number(FakeOptimizer(), snap2)
+    assert unpack_numbering(numb) == [
+          tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX), tag(1, TAGINT), 0, 0] + base
+
+    numb2, liveboxes2, v = memo.number(FakeOptimizer(), snap2, frameinfo)
     assert v == 0
     
     assert liveboxes2 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                          b3: tag(2, TAGBOX)}
     assert liveboxes2 is not liveboxes
-    assert list(numb2.nums) == [tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX),
-                                tag(3, TAGINT)]
-    assert numb2.prev == numb.prev
+    assert unpack_numbering(numb2) == [
+         tag(3, TAGINT), tag(2, TAGBOX), tag(0, TAGBOX), tag(3, TAGINT), 0, 0] + base
 
     env3 = [c3, b3, b1, c3]
     snap3 = Snapshot(snap, env3)
@@ -949,41 +942,40 @@ def test_ResumeDataLoopMemo_number():
 
     # renamed
     b3.set_forwarded(c4)
-    numb3, liveboxes3, v = memo.number(FakeOptimizer(), snap3)
+    numb3, liveboxes3, v = memo.number(FakeOptimizer(), snap3, frameinfo)
     assert v == 0
     
     assert liveboxes3 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX)}
-    assert list(numb3.nums) == [tag(3, TAGINT), tag(4, TAGINT), tag(0, TAGBOX),
-                                tag(3, TAGINT)]
-    assert numb3.prev == numb.prev
+    assert unpack_numbering(numb3) == [tag(3, TAGINT), tag(4, TAGINT),
+                                       tag(0, TAGBOX),
+                                       tag(3, TAGINT), 0, 0] + base
 
     # virtual
     env4 = [c3, b4, b1, c3]
     snap4 = Snapshot(snap, env4)
 
     b4.set_forwarded(FakeVirtualInfo(True))
-    numb4, liveboxes4, v = memo.number(FakeOptimizer(), snap4)
+    numb4, liveboxes4, v = memo.number(FakeOptimizer(), snap4, frameinfo)
     assert v == 1
     
     assert liveboxes4 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                           b4: tag(0, TAGVIRTUAL)}
-    assert list(numb4.nums) == [tag(3, TAGINT), tag(0, TAGVIRTUAL),
-                                tag(0, TAGBOX), tag(3, TAGINT)]
-    assert numb4.prev == numb.prev
+    assert unpack_numbering(numb4) == [tag(3, TAGINT), tag(0, TAGVIRTUAL),
+                                tag(0, TAGBOX), tag(3, TAGINT), 0, 0] + base
 
     env5 = [b1, b4, b5]
     snap5 = Snapshot(snap4, env5)
 
     b4.set_forwarded(FakeVirtualInfo(True))
     b5.set_forwarded(FakeVirtualInfo(True))
-    numb5, liveboxes5, v = memo.number(FakeOptimizer(), snap5)
+    frameinfo = FrameInfo(frameinfo, FakeJitCode("foo", 2), 1)
+    numb5, liveboxes5, v = memo.number(FakeOptimizer(), snap5, frameinfo)
     assert v == 2
     
     assert liveboxes5 == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
                           b4: tag(0, TAGVIRTUAL), b5: tag(1, TAGVIRTUAL)}
-    assert list(numb5.nums) == [tag(0, TAGBOX), tag(0, TAGVIRTUAL),
-                                                tag(1, TAGVIRTUAL)]
-    assert numb5.prev == numb4
+    assert unpack_numbering(numb5) == [tag(0, TAGBOX), tag(0, TAGVIRTUAL),
+                           tag(1, TAGVIRTUAL), 2, 1] + unpack_numbering(numb4)
 
 def test_ResumeDataLoopMemo_number_boxes():
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
@@ -1069,8 +1061,10 @@ def make_storage(b1, b2, b3):
     snapshot = Snapshot(None, [b1, ConstInt(1), b1, b2])
     snapshot = Snapshot(snapshot, [ConstInt(2), ConstInt(3)])
     snapshot = Snapshot(snapshot, [b1, b2, b3])    
+    frameinfo = FrameInfo(FrameInfo(None, FakeJitCode("code1", 21), 22),
+        FakeJitCode("code2", 31), 32)
     storage.rd_snapshot = snapshot
-    storage.rd_frame_info_list = None
+    storage.rd_frame_info_list = frameinfo
     return storage
 
 def test_virtual_adder_int_constants():
@@ -1083,9 +1077,10 @@ def test_virtual_adder_int_constants():
     cpu = MyCPU([])
     reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage, "deadframe")
     _next_section(reader, sys.maxint, 2**16, -65)
+    reader.cur_index += 2 # framestack
     _next_section(reader, 2, 3)
+    reader.cur_index += 2 # framestack
     _next_section(reader, sys.maxint, 1, sys.maxint, 2**16)
-
 
 def test_virtual_adder_memo_const_sharing():
     b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**16), ConstInt(-65)]
@@ -1120,8 +1115,8 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
                 return True
         class MyInfo:
             @staticmethod
-            def enumerate_vars(callback_i, callback_r, callback_f, _):
-                for index, tagged in enumerate(self.cur_numb.nums):
+            def enumerate_vars(callback_i, callback_r, callback_f, _, index):
+                for tagged in self.numb.code:
                     _, tag = untag(tagged)
                     if tag == TAGVIRTUAL:
                         kind = REF
@@ -1129,11 +1124,11 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
                         kind = Whatever()
                     box = self.decode_box(tagged, kind)
                     if box.type == INT:
-                        callback_i(index, index)
+                        index = callback_i(index, index)
                     elif box.type == REF:
-                        callback_r(index, index)
+                        index = callback_r(index, index)
                     elif box.type == FLOAT:
-                        callback_f(index, index)
+                        index = callback_f(index, index)
                     else:
                         assert 0
         self._prepare_next_section(MyInfo())
@@ -1151,6 +1146,7 @@ class ResumeDataFakeReader(ResumeDataBoxReader):
 
 
 def test_virtual_adder_no_op_renaming():
+    py.test.skip("rewrite fake reader")
     b1s, b2s, b3s = [InputArgInt(1), InputArgInt(2), InputArgInt(3)]
     storage = make_storage(b1s, b2s, b3s)
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
@@ -1175,6 +1171,7 @@ def test_virtual_adder_no_op_renaming():
 
 
 def test_virtual_adder_make_constant():
+    py.test.skip("rewrite fake reader")
     b1s, b2s, b3s = [InputArgInt(1), InputArgRef(), InputArgInt(3)]
     b1s = ConstInt(111)
     storage = make_storage(b1s, b2s, b3s)
@@ -1417,7 +1414,8 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     assert not storage.rd_pendingfields
     #
     class FieldDescr(AbstractDescr):
-        pass
+        def is_array_of_primitives(self):
+            return False
     field_a = FieldDescr()
     storage = Storage()
     modifier = ResumeDataVirtualAdder(None, storage, storage, None)

@@ -21,6 +21,8 @@ class W_CType(W_Root):
 
     cast_anything = False
     is_primitive_integer = False
+    is_nonfunc_pointer_or_array = False
+    is_indirect_arg_for_call_python = False
     kind = "?"
 
     def __init__(self, space, size, name, name_position):
@@ -143,7 +145,7 @@ class W_CType(W_Root):
             # obscure hack when untranslated, maybe, approximate, don't use
             if isinstance(align, llmemory.FieldOffset):
                 align = rffi.sizeof(align.TYPE.y)
-                if (1 << (8*align-2)) > sys.maxint:
+                if sys.platform != 'win32' and (1 << (8*align-2)) > sys.maxint:
                     align /= 2
         else:
             # a different hack when translated, to avoid seeing constants

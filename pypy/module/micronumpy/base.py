@@ -38,12 +38,13 @@ class W_NDimArray(W_NumpyObject):
         self.implementation = implementation
 
     @staticmethod
-    def from_shape(space, shape, dtype, order='C', w_instance=None, zero=True):
+    def from_shape(space, shape, dtype, order=NPY.CORDER,
+                   w_instance=None, zero=True):
         from pypy.module.micronumpy import concrete, descriptor, boxes
         from pypy.module.micronumpy.strides import calc_strides
         if len(shape) > NPY.MAXDIMS:
             raise oefmt(space.w_ValueError,
-                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+                "sequence too large; cannot be greater than %d", NPY.MAXDIMS)
         try:
             ovfcheck(support.product_check(shape) * dtype.elsize)
         except OverflowError as e:
@@ -59,15 +60,16 @@ class W_NDimArray(W_NumpyObject):
 
     @staticmethod
     def from_shape_and_storage(space, shape, storage, dtype, storage_bytes=-1,
-                               order='C', owning=False, w_subtype=None,
-                               w_base=None, writable=True, strides=None, start=0):
+                               order=NPY.CORDER, owning=False, w_subtype=None,
+                               w_base=None, writable=True, strides=None,
+                               start=0):
         from pypy.module.micronumpy import concrete
         from pypy.module.micronumpy.strides import (calc_strides,
                                                     calc_backstrides)
         isize = dtype.elsize
         if len(shape) > NPY.MAXDIMS:
             raise oefmt(space.w_ValueError,
-                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+                "sequence too large; cannot be greater than %d", NPY.MAXDIMS)
         try:
             totalsize = ovfcheck(support.product_check(shape) * isize)
         except OverflowError as e:
@@ -84,11 +86,14 @@ class W_NDimArray(W_NumpyObject):
             if len(strides) != len(shape):
                 raise oefmt(space.w_ValueError,
                     'strides, if given, must be the same length as shape')
+            last = 0
             for i in range(len(strides)):
-                if strides[i] < 0 or strides[i]*shape[i] > storage_bytes:
-                    raise oefmt(space.w_ValueError,
-                        'strides is incompatible with shape of requested '
-                        'array and size of buffer')
+                last += (shape[i] - 1) * strides[i]
+            if last > storage_bytes or start < 0 or \
+                    start + dtype.elsize > storage_bytes:
+                raise oefmt(space.w_ValueError,
+                    'strides is incompatible with shape of requested '
+                    'array and size of buffer')
             backstrides = calc_backstrides(strides, shape)
         if w_base is not None:
             if owning:

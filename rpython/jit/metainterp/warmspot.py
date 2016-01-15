@@ -33,7 +33,7 @@ from rpython.rlib.entrypoint import all_jit_entrypoints,\
 # Bootstrapping
 
 def apply_jit(translator, backend_name="auto", inline=False,
-              enable_opts=ALL_OPTS_NAMES, **kwds):
+              vec=False, enable_opts=ALL_OPTS_NAMES, **kwds):
     if 'CPUClass' not in kwds:
         from rpython.jit.backend.detect_cpu import getcpuclass
         kwds['CPUClass'] = getcpuclass(backend_name)
@@ -46,13 +46,25 @@ def apply_jit(translator, backend_name="auto", inline=False,
                                     no_stats=True,
                                     ProfilerClass=ProfilerClass,
                                     **kwds)
+    if len(warmrunnerdesc.jitdrivers_sd) == 1:
+        jd = warmrunnerdesc.jitdrivers_sd[0]
+        jd.jitdriver.is_recursive = True
+    else:
+        count_recursive = 0
+        for jd in warmrunnerdesc.jitdrivers_sd:
+            count_recursive += jd.jitdriver.is_recursive
+        if count_recursive == 0:
+            raise Exception("if you have more than one jitdriver, at least"
+                " one of them has to be marked with is_recursive=True,"
+                " none found")
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_inlining(inline)
+        jd.warmstate.set_param_vec(vec)
         jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
-def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
+def ll_meta_interp(function, args, backendopt=False,
                    listcomp=False, translationoptions={}, **kwds):
     if listcomp:
         extraconfigopts = {'translation.list_comprehension_operations': True}
@@ -62,17 +74,17 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
         extraconfigopts['translation.' + key] = value
     interp, graph = get_interpreter(function, args,
                                     backendopt=False,  # will be done below
-                                    type_system=type_system,
                                     **extraconfigopts)
     clear_tcache()
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
 def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
-                    backendopt=False, trace_limit=sys.maxint,
-                    inline=False, loop_longevity=0, retrace_limit=5,
-                    function_threshold=4, disable_unrolling=sys.maxint,
+                    backendopt=False, trace_limit=sys.maxint, inline=False,
+                    loop_longevity=0, retrace_limit=5, function_threshold=4,
+                    disable_unrolling=sys.maxint,
                     enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, 
-                    max_unroll_recursion=7, **kwds):
+                    max_unroll_recursion=7, vec=1, vec_all=0, vec_cost=0,
+                    vec_length=60, vec_ratio=2, vec_guard_ratio=3, **kwds):
     from rpython.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -96,6 +108,12 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         jd.warmstate.set_param_enable_opts(enable_opts)
         jd.warmstate.set_param_max_unroll_recursion(max_unroll_recursion)
         jd.warmstate.set_param_disable_unrolling(disable_unrolling)
+        jd.warmstate.set_param_vec(vec)
+        jd.warmstate.set_param_vec_all(vec_all)
+        jd.warmstate.set_param_vec_cost(vec_cost)
+        jd.warmstate.set_param_vec_length(vec_length)
+        jd.warmstate.set_param_vec_ratio(vec_ratio)
+        jd.warmstate.set_param_vec_guard_ratio(vec_guard_ratio)
     warmrunnerdesc.finish()
     if graph_and_interp_only:
         return interp, graph
@@ -243,7 +261,8 @@ class WarmRunnerDesc(object):
         verbose = False # not self.cpu.translate_support_code
         self.rewrite_access_helpers()
         self.create_jit_entry_points()
-        self.codewriter.make_jitcodes(verbose=verbose)
+        jitcodes = self.codewriter.make_jitcodes(verbose=verbose)
+        self.metainterp_sd.jitcodes = jitcodes
         self.rewrite_can_enter_jits()
         self.rewrite_set_param_and_get_stats()
         self.rewrite_force_virtual(vrefinfo)
@@ -407,6 +426,7 @@ class WarmRunnerDesc(object):
         graph.func._dont_inline_ = True
         graph.func._jit_unroll_safe_ = True
         jd.jitdriver = block.operations[pos].args[1].value
+        jd.vec = jd.jitdriver.vec
         jd.portal_runner_ptr = "<not set so far>"
         jd.result_type = history.getkind(jd.portal_graph.getreturnvar()
                                          .concretetype)[0]
@@ -525,17 +545,12 @@ class WarmRunnerDesc(object):
                 fatalerror('~~~ Crash in JIT! %s' % (e,))
         crash_in_jit._dont_inline_ = True
 
-        if self.translator.rtyper.type_system.name == 'lltypesystem':
-            def maybe_enter_jit(*args):
-                try:
-                    maybe_compile_and_run(state.increment_threshold, *args)
-                except Exception, e:
-                    crash_in_jit(e)
-            maybe_enter_jit._always_inline_ = True
-        else:
-            def maybe_enter_jit(*args):
+        def maybe_enter_jit(*args):
+            try:
                 maybe_compile_and_run(state.increment_threshold, *args)
-            maybe_enter_jit._always_inline_ = True
+            except Exception as e:
+                crash_in_jit(e)
+        maybe_enter_jit._always_inline_ = True
         jd._maybe_enter_jit_fn = maybe_enter_jit
         jd._maybe_compile_and_run_fn = maybe_compile_and_run
 
@@ -780,6 +795,8 @@ class WarmRunnerDesc(object):
         if func.func_name.startswith('stats_'):
             # get special treatment since we rewrite it to a call that accepts
             # jit driver
+            assert len(op.args) >= 3, ("%r must have a first argument "
+                                       "(which is None)" % (func,))
             func = func_with_new_name(func, func.func_name + '_compiled')
 
             def new_func(ignored, *args):

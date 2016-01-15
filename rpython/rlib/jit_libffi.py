@@ -87,14 +87,10 @@ def jit_ffi_prep_cif(cif_description):
 ## test_fficall::test_guard_not_forced_fails for a more detalied explanation
 ## of the problem.
 ##
-## The solution is to create a new separate operation libffi_save_result whose
-## job is to write the result in the exchange_buffer: during normal execution
-## this is a no-op because the buffer is already filled by libffi, but during
-## jitting the behavior is to actually write into the buffer.
-##
+## The solution is to create a new separate operation libffi_call.
 ## The result is that now the jitcode looks like this:
 ##
-##     %i0 = direct_call(libffi_call_int, ...)
+##     %i0 = direct_call(libffi_call, ...)
 ##     -live-
 ##     raw_store(exchange_result, %i0)
 ##
@@ -237,7 +233,7 @@ def jit_ffi_call_impl_void(cif_description, func_addr, exchange_buffer):
 
 def jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer):
     """
-    This is the function which actually calls libffi. All the rest if just
+    This is the function which actually calls libffi. All the rest is just
     infrastructure to convince the JIT to pass a typed result box to
     jit_ffi_save_result
     """

@@ -4,10 +4,11 @@ from pypy.interpreter.gateway import unwrap_spec
 
 from rpython.rlib.objectmodel import specialize, r_dict, compute_identity_hash
 from rpython.rlib.rarithmetic import ovfcheck, intmask
-from rpython.rlib import jit, rweakref
+from rpython.rlib import jit, rweakref, clibffi
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 
+from pypy.module import _cffi_backend
 from pypy.module._cffi_backend import (ctypeobj, ctypeprim, ctypeptr,
     ctypearray, ctypestruct, ctypevoid, ctypeenum)
 
@@ -33,9 +34,11 @@ class UniqueCache:
 def _clean_cache(space):
     "NOT_RPYTHON"
     from pypy.module._cffi_backend.realize_c_type import RealizeCache
+    from pypy.module._cffi_backend.call_python import KeepaliveCache
     if hasattr(space, 'fromcache'):   # not with the TinyObjSpace
         space.fromcache(UniqueCache).__init__(space)
         space.fromcache(RealizeCache).__init__(space)
+        space.fromcache(KeepaliveCache).__init__(space)
 
 # ____________________________________________________________
 
@@ -592,8 +595,9 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
 
 # ____________________________________________________________
 
-@unwrap_spec(w_fresult=ctypeobj.W_CType, ellipsis=int)
-def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
+@unwrap_spec(w_fresult=ctypeobj.W_CType, ellipsis=int, abi=int)
+def new_function_type(space, w_fargs, w_fresult, ellipsis=0,
+                      abi=_cffi_backend.FFI_DEFAULT_ABI):
     fargs = []
     for w_farg in space.fixedview(w_fargs):
         if not isinstance(w_farg, ctypeobj.W_CType):
@@ -602,28 +606,28 @@ def new_function_type(space, w_fargs, w_fresult, ellipsis=0):
         if isinstance(w_farg, ctypearray.W_CTypeArray):
             w_farg = w_farg.ctptr
         fargs.append(w_farg)
-    return _new_function_type(space, fargs, w_fresult, bool(ellipsis))
+    return _new_function_type(space, fargs, w_fresult, bool(ellipsis), abi)
 
-def _func_key_hash(unique_cache, fargs, fresult, ellipsis):
+def _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi):
     x = compute_identity_hash(fresult)
     for w_arg in fargs:
         y = compute_identity_hash(w_arg)
         x = intmask((1000003 * x) ^ y)
-    x ^= ellipsis
+    x ^= (ellipsis - abi)
     if unique_cache.for_testing:    # constant-folded to False in translation;
         x &= 3                      # but for test, keep only 2 bits of hash
     return x
 
 # can't use @jit.elidable here, because it might call back to random
 # space functions via force_lazy_struct()
-def _new_function_type(space, fargs, fresult, ellipsis=False):
+def _new_function_type(space, fargs, fresult, ellipsis, abi):
     try:
-        return _get_function_type(space, fargs, fresult, ellipsis)
+        return _get_function_type(space, fargs, fresult, ellipsis, abi)
     except KeyError:
-        return _build_function_type(space, fargs, fresult, ellipsis)
+        return _build_function_type(space, fargs, fresult, ellipsis, abi)
 
 @jit.elidable
-def _get_function_type(space, fargs, fresult, ellipsis):
+def _get_function_type(space, fargs, fresult, ellipsis, abi):
     # This function is elidable because if called again with exactly the
     # same arguments (and if it didn't raise KeyError), it would give
     # the same result, at least as long as this result is still live.
@@ -633,18 +637,19 @@ def _get_function_type(space, fargs, fresult, ellipsis):
     # one such dict, but in case of hash collision, there might be
     # more.
     unique_cache = space.fromcache(UniqueCache)
-    func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis)
+    func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
     for weakdict in unique_cache.functions:
         ctype = weakdict.get(func_hash)
         if (ctype is not None and
             ctype.ctitem is fresult and
             ctype.fargs == fargs and
-            ctype.ellipsis == ellipsis):
+            ctype.ellipsis == ellipsis and
+            ctype.abi == abi):
             return ctype
     raise KeyError
 
 @jit.dont_look_inside
-def _build_function_type(space, fargs, fresult, ellipsis):
+def _build_function_type(space, fargs, fresult, ellipsis, abi):
     from pypy.module._cffi_backend import ctypefunc
     #
     if ((fresult.size < 0 and
@@ -658,9 +663,9 @@ def _build_function_type(space, fargs, fresult, ellipsis):
             raise oefmt(space.w_TypeError,
                         "invalid result type: '%s'", fresult.name)
     #
-    fct = ctypefunc.W_CTypeFunc(space, fargs, fresult, ellipsis)
+    fct = ctypefunc.W_CTypeFunc(space, fargs, fresult, ellipsis, abi)
     unique_cache = space.fromcache(UniqueCache)
-    func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis)
+    func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
     for weakdict in unique_cache.functions:
         if weakdict.get(func_hash) is None:
             weakdict.set(func_hash, fct)

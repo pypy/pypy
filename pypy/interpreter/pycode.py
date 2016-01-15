@@ -53,6 +53,10 @@ def cpython_code_signature(code):
 class KnownTypesVersion(object):
     pass
 
+class CodeHookCache(object):
+    def __init__(self, space):
+        self._code_hook = None
+
 class PyCode(eval.Code):
     "CPython-style code objects."
     _immutable_fields_ = ["_signature", "co_argcount", "co_cellvars[*]",
@@ -60,7 +64,8 @@ class PyCode(eval.Code):
                           "co_firstlineno", "co_flags", "co_freevars[*]",
                           "co_lnotab", "co_names_w[*]", "co_nlocals",
                           "co_stacksize", "co_varnames[*]",
-                          "_args_as_cellvars[*]", "_known_types_version?"]
+                          "_args_as_cellvars[*]", "_known_types_version?",
+                          "w_globals?"]
 
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
@@ -85,6 +90,10 @@ class PyCode(eval.Code):
         self.co_name = name
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
+        # store the first globals object that the code object is run in in
+        # here. if a frame is run in that globals object, it does not need to
+        # store it at all
+        self.w_globals = None
         self.hidden_applevel = hidden_applevel
         self.magic = magic
         self._signature = cpython_code_signature(self)
@@ -97,6 +106,23 @@ class PyCode(eval.Code):
         # local
         self._known_types = [None] * self.co_nlocals
         self._known_types_version = KnownTypesVersion()
+        self.new_code_hook()
+
+    def frame_stores_global(self, w_globals):
+        if self.w_globals is None:
+            self.w_globals = w_globals
+            return False
+        if self.w_globals is w_globals:
+            return False
+        return True
+
+    def new_code_hook(self):
+        code_hook = self.space.fromcache(CodeHookCache)._code_hook
+        if code_hook is not None:
+            try:
+                self.space.call_function(code_hook, self)
+            except OperationError, e:
+                e.write_unraisable(self.space, "new_code_hook()")
 
     def _initialize(self):
         if self.co_cellvars:

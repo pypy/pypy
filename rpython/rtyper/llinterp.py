@@ -41,6 +41,10 @@ class LLFatalError(Exception):
     def __str__(self):
         return ': '.join([str(x) for x in self.args])
 
+class LLAssertFailure(Exception):
+    pass
+
+
 def type_name(etype):
     return ''.join(etype.name.chars)
 
@@ -466,7 +470,7 @@ class LLFrame(object):
         raise LLException(etype, evalue, *extraargs)
 
     def invoke_callable_with_pyexceptions(self, fptr, *args):
-        obj = self.llinterpreter.typer.type_system.deref(fptr)
+        obj = fptr._obj
         try:
             return obj._callable(*args)
         except LLException, e:
@@ -508,7 +512,8 @@ class LLFrame(object):
         track(*ll_objects)
 
     def op_debug_assert(self, x, msg):
-        assert x, msg
+        if not x:
+            raise LLAssertFailure(msg)
 
     def op_debug_fatalerror(self, ll_msg, ll_exc=None):
         msg = ''.join(ll_msg.chars)
@@ -644,7 +649,7 @@ class LLFrame(object):
             array[index] = item
 
     def perform_call(self, f, ARGS, args):
-        fobj = self.llinterpreter.typer.type_system.deref(f)
+        fobj = f._obj
         has_callable = getattr(fobj, '_callable', None) is not None
         if hasattr(fobj, 'graph'):
             graph = fobj.graph
@@ -669,7 +674,7 @@ class LLFrame(object):
         graphs = args[-1]
         args = args[:-1]
         if graphs is not None:
-            obj = self.llinterpreter.typer.type_system.deref(f)
+            obj = f._obj
             if hasattr(obj, 'graph'):
                 assert obj.graph in graphs
         else:
@@ -944,6 +949,13 @@ class LLFrame(object):
     def op_threadlocalref_get(self, RESTYPE, offset):
         return self.op_raw_load(RESTYPE, _address_of_thread_local(), offset)
     op_threadlocalref_get.need_result_type = True
+
+    def op_threadlocalref_acquire(self, prev):
+        raise NotImplementedError
+    def op_threadlocalref_release(self, prev):
+        raise NotImplementedError
+    def op_threadlocalref_enum(self, prev):
+        raise NotImplementedError
 
     # __________________________________________________________
     # operations on addresses

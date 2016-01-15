@@ -23,6 +23,20 @@ else:
     libraries = ['z', 'ssl', 'crypto']
     includes = []
 
+
+include_dirs = []
+library_dirs = []
+
+#
+# Work around the fact that since 10.11, OS X no longer ships
+# openssl system-wide, and Homebrew does not install it system-wide.
+#
+# Make sure your PKG_CONFIG_PATH looks in the right direction, though.
+#
+if sys.platform == 'darwin':
+    include_dirs = platform.include_dirs_for_openssl()
+    library_dirs = platform.library_dirs_for_openssl()
+
 includes += [
     'openssl/ssl.h',
     'openssl/err.h',
@@ -35,11 +49,14 @@ includes += [
 eci = ExternalCompilationInfo(
     libraries = libraries,
     includes = includes,
+    library_dirs = library_dirs,
+    include_dirs = include_dirs,
     post_include_bits = [
         # Unnamed structures are not supported by rffi_platform.
         # So we replace an attribute access with a macro call.
         '#define pypy_GENERAL_NAME_dirn(name) (name->d.dirn)',
         '#define pypy_GENERAL_NAME_uri(name) (name->d.uniformResourceIdentifier)',
+        '#define pypy_GENERAL_NAME_pop_free(names) (sk_GENERAL_NAME_pop_free(names, GENERAL_NAME_free))',
         '#define pypy_X509_OBJECT_data_x509(obj) (obj->data.x509)',
         '#define pypy_DIST_POINT_fullname(obj) (obj->distpoint->name.fullname)',
     ],
@@ -423,6 +440,8 @@ ssl_external('sk_GENERAL_NAME_num', [GENERAL_NAMES], rffi.INT,
              macro=True)
 ssl_external('sk_GENERAL_NAME_value', [GENERAL_NAMES, rffi.INT], GENERAL_NAME,
              macro=True)
+ssl_external('pypy_GENERAL_NAME_pop_free', [GENERAL_NAMES], lltype.Void,
+             macro=True)
 ssl_external('sk_X509_OBJECT_num', [stack_st_X509_OBJECT], rffi.INT,
              macro=True)
 ssl_external('sk_X509_OBJECT_value', [stack_st_X509_OBJECT, rffi.INT],
@@ -432,6 +451,8 @@ ssl_external('pypy_X509_OBJECT_data_x509', [X509_OBJECT], X509,
 ssl_external('sk_DIST_POINT_num', [stack_st_DIST_POINT], rffi.INT,
              macro=True)
 ssl_external('sk_DIST_POINT_value', [stack_st_DIST_POINT, rffi.INT], DIST_POINT,
+             macro=True)
+ssl_external('sk_DIST_POINT_free', [stack_st_DIST_POINT], lltype.Void,
              macro=True)
 ssl_external('pypy_DIST_POINT_fullname', [DIST_POINT], GENERAL_NAMES,
              macro=True)

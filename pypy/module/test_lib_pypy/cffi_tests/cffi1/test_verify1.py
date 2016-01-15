@@ -189,6 +189,9 @@ def test_longdouble_precision():
         # Check the particular results on Intel
         import platform
         if (platform.machine().startswith('i386') or
+            platform.machine().startswith('i486') or
+            platform.machine().startswith('i586') or
+            platform.machine().startswith('i686') or
             platform.machine().startswith('x86')):
             assert abs(more_precise - 0.656769) < 0.001
             assert abs(less_precise - 3.99091) < 0.001
@@ -1198,25 +1201,6 @@ def test_function_typedef():
     lib = ffi.verify('#include <math.h>', libraries=lib_m)
     assert lib.sin(1.23) == math.sin(1.23)
 
-def test_callback_calling_convention():
-    py.test.skip("later")
-    if sys.platform != 'win32':
-        py.test.skip("Windows only")
-    ffi = FFI()
-    ffi.cdef("""
-        int call1(int(*__cdecl cb)(int));
-        int call2(int(*__stdcall cb)(int));
-    """)
-    lib = ffi.verify("""
-        int call1(int(*__cdecl cb)(int)) {
-            return cb(42) + 1;
-        }
-        int call2(int(*__stdcall cb)(int)) {
-            return cb(-42) - 6;
-        }
-    """)
-    xxx
-
 def test_opaque_integer_as_function_result():
     #import platform
     #if platform.machine().startswith('sparc'):
@@ -1510,15 +1494,6 @@ def test_cannot_pass_float():
             assert lib.foo(42) == 0
             assert lib.foo(0) == 1
             py.test.raises(TypeError, lib.foo, 0.0)
-
-def test_cast_from_int_type_to_bool():
-    ffi = FFI()
-    for basetype in ['char', 'short', 'int', 'long', 'long long']:
-        for sign in ['signed', 'unsigned']:
-            type = '%s %s' % (sign, basetype)
-            assert int(ffi.cast("_Bool", ffi.cast(type, 42))) == 1
-            assert int(ffi.cast("bool", ffi.cast(type, 42))) == 1
-            assert int(ffi.cast("_Bool", ffi.cast(type, 0))) == 0
 
 def test_addressof():
     ffi = FFI()
@@ -2267,3 +2242,31 @@ def test_macro_var():
     assert p == lib.myarray + 4
     p[1] = 82
     assert lib.my_value == 82            # [5]
+
+def test_const_pointer_to_pointer():
+    ffi = FFI()
+    ffi.cdef("struct s { char *const *a; };")
+    ffi.verify("struct s { char *const *a; };")
+
+def test_share_FILE():
+    ffi1 = FFI()
+    ffi1.cdef("void do_stuff(FILE *);")
+    lib1 = ffi1.verify("void do_stuff(FILE *f) { (void)f; }")
+    ffi2 = FFI()
+    ffi2.cdef("FILE *barize(void);")
+    lib2 = ffi2.verify("FILE *barize(void) { return NULL; }")
+    lib1.do_stuff(lib2.barize())
+
+def test_win_common_types():
+    if sys.platform != 'win32':
+        py.test.skip("Windows only")
+    ffi = FFI()
+    ffi.set_unicode(True)
+    ffi.verify("")
+    assert ffi.typeof("PBYTE") is ffi.typeof("unsigned char *")
+    if sys.maxsize > 2**32:
+        expected = "unsigned long long"
+    else:
+        expected = "unsigned int"
+    assert ffi.typeof("UINT_PTR") is ffi.typeof(expected)
+    assert ffi.typeof("PTSTR") is ffi.typeof("wchar_t *")

@@ -141,6 +141,13 @@ class LogOperations(object):
             return str(arg.getfloat())
         elif arg is None:
             return 'None'
+        elif arg.is_vector():
+            # cannot infer this information, VectorizationInfo
+            # might be lost here already
+            #vecinfo = arg.get_forwarded()
+            #assert isinstance(vecinfo, VectorizationInfo)
+            #suffix = '[%dx%s%d]' % (vecinfo.count, vecinfo.datatype, vecinfo.bytesize * 8)
+            return 'v' + str(mv)
         elif arg.type == 'i':
             return 'i' + str(mv)
         elif arg.type == 'r':

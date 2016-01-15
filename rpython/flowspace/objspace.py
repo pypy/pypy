@@ -23,7 +23,7 @@ def _assert_rpythonic(func):
     if func.func_code.co_cellvars:
         raise ValueError(
 """RPython functions cannot create closures
-Possible casues:
+Possible causes:
     Function is inner function
     Function uses generator expressions
     Lambda expressions

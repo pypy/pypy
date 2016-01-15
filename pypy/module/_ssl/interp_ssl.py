@@ -1,4 +1,4 @@
-from rpython.rlib import rpoll, rsocket, rthread, rweakref
+from rpython.rlib import rpoll, rsocket, rthread, rweakref, rgc
 from rpython.rlib.rarithmetic import intmask, widen, r_uint
 from rpython.rlib.ropenssl import *
 from pypy.module._socket import interp_socket
@@ -852,55 +852,58 @@ def _get_peer_alt_names(space, certificate):
                     names = rffi.cast(GENERAL_NAMES, method[0].c_d2i(
                         null, p_ptr, length))
 
-            for j in range(libssl_sk_GENERAL_NAME_num(names)):
-                # Get a rendering of each name in the set of names
+            try:
+                for j in range(libssl_sk_GENERAL_NAME_num(names)):
+                    # Get a rendering of each name in the set of names
 
-                name = libssl_sk_GENERAL_NAME_value(names, j)
-                gntype = intmask(name.c_type)
-                if gntype == GEN_DIRNAME:
-                    # we special-case DirName as a tuple of tuples of
-                    # attributes
-                    dirname = libssl_pypy_GENERAL_NAME_dirn(name)
-                    w_t = space.newtuple([
-                        space.wrap("DirName"),
-                        _create_tuple_for_X509_NAME(space, dirname)
-                        ])
-                elif gntype in (GEN_EMAIL, GEN_DNS, GEN_URI):
-                    # GENERAL_NAME_print() doesn't handle NULL bytes in
-                    # ASN1_string correctly, CVE-2013-4238
-                    if gntype == GEN_EMAIL:
-                        v = space.wrap("email")
-                    elif gntype == GEN_DNS:
-                        v = space.wrap("DNS")
-                    elif gntype == GEN_URI:
-                        v = space.wrap("URI")
+                    name = libssl_sk_GENERAL_NAME_value(names, j)
+                    gntype = intmask(name.c_type)
+                    if gntype == GEN_DIRNAME:
+                        # we special-case DirName as a tuple of tuples of
+                        # attributes
+                        dirname = libssl_pypy_GENERAL_NAME_dirn(name)
+                        w_t = space.newtuple([
+                            space.wrap("DirName"),
+                            _create_tuple_for_X509_NAME(space, dirname)
+                            ])
+                    elif gntype in (GEN_EMAIL, GEN_DNS, GEN_URI):
+                        # GENERAL_NAME_print() doesn't handle NULL bytes in
+                        # ASN1_string correctly, CVE-2013-4238
+                        if gntype == GEN_EMAIL:
+                            v = space.wrap("email")
+                        elif gntype == GEN_DNS:
+                            v = space.wrap("DNS")
+                        elif gntype == GEN_URI:
+                            v = space.wrap("URI")
+                        else:
+                            assert False
+                        as_ = libssl_pypy_GENERAL_NAME_dirn(name)
+                        as_ = rffi.cast(ASN1_STRING, as_)
+                        buf = libssl_ASN1_STRING_data(as_)
+                        length = libssl_ASN1_STRING_length(as_)
+                        w_t = space.newtuple([
+                            v, space.wrap(rffi.charpsize2str(buf, length))])
                     else:
-                        assert False
-                    as_ = libssl_pypy_GENERAL_NAME_dirn(name)
-                    as_ = rffi.cast(ASN1_STRING, as_)
-                    buf = libssl_ASN1_STRING_data(as_)
-                    length = libssl_ASN1_STRING_length(as_)
-                    w_t = space.newtuple([
-                        v, space.wrap(rffi.charpsize2str(buf, length))])
-                else:
-                    # for everything else, we use the OpenSSL print form
-                    if gntype not in (GEN_OTHERNAME, GEN_X400, GEN_EDIPARTY,
-                                      GEN_IPADD, GEN_RID):
-                        space.warn(space.wrap("Unknown general name type"),
-                                   space.w_RuntimeWarning)
-                    libssl_BIO_reset(biobuf)
-                    libssl_GENERAL_NAME_print(biobuf, name)
-                    with lltype.scoped_alloc(rffi.CCHARP.TO, 2048) as buf:
-                        length = libssl_BIO_gets(biobuf, buf, 2047)
-                        if length < 0:
-                            raise _ssl_seterror(space, None, 0)
+                        # for everything else, we use the OpenSSL print form
+                        if gntype not in (GEN_OTHERNAME, GEN_X400, GEN_EDIPARTY,
+                                          GEN_IPADD, GEN_RID):
+                            space.warn(space.wrap("Unknown general name type"),
+                                       space.w_RuntimeWarning)
+                        libssl_BIO_reset(biobuf)
+                        libssl_GENERAL_NAME_print(biobuf, name)
+                        with lltype.scoped_alloc(rffi.CCHARP.TO, 2048) as buf:
+                            length = libssl_BIO_gets(biobuf, buf, 2047)
+                            if length < 0:
+                                raise _ssl_seterror(space, None, 0)
 
-                        v = rffi.charpsize2str(buf, length)
-                    v1, v2 = v.split(':', 1)
-                    w_t = space.newtuple([space.wrap(v1),
-                                          space.wrap(v2)])
+                            v = rffi.charpsize2str(buf, length)
+                        v1, v2 = v.split(':', 1)
+                        w_t = space.newtuple([space.wrap(v1),
+                                              space.wrap(v2)])
 
-                alt_names_w.append(w_t)
+                    alt_names_w.append(w_t)
+            finally:
+                libssl_pypy_GENERAL_NAME_pop_free(names)
     finally:
         libssl_BIO_free(biobuf)
 
@@ -921,8 +924,11 @@ def _create_tuple_for_attribute(space, name, value):
         length = libssl_ASN1_STRING_to_UTF8(buf_ptr, value)
         if length < 0:
             raise _ssl_seterror(space, None, 0)
-        w_value = space.wrap(rffi.charpsize2str(buf_ptr[0], length))
-        w_value = space.call_method(w_value, "decode", space.wrap("utf-8"))
+        try:
+            w_value = space.wrap(rffi.charpsize2str(buf_ptr[0], length))
+            w_value = space.call_method(w_value, "decode", space.wrap("utf-8"))
+        finally:
+            libssl_OPENSSL_free(buf_ptr[0])
 
     return space.newtuple([w_name, w_value])
 
@@ -930,9 +936,10 @@ def _create_tuple_for_attribute(space, name, value):
 def _get_aia_uri(space, certificate, nid):
     info = rffi.cast(AUTHORITY_INFO_ACCESS, libssl_X509_get_ext_d2i(
         certificate, NID_info_access, None, None))
-    if not info or libssl_sk_ACCESS_DESCRIPTION_num(info) == 0:
-        return
     try:
+        if not info or libssl_sk_ACCESS_DESCRIPTION_num(info) == 0:
+            return
+
         result_w = []
         for i in range(libssl_sk_ACCESS_DESCRIPTION_num(info)):
             ad = libssl_sk_ACCESS_DESCRIPTION_value(info, i)
@@ -962,20 +969,24 @@ def _get_crl_dp(space, certificate):
     if not dps:
         return None
 
-    cdp_w = []
-    for i in range(libssl_sk_DIST_POINT_num(dps)):
-        dp = libssl_sk_DIST_POINT_value(dps, i)
-        gns = libssl_pypy_DIST_POINT_fullname(dp)
+    try:
+        cdp_w = []
+        for i in range(libssl_sk_DIST_POINT_num(dps)):
+            dp = libssl_sk_DIST_POINT_value(dps, i)
+            gns = libssl_pypy_DIST_POINT_fullname(dp)
 
-        for j in range(libssl_sk_GENERAL_NAME_num(gns)):
-            name = libssl_sk_GENERAL_NAME_value(gns, j)
-            gntype = intmask(name.c_type)
-            if gntype != GEN_URI:
-                continue
-            uri = libssl_pypy_GENERAL_NAME_uri(name)
-            length = intmask(uri.c_length)
-            s_uri = rffi.charpsize2str(uri.c_data, length)
-            cdp_w.append(space.wrap(s_uri))
+            for j in range(libssl_sk_GENERAL_NAME_num(gns)):
+                name = libssl_sk_GENERAL_NAME_value(gns, j)
+                gntype = intmask(name.c_type)
+                if gntype != GEN_URI:
+                    continue
+                uri = libssl_pypy_GENERAL_NAME_uri(name)
+                length = intmask(uri.c_length)
+                s_uri = rffi.charpsize2str(uri.c_data, length)
+                cdp_w.append(space.wrap(s_uri))
+    finally:
+        if OPENSSL_VERSION_NUMBER < 0x10001000:
+            libssl_sk_DIST_POINT_free(dps)
     return space.newtuple(cdp_w[:])
 
 def checkwait(space, w_sock, writing):
@@ -1270,6 +1281,7 @@ class _SSLContext(W_Root):
         if not ctx:
             raise ssl_error(space, "failed to allocate SSL context")
 
+        rgc.add_memory_pressure(10 * 1024 * 1024)
         self = space.allocate_instance(_SSLContext, w_subtype)
         self.ctx = ctx
         self.check_hostname = False
@@ -1295,6 +1307,9 @@ class _SSLContext(W_Root):
                     libssl_EC_KEY_free(key)
 
         return self
+
+    def __del__(self):
+        libssl_SSL_CTX_free(self.ctx)
 
     @unwrap_spec(server_side=int)
     def descr_wrap_socket(self, space, w_sock, server_side, w_server_hostname=None, w_ssl_sock=None):

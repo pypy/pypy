@@ -213,6 +213,8 @@ class TranslationTestJITStats(CCompiledMixin):
     CPUClass = getcpuclass()
 
     def test_jit_get_stats(self):
+        py.test.skip("disabled feature")
+
         driver = JitDriver(greens = [], reds = ['i'])
 
         def f():
@@ -305,7 +307,7 @@ class TranslationRemoveTypePtrTest(CCompiledMixin):
         for line in open(str(logfile)):
             if 'guard_class' in line:
                 guard_class += 1
-        # if we get many more guard_classes, it means that we generate
+        # if we get many more guard_classes (~93), it means that we generate
         # guards that always fail (the following assert's original purpose
         # is to catch the following case: each GUARD_CLASS is misgenerated
         # and always fails with "gcremovetypeptr")

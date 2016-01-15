@@ -23,11 +23,14 @@ class StrideSort(TimSort):
     ''' 
     argsort (return the indices to sort) a list of strides
     '''
-    def __init__(self, rangelist, strides):
+    def __init__(self, rangelist, strides, order):
         self.strides = strides
+        self.order = order
         TimSort.__init__(self, rangelist)
 
     def lt(self, a, b):
+        if self.order == NPY.CORDER:
+            return self.strides[a] <= self.strides[b]
         return self.strides[a] < self.strides[b]
 
 
@@ -56,6 +59,9 @@ class BaseConcreteArray(object):
         jit.hint(len(backstrides), promote=True)
         return backstrides
 
+    def get_flags(self):
+        return self.flags
+
     def getitem(self, index):
         return self.dtype.read(self, index, 0)
 
@@ -67,7 +73,10 @@ class BaseConcreteArray(object):
 
     @jit.unroll_safe
     def setslice(self, space, arr):
-        if len(arr.get_shape()) >  len(self.get_shape()):
+        if arr.get_size() == 1:
+            # we can always set self[:] = scalar
+            pass
+        elif len(arr.get_shape()) >  len(self.get_shape()):
             # record arrays get one extra dimension
             if not self.dtype.is_record() or \
                     len(arr.get_shape()) > len(self.get_shape()) + 1:
@@ -89,17 +98,18 @@ class BaseConcreteArray(object):
     def get_storage_size(self):
         return self.size
 
-    def reshape(self, orig_array, new_shape):
+    def reshape(self, orig_array, new_shape, order=NPY.ANYORDER):
         # Since we got to here, prod(new_shape) == self.size
+        order = support.get_order_as_CF(self.order, order)
         new_strides = None
         if self.size == 0:
-            new_strides, _ = calc_strides(new_shape, self.dtype, self.order)
+            new_strides, _ = calc_strides(new_shape, self.dtype, order)
         else:
             if len(self.get_shape()) == 0:
                 new_strides = [self.dtype.elsize] * len(new_shape)
             else:
                 new_strides = calc_new_strides(new_shape, self.get_shape(),
-                                               self.get_strides(), self.order)
+                                               self.get_strides(), order)
                 if new_strides is None or len(new_strides) != len(new_shape):
                     return None
         if new_strides is not None:
@@ -303,12 +313,10 @@ class BaseConcreteArray(object):
         return SliceArray(self.start, strides,
                           backstrides, shape, self, orig_array)
 
-    def copy(self, space):
-        strides, backstrides = calc_strides(self.get_shape(), self.dtype,
-                                                    self.order)
-        impl = ConcreteArray(self.get_shape(), self.dtype, self.order, strides,
-                             backstrides)
-        return loop.setslice(space, self.get_shape(), impl, self)
+    def copy(self, space, order=NPY.ANYORDER):
+        if order == NPY.ANYORDER:
+            order = NPY.KEEPORDER
+        return self.astype(space, self.dtype, order, copy=True)
 
     def create_iter(self, shape=None, backward_broadcast=False):
         if shape is not None and \
@@ -355,21 +363,21 @@ class BaseConcreteArray(object):
     def get_buffer(self, space, readonly):
         return ArrayBuffer(self, readonly)
 
-    def astype(self, space, dtype, order):
+    def astype(self, space, dtype, order, copy=True):
         # copy the general pattern of the strides
         # but make the array storage contiguous in memory
         shape = self.get_shape()
         strides = self.get_strides()
-        if order not in ('C', 'F'):
-            raise oefmt(space.w_ValueError, "Unknown order %s in astype", order)
+        if order not in (NPY.KEEPORDER, NPY.FORTRANORDER, NPY.CORDER):
+            raise oefmt(space.w_ValueError, "Unknown order %d in astype", order)
         if len(strides) == 0:
             t_strides = []
             backstrides = []
-        elif order != self.order:
+        elif order in (NPY.FORTRANORDER, NPY.CORDER):
             t_strides, backstrides = calc_strides(shape, dtype, order)
         else:
             indx_array = range(len(strides))
-            list_sorter = StrideSort(indx_array, strides)
+            list_sorter = StrideSort(indx_array, strides, self.order)
             list_sorter.sort()
             t_elsize = dtype.elsize
             t_strides = strides[:]
@@ -378,8 +386,10 @@ class BaseConcreteArray(object):
                 t_strides[i] = base
                 base *= shape[i]
             backstrides = calc_backstrides(t_strides, shape)
+        order = support.get_order_as_CF(self.order, order)
         impl = ConcreteArray(shape, dtype, order, t_strides, backstrides)
-        loop.setslice(space, impl.get_shape(), impl, self)
+        if copy:
+            loop.setslice(space, impl.get_shape(), impl, self)
         return impl
 
 OBJECTSTORE = lltype.GcStruct('ObjectStore',
@@ -429,6 +439,8 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
         self.shape = shape
         # already tested for overflow in from_shape_and_storage
         self.size = support.product(shape) * dtype.elsize
+        if order not in (NPY.CORDER, NPY.FORTRANORDER):
+            raise oefmt(dtype.itemtype.space.w_ValueError, "ConcreteArrayNotOwning but order is not 0,1 rather %d", order)
         self.order = order
         self.dtype = dtype
         self.strides = strides
@@ -445,7 +457,7 @@ class ConcreteArrayNotOwning(BaseConcreteArray):
     def set_shape(self, space, orig_array, new_shape):
         if len(new_shape) > NPY.MAXDIMS:
             raise oefmt(space.w_ValueError,
-                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+                "sequence too large; cannot be greater than %d", NPY.MAXDIMS)
         try:
             ovfcheck(support.product_check(new_shape) * self.dtype.elsize)
         except OverflowError as e:
@@ -562,6 +574,8 @@ class SliceArray(BaseConcreteArray):
         self.parent = parent
         self.storage = parent.storage
         self.gcstruct = parent.gcstruct
+        if parent.order not in (NPY.CORDER, NPY.FORTRANORDER):
+            raise oefmt(dtype.itemtype.space.w_ValueError, "SliceArray but parent order is not 0,1 rather %d", parent.order)
         self.order = parent.order
         self.dtype = dtype
         try:
@@ -587,7 +601,7 @@ class SliceArray(BaseConcreteArray):
     def set_shape(self, space, orig_array, new_shape):
         if len(new_shape) > NPY.MAXDIMS:
             raise oefmt(space.w_ValueError,
-                "sequence too large; must be smaller than %d", NPY.MAXDIMS)
+                "sequence too large; cannot be greater than %d", NPY.MAXDIMS)
         try:
             ovfcheck(support.product_check(new_shape) * self.dtype.elsize)
         except OverflowError as e:
@@ -602,13 +616,13 @@ class SliceArray(BaseConcreteArray):
                 s = self.get_strides()[0] // dtype.elsize
             except IndexError:
                 s = 1
-            if self.order == 'C':
+            if self.order != NPY.FORTRANORDER:
                 new_shape.reverse()
             for sh in new_shape:
                 strides.append(s * dtype.elsize)
                 backstrides.append(s * (sh - 1) * dtype.elsize)
                 s *= max(1, sh)
-            if self.order == 'C':
+            if self.order != NPY.FORTRANORDER:
                 strides.reverse()
                 backstrides.reverse()
                 new_shape.reverse()

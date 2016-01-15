@@ -1,4 +1,5 @@
 import py
+from rpython.annotator.model import UnionError
 from rpython.rlib import rgc
 from rpython.rlib.rweakref import RWeakValueDictionary
 from rpython.rtyper.test.test_llinterp import interpret
@@ -137,13 +138,19 @@ def test_rpython_merge_RWeakValueDictionary2():
     f(1)
     interpret(f, [1])
 
+
+@py.test.mark.xfail(
+    reason="may fail with AssertionError, depending on annotation order")
+def test_rpython_merge_RWeakValueDictionary3():
     def g(x):
         if x:
             d = RWeakValueDictionary(str, X)
         else:
             d = RWeakValueDictionary(str, Y)
         d.set("x", X())
-    py.test.raises(Exception, interpret, g, [1])
+
+    with py.test.raises(UnionError):
+        interpret(g, [1])
 
 
 def test_rpython_RWeakValueDictionary_or_None():

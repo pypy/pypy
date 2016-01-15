@@ -372,7 +372,7 @@ class W_ISlice(W_Root):
     def arg_int_w(self, w_obj, minimum, errormsg):
         space = self.space
         try:
-            result = space.int_w(w_obj)
+            result = space.int_w(space.int(w_obj))    # CPython allows floats as parameters
         except OperationError, e:
             if e.async(space):
                 raise
@@ -649,33 +649,38 @@ W_IZip.typedef = TypeDef(
 
 class W_IZipLongest(W_IMap):
     _error_name = "izip_longest"
+    _immutable_fields_ = ["w_fillvalue"]
+
+    def _fetch(self, index):
+        w_iter = self.iterators_w[index]
+        if w_iter is not None:
+            space = self.space
+            try:
+                return space.next(w_iter)
+            except OperationError, e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                self.active -= 1
+                if self.active <= 0:
+                    # It was the last active iterator
+                    raise
+                self.iterators_w[index] = None
+        return self.w_fillvalue
 
     def next_w(self):
-        space = self.space
+        # common case: 2 arguments
+        if len(self.iterators_w) == 2:
+            objects = [self._fetch(0), self._fetch(1)]
+        else:
+            objects = self._get_objects()
+        return self.space.newtuple(objects)
+
+    def _get_objects(self):
+        # the loop is out of the way of the JIT
         nb = len(self.iterators_w)
-
         if nb == 0:
-            raise OperationError(space.w_StopIteration, space.w_None)
-
-        objects_w = [None] * nb
-        for index in range(nb):
-            w_value = self.w_fillvalue
-            w_it = self.iterators_w[index]
-            if w_it is not None:
-                try:
-                    w_value = space.next(w_it)
-                except OperationError, e:
-                    if not e.match(space, space.w_StopIteration):
-                        raise
-
-                    self.active -= 1
-                    if self.active == 0:
-                        # It was the last active iterator
-                        raise
-                    self.iterators_w[index] = None
-
-            objects_w[index] = w_value
-        return space.newtuple(objects_w)
+            raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        return [self._fetch(index) for index in range(nb)]
 
 def W_IZipLongest___new__(space, w_subtype, __args__):
     arguments_w, kwds_w = __args__.unpack()

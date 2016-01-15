@@ -159,7 +159,11 @@ class VGenericEngine(object):
         arglist = ', '.join(arglist) or 'void'
         wrappername = '_cffi_f_%s' % name
         self.export_symbols.append(wrappername)
-        funcdecl = ' %s(%s)' % (wrappername, arglist)
+        if tp.abi:
+            abi = tp.abi + ' '
+        else:
+            abi = ''
+        funcdecl = ' %s%s(%s)' % (abi, wrappername, arglist)
         context = 'result of %s' % name
         prnt(tpresult.get_c_name(funcdecl, context))
         prnt('{')

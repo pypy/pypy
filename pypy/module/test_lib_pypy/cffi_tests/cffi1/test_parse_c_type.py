@@ -20,8 +20,11 @@ ffi = cffi.FFI()
 ffi.cdef(header)
 
 lib = ffi.verify(
-        open(os.path.join(cffi_dir, '..', 'c', 'parse_c_type.c')).read(),
-        include_dirs=[cffi_dir])
+        open(os.path.join(cffi_dir, '..', 'c', 'parse_c_type.c')).read() + """
+static const char *get_common_type(const char *search, size_t search_len) {
+    return NULL;
+}
+""",    include_dirs=[cffi_dir])
 
 class ParseError(Exception):
     pass
@@ -342,3 +345,17 @@ def test_various_constant_exprs():
     # not supported (really obscure):
     #    "char[+5]"
     #    "char['A']"
+
+def test_stdcall_cdecl():
+    assert parse("int __stdcall(int)") == [Prim(lib._CFFI_PRIM_INT),
+                                           '->', Func(0), NoOp(4), FuncEnd(2),
+                                           Prim(lib._CFFI_PRIM_INT)]
+    assert parse("int __stdcall func(int)") == parse("int __stdcall(int)")
+    assert parse("int (__stdcall *)()") == [Prim(lib._CFFI_PRIM_INT),
+                                            NoOp(3), '->', Pointer(1),
+                                            Func(0), FuncEnd(2), 0]
+    assert parse("int (__stdcall *p)()") == parse("int (__stdcall*)()")
+    parse_error("__stdcall int", "identifier expected", 0)
+    parse_error("__cdecl int", "identifier expected", 0)
+    parse_error("int __stdcall", "expected '('", 13)
+    parse_error("int __cdecl", "expected '('", 11)

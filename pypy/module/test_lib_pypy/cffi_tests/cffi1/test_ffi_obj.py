@@ -8,6 +8,7 @@ def test_ffi_new():
     p = ffi.new("int *")
     p[0] = -42
     assert p[0] == -42
+    assert type(ffi) is ffi.__class__ is _cffi1_backend.FFI
 
 def test_ffi_subclass():
     class FOO(_cffi1_backend.FFI):
@@ -17,6 +18,7 @@ def test_ffi_subclass():
     assert foo.x == 42
     p = foo.new("int *")
     assert p[0] == 0
+    assert type(foo) is foo.__class__ is FOO
 
 def test_ffi_no_argument():
     py.test.raises(TypeError, _cffi1_backend.FFI, 42)
@@ -194,6 +196,11 @@ def test_handle():
     yp = ffi.new_handle([6, 4, 2])
     assert ffi.from_handle(yp) == [6, 4, 2]
 
+def test_handle_unique():
+    ffi = _cffi1_backend.FFI()
+    assert ffi.new_handle(None) is not ffi.new_handle(None)
+    assert ffi.new_handle(None) != ffi.new_handle(None)
+
 def test_ffi_cast():
     ffi = _cffi1_backend.FFI()
     assert ffi.cast("int(*)(int)", 0) == ffi.NULL
@@ -236,6 +243,59 @@ def test_ffi_from_buffer():
     assert ffi.typeof(c) is ffi.typeof("char[]")
     ffi.cast("unsigned short *", c)[1] += 500
     assert list(a) == [10000, 20500, 30000]
+
+def test_memmove():
+    ffi = _cffi1_backend.FFI()
+    p = ffi.new("short[]", [-1234, -2345, -3456, -4567, -5678])
+    ffi.memmove(p, p + 1, 4)
+    assert list(p) == [-2345, -3456, -3456, -4567, -5678]
+    p[2] = 999
+    ffi.memmove(p + 2, p, 6)
+    assert list(p) == [-2345, -3456, -2345, -3456, 999]
+    ffi.memmove(p + 4, ffi.new("char[]", b"\x71\x72"), 2)
+    if sys.byteorder == 'little':
+        assert list(p) == [-2345, -3456, -2345, -3456, 0x7271]
+    else:
+        assert list(p) == [-2345, -3456, -2345, -3456, 0x7172]
+
+def test_memmove_buffer():
+    import array
+    ffi = _cffi1_backend.FFI()
+    a = array.array('H', [10000, 20000, 30000])
+    p = ffi.new("short[]", 5)
+    ffi.memmove(p, a, 6)
+    assert list(p) == [10000, 20000, 30000, 0, 0]
+    ffi.memmove(p + 1, a, 6)
+    assert list(p) == [10000, 10000, 20000, 30000, 0]
+    b = array.array('h', [-1000, -2000, -3000])
+    ffi.memmove(b, a, 4)
+    assert b.tolist() == [10000, 20000, -3000]
+    assert a.tolist() == [10000, 20000, 30000]
+    p[0] = 999
+    p[1] = 998
+    p[2] = 997
+    p[3] = 996
+    p[4] = 995
+    ffi.memmove(b, p, 2)
+    assert b.tolist() == [999, 20000, -3000]
+    ffi.memmove(b, p + 2, 4)
+    assert b.tolist() == [997, 996, -3000]
+    p[2] = -p[2]
+    p[3] = -p[3]
+    ffi.memmove(b, p + 2, 6)
+    assert b.tolist() == [-997, -996, 995]
+
+def test_memmove_readonly_readwrite():
+    ffi = _cffi1_backend.FFI()
+    p = ffi.new("signed char[]", 5)
+    ffi.memmove(p, b"abcde", 3)
+    assert list(p) == [ord("a"), ord("b"), ord("c"), 0, 0]
+    ffi.memmove(p, bytearray(b"ABCDE"), 2)
+    assert list(p) == [ord("A"), ord("B"), ord("c"), 0, 0]
+    py.test.raises((TypeError, BufferError), ffi.memmove, b"abcde", p, 3)
+    ba = bytearray(b"xxxxx")
+    ffi.memmove(dest=ba, src=p, n=3)
+    assert ba == bytearray(b"ABcxx")
 
 def test_ffi_types():
     CData = _cffi1_backend.FFI.CData
@@ -343,3 +403,96 @@ def test_ffi_new_allocator_4():
         return ffi.NULL
     alloc5 = ffi.new_allocator(myalloc5)
     py.test.raises(MemoryError, alloc5, "int[5]")
+
+def test_bool_issue228():
+    ffi = _cffi1_backend.FFI()
+    fntype = ffi.typeof("int(*callback)(bool is_valid)")
+    assert repr(fntype.args[0]) == "<ctype '_Bool'>"
+
+def test_FILE_issue228():
+    fntype1 = _cffi1_backend.FFI().typeof("FILE *")
+    fntype2 = _cffi1_backend.FFI().typeof("FILE *")
+    assert repr(fntype1) == "<ctype 'FILE *'>"
+    assert fntype1 is fntype2
+
+def test_cast_from_int_type_to_bool():
+    ffi = _cffi1_backend.FFI()
+    for basetype in ['char', 'short', 'int', 'long', 'long long']:
+        for sign in ['signed', 'unsigned']:
+            type = '%s %s' % (sign, basetype)
+            assert int(ffi.cast("_Bool", ffi.cast(type, 42))) == 1
+            assert int(ffi.cast("bool", ffi.cast(type, 42))) == 1
+            assert int(ffi.cast("_Bool", ffi.cast(type, 0))) == 0
+
+def test_init_once():
+    def do_init():
+        seen.append(1)
+        return 42
+    ffi = _cffi1_backend.FFI()
+    seen = []
+    for i in range(3):
+        res = ffi.init_once(do_init, "tag1")
+        assert res == 42
+        assert seen == [1]
+    for i in range(3):
+        res = ffi.init_once(do_init, "tag2")
+        assert res == 42
+        assert seen == [1, 1]
+
+def test_init_once_multithread():
+    if sys.version_info < (3,):
+        import thread
+    else:
+        import _thread as thread
+    import time
+    #
+    def do_init():
+        print('init!')
+        seen.append('init!')
+        time.sleep(1)
+        seen.append('init done')
+        print('init done')
+        return 7
+    ffi = _cffi1_backend.FFI()
+    seen = []
+    for i in range(6):
+        def f():
+            res = ffi.init_once(do_init, "tag")
+            seen.append(res)
+        thread.start_new_thread(f, ())
+    time.sleep(1.5)
+    assert seen == ['init!', 'init done'] + 6 * [7]
+
+def test_init_once_failure():
+    def do_init():
+        seen.append(1)
+        raise ValueError
+    ffi = _cffi1_backend.FFI()
+    seen = []
+    for i in range(5):
+        py.test.raises(ValueError, ffi.init_once, do_init, "tag")
+        assert seen == [1] * (i + 1)
+
+def test_init_once_multithread_failure():
+    if sys.version_info < (3,):
+        import thread
+    else:
+        import _thread as thread
+    import time
+    def do_init():
+        seen.append('init!')
+        time.sleep(1)
+        seen.append('oops')
+        raise ValueError
+    ffi = _cffi1_backend.FFI()
+    seen = []
+    for i in range(3):
+        def f():
+            py.test.raises(ValueError, ffi.init_once, do_init, "tag")
+        thread.start_new_thread(f, ())
+    i = 0
+    while len(seen) < 6:
+        i += 1
+        assert i < 20
+        time.sleep(0.51)
+    assert seen == ['init!', 'oops'] * 3

@@ -894,8 +894,8 @@ class BasicTests:
             try:
                 return ovfcheck(x * y)
             except OverflowError:
-                raise            
-        
+                raise
+
         def f(x, y):
             try:
                 return g(x, y)
@@ -1074,7 +1074,7 @@ class BasicTests:
         from rpython.jit.metainterp.warmspot import WarmRunnerDesc
 
         interp, graph = get_interpreter(f, [0, 0], backendopt=False,
-                                        inline_threshold=0, type_system=self.type_system)
+                                        inline_threshold=0)
         clear_tcache()
         translator = interp.typer.annotator.translator
         translator.config.translation.gc = "boehm"
@@ -4044,21 +4044,19 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         self.interp_operations(f, [])
 
     def test_external_call(self):
-        from rpython.rlib.objectmodel import invoke_around_extcall
+        from rpython.rlib import rgil
 
-        T = rffi.CArrayPtr(rffi.TIME_T)
-        external = rffi.llexternal("time", [T], rffi.TIME_T)
+        TIME_T = lltype.Signed
+        # ^^^ some 32-bit platforms have a 64-bit rffi.TIME_T, but we
+        # don't want that here; we just want always a Signed value
+        T = rffi.CArrayPtr(TIME_T)
+        external = rffi.llexternal("time", [T], TIME_T)
 
         class Oups(Exception):
             pass
         class State:
             pass
         state = State()
-
-        def before():
-            if we_are_jitted():
-                raise Oups
-            state.l.append("before")
 
         def after():
             if we_are_jitted():
@@ -4067,15 +4065,15 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         def f():
             state.l = []
-            invoke_around_extcall(before, after)
+            rgil.invoke_after_thread_switch(after)
             external(lltype.nullptr(T.TO))
             return len(state.l)
 
-        res = self.interp_operations(f, [], supports_longlong=True)
-        assert res == 2
-        res = self.interp_operations(f, [], supports_longlong=True)
-        assert res == 2
-        self.check_operations_history(call_release_gil=1, call_may_force=0)
+        res = self.interp_operations(f, [])
+        assert res == 1
+        res = self.interp_operations(f, [])
+        assert res == 1
+        self.check_operations_history(call_release_gil_i=1, call_may_force_i=0)
 
     def test_unescaped_write_zero(self):
         class A:
@@ -4339,8 +4337,8 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         myjitdriver = JitDriver(greens = ['num'],
                                 reds = ['n', 'x', 'x0', 'x1', 'x2', 'x3', 'x4',
                                         'x5', 'x6', 'x7', 'l', 's'])
- 
-        
+
+
         self.meta_interp(allfuncs, [9, 2000])
 
     def test_unichar_ord_is_never_signed_on_64bit(self):

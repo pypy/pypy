@@ -2,8 +2,7 @@ import contextlib
 import py
 import sys, os
 from rpython.rlib import exports
-from rpython.rlib.entrypoint import entrypoint
-from rpython.rtyper.typesystem import getfunctionptr
+from rpython.rtyper.lltypesystem.lltype import getfunctionptr
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool import runsubprocess
 from rpython.tool.nullpath import NullPyPathLocal
@@ -468,7 +467,7 @@ class CStandaloneBuilder(CBuilder):
                 '$(CC) -o $*.o -c $*.vmprof.lbl.s',
                 'mv $*.gctmp $*.gcmap',
                 'rm $*.vmprof.lbl.s'])
-            
+
             # the rule to compute gcmaptable.s
             mk.rule('gcmaptable.s', '$(GCMAPFILES)',
                     [
@@ -734,6 +733,9 @@ def gen_threadlocal_structdef(f, database):
     print >> f, 'struct pypy_threadlocal_s {'
     print >> f, '\tint ready;'
     print >> f, '\tchar *stack_end;'
+    print >> f, '\tstruct pypy_threadlocal_s *prev, *next;'
+    # note: if the four fixed fields above are changed, you need
+    # to adapt threadlocal.c's linkedlist_head declaration too
     for field in fields:
         typename = database.gettype(field.FIELDTYPE)
         print >> f, '\t%s;' % cdecl(typename, field.fieldname)
@@ -759,12 +761,11 @@ def gen_preimpl(f, database):
         database, database.translator.rtyper)
     for line in preimplementationlines:
         print >> f, line
-    f.write('#endif /* _PY_PREIMPL_H */\n')    
+    f.write('#endif /* _PY_PREIMPL_H */\n')
 
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
-    print >> f, 'char *RPython_StartupCode(void) {'
-    print >> f, '\tchar *error = NULL;'
+    print >> f, 'void RPython_StartupCode(void) {'
 
     bk = database.translator.annotator.bookkeeper
     if bk.thread_local_fields:
@@ -778,18 +779,12 @@ def gen_startupcode(f, database):
     for dest, value in database.late_initializations:
         print >> f, "\t%s = %s;" % (dest, value)
 
-    firsttime = True
     for node in database.containerlist:
         lines = list(node.startupcode())
         if lines:
-            if firsttime:
-                firsttime = False
-            else:
-                print >> f, '\tif (error) return error;'
             for line in lines:
                 print >> f, '\t'+line
 
-    print >> f, '\treturn error;'
     print >> f, '}'
 
 def commondefs(defines):

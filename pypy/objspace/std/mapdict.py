@@ -7,7 +7,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter import valueprof
 from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
-    BaseValueIterator, BaseItemIterator, _never_equal_to_string
+    BaseValueIterator, BaseItemIterator, _never_equal_to_string,
+    W_DictObject,
 )
 from pypy.objspace.std.typeobject import MutableCell
 
@@ -441,7 +442,7 @@ class BaseMapdictObject:
 
         strategy = space.fromcache(MapDictStrategy)
         storage = strategy.erase(self)
-        w_dict = W_DictMultiObject(space, strategy, storage)
+        w_dict = W_DictObject(space, strategy, storage)
         flag = self._get_mapdict_map().write(self, ("dict", SPECIAL), w_dict)
         assert flag
         return w_dict
@@ -451,8 +452,13 @@ class BaseMapdictObject:
         w_dict = check_new_dictionary(space, w_dict)
         w_olddict = self.getdict(space)
         assert isinstance(w_dict, W_DictMultiObject)
-        if type(w_olddict.strategy) is not ObjectDictStrategy:
-            w_olddict.strategy.switch_to_object_strategy(w_olddict)
+        # The old dict has got 'self' as dstorage, but we are about to
+        # change self's ("dict", SPECIAL) attribute to point to the
+        # new dict.  If the old dict was using the MapDictStrategy, we
+        # have to force it now: otherwise it would remain an empty
+        # shell that continues to delegate to 'self'.
+        if type(w_olddict.get_strategy()) is MapDictStrategy:
+            w_olddict.get_strategy().switch_to_object_strategy(w_olddict)
         flag = self._get_mapdict_map().write(self, ("dict", SPECIAL), w_dict)
         assert flag
 
@@ -670,7 +676,7 @@ class MapDictStrategy(DictStrategy):
         w_obj = self.unerase(w_dict.dstorage)
         strategy = self.space.fromcache(ObjectDictStrategy)
         dict_w = strategy.unerase(strategy.get_empty_storage())
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(dict_w)
         assert w_obj.getdict(self.space) is w_dict or w_obj._get_mapdict_map().terminator.w_cls is None
         materialize_r_dict(self.space, w_obj, dict_w)
@@ -779,7 +785,7 @@ class MapDictIteratorKeys(BaseKeyIterator):
 
     def next_key_entry(self):
         implementation = self.dictimplementation
-        assert isinstance(implementation.strategy, MapDictStrategy)
+        assert isinstance(implementation.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None
         if self.curr_map:
@@ -801,7 +807,7 @@ class MapDictIteratorValues(BaseValueIterator):
 
     def next_value_entry(self):
         implementation = self.dictimplementation
-        assert isinstance(implementation.strategy, MapDictStrategy)
+        assert isinstance(implementation.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None
         if self.curr_map:
@@ -822,7 +828,7 @@ class MapDictIteratorItems(BaseItemIterator):
 
     def next_item_entry(self):
         implementation = self.dictimplementation
-        assert isinstance(implementation.strategy, MapDictStrategy)
+        assert isinstance(implementation.get_strategy(), MapDictStrategy)
         if self.orig_map is not self.w_obj._get_mapdict_map():
             return None, None
         if self.curr_map:

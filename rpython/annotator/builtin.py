@@ -2,15 +2,17 @@
 Built-in functions.
 """
 import sys
+from collections import OrderedDict, defaultdict
 
 from rpython.annotator.model import (
-    SomeInteger, SomeObject, SomeChar, SomeBool, SomeString, SomeTuple,
+    SomeInteger, SomeChar, SomeBool, SomeString, SomeTuple,
     SomeUnicodeCodePoint, SomeFloat, unionof, SomeUnicodeString,
     SomePBC, SomeInstance, SomeDict, SomeList, SomeWeakRef, SomeIterator,
     SomeOrderedDict, SomeByteArray, add_knowntypedata, s_ImpossibleValue,)
 from rpython.annotator.bookkeeper import (
     getbookkeeper, immutablevalue, BUILTIN_ANALYZERS, analyzer_for)
 from rpython.annotator import description
+from rpython.annotator.classdesc import ClassDef
 from rpython.flowspace.model import Constant
 import rpython.rlib.rarithmetic
 import rpython.rlib.objectmodel
@@ -121,78 +123,6 @@ def builtin_unicode(s_unicode):
 def builtin_bytearray(s_str):
     return SomeByteArray()
 
-def our_issubclass(cls1, cls2):
-    """ we're going to try to be less silly in the face of old-style classes"""
-    from rpython.annotator.classdef import ClassDef
-    if cls2 is object:
-        return True
-    def classify(cls):
-        if isinstance(cls, ClassDef):
-            return 'def'
-        if cls.__module__ == '__builtin__':
-            return 'builtin'
-        else:
-            return 'cls'
-    kind1 = classify(cls1)
-    kind2 = classify(cls2)
-    if kind1 != 'def' and kind2 != 'def':
-        return issubclass(cls1, cls2)
-    if kind1 == 'builtin' and kind2 == 'def':
-        return False
-    elif kind1 == 'def' and kind2 == 'builtin':
-        return issubclass(object, cls2)
-    else:
-        bk = getbookkeeper()
-        def toclassdef(kind, cls):
-            if kind != 'def':
-                return bk.getuniqueclassdef(cls)
-            else:
-                return cls
-        return toclassdef(kind1, cls1).issubclass(toclassdef(kind2, cls2))
-
-
-def builtin_isinstance(s_obj, s_type, variables=None):
-    r = SomeBool()
-    if s_type.is_constant():
-        typ = s_type.const
-        if issubclass(typ, rpython.rlib.rarithmetic.base_int):
-            try:
-                r.const = issubclass(s_obj.knowntype, typ)
-            except TypeError:    # s_obj.knowntype is not a Python type at all
-                r.const = False
-        else:
-            if typ == long:
-                getbookkeeper().warning("isinstance(., long) is not RPython")
-                r.const = False
-                return r
-
-            assert not issubclass(typ, (int, long)) or typ in (bool, int, long), (
-                "for integers only isinstance(.,int|r_uint) are supported")
-
-            if s_obj.is_constant():
-                r.const = isinstance(s_obj.const, typ)
-            elif our_issubclass(s_obj.knowntype, typ):
-                if not s_obj.can_be_none():
-                    r.const = True
-            elif not our_issubclass(typ, s_obj.knowntype):
-                r.const = False
-            elif s_obj.knowntype == int and typ == bool: # xxx this will explode in case of generalisation
-                                                   # from bool to int, notice that isinstance( , bool|int)
-                                                   # is quite border case for RPython
-                r.const = False
-        bk = getbookkeeper()
-        if variables is None:
-            op = bk._find_current_op("simple_call", 3)
-            assert op.args[0] == Constant(isinstance)
-            variables = [op.args[1]]
-        for variable in variables:
-            assert bk.annotator.binding(variable) == s_obj
-        knowntypedata = {}
-        if not hasattr(typ, '_freeze_') and isinstance(s_type, SomePBC):
-            add_knowntypedata(knowntypedata, True, variables, bk.valueoftype(typ))
-        r.set_knowntypedata(knowntypedata)
-    return r
-
 # note that this one either needs to be constant, or we will create SomeObject
 def builtin_hasattr(s_obj, s_attr):
     if not s_attr.is_constant() or not isinstance(s_attr.const, str):
@@ -218,10 +148,11 @@ def builtin_tuple(s_iterable):
     raise AnnotatorError("tuple(): argument must be another tuple")
 
 def builtin_list(s_iterable):
+    bk = getbookkeeper()
     if isinstance(s_iterable, SomeList):
-        return s_iterable.listdef.offspring()
+        return s_iterable.listdef.offspring(bk)
     s_iter = s_iterable.iter()
-    return getbookkeeper().newlist(s_iter.next())
+    return bk.newlist(s_iter.next())
 
 def builtin_zip(s_iterable1, s_iterable2): # xxx not actually implemented
     s_iter1 = s_iterable1.iter()
@@ -290,7 +221,7 @@ def rarith_longlongmask(s_obj):
     return SomeInteger(knowntype=rpython.rlib.rarithmetic.r_longlong)
 
 @analyzer_for(rpython.rlib.objectmodel.instantiate)
-def robjmodel_instantiate(s_clspbc):
+def robjmodel_instantiate(s_clspbc, s_nonmovable=None):
     assert isinstance(s_clspbc, SomePBC)
     clsdef = None
     more_than_one = len(s_clspbc.descriptions) > 1
@@ -356,7 +287,7 @@ else:
     def unicodedata_decimal(s_uchr):
         raise TypeError("unicodedate.decimal() calls should not happen at interp-level")
 
-@analyzer_for(SomeOrderedDict.knowntype)
+@analyzer_for(OrderedDict)
 def analyze():
     return SomeOrderedDict(getbookkeeper().getdictdef())
 

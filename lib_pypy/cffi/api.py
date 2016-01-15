@@ -72,6 +72,8 @@ class FFI(object):
         self._cdefsources = []
         self._included_ffis = []
         self._windows_unicode = None
+        self._init_once_cache = {}
+        self._cdef_version = None
         if hasattr(backend, 'set_ffi'):
             backend.set_ffi(self)
         for name in backend.__dict__:
@@ -104,6 +106,7 @@ class FFI(object):
                 raise TypeError("cdef() argument must be a string")
             csource = csource.encode('ascii')
         with self._lock:
+            self._cdef_version = object()
             self._parser.parse(csource, override=override, packed=packed)
             self._cdefsources.append(csource)
             if override:
@@ -309,6 +312,22 @@ class FFI(object):
         in some other format, like 'array.array' or numpy arrays.
         """
         return self._backend.from_buffer(self.BCharA, python_buffer)
+
+    def memmove(self, dest, src, n):
+        """ffi.memmove(dest, src, n) copies n bytes of memory from src to dest.
+
+        Like the C function memmove(), the memory areas may overlap;
+        apart from that it behaves like the C function memcpy().
+
+        'src' can be any cdata ptr or array, or any Python buffer object.
+        'dest' can be any cdata ptr or array, or a writable Python buffer
+        object.  The size to copy, 'n', is always measured in bytes.
+
+        Unlike other methods, this one supports all Python buffer including
+        byte strings and bytearrays---but it still does not support
+        non-contiguous buffers.
+        """
+        return self._backend.memmove(dest, src, n)
 
     def callback(self, cdecl, python_callable=None, error=None, onerror=None):
         """Return a callback object or a decorator making such a
@@ -573,14 +592,39 @@ class FFI(object):
         recompile(self, module_name, source,
                   c_file=filename, call_c_compiler=False, **kwds)
 
-    def compile(self, tmpdir='.'):
+    def compile(self, tmpdir='.', verbose=0):
         from .recompiler import recompile
         #
         if not hasattr(self, '_assigned_source'):
             raise ValueError("set_source() must be called before compile()")
         module_name, source, source_extension, kwds = self._assigned_source
         return recompile(self, module_name, source, tmpdir=tmpdir,
-                         source_extension=source_extension, **kwds)
+                         source_extension=source_extension,
+                         compiler_verbose=verbose, **kwds)
+
+    def init_once(self, func, tag):
+        # Read _init_once_cache[tag], which is either (False, lock) if
+        # we're calling the function now in some thread, or (True, result).
+        # Don't call setdefault() in most cases, to avoid allocating and
+        # immediately freeing a lock; but still use setdefaut() to avoid
+        # races.
+        try:
+            x = self._init_once_cache[tag]
+        except KeyError:
+            x = self._init_once_cache.setdefault(tag, (False, allocate_lock()))
+        # Common case: we got (True, result), so we return the result.
+        if x[0]:
+            return x[1]
+        # Else, it's a lock.  Acquire it to serialize the following tests.
+        with x[1]:
+            # Read again from _init_once_cache the current status.
+            x = self._init_once_cache[tag]
+            if x[0]:
+                return x[1]
+            # Call the function and store the result back.
+            result = func()
+            self._init_once_cache[tag] = (True, result)
+        return result
 
 
 def _load_backend_lib(backend, name, flags):
@@ -604,70 +648,70 @@ def _make_ffi_library(ffi, libname, flags):
     import os
     backend = ffi._backend
     backendlib = _load_backend_lib(backend, libname, flags)
-    copied_enums = []
     #
-    def make_accessor_locked(name):
+    def accessor_function(name):
         key = 'function ' + name
-        if key in ffi._parser._declarations:
-            tp, _ = ffi._parser._declarations[key]
-            BType = ffi._get_cached_btype(tp)
-            try:
-                value = backendlib.load_function(BType, name)
-            except KeyError as e:
-                raise AttributeError('%s: %s' % (name, e))
-            library.__dict__[name] = value
-            return
-        #
+        tp, _ = ffi._parser._declarations[key]
+        BType = ffi._get_cached_btype(tp)
+        try:
+            value = backendlib.load_function(BType, name)
+        except KeyError as e:
+            raise AttributeError('%s: %s' % (name, e))
+        library.__dict__[name] = value
+    #
+    def accessor_variable(name):
         key = 'variable ' + name
-        if key in ffi._parser._declarations:
-            tp, _ = ffi._parser._declarations[key]
-            BType = ffi._get_cached_btype(tp)
-            read_variable = backendlib.read_variable
-            write_variable = backendlib.write_variable
-            setattr(FFILibrary, name, property(
-                lambda self: read_variable(BType, name),
-                lambda self, value: write_variable(BType, name, value)))
+        tp, _ = ffi._parser._declarations[key]
+        BType = ffi._get_cached_btype(tp)
+        read_variable = backendlib.read_variable
+        write_variable = backendlib.write_variable
+        setattr(FFILibrary, name, property(
+            lambda self: read_variable(BType, name),
+            lambda self, value: write_variable(BType, name, value)))
+    #
+    def accessor_constant(name):
+        raise NotImplementedError("non-integer constant '%s' cannot be "
+                                  "accessed from a dlopen() library" % (name,))
+    #
+    def accessor_int_constant(name):
+        library.__dict__[name] = ffi._parser._int_constants[name]
+    #
+    accessors = {}
+    accessors_version = [False]
+    #
+    def update_accessors():
+        if accessors_version[0] is ffi._cdef_version:
             return
         #
-        if not copied_enums:
-            from . import model
-            error = None
-            for key, (tp, _) in ffi._parser._declarations.items():
-                if not isinstance(tp, model.EnumType):
-                    continue
-                try:
-                    tp.check_not_partial()
-                except Exception as e:
-                    error = e
-                    continue
-                for enumname, enumval in zip(tp.enumerators, tp.enumvalues):
-                    if enumname not in library.__dict__:
-                        library.__dict__[enumname] = enumval
-            if error is not None:
-                if name in library.__dict__:
-                    return     # ignore error, about a different enum
-                raise error
-
-            for key, val in ffi._parser._int_constants.items():
-                if key not in library.__dict__:
-                    library.__dict__[key] = val
-
-            copied_enums.append(True)
-            if name in library.__dict__:
-                return
-        #
-        key = 'constant ' + name
-        if key in ffi._parser._declarations:
-            raise NotImplementedError("fetching a non-integer constant "
-                                      "after dlopen()")
-        #
-        raise AttributeError(name)
+        from . import model
+        for key, (tp, _) in ffi._parser._declarations.items():
+            if not isinstance(tp, model.EnumType):
+                tag, name = key.split(' ', 1)
+                if tag == 'function':
+                    accessors[name] = accessor_function
+                elif tag == 'variable':
+                    accessors[name] = accessor_variable
+                elif tag == 'constant':
+                    accessors[name] = accessor_constant
+            else:
+                for i, enumname in enumerate(tp.enumerators):
+                    def accessor_enum(name, tp=tp, i=i):
+                        tp.check_not_partial()
+                        library.__dict__[name] = tp.enumvalues[i]
+                    accessors[enumname] = accessor_enum
+        for name in ffi._parser._int_constants:
+            accessors.setdefault(name, accessor_int_constant)
+        accessors_version[0] = ffi._cdef_version
     #
     def make_accessor(name):
         with ffi._lock:
             if name in library.__dict__ or name in FFILibrary.__dict__:
                 return    # added by another thread while waiting for the lock
-            make_accessor_locked(name)
+            if name not in accessors:
+                update_accessors()
+                if name not in accessors:
+                    raise AttributeError(name)
+            accessors[name](name)
     #
     class FFILibrary(object):
         def __getattr__(self, name):
@@ -681,6 +725,10 @@ def _make_ffi_library(ffi, libname, flags):
                 setattr(self, name, value)
             else:
                 property.__set__(self, value)
+        def __dir__(self):
+            with ffi._lock:
+                update_accessors()
+                return accessors.keys()
     #
     if libname is not None:
         try:

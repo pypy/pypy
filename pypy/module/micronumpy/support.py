@@ -7,6 +7,18 @@ from pypy.interpreter.gateway import unwrap_spec, appdef
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objspace import StdObjSpace
+from pypy.module.micronumpy import constants as NPY
+from pypy.module.exceptions.interp_exceptions import _new_exception, W_UserWarning
+
+W_VisibleDeprecationWarning = _new_exception('VisibleDeprecationWarning', W_UserWarning,
+    """Visible deprecation warning.
+
+    By default, python will not show deprecation warnings, so this class
+    can be used when a very visible warning is helpful, for example because
+    the usage is most likely a user bug.
+
+    """)
+
 
 def issequence_w(space, w_obj):
     from pypy.module.micronumpy.base import W_NDimArray
@@ -176,15 +188,11 @@ def is_rhs_priority_higher(space, w_lhs, w_rhs):
     return space.is_true(space.gt(w_priority_r, w_priority_l))
 
 def get_order_as_CF(proto_order, req_order):
-    if req_order == 'C':
-        return 'C'
-    elif req_order == 'F':
-        return 'F'
-    elif req_order == 'K':
-        return proto_order
-    elif req_order == 'A':
-        return proto_order
-
+    if req_order == NPY.CORDER:
+        return NPY.CORDER
+    elif req_order == NPY.FORTRANORDER:
+        return NPY.FORTRANORDER
+    return proto_order
 
 def descr_set_docstring(space, w_obj, w_docstring):
     if not isinstance(space, StdObjSpace):

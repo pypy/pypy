@@ -69,6 +69,7 @@ class FakeMetaInterp:
         index = 0
         warmstate = FakeState()
         virtualizable_info = None
+        vec = False
 
 def test_compile_loop():
     cpu = FakeCPU()

@@ -76,9 +76,12 @@ def sscopy_attach_shadow_stack(sscopy):
 def alloc_stacklet():
     new_stacklet = lltype.malloc(STACKLET)
     new_stacklet.s_handle = _c.null_handle
+    new_stacklet.s_sscopy = llmemory.NULL
     return new_stacklet
 
 def attach_handle_on_stacklet(stacklet, h):
+    ll_assert(stacklet.s_handle == _c.null_handle, "attach stacklet 1: garbage")
+    ll_assert(stacklet.s_sscopy == llmemory.NULL,  "attach stacklet 2: garbage")
     if not h:
         raise MemoryError
     elif _c.is_empty_handle(h):

@@ -413,8 +413,9 @@ class AppTestW_TupleObject:
             from __pypy__ import specialized_zip_2_lists
         except ImportError:
             specialized_zip_2_lists = zip
-        raises(TypeError, specialized_zip_2_lists, [], ())
-        raises(TypeError, specialized_zip_2_lists, (), [])
+        else:
+            raises(TypeError, specialized_zip_2_lists, [], ())
+            raises(TypeError, specialized_zip_2_lists, (), [])
         assert specialized_zip_2_lists([], []) == [
             ]
         assert specialized_zip_2_lists([2, 3], []) == [

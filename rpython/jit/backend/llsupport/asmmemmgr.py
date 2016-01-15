@@ -25,6 +25,10 @@ class AsmMemoryManager(object):
         self.free_blocks_end = {}  # map {stop: start}
         self.blocks_by_size = [[] for i in range(self.num_indices)]
 
+    def get_stats(self):
+        """Returns stats for rlib.jit.jit_hooks.stats_asmmemmgr_*()."""
+        return (self.total_memory_allocated, self.total_mallocs)
+
     def malloc(self, minsize, maxsize):
         """Allocate executable memory, between minsize and maxsize bytes,
         and return a pair (start, stop).  Does not perform any rounding

@@ -27,8 +27,6 @@ class TestThread(BaseTestPyPyC):
         guard_not_invalidated(descr=...)
         p62 = getfield_gc_r(ConstPtr(ptr37), descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy \d+>)
         guard_value(p62, ConstPtr(ptr39), descr=...)
-        p64 = getfield_gc_r(ConstPtr(ptr40), descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy \d+>)
-        guard_value(p64, ConstPtr(ptr42), descr=...)
         p65 = getfield_gc_r(p14, descr=<FieldP pypy.objspace.std.mapdict.W_ObjectObjectSize5.inst_map \d+>)
         guard_value(p65, ConstPtr(ptr45), descr=...)
         p67 = force_token()

@@ -1247,6 +1247,26 @@ class TestMiniMarkGC(TestHybridGC):
         res = self.runner('nursery_hash_base')
         assert res([]) >= 195
 
+    def define_instantiate_nonmovable(cls):
+        from rpython.rlib import objectmodel
+        from rpython.rtyper import annlowlevel
+        class A:
+            pass
+        def fn():
+            a1 = A()
+            a = objectmodel.instantiate(A, nonmovable=True)
+            a.next = a1  # 'a' is known young here, so no write barrier emitted
+            res = rgc.can_move(annlowlevel.cast_instance_to_base_ptr(a))
+            rgc.collect()
+            objectmodel.keepalive_until_here(a)
+            return res
+        return fn
+
+    def test_instantiate_nonmovable(self):
+        res = self.runner('instantiate_nonmovable')
+        assert res([]) == 0
+
+
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcname = "incminimark"
 

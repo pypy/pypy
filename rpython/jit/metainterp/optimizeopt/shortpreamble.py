@@ -81,7 +81,7 @@ class HeapOp(AbstractShortOp):
             assert index >= 0
             cf = optheap.arrayitem_cache(descr, index)
             opinfo.setitem(self.getfield_op.getdescr(), index, self.res,
-                           pop, cf, optheap=optheap)
+                           pop, optheap, cf)
 
     def repr(self, memo):
         return "HeapOp(%s, %s)" % (self.res.repr(memo),
@@ -455,8 +455,7 @@ class ExtendedShortPreambleBuilder(AbstractShortPreambleBuilder):
         self.extra_same_as = self.sb.extra_same_as
         self.target_token = target_token
 
-    def setup(self, inputargs, jump_args, short, label_args):
-        self.inputargs = inputargs
+    def setup(self, jump_args, short, label_args):
         self.jump_args = jump_args
         self.short = short
         self.label_args = label_args

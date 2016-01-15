@@ -672,6 +672,55 @@ class BlackholeInterpreter(object):
         b = longlong.getrealfloat(b)
         return a >= b
 
+    @arguments("f", "f", "L", "pc", returns="L")
+    def bhimpl_goto_if_not_float_lt(a, b, target, pc):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        if a < b:
+            return pc
+        else:
+            return target
+    @arguments("f", "f", "L", "pc", returns="L")
+    def bhimpl_goto_if_not_float_le(a, b, target, pc):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        if a <= b:
+            return pc
+        else:
+            return target
+    @arguments("f", "f", "L", "pc", returns="L")
+    def bhimpl_goto_if_not_float_eq(a, b, target, pc):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        if a == b:
+            return pc
+        else:
+            return target
+    @arguments("f", "f", "L", "pc", returns="L")
+    def bhimpl_goto_if_not_float_ne(a, b, target, pc):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        if a != b:
+            return pc
+        else:
+            return target
+    @arguments("f", "f", "L", "pc", returns="L")
+    def bhimpl_goto_if_not_float_gt(a, b, target, pc):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        if a > b:
+            return pc
+        else:
+            return target
+    @arguments("f", "f", "L", "pc", returns="L")
+    def bhimpl_goto_if_not_float_ge(a, b, target, pc):
+        a = longlong.getrealfloat(a)
+        b = longlong.getrealfloat(b)
+        if a >= b:
+            return pc
+        else:
+            return target
+
     @arguments("f", returns="i")
     def bhimpl_cast_float_to_int(a):
         a = longlong.getrealfloat(a)
@@ -1217,9 +1266,6 @@ class BlackholeInterpreter(object):
     def bhimpl_getarrayitem_raw_f(cpu, array, index, arraydescr):
         return cpu.bh_getarrayitem_raw_f(array, index, arraydescr)
 
-    bhimpl_getarrayitem_raw_i_pure = bhimpl_getarrayitem_raw_i
-    bhimpl_getarrayitem_raw_f_pure = bhimpl_getarrayitem_raw_f
-
     @arguments("cpu", "r", "i", "i", "d")
     def bhimpl_setarrayitem_gc_i(cpu, array, index, newvalue, arraydescr):
         cpu.bh_setarrayitem_gc_i(array, index, newvalue, arraydescr)
@@ -1338,16 +1384,11 @@ class BlackholeInterpreter(object):
     def bhimpl_getfield_raw_i(cpu, struct, fielddescr):
         return cpu.bh_getfield_raw_i(struct, fielddescr)
     @arguments("cpu", "i", "d", returns="r")
-    def _bhimpl_getfield_raw_r(cpu, struct, fielddescr):
-        # only for 'getfield_raw_r_pure'
+    def bhimpl_getfield_raw_r(cpu, struct, fielddescr):   # for pure only
         return cpu.bh_getfield_raw_r(struct, fielddescr)
     @arguments("cpu", "i", "d", returns="f")
     def bhimpl_getfield_raw_f(cpu, struct, fielddescr):
         return cpu.bh_getfield_raw_f(struct, fielddescr)
-
-    bhimpl_getfield_raw_i_pure = bhimpl_getfield_raw_i
-    bhimpl_getfield_raw_r_pure = _bhimpl_getfield_raw_r
-    bhimpl_getfield_raw_f_pure = bhimpl_getfield_raw_f
 
     @arguments("cpu", "r", "i", "d")
     def bhimpl_setfield_gc_i(cpu, struct, newvalue, fielddescr):
@@ -1392,6 +1433,13 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "i", "i", "d", returns="f")
     def bhimpl_raw_load_f(cpu, addr, offset, arraydescr):
         return cpu.bh_raw_load_f(addr, offset, arraydescr)
+
+    @arguments("cpu", "r", "i", "i", "i", "i", returns="i")
+    def bhimpl_gc_load_indexed_i(cpu, addr, index, scale, base_ofs, bytes):
+        return cpu.bh_gc_load_indexed_i(addr, index,scale,base_ofs, bytes)
+    @arguments("cpu", "r", "i", "i", "i", "i", returns="f")
+    def bhimpl_gc_load_indexed_f(cpu, addr, index, scale, base_ofs, bytes):
+        return cpu.bh_gc_load_indexed_f(addr, index,scale,base_ofs, bytes)
 
     @arguments("r", "d", "d")
     def bhimpl_record_quasiimmut_field(struct, fielddescr, mutatefielddescr):
@@ -1611,6 +1659,7 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr, deadframe,
     #debug_start('jit-blackhole')
     blackholeinterp = blackhole_from_resumedata(
         metainterp_sd.blackholeinterpbuilder,
+        metainterp_sd.jitcodes,
         jitdriver_sd,
         resumedescr,
         deadframe,

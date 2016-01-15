@@ -35,15 +35,11 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
                 return True
         return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(self, graph,
                                                                   seen)
-    def analyze_external_call(self, op, seen=None):
-        try:
-            funcobj = op.args[0].value._obj
-        except lltype.DelayedPointer:
+    def analyze_external_call(self, funcobj, seen=None):
+        if funcobj.random_effects_on_gcobjs:
             return True
-        if getattr(funcobj, 'random_effects_on_gcobjs', False):
-            return True
-        return graphanalyze.BoolGraphAnalyzer.analyze_external_call(self, op,
-                                                                    seen)
+        return graphanalyze.BoolGraphAnalyzer.analyze_external_call(
+            self, funcobj, seen)
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname in ('malloc', 'malloc_varsize'):
             flags = op.args[1].value
@@ -531,6 +527,9 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                              getfn(func,
                                                    [SomeAddress()],
                                                    annmodel.s_None)
+        self.malloc_nonmovable_ptr = getfn(GCClass.malloc_fixedsize_nonmovable,
+                                           [s_gc, s_typeid16],
+                                           s_gcref)
 
     def create_custom_trace_funcs(self, gc, rtyper):
         custom_trace_funcs = tuple(rtyper.custom_trace_funcs)
@@ -757,7 +756,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
         c_has_light_finalizer = rmodel.inputconst(lltype.Bool,
                                                   has_light_finalizer)
 
-        if not op.opname.endswith('_varsize') and not flags.get('varsize'):
+        if flags.get('nonmovable'):
+            assert op.opname == 'malloc'
+            assert not flags.get('varsize')
+            malloc_ptr = self.malloc_nonmovable_ptr
+            args = [self.c_const_gc, c_type_id]
+        elif not op.opname.endswith('_varsize') and not flags.get('varsize'):
             zero = flags.get('zero', False)
             if (self.malloc_fast_ptr is not None and
                 not c_has_finalizer.value and
@@ -1116,8 +1120,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc_thread_run(self, hop):
-        assert self.translator.config.translation.thread
-        if hasattr(self.root_walker, 'thread_run_ptr'):
+        if (self.translator.config.translation.thread and
+                hasattr(self.root_walker, 'thread_run_ptr')):
             livevars = self.push_roots(hop)
             assert not livevars, "live GC var around %s!" % (hop.spaceop,)
             hop.genop("direct_call", [self.root_walker.thread_run_ptr])

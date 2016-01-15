@@ -146,7 +146,9 @@ extern "C" {
     ((Py_ssize_t(*)(CTypeDescrObject *, PyObject *, char **))_cffi_exports[23])
 #define _cffi_convert_array_from_object                                  \
     ((int(*)(char *, CTypeDescrObject *, PyObject *))_cffi_exports[24])
-#define _CFFI_NUM_EXPORTS 25
+#define _cffi_call_python                                                \
+    ((void(*)(struct _cffi_externpy_s *, char *))_cffi_exports[25])
+#define _CFFI_NUM_EXPORTS 26
 
 typedef struct _ctypedescr CTypeDescrObject;
 
@@ -201,8 +203,11 @@ static PyObject **_cffi_unpack_args(PyObject *args_tuple, Py_ssize_t expected,
                                                   the others follow */
 }
 
-#endif
 /**********  end CPython-specific section  **********/
+#else
+_CFFI_UNUSED_FN
+static void (*_cffi_call_python)(struct _cffi_externpy_s *, char *);
+#endif
 
 
 #define _cffi_array_len(array)   (sizeof(array) / sizeof((array)[0]))

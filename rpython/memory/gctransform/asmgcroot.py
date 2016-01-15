@@ -633,7 +633,7 @@ def sort_gcmap(gcmapstart, gcmapend):
     qsort(gcmapstart,
           rffi.cast(rffi.SIZE_T, count),
           rffi.cast(rffi.SIZE_T, arrayitemsize),
-          llhelper(QSORT_CALLBACK_PTR, _compare_gcmap_entries))
+          c_compare_gcmap_entries)
 
 def replace_dead_entries_with_nulls(start, end):
     # replace the dead entries (null value) with a null key.
@@ -660,17 +660,6 @@ if sys.platform == 'win32':
 else:
     def win32_follow_gcmap_jmp(start, end):
         pass
-
-def _compare_gcmap_entries(addr1, addr2):
-    key1 = addr1.address[0]
-    key2 = addr2.address[0]
-    if key1 < key2:
-        result = -1
-    elif key1 == key2:
-        result = 0
-    else:
-        result = 1
-    return rffi.cast(rffi.INT, result)
 
 # ____________________________________________________________
 
@@ -821,7 +810,20 @@ gcrootanchor.prev = gcrootanchor
 gcrootanchor.next = gcrootanchor
 c_gcrootanchor = Constant(gcrootanchor, ASM_FRAMEDATA_HEAD_PTR)
 
-eci = ExternalCompilationInfo(compile_extra=['-DPYPY_USE_ASMGCC'])
+eci = ExternalCompilationInfo(compile_extra=['-DPYPY_USE_ASMGCC'],
+                              post_include_bits=["""
+static int pypy_compare_gcmap_entries(const void *addr1, const void *addr2)
+{
+    char *key1 = * (char * const *) addr1;
+    char *key2 = * (char * const *) addr2;
+    if (key1 < key2)
+        return -1;
+    else if (key1 == key2)
+        return 0;
+    else
+        return 1;
+}
+"""])
 
 pypy_asm_stackwalk = rffi.llexternal('pypy_asm_stackwalk',
                                      [ASM_CALLBACK_PTR,
@@ -849,6 +851,10 @@ c_asm_nocollect = Constant(pypy_asm_nocollect, lltype.typeOf(pypy_asm_nocollect)
 
 QSORT_CALLBACK_PTR = lltype.Ptr(lltype.FuncType([llmemory.Address,
                                                  llmemory.Address], rffi.INT))
+c_compare_gcmap_entries = rffi.llexternal('pypy_compare_gcmap_entries',
+                                          [llmemory.Address, llmemory.Address],
+                                          rffi.INT, compilation_info=eci,
+                                          _nowrapper=True, sandboxsafe=True)
 qsort = rffi.llexternal('qsort',
                         [llmemory.Address,
                          rffi.SIZE_T,
