@@ -926,9 +926,6 @@ def new_funcnode(db, T, obj, forcename=None):
 def need_sandboxing(fnobj):
     if hasattr(fnobj, '_safe_not_sandboxed'):
         return not fnobj._safe_not_sandboxed
-    elif getattr(getattr(fnobj, '_callable', None),
-                    '_sandbox_external_name', None):
-        return True
     else:
         return "if_external"
 

@@ -131,11 +131,7 @@ def get_external_function_sandbox_graph(fnobj, rtyper):
     trampoline marshals its input arguments, dumps them to STDOUT,
     and waits for an answer on STDIN.
     """
-    if getattr(getattr(fnobj, '_callable', None),
-               '_sandbox_external_name', None):
-        fnname = fnobj._callable._sandbox_external_name
-    else:
-        fnname = fnobj._name
+    fnname = fnobj._name
     if hasattr(fnobj, 'graph'):
         graph = fnobj.graph
         args_s = [v.annotation for v in graph.getargs()]
