@@ -22,7 +22,7 @@ class CallBuilder(AbstractCallBuilder):
 
     def __init__(self, assembler, fnloc, arglocs, resloc, calldescr):
         type = INT
-        size = None
+        size = WORD
         self.ressign = True
         if calldescr is not None:
             assert isinstance(calldescr, CallDescr)

@@ -266,7 +266,9 @@ class ZARCHRegisterManager(RegisterManager):
         # there is no candidate pair that only would
         # require one spill, thus we need to spill two!
         # this is a rare case!
-        reverse_mapping = { reg : var for var, reg in self.reg_bindings.items() }
+        reverse_mapping = {}
+        for var, reg in self.reg_bindings.items():
+            reverse_mapping[reg] = var
         # always take the first
         for i, reg in enumerate(r.MANAGED_REGS):
             if i % 2 == 1:
