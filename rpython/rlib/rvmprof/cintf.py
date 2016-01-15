@@ -101,3 +101,4 @@ def enter_code(unique_id):
 
 def leave_code(s):
     vmprof_tl_stack.setraw(s.c_next)
+    lltype.free(s, flavor='raw')
