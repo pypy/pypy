@@ -279,7 +279,7 @@ class CallOpAssembler(object):
         adr = arglocs[func_index]
         arglist = arglocs[func_index+1:]
 
-        cb = callbuilder.CallBuilder(self, adr, arglist, resloc)
+        cb = callbuilder.CallBuilder(self, adr, arglist, resloc, op.getdescr())
 
         descr = op.getdescr()
         assert isinstance(descr, CallDescr)
@@ -1076,7 +1076,9 @@ class ForceOpAssembler(object):
             vloc = imm(0)
         self._store_force_index(self._find_nearby_operation(regalloc, +1))
         # 'result_loc' is either r2, f0 or None
+        self.subject_op = op
         self.call_assembler(op, argloc, vloc, result_loc, r.r2)
+        self.subject_op = None
         self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
 
     emit_call_assembler_i = _genop_call_assembler
@@ -1090,11 +1092,13 @@ class ForceOpAssembler(object):
         self.regalloc_mov(argloc, r.r2)
         self.mc.LG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
 
-        cb = callbuilder.CallBuilder(self, addr, [r.r2, r.r3], r.r2)
+        descr = self.subject_op.getdescr()
+        cb = callbuilder.CallBuilder(self, addr, [r.r2, r.r3], r.r2, descr)
         cb.emit()
 
     def _call_assembler_emit_helper_call(self, addr, arglocs, result_loc):
-        cb = callbuilder.CallBuilder(self, addr, arglocs, result_loc)
+        descr = self.subject_op.getdescr()
+        cb = callbuilder.CallBuilder(self, addr, arglocs, result_loc, descr)
         cb.emit()
 
     def _call_assembler_check_descr(self, value, tmploc):

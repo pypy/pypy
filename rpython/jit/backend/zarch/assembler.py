@@ -42,6 +42,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.current_clt = None
         self._regalloc = None
         self.datablockwrapper = None
+        self.subject_op = None # needed in call assembler to pass by the operation
         self.propagate_exception_path = 0
         self.stack_check_slowpath = 0
         self.loop_run_counters = []

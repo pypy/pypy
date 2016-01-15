@@ -10,6 +10,7 @@ from rpython.jit.backend.llsupport.jump import remap_frame_layout
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.backend.llsupport import llerrno
 from rpython.rtyper.lltypesystem import rffi
+from rpython.jit.backend.llsupport.descr import CallDescr
 
 class CallBuilder(AbstractCallBuilder):
     GPR_ARGS = [r.r2, r.r3, r.r4, r.r5, r.r6]
@@ -19,9 +20,18 @@ class CallBuilder(AbstractCallBuilder):
     RSHADOWPTR  = r.r9
     RFASTGILPTR = r.r10
 
-    def __init__(self, assembler, fnloc, arglocs, resloc):
+    def __init__(self, assembler, fnloc, arglocs, resloc, calldescr):
+        type = INT
+        size = None
+        self.ressign = True
+        if calldescr is not None:
+            assert isinstance(calldescr, CallDescr)
+            type = calldescr.get_result_type()
+            size = calldescr.get_result_size()
+            self.ressign = calldescr.is_result_signed()
+
         AbstractCallBuilder.__init__(self, assembler, fnloc, arglocs,
-                                     resloc, restype=INT, ressize=None)
+                                     resloc, restype=type, ressize=size)
 
     def prepare_arguments(self):
         self.subtracted_to_sp = 0
@@ -144,6 +154,30 @@ class CallBuilder(AbstractCallBuilder):
         # move the frame pointer
         self.mc.LAY(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
         self.mc.raw_call()
+        #
+        self.ensure_correct_signzero_extension()
+
+    def ensure_correct_signzero_extension(self):
+        if self.restype == 'i' and self.ressize != WORD:
+            # we must be sure! libffi (s390x impl) will not return
+            # a sane 64 bit zero/sign extended value. fix for this
+            # has been rejected (Jan. 2016). This will not be updated
+            # any time soon...
+            if self.ressign:
+                # sign extend!
+                if self.ressize == 1: self.mc.LGBR(r.r2, r.r2)
+                elif self.ressize == 2: self.mc.LGHR(r.r2, r.r2)
+                elif self.ressize == 4: self.mc.LGFR(r.r2, r.r2)
+                else:
+                    assert 0, "cannot sign extend size %d" % self.ressize
+            else:
+                # zero extend!
+                if self.ressize == 1: self.mc.LLGCR(r.r2, r.r2)
+                elif self.ressize == 2: self.mc.LLGHR(r.r2, r.r2)
+                elif self.ressize == 4: self.mc.LLGFR(r.r2, r.r2)
+                else:
+                    assert 0, "cannot zero extend size %d" % self.ressize
+
 
     def restore_stack_pointer(self):
         # it must at LEAST be 160 bytes

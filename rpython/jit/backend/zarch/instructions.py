@@ -155,10 +155,14 @@ memory_mnemonic_codes = {
     'LOCGR':  ('rrf_c',    ['\xB9','\xE2']),
     'LOCG':   ('rsy_b',    ['\xEB','\xE2']),
 
-    # load for sign ext
+    # load with sign ext
     'LGBR':   ('rre',      ['\xB9','\x06']),
     'LGHR':   ('rre',      ['\xB9','\x07']),
     'LGFR':   ('rre',      ['\xB9','\x14']),
+    # load with zero ext
+    'LLGCR':   ('rre',      ['\xB9','\x84']),
+    'LLGHR':   ('rre',      ['\xB9','\x85']),
+    'LLGFR':   ('rre',      ['\xB9','\x16']),
 
     # store memory
     'STMG':    ('rsy_a',   ['\xEB','\x24']),
