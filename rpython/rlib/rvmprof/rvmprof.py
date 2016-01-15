@@ -193,7 +193,7 @@ def vmprof_execute_code(name, get_code_fn, result_class=None):
             if we_are_translated() and not jit.we_are_jitted():
                 unique_id = get_code_fn(*args)._vmprof_unique_id
                 ll_args, token = lower(*args)
-                ll_trampoline = get_ll_trampoline(token, True)
+                ll_trampoline = get_ll_trampoline(token)
                 ll_result = ll_trampoline(*ll_args + (unique_id,))
             else:
                 return func(*args)

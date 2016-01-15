@@ -315,7 +315,7 @@ def get_shadowstackref(root_walker, gctransformer):
         while addr != start:
             addr -= sizeofaddr
             gc._trace_callback(callback, arg, addr)
-            
+
     gc = gctransformer.gcdata.gc
     assert not hasattr(gc, 'custom_trace_dispatcher')
     # ^^^ create_custom_trace_funcs() must not run before this
