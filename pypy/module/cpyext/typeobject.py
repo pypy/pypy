@@ -8,7 +8,8 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.typedef import GetSetProperty
+from pypy.interpreter.typedef import (GetSetProperty, TypeDef,
+        interp_attrproperty, interp_attrproperty, interp2app)
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
@@ -69,6 +70,7 @@ def PyDescr_NewGetSet(space, getset, w_type):
     return space.wrap(W_GetSetPropertyEx(getset, w_type))
 
 class W_MemberDescr(GetSetProperty):
+    name = 'member_descriptor'
     def __init__(self, member, w_type):
         self.member = member
         self.name = rffi.charp2str(member.c_name)
@@ -84,6 +86,18 @@ class W_MemberDescr(GetSetProperty):
         GetSetProperty.__init__(self, get, set, del_, doc,
                                 cls=None, use_closure=True,
                                 tag="cpyext_2")
+
+# change the typedef name
+W_MemberDescr.typedef = TypeDef(
+    "member_descriptor",
+    __get__ = interp2app(GetSetProperty.descr_property_get),
+    __set__ = interp2app(GetSetProperty.descr_property_set),
+    __delete__ = interp2app(GetSetProperty.descr_property_del),
+    __name__ = interp_attrproperty('name', cls=GetSetProperty),
+    __objclass__ = GetSetProperty(GetSetProperty.descr_get_objclass),
+    __doc__ = interp_attrproperty('doc', cls=GetSetProperty),
+    )
+assert not W_MemberDescr.typedef.acceptable_as_base_class  # no __new__
 
 def convert_getset_defs(space, dict_w, getsets, w_type):
     getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), getsets)
