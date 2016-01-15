@@ -9,18 +9,18 @@ from pypy.module._cffi_backend.lib_obj import W_LibObject
 
 
 VERSION_MIN    = 0x2601
-VERSION_MAX    = 0x26FF
+VERSION_MAX    = 0x27FF
 
 VERSION_EXPORT = 0x0A03
 
-initfunctype = lltype.Ptr(lltype.FuncType([rffi.VOIDPP], lltype.Void))
+INITFUNCPTR = lltype.Ptr(lltype.FuncType([rffi.VOIDPP], lltype.Void))
 
 
 def load_cffi1_module(space, name, path, initptr):
     # This is called from pypy.module.cpyext.api.load_extension_module()
     from pypy.module._cffi_backend.call_python import get_ll_cffi_call_python
 
-    initfunc = rffi.cast(initfunctype, initptr)
+    initfunc = rffi.cast(INITFUNCPTR, initptr)
     with lltype.scoped_alloc(rffi.VOIDPP.TO, 16, zero=True) as p:
         p[0] = rffi.cast(rffi.VOIDP, VERSION_EXPORT)
         p[1] = rffi.cast(rffi.VOIDP, get_ll_cffi_call_python())
@@ -41,7 +41,8 @@ def load_cffi1_module(space, name, path, initptr):
 
     w_name = space.wrap(name)
     module = Module(space, w_name)
-    module.setdictvalue(space, '__file__', space.wrap(path))
+    if path is not None:
+        module.setdictvalue(space, '__file__', space.wrap(path))
     module.setdictvalue(space, 'ffi', space.wrap(ffi))
     module.setdictvalue(space, 'lib', space.wrap(lib))
     w_modules_dict = space.sys.get('modules')
