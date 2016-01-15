@@ -414,14 +414,18 @@ class rbigint(object):
     @jit.elidable
     def _toint_helper(self):
         x = self._touint_helper()
-        # Haven't lost any bits, but if the sign bit is set we're in
-        # trouble *unless* this is the min negative number.  So,
-        # trouble iff sign bit set && (positive || some bit set other
-        # than the sign bit).
-        sign = self.sign
-        if intmask(x) < 0 and (sign > 0 or (x << 1) != 0):
-            raise OverflowError
-        return intmask(intmask(x) * sign)
+        # Haven't lost any bits so far
+        if self.sign >= 0:
+            res = intmask(x)
+            if res < 0:
+                raise OverflowError
+        else:
+            # Use "-" on the unsigned number, not on the signed number.
+            # This is needed to produce valid C code.
+            res = intmask(-x)
+            if res >= 0:
+                raise OverflowError
+        return res
 
     @jit.elidable
     def tolonglong(self):
