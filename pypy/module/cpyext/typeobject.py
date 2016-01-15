@@ -132,11 +132,12 @@ def memberdescr_attach(space, py_obj, w_obj):
     """
     py_memberdescr = rffi.cast(PyMemberDescrObject, py_obj)
     # XXX assign to d_dname, d_type?
+    assert isinstance(w_obj, W_MemberDescr)
     py_memberdescr.c_d_member = w_obj.member
 
 def memberdescr_realize(space, obj):
     # XXX NOT TESTED When is this ever called? 
-    member = rffi.cast(PyMemberDef, obj)
+    member = rffi.cast(lltype.Ptr(PyMemberDef), obj)
     w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
     w_obj = space.allocate_instance(W_MemberDescr, w_type)
     w_obj.__init__(member, w_type)
