@@ -1738,6 +1738,7 @@ class RefcountGCPolicy(GCPolicy):
 def extfunc(name, args, result, compilation_info):
     func_type = lltype.FuncType(args, result)
     return lltype.functionptr(func_type, name, external='C', calling_conv='c',
+                              random_effects_on_gcobjs=False,
                               compilation_info=compilation_info)
 
 eci = ExternalCompilationInfo()
