@@ -189,7 +189,7 @@ class ZARCHRegisterManager(RegisterManager):
         even, odd = None, None
         REGS = r.registers
         i = len(self.free_regs)-1
-        candidates = []
+        candidates = {}
         while i >= 0:
             even = self.free_regs[i]
             if even.is_even():
@@ -198,7 +198,7 @@ class ZARCHRegisterManager(RegisterManager):
                 if odd not in self.free_regs:
                     # sadly odd is not free, but for spilling
                     # we found a candidate
-                    candidates.append(odd)
+                    candidates[odd] = True
                     i -= 1
                     continue
                 assert var not in self.reg_bindings
@@ -218,7 +218,7 @@ class ZARCHRegisterManager(RegisterManager):
                 if even in r.MANAGED_REGS and even not in self.free_regs:
                     # yes even might be a candidate
                     # this means that odd is free, but not even
-                    candidates.append(even)
+                    candidates[even] = True
             i -= 1
 
         if len(candidates) != 0:
@@ -275,8 +275,10 @@ class ZARCHRegisterManager(RegisterManager):
                 reg2 = r.MANAGED_REGS[i+1]
                 assert reg.is_even() and reg2.is_odd()
                 ovar = reverse_mapping[reg]
-                ovar2 = reverse_mapping[reg2]
-                if ovar in forbidden_vars or ovar2 in forbidden_vars:
+                if ovar in forbidden_vars:
+                    continue
+                ovar2 = reverse_mapping.get(reg2, None)
+                if ovar2 is not None and ovar2 in forbidden_vars:
                     # blocked, try other register pair
                     continue
                 even = reg
@@ -284,7 +286,8 @@ class ZARCHRegisterManager(RegisterManager):
                 self._sync_var(ovar)
                 self._sync_var(ovar2)
                 del self.reg_bindings[ovar]
-                del self.reg_bindings[ovar2]
+                if ovar2 is not None:
+                    del self.reg_bindings[ovar2]
                 # both are not added to free_regs! no need to do so
                 self.reg_bindings[var] = even
                 self.reg_bindings[var2] = odd
