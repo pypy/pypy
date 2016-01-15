@@ -36,18 +36,14 @@ class AbstractAttribute(object):
         if attr is None:
             return self.terminator._read_terminator(obj, selector)
         if (
-            jit.isconstant(attr.storageindex) and
+            jit.isconstant(attr) and
             jit.isconstant(obj) and
             not attr.ever_mutated
         ):
-            result = self._pure_mapdict_read_storage(obj, attr.storageindex)
+            result = attr._pure_read(obj)
         else:
             result = obj._mapdict_read_storage(attr.storageindex)
         return attr._read_cell(result)
-
-    @jit.elidable
-    def _pure_mapdict_read_storage(self, obj, storageindex):
-        return obj._mapdict_read_storage(storageindex)
 
     def write(self, obj, selector, w_value):
         attr = self.find_map_attr(selector)
@@ -176,6 +172,8 @@ class AbstractAttribute(object):
         # the order is important here: first change the map, then the storage,
         # for the benefit of the special subclasses
         obj._set_mapdict_map(attr)
+        w_value = attr._write_cell(None, w_value)
+        assert w_value is not None
         obj._mapdict_write_storage(attr.storageindex, w_value)
 
     def materialize_r_dict(self, space, obj, dict_w):
@@ -298,6 +296,13 @@ class PlainAttribute(AbstractAttribute):
         # if the flag is False, we don't need to unbox the attribute.
         self.can_contain_mutable_cell = False
 
+    @jit.elidable
+    def _pure_read(self, obj):
+        # this is safe even if the mapdict stores a mutable cell. the cell can
+        # only be changed is ever_mutated is set to True
+        result = obj._mapdict_read_storage(self.storageindex)
+        return self._read_cell(result)
+
     def _read_cell(self, w_cell):
         if not self.can_contain_mutable_cell:
             return w_cell
@@ -313,16 +318,14 @@ class PlainAttribute(AbstractAttribute):
                 return None
             check = self._ensure_can_contain_mutable_cell()
             assert check
-            if self.ever_mutated:
-                return IntMutableCell(w_value.intval)
+            return IntMutableCell(w_value.intval)
         if type(w_value) is W_FloatObject:
             if isinstance(w_cell, FloatMutableCell):
                 w_cell.floatvalue = w_value.floatval
                 return None
             check = self._ensure_can_contain_mutable_cell()
             assert check
-            if self.ever_mutated:
-                return FloatMutableCell(w_value.floatval)
+            return FloatMutableCell(w_value.floatval)
         return w_value
 
     @jit.elidable
