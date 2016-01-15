@@ -3,7 +3,7 @@
 Based on two lists containing unwrapped key value pairs.
 """
 
-from rpython.rlib import jit, rerased
+from rpython.rlib import jit, rerased, objectmodel
 
 from pypy.objspace.std.dictmultiobject import (
     BytesDictStrategy, DictStrategy, EmptyDictStrategy, ObjectDictStrategy,
@@ -18,7 +18,7 @@ class EmptyKwargsDictStrategy(EmptyDictStrategy):
     def switch_to_bytes_strategy(self, w_dict):
         strategy = self.space.fromcache(KwargsDictStrategy)
         storage = strategy.get_empty_storage()
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
 
 
@@ -142,7 +142,7 @@ class KwargsDictStrategy(DictStrategy):
         d_new = strategy.unerase(strategy.get_empty_storage())
         for i in range(len(keys)):
             d_new[self.wrap(keys[i])] = values_w[i]
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(d_new)
 
     def switch_to_bytes_strategy(self, w_dict):
@@ -152,7 +152,7 @@ class KwargsDictStrategy(DictStrategy):
         d_new = strategy.unerase(storage)
         for i in range(len(keys)):
             d_new[keys[i]] = values_w[i]
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = storage
 
     def view_as_kwargs(self, w_dict):
@@ -165,13 +165,14 @@ class KwargsDictStrategy(DictStrategy):
     def getitervalues(self, w_dict):
         return iter(self.unerase(w_dict.dstorage)[1])
 
-    def getiteritems(self, w_dict):
-        return Zip(*self.unerase(w_dict.dstorage))
+    def getiteritems_with_hash(self, w_dict):
+        keys, values_w = self.unerase(w_dict.dstorage)
+        return ZipItemsWithHash(keys, values_w)
 
     wrapkey = _wrapkey
 
 
-class Zip(object):
+class ZipItemsWithHash(object):
     def __init__(self, list1, list2):
         assert len(list1) == len(list2)
         self.list1 = list1
@@ -186,6 +187,7 @@ class Zip(object):
         if i >= len(self.list1):
             raise StopIteration
         self.i = i + 1
-        return (self.list1[i], self.list2[i])
+        key = self.list1[i]
+        return (key, self.list2[i], objectmodel.compute_hash(key))
 
 create_iterator_classes(KwargsDictStrategy)

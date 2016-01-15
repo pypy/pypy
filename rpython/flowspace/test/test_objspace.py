@@ -1363,6 +1363,15 @@ class TestFlowObjSpace(Base):
         simplify_graph(graph)
         assert self.all_operations(graph) == {'bool': 1, 'inplace_add': 1}
 
+    def test_unexpected_builtin_function(self):
+        import itertools
+        e = py.test.raises(ValueError, build_flow, itertools.permutations)
+        assert ' is not RPython:' in str(e.value)
+        e = py.test.raises(ValueError, build_flow, itertools.tee)
+        assert ' is not RPython:' in str(e.value)
+        e = py.test.raises(ValueError, build_flow, Exception.__init__)
+        assert ' is not RPython:' in str(e.value)
+
 
 DATA = {'x': 5,
         'y': 6}

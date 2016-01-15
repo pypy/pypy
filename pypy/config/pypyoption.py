@@ -39,7 +39,9 @@ working_modules.update([
     "_csv", "cppyy", "_pypyjson"
 ])
 
-if sys.platform.startswith('linux') and os.uname()[4] == 'x86_64':
+if ((sys.platform.startswith('linux') or sys.platform == 'darwin')
+    and os.uname()[4] == 'x86_64' and sys.maxint > 2**32):
+    # it's not enough that we get x86_64
     working_modules.add('_vmprof')
 
 translation_modules = default_modules.copy()
@@ -74,6 +76,11 @@ if sys.platform == "sunos5":
     if "cppyy" in working_modules:
         working_modules.remove("cppyy")  # depends on ctypes
 
+#if sys.platform.startswith("linux"):
+#    _mach = os.popen('uname -m', 'r').read().strip()
+#    if _mach.startswith(...):
+#        working_modules.remove("_continuation")
+
 
 module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.time', True),
@@ -91,6 +98,8 @@ module_suggests = {
 if sys.platform == "win32":
     module_suggests["cpyext"].append(("translation.shared", True))
 
+
+# NOTE: this dictionary is not used any more
 module_import_dependencies = {
     # no _rawffi if importing rpython.rlib.clibffi raises ImportError
     # or CompilationError or py.test.skip.Exception
@@ -107,6 +116,7 @@ module_import_dependencies = {
     }
 
 def get_module_validator(modname):
+    # NOTE: this function is not used any more
     if modname in module_import_dependencies:
         modlist = module_import_dependencies[modname]
         def validator(config):

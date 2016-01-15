@@ -138,6 +138,13 @@ class BasePosix(Platform):
             rel = lpath.relto(rpypath)
             if rel:
                 return os.path.join('$(RPYDIR)', rel)
+            # Hack: also relativize from the path '$RPYDIR/..'.
+            # Otherwise, when translating pypy, we get the paths in
+            # pypy/module/* that are kept as absolute, which makes the
+            # whole purpose of $RPYDIR rather pointless.
+            rel = lpath.relto(rpypath.join('..'))
+            if rel:
+                return os.path.join('$(RPYDIR)', '..', rel)
             m_dir = m.makefile_dir
             if m_dir == lpath:
                 return '.'
@@ -181,6 +188,7 @@ class BasePosix(Platform):
             ('all', '$(DEFAULT_TARGET)', []),
             ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES) $(LDFLAGS)'),
             ('%.o', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
+            ('%.o', '%.s', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ('%.o', '%.cxx', '$(CXX) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ]
 

@@ -60,6 +60,13 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     @signature(types.any(), types.any(), types.int(), returns=types.any())
     @specialize.arg(0)
     def _get_raw_buf(TP, src, ofs):
+        """
+        WARNING: dragons ahead.
+        Return the address of the internal char* buffer of the low level
+        string. The return value is valid as long as no GC operation occur, so
+        you must ensure that it will be used inside a "GC safe" section, for
+        example by marking your function with @rgc.no_collect
+        """
         assert typeOf(src).TO == TP
         assert ofs >= 0
         return llmemory.cast_ptr_to_adr(src) + _str_ofs(TP, ofs)
@@ -131,9 +138,13 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
 
     return copy_string_to_raw, copy_raw_to_string, copy_string_contents
 
-copy_string_to_raw, copy_raw_to_string, copy_string_contents = _new_copy_contents_fun(STR, STR, Char, 'string')
-copy_unicode_to_raw, copy_raw_to_unicode, copy_unicode_contents = _new_copy_contents_fun(UNICODE, UNICODE,
-                                                                    UniChar, 'unicode')
+(copy_string_to_raw,
+ copy_raw_to_string,
+ copy_string_contents) = _new_copy_contents_fun(STR, STR, Char, 'string')
+
+(copy_unicode_to_raw,
+ copy_raw_to_unicode,
+ copy_unicode_contents) = _new_copy_contents_fun(UNICODE, UNICODE, UniChar, 'unicode')
 
 CONST_STR_CACHE = WeakValueDictionary()
 CONST_UNICODE_CACHE = WeakValueDictionary()

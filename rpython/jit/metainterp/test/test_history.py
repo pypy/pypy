@@ -13,18 +13,6 @@ def test_repr():
     const = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, s))
     assert const._getrepr_() == "*T"
 
-def test_repr_ll2ctypes():
-    ptr = lltype.malloc(rffi.VOIDPP.TO, 10, flavor='raw')
-    # force it to be a ll2ctypes object
-    ptr = rffi.cast(rffi.VOIDPP, rffi.cast(rffi.LONG, ptr))
-    adr = llmemory.cast_ptr_to_adr(ptr)
-    lltype.free(ptr, flavor='raw')
-    intval = llmemory.cast_adr_to_int(adr, 'symbolic')
-    box = BoxInt(intval)
-    s = box.repr_rpython()
-    assert s.startswith('12345/') # the arbitrary hash value used by
-                                  # make_hashable_int
-
 def test_same_constant():
     c1a = ConstInt(0)
     c1b = ConstInt(0)

@@ -1,9 +1,10 @@
 import ctypes
+from collections import OrderedDict
 
 import py
 
 from rpython.rlib.rfloat import NAN, INFINITY
-from rpython.rlib.entrypoint import entrypoint
+from rpython.rlib.entrypoint import entrypoint_highlevel
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 from rpython.rlib.objectmodel import specialize
@@ -494,7 +495,7 @@ def test_entrypoints():
         return 3
 
     key = "test_entrypoints42"
-    @entrypoint(key, [int], "foobar")
+    @entrypoint_highlevel(key, [int], "foobar")
     def g(x):
         return x + 42
 
@@ -573,11 +574,6 @@ def test_recursive_llhelper():
     assert fn(True)
 
 def test_ordered_dict():
-    try:
-        from collections import OrderedDict
-    except ImportError:
-        py.test.skip("Please update to Python 2.7")
-
     expected = [('ea', 1), ('bb', 2), ('c', 3), ('d', 4), ('e', 5),
                 ('ef', 6)]
     d = OrderedDict(expected)

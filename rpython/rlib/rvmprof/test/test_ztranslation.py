@@ -1,7 +1,11 @@
-import time, os
+import time, os, sys
+if __name__ == '__main__':
+    sys.path += ['../../../..']    # for subprocess in test_interpreted
+import py
 from rpython.tool.udir import udir
 from rpython.rlib import rvmprof
 from rpython.translator.c.test.test_genc import compile
+from rpython.rlib.nonconst import NonConstant
 
 
 class MyCode:
@@ -14,7 +18,10 @@ class MyCode:
 
 
 def setup_module(mod):
-    rvmprof.register_code_object_class(MyCode, MyCode.get_name)
+    try:
+        rvmprof.register_code_object_class(MyCode, MyCode.get_name)
+    except rvmprof.VMProfPlatformUnsupported, e:
+        py.test.skip(str(e))
 
 
 @rvmprof.vmprof_execute_code("interp", lambda code: code)
@@ -32,6 +39,9 @@ one_less._dont_inline_ = True
 PROF_FILE = str(udir.join('test_ztranslation.prof'))
 
 def main(argv=[]):
+    if NonConstant(False):
+        # Hack to give os.open() the correct annotation
+        os.open('foo', 1, 1)
     code1 = MyCode(6500)
     fd = os.open(PROF_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0666)
     rvmprof.enable(fd, 0.01)
@@ -52,7 +62,10 @@ def target(driver, args):
     return main
 
 def test_interpreted():
-    main()
+    # takes forever if the Python process is already big...
+    import subprocess
+    subprocess.check_call([sys.executable, os.path.basename(__file__)],
+                          cwd=(os.path.dirname(__file__) or '.'))
 
 def test_compiled():
     fn = compile(main, [], gcpolicy="minimark")
@@ -60,3 +73,8 @@ def test_compiled():
         os.unlink(PROF_FILE)
     fn()
     assert os.path.exists(PROF_FILE)
+
+if __name__ == '__main__':
+    setup_module(None)
+    res = main()
+    assert res == 0

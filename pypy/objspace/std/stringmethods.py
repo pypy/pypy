@@ -195,7 +195,8 @@ class StringMethods(object):
             splitted = split(value, self._chr('\t'))
 
         try:
-            ovfcheck(len(splitted) * tabsize)
+            if tabsize > 0:
+                ovfcheck(len(splitted) * tabsize)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "new string is too long")
         expanded = oldtoken = splitted.pop(0)
@@ -210,6 +211,8 @@ class StringMethods(object):
     def _tabindent(self, token, tabsize):
         """calculates distance behind the token to the next tabstop"""
 
+        if tabsize <= 0:
+            return 0
         distance = tabsize
         if token:
             distance = 0

@@ -28,7 +28,7 @@ elif sys.platform in ('linux2', 'freebsd6'):
     def _where_is_errno():
         return standard_c_lib.__errno_location()
 
-elif sys.platform in ('darwin', 'freebsd7', 'freebsd8', 'freebsd9'):
+elif sys.platform == 'darwin' or sys.platform.startswith('freebsd'):
     standard_c_lib.__error.restype = ctypes.POINTER(ctypes.c_int)
     standard_c_lib.__error.argtypes = None
     def _where_is_errno():

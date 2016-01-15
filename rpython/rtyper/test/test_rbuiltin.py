@@ -284,7 +284,7 @@ class TestRbuiltin(BaseRtypingTest):
         count = 0
         for dir_call in enum_direct_calls(test_llinterp.typer.annotator.translator, wr_open):
             cfptr = dir_call.args[0]
-            assert self.get_callable(cfptr.value).__name__.startswith('os_open')
+            assert self.get_callable(cfptr.value).__name__ == 'open'
             count += 1
         assert count == 1
 
@@ -431,6 +431,14 @@ class TestRbuiltin(BaseRtypingTest):
         assert self.class_name(res) == 'A'
         res = self.interpret(f, [2])
         assert self.class_name(res) == 'B'
+
+    def test_instantiate_nonmovable(self):
+        class A:
+            pass
+        def f():
+            return instantiate(A, nonmovable=True)   # no effect before GC
+        res = self.interpret(f, [])
+        assert self.class_name(res) == 'A'
 
     def test_os_path_join(self):
         def fn(a, b):

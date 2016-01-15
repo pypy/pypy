@@ -87,7 +87,10 @@ class VGenericEngine(object):
         return library
 
     def _get_declarations(self):
-        return sorted(self.ffi._parser._declarations.items())
+        lst = [(key, tp) for (key, (tp, qual)) in
+                                self.ffi._parser._declarations.items()]
+        lst.sort()
+        return lst
 
     def _generate(self, step_name):
         for name, tp in self._get_declarations():
@@ -156,7 +159,11 @@ class VGenericEngine(object):
         arglist = ', '.join(arglist) or 'void'
         wrappername = '_cffi_f_%s' % name
         self.export_symbols.append(wrappername)
-        funcdecl = ' %s(%s)' % (wrappername, arglist)
+        if tp.abi:
+            abi = tp.abi + ' '
+        else:
+            abi = ''
+        funcdecl = ' %s%s(%s)' % (abi, wrappername, arglist)
         context = 'result of %s' % name
         prnt(tpresult.get_c_name(funcdecl, context))
         prnt('{')
@@ -260,7 +267,7 @@ class VGenericEngine(object):
         prnt('{')
         prnt('  /* only to generate compile-time warnings or errors */')
         prnt('  (void)p;')
-        for fname, ftype, fbitsize in tp.enumfields():
+        for fname, ftype, fbitsize, fqual in tp.enumfields():
             if (isinstance(ftype, model.PrimitiveType)
                 and ftype.is_integer_type()) or fbitsize >= 0:
                 # accept all integers, but complain on float or double
@@ -269,7 +276,8 @@ class VGenericEngine(object):
                 # only accept exactly the type declared.
                 try:
                     prnt('  { %s = &p->%s; (void)tmp; }' % (
-                        ftype.get_c_name('*tmp', 'field %r'%fname), fname))
+                        ftype.get_c_name('*tmp', 'field %r'%fname, quals=fqual),
+                        fname))
                 except ffiplatform.VerificationError as e:
                     prnt('  /* %s */' % str(e))   # cannot verify it, ignore
         prnt('}')
@@ -280,7 +288,7 @@ class VGenericEngine(object):
         prnt('  static intptr_t nums[] = {')
         prnt('    sizeof(%s),' % cname)
         prnt('    offsetof(struct _cffi_aligncheck, y),')
-        for fname, ftype, fbitsize in tp.enumfields():
+        for fname, ftype, fbitsize, fqual in tp.enumfields():
             if fbitsize >= 0:
                 continue      # xxx ignore fbitsize for now
             prnt('    offsetof(%s, %s),' % (cname, fname))
@@ -342,7 +350,7 @@ class VGenericEngine(object):
             check(layout[0], ffi.sizeof(BStruct), "wrong total size")
             check(layout[1], ffi.alignof(BStruct), "wrong total alignment")
             i = 2
-            for fname, ftype, fbitsize in tp.enumfields():
+            for fname, ftype, fbitsize, fqual in tp.enumfields():
                 if fbitsize >= 0:
                     continue        # xxx ignore fbitsize for now
                 check(layout[i], ffi.offsetof(BStruct, fname),

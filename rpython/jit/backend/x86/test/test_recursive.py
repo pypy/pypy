@@ -25,6 +25,6 @@ class TestRecursive(Jit386Mixin, RecursiveTests):
                     ranges.append(tb)
                     prev_traceback = tb
             return ranges
-        assert get_ranges(codemaps[2]) == [[4], [4, 2], [4], [4, 2], [4]]
+        assert get_ranges(codemaps[2]) == [[4], [4, 2], [4]]
         assert get_ranges(codemaps[1]) == [[2]]
         assert get_ranges(codemaps[0]) == [[2], []]

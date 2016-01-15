@@ -31,7 +31,7 @@ class FakeCPU:
         def __repr__(self):
             return '<FieldDescr %s>' % self.fieldname
     class sizeof(AbstractDescr):
-        def __init__(self, STRUCT):
+        def __init__(self, STRUCT, vtable=None):
             self.STRUCT = STRUCT
         def __repr__(self):
             return '<SizeDescr>'

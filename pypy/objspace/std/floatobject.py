@@ -4,6 +4,7 @@ import sys
 
 from rpython.rlib import rarithmetic, rfloat
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, ovfcheck_float_to_int
+from rpython.rlib.rarithmetic import int_between
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
     DTSF_ADD_DOT_0, DTSF_STR_PRECISION, INFINITY, NAN, copysign,
@@ -121,10 +122,11 @@ def make_compare_func(opname):
         if space.isinstance_w(w_other, space.w_int):
             f1 = self.floatval
             i2 = space.int_w(w_other)
-            f2 = float(i2)
-            if LONG_BIT > 32 and int(f2) != i2:
+            # (double-)floats have always at least 48 bits of precision
+            if LONG_BIT > 32 and not int_between(-1, i2 >> 48, 1):
                 res = do_compare_bigint(f1, rbigint.fromint(i2))
             else:
+                f2 = float(i2)
                 res = op(f1, f2)
             return space.newbool(res)
         if space.isinstance_w(w_other, space.w_long):

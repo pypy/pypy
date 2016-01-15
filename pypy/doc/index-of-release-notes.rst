@@ -6,6 +6,9 @@ CPython 2.7 compatible versions
 
 .. toctree::
 
+   release-4.0.1.rst
+   release-4.0.0.rst
+   release-2.6.1.rst
    release-2.6.0.rst
    release-2.5.1.rst
    release-2.5.0.rst

@@ -59,8 +59,7 @@ def clear_tcache():
     _tcache.clear()
 
 def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
-                    type_system="lltype", backendopt=False, config=None,
-                    **extraconfigopts):
+                    backendopt=False, config=None, **extraconfigopts):
     extra_key = [(key, value) for key, value in extraconfigopts.iteritems()]
     extra_key.sort()
     extra_key = tuple(extra_key)
@@ -93,10 +92,8 @@ def get_interpreter(func, values, view='auto', viewbefore='auto', policy=None,
     return interp, graph
 
 def interpret(func, values, view='auto', viewbefore='auto', policy=None,
-              type_system="lltype", backendopt=False, config=None,
-              malloc_check=True, **kwargs):
+              backendopt=False, config=None, malloc_check=True, **kwargs):
     interp, graph = get_interpreter(func, values, view, viewbefore, policy,
-                                    type_system=type_system,
                                     backendopt=backendopt, config=config,
                                     **kwargs)
     if not malloc_check:
@@ -112,10 +109,9 @@ def interpret(func, values, view='auto', viewbefore='auto', policy=None,
     return result
 
 def interpret_raises(exc, func, values, view='auto', viewbefore='auto',
-                     policy=None, type_system="lltype",
+                     policy=None,
                      backendopt=False):
     interp, graph  = get_interpreter(func, values, view, viewbefore, policy,
-                                     type_system=type_system,
                                      backendopt=backendopt)
     info = py.test.raises(LLException, "interp.eval_graph(graph, values)")
     try:

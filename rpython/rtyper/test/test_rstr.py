@@ -10,6 +10,7 @@ from rpython.rtyper.rstr import AbstractLLHelpers
 from rpython.rtyper.rtyper import TyperError
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.annlowlevel import llstr, hlstr
+from rpython.rtyper.llinterp import LLAssertFailure
 
 
 def test_parse_fmt():
@@ -979,12 +980,8 @@ class AbstractTestRstr(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 'z'
-        try:
-            self.interpret_raises(IndexError, f, [1])
-        except (AssertionError,), e:
-            pass
-        else:
-            assert False
+        with py.test.raises(LLAssertFailure):
+            self.interpret(f, [1])
 
         def f(x):
             s = const("z")
@@ -1021,12 +1018,8 @@ class AbstractTestRstr(BaseRtypingTest):
 
         res = self.interpret(f, [0])
         assert res == 'z'
-        try:
-            self.interpret_raises(IndexError, f, [1])
-        except (AssertionError,), e:
-            pass
-        else:
-            assert False
+        with py.test.raises(LLAssertFailure):
+            self.interpret(f, [1])
 
     def test_fold_concat(self):
         const = self.const

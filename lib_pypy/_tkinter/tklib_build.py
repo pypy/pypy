@@ -212,8 +212,8 @@ tkffi.set_source("_tkinter.tklib_cffi", """
 #include <tclTomMath.h>
 #endif 
 
-char *get_tk_version() { return TK_VERSION; }
-char *get_tcl_version() { return TCL_VERSION; }
+char *get_tk_version(void) { return TK_VERSION; }
+char *get_tcl_version(void) { return TCL_VERSION; }
 """ % globals(),
 include_dirs=incdirs,
 libraries=linklibs,

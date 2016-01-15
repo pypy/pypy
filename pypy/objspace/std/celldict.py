@@ -3,7 +3,7 @@ maps keys to objects. If a specific key is changed a lot, a level of
 indirection is introduced to make the version tag change less often.
 """
 
-from rpython.rlib import jit, rerased
+from rpython.rlib import jit, rerased, objectmodel
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import (
@@ -149,7 +149,7 @@ class ModuleDictStrategy(DictStrategy):
         d_new = strategy.unerase(strategy.get_empty_storage())
         for key, cell in d.iteritems():
             d_new[_wrapkey(space, key)] = unwrap_cell(self.space, cell)
-        w_dict.strategy = strategy
+        w_dict.set_strategy(strategy)
         w_dict.dstorage = strategy.erase(d_new)
 
     def getiterkeys(self, w_dict):
@@ -158,8 +158,8 @@ class ModuleDictStrategy(DictStrategy):
     def getitervalues(self, w_dict):
         return self.unerase(w_dict.dstorage).itervalues()
 
-    def getiteritems(self, w_dict):
-        return self.unerase(w_dict.dstorage).iteritems()
+    def getiteritems_with_hash(self, w_dict):
+        return objectmodel.iteritems_with_hash(self.unerase(w_dict.dstorage))
 
     wrapkey = _wrapkey
 

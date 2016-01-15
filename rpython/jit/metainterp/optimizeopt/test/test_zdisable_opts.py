@@ -1,7 +1,11 @@
+
+import py
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeopt import OptimizeOptTest
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from rpython.jit.metainterp.resoperation import rop
 
+def setup_module(mod):
+    py.test.skip("purpose unclear")
 
 allopts = OptimizeOptTest.enable_opts.split(':')
 for optnum in range(len(allopts)):
@@ -30,7 +34,7 @@ for optnum in range(len(allopts)):
                                              rop.VIRTUAL_REF,
                                              rop.QUASIIMMUT_FIELD,
                                              rop.MARK_OPAQUE_PTR,
-                                             rop.RECORD_KNOWN_CLASS)
+                                             rop.RECORD_EXACT_CLASS)
 
         def raises(self, e, fn, *args):
             try:

@@ -27,7 +27,8 @@ class TaggedInstanceRepr(InstanceRepr):
                     self.classdef, flds))
             self.specialfieldname = flds[0]
 
-    def new_instance(self, llops, classcallhop=None):
+    def new_instance(self, llops, classcallhop=None, nonmovable=False):
+        assert not nonmovable
         if self.is_parent:
             raise TyperError("don't instantiate %r, it is a parent of an "
                              "UnboxedValue class" % (self.classdef,))

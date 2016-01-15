@@ -4,11 +4,11 @@
 # This package file exports some convenience functions for
 # interacting with pycparser
 #
-# Copyright (C) 2008-2012, Eli Bendersky
+# Copyright (C) 2008-2015, Eli Bendersky
 # License: BSD
 #-----------------------------------------------------------------
 __all__ = ['c_lexer', 'c_parser', 'c_ast']
-__version__ = '2.10'
+__version__ = '2.14'
 
 from subprocess import Popen, PIPE
 from .c_parser import CParser
@@ -91,4 +91,3 @@ def parse_file(filename, use_cpp=False, cpp_path='cpp', cpp_args='',
     if parser is None:
         parser = CParser()
     return parser.parse(text, filename)
-

@@ -249,11 +249,17 @@ def _pow(space, iv, iw, iz):
     ix = 1
     while iw > 0:
         if iw & 1:
-            ix = ovfcheck(ix * temp)
+            try:
+                ix = ovfcheck(ix * temp)
+            except OverflowError:
+                raise
         iw >>= 1   # Shift exponent down by 1 bit
         if iw == 0:
             break
-        temp = ovfcheck(temp * temp) # Square the value of temp
+        try:
+            temp = ovfcheck(temp * temp) # Square the value of temp
+        except OverflowError:
+            raise
         if iz:
             # If we did a multiplication, perform a modulo
             ix %= iz

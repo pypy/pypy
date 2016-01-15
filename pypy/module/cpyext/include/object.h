@@ -379,6 +379,8 @@ typedef struct {
     PyObject *ht_name, *ht_slots;
 } PyHeapTypeObject;
 
+#define PyObject_Bytes PyObject_Str
+
 /* Flag bits for printing: */
 #define Py_PRINT_RAW	1	/* No string quotes etc. */
 

@@ -33,12 +33,10 @@ class LLTypeHelper(TypeSystemHelper):
     nullptr = staticmethod(lltype.nullptr)
     cast_instance_to_base_ref = staticmethod(cast_instance_to_base_ptr)
     BASETYPE = llmemory.GCREF
-    BoxRef = history.BoxPtr
     ConstRef = history.ConstPtr
     loops_done_with_this_frame_ref = None # patched by compile.py
     NULLREF = history.ConstPtr.value
     CONST_NULL = history.ConstPtr(NULLREF)
-    CVAL_NULLREF = None # patched by optimizeopt.py
 
     def new_ConstRef(self, x):
         ptrval = lltype.cast_opaque_ptr(llmemory.GCREF, x)
@@ -66,7 +64,8 @@ class LLTypeHelper(TypeSystemHelper):
         return llmemory.cast_ptr_to_adr(fnptr)
 
     def cls_of_box(self, box):
-        obj = box.getref(lltype.Ptr(rclass.OBJECT))
+        PTR = lltype.Ptr(rclass.OBJECT)
+        obj = lltype.cast_opaque_ptr(PTR, box.getref_base())
         cls = llmemory.cast_ptr_to_adr(obj.typeptr)
         return history.ConstInt(heaptracker.adr2int(cls))
 
@@ -78,9 +77,6 @@ class LLTypeHelper(TypeSystemHelper):
 
     def get_exception_box(self, etype):
         return history.ConstInt(etype)
-
-    def get_exc_value_box(self, evalue):
-        return history.BoxPtr(evalue)
 
     def get_exception_obj(self, evaluebox):
         # only works when translated

@@ -20,10 +20,6 @@ The API is:
    It initializes the RPython/PyPy GC and does a bunch of necessary startup
    code. This function cannot fail.
 
-.. function:: void pypy_init_threads(void);
-
-   Initialize threads. Only need to be called if there are any threads involved
-
 .. function:: int pypy_setup_home(char* home, int verbose);
 
    This function searches the PyPy standard library starting from the given
@@ -38,6 +34,11 @@ The API is:
    Function returns 0 on success or -1 on failure, can be called multiple times
    until the library is found.
 
+.. function:: void pypy_init_threads(void);
+
+   Initialize threads. Only need to be called if there are any threads involved.
+   *Must be called after pypy_setup_home()*
+
 .. function:: int pypy_execute_source(char* source);
 
    Execute the Python source code given in the ``source`` argument. In case of
@@ -46,7 +47,11 @@ The API is:
    source. It'll acquire the GIL.
 
    Note: this is meant to be called *only once* or a few times at most.  See
-   the `more complete example`_ below.
+   the `more complete example`_ below.  In PyPy <= 2.6.0, the globals
+   dictionary is *reused* across multiple calls, giving potentially
+   strange results (e.g. objects dying too early).  In PyPy >= 2.6.1,
+   you get a new globals dictionary for every call (but then, all globals
+   dictionaries are all kept alive forever, in ``sys._pypy_execute_source``).
 
 .. function:: int pypy_execute_source_ptr(char* source, void* ptr);
 
@@ -125,8 +130,13 @@ with a command like::
 More complete example
 ---------------------
 
-.. note:: This example depends on pypy_execute_source_ptr which is not available
-          in PyPy <= 2.2.1.
+.. note:: Note that we do not make use of ``extern "Python"``, the new
+   way to do callbacks in CFFI 1.4: this is because these examples use
+   the ABI mode, not the API mode, and with the ABI mode you still have
+   to use ``ffi.callback()``.  It is work in progress to integrate
+   ``extern "Python"`` with the idea of embedding (and it is expected
+   to ultimately lead to a better way to do embedding than the one
+   described here, and that would work equally well on CPython and PyPy).
 
 Typically we need something more to do than simply execute source. The following
 is a fully fledged example, please consult cffi documentation for details.

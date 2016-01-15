@@ -308,7 +308,10 @@ def _read_pyc(source, pyc):
         if (len(data) != 8 or data[:4] != imp.get_magic() or
                 struct.unpack("<l", data[4:])[0] != mtime):
             return None
-        co = marshal.load(fp)
+        try:
+            co = marshal.load(fp)
+        except ValueError:
+            return None # e.g. bad marshal data because of pypy/cpython mix
         if not isinstance(co, types.CodeType):
             # That's interesting....
             return None

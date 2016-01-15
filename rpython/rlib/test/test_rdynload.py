@@ -1,6 +1,7 @@
 from rpython.rlib.rdynload import *
 from rpython.rlib.clibffi import get_libc_name
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.translator.platform import platform
 import py
 
 class TestDLOperations:
@@ -21,3 +22,28 @@ class TestDLOperations:
                            lltype.Signed)), dlsym(lib, 'abs'))
         assert 1 == handle(1)
         assert 1 == handle(-1)
+
+    def test_ldscripts(self):
+        # this test only makes sense on linux
+        if platform.name != "linux":
+            return
+
+        fname = os.path.join(os.path.dirname(__file__), "ldscript_working1.so")
+        s = rffi.str2charp(fname)
+        assert "C object" in str(dlopen(s))
+        rffi.free_charp(s)
+
+        fname = os.path.join(os.path.dirname(__file__), "ldscript_working2.so")
+        s = rffi.str2charp(fname)
+        assert "C object" in str(dlopen(s))
+        rffi.free_charp(s)
+
+        fname = os.path.join(os.path.dirname(__file__), "ldscript_broken1.so")
+        s = rffi.str2charp(fname)
+        py.test.raises(DLOpenError, 'dlopen(s)')
+        rffi.free_charp(s)
+
+        fname = os.path.join(os.path.dirname(__file__), "ldscript_broken2.so")
+        s = rffi.str2charp(fname)
+        py.test.raises(DLOpenError, 'dlopen(s)')
+        rffi.free_charp(s)

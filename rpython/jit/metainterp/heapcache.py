@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.history import ConstInt
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, OpHelpers
 
 class HeapCacheValue(object):
     def __init__(self, box):
@@ -9,6 +9,7 @@ class HeapCacheValue(object):
 
     def reset_keep_likely_virtual(self):
         self.known_class = False
+        self.known_nullity = False
         # did we see the allocation during tracing?
         self.seen_allocation = False
         self.is_unescaped = False
@@ -151,7 +152,8 @@ class HeapCache(object):
             assert len(argboxes) == 3
             box, indexbox, fieldbox = argboxes
             self._escape_from_write(box, fieldbox)
-        elif (opnum == rop.CALL and
+        elif ((opnum == rop.CALL_R or opnum == rop.CALL_I or
+               opnum == rop.CALL_N or opnum == rop.CALL_F) and
               descr.get_extra_info().oopspecindex == descr.get_extra_info().OS_ARRAYCOPY and
               isinstance(argboxes[3], ConstInt) and
               isinstance(argboxes[4], ConstInt) and
@@ -161,11 +163,14 @@ class HeapCache(object):
             # its argument
             # XXX really?
             pass
-        # GETFIELD_GC, MARK_OPAQUE_PTR, PTR_EQ, and PTR_NE don't escape their
+        # GETFIELD_GC, PTR_EQ, and PTR_NE don't escape their
         # arguments
-        elif (opnum != rop.GETFIELD_GC and
-              opnum != rop.GETFIELD_GC_PURE and
-              opnum != rop.MARK_OPAQUE_PTR and
+        elif (opnum != rop.GETFIELD_GC_R and
+              opnum != rop.GETFIELD_GC_I and
+              opnum != rop.GETFIELD_GC_F and
+              opnum != rop.GETFIELD_GC_PURE_R and
+              opnum != rop.GETFIELD_GC_PURE_I and
+              opnum != rop.GETFIELD_GC_PURE_F and
               opnum != rop.PTR_EQ and
               opnum != rop.PTR_NE and
               opnum != rop.INSTANCE_PTR_EQ and
@@ -207,7 +212,9 @@ class HeapCache(object):
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
             rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST):
             return
-        if opnum == rop.CALL or opnum == rop.CALL_LOOPINVARIANT or opnum == rop.COND_CALL:
+        if (OpHelpers.is_plain_call(opnum) or
+            OpHelpers.is_call_loopinvariant(opnum) or
+            opnum == rop.COND_CALL):
             effectinfo = descr.get_extra_info()
             ef = effectinfo.extraeffect
             if (ef == effectinfo.EF_LOOPINVARIANT or
@@ -289,6 +296,15 @@ class HeapCache(object):
 
     def class_now_known(self, box):
         self.getvalue(box).known_class = True
+
+    def is_nullity_known(self, box):
+        value = self.getvalue(box, create=False)
+        if value:
+            return value.known_nullity
+        return False
+
+    def nullity_now_known(self, box):
+        self.getvalue(box).known_nullity = True
 
     def is_nonstandard_virtualizable(self, box):
         value = self.getvalue(box, create=False)

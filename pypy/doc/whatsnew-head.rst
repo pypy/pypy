@@ -1,65 +1,116 @@
-=======================
-What's new in PyPy 2.6+
-=======================
+=========================
+What's new in PyPy 4.1.+
+=========================
 
-.. this is a revision shortly after release-2.6.0
-.. startrev: 91904d5c5188
+.. this is a revision shortly after release-4.0.1
+.. startrev: 4b5c840d0da2
 
-.. branch: use_min_scalar
-Correctly resolve the output dtype of ufunc(array, scalar) calls.
+Fixed ``_PyLong_FromByteArray()``, which was buggy.
 
-.. branch: stdlib-2.7.10
+.. branch: numpy-1.10
 
-Update stdlib to version 2.7.10
+Fix tests to run cleanly with -A and start to fix micronumpy for upstream numpy
+which is now 1.10.2
 
-.. branch: issue2062
+.. branch: osx-flat-namespace
 
-.. branch: disable-unroll-for-short-loops
-The JIT no longer performs loop unrolling if the loop compiles to too much code.
+Fix the cpyext tests on OSX by linking with -flat_namespace
 
-.. branch: run-create_cffi_imports
+.. branch: anntype
 
-Build cffi import libraries as part of translation by monkey-patching an 
-additional task into translation
+Refactor and improve exception analysis in the annotator.
 
-.. branch: int-float-list-strategy
+.. branch: posita/2193-datetime-timedelta-integrals
 
-Use a compact strategy for Python lists that mix integers and floats,
-at least if the integers fit inside 32 bits.  These lists are now
-stored as an array of floats, like lists that contain only floats; the
-difference is that integers are stored as tagged NaNs.  (This should
-have no visible effect!  After ``lst = [42, 42.5]``, the value of
-``lst[0]`` is still *not* the float ``42.0`` but the integer ``42``.)
+Fix issue #2193. ``isinstance(..., int)`` => ``isinstance(..., numbers.Integral)`` 
+to allow for alternate ``int``-like implementations (e.g., ``future.types.newint``)
 
-.. branch: cffi-callback-onerror
-.. branch: cffi-new-allocator
+.. branch: faster-rstruct
 
-.. branch: unicode-dtype
+Improve the performace of struct.unpack, which now directly reads inside the
+string buffer and directly casts the bytes to the appropriate type, when
+allowed. Unpacking of floats and doubles is about 15 times faster now, while
+for integer types it's up to ~50% faster for 64bit integers.
 
-Partial implementation of unicode dtype and unicode scalars.
+.. branch: wrap-specialisation
 
-.. branch: dtypes-compatability
+Remove unnecessary special handling of space.wrap().
 
-Improve compatibility with numpy dtypes; handle offsets to create unions,
-fix str() and repr(), allow specifying itemsize, metadata and titles, add flags,
-allow subclassing dtype
+.. branch: compress-numbering
 
-.. branch: indexing
+Improve the memory signature of numbering instances in the JIT.
 
-Refactor array indexing to support ellipses.
+.. branch: fix-trace-too-long-heuristic
 
-.. branch: numpy-docstrings
+Improve the heuristic when disable trace-too-long
 
-Allow the docstrings of built-in numpy objects to be set at run-time.
+.. branch: fix-setslice-can-resize
 
-.. branch: nditer-revisited
+Make rlist's ll_listsetslice() able to resize the target list to help
+simplify objspace/std/listobject.py. Was issue #2196.
 
-Implement nditer 'buffered' flag and fix some edge cases
+.. branch: anntype2
 
-.. branch: ufunc-reduce
+A somewhat random bunch of changes and fixes following up on branch 'anntype'. Highlights:
 
-Allow multiple axes in ufunc.reduce()
+- Implement @doubledispatch decorator and use it for intersection() and difference().
 
-.. branch: fix-tinylang-goals
+- Turn isinstance into a SpaceOperation
 
-Update tinylang goals to match current rpython
+- Create a few direct tests of the fundamental annotation invariant in test_model.py
+
+- Remove bookkeeper attribute from DictDef and ListDef.
+
+.. branch: cffi-static-callback
+
+.. branch: vecopt-absvalue
+
+- Enhancement. Removed vector fields from AbstractValue.
+
+.. branch: memop-simplify2
+
+Simplification. Backends implement too many loading instructions, only having a slightly different interface.
+Four new operations (gc_load/gc_load_indexed, gc_store/gc_store_indexed) replace all the
+commonly known loading operations
+
+.. branch: more-rposix
+
+Move wrappers for OS functions from `rpython/rtyper` to `rpython/rlib` and 
+turn them into regular RPython functions. Most RPython-compatible `os.*` 
+functions are now directly accessible as `rpython.rposix.*`.
+
+.. branch: always-enable-gil
+
+Simplify a bit the GIL handling in non-jitted code.  Fixes issue #2205.
+
+.. branch: flowspace-cleanups
+
+Trivial cleanups in flowspace.operation : fix comment & duplicated method
+
+.. branch: test-AF_NETLINK
+
+Add a test for pre-existing AF_NETLINK support. Was part of issue #1942.
+
+.. branch: small-cleanups-misc
+
+Trivial misc cleanups: typo, whitespace, obsolete comments
+
+.. branch: cpyext-slotdefs
+.. branch: fix-missing-canraise
+.. branch: whatsnew
+
+.. branch: fix-2211
+
+Fix the cryptic exception message when attempting to use extended slicing
+in rpython. Was issue #2211.
+
+.. branch: ec-keepalive
+
+Optimize the case where, in a new C-created thread, we keep invoking
+short-running Python callbacks.  (CFFI on CPython has a hack to achieve
+the same result.)  This can also be seen as a bug fix: previously,
+thread-local objects would be reset between two such calls.
+
+.. branch: globals-quasiimmut
+
+Optimize global lookups.

@@ -385,11 +385,63 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                      PyErr_SetString(PyExc_ValueError, "recursive tp_setattro");
                      return NULL;
                  }
+                 if (!args->ob_type->tp_getattro)
+                 {
+                     PyErr_SetString(PyExc_ValueError, "missing tp_getattro");
+                     return NULL;
+                 }
+                 if (args->ob_type->tp_getattro ==
+                     args->ob_type->tp_base->tp_getattro)
+                 {
+                     PyErr_SetString(PyExc_ValueError, "recursive tp_getattro");
+                     return NULL;
+                 }
                  Py_RETURN_TRUE;
              '''
              )
             ])
         assert module.test_type(type(None))
+
+    def test_tp_getattro(self):
+        module = self.import_extension('foo', [
+            ("test_tp_getattro", "METH_VARARGS",
+             '''
+                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                 PyIntObject *value = PyTuple_GET_ITEM(args, 1);
+                 if (!obj->ob_type->tp_getattro)
+                 {
+                     PyErr_SetString(PyExc_ValueError, "missing tp_getattro");
+                     return NULL;
+                 }
+                 PyObject *name = PyString_FromString("attr1");
+                 PyIntObject *attr = obj->ob_type->tp_getattro(obj, name);
+                 if (attr->ob_ival != value->ob_ival)
+                 {
+                     PyErr_SetString(PyExc_ValueError,
+                                     "tp_getattro returned wrong value");
+                     return NULL;
+                 }
+                 Py_DECREF(name);
+                 Py_DECREF(attr);
+                 name = PyString_FromString("attr2");
+                 attr = obj->ob_type->tp_getattro(obj, name);
+                 if (attr == NULL && PyErr_ExceptionMatches(PyExc_AttributeError))
+                 {
+                     PyErr_Clear();
+                 } else {
+                     PyErr_SetString(PyExc_ValueError,
+                                     "tp_getattro should have raised");
+                     return NULL;
+                 }
+                 Py_DECREF(name);
+                 Py_RETURN_TRUE;
+             '''
+             )
+            ])
+        class C:
+            def __init__(self):
+                self.attr1 = 123
+        assert module.test_tp_getattro(C(), 123)
 
     def test_nb_int(self):
         module = self.import_extension('foo', [
@@ -588,6 +640,95 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert bool(module.newInt(1))
         assert bool(module.newInt(-1))
         raises(ValueError, bool, module.newInt(-42))
+
+    def test_binaryfunc(self):
+        module = self.import_extension('foo', [
+            ("newInt", "METH_VARARGS",
+             """
+                IntLikeObject *intObj;
+                long intval;
+
+                if (!PyArg_ParseTuple(args, "l", &intval))
+                    return NULL;
+
+                IntLike_Type.tp_as_number = &intlike_as_number;
+                IntLike_Type.tp_flags |= Py_TPFLAGS_CHECKTYPES;
+                intlike_as_number.nb_add = intlike_nb_add;
+                if (PyType_Ready(&IntLike_Type) < 0) return NULL;
+                intObj = PyObject_New(IntLikeObject, &IntLike_Type);
+                if (!intObj) {
+                    return NULL;
+                }
+
+                intObj->ival = intval;
+                return (PyObject *)intObj;
+             """),
+             ("newIntNoOp", "METH_VARARGS",
+             """
+                IntLikeObjectNoOp *intObjNoOp;
+                long intval;
+
+                if (!PyArg_ParseTuple(args, "l", &intval))
+                    return NULL;
+
+                IntLike_Type_NoOp.tp_flags |= Py_TPFLAGS_CHECKTYPES;
+                if (PyType_Ready(&IntLike_Type_NoOp) < 0) return NULL;
+                intObjNoOp = PyObject_New(IntLikeObjectNoOp, &IntLike_Type_NoOp);
+                if (!intObjNoOp) {
+                    return NULL;
+                }
+
+                intObjNoOp->ival = intval;
+                return (PyObject *)intObjNoOp;
+             """)],
+            """
+            typedef struct
+            {
+                PyObject_HEAD
+                long ival;
+            } IntLikeObject;
+
+            static PyObject * 
+            intlike_nb_add(PyObject *self, PyObject *other)
+            {
+                long val1 = ((IntLikeObject *)(self))->ival;
+                if (PyInt_Check(other)) {
+                  long val2 = PyInt_AsLong(other);
+                  return PyInt_FromLong(val1+val2);
+                }
+
+                long val2 = ((IntLikeObject *)(other))->ival;
+                return PyInt_FromLong(val1+val2);
+            }
+
+            PyTypeObject IntLike_Type = {
+                PyObject_HEAD_INIT(0)
+                /*ob_size*/             0,
+                /*tp_name*/             "IntLike",
+                /*tp_basicsize*/        sizeof(IntLikeObject),
+            };
+            static PyNumberMethods intlike_as_number;
+
+            typedef struct
+            {
+                PyObject_HEAD
+                long ival;
+            } IntLikeObjectNoOp;
+
+            PyTypeObject IntLike_Type_NoOp = {
+                PyObject_HEAD_INIT(0)
+                /*ob_size*/             0,
+                /*tp_name*/             "IntLikeNoOp",
+                /*tp_basicsize*/        sizeof(IntLikeObjectNoOp),
+            };
+            """)
+        a = module.newInt(1)
+        b = module.newInt(2)
+        c = 3
+        d = module.newIntNoOp(4)
+        assert (a + b) == 3
+        assert (b + c) == 5
+        assert (d + a) == 5
 
     def test_tp_new_in_subclass_of_type(self):
         skip("BROKEN")

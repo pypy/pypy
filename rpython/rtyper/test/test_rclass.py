@@ -943,6 +943,19 @@ class TestRclass(BaseRtypingTest):
                 found.append(op.args[1].value)
         assert found == ['mutate_a', 'mutate_a', 'mutate_b']
 
+    def test_quasi_immutable_clashes_with_immutable(self):
+        from rpython.jit.metainterp.typesystem import deref
+        class A(object):
+            _immutable_ = True
+            _immutable_fields_ = ['a?']
+        def f():
+            a = A()
+            a.x = 42
+            a.a = 142
+            return A()
+        with py.test.raises(TyperError):
+            self.gengraph(f, [])
+
     def test_quasi_immutable_array(self):
         from rpython.jit.metainterp.typesystem import deref
         class A(object):

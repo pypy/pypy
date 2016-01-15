@@ -1,4 +1,4 @@
-from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictMultiObject
+from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictObject
 from pypy.objspace.std.mapdict import *
 
 class Config:
@@ -395,7 +395,7 @@ def test_materialize_r_dict():
     obj.setdictvalue(space, "c", 7)
     assert obj.storage == [50, 60, 70, 5, 6, 7]
 
-    class FakeDict(W_DictMultiObject):
+    class FakeDict(W_DictObject):
         def __init__(self, d):
             self.dstorage = d
 
@@ -454,7 +454,7 @@ class TestDevolvedMapDictImplementation(BaseTestDevolvedDictImplementation):
 
 def devolve_dict(space, obj):
     w_d = obj.getdict(space)
-    w_d.strategy.switch_to_object_strategy(w_d)
+    w_d.get_strategy().switch_to_object_strategy(w_d)
 
 def test_get_setdictvalue_after_devolve():
     cls = Class()
@@ -537,12 +537,12 @@ def test_specialized_class():
         obj = objectcls()
         obj.user_setup(space, cls)
         obj.setdictvalue(space, "a", w1)
-        assert unerase_item(obj._value0) is w1
+        assert obj._value0 is w1
         assert obj.getdictvalue(space, "a") is w1
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
         obj.setdictvalue(space, "a", w2)
-        assert unerase_item(obj._value0) is w2
+        assert obj._value0 is w2
         assert obj.getdictvalue(space, "a") == w2
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
@@ -560,7 +560,7 @@ def test_specialized_class():
 
         res = obj.deldictvalue(space, "a")
         assert res
-        assert unerase_item(obj._value0) is w4
+        assert obj._value0 is w4
         assert obj.getdictvalue(space, "a") is None
         assert obj.getdictvalue(space, "b") is w4
         assert obj.getdictvalue(space, "c") is None
@@ -1213,7 +1213,7 @@ class TestDictSubclassShortcutBug(object):
 
 def test_newdict_instance():
     w_dict = space.newdict(instance=True)
-    assert type(w_dict.strategy) is MapDictStrategy
+    assert type(w_dict.get_strategy()) is MapDictStrategy
 
 class TestMapDictImplementationUsingnewdict(BaseTestRDictImplementation):
     StrategyClass = MapDictStrategy

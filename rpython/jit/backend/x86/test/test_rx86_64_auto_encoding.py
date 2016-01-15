@@ -24,7 +24,11 @@ class TestRx86_64(test_rx86_32_auto_encoding.TestRx86_32):
         return (
                 super(TestRx86_64, self).should_skip_instruction(instrname, argmodes) or
                 # Not testing FSTP on 64-bit for now
-                (instrname == 'FSTP')
+                (instrname == 'FSTP') or
+                # the test suite uses 64 bit registers instead of 32 bit...
+                # it is tested in the 32 bit test!
+                (instrname == 'PEXTRD') or
+                (instrname == 'PINSRD')
         )
 
     def array_tests(self):

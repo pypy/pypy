@@ -103,20 +103,22 @@ class VRefTests(object):
         [guard_op] = [op for op in ops
                          if op.getopnum() == rop.GUARD_NOT_FORCED]
         bxs1 = [box for box in guard_op.getfailargs()
-                  if str(box._getrepr_()).endswith('.X')]
+                  if '.X' in str(box)]
         assert len(bxs1) == 1
-        bxs2 = [box for box in guard_op.getfailargs()
-                  if str(box._getrepr_()).endswith('JitVirtualRef')]
+        bxs2 = [(i, box) for i, box in
+                            enumerate(guard_op.getfailargs())
+                            if 'JitVirtualRef' in str(box)]
         assert len(bxs2) == 1
         JIT_VIRTUAL_REF = self.vrefinfo.JIT_VIRTUAL_REF
         FOO = lltype.GcStruct('FOO')
         foo = lltype.malloc(FOO)
         tok = lltype.cast_opaque_ptr(llmemory.GCREF, foo)
+        cpu = self.metainterp.cpu
+        py.test.skip("rewrite this test")
         bxs2[0].getref(lltype.Ptr(JIT_VIRTUAL_REF)).virtual_token = tok
         #
         # try reloading from blackhole.py's point of view
         from rpython.jit.metainterp.resume import ResumeDataDirectReader
-        cpu = self.metainterp.cpu
         cpu.get_int_value = lambda df,i:guard_op.getfailargs()[i].getint()
         cpu.get_ref_value = lambda df,i:guard_op.getfailargs()[i].getref_base()
         class FakeMetaInterpSd:

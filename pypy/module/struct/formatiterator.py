@@ -82,7 +82,13 @@ class PackFormatIterator(FormatIterator):
                 w_index = space.int(w_obj)   # wrapped float -> wrapped int or long
             if w_index is None:
                 raise StructError("cannot convert argument to integer")
-        return getattr(space, meth)(w_index)
+        method = getattr(space, meth)
+        try:
+            return method(w_index)
+        except OperationError as e:
+            if e.match(self.space, self.space.w_OverflowError):
+                raise StructError("argument out of range")
+            raise
 
     def accept_bool_arg(self):
         w_obj = self.accept_obj_arg()
@@ -143,3 +149,13 @@ class UnpackFormatIterator(FormatIterator):
     @specialize.argtype(1)
     def appendobj(self, value):
         self.result_w.append(self.space.wrap(value))
+
+    def get_pos(self):
+        return self.pos
+
+    def get_buffer_as_string_maybe(self):
+        string, pos = self.buf.as_str_and_offset_maybe()
+        return string, pos+self.pos
+
+    def skip(self, size):
+        self.read(size) # XXX, could avoid taking the slice

@@ -78,3 +78,7 @@ RPY_EXTERN
 long RPyThreadSetStackSize(long);
 RPY_EXTERN
 void RPyThreadAfterFork(void);
+
+
+#define lock_test_and_set(ptr, value)  __sync_lock_test_and_set(ptr, value)
+#define lock_release(ptr)              __sync_lock_release(ptr)

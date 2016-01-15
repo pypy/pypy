@@ -840,3 +840,12 @@ class AppTestFloatHex:
         check(mod(0.0, -1.0), -0.0)
         check(mod(1e-100, -1.0), -1.0)
         check(mod(1.0, -1.0), -0.0)
+
+    def test_equality_rounding(self):
+        i = int(2 ** 63 - 1)
+        f = float(i)           # not enough precision, becomes 2.0 ** 63
+        assert f == 2.0 ** 63
+        assert i != f
+        assert f != i
+        assert long(i) != f
+        assert f != long(i)

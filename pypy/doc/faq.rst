@@ -67,7 +67,7 @@ you may need to run the command with `sudo` for a global installation.
 The other commands of ``setup.py`` are available too, like ``build``.
 
 .. _PyPI: https://pypi.python.org/pypi
-.. _`use virtualenv (as documented here)`: getting-started.html#installing-using-virtualenv
+.. _`use virtualenv (as documented here)`: install.html#installing-using-virtualenv
 
 
 Module xyz does not work in the sandboxed PyPy?

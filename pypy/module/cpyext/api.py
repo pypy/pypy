@@ -124,7 +124,7 @@ Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
 METH_COEXIST METH_STATIC METH_CLASS
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
 Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS
-Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE
+Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES
 """.split()
 for name in constant_names:
     setattr(CConfig_constants, name, rffi_platform.ConstantInteger(name))
@@ -602,6 +602,7 @@ pypy_debug_catch_fatal_exception = rffi.llexternal('pypy_debug_catch_fatal_excep
 # Make the wrapper for the cases (1) and (2)
 def make_wrapper(space, callable, gil=None):
     "NOT_RPYTHON"
+    from rpython.rlib import rgil
     names = callable.api_func.argnames
     argtypes_enum_ui = unrolling_iterable(enumerate(zip(callable.api_func.argtypes,
         [name.startswith("w_") for name in names])))
@@ -617,9 +618,7 @@ def make_wrapper(space, callable, gil=None):
         # we hope that malloc removal removes the newtuple() that is
         # inserted exactly here by the varargs specializer
         if gil_acquire:
-            after = rffi.aroundstate.after
-            if after:
-                after()
+            rgil.acquire()
         rffi.stackcounter.stacks_counter += 1
         llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
         retval = fatal_value
@@ -692,9 +691,7 @@ def make_wrapper(space, callable, gil=None):
                 pypy_debug_catch_fatal_exception()
         rffi.stackcounter.stacks_counter -= 1
         if gil_release:
-            before = rffi.aroundstate.before
-            if before:
-                before()
+            rgil.release()
         return retval
     callable._always_inline_ = 'try'
     wrapper.__name__ = "wrapper for %r" % (callable, )

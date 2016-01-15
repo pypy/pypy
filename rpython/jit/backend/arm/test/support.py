@@ -8,8 +8,10 @@ from rpython.jit.metainterp.test import support
 from rpython.rlib.jit import JitDriver
 
 class JitARMMixin(support.LLJitMixin):
-    type_system = 'lltype'
     CPUClass = getcpuclass()
+    # we have to disable unroll
+    enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap"
+    basic = False
 
     def check_jumps(self, maxcount):
         pass

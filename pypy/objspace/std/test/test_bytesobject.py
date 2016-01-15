@@ -388,6 +388,10 @@ class AppTestBytesObject:
             skip("Wrong platform")
         raises((MemoryError, OverflowError), 't\tt\t'.expandtabs, sys.maxint)
 
+    def test_expandtabs_0(self):
+        assert 'x\ty'.expandtabs(0) == 'xy'
+        assert 'x\ty'.expandtabs(-42) == 'xy'
+
     def test_splitlines(self):
         s = ""
         assert s.splitlines() == []

@@ -3,10 +3,6 @@ In place of real calls to any external function, this code builds
 trampolines that marshal their input arguments, dump them to STDOUT,
 and wait for an answer on STDIN.  Enable with 'translate.py --sandbox'.
 """
-import sys
-if sys.platform == 'win32':
-    raise TypeError("sandbox not supported on windows")
-
 import py
 
 from rpython.rlib import rmarshal, types
@@ -115,7 +111,11 @@ def get_external_function_sandbox_graph(fnobj, db, force_stub=False):
     trampoline marshals its input arguments, dumps them to STDOUT,
     and waits for an answer on STDIN.
     """
-    fnname = fnobj._name
+    if getattr(getattr(fnobj, '_callable', None),
+               '_sandbox_external_name', None):
+        fnname = fnobj._callable._sandbox_external_name
+    else:
+        fnname = fnobj._name
     if hasattr(fnobj, 'graph'):
         # get the annotation of the input arguments and the result
         graph = fnobj.graph

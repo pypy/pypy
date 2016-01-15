@@ -28,6 +28,7 @@ BUILDERS = [
 #    'pypy-c-app-level-win-x86-32',
     'pypy-c-jit-linux-x86-32',
     'pypy-c-jit-linux-x86-64',
+    'pypy-c-jit-freebsd-9-x86-64',
     'pypy-c-jit-macosx-x86-64',
     'pypy-c-jit-win-x86-32',
     'build-pypy-c-jit-linux-armhf-raring',
@@ -42,7 +43,7 @@ def get_user():
         import pwd
         return pwd.getpwuid(os.getuid())[0]
 
-def main(branch, server):
+def main(branch, server, user):
     #XXX: handle release tags
     #XXX: handle validity checks
     lock = defer.DeferredLock()
@@ -56,7 +57,7 @@ def main(branch, server):
         print 'Forcing', builder, '...'
         url = "http://" + server + "/builders/" + builder + "/force"
         args = [
-            ('username', get_user()),
+            ('username', user),
             ('revision', ''),
             ('forcescheduler', 'Force Scheduler'),
             ('submit', 'Force Build'),
@@ -78,7 +79,8 @@ if __name__ == '__main__':
     parser = optparse.OptionParser()
     parser.add_option("-b", "--branch", help="branch to build", default='')
     parser.add_option("-s", "--server", help="buildbot server", default="buildbot.pypy.org")
+    parser.add_option("-u", "--user", help="user name to report", default=get_user())
     (options, args) = parser.parse_args()
     if  not options.branch:
         parser.error("branch option required")
-    main(options.branch, options.server)
+    main(options.branch, options.server, user=options.user)

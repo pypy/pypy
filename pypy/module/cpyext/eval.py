@@ -30,7 +30,7 @@ def PyEval_GetBuiltins(space):
     currently executing."""
     caller = space.getexecutioncontext().gettopframe_nohidden()
     if caller is not None:
-        w_globals = caller.w_globals
+        w_globals = caller.get_w_globals()
         w_builtins = space.getitem(w_globals, space.wrap('__builtins__'))
         if not space.isinstance_w(w_builtins, space.w_dict):
             w_builtins = w_builtins.getdict(space)
@@ -54,7 +54,7 @@ def PyEval_GetGlobals(space):
     caller = space.getexecutioncontext().gettopframe_nohidden()
     if caller is None:
         return None
-    return borrow_from(None, caller.w_globals)
+    return borrow_from(None, caller.get_w_globals())
 
 @cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
 def PyEval_EvalCode(space, w_code, w_globals, w_locals):

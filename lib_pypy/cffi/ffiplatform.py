@@ -14,28 +14,19 @@ class VerificationMissing(Exception):
 LIST_OF_FILE_NAMES = ['sources', 'include_dirs', 'library_dirs',
                       'extra_objects', 'depends']
 
-def _hack_at_distutils():
-    # Windows-only workaround for some configurations: see
-    # https://bugs.python.org/issue23246 (Python 2.7.9)
-    if sys.platform == "win32":
-        try:
-            import setuptools    # for side-effects, patches distutils
-        except ImportError:
-            pass
-
 def get_extension(srcfilename, modname, sources=(), **kwds):
-    _hack_at_distutils()   # *before* the following import
     from distutils.core import Extension
     allsources = [srcfilename]
-    allsources.extend(sources)
+    for src in sources:
+        allsources.append(os.path.normpath(src))
     return Extension(name=modname, sources=allsources, **kwds)
 
-def compile(tmpdir, ext):
+def compile(tmpdir, ext, compiler_verbose=0):
     """Compile a C extension module using distutils."""
 
     saved_environ = os.environ.copy()
     try:
-        outputfilename = _build(tmpdir, ext)
+        outputfilename = _build(tmpdir, ext, compiler_verbose)
         outputfilename = os.path.abspath(outputfilename)
     finally:
         # workaround for a distutils bugs where some env vars can
@@ -45,11 +36,10 @@ def compile(tmpdir, ext):
                 os.environ[key] = value
     return outputfilename
 
-def _build(tmpdir, ext):
+def _build(tmpdir, ext, compiler_verbose=0):
     # XXX compact but horrible :-(
-    _hack_at_distutils()
     from distutils.core import Distribution
-    import distutils.errors
+    import distutils.errors, distutils.log
     #
     dist = Distribution({'ext_modules': [ext]})
     dist.parse_config_files()
@@ -59,7 +49,12 @@ def _build(tmpdir, ext):
     options['build_temp'] = ('ffiplatform', tmpdir)
     #
     try:
-        dist.run_command('build_ext')
+        old_level = distutils.log.set_threshold(0) or 0
+        try:
+            distutils.log.set_verbosity(compiler_verbose)
+            dist.run_command('build_ext')
+        finally:
+            distutils.log.set_threshold(old_level)
     except (distutils.errors.CompileError,
             distutils.errors.LinkError) as e:
         raise VerificationError('%s: %s' % (e.__class__.__name__, e))
