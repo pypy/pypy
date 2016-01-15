@@ -40,7 +40,7 @@ class AbstractAttribute(object):
             jit.isconstant(obj) and
             not attr.ever_mutated
         ):
-            result = attr._pure_read(obj)
+            return attr._pure_read(obj)
         else:
             result = obj._mapdict_read_storage(attr.storageindex)
         return attr._read_cell(result)
