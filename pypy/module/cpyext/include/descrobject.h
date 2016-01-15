@@ -12,13 +12,13 @@ typedef struct PyGetSetDef {
 } PyGetSetDef;
 
 
-#define PyDescr_COMMON PyDescrObject d_common
+#define PyDescr_COMMON \
+    PyObject_HEAD \
+    PyTypeObject *d_type; \
+    PyObject *d_name
 
 typedef struct {
-    PyObject_HEAD
-    PyTypeObject *d_type;
-    PyObject *d_name;
-    PyObject *d_qualname;
+    PyDescr_COMMON;
 } PyDescrObject;
 
 typedef struct {
@@ -28,12 +28,18 @@ typedef struct {
 
 typedef struct {
     PyDescr_COMMON;
+    struct PyMemberDef *d_member;
+} PyMemberDescrObject;
+
+typedef struct {
+    PyDescr_COMMON;
     PyGetSetDef *d_getset;
 } PyGetSetDescrObject;
 
 typedef struct {
     PyDescr_COMMON;
-    struct PyMemberDef *d_member;
-} PyMemberDescrObject;
+    struct wrapperbase *d_base;
+    void *d_wrapped; /* This can be any function pointer */
+} PyWrapperDescrObject;
 
 #endif
