@@ -374,11 +374,10 @@ class Parser(object):
 
     def _declare_function(self, tp, quals, decl):
         tp = self._get_type_pointer(tp, quals)
-        if self._inside_extern_python:
-            if self._options['dllexport']:
-                tag = 'dllexport_python '
-            else:
-                tag = 'extern_python '
+        if self._options['dllexport']:
+            tag = 'dllexport_python '
+        elif self._inside_extern_python:
+            tag = 'extern_python '
         else:
             tag = 'function '
         self._declare(tag + decl.name, tp)

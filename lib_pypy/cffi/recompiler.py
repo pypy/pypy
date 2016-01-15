@@ -282,13 +282,13 @@ class Recompiler:
         lines[i:i+1] = self._rel_readlines('parse_c_type.h')
         prnt(''.join(lines))
         #
-        # if we have ffi._embedding_init_code, we give it here as a macro
+        # if we have ffi._embedding != None, we give it here as a macro
         # and include an extra file
         base_module_name = self.module_name.split('.')[-1]
-        if self.ffi._embedding_init_code is not None:
+        if self.ffi._embedding is not None:
             prnt('#define _CFFI_MODULE_NAME  "%s"' % (self.module_name,))
             prnt('#define _CFFI_PYTHON_STARTUP_CODE  %s' %
-                 (self._string_literal(self.ffi._embedding_init_code),))
+                 (self._string_literal(self.ffi._embedding),))
             prnt('#ifdef PYPY_VERSION')
             prnt('# define _CFFI_PYTHON_STARTUP_FUNC  _cffi_pypyinit_%s' % (
                 base_module_name,))
@@ -1359,12 +1359,15 @@ def _modname_to_file(outputdir, modname, extension):
 
 def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
               c_file=None, source_extension='.c', extradir=None,
-              compiler_verbose=1, **kwds):
+              compiler_verbose=1, target=None, **kwds):
     if not isinstance(module_name, str):
         module_name = module_name.encode('ascii')
     if ffi._windows_unicode:
         ffi._apply_windows_unicode(kwds)
     if preamble is not None:
+        embedding = (ffi._embedding is not None)
+        if embedding:
+            ffi._apply_embedding_fix(kwds)
         if c_file is None:
             c_file, parts = _modname_to_file(tmpdir, module_name,
                                              source_extension)
@@ -1373,13 +1376,40 @@ def recompile(ffi, module_name, preamble, tmpdir='.', call_c_compiler=True,
             ext_c_file = os.path.join(*parts)
         else:
             ext_c_file = c_file
-        ext = ffiplatform.get_extension(ext_c_file, module_name, **kwds)
+        #
+        if target is None:
+            if embedding:
+                target = '%s.*' % module_name
+            else:
+                target = '*'
+        if target == '*':
+            target_module_name = module_name
+            target_extension = None      # use default
+        else:
+            if target.endswith('.*'):
+                target = target[:-2]
+                if sys.platform == 'win32':
+                    target += '.dll'
+                else:
+                    target += '.so'
+            # split along the first '.' (not the last one, otherwise the
+            # preceeding dots are interpreted as splitting package names)
+            index = target.find('.')
+            if index < 0:
+                raise ValueError("target argument %r should be a file name "
+                                 "containing a '.'" % (target,))
+            target_module_name = target[:index]
+            target_extension = target[index:]
+        #
+        ext = ffiplatform.get_extension(ext_c_file, target_module_name, **kwds)
         updated = make_c_source(ffi, module_name, preamble, c_file)
         if call_c_compiler:
             cwd = os.getcwd()
             try:
                 os.chdir(tmpdir)
-                outputfilename = ffiplatform.compile('.', ext, compiler_verbose)
+                outputfilename = ffiplatform.compile('.', ext, compiler_verbose,
+                                                     target_extension,
+                                                     embedding=embedding)
             finally:
                 os.chdir(cwd)
             return outputfilename
