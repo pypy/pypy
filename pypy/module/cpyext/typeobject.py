@@ -16,7 +16,8 @@ from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t, Py_ssize_tP,
     generic_cpy_call, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_HEAPTYPE, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
-    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers)
+    Py_TPFLAGS_HAVE_GETCHARBUFFER, build_type_checkers, PyObjectFields,
+    PyObject)
 from pypy.module.cpyext.methodobject import (
     PyDescr_NewWrapper, PyCFunction_NewEx, PyCFunction_typedef)
 from pypy.module.cpyext.modsupport import convert_method_defs
@@ -98,6 +99,51 @@ W_MemberDescr.typedef = TypeDef(
     __doc__ = interp_attrproperty('doc', cls=GetSetProperty),
     )
 assert not W_MemberDescr.typedef.acceptable_as_base_class  # no __new__
+
+PyDescrObject = lltype.ForwardReference()
+PyDescrObjectPtr = lltype.Ptr(PyDescrObject)
+PyDescrObjectFields = PyObjectFields + (
+    ("d_type", PyTypeObjectPtr),
+    ("d_name", PyObject),
+    )
+cpython_struct("PyDescrObject", PyDescrObjectFields,
+               PyDescrObject)
+
+PyMemberDescrObjectStruct = lltype.ForwardReference()
+PyMemberDescrObject = lltype.Ptr(PyMemberDescrObjectStruct)
+PyMemberDescrObjectFields = PyDescrObjectFields + (
+    ("d_member", lltype.Ptr(PyMemberDef)),
+    )
+cpython_struct("PyMemberDescrObject", PyMemberDescrObjectFields,
+               PyMemberDescrObjectStruct, level=2)
+
+@bootstrap_function
+def init_memberdescrobject(space):
+    make_typedescr(W_MemberDescr.typedef,
+                   basestruct=PyMemberDescrObject.TO,
+                   attach=memberdescr_attach,
+                   realize=memberdescr_realize,
+                   )
+
+def memberdescr_attach(space, py_obj, w_obj):
+    """
+    Fills a newly allocated PyMemberDescrObject with the given W_MemberDescr
+    object. The values must not be modified.
+    """
+    py_memberdescr = rffi.cast(PyMemberDescrObject, py_obj)
+    # XXX assign to d_dname, d_type?
+    py_memberdescr.c_d_member = w_obj.member
+
+def memberdescr_realize(space, obj):
+    # XXX NOT TESTED When is this ever called? 
+    member = rffi.cast(PyMemberDef, obj)
+    w_type = from_ref(space, rffi.cast(PyObject, obj.c_ob_type))
+    w_obj = space.allocate_instance(W_MemberDescr, w_type)
+    w_obj.__init__(member, w_type)
+    track_reference(space, obj, w_obj)
+    state = space.fromcache(RefcountState)
+    state.set_lifeline(w_obj, obj)
+    return w_obj
 
 def convert_getset_defs(space, dict_w, getsets, w_type):
     getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), getsets)
@@ -372,7 +418,6 @@ def init_typeobject(space):
     track_reference(space, py_object, space.w_object, replace=True)
     track_reference(space, py_tuple, space.w_tuple, replace=True)
     track_reference(space, py_str, space.w_str, replace=True)
-
 
 @cpython_api([PyObject], lltype.Void, external=False)
 def subtype_dealloc(space, obj):
