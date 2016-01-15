@@ -57,12 +57,6 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert module.fooType.object_member.__doc__ == "A Python object."
         for m in dir(module.fooType):
             obj = getattr(module.fooType, m)
-            if 'getset' in str(type(obj)):
-                # segfaults
-                continue
-            if 'type' in str(type(obj)):
-                # leaks a None reference
-                continue
             docstring = obj.__doc__
             if not docstring:
                 raises(RuntimeError, module.cmp_docstring, obj, 'random')
