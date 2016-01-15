@@ -2067,7 +2067,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             if IS_X86_64:
                 tmploc = esi    # already the correct place
                 if argloc is tmploc:
-                    self.mc.MOV_rr(esi.value, edi.value)
+                    # this case is theoretical only so far: in practice,
+                    # argloc is always eax, never esi
+                    self.mc.MOV_rr(edi.value, esi.value)
                     argloc = edi
             else:
                 tmploc = eax
