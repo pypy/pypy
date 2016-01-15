@@ -110,3 +110,7 @@ Optimize the case where, in a new C-created thread, we keep invoking
 short-running Python callbacks.  (CFFI on CPython has a hack to achieve
 the same result.)  This can also be seen as a bug fix: previously,
 thread-local objects would be reset between two such calls.
+
+.. branch: memop-simplify3
+
+Further simplifying the backend operations malloc_cond_varsize and zero_array.
