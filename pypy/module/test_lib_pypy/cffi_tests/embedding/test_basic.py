@@ -21,7 +21,7 @@ def check_lib_python_found(tmpdir):
         ffi._apply_embedding_fix(kwds)
         ffi.set_source("_test_lib_python_found", "", **kwds)
         try:
-            ffi.compile(tmpdir=tmpdir)
+            ffi.compile(tmpdir=tmpdir, verbose=True)
         except cffi.VerificationError as e:
             _link_error = e
         else:
