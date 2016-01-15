@@ -129,19 +129,19 @@ class LiteralPool(object):
         written = 0
         if self.constant_64_ones != -1:
             asm.mc.write('\xFF' * 8)
-            self.constant_64_ones = self.size
+            self.constant_64_ones = self.size + written
             written += 8
         if self.constant_64_zeros != -1:
             asm.mc.write('\x00' * 8)
-            self.constant_64_zeros = self.size
+            self.constant_64_zeros = self.size + written
             written += 8
         if self.constant_64_sign_bit != -1:
             asm.mc.write('\x80' + ('\x00' * 7))
-            self.constant_64_sign_bit = self.size
+            self.constant_64_sign_bit = self.size + written
             written += 8
         if self.constant_max_64_positive != -1:
             asm.mc.write('\x7F' + ('\xFF' * 7))
-            self.constant_max_64_positive = self.size
+            self.constant_max_64_positive = self.size + written
             written += 8
         self.size += written
         if not we_are_translated():
