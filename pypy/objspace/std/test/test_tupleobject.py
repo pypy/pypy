@@ -237,8 +237,8 @@ class TestW_TupleObject:
 class AppTestW_TupleObject:
     def test_is_true(self):
         assert not ()
-        assert (5,)
-        assert (5, 3)
+        assert bool((5,))
+        assert bool((5, 3))
 
     def test_len(self):
         assert len(()) == 0
