@@ -144,7 +144,16 @@ def get_external_function_sandbox_graph(fnobj, rtyper):
         # pure external function - fall back to the annotations
         # corresponding to the ll types
         args_s, s_result = sig_ll(fnobj)
+    execute = make_sandbox_trampoline(fnname, args_s, s_result)
+    return _annotate(rtyper, execute, args_s, s_result)
 
+def make_sandbox_trampoline(fnname, args_s, s_result):
+    """Create a trampoline function with the specified signature.
+
+    The trampoline is meant to be used in place of real calls to the external
+    function named 'fnname'.  It marshals its input arguments, dumps them to
+    STDOUT, and waits for an answer on STDIN.
+    """
     try:
         dump_arguments = rmarshal.get_marshaller(tuple(args_s))
         load_result = rmarshal.get_loader(s_result)
@@ -164,7 +173,8 @@ def get_external_function_sandbox_graph(fnobj, rtyper):
             loader.check_finished()
             return result
         execute.__name__ = 'sandboxed_%s' % (fnname,)
-    return _annotate(rtyper, execute, args_s, s_result)
+    return execute
+
 
 def _annotate(rtyper, f, args_s, s_result):
     ann = MixLevelHelperAnnotator(rtyper)
