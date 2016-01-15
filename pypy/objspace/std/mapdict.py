@@ -64,12 +64,14 @@ class AbstractAttribute(object):
         write_unnecessary = attr.see_write(w_value)
         if not attr.ever_mutated:
             attr.ever_mutated = True
-        # if this path is taken, the storage is already filled from the time we
+        # if write_unnecessary, the storage is already filled from the time we
         # did the map transition. Therefore, if the value profiler says so, we
         # can not do the write
+        if write_unnecessary:
+            return True
         cell = obj._mapdict_read_storage(attr.storageindex)
         w_value = attr._write_cell(cell, w_value)
-        if write_unnecessary and w_value is not None:
+        if w_value is not None:
             obj._mapdict_write_storage(attr.storageindex, w_value)
         return True
 

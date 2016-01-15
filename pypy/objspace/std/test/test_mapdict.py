@@ -13,6 +13,13 @@ class Config:
 space = FakeSpace()
 space.config = Config
 
+class Value:
+    def __init__(self, val=None):
+        self.val = val
+
+    def __repr__(self):
+        return "Value(%r)" % self.val
+
 class Class(object):
     name = 'testing'
     def __init__(self, hasdict=True):
@@ -35,31 +42,45 @@ class Object(Object):
 
 def test_plain_attribute():
     w_cls = None
-    aa = PlainAttribute(("b", DICT),
-                        PlainAttribute(("a", DICT),
-                                       Terminator(space, w_cls)))
-    assert aa.space is space
-    assert aa.terminator.w_cls is w_cls
-    assert aa.get_terminator() is aa.terminator
+    terminator = Terminator(space, w_cls)
+    amap = terminator._get_new_attr("a", DICT)
+    bmap = amap._get_new_attr("b", DICT)
+    assert bmap.space is space
+    assert bmap.terminator.w_cls is w_cls
+    assert bmap.get_terminator() is bmap.terminator
+    assert bmap.length() == 2
+    assert bmap.get_terminator() is bmap.back.back
+
+    v10 = Value(10)
+    v20 = Value(20)
+    v30 = Value(30)
+    v40 = Value(40)
+    v50 = Value(50)
+    v60 = Value(60)
 
     obj = Object()
-    obj.map, obj.storage = aa, [10, 20]
-    assert obj.getdictvalue(space, "a") == 10
-    assert obj.getdictvalue(space, "b") == 20
+    obj.map = terminator
+    obj.storage = [None, None]
+    obj.setdictvalue(space, "a", v10)
+    obj.setdictvalue(space, "b", v20)
+    assert obj.map is bmap
+    assert obj.storage == [v10, v20]
+    assert obj.getdictvalue(space, "a") == v10
+    assert obj.getdictvalue(space, "b") == v20
     assert obj.getdictvalue(space, "c") is None
 
     obj = Object()
-    obj.map, obj.storage = aa, [30, 40]
-    obj.setdictvalue(space, "a", 50)
-    assert obj.storage == [50, 40]
-    assert obj.getdictvalue(space, "a") == 50
-    obj.setdictvalue(space, "b", 60)
-    assert obj.storage == [50, 60]
-    assert obj.getdictvalue(space, "b") == 60
+    obj.map = terminator
+    obj.storage = [None, None]
+    obj.setdictvalue(space, "a", v30)
+    obj.setdictvalue(space, "b", v40)
+    obj.setdictvalue(space, "a", v50)
+    assert obj.storage == [v50, v40]
+    assert obj.getdictvalue(space, "a") == v50
+    obj.setdictvalue(space, "b", v60)
+    assert obj.storage == [v50, v60]
+    assert obj.getdictvalue(space, "b") == v60
 
-    assert aa.length() == 2
-
-    assert aa.get_terminator() is aa.back.back
 
 def test_huge_chain():
     current = Terminator(space, None)
@@ -447,8 +468,6 @@ def test_size_prediction():
 
 def test_value_profiling(monkeypatch):
     monkeypatch.setattr(jit, "we_are_jitted", lambda : True)
-    class Value:
-        pass
     a = Value()
     cls = Class()
     obj = cls.instantiate()
