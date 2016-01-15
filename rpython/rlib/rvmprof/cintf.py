@@ -5,6 +5,7 @@ from rpython.tool.version import rpythonroot
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
+from rpython.rlib import rthread
 
 from rpython.jit.backend import detect_cpu
 
@@ -70,76 +71,33 @@ class CInterface(object):
     def _freeze_(self):
         return True
 
-def token2lltype(tok):
-    if tok == 'i':
-        return lltype.Signed
-    if tok == 'r':
-        return llmemory.GCREF
-    raise NotImplementedError(repr(tok))
 
-def token2ctype(tok):
-    if tok == 'i':
-        return 'long'
-    elif tok == 'r':
-        return 'void*'
-    elif tok == 'f':
-        return 'double'
-    else:
-        raise NotImplementedError(repr(tok))
+# --- copy a few declarations from src/vmprof_stack.h ---
 
-def make_c_trampoline_function(name, func, token, restok):
-    cont_name = 'rpyvmprof_f_%s_%s' % (name, token)
-    tramp_name = 'rpyvmprof_t_%s_%s' % (name, token)
+VMPROF_CODE_TAG = 1
 
-    func.c_name = cont_name
-    func._dont_inline_ = True
+VMPROFSTACK = lltype.ForwardReference()
+PVMPROFSTACK = lltype.Ptr(VMPROFSTACK)
+VMPROFSTACK.become(rffi.CStruct("vmprof_stack_s",
+                                ('next', PVMPROFSTACK),
+                                ('value', lltype.Signed),
+                                ('kind', lltype.Signed)))
+# ----------
 
-    assert detect_cpu.autodetect().startswith(detect_cpu.MODEL_X86_64), (
-        "rvmprof only supports x86-64 CPUs for now")
 
-    llargs = ", ".join(["%s arg%d" % (token2ctype(x), i) for i, x in
-        enumerate(token)])
-    type = token2ctype(restok)
-    target = udir.join('module_cache')
-    target.ensure(dir=1)
-    argnames = ", ".join(["arg%d" % i for i in range(len(token))])
-    vmprof_stack_h = SRC.join("vmprof_stack.h").read()
-    target = target.join('trampoline_%s_%s.vmprof.c' % (name, token))
-    target.write("""
-#include "src/precommondefs.h"
-#include "vmprof_stack.h"
+vmprof_tl_stack = rthread.ThreadLocalField(PVMPROFSTACK, "vmprof_tl_stack")
+do_use_eci = rffi.llexternal_use_eci(
+    ExternalCompilationInfo(includes=['vmprof_stack.h'],
+                            include_dirs = [SRC]))
 
-extern vmprof_stack* vmprof_global_stack;
+def enter_code(unique_id):
+    do_use_eci()
+    s = lltype.malloc(VMPROFSTACK, flavor='raw')
+    s.c_next = vmprof_tl_stack.get_or_make_raw()
+    s.c_value = unique_id
+    s.c_kind = VMPROF_CODE_TAG
+    vmprof_tl_stack.setraw(s)
+    return s
 
-%(type)s %(cont_name)s(%(llargs)s);
-
-%(type)s %(tramp_name)s(%(llargs)s, long unique_id)
-{
-    %(type)s result;
-    struct vmprof_stack node;
-
-    node.value = unique_id;
-    node.kind = VMPROF_CODE_TAG;
-    node.next = vmprof_global_stack;
-    vmprof_global_stack = &node;
-    result = %(cont_name)s(%(argnames)s);
-    vmprof_global_stack = node.next;
-    return result;
-}
-""" % locals())
-    header = 'RPY_EXTERN %s %s(%s);\n' % (
-        token2ctype(restok), tramp_name,
-        ', '.join([token2ctype(tok) for tok in token] + ['long']))
-
-    eci = ExternalCompilationInfo(
-        post_include_bits = [header],
-        separate_module_files = [str(target)],
-    )
-    eci = eci.merge(global_eci)
-    ARGS = [token2lltype(tok) for tok in token] + [lltype.Signed]
-    return rffi.llexternal(
-        tramp_name, ARGS,
-        token2lltype(restok),
-        compilation_info=eci,
-        _nowrapper=True, sandboxsafe=True,
-        random_effects_on_gcobjs=True)
+def leave_code(s):
+    vmprof_tl_stack.setraw(s.c_next)

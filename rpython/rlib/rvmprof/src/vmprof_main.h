@@ -48,13 +48,6 @@ static void flush_codes(void);
 
 
 
-RPY_EXTERN vmprof_stack* vmprof_global_stack;
-
-RPY_EXTERN void *vmprof_address_of_global_stack(void)
-{
-    return (void*)&vmprof_global_stack;
-}
-
 RPY_EXTERN
 char *vmprof_init(int fd, double interval, char *interp_name)
 {
@@ -115,8 +108,6 @@ void vmprof_ignore_signals(int ignored)
 #define VERSION_THREAD_ID '\x01'
 #define VERSION_TAG '\x02'
 
-vmprof_stack* vmprof_global_stack = NULL;
-
 struct prof_stacktrace_s {
     char padding[sizeof(long) - 1];
     char marker;
@@ -135,9 +126,16 @@ static char atfork_hook_installed = 0;
  * *************************************************************
  */
 
+#include "src/threadlocal.h"
+
+static vmprof_stack_t *get_vmprof_stack(void)
+{
+    return RPY_THREADLOCALREF_GET(vmprof_tl_stack);
+}
+
 static int get_stack_trace(intptr_t *result, int max_depth, intptr_t pc, ucontext_t *ucontext)
 {
-    struct vmprof_stack* stack = vmprof_global_stack;
+    vmprof_stack_t* stack = get_vmprof_stack();
     int n = 0;
     intptr_t addr = 0;
     int bottom_jitted = 0;
