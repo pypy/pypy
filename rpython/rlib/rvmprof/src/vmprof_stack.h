@@ -1,3 +1,5 @@
+#ifndef _VMPROF_STACK_H_
+#define _VMPROF_STACK_H_
 
 #include <unistd.h>
 
@@ -19,3 +21,5 @@ typedef struct vmprof_stack_s {
 // to worry too much. There is a potential for squeezing it with bit
 // patterns into one WORD, but I don't want to care RIGHT NOW, potential
 // for future optimization potential
+
+#endif
