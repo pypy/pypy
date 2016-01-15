@@ -36,7 +36,7 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
         return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(self, graph,
                                                                   seen)
     def analyze_external_call(self, funcobj, seen=None):
-        if getattr(funcobj, 'random_effects_on_gcobjs', False):
+        if funcobj.random_effects_on_gcobjs:
             return True
         return graphanalyze.BoolGraphAnalyzer.analyze_external_call(
             self, funcobj, seen)

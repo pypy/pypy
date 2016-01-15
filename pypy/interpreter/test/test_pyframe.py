@@ -34,6 +34,7 @@ class AppTestPyFrame:
         import sys
         f = sys._getframe()
         assert f.f_globals is globals()
+        raises(TypeError, "f.f_globals = globals()")
 
     def test_f_builtins(self):
         import sys, __builtin__

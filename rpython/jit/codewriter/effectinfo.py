@@ -331,11 +331,8 @@ class QuasiImmutAnalyzer(BoolGraphAnalyzer):
 
 class RandomEffectsAnalyzer(BoolGraphAnalyzer):
     def analyze_external_call(self, funcobj, seen=None):
-        try:
-            if funcobj.random_effects_on_gcobjs:
-                return True
-        except AttributeError:
-            return True   # better safe than sorry
+        if funcobj.random_effects_on_gcobjs:
+            return True
         return super(RandomEffectsAnalyzer, self).analyze_external_call(
             funcobj, seen)
 
