@@ -20,7 +20,6 @@ typedef struct {
     long long foo_longlong;
     unsigned long long foo_ulonglong;
     Py_ssize_t foo_ssizet;
-    PyObject * foo_docless;
 } fooobject;
 
 static PyTypeObject footype;
@@ -185,7 +184,6 @@ static PyMemberDef foo_members[] = {
     {"longlong_member", T_LONGLONG, offsetof(fooobject, foo_longlong), 0, NULL},
     {"ulonglong_member", T_ULONGLONG, offsetof(fooobject, foo_ulonglong), 0, NULL},  
     {"ssizet_member", T_PYSSIZET, offsetof(fooobject, foo_ssizet), 0, NULL},
-    {"docless_member", T_OBJECT, offsetof(fooobject, foo_docless), READONLY, NULL},
     {NULL}  /* Sentinel */
 };
 
@@ -625,25 +623,19 @@ static PyTypeObject CustomType = {
     (destructor)custom_dealloc, /*tp_dealloc*/
 };
 
-static PyObject * add_docstring(PyObject * self, PyObject * args)
+static PyObject * cmp_docstring(PyObject * self, PyObject * args)
 {
     PyObject *obj;
     PyObject *str;
-    char *docstr;
-    static char *msg = "already has a docstring";
+    char *docstr, *attr_as_str;
+    static char *msg = "has no docstring";
     PyObject *tp_dict = footype.tp_dict;
     PyObject *myobj;
     static PyTypeObject *PyMemberDescr_TypePtr = NULL; /* a PyMemberDescr_Type* */
     static PyTypeObject *PyGetSetDescr_TypePtr = NULL; /* a PyGetSetDescr_Type* */
     static PyTypeObject *PyMethodDescr_TypePtr = NULL; /* a PyClassMethodDescr_Type* */
 
-    /* Don't add docstrings */
-    if (Py_OptimizeFlag > 1) {
-        Py_RETURN_NONE;
-    }
-
     if (PyGetSetDescr_TypePtr == NULL) {
-        /* Get "subdescr" */
         myobj = PyDict_GetItemString(tp_dict, "name");
         if (myobj != NULL) {
             PyGetSetDescr_TypePtr = Py_TYPE(myobj);
@@ -661,63 +653,72 @@ static PyObject * add_docstring(PyObject * self, PyObject * args)
             PyMethodDescr_TypePtr = Py_TYPE(myobj);
         }
     }
+    if (!PyArg_ParseTuple(args, "OO!", &obj, &PyString_Type, &str)) {
+        return NULL;
+    }
     if (PyMethodDescr_TypePtr == PyMemberDescr_TypePtr ||
         PyMethodDescr_TypePtr == PyGetSetDescr_TypePtr ||
         PyMemberDescr_TypePtr == PyGetSetDescr_TypePtr)
     {
         PyErr_Format(PyExc_RuntimeError, 
             "at least two of the 'Py{Method,Member,GetSet}Descr_Type's are the same\n"
-            "(in add_docstring %s %d)", __FILE__, __LINE__);
-        return NULL;
-    }
-    if (!PyArg_ParseTuple(args, "OO!", &obj, &PyString_Type, &str)) {
+            "(in cmp_docstring %s %d)", __FILE__, __LINE__);
         return NULL;
     }
     docstr = PyString_AS_STRING(str);
 #define _TESTDOC1(typebase) (Py_TYPE(obj) == &Py##typebase##_Type)
 #define _TESTDOC2(typebase) (Py_TYPE(obj) == Py##typebase##_TypePtr)
-#define _ADDDOC(typebase, doc, name) do {                               \
+#define _CMPDOC(typebase, doc, name) do {                               \
         Py##typebase##Object *new = (Py##typebase##Object *)obj;        \
         if (!(doc)) {                                                   \
-            doc = docstr;                                               \
-        }                                                               \
-        else {                                                          \
             PyErr_Format(PyExc_RuntimeError, "%s method %s", name, msg); \
             return NULL;                                                \
+        }                                                               \
+        else {                                                          \
+            if (strcmp(doc, docstr) != 0)                               \
+            {                                                           \
+                PyErr_Format(PyExc_RuntimeError,                        \
+                             "%s method's docstring '%s' is not '%s'",  \
+                             name, doc, docstr);                        \
+                return NULL;                                            \
+            }                                                           \
         }                                                               \
     } while (0)
 
     if (_TESTDOC1(CFunction)) {
-        _ADDDOC(CFunction, new->m_ml->ml_doc, new->m_ml->ml_name);
+        _CMPDOC(CFunction, new->m_ml->ml_doc, new->m_ml->ml_name);
     }
     else if (_TESTDOC1(Type)) {
-        _ADDDOC(Type, new->tp_doc, new->tp_name);
+        _CMPDOC(Type, new->tp_doc, new->tp_name);
     }
     else if (_TESTDOC2(MemberDescr)) {
-        /* docless_member ends up here */
-        _ADDDOC(MemberDescr, new->d_member->doc, new->d_member->name);
+        _CMPDOC(MemberDescr, new->d_member->doc, new->d_member->name);
     }
     else if (_TESTDOC2(GetSetDescr)) {
-        _ADDDOC(GetSetDescr, new->d_getset->doc, new->d_getset->name);
+        //_CMPDOC(GetSetDescr, new->d_getset->doc, new->d_getset->name);
     }
     else if (_TESTDOC2(MethodDescr)) {
-        _ADDDOC(MethodDescr, new->d_method->ml_doc, new->d_method->ml_name);
+        _CMPDOC(MethodDescr, new->d_method->ml_doc, new->d_method->ml_name);
     }
     else {
         PyObject *doc_attr;
 
         doc_attr = PyObject_GetAttrString(obj, "__doc__");
-        if (doc_attr != NULL && doc_attr != Py_None) {
+        if (doc_attr == NULL || doc_attr == Py_None) {
             PyErr_Format(PyExc_RuntimeError, "object %s", msg);
             return NULL;
         }
-        Py_XDECREF(doc_attr);
 
-        if (PyObject_SetAttrString(obj, "__doc__", str) < 0) {
-            PyErr_SetString(PyExc_TypeError,
-                            "Cannot set a docstring for that object");
-            return NULL;
-        }
+        attr_as_str = PyString_AS_STRING(doc_attr);
+        if (strcmp(attr_as_str, docstr) != 0)
+        {                                                           
+            PyErr_Format(PyExc_RuntimeError,                        
+                         "objects's docstring '%s' is not '%s'", 
+                         attr_as_str, docstr);               
+            Py_XDECREF(doc_attr);
+            return NULL;                                            
+        }                                                           
+        Py_XDECREF(doc_attr);
         Py_RETURN_NONE;
     }
 
@@ -725,7 +726,6 @@ static PyObject * add_docstring(PyObject * self, PyObject * args)
 #undef _TESTDOC2
 #undef _ADDDOC
 
-    Py_INCREF(str);
     Py_RETURN_NONE;
 }
 
@@ -734,7 +734,7 @@ static PyObject * add_docstring(PyObject * self, PyObject * args)
 static PyMethodDef foo_functions[] = {
     {"new",        (PyCFunction)foo_new, METH_NOARGS, NULL},
     {"newCustom",  (PyCFunction)newCustom, METH_NOARGS, NULL},
-    {"add_docstring",  (PyCFunction)add_docstring, METH_VARARGS, NULL},
+    {"cmp_docstring",  (PyCFunction)cmp_docstring, METH_VARARGS, NULL},
     {NULL,        NULL}    /* Sentinel */
 };
 

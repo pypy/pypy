@@ -55,9 +55,21 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(SystemError, "obj.broken_member = 42")
         assert module.fooType.broken_member.__doc__ is None
         assert module.fooType.object_member.__doc__ == "A Python object."
+        for m in dir(module.fooType):
+            obj = getattr(module.fooType, m)
+            if 'getset' in str(type(obj)):
+                # segfaults
+                continue
+            if 'type' in str(type(obj)):
+                # leaks a None reference
+                continue
+            docstring = obj.__doc__
+            if not docstring:
+                raises(RuntimeError, module.cmp_docstring, obj, 'random')
+            else:
+                import pdb;pdb.set_trace()
+                module.cmp_docstring(obj, docstring)
         assert str(type(module.fooType.int_member)) == "<type 'member_descriptor'>"
-        module.add_docstring(module.fooType.docless_member, "docstring for docless_member")
-        assert module.fooType.docless_member.__doc__ ==  "docstring for docless_member"
 
     def test_typeobject_object_member(self):
         module = self.import_module(name='foo')
