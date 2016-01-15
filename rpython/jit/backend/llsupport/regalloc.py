@@ -666,6 +666,7 @@ class BaseRegalloc(object):
             self.rm._sync_var(op.getarg(1))
             return [self.loc(op.getarg(0)), self.fm.loc(op.getarg(1))]
         else:
+            assert op.numargs() == 1
             return [self.loc(op.getarg(0))]
 
 
