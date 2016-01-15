@@ -30,7 +30,7 @@ class TestInstance(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
-    def test_load_attr(self):
+    def test_load_immutable_attr(self):
         src = '''
             class A(object):
                 pass

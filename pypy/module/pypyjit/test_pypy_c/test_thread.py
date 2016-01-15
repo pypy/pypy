@@ -41,11 +41,13 @@ class TestThread(BaseTestPyPyC):
         assert round(log.result, 6) == round(main(500), 6)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            guard_not_invalidated(descr=...)
             i53 = int_lt(i48, i27)
             guard_true(i53, descr=...)
-            i54 = int_add(i48, 1)
+            guard_not_invalidated(descr=...)
+            i54 = int_add_ovf(i48, i47)
+            guard_no_overflow(descr=...)
             --TICK--
+            i58 = arraylen_gc(p43, descr=...)
             jump(..., descr=...)
         """)
 

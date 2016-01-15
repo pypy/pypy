@@ -109,23 +109,27 @@ def test_add_attribute():
     assert obj2.map is obj.map
 
 def test_attr_immutability(monkeypatch):
+    from pypy.objspace.std.intobject import W_IntObject
     cls = Class()
     obj = cls.instantiate()
-    obj.setdictvalue(space, "a", 10)
-    obj.setdictvalue(space, "b", 20)
-    obj.setdictvalue(space, "b", 30)
-    assert obj.storage == [10, 30]
+    obj.setdictvalue(space, "a", W_IntObject(10))
+    obj.setdictvalue(space, "b", W_IntObject(20))
+    obj.setdictvalue(space, "b", W_IntObject(30))
+    mutcella, mutcellb = obj.storage
+    assert mutcella.intvalue == 10
+    assert mutcellb.intvalue == 30
     assert obj.map.ever_mutated == True
     assert obj.map.back.ever_mutated == False
 
     indices = []
+    orig_pure_read = PlainAttribute._pure_read
 
-    def _pure_mapdict_read_storage(obj, storageindex):
-        assert storageindex == 0
-        indices.append(storageindex)
-        return obj._mapdict_read_storage(storageindex)
+    def _pure_read(self, obj):
+        assert self.storageindex == 0
+        indices.append(self.storageindex)
+        return orig_pure_read(self, obj)
 
-    obj.map._pure_mapdict_read_storage = _pure_mapdict_read_storage
+    monkeypatch.setattr(PlainAttribute, "_pure_read", _pure_read)
     monkeypatch.setattr(jit, "isconstant", lambda c: True)
 
     assert obj.getdictvalue(space, "a") == 10
@@ -134,16 +138,20 @@ def test_attr_immutability(monkeypatch):
     assert indices == [0, 0]
 
     obj2 = cls.instantiate()
-    obj2.setdictvalue(space, "a", 15)
-    obj2.setdictvalue(space, "b", 25)
+    obj2.setdictvalue(space, "a", W_IntObject(15))
+    obj2.setdictvalue(space, "b", W_IntObject(25))
+    mutcella, mutcellb = obj2.storage
     assert obj2.map is obj.map
     assert obj2.map.ever_mutated == True
     assert obj2.map.back.ever_mutated == False
 
     # mutating obj2 changes the map
-    obj2.setdictvalue(space, "a", 50)
+    obj2.setdictvalue(space, "a", W_IntObject(50))
     assert obj2.map.back.ever_mutated == True
     assert obj2.map is obj.map
+    assert obj2.storage[0] is mutcella
+    assert obj2.storage[1] is mutcellb
+
 
 def test_attr_immutability_delete():
     cls = Class()
@@ -154,6 +162,94 @@ def test_attr_immutability_delete():
     obj.setdictvalue(space, "a", 20)
     assert obj.map.ever_mutated == True
     assert obj.map is map1
+
+def test_immutable_with_mutcell():
+    # even an immutable attribute will be stored as a mutcell. The reason is
+    # that then the type of the attribute is more predictable (eg always
+    # IntMutableCell and sometimes IntMutableCell and sometimes W_IntObject)
+    from pypy.objspace.std.intobject import W_IntObject
+    cls = Class()
+    obj = cls.instantiate()
+    # make sure the attribute counts as mutable
+    obj.setdictvalue(space, "a", W_IntObject(4))
+    # not wrapped because of the FakeSpace :-(
+    assert obj.getdictvalue(space, "a") == 4
+    mutcell = obj._mapdict_read_storage(0)
+    assert mutcell.intvalue == 4
+
+
+def test_mutcell_not_immutable():
+    from pypy.objspace.std.intobject import W_IntObject
+    cls = Class()
+    obj = cls.instantiate()
+    # make sure the attribute counts as mutable
+    obj.setdictvalue(space, "a", W_IntObject(4))
+    obj.setdictvalue(space, "a", W_IntObject(5))
+    assert obj.map.ever_mutated
+
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", W_IntObject(5))
+    # not wrapped because of the FakeSpace :-(
+    assert obj.getdictvalue(space, "a") == 5
+    mutcell = obj._mapdict_read_storage(0)
+    assert mutcell.intvalue == 5
+
+    obj.setdictvalue(space, "a", W_IntObject(6))
+    assert obj.getdictvalue(space, "a") == 6 # FakeSpace again
+    mutcell1 = obj._mapdict_read_storage(0)
+    assert mutcell1.intvalue == 6
+    assert mutcell is mutcell1
+
+    obj.setdictvalue(space, "a", W_IntObject(7))
+    assert obj.getdictvalue(space, "a") == 7 # FakeSpace again
+    mutcell2 = obj._mapdict_read_storage(0)
+    assert mutcell2.intvalue == 7
+    assert mutcell2 is mutcell1
+
+
+def test_mutcell_not_immutable_float():
+    from pypy.objspace.std.floatobject import W_FloatObject
+    cls = Class()
+    obj = cls.instantiate()
+    # make sure the attribute counts as mutable
+    obj.setdictvalue(space, "a", W_FloatObject(4.43))
+    obj.setdictvalue(space, "a", W_FloatObject(5.43))
+    assert obj.map.ever_mutated
+
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", W_FloatObject(5.43))
+    assert obj.getdictvalue(space, "a") == 5.43
+    mutcell = obj._mapdict_read_storage(0)
+    assert mutcell.floatvalue == 5.43
+
+    obj.setdictvalue(space, "a", W_FloatObject(6.43))
+    assert obj.getdictvalue(space, "a") == 6.43
+    mutcell1 = obj._mapdict_read_storage(0)
+    assert mutcell1.floatvalue == 6.43
+    assert mutcell is mutcell1
+
+    obj.setdictvalue(space, "a", W_FloatObject(7.43))
+    assert obj.getdictvalue(space, "a") == 7.43
+    mutcell2 = obj._mapdict_read_storage(0)
+    assert mutcell2.floatvalue == 7.43
+    assert mutcell2 is mutcell1
+
+
+def test_mutcell_unwrap_only_if_needed():
+    from pypy.objspace.std.intobject import W_IntObject
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", "foo")
+    assert not obj._get_mapdict_map().can_contain_mutable_cell
+    obj.setdictvalue(space, "a", W_IntObject(6))
+    obj.setdictvalue(space, "a", W_IntObject(6))
+    assert obj._get_mapdict_map().can_contain_mutable_cell
+
+    obj._get_mapdict_map().can_contain_mutable_cell = False
+    mutcell = IntMutableCell(1)
+    obj._mapdict_write_storage(0, mutcell)
+    assert obj.getdictvalue(space, "a") is mutcell # not unwrapped
+
 
 def test_delete():
     for i, dattr in enumerate(["a", "b", "c"]):

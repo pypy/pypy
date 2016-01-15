@@ -4,7 +4,7 @@ from rpython.rlib.objectmodel import iteritems_with_hash
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.dictmultiobject import (
     DictStrategy, create_iterator_classes)
-from pypy.objspace.std.typeobject import unwrap_cell
+from pypy.objspace.std.typeobject import unwrap_cell_iftypeversion
 
 
 class DictProxyStrategy(DictStrategy):
@@ -84,11 +84,12 @@ class DictProxyStrategy(DictStrategy):
         return space.newlist_bytes(self.unerase(w_dict.dstorage).dict_w.keys())
 
     def values(self, w_dict):
-        return [unwrap_cell(self.space, w_value) for w_value in self.unerase(w_dict.dstorage).dict_w.itervalues()]
+        return [unwrap_cell_iftypeversion(self.space, w_value)
+                    for w_value in self.unerase(w_dict.dstorage).dict_w.itervalues()]
 
     def items(self, w_dict):
         space = self.space
-        return [space.newtuple([space.wrap(key), unwrap_cell(self.space, w_value)])
+        return [space.newtuple([space.wrap(key), unwrap_cell_iftypeversion(self.space, w_value)])
                     for (key, w_value) in self.unerase(w_dict.dstorage).dict_w.iteritems()]
 
     def clear(self, w_dict):
@@ -109,6 +110,6 @@ class DictProxyStrategy(DictStrategy):
     def wrapkey(space, key):
         return space.wrap(key)
     def wrapvalue(space, value):
-        return unwrap_cell(space, value)
+        return unwrap_cell_iftypeversion(space, value)
 
 create_iterator_classes(DictProxyStrategy)

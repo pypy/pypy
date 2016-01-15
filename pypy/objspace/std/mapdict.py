@@ -10,8 +10,9 @@ from pypy.objspace.std.dictmultiobject import (
     BaseValueIterator, BaseItemIterator, _never_equal_to_string,
     W_DictObject,
 )
-from pypy.objspace.std.typeobject import MutableCell
-
+from pypy.objspace.std.typeobject import (
+    MutableCell, IntMutableCell, FloatMutableCell, ObjectMutableCell,
+    unwrap_cell)
 
 # ____________________________________________________________
 # attribute shapes
@@ -45,20 +46,16 @@ class AbstractAttribute(object):
                 if w_res is not None:
                     return w_res
         if (
-            jit.isconstant(attr.storageindex) and
+            jit.isconstant(attr) and
             jit.isconstant(obj) and
             not attr.ever_mutated
         ):
-            return self._pure_mapdict_read_storage(obj, attr.storageindex)
+            return attr._pure_read(obj)
         else:
-            w_res = obj._mapdict_read_storage(attr.storageindex)
+            result = obj._mapdict_read_storage(attr.storageindex)
             if jit.we_are_jitted() and attr.class_is_known():
-                jit.record_exact_class(w_res, attr.read_constant_cls())
-            return w_res
-
-    @jit.elidable
-    def _pure_mapdict_read_storage(self, obj, storageindex):
-        return obj._mapdict_read_storage(storageindex)
+                jit.record_exact_class(result, attr.read_constant_cls())
+            return attr._read_cell(result)
 
     def write(self, obj, selector, w_value):
         attr = self.find_map_attr(selector)
@@ -70,7 +67,9 @@ class AbstractAttribute(object):
         # if this path is taken, the storage is already filled from the time we
         # did the map transition. Therefore, if the value profiler says so, we
         # can not do the write
-        if not write_unnecessary:
+        cell = obj._mapdict_read_storage(attr.storageindex)
+        w_value = attr._write_cell(cell, w_value)
+        if write_unnecessary and w_value is not None:
             obj._mapdict_write_storage(attr.storageindex, w_value)
         return True
 
@@ -172,6 +171,7 @@ class AbstractAttribute(object):
     def add_attr(self, obj, selector, w_value):
         # grumble, jit needs this
         attr = self._get_new_attr(selector[0], selector[1])
+        w_value = attr._write_cell(None, w_value)
         oldattr = obj._get_mapdict_map()
         if not jit.we_are_jitted():
             size_est = (oldattr._size_estimate + attr.size_estimate()
@@ -188,6 +188,8 @@ class AbstractAttribute(object):
         # the order is important here: first change the map, then the storage,
         # for the benefit of the special subclasses
         obj._set_mapdict_map(attr)
+        w_value = attr._write_cell(None, w_value)
+        assert w_value is not None
         obj._mapdict_write_storage(attr.storageindex, w_value)
         attr.see_write(w_value)
 
@@ -296,7 +298,8 @@ class DevolvedDictTerminator(Terminator):
 
 
 class PlainAttribute(AbstractAttribute):
-    _immutable_fields_ = ['selector', 'storageindex', 'back', 'ever_mutated?']
+    _immutable_fields_ = ['selector', 'storageindex', 'back',
+                          'ever_mutated?', 'can_contain_mutable_cell?']
     objectmodel.import_from_mixin(valueprof.ValueProf)
 
     def __init__(self, selector, back):
@@ -307,6 +310,18 @@ class PlainAttribute(AbstractAttribute):
         self._size_estimate = self.length() * NUM_DIGITS_POW2
         self.ever_mutated = False
         self.init_valueprof('%s.%s' % (back.terminator.w_cls.name if back.terminator.w_cls else '???', selector[0]))
+        # this flag means: at some point there was an instance that used a
+        # derivative of this map that had a MutableCell stored into the
+        # corresponding field.
+        # if the flag is False, we don't need to unbox the attribute.
+        self.can_contain_mutable_cell = False
+
+    @jit.elidable
+    def _pure_read(self, obj):
+        # this is safe even if the mapdict stores a mutable cell. the cell can
+        # only be changed is ever_mutated is set to True
+        result = obj._mapdict_read_storage(self.storageindex)
+        return self._read_cell(result)
 
     # ____________________________________________________________
     # methods for ValueProf mixin
@@ -319,6 +334,37 @@ class PlainAttribute(AbstractAttribute):
         assert isinstance(w_obj, W_IntObject)
         return w_obj.intval
     # ____________________________________________________________
+
+    def _read_cell(self, w_cell):
+        if not self.can_contain_mutable_cell:
+            return w_cell
+        return unwrap_cell(self.space, w_cell)
+
+    def _write_cell(self, w_cell, w_value):
+        from pypy.objspace.std.intobject import W_IntObject
+        from pypy.objspace.std.floatobject import W_FloatObject
+        assert not isinstance(w_cell, ObjectMutableCell)
+        if type(w_value) is W_IntObject:
+            if isinstance(w_cell, IntMutableCell):
+                w_cell.intvalue = w_value.intval
+                return None
+            check = self._ensure_can_contain_mutable_cell()
+            assert check
+            return IntMutableCell(w_value.intval)
+        if type(w_value) is W_FloatObject:
+            if isinstance(w_cell, FloatMutableCell):
+                w_cell.floatvalue = w_value.floatval
+                return None
+            check = self._ensure_can_contain_mutable_cell()
+            assert check
+            return FloatMutableCell(w_value.floatval)
+        return w_value
+
+    @jit.elidable
+    def _ensure_can_contain_mutable_cell(self):
+        if not self.can_contain_mutable_cell:
+            self.can_contain_mutable_cell = True
+        return True
 
     def _copy_attr(self, obj, new_obj):
         w_value = self.read(obj, self.selector)
@@ -357,7 +403,8 @@ class PlainAttribute(AbstractAttribute):
         new_obj = self.back.materialize_r_dict(space, obj, dict_w)
         if self.selector[1] == DICT:
             w_attr = space.wrap(self.selector[0])
-            dict_w[w_attr] = obj._mapdict_read_storage(self.storageindex)
+            dict_w[w_attr] = unwrap_cell(
+                    space, obj._mapdict_read_storage(self.storageindex))
         else:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -898,7 +945,8 @@ def LOAD_ATTR_caching(pycode, w_obj, nameindex):
     map = w_obj._get_mapdict_map()
     if entry.is_valid_for_map(map) and entry.w_method is None:
         # everything matches, it's incredibly fast
-        return w_obj._mapdict_read_storage(entry.storageindex)
+        return unwrap_cell(
+                map.space, w_obj._mapdict_read_storage(entry.storageindex))
     return LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map)
 LOAD_ATTR_caching._always_inline_ = True
 
@@ -943,7 +991,8 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                     # Note that if map.terminator is a DevolvedDictTerminator,
                     # map.find_map_attr will always return None if selector[1]==DICT.
                     _fill_cache(pycode, nameindex, map, version_tag, attr.storageindex)
-                    return w_obj._mapdict_read_storage(attr.storageindex)
+                    return unwrap_cell(
+                            space, w_obj._mapdict_read_storage(attr.storageindex))
     if space.config.objspace.std.withmethodcachecounter:
         INVALID_CACHE_ENTRY.failure_counter += 1
     return space.getattr(w_obj, w_name)

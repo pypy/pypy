@@ -36,15 +36,31 @@ class IntMutableCell(MutableCell):
     def __repr__(self):
         return "<IntMutableCell: %s>" % (self.intvalue, )
 
+class FloatMutableCell(MutableCell):
+    def __init__(self, floatvalue):
+        self.floatvalue = floatvalue
+
+    def unwrap_cell(self, space):
+        return space.wrap(self.floatvalue)
+
+    def __repr__(self):
+        return "<FloatMutableCell: %s>" % (self.floatvalue, )
+
 
 def unwrap_cell(space, w_value):
+    if isinstance(w_value, MutableCell):
+        return w_value.unwrap_cell(space)
+    return w_value
+
+
+def unwrap_cell_iftypeversion(space, w_value):
     if space.config.objspace.std.withtypeversion:
-        if isinstance(w_value, MutableCell):
-            return w_value.unwrap_cell(space)
+        return unwrap_cell(space, w_value)
     return w_value
 
 def write_cell(space, w_cell, w_value):
     from pypy.objspace.std.intobject import W_IntObject
+    from pypy.objspace.std.floatobject import W_FloatObject
     if w_cell is None:
         # attribute does not exist at all, write it without a cell first
         return w_value
@@ -54,14 +70,19 @@ def write_cell(space, w_cell, w_value):
     elif isinstance(w_cell, IntMutableCell) and type(w_value) is W_IntObject:
         w_cell.intvalue = w_value.intval
         return None
+    elif isinstance(w_cell, FloatMutableCell) and type(w_value) is W_FloatObject:
+        w_cell.floatvalue = w_value.floatval
+        return None
     elif space.is_w(w_cell, w_value):
         # If the new value and the current value are the same, don't
         # create a level of indirection, or mutate the version.
         return None
-    if type(w_value) is W_IntObject:
-        return IntMutableCell(w_value.intval)
-    else:
-        return ObjectMutableCell(w_value)
+    if not isinstance(w_cell, MutableCell):
+        if type(w_value) is W_IntObject:
+            return IntMutableCell(w_value.intval)
+        if type(w_value) is W_FloatObject:
+            return FloatMutableCell(w_value.floatval)
+    return ObjectMutableCell(w_value)
 
 class VersionTag(object):
     pass
@@ -274,12 +295,12 @@ class W_TypeObject(W_Root):
         if space.config.objspace.std.withtypeversion:
             version_tag = w_self.version_tag()
             if version_tag is not None:
-                return unwrap_cell(
+                return unwrap_cell_iftypeversion(
                     space,
                     w_self._pure_getdictvalue_no_unwrapping(
                         space, version_tag, attr))
         w_value = w_self._getdictvalue_no_unwrapping(space, attr)
-        return unwrap_cell(space, w_value)
+        return unwrap_cell_iftypeversion(space, w_value)
 
     def _getdictvalue_no_unwrapping(w_self, space, attr):
         w_value = w_self.dict_w.get(attr, None)
