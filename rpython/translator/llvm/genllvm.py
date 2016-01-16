@@ -942,13 +942,14 @@ class FunctionWriter(object):
 
     def write_graph(self, ptr_type, name, graph, export):
         prevent_inline, llvmgcroot = self.prepare_graph(ptr_type, name, graph)
-        self.w('define {linkage}{retvar.T} {name}({a}){add}{gc} {{'.format(
+        self.w('define {linkage}{retvar.T} {name}({a}) {attrs}{gc} {{'.format(
                        linkage='' if export else 'internal ',
                        retvar=get_repr(graph.getreturnvar()),
                        name=name,
                        a=', '.join(get_repr(arg).TV for arg in graph.getargs()
                                    if arg.concretetype is not lltype.Void),
-                       add=' noinline' if prevent_inline else '',
+                       attrs=database.target_attributes +
+                             (' noinline' if prevent_inline else ''),
                        gc=' gc "pypy"' if llvmgcroot else ''),
                '')
 
@@ -1842,6 +1843,32 @@ class GenLLVM(object):
 
         self.gcpolicy.finish()
 
+    def _get_target_information(self):
+        """
+        Get datalayout, triple, and "target-cpu" and "target-features"
+        attributes for a generic version of the CPU we are compiling on.
+
+        This passes a small C code snippet to clang and parses the output in a
+        way that could easily break with any future LLVM version.
+        """
+        output = cmdexec(
+                'echo "void test() {{}}" | clang -x c - -emit-llvm -S -o -'
+                .format(devnull))
+        for line in output.splitlines(True):
+            if line.startswith('target '):
+                yield line
+            if line.startswith('attributes'):
+                assert line.startswith('attributes #0 = { ')
+                assert line.endswith(' }\n')
+                attributes_str = line[len('attributes #0 = { '):-len(' }\n')]
+                for attribute in attributes_str.split():
+                    if attribute.startswith('"target-cpu"='):
+                        target_cpu_attribute = attribute
+                    if attribute.startswith('"target-features"='):
+                        target_features_attribute = attribute
+                database.target_attributes = '{} {}'.format(
+                        target_cpu_attribute, target_features_attribute)
+
     def _write_special_declarations(self, f):
         compiler_info_str = "LLVM " + cmdexec('llvm-config --version').strip()
         cstr_type = '[{} x i8]'.format(len(compiler_info_str) + 1)
@@ -1877,13 +1904,10 @@ class GenLLVM(object):
         self.work_dir.mkdir()
         self.main_ll_file = self.work_dir.join('main.ll')
         with self.main_ll_file.open('w') as f:
-            output = cmdexec('clang -emit-llvm -S -x c {} -o -'
-                    .format(devnull))
-            for line in output.splitlines(True):
-                if line.startswith('target '):
-                    f.write(line)
-
             database = Database(self, f)
+
+            for line in self._get_target_information():
+                f.write(line)
 
             from rpython.translator.c.database import LowLevelDatabase
             from rpython.translator.c.genc import gen_threadlocal_structdef
