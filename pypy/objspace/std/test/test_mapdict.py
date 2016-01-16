@@ -535,6 +535,10 @@ def test_value_profiling_known_cls_mutcells(monkeypatch):
         assert getattr(obj.getdictvalue(space, "a"), attrname) == val
         assert getattr(obj.getdictvalue(space, "a"), attrname) == val
 
+        monkeypatch.setattr(obj.map, "_write_cell", None) # not needed for the next write
+        obj.setdictvalue(space, "a", a1)
+        assert getattr(obj.getdictvalue(space, "a"), attrname) == val + 1
+
 
 def test_value_profiling_elide_write(monkeypatch):
     monkeypatch.setattr(jit, "we_are_jitted", lambda : True)

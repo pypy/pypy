@@ -59,14 +59,18 @@ class AbstractAttribute(object):
                 if cls is W_IntObject:
                     # this means that the class stored in the storage is an
                     # IntMutableCell
+                    assert isinstance(result, IntMutableCell)
                     return W_IntObject(result.intvalue)
                 if cls is W_FloatObject:
                     # ditto
+                    assert isinstance(result, FloatMutableCell)
                     return W_FloatObject(result.floatvalue)
                 jit.record_exact_class(result, cls)
             return attr._read_cell(result)
 
     def write(self, obj, selector, w_value):
+        from pypy.objspace.std.intobject import W_IntObject
+        from pypy.objspace.std.floatobject import W_FloatObject
         attr = self.find_map_attr(selector)
         if attr is None:
             return self.terminator._write_terminator(obj, selector, w_value)
@@ -80,6 +84,21 @@ class AbstractAttribute(object):
             attr.ever_mutated = True
         self.see_write(w_value)
         cell = obj._mapdict_read_storage(attr.storageindex)
+        if jit.we_are_jitted() and attr.class_is_known():
+            cls = attr.read_constant_cls()
+            if cls is W_IntObject:
+                # this means that the class stored in the storage is an
+                # IntMutableCell
+                assert isinstance(cell, IntMutableCell)
+                assert isinstance(w_value, W_IntObject)
+                cell.intvalue = w_value.intval
+                return True
+            if cls is W_FloatObject:
+                # ditto
+                assert isinstance(cell, FloatMutableCell)
+                assert isinstance(w_value, W_FloatObject)
+                cell.floatvalue = w_value.floatval
+                return True
         w_value = attr._write_cell(cell, w_value)
         if w_value is not None:
             obj._mapdict_write_storage(attr.storageindex, w_value)
