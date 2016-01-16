@@ -59,9 +59,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
             obj = getattr(module.fooType, m)
             docstring = obj.__doc__
             if not docstring:
-                raises(RuntimeError, module.cmp_docstring, obj, 'random')
+                raises(RuntimeError, module.cmp_docstring, obj, 'xxxrandomxxx')
             else:
-                import pdb;pdb.set_trace()
                 module.cmp_docstring(obj, docstring)
         assert str(type(module.fooType.int_member)) == "<type 'member_descriptor'>"
 

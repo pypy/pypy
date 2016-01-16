@@ -117,12 +117,24 @@ PyMemberDescrObjectFields = PyDescrObjectFields + (
 cpython_struct("PyMemberDescrObject", PyMemberDescrObjectFields,
                PyMemberDescrObjectStruct, level=2)
 
+PyGetSetDescrObjectStruct = lltype.ForwardReference()
+PyGetSetDescrObject = lltype.Ptr(PyGetSetDescrObjectStruct)
+PyGetSetDescrObjectFields = PyDescrObjectFields + (
+    ("d_getset", lltype.Ptr(PyGetSetDef)),
+    )
+cpython_struct("PyGetSetDescrObject", PyGetSetDescrObjectFields,
+               PyGetSetDescrObjectStruct, level=2)
+
 @bootstrap_function
 def init_memberdescrobject(space):
     make_typedescr(W_MemberDescr.typedef,
                    basestruct=PyMemberDescrObject.TO,
                    attach=memberdescr_attach,
                    realize=memberdescr_realize,
+                   )
+    make_typedescr(W_GetSetPropertyEx.typedef,
+                   basestruct=PyGetSetDescrObject.TO,
+                   attach=getsetdescr_attach,
                    )
 
 def memberdescr_attach(space, py_obj, w_obj):
@@ -145,6 +157,16 @@ def memberdescr_realize(space, obj):
     state = space.fromcache(RefcountState)
     state.set_lifeline(w_obj, obj)
     return w_obj
+
+def getsetdescr_attach(space, py_obj, w_obj):
+    """
+    Fills a newly allocated PyGetSetDescrObject with the given W_GetSetPropertyEx
+    object. The values must not be modified.
+    """
+    py_getsetdescr = rffi.cast(PyGetSetDescrObject, py_obj)
+    # XXX assign to d_dname, d_type?
+    assert isinstance(w_obj, W_GetSetPropertyEx)
+    py_getsetdescr.c_d_getset = w_obj.getset
 
 def convert_getset_defs(space, dict_w, getsets, w_type):
     getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), getsets)
