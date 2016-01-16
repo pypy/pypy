@@ -695,7 +695,7 @@ static PyObject * cmp_docstring(PyObject * self, PyObject * args)
         _CMPDOC(MemberDescr, new->d_member->doc, new->d_member->name);
     }
     else if (_TESTDOC2(GetSetDescr)) {
-        //_CMPDOC(GetSetDescr, new->d_getset->doc, new->d_getset->name);
+        _CMPDOC(GetSetDescr, new->d_getset->doc, new->d_getset->name);
     }
     else if (_TESTDOC2(MethodDescr)) {
         _CMPDOC(MethodDescr, new->d_method->ml_doc, new->d_method->ml_name);
@@ -706,6 +706,7 @@ static PyObject * cmp_docstring(PyObject * self, PyObject * args)
         doc_attr = PyObject_GetAttrString(obj, "__doc__");
         if (doc_attr == NULL || doc_attr == Py_None) {
             PyErr_Format(PyExc_RuntimeError, "object %s", msg);
+            Py_XDECREF(doc_attr);
             return NULL;
         }
 
