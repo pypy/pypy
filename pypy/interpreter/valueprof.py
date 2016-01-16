@@ -28,6 +28,22 @@ class ValueProf(object):
     def get_int_val(self, w_obj):
         raise NotImplementedError("abstract base")
 
+    def write_necessary(self, w_value):
+        status = self._vprof_status
+        if status == SEEN_TOO_MUCH:
+            return True
+        # we must have seen something already, because it only makes sense to
+        # call write_necessary if there is already a value there
+        assert not status == SEEN_NOTHING
+        if status == SEEN_CONSTANT_INT:
+            return (self.is_int(w_value) and
+                self.read_constant_int() != self.get_int_val(w_value))
+        elif status == SEEN_CONSTANT_OBJ:
+            prev_obj = self.try_read_constant_obj()
+            return prev_obj is not w_value
+        return True
+
+
     def see_write(self, w_value):
         """ inform the value profiler of a write. returns False, unless the
         value is known to be a constant, and w_value that constant (in that

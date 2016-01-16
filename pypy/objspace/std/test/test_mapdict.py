@@ -512,6 +512,29 @@ def test_value_profiling_known_cls(monkeypatch):
     assert obj.getdictvalue(space, "a") == a
     assert seen == [(a, Value), (a, Value)]
 
+def test_value_profiling_known_cls_mutcells(monkeypatch):
+    from pypy.objspace.std.intobject import W_IntObject
+    from pypy.objspace.std.floatobject import W_FloatObject
+    for cls, mutcls, val, attrname in [
+            (W_IntObject, IntMutableCell, 0, "intval"),
+            (W_FloatObject, FloatMutableCell, 0.0, "floatval")]:
+        a = cls(val)
+        a1 = cls(val + 1)
+        cls = Class()
+        obj = cls.instantiate()
+        obj.setdictvalue(space, "a", a1)
+        obj = cls.instantiate()
+        obj.setdictvalue(space, "a", a1)
+        obj.setdictvalue(space, "a", a)
+
+        def f(obj, cls):
+            assert False, "unreachable"
+        monkeypatch.setattr(jit, "we_are_jitted", lambda : True)
+        monkeypatch.setattr(jit, "record_exact_class", f)
+
+        assert getattr(obj.getdictvalue(space, "a"), attrname) == val
+        assert getattr(obj.getdictvalue(space, "a"), attrname) == val
+
 
 def test_value_profiling_elide_write(monkeypatch):
     monkeypatch.setattr(jit, "we_are_jitted", lambda : True)

@@ -34,6 +34,7 @@ class AbstractAttribute(object):
 
     def read(self, obj, selector):
         from pypy.objspace.std.intobject import W_IntObject
+        from pypy.objspace.std.floatobject import W_FloatObject
         attr = self.find_map_attr(selector)
         if attr is None:
             return self.terminator._read_terminator(obj, selector)
@@ -54,21 +55,30 @@ class AbstractAttribute(object):
         else:
             result = obj._mapdict_read_storage(attr.storageindex)
             if jit.we_are_jitted() and attr.class_is_known():
-                jit.record_exact_class(result, attr.read_constant_cls())
+                cls = attr.read_constant_cls()
+                if cls is W_IntObject:
+                    # this means that the class stored in the storage is an
+                    # IntMutableCell
+                    return W_IntObject(result.intvalue)
+                if cls is W_FloatObject:
+                    # ditto
+                    return W_FloatObject(result.floatvalue)
+                jit.record_exact_class(result, cls)
             return attr._read_cell(result)
 
     def write(self, obj, selector, w_value):
         attr = self.find_map_attr(selector)
         if attr is None:
             return self.terminator._write_terminator(obj, selector, w_value)
-        write_unnecessary = attr.see_write(w_value)
+        # if the write is not necessary, the storage is already filled from the
+        # time we did the map transition. Therefore, if the value profiler says
+        # so, we can not do the write
+        write_necessary = attr.write_necessary(w_value)
+        if not write_necessary:
+            return True
         if not attr.ever_mutated:
             attr.ever_mutated = True
-        # if write_unnecessary, the storage is already filled from the time we
-        # did the map transition. Therefore, if the value profiler says so, we
-        # can not do the write
-        if write_unnecessary:
-            return True
+        self.see_write(w_value)
         cell = obj._mapdict_read_storage(attr.storageindex)
         w_value = attr._write_cell(cell, w_value)
         if w_value is not None:
@@ -173,7 +183,6 @@ class AbstractAttribute(object):
     def add_attr(self, obj, selector, w_value):
         # grumble, jit needs this
         attr = self._get_new_attr(selector[0], selector[1])
-        w_value = attr._write_cell(None, w_value)
         oldattr = obj._get_mapdict_map()
         if not jit.we_are_jitted():
             size_est = (oldattr._size_estimate + attr.size_estimate()
@@ -190,10 +199,11 @@ class AbstractAttribute(object):
         # the order is important here: first change the map, then the storage,
         # for the benefit of the special subclasses
         obj._set_mapdict_map(attr)
+        # important to see the write of the original value, not the cell
+        attr.see_write(w_value)
         w_value = attr._write_cell(None, w_value)
         assert w_value is not None
         obj._mapdict_write_storage(attr.storageindex, w_value)
-        attr.see_write(w_value)
 
     def materialize_r_dict(self, space, obj, dict_w):
         raise NotImplementedError("abstract base class")
