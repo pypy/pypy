@@ -90,7 +90,7 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.isCFunction(mod.getarg_O) == "getarg_O"
         assert mod.getModule(mod.getarg_O) == 'MyModule'
         assert mod.isSameFunction(mod.getarg_O)
-        raises(TypeError, mod.isSameFunction, 1)
+        raises(SystemError, mod.isSameFunction, 1)
 
 class TestPyCMethodObject(BaseApiTest):
     def test_repr(self, space, api):

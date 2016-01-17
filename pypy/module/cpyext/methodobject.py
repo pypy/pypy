@@ -276,7 +276,12 @@ def PyCFunction_NewEx(space, ml, w_self, w_name):
 
 @cpython_api([PyObject], PyCFunction_typedef)
 def PyCFunction_GetFunction(space, w_obj):
-    cfunction = space.interp_w(W_PyCFunctionObject, w_obj)
+    try:
+        cfunction = space.interp_w(W_PyCFunctionObject, w_obj)
+    except OperationError, e:
+        if e.match(space, space.w_TypeError):
+            raise oefmt(space.w_SystemError, "bad argument to internal function")
+        raise
     return cfunction.ml.c_ml_meth
 
 @cpython_api([PyObject], PyObject)
