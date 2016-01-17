@@ -905,13 +905,7 @@ class FuncNode(ContainerNode):
 def new_funcnode(db, T, obj, forcename=None):
     sandbox = db.sandbox and need_sandboxing(obj)
     if sandbox:
-        if hasattr(obj, 'graph') and sandbox != 'if_external':
-            graph = rsandbox.get_external_function_sandbox_graph(
-                obj, db.translator.rtyper)
-            obj.__dict__['graph'] = graph
-            obj.__dict__.pop('_safe_not_sandboxed', None)
-            obj.__dict__.pop('external', None)
-        elif getattr(obj, 'external', None) is not None:
+        if getattr(obj, 'external', None) is not None:
             obj.__dict__['graph'] = rsandbox.get_sandbox_stub(
                 obj, db.translator.rtyper)
             obj.__dict__.pop('_safe_not_sandboxed', None)

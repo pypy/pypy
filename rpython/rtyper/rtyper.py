@@ -29,7 +29,7 @@ from rpython.rtyper import rclass
 from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
-from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline, _annotate
+from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline
 
 
 class RPythonTyper(object):
