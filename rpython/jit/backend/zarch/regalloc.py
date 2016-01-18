@@ -284,7 +284,9 @@ class ZARCHRegisterManager(RegisterManager):
             if i+1 < len(r.MANAGED_REGS):
                 reg2 = r.MANAGED_REGS[i+1]
                 assert reg.is_even() and reg2.is_odd()
-                ovar = reverse_mapping[reg]
+                ovar = reverse_mapping.get(reg,None)
+                if ovar is None:
+                    continue
                 if ovar in forbidden_vars:
                     continue
                 ovar2 = reverse_mapping.get(reg2, None)
