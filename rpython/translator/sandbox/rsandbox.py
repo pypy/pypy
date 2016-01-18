@@ -13,6 +13,7 @@ from rpython.rlib.signature import signature
 # Sandboxing code generator for external functions
 #
 
+from rpython.rlib import rposix
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
@@ -25,12 +26,12 @@ py.log.setconsumer("sandbox", ansi_log)
 
 # a version of os.read() and os.write() that are not mangled
 # by the sandboxing mechanism
-ll_read_not_sandboxed = rffi.llexternal('read',
+ll_read_not_sandboxed = rposix.external('read',
                                         [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
                                         rffi.SIZE_T,
                                         sandboxsafe=True)
 
-ll_write_not_sandboxed = rffi.llexternal('write',
+ll_write_not_sandboxed = rposix.external('write',
                                          [rffi.INT, rffi.CCHARP, rffi.SIZE_T],
                                          rffi.SIZE_T,
                                          sandboxsafe=True)
