@@ -358,6 +358,10 @@ class Bookkeeper(object):
             return self.descs[obj_key]
         except KeyError:
             if isinstance(pyobj, types.FunctionType):
+                if self.annotator.translator.config.translation.sandbox:
+                    if hasattr(pyobj, '_ptr') and not getattr(pyobj._ptr._obj, '_safe_not_sandboxed', True):
+                        from rpython.translator.sandbox.rsandbox import get_sandbox_stub
+                        pyobj = get_sandbox_stub(pyobj._ptr._obj)
                 result = description.FunctionDesc(self, pyobj)
             elif isinstance(pyobj, (type, types.ClassType)):
                 if pyobj is object:

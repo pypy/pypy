@@ -8,6 +8,7 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.interactive import Translation
 from rpython.translator.sandbox.sandlib import read_message, write_message
 from rpython.translator.sandbox.sandlib import write_exception
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 if hasattr(signal, 'alarm'):
     _orig_read_message = read_message
@@ -291,6 +292,16 @@ def test_unsafe_mmap():
     assert tail == ""
     rescode = pipe.wait()
     assert rescode == 0
+
+def test_llexternal():
+    c_foo = rffi.llexternal('foo', [], rffi.INT)
+    def f(argv):
+        try:
+            c_foo()
+        except:
+            pass
+        return 0
+    compile(f)  # Check that this doesn't crash
 
 class TestPrintedResults:
 

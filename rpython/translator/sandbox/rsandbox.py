@@ -117,13 +117,11 @@ def sig_ll(fnobj):
 dump_string = rmarshal.get_marshaller(str)
 load_int = rmarshal.get_loader(int)
 
-def get_sandbox_stub(fnobj, rtyper):
-    """Build always-raising graph for unsupported external function."""
+def get_sandbox_stub(fnobj):
+    """Build always-raising stub function for unsupported external function."""
     fnname = fnobj._name
-    args_s, s_result = sig_ll(fnobj)
     msg = "Not implemented: sandboxing for external function '%s'" % (fnname,)
-    execute = make_stub(fnname, msg)
-    return _annotate(rtyper, execute, args_s, s_result)
+    return make_stub(fnname, msg)
 
 def get_external_function_sandbox_graph(fnobj, rtyper):
     """Build the graph of a helper trampoline function to be used
