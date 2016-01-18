@@ -24,7 +24,7 @@ class CallBuilder(AbstractCallBuilder):
         type = INT
         size = WORD
         self.ressign = True
-        if calldescr is not None and isinstance(calldescr, CallDescr)
+        if calldescr is not None and isinstance(calldescr, CallDescr):
             type = calldescr.get_result_type()
             size = calldescr.get_result_size()
             self.ressign = calldescr.is_result_signed()
