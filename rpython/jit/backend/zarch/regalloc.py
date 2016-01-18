@@ -195,6 +195,10 @@ class ZARCHRegisterManager(RegisterManager):
             if even.is_even():
                 # found an even registers that is actually free
                 odd = REGS[even.value+1]
+                if odd not in r.MANAGED_REGS:
+                    # makes no sense to use this register!
+                    i -= 1
+                    continue
                 if odd not in self.free_regs:
                     # sadly odd is not free, but for spilling
                     # we found a candidate
@@ -215,7 +219,11 @@ class ZARCHRegisterManager(RegisterManager):
                 # a candidate?
                 odd = even
                 even = REGS[odd.value-1]
-                if even in r.MANAGED_REGS and even not in self.free_regs:
+                if even not in r.MANAGED_REGS:
+                    # makes no sense to use this register!
+                    i -= 1
+                    continue
+                if even not in self.free_regs:
                     # yes even might be a candidate
                     # this means that odd is free, but not even
                     candidates[even] = True
@@ -267,8 +275,8 @@ class ZARCHRegisterManager(RegisterManager):
         # require one spill, thus we need to spill two!
         # this is a rare case!
         reverse_mapping = {}
-        for var, reg in self.reg_bindings.items():
-            reverse_mapping[reg] = var
+        for v, reg in self.reg_bindings.items():
+            reverse_mapping[reg] = v
         # always take the first
         for i, reg in enumerate(r.MANAGED_REGS):
             if i % 2 == 1:
