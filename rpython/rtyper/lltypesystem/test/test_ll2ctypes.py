@@ -945,6 +945,11 @@ class TestLL2Ctypes(object):
         a[4] = rffi.r_int(4)
 
         def compare(a, b):
+            # do not use a,b directly! on a big endian machine
+            # ((void*)ptr)[0] will return 0x0 if the 32 bit value
+            # ptr points to is 0x1
+            a = rffi.cast(rffi.INTP, a)
+            b = rffi.cast(rffi.INTP, b)
             if a[0] > b[0]:
                 return rffi.r_int(1)
             else:
