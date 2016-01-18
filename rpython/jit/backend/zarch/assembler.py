@@ -1227,8 +1227,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             gcmap = lltype.nullptr(jitframe.GCMAP)
         self.load_gcmap(self.mc, r.r2, gcmap)
 
-        assert fail_descr_loc.getint() <= 2**32-1
-        self.mc.LGFI(r.r3, fail_descr_loc)
+        self.mc.load_imm(r.r3, fail_descr_loc.getint())
         self.mc.STG(r.r3, l.addr(ofs, r.SPP))
         self.mc.STG(r.r2, l.addr(ofs2, r.SPP))
 

@@ -1081,6 +1081,11 @@ class Regalloc(BaseRegalloc):
         arglocs = self._prepare_guard(op, [loc, resloc])
         return arglocs
 
+    def prepare_guard_is_object(self, op):
+        loc_object = self.ensure_reg(op.getarg(0), force_in_reg=True)
+        arglocs = self._prepare_guard(op, [loc_object])
+        return arglocs
+
     def prepare_save_exception(self, op):
         res = self.rm.force_allocate_reg(op)
         return [res]
@@ -1191,6 +1196,7 @@ class Regalloc(BaseRegalloc):
         # we know it does not move, but well
         rgc._make_sure_does_not_move(fail_descr)
         fail_descr = rffi.cast(lltype.Signed, fail_descr)
+        assert fail_descr > 0
         if op.numargs() > 0:
             loc = self.ensure_reg(op.getarg(0))
             locs = [loc, imm(fail_descr)]

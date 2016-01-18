@@ -694,16 +694,19 @@ class GuardOpAssembler(object):
 
     def _cmp_guard_class(self, op, locs, regalloc):
         offset = self.cpu.vtable_offset
+        loc_ptr = locs[0]
+        loc_classptr = locs[1]
         if offset is not None:
             # could be one instruction shorter, but don't care because
             # it's not this case that is commonly translated
-            self.mc.LG(r.SCRATCH, l.addr(offset, locs[0]))
+            self.mc.LG(r.SCRATCH, l.addr(offset, loc_ptr))
             self.mc.load_imm(r.SCRATCH2, locs[1].value)
             self.mc.cmp_op(r.SCRATCH, r.SCRATCH2)
         else:
+            classptr = loc_classptr.value
             expected_typeid = (self.cpu.gc_ll_descr
-                    .get_typeid_from_classptr_if_gcremovetypeptr(locs[1].value))
-            self._cmp_guard_gc_type(locs[0], expected_typeid)
+                    .get_typeid_from_classptr_if_gcremovetypeptr(classptr))
+            self._cmp_guard_gc_type(loc_ptr, expected_typeid)
 
     def _read_typeid(self, targetreg, loc_ptr):
         # Note that the typeid half-word is at offset 0 on a little-endian
@@ -753,10 +756,10 @@ class GuardOpAssembler(object):
         offset2 = self.cpu.subclassrange_min_offset
         if offset is not None:
             # read this field to get the vtable pointer
-            self.mc.LG(r.SCRATCH2, l.addr(offset, loc_object))
+            self.mc.LG(r.SCRATCH, l.addr(offset, loc_object))
             # read the vtable's subclassrange_min field
             assert check_imm_value(offset2)
-            self.mc.load(r.SCRATCH2, r.SCRATCH2, offset2)
+            self.mc.load(r.SCRATCH2, r.SCRATCH, offset2)
         else:
             # read the typeid
             self._read_typeid(r.SCRATCH, loc_object)
