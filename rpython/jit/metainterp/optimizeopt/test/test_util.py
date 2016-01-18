@@ -1,4 +1,4 @@
-import py, random
+import py, random, string
 
 from rpython.rlib.debug import debug_print
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -122,7 +122,14 @@ class LLtypeMixin(object):
                             ('value', lltype.Signed),
                             ('next', lltype.Ptr(NODE3)),
                             hints={'immutable': True}))
-    
+
+    big_fields = [('big' + i, lltype.Signed) for i in string.ascii_lowercase]
+    BIG = lltype.GcForwardReference()
+    BIG.become(lltype.GcStruct('BIG', *big_fields, hints={'immutable': True}))
+
+    for field, _ in big_fields:
+        locals()[field + 'descr'] = cpu.fielddescrof(BIG, field)
+
     node = lltype.malloc(NODE)
     node.value = 5
     node.next = node
