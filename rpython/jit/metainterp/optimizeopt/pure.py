@@ -66,7 +66,7 @@ class RecentPureOps(object):
 class OptPure(Optimization):
     def __init__(self):
         self.postponed_op = None
-        self._pure_operations = [None] * (rop._NOSIDEEFFECT_LAST -
+        self._pure_operations = [None] * (rop._ALWAYS_PURE_LAST -
                                           rop._ALWAYS_PURE_FIRST)
         self.call_pure_positions = []
         self.extra_call_pure = []
