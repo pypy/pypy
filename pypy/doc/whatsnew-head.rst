@@ -119,3 +119,7 @@ Optimize global lookups.
 
 Updated to CFFI 1.5, which supports a new way to do embedding.
 Deprecates http://pypy.readthedocs.org/en/latest/embedding.html.
+
+.. branch fix-cpython-ssl-tests-2.7
+
+Fix SSL tests by importing cpython's patch
