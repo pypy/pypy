@@ -66,7 +66,6 @@ def unicode_attach(space, py_obj, w_obj):
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
     py_unicode.c_length = len(space.unicode_w(w_obj))
     py_unicode.c_str = lltype.nullptr(rffi.CWCHARP.TO)
-    print w_obj
     py_unicode.c_hash = space.hash_w(w_obj)
     py_unicode.c_defenc = lltype.nullptr(PyObject.TO)
 
