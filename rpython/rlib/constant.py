@@ -11,7 +11,6 @@ class CConfig:
     DBL_MIN = rffi_platform.DefinedConstantDouble('DBL_MIN')
     DBL_MANT_DIG = rffi_platform.ConstantInteger('DBL_MANT_DIG')
 
-
 for k, v in rffi_platform.configure(CConfig).items():
     assert v is not None, "no value found for %r" % k
     globals()[k] = v
