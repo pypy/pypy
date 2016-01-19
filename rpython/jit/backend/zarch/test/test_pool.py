@@ -1,12 +1,15 @@
+import py
 from rpython.jit.backend.zarch.pool import LiteralPool
 from rpython.jit.metainterp.history import (AbstractFailDescr,
          AbstractDescr, BasicFailDescr, BasicFinalDescr, JitCellToken,
          TargetToken, ConstInt, ConstPtr, Const, ConstFloat)
 from rpython.jit.metainterp.resoperation import (ResOperation, rop,
          InputArgInt)
+from rpython.jit.backend.zarch.codebuilder import InstrBuilder
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.jit.backend.zarch.helper.regalloc import check_imm32
-import py
+from rpython.jit.backend.zarch.assembler import AssemblerZARCH
+from rpython.jit.backend.detect_cpu import getcpuclass
 
 class TestPoolZARCH(object):
     def setup_class(self):
@@ -47,3 +50,10 @@ class TestPoolZARCH(object):
                     assert self.const_in_pool(c2)
                 else:
                     assert not self.const_in_pool(c2)
+
+    def test_pool_overflow(self):
+        cpu = getcpuclass()(None, None)
+        cpu.setup_once()
+        ops = [ResOperation(rop.FLOAT_ADD, [ConstFloat(0.0125), ConstFloat(float(i))]) for i in range(100)]
+        cpu.compile_loop([], ops, JitCellToken())
+
