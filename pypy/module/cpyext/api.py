@@ -509,14 +509,16 @@ def get_structtype_for_ctype(ctype):
     return {"PyObject*": PyObject, "PyTypeObject*": PyTypeObjectPtr,
             "PyDateTime_CAPI*": lltype.Ptr(PyDateTime_CAPI)}[ctype]
 
+# Note: as a special case, "PyObject" is the pointer type in RPython,
+# corresponding to "PyObject *" in C.  We do that only for PyObject.
+# For example, "PyTypeObject" is the struct type even in RPython.
 PyTypeObject = lltype.ForwardReference()
 PyTypeObjectPtr = lltype.Ptr(PyTypeObject)
-# It is important that these PyObjects are allocated in a raw fashion
-# Thus we cannot save a forward pointer to the wrapped object
-# So we need a forward and backward mapping in our State instance
 PyObjectStruct = lltype.ForwardReference()
 PyObject = lltype.Ptr(PyObjectStruct)
-PyObjectFields = (("ob_refcnt", lltype.Signed), ("ob_type", PyTypeObjectPtr))
+PyObjectFields = (("ob_refcnt", lltype.Signed),
+                  ("ob_pypy_link", lltype.Signed),
+                  ("ob_type", PyTypeObjectPtr))
 PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
 cpython_struct('PyObject', PyObjectFields, PyObjectStruct)
 PyVarObjectStruct = cpython_struct("PyVarObject", PyVarObjectFields)
@@ -826,6 +828,18 @@ def build_bridge(space):
     bridge = ctypes.CDLL(str(modulename), mode=ctypes.RTLD_GLOBAL)
 
     space.fromcache(State).install_dll(eci)
+
+    def dealloc_trigger():
+        print 'dealloc_trigger...'
+        while True:
+            ob = rawrefcount.next_dead(PyObject)
+            if not ob:
+                break
+            print ob
+            _Py_Dealloc(space, ob)
+        print 'dealloc_trigger DONE'
+        return "RETRY"
+    rawrefcount.init(dealloc_trigger)
 
     # populate static data
     for name, (typ, expr) in GLOBALS.iteritems():
