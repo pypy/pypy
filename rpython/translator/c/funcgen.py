@@ -18,7 +18,7 @@ LOCALVAR = 'l_%s'
 
 KEEP_INLINED_GRAPHS = False
 
-def make_funcgen(graph, db, exception_policy=None, functionname=None):
+def make_funcgen(graph, db, exception_policy, functionname):
     graph._seen_by_the_backend = True
     # apply the exception transformation
     if db.exctransformer:
@@ -34,7 +34,7 @@ class FunctionCodeGenerator(object):
     from a flow graph.
     """
 
-    def __init__(self, graph, db, exception_policy=None, functionname=None):
+    def __init__(self, graph, db, exception_policy, functionname):
         self.graph = graph
         self.db = db
         self.gcpolicy = db.gcpolicy
@@ -861,14 +861,11 @@ class FunctionCodeGenerator(object):
 
     def getdebugfunctionname(self):
         name = self.functionname
-        if not name:
-            return "?"
         if name.startswith('pypy_g_'):
             name = name[7:]
         return name
 
     def OP_DEBUG_RECORD_TRACEBACK(self, op):
-        #if self.functionname is None, we print "?" as the argument */
         return 'PYPY_DEBUG_RECORD_TRACEBACK("%s");' % (
             self.getdebugfunctionname(),)
 

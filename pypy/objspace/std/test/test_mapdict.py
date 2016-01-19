@@ -1,4 +1,4 @@
-from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictMultiObject
+from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictObject
 from pypy.objspace.std.mapdict import *
 
 class Config:
@@ -34,8 +34,8 @@ class Object(Object):
 
 def test_plain_attribute():
     w_cls = "class"
-    aa = PlainAttribute(("b", DICT),
-                        PlainAttribute(("a", DICT),
+    aa = PlainAttribute("b", DICT,
+                        PlainAttribute("a", DICT,
                                        Terminator(space, w_cls)))
     assert aa.space is space
     assert aa.terminator.w_cls is w_cls
@@ -63,16 +63,16 @@ def test_plain_attribute():
 def test_huge_chain():
     current = Terminator(space, "cls")
     for i in range(20000):
-        current = PlainAttribute((str(i), DICT), current)
-    assert current.find_map_attr(("0", DICT)).storageindex == 0
+        current = PlainAttribute(str(i), DICT, current)
+    assert current.find_map_attr("0", DICT).storageindex == 0
 
 
 def test_search():
-    aa = PlainAttribute(("b", DICT), PlainAttribute(("a", DICT), Terminator(None, None)))
+    aa = PlainAttribute("b", DICT, PlainAttribute("a", DICT, Terminator(None, None)))
     assert aa.search(DICT) is aa
     assert aa.search(SLOTS_STARTING_FROM) is None
     assert aa.search(SPECIAL) is None
-    bb = PlainAttribute(("C", SPECIAL), PlainAttribute(("A", SLOTS_STARTING_FROM), aa))
+    bb = PlainAttribute("C", SPECIAL, PlainAttribute("A", SLOTS_STARTING_FROM, aa))
     assert bb.search(DICT) is aa
     assert bb.search(SLOTS_STARTING_FROM) is bb.back
     assert bb.search(SPECIAL) is bb
@@ -309,7 +309,7 @@ def test_materialize_r_dict():
     obj.setdictvalue(space, "c", 7)
     assert obj.storage == [50, 60, 70, 5, 6, 7]
 
-    class FakeDict(W_DictMultiObject):
+    class FakeDict(W_DictObject):
         def __init__(self, d):
             self.dstorage = d
 
@@ -320,7 +320,7 @@ def test_materialize_r_dict():
 
     d = {}
     w_d = FakeDict(d)
-    flag = obj.map.write(obj, ("dict", SPECIAL), w_d)
+    flag = obj.map.write(obj, "dict", SPECIAL, w_d)
     assert flag
     materialize_r_dict(space, obj, d)
     assert d == {"a": 5, "b": 6, "c": 7}
@@ -368,7 +368,7 @@ class TestDevolvedMapDictImplementation(BaseTestDevolvedDictImplementation):
 
 def devolve_dict(space, obj):
     w_d = obj.getdict(space)
-    w_d.strategy.switch_to_object_strategy(w_d)
+    w_d.get_strategy().switch_to_object_strategy(w_d)
 
 def test_get_setdictvalue_after_devolve():
     cls = Class()
@@ -1127,7 +1127,7 @@ class TestDictSubclassShortcutBug(object):
 
 def test_newdict_instance():
     w_dict = space.newdict(instance=True)
-    assert type(w_dict.strategy) is MapDictStrategy
+    assert type(w_dict.get_strategy()) is MapDictStrategy
 
 class TestMapDictImplementationUsingnewdict(BaseTestRDictImplementation):
     StrategyClass = MapDictStrategy

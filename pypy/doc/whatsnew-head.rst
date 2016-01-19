@@ -110,3 +110,16 @@ Optimize the case where, in a new C-created thread, we keep invoking
 short-running Python callbacks.  (CFFI on CPython has a hack to achieve
 the same result.)  This can also be seen as a bug fix: previously,
 thread-local objects would be reset between two such calls.
+
+.. branch: globals-quasiimmut
+
+Optimize global lookups.
+
+.. branch: cffi-static-callback-embedding
+
+Updated to CFFI 1.5, which supports a new way to do embedding.
+Deprecates http://pypy.readthedocs.org/en/latest/embedding.html.
+
+.. branch: fix-cpython-ssl-tests-2.7
+
+Fix SSL tests by importing cpython's patch

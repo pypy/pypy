@@ -1,14 +1,14 @@
 """
 RTyper: converts high-level operations into low-level operations in flow graphs.
 
-The main class, with code to walk blocks and dispatch individual operations
-to the care of the rtype_*() methods implemented in the other r* modules.
-For each high-level operation 'hop', the rtype_*() methods produce low-level
-operations that are collected in the 'llops' list defined here.  When necessary,
-conversions are inserted.
+The main class, with code to walk blocks and dispatch individual operations to
+the care of the rtype_*() methods implemented in the other r* modules.  For
+each high-level operation 'hop', the rtype_*() methods produce low-level
+operations that are collected in the 'llops' list defined here.  When
+necessary, conversions are inserted.
 
-This logic borrows a bit from rpython.annotator.annrpython, without the fixpoint
-computation part.
+This logic borrows a bit from rpython.annotator.annrpython, without the
+fixpoint computation part.
 """
 
 import os
@@ -18,12 +18,12 @@ import py, math
 from rpython.annotator import model as annmodel, unaryop, binaryop
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.flowspace.model import Variable, Constant, SpaceOperation
-from rpython.rtyper.annlowlevel import annotate_lowlevel_helper, LowLevelAnnotatorPolicy
+from rpython.rtyper.annlowlevel import (
+        annotate_lowlevel_helper, LowLevelAnnotatorPolicy)
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.exceptiondata import ExceptionData
 from rpython.rtyper.lltypesystem.lltype import (Signed, Void, LowLevelType,
-    ContainerType, FuncType, functionptr, typeOf,
-    Primitive, getfunctionptr)
+    ContainerType, typeOf, Primitive, getfunctionptr)
 from rpython.rtyper.rmodel import Repr, inputconst
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import RootClassRepr
@@ -872,15 +872,6 @@ class LowLevelOpList(list):
         fobj = f._obj
         return self.genop('direct_call', [c]+newargs_v,
                           resulttype = typeOf(fobj).RESULT)
-
-    def genexternalcall(self, fnname, args_v, resulttype=None, **flags):
-        if isinstance(resulttype, Repr):
-            resulttype = resulttype.lowleveltype
-        argtypes = [v.concretetype for v in args_v]
-        FUNCTYPE = FuncType(argtypes, resulttype or Void)
-        f = functionptr(FUNCTYPE, fnname, **flags)
-        cf = inputconst(typeOf(f), f)
-        return self.genop('direct_call', [cf]+list(args_v), resulttype)
 
     def genconst(self, ll_value):
         return inputconst(typeOf(ll_value), ll_value)

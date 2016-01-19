@@ -90,6 +90,8 @@ def add_dumper(s_obj, dumper):
     dumper._annenforceargs_ = [s_list_of_chars, s_obj]
 
 def add_loader(s_obj, loader):
+    # 's_obj' should be the **least general annotation** that we're
+    # interested in, somehow
     loaders.append((s_obj, loader))
 
 def get_dumper_annotation(dumper):
@@ -186,6 +188,14 @@ def dump_longlong(buf, x):
 add_dumper(annotation(r_longlong), dump_longlong)
 
 r_32bits_mask = r_longlong(0xFFFFFFFF)
+
+def load_longlong_nonneg(loader):
+    x = load_longlong(loader)
+    if x < 0:
+        raise ValueError("expected a non-negative longlong")
+    return x
+add_loader(annmodel.SomeInteger(knowntype=r_longlong, nonneg=True),
+           load_longlong_nonneg)
 
 def load_longlong(loader):
     if readchr(loader) != TYPE_INT64:

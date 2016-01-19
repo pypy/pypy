@@ -196,28 +196,28 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
     def all_items(self):
         return self._fields
 
-    def setfield(self, descr, struct, op, optheap=None, cf=None):
-        self.init_fields(descr.get_parent_descr(), descr.get_index())
+    def setfield(self, fielddescr, struct, op, optheap=None, cf=None):
+        self.init_fields(fielddescr.get_parent_descr(), fielddescr.get_index())
         assert isinstance(op, AbstractValue)
-        self._fields[descr.get_index()] = op
+        self._fields[fielddescr.get_index()] = op
         if cf is not None:
             assert not self.is_virtual()
             assert struct is not None
-            cf.register_dirty_field(struct, self)
+            cf.register_info(struct, self)
 
-    def getfield(self, descr, optheap=None):
-        self.init_fields(descr.get_parent_descr(), descr.get_index())
-        return self._fields[descr.get_index()]
+    def getfield(self, fielddescr, optheap=None):
+        self.init_fields(fielddescr.get_parent_descr(), fielddescr.get_index())
+        return self._fields[fielddescr.get_index()]
 
     def _force_elements(self, op, optforce, descr):
         if self._fields is None:
             return
-        for i, flddescr in enumerate(descr.get_all_fielddescrs()):
+        for i, fielddescr in enumerate(descr.get_all_fielddescrs()):
             fld = self._fields[i]
             if fld is not None:
                 subbox = optforce.force_box(fld)
                 setfieldop = ResOperation(rop.SETFIELD_GC, [op, subbox],
-                                          descr=flddescr)
+                                          descr=fielddescr)
                 self._fields[i] = None
                 optforce.emit_operation(setfieldop)
 
@@ -249,16 +249,16 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
                 if fieldinfo and fieldinfo.is_virtual():
                     fieldinfo.visitor_walk_recursive(op, visitor, optimizer)
 
-    def produce_short_preamble_ops(self, structbox, descr, index, optimizer,
+    def produce_short_preamble_ops(self, structbox, fielddescr, index, optimizer,
                                    shortboxes):
         if self._fields is None:
             return
-        if descr.get_index() >= len(self._fields):
+        if fielddescr.get_index() >= len(self._fields):
             # we don't know about this item
             return
-        op = optimizer.get_box_replacement(self._fields[descr.get_index()])
-        opnum = OpHelpers.getfield_for_descr(descr)
-        getfield_op = ResOperation(opnum, [structbox], descr=descr)
+        op = optimizer.get_box_replacement(self._fields[fielddescr.get_index()])
+        opnum = OpHelpers.getfield_for_descr(fielddescr)
+        getfield_op = ResOperation(opnum, [structbox], descr=fielddescr)
         shortboxes.add_heap_op(op, getfield_op)
 
     def _is_immutable_and_filled_with_constants(self, optimizer, memo=None):
@@ -294,12 +294,12 @@ class AbstractStructPtrInfo(AbstractVirtualPtrInfo):
         return True
 
     def _force_elements_immutable(self, descr, constptr, optforce):
-        for i, flddescr in enumerate(descr.get_all_fielddescrs()):
+        for i, fielddescr in enumerate(descr.get_all_fielddescrs()):
             fld = self._fields[i]
             subbox = optforce.force_box(fld)
             assert isinstance(subbox, Const)
             execute(optforce.optimizer.cpu, None, rop.SETFIELD_GC,
-                    flddescr, constptr, subbox)
+                    fielddescr, constptr, subbox)
 
 class InstancePtrInfo(AbstractStructPtrInfo):
     _attrs_ = ('_known_class',)
@@ -505,6 +505,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             info._items = self._items[:]
 
     def _force_elements(self, op, optforce, descr):
+        # XXX
         descr = op.getdescr()
         const = optforce.new_const_item(self.descr)
         for i in range(self.length):
@@ -523,15 +524,16 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             optforce.emit_operation(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
-    def setitem(self, descr, index, struct, op, cf=None, optheap=None):
+    def setitem(self, descr, index, struct, op, optheap=None, cf=None):
         if self._items is None:
             self._items = [None] * (index + 1)
         if index >= len(self._items):
+            assert not self.is_virtual()
             self._items = self._items + [None] * (index - len(self._items) + 1)
         self._items[index] = op
         if cf is not None:
             assert not self.is_virtual()
-            cf.register_dirty_field(struct, self)
+            cf.register_info(struct, self)
 
     def getitem(self, descr, index, optheap=None):
         if self._items is None or index >= len(self._items):
@@ -626,13 +628,13 @@ class ArrayStructInfo(ArrayPtrInfo):
         i = 0
         fielddescrs = op.getdescr().get_all_fielddescrs()
         for index in range(self.length):
-            for flddescr in fielddescrs:
+            for fielddescr in fielddescrs:
                 fld = self._items[i]
                 if fld is not None:
                     subbox = optforce.force_box(fld)
                     setfieldop = ResOperation(rop.SETINTERIORFIELD_GC,
                                               [op, ConstInt(index), subbox],
-                                              descr=flddescr)
+                                              descr=fielddescr)
                     optforce.emit_operation(setfieldop)
                     # heapcache does not work for interiorfields
                     # if it does, we would need a fix here
@@ -645,7 +647,7 @@ class ArrayStructInfo(ArrayPtrInfo):
         fielddescrs = self.descr.get_all_fielddescrs()
         i = 0
         for index in range(self.getlength()):
-            for flddescr in fielddescrs:
+            for fielddescr in fielddescrs:
                 itemop = self._items[i]
                 if (itemop is not None and
                     not isinstance(itemop, Const)):
@@ -691,21 +693,21 @@ class ConstPtrInfo(PtrInfo):
             optheap.const_infos[ref] = info
         return info        
 
-    def getfield(self, descr, optheap=None):
-        info = self._get_info(descr.get_parent_descr(), optheap)
-        return info.getfield(descr)
+    def getfield(self, fielddescr, optheap=None):
+        info = self._get_info(fielddescr.get_parent_descr(), optheap)
+        return info.getfield(fielddescr)
 
     def getitem(self, descr, index, optheap=None):
         info = self._get_array_info(descr, optheap)
         return info.getitem(descr, index)
 
-    def setitem(self, descr, index, struct, op, cf=None, optheap=None):
+    def setitem(self, descr, index, struct, op, optheap=None, cf=None):
         info = self._get_array_info(descr, optheap)
-        info.setitem(descr, index, struct, op, cf)
+        info.setitem(descr, index, struct, op, optheap=optheap, cf=cf)
 
-    def setfield(self, descr, struct, op, optheap=None, cf=None):
-        info = self._get_info(descr.get_parent_descr(), optheap)
-        info.setfield(descr, struct, op, optheap, cf)
+    def setfield(self, fielddescr, struct, op, optheap=None, cf=None):
+        info = self._get_info(fielddescr.get_parent_descr(), optheap)
+        info.setfield(fielddescr, struct, op, optheap=optheap, cf=cf)
 
     def is_null(self):
         return not bool(self._const.getref_base())

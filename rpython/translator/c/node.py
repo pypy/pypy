@@ -10,7 +10,6 @@ from rpython.translator.c.support import c_char_array_constant, barebonearray
 from rpython.translator.c.primitive import PrimitiveType, name_signed
 from rpython.rlib import exports
 from rpython.rlib.rfloat import isfinite, isinf
-from rpython.translator.sandbox import rsandbox
 
 
 def needs_gcheader(T):
@@ -907,6 +906,7 @@ def new_funcnode(db, T, obj, forcename=None):
     sandbox = db.sandbox and need_sandboxing(obj)
     if sandbox:
         if getattr(obj, 'external', None) is not None:
+            from rpython.translator.sandbox import rsandbox
             obj.__dict__['graph'] = rsandbox.get_sandbox_stub(
                 obj, db.translator.rtyper)
             obj.__dict__.pop('_safe_not_sandboxed', None)

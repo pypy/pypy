@@ -24,21 +24,12 @@ def get_graph(arg, translator):
     if not isinstance(f, lltype._ptr):
         return None
     try:
-        funcobj = f._getobj()
+        funcobj = f._obj
     except lltype.DelayedPointer:
-        return None
-    try:
-        callable = funcobj._callable
-    except (AttributeError, KeyError, AssertionError):
         return None
     try:
         return funcobj.graph
     except AttributeError:
-        return None
-    try:
-        callable = funcobj._callable
-        return translator._graphof(callable)
-    except (AttributeError, KeyError, AssertionError):
         return None
 
 
