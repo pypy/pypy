@@ -163,11 +163,11 @@ class GcLLDescription(GcCache):
             assert isinstance(v, ConstPtr)
             array_index = moving_obj_tracker.get_array_index(v)
 
-            size, offset, _ = unpack_arraydescr(moving_obj_tracker.ptr_array_descr)
-            scale = size
+            factor, offset, _ = unpack_arraydescr(moving_obj_tracker.ptr_array_descr)
+            array_index = array_index * factor
             args = [moving_obj_tracker.const_ptr_gcref_array,
                     ConstInt(array_index),
-                    ConstInt(scale),
+                    ConstInt(1), # already multiplied to array_index
                     ConstInt(offset),
                     ConstInt(size)]
             load_op = ResOperation(rop.GC_LOAD_INDEXED_R, args)
