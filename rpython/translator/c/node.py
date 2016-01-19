@@ -903,11 +903,25 @@ class FuncNode(ContainerNode):
         funcgen.implementation_end()
 
 def new_funcnode(db, T, obj, forcename=None):
+    sandbox = db.sandbox and need_sandboxing(obj)
+    if sandbox:
+        if getattr(obj, 'external', None) is not None:
+            obj.__dict__['graph'] = rsandbox.get_sandbox_stub(
+                obj, db.translator.rtyper)
+            obj.__dict__.pop('_safe_not_sandboxed', None)
+            obj.__dict__.pop('external', None)
+
     if forcename:
         name = forcename
     else:
         name = _select_name(db, obj)
     return FuncNode(db, T, obj, name)
+
+def need_sandboxing(fnobj):
+    if hasattr(fnobj, '_safe_not_sandboxed'):
+        return not fnobj._safe_not_sandboxed
+    else:
+        return "if_external"
 
 def select_function_code_generators(fnobj, db, functionname):
     if hasattr(fnobj, 'graph'):
