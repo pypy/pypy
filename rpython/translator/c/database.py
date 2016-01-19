@@ -9,9 +9,9 @@ from rpython.rtyper.lltypesystem.rffi import CConstant
 from rpython.rtyper.lltypesystem import llgroup
 from rpython.tool.sourcetools import valid_identifier
 from rpython.translator.c.primitive import PrimitiveName, PrimitiveType
-from rpython.translator.c.node import StructDefNode, ArrayDefNode
-from rpython.translator.c.node import FixedSizeArrayDefNode, BareBoneArrayDefNode
-from rpython.translator.c.node import ContainerNodeFactory, ExtTypeOpaqueDefNode
+from rpython.translator.c.node import (
+    StructDefNode, ArrayDefNode, FixedSizeArrayDefNode, BareBoneArrayDefNode,
+    ContainerNodeFactory, ExtTypeOpaqueDefNode, FuncNode)
 from rpython.translator.c.support import cdecl, CNameManager
 from rpython.translator.c.support import log, barebonearray
 from rpython.translator.c.extfunc import do_the_getting
@@ -383,7 +383,7 @@ class LowLevelDatabase(object):
     def all_graphs(self):
         graphs = []
         for node in self.containerlist:
-            if node.nodekind == 'func':
+            if isinstance(node, FuncNode):
                 for graph in node.graphs_to_patch():
                     graphs.append(graph)
         return graphs

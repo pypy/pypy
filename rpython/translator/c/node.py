@@ -807,23 +807,17 @@ def generic_initializationexpr(db, value, access_expr, decoration):
 # ____________________________________________________________
 
 
-class FuncNode(ContainerNode):
+class FuncNodeBase(ContainerNode):
     nodekind = 'func'
     eci_name = 'compilation_info'
     # there not so many node of this kind, slots should not
     # be necessary
-
     def __init__(self, db, T, obj, ptrname):
         Node.__init__(self, db)
         self.globalcontainer = True
         self.T = T
         self.obj = obj
         self.name = ptrname
-        self.funcgen = select_function_code_generators(obj, db, ptrname)
-        if self.funcgen:
-            argnames = self.funcgen.argnames()
-            self.implementationtypename = db.gettype(T, argnames=argnames)
-        self._funccodegen_owner = self.funcgen
         self.typename = db.gettype(T)  #, who_asks=self)
 
     def getptrname(self):
@@ -832,30 +826,32 @@ class FuncNode(ContainerNode):
     def basename(self):
         return self.obj._name
 
+
+class FuncNode(FuncNodeBase):
+    def __init__(self, db, T, obj, ptrname):
+        FuncNodeBase.__init__(self, db, T, obj, ptrname)
+        exception_policy = getattr(obj, 'exception_policy', None)
+        self.funcgen = make_funcgen(obj.graph, db, exception_policy, ptrname)
+        argnames = self.funcgen.argnames()
+        self.implementationtypename = db.gettype(T, argnames=argnames)
+        self._funccodegen_owner = self.funcgen
+
     def enum_dependencies(self):
-        if self.funcgen is None:
-            return []
         return self.funcgen.allconstantvalues()
 
     def forward_declaration(self):
         callable = getattr(self.obj, '_callable', None)
         is_exported = getattr(callable, 'exported_symbol', False)
-        if self.funcgen:
-            yield '%s;' % (
-                forward_cdecl(self.implementationtypename,
-                    self.name, self.db.standalone, is_exported=is_exported))
-
-    def implementation(self):
-        if self.funcgen:
-            for s in self.funcgen_implementation(self.funcgen):
-                yield s
+        yield '%s;' % (
+            forward_cdecl(self.implementationtypename,
+                self.name, self.db.standalone, is_exported=is_exported))
 
     def graphs_to_patch(self):
-        if self.funcgen:
-            for i in self.funcgen.graphs_to_patch():
-                yield i
+        for i in self.funcgen.graphs_to_patch():
+            yield i
 
-    def funcgen_implementation(self, funcgen):
+    def implementation(self):
+        funcgen = self.funcgen
         funcgen.implementation_begin()
         # recompute implementationtypename as the argnames may have changed
         argnames = funcgen.argnames()
@@ -902,6 +898,20 @@ class FuncNode(ContainerNode):
         del bodyiter
         funcgen.implementation_end()
 
+class ExternalFuncNode(FuncNodeBase):
+    def __init__(self, db, T, obj, ptrname):
+        FuncNodeBase.__init__(self, db, T, obj, ptrname)
+        self._funccodegen_owner = None
+
+    def enum_dependencies(self):
+        return []
+
+    def forward_declaration(self):
+        return []
+
+    def implementation(self):
+        return []
+
 def new_funcnode(db, T, obj, forcename=None):
     if db.sandbox:
         if (getattr(obj, 'external', None) is not None and
@@ -911,26 +921,22 @@ def new_funcnode(db, T, obj, forcename=None):
                 obj, db.translator.rtyper)
             obj.__dict__.pop('_safe_not_sandboxed', None)
             obj.__dict__.pop('external', None)
-
     if forcename:
         name = forcename
     else:
         name = _select_name(db, obj)
-    return FuncNode(db, T, obj, name)
-
-def select_function_code_generators(fnobj, db, functionname):
-    if hasattr(fnobj, 'graph'):
-        exception_policy = getattr(fnobj, 'exception_policy', None)
-        return make_funcgen(fnobj.graph, db, exception_policy, functionname)
-    elif getattr(fnobj, 'external', None) is not None:
-        assert fnobj.external == 'C'
+    if hasattr(obj, 'graph'):
+        return FuncNode(db, T, obj, name)
+    elif getattr(obj, 'external', None) is not None:
+        assert obj.external == 'C'
         if db.sandbox:
-            assert fnobj._safe_not_sandboxed
-        return None
-    elif hasattr(fnobj._callable, "c_name"):
-        return None    # this case should only be used for entrypoints
+            assert obj._safe_not_sandboxed
+        return ExternalFuncNode(db, T, obj, name)
+    elif hasattr(obj._callable, "c_name"):
+        return ExternalFuncNode(db, T, obj, name)  # this case should only be used for entrypoints
     else:
-        raise ValueError("don't know how to generate code for %r" % (fnobj,))
+        raise ValueError("don't know how to generate code for %r" % (obj,))
+
 
 def _select_name(db, obj):
     try:
