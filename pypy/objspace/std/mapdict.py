@@ -82,7 +82,7 @@ class AbstractAttribute(object):
             return True
         if not attr.ever_mutated:
             attr.ever_mutated = True
-        self.see_write(w_value)
+        attr.see_write(w_value)
         cell = obj._mapdict_read_storage(attr.storageindex)
         if jit.we_are_jitted() and attr.class_is_known():
             cls = attr.read_constant_cls()

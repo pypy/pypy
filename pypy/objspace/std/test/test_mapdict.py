@@ -558,6 +558,19 @@ def test_value_profiling_elide_write(monkeypatch):
     obj.setdictvalue(space, "a", a1)
     assert obj.getdictvalue(space, "a") is a1
 
+
+def test_bug_lost_write(monkeypatch):
+    none = Value(None)
+    true = Value(True)
+    false = Value(False)
+    cls = Class()
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "tw", true)
+    obj.setdictvalue(space, "h", none)
+    obj.setdictvalue(space, "tw", false)
+    obj.setdictvalue(space, "tw", true)
+    assert obj.getdictvalue(space, "tw") is true
+
 # ___________________________________________________________
 # dict tests
 
