@@ -813,7 +813,7 @@ class Regalloc(BaseRegalloc):
 
     def _prepare_gc_load_indexed(self, op):
         base_loc = self.ensure_reg(op.getarg(0), force_in_reg=True)
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        index_loc = self.ensure_reg(op.getarg(1), force_in_reg=True)
         scale_box = op.getarg(2)
         offset_box = op.getarg(3)
         size_box = op.getarg(4)
@@ -979,11 +979,11 @@ class Regalloc(BaseRegalloc):
         return locs
 
     def prepare_cond_call_gc_wb(self, op):
-        arglocs = [self.ensure_reg(op.getarg(0))]
+        arglocs = [self.ensure_reg(op.getarg(0), force_in_reg=True)]
         return arglocs
 
     def prepare_cond_call_gc_wb_array(self, op):
-        arglocs = [self.ensure_reg(op.getarg(0)),
+        arglocs = [self.ensure_reg(op.getarg(0), force_in_reg=True),
                    self.ensure_reg_or_16bit_imm(op.getarg(1)),
                    None]
         if arglocs[1].is_reg():

@@ -165,11 +165,11 @@ class GcLLDescription(GcCache):
 
             size, offset, _ = unpack_arraydescr(moving_obj_tracker.ptr_array_descr)
             factor = size
-            array_index = array_index * factor
+            array_index = array_index * factor + offset
             args = [moving_obj_tracker.const_ptr_gcref_array,
                     ConstInt(array_index),
                     ConstInt(1), # already multiplied to array_index
-                    ConstInt(offset),
+                    ConstInt(0), # already added
                     ConstInt(size)]
             load_op = ResOperation(rop.GC_LOAD_INDEXED_R, args)
             newops.append(load_op)

@@ -903,7 +903,7 @@ class MemoryOpAssembler(object):
     emit_gc_load_r = _emit_gc_load
 
     def _emit_gc_load_indexed(self, op, arglocs, regalloc):
-        result_loc, base_loc, index_loc, offset_loc, size_loc, sign_loc =arglocs
+        result_loc, base_loc, index_loc, offset_loc, size_loc, sign_loc=arglocs
         assert not result_loc.is_in_pool()
         assert not base_loc.is_in_pool()
         assert not index_loc.is_in_pool()
