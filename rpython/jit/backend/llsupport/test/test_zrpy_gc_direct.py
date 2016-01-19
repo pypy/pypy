@@ -26,6 +26,7 @@ def run_guards_translated(gcremovetypeptr):
     t = TranslationContext()
     t.config.translation.gc = "minimark"
     t.config.translation.gcremovetypeptr = gcremovetypeptr
+    t.config.translation.lldebug = True
     ann = t.buildannotator()
     ann.build_types(main, [s_list_of_strings], main_entry_point=True)
     rtyper = t.buildrtyper()

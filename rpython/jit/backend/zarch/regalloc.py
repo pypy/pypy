@@ -669,6 +669,7 @@ class Regalloc(BaseRegalloc):
     prepare_int_floordiv = helper.prepare_int_div
     prepare_uint_floordiv = helper.prepare_int_div
     prepare_int_mod = helper.prepare_int_mod
+    prepare_nursery_ptr_increment = prepare_int_add
 
     prepare_int_and = helper.prepare_int_logic
     prepare_int_or  = helper.prepare_int_logic

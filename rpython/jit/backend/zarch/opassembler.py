@@ -32,6 +32,8 @@ class IntOpAssembler(object):
     emit_int_add = gen_emit_imm_pool_rr('AGFI','AG','AGR')
     emit_int_add_ovf = emit_int_add
 
+    emit_nursery_ptr_increment = emit_int_add
+
     def emit_int_sub(self, op, arglocs, regalloc):
         l0, l1 = arglocs
         if l1.is_imm() and not l1.is_in_pool():
@@ -1030,7 +1032,6 @@ class MemoryOpAssembler(object):
     def emit_zero_array(self, op, arglocs, regalloc):
         base_loc, startindex_loc, length_loc, \
             ofs_loc, itemsize_loc, pad_byte_loc = arglocs
-        print(op, arglocs)
 
         if ofs_loc.is_imm():
             assert check_imm_value(ofs_loc.value)
