@@ -92,12 +92,12 @@ def test_view_as_kwargs():
     values = [1, 2, 3]
     storage = strategy.erase((keys, values))
     d = W_DictObject(space, strategy, storage)
-    assert (space.view_as_kwargs(d) == keys, values)
+    assert space.view_as_kwargs(d) == (keys, values)
 
     strategy = EmptyDictStrategy(space)
     storage = strategy.get_empty_storage()
     d = W_DictObject(space, strategy, storage)
-    assert (space.view_as_kwargs(d) == [], [])
+    assert space.view_as_kwargs(d) == ([], [])
 
 def test_from_empty_to_kwargs():
     strategy = EmptyKwargsDictStrategy(space)

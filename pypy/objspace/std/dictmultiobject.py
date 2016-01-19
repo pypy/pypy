@@ -43,6 +43,8 @@ def w_dict_unrolling_heuristic(w_dct):
 
 class W_DictMultiObject(W_Root):
     """ Abstract base class that does not store a strategy. """
+    __slots__ = ['space', 'dstorage']
+
     def get_strategy(self):
         raise NotImplementedError("abstract method")
 
@@ -351,6 +353,8 @@ class W_DictMultiObject(W_Root):
 
 class W_DictObject(W_DictMultiObject):
     """ a regular dict object """
+    __slots__ = ['dstrategy']
+
     def __init__(self, space, strategy, storage):
         W_DictMultiObject.__init__(self, space, storage)
         self.dstrategy = strategy
@@ -365,6 +369,7 @@ class W_DictObject(W_DictMultiObject):
 class W_ModuleDictObject(W_DictMultiObject):
     """ a dict object for a module, that is not expected to change. It stores
     the strategy as a quasi-immutable field. """
+    __slots__ = ['mstrategy']
     _immutable_fields_ = ['mstrategy?']
 
     def __init__(self, space, strategy, storage):
