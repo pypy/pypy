@@ -503,6 +503,12 @@ LL_OPERATIONS = {
     'gc_gcflag_extra'     : LLOp(),
     'gc_add_memory_pressure': LLOp(),
 
+    'gc_rawrefcount_init':              LLOp(),
+    'gc_rawrefcount_create_link_pypy':  LLOp(),
+    'gc_rawrefcount_create_link_pyobj': LLOp(),
+    'gc_rawrefcount_from_obj':          LLOp(sideeffects=False),
+    'gc_rawrefcount_to_obj':            LLOp(sideeffects=False),
+
     # ------- JIT & GC interaction, only for some GCs ----------
 
     'gc_adr_of_nursery_free' : LLOp(),

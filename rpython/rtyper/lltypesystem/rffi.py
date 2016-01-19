@@ -631,7 +631,8 @@ def COpaquePtr(*args, **kwds):
 
 def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
                     sandboxsafe=False, _nowrapper=False,
-                    c_type=None, getter_only=False):
+                    c_type=None, getter_only=False,
+                    declare_as_extern=(sys.platform != 'win32')):
     """Return a pair of functions - a getter and a setter - to access
     the given global C variable.
     """
@@ -661,7 +662,7 @@ def CExternVariable(TYPE, name, eci, _CConstantClass=CConstant,
     c_setter = "void %(setter_name)s (%(c_type)s v) { %(name)s = v; }" % locals()
 
     lines = ["#include <%s>" % i for i in eci.includes]
-    if sys.platform != 'win32':
+    if declare_as_extern:
         lines.append('extern %s %s;' % (c_type, name))
     lines.append(c_getter)
     if not getter_only:
@@ -789,6 +790,12 @@ def make_string_mappings(strtype):
         copy_string_to_raw(ll_s, array, 0, length)
         return length
     str2chararray._annenforceargs_ = [strtype, None, int]
+
+    # s[start:start+length] -> already-existing char[],
+    # all characters including zeros
+    def str2rawmem(s, array, start, length):
+        ll_s = llstrtype(s)
+        copy_string_to_raw(ll_s, array, start, length)
 
     # char* -> str
     # doesn't free char*
@@ -940,19 +947,19 @@ def make_string_mappings(strtype):
     return (str2charp, free_charp, charp2str,
             get_nonmovingbuffer, free_nonmovingbuffer,
             alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
-            charp2strn, charpsize2str, str2chararray,
+            charp2strn, charpsize2str, str2chararray, str2rawmem,
             )
 
 (str2charp, free_charp, charp2str,
  get_nonmovingbuffer, free_nonmovingbuffer,
  alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
- charp2strn, charpsize2str, str2chararray,
+ charp2strn, charpsize2str, str2chararray, str2rawmem,
  ) = make_string_mappings(str)
 
 (unicode2wcharp, free_wcharp, wcharp2unicode,
  get_nonmoving_unicodebuffer, free_nonmoving_unicodebuffer,
  alloc_unicodebuffer, unicode_from_buffer, keep_unicodebuffer_alive_until_here,
- wcharp2unicoden, wcharpsize2unicode, unicode2wchararray,
+ wcharp2unicoden, wcharpsize2unicode, unicode2wchararray, unicode2rawmem,
  ) = make_string_mappings(unicode)
 
 # char**
