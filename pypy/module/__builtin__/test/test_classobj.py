@@ -1084,7 +1084,7 @@ class AppTestOldStyleClassBytesDict(object):
         def is_strdict(space, w_class):
             from pypy.objspace.std.dictmultiobject import BytesDictStrategy
             w_d = w_class.getdict(space)
-            return space.wrap(isinstance(w_d.strategy, BytesDictStrategy))
+            return space.wrap(isinstance(w_d.get_strategy(), BytesDictStrategy))
 
         cls.w_is_strdict = cls.space.wrap(gateway.interp2app(is_strdict))
 

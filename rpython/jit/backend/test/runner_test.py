@@ -3677,6 +3677,8 @@ class LLtypeBackendTest(BaseBackendTest):
         [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
         i10 = int_add(i0, 42)
         i11 = call_assembler_i(i10, i1, i2, i3, i4, i5, i6, i7, i8, i9, descr=looptoken)
+        # NOTE: call_assembler_i() is turned into a single-argument version
+        #       by rewrite.py
         guard_not_forced()[]
         finish(i11)
         '''
