@@ -800,7 +800,8 @@ def generic_initializationexpr(db, value, access_expr, decoration):
                 comma = ''
         expr += comma
         i = expr.find('\n')
-        if i<0: i = len(expr)
+        if i < 0:
+            i = len(expr)
         expr = '%s\t/* %s */%s' % (expr[:i], decoration, expr[i:])
         return expr.split('\n')
 
@@ -871,7 +872,7 @@ class FuncNode(ContainerNode):
         while start < len(localnames):
             # pack the local declarations over as few lines as possible
             total = lengths[start] + 8
-            end = start+1
+            end = start + 1
             while total + lengths[end] < 77:
                 total += lengths[end] + 1
                 end += 1

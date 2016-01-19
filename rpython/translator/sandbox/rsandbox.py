@@ -35,7 +35,8 @@ ll_write_not_sandboxed = rffi.llexternal('write',
                                          sandboxsafe=True)
 
 
-@signature(types.int(), types.ptr(rffi.CCHARP.TO), types.int(), returns=types.none())
+@signature(types.int(), types.ptr(rffi.CCHARP.TO), types.int(),
+    returns=types.none())
 def writeall_not_sandboxed(fd, buf, length):
     while length > 0:
         size = rffi.cast(rffi.SIZE_T, length)
@@ -83,15 +84,24 @@ def sandboxed_io(buf):
         return loader
 
 def reraise_error(error, loader):
-    if   error == 1: raise OSError(load_int(loader), "external error")
-    elif error == 2: raise IOError
-    elif error == 3: raise OverflowError
-    elif error == 4: raise ValueError
-    elif error == 5: raise ZeroDivisionError
-    elif error == 6: raise MemoryError
-    elif error == 7: raise KeyError
-    elif error == 8: raise IndexError
-    else:            raise RuntimeError
+    if error == 1:
+        raise OSError(load_int(loader), "external error")
+    elif error == 2:
+        raise IOError
+    elif error == 3:
+        raise OverflowError
+    elif error == 4:
+        raise ValueError
+    elif error == 5:
+        raise ZeroDivisionError
+    elif error == 6:
+        raise MemoryError
+    elif error == 7:
+        raise KeyError
+    elif error == 8:
+        raise IndexError
+    else:
+        raise RuntimeError
 
 
 @signature(types.str(), returns=types.impossible())
@@ -102,7 +112,9 @@ def not_implemented_stub(msg):
     raise RuntimeError(msg)  # XXX in RPython, the msg is ignored
 
 def make_stub(fnname, msg):
+    """Build always-raising stub function to replace unsupported external."""
     log.WARNING(msg)
+
     def execute(*args):
         not_implemented_stub(msg)
     execute.__name__ = 'sandboxed_%s' % (fnname,)
@@ -118,29 +130,10 @@ dump_string = rmarshal.get_marshaller(str)
 load_int = rmarshal.get_loader(int)
 
 def get_sandbox_stub(fnobj, rtyper):
-    """Build always-raising graph for unsupported external function."""
     fnname = fnobj._name
     args_s, s_result = sig_ll(fnobj)
     msg = "Not implemented: sandboxing for external function '%s'" % (fnname,)
     execute = make_stub(fnname, msg)
-    return _annotate(rtyper, execute, args_s, s_result)
-
-def get_external_function_sandbox_graph(fnobj, rtyper):
-    """Build the graph of a helper trampoline function to be used
-    in place of real calls to the external function 'fnobj'.  The
-    trampoline marshals its input arguments, dumps them to STDOUT,
-    and waits for an answer on STDIN.
-    """
-    fnname = fnobj._name
-    if hasattr(fnobj, 'graph'):
-        graph = fnobj.graph
-        args_s = [v.annotation for v in graph.getargs()]
-        s_result = graph.getreturnvar().annotation
-    else:
-        # pure external function - fall back to the annotations
-        # corresponding to the ll types
-        args_s, s_result = sig_ll(fnobj)
-    execute = make_sandbox_trampoline(fnname, args_s, s_result)
     return _annotate(rtyper, execute, args_s, s_result)
 
 def make_sandbox_trampoline(fnname, args_s, s_result):
