@@ -67,8 +67,8 @@ object).
 Let P = list of links created with rawrefcount.create_link_pypy()
 and O = list of links created with rawrefcount.create_link_pyobj().
 The PyPy objects in the list O are all W_CPyExtPlaceHolderObject: all
-the data is in the PyObjects, and all references (if any) are regular
-CPython-like reference counts.
+the data is in the PyObjects, and all outsite references (if any) are
+in C, as "PyObject *" fields.
 
 So, during the collection we do this about P links:
 
@@ -81,7 +81,7 @@ At the end of the collection, the P and O links are both handled like
 this:
 
     for (p, ob) in P + O:
-        if p is not surviving:
+        if p is not surviving:    # even if 'ob' might be surviving
             unlink p and ob
             if ob->ob_refcnt == REFCNT_FROM_PYPY_LIGHT:
                 free(ob)
@@ -105,6 +105,11 @@ list, and update it when PyPy objects move.
 
 Further notes
 -------------
+
+XXX
+XXX the rest is the ideal world, but as a first step, we'll look
+XXX for the minimal tweaks needed to adapt the existing cpyext
+XXX
 
 For objects that are opaque in CPython, like <dict>, we always create
 a PyPy object, and then when needed we make an empty PyObject and
