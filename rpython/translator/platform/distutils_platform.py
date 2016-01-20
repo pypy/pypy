@@ -1,5 +1,6 @@
 import py, os, sys
 
+import platform
 from rpython.translator.platform import Platform, log, CompilationError
 from rpython.translator.tool import stdoutcapture
 
