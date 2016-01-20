@@ -1461,8 +1461,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         pmc.overwrite()
 
 def notimplemented_op(asm, op, arglocs, regalloc):
-    print "[ZARCH/asm] %s not implemented" % op.getopname()
-    raise NotImplementedError(op)
+    if we_are_translated():
+        msg = "[ZARCH/asm] %s not implemented\n" % op.getopname()
+        llop.debug_print(lltype.Void, msg)
+    raise NotImplementedError(msg)
 
 asm_operations = [notimplemented_op] * (rop._LAST + 1)
 asm_extra_operations = {}
