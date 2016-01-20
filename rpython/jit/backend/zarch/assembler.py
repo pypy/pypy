@@ -132,7 +132,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         fail_descr, target = self.store_info_on_descr(startpos, guardtok)
         assert target != 0
         pool_offset = guardtok._pool_offset
-
+        assert pool_offset != -1
 
         # overwrite the gcmap in the jitframe
         offset = pool_offset + RECOVERY_GCMAP_POOL_OFFSET

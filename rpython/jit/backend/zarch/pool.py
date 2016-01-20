@@ -125,7 +125,7 @@ class LiteralPool(object):
         self.constant_64_zeros = -1
         self.constant_64_ones = -1
         self.constant_64_sign_bit = -1
-        self.constant_max_64_positive -1
+        self.constant_max_64_positive = -1
 
     def check_size(self, size=-1):
         if size == -1:
@@ -190,6 +190,7 @@ class LiteralPool(object):
 
     def overwrite_64(self, mc, index, value):
         index += self.pool_start
+
         mc.overwrite(index,   chr(value >> 56 & 0xff))
         mc.overwrite(index+1, chr(value >> 48 & 0xff))
         mc.overwrite(index+2, chr(value >> 40 & 0xff))
@@ -209,6 +210,6 @@ class LiteralPool(object):
             offset = self.offset_descr[descr]
             assert isinstance(offset, int)
             assert offset >= 0
-            guard_token._pool_offset = offset
+            assert guard_token._pool_offset != -1
             ptr = rffi.cast(lltype.Signed, guard_token.gcmap)
             self.overwrite_64(mc, offset + RECOVERY_GCMAP_POOL_OFFSET, ptr)

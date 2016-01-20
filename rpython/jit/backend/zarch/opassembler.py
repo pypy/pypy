@@ -641,6 +641,7 @@ class GuardOpAssembler(object):
         token = ZARCHGuardToken(self.cpu, gcmap, descr, op.getfailargs(),
                               arglocs, op.getopnum(), frame_depth,
                               fcond)
+        token._pool_offset = self.pool.get_descr_offset(descr)
         return token
 
     def emit_guard_true(self, op, arglocs, regalloc):
