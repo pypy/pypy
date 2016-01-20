@@ -92,6 +92,9 @@ class LiteralPool(object):
             if arg.is_constant():
                 self.reserve_literal(8, arg)
 
+    def get_descr_offset(self, descr):
+        return self.offset_descr[descr]
+
     def get_offset(self, box):
         assert box.is_constant()
         uvalue = self.unique_value(box)
@@ -171,18 +174,17 @@ class LiteralPool(object):
         if self.constant_64_zeros != -1:
             self.constant_64_zeros = self.ensure_value(0x0)
         if self.constant_64_sign_bit != -1:
-            self.constant_64_zeros = self.ensure_value(-2**63) # == 0x8000000000000000
+            self.constant_64_sign_bit = self.ensure_value(-2**63) # == 0x8000000000000000
         if self.constant_max_64_positive != -1:
             self.constant_max_64_positive = self.ensure_value(0x7fffFFFFffffFFFF)
+        asm.mc.write('\x00' * self.size)
         wrote = 0
         for val, offset in self.offset_map.items():
             if not we_are_translated():
                 print('pool: %s at offset: %d' % (val, offset))
-            asm.mc.write_i64(val)
+            self.overwrite_64(asm.mc, offset, val)
             wrote += 8
-        self.offset_map = {}
         # for the descriptors
-        asm.mc.write('\x00' * (self.size - wrote))
         if not we_are_translated():
             print "pool with %d quad words" % (self.size // 8)
 
