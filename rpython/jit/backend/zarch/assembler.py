@@ -7,6 +7,7 @@ from rpython.jit.backend.zarch import conditions as c
 from rpython.jit.backend.zarch import registers as r
 from rpython.jit.backend.zarch import locations as l
 from rpython.jit.backend.zarch.pool import LiteralPool
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.zarch.codebuilder import (InstrBuilder,
         OverwritingBuilder)
 from rpython.jit.backend.zarch.helper.regalloc import check_imm_value
