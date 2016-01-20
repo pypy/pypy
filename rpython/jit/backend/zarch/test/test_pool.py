@@ -1,5 +1,5 @@
 import py
-from rpython.jit.backend.zarch.pool import LiteralPool
+from rpython.jit.backend.zarch.pool import LiteralPool, PoolOverflow
 from rpython.jit.metainterp.history import (AbstractFailDescr,
          AbstractDescr, BasicFailDescr, BasicFinalDescr, JitCellToken,
          TargetToken, ConstInt, ConstPtr, Const, ConstFloat)
@@ -10,6 +10,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.jit.backend.zarch.helper.regalloc import check_imm32
 from rpython.jit.backend.zarch.assembler import AssemblerZARCH
 from rpython.jit.backend.detect_cpu import getcpuclass
+from rpython.jit.tool.oparser import parse
 
 class TestPoolZARCH(object):
     def setup_class(self):
@@ -18,6 +19,8 @@ class TestPoolZARCH(object):
     def setup_method(self, name):
         self.pool = LiteralPool()
         self.asm = None
+        self.cpu = getcpuclass()(None, None)
+        self.cpu.setup_once()
 
     def ensure_can_hold(self, opnum, args, descr=None):
         op = ResOperation(opnum, args, descr=descr)
@@ -26,9 +29,9 @@ class TestPoolZARCH(object):
     def const_in_pool(self, c):
         try:
             self.pool.get_offset(c)
+            return True
         except KeyError:
             return False
-        return True
 
     def test_constant_in_call_malloc(self):
         c = ConstPtr(rffi.cast(llmemory.GCREF, 0xdeadbeef))
@@ -42,18 +45,14 @@ class TestPoolZARCH(object):
         for c1 in [ConstInt(1), ConstInt(2**44), InputArgInt(1)]:
             for c2 in [InputArgInt(1), ConstInt(1), ConstInt(2**55)]:
                 self.ensure_can_hold(opnum, [c1,c2])
-                if c1.is_constant() and check_imm32(c1):
+                if c1.is_constant():
                     assert self.const_in_pool(c1)
-                else:
-                    assert not self.const_in_pool(c1)
-                if c2.is_constant() and check_imm32(c2):
+                if c2.is_constant():
                     assert self.const_in_pool(c2)
-                else:
-                    assert not self.const_in_pool(c2)
 
     def test_pool_overflow(self):
-        cpu = getcpuclass()(None, None)
-        cpu.setup_once()
-        ops = [ResOperation(rop.FLOAT_ADD, [ConstFloat(0.0125), ConstFloat(float(i))]) for i in range(100)]
-        cpu.compile_loop([], ops, JitCellToken())
-
+        self.pool.size = (2**19-1) - 8
+        self.pool.allocate_slot(8)
+        assert self.pool.size == 2**19-1
+        with py.test.raises(PoolOverflow) as of:
+            self.pool.allocate_slot(8)

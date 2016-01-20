@@ -10,6 +10,9 @@ from rpython.jit.backend.zarch.arch import (WORD,
         RECOVERY_GCMAP_POOL_OFFSET, RECOVERY_TARGET_POOL_OFFSET)
 from rpython.rlib.longlong2float import float2longlong
 
+class PoolOverflow(Exception):
+    pass
+
 class LiteralPool(object):
     def __init__(self):
         self.size = 0
@@ -17,7 +20,10 @@ class LiteralPool(object):
         self.pool_start = 0
         self.label_offset = 0
         self.label_count = 0
+        # for constant offsets
         self.offset_map = {}
+        # for descriptors
+        self.offset_descr = {}
         self.constant_64_zeros = -1
         self.constant_64_ones = -1
         self.constant_64_sign_bit = -1
@@ -28,19 +34,21 @@ class LiteralPool(object):
         if op.is_guard():
             # 1x gcmap pointer
             # 1x target address
-            self.offset_map[op.getdescr()] = self.size
-            self.reserve_literal(2 * 8)
+            self.offset_descr[op.getdescr()] = self.size
+            self.allocate_slot(2*8)
         elif op.getopnum() == rop.JUMP:
             descr = op.getdescr()
             if descr not in asm.target_tokens_currently_compiling:
                 # this is a 'long' jump instead of a relative jump
-                self.offset_map[descr] = self.size
-                self.reserve_literal(8)
+                self.offset_descr[descr] = self.size
+                self.allocate_slot(8)
         elif op.getopnum() == rop.LABEL:
             descr = op.getdescr()
             if descr not in asm.target_tokens_currently_compiling:
                 # this is a 'long' jump instead of a relative jump
-                self.offset_map[descr] = self.size
+                # TODO why no reserve literal? self.offset_map[descr] = self.size
+                self.offset_descr[descr] = self.size
+                self.allocate_slot(8)
         elif op.getopnum() == rop.INT_INVERT:
             self.constant_64_ones = 1 # we need constant ones!!!
         elif op.getopnum() == rop.INT_MUL_OVF:
@@ -50,18 +58,15 @@ class LiteralPool(object):
              opnum == rop.UINT_RSHIFT:
             a0 = op.getarg(0)
             if a0.is_constant():
-                self.offset_map[a0] = self.size
-                self.reserve_literal(8)
+                self.reserve_literal(8, a0)
             return
         elif opnum == rop.GC_STORE or opnum == rop.GC_STORE_INDEXED:
             arg = op.getarg(0)
             if arg.is_constant():
-                self.offset_map[arg] = self.size
-                self.reserve_literal(8)
+                self.reserve_literal(8, arg)
             arg = op.getarg(2)
             if arg.is_constant():
-                self.offset_map[arg] = self.size
-                self.reserve_literal(8)
+                self.reserve_literal(8, arg)
             return
         elif opnum in (rop.GC_LOAD_F,
                        rop.GC_LOAD_I,
@@ -71,27 +76,42 @@ class LiteralPool(object):
                           rop.GC_LOAD_INDEXED_I,):
             arg = op.getarg(0)
             if arg.is_constant():
-                self.offset_map[arg] = self.size
-                self.reserve_literal(8)
+                self.reserve_literal(8, arg)
+            if opnum == rop.GC_LOAD_INDEXED_R:
+                arg = op.getarg(1)
+                if arg.is_constant():
+                    self.reserve_literal(8, arg)
             return
         elif op.is_call_release_gil():
             for arg in op.getarglist()[1:]:
                 if arg.is_constant():
-                    self.offset_map[arg] = self.size
-                    self.reserve_literal(8)
+                    self.reserve_literal(8, arg)
             return
         for arg in op.getarglist():
             if arg.is_constant():
-                self.offset_map[arg] = self.size
-                self.reserve_literal(8)
+                self.reserve_literal(8, arg)
 
     def get_offset(self, box):
+        assert box.is_constant()
+        uvalue = self.unique_value(box)
         if not we_are_translated():
-            assert self.offset_map[box] >= 0
-        return self.offset_map[box]
+            assert self.offset_map[uvalue] >= 0
+        return self.offset_map[uvalue]
 
-    def reserve_literal(self, size):
-        self.size += size
+    def unique_value(self, val):
+        if val.type == FLOAT:
+            return float2longlong(val.getfloat())
+        elif val.type == INT:
+            return rffi.cast(lltype.Signed, val.getint())
+        else:
+            assert val.type == REF
+            return rffi.cast(lltype.Signed, val.getref_base())
+
+    def reserve_literal(self, size, box):
+        uvalue = self.unique_value(box)
+        if uvalue not in self.offset_map:
+            self.offset_map[uvalue] = self.size
+            self.allocate_slot(size)
 
     def reset(self):
         self.pool_start = 0
@@ -103,6 +123,26 @@ class LiteralPool(object):
         self.constant_64_sign_bit = -1
         self.constant_max_64_positive -1
 
+    def check_size(self, size=-1):
+        if size == -1:
+            size = self.size
+        if size >= 2**19:
+            msg = '[S390X/literalpool] size exceeded %d >= %d\n' % (size, 2**19-8)
+            if we_are_translated():
+                llop.debug_print(lltype.Void, msg)
+            raise PoolOverflow(msg)
+
+    def allocate_slot(self, size):
+        val = self.size + size
+        self.check_size(val)
+        self.size = val
+
+    def ensure_value(self, val):
+        if val not in self.offset_map:
+            self.offset_map[val] = self.size
+            self.allocate_slot(8)
+        return self.offset_map[val]
+
     def pre_assemble(self, asm, operations, bridge=False):
         # O(len(operations)). I do not think there is a way
         # around this.
@@ -110,9 +150,9 @@ class LiteralPool(object):
         # Problem:
         # constants such as floating point operations, plain pointers,
         # or integers might serve as parameter to an operation. thus
-        # it must be loaded into a register. You cannot do this with
-        # assembler immediates, because the biggest immediate value
-        # is 32 bit for branch instructions.
+        # it must be loaded into a register. There is a space benefit
+        # for 64-bit integers, or python floats, when a constant is used
+        # twice.
         #
         # Solution:
         # the current solution (gcc does the same), use a literal pool
@@ -125,25 +165,23 @@ class LiteralPool(object):
             # no pool needed!
             return
         assert self.size % 2 == 0, "not aligned properly"
-        asm.mc.write('\x00' * self.size)
-        written = 0
         if self.constant_64_ones != -1:
-            asm.mc.write('\xFF' * 8)
-            self.constant_64_ones = self.size + written
-            written += 8
+            self.constant_64_ones = self.ensure_value(0xffffFFFFffffFFFF)
         if self.constant_64_zeros != -1:
-            asm.mc.write('\x00' * 8)
-            self.constant_64_zeros = self.size + written
-            written += 8
+            self.constant_64_zeros = self.ensure_value(0x0)
         if self.constant_64_sign_bit != -1:
-            asm.mc.write('\x80' + ('\x00' * 7))
-            self.constant_64_sign_bit = self.size + written
-            written += 8
+            self.constant_64_zeros = self.ensure_value(0x8000000000000000)
         if self.constant_max_64_positive != -1:
-            asm.mc.write('\x7F' + ('\xFF' * 7))
-            self.constant_max_64_positive = self.size + written
-            written += 8
-        self.size += written
+            self.constant_max_64_positive = self.ensure_value(0x7fffFFFFffffFFFF)
+        wrote = 0
+        for val, offset in self.offset_map.items():
+            if not we_are_translated():
+                print('pool: %s at offset: %d' % (val, offset))
+            self.mc.write_i64()
+            wrote += 8
+        self.offset_map = {}
+        # for the descriptors
+        asm.mc.write('\x00' * (self.size - wrote))
         if not we_are_translated():
             print "pool with %d quad words" % (self.size // 8)
 
@@ -163,24 +201,11 @@ class LiteralPool(object):
         pending_guard_tokens = asm.pending_guard_tokens
         if self.size == 0:
             return
-        for val, offset in self.offset_map.items():
-            if not we_are_translated():
-                print('pool: %s at offset: %d' % (val, offset))
-            if val.is_constant():
-                if val.type == FLOAT:
-                    self.overwrite_64(mc, offset, float2longlong(val.getfloat()))
-                elif val.type == INT:
-                    i64 = rffi.cast(lltype.Signed, val.getint())
-                    self.overwrite_64(mc, offset, i64)
-                else:
-                    assert val.type == REF
-                    i64 = rffi.cast(lltype.Signed, val.getref_base())
-                    self.overwrite_64(mc, offset, i64)
-
         for guard_token in pending_guard_tokens:
             descr = guard_token.faildescr
-            offset = self.offset_map[descr]
+            offset = self.offset_descr[descr]
             assert isinstance(offset, int)
+            assert offset >= 0
             guard_token._pool_offset = offset
             ptr = rffi.cast(lltype.Signed, guard_token.gcmap)
             self.overwrite_64(mc, offset + RECOVERY_GCMAP_POOL_OFFSET, ptr)
