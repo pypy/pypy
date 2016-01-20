@@ -3,6 +3,7 @@ from rpython.jit.backend.zarch import locations as l
 from rpython.jit.metainterp.history import (INT, REF, FLOAT,
         TargetToken)
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.history import Const
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
@@ -166,18 +167,18 @@ class LiteralPool(object):
             return
         assert self.size % 2 == 0, "not aligned properly"
         if self.constant_64_ones != -1:
-            self.constant_64_ones = self.ensure_value(0xffffFFFFffffFFFF)
+            self.constant_64_ones = self.ensure_value(-1)
         if self.constant_64_zeros != -1:
             self.constant_64_zeros = self.ensure_value(0x0)
         if self.constant_64_sign_bit != -1:
-            self.constant_64_zeros = self.ensure_value(0x8000000000000000)
+            self.constant_64_zeros = self.ensure_value(-2**63) # == 0x8000000000000000
         if self.constant_max_64_positive != -1:
             self.constant_max_64_positive = self.ensure_value(0x7fffFFFFffffFFFF)
         wrote = 0
         for val, offset in self.offset_map.items():
             if not we_are_translated():
                 print('pool: %s at offset: %d' % (val, offset))
-            self.mc.write_i64()
+            asm.mc.write_i64(val)
             wrote += 8
         self.offset_map = {}
         # for the descriptors
