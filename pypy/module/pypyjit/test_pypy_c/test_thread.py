@@ -33,6 +33,7 @@ class TestThread(BaseTestPyPyC):
             import thread
             local = thread._local()
             local.x = 1
+            local.x = 2 # make it not constant
             i = 0
             while i < n:
                 i += local.x
@@ -41,9 +42,10 @@ class TestThread(BaseTestPyPyC):
         assert round(log.result, 6) == round(main(500), 6)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i53 = int_lt(i48, i27)
             guard_true(i53, descr=...)
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             i54 = int_add_ovf(i48, i47)
             guard_no_overflow(descr=...)
             --TICK--

@@ -25,8 +25,6 @@ class TestThread(BaseTestPyPyC):
         i61 = int_add(i58, 1)
         setfield_gc(p18, i61, descr=<FieldS pypy.module.__builtin__.functional.W_XRangeIterator.inst_current 8>)
         guard_not_invalidated(descr=...)
-        p62 = getfield_gc_r(ConstPtr(ptr37), descr=<FieldP pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy \d+>)
-        guard_value(p62, ConstPtr(ptr39), descr=...)
         p65 = getfield_gc_r(p14, descr=<FieldP pypy.objspace.std.mapdict.W_ObjectObjectSize5.inst_map \d+>)
         guard_value(p65, ConstPtr(ptr45), descr=...)
         p67 = force_token()

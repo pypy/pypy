@@ -422,7 +422,6 @@ class Test__ffi(BaseTestPyPyC):
         i114 = int_ne(i160, i112)
         guard_false(i114, descr=...)
         --TICK--
-        i123 = arraylen_gc(p67, descr=<ArrayP .>)
         i119 = call_i(ConstClass(_ll_1_raw_malloc_varsize__Signed), 6, descr=<Calli . i EF=5 OS=110>)
         raw_store(i119, 0, i160, descr=<ArrayS 2>)
         raw_store(i119, 2, i160, descr=<ArrayS 2>)

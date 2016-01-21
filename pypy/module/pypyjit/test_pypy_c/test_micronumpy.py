@@ -299,10 +299,12 @@ class TestMicroNumPy(BaseTestPyPyC):
             i129 = int_add(i55, i128)
             f149 = raw_load_f(i100, i129, descr=<ArrayF 8>)
             i151 = int_add(i117, 1)
+            i92 = getfield_raw_i(54402752, descr=<FieldS pypysig_long_struct.c_value 0>)
             setfield_gc(p156, i55, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
             setarrayitem_gc(p150, 1, 0, descr=<ArrayS .+>)
             setarrayitem_gc(p150, 0, 0, descr=<ArrayS .+>)
-            --TICK--
+            i95 = int_lt(i92, 0)
+            guard_false(i95, descr=...)
             jump(..., descr=...)
         """)
 
@@ -354,12 +356,13 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_false(i92, descr=...)
             i93 = int_add(i91, 1)
             setfield_gc(p23, i93, descr=<FieldS pypy.objspace.std.iterobject.W_AbstractSeqIterObject.inst_index 8>)
+            guard_not_invalidated?
             i94 = int_ge(i91, i56)
             guard_false(i94, descr=...)
             i96 = int_mul(i91, i58)
             i97 = int_add(i51, i96)
             f98 = raw_load_f(i63, i97, descr=<ArrayF 8>)
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             f100 = float_mul(f98, 0.500000)
             i101 = int_add(i79, 1)
             i102 = arraylen_gc(p85, descr=<ArrayP .>)

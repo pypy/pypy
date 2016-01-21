@@ -114,16 +114,14 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated?
             i12 = int_is_true(i4)
             guard_true(i12, descr=...)
-            guard_not_invalidated(descr=...)
-            i13 = int_add_ovf(i8, i9)
+            guard_not_invalidated?
+            i13 = int_add_ovf(i8, 2)
             guard_no_overflow(descr=...)
-            i10 = int_mul_ovf(2, i61)
+            i14 = int_add_ovf(i13, 2)
             guard_no_overflow(descr=...)
-            i14 = int_add_ovf(i13, i10)
-            guard_no_overflow(descr=...)
-            setfield_gc(p7, i11, descr=...)
             i17 = int_sub_ovf(i4, 1)
             guard_no_overflow(descr=...)
             --TICK--
@@ -151,9 +149,10 @@ class TestMisc(BaseTestPyPyC):
         setfield_gc(p9, i17, descr=<.* .*W_XRangeIterator.inst_current .*>)
         guard_not_invalidated(descr=...)
         i18 = force_token()
+        i75 = int_sub(i71, 1)
         i21 = int_lt(i10, 0)
         guard_false(i21, descr=...)
-        i22 = int_lt(i10, i14)
+        i22 = int_lt(i10, _)
         guard_true(i22, descr=...)
         i23 = int_add_ovf(i6, i10)
         guard_no_overflow(descr=...)

@@ -71,7 +71,7 @@ class TestCall(BaseTestPyPyC):
         entry_bridge, = log.loops_by_id('call', is_entry_bridge=True)
         # LOAD_GLOBAL of OFFSET
         ops = entry_bridge.ops_by_id('cond', opcode='LOAD_GLOBAL')
-        assert log.opnames(ops) == ["guard_value"]
+        assert log.opnames(ops) == []
         ops = entry_bridge.ops_by_id('add', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == []
         #
@@ -218,7 +218,7 @@ class TestCall(BaseTestPyPyC):
         loop, = log.loops_by_id('call')
         ops = log.opnames(loop.ops_by_id('call'))
         guards = [ops for ops in ops if ops.startswith('guard')]
-        assert guards == ["guard_not_invalidated", "guard_no_overflow"]
+        assert guards == ["guard_no_overflow"]
 
     def test_kwargs(self):
         # this is not a very precise test, could be improved
