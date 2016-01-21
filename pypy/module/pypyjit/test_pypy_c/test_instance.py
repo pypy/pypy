@@ -280,3 +280,68 @@ class TestInstance(BaseTestPyPyC):
             --TICK--
             jump(..., descr=...)
         """)
+
+    def test_mutate_instance_int(self):
+        def main():
+            class A(object):
+                pass
+            a = A()
+
+            a.x = 0
+            a.upper = 1000
+            while a.x < a.upper:
+                a.x += 1
+            return a.x
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            guard_not_invalidated?
+            i33 = int_lt(i28, 1000)
+            guard_true(i33, descr=...)
+            i34 = int_add(i28, 1)
+            i35 = getfield_raw_i(..., descr=...)
+            setfield_gc(p23, i34, descr=...)
+            i36 = int_lt(i35, 0)
+            guard_false(i36, descr=...)
+            jump(..., descr=...)
+        """)
+
+    def test_instances_class_is_known(self):
+        def main():
+            class A(object):
+                pass
+            class B(object):
+                pass
+            a1 = A()
+            a2 = A()
+
+            a1.a = B()
+            a2.a = B()
+            i = 0
+            while i < 1000:
+                a1.a.x = i + 0.2
+                a1, a2 = a2, a1
+                i += 1
+            return a1.a.x + a2.a.x
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            guard_not_invalidated?
+            i42 = int_lt(i37, 1000)
+            guard_true(i42, descr=...)
+            f50 = cast_int_to_float(i37)
+            f51 = float_add(f50, 0.200000)
+            p43 = getfield_gc_r(p16, descr=<FieldP pypy.objspace.std.mapdict.W_ObjectObjectSize5.inst_map .*>)
+            guard_value(p43, ConstPtr(ptr31), descr=...)
+            p44 = getfield_gc_r(p16, descr=<FieldP pypy.objspace.std.mapdict.W_ObjectObjectSize5.inst__value0 .*>)
+            p45 = getfield_gc_r(p44, descr=<FieldP pypy.objspace.std.mapdict.W_ObjectObjectSize5.inst_map .*>)
+            guard_value(p45, ConstPtr(ptr34), descr=...)
+            p46 = getfield_gc_r(p44, descr=<FieldP pypy.objspace.std.mapdict.W_ObjectObjectSize5.inst__value0 .*>)
+            i47 = int_add(i37, 1)
+            i48 = getfield_raw_i(54402752, descr=...)
+            setfield_gc(p46, f51, descr=<FieldF pypy.objspace.std.typeobject.FloatMutableCell.inst_floatvalue .*>)
+            i49 = int_lt(i48, 0)
+            guard_false(i49, descr=...)
+            jump(..., descr=...)
+        """)
+
