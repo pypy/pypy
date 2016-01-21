@@ -7,19 +7,19 @@ SEEN_CONSTANT_OBJ = 'o'
 SEEN_CONSTANT_CLASS = 'c'
 SEEN_TOO_MUCH = '?'
 
-class ValueProf(object):
+class HeapProf(object):
     """ Some reusal heap profiling infrastructure. Can be used either as a base
     class, or as a mixin.
 
-    The idea of this class is to have one ValueProf instance for many heap
+    The idea of this class is to have one HeapProf instance for many heap
     storage cells that are likely to store the same content. An example is
-    having a ValueProf per field of a specific class. """
+    having a HeapProf per field of a specific class. """
 
-    _immutable_fields_ = ['_vprof_status?']
+    _immutable_fields_ = ['_hprof_status?']
 
     def __init__(self, msg=''):
         # only if you subclass normally
-        self.init_valueprof(msg)
+        self.init_heapprof(msg)
 
 
     # ________________________________________________________________________
@@ -38,70 +38,70 @@ class ValueProf(object):
     # ________________________________________________________________________
     # public interface
 
-    def init_valueprof(self, msg=''):
-        """ initialize the profiler. must be called if ValueProf is used as a
+    def init_heapprof(self, msg=''):
+        """ initialize the profiler. must be called if HeapProf is used as a
         mixin upon construction. """
-        self._vprof_status = SEEN_NOTHING
-        self._vprof_value_int = 0
-        self._vprof_value_wref = dead_ref
-        self._vprof_const_cls = None
-        self._vprof_counter = 0
-        self._vprof_msg = msg
+        self._hprof_status = SEEN_NOTHING
+        self._hprof_value_int = 0
+        self._hprof_value_wref = dead_ref
+        self._hprof_const_cls = None
+        self._hprof_counter = 0
+        self._hprof_msg = msg
 
     def see_write(self, w_value):
         """ inform the value profiler of a write."""
-        status = self._vprof_status
+        status = self._hprof_status
         if status == SEEN_TOO_MUCH:
             return
 
         if w_value is None:
-            self._vprof_status = SEEN_TOO_MUCH
+            self._hprof_status = SEEN_TOO_MUCH
             return
 
         if status == SEEN_NOTHING:
             if self.is_int(w_value):
-                self._vprof_value_int = self.get_int_val(w_value)
-                self._vprof_status = SEEN_CONSTANT_INT
+                self._hprof_value_int = self.get_int_val(w_value)
+                self._hprof_status = SEEN_CONSTANT_INT
             else:
                 try:
-                    self._vprof_value_wref = ref(w_value)
+                    self._hprof_value_wref = ref(w_value)
                 except TypeError:
                     # for tests, which really use unwrapped ints in a few places
-                    self._vprof_status = SEEN_TOO_MUCH
+                    self._hprof_status = SEEN_TOO_MUCH
                 else:
-                    self._vprof_const_cls = w_value.__class__
-                    self._vprof_status = SEEN_CONSTANT_OBJ
+                    self._hprof_const_cls = w_value.__class__
+                    self._hprof_status = SEEN_CONSTANT_OBJ
         elif status == SEEN_CONSTANT_INT:
             if self.is_int(w_value):
                 if self.read_constant_int() != self.get_int_val(w_value):
-                    self._vprof_status = SEEN_CONSTANT_CLASS
-                    self._vprof_const_cls = w_value.__class__
+                    self._hprof_status = SEEN_CONSTANT_CLASS
+                    self._hprof_const_cls = w_value.__class__
                 else:
                     return
             else:
-                self._vprof_status = SEEN_TOO_MUCH
+                self._hprof_status = SEEN_TOO_MUCH
         elif status == SEEN_CONSTANT_OBJ:
             prev_obj = self.try_read_constant_obj()
             if prev_obj is not w_value:
                 prev_cls = self.read_constant_cls()
                 if prev_cls is w_value.__class__:
-                    self._vprof_const_cls = prev_cls
-                    self._vprof_status = SEEN_CONSTANT_CLASS
+                    self._hprof_const_cls = prev_cls
+                    self._hprof_status = SEEN_CONSTANT_CLASS
                 else:
-                    self._vprof_status = SEEN_TOO_MUCH
+                    self._hprof_status = SEEN_TOO_MUCH
             else:
                 return
         elif status == SEEN_CONSTANT_CLASS:
             cls = self.read_constant_cls()
             if cls is not w_value.__class__:
-                self._vprof_status = SEEN_TOO_MUCH
+                self._hprof_status = SEEN_TOO_MUCH
         return
 
     def write_necessary(self, w_value):
         """ for an already initialized object check whether writing w_value
         into the object is necessary. it is unnecessary if the profiler knows
         the value is a constant and that constant is equal to w_value. """
-        status = self._vprof_status
+        status = self._hprof_status
         if status == SEEN_TOO_MUCH:
             return True
         # we must have seen something already, because it only makes sense to
@@ -118,17 +118,17 @@ class ValueProf(object):
     def can_fold_read_int(self):
         """ returns True if the heap profiler knows that the object stores a
         constant integer. """
-        return self._vprof_status == SEEN_CONSTANT_INT
+        return self._hprof_status == SEEN_CONSTANT_INT
 
     def can_fold_read_obj(self):
         """ returns True if the heap profiler knows that the object stores a
         constant non-integer object. """
-        return self._vprof_status == SEEN_CONSTANT_OBJ
+        return self._hprof_status == SEEN_CONSTANT_OBJ
 
     def class_is_known(self):
         """ returns True if the heap profiler knows the class of the stored
         object. """
-        return self._vprof_status == SEEN_CONSTANT_CLASS
+        return self._hprof_status == SEEN_CONSTANT_CLASS
 
     @jit.elidable
     def read_constant_int(self):
@@ -136,7 +136,7 @@ class ValueProf(object):
         must only be called directly after having called
         self.can_fold_read_int() and that returned True. """
         assert self.can_fold_read_int()
-        return self._vprof_value_int
+        return self._hprof_value_int
 
     @jit.elidable
     def try_read_constant_obj(self):
@@ -145,7 +145,7 @@ class ValueProf(object):
         returned True. The method may still return False, if the constant
         object was garbage collected in the meantime."""
         assert self.can_fold_read_obj()
-        return self._vprof_value_wref()
+        return self._hprof_value_wref()
 
     @jit.elidable
     def read_constant_cls(self):
@@ -153,5 +153,5 @@ class ValueProf(object):
         directly after having called self.class_is_known() and that returned
         True. The returned class is typically used with
         jit.record_exact_class(..., class)"""
-        return self._vprof_const_cls
+        return self._hprof_const_cls
 

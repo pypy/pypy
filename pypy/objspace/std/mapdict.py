@@ -4,7 +4,7 @@ from rpython.rlib import jit, objectmodel, debug, rerased
 from rpython.rlib.rarithmetic import intmask, r_uint
 
 from pypy.interpreter.baseobjspace import W_Root
-from rpython.rlib import valueprof
+from rpython.rlib import heapprof
 from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
     BaseValueIterator, BaseItemIterator, _never_equal_to_string,
@@ -335,7 +335,7 @@ class DevolvedDictTerminator(Terminator):
 class PlainAttribute(AbstractAttribute):
     _immutable_fields_ = ['name', 'index', 'storageindex', 'back',
                           'ever_mutated?', 'can_contain_mutable_cell?']
-    objectmodel.import_from_mixin(valueprof.ValueProf)
+    objectmodel.import_from_mixin(heapprof.HeapProf)
 
     def __init__(self, name, index, back):
         AbstractAttribute.__init__(self, back.space, back.terminator)
@@ -345,7 +345,7 @@ class PlainAttribute(AbstractAttribute):
         self.back = back
         self._size_estimate = self.length() * NUM_DIGITS_POW2
         self.ever_mutated = False
-        self.init_valueprof('%s.%s' % (back.terminator.w_cls.name if back.terminator.w_cls else '???', name))
+        self.init_heapprof('%s.%s' % (back.terminator.w_cls.name if back.terminator.w_cls else '???', name))
         # this flag means: at some point there was an instance that used a
         # derivative of this map that had a MutableCell stored into the
         # corresponding field.
@@ -360,7 +360,7 @@ class PlainAttribute(AbstractAttribute):
         return self._read_cell(result)
 
     # ____________________________________________________________
-    # methods for ValueProf mixin
+    # methods for HeapProf mixin
     def is_int(self, w_obj):
         from pypy.objspace.std.intobject import W_IntObject
         return type(w_obj) is W_IntObject
