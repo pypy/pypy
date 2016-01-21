@@ -269,3 +269,22 @@ class TestOtherContainers(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         opnames = log.opnames(loop.allops())
         assert opnames.count('new_with_vtable') == 0
+
+    def test_list_of_known_types(self):
+        def main(n):
+            l = [[]] * 1000
+            i = 0
+            while i < 1000:
+                # l[i] is not None is always True, because l[i] has known type
+                # W_ListObject
+                i += l[i] is not None # ID: typecheck
+
+        log = self.run(main, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id("typecheck", """
+            i40 = uint_ge(i34, i29)
+            guard_false(i40, descr=...)
+            p41 = getarrayitem_gc_r(p31, i34, descr=<ArrayP .*>)
+            i42 = int_add(i34, 1)
+            --TICK--
+        """)
