@@ -1477,9 +1477,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_getfield_gc_f = _genop_getfield
     genop_getfield_raw_i = _genop_getfield
     genop_getfield_raw_f = _genop_getfield
-    genop_getfield_gc_pure_i = _genop_getfield
-    genop_getfield_gc_pure_r = _genop_getfield
-    genop_getfield_gc_pure_f = _genop_getfield
 
     def _genop_gc_load(self, op, arglocs, resloc):
         base_loc, ofs_loc, size_loc, sign_loc = arglocs
