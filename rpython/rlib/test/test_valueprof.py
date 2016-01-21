@@ -1,4 +1,4 @@
-from pypy.interpreter.valueprof import *
+from rpython.rlib.valueprof import *
 
 class Value(object):
     pass
