@@ -206,6 +206,7 @@ class HeapCache(object):
             opnum == rop.SETFIELD_RAW or
             opnum == rop.SETARRAYITEM_RAW or
             opnum == rop.SETINTERIORFIELD_RAW or
+            opnum == rop.RECORD_EXACT_CLASS or
             opnum == rop.RAW_STORE):
             return
         if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST or
