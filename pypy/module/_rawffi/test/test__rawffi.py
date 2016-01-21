@@ -896,11 +896,21 @@ class AppTestFfi:
         b = _rawffi.Array('c').fromaddress(a.buffer, 38)
         if sys.maxunicode > 65535:
             # UCS4 build
-            assert b[0] == 'x'
-            assert b[1] == '\x00'
-            assert b[2] == '\x00'
-            assert b[3] == '\x00'
-            assert b[4] == 'y'
+            if sys.byteorder == 'big':
+                assert b[0] == '\x00'
+                assert b[1] == '\x00'
+                assert b[2] == '\x00'
+                assert b[3] == 'x'
+                assert b[4] == '\x00'
+                assert b[5] == '\x00'
+                assert b[6] == '\x00'
+                assert b[7] == 'y'
+            else:
+                assert b[0] == 'x'
+                assert b[1] == '\x00'
+                assert b[2] == '\x00'
+                assert b[3] == '\x00'
+                assert b[4] == 'y'
         else:
             # UCS2 build
             assert b[0] == 'x'

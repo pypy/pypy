@@ -506,7 +506,7 @@ class W_FuncPtr(W_Root):
                 result = self.resshape.allocate(space, 1, autofree=True)
                 # adjust_return_size() was used here on result.ll_buffer
                 self.ptr.call(args_ll, result.ll_buffer)
-                if BIGENDIAN and result.shape.size < WORD:
+                if BIGENDIAN and result.shape.itemcode in ('c','h','i','C','H','I'):
                     # we get a 8 byte value in big endian
                     n = WORD - result.shape.size
                     result.buffer_advance(n)
