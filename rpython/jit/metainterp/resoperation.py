@@ -246,11 +246,6 @@ class AbstractResOpOrInputArg(AbstractValue):
     def forget_value(self):
         pass
 
-def is_pure_getfield(opnum, descr):
-    if opnum not in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R):
-        return False
-    return descr is not None and descr.is_always_pure()
-
 class AbstractResOp(AbstractResOpOrInputArg):
     """The central ResOperation class, representing one operation."""
 
@@ -1757,4 +1752,26 @@ class OpHelpers(object):
             opnum = rop.VEC_UNPACK_F
         return VecOperationNew(opnum, args, datatype, bytesize, signed, count)
 
+    @staticmethod
+    def is_pure_getfield(opnum, descr):
+        if (opnum == rop.GETFIELD_GC_I or
+            opnum == rop.GETFIELD_GC_F or
+            opnum == rop.GETFIELD_GC_R):
+            return descr is not None and descr.is_always_pure()
+        return False
+
+    @staticmethod
+    def is_pure_with_descr(opnum, descr):
+        is_pure = rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST
+        if not is_pure:
+            if (opnum == rop.GETFIELD_RAW_I or
+                opnum == rop.GETFIELD_RAW_R or
+                opnum == rop.GETFIELD_RAW_F or
+                opnum == rop.GETFIELD_GC_I or
+                opnum == rop.GETFIELD_GC_R or
+                opnum == rop.GETFIELD_GC_F or
+                opnum == rop.GETARRAYITEM_RAW_I or
+                opnum == rop.GETARRAYITEM_RAW_F):
+                is_pure = descr.is_always_pure()
+        return is_pure
 

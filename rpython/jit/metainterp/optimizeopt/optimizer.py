@@ -5,7 +5,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound,\
      ConstIntBound, MININT, MAXINT, IntUnbounded
 from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp, GuardResOp,\
-     OpHelpers, ResOperation, is_pure_getfield
+     OpHelpers, ResOperation
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
@@ -756,7 +756,7 @@ class Optimizer(Optimization):
         opnum = op.getopnum()
         cpu = self.cpu
 
-        if is_pure_getfield(opnum, op.getdescr()):
+        if OpHelpers.is_pure_getfield(opnum, op.getdescr()):
             fielddescr = op.getdescr()
             ref = self.get_constant_box(op.getarg(0)).getref_base()
             cpu.protect_speculative_field(ref, fielddescr)

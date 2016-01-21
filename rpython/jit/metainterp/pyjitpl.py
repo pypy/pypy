@@ -2095,21 +2095,7 @@ class MetaInterp(object):
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum)
         resvalue = executor.execute(self.cpu, self, opnum, descr, *argboxes)
-        #
-        is_pure = rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST
-        if not is_pure:
-            # TODO Don't base purity of an operation solely on opnum
-            if (opnum == rop.GETFIELD_RAW_I or
-                opnum == rop.GETFIELD_RAW_R or
-                opnum == rop.GETFIELD_RAW_F or
-                opnum == rop.GETFIELD_GC_I or
-                opnum == rop.GETFIELD_GC_R or
-                opnum == rop.GETFIELD_GC_F or
-                opnum == rop.GETARRAYITEM_RAW_I or
-                opnum == rop.GETARRAYITEM_RAW_F):
-                is_pure = descr.is_always_pure()
-        #
-        if is_pure:
+        if OpHelpers.is_pure_with_descr(opnum, descr):
             return self._record_helper_pure(opnum, resvalue, descr, *argboxes)
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
             return self._record_helper_ovf(opnum, resvalue, descr, *argboxes)
