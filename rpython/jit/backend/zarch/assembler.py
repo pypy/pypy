@@ -633,7 +633,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                                            looptoken, clt.allgcrefs)
         self.pool.pre_assemble(self, operations)
         entrypos = self.mc.get_relative_pos()
-        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - entrypos))
         self._call_header_with_stack_check()
         looppos = self.mc.get_relative_pos()
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
@@ -1000,6 +999,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
     def _call_header(self):
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
         self.mc.STMG(r.r6, r.r15, l.addr(6*WORD, r.SP))
+        self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
         # save the back chain
         self.mc.STG(r.SP, l.addr(0, r.SP))
 
