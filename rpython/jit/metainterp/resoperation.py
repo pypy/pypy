@@ -231,7 +231,7 @@ class VectorizationInfo(AbstractValue):
 
 class AbstractResOpOrInputArg(AbstractValue):
     _attrs_ = ('_forwarded',)
-    _forwarded = None # either another resop or OptInfo  
+    _forwarded = None # either another resop or OptInfo
 
     def get_forwarded(self):
         return self._forwarded
@@ -412,6 +412,8 @@ class AbstractResOp(AbstractResOpOrInputArg):
         return rop._JIT_DEBUG_FIRST <= self.getopnum() <= rop._JIT_DEBUG_LAST
 
     def is_always_pure(self):
+        # Tells whether an operation is pure based solely on the opcode.
+        # Other operations (e.g. getfield ops) may be pure in some cases are well.
         return rop._ALWAYS_PURE_FIRST <= self.getopnum() <= rop._ALWAYS_PURE_LAST
 
     def has_no_side_effect(self):
@@ -434,9 +436,7 @@ class AbstractResOp(AbstractResOpOrInputArg):
         return self.opnum in (rop.SAME_AS_I, rop.SAME_AS_F, rop.SAME_AS_R)
 
     def is_getfield(self):
-        return self.opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F,
-                              rop.GETFIELD_GC_R, rop.GETFIELD_GC_PURE_I,
-                              rop.GETFIELD_GC_PURE_R, rop.GETFIELD_GC_PURE_F)
+        return self.opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R)
 
     def is_getarrayitem(self):
         return self.opnum in (rop.GETARRAYITEM_GC_I, rop.GETARRAYITEM_GC_F,
@@ -1602,14 +1602,6 @@ class OpHelpers(object):
         return rop.CALL_LOOPINVARIANT_N
 
     @staticmethod
-    def getfield_pure_for_descr(descr):
-        if descr.is_pointer_field():
-            return rop.GETFIELD_GC_PURE_R
-        elif descr.is_float_field():
-            return rop.GETFIELD_GC_PURE_F
-        return rop.GETFIELD_GC_PURE_I
-
-    @staticmethod
     def getfield_for_descr(descr):
         if descr.is_pointer_field():
             return rop.GETFIELD_GC_R
@@ -1760,4 +1752,26 @@ class OpHelpers(object):
             opnum = rop.VEC_UNPACK_F
         return VecOperationNew(opnum, args, datatype, bytesize, signed, count)
 
+    @staticmethod
+    def is_pure_getfield(opnum, descr):
+        if (opnum == rop.GETFIELD_GC_I or
+            opnum == rop.GETFIELD_GC_F or
+            opnum == rop.GETFIELD_GC_R):
+            return descr is not None and descr.is_always_pure()
+        return False
+
+    @staticmethod
+    def is_pure_with_descr(opnum, descr):
+        is_pure = rop._ALWAYS_PURE_FIRST <= opnum <= rop._ALWAYS_PURE_LAST
+        if not is_pure:
+            if (opnum == rop.GETFIELD_RAW_I or
+                opnum == rop.GETFIELD_RAW_R or
+                opnum == rop.GETFIELD_RAW_F or
+                opnum == rop.GETFIELD_GC_I or
+                opnum == rop.GETFIELD_GC_R or
+                opnum == rop.GETFIELD_GC_F or
+                opnum == rop.GETARRAYITEM_RAW_I or
+                opnum == rop.GETARRAYITEM_RAW_F):
+                is_pure = descr.is_always_pure()
+        return is_pure
 

@@ -183,6 +183,8 @@ class CachedField(AbstractCachedEntry):
         return res
 
     def invalidate(self, descr):
+        if descr.is_always_pure():
+            return
         for opinfo in self.cached_infos:
             assert isinstance(opinfo, info.AbstractStructPtrInfo)
             opinfo._fields[descr.get_index()] = None
@@ -515,9 +517,14 @@ class OptHeap(Optimization):
         return pendingfields
 
     def optimize_GETFIELD_GC_I(self, op):
+        descr = op.getdescr()
+        if descr.is_always_pure() and self.get_constant_box(op.getarg(0)) is not None:
+            resbox = self.optimizer.constant_fold(op)
+            self.optimizer.make_constant(op, resbox)
+            return
         structinfo = self.ensure_ptr_info_arg0(op)
-        cf = self.field_cache(op.getdescr())
-        field = cf.getfield_from_cache(self, structinfo, op.getdescr())
+        cf = self.field_cache(descr)
+        field = cf.getfield_from_cache(self, structinfo, descr)
         if field is not None:
             self.make_equal_to(op, field)
             return
@@ -525,22 +532,9 @@ class OptHeap(Optimization):
         self.make_nonnull(op.getarg(0))
         self.emit_operation(op)
         # then remember the result of reading the field
-        structinfo.setfield(op.getdescr(), op.getarg(0), op, optheap=self, cf=cf)
+        structinfo.setfield(descr, op.getarg(0), op, optheap=self, cf=cf)
     optimize_GETFIELD_GC_R = optimize_GETFIELD_GC_I
     optimize_GETFIELD_GC_F = optimize_GETFIELD_GC_I
-
-    def optimize_GETFIELD_GC_PURE_I(self, op):
-        structinfo = self.ensure_ptr_info_arg0(op)
-        cf = self.field_cache(op.getdescr())
-        field = cf.getfield_from_cache(self, structinfo, op.getdescr())
-        if field is not None:
-            self.make_equal_to(op, field)
-            return
-        # default case: produce the operation
-        self.make_nonnull(op.getarg(0))
-        self.emit_operation(op)
-    optimize_GETFIELD_GC_PURE_R = optimize_GETFIELD_GC_PURE_I
-    optimize_GETFIELD_GC_PURE_F = optimize_GETFIELD_GC_PURE_I
 
     def optimize_SETFIELD_GC(self, op):
         self.setfield(op)
@@ -631,12 +625,12 @@ class OptHeap(Optimization):
 
     def optimize_QUASIIMMUT_FIELD(self, op):
         # Pattern: QUASIIMMUT_FIELD(s, descr=QuasiImmutDescr)
-        #          x = GETFIELD_GC_PURE(s, descr='inst_x')
+        #          x = GETFIELD_GC(s, descr='inst_x') # pure
         # If 's' is a constant (after optimizations) we rely on the rest of the
-        # optimizations to constant-fold the following getfield_gc_pure.
+        # optimizations to constant-fold the following pure getfield_gc.
         # in addition, we record the dependency here to make invalidation work
         # correctly.
-        # NB: emitting the GETFIELD_GC_PURE is only safe because the
+        # NB: emitting the pure GETFIELD_GC is only safe because the
         # QUASIIMMUT_FIELD is also emitted to make sure the dependency is
         # registered.
         structvalue = self.ensure_ptr_info_arg0(op)

@@ -10,6 +10,7 @@ from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.typesystem import llhelper
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.debug import debug_print
+from rpython.jit.metainterp.optimize import SpeculativeError
 
 
 
@@ -374,6 +375,7 @@ class Optimizer(Optimization):
         if (box.type == 'i' and box.get_forwarded() and
             box.get_forwarded().is_constant()):
             return ConstInt(box.get_forwarded().getint())
+        return None
         #self.ensure_imported(value)
 
     def get_newoperations(self):
@@ -736,11 +738,63 @@ class Optimizer(Optimization):
         self.emit_operation(op)
 
     def constant_fold(self, op):
+        self.protect_speculative_operation(op)
         argboxes = [self.get_constant_box(op.getarg(i))
                     for i in range(op.numargs())]
         return execute_nonspec_const(self.cpu, None,
                                        op.getopnum(), argboxes,
                                        op.getdescr(), op.type)
+
+    def protect_speculative_operation(self, op):
+        """When constant-folding a pure operation that reads memory from
+        a gcref, make sure that the gcref is non-null and of a valid type.
+        Otherwise, raise SpeculativeError.  This should only occur when
+        unrolling and optimizing the unrolled loop.  Note that if
+        cpu.supports_guard_gc_type is false, we can't really do this
+        check at all, but then we don't unroll in that case.
+        """
+        opnum = op.getopnum()
+        cpu = self.cpu
+
+        if OpHelpers.is_pure_getfield(opnum, op.getdescr()):
+            fielddescr = op.getdescr()
+            ref = self.get_constant_box(op.getarg(0)).getref_base()
+            cpu.protect_speculative_field(ref, fielddescr)
+            return
+
+        elif (opnum == rop.GETARRAYITEM_GC_PURE_I or
+              opnum == rop.GETARRAYITEM_GC_PURE_R or
+              opnum == rop.GETARRAYITEM_GC_PURE_F or
+              opnum == rop.ARRAYLEN_GC):
+            arraydescr = op.getdescr()
+            array = self.get_constant_box(op.getarg(0)).getref_base()
+            cpu.protect_speculative_array(array, arraydescr)
+            if opnum == rop.ARRAYLEN_GC:
+                return
+            arraylength = cpu.bh_arraylen_gc(array, arraydescr)
+
+        elif (opnum == rop.STRGETITEM or
+              opnum == rop.STRLEN):
+            string = self.get_constant_box(op.getarg(0)).getref_base()
+            cpu.protect_speculative_string(string)
+            if opnum == rop.STRLEN:
+                return
+            arraylength = cpu.bh_strlen(string)
+
+        elif (opnum == rop.UNICODEGETITEM or
+              opnum == rop.UNICODELEN):
+            unicode = self.get_constant_box(op.getarg(0)).getref_base()
+            cpu.protect_speculative_unicode(unicode)
+            if opnum == rop.UNICODELEN:
+                return
+            arraylength = cpu.bh_unicodelen(unicode)
+
+        else:
+            return
+
+        index = self.get_constant_box(op.getarg(1)).getint()
+        if not (0 <= index < arraylength):
+            raise SpeculativeError
 
     def is_virtual(self, op):
         if op.type == 'r':

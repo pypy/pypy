@@ -152,7 +152,7 @@ class FieldDescr(AbstractDescr):
         self.fieldname = fieldname
         self.FIELD = getattr(S, fieldname)
         self.index = heaptracker.get_fielddescr_index_in(S, fieldname)
-        self._is_pure = S._immutable_field(fieldname)
+        self._is_pure = S._immutable_field(fieldname) != False
 
     def is_always_pure(self):
         return self._is_pure
@@ -608,9 +608,6 @@ class LLGraphCPU(model.AbstractCPU):
         p = support.cast_arg(lltype.Ptr(descr.S), p)
         return support.cast_result(descr.FIELD, getattr(p, descr.fieldname))
 
-    bh_getfield_gc_pure_i = bh_getfield_gc
-    bh_getfield_gc_pure_r = bh_getfield_gc
-    bh_getfield_gc_pure_f = bh_getfield_gc
     bh_getfield_gc_i = bh_getfield_gc
     bh_getfield_gc_r = bh_getfield_gc
     bh_getfield_gc_f = bh_getfield_gc
