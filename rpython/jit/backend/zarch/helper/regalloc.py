@@ -51,11 +51,11 @@ def prepare_int_mul_ovf(self, op):
     a1 = op.getarg(1)
     if a0.is_constant():
         a0, a1 = a1, a0
-    lr,lq = self.rm.ensure_even_odd_pair(a0, op, bind_first=False)
     if check_imm32(a1):
         l1 = imm(a1.getint())
     else:
         l1 = self.ensure_reg(a1)
+    lr,lq = self.rm.ensure_even_odd_pair(a0, op, bind_first=False)
     self.free_op_vars()
     return [lr, lq, l1]
 
@@ -63,15 +63,14 @@ def generate_div_mod(modulus):
     def f(self, op):
         a0 = op.getarg(0)
         a1 = op.getarg(1)
+        l1 = self.ensure_reg(a1)
         if isinstance(a0, Const):
             poolloc = self.ensure_reg(a0)
             lr,lq = self.rm.ensure_even_odd_pair(a0, op, bind_first=modulus, must_exist=False)
             self.assembler.mc.LG(lq, poolloc)
         else:
             lr,lq = self.rm.ensure_even_odd_pair(a0, op, bind_first=modulus)
-        l1 = self.ensure_reg(a1)
         self.free_op_vars()
-        self.rm._check_invariants()
         return [lr, lq, l1]
     return f
 

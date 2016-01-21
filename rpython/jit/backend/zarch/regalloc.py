@@ -952,19 +952,19 @@ class Regalloc(BaseRegalloc):
 
     def prepare_zero_array(self, op):
         itemsize, ofs, _ = unpack_arraydescr(op.getdescr())
-        base_loc, length_loc = self.rm.ensure_even_odd_pair(op.getarg(0), op,
-              bind_first=True, must_exist=False, load_loc_odd=False)
+        startindex_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
         tempvar = TempInt()
         self.rm.temp_boxes.append(tempvar)
+        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
         pad_byte, _ = self.rm.ensure_even_odd_pair(tempvar, tempvar,
                               bind_first=True, must_exist=False, move_regs=False)
-        startindex_loc = self.ensure_reg_or_16bit_imm(op.getarg(1))
+        base_loc, length_loc = self.rm.ensure_even_odd_pair(op.getarg(0), op,
+              bind_first=True, must_exist=False, load_loc_odd=False)
 
         length_box = op.getarg(2)
         ll = self.rm.loc(length_box)
         if length_loc is not ll:
             self.assembler.regalloc_mov(ll, length_loc)
-        ofs_loc = self.ensure_reg_or_16bit_imm(ConstInt(ofs))
         return [base_loc, startindex_loc, length_loc, ofs_loc, imm(itemsize), pad_byte]
 
     def prepare_cond_call(self, op):
