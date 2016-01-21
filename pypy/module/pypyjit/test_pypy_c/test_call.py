@@ -625,3 +625,19 @@ class TestCall(BaseTestPyPyC):
                 i += 1
             return 13
         """, [1000])
+
+    def test_no_type_check_for_loopconst(self):
+        log = self.run("""
+
+        def main(stop):
+            a = [1, 2] # always a W_ListObject
+            i = 0
+            while i < stop:
+                i += isinstance(a, list) # ID: isinstance
+            return 13
+        """, [1000])
+        entry_bridge, = log.loops_by_id('isinstance', is_entry_bridge=True)
+        entry_bridge.match_by_id("isinstance", """
+            i1 = int_add(i0, 1)
+            --TICK--
+        """)
