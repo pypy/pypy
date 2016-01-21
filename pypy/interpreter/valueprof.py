@@ -8,41 +8,45 @@ SEEN_CONSTANT_CLASS = 'c'
 SEEN_TOO_MUCH = '?'
 
 class ValueProf(object):
+    """ Some reusal heap profiling infrastructure. Can be used either as a base
+    class, or as a mixin.
+
+    The idea of this class is to have one ValueProf instance for many heap
+    storage cells that are likely to store the same content. An example is
+    having a ValueProf per field of a specific class. """
+
     _immutable_fields_ = ['_vprof_status?']
 
     def __init__(self, msg=''):
         # only if you subclass normally
         self.init_valueprof(msg)
 
+
+    # ________________________________________________________________________
+    # abstract methods that need to be overridden:
+
+    def is_int(self, w_obj):
+        """ returns whether the argument is a boxed integer. """
+        raise NotImplementedError("abstract base")
+
+    def get_int_val(self, w_obj):
+        """ w_obj must be a boxed integer. returns the unboxed value of that
+        integer. """
+        raise NotImplementedError("abstract base")
+
+
+    # ________________________________________________________________________
+    # public interface
+
     def init_valueprof(self, msg=''):
+        """ initialize the profiler. must be called if ValueProf is used as a
+        mixin upon construction. """
         self._vprof_status = SEEN_NOTHING
         self._vprof_value_int = 0
         self._vprof_value_wref = dead_ref
         self._vprof_const_cls = None
         self._vprof_counter = 0
         self._vprof_msg = msg
-
-    def is_int(self, w_obj):
-        raise NotImplementedError("abstract base")
-
-    def get_int_val(self, w_obj):
-        raise NotImplementedError("abstract base")
-
-    def write_necessary(self, w_value):
-        status = self._vprof_status
-        if status == SEEN_TOO_MUCH:
-            return True
-        # we must have seen something already, because it only makes sense to
-        # call write_necessary if there is already a value there
-        assert not status == SEEN_NOTHING
-        if status == SEEN_CONSTANT_INT:
-            return (self.is_int(w_value) and
-                self.read_constant_int() != self.get_int_val(w_value))
-        elif status == SEEN_CONSTANT_OBJ:
-            prev_obj = self.try_read_constant_obj()
-            return prev_obj is not w_value
-        return True
-
 
     def see_write(self, w_value):
         """ inform the value profiler of a write."""
@@ -93,26 +97,61 @@ class ValueProf(object):
                 self._vprof_status = SEEN_TOO_MUCH
         return
 
+    def write_necessary(self, w_value):
+        """ for an already initialized object check whether writing w_value
+        into the object is necessary. it is unnecessary if the profiler knows
+        the value is a constant and that constant is equal to w_value. """
+        status = self._vprof_status
+        if status == SEEN_TOO_MUCH:
+            return True
+        # we must have seen something already, because it only makes sense to
+        # call write_necessary if there is already a value there
+        assert not status == SEEN_NOTHING
+        if status == SEEN_CONSTANT_INT:
+            return (self.is_int(w_value) and
+                self.read_constant_int() != self.get_int_val(w_value))
+        elif status == SEEN_CONSTANT_OBJ:
+            prev_obj = self.try_read_constant_obj()
+            return prev_obj is not w_value
+        return True
+
     def can_fold_read_int(self):
+        """ returns True if the heap profiler knows that the object stores a
+        constant integer. """
         return self._vprof_status == SEEN_CONSTANT_INT
 
     def can_fold_read_obj(self):
+        """ returns True if the heap profiler knows that the object stores a
+        constant non-integer object. """
         return self._vprof_status == SEEN_CONSTANT_OBJ
 
     def class_is_known(self):
+        """ returns True if the heap profiler knows the class of the stored
+        object. """
         return self._vprof_status == SEEN_CONSTANT_CLASS
 
     @jit.elidable
     def read_constant_int(self):
+        """ returns the stored constant integer value in unboxed form. this
+        must only be called directly after having called
+        self.can_fold_read_int() and that returned True. """
         assert self.can_fold_read_int()
         return self._vprof_value_int
 
     @jit.elidable
     def try_read_constant_obj(self):
+        """ tries to return the stored constant object. this must only be
+        called directly after having called self.can_fold_read_obj() and that
+        returned True. The method may still return False, if the constant
+        object was garbage collected in the meantime."""
         assert self.can_fold_read_obj()
         return self._vprof_value_wref()
 
     @jit.elidable
     def read_constant_cls(self):
+        """ returns the class of the stored object. this must only be called
+        directly after having called self.class_is_known() and that returned
+        True. The returned class is typically used with
+        jit.record_exact_class(..., class)"""
         return self._vprof_const_cls
 
