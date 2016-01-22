@@ -143,6 +143,13 @@ def test_write_necessary_int():
     res = v.write_necessary(ValueInt(1))
     assert res
 
+    v = HeapProf()
+    assert v._hprof_status == SEEN_NOTHING
+    v.see_write(ValueInt(1))
+    res = v.write_necessary(Value())
+    assert res
+
+
 def test_write_not_necessary_obj():
     v = HeapProf()
     assert v._hprof_status == SEEN_NOTHING
@@ -159,3 +166,4 @@ def test_write_not_necessary_obj():
     v.see_write(Value())
     res = v.write_necessary(Value())
     assert res
+

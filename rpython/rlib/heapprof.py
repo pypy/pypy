@@ -108,8 +108,9 @@ class HeapProf(object):
         # call write_necessary if there is already a value there
         assert not status == SEEN_NOTHING
         if status == SEEN_CONSTANT_INT:
-            return (self.is_int(w_value) and
-                self.read_constant_int() != self.get_int_val(w_value))
+            if not self.is_int(w_value):
+                return True
+            return self.read_constant_int() != self.get_int_val(w_value)
         elif status == SEEN_CONSTANT_OBJ:
             prev_obj = self.try_read_constant_obj()
             return prev_obj is not w_value
