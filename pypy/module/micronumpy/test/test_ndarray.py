@@ -3500,7 +3500,11 @@ class AppTestSupport(BaseNumpyAppTest):
         BaseNumpyAppTest.setup_class.im_func(cls)
         cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
         cls.w_fdata = cls.space.wrap(struct.pack('f', 2.3))
-        cls.w_float16val = cls.space.wrap('\x00E') # 5.0 in float16
+        import sys
+        if sys.byteorder == 'big':
+            cls.w_float16val = cls.space.wrap('E\x00') # 5.0 in float16
+        else:
+            cls.w_float16val = cls.space.wrap('\x00E') # 5.0 in float16
         cls.w_float32val = cls.space.wrap(struct.pack('f', 5.2))
         cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
         cls.w_ulongval = cls.space.wrap(struct.pack('L', 12))
@@ -3608,9 +3612,15 @@ class AppTestSupport(BaseNumpyAppTest):
         assert (t == []).all()
         u = fromstring("\x01\x00\x00\x00\x00\x00\x00\x00", dtype=int)
         if sys.maxint > 2 ** 31 - 1:
-            assert (u == [1]).all()
+            if sys.byteorder == 'big':
+                assert (u == [0x0100000000000000]).all()
+            else:
+                assert (u == [1]).all()
         else:
-            assert (u == [1, 0]).all()
+            if sys.byteorder == 'big':
+                assert (u == [0x01000000, 0]).all()
+            else:
+                assert (u == [1, 0]).all()
         v = fromstring("abcd", dtype="|S2")
         assert v[0] == "ab"
         assert v[1] == "cd"
@@ -3667,9 +3677,15 @@ class AppTestSupport(BaseNumpyAppTest):
         k = fromstring(self.float16val, dtype='float16')
         assert k[0] == dtype('float16').type(5.)
         dt =  array([5], dtype='longfloat').dtype
+        print(dt.itemsize)
         if dt.itemsize == 8:
-            m = fromstring('\x00\x00\x00\x00\x00\x00\x14@',
-                           dtype='float64')
+            import sys
+            if sys.byteorder == 'big':
+                m = fromstring('@\x14\x00\x00\x00\x00\x00\x00',
+                               dtype='float64')
+            else:
+                m = fromstring('\x00\x00\x00\x00\x00\x00\x14@',
+                               dtype='float64')
         elif dt.itemsize == 12:
             m = fromstring('\x00\x00\x00\x00\x00\x00\x00\xa0\x01@\x00\x00',
                            dtype='float96')
@@ -3691,8 +3707,13 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_tostring(self):
         from numpy import array
-        assert array([1, 2, 3], 'i2').tostring() == '\x01\x00\x02\x00\x03\x00'
-        assert array([1, 2, 3], 'i2')[::2].tostring() == '\x01\x00\x03\x00'
+        import sys
+        if sys.byteorder == 'big':
+            assert array([1, 2, 3], 'i2').tostring() == '\x00\x01\x00\x02\x00\x03'
+            assert array([1, 2, 3], 'i2')[::2].tostring() == '\x00\x01\x00\x03'
+        else:
+            assert array([1, 2, 3], 'i2').tostring() == '\x01\x00\x02\x00\x03\x00'
+            assert array([1, 2, 3], 'i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '<i2')[::2].tostring() == '\x01\x00\x03\x00'
         assert array([1, 2, 3], '>i2')[::2].tostring() == '\x00\x01\x00\x03'
         assert array(0, dtype='i2').tostring() == '\x00\x00'
@@ -4188,7 +4209,10 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         v = a.view(('float32', 4))
         assert v.dtype == np.dtype('float32')
         assert v.shape == (10, 4)
-        assert v[0][-1] == 2.53125
+        if sys.byteorder == 'big':
+            assert v[0][-2] == 2.53125
+        else:
+            assert v[0][-1] == 2.53125
         exc = raises(ValueError, "a.view(('float32', 2))")
         assert exc.value[0] == 'new type not compatible with array.'
 
