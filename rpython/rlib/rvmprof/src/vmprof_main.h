@@ -35,37 +35,18 @@
 #include "vmprof_getpc.h"
 #include "vmprof_mt.h"
 #include "vmprof_stack.h"
+#include "vmprof_common.h"
 
 /************************************************************/
 
-static int profile_file = -1;
 static long prepare_interval_usec;
+static long saved_profile_file;
 static struct profbuf_s *volatile current_codes;
 static void *(*mainloop_get_virtual_ip)(char *) = 0;
 
 static int opened_profile(char *interp_name);
 static void flush_codes(void);
 
-
-
-RPY_EXTERN
-char *vmprof_init(int fd, double interval, char *interp_name)
-{
-    if (interval < 1e-6 || interval >= 1.0)
-        return "bad value for 'interval'";
-    prepare_interval_usec = (int)(interval * 1000000.0);
-
-    if (prepare_concurrent_bufs() < 0)
-        return "out of memory";
-
-    assert(fd >= 0);
-    profile_file = fd;
-    if (opened_profile(interp_name) < 0) {
-        profile_file = -1;
-        return strerror(errno);
-    }
-    return NULL;
-}
 
 /************************************************************/
 
@@ -94,28 +75,6 @@ void vmprof_ignore_signals(int ignored)
  * *************************************************************
  */
 
-#define MAX_FUNC_NAME 128
-#define MAX_STACK_DEPTH   \
-    ((SINGLE_BUF_SIZE - sizeof(struct prof_stacktrace_s)) / sizeof(void *))
-
-#define MARKER_STACKTRACE '\x01'
-#define MARKER_VIRTUAL_IP '\x02'
-#define MARKER_TRAILER '\x03'
-#define MARKER_INTERP_NAME '\x04'   /* deprecated */
-#define MARKER_HEADER '\x05'
-
-#define VERSION_BASE '\x00'
-#define VERSION_THREAD_ID '\x01'
-#define VERSION_TAG '\x02'
-
-struct prof_stacktrace_s {
-    char padding[sizeof(long) - 1];
-    char marker;
-    long count, depth;
-    intptr_t stack[];
-};
-
-static long profile_interval_usec = 0;
 static char atfork_hook_installed = 0;
 
 
@@ -194,8 +153,43 @@ static intptr_t get_current_thread_id(void)
  * *************************************************************
  */
 
+#include <setjmp.h>
+
+volatile int spinlock;
+jmp_buf restore_point;
+
+static void segfault_handler(int arg)
+{
+    longjmp(restore_point, SIGSEGV);
+}
+
 static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
 {
+#ifdef __APPLE__
+    // TERRIBLE HACK AHEAD
+    // on OS X, the thread local storage is sometimes uninitialized
+    // when the signal handler runs - it means it's impossible to read errno
+    // or call any syscall or read PyThread_Current or pthread_self. Additionally,
+    // it seems impossible to read the register gs.
+    // here we register segfault handler (all guarded by a spinlock) and call
+    // longjmp in case segfault happens while reading a thread local
+    while (__sync_lock_test_and_set(&spinlock, 1)) {
+    }
+    signal(SIGSEGV, &segfault_handler);
+    int fault_code = setjmp(restore_point);
+    if (fault_code == 0) {
+        pthread_self();
+        get_current_thread_id();
+    } else {
+        signal(SIGSEGV, SIG_DFL);
+        __sync_synchronize();
+        spinlock = 0;
+        return;    
+    }
+    signal(SIGSEGV, SIG_DFL);
+    __sync_synchronize();
+    spinlock = 0;
+#endif
     long val = __sync_fetch_and_add(&signal_handler_value, 2L);
 
     if ((val & 1) == 0) {
@@ -212,10 +206,8 @@ static void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
             struct prof_stacktrace_s *st = (struct prof_stacktrace_s *)p->data;
             st->marker = MARKER_STACKTRACE;
             st->count = 1;
-            //st->stack[0] = GetPC((ucontext_t*)ucontext);
             depth = get_stack_trace(st->stack,
                 MAX_STACK_DEPTH-2, GetPC((ucontext_t*)ucontext), ucontext);
-            //depth++;  // To account for pc value in stack[0];
             st->depth = depth;
             st->stack[depth++] = get_current_thread_id();
             p->data_offset = offsetof(struct prof_stacktrace_s, marker);
@@ -280,12 +272,15 @@ static int remove_sigprof_timer(void) {
 
 static void atfork_disable_timer(void) {
     if (profile_interval_usec > 0) {
+        saved_profile_file = profile_file;
+        profile_file = -1;
         remove_sigprof_timer();
     }
 }
 
 static void atfork_enable_timer(void) {
     if (profile_interval_usec > 0) {
+        profile_file = saved_profile_file;
         install_sigprof_timer();
     }
 }
@@ -332,7 +327,7 @@ int vmprof_enable(void)
     return -1;
 }
 
-static int _write_all(const void *buf, size_t bufsize)
+static int _write_all(const char *buf, size_t bufsize)
 {
     while (bufsize > 0) {
         ssize_t count = write(profile_file, buf, bufsize);
@@ -342,29 +337,6 @@ static int _write_all(const void *buf, size_t bufsize)
         bufsize -= count;
     }
     return 0;
-}
-
-static int opened_profile(char *interp_name)
-{
-    struct {
-        long hdr[5];
-        char interp_name[259];
-    } header;
-
-    size_t namelen = strnlen(interp_name, 255);
-    current_codes = NULL;
-
-    header.hdr[0] = 0;
-    header.hdr[1] = 3;
-    header.hdr[2] = 0;
-    header.hdr[3] = prepare_interval_usec;
-    header.hdr[4] = 0;
-    header.interp_name[0] = MARKER_HEADER;
-    header.interp_name[1] = '\x00';
-    header.interp_name[2] = VERSION_TAG;
-    header.interp_name[3] = namelen;
-    memcpy(&header.interp_name[4], interp_name, namelen);
-    return _write_all(&header, 5 * sizeof(long) + 4 + namelen);
 }
 
 static int close_profile(void)
@@ -404,6 +376,9 @@ int vmprof_register_virtual_function(char *code_name, long code_uid,
     struct profbuf_s *p;
     char *t;
 
+    if (profile_file == -1)
+        return 0; // silently don't write it
+
  retry:
     p = current_codes;
     if (p != NULL) {
@@ -411,7 +386,7 @@ int vmprof_register_virtual_function(char *code_name, long code_uid,
             /* grabbed 'current_codes': we will append the current block
                to it if it contains enough room */
             size_t freesize = SINGLE_BUF_SIZE - p->data_size;
-            if (freesize < blocklen) {
+            if (freesize < (size_t)blocklen) {
                 /* full: flush it */
                 commit_buffer(profile_file, p);
                 p = NULL;
