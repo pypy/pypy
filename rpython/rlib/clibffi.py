@@ -597,6 +597,9 @@ class FuncPtr(AbstractFuncPtr):
             size = adjust_return_size(intmask(restype.c_size))
             self.ll_result = lltype.malloc(rffi.VOIDP.TO, size,
                                            flavor='raw')
+            self.restype_size = intmask(restype.c_size)
+        else:
+            self.restype_size = -1
 
     def push_arg(self, value):
         #if self.pushed_args == self.argnum:
@@ -633,7 +636,12 @@ class FuncPtr(AbstractFuncPtr):
                             rffi.cast(VOIDPP, self.ll_args))
         if RES_TP is not lltype.Void:
             TP = lltype.Ptr(rffi.CArray(RES_TP))
-            res = rffi.cast(TP, self.ll_result)[0]
+            ptr = self.ll_result
+            if _BIG_ENDIAN and self.restype_size != -1:
+                # we get a 8 byte value in big endian
+                n = rffi.sizeof(lltype.Signed) - self.restype_size
+                ptr = rffi.ptradd(ptr, n)
+            res = rffi.cast(TP, ptr)[0]
         else:
             res = None
         self._clean_args()
