@@ -4246,6 +4246,7 @@ class AppTestRecordDtype(BaseNumpyAppTest):
         v = a.view(('float32', 4))
         assert v.dtype == np.dtype('float32')
         assert v.shape == (10, 4)
+        import sys
         if sys.byteorder == 'big':
             assert v[0][-2] == 2.53125
         else:
