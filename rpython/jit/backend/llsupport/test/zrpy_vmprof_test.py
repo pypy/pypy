@@ -74,8 +74,8 @@ class CompiledVmprofTest(CCompiledMixin):
             tmpfile = str(udir.join('test_rvmprof'))
             stats = read_profile(tmpfile)
             t = stats.get_tree()
-            import pdb
-            pdb.set_trace()
+            assert t.name == 'py:x:foo:3'
+            assert len(t.children) == 1 # jit
 
         self.meta_interp(f, [1000000], inline=True)
         try:
