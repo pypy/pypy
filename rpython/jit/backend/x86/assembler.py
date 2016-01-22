@@ -857,7 +857,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # eax = address in the stack of a 3-words struct vmprof_stack_s
         self.mc.LEA_rs(eax.value, (FRAME_FIXED_SIZE - 4) * WORD)
         # old = current value of vmprof_tl_stack
-        self.mc.MOV_rm(old.value, (tloc.value, cintf.vmprof_tl_stack.offset))
+        offset = cintf.vmprof_tl_stack.getoffset()
+        self.mc.MOV_rm(old.value, (tloc.value, offset))
         # eax->next = old
         self.mc.MOV_mr((eax.value, 0), old.value)
         # eax->value = my esp
@@ -865,7 +866,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # eax->kind = VMPROF_JITTED_TAG
         self.mc.MOV_mi((eax.value, WORD * 2), VMPROF_JITTED_TAG)
         # save in vmprof_tl_stack the new eax
-        self.mc.MOV_mr((tloc.value, cintf.vmprof_tl_stack.offset), eax.value)
+        self.mc.MOV_mr((tloc.value, offset), eax.value)
 
     def _call_footer_vmprof(self):
         from rpython.rlib.rvmprof.rvmprof import cintf
@@ -874,7 +875,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # eax = (our local vmprof_tl_stack).next
         self.mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE - 4 + 0) * WORD)
         # save in vmprof_tl_stack the value eax
-        self.mc.MOV_mr((edx.value, cintf.vmprof_tl_stack.offset), eax.value)
+        offset = cintf.vmprof_tl_stack.getoffset()
+        self.mc.MOV_mr((edx.value, offset), eax.value)
 
     def _call_header(self):
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
