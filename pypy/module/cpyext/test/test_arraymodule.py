@@ -57,7 +57,6 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         buf = buffer(arr)
         exc = raises(TypeError, "buf[1] = '1'")
         assert str(exc.value) == "buffer is read-only"
-        # XXX big-endian
         if sys.byteorder == 'big':
             assert str(buf) == ('\0\0\0\x01'
                                 '\0\0\0\x02'
