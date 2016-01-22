@@ -65,7 +65,7 @@ def test_long_more(space):
 
     class FakeM:
         # NOTE: marshal is platform independent, running this test must assume
-        # that seen gets values from the endianess of the marshal module.
+        # that self.seen gets values from the endianess of the marshal module.
         # (which is little endian!)
         def __init__(self):
             self.seen = []
