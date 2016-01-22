@@ -924,6 +924,7 @@ class AppTestTypes(BaseAppTestDtypes):
 
     def test_dtype_str(self):
         from numpy import dtype
+        import sys
         byteorder = self.native_prefix
         assert dtype('i8').str == byteorder + 'i8'
         assert dtype('<i8').str == '<i8'
@@ -945,7 +946,8 @@ class AppTestTypes(BaseAppTestDtypes):
         assert dtype('unicode').str == byteorder + 'U0'
         assert dtype(('string', 7)).str == '|S7'
         assert dtype('=S5').str == '|S5'
-        assert dtype(('unicode', 7)).str == '<U7'
+        assert dtype(('unicode', 7)).str == \
+               ('<' if sys.byteorder == 'little' else '>')+'U7'
         assert dtype([('', 'f8')]).str == "|V8"
         assert dtype(('f8', 2)).str == "|V16"
 
@@ -976,8 +978,12 @@ class AppTestTypes(BaseAppTestDtypes):
 
     def test_isnative(self):
         from numpy import dtype
+        import sys
         assert dtype('i4').isnative == True
-        assert dtype('>i8').isnative == False
+        if sys.byteorder == 'big':
+            assert dtype('<i8').isnative == False
+        else:
+            assert dtype('>i8').isnative == False
 
     def test_any_all_nonzero(self):
         import numpy
