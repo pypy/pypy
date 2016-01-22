@@ -417,6 +417,13 @@ class TestW_ListObject(object):
         assert isinstance(w_lst.strategy, SizeListStrategy)
         assert w_lst.strategy.sizehint == 13
 
+    def test_newlist_with_interplevel_None(self):
+        # needed for cpyext
+        space = self.space
+        w_lst = space.newlist([None] * 10)
+        assert w_lst.strategy._known_cls is None
+
+
     def test_find_fast_on_intlist(self, monkeypatch):
         monkeypatch.setattr(self.space, "eq_w", None)
         w = self.space.wrap

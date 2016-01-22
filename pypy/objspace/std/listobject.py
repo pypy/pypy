@@ -88,6 +88,10 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
         return space.fromcache(EmptyListStrategy)
 
     w_firstobj = list_w[0]
+    if w_firstobj is None:
+        # this is done by cpyext:
+        return space.fromcache(ObjectListStrategy)
+
     check_int_or_float = False
 
     if type(w_firstobj) is W_IntObject:
