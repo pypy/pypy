@@ -931,6 +931,21 @@ class AppTestWithMapDict(object):
         d = x.__dict__
         assert list(__pypy__.reversed_dict(d)) == d.keys()[::-1]
 
+    def test_bug_two_attributes(self):
+        class A(object):
+            def __setitem__(self, key, value):
+                self.setkey = key
+                self.setvalue = value
+        a1 = A()
+        a2 = A()
+        a1[a2] = 42
+        assert a1.setkey is a2
+        assert a1.setvalue == 42
+        #
+        a1[42] = a2
+        assert a1.setkey == 42
+        assert a1.setvalue is a2
+
 
 class AppTestWithMapDictAndCounters(object):
     spaceconfig = {"objspace.std.withmapdict": True,
