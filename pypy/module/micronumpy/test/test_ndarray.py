@@ -1791,6 +1791,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_scalar_view(self):
         from numpy import array
+        import sys
         a = array(3, dtype='int32')
         b = a.view(dtype='float32')
         assert b.shape == ()
@@ -1799,17 +1800,27 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert exc.value[0] == "new type not compatible with array."
         exc = raises(TypeError, a.view, 'string')
         assert exc.value[0] == "data-type must not be 0-sized"
-        assert a.view('S4') == '\x03'
+        if sys.byteorder == 'big':
+            assert a.view('S4') == '\x00\x00\x00\x03'
+        else:
+            assert a.view('S4') == '\x03'
         a = array('abc1', dtype='c')
         assert (a == ['a', 'b', 'c', '1']).all()
         assert a.view('S4') == 'abc1'
         b = a.view([('a', 'i2'), ('b', 'i2')])
         assert b.shape == (1,)
-        assert b[0][0] == 25185
-        assert b[0][1] == 12643
+        if sys.byteorder == 'big':
+            assert b[0][0] == 0x6162
+            assert b[0][1] == 0x6331
+        else:
+            assert b[0][0] == 25185
+            assert b[0][1] == 12643
         a = array([(1, 2)], dtype=[('a', 'int64'), ('b', 'int64')])[0]
         assert a.shape == ()
-        assert a.view('S16') == '\x01' + '\x00' * 7 + '\x02'
+        if sys.byteorder == 'big':
+            assert a.view('S16') == '\x00' * 7 + '\x01' + '\x00' * 7 + '\x02'
+        else:
+            assert a.view('S16') == '\x01' + '\x00' * 7 + '\x02'
         a = array(2, dtype='<i8')
         b = a.view('<c8')
         assert 0 < b.real < 1
@@ -1818,15 +1829,19 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_array_view(self):
         from numpy import array, dtype
+        import sys
         x = array((1, 2), dtype='int8')
         assert x.shape == (2,)
         y = x.view(dtype='int16')
         assert x.shape == (2,)
-        assert y[0] == 513
+        if sys.byteorder == 'big':
+            assert y[0] == 0x0102
+        else:
+            assert y[0] == 513 == 0x0201
         assert y.dtype == dtype('int16')
         y[0] = 670
-        assert x[0] == -98
-        assert x[1] == 2
+        assert x[0] == 2
+        assert x[1] == -98
         f = array([1000, -1234], dtype='i4')
         nnp = self.non_native_prefix
         d = f.view(dtype=nnp + 'i4')
@@ -1847,7 +1862,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert x.view('S4')[0] == 'abc'
         assert x.view('S4')[1] == 'defg'
         a = array([(1, 2)], dtype=[('a', 'int64'), ('b', 'int64')])
-        assert a.view('S16')[0] == '\x01' + '\x00' * 7 + '\x02'
+        if sys.byteorder == 'big':
+            assert a.view('S16')[0] == '\x00' * 7 + '\x01' + '\x00' * 7 + '\x02'
+        else:
+            assert a.view('S16')[0] == '\x01' + '\x00' * 7 + '\x02'
 
     def test_half_conversions(self):
         from numpy import array, arange
@@ -2425,11 +2443,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import array
         import sys
         a = array([1, 2, 3, 4], dtype='i4')
-        assert a.data[0] == '\x01'
+        assert a.data[0] == ('\x01' if sys.byteorder == 'little' else '\x00')
         assert a.data[1] == '\x00'
-        assert a.data[4] == '\x02'
-        a.data[4] = '\xff'
-        assert a[1] == 0xff
+        assert a.data[3] == ('\x00' if sys.byteorder == 'little' else '\x01')
+        assert a.data[4] == ('\x02' if sys.byteorder == 'little' else '\x00')
+        a.data[4] = '\x7f'
+        if sys.byteorder == 'big':
+            a.data[7] = '\x00' # make sure 0x02 is reset to 0
+            assert a[1] == (0x7f000000)
+        else:
+            assert a[1] == 0x7f
         assert len(a.data) == 16
         assert type(a.data) is buffer
         if '__pypy__' in sys.builtin_module_names:
@@ -2501,12 +2524,17 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test__reduce__(self):
         from numpy import array, dtype
         from cPickle import loads, dumps
+        import sys
 
         a = array([1, 2], dtype="int64")
         data = a.__reduce__()
 
-        assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00' \
-                             '\x02\x00\x00\x00\x00\x00\x00\x00'
+        if sys.byteorder == 'big':
+            assert data[2][4] == '\x00\x00\x00\x00\x00\x00\x00\x01' \
+                                 '\x00\x00\x00\x00\x00\x00\x00\x02'
+        else:
+            assert data[2][4] == '\x01\x00\x00\x00\x00\x00\x00\x00' \
+                                 '\x02\x00\x00\x00\x00\x00\x00\x00'
 
         pickled_data = dumps(a)
         assert (loads(pickled_data) == a).all()
@@ -2639,12 +2667,16 @@ class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
     def test_ndarray_from_buffer(self):
         import numpy as np
         import array
+        import sys
         buf = array.array('c', ['\x00']*2*3)
         a = np.ndarray((3,), buffer=buf, dtype='i2')
         a[0] = ord('b')
         a[1] = ord('a')
         a[2] = ord('r')
-        assert list(buf) == ['b', '\x00', 'a', '\x00', 'r', '\x00']
+        if sys.byteorder == 'big':
+            assert list(buf) == ['\x00', 'b', '\x00', 'a', '\x00', 'r']
+        else:
+            assert list(buf) == ['b', '\x00', 'a', '\x00', 'r', '\x00']
         assert a.base is buf
 
     def test_ndarray_subclass_from_buffer(self):
@@ -2659,13 +2691,17 @@ class AppTestNumArrayFromBuffer(BaseNumpyAppTest):
     def test_ndarray_from_buffer_and_offset(self):
         import numpy as np
         import array
+        import sys
         buf = array.array('c', ['\x00']*7)
         buf[0] = 'X'
         a = np.ndarray((3,), buffer=buf, offset=1, dtype='i2')
         a[0] = ord('b')
         a[1] = ord('a')
         a[2] = ord('r')
-        assert list(buf) == ['X', 'b', '\x00', 'a', '\x00', 'r', '\x00']
+        if sys.byteorder == 'big':
+            assert list(buf) == ['X', '\x00', 'b', '\x00', 'a', '\x00', 'r']
+        else:
+            assert list(buf) == ['X', 'b', '\x00', 'a', '\x00', 'r', '\x00']
 
     def test_ndarray_from_buffer_out_of_bounds(self):
         import numpy as np
