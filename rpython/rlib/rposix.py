@@ -827,7 +827,7 @@ def waitpid(pid, options):
         lltype.free(status_p, flavor='raw')
 
 def _make_waitmacro(name):
-    c_func = external(name, [lltype.Signed], lltype.Signed,
+    c_func = external(name, [rffi.INT], lltype.Signed,
                       macro=_MACRO_ON_POSIX)
     returning_int = name in ('WEXITSTATUS', 'WSTOPSIG', 'WTERMSIG')
 
