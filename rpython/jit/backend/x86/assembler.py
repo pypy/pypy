@@ -881,10 +881,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     def _call_header(self):
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
+        if IS_X86_64:
+            self.mc.MOV_sr(THREADLOCAL_OFS, esi.value)
         if self.cpu.translate_support_code:
             self._call_header_vmprof()     # on X86_64, this uses esi
         if IS_X86_64:
-            self.mc.MOV_sr(THREADLOCAL_OFS, esi.value)
             self.mc.MOV_rr(ebp.value, edi.value)
         else:
             self.mc.MOV_rs(ebp.value, (FRAME_FIXED_SIZE + 1) * WORD)
