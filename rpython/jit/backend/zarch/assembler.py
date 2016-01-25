@@ -16,7 +16,8 @@ from rpython.jit.backend.zarch.regalloc import ZARCHRegisterManager
 from rpython.jit.backend.zarch.arch import (WORD,
         STD_FRAME_SIZE_IN_BYTES, THREADLOCAL_ADDR_OFFSET,
         RECOVERY_GCMAP_POOL_OFFSET, RECOVERY_TARGET_POOL_OFFSET,
-        JUMPABS_TARGET_ADDR__POOL_OFFSET, JUMPABS_POOL_ADDR_POOL_OFFSET)
+        JUMPABS_TARGET_ADDR__POOL_OFFSET, JUMPABS_POOL_ADDR_POOL_OFFSET,
+        THREADLOCAL_ON_ENTER_JIT)
 from rpython.jit.backend.zarch.opassembler import OpAssembler
 from rpython.jit.backend.zarch.regalloc import Regalloc
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -382,7 +383,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         """
         # signature of these cond_call_slowpath functions:
         #   * on entry, r12 contains the function to call
-        #   * r3, r4, r5, r6 contain arguments for the call
+        #   * r2, r3, r4, r5 contain arguments for the call
         #   * r0 is the gcmap
         #   * the old value of these regs must already be stored in the jitframe
         #   * on exit, all registers are restored from the jitframe
@@ -391,6 +392,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc = mc
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.STG(r.SCRATCH2, l.addr(ofs2,r.SPP))
+        mc.STMG(r.r14,r.r15,l.addr(14*WORD, r.SP))
+        mc.push_std_frame()
 
         # copy registers to the frame, with the exception of r3 to r6 and r12,
         # because these have already been saved by the caller.  Note that
@@ -406,21 +409,21 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
                        reg is not r.r4 and
                        reg is not r.r5 and
                        reg is not r.r12]
-        self._push_core_regs_to_jitframe(mc, regs + [r.r14])
+        self._push_core_regs_to_jitframe(mc, regs)
         if supports_floats:
             self._push_fp_regs_to_jitframe(mc)
 
         # allocate a stack frame!
-        mc.push_std_frame()
         mc.raw_call(r.r12)
-        mc.pop_std_frame()
 
         # Finish
         self._reload_frame_if_necessary(mc)
 
-        self._pop_core_regs_from_jitframe(mc, saved_regs + [r.r14])
+        self._pop_core_regs_from_jitframe(mc, saved_regs)
         if supports_floats:
             self._pop_fp_regs_from_jitframe(mc)
+        size = STD_FRAME_SIZE_IN_BYTES
+        mc.LMG(r.r14, r.r15, l.addr(size+14*WORD, r.SP))
         mc.BCR(c.ANY, r.RETURN)
         self.mc = None
         return mc.materialize(self.cpu, [])
@@ -446,8 +449,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.STG(r.SCRATCH, l.addr(ofs2, r.SPP))
         saved_regs = [reg for reg in r.MANAGED_REGS
                           if reg is not r.RES and reg is not r.RSZ]
-        self._push_core_regs_to_jitframe(mc, saved_regs + [r.r14])
+        self._push_core_regs_to_jitframe(mc, saved_regs)
         self._push_fp_regs_to_jitframe(mc)
+        # alloc a frame for the callee
+        mc.STMG(r.r14, r.r15, l.addr(14*WORD, r.SP))
+        mc.push_std_frame()
         #
         if kind == 'fixed':
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
@@ -478,10 +484,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
 
         # Do the call
         addr = rffi.cast(lltype.Signed, addr)
-        mc.push_std_frame()
         mc.load_imm(mc.RAW_CALL_REG, addr)
         mc.raw_call()
-        mc.pop_std_frame()
 
         self._reload_frame_if_necessary(mc)
 
@@ -490,7 +494,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # emit_call_malloc_gc()).
         self.propagate_memoryerror_if_r2_is_null()
 
-        self._pop_core_regs_from_jitframe(mc, saved_regs + [r.r14])
+        self._pop_core_regs_from_jitframe(mc, saved_regs)
         self._pop_fp_regs_from_jitframe(mc)
 
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
@@ -501,6 +505,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # r.RSZ is loaded from [SCRATCH], to make the caller's store a no-op here
         mc.load(r.RSZ, r.r1, 0)
         #
+        size = STD_FRAME_SIZE_IN_BYTES
+        mc.LMG(r.r14, r.r15, l.addr(size+14*WORD, r.SP))
         mc.BCR(c.ANY, r.r14)
         self.mc = None
         return mc.materialize(self.cpu, [])
@@ -517,7 +523,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc = InstrBuilder()
         #
         # store the link backwards
-        self.mc.STMG(r.r14, r.r15, l.addr(14*WORD, r.SP))
+        mc.STMG(r.r14, r.r15, l.addr(14*WORD, r.SP))
         mc.push_std_frame()
 
         mc.LGR(r.r2, r.SP)
@@ -532,7 +538,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.cmp_op(r.SCRATCH, l.imm(0), imm=True)
         #
         size = STD_FRAME_SIZE_IN_BYTES
-        self.mc.LMG(r.r14, r.r15, l.addr(size+14*WORD, r.SP)) # restore the link
+        mc.LMG(r.r14, r.r15, l.addr(size+14*WORD, r.SP)) # restore the link
         # So we return to our caller, conditionally if "EQ"
         mc.BCR(c.EQ, r.r14)
         mc.trap() # debug if this is EVER executed!
@@ -590,11 +596,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # LGHI r0, ... (4  bytes)
         #       sum -> (14 bytes)
         mc.write('\x00'*14)
-        self.mc.push_std_frame()
+        mc.push_std_frame()
         mc.load_imm(r.RETURN, self._frame_realloc_slowpath)
         self.load_gcmap(mc, r.r1, gcmap)
         mc.raw_call()
-        self.mc.pop_std_frame()
+        mc.pop_std_frame()
 
         self.frame_depth_to_patch.append((patch_pos, mc.currpos()))
 
@@ -1006,8 +1012,8 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # save the back chain
         self.mc.STG(r.SP, l.addr(0, r.SP))
 
-        # save r3, the second argument, to THREADLOCAL_ADDR_OFFSET
-        self.mc.STG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
+        # save r3, the second argument, to the thread local position
+        self.mc.STG(r.r3, l.addr(THREADLOCAL_ON_ENTER_JIT, r.SP))
 
         # push a standard frame for any call
         self.mc.push_std_frame()
@@ -1418,9 +1424,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             raise AssertionError(kind)
         #
         # call!
-        mc.push_std_frame()
         mc.branch_absolute(addr)
-        mc.pop_std_frame()
 
         jmp_location = mc.currpos()
         mc.reserve_cond_jump(short=True)      # jump forward, patched later

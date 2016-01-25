@@ -530,11 +530,7 @@ class AllocOpAssembler(object):
             mc.LGR(r.r0, loc_base)    # unusual argument location
 
         mc.load_imm(r.r14, self.wb_slowpath[helper_num])
-        # alloc a stack frame
-        mc.push_std_frame()
         mc.BASR(r.r14, r.r14)
-        # destory the frame
-        mc.pop_std_frame()
 
         if card_marking_mask:
             # The helper ends again with a check of the flag in the object.

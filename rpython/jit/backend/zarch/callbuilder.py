@@ -62,6 +62,7 @@ class CallBuilder(AbstractCallBuilder):
         # called function will in turn call further functions (which must be passed the
         # address of the new frame). This stack grows downwards from high addresses
         # """
+        self.subtracted_to_sp = 0
 
         gpr_regs = 0
         fpr_regs = 0
@@ -83,18 +84,18 @@ class CallBuilder(AbstractCallBuilder):
                     stack_params.append(i)
 
         self.subtracted_to_sp += len(stack_params) * WORD
-        base = -len(stack_params) * WORD
+        base = len(stack_params) * WORD
         if self.is_call_release_gil:
             self.subtracted_to_sp += 8*WORD
-            base -= 8*WORD
-        # one additional owrd for remap frame layout
+            base += 8*WORD
+        # one additional word for remap frame layout
         # regalloc_push will overwrite -8(r.SP) and destroy
         # a parameter if we would not reserve that space
-        base -= WORD
-        self.subtracted_to_sp += WORD
+        # base += WORD
+        # TODO self.subtracted_to_sp += WORD
         for idx,i in enumerate(stack_params):
             loc = arglocs[i]
-            offset = base + 8 * idx
+            offset = STD_FRAME_SIZE_IN_BYTES - base + 8 * idx
             if loc.type == FLOAT:
                 if loc.is_fp_reg():
                     src = loc
@@ -148,15 +149,23 @@ class CallBuilder(AbstractCallBuilder):
     def emit_raw_call(self):
         # always allocate a stack frame for the new function
         # save the SP back chain
-        self.mc.STG(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
+        #self.mc.STG(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
         # move the frame pointer
         if self.subtracted_to_sp != 0:
             self.mc.LAY(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
         self.mc.raw_call()
-        #
-        self.ensure_correct_signzero_extension()
 
-    def ensure_correct_signzero_extension(self):
+
+    def restore_stack_pointer(self):
+        # it must at LEAST be 160 bytes
+        if self.subtracted_to_sp != 0:
+            self.mc.LAY(r.SP, l.addr(self.subtracted_to_sp, r.SP))
+
+    def load_result(self):
+        assert (self.resloc is None or
+                self.resloc is r.GPR_RETURN or
+                self.resloc is r.FPR_RETURN)
+        #
         if self.restype == 'i' and self.ressize != WORD:
             # we must be sure! libffi (s390x impl) will not return
             # a sane 64 bit zero/sign extended value. fix for this
@@ -177,25 +186,14 @@ class CallBuilder(AbstractCallBuilder):
                 else:
                     assert 0, "cannot zero extend size %d" % self.ressize
 
-
-    def restore_stack_pointer(self):
-        # it must at LEAST be 160 bytes
-        if self.subtracted_to_sp != 0:
-            self.mc.LAY(r.SP, l.addr(self.subtracted_to_sp, r.SP))
-
-    def load_result(self):
-        assert (self.resloc is None or
-                self.resloc is r.GPR_RETURN or
-                self.resloc is r.FPR_RETURN)
-
-
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         assert self.is_call_release_gil
         RSHADOWOLD = self.RSHADOWOLD
         RSHADOWPTR = self.RSHADOWPTR
         RFASTGILPTR = self.RFASTGILPTR
         #
-        self.mc.STMG(r.r8, r.r13, l.addr(-7*WORD, r.SP))
+        pos = STD_FRAME_SIZE_IN_BYTES - 7*WORD
+        self.mc.STMG(r.r8, r.r13, l.addr(pos, r.SP))
         # 6 registers, 1 for a floating point return value!
         # registered by prepare_arguments!
         #
@@ -268,26 +266,27 @@ class CallBuilder(AbstractCallBuilder):
         PARAM_SAVE_AREA_OFFSET = 0
         if reg is not None:
             # save 1 word below the stack pointer
+            pos = STD_FRAME_SIZE_IN_BYTES
             if reg.is_core_reg():
-                self.mc.STG(reg, l.addr(-1*WORD, r.SP))
+                self.mc.STG(reg, l.addr(pos-1*WORD, r.SP))
             elif reg.is_fp_reg():
-                self.mc.STD(reg, l.addr(-1*WORD, r.SP))
-        self.mc.push_std_frame(8*WORD)
+                self.mc.STD(reg, l.addr(pos-1*WORD, r.SP))
         self.mc.load_imm(self.mc.RAW_CALL_REG, self.asm.reacqgil_addr)
         self.mc.raw_call()
-        self.mc.pop_std_frame(8*WORD)
         if reg is not None:
+            pos = STD_FRAME_SIZE_IN_BYTES
             if reg.is_core_reg():
-                self.mc.LG(reg, l.addr(-1*WORD, r.SP))
+                self.mc.LG(reg, l.addr(pos-1*WORD, r.SP))
             elif reg.is_fp_reg():
-                self.mc.LD(reg, l.addr(-1*WORD, r.SP))
+                self.mc.LD(reg, l.addr(pos-1*WORD, r.SP))
 
         # replace b1_location with BEQ(here)
         pmc = OverwritingBuilder(self.mc, b1_location, 1)
         pmc.BRCL(c.EQ, l.imm(self.mc.currpos() - b1_location))
         pmc.overwrite()
 
-        self.mc.LMG(r.r8, r.r13, l.addr(-7*WORD, r.SP))
+        pos = STD_FRAME_SIZE_IN_BYTES - 7*WORD
+        self.mc.LMG(r.r8, r.r13, l.addr(pos, r.SP))
 
     def write_real_errno(self, save_err):
         if save_err & rffi.RFFI_READSAVED_ERRNO:

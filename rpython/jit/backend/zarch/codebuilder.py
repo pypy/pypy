@@ -198,7 +198,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         function pointer, which means on big-endian that it is actually
         the address of a three-words descriptor.
         """
-        self.BASR(r.RETURN, call_reg)
+        self.BASR(r.r14, call_reg)
 
     def reserve_cond_jump(self, short=False):
         self.trap()        # conditional jump, patched later
