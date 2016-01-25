@@ -216,7 +216,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
 
     def restore_link(self):
         off = STD_FRAME_SIZE_IN_BYTES
-        self.LMG(r.r14, l.addr(off+14*WORD, r.SP))
+        self.LMG(r.r14, r.r15, l.addr(off+14*WORD, r.SP))
 
     def push_std_frame(self, additional_bytes=0):
         self.STG(r.SP, l.addr(-(STD_FRAME_SIZE_IN_BYTES + additional_bytes), r.SP))
