@@ -178,6 +178,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         
         # save the information
         mc.store_link()
+        mc.push_std_frame()
 
         RCS2 = r.r10
         RCS3 = r.r12
@@ -231,12 +232,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         func = rffi.cast(lltype.Signed, func)
         # Note: if not 'for_frame', argument_loc is r0, which must carefully
         # not be overwritten above
-        mc.STG(r.SP, l.addr(0, r.SP)) # store the backchain
-        mc.push_std_frame()
         mc.load_imm(mc.RAW_CALL_REG, func)
         mc.LGR(r.r2, argument_loc)
         mc.raw_call()
-        mc.pop_std_frame()
 
         if for_frame:
             self._restore_exception(mc, RCS2, RCS3)
@@ -303,6 +301,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc = InstrBuilder()
         self.mc = mc
 
+        mc.store_link()
+        mc.push_std_frame()
+
         # signature of this _frame_realloc_slowpath function:
         #   * on entry, r0 is the new size
         #   * on entry, r1 is the gcmap
@@ -314,7 +315,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self._push_core_regs_to_jitframe(mc, r.MANAGED_REGS)
         self._push_fp_regs_to_jitframe(mc)
 
-        self.mc.store_link()
 
         # First argument is SPP (= r31), which is the jitframe
         mc.LGR(r.r2, r.SPP)
@@ -346,9 +346,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             mc.load(r.r5, r.r5, diff)
             mc.store(r.r2, r.r5, -WORD)
 
-        mc.restore_link()
         self._pop_core_regs_from_jitframe(mc)
         self._pop_fp_regs_from_jitframe(mc)
+
+        mc.restore_link()
         mc.BCR(c.ANY, r.RETURN)
 
         self._frame_realloc_slowpath = mc.materialize(self.cpu, [])
@@ -367,7 +368,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         ofs3 = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
         ofs4 = self.cpu.get_ofs_of_frame_field('jf_descr')
 
-        self._store_and_reset_exception(self.mc, r.r3)
+        self._store_and_reset_exception(self.mc, r.r2)
         self.mc.load_imm(r.r3, propagate_exception_descr)
         self.mc.STG(r.r2, l.addr(ofs3, r.SPP))
         self.mc.STG(r.r3, l.addr(ofs4, r.SPP))
@@ -392,7 +393,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self.mc = mc
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.STG(r.SCRATCH2, l.addr(ofs2,r.SPP))
-        mc.STMG(r.r14,r.r15,l.addr(14*WORD, r.SP))
+        mc.store_link()
         mc.push_std_frame()
 
         # copy registers to the frame, with the exception of r3 to r6 and r12,
@@ -422,8 +423,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         self._pop_core_regs_from_jitframe(mc, saved_regs)
         if supports_floats:
             self._pop_fp_regs_from_jitframe(mc)
-        size = STD_FRAME_SIZE_IN_BYTES
-        mc.LMG(r.r14, r.r15, l.addr(size+14*WORD, r.SP))
+        mc.restore_link()
         mc.BCR(c.ANY, r.RETURN)
         self.mc = None
         return mc.materialize(self.cpu, [])
@@ -445,15 +445,16 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         assert kind in ['fixed', 'str', 'unicode', 'var']
         mc = InstrBuilder()
         self.mc = mc
+        # alloc a frame for the callee
+        mc.store_link()
+        mc.push_std_frame()
+        #
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.STG(r.SCRATCH, l.addr(ofs2, r.SPP))
         saved_regs = [reg for reg in r.MANAGED_REGS
                           if reg is not r.RES and reg is not r.RSZ]
         self._push_core_regs_to_jitframe(mc, saved_regs)
         self._push_fp_regs_to_jitframe(mc)
-        # alloc a frame for the callee
-        mc.STMG(r.r14, r.r15, l.addr(14*WORD, r.SP))
-        mc.push_std_frame()
         #
         if kind == 'fixed':
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
@@ -505,8 +506,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # r.RSZ is loaded from [SCRATCH], to make the caller's store a no-op here
         mc.load(r.RSZ, r.r1, 0)
         #
-        size = STD_FRAME_SIZE_IN_BYTES
-        mc.LMG(r.r14, r.r15, l.addr(size+14*WORD, r.SP))
+        mc.restore_link()
         mc.BCR(c.ANY, r.r14)
         self.mc = None
         return mc.materialize(self.cpu, [])
@@ -523,7 +523,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc = InstrBuilder()
         #
         # store the link backwards
-        mc.STMG(r.r14, r.r15, l.addr(14*WORD, r.SP))
+        mc.store_link()
         mc.push_std_frame()
 
         mc.LGR(r.r2, r.SP)
@@ -537,8 +537,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # else we have an exception
         mc.cmp_op(r.SCRATCH, l.imm(0), imm=True)
         #
-        size = STD_FRAME_SIZE_IN_BYTES
-        mc.LMG(r.r14, r.r15, l.addr(size+14*WORD, r.SP)) # restore the link
+        mc.restore_link()
         # So we return to our caller, conditionally if "EQ"
         mc.BCR(c.EQ, r.r14)
         mc.trap() # debug if this is EVER executed!

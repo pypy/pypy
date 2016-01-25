@@ -212,10 +212,11 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
         self.BASR(r.r14, r.r14)
 
     def store_link(self):
-        self.STG(r.RETURN, l.addr(14*WORD, r.SP))
+        self.STMG(r.r14, r.r15, l.addr(14*WORD, r.SP))
 
     def restore_link(self):
-        self.LG(r.RETURN, l.addr(14*WORD, r.SP))
+        off = STD_FRAME_SIZE_IN_BYTES
+        self.LMG(r.r14, l.addr(off+14*WORD, r.SP))
 
     def push_std_frame(self, additional_bytes=0):
         self.STG(r.SP, l.addr(-(STD_FRAME_SIZE_IN_BYTES + additional_bytes), r.SP))
