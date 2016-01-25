@@ -371,6 +371,12 @@ PyTypeObject UnicodeSubtype2 = {
     0           /*tp_weaklist*/
 };
 
+PyTypeObject UnicodeSubtype3 = {
+    PyObject_HEAD_INIT(NULL)
+    0,
+    "foo.fuu3",
+    sizeof(UnicodeSubclassObject)
+};
 
 /* A Metatype */
 
@@ -777,6 +783,14 @@ initfoo(void)
     CustomType.ob_type = &MetaType;
     if (PyType_Ready(&CustomType) < 0)
         return;
+
+    UnicodeSubtype3.tp_flags = Py_TPFLAGS_DEFAULT;
+    UnicodeSubtype3.tp_base = &UnicodeSubtype;
+    UnicodeSubtype3.tp_bases = Py_BuildValue("(OO)", &UnicodeSubtype,
+                                                    &CustomType);
+    if (PyType_Ready(&UnicodeSubtype3) < 0)
+        return;
+
     m = Py_InitModule("foo", foo_functions);
     if (m == NULL)
         return;
@@ -788,6 +802,8 @@ initfoo(void)
     if (PyDict_SetItemString(d, "UnicodeSubtype", (PyObject *) &UnicodeSubtype) < 0)
         return;
     if (PyDict_SetItemString(d, "UnicodeSubtype2", (PyObject *) &UnicodeSubtype2) < 0)
+        return;
+    if (PyDict_SetItemString(d, "UnicodeSubtype3", (PyObject *) &UnicodeSubtype3) < 0)
         return;
     if (PyDict_SetItemString(d, "MetaType", (PyObject *) &MetaType) < 0)
         return;

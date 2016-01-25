@@ -150,6 +150,14 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert fuu2(u"abc").baz().escape()
         raises(TypeError, module.fooType.object_member.__get__, 1)
 
+    def test_multiple_inheritance(self):
+        module = self.import_module(name='foo')
+        obj = module.UnicodeSubtype(u'xyz')
+        obj2 = module.UnicodeSubtype2()
+        obj3 = module.UnicodeSubtype3()
+        assert obj3.get_val() == 42
+        assert len(type(obj3).mro()) == 6
+
     def test_init(self):
         module = self.import_module(name="foo")
         newobj = module.UnicodeSubtype()
@@ -416,15 +424,15 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("test_tp_getattro", "METH_VARARGS",
              '''
-                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
-                 PyIntObject *value = PyTuple_GET_ITEM(args, 1);
+                 PyObject *name, *obj = PyTuple_GET_ITEM(args, 0);
+                 PyIntObject *attr, *value = PyTuple_GET_ITEM(args, 1);
                  if (!obj->ob_type->tp_getattro)
                  {
                      PyErr_SetString(PyExc_ValueError, "missing tp_getattro");
                      return NULL;
                  }
-                 PyObject *name = PyString_FromString("attr1");
-                 PyIntObject *attr = obj->ob_type->tp_getattro(obj, name);
+                 name = PyString_FromString("attr1");
+                 attr = obj->ob_type->tp_getattro(obj, name);
                  if (attr->ob_ival != value->ob_ival)
                  {
                      PyErr_SetString(PyExc_ValueError,
@@ -705,13 +713,13 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             static PyObject * 
             intlike_nb_add(PyObject *self, PyObject *other)
             {
-                long val1 = ((IntLikeObject *)(self))->ival;
+                long val2, val1 = ((IntLikeObject *)(self))->ival;
                 if (PyInt_Check(other)) {
                   long val2 = PyInt_AsLong(other);
                   return PyInt_FromLong(val1+val2);
                 }
 
-                long val2 = ((IntLikeObject *)(other))->ival;
+                val2 = ((IntLikeObject *)(other))->ival;
                 return PyInt_FromLong(val1+val2);
             }
 
