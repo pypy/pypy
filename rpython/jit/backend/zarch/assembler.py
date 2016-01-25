@@ -199,9 +199,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             # and two more non-volatile registers (used to store
             # the RPython exception that occurred in the CALL, if any).
             #
-            mc.STMG(r.r10, r.r12, l.addr(10*WORD, r.SP))
-            mc.STG(r.r2, l.addr(2*WORD, r.SP))
-            mc.STD(r.f0, l.addr(16*WORD, r.SP))
+            off = STD_FRAME_SIZE_IN_BYTES
+            mc.STMG(r.r10, r.r12, l.addr(off+10*WORD, r.SP))
+            mc.STG(r.r2, l.addr(off+2*WORD, r.SP))
+            mc.STD(r.f0, l.addr(off+16*WORD, r.SP))
             saved_regs = None
             saved_fp_regs = None
         else:
@@ -248,9 +249,10 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             mc.NILL(RCS2, l.imm(card_marking_mask & 0xFF))
 
         if for_frame:
-            mc.LMG(r.r10, r.r12, l.addr(10*WORD, r.SP))
-            mc.LG(r.r2, l.addr(2*WORD, r.SP))
-            mc.LD(r.f0, l.addr(16*WORD, r.SP))
+            off = STD_FRAME_SIZE_IN_BYTES
+            mc.LMG(r.r10, r.r12, l.addr(off+10*WORD, r.SP))
+            mc.LG(r.r2, l.addr(off+2*WORD, r.SP))
+            mc.LD(r.f0, l.addr(off+16*WORD, r.SP))
         else:
             self._pop_core_regs_from_jitframe(mc, saved_regs)
             self._pop_fp_regs_from_jitframe(mc, saved_fp_regs)
@@ -396,7 +398,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.store_link()
         mc.push_std_frame()
 
-        # copy registers to the frame, with the exception of r3 to r6 and r12,
+        # copy registers to the frame, with the exception of r2 to r5 and r12,
         # because these have already been saved by the caller.  Note that
         # this is not symmetrical: these 5 registers are saved by the caller
         # but restored here at the end of this function.
@@ -450,7 +452,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.push_std_frame()
         #
         ofs2 = self.cpu.get_ofs_of_frame_field('jf_gcmap')
-        mc.STG(r.SCRATCH, l.addr(ofs2, r.SPP))
+        mc.STG(r.r1, l.addr(ofs2, r.SPP))
         saved_regs = [reg for reg in r.MANAGED_REGS
                           if reg is not r.RES and reg is not r.RSZ]
         self._push_core_regs_to_jitframe(mc, saved_regs)
@@ -572,7 +574,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             jmp_pos = self.mc.currpos()
             self.mc.reserve_cond_jump()
 
-            mc.push_std_frame()
             mc.load_imm(r.r14, self.stack_check_slowpath)
             mc.BASR(r.r14, r.r14)
 
@@ -1008,8 +1009,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # Build a new stackframe of size STD_FRAME_SIZE_IN_BYTES
         self.mc.STMG(r.r6, r.r15, l.addr(6*WORD, r.SP))
         self.mc.LARL(r.POOL, l.halfword(self.pool.pool_start - self.mc.get_relative_pos()))
-        # save the back chain
-        self.mc.STG(r.SP, l.addr(0, r.SP))
 
         # save r3, the second argument, to the thread local position
         self.mc.STG(r.r3, l.addr(THREADLOCAL_ON_ENTER_JIT, r.SP))
