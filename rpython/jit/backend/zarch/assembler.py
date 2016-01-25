@@ -199,7 +199,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             #
             mc.STMG(r.r10, r.r12, l.addr(10*WORD, r.SP))
             mc.STG(r.r2, l.addr(2*WORD, r.SP))
-            mc.STD(r.f0, l.addr(3*WORD, r.SP)) # slot of r3 is not used here
+            mc.STD(r.f0, l.addr(16*WORD, r.SP))
             saved_regs = None
             saved_fp_regs = None
         else:
@@ -231,11 +231,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # Note: if not 'for_frame', argument_loc is r0, which must carefully
         # not be overwritten above
         mc.STG(r.SP, l.addr(0, r.SP)) # store the backchain
-        mc.AGHI(r.SP, l.imm(-STD_FRAME_SIZE_IN_BYTES))
+        mc.push_std_frame()
         mc.load_imm(mc.RAW_CALL_REG, func)
         mc.LGR(r.r2, argument_loc)
         mc.raw_call()
-        mc.AGHI(r.SP, l.imm(STD_FRAME_SIZE_IN_BYTES))
+        mc.pop_std_frame()
 
         if for_frame:
             self._restore_exception(mc, RCS2, RCS3)
@@ -251,7 +251,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         if for_frame:
             mc.LMG(r.r10, r.r12, l.addr(10*WORD, r.SP))
             mc.LG(r.r2, l.addr(2*WORD, r.SP))
-            mc.LD(r.f0, l.addr(3*WORD, r.SP)) # slot of r3 is not used here
+            mc.LD(r.f0, l.addr(16*WORD, r.SP))
         else:
             self._pop_core_regs_from_jitframe(mc, saved_regs)
             self._pop_fp_regs_from_jitframe(mc, saved_fp_regs)
@@ -516,13 +516,13 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # registers).
         mc = InstrBuilder()
         #
-        self._push_core_regs_to_jitframe(mc, [r.r14]) # store the link on the jit frame
-        # Do the call
+        # store the link backwards
+        self.mc.STMG(r.r14, r.r15, l.addr(14*WORD, r.SP))
         mc.push_std_frame()
+
         mc.LGR(r.r2, r.SP)
         mc.load_imm(mc.RAW_CALL_REG, slowpathaddr)
         mc.raw_call()
-        mc.pop_std_frame()
         #
         # Check if it raised StackOverflow
         mc.load_imm(r.SCRATCH, self.cpu.pos_exception())
@@ -531,9 +531,11 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # else we have an exception
         mc.cmp_op(r.SCRATCH, l.imm(0), imm=True)
         #
-        self._pop_core_regs_from_jitframe(mc, [r.r14]) # restore the link on the jit frame
+        size = STD_FRAME_SIZE_IN_BYTES
+        self.mc.LMG(r.r14, r.r15, l.addr(size+14*WORD, r.SP)) # restore the link
         # So we return to our caller, conditionally if "EQ"
         mc.BCR(c.EQ, r.r14)
+        mc.trap() # debug if this is EVER executed!
         #
         # Else, jump to propagate_exception_path
         assert self.propagate_exception_path
@@ -565,6 +567,7 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             jmp_pos = self.mc.currpos()
             self.mc.reserve_cond_jump()
 
+            mc.push_std_frame()
             mc.load_imm(r.r14, self.stack_check_slowpath)
             mc.BASR(r.r14, r.r14)
 
@@ -1006,6 +1009,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         # save r3, the second argument, to THREADLOCAL_ADDR_OFFSET
         self.mc.STG(r.r3, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
 
+        # push a standard frame for any call
+        self.mc.push_std_frame()
+
         # move the first argument to SPP: the jitframe object
         self.mc.LGR(r.SPP, r.r2)
 
@@ -1049,29 +1055,9 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
             self._call_footer_shadowstack(gcrootmap)
 
         # restore registers r6-r15
-        self.mc.LMG(r.r6, r.r15, l.addr(6*WORD, r.SP))
+        size = STD_FRAME_SIZE_IN_BYTES
+        self.mc.LMG(r.r6, r.r15, l.addr(size+6*WORD, r.SP))
         self.jmpto(r.r14)
-
-    def _push_all_regs_to_frame(self, mc, ignored_regs, withfloats, callee_only=False):
-        # Push all general purpose registers
-        base_ofs = self.cpu.get_baseofs_of_frame_field()
-        if callee_only:
-            regs = gpr_reg_mgr_cls.save_around_call_regs
-        else:
-            regs = gpr_reg_mgr_cls.all_regs
-        for gpr in regs:
-            if gpr not in ignored_regs:
-                v = gpr_reg_mgr_cls.all_reg_indexes[gpr.value]
-                mc.MOV_br(v * WORD + base_ofs, gpr.value)
-        if withfloats:
-            if IS_X86_64:
-                coeff = 1
-            else:
-                coeff = 2
-            # Push all XMM regs
-            ofs = len(gpr_reg_mgr_cls.all_regs)
-            for i in range(len(xmm_reg_mgr_cls.all_regs)):
-                mc.MOVSD_bx((ofs + i * coeff) * WORD + base_ofs, i)
 
     def _push_core_regs_to_jitframe(self, mc, includes=r.registers):
         self._multiple_to_or_from_jitframe(mc, includes, store=True)

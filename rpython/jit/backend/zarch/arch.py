@@ -29,12 +29,12 @@ DOUBLE_WORD = 8
 #
 #
 
-THREADLOCAL_BYTES = 8
+# THREADLOCAL_BYTES = 8
 
 # in reverse order to SP
 
 STD_FRAME_SIZE_IN_BYTES = 160
-THREADLOCAL_ADDR_OFFSET = 8
+THREADLOCAL_ADDR_OFFSET = 16 # at position of r2, but r2 is never saved!!
 
 assert STD_FRAME_SIZE_IN_BYTES % 2 == 0
 

@@ -62,7 +62,6 @@ class CallBuilder(AbstractCallBuilder):
         # called function will in turn call further functions (which must be passed the
         # address of the new frame). This stack grows downwards from high addresses
         # """
-        self.subtracted_to_sp = STD_FRAME_SIZE_IN_BYTES
 
         gpr_regs = 0
         fpr_regs = 0
@@ -151,7 +150,8 @@ class CallBuilder(AbstractCallBuilder):
         # save the SP back chain
         self.mc.STG(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
         # move the frame pointer
-        self.mc.LAY(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
+        if self.subtracted_to_sp != 0:
+            self.mc.LAY(r.SP, l.addr(-self.subtracted_to_sp, r.SP))
         self.mc.raw_call()
         #
         self.ensure_correct_signzero_extension()
@@ -180,7 +180,8 @@ class CallBuilder(AbstractCallBuilder):
 
     def restore_stack_pointer(self):
         # it must at LEAST be 160 bytes
-        self.mc.LAY(r.SP, l.addr(self.subtracted_to_sp, r.SP))
+        if self.subtracted_to_sp != 0:
+            self.mc.LAY(r.SP, l.addr(self.subtracted_to_sp, r.SP))
 
     def load_result(self):
         assert (self.resloc is None or

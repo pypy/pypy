@@ -138,9 +138,9 @@ class ZARCHRegisterManager(RegisterManager):
             poolloc = l.pool(offset)
             if force_in_reg:
                 if selected_reg is None:
-                    tmp = TempVar()
+                    tmp = TempInt()
+                    selected_reg = self.force_allocate_reg(tmp, forbidden_vars=self.temp_boxes)
                     self.temp_boxes.append(tmp)
-                    selected_reg = self.force_allocate_reg(tmp)
                 self.assembler.mc.LG(selected_reg, poolloc)
                 return selected_reg
             return poolloc
@@ -152,7 +152,7 @@ class ZARCHRegisterManager(RegisterManager):
         return loc
 
     def get_scratch_reg(self):
-        box = TempVar()
+        box = TempInt()
         reg = self.force_allocate_reg(box, forbidden_vars=self.temp_boxes)
         self.temp_boxes.append(box)
         return reg
@@ -465,7 +465,8 @@ class Regalloc(BaseRegalloc):
             # else, return a regular register (not SPP).
             if self.rm.reg_bindings.get(var, None) is not None:
                 return self.rm.loc(var, must_exist=True)
-            return self.rm.force_allocate_reg(var)
+            forbidden_vars = self.rm.temp_boxes
+            return self.rm.force_allocate_reg(var, forbidden_vars)
 
     def walk_operations(self, inputargs, operations):
         from rpython.jit.backend.zarch.assembler import (
