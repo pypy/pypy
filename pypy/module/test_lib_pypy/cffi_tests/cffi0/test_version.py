@@ -54,3 +54,10 @@ def test_c_version():
     content = open(p).read()
     #v = BACKEND_VERSIONS.get(v, v)
     assert (('assert __version__ == "%s"' % v) in content)
+
+def test_embedding_h():
+    parent = os.path.dirname(os.path.dirname(cffi.__file__))
+    v = cffi.__version__
+    p = os.path.join(parent, 'cffi', '_embedding.h')
+    content = open(p).read()
+    assert ('cffi version: %s"' % (v,)) in content

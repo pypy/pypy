@@ -136,15 +136,13 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
     copy_raw_to_string = func_with_new_name(copy_raw_to_string,
                                               'copy_raw_to_%s' % name)
 
-    return _get_raw_buf, copy_string_to_raw, copy_raw_to_string, copy_string_contents
+    return copy_string_to_raw, copy_raw_to_string, copy_string_contents
 
-(_get_raw_str_buf,
- copy_string_to_raw,
+(copy_string_to_raw,
  copy_raw_to_string,
  copy_string_contents) = _new_copy_contents_fun(STR, STR, Char, 'string')
 
-(_get_raw_unicode_buf,
- copy_unicode_to_raw,
+(copy_unicode_to_raw,
  copy_raw_to_unicode,
  copy_unicode_contents) = _new_copy_contents_fun(UNICODE, UNICODE, UniChar, 'unicode')
 

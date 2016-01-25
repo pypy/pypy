@@ -1,6 +1,7 @@
 import errno
 from pypy.interpreter.error import OperationError
-from pypy.module.cpyext.api import cpython_api, PyObject, CONST_STRING
+from pypy.module.cpyext.api import cpython_api, CONST_STRING
+from pypy.module.cpyext.pyobject import PyObject
 from rpython.rlib import rdtoa
 from rpython.rlib import rfloat
 from rpython.rlib import rposix, jit
