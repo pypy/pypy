@@ -246,6 +246,37 @@ class TestReadBarrier(BaseTestTransform):
         assert len(self.read_barriers) == 5
 
 
+
+
+# class TestAfterGCTransform(BaseTestTransform):
+#     do_read_barrier = True
+#     do_gc_transform = True
+
+#     def test_malloc_result_readable(self):
+#         from rpython.flowspace.model import summary
+#         X = lltype.GcStruct('X', ('foo', lltype.Signed))
+#         #
+#         def nobreak_escape(x):
+#             x.foo = 7
+#             return x
+#         nobreak_escape._dont_inline_ = True
+#         #
+#         def f1(n):
+#             x = lltype.malloc(X)
+#             t = x.foo
+#             nobreak_escape(x)
+#             return t
+
+#         self.interpret(f1, [4], run=False)
+#         g = self.graph
+#         from rpython.translator.translator import graphof
+#         #ff = graphof(g, f1)
+#         #ff.show()
+#         assert summary(g)['stm_read'] == 0
+
+#         assert self.read_barriers == [x1]
+
+
 external_release_gil = rffi.llexternal('external_release_gil', [], lltype.Void,
                                        _callable=lambda: None,
                                        random_effects_on_gcobjs=True,

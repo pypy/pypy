@@ -23,6 +23,7 @@ class BaseTestTransform(object):
     do_read_barrier = False
     do_turn_inevitable = False
     do_jit_driver = False
+    do_gc_transform = False
 
     def build_state(self):
         self.read_barriers = []
@@ -36,7 +37,7 @@ class BaseTestTransform(object):
             return 'I'     # allocated with immortal=True
         raise AssertionError("unknown category on %r" % (p,))
 
-    def interpret(self, fn, args, gcremovetypeptr=False, run=True):
+    def interpret(self, fn, args, run=True):
         self.build_state()
         clear_tcache()
         interp, self.graph = get_interpreter(fn, args, view=False,
@@ -45,14 +46,34 @@ class BaseTestTransform(object):
         interp.frame_class = LLSTMFrame
         #
         self.translator = interp.typer.annotator.translator
-        self.translator.config.translation.gcremovetypeptr = gcremovetypeptr
+        self.translator.config.translation.gc = "stmgc"
+        self.translator.config.translation.stm = True
         self.stmtransformer = STMTransformer(self.translator)
         if self.do_jit_driver:
             self.stmtransformer.transform_jit_driver()
-        if self.do_read_barrier:
-            self.stmtransformer.transform_read_barrier()
         if self.do_turn_inevitable:
             self.stmtransformer.transform_turn_inevitable()
+        if self.do_gc_transform:
+            pass
+            # from rpython.translator.c.gc import StmFrameworkGcPolicy
+            # from rpython.translator.c.database import LowLevelDatabase
+            # from rpython.translator.backendopt.all import backend_optimizations
+            # from rpython.rtyper.lltypesystem.lltype import getfunctionptr
+            # self.translator.config.translation.backendopt.inline=True
+            # self.translator.config.translation.backendopt.inline_threshold=10000
+            # self.translator.config.translation.backendopt.mallocs=True
+            # # backend_optimizations(self.translator,
+            # #                       inline_graph_from_anywhere=True,
+            # #                       secondary=True, inline=True, inline_threshold=0,
+            # #                       mallocs=True, print_statistics=True,
+            # #                       clever_malloc_removal=True)
+            # db = LowLevelDatabase(self.translator, gcpolicyclass=StmFrameworkGcPolicy)
+            # self.stmtransformer.transform_after_gc()
+            # list(db.gcpolicy.gc_startup_code())
+            # db.get(getfunctionptr(self.graph))
+            # db.complete()
+        if self.do_read_barrier:
+            self.stmtransformer.transform_read_barrier()
         if option.view:
             self.translator.view()
         #

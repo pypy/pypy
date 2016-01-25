@@ -8,6 +8,7 @@ MALLOCS = set([
     'malloc', 'malloc_varsize',
     'malloc_nonmovable', 'malloc_nonmovable_varsize',
     'malloc_noconflict', 'malloc_noconflict_varsize',
+    'stm_allocate_tid',
     ])
 READ_OPS = set(['getfield', 'getarrayitem', 'getinteriorfield', 'raw_load'])
 
