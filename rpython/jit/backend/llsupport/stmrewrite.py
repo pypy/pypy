@@ -137,16 +137,20 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         self.handle_getfields(op)
 
     def possibly_add_dummy_allocation(self):
-        if not self.does_any_allocation:
-            # do a fake allocation since this is needed to check
-            # for requested safe-points:
-            self.does_any_allocation = True
+        # was necessary in C7 for others to commit, but in C8 it is only
+        # necessary for requesting major GCs. I think we better avoid this
+        # overhead for tight loops and wait a bit longer in that case.
+        pass
+        # if not self.does_any_allocation:
+        #     # do a fake allocation since this is needed to check
+        #     # for requested safe-points:
+        #     self.does_any_allocation = True
 
-            # minimum size for the slowpath of MALLOC_NURSERY:
-            size = self.gc_ll_descr.minimal_size_in_nursery
-            op = ResOperation(rop.LABEL, []) # temp, will be replaced by gen_malloc_nursery
-            assert self._op_malloc_nursery is None # no ongoing allocation
-            self.gen_malloc_nursery(size, op)
+        #     # minimum size for the slowpath of MALLOC_NURSERY:
+        #     size = self.gc_ll_descr.minimal_size_in_nursery
+        #     op = ResOperation(rop.LABEL, []) # temp, will be replaced by gen_malloc_nursery
+        #     assert self._op_malloc_nursery is None # no ongoing allocation
+        #     self.gen_malloc_nursery(size, op)
 
     def must_apply_write_barrier(self, val, v):
         # also apply for non-ref values
