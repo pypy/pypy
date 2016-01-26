@@ -32,7 +32,6 @@ def test_stdout_flush_at_shutdown(space):
         w_sys.flush_std_files(space)
 
         msg = space.bytes_w(space.call_function(w_read))
-        # IOError has become an alias for OSError
         assert 'Exception OSError' in msg
     finally:
         space.setattr(w_sys, space.wrap('stdout'), w_sys.get('__stdout__'))
