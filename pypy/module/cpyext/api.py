@@ -308,7 +308,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
                     elif is_PyObject(ARG) and is_wrapped:
                         # build a W_Root, possibly from a 'PyObject *'
                         if is_pyobj(input_arg):
-                            arg = from_pyobj(space, input_arg)
+                            arg = from_ref(space, input_arg)
                         else:
                             arg = input_arg
 
@@ -634,7 +634,7 @@ def make_wrapper(space, callable, gil=None):
                 arg = args[i]
                 if is_PyObject(typ) and is_wrapped:
                     assert is_pyobj(arg)
-                    arg_conv = from_pyobj(space, arg)
+                    arg_conv = from_ref(space, arg)
                 else:
                     arg_conv = arg
                 boxed_args += (arg_conv, )

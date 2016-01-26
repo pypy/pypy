@@ -209,17 +209,12 @@ def from_ref(space, ref):
     Finds the interpreter object corresponding to the given reference.  If the
     object is not yet realized (see stringobject.py), creates it.
     """
-    GOES_AWAY
-    assert lltype.typeOf(ref) == PyObject
+    assert is_pyobj(ref)
     if not ref:
         return None
-    state = space.fromcache(RefcountState)
-    ptr = rffi.cast(ADDR, ref)
-
-    try:
-        return state.py_objects_r2w[ptr]
-    except KeyError:
-        pass
+    w_obj = rawrefcount.to_obj(W_Root, pyobj)
+    if w_obj is not None:
+        return w_obj
 
     # This reference is not yet a real interpreter object.
     # Realize it.
@@ -258,20 +253,6 @@ INTERPLEVEL_API['as_pyobj'] = as_pyobj
 def pyobj_has_w_obj(pyobj):
     return rawrefcount.to_obj(W_Root, pyobj) is not None
 INTERPLEVEL_API['pyobj_has_w_obj'] = staticmethod(pyobj_has_w_obj)
-
-@specialize.ll()
-def from_pyobj(space, pyobj):
-    assert is_pyobj(pyobj)
-    if pyobj:
-        pyobj = rffi.cast(PyObject, pyobj)
-        w_obj = rawrefcount.to_obj(W_Root, pyobj)
-        if w_obj is None:
-            XXXXXXXXXXX
-        return w_obj
-    else:
-        return None
-from_pyobj._always_inline_ = 'try'
-INTERPLEVEL_API['from_pyobj'] = from_pyobj
 
 
 def is_pyobj(x):
@@ -321,7 +302,7 @@ def get_w_obj_and_decref(space, obj):
     """
     if is_pyobj(obj):
         pyobj = rffi.cast(PyObject, obj)
-        w_obj = from_pyobj(space, pyobj)
+        w_obj = from_ref(space, pyobj)
     else:
         w_obj = obj
         pyobj = as_pyobj(space, w_obj)
