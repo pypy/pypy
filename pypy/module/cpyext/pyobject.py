@@ -134,6 +134,9 @@ def get_typedescr(typedef):
 #________________________________________________________
 # refcounted object support
 
+class InvalidPointerException(Exception):
+    pass
+
 DEBUG_REFCOUNT = False
 
 def debug_refcount(*args, **kwargs):
@@ -229,48 +232,13 @@ def from_ref(space, ref):
     return get_typedescr(w_type.instancetypedef).realize(space, ref)
 
 
-# XXX Optimize these functions and put them into macro definitions
-@cpython_api([PyObject], lltype.Void)
-def Py_DecRef(space, obj):
-    ZZZ
-    if not obj:
-        return
-    assert lltype.typeOf(obj) == PyObject
-
-    obj.c_ob_refcnt -= 1
-    if DEBUG_REFCOUNT:
-        debug_refcount("DECREF", obj, obj.c_ob_refcnt, frame_stackdepth=3)
-    if obj.c_ob_refcnt == 0:
-        state = space.fromcache(RefcountState)
-        ptr = rffi.cast(ADDR, obj)
-        if ptr not in state.py_objects_r2w:
-            # this is a half-allocated object, lets call the deallocator
-            # without modifying the r2w/w2r dicts
-            _Py_Dealloc(space, obj)
-        else:
-            w_obj = state.py_objects_r2w[ptr]
-            del state.py_objects_r2w[ptr]
-            w_type = space.type(w_obj)
-            if not w_type.is_cpytype():
-                _Py_Dealloc(space, obj)
-            del state.py_objects_w2r[w_obj]
-            # if the object was a container for borrowed references
-            state.delete_borrower(w_obj)
-    else:
-        if not we_are_translated() and obj.c_ob_refcnt < 0:
-            message = "Negative refcount for obj %s with type %s" % (
-                obj, rffi.charp2str(obj.c_ob_type.c_tp_name))
-            print >>sys.stderr, message
-            assert False, message
-
 @cpython_api([PyObject], lltype.Void)
 def Py_IncRef(space, obj):
-    if not obj:
-        return
-    obj.c_ob_refcnt += 1
-    assert obj.c_ob_refcnt > 0
-    if DEBUG_REFCOUNT:
-        debug_refcount("INCREF", obj, obj.c_ob_refcnt, frame_stackdepth=3)
+    incref(obj)
+
+@cpython_api([PyObject], lltype.Void)
+def Py_DecRef(space, obj):
+    decref(space, obj)
 
 @cpython_api([PyObject], lltype.Void)
 def _Py_NewReference(space, obj):
@@ -279,6 +247,7 @@ def _Py_NewReference(space, obj):
     assert isinstance(w_type, W_TypeObject)
     get_typedescr(w_type.instancetypedef).realize(space, obj)
 
+@cpython_api([PyObject], lltype.Void)
 def _Py_Dealloc(space, obj):
     from pypy.module.cpyext.api import generic_cpy_call_dont_decref
     pto = obj.c_ob_type
