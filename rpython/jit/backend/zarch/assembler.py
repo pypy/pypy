@@ -542,7 +542,6 @@ class AssemblerZARCH(BaseAssembler, OpAssembler):
         mc.restore_link()
         # So we return to our caller, conditionally if "EQ"
         mc.BCR(c.EQ, r.r14)
-        mc.trap() # debug if this is EVER executed!
         #
         # Else, jump to propagate_exception_path
         assert self.propagate_exception_path
