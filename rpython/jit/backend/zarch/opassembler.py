@@ -716,9 +716,6 @@ class GuardOpAssembler(object):
     def _cmp_guard_gc_type(self, loc_ptr, expected_typeid):
         self._read_typeid(r.SCRATCH2, loc_ptr)
         assert 0 <= expected_typeid <= 0x7fffffff   # 4 bytes are always enough
-        if expected_typeid > 0xffff:     # if 2 bytes are not enough
-            self.mc.AGHI(r.SCRATCH2, l.imm(-(expected_typeid >> 16)))
-            expected_typeid = expected_typeid & 0xffff
         self.mc.cmp_op(r.SCRATCH2, l.imm(expected_typeid),
                        imm=True, signed=False)
 
