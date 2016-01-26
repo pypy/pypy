@@ -468,20 +468,13 @@ def type_attach(space, py_obj, w_type):
             PyObject_Del.api_func.get_wrapper(space))
     pto.c_tp_alloc = llhelper(PyType_GenericAlloc.api_func.functype,
             PyType_GenericAlloc.api_func.get_wrapper(space))
-    if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
-        w_typename = space.getattr(w_type, space.wrap('__name__'))
-        heaptype = rffi.cast(PyHeapTypeObject, pto)
-        heaptype.c_ht_name = get_pyobj_and_incref(space, w_typename)
-        from pypy.module.cpyext.stringobject import PyString_AsString
-        pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
-    else:
-        pto.c_tp_name = rffi.str2charp(w_type.name)
     # uninitialized fields:
     # c_tp_print, c_tp_getattr, c_tp_setattr
     # XXX implement
     # c_tp_compare and the following fields (see http://docs.python.org/c-api/typeobj.html )
     w_base = best_base(space, w_type.bases_w)
-    pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
+    py_base = get_pyobj_and_incref(space, w_base)
+    pto.c_tp_base = rffi.cast(PyTypeObjectPtr, py_base)
 
     finish_type_1(space, pto)
     finish_type_2(space, pto, w_type)
@@ -496,6 +489,16 @@ def type_attach(space, py_obj, w_type):
     if space.is_w(w_type, space.w_object):
         pto.c_tp_new = rffi.cast(newfunc, 1)
     update_all_slots(space, w_type, pto)
+
+    if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
+        w_typename = space.getattr(w_type, space.wrap('__name__'))
+        heaptype = rffi.cast(PyHeapTypeObject, pto)
+        heaptype.c_ht_name = get_pyobj_and_incref(space, w_typename)
+        from pypy.module.cpyext.stringobject import PyString_AsString
+        pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
+    else:
+        pto.c_tp_name = rffi.str2charp(w_type.name)
+
     pto.c_tp_flags |= Py_TPFLAGS_READY
     return pto
 
@@ -562,8 +565,7 @@ def _type_realize(space, py_obj):
 
     if not py_type.c_tp_base:
         # borrowed reference, but w_object is unlikely to disappear
-        base = make_ref(space, space.w_object)
-        Py_DecRef(space, base)
+        base = as_pyobj(space, space.w_object)
         py_type.c_tp_base = rffi.cast(PyTypeObjectPtr, base)
 
     finish_type_1(space, py_type)
@@ -597,7 +599,7 @@ def finish_type_1(space, pto):
             bases = space.newtuple([])
         else:
             bases = space.newtuple([from_ref(space, base_pyo)])
-        pto.c_tp_bases = make_ref(space, bases)
+        pto.c_tp_bases = get_pyobj_and_incref(space, bases)
 
 def finish_type_2(space, pto, w_obj):
     """
