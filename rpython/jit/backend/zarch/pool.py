@@ -131,7 +131,7 @@ class LiteralPool(object):
         if size == -1:
             size = self.size
         if size >= 2**19:
-            msg = '[S390X/literalpool] size exceeded %d >= %d\n' % (size, 2**19-8)
+            msg = '[S390X/literalpool] size exceeded %d >= %d\n' % (size, 2**19)
             if we_are_translated():
                 llop.debug_print(lltype.Void, msg)
             raise PoolOverflow(msg)
@@ -180,13 +180,8 @@ class LiteralPool(object):
         asm.mc.write('\x00' * self.size)
         wrote = 0
         for val, offset in self.offset_map.items():
-            if not we_are_translated():
-                print('pool: %s at offset: %d' % (val, offset))
             self.overwrite_64(asm.mc, offset, val)
             wrote += 8
-        # for the descriptors
-        if not we_are_translated():
-            print "pool with %d quad words" % (self.size // 8)
 
     def overwrite_64(self, mc, index, value):
         index += self.pool_start

@@ -287,9 +287,3 @@ all_mnemonic_codes.update(logic_mnemonic_codes)
 all_mnemonic_codes.update(memory_mnemonic_codes)
 all_mnemonic_codes.update(floatingpoint_mnemonic_codes)
 all_mnemonic_codes.update(branch_mnemonic_codes)
-
-
-if __name__ == "__main__":
-    print("%d instructions:" % len(all_mnemonic_codes))
-    for name, (typeinstr, _) in all_mnemonic_codes.items():
-        print(" %s\t(type: %s)" % (name, typeinstr))

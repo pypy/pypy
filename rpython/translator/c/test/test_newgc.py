@@ -698,7 +698,7 @@ class UsingFrameworkTest(object):
             # related to libffi issue on s390x, we MUST
             # overwrite the full ffi result which is 64 bit
             # if not, this leaves garbage in the return value
-            # and qsort does not sorrt correctly
+            # and qsort does not sort correctly
             res = rffi.cast(rffi.SIGNEDP, ll_res)
             if a1 > a2:
                 res[0] = 1
