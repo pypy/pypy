@@ -150,6 +150,7 @@ def create_ref(space, w_obj, itemcount=0):
     Allocates a PyObject, and fills its fields with info from the given
     intepreter object.
     """
+    GOES_AWAY
     state = space.fromcache(RefcountState)
     w_type = space.type(w_obj)
     if w_type.is_cpytype():
@@ -169,6 +170,7 @@ def track_reference(space, py_obj, w_obj, replace=False):
     """
     Ties together a PyObject and an interpreter object.
     """
+    GOES_AWAY
     # XXX looks like a PyObject_GC_TRACK
     ptr = rffi.cast(ADDR, py_obj)
     state = space.fromcache(RefcountState)
@@ -185,6 +187,7 @@ def make_ref(space, w_obj):
     """
     Returns a new reference to an intepreter object.
     """
+    GOES_AWAY
     if w_obj is None:
         return lltype.nullptr(PyObject.TO)
     assert isinstance(w_obj, W_Root)
@@ -204,6 +207,7 @@ def from_ref(space, ref):
     Finds the interpreter object corresponding to the given reference.  If the
     object is not yet realized (see stringobject.py), creates it.
     """
+    GOES_AWAY
     assert lltype.typeOf(ref) == PyObject
     if not ref:
         return None
@@ -228,6 +232,7 @@ def from_ref(space, ref):
 # XXX Optimize these functions and put them into macro definitions
 @cpython_api([PyObject], lltype.Void)
 def Py_DecRef(space, obj):
+    ZZZ
     if not obj:
         return
     assert lltype.typeOf(obj) == PyObject
@@ -284,3 +289,11 @@ def _Py_Dealloc(space, obj):
 @cpython_api([rffi.VOIDP], lltype.Signed, error=CANNOT_FAIL)
 def _Py_HashPointer(space, ptr):
     return rffi.cast(lltype.Signed, ptr)
+
+
+class RefcountState:
+    def __init__(self, *args):
+        GOES_AWAY
+
+def borrow_from(container, borrowed):
+    GOES_AWAY

@@ -192,7 +192,7 @@ cpyext_namespace = NameManager('cpyext_')
 
 class ApiFunction:
     def __init__(self, argtypes, restype, callable, error=_NOT_SPECIFIED,
-                 c_name=None, gil=None):
+                 c_name=None, gil=None, result_borrowed=False):
         self.argtypes = argtypes
         self.restype = restype
         self.functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
@@ -209,16 +209,14 @@ class ApiFunction:
         self.argnames = argnames[1:]
         assert len(self.argnames) == len(self.argtypes)
         self.gil = gil
+        self.result_borrowed = result_borrowed
+        #
+        def get_llhelper(space):
+            return llhelper(self.functype, self.get_wrapper(space))
+        self.get_llhelper = get_llhelper
 
     def _freeze_(self):
         return True
-
-    def get_llhelper(self, space):
-        llh = getattr(self, '_llhelper', None)
-        if llh is None:
-            llh = llhelper(self.functype, self.get_wrapper(space))
-            self._llhelper = llh
-        return llh
 
     @specialize.memo()
     def get_wrapper(self, space):
@@ -232,7 +230,7 @@ class ApiFunction:
         return wrapper
 
 def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
-                gil=None):
+                gil=None, result_borrowed=False):
     """
     Declares a function to be exported.
     - `argtypes`, `restype` are lltypes and describe the function signature.
@@ -261,13 +259,15 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
                       rffi.cast(restype, 0) == 0)
 
     def decorate(func):
+        func._always_inline_ = 'try'
         func_name = func.func_name
         if external:
             c_name = None
         else:
             c_name = func_name
         api_function = ApiFunction(argtypes, restype, func, error,
-                                   c_name=c_name, gil=gil)
+                                   c_name=c_name, gil=gil,
+                                   result_borrowed=result_borrowed)
         func.api_func = api_function
 
         if external:
@@ -278,6 +278,10 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
             raise ValueError("function %s has no return value for exceptions"
                              % func)
         def make_unwrapper(catch_exception):
+            # ZZZ is this whole logic really needed???  It seems to be only
+            # for RPython code calling PyXxx() functions directly.  I would
+            # think that usually directly calling the function is clean
+            # enough now
             names = api_function.argnames
             types_names_enum_ui = unrolling_iterable(enumerate(
                 zip(api_function.argtypes,
@@ -289,52 +293,55 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
                 from pypy.module.cpyext.pyobject import make_ref, from_ref
                 from pypy.module.cpyext.pyobject import Reference
                 newargs = ()
-                to_decref = []
+                keepalives = ()
                 assert len(args) == len(api_function.argtypes)
                 for i, (ARG, is_wrapped) in types_names_enum_ui:
                     input_arg = args[i]
                     if is_PyObject(ARG) and not is_wrapped:
-                        # build a reference
-                        if input_arg is None:
-                            arg = lltype.nullptr(PyObject.TO)
-                        elif isinstance(input_arg, W_Root):
-                            ref = make_ref(space, input_arg)
-                            to_decref.append(ref)
-                            arg = rffi.cast(ARG, ref)
+                        # build a 'PyObject *' (not holding a reference)
+                        if not is_pyobj(input_arg):
+                            keepalives += (input_arg,)
+                            arg = rffi.cast(ARG, as_xpyobj(space, input_arg))
                         else:
-                            arg = input_arg
+                            arg = rffi.cast(ARG, input_arg)
                     elif is_PyObject(ARG) and is_wrapped:
-                        # convert to a wrapped object
-                        if input_arg is None:
-                            arg = input_arg
-                        elif isinstance(input_arg, W_Root):
-                            arg = input_arg
+                        # build a W_Root, possibly from a 'PyObject *'
+                        if is_pyobj(input_arg):
+                            arg = from_pyobj(space, input_arg)
                         else:
-                            try:
-                                arg = from_ref(space,
-                                           rffi.cast(PyObject, input_arg))
-                            except TypeError, e:
-                                err = OperationError(space.w_TypeError,
-                                         space.wrap(
-                                        "could not cast arg to PyObject"))
-                                if not catch_exception:
-                                    raise err
-                                state = space.fromcache(State)
-                                state.set_exception(err)
-                                if is_PyObject(restype):
-                                    return None
-                                else:
-                                    return api_function.error_value
+                            arg = input_arg
+
+                            ## ZZZ: for is_pyobj:
+                            ## try:
+                            ##     arg = from_ref(space,
+                            ##                rffi.cast(PyObject, input_arg))
+                            ## except TypeError, e:
+                            ##     err = OperationError(space.w_TypeError,
+                            ##              space.wrap(
+                            ##             "could not cast arg to PyObject"))
+                            ##     if not catch_exception:
+                            ##         raise err
+                            ##     state = space.fromcache(State)
+                            ##     state.set_exception(err)
+                            ##     if is_PyObject(restype):
+                            ##         return None
+                            ##     else:
+                            ##         return api_function.error_value
                     else:
-                        # convert to a wrapped object
+                        # arg is not declared as PyObject, no magic
                         arg = input_arg
                     newargs += (arg, )
-                try:
+                if not catch_exception:
+                    try:
+                        res = func(space, *newargs)
+                    finally:
+                        keepalive_until_here(*keepalives)
+                else:
+                    # non-rpython variant
+                    assert not we_are_translated()
                     try:
                         res = func(space, *newargs)
                     except OperationError, e:
-                        if not catch_exception:
-                            raise
                         if not hasattr(api_function, "error_value"):
                             raise
                         state = space.fromcache(State)
@@ -343,21 +350,13 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True,
                             return None
                         else:
                             return api_function.error_value
-                    if not we_are_translated():
-                        got_integer = isinstance(res, (int, long, float))
-                        assert got_integer == expect_integer,'got %r not integer' % res
-                    if res is None:
-                        return None
-                    elif isinstance(res, Reference):
-                        return res.get_wrapped(space)
-                    else:
-                        return res
-                finally:
-                    for arg in to_decref:
-                        Py_DecRef(space, arg)
+                    # 'keepalives' is alive here (it's not rpython)
+                    got_integer = isinstance(res, (int, long, float))
+                    assert got_integer == expect_integer, (
+                        'got %r not integer' % (res,))
+                return res
             unwrapper.func = func
             unwrapper.api_func = api_function
-            unwrapper._always_inline_ = 'try'
             return unwrapper
 
         unwrapper_catch = make_unwrapper(True)
@@ -625,6 +624,7 @@ def make_wrapper(space, callable, gil=None):
         llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
         retval = fatal_value
         boxed_args = ()
+        tb = None
         try:
             if not we_are_translated() and DEBUG_WRAPPER:
                 print >>sys.stderr, callable,
@@ -632,10 +632,8 @@ def make_wrapper(space, callable, gil=None):
             for i, (typ, is_wrapped) in argtypes_enum_ui:
                 arg = args[i]
                 if is_PyObject(typ) and is_wrapped:
-                    if arg:
-                        arg_conv = from_ref(space, rffi.cast(PyObject, arg))
-                    else:
-                        arg_conv = None
+                    assert is_pyobj(arg)
+                    arg_conv = from_pyobj(space, arg)
                 else:
                     arg_conv = arg
                 boxed_args += (arg_conv, )
@@ -650,6 +648,7 @@ def make_wrapper(space, callable, gil=None):
             except BaseException, e:
                 failed = True
                 if not we_are_translated():
+                    tb = sys.exc_info()[2]
                     message = repr(e)
                     import traceback
                     traceback.print_exc()
@@ -668,29 +667,34 @@ def make_wrapper(space, callable, gil=None):
                 retval = error_value
 
             elif is_PyObject(callable.api_func.restype):
-                if result is None:
-                    retval = rffi.cast(callable.api_func.restype,
-                                       make_ref(space, None))
-                elif isinstance(result, Reference):
-                    retval = result.get_ref(space)
-                elif not rffi._isllptr(result):
-                    retval = rffi.cast(callable.api_func.restype,
-                                       make_ref(space, result))
-                else:
+                if is_pyobj(result):
                     retval = result
+                else:
+                    if result is None:
+                        if callable.api_func.result_borrowed:
+                            retval = as_pyobj(space, result)
+                        else:
+                            retval = get_pyobj_and_incref(space, result)
+                        retval = rffi.cast(callable.api_func.restype, retval)
+                    else:
+                        retval = lltype.nullptr(PyObject.TO)
             elif callable.api_func.restype is not lltype.Void:
                 retval = rffi.cast(callable.api_func.restype, result)
         except Exception, e:
             print 'Fatal error in cpyext, CPython compatibility layer, calling', callable.__name__
             print 'Either report a bug or consider not using this particular extension'
             if not we_are_translated():
+                if tb is None:
+                    tb = sys.exc_info()[2]
                 import traceback
                 traceback.print_exc()
-                print str(e)
+                if sys.stdout == sys.__stdout__:
+                    import pdb; pdb.post_mortem(tb)
                 # we can't do much here, since we're in ctypes, swallow
             else:
                 print str(e)
                 pypy_debug_catch_fatal_exception()
+                assert False
         rffi.stackcounter.stacks_counter -= 1
         if gil_release:
             rgil.release()
@@ -843,7 +847,7 @@ def build_bridge(space):
 
     # populate static data
     for name, (typ, expr) in GLOBALS.iteritems():
-        from pypy.module import cpyext
+        from pypy.module import cpyext    # for the eval() below
         w_obj = eval(expr)
         if name.endswith('#'):
             name = name[:-1]
@@ -1204,20 +1208,15 @@ def load_cpyext_module(space, name, path, dll, initptr):
 @specialize.ll()
 def generic_cpy_call(space, func, *args):
     FT = lltype.typeOf(func).TO
-    return make_generic_cpy_call(FT, True, False)(space, func, *args)
-
-@specialize.ll()
-def generic_cpy_call_dont_decref(space, func, *args):
-    FT = lltype.typeOf(func).TO
-    return make_generic_cpy_call(FT, False, False)(space, func, *args)
+    return make_generic_cpy_call(FT, False)(space, func, *args)
 
 @specialize.ll()
 def generic_cpy_call_expect_null(space, func, *args):
     FT = lltype.typeOf(func).TO
-    return make_generic_cpy_call(FT, True, True)(space, func, *args)
+    return make_generic_cpy_call(FT, True)(space, func, *args)
 
 @specialize.memo()
-def make_generic_cpy_call(FT, decref_args, expect_null):
+def make_generic_cpy_call(FT, expect_null):
     from pypy.module.cpyext.pyobject import make_ref, from_ref, Py_DecRef
     from pypy.module.cpyext.pyobject import RefcountState
     from pypy.module.cpyext.pyerrors import PyErr_Occurred
@@ -1247,65 +1246,49 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
     @specialize.ll()
     def generic_cpy_call(space, func, *args):
         boxed_args = ()
-        to_decref = []
+        keepalives = ()
         assert len(args) == len(FT.ARGS)
         for i, ARG in unrolling_arg_types:
             arg = args[i]
             if is_PyObject(ARG):
-                if arg is None:
-                    boxed_args += (lltype.nullptr(PyObject.TO),)
-                elif isinstance(arg, W_Root):
-                    ref = make_ref(space, arg)
-                    boxed_args += (ref,)
-                    if decref_args:
-                        to_decref.append(ref)
-                else:
-                    boxed_args += (arg,)
-            else:
-                boxed_args += (arg,)
+                if not is_pyobj(arg):
+                    keepalives += (arg,)
+                    arg = as_pyobj(space, arg)
+            boxed_args += (arg,)
 
         try:
-            # create a new container for borrowed references
-            state = space.fromcache(RefcountState)
-            old_container = state.swap_borrow_container(None)
-            try:
-                # Call the function
-                result = call_external_function(func, *boxed_args)
-            finally:
-                state.swap_borrow_container(old_container)
-
-            if is_PyObject(RESULT_TYPE):
-                if result is None:
-                    ret = result
-                elif isinstance(result, W_Root):
-                    ret = result
-                else:
-                    ret = from_ref(space, result)
-                    # The object reference returned from a C function
-                    # that is called from Python must be an owned reference
-                    # - ownership is transferred from the function to its caller.
-                    if result:
-                        Py_DecRef(space, result)
-
-                # Check for exception consistency
-                has_error = PyErr_Occurred(space) is not None
-                has_result = ret is not None
-                if has_error and has_result:
-                    raise OperationError(space.w_SystemError, space.wrap(
-                        "An exception was set, but function returned a value"))
-                elif not expect_null and not has_error and not has_result:
-                    raise OperationError(space.w_SystemError, space.wrap(
-                        "Function returned a NULL result without setting an exception"))
-
-                if has_error:
-                    state = space.fromcache(State)
-                    state.check_and_raise_exception()
-
-                return ret
-            return result
+            # Call the function
+            result = call_external_function(func, *boxed_args)
         finally:
-            if decref_args:
-                for ref in to_decref:
-                    Py_DecRef(space, ref)
-    return generic_cpy_call
+            keepalive_until_here(*keepalives)
 
+        if is_PyObject(RESULT_TYPE):
+            if not is_pyobj(result):
+                ret = result
+            else:
+                # The object reference returned from a C function
+                # that is called from Python must be an owned reference
+                # - ownership is transferred from the function to its caller.
+                if result:
+                    ret = get_w_obj_and_decref(space, result)
+                else:
+                    ret = None
+
+            # Check for exception consistency
+            has_error = PyErr_Occurred(space) is not None
+            has_result = ret is not None
+            if has_error and has_result:
+                raise OperationError(space.w_SystemError, space.wrap(
+                    "An exception was set, but function returned a value"))
+            elif not expect_null and not has_error and not has_result:
+                raise OperationError(space.w_SystemError, space.wrap(
+                    "Function returned a NULL result without setting an exception"))
+
+            if has_error:
+                state = space.fromcache(State)
+                state.check_and_raise_exception()
+
+            return ret
+        return result
+
+    return generic_cpy_call
