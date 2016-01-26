@@ -682,11 +682,10 @@ class GuardOpAssembler(object):
     def emit_guard_nonnull_class(self, op, arglocs, regalloc):
         self.mc.cmp_op(arglocs[0], l.imm(1), imm=True, signed=False)
         patch_pos = self.mc.currpos()
-        self.mc.trap()
-        self.mc.write('\x00' * 4)
+        self.mc.reserve_cond_jump(short=True)
         self._cmp_guard_class(op, arglocs, regalloc)
         pmc = OverwritingBuilder(self.mc, patch_pos, 1)
-        pmc.BRCL(c.LT, l.imm(self.mc.currpos() - patch_pos))
+        pmc.BRC(c.LT, l.imm(self.mc.currpos() - patch_pos))
         pmc.overwrite()
         self.guard_success_cc = c.EQ
         self._emit_guard(op, arglocs[2:])
@@ -716,6 +715,7 @@ class GuardOpAssembler(object):
     def _cmp_guard_gc_type(self, loc_ptr, expected_typeid):
         self._read_typeid(r.SCRATCH2, loc_ptr)
         assert 0 <= expected_typeid <= 0x7fffffff   # 4 bytes are always enough
+        # we can handle 4 byte compare immediate
         self.mc.cmp_op(r.SCRATCH2, l.imm(expected_typeid),
                        imm=True, signed=False)
 
