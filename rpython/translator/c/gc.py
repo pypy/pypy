@@ -1,8 +1,7 @@
 import sys
 from rpython.flowspace.model import Constant
-from rpython.rtyper.lltypesystem import lltype
-from rpython.rtyper.lltypesystem.lltype import (typeOf, RttiStruct,
-     RuntimeTypeInfo, top_container)
+from rpython.rtyper.lltypesystem.lltype import (RttiStruct,
+     RuntimeTypeInfo)
 from rpython.translator.c.node import ContainerNode
 from rpython.translator.c.support import cdecl
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -18,22 +17,11 @@ class BasicGcPolicy(object):
             return defnode.db.gctransformer.HDR
         return None
 
-    def common_gcheader_initdata(self, defnode):
-        if defnode.db.gctransformer is not None:
-            raise NotImplementedError
-        return None
-
     def struct_gcheader_definition(self, defnode):
         return self.common_gcheader_definition(defnode)
 
-    def struct_gcheader_initdata(self, defnode):
-        return self.common_gcheader_initdata(defnode)
-
     def array_gcheader_definition(self, defnode):
         return self.common_gcheader_definition(defnode)
-
-    def array_gcheader_initdata(self, defnode):
-        return self.common_gcheader_initdata(defnode)
 
     def compilation_info(self):
         if not self.db:
@@ -45,9 +33,6 @@ class BasicGcPolicy(object):
                               '#define MALLOC_ZERO_FILLED %d' % (gct.malloc_zero_filled,),
                               ]
             )
-
-    def get_prebuilt_hash(self, obj):
-        return None
 
     def need_no_typeptr(self):
         return False
@@ -109,16 +94,9 @@ class RefcountingInfo:
 
 class RefcountingGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self):
+    def gettransformer(self, translator):
         from rpython.memory.gctransform import refcounting
-        return refcounting.RefcountingGCTransformer(self.db.translator)
-
-    def common_gcheader_initdata(self, defnode):
-        if defnode.db.gctransformer is not None:
-            gct = defnode.db.gctransformer
-            top = top_container(defnode.obj)
-            return gct.gcheaderbuilder.header_of_object(top)._obj
-        return None
+        return refcounting.RefcountingGCTransformer(translator)
 
     # for structs
 
@@ -197,16 +175,9 @@ class BoehmInfo:
 
 class BoehmGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self):
+    def gettransformer(self, translator):
         from rpython.memory.gctransform import boehm
-        return boehm.BoehmGCTransformer(self.db.translator)
-
-    def common_gcheader_initdata(self, defnode):
-        if defnode.db.gctransformer is not None:
-            hdr = lltype.malloc(defnode.db.gctransformer.HDR, immortal=True)
-            hdr.hash = lltype.identityhash_nocache(defnode.obj._as_ptr())
-            return hdr._obj
-        return None
+        return boehm.BoehmGCTransformer(translator)
 
     def array_setup(self, arraydefnode):
         pass
@@ -313,9 +284,9 @@ class NoneGcPolicy(BoehmGcPolicy):
 
 class BasicFrameworkGcPolicy(BasicGcPolicy):
 
-    def gettransformer(self):
+    def gettransformer(self, translator):
         if hasattr(self, 'transformerclass'):    # for rpython/memory tests
-            return self.transformerclass(self.db.translator)
+            return self.transformerclass(translator)
         raise NotImplementedError
 
     def struct_setup(self, structdefnode, rtti):
@@ -361,24 +332,6 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
         else:
             args = [funcgen.expr(v) for v in op.args]
             return '%s = %s; /* for moving GCs */' % (args[1], args[0])
-
-    def common_gcheader_initdata(self, defnode):
-        o = top_container(defnode.obj)
-        needs_hash = self.get_prebuilt_hash(o) is not None
-        hdr = defnode.db.gctransformer.gc_header_for(o, needs_hash)
-        return hdr._obj
-
-    def get_prebuilt_hash(self, obj):
-        # for prebuilt objects that need to have their hash stored and
-        # restored.  Note that only structures that are StructNodes all
-        # the way have their hash stored (and not e.g. structs with var-
-        # sized arrays at the end).  'obj' must be the top_container.
-        TYPE = typeOf(obj)
-        if not isinstance(TYPE, lltype.GcStruct):
-            return None
-        if TYPE._is_varsize():
-            return None
-        return getattr(obj, '_hash_cache_', None)
 
     def need_no_typeptr(self):
         config = self.db.translator.config
@@ -440,15 +393,15 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
 
 class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
-    def gettransformer(self):
+    def gettransformer(self, translator):
         from rpython.memory.gctransform import shadowstack
-        return shadowstack.ShadowStackFrameworkGCTransformer(self.db.translator)
+        return shadowstack.ShadowStackFrameworkGCTransformer(translator)
 
 class AsmGcRootFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
-    def gettransformer(self):
+    def gettransformer(self, translator):
         from rpython.memory.gctransform import asmgcroot
-        return asmgcroot.AsmGcRootFrameworkGCTransformer(self.db.translator)
+        return asmgcroot.AsmGcRootFrameworkGCTransformer(translator)
 
     def GC_KEEPALIVE(self, funcgen, v):
         return 'pypy_asm_keepalive(%s);' % funcgen.expr(v)
