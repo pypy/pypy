@@ -37,6 +37,7 @@ from pypy.module.exceptions import interp_exceptions
 from py.builtin import BaseException
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rlib import rawrefcount
 
 DEBUG_WRAPPER = True
 
@@ -825,14 +826,6 @@ def build_bridge(space):
         outputfilename=str(udir / "module_cache" / "pypyapi"))
     modulename = py.path.local(eci.libraries[-1])
 
-    run_bootstrap_functions(space)
-
-    # load the bridge, and init structure
-    import ctypes
-    bridge = ctypes.CDLL(str(modulename), mode=ctypes.RTLD_GLOBAL)
-
-    space.fromcache(State).install_dll(eci)
-
     def dealloc_trigger():
         print 'dealloc_trigger...'
         while True:
@@ -844,6 +837,14 @@ def build_bridge(space):
         print 'dealloc_trigger DONE'
         return "RETRY"
     rawrefcount.init(dealloc_trigger)
+
+    run_bootstrap_functions(space)
+
+    # load the bridge, and init structure
+    import ctypes
+    bridge = ctypes.CDLL(str(modulename), mode=ctypes.RTLD_GLOBAL)
+
+    space.fromcache(State).install_dll(eci)
 
     # populate static data
     for name, (typ, expr) in GLOBALS.iteritems():

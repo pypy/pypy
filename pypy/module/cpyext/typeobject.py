@@ -311,54 +311,12 @@ def init_typeobject(space):
                    realize=type_realize,
                    dealloc=type_dealloc)
 
-    # some types are difficult to create because of cycles.
-    # - object.ob_type = type
-    # - type.ob_type   = type
-    # - tuple.ob_type  = type
-    # - type.tp_base   = object
-    # - tuple.tp_base  = object
-    # - type.tp_bases is a tuple
-    # - object.tp_bases is a tuple
-    # - tuple.tp_bases is a tuple
-
-    # we create the types manually here
+    # we create the type "type" manually here, because of the cycle
+    # through its 'c_ob_type' field
     py_type   = _type_alloc(space, lltype.nullptr(PyTypeObject))
-    py_object = _type_alloc(space, lltype.nullptr(PyTypeObject))
-    py_tuple  = _type_alloc(space, lltype.nullptr(PyTypeObject))
-    py_str    = _type_alloc(space, lltype.nullptr(PyTypeObject))
-    ...
-    
-    py_type = create_ref(space, space.w_type)
-    py_object = create_ref(space, space.w_object)
-    py_tuple = create_ref(space, space.w_tuple)
-    py_str = create_ref(space, space.w_str)
-    # XXX py_str is not initialized here correctly, because we are
-    #     not tracking it, it gets an empty c_ob_type from py_basestring
-
-    # form cycles
-    pto_type = rffi.cast(PyTypeObjectPtr, py_type)
-    py_type.c_ob_type = pto_type
-    py_object.c_ob_type = pto_type
-    py_tuple.c_ob_type = pto_type
-
-    pto_object = rffi.cast(PyTypeObjectPtr, py_object)
-    pto_type.c_tp_base = pto_object
-    pto_tuple = rffi.cast(PyTypeObjectPtr, py_tuple)
-    pto_tuple.c_tp_base = pto_object
-
-    pto_type.c_tp_bases.c_ob_type = pto_tuple
-    pto_object.c_tp_bases.c_ob_type = pto_tuple
-    pto_tuple.c_tp_bases.c_ob_type = pto_tuple
-
-    for typ in (py_type, py_object, py_tuple, py_str):
-        heaptype = rffi.cast(PyHeapTypeObject, typ)
-        heaptype.c_ht_name.c_ob_type = pto_type
-
-    # Restore the mapping
-    track_reference(space, py_type, space.w_type, replace=True)
-    track_reference(space, py_object, space.w_object, replace=True)
-    track_reference(space, py_tuple, space.w_tuple, replace=True)
-    track_reference(space, py_str, space.w_str, replace=True)
+    py_type.c_ob_type = rffi.cast(PyTypeObjectPtr, py_type)
+    track_reference(space, py_type, space.w_type)
+    type_attach(space, py_type, space.w_type)
 
 
 @cpython_api([PyObject], lltype.Void, external=False)
@@ -510,7 +468,7 @@ def type_attach(space, py_obj, w_type):
     if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         w_typename = space.getattr(w_type, space.wrap('__name__'))
         heaptype = rffi.cast(PyHeapTypeObject, pto)
-        heaptype.c_ht_name = make_ref(space, w_typename)
+        heaptype.c_ht_name = get_pyobj_and_incref(space, w_typename)
         from pypy.module.cpyext.stringobject import PyString_AsString
         pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
     else:

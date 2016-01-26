@@ -13,6 +13,8 @@ from pypy.objspace.std.objectobject import W_ObjectObject
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rweakref import RWeakKeyDictionary
 from rpython.rtyper.annlowlevel import llhelper
+from rpython.rlib import rawrefcount
+
 
 #________________________________________________________
 # type description
@@ -31,12 +33,13 @@ class BaseCpyTypedescr(object):
         # similar to PyType_GenericAlloc?
         # except that it's not related to any pypy object.
 
-        pytype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_type))
+        pytype = get_pyobj_and_incref(space, w_type)
+        pytype = rffi.cast(PyTypeObjectPtr, pytype)
+        assert pytype
         # Don't increase refcount for non-heaptypes
-        if pytype:
-            flags = rffi.cast(lltype.Signed, pytype.c_tp_flags)
-            if not flags & Py_TPFLAGS_HEAPTYPE:
-                Py_DecRef(space, w_type)
+        flags = rffi.cast(lltype.Signed, pytype.c_tp_flags)
+        if not flags & Py_TPFLAGS_HEAPTYPE:
+            Py_DecRef(space, w_type)
 
         if pytype:
             size = pytype.c_tp_basicsize
@@ -158,19 +161,18 @@ def create_ref(space, w_obj, itemcount=0):
     #state = space.fromcache(RefcountState)
     w_type = space.type(w_obj)
     if w_type.is_cpytype():
-        py_obj = state.get_from_lifeline(w_obj)
+        ZZZ # py_obj = state.get_from_lifeline(w_obj)
         if py_obj:
             Py_IncRef(space, py_obj)
             return py_obj
 
     typedescr = get_typedescr(w_obj.typedef)
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount)
-    if w_type.is_cpytype():
-        state.set_lifeline(w_obj, py_obj)
+    track_reference(space, py_obj, w_obj)
     typedescr.attach(space, py_obj, w_obj)
     return py_obj
 
-def track_reference(space, py_obj, w_obj, replace=False):
+def track_reference(space, py_obj, w_obj):
     """
     Ties together a PyObject and an interpreter object.
     """
@@ -181,8 +183,6 @@ def track_reference(space, py_obj, w_obj, replace=False):
         debug_refcount("MAKREF", py_obj, w_obj)
         assert w_obj
         assert py_obj
-        if not replace:
-            assert w_obj not in state.py_objects_w2r
     rawrefcount.create_link_pypy(py_obj, w_obj)
 
 def make_ref(space, w_obj):
@@ -239,14 +239,17 @@ def as_pyobj(space, w_obj):
     """
     Returns a 'PyObject *' representing the given intepreter object.
     This doesn't give a new reference, but the returned 'PyObject *'
-    is valid at least as long as 'w_obj' is.  To be safe, you should
-    use keepalive_until_here(w_obj) some time later.
-
-    NOTE: get_pyobj_and_incref() is safer.
+    is valid at least as long as 'w_obj' is.  **To be safe, you should
+    use keepalive_until_here(w_obj) some time later.**  In case of
+    doubt, use the safer get_pyobj_and_incref().
     """
     if w_obj is not None:
         assert not is_pyobj(w_obj)
-        return XXXXXXXXXXX
+        py_obj = rawrefcount.from_obj(PyObject, w_obj)
+        if not py_obj:
+            py_obj = create_ref(space, w_obj)
+            #track_reference(space, py_obj, w_obj) -- included with create_ref()
+        return py_obj
     else:
         return lltype.nullptr(PyObject.TO)
 as_pyobj._always_inline_ = 'try'
