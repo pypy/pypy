@@ -21,7 +21,8 @@ from pypy.module.cpyext.methodobject import (
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
-    track_reference, RefcountState, borrow_from, Py_DecRef)
+    track_reference, RefcountState, borrow_from, Py_DecRef,
+    get_pyobj_and_incref)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
 from pypy.module.cpyext.state import State
@@ -320,13 +321,13 @@ def init_typeobject(space):
     # - object.tp_bases is a tuple
     # - tuple.tp_bases is a tuple
 
-    # insert null placeholders to please create_ref()
-    track_reference(space, lltype.nullptr(PyObject.TO), space.w_type)
-    track_reference(space, lltype.nullptr(PyObject.TO), space.w_object)
-    track_reference(space, lltype.nullptr(PyObject.TO), space.w_tuple)
-    track_reference(space, lltype.nullptr(PyObject.TO), space.w_str)
-
-    # create the objects
+    # we create the types manually here
+    py_type   = _type_alloc(space, lltype.nullptr(PyTypeObject))
+    py_object = _type_alloc(space, lltype.nullptr(PyTypeObject))
+    py_tuple  = _type_alloc(space, lltype.nullptr(PyTypeObject))
+    py_str    = _type_alloc(space, lltype.nullptr(PyTypeObject))
+    ...
+    
     py_type = create_ref(space, space.w_type)
     py_object = create_ref(space, space.w_object)
     py_tuple = create_ref(space, space.w_tuple)
@@ -459,13 +460,16 @@ def type_dealloc(space, obj):
 
 
 def type_alloc(space, w_metatype):
-    metatype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_metatype))
+    metatype = get_pyobj_and_incref(space, w_metatype)
+    metatype = rffi.cast(PyTypeObjectPtr, metatype)
+    assert metatype
     # Don't increase refcount for non-heaptypes
-    if metatype:
-        flags = rffi.cast(lltype.Signed, metatype.c_tp_flags)
-        if not flags & Py_TPFLAGS_HEAPTYPE:
-            Py_DecRef(space, w_metatype)
+    flags = rffi.cast(lltype.Signed, metatype.c_tp_flags)
+    if not flags & Py_TPFLAGS_HEAPTYPE:
+        Py_DecRef(space, w_metatype)
+    return _type_alloc(space, metatype)
 
+def _type_alloc(space, metatype):
     heaptype = lltype.malloc(PyHeapTypeObject.TO,
                              flavor='raw', zero=True)
     pto = heaptype.c_ht_type

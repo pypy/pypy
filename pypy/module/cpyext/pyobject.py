@@ -2,9 +2,11 @@ import sys
 
 from pypy.interpreter.baseobjspace import W_Root, SpaceCache
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.extregistry import ExtRegistryEntry
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
-    CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr)
+    CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr,
+    INTERPLEVEL_API)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
@@ -151,10 +153,9 @@ def debug_refcount(*args, **kwargs):
 def create_ref(space, w_obj, itemcount=0):
     """
     Allocates a PyObject, and fills its fields with info from the given
-    intepreter object.
+    interpreter object.
     """
-    GOES_AWAY
-    state = space.fromcache(RefcountState)
+    #state = space.fromcache(RefcountState)
     w_type = space.type(w_obj)
     if w_type.is_cpytype():
         py_obj = state.get_from_lifeline(w_obj)
@@ -173,18 +174,16 @@ def track_reference(space, py_obj, w_obj, replace=False):
     """
     Ties together a PyObject and an interpreter object.
     """
-    GOES_AWAY
     # XXX looks like a PyObject_GC_TRACK
-    ptr = rffi.cast(ADDR, py_obj)
-    state = space.fromcache(RefcountState)
+    assert py_obj.c_ob_refcnt < rawrefcount.REFCNT_FROM_PYPY
+    py_obj.c_ob_refcnt += rawrefcount.REFCNT_FROM_PYPY
     if DEBUG_REFCOUNT:
         debug_refcount("MAKREF", py_obj, w_obj)
+        assert w_obj
+        assert py_obj
         if not replace:
             assert w_obj not in state.py_objects_w2r
-        assert ptr not in state.py_objects_r2w
-    state.py_objects_w2r[w_obj] = py_obj
-    if ptr: # init_typeobject() bootstraps with NULL references
-        state.py_objects_r2w[ptr] = w_obj
+    rawrefcount.create_link_pypy(py_obj, w_obj)
 
 def make_ref(space, w_obj):
     """
@@ -230,6 +229,124 @@ def from_ref(space, ref):
     w_type = from_ref(space, ref_type)
     assert isinstance(w_type, W_TypeObject)
     return get_typedescr(w_type.instancetypedef).realize(space, ref)
+
+
+def debug_collect():
+    rawrefcount._collect(track_allocation=False)
+
+
+def as_pyobj(space, w_obj):
+    """
+    Returns a 'PyObject *' representing the given intepreter object.
+    This doesn't give a new reference, but the returned 'PyObject *'
+    is valid at least as long as 'w_obj' is.  To be safe, you should
+    use keepalive_until_here(w_obj) some time later.
+
+    NOTE: get_pyobj_and_incref() is safer.
+    """
+    if w_obj is not None:
+        assert not is_pyobj(w_obj)
+        return XXXXXXXXXXX
+    else:
+        return lltype.nullptr(PyObject.TO)
+as_pyobj._always_inline_ = 'try'
+INTERPLEVEL_API['as_pyobj'] = as_pyobj
+
+def pyobj_has_w_obj(pyobj):
+    return rawrefcount.to_obj(W_Root, pyobj) is not None
+INTERPLEVEL_API['pyobj_has_w_obj'] = staticmethod(pyobj_has_w_obj)
+
+@specialize.ll()
+def from_pyobj(space, pyobj):
+    assert is_pyobj(pyobj)
+    if pyobj:
+        pyobj = rffi.cast(PyObject, pyobj)
+        w_obj = rawrefcount.to_obj(W_Root, pyobj)
+        if w_obj is None:
+            XXXXXXXXXXX
+        return w_obj
+    else:
+        return None
+from_pyobj._always_inline_ = 'try'
+INTERPLEVEL_API['from_pyobj'] = from_pyobj
+
+
+def is_pyobj(x):
+    if x is None or isinstance(x, W_Root):
+        return False
+    elif is_PyObject(lltype.typeOf(x)):
+        return True
+    else:
+        raise TypeError(repr(type(x)))
+INTERPLEVEL_API['is_pyobj'] = staticmethod(is_pyobj)
+
+class Entry(ExtRegistryEntry):
+    _about_ = is_pyobj
+    def compute_result_annotation(self, s_x):
+        from rpython.rtyper.llannotation import SomePtr
+        return self.bookkeeper.immutablevalue(isinstance(s_x, SomePtr))
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
+
+@specialize.ll()
+def get_pyobj_and_incref(space, obj):
+    """Increment the reference counter of the PyObject and return it.
+    Can be called with either a PyObject or a W_Root.
+    """
+    if obj:
+        if is_pyobj(obj):
+            pyobj = rffi.cast(PyObject, obj)
+        else:
+            pyobj = as_pyobj(space, obj)
+        assert pyobj.c_ob_refcnt > 0
+        pyobj.c_ob_refcnt += 1
+        if not is_pyobj(obj):
+            keepalive_until_here(obj)
+        return pyobj
+    else:
+        return lltype.nullptr(PyObject.TO)
+INTERPLEVEL_API['get_pyobj_and_incref'] = get_pyobj_and_incref
+
+
+@specialize.ll()
+def get_w_obj_and_decref(space, obj):
+    """Decrement the reference counter of the PyObject and return the
+    corresponding W_Root object (so the reference count is at least
+    REFCNT_FROM_PYPY and cannot be zero).  Can be called with either
+    a PyObject or a W_Root.
+    """
+    if is_pyobj(obj):
+        pyobj = rffi.cast(PyObject, obj)
+        w_obj = from_pyobj(space, pyobj)
+    else:
+        w_obj = obj
+        pyobj = as_pyobj(space, w_obj)
+    if pyobj:
+        pyobj.c_ob_refcnt -= 1
+        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
+        keepalive_until_here(w_obj)
+    return w_obj
+INTERPLEVEL_API['get_w_obj_and_decref'] = get_w_obj_and_decref
+
+
+@specialize.ll()
+def incref(space, obj):
+    get_pyobj_and_incref(space, obj)
+INTERPLEVEL_API['incref'] = incref
+
+@specialize.ll()
+def decref(space, obj):
+    if is_pyobj(obj):
+        obj = rffi.cast(PyObject, obj)
+        if obj:
+            assert obj.c_ob_refcnt > 0
+            obj.c_ob_refcnt -= 1
+            if obj.c_ob_refcnt == 0:
+                _Py_Dealloc(space, obj)
+    else:
+        get_w_obj_and_decref(space, obj)
+INTERPLEVEL_API['decref'] = decref
 
 
 @cpython_api([PyObject], lltype.Void)
