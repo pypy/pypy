@@ -140,6 +140,12 @@ class GcStmRewriterAssembler(GcRewriterAssembler):
         # was necessary in C7 for others to commit, but in C8 it is only
         # necessary for requesting major GCs. I think we better avoid this
         # overhead for tight loops and wait a bit longer in that case.
+        # ^^^ is not the entire truth: we currently measure the amount of work
+        # done in a transaction by number of bytes allocated. It means that
+        # now, tight loops not doing any allocation are not accounted for.
+        # However, given that not doing these allocations improves
+        # lee_router_tm.py by a factor of 2.5x, we better deal with it in
+        # another way.
         pass
         # if not self.does_any_allocation:
         #     # do a fake allocation since this is needed to check
