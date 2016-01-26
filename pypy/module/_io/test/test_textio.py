@@ -367,15 +367,8 @@ class AppTestTextIO:
 
     def test_illegal_decoder(self):
         import _io
-        t = _io.TextIOWrapper(_io.BytesIO(b'aaaaaa'), newline='\n',
-                             encoding='quopri_codec')
-        raises(TypeError, t.read, 1)
-        t = _io.TextIOWrapper(_io.BytesIO(b'aaaaaa'), newline='\n',
-                             encoding='quopri_codec')
-        raises(TypeError, t.readline)
-        t = _io.TextIOWrapper(_io.BytesIO(b'aaaaaa'), newline='\n',
-                             encoding='quopri_codec')
-        raises(TypeError, t.read)
+        raises(LookupError, _io.TextIOWrapper, _io.BytesIO(),
+               encoding='quopri_codec')
 
     def test_read_nonbytes(self):
         import _io

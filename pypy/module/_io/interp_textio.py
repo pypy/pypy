@@ -413,10 +413,16 @@ class W_TextIOWrapper(W_TextIOBase):
         else:
             self.writenl = None
 
+        w_codec = interp_codecs.lookup_codec(space,
+                                             space.str_w(self.w_encoding))
+        if not space.is_true(space.getattr(w_codec,
+                                           space.wrap('_is_text_encoding'))):
+            msg = ("%R is not a text encoding; "
+                   "use codecs.open() to handle arbitrary codecs")
+            raise oefmt(space.w_LookupError, msg, self.w_encoding)
+
         # build the decoder object
         if space.is_true(space.call_method(w_buffer, "readable")):
-            w_codec = interp_codecs.lookup_codec(space,
-                                                 space.str_w(self.w_encoding))
             self.w_decoder = space.call_method(w_codec,
                                                "incrementaldecoder", w_errors)
             if self.readuniversal:
@@ -426,8 +432,6 @@ class W_TextIOWrapper(W_TextIOBase):
 
         # build the encoder object
         if space.is_true(space.call_method(w_buffer, "writable")):
-            w_codec = interp_codecs.lookup_codec(space,
-                                                 space.str_w(self.w_encoding))
             self.w_encoder = space.call_method(w_codec,
                                                "incrementalencoder", w_errors)
 
