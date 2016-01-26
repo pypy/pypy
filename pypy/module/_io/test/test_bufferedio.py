@@ -749,28 +749,17 @@ class AppTestBufferedRandom:
                 raises(TypeError, f.readline, 5.3)
 
 
-class AppTestDeprecation:
+class AppTestMaxBuffer:
 
-    def w_check_max_buffer_size_deprecation(self, test):
+    def w_check_max_buffer_size_removal(self, test):
         import _io
-        import _warnings
-        def simplefilter(action, category):
-            _warnings.filters.insert(0, (action, None, category, None, 0))
-        simplefilter('error', DeprecationWarning)
-        try:
-            test(_io.BytesIO(), 8, 12)
-        except DeprecationWarning as e:
-            assert 'max_buffer_size is deprecated' in str(e)
-        else:
-            assert False, 'Expected DeprecationWarning'
-        finally:
-            simplefilter('default', DeprecationWarning)
+        raises(TypeError, test, _io.BytesIO(), 8, 12)
 
-    def test_max_buffer_size_deprecation(self):
+    def test_max_buffer_size_removal(self):
         import _io
-        self.check_max_buffer_size_deprecation(_io.BufferedWriter)
-        self.check_max_buffer_size_deprecation(_io.BufferedRandom)
-        self.check_max_buffer_size_deprecation(
+        self.check_max_buffer_size_removal(_io.BufferedWriter)
+        self.check_max_buffer_size_removal(_io.BufferedRandom)
+        self.check_max_buffer_size_removal (
             lambda raw, *args: _io.BufferedRWPair(raw, raw, *args))
 
 
