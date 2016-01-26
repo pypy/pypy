@@ -128,7 +128,7 @@ def PyRun_String(space, source, start, w_globals, w_locals):
     filename = "<string>"
     return run_string(space, source, filename, start, w_globals, w_locals)
 
-@cpython_api([rffi.CCHARP, rffi.INT_real, PyObject, PyObject,
+@cpython_api([CONST_STRING, rffi.INT_real, PyObject, PyObject,
               PyCompilerFlagsPtr], PyObject)
 def PyRun_StringFlags(space, source, start, w_globals, w_locals, flagsptr):
     """Execute Python source code from str in the context specified by the
@@ -189,7 +189,7 @@ def _PyEval_SliceIndex(space, w_obj, pi):
         pi[0] = space.getindex_w(w_obj, None)
     return 1
 
-@cpython_api([rffi.CCHARP, rffi.CCHARP, rffi.INT_real, PyCompilerFlagsPtr],
+@cpython_api([CONST_STRING, CONST_STRING, rffi.INT_real, PyCompilerFlagsPtr],
              PyObject)
 def Py_CompileStringFlags(space, source, filename, start, flagsptr):
     """Parse and compile the Python source code in str, returning the

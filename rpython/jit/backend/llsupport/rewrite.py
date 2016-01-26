@@ -243,7 +243,6 @@ class GcRewriterAssembler(object):
             self.emit_gc_store_or_indexed(op, ptr_box, index_box, value_box,
                                           fieldsize, itemsize, ofs)
         elif opnum in (rop.GETFIELD_GC_I, rop.GETFIELD_GC_F, rop.GETFIELD_GC_R,
-                       rop.GETFIELD_GC_PURE_I, rop.GETFIELD_GC_PURE_F, rop.GETFIELD_GC_PURE_R,
                        rop.GETFIELD_RAW_I, rop.GETFIELD_RAW_F, rop.GETFIELD_RAW_R):
             ofs, itemsize, sign = unpack_fielddescr(op.getdescr())
             ptr_box = op.getarg(0)
@@ -497,8 +496,8 @@ class GcRewriterAssembler(object):
         elif arraydescr.itemsize == 0:
             total_size = arraydescr.basesize
         elif (self.gc_ll_descr.can_use_nursery_malloc(1) and
-              self.gen_malloc_nursery_varsize(arraydescr.itemsize, v_length,
-                                              op, arraydescr, kind=kind)):
+              self.gen_malloc_nursery_varsize(arraydescr.itemsize,
+                  v_length, op, arraydescr, kind=kind)):
             # note that we cannot initialize tid here, because the array
             # might end up being allocated by malloc_external or some
             # stuff that initializes GC header fields differently
@@ -534,8 +533,6 @@ class GcRewriterAssembler(object):
         # See emit_pending_zeros().  (This optimization is done by
         # hacking the object 'o' in-place: e.g., o.getarg(1) may be
         # replaced with another constant greater than 0.)
-        #o = ResOperation(rop.ZERO_ARRAY, [v_arr, self.c_zero, v_length],
-        #                 descr=arraydescr)
         assert isinstance(arraydescr, ArrayDescr)
         scale = arraydescr.itemsize
         v_length_scaled = v_length

@@ -220,16 +220,16 @@ class TestUnroll(BaseTestUnroll):
     def test_double_getfield_plus_pure(self):
         loop = """
         [p0]
-        pc = getfield_gc_pure_r(p0, descr=nextdescr)
+        pc = getfield_gc_r(p0, descr=nextdescr3)
         escape_n(p0) # that should flush the caches
-        p1 = getfield_gc_r(pc, descr=nextdescr)
-        i0 = getfield_gc_i(p1, descr=valuedescr)
+        p1 = getfield_gc_r(pc, descr=nextdescr3)
+        i0 = getfield_gc_i(p1, descr=valuedescr3)
         jump(p0)
         """
         es, loop, preamble = self.optimize(loop)
         assert len(es.short_boxes) == 4
         # both getfields are available as
-        # well as getfield_gc_pure
+        # well as getfield_gc
         
     def test_p123_anti_nested(self):
         loop = """
