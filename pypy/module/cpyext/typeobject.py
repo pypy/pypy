@@ -439,6 +439,9 @@ def _type_alloc(space, metatype):
     pto.c_tp_as_mapping = heaptype.c_as_mapping
     pto.c_tp_as_buffer = heaptype.c_as_buffer
 
+    pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
+    pto.c_tp_itemsize = 0
+
     return rffi.cast(PyObject, heaptype)
 
 def type_attach(space, py_obj, w_type):
@@ -473,8 +476,6 @@ def type_attach(space, py_obj, w_type):
         pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
     else:
         pto.c_tp_name = rffi.str2charp(w_type.name)
-    pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out
-    pto.c_tp_itemsize = 0
     # uninitialized fields:
     # c_tp_print, c_tp_getattr, c_tp_setattr
     # XXX implement
