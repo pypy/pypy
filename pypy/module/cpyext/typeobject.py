@@ -21,8 +21,7 @@ from pypy.module.cpyext.methodobject import (
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, create_ref, from_ref, get_typedescr, make_typedescr,
-    track_reference, RefcountState, borrow_from, Py_DecRef,
-    get_pyobj_and_incref)
+    track_reference, RefcountState, borrow_from, Py_DecRef)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function)
 from pypy.module.cpyext.state import State
@@ -418,7 +417,7 @@ def type_dealloc(space, obj):
 
 
 def type_alloc(space, w_metatype):
-    metatype = get_pyobj_and_incref(space, w_metatype)
+    metatype = make_ref(space, w_metatype)
     metatype = rffi.cast(PyTypeObjectPtr, metatype)
     assert metatype
     # Don't increase refcount for non-heaptypes
@@ -473,7 +472,7 @@ def type_attach(space, py_obj, w_type):
     # XXX implement
     # c_tp_compare and the following fields (see http://docs.python.org/c-api/typeobj.html )
     w_base = best_base(space, w_type.bases_w)
-    py_base = get_pyobj_and_incref(space, w_base)
+    py_base = make_ref(space, w_base)
     pto.c_tp_base = rffi.cast(PyTypeObjectPtr, py_base)
 
     finish_type_1(space, pto)
@@ -493,7 +492,7 @@ def type_attach(space, py_obj, w_type):
     if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
         w_typename = space.getattr(w_type, space.wrap('__name__'))
         heaptype = rffi.cast(PyHeapTypeObject, pto)
-        heaptype.c_ht_name = get_pyobj_and_incref(space, w_typename)
+        heaptype.c_ht_name = make_ref(space, w_typename)
         from pypy.module.cpyext.stringobject import PyString_AsString
         pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
     else:
@@ -599,7 +598,7 @@ def finish_type_1(space, pto):
             bases = space.newtuple([])
         else:
             bases = space.newtuple([from_ref(space, base_pyo)])
-        pto.c_tp_bases = get_pyobj_and_incref(space, bases)
+        pto.c_tp_bases = make_ref(space, bases)
 
 def finish_type_2(space, pto, w_obj):
     """

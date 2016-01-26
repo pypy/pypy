@@ -33,7 +33,7 @@ class BaseCpyTypedescr(object):
         # similar to PyType_GenericAlloc?
         # except that it's not related to any pypy object.
 
-        pytype = get_pyobj_and_incref(space, w_type)
+        pytype = make_ref(space, w_type)
         pytype = rffi.cast(PyTypeObjectPtr, pytype)
         assert pytype
         # Don't increase refcount for non-heaptypes
@@ -241,7 +241,7 @@ def as_pyobj(space, w_obj):
     This doesn't give a new reference, but the returned 'PyObject *'
     is valid at least as long as 'w_obj' is.  **To be safe, you should
     use keepalive_until_here(w_obj) some time later.**  In case of
-    doubt, use the safer get_pyobj_and_incref().
+    doubt, use the safer make_ref().
     """
     if w_obj is not None:
         assert not is_pyobj(w_obj)
@@ -293,7 +293,7 @@ class Entry(ExtRegistryEntry):
         return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 @specialize.ll()
-def get_pyobj_and_incref(space, obj):
+def make_ref(space, obj):
     """Increment the reference counter of the PyObject and return it.
     Can be called with either a PyObject or a W_Root.
     """
@@ -309,7 +309,7 @@ def get_pyobj_and_incref(space, obj):
         return pyobj
     else:
         return lltype.nullptr(PyObject.TO)
-INTERPLEVEL_API['get_pyobj_and_incref'] = get_pyobj_and_incref
+INTERPLEVEL_API['make_ref'] = make_ref
 
 
 @specialize.ll()
@@ -335,7 +335,7 @@ INTERPLEVEL_API['get_w_obj_and_decref'] = get_w_obj_and_decref
 
 @specialize.ll()
 def incref(space, obj):
-    get_pyobj_and_incref(space, obj)
+    make_ref(space, obj)
 INTERPLEVEL_API['incref'] = incref
 
 @specialize.ll()

@@ -675,7 +675,7 @@ def make_wrapper(space, callable, gil=None):
                         if callable.api_func.result_borrowed:
                             retval = as_pyobj(space, result)
                         else:
-                            retval = get_pyobj_and_incref(space, result)
+                            retval = make_ref(space, result)
                         retval = rffi.cast(callable.api_func.restype, retval)
                     else:
                         retval = lltype.nullptr(PyObject.TO)
