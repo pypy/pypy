@@ -11,7 +11,7 @@ from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from rpython.rlib.rweakref import RWeakKeyDictionary
+from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rawrefcount
 
@@ -183,7 +183,7 @@ def track_reference(space, py_obj, w_obj):
         debug_refcount("MAKREF", py_obj, w_obj)
         assert w_obj
         assert py_obj
-    rawrefcount.create_link_pypy(py_obj, w_obj)
+    rawrefcount.create_link_pypy(w_obj, py_obj)
 
 def make_ref(space, w_obj):
     """
