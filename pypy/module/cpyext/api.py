@@ -828,9 +828,7 @@ def build_bridge(space):
     space.fromcache(State).install_dll(eci)
 
     # populate static data
-    from pypy.module.cpyext.pyobject import track_reference, get_typedescr
-    from pypy.module.cpyext.typeobject import finish_type_1, finish_type_2
-    to_attach = []
+    builder = StaticObjectBuilder(space)
     for name, (typ, expr) in GLOBALS.iteritems():
         from pypy.module import cpyext
         w_obj = eval(expr)
@@ -864,24 +862,10 @@ def build_bridge(space):
                 # we have a structure, get its address
                 in_dll = ll2ctypes.get_ctypes_type(PyObject.TO).in_dll(bridge, name)
                 py_obj = ll2ctypes.ctypes2lltype(PyObject, ctypes.pointer(in_dll))
-            py_obj.c_ob_refcnt = 1
-            track_reference(space, py_obj, w_obj)
-            to_attach.append((py_obj, w_obj))
+            builder.prepare(py_obj, w_obj)
         else:
             assert False, "Unknown static object: %s %s" % (typ, name)
-
-    space._cpyext_type_init = []
-    for py_obj, w_obj in to_attach:
-        w_type = space.type(w_obj)
-        typedescr = get_typedescr(w_type.instancetypedef)
-        py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
-                                     make_ref(space, w_type))
-        typedescr.attach(space, py_obj, w_obj)
-    cpyext_type_init = space._cpyext_type_init
-    del space._cpyext_type_init
-    for pto, w_type in cpyext_type_init:
-        finish_type_1(space, pto)
-        finish_type_2(space, pto, w_type)
+    builder.attach_all()
 
     pypyAPI = ctypes.POINTER(ctypes.c_void_p).in_dll(bridge, 'pypyAPI')
 
@@ -897,6 +881,36 @@ def build_bridge(space):
 
     setup_init_functions(eci, translating=False)
     return modulename.new(ext='')
+
+
+class StaticObjectBuilder:
+    def __init__(self, space):
+        self.space = space
+        self.to_attach = []
+
+    def prepare(self, py_obj, w_obj):
+        from pypy.module.cpyext.pyobject import track_reference
+        py_obj.c_ob_refcnt = 1
+        track_reference(self.space, py_obj, w_obj)
+        self.to_attach.append((py_obj, w_obj))
+
+    def attach_all(self):
+        from pypy.module.cpyext.pyobject import get_typedescr, make_ref
+        from pypy.module.cpyext.typeobject import finish_type_1, finish_type_2
+        space = self.space
+        space._cpyext_type_init = []
+        for py_obj, w_obj in self.to_attach:
+            w_type = space.type(w_obj)
+            typedescr = get_typedescr(w_type.instancetypedef)
+            py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr,
+                                         make_ref(space, w_type))
+            typedescr.attach(space, py_obj, w_obj)
+        cpyext_type_init = space._cpyext_type_init
+        del space._cpyext_type_init
+        for pto, w_type in cpyext_type_init:
+            finish_type_1(space, pto)
+            finish_type_2(space, pto, w_type)
+
 
 def mangle_name(prefix, name):
     if name.startswith('Py'):
@@ -1074,7 +1088,7 @@ def build_eci(building_bridge, export_symbols, code):
 
 def setup_library(space):
     "NOT_RPYTHON"
-    from pypy.module.cpyext.pyobject import make_ref
+    from pypy.module.cpyext.pyobject import get_typedescr, make_ref
 
     export_symbols = list(FUNCTIONS) + SYMBOLS_C + list(GLOBALS)
     from rpython.translator.c.database import LowLevelDatabase
@@ -1092,14 +1106,36 @@ def setup_library(space):
     run_bootstrap_functions(space)
     setup_va_functions(eci)
 
+    from pypy.module import cpyext   # for eval() below
+
+    # Set up the types.  This version of the code really allocates
+    # them: this is different from build_bridge(), where they are set
+    # up at the static address from the bridge library.  This needs
+    # special logic to solve the cycles issue; otherwise, we could
+    # simply leave everything to make_ref() in the "populate static
+    # data" loop below.
+    builder = StaticObjectBuilder(space)
+    for name, (typ, expr) in GLOBALS.iteritems():
+        if typ == 'PyTypeObject*':
+            w_type = eval(expr)
+            w_typetype = space.type(w_type)
+            if not space.is_w(w_typetype, space.w_type):
+                continue     # skip types with a custom metaclass
+            typedescr = get_typedescr(w_typetype.instancetypedef)
+            py_obj = typedescr.allocate(space, None)
+            builder.prepare(py_obj, w_type)
+    py_typetype = rffi.cast(PyTypeObjectPtr, make_ref(space, space.w_type))
+    for py_obj, w_type in builder.to_attach:
+        py_obj.c_ob_type = py_typetype
+    builder.attach_all()
+
     # populate static data
     for name, (typ, expr) in GLOBALS.iteritems():
         name = name.replace("#", "")
         if name.startswith('PyExc_'):
             name = '_' + name
-        from pypy.module import cpyext
         w_obj = eval(expr)
-        if typ in ('PyObject*', 'PyTypeObject*'):
+        if typ in ('PyObject*', 'PyTypeObject*', 'PyIntObject*'):
             struct_ptr = make_ref(space, w_obj)
         elif typ == 'PyDateTime_CAPI*':
             continue
